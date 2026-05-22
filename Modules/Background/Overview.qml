@@ -8,7 +8,7 @@ import qs.Services.Power
 import qs.Services.UI
 
 Loader {
-  active: CompositorService.isNiri && Settings.data.wallpaper.enabled && Settings.data.wallpaper.overviewEnabled && (!PowerProfileService.noctaliaPerformanceMode || !Settings.data.noctaliaPerformance.disableWallpaper)
+  active: CompositorService.supportsOverview && Settings.data.wallpaper.enabled && Settings.data.wallpaper.overviewEnabled && (!PowerProfileService.noctaliaPerformanceMode || !Settings.data.noctaliaPerformance.disableWallpaper)
 
   sourceComponent: Variants {
     model: Quickshell.screens
@@ -27,7 +27,7 @@ Loader {
 
       Component.onCompleted: {
         if (modelData) {
-          Logger.d("Overview", "Loading overview for Niri on", modelData.name);
+          Logger.d("Overview", "Loading overview on", modelData.name);
         }
       }
 

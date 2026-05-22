@@ -33,7 +33,7 @@ ColumnLayout {
               "name": I18n.tr("panels.bar.behavior-workspace-scroll-option-workspace")
             }
           ];
-      if (CompositorService.isNiri) {
+      if (CompositorService.supportsWorkspaceContentScroll) {
         items.push({
                      "key": "content",
                      "name": I18n.tr("panels.bar.behavior-workspace-scroll-option-content")

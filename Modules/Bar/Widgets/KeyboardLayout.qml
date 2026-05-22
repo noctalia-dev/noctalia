@@ -48,6 +48,8 @@ Item {
 
   implicitWidth: pill.width
   implicitHeight: pill.height
+  visible: CompositorService.supportsKeyboardLayout
+  enabled: CompositorService.supportsKeyboardLayout
 
   NPopupContextMenu {
     id: contextMenu

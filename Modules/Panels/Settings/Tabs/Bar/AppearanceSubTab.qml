@@ -236,7 +236,7 @@ ColumnLayout {
 
   NToggle {
     Layout.fillWidth: true
-    visible: CompositorService.isNiri
+    visible: CompositorService.supportsOverview
     label: I18n.tr("panels.bar.appearance-hide-on-overview-label")
     description: I18n.tr("panels.bar.appearance-hide-on-overview-description")
     checked: Settings.data.bar.hideOnOverview

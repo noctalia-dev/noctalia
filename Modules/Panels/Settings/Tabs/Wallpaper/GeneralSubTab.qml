@@ -211,11 +211,11 @@ ColumnLayout {
 
   NDivider {
     Layout.fillWidth: true
-    visible: CompositorService.isNiri
+    visible: CompositorService.supportsOverview
   }
 
   ColumnLayout {
-    visible: CompositorService.isNiri
+    visible: CompositorService.supportsOverview
     enabled: Settings.data.wallpaper.enabled
     spacing: Style.marginL
     Layout.fillWidth: true

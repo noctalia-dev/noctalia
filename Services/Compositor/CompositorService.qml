@@ -15,6 +15,7 @@ Singleton {
   property bool isNiri: false
   property bool isSway: false
   property bool isMango: false
+  property bool isTriad: false
   property bool isLabwc: false
   property bool isExtWorkspace: false
   property bool isScroll: false
@@ -30,6 +31,14 @@ Singleton {
 
   // Overview state (Niri-specific, defaults to false for other compositors)
   property bool overviewActive: false
+  property bool supportsOverview: isNiri || (backend !== null && backend.supportsOverview === true)
+  property bool supportsWorkspaceSwitching: backend !== null && backend.switchToWorkspace !== undefined && (backend.supportsWorkspaceSwitching === undefined || backend.supportsWorkspaceSwitching === true)
+  property bool supportsWorkspaceContentScroll: isNiri || (backend !== null && backend.supportsWorkspaceContentScroll === true)
+  property bool supportsWindowFocus: backend !== null && backend.focusWindow !== undefined && (backend.supportsWindowFocus === undefined || backend.supportsWindowFocus === true)
+  property bool supportsWindowClose: backend !== null && backend.closeWindow !== undefined && (backend.supportsWindowClose === undefined || backend.supportsWindowClose === true)
+  property bool supportsSpawn: backend !== null && backend.spawn !== undefined && (backend.supportsSpawn === undefined || backend.supportsSpawn === true)
+  property bool supportsMonitorPower: backend !== null && backend.turnOffMonitors !== undefined && (backend.supportsMonitorPower === undefined || backend.supportsMonitorPower === true)
+  property bool supportsKeyboardLayout: backend !== null && backend.cycleKeyboardLayout !== undefined && (backend.supportsKeyboardLayout === undefined || backend.supportsKeyboardLayout === true)
 
   // Global workspaces flag (workspaces shared across all outputs)
   // True for LabWC (stacking compositor), false for tiling WMs with per-output workspaces
@@ -66,17 +75,32 @@ Singleton {
   function detectCompositor() {
     const hyprlandSignature = Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE");
     const niriSocket = Quickshell.env("NIRI_SOCKET");
+    const triadSocket = Quickshell.env("TRIAD_SOCKET");
     const swaySock = Quickshell.env("SWAYSOCK");
     const currentDesktop = Quickshell.env("XDG_CURRENT_DESKTOP");
+    const sessionDesktop = Quickshell.env("XDG_SESSION_DESKTOP");
+    const desktopSession = Quickshell.env("DESKTOP_SESSION");
+    const riverWm = Quickshell.env("RIVER_WM");
     const labwcPid = Quickshell.env("LABWC_PID");
+    const triadDetected = (triadSocket && triadSocket.length > 0) || (riverWm && riverWm.toLowerCase() === "triad") || (currentDesktop && currentDesktop.toLowerCase().includes("triad")) || (sessionDesktop && sessionDesktop.toLowerCase().includes("triad")) || (desktopSession && desktopSession.toLowerCase().includes("triad"));
 
     // Check for MangoWC using XDG_CURRENT_DESKTOP environment variable
     // MangoWC sets XDG_CURRENT_DESKTOP=mango
-    if (currentDesktop && currentDesktop.toLowerCase().includes("mango")) {
+    if (triadDetected) {
+      isHyprland = false;
+      isNiri = false;
+      isSway = false;
+      isMango = false;
+      isTriad = true;
+      isLabwc = false;
+      isExtWorkspace = false;
+      backendLoader.sourceComponent = triadComponent;
+    } else if (currentDesktop && currentDesktop.toLowerCase().includes("mango")) {
       isHyprland = false;
       isNiri = false;
       isSway = false;
       isMango = true;
+      isTriad = false;
       isLabwc = false;
       isExtWorkspace = false;
       backendLoader.sourceComponent = mangoComponent;
@@ -85,6 +109,7 @@ Singleton {
       isNiri = false;
       isSway = false;
       isMango = false;
+      isTriad = false;
       isLabwc = true;
       isExtWorkspace = false;
       backendLoader.sourceComponent = labwcComponent;
@@ -94,6 +119,7 @@ Singleton {
       isNiri = true;
       isSway = false;
       isMango = false;
+      isTriad = false;
       isLabwc = false;
       isExtWorkspace = false;
       backendLoader.sourceComponent = niriComponent;
@@ -102,6 +128,7 @@ Singleton {
       isNiri = false;
       isSway = false;
       isMango = false;
+      isTriad = false;
       isLabwc = false;
       isExtWorkspace = false;
       backendLoader.sourceComponent = hyprlandComponent;
@@ -110,6 +137,7 @@ Singleton {
       isNiri = false;
       isSway = true;
       isMango = false;
+      isTriad = false;
       isLabwc = false;
       isExtWorkspace = false;
       isScroll = currentDesktop && currentDesktop.toLowerCase().includes("scroll");
@@ -120,6 +148,7 @@ Singleton {
       isNiri = false;
       isSway = false;
       isMango = false;
+      isTriad = false;
       isLabwc = false;
       isExtWorkspace = true;
       backendLoader.sourceComponent = extWorkspaceComponent;
@@ -188,6 +217,14 @@ Singleton {
     id: mangoComponent
     MangoService {
       id: mangoBackend
+    }
+  }
+
+  // Triad backend component
+  Component {
+    id: triadComponent
+    TriadService {
+      id: triadBackend
     }
   }
 
@@ -390,6 +427,10 @@ Singleton {
 
   // Generic workspace switching
   function switchToWorkspace(workspace) {
+    if (!supportsWorkspaceSwitching) {
+      Logger.w("Compositor", "Workspace switching is not supported by the active backend");
+      return;
+    }
     if (backend && backend.switchToWorkspace) {
       backend.switchToWorkspace(workspace);
     } else {
@@ -399,6 +440,10 @@ Singleton {
 
   // Scrollable workspace content (Niri)
   function scrollWorkspaceContent(direction) {
+    if (!supportsWorkspaceContentScroll) {
+      Logger.w("Compositor", "Workspace content scrolling is not supported by the active backend");
+      return;
+    }
     if (backend && backend.scrollWorkspaceContent) {
       backend.scrollWorkspaceContent(direction);
     }
@@ -429,6 +474,10 @@ Singleton {
 
   // Set focused window
   function focusWindow(window) {
+    if (!supportsWindowFocus) {
+      Logger.w("Compositor", "Window focus is not supported by the active backend");
+      return;
+    }
     if (backend && backend.focusWindow) {
       backend.focusWindow(window);
     } else {
@@ -438,6 +487,10 @@ Singleton {
 
   // Close window
   function closeWindow(window) {
+    if (!supportsWindowClose) {
+      Logger.w("Compositor", "Window closing is not supported by the active backend");
+      return;
+    }
     if (backend && backend.closeWindow) {
       backend.closeWindow(window);
     } else {
@@ -451,7 +504,7 @@ Singleton {
     const cmdArray = Array.isArray(command) ? command : (command && typeof command === "object" && command.length !== undefined) ? Array.from(command) : [command];
 
     Logger.d("CompositorService", `Spawning: ${cmdArray.join(" ")}`);
-    if (backend && backend.spawn) {
+    if (supportsSpawn && backend && backend.spawn) {
       backend.spawn(cmdArray);
     } else {
       try {
@@ -539,6 +592,10 @@ Singleton {
 
   function turnOffMonitors() {
     Logger.i("Compositor", "Turn off monitors requested");
+    if (!supportsMonitorPower) {
+      Logger.w("Compositor", "Monitor power control is not supported by the active backend");
+      return;
+    }
     if (backend && backend.turnOffMonitors) {
       backend.turnOffMonitors();
     } else {
@@ -548,6 +605,10 @@ Singleton {
 
   function turnOnMonitors() {
     Logger.i("Compositor", "Turn on monitors requested");
+    if (!supportsMonitorPower) {
+      Logger.w("Compositor", "Monitor power control is not supported by the active backend");
+      return;
+    }
     if (backend && backend.turnOnMonitors) {
       backend.turnOnMonitors();
     } else {
@@ -582,6 +643,8 @@ Singleton {
   }
 
   function cycleKeyboardLayout() {
+    if (!supportsKeyboardLayout)
+      return;
     if (backend && backend.cycleKeyboardLayout) {
       backend.cycleKeyboardLayout();
     }
