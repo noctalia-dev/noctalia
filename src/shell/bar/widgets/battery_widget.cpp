@@ -323,7 +323,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
                            s.state == BatteryState::PendingCharge;
 
   const bool showWidget =
-      s.isPresent && !(m_hideWhenPlugged && isPluggedIn) && !(m_hideWhenFull && s.state == BatteryState::FullyCharged);
+      s.isPresent && !(m_hideWhenPlugged && isPluggedIn) && !(m_hideWhenFull && (s.state == BatteryState::FullyCharged || s.state == BatteryState::PendingCharge));
 
   auto* rootNode = root();
   if (rootNode != nullptr) {

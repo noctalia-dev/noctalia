@@ -827,7 +827,7 @@
         },
         "editor": {
           "title": "Bar Widgets",
-          "description": "Arrange widgets across the bar lanes."
+          "description": "Arrange widgets across the bar lanes"
         },
         "settings": {
           "title": "Widget Settings",
@@ -1614,7 +1614,7 @@
         },
         "niri-overview-type-to-launch": {
           "label": "Type to Launch",
-          "description": "Open the launcher when typing in niri overview. Uses a tiny keyboard-focus surface while overview is open."
+          "description": "Open the launcher when typing in niri overview; uses a tiny keyboard-focus surface while overview is open"
         },
         "polkit-agent": {
           "label": "Polkit Agent",
@@ -1642,7 +1642,7 @@
         },
         "launch-apps-as-systemd-services": {
           "label": "Launch Apps as systemd Services",
-          "description": "Launches applications in separate systemd services so they don't share Noctalia's cgroup."
+          "description": "Launches applications in separate systemd services so they don't share Noctalia's cgroup"
         },
         "clipboard-enabled": {
           "label": "Clipboard",
@@ -1654,7 +1654,7 @@
         },
         "clipboard-history-max-entries": {
           "label": "History Size",
-          "description": "Maximum unpinned entries kept in clipboard history."
+          "description": "Maximum unpinned entries kept in clipboard history"
         },
         "clipboard-auto-paste": {
           "label": "Clipboard Auto-Paste",
@@ -1693,7 +1693,7 @@
         },
         "monitors": {
           "label": "Displays",
-          "description": "Choose which displays show the dock; leave empty for all. Active-monitor filtering applies within these displays."
+          "description": "Choose which displays show the dock (leave empty for all); active-monitor filtering applies within these displays"
         },
         "icon-size": {
           "label": "Icon Size",
@@ -1756,7 +1756,7 @@
           "description": "Inset from each end of the dock along its main axis"
         },
         "edge-margin": {
-          "description": "Distance from the nearest screen edge, positive values float the dock away from it"
+          "description": "Distance from the nearest screen edge; positive values float the dock away from it"
         },
         "corner-radius": {
           "description": "Corner radius of the dock"
@@ -1836,7 +1836,7 @@
         },
         "launcher-categories": {
           "label": "Show Categories",
-          "description": "Display category filters in the launcher. Toggle with Tab while the launcher is open"
+          "description": "Display category filters in the launcher; toggle with Tab while the launcher is open"
         },
         "open-near-click-clipboard": {
           "label": "Open Near Click",
