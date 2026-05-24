@@ -240,7 +240,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
         trimSetting("glyph", "heart"), trimSetting("label"), trimSetting("tooltip"), trimSetting("image_path"),
         autoReloadImage, trimSetting("command"), trimSetting("right_command"), trimSetting("middle_command"),
         trimSetting("scroll_up_command"), trimSetting("scroll_down_command"), m_fileWatcher
-        );
+    );
     widget->setContentScale(contentScale);
     return widget;
   }

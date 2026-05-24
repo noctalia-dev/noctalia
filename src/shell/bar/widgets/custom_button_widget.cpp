@@ -23,11 +23,10 @@ namespace {
 }
 
 CustomButtonWidget::CustomButtonWidget(
-  std::string glyph, std::string label, std::string tooltip, std::string imagePath,  
-  bool autoReloadImage, std::string command, std::string rightCommand,
-  std::string middleCommand, std::string scrollUpCommand,
-  std::string scrollDownCommand, FileWatcher* fileWatcher
-  )
+    std::string glyph, std::string label, std::string tooltip, std::string imagePath, bool autoReloadImage,
+    std::string command, std::string rightCommand, std::string middleCommand, std::string scrollUpCommand,
+    std::string scrollDownCommand, FileWatcher* fileWatcher
+)
     : m_glyphName(std::move(glyph)), m_labelText(std::move(label)), m_tooltip(std::move(tooltip)),
       m_imagePath(std::move(imagePath)), m_autoReloadImage(autoReloadImage), m_command(std::move(command)),
       m_rightCommand(std::move(rightCommand)), m_middleCommand(std::move(middleCommand)),
@@ -112,10 +111,10 @@ void CustomButtonWidget::create() {
 
   if (!m_imagePath.empty()) {
     area->addChild(
-      ui::image({
-        .out = &m_image,
-        .fit = ImageFit::Contain,
-      })
+        ui::image({
+            .out = &m_image,
+            .fit = ImageFit::Contain,
+        })
     );
     if (m_autoReloadImage && m_fileWatcher != nullptr) {
       m_imageWatchId = m_fileWatcher->watch(m_imagePath, [this]() {
@@ -125,7 +124,7 @@ void CustomButtonWidget::create() {
     }
     m_reloadImage = true;
   }
-  
+
   area->addChild(
       ui::label({
           .out = &m_label,

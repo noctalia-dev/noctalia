@@ -13,9 +13,10 @@ class Label;
 class CustomButtonWidget : public Widget {
 public:
   CustomButtonWidget(
-    std::string glyph, std::string label, std::string tooltip, std::string imagePath,
-    bool autoReloadImage, std::string command, std::string rightCommand, std::string middleCommand,
-    std::string scrollUpCommand, std::string scrollDownCommand, FileWatcher* fileWatcher);
+      std::string glyph, std::string label, std::string tooltip, std::string imagePath, bool autoReloadImage,
+      std::string command, std::string rightCommand, std::string middleCommand, std::string scrollUpCommand,
+      std::string scrollDownCommand, FileWatcher* fileWatcher
+  );
   ~CustomButtonWidget() override;
   void create() override;
   [[nodiscard]] bool reservesMiddleClick() const noexcept override;
