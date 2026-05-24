@@ -4,7 +4,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
-#include "ui/controls/glyph.h"
+#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -17,12 +17,14 @@ void PowerProfileWidget::create() {
   area->setOnClick([this](const InputArea::PointerData& /*data*/) { cycleProfile(); });
   m_area = area.get();
 
-  auto glyph = std::make_unique<Glyph>();
-  glyph->setGlyph("balanced");
-  glyph->setGlyphSize(Style::barGlyphSize * m_contentScale);
-  glyph->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
-  m_glyph = glyph.get();
-  area->addChild(std::move(glyph));
+  area->addChild(
+      ui::glyph({
+          .out = &m_glyph,
+          .glyph = "balanced",
+          .glyphSize = Style::barGlyphSize * m_contentScale,
+          .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
+      })
+  );
 
   setRoot(std::move(area));
 }
@@ -35,8 +37,10 @@ void PowerProfileWidget::doLayout(Renderer& renderer, float /*containerWidth*/, 
   syncState(renderer);
 
   m_glyph->setGlyphSize(Style::barGlyphSize * m_contentScale);
-  m_glyph->setColor(m_available ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
-                                : colorSpecFromRole(ColorRole::OnSurfaceVariant));
+  m_glyph->setColor(
+      m_available ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
+                  : colorSpecFromRole(ColorRole::OnSurfaceVariant)
+  );
   m_glyph->measure(renderer);
   m_glyph->setPosition(0.0f, 0.0f);
   rootNode->setSize(m_glyph->width(), m_glyph->height());
@@ -60,8 +64,10 @@ void PowerProfileWidget::syncState(Renderer& renderer) {
   m_lastProfile = profile;
 
   m_glyph->setGlyph(profileGlyphName(profile));
-  m_glyph->setColor(m_available ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
-                                : colorSpecFromRole(ColorRole::OnSurfaceVariant));
+  m_glyph->setColor(
+      m_available ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
+                  : colorSpecFromRole(ColorRole::OnSurfaceVariant)
+  );
   m_glyph->measure(renderer);
   m_area->setEnabled(m_available);
   if (auto* rootNode = root(); rootNode != nullptr) {

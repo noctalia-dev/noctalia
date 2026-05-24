@@ -25,8 +25,10 @@ public:
   [[nodiscard]] const std::string& thumbnailPath() const noexcept { return m_thumbnailPath; }
 
   void setCallbacks(IndexCallback onClick, IndexCallback onMotion, IndexCallback onEnter, IndexCallback onLeave);
-  void bind(Renderer& renderer, const FileEntry& entry, std::size_t index, float width, float height, bool selected,
-            bool hovered, bool disabled);
+  void bind(
+      Renderer& renderer, const FileEntry& entry, std::size_t index, float width, float height, bool selected,
+      bool hovered, bool disabled
+  );
   void refreshThumbnail(Renderer& renderer);
   void clear(Renderer& renderer);
   void setVisualState(bool selected, bool hovered, bool disabled);

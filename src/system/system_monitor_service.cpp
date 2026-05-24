@@ -117,15 +117,18 @@ namespace {
   }
 
   [[nodiscard]] float clampPollSeconds(float seconds) noexcept {
-    return std::clamp(seconds, SystemConfig::MonitorConfig::kMinPollSeconds,
-                      SystemConfig::MonitorConfig::kMaxPollSeconds);
+    return std::clamp(
+        seconds, SystemConfig::MonitorConfig::kMinPollSeconds, SystemConfig::MonitorConfig::kMaxPollSeconds
+    );
   }
 
   // Graph history snapshots and scroll timing follow the fastest metric poll so users
   // only configure how often each stat is read, not a separate graph-only cadence.
   [[nodiscard]] float effectiveHistoryPollSeconds(const SystemConfig::MonitorConfig& config) noexcept {
-    return std::min({config.cpuPollSeconds, config.gpuPollSeconds, config.memoryPollSeconds, config.networkPollSeconds,
-                     config.diskPollSeconds});
+    return std::min(
+        {config.cpuPollSeconds, config.gpuPollSeconds, config.memoryPollSeconds, config.networkPollSeconds,
+         config.diskPollSeconds}
+    );
   }
 
   [[nodiscard]] SystemConfig::MonitorConfig sanitizeMonitorConfig(SystemConfig::MonitorConfig config) {
@@ -155,8 +158,9 @@ namespace {
     target.isNvidia = target.isNvidia || source.isNvidia;
   }
 
-  std::string formatHwmonTempSource(const std::string& hwmonName, const std::string& label,
-                                    const std::filesystem::path& inputPath) {
+  std::string formatHwmonTempSource(
+      const std::string& hwmonName, const std::string& label, const std::filesystem::path& inputPath
+  ) {
     const std::string name = hwmonName.empty() ? "unknown" : hwmonName;
     if (label.empty()) {
       return std::format("hwmon:{} {}", name, inputPath.string());
@@ -294,8 +298,9 @@ namespace {
       if (firstSource.empty()) {
         firstSource = usedPath.string();
       }
-      mergeGpuVram(total,
-                   GpuVramReading{.usedBytes = *used, .totalBytes = *available, .source = {}, .isNvidia = false});
+      mergeGpuVram(
+          total, GpuVramReading{.usedBytes = *used, .totalBytes = *available, .source = {}, .isNvidia = false}
+      );
     }
 
     if (deviceCount <= 0 || !hasUsableVram(total)) {
@@ -345,11 +350,13 @@ namespace {
         if (score <= 0) {
           continue;
         }
-        if (isBetterHwmonSensor(score, *tempC, bestScore,
-                                best.has_value() ? std::optional<double>{best->tempC} : std::nullopt)) {
+        if (isBetterHwmonSensor(
+                score, *tempC, bestScore, best.has_value() ? std::optional<double>{best->tempC} : std::nullopt
+            )) {
           bestScore = score;
           best = TempSensorReading{
-              .tempC = *tempC, .score = score, .source = formatHwmonTempSource(hwmonName, label, fileEntry.path())};
+              .tempC = *tempC, .score = score, .source = formatHwmonTempSource(hwmonName, label, fileEntry.path())
+          };
         }
       }
     }
@@ -452,14 +459,17 @@ namespace {
         if (isNvidia) {
           probe.foundNvidia = true;
         }
-        if (isBetterHwmonSensor(score, *tempC, bestScore,
-                                probe.reading.has_value() ? std::optional<double>{probe.reading->tempC}
-                                                          : std::nullopt)) {
+        if (isBetterHwmonSensor(
+                score, *tempC, bestScore,
+                probe.reading.has_value() ? std::optional<double>{probe.reading->tempC} : std::nullopt
+            )) {
           bestScore = score;
-          probe.reading = TempSensorReading{.tempC = *tempC,
-                                            .score = score,
-                                            .source = formatHwmonTempSource(hwmonName, label, fileEntry.path()),
-                                            .isNvidia = isNvidia};
+          probe.reading = TempSensorReading{
+              .tempC = *tempC,
+              .score = score,
+              .source = formatHwmonTempSource(hwmonName, label, fileEntry.path()),
+              .isNvidia = isNvidia
+          };
         }
       }
     }
@@ -573,9 +583,10 @@ struct SystemMonitorService::NvidiaNvmlReader {
       return std::nullopt;
     }
 
-    GpuVramReading total{.source = m_devices.size() == 1 ? std::string{"nvml"}
-                                                         : std::format("nvml ({} devices)", m_devices.size()),
-                         .isNvidia = true};
+    GpuVramReading total{
+        .source = m_devices.size() == 1 ? std::string{"nvml"} : std::format("nvml ({} devices)", m_devices.size()),
+        .isNvidia = true
+    };
     for (const auto& device : m_devices) {
       NvmlMemory memory{};
       if (m_getMemoryInfo(device.handle, &memory) != kNvmlSuccess || memory.total == 0 || memory.used > memory.total) {
@@ -804,10 +815,12 @@ void SystemMonitorService::logDetectedSources() {
   const auto net = readNetBytes();
   const auto load = readLoadAvg();
 
-  kLog.info("detected stats sources: cpu={} memory={} network={} load={} disk=statvfs",
-            cpu.has_value() ? "/proc/stat" : "unavailable", mem.has_value() ? "/proc/meminfo" : "unavailable",
-            net.has_value() ? std::format("/proc/net/dev ({} active)", net->size()) : std::string{"unavailable"},
-            load.has_value() ? "/proc/loadavg" : "unavailable");
+  kLog.info(
+      "detected stats sources: cpu={} memory={} network={} load={} disk=statvfs",
+      cpu.has_value() ? "/proc/stat" : "unavailable", mem.has_value() ? "/proc/meminfo" : "unavailable",
+      net.has_value() ? std::format("/proc/net/dev ({} active)", net->size()) : std::string{"unavailable"},
+      load.has_value() ? "/proc/loadavg" : "unavailable"
+  );
 
   if (const auto cpuTemp = readCpuTempSensor(); cpuTemp.has_value()) {
     kLog.info("detected CPU temperature source: {} ({:.0f}C)", cpuTemp->source, cpuTemp->tempC);
@@ -845,9 +858,11 @@ void SystemMonitorService::logDetectedSources() {
   }
 
   if (const auto gpuVram = readGpuVram(); gpuVram.has_value()) {
-    kLog.info("detected GPU VRAM source: {} ({} / {})", gpuVram->source,
-              FormatUnits::formatBinaryBytesAsGib(gpuVram->usedBytes),
-              FormatUnits::formatBinaryBytesAsGib(gpuVram->totalBytes));
+    kLog.info(
+        "detected GPU VRAM source: {} ({} / {})", gpuVram->source,
+        FormatUnits::formatBinaryBytesAsGib(gpuVram->usedBytes),
+        FormatUnits::formatBinaryBytesAsGib(gpuVram->totalBytes)
+    );
   } else {
     kLog.info("detected GPU VRAM source: unavailable");
   }

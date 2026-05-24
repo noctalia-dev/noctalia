@@ -101,8 +101,10 @@ void main() {
             eglCreateWindowSurface(m_display, m_config, reinterpret_cast<EGLNativeWindowType>(m_window), nullptr);
         if (m_surface == EGL_NO_SURFACE && !m_createFailureLogged) {
           const EGLint error = eglGetError();
-          kLog.warn("eglCreateWindowSurface failed (EGL error 0x{:04x}); will retry before rendering",
-                    static_cast<unsigned>(error));
+          kLog.warn(
+              "eglCreateWindowSurface failed (EGL error 0x{:04x}); will retry before rendering",
+              static_cast<unsigned>(error)
+          );
           m_createFailureLogged = true;
         } else if (m_surface != EGL_NO_SURFACE) {
           m_createFailureLogged = false;
@@ -117,12 +119,16 @@ void main() {
           if (currentContext != EGL_NO_CONTEXT &&
               eglMakeCurrent(m_display, EGL_NO_SURFACE, EGL_NO_SURFACE, currentContext) != EGL_TRUE) {
             const EGLint error = eglGetError();
-            kLog.warn("eglMakeCurrent(EGL_NO_SURFACE) before surface destroy failed (EGL error 0x{:04x})",
-                      static_cast<unsigned>(error));
+            kLog.warn(
+                "eglMakeCurrent(EGL_NO_SURFACE) before surface destroy failed (EGL error 0x{:04x})",
+                static_cast<unsigned>(error)
+            );
             if (eglMakeCurrent(m_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT) != EGL_TRUE) {
               const EGLint releaseError = eglGetError();
-              kLog.warn("eglMakeCurrent(EGL_NO_CONTEXT) before surface destroy failed (EGL error 0x{:04x})",
-                        static_cast<unsigned>(releaseError));
+              kLog.warn(
+                  "eglMakeCurrent(EGL_NO_CONTEXT) before surface destroy failed (EGL error 0x{:04x})",
+                  static_cast<unsigned>(releaseError)
+              );
             }
           }
         }
@@ -187,13 +193,16 @@ void GlesRenderBackend::initialize(GlSharedContext& shared) {
   makeCurrentNoSurface();
 
   if (!g_backendInfoLogged) {
-    kLog.info("EGL vendor=\"{}\" version=\"{}\" APIs=\"{}\"", safeCString(eglQueryString(m_display, EGL_VENDOR)),
-              safeCString(eglQueryString(m_display, EGL_VERSION)),
-              safeCString(eglQueryString(m_display, EGL_CLIENT_APIS)));
-    kLog.info("OpenGL ES vendor=\"{}\" renderer=\"{}\" version=\"{}\"",
-              safeCString(reinterpret_cast<const char*>(glGetString(GL_VENDOR))),
-              safeCString(reinterpret_cast<const char*>(glGetString(GL_RENDERER))),
-              safeCString(reinterpret_cast<const char*>(glGetString(GL_VERSION))));
+    kLog.info(
+        "EGL vendor=\"{}\" version=\"{}\" APIs=\"{}\"", safeCString(eglQueryString(m_display, EGL_VENDOR)),
+        safeCString(eglQueryString(m_display, EGL_VERSION)), safeCString(eglQueryString(m_display, EGL_CLIENT_APIS))
+    );
+    kLog.info(
+        "OpenGL ES vendor=\"{}\" renderer=\"{}\" version=\"{}\"",
+        safeCString(reinterpret_cast<const char*>(glGetString(GL_VENDOR))),
+        safeCString(reinterpret_cast<const char*>(glGetString(GL_RENDERER))),
+        safeCString(reinterpret_cast<const char*>(glGetString(GL_VERSION)))
+    );
     g_backendInfoLogged = true;
   }
 }
@@ -242,8 +251,10 @@ void GlesRenderBackend::endFrame(RenderTarget& target) {
     throw std::runtime_error("eglSwapBuffers failed");
   }
   const float ms = elapsedSince(swapStart);
-  logSlowRenderOperation(ms, "eglSwapBuffers took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms, target.logicalWidth(),
-                         target.logicalHeight(), target.bufferWidth(), target.bufferHeight());
+  logSlowRenderOperation(
+      ms, "eglSwapBuffers took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms, target.logicalWidth(),
+      target.logicalHeight(), target.bufferWidth(), target.bufferHeight()
+  );
 }
 
 std::unique_ptr<RenderSurfaceTarget> GlesRenderBackend::createSurfaceTarget(wl_surface* surface) {
@@ -320,23 +331,29 @@ void GlesRenderBackend::drawFullscreenQuad(const ShaderProgram& program) {
 
 void GlesRenderBackend::setScissor(RenderScissor scissor) {
   glEnable(GL_SCISSOR_TEST);
-  glScissor(static_cast<GLint>(scissor.x), static_cast<GLint>(scissor.y), static_cast<GLsizei>(scissor.width),
-            static_cast<GLsizei>(scissor.height));
+  glScissor(
+      static_cast<GLint>(scissor.x), static_cast<GLint>(scissor.y), static_cast<GLsizei>(scissor.width),
+      static_cast<GLsizei>(scissor.height)
+  );
 }
 
 void GlesRenderBackend::disableScissor() { glDisable(GL_SCISSOR_TEST); }
 
-void GlesRenderBackend::drawRect(float surfaceWidth, float surfaceHeight, float width, float height,
-                                 const RoundedRectStyle& style, const Mat3& transform) {
+void GlesRenderBackend::drawRect(
+    float surfaceWidth, float surfaceHeight, float width, float height, const RoundedRectStyle& style,
+    const Mat3& transform
+) {
   m_rectProgram.ensureInitialized();
   m_rectProgram.draw(surfaceWidth, surfaceHeight, width, height, style, transform);
 }
 
 void GlesRenderBackend::drawImage(const RenderImageDraw& draw) {
   m_imageProgram.ensureInitialized();
-  m_imageProgram.draw(draw.texture, draw.surfaceWidth, draw.surfaceHeight, draw.width, draw.height, draw.tint,
-                      draw.opacity, draw.radius, draw.borderColor, draw.borderWidth, static_cast<int>(draw.fitMode),
-                      draw.textureWidth, draw.textureHeight, draw.transform);
+  m_imageProgram.draw(
+      draw.texture, draw.surfaceWidth, draw.surfaceHeight, draw.width, draw.height, draw.tint, draw.opacity,
+      draw.radius, draw.borderColor, draw.borderWidth, static_cast<int>(draw.fitMode), draw.textureWidth,
+      draw.textureHeight, draw.transform
+  );
 }
 
 void GlesRenderBackend::drawGlyph(const RenderGlyphDraw& draw) {
@@ -346,59 +363,72 @@ void GlesRenderBackend::drawGlyph(const RenderGlyphDraw& draw) {
 
   m_glyphProgram.ensureInitialized();
   if (draw.tinted) {
-    m_glyphProgram.drawTinted(draw.texture, draw.surfaceWidth, draw.surfaceHeight, draw.width, draw.height, draw.u0,
-                              draw.v0, draw.u1, draw.v1, draw.opacity, draw.tint, draw.transform);
+    m_glyphProgram.drawTinted(
+        draw.texture, draw.surfaceWidth, draw.surfaceHeight, draw.width, draw.height, draw.u0, draw.v0, draw.u1,
+        draw.v1, draw.opacity, draw.tint, draw.transform
+    );
     return;
   }
 
-  m_glyphProgram.draw(draw.texture, draw.surfaceWidth, draw.surfaceHeight, draw.width, draw.height, draw.u0, draw.v0,
-                      draw.u1, draw.v1, draw.opacity, draw.transform);
+  m_glyphProgram.draw(
+      draw.texture, draw.surfaceWidth, draw.surfaceHeight, draw.width, draw.height, draw.u0, draw.v0, draw.u1, draw.v1,
+      draw.opacity, draw.transform
+  );
 }
 
-void GlesRenderBackend::drawSpinner(float surfaceWidth, float surfaceHeight, float width, float height,
-                                    const SpinnerStyle& style, const Mat3& transform) {
+void GlesRenderBackend::drawSpinner(
+    float surfaceWidth, float surfaceHeight, float width, float height, const SpinnerStyle& style, const Mat3& transform
+) {
   m_spinnerProgram.ensureInitialized();
   m_spinnerProgram.draw(surfaceWidth, surfaceHeight, width, height, style, transform);
 }
 
-void GlesRenderBackend::drawScreenCorner(float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY,
-                                         float width, float height, const ScreenCornerStyle& style,
-                                         const Mat3& transform) {
+void GlesRenderBackend::drawScreenCorner(
+    float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
+    const ScreenCornerStyle& style, const Mat3& transform
+) {
   m_screenCornerProgram.ensureInitialized();
   m_screenCornerProgram.draw(surfaceWidth, surfaceHeight, pixelScaleX, pixelScaleY, width, height, style, transform);
 }
 
-void GlesRenderBackend::drawAudioSpectrum(float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY,
-                                          float width, float height, const AudioSpectrumStyle& style,
-                                          std::span<const float> values, const Mat3& transform) {
+void GlesRenderBackend::drawAudioSpectrum(
+    float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
+    const AudioSpectrumStyle& style, std::span<const float> values, const Mat3& transform
+) {
   m_audioSpectrumProgram.ensureInitialized();
-  m_audioSpectrumProgram.draw(surfaceWidth, surfaceHeight, pixelScaleX, pixelScaleY, width, height, style, values,
-                              transform);
+  m_audioSpectrumProgram.draw(
+      surfaceWidth, surfaceHeight, pixelScaleX, pixelScaleY, width, height, style, values, transform
+  );
 }
 
-void GlesRenderBackend::drawEffect(float surfaceWidth, float surfaceHeight, float width, float height,
-                                   const EffectStyle& style, const Mat3& transform) {
+void GlesRenderBackend::drawEffect(
+    float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style, const Mat3& transform
+) {
   m_effectProgram.ensureInitialized();
   m_effectProgram.draw(surfaceWidth, surfaceHeight, width, height, style, transform);
 }
 
-void GlesRenderBackend::drawGraph(TextureId dataTexture, int textureWidth, float surfaceWidth, float surfaceHeight,
-                                  float width, float height, const GraphStyle& style, const Mat3& transform) {
+void GlesRenderBackend::drawGraph(
+    TextureId dataTexture, int textureWidth, float surfaceWidth, float surfaceHeight, float width, float height,
+    const GraphStyle& style, const Mat3& transform
+) {
   m_graphProgram.ensureInitialized();
   m_graphProgram.draw(dataTexture, textureWidth, surfaceWidth, surfaceHeight, width, height, style, transform);
 }
 
-void GlesRenderBackend::drawWallpaper(WallpaperTransition transition, WallpaperSourceKind sourceKind1,
-                                      TextureId texture1, const Color& sourceColor1, WallpaperSourceKind sourceKind2,
-                                      TextureId texture2, const Color& sourceColor2, float surfaceWidth,
-                                      float surfaceHeight, float width, float height, float imageWidth1,
-                                      float imageHeight1, float imageWidth2, float imageHeight2, float progress,
-                                      float fillMode, const TransitionParams& params, const Color& fillColor,
-                                      const Mat3& transform) {
+void GlesRenderBackend::drawWallpaper(
+    WallpaperTransition transition, WallpaperSourceKind sourceKind1, TextureId texture1, const Color& sourceColor1,
+    WallpaperSourceKind sourceKind2, TextureId texture2, const Color& sourceColor2, float surfaceWidth,
+    float surfaceHeight, float width, float height, float imageWidth1, float imageHeight1, float imageWidth2,
+    float imageHeight2, float progress, float fillMode, const TransitionParams& params, const Color& fillColor,
+    const Mat3& transform
+) {
   m_wallpaperProgram.ensureInitialized();
-  m_wallpaperProgram.draw(transition, sourceKind1, texture1, sourceColor1, sourceKind2, texture2, sourceColor2,
-                          surfaceWidth, surfaceHeight, width, height, imageWidth1, imageHeight1, imageWidth2,
-                          imageHeight2, progress, fillMode, params, fillColor, transform);
+  m_wallpaperProgram.draw(
+      transition, sourceKind1, texture1, sourceColor1, sourceKind2, texture2, sourceColor2, surfaceWidth, surfaceHeight,
+      width, height, imageWidth1, imageHeight1, imageWidth2, imageHeight2, progress, fillMode, params, fillColor,
+      transform
+  );
 }
 
 void GlesRenderBackend::drawFullscreenTexture(TextureId texture, bool flipY) {
@@ -426,8 +456,9 @@ void GlesRenderBackend::drawFullscreenTint(Color color) {
   drawFullscreenQuad(m_fullscreenTintProgram);
 }
 
-void GlesRenderBackend::drawFramebufferBlur(TextureId sourceTexture, std::uint32_t width, std::uint32_t height,
-                                            float directionX, float directionY, float radius) {
+void GlesRenderBackend::drawFramebufferBlur(
+    TextureId sourceTexture, std::uint32_t width, std::uint32_t height, float directionX, float directionY, float radius
+) {
   if (sourceTexture == 0) {
     return;
   }

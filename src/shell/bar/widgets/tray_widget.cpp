@@ -11,9 +11,7 @@
 #include "render/text/glyph_registry.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tray/tray_identifier.h"
-#include "ui/controls/flex.h"
-#include "ui/controls/glyph.h"
-#include "ui/controls/image.h"
+#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -23,6 +21,7 @@
 #include <filesystem>
 #include <linux/input-event-codes.h>
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace {
@@ -85,8 +84,8 @@ namespace {
 
   bool isSvgPath(std::string_view path) { return path.ends_with(".svg") || path.ends_with(".SVG"); }
 
-  std::optional<LoadedImageFile> loadSymbolicTrayIcon(const std::string& path, int targetSize,
-                                                      const Color& symbolicColor) {
+  std::optional<LoadedImageFile>
+  loadSymbolicTrayIcon(const std::string& path, int targetSize, const Color& symbolicColor) {
     std::string loadError;
     auto loaded = loadImageFile(path, targetSize, &loadError);
     if (!loaded) {
@@ -122,10 +121,11 @@ namespace {
 
 } // namespace
 
-TrayWidget::TrayWidget(TrayService* tray, std::vector<std::string> hiddenItems, std::vector<std::string> pinnedItems,
-                       bool drawerMode, std::function<void()> itemActivated, std::string barPosition,
-                       bool panelGridMode, std::size_t panelGridColumns, float inlineEntryGap,
-                       bool matchAdjacentSpacing)
+TrayWidget::TrayWidget(
+    TrayService* tray, std::vector<std::string> hiddenItems, std::vector<std::string> pinnedItems, bool drawerMode,
+    std::function<void()> itemActivated, std::string barPosition, bool panelGridMode, std::size_t panelGridColumns,
+    float inlineEntryGap, bool matchAdjacentSpacing
+)
     : m_tray(tray), m_hiddenItems(std::move(hiddenItems)), m_pinnedItems(std::move(pinnedItems)),
       m_drawerMode(drawerMode), m_itemActivated(std::move(itemActivated)), m_barPosition(std::move(barPosition)),
       m_panelGridMode(panelGridMode), m_panelGridColumns(std::clamp<std::size_t>(panelGridColumns, 1U, 5U)),
@@ -200,18 +200,15 @@ float TrayWidget::resolvedInlineEntryGap() const {
 }
 
 void TrayWidget::create() {
-  auto container = std::make_unique<Flex>();
-  if (m_panelGridMode) {
-    container->setDirection(FlexDirection::Vertical);
-    container->setAlign(FlexAlign::Start);
-    container->setGap(Style::spaceXs * m_contentScale);
-  } else {
-    container->setDirection(FlexDirection::Horizontal);
-    container->setAlign(FlexAlign::Center);
-    container->setJustify(FlexJustify::Start);
-    container->setGap(resolvedInlineEntryGap());
-  }
-  m_container = container.get();
+  auto container = ui::makeFlex(
+      m_panelGridMode ? FlexDirection::Vertical : FlexDirection::Horizontal,
+      {
+          .out = &m_container,
+          .align = m_panelGridMode ? FlexAlign::Start : FlexAlign::Center,
+          .justify = m_panelGridMode ? std::optional<FlexJustify>{} : std::optional<FlexJustify>{FlexJustify::Start},
+          .gap = m_panelGridMode ? Style::spaceXs * m_contentScale : resolvedInlineEntryGap(),
+      }
+  );
 
   setRoot(std::move(container));
 }
@@ -228,8 +225,10 @@ void TrayWidget::doLayout(Renderer& renderer, float containerWidth, float contai
       m_drawerChevron->setGlyph(glyphName);
       m_drawerChevron->setGlyphSize(m_drawerTrigger->width());
       m_drawerChevron->measure(renderer);
-      m_drawerChevron->setPosition(std::round((m_drawerTrigger->width() - m_drawerChevron->width()) * 0.5f),
-                                   std::round((m_drawerTrigger->height() - m_drawerChevron->height()) * 0.5f));
+      m_drawerChevron->setPosition(
+          std::round((m_drawerTrigger->width() - m_drawerChevron->width()) * 0.5f),
+          std::round((m_drawerTrigger->height() - m_drawerChevron->height()) * 0.5f)
+      );
       requestRedraw();
     }
   }
@@ -326,10 +325,12 @@ void TrayWidget::syncState(Renderer& renderer) {
         prev.iconHeight != item.iconHeight || prev.iconArgb32 != item.iconArgb32 ||
         prev.attentionWidth != item.attentionWidth || prev.attentionHeight != item.attentionHeight ||
         prev.attentionArgb32 != item.attentionArgb32) {
-      kLog.debug("tray widget invalidate icon cache id={} icon='{}'->'{}' overlay='{}'->'{}' attention='{}'->'{}' "
-                 "status={}=>{}",
-                 item.id, prev.iconName, item.iconName, prev.overlayIconName, item.overlayIconName,
-                 prev.attentionIconName, item.attentionIconName, prev.status, item.status);
+      kLog.debug(
+          "tray widget invalidate icon cache id={} icon='{}'->'{}' overlay='{}'->'{}' attention='{}'->'{}' "
+          "status={}=>{}",
+          item.id, prev.iconName, item.iconName, prev.overlayIconName, item.overlayIconName, prev.attentionIconName,
+          item.attentionIconName, prev.status, item.status
+      );
       m_preferredIconPaths.erase(item.id);
     }
   }
@@ -420,15 +421,17 @@ void TrayWidget::rebuild(Renderer& renderer) {
           requestPanelToggle("tray-drawer", {}, anchorX, anchorY);
         }
       });
-      auto glyph = std::make_unique<Glyph>();
       const bool panelOpen = PanelManager::instance().isOpenPanel("tray-drawer");
       m_drawerChevronGlyph = drawerChevronGlyph(panelOpen);
-      glyph->setGlyph(m_drawerChevronGlyph);
-      glyph->setGlyphSize(itemSize);
-      glyph->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
+      auto glyph = ui::glyph({
+          .glyph = m_drawerChevronGlyph,
+          .glyphSize = itemSize,
+          .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
+      });
       glyph->measure(renderer);
-      glyph->setPosition(std::round((itemSize - glyph->width()) * 0.5f),
-                         std::round((itemSize - glyph->height()) * 0.5f));
+      glyph->setPosition(
+          std::round((itemSize - glyph->width()) * 0.5f), std::round((itemSize - glyph->height()) * 0.5f)
+      );
       m_drawerChevron = glyph.get();
       triggerArea->addChild(std::move(glyph));
       m_container->addChild(std::move(triggerArea));
@@ -457,16 +460,20 @@ void TrayWidget::rebuild(Renderer& renderer) {
     float iconH = iconSize;
 
     if (!iconPath.empty()) {
-      auto image = std::make_unique<Image>();
-      image->setFit(ImageFit::Contain);
-      image->setSize(iconSize, iconSize);
+      auto image = ui::image({
+          .fit = ImageFit::Contain,
+          .width = iconSize,
+          .height = iconSize,
+      });
       bool loadedFromFile = false;
       const bool symbolicPath = isSymbolicIconPath(iconPath);
       const Color symbolicColor = resolveColorSpec(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
       if (symbolicPath && isSvgPath(iconPath)) {
         if (auto symbolic = loadSymbolicTrayIcon(iconPath, iconRequestSize, symbolicColor)) {
-          loadedFromFile = image->setSourceRaw(renderer, symbolic->rgba.data(), symbolic->rgba.size(), symbolic->width,
-                                               symbolic->height, 0, PixmapFormat::RGBA, true);
+          loadedFromFile = image->setSourceRaw(
+              renderer, symbolic->rgba.data(), symbolic->rgba.size(), symbolic->width, symbolic->height, 0,
+              PixmapFormat::RGBA, true
+          );
         }
       }
       if (!loadedFromFile) {
@@ -495,11 +502,14 @@ void TrayWidget::rebuild(Renderer& renderer) {
           item.needsAttention && !item.attentionArgb32.empty() ? item.attentionHeight : item.iconHeight;
 
       if (!pixmap.empty() && pixmapW > 0 && pixmapH > 0) {
-        auto image = std::make_unique<Image>();
-        image->setFit(ImageFit::Contain);
-        image->setSize(iconSize, iconSize);
-        if (image->setSourceRaw(renderer, pixmap.data(), pixmap.size(), pixmapW, pixmapH, 0, PixmapFormat::ARGB,
-                                true)) {
+        auto image = ui::image({
+            .fit = ImageFit::Contain,
+            .width = iconSize,
+            .height = iconSize,
+        });
+        if (image->setSourceRaw(
+                renderer, pixmap.data(), pixmap.size(), pixmapW, pixmapH, 0, PixmapFormat::ARGB, true
+            )) {
           iconW = iconSize;
           iconH = iconSize;
           m_loadedImages.push_back(image.get());
@@ -536,9 +546,11 @@ void TrayWidget::rebuild(Renderer& renderer) {
 
       const std::string overlayPath = resolveOverlayPath(item.overlayIconName);
       if (!overlayPath.empty()) {
-        auto overlayImage = std::make_unique<Image>();
-        overlayImage->setFit(ImageFit::Contain);
-        overlayImage->setSize(iconSize, iconSize);
+        auto overlayImage = ui::image({
+            .fit = ImageFit::Contain,
+            .width = iconSize,
+            .height = iconSize,
+        });
         if (overlayImage->setSourceFile(renderer, overlayPath, iconRequestSize, true)) {
           overlayW = iconSize;
           overlayH = iconSize;
@@ -548,11 +560,15 @@ void TrayWidget::rebuild(Renderer& renderer) {
       }
 
       if (overlayNode == nullptr && !item.overlayArgb32.empty() && item.overlayWidth > 0 && item.overlayHeight > 0) {
-        auto overlayImage = std::make_unique<Image>();
-        overlayImage->setFit(ImageFit::Contain);
-        overlayImage->setSize(iconSize, iconSize);
-        if (overlayImage->setSourceRaw(renderer, item.overlayArgb32.data(), item.overlayArgb32.size(),
-                                       item.overlayWidth, item.overlayHeight, 0, PixmapFormat::ARGB, true)) {
+        auto overlayImage = ui::image({
+            .fit = ImageFit::Contain,
+            .width = iconSize,
+            .height = iconSize,
+        });
+        if (overlayImage->setSourceRaw(
+                renderer, item.overlayArgb32.data(), item.overlayArgb32.size(), item.overlayWidth, item.overlayHeight,
+                0, PixmapFormat::ARGB, true
+            )) {
           overlayW = iconSize;
           overlayH = iconSize;
           m_loadedImages.push_back(overlayImage.get());
@@ -562,12 +578,13 @@ void TrayWidget::rebuild(Renderer& renderer) {
     }
 
     if (iconNode == nullptr) {
-      auto glyph = std::make_unique<Glyph>();
       const std::string fallback = iconForItem(item);
-      glyph->setGlyph(fallback);
-      glyph->setGlyphSize(iconSize);
-      glyph->setColor(item.needsAttention ? colorSpecFromRole(ColorRole::Error)
-                                          : widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
+      auto glyph = ui::glyph({
+          .glyph = fallback,
+          .glyphSize = iconSize,
+          .color = item.needsAttention ? colorSpecFromRole(ColorRole::Error)
+                                       : widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
+      });
       glyph->measure(renderer);
       iconW = glyph->width();
       iconH = glyph->height();
@@ -613,11 +630,12 @@ void TrayWidget::rebuild(Renderer& renderer) {
 
     if (m_panelGridMode) {
       if (gridRow == nullptr || gridCol >= m_panelGridColumns) {
-        auto row = std::make_unique<Flex>();
-        row->setDirection(FlexDirection::Horizontal);
-        row->setAlign(FlexAlign::Center);
-        row->setGap(Style::spaceXs * m_contentScale);
-        gridRow = static_cast<Flex*>(m_container->addChild(std::move(row)));
+        gridRow = static_cast<Flex*>(m_container->addChild(
+            ui::row({
+                .align = FlexAlign::Center,
+                .gap = Style::spaceXs * m_contentScale,
+            })
+        ));
         gridCol = 0;
       }
       gridRow->addChild(std::move(area));
@@ -837,10 +855,12 @@ std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
     }
   }
 
-  kLog.debug("tray widget resolve id={} fallback={} preferred='{}' itemName='{}' title='{}' bus='{}' objectPath='{}' "
-             "stableBus='{}' stableId='{}'",
-             item.id, symbolicFallback, preferred, item.itemName, item.title, item.busName, item.objectPath,
-             stableBusName, stableItemId);
+  kLog.debug(
+      "tray widget resolve id={} fallback={} preferred='{}' itemName='{}' title='{}' bus='{}' objectPath='{}' "
+      "stableBus='{}' stableId='{}'",
+      item.id, symbolicFallback, preferred, item.itemName, item.title, item.busName, item.objectPath, stableBusName,
+      stableItemId
+  );
   return symbolicFallback;
 }
 

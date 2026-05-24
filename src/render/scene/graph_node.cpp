@@ -12,8 +12,10 @@ GraphNode::~GraphNode() {
   }
 }
 
-void GraphNode::setData(TextureManager& textures, const float* primary, int primaryCount, const float* secondary,
-                        int secondaryCount, const float* tertiary, int tertiaryCount) {
+void GraphNode::setData(
+    TextureManager& textures, const float* primary, int primaryCount, const float* secondary, int secondaryCount,
+    const float* tertiary, int tertiaryCount
+) {
   if (m_textureManager != nullptr && m_textureManager != &textures) {
     m_textureManager->unload(m_texture);
     m_texCapacity = 0;

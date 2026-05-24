@@ -42,16 +42,19 @@ namespace popup_chrome {
     [[nodiscard]] InputRect inputRect() const noexcept;
   };
 
-  [[nodiscard]] Geometry computeGeometry(float contentWidth, float contentHeight,
-                                         const ShellConfig::ShadowConfig& shadow, bool componentShadow = true) noexcept;
-  [[nodiscard]] std::int32_t adjustedOffsetX(std::int32_t baseOffset, const Geometry& geometry,
-                                             HorizontalAttachment attachment) noexcept;
-  [[nodiscard]] std::int32_t adjustedOffsetY(std::int32_t baseOffset, const Geometry& geometry,
-                                             VerticalAttachment attachment) noexcept;
+  [[nodiscard]] Geometry computeGeometry(
+      float contentWidth, float contentHeight, const ShellConfig::ShadowConfig& shadow, bool componentShadow = true
+  ) noexcept;
+  [[nodiscard]] std::int32_t
+  adjustedOffsetX(std::int32_t baseOffset, const Geometry& geometry, HorizontalAttachment attachment) noexcept;
+  [[nodiscard]] std::int32_t
+  adjustedOffsetY(std::int32_t baseOffset, const Geometry& geometry, VerticalAttachment attachment) noexcept;
 
   void applyToConfig(PopupSurfaceConfig& config, const Geometry& geometry, Attachment attachment) noexcept;
   void setContentInputRegion(PopupSurface& surface, const Geometry& geometry);
-  [[nodiscard]] RectNode* addShadow(Node& parent, const Geometry& geometry, const ShellConfig::ShadowConfig& shadow,
-                                    float radius, float backgroundOpacity = 1.0f);
+  [[nodiscard]] RectNode* addShadow(
+      Node& parent, const Geometry& geometry, const ShellConfig::ShadowConfig& shadow, float radius,
+      float backgroundOpacity = 1.0f
+  );
 
 } // namespace popup_chrome

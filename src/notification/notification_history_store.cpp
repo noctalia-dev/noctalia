@@ -175,8 +175,9 @@ namespace {
     h0 ^= n;
     h1 ^= n * 0x9e3779b97f4a7c15ULL;
     char buf[33];
-    std::snprintf(buf, sizeof(buf), "%016llx%016llx", static_cast<unsigned long long>(h0),
-                  static_cast<unsigned long long>(h1));
+    std::snprintf(
+        buf, sizeof(buf), "%016llx%016llx", static_cast<unsigned long long>(h0), static_cast<unsigned long long>(h1)
+    );
     return std::string(buf);
   }
 
@@ -188,8 +189,9 @@ namespace {
     return std::string("i_") + hashBytesToHex32(bytes, byteCount) + ".rgba";
   }
 
-  bool writeRawRgbaBlob(const std::filesystem::path& assetsDir, const std::string& baseFileName,
-                        const std::vector<std::uint8_t>& bytes) {
+  bool writeRawRgbaBlob(
+      const std::filesystem::path& assetsDir, const std::string& baseFileName, const std::vector<std::uint8_t>& bytes
+  ) {
     std::error_code ec;
     std::filesystem::create_directories(assetsDir, ec);
     const auto path = assetsDir / baseFileName;
@@ -305,8 +307,9 @@ namespace {
     if (w <= maxSide && h <= maxSide) {
       return;
     }
-    const float scale = std::min(static_cast<float>(maxSide) / static_cast<float>(w),
-                                 static_cast<float>(maxSide) / static_cast<float>(h));
+    const float scale = std::min(
+        static_cast<float>(maxSide) / static_cast<float>(w), static_cast<float>(maxSide) / static_cast<float>(h)
+    );
     const int nw = std::max(1, static_cast<int>(std::lround(static_cast<float>(w) * scale)));
     const int nh = std::max(1, static_cast<int>(std::lround(static_cast<float>(h) * scale)));
     std::vector<std::uint8_t> dst(static_cast<std::size_t>(nw) * static_cast<std::size_t>(nh) * 4);
@@ -327,8 +330,8 @@ namespace {
     h = nh;
   }
 
-  std::optional<NotificationImageData> imageFromJson(const nlohmann::json& j,
-                                                     const std::filesystem::path& jsonFilePath) {
+  std::optional<NotificationImageData>
+  imageFromJson(const nlohmann::json& j, const std::filesystem::path& jsonFilePath) {
     if (!j.is_object()) {
       return std::nullopt;
     }
@@ -380,8 +383,8 @@ namespace {
     return img;
   }
 
-  nlohmann::json imageToJson(const NotificationImageData& img, const std::filesystem::path& jsonFilePath,
-                             uint32_t notificationId) {
+  nlohmann::json
+  imageToJson(const NotificationImageData& img, const std::filesystem::path& jsonFilePath, uint32_t notificationId) {
     nlohmann::json j;
     j["has_alpha"] = img.hasAlpha;
     j["bits_per_sample"] = img.bitsPerSample;
@@ -569,8 +572,8 @@ namespace {
     }
   }
 
-  void pruneOrphanImageBlobs(const std::filesystem::path& jsonFilePath,
-                             const std::unordered_set<std::string>& keepFiles) {
+  void
+  pruneOrphanImageBlobs(const std::filesystem::path& jsonFilePath, const std::unordered_set<std::string>& keepFiles) {
     const auto assetsDir = assetsDirectoryForJson(jsonFilePath);
     std::error_code ec;
     if (!std::filesystem::is_directory(assetsDir, ec)) {
@@ -602,8 +605,10 @@ namespace {
 
 } // namespace
 
-bool loadNotificationHistoryFromFile(const std::filesystem::path& path, std::deque<NotificationHistoryEntry>& out,
-                                     std::uint32_t& outNextId, std::uint64_t& outChangeSerial) {
+bool loadNotificationHistoryFromFile(
+    const std::filesystem::path& path, std::deque<NotificationHistoryEntry>& out, std::uint32_t& outNextId,
+    std::uint64_t& outChangeSerial
+) {
   out.clear();
   outNextId = 1;
   outChangeSerial = 0;
@@ -650,6 +655,7 @@ bool loadNotificationHistoryFromFile(const std::filesystem::path& path, std::deq
     NotificationHistoryEntry he;
     he.notification = notificationFromJson(item.at("notification"), path);
     he.active = item.value("active", false);
+    he.seen = item.value("seen", true);
     if (item.contains("close_reason") && !item["close_reason"].is_null()) {
       const auto crs = item["close_reason"].get<std::string>();
       he.closeReason = closeReasonFrom(crs);
@@ -673,9 +679,10 @@ bool loadNotificationHistoryFromFile(const std::filesystem::path& path, std::deq
   return true;
 }
 
-bool saveNotificationHistoryToFile(const std::filesystem::path& path,
-                                   const std::deque<NotificationHistoryEntry>& entries, std::uint32_t nextId,
-                                   std::uint64_t changeSerial) {
+bool saveNotificationHistoryToFile(
+    const std::filesystem::path& path, const std::deque<NotificationHistoryEntry>& entries, std::uint32_t nextId,
+    std::uint64_t changeSerial
+) {
   nlohmann::json root;
   root["version"] = 2;
   root["next_id"] = nextId;
@@ -686,6 +693,7 @@ bool saveNotificationHistoryToFile(const std::filesystem::path& path,
     nlohmann::json je;
     je["notification"] = notificationToJson(he.notification, path);
     je["active"] = he.active;
+    je["seen"] = he.seen;
     if (he.closeReason.has_value()) {
       je["close_reason"] = std::string(closeReasonStr(*he.closeReason));
     } else {

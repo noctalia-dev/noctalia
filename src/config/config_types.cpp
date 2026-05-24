@@ -54,16 +54,26 @@ std::vector<ShortcutConfig> defaultControlCenterShortcuts() {
 
 std::vector<SessionPanelActionConfig> defaultSessionPanelActions() {
   return {
-      SessionPanelActionConfig{"lock", true, std::nullopt, std::nullopt, std::nullopt,
-                               SessionActionButtonVariant::Default, KeyChord{XKB_KEY_1, 0}},
-      SessionPanelActionConfig{"logout", true, std::nullopt, std::nullopt, std::nullopt,
-                               SessionActionButtonVariant::Default, KeyChord{XKB_KEY_2, 0}},
-      SessionPanelActionConfig{"suspend", true, std::nullopt, std::nullopt, std::nullopt,
-                               SessionActionButtonVariant::Default, KeyChord{XKB_KEY_3, 0}},
-      SessionPanelActionConfig{"reboot", true, std::nullopt, std::nullopt, std::nullopt,
-                               SessionActionButtonVariant::Default, KeyChord{XKB_KEY_4, 0}},
-      SessionPanelActionConfig{"shutdown", true, std::nullopt, std::nullopt, std::nullopt,
-                               SessionActionButtonVariant::Destructive, KeyChord{XKB_KEY_5, 0}},
+      SessionPanelActionConfig{
+          "lock", true, std::nullopt, std::nullopt, std::nullopt, SessionActionButtonVariant::Default,
+          KeyChord{XKB_KEY_1, 0}
+      },
+      SessionPanelActionConfig{
+          "logout", true, std::nullopt, std::nullopt, std::nullopt, SessionActionButtonVariant::Default,
+          KeyChord{XKB_KEY_2, 0}
+      },
+      SessionPanelActionConfig{
+          "suspend", true, std::nullopt, std::nullopt, std::nullopt, SessionActionButtonVariant::Default,
+          KeyChord{XKB_KEY_3, 0}
+      },
+      SessionPanelActionConfig{
+          "reboot", true, std::nullopt, std::nullopt, std::nullopt, SessionActionButtonVariant::Default,
+          KeyChord{XKB_KEY_4, 0}
+      },
+      SessionPanelActionConfig{
+          "shutdown", true, std::nullopt, std::nullopt, std::nullopt, SessionActionButtonVariant::Destructive,
+          KeyChord{XKB_KEY_5, 0}
+      },
   };
 }
 
@@ -181,9 +191,10 @@ ResolvedIdleBehavior resolveIdleBehaviorActions(const IdleBehaviorConfig& behavi
   }
   if (act == "suspend") {
     return {
-        .idleAction = IdleActionRequest{.kind = IdleActionKind::Suspend,
-                                        .command = {},
-                                        .lockBeforeSuspend = tmp.lockBeforeSuspend},
+        .idleAction =
+            IdleActionRequest{
+                .kind = IdleActionKind::Suspend, .command = {}, .lockBeforeSuspend = tmp.lockBeforeSuspend
+            },
         .resumeAction = resume({}),
     };
   }
@@ -204,8 +215,8 @@ std::string WidgetConfig::getString(const std::string& key, const std::string& f
   return fallback;
 }
 
-std::vector<std::string> WidgetConfig::getStringList(const std::string& key,
-                                                     const std::vector<std::string>& fallback) const {
+std::vector<std::string>
+WidgetConfig::getStringList(const std::string& key, const std::vector<std::string>& fallback) const {
   auto it = settings.find(key);
   if (it == settings.end()) {
     return fallback;
@@ -256,8 +267,8 @@ bool WidgetConfig::getBool(const std::string& key, bool fallback) const {
   return fallback;
 }
 
-ColorSpec WidgetConfig::getColorSpec(const std::string& key, const ColorSpec& fallback,
-                                     std::string_view context) const {
+ColorSpec
+WidgetConfig::getColorSpec(const std::string& key, const ColorSpec& fallback, std::string_view context) const {
   auto it = settings.find(key);
   if (it == settings.end()) {
     return fallback;
@@ -299,7 +310,8 @@ WidgetBarCapsuleSpec resolveWidgetBarCapsuleSpec(const BarConfig& bar, const Wid
   spec.padding = bar.widgetCapsulePadding;
   if (widget != nullptr && widget->hasSetting("capsule_padding")) {
     spec.padding = std::clamp(
-        static_cast<float>(widget->getDouble("capsule_padding", static_cast<double>(spec.padding))), 0.0f, 48.0f);
+        static_cast<float>(widget->getDouble("capsule_padding", static_cast<double>(spec.padding))), 0.0f, 48.0f
+    );
   }
   if (bar.widgetCapsuleRadius.has_value()) {
     spec.radius = std::clamp(static_cast<float>(*bar.widgetCapsuleRadius), 0.0f, 80.0f);
@@ -307,12 +319,14 @@ WidgetBarCapsuleSpec resolveWidgetBarCapsuleSpec(const BarConfig& bar, const Wid
   if (widget != nullptr && widget->hasSetting("capsule_radius")) {
     spec.radius = std::clamp(
         static_cast<float>(widget->getDouble("capsule_radius", static_cast<double>(spec.radius.value_or(0.0f)))), 0.0f,
-        80.0f);
+        80.0f
+    );
   }
   spec.opacity = bar.widgetCapsuleOpacity;
   if (widget != nullptr && widget->hasSetting("capsule_opacity")) {
     spec.opacity = std::clamp(
-        static_cast<float>(widget->getDouble("capsule_opacity", static_cast<double>(spec.opacity))), 0.0f, 1.0f);
+        static_cast<float>(widget->getDouble("capsule_opacity", static_cast<double>(spec.opacity))), 0.0f, 1.0f
+    );
   }
 
   if (!spec.enabled) {
@@ -370,8 +384,9 @@ bool outputMatchesSelector(const std::string& match, const WaylandOutput& output
     std::size_t pos = 0;
     while ((pos = output.description.find(match, pos)) != std::string::npos) {
       const bool startOk = (pos == 0 || std::isspace(static_cast<unsigned char>(output.description[pos - 1])) != 0);
-      const bool endOk = (pos + match.size() == output.description.size() ||
-                          std::isspace(static_cast<unsigned char>(output.description[pos + match.size()])) != 0);
+      const bool endOk =
+          (pos + match.size() == output.description.size() ||
+           std::isspace(static_cast<unsigned char>(output.description[pos + match.size()])) != 0);
       if (startOk && endOk) {
         return true;
       }

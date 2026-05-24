@@ -525,8 +525,10 @@ namespace noctalia::theme {
         result.errorCount = rendered.errorCount;
         if (rendered.errorCount > 0) {
           if (m_options.verbose) {
-            kLog.warn("failed to render template {} -> {}: {} template error(s); output not written",
-                      inputPath.string(), outputPath.string(), rendered.errorCount);
+            kLog.warn(
+                "failed to render template {} -> {}: {} template error(s); output not written", inputPath.string(),
+                outputPath.string(), rendered.errorCount
+            );
           }
           return result;
         }
@@ -598,8 +600,8 @@ namespace noctalia::theme {
         return tokens;
       }
 
-      std::vector<Node> parseNodes(const std::vector<Token>& tokens, size_t& pos,
-                                   const std::unordered_set<std::string>& stopKeywords) {
+      std::vector<Node>
+      parseNodes(const std::vector<Token>& tokens, size_t& pos, const std::unordered_set<std::string>& stopKeywords) {
         std::vector<Node> nodes;
         while (pos < tokens.size()) {
           if (const auto* text = std::get_if<std::string>(&tokens[pos])) {
@@ -784,8 +786,9 @@ namespace noctalia::theme {
           resolved = ScopeValue(m_options.configDir);
         } else if (base == "config_file") {
           resolved = ScopeValue(m_options.configFile);
-        } else if (auto fromScope = resolveFromScope(base, scope);
-                   !std::holds_alternative<std::monostate>(fromScope.value)) {
+        } else if (
+            auto fromScope = resolveFromScope(base, scope); !std::holds_alternative<std::monostate>(fromScope.value)
+        ) {
           resolved = std::move(fromScope);
         } else if (base.starts_with("colors.")) {
           resolved = ScopeValue(processColorExpression(base, filters));
@@ -1024,15 +1027,15 @@ namespace noctalia::theme {
     return EngineImpl(m_themeData, m_options).render(templateText);
   }
 
-  RenderFileResult TemplateEngine::renderFile(const std::filesystem::path& inputPath,
-                                              const std::filesystem::path& outputPath) {
+  RenderFileResult
+  TemplateEngine::renderFile(const std::filesystem::path& inputPath, const std::filesystem::path& outputPath) {
     return EngineImpl(m_themeData, m_options).renderFile(inputPath, outputPath);
   }
 
   namespace {
 
-    material_color_utilities::DynamicScheme makeCustomColorScheme(std::string_view schemeType,
-                                                                  material_color_utilities::Hct source) {
+    material_color_utilities::DynamicScheme
+    makeCustomColorScheme(std::string_view schemeType, material_color_utilities::Hct source) {
       if (schemeType == "tonal-spot")
         return material_color_utilities::SchemeTonalSpot(source, false);
       if (schemeType == "fruit-salad")
@@ -1057,8 +1060,9 @@ namespace noctalia::theme {
       double rotation = std::min(std::fabs(diff) * 0.5, 15.0);
       if (diff < 0.0)
         rotation = -rotation;
-      material_color_utilities::Hct result(std::fmod(srcHct.get_hue() + rotation + 360.0, 360.0), srcHct.get_chroma(),
-                                           srcHct.get_tone());
+      material_color_utilities::Hct result(
+          std::fmod(srcHct.get_hue() + rotation + 360.0, 360.0), srcHct.get_chroma(), srcHct.get_tone()
+      );
       return Color::fromArgb(result.ToInt()).toHex();
     }
 
@@ -1118,8 +1122,9 @@ namespace noctalia::theme {
       return base / expanded;
     }
 
-    void appendPathsFromDynamicStdout(const std::filesystem::path& configPath, std::vector<std::string>& outputs,
-                                      const std::string& stdoutText) {
+    void appendPathsFromDynamicStdout(
+        const std::filesystem::path& configPath, std::vector<std::string>& outputs, const std::string& stdoutText
+    ) {
       std::string_view remaining(stdoutText);
       while (!remaining.empty()) {
         const std::size_t nl = remaining.find('\n');
@@ -1133,9 +1138,10 @@ namespace noctalia::theme {
       }
     }
 
-    std::optional<ParsedTemplateEntry> parseTemplateEntry(const std::filesystem::path& configPath,
-                                                          std::string_view name, const toml::table& tpl,
-                                                          std::string_view defaultMode) {
+    std::optional<ParsedTemplateEntry> parseTemplateEntry(
+        const std::filesystem::path& configPath, std::string_view name, const toml::table& tpl,
+        std::string_view defaultMode
+    ) {
       std::string inputPath;
       if (const auto modes = parseInputPathModes(tpl)) {
         inputPath = defaultMode == "light" ? modes->light : modes->dark;
@@ -1229,8 +1235,9 @@ namespace noctalia::theme {
             continue;
 
           const std::string paletteHex = (blend && !sourceHex.empty()) ? harmonizeHex(colorHex, sourceHex) : colorHex;
-          const auto scheme = makeCustomColorScheme(m_options.schemeType,
-                                                    material_color_utilities::Hct(Color::fromHex(paletteHex).toArgb()));
+          const auto scheme = makeCustomColorScheme(
+              m_options.schemeType, material_color_utilities::Hct(Color::fromHex(paletteHex).toArgb())
+          );
           const auto& palette = scheme.primary_palette;
 
           for (std::string_view mode : kTemplateModes) {
@@ -1272,7 +1279,8 @@ namespace noctalia::theme {
     }
     std::stable_sort(
         entries.begin(), entries.end(),
-        [](const ParsedTemplateEntry& lhs, const ParsedTemplateEntry& rhs) { return lhs.index < rhs.index; });
+        [](const ParsedTemplateEntry& lhs, const ParsedTemplateEntry& rhs) { return lhs.index < rhs.index; }
+    );
 
     bool ok = true;
     for (const ParsedTemplateEntry& entry : entries) {

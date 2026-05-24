@@ -127,23 +127,25 @@ namespace {
       return 0;
     }
     if (std::strcmp(flag, "--help") == 0 || std::strcmp(flag, "-h") == 0) {
-      std::puts("Usage: noctalia [OPTIONS]\n"
-                "\n"
-                "Options:\n"
-                "  -h, --help       Show this help message\n"
-                "  -v, --version    Show version information\n"
-                "  -d, --daemon     Run in background\n"
-                "\n"
-                "Subcommands:\n"
-                "  msg <command>    Send a command to the running instance\n"
-                "                   Run 'noctalia msg --help' for available commands\n"
-                "  theme <image>    Generate a color palette from an image\n"
-                "                   Run 'noctalia theme --help' for options\n"
-                "  config <command> Config support and replay helpers\n"
-                "                   Run 'noctalia config --help' for options\n"
-                "\n"
-                "For more information and documentation, visit:\n"
-                "  https://noctalia.dev");
+      std::puts(
+          "Usage: noctalia [OPTIONS]\n"
+          "\n"
+          "Options:\n"
+          "  -h, --help       Show this help message\n"
+          "  -v, --version    Show version information\n"
+          "  -d, --daemon     Run in background\n"
+          "\n"
+          "Subcommands:\n"
+          "  msg <command>    Send a command to the running instance\n"
+          "                   Run 'noctalia msg --help' for available commands\n"
+          "  theme <image>    Generate a color palette from an image\n"
+          "                   Run 'noctalia theme --help' for options\n"
+          "  config <command> Config support and replay helpers\n"
+          "                   Run 'noctalia config --help' for options\n"
+          "\n"
+          "For more information and documentation, visit:\n"
+          "  https://noctalia.dev"
+      );
       return 0;
     }
     return -1;

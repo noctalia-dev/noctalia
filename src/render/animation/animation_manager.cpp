@@ -12,28 +12,31 @@ AnimationManager::AnimationManager() { MotionService::instance().registerManager
 
 AnimationManager::~AnimationManager() { MotionService::instance().unregisterManager(this); }
 
-AnimationManager::Id AnimationManager::animate(float from, float to, float durationMs, Easing easing,
-                                               std::function<void(float)> setter, std::function<void()> onComplete,
-                                               const void* owner) {
+AnimationManager::Id AnimationManager::animate(
+    float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
+    std::function<void()> onComplete, const void* owner
+) {
   return animateInternal(from, to, durationMs, easing, std::move(setter), std::move(onComplete), owner, true, true);
 }
 
-AnimationManager::Id AnimationManager::animateUnscaled(float from, float to, float durationMs, Easing easing,
-                                                       std::function<void(float)> setter,
-                                                       std::function<void()> onComplete, const void* owner) {
+AnimationManager::Id AnimationManager::animateUnscaled(
+    float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
+    std::function<void()> onComplete, const void* owner
+) {
   return animateInternal(from, to, durationMs, easing, std::move(setter), std::move(onComplete), owner, false, true);
 }
 
-AnimationManager::Id AnimationManager::animateTimer(float from, float to, float durationMs, Easing easing,
-                                                    std::function<void(float)> setter, std::function<void()> onComplete,
-                                                    const void* owner) {
+AnimationManager::Id AnimationManager::animateTimer(
+    float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
+    std::function<void()> onComplete, const void* owner
+) {
   return animateInternal(from, to, durationMs, easing, std::move(setter), std::move(onComplete), owner, false, false);
 }
 
-AnimationManager::Id AnimationManager::animateInternal(float from, float to, float durationMs, Easing easing,
-                                                       std::function<void(float)> setter,
-                                                       std::function<void()> onComplete, const void* owner,
-                                                       bool scaleDuration, bool respectMotionEnabled) {
+AnimationManager::Id AnimationManager::animateInternal(
+    float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
+    std::function<void()> onComplete, const void* owner, bool scaleDuration, bool respectMotionEnabled
+) {
   const auto& motion = MotionService::instance();
   const bool reduceMotion = respectMotionEnabled && !motion.enabled();
   if (reduceMotion) {
@@ -62,23 +65,25 @@ AnimationManager::Id AnimationManager::animateInternal(float from, float to, flo
 
   Id id = m_nextId++;
   const auto now = std::chrono::steady_clock::now();
-  m_animations.push_back(Entry{
-      .id = id,
-      .owner = owner,
-      .respectMotionEnabled = respectMotionEnabled,
-      .animation =
-          Animation{
+  m_animations.push_back(
+      Entry{
+          .id = id,
+          .owner = owner,
+          .respectMotionEnabled = respectMotionEnabled,
+          .animation = Animation{
               .startValue = reduceMotion ? to : from,
               .endValue = to,
               .durationMs = effectiveDurationMs,
               .startedAt = reduceMotion ? now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                                                    std::chrono::duration<float, std::milli>(kReducedMotionDurationMs))
+                                                    std::chrono::duration<float, std::milli>(kReducedMotionDurationMs)
+                                                )
                                         : now,
               .easing = easing,
               .setter = std::move(setter),
               .onComplete = std::move(onComplete),
           },
-  });
+      }
+  );
   return id;
 }
 
@@ -103,7 +108,8 @@ void AnimationManager::reduceMotion() {
     anim.durationMs = kReducedMotionDurationMs;
     anim.elapsedMs = 0.0f;
     anim.startedAt = now - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
-                               std::chrono::duration<float, std::milli>(kReducedMotionDurationMs));
+                               std::chrono::duration<float, std::milli>(kReducedMotionDurationMs)
+                           );
   }
 }
 

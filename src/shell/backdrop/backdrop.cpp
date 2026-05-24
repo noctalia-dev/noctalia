@@ -35,8 +35,9 @@ void Backdrop::destroyInstances() {
   m_instances.clear();
 }
 
-bool Backdrop::initialize(WaylandConnection& wayland, ConfigService* config, SharedTextureCache* textureCache,
-                          GlSharedContext* sharedGl) {
+bool Backdrop::initialize(
+    WaylandConnection& wayland, ConfigService* config, SharedTextureCache* textureCache, GlSharedContext* sharedGl
+) {
   m_wayland = &wayland;
   m_config = config;
   m_textureCache = textureCache;
@@ -139,8 +140,9 @@ void Backdrop::syncInstances() {
       continue;
     }
 
-    bool exists = std::any_of(m_instances.begin(), m_instances.end(),
-                              [&output](const auto& inst) { return inst->outputName == output.name; });
+    bool exists = std::any_of(m_instances.begin(), m_instances.end(), [&output](const auto& inst) {
+      return inst->outputName == output.name;
+    });
     if (!exists) {
       createInstance(output);
     }
@@ -226,9 +228,10 @@ void Backdrop::updateRendererState(BackdropInstance& inst) {
   inst.surface->setTintColor(surface.r, surface.g, surface.b);
 
   if (inst.currentTexture.id != 0) {
-    inst.surface->setWallpaperState(inst.currentTexture.id, static_cast<float>(inst.currentTexture.width),
-                                    static_cast<float>(inst.currentTexture.height),
-                                    m_config->config().wallpaper.fillMode);
+    inst.surface->setWallpaperState(
+        inst.currentTexture.id, static_cast<float>(inst.currentTexture.width),
+        static_cast<float>(inst.currentTexture.height), m_config->config().wallpaper.fillMode
+    );
   } else {
     inst.surface->setWallpaperState({}, 0.0f, 0.0f, m_config->config().wallpaper.fillMode);
   }

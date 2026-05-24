@@ -3,6 +3,7 @@ IndentWidth: 2
 ColumnLimit: 120
 PointerAlignment: Left
 NamespaceIndentation: All
+AlignAfterOpenBracket: BlockIndent
 SortIncludes: CaseSensitive
 IncludeBlocks: Regroup
 IncludeCategories:

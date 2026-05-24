@@ -93,14 +93,14 @@ namespace {
 
 } // namespace
 
-WidgetFactory::WidgetFactory(CompositorPlatform& platform, const Config& config, NotificationManager* notifications,
-                             TrayService* tray, PipeWireService* audio, UPowerService* upower,
-                             SystemMonitorService* sysmon, PowerProfilesService* powerProfiles,
-                             INetworkService* network, IdleInhibitor* idleInhibitor, MprisService* mpris,
-                             PipeWireSpectrum* audioSpectrum, HttpClient* httpClient, WeatherService* weather,
-                             GammaService* nightLight, noctalia::theme::ThemeService* themeService,
-                             BluetoothService* bluetooth, BrightnessService* brightness, LockKeysService* lockKeys,
-                             ClipboardService* clipboard, FileWatcher* fileWatcher)
+WidgetFactory::WidgetFactory(
+    CompositorPlatform& platform, const Config& config, NotificationManager* notifications, TrayService* tray,
+    PipeWireService* audio, UPowerService* upower, SystemMonitorService* sysmon, PowerProfilesService* powerProfiles,
+    INetworkService* network, IdleInhibitor* idleInhibitor, MprisService* mpris, PipeWireSpectrum* audioSpectrum,
+    HttpClient* httpClient, WeatherService* weather, GammaService* nightLight,
+    noctalia::theme::ThemeService* themeService, BluetoothService* bluetooth, BrightnessService* brightness,
+    LockKeysService* lockKeys, ClipboardService* clipboard, FileWatcher* fileWatcher
+)
     : m_platform(platform), m_config(config), m_notifications(notifications), m_tray(tray), m_audio(audio),
       m_upower(upower), m_sysmon(sysmon), m_powerProfiles(powerProfiles), m_network(network),
       m_idleInhibitor(idleInhibitor), m_mpris(mpris), m_audioSpectrum(audioSpectrum), m_httpClient(httpClient),
@@ -109,9 +109,10 @@ WidgetFactory::WidgetFactory(CompositorPlatform& platform, const Config& config,
 
 WidgetFactory::~WidgetFactory() = default;
 
-std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output* output, float contentScale,
-                                              const std::string& barPosition, const std::string& barName,
-                                              float widgetSpacing) const {
+std::unique_ptr<Widget> WidgetFactory::create(
+    const std::string& name, wl_output* output, float contentScale, const std::string& barPosition,
+    const std::string& barName, float widgetSpacing
+) const {
   // Resolve: if name matches a [widget.<name>] entry, use its type + settings.
   // Otherwise treat the name itself as the widget type with default settings.
   const WidgetConfig* wc = nullptr;
@@ -131,9 +132,10 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
     const std::string titleScroll = wc != nullptr ? wc->getString("title_scroll", "none") : std::string("none");
     const std::string displayMode =
         wc != nullptr ? wc->getString("display", "icon_and_text") : std::string("icon_and_text");
-    auto widget = std::make_unique<ActiveWindowWidget>(m_platform, maxWidth, minWidth, iconSize,
-                                                       parseActiveWindowTitleScrollMode(titleScroll),
-                                                       parseActiveWindowDisplayMode(displayMode));
+    auto widget = std::make_unique<ActiveWindowWidget>(
+        m_platform, maxWidth, minWidth, iconSize, parseActiveWindowTitleScrollMode(titleScroll),
+        parseActiveWindowDisplayMode(displayMode)
+    );
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -144,14 +146,17 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
     const bool mirrored = wc != nullptr ? wc->getBool("mirrored", true) : true;
     const bool centered = wc != nullptr ? wc->getBool("centered", true) : true;
     const bool showWhenIdle = wc != nullptr ? wc->getBool("show_when_idle", false) : false;
-    const ColorSpec lowColor = wc != nullptr ? wc->getColorSpec("low_color", colorSpecFromRole(ColorRole::Primary),
-                                                                "widget." + name + ".low_color")
-                                             : colorSpecFromRole(ColorRole::Primary);
-    const ColorSpec highColor = wc != nullptr ? wc->getColorSpec("high_color", colorSpecFromRole(ColorRole::Primary),
-                                                                 "widget." + name + ".high_color")
-                                              : colorSpecFromRole(ColorRole::Primary);
-    auto widget = std::make_unique<AudioVisualizerWidget>(m_audioSpectrum, width, bands, mirrored, lowColor, highColor,
-                                                          centered, showWhenIdle);
+    const ColorSpec lowColor =
+        wc != nullptr
+            ? wc->getColorSpec("low_color", colorSpecFromRole(ColorRole::Primary), "widget." + name + ".low_color")
+            : colorSpecFromRole(ColorRole::Primary);
+    const ColorSpec highColor =
+        wc != nullptr
+            ? wc->getColorSpec("high_color", colorSpecFromRole(ColorRole::Primary), "widget." + name + ".high_color")
+            : colorSpecFromRole(ColorRole::Primary);
+    auto widget = std::make_unique<AudioVisualizerWidget>(
+        m_audioSpectrum, width, bands, mirrored, lowColor, highColor, centered, showWhenIdle
+    );
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -159,18 +164,20 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
   if (type == "battery") {
     const std::string deviceSelector = wc != nullptr ? wc->getString("device", "auto") : std::string("auto");
     const int warningThreshold = static_cast<int>(wc != nullptr ? wc->getInt("warning_threshold", 20) : 20);
-    const ColorSpec warningColor = wc != nullptr
-                                       ? wc->getColorSpec("warning_color", colorSpecFromRole(ColorRole::Error),
-                                                          "widget." + name + ".warning_color")
-                                       : colorSpecFromRole(ColorRole::Error);
+    const ColorSpec warningColor =
+        wc != nullptr ? wc->getColorSpec(
+                            "warning_color", colorSpecFromRole(ColorRole::Error), "widget." + name + ".warning_color"
+                        )
+                      : colorSpecFromRole(ColorRole::Error);
     const std::string displayModeStr = wc != nullptr ? wc->getString("display_mode", "icon") : std::string("icon");
     const bool showLabel = wc != nullptr ? wc->getBool("show_label", true) : true;
     const bool hideWhenPlugged = wc != nullptr ? wc->getBool("hide_when_plugged", false) : false;
     const bool hideWhenFull = wc != nullptr ? wc->getBool("hide_when_full", false) : false;
     const BatteryDisplayMode displayMode =
         displayModeStr == "graphic" ? BatteryDisplayMode::Graphic : BatteryDisplayMode::Icon;
-    auto widget = std::make_unique<BatteryWidget>(m_upower, deviceSelector, warningThreshold, warningColor, displayMode,
-                                                  showLabel, hideWhenPlugged, hideWhenFull);
+    auto widget = std::make_unique<BatteryWidget>(
+        m_upower, deviceSelector, warningThreshold, warningColor, displayMode, showLabel, hideWhenPlugged, hideWhenFull
+    );
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -232,7 +239,8 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
     auto widget = std::make_unique<CustomButtonWidget>(
         trimSetting("glyph", "heart"), trimSetting("label"), trimSetting("tooltip"), trimSetting("image_path"),
         autoReloadImage, trimSetting("command"), trimSetting("right_command"), trimSetting("middle_command"),
-        trimSetting("scroll_up_command"), trimSetting("scroll_down_command"), m_fileWatcher);
+        trimSetting("scroll_up_command"), trimSetting("scroll_down_command"), m_fileWatcher
+        );
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -247,8 +255,9 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
     const std::string cycleCommand = wc != nullptr ? wc->getString("cycle_command", "") : std::string{};
     const std::string display = wc != nullptr ? wc->getString("display", "short") : std::string("short");
     const bool hideLabel = wc != nullptr ? wc->getBool("hide_label", false) : false;
-    auto widget = std::make_unique<KeyboardLayoutWidget>(m_platform, cycleCommand,
-                                                         KeyboardLayoutWidget::parseDisplayMode(display), hideLabel);
+    auto widget = std::make_unique<KeyboardLayoutWidget>(
+        m_platform, cycleCommand, KeyboardLayoutWidget::parseDisplayMode(display), hideLabel
+    );
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -276,8 +285,9 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
     const bool hideWhenOff = wc != nullptr ? wc->getBool("hide_when_off", false) : false;
     const std::string display = wc != nullptr ? wc->getString("display", "short") : std::string("short");
 
-    auto widget = std::make_unique<LockKeysWidget>(m_lockKeys, showCaps, showNum, showScroll, hideWhenOff,
-                                                   LockKeysWidget::parseDisplayMode(display));
+    auto widget = std::make_unique<LockKeysWidget>(
+        m_lockKeys, showCaps, showNum, showScroll, hideWhenOff, LockKeysWidget::parseDisplayMode(display)
+    );
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -288,8 +298,10 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
     const float artSize = static_cast<float>(wc != nullptr ? wc->getDouble("art_size", 16.0) : 16.0);
     const std::string titleScroll = wc != nullptr ? wc->getString("title_scroll", "none") : std::string("none");
     const bool hideWhenNoMedia = wc != nullptr ? wc->getBool("hide_when_no_media", false) : false;
-    auto widget = std::make_unique<MediaWidget>(m_mpris, m_httpClient, output, maxWidth, minWidth, artSize,
-                                                parseMediaTitleScrollMode(titleScroll), hideWhenNoMedia);
+    auto widget = std::make_unique<MediaWidget>(
+        m_mpris, m_httpClient, output, maxWidth, minWidth, artSize, parseMediaTitleScrollMode(titleScroll),
+        hideWhenNoMedia
+    );
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -324,8 +336,10 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
     std::string script = wc != nullptr ? wc->getString("script", "") : std::string();
     const auto* outputInfo = m_platform.findOutputByWl(output);
     const std::string outputName = outputInfo != nullptr ? outputInfo->connectorName : std::string{};
-    auto widget = std::make_unique<ScriptedWidget>(name, std::move(script), barName, outputName, wc, m_fileWatcher,
-                                                   &m_platform, m_clipboard, m_audioSpectrum, m_mpris);
+    auto widget = std::make_unique<ScriptedWidget>(
+        name, std::move(script), barName, outputName, wc, m_fileWatcher, &m_platform, m_clipboard, m_audioSpectrum,
+        m_mpris
+    );
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -419,22 +433,26 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
     }
     const bool hideEmptyWorkspaces = wc != nullptr ? wc->getBool("hide_empty_workspaces", false) : false;
     const bool workspaceGroupCapsule = wc != nullptr ? wc->getBool("workspace_group_capsule", true) : true;
-    const ColorSpec focusedColor = wc != nullptr
-                                       ? wc->getColorSpec("focused_color", colorSpecFromRole(ColorRole::Primary),
-                                                          "widget." + name + ".focused_color")
-                                       : colorSpecFromRole(ColorRole::Primary);
-    const ColorSpec occupiedColor = wc != nullptr
-                                        ? wc->getColorSpec("occupied_color", colorSpecFromRole(ColorRole::Secondary),
-                                                           "widget." + name + ".occupied_color")
-                                        : colorSpecFromRole(ColorRole::Secondary);
-    const ColorSpec emptyColor = wc != nullptr
-                                     ? wc->getColorSpec("empty_color", colorSpecFromRole(ColorRole::Secondary),
-                                                        "widget." + name + ".empty_color")
-                                     : colorSpecFromRole(ColorRole::Secondary);
-    auto widget = std::make_unique<TaskbarWidget>(m_platform, output, groupByWorkspace, showAllOutputs,
-                                                  onlyActiveWorkspace, showWorkspaceLabel, workspaceLabelPlacement,
-                                                  hideEmptyWorkspaces, workspaceGroupCapsule, focusedColor,
-                                                  occupiedColor, emptyColor, barPosition, m_config.shell.shadow);
+    const ColorSpec focusedColor =
+        wc != nullptr ? wc->getColorSpec(
+                            "focused_color", colorSpecFromRole(ColorRole::Primary), "widget." + name + ".focused_color"
+                        )
+                      : colorSpecFromRole(ColorRole::Primary);
+    const ColorSpec occupiedColor = wc != nullptr ? wc->getColorSpec(
+                                                        "occupied_color", colorSpecFromRole(ColorRole::Secondary),
+                                                        "widget." + name + ".occupied_color"
+                                                    )
+                                                  : colorSpecFromRole(ColorRole::Secondary);
+    const ColorSpec emptyColor =
+        wc != nullptr ? wc->getColorSpec(
+                            "empty_color", colorSpecFromRole(ColorRole::Secondary), "widget." + name + ".empty_color"
+                        )
+                      : colorSpecFromRole(ColorRole::Secondary);
+    auto widget = std::make_unique<TaskbarWidget>(
+        m_platform, output, groupByWorkspace, showAllOutputs, onlyActiveWorkspace, showWorkspaceLabel,
+        workspaceLabelPlacement, hideEmptyWorkspaces, workspaceGroupCapsule, focusedColor, occupiedColor, emptyColor,
+        barPosition, m_config.shell.shadow
+    );
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -452,8 +470,10 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
     const std::size_t drawerColumns =
         static_cast<std::size_t>(std::clamp<std::int64_t>(wc != nullptr ? wc->getInt("drawer_columns", 3) : 3, 1, 5));
     const bool matchAdjacentSpacing = wc != nullptr ? wc->getBool("match_adjacent_spacing", false) : false;
-    auto widget = std::make_unique<TrayWidget>(m_tray, hiddenItems, pinnedItems, drawer, std::function<void()>{},
-                                               barPosition, false, drawerColumns, widgetSpacing, matchAdjacentSpacing);
+    auto widget = std::make_unique<TrayWidget>(
+        m_tray, hiddenItems, pinnedItems, drawer, std::function<void()>{}, barPosition, false, drawerColumns,
+        widgetSpacing, matchAdjacentSpacing
+    );
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -487,18 +507,21 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
 
   if (type == "workspaces") {
     const std::string display = wc != nullptr ? wc->getString("display", "id") : std::string("id");
-    const ColorSpec focusedColor = wc != nullptr
-                                       ? wc->getColorSpec("focused_color", colorSpecFromRole(ColorRole::Primary),
-                                                          "widget." + name + ".focused_color")
-                                       : colorSpecFromRole(ColorRole::Primary);
-    const ColorSpec occupiedColor = wc != nullptr
-                                        ? wc->getColorSpec("occupied_color", colorSpecFromRole(ColorRole::Secondary),
-                                                           "widget." + name + ".occupied_color")
-                                        : colorSpecFromRole(ColorRole::Secondary);
-    const ColorSpec emptyColor = wc != nullptr
-                                     ? wc->getColorSpec("empty_color", colorSpecFromRole(ColorRole::Secondary),
-                                                        "widget." + name + ".empty_color")
-                                     : colorSpecFromRole(ColorRole::Secondary);
+    const ColorSpec focusedColor =
+        wc != nullptr ? wc->getColorSpec(
+                            "focused_color", colorSpecFromRole(ColorRole::Primary), "widget." + name + ".focused_color"
+                        )
+                      : colorSpecFromRole(ColorRole::Primary);
+    const ColorSpec occupiedColor = wc != nullptr ? wc->getColorSpec(
+                                                        "occupied_color", colorSpecFromRole(ColorRole::Secondary),
+                                                        "widget." + name + ".occupied_color"
+                                                    )
+                                                  : colorSpecFromRole(ColorRole::Secondary);
+    const ColorSpec emptyColor =
+        wc != nullptr ? wc->getColorSpec(
+                            "empty_color", colorSpecFromRole(ColorRole::Secondary), "widget." + name + ".empty_color"
+                        )
+                      : colorSpecFromRole(ColorRole::Secondary);
     WorkspacesWidget::DisplayMode displayMode = WorkspacesWidget::DisplayMode::Id;
     if (display == "id") {
       displayMode = WorkspacesWidget::DisplayMode::Id;
@@ -514,8 +537,10 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
     const bool hideWhenEmpty = wc != nullptr ? wc->getBool("hide_when_empty", false) : false;
     const double pillScale = wc != nullptr ? wc->getDouble("pill_scale", 1.0) : 1.0;
     const bool minimal = wc != nullptr ? wc->getBool("minimal", false) : false;
-    auto widget = std::make_unique<WorkspacesWidget>(m_platform, output, displayMode, focusedColor, occupiedColor,
-                                                     emptyColor, maxLabelChars, hideWhenEmpty, pillScale, minimal);
+    auto widget = std::make_unique<WorkspacesWidget>(
+        m_platform, output, displayMode, focusedColor, occupiedColor, emptyColor, maxLabelChars, hideWhenEmpty,
+        pillScale, minimal
+    );
     widget->setContentScale(contentScale);
     return widget;
   }

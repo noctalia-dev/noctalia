@@ -11,8 +11,10 @@ class Renderer;
 
 class AudioVisualizerWidget : public Widget {
 public:
-  AudioVisualizerWidget(PipeWireSpectrum* spectrum, float width, int bands, bool mirrored, ColorSpec lowColor,
-                        ColorSpec highColor, bool centered, bool showWhenIdle);
+  AudioVisualizerWidget(
+      PipeWireSpectrum* spectrum, float width, int bands, bool mirrored, ColorSpec lowColor, ColorSpec highColor,
+      bool centered, bool showWhenIdle
+  );
   ~AudioVisualizerWidget() override;
 
   void create() override;

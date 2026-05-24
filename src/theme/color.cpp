@@ -42,8 +42,9 @@ namespace noctalia::theme {
   }
 
   Color Color::fromArgb(uint32_t argb) {
-    return Color(static_cast<int>((argb >> 16) & 0xff), static_cast<int>((argb >> 8) & 0xff),
-                 static_cast<int>(argb & 0xff));
+    return Color(
+        static_cast<int>((argb >> 16) & 0xff), static_cast<int>((argb >> 8) & 0xff), static_cast<int>(argb & 0xff)
+    );
   }
 
   std::string Color::toHex() const {
@@ -105,8 +106,9 @@ namespace noctalia::theme {
       return p;
     };
 
-    return Color(roundClamp255(hueToRgb(hn + 1.0 / 3.0)), roundClamp255(hueToRgb(hn)),
-                 roundClamp255(hueToRgb(hn - 1.0 / 3.0)));
+    return Color(
+        roundClamp255(hueToRgb(hn + 1.0 / 3.0)), roundClamp255(hueToRgb(hn)), roundClamp255(hueToRgb(hn - 1.0 / 3.0))
+    );
   }
 
   double hueDistance(double h1, double h2) {

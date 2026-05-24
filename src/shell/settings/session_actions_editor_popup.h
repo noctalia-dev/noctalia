@@ -27,9 +27,11 @@ namespace settings {
 
     void initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext);
 
-    void open(xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
-              std::uint32_t parentWidth, std::uint32_t parentHeight, float scale, std::string sheetTitle,
-              std::function<void()> removeAction, std::function<void(Flex& sheetBody)> populateSheetBody);
+    void open(
+        xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
+        std::uint32_t parentWidth, std::uint32_t parentHeight, float scale, std::string sheetTitle,
+        std::function<void()> removeAction, std::function<void(Flex& sheetBody)> populateSheetBody
+    );
     void close();
 
     [[nodiscard]] bool isOpen() const noexcept;

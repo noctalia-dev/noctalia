@@ -460,7 +460,8 @@ namespace noctalia::theme {
             flushResolvedCallback(/*defer=*/true);
           }
         },
-        [this]() { finishTransition(/*deferResolvedCallback=*/false); });
+        [this]() { finishTransition(/*deferResolvedCallback=*/false); }
+    );
     if (m_transitionAnimId == 0) {
       m_transitionTimer.stop();
       return;
@@ -493,7 +494,8 @@ namespace noctalia::theme {
           toggleLightDark();
           return "ok\n";
         },
-        "theme-mode-toggle", "Toggle theme mode between dark and light");
+        "theme-mode-toggle", "Toggle theme mode between dark and light"
+    );
     ipc.registerHandler(
         "theme-mode-get",
         [this](const std::string&) -> std::string {
@@ -501,7 +503,8 @@ namespace noctalia::theme {
           out.push_back('\n');
           return out;
         },
-        "theme-mode-get", "Print the current resolved theme mode");
+        "theme-mode-get", "Print the current resolved theme mode"
+    );
     ipc.registerHandler(
         "theme-mode-set",
         [this](const std::string& args) -> std::string {
@@ -513,7 +516,8 @@ namespace noctalia::theme {
           m_config.setThemeMode(*mode);
           return "ok\n";
         },
-        "theme-mode-set <dark|light|auto>", "Set theme mode and persist to settings.toml");
+        "theme-mode-set <dark|light|auto>", "Set theme mode and persist to settings.toml"
+    );
     ipc.registerHandler(
         "theme-wallpaper-scheme-set",
         [this](const std::string& args) -> std::string {
@@ -527,7 +531,8 @@ namespace noctalia::theme {
           return "ok\n";
         },
         "theme-wallpaper-scheme-set <scheme>",
-        "Set wallpaper palette generation scheme ([theme].wallpaper_scheme), e.g. m3-content or vibrant");
+        "Set wallpaper palette generation scheme ([theme].wallpaper_scheme), e.g. m3-content or vibrant"
+    );
   }
 
 } // namespace noctalia::theme

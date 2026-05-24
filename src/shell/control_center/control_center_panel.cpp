@@ -14,12 +14,11 @@
 #include "shell/panel/panel_manager.h"
 #include "system/dependency_service.h"
 #include "system/screen_time_service.h"
-#include "ui/controls/button.h"
-#include "ui/controls/flex.h"
-#include "ui/controls/label.h"
+#include "ui/builders.h"
 
 #include <chrono>
 #include <memory>
+#include <optional>
 
 using namespace control_center;
 
@@ -27,27 +26,28 @@ namespace {
   constexpr auto kMprisRefreshMinInterval = std::chrono::milliseconds(750);
 }
 
-ControlCenterPanel::ControlCenterPanel(NotificationManager* notifications, PipeWireService* audio, MprisService* mpris,
-                                       ConfigService* config, HttpClient* httpClient, WeatherService* weather,
-                                       PipeWireSpectrum* spectrum, UPowerService* upower,
-                                       PowerProfilesService* powerProfiles, INetworkService* network,
-                                       NetworkSecretAgent* networkSecrets, BluetoothService* bluetooth,
-                                       BluetoothAgent* bluetoothAgent, BrightnessService* brightness,
-                                       SystemMonitorService* sysmon, ScreenTimeService* screenTime,
-                                       GammaService* nightLight, noctalia::theme::ThemeService* theme,
-                                       IdleInhibitor* idleInhibitor, DependencyService* dependencies,
-                                       CompositorPlatform* platform, Wallpaper* wallpaper) {
+ControlCenterPanel::ControlCenterPanel(
+    NotificationManager* notifications, PipeWireService* audio, MprisService* mpris, ConfigService* config,
+    HttpClient* httpClient, WeatherService* weather, PipeWireSpectrum* spectrum, UPowerService* upower,
+    PowerProfilesService* powerProfiles, INetworkService* network, NetworkSecretAgent* networkSecrets,
+    BluetoothService* bluetooth, BluetoothAgent* bluetoothAgent, BrightnessService* brightness,
+    SystemMonitorService* sysmon, ScreenTimeService* screenTime, GammaService* nightLight,
+    noctalia::theme::ThemeService* theme, IdleInhibitor* idleInhibitor, DependencyService* dependencies,
+    CompositorPlatform* platform, Wallpaper* wallpaper
+) {
   (void)upower;
   WaylandConnection* wayland = platform != nullptr ? &platform->wayland() : nullptr;
   m_config = config;
   m_mpris = mpris;
   m_notificationManager = notifications;
   m_dependencies = dependencies;
-  m_tabs[tabIndex(TabId::Home)] =
-      std::make_unique<HomeTab>(mpris, httpClient, weather, audio, powerProfiles, config, network, bluetooth,
-                                nightLight, theme, notifications, idleInhibitor, dependencies, platform, wallpaper);
-  m_tabs[tabIndex(TabId::Media)] = std::make_unique<MediaTab>(mpris, httpClient, spectrum, config, wayland,
-                                                              PanelManager::instance().renderContext());
+  m_tabs[tabIndex(TabId::Home)] = std::make_unique<HomeTab>(
+      mpris, httpClient, weather, audio, powerProfiles, config, network, bluetooth, nightLight, theme, notifications,
+      idleInhibitor, dependencies, platform, wallpaper
+  );
+  m_tabs[tabIndex(TabId::Media)] = std::make_unique<MediaTab>(
+      mpris, httpClient, spectrum, config, wayland, PanelManager::instance().renderContext()
+  );
   m_tabs[tabIndex(TabId::Audio)] =
       std::make_unique<AudioTab>(audio, mpris, config, wayland, PanelManager::instance().renderContext());
   m_tabs[tabIndex(TabId::Weather)] = std::make_unique<WeatherTab>(weather, config);
@@ -87,61 +87,64 @@ void ControlCenterPanel::create() {
     tab->setPanelBordersEnabled(panelBordersEnabled());
   }
 
-  auto rootLayout = std::make_unique<Flex>();
-  rootLayout->setDirection(FlexDirection::Horizontal);
-  rootLayout->setAlign(FlexAlign::Stretch);
-  rootLayout->setGap(Style::panelPadding * scale);
-  rootLayout->setPadding(0.0f);
-  m_rootLayout = rootLayout.get();
+  auto rootLayout = ui::row({
+      .out = &m_rootLayout,
+      .align = FlexAlign::Stretch,
+      .gap = Style::panelPadding * scale,
+      .padding = 0.0f,
+  });
 
-  auto sidebar = std::make_unique<Flex>();
-  sidebar->setDirection(FlexDirection::Vertical);
-  sidebar->setAlign(FlexAlign::Stretch);
-  sidebar->setGap(Style::spaceXs * scale);
-  sidebar->setPadding(Style::spaceSm * scale);
-  sidebar->setFillHeight(true);
-  sidebar->setFill(colorSpecFromRole(ColorRole::SurfaceVariant, panelCardOpacity()));
-  sidebar->setRadius(Style::scaledRadiusXl(scale));
-  m_sidebar = sidebar.get();
+  auto sidebar = ui::column({
+      .out = &m_sidebar,
+      .align = FlexAlign::Stretch,
+      .gap = Style::spaceXs * scale,
+      .padding = Style::spaceSm * scale,
+      .fillHeight = true,
+      .configure = [this, scale](Flex& column) {
+        column.setFill(colorSpecFromRole(ColorRole::SurfaceVariant, panelCardOpacity()));
+        column.setRadius(Style::scaledRadiusXl(scale));
+      },
+  });
 
   for (const auto& tab : kTabs) {
-    auto button = std::make_unique<Button>();
-    if (!m_compact) {
-      button->setText(i18n::tr(tab.titleKey));
-    }
-    button->setGlyph(tab.glyph);
-    button->setGlyphSize(21.0f * scale);
-    button->setGap(Style::spaceSm * scale);
-    if (button->label() != nullptr) {
-      button->label()->setFontWeight(FontWeight::Bold);
-      button->label()->setFontSize(Style::fontSizeBody * scale);
-    }
-    button->setVariant(ButtonVariant::Tab);
-    button->setContentAlign(m_compact ? ButtonContentAlign::Center : ButtonContentAlign::Start);
-    button->setMinHeight(Style::controlHeight * scale);
-    if (m_compact) {
-      button->setMinWidth(Style::controlHeight * scale);
-      button->setPadding(Style::spaceSm * scale);
-    } else {
-      button->setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
-    }
-    button->setRadius(Style::scaledRadiusLg(scale));
-    button->setOnClick([this, id = tab.id]() {
-      selectTab(id);
-      PanelManager::instance().refresh();
-    });
-    m_tabButtons[tabIndex(tab.id)] = button.get();
-    sidebar->addChild(std::move(button));
+    sidebar->addChild(
+        ui::button({
+            .out = &m_tabButtons[tabIndex(tab.id)],
+            .text = m_compact ? std::optional<std::string>{} : std::optional<std::string>{i18n::tr(tab.titleKey)},
+            .glyph = tab.glyph,
+            .glyphSize = 21.0f * scale,
+            .contentAlign = m_compact ? ButtonContentAlign::Center : ButtonContentAlign::Start,
+            .variant = ButtonVariant::Tab,
+            .minWidth = m_compact ? std::optional<float>{Style::controlHeight * scale} : std::optional<float>{},
+            .minHeight = Style::controlHeight * scale,
+            .paddingV = Style::spaceSm * scale,
+            .paddingH = (m_compact ? Style::spaceSm : Style::spaceMd) * scale,
+            .gap = Style::spaceSm * scale,
+            .radius = Style::scaledRadiusLg(scale),
+            .onClick =
+                [this, id = tab.id]() {
+                  selectTab(id);
+                  PanelManager::instance().refresh();
+                },
+            .configure =
+                [scale](Button& button) {
+                  if (button.label() != nullptr) {
+                    button.label()->setFontWeight(FontWeight::Bold);
+                    button.label()->setFontSize(Style::fontSizeBody * scale);
+                  }
+                },
+        })
+    );
   }
   rootLayout->addChild(std::move(sidebar));
 
-  auto content = std::make_unique<Flex>();
-  content->setDirection(FlexDirection::Vertical);
-  content->setAlign(FlexAlign::Stretch);
-  content->setGap(Style::spaceMd * scale);
-  content->setFlexGrow(4.0f);
-  content->setClipChildren(true);
-  m_content = content.get();
+  auto content = ui::column({
+      .out = &m_content,
+      .align = FlexAlign::Stretch,
+      .gap = Style::spaceMd * scale,
+      .clipChildren = true,
+      .flexGrow = 4.0f,
+  });
 
   auto dismissArea = std::make_unique<InputArea>();
   dismissArea->setParticipatesInLayout(false);
@@ -154,27 +157,29 @@ void ControlCenterPanel::create() {
   });
   m_contentDismissArea = static_cast<InputArea*>(content->addChild(std::move(dismissArea)));
 
-  auto header = std::make_unique<Flex>();
-  header->setDirection(FlexDirection::Horizontal);
-  header->setAlign(FlexAlign::Center);
-  header->setJustify(FlexJustify::SpaceBetween);
-  header->setGap(Style::spaceSm * scale);
-  m_contentHeader = header.get();
+  auto header = ui::row({
+      .out = &m_contentHeader,
+      .align = FlexAlign::Center,
+      .justify = FlexJustify::SpaceBetween,
+      .gap = Style::spaceSm * scale,
+  });
 
-  auto title = std::make_unique<Label>();
-  title->setText(i18n::tr("control-center.tabs.home"));
-  title->setFontWeight(FontWeight::Bold);
-  title->setFontSize(Style::fontSizeTitle * scale);
-  title->setColor(colorSpecFromRole(ColorRole::Primary));
-  title->setFlexGrow(1.0f);
-  m_contentTitle = title.get();
-  header->addChild(std::move(title));
+  header->addChild(
+      ui::label({
+          .out = &m_contentTitle,
+          .text = i18n::tr("control-center.tabs.home"),
+          .fontSize = Style::fontSizeTitle * scale,
+          .color = colorSpecFromRole(ColorRole::Primary),
+          .fontWeight = FontWeight::Bold,
+          .flexGrow = 1.0f,
+      })
+  );
 
-  auto headerActions = std::make_unique<Flex>();
-  headerActions->setDirection(FlexDirection::Horizontal);
-  headerActions->setAlign(FlexAlign::Center);
-  headerActions->setGap(Style::spaceSm * scale);
-  m_contentHeaderActions = headerActions.get();
+  auto headerActions = ui::row({
+      .out = &m_contentHeaderActions,
+      .align = FlexAlign::Center,
+      .gap = Style::spaceSm * scale,
+  });
 
   for (std::size_t i = 0; i < kTabCount; ++i) {
     auto actions = m_tabs[i]->createHeaderActions();
@@ -185,22 +190,26 @@ void ControlCenterPanel::create() {
     }
   }
 
-  auto closeButton = std::make_unique<Button>();
-  closeButton->setGlyph("close");
-  panel_button_style::configureHeaderIconButton(*closeButton, scale, panelCardOpacity());
-  closeButton->setOnClick([]() { PanelManager::instance().close(); });
-  m_closeButton = closeButton.get();
-  m_contentHeaderActions->addChild(std::move(closeButton));
+  m_contentHeaderActions->addChild(
+      ui::button({
+          .out = &m_closeButton,
+          .glyph = "close",
+          .onClick = []() { PanelManager::instance().close(); },
+          .configure = [scale, opacity = panelCardOpacity()](
+                           Button& button
+                       ) { panel_button_style::configureHeaderIconButton(button, scale, opacity); },
+      })
+  );
   header->addChild(std::move(headerActions));
 
   content->addChild(std::move(header));
 
-  auto bodies = std::make_unique<Flex>();
-  bodies->setDirection(FlexDirection::Vertical);
-  bodies->setAlign(FlexAlign::Stretch);
-  bodies->setGap(0.0f);
-  bodies->setFlexGrow(1.0f);
-  m_tabBodies = bodies.get();
+  auto bodies = ui::column({
+      .out = &m_tabBodies,
+      .align = FlexAlign::Stretch,
+      .gap = 0.0f,
+      .flexGrow = 1.0f,
+  });
 
   for (std::size_t i = 0; i < kTabCount; ++i) {
     auto container = m_tabs[i]->create();

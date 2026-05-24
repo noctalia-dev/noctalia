@@ -30,17 +30,18 @@ namespace process {
 
   // Arg vector — direct execvp; same detach semantics as runAsync(string). When activationToken is
   // non-empty, the grandchild sets XDG_ACTIVATION_TOKEN and DESKTOP_STARTUP_ID (launcher).
-  [[nodiscard]] bool runAsync(const std::vector<std::string>& args, const std::string& activationToken = {},
-                              const std::string& workingDir = {});
+  [[nodiscard]] bool runAsync(
+      const std::vector<std::string>& args, const std::string& activationToken = {}, const std::string& workingDir = {}
+  );
   [[nodiscard]] bool runAsync(std::initializer_list<const char*> args);
   [[nodiscard]] RunResult runSync(const std::vector<std::string>& args);
   [[nodiscard]] RunResult runSync(std::initializer_list<const char*> args);
   [[nodiscard]] RunResult runSyncWithTimeout(const std::vector<std::string>& args, std::chrono::milliseconds timeout);
-  [[nodiscard]] RunResult runSyncWithTimeout(std::initializer_list<const char*> args,
-                                             std::chrono::milliseconds timeout);
-  [[nodiscard]] RunResult runSyncWithTimeoutAndOutputLimit(const std::vector<std::string>& args,
-                                                           std::chrono::milliseconds timeout,
-                                                           std::size_t maxOutputBytes);
+  [[nodiscard]] RunResult
+  runSyncWithTimeout(std::initializer_list<const char*> args, std::chrono::milliseconds timeout);
+  [[nodiscard]] RunResult runSyncWithTimeoutAndOutputLimit(
+      const std::vector<std::string>& args, std::chrono::milliseconds timeout, std::size_t maxOutputBytes
+  );
   [[nodiscard]] bool commandLineMatchesAll(const std::vector<std::string>& needles);
   [[nodiscard]] bool desktopPortalAvailable();
   [[nodiscard]] bool flatpakAppInstalled(std::string_view appId);
@@ -54,6 +55,8 @@ namespace process {
 
   bool systemdAvailable();
   // Run an app as a systemd service
-  void runAsyncAsSystemdService(const std::vector<std::string>& args, const std::string& appName,
-                                const std::string& activationToken = {}, const std::string& workingDir = {});
+  void runAsyncAsSystemdService(
+      const std::vector<std::string>& args, const std::string& appName, const std::string& activationToken = {},
+      const std::string& workingDir = {}
+  );
 } // namespace process

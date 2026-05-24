@@ -111,27 +111,30 @@ private:
   void scheduleStartupRediscovery();
   void scheduleRecoveryDiscovery();
   void addOrRefreshPlayer(const std::string& busName);
-  void applyPlayerSnapshot(const std::string& busName, const MprisPlayerInfo& info, bool hadPositionSignal,
-                           bool hadFullRefreshFailure);
+  void applyPlayerSnapshot(
+      const std::string& busName, const MprisPlayerInfo& info, bool hadPositionSignal, bool hadFullRefreshFailure
+  );
   [[nodiscard]] bool shouldRetryPropertiesRefresh(const std::string& busName) const;
-  [[nodiscard]] std::chrono::milliseconds propertiesRefreshRetryInterval(const std::string& busName,
-                                                                         std::chrono::milliseconds fallback,
-                                                                         bool usePropertiesBackoff) const;
-  void schedulePositionRefreshRetry(const std::string& busName, std::chrono::milliseconds fallback,
-                                    bool usePropertiesBackoff);
+  [[nodiscard]] std::chrono::milliseconds propertiesRefreshRetryInterval(
+      const std::string& busName, std::chrono::milliseconds fallback, bool usePropertiesBackoff
+  ) const;
+  void schedulePositionRefreshRetry(
+      const std::string& busName, std::chrono::milliseconds fallback, bool usePropertiesBackoff
+  );
   void refreshPlayerPosition(const std::string& busName, bool notifyChange);
   void applyPositionSample(const std::string& busName, int64_t rawPositionUs, bool notifyChange);
   void removePlayer(const std::string& busName);
-  [[nodiscard]] MprisPlayerInfo
-  readPlayerInfoFromProperties(const std::string& busName, const std::map<std::string, sdbus::Variant>& rootProps,
-                               const std::map<std::string, sdbus::Variant>& playerProps) const;
+  [[nodiscard]] MprisPlayerInfo readPlayerInfoFromProperties(
+      const std::string& busName, const std::map<std::string, sdbus::Variant>& rootProps,
+      const std::map<std::string, sdbus::Variant>& playerProps
+  ) const;
   [[nodiscard]] MprisPlayerInfo projectedPlayerInfo(const MprisPlayerInfo& player) const;
   [[nodiscard]] std::int64_t projectedPositionUs(const MprisPlayerInfo& player) const;
   [[nodiscard]] std::optional<std::string> chooseActivePlayer() const;
   [[nodiscard]] bool isBlacklisted(const MprisPlayerInfo& player) const;
   std::function<void(std::optional<sdbus::Error>)> makeAsyncReplyHandler(std::string op, std::string busName);
-  std::function<void(std::optional<sdbus::Error>)> makeAsyncReplyHandler(std::string op, std::string busName,
-                                                                         std::string_view method);
+  std::function<void(std::optional<sdbus::Error>)>
+  makeAsyncReplyHandler(std::string op, std::string busName, std::string_view method);
   [[nodiscard]] bool callPlayerMethod(const std::string& busName, const char* methodName);
   [[nodiscard]] bool canInvoke(const MprisPlayerInfo& player, const char* methodName) const;
   void dismissPlayer(const std::string& busName);

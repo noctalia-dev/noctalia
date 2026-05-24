@@ -70,8 +70,9 @@ private:
   void finishSavedConnections(std::vector<std::string>& ssids, std::function<void()> onComplete);
   void finishRefreshAccessPoints(std::vector<AccessPointInfo>& aps, std::function<void()> onComplete);
   bool addAndActivateAccessPoint(const AccessPointInfo& ap, const std::optional<std::string>& psk);
-  void watchPendingAccessPointActivation(const std::string& ssid, const std::string& connectionPath,
-                                         const std::string& activePath);
+  void watchPendingAccessPointActivation(
+      const std::string& ssid, const std::string& connectionPath, const std::string& activePath
+  );
   void handlePendingAccessPointActivationState(const std::string& activePath, std::uint32_t state);
   void persistConnectionToDisk(const std::string& connectionPath, const std::string& ssid);
   void deleteUnsavedConnection(const std::string& connectionPath, const std::string& ssid);

@@ -150,17 +150,19 @@ void KeybindRecorder::handleKeyDown(std::uint32_t sym, std::uint32_t modifiers) 
 
   // Must run before the modifier-preview branch so a bare Super press is also caught.
   if ((modifiers & KeyMod::Super) != 0 || KeySymbol::isSuperModifier(sym)) {
-    notify::error(i18n::tr("notifications.internal.keybind-app"),
-                  i18n::tr("notifications.internal.keybind-invalid-title"),
-                  i18n::tr("notifications.internal.keybind-invalid-super"));
+    notify::error(
+        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"),
+        i18n::tr("notifications.internal.keybind-invalid-super")
+    );
     exitRecording(false);
     return;
   }
 
   if (m_modifierPolicy == ModifierPolicy::Forbidden && KeySymbol::isModifier(sym)) {
-    notify::error(i18n::tr("notifications.internal.keybind-app"),
-                  i18n::tr("notifications.internal.keybind-invalid-title"),
-                  i18n::tr("notifications.internal.keybind-invalid-modifier"));
+    notify::error(
+        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"),
+        i18n::tr("notifications.internal.keybind-invalid-modifier")
+    );
     exitRecording(false);
     return;
   }
@@ -172,17 +174,19 @@ void KeybindRecorder::handleKeyDown(std::uint32_t sym, std::uint32_t modifiers) 
   }
 
   if (m_modifierPolicy == ModifierPolicy::Required && modifiers == 0 && isPrintableKey(sym)) {
-    notify::error(i18n::tr("notifications.internal.keybind-app"),
-                  i18n::tr("notifications.internal.keybind-invalid-title"),
-                  i18n::tr("notifications.internal.keybind-invalid-printable"));
+    notify::error(
+        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"),
+        i18n::tr("notifications.internal.keybind-invalid-printable")
+    );
     exitRecording(false);
     return;
   }
 
   if (m_modifierPolicy == ModifierPolicy::Forbidden && modifiers != 0) {
-    notify::error(i18n::tr("notifications.internal.keybind-app"),
-                  i18n::tr("notifications.internal.keybind-invalid-title"),
-                  i18n::tr("notifications.internal.keybind-invalid-modifier"));
+    notify::error(
+        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"),
+        i18n::tr("notifications.internal.keybind-invalid-modifier")
+    );
     exitRecording(false);
     return;
   }
@@ -190,9 +194,10 @@ void KeybindRecorder::handleKeyDown(std::uint32_t sym, std::uint32_t modifiers) 
   // Shift-only + printable is just a character variant (e.g. Shift+l = L),
   // not a meaningful shortcut. Reject it in both Required and Optional modes.
   if (modifiers == KeyMod::Shift && isPrintableKey(sym)) {
-    notify::error(i18n::tr("notifications.internal.keybind-app"),
-                  i18n::tr("notifications.internal.keybind-invalid-title"),
-                  i18n::tr("notifications.internal.keybind-invalid-printable"));
+    notify::error(
+        i18n::tr("notifications.internal.keybind-app"), i18n::tr("notifications.internal.keybind-invalid-title"),
+        i18n::tr("notifications.internal.keybind-invalid-printable")
+    );
     exitRecording(false);
     return;
   }
@@ -286,8 +291,9 @@ void KeybindRecorder::applyVisualState(VisualState state) {
     setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
     if (m_label != nullptr) {
       const bool placeholder = !m_chord.has_value() || m_chord->sym == 0;
-      m_label->setColor(placeholder ? colorSpecFromRole(ColorRole::OnSurfaceVariant)
-                                    : colorSpecFromRole(ColorRole::OnSurface));
+      m_label->setColor(
+          placeholder ? colorSpecFromRole(ColorRole::OnSurfaceVariant) : colorSpecFromRole(ColorRole::OnSurface)
+      );
     }
     if (m_glyph != nullptr) {
       m_glyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));

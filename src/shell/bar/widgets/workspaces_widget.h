@@ -22,9 +22,11 @@ public:
     Name,
   };
 
-  WorkspacesWidget(CompositorPlatform& platform, wl_output* output, DisplayMode displayMode, ColorSpec focusedColor,
-                   ColorSpec occupiedColor, ColorSpec emptyColor, std::size_t maxLabelChars, bool hideWhenEmpty,
-                   float pillScale, bool minimal);
+  WorkspacesWidget(
+      CompositorPlatform& platform, wl_output* output, DisplayMode displayMode, ColorSpec focusedColor,
+      ColorSpec occupiedColor, ColorSpec emptyColor, std::size_t maxLabelChars, bool hideWhenEmpty, float pillScale,
+      bool minimal
+  );
   ~WorkspacesWidget() override;
 
   void create() override;

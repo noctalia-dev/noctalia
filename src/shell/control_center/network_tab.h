@@ -38,8 +38,8 @@ private:
   void submitPasswordPrompt(const std::string& value);
   void cancelPasswordPrompt();
   void clearPasswordPrompt();
-  [[nodiscard]] std::string structureKey(const std::vector<AccessPointInfo>& aps,
-                                         const std::vector<VpnConnectionInfo>& vpns) const;
+  [[nodiscard]] std::string
+  structureKey(const std::vector<AccessPointInfo>& aps, const std::vector<VpnConnectionInfo>& vpns) const;
   [[nodiscard]] std::string apRowsKey(const std::vector<AccessPointInfo>& aps) const;
 
   INetworkService* m_network = nullptr;

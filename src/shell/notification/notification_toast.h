@@ -36,8 +36,10 @@ public:
   NotificationToast(const NotificationToast&) = delete;
   NotificationToast& operator=(const NotificationToast&) = delete;
 
-  void initialize(WaylandConnection& wayland, ConfigService* config, NotificationManager* notifications,
-                  RenderContext* renderContext, HttpClient* httpClient = nullptr);
+  void initialize(
+      WaylandConnection& wayland, ConfigService* config, NotificationManager* notifications,
+      RenderContext* renderContext, HttpClient* httpClient = nullptr
+  );
   void onConfigReload();
   void onOutputChange();
   void requestLayout();
@@ -129,10 +131,11 @@ private:
   void destroySurfaces();
   void prepareFrame(Instance& inst, bool needsUpdate, bool needsLayout);
   void buildScene(Instance& inst, uint32_t width, uint32_t height);
-  InputArea* buildCard(const PopupEntry& entry, Node** outCardContent, Node** outCardForeground, Label** outAppName,
-                       Label** outSummary, Label** outBody, Node** outBg, Node** outAppIcon, ProgressBar** outProgress,
-                       Glyph** outCloseGlyph, Node** outActionsRow, Node** outInlineReplyRow,
-                       Input** outInlineReplyInput);
+  InputArea* buildCard(
+      const PopupEntry& entry, Node** outCardContent, Node** outCardForeground, Label** outAppName, Label** outSummary,
+      Label** outBody, Node** outBg, Node** outAppIcon, ProgressBar** outProgress, Glyph** outCloseGlyph,
+      Node** outActionsRow, Node** outInlineReplyRow, Input** outInlineReplyInput
+  );
   void applyCardReveal(Instance::CardState& cs, float reveal, float y, float cardHeight) const;
   [[nodiscard]] float cardReveal(const Instance::CardState& cs, float cardHeight) const;
   void addCardToInstance(Instance& inst, std::size_t entryIndex);
@@ -147,8 +150,8 @@ private:
   void revealQueuedEntries();
   void evictOverlappingEntries(std::size_t anchorIndex);
   [[nodiscard]] bool hasPlacement(const PopupEntry& entry) const;
-  [[nodiscard]] bool canKeepPlacement(const PopupEntry& entry,
-                                      std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
+  [[nodiscard]] bool
+  canKeepPlacement(const PopupEntry& entry, std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
   [[nodiscard]] bool fitsOnSurface(const PopupEntry& entry, float surfaceHeight) const;
   [[nodiscard]] float entryHeight(const PopupEntry& entry) const;
   [[nodiscard]] std::string notificationPosition() const;
@@ -163,8 +166,8 @@ private:
   [[nodiscard]] float entryOffsetFromPlacementBottom(const PopupEntry& entry) const;
   [[nodiscard]] float entryYForSurface(const PopupEntry& entry, float surfaceHeight) const;
   void alignBottomStackToPlacementBottom();
-  [[nodiscard]] std::optional<float> findPlacementY(float entryHeight,
-                                                    std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
+  [[nodiscard]] std::optional<float>
+  findPlacementY(float entryHeight, std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
   [[nodiscard]] uint32_t surfaceHeightForOutput(wl_output* output) const;
   [[nodiscard]] std::string resolveNotificationIconPath(const PopupEntry& entry);
 

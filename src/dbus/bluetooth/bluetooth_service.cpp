@@ -261,10 +261,10 @@ struct BluetoothService::Impl {
     }
     proxy->uponSignal("PropertiesChanged")
         .onInterface(kPropertiesInterface)
-        .call([this, objectPath = path](const std::string& interfaceName, const InterfaceProps& changed,
-                                        const std::vector<std::string>& /*invalidated*/) {
-          onPropertiesChanged(objectPath, interfaceName, changed);
-        });
+        .call([this, objectPath = path](
+                  const std::string& interfaceName, const InterfaceProps& changed,
+                  const std::vector<std::string>& /*invalidated*/
+              ) { onPropertiesChanged(objectPath, interfaceName, changed); });
     auto* raw = proxy.get();
     objectProxies.emplace(path, std::move(proxy));
     return raw;
@@ -313,9 +313,12 @@ struct BluetoothService::Impl {
         dropObjectProxy(path);
       } else if (iface == kDeviceInterface) {
         auto& vec = self.m_devices;
-        vec.erase(std::remove_if(vec.begin(), vec.end(),
-                                 [&](const BluetoothDeviceInfo& d) { return d.path == std::string(path); }),
-                  vec.end());
+        vec.erase(
+            std::remove_if(
+                vec.begin(), vec.end(), [&](const BluetoothDeviceInfo& d) { return d.path == std::string(path); }
+            ),
+            vec.end()
+        );
         devicesDirty = true;
         dropObjectProxy(path);
       } else if (iface == kBatteryInterface) {
@@ -334,8 +337,8 @@ struct BluetoothService::Impl {
     }
   }
 
-  void onPropertiesChanged(const std::string& objectPath, const std::string& interfaceName,
-                           const InterfaceProps& changed) {
+  void
+  onPropertiesChanged(const std::string& objectPath, const std::string& interfaceName, const InterfaceProps& changed) {
     if (interfaceName == kAdapterInterface && objectPath == adapterPath) {
       BluetoothState next = self.m_state;
       readAdapterProps(changed, next);

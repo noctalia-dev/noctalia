@@ -342,14 +342,16 @@ void Flex::ensureBackground() {
     return;
   }
   auto rect = std::make_unique<RectNode>();
-  rect->setStyle(RoundedRectStyle{
-      .fill = rgba(0, 0, 0, 0),
-      .border = rgba(0, 0, 0, 0),
-      .fillMode = FillMode::Solid,
-      .radius = 0.0f,
-      .softness = 0.0f,
-      .borderWidth = 0.0f,
-  });
+  rect->setStyle(
+      RoundedRectStyle{
+          .fill = rgba(0, 0, 0, 0),
+          .border = rgba(0, 0, 0, 0),
+          .fillMode = FillMode::Solid,
+          .radius = 0.0f,
+          .softness = 0.0f,
+          .borderWidth = 0.0f,
+      }
+  );
   m_background = static_cast<RectNode*>(addChild(std::move(rect)));
   m_background->setZIndex(-1);
   m_background->setParticipatesInLayout(false);
@@ -573,8 +575,9 @@ LayoutSize Flex::runLayout(Renderer& renderer, const LayoutConstraints& constrai
         }
       }
 
-      item.node->arrange(renderer,
-                         rectFromAxes(horizontal, std::round(cursor), std::round(crossPos), item.main, childCross));
+      item.node->arrange(
+          renderer, rectFromAxes(horizontal, std::round(cursor), std::round(crossPos), item.main, childCross)
+      );
       cursor += item.main;
     }
   }

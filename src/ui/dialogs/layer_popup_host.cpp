@@ -5,14 +5,18 @@
 
 #include <algorithm>
 
-void LayerPopupHostRegistry::registerHost(ContextResolver contextResolver, PopupHook beginAttachedPopup,
-                                          PopupHook endAttachedPopup, FallbackResolver fallbackResolver) {
-  m_hosts.push_back(Host{
-      .contextResolver = std::move(contextResolver),
-      .beginAttachedPopup = std::move(beginAttachedPopup),
-      .endAttachedPopup = std::move(endAttachedPopup),
-      .fallbackResolver = std::move(fallbackResolver),
-  });
+void LayerPopupHostRegistry::registerHost(
+    ContextResolver contextResolver, PopupHook beginAttachedPopup, PopupHook endAttachedPopup,
+    FallbackResolver fallbackResolver
+) {
+  m_hosts.push_back(
+      Host{
+          .contextResolver = std::move(contextResolver),
+          .beginAttachedPopup = std::move(beginAttachedPopup),
+          .endAttachedPopup = std::move(endAttachedPopup),
+          .fallbackResolver = std::move(fallbackResolver),
+      }
+  );
 }
 
 std::optional<LayerPopupParentContext> LayerPopupHostRegistry::contextForSurface(wl_surface* surface) const {

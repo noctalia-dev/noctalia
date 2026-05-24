@@ -151,8 +151,10 @@ namespace {
 
     auto& entry = state.surfaces[&surface];
     if (entry.label.empty()) {
-      entry.label = std::format("{}@{:x} {}x{}", typeid(surface).name(), reinterpret_cast<std::uintptr_t>(&surface),
-                                surface.width(), surface.height());
+      entry.label = std::format(
+          "{}@{:x} {}x{}", typeid(surface).name(), reinterpret_cast<std::uintptr_t>(&surface), surface.width(),
+          surface.height()
+      );
     }
     addSurfaceProfileEvent(entry, event, ms);
   }
@@ -261,13 +263,17 @@ void Surface::onConfigure(std::uint32_t width, std::uint32_t height) {
       m_renderContext->syncContentScale(m_renderTarget);
     }
   });
-  logSlowSurfaceOperation(resizeMs, "surface configure resize took {:.1f}ms ({}, {}x{} logical)", resizeMs,
-                          static_cast<const void*>(this), m_width, m_height);
+  logSlowSurfaceOperation(
+      resizeMs, "surface configure resize took {:.1f}ms ({}, {}x{} logical)", resizeMs, static_cast<const void*>(this),
+      m_width, m_height
+  );
 
   if (m_configureCallback) {
     const float callbackMs = elapsedMs([this] { m_configureCallback(m_width, m_height); });
-    logSlowSurfaceOperation(callbackMs, "surface configure callback took {:.1f}ms ({}, {}x{} logical)", callbackMs,
-                            static_cast<const void*>(this), m_width, m_height);
+    logSlowSurfaceOperation(
+        callbackMs, "surface configure callback took {:.1f}ms ({}, {}x{} logical)", callbackMs,
+        static_cast<const void*>(this), m_width, m_height
+    );
   }
   m_redrawRequested = true;
   queueFrameWork();
@@ -453,8 +459,9 @@ void Surface::setBlurRegion(const std::vector<InputRect>& rects) {
   }
 }
 
-std::vector<InputRect> Surface::tessellateRoundedRect(int x, int y, int w, int h, float tlRadius, float trRadius,
-                                                      float brRadius, float blRadius, int stripPx) {
+std::vector<InputRect> Surface::tessellateRoundedRect(
+    int x, int y, int w, int h, float tlRadius, float trRadius, float brRadius, float blRadius, int stripPx
+) {
   std::vector<InputRect> out;
   if (w <= 0 || h <= 0) {
     return out;
@@ -531,8 +538,10 @@ std::vector<InputRect> Surface::tessellateRoundedRect(int x, int y, int w, int h
   return out;
 }
 
-std::vector<InputRect> Surface::tessellateShape(int x, int y, int w, int h, const CornerShapes& corners,
-                                                const RectInsets& logicalInset, const Radii& radii, int stripPx) {
+std::vector<InputRect> Surface::tessellateShape(
+    int x, int y, int w, int h, const CornerShapes& corners, const RectInsets& logicalInset, const Radii& radii,
+    int stripPx
+) {
   std::vector<InputRect> out;
   if (w <= 0 || h <= 0) {
     return out;
@@ -773,8 +782,10 @@ void Surface::render() {
   requestFrame();
   const float renderMs = elapsedMs([this] { m_renderContext->renderScene(m_renderTarget, m_sceneRoot); });
   recordSurfaceProfileEvent(*this, SurfaceProfileEvent::Render, renderMs);
-  logSlowSurfaceOperation(renderMs, "surface render took {:.1f}ms ({}x{} logical, {}x{} buffer)", renderMs, m_width,
-                          m_height, m_renderTarget.bufferWidth(), m_renderTarget.bufferHeight());
+  logSlowSurfaceOperation(
+      renderMs, "surface render took {:.1f}ms ({}x{} logical, {}x{} buffer)", renderMs, m_width, m_height,
+      m_renderTarget.bufferWidth(), m_renderTarget.bufferHeight()
+  );
 
   if (m_sceneRoot != nullptr) {
     m_sceneRoot->clearDirty();
@@ -845,8 +856,10 @@ void Surface::preparePendingFrame() {
   const float callbackMs =
       elapsedMs([this, needsUpdate, needsLayout] { m_prepareFrameCallback(needsUpdate, needsLayout); });
   recordSurfaceProfileEvent(*this, SurfaceProfileEvent::PrepareCallback, callbackMs);
-  logSlowSurfaceOperation(callbackMs, "surface prepareFrame callback took {:.1f}ms ({}, {}x{} logical)", callbackMs,
-                          static_cast<const void*>(this), m_width, m_height);
+  logSlowSurfaceOperation(
+      callbackMs, "surface prepareFrame callback took {:.1f}ms ({}, {}x{} logical)", callbackMs,
+      static_cast<const void*>(this), m_width, m_height
+  );
 }
 
 void Surface::kickFrameLoop() {
@@ -913,22 +926,28 @@ void Surface::processQueuedFrameWork() {
     if (m_animationManager != nullptr) {
       const float tickMs = elapsedMs([this, deltaMs] { m_animationManager->tick(deltaMs); });
       recordSurfaceProfileEvent(*this, SurfaceProfileEvent::AnimationTick, tickMs);
-      logSlowSurfaceOperation(tickMs, "surface animation tick took {:.1f}ms ({}, {}x{} logical)", tickMs,
-                              static_cast<const void*>(this), m_width, m_height);
+      logSlowSurfaceOperation(
+          tickMs, "surface animation tick took {:.1f}ms ({}, {}x{} logical)", tickMs, static_cast<const void*>(this),
+          m_width, m_height
+      );
     }
 
     if (m_frameTickCallback) {
       const float callbackMs = elapsedMs([this, deltaMs] { m_frameTickCallback(deltaMs); });
       recordSurfaceProfileEvent(*this, SurfaceProfileEvent::FrameTick, callbackMs);
-      logSlowSurfaceOperation(callbackMs, "surface frame tick callback took {:.1f}ms ({}, {}x{} logical)", callbackMs,
-                              static_cast<const void*>(this), m_width, m_height);
+      logSlowSurfaceOperation(
+          callbackMs, "surface frame tick callback took {:.1f}ms ({}, {}x{} logical)", callbackMs,
+          static_cast<const void*>(this), m_width, m_height
+      );
     }
 
     if (m_updateCallback) {
       const float updateMs = elapsedMs([this] { m_updateCallback(); });
       recordSurfaceProfileEvent(*this, SurfaceProfileEvent::UpdateCallback, updateMs);
-      logSlowSurfaceOperation(updateMs, "surface update callback took {:.1f}ms ({}, {}x{} logical)", updateMs,
-                              static_cast<const void*>(this), m_width, m_height);
+      logSlowSurfaceOperation(
+          updateMs, "surface update callback took {:.1f}ms ({}, {}x{} logical)", updateMs,
+          static_cast<const void*>(this), m_width, m_height
+      );
     }
   }
 

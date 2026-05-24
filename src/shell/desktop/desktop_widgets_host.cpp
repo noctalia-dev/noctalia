@@ -30,10 +30,11 @@ namespace {
 
 } // namespace
 
-void DesktopWidgetsHost::initialize(WaylandConnection& wayland, ConfigService* config,
-                                    PipeWireSpectrum* pipewireSpectrum, const WeatherService* weather,
-                                    RenderContext* renderContext, MprisService* mpris, HttpClient* httpClient,
-                                    SystemMonitorService* sysmon) {
+void DesktopWidgetsHost::initialize(
+    WaylandConnection& wayland, ConfigService* config, PipeWireSpectrum* pipewireSpectrum,
+    const WeatherService* weather, RenderContext* renderContext, MprisService* mpris, HttpClient* httpClient,
+    SystemMonitorService* sysmon
+) {
   m_wayland = &wayland;
   m_config = config;
   m_renderContext = renderContext;
@@ -183,7 +184,8 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
   const float outW = desktop_widgets::outputLogicalWidth(output);
   const float outH = desktop_widgets::outputLogicalHeight(output);
   const WidgetTransformClippedGeometry geometry = computeClippedWidgetSurfaceGeometry(
-      clampedState.cx, clampedState.cy, intrinsicWidth, intrinsicHeight, 1.0f, clampedState.rotationRad, outW, outH);
+      clampedState.cx, clampedState.cy, intrinsicWidth, intrinsicHeight, 1.0f, clampedState.rotationRad, outW, outH
+  );
 
   auto surfaceConfig = LayerSurfaceConfig{
       .nameSpace = "noctalia-desktop-widget",
@@ -234,8 +236,9 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
     }
   });
 
-  instance->surface->setConfigureCallback(
-      [rawInstance](std::uint32_t /*width*/, std::uint32_t /*height*/) { rawInstance->surface->requestLayout(); });
+  instance->surface->setConfigureCallback([rawInstance](std::uint32_t /*width*/, std::uint32_t /*height*/) {
+    rawInstance->surface->requestLayout();
+  });
   instance->surface->setPrepareFrameCallback([this, rawInstance](bool needsUpdate, bool needsLayout) {
     prepareFrame(*rawInstance, needsUpdate, needsLayout);
   });
@@ -271,8 +274,9 @@ void DesktopWidgetsHost::buildScene(DesktopWidgetInstance& instance) {
 
     instance.inputDispatcher.setSceneRoot(instance.sceneRoot.get());
     if (m_wayland != nullptr) {
-      instance.inputDispatcher.setCursorShapeCallback(
-          [this](std::uint32_t serial, std::uint32_t shape) { m_wayland->setCursorShape(serial, shape); });
+      instance.inputDispatcher.setCursorShapeCallback([this](std::uint32_t serial, std::uint32_t shape) {
+        m_wayland->setCursorShape(serial, shape);
+      });
     }
 
     if (instance.surface != nullptr) {
@@ -316,9 +320,10 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
     }
   }
 
-  const WidgetTransformClippedGeometry geometry =
-      computeClippedWidgetSurfaceGeometry(instance.state.cx, instance.state.cy, instance.intrinsicWidth,
-                                          instance.intrinsicHeight, 1.0f, instance.state.rotationRad, outputW, outputH);
+  const WidgetTransformClippedGeometry geometry = computeClippedWidgetSurfaceGeometry(
+      instance.state.cx, instance.state.cy, instance.intrinsicWidth, instance.intrinsicHeight, 1.0f,
+      instance.state.rotationRad, outputW, outputH
+  );
 
   if (instance.surface->width() != geometry.surfaceWidth || instance.surface->height() != geometry.surfaceHeight) {
     instance.surface->requestSize(geometry.surfaceWidth, geometry.surfaceHeight);
@@ -326,13 +331,16 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
   instance.surface->setMargins(geometry.marginTop, 0, 0, geometry.marginLeft);
 
   if (instance.sceneRoot != nullptr) {
-    instance.sceneRoot->setFrameSize(static_cast<float>(instance.surface->width()),
-                                     static_cast<float>(instance.surface->height()));
+    instance.sceneRoot->setFrameSize(
+        static_cast<float>(instance.surface->width()), static_cast<float>(instance.surface->height())
+    );
   }
   if (instance.transformNode != nullptr) {
     instance.transformNode->setFrameSize(instance.intrinsicWidth, instance.intrinsicHeight);
-    instance.transformNode->setPosition(geometry.contentOffsetX - instance.intrinsicWidth * 0.5f,
-                                        geometry.contentOffsetY - instance.intrinsicHeight * 0.5f);
+    instance.transformNode->setPosition(
+        geometry.contentOffsetX - instance.intrinsicWidth * 0.5f,
+        geometry.contentOffsetY - instance.intrinsicHeight * 0.5f
+    );
     instance.transformNode->setRotation(instance.state.rotationRad);
     instance.transformNode->setScale(1.0f);
   }
@@ -367,13 +375,15 @@ bool DesktopWidgetsHost::onPointerEvent(const PointerEvent& event) {
     target->inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial);
     break;
   case PointerEvent::Type::Button:
-    target->inputDispatcher.pointerButton(static_cast<float>(event.sx), static_cast<float>(event.sy), event.button,
-                                          event.state == 1);
+    target->inputDispatcher.pointerButton(
+        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, event.state == 1
+    );
     break;
   case PointerEvent::Type::Axis:
-    target->inputDispatcher.pointerAxis(static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis,
-                                        event.axisSource, event.axisValue, event.axisDiscrete, event.axisValue120,
-                                        event.axisLines);
+    target->inputDispatcher.pointerAxis(
+        static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis, event.axisSource, event.axisValue,
+        event.axisDiscrete, event.axisValue120, event.axisLines
+    );
     break;
   }
 

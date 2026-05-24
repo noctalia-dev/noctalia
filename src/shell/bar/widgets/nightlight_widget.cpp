@@ -3,7 +3,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "system/gamma_service.h"
-#include "ui/controls/glyph.h"
+#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -50,12 +50,14 @@ void NightLightWidget::create() {
   });
   m_area = area.get();
 
-  auto glyph = std::make_unique<Glyph>();
-  glyph->setGlyph("nightlight-off");
-  glyph->setGlyphSize(Style::barGlyphSize * m_contentScale);
-  glyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-  m_glyph = glyph.get();
-  area->addChild(std::move(glyph));
+  area->addChild(
+      ui::glyph({
+          .out = &m_glyph,
+          .glyph = "nightlight-off",
+          .glyphSize = Style::barGlyphSize * m_contentScale,
+          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+      })
+  );
 
   setRoot(std::move(area));
 }

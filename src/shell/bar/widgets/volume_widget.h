@@ -17,8 +17,9 @@ enum class VolumeWidgetTarget {
 
 class VolumeWidget : public Widget {
 public:
-  VolumeWidget(PipeWireService* audio, const Config* config, wl_output* output, bool showLabel,
-               VolumeWidgetTarget target);
+  VolumeWidget(
+      PipeWireService* audio, const Config* config, wl_output* output, bool showLabel, VolumeWidgetTarget target
+  );
 
   void create() override;
 

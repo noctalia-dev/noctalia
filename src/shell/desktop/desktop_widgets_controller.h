@@ -27,9 +27,11 @@ public:
   DesktopWidgetsController(const DesktopWidgetsController&) = delete;
   DesktopWidgetsController& operator=(const DesktopWidgetsController&) = delete;
 
-  void initialize(WaylandConnection& wayland, ConfigService* config, PipeWireSpectrum* pipewireSpectrum,
-                  const WeatherService* weather, RenderContext* renderContext, MprisService* mpris,
-                  HttpClient* httpClient, SystemMonitorService* sysmon);
+  void initialize(
+      WaylandConnection& wayland, ConfigService* config, PipeWireSpectrum* pipewireSpectrum,
+      const WeatherService* weather, RenderContext* renderContext, MprisService* mpris, HttpClient* httpClient,
+      SystemMonitorService* sysmon
+  );
 
   void registerIpc(IpcService& ipc);
   void onOutputChange();

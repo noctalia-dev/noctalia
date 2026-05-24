@@ -33,8 +33,8 @@ namespace {
     static_cast<MangoWorkspaceBackend*>(data)->onOutputActive(output, active);
   }
 
-  void outputTag(void* data, zdwl_ipc_output_v2* output, uint32_t tag, uint32_t state, uint32_t clients,
-                 uint32_t focused) {
+  void
+  outputTag(void* data, zdwl_ipc_output_v2* output, uint32_t tag, uint32_t state, uint32_t clients, uint32_t focused) {
     static_cast<MangoWorkspaceBackend*>(data)->onOutputTag(output, tag, state, clients, focused);
   }
 
@@ -121,8 +121,10 @@ void MangoWorkspaceBackend::activateForOutput(wl_output* output, const std::stri
 
   const std::size_t protocolIndex = protocolIndexForDisplay(*displayIndex);
   zdwl_ipc_output_v2_set_tags(it->second.handle, 1u << protocolIndex, 0);
-  kLog.debug("activate request display_tag={} protocol_tag={} output={} snapshot={}", *displayIndex + 1,
-             protocolIndex + 1, static_cast<const void*>(output), summarizeTags(it->second));
+  kLog.debug(
+      "activate request display_tag={} protocol_tag={} output={} snapshot={}", *displayIndex + 1, protocolIndex + 1,
+      static_cast<const void*>(output), summarizeTags(it->second)
+  );
 }
 
 void MangoWorkspaceBackend::activateForOutput(wl_output* output, const Workspace& workspace) {
@@ -238,8 +240,10 @@ void MangoWorkspaceBackend::onOutputAppId(zdwl_ipc_output_v2* handle, const char
   }
 }
 
-void MangoWorkspaceBackend::onOutputTag(zdwl_ipc_output_v2* handle, std::uint32_t tag, std::uint32_t stateValue,
-                                        std::uint32_t clients, std::uint32_t focused) {
+void MangoWorkspaceBackend::onOutputTag(
+    zdwl_ipc_output_v2* handle, std::uint32_t tag, std::uint32_t stateValue, std::uint32_t clients,
+    std::uint32_t focused
+) {
   const auto it = m_outputByHandle.find(handle);
   if (it == m_outputByHandle.end()) {
     return;

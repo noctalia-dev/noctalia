@@ -86,8 +86,10 @@ PowerProfilesService::PowerProfilesService(SystemBus& bus) : m_bus(bus) {
 
   m_proxy->uponSignal("PropertiesChanged")
       .onInterface(kPropertiesInterface)
-      .call([this](const std::string& interfaceName, const std::map<std::string, sdbus::Variant>& changedProperties,
-                   const std::vector<std::string>& invalidatedProperties) {
+      .call([this](
+                const std::string& interfaceName, const std::map<std::string, sdbus::Variant>& changedProperties,
+                const std::vector<std::string>& invalidatedProperties
+            ) {
         if (interfaceName != kPowerProfilesInterface) {
           return;
         }
@@ -216,7 +218,8 @@ void PowerProfilesService::registerIpc(IpcService& ipc) {
         }
         return "ok\n";
       },
-      "power-set <profile>", "Set the UPower power profile (e.g. performance, balanced, power-saver)");
+      "power-set <profile>", "Set the UPower power profile (e.g. performance, balanced, power-saver)"
+  );
   ipc.registerHandler(
       "power-cycle",
       [this](const std::string& args) -> std::string {
@@ -228,5 +231,6 @@ void PowerProfilesService::registerIpc(IpcService& ipc) {
         }
         return "ok\n";
       },
-      "power-cycle", "Switch to the next power profile in UPower's ordered list (wraps)");
+      "power-cycle", "Switch to the next power profile in UPower's ordered list (wraps)"
+  );
 }

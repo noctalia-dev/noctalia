@@ -27,9 +27,11 @@ enum class ActiveWindowDisplayMode : std::uint8_t {
 
 class ActiveWindowWidget : public Widget {
 public:
-  ActiveWindowWidget(CompositorPlatform& platform, float maxWidth, float minWidth, float iconSize,
-                     ActiveWindowTitleScrollMode titleScrollMode,
-                     ActiveWindowDisplayMode displayMode = ActiveWindowDisplayMode::IconAndText);
+  ActiveWindowWidget(
+      CompositorPlatform& platform, float maxWidth, float minWidth, float iconSize,
+      ActiveWindowTitleScrollMode titleScrollMode,
+      ActiveWindowDisplayMode displayMode = ActiveWindowDisplayMode::IconAndText
+  );
 
   void create() override;
 

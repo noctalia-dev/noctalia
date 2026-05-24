@@ -4,16 +4,8 @@
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "shell/panel/panel_manager.h"
-#include "ui/controls/button.h"
+#include "ui/builders.h"
 #include "ui/controls/collapsible.h"
-#include "ui/controls/flex.h"
-#include "ui/controls/glyph.h"
-#include "ui/controls/input.h"
-#include "ui/controls/label.h"
-#include "ui/controls/scroll_view.h"
-#include "ui/controls/separator.h"
-#include "ui/controls/spinner.h"
-#include "ui/controls/toggle.h"
 #include "ui/palette.h"
 
 #include <algorithm>
@@ -85,25 +77,20 @@ namespace {
   }
 
   std::unique_ptr<Flex> makeMetricPill(const char* glyphName, std::string text, float scale) {
-    auto pill = std::make_unique<Flex>();
-    pill->setDirection(FlexDirection::Horizontal);
-    pill->setAlign(FlexAlign::Center);
-    pill->setGap(Style::spaceXs * 0.5f * scale);
-
-    auto glyph = std::make_unique<Glyph>();
-    glyph->setGlyph(glyphName);
-    glyph->setGlyphSize(Style::fontSizeCaption * scale);
-    glyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-    pill->addChild(std::move(glyph));
-
-    auto label = std::make_unique<Label>();
-    label->setText(std::move(text));
-    label->setCaptionStyle();
-    label->setFontSize(Style::fontSizeCaption * scale);
-    label->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-    pill->addChild(std::move(label));
-
-    return pill;
+    return ui::row(
+        {.align = FlexAlign::Center, .gap = Style::spaceXs * 0.5f * scale},
+        ui::glyph({
+            .glyph = glyphName,
+            .glyphSize = Style::fontSizeCaption * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+        }),
+        ui::label({
+            .text = std::move(text),
+            .fontSize = Style::fontSizeCaption * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .configure = [](Label& label) { label.setCaptionStyle(); },
+        })
+    );
   }
 
   class BluetoothDeviceRow : public Collapsible {
@@ -115,39 +102,40 @@ namespace {
       setFill(colorSpecFromRole(ColorRole::Surface));
       clearBorder();
 
-      auto header = std::make_unique<Flex>();
-      header->setDirection(FlexDirection::Horizontal);
-      header->setAlign(FlexAlign::Center);
-      header->setGap(Style::spaceSm * scale);
+      auto header = ui::row(
+          {.align = FlexAlign::Center,
+           .gap = Style::spaceSm * scale,
+           .padding = Style::spaceSm * scale,
+           .minHeight = kRowMinHeight * scale},
+          ui::glyph({
+              .glyph = glyphFor(m_device.kind),
+              .glyphSize = Style::fontSizeBody * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+          }),
+          ui::label({
+              .text = m_device.alias,
+              .fontSize = Style::fontSizeBody * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .fontWeight = m_device.connected ? FontWeight::Bold : FontWeight::Normal,
+              .flexGrow = 1.0f,
+          })
+      );
       header->setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
-      header->setMinHeight(kRowMinHeight * scale);
 
-      auto icon = std::make_unique<Glyph>();
-      icon->setGlyph(glyphFor(m_device.kind));
-      icon->setGlyphSize(Style::fontSizeBody * scale);
-      icon->setColor(colorSpecFromRole(ColorRole::OnSurface));
-      header->addChild(std::move(icon));
-
-      auto alias = std::make_unique<Label>();
-      alias->setText(m_device.alias);
-      alias->setFontWeight(m_device.connected ? FontWeight::Bold : FontWeight::Normal);
-      alias->setFontSize(Style::fontSizeBody * scale);
-      alias->setColor(colorSpecFromRole(ColorRole::OnSurface));
-      alias->setFlexGrow(1.0f);
-      header->addChild(std::move(alias));
-
-      auto metrics = std::make_unique<Flex>();
-      metrics->setDirection(FlexDirection::Horizontal);
-      metrics->setAlign(FlexAlign::Center);
-      metrics->setGap(Style::spaceSm * scale);
+      auto metrics = ui::row({
+          .align = FlexAlign::Center,
+          .gap = Style::spaceSm * scale,
+      });
 
       if (m_device.hasBattery) {
         metrics->addChild(
-            makeMetricPill("battery", std::to_string(static_cast<int>(m_device.batteryPercent)) + "%", scale));
+            makeMetricPill("battery", std::to_string(static_cast<int>(m_device.batteryPercent)) + "%", scale)
+        );
       }
       if (m_device.hasRssi && bucketFor(m_device) == DeviceBucket::Available) {
         metrics->addChild(
-            makeMetricPill("antenna-bars-5", std::to_string(signalPercentFromRssi(m_device.rssi)) + "%", scale));
+            makeMetricPill("antenna-bars-5", std::to_string(signalPercentFromRssi(m_device.rssi)) + "%", scale)
+        );
       }
       if (!metrics->children().empty()) {
         header->addChild(std::move(metrics));
@@ -156,96 +144,106 @@ namespace {
       const auto bucket = bucketFor(m_device);
 
       if (m_device.connecting) {
-        auto spinner = std::make_unique<Spinner>();
-        spinner->setSpinnerSize(Style::fontSizeBody * scale);
-        spinner->setColor(colorSpecFromRole(ColorRole::Primary));
-        m_connectingSpinner = spinner.get();
-        header->addChild(std::move(spinner));
+        header->addChild(
+            ui::spinner({
+                .out = &m_connectingSpinner,
+                .color = colorSpecFromRole(ColorRole::Primary),
+                .spinnerSize = Style::fontSizeBody * scale,
+            })
+        );
       } else {
-        auto primary = std::make_unique<Button>();
-        primary->setGlyphSize(Style::fontSizeBody * scale);
-        primary->setPadding(Style::spaceXs * scale);
-        primary->setRadius(Style::scaledRadiusSm(scale));
+        ButtonVariant primaryVariant = ButtonVariant::Default;
+        std::string primaryGlyph;
         switch (bucket) {
         case DeviceBucket::Connected:
-          primary->setVariant(ButtonVariant::Destructive);
-          primary->setGlyph("plug-off");
+          primaryVariant = ButtonVariant::Destructive;
+          primaryGlyph = "plug-off";
           break;
         case DeviceBucket::Paired:
-          primary->setVariant(ButtonVariant::Default);
-          primary->setGlyph("plug");
+          primaryGlyph = "plug";
           break;
         case DeviceBucket::Available:
-          primary->setVariant(ButtonVariant::Default);
-          primary->setGlyph("bluetooth");
+          primaryGlyph = "bluetooth";
           break;
         }
-        primary->setOnClick([this]() {
-          if (m_service == nullptr) {
-            return;
-          }
-          switch (bucketFor(m_device)) {
-          case DeviceBucket::Connected:
-            m_service->disconnectDevice(m_device.path);
-            break;
-          case DeviceBucket::Paired:
-            m_service->connect(m_device.path);
-            break;
-          case DeviceBucket::Available:
-            m_service->pair(m_device.path);
-            break;
-          }
-          PanelManager::instance().refresh();
+        auto primary = ui::button({
+            .glyph = std::move(primaryGlyph),
+            .glyphSize = Style::fontSizeBody * scale,
+            .variant = primaryVariant,
+            .padding = Style::spaceXs * scale,
+            .radius = Style::scaledRadiusSm(scale),
+            .onClick = [this]() {
+              if (m_service == nullptr) {
+                return;
+              }
+              switch (bucketFor(m_device)) {
+              case DeviceBucket::Connected:
+                m_service->disconnectDevice(m_device.path);
+                break;
+              case DeviceBucket::Paired:
+                m_service->connect(m_device.path);
+                break;
+              case DeviceBucket::Available:
+                m_service->pair(m_device.path);
+                break;
+              }
+              PanelManager::instance().refresh();
+            },
         });
         header->addChild(std::move(primary));
       }
 
       if (m_device.paired) {
-        auto forget = std::make_unique<Button>();
-        forget->setVariant(ButtonVariant::Ghost);
-        forget->setGlyph("trash");
-        forget->setGlyphSize(Style::fontSizeBody * scale);
-        forget->setPadding(Style::spaceXs * scale);
-        forget->setRadius(Style::scaledRadiusSm(scale));
-        forget->setOnClick([this]() {
-          if (m_service != nullptr) {
-            m_service->forget(m_device.path);
-          }
-          PanelManager::instance().refresh();
-        });
-        header->addChild(std::move(forget));
+        header->addChild(
+            ui::button({
+                .glyph = "trash",
+                .glyphSize = Style::fontSizeBody * scale,
+                .variant = ButtonVariant::Ghost,
+                .padding = Style::spaceXs * scale,
+                .radius = Style::scaledRadiusSm(scale),
+                .onClick = [this]() {
+                  if (m_service != nullptr) {
+                    m_service->forget(m_device.path);
+                  }
+                  PanelManager::instance().refresh();
+                },
+            })
+        );
       }
 
       setHeader(std::move(header));
 
       if (m_device.paired) {
-        auto body = std::make_unique<Flex>();
-        body->setDirection(FlexDirection::Horizontal);
-        body->setAlign(FlexAlign::Center);
-        body->setGap(Style::spaceSm * scale);
-        body->setPadding(Style::spaceXs * scale, Style::spaceMd * scale, Style::spaceSm * scale,
-                         Style::spaceMd * scale);
-
-        auto trustLabel = std::make_unique<Label>();
-        trustLabel->setText(i18n::tr("control-center.bluetooth.auto-reconnect"));
-        trustLabel->setCaptionStyle();
-        trustLabel->setFontSize(Style::fontSizeCaption * scale);
-        trustLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-        trustLabel->setFlexGrow(1.0f);
-        body->addChild(std::move(trustLabel));
-
-        auto trust = std::make_unique<Toggle>();
-        trust->setToggleSize(ToggleSize::Small);
-        trust->setScale(scale);
-        trust->setCheckedImmediate(m_device.trusted);
-        trust->setOnChange([this](bool checked) {
-          if (m_service != nullptr) {
-            m_service->setTrusted(m_device.path, checked);
-          }
-        });
-        body->addChild(std::move(trust));
-
-        setBody(std::move(body));
+        setBody(
+            ui::row(
+                {.align = FlexAlign::Center,
+                 .gap = Style::spaceSm * scale,
+                 .configure =
+                     [scale](Flex& body) {
+                       body.setPadding(
+                           Style::spaceXs * scale, Style::spaceMd * scale, Style::spaceSm * scale,
+                           Style::spaceMd * scale
+                       );
+                     }},
+                ui::label({
+                    .text = i18n::tr("control-center.bluetooth.auto-reconnect"),
+                    .fontSize = Style::fontSizeCaption * scale,
+                    .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                    .flexGrow = 1.0f,
+                    .configure = [](Label& label) { label.setCaptionStyle(); },
+                }),
+                ui::toggle({
+                    .checkedImmediate = m_device.trusted,
+                    .toggleSize = ToggleSize::Small,
+                    .scale = scale,
+                    .onChange = [this](bool checked) {
+                      if (m_service != nullptr) {
+                        m_service->setTrusted(m_device.path, checked);
+                      }
+                    },
+                })
+            )
+        );
       }
     }
 
@@ -270,140 +268,148 @@ BluetoothTab::~BluetoothTab() = default;
 std::unique_ptr<Flex> BluetoothTab::create() {
   const float scale = contentScale();
 
-  auto tab = std::make_unique<Flex>();
-  tab->setDirection(FlexDirection::Vertical);
-  tab->setAlign(FlexAlign::Stretch);
-  tab->setGap(Style::spaceMd * scale);
-  m_rootLayout = tab.get();
-
-  auto pairingCard = std::make_unique<Flex>();
-  applySectionCardStyle(*pairingCard, scale, panelCardOpacity(), panelBordersEnabled());
-  pairingCard->setVisible(false);
-  m_pairingCard = pairingCard.get();
-
-  auto pairingTitle = std::make_unique<Label>();
-  pairingTitle->setFontWeight(FontWeight::Bold);
-  pairingTitle->setFontSize(Style::fontSizeBody * scale);
-  pairingTitle->setColor(colorSpecFromRole(ColorRole::OnSurface));
-  m_pairingTitle = pairingTitle.get();
-  pairingCard->addChild(std::move(pairingTitle));
-
-  auto pairingDetail = std::make_unique<Label>();
-  pairingDetail->setCaptionStyle();
-  pairingDetail->setFontSize(Style::fontSizeCaption * scale);
-  pairingDetail->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-  m_pairingDetail = pairingDetail.get();
-  pairingCard->addChild(std::move(pairingDetail));
-
-  auto pairingCode = std::make_unique<Label>();
-  pairingCode->setFontWeight(FontWeight::Bold);
-  pairingCode->setFontSize(Style::fontSizeTitle * scale);
-  pairingCode->setColor(colorSpecFromRole(ColorRole::Primary));
-  m_pairingCode = pairingCode.get();
-  pairingCard->addChild(std::move(pairingCode));
-
-  auto pairingInputRow = std::make_unique<Flex>();
-  pairingInputRow->setDirection(FlexDirection::Horizontal);
-  pairingInputRow->setAlign(FlexAlign::Center);
-  pairingInputRow->setGap(Style::spaceSm * scale);
-  pairingInputRow->setVisible(false);
-  m_pairingInputRow = pairingInputRow.get();
-
-  auto pairingInput = std::make_unique<Input>();
-  pairingInput->setPlaceholder(i18n::tr("control-center.bluetooth.enter-code"));
-  pairingInput->setFlexGrow(1.0f);
-  pairingInput->setOnSubmit([this](const std::string& value) {
-    if (m_agent == nullptr) {
-      return;
-    }
-    const auto req = m_agent->pendingRequest();
-    if (req.kind == BluetoothPairingKind::PinCode) {
-      m_agent->submitPin(value);
-    } else if (req.kind == BluetoothPairingKind::Passkey) {
-      try {
-        m_agent->submitPasskey(static_cast<std::uint32_t>(std::stoul(value)));
-      } catch (...) {
-        m_agent->cancelPending();
-      }
-    }
-    PanelManager::instance().refresh();
+  auto tab = ui::column({
+      .out = &m_rootLayout,
+      .align = FlexAlign::Stretch,
+      .gap = Style::spaceMd * scale,
   });
-  m_pairingInput = pairingInput.get();
-  pairingInputRow->addChild(std::move(pairingInput));
+
+  auto pairingCard = ui::column({
+      .out = &m_pairingCard,
+      .visible = false,
+      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
+        applySectionCardStyle(card, scale, opacity, borders);
+      },
+  });
+
+  pairingCard->addChild(
+      ui::label({
+          .out = &m_pairingTitle,
+          .fontSize = Style::fontSizeBody * scale,
+          .color = colorSpecFromRole(ColorRole::OnSurface),
+          .fontWeight = FontWeight::Bold,
+      })
+  );
+
+  pairingCard->addChild(
+      ui::label({
+          .out = &m_pairingDetail,
+          .fontSize = Style::fontSizeCaption * scale,
+          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+          .configure = [](Label& label) { label.setCaptionStyle(); },
+      })
+  );
+
+  pairingCard->addChild(
+      ui::label({
+          .out = &m_pairingCode,
+          .fontSize = Style::fontSizeTitle * scale,
+          .color = colorSpecFromRole(ColorRole::Primary),
+          .fontWeight = FontWeight::Bold,
+      })
+  );
+
+  auto pairingInputRow = ui::row(
+      {.out = &m_pairingInputRow, .align = FlexAlign::Center, .gap = Style::spaceSm * scale, .visible = false},
+      ui::input({
+          .out = &m_pairingInput,
+          .placeholder = i18n::tr("control-center.bluetooth.enter-code"),
+          .flexGrow = 1.0f,
+          .onSubmit = [this](const std::string& value) {
+            if (m_agent == nullptr) {
+              return;
+            }
+            const auto req = m_agent->pendingRequest();
+            if (req.kind == BluetoothPairingKind::PinCode) {
+              m_agent->submitPin(value);
+            } else if (req.kind == BluetoothPairingKind::Passkey) {
+              try {
+                m_agent->submitPasskey(static_cast<std::uint32_t>(std::stoul(value)));
+              } catch (...) {
+                m_agent->cancelPending();
+              }
+            }
+            PanelManager::instance().refresh();
+          },
+      })
+  );
   pairingCard->addChild(std::move(pairingInputRow));
 
-  auto pairingButtonRow = std::make_unique<Flex>();
-  pairingButtonRow->setDirection(FlexDirection::Horizontal);
-  pairingButtonRow->setAlign(FlexAlign::Center);
-  pairingButtonRow->setGap(Style::spaceSm * scale);
-  m_pairingButtonRow = pairingButtonRow.get();
-
-  auto accept = std::make_unique<Button>();
-  accept->setVariant(ButtonVariant::Default);
-  accept->setText(i18n::tr("control-center.bluetooth.accept"));
-  accept->setOnClick([this]() {
-    if (m_agent == nullptr) {
-      return;
-    }
-    const auto req = m_agent->pendingRequest();
-    switch (req.kind) {
-    case BluetoothPairingKind::Confirm:
-    case BluetoothPairingKind::Authorize:
-    case BluetoothPairingKind::AuthorizeService:
-    case BluetoothPairingKind::DisplayPinCode:
-      m_agent->acceptConfirm();
-      break;
-    case BluetoothPairingKind::PinCode:
-      if (m_pairingInput != nullptr) {
-        m_agent->submitPin(m_pairingInput->value());
-      }
-      break;
-    case BluetoothPairingKind::Passkey:
-      if (m_pairingInput != nullptr) {
-        try {
-          m_agent->submitPasskey(static_cast<std::uint32_t>(std::stoul(m_pairingInput->value())));
-        } catch (...) {
-          m_agent->cancelPending();
-        }
-      }
-      break;
-    default:
-      m_agent->cancelPending();
-      break;
-    }
-    PanelManager::instance().refresh();
-  });
-  m_pairingAccept = accept.get();
-  pairingButtonRow->addChild(std::move(accept));
-
-  auto reject = std::make_unique<Button>();
-  reject->setVariant(ButtonVariant::Ghost);
-  reject->setText(i18n::tr("control-center.bluetooth.reject"));
-  reject->setOnClick([this]() {
-    if (m_agent != nullptr) {
-      m_agent->rejectConfirm();
-    }
-    PanelManager::instance().refresh();
-  });
-  m_pairingReject = reject.get();
-  pairingButtonRow->addChild(std::move(reject));
+  auto pairingButtonRow = ui::row(
+      {.out = &m_pairingButtonRow, .align = FlexAlign::Center, .gap = Style::spaceSm * scale},
+      ui::button({
+          .out = &m_pairingAccept,
+          .text = i18n::tr("control-center.bluetooth.accept"),
+          .variant = ButtonVariant::Default,
+          .onClick =
+              [this]() {
+                if (m_agent == nullptr) {
+                  return;
+                }
+                const auto req = m_agent->pendingRequest();
+                switch (req.kind) {
+                case BluetoothPairingKind::Confirm:
+                case BluetoothPairingKind::Authorize:
+                case BluetoothPairingKind::AuthorizeService:
+                case BluetoothPairingKind::DisplayPinCode:
+                  m_agent->acceptConfirm();
+                  break;
+                case BluetoothPairingKind::PinCode:
+                  if (m_pairingInput != nullptr) {
+                    m_agent->submitPin(m_pairingInput->value());
+                  }
+                  break;
+                case BluetoothPairingKind::Passkey:
+                  if (m_pairingInput != nullptr) {
+                    try {
+                      m_agent->submitPasskey(static_cast<std::uint32_t>(std::stoul(m_pairingInput->value())));
+                    } catch (...) {
+                      m_agent->cancelPending();
+                    }
+                  }
+                  break;
+                default:
+                  m_agent->cancelPending();
+                  break;
+                }
+                PanelManager::instance().refresh();
+              },
+      }),
+      ui::button({
+          .out = &m_pairingReject,
+          .text = i18n::tr("control-center.bluetooth.reject"),
+          .variant = ButtonVariant::Ghost,
+          .onClick = [this]() {
+            if (m_agent != nullptr) {
+              m_agent->rejectConfirm();
+            }
+            PanelManager::instance().refresh();
+          },
+      })
+  );
   pairingCard->addChild(std::move(pairingButtonRow));
 
   tab->addChild(std::move(pairingCard));
 
-  auto listCard = std::make_unique<Flex>();
-  applySectionCardStyle(*listCard, scale, panelCardOpacity(), panelBordersEnabled());
-  listCard->setFlexGrow(1.0f);
-  m_listCard = listCard.get();
+  auto listCard = ui::column({
+      .out = &m_listCard,
+      .flexGrow = 1.0f,
+      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
+        applySectionCardStyle(card, scale, opacity, borders);
+      },
+  });
 
-  auto listScroll = std::make_unique<ScrollView>();
-  listScroll->setFlexGrow(1.0f);
-  listScroll->setScrollbarVisible(true);
-  listScroll->setViewportPaddingH(0.0f);
-  listScroll->setViewportPaddingV(0.0f);
-  listScroll->clearFill();
-  listScroll->clearBorder();
-  m_listScroll = listScroll.get();
+  auto listScroll = ui::scrollView({
+      .out = &m_listScroll,
+      .scrollbarVisible = true,
+      .viewportPaddingH = 0.0f,
+      .viewportPaddingV = 0.0f,
+      .flexGrow = 1.0f,
+      .configure = [](ScrollView& scrollView) {
+        scrollView.clearFill();
+        scrollView.clearBorder();
+      },
+  });
   m_list = listScroll->content();
   m_list->setDirection(FlexDirection::Vertical);
   m_list->setAlign(FlexAlign::Stretch);
@@ -620,12 +626,14 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
   }
 
   if (m_service == nullptr) {
-    auto empty = std::make_unique<Label>();
-    empty->setText(i18n::tr("control-center.bluetooth.unavailable"));
-    empty->setCaptionStyle();
-    empty->setFontSize(Style::fontSizeCaption * scale);
-    empty->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-    m_list->addChild(std::move(empty));
+    m_list->addChild(
+        ui::label({
+            .text = i18n::tr("control-center.bluetooth.unavailable"),
+            .fontSize = Style::fontSizeCaption * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .configure = [](Label& label) { label.setCaptionStyle(); },
+        })
+    );
     m_list->layout(renderer);
     return;
   }
@@ -634,105 +642,110 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
 
   // Bluetooth power row
   {
-    auto row = std::make_unique<Flex>();
-    row->setDirection(FlexDirection::Horizontal);
-    row->setAlign(FlexAlign::Center);
-    row->setGap(Style::spaceSm * scale);
-    row->setMinHeight(Style::controlHeightSm * scale);
-    row->setMaxHeight(Style::controlHeightSm * scale);
+    auto row = ui::row(
+        {.align = FlexAlign::Center,
+         .gap = Style::spaceSm * scale,
+         .minHeight = Style::controlHeightSm * scale,
+         .maxHeight = Style::controlHeightSm * scale},
+        ui::label({
+            .text = i18n::tr("control-center.bluetooth.bluetooth"),
+            .fontSize = Style::fontSizeCaption * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .flexGrow = 1.0f,
+            .configure = [](Label& label) { label.setCaptionStyle(); },
+        })
+    );
 
-    auto label = std::make_unique<Label>();
-    label->setText(i18n::tr("control-center.bluetooth.bluetooth"));
-    label->setCaptionStyle();
-    label->setFontSize(Style::fontSizeCaption * scale);
-    label->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-    label->setFlexGrow(1.0f);
-    row->addChild(std::move(label));
+    row->addChild(
+        ui::spinner({
+            .out = &m_scanSpinner,
+            .color = colorSpecFromRole(ColorRole::Primary),
+            .spinnerSize = Style::fontSizeCaption * scale,
+            .visible = false,
+        })
+    );
 
-    auto spinner = std::make_unique<Spinner>();
-    spinner->setSpinnerSize(Style::fontSizeCaption * scale);
-    spinner->setColor(colorSpecFromRole(ColorRole::Primary));
-    spinner->setVisible(false);
-    m_scanSpinner = spinner.get();
-    row->addChild(std::move(spinner));
+    row->addChild(
+        ui::button({
+            .out = &m_rescanButton,
+            .glyph = "refresh",
+            .glyphSize = Style::fontSizeCaption * scale,
+            .enabled = s.adapterPresent && s.powered,
+            .variant = ButtonVariant::Ghost,
+            .minHeight = Style::fontSizeCaption * scale,
+            .padding = Style::spaceXs * scale,
+            .radius = Style::scaledRadiusSm(scale),
+            .onClick = [this]() {
+              if (m_service == nullptr) {
+                return;
+              }
+              m_service->stopDiscovery();
+              m_service->startDiscovery();
+            },
+        })
+    );
 
-    auto rescan = std::make_unique<Button>();
-    rescan->setVariant(ButtonVariant::Ghost);
-    rescan->setGlyph("refresh");
-    rescan->setGlyphSize(Style::fontSizeCaption * scale);
-    rescan->setMinHeight(Style::fontSizeCaption * scale);
-    rescan->setPadding(Style::spaceXs * scale);
-    rescan->setRadius(Style::scaledRadiusSm(scale));
-    rescan->setEnabled(s.adapterPresent && s.powered);
-    rescan->setOnClick([this]() {
-      if (m_service == nullptr) {
-        return;
-      }
-      m_service->stopDiscovery();
-      m_service->startDiscovery();
-    });
-    m_rescanButton = rescan.get();
-    row->addChild(std::move(rescan));
-
-    auto powerToggle = std::make_unique<Toggle>();
-    powerToggle->setToggleSize(ToggleSize::Small);
-    powerToggle->setScale(scale);
-    powerToggle->setCheckedImmediate(s.powered);
-    powerToggle->setEnabled(s.adapterPresent);
-    powerToggle->setOnChange([this](bool checked) {
-      if (m_service != nullptr) {
-        m_service->setPowered(checked);
-      }
-    });
-    m_powerToggle = powerToggle.get();
-    row->addChild(std::move(powerToggle));
+    row->addChild(
+        ui::toggle({
+            .out = &m_powerToggle,
+            .checkedImmediate = s.powered,
+            .enabled = s.adapterPresent,
+            .toggleSize = ToggleSize::Small,
+            .scale = scale,
+            .onChange = [this](bool checked) {
+              if (m_service != nullptr) {
+                m_service->setPowered(checked);
+              }
+            },
+        })
+    );
 
     m_list->addChild(std::move(row));
   }
 
   // Visible row
   {
-    auto row = std::make_unique<Flex>();
-    row->setDirection(FlexDirection::Horizontal);
-    row->setAlign(FlexAlign::Center);
-    row->setGap(Style::spaceSm * scale);
-    row->setMinHeight(Style::controlHeightSm * scale);
-    row->setMaxHeight(Style::controlHeightSm * scale);
-
-    auto label = std::make_unique<Label>();
-    label->setText(i18n::tr("control-center.bluetooth.visible"));
-    label->setCaptionStyle();
-    label->setFontSize(Style::fontSizeCaption * scale);
-    label->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-    label->setFlexGrow(1.0f);
-    row->addChild(std::move(label));
-
-    auto discoverToggle = std::make_unique<Toggle>();
-    discoverToggle->setToggleSize(ToggleSize::Small);
-    discoverToggle->setScale(scale);
-    discoverToggle->setCheckedImmediate(s.discoverable);
-    discoverToggle->setEnabled(s.adapterPresent && s.powered);
-    discoverToggle->setOnChange([this](bool checked) {
-      if (m_service != nullptr) {
-        m_service->setDiscoverable(checked);
-      }
-    });
-    m_discoverableToggle = discoverToggle.get();
-    row->addChild(std::move(discoverToggle));
+    auto row = ui::row(
+        {.align = FlexAlign::Center,
+         .gap = Style::spaceSm * scale,
+         .minHeight = Style::controlHeightSm * scale,
+         .maxHeight = Style::controlHeightSm * scale},
+        ui::label({
+            .text = i18n::tr("control-center.bluetooth.visible"),
+            .fontSize = Style::fontSizeCaption * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .flexGrow = 1.0f,
+            .configure = [](Label& label) { label.setCaptionStyle(); },
+        }),
+        ui::toggle({
+            .out = &m_discoverableToggle,
+            .checkedImmediate = s.discoverable,
+            .enabled = s.adapterPresent && s.powered,
+            .toggleSize = ToggleSize::Small,
+            .scale = scale,
+            .onChange = [this](bool checked) {
+              if (m_service != nullptr) {
+                m_service->setDiscoverable(checked);
+              }
+            },
+        })
+    );
 
     m_list->addChild(std::move(row));
   }
 
-  m_list->addChild(std::make_unique<Separator>());
+  m_list->addChild(ui::separator());
 
   if (!s.powered) {
-    auto empty = std::make_unique<Label>();
-    empty->setText(s.rfkillSoftBlocked ? i18n::tr("control-center.bluetooth.rfkill-blocked")
-                                       : i18n::tr("control-center.bluetooth.off"));
-    empty->setCaptionStyle();
-    empty->setFontSize(Style::fontSizeCaption * scale);
-    empty->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-    m_list->addChild(std::move(empty));
+    m_list->addChild(
+        ui::label({
+            .text = s.rfkillSoftBlocked ? i18n::tr("control-center.bluetooth.rfkill-blocked")
+                                        : i18n::tr("control-center.bluetooth.off"),
+            .fontSize = Style::fontSizeCaption * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .configure = [](Label& label) { label.setCaptionStyle(); },
+        })
+    );
     m_list->layout(renderer);
     return;
   }
@@ -754,12 +767,14 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
   });
 
   if (devices.empty()) {
-    auto empty = std::make_unique<Label>();
-    empty->setText(i18n::tr("control-center.bluetooth.no-devices"));
-    empty->setCaptionStyle();
-    empty->setFontSize(Style::fontSizeCaption * scale);
-    empty->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-    m_list->addChild(std::move(empty));
+    m_list->addChild(
+        ui::label({
+            .text = i18n::tr("control-center.bluetooth.no-devices"),
+            .fontSize = Style::fontSizeCaption * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .configure = [](Label& label) { label.setCaptionStyle(); },
+        })
+    );
     m_list->layout(renderer);
     return;
   }
@@ -770,7 +785,7 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
     const auto bucket = bucketFor(device);
     if (first || bucket != currentBucket) {
       if (!first) {
-        m_list->addChild(std::make_unique<Separator>());
+        m_list->addChild(ui::separator());
       }
       std::string sectionText;
       switch (bucket) {
@@ -784,13 +799,15 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
         sectionText = i18n::tr("control-center.bluetooth.sections.available");
         break;
       }
-      auto header = std::make_unique<Label>();
-      header->setText(sectionText);
-      header->setCaptionStyle();
-      header->setFontWeight(FontWeight::Bold);
-      header->setFontSize(Style::fontSizeCaption * scale);
-      header->setColor(colorSpecFromRole(ColorRole::Secondary));
-      m_list->addChild(std::move(header));
+      m_list->addChild(
+          ui::label({
+              .text = sectionText,
+              .fontSize = Style::fontSizeCaption * scale,
+              .color = colorSpecFromRole(ColorRole::Secondary),
+              .fontWeight = FontWeight::Bold,
+              .configure = [](Label& label) { label.setCaptionStyle(); },
+          })
+      );
       currentBucket = bucket;
       first = false;
     }

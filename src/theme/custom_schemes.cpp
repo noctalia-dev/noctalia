@@ -174,8 +174,9 @@ namespace noctalia::theme {
       for (int i = 0; i < n; ++i)
         sortedIdx[static_cast<size_t>(i)] = i;
       // Stable sort so tied L values preserve their original order.
-      std::stable_sort(sortedIdx.begin(), sortedIdx.end(),
-                       [&](int a, int b) { return labs[static_cast<size_t>(a)].L < labs[static_cast<size_t>(b)].L; });
+      std::stable_sort(sortedIdx.begin(), sortedIdx.end(), [&](int a, int b) {
+        return labs[static_cast<size_t>(a)].L < labs[static_cast<size_t>(b)].L;
+      });
 
       std::vector<Lab> centroids(static_cast<size_t>(k));
       const int step = n / k;
@@ -212,17 +213,19 @@ namespace noctalia::theme {
         for (int ci = 0; ci < k; ++ci) {
           if (cnt[static_cast<size_t>(ci)] > 0) {
             const double nd = static_cast<double>(cnt[static_cast<size_t>(ci)]);
-            centroids[static_cast<size_t>(ci)] = {acc[static_cast<size_t>(ci)].L / nd,
-                                                  acc[static_cast<size_t>(ci)].a / nd,
-                                                  acc[static_cast<size_t>(ci)].b / nd};
+            centroids[static_cast<size_t>(ci)] = {
+                acc[static_cast<size_t>(ci)].L / nd, acc[static_cast<size_t>(ci)].a / nd,
+                acc[static_cast<size_t>(ci)].b / nd
+            };
           }
         }
       }
 
       // Final pass: count + find representative pixel (closest to centroid).
       std::vector<int> clusterCounts(static_cast<size_t>(k), 0);
-      std::vector<std::pair<Color, double>> reps(static_cast<size_t>(k),
-                                                 {Color(0, 0, 0), std::numeric_limits<double>::infinity()});
+      std::vector<std::pair<Color, double>> reps(
+          static_cast<size_t>(k), {Color(0, 0, 0), std::numeric_limits<double>::infinity()}
+      );
       for (int idx = 0; idx < n; ++idx) {
         const int ci = assignments[static_cast<size_t>(idx)];
         clusterCounts[static_cast<size_t>(ci)]++;
@@ -235,12 +238,15 @@ namespace noctalia::theme {
       std::vector<Cluster> results;
       for (int ci = 0; ci < k; ++ci) {
         if (clusterCounts[static_cast<size_t>(ci)] > 0) {
-          results.push_back({labToRgb(centroids[static_cast<size_t>(ci)]), reps[static_cast<size_t>(ci)].first,
-                             clusterCounts[static_cast<size_t>(ci)]});
+          results.push_back(
+              {labToRgb(centroids[static_cast<size_t>(ci)]), reps[static_cast<size_t>(ci)].first,
+               clusterCounts[static_cast<size_t>(ci)]}
+          );
         }
       }
-      std::stable_sort(results.begin(), results.end(),
-                       [](const Cluster& a, const Cluster& b) { return a.count > b.count; });
+      std::stable_sort(results.begin(), results.end(), [](const Cluster& a, const Cluster& b) {
+        return a.count > b.count;
+      });
       return results;
     }
 
@@ -329,8 +335,9 @@ namespace noctalia::theme {
         std::vector<Scored> result;
         for (const auto& [color, count] : in)
           result.push_back({color, static_cast<double>(count)});
-        std::stable_sort(result.begin(), result.end(),
-                         [](const Scored& a, const Scored& b) { return a.score > b.score; });
+        std::stable_sort(result.begin(), result.end(), [](const Scored& a, const Scored& b) {
+          return a.score > b.score;
+        });
         return result;
       }
 
@@ -341,8 +348,9 @@ namespace noctalia::theme {
           tot += e.count;
         familyTotals.push_back({fam, tot});
       }
-      std::stable_sort(familyTotals.begin(), familyTotals.end(),
-                       [](const auto& a, const auto& b) { return a.second > b.second; });
+      std::stable_sort(familyTotals.begin(), familyTotals.end(), [](const auto& a, const auto& b) {
+        return a.second > b.second;
+      });
 
       std::vector<Scored> result;
       for (size_t rank = 0; rank < familyTotals.size(); ++rank) {
@@ -359,8 +367,9 @@ namespace noctalia::theme {
           result.push_back({e.color, score});
         }
       }
-      std::stable_sort(result.begin(), result.end(),
-                       [](const Scored& a, const Scored& b) { return a.score > b.score; });
+      std::stable_sort(result.begin(), result.end(), [](const Scored& a, const Scored& b) {
+        return a.score > b.score;
+      });
       return result;
     }
 
@@ -389,8 +398,9 @@ namespace noctalia::theme {
         std::vector<Scored> result;
         for (const auto& [color, count] : in)
           result.push_back({color, static_cast<double>(count)});
-        std::stable_sort(result.begin(), result.end(),
-                         [](const Scored& a, const Scored& b) { return a.score > b.score; });
+        std::stable_sort(result.begin(), result.end(), [](const Scored& a, const Scored& b) {
+          return a.score > b.score;
+        });
         return result;
       }
 
@@ -401,8 +411,9 @@ namespace noctalia::theme {
           tot += e.count;
         familyTotals.push_back({fam, tot});
       }
-      std::stable_sort(familyTotals.begin(), familyTotals.end(),
-                       [](const auto& a, const auto& b) { return a.second > b.second; });
+      std::stable_sort(familyTotals.begin(), familyTotals.end(), [](const auto& a, const auto& b) {
+        return a.second > b.second;
+      });
 
       const int dominantFamily = familyTotals[0].first;
       const double dominantCenter = familyCenterHue(dominantFamily);
@@ -465,8 +476,9 @@ namespace noctalia::theme {
           result.push_back({e.color, score});
         }
       }
-      std::stable_sort(result.begin(), result.end(),
-                       [](const Scored& a, const Scored& b) { return a.score > b.score; });
+      std::stable_sort(result.begin(), result.end(), [](const Scored& a, const Scored& b) {
+        return a.score > b.score;
+      });
       return result;
     }
 
@@ -1005,8 +1017,9 @@ namespace noctalia::theme {
       auto makeFixedDark = [&](const Color& base) {
         auto [h, s, l] = base.toHsl();
         (void)l;
-        return std::pair<Color, Color>{fromHsl(h, std::min(s, MUTED_SAT_PRIMARY), 0.85),
-                                       fromHsl(h, std::min(s, MUTED_SAT_PRIMARY), 0.75)};
+        return std::pair<Color, Color>{
+            fromHsl(h, std::min(s, MUTED_SAT_PRIMARY), 0.85), fromHsl(h, std::min(s, MUTED_SAT_PRIMARY), 0.75)
+        };
       };
       auto [primary_fixed, primary_fixed_dim] = makeFixedDark(primary_adjusted);
       auto [secondary_fixed, secondary_fixed_dim] = makeFixedDark(secondary_adjusted);
@@ -1142,8 +1155,9 @@ namespace noctalia::theme {
         auto [h, s, l] = base.toHsl();
         (void)l;
         (void)s;
-        return std::pair<Color, Color>{fromHsl(h, std::min(s, MUTED_SAT_PRIMARY), 0.40),
-                                       fromHsl(h, std::min(s, MUTED_SAT_PRIMARY), 0.30)};
+        return std::pair<Color, Color>{
+            fromHsl(h, std::min(s, MUTED_SAT_PRIMARY), 0.40), fromHsl(h, std::min(s, MUTED_SAT_PRIMARY), 0.30)
+        };
       };
       auto [primary_fixed, primary_fixed_dim] = makeFixedLight(primary_adjusted);
       auto [secondary_fixed, secondary_fixed_dim] = makeFixedLight(secondary_adjusted);

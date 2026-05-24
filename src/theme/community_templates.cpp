@@ -245,10 +245,11 @@ namespace noctalia::theme {
       }
     }
 
-    std::optional<CommunityTemplateInfo> findInfo(const std::vector<CommunityTemplateInfo>& catalog,
-                                                  std::string_view id) {
-      auto it = std::find_if(catalog.begin(), catalog.end(),
-                             [id](const CommunityTemplateInfo& info) { return info.id == id; });
+    std::optional<CommunityTemplateInfo>
+    findInfo(const std::vector<CommunityTemplateInfo>& catalog, std::string_view id) {
+      auto it = std::find_if(catalog.begin(), catalog.end(), [id](const CommunityTemplateInfo& info) {
+        return info.id == id;
+      });
       if (it == catalog.end())
         return std::nullopt;
       return *it;
@@ -396,11 +397,13 @@ namespace noctalia::theme {
             return;
           }
           syncSelectedFromCatalog(ids, generation, success);
-        });
+        }
+    );
   }
 
-  void CommunityTemplateService::syncSelectedFromCatalog(const std::vector<std::string>& selectedIds,
-                                                         std::uint64_t generation, bool notifyWhenReady) {
+  void CommunityTemplateService::syncSelectedFromCatalog(
+      const std::vector<std::string>& selectedIds, std::uint64_t generation, bool notifyWhenReady
+  ) {
     if (selectedIds.empty())
       return;
 
@@ -449,19 +452,20 @@ namespace noctalia::theme {
         ++(*pending);
         const std::string url =
             std::string(kCatalogUrl) + "/" + StringUtils::urlEncode(id) + "/" + urlEncodePath(file.name);
-        m_httpClient.download(url, dest,
-                              [this, file, dest, generation, pending, completed, notifyIfReady](bool success) {
-                                ++(*completed);
-                                if (generation != m_generation)
-                                  return;
-                                if (success) {
-                                  if (!file.md5.empty())
-                                    writeSmallFile(sidecarPath(dest), file.md5);
-                                } else {
-                                  kLog.warn("failed to download community template file {}", dest.string());
-                                }
-                                notifyIfReady();
-                              });
+        m_httpClient.download(
+            url, dest, [this, file, dest, generation, pending, completed, notifyIfReady](bool success) {
+              ++(*completed);
+              if (generation != m_generation)
+                return;
+              if (success) {
+                if (!file.md5.empty())
+                  writeSmallFile(sidecarPath(dest), file.md5);
+              } else {
+                kLog.warn("failed to download community template file {}", dest.string());
+              }
+              notifyIfReady();
+            }
+        );
       }
     }
 

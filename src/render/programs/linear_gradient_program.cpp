@@ -71,8 +71,10 @@ void LinearGradientProgram::destroy() {
   m_directionLocation = -1;
 }
 
-void LinearGradientProgram::draw(float surfaceWidth, float surfaceHeight, float x, float y, float width, float height,
-                                 const LinearGradientStyle& style) const {
+void LinearGradientProgram::draw(
+    float surfaceWidth, float surfaceHeight, float x, float y, float width, float height,
+    const LinearGradientStyle& style
+) const {
   if (!m_program.isValid() || width <= 0.0f || height <= 0.0f) {
     return;
   }

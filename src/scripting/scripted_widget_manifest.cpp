@@ -140,11 +140,13 @@ namespace scripting {
       if (!manifest.has_value() || !manifest->pickable) {
         continue;
       }
-      discovered.push_back(DiscoveredScript{
-          .id = entry.path().stem().string(),
-          .assetScript = "scripts/" + entry.path().filename().string(),
-          .manifest = std::move(*manifest),
-      });
+      discovered.push_back(
+          DiscoveredScript{
+              .id = entry.path().stem().string(),
+              .assetScript = "scripts/" + entry.path().filename().string(),
+              .manifest = std::move(*manifest),
+          }
+      );
     }
     return discovered;
   }

@@ -35,8 +35,8 @@ namespace desktop_widgets {
     return nullptr;
   }
 
-  inline const WaylandOutput* resolveEffectiveOutput(const WaylandConnection& wayland,
-                                                     const std::string& requestedOutput) {
+  inline const WaylandOutput*
+  resolveEffectiveOutput(const WaylandConnection& wayland, const std::string& requestedOutput) {
     const auto& outputs = wayland.outputs();
     const WaylandOutput* primary = nullptr;
     for (const auto& output : outputs) {
@@ -73,15 +73,17 @@ namespace desktop_widgets {
   // kDesktopWidgetMinVisibleFraction of the widget's rotated AABB remains on screen. The caller
   // passes the widget's current content-scaled intrinsic size, so state.scale is already reflected
   // in intrinsicWidth/intrinsicHeight and must not be applied again as a transform multiplier here.
-  inline const WaylandOutput* clampStateToOutput(const WaylandConnection& wayland, DesktopWidgetState& state,
-                                                 float intrinsicWidth, float intrinsicHeight) {
+  inline const WaylandOutput* clampStateToOutput(
+      const WaylandConnection& wayland, DesktopWidgetState& state, float intrinsicWidth, float intrinsicHeight
+  ) {
     const WaylandOutput* output = resolveEffectiveOutput(wayland, state.outputName);
     if (output == nullptr) {
       return nullptr;
     }
     const WidgetTransformClampResult clamped = clampWidgetCenterToOutput(
         state.cx, state.cy, intrinsicWidth, intrinsicHeight, 1.0f, state.rotationRad, outputLogicalWidth(*output),
-        outputLogicalHeight(*output), kDesktopWidgetMinVisibleFraction);
+        outputLogicalHeight(*output), kDesktopWidgetMinVisibleFraction
+    );
     state.cx = clamped.cx;
     state.cy = clamped.cy;
     return output;

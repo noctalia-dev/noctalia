@@ -105,11 +105,16 @@ namespace noctalia::theme {
             out.push_back(std::move(palette));
           }
         }
-        std::sort(out.begin(), out.end(),
-                  [](const AvailablePalette& a, const AvailablePalette& b) { return a.name < b.name; });
-        out.erase(std::unique(out.begin(), out.end(),
-                              [](const AvailablePalette& a, const AvailablePalette& b) { return a.name == b.name; }),
-                  out.end());
+        std::sort(out.begin(), out.end(), [](const AvailablePalette& a, const AvailablePalette& b) {
+          return a.name < b.name;
+        });
+        out.erase(
+            std::unique(
+                out.begin(), out.end(),
+                [](const AvailablePalette& a, const AvailablePalette& b) { return a.name == b.name; }
+            ),
+            out.end()
+        );
         return out;
       } catch (const std::exception& e) {
         kLog.warn("failed to parse community palette catalog {}: {}", path.string(), e.what());

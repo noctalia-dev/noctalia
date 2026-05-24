@@ -31,8 +31,10 @@ namespace settings {
 
     void initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext);
 
-    void open(xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
-              std::uint32_t parentWidth, std::uint32_t parentHeight, float scale, ExportCallback callback);
+    void open(
+        xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
+        std::uint32_t parentWidth, std::uint32_t parentHeight, float scale, ExportCallback callback
+    );
     void close();
 
     [[nodiscard]] bool isOpen() const noexcept;
@@ -47,8 +49,8 @@ namespace settings {
   private:
     void setMode(ConfigExportMode mode);
     void accept();
-    [[nodiscard]] std::unique_ptr<Flex> makeOption(ConfigExportMode mode, const std::string& title,
-                                                   const std::string& description);
+    [[nodiscard]] std::unique_ptr<Flex>
+    makeOption(ConfigExportMode mode, const std::string& title, const std::string& description);
 
     float m_scale = 1.0f;
     ConfigExportMode m_mode = ConfigExportMode::MergedUser;

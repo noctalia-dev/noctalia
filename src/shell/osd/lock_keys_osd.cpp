@@ -46,8 +46,9 @@ void LockKeysOsd::primeFromService(const LockKeysService& service) {
   m_hasState = true;
 }
 
-void LockKeysOsd::onLockKeysChanged(const WaylandSeat::LockKeysState& previous,
-                                    const WaylandSeat::LockKeysState& current) {
+void LockKeysOsd::onLockKeysChanged(
+    const WaylandSeat::LockKeysState& previous, const WaylandSeat::LockKeysState& current
+) {
   if (!m_hasState) {
     m_lastState = current;
     m_hasState = true;

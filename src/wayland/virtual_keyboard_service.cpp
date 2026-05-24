@@ -193,8 +193,9 @@ void VirtualKeyboardService::sendKey(std::uint32_t key, bool pressed) {
   if (m_keyboard == nullptr) {
     return;
   }
-  zwp_virtual_keyboard_v1_key(m_keyboard, eventTimeMs(), key,
-                              pressed ? WL_KEYBOARD_KEY_STATE_PRESSED : WL_KEYBOARD_KEY_STATE_RELEASED);
+  zwp_virtual_keyboard_v1_key(
+      m_keyboard, eventTimeMs(), key, pressed ? WL_KEYBOARD_KEY_STATE_PRESSED : WL_KEYBOARD_KEY_STATE_RELEASED
+  );
 }
 
 void VirtualKeyboardService::updateModifiers(bool ctrlPressed, bool shiftPressed) {

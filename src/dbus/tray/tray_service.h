@@ -119,8 +119,9 @@ private:
   void refreshItemMetadata(const std::string& itemId);
   void ensureMenuCache(const std::string& itemId, const std::string& busName, const std::string& menuPath);
   void dropMenuCache(const std::string& itemId);
-  void fetchMenuProperties(const std::string& itemId, const std::vector<std::int32_t>& entryIds,
-                           std::function<void(bool)> callback);
+  void fetchMenuProperties(
+      const std::string& itemId, const std::vector<std::int32_t>& entryIds, std::function<void(bool)> callback
+  );
   void requestMenuSubtree(const std::string& itemId, std::int32_t parentId, bool force = false);
   void requestMenuLayoutAfterAboutToShow(const std::string& itemId, std::int32_t parentId, std::uint64_t generation);
   void sendMenuEvent(const std::string& itemId, std::int32_t entryId, const std::string& eventName);

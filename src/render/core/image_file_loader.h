@@ -11,5 +11,5 @@ struct LoadedImageFile {
   int height = 0;
 };
 
-[[nodiscard]] std::optional<LoadedImageFile> loadImageFile(const std::string& path, int targetSize = 0,
-                                                           std::string* errorMessage = nullptr);
+[[nodiscard]] std::optional<LoadedImageFile>
+loadImageFile(const std::string& path, int targetSize = 0, std::string* errorMessage = nullptr);

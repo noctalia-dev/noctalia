@@ -119,8 +119,10 @@ namespace {
 
   std::string consolePrefix(const std::tm& tm, const std::timespec& ts, LogLevel level, const char* section) {
     char buffer[96];
-    const int length = std::snprintf(buffer, sizeof(buffer), "%02d:%02d:%02d.%03ld [%s]", tm.tm_hour, tm.tm_min,
-                                     tm.tm_sec, ts.tv_nsec / 1'000'000, levelTagAnsi(level));
+    const int length = std::snprintf(
+        buffer, sizeof(buffer), "%02d:%02d:%02d.%03ld [%s]", tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec / 1'000'000,
+        levelTagAnsi(level)
+    );
 
     std::string prefix(buffer, formattedPrefixLength(length, sizeof(buffer)));
     if (section != nullptr && section[0] != '\0') {
@@ -134,9 +136,10 @@ namespace {
 
   std::string filePrefix(const std::tm& tm, const std::timespec& ts, LogLevel level, const char* section) {
     char buffer[128];
-    const int length = std::snprintf(buffer, sizeof(buffer), "%04d-%02d-%02d %02d:%02d:%02d.%03ld [%s]",
-                                     tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec,
-                                     ts.tv_nsec / 1'000'000, levelTagPlain(level));
+    const int length = std::snprintf(
+        buffer, sizeof(buffer), "%04d-%02d-%02d %02d:%02d:%02d.%03ld [%s]", tm.tm_year + 1900, tm.tm_mon + 1,
+        tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec / 1'000'000, levelTagPlain(level)
+    );
 
     std::string prefix(buffer, formattedPrefixLength(length, sizeof(buffer)));
     if (section != nullptr && section[0] != '\0') {

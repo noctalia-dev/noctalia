@@ -57,8 +57,9 @@ namespace {
 
 } // namespace
 
-bool OverviewLauncherCapture::initialize(WaylandConnection& wayland, RenderContext* renderContext,
-                                         CompositorPlatform& platform, PanelManager& panelManager) {
+bool OverviewLauncherCapture::initialize(
+    WaylandConnection& wayland, RenderContext* renderContext, CompositorPlatform& platform, PanelManager& panelManager
+) {
   if (!compositors::isNiri() || !platform.tracksOverviewState()) {
     return true;
   }

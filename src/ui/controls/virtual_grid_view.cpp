@@ -216,10 +216,12 @@ void VirtualGridView::doLayout(Renderer& renderer) {
 
   m_itemCount = m_adapter->itemCount();
   const std::size_t columns =
-      m_columns > 0
-          ? std::max<std::size_t>(1, m_columns)
-          : std::max<std::size_t>(1, static_cast<std::size_t>(std::floor(
-                                         (viewportW + m_columnGap) / std::max(1.0f, m_minCellWidth + m_columnGap))));
+      m_columns > 0 ? std::max<std::size_t>(1, m_columns)
+                    : std::max<std::size_t>(
+                          1, static_cast<std::size_t>(
+                                 std::floor((viewportW + m_columnGap) / std::max(1.0f, m_minCellWidth + m_columnGap))
+                             )
+                      );
   const float columnsF = static_cast<float>(columns);
   const float cellW = columns == 0 ? 0.0f : std::max(0.0f, (viewportW - (columnsF - 1.0f) * m_columnGap) / columnsF);
   const float cellH = m_squareCells ? cellW : m_cellHeight;

@@ -39,8 +39,8 @@ namespace {
     std::int32_t bottom = 0;
   };
 
-  BarVisibleRect resolveBarVisibleRect(const BarConfig& barConfig, std::int32_t outputWidth,
-                                       std::int32_t outputHeight) {
+  BarVisibleRect
+  resolveBarVisibleRect(const BarConfig& barConfig, std::int32_t outputWidth, std::int32_t outputHeight) {
     const bool barIsBottom = barConfig.position == "bottom";
     const bool barIsLeft = barConfig.position == "left";
     const bool barIsRight = barConfig.position == "right";
@@ -64,8 +64,8 @@ namespace {
     };
   }
 
-  shell::surface_shadow::Bleed detachedPanelSurfaceBleed(bool hasDecoration,
-                                                         const ShellConfig::ShadowConfig& shadow) noexcept {
+  shell::surface_shadow::Bleed
+  detachedPanelSurfaceBleed(bool hasDecoration, const ShellConfig::ShadowConfig& shadow) noexcept {
     auto bleed = shell::surface_shadow::bleed(hasDecoration, shadow);
     if (shell::surface_shadow::enabled(hasDecoration, shadow)) {
       bleed.left += kDetachedPanelShadowSafetyPadding;
@@ -82,8 +82,9 @@ namespace {
     return static_cast<std::uint32_t>(std::max<std::int64_t>(1, total));
   }
 
-  BarConfig resolvePanelBarConfig(ConfigService* configService, CompositorPlatform* platform, wl_output* output,
-                                  std::string_view barName = {}) {
+  BarConfig resolvePanelBarConfig(
+      ConfigService* configService, CompositorPlatform* platform, wl_output* output, std::string_view barName = {}
+  ) {
     BarConfig barConfig;
     if (configService == nullptr || configService->config().bars.empty()) {
       return barConfig;
@@ -115,8 +116,9 @@ namespace {
     return barConfig;
   }
 
-  bool hasMultipleEnabledBarsOnEdge(ConfigService* configService, CompositorPlatform* platform, wl_output* output,
-                                    std::string_view position) {
+  bool hasMultipleEnabledBarsOnEdge(
+      ConfigService* configService, CompositorPlatform* platform, wl_output* output, std::string_view position
+  ) {
     if (configService == nullptr || position.empty()) {
       return false;
     }
@@ -256,7 +258,8 @@ void PanelManager::toggleSettingsWindow() {
 }
 
 void PanelManager::setAttachedPanelGeometryCallback(
-    std::function<void(wl_output*, std::string_view, std::optional<AttachedPanelGeometry>)> callback) {
+    std::function<void(wl_output*, std::string_view, std::optional<AttachedPanelGeometry>)> callback
+) {
   m_attachedPanelGeometryCallback = std::move(callback);
 }
 
@@ -349,10 +352,14 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       hasMultipleEnabledBarsOnEdge(m_config, m_platform, request.output, barConfig.position);
   const bool useReservedEdgePlacement =
       !useCenteredPlacement && multipleBarsOnEdge && barConfig.reserveSpace && barConfig.thickness > 0;
-  const auto marginLeftFromAnchor = clampMargin(request.anchorX - static_cast<float>(panelWidth) * 0.5f,
-                                                static_cast<std::int32_t>(panelWidth), outputWidth, screenPadding);
-  const auto marginTopFromAnchor = clampMargin(request.anchorY - static_cast<float>(panelHeight) * 0.5f,
-                                               static_cast<std::int32_t>(panelHeight), outputHeight, screenPadding);
+  const auto marginLeftFromAnchor = clampMargin(
+      request.anchorX - static_cast<float>(panelWidth) * 0.5f, static_cast<std::int32_t>(panelWidth), outputWidth,
+      screenPadding
+  );
+  const auto marginTopFromAnchor = clampMargin(
+      request.anchorY - static_cast<float>(panelHeight) * 0.5f, static_cast<std::int32_t>(panelHeight), outputHeight,
+      screenPadding
+  );
 
   std::uint32_t standaloneAnchor = 0;
   std::int32_t standaloneMarginTop = 0;
@@ -364,10 +371,12 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     const std::int32_t barHeight = std::max(0, barRect.bottom - barRect.top);
     const auto centeredAlongBarX = clampMargin(
         static_cast<float>(barRect.left) + (static_cast<float>(barWidth) - static_cast<float>(panelWidth)) * 0.5f,
-        static_cast<std::int32_t>(panelWidth), outputWidth, screenPadding);
+        static_cast<std::int32_t>(panelWidth), outputWidth, screenPadding
+    );
     const auto centeredAlongBarY = clampMargin(
         static_cast<float>(barRect.top) + (static_cast<float>(barHeight) - static_cast<float>(panelHeight)) * 0.5f,
-        static_cast<std::int32_t>(panelHeight), outputHeight, screenPadding);
+        static_cast<std::int32_t>(panelHeight), outputHeight, screenPadding
+    );
 
     if (useReservedEdgePlacement) {
       if (isLeft) {
@@ -390,22 +399,28 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     } else {
       standaloneAnchor = LayerShellAnchor::Top | LayerShellAnchor::Left;
       if (isLeft) {
-        standaloneMarginLeft = clampMargin(static_cast<float>(barRect.right + panelGap),
-                                           static_cast<std::int32_t>(panelWidth), outputWidth, screenPadding);
+        standaloneMarginLeft = clampMargin(
+            static_cast<float>(barRect.right + panelGap), static_cast<std::int32_t>(panelWidth), outputWidth,
+            screenPadding
+        );
         standaloneMarginTop = useFloatingAnchor ? marginTopFromAnchor : centeredAlongBarY;
       } else if (isRight) {
-        standaloneMarginLeft =
-            clampMargin(static_cast<float>(barRect.left - static_cast<std::int32_t>(panelWidth) - panelGap),
-                        static_cast<std::int32_t>(panelWidth), outputWidth, screenPadding);
+        standaloneMarginLeft = clampMargin(
+            static_cast<float>(barRect.left - static_cast<std::int32_t>(panelWidth) - panelGap),
+            static_cast<std::int32_t>(panelWidth), outputWidth, screenPadding
+        );
         standaloneMarginTop = useFloatingAnchor ? marginTopFromAnchor : centeredAlongBarY;
       } else if (isBottom) {
-        standaloneMarginTop =
-            clampMargin(static_cast<float>(barRect.top - static_cast<std::int32_t>(panelHeight) - panelGap),
-                        static_cast<std::int32_t>(panelHeight), outputHeight, screenPadding);
+        standaloneMarginTop = clampMargin(
+            static_cast<float>(barRect.top - static_cast<std::int32_t>(panelHeight) - panelGap),
+            static_cast<std::int32_t>(panelHeight), outputHeight, screenPadding
+        );
         standaloneMarginLeft = useFloatingAnchor ? marginLeftFromAnchor : centeredAlongBarX;
       } else {
-        standaloneMarginTop = clampMargin(static_cast<float>(barRect.bottom + panelGap),
-                                          static_cast<std::int32_t>(panelHeight), outputHeight, screenPadding);
+        standaloneMarginTop = clampMargin(
+            static_cast<float>(barRect.bottom + panelGap), static_cast<std::int32_t>(panelHeight), outputHeight,
+            screenPadding
+        );
         standaloneMarginLeft = useFloatingAnchor ? marginLeftFromAnchor : centeredAlongBarX;
       }
     }
@@ -451,8 +466,9 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
         m_surface->requestLayout();
       }
     });
-    surface.setPrepareFrameCallback(
-        [this](bool needsUpdate, bool needsLayout) { prepareFrame(needsUpdate, needsLayout); });
+    surface.setPrepareFrameCallback([this](bool needsUpdate, bool needsLayout) {
+      prepareFrame(needsUpdate, needsLayout);
+    });
     surface.setFrameTickCallback([this](float deltaMs) {
       startAttachedOpenAnimation();
       if (m_activePanel != nullptr) {
@@ -534,12 +550,14 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       return static_cast<std::int32_t>(std::ceil(barR + cornerRadius));
     };
     // Bar corner radii at the attachment edge.
-    const float barRStart =
-        static_cast<float>(barIsVertical ? (barIsLeft ? barConfig.radiusTopRight : barConfig.radiusTopLeft)
-                                         : (barIsBottom ? barConfig.radiusTopLeft : barConfig.radiusBottomLeft));
-    const float barREnd =
-        static_cast<float>(barIsVertical ? (barIsLeft ? barConfig.radiusBottomRight : barConfig.radiusBottomLeft)
-                                         : (barIsBottom ? barConfig.radiusTopRight : barConfig.radiusBottomRight));
+    const float barRStart = static_cast<float>(
+        barIsVertical ? (barIsLeft ? barConfig.radiusTopRight : barConfig.radiusTopLeft)
+                      : (barIsBottom ? barConfig.radiusTopLeft : barConfig.radiusBottomLeft)
+    );
+    const float barREnd = static_cast<float>(
+        barIsVertical ? (barIsLeft ? barConfig.radiusBottomRight : barConfig.radiusBottomLeft)
+                      : (barIsBottom ? barConfig.radiusTopRight : barConfig.radiusBottomRight)
+    );
     const auto totalStartInset = computeTotalInset(barRStart);
     const auto totalEndInset = computeTotalInset(barREnd);
     std::int32_t visualX = 0;
@@ -660,7 +678,8 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       m_output = request.output;
       m_wlSurface = m_surface->wlSurface();
       m_surface->setInputRegion(
-          {InputRect{m_panelInsetX, m_panelInsetY, static_cast<int>(panelWidth), static_cast<int>(panelHeight)}});
+          {InputRect{m_panelInsetX, m_panelInsetY, static_cast<int>(panelWidth), static_cast<int>(panelHeight)}}
+      );
       applyPanelCompositorBlur();
       publishAttachedPanelGeometry(m_attachedRevealProgress);
       m_surface->requestRedraw();
@@ -737,7 +756,8 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   m_output = request.output;
   m_wlSurface = m_surface->wlSurface();
   m_surface->setInputRegion(
-      {InputRect{m_panelInsetX, m_panelInsetY, static_cast<int>(panelWidth), static_cast<int>(panelHeight)}});
+      {InputRect{m_panelInsetX, m_panelInsetY, static_cast<int>(panelWidth), static_cast<int>(panelHeight)}}
+  );
   applyPanelCompositorBlur();
   // Defer the focus grab to the next tick. See attached-path comment above.
   const std::uint64_t gen = m_destroyGeneration;
@@ -839,7 +859,8 @@ void PanelManager::closePanel() {
               }
             });
           },
-          m_attachedRevealClipNode);
+          m_attachedRevealClipNode
+      );
     } else {
       m_animations.cancelForOwner(m_sceneRoot.get());
       m_animations.animate(
@@ -852,7 +873,8 @@ void PanelManager::closePanel() {
               }
             });
           },
-          m_sceneRoot.get());
+          m_sceneRoot.get()
+      );
     }
     m_surface->requestRedraw();
   } else {
@@ -1023,8 +1045,9 @@ bool PanelManager::onPointerEvent(const PointerEvent& event) {
           return true;
         }
       }
-      m_inputDispatcher.pointerButton(static_cast<float>(event.sx), static_cast<float>(event.sy), event.button,
-                                      pressed);
+      m_inputDispatcher.pointerButton(
+          static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+      );
     }
     break;
   }
@@ -1032,9 +1055,10 @@ bool PanelManager::onPointerEvent(const PointerEvent& event) {
     if (!m_pointerInside) {
       return false;
     }
-    m_inputDispatcher.pointerAxis(static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis,
-                                  event.axisSource, event.axisValue, event.axisDiscrete, event.axisValue120,
-                                  event.axisLines);
+    m_inputDispatcher.pointerAxis(
+        static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis, event.axisSource, event.axisValue,
+        event.axisDiscrete, event.axisValue120, event.axisLines
+    );
     break;
   }
   }
@@ -1327,7 +1351,8 @@ void PanelManager::startAttachedOpenAnimation() {
   m_attachedOpenAnimationPending = false;
   m_animations.animate(
       m_attachedRevealProgress, 1.0f, Style::animNormal, Easing::EaseOutCubic,
-      [this](float v) { applyAttachedReveal(v); }, {}, m_attachedRevealClipNode);
+      [this](float v) { applyAttachedReveal(v); }, {}, m_attachedRevealClipNode
+  );
 }
 
 void PanelManager::publishAttachedPanelGeometry(float revealProgress) {
@@ -1346,8 +1371,9 @@ void PanelManager::publishAttachedPanelGeometry(float revealProgress) {
   // The bar-side concave bulges only enter the visible clip during the last
   // portion of the animation. Until then the silhouette is a sharp-edged rectangle.
   const float originalRadius = geometry.cornerRadius;
-  const bool vertical = (m_attachedRevealDirection == AttachedRevealDirection::Right ||
-                         m_attachedRevealDirection == AttachedRevealDirection::Left);
+  const bool vertical =
+      (m_attachedRevealDirection == AttachedRevealDirection::Right ||
+       m_attachedRevealDirection == AttachedRevealDirection::Left);
   const float panelMainDim = vertical ? geometry.width : geometry.height;
   const float bulgeRevealAmount = std::clamp(originalRadius - panelMainDim * (1.0f - progress), 0.0f, originalRadius);
   const float crossDelta = originalRadius - bulgeRevealAmount;
@@ -1512,13 +1538,14 @@ void PanelManager::applyAttachedDecorationStyle() {
         m_config->config().shell.panel.shadow && shell::surface_shadow::enabled(true, shadowConfig);
     m_panelShadowNode->setVisible(panelShadow);
     if (panelShadow) {
-      const RoundedRectStyle shadowStyle =
-          shell::surface_shadow::style(shadowConfig, m_attachedBackgroundOpacity,
-                                       shell::surface_shadow::Shape{
-                                           .corners = attached_panel::cornerShapes(m_attachedBarPosition),
-                                           .logicalInset = attached_panel::logicalInset(m_attachedBarPosition, radius),
-                                           .radius = Radii{radius, radius, radius, radius},
-                                       });
+      const RoundedRectStyle shadowStyle = shell::surface_shadow::style(
+          shadowConfig, m_attachedBackgroundOpacity,
+          shell::surface_shadow::Shape{
+              .corners = attached_panel::cornerShapes(m_attachedBarPosition),
+              .logicalInset = attached_panel::logicalInset(m_attachedBarPosition, radius),
+              .radius = Radii{radius, radius, radius, radius},
+          }
+      );
       m_panelShadowNode->setStyle(shadowStyle);
     }
   }
@@ -1540,8 +1567,9 @@ void PanelManager::applyAttachedDecorationStyle() {
         .border = clearColor(),
         .fillMode = FillMode::LinearGradient,
         .gradientDirection = barIsVertical ? GradientDirection::Horizontal : GradientDirection::Vertical,
-        .gradientStops = {GradientStop{0.0f, startColor}, GradientStop{0.0f, startColor}, GradientStop{1.0f, endColor},
-                          GradientStop{1.0f, endColor}},
+        .gradientStops =
+            {GradientStop{0.0f, startColor}, GradientStop{0.0f, startColor}, GradientStop{1.0f, endColor},
+             GradientStop{1.0f, endColor}},
         .corners = attached_panel::cornerShapes(m_attachedBarPosition),
         .logicalInset = attached_panel::logicalInset(m_attachedBarPosition, radius),
         .radius = Radii{radius, radius, radius, radius},
@@ -1575,9 +1603,12 @@ void PanelManager::onConfigReloaded() {
     m_panelShadowNode->setVisible(panelShadow);
     if (!m_attachedToBar && panelShadow) {
       const float shadowRadius = Style::scaledRadiusXl(m_activePanel->contentScale());
-      m_panelShadowNode->setStyle(shell::surface_shadow::style(
-          shadowConfig, panelBackgroundOpacity,
-          shell::surface_shadow::Shape{.radius = Radii{shadowRadius, shadowRadius, shadowRadius, shadowRadius}}));
+      m_panelShadowNode->setStyle(
+          shell::surface_shadow::style(
+              shadowConfig, panelBackgroundOpacity,
+              shell::surface_shadow::Shape{.radius = Radii{shadowRadius, shadowRadius, shadowRadius, shadowRadius}}
+          )
+      );
     }
   }
   if (m_surface != nullptr) {
@@ -1690,8 +1721,9 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
     sceneParent->addChild(std::move(contentWrapper));
 
     m_inputDispatcher.setSceneRoot(m_sceneRoot.get());
-    m_inputDispatcher.setCursorShapeCallback(
-        [this](std::uint32_t serial, std::uint32_t shape) { m_platform->setCursorShape(serial, shape); });
+    m_inputDispatcher.setCursorShapeCallback([this](std::uint32_t serial, std::uint32_t shape) {
+      m_platform->setCursorShape(serial, shape);
+    });
     m_inputDispatcher.setHoverChangeCallback([this](InputArea* /*old*/, InputArea* next) {
       if (m_layerSurface != nullptr) {
         TooltipManager::instance().onHoverChange(next, m_layerSurface->layerSurface(), m_output);
@@ -1706,7 +1738,8 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
       applyDetachedReveal(0.0f);
       m_animations.animate(
           0.0f, 1.0f, Style::animNormal, Easing::EaseOutCubic, [this](float v) { applyDetachedReveal(v); }, {},
-          m_sceneRoot.get());
+          m_sceneRoot.get()
+      );
     }
 
     m_surface->setSceneRoot(m_sceneRoot.get());
@@ -1749,9 +1782,12 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
     if (!m_attachedToBar && panelShadow) {
       const float shadowRadius = Style::scaledRadiusXl(m_activePanel->contentScale());
       const float panelBackgroundOpacity = resolveDetachedPanelBackgroundOpacity(m_config);
-      m_panelShadowNode->setStyle(shell::surface_shadow::style(
-          shadowConfig, panelBackgroundOpacity,
-          shell::surface_shadow::Shape{.radius = Radii{shadowRadius, shadowRadius, shadowRadius, shadowRadius}}));
+      m_panelShadowNode->setStyle(
+          shell::surface_shadow::style(
+              shadowConfig, panelBackgroundOpacity,
+              shell::surface_shadow::Shape{.radius = Radii{shadowRadius, shadowRadius, shadowRadius, shadowRadius}}
+          )
+      );
     }
   }
 
@@ -1867,7 +1903,8 @@ void PanelManager::registerIpc(IpcService& ipc) {
         return "ok\n";
       },
       "panel-toggle <id> [context]",
-      "Toggle a panel by id, optionally with context (e.g. launcher /emo, control-center audio)");
+      "Toggle a panel by id, optionally with context (e.g. launcher /emo, control-center audio)"
+  );
 
   ipc.registerHandler(
       "settings-toggle",
@@ -1875,5 +1912,6 @@ void PanelManager::registerIpc(IpcService& ipc) {
         toggleSettingsWindow();
         return "ok\n";
       },
-      "settings-toggle", "Toggle the settings window");
+      "settings-toggle", "Toggle the settings window"
+  );
 }

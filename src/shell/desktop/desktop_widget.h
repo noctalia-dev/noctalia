@@ -58,8 +58,10 @@ public:
   virtual void setEditorPreview(bool enabled) noexcept { (void)enabled; }
   void setBackgroundStyle(const ColorSpec& color, float radius, float padding);
 
-  virtual bool applySetting(const std::string& key, const WidgetSettingValue& value,
-                            const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer);
+  virtual bool applySetting(
+      const std::string& key, const WidgetSettingValue& value,
+      const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
+  );
 
 protected:
   void setRoot(std::unique_ptr<Node> root);

@@ -49,8 +49,10 @@ LockScreen::~LockScreen() {
   resetLockState();
 }
 
-bool LockScreen::initialize(WaylandConnection& wayland, RenderContext* renderContext, ConfigService* configService,
-                            SharedTextureCache* textureCache) {
+bool LockScreen::initialize(
+    WaylandConnection& wayland, RenderContext* renderContext, ConfigService* configService,
+    SharedTextureCache* textureCache
+) {
   m_wayland = &wayland;
   m_renderContext = renderContext;
   m_configService = configService;
@@ -205,8 +207,9 @@ void LockScreen::onPointerEvent(const PointerEvent& event) {
     m_pointerSurface = event.surface;
   } else if (event.type == PointerEvent::Type::Leave && event.surface == m_pointerSurface) {
     m_pointerSurface = nullptr;
-  } else if ((event.type == PointerEvent::Type::Button || event.type == PointerEvent::Type::Axis) &&
-             event.surface != nullptr) {
+  } else if (
+      (event.type == PointerEvent::Type::Button || event.type == PointerEvent::Type::Axis) && event.surface != nullptr
+  ) {
     m_pointerSurface = event.surface;
   }
 
@@ -342,8 +345,9 @@ void LockScreen::syncInstances() {
   const auto& outputs = m_wayland->outputs();
 
   std::erase_if(m_instances, [&](Instance& instance) {
-    const bool exists = std::any_of(outputs.begin(), outputs.end(),
-                                    [&](const WaylandOutput& output) { return output.name == instance.outputName; });
+    const bool exists = std::any_of(outputs.begin(), outputs.end(), [&](const WaylandOutput& output) {
+      return output.name == instance.outputName;
+    });
     if (!exists && instance.surface != nullptr && instance.surface->wlSurface() == m_pointerSurface) {
       m_pointerSurface = nullptr;
     }
@@ -351,8 +355,9 @@ void LockScreen::syncInstances() {
   });
 
   for (const auto& output : outputs) {
-    const bool exists = std::any_of(m_instances.begin(), m_instances.end(),
-                                    [&](const Instance& instance) { return instance.outputName == output.name; });
+    const bool exists = std::any_of(m_instances.begin(), m_instances.end(), [&](const Instance& instance) {
+      return instance.outputName == output.name;
+    });
     if (!exists) {
       createInstance(output);
     }
@@ -378,11 +383,13 @@ void LockScreen::createInstance(const WaylandOutput& output) {
     return;
   }
 
-  m_instances.push_back(Instance{
-      .outputName = output.name,
-      .output = output.output,
-      .surface = std::move(surface),
-  });
+  m_instances.push_back(
+      Instance{
+          .outputName = output.name,
+          .output = output.output,
+          .surface = std::move(surface),
+      }
+  );
 }
 
 void LockScreen::resetLockState() {
@@ -465,5 +472,6 @@ void LockScreen::registerIpc(IpcService& ipc) {
         }
         return "error: lock screen unavailable\n";
       },
-      "screen-lock", "Lock the session");
+      "screen-lock", "Lock the session"
+  );
 }

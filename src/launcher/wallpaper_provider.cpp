@@ -47,7 +47,8 @@ namespace {
     }
 
     for (auto it = std::filesystem::recursive_directory_iterator(
-             directory, std::filesystem::directory_options::skip_permission_denied, ec);
+             directory, std::filesystem::directory_options::skip_permission_denied, ec
+         );
          !ec && it != std::filesystem::end(it); it.increment(ec)) {
       if (ec) {
         break;
@@ -65,8 +66,9 @@ namespace {
       candidates.push_back(std::move(candidate));
     }
 
-    std::sort(candidates.begin(), candidates.end(),
-              [](const auto& a, const auto& b) { return StringUtils::toLower(a.name) < StringUtils::toLower(b.name); });
+    std::sort(candidates.begin(), candidates.end(), [](const auto& a, const auto& b) {
+      return StringUtils::toLower(a.name) < StringUtils::toLower(b.name);
+    });
     return candidates;
   }
 
@@ -96,8 +98,10 @@ std::vector<LauncherResult> WallpaperProvider::query(std::string_view text) cons
   }
 
   const auto limit = std::min(scored.size(), kMaxResults);
-  std::partial_sort(scored.begin(), scored.begin() + static_cast<std::ptrdiff_t>(limit), scored.end(),
-                    [](const auto& a, const auto& b) { return a.first > b.first; });
+  std::partial_sort(
+      scored.begin(), scored.begin() + static_cast<std::ptrdiff_t>(limit), scored.end(),
+      [](const auto& a, const auto& b) { return a.first > b.first; }
+  );
 
   std::vector<LauncherResult> results;
   results.reserve(limit);

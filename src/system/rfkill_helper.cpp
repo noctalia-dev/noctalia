@@ -130,9 +130,11 @@ namespace {
   [[nodiscard]] RfkillSwitchResult setRfkillSoftBlockedByIndex(std::uint32_t index, bool softBlocked) {
     const int fd = open("/dev/rfkill", O_WRONLY | O_CLOEXEC);
     if (fd < 0) {
-      return {.success = false,
-              .hardBlocked = false,
-              .detail = std::string("cannot open /dev/rfkill: ") + std::strerror(errno)};
+      return {
+          .success = false,
+          .hardBlocked = false,
+          .detail = std::string("cannot open /dev/rfkill: ") + std::strerror(errno)
+      };
     }
 
     rfkill_event ev{};
@@ -150,9 +152,11 @@ namespace {
     close(fd);
 
     if (written != static_cast<ssize_t>(sizeof(ev))) {
-      return {.success = false,
-              .hardBlocked = false,
-              .detail = written < 0 ? std::string(std::strerror(writeErrno)) : "short write to /dev/rfkill"};
+      return {
+          .success = false,
+          .hardBlocked = false,
+          .detail = written < 0 ? std::string(std::strerror(writeErrno)) : "short write to /dev/rfkill"
+      };
     }
     return {.success = true, .detail = {}};
   }

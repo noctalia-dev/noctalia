@@ -177,16 +177,20 @@ void SettingsWindow::openActionsMenu() {
   }
 
   std::vector<ContextMenuControlEntry> entries;
-  entries.push_back({.id = kActionSupportReport,
-                     .label = i18n::tr("settings.window.support-report"),
-                     .enabled = true,
-                     .separator = false,
-                     .hasSubmenu = false});
-  entries.push_back({.id = kActionExportConfig,
-                     .label = i18n::tr("settings.window.export-config"),
-                     .enabled = true,
-                     .separator = false,
-                     .hasSubmenu = false});
+  entries.push_back(
+      {.id = kActionSupportReport,
+       .label = i18n::tr("settings.window.support-report"),
+       .enabled = true,
+       .separator = false,
+       .hasSubmenu = false}
+  );
+  entries.push_back(
+      {.id = kActionExportConfig,
+       .label = i18n::tr("settings.window.export-config"),
+       .enabled = true,
+       .separator = false,
+       .hasSubmenu = false}
+  );
 
   float anchorAbsX = 0.0f;
   float anchorAbsY = 0.0f;
@@ -204,7 +208,8 @@ void SettingsWindow::openActionsMenu() {
   m_actionsMenuPopup->openAsChild(
       std::move(entries), 220.0f * scale, 8, static_cast<std::int32_t>(anchorAbsX),
       static_cast<std::int32_t>(anchorAbsY), static_cast<std::int32_t>(m_actionsMenuButton->width()),
-      static_cast<std::int32_t>(m_actionsMenuButton->height()), m_surface->xdgSurface(), output);
+      static_cast<std::int32_t>(m_actionsMenuButton->height()), m_surface->xdgSurface(), output
+  );
 }
 
 void SettingsWindow::openConfigExportDialog() {
@@ -223,9 +228,10 @@ void SettingsWindow::openConfigExportDialog() {
     output = m_output;
   }
 
-  m_configExportDialogPopup->open(m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(),
-                                  m_surface->width(), m_surface->height(), uiScale(),
-                                  [this](settings::ConfigExportMode mode) { saveConfigExport(mode); });
+  m_configExportDialogPopup->open(
+      m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(), m_surface->width(),
+      m_surface->height(), uiScale(), [this](settings::ConfigExportMode mode) { saveConfigExport(mode); }
+  );
 }
 
 void SettingsWindow::openBarWidgetAddPopup(const std::vector<std::string>& lanePath) {
@@ -244,9 +250,11 @@ void SettingsWindow::openBarWidgetAddPopup(const std::vector<std::string>& laneP
   if (m_widgetAddPopup == nullptr) {
     m_widgetAddPopup = std::make_unique<settings::WidgetAddPopup>();
     m_widgetAddPopup->initialize(*m_wayland, *m_config, *m_renderContext);
-    m_widgetAddPopup->setOnSelect([this](const std::vector<std::string>& selectedLanePath, const std::string& value,
-                                         const std::string& newInstanceType, const std::string& newInstanceId,
-                                         const std::vector<std::pair<std::string, std::string>>& initialSettings) {
+    m_widgetAddPopup->setOnSelect([this](
+                                      const std::vector<std::string>& selectedLanePath, const std::string& value,
+                                      const std::string& newInstanceType, const std::string& newInstanceId,
+                                      const std::vector<std::pair<std::string, std::string>>& initialSettings
+                                  ) {
       if (value.empty() || m_config == nullptr) {
         return;
       }
@@ -282,13 +290,16 @@ void SettingsWindow::openBarWidgetAddPopup(const std::vector<std::string>& laneP
     output = m_output;
   }
 
-  m_widgetAddPopup->open(m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(),
-                         m_surface->width(), m_surface->height(), lanePath, m_config->config(), uiScale());
+  m_widgetAddPopup->open(
+      m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(), m_surface->width(),
+      m_surface->height(), lanePath, m_config->config(), uiScale()
+  );
 }
 
-void SettingsWindow::openSearchPickerPopup(const std::string& title, const std::vector<settings::SelectOption>& options,
-                                           const std::string& selectedValue, const std::string& placeholder,
-                                           const std::string& emptyText, const std::vector<std::string>& settingPath) {
+void SettingsWindow::openSearchPickerPopup(
+    const std::string& title, const std::vector<settings::SelectOption>& options, const std::string& selectedValue,
+    const std::string& placeholder, const std::string& emptyText, const std::vector<std::string>& settingPath
+) {
   if (m_wayland == nullptr || m_renderContext == nullptr || m_surface == nullptr ||
       m_surface->xdgSurface() == nullptr || m_config == nullptr || options.empty()) {
     return;
@@ -315,14 +326,16 @@ void SettingsWindow::openSearchPickerPopup(const std::string& title, const std::
   std::vector<SearchPickerOption> pickerOptions;
   pickerOptions.reserve(options.size());
   for (const auto& opt : options) {
-    pickerOptions.push_back(SearchPickerOption{
-        .value = opt.value,
-        .label = opt.label,
-        .description = opt.description,
-        .enabled = true,
-        .icon = {},
-        .preview = opt.preview,
-    });
+    pickerOptions.push_back(
+        SearchPickerOption{
+            .value = opt.value,
+            .label = opt.label,
+            .description = opt.description,
+            .enabled = true,
+            .icon = {},
+            .preview = opt.preview,
+        }
+    );
   }
 
   wl_output* output = m_wayland->lastPointerOutput();
@@ -330,9 +343,10 @@ void SettingsWindow::openSearchPickerPopup(const std::string& title, const std::
     output = m_output;
   }
 
-  m_searchPickerPopup->open(m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(),
-                            m_surface->width(), m_surface->height(), title, pickerOptions, selectedValue, placeholder,
-                            emptyText, uiScale());
+  m_searchPickerPopup->open(
+      m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(), m_surface->width(),
+      m_surface->height(), title, pickerOptions, selectedValue, placeholder, emptyText, uiScale()
+  );
 }
 
 void SettingsWindow::openSessionActionEntryEditor(std::size_t index) {
@@ -414,11 +428,12 @@ void SettingsWindow::openSessionActionEntryEditor(std::size_t index) {
     output = m_output;
   }
 
-  m_sessionActionsEditorPopup->open(m_surface->xdgSurface(), output, m_wayland->lastInputSerial(),
-                                    m_surface->wlSurface(), m_surface->width(), m_surface->height(), scale, sheetTitle,
-                                    removeRow, [ctx, rowState, persist](Flex& body) mutable {
-                                      settings::buildSessionActionEntryDetailContent(body, ctx, *rowState, persist);
-                                    });
+  m_sessionActionsEditorPopup->open(
+      m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(), m_surface->width(),
+      m_surface->height(), scale, sheetTitle, removeRow, [ctx, rowState, persist](Flex& body) mutable {
+        settings::buildSessionActionEntryDetailContent(body, ctx, *rowState, persist);
+      }
+  );
 }
 
 void SettingsWindow::openIdleBehaviorEntryEditor(std::size_t index) {
@@ -466,8 +481,9 @@ void SettingsWindow::openIdleBehaviorEntryEditor(std::size_t index) {
     }
     inferIdleBehaviorActionFromLegacyFields(*rowState);
     auto next = m_config->config().idle.behaviors;
-    auto target = std::find_if(next.begin(), next.end(),
-                               [rowKey](const IdleBehaviorConfig& behavior) { return behavior.name == *rowKey; });
+    auto target = std::find_if(next.begin(), next.end(), [rowKey](const IdleBehaviorConfig& behavior) {
+      return behavior.name == *rowKey;
+    });
     if (target == next.end() && index < next.size()) {
       target = next.begin() + static_cast<std::ptrdiff_t>(index);
     }
@@ -517,12 +533,13 @@ void SettingsWindow::openIdleBehaviorEntryEditor(std::size_t index) {
     output = m_output;
   }
 
-  m_sessionActionsEditorPopup->open(m_surface->xdgSurface(), output, m_wayland->lastInputSerial(),
-                                    m_surface->wlSurface(), m_surface->width(), m_surface->height(), scale,
-                                    idleBehaviorTitle(*rowState), removeRow,
-                                    [ctx, rowState, persist](Flex& body) mutable {
-                                      settings::buildIdleBehaviorEntryDetailContent(body, ctx, *rowState, persist);
-                                    });
+  m_sessionActionsEditorPopup->open(
+      m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(), m_surface->width(),
+      m_surface->height(), scale, idleBehaviorTitle(*rowState), removeRow,
+      [ctx, rowState, persist](Flex& body) mutable {
+        settings::buildIdleBehaviorEntryDetailContent(body, ctx, *rowState, persist);
+      }
+  );
 }
 
 void SettingsWindow::openIdleBehaviorCreateEditor() {
@@ -594,12 +611,13 @@ void SettingsWindow::openIdleBehaviorCreateEditor() {
     output = m_output;
   }
 
-  m_sessionActionsEditorPopup->open(m_surface->xdgSurface(), output, m_wayland->lastInputSerial(),
-                                    m_surface->wlSurface(), m_surface->width(), m_surface->height(), scale,
-                                    idleBehaviorTitle(*rowState), nullptr,
-                                    [ctx, rowState, persistDraft](Flex& body) mutable {
-                                      settings::buildIdleBehaviorEntryDetailContent(body, ctx, *rowState, persistDraft);
-                                    });
+  m_sessionActionsEditorPopup->open(
+      m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(), m_surface->width(),
+      m_surface->height(), scale, idleBehaviorTitle(*rowState), nullptr,
+      [ctx, rowState, persistDraft](Flex& body) mutable {
+        settings::buildIdleBehaviorEntryDetailContent(body, ctx, *rowState, persistDraft);
+      }
+  );
 }
 
 void SettingsWindow::saveSupportReport() {

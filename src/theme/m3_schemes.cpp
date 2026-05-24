@@ -79,9 +79,9 @@ namespace noctalia::theme {
     //
     // The final assembly also preserves cluster index order (matches Rust
     // IndexMap insertion order) instead of population-sorting + std::map.
-    std::vector<ClusterEntry> wsmeansMatugenOrder(const std::vector<mcu::Argb>& input_pixels,
-                                                  const std::vector<mcu::Argb>& starting_clusters,
-                                                  uint16_t max_colors) {
+    std::vector<ClusterEntry> wsmeansMatugenOrder(
+        const std::vector<mcu::Argb>& input_pixels, const std::vector<mcu::Argb>& starting_clusters, uint16_t max_colors
+    ) {
       if (max_colors == 0 || input_pixels.empty())
         return {};
       if (max_colors > 256)
@@ -193,8 +193,9 @@ namespace noctalia::theme {
             clusters[i] = {0, 0, 0};
             continue;
           }
-          clusters[i] = {sa[i] / static_cast<double>(cnt), sb[i] / static_cast<double>(cnt),
-                         sc[i] / static_cast<double>(cnt)};
+          clusters[i] = {
+              sa[i] / static_cast<double>(cnt), sb[i] / static_cast<double>(cnt), sc[i] / static_cast<double>(cnt)
+          };
         }
       }
 
@@ -272,8 +273,9 @@ namespace noctalia::theme {
       }
       // STABLE sort: matches Rust sort_by, preserves cluster insertion order
       // when scores tie.
-      std::stable_sort(scored.begin(), scored.end(),
-                       [](const Scored& a, const Scored& b) { return a.score > b.score; });
+      std::stable_sort(scored.begin(), scored.end(), [](const Scored& a, const Scored& b) {
+        return a.score > b.score;
+      });
 
       std::vector<mcu::Hct> chosen;
       for (int diff = 90; diff >= 15; diff--) {
@@ -332,9 +334,13 @@ namespace noctalia::theme {
       // get_source_color_from_image, which calls IndexMap::retain on the
       // quantizer output). This DOES skew the proportions in score, but
       // matugen ships it that way and we need bug-for-bug parity.
-      clusters.erase(std::remove_if(clusters.begin(), clusters.end(),
-                                    [](const ClusterEntry& c) { return mcu::CamFromInt(c.argb).chroma < 5.0; }),
-                     clusters.end());
+      clusters.erase(
+          std::remove_if(
+              clusters.begin(), clusters.end(),
+              [](const ClusterEntry& c) { return mcu::CamFromInt(c.argb).chroma < 5.0; }
+          ),
+          clusters.end()
+      );
 
       auto ranked = scoreMatugen(clusters, 4, true);
       return ranked.empty() ? 0xff4285f4u : ranked.front();

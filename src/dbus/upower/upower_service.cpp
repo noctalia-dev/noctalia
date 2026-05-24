@@ -105,8 +105,10 @@ UPowerService::UPowerService(SystemBus& bus) : m_bus(bus) {
 
   m_upowerProxy->uponSignal("PropertiesChanged")
       .onInterface(kPropertiesInterface)
-      .call([this](const std::string& interfaceName, const std::map<std::string, sdbus::Variant>& /*changed*/,
-                   const std::vector<std::string>& /*invalidated*/) {
+      .call([this](
+                const std::string& interfaceName, const std::map<std::string, sdbus::Variant>& /*changed*/,
+                const std::vector<std::string>& /*invalidated*/
+            ) {
         if (interfaceName == kUpowerInterface) {
           refresh();
         }
@@ -123,8 +125,10 @@ UPowerService::UPowerService(SystemBus& bus) : m_bus(bus) {
   rescanDevices();
 
   if (m_state.isPresent) {
-    kLog.info("battery {:.0f}% state={} ({})", m_state.percentage, static_cast<int>(m_state.state),
-              m_state.onBattery ? "on battery" : "on AC");
+    kLog.info(
+        "battery {:.0f}% state={} ({})", m_state.percentage, static_cast<int>(m_state.state),
+        m_state.onBattery ? "on battery" : "on AC"
+    );
   } else {
     kLog.info("connected (no system battery present)");
   }
@@ -183,8 +187,10 @@ void UPowerService::rescanDevices() {
 
       proxy->uponSignal("PropertiesChanged")
           .onInterface(kPropertiesInterface)
-          .call([this](const std::string& interfaceName, const std::map<std::string, sdbus::Variant>& /*changed*/,
-                       const std::vector<std::string>& /*invalidated*/) {
+          .call([this](
+                    const std::string& interfaceName, const std::map<std::string, sdbus::Variant>& /*changed*/,
+                    const std::vector<std::string>& /*invalidated*/
+                ) {
             if (interfaceName == kDeviceInterface) {
               refresh();
             }
@@ -196,8 +202,9 @@ void UPowerService::rescanDevices() {
     }
   }
 
-  std::sort(nextDevices.begin(), nextDevices.end(),
-            [](const TrackedDevice& lhs, const TrackedDevice& rhs) { return lhs.info.path < rhs.info.path; });
+  std::sort(nextDevices.begin(), nextDevices.end(), [](const TrackedDevice& lhs, const TrackedDevice& rhs) {
+    return lhs.info.path < rhs.info.path;
+  });
 
   bool devicesChanged = m_devices.size() != nextDevices.size();
   if (!devicesChanged) {
@@ -314,8 +321,10 @@ void UPowerService::refreshDisplayDeviceProxy() {
     auto proxy = sdbus::createProxy(m_bus.connection(), kUpowerBusName, path);
     proxy->uponSignal("PropertiesChanged")
         .onInterface(kPropertiesInterface)
-        .call([this](const std::string& interfaceName, const std::map<std::string, sdbus::Variant>& /*changed*/,
-                     const std::vector<std::string>& /*invalidated*/) {
+        .call([this](
+                  const std::string& interfaceName, const std::map<std::string, sdbus::Variant>& /*changed*/,
+                  const std::vector<std::string>& /*invalidated*/
+              ) {
           if (interfaceName == kDeviceInterface) {
             refresh();
           }

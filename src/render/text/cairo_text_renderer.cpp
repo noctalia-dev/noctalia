@@ -86,8 +86,9 @@ namespace {
         cp = static_cast<char32_t>((b & 0x0F) << 12 | (s[i + 1] & 0x3F) << 6 | (s[i + 2] & 0x3F));
         len = 3;
       } else if ((b & 0xF8) == 0xF0 && i + 3 < n) {
-        cp = static_cast<char32_t>((b & 0x07) << 18 | (s[i + 1] & 0x3F) << 12 | (s[i + 2] & 0x3F) << 6 |
-                                   (s[i + 3] & 0x3F));
+        cp = static_cast<char32_t>(
+            (b & 0x07) << 18 | (s[i + 1] & 0x3F) << 12 | (s[i + 2] & 0x3F) << 6 | (s[i + 3] & 0x3F)
+        );
         len = 4;
       } else {
         return true; // malformed — be safe
@@ -316,9 +317,10 @@ void CairoTextRenderer::notifyFontConfigChanged() {
 
 // ── Layout construction ─────────────────────────────────────────────────────
 
-PangoLayout* CairoTextRenderer::buildLayout(std::string_view text, float fontSize, FontWeight fontWeight,
-                                            float maxWidthPxScaled, int maxLines, TextAlign align,
-                                            std::string_view fontFamily) const {
+PangoLayout* CairoTextRenderer::buildLayout(
+    std::string_view text, float fontSize, FontWeight fontWeight, float maxWidthPxScaled, int maxLines, TextAlign align,
+    std::string_view fontFamily
+) const {
   PangoLayout* layout = pango_layout_new(m_pangoContext);
 
   const float rasterSize = std::max(1.0f, fontSize * m_contentScale);
@@ -413,9 +415,10 @@ CairoTextRenderer::TextMetrics CairoTextRenderer::metricsFromLayout(PangoLayout*
 
 // ── measure / truncate ──────────────────────────────────────────────────────
 
-CairoTextRenderer::TextMetrics CairoTextRenderer::measure(std::string_view text, float fontSize, FontWeight fontWeight,
-                                                          float maxWidth, int maxLines, TextAlign align,
-                                                          std::string_view fontFamily) {
+CairoTextRenderer::TextMetrics CairoTextRenderer::measure(
+    std::string_view text, float fontSize, FontWeight fontWeight, float maxWidth, int maxLines, TextAlign align,
+    std::string_view fontFamily
+) {
   if (m_pangoContext == nullptr || text.empty()) {
     return {};
   }
@@ -487,9 +490,10 @@ CairoTextRenderer::TextMetrics CairoTextRenderer::measureFont(float fontSize, Fo
   return out;
 }
 
-void CairoTextRenderer::measureCursorStops(std::string_view text, float fontSize,
-                                           const std::vector<std::size_t>& byteOffsets, std::vector<float>& outStops,
-                                           FontWeight fontWeight) {
+void CairoTextRenderer::measureCursorStops(
+    std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, std::vector<float>& outStops,
+    FontWeight fontWeight
+) {
   outStops.clear();
   outStops.reserve(byteOffsets.size());
 
@@ -707,8 +711,8 @@ void CairoTextRenderer::rasterizeLayout(PangoLayout* layout, const Color& color,
     }
 
     TextureHandle texture = m_textureManager->loadFromPixels(
-        tight.data(), pxWidth, tileH, tinted ? TextureDataFormat::Alpha : TextureDataFormat::Rgba,
-        TextureFilter::Linear);
+        tight.data(), pxWidth, tileH, tinted ? TextureDataFormat::Alpha : TextureDataFormat::Rgba, TextureFilter::Linear
+    );
     if (texture.id == 0) {
       for (auto& tile : entry.tiles) {
         m_textureManager->unload(tile.texture);
@@ -765,10 +769,10 @@ void CairoTextRenderer::evictIfNeeded() {
   }
 }
 
-CairoTextRenderer::CacheEntry* CairoTextRenderer::lookupOrRasterize(std::string_view text, float fontSize,
-                                                                    FontWeight fontWeight, float maxWidth, int maxLines,
-                                                                    TextAlign align, const Color& color,
-                                                                    std::string_view fontFamily) {
+CairoTextRenderer::CacheEntry* CairoTextRenderer::lookupOrRasterize(
+    std::string_view text, float fontSize, FontWeight fontWeight, float maxWidth, int maxLines, TextAlign align,
+    const Color& color, std::string_view fontFamily
+) {
   // Tinted (A8 coverage) entries are color-independent — the shader applies
   // u_tint at draw time, so one cache entry serves every color. RGBA entries
   // (mixed content with COLR emoji) bake non-emoji ink color into the Cairo
@@ -828,9 +832,11 @@ CairoTextRenderer::CacheEntry* CairoTextRenderer::lookupOrRasterize(std::string_
 
 // ── draw ────────────────────────────────────────────────────────────────────
 
-void CairoTextRenderer::draw(float surfaceWidth, float surfaceHeight, float x, float baselineY, std::string_view text,
-                             float fontSize, const Color& color, const Mat3& transform, FontWeight fontWeight,
-                             float maxWidth, int maxLines, TextAlign align, std::string_view fontFamily) {
+void CairoTextRenderer::draw(
+    float surfaceWidth, float surfaceHeight, float x, float baselineY, std::string_view text, float fontSize,
+    const Color& color, const Mat3& transform, FontWeight fontWeight, float maxWidth, int maxLines, TextAlign align,
+    std::string_view fontFamily
+) {
   if (m_pangoContext == nullptr || m_backend == nullptr || text.empty()) {
     return;
   }
@@ -840,8 +846,10 @@ void CairoTextRenderer::draw(float surfaceWidth, float surfaceHeight, float x, f
     return;
   }
   if (entry->tiles.size() > 1) {
-    kLog.warn("draw tiles={} pxW={} pxH={} baseXY=({}, {})", entry->tiles.size(), entry->pixelWidth, entry->pixelHeight,
-              x, baselineY);
+    kLog.warn(
+        "draw tiles={} pxW={} pxH={} baseXY=({}, {})", entry->tiles.size(), entry->pixelWidth, entry->pixelHeight, x,
+        baselineY
+    );
   }
 
   const float invScale = 1.0f / m_contentScale;
@@ -878,29 +886,33 @@ void CairoTextRenderer::draw(float surfaceWidth, float surfaceHeight, float x, f
     const float tileH = static_cast<float>(tile.pixelHeight) * invScale;
     const Mat3 tileWorld = baseWorld * Mat3::translation(0.0f, tileYLocal);
     if (entry->tinted) {
-      m_backend->drawGlyph(RenderGlyphDraw{
-          .texture = tile.texture.id,
-          .surfaceWidth = surfaceWidth,
-          .surfaceHeight = surfaceHeight,
-          .width = quadW,
-          .height = tileH,
-          .opacity = 1.0f,
-          .tint = color,
-          .tinted = true,
-          .transform = tileWorld,
-      });
+      m_backend->drawGlyph(
+          RenderGlyphDraw{
+              .texture = tile.texture.id,
+              .surfaceWidth = surfaceWidth,
+              .surfaceHeight = surfaceHeight,
+              .width = quadW,
+              .height = tileH,
+              .opacity = 1.0f,
+              .tint = color,
+              .tinted = true,
+              .transform = tileWorld,
+          }
+      );
     } else {
       // RGBA entries are rasterized at alpha=1.0 and color-keyed by rgb, so
       // the caller's alpha is applied here as opacity.
-      m_backend->drawGlyph(RenderGlyphDraw{
-          .texture = tile.texture.id,
-          .surfaceWidth = surfaceWidth,
-          .surfaceHeight = surfaceHeight,
-          .width = quadW,
-          .height = tileH,
-          .opacity = color.a,
-          .transform = tileWorld,
-      });
+      m_backend->drawGlyph(
+          RenderGlyphDraw{
+              .texture = tile.texture.id,
+              .surfaceWidth = surfaceWidth,
+              .surfaceHeight = surfaceHeight,
+              .width = quadW,
+              .height = tileH,
+              .opacity = color.a,
+              .transform = tileWorld,
+          }
+      );
     }
   }
 }

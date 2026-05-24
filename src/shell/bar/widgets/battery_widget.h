@@ -15,9 +15,11 @@ enum class BatteryDisplayMode : std::uint8_t { Graphic, Icon };
 
 class BatteryWidget : public Widget {
 public:
-  BatteryWidget(UPowerService* upower, std::string deviceSelector = "auto", int warningThreshold = 0,
-                ColorSpec warningColor = {}, BatteryDisplayMode displayMode = BatteryDisplayMode::Icon,
-                bool showLabel = true, bool hideWhenPlugged = false, bool hideWhenFull = false);
+  BatteryWidget(
+      UPowerService* upower, std::string deviceSelector = "auto", int warningThreshold = 0, ColorSpec warningColor = {},
+      BatteryDisplayMode displayMode = BatteryDisplayMode::Icon, bool showLabel = true, bool hideWhenPlugged = false,
+      bool hideWhenFull = false
+  );
 
   void create() override;
 

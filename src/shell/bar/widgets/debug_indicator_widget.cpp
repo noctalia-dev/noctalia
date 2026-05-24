@@ -2,25 +2,26 @@
 
 #include "shell/bar/widgets/debug_indicator_widget.h"
 
-#include "ui/controls/chip.h"
-#include "ui/controls/label.h"
+#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
 DebugIndicatorWidget::DebugIndicatorWidget() = default;
 
 void DebugIndicatorWidget::create() {
-  auto chip = std::make_unique<Chip>();
-
-  chip->setFill(colorSpecFromRole(ColorRole::Error));
-  chip->label()->setColor(colorSpecFromRole(ColorRole::OnError));
-  chip->label()->setFontWeight(labelFontWeight());
-  chip->setText("DEBUG");
-  chip->clearBorder();
-  chip->setPadding(2.0f, Style::spaceSm);
-
-  m_chip = chip.get();
-  setRoot(std::move(chip));
+  setRoot(
+      ui::chip({
+          .out = &m_chip,
+          .text = "DEBUG",
+          .configure = [this](Chip& chip) {
+            chip.setFill(colorSpecFromRole(ColorRole::Error));
+            chip.label()->setColor(colorSpecFromRole(ColorRole::OnError));
+            chip.label()->setFontWeight(labelFontWeight());
+            chip.clearBorder();
+            chip.setPadding(2.0f, Style::spaceSm);
+          },
+      })
+  );
 }
 
 void DebugIndicatorWidget::doLayout(Renderer& renderer, float /*containerWidth*/, float /*containerHeight*/) {

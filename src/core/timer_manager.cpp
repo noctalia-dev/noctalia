@@ -49,8 +49,9 @@ namespace {
 
   std::string demangleTypeName(const char* name) {
     int status = 0;
-    std::unique_ptr<char, decltype(&std::free)> demangled{abi::__cxa_demangle(name, nullptr, nullptr, &status),
-                                                          &std::free};
+    std::unique_ptr<char, decltype(&std::free)> demangled{
+        abi::__cxa_demangle(name, nullptr, nullptr, &status), &std::free
+    };
     if (status == 0 && demangled != nullptr) {
       return demangled.get();
     }
@@ -64,8 +65,9 @@ TimerManager& TimerManager::instance() {
   return manager;
 }
 
-TimerManager::TimerId TimerManager::start(TimerId existingId, std::chrono::milliseconds delay,
-                                          std::function<void()> callback, bool repeating) {
+TimerManager::TimerId TimerManager::start(
+    TimerId existingId, std::chrono::milliseconds delay, std::function<void()> callback, bool repeating
+) {
   if (existingId != 0) {
     cancel(existingId);
   }

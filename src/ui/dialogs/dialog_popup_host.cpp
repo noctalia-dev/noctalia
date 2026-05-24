@@ -48,8 +48,9 @@ void DialogPopupHost::initializeBase(WaylandConnection& wayland, ConfigService& 
   m_popupHosts = nullptr;
 }
 
-void DialogPopupHost::initializeBase(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext,
-                                     LayerPopupHostRegistry& popupHosts) {
+void DialogPopupHost::initializeBase(
+    WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext, LayerPopupHostRegistry& popupHosts
+) {
   m_wayland = &wayland;
   m_config = &config;
   m_renderContext = &renderContext;
@@ -73,16 +74,20 @@ bool DialogPopupHost::openPopup(std::uint32_t width, std::uint32_t height) {
   surface->setRenderContext(m_renderContext);
   surface->setAnimationManager(&m_animations);
   surface->setConfigureCallback([this](std::uint32_t /*w*/, std::uint32_t /*h*/) { requestLayout(); });
-  surface->setPrepareFrameCallback(
-      [this](bool needsUpdate, bool needsLayout) { prepareFrame(needsUpdate, needsLayout); });
+  surface->setPrepareFrameCallback([this](bool needsUpdate, bool needsLayout) {
+    prepareFrame(needsUpdate, needsLayout);
+  });
   surface->setDismissedCallback([this]() { cancel(); });
 
   m_chrome =
       popup_chrome::computeGeometry(static_cast<float>(width), static_cast<float>(height), popupShadowConfig(m_config));
   PopupSurfaceConfig popupConfig = defaultPopupConfig(*parentContext, width, height);
-  popup_chrome::applyToConfig(popupConfig, m_chrome,
-                              popup_chrome::Attachment{.horizontal = popup_chrome::HorizontalAttachment::Center,
-                                                       .vertical = popup_chrome::VerticalAttachment::Center});
+  popup_chrome::applyToConfig(
+      popupConfig, m_chrome,
+      popup_chrome::Attachment{
+          .horizontal = popup_chrome::HorizontalAttachment::Center, .vertical = popup_chrome::VerticalAttachment::Center
+      }
+  );
 
   m_surface = std::move(surface);
   m_popupHosts->beginAttachedPopup(m_parentSurface);
@@ -99,8 +104,9 @@ bool DialogPopupHost::openPopup(std::uint32_t width, std::uint32_t height) {
   return true;
 }
 
-bool DialogPopupHost::openPopupAsChild(PopupSurfaceConfig config, xdg_surface* parentXdgSurface,
-                                       wl_surface* parentWlSurface, wl_output* output) {
+bool DialogPopupHost::openPopupAsChild(
+    PopupSurfaceConfig config, xdg_surface* parentXdgSurface, wl_surface* parentWlSurface, wl_output* output
+) {
   if (m_wayland == nullptr || m_renderContext == nullptr || parentXdgSurface == nullptr || parentWlSurface == nullptr) {
     return false;
   }
@@ -112,15 +118,20 @@ bool DialogPopupHost::openPopupAsChild(PopupSurfaceConfig config, xdg_surface* p
   surface->setRenderContext(m_renderContext);
   surface->setAnimationManager(&m_animations);
   surface->setConfigureCallback([this](std::uint32_t /*w*/, std::uint32_t /*h*/) { requestLayout(); });
-  surface->setPrepareFrameCallback(
-      [this](bool needsUpdate, bool needsLayout) { prepareFrame(needsUpdate, needsLayout); });
+  surface->setPrepareFrameCallback([this](bool needsUpdate, bool needsLayout) {
+    prepareFrame(needsUpdate, needsLayout);
+  });
   surface->setDismissedCallback([this]() { cancel(); });
 
-  m_chrome = popup_chrome::computeGeometry(static_cast<float>(config.width), static_cast<float>(config.height),
-                                           popupShadowConfig(m_config));
-  popup_chrome::applyToConfig(config, m_chrome,
-                              popup_chrome::Attachment{.horizontal = popup_chrome::HorizontalAttachment::Center,
-                                                       .vertical = popup_chrome::VerticalAttachment::Center});
+  m_chrome = popup_chrome::computeGeometry(
+      static_cast<float>(config.width), static_cast<float>(config.height), popupShadowConfig(m_config)
+  );
+  popup_chrome::applyToConfig(
+      config, m_chrome,
+      popup_chrome::Attachment{
+          .horizontal = popup_chrome::HorizontalAttachment::Center, .vertical = popup_chrome::VerticalAttachment::Center
+      }
+  );
 
   m_surface = std::move(surface);
   if (!m_surface->initializeAsChild(parentXdgSurface, output, config)) {
@@ -162,8 +173,9 @@ float DialogPopupHost::uiScale() const {
   return std::max(0.1f, m_config->config().shell.uiScale);
 }
 
-PopupSurfaceConfig DialogPopupHost::defaultPopupConfig(const LayerPopupParentContext& parent, std::uint32_t width,
-                                                       std::uint32_t height) const {
+PopupSurfaceConfig DialogPopupHost::defaultPopupConfig(
+    const LayerPopupParentContext& parent, std::uint32_t width, std::uint32_t height
+) const {
   const auto [offsetX, offsetY] = parent.centeringOffset(*m_wayland);
   return PopupSurfaceConfig{
       .anchorX = 0,
@@ -244,8 +256,10 @@ bool DialogPopupHost::onPointerEvent(const PointerEvent& event) {
     } else {
       m_inputDispatcher.pointerMotion(localX, localY, event.serial);
     }
-    m_inputDispatcher.pointerAxis(localX, localY, event.axis, event.axisSource, event.axisValue, event.axisDiscrete,
-                                  event.axisValue120, event.axisLines);
+    m_inputDispatcher.pointerAxis(
+        localX, localY, event.axis, event.axisSource, event.axisValue, event.axisDiscrete, event.axisValue120,
+        event.axisLines
+    );
     break;
   }
 
@@ -351,20 +365,24 @@ void DialogPopupHost::buildScene(std::uint32_t width, std::uint32_t height) {
   m_panelShadow = popup_chrome::addShadow(*m_sceneRoot, m_chrome, popupShadowConfig(m_config), Style::scaledRadiusXl());
 
   auto bg = ui::box({
-      .configure =
-          [this](Box& box) { box.setPanelStyle(m_config != nullptr && m_config->config().shell.panel.borders); },
+      .configure = [this](Box& box) {
+        box.setPanelStyle(m_config != nullptr && m_config->config().shell.panel.borders);
+      },
   });
   m_bgNode = static_cast<Box*>(m_sceneRoot->addChild(std::move(bg)));
 
   auto content = std::make_unique<Node>();
   m_contentNode = content.get();
-  populateContent(m_contentNode, static_cast<std::uint32_t>(std::round(m_chrome.contentWidth)),
-                  static_cast<std::uint32_t>(std::round(m_chrome.contentHeight)));
+  populateContent(
+      m_contentNode, static_cast<std::uint32_t>(std::round(m_chrome.contentWidth)),
+      static_cast<std::uint32_t>(std::round(m_chrome.contentHeight))
+  );
   m_sceneRoot->addChild(std::move(content));
 
   m_inputDispatcher.setSceneRoot(m_sceneRoot.get());
-  m_inputDispatcher.setCursorShapeCallback(
-      [this](std::uint32_t serial, std::uint32_t shape) { m_wayland->setCursorShape(serial, shape); });
+  m_inputDispatcher.setCursorShapeCallback([this](std::uint32_t serial, std::uint32_t shape) {
+    m_wayland->setCursorShape(serial, shape);
+  });
   m_surface->setSceneRoot(m_sceneRoot.get());
 
   if (auto* focusArea = initialFocusArea(); focusArea != nullptr) {
@@ -403,8 +421,9 @@ void DialogPopupHost::syncSceneGeometryFromSurface() {
   const float panelH = m_chrome.contentHeight;
   if (m_panelShadow != nullptr) {
     const ShellConfig::ShadowConfig shadow = popupShadowConfig(m_config);
-    m_panelShadow->setPosition(panelX + static_cast<float>(shadow.offsetX),
-                               panelY + static_cast<float>(shadow.offsetY));
+    m_panelShadow->setPosition(
+        panelX + static_cast<float>(shadow.offsetX), panelY + static_cast<float>(shadow.offsetY)
+    );
     m_panelShadow->setFrameSize(panelW, panelH);
   }
   if (m_bgNode != nullptr) {

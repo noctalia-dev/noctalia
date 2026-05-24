@@ -3,8 +3,7 @@
 #include "notification/notification_manager.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
-#include "ui/controls/box.h"
-#include "ui/controls/glyph.h"
+#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -36,20 +35,25 @@ void NotificationWidget::create() {
     requestPanelToggle("control-center", "notifications");
   });
 
-  auto glyph = std::make_unique<Glyph>();
-  glyph->setGlyph("bell");
-  glyph->setGlyphSize(Style::barGlyphSize * m_contentScale);
-  glyph->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
-  m_glyph = glyph.get();
-  area->addChild(std::move(glyph));
+  area->addChild(
+      ui::glyph({
+          .out = &m_glyph,
+          .glyph = "bell",
+          .glyphSize = Style::barGlyphSize * m_contentScale,
+          .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
+      })
+  );
 
-  auto dot = std::make_unique<Box>();
-  dot->setFill(colorSpecFromRole(ColorRole::Primary));
   const float dotSize = kDotBaseSize * m_contentScale;
-  dot->setRadius(dotSize * 0.5f);
-  dot->setSize(dotSize, dotSize);
-  dot->setVisible(false);
-  m_dot = area->addChild(std::move(dot));
+  m_dot = area->addChild(
+      ui::box({
+          .fill = colorSpecFromRole(ColorRole::Primary),
+          .radius = dotSize * 0.5f,
+          .width = dotSize,
+          .height = dotSize,
+          .visible = false,
+      })
+  );
 
   setRoot(std::move(area));
   refreshIndicatorState();

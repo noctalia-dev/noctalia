@@ -275,9 +275,10 @@ namespace compositors::hyprland {
     }
   }
 
-  void HyprlandToplevelMapping::handleWindowAddress(void* data,
-                                                    hyprland_toplevel_window_mapping_handle_v1* requestHandle,
-                                                    const std::uint32_t addressHi, const std::uint32_t addressLo) {
+  void HyprlandToplevelMapping::handleWindowAddress(
+      void* data, hyprland_toplevel_window_mapping_handle_v1* requestHandle, const std::uint32_t addressHi,
+      const std::uint32_t addressLo
+  ) {
     auto* self = static_cast<HyprlandToplevelMapping*>(data);
     if (self == nullptr || requestHandle == nullptr) {
       return;

@@ -140,8 +140,9 @@ public:
   static void absolutePosition(const Node* node, float& outX, float& outY);
   static bool mapFromScene(const Node* node, float sceneX, float sceneY, float& outLocalX, float& outLocalY);
   static void transformedBounds(const Node* node, float& outLeft, float& outTop, float& outRight, float& outBottom);
-  static void transformedBounds(const Node* node, const Mat3& world, float& outLeft, float& outTop, float& outRight,
-                                float& outBottom);
+  static void transformedBounds(
+      const Node* node, const Mat3& world, float& outLeft, float& outTop, float& outRight, float& outBottom
+  );
 
   void markPaintDirty();
   void markLayoutDirty();

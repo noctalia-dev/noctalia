@@ -155,8 +155,10 @@ void InputDispatcher::syncPointerHover() {
   updateHover(m_lastPointerX, m_lastPointerY, m_lastSerial);
 }
 
-bool InputDispatcher::pointerAxis(float x, float y, std::uint32_t axis, std::uint32_t axisSource, double value,
-                                  std::int32_t discrete, std::int32_t value120, float lines) {
+bool InputDispatcher::pointerAxis(
+    float x, float y, std::uint32_t axis, std::uint32_t axisSource, double value, std::int32_t discrete,
+    std::int32_t value120, float lines
+) {
   pruneDetachedAreas();
   InputArea* target = m_capturedArea != nullptr ? m_capturedArea : findInputAreaAt(x, y);
   if (target == nullptr) {
@@ -187,8 +189,9 @@ bool InputDispatcher::pointerAxis(float x, float y, std::uint32_t axis, std::uin
   return consumedAny;
 }
 
-void InputDispatcher::keyEvent(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed,
-                               bool preedit) {
+void InputDispatcher::keyEvent(
+    std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed, bool preedit
+) {
   pruneDetachedAreas();
   if (m_focusedArea != nullptr) {
     m_focusedArea->dispatchKey(sym, utf32, modifiers, pressed, preedit);

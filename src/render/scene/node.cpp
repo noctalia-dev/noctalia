@@ -24,8 +24,8 @@ namespace {
     return world;
   }
 
-  bool pointInsideNode(const Node* node, float sceneX, float sceneY, float& localX, float& localY,
-                       bool includeHitOutset) {
+  bool
+  pointInsideNode(const Node* node, float sceneX, float sceneY, float& localX, float& localY, bool includeHitOutset) {
     if (node == nullptr) {
       return false;
     }
@@ -429,8 +429,9 @@ Node* Node::hitTestImpl(Node* node, float px, float py) {
     for (auto& child : children) {
       orderedChildren.push_back(child.get());
     }
-    std::stable_sort(orderedChildren.begin(), orderedChildren.end(),
-                     [](const Node* a, const Node* b) { return a->zIndex() < b->zIndex(); });
+    std::stable_sort(orderedChildren.begin(), orderedChildren.end(), [](const Node* a, const Node* b) {
+      return a->zIndex() < b->zIndex();
+    });
     for (auto it = orderedChildren.rbegin(); it != orderedChildren.rend(); ++it) {
       auto* hit = hitTestImpl(*it, px, py);
       if (hit != nullptr) {
@@ -458,8 +459,9 @@ bool Node::mapFromScene(const Node* node, float sceneX, float sceneY, float& out
   return pointInsideNode(node, sceneX, sceneY, outLocalX, outLocalY, false);
 }
 
-void Node::transformedBounds(const Node* node, const Mat3& world, float& outLeft, float& outTop, float& outRight,
-                             float& outBottom) {
+void Node::transformedBounds(
+    const Node* node, const Mat3& world, float& outLeft, float& outTop, float& outRight, float& outBottom
+) {
   const Vec2 corners[] = {
       world.transformPoint(0.0f, 0.0f),
       world.transformPoint(node->width(), 0.0f),

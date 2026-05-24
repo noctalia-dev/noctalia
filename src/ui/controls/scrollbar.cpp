@@ -104,8 +104,10 @@ void Scrollbar::update(float viewportHeight, float contentHeight, float scrollOf
   m_trackArea->setPosition(0.0f, 0.0f);
   m_trackArea->setFrameSize(Style::scrollbarWidth, trackH);
 
-  const float thumbH = std::clamp((viewportHeight * viewportHeight) / std::max(viewportHeight, contentHeight),
-                                  Style::scrollbarMinThumbHeight, trackH);
+  const float thumbH = std::clamp(
+      (viewportHeight * viewportHeight) / std::max(viewportHeight, contentHeight), Style::scrollbarMinThumbHeight,
+      trackH
+  );
   m_thumbTravel = std::max(0.0f, trackH - thumbH);
   m_thumb->setFrameSize(Style::scrollbarWidth, thumbH);
   m_thumbArea->setFrameSize(Style::scrollbarWidth, thumbH);

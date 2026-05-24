@@ -31,10 +31,12 @@ namespace settings {
     void setOnSelect(SelectCallback callback);
     void setOnDismissed(std::function<void()> callback);
 
-    void open(xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
-              std::uint32_t parentWidth, std::uint32_t parentHeight, const std::string& title,
-              const std::vector<SearchPickerOption>& options, const std::string& selectedValue,
-              const std::string& placeholder, const std::string& emptyText, float scale);
+    void open(
+        xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
+        std::uint32_t parentWidth, std::uint32_t parentHeight, const std::string& title,
+        const std::vector<SearchPickerOption>& options, const std::string& selectedValue,
+        const std::string& placeholder, const std::string& emptyText, float scale
+    );
     void close();
 
     [[nodiscard]] bool isOpen() const noexcept;

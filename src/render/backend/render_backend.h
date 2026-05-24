@@ -107,8 +107,8 @@ public:
   virtual void endFrame(RenderTarget& target) = 0;
 
   [[nodiscard]] virtual std::unique_ptr<RenderSurfaceTarget> createSurfaceTarget(wl_surface* surface) = 0;
-  [[nodiscard]] virtual std::unique_ptr<RenderFramebuffer> createFramebuffer(std::uint32_t width,
-                                                                             std::uint32_t height) = 0;
+  [[nodiscard]] virtual std::unique_ptr<RenderFramebuffer>
+  createFramebuffer(std::uint32_t width, std::uint32_t height) = 0;
   virtual void bindFramebuffer(const RenderFramebuffer& framebuffer) = 0;
   virtual void bindDefaultFramebuffer() = 0;
   virtual void setViewport(std::uint32_t width, std::uint32_t height) = 0;
@@ -117,31 +117,45 @@ public:
   [[nodiscard]] virtual int maxTextureSize() = 0;
   virtual void setScissor(RenderScissor scissor) = 0;
   virtual void disableScissor() = 0;
-  virtual void drawRect(float surfaceWidth, float surfaceHeight, float width, float height,
-                        const RoundedRectStyle& style, const Mat3& transform) = 0;
+  virtual void drawRect(
+      float surfaceWidth, float surfaceHeight, float width, float height, const RoundedRectStyle& style,
+      const Mat3& transform
+  ) = 0;
   virtual void drawImage(const RenderImageDraw& draw) = 0;
   virtual void drawGlyph(const RenderGlyphDraw& draw) = 0;
-  virtual void drawSpinner(float surfaceWidth, float surfaceHeight, float width, float height,
-                           const SpinnerStyle& style, const Mat3& transform) = 0;
-  virtual void drawScreenCorner(float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY,
-                                float width, float height, const ScreenCornerStyle& style, const Mat3& transform) = 0;
-  virtual void drawAudioSpectrum(float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY,
-                                 float width, float height, const AudioSpectrumStyle& style,
-                                 std::span<const float> values, const Mat3& transform) = 0;
-  virtual void drawEffect(float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,
-                          const Mat3& transform) = 0;
-  virtual void drawGraph(TextureId dataTexture, int textureWidth, float surfaceWidth, float surfaceHeight, float width,
-                         float height, const GraphStyle& style, const Mat3& transform) = 0;
-  virtual void drawWallpaper(WallpaperTransition transition, WallpaperSourceKind sourceKind1, TextureId texture1,
-                             const Color& sourceColor1, WallpaperSourceKind sourceKind2, TextureId texture2,
-                             const Color& sourceColor2, float surfaceWidth, float surfaceHeight, float width,
-                             float height, float imageWidth1, float imageHeight1, float imageWidth2, float imageHeight2,
-                             float progress, float fillMode, const TransitionParams& params, const Color& fillColor,
-                             const Mat3& transform) = 0;
+  virtual void drawSpinner(
+      float surfaceWidth, float surfaceHeight, float width, float height, const SpinnerStyle& style,
+      const Mat3& transform
+  ) = 0;
+  virtual void drawScreenCorner(
+      float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
+      const ScreenCornerStyle& style, const Mat3& transform
+  ) = 0;
+  virtual void drawAudioSpectrum(
+      float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
+      const AudioSpectrumStyle& style, std::span<const float> values, const Mat3& transform
+  ) = 0;
+  virtual void drawEffect(
+      float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,
+      const Mat3& transform
+  ) = 0;
+  virtual void drawGraph(
+      TextureId dataTexture, int textureWidth, float surfaceWidth, float surfaceHeight, float width, float height,
+      const GraphStyle& style, const Mat3& transform
+  ) = 0;
+  virtual void drawWallpaper(
+      WallpaperTransition transition, WallpaperSourceKind sourceKind1, TextureId texture1, const Color& sourceColor1,
+      WallpaperSourceKind sourceKind2, TextureId texture2, const Color& sourceColor2, float surfaceWidth,
+      float surfaceHeight, float width, float height, float imageWidth1, float imageHeight1, float imageWidth2,
+      float imageHeight2, float progress, float fillMode, const TransitionParams& params, const Color& fillColor,
+      const Mat3& transform
+  ) = 0;
   virtual void drawFullscreenTexture(TextureId texture, bool flipY) = 0;
   virtual void drawFullscreenTint(Color color) = 0;
-  virtual void drawFramebufferBlur(TextureId sourceTexture, std::uint32_t width, std::uint32_t height, float directionX,
-                                   float directionY, float radius) = 0;
+  virtual void drawFramebufferBlur(
+      TextureId sourceTexture, std::uint32_t width, std::uint32_t height, float directionX, float directionY,
+      float radius
+  ) = 0;
 
   [[nodiscard]] virtual TextureManager& textureManager() = 0;
 };

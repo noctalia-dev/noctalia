@@ -149,10 +149,10 @@ namespace settings {
     std::string noneLabel;
   };
 
-  using SettingControl = std::variant<ToggleSetting, SelectSetting, SliderSetting, TextSetting, OptionalNumberSetting,
-                                      OptionalStepperSetting, StepperSetting, ListSetting, ShortcutListSetting,
-                                      KeybindListSetting, SessionPanelActionsSetting, IdleBehaviorsSetting,
-                                      MultiSelectSetting, ButtonSetting, ColorSpecPickerSetting, SearchPickerSetting>;
+  using SettingControl = std::variant<
+      ToggleSetting, SelectSetting, SliderSetting, TextSetting, OptionalNumberSetting, OptionalStepperSetting,
+      StepperSetting, ListSetting, ShortcutListSetting, KeybindListSetting, SessionPanelActionsSetting,
+      IdleBehaviorsSetting, MultiSelectSetting, ButtonSetting, ColorSpecPickerSetting, SearchPickerSetting>;
 
   struct SettingVisibilityCondition {
     std::vector<std::string> path;
@@ -196,16 +196,17 @@ namespace settings {
   [[nodiscard]] const BarConfig* findBar(const Config& cfg, std::string_view name);
   [[nodiscard]] const BarMonitorOverride* findMonitorOverride(const BarConfig& bar, std::string_view match);
   [[nodiscard]] std::vector<std::string> barNames(const Config& cfg);
-  [[nodiscard]] std::vector<SettingEntry>
-  buildSettingsRegistry(const Config& cfg, const BarConfig* selectedBar,
-                        const BarMonitorOverride* selectedMonitorOverride = nullptr,
-                        const RegistryEnvironment& env = {});
+  [[nodiscard]] std::vector<SettingEntry> buildSettingsRegistry(
+      const Config& cfg, const BarConfig* selectedBar, const BarMonitorOverride* selectedMonitorOverride = nullptr,
+      const RegistryEnvironment& env = {}
+  );
   [[nodiscard]] std::string normalizedSettingQuery(std::string_view query);
   [[nodiscard]] bool matchesNormalizedSettingQuery(const SettingEntry& entry, std::string_view normalizedQuery);
   [[nodiscard]] bool matchesSettingQuery(const SettingEntry& entry, std::string_view query);
   [[nodiscard]] bool isBarMonitorOverrideSettingPath(const std::vector<std::string>& path);
-  [[nodiscard]] bool settingEntryMatchesBarNavigation(const SettingEntry& entry, std::string_view selectedBarName,
-                                                      std::string_view selectedMonitorOverride);
+  [[nodiscard]] bool settingEntryMatchesBarNavigation(
+      const SettingEntry& entry, std::string_view selectedBarName, std::string_view selectedMonitorOverride
+  );
   [[nodiscard]] std::string barSettingContentSectionKey(const SettingEntry& entry);
   [[nodiscard]] std::string_view sectionGlyph(std::string_view section);
 

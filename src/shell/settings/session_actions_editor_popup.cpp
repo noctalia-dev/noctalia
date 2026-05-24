@@ -19,8 +19,10 @@ namespace settings {
 
   namespace {
 
-    PopupSurfaceConfig centeredPopupConfig(std::uint32_t parentWidth, std::uint32_t parentHeight, std::uint32_t width,
-                                           std::uint32_t height, std::uint32_t serial) {
+    PopupSurfaceConfig centeredPopupConfig(
+        std::uint32_t parentWidth, std::uint32_t parentHeight, std::uint32_t width, std::uint32_t height,
+        std::uint32_t serial
+    ) {
       return PopupSurfaceConfig{
           .anchorX = static_cast<std::int32_t>(parentWidth / 2),
           .anchorY = static_cast<std::int32_t>(parentHeight / 2),
@@ -47,16 +49,17 @@ namespace settings {
 
   SessionActionsEditorPopup::~SessionActionsEditorPopup() { destroyPopup(); }
 
-  void SessionActionsEditorPopup::initialize(WaylandConnection& wayland, ConfigService& config,
-                                             RenderContext& renderContext) {
+  void SessionActionsEditorPopup::initialize(
+      WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext
+  ) {
     initializeBase(wayland, config, renderContext);
   }
 
-  void SessionActionsEditorPopup::open(xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial,
-                                       wl_surface* parentWlSurface, std::uint32_t parentWidth,
-                                       std::uint32_t parentHeight, float scale, std::string sheetTitle,
-                                       std::function<void()> removeAction,
-                                       std::function<void(Flex& sheetBody)> populateSheetBody) {
+  void SessionActionsEditorPopup::open(
+      xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
+      std::uint32_t parentWidth, std::uint32_t parentHeight, float scale, std::string sheetTitle,
+      std::function<void()> removeAction, std::function<void(Flex& sheetBody)> populateSheetBody
+  ) {
     if (parentXdgSurface == nullptr || parentWlSurface == nullptr) {
       return;
     }
@@ -75,9 +78,10 @@ namespace settings {
 
     const float popupWidth = kPopupWidth * m_scale;
     const float popupHeight = kInitialPopupHeight * m_scale;
-    const auto cfg =
-        centeredPopupConfig(parentWidth, parentHeight, static_cast<std::uint32_t>(std::max(1.0f, popupWidth)),
-                            static_cast<std::uint32_t>(std::max(1.0f, popupHeight)), serial);
+    const auto cfg = centeredPopupConfig(
+        parentWidth, parentHeight, static_cast<std::uint32_t>(std::max(1.0f, popupWidth)),
+        static_cast<std::uint32_t>(std::max(1.0f, popupHeight)), serial
+    );
 
     if (!openPopupAsChild(cfg, parentXdgSurface, parentWlSurface, output)) {
       close();
@@ -121,8 +125,8 @@ namespace settings {
     return m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen();
   }
 
-  void SessionActionsEditorPopup::populateContent(Node* contentParent, std::uint32_t /*width*/,
-                                                  std::uint32_t /*height*/) {
+  void
+  SessionActionsEditorPopup::populateContent(Node* contentParent, std::uint32_t /*width*/, std::uint32_t /*height*/) {
     const float popupPadding = Style::spaceSm * m_scale;
     const float popupGap = Style::spaceSm * m_scale;
 
@@ -138,44 +142,49 @@ namespace settings {
         .gap = Style::spaceSm * m_scale,
     });
 
-    header->addChild(ui::label({
-        .text = m_sheetTitle,
-        .fontSize = Style::fontSizeBody * m_scale,
-        .color = colorSpecFromRole(ColorRole::OnSurface),
-        .fontWeight = FontWeight::Bold,
-    }));
+    header->addChild(
+        ui::label({
+            .text = m_sheetTitle,
+            .fontSize = Style::fontSizeBody * m_scale,
+            .color = colorSpecFromRole(ColorRole::OnSurface),
+            .fontWeight = FontWeight::Bold,
+        })
+    );
     header->addChild(ui::spacer());
 
     if (m_removeAction) {
-      header->addChild(ui::button({
-          .glyph = "trash",
-          .glyphSize = Style::fontSizeBody * m_scale,
-          .variant = ButtonVariant::Destructive,
-          // Sheet header icon style.
-          .minWidth = Style::controlHeightSm * m_scale,
-          .minHeight = Style::controlHeightSm * m_scale,
-          .padding = Style::spaceXs * m_scale,
-          .radius = Style::scaledRadiusMd(m_scale),
-          .onClick =
-              [removeAction = m_removeAction]() {
+      header->addChild(
+          ui::button({
+              .glyph = "trash",
+              .glyphSize = Style::fontSizeBody * m_scale,
+              .variant = ButtonVariant::Destructive,
+              // Sheet header icon style.
+              .minWidth = Style::controlHeightSm * m_scale,
+              .minHeight = Style::controlHeightSm * m_scale,
+              .padding = Style::spaceXs * m_scale,
+              .radius = Style::scaledRadiusMd(m_scale),
+              .onClick = [removeAction = m_removeAction]() {
                 if (removeAction) {
                   DeferredCall::callLater(removeAction);
                 }
               },
-      }));
+          })
+      );
     }
 
-    header->addChild(ui::button({
-        .glyph = "close",
-        .glyphSize = Style::fontSizeBody * m_scale,
-        .variant = ButtonVariant::Default,
-        // Sheet header icon style.
-        .minWidth = Style::controlHeightSm * m_scale,
-        .minHeight = Style::controlHeightSm * m_scale,
-        .padding = Style::spaceXs * m_scale,
-        .radius = Style::scaledRadiusMd(m_scale),
-        .onClick = [this]() { DeferredCall::callLater([this]() { close(); }); },
-    }));
+    header->addChild(
+        ui::button({
+            .glyph = "close",
+            .glyphSize = Style::fontSizeBody * m_scale,
+            .variant = ButtonVariant::Default,
+            // Sheet header icon style.
+            .minWidth = Style::controlHeightSm * m_scale,
+            .minHeight = Style::controlHeightSm * m_scale,
+            .padding = Style::spaceXs * m_scale,
+            .radius = Style::scaledRadiusMd(m_scale),
+            .onClick = [this]() { DeferredCall::callLater([this]() { close(); }); },
+        })
+    );
     root->addChild(std::move(header));
 
     auto body = ui::column({

@@ -58,8 +58,9 @@ namespace {
     return fallback;
   }
 
-  static std::string settingValueAsString(const Settings& s, const std::string& key,
-                                          const std::vector<settings::WidgetSettingSpec>& allSpecs) {
+  static std::string settingValueAsString(
+      const Settings& s, const std::string& key, const std::vector<settings::WidgetSettingSpec>& allSpecs
+  ) {
     const auto it = s.find(key);
     if (it != s.end()) {
       if (const auto* vb = std::get_if<bool>(&it->second)) {
@@ -83,8 +84,10 @@ namespace {
     return {};
   }
 
-  static bool isSpecVisible(const settings::WidgetSettingSpec& spec, const Settings& s,
-                            const std::vector<settings::WidgetSettingSpec>& allSpecs) {
+  static bool isSpecVisible(
+      const settings::WidgetSettingSpec& spec, const Settings& s,
+      const std::vector<settings::WidgetSettingSpec>& allSpecs
+  ) {
     if (!spec.visibleWhen.has_value()) {
       return true;
     }
@@ -126,20 +129,27 @@ namespace {
                 .text = std::string(labelText),
                 .fontSize = Style::fontSizeCaption,
                 .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-            })),
-        std::move(control));
+            })
+        ),
+        std::move(control)
+    );
   }
 
-  std::unique_ptr<Flex> makeToggleRow(std::string_view labelText, const std::string& key, bool fallback,
-                                      const Settings& s, DesktopWidgetsEditor* editor) {
-    return makeRow(labelText, ui::toggle({
-                                  .checked = getBool(s, key, fallback),
-                                  .onChange = [editor, key](bool checked) { editor->applySettingChange(key, checked); },
-                              }));
+  std::unique_ptr<Flex> makeToggleRow(
+      std::string_view labelText, const std::string& key, bool fallback, const Settings& s, DesktopWidgetsEditor* editor
+  ) {
+    return makeRow(
+        labelText, ui::toggle({
+                       .checked = getBool(s, key, fallback),
+                       .onChange = [editor, key](bool checked) { editor->applySettingChange(key, checked); },
+                   })
+    );
   }
 
-  std::unique_ptr<Flex> makeSliderRow(std::string_view labelText, const std::string& key, float fallback, float minVal,
-                                      float maxVal, float step, const Settings& s, DesktopWidgetsEditor* editor) {
+  std::unique_ptr<Flex> makeSliderRow(
+      std::string_view labelText, const std::string& key, float fallback, float minVal, float maxVal, float step,
+      const Settings& s, DesktopWidgetsEditor* editor
+  ) {
     return makeRow(
         labelText,
         ui::slider({
@@ -149,11 +159,14 @@ namespace {
             .value = getFloat(s, key, fallback),
             .flexGrow = 1.0f,
             .onValueChanged = [editor, key](float val) { editor->applySettingChange(key, static_cast<double>(val)); },
-        }));
+        })
+    );
   }
 
-  std::unique_ptr<Flex> makeColorSpecRow(std::string_view labelText, const std::string& key, std::string fallbackValue,
-                                         const Settings& s, DesktopWidgetsEditor* editor) {
+  std::unique_ptr<Flex> makeColorSpecRow(
+      std::string_view labelText, const std::string& key, std::string fallbackValue, const Settings& s,
+      DesktopWidgetsEditor* editor
+  ) {
     settings::ColorSpecSelectOptions options{
         .roles = {},
         .selectedValue = getStr(s, key, std::move(fallbackValue)),
@@ -166,48 +179,54 @@ namespace {
     };
     auto select = settings::makeColorSpecSelect(
         std::move(options), [editor, key](std::string value) { editor->applySettingChange(key, std::move(value)); },
-        []() {});
+        []() {}
+    );
     return makeRow(labelText, std::move(select));
   }
 
-  std::unique_ptr<Flex> makeInputRow(std::string_view labelText, const std::string& key, const std::string& value,
-                                     const std::string& placeholder, DesktopWidgetsEditor* editor) {
-    return makeRow(labelText,
-                   ui::input({
+  std::unique_ptr<Flex> makeInputRow(
+      std::string_view labelText, const std::string& key, const std::string& value, const std::string& placeholder,
+      DesktopWidgetsEditor* editor
+  ) {
+    return makeRow(
+        labelText, ui::input({
                        .value = value,
                        .placeholder = placeholder,
                        .controlHeight = Style::controlHeightSm,
                        .flexGrow = 1.0f,
                        .onChange = [editor, key](const std::string& val) { editor->applySettingChange(key, val); },
-                   }));
+                   })
+    );
   }
 
-  std::unique_ptr<Flex> makeFilePickerRow(std::string_view labelText, const std::string& key,
-                                          DesktopWidgetsEditor* editor) {
-    return makeRow(labelText,
-                   ui::button({
-                       .text = i18n::tr("desktop-widgets.editor.settings.change-image"),
-                       .variant = ButtonVariant::Outline,
-                       .flexGrow = 1.0f,
-                       .onClick =
-                           [editor, key]() {
-                             FileDialogOptions options;
-                             options.mode = FileDialogMode::Open;
-                             options.title = i18n::tr("desktop-widgets.editor.dialogs.select-sticker-image");
-                             options.extensions = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"};
-                             (void)FileDialog::open(std::move(options),
-                                                    [editor, key](std::optional<std::filesystem::path> result) {
-                                                      if (result) {
-                                                        editor->applySettingChange(key, result->string());
-                                                      }
-                                                    });
-                           },
-                   }));
+  std::unique_ptr<Flex>
+  makeFilePickerRow(std::string_view labelText, const std::string& key, DesktopWidgetsEditor* editor) {
+    return makeRow(
+        labelText,
+        ui::button({
+            .text = i18n::tr("desktop-widgets.editor.settings.change-image"),
+            .variant = ButtonVariant::Outline,
+            .flexGrow = 1.0f,
+            .onClick = [editor, key]() {
+              FileDialogOptions options;
+              options.mode = FileDialogMode::Open;
+              options.title = i18n::tr("desktop-widgets.editor.dialogs.select-sticker-image");
+              options.extensions = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"};
+              (void)FileDialog::open(std::move(options), [editor, key](std::optional<std::filesystem::path> result) {
+                if (result) {
+                  editor->applySettingChange(key, result->string());
+                }
+              });
+            },
+        })
+    );
   }
 
-  std::unique_ptr<Flex> makeSelectRow(std::string_view labelText, const std::string& key,
-                                      const std::vector<settings::WidgetSettingSelectOption>& options,
-                                      const std::string& currentValue, DesktopWidgetsEditor* editor) {
+  std::unique_ptr<Flex> makeSelectRow(
+      std::string_view labelText, const std::string& key,
+      const std::vector<settings::WidgetSettingSelectOption>& options, const std::string& currentValue,
+      DesktopWidgetsEditor* editor
+  ) {
     std::vector<std::string> labels;
     std::vector<std::string> values;
     labels.reserve(options.size());
@@ -222,23 +241,27 @@ namespace {
       }
     }
 
-    return makeRow(labelText, ui::select({
-                                  .options = std::move(labels),
-                                  .selectedIndex = selectedIndex,
-                                  .controlHeight = Style::controlHeightSm,
-                                  .flexGrow = 1.0f,
-                                  .onSelectionChanged =
-                                      [editor, key, values = std::move(values)](std::size_t index, std::string_view) {
-                                        if (index < values.size()) {
-                                          editor->applySettingChange(key, values[index]);
-                                        }
-                                      },
-                              }));
+    return makeRow(
+        labelText,
+        ui::select({
+            .options = std::move(labels),
+            .selectedIndex = selectedIndex,
+            .controlHeight = Style::controlHeightSm,
+            .flexGrow = 1.0f,
+            .onSelectionChanged = [editor, key, values = std::move(values)](std::size_t index, std::string_view) {
+              if (index < values.size()) {
+                editor->applySettingChange(key, values[index]);
+              }
+            },
+        })
+    );
   }
 
-  std::unique_ptr<Flex> makeSegmentedRow(std::string_view labelText, const std::string& key,
-                                         const std::vector<settings::WidgetSettingSelectOption>& options,
-                                         const std::string& currentValue, DesktopWidgetsEditor* editor) {
+  std::unique_ptr<Flex> makeSegmentedRow(
+      std::string_view labelText, const std::string& key,
+      const std::vector<settings::WidgetSettingSelectOption>& options, const std::string& currentValue,
+      DesktopWidgetsEditor* editor
+  ) {
     std::vector<std::string> values;
     values.reserve(options.size());
     std::size_t selectedIndex = 0;
@@ -254,21 +277,24 @@ namespace {
         selectedIndex = i;
       }
     }
-    return makeRow(labelText, ui::segmented({
-                                  .options = std::move(segmentOptions),
-                                  .selectedIndex = selectedIndex,
-                                  .flexGrow = 1.0f,
-                                  .onChange =
-                                      [editor, key, values = std::move(values)](std::size_t index) {
-                                        if (index < values.size()) {
-                                          editor->applySettingChange(key, values[index]);
-                                        }
-                                      },
-                              }));
+    return makeRow(
+        labelText, ui::segmented({
+                       .options = std::move(segmentOptions),
+                       .selectedIndex = selectedIndex,
+                       .flexGrow = 1.0f,
+                       .onChange = [editor, key, values = std::move(values)](std::size_t index) {
+                         if (index < values.size()) {
+                           editor->applySettingChange(key, values[index]);
+                         }
+                       },
+                   })
+    );
   }
 
-  void addSpecSettings(Flex& content, const std::vector<settings::WidgetSettingSpec>& specs, const Settings& s,
-                       DesktopWidgetsEditor* editor) {
+  void addSpecSettings(
+      Flex& content, const std::vector<settings::WidgetSettingSpec>& specs, const Settings& s,
+      DesktopWidgetsEditor* editor
+  ) {
     for (const auto& spec : specs) {
       if (!isSpecVisible(spec, s, specs)) {
         continue;
@@ -288,7 +314,8 @@ namespace {
         const float minVal = spec.minValue.has_value() ? static_cast<float>(*spec.minValue) : 0.0f;
         const float maxVal = spec.maxValue.has_value() ? static_cast<float>(*spec.maxValue) : 1.0f;
         content.addChild(
-            makeSliderRow(label, spec.key, fallback, minVal, maxVal, static_cast<float>(spec.step), s, editor));
+            makeSliderRow(label, spec.key, fallback, minVal, maxVal, static_cast<float>(spec.step), s, editor)
+        );
         break;
       }
 
@@ -329,21 +356,27 @@ namespace {
 
   void addSectionHeading(Flex& content, std::string_view labelKey, bool separator) {
     if (separator) {
-      content.addChild(ui::separator({
-          .orientation = SeparatorOrientation::HorizontalRule,
-      }));
+      content.addChild(
+          ui::separator({
+              .orientation = SeparatorOrientation::HorizontalRule,
+          })
+      );
     }
 
-    content.addChild(ui::label({
-        .text = i18n::tr(labelKey),
-        .fontSize = Style::fontSizeCaption,
-        .color = colorSpecFromRole(ColorRole::Secondary),
-        .fontWeight = FontWeight::Bold,
-    }));
+    content.addChild(
+        ui::label({
+            .text = i18n::tr(labelKey),
+            .fontSize = Style::fontSizeCaption,
+            .color = colorSpecFromRole(ColorRole::Secondary),
+            .fontWeight = FontWeight::Bold,
+        })
+    );
   }
 
-  void addSettingsSection(Flex& content, const std::vector<settings::WidgetSettingSpec>& specs, const Settings& s,
-                          DesktopWidgetsEditor* editor, std::string_view labelKey, bool separator) {
+  void addSettingsSection(
+      Flex& content, const std::vector<settings::WidgetSettingSpec>& specs, const Settings& s,
+      DesktopWidgetsEditor* editor, std::string_view labelKey, bool separator
+  ) {
     if (!hasVisibleSpecs(specs, s)) {
       return;
     }
@@ -449,8 +482,9 @@ void DesktopWidgetsEditor::applySettingChange(const std::string& key, WidgetSett
   });
 }
 
-void DesktopWidgetsEditor::buildInspector(OverlaySurface& surface, Node& root,
-                                          const DesktopWidgetState& selectedState) {
+void DesktopWidgetsEditor::buildInspector(
+    OverlaySurface& surface, Node& root, const DesktopWidgetState& selectedState
+) {
   auto handleArea = std::make_unique<InputArea>();
   handleArea->setParticipatesInLayout(false);
   handleArea->setZIndex(1);
@@ -483,8 +517,9 @@ void DesktopWidgetsEditor::buildInspector(OverlaySurface& surface, Node& root,
   content->setPadding(Style::spaceSm, Style::spaceMd);
 
   const auto typeSpecs = desktop_settings::desktopWidgetSettingSpecs(selectedState.type);
-  addSettingsSection(*content, typeSpecs, selectedState.settings, this,
-                     "desktop-widgets.editor.settings.widget-section", false);
+  addSettingsSection(
+      *content, typeSpecs, selectedState.settings, this, "desktop-widgets.editor.settings.widget-section", false
+  );
   addBackgroundSection(*content, selectedState.settings, this);
 
   Flex* panelPtr = nullptr;
@@ -526,8 +561,10 @@ void DesktopWidgetsEditor::buildInspector(OverlaySurface& surface, Node& root,
               .fontSize = Style::fontSizeBody,
               .fontWeight = FontWeight::Bold,
           }),
-          std::move(handleArea)),
-      std::move(scrollView));
+          std::move(handleArea)
+      ),
+      std::move(scrollView)
+  );
 
   surface.inspector = panelPtr;
   root.addChild(std::move(panel));

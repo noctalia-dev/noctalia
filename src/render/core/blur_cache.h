@@ -15,8 +15,9 @@ public:
   BlurCache(const BlurCache&) = delete;
   BlurCache& operator=(const BlurCache&) = delete;
 
-  TextureHandle get(RenderBackend& backend, TextureHandle source, std::uint32_t width, std::uint32_t height,
-                    float radius = 20.0f, int rounds = 3);
+  TextureHandle
+  get(RenderBackend& backend, TextureHandle source, std::uint32_t width, std::uint32_t height, float radius = 20.0f,
+      int rounds = 3);
 
   void invalidate() { m_layer.invalidate(); }
   void destroy();

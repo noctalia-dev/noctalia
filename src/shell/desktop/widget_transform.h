@@ -27,8 +27,8 @@ struct WidgetTransformClampResult {
 
 inline constexpr float kDesktopWidgetMinVisibleFraction = 0.5f;
 
-inline WidgetTransformBounds computeWidgetTransformBounds(float cx, float cy, float width, float height, float scale,
-                                                          float rotationRad) {
+inline WidgetTransformBounds
+computeWidgetTransformBounds(float cx, float cy, float width, float height, float scale, float rotationRad) {
   WidgetTransformBounds bounds;
   const float clampedScale = std::max(0.01f, scale);
   const float scaledWidth = std::max(1.0f, width * clampedScale);
@@ -45,8 +45,8 @@ inline WidgetTransformBounds computeWidgetTransformBounds(float cx, float cy, fl
   return bounds;
 }
 
-inline WidgetTransformSurfaceGeometry computeWidgetSurfaceGeometry(float cx, float cy, float width, float height,
-                                                                   float scale, float rotationRad) {
+inline WidgetTransformSurfaceGeometry
+computeWidgetSurfaceGeometry(float cx, float cy, float width, float height, float scale, float rotationRad) {
   const WidgetTransformBounds bounds = computeWidgetTransformBounds(cx, cy, width, height, scale, rotationRad);
   WidgetTransformSurfaceGeometry geometry;
   geometry.surfaceWidth = std::max<std::uint32_t>(1, static_cast<std::uint32_t>(std::ceil(bounds.aabbWidth)));
@@ -65,9 +65,9 @@ struct WidgetTransformClippedGeometry {
   float contentOffsetY = 0.0f;
 };
 
-inline WidgetTransformClippedGeometry computeClippedWidgetSurfaceGeometry(float cx, float cy, float width, float height,
-                                                                          float scale, float rotationRad,
-                                                                          float outputWidth, float outputHeight) {
+inline WidgetTransformClippedGeometry computeClippedWidgetSurfaceGeometry(
+    float cx, float cy, float width, float height, float scale, float rotationRad, float outputWidth, float outputHeight
+) {
   const WidgetTransformBounds bounds = computeWidgetTransformBounds(cx, cy, width, height, scale, rotationRad);
   const float halfW = bounds.aabbWidth * 0.5f;
   const float halfH = bounds.aabbHeight * 0.5f;
@@ -95,9 +95,10 @@ inline WidgetTransformClippedGeometry computeClippedWidgetSurfaceGeometry(float 
   return geometry;
 }
 
-inline WidgetTransformClampResult clampWidgetCenterToOutput(float cx, float cy, float width, float height, float scale,
-                                                            float rotationRad, float outputWidth, float outputHeight,
-                                                            float minVisibleFraction = 1.0f) {
+inline WidgetTransformClampResult clampWidgetCenterToOutput(
+    float cx, float cy, float width, float height, float scale, float rotationRad, float outputWidth,
+    float outputHeight, float minVisibleFraction = 1.0f
+) {
   const WidgetTransformBounds bounds = computeWidgetTransformBounds(0.0f, 0.0f, width, height, scale, rotationRad);
   const float halfWidth = bounds.aabbWidth * 0.5f;
   const float halfHeight = bounds.aabbHeight * 0.5f;

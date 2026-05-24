@@ -38,8 +38,8 @@ public:
   void setRedrawCallback(std::function<void()> redrawCallback);
 
   [[nodiscard]] float preferredHeight() const;
-  [[nodiscard]] static float preferredHeight(const std::vector<ContextMenuControlEntry>& entries,
-                                             std::size_t maxVisible);
+  [[nodiscard]] static float
+  preferredHeight(const std::vector<ContextMenuControlEntry>& entries, std::size_t maxVisible);
 
 private:
   void doLayout(Renderer& renderer) override;

@@ -28,9 +28,10 @@ namespace {
 
 } // namespace
 
-DesktopAudioVisualizerWidget::DesktopAudioVisualizerWidget(PipeWireSpectrum* spectrum, float aspectRatio, int bands,
-                                                           bool mirrored, ColorSpec lowColor, ColorSpec highColor,
-                                                           bool centered, bool showWhenIdle)
+DesktopAudioVisualizerWidget::DesktopAudioVisualizerWidget(
+    PipeWireSpectrum* spectrum, float aspectRatio, int bands, bool mirrored, ColorSpec lowColor, ColorSpec highColor,
+    bool centered, bool showWhenIdle
+)
     : m_spectrum(spectrum), m_aspectRatio(clampAspectRatio(aspectRatio)), m_bands(std::max(1, bands)),
       m_mirrored(mirrored), m_centered(centered), m_showWhenIdle(showWhenIdle), m_lowColor(lowColor),
       m_highColor(highColor) {}
@@ -64,9 +65,10 @@ void DesktopAudioVisualizerWidget::create() {
   setRoot(std::move(rootNode));
 }
 
-bool DesktopAudioVisualizerWidget::applySetting(const std::string& key, const WidgetSettingValue& value,
-                                                const std::unordered_map<std::string, WidgetSettingValue>& allSettings,
-                                                Renderer& renderer) {
+bool DesktopAudioVisualizerWidget::applySetting(
+    const std::string& key, const WidgetSettingValue& value,
+    const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
+) {
   if (m_visualizer == nullptr) {
     return false;
   }
@@ -302,6 +304,7 @@ void DesktopAudioVisualizerWidget::startOpacityAnimation(float targetOpacity, bo
         }
         requestLayout();
       },
-      this);
+      this
+  );
   requestFrameTick();
 }

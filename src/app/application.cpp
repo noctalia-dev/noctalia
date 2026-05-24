@@ -76,8 +76,9 @@ namespace {
   }
 
   bool widgetListHasLockKeys(const std::vector<std::string>& widgets, const Config& config) {
-    return std::any_of(widgets.begin(), widgets.end(),
-                       [&config](const std::string& name) { return widgetIsLockKeys(name, config); });
+    return std::any_of(widgets.begin(), widgets.end(), [&config](const std::string& name) {
+      return widgetIsLockKeys(name, config);
+    });
   }
 
   std::string_view powerProfileOriginName(PowerProfilesChangeOrigin origin) {
@@ -94,8 +95,9 @@ namespace {
     if (bar.enabled) {
       return true;
     }
-    return std::any_of(bar.monitorOverrides.begin(), bar.monitorOverrides.end(),
-                       [](const BarMonitorOverride& ovr) { return ovr.enabled.value_or(false); });
+    return std::any_of(bar.monitorOverrides.begin(), bar.monitorOverrides.end(), [](const BarMonitorOverride& ovr) {
+      return ovr.enabled.value_or(false);
+    });
   }
 
   bool configHasLockKeysWidget(const Config& config) {
@@ -144,27 +146,27 @@ Application::Application()
 
   auto shouldRefreshControlCenter = [this]() { return m_panelManager.isOpenPanel("control-center"); };
 
-  m_notificationManager.addEventCallback(
-      [this, shouldRefreshControlCenter](const Notification& n, NotificationEvent event) {
-        const char* kind = "updated";
-        if (event == NotificationEvent::Added) {
-          kind = "added";
-        } else if (event == NotificationEvent::Closed) {
-          kind = "closed";
-        }
-        const char* origin = (n.origin == NotificationOrigin::Internal) ? "internal" : "external";
-        kLog.debug("notification {} id={} origin={}", kind, n.id, origin);
+  m_notificationManager.addEventCallback([this,
+                                          shouldRefreshControlCenter](const Notification& n, NotificationEvent event) {
+    const char* kind = "updated";
+    if (event == NotificationEvent::Added) {
+      kind = "added";
+    } else if (event == NotificationEvent::Closed) {
+      kind = "closed";
+    }
+    const char* origin = (n.origin == NotificationOrigin::Internal) ? "internal" : "external";
+    kLog.debug("notification {} id={} origin={}", kind, n.id, origin);
 
-        if (event == NotificationEvent::Added && m_panelManager.isActivePanelContext("notifications")) {
-          m_notificationManager.markNotificationHistorySeen();
-        }
+    if (event == NotificationEvent::Added && m_panelManager.isActivePanelContext("notifications")) {
+      m_notificationManager.markNotificationHistorySeen();
+    }
 
-        // Keep bar widgets in sync with notification state changes.
-        m_bar.refresh();
-        if (shouldRefreshControlCenter()) {
-          m_panelManager.refresh();
-        }
-      });
+    // Keep bar widgets in sync with notification state changes.
+    m_bar.refresh();
+    if (shouldRefreshControlCenter()) {
+      m_panelManager.refresh();
+    }
+  });
 
   m_notificationManager.setStateCallback([this, shouldRefreshControlCenter]() {
     m_bar.refresh();
@@ -224,8 +226,9 @@ void Application::syncNotificationDaemon() {
     m_notificationDbus.reset();
     m_notificationPollSource.setDbusService(nullptr);
     m_notificationDaemonInitFailed = true;
-    m_notificationManager.addInternal("Noctalia", i18n::tr("notifications.internal.dbus-disabled"), e.what(),
-                                      Urgency::Low);
+    m_notificationManager.addInternal(
+        "Noctalia", i18n::tr("notifications.internal.dbus-disabled"), e.what(), Urgency::Low
+    );
   }
 }
 
@@ -345,8 +348,9 @@ void Application::run(std::function<void()> startupReadyCallback) {
     m_hookManager.reload(m_configService.config().hooks);
     m_hookManager.fire(HookKind::Started);
   });
-  runStartupPhase("telemetry enqueue",
-                  [this]() { m_telemetryService.maybeSend(m_configService, m_httpClient, m_wayland); });
+  runStartupPhase("telemetry enqueue", [this]() {
+    m_telemetryService.maybeSend(m_configService, m_httpClient, m_wayland);
+  });
 
 #ifdef __GLIBC__
   runStartupPhase("malloc_trim", []() { malloc_trim(0); });
@@ -398,8 +402,9 @@ void Application::initServices() {
   m_configService.addReloadCallback(applyMotionConfig);
   m_configService.addReloadCallback(applyStyleConfig);
   m_configService.addReloadCallback(applyPasswordMaskStyle);
-  m_configService.addReloadCallback(
-      [this]() { m_httpClient.setOfflineMode(m_configService.config().shell.offlineMode); });
+  m_configService.addReloadCallback([this]() {
+    m_httpClient.setOfflineMode(m_configService.config().shell.offlineMode);
+  });
   m_configService.addReloadCallback([this]() { syncClipboardService(); });
   m_configService.addReloadCallback([this]() { syncScreenTimeService(); });
   m_communityPaletteService.setReadyCallback([this]() { m_settingsWindow.onExternalOptionsChanged(); });
@@ -412,30 +417,34 @@ void Application::initServices() {
     }
   });
   m_communityTemplateService.sync(m_configService.config().theme.templates);
-  m_configService.addReloadCallback(
-      [this]() { m_communityTemplateService.sync(m_configService.config().theme.templates); });
+  m_configService.addReloadCallback([this]() {
+    m_communityTemplateService.sync(m_configService.config().theme.templates);
+  });
 
   // i18n has no dependencies on other services and must be ready before any
   // UI construction reads a translated string.
   i18n::Service::instance().init(m_configService.config().shell.lang);
-  m_configService.addReloadCallback(
-      [this]() { i18n::Service::instance().setLanguage(m_configService.config().shell.lang); });
+  m_configService.addReloadCallback([this]() {
+    i18n::Service::instance().setLanguage(m_configService.config().shell.lang);
+  });
 
   // Apply theme before any UI constructs palette-dependent scene nodes.
-  m_themeService.setResolvedCallback(
-      [this, lastResolvedThemeMode = std::optional<std::string>{}](const noctalia::theme::GeneratedPalette& generated,
-                                                                   std::string_view mode) mutable {
-        const std::string resolvedMode(mode);
-        const std::string configuredMode(enumToKey(kThemeModes, m_themeService.configuredMode()));
-        m_templateApplyService.apply(generated, mode);
-        m_hookManager.fire(HookKind::ColorsChanged);
-        if (lastResolvedThemeMode.has_value() && *lastResolvedThemeMode != resolvedMode) {
-          m_hookManager.fire(HookKind::ThemeModeChanged, {{"NOCTALIA_THEME_MODE", resolvedMode},
-                                                          {"NOCTALIA_THEME_MODE_PREVIOUS", *lastResolvedThemeMode},
-                                                          {"NOCTALIA_THEME_MODE_CONFIGURED", configuredMode}});
-        }
-        lastResolvedThemeMode = resolvedMode;
-      });
+  m_themeService.setResolvedCallback([this, lastResolvedThemeMode = std::optional<std::string>{}](
+                                         const noctalia::theme::GeneratedPalette& generated, std::string_view mode
+                                     ) mutable {
+    const std::string resolvedMode(mode);
+    const std::string configuredMode(enumToKey(kThemeModes, m_themeService.configuredMode()));
+    m_templateApplyService.apply(generated, mode);
+    m_hookManager.fire(HookKind::ColorsChanged);
+    if (lastResolvedThemeMode.has_value() && *lastResolvedThemeMode != resolvedMode) {
+      m_hookManager.fire(
+          HookKind::ThemeModeChanged, {{"NOCTALIA_THEME_MODE", resolvedMode},
+                                       {"NOCTALIA_THEME_MODE_PREVIOUS", *lastResolvedThemeMode},
+                                       {"NOCTALIA_THEME_MODE_CONFIGURED", configuredMode}}
+      );
+    }
+    lastResolvedThemeMode = resolvedMode;
+  });
   m_themeService.apply();
   m_configService.addReloadCallback([this]() { m_themeService.onConfigReload(); });
 
@@ -537,7 +546,8 @@ void Application::initServices() {
           if (configHasLockKeysWidget(config)) {
             m_bar.refresh();
           }
-        });
+        }
+    );
   }
   m_idleInhibitor.initialize(m_wayland, &m_renderContext);
   m_idleInhibitor.setChangeCallback([this, shouldRefreshControlCenter]() {
@@ -547,13 +557,15 @@ void Application::initServices() {
     }
   });
   m_hookManager.setCommandRunner([this](const std::string& command) { return runUserCommand(command); });
-  m_hookManager.setBlockingCommandRunner(
-      [this](const std::string& command) { return runUserCommandBlocking(command); });
+  m_hookManager.setBlockingCommandRunner([this](const std::string& command) {
+    return runUserCommandBlocking(command);
+  });
   m_hookManager.reload(m_configService.config().hooks);
   m_configService.addReloadCallback([this]() { m_hookManager.reload(m_configService.config().hooks); });
   auto syncNightLightWeatherConfig = [this]() {
     m_gammaService.setWeatherLocationConfigured(
-        weatherLocationConfiguredForNightLight(m_configService.config().weather));
+        weatherLocationConfiguredForNightLight(m_configService.config().weather)
+    );
   };
   syncNightLightWeatherConfig();
   m_gammaService.reload(m_configService.config().nightlight);
@@ -669,8 +681,9 @@ void Application::initServices() {
 
     try {
       m_powerProfilesService = std::make_unique<PowerProfilesService>(*m_systemBus);
-      m_powerProfilesService->setChangeCallback([this, shouldRefreshControlCenter](const PowerProfilesState& state,
-                                                                                   PowerProfilesChangeOrigin origin) {
+      m_powerProfilesService->setChangeCallback([this, shouldRefreshControlCenter](
+                                                    const PowerProfilesState& state, PowerProfilesChangeOrigin origin
+                                                ) {
         m_bar.refresh();
         if (shouldRefreshControlCenter()) {
           m_panelManager.refresh();
@@ -687,7 +700,8 @@ void Application::initServices() {
           m_notificationManager.addInternal(
               i18n::tr("notifications.internal.power-profiles"), i18n::tr("notifications.internal.power-profile-title"),
               i18n::tr("notifications.internal.power-profile-body", "profile", profileLabel(active)), Urgency::Normal,
-              kDefaultNotificationTimeout, std::move(glyphIconSpec));
+              kDefaultNotificationTimeout, std::move(glyphIconSpec)
+          );
         }
         onPowerProfileChangedForEvents(state, origin);
       });
@@ -724,7 +738,8 @@ void Application::initServices() {
             if (shouldRefreshControlCenter()) {
               m_panelManager.refresh();
             }
-          });
+          }
+      );
       if (m_networkService->hasStateSnapshot()) {
         m_prevWirelessEnabledForEvents = m_networkService->state().wirelessEnabled;
       }
@@ -740,7 +755,8 @@ void Application::initServices() {
               if (shouldRefreshControlCenter()) {
                 m_panelManager.refresh();
               }
-            });
+            }
+        );
         if (m_networkService->hasStateSnapshot()) {
           m_prevWirelessEnabledForEvents = m_networkService->state().wirelessEnabled;
         }
@@ -772,9 +788,11 @@ void Application::initServices() {
           [this, refreshBluetoothUi](const BluetoothState& state, BluetoothStateChangeOrigin origin) {
             onBluetoothStateChangedForEvents(state, origin);
             refreshBluetoothUi();
-          });
-      m_bluetoothService->setDevicesCallback(
-          [refreshBluetoothUi](const std::vector<BluetoothDeviceInfo>& /*devices*/) { refreshBluetoothUi(); });
+          }
+      );
+      m_bluetoothService->setDevicesCallback([refreshBluetoothUi](const std::vector<BluetoothDeviceInfo>& /*devices*/) {
+        refreshBluetoothUi();
+      });
       if (m_bluetoothService->hasStateSnapshot()) {
         m_prevBluetoothPoweredForEvents = m_bluetoothService->state().powered;
       }
@@ -787,12 +805,12 @@ void Application::initServices() {
     if (m_bluetoothService != nullptr) {
       try {
         m_bluetoothAgent = std::make_unique<BluetoothAgent>(*m_systemBus);
-        m_bluetoothAgent->setRequestCallback(
-            [this, shouldRefreshControlCenter](const BluetoothPairingRequest& /*request*/) {
-              if (shouldRefreshControlCenter()) {
-                m_panelManager.refresh();
-              }
-            });
+        m_bluetoothAgent->setRequestCallback([this,
+                                              shouldRefreshControlCenter](const BluetoothPairingRequest& /*request*/) {
+          if (shouldRefreshControlCenter()) {
+            m_panelManager.refresh();
+          }
+        });
       } catch (const std::exception& e) {
         kLog.warn("bluetooth agent disabled: {}", e.what());
         m_bluetoothAgent.reset();
@@ -803,8 +821,9 @@ void Application::initServices() {
   }
 
   try {
-    m_brightnessService = std::make_unique<BrightnessService>(m_systemBus.get(), m_compositorPlatform,
-                                                              m_configService.config().brightness);
+    m_brightnessService = std::make_unique<BrightnessService>(
+        m_systemBus.get(), m_compositorPlatform, m_configService.config().brightness
+    );
     m_brightnessService->setChangeCallback([this, shouldRefreshControlCenter]() {
       m_brightnessOsd.onBrightnessChanged(*m_brightnessService);
       m_bar.refresh();
@@ -868,8 +887,9 @@ void Application::initServices() {
     kLog.info("connected to session bus");
   } catch (const std::exception& e) {
     kLog.warn("dbus disabled: {}", e.what());
-    m_notificationManager.addInternal("Noctalia", i18n::tr("notifications.internal.session-bus-unavailable"), e.what(),
-                                      Urgency::Low);
+    m_notificationManager.addInternal(
+        "Noctalia", i18n::tr("notifications.internal.session-bus-unavailable"), e.what(), Urgency::Low
+    );
   }
 
   if (m_bus != nullptr) {
@@ -901,8 +921,9 @@ void Application::initServices() {
     } catch (const std::exception& e) {
       kLog.warn("mpris disabled: {}", e.what());
       m_mprisService.reset();
-      m_notificationManager.addInternal("Noctalia", i18n::tr("notifications.internal.mpris-disabled"), e.what(),
-                                        Urgency::Low);
+      m_notificationManager.addInternal(
+          "Noctalia", i18n::tr("notifications.internal.mpris-disabled"), e.what(), Urgency::Low
+      );
     }
 
     syncNotificationDaemon();
@@ -962,12 +983,15 @@ void Application::initUi() {
   m_renderContext.setTextFontFamily(m_configService.config().shell.fontFamily);
   m_wallpaper.initialize(m_wayland, &m_configService, &m_renderContext, &m_sharedTextureCache);
   m_backdrop.initialize(m_wayland, &m_configService, &m_sharedTextureCache, &m_glShared);
-  m_settingsWindow.initialize(m_wayland, &m_configService, &m_renderContext, &m_dependencyService,
-                              m_upowerService.get(), &m_idleManager);
+  m_settingsWindow.initialize(
+      m_wayland, &m_configService, &m_renderContext, &m_dependencyService, m_upowerService.get(), &m_idleManager
+  );
   m_settingsWindow.setOpenDesktopWidgetEditor([this]() { m_desktopWidgetsController.toggleEdit(); });
   m_lockScreen.initialize(m_wayland, &m_renderContext, &m_configService, &m_sharedTextureCache);
-  m_lockScreen.setSessionHooks([this]() { m_hookManager.fire(HookKind::SessionLocked); },
-                               [this]() { m_hookManager.fire(HookKind::SessionUnlocked); });
+  m_lockScreen.setSessionHooks(
+      [this]() { m_hookManager.fire(HookKind::SessionLocked); },
+      [this]() { m_hookManager.fire(HookKind::SessionUnlocked); }
+  );
 
   m_sessionActionHooks.onLogout = [this]() { return m_hookManager.fireBlocking(HookKind::LoggingOut); };
   m_sessionActionHooks.onReboot = [this]() { return m_hookManager.fireBlocking(HookKind::Rebooting); };
@@ -1048,8 +1072,9 @@ void Application::initUi() {
     wl_output* output = m_compositorPlatform.preferredInteractiveOutput(std::chrono::milliseconds(1200));
     m_panelManager.openPanel("wallpaper", PanelOpenRequest{.output = output});
   });
-  auto clipboardPanel = std::make_unique<ClipboardPanel>(&m_clipboardService, &m_configService, &m_thumbnailService,
-                                                         &m_asyncTextureCache);
+  auto clipboardPanel = std::make_unique<ClipboardPanel>(
+      &m_clipboardService, &m_configService, &m_thumbnailService, &m_asyncTextureCache
+  );
   clipboardPanel->setActivateCallback([this](const ClipboardEntry& entry) {
     m_panelManager.close();
     const ClipboardAutoPasteMode mode = m_configService.config().shell.clipboardAutoPaste;
@@ -1067,8 +1092,10 @@ void Application::initUi() {
   });
   m_panelManager.registerPanel("clipboard", std::move(clipboardPanel));
   syncClipboardService();
-  m_panelManager.registerPanel("session", std::make_unique<SessionPanel>(&m_configService, m_sessionActionHooks,
-                                                                         &m_compositorPlatform.niriRuntime()));
+  m_panelManager.registerPanel(
+      "session",
+      std::make_unique<SessionPanel>(&m_configService, m_sessionActionHooks, &m_compositorPlatform.niriRuntime())
+  );
   m_panelManager.registerPanel("test", std::make_unique<TestPanel>());
   m_panelManager.registerPanel(
       "control-center",
@@ -1077,7 +1104,9 @@ void Application::initUi() {
           &m_weatherService, m_pipewireSpectrum.get(), m_upowerService.get(), m_powerProfilesService.get(),
           m_networkService.get(), m_networkSecretAgent.get(), m_bluetoothService.get(), m_bluetoothAgent.get(),
           m_brightnessService.get(), m_systemMonitor.get(), &m_screenTimeService, &m_gammaService, &m_themeService,
-          &m_idleInhibitor, &m_dependencyService, &m_compositorPlatform, &m_wallpaper));
+          &m_idleInhibitor, &m_dependencyService, &m_compositorPlatform, &m_wallpaper
+      )
+  );
   {
     auto launcherPanel = std::make_unique<LauncherPanel>(&m_configService, &m_asyncTextureCache);
     launcherPanel->addProvider(std::make_unique<AppProvider>(&m_configService, &m_wayland));
@@ -1091,8 +1120,10 @@ void Application::initUi() {
   m_overviewLauncherCapture.setOpenLauncherCallback(
       [this](std::string_view initialQuery, wl_output* output, std::string_view sourceBarName) {
         m_panelManager.openPanel(
-            "launcher", PanelOpenRequest{.output = output, .context = initialQuery, .sourceBarName = sourceBarName});
-      });
+            "launcher", PanelOpenRequest{.output = output, .context = initialQuery, .sourceBarName = sourceBarName}
+        );
+      }
+  );
   m_compositorPlatform.setOverviewChangeCallback([this]() { m_overviewLauncherCapture.sync(); });
   m_panelManager.setPanelClosedCallback([this]() {
     m_overviewLauncherCapture.sync();
@@ -1102,17 +1133,20 @@ void Application::initUi() {
     m_overviewLauncherCapture.setEnabled(m_configService.config().shell.niriOverviewTypeToLaunchEnabled);
   });
   m_overviewLauncherCapture.sync();
-  m_panelManager.registerPanel("wallpaper",
-                               std::make_unique<WallpaperPanel>(&m_wayland, &m_configService, &m_thumbnailService));
+  m_panelManager.registerPanel(
+      "wallpaper", std::make_unique<WallpaperPanel>(&m_wayland, &m_configService, &m_thumbnailService)
+  );
   std::size_t trayDrawerColumns = 3;
   if (const auto it = m_configService.config().widgets.find("tray"); it != m_configService.config().widgets.end()) {
     trayDrawerColumns =
         static_cast<std::size_t>(std::clamp<std::int64_t>(it->second.getInt("drawer_columns", 3), 1, 5));
   }
   m_panelManager.registerPanel(
-      "tray-drawer", std::make_unique<TrayDrawerPanel>(m_trayService.get(), &m_configService, trayDrawerColumns));
-  m_panelManager.registerPanel(
-      "polkit", std::make_unique<PolkitPanel>(&m_configService, [this]() { return m_polkitAgent.get(); }));
+      "tray-drawer", std::make_unique<TrayDrawerPanel>(m_trayService.get(), &m_configService, trayDrawerColumns)
+  );
+  m_panelManager.registerPanel("polkit", std::make_unique<PolkitPanel>(&m_configService, [this]() {
+                                 return m_polkitAgent.get();
+                               }));
   m_panelManager.registerPanel("setup-wizard", std::make_unique<SetupWizardPanel>(&m_configService, &m_wayland));
 
   if (SetupWizardPanel::isFirstRun(m_configService)) {
@@ -1140,11 +1174,16 @@ void Application::initUi() {
       [this](bool userCancelled) {
         (void)userCancelled;
         DeferredCall::callLater([this]() { m_idleGraceOverlay.hide(); });
-      });
-  m_idleManager.setActionRunner([this](const IdleBehaviorConfig& /*behavior*/,
-                                       const IdleActionRequest& action) -> bool { return runIdleAction(action); });
-  m_idleManager.setLiveIdleChangeCallback(
-      [this]() { DeferredCall::callLater([this]() { m_settingsWindow.onIdleLiveStatusChanged(); }); });
+      }
+  );
+  m_idleManager.setActionRunner(
+      [this](const IdleBehaviorConfig& /*behavior*/, const IdleActionRequest& action) -> bool {
+        return runIdleAction(action);
+      }
+  );
+  m_idleManager.setLiveIdleChangeCallback([this]() {
+    DeferredCall::callLater([this]() { m_settingsWindow.onIdleLiveStatusChanged(); });
+  });
   m_idleManager.reload(m_configService.config().idle);
   m_configService.addReloadCallback([this]() { m_idleManager.reload(m_configService.config().idle); });
   m_audioOsd.bindOverlay(m_osdOverlay);
@@ -1167,12 +1206,13 @@ void Application::initUi() {
 
   m_trayMenu.initialize(m_wayland, &m_configService, m_trayService.get(), &m_renderContext);
 
-  m_bar.initialize(m_compositorPlatform, &m_configService, &m_timeService, &m_notificationManager, m_trayService.get(),
-                   m_pipewireService.get(), m_upowerService.get(), m_systemMonitor.get(), m_powerProfilesService.get(),
-                   m_networkService.get(), &m_idleInhibitor, m_mprisService.get(), m_pipewireSpectrum.get(),
-                   &m_httpClient, &m_weatherService, &m_renderContext, &m_gammaService, &m_themeService,
-                   m_bluetoothService.get(), m_brightnessService.get(), kLockKeysEnabled ? &m_lockKeysService : nullptr,
-                   &m_clipboardService, &m_fileWatcher);
+  m_bar.initialize(
+      m_compositorPlatform, &m_configService, &m_timeService, &m_notificationManager, m_trayService.get(),
+      m_pipewireService.get(), m_upowerService.get(), m_systemMonitor.get(), m_powerProfilesService.get(),
+      m_networkService.get(), &m_idleInhibitor, m_mprisService.get(), m_pipewireSpectrum.get(), &m_httpClient,
+      &m_weatherService, &m_renderContext, &m_gammaService, &m_themeService, m_bluetoothService.get(),
+      m_brightnessService.get(), kLockKeysEnabled ? &m_lockKeysService : nullptr, &m_clipboardService, &m_fileWatcher
+  );
   m_bar.setOpenWidgetSettingsCallback([this](std::string barName, std::string widgetName) {
     if (m_panelManager.isOpen()) {
       m_panelManager.closePanel();
@@ -1182,9 +1222,11 @@ void Application::initUi() {
   m_panelManager.setAttachedPanelGeometryCallback(
       [this](wl_output* output, std::string_view barName, std::optional<AttachedPanelGeometry> geometry) {
         m_bar.setAttachedPanelGeometry(output, barName, geometry);
-      });
-  m_panelManager.setClickShieldExcludeRectsProvider(
-      [this](wl_output* output) { return m_bar.surfaceRectsForOutput(output); });
+      }
+  );
+  m_panelManager.setClickShieldExcludeRectsProvider([this](wl_output* output) {
+    return m_bar.surfaceRectsForOutput(output);
+  });
   m_panelManager.setFocusGrabBarSurfacesProvider([this]() { return m_bar.allBarSurfaces(); });
   m_bar.setAutoHideSuppressionCallback([this](const BarInstance& instance) {
     if (m_trayMenu.isOpen()) {
@@ -1201,17 +1243,21 @@ void Application::initUi() {
       [this](wl_surface* surface) { return m_panelManager.popupParentContextForSurface(surface); },
       [this](wl_surface* surface) { m_panelManager.beginAttachedPopup(surface); },
       [this](wl_surface* surface) { m_panelManager.endAttachedPopup(surface); },
-      [this]() { return m_panelManager.fallbackPopupParentContext(); });
+      [this]() { return m_panelManager.fallbackPopupParentContext(); }
+  );
   m_layerPopupHosts.registerHost(
       [this](wl_surface* surface) { return m_bar.popupParentContextForSurface(surface); },
       [this](wl_surface* surface) { m_bar.beginAttachedPopup(surface); },
       [this](wl_surface* surface) { m_bar.endAttachedPopup(surface); },
       [this]() {
         return m_bar.preferredPopupParentContext(
-            m_compositorPlatform.preferredInteractiveOutput(std::chrono::milliseconds(1200)));
-      });
-  m_layerPopupHosts.registerHost(
-      [this](wl_surface* surface) { return m_settingsWindow.popupParentContextForSurface(surface); });
+            m_compositorPlatform.preferredInteractiveOutput(std::chrono::milliseconds(1200))
+        );
+      }
+  );
+  m_layerPopupHosts.registerHost([this](wl_surface* surface) {
+    return m_settingsWindow.popupParentContextForSurface(surface);
+  });
 
   m_colorPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
   ColorPickerDialog::setPresenter(&m_colorPickerDialogPopup);
@@ -1223,8 +1269,10 @@ void Application::initUi() {
   FileDialog::setPresenter(&m_fileDialogPopup);
 
   m_dock.initialize(m_compositorPlatform, &m_configService, &m_renderContext);
-  m_desktopWidgetsController.initialize(m_wayland, &m_configService, m_pipewireSpectrum.get(), &m_weatherService,
-                                        &m_renderContext, m_mprisService.get(), &m_httpClient, m_systemMonitor.get());
+  m_desktopWidgetsController.initialize(
+      m_wayland, &m_configService, m_pipewireSpectrum.get(), &m_weatherService, &m_renderContext, m_mprisService.get(),
+      &m_httpClient, m_systemMonitor.get()
+  );
   m_iconThemePollSource.setChangeCallback([this]() { onIconThemeChanged(); });
 
   std::string lastShellFontFamily = m_configService.config().shell.fontFamily;
@@ -1313,7 +1361,8 @@ void Application::initIpc() {
         json += "\n}\n";
         return json;
       },
-      "status", "Print current state as JSON");
+      "status", "Print current state as JSON"
+  );
 
   auto applyNotificationDnd = [this](bool enabled) {
     m_notificationManager.setDoNotDisturb(enabled);
@@ -1341,7 +1390,8 @@ void Application::initIpc() {
         }
         return "error: invalid value (use on/off, true/false, 1/0)\n";
       },
-      "notification-dnd-set <on|off|true|false|1|0>", "Set notification Do Not Disturb state");
+      "notification-dnd-set <on|off|true|false|1|0>", "Set notification Do Not Disturb state"
+  );
 
   m_ipcService.registerHandler(
       "notification-dnd-toggle",
@@ -1349,12 +1399,14 @@ void Application::initIpc() {
         applyNotificationDnd(!m_notificationManager.doNotDisturb());
         return "ok\n";
       },
-      "notification-dnd-toggle", "Toggle notification Do Not Disturb state");
+      "notification-dnd-toggle", "Toggle notification Do Not Disturb state"
+  );
 
   m_ipcService.registerHandler(
       "notification-dnd-status",
       [this](const std::string&) -> std::string { return m_notificationManager.doNotDisturb() ? "on\n" : "off\n"; },
-      "notification-dnd-status", "Print notification Do Not Disturb state");
+      "notification-dnd-status", "Print notification Do Not Disturb state"
+  );
 
   m_ipcService.registerHandler(
       "notification-clear-active",
@@ -1372,7 +1424,8 @@ void Application::initIpc() {
         }
         return "ok\n";
       },
-      "notification-clear-active", "Dismiss all currently active notifications");
+      "notification-clear-active", "Dismiss all currently active notifications"
+  );
 
   m_ipcService.registerHandler(
       "notification-clear-history",
@@ -1383,7 +1436,8 @@ void Application::initIpc() {
         }
         return "ok\n";
       },
-      "notification-clear-history", "Clear notification history");
+      "notification-clear-history", "Clear notification history"
+  );
 
   m_ipcService.registerHandler(
       "dpms-on",
@@ -1393,7 +1447,8 @@ void Application::initIpc() {
         }
         return "ok\n";
       },
-      "dpms-on", "Turn monitors on");
+      "dpms-on", "Turn monitors on"
+  );
 
   m_ipcService.registerHandler(
       "dpms-off",
@@ -1403,7 +1458,8 @@ void Application::initIpc() {
         }
         return "ok\n";
       },
-      "dpms-off", "Turn monitors off");
+      "dpms-off", "Turn monitors off"
+  );
 
   m_ipcService.registerHandler(
       "suspend",
@@ -1413,15 +1469,17 @@ void Application::initIpc() {
         }
         return "ok\n";
       },
-      "suspend", "Suspend the system");
+      "suspend", "Suspend the system"
+  );
 
   if (m_powerProfilesService != nullptr) {
     m_powerProfilesService->registerIpc(m_ipcService);
   }
 
   if (m_brightnessService != nullptr) {
-    m_brightnessService->registerIpc(m_ipcService,
-                                     [this]() { m_brightnessOsd.suppressFor(std::chrono::milliseconds(250)); });
+    m_brightnessService->registerIpc(m_ipcService, [this]() {
+      m_brightnessOsd.suppressFor(std::chrono::milliseconds(250));
+    });
   }
   m_configService.registerIpc(m_ipcService);
   m_bar.registerIpc(m_ipcService);
@@ -1528,8 +1586,10 @@ void Application::onUpowerStateChangedForHooks() {
     const bool wasAbove = !prev.isPresent || prev.percentage > static_cast<double>(thr);
     const bool isAtOrBelow = next.percentage <= static_cast<double>(thr);
     if (wasAbove && isAtOrBelow) {
-      m_hookManager.fire(HookKind::BatteryUnderThreshold,
-                         {{"NOCTALIA_BATTERY_PERCENT", std::to_string(static_cast<int>(next.percentage))}});
+      m_hookManager.fire(
+          HookKind::BatteryUnderThreshold,
+          {{"NOCTALIA_BATTERY_PERCENT", std::to_string(static_cast<int>(next.percentage))}}
+      );
     }
   }
   m_prevUpowerForHooks = next;
@@ -1544,11 +1604,13 @@ void Application::onNetworkStateChangedForEvents(const NetworkState& state, Netw
   if (prev != state.wirelessEnabled) {
     if (origin != NetworkChangeOrigin::Noctalia) {
       if (state.wirelessEnabled) {
-        m_notificationManager.addInternal(i18n::tr("notifications.internal.network"),
-                                          i18n::tr("notifications.internal.wifi-enabled"), "");
+        m_notificationManager.addInternal(
+            i18n::tr("notifications.internal.network"), i18n::tr("notifications.internal.wifi-enabled"), ""
+        );
       } else {
-        m_notificationManager.addInternal(i18n::tr("notifications.internal.network"),
-                                          i18n::tr("notifications.internal.wifi-disabled"), "");
+        m_notificationManager.addInternal(
+            i18n::tr("notifications.internal.network"), i18n::tr("notifications.internal.wifi-disabled"), ""
+        );
       }
     }
     if (state.wirelessEnabled) {
@@ -1569,11 +1631,13 @@ void Application::onBluetoothStateChangedForEvents(const BluetoothState& state, 
   if (prev != state.powered) {
     if (origin != BluetoothStateChangeOrigin::Noctalia) {
       if (state.powered) {
-        m_notificationManager.addInternal(i18n::tr("notifications.internal.bluetooth"),
-                                          i18n::tr("notifications.internal.bluetooth-enabled"), "");
+        m_notificationManager.addInternal(
+            i18n::tr("notifications.internal.bluetooth"), i18n::tr("notifications.internal.bluetooth-enabled"), ""
+        );
       } else {
-        m_notificationManager.addInternal(i18n::tr("notifications.internal.bluetooth"),
-                                          i18n::tr("notifications.internal.bluetooth-disabled"), "");
+        m_notificationManager.addInternal(
+            i18n::tr("notifications.internal.bluetooth"), i18n::tr("notifications.internal.bluetooth-disabled"), ""
+        );
       }
     }
     if (state.powered) {
@@ -1595,10 +1659,11 @@ void Application::onPowerProfileChangedForEvents(const PowerProfilesState& state
   }
   const std::string prev = *m_prevPowerProfileActiveForEvents;
   if (prev != state.activeProfile) {
-    m_hookManager.fire(HookKind::PowerProfileChanged,
-                       {{"NOCTALIA_POWER_PROFILE", state.activeProfile},
-                        {"NOCTALIA_POWER_PROFILE_PREVIOUS", prev},
-                        {"NOCTALIA_POWER_PROFILE_ORIGIN", std::string(powerProfileOriginName(origin))}});
+    m_hookManager.fire(
+        HookKind::PowerProfileChanged, {{"NOCTALIA_POWER_PROFILE", state.activeProfile},
+                                        {"NOCTALIA_POWER_PROFILE_PREVIOUS", prev},
+                                        {"NOCTALIA_POWER_PROFILE_ORIGIN", std::string(powerProfileOriginName(origin))}}
+    );
   }
   m_prevPowerProfileActiveForEvents = state.activeProfile;
 }

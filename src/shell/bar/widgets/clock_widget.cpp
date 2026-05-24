@@ -4,7 +4,7 @@
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "time/time_format.h"
-#include "ui/controls/label.h"
+#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -66,23 +66,28 @@ std::string ClockWidget::formatTimeText() const {
 
 void ClockWidget::create() {
   auto area = std::make_unique<InputArea>();
-  area->setOnClick(
-      [this](const InputArea::PointerData& /*data*/) { requestPanelToggle("control-center", "calendar"); });
+  area->setOnClick([this](const InputArea::PointerData& /*data*/) {
+    requestPanelToggle("control-center", "calendar");
+  });
 
-  auto label = std::make_unique<Label>();
-  label->setFontWeight(labelFontWeight());
-  label->setTextAlign(TextAlign::Center);
-  label->setFontSize(Style::fontSizeBody * m_contentScale);
-  m_label = label.get();
-  area->addChild(std::move(label));
+  area->addChild(
+      ui::label({
+          .out = &m_label,
+          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontWeight = labelFontWeight(),
+          .textAlign = TextAlign::Center,
+      })
+  );
 
-  auto secondaryLabel = std::make_unique<Label>();
-  secondaryLabel->setFontWeight(labelFontWeight());
-  secondaryLabel->setTextAlign(TextAlign::Center);
-  secondaryLabel->setFontSize(Style::fontSizeBody * m_contentScale * kStackedSecondaryScale);
-  secondaryLabel->setVisible(false);
-  m_secondaryLabel = secondaryLabel.get();
-  area->addChild(std::move(secondaryLabel));
+  area->addChild(
+      ui::label({
+          .out = &m_secondaryLabel,
+          .fontSize = Style::fontSizeBody * m_contentScale * kStackedSecondaryScale,
+          .fontWeight = labelFontWeight(),
+          .textAlign = TextAlign::Center,
+          .visible = false,
+      })
+  );
 
   setRoot(std::move(area));
 }

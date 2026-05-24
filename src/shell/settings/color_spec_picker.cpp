@@ -50,8 +50,10 @@ namespace settings {
       }
 
       char buffer[16];
-      std::snprintf(buffer, sizeof(buffer), "#%02X%02X%02X%02X", colorByteForConfig(color.r),
-                    colorByteForConfig(color.g), colorByteForConfig(color.b), colorByteForConfig(color.a));
+      std::snprintf(
+          buffer, sizeof(buffer), "#%02X%02X%02X%02X", colorByteForConfig(color.r), colorByteForConfig(color.g),
+          colorByteForConfig(color.b), colorByteForConfig(color.a)
+      );
       return std::string(buffer);
     }
 
@@ -79,8 +81,9 @@ namespace settings {
     return color.has_value() ? colorSpecConfigValue(*color) : std::string{};
   }
 
-  std::unique_ptr<Select> makeColorSpecSelect(ColorSpecSelectOptions options, std::function<void(std::string)> setValue,
-                                              std::function<void()> clearValue) {
+  std::unique_ptr<Select> makeColorSpecSelect(
+      ColorSpecSelectOptions options, std::function<void(std::string)> setValue, std::function<void()> clearValue
+  ) {
     const std::vector<ColorRole> roles = options.roles.empty() ? allColorSpecRoles() : std::move(options.roles);
 
     std::vector<Choice> choices;
@@ -89,10 +92,12 @@ namespace settings {
     indicators.reserve(choices.capacity());
 
     if (options.allowNone) {
-      choices.push_back(Choice{
-          .value = {},
-          .label = options.noneLabel.empty() ? i18n::tr("settings.options.theme-role.default") : options.noneLabel,
-      });
+      choices.push_back(
+          Choice{
+              .value = {},
+              .label = options.noneLabel.empty() ? i18n::tr("settings.options.theme-role.default") : options.noneLabel,
+          }
+      );
       indicators.push_back(clearColorSpec());
     }
 
@@ -105,11 +110,13 @@ namespace settings {
     const bool selectedIsFixedColor =
         options.allowCustomColor && tryParseHexColor(options.selectedValue, selectedFixedColor);
     if (options.allowCustomColor) {
-      choices.push_back(Choice{
-          .value = std::string(kCustomColorValue),
-          .label = selectedIsFixedColor ? formatFixedColorConfigValue(selectedFixedColor)
-                                        : i18n::tr("settings.options.theme-role.custom"),
-      });
+      choices.push_back(
+          Choice{
+              .value = std::string(kCustomColorValue),
+              .label = selectedIsFixedColor ? formatFixedColorConfigValue(selectedFixedColor)
+                                            : i18n::tr("settings.options.theme-role.custom"),
+          }
+      );
       indicators.push_back(selectedIsFixedColor ? fixedColorSpec(selectedFixedColor) : clearColorSpec());
     }
 
@@ -129,17 +136,19 @@ namespace settings {
         .options = labelsForChoices(choices),
         .selectedIndex = selectedIndex,
         .clearSelection = selectedUnknown,
-        .placeholder = selectedUnknown ? std::optional<std::string>(
-                                             i18n::tr("settings.controls.select.unknown-value", "value", selectedValue))
-                                       : std::nullopt,
+        .placeholder =
+            selectedUnknown
+                ? std::optional<std::string>(i18n::tr("settings.controls.select.unknown-value", "value", selectedValue))
+                : std::nullopt,
         .fontSize = options.fontSize > 0.0f ? std::optional<float>(options.fontSize) : std::nullopt,
         .controlHeight = options.controlHeight > 0.0f ? std::optional<float>(options.controlHeight) : std::nullopt,
         .glyphSize = options.glyphSize > 0.0f ? std::optional<float>(options.glyphSize) : std::nullopt,
         .optionIndicators = std::move(indicators),
         .width = options.width > 0.0f ? std::optional<float>(options.width) : std::nullopt,
-        .height = options.width > 0.0f ? std::optional<float>(options.controlHeight > 0.0f ? options.controlHeight
-                                                                                           : Style::controlHeight)
-                                       : std::nullopt,
+        .height =
+            options.width > 0.0f
+                ? std::optional<float>(options.controlHeight > 0.0f ? options.controlHeight : Style::controlHeight)
+                : std::nullopt,
         .flexGrow = options.flexGrow ? std::optional<float>(1.0f) : std::nullopt,
         .onSelectionChanged =
             [choices = std::move(choices), setValue = std::move(setValue), clearValue = std::move(clearValue),

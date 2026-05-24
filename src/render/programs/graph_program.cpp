@@ -261,8 +261,10 @@ void GraphProgram::destroy() {
   m_dataSourceLoc = -1;
 }
 
-void GraphProgram::draw(TextureId dataTexture, int texWidth, float surfaceWidth, float surfaceHeight, float width,
-                        float height, const GraphStyle& style, const Mat3& transform) const {
+void GraphProgram::draw(
+    TextureId dataTexture, int texWidth, float surfaceWidth, float surfaceHeight, float width, float height,
+    const GraphStyle& style, const Mat3& transform
+) const {
   if (!m_program.isValid() || width <= 0.0f || height <= 0.0f || dataTexture == 0) {
     return;
   }

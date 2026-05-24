@@ -58,8 +58,9 @@ namespace {
     size_t len = 0;
     const char* role = luaL_checklstring(L, 1, &len);
     if (auto* context = getContext(L)) {
-      context->patch.textColor = scripting::ScriptWidgetColorPatch{.role = std::string(role, len),
-                                                                   .mode = std::string(optionalStringArg(L, 2))};
+      context->patch.textColor = scripting::ScriptWidgetColorPatch{
+          .role = std::string(role, len), .mode = std::string(optionalStringArg(L, 2))
+      };
     }
     return 0;
   }
@@ -68,8 +69,9 @@ namespace {
     size_t len = 0;
     const char* role = luaL_checklstring(L, 1, &len);
     if (auto* context = getContext(L)) {
-      context->patch.glyphColor = scripting::ScriptWidgetColorPatch{.role = std::string(role, len),
-                                                                    .mode = std::string(optionalStringArg(L, 2))};
+      context->patch.glyphColor = scripting::ScriptWidgetColorPatch{
+          .role = std::string(role, len), .mode = std::string(optionalStringArg(L, 2))
+      };
     }
     return 0;
   }
@@ -133,7 +135,8 @@ namespace {
             }
           }
         },
-        it->second);
+        it->second
+    );
     return 1;
   }
 

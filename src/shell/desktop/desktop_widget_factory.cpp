@@ -16,8 +16,10 @@ namespace {
   constexpr Logger kLog("desktop");
   constexpr float kDefaultDesktopAudioVisualizerAspectRatio = 240.0f / 96.0f;
 
-  std::string getStringSetting(const std::unordered_map<std::string, WidgetSettingValue>& settings,
-                               const std::string& key, const std::string& fallback = {}) {
+  std::string getStringSetting(
+      const std::unordered_map<std::string, WidgetSettingValue>& settings, const std::string& key,
+      const std::string& fallback = {}
+  ) {
     const auto it = settings.find(key);
     if (it == settings.end()) {
       return fallback;
@@ -28,8 +30,9 @@ namespace {
     return fallback;
   }
 
-  float getFloatSetting(const std::unordered_map<std::string, WidgetSettingValue>& settings, const std::string& key,
-                        float fallback) {
+  float getFloatSetting(
+      const std::unordered_map<std::string, WidgetSettingValue>& settings, const std::string& key, float fallback
+  ) {
     const auto it = settings.find(key);
     if (it == settings.end()) {
       return fallback;
@@ -43,8 +46,9 @@ namespace {
     return fallback;
   }
 
-  int getIntSetting(const std::unordered_map<std::string, WidgetSettingValue>& settings, const std::string& key,
-                    int fallback) {
+  int getIntSetting(
+      const std::unordered_map<std::string, WidgetSettingValue>& settings, const std::string& key, int fallback
+  ) {
     const auto it = settings.find(key);
     if (it == settings.end()) {
       return fallback;
@@ -58,8 +62,9 @@ namespace {
     return fallback;
   }
 
-  bool getBoolSetting(const std::unordered_map<std::string, WidgetSettingValue>& settings, const std::string& key,
-                      bool fallback) {
+  bool getBoolSetting(
+      const std::unordered_map<std::string, WidgetSettingValue>& settings, const std::string& key, bool fallback
+  ) {
     const auto it = settings.find(key);
     if (it == settings.end()) {
       return fallback;
@@ -70,8 +75,10 @@ namespace {
     return fallback;
   }
 
-  ColorSpec getColorSpecSetting(const std::unordered_map<std::string, WidgetSettingValue>& settings,
-                                const std::string& key, const ColorSpec& fallback) {
+  ColorSpec getColorSpecSetting(
+      const std::unordered_map<std::string, WidgetSettingValue>& settings, const std::string& key,
+      const ColorSpec& fallback
+  ) {
     const auto it = settings.find(key);
     if (it == settings.end()) {
       return fallback;
@@ -97,20 +104,22 @@ namespace {
 
 } // namespace
 
-DesktopWidgetFactory::DesktopWidgetFactory(PipeWireSpectrum* pipewireSpectrum, const WeatherService* weather,
-                                           MprisService* mpris, HttpClient* httpClient, SystemMonitorService* sysmon)
+DesktopWidgetFactory::DesktopWidgetFactory(
+    PipeWireSpectrum* pipewireSpectrum, const WeatherService* weather, MprisService* mpris, HttpClient* httpClient,
+    SystemMonitorService* sysmon
+)
     : m_pipewireSpectrum(pipewireSpectrum), m_weather(weather), m_mpris(mpris), m_httpClient(httpClient),
       m_sysmon(sysmon) {}
 
-std::unique_ptr<DesktopWidget>
-DesktopWidgetFactory::create(const std::string& type,
-                             const std::unordered_map<std::string, WidgetSettingValue>& settings,
-                             float contentScale) const {
+std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
+    const std::string& type, const std::unordered_map<std::string, WidgetSettingValue>& settings, float contentScale
+) const {
   if (type == "clock") {
     auto widget = std::make_unique<DesktopClockWidget>(
         getStringSetting(settings, "format", "{:%H:%M}"),
         getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
-        getBoolSetting(settings, "shadow", true));
+        getBoolSetting(settings, "shadow", true)
+    );
     applyCommonSettings(*widget, settings);
     widget->setContentScale(contentScale);
     return widget;
@@ -126,7 +135,8 @@ DesktopWidgetFactory::create(const std::string& type,
         getIntSetting(settings, "bands", 32), getBoolSetting(settings, "mirrored", true),
         getColorSpecSetting(settings, "low_color", colorSpecFromRole(ColorRole::Primary)),
         getColorSpecSetting(settings, "high_color", colorSpecFromRole(ColorRole::Primary)),
-        getBoolSetting(settings, "centered", true), getBoolSetting(settings, "show_when_idle", true));
+        getBoolSetting(settings, "centered", true), getBoolSetting(settings, "show_when_idle", true)
+    );
     applyCommonSettings(*widget, settings);
     widget->setContentScale(contentScale);
     return widget;
@@ -134,7 +144,8 @@ DesktopWidgetFactory::create(const std::string& type,
 
   if (type == "sticker") {
     auto widget = std::make_unique<DesktopStickerWidget>(
-        getStringSetting(settings, "image_path"), std::clamp(getFloatSetting(settings, "opacity", 1.0f), 0.0f, 1.0f));
+        getStringSetting(settings, "image_path"), std::clamp(getFloatSetting(settings, "opacity", 1.0f), 0.0f, 1.0f)
+    );
     applyCommonSettings(*widget, settings);
     widget->setContentScale(contentScale);
     return widget;
@@ -147,7 +158,8 @@ DesktopWidgetFactory::create(const std::string& type,
     }
     auto widget = std::make_unique<DesktopWeatherWidget>(
         m_weather, getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
-        getBoolSetting(settings, "shadow", true));
+        getBoolSetting(settings, "shadow", true)
+    );
     applyCommonSettings(*widget, settings);
     widget->setContentScale(contentScale);
     return widget;
@@ -162,7 +174,8 @@ DesktopWidgetFactory::create(const std::string& type,
     auto widget = std::make_unique<DesktopMediaPlayerWidget>(
         m_mpris, m_httpClient, vertical,
         getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
-        getBoolSetting(settings, "shadow", true));
+        getBoolSetting(settings, "shadow", true)
+    );
     applyCommonSettings(*widget, settings);
     widget->setContentScale(contentScale);
     return widget;
@@ -199,7 +212,8 @@ DesktopWidgetFactory::create(const std::string& type,
     auto widget = std::make_unique<DesktopSysmonWidget>(
         m_sysmon, stat, stat2, getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::Primary)),
         getColorSpecSetting(settings, "color2", colorSpecFromRole(ColorRole::Secondary)),
-        getBoolSetting(settings, "show_label", true), getBoolSetting(settings, "shadow", true));
+        getBoolSetting(settings, "show_label", true), getBoolSetting(settings, "shadow", true)
+    );
     applyCommonSettings(*widget, settings);
     widget->setContentScale(contentScale);
     return widget;

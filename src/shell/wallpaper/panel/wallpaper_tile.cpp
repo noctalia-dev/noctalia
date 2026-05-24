@@ -45,41 +45,52 @@ WallpaperTile::WallpaperTile(float cellWidth, float cellHeight, float contentSca
   });
   addChild(std::move(layout));
 
-  m_layout->addChild(ui::column({
-      .out = &m_thumbBox,
-      .align = FlexAlign::Center,
-      .justify = FlexJustify::Center,
-      .configure = [frameRadius](Flex& flex) { flex.setRadius(frameRadius); },
-  }));
+  m_layout->addChild(
+      ui::column({
+          .out = &m_thumbBox,
+          .align = FlexAlign::Center,
+          .justify = FlexJustify::Center,
+          .configure = [frameRadius](Flex& flex) { flex.setRadius(frameRadius); },
+      })
+  );
 
-  m_thumbBox->addChild(ui::image({
-      .out = &m_thumb,
-      .fit = ImageFit::Cover,
-      .radius = frameRadius,
-      .configure =
-          [outlineWidth](Image& image) { image.setBorder(colorSpecFromRole(ColorRole::Outline), outlineWidth); },
-  }));
+  m_thumbBox->addChild(
+      ui::image({
+          .out = &m_thumb,
+          .fit = ImageFit::Cover,
+          .radius = frameRadius,
+          .configure = [outlineWidth](Image& image) {
+            image.setBorder(colorSpecFromRole(ColorRole::Outline), outlineWidth);
+          },
+      })
+  );
 
-  m_thumbBox->addChild(ui::glyph({
-      .out = &m_folderGlyph,
-      .glyph = "folder",
-      .color = colorSpecFromRole(ColorRole::Primary),
-      .visible = false,
-  }));
+  m_thumbBox->addChild(
+      ui::glyph({
+          .out = &m_folderGlyph,
+          .glyph = "folder",
+          .color = colorSpecFromRole(ColorRole::Primary),
+          .visible = false,
+      })
+  );
 
-  m_thumbBox->addChild(ui::glyph({
-      .out = &m_loadingGlyph,
-      .glyph = "hourglass-empty",
-      .color = colorSpecFromRole(ColorRole::OnSurface, 0.5f),
-      .visible = false,
-  }));
+  m_thumbBox->addChild(
+      ui::glyph({
+          .out = &m_loadingGlyph,
+          .glyph = "hourglass-empty",
+          .color = colorSpecFromRole(ColorRole::OnSurface, 0.5f),
+          .visible = false,
+      })
+  );
 
-  m_layout->addChild(ui::label({
-      .out = &m_label,
-      .fontSize = Style::fontSizeCaption * m_contentScale,
-      .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-      .maxLines = 1,
-  }));
+  m_layout->addChild(
+      ui::label({
+          .out = &m_label,
+          .fontSize = Style::fontSizeCaption * m_contentScale,
+          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+          .maxLines = 1,
+      })
+  );
 
   setCellSize(cellWidth, cellHeight);
 }

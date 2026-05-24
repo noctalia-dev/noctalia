@@ -38,8 +38,8 @@ public:
 
 private:
   [[nodiscard]] std::unique_ptr<Separator> makeSegmentSeparator();
-  [[nodiscard]] std::unique_ptr<Button> makeSegmentButton(std::string_view label, std::string_view glyph,
-                                                          std::size_t index);
+  [[nodiscard]] std::unique_ptr<Button>
+  makeSegmentButton(std::string_view label, std::string_view glyph, std::size_t index);
   void applyButtonMetrics(Button& button) const;
   void refreshVariants();
   void applyOuterStyle();

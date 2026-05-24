@@ -42,8 +42,9 @@ namespace {
 
 } // namespace
 
-TextureHandle GlesTextureManager::decodeEncodedRaster(const std::uint8_t* data, std::size_t size,
-                                                      const std::string* debugPath, bool mipmap) {
+TextureHandle GlesTextureManager::decodeEncodedRaster(
+    const std::uint8_t* data, std::size_t size, const std::string* debugPath, bool mipmap
+) {
   if (data == nullptr || size == 0) {
     return {};
   }
@@ -87,8 +88,9 @@ TextureHandle GlesTextureManager::loadFromRgba(const std::uint8_t* data, int wid
   return uploadRgba(data, width, height, mipmap);
 }
 
-TextureHandle GlesTextureManager::loadFromPixels(const std::uint8_t* data, int width, int height,
-                                                 TextureDataFormat format, TextureFilter filter, bool mipmap) {
+TextureHandle GlesTextureManager::loadFromPixels(
+    const std::uint8_t* data, int width, int height, TextureDataFormat format, TextureFilter filter, bool mipmap
+) {
   if (data == nullptr || width <= 0 || height <= 0) {
     return {};
   }
@@ -102,8 +104,9 @@ TextureHandle GlesTextureManager::createEmpty(int width, int height, TextureData
   return uploadPixels(nullptr, width, height, format, filter, false);
 }
 
-TextureHandle GlesTextureManager::loadFromRaw(const std::uint8_t* data, std::size_t size, int width, int height,
-                                              int stride, PixmapFormat format, bool mipmap) {
+TextureHandle GlesTextureManager::loadFromRaw(
+    const std::uint8_t* data, std::size_t size, int width, int height, int stride, PixmapFormat format, bool mipmap
+) {
   if (data == nullptr || size == 0 || width <= 0 || height <= 0) {
     return {};
   }
@@ -120,8 +123,10 @@ TextureHandle GlesTextureManager::loadFromRaw(const std::uint8_t* data, std::siz
 
   const std::size_t requiredSize = (heightSize - 1U) * actualStride + minStride;
   if (size < requiredSize) {
-    kLog.warn("raw pixmap buffer too small: width={} height={} stride={} have={} need={}", width, height, stride, size,
-              requiredSize);
+    kLog.warn(
+        "raw pixmap buffer too small: width={} height={} stride={} have={} need={}", width, height, stride, size,
+        requiredSize
+    );
     return {};
   }
 
@@ -207,8 +212,10 @@ void GlesTextureManager::unload(TextureHandle& handle) {
   }
 }
 
-bool GlesTextureManager::replace(TextureHandle& handle, const std::uint8_t* data, int width, int height,
-                                 TextureDataFormat format, TextureFilter filter, bool mipmap) {
+bool GlesTextureManager::replace(
+    TextureHandle& handle, const std::uint8_t* data, int width, int height, TextureDataFormat format,
+    TextureFilter filter, bool mipmap
+) {
   TextureHandle next = loadFromPixels(data, width, height, format, filter, mipmap);
   if (next.id == 0) {
     return false;
@@ -218,8 +225,9 @@ bool GlesTextureManager::replace(TextureHandle& handle, const std::uint8_t* data
   return true;
 }
 
-bool GlesTextureManager::updateSubImage(TextureHandle& handle, const std::uint8_t* data, int x, int y, int width,
-                                        int height, TextureDataFormat format) {
+bool GlesTextureManager::updateSubImage(
+    TextureHandle& handle, const std::uint8_t* data, int x, int y, int width, int height, TextureDataFormat format
+) {
   if (handle.id == 0 || data == nullptr || x < 0 || y < 0 || width <= 0 || height <= 0 || x + width > handle.width ||
       y + height > handle.height) {
     return false;
@@ -279,8 +287,9 @@ TextureHandle GlesTextureManager::uploadRgba(const std::uint8_t* data, int width
   return uploadPixels(data, width, height, TextureDataFormat::Rgba, TextureFilter::Linear, mipmap);
 }
 
-TextureHandle GlesTextureManager::uploadPixels(const std::uint8_t* data, int width, int height,
-                                               TextureDataFormat format, TextureFilter filter, bool mipmap) {
+TextureHandle GlesTextureManager::uploadPixels(
+    const std::uint8_t* data, int width, int height, TextureDataFormat format, TextureFilter filter, bool mipmap
+) {
   GLuint tex = 0;
   glGenTextures(1, &tex);
   if (tex == 0) {

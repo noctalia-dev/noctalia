@@ -14,9 +14,10 @@ public:
   DesktopWeatherWidget(const WeatherService* weather, ColorSpec color, bool shadow);
 
   void create() override;
-  bool applySetting(const std::string& key, const WidgetSettingValue& value,
-                    const std::unordered_map<std::string, WidgetSettingValue>& allSettings,
-                    Renderer& renderer) override;
+  bool applySetting(
+      const std::string& key, const WidgetSettingValue& value,
+      const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
+  ) override;
 
 private:
   void doLayout(Renderer& renderer) override;

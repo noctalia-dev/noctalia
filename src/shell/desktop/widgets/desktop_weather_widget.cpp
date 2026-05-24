@@ -72,9 +72,10 @@ void DesktopWeatherWidget::create() {
   applyShadow();
 }
 
-bool DesktopWeatherWidget::applySetting(const std::string& key, const WidgetSettingValue& value,
-                                        const std::unordered_map<std::string, WidgetSettingValue>& allSettings,
-                                        Renderer& renderer) {
+bool DesktopWeatherWidget::applySetting(
+    const std::string& key, const WidgetSettingValue& value,
+    const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
+) {
   if (key == "color") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_color = colorSpecFromConfigString(*v, key);
@@ -135,8 +136,9 @@ void DesktopWeatherWidget::doLayout(Renderer& renderer) {
     textHeight += lineGap + m_condition->height();
   }
 
-  m_glyph->setPosition(std::round((glyphSlotWidth - m_glyph->width()) * 0.5f),
-                       std::round((height - m_glyph->height()) * 0.5f));
+  m_glyph->setPosition(
+      std::round((glyphSlotWidth - m_glyph->width()) * 0.5f), std::round((height - m_glyph->height()) * 0.5f)
+  );
 
   float y = std::round((height - textHeight) * 0.5f);
   m_temperature->setPosition(textX, y);

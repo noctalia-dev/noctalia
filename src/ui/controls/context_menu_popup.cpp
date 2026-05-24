@@ -27,27 +27,33 @@ ContextMenuPopup::ContextMenuPopup(WaylandConnection& wayland, RenderContext& re
 
 ContextMenuPopup::~ContextMenuPopup() { close(); }
 
-void ContextMenuPopup::open(std::vector<ContextMenuControlEntry> entries, float menuWidth, std::size_t maxVisible,
-                            std::int32_t anchorX, std::int32_t anchorY, std::int32_t anchorW, std::int32_t anchorH,
-                            zwlr_layer_surface_v1* parentLayerSurface, wl_output* output,
-                            const ContextMenuPopupPlacement* placement) {
-  openCommon(std::move(entries), menuWidth, maxVisible, anchorX, anchorY, anchorW, anchorH, parentLayerSurface, nullptr,
-             output, placement);
+void ContextMenuPopup::open(
+    std::vector<ContextMenuControlEntry> entries, float menuWidth, std::size_t maxVisible, std::int32_t anchorX,
+    std::int32_t anchorY, std::int32_t anchorW, std::int32_t anchorH, zwlr_layer_surface_v1* parentLayerSurface,
+    wl_output* output, const ContextMenuPopupPlacement* placement
+) {
+  openCommon(
+      std::move(entries), menuWidth, maxVisible, anchorX, anchorY, anchorW, anchorH, parentLayerSurface, nullptr,
+      output, placement
+  );
 }
 
-void ContextMenuPopup::openAsChild(std::vector<ContextMenuControlEntry> entries, float menuWidth,
-                                   std::size_t maxVisible, std::int32_t anchorX, std::int32_t anchorY,
-                                   std::int32_t anchorW, std::int32_t anchorH, xdg_surface* parentXdgSurface,
-                                   wl_output* output, const ContextMenuPopupPlacement* placement) {
-  openCommon(std::move(entries), menuWidth, maxVisible, anchorX, anchorY, anchorW, anchorH, nullptr, parentXdgSurface,
-             output, placement);
+void ContextMenuPopup::openAsChild(
+    std::vector<ContextMenuControlEntry> entries, float menuWidth, std::size_t maxVisible, std::int32_t anchorX,
+    std::int32_t anchorY, std::int32_t anchorW, std::int32_t anchorH, xdg_surface* parentXdgSurface, wl_output* output,
+    const ContextMenuPopupPlacement* placement
+) {
+  openCommon(
+      std::move(entries), menuWidth, maxVisible, anchorX, anchorY, anchorW, anchorH, nullptr, parentXdgSurface, output,
+      placement
+  );
 }
 
-void ContextMenuPopup::openCommon(std::vector<ContextMenuControlEntry> entries, float menuWidth, std::size_t maxVisible,
-                                  std::int32_t anchorX, std::int32_t anchorY, std::int32_t anchorW,
-                                  std::int32_t anchorH, zwlr_layer_surface_v1* parentLayerSurface,
-                                  xdg_surface* parentXdgSurface, wl_output* output,
-                                  const ContextMenuPopupPlacement* placement) {
+void ContextMenuPopup::openCommon(
+    std::vector<ContextMenuControlEntry> entries, float menuWidth, std::size_t maxVisible, std::int32_t anchorX,
+    std::int32_t anchorY, std::int32_t anchorW, std::int32_t anchorH, zwlr_layer_surface_v1* parentLayerSurface,
+    xdg_surface* parentXdgSurface, wl_output* output, const ContextMenuPopupPlacement* placement
+) {
   close();
 
   const float menuHeight = ContextMenuControl::preferredHeight(entries, maxVisible);
@@ -58,8 +64,9 @@ void ContextMenuPopup::openCommon(std::vector<ContextMenuControlEntry> entries, 
       .gravity = XDG_POSITIONER_GRAVITY_BOTTOM,
       .offsetX = 0,
       .offsetY = static_cast<std::int32_t>(Style::spaceXs),
-      .chromeAttachment = popup_chrome::Attachment{.horizontal = popup_chrome::HorizontalAttachment::Center,
-                                                   .vertical = popup_chrome::VerticalAttachment::Top},
+      .chromeAttachment = popup_chrome::Attachment{
+          .horizontal = popup_chrome::HorizontalAttachment::Center, .vertical = popup_chrome::VerticalAttachment::Top
+      },
   };
   const ContextMenuPopupPlacement& resolvedPlacement = placement != nullptr ? *placement : defaultPlacement;
 
@@ -87,66 +94,68 @@ void ContextMenuPopup::openCommon(std::vector<ContextMenuControlEntry> entries, 
 
   auto* self = this;
 
-  m_surface->setConfigureCallback(
-      [self](std::uint32_t /*w*/, std::uint32_t /*h*/) { self->m_surface->requestLayout(); });
+  m_surface->setConfigureCallback([self](std::uint32_t /*w*/, std::uint32_t /*h*/) {
+    self->m_surface->requestLayout();
+  });
 
-  m_surface->setPrepareFrameCallback(
-      [self, entries = std::move(entries), maxVisible, chrome](bool /*needsUpdate*/, bool needsLayout) {
-        if (self->m_surface == nullptr) {
-          return;
+  m_surface->setPrepareFrameCallback([self, entries = std::move(entries), maxVisible,
+                                      chrome](bool /*needsUpdate*/, bool needsLayout) {
+    if (self->m_surface == nullptr) {
+      return;
+    }
+
+    const auto width = self->m_surface->width();
+    const auto height = self->m_surface->height();
+    if (width == 0 || height == 0) {
+      return;
+    }
+
+    self->m_renderContext.makeCurrent(self->m_surface->renderTarget());
+
+    const bool needsSceneBuild = self->m_sceneRoot == nullptr ||
+                                 static_cast<std::uint32_t>(std::round(self->m_sceneRoot->width())) != width ||
+                                 static_cast<std::uint32_t>(std::round(self->m_sceneRoot->height())) != height;
+    if (!needsSceneBuild && !needsLayout) {
+      return;
+    }
+
+    UiPhaseScope layoutPhase(UiPhase::Layout);
+
+    const auto fw = static_cast<float>(width);
+    const auto fh = static_cast<float>(height);
+
+    self->m_sceneRoot = std::make_unique<Node>();
+    self->m_sceneRoot->setSize(fw, fh);
+    (void)popup_chrome::addShadow(*self->m_sceneRoot, chrome, self->m_shadowConfig, Style::scaledRadiusLg());
+
+    auto ctrl = std::make_unique<ContextMenuControl>();
+    ctrl->setMenuWidth(chrome.contentWidth);
+    ctrl->setMaxVisible(maxVisible);
+    ctrl->setEntries(entries);
+    ctrl->setRedrawCallback([self]() {
+      if (self->m_surface)
+        self->m_surface->requestRedraw();
+    });
+    ctrl->setOnActivate([self](const ContextMenuControlEntry& e) {
+      auto onActivate = self->m_onActivate;
+      DeferredCall::callLater([self, onActivate, e]() {
+        if (onActivate) {
+          onActivate(e);
         }
-
-        const auto width = self->m_surface->width();
-        const auto height = self->m_surface->height();
-        if (width == 0 || height == 0) {
-          return;
-        }
-
-        self->m_renderContext.makeCurrent(self->m_surface->renderTarget());
-
-        const bool needsSceneBuild = self->m_sceneRoot == nullptr ||
-                                     static_cast<std::uint32_t>(std::round(self->m_sceneRoot->width())) != width ||
-                                     static_cast<std::uint32_t>(std::round(self->m_sceneRoot->height())) != height;
-        if (!needsSceneBuild && !needsLayout) {
-          return;
-        }
-
-        UiPhaseScope layoutPhase(UiPhase::Layout);
-
-        const auto fw = static_cast<float>(width);
-        const auto fh = static_cast<float>(height);
-
-        self->m_sceneRoot = std::make_unique<Node>();
-        self->m_sceneRoot->setSize(fw, fh);
-        (void)popup_chrome::addShadow(*self->m_sceneRoot, chrome, self->m_shadowConfig, Style::scaledRadiusLg());
-
-        auto ctrl = std::make_unique<ContextMenuControl>();
-        ctrl->setMenuWidth(chrome.contentWidth);
-        ctrl->setMaxVisible(maxVisible);
-        ctrl->setEntries(entries);
-        ctrl->setRedrawCallback([self]() {
-          if (self->m_surface)
-            self->m_surface->requestRedraw();
-        });
-        ctrl->setOnActivate([self](const ContextMenuControlEntry& e) {
-          auto onActivate = self->m_onActivate;
-          DeferredCall::callLater([self, onActivate, e]() {
-            if (onActivate) {
-              onActivate(e);
-            }
-            self->close();
-          });
-        });
-        ctrl->setPosition(chrome.contentX(), chrome.contentY());
-        ctrl->setSize(chrome.contentWidth, chrome.contentHeight);
-        ctrl->layout(self->m_renderContext);
-
-        self->m_sceneRoot->addChild(std::move(ctrl));
-        self->m_inputDispatcher.setSceneRoot(self->m_sceneRoot.get());
-        self->m_inputDispatcher.setCursorShapeCallback(
-            [self](std::uint32_t serial, std::uint32_t shape) { self->m_wayland.setCursorShape(serial, shape); });
-        self->m_surface->setSceneRoot(self->m_sceneRoot.get());
+        self->close();
       });
+    });
+    ctrl->setPosition(chrome.contentX(), chrome.contentY());
+    ctrl->setSize(chrome.contentWidth, chrome.contentHeight);
+    ctrl->layout(self->m_renderContext);
+
+    self->m_sceneRoot->addChild(std::move(ctrl));
+    self->m_inputDispatcher.setSceneRoot(self->m_sceneRoot.get());
+    self->m_inputDispatcher.setCursorShapeCallback([self](std::uint32_t serial, std::uint32_t shape) {
+      self->m_wayland.setCursorShape(serial, shape);
+    });
+    self->m_surface->setSceneRoot(self->m_sceneRoot.get());
+  });
 
   m_surface->setDismissedCallback([self]() { DeferredCall::callLater([self]() { self->close(); }); });
 
@@ -227,8 +236,9 @@ bool ContextMenuPopup::onPointerEvent(const PointerEvent& event) {
         m_pointerInside = true;
       }
       const bool pressed = (event.state == 1);
-      m_inputDispatcher.pointerButton(static_cast<float>(event.sx), static_cast<float>(event.sy), event.button,
-                                      pressed);
+      m_inputDispatcher.pointerButton(
+          static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+      );
       return true;
     }
     break;

@@ -105,8 +105,10 @@ void ScreenCornerProgram::destroy() {
   m_transformLocation = -1;
 }
 
-void ScreenCornerProgram::draw(float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY,
-                               float width, float height, const ScreenCornerStyle& style, const Mat3& transform) const {
+void ScreenCornerProgram::draw(
+    float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
+    const ScreenCornerStyle& style, const Mat3& transform
+) const {
   if (!m_program.isValid() || width <= 0.0f || height <= 0.0f || style.color.a <= 0.0f) {
     return;
   }

@@ -24,8 +24,10 @@ enum class MediaTitleScrollMode : std::uint8_t {
 
 class MediaWidget : public Widget {
 public:
-  MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output* output, float maxWidth, float minWidth,
-              float artSize, MediaTitleScrollMode titleScrollMode, bool hideWhenNoMedia = false);
+  MediaWidget(
+      MprisService* mpris, HttpClient* httpClient, wl_output* output, float maxWidth, float minWidth, float artSize,
+      MediaTitleScrollMode titleScrollMode, bool hideWhenNoMedia = false
+  );
 
   void create() override;
 

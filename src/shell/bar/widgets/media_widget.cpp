@@ -7,9 +7,7 @@
 #include "net/http_client.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
-#include "ui/controls/glyph.h"
-#include "ui/controls/image.h"
-#include "ui/controls/label.h"
+#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -26,8 +24,10 @@ namespace {
 
 } // namespace
 
-MediaWidget::MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output* /*output*/, float maxWidth,
-                         float minWidth, float artSize, MediaTitleScrollMode titleScrollMode, bool hideWhenNoMedia)
+MediaWidget::MediaWidget(
+    MprisService* mpris, HttpClient* httpClient, wl_output* /*output*/, float maxWidth, float minWidth, float artSize,
+    MediaTitleScrollMode titleScrollMode, bool hideWhenNoMedia
+)
     : m_mpris(mpris), m_httpClient(httpClient), m_maxWidth(maxWidth), m_minWidth(minWidth), m_artSize(artSize),
       m_titleScrollMode(titleScrollMode), m_hideWhenNoMedia(hideWhenNoMedia) {}
 
@@ -53,30 +53,37 @@ void MediaWidget::create() {
   });
   m_area = area.get();
 
-  auto art = std::make_unique<Image>();
-  art->setRadius((m_artSize * m_contentScale) * 0.5f);
-  art->setFit(ImageFit::Cover);
-  art->setSize(m_artSize * m_contentScale, m_artSize * m_contentScale);
-  m_art = art.get();
-  area->addChild(std::move(art));
+  area->addChild(
+      ui::image({
+          .out = &m_art,
+          .fit = ImageFit::Cover,
+          .radius = (m_artSize * m_contentScale) * 0.5f,
+          .width = m_artSize * m_contentScale,
+          .height = m_artSize * m_contentScale,
+      })
+  );
 
-  auto label = std::make_unique<Label>();
-  label->setFontWeight(labelFontWeight());
-  label->setFontSize(Style::fontSizeBody * m_contentScale);
-  label->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
-  label->setMaxWidth(m_maxWidth * m_contentScale);
-  label->setMaxLines(1);
-  label->setAutoScroll(false);
-  m_label = label.get();
-  area->addChild(std::move(label));
+  area->addChild(
+      ui::label({
+          .out = &m_label,
+          .fontSize = Style::fontSizeBody * m_contentScale,
+          .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
+          .maxWidth = m_maxWidth * m_contentScale,
+          .maxLines = 1,
+          .fontWeight = labelFontWeight(),
+          .autoScroll = false,
+      })
+  );
 
-  auto emptyGlyph = std::make_unique<Glyph>();
-  emptyGlyph->setGlyph("music-off");
-  emptyGlyph->setGlyphSize(Style::barGlyphSize * m_contentScale);
-  emptyGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-  emptyGlyph->setVisible(false);
-  m_emptyGlyph = emptyGlyph.get();
-  area->addChild(std::move(emptyGlyph));
+  area->addChild(
+      ui::glyph({
+          .out = &m_emptyGlyph,
+          .glyph = "music-off",
+          .glyphSize = Style::barGlyphSize * m_contentScale,
+          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+          .visible = false,
+      })
+  );
 
   setRoot(std::move(area));
 }
@@ -92,8 +99,10 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
   const float maxLength = std::max(0.0f, m_maxWidth * m_contentScale);
   const float minLength = std::clamp(m_minWidth * m_contentScale, 0.0f, maxLength);
 
-  m_label->setColor(m_lastPlaybackStatus == "Playing" ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
-                                                      : colorSpecFromRole(ColorRole::OnSurfaceVariant));
+  m_label->setColor(
+      m_lastPlaybackStatus == "Playing" ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
+                                        : colorSpecFromRole(ColorRole::OnSurfaceVariant)
+  );
   m_emptyGlyph->setGlyph(m_lastPlaybackStatus.empty() ? "disc-filled" : "music-off");
   m_emptyGlyph->setGlyphSize(Style::barGlyphSize * m_contentScale);
   m_emptyGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
@@ -220,8 +229,10 @@ void MediaWidget::syncState(Renderer& renderer) {
 
   m_label->setMaxWidth(m_maxWidth * m_contentScale);
   m_label->setText(m_lastText);
-  m_label->setColor(m_lastPlaybackStatus == "Playing" ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
-                                                      : colorSpecFromRole(ColorRole::OnSurfaceVariant));
+  m_label->setColor(
+      m_lastPlaybackStatus == "Playing" ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
+                                        : colorSpecFromRole(ColorRole::OnSurfaceVariant)
+  );
   applyTitleScrollMode(m_label->visible());
   m_label->measure(renderer);
 

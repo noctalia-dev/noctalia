@@ -29,8 +29,9 @@ class VirtualGridView;
 
 class ClipboardPanel : public Panel {
 public:
-  ClipboardPanel(ClipboardService* clipboard, ConfigService* config, ThumbnailService* thumbnails,
-                 AsyncTextureCache* asyncTextures);
+  ClipboardPanel(
+      ClipboardService* clipboard, ConfigService* config, ThumbnailService* thumbnails, AsyncTextureCache* asyncTextures
+  );
   ~ClipboardPanel() override;
   void setActivateCallback(std::function<void(const ClipboardEntry&)> callback);
 

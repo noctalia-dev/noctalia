@@ -158,11 +158,13 @@ public:
   void onRegistryGlobalRemove(std::uint32_t id);
   void onClientInfo(std::uint32_t id, const struct pw_client_info* info);
   void onDeviceInfo(std::uint32_t id, const struct pw_device_info* info);
-  void onDeviceParam(std::uint32_t id, std::uint32_t paramId, std::uint32_t index, std::uint32_t next,
-                     const struct spa_pod* param);
+  void onDeviceParam(
+      std::uint32_t id, std::uint32_t paramId, std::uint32_t index, std::uint32_t next, const struct spa_pod* param
+  );
   void onNodeInfo(std::uint32_t id, const struct pw_node_info* info);
-  void onNodeParam(std::uint32_t id, std::uint32_t paramId, std::uint32_t index, std::uint32_t next,
-                   const struct spa_pod* param);
+  void onNodeParam(
+      std::uint32_t id, std::uint32_t paramId, std::uint32_t index, std::uint32_t next, const struct spa_pod* param
+  );
   void parseDefaultNodes(const struct spa_dict* props);
 
 private:

@@ -115,8 +115,9 @@ bool Image::setSourceFile(Renderer& renderer, const std::string& path, int targe
   return true;
 }
 
-bool Image::setSourceFileAsync(Renderer& renderer, AsyncTextureCache& cache, const std::string& path, int targetSize,
-                               bool mipmap) {
+bool Image::setSourceFileAsync(
+    Renderer& renderer, AsyncTextureCache& cache, const std::string& path, int targetSize, bool mipmap
+) {
   m_renderer = &renderer;
 
   const int requestedTargetSize = std::max(0, targetSize);
@@ -195,8 +196,10 @@ bool Image::setSourceBytes(Renderer& renderer, const std::uint8_t* data, std::si
   return true;
 }
 
-bool Image::setSourceRaw(Renderer& renderer, const std::uint8_t* data, std::size_t size, int width, int height,
-                         int stride, PixmapFormat format, bool mipmap) {
+bool Image::setSourceRaw(
+    Renderer& renderer, const std::uint8_t* data, std::size_t size, int width, int height, int stride,
+    PixmapFormat format, bool mipmap
+) {
   clear(renderer);
   m_renderer = &renderer;
 
@@ -354,9 +357,10 @@ void Image::subscribeAsyncReady() {
     return;
   }
 
-  m_asyncReadySub =
-      m_asyncTextureCache->subscribeReady(m_asyncSourcePath, m_asyncTargetSize, m_asyncMipmap,
-                                          [this](TextureHandle handle) { handleAsyncTextureReady(handle); });
+  m_asyncReadySub = m_asyncTextureCache->subscribeReady(
+      m_asyncSourcePath, m_asyncTargetSize, m_asyncMipmap,
+      [this](TextureHandle handle) { handleAsyncTextureReady(handle); }
+  );
 }
 
 void Image::handleAsyncTextureReady(TextureHandle handle) {

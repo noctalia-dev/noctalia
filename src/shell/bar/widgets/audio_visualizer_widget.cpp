@@ -11,8 +11,10 @@
 #include <algorithm>
 #include <memory>
 
-AudioVisualizerWidget::AudioVisualizerWidget(PipeWireSpectrum* spectrum, float width, int bands, bool mirrored,
-                                             ColorSpec lowColor, ColorSpec highColor, bool centered, bool showWhenIdle)
+AudioVisualizerWidget::AudioVisualizerWidget(
+    PipeWireSpectrum* spectrum, float width, int bands, bool mirrored, ColorSpec lowColor, ColorSpec highColor,
+    bool centered, bool showWhenIdle
+)
     : m_spectrum(spectrum), m_width(width), m_bands(std::max(1, bands)), m_mirrored(mirrored), m_centered(centered),
       m_showWhenIdle(showWhenIdle), m_lowColor(lowColor), m_highColor(highColor) {}
 
@@ -65,8 +67,9 @@ void AudioVisualizerWidget::doLayout(Renderer& renderer, float containerWidth, f
   const float width = std::max(1.0f, barIsVertical ? crossExtent : m_width * m_contentScale);
   const float height = std::max(1.0f, barIsVertical ? m_width * m_contentScale : crossExtent);
   if (m_visualizer != nullptr) {
-    m_visualizer->setOrientation(barIsVertical ? AudioSpectrumOrientation::Vertical
-                                               : AudioSpectrumOrientation::Horizontal);
+    m_visualizer->setOrientation(
+        barIsVertical ? AudioSpectrumOrientation::Vertical : AudioSpectrumOrientation::Horizontal
+    );
     m_visualizer->setPosition(0.0f, 0.0f);
     m_visualizer->setSize(width, height);
   }
@@ -229,6 +232,7 @@ void AudioVisualizerWidget::startOpacityAnimation(float targetOpacity, bool coll
         }
         requestUpdate();
       },
-      this);
+      this
+  );
   requestRedraw();
 }

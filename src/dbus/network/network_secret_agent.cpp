@@ -65,24 +65,37 @@ struct NetworkSecretAgent::Impl {
 
   explicit Impl(SystemBus& b) : bus(b) {}
 
-  void onGetSecrets(sdbus::Result<SecretsDict>&& result, SecretsDict connection, sdbus::ObjectPath connectionPath,
-                    std::string settingName, std::vector<std::string> /*hints*/, std::uint32_t flags) {
+  void onGetSecrets(
+      sdbus::Result<SecretsDict>&& result, SecretsDict connection, sdbus::ObjectPath connectionPath,
+      std::string settingName, std::vector<std::string> /*hints*/, std::uint32_t flags
+  ) {
     if ((flags & kNmSecretAgentGetSecretsFlagAllowInteraction) == 0U) {
       kLog.debug("GetSecrets without ALLOW_INTERACTION -> NoSecrets");
-      result.returnError(sdbus::Error{sdbus::Error::Name{"org.freedesktop.NetworkManager.SecretManager.NoSecrets"},
-                                      "no interactive prompt permitted"});
+      result.returnError(
+          sdbus::Error{
+              sdbus::Error::Name{"org.freedesktop.NetworkManager.SecretManager.NoSecrets"},
+              "no interactive prompt permitted"
+          }
+      );
       return;
     }
     if (settingName != kWirelessSecuritySettingName) {
       kLog.debug("GetSecrets for unsupported setting \"{}\" -> NoSecrets", settingName);
-      result.returnError(sdbus::Error{sdbus::Error::Name{"org.freedesktop.NetworkManager.SecretManager.NoSecrets"},
-                                      "unsupported setting"});
+      result.returnError(
+          sdbus::Error{
+              sdbus::Error::Name{"org.freedesktop.NetworkManager.SecretManager.NoSecrets"}, "unsupported setting"
+          }
+      );
       return;
     }
     if (pendingResult.has_value()) {
       kLog.debug("GetSecrets while another is pending -> NoSecrets");
-      result.returnError(sdbus::Error{sdbus::Error::Name{"org.freedesktop.NetworkManager.SecretManager.NoSecrets"},
-                                      "another secret request is already pending"});
+      result.returnError(
+          sdbus::Error{
+              sdbus::Error::Name{"org.freedesktop.NetworkManager.SecretManager.NoSecrets"},
+              "another secret request is already pending"
+          }
+      );
       return;
     }
 
@@ -107,7 +120,8 @@ struct NetworkSecretAgent::Impl {
       return;
     }
     pendingResult->returnError(
-        sdbus::Error{sdbus::Error::Name{"org.freedesktop.NetworkManager.SecretManager.UserCanceled"}, reason});
+        sdbus::Error{sdbus::Error::Name{"org.freedesktop.NetworkManager.SecretManager.UserCanceled"}, reason}
+    );
     pendingResult.reset();
     pendingSettingName.clear();
   }
@@ -132,11 +146,15 @@ NetworkSecretAgent::NetworkSecretAgent(SystemBus& bus) : m_impl(std::make_unique
           sdbus::registerMethod("GetSecrets")
               .withInputParamNames("connection", "connection_path", "setting_name", "hints", "flags")
               .withOutputParamNames("secrets")
-              .implementedAs([this](sdbus::Result<SecretsDict>&& result, SecretsDict connection,
-                                    sdbus::ObjectPath connectionPath, std::string settingName,
-                                    std::vector<std::string> hints, std::uint32_t flags) {
-                m_impl->onGetSecrets(std::move(result), std::move(connection), std::move(connectionPath),
-                                     std::move(settingName), std::move(hints), flags);
+              .implementedAs([this](
+                                 sdbus::Result<SecretsDict>&& result, SecretsDict connection,
+                                 sdbus::ObjectPath connectionPath, std::string settingName,
+                                 std::vector<std::string> hints, std::uint32_t flags
+                             ) {
+                m_impl->onGetSecrets(
+                    std::move(result), std::move(connection), std::move(connectionPath), std::move(settingName),
+                    std::move(hints), flags
+                );
               }),
           sdbus::registerMethod("CancelGetSecrets")
               .withInputParamNames("connection_path", "setting_name")
@@ -148,7 +166,8 @@ NetworkSecretAgent::NetworkSecretAgent(SystemBus& bus) : m_impl(std::make_unique
               .implementedAs([](const SecretsDict& /*connection*/, const sdbus::ObjectPath& /*connectionPath*/) {}),
           sdbus::registerMethod("DeleteSecrets")
               .withInputParamNames("connection", "connection_path")
-              .implementedAs([](const SecretsDict& /*connection*/, const sdbus::ObjectPath& /*connectionPath*/) {}))
+              .implementedAs([](const SecretsDict& /*connection*/, const sdbus::ObjectPath& /*connectionPath*/) {})
+      )
       .forInterface(kAgentInterface);
 
   // Register with NM's agent manager.

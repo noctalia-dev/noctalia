@@ -19,9 +19,10 @@ public:
 
   void create() override;
   [[nodiscard]] bool wantsSecondTicks() const override { return true; }
-  bool applySetting(const std::string& key, const WidgetSettingValue& value,
-                    const std::unordered_map<std::string, WidgetSettingValue>& allSettings,
-                    Renderer& renderer) override;
+  bool applySetting(
+      const std::string& key, const WidgetSettingValue& value,
+      const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
+  ) override;
 
 private:
   void doLayout(Renderer& renderer) override;

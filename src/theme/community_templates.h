@@ -26,8 +26,9 @@ namespace noctalia::theme {
     [[nodiscard]] static std::vector<AvailableTemplate> availableTemplates();
 
   private:
-    void syncSelectedFromCatalog(const std::vector<std::string>& selectedIds, std::uint64_t generation,
-                                 bool notifyWhenReady);
+    void syncSelectedFromCatalog(
+        const std::vector<std::string>& selectedIds, std::uint64_t generation, bool notifyWhenReady
+    );
 
     HttpClient& m_httpClient;
     ReadyCallback m_readyCallback;

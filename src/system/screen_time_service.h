@@ -73,8 +73,9 @@ private:
   [[nodiscard]] static std::chrono::seconds sumApps(const DayRecord& day);
   [[nodiscard]] static std::chrono::seconds sumHourly(const DayRecord& day);
   [[nodiscard]] static std::chrono::seconds appSecondsForKey(const DayRecord& day, const std::string& appKey);
-  static void distributeSecondsAcrossHourly(std::chrono::seconds amount, const DayRecord& profile,
-                                            std::vector<std::chrono::seconds>& buckets);
+  static void distributeSecondsAcrossHourly(
+      std::chrono::seconds amount, const DayRecord& profile, std::vector<std::chrono::seconds>& buckets
+  );
 
   WaylandConnection* m_wayland = nullptr;
   std::function<void()> m_changeCallback;

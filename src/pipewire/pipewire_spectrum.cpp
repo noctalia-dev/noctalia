@@ -164,10 +164,11 @@ bool PipeWireSpectrum::Stream::start() {
     return false;
   }
 
-  auto* props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Monitor", PW_KEY_MEDIA_NAME,
-                                  "Noctalia Spectrum", PW_KEY_APP_NAME, "Noctalia Spectrum", PW_KEY_STREAM_MONITOR,
-                                  "true", PW_KEY_STREAM_CAPTURE_SINK, "true", PW_KEY_TARGET_OBJECT,
-                                  m_targetObject.c_str(), PW_KEY_NODE_PASSIVE, "true", nullptr);
+  auto* props = pw_properties_new(
+      PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Monitor", PW_KEY_MEDIA_NAME, "Noctalia Spectrum",
+      PW_KEY_APP_NAME, "Noctalia Spectrum", PW_KEY_STREAM_MONITOR, "true", PW_KEY_STREAM_CAPTURE_SINK, "true",
+      PW_KEY_TARGET_OBJECT, m_targetObject.c_str(), PW_KEY_NODE_PASSIVE, "true", nullptr
+  );
   if (props == nullptr) {
     kLog.warn("failed to create spectrum stream properties");
     return false;
@@ -216,8 +217,9 @@ void PipeWireSpectrum::Stream::onParamChanged(void* data, std::uint32_t id, cons
   static_cast<Stream*>(data)->handleParamChanged(id, param);
 }
 
-void PipeWireSpectrum::Stream::onStateChanged(void* /*data*/, pw_stream_state /*oldState*/, pw_stream_state state,
-                                              const char* error) {
+void PipeWireSpectrum::Stream::onStateChanged(
+    void* /*data*/, pw_stream_state /*oldState*/, pw_stream_state state, const char* error
+) {
   if (state == PW_STREAM_STATE_ERROR) {
     kLog.warn("spectrum stream error: {}", error != nullptr ? error : "unknown");
   }
@@ -653,7 +655,8 @@ bool PipeWireSpectrum::processListenerView(ListenerState& state, float nrFactor,
     if (bands[i] < state.prevBands[i] && m_noiseReduction > 0.1f) {
       bands[i] = static_cast<float>(
           static_cast<double>(state.peak[i]) *
-          (1.0 - static_cast<double>(state.fall[i]) * static_cast<double>(state.fall[i]) * gravityMod));
+          (1.0 - static_cast<double>(state.fall[i]) * static_cast<double>(state.fall[i]) * gravityMod)
+      );
       if (bands[i] < 0.0f) {
         bands[i] = 0.0f;
       }

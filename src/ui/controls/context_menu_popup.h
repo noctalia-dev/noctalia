@@ -36,13 +36,16 @@ public:
   ContextMenuPopup(WaylandConnection& wayland, RenderContext& renderContext);
   ~ContextMenuPopup();
 
-  void open(std::vector<ContextMenuControlEntry> entries, float menuWidth, std::size_t maxVisible, std::int32_t anchorX,
-            std::int32_t anchorY, std::int32_t anchorW, std::int32_t anchorH, zwlr_layer_surface_v1* parentLayerSurface,
-            wl_output* output, const ContextMenuPopupPlacement* placement = nullptr);
-  void openAsChild(std::vector<ContextMenuControlEntry> entries, float menuWidth, std::size_t maxVisible,
-                   std::int32_t anchorX, std::int32_t anchorY, std::int32_t anchorW, std::int32_t anchorH,
-                   xdg_surface* parentXdgSurface, wl_output* output,
-                   const ContextMenuPopupPlacement* placement = nullptr);
+  void open(
+      std::vector<ContextMenuControlEntry> entries, float menuWidth, std::size_t maxVisible, std::int32_t anchorX,
+      std::int32_t anchorY, std::int32_t anchorW, std::int32_t anchorH, zwlr_layer_surface_v1* parentLayerSurface,
+      wl_output* output, const ContextMenuPopupPlacement* placement = nullptr
+  );
+  void openAsChild(
+      std::vector<ContextMenuControlEntry> entries, float menuWidth, std::size_t maxVisible, std::int32_t anchorX,
+      std::int32_t anchorY, std::int32_t anchorW, std::int32_t anchorH, xdg_surface* parentXdgSurface,
+      wl_output* output, const ContextMenuPopupPlacement* placement = nullptr
+  );
   void close();
   [[nodiscard]] bool isOpen() const noexcept;
 
@@ -54,10 +57,11 @@ public:
   [[nodiscard]] wl_surface* wlSurface() const noexcept;
 
 private:
-  void openCommon(std::vector<ContextMenuControlEntry> entries, float menuWidth, std::size_t maxVisible,
-                  std::int32_t anchorX, std::int32_t anchorY, std::int32_t anchorW, std::int32_t anchorH,
-                  zwlr_layer_surface_v1* parentLayerSurface, xdg_surface* parentXdgSurface, wl_output* output,
-                  const ContextMenuPopupPlacement* placement);
+  void openCommon(
+      std::vector<ContextMenuControlEntry> entries, float menuWidth, std::size_t maxVisible, std::int32_t anchorX,
+      std::int32_t anchorY, std::int32_t anchorW, std::int32_t anchorH, zwlr_layer_surface_v1* parentLayerSurface,
+      xdg_surface* parentXdgSurface, wl_output* output, const ContextMenuPopupPlacement* placement
+  );
 
   WaylandConnection& m_wayland;
   RenderContext& m_renderContext;

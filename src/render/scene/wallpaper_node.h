@@ -28,15 +28,21 @@ public:
   [[nodiscard]] const Color& fillColor() const noexcept { return m_fillColor; }
   [[nodiscard]] const TransitionParams& transitionParams() const noexcept { return m_params; }
 
-  void setTextures(TextureId texture1, TextureId texture2, float imageWidth1, float imageHeight1, float imageWidth2,
-                   float imageHeight2) {
-    setSources(WallpaperSourceKind::Image, texture1, rgba(0.0f, 0.0f, 0.0f, 1.0f), WallpaperSourceKind::Image, texture2,
-               rgba(0.0f, 0.0f, 0.0f, 1.0f), imageWidth1, imageHeight1, imageWidth2, imageHeight2);
+  void setTextures(
+      TextureId texture1, TextureId texture2, float imageWidth1, float imageHeight1, float imageWidth2,
+      float imageHeight2
+  ) {
+    setSources(
+        WallpaperSourceKind::Image, texture1, rgba(0.0f, 0.0f, 0.0f, 1.0f), WallpaperSourceKind::Image, texture2,
+        rgba(0.0f, 0.0f, 0.0f, 1.0f), imageWidth1, imageHeight1, imageWidth2, imageHeight2
+    );
   }
 
-  void setSources(WallpaperSourceKind sourceKind1, TextureId texture1, const Color& sourceColor1,
-                  WallpaperSourceKind sourceKind2, TextureId texture2, const Color& sourceColor2, float imageWidth1,
-                  float imageHeight1, float imageWidth2, float imageHeight2) {
+  void setSources(
+      WallpaperSourceKind sourceKind1, TextureId texture1, const Color& sourceColor1, WallpaperSourceKind sourceKind2,
+      TextureId texture2, const Color& sourceColor2, float imageWidth1, float imageHeight1, float imageWidth2,
+      float imageHeight2
+  ) {
     if (m_texture1 == texture1 && m_texture2 == texture2 && m_imageWidth1 == imageWidth1 &&
         m_imageHeight1 == imageHeight1 && m_imageWidth2 == imageWidth2 && m_imageHeight2 == imageHeight2 &&
         m_sourceKind1 == sourceKind1 && m_sourceKind2 == sourceKind2 && m_sourceColor1 == sourceColor1 &&

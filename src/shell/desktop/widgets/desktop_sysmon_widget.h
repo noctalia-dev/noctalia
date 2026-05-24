@@ -19,14 +19,17 @@ enum class DesktopSysmonStat : std::uint8_t { CpuUsage, CpuTemp, GpuTemp, GpuVra
 
 class DesktopSysmonWidget : public DesktopWidget {
 public:
-  DesktopSysmonWidget(SystemMonitorService* monitor, DesktopSysmonStat stat, std::optional<DesktopSysmonStat> stat2,
-                      ColorSpec lineColor, ColorSpec lineColor2, bool showLabel, bool shadow);
+  DesktopSysmonWidget(
+      SystemMonitorService* monitor, DesktopSysmonStat stat, std::optional<DesktopSysmonStat> stat2,
+      ColorSpec lineColor, ColorSpec lineColor2, bool showLabel, bool shadow
+  );
   ~DesktopSysmonWidget() override;
 
   void create() override;
-  bool applySetting(const std::string& key, const WidgetSettingValue& value,
-                    const std::unordered_map<std::string, WidgetSettingValue>& allSettings,
-                    Renderer& renderer) override;
+  bool applySetting(
+      const std::string& key, const WidgetSettingValue& value,
+      const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
+  ) override;
   [[nodiscard]] bool needsFrameTick() const override { return true; }
   void onFrameTick(float deltaMs, Renderer& renderer) override;
 
@@ -39,8 +42,8 @@ private:
   void clearGraph();
   void updateGraph(Renderer& renderer);
   [[nodiscard]] float scrollProgressForSample(std::chrono::steady_clock::time_point sampledAt) const;
-  [[nodiscard]] static double normalizedFromStats(DesktopSysmonStat stat, const SystemStats& stats, double& tempMin,
-                                                  double& tempMax);
+  [[nodiscard]] static double
+  normalizedFromStats(DesktopSysmonStat stat, const SystemStats& stats, double& tempMin, double& tempMax);
   [[nodiscard]] static const char* glyphName(DesktopSysmonStat stat);
 
   SystemMonitorService* m_monitor;

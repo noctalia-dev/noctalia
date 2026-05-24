@@ -438,10 +438,11 @@ namespace {
         break;
       }
 
-      const int waitMs = static_cast<int>(
-          std::min<std::chrono::milliseconds>(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now),
-                                              std::chrono::milliseconds(100))
-              .count());
+      const int waitMs = static_cast<int>(std::min<std::chrono::milliseconds>(
+                                              std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now),
+                                              std::chrono::milliseconds(100)
+      )
+                                              .count());
       pollfd fd{.fd = pipeFds[0], .events = POLLIN, .revents = 0};
       (void)::poll(&fd, 1, waitMs);
     }
@@ -472,8 +473,8 @@ namespace {
             "0.1",     "--bus",      std::to_string(bus)};
   }
 
-  std::optional<std::pair<int, int>> queryDdcBrightness(int bus, std::chrono::milliseconds timeout,
-                                                        std::string* detailOut) {
+  std::optional<std::pair<int, int>>
+  queryDdcBrightness(int bus, std::chrono::milliseconds timeout, std::string* detailOut) {
     auto args = ddcBaseArgs(bus);
     args.push_back("getvcp");
     args.push_back("10");
@@ -488,8 +489,9 @@ namespace {
     return parseDdcVcpBrightness(result.output);
   }
 
-  std::vector<DdcCandidate> detectDdcDisplays(std::chrono::milliseconds timeout,
-                                              const std::vector<std::string>& ignoreMmids, std::string* detailOut) {
+  std::vector<DdcCandidate> detectDdcDisplays(
+      std::chrono::milliseconds timeout, const std::vector<std::string>& ignoreMmids, std::string* detailOut
+  ) {
     auto args = ddcDetectArgs(ignoreMmids);
     const CommandResult detectResult = runCommandCapture(args, timeout);
     if (detailOut != nullptr) {
@@ -504,8 +506,9 @@ namespace {
       return {};
     }
     if (detectResult.exitCode != 0) {
-      kLog.warn("ddcutil detect failed with exit code {}: {}", detectResult.exitCode,
-                StringUtils::trim(detectResult.output));
+      kLog.warn(
+          "ddcutil detect failed with exit code {}: {}", detectResult.exitCode, StringUtils::trim(detectResult.output)
+      );
       return {};
     }
 
@@ -521,8 +524,10 @@ namespace {
             current.currentRaw = brightness->first;
             current.maxRaw = brightness->second;
           } else {
-            kLog.warn("ddcutil: skipping bus {} because brightness query failed: {}", current.bus,
-                      StringUtils::trim(getvcpDetail));
+            kLog.warn(
+                "ddcutil: skipping bus {} because brightness query failed: {}", current.bus,
+                StringUtils::trim(getvcpDetail)
+            );
           }
         }
         if (current.currentRaw >= 0 && current.maxRaw > 0) {
@@ -535,8 +540,9 @@ namespace {
     std::size_t start = 0;
     while (start <= detectResult.output.size()) {
       const std::size_t end = detectResult.output.find('\n', start);
-      const std::string line = StringUtils::trim(detectResult.output.substr(
-          start, end == std::string::npos ? detectResult.output.size() - start : end - start));
+      const std::string line = StringUtils::trim(
+          detectResult.output.substr(start, end == std::string::npos ? detectResult.output.size() - start : end - start)
+      );
       if (line.starts_with("Display ")) {
         flushCurrent();
         inDisplay = !line.starts_with("Display not found");
@@ -708,16 +714,22 @@ struct BrightnessService::Impl {
       }
     }
     internals.erase(
-        std::remove_if(internals.begin(), internals.end(),
-                       [](const DisplayInternal& display) { return display.backend == RuntimeBackend::Backlight; }),
-        internals.end());
+        std::remove_if(
+            internals.begin(), internals.end(),
+            [](const DisplayInternal& display) { return display.backend == RuntimeBackend::Backlight; }
+        ),
+        internals.end()
+    );
   }
 
   void removeDdcDisplays() {
     internals.erase(
-        std::remove_if(internals.begin(), internals.end(),
-                       [](const DisplayInternal& display) { return display.backend == RuntimeBackend::Ddcutil; }),
-        internals.end());
+        std::remove_if(
+            internals.begin(), internals.end(),
+            [](const DisplayInternal& display) { return display.backend == RuntimeBackend::Ddcutil; }
+        ),
+        internals.end()
+    );
     {
       std::lock_guard lock(workerMutex);
       pendingWrites.clear();
@@ -788,8 +800,10 @@ struct BrightnessService::Impl {
         }
       }
 
-      kLog.info("found backlight '{}' current={:.0f}% connector={}", name, display.pub.brightness * 100.0f,
-                display.connectorName.empty() ? "(none)" : display.connectorName);
+      kLog.info(
+          "found backlight '{}' current={:.0f}% connector={}", name, display.pub.brightness * 100.0f,
+          display.connectorName.empty() ? "(none)" : display.connectorName
+      );
       internals.push_back(std::move(display));
     }
 
@@ -1127,15 +1141,19 @@ struct BrightnessService::Impl {
     const auto oldPublic = publicDisplays;
 
     internals.erase(
-        std::remove_if(internals.begin(), internals.end(),
-                       [](const DisplayInternal& display) { return display.backend == RuntimeBackend::Ddcutil; }),
-        internals.end());
+        std::remove_if(
+            internals.begin(), internals.end(),
+            [](const DisplayInternal& display) { return display.backend == RuntimeBackend::Ddcutil; }
+        ),
+        internals.end()
+    );
 
     for (const auto& candidate : completion.candidates) {
       const WaylandOutput* output = findOutputByConnector(wayland, candidate.connectorName);
       if (output == nullptr) {
-        kLog.debug("ddcutil: skipping bus {} because connector '{}' is not active", candidate.bus,
-                   candidate.connectorName);
+        kLog.debug(
+            "ddcutil: skipping bus {} because connector '{}' is not active", candidate.bus, candidate.connectorName
+        );
         continue;
       }
 
@@ -1162,8 +1180,10 @@ struct BrightnessService::Impl {
       applyOutputMetadata(display.pub, *output);
       internals.push_back(std::move(display));
 
-      kLog.info("found ddcutil display connector={} bus={} current={:.0f}%", candidate.connectorName, candidate.bus,
-                normalizedBrightness(candidate.currentRaw, candidate.maxRaw) * 100.0f);
+      kLog.info(
+          "found ddcutil display connector={} bus={} current={:.0f}%", candidate.connectorName, candidate.bus,
+          normalizedBrightness(candidate.currentRaw, candidate.maxRaw) * 100.0f
+      );
     }
 
     rebuildPublic();
@@ -1191,12 +1211,16 @@ struct BrightnessService::Impl {
     if (display->failureCount >= kDdcFailureThreshold) {
       display->quarantined = true;
       display->cooldownUntil = std::chrono::steady_clock::now() + kDdcFailureCooldown;
-      kLog.warn("ddcutil {} failed for '{}' {} times; cooling down for {}s",
-                completion.type == WorkerCompletion::Type::Set ? "write" : "refresh", display->pub.id,
-                display->failureCount, kDdcFailureCooldown.count());
+      kLog.warn(
+          "ddcutil {} failed for '{}' {} times; cooling down for {}s",
+          completion.type == WorkerCompletion::Type::Set ? "write" : "refresh", display->pub.id, display->failureCount,
+          kDdcFailureCooldown.count()
+      );
     } else {
-      kLog.warn("ddcutil {} failed for '{}': {}", completion.type == WorkerCompletion::Type::Set ? "write" : "refresh",
-                display->pub.id, StringUtils::trim(completion.detail));
+      kLog.warn(
+          "ddcutil {} failed for '{}': {}", completion.type == WorkerCompletion::Type::Set ? "write" : "refresh",
+          display->pub.id, StringUtils::trim(completion.detail)
+      );
     }
 
     return false;
@@ -1296,8 +1320,10 @@ const BrightnessDisplay* BrightnessService::findByOutput(wl_output* output) cons
 }
 
 bool BrightnessService::available() const noexcept {
-  return std::any_of(m_impl->publicDisplays.begin(), m_impl->publicDisplays.end(),
-                     [](const BrightnessDisplay& display) { return display.controllable; });
+  return std::any_of(
+      m_impl->publicDisplays.begin(), m_impl->publicDisplays.end(),
+      [](const BrightnessDisplay& display) { return display.controllable; }
+  );
 }
 
 void BrightnessService::setBrightness(const std::string& displayId, float value) {
@@ -1424,51 +1450,59 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void()> onBat
           return "error: invalid brightness value (use percent like 65 or 65%, or normalized like 0.65)\n";
         }
 
-        return applyToTargets(target,
-                              [this, amount](const BrightnessDisplay& display) { setBrightness(display.id, *amount); });
+        return applyToTargets(target, [this, amount](const BrightnessDisplay& display) {
+          setBrightness(display.id, *amount);
+        });
       },
       "brightness-set <value> | brightness-set <current|*|all|monitor-selector> <value>",
-      "Set brightness (defaults to current display)");
+      "Set brightness (defaults to current display)"
+  );
 
-  auto registerDeltaHandler = [this, &ipc, applyToTargets](const std::string& command, float direction,
-                                                           std::string usage, std::string description) {
-    ipc.registerHandler(
-        command,
-        [this, applyToTargets, command, direction](const std::string& args) -> std::string {
-          const auto parts = noctalia::ipc::splitWords(args);
-          if (parts.size() > 2) {
-            return "error: " + command + " accepts at most [target] [step]\n";
-          }
+  auto registerDeltaHandler =
+      [this, &ipc,
+       applyToTargets](const std::string& command, float direction, std::string usage, std::string description) {
+        ipc.registerHandler(
+            command,
+            [this, applyToTargets, command, direction](const std::string& args) -> std::string {
+              const auto parts = noctalia::ipc::splitWords(args);
+              if (parts.size() > 2) {
+                return "error: " + command + " accepts at most [target] [step]\n";
+              }
 
-          std::string target = "current";
-          std::optional<float> step = kDefaultBrightnessStep;
-          if (parts.size() == 1) {
-            const auto maybeStep = noctalia::ipc::parseNormalizedOrPercent(parts[0]);
-            if (maybeStep.has_value()) {
-              step = maybeStep;
-            } else {
-              target = parts[0];
-            }
-          } else if (parts.size() == 2) {
-            target = parts[0];
-            step = noctalia::ipc::parseNormalizedOrPercent(parts[1]);
-          }
+              std::string target = "current";
+              std::optional<float> step = kDefaultBrightnessStep;
+              if (parts.size() == 1) {
+                const auto maybeStep = noctalia::ipc::parseNormalizedOrPercent(parts[0]);
+                if (maybeStep.has_value()) {
+                  step = maybeStep;
+                } else {
+                  target = parts[0];
+                }
+              } else if (parts.size() == 2) {
+                target = parts[0];
+                step = noctalia::ipc::parseNormalizedOrPercent(parts[1]);
+              }
 
-          if (!step.has_value()) {
-            return "error: invalid brightness step (use percent like 5 or 5%, or normalized like 0.05)\n";
-          }
+              if (!step.has_value()) {
+                return "error: invalid brightness step (use percent like 5 or 5%, or normalized like 0.05)\n";
+              }
 
-          return applyToTargets(target, [this, step, direction](const BrightnessDisplay& display) {
-            setBrightness(display.id, display.brightness + direction * *step);
-          });
-        },
-        std::move(usage), std::move(description));
-  };
+              return applyToTargets(target, [this, step, direction](const BrightnessDisplay& display) {
+                setBrightness(display.id, display.brightness + direction * *step);
+              });
+            },
+            std::move(usage), std::move(description)
+        );
+      };
 
-  registerDeltaHandler("brightness-up", 1.0f, "brightness-up [current|*|all|monitor-selector] [step]",
-                       "Increase brightness (defaults to current display)");
-  registerDeltaHandler("brightness-down", -1.0f, "brightness-down [current|*|all|monitor-selector] [step]",
-                       "Decrease brightness (defaults to current display)");
+  registerDeltaHandler(
+      "brightness-up", 1.0f, "brightness-up [current|*|all|monitor-selector] [step]",
+      "Increase brightness (defaults to current display)"
+  );
+  registerDeltaHandler(
+      "brightness-down", -1.0f, "brightness-down [current|*|all|monitor-selector] [step]",
+      "Decrease brightness (defaults to current display)"
+  );
 }
 
 void BrightnessService::setChangeCallback(ChangeCallback callback) { m_impl->changeCallback = std::move(callback); }

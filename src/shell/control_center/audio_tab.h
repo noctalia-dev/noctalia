@@ -24,8 +24,10 @@ class WaylandConnection;
 
 class AudioTab : public Tab {
 public:
-  AudioTab(PipeWireService* audio, MprisService* mpris, ConfigService* config, WaylandConnection* wayland,
-           RenderContext* renderContext);
+  AudioTab(
+      PipeWireService* audio, MprisService* mpris, ConfigService* config, WaylandConnection* wayland,
+      RenderContext* renderContext
+  );
   ~AudioTab() override;
 
   std::unique_ptr<Flex> create() override;

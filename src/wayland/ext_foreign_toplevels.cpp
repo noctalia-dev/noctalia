@@ -98,8 +98,9 @@ std::vector<std::string> WaylandExtForeignToplevels::allAppIds() const {
       ordered.push_back(&state);
     }
   }
-  std::sort(ordered.begin(), ordered.end(),
-            [](const ToplevelState* lhs, const ToplevelState* rhs) { return lhs->order < rhs->order; });
+  std::sort(ordered.begin(), ordered.end(), [](const ToplevelState* lhs, const ToplevelState* rhs) {
+    return lhs->order < rhs->order;
+  });
 
   std::vector<std::string> ids;
   ids.reserve(ordered.size());
@@ -109,8 +110,8 @@ std::vector<std::string> WaylandExtForeignToplevels::allAppIds() const {
   return ids;
 }
 
-std::vector<ToplevelInfo> WaylandExtForeignToplevels::windowsForApp(const std::string& idLower,
-                                                                    const std::string& wmClassLower) const {
+std::vector<ToplevelInfo>
+WaylandExtForeignToplevels::windowsForApp(const std::string& idLower, const std::string& wmClassLower) const {
   struct MatchedWindow {
     std::uint64_t order = 0;
     ToplevelInfo info;
@@ -129,20 +130,22 @@ std::vector<ToplevelInfo> WaylandExtForeignToplevels::windowsForApp(const std::s
     if (!app_identity::matchesLower(appLower, idLower, wmClassLower, {})) {
       continue;
     }
-    matched.push_back(MatchedWindow{
-        .order = state.order,
-        .info =
-            ToplevelInfo{
+    matched.push_back(
+        MatchedWindow{
+            .order = state.order,
+            .info = ToplevelInfo{
                 .title = state.title,
                 .appId = appId,
                 .order = state.order,
                 .handle = nullptr,
                 .extHandle = handle,
             },
-    });
+        }
+    );
   }
-  std::sort(matched.begin(), matched.end(),
-            [](const MatchedWindow& lhs, const MatchedWindow& rhs) { return lhs.order < rhs.order; });
+  std::sort(matched.begin(), matched.end(), [](const MatchedWindow& lhs, const MatchedWindow& rhs) {
+    return lhs.order < rhs.order;
+  });
 
   std::vector<ToplevelInfo> out;
   out.reserve(matched.size());

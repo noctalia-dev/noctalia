@@ -12,13 +12,7 @@
 #include "system/internal_app_metadata.h"
 #include "system/screen_time_service.h"
 #include "time/time_format.h"
-#include "ui/controls/box.h"
-#include "ui/controls/flex.h"
-#include "ui/controls/glyph.h"
-#include "ui/controls/image.h"
-#include "ui/controls/label.h"
-#include "ui/controls/scroll_view.h"
-#include "ui/controls/segmented.h"
+#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -69,13 +63,16 @@ namespace {
   }
 
   Label* makeSectionHeader(Flex& parent, const std::string& text, float scale) {
-    auto label = std::make_unique<Label>();
-    label->setText(text);
-    label->setFontWeight(FontWeight::Bold);
-    label->setFontSize(Style::fontSizeCaption * scale);
-    label->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-    auto* ptr = label.get();
-    parent.addChild(std::move(label));
+    Label* ptr = nullptr;
+    parent.addChild(
+        ui::label({
+            .out = &ptr,
+            .text = text,
+            .fontSize = Style::fontSizeCaption * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .fontWeight = FontWeight::Bold,
+        })
+    );
     return ptr;
   }
 
@@ -126,110 +123,130 @@ ScreenTimeTab::ScreenTimeTab(ScreenTimeService* screenTime) : m_screenTime(scree
 std::unique_ptr<Flex> ScreenTimeTab::create() {
   const float scale = contentScale();
 
-  auto tab = std::make_unique<Flex>();
-  tab->setDirection(FlexDirection::Vertical);
-  tab->setAlign(FlexAlign::Stretch);
-  tab->setGap(Style::spaceSm * scale);
-  m_root = tab.get();
-
-  auto rangePicker = std::make_unique<Segmented>();
-  rangePicker->setScale(scale);
-  rangePicker->setFontSize(Style::fontSizeCaption * scale);
-  rangePicker->addOption(i18n::tr("control-center.screen-time.range.today"));
-  rangePicker->addOption(i18n::tr("control-center.screen-time.range.3-days"));
-  rangePicker->addOption(i18n::tr("control-center.screen-time.range.14-days"));
-  rangePicker->setEqualSegmentWidths(true);
-  m_rangeDays = 1;
-  rangePicker->setSelectedIndex(0);
-  rangePicker->setOnChange([this](std::size_t idx) {
-    static constexpr int kRanges[] = {1, 3, 14};
-    m_rangeDays = kRanges[std::min(idx, std::size_t{2})];
-    m_lastSnapshotKey.clear();
-    PanelManager::instance().refresh();
+  auto tab = ui::column({
+      .out = &m_root,
+      .align = FlexAlign::Stretch,
+      .gap = Style::spaceSm * scale,
   });
-  m_rangePicker = rangePicker.get();
-  tab->addChild(std::move(rangePicker));
 
-  auto scroll = std::make_unique<ScrollView>();
-  scroll->setFlexGrow(1.0f);
-  scroll->setScrollbarVisible(true);
-  scroll->clearFill();
-  scroll->clearBorder();
+  m_rangeDays = 1;
+  tab->addChild(
+      ui::segmented({
+          .out = &m_rangePicker,
+          .options =
+              std::vector<ui::SegmentedOption>{
+                  {.label = i18n::tr("control-center.screen-time.range.today")},
+                  {.label = i18n::tr("control-center.screen-time.range.3-days")},
+                  {.label = i18n::tr("control-center.screen-time.range.14-days")},
+              },
+          .selectedIndex = 0,
+          .fontSize = Style::fontSizeCaption * scale,
+          .scale = scale,
+          .equalSegmentWidths = true,
+          .onChange = [this](std::size_t idx) {
+            static constexpr int kRanges[] = {1, 3, 14};
+            m_rangeDays = kRanges[std::min(idx, std::size_t{2})];
+            m_lastSnapshotKey.clear();
+            PanelManager::instance().refresh();
+          },
+      })
+  );
+
+  auto scroll = ui::scrollView({
+      .scrollbarVisible = true,
+      .flexGrow = 1.0f,
+      .configure = [](ScrollView& scrollView) {
+        scrollView.clearFill();
+        scrollView.clearBorder();
+      },
+  });
 
   auto* content = scroll->content();
   content->setDirection(FlexDirection::Vertical);
   content->setAlign(FlexAlign::Stretch);
   content->setGap(Style::spaceLg * scale);
 
-  auto usageCard = std::make_unique<Flex>();
-  applySectionCardStyle(*usageCard, scale, panelCardOpacity(), panelBordersEnabled());
-  usageCard->setDirection(FlexDirection::Vertical);
-  usageCard->setGap(Style::spaceMd * scale);
-  m_usageCard = usageCard.get();
+  auto usageCard = ui::column({
+      .out = &m_usageCard,
+      .gap = Style::spaceMd * scale,
+      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
+        applySectionCardStyle(card, scale, opacity, borders);
+      },
+  });
 
-  auto disabled = std::make_unique<Label>();
-  disabled->setFontSize(Style::fontSizeBody * scale);
-  disabled->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-  disabled->setText(i18n::tr("control-center.screen-time.disabled"));
-  disabled->setVisible(false);
-  m_disabledLabel = disabled.get();
-  usageCard->addChild(std::move(disabled));
+  usageCard->addChild(
+      ui::label({
+          .out = &m_disabledLabel,
+          .text = i18n::tr("control-center.screen-time.disabled"),
+          .fontSize = Style::fontSizeBody * scale,
+          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+          .visible = false,
+      })
+  );
 
-  auto total = std::make_unique<Label>();
-  total->setFontWeight(FontWeight::Bold);
-  total->setFontSize(Style::fontSizeHeader * 1.6f * scale);
-  total->setColor(colorSpecFromRole(ColorRole::OnSurface));
-  m_totalLabel = total.get();
-  usageCard->addChild(std::move(total));
+  usageCard->addChild(
+      ui::label({
+          .out = &m_totalLabel,
+          .fontSize = Style::fontSizeHeader * 1.6f * scale,
+          .color = colorSpecFromRole(ColorRole::OnSurface),
+          .fontWeight = FontWeight::Bold,
+      })
+  );
 
-  auto chartPlotRow = std::make_unique<Flex>();
-  chartPlotRow->setDirection(FlexDirection::Horizontal);
-  chartPlotRow->setAlign(FlexAlign::Stretch);
-  chartPlotRow->setJustify(FlexJustify::Start);
-  chartPlotRow->setGap(kBarGap * scale);
-  chartPlotRow->setMinHeight(kChartHeight * scale);
-  chartPlotRow->setMaxHeight(kChartHeight * scale);
-  chartPlotRow->setFillWidth(true);
-  m_chartPlotRow = chartPlotRow.get();
+  auto chartPlotRow = ui::row({
+      .out = &m_chartPlotRow,
+      .align = FlexAlign::Stretch,
+      .justify = FlexJustify::Start,
+      .gap = kBarGap * scale,
+      .minHeight = kChartHeight * scale,
+      .maxHeight = kChartHeight * scale,
+      .fillWidth = true,
+  });
 
-  auto chartLabelRow = std::make_unique<Flex>();
-  chartLabelRow->setDirection(FlexDirection::Horizontal);
-  chartLabelRow->setAlign(FlexAlign::Center);
-  chartLabelRow->setJustify(FlexJustify::Start);
-  chartLabelRow->setGap(kBarGap * scale);
-  chartLabelRow->setFillWidth(true);
-  m_chartLabelRow = chartLabelRow.get();
+  auto chartLabelRow = ui::row({
+      .out = &m_chartLabelRow,
+      .align = FlexAlign::Center,
+      .justify = FlexJustify::Start,
+      .gap = kBarGap * scale,
+      .fillWidth = true,
+  });
 
   for (std::size_t bucket = 0; bucket < m_bucketColumns.size(); ++bucket) {
-    auto plotColumn = std::make_unique<Flex>();
-    plotColumn->setDirection(FlexDirection::Vertical);
-    plotColumn->setAlign(FlexAlign::Stretch);
-    plotColumn->setJustify(FlexJustify::End);
-    plotColumn->setFlexGrow(1.0f);
-    plotColumn->setVisible(false);
-    m_bucketColumns[bucket].plotColumn = plotColumn.get();
+    auto plotColumn = ui::column({
+        .out = &m_bucketColumns[bucket].plotColumn,
+        .align = FlexAlign::Stretch,
+        .justify = FlexJustify::End,
+        .flexGrow = 1.0f,
+        .visible = false,
+    });
 
-    auto plotSizer = std::make_unique<Box>();
-    plotSizer->setFill(clearColorSpec());
-    plotSizer->setSize(1.0f, kChartHeight * scale);
-    plotColumn->addChild(std::move(plotSizer));
+    plotColumn->addChild(
+        ui::box({
+            .fill = clearColorSpec(),
+            .width = 1.0f,
+            .height = kChartHeight * scale,
+        })
+    );
 
-    auto track = std::make_unique<Box>();
-    track->setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
-    track->setParticipatesInLayout(false);
-    track->setZIndex(-1);
-    m_bucketColumns[bucket].track = track.get();
-    plotColumn->addChild(std::move(track));
+    plotColumn->addChild(
+        ui::box({
+            .out = &m_bucketColumns[bucket].track,
+            .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
+            .participatesInLayout = false,
+            .configure = [](Box& box) { box.setZIndex(-1); },
+        })
+    );
 
     for (std::size_t series = 0; series < kMaxChartSeries; ++series) {
       auto hitArea = std::make_unique<InputArea>();
       hitArea->setParticipatesInLayout(false);
       hitArea->setVisible(false);
 
-      auto segment = std::make_unique<Box>();
-      segment->setRadius(0.0f);
-      segment->setParticipatesInLayout(false);
-      segment->setVisible(false);
+      auto segment = ui::box({
+          .radius = 0.0f,
+          .visible = false,
+          .participatesInLayout = false,
+      });
       m_bucketColumns[bucket].segments[series] = static_cast<Box*>(hitArea->addChild(std::move(segment)));
       m_bucketColumns[bucket].segmentHits[series] = hitArea.get();
       plotColumn->addChild(std::move(hitArea));
@@ -237,49 +254,47 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
 
     chartPlotRow->addChild(std::move(plotColumn));
 
-    auto labelCell = std::make_unique<Flex>();
-    labelCell->setDirection(FlexDirection::Horizontal);
-    labelCell->setAlign(FlexAlign::Center);
-    labelCell->setJustify(FlexJustify::Center);
-    labelCell->setFlexGrow(1.0f);
-    labelCell->setVisible(false);
-    m_bucketColumns[bucket].labelCell = labelCell.get();
-
-    auto label = std::make_unique<Label>();
-    label->setFontSize(Style::fontSizeMini * scale);
-    label->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-    label->setVisible(false);
-    m_bucketColumns[bucket].label = label.get();
-    labelCell->addChild(std::move(label));
-
+    auto labelCell = ui::row(
+        {.out = &m_bucketColumns[bucket].labelCell,
+         .align = FlexAlign::Center,
+         .justify = FlexJustify::Center,
+         .flexGrow = 1.0f,
+         .visible = false},
+        ui::label({
+            .out = &m_bucketColumns[bucket].label,
+            .fontSize = Style::fontSizeMini * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .visible = false,
+        })
+    );
     chartLabelRow->addChild(std::move(labelCell));
   }
   usageCard->addChild(std::move(chartPlotRow));
   usageCard->addChild(std::move(chartLabelRow));
   content->addChild(std::move(usageCard));
 
-  auto mostUsedSection = std::make_unique<Flex>();
-  mostUsedSection->setDirection(FlexDirection::Vertical);
-  mostUsedSection->setAlign(FlexAlign::Stretch);
-  mostUsedSection->setGap(Style::spaceSm * scale);
-  m_mostUsedSection = mostUsedSection.get();
+  auto mostUsedSection = ui::column({
+      .out = &m_mostUsedSection,
+      .align = FlexAlign::Stretch,
+      .gap = Style::spaceSm * scale,
+  });
 
   makeSectionHeader(*mostUsedSection, i18n::tr("control-center.screen-time.most-used"), scale);
 
-  auto appsGrid = std::make_unique<Flex>();
-  appsGrid->setDirection(FlexDirection::Vertical);
-  appsGrid->setAlign(FlexAlign::Stretch);
-  appsGrid->setGap(Style::spaceSm * scale);
-  appsGrid->setFillWidth(true);
-  m_appsGrid = appsGrid.get();
+  auto appsGrid = ui::column({
+      .out = &m_appsGrid,
+      .align = FlexAlign::Stretch,
+      .gap = Style::spaceSm * scale,
+      .fillWidth = true,
+  });
 
   for (std::size_t gridRow = 0; gridRow < m_appGridRows.size(); ++gridRow) {
-    auto gridRowFlex = std::make_unique<Flex>();
-    gridRowFlex->setDirection(FlexDirection::Horizontal);
-    gridRowFlex->setAlign(FlexAlign::Start);
-    gridRowFlex->setGap(Style::spaceSm * scale);
-    gridRowFlex->setFillWidth(true);
-    m_appGridRows[gridRow] = gridRowFlex.get();
+    auto gridRowFlex = ui::row({
+        .out = &m_appGridRows[gridRow],
+        .align = FlexAlign::Start,
+        .gap = Style::spaceSm * scale,
+        .fillWidth = true,
+    });
 
     for (std::size_t col = 0; col < kAppsPerRow; ++col) {
       const std::size_t i = gridRow * kAppsPerRow + col;
@@ -287,103 +302,93 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
         break;
       }
 
-      auto cell = std::make_unique<Flex>();
-      cell->setDirection(FlexDirection::Vertical);
-      cell->setAlign(FlexAlign::Stretch);
-      cell->setFlexGrow(1.0f);
-      cell->setFillWidth(true);
-      cell->setVisible(false);
-      m_appRows[i].cell = cell.get();
+      auto cell = ui::column({
+          .out = &m_appRows[i].cell,
+          .align = FlexAlign::Stretch,
+          .fillWidth = true,
+          .flexGrow = 1.0f,
+          .visible = false,
+      });
 
-      auto row = std::make_unique<Flex>();
-      row->setDirection(FlexDirection::Horizontal);
-      row->setAlign(FlexAlign::Start);
-      row->setGap(Style::spaceSm * scale);
-      row->setVisible(false);
-      m_appRows[i].row = row.get();
+      auto row = ui::row({
+          .out = &m_appRows[i].row,
+          .align = FlexAlign::Start,
+          .gap = Style::spaceSm * scale,
+          .visible = false,
+      });
 
-      auto chartSwatch = std::make_unique<Box>();
-      chartSwatch->setSize(kLegendSwatch * scale, kLegendSwatch * scale);
-      chartSwatch->setRadius(kLegendSwatch * scale * 0.5f);
-      chartSwatch->setVisible(false);
-      m_appRows[i].chartSwatch = chartSwatch.get();
-      row->addChild(std::move(chartSwatch));
+      row->addChild(
+          ui::box({
+              .out = &m_appRows[i].chartSwatch,
+              .radius = kLegendSwatch * scale * 0.5f,
+              .width = kLegendSwatch * scale,
+              .height = kLegendSwatch * scale,
+              .visible = false,
+          })
+      );
 
-      auto iconSlot = std::make_unique<Flex>();
-      iconSlot->setDirection(FlexDirection::Horizontal);
-      iconSlot->setAlign(FlexAlign::Center);
-      iconSlot->setJustify(FlexJustify::Center);
-      iconSlot->setSize(kAppIconSize * scale, kAppIconSize * scale);
-      m_appRows[i].iconSlot = iconSlot.get();
-
-      auto icon = std::make_unique<Image>();
-      icon->setRadius(Style::scaledRadiusMd(scale));
-      icon->setFit(ImageFit::Cover);
-      icon->setSize(kAppIconSize * scale, kAppIconSize * scale);
-      icon->setParticipatesInLayout(false);
-      icon->setVisible(false);
-      m_appRows[i].icon = icon.get();
-      iconSlot->addChild(std::move(icon));
-
-      auto iconFallback = std::make_unique<Glyph>();
-      iconFallback->setGlyph("app-window");
-      iconFallback->setGlyphSize(kAppIconSize * 0.55f * scale);
-      iconFallback->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-      iconFallback->setParticipatesInLayout(false);
-      m_appRows[i].iconFallback = iconFallback.get();
-      iconSlot->addChild(std::move(iconFallback));
+      auto iconSlot = ui::row(
+          {.out = &m_appRows[i].iconSlot,
+           .align = FlexAlign::Center,
+           .justify = FlexJustify::Center,
+           .width = kAppIconSize * scale,
+           .height = kAppIconSize * scale},
+          ui::image({
+              .out = &m_appRows[i].icon,
+              .fit = ImageFit::Cover,
+              .radius = Style::scaledRadiusMd(scale),
+              .width = kAppIconSize * scale,
+              .height = kAppIconSize * scale,
+              .visible = false,
+              .participatesInLayout = false,
+          }),
+          ui::glyph({
+              .out = &m_appRows[i].iconFallback,
+              .glyph = "app-window",
+              .glyphSize = kAppIconSize * 0.55f * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .participatesInLayout = false,
+          })
+      );
 
       row->addChild(std::move(iconSlot));
 
-      auto body = std::make_unique<Flex>();
-      body->setDirection(FlexDirection::Vertical);
-      body->setAlign(FlexAlign::Stretch);
-      body->setGap(Style::spaceXs * scale);
-      body->setFlexGrow(1.0f);
-
-      auto headerRow = std::make_unique<Flex>();
-      headerRow->setDirection(FlexDirection::Horizontal);
-      headerRow->setAlign(FlexAlign::Center);
-      headerRow->setGap(Style::spaceSm * scale);
-
-      auto name = std::make_unique<Label>();
-      name->setFontSize(Style::fontSizeBody * scale);
-      name->setColor(colorSpecFromRole(ColorRole::OnSurface));
-      name->setMaxLines(1);
-      name->setFlexGrow(1.0f);
-      m_appRows[i].name = name.get();
-      headerRow->addChild(std::move(name));
-
-      auto duration = std::make_unique<Label>();
-      duration->setFontSize(usageDurationFontSize(scale));
-      duration->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-      m_appRows[i].duration = duration.get();
-      headerRow->addChild(std::move(duration));
-
-      body->addChild(std::move(headerRow));
-
-      auto barHost = std::make_unique<Flex>();
-      barHost->setDirection(FlexDirection::Horizontal);
-      barHost->setAlign(FlexAlign::Center);
-      barHost->setMinHeight(kUsageBarHeight * scale);
-      m_appRows[i].barHost = barHost.get();
-
-      auto trackBg = std::make_unique<Box>();
-      trackBg->setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
-      trackBg->setRadius(Style::scaledRadiusSm(scale));
-      trackBg->setParticipatesInLayout(false);
-      trackBg->setZIndex(-1);
-      m_appRows[i].barTrack = trackBg.get();
-      barHost->addChild(std::move(trackBg));
-
-      auto fill = std::make_unique<Box>();
-      fill->setSize(0.0f, kUsageBarHeight * scale);
-      fill->setRadius(Style::scaledRadiusSm(scale));
-      m_appRows[i].barFill = fill.get();
-      barHost->addChild(std::move(fill));
-
-      body->addChild(std::move(barHost));
-      row->addChild(std::move(body));
+      row->addChild(
+          ui::column(
+              {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
+              ui::row(
+                  {.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
+                  ui::label({
+                      .out = &m_appRows[i].name,
+                      .fontSize = Style::fontSizeBody * scale,
+                      .color = colorSpecFromRole(ColorRole::OnSurface),
+                      .maxLines = 1,
+                      .flexGrow = 1.0f,
+                  }),
+                  ui::label({
+                      .out = &m_appRows[i].duration,
+                      .fontSize = usageDurationFontSize(scale),
+                      .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  })
+              ),
+              ui::row(
+                  {.out = &m_appRows[i].barHost, .align = FlexAlign::Center, .minHeight = kUsageBarHeight * scale},
+                  ui::box({
+                      .out = &m_appRows[i].barTrack,
+                      .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
+                      .radius = Style::scaledRadiusSm(scale),
+                      .participatesInLayout = false,
+                      .configure = [](Box& box) { box.setZIndex(-1); },
+                  }),
+                  ui::box({
+                      .out = &m_appRows[i].barFill,
+                      .radius = Style::scaledRadiusSm(scale),
+                      .width = 0.0f,
+                      .height = kUsageBarHeight * scale,
+                  })
+              )
+          )
+      );
       cell->addChild(std::move(row));
       gridRowFlex->addChild(std::move(cell));
     }
@@ -391,12 +396,14 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
     appsGrid->addChild(std::move(gridRowFlex));
   }
 
-  auto empty = std::make_unique<Label>();
-  empty->setFontSize(Style::fontSizeBody * scale);
-  empty->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-  empty->setText(i18n::tr("control-center.screen-time.empty"));
-  m_emptyLabel = empty.get();
-  appsGrid->addChild(std::move(empty));
+  appsGrid->addChild(
+      ui::label({
+          .out = &m_emptyLabel,
+          .text = i18n::tr("control-center.screen-time.empty"),
+          .fontSize = Style::fontSizeBody * scale,
+          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+      })
+  );
 
   mostUsedSection->addChild(std::move(appsGrid));
   content->addChild(std::move(mostUsedSection));
@@ -825,8 +832,9 @@ void ScreenTimeTab::layoutAppRows(Renderer& renderer) {
   }
 }
 
-void ScreenTimeTab::updateIconForRow(Renderer& renderer, AppRowWidgets& widgets, const std::string& appKey,
-                                     float scale) {
+void ScreenTimeTab::updateIconForRow(
+    Renderer& renderer, AppRowWidgets& widgets, const std::string& appKey, float scale
+) {
   const std::string iconPath = resolveIconPath(appKey);
   if (iconPath == widgets.iconPath) {
     return;

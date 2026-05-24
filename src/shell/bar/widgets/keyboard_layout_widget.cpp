@@ -4,8 +4,7 @@
 #include "core/process.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
-#include "ui/controls/glyph.h"
-#include "ui/controls/label.h"
+#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -288,8 +287,9 @@ namespace {
 
 } // namespace
 
-KeyboardLayoutWidget::KeyboardLayoutWidget(CompositorPlatform& platform, std::string cycleCommand,
-                                           DisplayMode displayMode, bool hideLabel)
+KeyboardLayoutWidget::KeyboardLayoutWidget(
+    CompositorPlatform& platform, std::string cycleCommand, DisplayMode displayMode, bool hideLabel
+)
     : m_platform(platform), m_cycleCommand(std::move(cycleCommand)), m_displayMode(displayMode),
       m_hideLabel(hideLabel) {}
 
@@ -310,19 +310,23 @@ void KeyboardLayoutWidget::create() {
     cycleLayout();
   });
 
-  auto glyph = std::make_unique<Glyph>();
-  glyph->setGlyph("keyboard");
-  glyph->setGlyphSize(Style::barGlyphSize * m_contentScale);
-  glyph->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
-  m_glyph = glyph.get();
-  area->addChild(std::move(glyph));
+  area->addChild(
+      ui::glyph({
+          .out = &m_glyph,
+          .glyph = "keyboard",
+          .glyphSize = Style::barGlyphSize * m_contentScale,
+          .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
+      })
+  );
 
-  auto label = std::make_unique<Label>();
-  label->setFontWeight(labelFontWeight());
-  label->setFontSize(Style::fontSizeBody * m_contentScale);
-  label->setText("--");
-  m_label = label.get();
-  area->addChild(std::move(label));
+  area->addChild(
+      ui::label({
+          .out = &m_label,
+          .text = "--",
+          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontWeight = labelFontWeight(),
+      })
+  );
 
   setRoot(std::move(area));
 

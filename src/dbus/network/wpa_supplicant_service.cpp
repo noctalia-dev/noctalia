@@ -105,8 +105,10 @@ namespace {
 
 WpaSupplicantService::WpaSupplicantService(SystemBus& bus) : m_bus(bus) {
   if (!bus.nameHasOwner("fi.w1.wpa_supplicant1")) {
-    throw sdbus::Error(sdbus::Error::Name{"org.freedesktop.DBus.Error.ServiceUnknown"},
-                       "The name fi.w1.wpa_supplicant1 was not provided by any .service files");
+    throw sdbus::Error(
+        sdbus::Error::Name{"org.freedesktop.DBus.Error.ServiceUnknown"},
+        "The name fi.w1.wpa_supplicant1 was not provided by any .service files"
+    );
   }
 
   m_wpa = sdbus::createProxy(m_bus.connection(), kWpaBusName, kWpaObjectPath);
@@ -148,8 +150,9 @@ void WpaSupplicantService::subscribeInterface(const std::string& ifacePath) {
 
     proxy->uponSignal("PropertiesChanged")
         .onInterface(kPropertiesInterface)
-        .call([this](const std::string&, const std::map<std::string, sdbus::Variant>&,
-                     const std::vector<std::string>&) { scheduleRebuild(); });
+        .call([this](
+                  const std::string&, const std::map<std::string, sdbus::Variant>&, const std::vector<std::string>&
+              ) { scheduleRebuild(); });
 
     proxy->uponSignal("ScanDone").onInterface(kWpaIfaceInterface).call([this](bool) { scheduleRebuild(); });
 
@@ -381,8 +384,9 @@ void WpaSupplicantService::rebuildState() {
     const std::string ifname = getPropertyOr<std::string>(*proxy, kWpaIfaceInterface, "Ifname", "");
     next.scanning = next.scanning || getPropertyOr(*proxy, kWpaIfaceInterface, "Scanning", false);
 
-    const bool connected = (state == kStateCompleted || state == kStateAssociated || state == kStateGroupHandshake ||
-                            state == k_state4wayHandshake);
+    const bool connected =
+        (state == kStateCompleted || state == kStateAssociated || state == kStateGroupHandshake ||
+         state == k_state4wayHandshake);
     const bool associating = (state == kStateAssociating);
 
     if (connected || associating) {

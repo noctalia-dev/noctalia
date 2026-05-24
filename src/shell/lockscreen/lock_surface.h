@@ -49,8 +49,10 @@ public:
   void onKeyboardEvent(const KeyboardEvent& event);
   [[nodiscard]] wl_output* output() const noexcept { return m_output; }
 
-  static void handleConfigure(void* data, ext_session_lock_surface_v1* lockSurface, std::uint32_t serial,
-                              std::uint32_t width, std::uint32_t height);
+  static void handleConfigure(
+      void* data, ext_session_lock_surface_v1* lockSurface, std::uint32_t serial, std::uint32_t width,
+      std::uint32_t height
+  );
 
 private:
   void prepareFrame(bool needsUpdate, bool needsLayout);

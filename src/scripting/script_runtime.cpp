@@ -503,8 +503,9 @@ namespace scripting {
     return m_state != nullptr && m_state->enqueue(std::move(event));
   }
 
-  bool ScriptRuntime::enqueueCallStrings(std::string functionName, std::string first, std::string second,
-                                         ScriptWidgetSnapshot snapshot) {
+  bool ScriptRuntime::enqueueCallStrings(
+      std::string functionName, std::string first, std::string second, ScriptWidgetSnapshot snapshot
+  ) {
     ScriptWidgetEvent event;
     event.kind = ScriptWidgetEventKind::CallStrings;
     event.functionName = std::move(functionName);
@@ -539,9 +540,9 @@ namespace scripting {
     return m_state->unhealthy;
   }
 
-  SharedScriptRuntimeAcquireResult SharedScriptRuntimeRegistry::acquire(const std::string& key,
-                                                                        ScriptWidgetSettings settings,
-                                                                        ClipboardService* clipboard) {
+  SharedScriptRuntimeAcquireResult SharedScriptRuntimeRegistry::acquire(
+      const std::string& key, ScriptWidgetSettings settings, ClipboardService* clipboard
+  ) {
     static std::mutex mutex;
     static std::unordered_map<std::string, std::weak_ptr<ScriptRuntime>> runtimes;
 

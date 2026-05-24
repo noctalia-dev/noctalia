@@ -12,8 +12,9 @@
 
 ColorPickerDialogPopup::~ColorPickerDialogPopup() { destroyPopup(); }
 
-void ColorPickerDialogPopup::initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext,
-                                        LayerPopupHostRegistry& popupHosts) {
+void ColorPickerDialogPopup::initialize(
+    WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext, LayerPopupHostRegistry& popupHosts
+) {
   initializeBase(wayland, config, renderContext, popupHosts);
 }
 

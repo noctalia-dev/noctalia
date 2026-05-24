@@ -91,8 +91,9 @@ bool PanelClickShield::ensureSharedBuffer() {
   return m_buffer != nullptr;
 }
 
-void PanelClickShield::activate(const std::vector<wl_output*>& outputs, LayerShellLayer layer,
-                                ExcludeProvider excludeProvider) {
+void PanelClickShield::activate(
+    const std::vector<wl_output*>& outputs, LayerShellLayer layer, ExcludeProvider excludeProvider
+) {
   if (m_wayland == nullptr) {
     return;
   }
@@ -131,8 +132,8 @@ void PanelClickShield::activate(const std::vector<wl_output*>& outputs, LayerShe
   }
 }
 
-std::unique_ptr<PanelClickShield::Shield> PanelClickShield::createShield(wl_output* output, LayerShellLayer layer,
-                                                                         std::vector<InputRect> excludeRects) {
+std::unique_ptr<PanelClickShield::Shield>
+PanelClickShield::createShield(wl_output* output, LayerShellLayer layer, std::vector<InputRect> excludeRects) {
   auto shield = std::make_unique<Shield>();
   shield->owner = this;
   shield->output = output;
@@ -145,9 +146,9 @@ std::unique_ptr<PanelClickShield::Shield> PanelClickShield::createShield(wl_outp
 
   shield->viewport = wp_viewporter_get_viewport(m_wayland->viewporter(), shield->surface);
 
-  shield->layerSurface =
-      zwlr_layer_shell_v1_get_layer_surface(m_wayland->layerShell(), shield->surface, output,
-                                            static_cast<std::uint32_t>(layer), "noctalia-panel-click-shield");
+  shield->layerSurface = zwlr_layer_shell_v1_get_layer_surface(
+      m_wayland->layerShell(), shield->surface, output, static_cast<std::uint32_t>(layer), "noctalia-panel-click-shield"
+  );
   if (shield->layerSurface == nullptr) {
     if (shield->viewport != nullptr) {
       wp_viewport_destroy(shield->viewport);
@@ -158,12 +159,15 @@ std::unique_ptr<PanelClickShield::Shield> PanelClickShield::createShield(wl_outp
 
   zwlr_layer_surface_v1_add_listener(shield->layerSurface, &kLayerSurfaceListener, shield.get());
 
-  zwlr_layer_surface_v1_set_anchor(shield->layerSurface, LayerShellAnchor::Top | LayerShellAnchor::Bottom |
-                                                             LayerShellAnchor::Left | LayerShellAnchor::Right);
+  zwlr_layer_surface_v1_set_anchor(
+      shield->layerSurface,
+      LayerShellAnchor::Top | LayerShellAnchor::Bottom | LayerShellAnchor::Left | LayerShellAnchor::Right
+  );
   zwlr_layer_surface_v1_set_size(shield->layerSurface, 0, 0);
   zwlr_layer_surface_v1_set_exclusive_zone(shield->layerSurface, -1);
-  zwlr_layer_surface_v1_set_keyboard_interactivity(shield->layerSurface,
-                                                   static_cast<std::uint32_t>(shieldKeyboardMode()));
+  zwlr_layer_surface_v1_set_keyboard_interactivity(
+      shield->layerSurface, static_cast<std::uint32_t>(shieldKeyboardMode())
+  );
 
   // Empty input region until we receive a configure with the actual surface
   // size. Until then any click would land on the 1×1 buffer at (0,0) before
@@ -216,8 +220,9 @@ bool PanelClickShield::ownsSurface(wl_surface* surface) const noexcept {
   return false;
 }
 
-void PanelClickShield::handleConfigure(void* data, zwlr_layer_surface_v1* layerSurface, std::uint32_t serial,
-                                       std::uint32_t width, std::uint32_t height) {
+void PanelClickShield::handleConfigure(
+    void* data, zwlr_layer_surface_v1* layerSurface, std::uint32_t serial, std::uint32_t width, std::uint32_t height
+) {
   zwlr_layer_surface_v1_ack_configure(layerSurface, serial);
   auto* shield = static_cast<Shield*>(data);
   if (shield == nullptr || shield->owner == nullptr) {

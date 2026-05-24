@@ -9,8 +9,10 @@ class GlyphPickerDialogPopup final : public DialogPopupHost, public GlyphPickerD
 public:
   ~GlyphPickerDialogPopup() override;
 
-  void initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext,
-                  LayerPopupHostRegistry& popupHosts);
+  void initialize(
+      WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext,
+      LayerPopupHostRegistry& popupHosts
+  );
 
   [[nodiscard]] bool openGlyphPicker() override;
   void closeGlyphPickerWithoutResult() override;

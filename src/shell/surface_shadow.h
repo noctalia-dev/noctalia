@@ -22,9 +22,9 @@ namespace shell::surface_shadow {
 
   [[nodiscard]] bool enabled(bool componentShadow, const ShellConfig::ShadowConfig& shadow) noexcept;
   [[nodiscard]] Bleed bleed(bool componentShadow, const ShellConfig::ShadowConfig& shadow) noexcept;
-  [[nodiscard]] RoundedRectStyle style(const ShellConfig::ShadowConfig& shadow, float backgroundOpacity,
-                                       const Shape& shape) noexcept;
-  [[nodiscard]] bool sameSurfaceMetrics(const ShellConfig::ShadowConfig& previous,
-                                        const ShellConfig::ShadowConfig& next) noexcept;
+  [[nodiscard]] RoundedRectStyle
+  style(const ShellConfig::ShadowConfig& shadow, float backgroundOpacity, const Shape& shape) noexcept;
+  [[nodiscard]] bool
+  sameSurfaceMetrics(const ShellConfig::ShadowConfig& previous, const ShellConfig::ShadowConfig& next) noexcept;
 
 } // namespace shell::surface_shadow

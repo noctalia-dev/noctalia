@@ -22,8 +22,10 @@ public:
   void ensureInitialized();
   void destroy();
 
-  void draw(float surfaceWidth, float surfaceHeight, float x, float y, float width, float height,
-            const LinearGradientStyle& style) const;
+  void draw(
+      float surfaceWidth, float surfaceHeight, float x, float y, float width, float height,
+      const LinearGradientStyle& style
+  ) const;
 
 private:
   ShaderProgram m_program;

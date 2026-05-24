@@ -45,8 +45,10 @@ class SettingsWindow {
 public:
   ~SettingsWindow();
 
-  void initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext,
-                  DependencyService* dependencies, UPowerService* upower, IdleManager* idleManager);
+  void initialize(
+      WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext, DependencyService* dependencies,
+      UPowerService* upower, IdleManager* idleManager
+  );
 
   void open();
   void openToBarWidget(std::string barName, std::string widgetName);
@@ -77,15 +79,17 @@ private:
   [[nodiscard]] settings::RegistryEnvironment buildRegistryEnvironment() const;
   void syncSelectedBarState(const Config& cfg, const std::vector<std::string>& availableBars);
   [[nodiscard]] std::unique_ptr<Flex> buildHeaderRow(float scale);
-  [[nodiscard]] std::unique_ptr<Flex> buildFilterRow(float scale, const std::string& resetPageScope,
-                                                     std::vector<std::vector<std::string>> resetPagePaths);
+  [[nodiscard]] std::unique_ptr<Flex>
+  buildFilterRow(float scale, const std::string& resetPageScope, std::vector<std::vector<std::string>> resetPagePaths);
   [[nodiscard]] std::unique_ptr<Flex> buildStatusRow(float scale);
-  [[nodiscard]] std::unique_ptr<Flex> buildBody(float scale, const Config& cfg,
-                                                const std::vector<std::string>& sections,
-                                                const std::vector<std::string>& availableBars);
+  [[nodiscard]] std::unique_ptr<Flex> buildBody(
+      float scale, const Config& cfg, const std::vector<std::string>& sections,
+      const std::vector<std::string>& availableBars
+  );
   [[nodiscard]] std::vector<settings::SelectOption> batteryDeviceOptions() const;
-  [[nodiscard]] settings::SettingsContentContext makeContentContext(const Config& cfg, const BarConfig* selectedBar,
-                                                                    const BarMonitorOverride* selectedMonitorOverride);
+  [[nodiscard]] settings::SettingsContentContext makeContentContext(
+      const Config& cfg, const BarConfig* selectedBar, const BarMonitorOverride* selectedMonitorOverride
+  );
   void requestSceneRebuild();
   void requestContentRebuild();
   void applyPendingContentScrollTarget(float margin);
@@ -94,9 +98,10 @@ private:
   void openActionsMenu();
   void openConfigExportDialog();
   void openBarWidgetAddPopup(const std::vector<std::string>& lanePath);
-  void openSearchPickerPopup(const std::string& title, const std::vector<settings::SelectOption>& options,
-                             const std::string& selectedValue, const std::string& placeholder,
-                             const std::string& emptyText, const std::vector<std::string>& settingPath);
+  void openSearchPickerPopup(
+      const std::string& title, const std::vector<settings::SelectOption>& options, const std::string& selectedValue,
+      const std::string& placeholder, const std::string& emptyText, const std::vector<std::string>& settingPath
+  );
   void openSessionActionEntryEditor(std::size_t index);
   void openIdleBehaviorEntryEditor(std::size_t index);
   void openIdleBehaviorCreateEditor();
@@ -110,8 +115,10 @@ private:
   void clearSettingOverrides(std::vector<std::vector<std::string>> paths);
   void markSettingsWriteSuccess(bool requestRebuild = true);
   void markSettingsWriteError(std::string message);
-  void renameWidgetInstance(std::string oldName, std::string newName,
-                            std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> referenceOverrides);
+  void renameWidgetInstance(
+      std::string oldName, std::string newName,
+      std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> referenceOverrides
+  );
   void createBar(std::string name);
   void renameBar(std::string oldName, std::string newName);
   void deleteBar(std::string name);

@@ -214,8 +214,9 @@ void WaylandSeat::handleSeatCapabilities(void* data, wl_seat* seat, std::uint32_
 
 void WaylandSeat::handleSeatName(void* /*data*/, wl_seat* /*seat*/, const char* /*name*/) {}
 
-void WaylandSeat::handlePointerEnter(void* data, wl_pointer* /*pointer*/, std::uint32_t serial, wl_surface* surface,
-                                     std::int32_t sx, std::int32_t sy) {
+void WaylandSeat::handlePointerEnter(
+    void* data, wl_pointer* /*pointer*/, std::uint32_t serial, wl_surface* surface, std::int32_t sx, std::int32_t sy
+) {
   auto* self = static_cast<WaylandSeat*>(data);
   self->m_lastSerial = serial;
   self->m_lastInputSource = InputSource::Pointer;
@@ -223,13 +224,15 @@ void WaylandSeat::handlePointerEnter(void* data, wl_pointer* /*pointer*/, std::u
   self->m_lastPointerX = wl_fixed_to_double(sx);
   self->m_lastPointerY = wl_fixed_to_double(sy);
   self->m_hasPointerPosition = true;
-  self->m_pendingPointerEvents.push_back(PointerEvent{
-      .type = PointerEvent::Type::Enter,
-      .serial = serial,
-      .surface = surface,
-      .sx = self->m_lastPointerX,
-      .sy = self->m_lastPointerY,
-  });
+  self->m_pendingPointerEvents.push_back(
+      PointerEvent{
+          .type = PointerEvent::Type::Enter,
+          .serial = serial,
+          .surface = surface,
+          .sx = self->m_lastPointerX,
+          .sy = self->m_lastPointerY,
+      }
+  );
 }
 
 void WaylandSeat::handlePointerLeave(void* data, wl_pointer* /*pointer*/, std::uint32_t serial, wl_surface* surface) {
@@ -238,57 +241,69 @@ void WaylandSeat::handlePointerLeave(void* data, wl_pointer* /*pointer*/, std::u
   self->m_lastInputSource = InputSource::Pointer;
   self->m_lastPointerSurface = surface;
   self->m_hasPointerPosition = false;
-  self->m_pendingPointerEvents.push_back(PointerEvent{
-      .type = PointerEvent::Type::Leave,
-      .serial = serial,
-      .surface = surface,
-  });
+  self->m_pendingPointerEvents.push_back(
+      PointerEvent{
+          .type = PointerEvent::Type::Leave,
+          .serial = serial,
+          .surface = surface,
+      }
+  );
 }
 
-void WaylandSeat::handlePointerMotion(void* data, wl_pointer* /*pointer*/, std::uint32_t time, std::int32_t sx,
-                                      std::int32_t sy) {
+void WaylandSeat::handlePointerMotion(
+    void* data, wl_pointer* /*pointer*/, std::uint32_t time, std::int32_t sx, std::int32_t sy
+) {
   auto* self = static_cast<WaylandSeat*>(data);
   self->m_lastPointerX = wl_fixed_to_double(sx);
   self->m_lastPointerY = wl_fixed_to_double(sy);
   self->m_hasPointerPosition = true;
-  self->m_pendingPointerEvents.push_back(PointerEvent{
-      .type = PointerEvent::Type::Motion,
-      .sx = self->m_lastPointerX,
-      .sy = self->m_lastPointerY,
-      .time = time,
-  });
+  self->m_pendingPointerEvents.push_back(
+      PointerEvent{
+          .type = PointerEvent::Type::Motion,
+          .sx = self->m_lastPointerX,
+          .sy = self->m_lastPointerY,
+          .time = time,
+      }
+  );
 }
 
-void WaylandSeat::handlePointerButton(void* data, wl_pointer* /*pointer*/, std::uint32_t serial, std::uint32_t time,
-                                      std::uint32_t button, std::uint32_t state) {
+void WaylandSeat::handlePointerButton(
+    void* data, wl_pointer* /*pointer*/, std::uint32_t serial, std::uint32_t time, std::uint32_t button,
+    std::uint32_t state
+) {
   auto* self = static_cast<WaylandSeat*>(data);
   self->m_lastSerial = serial;
   self->m_lastInputSource = InputSource::Pointer;
-  self->m_pendingPointerEvents.push_back(PointerEvent{
-      .type = PointerEvent::Type::Button,
-      .serial = serial,
-      .surface = self->m_lastPointerSurface,
-      .sx = self->m_hasPointerPosition ? self->m_lastPointerX : 0.0,
-      .sy = self->m_hasPointerPosition ? self->m_lastPointerY : 0.0,
-      .time = time,
-      .button = button,
-      .state = state,
-  });
+  self->m_pendingPointerEvents.push_back(
+      PointerEvent{
+          .type = PointerEvent::Type::Button,
+          .serial = serial,
+          .surface = self->m_lastPointerSurface,
+          .sx = self->m_hasPointerPosition ? self->m_lastPointerX : 0.0,
+          .sy = self->m_hasPointerPosition ? self->m_lastPointerY : 0.0,
+          .time = time,
+          .button = button,
+          .state = state,
+      }
+  );
 }
 
-void WaylandSeat::handlePointerAxis(void* data, wl_pointer* /*pointer*/, std::uint32_t time, std::uint32_t axis,
-                                    std::int32_t value) {
+void WaylandSeat::handlePointerAxis(
+    void* data, wl_pointer* /*pointer*/, std::uint32_t time, std::uint32_t axis, std::int32_t value
+) {
   auto* self = static_cast<WaylandSeat*>(data);
-  self->m_pendingPointerEvents.push_back(PointerEvent{
-      .type = PointerEvent::Type::Axis,
-      .surface = self->m_lastPointerSurface,
-      .sx = self->m_hasPointerPosition ? self->m_lastPointerX : 0.0,
-      .sy = self->m_hasPointerPosition ? self->m_lastPointerY : 0.0,
-      .time = time,
-      .axis = axis,
-      .axisSource = self->m_pendingAxisSource,
-      .axisValue = wl_fixed_to_double(value),
-  });
+  self->m_pendingPointerEvents.push_back(
+      PointerEvent{
+          .type = PointerEvent::Type::Axis,
+          .surface = self->m_lastPointerSurface,
+          .sx = self->m_hasPointerPosition ? self->m_lastPointerX : 0.0,
+          .sy = self->m_hasPointerPosition ? self->m_lastPointerY : 0.0,
+          .time = time,
+          .axis = axis,
+          .axisSource = self->m_pendingAxisSource,
+          .axisValue = wl_fixed_to_double(value),
+      }
+  );
 }
 
 void WaylandSeat::handlePointerAxisSource(void* data, wl_pointer* /*pointer*/, std::uint32_t axisSource) {
@@ -296,8 +311,9 @@ void WaylandSeat::handlePointerAxisSource(void* data, wl_pointer* /*pointer*/, s
   self->m_pendingAxisSource = axisSource;
 }
 
-void WaylandSeat::handlePointerAxisDiscrete(void* data, wl_pointer* /*pointer*/, std::uint32_t axis,
-                                            std::int32_t discrete) {
+void WaylandSeat::handlePointerAxisDiscrete(
+    void* data, wl_pointer* /*pointer*/, std::uint32_t axis, std::int32_t discrete
+) {
   auto* self = static_cast<WaylandSeat*>(data);
   for (auto it = self->m_pendingPointerEvents.rbegin(); it != self->m_pendingPointerEvents.rend(); ++it) {
     if (it->type == PointerEvent::Type::Axis && it->axis == axis) {
@@ -310,8 +326,9 @@ void WaylandSeat::handlePointerAxisDiscrete(void* data, wl_pointer* /*pointer*/,
   }
 }
 
-void WaylandSeat::handlePointerAxisValue120(void* data, wl_pointer* /*pointer*/, std::uint32_t axis,
-                                            std::int32_t value120) {
+void WaylandSeat::handlePointerAxisValue120(
+    void* data, wl_pointer* /*pointer*/, std::uint32_t axis, std::int32_t value120
+) {
   auto* self = static_cast<WaylandSeat*>(data);
   for (auto it = self->m_pendingPointerEvents.rbegin(); it != self->m_pendingPointerEvents.rend(); ++it) {
     if (it->type == PointerEvent::Type::Axis && it->axis == axis) {
@@ -352,8 +369,10 @@ void WaylandSeat::handlePointerFrame(void* data, wl_pointer* /*pointer*/) {
   self->m_pendingAxisSource = 0;
 }
 
-void WaylandSeat::handleTouchDown(void* data, wl_touch* /*touch*/, std::uint32_t serial, std::uint32_t time,
-                                  wl_surface* surface, std::int32_t id, std::int32_t x, std::int32_t y) {
+void WaylandSeat::handleTouchDown(
+    void* data, wl_touch* /*touch*/, std::uint32_t serial, std::uint32_t time, wl_surface* surface, std::int32_t id,
+    std::int32_t x, std::int32_t y
+) {
   auto* self = static_cast<WaylandSeat*>(data);
   if (self->m_activeTouchId != -1) {
     return;
@@ -366,70 +385,82 @@ void WaylandSeat::handleTouchDown(void* data, wl_touch* /*touch*/, std::uint32_t
   self->m_hasPointerPosition = true;
   self->m_lastSerial = serial;
   self->m_lastInputSource = InputSource::Touch;
-  self->m_pendingTouchEvents.push_back(PointerEvent{
-      .type = PointerEvent::Type::Enter,
-      .serial = serial,
-      .surface = surface,
-      .sx = self->m_lastPointerX,
-      .sy = self->m_lastPointerY,
-      .time = time,
-  });
-  self->m_pendingTouchEvents.push_back(PointerEvent{
-      .type = PointerEvent::Type::Button,
-      .serial = serial,
-      .surface = surface,
-      .sx = self->m_lastPointerX,
-      .sy = self->m_lastPointerY,
-      .time = time,
-      .button = BTN_LEFT,
-      .state = WL_POINTER_BUTTON_STATE_PRESSED,
-  });
+  self->m_pendingTouchEvents.push_back(
+      PointerEvent{
+          .type = PointerEvent::Type::Enter,
+          .serial = serial,
+          .surface = surface,
+          .sx = self->m_lastPointerX,
+          .sy = self->m_lastPointerY,
+          .time = time,
+      }
+  );
+  self->m_pendingTouchEvents.push_back(
+      PointerEvent{
+          .type = PointerEvent::Type::Button,
+          .serial = serial,
+          .surface = surface,
+          .sx = self->m_lastPointerX,
+          .sy = self->m_lastPointerY,
+          .time = time,
+          .button = BTN_LEFT,
+          .state = WL_POINTER_BUTTON_STATE_PRESSED,
+      }
+  );
 }
 
-void WaylandSeat::handleTouchUp(void* data, wl_touch* /*touch*/, std::uint32_t serial, std::uint32_t time,
-                                std::int32_t id) {
+void WaylandSeat::handleTouchUp(
+    void* data, wl_touch* /*touch*/, std::uint32_t serial, std::uint32_t time, std::int32_t id
+) {
   auto* self = static_cast<WaylandSeat*>(data);
   if (id != self->m_activeTouchId) {
     return;
   }
   self->m_lastSerial = serial;
   auto* surface = self->m_touchSurface;
-  self->m_pendingTouchEvents.push_back(PointerEvent{
-      .type = PointerEvent::Type::Button,
-      .serial = serial,
-      .surface = surface,
-      .sx = self->m_lastPointerX,
-      .sy = self->m_lastPointerY,
-      .time = time,
-      .button = BTN_LEFT,
-      .state = WL_POINTER_BUTTON_STATE_RELEASED,
-  });
-  self->m_pendingTouchEvents.push_back(PointerEvent{
-      .type = PointerEvent::Type::Leave,
-      .serial = serial,
-      .surface = surface,
-  });
+  self->m_pendingTouchEvents.push_back(
+      PointerEvent{
+          .type = PointerEvent::Type::Button,
+          .serial = serial,
+          .surface = surface,
+          .sx = self->m_lastPointerX,
+          .sy = self->m_lastPointerY,
+          .time = time,
+          .button = BTN_LEFT,
+          .state = WL_POINTER_BUTTON_STATE_RELEASED,
+      }
+  );
+  self->m_pendingTouchEvents.push_back(
+      PointerEvent{
+          .type = PointerEvent::Type::Leave,
+          .serial = serial,
+          .surface = surface,
+      }
+  );
   self->m_activeTouchId = -1;
   self->m_touchSurface = nullptr;
   self->m_lastPointerSurface = nullptr;
   self->m_hasPointerPosition = false;
 }
 
-void WaylandSeat::handleTouchMotion(void* data, wl_touch* /*touch*/, std::uint32_t time, std::int32_t id,
-                                    std::int32_t x, std::int32_t y) {
+void WaylandSeat::handleTouchMotion(
+    void* data, wl_touch* /*touch*/, std::uint32_t time, std::int32_t id, std::int32_t x, std::int32_t y
+) {
   auto* self = static_cast<WaylandSeat*>(data);
   if (id != self->m_activeTouchId) {
     return;
   }
   self->m_lastPointerX = wl_fixed_to_double(x);
   self->m_lastPointerY = wl_fixed_to_double(y);
-  self->m_pendingTouchEvents.push_back(PointerEvent{
-      .type = PointerEvent::Type::Motion,
-      .surface = self->m_touchSurface,
-      .sx = self->m_lastPointerX,
-      .sy = self->m_lastPointerY,
-      .time = time,
-  });
+  self->m_pendingTouchEvents.push_back(
+      PointerEvent{
+          .type = PointerEvent::Type::Motion,
+          .surface = self->m_touchSurface,
+          .sx = self->m_lastPointerX,
+          .sy = self->m_lastPointerY,
+          .time = time,
+      }
+  );
 }
 
 void WaylandSeat::handleTouchFrame(void* data, wl_touch* /*touch*/) {
@@ -466,23 +497,28 @@ void WaylandSeat::handleTouchCancel(void* data, wl_touch* /*touch*/) {
 
   if (self->m_pointerEventCallback) {
     self->bumpUserActivity();
-    self->m_pointerEventCallback(PointerEvent{
-        .type = PointerEvent::Type::Button,
-        .surface = surface,
-        .sx = self->m_lastPointerX,
-        .sy = self->m_lastPointerY,
-        .button = BTN_LEFT,
-        .state = WL_POINTER_BUTTON_STATE_RELEASED,
-    });
-    self->m_pointerEventCallback(PointerEvent{
-        .type = PointerEvent::Type::Leave,
-        .surface = surface,
-    });
+    self->m_pointerEventCallback(
+        PointerEvent{
+            .type = PointerEvent::Type::Button,
+            .surface = surface,
+            .sx = self->m_lastPointerX,
+            .sy = self->m_lastPointerY,
+            .button = BTN_LEFT,
+            .state = WL_POINTER_BUTTON_STATE_RELEASED,
+        }
+    );
+    self->m_pointerEventCallback(
+        PointerEvent{
+            .type = PointerEvent::Type::Leave,
+            .surface = surface,
+        }
+    );
   }
 }
 
-void WaylandSeat::handleKeyboardKeymap(void* data, wl_keyboard* /*keyboard*/, std::uint32_t format, int fd,
-                                       std::uint32_t size) {
+void WaylandSeat::handleKeyboardKeymap(
+    void* data, wl_keyboard* /*keyboard*/, std::uint32_t format, int fd, std::uint32_t size
+) {
   auto* self = static_cast<WaylandSeat*>(data);
 
   if (format != WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1) {
@@ -497,8 +533,9 @@ void WaylandSeat::handleKeyboardKeymap(void* data, wl_keyboard* /*keyboard*/, st
     return;
   }
 
-  auto* keymap = xkb_keymap_new_from_string(self->m_xkbContext, static_cast<const char*>(buf),
-                                            XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  auto* keymap = xkb_keymap_new_from_string(
+      self->m_xkbContext, static_cast<const char*>(buf), XKB_KEYMAP_FORMAT_TEXT_V1, XKB_KEYMAP_COMPILE_NO_FLAGS
+  );
   munmap(buf, size);
 
   if (keymap == nullptr) {
@@ -540,15 +577,17 @@ void WaylandSeat::handleKeyboardKeymap(void* data, wl_keyboard* /*keyboard*/, st
   kLog.info("keyboard: keymap loaded");
 }
 
-void WaylandSeat::handleKeyboardEnter(void* data, wl_keyboard* /*keyboard*/, std::uint32_t /*serial*/,
-                                      wl_surface* surface, wl_array* /*keys*/) {
+void WaylandSeat::handleKeyboardEnter(
+    void* data, wl_keyboard* /*keyboard*/, std::uint32_t /*serial*/, wl_surface* surface, wl_array* /*keys*/
+) {
   auto* self = static_cast<WaylandSeat*>(data);
   self->m_repeatActive = false;
   self->m_lastKeyboardSurface = surface;
 }
 
-void WaylandSeat::handleKeyboardLeave(void* data, wl_keyboard* /*keyboard*/, std::uint32_t /*serial*/,
-                                      wl_surface* surface) {
+void WaylandSeat::handleKeyboardLeave(
+    void* data, wl_keyboard* /*keyboard*/, std::uint32_t /*serial*/, wl_surface* surface
+) {
   auto* self = static_cast<WaylandSeat*>(data);
   self->m_repeatActive = false;
   if (self->m_lastKeyboardSurface == surface) {
@@ -556,8 +595,10 @@ void WaylandSeat::handleKeyboardLeave(void* data, wl_keyboard* /*keyboard*/, std
   }
 }
 
-void WaylandSeat::handleKeyboardKey(void* data, wl_keyboard* /*keyboard*/, std::uint32_t serial, std::uint32_t /*time*/,
-                                    std::uint32_t key, std::uint32_t state) {
+void WaylandSeat::handleKeyboardKey(
+    void* data, wl_keyboard* /*keyboard*/, std::uint32_t serial, std::uint32_t /*time*/, std::uint32_t key,
+    std::uint32_t state
+) {
   auto* self = static_cast<WaylandSeat*>(data);
   self->m_lastSerial = serial;
   self->m_lastInputSource = InputSource::Keyboard;
@@ -608,14 +649,16 @@ void WaylandSeat::handleKeyboardKey(void* data, wl_keyboard* /*keyboard*/, std::
       }
       if (utf32 != 0) {
         self->bumpUserActivity();
-        self->m_keyboardEventCallback(KeyboardEvent{
-            .sym = sym,
-            .utf32 = utf32,
-            .key = key,
-            .modifiers = mods,
-            .pressed = true,
-            .preedit = true,
-        });
+        self->m_keyboardEventCallback(
+            KeyboardEvent{
+                .sym = sym,
+                .utf32 = utf32,
+                .key = key,
+                .modifiers = mods,
+                .pressed = true,
+                .preedit = true,
+            }
+        );
       }
       return;
     } else if (status == XKB_COMPOSE_CANCELLED) {
@@ -637,26 +680,30 @@ void WaylandSeat::handleKeyboardKey(void* data, wl_keyboard* /*keyboard*/, std::
   }
 
   self->bumpUserActivity();
-  self->m_keyboardEventCallback(KeyboardEvent{
-      .sym = sym,
-      .utf32 = utf32,
-      .key = key,
-      .modifiers = mods,
-      .pressed = pressed,
-  });
+  self->m_keyboardEventCallback(
+      KeyboardEvent{
+          .sym = sym,
+          .utf32 = utf32,
+          .key = key,
+          .modifiers = mods,
+          .pressed = pressed,
+      }
+  );
 }
 
-void WaylandSeat::handleKeyboardModifiers(void* data, wl_keyboard* /*keyboard*/, std::uint32_t /*serial*/,
-                                          std::uint32_t modsDepressed, std::uint32_t modsLatched,
-                                          std::uint32_t modsLocked, std::uint32_t group) {
+void WaylandSeat::handleKeyboardModifiers(
+    void* data, wl_keyboard* /*keyboard*/, std::uint32_t /*serial*/, std::uint32_t modsDepressed,
+    std::uint32_t modsLatched, std::uint32_t modsLocked, std::uint32_t group
+) {
   auto* self = static_cast<WaylandSeat*>(data);
   if (self->m_xkbState != nullptr) {
     xkb_state_update_mask(self->m_xkbState, modsDepressed, modsLatched, modsLocked, 0, 0, group);
   }
 }
 
-void WaylandSeat::handleKeyboardRepeatInfo(void* data, wl_keyboard* /*keyboard*/, std::int32_t rate,
-                                           std::int32_t delay) {
+void WaylandSeat::handleKeyboardRepeatInfo(
+    void* data, wl_keyboard* /*keyboard*/, std::int32_t rate, std::int32_t delay
+) {
   auto* self = static_cast<WaylandSeat*>(data);
   self->m_repeatRate = rate;
   self->m_repeatDelayMs = delay;

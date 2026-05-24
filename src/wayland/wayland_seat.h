@@ -89,39 +89,47 @@ public:
   // Pointer listener entrypoints
   static void handleSeatCapabilities(void* data, wl_seat* seat, std::uint32_t caps);
   static void handleSeatName(void* data, wl_seat* seat, const char* name);
-  static void handlePointerEnter(void* data, wl_pointer* pointer, std::uint32_t serial, wl_surface* surface,
-                                 std::int32_t sx, std::int32_t sy);
+  static void handlePointerEnter(
+      void* data, wl_pointer* pointer, std::uint32_t serial, wl_surface* surface, std::int32_t sx, std::int32_t sy
+  );
   static void handlePointerLeave(void* data, wl_pointer* pointer, std::uint32_t serial, wl_surface* surface);
-  static void handlePointerMotion(void* data, wl_pointer* pointer, std::uint32_t time, std::int32_t sx,
-                                  std::int32_t sy);
-  static void handlePointerButton(void* data, wl_pointer* pointer, std::uint32_t serial, std::uint32_t time,
-                                  std::uint32_t button, std::uint32_t state);
-  static void handlePointerAxis(void* data, wl_pointer* pointer, std::uint32_t time, std::uint32_t axis,
-                                std::int32_t value);
+  static void
+  handlePointerMotion(void* data, wl_pointer* pointer, std::uint32_t time, std::int32_t sx, std::int32_t sy);
+  static void handlePointerButton(
+      void* data, wl_pointer* pointer, std::uint32_t serial, std::uint32_t time, std::uint32_t button,
+      std::uint32_t state
+  );
+  static void
+  handlePointerAxis(void* data, wl_pointer* pointer, std::uint32_t time, std::uint32_t axis, std::int32_t value);
   static void handlePointerAxisSource(void* data, wl_pointer* pointer, std::uint32_t axisSource);
   static void handlePointerAxisDiscrete(void* data, wl_pointer* pointer, std::uint32_t axis, std::int32_t discrete);
   static void handlePointerAxisValue120(void* data, wl_pointer* pointer, std::uint32_t axis, std::int32_t value120);
   static void handlePointerFrame(void* data, wl_pointer* pointer);
 
   // Touch listener entrypoints
-  static void handleTouchDown(void* data, wl_touch* touch, std::uint32_t serial, std::uint32_t time,
-                              wl_surface* surface, std::int32_t id, std::int32_t x, std::int32_t y);
+  static void handleTouchDown(
+      void* data, wl_touch* touch, std::uint32_t serial, std::uint32_t time, wl_surface* surface, std::int32_t id,
+      std::int32_t x, std::int32_t y
+  );
   static void handleTouchUp(void* data, wl_touch* touch, std::uint32_t serial, std::uint32_t time, std::int32_t id);
-  static void handleTouchMotion(void* data, wl_touch* touch, std::uint32_t time, std::int32_t id, std::int32_t x,
-                                std::int32_t y);
+  static void
+  handleTouchMotion(void* data, wl_touch* touch, std::uint32_t time, std::int32_t id, std::int32_t x, std::int32_t y);
   static void handleTouchFrame(void* data, wl_touch* touch);
   static void handleTouchCancel(void* data, wl_touch* touch);
 
   // Keyboard listener entrypoints
   static void handleKeyboardKeymap(void* data, wl_keyboard* keyboard, std::uint32_t format, int fd, std::uint32_t size);
-  static void handleKeyboardEnter(void* data, wl_keyboard* keyboard, std::uint32_t serial, wl_surface* surface,
-                                  wl_array* keys);
+  static void
+  handleKeyboardEnter(void* data, wl_keyboard* keyboard, std::uint32_t serial, wl_surface* surface, wl_array* keys);
   static void handleKeyboardLeave(void* data, wl_keyboard* keyboard, std::uint32_t serial, wl_surface* surface);
-  static void handleKeyboardKey(void* data, wl_keyboard* keyboard, std::uint32_t serial, std::uint32_t time,
-                                std::uint32_t key, std::uint32_t state);
-  static void handleKeyboardModifiers(void* data, wl_keyboard* keyboard, std::uint32_t serial,
-                                      std::uint32_t modsDepressed, std::uint32_t modsLatched, std::uint32_t modsLocked,
-                                      std::uint32_t group);
+  static void handleKeyboardKey(
+      void* data, wl_keyboard* keyboard, std::uint32_t serial, std::uint32_t time, std::uint32_t key,
+      std::uint32_t state
+  );
+  static void handleKeyboardModifiers(
+      void* data, wl_keyboard* keyboard, std::uint32_t serial, std::uint32_t modsDepressed, std::uint32_t modsLatched,
+      std::uint32_t modsLocked, std::uint32_t group
+  );
   static void handleKeyboardRepeatInfo(void* data, wl_keyboard* keyboard, std::int32_t rate, std::int32_t delay);
 
   [[nodiscard]] wl_surface* lastPointerSurface() const noexcept { return m_lastPointerSurface; }

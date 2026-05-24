@@ -12,8 +12,8 @@
 
 namespace {
 
-  void managerToplevel(void* data, zwlr_foreign_toplevel_manager_v1* /*manager*/,
-                       zwlr_foreign_toplevel_handle_v1* handle) {
+  void
+  managerToplevel(void* data, zwlr_foreign_toplevel_manager_v1* /*manager*/, zwlr_foreign_toplevel_handle_v1* handle) {
     static_cast<WaylandToplevels*>(data)->onToplevelCreated(handle);
   }
 
@@ -52,8 +52,9 @@ namespace {
   void handleOutputLeave(void* data, zwlr_foreign_toplevel_handle_v1* handle, wl_output* output) {
     static_cast<WaylandToplevels*>(data)->onHandleOutputLeave(handle, output);
   }
-  void handleParent(void* /*data*/, zwlr_foreign_toplevel_handle_v1* /*handle*/,
-                    zwlr_foreign_toplevel_handle_v1* /*parent*/) {}
+  void handleParent(
+      void* /*data*/, zwlr_foreign_toplevel_handle_v1* /*handle*/, zwlr_foreign_toplevel_handle_v1* /*parent*/
+  ) {}
 
   const zwlr_foreign_toplevel_handle_v1_listener kHandleListener = {
       .title = handleTitle,
@@ -117,8 +118,9 @@ std::optional<ActiveToplevel> WaylandToplevels::current() const {
   };
 }
 
-std::optional<ActiveToplevel> WaylandToplevels::matchByTitleAndAppId(std::string_view title, std::string_view appId,
-                                                                     wl_output* preferredOutput) const {
+std::optional<ActiveToplevel> WaylandToplevels::matchByTitleAndAppId(
+    std::string_view title, std::string_view appId, wl_output* preferredOutput
+) const {
   std::optional<ActiveToplevel> best;
   std::uint64_t bestScore = 0;
 
@@ -277,8 +279,9 @@ std::vector<std::string> WaylandToplevels::allAppIds(wl_output* outputFilter) co
     }
     ordered.push_back(&state);
   }
-  std::sort(ordered.begin(), ordered.end(),
-            [](const ToplevelState* lhs, const ToplevelState* rhs) { return lhs->order < rhs->order; });
+  std::sort(ordered.begin(), ordered.end(), [](const ToplevelState* lhs, const ToplevelState* rhs) {
+    return lhs->order < rhs->order;
+  });
 
   std::vector<std::string> ids;
   ids.reserve(ordered.size());
@@ -291,8 +294,9 @@ std::vector<std::string> WaylandToplevels::allAppIds(wl_output* outputFilter) co
   return ids;
 }
 
-std::vector<ToplevelInfo> WaylandToplevels::windowsForApp(const std::string& idLower, const std::string& wmClassLower,
-                                                          wl_output* outputFilter) const {
+std::vector<ToplevelInfo> WaylandToplevels::windowsForApp(
+    const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter
+) const {
   struct MatchedWindow {
     std::uint64_t order = 0;
     ToplevelInfo info;
@@ -314,20 +318,22 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsForApp(const std::string& idL
       return s;
     }();
     if (app_identity::matchesLower(appLower, idLower, wmClassLower, {})) {
-      matched.push_back(MatchedWindow{
-          .order = state.order,
-          .info =
-              ToplevelInfo{
+      matched.push_back(
+          MatchedWindow{
+              .order = state.order,
+              .info = ToplevelInfo{
                   .title = state.title,
                   .appId = appId,
                   .order = state.order,
                   .handle = handle,
               },
-      });
+          }
+      );
     }
   }
-  std::sort(matched.begin(), matched.end(),
-            [](const MatchedWindow& lhs, const MatchedWindow& rhs) { return lhs.order < rhs.order; });
+  std::sort(matched.begin(), matched.end(), [](const MatchedWindow& lhs, const MatchedWindow& rhs) {
+    return lhs.order < rhs.order;
+  });
   out.reserve(matched.size());
   for (auto& window : matched) {
     out.push_back(std::move(window.info));

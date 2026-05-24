@@ -9,8 +9,9 @@
 
 GlyphPickerDialogPopup::~GlyphPickerDialogPopup() { destroyPopup(); }
 
-void GlyphPickerDialogPopup::initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext,
-                                        LayerPopupHostRegistry& popupHosts) {
+void GlyphPickerDialogPopup::initialize(
+    WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext, LayerPopupHostRegistry& popupHosts
+) {
   initializeBase(wayland, config, renderContext, popupHosts);
 }
 
@@ -28,8 +29,9 @@ void GlyphPickerDialogPopup::populateContent(Node* contentParent, std::uint32_t 
   sheet->setTitle(GlyphPickerDialog::currentOptions().title);
   sheet->setInitialGlyph(GlyphPickerDialog::currentOptions().initialGlyph);
   sheet->setOnCancel([this]() { DeferredCall::callLater([this]() { cancel(); }); });
-  sheet->setOnApply(
-      [this](const GlyphPickerResult& result) { DeferredCall::callLater([this, result]() { accept(result); }); });
+  sheet->setOnApply([this](const GlyphPickerResult& result) {
+    DeferredCall::callLater([this, result]() { accept(result); });
+  });
   m_sheet = sheet.get();
   contentParent->addChild(std::move(sheet));
 }

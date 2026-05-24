@@ -64,9 +64,11 @@ std::optional<std::string> NiriOutputBackend::focusedOutputName() const {
 namespace compositors::niri {
 
   bool setOutputPower(NiriRuntime& runtime, bool on) {
-    return runtime.requestAction(nlohmann::json{
-        {on ? "PowerOnMonitors" : "PowerOffMonitors", nlohmann::json::object()},
-    });
+    return runtime.requestAction(
+        nlohmann::json{
+            {on ? "PowerOnMonitors" : "PowerOffMonitors", nlohmann::json::object()},
+        }
+    );
   }
 
 } // namespace compositors::niri

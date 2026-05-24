@@ -7,7 +7,6 @@
 #include "render/scene/input_area.h"
 #include "shell/panel/panel_manager.h"
 #include "ui/builders.h"
-#include "ui/controls/spinner.h"
 #include "ui/palette.h"
 
 #include <algorithm>
@@ -51,8 +50,10 @@ namespace {
 
   class AccessPointRow : public Flex {
   public:
-    AccessPointRow(float scale, AccessPointInfo ap, bool saved, std::function<void(const AccessPointInfo&)> onActivate,
-                   std::function<void(const AccessPointInfo&)> onForget)
+    AccessPointRow(
+        float scale, AccessPointInfo ap, bool saved, std::function<void(const AccessPointInfo&)> onActivate,
+        std::function<void(const AccessPointInfo&)> onForget
+    )
         : m_ap(std::move(ap)), m_onActivate(std::move(onActivate)), m_onForget(std::move(onForget)) {
       setDirection(FlexDirection::Horizontal);
       setAlign(FlexAlign::Center);
@@ -63,35 +64,43 @@ namespace {
       setFill(colorSpecFromRole(ColorRole::Surface));
       clearBorder();
 
-      addChild(ui::glyph({
-          .glyph = network_glyphs::wifiGlyphForSignal(m_ap.strength),
-          .glyphSize = Style::fontSizeBody * scale,
-          .color = colorSpecFromRole(ColorRole::OnSurface),
-      }));
+      addChild(
+          ui::glyph({
+              .glyph = network_glyphs::wifiGlyphForSignal(m_ap.strength),
+              .glyphSize = Style::fontSizeBody * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+          })
+      );
 
-      addChild(ui::label({
-          .out = &m_title,
-          .text = m_ap.ssid,
-          .fontSize = Style::fontSizeBody * scale,
-          .color = colorSpecFromRole(ColorRole::OnSurface),
-          .fontWeight = m_ap.active ? FontWeight::Bold : FontWeight::Normal,
-          .flexGrow = 1.0f,
-      }));
+      addChild(
+          ui::label({
+              .out = &m_title,
+              .text = m_ap.ssid,
+              .fontSize = Style::fontSizeBody * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .fontWeight = m_ap.active ? FontWeight::Bold : FontWeight::Normal,
+              .flexGrow = 1.0f,
+          })
+      );
 
       if (m_ap.secured) {
-        addChild(ui::glyph({
-            .glyph = "lock",
-            .glyphSize = Style::fontSizeCaption * scale,
-            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-        }));
+        addChild(
+            ui::glyph({
+                .glyph = "lock",
+                .glyphSize = Style::fontSizeCaption * scale,
+                .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            })
+        );
       }
 
-      addChild(ui::label({
-          .text = std::to_string(static_cast<int>(m_ap.strength)) + "%",
-          .fontSize = Style::fontSizeCaption * scale,
-          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-          .configure = [](Label& label) { label.setCaptionStyle(); },
-      }));
+      addChild(
+          ui::label({
+              .text = std::to_string(static_cast<int>(m_ap.strength)) + "%",
+              .fontSize = Style::fontSizeCaption * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .configure = [](Label& label) { label.setCaptionStyle(); },
+          })
+      );
 
       const float actionOpacity = (m_ap.active || saved) ? 1.0f : 0.0f;
       auto action = ui::button({
@@ -186,8 +195,10 @@ namespace {
 
   class VpnConnectionRow : public Flex {
   public:
-    VpnConnectionRow(float scale, VpnConnectionInfo vpn, std::function<void(const VpnConnectionInfo&)> onActivate,
-                     std::function<void(const VpnConnectionInfo&)> onDeactivate)
+    VpnConnectionRow(
+        float scale, VpnConnectionInfo vpn, std::function<void(const VpnConnectionInfo&)> onActivate,
+        std::function<void(const VpnConnectionInfo&)> onDeactivate
+    )
         : m_vpn(std::move(vpn)), m_onActivate(std::move(onActivate)), m_onDeactivate(std::move(onDeactivate)) {
       setDirection(FlexDirection::Horizontal);
       setAlign(FlexAlign::Center);
@@ -198,34 +209,40 @@ namespace {
       setFill(colorSpecFromRole(ColorRole::Surface));
       clearBorder();
 
-      addChild(ui::label({
-          .out = &m_title,
-          .text = m_vpn.name,
-          .fontSize = Style::fontSizeBody * scale,
-          .color = colorSpecFromRole(ColorRole::OnSurface),
-          .fontWeight = m_vpn.active ? FontWeight::Bold : FontWeight::Normal,
-          .flexGrow = 1.0f,
-      }));
+      addChild(
+          ui::label({
+              .out = &m_title,
+              .text = m_vpn.name,
+              .fontSize = Style::fontSizeBody * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .fontWeight = m_vpn.active ? FontWeight::Bold : FontWeight::Normal,
+              .flexGrow = 1.0f,
+          })
+      );
 
-      addChild(ui::button({
-          .out = &m_checkButton,
-          .glyph = "check",
-          .glyphSize = Style::fontSizeBody * scale,
-          .variant = ButtonVariant::Ghost,
-          .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusSm(scale),
-          .opacity = m_vpn.active ? 1.0f : 0.0f,
-      }));
+      addChild(
+          ui::button({
+              .out = &m_checkButton,
+              .glyph = "check",
+              .glyphSize = Style::fontSizeBody * scale,
+              .variant = ButtonVariant::Ghost,
+              .padding = Style::spaceXs * scale,
+              .radius = Style::scaledRadiusSm(scale),
+              .opacity = m_vpn.active ? 1.0f : 0.0f,
+          })
+      );
 
-      addChild(ui::button({
-          .out = &m_actionButton,
-          .glyph = m_vpn.active ? "plug-off" : "plug",
-          .glyphSize = Style::fontSizeBody * scale,
-          .variant = m_vpn.active ? ButtonVariant::Destructive : ButtonVariant::Default,
-          .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusSm(scale),
-          .onClick = [this]() { triggerAction(); },
-      }));
+      addChild(
+          ui::button({
+              .out = &m_actionButton,
+              .glyph = m_vpn.active ? "plug-off" : "plug",
+              .glyphSize = Style::fontSizeBody * scale,
+              .variant = m_vpn.active ? ButtonVariant::Destructive : ButtonVariant::Default,
+              .padding = Style::spaceXs * scale,
+              .radius = Style::scaledRadiusSm(scale),
+              .onClick = [this]() { triggerAction(); },
+          })
+      );
 
       auto area = std::make_unique<InputArea>();
       area->setPropagateEvents(true);
@@ -335,40 +352,42 @@ std::unique_ptr<Flex> NetworkTab::create() {
 
   auto currentCard = ui::column({
       .out = &m_currentCard,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](
-                       Flex& card) { applySectionCardStyle(card, scale, opacity, borders); },
+      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
+        applySectionCardStyle(card, scale, opacity, borders);
+      },
   });
   addTitle(*currentCard, i18n::tr("control-center.network.current-connection"), scale);
 
-  auto connRow = ui::row({.out = &m_currentRow, .align = FlexAlign::Center, .gap = Style::spaceSm * scale},
-                         ui::label({
-                             .out = &m_currentTitle,
-                             .fontSize = Style::fontSizeBody * scale,
-                             .color = colorSpecFromRole(ColorRole::OnSurface),
-                             .fontWeight = FontWeight::Bold,
-                         }),
-                         ui::label({
-                             .out = &m_currentDetail,
-                             .fontSize = Style::fontSizeCaption * scale,
-                             .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                             .flexGrow = 1.0f,
-                             .configure = [](Label& label) { label.setCaptionStyle(); },
-                         }),
-                         ui::button({
-                             .out = &m_disconnectButton,
-                             .glyph = "plug-off",
-                             .glyphSize = Style::fontSizeBody * scale,
-                             .variant = ButtonVariant::Destructive,
-                             .padding = Style::spaceXs * scale,
-                             .radius = Style::scaledRadiusSm(scale),
-                             .onClick =
-                                 [this]() {
-                                   if (m_network != nullptr) {
-                                     m_network->disconnect();
-                                   }
-                                   PanelManager::instance().refresh();
-                                 },
-                         }));
+  auto connRow = ui::row(
+      {.out = &m_currentRow, .align = FlexAlign::Center, .gap = Style::spaceSm * scale},
+      ui::label({
+          .out = &m_currentTitle,
+          .fontSize = Style::fontSizeBody * scale,
+          .color = colorSpecFromRole(ColorRole::OnSurface),
+          .fontWeight = FontWeight::Bold,
+      }),
+      ui::label({
+          .out = &m_currentDetail,
+          .fontSize = Style::fontSizeCaption * scale,
+          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+          .flexGrow = 1.0f,
+          .configure = [](Label& label) { label.setCaptionStyle(); },
+      }),
+      ui::button({
+          .out = &m_disconnectButton,
+          .glyph = "plug-off",
+          .glyphSize = Style::fontSizeBody * scale,
+          .variant = ButtonVariant::Destructive,
+          .padding = Style::spaceXs * scale,
+          .radius = Style::scaledRadiusSm(scale),
+          .onClick = [this]() {
+            if (m_network != nullptr) {
+              m_network->disconnect();
+            }
+            PanelManager::instance().refresh();
+          },
+      })
+  );
   currentCard->addChild(std::move(connRow));
 
   tab->addChild(std::move(currentCard));
@@ -376,16 +395,19 @@ std::unique_ptr<Flex> NetworkTab::create() {
   auto passwordCard = ui::column({
       .out = &m_passwordCard,
       .visible = false,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](
-                       Flex& card) { applySectionCardStyle(card, scale, opacity, borders); },
+      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
+        applySectionCardStyle(card, scale, opacity, borders);
+      },
   });
 
-  passwordCard->addChild(ui::label({
-      .out = &m_passwordTitle,
-      .fontSize = Style::fontSizeBody * scale,
-      .color = colorSpecFromRole(ColorRole::OnSurface),
-      .fontWeight = FontWeight::Bold,
-  }));
+  passwordCard->addChild(
+      ui::label({
+          .out = &m_passwordTitle,
+          .fontSize = Style::fontSizeBody * scale,
+          .color = colorSpecFromRole(ColorRole::OnSurface),
+          .fontWeight = FontWeight::Bold,
+      })
+  );
 
   auto inputRow = ui::row(
       {.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
@@ -427,7 +449,8 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .text = i18n::tr("common.actions.cancel"),
           .variant = ButtonVariant::Ghost,
           .onClick = [this]() { cancelPasswordPrompt(); },
-      }));
+      })
+  );
 
   passwordCard->addChild(std::move(inputRow));
   tab->addChild(std::move(passwordCard));
@@ -435,8 +458,9 @@ std::unique_ptr<Flex> NetworkTab::create() {
   auto listCard = ui::column({
       .out = &m_listCard,
       .flexGrow = 1.0f,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](
-                       Flex& card) { applySectionCardStyle(card, scale, opacity, borders); },
+      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
+        applySectionCardStyle(card, scale, opacity, borders);
+      },
   });
   addTitle(*listCard, i18n::tr("control-center.network.available-networks"), scale);
 
@@ -446,11 +470,10 @@ std::unique_ptr<Flex> NetworkTab::create() {
       .viewportPaddingH = 0.0f,
       .viewportPaddingV = 0.0f,
       .flexGrow = 1.0f,
-      .configure =
-          [](ScrollView& scrollView) {
-            scrollView.clearFill();
-            scrollView.clearBorder();
-          },
+      .configure = [](ScrollView& scrollView) {
+        scrollView.clearFill();
+        scrollView.clearBorder();
+      },
   });
   m_list = listScroll->content();
   m_list->setDirection(FlexDirection::Vertical);
@@ -525,9 +548,10 @@ void NetworkTab::syncPasswordCard() {
   }
   m_passwordCard->setVisible(m_hasPendingSecret);
   if (m_hasPendingSecret && m_passwordTitle != nullptr) {
-    m_passwordTitle->setText(m_pendingSsid.empty()
-                                 ? i18n::tr("control-center.network.password-prompt")
-                                 : i18n::tr("control-center.network.password-prompt-for", "ssid", m_pendingSsid));
+    m_passwordTitle->setText(
+        m_pendingSsid.empty() ? i18n::tr("control-center.network.password-prompt")
+                              : i18n::tr("control-center.network.password-prompt-for", "ssid", m_pendingSsid)
+    );
   }
 }
 
@@ -627,8 +651,8 @@ void NetworkTab::syncCurrentCard() {
   }
 }
 
-std::string NetworkTab::structureKey(const std::vector<AccessPointInfo>& aps,
-                                     const std::vector<VpnConnectionInfo>& vpns) const {
+std::string
+NetworkTab::structureKey(const std::vector<AccessPointInfo>& aps, const std::vector<VpnConnectionInfo>& vpns) const {
   std::string key;
   for (const auto& ap : aps) {
     key += ap.ssid;
@@ -702,12 +726,14 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
         .gap = Style::spaceXs * scale,
     });
     if (aps.empty()) {
-      container->addChild(ui::label({
-          .text = i18n::tr("control-center.network.no-networks"),
-          .fontSize = Style::fontSizeCaption * scale,
-          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-          .configure = [](Label& label) { label.setCaptionStyle(); },
-      }));
+      container->addChild(
+          ui::label({
+              .text = i18n::tr("control-center.network.no-networks"),
+              .fontSize = Style::fontSizeCaption * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .configure = [](Label& label) { label.setCaptionStyle(); },
+          })
+      );
     } else {
       for (const auto& ap : aps) {
         const bool saved = m_network != nullptr && m_network->hasSavedConnection(ap.ssid);
@@ -729,7 +755,8 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
                 m_network->forgetSsid(clicked.ssid);
               }
               PanelManager::instance().refresh();
-            });
+            }
+        );
         container->addChild(std::move(row));
       }
     }
@@ -765,12 +792,14 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
   }
 
   if (m_network == nullptr) {
-    m_list->addChild(ui::label({
-        .text = i18n::tr("control-center.network.unavailable-title"),
-        .fontSize = Style::fontSizeCaption * scale,
-        .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-        .configure = [](Label& label) { label.setCaptionStyle(); },
-    }));
+    m_list->addChild(
+        ui::label({
+            .text = i18n::tr("control-center.network.unavailable-title"),
+            .fontSize = Style::fontSizeCaption * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .configure = [](Label& label) { label.setCaptionStyle(); },
+        })
+    );
   } else {
     if (!vpns.empty()) {
       auto vpnSection = ui::column({
@@ -791,12 +820,12 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
               .checkedImmediate = m_vpnVisible,
               .toggleSize = ToggleSize::Small,
               .scale = scale,
-              .onChange =
-                  [this](bool checked) {
-                    m_vpnVisible = checked;
-                    PanelManager::instance().refresh();
-                  },
-          }));
+              .onChange = [this](bool checked) {
+                m_vpnVisible = checked;
+                PanelManager::instance().refresh();
+              },
+          })
+      );
       vpnSection->addChild(std::move(vpnHeader));
 
       if (m_vpnVisible) {
@@ -814,7 +843,8 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
                   m_network->deactivateVpnConnection(clicked);
                 }
                 PanelManager::instance().refresh();
-              });
+              }
+          );
           vpnSection->addChild(std::move(row));
         }
       }
@@ -825,50 +855,56 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
     }
 
     {
-      auto wifiHeader = ui::row({.align = FlexAlign::Center,
-                                 .gap = Style::spaceSm * scale,
-                                 .minHeight = Style::controlHeightSm * scale,
-                                 .maxHeight = Style::controlHeightSm * scale},
-                                ui::label({
-                                    .text = i18n::tr("control-center.network.wireless"),
-                                    .fontSize = Style::fontSizeCaption * scale,
-                                    .color = colorSpecFromRole(ColorRole::Secondary),
-                                    .flexGrow = 1.0f,
-                                    .configure = [](Label& label) { label.setCaptionStyle(); },
-                                }));
+      auto wifiHeader = ui::row(
+          {.align = FlexAlign::Center,
+           .gap = Style::spaceSm * scale,
+           .minHeight = Style::controlHeightSm * scale,
+           .maxHeight = Style::controlHeightSm * scale},
+          ui::label({
+              .text = i18n::tr("control-center.network.wireless"),
+              .fontSize = Style::fontSizeCaption * scale,
+              .color = colorSpecFromRole(ColorRole::Secondary),
+              .flexGrow = 1.0f,
+              .configure = [](Label& label) { label.setCaptionStyle(); },
+          })
+      );
 
-      auto spinner = std::make_unique<Spinner>();
-      spinner->setSpinnerSize(Style::fontSizeCaption * scale);
-      spinner->setColor(colorSpecFromRole(ColorRole::Primary));
-      m_scanSpinner = spinner.get();
-      wifiHeader->addChild(std::move(spinner));
+      wifiHeader->addChild(
+          ui::spinner({
+              .out = &m_scanSpinner,
+              .color = colorSpecFromRole(ColorRole::Primary),
+              .spinnerSize = Style::fontSizeCaption * scale,
+          })
+      );
 
-      wifiHeader->addChild(ui::button({
-          .out = &m_rescanButton,
-          .glyph = "refresh",
-          .glyphSize = Style::fontSizeCaption * scale,
-          .variant = ButtonVariant::Ghost,
-          .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusSm(scale),
-          .onClick =
-              [this]() {
+      wifiHeader->addChild(
+          ui::button({
+              .out = &m_rescanButton,
+              .glyph = "refresh",
+              .glyphSize = Style::fontSizeCaption * scale,
+              .variant = ButtonVariant::Ghost,
+              .padding = Style::spaceXs * scale,
+              .radius = Style::scaledRadiusSm(scale),
+              .onClick = [this]() {
                 if (m_network != nullptr) {
                   m_network->requestScan();
                 }
               },
-      }));
+          })
+      );
 
-      wifiHeader->addChild(ui::toggle({
-          .out = &m_wifiToggle,
-          .toggleSize = ToggleSize::Small,
-          .scale = scale,
-          .onChange =
-              [this](bool checked) {
+      wifiHeader->addChild(
+          ui::toggle({
+              .out = &m_wifiToggle,
+              .toggleSize = ToggleSize::Small,
+              .scale = scale,
+              .onChange = [this](bool checked) {
                 if (m_network != nullptr) {
                   m_network->setWirelessEnabled(checked);
                 }
               },
-      }));
+          })
+      );
       m_list->addChild(std::move(wifiHeader));
 
       const auto& s = m_network->state();

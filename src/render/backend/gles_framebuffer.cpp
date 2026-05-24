@@ -30,8 +30,9 @@ bool GlesFramebuffer::create(TextureManager& textures, std::uint32_t width, std:
   }
 
   m_textures = &textures;
-  m_color = textures.createEmpty(static_cast<int>(width), static_cast<int>(height), TextureDataFormat::Rgba,
-                                 TextureFilter::Linear);
+  m_color = textures.createEmpty(
+      static_cast<int>(width), static_cast<int>(height), TextureDataFormat::Rgba, TextureFilter::Linear
+  );
   if (m_color.id == 0) {
     m_textures = nullptr;
     return false;
@@ -44,8 +45,9 @@ bool GlesFramebuffer::create(TextureManager& textures, std::uint32_t width, std:
   }
 
   glBindFramebuffer(GL_FRAMEBUFFER, m_id);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, static_cast<GLuint>(m_color.id.value()),
-                         0);
+  glFramebufferTexture2D(
+      GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, static_cast<GLuint>(m_color.id.value()), 0
+  );
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     destroy();

@@ -4,8 +4,9 @@
 
 BlurCache::~BlurCache() { destroy(); }
 
-TextureHandle BlurCache::get(RenderBackend& backend, TextureHandle source, std::uint32_t width, std::uint32_t height,
-                             float radius, int rounds) {
+TextureHandle BlurCache::get(
+    RenderBackend& backend, TextureHandle source, std::uint32_t width, std::uint32_t height, float radius, int rounds
+) {
   if (source.id == TextureId{} || width == 0 || height == 0) {
     return {};
   }
@@ -28,17 +29,19 @@ TextureHandle BlurCache::get(RenderBackend& backend, TextureHandle source, std::
     backend.setViewport(width, height);
     backend.setBlendMode(RenderBlendMode::Disabled);
     backend.clear(rgba(0.0f, 0.0f, 0.0f, 1.0f));
-    backend.drawImage(RenderImageDraw{
-        .texture = source.id,
-        .surfaceWidth = static_cast<float>(width),
-        .surfaceHeight = static_cast<float>(height),
-        .width = static_cast<float>(width),
-        .height = static_cast<float>(height),
-        .fitMode = RenderImageFitMode::Cover,
-        .textureWidth = static_cast<float>(source.width),
-        .textureHeight = static_cast<float>(source.height),
-        .transform = Mat3::translation(0.0f, static_cast<float>(height)) * Mat3::scale(1.0f, -1.0f),
-    });
+    backend.drawImage(
+        RenderImageDraw{
+            .texture = source.id,
+            .surfaceWidth = static_cast<float>(width),
+            .surfaceHeight = static_cast<float>(height),
+            .width = static_cast<float>(width),
+            .height = static_cast<float>(height),
+            .fitMode = RenderImageFitMode::Cover,
+            .textureWidth = static_cast<float>(source.width),
+            .textureHeight = static_cast<float>(source.height),
+            .transform = Mat3::translation(0.0f, static_cast<float>(height)) * Mat3::scale(1.0f, -1.0f),
+        }
+    );
 
     auto* scratch = m_layer.scratch();
     if (scratch != nullptr && radius >= 0.5f && rounds > 0) {

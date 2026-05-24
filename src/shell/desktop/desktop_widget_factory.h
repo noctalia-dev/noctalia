@@ -15,12 +15,15 @@ class WeatherService;
 
 class DesktopWidgetFactory {
 public:
-  DesktopWidgetFactory(PipeWireSpectrum* pipewireSpectrum, const WeatherService* weather, MprisService* mpris,
-                       HttpClient* httpClient, SystemMonitorService* sysmon);
+  DesktopWidgetFactory(
+      PipeWireSpectrum* pipewireSpectrum, const WeatherService* weather, MprisService* mpris, HttpClient* httpClient,
+      SystemMonitorService* sysmon
+  );
 
-  [[nodiscard]] std::unique_ptr<DesktopWidget>
-  create(const std::string& type, const std::unordered_map<std::string, WidgetSettingValue>& settings,
-         float contentScale = 1.0f) const;
+  [[nodiscard]] std::unique_ptr<DesktopWidget> create(
+      const std::string& type, const std::unordered_map<std::string, WidgetSettingValue>& settings,
+      float contentScale = 1.0f
+  ) const;
 
 private:
   PipeWireSpectrum* m_pipewireSpectrum = nullptr;

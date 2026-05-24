@@ -82,8 +82,8 @@ public:
   [[nodiscard]] std::optional<ActiveToplevel> activeToplevel() const;
   [[nodiscard]] wl_output* activeToplevelOutput() const;
   [[nodiscard]] std::vector<std::string> runningAppIds(wl_output* outputFilter = nullptr) const;
-  [[nodiscard]] std::vector<ToplevelInfo> windowsForApp(const std::string& idLower, const std::string& wmClassLower,
-                                                        wl_output* outputFilter = nullptr) const;
+  [[nodiscard]] std::vector<ToplevelInfo>
+  windowsForApp(const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter = nullptr) const;
   void activateToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   void closeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   void focusCompositorWindow(const std::string& windowId) const;
@@ -152,8 +152,9 @@ private:
   [[nodiscard]] wl_output* resolveOutputName(const std::string& outputName) const;
   [[nodiscard]] std::string connectorNameForOutput(wl_output* output) const;
   [[nodiscard]] std::vector<WorkspaceModelSnapshot> workspaceModelSnapshot() const;
-  [[nodiscard]] static bool sameWorkspaceModelSnapshot(const std::vector<WorkspaceModelSnapshot>& lhs,
-                                                       const std::vector<WorkspaceModelSnapshot>& rhs);
+  [[nodiscard]] static bool sameWorkspaceModelSnapshot(
+      const std::vector<WorkspaceModelSnapshot>& lhs, const std::vector<WorkspaceModelSnapshot>& rhs
+  );
 
   WaylandConnection& m_wayland;
   std::unique_ptr<compositors::CompositorRuntimeRegistry> m_runtimeRegistry;

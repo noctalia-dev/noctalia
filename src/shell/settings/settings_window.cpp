@@ -40,8 +40,10 @@ namespace {
 
 SettingsWindow::~SettingsWindow() = default;
 
-void SettingsWindow::initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext,
-                                DependencyService* dependencies, UPowerService* upower, IdleManager* idleManager) {
+void SettingsWindow::initialize(
+    WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext, DependencyService* dependencies,
+    UPowerService* upower, IdleManager* idleManager
+) {
   m_wayland = &wayland;
   m_idleManager = idleManager;
   m_config = config;
@@ -108,8 +110,9 @@ std::optional<LayerPopupParentContext> SettingsWindow::popupParentContextForSurf
     return std::nullopt;
   }
 
-  const auto makeContext = [this](wl_surface* wlSurface, xdg_surface* xdgSurface, std::uint32_t width,
-                                  std::uint32_t height) -> std::optional<LayerPopupParentContext> {
+  const auto makeContext = [this](
+                               wl_surface* wlSurface, xdg_surface* xdgSurface, std::uint32_t width, std::uint32_t height
+                           ) -> std::optional<LayerPopupParentContext> {
     if (wlSurface == nullptr || xdgSurface == nullptr) {
       return std::nullopt;
     }
@@ -131,24 +134,34 @@ std::optional<LayerPopupParentContext> SettingsWindow::popupParentContextForSurf
     return makeContext(m_surface->wlSurface(), m_surface->xdgSurface(), m_surface->width(), m_surface->height());
   }
   if (m_widgetAddPopup != nullptr && surface == m_widgetAddPopup->wlSurface()) {
-    return makeContext(m_widgetAddPopup->wlSurface(), m_widgetAddPopup->xdgSurface(), m_widgetAddPopup->width(),
-                       m_widgetAddPopup->height());
+    return makeContext(
+        m_widgetAddPopup->wlSurface(), m_widgetAddPopup->xdgSurface(), m_widgetAddPopup->width(),
+        m_widgetAddPopup->height()
+    );
   }
   if (m_configExportDialogPopup != nullptr && surface == m_configExportDialogPopup->wlSurface()) {
-    return makeContext(m_configExportDialogPopup->wlSurface(), m_configExportDialogPopup->xdgSurface(),
-                       m_configExportDialogPopup->width(), m_configExportDialogPopup->height());
+    return makeContext(
+        m_configExportDialogPopup->wlSurface(), m_configExportDialogPopup->xdgSurface(),
+        m_configExportDialogPopup->width(), m_configExportDialogPopup->height()
+    );
   }
   if (m_searchPickerPopup != nullptr && surface == m_searchPickerPopup->wlSurface()) {
-    return makeContext(m_searchPickerPopup->wlSurface(), m_searchPickerPopup->xdgSurface(),
-                       m_searchPickerPopup->width(), m_searchPickerPopup->height());
+    return makeContext(
+        m_searchPickerPopup->wlSurface(), m_searchPickerPopup->xdgSurface(), m_searchPickerPopup->width(),
+        m_searchPickerPopup->height()
+    );
   }
   if (m_sessionActionsEditorPopup != nullptr && surface == m_sessionActionsEditorPopup->wlSurface()) {
-    return makeContext(m_sessionActionsEditorPopup->wlSurface(), m_sessionActionsEditorPopup->xdgSurface(),
-                       m_sessionActionsEditorPopup->width(), m_sessionActionsEditorPopup->height());
+    return makeContext(
+        m_sessionActionsEditorPopup->wlSurface(), m_sessionActionsEditorPopup->xdgSurface(),
+        m_sessionActionsEditorPopup->width(), m_sessionActionsEditorPopup->height()
+    );
   }
   if (m_sessionActionsEditorPopup != nullptr && m_sessionActionsEditorPopup->ownsSelectDropdownSurface(surface)) {
-    return makeContext(m_sessionActionsEditorPopup->wlSurface(), m_sessionActionsEditorPopup->xdgSurface(),
-                       m_sessionActionsEditorPopup->width(), m_sessionActionsEditorPopup->height());
+    return makeContext(
+        m_sessionActionsEditorPopup->wlSurface(), m_sessionActionsEditorPopup->xdgSurface(),
+        m_sessionActionsEditorPopup->width(), m_sessionActionsEditorPopup->height()
+    );
   }
   return std::nullopt;
 }
@@ -190,8 +203,9 @@ void SettingsWindow::open() {
     }
   });
 
-  m_surface->setPrepareFrameCallback(
-      [this](bool needsUpdate, bool needsLayout) { prepareFrame(needsUpdate, needsLayout); });
+  m_surface->setPrepareFrameCallback([this](bool needsUpdate, bool needsLayout) {
+    prepareFrame(needsUpdate, needsLayout);
+  });
 
   m_surface->setUpdateCallback([]() {});
 
@@ -524,17 +538,19 @@ bool SettingsWindow::onPointerEvent(const PointerEvent& event) {
         consumed = true;
         break;
       }
-      m_inputDispatcher.pointerButton(static_cast<float>(event.sx), static_cast<float>(event.sy), event.button,
-                                      pressed);
+      m_inputDispatcher.pointerButton(
+          static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+      );
       consumed = m_pointerInside;
     }
     break;
   }
   case PointerEvent::Type::Axis:
     if (m_pointerInside) {
-      m_inputDispatcher.pointerAxis(static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis,
-                                    event.axisSource, event.axisValue, event.axisDiscrete, event.axisValue120,
-                                    event.axisLines);
+      m_inputDispatcher.pointerAxis(
+          static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis, event.axisSource, event.axisValue,
+          event.axisDiscrete, event.axisValue120, event.axisLines
+      );
       consumed = true;
     }
     break;
@@ -692,7 +708,8 @@ void SettingsWindow::refreshIdleLiveStatusText() {
     m_idleLiveStatusLabel->setText(i18n::tr("settings.idle.live-status.idle-for-one"));
   } else {
     m_idleLiveStatusLabel->setText(
-        i18n::tr("settings.idle.live-status.idle-for-seconds", "seconds", std::to_string(sec)));
+        i18n::tr("settings.idle.live-status.idle-for-seconds", "seconds", std::to_string(sec))
+    );
   }
 }
 

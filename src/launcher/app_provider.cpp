@@ -171,7 +171,8 @@ namespace {
     if (terminal.empty()) {
       static constexpr std::array<std::string_view, 9> kTerminalCandidates = {
           "x-terminal-emulator", "ghostty", "kitty", "alacritty", "wezterm", "foot", "konsole",
-          "gnome-terminal",      "xterm"};
+          "gnome-terminal",      "xterm"
+      };
       for (const auto candidate : kTerminalCandidates) {
         if (isExecutableOnPath(candidate)) {
           terminal.emplace_back(candidate);
@@ -199,8 +200,10 @@ namespace {
     return terminal;
   }
 
-  void launchCommand(const std::string& exec, bool terminal, const std::string& activationToken,
-                     const std::string& workingDir, const std::string& appName, bool runAsSystemdService) {
+  void launchCommand(
+      const std::string& exec, bool terminal, const std::string& activationToken, const std::string& workingDir,
+      const std::string& appName, bool runAsSystemdService
+  ) {
     std::string cleanExec = stripFieldCodes(exec);
     std::vector<std::string> args = terminal ? terminalLaunchArgs(cleanExec) : tokenize(cleanExec);
 
@@ -357,8 +360,10 @@ bool AppProvider::activate(const LauncherResult& result) {
     if (m_wayland != nullptr && m_wayland->hasXdgActivation()) {
       token = m_wayland->requestActivationToken(nullptr);
     }
-    launchCommand(execLine, entry.terminal, token, entry.workingDir, entry.id,
-                  m_config->config().shell.launchAppsAsSystemdServices);
+    launchCommand(
+        execLine, entry.terminal, token, entry.workingDir, entry.id,
+        m_config->config().shell.launchAppsAsSystemdServices
+    );
     return true;
   }
   return false;

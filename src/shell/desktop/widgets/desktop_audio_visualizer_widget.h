@@ -11,14 +11,17 @@ class Renderer;
 
 class DesktopAudioVisualizerWidget : public DesktopWidget {
 public:
-  DesktopAudioVisualizerWidget(PipeWireSpectrum* spectrum, float aspectRatio, int bands, bool mirrored,
-                               ColorSpec lowColor, ColorSpec highColor, bool centered, bool showWhenIdle);
+  DesktopAudioVisualizerWidget(
+      PipeWireSpectrum* spectrum, float aspectRatio, int bands, bool mirrored, ColorSpec lowColor, ColorSpec highColor,
+      bool centered, bool showWhenIdle
+  );
   ~DesktopAudioVisualizerWidget() override;
 
   void create() override;
-  bool applySetting(const std::string& key, const WidgetSettingValue& value,
-                    const std::unordered_map<std::string, WidgetSettingValue>& allSettings,
-                    Renderer& renderer) override;
+  bool applySetting(
+      const std::string& key, const WidgetSettingValue& value,
+      const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
+  ) override;
   void setEditorPreview(bool enabled) noexcept override;
   [[nodiscard]] bool needsFrameTick() const override;
   void onFrameTick(float deltaMs, Renderer& renderer) override;

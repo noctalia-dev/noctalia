@@ -198,8 +198,9 @@ void GammaService::scheduleManualTimer() {
   const auto boundaryDelay = msUntilNextManualBoundary();
   const auto delay =
       std::min(boundaryDelay, std::chrono::duration_cast<std::chrono::milliseconds>(kScheduleRecheckInterval));
-  kLog.debug("manual schedule: next phase boundary in {}s, recheck in {}s", boundaryDelay.count() / 1000,
-             delay.count() / 1000);
+  kLog.debug(
+      "manual schedule: next phase boundary in {}s, recheck in {}s", boundaryDelay.count() / 1000, delay.count() / 1000
+  );
   m_scheduleTimer.start(delay, [this, boundaryTimer = delay == boundaryDelay]() {
     if (boundaryTimer) {
       kLog.info("manual schedule: phase boundary reached");
@@ -334,8 +335,9 @@ void GammaService::scheduleGeoTimer() {
   const auto boundaryDelay = msUntilNextGeoBoundary();
   const auto delay =
       std::min(boundaryDelay, std::chrono::duration_cast<std::chrono::milliseconds>(kScheduleRecheckInterval));
-  kLog.debug("geo schedule: next phase boundary in {}s, recheck in {}s", boundaryDelay.count() / 1000,
-             delay.count() / 1000);
+  kLog.debug(
+      "geo schedule: next phase boundary in {}s, recheck in {}s", boundaryDelay.count() / 1000, delay.count() / 1000
+  );
   m_scheduleTimer.start(delay, [this, boundaryTimer = delay == boundaryDelay]() {
     if (boundaryTimer) {
       kLog.info("geo schedule: phase boundary reached");
@@ -439,13 +441,15 @@ void GammaService::syncOutputs() {
     }
 
     auto* ctrl = zwlr_gamma_control_manager_v1_get_gamma_control(m_wayland.gammaControlManager(), wo.output);
-    auto& og = m_outputs.emplace_back(OutputGamma{
-        .wlOutput = wo.output,
-        .control = ctrl,
-        .gammaSize = 0,
-        .ready = false,
-        .owner = this,
-    });
+    auto& og = m_outputs.emplace_back(
+        OutputGamma{
+            .wlOutput = wo.output,
+            .control = ctrl,
+            .gammaSize = 0,
+            .ready = false,
+            .owner = this,
+        }
+    );
     zwlr_gamma_control_v1_add_listener(ctrl, &kGammaControlListener, &og);
   }
 }
@@ -542,10 +546,12 @@ void GammaService::startTransition(int fromKelvin, int toKelvin) {
 
 void GammaService::tickTransition() {
   const auto elapsed = std::chrono::steady_clock::now() - m_transitionStart;
-  m_transitionProgress = std::min(1.0f, static_cast<float>(std::chrono::duration<double, std::milli>(elapsed).count()) /
-                                            kTransitionDurationMs);
+  m_transitionProgress = std::min(
+      1.0f, static_cast<float>(std::chrono::duration<double, std::milli>(elapsed).count()) / kTransitionDurationMs
+  );
   const int interpolated = static_cast<int>(
-      std::lerp(static_cast<float>(m_transitionFromKelvin), static_cast<float>(m_targetKelvin), m_transitionProgress));
+      std::lerp(static_cast<float>(m_transitionFromKelvin), static_cast<float>(m_targetKelvin), m_transitionProgress)
+  );
   if (interpolated != m_currentKelvin) {
     applyGammaToAll(interpolated);
     m_currentKelvin = interpolated;
@@ -601,8 +607,10 @@ int GammaService::targetTemperature() const {
     } else if (m_weatherLocationConfigured) {
       kLog.debug("night light schedule waiting for weather location");
     } else {
-      kLog.warn("no schedule: configure weather location or disable weather location and set start_time/stop_time or "
-                "latitude/longitude");
+      kLog.warn(
+          "no schedule: configure weather location or disable weather location and set start_time/stop_time or "
+          "latitude/longitude"
+      );
     }
     return -1;
   }
@@ -672,7 +680,8 @@ void GammaService::apply() {
     kLog.info(
         "applying {}K (day={}K night={}K force={})", target, dayTemp,
         std::clamp(m_config.nightTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax),
-        effectiveForce());
+        effectiveForce()
+    );
     startTransition(m_currentKelvin, target);
   }
 
@@ -688,7 +697,8 @@ void GammaService::registerIpc(IpcService& ipc) {
         setEnabled(true);
         return "ok\n";
       },
-      "nightlight-enable", "Enable night light schedule");
+      "nightlight-enable", "Enable night light schedule"
+  );
 
   ipc.registerHandler(
       "nightlight-disable",
@@ -696,7 +706,8 @@ void GammaService::registerIpc(IpcService& ipc) {
         setEnabled(false);
         return "ok\n";
       },
-      "nightlight-disable", "Disable night light schedule");
+      "nightlight-disable", "Disable night light schedule"
+  );
 
   ipc.registerHandler(
       "nightlight-toggle",
@@ -704,7 +715,8 @@ void GammaService::registerIpc(IpcService& ipc) {
         toggleEnabled();
         return "ok\n";
       },
-      "nightlight-toggle", "Toggle night light schedule");
+      "nightlight-toggle", "Toggle night light schedule"
+  );
 
   ipc.registerHandler(
       "nightlight-force-toggle",
@@ -712,5 +724,6 @@ void GammaService::registerIpc(IpcService& ipc) {
         toggleForceEnabled();
         return "ok\n";
       },
-      "nightlight-force-toggle", "Toggle forced night light mode");
+      "nightlight-force-toggle", "Toggle forced night light mode"
+  );
 }

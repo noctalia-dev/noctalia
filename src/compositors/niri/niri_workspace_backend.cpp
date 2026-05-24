@@ -223,8 +223,9 @@ void NiriWorkspaceBackend::apply(std::vector<Workspace>& workspaces, const std::
       matches[i] = pickCandidate([&](const WorkspaceState& candidate) { return candidate.name == workspaces[i].name; });
     }
     if (matches[i] == nullptr && parsedIndex.has_value()) {
-      matches[i] = pickCandidate(
-          [&](const WorkspaceState& candidate) { return static_cast<std::size_t>(candidate.idx) == *parsedIndex; });
+      matches[i] = pickCandidate([&](const WorkspaceState& candidate) {
+        return static_cast<std::size_t>(candidate.idx) == *parsedIndex;
+      });
     }
   }
 
@@ -341,14 +342,16 @@ std::vector<WorkspaceWindow> NiriWorkspaceBackend::workspaceWindows(const std::s
     if (workspaceIt == workspacesById.end()) {
       continue;
     }
-    result.push_back(WorkspaceWindow{
-        .windowId = std::to_string(windowId),
-        .workspaceKey = workspaceKey(*workspaceIt->second),
-        .appId = window.appId,
-        .title = window.title,
-        .x = window.x,
-        .y = window.y,
-    });
+    result.push_back(
+        WorkspaceWindow{
+            .windowId = std::to_string(windowId),
+            .workspaceKey = workspaceKey(*workspaceIt->second),
+            .appId = window.appId,
+            .title = window.title,
+            .x = window.x,
+            .y = window.y,
+        }
+    );
   }
   return result;
 }
@@ -813,8 +816,9 @@ bool NiriWorkspaceBackend::sameWindowMembership(const WindowState& lhs, const Wi
   return lhs.workspaceId == rhs.workspaceId && lhs.appId == rhs.appId;
 }
 
-bool NiriWorkspaceBackend::sameWindowMembership(const std::unordered_map<std::uint64_t, WindowState>& lhs,
-                                                const std::unordered_map<std::uint64_t, WindowState>& rhs) noexcept {
+bool NiriWorkspaceBackend::sameWindowMembership(
+    const std::unordered_map<std::uint64_t, WindowState>& lhs, const std::unordered_map<std::uint64_t, WindowState>& rhs
+) noexcept {
   if (lhs.size() != rhs.size()) {
     return false;
   }

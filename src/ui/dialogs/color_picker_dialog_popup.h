@@ -10,8 +10,10 @@ class ColorPickerDialogPopup final : public DialogPopupHost, public ColorPickerD
 public:
   ~ColorPickerDialogPopup() override;
 
-  void initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext,
-                  LayerPopupHostRegistry& popupHosts);
+  void initialize(
+      WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext,
+      LayerPopupHostRegistry& popupHosts
+  );
 
   [[nodiscard]] bool openColorPicker() override;
   void closeColorPickerWithoutResult() override;

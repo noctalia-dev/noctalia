@@ -45,8 +45,8 @@ namespace {
     }
   }
 
-  std::optional<LoadedImageFile> rasterizeSvg(const std::vector<std::uint8_t>& fileData, int targetSize,
-                                              std::string* errorMessage);
+  std::optional<LoadedImageFile>
+  rasterizeSvg(const std::vector<std::uint8_t>& fileData, int targetSize, std::string* errorMessage);
 
   [[nodiscard]] bool asciiStartsWithDataScheme(std::string_view source) {
     if (source.size() < 5) {
@@ -97,8 +97,8 @@ namespace {
     return -1;
   }
 
-  [[nodiscard]] std::optional<std::vector<std::uint8_t>> percentDecode(std::string_view value,
-                                                                       std::string* errorMessage) {
+  [[nodiscard]] std::optional<std::vector<std::uint8_t>>
+  percentDecode(std::string_view value, std::string* errorMessage) {
     std::vector<std::uint8_t> out;
     out.reserve(value.size());
 
@@ -151,8 +151,8 @@ namespace {
     return -1;
   }
 
-  [[nodiscard]] std::optional<std::vector<std::uint8_t>> base64Decode(std::string_view value,
-                                                                      std::string* errorMessage) {
+  [[nodiscard]] std::optional<std::vector<std::uint8_t>>
+  base64Decode(std::string_view value, std::string* errorMessage) {
     std::vector<std::uint8_t> out;
     out.reserve((value.size() * 3U) / 4U);
 
@@ -264,8 +264,9 @@ namespace {
     bool firstToken = true;
     while (tokenStart <= header.size()) {
       const std::size_t tokenEnd = header.find(';', tokenStart);
-      const std::string_view token = trimAscii(header.substr(
-          tokenStart, tokenEnd == std::string_view::npos ? std::string_view::npos : tokenEnd - tokenStart));
+      const std::string_view token = trimAscii(
+          header.substr(tokenStart, tokenEnd == std::string_view::npos ? std::string_view::npos : tokenEnd - tokenStart)
+      );
       if (firstToken && asciiEqualInsensitive(token, "image/svg+xml")) {
         declaredSvg = true;
       } else if (asciiEqualInsensitive(token, "base64")) {
@@ -321,8 +322,8 @@ namespace {
     return false;
   }
 
-  std::optional<LoadedImageFile> loadImageBytes(std::vector<std::uint8_t> fileData, bool preferSvg, int targetSize,
-                                                std::string* errorMessage) {
+  std::optional<LoadedImageFile>
+  loadImageBytes(std::vector<std::uint8_t> fileData, bool preferSvg, int targetSize, std::string* errorMessage) {
     if (fileData.empty()) {
       if (errorMessage != nullptr) {
         *errorMessage = "empty image data";
@@ -370,8 +371,8 @@ namespace {
     return std::nullopt;
   }
 
-  std::optional<LoadedImageFile> rasterizeSvg(const std::vector<std::uint8_t>& fileData, int targetSize,
-                                              std::string* errorMessage) {
+  std::optional<LoadedImageFile>
+  rasterizeSvg(const std::vector<std::uint8_t>& fileData, int targetSize, std::string* errorMessage) {
     GError* gerror = nullptr;
     RsvgHandle* handle = rsvg_handle_new_from_data(fileData.data(), fileData.size(), &gerror);
     if (handle == nullptr) {
@@ -462,8 +463,10 @@ namespace {
         .width = width,
         .height = height,
     };
-    argb32ToRgba(cairo_image_surface_get_data(surface), cairo_image_surface_get_stride(surface), loaded.rgba.data(),
-                 width, height);
+    argb32ToRgba(
+        cairo_image_surface_get_data(surface), cairo_image_surface_get_stride(surface), loaded.rgba.data(), width,
+        height
+    );
 
     cairo_surface_destroy(surface);
     g_object_unref(handle);
@@ -496,6 +499,7 @@ std::optional<LoadedImageFile> loadImageFile(const std::string& path, int target
     return std::nullopt;
   }
 
-  return loadImageBytes(std::move(fileData), path.ends_with(".svg") || path.ends_with(".SVG"), targetSize,
-                        errorMessage);
+  return loadImageBytes(
+      std::move(fileData), path.ends_with(".svg") || path.ends_with(".SVG"), targetSize, errorMessage
+  );
 }

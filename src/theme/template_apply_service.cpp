@@ -148,8 +148,8 @@ namespace noctalia::theme {
     m_cv.notify_one();
   }
 
-  TemplateApplyService::ApplyRequest TemplateApplyService::makeRequest(const GeneratedPalette& palette,
-                                                                       std::string_view defaultMode) const {
+  TemplateApplyService::ApplyRequest
+  TemplateApplyService::makeRequest(const GeneratedPalette& palette, std::string_view defaultMode) const {
     const ThemeConfig& theme = m_config.config().theme;
     return ApplyRequest{
         .palette = palette,

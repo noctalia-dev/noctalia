@@ -525,8 +525,9 @@ void EffectProgram::initProgram(std::size_t index, const char* fragSource) {
   }
 }
 
-void EffectProgram::draw(float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,
-                         const Mat3& transform) const {
+void EffectProgram::draw(
+    float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style, const Mat3& transform
+) const {
   if (style.type == EffectType::None || width <= 0.0f || height <= 0.0f) {
     return;
   }

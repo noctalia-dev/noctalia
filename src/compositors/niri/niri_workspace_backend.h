@@ -77,8 +77,10 @@ private:
   [[nodiscard]] static std::optional<std::pair<std::uint64_t, WindowState>> parseWindow(const nlohmann::json& json);
   [[nodiscard]] static bool applyWindowFields(const nlohmann::json& json, WindowState& state);
   [[nodiscard]] static bool sameWindowMembership(const WindowState& lhs, const WindowState& rhs) noexcept;
-  [[nodiscard]] static bool sameWindowMembership(const std::unordered_map<std::uint64_t, WindowState>& lhs,
-                                                 const std::unordered_map<std::uint64_t, WindowState>& rhs) noexcept;
+  [[nodiscard]] static bool sameWindowMembership(
+      const std::unordered_map<std::uint64_t, WindowState>& lhs,
+      const std::unordered_map<std::uint64_t, WindowState>& rhs
+  ) noexcept;
   [[nodiscard]] static std::optional<std::uint64_t> parseUnsigned(const std::string& value);
   [[nodiscard]] static std::optional<std::size_t> parseLeadingNumber(const std::string& value);
   [[nodiscard]] static std::string workspaceKey(const WorkspaceState& workspace);

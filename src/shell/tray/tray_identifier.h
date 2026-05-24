@@ -85,8 +85,9 @@ namespace tray {
       while (changed && !candidate.empty()) {
         changed = false;
 
-        for (const auto& suffix : {"_client", "-client", ".desktop", "_indicator", "-indicator", "_tray", "-tray",
-                                   "_status", "-status", "_panel", "-panel"}) {
+        for (const auto& suffix :
+             {"_client", "-client", ".desktop", "_indicator", "-indicator", "_tray", "-tray", "_status", "-status",
+              "_panel", "-panel"}) {
           if (candidate.size() > std::char_traits<char>::length(suffix) && candidate.ends_with(suffix)) {
             candidate = candidate.substr(0, candidate.size() - std::char_traits<char>::length(suffix));
             pushUnique(candidate);

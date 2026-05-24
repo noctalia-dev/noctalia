@@ -5,8 +5,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
-#include "ui/controls/glyph.h"
-#include "ui/controls/label.h"
+#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -34,8 +33,9 @@ namespace {
 
 } // namespace
 
-VolumeWidget::VolumeWidget(PipeWireService* audio, const Config* config, wl_output* /*output*/, bool showLabel,
-                           VolumeWidgetTarget target)
+VolumeWidget::VolumeWidget(
+    PipeWireService* audio, const Config* config, wl_output* /*output*/, bool showLabel, VolumeWidgetTarget target
+)
     : m_audio(audio), m_config(config), m_showLabel(showLabel), m_target(target) {}
 
 void VolumeWidget::create() {
@@ -59,19 +59,23 @@ void VolumeWidget::create() {
     }
   });
 
-  auto glyph = std::make_unique<Glyph>();
-  glyph->setGlyph("volume-high");
-  glyph->setGlyphSize(Style::barGlyphSize * m_contentScale);
-  glyph->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
-  m_glyph = glyph.get();
-  area->addChild(std::move(glyph));
+  area->addChild(
+      ui::glyph({
+          .out = &m_glyph,
+          .glyph = "volume-high",
+          .glyphSize = Style::barGlyphSize * m_contentScale,
+          .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
+      })
+  );
 
-  auto label = std::make_unique<Label>();
-  label->setFontWeight(labelFontWeight());
-  label->setFontSize(Style::fontSizeBody * m_contentScale);
-  label->setVisible(m_showLabel);
-  m_label = label.get();
-  area->addChild(std::move(label));
+  area->addChild(
+      ui::label({
+          .out = &m_label,
+          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontWeight = labelFontWeight(),
+          .visible = m_showLabel,
+      })
+  );
 
   setRoot(std::move(area));
 }
@@ -128,8 +132,10 @@ void VolumeWidget::syncState(Renderer& renderer) {
 
   m_glyph->setGlyph(volumeGlyphName(volume, muted, m_target));
   m_glyph->setGlyphSize(Style::barGlyphSize * m_contentScale);
-  m_glyph->setColor(muted ? colorSpecFromRole(ColorRole::OnSurfaceVariant)
-                          : widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
+  m_glyph->setColor(
+      muted ? colorSpecFromRole(ColorRole::OnSurfaceVariant)
+            : widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
+  );
   m_glyph->measure(renderer);
 
   m_label->setVisible(m_showLabel);
@@ -137,8 +143,10 @@ void VolumeWidget::syncState(Renderer& renderer) {
     int pct = static_cast<int>(std::round(volume * 100.0f));
     m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
     m_label->setText(m_isVertical ? std::to_string(pct) : std::to_string(pct) + "%");
-    m_label->setColor(muted ? colorSpecFromRole(ColorRole::OnSurfaceVariant)
-                            : widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
+    m_label->setColor(
+        muted ? colorSpecFromRole(ColorRole::OnSurfaceVariant)
+              : widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
+    );
     m_label->measure(renderer);
   }
 

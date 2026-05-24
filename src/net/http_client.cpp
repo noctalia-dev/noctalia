@@ -276,8 +276,10 @@ void HttpClient::performMulti(const char* reason) {
   if (m_lastServiceAt != std::chrono::steady_clock::time_point{}) {
     const float serviceGapMs = std::chrono::duration<float, std::milli>(now - m_lastServiceAt).count();
     if (serviceGapMs >= kCurlServiceGapWarnMs) {
-      kLog.warn("http client was not serviced for {:.1f}ms before {} (downloads={} posts={} running={})", serviceGapMs,
-                reason, m_transfers.size(), m_postTransfers.size(), m_running);
+      kLog.warn(
+          "http client was not serviced for {:.1f}ms before {} (downloads={} posts={} running={})", serviceGapMs,
+          reason, m_transfers.size(), m_postTransfers.size(), m_running
+      );
     }
   }
 
@@ -320,19 +322,23 @@ void HttpClient::finishTransfer(CURL* easy, CURLcode result) {
     std::error_code ec;
     std::filesystem::rename(transfer.tempPath, transfer.destPath, ec);
     if (ec) {
-      std::filesystem::copy_file(transfer.tempPath, transfer.destPath,
-                                 std::filesystem::copy_options::overwrite_existing, ec);
+      std::filesystem::copy_file(
+          transfer.tempPath, transfer.destPath, std::filesystem::copy_options::overwrite_existing, ec
+      );
       std::filesystem::remove(transfer.tempPath);
       success = !ec;
       if (!success) {
-        kLog.warn("download failed to move {} to {}: {}", transfer.tempPath.string(), transfer.destPath.string(),
-                  ec.message());
+        kLog.warn(
+            "download failed to move {} to {}: {}", transfer.tempPath.string(), transfer.destPath.string(), ec.message()
+        );
       }
     }
   } else {
     const char* detail = transfer.errorBuffer[0] != '\0' ? transfer.errorBuffer.data() : curl_easy_strerror(result);
-    kLog.warn("download failed url={} curl={} http={} error={}", urlForLog(transfer.url), static_cast<int>(result),
-              responseCode, detail);
+    kLog.warn(
+        "download failed url={} curl={} http={} error={}", urlForLog(transfer.url), static_cast<int>(result),
+        responseCode, detail
+    );
     std::filesystem::remove(transfer.tempPath);
   }
 
@@ -365,8 +371,10 @@ void HttpClient::finishPostTransfer(CURL* easy, CURLcode result) {
   const bool success = result == CURLE_OK;
   if (!success) {
     const char* detail = post.errorBuffer[0] != '\0' ? post.errorBuffer.data() : curl_easy_strerror(result);
-    kLog.warn("post failed url={} curl={} http={} error={}", urlForLog(post.url), static_cast<int>(result),
-              responseCode, detail);
+    kLog.warn(
+        "post failed url={} curl={} http={} error={}", urlForLog(post.url), static_cast<int>(result), responseCode,
+        detail
+    );
   }
 
   if (post.callback) {

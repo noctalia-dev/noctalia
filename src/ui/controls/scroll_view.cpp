@@ -25,14 +25,16 @@ ScrollView::ScrollView() {
 
   auto background = std::make_unique<RectNode>();
   m_background = static_cast<RectNode*>(addChild(std::move(background)));
-  m_background->setStyle(RoundedRectStyle{
-      .fill = clearColor(),
-      .border = clearColor(),
-      .fillMode = FillMode::Solid,
-      .radius = Style::scaledRadiusMd(),
-      .softness = 1.0f,
-      .borderWidth = 0,
-  });
+  m_background->setStyle(
+      RoundedRectStyle{
+          .fill = clearColor(),
+          .border = clearColor(),
+          .fillMode = FillMode::Solid,
+          .radius = Style::scaledRadiusMd(),
+          .softness = 1.0f,
+          .borderWidth = 0,
+      }
+  );
 
   auto viewportArea = std::make_unique<InputArea>();
   viewportArea->setOnPress([this](const InputArea::PointerData& data) {
@@ -179,14 +181,16 @@ float ScrollView::contentViewportHeight() const noexcept {
 
 void ScrollView::applyPalette() {
   if (m_background != nullptr) {
-    m_background->setStyle(RoundedRectStyle{
-        .fill = resolveColorSpec(m_backgroundFill),
-        .border = resolveColorSpec(m_backgroundBorder),
-        .fillMode = FillMode::Solid,
-        .radius = m_backgroundRadius,
-        .softness = m_backgroundSoftness,
-        .borderWidth = m_backgroundBorderWidth,
-    });
+    m_background->setStyle(
+        RoundedRectStyle{
+            .fill = resolveColorSpec(m_backgroundFill),
+            .border = resolveColorSpec(m_backgroundBorder),
+            .fillMode = FillMode::Solid,
+            .radius = m_backgroundRadius,
+            .softness = m_backgroundSoftness,
+            .borderWidth = m_backgroundBorderWidth,
+        }
+    );
   }
 }
 

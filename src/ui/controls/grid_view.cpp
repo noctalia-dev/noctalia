@@ -112,8 +112,9 @@ LayoutSize GridView::doMeasure(Renderer& renderer, const LayoutConstraints& cons
 
 void GridView::doLayout(Renderer& renderer) {
   auto layoutWithAssignedSize = [&renderer](Node* child, float assignedWidth, float assignedHeight) {
-    child->arrange(renderer,
-                   LayoutRect{.x = child->x(), .y = child->y(), .width = assignedWidth, .height = assignedHeight});
+    child->arrange(
+        renderer, LayoutRect{.x = child->x(), .y = child->y(), .width = assignedWidth, .height = assignedHeight}
+    );
   };
 
   std::vector<Node*> visibleChildren;
@@ -162,8 +163,9 @@ void GridView::doLayout(Renderer& renderer) {
 
     const bool squarePack = m_squareCells && m_stretchItems && columns > 0 && rows > 0 && hasFixedHeight;
     if (squarePack) {
-      const float innerHeight = std::max(0.0f, fixedHeight - m_paddingTop - m_paddingBottom -
-                                                   m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0));
+      const float innerHeight = std::max(
+          0.0f, fixedHeight - m_paddingTop - m_paddingBottom - m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0)
+      );
       const float slotH = innerHeight / static_cast<float>(rows);
       if (hasFixedWidth) {
         const float innerWidth =
@@ -191,8 +193,9 @@ void GridView::doLayout(Renderer& renderer) {
       }
 
       if (hasFixedHeight && rows > 0) {
-        const float innerHeight = std::max(0.0f, fixedHeight - m_paddingTop - m_paddingBottom -
-                                                     m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0));
+        const float innerHeight = std::max(
+            0.0f, fixedHeight - m_paddingTop - m_paddingBottom - m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0)
+        );
         const float slotH = innerHeight / static_cast<float>(rows);
         if (m_stretchItems) {
           uniformHeight = slotH;
@@ -238,10 +241,14 @@ void GridView::doLayout(Renderer& renderer) {
     }
   }
 
-  const float contentWidth = std::max(0.0f, std::accumulate(columnWidths.begin(), columnWidths.end(), 0.0f) +
-                                                m_columnGap * static_cast<float>(columns > 0 ? columns - 1 : 0));
-  const float contentHeight = std::max(0.0f, std::accumulate(rowHeights.begin(), rowHeights.end(), 0.0f) +
-                                                 m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0));
+  const float contentWidth = std::max(
+      0.0f, std::accumulate(columnWidths.begin(), columnWidths.end(), 0.0f) +
+                m_columnGap * static_cast<float>(columns > 0 ? columns - 1 : 0)
+  );
+  const float contentHeight = std::max(
+      0.0f, std::accumulate(rowHeights.begin(), rowHeights.end(), 0.0f) +
+                m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0)
+  );
 
   const float computedWidth = m_paddingLeft + contentWidth + m_paddingRight;
   const float computedHeight = m_paddingTop + contentHeight + m_paddingBottom;

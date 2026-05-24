@@ -51,17 +51,17 @@ namespace noctalia::theme {
 
 class ControlCenterPanel : public Panel {
 public:
-  ControlCenterPanel(NotificationManager* notifications, PipeWireService* audio, MprisService* mpris,
-                     ConfigService* config = nullptr, HttpClient* httpClient = nullptr,
-                     WeatherService* weather = nullptr, PipeWireSpectrum* spectrum = nullptr,
-                     UPowerService* upower = nullptr, PowerProfilesService* powerProfiles = nullptr,
-                     INetworkService* network = nullptr, NetworkSecretAgent* networkSecrets = nullptr,
-                     BluetoothService* bluetooth = nullptr, BluetoothAgent* bluetoothAgent = nullptr,
-                     BrightnessService* brightness = nullptr, SystemMonitorService* sysmon = nullptr,
-                     ScreenTimeService* screenTime = nullptr, GammaService* nightLight = nullptr,
-                     noctalia::theme::ThemeService* theme = nullptr, IdleInhibitor* idleInhibitor = nullptr,
-                     DependencyService* dependencies = nullptr, CompositorPlatform* platform = nullptr,
-                     Wallpaper* wallpaper = nullptr);
+  ControlCenterPanel(
+      NotificationManager* notifications, PipeWireService* audio, MprisService* mpris, ConfigService* config = nullptr,
+      HttpClient* httpClient = nullptr, WeatherService* weather = nullptr, PipeWireSpectrum* spectrum = nullptr,
+      UPowerService* upower = nullptr, PowerProfilesService* powerProfiles = nullptr,
+      INetworkService* network = nullptr, NetworkSecretAgent* networkSecrets = nullptr,
+      BluetoothService* bluetooth = nullptr, BluetoothAgent* bluetoothAgent = nullptr,
+      BrightnessService* brightness = nullptr, SystemMonitorService* sysmon = nullptr,
+      ScreenTimeService* screenTime = nullptr, GammaService* nightLight = nullptr,
+      noctalia::theme::ThemeService* theme = nullptr, IdleInhibitor* idleInhibitor = nullptr,
+      DependencyService* dependencies = nullptr, CompositorPlatform* platform = nullptr, Wallpaper* wallpaper = nullptr
+  );
 
   void create() override;
   void onFrameTick(float deltaMs) override;

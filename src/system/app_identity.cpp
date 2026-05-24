@@ -34,8 +34,8 @@ namespace app_identity {
       bool matchedDesktopEntry = false;
     };
 
-    DesktopEntryResolution resolveRunningDesktopEntryWithStatus(std::string_view runningAppId,
-                                                                const std::vector<DesktopEntry>& allEntries) {
+    DesktopEntryResolution
+    resolveRunningDesktopEntryWithStatus(std::string_view runningAppId, const std::vector<DesktopEntry>& allEntries) {
       const std::string runningLower = StringUtils::toLower(std::string(runningAppId));
 
       for (const auto& entry : allEntries) {
@@ -68,8 +68,10 @@ namespace app_identity {
 
   } // namespace
 
-  bool matchesLower(std::string_view valueLower, std::string_view idLower, std::string_view startupWmClassLower,
-                    std::string_view nameLower) {
+  bool matchesLower(
+      std::string_view valueLower, std::string_view idLower, std::string_view startupWmClassLower,
+      std::string_view nameLower
+  ) {
     if (valueLower.empty()) {
       return false;
     }
@@ -80,12 +82,14 @@ namespace app_identity {
   }
 
   bool desktopEntryMatchesLower(const DesktopEntry& entry, std::string_view valueLower) {
-    return matchesLower(valueLower, StringUtils::toLower(entry.id), StringUtils::toLower(entry.startupWmClass),
-                        entry.nameLower);
+    return matchesLower(
+        valueLower, StringUtils::toLower(entry.id), StringUtils::toLower(entry.startupWmClass), entry.nameLower
+    );
   }
 
-  std::optional<DesktopEntry> findDesktopEntry(std::string_view appKey, const std::vector<DesktopEntry>& allEntries,
-                                               DesktopEntryLookupOptions options) {
+  std::optional<DesktopEntry> findDesktopEntry(
+      std::string_view appKey, const std::vector<DesktopEntry>& allEntries, DesktopEntryLookupOptions options
+  ) {
     if (appKey.empty()) {
       return std::nullopt;
     }
@@ -135,8 +139,8 @@ namespace app_identity {
     return resolveRunningDesktopEntryWithStatus(runningAppId, allEntries).entry;
   }
 
-  std::vector<ResolvedRunningApp> resolveRunningApps(const std::vector<std::string>& runningAppIds,
-                                                     const std::vector<DesktopEntry>& allEntries) {
+  std::vector<ResolvedRunningApp>
+  resolveRunningApps(const std::vector<std::string>& runningAppIds, const std::vector<DesktopEntry>& allEntries) {
     std::vector<ResolvedRunningApp> resolved;
     resolved.reserve(runningAppIds.size());
 
@@ -154,11 +158,13 @@ namespace app_identity {
         continue;
       }
 
-      resolved.push_back(ResolvedRunningApp{
-          .runningAppId = runningAppId,
-          .runningLower = runningLower,
-          .entry = resolution.entry,
-      });
+      resolved.push_back(
+          ResolvedRunningApp{
+              .runningAppId = runningAppId,
+              .runningLower = runningLower,
+              .entry = resolution.entry,
+          }
+      );
     }
 
     return resolved;

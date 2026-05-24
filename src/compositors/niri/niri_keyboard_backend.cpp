@@ -54,9 +54,11 @@ bool NiriKeyboardBackend::cycleLayout() const {
   if (!isAvailable()) {
     return false;
   }
-  return m_runtime.requestAction(nlohmann::json{
-      {"SwitchLayout", nlohmann::json{{"layout", "Next"}}},
-  });
+  return m_runtime.requestAction(
+      nlohmann::json{
+          {"SwitchLayout", nlohmann::json{{"layout", "Next"}}},
+      }
+  );
 }
 
 std::optional<KeyboardLayoutState> NiriKeyboardBackend::layoutState() const {

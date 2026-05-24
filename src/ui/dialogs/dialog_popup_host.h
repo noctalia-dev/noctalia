@@ -70,8 +70,10 @@ protected:
 
   // Called once during subclass `initialize` to capture the shared deps.
   void initializeBase(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext);
-  void initializeBase(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext,
-                      LayerPopupHostRegistry& popupHosts);
+  void initializeBase(
+      WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext,
+      LayerPopupHostRegistry& popupHosts
+  );
 
   // Build the PopupSurface, attach to the host, run xdg_popup initialize.
   // Subclass `openXxx()` calls this after constructing any pre-buildScene
@@ -83,8 +85,9 @@ protected:
   // Build the PopupSurface as a child of an xdg parent. Uses the same scene/
   // input/prepareFrame plumbing as openPopup() but bypasses LayerPopupHostRegistry
   // parent resolution.
-  [[nodiscard]] bool openPopupAsChild(PopupSurfaceConfig config, xdg_surface* parentXdgSurface,
-                                      wl_surface* parentWlSurface, wl_output* output);
+  [[nodiscard]] bool openPopupAsChild(
+      PopupSurfaceConfig config, xdg_surface* parentXdgSurface, wl_surface* parentWlSurface, wl_output* output
+  );
 
   // Tear the popup down — endAttachedPopup, invoke `onSheetClose()` hook,
   // reset the scene tree, drop the PopupSurface. Safe to call repeatedly.
@@ -114,8 +117,8 @@ protected:
   // flags, anchor/gravity NONE, grab=true, and the parent context's
   // centering offset. Subclasses use this when wiring the surface in
   // `openPopup`-equivalent code if they need a custom config.
-  [[nodiscard]] PopupSurfaceConfig defaultPopupConfig(const LayerPopupParentContext& parent, std::uint32_t width,
-                                                      std::uint32_t height) const;
+  [[nodiscard]] PopupSurfaceConfig
+  defaultPopupConfig(const LayerPopupParentContext& parent, std::uint32_t width, std::uint32_t height) const;
 
   /// Snap `m_sceneRoot` / `m_contentNode` to `m_surface` dimensions. `layoutScene` calls this before and after
   /// `layoutSheet`; subclasses that resize inside `layoutSheet` must call it once after `resize()` before

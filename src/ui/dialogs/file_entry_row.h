@@ -22,8 +22,10 @@ public:
   [[nodiscard]] float rowHeight() const noexcept { return m_rowHeight; }
 
   void setCallbacks(IndexCallback onClick, IndexCallback onMotion, IndexCallback onEnter, IndexCallback onLeave);
-  void bind(Renderer& renderer, const FileEntry& entry, std::size_t index, float width, bool selected, bool hovered,
-            bool disabled);
+  void bind(
+      Renderer& renderer, const FileEntry& entry, std::size_t index, float width, bool selected, bool hovered,
+      bool disabled
+  );
   void clear();
   void setVisualState(bool selected, bool hovered, bool disabled);
 

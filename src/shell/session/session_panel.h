@@ -29,8 +29,9 @@ struct SessionActionHooks {
 
 class SessionPanel : public Panel {
 public:
-  explicit SessionPanel(ConfigService* config, SessionActionHooks actionHooks = {},
-                        compositors::niri::NiriRuntime* niriRuntime = nullptr)
+  explicit SessionPanel(
+      ConfigService* config, SessionActionHooks actionHooks = {}, compositors::niri::NiriRuntime* niriRuntime = nullptr
+  )
       : m_config(config), m_actionHooks(std::move(actionHooks)), m_niriRuntime(niriRuntime) {}
 
   void create() override;

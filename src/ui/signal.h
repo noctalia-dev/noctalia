@@ -60,8 +60,10 @@ public:
       }
       if (auto state = m_state.lock()) {
         auto& slots = state->slots;
-        slots.erase(std::remove_if(slots.begin(), slots.end(), [id = m_id](const Slot& slot) { return slot.id == id; }),
-                    slots.end());
+        slots.erase(
+            std::remove_if(slots.begin(), slots.end(), [id = m_id](const Slot& slot) { return slot.id == id; }),
+            slots.end()
+        );
       }
       m_id = 0;
     }

@@ -6,12 +6,14 @@
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
 #include "ui/controls/checkbox.h"
+#include "ui/controls/chip.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/glyph.h"
 #include "ui/controls/image.h"
 #include "ui/controls/input.h"
 #include "ui/controls/keybind_recorder.h"
 #include "ui/controls/label.h"
+#include "ui/controls/progress_bar.h"
 #include "ui/controls/radio_button.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/search_picker.h"
@@ -20,9 +22,11 @@
 #include "ui/controls/separator.h"
 #include "ui/controls/slider.h"
 #include "ui/controls/spacer.h"
+#include "ui/controls/spinner.h"
 #include "ui/controls/stepper.h"
 #include "ui/controls/toggle.h"
 #include "ui/controls/virtual_grid_view.h"
+#include "ui/controls/virtual_list_view.h"
 #include "ui/palette.h"
 
 #include <cstddef>
@@ -334,6 +338,20 @@ namespace ui {
     std::function<void(VirtualGridView&)> configure = nullptr;
   };
 
+  struct VirtualListViewProps {
+    VirtualListView** out = nullptr;
+    std::optional<float> itemGap = std::nullopt;
+    std::optional<std::size_t> overscanItems = std::nullopt;
+    VirtualListAdapter* adapter = nullptr;
+    std::optional<float> width = std::nullopt;
+    std::optional<float> height = std::nullopt;
+    std::optional<float> flexGrow = std::nullopt;
+    std::optional<float> opacity = std::nullopt;
+    std::optional<bool> visible = std::nullopt;
+    std::optional<bool> participatesInLayout = std::nullopt;
+    std::function<void(VirtualListView&)> configure = nullptr;
+  };
+
   struct SearchPickerProps {
     SearchPicker** out = nullptr;
     std::optional<std::string> placeholder = std::nullopt;
@@ -437,6 +455,51 @@ namespace ui {
     std::function<void(KeybindRecorder&)> configure = nullptr;
   };
 
+  struct SpinnerProps {
+    Spinner** out = nullptr;
+    std::optional<ColorSpec> color = std::nullopt;
+    std::optional<float> spinnerSize = std::nullopt;
+    std::optional<float> thickness = std::nullopt;
+    std::optional<bool> spinning = std::nullopt;
+    std::optional<float> width = std::nullopt;
+    std::optional<float> height = std::nullopt;
+    std::optional<float> flexGrow = std::nullopt;
+    std::optional<float> opacity = std::nullopt;
+    std::optional<bool> visible = std::nullopt;
+    std::optional<bool> participatesInLayout = std::nullopt;
+    std::function<void(Spinner&)> configure = nullptr;
+  };
+
+  struct ChipProps {
+    Chip** out = nullptr;
+    std::optional<std::string> text = std::nullopt;
+    std::optional<bool> active = std::nullopt;
+    std::optional<float> width = std::nullopt;
+    std::optional<float> height = std::nullopt;
+    std::optional<float> flexGrow = std::nullopt;
+    std::optional<float> opacity = std::nullopt;
+    std::optional<bool> visible = std::nullopt;
+    std::optional<bool> participatesInLayout = std::nullopt;
+    std::function<void(Chip&)> configure = nullptr;
+  };
+
+  struct ProgressBarProps {
+    ProgressBar** out = nullptr;
+    std::optional<ColorSpec> fill = std::nullopt;
+    std::optional<ColorSpec> track = std::nullopt;
+    std::optional<float> radius = std::nullopt;
+    std::optional<float> softness = std::nullopt;
+    std::optional<ProgressBarOrientation> orientation = std::nullopt;
+    std::optional<float> progress = std::nullopt;
+    std::optional<float> width = std::nullopt;
+    std::optional<float> height = std::nullopt;
+    std::optional<float> flexGrow = std::nullopt;
+    std::optional<float> opacity = std::nullopt;
+    std::optional<bool> visible = std::nullopt;
+    std::optional<bool> participatesInLayout = std::nullopt;
+    std::function<void(ProgressBar&)> configure = nullptr;
+  };
+
   [[nodiscard]] std::unique_ptr<Flex> makeFlex(FlexDirection direction, FlexProps props);
   [[nodiscard]] std::unique_ptr<Input> input(InputProps props);
   [[nodiscard]] std::unique_ptr<Button> button(ButtonProps props);
@@ -450,12 +513,16 @@ namespace ui {
   [[nodiscard]] std::unique_ptr<Segmented> segmented(SegmentedProps props);
   [[nodiscard]] std::unique_ptr<ScrollView> scrollView(ScrollViewProps props = {});
   [[nodiscard]] std::unique_ptr<VirtualGridView> virtualGridView(VirtualGridViewProps props);
+  [[nodiscard]] std::unique_ptr<VirtualListView> virtualListView(VirtualListViewProps props);
   [[nodiscard]] std::unique_ptr<SearchPicker> searchPicker(SearchPickerProps props);
   [[nodiscard]] std::unique_ptr<Toggle> toggle(ToggleProps props);
   [[nodiscard]] std::unique_ptr<Checkbox> checkbox(CheckboxProps props);
   [[nodiscard]] std::unique_ptr<RadioButton> radioButton(RadioButtonProps props);
   [[nodiscard]] std::unique_ptr<Stepper> stepper(StepperProps props);
   [[nodiscard]] std::unique_ptr<KeybindRecorder> keybindRecorder(KeybindRecorderProps props);
+  [[nodiscard]] std::unique_ptr<Spinner> spinner(SpinnerProps props = {});
+  [[nodiscard]] std::unique_ptr<Chip> chip(ChipProps props = {});
+  [[nodiscard]] std::unique_ptr<ProgressBar> progressBar(ProgressBarProps props = {});
   [[nodiscard]] std::unique_ptr<Spacer> spacer();
 
   template <typename... Children> [[nodiscard]] std::unique_ptr<Flex> row(FlexProps props, Children&&... children) {

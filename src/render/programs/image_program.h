@@ -18,10 +18,11 @@ public:
   void ensureInitialized();
   void destroy();
 
-  void draw(TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, const Color& tint,
-            float opacity, float radius = 0.0f, const Color& borderColor = {0.0f, 0.0f, 0.0f, 0.0f},
-            float borderWidth = 0.0f, int fitMode = 0, float textureWidth = 0.0f, float textureHeight = 0.0f,
-            const Mat3& transform = Mat3::identity()) const;
+  void draw(
+      TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, const Color& tint,
+      float opacity, float radius = 0.0f, const Color& borderColor = {0.0f, 0.0f, 0.0f, 0.0f}, float borderWidth = 0.0f,
+      int fitMode = 0, float textureWidth = 0.0f, float textureHeight = 0.0f, const Mat3& transform = Mat3::identity()
+  ) const;
 
 private:
   ShaderProgram m_program;

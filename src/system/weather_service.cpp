@@ -74,11 +74,13 @@ namespace {
     }
 
     const auto oldSize = snapshot.forecastDays.size();
-    snapshot.forecastDays.erase(std::remove_if(snapshot.forecastDays.begin(), snapshot.forecastDays.end(),
-                                               [&todayIso](const WeatherForecastDay& day) {
-                                                 return isIsoDate(day.dateIso) && day.dateIso < todayIso;
-                                               }),
-                                snapshot.forecastDays.end());
+    snapshot.forecastDays.erase(
+        std::remove_if(
+            snapshot.forecastDays.begin(), snapshot.forecastDays.end(),
+            [&todayIso](const WeatherForecastDay& day) { return isIsoDate(day.dateIso) && day.dateIso < todayIso; }
+        ),
+        snapshot.forecastDays.end()
+    );
     return snapshot.forecastDays.size() != oldSize;
   }
 
@@ -434,8 +436,9 @@ void WeatherService::startGeolocate() {
   m_error.clear();
   m_requestKind = RequestKind::Geolocate;
   notifyChanged();
-  m_httpClient.download("https://api.noctalia.dev/geolocate", path,
-                        [this, path, serial](bool success) { handleLocationResponse(path, true, success, serial); });
+  m_httpClient.download("https://api.noctalia.dev/geolocate", path, [this, path, serial](bool success) {
+    handleLocationResponse(path, true, success, serial);
+  });
 }
 
 void WeatherService::startAddressGeocode() {
@@ -448,31 +451,35 @@ void WeatherService::startAddressGeocode() {
   m_error.clear();
   m_requestKind = RequestKind::GeocodeAddress;
   notifyChanged();
-  m_httpClient.download(url, path,
-                        [this, path, serial](bool success) { handleLocationResponse(path, false, success, serial); });
+  m_httpClient.download(url, path, [this, path, serial](bool success) {
+    handleLocationResponse(path, false, success, serial);
+  });
 }
 
 void WeatherService::startWeatherFetch() {
   std::error_code ec;
   std::filesystem::create_directories(transportCacheDir(), ec);
   const auto path = transportCacheDir() / "forecast.json";
-  const std::string url =
-      std::format("https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}"
-                  "&current_weather=true"
-                  "&daily=temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset"
-                  "&forecast_days={}&timezone=auto",
-                  formatCoordinate(m_resolvedLatitude), formatCoordinate(m_resolvedLongitude), kForecastDays);
+  const std::string url = std::format(
+      "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}"
+      "&current_weather=true"
+      "&daily=temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset"
+      "&forecast_days={}&timezone=auto",
+      formatCoordinate(m_resolvedLatitude), formatCoordinate(m_resolvedLongitude), kForecastDays
+  );
   const std::uint64_t serial = ++m_requestSerial;
   m_loading = true;
   m_error.clear();
   m_requestKind = RequestKind::FetchWeather;
   notifyChanged();
-  m_httpClient.download(url, path,
-                        [this, path, serial](bool success) { handleWeatherResponse(path, success, serial); });
+  m_httpClient.download(url, path, [this, path, serial](bool success) {
+    handleWeatherResponse(path, success, serial);
+  });
 }
 
-void WeatherService::handleLocationResponse(const std::filesystem::path& path, bool autoLocated, bool success,
-                                            std::uint64_t serial) {
+void WeatherService::handleLocationResponse(
+    const std::filesystem::path& path, bool autoLocated, bool success, std::uint64_t serial
+) {
   if (serial != m_requestSerial || !m_activeConfig.enabled) {
     return;
   }
@@ -589,20 +596,23 @@ void WeatherService::handleWeatherResponse(const std::filesystem::path& path, bo
     next.fetchedAt = Clock::now();
 
     const std::size_t count = std::min(
-        {dates.size(), tempsMax.size(), tempsMin.size(), codes.size(), sunrises.size(), sunsets.size(), kForecastDays});
+        {dates.size(), tempsMax.size(), tempsMin.size(), codes.size(), sunrises.size(), sunsets.size(), kForecastDays}
+    );
     next.forecastDays.reserve(count);
     for (std::size_t i = 0; i < count; ++i) {
       if (!dates[i].is_string() || !tempsMax[i].is_number() || !tempsMin[i].is_number() || !codes[i].is_number()) {
         continue;
       }
-      next.forecastDays.push_back(WeatherForecastDay{
-          .dateIso = dates[i].get<std::string>(),
-          .weatherCode = codes[i].get<std::int32_t>(),
-          .temperatureMaxC = tempsMax[i].get<double>(),
-          .temperatureMinC = tempsMin[i].get<double>(),
-          .sunriseIso = sunrises[i].is_string() ? sunrises[i].get<std::string>() : std::string{},
-          .sunsetIso = sunsets[i].is_string() ? sunsets[i].get<std::string>() : std::string{},
-      });
+      next.forecastDays.push_back(
+          WeatherForecastDay{
+              .dateIso = dates[i].get<std::string>(),
+              .weatherCode = codes[i].get<std::int32_t>(),
+              .temperatureMaxC = tempsMax[i].get<double>(),
+              .temperatureMinC = tempsMin[i].get<double>(),
+              .sunriseIso = sunrises[i].is_string() ? sunrises[i].get<std::string>() : std::string{},
+              .sunsetIso = sunsets[i].is_string() ? sunsets[i].get<std::string>() : std::string{},
+          }
+      );
     }
     dropPastForecastDays(next);
 
@@ -720,14 +730,16 @@ void WeatherService::loadCache() {
         if (!item.is_object()) {
           continue;
         }
-        m_snapshot.forecastDays.push_back(WeatherForecastDay{
-            .dateIso = readString(item, "date_iso"),
-            .weatherCode = readOptionalInt(item, "weather_code"),
-            .temperatureMaxC = readOptionalNumber(item, "temperature_max_c"),
-            .temperatureMinC = readOptionalNumber(item, "temperature_min_c"),
-            .sunriseIso = readString(item, "sunrise_iso"),
-            .sunsetIso = readString(item, "sunset_iso"),
-        });
+        m_snapshot.forecastDays.push_back(
+            WeatherForecastDay{
+                .dateIso = readString(item, "date_iso"),
+                .weatherCode = readOptionalInt(item, "weather_code"),
+                .temperatureMaxC = readOptionalNumber(item, "temperature_max_c"),
+                .temperatureMinC = readOptionalNumber(item, "temperature_min_c"),
+                .sunriseIso = readString(item, "sunrise_iso"),
+                .sunsetIso = readString(item, "sunset_iso"),
+            }
+        );
       }
     }
     m_snapshot.fetchedAt = fromUnixSeconds(readOptionalInt(snapshot, "fetched_at"));
@@ -755,35 +767,37 @@ void WeatherService::saveCache() const {
   std::error_code ec;
   std::filesystem::create_directories(path.parent_path(), ec);
 
-  nlohmann::json json{{"auto_locate", m_activeConfig.autoLocate},
-                      {"address", m_activeConfig.address},
-                      {"snapshot",
-                       {
-                           {"valid", true},
-                           {"location_name", m_snapshot.locationName},
-                           {"source_label", m_snapshot.sourceLabel},
-                           {"latitude", m_snapshot.latitude},
-                           {"longitude", m_snapshot.longitude},
-                           {"generation_time_ms", m_snapshot.generationTimeMs},
-                           {"utc_offset_seconds", m_snapshot.utcOffsetSeconds},
-                           {"timezone", m_snapshot.timezone},
-                           {"timezone_abbreviation", m_snapshot.timezoneAbbreviation},
-                           {"elevation_m", m_snapshot.elevationM},
-                           {"current_units", currentUnitsToJson(m_snapshot.currentUnits)},
-                           {"daily_units", dailyUnitsToJson(m_snapshot.dailyUnits)},
-                           {"current",
-                            {
-                                {"time_iso", m_snapshot.current.timeIso},
-                                {"interval_seconds", m_snapshot.current.intervalSeconds},
-                                {"temperature_c", m_snapshot.current.temperatureC},
-                                {"wind_speed_kmh", m_snapshot.current.windSpeedKmh},
-                                {"wind_direction_deg", m_snapshot.current.windDirectionDeg},
-                                {"is_day", m_snapshot.current.isDay},
-                                {"weather_code", m_snapshot.current.weatherCode},
-                            }},
-                           {"forecast_days", nlohmann::json::array()},
-                           {"fetched_at", toUnixSeconds(m_snapshot.fetchedAt)},
-                       }}};
+  nlohmann::json json{
+      {"auto_locate", m_activeConfig.autoLocate},
+      {"address", m_activeConfig.address},
+      {"snapshot",
+       {
+           {"valid", true},
+           {"location_name", m_snapshot.locationName},
+           {"source_label", m_snapshot.sourceLabel},
+           {"latitude", m_snapshot.latitude},
+           {"longitude", m_snapshot.longitude},
+           {"generation_time_ms", m_snapshot.generationTimeMs},
+           {"utc_offset_seconds", m_snapshot.utcOffsetSeconds},
+           {"timezone", m_snapshot.timezone},
+           {"timezone_abbreviation", m_snapshot.timezoneAbbreviation},
+           {"elevation_m", m_snapshot.elevationM},
+           {"current_units", currentUnitsToJson(m_snapshot.currentUnits)},
+           {"daily_units", dailyUnitsToJson(m_snapshot.dailyUnits)},
+           {"current",
+            {
+                {"time_iso", m_snapshot.current.timeIso},
+                {"interval_seconds", m_snapshot.current.intervalSeconds},
+                {"temperature_c", m_snapshot.current.temperatureC},
+                {"wind_speed_kmh", m_snapshot.current.windSpeedKmh},
+                {"wind_direction_deg", m_snapshot.current.windDirectionDeg},
+                {"is_day", m_snapshot.current.isDay},
+                {"weather_code", m_snapshot.current.weatherCode},
+            }},
+           {"forecast_days", nlohmann::json::array()},
+           {"fetched_at", toUnixSeconds(m_snapshot.fetchedAt)},
+       }}
+  };
 
   for (const auto& day : m_snapshot.forecastDays) {
     json["snapshot"]["forecast_days"].push_back({

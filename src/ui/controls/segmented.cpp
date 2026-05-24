@@ -138,8 +138,8 @@ std::unique_ptr<Separator> Segmented::makeSegmentSeparator() {
   return sep;
 }
 
-std::unique_ptr<Button> Segmented::makeSegmentButton(std::string_view label, std::string_view glyph,
-                                                     std::size_t index) {
+std::unique_ptr<Button>
+Segmented::makeSegmentButton(std::string_view label, std::string_view glyph, std::size_t index) {
   auto btn = std::make_unique<Button>();
   if (!glyph.empty()) {
     btn->setGlyph(glyph);

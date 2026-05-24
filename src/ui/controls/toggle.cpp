@@ -56,7 +56,8 @@ void Toggle::setChecked(bool checked) {
     float to = m_checked ? 1.0f : 0.0f;
     m_animId = animationManager()->animate(
         from, to, Style::animFast, Easing::EaseOutCubic, [this](float t) { applyAnimatedState(t); },
-        [this]() { m_animId = 0; }, this);
+        [this]() { m_animId = 0; }, this
+    );
     // Mark dirty so the surface's frame loop restarts and ticks the animation
     markPaintDirty();
   } else {

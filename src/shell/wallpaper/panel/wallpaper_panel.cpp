@@ -135,37 +135,46 @@ void WallpaperPanel::create() {
   });
 
   header->addChild(
-      ui::row({.align = FlexAlign::Center, .justify = FlexJustify::Start, .fillWidth = true, .flexGrow = 1.0f},
-              ui::label({
-                  .out = &m_title,
-                  .text = i18n::tr("wallpaper.panel.title"),
-                  .fontSize = Style::fontSizeTitle * scale,
-                  .color = colorSpecFromRole(ColorRole::Primary),
-                  .fontWeight = FontWeight::Bold,
-              })));
-
-  header->addChild(ui::label({
-      .out = &m_breadcrumb,
-      .fontSize = Style::fontSizeBody * scale,
-      .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-      .maxLines = 1,
-  }));
+      ui::row(
+          {.align = FlexAlign::Center, .justify = FlexJustify::Start, .fillWidth = true, .flexGrow = 1.0f},
+          ui::label({
+              .out = &m_title,
+              .text = i18n::tr("wallpaper.panel.title"),
+              .fontSize = Style::fontSizeTitle * scale,
+              .color = colorSpecFromRole(ColorRole::Primary),
+              .fontWeight = FontWeight::Bold,
+          })
+      )
+  );
 
   header->addChild(
-      ui::row({.align = FlexAlign::Center, .justify = FlexJustify::End, .fillWidth = true, .flexGrow = 1.0f},
-              ui::button({
-                  .out = &m_closeButton,
-                  .glyph = "close",
-                  .glyphSize = Style::fontSizeBody * scale,
-                  .minWidth = Style::controlHeightSm * scale,
-                  .minHeight = Style::controlHeightSm * scale,
-                  .padding = Style::spaceXs * scale,
-                  .radius = Style::scaledRadiusMd(scale),
-                  .onClick = []() { PanelManager::instance().close(); },
-                  // Header icon button style: compact metrics with a panel-card-aware palette.
-                  .configure = [scale, opacity = panelCardOpacity()](
-                                   Button& button) { panel_button_style::applyHeaderButtonStyle(button, opacity); },
-              })));
+      ui::label({
+          .out = &m_breadcrumb,
+          .fontSize = Style::fontSizeBody * scale,
+          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+          .maxLines = 1,
+      })
+  );
+
+  header->addChild(
+      ui::row(
+          {.align = FlexAlign::Center, .justify = FlexJustify::End, .fillWidth = true, .flexGrow = 1.0f},
+          ui::button({
+              .out = &m_closeButton,
+              .glyph = "close",
+              .glyphSize = Style::fontSizeBody * scale,
+              .minWidth = Style::controlHeightSm * scale,
+              .minHeight = Style::controlHeightSm * scale,
+              .padding = Style::spaceXs * scale,
+              .radius = Style::scaledRadiusMd(scale),
+              .onClick = []() { PanelManager::instance().close(); },
+              // Header icon button style: compact metrics with a panel-card-aware palette.
+              .configure = [scale, opacity = panelCardOpacity()](
+                               Button& button
+                           ) { panel_button_style::applyHeaderButtonStyle(button, opacity); },
+          })
+      )
+  );
 
   root->addChild(std::move(header));
 
@@ -177,62 +186,68 @@ void WallpaperPanel::create() {
       .fillWidth = true,
   });
 
-  toolbar->addChild(ui::input({
-      .out = &m_filterInput,
-      .placeholder = i18n::tr("wallpaper.panel.filter-placeholder"),
-      .fontSize = Style::fontSizeBody * scale,
-      .controlHeight = Style::controlHeight * scale,
-      .horizontalPadding = Style::spaceMd * scale,
-      .width = 360.0f * scale,
-      .height = 0.0f,
-      .onChange =
-          [this](const std::string& text) {
-            if (text == m_pendingFilterQuery) {
-              return;
-            }
-            m_pendingFilterQuery = text;
-            m_filterDebounceTimer.start(kFilterDebounceInterval, [this]() {
-              if (m_pendingFilterQuery == m_filterQuery) {
-                return;
-              }
-              m_filterQuery = m_pendingFilterQuery;
-              applyFilter();
-              resetSelection();
-              rebindGrid();
-              m_dirty = true;
-              PanelManager::instance().refresh();
-            });
-          },
-      .onKeyEvent = [this](std::uint32_t sym, std::uint32_t modifiers) { return handleKeyEvent(sym, modifiers); },
-  }));
+  toolbar->addChild(
+      ui::input({
+          .out = &m_filterInput,
+          .placeholder = i18n::tr("wallpaper.panel.filter-placeholder"),
+          .fontSize = Style::fontSizeBody * scale,
+          .controlHeight = Style::controlHeight * scale,
+          .horizontalPadding = Style::spaceMd * scale,
+          .width = 360.0f * scale,
+          .height = 0.0f,
+          .onChange =
+              [this](const std::string& text) {
+                if (text == m_pendingFilterQuery) {
+                  return;
+                }
+                m_pendingFilterQuery = text;
+                m_filterDebounceTimer.start(kFilterDebounceInterval, [this]() {
+                  if (m_pendingFilterQuery == m_filterQuery) {
+                    return;
+                  }
+                  m_filterQuery = m_pendingFilterQuery;
+                  applyFilter();
+                  resetSelection();
+                  rebindGrid();
+                  m_dirty = true;
+                  PanelManager::instance().refresh();
+                });
+              },
+          .onKeyEvent = [this](std::uint32_t sym, std::uint32_t modifiers) { return handleKeyEvent(sym, modifiers); },
+      })
+  );
 
-  toolbar->addChild(ui::button({
-      .out = &m_backButton,
-      .glyph = "arrow-big-up",
-      .glyphSize = Style::fontSizeBody * scale,
-      .variant = ButtonVariant::Secondary,
-      // Toolbar icon button style.
-      .minWidth = Style::controlHeightSm * scale,
-      .minHeight = Style::controlHeightSm * scale,
-      .padding = Style::spaceXs * scale,
-      .radius = Style::scaledRadiusMd(scale),
-      .onClick = [this]() { navigateUp(); },
-  }));
+  toolbar->addChild(
+      ui::button({
+          .out = &m_backButton,
+          .glyph = "arrow-big-up",
+          .glyphSize = Style::fontSizeBody * scale,
+          .variant = ButtonVariant::Secondary,
+          // Toolbar icon button style.
+          .minWidth = Style::controlHeightSm * scale,
+          .minHeight = Style::controlHeightSm * scale,
+          .padding = Style::spaceXs * scale,
+          .radius = Style::scaledRadiusMd(scale),
+          .onClick = [this]() { navigateUp(); },
+      })
+  );
 
   toolbar->addChild(ui::spacer());
 
-  toolbar->addChild(ui::label({
-      .out = &m_flattenLabel,
-      .text = i18n::tr("wallpaper.panel.flatten"),
-      .fontSize = Style::fontSizeBody * scale,
-      .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-  }));
+  toolbar->addChild(
+      ui::label({
+          .out = &m_flattenLabel,
+          .text = i18n::tr("wallpaper.panel.flatten"),
+          .fontSize = Style::fontSizeBody * scale,
+          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+      })
+  );
 
-  toolbar->addChild(ui::toggle({
-      .out = &m_flattenToggle,
-      .checked = false,
-      .onChange =
-          [this](bool checked) {
+  toolbar->addChild(
+      ui::toggle({
+          .out = &m_flattenToggle,
+          .checked = false,
+          .onChange = [this](bool checked) {
             m_flatten = checked;
             refreshScan();
             applyFilter();
@@ -241,52 +256,57 @@ void WallpaperPanel::create() {
             m_dirty = true;
             PanelManager::instance().refresh();
           },
-  }));
+      })
+  );
 
-  toolbar->addChild(ui::select({
-      .out = &m_monitorSelect,
-      .fontSize = Style::fontSizeBody * scale,
-      .controlHeight = Style::controlHeight * scale,
-      .onSelectionChanged =
-          [this](std::size_t idx, std::string_view) {
-            m_selectedMonitorIndex = idx;
-            m_navStack.clear();
-            refreshScan();
-            applyFilter();
-            resetSelection();
-            rebindGrid();
-            rebuildBreadcrumb();
-            m_dirty = true;
-            PanelManager::instance().refresh();
-          },
-      .configure = [scale](Select& select) { select.setMinWidth(kMonitorSelectMinWidth * scale); },
-  }));
+  toolbar->addChild(
+      ui::select({
+          .out = &m_monitorSelect,
+          .fontSize = Style::fontSizeBody * scale,
+          .controlHeight = Style::controlHeight * scale,
+          .onSelectionChanged =
+              [this](std::size_t idx, std::string_view) {
+                m_selectedMonitorIndex = idx;
+                m_navStack.clear();
+                refreshScan();
+                applyFilter();
+                resetSelection();
+                rebindGrid();
+                rebuildBreadcrumb();
+                m_dirty = true;
+                PanelManager::instance().refresh();
+              },
+          .configure = [scale](Select& select) { select.setMinWidth(kMonitorSelectMinWidth * scale); },
+      })
+  );
 
-  toolbar->addChild(ui::button({
-      .out = &m_colorButton,
-      .glyph = "color-picker",
-      .glyphSize = Style::fontSizeBody * scale,
-      .variant = ButtonVariant::Default,
-      // Toolbar icon button style.
-      .minWidth = Style::controlHeightSm * scale,
-      .minHeight = Style::controlHeightSm * scale,
-      .padding = Style::spaceXs * scale,
-      .radius = Style::scaledRadiusMd(scale),
-      .onClick = [this]() { applyColorWallpaper(); },
-  }));
+  toolbar->addChild(
+      ui::button({
+          .out = &m_colorButton,
+          .glyph = "color-picker",
+          .glyphSize = Style::fontSizeBody * scale,
+          .variant = ButtonVariant::Default,
+          // Toolbar icon button style.
+          .minWidth = Style::controlHeightSm * scale,
+          .minHeight = Style::controlHeightSm * scale,
+          .padding = Style::spaceXs * scale,
+          .radius = Style::scaledRadiusMd(scale),
+          .onClick = [this]() { applyColorWallpaper(); },
+      })
+  );
 
-  toolbar->addChild(ui::button({
-      .out = &m_refreshButton,
-      .glyph = "refresh",
-      .glyphSize = Style::fontSizeBody * scale,
-      .variant = ButtonVariant::Default,
-      // Toolbar icon button style.
-      .minWidth = Style::controlHeightSm * scale,
-      .minHeight = Style::controlHeightSm * scale,
-      .padding = Style::spaceXs * scale,
-      .radius = Style::scaledRadiusMd(scale),
-      .onClick =
-          [this]() {
+  toolbar->addChild(
+      ui::button({
+          .out = &m_refreshButton,
+          .glyph = "refresh",
+          .glyphSize = Style::fontSizeBody * scale,
+          .variant = ButtonVariant::Default,
+          // Toolbar icon button style.
+          .minWidth = Style::controlHeightSm * scale,
+          .minHeight = Style::controlHeightSm * scale,
+          .padding = Style::spaceXs * scale,
+          .radius = Style::scaledRadiusMd(scale),
+          .onClick = [this]() {
             m_scanner.invalidate();
             refreshScan();
             applyFilter();
@@ -295,7 +315,8 @@ void WallpaperPanel::create() {
             m_dirty = true;
             PanelManager::instance().refresh();
           },
-  }));
+      })
+  );
 
   root->addChild(std::move(toolbar));
 
@@ -311,23 +332,25 @@ void WallpaperPanel::create() {
     }
   });
 
-  root->addChild(ui::virtualGridView({
-      .out = &m_grid,
-      .minCellWidth = kMinTileWidth * scale,
-      .squareCells = false,
-      .columnGap = Style::spaceMd * scale,
-      .rowGap = Style::spaceMd * scale,
-      .overscanRows = 2,
-      .adapter = m_adapter.get(),
-      .flexGrow = 1.0f,
-      .onSelectionChanged =
-          [this](std::optional<std::size_t> idx) {
-            if (idx.has_value() && *idx < m_visibleEntries.size()) {
-              m_selectedVisibleIndex = *idx;
-            }
-          },
-      .configure = [](VirtualGridView& grid) { grid.setFillWidth(true); },
-  }));
+  root->addChild(
+      ui::virtualGridView({
+          .out = &m_grid,
+          .minCellWidth = kMinTileWidth * scale,
+          .squareCells = false,
+          .columnGap = Style::spaceMd * scale,
+          .rowGap = Style::spaceMd * scale,
+          .overscanRows = 2,
+          .adapter = m_adapter.get(),
+          .flexGrow = 1.0f,
+          .onSelectionChanged =
+              [this](std::optional<std::size_t> idx) {
+                if (idx.has_value() && *idx < m_visibleEntries.size()) {
+                  m_selectedVisibleIndex = *idx;
+                }
+              },
+          .configure = [](VirtualGridView& grid) { grid.setFillWidth(true); },
+      })
+  );
 
   setRoot(std::move(root));
   if (m_animations != nullptr) {

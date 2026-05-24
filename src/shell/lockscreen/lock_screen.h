@@ -27,8 +27,10 @@ public:
   LockScreen();
   ~LockScreen();
 
-  bool initialize(WaylandConnection& wayland, RenderContext* renderContext, ConfigService* configService,
-                  SharedTextureCache* textureCache);
+  bool initialize(
+      WaylandConnection& wayland, RenderContext* renderContext, ConfigService* configService,
+      SharedTextureCache* textureCache
+  );
   void setSessionHooks(std::function<void()> onLocked, std::function<void()> onUnlocked);
   bool lock();
   void unlock();

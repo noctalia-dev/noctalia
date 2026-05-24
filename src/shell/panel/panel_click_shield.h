@@ -67,8 +67,9 @@ public:
   [[nodiscard]] bool ownsSurface(wl_surface* surface) const noexcept;
 
   // Public so the C-callback bridge in panel_click_shield.cpp can dispatch.
-  static void handleConfigure(void* data, zwlr_layer_surface_v1* layerSurface, std::uint32_t serial,
-                              std::uint32_t width, std::uint32_t height);
+  static void handleConfigure(
+      void* data, zwlr_layer_surface_v1* layerSurface, std::uint32_t serial, std::uint32_t width, std::uint32_t height
+  );
   static void handleClosed(void* data, zwlr_layer_surface_v1* layerSurface);
 
 private:

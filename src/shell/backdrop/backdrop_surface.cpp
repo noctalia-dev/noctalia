@@ -109,7 +109,8 @@ void BackdropSurface::setTintColor(float r, float g, float b) noexcept {
 }
 
 void BackdropSurface::setWallpaperState(TextureId tex, float imgW, float imgH, WallpaperFillMode fillMode) {
-  m_wallpaperRenderer.setTransitionState(tex, {}, imgW, imgH, 0.0f, 0.0f, 0.0f, WallpaperTransition::Fade, fillMode,
-                                         TransitionParams{});
+  m_wallpaperRenderer.setTransitionState(
+      tex, {}, imgW, imgH, 0.0f, 0.0f, 0.0f, WallpaperTransition::Fade, fillMode, TransitionParams{}
+  );
   m_layer.invalidate();
 }

@@ -80,11 +80,13 @@ public:
   // Delegate setters
   void setOutputChangeCallback(ChangeCallback callback);
   void setOutputLifecycleCallbacks(std::function<void(wl_output*)> added, std::function<void(wl_output*)> removed);
-  void setWorkspaceManagerCallbacks(std::function<void(ext_workspace_manager_v1*)> extWorkspace,
-                                    std::function<void(zdwl_ipc_manager_v2*)> dwlIpc);
+  void setWorkspaceManagerCallbacks(
+      std::function<void(ext_workspace_manager_v1*)> extWorkspace, std::function<void(zdwl_ipc_manager_v2*)> dwlIpc
+  );
   void setToplevelChangeCallback(ChangeCallback callback);
   void setHyprlandToplevelMappingManagerCallback(
-      std::function<void(hyprland_toplevel_mapping_manager_v1* manager)> callback);
+      std::function<void(hyprland_toplevel_mapping_manager_v1* manager)> callback
+  );
   void setPointerEventCallback(WaylandSeat::PointerEventCallback callback);
   void setKeyboardEventCallback(WaylandSeat::KeyboardEventCallback callback);
   /// Fired when both `ext_idle_notifier_v1` and `wl_seat` are bound (including late registry globals).
@@ -147,10 +149,10 @@ public:
   matchToplevelByTitleAndAppId(std::string_view title, std::string_view appId, wl_output* preferredOutput) const;
   [[nodiscard]] wl_output* activeToplevelOutput() const;
   [[nodiscard]] std::vector<std::string> runningAppIds(wl_output* outputFilter = nullptr) const;
-  [[nodiscard]] std::vector<ToplevelInfo> windowsForApp(const std::string& idLower, const std::string& wmClassLower,
-                                                        wl_output* outputFilter = nullptr) const;
-  [[nodiscard]] std::vector<ToplevelInfo> extWindowsForApp(const std::string& idLower,
-                                                           const std::string& wmClassLower) const;
+  [[nodiscard]] std::vector<ToplevelInfo>
+  windowsForApp(const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter = nullptr) const;
+  [[nodiscard]] std::vector<ToplevelInfo>
+  extWindowsForApp(const std::string& idLower, const std::string& wmClassLower) const;
   template <typename Fn> void visitExtToplevelHandles(Fn&& fn) const {
     m_extForeignToplevels.visitExtHandles(std::forward<Fn>(fn));
   }
@@ -181,8 +183,8 @@ public:
   void notifyOutputReady(wl_output* output);
 
   // Registry listener entrypoints
-  static void handleGlobal(void* data, wl_registry* registry, std::uint32_t name, const char* interface,
-                           std::uint32_t version);
+  static void
+  handleGlobal(void* data, wl_registry* registry, std::uint32_t name, const char* interface, std::uint32_t version);
   static void handleGlobalRemove(void* data, wl_registry* registry, std::uint32_t name);
 
   void onBackgroundEffectCapabilities(std::uint32_t capabilities) noexcept;

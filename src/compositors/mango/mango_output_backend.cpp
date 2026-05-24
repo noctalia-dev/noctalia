@@ -14,7 +14,8 @@ namespace compositors::mango {
         continue;
       }
       if (process::runAsync(
-              {"mmsg", "-s", "-d", std::string(on ? "enable_monitor," : "disable_monitor,") + output.connectorName})) {
+              {"mmsg", "-s", "-d", std::string(on ? "enable_monitor," : "disable_monitor,") + output.connectorName}
+          )) {
         launchedAny = true;
       }
     }

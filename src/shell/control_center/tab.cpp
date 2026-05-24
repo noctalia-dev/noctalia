@@ -1,7 +1,6 @@
 #include "shell/control_center/tab.h"
 
-#include "ui/controls/flex.h"
-#include "ui/controls/label.h"
+#include "ui/builders.h"
 
 #include <memory>
 
@@ -16,22 +15,26 @@ namespace control_center {
   }
 
   Label* addTitle(Flex& parent, const std::string& text, float scale) {
-    auto label = std::make_unique<Label>();
-    label->setText(text);
-    label->setFontWeight(FontWeight::Bold);
-    label->setFontSize(Style::fontSizeTitle * scale);
-    label->setColor(colorSpecFromRole(ColorRole::OnSurface));
-    auto* ptr = label.get();
+    Label* ptr = nullptr;
+    auto label = ui::label({
+        .out = &ptr,
+        .text = text,
+        .fontSize = Style::fontSizeTitle * scale,
+        .color = colorSpecFromRole(ColorRole::OnSurface),
+        .fontWeight = FontWeight::Bold,
+    });
     parent.addChild(std::move(label));
     return ptr;
   }
 
   void addBody(Flex& parent, const std::string& text, float scale) {
-    auto label = std::make_unique<Label>();
-    label->setText(text);
-    label->setFontSize(Style::fontSizeBody * scale);
-    label->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-    parent.addChild(std::move(label));
+    parent.addChild(
+        ui::label({
+            .text = text,
+            .fontSize = Style::fontSizeBody * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+        })
+    );
   }
 
 } // namespace control_center

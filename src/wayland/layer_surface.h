@@ -67,8 +67,9 @@ public:
   [[nodiscard]] std::int32_t marginBottom() const noexcept { return m_config.marginBottom; }
   [[nodiscard]] std::int32_t marginLeft() const noexcept { return m_config.marginLeft; }
 
-  static void handleConfigure(void* data, zwlr_layer_surface_v1* layerSurface, std::uint32_t serial,
-                              std::uint32_t width, std::uint32_t height);
+  static void handleConfigure(
+      void* data, zwlr_layer_surface_v1* layerSurface, std::uint32_t serial, std::uint32_t width, std::uint32_t height
+  );
   static void handleClosed(void* data, zwlr_layer_surface_v1* layerSurface);
 
 private:

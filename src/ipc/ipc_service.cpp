@@ -72,12 +72,14 @@ bool IpcService::start() {
   return true;
 }
 
-void IpcService::registerHandler(const std::string& command, Handler handler, std::string usage,
-                                 std::string description) {
+void IpcService::registerHandler(
+    const std::string& command, Handler handler, std::string usage, std::string description
+) {
   // Remove existing entry for this command if re-registering
   m_handlers.erase(
       std::remove_if(m_handlers.begin(), m_handlers.end(), [&command](const auto& e) { return e.first == command; }),
-      m_handlers.end());
+      m_handlers.end()
+  );
   m_handlers.push_back({command, {std::move(handler), std::move(usage), std::move(description)}});
 }
 
@@ -156,8 +158,9 @@ void IpcService::handleConnection(int connFd) {
 std::string IpcService::buildHelp() const {
   std::vector<std::size_t> order(m_handlers.size());
   std::iota(order.begin(), order.end(), 0);
-  std::sort(order.begin(), order.end(),
-            [this](std::size_t lhs, std::size_t rhs) { return m_handlers[lhs].first < m_handlers[rhs].first; });
+  std::sort(order.begin(), order.end(), [this](std::size_t lhs, std::size_t rhs) {
+    return m_handlers[lhs].first < m_handlers[rhs].first;
+  });
 
   // Find the longest usage string for alignment
   std::size_t maxUsage = 0;

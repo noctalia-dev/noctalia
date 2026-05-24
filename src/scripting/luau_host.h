@@ -49,8 +49,9 @@ public:
   std::optional<std::string> callGlobalReturningString(const char* name);
   bool callGlobalWithBudget(const char* name, std::chrono::milliseconds budget);
   bool callGlobalWithBoolAndBudget(const char* name, bool value, std::chrono::milliseconds budget);
-  bool callGlobalWithStringsAndBudget(const char* name, std::string_view first, std::string_view second,
-                                      std::chrono::milliseconds budget);
+  bool callGlobalWithStringsAndBudget(
+      const char* name, std::string_view first, std::string_view second, std::chrono::milliseconds budget
+  );
   bool callAsyncCommandCallback(int callbackRef, const process::RunResult& result, std::chrono::milliseconds budget);
   bool callAsyncProcessMatchCallback(int callbackRef, bool matched, std::chrono::milliseconds budget);
   [[nodiscard]] bool lastCallTimedOut() const noexcept { return m_lastCallTimedOut; }

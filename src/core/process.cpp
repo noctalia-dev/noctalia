@@ -222,8 +222,10 @@ namespace {
     return flags >= 0 && ::fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0;
   }
 
-  void drainAvailable(int& fd, std::string& out, std::size_t maxBytes = std::numeric_limits<std::size_t>::max(),
-                      bool* truncated = nullptr) {
+  void drainAvailable(
+      int& fd, std::string& out, std::size_t maxBytes = std::numeric_limits<std::size_t>::max(),
+      bool* truncated = nullptr
+  ) {
     if (fd < 0) {
       return;
     }
@@ -324,9 +326,10 @@ namespace {
     return static_cast<int>(bounded.count());
   }
 
-  process::RunResult runSyncProcess(const std::vector<std::string>& args,
-                                    std::optional<std::chrono::milliseconds> timeout,
-                                    std::size_t maxOutputBytes = std::numeric_limits<std::size_t>::max()) {
+  process::RunResult runSyncProcess(
+      const std::vector<std::string>& args, std::optional<std::chrono::milliseconds> timeout,
+      std::size_t maxOutputBytes = std::numeric_limits<std::size_t>::max()
+  ) {
     if (args.empty() || args.front().empty()) {
       return {-1, {}, {}};
     }
@@ -440,8 +443,10 @@ namespace {
 
   // Double-fork + setsid so the exec'd process is not a direct child of the caller (matches
   // launcher app activation). Parent reaps the short-lived intermediate child.
-  bool doubleForkExecDetached(const std::vector<std::string>& args, pid_t* reportPid,
-                              const std::string& activationToken, const std::string& workingDir = {}) {
+  bool doubleForkExecDetached(
+      const std::vector<std::string>& args, pid_t* reportPid, const std::string& activationToken,
+      const std::string& workingDir = {}
+  ) {
     int reportPipe[2] = {-1, -1};
     const bool needPid = reportPid != nullptr;
     if (needPid && ::pipe(reportPipe) != 0) {
@@ -548,8 +553,10 @@ namespace {
     return res;
   }
 
-  void startSystemdService(const std::vector<std::string>& args, const std::string& activationToken,
-                           const std::string& workingDir, const std::string& appName) {
+  void startSystemdService(
+      const std::vector<std::string>& args, const std::string& activationToken, const std::string& workingDir,
+      const std::string& appName
+  ) {
     const pid_t intermediate = ::fork();
     if (intermediate < 0) {
       return;
@@ -665,8 +672,8 @@ namespace process {
     return false;
   }
 
-  bool runAsync(const std::vector<std::string>& args, const std::string& activationToken,
-                const std::string& workingDir) {
+  bool
+  runAsync(const std::vector<std::string>& args, const std::string& activationToken, const std::string& workingDir) {
     if (args.empty() || args.front().empty()) {
       return false;
     }
@@ -733,8 +740,9 @@ namespace process {
     return command.has_value() ? runSyncWithTimeout(*command, timeout) : RunResult{-1, {}, {}};
   }
 
-  RunResult runSyncWithTimeoutAndOutputLimit(const std::vector<std::string>& args, std::chrono::milliseconds timeout,
-                                             std::size_t maxOutputBytes) {
+  RunResult runSyncWithTimeoutAndOutputLimit(
+      const std::vector<std::string>& args, std::chrono::milliseconds timeout, std::size_t maxOutputBytes
+  ) {
     return runSyncProcess(args, timeout, maxOutputBytes);
   }
 
@@ -748,8 +756,9 @@ namespace process {
 
     const auto& commandLines = cachedProcessCommandLines();
     return std::any_of(commandLines.begin(), commandLines.end(), [&needles](const auto& commandLine) {
-      return std::all_of(needles.begin(), needles.end(),
-                         [&commandLine](const auto& needle) { return commandLine.find(needle) != std::string::npos; });
+      return std::all_of(needles.begin(), needles.end(), [&commandLine](const auto& needle) {
+        return commandLine.find(needle) != std::string::npos;
+      });
     });
   }
 
@@ -758,8 +767,10 @@ namespace process {
     if (!portal) {
       return false;
     }
-    return cachedProcessMatchesAny({"xdg-desktop-portal-wlr ", "xdg-desktop-portal-hyprland ",
-                                    "xdg-desktop-portal-gnome ", "xdg-desktop-portal-kde "});
+    return cachedProcessMatchesAny(
+        {"xdg-desktop-portal-wlr ", "xdg-desktop-portal-hyprland ", "xdg-desktop-portal-gnome ",
+         "xdg-desktop-portal-kde "}
+    );
   }
 
   bool flatpakAppInstalled(std::string_view appId) {
@@ -816,8 +827,10 @@ namespace process {
   // We don't have a return code, so we don't wait for the launch mechanism to complete (e.g., systemd-run),
   // which might take more time than a double-fork-exec and block the UI thread for too long. Launcher/AppProvider
   // doesn't check if the app launch succeeded, anyway.
-  void runAsyncAsSystemdService(const std::vector<std::string>& args, const std::string& appName,
-                                const std::string& activationToken, const std::string& workingDir) {
+  void runAsyncAsSystemdService(
+      const std::vector<std::string>& args, const std::string& appName, const std::string& activationToken,
+      const std::string& workingDir
+  ) {
 #ifdef __linux__
     if (args.empty() || args.front().empty()) {
       return;

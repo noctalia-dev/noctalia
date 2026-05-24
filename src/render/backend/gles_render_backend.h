@@ -33,8 +33,8 @@ public:
   void endFrame(RenderTarget& target) override;
 
   [[nodiscard]] std::unique_ptr<RenderSurfaceTarget> createSurfaceTarget(wl_surface* surface) override;
-  [[nodiscard]] std::unique_ptr<RenderFramebuffer> createFramebuffer(std::uint32_t width,
-                                                                     std::uint32_t height) override;
+  [[nodiscard]] std::unique_ptr<RenderFramebuffer>
+  createFramebuffer(std::uint32_t width, std::uint32_t height) override;
   void bindFramebuffer(const RenderFramebuffer& framebuffer) override;
   void bindDefaultFramebuffer() override;
   void setViewport(std::uint32_t width, std::uint32_t height) override;
@@ -43,31 +43,45 @@ public:
   [[nodiscard]] int maxTextureSize() override;
   void setScissor(RenderScissor scissor) override;
   void disableScissor() override;
-  void drawRect(float surfaceWidth, float surfaceHeight, float width, float height, const RoundedRectStyle& style,
-                const Mat3& transform) override;
+  void drawRect(
+      float surfaceWidth, float surfaceHeight, float width, float height, const RoundedRectStyle& style,
+      const Mat3& transform
+  ) override;
   void drawImage(const RenderImageDraw& draw) override;
   void drawGlyph(const RenderGlyphDraw& draw) override;
-  void drawSpinner(float surfaceWidth, float surfaceHeight, float width, float height, const SpinnerStyle& style,
-                   const Mat3& transform) override;
-  void drawScreenCorner(float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width,
-                        float height, const ScreenCornerStyle& style, const Mat3& transform) override;
-  void drawAudioSpectrum(float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width,
-                         float height, const AudioSpectrumStyle& style, std::span<const float> values,
-                         const Mat3& transform) override;
-  void drawEffect(float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,
-                  const Mat3& transform) override;
-  void drawGraph(TextureId dataTexture, int textureWidth, float surfaceWidth, float surfaceHeight, float width,
-                 float height, const GraphStyle& style, const Mat3& transform) override;
-  void drawWallpaper(WallpaperTransition transition, WallpaperSourceKind sourceKind1, TextureId texture1,
-                     const Color& sourceColor1, WallpaperSourceKind sourceKind2, TextureId texture2,
-                     const Color& sourceColor2, float surfaceWidth, float surfaceHeight, float width, float height,
-                     float imageWidth1, float imageHeight1, float imageWidth2, float imageHeight2, float progress,
-                     float fillMode, const TransitionParams& params, const Color& fillColor,
-                     const Mat3& transform) override;
+  void drawSpinner(
+      float surfaceWidth, float surfaceHeight, float width, float height, const SpinnerStyle& style,
+      const Mat3& transform
+  ) override;
+  void drawScreenCorner(
+      float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
+      const ScreenCornerStyle& style, const Mat3& transform
+  ) override;
+  void drawAudioSpectrum(
+      float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
+      const AudioSpectrumStyle& style, std::span<const float> values, const Mat3& transform
+  ) override;
+  void drawEffect(
+      float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,
+      const Mat3& transform
+  ) override;
+  void drawGraph(
+      TextureId dataTexture, int textureWidth, float surfaceWidth, float surfaceHeight, float width, float height,
+      const GraphStyle& style, const Mat3& transform
+  ) override;
+  void drawWallpaper(
+      WallpaperTransition transition, WallpaperSourceKind sourceKind1, TextureId texture1, const Color& sourceColor1,
+      WallpaperSourceKind sourceKind2, TextureId texture2, const Color& sourceColor2, float surfaceWidth,
+      float surfaceHeight, float width, float height, float imageWidth1, float imageHeight1, float imageWidth2,
+      float imageHeight2, float progress, float fillMode, const TransitionParams& params, const Color& fillColor,
+      const Mat3& transform
+  ) override;
   void drawFullscreenTexture(TextureId texture, bool flipY) override;
   void drawFullscreenTint(Color color) override;
-  void drawFramebufferBlur(TextureId sourceTexture, std::uint32_t width, std::uint32_t height, float directionX,
-                           float directionY, float radius) override;
+  void drawFramebufferBlur(
+      TextureId sourceTexture, std::uint32_t width, std::uint32_t height, float directionX, float directionY,
+      float radius
+  ) override;
 
   [[nodiscard]] TextureManager& textureManager() override { return m_textureManager; }
 

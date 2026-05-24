@@ -38,8 +38,8 @@ namespace {
   // fractional widths by design. Autohinter snaps each stroke to the nearest
   // integer pixel, which visibly thins the icons. Grayscale AA without
   // hinting preserves the intended stroke thickness.
-  cairo_scaled_font_t* create_scaled_font(cairo_font_face_t* face, cairo_font_options_t* fontOptions,
-                                          float rasterSize) {
+  cairo_scaled_font_t*
+  create_scaled_font(cairo_font_face_t* face, cairo_font_options_t* fontOptions, float rasterSize) {
     cairo_matrix_t fontMatrix;
     cairo_matrix_init_scale(&fontMatrix, rasterSize, rasterSize);
     cairo_matrix_t ctm;
@@ -269,8 +269,10 @@ CairoGlyphRenderer::CacheEntry* CairoGlyphRenderer::lookupOrRasterize(char32_t c
   std::vector<unsigned char> tight(static_cast<std::size_t>(pxWidth) * static_cast<std::size_t>(pxHeight));
   for (int y = 0; y < pxHeight; ++y) {
     const auto row = static_cast<std::size_t>(y);
-    std::memcpy(tight.data() + row * static_cast<std::size_t>(pxWidth), data + row * static_cast<std::size_t>(stride),
-                static_cast<std::size_t>(pxWidth));
+    std::memcpy(
+        tight.data() + row * static_cast<std::size_t>(pxWidth), data + row * static_cast<std::size_t>(stride),
+        static_cast<std::size_t>(pxWidth)
+    );
   }
   cairo_surface_destroy(surface);
   cairo_scaled_font_destroy(scaledFont);
@@ -279,8 +281,9 @@ CairoGlyphRenderer::CacheEntry* CairoGlyphRenderer::lookupOrRasterize(char32_t c
     return nullptr;
   }
 
-  entry.texture = m_textureManager->loadFromPixels(tight.data(), pxWidth, pxHeight, TextureDataFormat::Alpha,
-                                                   TextureFilter::Linear);
+  entry.texture = m_textureManager->loadFromPixels(
+      tight.data(), pxWidth, pxHeight, TextureDataFormat::Alpha, TextureFilter::Linear
+  );
   if (entry.texture.id == 0) {
     return nullptr;
   }
@@ -298,8 +301,10 @@ CairoGlyphRenderer::CacheEntry* CairoGlyphRenderer::lookupOrRasterize(char32_t c
   return &ins->second;
 }
 
-void CairoGlyphRenderer::drawGlyph(float surfaceWidth, float surfaceHeight, float x, float baselineY,
-                                   char32_t codepoint, float fontSize, const Color& color, const Mat3& transform) {
+void CairoGlyphRenderer::drawGlyph(
+    float surfaceWidth, float surfaceHeight, float x, float baselineY, char32_t codepoint, float fontSize,
+    const Color& color, const Mat3& transform
+) {
   if (m_face == nullptr || m_backend == nullptr || codepoint == 0) {
     return;
   }
@@ -327,15 +332,17 @@ void CairoGlyphRenderer::drawGlyph(float surfaceWidth, float surfaceHeight, floa
     world.m[7] = std::round(world.m[7]);
   }
 
-  m_backend->drawGlyph(RenderGlyphDraw{
-      .texture = entry->texture.id,
-      .surfaceWidth = surfaceWidth,
-      .surfaceHeight = surfaceHeight,
-      .width = quadW,
-      .height = quadH,
-      .opacity = 1.0f,
-      .tint = color,
-      .tinted = true,
-      .transform = world,
-  });
+  m_backend->drawGlyph(
+      RenderGlyphDraw{
+          .texture = entry->texture.id,
+          .surfaceWidth = surfaceWidth,
+          .surfaceHeight = surfaceHeight,
+          .width = quadW,
+          .height = quadH,
+          .opacity = 1.0f,
+          .tint = color,
+          .tinted = true,
+          .transform = world,
+      }
+  );
 }

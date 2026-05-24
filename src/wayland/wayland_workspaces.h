@@ -67,8 +67,10 @@ private:
   WorkspaceBackend* m_dwlIpcBackend = nullptr;
   WorkspaceBackend* m_hyprlandBackend = nullptr;
   WorkspaceBackend* m_swayBackend = nullptr;
+  WorkspaceBackend* m_triadBackend = nullptr;
   WorkspaceSocketConnector* m_hyprlandConnector = nullptr;
   WorkspaceSocketConnector* m_swayConnector = nullptr;
+  WorkspaceSocketConnector* m_triadConnector = nullptr;
   WorkspaceBackend* m_activeBackend = nullptr;
   ChangeCallback m_changeCallback;
 };

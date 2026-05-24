@@ -16,8 +16,9 @@ public:
   Backdrop();
   ~Backdrop();
 
-  bool initialize(WaylandConnection& wayland, ConfigService* config, SharedTextureCache* textureCache,
-                  GlSharedContext* sharedGl);
+  bool initialize(
+      WaylandConnection& wayland, ConfigService* config, SharedTextureCache* textureCache, GlSharedContext* sharedGl
+  );
   void onOutputChange();
   void onFontChanged();
   void onStateChange();

@@ -5,12 +5,7 @@
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
 #include "render/scene/input_area.h"
-#include "ui/controls/box.h"
-#include "ui/controls/button.h"
-#include "ui/controls/image.h"
-#include "ui/controls/input.h"
-#include "ui/controls/label.h"
-#include "ui/controls/spacer.h"
+#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -23,23 +18,6 @@
 #include <string>
 
 namespace {
-
-  void configureDialogActionButton(Button& button, float scale) {
-    button.setMinHeight(Style::controlHeight * scale);
-    button.setMinWidth(92.0f * scale);
-    button.setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
-    button.setRadius(Style::scaledRadiusMd(scale));
-  }
-
-  void configureDialogCloseButton(Button& button, float scale) {
-    button.setVariant(ButtonVariant::Default);
-    button.setGlyph("close");
-    button.setGlyphSize(Style::fontSizeBody * scale);
-    button.setMinWidth(Style::controlHeightSm * scale);
-    button.setMinHeight(Style::controlHeightSm * scale);
-    button.setPadding(Style::spaceXs * scale);
-    button.setRadius(Style::scaledRadiusMd(scale));
-  }
 
   int parseIntClamp(const std::string& s, int lo, int hi) {
     try {
@@ -70,52 +48,63 @@ ColorPicker::ColorPicker() {
   setGap(Style::spaceSm);
   setPadding(0.0f);
 
-  auto svImage = std::make_unique<Image>();
-  svImage->setFit(ImageFit::Stretch);
-  svImage->setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
-  m_svImage = static_cast<Image*>(addChild(std::move(svImage)));
+  addChild(
+      ui::image({
+          .out = &m_svImage,
+          .fit = ImageFit::Stretch,
+          .configure = [](Image& image) { image.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth); },
+      })
+  );
 
   constexpr int kHueSegments = 36;
-  auto hueStrip = std::make_unique<Flex>();
-  hueStrip->setDirection(FlexDirection::Horizontal);
-  hueStrip->setGap(0.0f);
-  hueStrip->setAlign(FlexAlign::Stretch);
-  m_hueStrip = hueStrip.get();
+  auto hueStrip = ui::row({
+      .out = &m_hueStrip,
+      .align = FlexAlign::Stretch,
+      .gap = 0.0f,
+  });
   for (int i = 0; i < kHueSegments; ++i) {
     const float t = static_cast<float>(i) / static_cast<float>(kHueSegments - 1);
-    auto seg = std::make_unique<Box>();
-    seg->setFlexGrow(1.0f);
-    seg->clearBorder();
-    seg->setRadius(0.0f);
-    seg->setFill(hsv(t, 1.0f, 1.0f));
-    hueStrip->addChild(std::move(seg));
+    hueStrip->addChild(
+        ui::box({
+            .fill = fixedColorSpec(hsv(t, 1.0f, 1.0f)),
+            .radius = 0.0f,
+            .flexGrow = 1.0f,
+            .configure = [](Box& box) { box.clearBorder(); },
+        })
+    );
   }
   addChild(std::move(hueStrip));
 
-  auto fields = std::make_unique<Flex>();
-  fields->setDirection(FlexDirection::Horizontal);
-  fields->setAlign(FlexAlign::Center);
-  fields->setGap(Style::spaceSm);
-  fields->setJustify(FlexJustify::Start);
-  m_fieldsRow = fields.get();
+  auto fields = ui::row({
+      .out = &m_fieldsRow,
+      .align = FlexAlign::Center,
+      .justify = FlexJustify::Start,
+      .gap = Style::spaceSm,
+  });
 
   auto addField = [this](const char* title, float w) {
-    auto col = std::make_unique<Flex>();
-    col->setDirection(FlexDirection::Vertical);
-    col->setGap(Style::spaceXs * 0.5f);
-    col->setAlign(FlexAlign::Stretch);
-    auto lab = std::make_unique<Label>();
-    lab->setText(title);
-    lab->setFontSize(Style::fontSizeCaption);
-    lab->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-    col->addChild(std::move(lab));
-    auto in = std::make_unique<Input>();
-    in->setControlHeight(Style::controlHeightSm);
-    in->setHorizontalPadding(Style::spaceSm);
-    in->setFontSize(Style::fontSizeCaption);
-    in->setSize(w, 0.0f);
-    Input* inp = in.get();
-    col->addChild(std::move(in));
+    auto col = ui::column({
+        .align = FlexAlign::Stretch,
+        .gap = Style::spaceXs * 0.5f,
+    });
+    col->addChild(
+        ui::label({
+            .text = title,
+            .fontSize = Style::fontSizeCaption,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+        })
+    );
+    Input* inp = nullptr;
+    col->addChild(
+        ui::input({
+            .out = &inp,
+            .fontSize = Style::fontSizeCaption,
+            .controlHeight = Style::controlHeightSm,
+            .horizontalPadding = Style::spaceSm,
+            .width = w,
+            .height = 0.0f,
+        })
+    );
     m_fieldsRow->addChild(std::move(col));
     return inp;
   };
@@ -168,21 +157,31 @@ ColorPicker::ColorPicker() {
   });
   m_hueInput = static_cast<InputArea*>(addChild(std::move(hueInput)));
 
-  auto svThumb = std::make_unique<Box>();
-  svThumb->setParticipatesInLayout(false);
-  svThumb->setZIndex(6);
-  svThumb->setSize(24.0f, 24.0f);
-  svThumb->setRadius(12.0f);
-  svThumb->setFill(rgba(0.0f, 0.0f, 0.0f, 0.0f));
-  svThumb->setBorder(rgba(1.0f, 1.0f, 1.0f, 1.0f), 2.5f);
-  m_svThumb = static_cast<Box*>(addChild(std::move(svThumb)));
+  addChild(
+      ui::box({
+          .out = &m_svThumb,
+          .fill = fixedColorSpec(rgba(0.0f, 0.0f, 0.0f, 0.0f)),
+          .radius = 12.0f,
+          .width = 24.0f,
+          .height = 24.0f,
+          .participatesInLayout = false,
+          .configure = [](Box& box) {
+            box.setZIndex(6);
+            box.setBorder(rgba(1.0f, 1.0f, 1.0f, 1.0f), 2.5f);
+          },
+      })
+  );
 
-  auto hueThumb = std::make_unique<Box>();
-  hueThumb->setParticipatesInLayout(false);
-  hueThumb->setZIndex(6);
-  hueThumb->setSize(20.0f, 20.0f);
-  hueThumb->setRadius(10.0f);
-  m_hueThumb = static_cast<Box*>(addChild(std::move(hueThumb)));
+  addChild(
+      ui::box({
+          .out = &m_hueThumb,
+          .radius = 10.0f,
+          .width = 20.0f,
+          .height = 20.0f,
+          .participatesInLayout = false,
+          .configure = [](Box& box) { box.setZIndex(6); },
+      })
+  );
 
   m_svTextureDirty = true;
   updateHueThumbStyle();
@@ -449,65 +448,80 @@ ColorPickerSheet::ColorPickerSheet(float chromeScale) : m_chromeScale(std::max(0
   setGap(Style::spaceMd * m_chromeScale);
   setPadding(Style::spaceSm * m_chromeScale);
 
-  auto header = std::make_unique<Flex>();
-  header->setDirection(FlexDirection::Horizontal);
-  header->setAlign(FlexAlign::Center);
-  header->setGap(Style::spaceSm * m_chromeScale);
-
-  auto title = std::make_unique<Label>();
-  title->setText(i18n::tr("ui.dialogs.color-picker.title"));
-  title->setFontWeight(FontWeight::Bold);
-  title->setFontSize(Style::fontSizeTitle * m_chromeScale);
-  title->setColor(colorSpecFromRole(ColorRole::Primary));
-  m_title = static_cast<Label*>(header->addChild(std::move(title)));
-
-  header->addChild(std::make_unique<Spacer>());
-
-  auto closeButton = std::make_unique<Button>();
-  configureDialogCloseButton(*closeButton, m_chromeScale);
-  closeButton->setOnClick([this]() {
-    if (m_onCancel) {
-      m_onCancel();
-    }
-  });
-  header->addChild(std::move(closeButton));
-
-  addChild(std::move(header));
+  addChild(
+      ui::row(
+          {
+              .align = FlexAlign::Center,
+              .gap = Style::spaceSm * m_chromeScale,
+          },
+          ui::label({
+              .out = &m_title,
+              .text = i18n::tr("ui.dialogs.color-picker.title"),
+              .fontSize = Style::fontSizeTitle * m_chromeScale,
+              .color = colorSpecFromRole(ColorRole::Primary),
+              .fontWeight = FontWeight::Bold,
+          }),
+          ui::spacer(),
+          ui::button({
+              .glyph = "close",
+              .glyphSize = Style::fontSizeBody * m_chromeScale,
+              .variant = ButtonVariant::Default,
+              .minWidth = Style::controlHeightSm * m_chromeScale,
+              .minHeight = Style::controlHeightSm * m_chromeScale,
+              .padding = Style::spaceXs * m_chromeScale,
+              .radius = Style::scaledRadiusMd(m_chromeScale),
+              .onClick = [this]() {
+                if (m_onCancel) {
+                  m_onCancel();
+                }
+              },
+          })
+      )
+  );
 
   auto picker = std::make_unique<ColorPicker>();
   picker->setScale(m_chromeScale);
   m_picker = picker.get();
   addChild(std::move(picker));
 
-  auto actions = std::make_unique<Flex>();
-  actions->setDirection(FlexDirection::Horizontal);
-  actions->setAlign(FlexAlign::Center);
-  actions->setJustify(FlexJustify::End);
-  actions->setGap(Style::spaceSm * m_chromeScale);
-
-  auto cancel = std::make_unique<Button>();
-  cancel->setText(i18n::tr("common.actions.cancel"));
-  cancel->setVariant(ButtonVariant::Secondary);
-  configureDialogActionButton(*cancel, m_chromeScale);
-  cancel->setOnClick([this]() {
-    if (m_onCancel) {
-      m_onCancel();
-    }
-  });
-  actions->addChild(std::move(cancel));
-
-  auto apply = std::make_unique<Button>();
-  apply->setText(i18n::tr("common.actions.apply"));
-  apply->setVariant(ButtonVariant::Primary);
-  configureDialogActionButton(*apply, m_chromeScale);
-  apply->setOnClick([this]() {
-    if (m_picker != nullptr && m_onApply) {
-      m_onApply(m_picker->color());
-    }
-  });
-  actions->addChild(std::move(apply));
-
-  addChild(std::move(actions));
+  addChild(
+      ui::row(
+          {
+              .align = FlexAlign::Center,
+              .justify = FlexJustify::End,
+              .gap = Style::spaceSm * m_chromeScale,
+          },
+          ui::button({
+              .text = i18n::tr("common.actions.cancel"),
+              .variant = ButtonVariant::Secondary,
+              .minWidth = 92.0f * m_chromeScale,
+              .minHeight = Style::controlHeight * m_chromeScale,
+              .paddingV = Style::spaceSm * m_chromeScale,
+              .paddingH = Style::spaceMd * m_chromeScale,
+              .radius = Style::scaledRadiusMd(m_chromeScale),
+              .onClick =
+                  [this]() {
+                    if (m_onCancel) {
+                      m_onCancel();
+                    }
+                  },
+          }),
+          ui::button({
+              .text = i18n::tr("common.actions.apply"),
+              .variant = ButtonVariant::Primary,
+              .minWidth = 92.0f * m_chromeScale,
+              .minHeight = Style::controlHeight * m_chromeScale,
+              .paddingV = Style::spaceSm * m_chromeScale,
+              .paddingH = Style::spaceMd * m_chromeScale,
+              .radius = Style::scaledRadiusMd(m_chromeScale),
+              .onClick = [this]() {
+                if (m_picker != nullptr && m_onApply) {
+                  m_onApply(m_picker->color());
+                }
+              },
+          })
+      )
+  );
 }
 
 InputArea* ColorPickerSheet::initialFocusArea() const noexcept {

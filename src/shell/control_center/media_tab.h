@@ -27,8 +27,10 @@ class WaylandConnection;
 
 class MediaTab : public Tab {
 public:
-  MediaTab(MprisService* mpris, HttpClient* httpClient, PipeWireSpectrum* spectrum, ConfigService* config,
-           WaylandConnection* wayland, RenderContext* renderContext);
+  MediaTab(
+      MprisService* mpris, HttpClient* httpClient, PipeWireSpectrum* spectrum, ConfigService* config,
+      WaylandConnection* wayland, RenderContext* renderContext
+  );
   ~MediaTab() override;
 
   std::unique_ptr<Flex> create() override;

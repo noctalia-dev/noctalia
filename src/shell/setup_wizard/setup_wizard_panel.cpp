@@ -47,8 +47,8 @@ namespace {
       {"theme.scheme.muted", "muted"},
   };
 
-  std::unique_ptr<Label> makeLabel(std::string_view text, float fontSize, const ColorSpec& color,
-                                   FontWeight fontWeight = FontWeight::Normal) {
+  std::unique_ptr<Label>
+  makeLabel(std::string_view text, float fontSize, const ColorSpec& color, FontWeight fontWeight = FontWeight::Normal) {
     return ui::label({
         .text = std::string(text),
         .fontSize = fontSize,
@@ -96,12 +96,14 @@ namespace {
   }
 
   std::unique_ptr<Flex> makeCard(float scale, float fillOpacity, bool showBorder) {
-    return ui::column({.align = FlexAlign::Stretch,
-                       .gap = Style::spaceMd * scale,
-                       .configure = [scale, fillOpacity, showBorder](Flex& card) {
-                         card.setPadding(Style::spaceMd * scale, Style::spaceLg * scale);
-                         card.setCardStyle(scale, fillOpacity, showBorder);
-                       }});
+    return ui::column(
+        {.align = FlexAlign::Stretch,
+         .gap = Style::spaceMd * scale,
+         .configure = [scale, fillOpacity, showBorder](Flex& card) {
+           card.setPadding(Style::spaceMd * scale, Style::spaceLg * scale);
+           card.setCardStyle(scale, fillOpacity, showBorder);
+         }}
+    );
   }
 
   std::unique_ptr<Flex> makeRow(float scale) {
@@ -128,22 +130,23 @@ void SetupWizardPanel::create() {
   const float scale = contentScale();
   const auto& cfg = m_config->config();
 
-  auto root = ui::column({.out = &m_root,
-                          .align = FlexAlign::Stretch,
-                          .justify = FlexJustify::SpaceBetween,
-                          .gap = Style::spaceLg * scale,
-                          .configure = [scale](Flex& flex) { flex.setPadding(24.0f * scale, 28.0f * scale); }});
+  auto root = ui::column(
+      {.out = &m_root,
+       .align = FlexAlign::Stretch,
+       .justify = FlexJustify::SpaceBetween,
+       .gap = Style::spaceLg * scale,
+       .configure = [scale](Flex& flex) { flex.setPadding(24.0f * scale, 28.0f * scale); }}
+  );
 
   auto scroll = ui::scrollView({
       .scrollbarVisible = true,
       .viewportPaddingH = 0.0f,
       .viewportPaddingV = 0.0f,
       .flexGrow = 1.0f,
-      .configure =
-          [](ScrollView& scrollView) {
-            scrollView.clearFill();
-            scrollView.clearBorder();
-          },
+      .configure = [](ScrollView& scrollView) {
+        scrollView.clearFill();
+        scrollView.clearBorder();
+      },
   });
 
   auto* content = scroll->content();
@@ -155,18 +158,22 @@ void SetupWizardPanel::create() {
   {
     auto header = ui::row({.align = FlexAlign::Center, .gap = Style::spaceMd * scale});
 
-    header->addChild(ui::image({
-        .out = &m_logo,
-        .width = 44.0f * scale,
-        .height = 44.0f * scale,
-    }));
+    header->addChild(
+        ui::image({
+            .out = &m_logo,
+            .width = 44.0f * scale,
+            .height = 44.0f * scale,
+        })
+    );
 
     auto copy = makeTextColumn();
     copy->setGap(Style::spaceXs * scale);
-    copy->addChild(makeLabel(i18n::tr("setup-wizard.title"), 18.0f * scale, colorSpecFromRole(ColorRole::OnSurface),
-                             FontWeight::Bold));
-    copy->addChild(makeLabel(i18n::tr("setup-wizard.subtitle"), Style::fontSizeBody * scale,
-                             colorSpecFromRole(ColorRole::OnSurfaceVariant)));
+    copy->addChild(makeLabel(
+        i18n::tr("setup-wizard.title"), 18.0f * scale, colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold
+    ));
+    copy->addChild(makeLabel(
+        i18n::tr("setup-wizard.subtitle"), Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant)
+    ));
     header->addChild(std::move(copy));
     content->addChild(std::move(header));
   }
@@ -180,20 +187,26 @@ void SetupWizardPanel::create() {
     auto row = makeRow(scale);
     {
       auto col = makeTextColumn();
-      col->addChild(makeLabel(i18n::tr("settings.schema.shell.telemetry.label"), Style::fontSizeBody * scale,
-                              colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold));
-      auto description = makeLabel(i18n::tr("settings.schema.shell.telemetry.description"),
-                                   Style::fontSizeCaption * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant));
+      col->addChild(makeLabel(
+          i18n::tr("settings.schema.shell.telemetry.label"), Style::fontSizeBody * scale,
+          colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold
+      ));
+      auto description = makeLabel(
+          i18n::tr("settings.schema.shell.telemetry.description"), Style::fontSizeCaption * scale,
+          colorSpecFromRole(ColorRole::OnSurfaceVariant)
+      );
       description->setMaxLines(8);
       col->addChild(std::move(description));
       row->addChild(std::move(col));
     }
     {
-      row->addChild(ui::toggle({
-          .out = &m_telemetryToggle,
-          .checked = cfg.shell.telemetryEnabled,
-          .scale = scale,
-      }));
+      row->addChild(
+          ui::toggle({
+              .out = &m_telemetryToggle,
+              .checked = cfg.shell.telemetryEnabled,
+              .scale = scale,
+          })
+      );
     }
     card->addChild(std::move(row));
     content->addChild(std::move(card));
@@ -206,11 +219,15 @@ void SetupWizardPanel::create() {
     auto row = makeRow(scale);
     {
       auto col = makeTextColumn();
-      col->addChild(makeLabel(i18n::tr("setup-wizard.wallpaper"), Style::fontSizeBody * scale,
-                              colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold));
+      col->addChild(makeLabel(
+          i18n::tr("setup-wizard.wallpaper"), Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface),
+          FontWeight::Bold
+      ));
       const std::string currentPath = m_config->getDefaultWallpaperPath();
-      auto pathLabel = makeLabel(currentPath.empty() ? i18n::tr("setup-wizard.no-wallpaper-selected") : currentPath,
-                                 Style::fontSizeCaption * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant));
+      auto pathLabel = makeLabel(
+          currentPath.empty() ? i18n::tr("setup-wizard.no-wallpaper-selected") : currentPath,
+          Style::fontSizeCaption * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant)
+      );
       pathLabel->setMaxWidth(330.0f * scale);
       pathLabel->setMaxLines(1);
       m_wallpaperLabel = pathLabel.get();
@@ -218,19 +235,19 @@ void SetupWizardPanel::create() {
       row->addChild(std::move(col));
     }
     {
-      row->addChild(ui::button({
-          .text = i18n::tr("setup-wizard.browse"),
-          .glyph = "image",
-          .fontSize = Style::fontSizeBody * scale,
-          .glyphSize = Style::fontSizeBody * scale,
-          .variant = ButtonVariant::Outline,
-          .minWidth = 112.0f * scale,
-          .minHeight = Style::controlHeight * scale,
-          .paddingV = Style::spaceSm * scale,
-          .paddingH = Style::spaceMd * scale,
-          .radius = Style::scaledRadiusMd(scale),
-          .onClick =
-              [this]() {
+      row->addChild(
+          ui::button({
+              .text = i18n::tr("setup-wizard.browse"),
+              .glyph = "image",
+              .fontSize = Style::fontSizeBody * scale,
+              .glyphSize = Style::fontSizeBody * scale,
+              .variant = ButtonVariant::Outline,
+              .minWidth = 112.0f * scale,
+              .minHeight = Style::controlHeight * scale,
+              .paddingV = Style::spaceSm * scale,
+              .paddingH = Style::spaceMd * scale,
+              .radius = Style::scaledRadiusMd(scale),
+              .onClick = [this]() {
                 FileDialogOptions options;
                 options.mode = FileDialogMode::Open;
                 options.defaultViewMode = FileDialogViewMode::Grid;
@@ -259,7 +276,8 @@ void SetupWizardPanel::create() {
                   m_config->setWallpaperPath(std::nullopt, fullPath);
                 });
               },
-      }));
+          })
+      );
     }
     card->addChild(std::move(row));
     content->addChild(std::move(card));
@@ -272,8 +290,9 @@ void SetupWizardPanel::create() {
     // Mode row
     {
       auto row = makeRow(scale);
-      auto label = makeLabel(i18n::tr("setup-wizard.mode"), Style::fontSizeBody * scale,
-                             colorSpecFromRole(ColorRole::OnSurface));
+      auto label = makeLabel(
+          i18n::tr("setup-wizard.mode"), Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface)
+      );
       label->setFlexGrow(1.0f);
       row->addChild(std::move(label));
 
@@ -283,32 +302,38 @@ void SetupWizardPanel::create() {
       } else if (cfg.theme.mode == ThemeMode::Auto) {
         modeIdx = 2;
       }
-      row->addChild(ui::select({
-          .out = &m_modeSelect,
-          .options =
-              std::vector<std::string>{i18n::tr("settings.options.theme.mode.dark"),
-                                       i18n::tr("settings.options.theme.mode.light"), i18n::tr("common.states.auto")},
-          .selectedIndex = modeIdx,
-          .fontSize = Style::fontSizeBody * scale,
-          .controlHeight = Style::controlHeight * scale,
-          .horizontalPadding = Style::spaceMd * scale,
-          .onSelectionChanged =
-              [this](std::size_t index, std::string_view /*label*/) {
-                static constexpr const char* kModes[] = {"dark", "light", "auto"};
-                if (index < 3) {
-                  m_config->setOverride({"theme", "mode"}, std::string(kModes[index]));
-                }
-              },
-          .configure = [scale](Select& select) { select.setMinWidth(220.0f * scale); },
-      }));
+      row->addChild(
+          ui::select({
+              .out = &m_modeSelect,
+              .options =
+                  std::vector<std::string>{
+                      i18n::tr("settings.options.theme.mode.dark"), i18n::tr("settings.options.theme.mode.light"),
+                      i18n::tr("common.states.auto")
+                  },
+              .selectedIndex = modeIdx,
+              .fontSize = Style::fontSizeBody * scale,
+              .controlHeight = Style::controlHeight * scale,
+              .horizontalPadding = Style::spaceMd * scale,
+              .onSelectionChanged =
+                  [this](std::size_t index, std::string_view /*label*/) {
+                    static constexpr const char* kModes[] = {"dark", "light", "auto"};
+                    if (index < 3) {
+                      m_config->setOverride({"theme", "mode"}, std::string(kModes[index]));
+                    }
+                  },
+              .configure = [scale](Select& select) { select.setMinWidth(220.0f * scale); },
+          })
+      );
       card->addChild(std::move(row));
     }
 
     // Theme source row
     {
       auto row = makeRow(scale);
-      auto label = makeLabel(i18n::tr("settings.schema.appearance.palette-source.label"), Style::fontSizeBody * scale,
-                             colorSpecFromRole(ColorRole::OnSurface));
+      auto label = makeLabel(
+          i18n::tr("settings.schema.appearance.palette-source.label"), Style::fontSizeBody * scale,
+          colorSpecFromRole(ColorRole::OnSurface)
+      );
       label->setFlexGrow(1.0f);
       row->addChild(std::move(label));
 
@@ -320,25 +345,27 @@ void SetupWizardPanel::create() {
           cfg.theme.source == PaletteSource::Wallpaper ? PaletteSource::Wallpaper : PaletteSource::Builtin;
       m_builtinPalette = cfg.theme.builtinPalette;
       const std::string_view currentSource = m_paletteSource == PaletteSource::Wallpaper ? "wallpaper" : "builtin";
-      row->addChild(ui::select({
-          .out = &m_themeSourceSelect,
-          .options = labelsFromOptions(kSetupPaletteSources),
-          .selectedIndex = selectedOptionIndex(kSetupPaletteSources, currentSource),
-          .fontSize = Style::fontSizeBody * scale,
-          .controlHeight = Style::controlHeight * scale,
-          .horizontalPadding = Style::spaceMd * scale,
-          .onSelectionChanged =
-              [this](std::size_t index, std::string_view /*label*/) {
-                if (index >= std::size(kSetupPaletteSources)) {
-                  return;
-                }
-                const std::string source(kSetupPaletteSources[index].value);
-                m_paletteSource = source == "wallpaper" ? PaletteSource::Wallpaper : PaletteSource::Builtin;
-                m_config->setOverride({"theme", "source"}, source);
-                configureThemeOptionSelect();
-              },
-          .configure = [scale](Select& select) { select.setMinWidth(220.0f * scale); },
-      }));
+      row->addChild(
+          ui::select({
+              .out = &m_themeSourceSelect,
+              .options = labelsFromOptions(kSetupPaletteSources),
+              .selectedIndex = selectedOptionIndex(kSetupPaletteSources, currentSource),
+              .fontSize = Style::fontSizeBody * scale,
+              .controlHeight = Style::controlHeight * scale,
+              .horizontalPadding = Style::spaceMd * scale,
+              .onSelectionChanged =
+                  [this](std::size_t index, std::string_view /*label*/) {
+                    if (index >= std::size(kSetupPaletteSources)) {
+                      return;
+                    }
+                    const std::string source(kSetupPaletteSources[index].value);
+                    m_paletteSource = source == "wallpaper" ? PaletteSource::Wallpaper : PaletteSource::Builtin;
+                    m_config->setOverride({"theme", "source"}, source);
+                    configureThemeOptionSelect();
+                  },
+              .configure = [scale](Select& select) { select.setMinWidth(220.0f * scale); },
+          })
+      );
       card->addChild(std::move(row));
     }
 
@@ -350,13 +377,15 @@ void SetupWizardPanel::create() {
       m_themeOptionLabel = label.get();
       row->addChild(std::move(label));
 
-      row->addChild(ui::select({
-          .out = &m_themeOptionSelect,
-          .fontSize = Style::fontSizeBody * scale,
-          .controlHeight = Style::controlHeight * scale,
-          .horizontalPadding = Style::spaceMd * scale,
-          .configure = [scale](Select& select) { select.setMinWidth(220.0f * scale); },
-      }));
+      row->addChild(
+          ui::select({
+              .out = &m_themeOptionSelect,
+              .fontSize = Style::fontSizeBody * scale,
+              .controlHeight = Style::controlHeight * scale,
+              .horizontalPadding = Style::spaceMd * scale,
+              .configure = [scale](Select& select) { select.setMinWidth(220.0f * scale); },
+          })
+      );
       card->addChild(std::move(row));
       configureThemeOptionSelect();
     }
@@ -373,22 +402,26 @@ void SetupWizardPanel::create() {
         .justify = FlexJustify::SpaceBetween,
     });
 
-    footer->addChild(makeLabel(i18n::tr("setup-wizard.footer-note"), Style::fontSizeCaption * scale,
-                               colorSpecFromRole(ColorRole::OnSurfaceVariant)));
+    footer->addChild(makeLabel(
+        i18n::tr("setup-wizard.footer-note"), Style::fontSizeCaption * scale,
+        colorSpecFromRole(ColorRole::OnSurfaceVariant)
+    ));
 
-    footer->addChild(ui::button({
-        .text = i18n::tr("setup-wizard.get-started"),
-        .glyph = "chevron-right",
-        .fontSize = Style::fontSizeBody * scale,
-        .glyphSize = Style::fontSizeBody * scale,
-        .variant = ButtonVariant::Primary,
-        .minWidth = 132.0f * scale,
-        .minHeight = Style::controlHeight * scale,
-        .paddingV = Style::spaceSm * scale,
-        .paddingH = Style::spaceLg * scale,
-        .radius = Style::scaledRadiusMd(scale),
-        .onClick = [this]() { commit(); },
-    }));
+    footer->addChild(
+        ui::button({
+            .text = i18n::tr("setup-wizard.get-started"),
+            .glyph = "chevron-right",
+            .fontSize = Style::fontSizeBody * scale,
+            .glyphSize = Style::fontSizeBody * scale,
+            .variant = ButtonVariant::Primary,
+            .minWidth = 132.0f * scale,
+            .minHeight = Style::controlHeight * scale,
+            .paddingV = Style::spaceSm * scale,
+            .paddingH = Style::spaceLg * scale,
+            .radius = Style::scaledRadiusMd(scale),
+            .onClick = [this]() { commit(); },
+        })
+    );
     root->addChild(std::move(footer));
   }
 

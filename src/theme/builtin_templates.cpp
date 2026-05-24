@@ -68,9 +68,12 @@ namespace noctalia::theme {
       }
       return a.id < b.id;
     });
-    out.erase(std::unique(out.begin(), out.end(),
-                          [](const AvailableTemplate& a, const AvailableTemplate& b) { return a.id == b.id; }),
-              out.end());
+    out.erase(
+        std::unique(
+            out.begin(), out.end(), [](const AvailableTemplate& a, const AvailableTemplate& b) { return a.id == b.id; }
+        ),
+        out.end()
+    );
     return out;
   }
 

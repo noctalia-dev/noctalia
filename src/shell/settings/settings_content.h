@@ -47,9 +47,10 @@ namespace settings {
     std::function<void(Node*)> setScrollTarget;
     std::function<void(InputArea*)> focusArea;
     std::function<void(const std::vector<std::string>&)> openBarWidgetAddPopup;
-    std::function<void(const std::string& title, const std::vector<SelectOption>& options,
-                       const std::string& selectedValue, const std::string& placeholder, const std::string& emptyText,
-                       const std::vector<std::string>& settingPath)>
+    std::function<void(
+        const std::string& title, const std::vector<SelectOption>& options, const std::string& selectedValue,
+        const std::string& placeholder, const std::string& emptyText, const std::vector<std::string>& settingPath
+    )>
         openSearchPickerPopup;
     std::function<void(std::vector<std::string>, ConfigOverrideValue)> setOverride;
     std::function<void(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>)> setOverrides;
@@ -69,12 +70,14 @@ namespace settings {
     std::function<void()> closeHostedEditor;
   };
 
-  std::size_t addSettingsContentSections(Flex& content, const std::vector<SettingEntry>& registry,
-                                         SettingsContentContext ctx);
+  std::size_t
+  addSettingsContentSections(Flex& content, const std::vector<SettingEntry>& registry, SettingsContentContext ctx);
 
-  void buildSessionActionEntryDetailContent(Flex& parent, SettingsContentContext& ctx, SessionPanelActionConfig& row,
-                                            const std::function<void()>& persist);
-  void buildIdleBehaviorEntryDetailContent(Flex& parent, SettingsContentContext& ctx, IdleBehaviorConfig& row,
-                                           const std::function<void()>& persist);
+  void buildSessionActionEntryDetailContent(
+      Flex& parent, SettingsContentContext& ctx, SessionPanelActionConfig& row, const std::function<void()>& persist
+  );
+  void buildIdleBehaviorEntryDetailContent(
+      Flex& parent, SettingsContentContext& ctx, IdleBehaviorConfig& row, const std::function<void()>& persist
+  );
 
 } // namespace settings

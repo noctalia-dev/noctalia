@@ -84,11 +84,13 @@ namespace noctalia::theme {
       const auto builtins = noctalia::theme::loadBuiltinTemplateInfo(&err);
       out.reserve(builtins.size());
       for (const auto& builtin : builtins) {
-        out.push_back(TemplateListEntry{
-            .id = builtin.id,
-            .category = builtin.category,
-            .name = templateNameOrId(builtin.id, builtin.name),
-        });
+        out.push_back(
+            TemplateListEntry{
+                .id = builtin.id,
+                .category = builtin.category,
+                .name = templateNameOrId(builtin.id, builtin.name),
+            }
+        );
       }
       sortTemplateList(out);
       return out;
@@ -99,11 +101,13 @@ namespace noctalia::theme {
       const auto community = CommunityTemplateService::availableTemplates();
       out.reserve(community.size());
       for (const auto& entry : community) {
-        out.push_back(TemplateListEntry{
-            .id = entry.id,
-            .category = entry.category,
-            .name = templateNameOrId(entry.id, entry.displayName),
-        });
+        out.push_back(
+            TemplateListEntry{
+                .id = entry.id,
+                .category = entry.category,
+                .name = templateNameOrId(entry.id, entry.displayName),
+            }
+        );
       }
       sortTemplateList(out);
       return out;
@@ -116,11 +120,13 @@ namespace noctalia::theme {
       std::vector<TemplateListEntry> out;
       out.reserve(userTemplates.size());
       for (const auto& entry : userTemplates) {
-        out.push_back(TemplateListEntry{
-            .id = entry.id,
-            .category = "user",
-            .name = entry.id,
-        });
+        out.push_back(
+            TemplateListEntry{
+                .id = entry.id,
+                .category = "user",
+                .name = entry.id,
+            }
+        );
       }
       sortTemplateList(out);
       return out;
@@ -146,8 +152,8 @@ namespace noctalia::theme {
       return out;
     }
 
-    std::vector<TemplateListEntry> loadTemplateConfigList(const std::filesystem::path& path, bool required,
-                                                          std::string& err) {
+    std::vector<TemplateListEntry>
+    loadTemplateConfigList(const std::filesystem::path& path, bool required, std::string& err) {
       std::error_code ec;
       if (!std::filesystem::exists(path, ec)) {
         if (required)
@@ -206,8 +212,9 @@ namespace noctalia::theme {
       std::printf("  %-*s  %-*s  %s\n", idColumn, "ID", categoryColumn, "Category", "Name");
       for (const auto& entry : entries) {
         const std::string category = entry.category.empty() ? "-" : entry.category;
-        std::printf("  %-*s  %-*s  %s\n", idColumn, entry.id.c_str(), categoryColumn, category.c_str(),
-                    entry.name.c_str());
+        std::printf(
+            "  %-*s  %-*s  %s\n", idColumn, entry.id.c_str(), categoryColumn, category.c_str(), entry.name.c_str()
+        );
       }
     }
 
@@ -227,8 +234,10 @@ namespace noctalia::theme {
         std::string userErr;
         userTemplates = loadTemplateConfigList(templateConfigPath, true, userErr);
         if (!userErr.empty()) {
-          std::fprintf(stderr, "error: failed to load template config %s: %s\n", templateConfigPath.string().c_str(),
-                       userErr.c_str());
+          std::fprintf(
+              stderr, "error: failed to load template config %s: %s\n", templateConfigPath.string().c_str(),
+              userErr.c_str()
+          );
           return 1;
         }
         explicitConfigTitle += " (";
@@ -241,8 +250,9 @@ namespace noctalia::theme {
       bool firstGroup = true;
       printTemplateListGroup("Built-in templates", builtins, firstGroup);
       printTemplateListGroup("Community templates (cached)", community, firstGroup);
-      printTemplateListGroup(configPath != nullptr ? explicitConfigTitle.c_str() : "User templates", userTemplates,
-                             firstGroup);
+      printTemplateListGroup(
+          configPath != nullptr ? explicitConfigTitle.c_str() : "User templates", userTemplates, firstGroup
+      );
       if (firstGroup)
         std::puts("No templates found.");
       return 0;

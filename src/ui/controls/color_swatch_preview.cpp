@@ -104,8 +104,9 @@ void ColorSwatchPreviewStrip::positionSwatches(float height) {
     if (swatch == nullptr) {
       continue;
     }
-    swatch->setPosition(m_paddingX + static_cast<float>(i) * (m_discSize + m_gap),
-                        std::round((height - m_discSize) * 0.5f));
+    swatch->setPosition(
+        m_paddingX + static_cast<float>(i) * (m_discSize + m_gap), std::round((height - m_discSize) * 0.5f)
+    );
     swatch->setRadii(Radii{discRadius});
   }
 }

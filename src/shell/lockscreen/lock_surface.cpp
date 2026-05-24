@@ -90,8 +90,9 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
   m_loginButton = static_cast<Button*>(m_root.addChild(std::move(loginButton)));
 
   m_inputDispatcher.setSceneRoot(&m_root);
-  m_inputDispatcher.setCursorShapeCallback(
-      [this](std::uint32_t serial, std::uint32_t shape) { m_connection.setCursorShape(serial, shape); });
+  m_inputDispatcher.setCursorShapeCallback([this](std::uint32_t serial, std::uint32_t shape) {
+    m_connection.setCursorShape(serial, shape);
+  });
 
   setSceneRoot(&m_root);
   setConfigureCallback([this](std::uint32_t /*width*/, std::uint32_t /*height*/) { requestLayout(); });
@@ -198,10 +199,12 @@ void LockSurface::setWallpaperFillColor(Color fillColor) {
   }
   if (m_backdrop != nullptr) {
     m_backdrop->setVisible(m_wallpaperFillColor.a > 0.0f);
-    m_backdrop->setStyle(RoundedRectStyle{
-        .fill = m_wallpaperFillColor,
-        .fillMode = FillMode::Solid,
-    });
+    m_backdrop->setStyle(
+        RoundedRectStyle{
+            .fill = m_wallpaperFillColor,
+            .fillMode = FillMode::Solid,
+        }
+    );
   }
   requestRedraw();
 }
@@ -240,13 +243,16 @@ void LockSurface::onPointerEvent(const PointerEvent& event) {
     m_inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial);
     break;
   case PointerEvent::Type::Button:
-    m_inputDispatcher.pointerButton(static_cast<float>(event.sx), static_cast<float>(event.sy), event.button,
-                                    event.state == WL_POINTER_BUTTON_STATE_PRESSED);
+    m_inputDispatcher.pointerButton(
+        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button,
+        event.state == WL_POINTER_BUTTON_STATE_PRESSED
+    );
     break;
   case PointerEvent::Type::Axis:
-    m_inputDispatcher.pointerAxis(static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis,
-                                  event.axisSource, event.axisValue, event.axisDiscrete, event.axisValue120,
-                                  event.axisLines);
+    m_inputDispatcher.pointerAxis(
+        static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis, event.axisSource, event.axisValue,
+        event.axisDiscrete, event.axisValue120, event.axisLines
+    );
     break;
   }
 
@@ -279,8 +285,10 @@ void LockSurface::onKeyboardEvent(const KeyboardEvent& event) {
   }
 }
 
-void LockSurface::handleConfigure(void* data, ext_session_lock_surface_v1* lockSurface, std::uint32_t serial,
-                                  std::uint32_t width, std::uint32_t height) {
+void LockSurface::handleConfigure(
+    void* data, ext_session_lock_surface_v1* lockSurface, std::uint32_t serial, std::uint32_t width,
+    std::uint32_t height
+) {
   auto* self = static_cast<LockSurface*>(data);
   ext_session_lock_surface_v1_ack_configure(lockSurface, serial);
   self->Surface::onConfigure(width, height);
@@ -329,10 +337,12 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   m_backdrop->setPosition(0.0f, 0.0f);
   m_backdrop->setSize(sw, sh);
   m_backdrop->setVisible(m_wallpaperFillColor.a > 0.0f);
-  m_backdrop->setStyle(RoundedRectStyle{
-      .fill = m_wallpaperFillColor,
-      .fillMode = FillMode::Solid,
-  });
+  m_backdrop->setStyle(
+      RoundedRectStyle{
+          .fill = m_wallpaperFillColor,
+          .fillMode = FillMode::Solid,
+      }
+  );
 
   constexpr float kClockFontSize = 64.0f;
   m_clock->setFontSize(kClockFontSize);
@@ -352,14 +362,16 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
 
   m_loginPanel->setPosition(panelX, panelY);
   m_loginPanel->setSize(panelWidth, panelHeight);
-  m_loginPanel->setStyle(RoundedRectStyle{
-      .fill = colorForRole(ColorRole::SurfaceVariant, 0.88f),
-      .border = colorForRole(ColorRole::Outline, 0.95f),
-      .fillMode = FillMode::Solid,
-      .radius = Style::scaledRadiusXl(),
-      .softness = 1.0f,
-      .borderWidth = Style::borderWidth,
-  });
+  m_loginPanel->setStyle(
+      RoundedRectStyle{
+          .fill = colorForRole(ColorRole::SurfaceVariant, 0.88f),
+          .border = colorForRole(ColorRole::Outline, 0.95f),
+          .fillMode = FillMode::Solid,
+          .radius = Style::scaledRadiusXl(),
+          .softness = 1.0f,
+          .borderWidth = Style::borderWidth,
+      }
+  );
 
   const float contentLeft = panelX + Style::spaceLg;
   const float contentTop = panelY + 22.0f;
@@ -391,15 +403,19 @@ void LockSurface::applyWallpaperTexture() {
   Color color = rgba(0.0f, 0.0f, 0.0f, 1.0f);
   if (parseColorWallpaperPath(m_wallpaperPath, color)) {
     m_wallpaperTexture = {};
-    m_wallpaper->setSources(WallpaperSourceKind::Color, {}, color, WallpaperSourceKind::Image, {},
-                            rgba(0.0f, 0.0f, 0.0f, 1.0f), 0.0f, 0.0f, 0.0f, 0.0f);
+    m_wallpaper->setSources(
+        WallpaperSourceKind::Color, {}, color, WallpaperSourceKind::Image, {}, rgba(0.0f, 0.0f, 0.0f, 1.0f), 0.0f, 0.0f,
+        0.0f, 0.0f
+    );
     m_wallpaper->setTransition(WallpaperTransition::Fade, 0.0f, TransitionParams{});
     m_wallpaper->setFillMode(m_wallpaperFillMode);
     m_wallpaper->setFillColor(m_wallpaperFillColor);
   } else if (m_textureCache != nullptr && !m_wallpaperPath.empty()) {
     m_wallpaperTexture = m_textureCache->acquire(m_wallpaperPath);
-    m_wallpaper->setTextures(m_wallpaperTexture.id, {}, static_cast<float>(m_wallpaperTexture.width),
-                             static_cast<float>(m_wallpaperTexture.height), 0.0f, 0.0f);
+    m_wallpaper->setTextures(
+        m_wallpaperTexture.id, {}, static_cast<float>(m_wallpaperTexture.width),
+        static_cast<float>(m_wallpaperTexture.height), 0.0f, 0.0f
+    );
     m_wallpaper->setTransition(WallpaperTransition::Fade, 0.0f, TransitionParams{});
     m_wallpaper->setFillMode(m_wallpaperFillMode);
     m_wallpaper->setFillColor(m_wallpaperFillColor);

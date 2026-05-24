@@ -105,9 +105,10 @@ public:
   void dispatchLeave();
   void dispatchMotion(float localX, float localY);
   void dispatchPress(float localX, float localY, std::uint32_t button, bool isPressed);
-  [[nodiscard]] bool dispatchAxis(float localX, float localY, std::uint32_t axis, std::uint32_t axisSource,
-                                  double axisValue, std::int32_t axisDiscrete, std::int32_t axisValue120,
-                                  float axisLines);
+  [[nodiscard]] bool dispatchAxis(
+      float localX, float localY, std::uint32_t axis, std::uint32_t axisSource, double axisValue,
+      std::int32_t axisDiscrete, std::int32_t axisValue120, float axisLines
+  );
   void dispatchKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed, bool preedit = false);
   void dispatchFocusGain();
   void dispatchFocusLoss();

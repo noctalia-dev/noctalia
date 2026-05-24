@@ -94,11 +94,14 @@ namespace {
           const auto* bv = std::get_if<T>(&b);
           return bv != nullptr && av == *bv;
         },
-        a);
+        a
+    );
   }
 
-  bool widgetSettingsEqual(const std::unordered_map<std::string, WidgetSettingValue>& a,
-                           const std::unordered_map<std::string, WidgetSettingValue>& b) {
+  bool widgetSettingsEqual(
+      const std::unordered_map<std::string, WidgetSettingValue>& a,
+      const std::unordered_map<std::string, WidgetSettingValue>& b
+  ) {
     if (a.size() != b.size()) {
       return false;
     }
@@ -254,18 +257,21 @@ namespace {
   }
 
   bool barConfigEqual(const BarConfig& a, const BarConfig& b) {
-    return barBaseConfigEqual(a, b) && vectorEqual(a.monitorOverrides, b.monitorOverrides,
-                                                   [&a](const BarMonitorOverride& lhs, const BarMonitorOverride& rhs) {
-                                                     return barMonitorOverrideEqual(a, lhs, rhs);
-                                                   });
+    return barBaseConfigEqual(a, b) && vectorEqual(
+                                           a.monitorOverrides, b.monitorOverrides,
+                                           [&a](const BarMonitorOverride& lhs, const BarMonitorOverride& rhs) {
+                                             return barMonitorOverrideEqual(a, lhs, rhs);
+                                           }
+                                       );
   }
 
   bool widgetConfigEqual(const WidgetConfig& a, const WidgetConfig& b) {
     return a.type == b.type && widgetSettingsEqual(a.settings, b.settings);
   }
 
-  bool widgetMapEqual(const std::unordered_map<std::string, WidgetConfig>& a,
-                      const std::unordered_map<std::string, WidgetConfig>& b) {
+  bool widgetMapEqual(
+      const std::unordered_map<std::string, WidgetConfig>& a, const std::unordered_map<std::string, WidgetConfig>& b
+  ) {
     if (a.size() != b.size()) {
       return false;
     }
@@ -442,7 +448,8 @@ namespace {
             table.insert_or_assign(key, concrete);
           }
         },
-        value);
+        value
+    );
   }
 
   toml::table desktopWidgetTable(const DesktopWidgetState& widget) {
@@ -557,7 +564,8 @@ namespace {
             table.insert_or_assign(key, concrete);
           }
         },
-        value);
+        value
+    );
   }
 
   std::vector<std::string> barOrderNames(const std::vector<BarConfig>& bars) {
@@ -593,8 +601,9 @@ namespace {
     return nullptr;
   }
 
-  void pruneEmptyOverrideTables(toml::table& root, const std::vector<std::string>& changedPath,
-                                std::size_t preserveDepth = 0) {
+  void pruneEmptyOverrideTables(
+      toml::table& root, const std::vector<std::string>& changedPath, std::size_t preserveDepth = 0
+  ) {
     if (changedPath.size() < 2) {
       return;
     }
@@ -844,8 +853,9 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
       auto tbl = toml::parse_file(path.string());
       deepMerge(merged, tbl);
     } catch (const toml::parse_error& e) {
-      kLog.warn("skipping parse error in effective override comparison {}: {}", path.filename().string(),
-                e.description());
+      kLog.warn(
+          "skipping parse error in effective override comparison {}: {}", path.filename().string(), e.description()
+      );
     }
   }
 
@@ -867,8 +877,9 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
   return parsed;
 }
 
-bool ConfigService::overridePathEffectiveInTable(const std::vector<std::string>& path, const toml::table& overrides,
-                                                 const Config* parsedWith) const {
+bool ConfigService::overridePathEffectiveInTable(
+    const std::vector<std::string>& path, const toml::table& overrides, const Config* parsedWith
+) const {
   if (path.empty() || findOverrideNode(overrides, path) == nullptr) {
     return false;
   }
@@ -908,8 +919,9 @@ bool ConfigService::canMoveBarOverride(std::string_view name, int direction) con
     return false;
   }
 
-  const auto barIt = std::find_if(m_config.bars.begin(), m_config.bars.end(),
-                                  [name](const BarConfig& bar) { return bar.name == name; });
+  const auto barIt = std::find_if(m_config.bars.begin(), m_config.bars.end(), [name](const BarConfig& bar) {
+    return bar.name == name;
+  });
   if (barIt == m_config.bars.end()) {
     return false;
   }
@@ -1059,13 +1071,16 @@ bool ConfigService::createMonitorOverride(std::string_view barName, std::string_
     return false;
   }
 
-  const auto barIt = std::find_if(m_config.bars.begin(), m_config.bars.end(),
-                                  [barName](const BarConfig& bar) { return bar.name == barName; });
+  const auto barIt = std::find_if(m_config.bars.begin(), m_config.bars.end(), [barName](const BarConfig& bar) {
+    return bar.name == barName;
+  });
   if (barIt == m_config.bars.end()) {
     return false;
   }
-  const auto monitorIt = std::find_if(barIt->monitorOverrides.begin(), barIt->monitorOverrides.end(),
-                                      [match](const BarMonitorOverride& ovr) { return ovr.match == match; });
+  const auto monitorIt = std::find_if(
+      barIt->monitorOverrides.begin(), barIt->monitorOverrides.end(),
+      [match](const BarMonitorOverride& ovr) { return ovr.match == match; }
+  );
   if (monitorIt != barIt->monitorOverrides.end()) {
     return false;
   }
@@ -1097,26 +1112,32 @@ bool ConfigService::createMonitorOverride(std::string_view barName, std::string_
   return true;
 }
 
-bool ConfigService::renameMonitorOverride(std::string_view barName, std::string_view oldMatch,
-                                          std::string_view newMatch) {
+bool ConfigService::renameMonitorOverride(
+    std::string_view barName, std::string_view oldMatch, std::string_view newMatch
+) {
   if (barName.empty() || oldMatch.empty() || newMatch.empty() || oldMatch == newMatch ||
       !isOverrideOnlyMonitorOverride(barName, oldMatch)) {
     return false;
   }
 
-  const auto barIt = std::find_if(m_config.bars.begin(), m_config.bars.end(),
-                                  [barName](const BarConfig& bar) { return bar.name == barName; });
+  const auto barIt = std::find_if(m_config.bars.begin(), m_config.bars.end(), [barName](const BarConfig& bar) {
+    return bar.name == barName;
+  });
   if (barIt == m_config.bars.end()) {
     return false;
   }
-  const auto monitorIt = std::find_if(barIt->monitorOverrides.begin(), barIt->monitorOverrides.end(),
-                                      [newMatch](const BarMonitorOverride& ovr) { return ovr.match == newMatch; });
+  const auto monitorIt = std::find_if(
+      barIt->monitorOverrides.begin(), barIt->monitorOverrides.end(),
+      [newMatch](const BarMonitorOverride& ovr) { return ovr.match == newMatch; }
+  );
   if (monitorIt != barIt->monitorOverrides.end()) {
     return false;
   }
 
-  return renameOverrideTable({"bar", std::string(barName), "monitor", std::string(oldMatch)},
-                             {"bar", std::string(barName), "monitor", std::string(newMatch)});
+  return renameOverrideTable(
+      {"bar", std::string(barName), "monitor", std::string(oldMatch)},
+      {"bar", std::string(barName), "monitor", std::string(newMatch)}
+  );
 }
 
 bool ConfigService::deleteMonitorOverride(std::string_view barName, std::string_view match) {
@@ -1212,8 +1233,9 @@ bool ConfigService::clearOverride(const std::vector<std::string>& path) {
   return true;
 }
 
-bool ConfigService::renameOverrideTable(const std::vector<std::string>& oldPath,
-                                        const std::vector<std::string>& newPath) {
+bool ConfigService::renameOverrideTable(
+    const std::vector<std::string>& oldPath, const std::vector<std::string>& newPath
+) {
   if (m_overridesPath.empty() || oldPath.empty() || newPath.empty() || oldPath == newPath) {
     return false;
   }
@@ -1400,8 +1422,9 @@ bool ConfigService::writeOverridesToFile() {
     if (!out.is_open()) {
       return false;
     }
-    out << toml::toml_formatter{output,
-                                toml::toml_formatter::default_flags & ~toml::format_flags::allow_literal_strings};
+    out << toml::toml_formatter{
+        output, toml::toml_formatter::default_flags & ~toml::format_flags::allow_literal_strings
+    };
     if (!out.good()) {
       return false;
     }

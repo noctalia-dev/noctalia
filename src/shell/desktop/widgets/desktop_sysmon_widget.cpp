@@ -24,9 +24,10 @@ namespace {
 
 } // namespace
 
-DesktopSysmonWidget::DesktopSysmonWidget(SystemMonitorService* monitor, DesktopSysmonStat stat,
-                                         std::optional<DesktopSysmonStat> stat2, ColorSpec lineColor,
-                                         ColorSpec lineColor2, bool showLabel, bool shadow)
+DesktopSysmonWidget::DesktopSysmonWidget(
+    SystemMonitorService* monitor, DesktopSysmonStat stat, std::optional<DesktopSysmonStat> stat2, ColorSpec lineColor,
+    ColorSpec lineColor2, bool showLabel, bool shadow
+)
     : m_monitor(monitor), m_stat(stat), m_stat2(stat2), m_lineColor(lineColor), m_lineColor2(lineColor2),
       m_showLabel(showLabel), m_shadow(shadow) {
   if (m_monitor != nullptr) {
@@ -115,9 +116,10 @@ void DesktopSysmonWidget::onFrameTick(float deltaMs, Renderer& renderer) {
   requestRedraw();
 }
 
-bool DesktopSysmonWidget::applySetting(const std::string& key, const WidgetSettingValue& value,
-                                       const std::unordered_map<std::string, WidgetSettingValue>& allSettings,
-                                       Renderer& renderer) {
+bool DesktopSysmonWidget::applySetting(
+    const std::string& key, const WidgetSettingValue& value,
+    const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
+) {
   if (key == "color") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_lineColor = colorSpecFromConfigString(*v, key);
@@ -237,8 +239,9 @@ void DesktopSysmonWidget::syncLabel() {
   }
 }
 
-double DesktopSysmonWidget::normalizedFromStats(DesktopSysmonStat stat, const SystemStats& stats, double& tempMin,
-                                                double& tempMax) {
+double DesktopSysmonWidget::normalizedFromStats(
+    DesktopSysmonStat stat, const SystemStats& stats, double& tempMin, double& tempMax
+) {
   switch (stat) {
   case DesktopSysmonStat::CpuUsage:
     return stats.cpuUsagePercent / 100.0;
@@ -325,8 +328,10 @@ std::string DesktopSysmonWidget::formatValueFor(DesktopSysmonStat stat) const {
 
   case DesktopSysmonStat::GpuVram:
     if (stats.gpuVramUsedBytes.has_value() && stats.gpuVramTotalBytes.has_value() && *stats.gpuVramTotalBytes > 0) {
-      return std::format("{:.0f}%", 100.0 * static_cast<double>(*stats.gpuVramUsedBytes) /
-                                        static_cast<double>(*stats.gpuVramTotalBytes));
+      return std::format(
+          "{:.0f}%",
+          100.0 * static_cast<double>(*stats.gpuVramUsedBytes) / static_cast<double>(*stats.gpuVramTotalBytes)
+      );
     }
     return "--";
 
@@ -335,8 +340,9 @@ std::string DesktopSysmonWidget::formatValueFor(DesktopSysmonStat stat) const {
 
   case DesktopSysmonStat::SwapPct:
     if (stats.swapTotalMb > 0) {
-      return std::format("{:.0f}%",
-                         100.0 * static_cast<double>(stats.swapUsedMb) / static_cast<double>(stats.swapTotalMb));
+      return std::format(
+          "{:.0f}%", 100.0 * static_cast<double>(stats.swapUsedMb) / static_cast<double>(stats.swapTotalMb)
+      );
     }
     return "--";
 

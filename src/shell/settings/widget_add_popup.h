@@ -28,9 +28,10 @@ namespace settings {
 
   class WidgetAddPopup final : public DialogPopupHost {
   public:
-    using SelectCallback = std::function<void(const std::vector<std::string>& lanePath, const std::string& value,
-                                              const std::string& newInstanceType, const std::string& newInstanceId,
-                                              const std::vector<std::pair<std::string, std::string>>& initialSettings)>;
+    using SelectCallback = std::function<void(
+        const std::vector<std::string>& lanePath, const std::string& value, const std::string& newInstanceType,
+        const std::string& newInstanceId, const std::vector<std::pair<std::string, std::string>>& initialSettings
+    )>;
 
     WidgetAddPopup() = default;
     ~WidgetAddPopup();
@@ -40,9 +41,11 @@ namespace settings {
     void setOnSelect(SelectCallback callback);
     void setOnDismissed(std::function<void()> callback);
 
-    void open(xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
-              std::uint32_t parentWidth, std::uint32_t parentHeight, const std::vector<std::string>& lanePath,
-              const Config& config, float scale);
+    void open(
+        xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
+        std::uint32_t parentWidth, std::uint32_t parentHeight, const std::vector<std::string>& lanePath,
+        const Config& config, float scale
+    );
     void close();
 
     [[nodiscard]] bool isOpen() const noexcept;

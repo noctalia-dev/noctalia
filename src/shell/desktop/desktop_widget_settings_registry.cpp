@@ -32,8 +32,8 @@ namespace desktop_settings {
       return baseSpec(key, WidgetSettingValueType::Bool, defaultValue);
     }
 
-    WidgetSettingSpec doubleSpec(std::string_view key, double defaultValue, double minValue, double maxValue,
-                                 double step = 1.0) {
+    WidgetSettingSpec
+    doubleSpec(std::string_view key, double defaultValue, double minValue, double maxValue, double step = 1.0) {
       auto spec = baseSpec(key, WidgetSettingValueType::Double, defaultValue);
       spec.minValue = minValue;
       spec.maxValue = maxValue;
@@ -49,15 +49,15 @@ namespace desktop_settings {
       return baseSpec(key, WidgetSettingValueType::ColorSpec, std::move(defaultValue));
     }
 
-    WidgetSettingSpec selectSpec(std::string_view key, std::string defaultValue,
-                                 std::vector<WidgetSettingSelectOption> options) {
+    WidgetSettingSpec
+    selectSpec(std::string_view key, std::string defaultValue, std::vector<WidgetSettingSelectOption> options) {
       auto spec = baseSpec(key, WidgetSettingValueType::Select, std::move(defaultValue));
       spec.options = std::move(options);
       return spec;
     }
 
-    WidgetSettingSpec segmentedSpec(std::string_view key, std::string defaultValue,
-                                    std::vector<WidgetSettingSelectOption> options) {
+    WidgetSettingSpec
+    segmentedSpec(std::string_view key, std::string defaultValue, std::vector<WidgetSettingSelectOption> options) {
       auto spec = selectSpec(key, std::move(defaultValue), std::move(options));
       spec.segmented = true;
       return spec;
@@ -127,9 +127,11 @@ namespace desktop_settings {
       add(colorSpec("color", "on_surface"));
       add(boolSpec("shadow", true));
     } else if (type == "media_player") {
-      add(segmentedSpec("layout", "horizontal",
-                        {{"horizontal", "desktop-widgets.editor.settings.horizontal"},
-                         {"vertical", "desktop-widgets.editor.settings.vertical"}}));
+      add(segmentedSpec(
+          "layout", "horizontal",
+          {{"horizontal", "desktop-widgets.editor.settings.horizontal"},
+           {"vertical", "desktop-widgets.editor.settings.vertical"}}
+      ));
       add(colorSpec("color", "on_surface"));
       add(boolSpec("shadow", true));
     } else if (type == "sysmon") {

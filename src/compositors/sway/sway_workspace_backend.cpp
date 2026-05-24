@@ -34,8 +34,10 @@ namespace {
     return it->get<std::string>();
   }
 
-  void tallyWorkspaceWindows(const nlohmann::json& node, const std::string& currentWorkspace,
-                             std::unordered_map<std::string, std::size_t>& counts) {
+  void tallyWorkspaceWindows(
+      const nlohmann::json& node, const std::string& currentWorkspace,
+      std::unordered_map<std::string, std::size_t>& counts
+  ) {
     if (!node.is_object()) {
       return;
     }
@@ -79,9 +81,11 @@ namespace {
     }
   }
 
-  void collectWorkspaceApps(const nlohmann::json& node, const std::string& currentWorkspace,
-                            std::unordered_map<std::string, std::vector<std::string>>& appIdsByWorkspace,
-                            std::unordered_map<std::string, std::unordered_set<std::string>>& seenPerWorkspace) {
+  void collectWorkspaceApps(
+      const nlohmann::json& node, const std::string& currentWorkspace,
+      std::unordered_map<std::string, std::vector<std::string>>& appIdsByWorkspace,
+      std::unordered_map<std::string, std::unordered_set<std::string>>& seenPerWorkspace
+  ) {
     if (!node.is_object()) {
       return;
     }
@@ -128,8 +132,10 @@ namespace {
     }
   }
 
-  void collectWorkspaceWindows(const nlohmann::json& node, const std::string& currentWorkspace,
-                               const std::string& currentWorkspaceKey, std::vector<WorkspaceWindow>& windows) {
+  void collectWorkspaceWindows(
+      const nlohmann::json& node, const std::string& currentWorkspace, const std::string& currentWorkspaceKey,
+      std::vector<WorkspaceWindow>& windows
+  ) {
     if (!node.is_object()) {
       return;
     }
@@ -180,14 +186,16 @@ namespace {
     }
 
     if (isLeaf && !workspaceName.empty() && !workspaceKey.empty() && !appId.empty()) {
-      windows.push_back(WorkspaceWindow{
-          .windowId = windowId,
-          .workspaceKey = workspaceKey,
-          .appId = appId,
-          .title = StringUtils::windowTitleSingleLine(jsonStringValue(node, "name")),
-          .x = x,
-          .y = y,
-      });
+      windows.push_back(
+          WorkspaceWindow{
+              .windowId = windowId,
+              .workspaceKey = workspaceKey,
+              .appId = appId,
+              .title = StringUtils::windowTitleSingleLine(jsonStringValue(node, "name")),
+              .x = x,
+              .y = y,
+          }
+      );
     }
 
     if (hasNodes) {
@@ -215,8 +223,9 @@ namespace {
 
 } // namespace
 
-SwayWorkspaceBackend::SwayWorkspaceBackend(OutputNameResolver outputNameResolver,
-                                           compositors::sway::SwayRuntime& runtime)
+SwayWorkspaceBackend::SwayWorkspaceBackend(
+    OutputNameResolver outputNameResolver, compositors::sway::SwayRuntime& runtime
+)
     : m_outputNameResolver(std::move(outputNameResolver)), m_runtime(runtime) {}
 
 void SwayWorkspaceBackend::setOutputNameResolver(OutputNameResolver outputNameResolver) {
@@ -324,9 +333,9 @@ SwayWorkspaceBackend::appIdsByWorkspace(wl_output* output) const {
   return filtered;
 }
 
-std::unordered_map<std::uintptr_t, WorkspaceWindow>
-SwayWorkspaceBackend::assignTaskbarWindows(const std::vector<TaskbarWindowCandidate>& windows,
-                                           wl_output* output) const {
+std::unordered_map<std::uintptr_t, WorkspaceWindow> SwayWorkspaceBackend::assignTaskbarWindows(
+    const std::vector<TaskbarWindowCandidate>& windows, wl_output* output
+) const {
   const std::string outputName = m_outputNameResolver != nullptr ? m_outputNameResolver(output) : std::string{};
   if (output != nullptr && outputName.empty()) {
     return {};
@@ -542,10 +551,13 @@ void SwayWorkspaceBackend::parseMessages() {
       return;
     }
 
-    const std::string payload(m_readBuffer.begin() + static_cast<std::ptrdiff_t>(kHeaderSize),
-                              m_readBuffer.begin() + static_cast<std::ptrdiff_t>(kHeaderSize + payloadLength));
-    m_readBuffer.erase(m_readBuffer.begin(),
-                       m_readBuffer.begin() + static_cast<std::ptrdiff_t>(kHeaderSize + payloadLength));
+    const std::string payload(
+        m_readBuffer.begin() + static_cast<std::ptrdiff_t>(kHeaderSize),
+        m_readBuffer.begin() + static_cast<std::ptrdiff_t>(kHeaderSize + payloadLength)
+    );
+    m_readBuffer.erase(
+        m_readBuffer.begin(), m_readBuffer.begin() + static_cast<std::ptrdiff_t>(kHeaderSize + payloadLength)
+    );
     handleMessage(type, payload);
   }
 }

@@ -119,24 +119,29 @@ void InputArea::dispatchPress(float localX, float localY, std::uint32_t button, 
   }
 }
 
-bool InputArea::dispatchAxis(float localX, float localY, std::uint32_t axis, std::uint32_t axisSource, double axisValue,
-                             std::int32_t axisDiscrete, std::int32_t axisValue120, float axisLines) {
+bool InputArea::dispatchAxis(
+    float localX, float localY, std::uint32_t axis, std::uint32_t axisSource, double axisValue,
+    std::int32_t axisDiscrete, std::int32_t axisValue120, float axisLines
+) {
   if (m_onAxis) {
-    return m_onAxis({.localX = localX,
-                     .localY = localY,
-                     .axis = axis,
-                     .axisSource = axisSource,
-                     .pressed = false,
-                     .axisValue = axisValue,
-                     .axisDiscrete = axisDiscrete,
-                     .axisValue120 = axisValue120,
-                     .axisLines = axisLines});
+    return m_onAxis(
+        {.localX = localX,
+         .localY = localY,
+         .axis = axis,
+         .axisSource = axisSource,
+         .pressed = false,
+         .axisValue = axisValue,
+         .axisDiscrete = axisDiscrete,
+         .axisValue120 = axisValue120,
+         .axisLines = axisLines}
+    );
   }
   return false;
 }
 
-void InputArea::dispatchKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed,
-                            bool preedit) {
+void InputArea::dispatchKey(
+    std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed, bool preedit
+) {
   const KeyData data{.sym = sym, .utf32 = utf32, .modifiers = modifiers, .pressed = pressed, .preedit = preedit};
   if (pressed) {
     if (m_onKeyDown) {

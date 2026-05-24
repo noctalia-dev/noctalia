@@ -122,8 +122,9 @@ namespace {
         g_object_unref(cancellable);
       }
       if (!finished && task != nullptr) {
-        g_task_return_new_error(task, POLKIT_ERROR, POLKIT_ERROR_CANCELLED, "%s",
-                                "Authentication request was destroyed");
+        g_task_return_new_error(
+            task, POLKIT_ERROR, POLKIT_ERROR_CANCELLED, "%s", "Authentication request was destroyed"
+        );
       }
       if (task != nullptr) {
         g_object_unref(task);
@@ -168,13 +169,14 @@ using NoctaliaPolkitListenerClass = struct _NoctaliaPolkitListenerClass {
   PolkitAgentListenerClass parent_class;
 };
 
-static void noctalia_polkit_listener_initiate_authentication(PolkitAgentListener* listener, const gchar* action_id,
-                                                             const gchar* message, const gchar* icon_name,
-                                                             PolkitDetails* /*details*/, const gchar* cookie,
-                                                             GList* identities, GCancellable* cancellable,
-                                                             GAsyncReadyCallback callback, gpointer user_data);
-static gboolean noctalia_polkit_listener_initiate_authentication_finish(PolkitAgentListener* listener,
-                                                                        GAsyncResult* result, GError** error);
+static void noctalia_polkit_listener_initiate_authentication(
+    PolkitAgentListener* listener, const gchar* action_id, const gchar* message, const gchar* icon_name,
+    PolkitDetails* /*details*/, const gchar* cookie, GList* identities, GCancellable* cancellable,
+    GAsyncReadyCallback callback, gpointer user_data
+);
+static gboolean noctalia_polkit_listener_initiate_authentication_finish(
+    PolkitAgentListener* listener, GAsyncResult* result, GError** error
+);
 static void noctalia_polkit_request_cancelled(GCancellable* cancellable, gpointer user_data);
 
 G_DEFINE_TYPE(NoctaliaPolkitListener, noctalia_polkit_listener, POLKIT_AGENT_TYPE_LISTENER)
@@ -192,11 +194,11 @@ static void noctalia_polkit_listener_class_init(NoctaliaPolkitListenerClass* kla
   listenerClass->initiate_authentication_finish = noctalia_polkit_listener_initiate_authentication_finish;
 }
 
-static void noctalia_polkit_listener_initiate_authentication(PolkitAgentListener* listener, const gchar* action_id,
-                                                             const gchar* message, const gchar* icon_name,
-                                                             PolkitDetails* /*details*/, const gchar* cookie,
-                                                             GList* identities, GCancellable* cancellable,
-                                                             GAsyncReadyCallback callback, gpointer user_data) {
+static void noctalia_polkit_listener_initiate_authentication(
+    PolkitAgentListener* listener, const gchar* action_id, const gchar* message, const gchar* icon_name,
+    PolkitDetails* /*details*/, const gchar* cookie, GList* identities, GCancellable* cancellable,
+    GAsyncReadyCallback callback, gpointer user_data
+) {
   auto* self = reinterpret_cast<NoctaliaPolkitListener*>(listener);
   auto request = std::make_unique<InternalAuthRequest>();
   request->actionId = action_id != nullptr ? action_id : "";
@@ -231,8 +233,9 @@ static void noctalia_polkit_listener_initiate_authentication(PolkitAgentListener
   self->initiate(self->owner, std::move(request));
 }
 
-static gboolean noctalia_polkit_listener_initiate_authentication_finish(PolkitAgentListener* /*listener*/,
-                                                                        GAsyncResult* result, GError** error) {
+static gboolean noctalia_polkit_listener_initiate_authentication_finish(
+    PolkitAgentListener* /*listener*/, GAsyncResult* result, GError** error
+) {
   return g_task_propagate_boolean(G_TASK(result), error);
 }
 
@@ -374,9 +377,10 @@ struct PolkitAgent::Impl {
 
     registerThread = std::thread([this, subject]() {
       GError* registerError = nullptr;
-      gpointer handle =
-          polkit_agent_listener_register(POLKIT_AGENT_LISTENER(listener), POLKIT_AGENT_REGISTER_FLAGS_NONE, subject,
-                                         kAgentObjectPath, registerCancellable, &registerError);
+      gpointer handle = polkit_agent_listener_register(
+          POLKIT_AGENT_LISTENER(listener), POLKIT_AGENT_REGISTER_FLAGS_NONE, subject, kAgentObjectPath,
+          registerCancellable, &registerError
+      );
       g_object_unref(subject);
 
       std::string message;
@@ -596,8 +600,10 @@ struct PolkitAgent::Impl {
     }
 
     if (gainedAuthorization) {
-      kLog.info("polkit action \"{}\" authorized as {}", pending->actionId,
-                activeIdentity != nullptr ? identityDisplayName(activeIdentity) : std::string("unknown"));
+      kLog.info(
+          "polkit action \"{}\" authorized as {}", pending->actionId,
+          activeIdentity != nullptr ? identityDisplayName(activeIdentity) : std::string("unknown")
+      );
       pending->complete();
       pending.reset();
       stopSession();

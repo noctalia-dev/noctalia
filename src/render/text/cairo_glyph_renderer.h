@@ -46,8 +46,10 @@ public:
 
   [[nodiscard]] TextMetrics measureGlyph(char32_t codepoint, float fontSize);
 
-  void drawGlyph(float surfaceWidth, float surfaceHeight, float x, float baselineY, char32_t codepoint, float fontSize,
-                 const Color& color, const Mat3& transform);
+  void drawGlyph(
+      float surfaceWidth, float surfaceHeight, float x, float baselineY, char32_t codepoint, float fontSize,
+      const Color& color, const Mat3& transform
+  );
 
 private:
   struct CacheKey {

@@ -132,8 +132,8 @@ namespace settings {
       return defaultWidgetGlyph(type);
     }
 
-    WidgetSettingSpec baseSpec(std::string_view key, WidgetSettingValueType type, WidgetSettingValue defaultValue,
-                               bool advanced) {
+    WidgetSettingSpec
+    baseSpec(std::string_view key, WidgetSettingValueType type, WidgetSettingValue defaultValue, bool advanced) {
       WidgetSettingSpec spec;
       spec.key = std::string(key);
       spec.labelKey = std::string("settings.widgets.settings.") + std::string(key) + ".label";
@@ -148,8 +148,10 @@ namespace settings {
       return baseSpec(key, WidgetSettingValueType::Bool, defaultValue, advanced);
     }
 
-    WidgetSettingSpec intSpec(std::string_view key, std::int64_t defaultValue, double minValue, double maxValue,
-                              double step = 1.0, bool advanced = false) {
+    WidgetSettingSpec intSpec(
+        std::string_view key, std::int64_t defaultValue, double minValue, double maxValue, double step = 1.0,
+        bool advanced = false
+    ) {
       auto spec = baseSpec(key, WidgetSettingValueType::Int, defaultValue, advanced);
       spec.minValue = minValue;
       spec.maxValue = maxValue;
@@ -157,8 +159,10 @@ namespace settings {
       return spec;
     }
 
-    WidgetSettingSpec doubleSpec(std::string_view key, double defaultValue, double minValue, double maxValue,
-                                 double step = 1.0, bool advanced = false) {
+    WidgetSettingSpec doubleSpec(
+        std::string_view key, double defaultValue, double minValue, double maxValue, double step = 1.0,
+        bool advanced = false
+    ) {
       auto spec = baseSpec(key, WidgetSettingValueType::Double, defaultValue, advanced);
       spec.minValue = minValue;
       spec.maxValue = maxValue;
@@ -166,8 +170,8 @@ namespace settings {
       return spec;
     }
 
-    WidgetSettingSpec optionalDoubleSpec(std::string_view key, double minValue, double maxValue,
-                                         bool advanced = false) {
+    WidgetSettingSpec
+    optionalDoubleSpec(std::string_view key, double minValue, double maxValue, bool advanced = false) {
       auto spec = baseSpec(key, WidgetSettingValueType::OptionalDouble, 0.0, advanced);
       spec.minValue = minValue;
       spec.maxValue = maxValue;
@@ -182,20 +186,24 @@ namespace settings {
       return baseSpec(key, WidgetSettingValueType::ColorSpec, std::move(defaultValue), advanced);
     }
 
-    WidgetSettingSpec stringListSpec(std::string_view key, std::vector<std::string> defaultValue = {},
-                                     bool advanced = false) {
+    WidgetSettingSpec
+    stringListSpec(std::string_view key, std::vector<std::string> defaultValue = {}, bool advanced = false) {
       return baseSpec(key, WidgetSettingValueType::StringList, std::move(defaultValue), advanced);
     }
 
-    WidgetSettingSpec selectSpec(std::string_view key, std::string defaultValue,
-                                 std::vector<WidgetSettingSelectOption> options, bool advanced = false) {
+    WidgetSettingSpec selectSpec(
+        std::string_view key, std::string defaultValue, std::vector<WidgetSettingSelectOption> options,
+        bool advanced = false
+    ) {
       auto spec = baseSpec(key, WidgetSettingValueType::Select, std::move(defaultValue), advanced);
       spec.options = std::move(options);
       return spec;
     }
 
-    WidgetSettingSpec segmentedSpec(std::string_view key, std::string defaultValue,
-                                    std::vector<WidgetSettingSelectOption> options, bool advanced = false) {
+    WidgetSettingSpec segmentedSpec(
+        std::string_view key, std::string defaultValue, std::vector<WidgetSettingSelectOption> options,
+        bool advanced = false
+    ) {
       auto spec = selectSpec(key, std::move(defaultValue), std::move(options), advanced);
       spec.segmented = true;
       return spec;
@@ -229,23 +237,28 @@ namespace settings {
       return std::string(name);
     }
 
-    void addPickerEntry(std::vector<WidgetPickerEntry>& entries, std::unordered_set<std::string>& seen,
-                        std::string value, std::string label, std::string description, std::string icon,
-                        WidgetReferenceKind kind) {
+    void addPickerEntry(
+        std::vector<WidgetPickerEntry>& entries, std::unordered_set<std::string>& seen, std::string value,
+        std::string label, std::string description, std::string icon, WidgetReferenceKind kind
+    ) {
       if (!seen.insert(value).second) {
         return;
       }
-      entries.push_back(WidgetPickerEntry{
-          .value = std::move(value),
-          .label = std::move(label),
-          .description = std::move(description),
-          .icon = std::move(icon),
-          .kind = kind,
-      });
+      entries.push_back(
+          WidgetPickerEntry{
+              .value = std::move(value),
+              .label = std::move(label),
+              .description = std::move(description),
+              .icon = std::move(icon),
+              .kind = kind,
+          }
+      );
     }
 
-    void collectLaneUnknowns(const std::vector<std::string>& widgets, std::vector<WidgetPickerEntry>& entries,
-                             std::unordered_set<std::string>& seen, const Config& cfg) {
+    void collectLaneUnknowns(
+        const std::vector<std::string>& widgets, std::vector<WidgetPickerEntry>& entries,
+        std::unordered_set<std::string>& seen, const Config& cfg
+    ) {
       for (const auto& name : widgets) {
         if (isBuiltInWidgetType(name) || cfg.widgets.contains(name)) {
           continue;
@@ -349,9 +362,11 @@ namespace settings {
       const WidgetConfig* widgetConfig = configIt != cfg.widgets.end() ? &configIt->second : nullptr;
       addPickerEntry(
           entries, seen, std::string(spec.type), tr(spec.labelKey), std::string(spec.type),
-          widgetGlyph(widgetConfig != nullptr && !widgetConfig->type.empty() ? widgetConfig->type : spec.type,
-                      widgetConfig),
-          WidgetReferenceKind::BuiltIn);
+          widgetGlyph(
+              widgetConfig != nullptr && !widgetConfig->type.empty() ? widgetConfig->type : spec.type, widgetConfig
+          ),
+          WidgetReferenceKind::BuiltIn
+      );
     }
 
     for (const auto& [name, widget] : cfg.widgets) {
@@ -367,9 +382,10 @@ namespace settings {
           }
         }
       }
-      addPickerEntry(entries, seen, name, label,
-                     widget.type.empty() ? tr("settings.entities.widget.detail.custom") : widget.type,
-                     widgetGlyph(widget.type, &widget), WidgetReferenceKind::Named);
+      addPickerEntry(
+          entries, seen, name, label, widget.type.empty() ? tr("settings.entities.widget.detail.custom") : widget.type,
+          widgetGlyph(widget.type, &widget), WidgetReferenceKind::Named
+      );
     }
 
     // Bundled scripted widgets that declare a Lua manifest appear as one-click presets.
@@ -377,14 +393,16 @@ namespace settings {
       if (!seen.insert(script.id).second) {
         continue;
       }
-      entries.push_back(WidgetPickerEntry{
-          .value = script.id,
-          .label = script.manifest.label.empty() ? script.id : script.manifest.label,
-          .description = script.manifest.description,
-          .icon = script.manifest.icon.empty() ? "script" : script.manifest.icon,
-          .script = script.assetScript,
-          .kind = WidgetReferenceKind::Preset,
-      });
+      entries.push_back(
+          WidgetPickerEntry{
+              .value = script.id,
+              .label = script.manifest.label.empty() ? script.id : script.manifest.label,
+              .description = script.manifest.description,
+              .icon = script.manifest.icon.empty() ? "script" : script.manifest.icon,
+              .script = script.assetScript,
+              .kind = WidgetReferenceKind::Preset,
+          }
+      );
     }
 
     for (const auto& bar : cfg.bars) {
@@ -518,8 +536,10 @@ namespace settings {
         add(std::move(high));
       }
     } else if (type == "battery") {
-      add(selectSpec("display_mode", "icon",
-                     {{"icon", "settings.widgets.options.icon"}, {"graphic", "settings.widgets.options.graphic"}}));
+      add(selectSpec(
+          "display_mode", "icon",
+          {{"icon", "settings.widgets.options.icon"}, {"graphic", "settings.widgets.options.graphic"}}
+      ));
       add(boolSpec("show_label", true));
       add(boolSpec("hide_when_plugged", false));
       add(boolSpec("hide_when_full", false));
@@ -634,7 +654,8 @@ namespace settings {
         add(std::move(groupCapsule));
       }
       const WidgetSettingVisibility groupedWorkspaceSettings{
-          WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}}};
+          WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}}
+      };
       {
         auto focusedColor = colorSpec("focused_color", "primary");
         focusedColor.visibleWhen = groupedWorkspaceSettings;
@@ -783,8 +804,9 @@ namespace settings {
         if (auto manifest = scripting::manifestForScriptConfig(script); manifest.has_value()) {
           std::vector<WidgetSettingSpec> specs = commonWidgetSettingSpecs();
           auto fromManifest = manifestSettingSpecs(*manifest);
-          specs.insert(specs.end(), std::make_move_iterator(fromManifest.begin()),
-                       std::make_move_iterator(fromManifest.end()));
+          specs.insert(
+              specs.end(), std::make_move_iterator(fromManifest.begin()), std::make_move_iterator(fromManifest.end())
+          );
           // Power users keep the raw scripted knobs, tucked under "advanced".
           const std::vector<WidgetSettingSelectOption> scriptedScopes = {
               {.value = "instance", .labelKey = "settings.widgets.options.instance"},
@@ -826,7 +848,8 @@ namespace settings {
             const auto* rhs = std::get_if<T>(&b);
             return rhs != nullptr && lhs == *rhs;
           },
-          a);
+          a
+      );
     }
 
   } // namespace
@@ -841,8 +864,9 @@ namespace settings {
     return std::nullopt;
   }
 
-  bool configOverrideValueMatchesWidgetSetting(const ConfigOverrideValue& overrideValue,
-                                               const WidgetSettingValue& settingValue) {
+  bool configOverrideValueMatchesWidgetSetting(
+      const ConfigOverrideValue& overrideValue, const WidgetSettingValue& settingValue
+  ) {
     const auto matchesBool = [&](bool value) {
       if (const auto* settingBool = std::get_if<bool>(&settingValue)) {
         return value == *settingBool;
@@ -896,11 +920,13 @@ namespace settings {
           }
           return false;
         },
-        overrideValue);
+        overrideValue
+    );
   }
 
-  bool widgetOverrideValueMatchesRegistryDefault(std::string_view widgetType, std::string_view settingKey,
-                                                 const ConfigOverrideValue& overrideValue) {
+  bool widgetOverrideValueMatchesRegistryDefault(
+      std::string_view widgetType, std::string_view settingKey, const ConfigOverrideValue& overrideValue
+  ) {
     const auto spec = findWidgetSettingSpec(widgetType, settingKey);
     if (!spec.has_value()) {
       return false;
@@ -912,8 +938,10 @@ namespace settings {
     return configOverrideValueMatchesWidgetSetting(overrideValue, spec->defaultValue);
   }
 
-  bool widgetSettingOverrideIsEffective(std::string_view widgetName, std::string_view settingKey,
-                                        const Config& withOverride, const Config& withoutOverride) {
+  bool widgetSettingOverrideIsEffective(
+      std::string_view widgetName, std::string_view settingKey, const Config& withOverride,
+      const Config& withoutOverride
+  ) {
     const auto valueInConfig = [](const Config& cfg, std::string_view name,
                                   std::string_view key) -> std::optional<WidgetSettingValue> {
       const auto widgetIt = cfg.widgets.find(std::string(name));
@@ -930,8 +958,10 @@ namespace settings {
     std::string widgetType(widgetName);
     if (const auto withIt = withOverride.widgets.find(std::string(widgetName)); withIt != withOverride.widgets.end()) {
       widgetType = withIt->second.type;
-    } else if (const auto withoutIt = withoutOverride.widgets.find(std::string(widgetName));
-               withoutIt != withoutOverride.widgets.end()) {
+    } else if (
+        const auto withoutIt = withoutOverride.widgets.find(std::string(widgetName));
+        withoutIt != withoutOverride.widgets.end()
+    ) {
       widgetType = withoutIt->second.type;
     }
 

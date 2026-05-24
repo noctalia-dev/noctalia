@@ -73,8 +73,10 @@ namespace {
     return name;
   }
 
-  std::string lookupPciIds(const std::string& vendorId, const std::string& deviceId,
-                           const std::string& subVendorId = {}, const std::string& subDeviceId = {}) {
+  std::string lookupPciIds(
+      const std::string& vendorId, const std::string& deviceId, const std::string& subVendorId = {},
+      const std::string& subDeviceId = {}
+  ) {
     std::ifstream file{"/usr/share/hwdata/pci.ids"};
     if (!file.is_open()) {
       return {};

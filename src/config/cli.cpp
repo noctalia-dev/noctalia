@@ -244,9 +244,10 @@ namespace noctalia::config {
       std::printf("Config home: %s\n", configHome.string().c_str());
       std::printf("State home:  %s\n\n", stateHome.string().c_str());
       std::printf("Run with:\n");
-      std::printf("  NOCTALIA_CONFIG_HOME=%s NOCTALIA_STATE_HOME=%s %s\n",
-                  StringUtils::shellQuote(configHome.string()).c_str(),
-                  StringUtils::shellQuote(stateHome.string()).c_str(), StringUtils::shellQuote(argv0).c_str());
+      std::printf(
+          "  NOCTALIA_CONFIG_HOME=%s NOCTALIA_STATE_HOME=%s %s\n", StringUtils::shellQuote(configHome.string()).c_str(),
+          StringUtils::shellQuote(stateHome.string()).c_str(), StringUtils::shellQuote(argv0).c_str()
+      );
       return 0;
     }
 

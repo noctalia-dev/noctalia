@@ -250,7 +250,8 @@ void Label::startSnapToZero() {
         applyScrollPosition();
         markPaintDirty();
       },
-      this);
+      this
+  );
 }
 
 void Label::startMarqueeLoop() {
@@ -288,7 +289,8 @@ void Label::startMarqueeLoop() {
         markPaintDirty();
         DeferredCall::callLater([this]() { startMarqueeLoop(); });
       },
-      this);
+      this
+  );
 }
 
 void Label::restartScrollIfNeeded() {
@@ -423,8 +425,10 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
     }
   }
 
-  auto metrics = renderer.measureText(m_plainText, m_textNode->fontSize(), fontWeight, measureMaxWidth,
-                                      effectiveMaxLines, align, m_textNode->fontFamily());
+  auto metrics = renderer.measureText(
+      m_plainText, m_textNode->fontSize(), fontWeight, measureMaxWidth, effectiveMaxLines, align,
+      m_textNode->fontFamily()
+  );
   const float measuredWidth = measureMaxWidth > 0.0f ? std::min(metrics.width, measureMaxWidth) : metrics.width;
   m_fullTextWidth = m_autoScroll ? measuredWidth : 0.0f;
   const bool hasAssignedWidth = constraints.hasExactWidth();

@@ -31,12 +31,11 @@ namespace panel_button_style {
                 .border = colorSpecFromRole(ColorRole::Primary),
                 .label = colorSpecFromRole(ColorRole::OnPrimary),
             },
-        .disabled =
-            Button::ButtonStateColors{
-                .bg = colorSpecFromRole(ColorRole::SurfaceVariant, opacity * kDisabledAlpha),
-                .border = colorSpecFromRole(ColorRole::Outline, 0.5f * kDisabledAlpha),
-                .label = colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha),
-            },
+        .disabled = Button::ButtonStateColors{
+            .bg = colorSpecFromRole(ColorRole::SurfaceVariant, opacity * kDisabledAlpha),
+            .border = colorSpecFromRole(ColorRole::Outline, 0.5f * kDisabledAlpha),
+            .label = colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha),
+        },
     };
   }
 

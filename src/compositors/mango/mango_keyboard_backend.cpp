@@ -11,8 +11,8 @@ namespace {
 
   constexpr auto kSyncTtl = std::chrono::milliseconds(75);
 
-  void registryGlobal(void* data, wl_registry* /*registry*/, uint32_t name, const char* interfaceName,
-                      uint32_t version) {
+  void
+  registryGlobal(void* data, wl_registry* /*registry*/, uint32_t name, const char* interfaceName, uint32_t version) {
     static_cast<MangoKeyboardBackend*>(data)->onRegistryGlobal(name, interfaceName, version);
   }
 
@@ -39,8 +39,10 @@ namespace {
     static_cast<MangoKeyboardBackend*>(data)->onOutputActive(output, active);
   }
 
-  void outputTag(void* /*data*/, zdwl_ipc_output_v2* /*output*/, uint32_t /*tag*/, uint32_t /*state*/,
-                 uint32_t /*clients*/, uint32_t /*focused*/) {}
+  void outputTag(
+      void* /*data*/, zdwl_ipc_output_v2* /*output*/, uint32_t /*tag*/, uint32_t /*state*/, uint32_t /*clients*/,
+      uint32_t /*focused*/
+  ) {}
 
   void outputLayout(void* /*data*/, zdwl_ipc_output_v2* /*output*/, uint32_t /*layout*/) {}
   void outputTitle(void* /*data*/, zdwl_ipc_output_v2* /*output*/, const char* /*title*/) {}
@@ -246,7 +248,8 @@ void MangoKeyboardBackend::onRegistryGlobal(std::uint32_t name, const char* inte
 
   const auto bindVersion = std::min<std::uint32_t>(version, 2);
   m_manager = static_cast<zdwl_ipc_manager_v2*>(
-      wl_registry_bind(m_registry, name, &zdwl_ipc_manager_v2_interface, bindVersion));
+      wl_registry_bind(m_registry, name, &zdwl_ipc_manager_v2_interface, bindVersion)
+  );
   if (m_manager == nullptr) {
     return;
   }
@@ -329,7 +332,8 @@ void MangoKeyboardBackend::bindOutput(std::uint32_t name) {
 
   m_outputsByName.emplace(name, output);
   m_outputs.try_emplace(
-      output, OutputState{.pending = {}, .output = output, .handle = nullptr, .active = false, .keyboardLayout = {}});
+      output, OutputState{.pending = {}, .output = output, .handle = nullptr, .active = false, .keyboardLayout = {}}
+  );
   bindOutputHandle(output);
 }
 

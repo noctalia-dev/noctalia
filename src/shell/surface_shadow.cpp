@@ -22,8 +22,8 @@ namespace shell::surface_shadow {
     };
   }
 
-  RoundedRectStyle style(const ShellConfig::ShadowConfig& shadow, float backgroundOpacity,
-                         const Shape& shape) noexcept {
+  RoundedRectStyle
+  style(const ShellConfig::ShadowConfig& shadow, float backgroundOpacity, const Shape& shape) noexcept {
     const float shadowAlpha = std::clamp(shadow.alpha, 0.0f, 1.0f) * std::clamp(backgroundOpacity, 0.0f, 1.0f);
     return RoundedRectStyle{
         .fill = rgba(0.0f, 0.0f, 0.0f, shadowAlpha),

@@ -152,8 +152,8 @@ namespace {
     return false;
   }
 
-  [[nodiscard]] std::optional<std::string> colorStringValue(const toml::table& table, std::string_view key,
-                                                            const std::string& context) {
+  [[nodiscard]] std::optional<std::string>
+  colorStringValue(const toml::table& table, std::string_view key, const std::string& context) {
     if (!table.contains(key)) {
       return std::nullopt;
     }
@@ -163,8 +163,9 @@ namespace {
     throw std::runtime_error(context + ": expected string ColorSpec");
   }
 
-  void validateWidgetColorSettingValue(const WidgetSettingValue& value, const std::string& context,
-                                       bool allowEmpty = false) {
+  void validateWidgetColorSettingValue(
+      const WidgetSettingValue& value, const std::string& context, bool allowEmpty = false
+  ) {
     const auto* raw = std::get_if<std::string>(&value);
     if (raw == nullptr) {
       throw std::runtime_error(context + ": expected string ColorSpec");
@@ -315,8 +316,9 @@ namespace {
 
   std::string formatToml(const toml::table& table) {
     std::ostringstream out;
-    out << toml::toml_formatter{table,
-                                toml::toml_formatter::default_flags & ~toml::format_flags::allow_literal_strings};
+    out << toml::toml_formatter{
+        table, toml::toml_formatter::default_flags & ~toml::format_flags::allow_literal_strings
+    };
     return out.str();
   }
 
@@ -428,8 +430,9 @@ void ConfigService::forceReload() {
 
   loadAll();
 
-  const bool wallpaperChanged = (oldDefault != m_defaultWallpaperPath || oldLast != m_lastWallpaperPath ||
-                                 oldMonitors != m_monitorWallpaperPaths);
+  const bool wallpaperChanged =
+      (oldDefault != m_defaultWallpaperPath || oldLast != m_lastWallpaperPath ||
+       oldMonitors != m_monitorWallpaperPaths);
   if (wallpaperChanged && m_wallpaperChangeCallback) {
     m_wallpaperChangeCallback();
   }
@@ -623,8 +626,9 @@ void ConfigService::checkReload() {
 
   kLog.info("config changed, reloading");
   loadAll();
-  const bool wallpaperChanged = (oldDefault != m_defaultWallpaperPath || oldLast != m_lastWallpaperPath ||
-                                 oldMonitors != m_monitorWallpaperPaths);
+  const bool wallpaperChanged =
+      (oldDefault != m_defaultWallpaperPath || oldLast != m_lastWallpaperPath ||
+       oldMonitors != m_monitorWallpaperPaths);
   if (wallpaperChanged && m_wallpaperChangeCallback) {
     m_wallpaperChangeCallback();
   }
@@ -809,11 +813,14 @@ void ConfigService::loadOverridesFromFile() {
     m_overridesTable = toml::parse_file(m_overridesPath);
   } catch (const toml::parse_error& e) {
     const auto& src = e.source();
-    kLog.warn("parse error in {} at line {}, column {}: {}", m_overridesPath, src.begin.line, src.begin.column,
-              e.description());
-    m_overridesParseError =
-        std::format("{} line {}, column {}: {}", std::filesystem::path(m_overridesPath).filename().string(),
-                    src.begin.line, src.begin.column, e.description());
+    kLog.warn(
+        "parse error in {} at line {}, column {}: {}", m_overridesPath, src.begin.line, src.begin.column,
+        e.description()
+    );
+    m_overridesParseError = std::format(
+        "{} line {}, column {}: {}", std::filesystem::path(m_overridesPath).filename().string(), src.begin.line,
+        src.begin.column, e.description()
+    );
     m_overridesTable = toml::table{};
     return;
   }
@@ -963,11 +970,14 @@ void ConfigService::loadAll() {
       kLog.info("loaded {}", path.string());
     } catch (const toml::parse_error& e) {
       const auto& src = e.source();
-      kLog.warn("parse error in {} at line {}, column {}: {}", path.filename().string(), src.begin.line,
-                src.begin.column, e.description());
+      kLog.warn(
+          "parse error in {} at line {}, column {}: {}", path.filename().string(), src.begin.line, src.begin.column,
+          e.description()
+      );
       if (firstError.empty()) {
-        firstError = std::format("{} line {}, column {}: {}", path.filename().string(), src.begin.line,
-                                 src.begin.column, e.description());
+        firstError = std::format(
+            "{} line {}, column {}: {}", path.filename().string(), src.begin.line, src.begin.column, e.description()
+        );
       }
     }
   }
@@ -1221,9 +1231,10 @@ void ConfigService::parseTableInto(const toml::table& tbl, Config& config, bool 
           }
           if (monTbl->contains("capsule_border")) {
             ovr.widgetCapsuleBorderSpecified = true;
-            ovr.widgetCapsuleBorder =
-                optionalCapsuleBorder(*colorStringValue(*monTbl, "capsule_border", monitorContext + ".capsule_border"),
-                                      monitorContext + ".capsule_border");
+            ovr.widgetCapsuleBorder = optionalCapsuleBorder(
+                *colorStringValue(*monTbl, "capsule_border", monitorContext + ".capsule_border"),
+                monitorContext + ".capsule_border"
+            );
           }
           if (auto cStr = colorStringValue(*monTbl, "color", monitorContext + ".color")) {
             ovr.widgetColor = colorSpecFromConfigString(*cStr, monitorContext + ".color");
@@ -2137,8 +2148,10 @@ void ConfigService::parseTableInto(const toml::table& tbl, Config& config, bool 
         nightlight.nightTemperature = NightLightConfig::kTemperatureMin;
         nightlight.dayTemperature = NightLightConfig::kTemperatureMin + NightLightConfig::kTemperatureGap;
       }
-      kLog.warn("nightlight temperatures must satisfy day > night (day={}K night={}K); adjusted to day={}K night={}K",
-                origDay, origNight, nightlight.dayTemperature, nightlight.nightTemperature);
+      kLog.warn(
+          "nightlight temperatures must satisfy day > night (day={}K night={}K); adjusted to day={}K night={}K",
+          origDay, origNight, nightlight.dayTemperature, nightlight.nightTemperature
+      );
     }
   }
 
@@ -2292,16 +2305,18 @@ void ConfigService::parseTableInto(const toml::table& tbl, Config& config, bool 
         ++hookKindsUsed;
       }
     }
-    kLog.info("hooks kinds with commands={} battery_low_threshold={}%", hookKindsUsed,
-              config.hooks.batteryLowPercentThreshold);
+    kLog.info(
+        "hooks kinds with commands={} battery_low_threshold={}%", hookKindsUsed, config.hooks.batteryLowPercentThreshold
+    );
   }
 }
 
 bool ConfigService::matchesKeybind(KeybindAction action, std::uint32_t sym, std::uint32_t modifiers) const {
   const auto& configured = keybindSet(m_config.keybinds, action);
   const auto active = configured.empty() ? defaultKeybindSet(action) : configured;
-  return std::any_of(active.begin(), active.end(),
-                     [sym, modifiers](const KeyChord& chord) { return keyChordMatches(chord, sym, modifiers); });
+  return std::any_of(active.begin(), active.end(), [sym, modifiers](const KeyChord& chord) {
+    return keyChordMatches(chord, sym, modifiers);
+  });
 }
 
 void ConfigService::registerIpc(IpcService& ipc) {
@@ -2311,5 +2326,6 @@ void ConfigService::registerIpc(IpcService& ipc) {
         forceReload();
         return "ok\n";
       },
-      "config-reload", "Reload the config file");
+      "config-reload", "Reload the config file"
+  );
 }

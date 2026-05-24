@@ -34,11 +34,14 @@ public:
   void setAsyncReadyCallback(AsyncReadyCallback callback);
 
   bool setSourceFile(Renderer& renderer, const std::string& path, int targetSize = 0, bool mipmap = false);
-  bool setSourceFileAsync(Renderer& renderer, AsyncTextureCache& cache, const std::string& path, int targetSize = 0,
-                          bool mipmap = false);
+  bool setSourceFileAsync(
+      Renderer& renderer, AsyncTextureCache& cache, const std::string& path, int targetSize = 0, bool mipmap = false
+  );
   bool setSourceBytes(Renderer& renderer, const std::uint8_t* data, std::size_t size, bool mipmap = false);
-  bool setSourceRaw(Renderer& renderer, const std::uint8_t* data, std::size_t size, int width, int height, int stride,
-                    PixmapFormat format, bool mipmap = false);
+  bool setSourceRaw(
+      Renderer& renderer, const std::uint8_t* data, std::size_t size, int width, int height, int stride,
+      PixmapFormat format, bool mipmap = false
+  );
 
   // Binds a texture that is owned externally (e.g. by a shared thumbnail
   // cache). The Image will NOT unload the texture on clear or destruction.

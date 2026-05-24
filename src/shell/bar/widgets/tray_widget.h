@@ -20,10 +20,12 @@ class TrayService;
 
 class TrayWidget : public Widget {
 public:
-  TrayWidget(TrayService* tray, std::vector<std::string> hiddenItems = {}, std::vector<std::string> pinnedItems = {},
-             bool drawerMode = false, std::function<void()> itemActivated = {}, std::string barPosition = "top",
-             bool panelGridMode = false, std::size_t panelGridColumns = 3, float inlineEntryGap = Style::spaceXs,
-             bool matchAdjacentSpacing = false);
+  TrayWidget(
+      TrayService* tray, std::vector<std::string> hiddenItems = {}, std::vector<std::string> pinnedItems = {},
+      bool drawerMode = false, std::function<void()> itemActivated = {}, std::string barPosition = "top",
+      bool panelGridMode = false, std::size_t panelGridColumns = 3, float inlineEntryGap = Style::spaceXs,
+      bool matchAdjacentSpacing = false
+  );
 
   void create() override;
 

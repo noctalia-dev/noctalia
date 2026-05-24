@@ -36,8 +36,9 @@ namespace {
   constexpr auto kVolumeApplyMinInterval = std::chrono::milliseconds(25);
 
   // Registry events.
-  void onRegistryGlobal(void* data, std::uint32_t id, std::uint32_t, const char* type, std::uint32_t version,
-                        const spa_dict* props) {
+  void onRegistryGlobal(
+      void* data, std::uint32_t id, std::uint32_t, const char* type, std::uint32_t version, const spa_dict* props
+  ) {
     auto* svc = static_cast<PipeWireService*>(data);
     svc->onRegistryGlobal(id, type, version, props);
   }
@@ -377,8 +378,9 @@ namespace {
     return route.index >= 0 && route.direction == wantDir && route.available != SPA_PARAM_AVAILABILITY_no;
   }
 
-  [[nodiscard]] bool routeIsBetterCandidate(const PipeWireService::DeviceRouteData& candidate,
-                                            const PipeWireService::DeviceRouteData& current) {
+  [[nodiscard]] bool routeIsBetterCandidate(
+      const PipeWireService::DeviceRouteData& candidate, const PipeWireService::DeviceRouteData& current
+  ) {
     const bool candidateAvailable = candidate.available == SPA_PARAM_AVAILABILITY_yes;
     const bool currentAvailable = current.available == SPA_PARAM_AVAILABILITY_yes;
     if (candidateAvailable != currentAvailable) {
@@ -406,8 +408,9 @@ namespace {
     if (lookupIndex < 0) {
       return;
     }
-    const auto existing = std::find_if(routes.begin(), routes.end(),
-                                       [lookupIndex](const auto& entry) { return entry.index == lookupIndex; });
+    const auto existing = std::find_if(routes.begin(), routes.end(), [lookupIndex](const auto& entry) {
+      return entry.index == lookupIndex;
+    });
     if (existing == routes.end()) {
       routes.push_back(route);
       return;
@@ -437,7 +440,8 @@ namespace {
         "[program-stream] {} id={} clientId={} class='{}' appName='{}' appId='{}' appBinary='{}' streamTitle='{}' "
         "icon='{}' nodeName='{}' nodeDesc='{}'",
         phase, id, nd.clientId, nd.mediaClass, nd.applicationName, nd.applicationId, nd.applicationBinary,
-        nd.streamTitle, nd.iconName, nd.name, nd.description);
+        nd.streamTitle, nd.iconName, nd.name, nd.description
+    );
   }
 
 } // namespace
@@ -913,8 +917,9 @@ void PipeWireService::onNodeInfo(std::uint32_t id, const pw_node_info* info) {
   }
 }
 
-void PipeWireService::onNodeParam(std::uint32_t id, std::uint32_t paramId, std::uint32_t, std::uint32_t,
-                                  const spa_pod* param) {
+void PipeWireService::onNodeParam(
+    std::uint32_t id, std::uint32_t paramId, std::uint32_t, std::uint32_t, const spa_pod* param
+) {
   if ((paramId != SPA_PARAM_Props && paramId != SPA_PARAM_Route) || param == nullptr) {
     return;
   }
@@ -931,10 +936,11 @@ void PipeWireService::onNodeParam(std::uint32_t id, std::uint32_t paramId, std::
     std::uint32_t routeDirection = nd.routeDirection;
     std::int32_t routePriority = 0;
     const spa_pod* routeProps = nullptr;
-    if (spa_pod_parse_object(param, SPA_TYPE_OBJECT_ParamRoute, nullptr, SPA_PARAM_ROUTE_index,
-                             SPA_POD_Int(&routeIndex), SPA_PARAM_ROUTE_direction, SPA_POD_Id(&routeDirection),
-                             SPA_PARAM_ROUTE_device, SPA_POD_Int(&routeDevice), SPA_PARAM_ROUTE_priority,
-                             SPA_POD_Int(&routePriority), SPA_PARAM_ROUTE_props, SPA_POD_Pod(&routeProps)) >= 0) {
+    if (spa_pod_parse_object(
+            param, SPA_TYPE_OBJECT_ParamRoute, nullptr, SPA_PARAM_ROUTE_index, SPA_POD_Int(&routeIndex),
+            SPA_PARAM_ROUTE_direction, SPA_POD_Id(&routeDirection), SPA_PARAM_ROUTE_device, SPA_POD_Int(&routeDevice),
+            SPA_PARAM_ROUTE_priority, SPA_POD_Int(&routePriority), SPA_PARAM_ROUTE_props, SPA_POD_Pod(&routeProps)
+        ) >= 0) {
       const spa_pod_prop* availProp = spa_pod_find_prop(param, nullptr, SPA_PARAM_ROUTE_available);
       std::uint32_t routeAvailable = SPA_PARAM_AVAILABILITY_unknown;
       if (availProp != nullptr) {
@@ -1058,8 +1064,9 @@ void PipeWireService::onDeviceInfo(std::uint32_t id, const pw_device_info* info)
   }
 }
 
-void PipeWireService::onDeviceParam(std::uint32_t id, std::uint32_t paramId, std::uint32_t index, std::uint32_t,
-                                    const spa_pod* param) {
+void PipeWireService::onDeviceParam(
+    std::uint32_t id, std::uint32_t paramId, std::uint32_t index, std::uint32_t, const spa_pod* param
+) {
   if (paramId != SPA_PARAM_Route || param == nullptr) {
     return;
   }
@@ -1074,10 +1081,11 @@ void PipeWireService::onDeviceParam(std::uint32_t id, std::uint32_t paramId, std
   std::uint32_t routeDirection = 0;
   std::int32_t routePriority = 0;
   const spa_pod* routeProps = nullptr;
-  if (spa_pod_parse_object(param, SPA_TYPE_OBJECT_ParamRoute, nullptr, SPA_PARAM_ROUTE_index, SPA_POD_Int(&routeIndex),
-                           SPA_PARAM_ROUTE_direction, SPA_POD_Id(&routeDirection), SPA_PARAM_ROUTE_device,
-                           SPA_POD_Int(&routeDevice), SPA_PARAM_ROUTE_priority, SPA_POD_Int(&routePriority),
-                           SPA_PARAM_ROUTE_props, SPA_POD_Pod(&routeProps)) < 0) {
+  if (spa_pod_parse_object(
+          param, SPA_TYPE_OBJECT_ParamRoute, nullptr, SPA_PARAM_ROUTE_index, SPA_POD_Int(&routeIndex),
+          SPA_PARAM_ROUTE_direction, SPA_POD_Id(&routeDirection), SPA_PARAM_ROUTE_device, SPA_POD_Int(&routeDevice),
+          SPA_PARAM_ROUTE_priority, SPA_POD_Int(&routePriority), SPA_PARAM_ROUTE_props, SPA_POD_Pod(&routeProps)
+      ) < 0) {
     return;
   }
 
@@ -1619,7 +1627,8 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setVolume(std::clamp(*amount, 0.0f, maxVolume()));
         return "ok\n";
       },
-      "volume-set <value>", "Set speaker volume");
+      "volume-set <value>", "Set speaker volume"
+  );
 
   ipc.registerHandler(
       "volume-up",
@@ -1641,7 +1650,8 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setVolume(std::clamp(sink->volume + *step, 0.0f, maxVolume()));
         return "ok\n";
       },
-      "volume-up [step]", "Increase speaker volume");
+      "volume-up [step]", "Increase speaker volume"
+  );
 
   ipc.registerHandler(
       "volume-down",
@@ -1663,7 +1673,8 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setVolume(std::clamp(sink->volume - *step, 0.0f, maxVolume()));
         return "ok\n";
       },
-      "volume-down [step]", "Decrease speaker volume");
+      "volume-down [step]", "Decrease speaker volume"
+  );
 
   ipc.registerHandler(
       "volume-mute",
@@ -1674,7 +1685,8 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setMuted(!sink->muted);
         return "ok\n";
       },
-      "volume-mute", "Toggle speaker mute");
+      "volume-mute", "Toggle speaker mute"
+  );
 
   ipc.registerHandler(
       "mic-volume-set",
@@ -1695,7 +1707,8 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setMicVolume(std::clamp(*amount, 0.0f, maxVolume()));
         return "ok\n";
       },
-      "mic-volume-set <value>", "Set microphone volume");
+      "mic-volume-set <value>", "Set microphone volume"
+  );
 
   ipc.registerHandler(
       "mic-volume-up",
@@ -1717,7 +1730,8 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setMicVolume(std::clamp(source->volume + *step, 0.0f, maxVolume()));
         return "ok\n";
       },
-      "mic-volume-up [step]", "Increase microphone volume");
+      "mic-volume-up [step]", "Increase microphone volume"
+  );
 
   ipc.registerHandler(
       "mic-volume-down",
@@ -1739,7 +1753,8 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setMicVolume(std::clamp(source->volume - *step, 0.0f, maxVolume()));
         return "ok\n";
       },
-      "mic-volume-down [step]", "Decrease microphone volume");
+      "mic-volume-down [step]", "Decrease microphone volume"
+  );
 
   ipc.registerHandler(
       "mic-mute",
@@ -1750,5 +1765,6 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setMicMuted(!source->muted);
         return "ok\n";
       },
-      "mic-mute", "Toggle microphone mute");
+      "mic-mute", "Toggle microphone mute"
+  );
 }

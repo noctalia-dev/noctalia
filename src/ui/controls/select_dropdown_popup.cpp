@@ -122,17 +122,21 @@ void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, Dro
       .serial = m_wayland.lastInputSerial(),
       .grab = true,
   };
-  popup_chrome::applyToConfig(popupCfg, chrome,
-                              popup_chrome::Attachment{.horizontal = popup_chrome::HorizontalAttachment::Center,
-                                                       .vertical = popup_chrome::VerticalAttachment::Top});
+  popup_chrome::applyToConfig(
+      popupCfg, chrome,
+      popup_chrome::Attachment{
+          .horizontal = popup_chrome::HorizontalAttachment::Center, .vertical = popup_chrome::VerticalAttachment::Top
+      }
+  );
 
   m_surface = std::make_unique<PopupSurface>(m_wayland);
   m_surface->setRenderContext(&m_renderContext);
 
   auto* self = this;
 
-  m_surface->setConfigureCallback(
-      [self](std::uint32_t /*w*/, std::uint32_t /*h*/) { self->m_surface->requestLayout(); });
+  m_surface->setConfigureCallback([self](std::uint32_t /*w*/, std::uint32_t /*h*/) {
+    self->m_surface->requestLayout();
+  });
 
   m_surface->setPrepareFrameCallback([self, request](bool /*needsUpdate*/, bool needsLayout) {
     if (self->m_surface == nullptr) {
@@ -167,8 +171,9 @@ void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, Dro
     self->m_sceneRoot->layout(self->m_renderContext);
 
     self->m_inputDispatcher.setSceneRoot(self->m_sceneRoot.get());
-    self->m_inputDispatcher.setCursorShapeCallback(
-        [self](std::uint32_t serial, std::uint32_t shape) { self->m_wayland.setCursorShape(serial, shape); });
+    self->m_inputDispatcher.setCursorShapeCallback([self](std::uint32_t serial, std::uint32_t shape) {
+      self->m_wayland.setCursorShape(serial, shape);
+    });
     self->m_surface->setSceneRoot(self->m_sceneRoot.get());
   });
 
@@ -231,14 +236,16 @@ void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
   (void)popup_chrome::addShadow(*m_sceneRoot, chrome, m_shadowConfig, radius);
 
   auto bg = std::make_unique<RectNode>();
-  bg->setStyle(RoundedRectStyle{
-      .fill = resolved(ColorRole::SurfaceVariant),
-      .border = resolved(ColorRole::Outline),
-      .fillMode = FillMode::Solid,
-      .radius = radius,
-      .softness = 1.0f,
-      .borderWidth = Style::borderWidth,
-  });
+  bg->setStyle(
+      RoundedRectStyle{
+          .fill = resolved(ColorRole::SurfaceVariant),
+          .border = resolved(ColorRole::Outline),
+          .fillMode = FillMode::Solid,
+          .radius = radius,
+          .softness = 1.0f,
+          .borderWidth = Style::borderWidth,
+      }
+  );
   auto* bgNode = static_cast<RectNode*>(m_sceneRoot->addChild(std::move(bg)));
   bgNode->setPosition(menuX, menuY);
   bgNode->setFrameSize(m_menuWidth, m_viewportHeight);
@@ -297,7 +304,8 @@ void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
     label->setFontSize(request.fontSize);
     const float labelLeft = request.horizontalPadding + leadingInset;
     label->setMaxWidth(
-        std::max(0.0f, rowWidth - labelLeft - request.horizontalPadding - request.glyphSize - Style::spaceXs));
+        std::max(0.0f, rowWidth - labelLeft - request.horizontalPadding - request.glyphSize - Style::spaceXs)
+    );
     label->measure(m_renderContext);
     float labelY = std::round((m_optionHeight - label->height()) * 0.5f);
     label->setPosition(labelLeft, rowY + labelY);
@@ -401,14 +409,16 @@ void SelectDropdownPopup::applyHoverVisuals() {
     const ColorSpec fg = isHovered ? colorSpecFromRole(ColorRole::OnHover) : colorSpecFromRole(ColorRole::OnSurface);
 
     if (view.background != nullptr) {
-      view.background->setStyle(RoundedRectStyle{
-          .fill = bgColor,
-          .border = bgColor,
-          .fillMode = FillMode::Solid,
-          .radius = Style::scaledRadiusSm(),
-          .softness = 1.0f,
-          .borderWidth = 0.0f,
-      });
+      view.background->setStyle(
+          RoundedRectStyle{
+              .fill = bgColor,
+              .border = bgColor,
+              .fillMode = FillMode::Solid,
+              .radius = Style::scaledRadiusSm(),
+              .softness = 1.0f,
+              .borderWidth = 0.0f,
+          }
+      );
     }
     if (view.label != nullptr) {
       view.label->setColor(fg);
@@ -475,9 +485,10 @@ bool SelectDropdownPopup::onPointerEvent(const PointerEvent& event) {
     break;
   case PointerEvent::Type::Axis:
     if (m_pointerInside) {
-      m_inputDispatcher.pointerAxis(static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis,
-                                    event.axisSource, event.axisValue, event.axisDiscrete, event.axisValue120,
-                                    event.axisLines);
+      m_inputDispatcher.pointerAxis(
+          static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis, event.axisSource, event.axisValue,
+          event.axisDiscrete, event.axisValue120, event.axisLines
+      );
       return true;
     }
     break;
@@ -551,8 +562,10 @@ std::pair<float, float> SelectDropdownPopup::popupLocalCoords(double sx, double 
   if (m_pointerOnSurface || m_surface == nullptr) {
     return {static_cast<float>(sx), static_cast<float>(sy)};
   }
-  return {static_cast<float>(sx) - static_cast<float>(m_surface->configuredX()),
-          static_cast<float>(sy) - static_cast<float>(m_surface->configuredY())};
+  return {
+      static_cast<float>(sx) - static_cast<float>(m_surface->configuredX()),
+      static_cast<float>(sy) - static_cast<float>(m_surface->configuredY())
+  };
 }
 
 wl_surface* SelectDropdownPopup::wlSurface() const noexcept { return m_wlSurface; }

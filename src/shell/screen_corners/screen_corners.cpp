@@ -107,8 +107,9 @@ void ScreenCorners::ensureSurfaces() {
       auto* cornerPtr = &corner;
       const int cornerIndex = i;
 
-      corner.surface->setConfigureCallback(
-          [cornerPtr](std::uint32_t, std::uint32_t) { cornerPtr->surface->requestLayout(); });
+      corner.surface->setConfigureCallback([cornerPtr](std::uint32_t, std::uint32_t) {
+        cornerPtr->surface->requestLayout();
+      });
       corner.surface->setPrepareFrameCallback([this, cornerPtr, size, cornerIndex](bool, bool) {
         auto& target = cornerPtr->surface->renderTarget();
         const auto width = target.logicalWidth() == 0 ? size : target.logicalWidth();

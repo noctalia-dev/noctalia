@@ -14,8 +14,10 @@ class FileDialogPopup final : public DialogPopupHost, public FileDialogHost, pub
 public:
   ~FileDialogPopup() override;
 
-  void initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext,
-                  LayerPopupHostRegistry& popupHosts, ThumbnailService& thumbnails);
+  void initialize(
+      WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext,
+      LayerPopupHostRegistry& popupHosts, ThumbnailService& thumbnails
+  );
 
   [[nodiscard]] bool openFileDialog() override;
   void closeFileDialogWithoutResult() override;

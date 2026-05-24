@@ -160,9 +160,11 @@ void ImageProgram::destroy() {
   m_transformLocation = -1;
 }
 
-void ImageProgram::draw(TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height,
-                        const Color& tint, float opacity, float radius, const Color& borderColor, float borderWidth,
-                        int fitMode, float textureWidth, float textureHeight, const Mat3& transform) const {
+void ImageProgram::draw(
+    TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, const Color& tint,
+    float opacity, float radius, const Color& borderColor, float borderWidth, int fitMode, float textureWidth,
+    float textureHeight, const Mat3& transform
+) const {
   if (!m_program.isValid() || texture == 0 || width <= 0.0f || height <= 0.0f) {
     return;
   }

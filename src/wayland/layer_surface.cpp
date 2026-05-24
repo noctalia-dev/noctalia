@@ -55,9 +55,10 @@ bool LayerSurface::initialize(wl_output* output) {
   m_connection.registerSurfaceOutput(m_surface, output);
   setBufferScale(bufferScale);
 
-  m_layerSurface =
-      zwlr_layer_shell_v1_get_layer_surface(m_connection.layerShell(), m_surface, output,
-                                            static_cast<std::uint32_t>(m_config.layer), m_config.nameSpace.c_str());
+  m_layerSurface = zwlr_layer_shell_v1_get_layer_surface(
+      m_connection.layerShell(), m_surface, output, static_cast<std::uint32_t>(m_config.layer),
+      m_config.nameSpace.c_str()
+  );
   if (m_layerSurface == nullptr) {
     throw std::runtime_error("failed to create layer surface");
   }
@@ -71,8 +72,9 @@ bool LayerSurface::initialize(wl_output* output) {
   zwlr_layer_surface_v1_set_anchor(m_layerSurface, m_config.anchor);
   zwlr_layer_surface_v1_set_size(m_layerSurface, m_config.width, m_config.height);
   zwlr_layer_surface_v1_set_exclusive_zone(m_layerSurface, m_config.exclusiveZone);
-  zwlr_layer_surface_v1_set_margin(m_layerSurface, m_config.marginTop, m_config.marginRight, m_config.marginBottom,
-                                   m_config.marginLeft);
+  zwlr_layer_surface_v1_set_margin(
+      m_layerSurface, m_config.marginTop, m_config.marginRight, m_config.marginBottom, m_config.marginLeft
+  );
   zwlr_layer_surface_v1_set_keyboard_interactivity(m_layerSurface, static_cast<std::uint32_t>(m_config.keyboard));
   applyInputRegion();
 
@@ -82,13 +84,15 @@ bool LayerSurface::initialize(wl_output* output) {
   return true;
 }
 
-void LayerSurface::handleConfigure(void* data, zwlr_layer_surface_v1* layerSurface, std::uint32_t serial,
-                                   std::uint32_t width, std::uint32_t height) {
+void LayerSurface::handleConfigure(
+    void* data, zwlr_layer_surface_v1* layerSurface, std::uint32_t serial, std::uint32_t width, std::uint32_t height
+) {
   auto* self = static_cast<LayerSurface*>(data);
   zwlr_layer_surface_v1_ack_configure(layerSurface, serial);
 
-  self->onConfigure((width == 0) ? self->m_config.defaultWidth : width,
-                    (height == 0) ? self->m_config.defaultHeight : height);
+  self->onConfigure(
+      (width == 0) ? self->m_config.defaultWidth : width, (height == 0) ? self->m_config.defaultHeight : height
+  );
 }
 
 void LayerSurface::handleClosed(void* data, zwlr_layer_surface_v1* /*layerSurface*/) {

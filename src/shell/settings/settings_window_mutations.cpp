@@ -55,7 +55,8 @@ void SettingsWindow::setSettingOverride(std::vector<std::string> path, ConfigOve
 }
 
 void SettingsWindow::setSettingOverrides(
-    std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides) {
+    std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides
+) {
   DeferredCall::callLater([this, overrides = std::move(overrides)]() mutable {
     if (m_config == nullptr) {
       return;
@@ -113,7 +114,8 @@ void SettingsWindow::clearSettingOverrides(std::vector<std::vector<std::string>>
 
 void SettingsWindow::renameWidgetInstance(
     std::string oldName, std::string newName,
-    std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> referenceOverrides) {
+    std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> referenceOverrides
+) {
   DeferredCall::callLater([this, oldName = std::move(oldName), newName = std::move(newName),
                            referenceOverrides = std::move(referenceOverrides)]() mutable {
     if (m_config == nullptr) {
@@ -256,25 +258,25 @@ void SettingsWindow::createMonitorOverride(std::string barName, std::string matc
 }
 
 void SettingsWindow::renameMonitorOverride(std::string barName, std::string oldMatch, std::string newMatch) {
-  DeferredCall::callLater(
-      [this, barName = std::move(barName), oldMatch = std::move(oldMatch), newMatch = std::move(newMatch)]() {
-        if (m_config == nullptr) {
-          return;
-        }
-        if (m_config->renameMonitorOverride(barName, oldMatch, newMatch)) {
-          if (m_selectedBarName == barName && m_selectedMonitorOverride == oldMatch) {
-            m_selectedMonitorOverride = newMatch;
-          }
-          m_renamingMonitorOverrideBarName.clear();
-          m_renamingMonitorOverrideMatch.clear();
-          m_pendingDeleteMonitorOverrideBarName.clear();
-          m_pendingDeleteMonitorOverrideMatch.clear();
-          m_contentScrollState.offset = 0.0f;
-          markSettingsWriteSuccess();
-          return;
-        }
-        markSettingsWriteError(i18n::tr("settings.errors.monitor-override.rename"));
-      });
+  DeferredCall::callLater([this, barName = std::move(barName), oldMatch = std::move(oldMatch),
+                           newMatch = std::move(newMatch)]() {
+    if (m_config == nullptr) {
+      return;
+    }
+    if (m_config->renameMonitorOverride(barName, oldMatch, newMatch)) {
+      if (m_selectedBarName == barName && m_selectedMonitorOverride == oldMatch) {
+        m_selectedMonitorOverride = newMatch;
+      }
+      m_renamingMonitorOverrideBarName.clear();
+      m_renamingMonitorOverrideMatch.clear();
+      m_pendingDeleteMonitorOverrideBarName.clear();
+      m_pendingDeleteMonitorOverrideMatch.clear();
+      m_contentScrollState.offset = 0.0f;
+      markSettingsWriteSuccess();
+      return;
+    }
+    markSettingsWriteError(i18n::tr("settings.errors.monitor-override.rename"));
+  });
 }
 
 void SettingsWindow::deleteMonitorOverride(std::string barName, std::string match) {

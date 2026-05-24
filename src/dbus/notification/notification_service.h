@@ -26,9 +26,11 @@ private:
   bool m_nameAcquired = false;
 
   // D-Bus method handlers
-  uint32_t onNotify(const std::string& app_name, uint32_t replaces_id, const std::string& app_icon,
-                    const std::string& summary, const std::string& body, const std::vector<std::string>& actions,
-                    const std::map<std::string, sdbus::Variant>& hints, int32_t expire_timeout);
+  uint32_t onNotify(
+      const std::string& app_name, uint32_t replaces_id, const std::string& app_icon, const std::string& summary,
+      const std::string& body, const std::vector<std::string>& actions,
+      const std::map<std::string, sdbus::Variant>& hints, int32_t expire_timeout
+  );
 
   void onCloseNotification(uint32_t id);
   void emitClose(uint32_t id, CloseReason reason);

@@ -57,17 +57,21 @@ public:
   void setFontFamily(std::string family);
   void notifyFontConfigChanged();
 
-  [[nodiscard]] TextMetrics measure(std::string_view text, float fontSize, FontWeight fontWeight = FontWeight::Normal,
-                                    float maxWidth = 0.0f, int maxLines = 0, TextAlign align = TextAlign::Start,
-                                    std::string_view fontFamily = {});
+  [[nodiscard]] TextMetrics measure(
+      std::string_view text, float fontSize, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0f,
+      int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {}
+  );
   [[nodiscard]] TextMetrics measureFont(float fontSize, FontWeight fontWeight) const;
-  void measureCursorStops(std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets,
-                          std::vector<float>& outStops, FontWeight fontWeight = FontWeight::Normal);
+  void measureCursorStops(
+      std::string_view text, float fontSize, const std::vector<std::size_t>& byteOffsets, std::vector<float>& outStops,
+      FontWeight fontWeight = FontWeight::Normal
+  );
 
-  void draw(float surfaceWidth, float surfaceHeight, float x, float baselineY, std::string_view text, float fontSize,
-            const Color& color, const Mat3& transform, FontWeight fontWeight = FontWeight::Normal,
-            float maxWidth = 0.0f, int maxLines = 0, TextAlign align = TextAlign::Start,
-            std::string_view fontFamily = {});
+  void draw(
+      float surfaceWidth, float surfaceHeight, float x, float baselineY, std::string_view text, float fontSize,
+      const Color& color, const Mat3& transform, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0f,
+      int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {}
+  );
 
 private:
   struct CacheKey {
@@ -138,8 +142,10 @@ private:
   using MetricsMap = std::unordered_map<MetricsKey, TextMetrics, MetricsKeyHash>;
 
   // Build a PangoLayout at the given scaled size. Caller owns the layout (g_object_unref).
-  PangoLayout* buildLayout(std::string_view text, float fontSize, FontWeight fontWeight, float maxWidthPxScaled,
-                           int maxLines, TextAlign align, std::string_view fontFamily = {}) const;
+  PangoLayout* buildLayout(
+      std::string_view text, float fontSize, FontWeight fontWeight, float maxWidthPxScaled, int maxLines,
+      TextAlign align, std::string_view fontFamily = {}
+  ) const;
   // Render a layout into a new GL texture; fills out fields of `entry`.
   // When `tinted` is true, rasterizes as CAIRO_FORMAT_A8 and uploads alpha
   // coverage so the color is applied via u_tint at draw time. When false,
@@ -149,8 +155,10 @@ private:
   // Extract logical metrics from a laid-out PangoLayout, dividing by PANGO_SCALE and by scale.
   TextMetrics metricsFromLayout(PangoLayout* layout) const;
 
-  CacheEntry* lookupOrRasterize(std::string_view text, float fontSize, FontWeight fontWeight, float maxWidth,
-                                int maxLines, TextAlign align, const Color& color, std::string_view fontFamily = {});
+  CacheEntry* lookupOrRasterize(
+      std::string_view text, float fontSize, FontWeight fontWeight, float maxWidth, int maxLines, TextAlign align,
+      const Color& color, std::string_view fontFamily = {}
+  );
   void touch(CacheMap::iterator it);
   void evict(CacheMap::iterator it);
   void evictIfNeeded();

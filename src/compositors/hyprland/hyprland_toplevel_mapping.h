@@ -34,8 +34,10 @@ namespace compositors::hyprland {
 
     [[nodiscard]] bool available() const noexcept { return m_manager != nullptr; }
 
-    static void handleWindowAddress(void* data, hyprland_toplevel_window_mapping_handle_v1* request,
-                                    std::uint32_t addressHi, std::uint32_t addressLo);
+    static void handleWindowAddress(
+        void* data, hyprland_toplevel_window_mapping_handle_v1* request, std::uint32_t addressHi,
+        std::uint32_t addressLo
+    );
     static void handleFailed(void* data, hyprland_toplevel_window_mapping_handle_v1* request);
 
   private:

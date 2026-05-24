@@ -24,8 +24,10 @@ namespace settings {
     constexpr float kInitialPopupHeight = 320.0f;
     constexpr float kParentMargin = 48.0f;
 
-    PopupSurfaceConfig centeredPopupConfig(std::uint32_t parentWidth, std::uint32_t parentHeight, std::uint32_t width,
-                                           std::uint32_t height, std::uint32_t serial) {
+    PopupSurfaceConfig centeredPopupConfig(
+        std::uint32_t parentWidth, std::uint32_t parentHeight, std::uint32_t width, std::uint32_t height,
+        std::uint32_t serial
+    ) {
       return PopupSurfaceConfig{
           .anchorX = static_cast<std::int32_t>(parentWidth / 2),
           .anchorY = static_cast<std::int32_t>(parentHeight / 2),
@@ -48,14 +50,15 @@ namespace settings {
 
   ConfigExportDialogPopup::~ConfigExportDialogPopup() { destroyPopup(); }
 
-  void ConfigExportDialogPopup::initialize(WaylandConnection& wayland, ConfigService& config,
-                                           RenderContext& renderContext) {
+  void
+  ConfigExportDialogPopup::initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext) {
     initializeBase(wayland, config, renderContext);
   }
 
-  void ConfigExportDialogPopup::open(xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial,
-                                     wl_surface* parentWlSurface, std::uint32_t parentWidth, std::uint32_t parentHeight,
-                                     float scale, ExportCallback callback) {
+  void ConfigExportDialogPopup::open(
+      xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
+      std::uint32_t parentWidth, std::uint32_t parentHeight, float scale, ExportCallback callback
+  ) {
     if (parentXdgSurface == nullptr || parentWlSurface == nullptr) {
       return;
     }
@@ -74,9 +77,10 @@ namespace settings {
 
     const float popupWidth = kPopupWidth * m_scale;
     const float popupHeight = kInitialPopupHeight * m_scale;
-    const auto cfg =
-        centeredPopupConfig(parentWidth, parentHeight, static_cast<std::uint32_t>(std::max(1.0f, popupWidth)),
-                            static_cast<std::uint32_t>(std::max(1.0f, popupHeight)), serial);
+    const auto cfg = centeredPopupConfig(
+        parentWidth, parentHeight, static_cast<std::uint32_t>(std::max(1.0f, popupWidth)),
+        static_cast<std::uint32_t>(std::max(1.0f, popupHeight)), serial
+    );
 
     if (!openPopupAsChild(cfg, parentXdgSurface, parentWlSurface, output)) {
       close();
@@ -109,8 +113,8 @@ namespace settings {
     }
   }
 
-  std::unique_ptr<Flex> ConfigExportDialogPopup::makeOption(ConfigExportMode mode, const std::string& title,
-                                                            const std::string& description) {
+  std::unique_ptr<Flex>
+  ConfigExportDialogPopup::makeOption(ConfigExportMode mode, const std::string& title, const std::string& description) {
     RadioButton* radioPtr = nullptr;
     auto option = ui::row(
         {
@@ -155,7 +159,9 @@ namespace settings {
                 .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
                 .maxWidth = (kPopupWidth - 92.0f) * m_scale,
                 .maxLines = 3,
-            })));
+            })
+        )
+    );
     if (mode == ConfigExportMode::MergedUser) {
       m_mergedRadio = radioPtr;
     } else {
@@ -164,8 +170,8 @@ namespace settings {
     return option;
   }
 
-  void ConfigExportDialogPopup::populateContent(Node* contentParent, std::uint32_t /*width*/,
-                                                std::uint32_t /*height*/) {
+  void
+  ConfigExportDialogPopup::populateContent(Node* contentParent, std::uint32_t /*width*/, std::uint32_t /*height*/) {
     const float popupPadding = Style::spaceMd * m_scale;
     const float popupGap = Style::spaceMd * m_scale;
 
@@ -176,68 +182,81 @@ namespace settings {
         .padding = popupPadding,
     });
 
-    root->addChild(ui::row(
-        {
-            .align = FlexAlign::Center,
-            .gap = Style::spaceSm * m_scale,
-        },
-        ui::label({
-            .text = i18n::tr("settings.export-config.title"),
-            .fontSize = Style::fontSizeTitle * m_scale,
-            .color = colorSpecFromRole(ColorRole::OnSurface),
-            .fontWeight = FontWeight::Bold,
-            .flexGrow = 1.0f,
-        }),
-        ui::button({
-            .glyph = "close",
-            .glyphSize = Style::fontSizeBody * m_scale,
-            .variant = ButtonVariant::Default,
-            // Dialog header icon style.
-            .minWidth = Style::controlHeightSm * m_scale,
-            .minHeight = Style::controlHeightSm * m_scale,
-            .padding = Style::spaceXs * m_scale,
-            .radius = Style::scaledRadiusMd(m_scale),
-            .onClick = [this]() { DeferredCall::callLater([this]() { close(); }); },
-        })));
+    root->addChild(
+        ui::row(
+            {
+                .align = FlexAlign::Center,
+                .gap = Style::spaceSm * m_scale,
+            },
+            ui::label({
+                .text = i18n::tr("settings.export-config.title"),
+                .fontSize = Style::fontSizeTitle * m_scale,
+                .color = colorSpecFromRole(ColorRole::OnSurface),
+                .fontWeight = FontWeight::Bold,
+                .flexGrow = 1.0f,
+            }),
+            ui::button({
+                .glyph = "close",
+                .glyphSize = Style::fontSizeBody * m_scale,
+                .variant = ButtonVariant::Default,
+                // Dialog header icon style.
+                .minWidth = Style::controlHeightSm * m_scale,
+                .minHeight = Style::controlHeightSm * m_scale,
+                .padding = Style::spaceXs * m_scale,
+                .radius = Style::scaledRadiusMd(m_scale),
+                .onClick = [this]() { DeferredCall::callLater([this]() { close(); }); },
+            })
+        )
+    );
 
-    root->addChild(ui::column(
-        {
-            .align = FlexAlign::Stretch,
-            .gap = Style::spaceSm * m_scale,
-        },
-        makeOption(ConfigExportMode::MergedUser, i18n::tr("settings.export-config.merged-user-title"),
-                   i18n::tr("settings.export-config.merged-user-description")),
-        makeOption(ConfigExportMode::FullEffective, i18n::tr("settings.export-config.full-effective-title"),
-                   i18n::tr("settings.export-config.full-effective-description"))));
+    root->addChild(
+        ui::column(
+            {
+                .align = FlexAlign::Stretch,
+                .gap = Style::spaceSm * m_scale,
+            },
+            makeOption(
+                ConfigExportMode::MergedUser, i18n::tr("settings.export-config.merged-user-title"),
+                i18n::tr("settings.export-config.merged-user-description")
+            ),
+            makeOption(
+                ConfigExportMode::FullEffective, i18n::tr("settings.export-config.full-effective-title"),
+                i18n::tr("settings.export-config.full-effective-description")
+            )
+        )
+    );
 
-    root->addChild(ui::row(
-        {
-            .align = FlexAlign::Center,
-            .justify = FlexJustify::End,
-            .gap = Style::spaceSm * m_scale,
-        },
-        ui::button({
-            .text = i18n::tr("common.actions.cancel"),
-            .fontSize = Style::fontSizeBody * m_scale,
-            .variant = ButtonVariant::Ghost,
-            // Dialog footer action style.
-            .minHeight = Style::controlHeight * m_scale,
-            .paddingV = Style::spaceXs * m_scale,
-            .paddingH = Style::spaceMd * m_scale,
-            .radius = Style::scaledRadiusMd(m_scale),
-            .onClick = [this]() { DeferredCall::callLater([this]() { close(); }); },
-        }),
-        ui::button({
-            .text = i18n::tr("settings.export-config.export"),
-            .fontSize = Style::fontSizeBody * m_scale,
-            .variant = ButtonVariant::Primary,
-            // Dialog footer action style.
-            .minHeight = Style::controlHeight * m_scale,
-            .paddingV = Style::spaceXs * m_scale,
-            .paddingH = Style::spaceMd * m_scale,
-            .radius = Style::scaledRadiusMd(m_scale),
-            .onClick = [this]() { DeferredCall::callLater([this]() { accept(); }); },
-        })));
+    root->addChild(
+        ui::row(
+            {
+                .align = FlexAlign::Center,
+                .justify = FlexJustify::End,
+                .gap = Style::spaceSm * m_scale,
+            },
+            ui::button({
+                .text = i18n::tr("common.actions.cancel"),
+                .fontSize = Style::fontSizeBody * m_scale,
+                .variant = ButtonVariant::Ghost,
+                // Dialog footer action style.
+                .minHeight = Style::controlHeight * m_scale,
+                .paddingV = Style::spaceXs * m_scale,
+                .paddingH = Style::spaceMd * m_scale,
+                .radius = Style::scaledRadiusMd(m_scale),
+                .onClick = [this]() { DeferredCall::callLater([this]() { close(); }); },
+            }),
+            ui::button({
+                .text = i18n::tr("settings.export-config.export"),
+                .fontSize = Style::fontSizeBody * m_scale,
+                .variant = ButtonVariant::Primary,
+                // Dialog footer action style.
+                .minHeight = Style::controlHeight * m_scale,
+                .paddingV = Style::spaceXs * m_scale,
+                .paddingH = Style::spaceMd * m_scale,
+                .radius = Style::scaledRadiusMd(m_scale),
+                .onClick = [this]() { DeferredCall::callLater([this]() { accept(); }); },
+            })
+        )
+    );
 
     contentParent->addChild(std::move(root));
   }

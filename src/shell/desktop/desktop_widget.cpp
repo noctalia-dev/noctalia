@@ -73,9 +73,10 @@ void DesktopWidget::setBackgroundStyle(const ColorSpec& color, float radius, flo
   m_bgPadding = padding;
 }
 
-bool DesktopWidget::applySetting(const std::string& key, const WidgetSettingValue& /*value*/,
-                                 const std::unordered_map<std::string, WidgetSettingValue>& allSettings,
-                                 Renderer& renderer) {
+bool DesktopWidget::applySetting(
+    const std::string& key, const WidgetSettingValue& /*value*/,
+    const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
+) {
   if (key != "background_color" && key != "background_opacity" && key != "background_radius" &&
       key != "background_padding") {
     return false;

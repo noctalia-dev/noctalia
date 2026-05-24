@@ -35,10 +35,11 @@ public:
     Failed,
   };
 
-  explicit ScriptedWidget(std::string configName, std::string scriptPath, std::string barName, std::string outputName,
-                          const WidgetConfig* config = nullptr, FileWatcher* fileWatcher = nullptr,
-                          CompositorPlatform* platform = nullptr, ClipboardService* clipboard = nullptr,
-                          PipeWireSpectrum* audioSpectrum = nullptr, MprisService* mpris = nullptr);
+  explicit ScriptedWidget(
+      std::string configName, std::string scriptPath, std::string barName, std::string outputName,
+      const WidgetConfig* config = nullptr, FileWatcher* fileWatcher = nullptr, CompositorPlatform* platform = nullptr,
+      ClipboardService* clipboard = nullptr, PipeWireSpectrum* audioSpectrum = nullptr, MprisService* mpris = nullptr
+  );
   ~ScriptedWidget() override;
 
   void create() override;

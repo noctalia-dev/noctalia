@@ -75,16 +75,19 @@ FileEntryTile::FileEntryTile(float scale, ThumbnailService* thumbnails) : m_scal
 
 FileEntryTile::~FileEntryTile() { releaseThumbnail(); }
 
-void FileEntryTile::setCallbacks(IndexCallback onClick, IndexCallback onMotion, IndexCallback onEnter,
-                                 IndexCallback onLeave) {
+void FileEntryTile::setCallbacks(
+    IndexCallback onClick, IndexCallback onMotion, IndexCallback onEnter, IndexCallback onLeave
+) {
   m_onClick = std::move(onClick);
   m_onMotion = std::move(onMotion);
   m_onEnter = std::move(onEnter);
   m_onLeave = std::move(onLeave);
 }
 
-void FileEntryTile::bind(Renderer& renderer, const FileEntry& entry, std::size_t index, float width, float height,
-                         bool selected, bool hovered, bool disabled) {
+void FileEntryTile::bind(
+    Renderer& renderer, const FileEntry& entry, std::size_t index, float width, float height, bool selected,
+    bool hovered, bool disabled
+) {
   m_boundIndex = index;
   m_selected = selected;
   m_hovered = hovered;
@@ -172,8 +175,10 @@ void FileEntryTile::doLayout(Renderer& renderer) {
 
   if (m_glyph->visible()) {
     m_glyph->measure(renderer);
-    m_glyph->setPosition(std::round(previewX + (previewWidth - m_glyph->width()) * 0.5f),
-                         std::round(previewY + (previewHeight - m_glyph->height()) * 0.5f));
+    m_glyph->setPosition(
+        std::round(previewX + (previewWidth - m_glyph->width()) * 0.5f),
+        std::round(previewY + (previewHeight - m_glyph->height()) * 0.5f)
+    );
   }
 
   m_label->measure(renderer);

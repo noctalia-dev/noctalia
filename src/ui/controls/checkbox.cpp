@@ -86,8 +86,10 @@ void Checkbox::doLayout(Renderer& renderer) {
   if (m_checkGlyph != nullptr) {
     m_checkGlyph->setGlyphSize((Style::fontSizeBody + Style::spaceXs * 0.5f) * m_scale);
     m_checkGlyph->measure(renderer);
-    m_checkGlyph->setPosition(std::round(boxInset + (boxSize - m_checkGlyph->width()) * 0.5f),
-                              std::round(boxInset + (boxSize - m_checkGlyph->height()) * 0.5f));
+    m_checkGlyph->setPosition(
+        std::round(boxInset + (boxSize - m_checkGlyph->width()) * 0.5f),
+        std::round(boxInset + (boxSize - m_checkGlyph->height()) * 0.5f)
+    );
   }
 
   if (m_inputArea != nullptr) {

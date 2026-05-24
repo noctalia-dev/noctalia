@@ -33,11 +33,13 @@ struct ShortcutPad {
 
 class HomeTab : public Tab {
 public:
-  HomeTab(MprisService* mpris, HttpClient* httpClient, WeatherService* weather, PipeWireService* audio,
-          PowerProfilesService* powerProfiles, ConfigService* config, INetworkService* network,
-          BluetoothService* bluetooth, GammaService* nightLight, noctalia::theme::ThemeService* theme,
-          NotificationManager* notifications, IdleInhibitor* idleInhibitor, DependencyService* dependencies,
-          CompositorPlatform* platform, Wallpaper* wallpaper = nullptr);
+  HomeTab(
+      MprisService* mpris, HttpClient* httpClient, WeatherService* weather, PipeWireService* audio,
+      PowerProfilesService* powerProfiles, ConfigService* config, INetworkService* network, BluetoothService* bluetooth,
+      GammaService* nightLight, noctalia::theme::ThemeService* theme, NotificationManager* notifications,
+      IdleInhibitor* idleInhibitor, DependencyService* dependencies, CompositorPlatform* platform,
+      Wallpaper* wallpaper = nullptr
+  );
   ~HomeTab() override;
 
   std::unique_ptr<Flex> create() override;

@@ -6,8 +6,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
-#include "ui/controls/box.h"
-#include "ui/controls/label.h"
+#include "ui/builders.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
 
@@ -39,9 +38,11 @@ namespace {
   }
 } // namespace
 
-WorkspacesWidget::WorkspacesWidget(CompositorPlatform& platform, wl_output* output, DisplayMode displayMode,
-                                   ColorSpec focusedColor, ColorSpec occupiedColor, ColorSpec emptyColor,
-                                   std::size_t maxLabelChars, bool hideWhenEmpty, float pillScale, bool minimal)
+WorkspacesWidget::WorkspacesWidget(
+    CompositorPlatform& platform, wl_output* output, DisplayMode displayMode, ColorSpec focusedColor,
+    ColorSpec occupiedColor, ColorSpec emptyColor, std::size_t maxLabelChars, bool hideWhenEmpty, float pillScale,
+    bool minimal
+)
     : m_platform(platform), m_output(output), m_displayMode(displayMode), m_maxLabelChars(maxLabelChars),
       m_hideWhenEmpty(hideWhenEmpty), m_pillScale(pillScale), m_minimal(minimal),
       m_focusedColor(std::move(focusedColor)), m_occupiedColor(std::move(occupiedColor)),
@@ -148,13 +149,17 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
   m_cachedState.clear();
   m_cachedState.reserve(current.size());
   for (const auto& ws : current) {
-    m_cachedState.push_back(Workspace{.id = ws.id,
-                                      .name = ws.name,
-                                      .coordinates = ws.coordinates,
-                                      .index = ws.index,
-                                      .active = ws.active,
-                                      .urgent = ws.urgent,
-                                      .occupied = ws.occupied});
+    m_cachedState.push_back(
+        Workspace{
+            .id = ws.id,
+            .name = ws.name,
+            .coordinates = ws.coordinates,
+            .index = ws.index,
+            .active = ws.active,
+            .urgent = ws.urgent,
+            .occupied = ws.occupied
+        }
+    );
   }
 
   if (structuralChange) {
@@ -286,28 +291,31 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
     item.inkVCenterOffset = slot.inkVCenterOffset;
 
     if (!m_minimal) {
-      auto indicator = std::make_unique<Box>();
-      indicator->clearBorder();
       const float indicatorW = m_isVertical ? m_indicatorHeight : w;
       const float indicatorH = m_isVertical ? w : m_indicatorHeight;
-      indicator->setRadius(workspacePillRadius(indicatorW, indicatorH));
-      indicator->setFrameSize(w, m_indicatorHeight);
-      indicator->setFill(workspaceFillColor(ws));
-      indicator->clearBorder();
-      item.indicator = static_cast<Box*>(area->addChild(std::move(indicator)));
+      item.indicator = static_cast<Box*>(area->addChild(
+          ui::box({
+              .fill = workspaceFillColor(ws),
+              .radius = workspacePillRadius(indicatorW, indicatorH),
+              .width = w,
+              .height = m_indicatorHeight,
+              .configure = [](Box& box) { box.clearBorder(); },
+          })
+      ));
     }
 
     if (slot.showLabel) {
-      auto text = std::make_unique<Label>();
-      text->setText(slot.label);
-      text->setFontSize(labelFontSize);
-      text->setFontWeight(workspaceFontWeight(configuredFontWeight, m_minimal, ws.active));
-      text->setColor(workspaceTextColor(ws));
-      if (m_isVertical) {
-        text->setBaselineMode(LabelBaselineMode::InkCentered);
-      }
-      text->measure(renderer);
-      item.text = static_cast<Label*>(area->addChild(std::move(text)));
+      item.text = static_cast<Label*>(area->addChild(
+          ui::label({
+              .text = slot.label,
+              .fontSize = labelFontSize,
+              .color = workspaceTextColor(ws),
+              .fontWeight = workspaceFontWeight(configuredFontWeight, m_minimal, ws.active),
+              .baselineMode = m_isVertical ? std::optional<LabelBaselineMode>{LabelBaselineMode::InkCentered}
+                                           : std::optional<LabelBaselineMode>{},
+          })
+      ));
+      item.text->measure(renderer);
     }
 
     auto wsCopy = ws;
@@ -465,7 +473,8 @@ void WorkspacesWidget::startAnimation() {
           root()->markPaintDirty();
         }
       },
-      [this]() { m_animId = 0; }, this);
+      [this]() { m_animId = 0; }, this
+  );
   if (root() != nullptr) {
     root()->markPaintDirty();
   }

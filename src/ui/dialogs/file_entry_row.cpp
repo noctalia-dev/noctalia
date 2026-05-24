@@ -109,16 +109,19 @@ FileEntryRow::FileEntryRow(float scale) : m_scale(scale), m_rowHeight(std::ceil(
   setVisible(false);
 }
 
-void FileEntryRow::setCallbacks(IndexCallback onClick, IndexCallback onMotion, IndexCallback onEnter,
-                                IndexCallback onLeave) {
+void FileEntryRow::setCallbacks(
+    IndexCallback onClick, IndexCallback onMotion, IndexCallback onEnter, IndexCallback onLeave
+) {
   m_onClick = std::move(onClick);
   m_onMotion = std::move(onMotion);
   m_onEnter = std::move(onEnter);
   m_onLeave = std::move(onLeave);
 }
 
-void FileEntryRow::bind(Renderer& renderer, const FileEntry& entry, std::size_t index, float width, bool selected,
-                        bool hovered, bool disabled) {
+void FileEntryRow::bind(
+    Renderer& renderer, const FileEntry& entry, std::size_t index, float width, bool selected, bool hovered,
+    bool disabled
+) {
   m_boundIndex = index;
   m_selected = selected;
   m_hovered = hovered;

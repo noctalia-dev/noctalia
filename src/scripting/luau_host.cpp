@@ -86,12 +86,13 @@ namespace {
 
   std::chrono::milliseconds commandTimeoutFromLua(lua_State* L) {
     const double rawTimeout = luaL_optnumber(
-        L, 3,
-        static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(kDefaultCommandTimeout).count()));
+        L, 3, static_cast<double>(std::chrono::duration_cast<std::chrono::milliseconds>(kDefaultCommandTimeout).count())
+    );
     const double timeoutMs =
         std::isfinite(rawTimeout) ? rawTimeout : static_cast<double>(kDefaultCommandTimeout.count());
-    const double bounded = std::clamp(timeoutMs, static_cast<double>(kMinCommandTimeout.count()),
-                                      static_cast<double>(kMaxCommandTimeout.count()));
+    const double bounded = std::clamp(
+        timeoutMs, static_cast<double>(kMinCommandTimeout.count()), static_cast<double>(kMaxCommandTimeout.count())
+    );
     return std::chrono::milliseconds(static_cast<int>(bounded));
   }
 
@@ -445,8 +446,9 @@ bool LuauHost::hasAsyncProcessMatchCallback(int callbackRef) const {
   return m_asyncProcessMatchCallbackRefs.find(callbackRef) != m_asyncProcessMatchCallbackRefs.end();
 }
 
-bool LuauHost::callAsyncCommandCallback(int callbackRef, const process::RunResult& result,
-                                        std::chrono::milliseconds budget) {
+bool LuauHost::callAsyncCommandCallback(
+    int callbackRef, const process::RunResult& result, std::chrono::milliseconds budget
+) {
   if (m_T == nullptr) {
     return false;
   }
@@ -509,7 +511,8 @@ void LuauHost::interruptIfBudgetExceeded(lua_State* L) {
 void LuauHost::scriptLog(std::string message) {
   if (m_scriptContext != nullptr) {
     m_scriptContext->sideEffects.push_back(
-        {.kind = scripting::ScriptWidgetSideEffectKind::Log, .title = std::move(message), .body = {}});
+        {.kind = scripting::ScriptWidgetSideEffectKind::Log, .title = std::move(message), .body = {}}
+    );
     return;
   }
   kLog.info("{}", message);
@@ -517,9 +520,9 @@ void LuauHost::scriptLog(std::string message) {
 
 void LuauHost::scriptNotifyInfo(std::string title, std::string body) {
   if (m_scriptContext != nullptr) {
-    m_scriptContext->sideEffects.push_back({.kind = scripting::ScriptWidgetSideEffectKind::NotifyInfo,
-                                            .title = std::move(title),
-                                            .body = std::move(body)});
+    m_scriptContext->sideEffects.push_back(
+        {.kind = scripting::ScriptWidgetSideEffectKind::NotifyInfo, .title = std::move(title), .body = std::move(body)}
+    );
     return;
   }
   notify::info("Noctalia", title, body);
@@ -527,9 +530,9 @@ void LuauHost::scriptNotifyInfo(std::string title, std::string body) {
 
 void LuauHost::scriptNotifyError(std::string title, std::string body) {
   if (m_scriptContext != nullptr) {
-    m_scriptContext->sideEffects.push_back({.kind = scripting::ScriptWidgetSideEffectKind::NotifyError,
-                                            .title = std::move(title),
-                                            .body = std::move(body)});
+    m_scriptContext->sideEffects.push_back(
+        {.kind = scripting::ScriptWidgetSideEffectKind::NotifyError, .title = std::move(title), .body = std::move(body)}
+    );
     return;
   }
   notify::error("Noctalia", title, body);
@@ -539,9 +542,11 @@ bool LuauHost::scriptCopyToClipboard(std::string text, std::string mimeType) {
   if (m_scriptContext == nullptr || text.empty() || mimeType.empty()) {
     return false;
   }
-  m_scriptContext->sideEffects.push_back({.kind = scripting::ScriptWidgetSideEffectKind::CopyToClipboard,
-                                          .title = std::move(text),
-                                          .body = std::move(mimeType)});
+  m_scriptContext->sideEffects.push_back(
+      {.kind = scripting::ScriptWidgetSideEffectKind::CopyToClipboard,
+       .title = std::move(text),
+       .body = std::move(mimeType)}
+  );
   return true;
 }
 
@@ -637,8 +642,9 @@ bool LuauHost::callGlobalWithStrings(const char* name, std::string_view first, s
   return callGlobalWithStringsAndBudget(name, first, second, std::chrono::milliseconds(25));
 }
 
-bool LuauHost::callGlobalWithStringsAndBudget(const char* name, std::string_view first, std::string_view second,
-                                              std::chrono::milliseconds budget) {
+bool LuauHost::callGlobalWithStringsAndBudget(
+    const char* name, std::string_view first, std::string_view second, std::chrono::milliseconds budget
+) {
   lua_getglobal(m_T, name);
   if (!lua_isfunction(m_T, -1)) {
     lua_pop(m_T, 1);

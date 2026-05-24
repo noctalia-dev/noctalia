@@ -69,7 +69,8 @@ void ContextMenuControl::setOnActivate(std::function<void(const ContextMenuContr
 }
 
 void ContextMenuControl::setOnSubmenuOpen(
-    std::function<void(const ContextMenuControlEntry&, float rowCenterY)> onSubmenuOpen) {
+    std::function<void(const ContextMenuControlEntry&, float rowCenterY)> onSubmenuOpen
+) {
   m_onSubmenuOpen = std::move(onSubmenuOpen);
 }
 
@@ -221,16 +222,22 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         if (separator) {
           labelPtr->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
         } else {
-          labelPtr->setColor(highlighted ? colorSpecFromRole(ColorRole::OnHover)
-                                         : (interactive ? enabledItemColor() : disabledItemColor()));
+          labelPtr->setColor(
+              highlighted ? colorSpecFromRole(ColorRole::OnHover)
+                          : (interactive ? enabledItemColor() : disabledItemColor())
+          );
         }
         if (togglePtr != nullptr) {
-          togglePtr->setColor(highlighted ? colorSpecFromRole(ColorRole::OnHover)
-                                          : (interactive ? enabledItemColor() : disabledItemColor()));
+          togglePtr->setColor(
+              highlighted ? colorSpecFromRole(ColorRole::OnHover)
+                          : (interactive ? enabledItemColor() : disabledItemColor())
+          );
         }
         if (chevronPtr != nullptr) {
-          chevronPtr->setColor(highlighted ? colorSpecFromRole(ColorRole::OnHover)
-                                           : (interactive ? enabledItemColor() : disabledItemColor()));
+          chevronPtr->setColor(
+              highlighted ? colorSpecFromRole(ColorRole::OnHover)
+                          : (interactive ? enabledItemColor() : disabledItemColor())
+          );
         }
       };
 

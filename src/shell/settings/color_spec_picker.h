@@ -29,8 +29,8 @@ namespace settings {
   [[nodiscard]] std::string colorSpecConfigValue(const ColorSpec& color);
   [[nodiscard]] std::string optionalColorSpecConfigValue(const std::optional<ColorSpec>& color);
 
-  [[nodiscard]] std::unique_ptr<Select> makeColorSpecSelect(ColorSpecSelectOptions options,
-                                                            std::function<void(std::string)> setValue,
-                                                            std::function<void()> clearValue);
+  [[nodiscard]] std::unique_ptr<Select> makeColorSpecSelect(
+      ColorSpecSelectOptions options, std::function<void(std::string)> setValue, std::function<void()> clearValue
+  );
 
 } // namespace settings

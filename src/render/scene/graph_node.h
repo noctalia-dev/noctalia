@@ -99,8 +99,10 @@ public:
   // Upload data to the backend texture. Must be called while a render context is current.
   // primary/secondary arrays contain normalized [0..1] values.
   // Pass nullptr and 0 for unused channels.
-  void setData(TextureManager& textures, const float* primary, int primaryCount, const float* secondary,
-               int secondaryCount, const float* tertiary = nullptr, int tertiaryCount = 0);
+  void setData(
+      TextureManager& textures, const float* primary, int primaryCount, const float* secondary, int secondaryCount,
+      const float* tertiary = nullptr, int tertiaryCount = 0
+  );
 
 private:
   GraphStyle m_style;

@@ -46,8 +46,9 @@
 namespace settings {
   namespace {
 
-    std::unique_ptr<Label> makeLabel(std::string_view text, float fontSize, const ColorSpec& color,
-                                     FontWeight fontWeight = FontWeight::Normal) {
+    std::unique_ptr<Label> makeLabel(
+        std::string_view text, float fontSize, const ColorSpec& color, FontWeight fontWeight = FontWeight::Normal
+    ) {
       return ui::label({
           .text = std::string(text),
           .fontSize = fontSize,
@@ -308,9 +309,10 @@ namespace settings {
       return widgetNames;
     }
 
-    std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>
-    capsuleGroupRemovalOverrides(const Config& cfg, const std::vector<std::string>& path, std::string_view removedGroup,
-                                 std::vector<std::string> updatedGroups) {
+    std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> capsuleGroupRemovalOverrides(
+        const Config& cfg, const std::vector<std::string>& path, std::string_view removedGroup,
+        std::vector<std::string> updatedGroups
+    ) {
       std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides;
       overrides.push_back({path, std::move(updatedGroups)});
 
@@ -337,8 +339,8 @@ namespace settings {
       return overrides;
     }
 
-    std::string sessionActionRowSummary(const std::vector<SelectOption>& kindOptions,
-                                        const SessionPanelActionConfig& row) {
+    std::string
+    sessionActionRowSummary(const std::vector<SelectOption>& kindOptions, const SessionPanelActionConfig& row) {
       if (row.label.has_value() && !row.label->empty()) {
         return *row.label;
       }
@@ -355,8 +357,10 @@ namespace settings {
       return out;
     }
 
-    std::string uniqueIdleBehaviorName(std::string base, const std::vector<IdleBehaviorConfig>& rows,
-                                       std::optional<std::size_t> ignoreIndex = std::nullopt) {
+    std::string uniqueIdleBehaviorName(
+        std::string base, const std::vector<IdleBehaviorConfig>& rows,
+        std::optional<std::size_t> ignoreIndex = std::nullopt
+    ) {
       base = sanitizedIdleBehaviorName(base);
       if (base.empty()) {
         base = "idle-behavior";
@@ -424,8 +428,9 @@ namespace settings {
       return i18n::tr("settings.idle.behavior.summary", "name", name, "seconds", std::to_string(row.timeoutSeconds));
     }
 
-    void buildSessionActionEntryDetailContentImpl(Flex& section, SettingsContentContext& ctx,
-                                                  SessionPanelActionConfig& row, const std::function<void()>& persist) {
+    void buildSessionActionEntryDetailContentImpl(
+        Flex& section, SettingsContentContext& ctx, SessionPanelActionConfig& row, const std::function<void()>& persist
+    ) {
       const float scale = ctx.scale;
       const std::vector<SelectOption> kindOptions = {
           {"lock", i18n::tr("settings.session-actions.kind.lock"), {}},
@@ -450,8 +455,11 @@ namespace settings {
               .align = FlexAlign::Stretch,
               .gap = Style::spaceSm * scale,
           },
-          makeLabel(i18n::tr("settings.session-actions.icon-label"), Style::fontSizeCaption * scale,
-                    colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
+          makeLabel(
+              i18n::tr("settings.session-actions.icon-label"), Style::fontSizeCaption * scale,
+              colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+          )
+      );
 
       auto glyphBtnRow = ui::row({
           .align = FlexAlign::Center,
@@ -507,17 +515,19 @@ namespace settings {
         if (row.glyph.has_value() && !row.glyph->empty()) {
           options.initialGlyph = *row.glyph;
         }
-        (void)GlyphPickerDialog::open(std::move(options), [&row, persist, glyphPickBtnPtr,
-                                                           clearGlyphBtnPtr](std::optional<GlyphPickerResult> result) {
-          if (!result.has_value()) {
-            return;
-          }
-          row.glyph = result->name;
-          glyphPickBtnPtr->setGlyph(result->name);
-          clearGlyphBtnPtr->setVisible(true);
-          clearGlyphBtnPtr->setParticipatesInLayout(true);
-          persist();
-        });
+        (void)GlyphPickerDialog::open(
+            std::move(options),
+            [&row, persist, glyphPickBtnPtr, clearGlyphBtnPtr](std::optional<GlyphPickerResult> result) {
+              if (!result.has_value()) {
+                return;
+              }
+              row.glyph = result->name;
+              glyphPickBtnPtr->setGlyph(result->name);
+              clearGlyphBtnPtr->setVisible(true);
+              clearGlyphBtnPtr->setParticipatesInLayout(true);
+              persist();
+            }
+        );
       });
       glyphBtnRow->addChild(std::move(glyphPickBtn));
 
@@ -539,9 +549,10 @@ namespace settings {
           .flexGrow = 1.0f,
       });
 
-      fields->addChild(makeLabel(i18n::tr("settings.session-actions.kind-section-label"),
-                                 Style::fontSizeCaption * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                                 FontWeight::Normal));
+      fields->addChild(makeLabel(
+          i18n::tr("settings.session-actions.kind-section-label"), Style::fontSizeCaption * scale,
+          colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+      ));
       const auto selectedKindIndex = optionIndex(kindOptions, row.action);
       auto kindSelect = ui::select({
           .options = optionLabels(kindOptions),
@@ -565,10 +576,13 @@ namespace settings {
       });
       fields->addChild(std::move(kindSelect));
 
-      auto labelBlock =
-          ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
-                     makeLabel(i18n::tr("settings.session-actions.label-field"), Style::fontSizeCaption * scale,
-                               colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
+      auto labelBlock = ui::column(
+          {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
+          makeLabel(
+              i18n::tr("settings.session-actions.label-field"), Style::fontSizeCaption * scale,
+              colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+          )
+      );
       Input* labelPtr = nullptr;
       auto labelIn = ui::input({
           .out = &labelPtr,
@@ -595,10 +609,13 @@ namespace settings {
       labelBlock->addChild(std::move(labelIn));
       fields->addChild(std::move(labelBlock));
 
-      auto cmdBlock =
-          ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
-                     makeLabel(i18n::tr("settings.session-actions.command-label"), Style::fontSizeCaption * scale,
-                               colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
+      auto cmdBlock = ui::column(
+          {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
+          makeLabel(
+              i18n::tr("settings.session-actions.command-label"), Style::fontSizeCaption * scale,
+              colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+          )
+      );
       Input* cmdPtr = nullptr;
       auto cmdIn = ui::input({
           .out = &cmdPtr,
@@ -628,10 +645,13 @@ namespace settings {
       const std::vector<SelectOption> variantOptions = sessionActionVariantOptions();
       const std::string selectedVariant(enumToKey(kSessionActionButtonVariants, row.variant));
       const auto selectedVariantIndex = optionIndex(variantOptions, selectedVariant);
-      auto variantBlock =
-          ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
-                     makeLabel(i18n::tr("settings.session-actions.variant-label"), Style::fontSizeCaption * scale,
-                               colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
+      auto variantBlock = ui::column(
+          {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
+          makeLabel(
+              i18n::tr("settings.session-actions.variant-label"), Style::fontSizeCaption * scale,
+              colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+          )
+      );
       auto variantSelect = ui::select({
           .options = optionLabels(variantOptions),
           .selectedIndex = selectedVariantIndex,
@@ -653,10 +673,13 @@ namespace settings {
       variantBlock->addChild(std::move(variantSelect));
       fields->addChild(std::move(variantBlock));
 
-      auto shortcutBlock =
-          ui::row({.align = FlexAlign::Center, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
-                  makeLabel(i18n::tr("settings.session-actions.shortcut-label"), Style::fontSizeCaption * scale,
-                            colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
+      auto shortcutBlock = ui::row(
+          {.align = FlexAlign::Center, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
+          makeLabel(
+              i18n::tr("settings.session-actions.shortcut-label"), Style::fontSizeCaption * scale,
+              colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+          )
+      );
 
       KeybindRecorder* shortcutRecorderPtr = nullptr;
       auto shortcutRecorder = ui::keybindRecorder({
@@ -666,11 +689,10 @@ namespace settings {
           .unsetPlaceholder = i18n::tr("settings.controls.keybind.unset-placeholder"),
           .recordingPlaceholder = i18n::tr("settings.controls.keybind.recording-placeholder"),
           .modifierPolicy = ModifierPolicy::Optional,
-          .onCommit =
-              [&row, persist](KeyChord chord) {
-                row.shortcut = chord;
-                persist();
-              },
+          .onCommit = [&row, persist](KeyChord chord) {
+            row.shortcut = chord;
+            persist();
+          },
       });
       shortcutBlock->addChild(std::move(shortcutRecorder));
 
@@ -683,12 +705,11 @@ namespace settings {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick =
-                [&row, persist, shortcutRecorderPtr]() {
-                  row.shortcut = std::nullopt;
-                  shortcutRecorderPtr->setChord(std::nullopt);
-                  persist();
-                },
+            .onClick = [&row, persist, shortcutRecorderPtr]() {
+              row.shortcut = std::nullopt;
+              shortcutRecorderPtr->setChord(std::nullopt);
+              persist();
+            },
         });
         shortcutBlock->addChild(std::move(clearBtn));
       }
@@ -699,9 +720,10 @@ namespace settings {
       section.addChild(std::move(body));
     }
 
-    void buildIdleBehaviorEntryDetailContentImpl(Flex& section, SettingsContentContext& ctx, IdleBehaviorConfig& row,
-                                                 const std::function<void()>& persist,
-                                                 const std::function<void()>& closeHostedEditor) {
+    void buildIdleBehaviorEntryDetailContentImpl(
+        Flex& section, SettingsContentContext& ctx, IdleBehaviorConfig& row, const std::function<void()>& persist,
+        const std::function<void()>& closeHostedEditor
+    ) {
       const float scale = ctx.scale;
 
       const std::vector<SelectOption> idleActionOptions = {
@@ -730,32 +752,37 @@ namespace settings {
       });
 
       Flex* suspendLockRaw = nullptr;
-      auto suspendLockGrp = ui::row({.out = &suspendLockRaw,
-                                     .align = FlexAlign::Center,
-                                     .gap = Style::spaceSm * scale,
-                                     .fillWidth = true,
-                                     .visible = showSuspendLock},
-                                    ui::label({
-                                        .text = i18n::tr("settings.idle.behavior.lock-before-suspend-label"),
-                                        .fontSize = Style::fontSizeBody * scale,
-                                        .color = colorSpecFromRole(ColorRole::OnSurface),
-                                        .fontWeight = FontWeight::Normal,
-                                        .flexGrow = 1.0f,
-                                    }),
-                                    ui::toggle({
-                                        .checked = row.lockBeforeSuspend,
-                                        .scale = scale,
-                                        .onChange =
-                                            [&row, persist](bool v) {
-                                              row.lockBeforeSuspend = v;
-                                              persist();
-                                            },
-                                    }));
+      auto suspendLockGrp = ui::row(
+          {.out = &suspendLockRaw,
+           .align = FlexAlign::Center,
+           .gap = Style::spaceSm * scale,
+           .fillWidth = true,
+           .visible = showSuspendLock},
+          ui::label({
+              .text = i18n::tr("settings.idle.behavior.lock-before-suspend-label"),
+              .fontSize = Style::fontSizeBody * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .fontWeight = FontWeight::Normal,
+              .flexGrow = 1.0f,
+          }),
+          ui::toggle({
+              .checked = row.lockBeforeSuspend,
+              .scale = scale,
+              .onChange = [&row, persist](bool v) {
+                row.lockBeforeSuspend = v;
+                persist();
+              },
+          })
+      );
 
       const auto addCommandInput = [&](Flex& parent, std::string label, std::string placeholder, std::string& target) {
-        auto block = ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale},
-                                makeLabel(label, Style::fontSizeCaption * scale,
-                                          colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
+        auto block = ui::column(
+            {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale},
+            makeLabel(
+                label, Style::fontSizeCaption * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                FontWeight::Normal
+            )
+        );
         Input* inputPtr = nullptr;
         auto input = ui::input({
             .out = &inputPtr,
@@ -779,20 +806,27 @@ namespace settings {
         parent.addChild(std::move(block));
       };
 
-      addCommandInput(*customCommandsGrp, i18n::tr("settings.idle.behavior.command-label"),
-                      i18n::tr("settings.idle.behavior.command-placeholder"), row.command);
+      addCommandInput(
+          *customCommandsGrp, i18n::tr("settings.idle.behavior.command-label"),
+          i18n::tr("settings.idle.behavior.command-placeholder"), row.command
+      );
 
       auto resumeCommandGrp = ui::column({
           .align = FlexAlign::Stretch,
           .gap = Style::spaceMd * scale,
       });
-      addCommandInput(*resumeCommandGrp, i18n::tr("settings.idle.behavior.resume-command-label"),
-                      i18n::tr("settings.idle.behavior.resume-command-placeholder"), row.resumeCommand);
+      addCommandInput(
+          *resumeCommandGrp, i18n::tr("settings.idle.behavior.resume-command-label"),
+          i18n::tr("settings.idle.behavior.resume-command-placeholder"), row.resumeCommand
+      );
 
-      auto kindBlock =
-          ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale},
-                     makeLabel(i18n::tr("settings.idle.behavior.kind-section-label"), Style::fontSizeCaption * scale,
-                               colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
+      auto kindBlock = ui::column(
+          {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale},
+          makeLabel(
+              i18n::tr("settings.idle.behavior.kind-section-label"), Style::fontSizeCaption * scale,
+              colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+          )
+      );
       const auto selectedKindIndex = optionIndex(idleActionOptions, norm.action);
       auto kindSelect = ui::select({
           .options = optionLabels(idleActionOptions),
@@ -802,8 +836,8 @@ namespace settings {
           .controlHeight = Style::controlHeight * scale,
           .glyphSize = Style::fontSizeBody * scale,
           .onSelectionChanged =
-              [&row, persist, idleActionOptions, customCommandsRaw, suspendLockRaw](std::size_t index,
-                                                                                    std::string_view /*label*/) {
+              [&row, persist, idleActionOptions, customCommandsRaw,
+               suspendLockRaw](std::size_t index, std::string_view /*label*/) {
                 if (index < idleActionOptions.size()) {
                   row.action = idleActionOptions[index].value;
                   if (row.action != "command") {
@@ -822,10 +856,13 @@ namespace settings {
       body->addChild(std::move(kindBlock));
       body->addChild(std::move(suspendLockGrp));
 
-      auto nameBlock =
-          ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale},
-                     makeLabel(i18n::tr("settings.idle.behavior.name-label"), Style::fontSizeCaption * scale,
-                               colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
+      auto nameBlock = ui::column(
+          {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale},
+          makeLabel(
+              i18n::tr("settings.idle.behavior.name-label"), Style::fontSizeCaption * scale,
+              colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+          )
+      );
       Input* namePtr = nullptr;
       auto nameIn = ui::input({
           .out = &namePtr,
@@ -852,10 +889,13 @@ namespace settings {
       nameBlock->addChild(std::move(nameIn));
       body->addChild(std::move(nameBlock));
 
-      auto timeoutBlock =
-          ui::column({.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale},
-                     makeLabel(i18n::tr("settings.idle.behavior.timeout-label"), Style::fontSizeCaption * scale,
-                               colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
+      auto timeoutBlock = ui::column(
+          {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale},
+          makeLabel(
+              i18n::tr("settings.idle.behavior.timeout-label"), Style::fontSizeCaption * scale,
+              colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+          )
+      );
       Input* timeoutPtr = nullptr;
       auto timeoutIn = ui::input({
           .out = &timeoutPtr,
@@ -901,18 +941,19 @@ namespace settings {
               .paddingH = Style::spaceMd * scale,
               .radius = Style::scaledRadiusMd(scale),
               .flexGrow = 1.0f,
-              .onClick =
-                  [commitName, commitTimeout, applyHostedEditor = ctx.afterIdleBehaviorApply, closeHostedEditor]() {
-                    commitName();
-                    commitTimeout();
-                    if (applyHostedEditor) {
-                      applyHostedEditor();
-                    }
-                    if (closeHostedEditor) {
-                      closeHostedEditor();
-                    }
-                  },
-          }));
+              .onClick = [commitName, commitTimeout, applyHostedEditor = ctx.afterIdleBehaviorApply,
+                          closeHostedEditor]() {
+                commitName();
+                commitTimeout();
+                if (applyHostedEditor) {
+                  applyHostedEditor();
+                }
+                if (closeHostedEditor) {
+                  closeHostedEditor();
+                }
+              },
+          })
+      );
       section.addChild(std::move(actions));
     }
 
@@ -941,8 +982,8 @@ namespace settings {
     });
   }
 
-  std::size_t addSettingsContentSections(Flex& content, const std::vector<SettingEntry>& registry,
-                                         SettingsContentContext ctx) {
+  std::size_t
+  addSettingsContentSections(Flex& content, const std::vector<SettingEntry>& registry, SettingsContentContext ctx) {
     const Config& cfg = ctx.config;
     const float scale = ctx.scale;
 
@@ -962,14 +1003,16 @@ namespace settings {
               .padding = Style::spaceLg * scale,
               .configure = [](Flex& flex) { flex.setFill(clearColorSpec()); },
           },
-          ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
-                  ui::glyph({
-                      .glyph = std::string(sectionGlyph(sectionKey)),
-                      .glyphSize = Style::fontSizeHeader * scale,
-                      .color = colorSpecFromRole(ColorRole::Primary),
-                  }),
-                  makeLabel(title, Style::fontSizeHeader * scale, colorSpecFromRole(ColorRole::Primary),
-                            FontWeight::Bold)));
+          ui::row(
+              {.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
+              ui::glyph({
+                  .glyph = std::string(sectionGlyph(sectionKey)),
+                  .glyphSize = Style::fontSizeHeader * scale,
+                  .color = colorSpecFromRole(ColorRole::Primary),
+              }),
+              makeLabel(title, Style::fontSizeHeader * scale, colorSpecFromRole(ColorRole::Primary), FontWeight::Bold)
+          )
+      );
       auto* raw = section.get();
       content.addChild(std::move(section));
       return raw;
@@ -980,15 +1023,19 @@ namespace settings {
         return;
       }
       if (!isFirst) {
-        section.addChild(ui::column(
-            {.align = FlexAlign::Stretch,
-             .gap = Style::spaceSm * scale,
-             .configure = [scale](Flex& flex) { flex.setPadding(Style::spaceSm * scale, 0.0f, 0.0f, 0.0f); }},
-            ui::separator(),
-            makeLabel(title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::Secondary), FontWeight::Bold)));
+        section.addChild(
+            ui::column(
+                {.align = FlexAlign::Stretch,
+                 .gap = Style::spaceSm * scale,
+                 .configure = [scale](Flex& flex) { flex.setPadding(Style::spaceSm * scale, 0.0f, 0.0f, 0.0f); }},
+                ui::separator(),
+                makeLabel(title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::Secondary), FontWeight::Bold)
+            )
+        );
       } else {
         section.addChild(
-            makeLabel(title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::Secondary), FontWeight::Bold));
+            makeLabel(title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::Secondary), FontWeight::Bold)
+        );
       }
     };
 
@@ -1007,35 +1054,41 @@ namespace settings {
 
     const auto makeStatusBadge = [&](std::string_view label, const ColorSpec& fill, const ColorSpec& color,
                                      bool matchResetHeight) {
-      return ui::row({.align = FlexAlign::Center,
-                      .configure =
-                          [scale, fill, matchResetHeight](Flex& flex) {
-                            if (matchResetHeight) {
-                              flex.setMinHeight(Style::controlHeightSm * scale);
-                              flex.setPadding(Style::spaceXs * scale, Style::spaceSm * scale);
-                            } else {
-                              flex.setPadding(0.0f, Style::spaceXs * scale);
-                            }
-                            flex.setRadius(Style::scaledRadiusSm(scale));
-                            flex.setFill(fill);
-                          }},
-                     makeLabel(label, Style::fontSizeCaption * scale, color, FontWeight::Bold));
+      return ui::row(
+          {.align = FlexAlign::Center,
+           .configure =
+               [scale, fill, matchResetHeight](Flex& flex) {
+                 if (matchResetHeight) {
+                   flex.setMinHeight(Style::controlHeightSm * scale);
+                   flex.setPadding(Style::spaceXs * scale, Style::spaceSm * scale);
+                 } else {
+                   flex.setPadding(0.0f, Style::spaceXs * scale);
+                 }
+                 flex.setRadius(Style::scaledRadiusSm(scale));
+                 flex.setFill(fill);
+               }},
+          makeLabel(label, Style::fontSizeCaption * scale, color, FontWeight::Bold)
+      );
     };
 
     const auto makeOverrideBadge = [&]() {
-      return makeStatusBadge(i18n::tr("settings.badges.override"), colorSpecFromRole(ColorRole::Primary, 0.15f),
-                             colorSpecFromRole(ColorRole::Primary), true);
+      return makeStatusBadge(
+          i18n::tr("settings.badges.override"), colorSpecFromRole(ColorRole::Primary, 0.15f),
+          colorSpecFromRole(ColorRole::Primary), true
+      );
     };
 
     const auto makeAdvancedBadge = [&]() {
-      return makeStatusBadge(i18n::tr("settings.badges.advanced"),
-                             colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.12f),
-                             colorSpecFromRole(ColorRole::OnSurfaceVariant), false);
+      return makeStatusBadge(
+          i18n::tr("settings.badges.advanced"), colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.12f),
+          colorSpecFromRole(ColorRole::OnSurfaceVariant), false
+      );
     };
 
     const auto makeOverrideResetActions = [&](const std::vector<std::string>& path) {
-      return ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale}, makeOverrideBadge(),
-                     makeResetButton(path));
+      return ui::row(
+          {.align = FlexAlign::Center, .gap = Style::spaceSm * scale}, makeOverrideBadge(), makeResetButton(path)
+      );
     };
 
     const auto makeRow = [&](Flex& section, const SettingEntry& entry, std::unique_ptr<Node> control) {
@@ -1051,19 +1104,22 @@ namespace settings {
           .gap = Style::spaceSm * scale,
           .fillWidth = true,
       });
-      titleRow->addChild(makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface),
-                                   FontWeight::Bold));
+      titleRow->addChild(
+          makeLabel(entry.title, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold)
+      );
       if (entry.advanced) {
         titleRow->addChild(makeAdvancedBadge());
       }
       if (monitorExplicit) {
-        titleRow->addChild(makeStatusBadge(i18n::tr("settings.badges.monitor"),
-                                           colorSpecFromRole(ColorRole::Secondary, 0.15f),
-                                           colorSpecFromRole(ColorRole::Secondary), false));
+        titleRow->addChild(makeStatusBadge(
+            i18n::tr("settings.badges.monitor"), colorSpecFromRole(ColorRole::Secondary, 0.15f),
+            colorSpecFromRole(ColorRole::Secondary), false
+        ));
       } else if (monitorInherited) {
-        titleRow->addChild(makeStatusBadge(i18n::tr("settings.badges.inherited"),
-                                           colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.12f),
-                                           colorSpecFromRole(ColorRole::OnSurfaceVariant), false));
+        titleRow->addChild(makeStatusBadge(
+            i18n::tr("settings.badges.inherited"), colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.12f),
+            colorSpecFromRole(ColorRole::OnSurfaceVariant), false
+        ));
       }
       titleRow->addChild(ui::spacer());
 
@@ -1081,15 +1137,17 @@ namespace settings {
       }
       actions->addChild(std::move(control));
 
-      auto row = ui::row({.align = FlexAlign::Center,
-                          .justify = FlexJustify::SpaceBetween,
-                          .gap = Style::spaceXs * scale,
-                          .configure =
-                              [scale](Flex& flex) {
-                                flex.setPadding(2.0f * scale, 0.0f);
-                                flex.setMinHeight(Style::controlHeight * scale);
-                              }},
-                         std::move(copy), std::move(actions));
+      auto row = ui::row(
+          {.align = FlexAlign::Center,
+           .justify = FlexJustify::SpaceBetween,
+           .gap = Style::spaceXs * scale,
+           .configure =
+               [scale](Flex& flex) {
+                 flex.setPadding(2.0f * scale, 0.0f);
+                 flex.setMinHeight(Style::controlHeight * scale);
+               }},
+          std::move(copy), std::move(actions)
+      );
 
       section.addChild(std::move(row));
     };
@@ -1101,16 +1159,15 @@ namespace settings {
             .checked = checked,
             .enabled = enabled,
             .scale = scale,
-            .onChange =
-                [configService = ctx.configService, setOverride = ctx.setOverride, clearOverride = ctx.clearOverride,
-                 path, clearWhenValue](bool value) {
-                  if (clearWhenValue.has_value() && value == *clearWhenValue && configService != nullptr &&
-                      configService->hasOverride(path)) {
-                    clearOverride(path);
-                    return;
-                  }
-                  setOverride(path, value);
-                },
+            .onChange = [configService = ctx.configService, setOverride = ctx.setOverride,
+                         clearOverride = ctx.clearOverride, path, clearWhenValue](bool value) {
+              if (clearWhenValue.has_value() && value == *clearWhenValue && configService != nullptr &&
+                  configService->hasOverride(path)) {
+                clearOverride(path);
+                return;
+              }
+              setOverride(path, value);
+            },
         });
       }
       return ui::toggle({
@@ -1133,16 +1190,15 @@ namespace settings {
             .options = std::move(segmentedOptions),
             .selectedIndex = optionIndex(setting.options, setting.selectedValue),
             .scale = scale,
-            .onChange =
-                [setOverride = ctx.setOverride, path, options, integerValue](std::size_t index) {
-                  if (index < options.size()) {
-                    if (integerValue) {
-                      setOverride(path, static_cast<std::int64_t>(std::stoll(options[index].value)));
-                    } else {
-                      setOverride(path, options[index].value);
-                    }
-                  }
-                },
+            .onChange = [setOverride = ctx.setOverride, path, options, integerValue](std::size_t index) {
+              if (index < options.size()) {
+                if (integerValue) {
+                  setOverride(path, static_cast<std::int64_t>(std::stoll(options[index].value)));
+                } else {
+                  setOverride(path, options[index].value);
+                }
+              }
+            },
         });
       }
 
@@ -1156,8 +1212,9 @@ namespace settings {
           .options = optionLabels(setting.options),
           .selectedIndex = selectedIndex,
           .clearSelection = clearSelection,
-          .placeholder = clearSelection ? std::optional<std::string>{i18n::tr("settings.controls.select.unknown-value",
-                                                                              "value", setting.selectedValue)}
+          .placeholder = clearSelection ? std::optional<std::string>{i18n::tr(
+                                              "settings.controls.select.unknown-value", "value", setting.selectedValue
+                                          )}
                                         : std::nullopt,
           .fontSize = Style::fontSizeBody * scale,
           .controlHeight = Style::controlHeight * scale,
@@ -1165,26 +1222,25 @@ namespace settings {
           .colorSwatchPreviews = optionSwatchPreviews(setting.options),
           .width = selectWidth * scale,
           .height = Style::controlHeight * scale,
-          .onSelectionChanged =
-              [configService = ctx.configService, clearOverride = ctx.clearOverride, setOverride = ctx.setOverride,
-               requestRebuild = ctx.requestRebuild, path, options, clearOnEmpty,
-               integerValue](std::size_t index, std::string_view /*label*/) {
-                if (index < options.size()) {
-                  if (clearOnEmpty && options[index].value.empty()) {
-                    if (configService != nullptr && configService->hasOverride(path)) {
-                      clearOverride(path);
-                    } else {
-                      requestRebuild();
-                    }
-                    return;
-                  }
-                  if (integerValue) {
-                    setOverride(path, static_cast<std::int64_t>(std::stoll(options[index].value)));
-                  } else {
-                    setOverride(path, options[index].value);
-                  }
+          .onSelectionChanged = [configService = ctx.configService, clearOverride = ctx.clearOverride,
+                                 setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, path, options,
+                                 clearOnEmpty, integerValue](std::size_t index, std::string_view /*label*/) {
+            if (index < options.size()) {
+              if (clearOnEmpty && options[index].value.empty()) {
+                if (configService != nullptr && configService->hasOverride(path)) {
+                  clearOverride(path);
+                } else {
+                  requestRebuild();
                 }
-              },
+                return;
+              }
+              if (integerValue) {
+                setOverride(path, static_cast<std::int64_t>(std::stoll(options[index].value)));
+              } else {
+                setOverride(path, options[index].value);
+              }
+            }
+          },
       });
     };
 
@@ -1218,11 +1274,10 @@ namespace settings {
               .controlHeight = Style::controlHeight * scale,
               .width = Style::sliderDefaultWidth * scale,
               .height = Style::controlHeight * scale,
-              .onValueChanged =
-                  [valueInputPtr, integerValue](float next) {
-                    valueInputPtr->setInvalid(false);
-                    valueInputPtr->setValue(formatSliderValue(next, integerValue));
-                  },
+              .onValueChanged = [valueInputPtr, integerValue](float next) {
+                valueInputPtr->setInvalid(false);
+                valueInputPtr->setValue(formatSliderValue(next, integerValue));
+              },
           });
 
           // Helper: commit either via single setOverride or as an atomic batch when linkedCommit
@@ -1319,48 +1374,49 @@ namespace settings {
           .paddingV = Style::spaceXs * scale,
           .paddingH = Style::spaceSm * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick =
-              [setOverride = ctx.setOverride, path, inputPtr, selectFolder, exts = setting.browseFileExtensions]() {
-                FileDialogOptions options;
-                options.mode = selectFolder ? FileDialogMode::SelectFolder : FileDialogMode::Open;
-                options.defaultViewMode = FileDialogViewMode::List;
-                options.title = selectFolder ? i18n::tr("settings.controls.path-browse.folder-title")
-                                             : i18n::tr("settings.controls.path-browse.file-title");
-                if (!selectFolder) {
-                  options.extensions = exts;
-                }
-                const std::string cur = inputPtr->value();
-                if (!cur.empty()) {
-                  std::filesystem::path p(cur);
-                  std::error_code ec;
-                  if (selectFolder) {
-                    if (std::filesystem::exists(p, ec) && std::filesystem::is_directory(p, ec)) {
-                      options.startDirectory = p;
-                    } else if (p.has_parent_path()) {
-                      const auto parent = p.parent_path();
-                      if (std::filesystem::exists(parent, ec)) {
-                        options.startDirectory = parent;
-                      }
-                    }
-                  } else {
-                    if (std::filesystem::exists(p, ec) && std::filesystem::is_regular_file(p, ec)) {
-                      options.startDirectory = p.parent_path();
-                      options.defaultFilename = p.filename().string();
-                    } else if (p.has_parent_path() && std::filesystem::exists(p.parent_path(), ec)) {
-                      options.startDirectory = p.parent_path();
-                    }
+          .onClick = [setOverride = ctx.setOverride, path, inputPtr, selectFolder,
+                      exts = setting.browseFileExtensions]() {
+            FileDialogOptions options;
+            options.mode = selectFolder ? FileDialogMode::SelectFolder : FileDialogMode::Open;
+            options.defaultViewMode = FileDialogViewMode::List;
+            options.title = selectFolder ? i18n::tr("settings.controls.path-browse.folder-title")
+                                         : i18n::tr("settings.controls.path-browse.file-title");
+            if (!selectFolder) {
+              options.extensions = exts;
+            }
+            const std::string cur = inputPtr->value();
+            if (!cur.empty()) {
+              std::filesystem::path p(cur);
+              std::error_code ec;
+              if (selectFolder) {
+                if (std::filesystem::exists(p, ec) && std::filesystem::is_directory(p, ec)) {
+                  options.startDirectory = p;
+                } else if (p.has_parent_path()) {
+                  const auto parent = p.parent_path();
+                  if (std::filesystem::exists(parent, ec)) {
+                    options.startDirectory = parent;
                   }
                 }
-                (void)FileDialog::open(std::move(options),
-                                       [setOverride, path, inputPtr](std::optional<std::filesystem::path> picked) {
-                                         if (!picked.has_value()) {
-                                           return;
-                                         }
-                                         const std::string s = picked->string();
-                                         inputPtr->setValue(s);
-                                         setOverride(path, s);
-                                       });
-              },
+              } else {
+                if (std::filesystem::exists(p, ec) && std::filesystem::is_regular_file(p, ec)) {
+                  options.startDirectory = p.parent_path();
+                  options.defaultFilename = p.filename().string();
+                } else if (p.has_parent_path() && std::filesystem::exists(p.parent_path(), ec)) {
+                  options.startDirectory = p.parent_path();
+                }
+              }
+            }
+            (void)FileDialog::open(
+                std::move(options), [setOverride, path, inputPtr](std::optional<std::filesystem::path> picked) {
+                  if (!picked.has_value()) {
+                    return;
+                  }
+                  const std::string s = picked->string();
+                  inputPtr->setValue(s);
+                  setOverride(path, s);
+                }
+            );
+          },
       });
       wrap->addChild(std::move(browse));
       return wrap;
@@ -1379,20 +1435,20 @@ namespace settings {
           .paddingV = Style::spaceXs * scale,
           .paddingH = Style::spaceSm * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick =
-              [setOverride = ctx.setOverride, path, currentValue = setting.value]() {
-                GlyphPickerDialogOptions options;
-                if (!currentValue.empty()) {
-                  options.initialGlyph = currentValue;
+          .onClick = [setOverride = ctx.setOverride, path, currentValue = setting.value]() {
+            GlyphPickerDialogOptions options;
+            if (!currentValue.empty()) {
+              options.initialGlyph = currentValue;
+            }
+            (void)GlyphPickerDialog::open(
+                std::move(options), [setOverride, path](std::optional<GlyphPickerResult> result) {
+                  if (!result.has_value()) {
+                    return;
+                  }
+                  setOverride(path, result->name);
                 }
-                (void)GlyphPickerDialog::open(std::move(options),
-                                              [setOverride, path](std::optional<GlyphPickerResult> result) {
-                                                if (!result.has_value()) {
-                                                  return;
-                                                }
-                                                setOverride(path, result->name);
-                                              });
-              },
+            );
+          },
       });
       wrap->addChild(std::move(pickerButton));
       return wrap;
@@ -1446,8 +1502,9 @@ namespace settings {
           .value = currentValue,
           .scale = scale,
           .valueSuffix = setting.valueSuffix.empty() ? std::nullopt : std::optional<std::string>{setting.valueSuffix},
-          .onValueCommitted = [setOverride = ctx.setOverride,
-                               path](int value) { setOverride(path, static_cast<double>(value)); },
+          .onValueCommitted = [setOverride = ctx.setOverride, path](int value) {
+            setOverride(path, static_cast<double>(value));
+          },
       });
     };
 
@@ -1466,20 +1523,19 @@ namespace settings {
               },
           .selectedIndex = static_cast<std::size_t>(setting.value.has_value() ? 1 : 0),
           .scale = scale,
-          .onChange =
-              [configService = ctx.configService, clearOverride = ctx.clearOverride,
-               requestRebuild = ctx.requestRebuild, setOverride = ctx.setOverride, path,
-               currentValue](std::size_t index) {
-                if (index == 0) {
-                  if (configService != nullptr && configService->hasOverride(path)) {
-                    clearOverride(path);
-                  } else if (requestRebuild) {
-                    requestRebuild();
-                  }
-                  return;
-                }
-                setOverride(path, static_cast<double>(currentValue));
-              },
+          .onChange = [configService = ctx.configService, clearOverride = ctx.clearOverride,
+                       requestRebuild = ctx.requestRebuild, setOverride = ctx.setOverride, path,
+                       currentValue](std::size_t index) {
+            if (index == 0) {
+              if (configService != nullptr && configService->hasOverride(path)) {
+                clearOverride(path);
+              } else if (requestRebuild) {
+                requestRebuild();
+              }
+              return;
+            }
+            setOverride(path, static_cast<double>(currentValue));
+          },
       });
 
       auto stepper = ui::stepper({
@@ -1489,8 +1545,9 @@ namespace settings {
           .value = currentValue,
           .enabled = setting.value.has_value(),
           .scale = scale,
-          .onValueCommitted = [setOverride = ctx.setOverride,
-                               path](int value) { setOverride(path, static_cast<double>(value)); },
+          .onValueCommitted = [setOverride = ctx.setOverride, path](int value) {
+            setOverride(path, static_cast<double>(value));
+          },
       });
 
       wrap->addChild(std::move(segmented));
@@ -1520,7 +1577,8 @@ namespace settings {
             } else {
               requestRebuild();
             }
-          });
+          }
+      );
     };
 
     const auto makeSearchPickerButton = [&](const SettingEntry& entry,
@@ -1537,48 +1595,51 @@ namespace settings {
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick =
-              [openPopup = ctx.openSearchPickerPopup, title = entry.title, options = setting.options,
-               selectedValue = setting.selectedValue, placeholder = setting.placeholder, emptyText = setting.emptyText,
-               path = entry.path]() {
-                if (openPopup) {
-                  openPopup(title, options, selectedValue, placeholder, emptyText, path);
-                }
-              },
+          .onClick = [openPopup = ctx.openSearchPickerPopup, title = entry.title, options = setting.options,
+                      selectedValue = setting.selectedValue, placeholder = setting.placeholder,
+                      emptyText = setting.emptyText, path = entry.path]() {
+            if (openPopup) {
+              openPopup(title, options, selectedValue, placeholder, emptyText, path);
+            }
+          },
       });
     };
 
     const auto makeCollectionBlock = [&](const SettingEntry& entry, bool overridden, bool reserveTitleHeight = false,
                                          bool titleMaxTwoLines = false, bool fillWidth = false, bool flexGrow = false) {
-      auto block = ui::column({.align = FlexAlign::Stretch,
-                               .gap = Style::spaceXs * scale,
-                               .configure = [scale, fillWidth, flexGrow](Flex& flex) {
-                                 flex.setPadding(2.0f * scale, 0.0f);
-                                 if (fillWidth) {
-                                   flex.setFillWidth(true);
-                                 }
-                                 if (flexGrow) {
-                                   flex.setFlexGrow(1.0f);
-                                 }
-                               }});
+      auto block = ui::column(
+          {.align = FlexAlign::Stretch,
+           .gap = Style::spaceXs * scale,
+           .configure = [scale, fillWidth, flexGrow](Flex& flex) {
+             flex.setPadding(2.0f * scale, 0.0f);
+             if (fillWidth) {
+               flex.setFillWidth(true);
+             }
+             if (flexGrow) {
+               flex.setFlexGrow(1.0f);
+             }
+           }}
+      );
 
-      auto titleRow = ui::row({.align = FlexAlign::Center,
-                               .gap = Style::spaceSm * scale,
-                               .fillWidth = true,
-                               .configure =
-                                   [scale, reserveTitleHeight](Flex& flex) {
-                                     if (reserveTitleHeight) {
-                                       flex.setMinHeight(Style::controlHeightSm * scale);
-                                     }
-                                   }},
-                              ui::label({
-                                  .text = entry.title,
-                                  .fontSize = Style::fontSizeBody * scale,
-                                  .color = colorSpecFromRole(ColorRole::OnSurface),
-                                  .maxLines = titleMaxTwoLines ? std::optional<int>{2} : std::nullopt,
-                                  .fontWeight = FontWeight::Bold,
-                              }),
-                              ui::spacer());
+      auto titleRow = ui::row(
+          {.align = FlexAlign::Center,
+           .gap = Style::spaceSm * scale,
+           .fillWidth = true,
+           .configure =
+               [scale, reserveTitleHeight](Flex& flex) {
+                 if (reserveTitleHeight) {
+                   flex.setMinHeight(Style::controlHeightSm * scale);
+                 }
+               }},
+          ui::label({
+              .text = entry.title,
+              .fontSize = Style::fontSizeBody * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .maxLines = titleMaxTwoLines ? std::optional<int>{2} : std::nullopt,
+              .fontWeight = FontWeight::Bold,
+          }),
+          ui::spacer()
+      );
       if (overridden) {
         titleRow->addChild(makeOverrideResetActions(entry.path));
       }
@@ -1613,37 +1674,37 @@ namespace settings {
         auto checkbox = ui::checkbox({
             .checked = isSelected,
             .scale = scale,
-            .onChange =
-                [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, path, options, selected,
-                 optionValue, requireAtLeastOne](bool checked) mutable {
-                  auto it = std::find(selected.begin(), selected.end(), optionValue);
-                  if (checked) {
-                    if (it == selected.end()) {
-                      selected.push_back(optionValue);
-                    }
-                  } else {
-                    if (it != selected.end()) {
-                      if (requireAtLeastOne && selected.size() <= 1) {
-                        requestRebuild();
-                        return;
-                      }
-                      selected.erase(it);
-                    }
+            .onChange = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, path, options, selected,
+                         optionValue, requireAtLeastOne](bool checked) mutable {
+              auto it = std::find(selected.begin(), selected.end(), optionValue);
+              if (checked) {
+                if (it == selected.end()) {
+                  selected.push_back(optionValue);
+                }
+              } else {
+                if (it != selected.end()) {
+                  if (requireAtLeastOne && selected.size() <= 1) {
+                    requestRebuild();
+                    return;
                   }
-                  // Preserve the option order so the override file is stable.
-                  std::vector<std::string> ordered;
-                  ordered.reserve(selected.size());
-                  for (const auto& opt : options) {
-                    if (std::find(selected.begin(), selected.end(), opt.value) != selected.end()) {
-                      ordered.push_back(opt.value);
-                    }
-                  }
-                  setOverride(path, ordered);
-                },
+                  selected.erase(it);
+                }
+              }
+              // Preserve the option order so the override file is stable.
+              std::vector<std::string> ordered;
+              ordered.reserve(selected.size());
+              for (const auto& opt : options) {
+                if (std::find(selected.begin(), selected.end(), opt.value) != selected.end()) {
+                  ordered.push_back(opt.value);
+                }
+              }
+              setOverride(path, ordered);
+            },
         });
         item->addChild(std::move(checkbox));
-        item->addChild(makeLabel(option.label, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface),
-                                 FontWeight::Normal));
+        item->addChild(makeLabel(
+            option.label, Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurface), FontWeight::Normal
+        ));
 
         checkRow->addChild(std::move(item));
       }
@@ -1667,14 +1728,14 @@ namespace settings {
       }
       listEditor->setSuggestedOptions(std::move(suggestedOptions));
       listEditor->setItems(list.items);
-      listEditor->setOnAddRequested(
-          [setOverride = ctx.setOverride, items = list.items, path = entry.path](std::string value) mutable {
-            if (value.empty()) {
-              return;
-            }
-            items.push_back(std::move(value));
-            setOverride(path, items);
-          });
+      listEditor->setOnAddRequested([setOverride = ctx.setOverride, items = list.items,
+                                     path = entry.path](std::string value) mutable {
+        if (value.empty()) {
+          return;
+        }
+        items.push_back(std::move(value));
+        setOverride(path, items);
+      });
       listEditor->setOnRemoveRequested([setOverride = ctx.setOverride, setOverrides = ctx.setOverrides,
                                         config = std::cref(cfg), items = list.items,
                                         path = entry.path](std::size_t index) mutable {
@@ -1737,13 +1798,12 @@ namespace settings {
             .scale = scale,
             .unsetPlaceholder = i18n::tr("settings.controls.keybind.unset-placeholder"),
             .recordingPlaceholder = i18n::tr("settings.controls.keybind.recording-placeholder"),
-            .onCommit =
-                [commitItems, items = keybinds.items, i](KeyChord chord) mutable {
-                  if (i < items.size()) {
-                    items[i] = chord;
-                    commitItems(std::move(items));
-                  }
-                },
+            .onCommit = [commitItems, items = keybinds.items, i](KeyChord chord) mutable {
+              if (i < items.size()) {
+                items[i] = chord;
+                commitItems(std::move(items));
+              }
+            },
         });
         row->addChild(std::move(recorder));
 
@@ -1755,14 +1815,13 @@ namespace settings {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick =
-                [commitItems, items = keybinds.items, i]() mutable {
-                  if (i >= items.size()) {
-                    return;
-                  }
-                  items.erase(items.begin() + static_cast<std::ptrdiff_t>(i));
-                  commitItems(std::move(items));
-                },
+            .onClick = [commitItems, items = keybinds.items, i]() mutable {
+              if (i >= items.size()) {
+                return;
+              }
+              items.erase(items.begin() + static_cast<std::ptrdiff_t>(i));
+              commitItems(std::move(items));
+            },
         });
         row->addChild(std::move(removeBtn));
 
@@ -1778,11 +1837,10 @@ namespace settings {
             .scale = scale,
             .unsetPlaceholder = i18n::tr("settings.controls.keybind.add"),
             .recordingPlaceholder = i18n::tr("settings.controls.keybind.recording-placeholder"),
-            .onCommit =
-                [commitItems, items = keybinds.items](KeyChord chord) mutable {
-                  items.push_back(chord);
-                  commitItems(std::move(items));
-                },
+            .onCommit = [commitItems, items = keybinds.items](KeyChord chord) mutable {
+              items.push_back(chord);
+              commitItems(std::move(items));
+            },
         });
         addRow->addChild(std::move(addRecorder));
 
@@ -1818,23 +1876,24 @@ namespace settings {
       listEditor->setAddPlaceholder(i18n::tr("settings.controls.list.add-entry-placeholder"));
       listEditor->setSuggestedOptions(std::move(suggestedOptions));
       listEditor->setItems(std::move(itemTypes));
-      listEditor->setOnAddRequested(
-          [setOverride = ctx.setOverride, items = shortcuts.items, path = entry.path](std::string value) mutable {
-            if (value.empty() || std::any_of(items.begin(), items.end(),
-                                             [&value](const ShortcutConfig& item) { return item.type == value; })) {
-              return;
-            }
-            items.push_back(ShortcutConfig{std::move(value)});
-            setOverride(path, items);
-          });
-      listEditor->setOnRemoveRequested(
-          [setOverride = ctx.setOverride, items = shortcuts.items, path = entry.path](std::size_t index) mutable {
-            if (index >= items.size()) {
-              return;
-            }
-            items.erase(items.begin() + static_cast<std::ptrdiff_t>(index));
-            setOverride(path, items);
-          });
+      listEditor->setOnAddRequested([setOverride = ctx.setOverride, items = shortcuts.items,
+                                     path = entry.path](std::string value) mutable {
+        if (value.empty() || std::any_of(items.begin(), items.end(), [&value](const ShortcutConfig& item) {
+              return item.type == value;
+            })) {
+          return;
+        }
+        items.push_back(ShortcutConfig{std::move(value)});
+        setOverride(path, items);
+      });
+      listEditor->setOnRemoveRequested([setOverride = ctx.setOverride, items = shortcuts.items,
+                                        path = entry.path](std::size_t index) mutable {
+        if (index >= items.size()) {
+          return;
+        }
+        items.erase(items.begin() + static_cast<std::ptrdiff_t>(index));
+        setOverride(path, items);
+      });
       listEditor->setOnMoveRequested([setOverride = ctx.setOverride, items = shortcuts.items,
                                       path = entry.path](std::size_t from, std::size_t to) mutable {
         if (from >= items.size() || to >= items.size() || from == to) {
@@ -1898,14 +1957,13 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick =
-                [state, rowIndex = idx, commit]() {
-                  if (rowIndex == 0 || rowIndex >= state->size()) {
-                    return;
-                  }
-                  std::swap((*state)[rowIndex - 1], (*state)[rowIndex]);
-                  commit();
-                },
+            .onClick = [state, rowIndex = idx, commit]() {
+              if (rowIndex == 0 || rowIndex >= state->size()) {
+                return;
+              }
+              std::swap((*state)[rowIndex - 1], (*state)[rowIndex]);
+              commit();
+            },
         });
         reorder->addChild(std::move(upBtn));
 
@@ -1918,14 +1976,13 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick =
-                [state, rowIndex = idx, commit]() {
-                  if (rowIndex + 1 >= state->size()) {
-                    return;
-                  }
-                  std::swap((*state)[rowIndex + 1], (*state)[rowIndex]);
-                  commit();
-                },
+            .onClick = [state, rowIndex = idx, commit]() {
+              if (rowIndex + 1 >= state->size()) {
+                return;
+              }
+              std::swap((*state)[rowIndex + 1], (*state)[rowIndex]);
+              commit();
+            },
         });
         reorder->addChild(std::move(downBtn));
         row->addChild(std::move(reorder));
@@ -1938,23 +1995,21 @@ namespace settings {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick =
-                [openEntry = ctx.openSessionActionEntryEditor, rowIndex = idx]() {
-                  if (openEntry) {
-                    openEntry(rowIndex);
-                  }
-                },
+            .onClick = [openEntry = ctx.openSessionActionEntryEditor, rowIndex = idx]() {
+              if (openEntry) {
+                openEntry(rowIndex);
+              }
+            },
         });
         row->addChild(std::move(entrySettings));
 
         auto enabledToggle = ui::toggle({
             .checked = (*state)[idx].enabled,
             .scale = scale,
-            .onChange =
-                [state, rowIndex = idx, commit](bool v) {
-                  (*state)[rowIndex].enabled = v;
-                  commit();
-                },
+            .onChange = [state, rowIndex = idx, commit](bool v) {
+              (*state)[rowIndex].enabled = v;
+              commit();
+            },
         });
         row->addChild(std::move(enabledToggle));
 
@@ -1971,13 +2026,15 @@ namespace settings {
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick =
-              [state, commit]() {
-                state->push_back(SessionPanelActionConfig{
+          .onClick = [state, commit]() {
+            state->push_back(
+                SessionPanelActionConfig{
                     "command", true, "notify-send 'Noctalia' 'Custom session entry'", std::nullopt, std::nullopt,
-                    SessionActionButtonVariant::Default, std::nullopt});
-                commit();
-              },
+                    SessionActionButtonVariant::Default, std::nullopt
+                }
+            );
+            commit();
+          },
       });
       block->addChild(std::move(addBtn));
 
@@ -2026,14 +2083,13 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick =
-                [state, rowIndex = idx, commit]() {
-                  if (rowIndex == 0 || rowIndex >= state->size()) {
-                    return;
-                  }
-                  std::swap((*state)[rowIndex - 1], (*state)[rowIndex]);
-                  commit();
-                },
+            .onClick = [state, rowIndex = idx, commit]() {
+              if (rowIndex == 0 || rowIndex >= state->size()) {
+                return;
+              }
+              std::swap((*state)[rowIndex - 1], (*state)[rowIndex]);
+              commit();
+            },
         });
         reorder->addChild(std::move(upBtn));
 
@@ -2046,14 +2102,13 @@ namespace settings {
             .minHeight = iconBtnH,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .onClick =
-                [state, rowIndex = idx, commit]() {
-                  if (rowIndex + 1 >= state->size()) {
-                    return;
-                  }
-                  std::swap((*state)[rowIndex + 1], (*state)[rowIndex]);
-                  commit();
-                },
+            .onClick = [state, rowIndex = idx, commit]() {
+              if (rowIndex + 1 >= state->size()) {
+                return;
+              }
+              std::swap((*state)[rowIndex + 1], (*state)[rowIndex]);
+              commit();
+            },
         });
         reorder->addChild(std::move(downBtn));
         row->addChild(std::move(reorder));
@@ -2066,23 +2121,21 @@ namespace settings {
             .minHeight = Style::controlHeightSm * scale,
             .padding = Style::spaceXs * scale,
             .radius = Style::scaledRadiusSm(scale),
-            .onClick =
-                [openEntry = ctx.openIdleBehaviorEntryEditor, rowIndex = idx]() {
-                  if (openEntry) {
-                    openEntry(rowIndex);
-                  }
-                },
+            .onClick = [openEntry = ctx.openIdleBehaviorEntryEditor, rowIndex = idx]() {
+              if (openEntry) {
+                openEntry(rowIndex);
+              }
+            },
         });
         row->addChild(std::move(entrySettings));
 
         auto enabledToggle = ui::toggle({
             .checked = (*state)[idx].enabled,
             .scale = scale,
-            .onChange =
-                [state, rowIndex = idx, commit](bool v) {
-                  (*state)[rowIndex].enabled = v;
-                  commit();
-                },
+            .onChange = [state, rowIndex = idx, commit](bool v) {
+              (*state)[rowIndex].enabled = v;
+              commit();
+            },
         });
         row->addChild(std::move(enabledToggle));
 
@@ -2099,12 +2152,11 @@ namespace settings {
           .paddingV = Style::spaceSm * scale,
           .paddingH = Style::spaceMd * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick =
-              [openCreate = ctx.openIdleBehaviorCreateEditor]() {
-                if (openCreate) {
-                  openCreate();
-                }
-              },
+          .onClick = [openCreate = ctx.openIdleBehaviorCreateEditor]() {
+            if (openCreate) {
+              openCreate();
+            }
+          },
       });
       block->addChild(std::move(addBtn));
 
@@ -2120,8 +2172,10 @@ namespace settings {
             } else if constexpr (std::is_same_v<T, SelectSetting>) {
               return makeSelect(control, entry.path);
             } else if constexpr (std::is_same_v<T, SliderSetting>) {
-              return makeSlider(control.value, control.minValue, control.maxValue, control.step, entry.path,
-                                control.integerValue, control.linkedCommit);
+              return makeSlider(
+                  control.value, control.minValue, control.maxValue, control.step, entry.path, control.integerValue,
+                  control.linkedCommit
+              );
             } else if constexpr (std::is_same_v<T, TextSetting>) {
               if (isDockLauncherIconPath(entry.path)) {
                 return makeGlyphText(control, entry.path);
@@ -2179,7 +2233,8 @@ namespace settings {
               return makeColorSpecPicker(control, entry.path);
             }
           },
-          entry.control);
+          entry.control
+      );
     };
 
     std::string activeSectionKey;
@@ -2366,21 +2421,26 @@ namespace settings {
     }
 
     if (visibleEntries == 0) {
-      auto emptyState =
-          ui::column({.align = FlexAlign::Center,
-                      .justify = FlexJustify::Center,
-                      .gap = Style::spaceXs * scale,
-                      .padding = (Style::spaceLg + Style::spaceMd) * scale,
-                      .configure =
-                          [scale](Flex& flex) {
-                            flex.setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.24f));
-                            flex.setBorder(colorSpecFromRole(ColorRole::Outline, 0.28f), Style::borderWidth);
-                            flex.setRadius(Style::scaledRadiusMd(scale));
-                          }},
-                     makeLabel(i18n::tr("settings.window.no-results"), Style::fontSizeBody * scale,
-                               colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold),
-                     makeLabel(i18n::tr("settings.window.no-results-hint"), Style::fontSizeCaption * scale,
-                               colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal));
+      auto emptyState = ui::column(
+          {.align = FlexAlign::Center,
+           .justify = FlexJustify::Center,
+           .gap = Style::spaceXs * scale,
+           .padding = (Style::spaceLg + Style::spaceMd) * scale,
+           .configure =
+               [scale](Flex& flex) {
+                 flex.setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.24f));
+                 flex.setBorder(colorSpecFromRole(ColorRole::Outline, 0.28f), Style::borderWidth);
+                 flex.setRadius(Style::scaledRadiusMd(scale));
+               }},
+          makeLabel(
+              i18n::tr("settings.window.no-results"), Style::fontSizeBody * scale,
+              colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold
+          ),
+          makeLabel(
+              i18n::tr("settings.window.no-results-hint"), Style::fontSizeCaption * scale,
+              colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+          )
+      );
 
       auto emptyRow = ui::row({
           .align = FlexAlign::Center,
@@ -2394,13 +2454,15 @@ namespace settings {
     return visibleEntries;
   }
 
-  void buildSessionActionEntryDetailContent(Flex& parent, SettingsContentContext& ctx, SessionPanelActionConfig& row,
-                                            const std::function<void()>& persist) {
+  void buildSessionActionEntryDetailContent(
+      Flex& parent, SettingsContentContext& ctx, SessionPanelActionConfig& row, const std::function<void()>& persist
+  ) {
     buildSessionActionEntryDetailContentImpl(parent, ctx, row, persist);
   }
 
-  void buildIdleBehaviorEntryDetailContent(Flex& parent, SettingsContentContext& ctx, IdleBehaviorConfig& row,
-                                           const std::function<void()>& persist) {
+  void buildIdleBehaviorEntryDetailContent(
+      Flex& parent, SettingsContentContext& ctx, IdleBehaviorConfig& row, const std::function<void()>& persist
+  ) {
     buildIdleBehaviorEntryDetailContentImpl(parent, ctx, row, persist, ctx.closeHostedEditor);
   }
 

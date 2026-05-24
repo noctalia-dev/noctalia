@@ -44,8 +44,9 @@ public:
   [[nodiscard]] std::int32_t configuredY() const noexcept { return m_configuredY; }
 
   static void handleXdgSurfaceConfigure(void* data, xdg_surface* surface, std::uint32_t serial);
-  static void handlePopupConfigure(void* data, xdg_popup* popup, std::int32_t x, std::int32_t y, std::int32_t width,
-                                   std::int32_t height);
+  static void handlePopupConfigure(
+      void* data, xdg_popup* popup, std::int32_t x, std::int32_t y, std::int32_t width, std::int32_t height
+  );
   static void handlePopupDone(void* data, xdg_popup* popup);
   static void handlePopupRepositioned(void* data, xdg_popup* popup, std::uint32_t token);
 

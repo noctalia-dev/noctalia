@@ -30,8 +30,10 @@ public:
   using PopupHook = std::function<void(wl_surface*)>;
   using FallbackResolver = std::function<std::optional<LayerPopupParentContext>()>;
 
-  void registerHost(ContextResolver contextResolver, PopupHook beginAttachedPopup = {}, PopupHook endAttachedPopup = {},
-                    FallbackResolver fallbackResolver = {});
+  void registerHost(
+      ContextResolver contextResolver, PopupHook beginAttachedPopup = {}, PopupHook endAttachedPopup = {},
+      FallbackResolver fallbackResolver = {}
+  );
 
   [[nodiscard]] std::optional<LayerPopupParentContext> contextForSurface(wl_surface* surface) const;
   [[nodiscard]] std::optional<LayerPopupParentContext> fallbackContext() const;

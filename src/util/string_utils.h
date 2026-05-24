@@ -95,8 +95,9 @@ namespace StringUtils {
 
   [[nodiscard]] inline std::string toLower(std::string_view s) {
     std::string out(s);
-    std::transform(out.begin(), out.end(), out.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    std::transform(out.begin(), out.end(), out.begin(), [](unsigned char c) {
+      return static_cast<char>(std::tolower(c));
+    });
     return out;
   }
 
@@ -419,9 +420,11 @@ namespace StringUtils {
     }
     bytes[6] = (bytes[6] & 0x0Fu) | 0x40u;
     bytes[8] = (bytes[8] & 0x3Fu) | 0x80u;
-    return std::format("{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-"
-                       "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
-                       bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8],
-                       bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]);
+    return std::format(
+        "{:02x}{:02x}{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-{:02x}{:02x}-"
+        "{:02x}{:02x}{:02x}{:02x}{:02x}{:02x}",
+        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8], bytes[9], bytes[10],
+        bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]
+    );
   }
 } // namespace StringUtils

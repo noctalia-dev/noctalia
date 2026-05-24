@@ -64,8 +64,8 @@ namespace {
     return palettePreviewFromMetadata(palette.preview.dark);
   }
 
-  std::unique_ptr<Label> makeLabel(std::string_view text, float fontSize, const ColorSpec& color,
-                                   FontWeight fontWeight = FontWeight::Normal) {
+  std::unique_ptr<Label>
+  makeLabel(std::string_view text, float fontSize, const ColorSpec& color, FontWeight fontWeight = FontWeight::Normal) {
     return ui::label({
         .text = std::string(text),
         .fontSize = fontSize,
@@ -82,7 +82,8 @@ namespace {
             .align = FlexAlign::Stretch,
             .justify = FlexJustify::Center,
         },
-        std::move(child));
+        std::move(child)
+    );
   }
 
   std::vector<std::string> sectionKeys(const std::vector<settings::SettingEntry>& entries) {
@@ -102,8 +103,10 @@ namespace {
     return std::find(paths.begin(), paths.end(), path) != paths.end();
   }
 
-  bool settingEntryBelongsToPage(const settings::SettingEntry& entry, std::string_view selectedSection,
-                                 std::string_view selectedBarName, std::string_view selectedMonitorOverride) {
+  bool settingEntryBelongsToPage(
+      const settings::SettingEntry& entry, std::string_view selectedSection, std::string_view selectedBarName,
+      std::string_view selectedMonitorOverride
+  ) {
     if (selectedSection != "bar") {
       return entry.section == selectedSection;
     }
@@ -119,8 +122,9 @@ namespace {
     return entryIsMonitorOverride && entry.path[3] == selectedMonitorOverride;
   }
 
-  std::string pageScopeKey(std::string_view selectedSection, std::string_view selectedBarName,
-                           std::string_view selectedMonitorOverride) {
+  std::string pageScopeKey(
+      std::string_view selectedSection, std::string_view selectedBarName, std::string_view selectedMonitorOverride
+  ) {
     if (selectedSection != "bar") {
       return std::string(selectedSection);
     }
@@ -166,11 +170,13 @@ namespace {
       if (!device.nativePath.empty() && device.nativePath != device.path) {
         description = device.nativePath + " - " + device.path;
       }
-      options.push_back(settings::SelectOption{
-          .value = device.path,
-          .label = upowerDeviceLabel(device),
-          .description = std::move(description),
-      });
+      options.push_back(
+          settings::SelectOption{
+              .value = device.path,
+              .label = upowerDeviceLabel(device),
+              .description = std::move(description),
+          }
+      );
     }
     return options;
   }
@@ -295,20 +301,24 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
   env.gammaControlAvailable = (m_wayland != nullptr && m_wayland->hasGammaControl());
   const ThemeMode previewMode = m_config != nullptr ? m_config->config().theme.mode : ThemeMode::Dark;
   for (const auto& paletteInfo : noctalia::theme::availableCommunityPalettes()) {
-    env.communityPalettes.push_back(settings::SelectOption{
-        .value = paletteInfo.name,
-        .label = paletteInfo.name,
-        .description = {},
-        .preview = availablePalettePreview(paletteInfo, previewMode),
-    });
+    env.communityPalettes.push_back(
+        settings::SelectOption{
+            .value = paletteInfo.name,
+            .label = paletteInfo.name,
+            .description = {},
+            .preview = availablePalettePreview(paletteInfo, previewMode),
+        }
+    );
   }
   for (const auto& p : noctalia::theme::availableCustomPalettes()) {
-    env.customPalettes.push_back(settings::SelectOption{
-        .value = p.name,
-        .label = p.name,
-        .description = {},
-        .preview = availablePalettePreview(p, previewMode),
-    });
+    env.customPalettes.push_back(
+        settings::SelectOption{
+            .value = p.name,
+            .label = p.name,
+            .description = {},
+            .preview = availablePalettePreview(p, previewMode),
+        }
+    );
   }
   for (const auto& t : noctalia::theme::CommunityTemplateService::availableTemplates()) {
     env.communityTemplates.push_back(settings::SelectOption{t.id, t.displayName});
@@ -348,8 +358,9 @@ std::vector<settings::SelectOption> SettingsWindow::batteryDeviceOptions() const
   return upowerBatteryDeviceOptions(m_upower);
 }
 
-settings::SettingsContentContext SettingsWindow::makeContentContext(const Config& cfg, const BarConfig* selectedBar,
-                                                                    const BarMonitorOverride* selectedMonitorOverride) {
+settings::SettingsContentContext SettingsWindow::makeContentContext(
+    const Config& cfg, const BarConfig* selectedBar, const BarMonitorOverride* selectedMonitorOverride
+) {
   const auto requestRebuild = [this]() { requestSceneRebuild(); };
   const auto requestContent = [this]() { requestContentRebuild(); };
   const auto setOverride = [this](std::vector<std::string> path, ConfigOverrideValue value) {
@@ -359,11 +370,12 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(const Config
     setSettingOverrides(std::move(overrides));
   };
   const auto clearOverride = [this](std::vector<std::string> path) { clearSettingOverride(std::move(path)); };
-  const auto renameWidget =
-      [this](std::string oldName, std::string newName,
-             std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> referenceOverrides) {
-        renameWidgetInstance(std::move(oldName), std::move(newName), std::move(referenceOverrides));
-      };
+  const auto renameWidget = [this](
+                                std::string oldName, std::string newName,
+                                std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> referenceOverrides
+                            ) {
+    renameWidgetInstance(std::move(oldName), std::move(newName), std::move(referenceOverrides));
+  };
 
   return settings::SettingsContentContext{
       .config = cfg,
@@ -387,11 +399,11 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(const Config
       .focusArea = [this](InputArea* area) { m_inputDispatcher.setFocus(area); },
       .openBarWidgetAddPopup = [this](const std::vector<std::string>& lanePath) { openBarWidgetAddPopup(lanePath); },
       .openSearchPickerPopup =
-          [this](const std::string& title, const std::vector<settings::SelectOption>& options,
-                 const std::string& selectedValue, const std::string& placeholder, const std::string& emptyText,
-                 const std::vector<std::string>& settingPath) {
-            openSearchPickerPopup(title, options, selectedValue, placeholder, emptyText, settingPath);
-          },
+          [this](
+              const std::string& title, const std::vector<settings::SelectOption>& options,
+              const std::string& selectedValue, const std::string& placeholder, const std::string& emptyText,
+              const std::vector<std::string>& settingPath
+          ) { openSearchPickerPopup(title, options, selectedValue, placeholder, emptyText, settingPath); },
       .setOverride = setOverride,
       .setOverrides = setOverrides,
       .clearOverride = clearOverride,
@@ -452,22 +464,23 @@ void SettingsWindow::rebuildSettingsContent() {
           .pendingDeleteMonitorOverrideBarName = m_pendingDeleteMonitorOverrideBarName,
           .pendingDeleteMonitorOverrideMatch = m_pendingDeleteMonitorOverrideMatch,
           .requestRebuild = [this]() { requestSceneRebuild(); },
-          .renameBar = [this](std::string oldName,
-                              std::string newName) { renameBar(std::move(oldName), std::move(newName)); },
+          .renameBar =
+              [this](std::string oldName, std::string newName) { renameBar(std::move(oldName), std::move(newName)); },
           .deleteBar = [this](std::string name) { deleteBar(std::move(name)); },
           .moveBar = [this](std::string name, int direction) { moveBar(std::move(name), direction); },
           .renameMonitorOverride =
               [this](std::string barName, std::string oldMatch, std::string newMatch) {
                 renameMonitorOverride(std::move(barName), std::move(oldMatch), std::move(newMatch));
               },
-          .deleteMonitorOverride =
-              [this](std::string barName, std::string match) {
-                deleteMonitorOverride(std::move(barName), std::move(match));
-              },
-      });
+          .deleteMonitorOverride = [this](
+                                       std::string barName, std::string match
+                                   ) { deleteMonitorOverride(std::move(barName), std::move(match)); },
+      }
+  );
 
-  settings::addSettingsContentSections(*m_contentContainer, m_settingsRegistry,
-                                       makeContentContext(cfg, selectedBar, selectedMonitorOverride));
+  settings::addSettingsContentSections(
+      *m_contentContainer, m_settingsRegistry, makeContentContext(cfg, selectedBar, selectedMonitorOverride)
+  );
 }
 
 std::unique_ptr<Flex> SettingsWindow::buildHeaderRow(float scale) {
@@ -504,11 +517,13 @@ std::unique_ptr<Flex> SettingsWindow::buildHeaderRow(float scale) {
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
           .onClick = [this]() { close(); },
-      }));
+      })
+  );
 }
 
-std::unique_ptr<Flex> SettingsWindow::buildFilterRow(float scale, const std::string& resetPageScope,
-                                                     std::vector<std::vector<std::string>> resetPagePaths) {
+std::unique_ptr<Flex> SettingsWindow::buildFilterRow(
+    float scale, const std::string& resetPageScope, std::vector<std::vector<std::string>> resetPagePaths
+) {
   const auto requestRebuild = [this]() { requestSceneRebuild(); };
   const auto clearOverrides = [this](std::vector<std::vector<std::string>> paths) {
     clearSettingOverrides(std::move(paths));
@@ -521,18 +536,18 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(float scale, const std::str
   });
 
   Input* searchInputPtr = nullptr;
-  filters->addChild(ui::input({
-      .out = &searchInputPtr,
-      .value = m_searchQuery,
-      .placeholder = i18n::tr("settings.window.search-placeholder"),
-      .fontSize = Style::fontSizeBody * scale,
-      .controlHeight = Style::controlHeight * scale,
-      .horizontalPadding = Style::spaceSm * scale,
-      .clearButtonEnabled = true,
-      .width = 320.0f * scale,
-      .height = Style::controlHeight * scale,
-      .onChange =
-          [this](const std::string& value) {
+  filters->addChild(
+      ui::input({
+          .out = &searchInputPtr,
+          .value = m_searchQuery,
+          .placeholder = i18n::tr("settings.window.search-placeholder"),
+          .fontSize = Style::fontSizeBody * scale,
+          .controlHeight = Style::controlHeight * scale,
+          .horizontalPadding = Style::spaceSm * scale,
+          .clearButtonEnabled = true,
+          .width = 320.0f * scale,
+          .height = Style::controlHeight * scale,
+          .onChange = [this](const std::string& value) {
             const bool wasSearchActive = !m_searchQuery.empty();
             m_searchQuery = value;
             const bool searchActiveChanged = wasSearchActive != !m_searchQuery.empty();
@@ -546,18 +561,21 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(float scale, const std::str
               requestContentRebuild();
             }
           },
-  }));
+      })
+  );
   filters->addChild(ui::spacer());
 
-  auto advancedLabel = makeLabel(i18n::tr("settings.badges.advanced"), Style::fontSizeBody * scale,
-                                 colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal);
+  auto advancedLabel = makeLabel(
+      i18n::tr("settings.badges.advanced"), Style::fontSizeBody * scale, colorSpecFromRole(ColorRole::OnSurfaceVariant),
+      FontWeight::Normal
+  );
   filters->addChild(std::move(advancedLabel));
 
-  filters->addChild(ui::toggle({
-      .checked = m_showAdvanced,
-      .scale = scale,
-      .onChange =
-          [this, requestRebuild](bool value) {
+  filters->addChild(
+      ui::toggle({
+          .checked = m_showAdvanced,
+          .scale = scale,
+          .onChange = [this, requestRebuild](bool value) {
             if (m_config != nullptr && !m_config->setOverride({"shell", "settings_show_advanced"}, value)) {
               markSettingsWriteError(i18n::tr("settings.errors.write"));
               return;
@@ -571,17 +589,20 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(float scale, const std::str
               requestContentRebuild();
             }
           },
-  }));
+      })
+  );
 
-  auto overriddenLabel = makeLabel(i18n::tr("settings.window.filter-modified"), Style::fontSizeBody * scale,
-                                   colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal);
+  auto overriddenLabel = makeLabel(
+      i18n::tr("settings.window.filter-modified"), Style::fontSizeBody * scale,
+      colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+  );
   filters->addChild(std::move(overriddenLabel));
 
-  filters->addChild(ui::toggle({
-      .checked = m_showOverriddenOnly,
-      .scale = scale,
-      .onChange =
-          [this, requestRebuild](bool value) {
+  filters->addChild(
+      ui::toggle({
+          .checked = m_showOverriddenOnly,
+          .scale = scale,
+          .onChange = [this, requestRebuild](bool value) {
             m_showOverriddenOnly = value;
             const bool hadPendingReset = !m_pendingResetPageScope.empty();
             m_pendingResetPageScope.clear();
@@ -591,21 +612,23 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(float scale, const std::str
               requestContentRebuild();
             }
           },
-  }));
+      })
+  );
 
   if (!resetPagePaths.empty()) {
     const bool pendingReset = m_pendingResetPageScope == resetPageScope;
-    filters->addChild(ui::button({
-        .text = pendingReset ? i18n::tr("settings.window.reset-page-confirm") : i18n::tr("settings.window.reset-page"),
-        .fontSize = Style::fontSizeCaption * scale,
-        .variant = pendingReset ? ButtonVariant::Destructive : ButtonVariant::Ghost,
-        .minHeight = Style::controlHeightSm * scale,
-        .paddingV = Style::spaceXs * scale,
-        .paddingH = Style::spaceSm * scale,
-        .radius = Style::scaledRadiusMd(scale),
-        .onClick =
-            [this, resetPageScope, resetPagePaths = std::move(resetPagePaths), requestRebuild, clearOverrides,
-             pendingReset]() mutable {
+    filters->addChild(
+        ui::button({
+            .text =
+                pendingReset ? i18n::tr("settings.window.reset-page-confirm") : i18n::tr("settings.window.reset-page"),
+            .fontSize = Style::fontSizeCaption * scale,
+            .variant = pendingReset ? ButtonVariant::Destructive : ButtonVariant::Ghost,
+            .minHeight = Style::controlHeightSm * scale,
+            .paddingV = Style::spaceXs * scale,
+            .paddingH = Style::spaceSm * scale,
+            .radius = Style::scaledRadiusMd(scale),
+            .onClick = [this, resetPageScope, resetPagePaths = std::move(resetPagePaths), requestRebuild,
+                        clearOverrides, pendingReset]() mutable {
               if (!pendingReset) {
                 m_pendingResetPageScope = resetPageScope;
                 requestRebuild();
@@ -613,7 +636,8 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(float scale, const std::str
               }
               clearOverrides(std::move(resetPagePaths));
             },
-    }));
+        })
+    );
   }
 
   if (m_focusSearchOnRebuild && searchInputPtr != nullptr && searchInputPtr->inputArea() != nullptr) {
@@ -635,43 +659,46 @@ std::unique_ptr<Flex> SettingsWindow::buildStatusRow(float scale) {
   auto status = ui::row({
       .align = FlexAlign::Center,
       .gap = Style::spaceSm * scale,
-      .configure =
-          [this, scale](Flex& row) {
-            row.setPadding(Style::spaceXs * scale, Style::spaceSm * scale);
-            row.setRadius(Style::scaledRadiusMd(scale));
-            row.setFill(colorSpecFromRole(m_statusIsError ? ColorRole::Error : ColorRole::Secondary, 0.14f));
-            row.setBorder(colorSpecFromRole(m_statusIsError ? ColorRole::Error : ColorRole::Secondary, 0.45f),
-                          Style::borderWidth);
-          },
+      .configure = [this, scale](Flex& row) {
+        row.setPadding(Style::spaceXs * scale, Style::spaceSm * scale);
+        row.setRadius(Style::scaledRadiusMd(scale));
+        row.setFill(colorSpecFromRole(m_statusIsError ? ColorRole::Error : ColorRole::Secondary, 0.14f));
+        row.setBorder(
+            colorSpecFromRole(m_statusIsError ? ColorRole::Error : ColorRole::Secondary, 0.45f), Style::borderWidth
+        );
+      },
   });
 
-  auto message =
-      makeLabel(m_statusMessage, Style::fontSizeCaption * scale,
-                colorSpecFromRole(m_statusIsError ? ColorRole::Error : ColorRole::Secondary), FontWeight::Bold);
+  auto message = makeLabel(
+      m_statusMessage, Style::fontSizeCaption * scale,
+      colorSpecFromRole(m_statusIsError ? ColorRole::Error : ColorRole::Secondary), FontWeight::Bold
+  );
   message->setFlexGrow(1.0f);
   status->addChild(std::move(message));
 
-  status->addChild(ui::button({
-      .glyph = "close",
-      .glyphSize = Style::fontSizeCaption * scale,
-      .variant = ButtonVariant::Ghost,
-      .minWidth = Style::controlHeightSm * scale,
-      .minHeight = Style::controlHeightSm * scale,
-      .padding = Style::spaceXs * scale,
-      .radius = Style::scaledRadiusSm(scale),
-      .onClick =
-          [clearStatus, requestRebuild]() {
+  status->addChild(
+      ui::button({
+          .glyph = "close",
+          .glyphSize = Style::fontSizeCaption * scale,
+          .variant = ButtonVariant::Ghost,
+          .minWidth = Style::controlHeightSm * scale,
+          .minHeight = Style::controlHeightSm * scale,
+          .padding = Style::spaceXs * scale,
+          .radius = Style::scaledRadiusSm(scale),
+          .onClick = [clearStatus, requestRebuild]() {
             clearStatus();
             requestRebuild();
           },
-  }));
+      })
+  );
 
   return status;
 }
 
-std::unique_ptr<Flex> SettingsWindow::buildBody(float scale, const Config& cfg,
-                                                const std::vector<std::string>& sections,
-                                                const std::vector<std::string>& availableBars) {
+std::unique_ptr<Flex> SettingsWindow::buildBody(
+    float scale, const Config& cfg, const std::vector<std::string>& sections,
+    const std::vector<std::string>& availableBars
+) {
   const auto requestRebuild = [this]() { requestSceneRebuild(); };
   const auto createBar = [this](std::string name) { this->createBar(std::move(name)); };
   const auto createMonitorOverride = [this](std::string barName, std::string match) {
@@ -685,26 +712,28 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(float scale, const Config& cfg,
       .gap = Style::spaceMd * scale,
   });
 
-  auto sidebar = settings::buildSettingsSidebar(settings::SettingsSidebarContext{
-      .config = cfg,
-      .sections = sections,
-      .availableBars = availableBars,
-      .scale = scale,
-      .globalSearchActive = !m_searchQuery.empty(),
-      .sidebarScrollState = m_sidebarScrollState,
-      .contentScrollState = m_contentScrollState,
-      .selectedSection = m_selectedSection,
-      .selectedBarName = m_selectedBarName,
-      .selectedMonitorOverride = m_selectedMonitorOverride,
-      .creatingBarName = m_creatingBarName,
-      .creatingMonitorOverrideBarName = m_creatingMonitorOverrideBarName,
-      .creatingMonitorOverrideMatch = m_creatingMonitorOverrideMatch,
-      .clearTransientState = clearTransientSettingsState,
-      .clearSearchQuery = clearSearchQuery,
-      .requestRebuild = requestRebuild,
-      .createBar = createBar,
-      .createMonitorOverride = createMonitorOverride,
-  });
+  auto sidebar = settings::buildSettingsSidebar(
+      settings::SettingsSidebarContext{
+          .config = cfg,
+          .sections = sections,
+          .availableBars = availableBars,
+          .scale = scale,
+          .globalSearchActive = !m_searchQuery.empty(),
+          .sidebarScrollState = m_sidebarScrollState,
+          .contentScrollState = m_contentScrollState,
+          .selectedSection = m_selectedSection,
+          .selectedBarName = m_selectedBarName,
+          .selectedMonitorOverride = m_selectedMonitorOverride,
+          .creatingBarName = m_creatingBarName,
+          .creatingMonitorOverrideBarName = m_creatingMonitorOverrideBarName,
+          .creatingMonitorOverrideMatch = m_creatingMonitorOverrideMatch,
+          .clearTransientState = clearTransientSettingsState,
+          .clearSearchQuery = clearSearchQuery,
+          .requestRebuild = requestRebuild,
+          .createBar = createBar,
+          .createMonitorOverride = createMonitorOverride,
+      }
+  );
 
   body->addChild(std::move(sidebar));
   body->addChild(ui::separator());
@@ -716,11 +745,10 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(float scale, const Config& cfg,
       .viewportPaddingH = 0.0f,
       .viewportPaddingV = Style::spaceSm * scale,
       .flexGrow = 1.0f,
-      .configure =
-          [](ScrollView& scrollView) {
-            scrollView.clearFill();
-            scrollView.clearBorder();
-          },
+      .configure = [](ScrollView& scrollView) {
+        scrollView.clearFill();
+        scrollView.clearBorder();
+      },
   });
 
   auto* content = m_contentScrollView->content();
@@ -766,9 +794,12 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
         .title = i18n::tr("settings.schema.wallpaper.panel.label"),
         .subtitle = i18n::tr("settings.schema.wallpaper.panel.description"),
         .path = {},
-        .control = settings::ButtonSetting{.label = i18n::tr("settings.schema.wallpaper.panel.button"),
-                                           .action = m_openWallpaperPanel,
-                                           .glyph = "wallpaper-selector"},
+        .control =
+            settings::ButtonSetting{
+                .label = i18n::tr("settings.schema.wallpaper.panel.button"),
+                .action = m_openWallpaperPanel,
+                .glyph = "wallpaper-selector"
+            },
         .searchText = "wallpaper panel open selector browse",
         .visibleWhen = std::nullopt,
     };
@@ -788,9 +819,12 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
         .title = i18n::tr("settings.schema.desktop.widgets-editor.label"),
         .subtitle = i18n::tr("settings.schema.desktop.widgets-editor.description"),
         .path = {},
-        .control = settings::ButtonSetting{.label = i18n::tr("settings.schema.desktop.widgets-editor.button"),
-                                           .action = m_openDesktopWidgetEditor,
-                                           .glyph = {}},
+        .control =
+            settings::ButtonSetting{
+                .label = i18n::tr("settings.schema.desktop.widgets-editor.button"),
+                .action = m_openDesktopWidgetEditor,
+                .glyph = {}
+            },
         .searchText = "desktop widgets editor edit",
         .visibleWhen = std::nullopt,
     };
@@ -800,8 +834,10 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   const auto sections = sectionKeys(m_settingsRegistry);
   if (m_selectedSection == "bar" && selectedBar == nullptr) {
     m_selectedSection.clear();
-  } else if (m_selectedSection != "bar" && !m_selectedSection.empty() &&
-             std::find(sections.begin(), sections.end(), m_selectedSection) == sections.end()) {
+  } else if (
+      m_selectedSection != "bar" && !m_selectedSection.empty() &&
+      std::find(sections.begin(), sections.end(), m_selectedSection) == sections.end()
+  ) {
     m_selectedSection.clear();
   }
   if (m_selectedSection.empty()) {
@@ -842,13 +878,12 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   auto bg = ui::box({
       .width = w,
       .height = h,
-      .configure =
-          [](Box& box) {
-            box.setPanelStyle();
-            box.setRadius(0.0f);
-            box.setBorder(clearColor(), 0);
-            box.setPosition(0.0f, 0.0f);
-          },
+      .configure = [](Box& box) {
+        box.setPanelStyle();
+        box.setRadius(0.0f);
+        box.setBorder(clearColor(), 0);
+        box.setPosition(0.0f, 0.0f);
+      },
   });
   m_panelBackground = static_cast<Box*>(m_sceneRoot->addChild(std::move(bg)));
 
@@ -877,7 +912,8 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   m_mainContainer = static_cast<Flex*>(m_sceneRoot->addChild(std::move(main)));
 
   m_inputDispatcher.setSceneRoot(m_sceneRoot.get());
-  m_inputDispatcher.setCursorShapeCallback(
-      [this](std::uint32_t serial, std::uint32_t shape) { m_wayland->setCursorShape(serial, shape); });
+  m_inputDispatcher.setCursorShapeCallback([this](std::uint32_t serial, std::uint32_t shape) {
+    m_wayland->setCursorShape(serial, shape);
+  });
   m_surface->setSceneRoot(m_sceneRoot.get());
 }

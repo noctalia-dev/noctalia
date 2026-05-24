@@ -69,29 +69,36 @@ namespace {
           {.out = &m_row, .align = FlexAlign::Center, .gap = Style::spaceMd * scale, .configure = [scale](Flex& flex) {
              flex.setPadding(Style::spaceXs * scale, Style::spaceSm * scale);
              flex.setRadius(Style::scaledRadiusMd(scale));
-           }});
+           }}
+      );
       addChild(std::move(row));
 
-      m_row->addChild(ui::label({
-          .out = &m_actionLabel,
-          .fontSize = kIconSize * scale,
-          .color = colorSpecFromRole(ColorRole::OnSurface),
-          .visible = false,
-      }));
+      m_row->addChild(
+          ui::label({
+              .out = &m_actionLabel,
+              .fontSize = kIconSize * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .visible = false,
+          })
+      );
 
-      m_row->addChild(ui::image({
-          .out = &m_image,
-          .width = kIconSize * scale,
-          .height = kIconSize * scale,
-          .visible = false,
-      }));
+      m_row->addChild(
+          ui::image({
+              .out = &m_image,
+              .width = kIconSize * scale,
+              .height = kIconSize * scale,
+              .visible = false,
+          })
+      );
 
-      m_row->addChild(ui::glyph({
-          .out = &m_glyph,
-          .glyphSize = kIconSize * scale,
-          .color = colorSpecFromRole(ColorRole::OnSurface),
-          .visible = false,
-      }));
+      m_row->addChild(
+          ui::glyph({
+              .out = &m_glyph,
+              .glyphSize = kIconSize * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .visible = false,
+          })
+      );
 
       m_image->setAsyncReadyCallback([this]() {
         if (m_actionTextVisible || m_iconPath.empty() || m_image == nullptr || m_glyph == nullptr ||
@@ -102,27 +109,30 @@ namespace {
         m_glyph->setVisible(false);
       });
 
-      m_row->addChild(ui::column(
-          {
-              .out = &m_textCol,
-              .align = FlexAlign::Start,
-              .gap = Style::spaceXs * 0.5f * scale,
-              .flexGrow = 1.0f,
-          },
-          ui::label({
-              .out = &m_title,
-              .fontSize = Style::fontSizeBody * scale,
-              .color = colorSpecFromRole(ColorRole::OnSurface),
-              .maxLines = 1,
-              .fontWeight = FontWeight::Bold,
-          }),
-          ui::label({
-              .out = &m_subtitle,
-              .fontSize = Style::fontSizeCaption * scale,
-              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-              .maxLines = 1,
-              .configure = [](Label& label) { label.setCaptionStyle(); },
-          })));
+      m_row->addChild(
+          ui::column(
+              {
+                  .out = &m_textCol,
+                  .align = FlexAlign::Start,
+                  .gap = Style::spaceXs * 0.5f * scale,
+                  .flexGrow = 1.0f,
+              },
+              ui::label({
+                  .out = &m_title,
+                  .fontSize = Style::fontSizeBody * scale,
+                  .color = colorSpecFromRole(ColorRole::OnSurface),
+                  .maxLines = 1,
+                  .fontWeight = FontWeight::Bold,
+              }),
+              ui::label({
+                  .out = &m_subtitle,
+                  .fontSize = Style::fontSizeCaption * scale,
+                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  .maxLines = 1,
+                  .configure = [](Label& label) { label.setCaptionStyle(); },
+              })
+          )
+      );
     }
 
     void bind(Renderer& renderer, const LauncherResult& result, float width, bool selected, bool hovered) {
@@ -300,27 +310,31 @@ void LauncherPanel::create() {
       .gap = Style::spaceSm * scale,
   });
 
-  container->addChild(ui::input({
-      .out = &m_input,
-      .placeholder = i18n::tr("launcher.search-placeholder"),
-      .fontSize = Style::fontSizeBody * scale,
-      .controlHeight = Style::controlHeight * scale,
-      .horizontalPadding = Style::spaceMd * scale,
-      .clearButtonEnabled = true,
-      .onChange = [this](const std::string& text) { onInputChanged(text); },
-      .onSubmit = [this](const std::string& /*text*/) { activateSelected(); },
-      .onKeyEvent = [this](std::uint32_t sym, std::uint32_t modifiers) { return handleKeyEvent(sym, modifiers); },
-  }));
+  container->addChild(
+      ui::input({
+          .out = &m_input,
+          .placeholder = i18n::tr("launcher.search-placeholder"),
+          .fontSize = Style::fontSizeBody * scale,
+          .controlHeight = Style::controlHeight * scale,
+          .horizontalPadding = Style::spaceMd * scale,
+          .clearButtonEnabled = true,
+          .onChange = [this](const std::string& text) { onInputChanged(text); },
+          .onSubmit = [this](const std::string& /*text*/) { activateSelected(); },
+          .onKeyEvent = [this](std::uint32_t sym, std::uint32_t modifiers) { return handleKeyEvent(sym, modifiers); },
+      })
+  );
 
-  container->addChild(ui::segmented({
-      .out = &m_categoryFilter,
-      .scale = scale,
-      .compact = true,
-      .equalSegmentWidths = true,
-      .visible = false,
-      .participatesInLayout = false,
-      .configure = [](Segmented& segmented) { segmented.setAlign(FlexAlign::Center); },
-  }));
+  container->addChild(
+      ui::segmented({
+          .out = &m_categoryFilter,
+          .scale = scale,
+          .compact = true,
+          .equalSegmentWidths = true,
+          .visible = false,
+          .participatesInLayout = false,
+          .configure = [](Segmented& segmented) { segmented.setAlign(FlexAlign::Center); },
+      })
+  );
 
   auto body = ui::column({
       .out = &m_body,
@@ -332,35 +346,40 @@ void LauncherPanel::create() {
   m_adapter = std::make_unique<LauncherResultAdapter>(scale, m_asyncTextures);
   m_adapter->setResults(&m_results);
   m_adapter->setOnActivate([this](std::size_t index) { activateAt(index); });
-  m_adapter->setOnSecondaryActivate(
-      [this](std::size_t index, float ax, float ay) { openAppActionsMenu(index, ax, ay); });
+  m_adapter->setOnSecondaryActivate([this](std::size_t index, float ax, float ay) {
+    openAppActionsMenu(index, ax, ay);
+  });
 
-  body->addChild(ui::virtualGridView({
-      .out = &m_grid,
-      .columns = 1,
-      .cellHeight = launcherRowHeight(scale),
-      .squareCells = false,
-      .columnGap = 0.0f,
-      .rowGap = 0.0f,
-      .overscanRows = kRowOverscan,
-      .adapter = m_adapter.get(),
-      .flexGrow = 1.0f,
-      .onSelectionChanged =
-          [this](std::optional<std::size_t> idx) {
-            if (idx.has_value() && *idx < m_results.size()) {
-              m_selectedIndex = *idx;
-            }
-          },
-      .configure = [](VirtualGridView& grid) { grid.setFillWidth(true); },
-  }));
+  body->addChild(
+      ui::virtualGridView({
+          .out = &m_grid,
+          .columns = 1,
+          .cellHeight = launcherRowHeight(scale),
+          .squareCells = false,
+          .columnGap = 0.0f,
+          .rowGap = 0.0f,
+          .overscanRows = kRowOverscan,
+          .adapter = m_adapter.get(),
+          .flexGrow = 1.0f,
+          .onSelectionChanged =
+              [this](std::optional<std::size_t> idx) {
+                if (idx.has_value() && *idx < m_results.size()) {
+                  m_selectedIndex = *idx;
+                }
+              },
+          .configure = [](VirtualGridView& grid) { grid.setFillWidth(true); },
+      })
+  );
 
-  body->addChild(ui::label({
-      .out = &m_emptyLabel,
-      .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-      .visible = false,
-      .participatesInLayout = false,
-      .configure = [](Label& label) { label.setCaptionStyle(); },
-  }));
+  body->addChild(
+      ui::label({
+          .out = &m_emptyLabel,
+          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+          .visible = false,
+          .participatesInLayout = false,
+          .configure = [](Label& label) { label.setCaptionStyle(); },
+      })
+  );
 
   container->addChild(std::move(body));
 
@@ -513,8 +532,9 @@ void LauncherPanel::onInputChanged(const std::string& text) {
         for (auto& result : results) {
           result.providerName = provider->name();
         }
-        m_allResults.insert(m_allResults.end(), std::make_move_iterator(results.begin()),
-                            std::make_move_iterator(results.end()));
+        m_allResults.insert(
+            m_allResults.end(), std::make_move_iterator(results.begin()), std::make_move_iterator(results.end())
+        );
         auto providerCats = provider->categories();
         for (auto& cat : providerCats) {
           newCategories.push_back(std::move(cat));
@@ -522,8 +542,9 @@ void LauncherPanel::onInputChanged(const std::string& text) {
       }
     }
     // Stable sort by score descending — preserves provider order (e.g. alphabetical) for ties
-    std::stable_sort(m_allResults.begin(), m_allResults.end(),
-                     [](const LauncherResult& a, const LauncherResult& b) { return a.score > b.score; });
+    std::stable_sort(m_allResults.begin(), m_allResults.end(), [](const LauncherResult& a, const LauncherResult& b) {
+      return a.score > b.score;
+    });
   }
 
   const int iconTargetSize = static_cast<int>(std::round(kIconSize * contentScale()));
@@ -643,8 +664,9 @@ void LauncherPanel::applyEmptyState() {
   m_emptyLabel->setVisible(empty);
   m_emptyLabel->setParticipatesInLayout(empty);
   if (empty) {
-    m_emptyLabel->setText(m_query.empty() ? i18n::tr("launcher.empty.type-to-search")
-                                          : i18n::tr("launcher.empty.no-results"));
+    m_emptyLabel->setText(
+        m_query.empty() ? i18n::tr("launcher.empty.type-to-search") : i18n::tr("launcher.empty.no-results")
+    );
   }
 }
 
@@ -684,21 +706,25 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
 
   std::vector<ContextMenuControlEntry> entries;
   entries.reserve(actionsCopy.size() + 1);
-  entries.push_back(ContextMenuControlEntry{
-      .id = -1,
-      .label = i18n::tr("launcher.context-menu.open"),
-      .enabled = true,
-      .separator = false,
-      .hasSubmenu = false,
-  });
+  entries.push_back(
+      ContextMenuControlEntry{
+          .id = -1,
+          .label = i18n::tr("launcher.context-menu.open"),
+          .enabled = true,
+          .separator = false,
+          .hasSubmenu = false,
+      }
+  );
   for (std::int32_t i = 0; i < static_cast<std::int32_t>(actionsCopy.size()); ++i) {
-    entries.push_back(ContextMenuControlEntry{
-        .id = i,
-        .label = actionsCopy[static_cast<std::size_t>(i)].name,
-        .enabled = true,
-        .separator = false,
-        .hasSubmenu = false,
-    });
+    entries.push_back(
+        ContextMenuControlEntry{
+            .id = i,
+            .label = actionsCopy[static_cast<std::size_t>(i)].name,
+            .enabled = true,
+            .separator = false,
+            .hasSubmenu = false,
+        }
+    );
   }
 
   const float scale = contentScale();
@@ -716,30 +742,30 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
     PanelManager::instance().endAttachedPopup(parentSurface);
   });
 
-  m_actionsMenu->setOnActivate(
-      [this, base, actionsCopy = std::move(actionsCopy)](const ContextMenuControlEntry& entry) {
-        LauncherResult result = base;
-        result.desktopActionId.clear();
-        if (entry.id >= 0 && entry.id < static_cast<std::int32_t>(actionsCopy.size())) {
-          result.desktopActionId = actionsCopy[static_cast<std::size_t>(entry.id)].id;
-        } else if (entry.id != -1) {
-          return;
-        }
+  m_actionsMenu->setOnActivate([this, base,
+                                actionsCopy = std::move(actionsCopy)](const ContextMenuControlEntry& entry) {
+    LauncherResult result = base;
+    result.desktopActionId.clear();
+    if (entry.id >= 0 && entry.id < static_cast<std::int32_t>(actionsCopy.size())) {
+      result.desktopActionId = actionsCopy[static_cast<std::size_t>(entry.id)].id;
+    } else if (entry.id != -1) {
+      return;
+    }
 
-        for (auto& provider : m_providers) {
-          if (provider->name() != std::string_view(result.providerName)) {
-            continue;
-          }
-          if (!provider->activate(result)) {
-            return;
-          }
-          if (provider->trackUsage()) {
-            m_usageTracker.record(provider->name(), result.id);
-          }
-          PanelManager::instance().closePanel();
-          return;
-        }
-      });
+    for (auto& provider : m_providers) {
+      if (provider->name() != std::string_view(result.providerName)) {
+        continue;
+      }
+      if (!provider->activate(result)) {
+        return;
+      }
+      if (provider->trackUsage()) {
+        m_usageTracker.record(provider->name(), result.id);
+      }
+      PanelManager::instance().closePanel();
+      return;
+    }
+  });
 
   const float inset = std::round(std::max(4.0f, Style::spaceXs * scale));
   const std::int32_t ax = static_cast<std::int32_t>(std::round(anchorX - inset));
@@ -747,8 +773,10 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
   const std::int32_t aw = static_cast<std::int32_t>(std::round(inset * 2.0f));
   const std::int32_t ah = static_cast<std::int32_t>(std::round(inset * 2.0f));
 
-  m_actionsMenu->open(std::move(entries), menuWidth, 12, ax, ay, std::max(1, aw), std::max(1, ah),
-                      parentCtx->layerSurface, parentCtx->output);
+  m_actionsMenu->open(
+      std::move(entries), menuWidth, 12, ax, ay, std::max(1, aw), std::max(1, ah), parentCtx->layerSurface,
+      parentCtx->output
+  );
 }
 
 void LauncherPanel::activateAt(std::size_t index) {

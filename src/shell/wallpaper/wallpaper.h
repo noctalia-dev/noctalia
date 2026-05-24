@@ -20,8 +20,9 @@ public:
   Wallpaper();
   ~Wallpaper();
 
-  bool initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext,
-                  SharedTextureCache* textureCache);
+  bool initialize(
+      WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext, SharedTextureCache* textureCache
+  );
   void onOutputChange();
   void onStateChange();
   void onSecondTick();

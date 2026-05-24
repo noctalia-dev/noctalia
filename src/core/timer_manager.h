@@ -10,8 +10,8 @@ public:
 
   static TimerManager& instance();
 
-  TimerId start(TimerId existingId, std::chrono::milliseconds delay, std::function<void()> callback,
-                bool repeating = false);
+  TimerId
+  start(TimerId existingId, std::chrono::milliseconds delay, std::function<void()> callback, bool repeating = false);
   bool cancel(TimerId id);
   [[nodiscard]] bool active(TimerId id) const noexcept;
   [[nodiscard]] int pollTimeoutMs() const;

@@ -101,8 +101,10 @@ void SoundPlayer::play(const std::string& name) {
   active->listener = new spa_hook{};
   spa_zero(*active->listener);
 
-  pw_properties* props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Playback",
-                                           PW_KEY_MEDIA_ROLE, "Notification", PW_KEY_APP_NAME, "Noctalia", nullptr);
+  pw_properties* props = pw_properties_new(
+      PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Playback", PW_KEY_MEDIA_ROLE, "Notification", PW_KEY_APP_NAME,
+      "Noctalia", nullptr
+  );
   active->stream = pw_stream_new_simple(m_loop, "noctalia-sound", props, &kStreamEvents, active.get());
   if (active->stream == nullptr) {
     delete active->listener;
@@ -124,7 +126,8 @@ void SoundPlayer::play(const std::string& name) {
 
   const int rc = pw_stream_connect(
       active->stream, PW_DIRECTION_OUTPUT, PW_ID_ANY,
-      static_cast<pw_stream_flags>(PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS), params, 1);
+      static_cast<pw_stream_flags>(PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS), params, 1
+  );
   if (rc < 0) {
     kLog.warn("failed to connect stream for sound \"{}\": {}", name, spa_strerror(rc));
     spa_hook_remove(active->listener);
@@ -146,8 +149,9 @@ void SoundPlayer::onProcess(void* userdata) {
   streamState->owner->processStream(*streamState);
 }
 
-void SoundPlayer::onStreamStateChanged(void* userdata, pw_stream_state /*oldState*/, pw_stream_state state,
-                                       const char* error) {
+void SoundPlayer::onStreamStateChanged(
+    void* userdata, pw_stream_state /*oldState*/, pw_stream_state state, const char* error
+) {
   auto* streamState = static_cast<ActiveStream*>(userdata);
   if (streamState == nullptr || streamState->owner == nullptr) {
     return;

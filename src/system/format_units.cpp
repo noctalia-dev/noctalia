@@ -25,8 +25,9 @@ namespace FormatUnits {
   }
 
   std::string formatBinaryMibUsageAsGib(std::uint64_t usedMib, std::uint64_t totalMib) {
-    return std::format("{:.1f} / {:.1f} GiB", static_cast<double>(usedMib) / kMibPerGib,
-                       static_cast<double>(totalMib) / kMibPerGib);
+    return std::format(
+        "{:.1f} / {:.1f} GiB", static_cast<double>(usedMib) / kMibPerGib, static_cast<double>(totalMib) / kMibPerGib
+    );
   }
 
   std::string formatBinaryBytesAsGib(std::uint64_t bytes) {

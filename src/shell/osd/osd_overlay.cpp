@@ -298,10 +298,12 @@ void OsdOverlay::ensureSurfaces() {
     inst->surface = std::make_unique<LayerSurface>(*m_wayland, std::move(surfaceConfig));
     inst->surface->setRenderContext(m_renderContext);
     auto* instPtr = inst.get();
-    inst->surface->setConfigureCallback(
-        [instPtr](std::uint32_t /*width*/, std::uint32_t /*height*/) { instPtr->surface->requestLayout(); });
-    inst->surface->setPrepareFrameCallback(
-        [this, instPtr](bool needsUpdate, bool needsLayout) { prepareFrame(*instPtr, needsUpdate, needsLayout); });
+    inst->surface->setConfigureCallback([instPtr](std::uint32_t /*width*/, std::uint32_t /*height*/) {
+      instPtr->surface->requestLayout();
+    });
+    inst->surface->setPrepareFrameCallback([this, instPtr](bool needsUpdate, bool needsLayout) {
+      prepareFrame(*instPtr, needsUpdate, needsLayout);
+    });
     inst->surface->setAnimationManager(&inst->animations);
 
     if (!inst->surface->initialize(output.output)) {
@@ -528,7 +530,8 @@ void OsdOverlay::animateInstance(Instance& inst) {
           [&inst]() {
             inst.showAnimId = 0;
             inst.visible = true;
-          });
+          }
+      );
     }
   } else {
     inst.sceneRoot->setOpacity(1.0f);
@@ -561,6 +564,8 @@ void OsdOverlay::animateInstance(Instance& inst) {
                   destroySurfaces();
                 }
               });
-            });
-      });
+            }
+        );
+      }
+  );
 }

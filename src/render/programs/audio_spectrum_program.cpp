@@ -112,9 +112,10 @@ void AudioSpectrumProgram::destroy() {
   m_vertices.shrink_to_fit();
 }
 
-void AudioSpectrumProgram::draw(float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY,
-                                float width, float height, const AudioSpectrumStyle& style,
-                                std::span<const float> values, const Mat3& transform) const {
+void AudioSpectrumProgram::draw(
+    float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
+    const AudioSpectrumStyle& style, std::span<const float> values, const Mat3& transform
+) const {
   if (!m_program.isValid() || width <= 0.0f || height <= 0.0f || values.empty()) {
     return;
   }

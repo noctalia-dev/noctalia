@@ -27,10 +27,12 @@ enum class WorkspaceLabelPlacement {
 
 class TaskbarWidget : public Widget {
 public:
-  TaskbarWidget(CompositorPlatform& platform, wl_output* output, bool groupByWorkspace, bool showAllOutputs,
-                bool onlyActiveWorkspace, bool showWorkspaceLabel, WorkspaceLabelPlacement workspaceLabelPlacement,
-                bool hideEmptyWorkspaces, bool workspaceGroupCapsule, ColorSpec focusedColor, ColorSpec occupiedColor,
-                ColorSpec emptyColor, std::string barPosition, ShellConfig::ShadowConfig shadowConfig);
+  TaskbarWidget(
+      CompositorPlatform& platform, wl_output* output, bool groupByWorkspace, bool showAllOutputs,
+      bool onlyActiveWorkspace, bool showWorkspaceLabel, WorkspaceLabelPlacement workspaceLabelPlacement,
+      bool hideEmptyWorkspaces, bool workspaceGroupCapsule, ColorSpec focusedColor, ColorSpec occupiedColor,
+      ColorSpec emptyColor, std::string barPosition, ShellConfig::ShadowConfig shadowConfig
+  );
   ~TaskbarWidget() override;
 
   void create() override;
@@ -75,8 +77,8 @@ private:
   void updateModels();
   [[nodiscard]] static std::string toLower(std::string value);
   [[nodiscard]] static std::string workspaceLabel(const Workspace& workspace, std::size_t index);
-  [[nodiscard]] bool modelsEqual(const std::vector<TaskModel>& tasks,
-                                 const std::vector<WorkspaceModel>& workspaces) const;
+  [[nodiscard]] bool
+  modelsEqual(const std::vector<TaskModel>& tasks, const std::vector<WorkspaceModel>& workspaces) const;
   void buildDesktopIconIndex();
   [[nodiscard]] std::string resolveIconPath(const std::string& appId, const std::string& iconNameOrPath);
   void openTaskContextMenu(const TaskModel& task, InputArea& area);

@@ -5,8 +5,7 @@
 #include "render/scene/node.h"
 #include "system/desktop_entry.h"
 #include "system/internal_app_metadata.h"
-#include "ui/controls/image.h"
-#include "ui/controls/label.h"
+#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -15,8 +14,10 @@
 #include <cmath>
 #include <string_view>
 
-ActiveWindowWidget::ActiveWindowWidget(CompositorPlatform& platform, float maxWidth, float minWidth, float iconSize,
-                                       ActiveWindowTitleScrollMode titleScrollMode, ActiveWindowDisplayMode displayMode)
+ActiveWindowWidget::ActiveWindowWidget(
+    CompositorPlatform& platform, float maxWidth, float minWidth, float iconSize,
+    ActiveWindowTitleScrollMode titleScrollMode, ActiveWindowDisplayMode displayMode
+)
     : m_platform(platform), m_maxWidth(maxWidth), m_minWidth(minWidth), m_iconSize(iconSize),
       m_titleScrollMode(titleScrollMode), m_displayMode(displayMode) {
   buildDesktopIconIndex();
@@ -34,20 +35,27 @@ void ActiveWindowWidget::create() {
   });
   m_area = rootNode.get();
 
-  auto icon = std::make_unique<Image>();
-  icon->setRadius(Style::radiusSm);
-  icon->setFit(ImageFit::Contain);
-  icon->setSize(m_iconSize * m_contentScale, m_iconSize * m_contentScale);
-  m_icon = static_cast<Image*>(rootNode->addChild(std::move(icon)));
+  rootNode->addChild(
+      ui::image({
+          .out = &m_icon,
+          .fit = ImageFit::Contain,
+          .radius = Style::radiusSm,
+          .width = m_iconSize * m_contentScale,
+          .height = m_iconSize * m_contentScale,
+      })
+  );
 
-  auto title = std::make_unique<Label>();
-  title->setFontWeight(labelFontWeight());
-  title->setFontSize(Style::fontSizeBody * m_contentScale);
-  title->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
-  title->setMaxWidth(m_maxWidth * m_contentScale);
-  title->setMaxLines(1);
-  title->setAutoScroll(false);
-  m_title = static_cast<Label*>(rootNode->addChild(std::move(title)));
+  rootNode->addChild(
+      ui::label({
+          .out = &m_title,
+          .fontSize = Style::fontSizeBody * m_contentScale,
+          .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
+          .maxWidth = m_maxWidth * m_contentScale,
+          .maxLines = 1,
+          .fontWeight = labelFontWeight(),
+          .autoScroll = false,
+      })
+  );
 
   setRoot(std::move(rootNode));
 }

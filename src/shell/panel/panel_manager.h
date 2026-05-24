@@ -64,7 +64,8 @@ public:
   void openSettingsWindow();
   void toggleSettingsWindow();
   void setAttachedPanelGeometryCallback(
-      std::function<void(wl_output*, std::string_view, std::optional<AttachedPanelGeometry>)> callback);
+      std::function<void(wl_output*, std::string_view, std::optional<AttachedPanelGeometry>)> callback
+  );
   // Callback to query the bar surface rects on a given output, in output-local
   // coordinates. The click shield's input region excludes these rects so
   // clicks on bar widgets keep flowing to the bar while a panel is open.

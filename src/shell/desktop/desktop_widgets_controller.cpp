@@ -101,10 +101,11 @@ DesktopWidgetsController::DesktopWidgetsController() = default;
 
 DesktopWidgetsController::~DesktopWidgetsController() = default;
 
-void DesktopWidgetsController::initialize(WaylandConnection& wayland, ConfigService* config,
-                                          PipeWireSpectrum* pipewireSpectrum, const WeatherService* weather,
-                                          RenderContext* renderContext, MprisService* mpris, HttpClient* httpClient,
-                                          SystemMonitorService* sysmon) {
+void DesktopWidgetsController::initialize(
+    WaylandConnection& wayland, ConfigService* config, PipeWireSpectrum* pipewireSpectrum,
+    const WeatherService* weather, RenderContext* renderContext, MprisService* mpris, HttpClient* httpClient,
+    SystemMonitorService* sysmon
+) {
   m_wayland = &wayland;
   m_config = config;
   m_renderContext = renderContext;
@@ -129,7 +130,8 @@ void DesktopWidgetsController::registerIpc(IpcService& ipc) {
         enterEdit();
         return "ok\n";
       },
-      "desktop-widgets-edit", "Open the desktop widgets editor");
+      "desktop-widgets-edit", "Open the desktop widgets editor"
+  );
 
   ipc.registerHandler(
       "desktop-widgets-exit",
@@ -137,7 +139,8 @@ void DesktopWidgetsController::registerIpc(IpcService& ipc) {
         exitEdit();
         return "ok\n";
       },
-      "desktop-widgets-exit", "Close the desktop widgets editor");
+      "desktop-widgets-exit", "Close the desktop widgets editor"
+  );
 
   ipc.registerHandler(
       "desktop-widgets-toggle-edit",
@@ -145,7 +148,8 @@ void DesktopWidgetsController::registerIpc(IpcService& ipc) {
         toggleEdit();
         return "ok\n";
       },
-      "desktop-widgets-toggle-edit", "Toggle desktop widgets edit mode");
+      "desktop-widgets-toggle-edit", "Toggle desktop widgets edit mode"
+  );
 }
 
 void DesktopWidgetsController::onOutputChange() {

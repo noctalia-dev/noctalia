@@ -27,9 +27,11 @@ class DesktopWidgetsHost {
 public:
   DesktopWidgetsHost() = default;
 
-  void initialize(WaylandConnection& wayland, ConfigService* config, PipeWireSpectrum* pipewireSpectrum,
-                  const WeatherService* weather, RenderContext* renderContext, MprisService* mpris,
-                  HttpClient* httpClient, SystemMonitorService* sysmon);
+  void initialize(
+      WaylandConnection& wayland, ConfigService* config, PipeWireSpectrum* pipewireSpectrum,
+      const WeatherService* weather, RenderContext* renderContext, MprisService* mpris, HttpClient* httpClient,
+      SystemMonitorService* sysmon
+  );
   void show(const DesktopWidgetsSnapshot& snapshot);
   void hide();
   void rebuild(const DesktopWidgetsSnapshot& snapshot);

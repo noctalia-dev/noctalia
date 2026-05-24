@@ -100,11 +100,13 @@ Input::Input() {
   // Text-layer children:
   // 0: selection highlight (rendered behind text)
   auto sel = std::make_unique<RectNode>();
-  sel->setStyle(RoundedRectStyle{
-      .fill = resolved(ColorRole::Primary),
-      .fillMode = FillMode::Solid,
-      .radius = 2.0f,
-  });
+  sel->setStyle(
+      RoundedRectStyle{
+          .fill = resolved(ColorRole::Primary),
+          .fillMode = FillMode::Solid,
+          .radius = 2.0f,
+      }
+  );
   sel->setOpacity(0.3f);
   sel->setVisible(false);
   m_selectionRect = static_cast<RectNode*>(m_textViewport->addChild(std::move(sel)));
@@ -118,11 +120,13 @@ Input::Input() {
 
   // 2: cursor
   auto cursor = std::make_unique<RectNode>();
-  cursor->setStyle(RoundedRectStyle{
-      .fill = resolved(ColorRole::Primary),
-      .fillMode = FillMode::Solid,
-      .radius = 1.0f,
-  });
+  cursor->setStyle(
+      RoundedRectStyle{
+          .fill = resolved(ColorRole::Primary),
+          .fillMode = FillMode::Solid,
+          .radius = 1.0f,
+      }
+  );
   cursor->setVisible(false);
   m_cursor = static_cast<RectNode*>(m_textViewport->addChild(std::move(cursor)));
 
@@ -775,14 +779,16 @@ void Input::applyVisualState() {
                              : (focused ? resolved(ColorRole::Primary)
                                         : (inputHovered ? resolved(ColorRole::Hover) : resolved(ColorRole::Outline)));
 
-    m_background->setStyle(RoundedRectStyle{
-        .fill = fill,
-        .border = border,
-        .fillMode = FillMode::Solid,
-        .radius = Style::scaledRadiusMd(chromeScale),
-        .softness = 1.0f,
-        .borderWidth = Style::borderWidth,
-    });
+    m_background->setStyle(
+        RoundedRectStyle{
+            .fill = fill,
+            .border = border,
+            .fillMode = FillMode::Solid,
+            .radius = Style::scaledRadiusMd(chromeScale),
+            .softness = 1.0f,
+            .borderWidth = Style::borderWidth,
+        }
+    );
   } else if (m_background != nullptr) {
     m_background->setVisible(false);
   }

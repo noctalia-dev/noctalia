@@ -52,8 +52,8 @@ public:
   AsyncTextureCache& operator=(const AsyncTextureCache&) = delete;
 
   void initialize(GlSharedContext* sharedGl);
-  [[nodiscard]] ReadySubscription subscribeReady(const std::string& path, int targetSize, bool mipmap,
-                                                 TextureReadyCallback callback);
+  [[nodiscard]] ReadySubscription
+  subscribeReady(const std::string& path, int targetSize, bool mipmap, TextureReadyCallback callback);
 
   [[nodiscard]] TextureHandle acquire(const std::string& path, int targetSize = 0, bool mipmap = false);
   [[nodiscard]] TextureHandle peek(const std::string& path, int targetSize = 0, bool mipmap = false) const;

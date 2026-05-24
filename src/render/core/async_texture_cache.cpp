@@ -22,8 +22,9 @@ namespace {
 
 } // namespace
 
-AsyncTextureCache::ReadySubscription::ReadySubscription(AsyncTextureCache* cache, std::weak_ptr<void> lifetimeToken,
-                                                        std::uint64_t id)
+AsyncTextureCache::ReadySubscription::ReadySubscription(
+    AsyncTextureCache* cache, std::weak_ptr<void> lifetimeToken, std::uint64_t id
+)
     : m_cache(cache), m_lifetimeToken(std::move(lifetimeToken)), m_id(id) {}
 
 AsyncTextureCache::ReadySubscription::~ReadySubscription() { disconnect(); }
@@ -111,8 +112,8 @@ AsyncTextureCache::~AsyncTextureCache() {
 
 void AsyncTextureCache::initialize(GlSharedContext* sharedGl) { m_sharedGl = sharedGl; }
 
-AsyncTextureCache::ReadySubscription AsyncTextureCache::subscribeReady(const std::string& path, int targetSize,
-                                                                       bool mipmap, TextureReadyCallback callback) {
+AsyncTextureCache::ReadySubscription
+AsyncTextureCache::subscribeReady(const std::string& path, int targetSize, bool mipmap, TextureReadyCallback callback) {
   auto key = makeKey(path, targetSize, mipmap);
   if (key.path.empty() || !callback) {
     return {};
@@ -376,8 +377,9 @@ void AsyncTextureCache::pruneUnusedEntries(std::size_t maxUnusedEntries) {
     return;
   }
 
-  std::sort(unused.begin(), unused.end(),
-            [](const It& a, const It& b) { return a->second.lastTouch < b->second.lastTouch; });
+  std::sort(unused.begin(), unused.end(), [](const It& a, const It& b) {
+    return a->second.lastTouch < b->second.lastTouch;
+  });
 
   const std::size_t toEvict = unused.size() - maxUnusedEntries;
   bool madeCurrent = false;

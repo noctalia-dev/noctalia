@@ -21,8 +21,10 @@ enum class SysmonDisplayMode { Text, Graph, Gauge };
 
 class SysmonWidget : public Widget {
 public:
-  SysmonWidget(SystemMonitorService* monitor, wl_output* output, SysmonStat stat, std::string diskPath,
-               SysmonDisplayMode displayMode, bool showLabel = true, float labelMinWidth = 0.0f);
+  SysmonWidget(
+      SystemMonitorService* monitor, wl_output* output, SysmonStat stat, std::string diskPath,
+      SysmonDisplayMode displayMode, bool showLabel = true, float labelMinWidth = 0.0f
+  );
   ~SysmonWidget() override;
 
   void create() override;
@@ -42,8 +44,8 @@ private:
   void syncVisualPalette();
   void updateGraph(Renderer& renderer);
   [[nodiscard]] float scrollProgressForSample(std::chrono::steady_clock::time_point sampledAt) const;
-  [[nodiscard]] static double normalizedFromStats(SysmonStat stat, const SystemStats& stats, double& tempMin,
-                                                  double& tempMax);
+  [[nodiscard]] static double
+  normalizedFromStats(SysmonStat stat, const SystemStats& stats, double& tempMin, double& tempMax);
 
   SystemMonitorService* m_monitor;
   SysmonStat m_stat;

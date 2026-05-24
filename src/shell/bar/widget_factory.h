@@ -32,19 +32,20 @@ namespace noctalia::theme {
 
 class WidgetFactory {
 public:
-  WidgetFactory(CompositorPlatform& platform, const Config& config, NotificationManager* notifications,
-                TrayService* tray, PipeWireService* audio, UPowerService* upower, SystemMonitorService* sysmon,
-                PowerProfilesService* powerProfiles, INetworkService* network, IdleInhibitor* idleInhibitor,
-                MprisService* mpris, PipeWireSpectrum* audioSpectrum, HttpClient* httpClient, WeatherService* weather,
-                GammaService* nightLight, noctalia::theme::ThemeService* themeService, BluetoothService* bluetooth,
-                BrightnessService* brightness, LockKeysService* lockKeys, ClipboardService* clipboard,
-                FileWatcher* fileWatcher = nullptr);
+  WidgetFactory(
+      CompositorPlatform& platform, const Config& config, NotificationManager* notifications, TrayService* tray,
+      PipeWireService* audio, UPowerService* upower, SystemMonitorService* sysmon, PowerProfilesService* powerProfiles,
+      INetworkService* network, IdleInhibitor* idleInhibitor, MprisService* mpris, PipeWireSpectrum* audioSpectrum,
+      HttpClient* httpClient, WeatherService* weather, GammaService* nightLight,
+      noctalia::theme::ThemeService* themeService, BluetoothService* bluetooth, BrightnessService* brightness,
+      LockKeysService* lockKeys, ClipboardService* clipboard, FileWatcher* fileWatcher = nullptr
+  );
   ~WidgetFactory();
 
-  [[nodiscard]] std::unique_ptr<Widget> create(const std::string& name, wl_output* output, float contentScale = 1.0f,
-                                               const std::string& barPosition = "top",
-                                               const std::string& barName = "default",
-                                               float widgetSpacing = 6.0f) const;
+  [[nodiscard]] std::unique_ptr<Widget> create(
+      const std::string& name, wl_output* output, float contentScale = 1.0f, const std::string& barPosition = "top",
+      const std::string& barName = "default", float widgetSpacing = 6.0f
+  ) const;
 
 private:
   CompositorPlatform& m_platform;

@@ -17,8 +17,10 @@ public:
   void ensureInitialized();
   void destroy();
 
-  void draw(float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
-            const ScreenCornerStyle& style, const Mat3& transform = Mat3::identity()) const;
+  void draw(
+      float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
+      const ScreenCornerStyle& style, const Mat3& transform = Mat3::identity()
+  ) const;
 
 private:
   ShaderProgram m_program;

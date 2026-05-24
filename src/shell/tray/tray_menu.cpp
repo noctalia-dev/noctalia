@@ -126,8 +126,9 @@ namespace {
     std::uint32_t gravity = XDG_POSITIONER_GRAVITY_TOP;
     std::int32_t offsetX = 0;
     std::int32_t offsetY = 2;
-    popup_chrome::Attachment chromeAttachment{.horizontal = popup_chrome::HorizontalAttachment::Center,
-                                              .vertical = popup_chrome::VerticalAttachment::Top};
+    popup_chrome::Attachment chromeAttachment{
+        .horizontal = popup_chrome::HorizontalAttachment::Center, .vertical = popup_chrome::VerticalAttachment::Top
+    };
     ContextSubmenuDirection submenuDirection = ContextSubmenuDirection::Right;
   };
 
@@ -199,8 +200,9 @@ namespace {
 
 } // namespace
 
-void TrayMenu::initialize(WaylandConnection& wayland, ConfigService* config, TrayService* tray,
-                          RenderContext* renderContext) {
+void TrayMenu::initialize(
+    WaylandConnection& wayland, ConfigService* config, TrayService* tray, RenderContext* renderContext
+) {
   m_wayland = &wayland;
   m_config = config;
   m_tray = tray;
@@ -351,8 +353,9 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
         if (onSub)
           sub->pointerInside = true;
         const bool pressed = (event.state == 1);
-        sub->inputDispatcher.pointerButton(static_cast<float>(event.sx), static_cast<float>(event.sy), event.button,
-                                           pressed);
+        sub->inputDispatcher.pointerButton(
+            static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+        );
         subConsumed = true;
         if (m_submenuInstance == nullptr) {
           return subConsumed;
@@ -363,9 +366,10 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
       if (onSub || sub->pointerInside) {
         if (onSub)
           sub->pointerInside = true;
-        subConsumed = sub->inputDispatcher.pointerAxis(static_cast<float>(event.sx), static_cast<float>(event.sy),
-                                                       event.axis, event.axisSource, event.axisValue,
-                                                       event.axisDiscrete, event.axisValue120, event.axisLines);
+        subConsumed = sub->inputDispatcher.pointerAxis(
+            static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis, event.axisSource, event.axisValue,
+            event.axisDiscrete, event.axisValue120, event.axisLines
+        );
       }
       break;
     }
@@ -416,8 +420,9 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
         inst->pointerInside = true;
       }
       const bool pressed = (event.state == 1);
-      inst->inputDispatcher.pointerButton(static_cast<float>(event.sx), static_cast<float>(event.sy), event.button,
-                                          pressed);
+      inst->inputDispatcher.pointerButton(
+          static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+      );
       consumed = true;
       if (!m_visible || m_instance == nullptr) {
         return consumed;
@@ -429,9 +434,10 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
       if (onThisSurface) {
         inst->pointerInside = true;
       }
-      consumed = inst->inputDispatcher.pointerAxis(static_cast<float>(event.sx), static_cast<float>(event.sy),
-                                                   event.axis, event.axisSource, event.axisValue, event.axisDiscrete,
-                                                   event.axisValue120, event.axisLines);
+      consumed = inst->inputDispatcher.pointerAxis(
+          static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis, event.axisSource, event.axisValue,
+          event.axisDiscrete, event.axisValue120, event.axisLines
+      );
     }
     break;
   }
@@ -469,28 +475,32 @@ void TrayMenu::refreshEntries() {
   m_entries = m_tray->menuEntries(m_activeItemId);
   if (!m_entries.empty() && trayDrawerEnabled(m_config)) {
     const bool pinned = activeItemPinned();
-    m_entries.insert(m_entries.begin(), TrayMenuEntry{
-                                            .id = kPinToggleEntryId,
-                                            .label = i18n::tr(pinned ? "tray.menu.unpin" : "tray.menu.pin"),
-                                            .iconName = {},
-                                            .iconData = {},
-                                            .enabled = true,
-                                            .visible = true,
-                                            .separator = false,
-                                            .hasSubmenu = false,
-                                        });
+    m_entries.insert(
+        m_entries.begin(), TrayMenuEntry{
+                               .id = kPinToggleEntryId,
+                               .label = i18n::tr(pinned ? "tray.menu.unpin" : "tray.menu.pin"),
+                               .iconName = {},
+                               .iconData = {},
+                               .enabled = true,
+                               .visible = true,
+                               .separator = false,
+                               .hasSubmenu = false,
+                           }
+    );
   }
   if (m_entries.empty()) {
-    m_entries.push_back(TrayMenuEntry{
-        .id = -1,
-        .label = i18n::tr("tray.menu.empty"),
-        .iconName = {},
-        .iconData = {},
-        .enabled = false,
-        .visible = true,
-        .separator = false,
-        .hasSubmenu = false,
-    });
+    m_entries.push_back(
+        TrayMenuEntry{
+            .id = -1,
+            .label = i18n::tr("tray.menu.empty"),
+            .iconName = {},
+            .iconData = {},
+            .enabled = false,
+            .visible = true,
+            .separator = false,
+            .hasSubmenu = false,
+        }
+    );
     // Short retry window for apps that need a moment to populate after registration.
     // LayoutUpdated from TrayService will also trigger a refresh via onTrayChanged,
     // so this is just a fallback for servers that don't emit it reliably.
@@ -524,16 +534,18 @@ void TrayMenu::scheduleEntryRetry(int attempt) {
     m_entries = std::move(fresh);
     if (!m_entries.empty() && trayDrawerEnabled(m_config)) {
       const bool pinned = activeItemPinned();
-      m_entries.insert(m_entries.begin(), TrayMenuEntry{
-                                              .id = kPinToggleEntryId,
-                                              .label = i18n::tr(pinned ? "tray.menu.unpin" : "tray.menu.pin"),
-                                              .iconName = {},
-                                              .iconData = {},
-                                              .enabled = true,
-                                              .visible = true,
-                                              .separator = false,
-                                              .hasSubmenu = false,
-                                          });
+      m_entries.insert(
+          m_entries.begin(), TrayMenuEntry{
+                                 .id = kPinToggleEntryId,
+                                 .label = i18n::tr(pinned ? "tray.menu.unpin" : "tray.menu.pin"),
+                                 .iconName = {},
+                                 .iconData = {},
+                                 .enabled = true,
+                                 .visible = true,
+                                 .separator = false,
+                                 .hasSubmenu = false,
+                             }
+      );
     }
     resizeMainSurfaceToEntries();
     rebuildScenes();
@@ -544,16 +556,18 @@ uint32_t TrayMenu::submenuHeightPx() const {
   std::vector<ContextMenuControlEntry> entries;
   entries.reserve(m_submenuEntries.size());
   for (const auto& entry : m_submenuEntries) {
-    entries.push_back(ContextMenuControlEntry{
-        .id = entry.id,
-        .label = entry.label,
-        .enabled = entry.enabled,
-        .separator = entry.separator,
-        .hasSubmenu = entry.hasSubmenu,
-        .checkmark = entry.checkmark,
-        .radio = entry.radio,
-        .toggleState = entry.toggleState,
-    });
+    entries.push_back(
+        ContextMenuControlEntry{
+            .id = entry.id,
+            .label = entry.label,
+            .enabled = entry.enabled,
+            .separator = entry.separator,
+            .hasSubmenu = entry.hasSubmenu,
+            .checkmark = entry.checkmark,
+            .radio = entry.radio,
+            .toggleState = entry.toggleState,
+        }
+    );
   }
   return static_cast<uint32_t>(ContextMenuControl::preferredHeight(entries, visibleEntryLimit(entries.size())));
 }
@@ -562,16 +576,18 @@ uint32_t TrayMenu::surfaceHeightPx() const {
   std::vector<ContextMenuControlEntry> entries;
   entries.reserve(m_entries.size());
   for (const auto& entry : m_entries) {
-    entries.push_back(ContextMenuControlEntry{
-        .id = entry.id,
-        .label = entry.label.empty() ? iconNameToLabel(entry.iconName) : entry.label,
-        .enabled = entry.enabled,
-        .separator = entry.separator,
-        .hasSubmenu = entry.hasSubmenu,
-        .checkmark = entry.checkmark,
-        .radio = entry.radio,
-        .toggleState = entry.toggleState,
-    });
+    entries.push_back(
+        ContextMenuControlEntry{
+            .id = entry.id,
+            .label = entry.label.empty() ? iconNameToLabel(entry.iconName) : entry.label,
+            .enabled = entry.enabled,
+            .separator = entry.separator,
+            .hasSubmenu = entry.hasSubmenu,
+            .checkmark = entry.checkmark,
+            .radio = entry.radio,
+            .toggleState = entry.toggleState,
+        }
+    );
   }
   return static_cast<uint32_t>(ContextMenuControl::preferredHeight(entries, visibleEntryLimit(entries.size())));
 }
@@ -594,8 +610,10 @@ void TrayMenu::ensureSurface() {
   const std::uint32_t serial = m_wayland->lastInputSerial();
 
   if (parentLayerSurface == nullptr || output == nullptr || serial == 0) {
-    kLog.debug("tray menu: missing popup anchor context (parent={}, output={}, serial={})",
-               parentLayerSurface != nullptr, output != nullptr, serial);
+    kLog.debug(
+        "tray menu: missing popup anchor context (parent={}, output={}, serial={})", parentLayerSurface != nullptr,
+        output != nullptr, serial
+    );
     return;
   }
 
@@ -612,8 +630,9 @@ void TrayMenu::ensureSurface() {
   inst->surface->setRenderContext(m_renderContext);
   auto* instPtr = inst.get();
 
-  inst->surface->setConfigureCallback(
-      [instPtr](uint32_t /*width*/, uint32_t /*height*/) { instPtr->surface->requestLayout(); });
+  inst->surface->setConfigureCallback([instPtr](uint32_t /*width*/, uint32_t /*height*/) {
+    instPtr->surface->requestLayout();
+  });
   inst->surface->setPrepareFrameCallback([this, instPtr](bool needsUpdate, bool needsLayout) {
     prepareMainMenuFrame(*instPtr, needsUpdate, needsLayout);
   });
@@ -769,16 +788,18 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
   std::vector<ContextMenuControlEntry> entries;
   entries.reserve(m_entries.size());
   for (const auto& entry : m_entries) {
-    entries.push_back(ContextMenuControlEntry{
-        .id = entry.id,
-        .label = entry.label.empty() ? iconNameToLabel(entry.iconName) : entry.label,
-        .enabled = entry.enabled,
-        .separator = entry.separator,
-        .hasSubmenu = entry.hasSubmenu,
-        .checkmark = entry.checkmark,
-        .radio = entry.radio,
-        .toggleState = entry.toggleState,
-    });
+    entries.push_back(
+        ContextMenuControlEntry{
+            .id = entry.id,
+            .label = entry.label.empty() ? iconNameToLabel(entry.iconName) : entry.label,
+            .enabled = entry.enabled,
+            .separator = entry.separator,
+            .hasSubmenu = entry.hasSubmenu,
+            .checkmark = entry.checkmark,
+            .radio = entry.radio,
+            .toggleState = entry.toggleState,
+        }
+    );
   }
 
   const float menuWidth = std::max(1.0f, inst.chrome.contentWidth);
@@ -824,15 +845,17 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
       closeTrayDrawerPanelIfOpen();
     });
   });
-  menu->setOnSubmenuOpen(
-      [this](const ContextMenuControlEntry& entry, float rowCenterY) { openSubmenu(entry.id, rowCenterY); });
+  menu->setOnSubmenuOpen([this](const ContextMenuControlEntry& entry, float rowCenterY) {
+    openSubmenu(entry.id, rowCenterY);
+  });
   scrollView->content()->addChild(std::move(menu));
   scrollView->layout(*m_renderContext);
   inst.sceneRoot->addChild(std::move(scrollView));
 
   inst.inputDispatcher.setSceneRoot(inst.sceneRoot.get());
-  inst.inputDispatcher.setCursorShapeCallback(
-      [this](uint32_t serial, uint32_t shape) { m_wayland->setCursorShape(serial, shape); });
+  inst.inputDispatcher.setCursorShapeCallback([this](uint32_t serial, uint32_t shape) {
+    m_wayland->setCursorShape(serial, shape);
+  });
   inst.surface->setSceneRoot(inst.sceneRoot.get());
 }
 
@@ -888,23 +911,29 @@ bool TrayMenu::toggleActiveItemPinned() {
 
   if (currentlyPinned) {
     std::erase_if(pinned, [&](const std::string& token) { return tray::tokenMatchesItem(token, *item); });
-    kLog.info("tray pin removed token for id={} itemName='{}' title='{}' sniTitle='{}' icon='{}' process='{}' "
-              "bus='{}'",
-              item->id, item->itemName, item->title, item->statusNotifierTitle, item->iconName, item->processName,
-              item->busName);
+    kLog.info(
+        "tray pin removed token for id={} itemName='{}' title='{}' sniTitle='{}' icon='{}' process='{}' "
+        "bus='{}'",
+        item->id, item->itemName, item->title, item->statusNotifierTitle, item->iconName, item->processName,
+        item->busName
+    );
   } else {
     std::string token = tray::preferredPinToken(*item);
     if (token.empty()) {
-      kLog.info("tray pin skipped: no stable token for id={} itemName='{}' title='{}' sniTitle='{}' icon='{}' "
-                "process='{}' bus='{}' objectPath='{}'",
-                item->id, item->itemName, item->title, item->statusNotifierTitle, item->iconName, item->processName,
-                item->busName, item->objectPath);
+      kLog.info(
+          "tray pin skipped: no stable token for id={} itemName='{}' title='{}' sniTitle='{}' icon='{}' "
+          "process='{}' bus='{}' objectPath='{}'",
+          item->id, item->itemName, item->title, item->statusNotifierTitle, item->iconName, item->processName,
+          item->busName, item->objectPath
+      );
       return false;
     }
-    kLog.info("tray pin added token='{}' for id={} itemName='{}' title='{}' sniTitle='{}' icon='{}' process='{}' "
-              "bus='{}'",
-              token, item->id, item->itemName, item->title, item->statusNotifierTitle, item->iconName,
-              item->processName, item->busName);
+    kLog.info(
+        "tray pin added token='{}' for id={} itemName='{}' title='{}' sniTitle='{}' icon='{}' process='{}' "
+        "bus='{}'",
+        token, item->id, item->itemName, item->title, item->statusNotifierTitle, item->iconName, item->processName,
+        item->busName
+    );
     pinned.push_back(token);
   }
 
@@ -1003,8 +1032,9 @@ void TrayMenu::openSubmenu(std::int32_t parentEntryId, float rowCenterY) {
   auto* instPtr = inst.get();
 
   inst->surface->setConfigureCallback([instPtr](uint32_t /*w*/, uint32_t /*h*/) { instPtr->surface->requestLayout(); });
-  inst->surface->setPrepareFrameCallback(
-      [this, instPtr](bool needsUpdate, bool needsLayout) { prepareSubmenuFrame(*instPtr, needsUpdate, needsLayout); });
+  inst->surface->setPrepareFrameCallback([this, instPtr](bool needsUpdate, bool needsLayout) {
+    prepareSubmenuFrame(*instPtr, needsUpdate, needsLayout);
+  });
   inst->surface->setDismissedCallback([this]() { closeSubmenu(); });
 
   auto popupConfig = PopupSurfaceConfig{
@@ -1076,16 +1106,18 @@ void TrayMenu::buildSubmenuScene(MenuInstance& inst, uint32_t width, uint32_t he
   std::vector<ContextMenuControlEntry> entries;
   entries.reserve(m_submenuEntries.size());
   for (const auto& entry : m_submenuEntries) {
-    entries.push_back(ContextMenuControlEntry{
-        .id = entry.id,
-        .label = entry.label,
-        .enabled = entry.enabled,
-        .separator = entry.separator,
-        .hasSubmenu = entry.hasSubmenu,
-        .checkmark = entry.checkmark,
-        .radio = entry.radio,
-        .toggleState = entry.toggleState,
-    });
+    entries.push_back(
+        ContextMenuControlEntry{
+            .id = entry.id,
+            .label = entry.label,
+            .enabled = entry.enabled,
+            .separator = entry.separator,
+            .hasSubmenu = entry.hasSubmenu,
+            .checkmark = entry.checkmark,
+            .radio = entry.radio,
+            .toggleState = entry.toggleState,
+        }
+    );
   }
 
   const float menuWidth = std::max(1.0f, inst.chrome.contentWidth);
@@ -1128,7 +1160,8 @@ void TrayMenu::buildSubmenuScene(MenuInstance& inst, uint32_t width, uint32_t he
   inst.sceneRoot->addChild(std::move(scrollView));
 
   inst.inputDispatcher.setSceneRoot(inst.sceneRoot.get());
-  inst.inputDispatcher.setCursorShapeCallback(
-      [this](uint32_t serial, uint32_t shape) { m_wayland->setCursorShape(serial, shape); });
+  inst.inputDispatcher.setCursorShapeCallback([this](uint32_t serial, uint32_t shape) {
+    m_wayland->setCursorShape(serial, shape);
+  });
   inst.surface->setSceneRoot(inst.sceneRoot.get());
 }

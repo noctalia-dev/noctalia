@@ -36,8 +36,9 @@ public:
   void onOutputActive(zdwl_ipc_output_v2* handle, std::uint32_t active);
   void onOutputTitle(zdwl_ipc_output_v2* handle, const char* title);
   void onOutputAppId(zdwl_ipc_output_v2* handle, const char* appId);
-  void onOutputTag(zdwl_ipc_output_v2* handle, std::uint32_t tag, std::uint32_t state, std::uint32_t clients,
-                   std::uint32_t focused);
+  void onOutputTag(
+      zdwl_ipc_output_v2* handle, std::uint32_t tag, std::uint32_t state, std::uint32_t clients, std::uint32_t focused
+  );
   void onOutputFrame(zdwl_ipc_output_v2* handle);
 
   [[nodiscard]] wl_output* ipcSelectedOutput() const;

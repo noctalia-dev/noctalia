@@ -18,14 +18,20 @@ public:
   AnimationManager(AnimationManager&&) = delete;
   AnimationManager& operator=(AnimationManager&&) = delete;
 
-  Id animate(float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
-             std::function<void()> onComplete = {}, const void* owner = nullptr);
-  Id animateUnscaled(float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
-                     std::function<void()> onComplete = {}, const void* owner = nullptr);
+  Id animate(
+      float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
+      std::function<void()> onComplete = {}, const void* owner = nullptr
+  );
+  Id animateUnscaled(
+      float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
+      std::function<void()> onComplete = {}, const void* owner = nullptr
+  );
   // Real elapsed-time driver: ignores global motion enable/speed. Use for timeouts,
   // not visual transitions.
-  Id animateTimer(float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
-                  std::function<void()> onComplete = {}, const void* owner = nullptr);
+  Id animateTimer(
+      float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
+      std::function<void()> onComplete = {}, const void* owner = nullptr
+  );
   void cancel(Id id);
   void cancelAll();
   void reduceMotion();
@@ -46,7 +52,8 @@ private:
   std::vector<Entry> m_animations;
   Id m_nextId = 1;
 
-  Id animateInternal(float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
-                     std::function<void()> onComplete, const void* owner, bool scaleDuration,
-                     bool respectMotionEnabled);
+  Id animateInternal(
+      float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
+      std::function<void()> onComplete, const void* owner, bool scaleDuration, bool respectMotionEnabled
+  );
 };

@@ -11,8 +11,9 @@ struct wl_output;
 
 class BluetoothWidget : public Widget {
 public:
-  BluetoothWidget(BluetoothService* bluetooth, wl_output* output, bool showLabel,
-                  bool hideWhenNoConnectedDevice = false);
+  BluetoothWidget(
+      BluetoothService* bluetooth, wl_output* output, bool showLabel, bool hideWhenNoConnectedDevice = false
+  );
 
   void create() override;
 

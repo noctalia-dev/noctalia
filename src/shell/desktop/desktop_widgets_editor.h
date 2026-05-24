@@ -37,9 +37,11 @@ class DesktopWidgetsEditor {
 public:
   DesktopWidgetsEditor() = default;
 
-  void initialize(WaylandConnection& wayland, ConfigService* config, PipeWireSpectrum* pipewireSpectrum,
-                  const WeatherService* weather, RenderContext* renderContext, MprisService* mpris,
-                  HttpClient* httpClient, SystemMonitorService* sysmon);
+  void initialize(
+      WaylandConnection& wayland, ConfigService* config, PipeWireSpectrum* pipewireSpectrum,
+      const WeatherService* weather, RenderContext* renderContext, MprisService* mpris, HttpClient* httpClient,
+      SystemMonitorService* sysmon
+  );
   void setExitRequestedCallback(std::function<void()> callback);
 
   void open(const DesktopWidgetsSnapshot& snapshot);
@@ -148,8 +150,10 @@ private:
   void buildInspector(OverlaySurface& surface, Node& root, const DesktopWidgetState& selectedState);
   void deferEditorMutation(std::function<void()> action);
   void requestExit();
-  void startDrag(DragMode mode, const std::string& widgetId, bool rebuildOnFinish,
-                 ScaleCorner scaleCorner = ScaleCorner::BottomRight);
+  void startDrag(
+      DragMode mode, const std::string& widgetId, bool rebuildOnFinish,
+      ScaleCorner scaleCorner = ScaleCorner::BottomRight
+  );
   void updateDrag();
   void finishDrag();
   [[nodiscard]] OverlaySurface* findSurface(wl_surface* surface);

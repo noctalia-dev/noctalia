@@ -2,8 +2,7 @@
 
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
-#include "ui/controls/glyph.h"
-#include "ui/controls/image.h"
+#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -18,17 +17,21 @@ void LauncherWidget::create() {
   area->setOnClick([this](const InputArea::PointerData& /*data*/) { requestPanelToggle("launcher"); });
 
   if (!m_logoPath.empty()) {
-    auto image = std::make_unique<Image>();
-    image->setFit(ImageFit::Contain);
-    m_image = image.get();
-    area->addChild(std::move(image));
+    area->addChild(
+        ui::image({
+            .out = &m_image,
+            .fit = ImageFit::Contain,
+        })
+    );
   } else {
-    auto glyph = std::make_unique<Glyph>();
-    glyph->setGlyph(m_barGlyphId.empty() ? "video" : m_barGlyphId);
-    glyph->setGlyphSize(Style::barGlyphSize * m_contentScale);
-    glyph->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
-    m_glyph = glyph.get();
-    area->addChild(std::move(glyph));
+    area->addChild(
+        ui::glyph({
+            .out = &m_glyph,
+            .glyph = m_barGlyphId.empty() ? "video" : m_barGlyphId,
+            .glyphSize = Style::barGlyphSize * m_contentScale,
+            .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
+        })
+    );
   }
 
   setRoot(std::move(area));

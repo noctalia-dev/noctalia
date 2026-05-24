@@ -12,6 +12,7 @@ namespace compositors {
     Sway = 3,
     Mango = 4, // dwl-derived (mango, dwl)
     Labwc = 5,
+    Triad = 6,
   };
 
   // Detected once per process from env vars. Cached after the first call.
@@ -28,5 +29,6 @@ namespace compositors {
   [[nodiscard]] inline bool isSway() { return detect() == CompositorKind::Sway; }
   [[nodiscard]] inline bool isMango() { return detect() == CompositorKind::Mango; }
   [[nodiscard]] inline bool isLabwc() { return detect() == CompositorKind::Labwc; }
+  [[nodiscard]] inline bool isTriad() { return detect() == CompositorKind::Triad; }
 
 } // namespace compositors

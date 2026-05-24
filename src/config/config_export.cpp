@@ -27,8 +27,10 @@ namespace config_export {
       }
 
       char buffer[16];
-      std::snprintf(buffer, sizeof(buffer), "#%02X%02X%02X%02X", colorByteForExport(color.r),
-                    colorByteForExport(color.g), colorByteForExport(color.b), colorByteForExport(color.a));
+      std::snprintf(
+          buffer, sizeof(buffer), "#%02X%02X%02X%02X", colorByteForExport(color.r), colorByteForExport(color.g),
+          colorByteForExport(color.b), colorByteForExport(color.a)
+      );
       return std::string(buffer);
     }
 
@@ -78,7 +80,8 @@ namespace config_export {
               table.insert_or_assign(key, concrete);
             }
           },
-          value);
+          value
+      );
     }
 
     toml::table widgetConfigTable(const WidgetConfig& widget) {
@@ -127,8 +130,9 @@ namespace config_export {
         item.insert_or_assign("label", action.label.value_or(""));
         item.insert_or_assign("glyph", action.glyph.value_or(""));
         item.insert_or_assign("variant", std::string(enumToKey(kSessionActionButtonVariants, action.variant)));
-        item.insert_or_assign("shortcut",
-                              action.shortcut.has_value() ? keyChordToString(*action.shortcut) : std::string{});
+        item.insert_or_assign(
+            "shortcut", action.shortcut.has_value() ? keyChordToString(*action.shortcut) : std::string{}
+        );
         array.push_back(std::move(item));
       }
       return array;
@@ -187,9 +191,10 @@ namespace config_export {
       }
       table.insert_or_assign("capsule_opacity", static_cast<double>(bar.widgetCapsuleOpacity));
       if (bar.widgetCapsuleBorderSpecified) {
-        table.insert_or_assign("capsule_border", bar.widgetCapsuleBorder.has_value()
-                                                     ? colorSpecToConfigString(*bar.widgetCapsuleBorder)
-                                                     : std::string{});
+        table.insert_or_assign(
+            "capsule_border",
+            bar.widgetCapsuleBorder.has_value() ? colorSpecToConfigString(*bar.widgetCapsuleBorder) : std::string{}
+        );
       }
     }
 
@@ -308,11 +313,13 @@ namespace config_export {
       table.insert_or_assign("show_location", shell.showLocation);
       table.insert_or_assign("launch_apps_as_systemd_services", shell.launchAppsAsSystemdServices);
       table.insert_or_assign("clipboard_enabled", shell.clipboardEnabled);
-      table.insert_or_assign("clipboard_history_max_entries",
-                             static_cast<std::int64_t>(shell.clipboardHistoryMaxEntries));
+      table.insert_or_assign(
+          "clipboard_history_max_entries", static_cast<std::int64_t>(shell.clipboardHistoryMaxEntries)
+      );
       table.insert_or_assign("screen_time_enabled", shell.screenTimeEnabled);
-      table.insert_or_assign("clipboard_auto_paste",
-                             std::string(enumToKey(kClipboardAutoPasteModes, shell.clipboardAutoPaste)));
+      table.insert_or_assign(
+          "clipboard_auto_paste", std::string(enumToKey(kClipboardAutoPasteModes, shell.clipboardAutoPaste))
+      );
       table.insert_or_assign("clipboard_image_action_command", shell.clipboardImageActionCommand);
       if (!shell.avatarPath.empty()) {
         table.insert_or_assign("avatar_path", shell.avatarPath);
@@ -332,20 +339,26 @@ namespace config_export {
 
       toml::table panel;
       panel.insert_or_assign("background_blur", shell.panel.backgroundBlur);
-      panel.insert_or_assign("transparency_mode",
-                             std::string(enumToKey(kPanelTransparencyModes, shell.panel.transparencyMode)));
+      panel.insert_or_assign(
+          "transparency_mode", std::string(enumToKey(kPanelTransparencyModes, shell.panel.transparencyMode))
+      );
       panel.insert_or_assign("borders", shell.panel.borders);
       panel.insert_or_assign("shadow", shell.panel.shadow);
-      panel.insert_or_assign("launcher_placement",
-                             std::string(enumToKey(kPanelPlacements, shell.panel.launcherPlacement)));
-      panel.insert_or_assign("clipboard_placement",
-                             std::string(enumToKey(kPanelPlacements, shell.panel.clipboardPlacement)));
-      panel.insert_or_assign("control_center_placement",
-                             std::string(enumToKey(kPanelPlacements, shell.panel.controlCenterPlacement)));
-      panel.insert_or_assign("wallpaper_placement",
-                             std::string(enumToKey(kPanelPlacements, shell.panel.wallpaperPlacement)));
-      panel.insert_or_assign("session_placement",
-                             std::string(enumToKey(kPanelPlacements, shell.panel.sessionPlacement)));
+      panel.insert_or_assign(
+          "launcher_placement", std::string(enumToKey(kPanelPlacements, shell.panel.launcherPlacement))
+      );
+      panel.insert_or_assign(
+          "clipboard_placement", std::string(enumToKey(kPanelPlacements, shell.panel.clipboardPlacement))
+      );
+      panel.insert_or_assign(
+          "control_center_placement", std::string(enumToKey(kPanelPlacements, shell.panel.controlCenterPlacement))
+      );
+      panel.insert_or_assign(
+          "wallpaper_placement", std::string(enumToKey(kPanelPlacements, shell.panel.wallpaperPlacement))
+      );
+      panel.insert_or_assign(
+          "session_placement", std::string(enumToKey(kPanelPlacements, shell.panel.sessionPlacement))
+      );
       panel.insert_or_assign("open_near_click_control_center", shell.panel.openNearClickControlCenter);
       panel.insert_or_assign("open_near_click_launcher", shell.panel.openNearClickLauncher);
       panel.insert_or_assign("open_near_click_clipboard", shell.panel.openNearClickClipboard);
@@ -439,9 +452,9 @@ namespace config_export {
       toml::table table;
       table.insert_or_assign("enabled", wallpaper.enabled);
       table.insert_or_assign("fill_mode", std::string(enumToKey(kWallpaperFillModes, wallpaper.fillMode)));
-      table.insert_or_assign("fill_color", wallpaper.fillColor.has_value()
-                                               ? colorSpecToConfigString(*wallpaper.fillColor)
-                                               : std::string{});
+      table.insert_or_assign(
+          "fill_color", wallpaper.fillColor.has_value() ? colorSpecToConfigString(*wallpaper.fillColor) : std::string{}
+      );
       table.insert_or_assign("transition", wallpaperTransitionArray(wallpaper.transitions));
       table.insert_or_assign("transition_duration", static_cast<double>(wallpaper.transitionDurationMs));
       table.insert_or_assign("edge_smoothness", static_cast<double>(wallpaper.edgeSmoothness));
@@ -453,8 +466,9 @@ namespace config_export {
       toml::table automation;
       automation.insert_or_assign("enabled", wallpaper.automation.enabled);
       automation.insert_or_assign("interval_minutes", static_cast<std::int64_t>(wallpaper.automation.intervalMinutes));
-      automation.insert_or_assign("order",
-                                  std::string(enumToKey(kWallpaperAutomationOrders, wallpaper.automation.order)));
+      automation.insert_or_assign(
+          "order", std::string(enumToKey(kWallpaperAutomationOrders, wallpaper.automation.order))
+      );
       automation.insert_or_assign("recursive", wallpaper.automation.recursive);
       table.insert_or_assign("automation", std::move(automation));
 
@@ -632,8 +646,9 @@ namespace config_export {
 
     toml::table hooksTable(const HooksConfig& hooks) {
       toml::table table;
-      table.insert_or_assign("battery_low_percent_threshold",
-                             static_cast<std::int64_t>(hooks.batteryLowPercentThreshold));
+      table.insert_or_assign(
+          "battery_low_percent_threshold", static_cast<std::int64_t>(hooks.batteryLowPercentThreshold)
+      );
       for (std::size_t i = 0; i < static_cast<std::size_t>(HookKind::Count); ++i) {
         const auto kind = static_cast<HookKind>(i);
         table.insert_or_assign(hookKindKey(kind), stringArray(hooks.commands[i]));

@@ -22,8 +22,9 @@ public:
   using OpenLauncherCallback =
       std::function<void(std::string_view initialQuery, wl_output* output, std::string_view sourceBarName)>;
 
-  bool initialize(WaylandConnection& wayland, RenderContext* renderContext, CompositorPlatform& platform,
-                  PanelManager& panelManager);
+  bool initialize(
+      WaylandConnection& wayland, RenderContext* renderContext, CompositorPlatform& platform, PanelManager& panelManager
+  );
   void setOpenLauncherCallback(OpenLauncherCallback callback);
   void setEnabled(bool enabled);
 

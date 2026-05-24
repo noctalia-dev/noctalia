@@ -325,14 +325,16 @@ void Select::applyVisualState() {
   m_triggerGlyph->setColor(triggerText);
   m_triggerGlyph->setRotation(m_caretProgress * static_cast<float>(M_PI));
 
-  m_triggerBackground->setStyle(RoundedRectStyle{
-      .fill = triggerBg,
-      .border = triggerBorder,
-      .fillMode = FillMode::Solid,
-      .radius = Style::scaledRadiusMd(),
-      .softness = 1.0f,
-      .borderWidth = Style::borderWidth,
-  });
+  m_triggerBackground->setStyle(
+      RoundedRectStyle{
+          .fill = triggerBg,
+          .border = triggerBorder,
+          .fillMode = FillMode::Solid,
+          .radius = Style::scaledRadiusMd(),
+          .softness = 1.0f,
+          .borderWidth = Style::borderWidth,
+      }
+  );
 }
 
 void Select::animateCaret(bool open) {
@@ -348,7 +350,8 @@ void Select::animateCaret(bool open) {
           applyVisualState();
           markPaintDirty();
         },
-        [this]() { m_caretAnimId = 0; }, this);
+        [this]() { m_caretAnimId = 0; }, this
+    );
     markPaintDirty();
   } else {
     m_caretProgress = to;

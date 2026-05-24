@@ -127,7 +127,8 @@ namespace {
 
     const auto entry = app_identity::findDesktopEntry(
         baseKey, desktopEntries(),
-        app_identity::DesktopEntryLookupOptions{.includeHidden = true, .includeNoDisplay = true});
+        app_identity::DesktopEntryLookupOptions{.includeHidden = true, .includeNoDisplay = true}
+    );
     if (!entry.has_value()) {
       return false;
     }
@@ -228,8 +229,9 @@ std::chrono::seconds ScreenTimeService::appSecondsForKey(const DayRecord& day, c
   return total;
 }
 
-void ScreenTimeService::distributeSecondsAcrossHourly(std::chrono::seconds amount, const DayRecord& profile,
-                                                      std::vector<std::chrono::seconds>& buckets) {
+void ScreenTimeService::distributeSecondsAcrossHourly(
+    std::chrono::seconds amount, const DayRecord& profile, std::vector<std::chrono::seconds>& buckets
+) {
   if (amount.count() <= 0 || buckets.empty()) {
     return;
   }
@@ -461,11 +463,13 @@ ScreenTimeSnapshot ScreenTimeService::snapshot(int rangeDays) {
     if (displayName.empty()) {
       displayName = appKey;
     }
-    snapshot.apps.push_back(ScreenTimeAppUsage{
-        .appKey = appKey,
-        .displayName = std::move(displayName),
-        .total = seconds,
-    });
+    snapshot.apps.push_back(
+        ScreenTimeAppUsage{
+            .appKey = appKey,
+            .displayName = std::move(displayName),
+            .total = seconds,
+        }
+    );
   }
 
   std::ranges::sort(snapshot.apps, [](const ScreenTimeAppUsage& a, const ScreenTimeAppUsage& b) {
@@ -477,8 +481,9 @@ ScreenTimeSnapshot ScreenTimeService::snapshot(int rangeDays) {
 
   std::vector<ScreenTimeAppUsage> rankedApps = std::move(snapshot.apps);
   // Chart: top kMaxChartSeries. List: up to kMaxListedApps.
-  snapshot.apps.assign(rankedApps.begin(),
-                       rankedApps.begin() + static_cast<std::ptrdiff_t>(std::min(rankedApps.size(), kMaxListedApps)));
+  snapshot.apps.assign(
+      rankedApps.begin(), rankedApps.begin() + static_cast<std::ptrdiff_t>(std::min(rankedApps.size(), kMaxListedApps))
+  );
 
   const auto fillSeriesBuckets = [&](ScreenTimeChartSeries& series, const std::string& appKey) {
     if (snapshot.hourlyBuckets) {

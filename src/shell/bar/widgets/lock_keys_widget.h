@@ -13,8 +13,10 @@ class LockKeysWidget : public Widget {
 public:
   enum class DisplayMode : std::uint8_t { Short = 0, Full = 1 };
 
-  LockKeysWidget(LockKeysService* lockKeys, bool showCapsLock, bool showNumLock, bool showScrollLock, bool hideWhenOff,
-                 DisplayMode displayMode);
+  LockKeysWidget(
+      LockKeysService* lockKeys, bool showCapsLock, bool showNumLock, bool showScrollLock, bool hideWhenOff,
+      DisplayMode displayMode
+  );
 
   static DisplayMode parseDisplayMode(const std::string& value);
 

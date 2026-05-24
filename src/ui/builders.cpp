@@ -227,8 +227,10 @@ namespace ui {
       const float allPadding = props.padding.value_or(0.0f);
       const float verticalPadding = props.paddingV.value_or(allPadding);
       const float horizontalPadding = props.paddingH.value_or(allPadding);
-      control->setPadding(props.paddingTop.value_or(verticalPadding), props.paddingRight.value_or(horizontalPadding),
-                          props.paddingBottom.value_or(verticalPadding), props.paddingLeft.value_or(horizontalPadding));
+      control->setPadding(
+          props.paddingTop.value_or(verticalPadding), props.paddingRight.value_or(horizontalPadding),
+          props.paddingBottom.value_or(verticalPadding), props.paddingLeft.value_or(horizontalPadding)
+      );
     }
     if (props.gap.has_value()) {
       control->setGap(*props.gap);
@@ -300,8 +302,9 @@ namespace ui {
   std::unique_ptr<Box> box(BoxProps props) {
     auto control = std::make_unique<Box>();
     if (props.cardStyleScale.has_value()) {
-      control->setCardStyle(*props.cardStyleScale, props.cardStyleFillOpacity.value_or(1.0f),
-                            props.cardStyleShowBorder.value_or(true));
+      control->setCardStyle(
+          *props.cardStyleScale, props.cardStyleFillOpacity.value_or(1.0f), props.cardStyleShowBorder.value_or(true)
+      );
     }
     if (props.fill.has_value()) {
       control->setFill(*props.fill);
@@ -614,6 +617,27 @@ namespace ui {
     return control;
   }
 
+  std::unique_ptr<VirtualListView> virtualListView(VirtualListViewProps props) {
+    auto control = std::make_unique<VirtualListView>();
+    if (props.itemGap.has_value()) {
+      control->setItemGap(*props.itemGap);
+    }
+    if (props.overscanItems.has_value()) {
+      control->setOverscanItems(*props.overscanItems);
+    }
+    if (props.adapter != nullptr) {
+      control->setAdapter(props.adapter);
+    }
+    applyNodeProps(*control, props);
+    if (props.configure) {
+      props.configure(*control);
+    }
+    if (props.out != nullptr) {
+      *props.out = control.get();
+    }
+    return control;
+  }
+
   std::unique_ptr<SearchPicker> searchPicker(SearchPickerProps props) {
     auto control = std::make_unique<SearchPicker>();
     if (props.placeholder.has_value()) {
@@ -782,6 +806,82 @@ namespace ui {
     }
     if (props.onCommit) {
       control->setOnCommit(std::move(props.onCommit));
+    }
+    applyNodeProps(*control, props);
+    if (props.configure) {
+      props.configure(*control);
+    }
+    if (props.out != nullptr) {
+      *props.out = control.get();
+    }
+    return control;
+  }
+
+  std::unique_ptr<Spinner> spinner(SpinnerProps props) {
+    auto control = std::make_unique<Spinner>();
+    if (props.color.has_value()) {
+      control->setColor(*props.color);
+    }
+    if (props.spinnerSize.has_value()) {
+      control->setSpinnerSize(*props.spinnerSize);
+    }
+    if (props.thickness.has_value()) {
+      control->setThickness(*props.thickness);
+    }
+    if (props.spinning.has_value()) {
+      if (*props.spinning) {
+        control->start();
+      } else {
+        control->stop();
+      }
+    }
+    applyNodeProps(*control, props);
+    if (props.configure) {
+      props.configure(*control);
+    }
+    if (props.out != nullptr) {
+      *props.out = control.get();
+    }
+    return control;
+  }
+
+  std::unique_ptr<Chip> chip(ChipProps props) {
+    auto control = std::make_unique<Chip>();
+    if (props.text.has_value()) {
+      control->setText(*props.text);
+    }
+    if (props.active.has_value()) {
+      control->setActive(*props.active);
+    }
+    applyNodeProps(*control, props);
+    if (props.configure) {
+      props.configure(*control);
+    }
+    if (props.out != nullptr) {
+      *props.out = control.get();
+    }
+    return control;
+  }
+
+  std::unique_ptr<ProgressBar> progressBar(ProgressBarProps props) {
+    auto control = std::make_unique<ProgressBar>();
+    if (props.fill.has_value()) {
+      control->setFill(*props.fill);
+    }
+    if (props.track.has_value()) {
+      control->setTrack(*props.track);
+    }
+    if (props.radius.has_value()) {
+      control->setRadius(*props.radius);
+    }
+    if (props.softness.has_value()) {
+      control->setSoftness(*props.softness);
+    }
+    if (props.orientation.has_value()) {
+      control->setOrientation(*props.orientation);
+    }
+    if (props.progress.has_value()) {
+      control->setProgress(*props.progress);
     }
     applyNodeProps(*control, props);
     if (props.configure) {

@@ -19,8 +19,10 @@ public:
   void ensureInitialized();
   void destroy();
 
-  void draw(float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,
-            const Mat3& transform = Mat3::identity()) const;
+  void draw(
+      float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,
+      const Mat3& transform = Mat3::identity()
+  ) const;
 
 private:
   static constexpr std::size_t kEffectCount = 5;

@@ -78,7 +78,8 @@ void Spinner::startLoop() {
           startLoop();
         }
       },
-      this);
+      this
+  );
   markPaintDirty();
 }
 

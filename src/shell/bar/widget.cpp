@@ -102,8 +102,10 @@ void Widget::requestFrameTick() {
   }
 }
 
-void Widget::requestPanelToggle(std::string_view panelId, std::string_view context, std::optional<float> anchorSurfaceX,
-                                std::optional<float> anchorSurfaceY) {
+void Widget::requestPanelToggle(
+    std::string_view panelId, std::string_view context, std::optional<float> anchorSurfaceX,
+    std::optional<float> anchorSurfaceY
+) {
   if (m_panelToggleCallback) {
     m_panelToggleCallback(panelId, context, anchorSurfaceX, anchorSurfaceY);
   }

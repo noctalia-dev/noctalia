@@ -8,9 +8,7 @@
 #include "system/hardware_info.h"
 #include "system/system_monitor_service.h"
 #include "time/time_format.h"
-#include "ui/controls/flex.h"
-#include "ui/controls/glyph.h"
-#include "ui/controls/label.h"
+#include "ui/builders.h"
 
 #include <algorithm>
 #include <format>
@@ -25,49 +23,44 @@ namespace {
   constexpr double kNetMinScaleBps = 10000.0;
 
   Flex* makeHeaderRow(Flex& parent, const std::string& title, float scale) {
-    auto row = std::make_unique<Flex>();
-    row->setDirection(FlexDirection::Horizontal);
-    row->setAlign(FlexAlign::Center);
-    row->setGap(Style::spaceSm * scale);
-
-    auto label = std::make_unique<Label>();
-    label->setText(title);
-    label->setFontWeight(FontWeight::Bold);
-    label->setFontSize(Style::fontSizeTitle * scale);
-    label->setColor(colorSpecFromRole(ColorRole::OnSurface));
-    label->setFlexGrow(1.0f);
-    row->addChild(std::move(label));
-
-    auto* ptr = row.get();
+    Flex* ptr = nullptr;
+    auto row = ui::row(
+        {.out = &ptr, .align = FlexAlign::Center, .gap = Style::spaceSm * scale},
+        ui::label({
+            .text = title,
+            .fontSize = Style::fontSizeTitle * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurface),
+            .fontWeight = FontWeight::Bold,
+            .flexGrow = 1.0f,
+        })
+    );
     parent.addChild(std::move(row));
     return ptr;
   }
 
   Label* makeValueLabel(Flex& parent, float scale) {
-    auto label = std::make_unique<Label>();
-    label->setFontSize(Style::fontSizeBody * scale);
-    label->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-    auto* ptr = label.get();
-    parent.addChild(std::move(label));
+    Label* ptr = nullptr;
+    parent.addChild(
+        ui::label({
+            .out = &ptr,
+            .fontSize = Style::fontSizeBody * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+        })
+    );
     return ptr;
   }
 
   Flex* makeIconLabel(Flex& parent, const char* glyphName, float scale, Glyph** outIcon = nullptr) {
-    auto group = std::make_unique<Flex>();
-    group->setDirection(FlexDirection::Horizontal);
-    group->setAlign(FlexAlign::Center);
-    group->setGap(Style::spaceXs * scale);
-
-    auto icon = std::make_unique<Glyph>();
-    icon->setGlyph(glyphName);
-    icon->setGlyphSize(Style::fontSizeBody * scale);
-    icon->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-    if (outIcon != nullptr) {
-      *outIcon = icon.get();
-    }
-    group->addChild(std::move(icon));
-
-    auto* ptr = group.get();
+    Flex* ptr = nullptr;
+    auto group = ui::row(
+        {.out = &ptr, .align = FlexAlign::Center, .gap = Style::spaceXs * scale},
+        ui::glyph({
+            .out = outIcon,
+            .glyph = glyphName,
+            .glyphSize = Style::fontSizeBody * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+        })
+    );
     parent.addChild(std::move(group));
     return ptr;
   }
@@ -94,36 +87,38 @@ namespace {
     return FormatUnits::formatBinaryBytesAsGib(*stats.gpuVramUsedBytes);
   }
 
-  Flex* makeInfoCard(Flex& parent, const std::string& title, float scale, float fillOpacity, bool showBorder,
-                     Label** outLines, int lineCount, const char* const* glyphs) {
-    auto card = std::make_unique<Flex>();
-    applySectionCardStyle(*card, scale, fillOpacity, showBorder);
-    card->setFlexGrow(1.0f);
-    card->setGap(Style::spaceXs * scale);
+  Flex* makeInfoCard(
+      Flex& parent, const std::string& title, float scale, float fillOpacity, bool showBorder, Label** outLines,
+      int lineCount, const char* const* glyphs
+  ) {
+    auto card = ui::column({
+        .gap = Style::spaceXs * scale,
+        .flexGrow = 1.0f,
+        .configure = [scale, fillOpacity, showBorder](Flex& section) {
+          applySectionCardStyle(section, scale, fillOpacity, showBorder);
+        },
+    });
 
     addTitle(*card, title, scale);
 
     for (int i = 0; i < lineCount; ++i) {
-      auto row = std::make_unique<Flex>();
-      row->setDirection(FlexDirection::Horizontal);
-      row->setAlign(FlexAlign::Center);
-      row->setGap(Style::spaceXs * scale);
-
-      auto icon = std::make_unique<Glyph>();
-      icon->setGlyph(glyphs[i]);
-      icon->setGlyphSize(Style::fontSizeMini * scale);
-      icon->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-      row->addChild(std::move(icon));
-
-      auto label = std::make_unique<Label>();
-      label->setFontSize(Style::fontSizeMini * scale);
-      label->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-      label->setMaxLines(1);
-      label->setFlexGrow(1.0f);
-      outLines[i] = label.get();
-      row->addChild(std::move(label));
-
-      card->addChild(std::move(row));
+      card->addChild(
+          ui::row(
+              {.align = FlexAlign::Center, .gap = Style::spaceXs * scale},
+              ui::glyph({
+                  .glyph = glyphs[i],
+                  .glyphSize = Style::fontSizeMini * scale,
+                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              }),
+              ui::label({
+                  .out = &outLines[i],
+                  .fontSize = Style::fontSizeMini * scale,
+                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  .maxLines = 1,
+                  .flexGrow = 1.0f,
+              })
+          )
+      );
     }
 
     auto* ptr = card.get();
@@ -152,27 +147,30 @@ SystemTab::~SystemTab() {
 std::unique_ptr<Flex> SystemTab::create() {
   const float sc = contentScale();
 
-  auto tab = std::make_unique<Flex>();
-  tab->setDirection(FlexDirection::Vertical);
-  tab->setAlign(FlexAlign::Stretch);
-  tab->setGap(Style::spaceSm * sc);
-  m_root = tab.get();
+  auto tab = ui::column({
+      .out = &m_root,
+      .align = FlexAlign::Stretch,
+      .gap = Style::spaceSm * sc,
+  });
 
   // --- Graph grid ---
   // Row 1: CPU, Memory
   {
-    auto row = std::make_unique<Flex>();
-    row->setDirection(FlexDirection::Horizontal);
-    row->setAlign(FlexAlign::Stretch);
-    row->setGap(Style::spaceSm * sc);
-    row->setFlexGrow(1.0f);
+    auto row = ui::row({
+        .align = FlexAlign::Stretch,
+        .gap = Style::spaceSm * sc,
+        .flexGrow = 1.0f,
+    });
 
     // CPU card
     {
-      auto card = std::make_unique<Flex>();
-      applySectionCardStyle(*card, sc, panelCardOpacity(), panelBordersEnabled());
-      card->setFlexGrow(1.0f);
-      m_cpuCard = card.get();
+      auto card = ui::column({
+          .out = &m_cpuCard,
+          .flexGrow = 1.0f,
+          .configure = [sc, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& section) {
+            applySectionCardStyle(section, sc, opacity, borders);
+          },
+      });
 
       auto* header = makeHeaderRow(*card, i18n::tr("control-center.system.titles.cpu"), sc);
       auto* cpuPctGroup = makeIconLabel(*header, "cpu-usage", sc, &m_cpuPctIcon);
@@ -186,10 +184,13 @@ std::unique_ptr<Flex> SystemTab::create() {
 
     // Memory card
     {
-      auto card = std::make_unique<Flex>();
-      applySectionCardStyle(*card, sc, panelCardOpacity(), panelBordersEnabled());
-      card->setFlexGrow(1.0f);
-      m_ramCard = card.get();
+      auto card = ui::column({
+          .out = &m_ramCard,
+          .flexGrow = 1.0f,
+          .configure = [sc, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& section) {
+            applySectionCardStyle(section, sc, opacity, borders);
+          },
+      });
 
       auto* header = makeHeaderRow(*card, i18n::tr("control-center.system.titles.memory"), sc);
       auto* ramGroup = makeIconLabel(*header, "memory", sc, &m_ramIcon);
@@ -204,19 +205,22 @@ std::unique_ptr<Flex> SystemTab::create() {
 
   // Row 2: GPU (optional), Network
   {
-    auto row = std::make_unique<Flex>();
-    row->setDirection(FlexDirection::Horizontal);
-    row->setAlign(FlexAlign::Stretch);
-    row->setGap(Style::spaceSm * sc);
-    row->setFlexGrow(1.0f);
+    auto row = ui::row({
+        .align = FlexAlign::Stretch,
+        .gap = Style::spaceSm * sc,
+        .flexGrow = 1.0f,
+    });
 
     // GPU card
     {
-      auto card = std::make_unique<Flex>();
-      applySectionCardStyle(*card, sc, panelCardOpacity(), panelBordersEnabled());
-      card->setFlexGrow(1.0f);
-      card->setVisible(false);
-      m_gpuCard = card.get();
+      auto card = ui::column({
+          .out = &m_gpuCard,
+          .flexGrow = 1.0f,
+          .visible = false,
+          .configure = [sc, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& section) {
+            applySectionCardStyle(section, sc, opacity, borders);
+          },
+      });
 
       auto* header = makeHeaderRow(*card, i18n::tr("control-center.system.titles.gpu"), sc);
       auto* gpuVramGroup = makeIconLabel(*header, "memory", sc, &m_gpuVramIcon);
@@ -230,10 +234,13 @@ std::unique_ptr<Flex> SystemTab::create() {
 
     // Network card
     {
-      auto card = std::make_unique<Flex>();
-      applySectionCardStyle(*card, sc, panelCardOpacity(), panelBordersEnabled());
-      card->setFlexGrow(1.0f);
-      m_netCard = card.get();
+      auto card = ui::column({
+          .out = &m_netCard,
+          .flexGrow = 1.0f,
+          .configure = [sc, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& section) {
+            applySectionCardStyle(section, sc, opacity, borders);
+          },
+      });
 
       auto* header = makeHeaderRow(*card, i18n::tr("control-center.system.titles.network"), sc);
       auto* rxGroup = makeIconLabel(*header, "download-speed", sc, &m_rxIcon);
@@ -250,19 +257,23 @@ std::unique_ptr<Flex> SystemTab::create() {
 
   // --- Info row: System, Resources ---
   {
-    auto row = std::make_unique<Flex>();
-    row->setDirection(FlexDirection::Horizontal);
-    row->setAlign(FlexAlign::Stretch);
-    row->setGap(Style::spaceSm * sc);
+    auto row = ui::row({
+        .align = FlexAlign::Stretch,
+        .gap = Style::spaceSm * sc,
+    });
     static constexpr const char* kSystemGlyphs[] = {"device-desktop", "layout-board", "cpu-usage",
                                                     "video",          "app-window",   "clock"};
-    makeInfoCard(*row, i18n::tr("control-center.system.titles.system"), sc, panelCardOpacity(), panelBordersEnabled(),
-                 m_systemLines, kSystemLines, kSystemGlyphs)
+    makeInfoCard(
+        *row, i18n::tr("control-center.system.titles.system"), sc, panelCardOpacity(), panelBordersEnabled(),
+        m_systemLines, kSystemLines, kSystemGlyphs
+    )
         ->setFlexGrow(2.0f);
 
     static constexpr const char* kResourcesGlyphs[] = {"activity", "memory", "storage"};
-    makeInfoCard(*row, i18n::tr("control-center.system.titles.resources"), sc, panelCardOpacity(),
-                 panelBordersEnabled(), m_resourcesLines, kResourcesLines, kResourcesGlyphs);
+    makeInfoCard(
+        *row, i18n::tr("control-center.system.titles.resources"), sc, panelCardOpacity(), panelBordersEnabled(),
+        m_resourcesLines, kResourcesLines, kResourcesGlyphs
+    );
 
     tab->addChild(std::move(row));
   }
@@ -541,7 +552,8 @@ void SystemTab::updateGraphs(Renderer& renderer) {
       if (s.gpuVramUsedBytes.has_value() && s.gpuVramTotalBytes.has_value() && *s.gpuVramTotalBytes > 0) {
         hasGpuVram = true;
         gpuVram[i] = static_cast<float>(
-            std::clamp(static_cast<double>(*s.gpuVramUsedBytes) / static_cast<double>(*s.gpuVramTotalBytes), 0.0, 1.0));
+            std::clamp(static_cast<double>(*s.gpuVramUsedBytes) / static_cast<double>(*s.gpuVramTotalBytes), 0.0, 1.0)
+        );
       }
       if (s.gpuTempC.has_value()) {
         hasGpuTemp = true;
@@ -561,8 +573,10 @@ void SystemTab::updateGraphs(Renderer& renderer) {
       gpuTemp[last] = std::clamp(gpuTemp[prev] + (gpuTemp[prev] - gpuTemp[prev2]) * 0.5f, 0.0f, 1.0f);
     }
     if (hasGpuVram || hasGpuTemp) {
-      m_gpuGraph->setData(renderer.textureManager(), hasGpuVram ? gpuVram.data() : nullptr, hasGpuVram ? texSize : 0,
-                          hasGpuTemp ? gpuTemp.data() : nullptr, hasGpuTemp ? texSize : 0);
+      m_gpuGraph->setData(
+          renderer.textureManager(), hasGpuVram ? gpuVram.data() : nullptr, hasGpuVram ? texSize : 0,
+          hasGpuTemp ? gpuTemp.data() : nullptr, hasGpuTemp ? texSize : 0
+      );
       m_gpuGraph->setCount1(hasGpuVram ? static_cast<float>(n) : 0.0f);
       m_gpuGraph->setCount2(hasGpuTemp ? static_cast<float>(n) : 0.0f);
     } else {
@@ -681,8 +695,9 @@ void SystemTab::syncLabels() {
     m_gpuVramLabel->setText(formatGpuVramUsed(stats));
   }
   if (m_ramLabel != nullptr) {
-    m_ramLabel->setText(FormatUnits::formatBinaryMibAsGib(stats.ramUsedMb) +
-                        std::format(" · {:.0f}%", stats.ramUsagePercent));
+    m_ramLabel->setText(
+        FormatUnits::formatBinaryMibAsGib(stats.ramUsedMb) + std::format(" · {:.0f}%", stats.ramUsagePercent)
+    );
   }
   if (m_rxLabel != nullptr) {
     m_rxLabel->setText(FormatUnits::formatDecimalBytesPerSecond(stats.netRxBytesPerSec));
@@ -712,13 +727,15 @@ void SystemTab::syncLabels() {
     const std::string uptimeText =
         uptime.has_value() ? formatDuration(*uptime) : i18n::tr("control-center.system.unknown");
     m_systemLines[5]->setText(
-        i18n::tr("control-center.system.uptime-prefix", "uptime", uptimeText, "osAge", osAgeLabel()));
+        i18n::tr("control-center.system.uptime-prefix", "uptime", uptimeText, "osAge", osAgeLabel())
+    );
   }
 
   // Resources info
   if (m_resourcesLines[0] != nullptr) {
     m_resourcesLines[0]->setText(
-        std::format("{:.2f} / {:.2f} / {:.2f}", stats.loadAvg1, stats.loadAvg5, stats.loadAvg15));
+        std::format("{:.2f} / {:.2f} / {:.2f}", stats.loadAvg1, stats.loadAvg5, stats.loadAvg15)
+    );
   }
   if (m_resourcesLines[1] != nullptr) {
     m_resourcesLines[1]->setText(formatMemoryUsedTotal(stats));

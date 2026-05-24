@@ -271,11 +271,13 @@ namespace {
     for (const auto& id : actionOrder) {
       auto it = actionMap.find(id);
       if (it != actionMap.end()) {
-        entry.actions.push_back(DesktopAction{
-            .id = it->first,
-            .name = it->second.name,
-            .exec = it->second.exec,
-        });
+        entry.actions.push_back(
+            DesktopAction{
+                .id = it->first,
+                .name = it->second.name,
+                .exec = it->second.exec,
+            }
+        );
       }
     }
 
@@ -504,8 +506,9 @@ std::vector<DesktopEntry> scanDesktopEntries() {
   }
 
   // Sort by name for consistent ordering
-  std::sort(entries.begin(), entries.end(),
-            [](const DesktopEntry& a, const DesktopEntry& b) { return a.nameLower < b.nameLower; });
+  std::sort(entries.begin(), entries.end(), [](const DesktopEntry& a, const DesktopEntry& b) {
+    return a.nameLower < b.nameLower;
+  });
 
   return entries;
 }

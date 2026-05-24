@@ -31,8 +31,9 @@ namespace {
 
 } // namespace
 
-DesktopMediaPlayerWidget::DesktopMediaPlayerWidget(MprisService* mpris, HttpClient* httpClient, bool vertical,
-                                                   ColorSpec color, bool shadow)
+DesktopMediaPlayerWidget::DesktopMediaPlayerWidget(
+    MprisService* mpris, HttpClient* httpClient, bool vertical, ColorSpec color, bool shadow
+)
     : m_mpris(mpris), m_httpClient(httpClient), m_vertical(vertical), m_color(std::move(color)), m_shadow(shadow) {}
 
 void DesktopMediaPlayerWidget::create() {
@@ -94,23 +95,24 @@ void DesktopMediaPlayerWidget::create() {
           .out = &m_next,
           .glyph = "media-next",
           .variant = ButtonVariant::Ghost,
-          .onClick =
-              [this]() {
-                if (m_mpris != nullptr) {
-                  m_mpris->nextActive();
-                  requestRedraw();
-                }
-              },
-      }));
+          .onClick = [this]() {
+            if (m_mpris != nullptr) {
+              m_mpris->nextActive();
+              requestRedraw();
+            }
+          },
+      })
+  );
 
   rootNode->addChild(std::move(controls));
   setRoot(std::move(rootNode));
   applyShadow();
 }
 
-bool DesktopMediaPlayerWidget::applySetting(const std::string& key, const WidgetSettingValue& value,
-                                            const std::unordered_map<std::string, WidgetSettingValue>& allSettings,
-                                            Renderer& renderer) {
+bool DesktopMediaPlayerWidget::applySetting(
+    const std::string& key, const WidgetSettingValue& value,
+    const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
+) {
   if (key == "color") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_color = colorSpecFromConfigString(*v, key);

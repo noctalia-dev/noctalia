@@ -18,8 +18,10 @@ public:
   void ensureInitialized();
   void destroy();
 
-  void draw(TextureId dataTexture, int texWidth, float surfaceWidth, float surfaceHeight, float width, float height,
-            const GraphStyle& style, const Mat3& transform = Mat3::identity()) const;
+  void draw(
+      TextureId dataTexture, int texWidth, float surfaceWidth, float surfaceHeight, float width, float height,
+      const GraphStyle& style, const Mat3& transform = Mat3::identity()
+  ) const;
 
 private:
   ShaderProgram m_program;

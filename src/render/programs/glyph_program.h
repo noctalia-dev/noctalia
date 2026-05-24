@@ -23,19 +23,24 @@ public:
   void destroy();
 
   // RGBA path: sample the texture as premultiplied RGBA, scale by opacity.
-  void draw(TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, float u0, float v0,
-            float u1, float v1, float opacity, const Mat3& transform = Mat3::identity()) const;
+  void draw(
+      TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, float u0, float v0,
+      float u1, float v1, float opacity, const Mat3& transform = Mat3::identity()
+  ) const;
 
   // Alpha-tint path: sample the texture's alpha channel as coverage, multiply
   // by `tint` (which is interpreted as straight RGBA — the shader premultiplies
   // it internally), scale by opacity.
-  void drawTinted(TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, float u0,
-                  float v0, float u1, float v1, float opacity, const Color& tint,
-                  const Mat3& transform = Mat3::identity()) const;
+  void drawTinted(
+      TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, float u0, float v0,
+      float u1, float v1, float opacity, const Color& tint, const Mat3& transform = Mat3::identity()
+  ) const;
 
 private:
-  void bindCommon(TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, float u0,
-                  float v0, float u1, float v1, float opacity, const Mat3& transform) const;
+  void bindCommon(
+      TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, float u0, float v0,
+      float u1, float v1, float opacity, const Mat3& transform
+  ) const;
 
   ShaderProgram m_program;
   GLint m_positionLocation = -1;

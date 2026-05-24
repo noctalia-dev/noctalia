@@ -3,6 +3,7 @@
 #include "compositors/compositor_detect.h"
 #include "compositors/hyprland/hyprland_runtime.h"
 #include "compositors/niri/niri_runtime.h"
+#include "compositors/triad/triad_runtime.h"
 #include "config/config_service.h"
 #include "core/keybind_matcher.h"
 #include "core/log.h"
@@ -43,9 +44,10 @@ namespace {
 
   compositors::CompositorKind logActionContext(std::string_view action) {
     const compositors::CompositorKind compositor = compositors::detect();
-    kLog.info("{} requested: compositor={} env_hint=\"{}\" xdg_session_id={} user={}", action,
-              compositors::name(compositor), compositors::envHint(), valueOrUnset(std::getenv("XDG_SESSION_ID")),
-              valueOrUnset(std::getenv("USER")));
+    kLog.info(
+        "{} requested: compositor={} env_hint=\"{}\" xdg_session_id={} user={}", action, compositors::name(compositor),
+        compositors::envHint(), valueOrUnset(std::getenv("XDG_SESSION_ID")), valueOrUnset(std::getenv("USER"))
+    );
     return compositor;
   }
 
@@ -73,8 +75,8 @@ namespace {
     return label.empty() ? "<empty>" : label;
   }
 
-  void logSessionCommandFailure(std::string_view action, std::string_view commandLabel,
-                                const process::RunResult& result) {
+  void
+  logSessionCommandFailure(std::string_view action, std::string_view commandLabel, const process::RunResult& result) {
     if (result.timedOut) {
       kLog.warn("{}: {} timed out after {}ms", action, commandLabel, kPowerCommandTimeout.count());
     } else if (!result.err.empty()) {
@@ -86,8 +88,9 @@ namespace {
     }
   }
 
-  [[nodiscard]] bool runCheckedSessionCommand(std::string_view action,
-                                              std::initializer_list<std::initializer_list<const char*>> commands) {
+  [[nodiscard]] bool runCheckedSessionCommand(
+      std::string_view action, std::initializer_list<std::initializer_list<const char*>> commands
+  ) {
     bool attempted = false;
     for (const auto& command : commands) {
       if (command.size() == 0) {
@@ -181,6 +184,10 @@ namespace {
       compositors::niri::NiriRuntime& runtime = niriRuntime != nullptr ? *niriRuntime : scratch;
       return runtime.requestAction(nlohmann::json{{"Quit", nlohmann::json{{"skip_confirmation", true}}}}, true);
     }
+    case compositors::CompositorKind::Triad: {
+      compositors::triad::TriadRuntime runtime;
+      return runtime.requestAction("exit-session");
+    }
     case compositors::CompositorKind::Mango:
       return process::launchFirstAvailable({{"mmsg", "-q"}});
     case compositors::CompositorKind::Labwc:
@@ -210,32 +217,38 @@ namespace {
 
   bool doSuspend() {
     logActionContext("suspend");
-    return runCheckedSessionCommand("suspend", {
-                                                   {"systemctl", "suspend"},
-                                                   {"loginctl", "suspend"},
-                                               });
+    return runCheckedSessionCommand(
+        "suspend", {
+                       {"systemctl", "suspend"},
+                       {"loginctl", "suspend"},
+                   }
+    );
   }
 
   bool doReboot() {
     logActionContext("reboot");
-    return runCheckedSessionCommand("reboot", {
-                                                  {"systemctl", "reboot"},
-                                                  {"loginctl", "reboot"},
-                                                  {"reboot"},
-                                                  {"/sbin/reboot"},
-                                                  {"/usr/sbin/reboot"},
-                                              });
+    return runCheckedSessionCommand(
+        "reboot", {
+                      {"systemctl", "reboot"},
+                      {"loginctl", "reboot"},
+                      {"reboot"},
+                      {"/sbin/reboot"},
+                      {"/usr/sbin/reboot"},
+                  }
+    );
   }
 
   bool doShutdown() {
     logActionContext("shutdown");
-    return runCheckedSessionCommand("shutdown", {
-                                                    {"systemctl", "poweroff"},
-                                                    {"loginctl", "poweroff"},
-                                                    {"poweroff"},
-                                                    {"/sbin/poweroff"},
-                                                    {"/usr/sbin/poweroff"},
-                                                });
+    return runCheckedSessionCommand(
+        "shutdown", {
+                        {"systemctl", "poweroff"},
+                        {"loginctl", "poweroff"},
+                        {"poweroff"},
+                        {"/sbin/poweroff"},
+                        {"/usr/sbin/poweroff"},
+                    }
+    );
   }
 
   bool doLock() {
@@ -364,12 +377,11 @@ namespace {
                   .border = clearColorSpec(),
                   .label = colorSpecFromRole(ColorRole::OnPrimary),
               },
-          .disabled =
-              Button::ButtonStateColors{
-                  .bg = colorSpecFromRole(ColorRole::Primary, opacity * kDisabledAlpha),
-                  .border = clearColorSpec(),
-                  .label = colorSpecFromRole(ColorRole::OnPrimary, kDisabledAlpha),
-              },
+          .disabled = Button::ButtonStateColors{
+              .bg = colorSpecFromRole(ColorRole::Primary, opacity * kDisabledAlpha),
+              .border = clearColorSpec(),
+              .label = colorSpecFromRole(ColorRole::OnPrimary, kDisabledAlpha),
+          },
       };
     case SessionActionButtonVariant::Secondary:
       return Button::ButtonPalette{
@@ -392,12 +404,11 @@ namespace {
                   .border = colorSpecFromRole(ColorRole::Primary),
                   .label = colorSpecFromRole(ColorRole::OnPrimary),
               },
-          .disabled =
-              Button::ButtonStateColors{
-                  .bg = colorSpecFromRole(ColorRole::Secondary, opacity * kDisabledAlpha),
-                  .border = colorSpecFromRole(ColorRole::Outline, 0.5f * kDisabledAlpha),
-                  .label = colorSpecFromRole(ColorRole::OnSecondary),
-              },
+          .disabled = Button::ButtonStateColors{
+              .bg = colorSpecFromRole(ColorRole::Secondary, opacity * kDisabledAlpha),
+              .border = colorSpecFromRole(ColorRole::Outline, 0.5f * kDisabledAlpha),
+              .label = colorSpecFromRole(ColorRole::OnSecondary),
+          },
       };
     case SessionActionButtonVariant::Destructive:
       return Button::ButtonPalette{
@@ -420,12 +431,11 @@ namespace {
                   .border = colorSpecFromRole(ColorRole::Error),
                   .label = colorSpecFromRole(ColorRole::OnError),
               },
-          .disabled =
-              Button::ButtonStateColors{
-                  .bg = colorSpecFromRole(ColorRole::Error, opacity * kDisabledAlpha),
-                  .border = colorSpecFromRole(ColorRole::Error, 0.5f * kDisabledAlpha),
-                  .label = colorSpecFromRole(ColorRole::OnError, kDisabledAlpha),
-              },
+          .disabled = Button::ButtonStateColors{
+              .bg = colorSpecFromRole(ColorRole::Error, opacity * kDisabledAlpha),
+              .border = colorSpecFromRole(ColorRole::Error, 0.5f * kDisabledAlpha),
+              .label = colorSpecFromRole(ColorRole::OnError, kDisabledAlpha),
+          },
       };
     case SessionActionButtonVariant::Outline:
       return Button::ButtonPalette{
@@ -448,12 +458,11 @@ namespace {
                   .border = colorSpecFromRole(ColorRole::Primary),
                   .label = colorSpecFromRole(ColorRole::OnPrimary),
               },
-          .disabled =
-              Button::ButtonStateColors{
-                  .bg = colorSpecFromRole(ColorRole::Surface, opacity * kDisabledAlpha),
-                  .border = colorSpecFromRole(ColorRole::Outline, 0.5f * kDisabledAlpha),
-                  .label = colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha),
-              },
+          .disabled = Button::ButtonStateColors{
+              .bg = colorSpecFromRole(ColorRole::Surface, opacity * kDisabledAlpha),
+              .border = colorSpecFromRole(ColorRole::Outline, 0.5f * kDisabledAlpha),
+              .label = colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha),
+          },
       };
     case SessionActionButtonVariant::Ghost:
       return Button::ButtonPalette{
@@ -476,12 +485,11 @@ namespace {
                   .border = clearColorSpec(),
                   .label = colorSpecFromRole(ColorRole::OnSurface),
               },
-          .disabled =
-              Button::ButtonStateColors{
-                  .bg = clearColorSpec(),
-                  .border = clearColorSpec(),
-                  .label = colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha),
-              },
+          .disabled = Button::ButtonStateColors{
+              .bg = clearColorSpec(),
+              .border = clearColorSpec(),
+              .label = colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha),
+          },
       };
     case SessionActionButtonVariant::Default:
       break;
@@ -507,12 +515,11 @@ namespace {
                 .border = colorSpecFromRole(ColorRole::Primary),
                 .label = colorSpecFromRole(ColorRole::OnPrimary),
             },
-        .disabled =
-            Button::ButtonStateColors{
-                .bg = colorSpecFromRole(ColorRole::SurfaceVariant, opacity * kDisabledAlpha),
-                .border = colorSpecFromRole(ColorRole::Outline, 0.5f * kDisabledAlpha),
-                .label = colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha),
-            },
+        .disabled = Button::ButtonStateColors{
+            .bg = colorSpecFromRole(ColorRole::SurfaceVariant, opacity * kDisabledAlpha),
+            .border = colorSpecFromRole(ColorRole::Outline, 0.5f * kDisabledAlpha),
+            .label = colorSpecFromRole(ColorRole::OnSurface, kDisabledAlpha),
+        },
     };
   }
 

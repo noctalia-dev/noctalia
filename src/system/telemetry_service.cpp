@@ -87,8 +87,9 @@ namespace {
 
 } // namespace
 
-void TelemetryService::maybeSend(const ConfigService& config, HttpClient& httpClient,
-                                 const WaylandConnection& wayland) {
+void TelemetryService::maybeSend(
+    const ConfigService& config, HttpClient& httpClient, const WaylandConnection& wayland
+) {
   if (m_sent) {
     return;
   }

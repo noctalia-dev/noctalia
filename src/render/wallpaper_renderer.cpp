@@ -56,8 +56,9 @@ void WallpaperRenderer::makeCurrent() {
   }
 }
 
-void WallpaperRenderer::resize(std::uint32_t bufferWidth, std::uint32_t bufferHeight, std::uint32_t logicalWidth,
-                               std::uint32_t logicalHeight) {
+void WallpaperRenderer::resize(
+    std::uint32_t bufferWidth, std::uint32_t bufferHeight, std::uint32_t logicalWidth, std::uint32_t logicalHeight
+) {
   if (bufferWidth == 0 || bufferHeight == 0) {
     return;
   }
@@ -101,21 +102,26 @@ void WallpaperRenderer::render() {
   TextureId tex2 = (m_tex2 != 0) ? m_tex2 : m_tex1;
   float progress = (m_tex2 != 0) ? m_progress : 0.0f;
 
-  m_backend->drawWallpaper(m_transition, WallpaperSourceKind::Image, m_tex1, rgba(0.0f, 0.0f, 0.0f, 1.0f),
-                           WallpaperSourceKind::Image, tex2, rgba(0.0f, 0.0f, 0.0f, 1.0f), sw, sh, sw, sh, m_imgW1,
-                           m_imgH1, m_imgW2, m_imgH2, progress, static_cast<float>(m_fillMode), m_params, m_fillColor,
-                           Mat3::identity());
+  m_backend->drawWallpaper(
+      m_transition, WallpaperSourceKind::Image, m_tex1, rgba(0.0f, 0.0f, 0.0f, 1.0f), WallpaperSourceKind::Image, tex2,
+      rgba(0.0f, 0.0f, 0.0f, 1.0f), sw, sh, sw, sh, m_imgW1, m_imgH1, m_imgW2, m_imgH2, progress,
+      static_cast<float>(m_fillMode), m_params, m_fillColor, Mat3::identity()
+  );
 
   float ms = elapsedSince(drawStart);
-  logSlowWallpaperRenderOperation(ms, "wallpaper draw took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth,
-                                  m_logicalHeight, m_bufferWidth, m_bufferHeight);
+  logSlowWallpaperRenderOperation(
+      ms, "wallpaper draw took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth, m_logicalHeight,
+      m_bufferWidth, m_bufferHeight
+  );
 
   if (m_backend != nullptr) {
     const auto swapStart = std::chrono::steady_clock::now();
     m_backend->endFrame(*m_target);
     ms = elapsedSince(swapStart);
-    logSlowWallpaperRenderOperation(ms, "wallpaper swap took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms,
-                                    m_logicalWidth, m_logicalHeight, m_bufferWidth, m_bufferHeight);
+    logSlowWallpaperRenderOperation(
+        ms, "wallpaper swap took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth, m_logicalHeight,
+        m_bufferWidth, m_bufferHeight
+    );
   }
   ms = elapsedSince(totalStart);
   logSlowWallpaperRenderOperation(ms, "wallpaper render took {:.1f}ms total", ms);
@@ -140,20 +146,24 @@ void WallpaperRenderer::renderToFramebuffer(const RenderFramebuffer& target) {
   TextureId tex2 = (m_tex2 != 0) ? m_tex2 : m_tex1;
   float progress = (m_tex2 != 0) ? m_progress : 0.0f;
 
-  m_backend->drawWallpaper(m_transition, WallpaperSourceKind::Image, m_tex1, rgba(0.0f, 0.0f, 0.0f, 1.0f),
-                           WallpaperSourceKind::Image, tex2, rgba(0.0f, 0.0f, 0.0f, 1.0f), sw, sh, sw, sh, m_imgW1,
-                           m_imgH1, m_imgW2, m_imgH2, progress, static_cast<float>(m_fillMode), m_params, m_fillColor,
-                           Mat3::identity());
+  m_backend->drawWallpaper(
+      m_transition, WallpaperSourceKind::Image, m_tex1, rgba(0.0f, 0.0f, 0.0f, 1.0f), WallpaperSourceKind::Image, tex2,
+      rgba(0.0f, 0.0f, 0.0f, 1.0f), sw, sh, sw, sh, m_imgW1, m_imgH1, m_imgW2, m_imgH2, progress,
+      static_cast<float>(m_fillMode), m_params, m_fillColor, Mat3::identity()
+  );
   float ms = elapsedSince(drawStart);
-  logSlowWallpaperRenderOperation(ms, "wallpaper framebuffer draw took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms,
-                                  m_logicalWidth, m_logicalHeight, m_bufferWidth, m_bufferHeight);
+  logSlowWallpaperRenderOperation(
+      ms, "wallpaper framebuffer draw took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth, m_logicalHeight,
+      m_bufferWidth, m_bufferHeight
+  );
   ms = elapsedSince(totalStart);
   logSlowWallpaperRenderOperation(ms, "wallpaper framebuffer render took {:.1f}ms total", ms);
   // No eglSwapBuffers — caller is responsible for presentation
 }
 
-void WallpaperRenderer::renderBackdropFrame(RenderFramebuffer& target, RenderFramebuffer& scratch,
-                                            const BackdropPostProcessOptions& options) {
+void WallpaperRenderer::renderBackdropFrame(
+    RenderFramebuffer& target, RenderFramebuffer& scratch, const BackdropPostProcessOptions& options
+) {
   if (m_backend == nullptr || !target.valid()) {
     return;
   }
@@ -162,8 +172,9 @@ void WallpaperRenderer::renderBackdropFrame(RenderFramebuffer& target, RenderFra
   presentTexture(target.colorTexture());
 }
 
-void WallpaperRenderer::renderBackdropContent(RenderFramebuffer& target, RenderFramebuffer& scratch,
-                                              const BackdropPostProcessOptions& options) {
+void WallpaperRenderer::renderBackdropContent(
+    RenderFramebuffer& target, RenderFramebuffer& scratch, const BackdropPostProcessOptions& options
+) {
   if (m_backend == nullptr || !target.valid()) {
     return;
   }
@@ -244,8 +255,10 @@ void WallpaperRenderer::swapBuffers() {
   const auto start = std::chrono::steady_clock::now();
   m_backend->endFrame(*m_target);
   const float ms = elapsedSince(start);
-  logSlowWallpaperRenderOperation(ms, "wallpaper swap took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth,
-                                  m_logicalHeight, m_bufferWidth, m_bufferHeight);
+  logSlowWallpaperRenderOperation(
+      ms, "wallpaper swap took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth, m_logicalHeight,
+      m_bufferWidth, m_bufferHeight
+  );
 }
 
 std::unique_ptr<RenderFramebuffer> WallpaperRenderer::createFramebuffer(std::uint32_t width, std::uint32_t height) {
@@ -256,9 +269,10 @@ std::unique_ptr<RenderFramebuffer> WallpaperRenderer::createFramebuffer(std::uin
   return m_backend->createFramebuffer(width, height);
 }
 
-void WallpaperRenderer::setTransitionState(TextureId tex1, TextureId tex2, float imgW1, float imgH1, float imgW2,
-                                           float imgH2, float progress, WallpaperTransition transition,
-                                           WallpaperFillMode fillMode, const TransitionParams& params) {
+void WallpaperRenderer::setTransitionState(
+    TextureId tex1, TextureId tex2, float imgW1, float imgH1, float imgW2, float imgH2, float progress,
+    WallpaperTransition transition, WallpaperFillMode fillMode, const TransitionParams& params
+) {
   m_tex1 = tex1;
   m_tex2 = tex2;
   m_imgW1 = imgW1;

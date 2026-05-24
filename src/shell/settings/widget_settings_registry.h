@@ -108,13 +108,17 @@ namespace settings {
   // Build settings specs from a scripted widget's Lua manifest.
   [[nodiscard]] std::vector<WidgetSettingSpec> manifestSettingSpecs(const scripting::ScriptWidgetManifest& manifest);
 
-  [[nodiscard]] std::optional<WidgetSettingSpec> findWidgetSettingSpec(std::string_view widgetType,
-                                                                       std::string_view settingKey);
-  [[nodiscard]] bool configOverrideValueMatchesWidgetSetting(const ConfigOverrideValue& overrideValue,
-                                                             const WidgetSettingValue& settingValue);
-  [[nodiscard]] bool widgetOverrideValueMatchesRegistryDefault(std::string_view widgetType, std::string_view settingKey,
-                                                               const ConfigOverrideValue& overrideValue);
-  [[nodiscard]] bool widgetSettingOverrideIsEffective(std::string_view widgetName, std::string_view settingKey,
-                                                      const Config& withOverride, const Config& withoutOverride);
+  [[nodiscard]] std::optional<WidgetSettingSpec>
+  findWidgetSettingSpec(std::string_view widgetType, std::string_view settingKey);
+  [[nodiscard]] bool configOverrideValueMatchesWidgetSetting(
+      const ConfigOverrideValue& overrideValue, const WidgetSettingValue& settingValue
+  );
+  [[nodiscard]] bool widgetOverrideValueMatchesRegistryDefault(
+      std::string_view widgetType, std::string_view settingKey, const ConfigOverrideValue& overrideValue
+  );
+  [[nodiscard]] bool widgetSettingOverrideIsEffective(
+      std::string_view widgetName, std::string_view settingKey, const Config& withOverride,
+      const Config& withoutOverride
+  );
 
 } // namespace settings

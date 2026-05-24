@@ -485,8 +485,10 @@ void RectProgram::destroy() {
   m_transformLocation = -1;
 }
 
-void RectProgram::draw(float surfaceWidth, float surfaceHeight, float width, float height,
-                       const RoundedRectStyle& style, const Mat3& transform) const {
+void RectProgram::draw(
+    float surfaceWidth, float surfaceHeight, float width, float height, const RoundedRectStyle& style,
+    const Mat3& transform
+) const {
   if (!m_program.isValid() || width <= 0.0f || height <= 0.0f) {
     return;
   }
@@ -515,8 +517,10 @@ void RectProgram::draw(float surfaceWidth, float surfaceHeight, float width, flo
     fillMode = 2;
   }
   glUniform1i(m_fillModeLocation, fillMode);
-  glUniform2f(m_gradientDirectionLocation, style.gradientDirection == GradientDirection::Horizontal ? 1.0f : 0.0f,
-              style.gradientDirection == GradientDirection::Vertical ? 1.0f : 0.0f);
+  glUniform2f(
+      m_gradientDirectionLocation, style.gradientDirection == GradientDirection::Horizontal ? 1.0f : 0.0f,
+      style.gradientDirection == GradientDirection::Vertical ? 1.0f : 0.0f
+  );
   const auto& stop0 = style.gradientStops[0];
   const auto& stop1 = style.gradientStops[1];
   const auto& stop2 = style.gradientStops[2];
@@ -527,10 +531,14 @@ void RectProgram::draw(float surfaceWidth, float surfaceHeight, float width, flo
   glUniform4f(m_gradientColor2Location, stop2.color.r, stop2.color.g, stop2.color.b, stop2.color.a);
   glUniform4f(m_gradientColor3Location, stop3.color.r, stop3.color.g, stop3.color.b, stop3.color.a);
   const auto cornerShapeValue = [](CornerShape shape) { return shape == CornerShape::Concave ? 1.0f : 0.0f; };
-  glUniform4f(m_cornerShapesLocation, cornerShapeValue(style.corners.tl), cornerShapeValue(style.corners.tr),
-              cornerShapeValue(style.corners.br), cornerShapeValue(style.corners.bl));
-  glUniform4f(m_logicalInsetLocation, style.logicalInset.left, style.logicalInset.top, style.logicalInset.right,
-              style.logicalInset.bottom);
+  glUniform4f(
+      m_cornerShapesLocation, cornerShapeValue(style.corners.tl), cornerShapeValue(style.corners.tr),
+      cornerShapeValue(style.corners.br), cornerShapeValue(style.corners.bl)
+  );
+  glUniform4f(
+      m_logicalInsetLocation, style.logicalInset.left, style.logicalInset.top, style.logicalInset.right,
+      style.logicalInset.bottom
+  );
   glUniform4f(m_radiiLocation, style.radius.tl, style.radius.tr, style.radius.br, style.radius.bl);
   glUniform1f(m_softnessLocation, style.softness);
   glUniform1i(m_noAaLocation, style.noAa ? 1 : 0);
@@ -541,14 +549,20 @@ void RectProgram::draw(float surfaceWidth, float surfaceHeight, float width, flo
   glUniform1i(m_shadowExclusionLocation, style.shadowExclusion ? 1 : 0);
   glUniform2f(m_shadowExclusionOffsetLocation, style.shadowExclusionOffsetX, style.shadowExclusionOffsetY);
   glUniform2f(m_shadowExclusionSizeLocation, style.shadowExclusionWidth, style.shadowExclusionHeight);
-  glUniform4f(m_shadowExclusionCornerShapesLocation, cornerShapeValue(style.shadowExclusionCorners.tl),
-              cornerShapeValue(style.shadowExclusionCorners.tr), cornerShapeValue(style.shadowExclusionCorners.br),
-              cornerShapeValue(style.shadowExclusionCorners.bl));
-  glUniform4f(m_shadowExclusionLogicalInsetLocation, style.shadowExclusionLogicalInset.left,
-              style.shadowExclusionLogicalInset.top, style.shadowExclusionLogicalInset.right,
-              style.shadowExclusionLogicalInset.bottom);
-  glUniform4f(m_shadowExclusionRadiiLocation, style.shadowExclusionRadius.tl, style.shadowExclusionRadius.tr,
-              style.shadowExclusionRadius.br, style.shadowExclusionRadius.bl);
+  glUniform4f(
+      m_shadowExclusionCornerShapesLocation, cornerShapeValue(style.shadowExclusionCorners.tl),
+      cornerShapeValue(style.shadowExclusionCorners.tr), cornerShapeValue(style.shadowExclusionCorners.br),
+      cornerShapeValue(style.shadowExclusionCorners.bl)
+  );
+  glUniform4f(
+      m_shadowExclusionLogicalInsetLocation, style.shadowExclusionLogicalInset.left,
+      style.shadowExclusionLogicalInset.top, style.shadowExclusionLogicalInset.right,
+      style.shadowExclusionLogicalInset.bottom
+  );
+  glUniform4f(
+      m_shadowExclusionRadiiLocation, style.shadowExclusionRadius.tl, style.shadowExclusionRadius.tr,
+      style.shadowExclusionRadius.br, style.shadowExclusionRadius.bl
+  );
   glUniformMatrix3fv(m_transformLocation, 1, GL_FALSE, quadTransform.m.data());
   const auto posAttr = static_cast<GLuint>(m_positionLocation);
   glVertexAttribPointer(posAttr, 2, GL_FLOAT, GL_FALSE, 0, vertices.data());

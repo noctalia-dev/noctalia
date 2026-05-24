@@ -7,9 +7,10 @@
 #include <numeric>
 #include <system_error>
 
-std::vector<FileEntry> DirectoryScanner::scan(const std::filesystem::path& dir,
-                                              const std::vector<std::string>& extensions, bool showHiddenFiles,
-                                              FileDialogSortField sortField, FileDialogSortOrder sortOrder) const {
+std::vector<FileEntry> DirectoryScanner::scan(
+    const std::filesystem::path& dir, const std::vector<std::string>& extensions, bool showHiddenFiles,
+    FileDialogSortField sortField, FileDialogSortOrder sortOrder
+) const {
   std::vector<FileEntry> entries;
 
   if (dir.empty()) {
