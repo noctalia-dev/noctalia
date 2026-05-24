@@ -74,18 +74,6 @@ namespace {
     });
   }
 
-  std::unique_ptr<Flex> centeredRow(std::unique_ptr<Flex> child, float scale) {
-    child->setFlexGrow(1.0f);
-    child->setMaxWidth(kBodyMaxWidth * scale);
-    return ui::row(
-        {
-            .align = FlexAlign::Stretch,
-            .justify = FlexJustify::Center,
-        },
-        std::move(child)
-    );
-  }
-
   std::vector<std::string> sectionKeys(const std::vector<settings::SettingEntry>& entries) {
     std::vector<std::string> sections;
     for (const auto& entry : entries) {
@@ -751,11 +739,18 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(
       },
   });
 
-  auto* content = m_contentScrollView->content();
-  m_contentContainer = content;
-  content->setDirection(FlexDirection::Vertical);
-  content->setAlign(FlexAlign::Stretch);
-  content->setGap(Style::spaceMd * scale);
+  auto* scrollContent = m_contentScrollView->content();
+  scrollContent->setDirection(FlexDirection::Vertical);
+  scrollContent->setAlign(FlexAlign::Center);
+
+  auto content = ui::column({
+      .out = &m_contentContainer,
+      .align = FlexAlign::Stretch,
+      .gap = Style::spaceMd * scale,
+      .maxWidth = kBodyMaxWidth * scale,
+      .fillWidth = true,
+  });
+  scrollContent->addChild(std::move(content));
   rebuildSettingsContent();
 
   body->addChild(std::move(scroll));
@@ -896,15 +891,15 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
       .height = h,
   });
 
-  m_headerRow = main->addChild(centeredRow(buildHeaderRow(scale), scale));
-  main->addChild(centeredRow(buildFilterRow(scale, resetPageScope, std::move(resetPagePaths)), scale));
+  m_headerRow = main->addChild(buildHeaderRow(scale));
+  main->addChild(buildFilterRow(scale, resetPageScope, std::move(resetPagePaths)));
   if (auto status = buildStatusRow(scale)) {
-    main->addChild(centeredRow(std::move(status), scale));
+    main->addChild(std::move(status));
   }
 
-  auto bodyRow = centeredRow(buildBody(scale, cfg, sections, availableBars), scale);
-  bodyRow->setFlexGrow(1.0f);
-  main->addChild(std::move(bodyRow));
+  auto body = buildBody(scale, cfg, sections, availableBars);
+  body->setFlexGrow(1.0f);
+  main->addChild(std::move(body));
 
   main->setSize(w, h);
   main->layout(*m_renderContext);
