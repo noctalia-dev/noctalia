@@ -10,6 +10,7 @@
 #include "ui/controls/label.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/file_utils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -26,11 +27,18 @@ namespace {
 CustomButtonWidget::CustomButtonWidget(std::string glyph, std::string label, std::string tooltip, std::string imagePath,
                                        bool autoReloadImage, std::string command, std::string rightCommand,
                                        std::string middleCommand, std::string scrollUpCommand,
-                                       std::string scrollDownCommand)
+                                       std::string scrollDownCommand, FileWatcher* fileWatcher)
     : m_glyphName(std::move(glyph)), m_labelText(std::move(label)), m_tooltip(std::move(tooltip)),
       m_imagePath(std::move(imagePath)), m_autoReloadImage(autoReloadImage), m_command(std::move(command)),
       m_rightCommand(std::move(rightCommand)), m_middleCommand(std::move(middleCommand)),
-      m_scrollUpCommand(std::move(scrollUpCommand)), m_scrollDownCommand(std::move(scrollDownCommand)) {}
+      m_scrollUpCommand(std::move(scrollUpCommand)), m_scrollDownCommand(std::move(scrollDownCommand)),
+      m_fileWatcher(fileWatcher) {}
+
+CustomButtonWidget::~CustomButtonWidget() {
+  if (m_fileWatcher != nullptr && m_imageWatchId != 0) {
+    m_fileWatcher->unwatch(m_imageWatchId);
+  }
+}
 
 void CustomButtonWidget::create() {
   auto area = std::make_unique<InputArea>();
@@ -104,6 +112,12 @@ void CustomButtonWidget::create() {
     auto image = std::make_unique<Image>();
     m_image = image.get();
     image->setFit(ImageFit::Contain);
+    if (m_fileWatcher != nullptr) {
+      m_imageWatchId = m_fileWatcher->watch(m_imagePath, [this]() {
+        m_imageLoaded = false;
+        requestRedraw();
+      });
+    }
     area->addChild(std::move(image));
   }
 
@@ -154,9 +168,10 @@ void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, floa
 
   if (showImage) {
     if (!m_imageLoaded) {
-      m_image->setSourceFile(renderer, m_imagePath);
+      auto fileData = FileUtils::readBinaryFile(m_imagePath);
+      m_image->setSourceBytes(renderer, fileData.data(), fileData.size());
       m_imageLoaded = true;
-      kLog.warn("set image source to '{}'", m_imagePath);
+      kLog.debug("Load image from '{}'", m_imagePath);
     }
     const float sizeLimit = Style::barIconSize * m_contentScale;
     const float aspectRatio = m_image->aspectRatio();

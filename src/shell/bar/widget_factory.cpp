@@ -232,7 +232,7 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
     auto widget = std::make_unique<CustomButtonWidget>(
         trimSetting("glyph", "heart"), trimSetting("label"), trimSetting("tooltip"), trimSetting("image_path"),
         autoReloadImage, trimSetting("command"), trimSetting("right_command"), trimSetting("middle_command"),
-        trimSetting("scroll_up_command"), trimSetting("scroll_down_command"));
+        trimSetting("scroll_up_command"), trimSetting("scroll_down_command"), m_fileWatcher);
     widget->setContentScale(contentScale);
     return widget;
   }

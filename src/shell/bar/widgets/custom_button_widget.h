@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/file_watcher.h"
 #include "shell/bar/widget.h"
 
 #include <string>
@@ -13,8 +14,8 @@ class CustomButtonWidget : public Widget {
 public:
   CustomButtonWidget(std::string glyph, std::string label, std::string tooltip, std::string imagePath,
                      bool autoReloadImage, std::string command, std::string rightCommand, std::string middleCommand,
-                     std::string scrollUpCommand, std::string scrollDownCommand);
-
+                     std::string scrollUpCommand, std::string scrollDownCommand, FileWatcher* fileWatcher = nullptr);
+  ~CustomButtonWidget() override;
   void create() override;
   [[nodiscard]] bool reservesMiddleClick() const noexcept override;
 
@@ -37,4 +38,6 @@ private:
   Glyph* m_glyph = nullptr;
   Label* m_label = nullptr;
   Image* m_image = nullptr;
+  FileWatcher* m_fileWatcher = nullptr;
+  FileWatcher::WatchId m_imageWatchId = 0;
 };
