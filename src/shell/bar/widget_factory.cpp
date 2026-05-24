@@ -228,10 +228,11 @@ std::unique_ptr<Widget> WidgetFactory::create(const std::string& name, wl_output
     auto trimSetting = [wc](const char* key, const char* fallback = "") {
       return wc != nullptr ? StringUtils::trim(wc->getString(key, fallback)) : std::string(fallback);
     };
+    bool autoReloadImage = wc != nullptr ? wc->getBool("image_auto_reload", false) : false;
     auto widget = std::make_unique<CustomButtonWidget>(
-        trimSetting("glyph", "heart"), trimSetting("label"), trimSetting("tooltip"), trimSetting("command"),
-        trimSetting("right_command"), trimSetting("middle_command"), trimSetting("scroll_up_command"),
-        trimSetting("scroll_down_command"));
+        trimSetting("glyph", "heart"), trimSetting("label"), trimSetting("tooltip"), trimSetting("image_path"),
+        autoReloadImage, trimSetting("command"), trimSetting("right_command"), trimSetting("middle_command"),
+        trimSetting("scroll_up_command"), trimSetting("scroll_down_command"));
     widget->setContentScale(contentScale);
     return widget;
   }

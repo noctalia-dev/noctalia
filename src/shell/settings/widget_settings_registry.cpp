@@ -557,6 +557,8 @@ namespace settings {
       add(stringSpec("glyph", "heart"));
       add(stringSpec("label"));
       add(stringSpec("tooltip"));
+      add(stringSpec("image_path", ""));
+      add(boolSpec("image_auto_reload", false));
       add(stringSpec("command"));
       add(stringSpec("right_command"));
       add(stringSpec("middle_command"));

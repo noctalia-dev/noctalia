@@ -1230,6 +1230,14 @@
           "label": "Label",
           "description": "Optional static text shown on this button"
         },
+        "image_path": {
+          "label": "Image Path",
+          "description": "Path to an image file to show on this widget. Overrides the glyph when set."
+        },
+        "image_auto_reload": {
+          "label": "Auto Reload Image",
+          "description": "Automatically reload the image when the file changes."
+        },
         "group_by_workspace": {
           "label": "Group by Workspace",
           "description": "Group taskbar icons into workspace capsules when compositor data is available"

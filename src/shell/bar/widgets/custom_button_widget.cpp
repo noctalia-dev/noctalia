@@ -6,6 +6,7 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/controls/glyph.h"
+#include "ui/controls/image.h"
 #include "ui/controls/label.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -22,11 +23,13 @@ namespace {
   constexpr Logger kLog("custom-button");
 }
 
-CustomButtonWidget::CustomButtonWidget(std::string glyph, std::string label, std::string tooltip, std::string command,
-                                       std::string rightCommand, std::string middleCommand, std::string scrollUpCommand,
+CustomButtonWidget::CustomButtonWidget(std::string glyph, std::string label, std::string tooltip, std::string imagePath,
+                                       bool autoReloadImage, std::string command, std::string rightCommand,
+                                       std::string middleCommand, std::string scrollUpCommand,
                                        std::string scrollDownCommand)
     : m_glyphName(std::move(glyph)), m_labelText(std::move(label)), m_tooltip(std::move(tooltip)),
-      m_command(std::move(command)), m_rightCommand(std::move(rightCommand)), m_middleCommand(std::move(middleCommand)),
+      m_imagePath(std::move(imagePath)), m_autoReloadImage(autoReloadImage), m_command(std::move(command)),
+      m_rightCommand(std::move(rightCommand)), m_middleCommand(std::move(middleCommand)),
       m_scrollUpCommand(std::move(scrollUpCommand)), m_scrollDownCommand(std::move(scrollDownCommand)) {}
 
 void CustomButtonWidget::create() {
@@ -97,6 +100,13 @@ void CustomButtonWidget::create() {
   m_glyph = glyph.get();
   area->addChild(std::move(glyph));
 
+  if (!m_imagePath.empty()) {
+    auto image = std::make_unique<Image>();
+    m_image = image.get();
+    image->setFit(ImageFit::Contain);
+    area->addChild(std::move(image));
+  }
+
   auto label = std::make_unique<Label>();
   label->setText(m_labelText);
   label->setFontSize(Style::fontSizeBody * m_contentScale);
@@ -119,9 +129,10 @@ void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, floa
   }
 
   const bool isVertical = containerHeight > containerWidth;
-  const bool showGlyph = !m_glyphName.empty();
+  const bool showImage = m_image != nullptr;
+  const bool showGlyph = !showImage && !m_glyphName.empty();
   const bool showLabel = !m_labelText.empty();
-  const float spacing = (showGlyph && showLabel) ? Style::spaceXs * m_contentScale : 0.0f;
+  const float spacing = ((showGlyph || showImage) && showLabel) ? Style::spaceXs * m_contentScale : 0.0f;
 
   m_glyph->setVisible(showGlyph);
   m_label->setVisible(showLabel);
@@ -141,9 +152,29 @@ void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, floa
     m_label->measure(renderer);
   }
 
+  if (showImage) {
+    if (!m_imageLoaded) {
+      m_image->setSourceFile(renderer, m_imagePath);
+      m_imageLoaded = true;
+      kLog.warn("set image source to '{}'", m_imagePath);
+    }
+    const float sizeLimit = Style::barIconSize * m_contentScale;
+    const float aspectRatio = m_image->aspectRatio();
+
+    if (isVertical) {
+      m_image->setSize(sizeLimit, sizeLimit / aspectRatio);
+    } else {
+      m_image->setSize(sizeLimit * aspectRatio, sizeLimit);
+    }
+  }
+
   if (isVertical) {
     float width = 0.0f;
     float height = 0.0f;
+    if (showImage) {
+      width = std::max(width, m_image->width());
+      height += m_image->height();
+    }
     if (showGlyph) {
       width = std::max(width, m_glyph->width());
       height += m_glyph->height();
@@ -170,6 +201,10 @@ void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, floa
 
   float width = 0.0f;
   float height = 0.0f;
+  if (showImage) {
+    width += m_image->width();
+    height = std::max(height, m_image->height());
+  }
   if (showGlyph) {
     width += m_glyph->width();
     height = std::max(height, m_glyph->height());
