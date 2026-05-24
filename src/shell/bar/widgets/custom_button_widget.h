@@ -14,7 +14,7 @@ class CustomButtonWidget : public Widget {
 public:
   CustomButtonWidget(std::string glyph, std::string label, std::string tooltip, std::string imagePath,
                      bool autoReloadImage, std::string command, std::string rightCommand, std::string middleCommand,
-                     std::string scrollUpCommand, std::string scrollDownCommand, FileWatcher* fileWatcher = nullptr);
+                     std::string scrollUpCommand, std::string scrollDownCommand, FileWatcher* fileWatcher);
   ~CustomButtonWidget() override;
   void create() override;
   [[nodiscard]] bool reservesMiddleClick() const noexcept override;
@@ -27,7 +27,6 @@ private:
   std::string m_labelText;
   std::string m_tooltip;
   std::string m_imagePath;
-  bool m_imageLoaded = false;
   bool m_autoReloadImage = false;
   std::string m_command;
   std::string m_rightCommand;
@@ -38,6 +37,7 @@ private:
   Glyph* m_glyph = nullptr;
   Label* m_label = nullptr;
   Image* m_image = nullptr;
+  bool m_reloadImage = false;
   FileWatcher* m_fileWatcher = nullptr;
   FileWatcher::WatchId m_imageWatchId = 0;
 };

@@ -112,12 +112,13 @@ void CustomButtonWidget::create() {
     auto image = std::make_unique<Image>();
     m_image = image.get();
     image->setFit(ImageFit::Contain);
-    if (m_fileWatcher != nullptr) {
+    if (m_autoReloadImage && m_fileWatcher != nullptr) {
       m_imageWatchId = m_fileWatcher->watch(m_imagePath, [this]() {
-        m_imageLoaded = false;
+        m_reloadImage = true;
         requestRedraw();
       });
     }
+    m_reloadImage = true;
     area->addChild(std::move(image));
   }
 
@@ -167,19 +168,26 @@ void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, floa
   }
 
   if (showImage) {
-    if (!m_imageLoaded) {
+    if (m_reloadImage) {
       auto fileData = FileUtils::readBinaryFile(m_imagePath);
-      m_image->setSourceBytes(renderer, fileData.data(), fileData.size());
-      m_imageLoaded = true;
-      kLog.debug("Load image from '{}'", m_imagePath);
-    }
-    const float sizeLimit = Style::barIconSize * m_contentScale;
-    const float aspectRatio = m_image->aspectRatio();
-
-    if (isVertical) {
-      m_image->setSize(sizeLimit, sizeLimit / aspectRatio);
-    } else {
-      m_image->setSize(sizeLimit * aspectRatio, sizeLimit);
+      if (fileData.empty()) {
+        m_image->setVisible(false);
+        kLog.warn("Failed to read image from '{}'", m_imagePath);
+      } else if (!m_image->setSourceBytes(renderer, fileData.data(), fileData.size())) {
+        m_image->setVisible(false);
+        kLog.debug("Failed to load image from '{}', maybe corrupted / unsupported file?", m_imagePath);
+      } else {
+        const float sizeLimit = Style::barIconSize * m_contentScale;
+        const float aspectRatio = m_image->aspectRatio();
+        if (isVertical) {
+          m_image->setSize(sizeLimit, aspectRatio == 0.0f ? 0.0f : sizeLimit / aspectRatio);
+        } else {
+          m_image->setSize(sizeLimit * aspectRatio, sizeLimit);
+        }
+        m_image->setVisible(true);
+        kLog.debug("Load image from '{}'", m_imagePath);
+      }
+      m_reloadImage = false; // set it to false even on failure to avoid repeated load attempts
     }
   }
 
