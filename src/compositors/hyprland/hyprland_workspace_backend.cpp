@@ -82,14 +82,17 @@ std::vector<Workspace> HyprlandWorkspaceBackend::forOutput(wl_output* output) co
   std::vector<const WorkspaceState*> ordered;
   for (const auto& workspace : m_workspaces) {
     if (workspace.monitor == outputName) {
-      if (workspace.id >= 0) {
-        ordered.push_back(&workspace);
+      // dont show special workspaces for outputs
+      if (workspace.id < 0 && workspace.name.find("special") != std::string::npos) {
+        continue;
       }
+
+      ordered.push_back(&workspace);
     }
   }
 
   std::sort(ordered.begin(), ordered.end(), [](const WorkspaceState* a, const WorkspaceState* b) {
-    return a->id < b->id;
+    return a->name.length() < b->name.length() || (a->name.length() == b->name.length() && a->id < b->id);
   });
 
   std::vector<Workspace> result;
