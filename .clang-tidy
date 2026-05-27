@@ -1,0 +1,34 @@
+Checks: >-
+  bugprone-*,
+  cert-*,
+  cppcoreguidelines-*,
+  performance-*,
+  readability-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-exception-escape,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-narrowing-conversions,
+  -bugprone-reserved-identifier
+  -bugprone-switch-missing-default-case,
+  -cert-err58-cpp,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-init-variables,
+  -cppcoreguidelines-narrowing-conversions,
+  -cppcoreguidelines-prefer-member-initializer,
+  -cppcoreguidelines-pro-type-member-init,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -modernize-use-nodiscard,
+  -readability-convert-member-functions-to-static,
+  -readability-identifier-length,
+  -readability-implicit-bool-conversion,
+  -readability-magic-numbers,
+  -readability-named-parameter,
+  -readability-static-accessed-through-instance,
+  -readability-uppercase-literal-suffix
+CheckOptions:
+  - key: cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
+    value: 1
+  - key: cppcoreguidelines-special-member-functions.AllowMissingMoveFunctions
+    value: 1
+  - key: modernize-use-trailing-return-type.TransformLambdas
+    value: 'none'
