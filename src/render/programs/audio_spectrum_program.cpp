@@ -48,10 +48,10 @@ void main() {
   Color colorAt(const Color& low, const Color& high, float t) noexcept {
     t = std::clamp(t, 0.0f, 1.0f);
     return Color{
-        .r = low.r + (high.r - low.r) * t,
-        .g = low.g + (high.g - low.g) * t,
-        .b = low.b + (high.b - low.b) * t,
-        .a = low.a + (high.a - low.a) * t,
+        .r = low.r + ((high.r - low.r) * t),
+        .g = low.g + ((high.g - low.g) * t),
+        .b = low.b + ((high.b - low.b) * t),
+        .a = low.a + ((high.a - low.a) * t),
     };
   }
 
@@ -77,7 +77,7 @@ void main() {
     pushVertex(out, x1, y1, color);
   }
 
-  float snapToPixel(float value, float pixelScale) { return std::floor(value * pixelScale + 0.5f) / pixelScale; }
+  float snapToPixel(float value, float pixelScale) { return std::floor((value * pixelScale) + 0.5f) / pixelScale; }
 
 } // namespace
 
@@ -138,7 +138,7 @@ void AudioSpectrumProgram::draw(
   const float mainAxisLen = horizontal ? width : height;
   const float crossAxisLen = horizontal ? height : width;
   const int gapCount = std::max(0, barCount - 1);
-  const float weightedSlots = static_cast<float>(barCount) + static_cast<float>(gapCount) * kGapToBarRatio;
+  const float weightedSlots = static_cast<float>(barCount) + (static_cast<float>(gapCount) * kGapToBarRatio);
   const float devicePixel = 1.0f / mainPixelScale;
   const float barThickness =
       std::max(devicePixel, std::floor(mainAxisLen / std::max(1.0f, weightedSlots) * mainPixelScale) / mainPixelScale);
@@ -146,7 +146,7 @@ void AudioSpectrumProgram::draw(
       ? std::max(devicePixel, std::floor(barThickness * kGapToBarRatio * mainPixelScale) / mainPixelScale)
       : 0.0f;
   const float stride = barThickness + gapThickness;
-  const float used = barThickness * static_cast<float>(barCount) + gapThickness * static_cast<float>(gapCount);
+  const float used = (barThickness * static_cast<float>(barCount)) + (gapThickness * static_cast<float>(gapCount));
   const float startOffset = std::floor(std::max(0.0f, (mainAxisLen - used) * 0.5f) * mainPixelScale) / mainPixelScale;
 
   m_vertices.clear();
@@ -157,13 +157,13 @@ void AudioSpectrumProgram::draw(
     const float rawValue = valueIndex >= 0 && valueIndex < valueCount
         ? std::clamp(values[static_cast<std::size_t>(valueIndex)], 0.0f, 1.0f)
         : 0.0f;
-    float crossPixels = std::max(1.0f, std::floor(rawValue * crossAxisLen * crossPixelScale + 0.5f));
+    float crossPixels = std::max(1.0f, std::floor((rawValue * crossAxisLen * crossPixelScale) + 0.5f));
     if (style.centered && crossPixels > 1.0f) {
       crossPixels = std::max(2.0f, std::round(crossPixels * 0.5f) * 2.0f);
     }
     const float crossSize = crossPixels / crossPixelScale;
 
-    float mainStart = snapToPixel(startOffset + static_cast<float>(i) * stride, mainPixelScale);
+    float mainStart = snapToPixel(startOffset + (static_cast<float>(i) * stride), mainPixelScale);
     float mainEnd = mainStart + barThickness;
     if (mainStart < 0.0f) {
       mainEnd -= mainStart;

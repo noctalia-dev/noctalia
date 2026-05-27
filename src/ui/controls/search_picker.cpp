@@ -32,7 +32,7 @@ namespace {
       auto preview = std::make_unique<ColorSwatchPreviewStrip>();
       preview->setVisible(false);
       preview->setParticipatesInLayout(false);
-      m_preview = static_cast<ColorSwatchPreviewStrip*>(addChild(std::move(preview)));
+      m_preview = dynamic_cast<ColorSwatchPreviewStrip*>(addChild(std::move(preview)));
 
       addChild(
           ui::glyph({

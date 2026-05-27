@@ -33,7 +33,7 @@ private:
   [[nodiscard]] std::string labelForValue(std::string_view value) const;
   [[nodiscard]] std::vector<ListEditorOption> remainingOptions() const;
   void rebuildRows();
-  void addGhostIconButton(Flex& row, std::string_view glyph, float size, std::function<void()> callback);
+  void addGhostIconButton(Flex& row, std::string_view glyph, float size, std::function<void()> callback) const;
 
   std::vector<std::string> m_items;
   std::vector<ListEditorOption> m_suggestedOptions;

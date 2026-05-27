@@ -78,7 +78,7 @@ private:
   void clearChildren(Flex* flex) const;
   void buildTaskButtons(Renderer& renderer);
   void updateModels();
-  [[nodiscard]] static std::string toLower(std::string value);
+  [[nodiscard]] static std::string toLower(const std::string& value);
   [[nodiscard]] static std::string workspaceLabel(const Workspace& workspace, std::size_t index);
   [[nodiscard]] bool
   modelsEqual(const std::vector<TaskModel>& tasks, const std::vector<WorkspaceModel>& workspaces) const;

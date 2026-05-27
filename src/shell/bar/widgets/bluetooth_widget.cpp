@@ -137,7 +137,7 @@ void BluetoothWidget::syncState(Renderer& renderer) {
     if (Node* rootNode = root(); rootNode != nullptr) {
       rootNode->setOpacity(1.0f);
       if (s.adapterPresent) {
-        static_cast<InputArea*>(rootNode)->clearTooltip();
+        dynamic_cast<InputArea*>(rootNode)->clearTooltip();
       }
     }
     return;
@@ -175,9 +175,9 @@ void BluetoothWidget::syncState(Renderer& renderer) {
           rows.push_back({d.alias, std::move(value)});
         }
       }
-      static_cast<InputArea*>(rootNode)->setTooltip(std::move(rows));
+      dynamic_cast<InputArea*>(rootNode)->setTooltip(std::move(rows));
     } else {
-      static_cast<InputArea*>(rootNode)->clearTooltip();
+      dynamic_cast<InputArea*>(rootNode)->clearTooltip();
     }
   }
 

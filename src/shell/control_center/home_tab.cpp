@@ -559,8 +559,8 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
             std::max(1.0f, gridW - m_shortcutsGrid->paddingLeft() - m_shortcutsGrid->paddingRight());
         const std::size_t cols = std::max<std::size_t>(1, std::min(m_shortcutsGrid->columns(), m_shortcutPads.size()));
         const float cellWidth =
-            (innerGrid - static_cast<float>(cols - 1) * m_shortcutsGrid->columnGap()) / static_cast<float>(cols);
-        inner = std::max(1.0f, cellWidth - 2.0f * Style::spaceSm * scale);
+            (innerGrid - (static_cast<float>(cols - 1) * m_shortcutsGrid->columnGap())) / static_cast<float>(cols);
+        inner = std::max(1.0f, cellWidth - (2.0f * Style::spaceSm * scale));
       }
       pad.label->setMaxWidth(inner);
     }
@@ -591,7 +591,7 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
         1.0f,
         dateTimeRightWrap
             - (m_weatherGlyph != nullptr ? m_weatherGlyph->width() : 0.0f)
-            - Style::spaceXs * contentScale()
+            - (Style::spaceXs * contentScale())
     );
     m_weatherLine->setMaxWidth(weatherTextWrap);
     m_weatherLine->setMaxLines(2);
@@ -638,13 +638,13 @@ void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight)
     const std::size_t cols = std::max<std::size_t>(1, std::min(m_shortcutsGrid->columns(), m_shortcutPads.size()));
     const std::size_t rows = (m_shortcutPads.size() + cols - 1) / cols;
     const float cellWidth = std::max(
-        1.0f, (innerGridW - static_cast<float>(cols - 1) * m_shortcutsGrid->columnGap()) / static_cast<float>(cols)
+        1.0f, (innerGridW - (static_cast<float>(cols - 1) * m_shortcutsGrid->columnGap())) / static_cast<float>(cols)
     );
     // Cells aim for square but trimmed slightly so the grid stays compact and the bottom row
     // doesn't tower over the user card area.
     const float cellSide = cellWidth * 0.82f;
-    const float gridH = static_cast<float>(rows) * cellSide
-        + static_cast<float>(rows > 0 ? rows - 1 : 0) * m_shortcutsGrid->rowGap()
+    const float gridH = (static_cast<float>(rows) * cellSide)
+        + (static_cast<float>(rows > 0 ? rows - 1 : 0) * m_shortcutsGrid->rowGap())
         + m_shortcutsGrid->paddingTop()
         + m_shortcutsGrid->paddingBottom();
     if (m_bottomRow != nullptr) {
@@ -703,8 +703,8 @@ void HomeTab::layoutWallpaperBackground(Renderer& renderer) {
   }
 
   const float bw = Style::borderWidth;
-  const float cw = std::max(0.0f, m_userCard->width() - bw * 2.0f);
-  const float ch = std::max(0.0f, m_userCard->height() - bw * 2.0f);
+  const float cw = std::max(0.0f, m_userCard->width() - (bw * 2.0f));
+  const float ch = std::max(0.0f, m_userCard->height() - (bw * 2.0f));
   m_wallpaperBg->setPosition(bw, bw);
   m_wallpaperBg->setSize(cw, ch);
 
@@ -1094,7 +1094,7 @@ void HomeTab::sync(Renderer& renderer) {
               std::error_code ec;
               if (std::filesystem::exists(cached, ec) && std::filesystem::file_size(cached, ec) > 0) {
                 artPath = cached.string();
-              } else if (m_httpClient != nullptr && m_pendingArtDownloads.find(artUrl) == m_pendingArtDownloads.end()) {
+              } else if (m_httpClient != nullptr && !m_pendingArtDownloads.contains(artUrl)) {
                 std::filesystem::create_directories(cached.parent_path(), ec);
                 m_pendingArtDownloads.insert(artUrl);
                 m_httpClient->download(artUrl, cached, [this, url = artUrl](bool success) {

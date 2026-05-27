@@ -136,18 +136,18 @@ namespace shell::dock {
 
       // Shadow
       if (shell::surface_shadow::enabled(cfg.shadow, shadowConfig)) {
-        instance.shadow = static_cast<Box*>(instance.slideRoot->addChild(ui::box()));
+        instance.shadow = dynamic_cast<Box*>(instance.slideRoot->addChild(ui::box()));
       }
 
       // Panel background
-      instance.panel = static_cast<Box*>(instance.slideRoot->addChild(
+      instance.panel = dynamic_cast<Box*>(instance.slideRoot->addChild(
           ui::box({
               .configure = [radii](Box& box) { box.setRadii(radii); },
           })
       ));
 
       // Item row
-      instance.row = static_cast<Flex*>(instance.panel->addChild(makeDockItemRow(cfg, vert)));
+      instance.row = dynamic_cast<Flex*>(instance.panel->addChild(makeDockItemRow(cfg, vert)));
 
       // Wire up InputDispatcher.
       instance.inputDispatcher.setSceneRoot(instance.sceneRoot.get());
@@ -237,8 +237,9 @@ namespace shell::dock {
     // Palette reactivity.
     instance.paletteConn = paletteChanged().connect([inst = &instance, &config = deps.config] {
       applyPanelPalette(*inst, config.config().dock);
-      if (inst->surface)
+      if (inst->surface) {
         inst->surface->requestRedraw();
+      }
     });
 
     if (callbacks.updateVisuals) {
@@ -247,8 +248,9 @@ namespace shell::dock {
   }
 
   void applyPanelPalette(DockInstance& instance, const DockConfig& cfg) {
-    if (instance.panel == nullptr)
+    if (instance.panel == nullptr) {
       return;
+    }
     const float opacity = cfg.backgroundOpacity;
     instance.panel->setFill(colorSpecFromRole(ColorRole::Surface, opacity));
     instance.panel->setBorder(colorSpecFromRole(ColorRole::Outline), 0.0f);
@@ -285,8 +287,9 @@ namespace shell::dock {
         },
         [&inst, &config]() {
           inst.hideAnimId = 0;
-          if (inst.surface == nullptr)
+          if (inst.surface == nullptr) {
             return;
+          }
           const auto& cfg = config.config().dock;
           int surfW = static_cast<int>(inst.surface->width());
           int surfH = static_cast<int>(inst.surface->height());
@@ -302,8 +305,9 @@ namespace shell::dock {
           );
         }
     );
-    if (inst.surface)
+    if (inst.surface) {
       inst.surface->requestRedraw();
+    }
   }
 
 } // namespace shell::dock

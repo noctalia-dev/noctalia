@@ -44,9 +44,8 @@ WorkspacesWidget::WorkspacesWidget(
     bool minimal
 )
     : m_platform(platform), m_output(output), m_displayMode(displayMode), m_maxLabelChars(maxLabelChars),
-      m_hideWhenEmpty(hideWhenEmpty), m_pillScale(pillScale), m_minimal(minimal),
-      m_focusedColor(std::move(focusedColor)), m_occupiedColor(std::move(occupiedColor)),
-      m_emptyColor(std::move(emptyColor)) {}
+      m_hideWhenEmpty(hideWhenEmpty), m_pillScale(pillScale), m_minimal(minimal), m_focusedColor(focusedColor),
+      m_occupiedColor(occupiedColor), m_emptyColor(emptyColor) {}
 
 WorkspacesWidget::DisplayMode WorkspacesWidget::effectiveDisplayMode() const noexcept {
   if (m_minimal && m_displayMode == DisplayMode::None) {
@@ -246,7 +245,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
         slot.inactiveWidth = minWidth;
         slot.activeWidth = minWidth;
       } else {
-        const float textBasedWidth = slot.textWidth + padding * 2.0f;
+        const float textBasedWidth = slot.textWidth + (padding * 2.0f);
         slot.inactiveWidth = std::max(minWidth, textBasedWidth);
         slot.activeWidth = slot.inactiveWidth;
       }
@@ -294,7 +293,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
     if (!m_minimal) {
       const float indicatorW = m_isVertical ? m_indicatorHeight : w;
       const float indicatorH = m_isVertical ? w : m_indicatorHeight;
-      item.indicator = static_cast<Box*>(area->addChild(
+      item.indicator = dynamic_cast<Box*>(area->addChild(
           ui::box({
               .fill = workspaceFillColor(ws),
               .radius = workspacePillRadius(indicatorW, indicatorH),
@@ -306,7 +305,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
     }
 
     if (slot.showLabel) {
-      item.text = static_cast<Label*>(area->addChild(
+      item.text = dynamic_cast<Label*>(area->addChild(
           ui::label({
               .text = slot.label,
               .fontSize = labelFontSize,
@@ -325,7 +324,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
         m_platform.activateWorkspace(m_output, wsCopy);
       }
     });
-    item.area = static_cast<InputArea*>(m_container->addChild(std::move(area)));
+    item.area = dynamic_cast<InputArea*>(m_container->addChild(std::move(area)));
     m_items.push_back(item);
   }
 
@@ -465,8 +464,8 @@ void WorkspacesWidget::startAnimation() {
       [this](float t) {
         for (std::size_t i = 0; i < m_items.size(); ++i) {
           auto& it = m_items[i];
-          it.currentX = it.fromX + (it.targetX - it.fromX) * t;
-          it.currentWidth = it.fromWidth + (it.targetWidth - it.fromWidth) * t;
+          it.currentX = it.fromX + ((it.targetX - it.fromX) * t);
+          it.currentWidth = it.fromWidth + ((it.targetWidth - it.fromWidth) * t);
           applyItemLayout(i);
         }
         updateContainerSize();
@@ -509,8 +508,8 @@ void WorkspacesWidget::applyItemLayout(std::size_t i) {
   if (it.text != nullptr) {
     const float itemW = m_isVertical ? m_indicatorHeight : it.currentWidth;
     const float itemH = m_isVertical ? it.currentWidth : m_indicatorHeight;
-    const float textX = std::round((itemW - it.text->width()) * 0.5f - it.inkCenterOffset);
-    const float textY = std::round((itemH - it.text->height()) * 0.5f - it.inkVCenterOffset);
+    const float textX = std::round(((itemW - it.text->width()) * 0.5f) - it.inkCenterOffset);
+    const float textY = std::round(((itemH - it.text->height()) * 0.5f) - it.inkVCenterOffset);
     it.text->setPosition(std::max(0.0f, textX), textY);
   }
   if (it.indicator != nullptr) {

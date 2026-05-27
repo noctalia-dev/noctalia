@@ -67,7 +67,7 @@ BatteryWidget::BatteryWidget(
     BatteryDisplayMode displayMode, bool showLabel, bool hideWhenPlugged, bool hideWhenFull
 )
     : m_upower(upower), m_deviceSelector(std::move(deviceSelector)), m_warningThreshold(warningThreshold),
-      m_warningColor(std::move(warningColor)), m_displayMode(displayMode), m_showLabel(showLabel),
+      m_warningColor(warningColor), m_displayMode(displayMode), m_showLabel(showLabel),
       m_hideWhenPlugged(hideWhenPlugged), m_hideWhenFull(hideWhenFull) {}
 
 void BatteryWidget::create() {
@@ -82,7 +82,7 @@ void BatteryWidget::create() {
 }
 
 void BatteryWidget::createGraphicMode() {
-  auto* container = static_cast<InputArea*>(root());
+  auto* container = dynamic_cast<InputArea*>(root());
 
   container->addChild(
       ui::box({
@@ -124,7 +124,7 @@ void BatteryWidget::createGraphicMode() {
 }
 
 void BatteryWidget::createIconMode() {
-  auto* container = static_cast<InputArea*>(root());
+  auto* container = dynamic_cast<InputArea*>(root());
 
   container->addChild(
       ui::glyph({
@@ -344,7 +344,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
 
   const bool showWidget = s.isPresent
       && !(m_hideWhenPlugged && isPluggedIn)
-      && !(m_hideWhenFull && (s.state == BatteryState::FullyCharged || s.state == BatteryState::PendingCharge));
+      && (!m_hideWhenFull || (s.state != BatteryState::FullyCharged && s.state != BatteryState::PendingCharge));
 
   auto* rootNode = root();
   if (rootNode != nullptr) {
@@ -453,9 +453,9 @@ void BatteryWidget::syncState(Renderer& renderer) {
       rows.push_back({std::move(name), std::to_string(dp) + "%"});
     }
     if (!rows.empty()) {
-      static_cast<InputArea*>(rootNode)->setTooltip(std::move(rows));
+      dynamic_cast<InputArea*>(rootNode)->setTooltip(std::move(rows));
     } else {
-      static_cast<InputArea*>(rootNode)->clearTooltip();
+      dynamic_cast<InputArea*>(rootNode)->clearTooltip();
     }
   }
 

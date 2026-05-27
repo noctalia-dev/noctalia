@@ -96,7 +96,7 @@ namespace {
     if (::clock_gettime(clockId, &ts) != 0) {
       return 0.0;
     }
-    return static_cast<double>(ts.tv_sec) * 1000.0 + static_cast<double>(ts.tv_nsec) / 1000000.0;
+    return (static_cast<double>(ts.tv_sec) * 1000.0) + (static_cast<double>(ts.tv_nsec) / 1000000.0);
   }
 
   std::string demangleTypeName(const char* name) {

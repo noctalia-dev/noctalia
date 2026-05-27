@@ -214,7 +214,9 @@ void HttpClient::addPollFds(std::vector<pollfd>& fds) {
     return;
   }
 
-  fd_set readfds, writefds, errfds;
+  fd_set readfds;
+  fd_set writefds;
+  fd_set errfds;
   FD_ZERO(&readfds);
   FD_ZERO(&writefds);
   FD_ZERO(&errfds);

@@ -305,16 +305,16 @@ void CalendarTab::rebuild() {
   const float scale = contentScale();
   const float innerWidth = std::max(0.0f, m_card->width() - (m_card->paddingLeft() + m_card->paddingRight()));
   const float innerHeight = std::max(0.0f, m_card->height() - (m_card->paddingTop() + m_card->paddingBottom()));
-  const float navWidth = kCalendarNavButtonSize * scale * 2.0f + Style::spaceSm * scale * 2.0f;
+  const float navWidth = (kCalendarNavButtonSize * scale * 2.0f) + (Style::spaceSm * scale * 2.0f);
   const float monthWidth = std::max(0.0f, innerWidth - navWidth);
   const float gridHeightAvailable =
-      std::max(0.0f, innerHeight - kCalendarHeaderHeight * scale - kCalendarGridGap * scale);
+      std::max(0.0f, innerHeight - (kCalendarHeaderHeight * scale) - (kCalendarGridGap * scale));
   const float weekdayHeight = kCalendarWeekdayRowHeight * scale;
   const float dayCellHeight = std::clamp(
-      (gridHeightAvailable - weekdayHeight - kCalendarGridGap * scale * 6.0f) / 6.0f, kCalendarCellSizeMin * scale,
+      (gridHeightAvailable - weekdayHeight - (kCalendarGridGap * scale * 6.0f)) / 6.0f, kCalendarCellSizeMin * scale,
       kCalendarCellSizeMax * scale
   );
-  const float dayColumnWidth = std::max(0.0f, (innerWidth - kCalendarGridGap * scale * 6.0f) / 7.0f);
+  const float dayColumnWidth = std::max(0.0f, (innerWidth - (kCalendarGridGap * scale * 6.0f)) / 7.0f);
   const float dayButtonSize = std::round(std::min({dayCellHeight, dayColumnWidth, kCalendarDayButtonSizeMax * scale}));
 
   if (m_header != nullptr) {

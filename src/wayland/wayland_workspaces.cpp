@@ -75,7 +75,7 @@ void WaylandWorkspaces::bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager) {
   }
 }
 
-void WaylandWorkspaces::setOutputNameResolver(std::function<std::string(wl_output*)> resolver) {
+void WaylandWorkspaces::setOutputNameResolver(const std::function<std::string(wl_output*)>& resolver) {
   for (auto* backend : m_outputNameResolvers) {
     if (backend != nullptr) {
       backend->setOutputNameResolver(resolver);
@@ -176,7 +176,7 @@ void WaylandWorkspaces::onOutputAdded(wl_output* output) {
     }
   }
   if (m_activeBackend == m_hyprlandBackend && m_hyprlandBackend != nullptr) {
-    static_cast<HyprlandWorkspaceBackend*>(m_hyprlandBackend)->syncFromCompositor();
+    dynamic_cast<HyprlandWorkspaceBackend*>(m_hyprlandBackend)->syncFromCompositor();
   }
 }
 
@@ -273,10 +273,10 @@ void WaylandWorkspaces::focusWindow(const std::string& windowId) const {
 
 std::optional<std::string> WaylandWorkspaces::focusedWindowId() const {
   if (m_triadBackend != nullptr && m_activeBackend == m_triadBackend) {
-    return static_cast<const TriadWorkspaceBackend*>(m_triadBackend)->focusedWindowId();
+    return dynamic_cast<const TriadWorkspaceBackend*>(m_triadBackend)->focusedWindowId();
   }
   if (m_hyprlandBackend != nullptr) {
-    return static_cast<const HyprlandWorkspaceBackend*>(m_hyprlandBackend)->focusedWindowId();
+    return dynamic_cast<const HyprlandWorkspaceBackend*>(m_hyprlandBackend)->focusedWindowId();
   }
   return std::nullopt;
 }
@@ -293,7 +293,7 @@ wl_output* WaylandWorkspaces::mangoIpcSelectedOutput() const {
   if (m_mangoIpcBackend == nullptr || !m_mangoIpcBackend->isAvailable()) {
     return nullptr;
   }
-  return static_cast<MangoWorkspaceBackend*>(m_mangoIpcBackend)->ipcSelectedOutput();
+  return dynamic_cast<MangoWorkspaceBackend*>(m_mangoIpcBackend)->ipcSelectedOutput();
 }
 
 std::optional<std::pair<std::string, std::string>>
@@ -301,14 +301,14 @@ WaylandWorkspaces::mangoIpcFocusedClientOnOutput(wl_output* output) const {
   if (m_mangoIpcBackend == nullptr || !m_mangoIpcBackend->isAvailable()) {
     return std::nullopt;
   }
-  return static_cast<const MangoWorkspaceBackend*>(m_mangoIpcBackend)->ipcFocusedClientForOutput(output);
+  return dynamic_cast<const MangoWorkspaceBackend*>(m_mangoIpcBackend)->ipcFocusedClientForOutput(output);
 }
 
 wl_output* WaylandWorkspaces::dwlIpcSelectedOutput() const {
   if (m_dwlIpcBackend == nullptr || !m_dwlIpcBackend->isAvailable()) {
     return nullptr;
   }
-  return static_cast<DwlWorkspaceBackend*>(m_dwlIpcBackend)->ipcSelectedOutput();
+  return dynamic_cast<DwlWorkspaceBackend*>(m_dwlIpcBackend)->ipcSelectedOutput();
 }
 
 std::optional<std::pair<std::string, std::string>>
@@ -316,7 +316,7 @@ WaylandWorkspaces::dwlIpcFocusedClientOnOutput(wl_output* output) const {
   if (m_dwlIpcBackend == nullptr || !m_dwlIpcBackend->isAvailable()) {
     return std::nullopt;
   }
-  return static_cast<const DwlWorkspaceBackend*>(m_dwlIpcBackend)->ipcFocusedClientForOutput(output);
+  return dynamic_cast<const DwlWorkspaceBackend*>(m_dwlIpcBackend)->ipcFocusedClientForOutput(output);
 }
 
 void WaylandWorkspaces::setActiveBackend(WorkspaceBackend* backend) {

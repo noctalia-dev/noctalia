@@ -88,10 +88,10 @@ VirtualListView::VirtualListView() {
   scroll->setViewportPaddingH(0.0f);
   scroll->setViewportPaddingV(0.0f);
   scroll->setOnScrollChanged([this](float offset) { onScrollChanged(offset); });
-  m_scroll = static_cast<ScrollView*>(addChild(std::move(scroll)));
+  m_scroll = dynamic_cast<ScrollView*>(addChild(std::move(scroll)));
 
   auto canvas = std::make_unique<Canvas>();
-  m_canvas = static_cast<Canvas*>(m_scroll->content()->addChild(std::move(canvas)));
+  m_canvas = dynamic_cast<Canvas*>(m_scroll->content()->addChild(std::move(canvas)));
 }
 
 void VirtualListView::setAdapter(VirtualListAdapter* adapter) {
@@ -170,8 +170,8 @@ void VirtualListView::doLayout(Renderer& renderer) {
   const float ourH = std::max(0.0f, height());
   const float padH = m_scroll->viewportPaddingH();
   const float padV = m_scroll->viewportPaddingV();
-  const float innerW = std::max(0.0f, ourW - 2.0f * padH);
-  const float viewportH = std::max(0.0f, ourH - 2.0f * padV);
+  const float innerW = std::max(0.0f, ourW - (2.0f * padH));
+  const float viewportH = std::max(0.0f, ourH - (2.0f * padV));
   const float scrollbarGutter = Style::scrollbarWidth + Style::scrollbarGap;
 
   // Match ScrollView: only reserve the scrollbar gutter when content overflows vertically.
@@ -223,7 +223,7 @@ void VirtualListView::doLayout(Renderer& renderer) {
         activateSlot(*slotPtr);
       }
     });
-    m_pool.push_back(static_cast<Slot*>(m_canvas->addChild(std::move(slot))));
+    m_pool.push_back(dynamic_cast<Slot*>(m_canvas->addChild(std::move(slot))));
     m_slotBoundIndex.emplace_back();
     m_slotBoundKey.push_back(0);
     m_slotBoundRevision.push_back(0);

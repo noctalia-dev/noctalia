@@ -243,7 +243,7 @@ void MediaWidget::syncState(Renderer& renderer) {
       std::error_code ec;
       if (std::filesystem::exists(cached, ec) && std::filesystem::file_size(cached, ec) > 0) {
         artPath = cached.string();
-      } else if (m_httpClient != nullptr && m_pendingArtDownloads.find(m_lastArtUrl) == m_pendingArtDownloads.end()) {
+      } else if (m_httpClient != nullptr && !m_pendingArtDownloads.contains(m_lastArtUrl)) {
         std::filesystem::create_directories(cached.parent_path(), ec);
         m_pendingArtDownloads.insert(m_lastArtUrl);
         m_httpClient->download(m_lastArtUrl, cached, [this, url = m_lastArtUrl](bool success) {

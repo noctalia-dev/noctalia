@@ -17,7 +17,7 @@ Toggle::Toggle() {
   setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
 
   auto thumb = std::make_unique<RectNode>();
-  m_thumb = static_cast<RectNode*>(addChild(std::move(thumb)));
+  m_thumb = dynamic_cast<RectNode*>(addChild(std::move(thumb)));
 
   auto area = std::make_unique<InputArea>();
   area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
@@ -33,7 +33,7 @@ Toggle::Toggle() {
       m_onChange(next);
     }
   });
-  m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
+  m_inputArea = dynamic_cast<InputArea*>(addChild(std::move(area)));
   m_inputArea->setParticipatesInLayout(false);
   m_inputArea->setZIndex(1);
 
@@ -154,7 +154,7 @@ void Toggle::applyAnimatedState(float t) {
   m_animationProgress = t;
   const Color trackColor = lerpColor(colorForRole(ColorRole::Outline), colorForRole(ColorRole::Primary), t);
   const Color thumbColor = lerpColor(colorForRole(ColorRole::OnPrimary), colorForRole(ColorRole::OnPrimary), t);
-  const float thumbX = m_inset + m_travel * t;
+  const float thumbX = m_inset + (m_travel * t);
   ColorSpec borderColor = colorSpecFromRole(ColorRole::Outline);
 
   if (m_enabled) {

@@ -41,7 +41,7 @@ public:
       noctalia::theme::ThemeService* themeService, BluetoothService* bluetooth, BrightnessService* brightness,
       LockKeysService* lockKeys, ClipboardService* clipboard, FileWatcher* fileWatcher = nullptr
   );
-  ~WidgetFactory();
+  ~WidgetFactory() = default;
 
   [[nodiscard]] std::unique_ptr<Widget> create(
       const std::string& name, wl_output* output, float contentScale = 1.0f, const std::string& barPosition = "top",

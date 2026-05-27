@@ -444,7 +444,7 @@ void Wallpaper::registerIpc(IpcService& ipc) {
               return "error: unknown output \"" + *outputConnector + "\"" + suffix + "\n";
             }
           }
-          m_config->setWallpaperPath(*outputConnector, resolved);
+          m_config->setWallpaperPath(outputConnector, resolved);
           return "ok\n";
         }
 
@@ -472,8 +472,9 @@ void Wallpaper::syncInstances() {
   std::erase_if(m_instances, [&](const auto& inst) {
     const auto* output = [&]() -> const WaylandOutput* {
       for (const auto& out : outputs) {
-        if (out.name == inst->outputName)
+        if (out.name == inst->outputName) {
           return &out;
+        }
       }
       return nullptr;
     }();
@@ -737,9 +738,9 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
   instance->sceneRoot = std::make_unique<Node>();
   instance->sceneRoot->setAnimationManager(&instance->animations);
   auto fillNode = std::make_unique<Box>();
-  instance->fillNode = static_cast<Box*>(instance->sceneRoot->addChild(std::move(fillNode)));
+  instance->fillNode = dynamic_cast<Box*>(instance->sceneRoot->addChild(std::move(fillNode)));
   auto wallpaperNode = std::make_unique<WallpaperNode>();
-  instance->wallpaperNode = static_cast<WallpaperNode*>(instance->sceneRoot->addChild(std::move(wallpaperNode)));
+  instance->wallpaperNode = dynamic_cast<WallpaperNode*>(instance->sceneRoot->addChild(std::move(wallpaperNode)));
   instance->surface->setSceneRoot(instance->sceneRoot.get());
 
   auto* inst = instance.get();

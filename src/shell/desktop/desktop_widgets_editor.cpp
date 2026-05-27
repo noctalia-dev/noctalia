@@ -65,7 +65,7 @@ namespace {
       return value;
     }
     const float cell = static_cast<float>(cellSize);
-    return origin + std::round((value - origin) / cell) * cell;
+    return origin + (std::round((value - origin) / cell) * cell);
   }
 
   float snapGuideThreshold(std::int32_t cellSize) {
@@ -190,7 +190,9 @@ namespace {
   std::pair<float, float> rotatedCorner(float cx, float cy, float halfWidth, float halfHeight, float rotationRad) {
     const float cosTheta = std::cos(rotationRad);
     const float sinTheta = std::sin(rotationRad);
-    return {cx + halfWidth * cosTheta - halfHeight * sinTheta, cy + halfWidth * sinTheta + halfHeight * cosTheta};
+    return {
+        cx + (halfWidth * cosTheta) - (halfHeight * sinTheta), cy + (halfWidth * sinTheta) + (halfHeight * cosTheta)
+    };
   }
 
 } // namespace
@@ -478,8 +480,8 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     const std::int32_t majorInterval = std::max(1, m_snapshot.grid.majorInterval);
     const float centerX = width * 0.5f;
     const float centerY = height * 0.5f;
-    const float firstX = centerX - std::floor(centerX / cell) * cell;
-    const float firstY = centerY - std::floor(centerY / cell) * cell;
+    const float firstX = centerX - (std::floor(centerX / cell) * cell);
+    const float firstY = centerY - (std::floor(centerY / cell) * cell);
 
     for (float x = firstX; x <= width; x += cell) {
       const int idx = std::abs(static_cast<int>(std::lround((x - centerX) / cell)));
@@ -557,7 +559,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     view.transformNode = view.bodyArea;
     view.transformNode->setFrameSize(view.intrinsicWidth, view.intrinsicHeight);
     view.transformNode->setPosition(
-        widgetState.cx - view.intrinsicWidth * 0.5f, widgetState.cy - view.intrinsicHeight * 0.5f
+        widgetState.cx - (view.intrinsicWidth * 0.5f), widgetState.cy - (view.intrinsicHeight * 0.5f)
     );
     view.transformNode->setRotation(widgetState.rotationRad);
     view.transformNode->setScale(1.0f);
@@ -600,7 +602,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     auto ringShadow = ui::box({
         .fill = clearColorSpec(),
         .radius = Style::scaledRadiusMd() + kRotatePadding + kShadowExpand,
-        .configure = [](Box& box) { box.setBorder(kShadowColor, 1.0f + kShadowExpand * 2.0f); },
+        .configure = [](Box& box) { box.setBorder(kShadowColor, 1.0f + (kShadowExpand * 2.0f)); },
     });
     surface.rotationRingShadow = ringShadow.get();
     surface.selectionFrameTransform->addChild(std::move(ringShadow));
@@ -644,7 +646,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     auto selectionBorderShadow = ui::box({
         .fill = clearColorSpec(),
         .radius = Style::scaledRadiusMd() + kShadowExpand,
-        .configure = [](Box& box) { box.setBorder(kShadowColor, kSelectionStroke + kShadowExpand * 2.0f); },
+        .configure = [](Box& box) { box.setBorder(kShadowColor, kSelectionStroke + (kShadowExpand * 2.0f)); },
     });
     surface.selectionBorderShadow = selectionBorderShadow.get();
     selectionBorderTransform->addChild(std::move(selectionBorderShadow));
@@ -941,8 +943,8 @@ void DesktopWidgetsEditor::updateSelectionVisuals(OverlaySurface& surface) {
 
   const float width = selectedIt->second.intrinsicWidth;
   const float height = selectedIt->second.intrinsicHeight;
-  const float left = state->cx - width * 0.5f;
-  const float top = state->cy - height * 0.5f;
+  const float left = state->cx - (width * 0.5f);
+  const float top = state->cy - (height * 0.5f);
 
   surface.selectionFrameTransform->setFrameSize(width, height);
   surface.selectionFrameTransform->setPosition(left, top);
@@ -955,18 +957,18 @@ void DesktopWidgetsEditor::updateSelectionVisuals(OverlaySurface& surface) {
   const float ringPadExp = kRotatePadding + kShadowExpand;
   if (surface.rotationRingShadow != nullptr) {
     surface.rotationRingShadow->setPosition(-ringPadExp, -ringPadExp);
-    surface.rotationRingShadow->setFrameSize(width + ringPadExp * 2.0f, height + ringPadExp * 2.0f);
+    surface.rotationRingShadow->setFrameSize(width + (ringPadExp * 2.0f), height + (ringPadExp * 2.0f));
   }
 
   surface.rotationRing->setPosition(-kRotatePadding, -kRotatePadding);
-  surface.rotationRing->setFrameSize(width + kRotatePadding * 2.0f, height + kRotatePadding * 2.0f);
+  surface.rotationRing->setFrameSize(width + (kRotatePadding * 2.0f), height + (kRotatePadding * 2.0f));
 
   surface.rotateArea->setPosition(-kRotatePadding, -kRotatePadding);
-  surface.rotateArea->setFrameSize(width + kRotatePadding * 2.0f, height + kRotatePadding * 2.0f);
+  surface.rotateArea->setFrameSize(width + (kRotatePadding * 2.0f), height + (kRotatePadding * 2.0f));
 
   if (surface.selectionBorderShadow != nullptr) {
     surface.selectionBorderShadow->setPosition(-kShadowExpand, -kShadowExpand);
-    surface.selectionBorderShadow->setFrameSize(width + kShadowExpand * 2.0f, height + kShadowExpand * 2.0f);
+    surface.selectionBorderShadow->setFrameSize(width + (kShadowExpand * 2.0f), height + (kShadowExpand * 2.0f));
   }
 
   surface.selectionBorder->setPosition(0.0f, 0.0f);
@@ -977,13 +979,13 @@ void DesktopWidgetsEditor::updateSelectionVisuals(OverlaySurface& surface) {
     const auto [cornerX, cornerY] =
         rotatedCorner(state->cx, state->cy, width * 0.5f * signs.x, height * 0.5f * signs.y, state->rotationRad);
 
-    const float shadowSize = kHandleSize + kShadowExpand * 2.0f;
+    const float shadowSize = kHandleSize + (kShadowExpand * 2.0f);
     if (surface.scaleHandleShadows[i] != nullptr) {
-      surface.scaleHandleShadows[i]->setPosition(cornerX - shadowSize * 0.5f, cornerY - shadowSize * 0.5f);
+      surface.scaleHandleShadows[i]->setPosition(cornerX - (shadowSize * 0.5f), cornerY - (shadowSize * 0.5f));
       surface.scaleHandleShadows[i]->setFrameSize(shadowSize, shadowSize);
     }
 
-    surface.scaleHandles[i]->setPosition(cornerX - kHandleSize * 0.5f, cornerY - kHandleSize * 0.5f);
+    surface.scaleHandles[i]->setPosition(cornerX - (kHandleSize * 0.5f), cornerY - (kHandleSize * 0.5f));
     surface.scaleHandles[i]->setFrameSize(kHandleSize, kHandleSize);
 
     surface.scaleAreas[i]->setPosition(cornerX - kHandleSize, cornerY - kHandleSize);
@@ -1007,7 +1009,7 @@ void DesktopWidgetsEditor::applyViewState(
   }
 
   view.transformNode->setFrameSize(view.intrinsicWidth, view.intrinsicHeight);
-  view.transformNode->setPosition(state.cx - view.intrinsicWidth * 0.5f, state.cy - view.intrinsicHeight * 0.5f);
+  view.transformNode->setPosition(state.cx - (view.intrinsicWidth * 0.5f), state.cy - (view.intrinsicHeight * 0.5f));
   view.transformNode->setRotation(state.rotationRad);
   view.transformNode->setScale(1.0f);
   view.transformNode->setOpacity(state.enabled ? 1.0f : kDisabledWidgetOpacity);
@@ -1058,7 +1060,7 @@ void DesktopWidgetsEditor::addWidget(const std::string& outputName, const std::s
   }
 
   if (widget.type == "sticker") {
-    widget.settings.emplace("opacity", static_cast<double>(1.0));
+    widget.settings.emplace("opacity", 1.0);
     auto widgetId = widget.id;
     m_snapshot.widgets.push_back(std::move(widget));
 
@@ -1359,8 +1361,8 @@ void DesktopWidgetsEditor::updateDrag() {
       const float anchorLocalY = -scaleSigns.y * scaleHalfHeight;
       const float cosR = std::cos(m_drag.initialState.rotationRad);
       const float sinR = std::sin(m_drag.initialState.rotationRad);
-      state->cx = m_drag.initialState.cx + (cosR * anchorLocalX - sinR * anchorLocalY) * factor;
-      state->cy = m_drag.initialState.cy + (sinR * anchorLocalX + cosR * anchorLocalY) * factor;
+      state->cx = m_drag.initialState.cx + (((cosR * anchorLocalX) - (sinR * anchorLocalY)) * factor);
+      state->cy = m_drag.initialState.cy + (((sinR * anchorLocalX) + (cosR * anchorLocalY)) * factor);
     } else {
       state->cx = m_drag.initialState.cx;
       state->cy = m_drag.initialState.cy;
@@ -1399,8 +1401,8 @@ void DesktopWidgetsEditor::updateDrag() {
     const float dy = cornerY - m_drag.initialState.cy;
     const float cosTheta = std::cos(-m_drag.initialState.rotationRad);
     const float sinTheta = std::sin(-m_drag.initialState.rotationRad);
-    const float localX = (dx * cosTheta - dy * sinTheta) * scaleSigns.x;
-    const float localY = (dx * sinTheta + dy * cosTheta) * scaleSigns.y;
+    const float localX = ((dx * cosTheta) - (dy * sinTheta)) * scaleSigns.x;
+    const float localY = ((dx * sinTheta) + (dy * cosTheta)) * scaleSigns.y;
     scaleHalfWidth = std::max(1.0f, m_drag.intrinsicWidth * 0.5f);
     scaleHalfHeight = std::max(1.0f, m_drag.intrinsicHeight * 0.5f);
     const WidgetTransformBounds initialBounds = computeWidgetTransformBounds(
@@ -1413,8 +1415,8 @@ void DesktopWidgetsEditor::updateDrag() {
     const float widthChange = std::abs(localX - scaleHalfWidth);
     const float heightChange = std::abs(localY - scaleHalfHeight);
     snapScaleByWidth = heightChange <= widthChange * kScaleHeightIntentRatio;
-    const float denominator = scaleHalfWidth * scaleHalfWidth + scaleHalfHeight * scaleHalfHeight;
-    const float relativeScale = (localX * scaleHalfWidth + localY * scaleHalfHeight) / std::max(1.0f, denominator);
+    const float denominator = (scaleHalfWidth * scaleHalfWidth) + (scaleHalfHeight * scaleHalfHeight);
+    const float relativeScale = ((localX * scaleHalfWidth) + (localY * scaleHalfHeight)) / std::max(1.0f, denominator);
     const float newScale = std::clamp(m_drag.initialState.scale * relativeScale, kMinScale, kMaxScale);
     state->scale = newScale;
     applyScaleDragState();
@@ -1438,15 +1440,15 @@ void DesktopWidgetsEditor::updateDrag() {
         float targetExtent = currentExtent;
 
         if (m_altHeld) {
-          const float draggedLine = initialCenter + sign * currentExtent * 0.5f;
+          const float draggedLine = initialCenter + (sign * currentExtent * 0.5f);
           const float snappedLine = snapLineToTargets(
               draggedLine, m_snapshot.grid.cellSize, axisX ? gridOriginX : gridOriginY, axisX ? snapLinesX : snapLinesY,
               guideThreshold
           );
           targetExtent = std::abs(snappedLine - initialCenter) * 2.0f;
         } else {
-          const float anchorLine = initialCenter - sign * initialExtent * 0.5f;
-          const float draggedLine = anchorLine + sign * currentExtent;
+          const float anchorLine = initialCenter - (sign * initialExtent * 0.5f);
+          const float draggedLine = anchorLine + (sign * currentExtent);
           const float snappedLine = snapLineToTargets(
               draggedLine, m_snapshot.grid.cellSize, axisX ? gridOriginX : gridOriginY, axisX ? snapLinesX : snapLinesY,
               guideThreshold
@@ -1482,7 +1484,7 @@ void DesktopWidgetsEditor::updateDrag() {
       view->transformNode->setScale(dragVisualScale);
       view->transformNode->setFrameSize(m_drag.intrinsicWidth, m_drag.intrinsicHeight);
       view->transformNode->setPosition(
-          state->cx - m_drag.intrinsicWidth * 0.5f, state->cy - m_drag.intrinsicHeight * 0.5f
+          state->cx - (m_drag.intrinsicWidth * 0.5f), state->cy - (m_drag.intrinsicHeight * 0.5f)
       );
     }
   }

@@ -54,10 +54,10 @@ VirtualGridView::VirtualGridView() {
   scroll->setViewportPaddingH(0.0f);
   scroll->setViewportPaddingV(0.0f);
   scroll->setOnScrollChanged([this](float offset) { onScrollChanged(offset); });
-  m_scroll = static_cast<ScrollView*>(addChild(std::move(scroll)));
+  m_scroll = dynamic_cast<ScrollView*>(addChild(std::move(scroll)));
 
   auto canvas = std::make_unique<Canvas>();
-  m_canvas = static_cast<Canvas*>(m_scroll->content()->addChild(std::move(canvas)));
+  m_canvas = dynamic_cast<Canvas*>(m_scroll->content()->addChild(std::move(canvas)));
 
   auto inputArea = std::make_unique<InputArea>();
   inputArea->setZIndex(50);
@@ -75,7 +75,7 @@ VirtualGridView::VirtualGridView() {
       onSecondaryPointerPress(data.localX, data.localY);
     }
   });
-  m_inputArea = static_cast<InputArea*>(m_canvas->addChild(std::move(inputArea)));
+  m_inputArea = dynamic_cast<InputArea*>(m_canvas->addChild(std::move(inputArea)));
 }
 
 void VirtualGridView::setAdapter(VirtualGridAdapter* adapter) {
@@ -209,8 +209,8 @@ void VirtualGridView::doLayout(Renderer& renderer) {
   const float ourH = std::max(0.0f, height());
   const float padH = m_scroll->viewportPaddingH();
   const float padV = m_scroll->viewportPaddingV();
-  const float innerW = std::max(0.0f, ourW - 2.0f * padH);
-  const float viewportH = std::max(0.0f, ourH - 2.0f * padV);
+  const float innerW = std::max(0.0f, ourW - (2.0f * padH));
+  const float viewportH = std::max(0.0f, ourH - (2.0f * padV));
   const float scrollbarGutter = Style::scrollbarWidth + Style::scrollbarGap;
 
   m_itemCount = m_adapter->itemCount();
@@ -234,12 +234,12 @@ void VirtualGridView::doLayout(Renderer& renderer) {
               )
           );
     const float columnsF = static_cast<float>(metrics.columns);
-    metrics.cellW = std::max(0.0f, (availableW - (columnsF - 1.0f) * m_columnGap) / std::max(1.0f, columnsF));
+    metrics.cellW = std::max(0.0f, (availableW - ((columnsF - 1.0f) * m_columnGap)) / std::max(1.0f, columnsF));
     metrics.cellH = m_squareCells ? metrics.cellW : m_cellHeight;
     metrics.rowCount = (m_itemCount + metrics.columns - 1) / metrics.columns;
-    metrics.virtualHeight = metrics.rowCount == 0
-        ? 0.0f
-        : (static_cast<float>(metrics.rowCount) * metrics.cellH + static_cast<float>(metrics.rowCount - 1) * m_rowGap);
+    metrics.virtualHeight = metrics.rowCount == 0 ? 0.0f
+                                                  : ((static_cast<float>(metrics.rowCount) * metrics.cellH)
+                                                     + (static_cast<float>(metrics.rowCount - 1) * m_rowGap));
     return metrics;
   };
 
@@ -332,11 +332,11 @@ void VirtualGridView::doLayout(Renderer& renderer) {
     for (std::size_t row = firstRow; row <= lastRow; ++row) {
       const std::size_t poolRow = row % poolRows;
       for (std::size_t col = 0; col < columns; ++col) {
-        const std::size_t slot = poolRow * columns + col;
+        const std::size_t slot = (poolRow * columns) + col;
         if (slot >= m_pool.size()) {
           continue;
         }
-        const std::size_t logicalIndex = row * columns + col;
+        const std::size_t logicalIndex = (row * columns) + col;
         if (logicalIndex >= m_itemCount) {
           continue;
         }
@@ -472,12 +472,12 @@ std::optional<std::size_t> VirtualGridView::indexAt(float localX, float localY) 
     return std::nullopt;
   }
   // Reject the gutter region between cells.
-  const float cellLocalX = localX - static_cast<float>(col) * colStride;
-  const float cellLocalY = localY - static_cast<float>(row) * rowStride;
+  const float cellLocalX = localX - (static_cast<float>(col) * colStride);
+  const float cellLocalY = localY - (static_cast<float>(row) * rowStride);
   if (cellLocalX > m_cellWidth || cellLocalY > m_cellHeightResolved) {
     return std::nullopt;
   }
-  const std::size_t idx = row * m_layoutColumns + col;
+  const std::size_t idx = (row * m_layoutColumns) + col;
   if (idx >= m_itemCount) {
     return std::nullopt;
   }

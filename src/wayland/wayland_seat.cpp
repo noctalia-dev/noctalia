@@ -612,14 +612,18 @@ void WaylandSeat::handleKeyboardKey(
   auto utf32 = static_cast<std::uint32_t>(xkb_state_key_get_utf32(self->m_xkbState, xkbKeycode));
 
   std::uint32_t mods = 0;
-  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE) > 0)
+  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE) > 0) {
     mods |= KeyMod::Shift;
-  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0)
+  }
+  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0) {
     mods |= KeyMod::Ctrl;
-  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE) > 0)
+  }
+  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE) > 0) {
     mods |= KeyMod::Alt;
-  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE) > 0)
+  }
+  if (xkb_state_mod_name_is_active(self->m_xkbState, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE) > 0) {
     mods |= KeyMod::Super;
+  }
 
   const bool pressed = (state == WL_KEYBOARD_KEY_STATE_PRESSED);
 

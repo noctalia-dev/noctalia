@@ -32,14 +32,14 @@ namespace shell::dock {
 
   std::int32_t dockContentSize(const DockConfig& cfg, std::size_t itemCount) {
     const auto n = static_cast<std::int32_t>(itemCount);
-    const std::int32_t cellSize = cfg.iconSize + kCellPad * 2;
+    const std::int32_t cellSize = cfg.iconSize + (kCellPad * 2);
     if (n == 0) {
-      return cellSize + cfg.padding * 2;
+      return cellSize + (cfg.padding * 2);
     }
-    return n * cellSize + std::max(0, n - 1) * cfg.itemSpacing + cfg.padding * 2;
+    return (n * cellSize) + (std::max(0, n - 1) * cfg.itemSpacing) + (cfg.padding * 2);
   }
 
-  std::int32_t dockThickness(const DockConfig& cfg) { return cfg.iconSize + kCellPad * 2 + cfg.padding * 2; }
+  std::int32_t dockThickness(const DockConfig& cfg) { return cfg.iconSize + (kCellPad * 2) + (cfg.padding * 2); }
 
   std::size_t dockLauncherButtonCount(const DockConfig& cfg) {
     return (cfg.launcherPosition == "start" || cfg.launcherPosition == "end") ? 1U : 0U;

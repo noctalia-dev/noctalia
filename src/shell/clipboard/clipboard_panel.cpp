@@ -363,9 +363,9 @@ namespace {
         m_image->setSize(thumbPx, thumbPx);
       }
       if (m_title != nullptr && m_meta != nullptr) {
-        const float pinW = m_pinned ? kListPinGlyphSize * m_scale + Style::spaceMd * m_scale : 0.0f;
+        const float pinW = m_pinned ? (kListPinGlyphSize * m_scale) + (Style::spaceMd * m_scale) : 0.0f;
         const float textWidth =
-            std::max(0.0f, rowW - thumbPx - pinW - Style::spaceMd * m_scale - Style::spaceSm * m_scale * 2.0f);
+            std::max(0.0f, rowW - thumbPx - pinW - (Style::spaceMd * m_scale) - (Style::spaceSm * m_scale * 2.0f));
         m_title->setMaxWidth(textWidth);
         m_meta->setMaxWidth(textWidth);
       }
@@ -476,7 +476,7 @@ public:
     if (historyIndex >= history.size()) {
       return;
     }
-    auto* row = static_cast<ClipboardListRow*>(&tile);
+    auto* row = dynamic_cast<ClipboardListRow*>(&tile);
     row->bind(*m_renderer, history[historyIndex], historyIndex, row->width(), selected, hovered && !selected);
   }
 
@@ -532,7 +532,7 @@ void ClipboardPanel::create() {
       handleKeyEvent(key.sym, key.modifiers);
     }
   });
-  m_focusArea = static_cast<InputArea*>(rootLayout->addChild(std::move(focusArea)));
+  m_focusArea = dynamic_cast<InputArea*>(rootLayout->addChild(std::move(focusArea)));
 
   auto sidebar = ui::column({
       .out = &m_sidebar,
@@ -1151,7 +1151,7 @@ void ClipboardPanel::rebuildPreview(Renderer& renderer, float width, float heigh
   if (entry.isImage()) {
     const float scale = contentScale();
     const float imageHeight =
-        std::min(kPreviewImageHeight * scale, std::max(180.0f * scale, height - Style::spaceMd * scale));
+        std::min(kPreviewImageHeight * scale, std::max(180.0f * scale, height - (Style::spaceMd * scale)));
     auto image = ui::image({
         .fit = ImageFit::Contain,
         .width = width,

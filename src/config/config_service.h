@@ -92,7 +92,7 @@ public:
   bool renameMonitorOverride(std::string_view barName, std::string_view oldMatch, std::string_view newMatch);
   bool deleteMonitorOverride(std::string_view barName, std::string_view match);
   bool setOverride(const std::vector<std::string>& path, ConfigOverrideValue value);
-  bool setOverrides(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides);
+  bool setOverrides(const std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>& overrides);
   bool clearOverride(const std::vector<std::string>& path);
   bool renameOverrideTable(const std::vector<std::string>& oldPath, const std::vector<std::string>& newPath);
 

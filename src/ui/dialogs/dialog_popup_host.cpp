@@ -369,7 +369,7 @@ void DialogPopupHost::buildScene(std::uint32_t width, std::uint32_t height) {
         box.setPanelStyle(m_config != nullptr && m_config->config().shell.panel.borders);
       },
   });
-  m_bgNode = static_cast<Box*>(m_sceneRoot->addChild(std::move(bg)));
+  m_bgNode = dynamic_cast<Box*>(m_sceneRoot->addChild(std::move(bg)));
 
   auto content = std::make_unique<Node>();
   m_contentNode = content.get();
@@ -431,8 +431,8 @@ void DialogPopupHost::syncSceneGeometryFromSurface() {
     m_bgNode->setSize(panelW, panelH);
   }
   const float padding = computePadding(uiScale());
-  const float contentWidth = panelW - padding * 2.0f;
-  const float contentHeight = panelH - padding * 2.0f;
+  const float contentWidth = panelW - (padding * 2.0f);
+  const float contentHeight = panelH - (padding * 2.0f);
   if (m_contentNode != nullptr) {
     m_contentNode->setPosition(panelX + padding, panelY + padding);
     m_contentNode->setSize(contentWidth, contentHeight);
@@ -449,8 +449,8 @@ void DialogPopupHost::layoutScene(float width, float height) {
   syncSceneGeometryFromSurface();
 
   const float padding = computePadding(uiScale());
-  float contentWidth = m_chrome.contentWidth - padding * 2.0f;
-  float contentHeight = m_chrome.contentHeight - padding * 2.0f;
+  float contentWidth = m_chrome.contentWidth - (padding * 2.0f);
+  float contentHeight = m_chrome.contentHeight - (padding * 2.0f);
 
   layoutSheet(contentWidth, contentHeight);
 

@@ -14,7 +14,7 @@
 namespace {
 
   void secureClear(std::string& value) {
-    volatile char* ptr = value.empty() ? nullptr : &value[0];
+    volatile char* ptr = value.empty() ? nullptr : value.data();
     for (std::size_t i = 0; i < value.size(); ++i) {
       ptr[i] = '\0';
     }

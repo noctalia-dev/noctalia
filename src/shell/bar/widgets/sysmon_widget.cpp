@@ -130,16 +130,16 @@ void SysmonWidget::create() {
   );
 
   if (m_displayMode == SysmonDisplayMode::Graph) {
-    m_chartBg = static_cast<Box*>(container->addChild(ui::box()));
+    m_chartBg = dynamic_cast<Box*>(container->addChild(ui::box()));
 
     auto graph = std::make_unique<GraphNode>();
     graph->setLineWidth(kGraphLineWidth * m_contentScale);
     graph->setGraphFillOpacity(0.15f);
-    m_graphNode = static_cast<GraphNode*>(m_chartBg->addChild(std::move(graph)));
+    m_graphNode = dynamic_cast<GraphNode*>(m_chartBg->addChild(std::move(graph)));
   }
 
   if (m_displayMode == SysmonDisplayMode::Gauge) {
-    m_gauge = static_cast<ProgressBar*>(container->addChild(
+    m_gauge = dynamic_cast<ProgressBar*>(container->addChild(
         ui::progressBar({
             .fill = colorSpecFromRole(ColorRole::Primary),
             .track = colorSpecFromRole(ColorRole::OnSurface, 0.25f),
@@ -247,8 +247,9 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       const float trackH = gaugeThickness;
       m_gauge->setRadius(trackH / 2.0f);
       float contentW = std::max(m_glyph->width(), trackW);
-      if (m_label != nullptr)
+      if (m_label != nullptr) {
         contentW = std::max(contentW, labelW);
+      }
       m_glyph->setPosition(std::round((contentW - m_glyph->width()) * 0.5f), 0.0f);
       m_gauge->setPosition(std::round((contentW - trackW) * 0.5f), glyphH + gap);
       m_gauge->setSize(trackW, trackH);
@@ -264,8 +265,9 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       const float gaugeH = gaugeStem;
       m_gauge->setRadius(gaugeW / 2.0f);
       float contentH = std::max(glyphH, gaugeH);
-      if (m_label != nullptr)
+      if (m_label != nullptr) {
         contentH = std::max(contentH, labelH);
+      }
       const float gaugeY = std::round((contentH - gaugeH) * 0.5f);
       m_glyph->setPosition(0.0f, std::round((contentH - glyphH) * 0.5f));
       m_gauge->setPosition(m_glyph->width() + gap, gaugeY);
@@ -287,8 +289,9 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
 
     if (verticalBar) {
       float contentW = std::max(m_glyph->width(), chartW);
-      if (m_label != nullptr)
+      if (m_label != nullptr) {
         contentW = std::max(contentW, labelW);
+      }
       m_glyph->setPosition(std::round((contentW - m_glyph->width()) * 0.5f), 0.0f);
       const float chartY = glyphH + gap;
       m_chartBg->setPosition(std::round((contentW - chartW) * 0.5f), chartY);
@@ -307,8 +310,9 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       rootNode->setSize(contentW, totalH);
     } else {
       float contentH = glyphH;
-      if (m_label != nullptr)
+      if (m_label != nullptr) {
         contentH = std::max(contentH, labelH);
+      }
       m_glyph->setPosition(0.0f, std::round((contentH - glyphH) * 0.5f));
       m_chartBg->setPosition(m_glyph->width() + gap, std::round((contentH - glyphH) * 0.5f));
       m_chartBg->setSize(chartW, glyphH);
@@ -355,7 +359,7 @@ void SysmonWidget::doUpdate(Renderer& renderer) {
   }
 
   if (auto* rootNode = root(); rootNode != nullptr) {
-    static_cast<InputArea*>(rootNode)->setTooltip(std::vector<TooltipRow>{{statDisplayName(m_stat), value}});
+    dynamic_cast<InputArea*>(rootNode)->setTooltip(std::vector<TooltipRow>{{statDisplayName(m_stat), value}});
   }
 
   if (m_displayMode == SysmonDisplayMode::Gauge) {
@@ -450,7 +454,7 @@ void SysmonWidget::updateGraph(Renderer& renderer) {
   data.push_back(
       std::clamp(
           data[static_cast<std::size_t>(n - 1)]
-              + (data[static_cast<std::size_t>(n - 1)] - data[static_cast<std::size_t>(n - 2)]) * 0.5f,
+              + ((data[static_cast<std::size_t>(n - 1)] - data[static_cast<std::size_t>(n - 2)]) * 0.5f),
           0.0f, 1.0f
       )
   );
@@ -487,12 +491,8 @@ double SysmonWidget::normalizedFromStats(SysmonStat stat, const SystemStats& sta
   case SysmonStat::CpuTemp:
     if (stats.cpuTempC.has_value()) {
       const double temp = *stats.cpuTempC;
-      if (temp < tempMin) {
-        tempMin = temp;
-      }
-      if (temp > tempMax) {
-        tempMax = temp;
-      }
+      tempMin = std::min(temp, tempMin);
+      tempMax = std::max(temp, tempMax);
       const double range = tempMax - tempMin;
       if (range <= 0.0) {
         return 0.5;
@@ -504,12 +504,8 @@ double SysmonWidget::normalizedFromStats(SysmonStat stat, const SystemStats& sta
   case SysmonStat::GpuTemp:
     if (stats.gpuTempC.has_value()) {
       const double temp = *stats.gpuTempC;
-      if (temp < tempMin) {
-        tempMin = temp;
-      }
-      if (temp > tempMax) {
-        tempMax = temp;
-      }
+      tempMin = std::min(temp, tempMin);
+      tempMax = std::max(temp, tempMax);
       const double range = tempMax - tempMin;
       if (range <= 0.0) {
         return 0.5;
@@ -546,14 +542,12 @@ double SysmonWidget::normalizedFromStats(SysmonStat stat, const SystemStats& sta
     return 0.0;
 
   case SysmonStat::NetRx: {
-    if (stats.netRxBytesPerSec > tempMax)
-      tempMax = stats.netRxBytesPerSec;
+    tempMax = std::max(stats.netRxBytesPerSec, tempMax);
     return tempMax > 0.0 ? std::clamp(stats.netRxBytesPerSec / tempMax, 0.0, 1.0) : 0.0;
   }
 
   case SysmonStat::NetTx: {
-    if (stats.netTxBytesPerSec > tempMax)
-      tempMax = stats.netTxBytesPerSec;
+    tempMax = std::max(stats.netTxBytesPerSec, tempMax);
     return tempMax > 0.0 ? std::clamp(stats.netTxBytesPerSec / tempMax, 0.0, 1.0) : 0.0;
   }
 

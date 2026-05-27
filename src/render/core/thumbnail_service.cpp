@@ -103,9 +103,9 @@ namespace {
     const std::size_t pixelCount = rgba.size() / 4;
     std::vector<std::uint8_t> rgb(pixelCount * 3);
     for (std::size_t i = 0; i < pixelCount; ++i) {
-      rgb[i * 3 + 0] = rgba[i * 4 + 0];
-      rgb[i * 3 + 1] = rgba[i * 4 + 1];
-      rgb[i * 3 + 2] = rgba[i * 4 + 2];
+      rgb[(i * 3) + 0] = rgba[(i * 4) + 0];
+      rgb[(i * 3) + 1] = rgba[(i * 4) + 1];
+      rgb[(i * 3) + 2] = rgba[(i * 4) + 2];
     }
     return rgb;
   }
@@ -114,10 +114,10 @@ namespace {
     const std::size_t pixelCount = rgb.size() / 3;
     std::vector<std::uint8_t> rgba(pixelCount * 4);
     for (std::size_t i = 0; i < pixelCount; ++i) {
-      rgba[i * 4 + 0] = rgb[i * 3 + 0];
-      rgba[i * 4 + 1] = rgb[i * 3 + 1];
-      rgba[i * 4 + 2] = rgb[i * 3 + 2];
-      rgba[i * 4 + 3] = 255;
+      rgba[(i * 4) + 0] = rgb[(i * 3) + 0];
+      rgba[(i * 4) + 1] = rgb[(i * 3) + 1];
+      rgba[(i * 4) + 2] = rgb[(i * 3) + 2];
+      rgba[(i * 4) + 3] = 255;
     }
     return rgba;
   }
@@ -403,7 +403,7 @@ void ThumbnailService::dispatch(const std::vector<pollfd>& fds, std::size_t star
   notifyPendingUpload();
 }
 
-void ThumbnailService::signalMain() {
+void ThumbnailService::signalMain() const {
   if (m_eventFd < 0) {
     return;
   }

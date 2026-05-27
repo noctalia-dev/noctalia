@@ -941,7 +941,7 @@ void SystemMonitorService::samplingLoop() {
         const std::uint64_t idleDelta = currentCpu->idle - prevCpu->idle;
         if (totalDelta > 0) {
           std::lock_guard lock{m_statsMutex};
-          m_latest.cpuUsagePercent = 100.0 * (1.0 - static_cast<double>(idleDelta) / static_cast<double>(totalDelta));
+          m_latest.cpuUsagePercent = 100.0 * (1.0 - (static_cast<double>(idleDelta) / static_cast<double>(totalDelta)));
         }
       }
       if (currentCpu.has_value()) {

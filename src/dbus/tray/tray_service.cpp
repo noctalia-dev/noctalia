@@ -16,17 +16,17 @@
 
 namespace {
 
-  static const sdbus::ServiceName kWatcherBusName{"org.kde.StatusNotifierWatcher"};
-  static const sdbus::ObjectPath kWatcherObjectPath{"/StatusNotifierWatcher"};
-  static constexpr auto kWatcherInterface = "org.kde.StatusNotifierWatcher";
+  const sdbus::ServiceName kWatcherBusName{"org.kde.StatusNotifierWatcher"};
+  const sdbus::ObjectPath kWatcherObjectPath{"/StatusNotifierWatcher"};
+  constexpr auto kWatcherInterface = "org.kde.StatusNotifierWatcher";
 
-  static const sdbus::ServiceName kDbusName{"org.freedesktop.DBus"};
-  static const sdbus::ObjectPath kDbusPath{"/org/freedesktop/DBus"};
-  static constexpr auto kDbusInterface = "org.freedesktop.DBus";
-  static constexpr auto kItemInterface = "org.kde.StatusNotifierItem";
-  static constexpr auto kMenuInterface = "com.canonical.dbusmenu";
-  static constexpr auto kDefaultItemPath = "/StatusNotifierItem";
-  static constexpr auto kAyatanaItemPath = "/org/ayatana/NotificationItem";
+  const sdbus::ServiceName kDbusName{"org.freedesktop.DBus"};
+  const sdbus::ObjectPath kDbusPath{"/org/freedesktop/DBus"};
+  constexpr auto kDbusInterface = "org.freedesktop.DBus";
+  constexpr auto kItemInterface = "org.kde.StatusNotifierItem";
+  constexpr auto kMenuInterface = "com.canonical.dbusmenu";
+  constexpr auto kDefaultItemPath = "/StatusNotifierItem";
+  constexpr auto kAyatanaItemPath = "/org/ayatana/NotificationItem";
   constexpr auto kItemPropertyTimeout = std::chrono::milliseconds(200);
 
   bool isStatusNotifierItemBusName(std::string_view value) {
@@ -702,7 +702,7 @@ void TrayService::fetchMenuProperties(
         .withTimeout(std::chrono::milliseconds(1000))
         .withArguments(entryIds, requestedMenuProperties())
         .uponReplyInvoke([this, itemId, entryIds, callback = std::move(callback)](
-                             std::optional<sdbus::Error> error, std::vector<DbusMenuItemProperties> properties
+                             std::optional<sdbus::Error> error, const std::vector<DbusMenuItemProperties>& properties
                          ) {
           auto replyCacheIt = m_menuCache.find(itemId);
           if (replyCacheIt == m_menuCache.end() || replyCacheIt->second.proxy == nullptr) {
@@ -1344,7 +1344,7 @@ void TrayService::discoverExistingItems() {
     m_dbusProxy->callMethodAsync("ListNames")
         .onInterface(kDbusInterface)
         .withTimeout(std::chrono::milliseconds(200))
-        .uponReplyInvoke([this](std::optional<sdbus::Error> error, std::vector<std::string> names) {
+        .uponReplyInvoke([this](std::optional<sdbus::Error> error, const std::vector<std::string>& names) {
           if (error.has_value()) {
             kLog.debug("tray discover failed: {}", error->what());
             return;
@@ -1406,7 +1406,7 @@ void TrayService::tryRegisterItemForBusName(const std::string& busName, std::fun
           .withTimeout(std::chrono::milliseconds(200))
           .withArguments(kItemInterface)
           .uponReplyInvoke([this, busName, candidatePathString, pending, registeredAny, finish,
-                            probe](std::optional<sdbus::Error> error, std::map<std::string, sdbus::Variant>) {
+                            probe](std::optional<sdbus::Error> error, const std::map<std::string, sdbus::Variant>&) {
             if (!error.has_value()) {
               registerOrRefreshItem(busName, candidatePathString);
               *registeredAny = true;
@@ -1488,7 +1488,7 @@ void TrayService::requestProcessNameForItem(const std::string& itemId, const std
         .onInterface(kDbusInterface)
         .withTimeout(std::chrono::milliseconds(200))
         .withArguments(busName)
-        .uponReplyInvoke([this, itemId, busName](std::optional<sdbus::Error> error, std::uint32_t pid) {
+        .uponReplyInvoke([this, itemId, busName](const std::optional<sdbus::Error>& error, std::uint32_t pid) {
           if (error.has_value()) {
             return;
           }
@@ -1636,7 +1636,7 @@ void TrayService::resolvePathOnlyItemProxy(const std::string& itemId) {
         .onInterface(kDbusInterface)
         .withTimeout(std::chrono::milliseconds(200))
         .uponReplyInvoke([this, itemId, objectPath,
-                          hints](std::optional<sdbus::Error> error, std::vector<std::string> names) {
+                          hints](std::optional<sdbus::Error> error, const std::vector<std::string>& names) {
           if (error.has_value()) {
             kLog.debug("lazy path-only resolve failed to list dbus names path={} err={}", objectPath, error->what());
             m_pathOnlyResolutionsInFlight.erase(itemId);
@@ -1707,7 +1707,8 @@ void TrayService::resolvePathOnlyItemProxy(const std::string& itemId) {
                   .withTimeout(kProbeTimeout)
                   .withArguments(kItemInterface)
                   .uponReplyInvoke([this, itemId, candidate, objectPath, probeNext, probe](
-                                       std::optional<sdbus::Error> probeError, std::map<std::string, sdbus::Variant>
+                                       const std::optional<sdbus::Error>& probeError,
+                                       const std::map<std::string, sdbus::Variant>&
                                    ) {
                     if (probeError.has_value()) {
                       (*probeNext)();
@@ -1787,72 +1788,73 @@ void TrayService::refreshItemMetadata(const std::string& itemId) {
         .onInterface("org.freedesktop.DBus.Properties")
         .withTimeout(kItemPropertyTimeout)
         .withArguments(kItemInterface)
-        .uponReplyInvoke([this,
-                          itemId](std::optional<sdbus::Error> error, std::map<std::string, sdbus::Variant> properties) {
-          auto currentItemIt = m_items.find(itemId);
-          if (currentItemIt == m_items.end()) {
-            return;
-          }
+        .uponReplyInvoke(
+            [this, itemId](std::optional<sdbus::Error> error, const std::map<std::string, sdbus::Variant>& properties) {
+              auto currentItemIt = m_items.find(itemId);
+              if (currentItemIt == m_items.end()) {
+                return;
+              }
 
-          if (error.has_value()) {
-            kLog.debug("metadata GetAll failed id={} err={}", itemId, error->what());
-            ensureMenuCache(itemId, currentItemIt->second.busName, currentItemIt->second.menuObjectPath);
-            return;
-          }
+              if (error.has_value()) {
+                kLog.debug("metadata GetAll failed id={} err={}", itemId, error->what());
+                ensureMenuCache(itemId, currentItemIt->second.busName, currentItemIt->second.menuObjectPath);
+                return;
+              }
 
-          const auto& cur = currentItemIt->second;
-          auto next = cur;
-          // Use current values as fallback so transient DBus failures don't wipe data.
-          next.iconName = get_item_property_string_from(properties, "IconName", cur.iconName);
-          next.iconThemePath = get_item_property_string_from(properties, "IconThemePath", cur.iconThemePath);
-          next.overlayIconName = get_item_property_string_from(properties, "OverlayIconName", cur.overlayIconName);
-          next.attentionIconName =
-              get_item_property_string_from(properties, "AttentionIconName", cur.attentionIconName);
-          next.menuObjectPath = get_item_property_string_from(properties, "Menu", cur.menuObjectPath);
-          next.itemName = get_item_property_string_from(properties, "Id", cur.itemName);
-          next.title = get_item_property_string_from(properties, "Title", cur.title);
-          auto [statusNotifierTitle, statusNotifierDescription] =
-              get_status_notifier_text_from(properties, cur.statusNotifierTitle, cur.statusNotifierDescription);
-          next.statusNotifierTitle = std::move(statusNotifierTitle);
-          next.statusNotifierDescription = std::move(statusNotifierDescription);
-          next.status = get_item_property_string_from(properties, "Status", cur.status);
-          next.needsAttention = (next.status == "NeedsAttention");
+              const auto& cur = currentItemIt->second;
+              auto next = cur;
+              // Use current values as fallback so transient DBus failures don't wipe data.
+              next.iconName = get_item_property_string_from(properties, "IconName", cur.iconName);
+              next.iconThemePath = get_item_property_string_from(properties, "IconThemePath", cur.iconThemePath);
+              next.overlayIconName = get_item_property_string_from(properties, "OverlayIconName", cur.overlayIconName);
+              next.attentionIconName =
+                  get_item_property_string_from(properties, "AttentionIconName", cur.attentionIconName);
+              next.menuObjectPath = get_item_property_string_from(properties, "Menu", cur.menuObjectPath);
+              next.itemName = get_item_property_string_from(properties, "Id", cur.itemName);
+              next.title = get_item_property_string_from(properties, "Title", cur.title);
+              auto [statusNotifierTitle, statusNotifierDescription] =
+                  get_status_notifier_text_from(properties, cur.statusNotifierTitle, cur.statusNotifierDescription);
+              next.statusNotifierTitle = std::move(statusNotifierTitle);
+              next.statusNotifierDescription = std::move(statusNotifierDescription);
+              next.status = get_item_property_string_from(properties, "Status", cur.status);
+              next.needsAttention = (next.status == "NeedsAttention");
 
-          const auto iconPixmaps = get_icon_pixmaps_from(properties, "IconPixmap", {});
-          pickBestPixmap(iconPixmaps, next.iconArgb32, next.iconWidth, next.iconHeight);
+              const auto iconPixmaps = get_icon_pixmaps_from(properties, "IconPixmap", {});
+              pickBestPixmap(iconPixmaps, next.iconArgb32, next.iconWidth, next.iconHeight);
 
-          const auto overlayPixmaps = get_icon_pixmaps_from(properties, "OverlayIconPixmap", {});
-          pickBestPixmap(overlayPixmaps, next.overlayArgb32, next.overlayWidth, next.overlayHeight);
+              const auto overlayPixmaps = get_icon_pixmaps_from(properties, "OverlayIconPixmap", {});
+              pickBestPixmap(overlayPixmaps, next.overlayArgb32, next.overlayWidth, next.overlayHeight);
 
-          const auto attentionPixmaps = get_icon_pixmaps_from(properties, "AttentionIconPixmap", {});
-          pickBestPixmap(attentionPixmaps, next.attentionArgb32, next.attentionWidth, next.attentionHeight);
+              const auto attentionPixmaps = get_icon_pixmaps_from(properties, "AttentionIconPixmap", {});
+              pickBestPixmap(attentionPixmaps, next.attentionArgb32, next.attentionWidth, next.attentionHeight);
 
-          if (next == currentItemIt->second) {
-            // Menu path unchanged — make sure the cache/subscription exists (may not have
-            // been set up yet if the Menu property was empty on first registration).
-            ensureMenuCache(itemId, next.busName, next.menuObjectPath);
-            return;
-          }
+              if (next == currentItemIt->second) {
+                // Menu path unchanged — make sure the cache/subscription exists (may not have
+                // been set up yet if the Menu property was empty on first registration).
+                ensureMenuCache(itemId, next.busName, next.menuObjectPath);
+                return;
+              }
 
-          // If the menu path changed, drop the cache so it gets recreated against the new endpoint.
-          if (next.menuObjectPath != currentItemIt->second.menuObjectPath) {
-            dropMenuCache(itemId);
-          }
+              // If the menu path changed, drop the cache so it gets recreated against the new endpoint.
+              if (next.menuObjectPath != currentItemIt->second.menuObjectPath) {
+                dropMenuCache(itemId);
+              }
 
-          currentItemIt->second = std::move(next);
-          kLog.debug(
-              "tray metadata updated id={} status={} itemName='{}' title='{}' sniTitle='{}' icon='{}' "
-              "overlay='{}' attention='{}' pixmap={}x{} overlay={}x{} attention={}x{}",
-              itemId, currentItemIt->second.status, currentItemIt->second.itemName, currentItemIt->second.title,
-              currentItemIt->second.statusNotifierTitle, currentItemIt->second.iconName,
-              currentItemIt->second.overlayIconName, currentItemIt->second.attentionIconName,
-              currentItemIt->second.iconWidth, currentItemIt->second.iconHeight, currentItemIt->second.overlayWidth,
-              currentItemIt->second.overlayHeight, currentItemIt->second.attentionWidth,
-              currentItemIt->second.attentionHeight
-          );
-          ensureMenuCache(itemId, currentItemIt->second.busName, currentItemIt->second.menuObjectPath);
-          emitChanged();
-        });
+              currentItemIt->second = std::move(next);
+              kLog.debug(
+                  "tray metadata updated id={} status={} itemName='{}' title='{}' sniTitle='{}' icon='{}' "
+                  "overlay='{}' attention='{}' pixmap={}x{} overlay={}x{} attention={}x{}",
+                  itemId, currentItemIt->second.status, currentItemIt->second.itemName, currentItemIt->second.title,
+                  currentItemIt->second.statusNotifierTitle, currentItemIt->second.iconName,
+                  currentItemIt->second.overlayIconName, currentItemIt->second.attentionIconName,
+                  currentItemIt->second.iconWidth, currentItemIt->second.iconHeight, currentItemIt->second.overlayWidth,
+                  currentItemIt->second.overlayHeight, currentItemIt->second.attentionWidth,
+                  currentItemIt->second.attentionHeight
+              );
+              ensureMenuCache(itemId, currentItemIt->second.busName, currentItemIt->second.menuObjectPath);
+              emitChanged();
+            }
+        );
   } catch (const sdbus::Error& e) {
     kLog.debug("metadata GetAll dispatch failed id={} err={}", itemId, e.what());
   }

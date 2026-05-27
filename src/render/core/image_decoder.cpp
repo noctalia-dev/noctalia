@@ -66,15 +66,17 @@ namespace {
   std::optional<DecodedRasterImage> decodeIco(const std::uint8_t* data, std::size_t size, std::string* errorMessage) {
     const std::uint16_t count = readU16LE(data + 4);
     if (count == 0) {
-      if (errorMessage != nullptr)
+      if (errorMessage != nullptr) {
         *errorMessage = "ICO file has no images";
+      }
       return std::nullopt;
     }
 
-    const std::size_t dirEnd = 6 + static_cast<std::size_t>(count) * 16;
+    const std::size_t dirEnd = 6 + (static_cast<std::size_t>(count) * 16);
     if (dirEnd > size) {
-      if (errorMessage != nullptr)
+      if (errorMessage != nullptr) {
         *errorMessage = "ICO directory extends past end of file";
+      }
       return std::nullopt;
     }
 
@@ -82,7 +84,7 @@ namespace {
     int bestArea = 0;
     int bestBpp = 0;
     for (int i = 0; i < count; ++i) {
-      const std::uint8_t* entry = data + 6 + i * 16;
+      const std::uint8_t* entry = data + 6 + (i * 16);
       int w = entry[0] == 0 ? 256 : entry[0];
       int h = entry[1] == 0 ? 256 : entry[1];
       int bpp = readU16LE(entry + 6);
@@ -94,13 +96,14 @@ namespace {
       }
     }
 
-    const std::uint8_t* entry = data + 6 + bestIdx * 16;
+    const std::uint8_t* entry = data + 6 + (bestIdx * 16);
     const std::uint32_t imgSize = readU32LE(entry + 8);
     const std::uint32_t imgOffset = readU32LE(entry + 12);
 
     if (static_cast<std::size_t>(imgOffset) + imgSize > size || imgSize == 0) {
-      if (errorMessage != nullptr)
+      if (errorMessage != nullptr) {
         *errorMessage = "ICO entry points outside file";
+      }
       return std::nullopt;
     }
 
@@ -114,8 +117,9 @@ namespace {
     // (alpha forced to 0xFF), but ICO uses that byte as real alpha. Decode
     // 32bpp manually; for other depths fall back to wuffs + AND mask.
     if (imgSize < 40) {
-      if (errorMessage != nullptr)
+      if (errorMessage != nullptr) {
         *errorMessage = "ICO BMP sub-image too small for BITMAPINFOHEADER";
+      }
       return std::nullopt;
     }
 
@@ -127,18 +131,20 @@ namespace {
     const int height = (dibHeight > 0 ? dibHeight : -dibHeight) / 2;
 
     if (width <= 0 || height <= 0 || width > 1024 || height > 1024) {
-      if (errorMessage != nullptr)
+      if (errorMessage != nullptr) {
         *errorMessage = "ICO BMP sub-image has invalid dimensions";
+      }
       return std::nullopt;
     }
 
-    const std::size_t rowStride = static_cast<std::size_t>(((width * bpp + 31) / 32)) * 4;
+    const std::size_t rowStride = static_cast<std::size_t>((((width * bpp) + 31) / 32)) * 4;
     const std::size_t pixelDataSize = rowStride * static_cast<std::size_t>(height);
     const std::size_t pixelDataOffset = dibHeaderSize;
 
     if (pixelDataOffset + pixelDataSize > imgSize) {
-      if (errorMessage != nullptr)
+      if (errorMessage != nullptr) {
         *errorMessage = "ICO BMP pixel data extends past sub-image";
+      }
       return std::nullopt;
     }
 
@@ -152,14 +158,14 @@ namespace {
       const bool bottomUp = dibHeight > 0;
       for (int y = 0; y < height; ++y) {
         const int srcRow = bottomUp ? (height - 1 - y) : y;
-        const std::uint8_t* srcLine = pixels + static_cast<std::size_t>(srcRow) * rowStride;
+        const std::uint8_t* srcLine = pixels + (static_cast<std::size_t>(srcRow) * rowStride);
         std::uint8_t* dstLine =
-            decoded.pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(width) * 4;
+            decoded.pixels.data() + (static_cast<std::size_t>(y) * static_cast<std::size_t>(width) * 4);
         for (int x = 0; x < width; ++x) {
-          dstLine[x * 4 + 0] = srcLine[x * 4 + 2]; // R
-          dstLine[x * 4 + 1] = srcLine[x * 4 + 1]; // G
-          dstLine[x * 4 + 2] = srcLine[x * 4 + 0]; // B
-          dstLine[x * 4 + 3] = srcLine[x * 4 + 3]; // A
+          dstLine[(x * 4) + 0] = srcLine[(x * 4) + 2]; // R
+          dstLine[(x * 4) + 1] = srcLine[(x * 4) + 1]; // G
+          dstLine[(x * 4) + 2] = srcLine[(x * 4) + 0]; // B
+          dstLine[(x * 4) + 3] = srcLine[(x * 4) + 3]; // A
         }
       }
       return decoded;
@@ -199,23 +205,25 @@ namespace {
     bmp[13] = static_cast<std::uint8_t>((pixelOffset >> 24) & 0xFF);
 
     auto decoded = decodeRasterImage(bmp.data(), bmp.size(), errorMessage);
-    if (!decoded.has_value())
+    if (!decoded.has_value()) {
       return std::nullopt;
+    }
 
     // Apply the 1bpp AND mask that follows the pixel data.
     const std::size_t andRowStride = static_cast<std::size_t>(((width + 31) / 32)) * 4;
     const std::size_t andOffset = pixelDataOffset + pixelDataSize;
-    if (andOffset + andRowStride * static_cast<std::size_t>(height) <= imgSize) {
+    if (andOffset + (andRowStride * static_cast<std::size_t>(height)) <= imgSize) {
       const std::uint8_t* andMask = imgData + andOffset;
       const bool bottomUp = dibHeight > 0;
       for (int y = 0; y < height; ++y) {
         const int maskRow = bottomUp ? (height - 1 - y) : y;
-        const std::uint8_t* maskLine = andMask + static_cast<std::size_t>(maskRow) * andRowStride;
+        const std::uint8_t* maskLine = andMask + (static_cast<std::size_t>(maskRow) * andRowStride);
         std::uint8_t* dstLine =
-            decoded->pixels.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(width) * 4;
+            decoded->pixels.data() + (static_cast<std::size_t>(y) * static_cast<std::size_t>(width) * 4);
         for (int x = 0; x < width; ++x) {
-          if (maskLine[x / 8] & (0x80 >> (x % 8)))
-            dstLine[x * 4 + 3] = 0;
+          if (maskLine[x / 8] & (0x80 >> (x % 8))) {
+            dstLine[(x * 4) + 3] = 0;
+          }
         }
       }
     }
@@ -224,11 +232,13 @@ namespace {
   }
 
   std::optional<DecodedRasterImage> decodeWebP(const std::uint8_t* data, std::size_t size, std::string* errorMessage) {
-    int width = 0, height = 0;
+    int width = 0;
+    int height = 0;
     std::uint8_t* rgba = WebPDecodeRGBA(data, size, &width, &height);
     if (rgba == nullptr) {
-      if (errorMessage != nullptr)
+      if (errorMessage != nullptr) {
         *errorMessage = "libwebp: failed to decode WebP image";
+      }
       return std::nullopt;
     }
 
@@ -253,11 +263,13 @@ decodeRasterImage(const std::uint8_t* data, std::size_t size, std::string* error
     return std::nullopt;
   }
 
-  if (isWebP(data, size))
+  if (isWebP(data, size)) {
     return decodeWebP(data, size, errorMessage);
+  }
 
-  if (isIco(data, size))
+  if (isIco(data, size)) {
     return decodeIco(data, size, errorMessage);
+  }
 
   auto input = wuffs_aux::sync_io::MemoryInput(data, size);
   auto callbacks = RgbaDecodeCallbacks();
@@ -317,11 +329,11 @@ namespace {
     const std::size_t rowBytes = static_cast<std::size_t>(x1 - x0) * 4;
     if (disposal == WUFFS_BASE__ANIMATION_DISPOSAL__RESTORE_BACKGROUND) {
       for (std::uint32_t y = y0; y < y1; ++y) {
-        std::memset(canvas + y * stride + x0 * 4, 0, rowBytes);
+        std::memset(canvas + (y * stride) + (x0 * 4), 0, rowBytes);
       }
     } else if (disposal == WUFFS_BASE__ANIMATION_DISPOSAL__RESTORE_PREVIOUS && previous != nullptr) {
       for (std::uint32_t y = y0; y < y1; ++y) {
-        std::memcpy(canvas + y * stride + x0 * 4, previous + y * stride + x0 * 4, rowBytes);
+        std::memcpy(canvas + (y * stride) + (x0 * 4), previous + (y * stride) + (x0 * 4), rowBytes);
       }
     }
   }

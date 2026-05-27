@@ -43,7 +43,7 @@ namespace {
     int size = 0;
     for (char c : dirName) {
       if (c >= '0' && c <= '9') {
-        size = size * 10 + (c - '0');
+        size = (size * 10) + (c - '0');
       } else if (size > 0) {
         break;
       }
@@ -296,7 +296,7 @@ namespace {
             inherits.emplace_back(std::move(name));
           }
         }
-      } else if (!currentSection.empty() && dirMap.count(currentSection)) {
+      } else if (!currentSection.empty() && dirMap.contains(currentSection)) {
         auto& entry = dirMap[currentSection];
         if (key == "Size") {
           try {
@@ -319,10 +319,12 @@ namespace {
     std::stable_sort(dirNames.begin(), dirNames.end(), [&](const std::string& a, const std::string& b) {
       const auto& da = dirMap[a];
       const auto& db = dirMap[b];
-      if (da.scalable != db.scalable)
+      if (da.scalable != db.scalable) {
         return da.scalable > db.scalable;
-      if (da.maxSize != db.maxSize)
+      }
+      if (da.maxSize != db.maxSize) {
         return da.maxSize > db.maxSize;
+      }
       return da.size > db.size;
     });
 
@@ -340,7 +342,7 @@ namespace {
       const std::string& themeName, const std::vector<std::string>& baseDirs, std::set<std::string>& visited,
       std::vector<IconSearchDir>& searchDirs
   ) {
-    if (visited.count(themeName)) {
+    if (visited.contains(themeName)) {
       return;
     }
     visited.insert(themeName);

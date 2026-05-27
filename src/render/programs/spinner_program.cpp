@@ -119,8 +119,8 @@ void SpinnerProgram::draw(
   };
 
   const float padding = style.thickness + 2.0f;
-  const float quadWidth = width + padding * 2.0f;
-  const float quadHeight = height + padding * 2.0f;
+  const float quadWidth = width + (padding * 2.0f);
+  const float quadHeight = height + (padding * 2.0f);
   const Mat3 quadTransform = transform * Mat3::translation(-padding, -padding);
 
   glUseProgram(m_program.id());

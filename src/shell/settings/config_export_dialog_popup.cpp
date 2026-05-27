@@ -274,7 +274,7 @@ namespace settings {
     float ch = std::max(1.0f, contentHeight);
 
     LayoutSize pref = m_root->measure(renderer, LayoutConstraints::available(cw, 1.0e6f));
-    const float panelH = std::ceil(pref.height + pad * 2.0f);
+    const float panelH = std::ceil(pref.height + (pad * 2.0f));
     const ShellConfig::ShadowConfig shadow =
         config() != nullptr ? config()->config().shell.shadow : ShellConfig::ShadowConfig{};
     const auto geo = popup_chrome::computeGeometry(panelW, panelH, shadow);
@@ -287,8 +287,8 @@ namespace settings {
     if (m_surface->height() != nextHeight || m_surface->width() != nextWidth) {
       m_surface->resize(nextWidth, nextHeight);
       syncSceneGeometryFromSurface();
-      cw = std::max(1.0f, m_chrome.contentWidth - pad * 2.0f);
-      ch = std::max(1.0f, m_chrome.contentHeight - pad * 2.0f);
+      cw = std::max(1.0f, m_chrome.contentWidth - (pad * 2.0f));
+      ch = std::max(1.0f, m_chrome.contentHeight - (pad * 2.0f));
       pref = m_root->measure(renderer, LayoutConstraints::available(cw, 1.0e6f));
     }
 

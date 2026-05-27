@@ -87,7 +87,7 @@ float ContextMenuControl::preferredHeight(const std::vector<ContextMenuControlEn
   for (std::size_t i = 0; i < visibleEntries; ++i) {
     contentHeight += entries[i].separator ? kSeparatorHeight : kItemHeight;
   }
-  return kMenuPadding * 2.0f + contentHeight + kItemGap * static_cast<float>(visibleEntries - 1);
+  return (kMenuPadding * 2.0f) + contentHeight + (kItemGap * static_cast<float>(visibleEntries - 1));
 }
 
 void ContextMenuControl::doLayout(Renderer& renderer) {
@@ -123,7 +123,7 @@ void ContextMenuControl::rebuild(Renderer& renderer) {
 
 void ContextMenuControl::rebuildRows(Renderer& renderer) {
   const std::size_t visibleItems = std::min(m_entries.size(), m_maxVisible);
-  const float rowWidth = width() - kMenuPadding * 2.0f;
+  const float rowWidth = width() - (kMenuPadding * 2.0f);
   float currentY = kMenuPadding;
 
   for (std::size_t i = 0; i < visibleItems; ++i) {
@@ -142,7 +142,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
     Glyph* togglePtr = nullptr;
     Glyph* chevronPtr = nullptr;
 
-    const float rowCenterY = currentY + rowHeight * 0.5f;
+    const float rowCenterY = currentY + (rowHeight * 0.5f);
     row->setOnClick([this, entry, rowCenterY](const InputArea::PointerData& data) {
       if (!entry.enabled || entry.separator || data.button != BTN_LEFT) {
         return;

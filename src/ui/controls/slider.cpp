@@ -33,13 +33,13 @@ namespace {
 
 Slider::Slider() {
   auto track = std::make_unique<RectNode>();
-  m_track = static_cast<RectNode*>(addChild(std::move(track)));
+  m_track = dynamic_cast<RectNode*>(addChild(std::move(track)));
 
   auto fill = std::make_unique<RectNode>();
-  m_fill = static_cast<RectNode*>(addChild(std::move(fill)));
+  m_fill = dynamic_cast<RectNode*>(addChild(std::move(fill)));
 
   auto thumb = std::make_unique<RectNode>();
-  m_thumb = static_cast<RectNode*>(addChild(std::move(thumb)));
+  m_thumb = dynamic_cast<RectNode*>(addChild(std::move(thumb)));
 
   auto area = std::make_unique<InputArea>();
   area->setOnEnter([this](const InputArea::PointerData& /*data*/) {
@@ -86,13 +86,13 @@ Slider::Slider() {
       return false;
     }
     // Wayland convention: positive axisLines = scroll down. Scroll up should increase.
-    setValue(m_value - lines * step);
+    setValue(m_value - (lines * step));
     if (m_onDragEnd) {
       m_onDragEnd();
     }
     return true;
   });
-  m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
+  m_inputArea = dynamic_cast<InputArea*>(addChild(std::move(area)));
   m_inputArea->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
 
   applyVisualState();
@@ -195,9 +195,9 @@ void Slider::updateGeometry() {
 
   const float trackY = (heightPx - m_trackHeight) * 0.5f;
   const float trackX = Style::sliderHorizontalPadding;
-  const float trackW = std::max(0.0f, widthPx - Style::sliderHorizontalPadding * 2.0f);
+  const float trackW = std::max(0.0f, widthPx - (Style::sliderHorizontalPadding * 2.0f));
   const float t = normalizedValue();
-  const float thumbX = trackX + t * trackW;
+  const float thumbX = trackX + (t * trackW);
   const float thumbY = (heightPx - m_thumbSizePx) * 0.5f;
 
   m_track->setPosition(trackX, trackY);
@@ -206,7 +206,7 @@ void Slider::updateGeometry() {
   m_fill->setPosition(trackX, trackY);
   m_fill->setFrameSize(std::max(0.0f, thumbX - trackX), m_trackHeight);
 
-  m_thumb->setPosition(std::clamp(thumbX - m_thumbSizePx * 0.5f, trackX, trackX + trackW - m_thumbSizePx), thumbY);
+  m_thumb->setPosition(std::clamp(thumbX - (m_thumbSizePx * 0.5f), trackX, trackX + trackW - m_thumbSizePx), thumbY);
   m_thumb->setFrameSize(m_thumbSizePx, m_thumbSizePx);
 
   m_inputArea->setPosition(0.0f, 0.0f);
@@ -216,12 +216,12 @@ void Slider::updateGeometry() {
 void Slider::updateFromLocalX(float x) {
   const float widthPx = width() > 0.0f ? width() : Style::sliderDefaultWidth;
   const float trackX = Style::sliderHorizontalPadding;
-  const float trackW = std::max(0.0f, widthPx - Style::sliderHorizontalPadding * 2.0f);
+  const float trackW = std::max(0.0f, widthPx - (Style::sliderHorizontalPadding * 2.0f));
   if (trackW <= 0.0f) {
     return;
   }
   const double t = static_cast<double>(std::clamp((x - trackX) / trackW, 0.0f, 1.0f));
-  setValue(m_min + t * (m_max - m_min));
+  setValue(m_min + (t * (m_max - m_min)));
 }
 
 void Slider::applyVisualState() {
@@ -270,5 +270,5 @@ double Slider::snapped(double value) const noexcept {
   }
 
   const double steps = std::round((clamped - m_min) / m_step);
-  return std::clamp(m_min + steps * m_step, m_min, m_max);
+  return std::clamp(m_min + (steps * m_step), m_min, m_max);
 }

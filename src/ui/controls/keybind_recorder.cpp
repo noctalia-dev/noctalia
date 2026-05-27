@@ -33,13 +33,13 @@ KeybindRecorder::KeybindRecorder() {
   auto label = std::make_unique<Label>();
   label->setFontSize(Style::fontSizeCaption);
   label->setColor(colorSpecFromRole(ColorRole::OnSurface));
-  m_label = static_cast<Label*>(addChild(std::move(label)));
+  m_label = dynamic_cast<Label*>(addChild(std::move(label)));
 
   auto glyph = std::make_unique<Glyph>();
   glyph->setGlyph("keyboard");
   glyph->setGlyphSize(Style::fontSizeCaption);
   glyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-  m_glyph = static_cast<Glyph*>(addChild(std::move(glyph)));
+  m_glyph = dynamic_cast<Glyph*>(addChild(std::move(glyph)));
 
   auto area = std::make_unique<InputArea>();
   area->setFocusable(true);
@@ -63,7 +63,7 @@ KeybindRecorder::KeybindRecorder() {
     }
     handleKeyUp(data.sym, data.modifiers);
   });
-  m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
+  m_inputArea = dynamic_cast<InputArea*>(addChild(std::move(area)));
   m_inputArea->setParticipatesInLayout(false);
   m_inputArea->setZIndex(1);
   m_inputArea->setPosition(0.0f, 0.0f);
@@ -76,7 +76,7 @@ KeybindRecorder::KeybindRecorder() {
 KeybindRecorder::~KeybindRecorder() = default;
 
 void KeybindRecorder::setChord(std::optional<KeyChord> chord) {
-  m_chord = std::move(chord);
+  m_chord = chord;
   refreshLabel();
 }
 

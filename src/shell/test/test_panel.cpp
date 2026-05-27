@@ -847,7 +847,7 @@ void TestPanel::create() {
     m_animations->animate(0.0f, 2.0f * static_cast<float>(M_PI), 8000.0f, Easing::Linear, [this](float phase) {
       if (m_transformDemoBox != nullptr) {
         m_transformDemoBox->setRotation(phase);
-        m_transformDemoBox->setScale(1.0f + 0.16f * std::sin(phase));
+        m_transformDemoBox->setScale(1.0f + (0.16f * std::sin(phase)));
       }
     });
   }
@@ -1246,7 +1246,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
           ui::label({
               .text = longText,
               .fontSize = Style::fontSizeBody * scale,
-              .maxWidth = w * scale - Style::spaceSm * 2.0f * scale,
+              .maxWidth = (w * scale) - (Style::spaceSm * 2.0f * scale),
               .maxLines = 1,
           })
       );
@@ -1569,14 +1569,14 @@ void TestPanel::doLayout(Renderer& renderer, float width, float height) {
   }
   if (m_transformDemoBox != nullptr && m_transformBadgeBox != nullptr) {
     m_transformBadgeBox->setPosition(
-        m_transformDemoBox->width() - m_transformBadgeBox->width() - 12.0f * contentScale(), 12.0f * contentScale()
+        m_transformDemoBox->width() - m_transformBadgeBox->width() - (12.0f * contentScale()), 12.0f * contentScale()
     );
   }
   if (m_transformBadgeBox != nullptr && m_transformBadgeLabel != nullptr) {
     m_transformBadgeLabel->measure(renderer);
     m_transformBadgeLabel->setPosition(
         std::round((m_transformBadgeBox->width() - m_transformBadgeLabel->width()) * 0.5f),
-        std::round((m_transformBadgeBox->height() - m_transformBadgeLabel->height()) * 0.5f) - 1.0f * contentScale()
+        std::round((m_transformBadgeBox->height() - m_transformBadgeLabel->height()) * 0.5f) - (1.0f * contentScale())
     );
   }
 }

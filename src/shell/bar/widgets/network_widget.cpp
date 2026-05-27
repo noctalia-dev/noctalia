@@ -130,7 +130,7 @@ void NetworkWidget::syncState(Renderer& renderer) {
   if (auto* rootNode = root(); rootNode != nullptr) {
     rootNode->setOpacity(s.connected ? 1.0f : 0.55f);
 
-    auto* area = static_cast<InputArea*>(rootNode);
+    auto* area = dynamic_cast<InputArea*>(rootNode);
     if (s.connected) {
       std::vector<TooltipRow> rows;
       if (s.kind == NetworkConnectivity::Wireless && !s.ssid.empty()) {

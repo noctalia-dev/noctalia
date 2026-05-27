@@ -19,7 +19,8 @@ float TrayDrawerPanel::preferredWidth() const {
   const float gap = scaled(Style::spaceXs);
   const std::size_t drawerColumns = currentDrawerColumns();
   const std::size_t cols = std::min<std::size_t>(drawerColumns, std::max<std::size_t>(1, visibleItemCount()));
-  const float contentWidth = static_cast<float>(cols) * itemSize + static_cast<float>(cols > 1 ? cols - 1 : 0) * gap;
+  const float contentWidth =
+      (static_cast<float>(cols) * itemSize) + (static_cast<float>(cols > 1 ? cols - 1 : 0) * gap);
   const float panelPadding = scaled(Style::panelPadding) * 2.0f;
   return contentWidth + panelPadding;
 }
@@ -30,7 +31,8 @@ float TrayDrawerPanel::preferredHeight() const {
   const std::size_t count = std::max<std::size_t>(1, visibleItemCount());
   const std::size_t drawerColumns = currentDrawerColumns();
   const std::size_t rows = (count + drawerColumns - 1U) / drawerColumns;
-  const float contentHeight = static_cast<float>(rows) * itemSize + static_cast<float>(rows > 1 ? rows - 1 : 0) * gap;
+  const float contentHeight =
+      (static_cast<float>(rows) * itemSize) + (static_cast<float>(rows > 1 ? rows - 1 : 0) * gap);
   const float panelPadding = scaled(Style::panelPadding) * 2.0f;
   return contentHeight + panelPadding;
 }

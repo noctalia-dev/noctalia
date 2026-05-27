@@ -30,7 +30,7 @@ namespace {
   constexpr std::chrono::milliseconds kProcessCommandLineCacheTtl{250};
 
   void writePipeOrIgnore(int fd, const void* data, size_t len) {
-    auto p = reinterpret_cast<const char*>(data);
+    const auto* p = reinterpret_cast<const char*>(data);
     size_t remaining = len;
     while (remaining > 0) {
       const ssize_t n = ::write(fd, p, remaining);
@@ -184,7 +184,7 @@ namespace {
   }
 
   struct ProcessCommandLineCache {
-    std::chrono::steady_clock::time_point capturedAt{};
+    std::chrono::steady_clock::time_point capturedAt;
     std::vector<std::string> commandLines;
   };
 
@@ -635,7 +635,7 @@ namespace {
     char** s = ::environ;
     for (; *s; s++) {
       char c = **s;
-      if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) {
+      if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '_') {
         continue;
       }
       std::string name{*s, std::string_view(*s).find('=')};
@@ -853,8 +853,9 @@ namespace process {
   }
 
   RunResult runSync(const std::string& command) {
-    if (command.empty())
+    if (command.empty()) {
       return {-1, {}, {}};
+    }
     return runSync(std::vector<std::string>{"/bin/sh", "-lc", command});
   }
 
@@ -896,7 +897,7 @@ namespace process {
       return;
     }
     if (systemdAvailable()) {
-      (void)startSystemdService(args, activationToken, workingDir, appName);
+      startSystemdService(args, activationToken, workingDir, appName);
       return;
     }
 #endif

@@ -42,7 +42,7 @@ namespace {
 
 LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) : Surface(connection), m_config(config) {
   auto wallpaper = std::make_unique<WallpaperNode>();
-  m_wallpaper = static_cast<WallpaperNode*>(m_root.addChild(std::move(wallpaper)));
+  m_wallpaper = dynamic_cast<WallpaperNode*>(m_root.addChild(std::move(wallpaper)));
   m_wallpaper->setZIndex(0);
 
   m_root.addChild(
@@ -339,7 +339,7 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
 
   const float sw = static_cast<float>(width);
   const float sh = static_cast<float>(height);
-  const float panelWidth = std::min(sw - Style::spaceLg * 2.0f, 520.0f);
+  const float panelWidth = std::min(sw - (Style::spaceLg * 2.0f), 520.0f);
   const float panelHeight = 78.0f;
   const float panelX = std::round((sw - panelWidth) * 0.5f);
   const float panelY = std::max(Style::spaceLg, sh - panelHeight - 84.0f);

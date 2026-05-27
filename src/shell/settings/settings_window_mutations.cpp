@@ -46,7 +46,7 @@ void SettingsWindow::setSettingOverrides(
       markSettingsWriteSuccess(!m_statusMessage.empty());
       return;
     }
-    if (m_config->setOverrides(std::move(overrides))) {
+    if (m_config->setOverrides(overrides)) {
       markSettingsWriteSuccess(true);
       return;
     }

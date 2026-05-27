@@ -336,8 +336,8 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
   if (instance.transformNode != nullptr) {
     instance.transformNode->setFrameSize(instance.intrinsicWidth, instance.intrinsicHeight);
     instance.transformNode->setPosition(
-        geometry.contentOffsetX - instance.intrinsicWidth * 0.5f,
-        geometry.contentOffsetY - instance.intrinsicHeight * 0.5f
+        geometry.contentOffsetX - (instance.intrinsicWidth * 0.5f),
+        geometry.contentOffsetY - (instance.intrinsicHeight * 0.5f)
     );
     instance.transformNode->setRotation(instance.state.rotationRad);
     instance.transformNode->setScale(1.0f);
@@ -345,12 +345,14 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
 }
 
 bool DesktopWidgetsHost::onPointerEvent(const PointerEvent& event) {
-  if (!m_visible || m_instances.empty())
+  if (!m_visible || m_instances.empty()) {
     return false;
+  }
 
   wl_surface* eventSurface = event.surface;
-  if (eventSurface == nullptr && m_wayland != nullptr)
+  if (eventSurface == nullptr && m_wayland != nullptr) {
     eventSurface = m_wayland->lastPointerSurface();
+  }
 
   DesktopWidgetInstance* target = nullptr;
   for (auto& instance : m_instances) {
@@ -359,8 +361,9 @@ bool DesktopWidgetsHost::onPointerEvent(const PointerEvent& event) {
       break;
     }
   }
-  if (target == nullptr)
+  if (target == nullptr) {
     return false;
+  }
 
   switch (event.type) {
   case PointerEvent::Type::Enter:

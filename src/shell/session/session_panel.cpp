@@ -121,18 +121,18 @@ PanelPlacement SessionPanel::panelPlacement() const noexcept {
 float SessionPanel::preferredWidth() const {
   const std::size_t n = visibleColumnCount();
   const float gap = Style::spaceSm;
-  const float w = kButtonMinWidth * static_cast<float>(n)
-      + gap * static_cast<float>(n > 1 ? n - 1 : 0)
-      + Style::panelPadding * 2.0f;
+  const float w = (kButtonMinWidth * static_cast<float>(n))
+      + (gap * static_cast<float>(n > 1 ? n - 1 : 0))
+      + (Style::panelPadding * 2.0f);
   return scaled(std::max(kPanelMinWidth, w));
 }
 
 float SessionPanel::preferredHeight() const {
   const std::size_t rows = visibleRowCount();
   const float gap = Style::spaceSm;
-  const float h = kActionButtonMinHeight * static_cast<float>(rows)
-      + gap * static_cast<float>(rows > 1 ? rows - 1 : 0)
-      + Style::panelPadding * 2.0f;
+  const float h = (kActionButtonMinHeight * static_cast<float>(rows))
+      + (gap * static_cast<float>(rows > 1 ? rows - 1 : 0))
+      + (Style::panelPadding * 2.0f);
   return std::ceil(scaled(h));
 }
 
@@ -180,7 +180,7 @@ void SessionPanel::create() {
       handleKeyEvent(key.sym, key.modifiers);
     }
   });
-  m_focusArea = static_cast<InputArea*>(rootLayout->addChild(std::move(focusArea)));
+  m_focusArea = dynamic_cast<InputArea*>(rootLayout->addChild(std::move(focusArea)));
 
   m_visibleButtons.clear();
   m_visibleButtons.reserve(m_visibleEntries.size());
@@ -224,7 +224,7 @@ Button* SessionPanel::createActionButton(const SessionPanelActionConfig& cfg, fl
   button->setMinHeight(kActionButtonMinHeight * scale);
   button->setFlexGrow(1.0f);
 
-  SessionPanelActionConfig cfgCopy = cfg;
+  const SessionPanelActionConfig& cfgCopy = cfg;
   button->setOnClick([this, cfgCopy]() {
     PanelManager::instance().close();
     invokeEntry(cfgCopy);

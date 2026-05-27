@@ -90,7 +90,7 @@ private:
   };
 
   void workerLoop();
-  void signalMain();
+  void signalMain() const;
   void pushResult(DecodedJob job);
   void deleteAllTextures();
   void notifyPendingUpload();

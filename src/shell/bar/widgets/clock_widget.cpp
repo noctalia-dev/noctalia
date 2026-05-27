@@ -203,7 +203,7 @@ void ClockWidget::doUpdate(Renderer& renderer) {
     m_secondaryLabel->measure(renderer);
   }
 
-  if (auto* area = static_cast<InputArea*>(root()); area != nullptr) {
+  if (auto* area = dynamic_cast<InputArea*>(root()); area != nullptr) {
     std::string tooltipText = formatTooltipText();
 
     if (tooltipText.empty()) {

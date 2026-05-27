@@ -216,7 +216,7 @@ void IdleGraceOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint
   dim->setOpacity(0.0f);
   dim->setPosition(0.0f, 0.0f);
   dim->setSize(w, h);
-  inst.dim = static_cast<Box*>(inst.sceneRoot->addChild(std::move(dim)));
+  inst.dim = dynamic_cast<Box*>(inst.sceneRoot->addChild(std::move(dim)));
 }
 
 void IdleGraceOverlay::startFadeIn(Instance& inst, std::chrono::milliseconds fadeIn) {

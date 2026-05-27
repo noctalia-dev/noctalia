@@ -353,11 +353,11 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   const bool useReservedEdgePlacement =
       !useCenteredPlacement && multipleBarsOnEdge && barConfig.reserveSpace && barConfig.thickness > 0;
   const auto marginLeftFromAnchor = clampMargin(
-      request.anchorX - static_cast<float>(panelWidth) * 0.5f, static_cast<std::int32_t>(panelWidth), outputWidth,
+      request.anchorX - (static_cast<float>(panelWidth) * 0.5f), static_cast<std::int32_t>(panelWidth), outputWidth,
       screenPadding
   );
   const auto marginTopFromAnchor = clampMargin(
-      request.anchorY - static_cast<float>(panelHeight) * 0.5f, static_cast<std::int32_t>(panelHeight), outputHeight,
+      request.anchorY - (static_cast<float>(panelHeight) * 0.5f), static_cast<std::int32_t>(panelHeight), outputHeight,
       screenPadding
   );
 
@@ -370,11 +370,11 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     const std::int32_t barWidth = std::max(0, barRect.right - barRect.left);
     const std::int32_t barHeight = std::max(0, barRect.bottom - barRect.top);
     const auto centeredAlongBarX = clampMargin(
-        static_cast<float>(barRect.left) + (static_cast<float>(barWidth) - static_cast<float>(panelWidth)) * 0.5f,
+        static_cast<float>(barRect.left) + ((static_cast<float>(barWidth) - static_cast<float>(panelWidth)) * 0.5f),
         static_cast<std::int32_t>(panelWidth), outputWidth, screenPadding
     );
     const auto centeredAlongBarY = clampMargin(
-        static_cast<float>(barRect.top) + (static_cast<float>(barHeight) - static_cast<float>(panelHeight)) * 0.5f,
+        static_cast<float>(barRect.top) + ((static_cast<float>(barHeight) - static_cast<float>(panelHeight)) * 0.5f),
         static_cast<std::int32_t>(panelHeight), outputHeight, screenPadding
     );
 
@@ -428,8 +428,8 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
 
   if (useCenteredPlacement) {
     standaloneAnchor = LayerShellAnchor::Top | LayerShellAnchor::Left;
-    standaloneMarginLeft = (outputWidth - static_cast<std::int32_t>(panelWidth)) / 2 - detachedShadowBleed.left;
-    standaloneMarginTop = (outputHeight - static_cast<std::int32_t>(panelHeight)) / 2 - detachedShadowBleed.up;
+    standaloneMarginLeft = ((outputWidth - static_cast<std::int32_t>(panelWidth)) / 2) - detachedShadowBleed.left;
+    standaloneMarginTop = ((outputHeight - static_cast<std::int32_t>(panelHeight)) / 2) - detachedShadowBleed.up;
   } else {
     if ((standaloneAnchor & LayerShellAnchor::Left) != 0) {
       standaloneMarginLeft -= detachedShadowBleed.left;
@@ -570,18 +570,18 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     if (barIsVertical) {
       const auto minY = barTop + totalStartInset;
       const auto maxY = std::max(minY, barBottom - static_cast<std::int32_t>(panelHeight) - totalEndInset);
-      const auto centeredY = barTop + (barBottom - barTop - static_cast<std::int32_t>(panelHeight)) / 2;
+      const auto centeredY = barTop + ((barBottom - barTop - static_cast<std::int32_t>(panelHeight)) / 2);
       const auto desiredY =
-          static_cast<std::int32_t>(std::lround(request.anchorY - static_cast<float>(panelHeight) * 0.5f));
+          static_cast<std::int32_t>(std::lround(request.anchorY - (static_cast<float>(panelHeight) * 0.5f)));
       visualY = useAnchorForAttached ? std::clamp(desiredY, minY, maxY) : centeredY;
       visualX = barIsLeft ? barRight - kAttachedPanelBarOverlap
                           : barLeft - static_cast<std::int32_t>(panelWidth) + kAttachedPanelBarOverlap;
     } else {
       const auto minX = barLeft + totalStartInset;
       const auto maxX = std::max(minX, barRight - static_cast<std::int32_t>(panelWidth) - totalEndInset);
-      const auto centeredX = barLeft + (barRight - barLeft - static_cast<std::int32_t>(panelWidth)) / 2;
+      const auto centeredX = barLeft + ((barRight - barLeft - static_cast<std::int32_t>(panelWidth)) / 2);
       const auto desiredX =
-          static_cast<std::int32_t>(std::lround(request.anchorX - static_cast<float>(panelWidth) * 0.5f));
+          static_cast<std::int32_t>(std::lround(request.anchorX - (static_cast<float>(panelWidth) * 0.5f)));
       visualX = useAnchorForAttached ? std::clamp(desiredX, minX, maxX) : centeredX;
       visualY = barIsBottom ? barTop - static_cast<std::int32_t>(panelHeight) + kAttachedPanelBarOverlap
                             : barBottom - kAttachedPanelBarOverlap;
@@ -638,11 +638,11 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       attachedGeometry.x = static_cast<float>(barSurfaceLocalVisualX);
       attachedGeometry.y = static_cast<float>(barSurfaceLocalVisualY) - cornerRadius;
       attachedGeometry.width = static_cast<float>(panelWidth);
-      attachedGeometry.height = static_cast<float>(panelHeight) + cornerRadius * 2.0f;
+      attachedGeometry.height = static_cast<float>(panelHeight) + (cornerRadius * 2.0f);
     } else {
       attachedGeometry.x = static_cast<float>(barSurfaceLocalVisualX) - cornerRadius;
       attachedGeometry.y = static_cast<float>(barSurfaceLocalVisualY);
-      attachedGeometry.width = static_cast<float>(panelWidth) + cornerRadius * 2.0f;
+      attachedGeometry.width = static_cast<float>(panelWidth) + (cornerRadius * 2.0f);
       attachedGeometry.height = static_cast<float>(panelHeight);
     }
     m_attachedPanelGeometry = attachedGeometry;
@@ -1341,7 +1341,7 @@ void PanelManager::applyDetachedReveal(float progress) {
   }
   // Scale the entire scene from 0.95 to 1.0 around the surface center.
   // Opacity is not animated because the compositor blur region is not opacity-aware.
-  const float s = 1.0f - 0.05f * (1.0f - m_detachedRevealProgress);
+  const float s = 1.0f - (0.05f * (1.0f - m_detachedRevealProgress));
   m_sceneRoot->setScale(s);
   // Fade only the content layer. The background must stay fully opaque so the
   // compositor blur region is always covered by an opaque rect.
@@ -1383,7 +1383,7 @@ void PanelManager::publishAttachedPanelGeometry(float revealProgress) {
       (m_attachedRevealDirection == AttachedRevealDirection::Right
        || m_attachedRevealDirection == AttachedRevealDirection::Left);
   const float panelMainDim = vertical ? geometry.width : geometry.height;
-  const float bulgeRevealAmount = std::clamp(originalRadius - panelMainDim * (1.0f - progress), 0.0f, originalRadius);
+  const float bulgeRevealAmount = std::clamp(originalRadius - (panelMainDim * (1.0f - progress)), 0.0f, originalRadius);
   const float crossDelta = originalRadius - bulgeRevealAmount;
   geometry.bulgeRadius = bulgeRevealAmount;
 
@@ -1459,7 +1459,7 @@ void PanelManager::applyPanelCompositorBlur() {
 
   if (!m_attachedToBar) {
     const float progress = std::clamp(m_detachedRevealProgress, 0.0f, 1.0f);
-    const float s = 1.0f - 0.05f * (1.0f - progress);
+    const float s = 1.0f - (0.05f * (1.0f - progress));
     const int scaledW = static_cast<int>(std::lround(static_cast<float>(bw) * s));
     const int scaledH = static_cast<int>(std::lround(static_cast<float>(bh) * s));
     bx += (bw - scaledW) / 2;
@@ -1536,7 +1536,7 @@ void PanelManager::applyAttachedDecorationStyle() {
   const float radius = Style::scaledRadiusXl(scale);
 
   if (m_bgNode != nullptr) {
-    auto* bg = static_cast<Box*>(m_bgNode);
+    auto* bg = dynamic_cast<Box*>(m_bgNode);
     bg->setFill(colorSpecFromRole(ColorRole::Surface, m_attachedBackgroundOpacity));
   }
 
@@ -1600,7 +1600,7 @@ void PanelManager::onConfigReloaded() {
   m_activePanel->setPanelCardOpacity(resolvePanelCardOpacity(m_config, panelBackgroundOpacity));
   m_activePanel->setPanelBordersEnabled(m_config->config().shell.panel.borders);
   if (!m_attachedToBar && m_bgNode != nullptr) {
-    auto* bg = static_cast<Box*>(m_bgNode);
+    auto* bg = dynamic_cast<Box*>(m_bgNode);
     bg->setPanelStyle(m_config->config().shell.panel.borders);
     bg->setFill(colorSpecFromRole(ColorRole::Surface, panelBackgroundOpacity));
   }
@@ -1685,7 +1685,7 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
 
     if (hasDecoration && m_config != nullptr && shell::surface_shadow::enabled(true, m_config->config().shell.shadow)) {
       auto shadow = std::make_unique<Box>();
-      m_panelShadowNode = static_cast<Box*>(sceneParent->addChild(std::move(shadow)));
+      m_panelShadowNode = dynamic_cast<Box*>(sceneParent->addChild(std::move(shadow)));
       m_panelShadowNode->setZIndex(-1);
       m_panelShadowNode->setVisible(m_config->config().shell.panel.shadow);
     }
@@ -1709,7 +1709,7 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
 
     if (hasDecoration && m_attachedToBar && m_attachedContactShadow) {
       auto contactShadow = std::make_unique<Box>();
-      m_panelContactShadowNode = static_cast<Box*>(sceneParent->addChild(std::move(contactShadow)));
+      m_panelContactShadowNode = dynamic_cast<Box*>(sceneParent->addChild(std::move(contactShadow)));
     }
 
     // Create panel content inside a wrapper node for staggered fade-in
@@ -1775,8 +1775,8 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
   // The bg extends past the body along the bar cross axis for concave-corner notches.
   const float bgX = barIsVertical ? panelX : panelX - attachedRadius;
   const float bgY = barIsVertical ? panelY - attachedRadius : panelY;
-  const float bgW = barIsVertical ? panelW : panelW + attachedRadius * 2.0f;
-  const float bgH = barIsVertical ? panelH + attachedRadius * 2.0f : panelH;
+  const float bgW = barIsVertical ? panelW : panelW + (attachedRadius * 2.0f);
+  const float bgH = barIsVertical ? panelH + (attachedRadius * 2.0f) : panelH;
 
   if (m_panelShadowNode != nullptr && m_config != nullptr) {
     const auto& shadowConfig = m_config->config().shell.shadow;
@@ -1837,8 +1837,8 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
   }
 
   const float kPadding = hasDecoration ? m_activePanel->contentScale() * Style::panelPadding : 0.0f;
-  m_contentWidth = panelW - kPadding * 2.0f;
-  m_contentHeight = panelH - kPadding * 2.0f;
+  m_contentWidth = panelW - (kPadding * 2.0f);
+  m_contentHeight = panelH - (kPadding * 2.0f);
   {
     UiPhaseScope updatePhase(UiPhase::Update);
     m_activePanel->update(*renderer);
@@ -1849,7 +1849,7 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
   }
   if (m_contentNode != nullptr) {
     m_contentNode->setPosition(panelX + kPadding, panelY + kPadding);
-    m_contentNode->setSize(panelW - kPadding * 2.0f, panelH - kPadding * 2.0f);
+    m_contentNode->setSize(panelW - (kPadding * 2.0f), panelH - (kPadding * 2.0f));
   }
   if (m_pointerInside) {
     m_inputDispatcher.syncPointerHover();

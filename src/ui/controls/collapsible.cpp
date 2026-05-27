@@ -17,21 +17,21 @@ Collapsible::Collapsible() {
   auto area = std::make_unique<InputArea>();
   area->setOnClick([this](const InputArea::PointerData&) { setExpanded(!m_expanded); });
   area->setEnabled(false);
-  m_headerInput = static_cast<InputArea*>(addChild(std::move(area)));
+  m_headerInput = dynamic_cast<InputArea*>(addChild(std::move(area)));
 
   auto headerRow = std::make_unique<Flex>();
   headerRow->setDirection(FlexDirection::Horizontal);
   headerRow->setAlign(FlexAlign::Center);
   headerRow->setGap(Style::spaceXs);
   headerRow->setPadding(0.0f, Style::spaceMd);
-  m_headerRow = static_cast<Flex*>(m_headerInput->addChild(std::move(headerRow)));
+  m_headerRow = dynamic_cast<Flex*>(m_headerInput->addChild(std::move(headerRow)));
 
   auto chevron = std::make_unique<Glyph>();
   chevron->setGlyph("chevron-down");
   chevron->setGlyphSize(Style::fontSizeBody);
   chevron->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
   chevron->setVisible(false);
-  m_chevron = static_cast<Glyph*>(m_headerRow->addChild(std::move(chevron)));
+  m_chevron = dynamic_cast<Glyph*>(m_headerRow->addChild(std::move(chevron)));
 
   auto clip = std::make_unique<Node>();
   clip->setClipChildren(true);

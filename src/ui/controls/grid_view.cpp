@@ -119,7 +119,7 @@ void GridView::doLayout(Renderer& renderer) {
 
   std::vector<Node*> visibleChildren;
   visibleChildren.reserve(children().size());
-  for (auto& child : children()) {
+  for (const auto& child : children()) {
     if (child->visible()) {
       visibleChildren.push_back(child.get());
     }
@@ -144,7 +144,7 @@ void GridView::doLayout(Renderer& renderer) {
   float stretchedWidth = 0.0f;
   if (hasFixedWidth && m_stretchItems && columns > 0) {
     const float innerWidth =
-        std::max(0.0f, fixedWidth - m_paddingLeft - m_paddingRight - m_columnGap * static_cast<float>(columns - 1));
+        std::max(0.0f, fixedWidth - m_paddingLeft - m_paddingRight - (m_columnGap * static_cast<float>(columns - 1)));
     stretchedWidth = innerWidth / static_cast<float>(columns);
   }
 
@@ -164,12 +164,13 @@ void GridView::doLayout(Renderer& renderer) {
     const bool squarePack = m_squareCells && m_stretchItems && columns > 0 && rows > 0 && hasFixedHeight;
     if (squarePack) {
       const float innerHeight = std::max(
-          0.0f, fixedHeight - m_paddingTop - m_paddingBottom - m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0)
+          0.0f, fixedHeight - m_paddingTop - m_paddingBottom - (m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0))
       );
       const float slotH = innerHeight / static_cast<float>(rows);
       if (hasFixedWidth) {
-        const float innerWidth =
-            std::max(0.0f, fixedWidth - m_paddingLeft - m_paddingRight - m_columnGap * static_cast<float>(columns - 1));
+        const float innerWidth = std::max(
+            0.0f, fixedWidth - m_paddingLeft - m_paddingRight - (m_columnGap * static_cast<float>(columns - 1))
+        );
         const float slotW = innerWidth / static_cast<float>(columns);
         uniformWidth = uniformHeight = std::min(slotW, slotH);
       } else {
@@ -178,8 +179,9 @@ void GridView::doLayout(Renderer& renderer) {
       }
     } else {
       if (hasFixedWidth && columns > 0) {
-        const float innerWidth =
-            std::max(0.0f, fixedWidth - m_paddingLeft - m_paddingRight - m_columnGap * static_cast<float>(columns - 1));
+        const float innerWidth = std::max(
+            0.0f, fixedWidth - m_paddingLeft - m_paddingRight - (m_columnGap * static_cast<float>(columns - 1))
+        );
         const float slotW = innerWidth / static_cast<float>(columns);
         if (m_stretchItems) {
           uniformWidth = slotW;
@@ -194,7 +196,8 @@ void GridView::doLayout(Renderer& renderer) {
 
       if (hasFixedHeight && rows > 0) {
         const float innerHeight = std::max(
-            0.0f, fixedHeight - m_paddingTop - m_paddingBottom - m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0)
+            0.0f,
+            fixedHeight - m_paddingTop - m_paddingBottom - (m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0))
         );
         const float slotH = innerHeight / static_cast<float>(rows);
         if (m_stretchItems) {
@@ -244,12 +247,12 @@ void GridView::doLayout(Renderer& renderer) {
   const float contentWidth = std::max(
       0.0f,
       std::accumulate(columnWidths.begin(), columnWidths.end(), 0.0f)
-          + m_columnGap * static_cast<float>(columns > 0 ? columns - 1 : 0)
+          + (m_columnGap * static_cast<float>(columns > 0 ? columns - 1 : 0))
   );
   const float contentHeight = std::max(
       0.0f,
       std::accumulate(rowHeights.begin(), rowHeights.end(), 0.0f)
-          + m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0)
+          + (m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0))
   );
 
   const float computedWidth = m_paddingLeft + contentWidth + m_paddingRight;
@@ -264,7 +267,7 @@ void GridView::doLayout(Renderer& renderer) {
   float originY = m_paddingTop;
   if (tightSquare && hasFixedHeight && rows > 0) {
     const float usedH = std::accumulate(rowHeights.begin(), rowHeights.end(), 0.0f)
-        + m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0);
+        + (m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0));
     const float availH = std::max(0.0f, fixedHeight - m_paddingTop - m_paddingBottom);
     originY = m_paddingTop + std::max(0.0f, (availH - usedH) * 0.5f);
   }

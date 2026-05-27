@@ -18,9 +18,9 @@
 
 namespace {
 
-  std::string wrapLongRuns(std::string text, std::size_t maxRun = 48) {
+  std::string wrapLongRuns(const std::string& text, std::size_t maxRun = 48) {
     std::string out;
-    out.reserve(text.size() + text.size() / maxRun);
+    out.reserve(text.size() + (text.size() / maxRun));
     std::size_t run = 0;
     for (char ch : text) {
       const bool breakable = std::isspace(static_cast<unsigned char>(ch)) != 0 || ch == '/' || ch == ':' || ch == '-';
@@ -55,7 +55,7 @@ void PolkitPanel::create() {
   auto focusArea = std::make_unique<InputArea>();
   focusArea->setFocusable(true);
   focusArea->setVisible(false);
-  m_focusArea = static_cast<InputArea*>(root->addChild(std::move(focusArea)));
+  m_focusArea = dynamic_cast<InputArea*>(root->addChild(std::move(focusArea)));
 
   auto topContent = ui::column(
       {.align = FlexAlign::Stretch, .gap = Style::spaceSm * scale},

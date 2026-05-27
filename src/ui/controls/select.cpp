@@ -35,22 +35,22 @@ Select::Select() {
   m_placeholder = i18n::tr("ui.controls.select.placeholder");
 
   auto triggerBackground = std::make_unique<RectNode>();
-  m_triggerBackground = static_cast<RectNode*>(addChild(std::move(triggerBackground)));
+  m_triggerBackground = dynamic_cast<RectNode*>(addChild(std::move(triggerBackground)));
 
   auto triggerIndicator = std::make_unique<Box>();
   triggerIndicator->setVisible(false);
-  m_triggerIndicator = static_cast<Box*>(addChild(std::move(triggerIndicator)));
+  m_triggerIndicator = dynamic_cast<Box*>(addChild(std::move(triggerIndicator)));
 
   auto triggerPreview = std::make_unique<ColorSwatchPreviewStrip>();
   triggerPreview->setVisible(false);
   triggerPreview->setParticipatesInLayout(false);
-  m_triggerPreview = static_cast<ColorSwatchPreviewStrip*>(addChild(std::move(triggerPreview)));
+  m_triggerPreview = dynamic_cast<ColorSwatchPreviewStrip*>(addChild(std::move(triggerPreview)));
 
   auto triggerLabel = std::make_unique<Label>();
-  m_triggerLabel = static_cast<Label*>(addChild(std::move(triggerLabel)));
+  m_triggerLabel = dynamic_cast<Label*>(addChild(std::move(triggerLabel)));
 
   auto triggerGlyph = std::make_unique<Glyph>();
-  m_triggerGlyph = static_cast<Glyph*>(addChild(std::move(triggerGlyph)));
+  m_triggerGlyph = dynamic_cast<Glyph*>(addChild(std::move(triggerGlyph)));
   m_triggerGlyph->setGlyph("chevron-down");
   m_triggerGlyph->setGlyphSize(m_glyphSize);
 
@@ -84,7 +84,7 @@ Select::Select() {
     markPaintDirty();
   });
   triggerArea->setOnKeyDown([this](const InputArea::KeyData& key) { handleKey(key.sym, key.utf32, key.pressed); });
-  m_triggerArea = static_cast<InputArea*>(addChild(std::move(triggerArea)));
+  m_triggerArea = dynamic_cast<InputArea*>(addChild(std::move(triggerArea)));
 
   applyVisualState();
   m_paletteConn = paletteChanged().connect([this] { applyVisualState(); });
@@ -249,7 +249,7 @@ void Select::doLayout(Renderer& renderer) {
       hasSelectedPreview ? (previewWidth + Style::spaceSm) : (hasIndicators ? indicatorSize + Style::spaceSm : 0.0f);
 
   float contentWidth =
-      m_triggerLabel->width() + m_horizontalPadding * 2.0f + m_glyphSize + Style::spaceXs + leadingInset;
+      m_triggerLabel->width() + (m_horizontalPadding * 2.0f) + m_glyphSize + Style::spaceXs + leadingInset;
   float dropdownWidth = m_fixedWidth > 0.0f ? m_fixedWidth : std::max(minWidth(), contentWidth);
 
   setSize(dropdownWidth, m_controlHeight);

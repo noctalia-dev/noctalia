@@ -10,25 +10,29 @@ namespace {
 
   std::string extractQueryParam(std::string_view url, std::string_view key) {
     const auto queryPos = url.find('?');
-    if (queryPos == std::string_view::npos)
+    if (queryPos == std::string_view::npos) {
       return {};
+    }
     std::string_view query = url.substr(queryPos + 1);
     while (!query.empty()) {
       const auto ampPos = query.find('&');
       const std::string_view pair = query.substr(0, ampPos);
       const auto eqPos = pair.find('=');
-      if (pair.substr(0, eqPos) == key)
+      if (pair.substr(0, eqPos) == key) {
         return eqPos == std::string_view::npos ? std::string{} : std::string(pair.substr(eqPos + 1));
-      if (ampPos == std::string_view::npos)
+      }
+      if (ampPos == std::string_view::npos) {
         break;
+      }
       query.remove_prefix(ampPos + 1);
     }
     return {};
   }
 
   std::string deriveYouTubeThumbnailUrl(std::string_view sourceUrl) {
-    if (sourceUrl.empty())
+    if (sourceUrl.empty()) {
       return {};
+    }
     std::string videoId;
     if (sourceUrl.find("youtube.com/watch") != std::string_view::npos) {
       videoId = extractQueryParam(sourceUrl, "v");
@@ -45,8 +49,9 @@ namespace {
       videoId =
           std::string(sourceUrl.substr(start, end == std::string_view::npos ? sourceUrl.size() - start : end - start));
     }
-    if (videoId.empty())
+    if (videoId.empty()) {
       return {};
+    }
     return std::format("https://i.ytimg.com/vi/{}/hqdefault.jpg", videoId);
   }
 
@@ -57,8 +62,9 @@ namespace mpris {
   bool isRemoteArtUrl(std::string_view url) { return uri::isRemoteUrl(url); }
 
   std::string effectiveArtUrl(const MprisPlayerInfo& player) {
-    if (!player.artUrl.empty())
+    if (!player.artUrl.empty()) {
       return player.artUrl;
+    }
     return deriveYouTubeThumbnailUrl(player.sourceUrl);
   }
 
@@ -71,8 +77,9 @@ namespace mpris {
   }
 
   std::string joinArtists(const std::vector<std::string>& artists) {
-    if (artists.empty())
+    if (artists.empty()) {
       return {};
+    }
     std::string joined = artists.front();
     for (std::size_t i = 1; i < artists.size(); ++i) {
       joined += ", ";

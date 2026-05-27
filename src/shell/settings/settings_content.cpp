@@ -438,7 +438,7 @@ namespace settings {
       section.addChild(std::move(row));
     };
 
-    const auto makeToggle = [&](bool checked, bool enabled, std::vector<std::string> path,
+    const auto makeToggle = [&](bool checked, bool enabled, const std::vector<std::string>& path,
                                 std::optional<bool> clearWhenValue = std::nullopt) {
       if (enabled) {
         return ui::toggle({
@@ -465,7 +465,8 @@ namespace settings {
       });
     };
 
-    const auto makeSelect = [&](const SelectSetting& setting, std::vector<std::string> path) -> std::unique_ptr<Node> {
+    const auto makeSelect = [&](const SelectSetting& setting,
+                                const std::vector<std::string>& path) -> std::unique_ptr<Node> {
       if (setting.segmented) {
         std::vector<ui::SegmentedOption> segmentedOptions;
         segmentedOptions.reserve(setting.options.size());
@@ -533,10 +534,10 @@ namespace settings {
     };
 
     const auto makeSlider =
-        [&](double value, double minValue, double maxValue, double step, std::vector<std::string> path,
+        [&](double value, double minValue, double maxValue, double step, const std::vector<std::string>& path,
             bool integerValue = false,
-            std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)> linkedCommit =
-                {}) {
+            const std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)>&
+                linkedCommit = {}) {
           auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
 
           Input* valueInputPtr = nullptr;
@@ -590,7 +591,7 @@ namespace settings {
             setOverride(path, std::move(primary));
           };
 
-          slider->setOnDragEnd([commit, sliderPtr]() { commit(static_cast<double>(sliderPtr->value())); });
+          slider->setOnDragEnd([commit, sliderPtr]() { commit(sliderPtr->value()); });
 
           const auto commitInputText = [commit, sliderPtr, valueInputPtr, minValue, maxValue,
                                         integerValue](const std::string& text) {
@@ -618,8 +619,8 @@ namespace settings {
           return wrap;
         };
 
-    const auto makeText = [&](const std::string& value, const std::string& placeholder, std::vector<std::string> path,
-                              float width = 0.0f) {
+    const auto makeText = [&](const std::string& value, const std::string& placeholder,
+                              const std::vector<std::string>& path, float width = 0.0f) {
       const float inputWidth = (width > 0.0f ? width : 190.0f) * scale;
       auto input = ui::input({
           .value = value,
@@ -713,7 +714,8 @@ namespace settings {
       return wrap;
     };
 
-    const auto makeGlyphText = [&](const TextSetting& setting, std::vector<std::string> path) -> std::unique_ptr<Node> {
+    const auto makeGlyphText = [&](const TextSetting& setting,
+                                   const std::vector<std::string>& path) -> std::unique_ptr<Node> {
       auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
       wrap->addChild(makeText(setting.value, setting.placeholder, path, setting.width));
 
@@ -745,7 +747,7 @@ namespace settings {
       return wrap;
     };
 
-    const auto makeOptionalNumber = [&](const OptionalNumberSetting& setting, std::vector<std::string> path) {
+    const auto makeOptionalNumber = [&](const OptionalNumberSetting& setting, const std::vector<std::string>& path) {
       Input* inputPtr = nullptr;
       auto input = ui::input({
           .out = &inputPtr,
@@ -781,7 +783,7 @@ namespace settings {
       return input;
     };
 
-    const auto makeStepper = [&](const StepperSetting& setting, std::vector<std::string> path) {
+    const auto makeStepper = [&](const StepperSetting& setting, const std::vector<std::string>& path) {
       const int minValue = std::min(setting.minValue, setting.maxValue);
       const int maxValue = std::max(setting.minValue, setting.maxValue);
       const int currentValue = std::clamp(setting.value, minValue, maxValue);
@@ -799,7 +801,7 @@ namespace settings {
       });
     };
 
-    const auto makeOptionalStepper = [&](const OptionalStepperSetting& setting, std::vector<std::string> path) {
+    const auto makeOptionalStepper = [&](const OptionalStepperSetting& setting, const std::vector<std::string>& path) {
       auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
 
       const int minValue = std::min(setting.minValue, setting.maxValue);
@@ -847,7 +849,7 @@ namespace settings {
     };
 
     const auto makeColorSpecPicker = [&](const ColorSpecPickerSetting& setting,
-                                         std::vector<std::string> path) -> std::unique_ptr<Node> {
+                                         const std::vector<std::string>& path) -> std::unique_ptr<Node> {
       ColorSpecSelectOptions options{
           .roles = setting.roles,
           .selectedValue = setting.selectedValue,
@@ -1794,25 +1796,23 @@ namespace settings {
         .renameWidgetInstance = ctx.renameWidgetInstance,
         .makeResetButton = makeResetButton,
         .makeRow = makeRow,
-        .makeToggle = [&](bool checked, std::vector<std::string> path, std::optional<bool> clearWhenValue)
-            -> std::unique_ptr<Node> { return makeToggle(checked, true, std::move(path), clearWhenValue); },
-        .makeSelect = [&](const SelectSetting& setting, std::vector<std::string> path) -> std::unique_ptr<Node> {
-          return makeSelect(setting, std::move(path));
+        .makeToggle = [&](bool checked, const std::vector<std::string>& path, std::optional<bool> clearWhenValue)
+            -> std::unique_ptr<Node> { return makeToggle(checked, true, path, clearWhenValue); },
+        .makeSelect = [&](const SelectSetting& setting, const std::vector<std::string>& path) -> std::unique_ptr<Node> {
+          return makeSelect(setting, path);
         },
-        .makeSlider = [&](double value, double minValue, double maxValue, double step, std::vector<std::string> path,
-                          bool integerValue) -> std::unique_ptr<Node> {
-          return makeSlider(value, minValue, maxValue, step, std::move(path), integerValue);
+        .makeSlider = [&](double value, double minValue, double maxValue, double step,
+                          const std::vector<std::string>& path, bool integerValue) -> std::unique_ptr<Node> {
+          return makeSlider(value, minValue, maxValue, step, path, integerValue);
         },
-        .makeOptionalNumber = [&](const OptionalNumberSetting& setting, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return makeOptionalNumber(setting, std::move(path)); },
-        .makeOptionalStepper = [&](const OptionalStepperSetting& setting, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return makeOptionalStepper(setting, std::move(path)); },
-        .makeText = [&](const std::string& value, const std::string& placeholder,
-                        std::vector<std::string> path) -> std::unique_ptr<Node> {
-          return makeText(value, placeholder, std::move(path));
-        }, // width not used in search
-        .makeColorSpecPicker = [&](const ColorSpecPickerSetting& setting, std::vector<std::string> path)
-            -> std::unique_ptr<Node> { return makeColorSpecPicker(setting, std::move(path)); },
+        .makeOptionalNumber = [&](const OptionalNumberSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return makeOptionalNumber(setting, path); },
+        .makeOptionalStepper = [&](const OptionalStepperSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return makeOptionalStepper(setting, path); },
+        .makeText = [&](const std::string& value, const std::string& placeholder, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return makeText(value, placeholder, path); }, // width not used in search
+        .makeColorSpecPicker = [&](const ColorSpecPickerSetting& setting, const std::vector<std::string>& path)
+            -> std::unique_ptr<Node> { return makeColorSpecPicker(setting, path); },
         .makeListBlock = [&](Flex& section, const SettingEntry& entry,
                              const ListSetting& list) { makeListBlock(section, entry, list); },
     };
@@ -1927,7 +1927,7 @@ namespace settings {
                 .gap = Style::spaceMd * scale,
                 .fillWidth = true,
             });
-            activeKeybindRow = static_cast<Flex*>(activeSection->addChild(std::move(row)));
+            activeKeybindRow = dynamic_cast<Flex*>(activeSection->addChild(std::move(row)));
             activeKeybindRowCount = 0;
           }
           makeKeybindListBlock(*activeKeybindRow, entry, *keybindList);

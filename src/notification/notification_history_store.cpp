@@ -105,7 +105,7 @@ namespace {
     return kCloseByCall;
   }
 
-  static const char kBase64Chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const char kBase64Chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
   std::string base64Encode(const std::vector<std::uint8_t>& data) {
     std::string out;
@@ -287,16 +287,16 @@ namespace {
     const int rs = (img.rowStride > 0) ? img.rowStride : (outW * c);
     outRgba.resize(static_cast<std::size_t>(outW) * static_cast<std::size_t>(outH) * 4);
     for (int y = 0; y < outH; ++y) {
-      const std::uint8_t* row = img.data.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(rs);
-      std::uint8_t* dst = outRgba.data() + static_cast<std::size_t>(y) * static_cast<std::size_t>(outW) * 4;
+      const std::uint8_t* row = img.data.data() + (static_cast<std::size_t>(y) * static_cast<std::size_t>(rs));
+      std::uint8_t* dst = outRgba.data() + (static_cast<std::size_t>(y) * static_cast<std::size_t>(outW) * 4);
       if (c == 4) {
         std::memcpy(dst, row, static_cast<std::size_t>(outW) * 4);
       } else {
         for (int x = 0; x < outW; ++x) {
-          dst[x * 4 + 0] = row[x * 3 + 0];
-          dst[x * 4 + 1] = row[x * 3 + 1];
-          dst[x * 4 + 2] = row[x * 3 + 2];
-          dst[x * 4 + 3] = 255;
+          dst[(x * 4) + 0] = row[(x * 3) + 0];
+          dst[(x * 4) + 1] = row[(x * 3) + 1];
+          dst[(x * 4) + 2] = row[(x * 3) + 2];
+          dst[(x * 4) + 3] = 255;
         }
       }
     }
@@ -318,9 +318,9 @@ namespace {
       for (int x = 0; x < nw; ++x) {
         const int sx = x * w / nw;
         const std::uint8_t* srcPx = rgba.data()
-            + (static_cast<std::size_t>(sy) * static_cast<std::size_t>(w) + static_cast<std::size_t>(sx)) * 4;
-        std::uint8_t* dstPx =
-            dst.data() + (static_cast<std::size_t>(y) * static_cast<std::size_t>(nw) + static_cast<std::size_t>(x)) * 4;
+            + (((static_cast<std::size_t>(sy) * static_cast<std::size_t>(w)) + static_cast<std::size_t>(sx)) * 4);
+        std::uint8_t* dstPx = dst.data()
+            + (((static_cast<std::size_t>(y) * static_cast<std::size_t>(nw)) + static_cast<std::size_t>(x)) * 4);
         std::memcpy(dstPx, srcPx, 4);
       }
     }
@@ -597,7 +597,7 @@ namespace {
       if (!legacyPerId && !contentAddressed) {
         continue;
       }
-      if (keepFiles.find(name) == keepFiles.end()) {
+      if (!keepFiles.contains(name)) {
         std::filesystem::remove(ent.path(), ec);
       }
     }

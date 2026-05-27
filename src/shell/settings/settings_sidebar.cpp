@@ -300,7 +300,7 @@ namespace settings {
       }
 
       auto doCreate = [barName, createMonitorOverride, inputPtr,
-                       existingMatches = std::move(existingMatches)](std::string rawMatch) {
+                       existingMatches = std::move(existingMatches)](const std::string& rawMatch) {
         const std::string match = normalizedConfigId(rawMatch);
         if (match.empty()
             || std::find(existingMatches.begin(), existingMatches.end(), match) != existingMatches.end()) {
@@ -383,7 +383,7 @@ namespace settings {
           .height = Style::controlHeightSm * scale,
       });
 
-      auto doCreate = [existingBarNames, createBar, inputPtr](std::string rawName) {
+      auto doCreate = [existingBarNames, createBar, inputPtr](const std::string& rawName) {
         const std::string name = normalizedConfigId(rawName);
         if (!isValidConfigId(name) || barNameExists(existingBarNames, name)) {
           inputPtr->setInvalid(true);

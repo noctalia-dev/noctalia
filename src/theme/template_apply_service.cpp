@@ -21,8 +21,9 @@ namespace noctalia::theme {
     std::filesystem::path builtinTemplateConfigPath() { return paths::assetPath("templates/builtin.toml"); }
 
     std::string schemeTypeFromConfig(const ThemeConfig& theme) {
-      if (theme.wallpaperScheme.rfind("m3-", 0) == 0)
+      if (theme.wallpaperScheme.rfind("m3-", 0) == 0) {
         return theme.wallpaperScheme.substr(3);
+      }
       return theme.wallpaperScheme;
     }
 
@@ -186,8 +187,9 @@ namespace noctalia::theme {
         && !request.templates.communityIds.empty()
         && !requestSuperseded(request.generation)) {
       for (const auto& id : request.templates.communityIds) {
-        if (requestSuperseded(request.generation))
+        if (requestSuperseded(request.generation)) {
           return;
+        }
         if (!isSafeCommunityTemplateId(id)) {
           kLog.warn("skipping unsafe community template id '{}'", id);
           continue;
@@ -205,8 +207,9 @@ namespace noctalia::theme {
       }
     }
 
-    if (request.templates.userTemplates.empty() || requestSuperseded(request.generation))
+    if (request.templates.userTemplates.empty() || requestSuperseded(request.generation)) {
       return;
+    }
 
     const toml::table userTemplateRoot = buildUserTemplateRoot(request.templates);
     const std::filesystem::path configPath = userTemplateConfigPath();

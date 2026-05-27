@@ -82,10 +82,10 @@ namespace noctalia::theme {
     std::vector<ClusterEntry> wsmeansMatugenOrder(
         const std::vector<mcu::Argb>& input_pixels, const std::vector<mcu::Argb>& starting_clusters, uint16_t max_colors
     ) {
-      if (max_colors == 0 || input_pixels.empty())
+      if (max_colors == 0 || input_pixels.empty()) {
         return {};
-      if (max_colors > 256)
-        max_colors = 256;
+      }
+      max_colors = std::min<uint16_t>(max_colors, 256);
 
       // Dedupe input pixels in insertion order, building parallel
       // pixels/points/counts arrays. Matches matugen's IndexMap loop.
@@ -109,20 +109,23 @@ namespace noctalia::theme {
 
       std::vector<mcu::Lab> clusters;
       clusters.reserve(starting_clusters.size());
-      for (mcu::Argb argb : starting_clusters)
+      for (mcu::Argb argb : starting_clusters) {
         clusters.push_back(mcu::LabFromInt(argb));
+      }
       // matugen relies on Wu returning max_colors entries and would index
       // OOB otherwise. Clamp here (matches MCU's wsmeans.cc) so we don't
       // crash on low-cardinality images where Wu returns fewer cubes; the
       // result still matches matugen for the common case.
-      if (!starting_clusters.empty())
+      if (!starting_clusters.empty()) {
         cluster_count = std::min(cluster_count, starting_clusters.size());
+      }
 
       // Deterministic init, no rand.
       std::vector<std::size_t> cluster_indices;
       cluster_indices.reserve(points.size());
-      for (std::size_t i = 0; i < points.size(); i++)
+      for (std::size_t i = 0; i < points.size(); i++) {
         cluster_indices.push_back(i % cluster_count);
+      }
 
       std::vector<std::vector<DistanceToIndex>> dmat(cluster_count, std::vector<DistanceToIndex>(cluster_count));
       std::array<std::uint32_t, 256> pixel_count_sums{};
@@ -160,8 +163,9 @@ namespace noctalia::theme {
           // N is the count of cluster pairs within 4× of prev_d. We replicate
           // the same indexing for byte-for-byte parity.
           for (std::size_t j = 0; j < cluster_count; j++) {
-            if (dmat[prev_idx][j].distance >= 4.0 * prev_d)
+            if (dmat[prev_idx][j].distance >= 4.0 * prev_d) {
               continue;
+            }
             double d = point.DeltaE(clusters[j]);
             if (d < min_d) {
               min_d = d;
@@ -173,12 +177,16 @@ namespace noctalia::theme {
             cluster_indices[i] = new_idx;
           }
         }
-        if (points_moved == 0 && iter > 0)
+        if (points_moved == 0 && iter > 0) {
           break;
+        }
 
-        std::array<double, 256> sa{}, sb{}, sc{};
-        for (std::size_t i = 0; i < cluster_count; i++)
+        std::array<double, 256> sa{};
+        std::array<double, 256> sb{};
+        std::array<double, 256> sc{};
+        for (std::size_t i = 0; i < cluster_count; i++) {
           pixel_count_sums[i] = 0;
+        }
         for (std::size_t i = 0; i < points.size(); i++) {
           const std::size_t ci = cluster_indices[i];
           const std::uint32_t cnt = pixel_to_count[pixels[i]];
@@ -204,8 +212,9 @@ namespace noctalia::theme {
       std::vector<ClusterEntry> result;
       for (std::size_t i = 0; i < cluster_count; i++) {
         const std::uint32_t cnt = pixel_count_sums[i];
-        if (cnt == 0)
+        if (cnt == 0) {
           continue;
+        }
         mcu::Argb argb = mcu::IntFromLab(clusters[i]);
         bool dup = false;
         for (auto& e : result) {
@@ -214,8 +223,9 @@ namespace noctalia::theme {
             break;
           }
         }
-        if (dup)
+        if (dup) {
           continue;
+        }
         result.push_back({argb, cnt});
       }
       return result;
@@ -264,8 +274,9 @@ namespace noctalia::theme {
       for (mcu::Hct hct : colors_hct) {
         int hue = mcu::SanitizeDegreesInt(static_cast<int>(std::round(hct.get_hue())));
         double prop = hue_excited[static_cast<std::size_t>(hue)];
-        if (filter && (hct.get_chroma() < kCutoffChroma || prop <= kCutoffExcitedProportion))
+        if (filter && (hct.get_chroma() < kCutoffChroma || prop <= kCutoffExcitedProportion)) {
           continue;
+        }
         double prop_score = prop * 100.0 * kWeightProportion;
         double cw = hct.get_chroma() < kTargetChroma ? kWeightChromaBelow : kWeightChromaAbove;
         double chroma_score = (hct.get_chroma() - kTargetChroma) * cw;
@@ -291,19 +302,23 @@ namespace noctalia::theme {
           }
           if (!dup) {
             chosen.push_back(hct);
-            if ((int)chosen.size() >= desired)
+            if ((int)chosen.size() >= desired) {
               break;
+            }
           }
         }
-        if ((int)chosen.size() >= desired)
+        if ((int)chosen.size() >= desired) {
           break;
+        }
       }
 
       std::vector<mcu::Argb> out;
-      if (chosen.empty())
+      if (chosen.empty()) {
         out.push_back(0xff4285f4u);
-      for (auto& h : chosen)
+      }
+      for (auto& h : chosen) {
         out.push_back(h.ToInt());
+      }
       return out;
     }
 
@@ -324,8 +339,9 @@ namespace noctalia::theme {
       std::vector<mcu::Argb> opaque;
       opaque.reserve(pixels.size());
       for (mcu::Argb p : pixels) {
-        if (mcu::IsOpaque(p))
+        if (mcu::IsOpaque(p)) {
           opaque.push_back(p);
+        }
       }
       auto wu_seeds = mcu::QuantizeWu(opaque, 128);
       auto clusters = wsmeansMatugenOrder(opaque, wu_seeds, 128);

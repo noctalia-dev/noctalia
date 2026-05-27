@@ -43,7 +43,7 @@ private:
     std::string description;
   };
 
-  void handleConnection(int connFd);
+  void handleConnection(int connFd) const;
   std::string buildHelp() const;
   [[nodiscard]] std::string executeParsed(const std::string& command, const std::string& args) const;
   [[nodiscard]] static std::string resolveSocketPath();

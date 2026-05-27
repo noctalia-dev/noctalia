@@ -31,10 +31,10 @@ Scrollbar::Scrollbar() {
   m_paletteConn = paletteChanged().connect([this] { applyPalette(); });
 
   auto track = std::make_unique<RectNode>();
-  m_track = static_cast<RectNode*>(addChild(std::move(track)));
+  m_track = dynamic_cast<RectNode*>(addChild(std::move(track)));
 
   auto thumb = std::make_unique<RectNode>();
-  m_thumb = static_cast<RectNode*>(addChild(std::move(thumb)));
+  m_thumb = dynamic_cast<RectNode*>(addChild(std::move(thumb)));
 
   auto trackArea = std::make_unique<InputArea>();
   trackArea->setOnAxisHandler([this](const InputArea::PointerData& data) {
@@ -45,7 +45,7 @@ Scrollbar::Scrollbar() {
     m_onScrollChanged(std::clamp(current + data.scrollDelta(Style::scrollWheelStep), 0.0f, m_maxScroll));
     return true;
   });
-  m_trackArea = static_cast<InputArea*>(addChild(std::move(trackArea)));
+  m_trackArea = dynamic_cast<InputArea*>(addChild(std::move(trackArea)));
 
   auto thumbArea = std::make_unique<InputArea>();
   thumbArea->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
@@ -66,7 +66,7 @@ Scrollbar::Scrollbar() {
     const float pointerY = data.localY + m_thumbArea->y();
     const float deltaY = pointerY - m_dragStartY;
     const float offsetPerPx = m_maxScroll / m_thumbTravel;
-    m_onScrollChanged(std::clamp(m_dragStartOffset + deltaY * offsetPerPx, 0.0f, m_maxScroll));
+    m_onScrollChanged(std::clamp(m_dragStartOffset + (deltaY * offsetPerPx), 0.0f, m_maxScroll));
   });
   thumbArea->setOnAxisHandler([this](const InputArea::PointerData& data) {
     if (data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL || !m_onScrollChanged) {
@@ -76,7 +76,7 @@ Scrollbar::Scrollbar() {
     m_onScrollChanged(std::clamp(current + data.scrollDelta(Style::scrollWheelStep), 0.0f, m_maxScroll));
     return true;
   });
-  m_thumbArea = static_cast<InputArea*>(addChild(std::move(thumbArea)));
+  m_thumbArea = dynamic_cast<InputArea*>(addChild(std::move(thumbArea)));
 
   applyPalette();
 }

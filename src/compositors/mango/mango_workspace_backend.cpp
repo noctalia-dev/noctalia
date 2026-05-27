@@ -531,7 +531,7 @@ std::optional<MangoWorkspaceBackend::OutputState> MangoWorkspaceBackend::parseMo
   }
 
   const auto activeTags = jsonTagArray(json, "active_tags");
-  if (!activeTags.empty() && !(activeTags.size() == 1 && activeTags.front() == 0)) {
+  if (!activeTags.empty() && (activeTags.size() != 1 || activeTags.front() != 0)) {
     for (auto& tag : state.tags) {
       tag.active = std::find(activeTags.begin(), activeTags.end(), tag.index) != activeTags.end();
     }

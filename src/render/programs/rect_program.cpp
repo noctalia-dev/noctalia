@@ -519,8 +519,8 @@ void RectProgram::draw(
   };
 
   const float padding = std::max(style.borderWidth + style.softness + 2.0f, 2.0f);
-  const float quadWidth = width + padding * 2.0f;
-  const float quadHeight = height + padding * 2.0f;
+  const float quadWidth = width + (padding * 2.0f);
+  const float quadHeight = height + (padding * 2.0f);
   const float rectOrigin = padding;
   const Mat3 quadTransform = transform * Mat3::translation(-padding, -padding);
 

@@ -393,7 +393,7 @@ namespace settings {
         float ignoredX = 0.0f;
         float itemY = 0.0f;
         Node::absolutePosition(item, ignoredX, itemY);
-        if (sceneY < itemY + item->height() * 0.5f) {
+        if (sceneY < itemY + (item->height() * 0.5f)) {
           return i;
         }
       }
@@ -440,9 +440,9 @@ namespace settings {
       }
 
       const float x = Style::spaceSm * scale;
-      const float width = std::max(1.0f, lane.width() - Style::spaceSm * scale * 2.0f);
+      const float width = std::max(1.0f, lane.width() - (Style::spaceSm * scale * 2.0f));
       const float gapHalf = Style::spaceXs * scale * 0.5f;
-      float y = Style::controlHeightSm * scale + Style::spaceSm * scale;
+      float y = (Style::controlHeightSm * scale) + (Style::spaceSm * scale);
       if (!itemNodes.empty()) {
         if (insertionIndex == itemNodes.size()) {
           const auto* target = itemNodes.back();
@@ -872,7 +872,7 @@ namespace settings {
     }
 
     void addWidgetSettingsPanel(
-        Flex& item, std::string widgetName, const std::vector<std::string>& lanePath,
+        Flex& item, const std::string& widgetName, const std::vector<std::string>& lanePath,
         const std::vector<SelectOption>& managedCapsuleGroups, const BarWidgetEditorContext& ctx
     ) {
       const auto widgetType = widgetTypeForReference(ctx.config, widgetName);
@@ -1188,7 +1188,7 @@ namespace settings {
           if (const auto* defaultString = std::get_if<std::string>(&spec.defaultValue); defaultString != nullptr) {
             selectSetting.clearOnEmpty = defaultString->empty();
           }
-          ctx.makeRow(*panel, entry, ctx.makeSelect(std::move(selectSetting), path));
+          ctx.makeRow(*panel, entry, ctx.makeSelect(selectSetting, path));
           break;
         }
         case WidgetSettingValueType::ColorSpec: {
@@ -1196,7 +1196,7 @@ namespace settings {
           pickerSetting.selectedValue = settingValueAsString(value);
           pickerSetting.allowNone = spec.advanced;
           pickerSetting.allowCustomColor = spec.allowCustomColor;
-          ctx.makeRow(*panel, entry, ctx.makeColorSpecPicker(std::move(pickerSetting), path));
+          ctx.makeRow(*panel, entry, ctx.makeColorSpecPicker(pickerSetting, path));
           break;
         }
         }
@@ -1731,8 +1731,8 @@ namespace settings {
       }
       laneHeader->addChild(ui::spacer());
       if (inherited) {
-        auto items = laneItems;
-        auto path = lanePath;
+        const auto& items = laneItems;
+        const auto& path = lanePath;
         laneHeader->addChild(
             ui::button({
                 .text = i18n::tr("settings.entities.widget.lanes.customize"),
@@ -1829,7 +1829,7 @@ namespace settings {
             .gap = Style::spaceXs * ctx.scale,
         });
 
-        const auto widgetName = laneItems[i];
+        const auto& widgetName = laneItems[i];
         const bool editableWidget = !widgetTypeForReference(ctx.config, widgetName).empty();
         if (!inherited) {
           Button* dragBtnPtr = nullptr;
@@ -1949,7 +1949,7 @@ namespace settings {
               return;
             }
 
-            dragState->targetLaneIndex = *targetLaneIndex;
+            dragState->targetLaneIndex = targetLaneIndex;
             dragState->targetInsertionIndex = insertionIndex;
             hideDropIndicators(*laneTargets);
             updateDropIndicator(*target.indicator, *target.lane, *target.itemNodes, insertionIndex, scale);
@@ -1985,7 +1985,7 @@ namespace settings {
           actions->addChild(ui::spacer());
 
           auto items = laneItems;
-          auto path = lanePath;
+          const auto& path = lanePath;
           actions->addChild(
               ui::button({
                   .glyph = "close",

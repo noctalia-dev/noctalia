@@ -90,7 +90,7 @@ std::optional<bool> StateStore::boolValue(std::string_view owner, std::string_vi
     return std::nullopt;
   }
   if (auto value = node->value<bool>()) {
-    return *value;
+    return value;
   }
 
   kLog.warn("state value {}.{} is not a bool", owner, key);

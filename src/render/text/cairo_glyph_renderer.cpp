@@ -21,11 +21,11 @@ namespace {
   constexpr float kAxisAlignedEpsilon = 0.0001f;
 
   inline std::uint32_t quantizeSize(float v) {
-    return static_cast<std::uint32_t>(std::max(0.0f, v) * static_cast<float>(kSizeQuant) + 0.5f);
+    return static_cast<std::uint32_t>((std::max(0.0f, v) * static_cast<float>(kSizeQuant)) + 0.5f);
   }
 
   inline std::uint16_t quantizeScale(float v) {
-    return static_cast<std::uint16_t>(std::max(0.0f, v) * static_cast<float>(kScaleQuant) + 0.5f);
+    return static_cast<std::uint16_t>((std::max(0.0f, v) * static_cast<float>(kScaleQuant)) + 0.5f);
   }
 
   bool isAxisAligned(const Mat3& transform) {
@@ -236,8 +236,8 @@ CairoGlyphRenderer::CacheEntry* CairoGlyphRenderer::lookupOrRasterize(char32_t c
   // Surface size: ceil the ink rect and add a 1px margin to protect antialiased
   // edges from clipping.
   const int pad = 1;
-  const int pxWidth = std::max(1, static_cast<int>(std::ceil(extents.width)) + pad * 2);
-  const int pxHeight = std::max(1, static_cast<int>(std::ceil(extents.height)) + pad * 2);
+  const int pxWidth = std::max(1, static_cast<int>(std::ceil(extents.width)) + (pad * 2));
+  const int pxHeight = std::max(1, static_cast<int>(std::ceil(extents.height)) + (pad * 2));
 
   // Position the glyph so its ink rect lands within the surface with `pad` inset.
   glyph.x = -extents.x_bearing + pad;
@@ -275,7 +275,7 @@ CairoGlyphRenderer::CacheEntry* CairoGlyphRenderer::lookupOrRasterize(char32_t c
   for (int y = 0; y < pxHeight; ++y) {
     const auto row = static_cast<std::size_t>(y);
     std::memcpy(
-        tight.data() + row * static_cast<std::size_t>(pxWidth), data + row * static_cast<std::size_t>(stride),
+        tight.data() + (row * static_cast<std::size_t>(pxWidth)), data + (row * static_cast<std::size_t>(stride)),
         static_cast<std::size_t>(pxWidth)
     );
   }
@@ -297,7 +297,7 @@ CairoGlyphRenderer::CacheEntry* CairoGlyphRenderer::lookupOrRasterize(char32_t c
   const float invScale = 1.0f / m_contentScale;
   entry.metrics = metrics_from_extents(extents, invScale);
 
-  auto [ins, inserted] = m_cache.emplace(std::move(key), std::move(entry));
+  auto [ins, inserted] = m_cache.emplace(key, entry);
   m_lru.push_front(ins->first);
   ins->second.lruIt = m_lru.begin();
   m_cacheBytes += ins->second.bytes;

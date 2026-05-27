@@ -14,9 +14,9 @@ namespace {
 
   Button::ButtonStateColors makeState(ColorSpec bg, ColorSpec border, ColorSpec label) {
     return Button::ButtonStateColors{
-        .bg = std::move(bg),
-        .border = std::move(border),
-        .label = std::move(label),
+        .bg = bg,
+        .border = border,
+        .label = label,
     };
   }
 
@@ -219,7 +219,7 @@ Button::Button() {
     }
   });
   area->setEnabled(false);
-  m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
+  m_inputArea = dynamic_cast<InputArea*>(addChild(std::move(area)));
   m_inputArea->setParticipatesInLayout(false);
   m_inputArea->setZIndex(1);
   m_inputArea->setPosition(0.0f, 0.0f);
@@ -357,9 +357,9 @@ void Button::ensureBadge() {
 
   auto label = std::make_unique<Label>();
   label->setFontSize(Style::fontSizeCaption * 0.85f);
-  m_badgeLabel = static_cast<Label*>(badge->addChild(std::move(label)));
+  m_badgeLabel = dynamic_cast<Label*>(badge->addChild(std::move(label)));
 
-  m_badge = static_cast<Flex*>(addChild(std::move(badge)));
+  m_badge = dynamic_cast<Flex*>(addChild(std::move(badge)));
 }
 
 void Button::updateInputArea() {
@@ -402,7 +402,7 @@ void Button::setVariant(ButtonVariant variant) {
 }
 
 void Button::setCustomPalette(ButtonPalette customPalette) {
-  m_customPalette = std::move(customPalette);
+  m_customPalette = customPalette;
   applyVariant();
 }
 
@@ -454,7 +454,7 @@ void Button::ensureLabel() {
     return;
   }
   auto label = std::make_unique<Label>();
-  m_label = static_cast<Label*>(addChild(std::move(label)));
+  m_label = dynamic_cast<Label*>(addChild(std::move(label)));
   setMinHeight(Style::controlHeight);
   setPadding(Style::spaceSm, Style::spaceMd);
   if (m_glyph != nullptr) {
@@ -471,7 +471,7 @@ void Button::ensureGlyph() {
   // insertChildAt so the glyph lands before the label in the children vector,
   // which is what Flex iterates to assign layout positions
   if (m_label != nullptr) {
-    auto& kids = children();
+    const auto& kids = children();
     std::size_t labelIndex = 0;
     for (std::size_t i = 0; i < kids.size(); ++i) {
       if (kids[i].get() == m_label) {
@@ -480,10 +480,10 @@ void Button::ensureGlyph() {
       }
     }
     auto glyph = std::make_unique<Glyph>();
-    m_glyph = static_cast<Glyph*>(insertChildAt(labelIndex, std::move(glyph)));
+    m_glyph = dynamic_cast<Glyph*>(insertChildAt(labelIndex, std::move(glyph)));
   } else {
     auto glyph = std::make_unique<Glyph>();
-    m_glyph = static_cast<Glyph*>(addChild(std::move(glyph)));
+    m_glyph = dynamic_cast<Glyph*>(addChild(std::move(glyph)));
   }
   if (m_label != nullptr) {
     setDirection(FlexDirection::Horizontal);
@@ -501,7 +501,7 @@ void Button::applyColors(const Color& bg, const Color& border, const Color& labe
   if (m_glyph != nullptr) {
     m_glyph->setColor(label);
   }
-  for (auto& child : children()) {
+  for (const auto& child : children()) {
     if (child.get() == m_label || child.get() == m_glyph || child.get() == m_badge) {
       continue;
     }
@@ -638,7 +638,7 @@ void Button::doLayout(Renderer& renderer) {
     float contentBottom = 0.0f;
     bool haveContent = false;
 
-    for (auto& child : children()) {
+    for (const auto& child : children()) {
       Node* node = child.get();
       if (node == nullptr || !node->visible() || !node->participatesInLayout() || node->zIndex() < 0) {
         continue;
@@ -674,7 +674,7 @@ void Button::doLayout(Renderer& renderer) {
       const float targetTop = std::round((height() - contentHeight) * 0.5f);
       const float shiftY = targetTop - contentTop;
       if (std::abs(shiftX) > 0.01f || std::abs(shiftY) > 0.01f) {
-        for (auto& child : children()) {
+        for (const auto& child : children()) {
           Node* node = child.get();
           if (node == nullptr || !node->visible() || !node->participatesInLayout() || node->zIndex() < 0) {
             continue;

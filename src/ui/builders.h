@@ -496,7 +496,7 @@ namespace ui {
     std::function<void(ProgressBar&)> configure = nullptr;
   };
 
-  [[nodiscard]] std::unique_ptr<Flex> flex(FlexDirection direction, FlexProps props);
+  [[nodiscard]] std::unique_ptr<Flex> flex(FlexDirection direction, const FlexProps& props);
   [[nodiscard]] std::unique_ptr<Input> input(InputProps props);
   [[nodiscard]] std::unique_ptr<Button> button(ButtonProps props);
   [[nodiscard]] std::unique_ptr<Label> label(LabelProps props);

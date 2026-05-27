@@ -32,10 +32,12 @@ namespace noctalia::theme {
   } // namespace
 
   std::string toJson(const GeneratedPalette& palette, Scheme /*scheme*/, Variant variant) {
-    if (variant == Variant::Dark)
+    if (variant == Variant::Dark) {
       return tokenMap(palette.dark).dump(2);
-    if (variant == Variant::Light)
+    }
+    if (variant == Variant::Light) {
       return tokenMap(palette.light).dump(2);
+    }
     nlohmann::ordered_json root = nlohmann::ordered_json::object();
     root["dark"] = tokenMap(palette.dark);
     root["light"] = tokenMap(palette.light);

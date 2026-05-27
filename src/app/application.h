@@ -106,7 +106,7 @@ public:
   Application();
   ~Application();
 
-  void run(std::function<void()> startupReadyCallback = {});
+  void run(const std::function<void()>& startupReadyCallback = {});
 
   // Public for signal handler
   static std::atomic<bool> s_shutdownRequested;

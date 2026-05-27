@@ -25,7 +25,7 @@ Image::Image() {
   setClipChildren(true);
 
   auto image = std::make_unique<ImageNode>();
-  m_image = static_cast<ImageNode*>(addChild(std::move(image)));
+  m_image = dynamic_cast<ImageNode*>(addChild(std::move(image)));
   m_paletteConn = paletteChanged().connect([this] { applyPalette(); });
 }
 
@@ -435,8 +435,8 @@ void Image::updateLayout() {
     return;
   }
 
-  const float paddedWidth = std::max(0.0f, width() - m_padding * 2.0f);
-  const float paddedHeight = std::max(0.0f, height() - m_padding * 2.0f);
+  const float paddedWidth = std::max(0.0f, width() - (m_padding * 2.0f));
+  const float paddedHeight = std::max(0.0f, height() - (m_padding * 2.0f));
   m_image->setPosition(m_padding, m_padding);
   m_image->setFrameSize(paddedWidth, paddedHeight);
   m_image->setTextureSize(m_texture.width, m_texture.height);

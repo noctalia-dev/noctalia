@@ -693,7 +693,7 @@ namespace {
       if (i + 1 == path.size()) {
         return table->get(path[i]);
       }
-      auto* next = table->get_as<toml::table>(path[i]);
+      const auto* next = table->get_as<toml::table>(path[i]);
       if (next == nullptr) {
         return nullptr;
       }
@@ -934,7 +934,7 @@ std::size_t ConfigService::overridePreserveDepthForPath(const std::vector<std::s
   if (path.size() > 4 && path[0] == "bar" && path[2] == "monitor" && isOverrideOnlyMonitorOverride(path[1], path[3])) {
     return 4;
   }
-  if (path.size() > 4 && path[0] == "wallpaper" && path[2] == "monitor" && path[3].size() > 0) {
+  if (path.size() > 4 && path[0] == "wallpaper" && path[2] == "monitor" && !path[3].empty()) {
     return 4;
   }
   if (path.size() > 2 && path[0] == "bar" && isOverrideOnlyBar(path[1])) {
@@ -1256,10 +1256,12 @@ bool ConfigService::deleteMonitorOverride(std::string_view barName, std::string_
 bool ConfigService::setOverride(const std::vector<std::string>& path, ConfigOverrideValue value) {
   std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides;
   overrides.emplace_back(path, std::move(value));
-  return setOverrides(std::move(overrides));
+  return setOverrides(overrides);
 }
 
-bool ConfigService::setOverrides(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides) {
+bool ConfigService::setOverrides(
+    const std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>& overrides
+) {
   if (m_overridesPath.empty() || overrides.empty()) {
     return false;
   }
@@ -1489,19 +1491,19 @@ void ConfigService::extractWallpaperFromTable(const toml::table& table) {
   m_lastWallpaperPath.clear();
   m_monitorWallpaperPaths.clear();
 
-  if (auto* wpDefault = table["wallpaper"]["default"].as_table()) {
+  if (const auto* wpDefault = table["wallpaper"]["default"].as_table()) {
     if (auto v = (*wpDefault)["path"].value<std::string>()) {
       m_defaultWallpaperPath = FileUtils::expandUserPath(*v).string();
     }
   }
-  if (auto* wpLast = table["wallpaper"]["last"].as_table()) {
+  if (const auto* wpLast = table["wallpaper"]["last"].as_table()) {
     if (auto v = (*wpLast)["path"].value<std::string>()) {
       m_lastWallpaperPath = FileUtils::expandUserPath(*v).string();
     }
   }
-  if (auto* monitors = table["wallpaper"]["monitors"].as_table()) {
+  if (const auto* monitors = table["wallpaper"]["monitors"].as_table()) {
     for (const auto& [key, value] : *monitors) {
-      if (auto* monTbl = value.as_table()) {
+      if (const auto* monTbl = value.as_table()) {
         if (auto v = (*monTbl)["path"].value<std::string>()) {
           m_monitorWallpaperPaths[std::string(key.str())] = FileUtils::expandUserPath(*v).string();
         }

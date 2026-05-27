@@ -350,8 +350,9 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
     break;
   }
   case PointerEvent::Type::Motion: {
-    if (m_hoveredInstance == nullptr)
+    if (m_hoveredInstance == nullptr) {
       break;
+    }
     m_hoveredInstance->inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), 0);
     break;
   }
@@ -376,8 +377,9 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       }
     }
 
-    if (m_hoveredInstance == nullptr)
+    if (m_hoveredInstance == nullptr) {
       break;
+    }
     const bool pressed = (event.state == 1);
     m_hoveredInstance->inputDispatcher.pointerButton(
         static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
@@ -449,10 +451,12 @@ void Dock::syncInstances() {
   });
 
   for (const auto& output : outputs) {
-    if (!output.done)
+    if (!output.done) {
       continue;
-    if (!outputAllowed(output))
+    }
+    if (!outputAllowed(output)) {
       continue;
+    }
     const bool exists = std::any_of(m_instances.begin(), m_instances.end(), [&output](const auto& inst) {
       return inst->outputName == output.name;
     });
@@ -653,8 +657,9 @@ void Dock::registerIpc(IpcService& ipc) {
   ipc.registerHandler(
       "dock-show",
       [this](const std::string&) -> std::string {
-        if (m_config)
+        if (m_config) {
           m_config->setDockEnabled(true);
+        }
         return "ok\n";
       },
       "dock-show", "Show the dock (persists override)"
@@ -663,8 +668,9 @@ void Dock::registerIpc(IpcService& ipc) {
   ipc.registerHandler(
       "dock-hide",
       [this](const std::string&) -> std::string {
-        if (m_config)
+        if (m_config) {
           m_config->setDockEnabled(false);
+        }
         return "ok\n";
       },
       "dock-hide", "Hide the dock (persists override)"
@@ -673,8 +679,9 @@ void Dock::registerIpc(IpcService& ipc) {
   ipc.registerHandler(
       "dock-toggle",
       [this](const std::string&) -> std::string {
-        if (m_config)
+        if (m_config) {
           m_config->setDockEnabled(!m_config->config().dock.enabled);
+        }
         return "ok\n";
       },
       "dock-toggle", "Toggle dock visibility (persists override)"

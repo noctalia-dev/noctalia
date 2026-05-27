@@ -6,7 +6,7 @@
 
 ScreenCorner::ScreenCorner() {
   auto corner = std::make_unique<ScreenCornerNode>();
-  m_corner = static_cast<ScreenCornerNode*>(addChild(std::move(corner)));
+  m_corner = dynamic_cast<ScreenCornerNode*>(addChild(std::move(corner)));
 }
 
 void ScreenCorner::setColor(const Color& color) { m_corner->setColor(color); }

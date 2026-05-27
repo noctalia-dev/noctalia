@@ -79,11 +79,11 @@ void rgbToHsv(const Color& rgb, float& h, float& s, float& v) {
   }
 
   if (maxChannel == rgb.r) {
-    h = (rgb.g - rgb.b) / delta + (rgb.g < rgb.b ? 6.0f : 0.0f);
+    h = ((rgb.g - rgb.b) / delta) + (rgb.g < rgb.b ? 6.0f : 0.0f);
   } else if (maxChannel == rgb.g) {
-    h = (rgb.b - rgb.r) / delta + 2.0f;
+    h = ((rgb.b - rgb.r) / delta) + 2.0f;
   } else {
-    h = (rgb.r - rgb.g) / delta + 4.0f;
+    h = ((rgb.r - rgb.g) / delta) + 4.0f;
   }
 
   h /= 6.0f;
@@ -91,9 +91,9 @@ void rgbToHsv(const Color& rgb, float& h, float& s, float& v) {
 }
 
 float relativeLuminance(const Color& color) {
-  return 0.2126f * linearizedColorChannel(color.r)
-      + 0.7152f * linearizedColorChannel(color.g)
-      + 0.0722f * linearizedColorChannel(color.b);
+  return (0.2126f * linearizedColorChannel(color.r))
+      + (0.7152f * linearizedColorChannel(color.g))
+      + (0.0722f * linearizedColorChannel(color.b));
 }
 
 Color readableTextColorForBackground(const Color& background) {

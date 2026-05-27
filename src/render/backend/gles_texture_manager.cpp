@@ -121,7 +121,7 @@ TextureHandle GlesTextureManager::loadFromRaw(
     return {};
   }
 
-  const std::size_t requiredSize = (heightSize - 1U) * actualStride + minStride;
+  const std::size_t requiredSize = ((heightSize - 1U) * actualStride) + minStride;
   if (size < requiredSize) {
     kLog.warn(
         "raw pixmap buffer too small: width={} height={} stride={} have={} need={}", width, height, stride, size,
@@ -143,7 +143,7 @@ TextureHandle GlesTextureManager::loadFromRaw(
     std::vector<std::uint8_t> tight(widthBytes4 * static_cast<std::size_t>(height));
     for (int y = 0; y < height; ++y) {
       const auto row = static_cast<std::size_t>(y);
-      std::memcpy(tight.data() + row * widthBytes4, data + row * actualStride, widthBytes4);
+      std::memcpy(tight.data() + (row * widthBytes4), data + (row * actualStride), widthBytes4);
     }
     return uploadBgra(tight.data(), width, height, mipmap);
   }
@@ -152,7 +152,7 @@ TextureHandle GlesTextureManager::loadFromRaw(
     std::vector<std::uint8_t> tight(widthBytes4 * static_cast<std::size_t>(height));
     for (int y = 0; y < height; ++y) {
       const auto row = static_cast<std::size_t>(y);
-      std::memcpy(tight.data() + row * widthBytes4, data + row * actualStride, widthBytes4);
+      std::memcpy(tight.data() + (row * widthBytes4), data + (row * actualStride), widthBytes4);
     }
     return uploadRgba(tight.data(), width, height, mipmap);
   }
@@ -162,12 +162,12 @@ TextureHandle GlesTextureManager::loadFromRaw(
 
   for (int y = 0; y < height; ++y) {
     const auto row = static_cast<std::size_t>(y);
-    const std::uint8_t* srcRow = data + row * actualStride;
-    std::uint8_t* dstRow = rgba.data() + row * widthSize * 4U;
+    const std::uint8_t* srcRow = data + (row * actualStride);
+    std::uint8_t* dstRow = rgba.data() + (row * widthSize * 4U);
 
     for (int x = 0; x < width; ++x) {
       const std::uint8_t* s = srcRow + (static_cast<std::size_t>(x) * channels);
-      std::uint8_t* d = dstRow + static_cast<std::size_t>(x) * 4U;
+      std::uint8_t* d = dstRow + (static_cast<std::size_t>(x) * 4U);
 
       switch (format) {
       case PixmapFormat::BGRA:

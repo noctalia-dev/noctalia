@@ -33,10 +33,10 @@ namespace noctalia::theme {
       }
       BuiltinTemplateInfo entry;
       entry.id = std::string(idNode.str());
-      if (const auto name = info->get_as<std::string>("name")) {
+      if (const auto* const name = info->get_as<std::string>("name")) {
         entry.name = name->get();
       }
-      if (const auto category = info->get_as<std::string>("category")) {
+      if (const auto* const category = info->get_as<std::string>("category")) {
         entry.category = category->get();
       }
       out.push_back(std::move(entry));

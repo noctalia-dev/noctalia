@@ -34,8 +34,9 @@ namespace {
         if (!word.empty()) {
           best = std::max(best, FuzzyMatch::score(pattern, word) * weight);
         }
-        if (semi == std::string_view::npos)
+        if (semi == std::string_view::npos) {
           break;
+        }
         start = semi + 1;
       }
       return best;

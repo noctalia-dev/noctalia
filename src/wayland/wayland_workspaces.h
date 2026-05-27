@@ -25,7 +25,7 @@ public:
 
   void bindExtWorkspace(ext_workspace_manager_v1* manager);
   void bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager);
-  void setOutputNameResolver(std::function<std::string(wl_output*)> resolver);
+  void setOutputNameResolver(const std::function<std::string(wl_output*)>& resolver);
   void initialize();
   void onOutputAdded(wl_output* output);
   void onOutputRemoved(wl_output* output);

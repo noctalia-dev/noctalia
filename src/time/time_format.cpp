@@ -18,9 +18,7 @@ namespace {
   std::string
   formatAgeSeconds(std::int64_t secs, std::optional<std::chrono::system_clock::time_point> calendarAfterSixDays) {
     using namespace std::chrono;
-    if (secs < 0) {
-      secs = 0;
-    }
+    secs = std::max<std::int64_t>(secs, 0);
     if (secs < 60) {
       return i18n::tr("time.relative.just-now");
     }
@@ -188,7 +186,7 @@ std::string formatIsoTime(std::string_view isoTime, const char* fmt) {
 
 std::string formatStrftime(std::string_view fmt, const std::tm& tm) {
   std::string spec(fmt);
-  std::size_t size = std::max<std::size_t>(64, spec.size() * 4 + 16);
+  std::size_t size = std::max<std::size_t>(64, (spec.size() * 4) + 16);
   for (int attempt = 0; attempt < 6; ++attempt) {
     std::string buffer(size, '\0');
     std::tm copy = tm;
@@ -203,7 +201,7 @@ std::string formatStrftime(std::string_view fmt, const std::tm& tm) {
 }
 
 int localeFirstDayOfWeek() {
-#if defined(_NL_TIME_WEEK_1STDAY)
+#ifdef _NL_TIME_WEEK_1STDAY
   constexpr nl_item kWeekFirstDayItem = _NL_TIME_WEEK_1STDAY;
 #elif defined(_NL_WEEK_1STDAY)
   constexpr nl_item kWeekFirstDayItem = _NL_WEEK_1STDAY;

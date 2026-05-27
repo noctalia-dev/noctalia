@@ -11,6 +11,7 @@
 #include <sdbus-c++/IProxy.h>
 #include <sdbus-c++/Types.h>
 #include <set>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -169,9 +170,7 @@ NetworkManagerService::NetworkManagerService(SystemBus& bus) : m_bus(bus) {
                 }
                 const auto lastScan =
                     getPropertyOr<std::int64_t>(*device, kNmDeviceWirelessInterface, "LastScan", std::int64_t{0});
-                if (lastScan > baseline) {
-                  baseline = lastScan;
-                }
+                baseline = std::max(lastScan, baseline);
               } catch (const sdbus::Error&) {
               }
             }
@@ -270,9 +269,7 @@ void NetworkManagerService::requestScan() {
         }
         const auto lastScan =
             getPropertyOr<std::int64_t>(*device, kNmDeviceWirelessInterface, "LastScan", std::int64_t{0});
-        if (lastScan > baseline) {
-          baseline = lastScan;
-        }
+        baseline = std::max(lastScan, baseline);
         const std::map<std::string, sdbus::Variant> options;
         device->callMethod("RequestScan").onInterface(kNmDeviceWirelessInterface).withArguments(options);
         anyRequested = true;
@@ -471,7 +468,7 @@ void NetworkManagerService::persistConnectionToDisk(const std::string& connectio
         .onInterface(kNmSettingsConnectionInterface)
         .withArguments(settings, k_nmSettingsUpdate2FlagToDisk, args)
         .uponReplyInvoke([this, lifetimeToken, connection, connectionPath,
-                          ssid](std::optional<sdbus::Error> err, VariantMap /*result*/) {
+                          ssid](std::optional<sdbus::Error> err, const VariantMap& /*result*/) {
           if (lifetimeToken.expired()) {
             return;
           }
@@ -535,7 +532,7 @@ bool NetworkManagerService::activateVpnConnection(const VpnConnectionInfo& vpn) 
           if (err.has_value()) {
             kLog.warn("ActivateConnection(vpn) failed name={} path={}: {}", vpnName, vpnPath, err->what());
           } else {
-            kLog.info("activating vpn name={} active={}", vpnName, std::string(activePath));
+            kLog.info("activating vpn name={} active={}", vpnName, std::string(std::move(activePath)));
           }
           refresh();
         });
@@ -615,7 +612,9 @@ bool NetworkManagerService::activateWiredConnection() {
           if (err.has_value()) {
             kLog.warn("ActivateConnection(wired) failed path={}: {}", connectionPath, err->what());
           } else {
-            kLog.info("activating wired connection path={} active={}", connectionPath, std::string(activePath));
+            kLog.info(
+                "activating wired connection path={} active={}", connectionPath, std::string(std::move(activePath))
+            );
           }
           refresh();
         });
@@ -726,11 +725,13 @@ namespace {
 
   bool ssidFromSettings(const std::map<std::string, std::map<std::string, sdbus::Variant>>& cfg, std::string& out) {
     auto wifiIt = cfg.find("802-11-wireless");
-    if (wifiIt == cfg.end())
+    if (wifiIt == cfg.end()) {
       return false;
+    }
     auto ssidIt = wifiIt->second.find("ssid");
-    if (ssidIt == wifiIt->second.end())
+    if (ssidIt == wifiIt->second.end()) {
       return false;
+    }
     try {
       const auto bytes = ssidIt->second.get<std::vector<std::uint8_t>>();
       out.assign(bytes.begin(), bytes.end());
@@ -745,8 +746,9 @@ namespace {
       kLog.info(
           "forgetSsid ssid=\"{}\" matched={} removed={} failed={}", op->ssid, op->matched, op->removed, op->failed
       );
-      if (op->onComplete)
+      if (op->onComplete) {
         op->onComplete();
+      }
     }
   }
 } // namespace
@@ -785,7 +787,7 @@ void NetworkManagerService::forgetSsid(const std::string& ssid) {
   auto& bus = m_bus;
   op->settings->callMethodAsync("ListConnections")
       .onInterface(kNmSettingsInterface)
-      .uponReplyInvoke([op, &bus](std::optional<sdbus::Error> err, std::vector<sdbus::ObjectPath> paths) {
+      .uponReplyInvoke([op, &bus](std::optional<sdbus::Error> err, const std::vector<sdbus::ObjectPath>& paths) {
         if (err.has_value()) {
           kLog.warn("forgetSsid: ListConnections failed ssid=\"{}\": {}", op->ssid, err->what());
           op->listingDone = true;
@@ -803,12 +805,12 @@ void NetworkManagerService::forgetSsid(const std::string& ssid) {
           auto* connRaw = conn.get();
           op->targets.push_back(std::move(conn));
           ++op->pendingGetSettings;
-          const std::string pathStr{connectionPath};
+          const std::string& pathStr{connectionPath};
           connRaw->callMethodAsync("GetSettings")
               .onInterface(kNmSettingsConnectionInterface)
               .uponReplyInvoke([op, connRaw, pathStr](
                                    std::optional<sdbus::Error> getErr,
-                                   std::map<std::string, std::map<std::string, sdbus::Variant>> cfg
+                                   const std::map<std::string, std::map<std::string, sdbus::Variant>>& cfg
                                ) {
                 --op->pendingGetSettings;
                 if (getErr.has_value()) {
@@ -861,15 +863,16 @@ bool NetworkManagerService::hasSavedConnection(const std::string& ssid) const {
   return std::find(m_savedSsids.begin(), m_savedSsids.end(), ssid) != m_savedSsids.end();
 }
 
-void NetworkManagerService::refreshSavedConnections(std::function<void()> onComplete) {
+void NetworkManagerService::refreshSavedConnections(const std::function<void()>& onComplete) {
   const std::weak_ptr<int> lifetimeToken = m_lifetimeToken;
   try {
     auto settings =
         std::shared_ptr<sdbus::IProxy>(sdbus::createProxy(m_bus.connection(), kNmBusName, kNmSettingsObjectPath));
     settings->callMethodAsync("ListConnections")
         .onInterface(kNmSettingsInterface)
-        .uponReplyInvoke([this, lifetimeToken, settings,
-                          onComplete](std::optional<sdbus::Error> err, std::vector<sdbus::ObjectPath> connectionPaths) {
+        .uponReplyInvoke([this, lifetimeToken, settings, onComplete](
+                             std::optional<sdbus::Error> err, const std::vector<sdbus::ObjectPath>& connectionPaths
+                         ) {
           if (lifetimeToken.expired()) {
             return;
           }
@@ -906,7 +909,7 @@ void NetworkManagerService::refreshSavedConnections(std::function<void()> onComp
               connection->callMethodAsync("GetSettings")
                   .onInterface(kNmSettingsConnectionInterface)
                   .uponReplyInvoke([this, lifetimeToken, connection, savedState, connectionPath, onComplete](
-                                       std::optional<sdbus::Error> settingsErr,
+                                       const std::optional<sdbus::Error>& settingsErr,
                                        std::map<std::string, std::map<std::string, sdbus::Variant>> cfg
                                    ) {
                     if (lifetimeToken.expired()) {
@@ -959,15 +962,16 @@ void NetworkManagerService::refreshSavedConnections(std::function<void()> onComp
   }
 }
 
-void NetworkManagerService::refreshVpnConnections(std::function<void()> onComplete) {
+void NetworkManagerService::refreshVpnConnections(const std::function<void()>& onComplete) {
   const std::weak_ptr<int> lifetimeToken = m_lifetimeToken;
   try {
     auto settings =
         std::shared_ptr<sdbus::IProxy>(sdbus::createProxy(m_bus.connection(), kNmBusName, kNmSettingsObjectPath));
     settings->callMethodAsync("ListConnections")
         .onInterface(kNmSettingsInterface)
-        .uponReplyInvoke([this, lifetimeToken, settings,
-                          onComplete](std::optional<sdbus::Error> err, std::vector<sdbus::ObjectPath> connectionPaths) {
+        .uponReplyInvoke([this, lifetimeToken, settings, onComplete](
+                             std::optional<sdbus::Error> err, const std::vector<sdbus::ObjectPath>& connectionPaths
+                         ) {
           if (lifetimeToken.expired()) {
             return;
           }
@@ -1007,8 +1011,9 @@ void NetworkManagerService::refreshVpnConnections(std::function<void()> onComple
             m_nm->callMethodAsync("Get")
                 .onInterface(kPropertiesInterface)
                 .withArguments(kNmInterface, "ActiveConnections")
-                .uponReplyInvoke([this, lifetimeToken, vpnState,
-                                  finalize](std::optional<sdbus::Error> activeListErr, sdbus::Variant activeListValue) {
+                .uponReplyInvoke([this, lifetimeToken, vpnState, finalize](
+                                     std::optional<sdbus::Error> activeListErr, const sdbus::Variant& activeListValue
+                                 ) {
                   if (lifetimeToken.expired()) {
                     return;
                   }
@@ -1057,7 +1062,7 @@ void NetworkManagerService::refreshVpnConnections(std::function<void()> onComple
                           .onInterface(kPropertiesInterface)
                           .withArguments(kNmActiveConnectionInterface)
                           .uponReplyInvoke([lifetimeToken, active, activeState, onActiveComplete](
-                                               std::optional<sdbus::Error> getAllErr,
+                                               const std::optional<sdbus::Error>& getAllErr,
                                                std::map<std::string, sdbus::Variant> properties
                                            ) {
                             if (lifetimeToken.expired()) {
@@ -1101,7 +1106,7 @@ void NetworkManagerService::refreshVpnConnections(std::function<void()> onComple
                   .onInterface(kNmSettingsConnectionInterface)
                   .uponReplyInvoke([lifetimeToken, connection, vpnState, connectionPath, markActiveAndFinalize,
                                     onComplete](
-                                       std::optional<sdbus::Error> getErr,
+                                       const std::optional<sdbus::Error>& getErr,
                                        std::map<std::string, std::map<std::string, sdbus::Variant>> cfg
                                    ) {
                     if (lifetimeToken.expired()) {
@@ -1192,13 +1197,13 @@ void NetworkManagerService::ensureWifiDeviceSubscribed(const std::string& device
   }
 }
 
-void NetworkManagerService::refreshAccessPoints(std::function<void()> onComplete) {
+void NetworkManagerService::refreshAccessPoints(const std::function<void()>& onComplete) {
   const std::weak_ptr<int> lifetimeToken = m_lifetimeToken;
   try {
     m_nm->callMethodAsync("GetDevices")
         .onInterface(kNmInterface)
         .uponReplyInvoke([this, lifetimeToken,
-                          onComplete](std::optional<sdbus::Error> err, std::vector<sdbus::ObjectPath> devices) {
+                          onComplete](std::optional<sdbus::Error> err, const std::vector<sdbus::ObjectPath>& devices) {
           if (lifetimeToken.expired()) {
             return;
           }
@@ -1229,7 +1234,7 @@ void NetworkManagerService::refreshAccessPoints(std::function<void()> onComplete
                   .onInterface(kPropertiesInterface)
                   .withArguments(kNmDeviceWirelessInterface)
                   .uponReplyInvoke([this, lifetimeToken, device, deviceState, devicePath, onComplete](
-                                       std::optional<sdbus::Error> wifiErr,
+                                       const std::optional<sdbus::Error>& wifiErr,
                                        std::map<std::string, sdbus::Variant> wifiProps
                                    ) {
                     if (lifetimeToken.expired()) {
@@ -1257,8 +1262,9 @@ void NetworkManagerService::refreshAccessPoints(std::function<void()> onComplete
                     device->callMethodAsync("GetAccessPoints")
                         .onInterface(kNmDeviceWirelessInterface)
                         .uponReplyInvoke(
-                            [this, lifetimeToken, device, deviceState, devicePath, activeApPath,
-                             onComplete](std::optional<sdbus::Error> apErr, std::vector<sdbus::ObjectPath> apPaths) {
+                            [this, lifetimeToken, device, deviceState, devicePath, activeApPath, onComplete](
+                                const std::optional<sdbus::Error>& apErr, const std::vector<sdbus::ObjectPath>& apPaths
+                            ) {
                               if (lifetimeToken.expired()) {
                                 return;
                               }
@@ -1283,7 +1289,7 @@ void NetworkManagerService::refreshAccessPoints(std::function<void()> onComplete
                                       .withArguments(kNmAccessPointInterface)
                                       .uponReplyInvoke([this, lifetimeToken, ap, deviceState, apState, devicePath,
                                                         activeApPath, apPath, onComplete](
-                                                           std::optional<sdbus::Error> propErr,
+                                                           const std::optional<sdbus::Error>& propErr,
                                                            std::map<std::string, sdbus::Variant> properties
                                                        ) {
                                         if (lifetimeToken.expired()) {
@@ -1373,7 +1379,8 @@ void NetworkManagerService::refreshAccessPoints(std::function<void()> onComplete
 }
 
 void NetworkManagerService::finishSavedConnections(
-    std::vector<std::string>& ssids, std::vector<std::string>& wiredConnectionPaths, std::function<void()> onComplete
+    std::vector<std::string>& ssids, std::vector<std::string>& wiredConnectionPaths,
+    const std::function<void()>& onComplete
 ) {
   std::ranges::sort(ssids);
   ssids.erase(std::unique(ssids.begin(), ssids.end()), ssids.end());
@@ -1388,7 +1395,7 @@ void NetworkManagerService::finishSavedConnections(
 }
 
 void NetworkManagerService::finishRefreshAccessPoints(
-    std::vector<AccessPointInfo>& aps, std::function<void()> onComplete
+    std::vector<AccessPointInfo>& aps, const std::function<void()>& onComplete
 ) {
   // Deduplicate by SSID, keeping the strongest (and marking active if any entry is active).
   std::vector<AccessPointInfo> deduped;
@@ -1571,7 +1578,7 @@ void NetworkManagerService::rebindActiveAccessPoint(const std::string& apPath) {
   }
 }
 
-void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onComplete) {
+void NetworkManagerService::readStateAsync(const std::function<void(NetworkState)>& onComplete) {
   const std::weak_ptr<int> lifetimeToken = m_lifetimeToken;
   auto next = std::make_shared<NetworkState>();
   next->scanning = m_scanning;
@@ -1612,29 +1619,30 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
       apProxy->callMethodAsync("GetAll")
           .onInterface(kPropertiesInterface)
           .withArguments(kNmAccessPointInterface)
-          .uponReplyInvoke([lifetimeToken, next, finish, apProxy](
-                               std::optional<sdbus::Error> apErr, std::map<std::string, sdbus::Variant> apProperties
-                           ) {
-            if (lifetimeToken.expired()) {
-              return;
-            }
-            if (!apErr.has_value()) {
-              if (auto ssidIt = apProperties.find("Ssid"); ssidIt != apProperties.end()) {
-                try {
-                  const auto ssidBytes = ssidIt->second.get<std::vector<std::uint8_t>>();
-                  next->ssid.assign(ssidBytes.begin(), ssidBytes.end());
-                } catch (const sdbus::Error&) {
+          .uponReplyInvoke(
+              [lifetimeToken, next, finish,
+               apProxy](const std::optional<sdbus::Error>& apErr, std::map<std::string, sdbus::Variant> apProperties) {
+                if (lifetimeToken.expired()) {
+                  return;
                 }
-              }
-              if (auto strengthIt = apProperties.find("Strength"); strengthIt != apProperties.end()) {
-                try {
-                  next->signalStrength = strengthIt->second.get<std::uint8_t>();
-                } catch (const sdbus::Error&) {
+                if (!apErr.has_value()) {
+                  if (auto ssidIt = apProperties.find("Ssid"); ssidIt != apProperties.end()) {
+                    try {
+                      const auto ssidBytes = ssidIt->second.get<std::vector<std::uint8_t>>();
+                      next->ssid.assign(ssidBytes.begin(), ssidBytes.end());
+                    } catch (const sdbus::Error&) {
+                    }
+                  }
+                  if (auto strengthIt = apProperties.find("Strength"); strengthIt != apProperties.end()) {
+                    try {
+                      next->signalStrength = strengthIt->second.get<std::uint8_t>();
+                    } catch (const sdbus::Error&) {
+                    }
+                  }
                 }
+                finish();
               }
-            }
-            finish();
-          });
+          );
     } catch (const sdbus::Error&) {
       finish();
     }
@@ -1654,7 +1662,7 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
           .onInterface(kPropertiesInterface)
           .withArguments(kNmDeviceInterface)
           .uponReplyInvoke([this, lifetimeToken, next, finish, readActiveAccessPoint, deviceProxy](
-                               std::optional<sdbus::Error> deviceErr,
+                               const std::optional<sdbus::Error>& deviceErr,
                                std::map<std::string, sdbus::Variant> deviceProperties
                            ) {
             if (lifetimeToken.expired()) {
@@ -1714,7 +1722,7 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
                     .onInterface(kPropertiesInterface)
                     .withArguments(k_nmIp4ConfigInterface)
                     .uponReplyInvoke([lifetimeToken, next, finishAfterIp4, ip4Proxy](
-                                         std::optional<sdbus::Error> ip4Err,
+                                         const std::optional<sdbus::Error>& ip4Err,
                                          std::map<std::string, sdbus::Variant> ip4Properties
                                      ) {
                       if (lifetimeToken.expired()) {
@@ -1786,7 +1794,7 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
           .onInterface(kPropertiesInterface)
           .withArguments(kNmActiveConnectionInterface)
           .uponReplyInvoke([lifetimeToken, next, readDeviceState, connectionProxy](
-                               std::optional<sdbus::Error> connErr,
+                               const std::optional<sdbus::Error>& connErr,
                                std::map<std::string, sdbus::Variant> connectionProperties
                            ) {
             if (lifetimeToken.expired()) {
@@ -1825,7 +1833,8 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
         .onInterface(kPropertiesInterface)
         .withArguments(kNmInterface)
         .uponReplyInvoke([lifetimeToken, next, readActiveConnectionState](
-                             std::optional<sdbus::Error> nmErr, std::map<std::string, sdbus::Variant> nmProperties
+                             const std::optional<sdbus::Error>& nmErr,
+                             std::map<std::string, sdbus::Variant> nmProperties
                          ) {
           if (lifetimeToken.expired()) {
             return;

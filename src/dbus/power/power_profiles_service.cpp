@@ -28,10 +28,10 @@ namespace {
 
   constexpr Logger kLog("power");
 
-  static const sdbus::ServiceName kPowerProfilesBusName{"org.freedesktop.UPower.PowerProfiles"};
-  static const sdbus::ObjectPath kPowerProfilesObjectPath{"/org/freedesktop/UPower/PowerProfiles"};
-  static constexpr auto kPowerProfilesInterface = "org.freedesktop.UPower.PowerProfiles";
-  static constexpr auto kPropertiesInterface = "org.freedesktop.DBus.Properties";
+  const sdbus::ServiceName kPowerProfilesBusName{"org.freedesktop.UPower.PowerProfiles"};
+  const sdbus::ObjectPath kPowerProfilesObjectPath{"/org/freedesktop/UPower/PowerProfiles"};
+  constexpr auto kPowerProfilesInterface = "org.freedesktop.UPower.PowerProfiles";
+  constexpr auto kPropertiesInterface = "org.freedesktop.DBus.Properties";
 
   template <typename T> T getPropertyOr(sdbus::IProxy& proxy, std::string_view propertyName, T fallback) {
     try {

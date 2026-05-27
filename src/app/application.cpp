@@ -336,7 +336,7 @@ void Application::syncClipboardService() {
   }
 }
 
-void Application::run(std::function<void()> startupReadyCallback) {
+void Application::run(const std::function<void()>& startupReadyCallback) {
   initLogFile();
   kLog.info("noctalia {}", noctalia::build_info::displayVersion());
   runStartupPhase("initServices", [this]() { initServices(); });
@@ -1009,22 +1009,30 @@ void Application::initUi() {
     if (m_desktopWidgetsController.onPointerEvent(event)) {
       return;
     }
-    if (m_trayMenu.onPointerEvent(event))
+    if (m_trayMenu.onPointerEvent(event)) {
       return;
-    if (m_colorPickerDialogPopup.onPointerEvent(event))
+    }
+    if (m_colorPickerDialogPopup.onPointerEvent(event)) {
       return;
-    if (m_glyphPickerDialogPopup.onPointerEvent(event))
+    }
+    if (m_glyphPickerDialogPopup.onPointerEvent(event)) {
       return;
-    if (m_fileDialogPopup.onPointerEvent(event))
+    }
+    if (m_fileDialogPopup.onPointerEvent(event)) {
       return;
-    if (m_settingsWindow.onPointerEvent(event))
+    }
+    if (m_settingsWindow.onPointerEvent(event)) {
       return;
-    if (m_bar.onPointerEvent(event))
+    }
+    if (m_bar.onPointerEvent(event)) {
       return;
-    if (m_dock.onPointerEvent(event))
+    }
+    if (m_dock.onPointerEvent(event)) {
       return;
-    if (m_panelManager.onPointerEvent(event))
+    }
+    if (m_panelManager.onPointerEvent(event)) {
       return;
+    }
     m_notificationToast.onPointerEvent(event);
   });
 
@@ -1381,7 +1389,7 @@ void Application::initIpc() {
         if (parts.size() != 1) {
           return "error: notification-dnd-set requires <on|off|true|false|1|0>\n";
         }
-        const std::string value = parts[0];
+        const std::string& value = parts[0];
         std::optional<bool> nextState;
         if (value == "on" || value == "true" || value == "1") {
           nextState = true;

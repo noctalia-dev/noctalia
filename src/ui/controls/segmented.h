@@ -38,7 +38,7 @@ public:
   void setEqualSegmentWidths(bool equalWidths);
 
 private:
-  [[nodiscard]] std::unique_ptr<Separator> makeSegmentSeparator();
+  [[nodiscard]] std::unique_ptr<Separator> makeSegmentSeparator() const;
   [[nodiscard]] std::unique_ptr<Button>
   makeSegmentButton(std::string_view label, std::string_view glyph, std::size_t index);
   void applyButtonMetrics(Button& button) const;

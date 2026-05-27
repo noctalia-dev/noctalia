@@ -44,31 +44,31 @@ FileEntryTile::FileEntryTile(float scale, ThumbnailService* thumbnails) : m_scal
   auto background = ui::box({
       .radius = Style::scaledRadiusLg(scale),
   });
-  m_background = static_cast<Box*>(addChild(std::move(background)));
+  m_background = dynamic_cast<Box*>(addChild(std::move(background)));
 
   auto preview = ui::box({
       .radius = Style::scaledRadiusMd(scale),
       .cardStyleScale = scale,
   });
-  m_preview = static_cast<Box*>(addChild(std::move(preview)));
+  m_preview = dynamic_cast<Box*>(addChild(std::move(preview)));
 
   auto image = ui::image({
       .fit = ImageFit::Contain,
       .visible = false,
   });
-  m_image = static_cast<Image*>(addChild(std::move(image)));
+  m_image = dynamic_cast<Image*>(addChild(std::move(image)));
 
   auto glyph = ui::glyph({
       .glyphSize = 36.0f * scale,
   });
-  m_glyph = static_cast<Glyph*>(addChild(std::move(glyph)));
+  m_glyph = dynamic_cast<Glyph*>(addChild(std::move(glyph)));
 
   auto label = ui::label({
       .fontSize = Style::fontSizeCaption * scale,
       .maxLines = 1,
       .textAlign = TextAlign::Center,
   });
-  m_label = static_cast<Label*>(addChild(std::move(label)));
+  m_label = dynamic_cast<Label*>(addChild(std::move(label)));
 
   setVisible(false);
 }
@@ -109,7 +109,7 @@ void FileEntryTile::bind(
 
   m_glyph->setGlyph(entry.isDir ? "folder" : (m_thumbnailEligible ? "image" : "file"));
   m_label->setText(entry.name);
-  m_label->setMaxWidth(std::max(0.0f, width - Style::spaceSm * m_scale * 2.0f));
+  m_label->setMaxWidth(std::max(0.0f, width - (Style::spaceSm * m_scale * 2.0f)));
 
   refreshThumbnail(renderer);
   applyVisualState();
@@ -159,8 +159,8 @@ void FileEntryTile::doLayout(Renderer& renderer) {
   const float width = this->width();
   const float height = this->height();
   const float previewInset = kPreviewInset * m_scale;
-  const float previewWidth = std::max(0.0f, width - previewInset * 2.0f);
-  const float previewHeight = std::max(0.0f, height * kPreviewHeightRatio - previewInset);
+  const float previewWidth = std::max(0.0f, width - (previewInset * 2.0f));
+  const float previewHeight = std::max(0.0f, (height * kPreviewHeightRatio) - previewInset);
   const float previewX = previewInset;
   const float previewY = previewInset;
   const float imageInset = Style::spaceSm * m_scale;
@@ -171,18 +171,20 @@ void FileEntryTile::doLayout(Renderer& renderer) {
   m_preview->setSize(previewWidth, previewHeight);
 
   m_image->setPosition(previewX + imageInset, previewY + imageInset);
-  m_image->setSize(std::max(0.0f, previewWidth - imageInset * 2.0f), std::max(0.0f, previewHeight - imageInset * 2.0f));
+  m_image->setSize(
+      std::max(0.0f, previewWidth - (imageInset * 2.0f)), std::max(0.0f, previewHeight - (imageInset * 2.0f))
+  );
 
   if (m_glyph->visible()) {
     m_glyph->measure(renderer);
     m_glyph->setPosition(
-        std::round(previewX + (previewWidth - m_glyph->width()) * 0.5f),
-        std::round(previewY + (previewHeight - m_glyph->height()) * 0.5f)
+        std::round(previewX + ((previewWidth - m_glyph->width()) * 0.5f)),
+        std::round(previewY + ((previewHeight - m_glyph->height()) * 0.5f))
     );
   }
 
   m_label->measure(renderer);
-  const float labelY = previewY + previewHeight + Style::spaceSm * m_scale;
+  const float labelY = previewY + previewHeight + (Style::spaceSm * m_scale);
   m_label->setPosition(std::round((width - m_label->width()) * 0.5f), labelY);
 
   InputArea::doLayout(renderer);

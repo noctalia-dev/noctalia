@@ -22,7 +22,7 @@ ColorSwatchPreviewStrip::ColorSwatchPreviewStrip() {
     swatch->clearBorder();
     swatch->setVisible(false);
     swatch->setParticipatesInLayout(false);
-    swatchPtr = static_cast<Box*>(addChild(std::move(swatch)));
+    swatchPtr = dynamic_cast<Box*>(addChild(std::move(swatch)));
   }
 
   syncGeometry();
@@ -68,7 +68,7 @@ void ColorSwatchPreviewStrip::setMetricsFromFontSize(float fontSize) {
   m_gap = std::max(4.0f, std::round(size * 0.28f));
   m_paddingX = std::max(4.0f, std::round(size * 0.28f));
   m_paddingY = std::max(2.0f, std::round(size * 0.14f)) + 2.0f;
-  m_height = m_discSize + m_paddingY * 2.0f;
+  m_height = m_discSize + (m_paddingY * 2.0f);
   syncGeometry();
 }
 
@@ -76,9 +76,9 @@ float ColorSwatchPreviewStrip::preferredWidth() const noexcept {
   if (m_visibleSwatches == 0) {
     return 0.0f;
   }
-  return m_paddingX * 2.0f
-      + m_discSize * static_cast<float>(m_visibleSwatches)
-      + m_gap * static_cast<float>(m_visibleSwatches - 1);
+  return (m_paddingX * 2.0f)
+      + (m_discSize * static_cast<float>(m_visibleSwatches))
+      + (m_gap * static_cast<float>(m_visibleSwatches - 1));
 }
 
 void ColorSwatchPreviewStrip::syncGeometry() {
@@ -106,7 +106,7 @@ void ColorSwatchPreviewStrip::positionSwatches(float height) {
       continue;
     }
     swatch->setPosition(
-        m_paddingX + static_cast<float>(i) * (m_discSize + m_gap), std::round((height - m_discSize) * 0.5f)
+        m_paddingX + (static_cast<float>(i) * (m_discSize + m_gap)), std::round((height - m_discSize) * 0.5f)
     );
     swatch->setRadii(Radii{discRadius});
   }

@@ -18,8 +18,9 @@ namespace noctalia::theme {
     std::vector<uint8_t> readFile(std::string_view path, std::string* err) {
       std::ifstream f(std::string(path), std::ios::binary);
       if (!f) {
-        if (err)
+        if (err) {
           *err = "cannot open file";
+        }
         return {};
       }
       return std::vector<uint8_t>((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
@@ -50,7 +51,7 @@ namespace noctalia::theme {
     void verticalBoxSampleU8ToF32(const uint8_t* src, int srcW, int srcH, float* dst, int dstH) {
       constexpr double kEpsilon = 1.0e-12;
       const double factor = static_cast<double>(dstH) / static_cast<double>(srcH);
-      double scale = std::max(1.0 / factor + kEpsilon, 1.0);
+      double scale = std::max((1.0 / factor) + kEpsilon, 1.0);
       double support = scale * 0.5;
       if (support < 0.5) {
         support = 0.5;
@@ -59,25 +60,29 @@ namespace noctalia::theme {
       scale = 1.0 / scale;
 
       for (int outy = 0; outy < dstH; ++outy) {
-        const double bisect = (static_cast<double>(outy) + 0.5) / factor + kEpsilon;
+        const double bisect = ((static_cast<double>(outy) + 0.5) / factor) + kEpsilon;
         const int start = static_cast<int>(std::max(bisect - support + 0.5, 0.0));
         const int stop = static_cast<int>(std::min(bisect + support + 0.5, static_cast<double>(srcH)));
         const int count = stop - start;
-        if (count <= 0)
+        if (count <= 0) {
           continue;
+        }
         const float weight = 1.0f / static_cast<float>(count);
 
         for (int x = 0; x < srcW; ++x) {
-          float t0 = 0.0f, t1 = 0.0f, t2 = 0.0f, t3 = 0.0f;
+          float t0 = 0.0f;
+          float t1 = 0.0f;
+          float t2 = 0.0f;
+          float t3 = 0.0f;
           for (int i = start; i < stop; ++i) {
             const float sampleWeight = weight;
-            const uint8_t* p = src + (i * srcW + x) * 4;
+            const uint8_t* p = src + (((i * srcW) + x) * 4);
             t0 += static_cast<float>(p[0]) * sampleWeight;
             t1 += static_cast<float>(p[1]) * sampleWeight;
             t2 += static_cast<float>(p[2]) * sampleWeight;
             t3 += static_cast<float>(p[3]) * sampleWeight;
           }
-          float* dp = dst + (outy * srcW + x) * 4;
+          float* dp = dst + (((outy * srcW) + x) * 4);
           dp[0] = t0;
           dp[1] = t1;
           dp[2] = t2;
@@ -90,7 +95,7 @@ namespace noctalia::theme {
     void horizontalBoxSampleF32ToU8(const float* src, int srcW, int srcH, uint8_t* dst, int dstW) {
       constexpr double kEpsilon = 1.0e-12;
       const double factor = static_cast<double>(dstW) / static_cast<double>(srcW);
-      double scale = std::max(1.0 / factor + kEpsilon, 1.0);
+      double scale = std::max((1.0 / factor) + kEpsilon, 1.0);
       double support = scale * 0.5;
       if (support < 0.5) {
         support = 0.5;
@@ -99,34 +104,36 @@ namespace noctalia::theme {
       scale = 1.0 / scale;
 
       auto toU8 = [](float v) -> uint8_t {
-        if (v < 0.0f)
-          v = 0.0f;
-        if (v > 255.0f)
-          v = 255.0f;
+        v = std::max(v, 0.0f);
+        v = std::min(v, 255.0f);
         float r = v < 0.0f ? std::ceil(v - 0.5f) : std::floor(v + 0.5f);
         return static_cast<uint8_t>(r);
       };
 
       for (int outx = 0; outx < dstW; ++outx) {
-        const double bisect = (static_cast<double>(outx) + 0.5) / factor + kEpsilon;
+        const double bisect = ((static_cast<double>(outx) + 0.5) / factor) + kEpsilon;
         const int start = static_cast<int>(std::max(bisect - support + 0.5, 0.0));
         const int stop = static_cast<int>(std::min(bisect + support + 0.5, static_cast<double>(srcW)));
         const int count = stop - start;
-        if (count <= 0)
+        if (count <= 0) {
           continue;
+        }
         const float weight = 1.0f / static_cast<float>(count);
 
         for (int y = 0; y < srcH; ++y) {
-          float t0 = 0.0f, t1 = 0.0f, t2 = 0.0f, t3 = 0.0f;
+          float t0 = 0.0f;
+          float t1 = 0.0f;
+          float t2 = 0.0f;
+          float t3 = 0.0f;
           for (int i = start; i < stop; ++i) {
-            const float* p = src + (y * srcW + i) * 4;
+            const float* p = src + (((y * srcW) + i) * 4);
             t0 += p[0] * weight;
             t1 += p[1] * weight;
             t2 += p[2] * weight;
             t3 += p[3] * weight;
           }
 
-          uint8_t* dp = dst + (y * dstW + outx) * 4;
+          uint8_t* dp = dst + (((y * dstW) + outx) * 4);
           dp[0] = toU8(t0);
           dp[1] = toU8(t1);
           dp[2] = toU8(t2);
@@ -147,14 +154,10 @@ namespace noctalia::theme {
         const float inputyOrig = (static_cast<float>(outy) + 0.5f) * ratio;
         int left = static_cast<int>(std::floor(inputyOrig - srcSupport));
         int right = static_cast<int>(std::ceil(inputyOrig + srcSupport));
-        if (left < 0)
-          left = 0;
-        if (left > srcH - 1)
-          left = srcH - 1;
-        if (right < left + 1)
-          right = left + 1;
-        if (right > srcH)
-          right = srcH;
+        left = std::max(left, 0);
+        left = std::min(left, srcH - 1);
+        right = std::max(right, left + 1);
+        right = std::min(right, srcH);
         const float inputy = inputyOrig - 0.5f;
 
         ws.clear();
@@ -164,21 +167,25 @@ namespace noctalia::theme {
           ws.push_back(w);
           sum += w;
         }
-        for (auto& w : ws)
+        for (auto& w : ws) {
           w /= sum;
+        }
 
         for (int x = 0; x < srcW; ++x) {
-          float t0 = 0, t1 = 0, t2 = 0, t3 = 0;
+          float t0 = 0;
+          float t1 = 0;
+          float t2 = 0;
+          float t3 = 0;
           for (int k = 0; k < static_cast<int>(ws.size()); ++k) {
             const auto weightIndex = static_cast<std::size_t>(k);
-            const uint8_t* p = src + ((left + k) * srcW + x) * 4;
+            const uint8_t* p = src + ((((left + k) * srcW) + x) * 4);
             const float w = ws[weightIndex];
             t0 += static_cast<float>(p[0]) * w;
             t1 += static_cast<float>(p[1]) * w;
             t2 += static_cast<float>(p[2]) * w;
             t3 += static_cast<float>(p[3]) * w;
           }
-          float* dp = dst + (outy * srcW + x) * 4;
+          float* dp = dst + (((outy * srcW) + x) * 4);
           // No clamp / no round — image crate's vertical_sample writes raw
           // f32 into Rgba32FImage.
           dp[0] = t0;
@@ -200,14 +207,10 @@ namespace noctalia::theme {
         const float inputxOrig = (static_cast<float>(outx) + 0.5f) * ratio;
         int left = static_cast<int>(std::floor(inputxOrig - srcSupport));
         int right = static_cast<int>(std::ceil(inputxOrig + srcSupport));
-        if (left < 0)
-          left = 0;
-        if (left > srcW - 1)
-          left = srcW - 1;
-        if (right < left + 1)
-          right = left + 1;
-        if (right > srcW)
-          right = srcW;
+        left = std::max(left, 0);
+        left = std::min(left, srcW - 1);
+        right = std::max(right, left + 1);
+        right = std::min(right, srcW);
         const float inputx = inputxOrig - 0.5f;
 
         ws.clear();
@@ -217,14 +220,18 @@ namespace noctalia::theme {
           ws.push_back(w);
           sum += w;
         }
-        for (auto& w : ws)
+        for (auto& w : ws) {
           w /= sum;
+        }
 
         for (int y = 0; y < srcH; ++y) {
-          float t0 = 0, t1 = 0, t2 = 0, t3 = 0;
+          float t0 = 0;
+          float t1 = 0;
+          float t2 = 0;
+          float t3 = 0;
           for (int k = 0; k < static_cast<int>(ws.size()); ++k) {
             const auto weightIndex = static_cast<std::size_t>(k);
-            const float* p = src + (y * srcW + (left + k)) * 4;
+            const float* p = src + (((y * srcW) + (left + k)) * 4);
             const float w = ws[weightIndex];
             t0 += p[0] * w;
             t1 += p[1] * w;
@@ -234,14 +241,12 @@ namespace noctalia::theme {
           // FloatNearest(clamp(t, 0, 255)) → u8. Rust's f32::round is
           // round-half-away-from-zero.
           auto toU8 = [](float v) -> uint8_t {
-            if (v < 0)
-              v = 0;
-            if (v > 255)
-              v = 255;
+            v = std::max<float>(v, 0);
+            v = std::min<float>(v, 255);
             float r = v < 0.0f ? std::ceil(v - 0.5f) : std::floor(v + 0.5f);
             return static_cast<uint8_t>(r);
           };
-          uint8_t* dp = dst + (y * dstW + outx) * 4;
+          uint8_t* dp = dst + (((y * dstW) + outx) * 4);
           dp[0] = toU8(t0);
           dp[1] = toU8(t1);
           dp[2] = toU8(t2);
@@ -272,18 +277,21 @@ namespace noctalia::theme {
 
   std::optional<LoadedImage> loadAndResize(std::string_view path, Scheme scheme, std::string* errorMessage) {
     auto bytes = readFile(path, errorMessage);
-    if (bytes.empty())
+    if (bytes.empty()) {
       return std::nullopt;
+    }
 
     auto decoded = decodeRasterImage(bytes.data(), bytes.size(), errorMessage);
-    if (!decoded)
+    if (!decoded) {
       return std::nullopt;
+    }
 
     const int srcW = decoded->width;
     const int srcH = decoded->height;
     if (srcW <= 0 || srcH <= 0) {
-      if (errorMessage)
+      if (errorMessage) {
         *errorMessage = "invalid image dimensions";
+      }
       return std::nullopt;
     }
 

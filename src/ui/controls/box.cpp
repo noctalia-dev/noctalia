@@ -9,7 +9,7 @@
 
 Box::Box() {
   auto rect = std::make_unique<RectNode>();
-  m_rect = static_cast<RectNode*>(addChild(std::move(rect)));
+  m_rect = dynamic_cast<RectNode*>(addChild(std::move(rect)));
   m_style = m_rect->style();
   m_paletteConn = paletteChanged().connect([this] { applyPalette(); });
 }

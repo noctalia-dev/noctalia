@@ -80,7 +80,7 @@ bool InputArea::containsLocalPoint(float localX, float localY, bool includeHitOu
   const float radius = baseRadius + std::max({outset.left, outset.top, outset.right, outset.bottom});
   const float dx = localX - centerX;
   const float dy = localY - centerY;
-  return dx * dx + dy * dy <= radius * radius;
+  return (dx * dx) + (dy * dy) <= radius * radius;
 }
 
 void InputArea::setTooltip(std::string text) { m_tooltipContent = std::move(text); }

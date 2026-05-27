@@ -107,7 +107,7 @@ namespace {
         continue;
       }
       const float lum =
-          (loaded->rgba[i] * 0.299f + loaded->rgba[i + 1] * 0.587f + loaded->rgba[i + 2] * 0.114f) / 255.0f;
+          ((loaded->rgba[i] * 0.299f) + (loaded->rgba[i + 1] * 0.587f) + (loaded->rgba[i + 2] * 0.114f)) / 255.0f;
       loaded->rgba[i + 0] = rr;
       loaded->rgba[i + 1] = gg;
       loaded->rgba[i + 2] = bb;
@@ -196,7 +196,7 @@ float TrayWidget::resolvedInlineEntryGap() const {
   }
   const auto& cap = barCapsuleSpec();
   const float pad = cap.enabled ? cap.padding * m_contentScale : 0.0f;
-  return m_inlineEntryGap + 2.0f * pad;
+  return m_inlineEntryGap + (2.0f * pad);
 }
 
 void TrayWidget::create() {
@@ -412,18 +412,18 @@ void TrayWidget::rebuild(Renderer& renderer) {
           float ay = 0.0f;
           Node::absolutePosition(triggerPtr, ax, ay);
           // Open below / away from the bar edge relative to the tray button center.
-          const float centerX = ax + triggerPtr->width() * 0.5f;
-          const float centerY = ay + triggerPtr->height() * 0.5f;
+          const float centerX = ax + (triggerPtr->width() * 0.5f);
+          const float centerY = ay + (triggerPtr->height() * 0.5f);
           float anchorX = centerX;
           float anchorY = centerY;
           if (m_barPosition == "top") {
-            anchorY += triggerPtr->height() * 0.5f + Style::spaceXs * m_contentScale;
+            anchorY += (triggerPtr->height() * 0.5f) + (Style::spaceXs * m_contentScale);
           } else if (m_barPosition == "bottom") {
-            anchorY -= triggerPtr->height() * 0.5f + Style::spaceXs * m_contentScale;
+            anchorY -= (triggerPtr->height() * 0.5f) + (Style::spaceXs * m_contentScale);
           } else if (m_barPosition == "left") {
-            anchorX += triggerPtr->width() * 0.5f + Style::spaceXs * m_contentScale;
+            anchorX += (triggerPtr->width() * 0.5f) + (Style::spaceXs * m_contentScale);
           } else if (m_barPosition == "right") {
-            anchorX -= triggerPtr->width() * 0.5f + Style::spaceXs * m_contentScale;
+            anchorX -= (triggerPtr->width() * 0.5f) + (Style::spaceXs * m_contentScale);
           }
           requestPanelToggle("tray-drawer", {}, anchorX, anchorY);
         }
@@ -637,7 +637,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
 
     if (m_panelGridMode) {
       if (gridRow == nullptr || gridCol >= m_panelGridColumns) {
-        gridRow = static_cast<Flex*>(m_container->addChild(
+        gridRow = dynamic_cast<Flex*>(m_container->addChild(
             ui::row({
                 .align = FlexAlign::Center,
                 .gap = Style::spaceXs * m_contentScale,

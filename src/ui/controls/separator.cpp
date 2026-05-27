@@ -7,8 +7,8 @@
 #include <memory>
 
 Separator::Separator() {
-  m_rectStart = static_cast<RectNode*>(addChild(std::make_unique<RectNode>()));
-  m_rectEnd = static_cast<RectNode*>(addChild(std::make_unique<RectNode>()));
+  m_rectStart = dynamic_cast<RectNode*>(addChild(std::make_unique<RectNode>()));
+  m_rectEnd = dynamic_cast<RectNode*>(addChild(std::make_unique<RectNode>()));
   m_paletteConn = paletteChanged().connect([this] { applyPalette(); });
   applyPalette();
 }

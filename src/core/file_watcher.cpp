@@ -12,21 +12,25 @@ namespace {
 
 FileWatcher::FileWatcher() {
   m_inotifyFd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
-  if (m_inotifyFd < 0)
+  if (m_inotifyFd < 0) {
     kLog.warn("inotify_init1 failed");
+  }
 }
 
 FileWatcher::~FileWatcher() {
-  if (m_inotifyFd < 0)
+  if (m_inotifyFd < 0) {
     return;
-  for (auto& [wd, _] : m_dirWdRefCount)
+  }
+  for (auto& [wd, _] : m_dirWdRefCount) {
     inotify_rm_watch(m_inotifyFd, wd);
+  }
   ::close(m_inotifyFd);
 }
 
 FileWatcher::WatchId FileWatcher::watch(const std::filesystem::path& filePath, Callback callback) {
-  if (m_inotifyFd < 0)
+  if (m_inotifyFd < 0) {
     return 0;
+  }
 
   auto dir = filePath.parent_path().string();
   auto filename = filePath.filename().string();
@@ -54,8 +58,9 @@ FileWatcher::WatchId FileWatcher::watch(const std::filesystem::path& filePath, C
 
 void FileWatcher::unwatch(WatchId id) {
   auto it = m_watches.find(id);
-  if (it == m_watches.end())
+  if (it == m_watches.end()) {
     return;
+  }
 
   int wd = it->second.dirWd;
   m_watches.erase(it);
@@ -74,8 +79,9 @@ void FileWatcher::dispatch() {
 
   while (true) {
     auto n = ::read(m_inotifyFd, buf, sizeof(buf));
-    if (n <= 0)
+    if (n <= 0) {
       break;
+    }
 
     std::size_t offset = 0;
     while (offset < static_cast<std::size_t>(n)) {
@@ -85,8 +91,9 @@ void FileWatcher::dispatch() {
         for (auto& [id, entry] : m_watches) {
           if (entry.dirWd == event->wd
               && entry.filename == name
-              && std::find(triggered.begin(), triggered.end(), id) == triggered.end())
+              && std::find(triggered.begin(), triggered.end(), id) == triggered.end()) {
             triggered.push_back(id);
+          }
         }
       }
       offset += sizeof(inotify_event) + event->len;
@@ -96,11 +103,13 @@ void FileWatcher::dispatch() {
   auto now = std::chrono::steady_clock::now();
   for (auto id : triggered) {
     auto it = m_watches.find(id);
-    if (it == m_watches.end())
+    if (it == m_watches.end()) {
       continue;
+    }
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - it->second.lastFired);
-    if (elapsed.count() < 100)
+    if (elapsed.count() < 100) {
       continue;
+    }
     it->second.lastFired = now;
     it->second.callback();
   }

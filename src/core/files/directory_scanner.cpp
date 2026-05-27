@@ -56,7 +56,7 @@ std::vector<FileEntry> DirectoryScanner::scan(
     }
 
     FileEntry entry;
-    entry.name = std::move(name);
+    entry.name = name;
     entry.absPath = std::filesystem::absolute(item.path(), ec);
     if (ec) {
       entry.absPath = item.path();

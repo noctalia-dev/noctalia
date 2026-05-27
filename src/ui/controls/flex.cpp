@@ -352,7 +352,7 @@ void Flex::ensureBackground() {
           .borderWidth = 0.0f,
       }
   );
-  m_background = static_cast<RectNode*>(addChild(std::move(rect)));
+  m_background = dynamic_cast<RectNode*>(addChild(std::move(rect)));
   m_background->setZIndex(-1);
   m_background->setParticipatesInLayout(false);
   m_background->setFrameSize(width(), height());
@@ -437,13 +437,13 @@ LayoutSize Flex::runLayout(Renderer& renderer, const LayoutConstraints& constrai
   auto& items = scratch.items();
   items.reserve(children().size());
   float totalGrow = 0.0f;
-  for (auto& child : children()) {
+  for (const auto& child : children()) {
     if (!child->visible() || !child->participatesInLayout() || child.get() == m_background) {
       continue;
     }
     auto& item = items.emplace_back();
     item.node = child.get();
-    item.gapExcluded = m_gapExcludedChildren.count(child.get()) > 0;
+    item.gapExcluded = m_gapExcludedChildren.contains(child.get());
     if (child->flexGrow() > 0.0f) {
       totalGrow += child->flexGrow();
     }
@@ -541,7 +541,7 @@ LayoutSize Flex::runLayout(Renderer& renderer, const LayoutConstraints& constrai
     if (m_justify == FlexJustify::SpaceBetween && items.size() > 1 && numGaps > 0) {
       effectiveGap = std::max(m_gap, (innerMain - arrangedChildrenMain) / static_cast<float>(numGaps));
     }
-    const float arrangedContentMain = arrangedChildrenMain + effectiveGap * static_cast<float>(numGaps);
+    const float arrangedContentMain = arrangedChildrenMain + (effectiveGap * static_cast<float>(numGaps));
 
     float cursor = mainPaddingStart(*this, horizontal);
     if (m_justify == FlexJustify::Center) {

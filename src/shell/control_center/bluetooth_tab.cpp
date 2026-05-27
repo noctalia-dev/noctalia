@@ -73,7 +73,7 @@ namespace {
     constexpr int kStrongRssi = -40;
     constexpr int kRange = kStrongRssi - kWeakRssi;
     const int clamped = std::clamp(static_cast<int>(rssi), kWeakRssi, kStrongRssi);
-    return ((clamped - kWeakRssi) * 100 + kRange / 2) / kRange;
+    return (((clamped - kWeakRssi) * 100) + (kRange / 2)) / kRange;
   }
 
   std::unique_ptr<Flex> makeMetricPill(const char* glyphName, std::string text, float scale) {

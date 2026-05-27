@@ -134,8 +134,9 @@ void ContextMenuPopup::openCommon(
     ctrl->setMaxVisible(maxVisible);
     ctrl->setEntries(entries);
     ctrl->setRedrawCallback([self]() {
-      if (self->m_surface)
+      if (self->m_surface) {
         self->m_surface->requestRedraw();
+      }
     });
     ctrl->setOnActivate([self](const ContextMenuControlEntry& e) {
       auto onActivate = self->m_onActivate;

@@ -60,24 +60,33 @@ namespace {
   std::uint64_t gStorageCounter = 0;
 
   std::string extensionForImageMimeType(std::string_view mimeType) {
-    if (mimeType == "image/png")
+    if (mimeType == "image/png") {
       return ".png";
-    if (mimeType == "image/jpeg" || mimeType == "image/jpg")
+    }
+    if (mimeType == "image/jpeg" || mimeType == "image/jpg") {
       return ".jpg";
-    if (mimeType == "image/webp")
+    }
+    if (mimeType == "image/webp") {
       return ".webp";
-    if (mimeType == "image/gif")
+    }
+    if (mimeType == "image/gif") {
       return ".gif";
-    if (mimeType == "image/bmp")
+    }
+    if (mimeType == "image/bmp") {
       return ".bmp";
-    if (mimeType == "image/tiff")
+    }
+    if (mimeType == "image/tiff") {
       return ".tiff";
-    if (mimeType == "image/svg+xml")
+    }
+    if (mimeType == "image/svg+xml") {
       return ".svg";
-    if (mimeType == "image/avif")
+    }
+    if (mimeType == "image/avif") {
       return ".avif";
-    if (mimeType == "image/heic")
+    }
+    if (mimeType == "image/heic") {
       return ".heic";
+    }
     return ".img";
   }
 
@@ -1229,7 +1238,7 @@ bool ClipboardService::persistHistory() {
 
     const fs::path manifest(manifestPath());
     fs::create_directories(manifest.parent_path());
-    const fs::path tmp = manifest;
+    const fs::path& tmp = manifest;
     const fs::path tmpPath = tmp.string() + ".tmp";
     {
       std::ofstream out(tmpPath);

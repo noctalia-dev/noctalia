@@ -247,7 +247,10 @@ namespace shell::dock {
     const std::int32_t halfCell = dockConfig.iconSize / 2;
 
     // Anchor rect: pointer-centred on main axis x panel face on cross axis.
-    std::int32_t aX, aY, aW, aH;
+    std::int32_t aX;
+    std::int32_t aY;
+    std::int32_t aW;
+    std::int32_t aH;
     if (isBottom) {
       // Panel top face is at sb.up.
       aX = ptrX - halfCell;
@@ -343,8 +346,9 @@ namespace shell::dock {
       ctrl->setMaxVisible(entries.size());
       ctrl->setEntries(entries);
       ctrl->setRedrawCallback([menuPtr]() {
-        if (menuPtr->surface)
+        if (menuPtr->surface) {
           menuPtr->surface->requestRedraw();
+        }
       });
       ctrl->setOnActivate([menuPtr, entryActions, callbacks](const ContextMenuControlEntry& e) {
         const std::int32_t id = e.id;

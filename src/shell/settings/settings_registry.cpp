@@ -172,7 +172,7 @@ namespace settings {
 
     SettingEntry makeEntry(
         std::string section, std::string group, std::string title, std::string subtitle, std::vector<std::string> path,
-        SettingControl control, std::string tags = {}, bool advanced = false
+        SettingControl control, const std::string& tags = {}, bool advanced = false
     ) {
       std::string searchText = section + " " + group + " " + title + " " + subtitle + " " + pathText(path) + " " + tags;
       if (advanced) {
@@ -265,34 +265,48 @@ namespace settings {
   }
 
   std::string_view sectionGlyph(std::string_view section) {
-    if (section == "appearance")
+    if (section == "appearance") {
       return "adjustments-horizontal";
-    if (section == "templates")
+    }
+    if (section == "templates") {
       return "color-swatch";
-    if (section == "shell")
+    }
+    if (section == "shell") {
       return "app-window";
-    if (section == "dock")
+    }
+    if (section == "dock") {
       return "layout-bottombar-inactive";
-    if (section == "panels")
+    }
+    if (section == "panels") {
       return "layout-bottombar";
-    if (section == "idle")
+    }
+    if (section == "idle") {
       return "coffee";
-    if (section == "niri")
+    }
+    if (section == "niri") {
       return "niri";
-    if (section == "wallpaper")
+    }
+    if (section == "wallpaper") {
       return "paint";
-    if (section == "desktop")
+    }
+    if (section == "desktop") {
       return "layout-board";
-    if (section == "services")
+    }
+    if (section == "services") {
       return "stack-2";
-    if (section == "hooks")
+    }
+    if (section == "hooks") {
       return "link";
-    if (section == "popups")
+    }
+    if (section == "popups") {
       return "message-circle";
-    if (section == "notifications")
+    }
+    if (section == "notifications") {
       return "bell";
-    if (section == "bar")
+    }
+    if (section == "bar") {
       return "crop-3-2";
+    }
     return "settings";
   }
 
@@ -692,12 +706,13 @@ namespace settings {
         tr("settings.schema.dock.auto-hide.description"), {"dock", "auto_hide"}, ToggleSetting{cfg.dock.autoHide},
         "autohide"
     ));
-    if (cfg.dock.autoHide)
+    if (cfg.dock.autoHide) {
       entries.push_back(makeEntry(
           "dock", "behavior", tr("settings.schema.shared.reserve-space.label"),
           tr("settings.schema.dock.reserve-space.description"), {"dock", "reserve_space"},
           ToggleSetting{cfg.dock.reserveSpace}, "exclusive zone"
       ));
+    }
     entries.push_back(makeEntry(
         "dock", "behavior", tr("settings.schema.dock.show-running.label"),
         tr("settings.schema.dock.show-running.description"), {"dock", "show_running"},

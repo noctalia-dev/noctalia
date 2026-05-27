@@ -133,7 +133,7 @@ namespace {
           m_onActivate(m_ap);
         }
       });
-      m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
+      m_inputArea = dynamic_cast<InputArea*>(addChild(std::move(area)));
 
       applyState();
       m_paletteConn = paletteChanged().connect([this] { applyState(); });
@@ -250,7 +250,7 @@ namespace {
       area->setOnLeave([this]() { applyState(); });
       area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
       area->setOnClick([this](const InputArea::PointerData& /*data*/) { triggerAction(); });
-      m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
+      m_inputArea = dynamic_cast<InputArea*>(addChild(std::move(area)));
 
       applyState();
       m_paletteConn = paletteChanged().connect([this] { applyState(); });

@@ -120,7 +120,7 @@ namespace {
       if (!singleRow.key.empty() || !singleRow.value.empty()) {
         patch.rows.push_back(std::move(singleRow));
       } else {
-        const int rowCount = static_cast<int>(lua_objlen(L, 1));
+        const int rowCount = lua_objlen(L, 1);
         patch.rows.reserve(static_cast<std::size_t>(std::max(0, rowCount)));
         for (int i = 1; i <= rowCount; ++i) {
           lua_rawgeti(L, 1, i);
@@ -228,15 +228,23 @@ namespace {
     std::visit(
         [L](const auto& val) {
           using T = std::decay_t<decltype(val)>;
-          if constexpr (std::is_same_v<T, bool>)
-            lua_pushboolean(L, val ? 1 : 0);
-          else if constexpr (std::is_same_v<T, std::int64_t>)
-            lua_pushnumber(L, static_cast<double>(val));
-          else if constexpr (std::is_same_v<T, double>)
-            lua_pushnumber(L, val);
-          else if constexpr (std::is_same_v<T, std::string>)
-            lua_pushlstring(L, val.data(), val.size());
-          else if constexpr (std::is_same_v<T, std::vector<std::string>>) {
+          if constexpr (std::is_same_v<T, bool>) {
+            {
+              lua_pushboolean(L, val ? 1 : 0);
+            }
+          } else if constexpr (std::is_same_v<T, std::int64_t>) {
+            {
+              lua_pushnumber(L, static_cast<double>(val));
+            }
+          } else if constexpr (std::is_same_v<T, double>) {
+            {
+              lua_pushnumber(L, val);
+            }
+          } else if constexpr (std::is_same_v<T, std::string>) {
+            {
+              lua_pushlstring(L, val.data(), val.size());
+            }
+          } else if constexpr (std::is_same_v<T, std::vector<std::string>>) {
             lua_createtable(L, static_cast<int>(val.size()), 0);
             for (size_t i = 0; i < val.size(); ++i) {
               lua_pushlstring(L, val[i].data(), val[i].size());
@@ -318,7 +326,7 @@ namespace {
     lua_getfield(L, fieldIndex, "options");
     if (lua_istable(L, -1)) {
       const int optionsIndex = lua_gettop(L);
-      const int count = static_cast<int>(lua_objlen(L, optionsIndex));
+      const int count = lua_objlen(L, optionsIndex);
       for (int i = 1; i <= count; ++i) {
         lua_rawgeti(L, optionsIndex, i);
         if (lua_istable(L, -1)) {
@@ -348,7 +356,7 @@ namespace {
       lua_getfield(L, visIndex, "values");
       if (lua_istable(L, -1)) {
         const int valuesIndex = lua_gettop(L);
-        const int count = static_cast<int>(lua_objlen(L, valuesIndex));
+        const int count = lua_objlen(L, valuesIndex);
         for (int i = 1; i <= count; ++i) {
           lua_rawgeti(L, valuesIndex, i);
           if (lua_isstring(L, -1)) {
@@ -376,7 +384,7 @@ namespace {
     lua_getfield(L, tableIndex, "settings");
     if (lua_istable(L, -1)) {
       const int settingsIndex = lua_gettop(L);
-      const int count = static_cast<int>(lua_objlen(L, settingsIndex));
+      const int count = lua_objlen(L, settingsIndex);
       for (int i = 1; i <= count; ++i) {
         lua_rawgeti(L, settingsIndex, i);
         if (lua_istable(L, -1)) {

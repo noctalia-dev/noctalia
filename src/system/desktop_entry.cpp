@@ -157,8 +157,9 @@ namespace {
           continue;
         }
         auto eq = line.find('=');
-        if (eq == std::string::npos)
+        if (eq == std::string::npos) {
           continue;
+        }
         std::string_view key(line.data(), eq);
         std::string_view value(line.data() + eq + 1, line.size() - eq - 1);
         if (key == "Name") {
@@ -233,8 +234,9 @@ namespace {
           if (!id.empty()) {
             actionOrder.emplace_back(id);
           }
-          if (semi == std::string_view::npos)
+          if (semi == std::string_view::npos) {
             break;
+          }
           start = semi + 1;
         }
       }

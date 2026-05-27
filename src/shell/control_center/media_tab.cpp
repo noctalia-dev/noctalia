@@ -41,7 +41,7 @@ namespace {
   constexpr float kMediaUnit = 36.0f;
 
   constexpr float kArtworkSize = kMediaUnit * 6;
-  constexpr float kMediaNowCardMinHeight = kMediaUnit * 11 + Style::spaceSm * 2;
+  constexpr float kMediaNowCardMinHeight = (kMediaUnit * 11) + (Style::spaceSm * 2);
   constexpr float kMediaControlsHeight = kMediaUnit + Style::spaceXs;
   constexpr float kMediaPlayPauseHeight = kMediaUnit + Style::spaceSm;
   constexpr float kMediaArtworkMinHeight = kMediaUnit * 4;
@@ -107,7 +107,7 @@ void MediaTab::openPlayerMenu() {
     );
   }
 
-  Flex* anchor = m_playerMenuButton->parent() != nullptr ? static_cast<Flex*>(m_playerMenuButton->parent())
+  Flex* anchor = m_playerMenuButton->parent() != nullptr ? dynamic_cast<Flex*>(m_playerMenuButton->parent())
                                                          : static_cast<Flex*>(m_nowCard);
   if (anchor == nullptr) {
     return;
@@ -877,7 +877,7 @@ void MediaTab::refresh(Renderer& renderer) {
       std::error_code ec;
       if (std::filesystem::exists(cached, ec) && std::filesystem::file_size(cached, ec) > 0) {
         artPath = cached.string();
-      } else if (m_httpClient != nullptr && m_pendingArtDownloads.find(resolvedArtUrl) == m_pendingArtDownloads.end()) {
+      } else if (m_httpClient != nullptr && !m_pendingArtDownloads.contains(resolvedArtUrl)) {
         std::filesystem::create_directories(cached.parent_path(), ec);
         m_pendingArtDownloads.insert(resolvedArtUrl);
         m_httpClient->download(resolvedArtUrl, cached, [this, url = resolvedArtUrl](bool success) {

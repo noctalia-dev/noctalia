@@ -58,7 +58,7 @@ public:
   void initialize(WaylandConnection& wayland);
 
   // Map a fullscreen shield on each of the given outputs.
-  void activate(const std::vector<wl_output*>& outputs, LayerShellLayer layer, ExcludeProvider excludeProvider);
+  void activate(const std::vector<wl_output*>& outputs, LayerShellLayer layer, const ExcludeProvider& excludeProvider);
 
   // Tear down all shields. Idempotent.
   void deactivate();

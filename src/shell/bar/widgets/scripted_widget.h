@@ -83,7 +83,7 @@ private:
 
   void reloadScript();
   void reloadImage();
-  void handleScriptResult(scripting::ScriptWidgetResult result);
+  void handleScriptResult(const scripting::ScriptWidgetResult& result);
   void applyScriptPatch(const scripting::ScriptWidgetPatch& patch);
   [[nodiscard]] scripting::ScriptWidgetSnapshot makeScriptSnapshot() const;
   [[nodiscard]] std::string focusedOutputName() const;

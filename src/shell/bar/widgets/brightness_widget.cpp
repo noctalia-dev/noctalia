@@ -155,7 +155,7 @@ void BrightnessWidget::syncState(Renderer& renderer) {
     if (!display->label.empty()) {
       rows.push_back({"Display", display->label});
     }
-    static_cast<InputArea*>(rootNode)->setTooltip(std::move(rows));
+    dynamic_cast<InputArea*>(rootNode)->setTooltip(std::move(rows));
   }
 
   requestRedraw();

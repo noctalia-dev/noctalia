@@ -152,8 +152,9 @@ void IdleInhibitor::registerIpc(IpcService& ipc) {
   ipc.registerHandler(
       "caffeine-enable",
       [this, notifyCaffeineState](const std::string&) -> std::string {
-        if (!available())
+        if (!available()) {
           return "error: caffeine protocol unavailable\n";
+        }
         if (m_enabled) {
           return "ok\n";
         }
@@ -167,8 +168,9 @@ void IdleInhibitor::registerIpc(IpcService& ipc) {
   ipc.registerHandler(
       "caffeine-disable",
       [this, notifyCaffeineState](const std::string&) -> std::string {
-        if (!available())
+        if (!available()) {
           return "error: caffeine protocol unavailable\n";
+        }
         if (!m_enabled) {
           return "ok\n";
         }
@@ -182,8 +184,9 @@ void IdleInhibitor::registerIpc(IpcService& ipc) {
   ipc.registerHandler(
       "caffeine-toggle",
       [this, notifyCaffeineState](const std::string&) -> std::string {
-        if (!available())
+        if (!available()) {
           return "error: caffeine protocol unavailable\n";
+        }
         const bool nextState = !m_enabled;
         setEnabled(nextState);
         notifyCaffeineState(nextState);

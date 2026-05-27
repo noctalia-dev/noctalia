@@ -205,8 +205,8 @@ TooltipManager::Size TooltipManager::measureContent(const TooltipContent& conten
     auto metrics = m_renderContext->measureText(
         *text, Style::fontSizeCaption, FontWeight::Normal, kMaxContentWidth, kMaxTextLines
     );
-    auto w = static_cast<std::uint32_t>(std::ceil(metrics.width + kPadH * 2.0f + kBorder * 2.0f));
-    auto h = static_cast<std::uint32_t>(std::ceil((metrics.bottom - metrics.top) + kPadV * 2.0f + kBorder * 2.0f));
+    auto w = static_cast<std::uint32_t>(std::ceil(metrics.width + (kPadH * 2.0f) + (kBorder * 2.0f)));
+    auto h = static_cast<std::uint32_t>(std::ceil((metrics.bottom - metrics.top) + (kPadV * 2.0f) + (kBorder * 2.0f)));
     return {std::max(w, 1u), std::max(h, 1u)};
   }
 
@@ -229,9 +229,9 @@ TooltipManager::Size TooltipManager::measureContent(const TooltipContent& conten
     if (naturalW > kMaxContentWidth) {
       maxValW = kMaxContentWidth - maxKeyW - kTableColumnGap;
     }
-    float contentH = static_cast<float>(rows->size()) * rowH + static_cast<float>(rows->size() - 1) * kTableGap;
-    auto w = static_cast<std::uint32_t>(std::ceil(contentW + kPadH * 2.0f + kBorder * 2.0f));
-    auto h = static_cast<std::uint32_t>(std::ceil(contentH + kPadV * 2.0f + kBorder * 2.0f));
+    float contentH = (static_cast<float>(rows->size()) * rowH) + (static_cast<float>(rows->size() - 1) * kTableGap);
+    auto w = static_cast<std::uint32_t>(std::ceil(contentW + (kPadH * 2.0f) + (kBorder * 2.0f)));
+    auto h = static_cast<std::uint32_t>(std::ceil(contentH + (kPadV * 2.0f) + (kBorder * 2.0f)));
     return {std::max(w, 1u), std::max(h, 1u)};
   }
 
@@ -275,7 +275,7 @@ void TooltipManager::buildScene(const TooltipContent& content, float w, float h)
   }
 
   if (const auto* rows = std::get_if<std::vector<TooltipRow>>(&content)) {
-    const float containerW = w - (kPadH + kBorder) * 2.0f;
+    const float containerW = w - ((kPadH + kBorder) * 2.0f);
 
     float maxKeyW = 0.0f;
     for (const auto& row : *rows) {
@@ -287,7 +287,7 @@ void TooltipManager::buildScene(const TooltipContent& content, float w, float h)
     auto container = ui::column({
         .gap = kTableGap,
         .width = containerW,
-        .height = h - (kPadV + kBorder) * 2.0f,
+        .height = h - ((kPadV + kBorder) * 2.0f),
         .configure = [](Flex& flex) { flex.setPosition(kPadH + kBorder, kPadV + kBorder); },
     });
 

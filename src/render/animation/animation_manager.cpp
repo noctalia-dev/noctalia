@@ -147,7 +147,7 @@ void AnimationManager::tick(float /*deltaMs*/) {
     }
 
     float easedT = applyEasing(anim.easing, t);
-    float value = anim.startValue + (anim.endValue - anim.startValue) * easedT;
+    float value = anim.startValue + ((anim.endValue - anim.startValue) * easedT);
 
     if (anim.setter) {
       anim.setter(value);

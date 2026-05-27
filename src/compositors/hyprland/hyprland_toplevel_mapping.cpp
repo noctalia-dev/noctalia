@@ -201,7 +201,7 @@ namespace compositors::hyprland {
         .wlrToplevel = handle,
     };
     hyprland_toplevel_window_mapping_handle_v1_add_listener(requestHandle, &kMappingListener, this);
-    m_pending.emplace(requestHandle, std::move(request));
+    m_pending.emplace(requestHandle, request);
   }
 
   void HyprlandToplevelMapping::requestExtMapping(ext_foreign_toplevel_handle_v1* handle) {
@@ -227,7 +227,7 @@ namespace compositors::hyprland {
         .extToplevel = handle,
     };
     hyprland_toplevel_window_mapping_handle_v1_add_listener(requestHandle, &kMappingListener, this);
-    m_pending.emplace(requestHandle, std::move(request));
+    m_pending.emplace(requestHandle, request);
   }
 
   void HyprlandToplevelMapping::clearRequest(MappingRequest& request) {
@@ -290,7 +290,7 @@ namespace compositors::hyprland {
     }
 
     const std::uint64_t address = (static_cast<std::uint64_t>(addressHi) << 32) | static_cast<std::uint64_t>(addressLo);
-    MappingRequest request = std::move(it->second);
+    MappingRequest request = it->second;
     self->m_pending.erase(it);
     const auto kind = request.kind;
     auto* wlrToplevel = request.wlrToplevel;

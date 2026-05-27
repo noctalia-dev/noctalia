@@ -168,7 +168,7 @@ private:
   [[nodiscard]] float entryYForSurface(const PopupEntry& entry, float surfaceHeight) const;
   void alignBottomStackToPlacementBottom();
   [[nodiscard]] std::optional<float>
-  findPlacementY(float entryHeight, std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
+  findPlacementY(float candidateHeight, std::optional<uint32_t> ignoreNotificationId = std::nullopt) const;
   [[nodiscard]] uint32_t surfaceHeightForOutput(wl_output* output) const;
   [[nodiscard]] std::string resolveNotificationIconPath(const PopupEntry& entry);
 

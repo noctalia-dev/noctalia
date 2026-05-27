@@ -145,7 +145,7 @@ namespace settings {
                            &renamingMonitorOverrideMatch = ctx.renamingMonitorOverrideMatch, barName, match,
                            renameMonitorOverride = ctx.renameMonitorOverride, inputPtr,
                            existingMatches = std::move(existingMatches),
-                           requestRebuild = ctx.requestRebuild](std::string rawMatch) {
+                           requestRebuild = ctx.requestRebuild](const std::string& rawMatch) {
             const std::string newMatch = normalizedConfigId(rawMatch);
             if (newMatch == match) {
               renamingMonitorOverrideBarName.clear();
@@ -307,7 +307,7 @@ namespace settings {
 
           auto doRename = [&renamingBarName = ctx.renamingBarName, config = ctx.config, barName,
                            renameBar = ctx.renameBar, inputPtr,
-                           requestRebuild = ctx.requestRebuild](std::string rawName) {
+                           requestRebuild = ctx.requestRebuild](const std::string& rawName) {
             const std::string newName = normalizedConfigId(rawName);
             if (newName == barName) {
               renamingBarName.clear();

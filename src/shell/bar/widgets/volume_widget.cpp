@@ -151,7 +151,7 @@ void VolumeWidget::syncState(Renderer& renderer) {
   }
 
   if (auto* rootNode = root(); rootNode != nullptr) {
-    auto* area = static_cast<InputArea*>(rootNode);
+    auto* area = dynamic_cast<InputArea*>(rootNode);
     if (node != nullptr) {
       int pct = static_cast<int>(std::round(volume * 100.0f));
       std::vector<TooltipRow> rows;

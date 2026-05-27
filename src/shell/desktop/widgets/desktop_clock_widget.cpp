@@ -29,8 +29,7 @@ namespace {
 } // namespace
 
 DesktopClockWidget::DesktopClockWidget(std::string format, ColorSpec color, bool shadow)
-    : m_format(std::move(format)), m_color(std::move(color)), m_shadow(shadow),
-      m_showsSeconds(formatShowsSeconds(m_format)) {}
+    : m_format(std::move(format)), m_color(color), m_shadow(shadow), m_showsSeconds(formatShowsSeconds(m_format)) {}
 
 void DesktopClockWidget::create() {
   auto rootNode = std::make_unique<Node>();

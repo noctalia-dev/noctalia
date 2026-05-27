@@ -3,24 +3,33 @@
 namespace noctalia::theme {
 
   std::optional<Scheme> schemeFromString(std::string_view s) {
-    if (s == "m3-tonal-spot")
+    if (s == "m3-tonal-spot") {
       return Scheme::TonalSpot;
-    if (s == "m3-content")
+    }
+    if (s == "m3-content") {
       return Scheme::Content;
-    if (s == "m3-fruit-salad")
+    }
+    if (s == "m3-fruit-salad") {
       return Scheme::FruitSalad;
-    if (s == "m3-rainbow")
+    }
+    if (s == "m3-rainbow") {
       return Scheme::Rainbow;
-    if (s == "m3-monochrome")
+    }
+    if (s == "m3-monochrome") {
       return Scheme::Monochrome;
-    if (s == "vibrant")
+    }
+    if (s == "vibrant") {
       return Scheme::Vibrant;
-    if (s == "faithful")
+    }
+    if (s == "faithful") {
       return Scheme::Faithful;
-    if (s == "dysfunctional")
+    }
+    if (s == "dysfunctional") {
       return Scheme::Dysfunctional;
-    if (s == "muted")
+    }
+    if (s == "muted") {
       return Scheme::Muted;
+    }
     return std::nullopt;
   }
 

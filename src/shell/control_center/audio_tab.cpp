@@ -755,7 +755,7 @@ namespace {
           m_onSelect();
         }
       });
-      m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
+      m_inputArea = dynamic_cast<InputArea*>(addChild(std::move(area)));
 
       applyState();
       m_paletteConn = paletteChanged().connect([this] { applyState(); });
@@ -1336,7 +1336,7 @@ bool AudioTab::dragging() const noexcept {
     return true;
   }
   for (Flex* row : m_programRows) {
-    auto* programRow = static_cast<ProgramVolumeRow*>(row);
+    auto* programRow = dynamic_cast<ProgramVolumeRow*>(row);
     if (programRow != nullptr && programRow->dragging()) {
       return true;
     }
@@ -1918,7 +1918,7 @@ void AudioTab::syncProgramVolumeRows() {
   }
 
   for (Flex* node : m_programRows) {
-    auto* row = static_cast<ProgramVolumeRow*>(node);
+    auto* row = dynamic_cast<ProgramVolumeRow*>(node);
     if (row == nullptr) {
       continue;
     }
@@ -2087,7 +2087,7 @@ void AudioTab::syncValueLabelWidths(Renderer& renderer) {
     m_inputValue->setMinWidth(minWidth);
   }
   for (Flex* row : m_programRows) {
-    if (auto* programRow = static_cast<ProgramVolumeRow*>(row); programRow != nullptr) {
+    if (auto* programRow = dynamic_cast<ProgramVolumeRow*>(row); programRow != nullptr) {
       programRow->setValueLabelMinWidth(minWidth);
     }
   }

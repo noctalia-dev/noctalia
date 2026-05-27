@@ -112,7 +112,7 @@ namespace popup_chrome {
     );
     shadowNode->setFrameSize(geometry.contentWidth, geometry.contentHeight);
     shadowNode->setZIndex(-1);
-    return static_cast<RectNode*>(parent.addChild(std::move(shadowNode)));
+    return dynamic_cast<RectNode*>(parent.addChild(std::move(shadowNode)));
   }
 
 } // namespace popup_chrome

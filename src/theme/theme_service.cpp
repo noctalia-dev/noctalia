@@ -45,31 +45,37 @@ namespace noctalia::theme {
     std::string_view readSystemColorScheme() {
       static GSettings* settings = []() -> GSettings* {
         GSettingsSchemaSource* source = g_settings_schema_source_get_default();
-        if (source == nullptr)
+        if (source == nullptr) {
           return nullptr;
+        }
         GSettingsSchema* schema = g_settings_schema_source_lookup(source, "org.gnome.desktop.interface", TRUE);
-        if (schema == nullptr)
+        if (schema == nullptr) {
           return nullptr;
+        }
         const bool hasKey = g_settings_schema_has_key(schema, "color-scheme") != FALSE;
         g_settings_schema_unref(schema);
-        if (!hasKey)
+        if (!hasKey) {
           return nullptr;
+        }
         return g_settings_new("org.gnome.desktop.interface");
       }();
 
-      if (settings == nullptr)
+      if (settings == nullptr) {
         return "dark";
+      }
       gchar* raw = g_settings_get_string(settings, "color-scheme");
-      if (raw == nullptr)
+      if (raw == nullptr) {
         return "dark";
+      }
       const bool isLight = (std::string_view(raw) == "prefer-light");
       g_free(raw);
       return isLight ? "light" : "dark";
     }
 
     std::string resolvedModeName(const ThemeConfig& cfg) {
-      if (cfg.mode == ThemeMode::Auto)
+      if (cfg.mode == ThemeMode::Auto) {
         return std::string(readSystemColorScheme());
+      }
       return cfg.mode == ThemeMode::Light ? "light" : "dark";
     }
 
@@ -135,10 +141,12 @@ namespace noctalia::theme {
           return std::nullopt;
         }
       };
-      if (auto c = tryRead(prefixed))
+      if (auto c = tryRead(prefixed)) {
         return *c;
-      if (auto c = tryRead(std::string(camelField)))
+      }
+      if (auto c = tryRead(std::string(camelField))) {
         return *c;
+      }
       return Color{};
     }
 
@@ -195,8 +203,9 @@ namespace noctalia::theme {
 
     std::optional<TerminalPalette> readModeTerminalJson(const nlohmann::json& obj) {
       auto it = obj.find(kTerminalJsonKey);
-      if (it == obj.end() || !it->is_object())
+      if (it == obj.end() || !it->is_object()) {
         return std::nullopt;
+      }
       return readTerminalJson(*it);
     }
 
@@ -208,13 +217,15 @@ namespace noctalia::theme {
     std::optional<ParsedCommunityPalette> parseCommunityPaletteJson(const std::filesystem::path& path) {
       try {
         std::ifstream in(path);
-        if (!in)
+        if (!in) {
           return std::nullopt;
+        }
         std::stringstream buf;
         buf << in.rdbuf();
         auto root = nlohmann::json::parse(buf.str());
-        if (!root.is_object())
+        if (!root.is_object()) {
           return std::nullopt;
+        }
         ParsedCommunityPalette out{};
         if (auto it = root.find("dark"); it != root.end() && it->is_object()) {
           out.dark.palette = readPaletteJson(*it);

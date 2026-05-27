@@ -49,7 +49,7 @@ private:
   void stepBy(int directionSign);
   void syncValueField();
   void commitValueField();
-  bool swallowNonNumericKey(std::uint32_t sym, std::uint32_t modifiers);
+  bool swallowNonNumericKey(std::uint32_t sym, std::uint32_t modifiers) const;
   void refreshButtons();
   void refreshSegmentStyle();
 

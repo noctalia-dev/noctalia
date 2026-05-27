@@ -89,7 +89,7 @@ namespace {
 Input::Input() {
   // 0: background
   auto bg = std::make_unique<RectNode>();
-  m_background = static_cast<RectNode*>(addChild(std::move(bg)));
+  m_background = dynamic_cast<RectNode*>(addChild(std::move(bg)));
 
   // 1: text viewport clip layer
   auto textViewport = std::make_unique<Node>();
@@ -109,14 +109,14 @@ Input::Input() {
   );
   sel->setOpacity(0.3f);
   sel->setVisible(false);
-  m_selectionRect = static_cast<RectNode*>(m_textViewport->addChild(std::move(sel)));
+  m_selectionRect = dynamic_cast<RectNode*>(m_textViewport->addChild(std::move(sel)));
 
   // 1: text
   auto label = std::make_unique<Label>();
   label->setFontSize(m_fontSize);
   label->setMaxLines(1);
   label->setColor(colorSpecFromRole(ColorRole::OnSurface));
-  m_label = static_cast<Label*>(m_textViewport->addChild(std::move(label)));
+  m_label = dynamic_cast<Label*>(m_textViewport->addChild(std::move(label)));
 
   // 2: cursor
   auto cursor = std::make_unique<RectNode>();
@@ -128,7 +128,7 @@ Input::Input() {
       }
   );
   cursor->setVisible(false);
-  m_cursor = static_cast<RectNode*>(m_textViewport->addChild(std::move(cursor)));
+  m_cursor = dynamic_cast<RectNode*>(m_textViewport->addChild(std::move(cursor)));
 
   // Full-field input area.
   auto area = std::make_unique<InputArea>();
@@ -241,7 +241,7 @@ Input::Input() {
     return true;
   });
   area->setOnKeyDown([this](const InputArea::KeyData& k) { handleKey(k.sym, k.utf32, k.modifiers, k.preedit); });
-  m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
+  m_inputArea = dynamic_cast<InputArea*>(addChild(std::move(area)));
 
   // Optional clear button, kept above the full-field input area for hit-testing.
   auto clearButtonArea = std::make_unique<InputArea>();
@@ -253,12 +253,12 @@ Input::Input() {
     }
   });
   clearButtonArea->setVisible(false);
-  m_clearButtonArea = static_cast<InputArea*>(addChild(std::move(clearButtonArea)));
+  m_clearButtonArea = dynamic_cast<InputArea*>(addChild(std::move(clearButtonArea)));
 
   auto clearGlyph = std::make_unique<GlyphNode>();
   clearGlyph->setCodepoint(GlyphRegistry::lookup("close"));
   clearGlyph->setHitTestVisible(false);
-  m_clearButtonGlyph = static_cast<GlyphNode*>(m_clearButtonArea->addChild(std::move(clearGlyph)));
+  m_clearButtonGlyph = dynamic_cast<GlyphNode*>(m_clearButtonArea->addChild(std::move(clearGlyph)));
 
   applyVisualState();
   m_paletteConn = paletteChanged().connect([this] {
@@ -489,7 +489,7 @@ void Input::doLayout(Renderer& renderer) {
     passwordGlyphSize = m_fontSize * kPasswordGlyphScale;
     const auto metrics = renderer.measureGlyph(passwordMaskCodepointForIndex(0), passwordGlyphSize);
     const float glyphInkCenter = (metrics.top + metrics.bottom) * 0.5f;
-    maskGlyphY = std::round(h * 0.5f - glyphInkCenter);
+    maskGlyphY = std::round((h * 0.5f) - glyphInkCenter);
   }
   if (!m_value.empty()) {
     std::size_t pos = 0;
@@ -580,7 +580,7 @@ void Input::doLayout(Renderer& renderer) {
     const float glyphCenterX = (metrics.left + metrics.right) * 0.5f;
     const float glyphInkCenter = (metrics.top + metrics.bottom) * 0.5f;
     m_clearButtonGlyph->setFontSize(clearGlyphSize);
-    m_clearButtonGlyph->setPosition(buttonSize * 0.5f - glyphCenterX, h * 0.5f - glyphInkCenter);
+    m_clearButtonGlyph->setPosition((buttonSize * 0.5f) - glyphCenterX, (h * 0.5f) - glyphInkCenter);
   }
 
   updateInteractiveGeometry();
@@ -934,7 +934,7 @@ void Input::updateInteractiveGeometry() {
   }
 
   const float controlHeight = height() > 0.0f ? height() : m_controlHeight;
-  const float maxCursorHeight = std::max(0.0f, controlHeight - kCursorPadV * 2.0f);
+  const float maxCursorHeight = std::max(0.0f, controlHeight - (kCursorPadV * 2.0f));
   const float cursorHeight =
       std::clamp(controlHeight * kCursorHeightRatio, std::min(kCursorMinHeight, maxCursorHeight), maxCursorHeight);
   const float cursorY = std::round((controlHeight - cursorHeight) * 0.5f);
@@ -1152,7 +1152,7 @@ void Input::syncPasswordGlyphNodes(std::size_t count) {
   }
   while (m_passwordGlyphs.size() < count) {
     auto glyph = std::make_unique<GlyphNode>();
-    auto* glyphPtr = static_cast<GlyphNode*>(m_textViewport->insertChildAt(2, std::move(glyph)));
+    auto* glyphPtr = dynamic_cast<GlyphNode*>(m_textViewport->insertChildAt(2, std::move(glyph)));
     m_passwordGlyphs.push_back(glyphPtr);
   }
 }
@@ -1179,7 +1179,7 @@ float Input::clearButtonTextReserveWidth() const noexcept {
     return 0.0f;
   }
   const float clearGlyphSize = std::round(m_fontSize * kClearGlyphScale);
-  return clearButtonHitWidth() * 0.5f + clearGlyphSize * 0.5f + kTextInnerInset;
+  return (clearButtonHitWidth() * 0.5f) + (clearGlyphSize * 0.5f) + kTextInnerInset;
 }
 
 bool Input::hasSelection() const noexcept { return m_selectionAnchor != m_cursorPos; }

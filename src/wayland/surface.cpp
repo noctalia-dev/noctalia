@@ -536,16 +536,15 @@ std::vector<InputRect> Surface::tessellateRoundedRect(
     return out;
   }
 
-  if (stripPx < 1) {
-    stripPx = 1;
-  }
+  stripPx = std::max(stripPx, 1);
 
   const float halfW = static_cast<float>(w) * 0.5f;
   const float halfH = static_cast<float>(h) * 0.5f;
   const float maxRadius = std::min(halfW, halfH);
   const auto clampR = [maxRadius](float r) {
-    if (r < 0.0f)
+    if (r < 0.0f) {
       return 0.0f;
+    }
     return std::min(r, maxRadius);
   };
   const float tl = clampR(tlRadius);
@@ -559,16 +558,18 @@ std::vector<InputRect> Surface::tessellateRoundedRect(
   const int middleH = h - topBand - bottomBand;
 
   const auto inset = [](float r, float distFromCornerEdge) -> float {
-    if (r <= 0.0f)
+    if (r <= 0.0f) {
       return 0.0f;
+    }
     const float dy = r - distFromCornerEdge;
-    if (dy <= 0.0f)
+    if (dy <= 0.0f) {
       return 0.0f;
-    const float ry = std::sqrt(std::max(0.0f, r * r - dy * dy));
+    }
+    const float ry = std::sqrt(std::max(0.0f, (r * r) - (dy * dy)));
     return r - ry;
   };
 
-  out.reserve(static_cast<std::size_t>((topBand + bottomBand) / stripPx + 2));
+  out.reserve(static_cast<std::size_t>(((topBand + bottomBand) / stripPx) + 2));
 
   // Top corner band: strips run from y..y+topBand, distFromTop grows downward.
   for (int row = 0; row < topBand; row += stripPx) {
@@ -615,9 +616,7 @@ std::vector<InputRect> Surface::tessellateShape(
   if (w <= 0 || h <= 0) {
     return out;
   }
-  if (stripPx < 1) {
-    stripPx = 1;
-  }
+  stripPx = std::max(stripPx, 1);
 
   // (x, y, w, h) is the body rect. Expand outward by logicalInset to obtain the
   // visual rect that hosts concave-corner bulges; the body sits inside it offset
@@ -650,7 +649,7 @@ std::vector<InputRect> Surface::tessellateShape(
     if (r <= 0.0f) {
       return 0.0f;
     }
-    const float d2 = r * r - dy * dy;
+    const float d2 = (r * r) - (dy * dy);
     return d2 > 0.0f ? std::sqrt(d2) : 0.0f;
   };
 
@@ -668,12 +667,12 @@ std::vector<InputRect> Surface::tessellateShape(
       float bulgeLeft = std::numeric_limits<float>::infinity();
       float bulgeRight = -std::numeric_limits<float>::infinity();
       if (corners.tl == CornerShape::Concave && rTl > 0.0f && dy <= rTl) {
-        const float chord = std::sqrt(std::max(0.0f, dy * (2.0f * rTl - dy)));
+        const float chord = std::sqrt(std::max(0.0f, dy * ((2.0f * rTl) - dy)));
         bulgeLeft = std::min(bulgeLeft, bodyMinX);
         bulgeRight = std::max(bulgeRight, bodyMinX + rTl - chord);
       }
       if (corners.tr == CornerShape::Concave && rTr > 0.0f && dy <= rTr) {
-        const float chord = std::sqrt(std::max(0.0f, dy * (2.0f * rTr - dy)));
+        const float chord = std::sqrt(std::max(0.0f, dy * ((2.0f * rTr) - dy)));
         bulgeLeft = std::min(bulgeLeft, bodyMaxX - rTr + chord);
         bulgeRight = std::max(bulgeRight, bodyMaxX);
       }
@@ -689,12 +688,12 @@ std::vector<InputRect> Surface::tessellateShape(
       float bulgeLeft = std::numeric_limits<float>::infinity();
       float bulgeRight = -std::numeric_limits<float>::infinity();
       if (corners.bl == CornerShape::Concave && rBl > 0.0f && dy <= rBl) {
-        const float chord = std::sqrt(std::max(0.0f, dy * (2.0f * rBl - dy)));
+        const float chord = std::sqrt(std::max(0.0f, dy * ((2.0f * rBl) - dy)));
         bulgeLeft = std::min(bulgeLeft, bodyMinX);
         bulgeRight = std::max(bulgeRight, bodyMinX + rBl - chord);
       }
       if (corners.br == CornerShape::Concave && rBr > 0.0f && dy <= rBr) {
-        const float chord = std::sqrt(std::max(0.0f, dy * (2.0f * rBr - dy)));
+        const float chord = std::sqrt(std::max(0.0f, dy * ((2.0f * rBr) - dy)));
         bulgeLeft = std::min(bulgeLeft, bodyMaxX - rBr + chord);
         bulgeRight = std::max(bulgeRight, bodyMaxX);
       }
@@ -749,7 +748,7 @@ std::vector<InputRect> Surface::tessellateShape(
     return {left, right};
   };
 
-  out.reserve(static_cast<std::size_t>(visualH / stripPx + 2));
+  out.reserve(static_cast<std::size_t>((visualH / stripPx) + 2));
 
   for (int row = 0; row < visualH; row += stripPx) {
     const int rowH = std::min(stripPx, visualH - row);

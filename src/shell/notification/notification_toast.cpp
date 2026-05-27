@@ -159,13 +159,13 @@ namespace {
 
   [[nodiscard]] std::uint32_t surfaceWidth(float scale) {
     return static_cast<std::uint32_t>(
-        std::max(1, static_cast<int>(std::ceil(cardWidth(scale) + paddingX(scale) * 2.0f)))
+        std::max(1, static_cast<int>(std::ceil(cardWidth(scale) + (paddingX(scale) * 2.0f))))
     );
   }
 
   [[nodiscard]] std::uint32_t fallbackSurfaceHeight(float scale) {
-    const float totalHeight = maxToastCardHeight(scale) * kFallbackVisibleCards
-        + (kGap * scale) * (kFallbackVisibleCards - 1)
+    const float totalHeight = (maxToastCardHeight(scale) * kFallbackVisibleCards)
+        + ((kGap * scale) * (kFallbackVisibleCards - 1))
         + paddingBottom(scale);
     return static_cast<std::uint32_t>(std::max(1, static_cast<int>(std::ceil(totalHeight))));
   }
@@ -204,12 +204,15 @@ namespace {
   }
 
   NotificationToast::RevealDirection revealDirectionForPosition(std::string_view position) {
-    if (position.ends_with("_left"))
+    if (position.ends_with("_left")) {
       return NotificationToast::RevealDirection::FromLeft;
-    if (position.ends_with("_right"))
+    }
+    if (position.ends_with("_right")) {
       return NotificationToast::RevealDirection::FromRight;
-    if (position.starts_with("bottom_"))
+    }
+    if (position.starts_with("bottom_")) {
       return NotificationToast::RevealDirection::FromBottom;
+    }
     return NotificationToast::RevealDirection::FromTop;
   }
 
@@ -1338,7 +1341,7 @@ void NotificationToast::resumeCountdowns(uint32_t notificationId) {
 
     state->progressBar->setOpacity(1.0f);
     state->progressBar->setProgress(remaining);
-    const bool isDriver = (m_instances.size() > 0 && m_instances[0].get() == inst.get());
+    const bool isDriver = (!m_instances.empty() && m_instances[0].get() == inst.get());
     state->countdownAnimId = inst->animations.animateTimer(
         remaining, 0.0f, static_cast<float>(entry->displayDurationMs) * remaining, Easing::Linear,
         [this, progressBar = state->progressBar, notificationId](float v) {
@@ -2019,7 +2022,7 @@ InputArea* NotificationToast::buildCard(
   const bool hasInlineReply = hasInlineReplyAction(entry.actions);
   const float cardHeight = entry.height > 0.5f ? entry.height : cardHeightForEntry(!entry.actions.empty(), scale);
   const float cardW = cardWidth(scale);
-  const float innerWidth = cardW - cardInnerPad(scale) * 2.0f;
+  const float innerWidth = cardW - (cardInnerPad(scale) * 2.0f);
   const float progressY = cardHeight - progressHeight(scale) - progressBottomMargin(scale);
 
   auto viewport = std::make_unique<InputArea>();
@@ -2202,7 +2205,7 @@ InputArea* NotificationToast::buildCard(
       .text = entry.appName,
       .fontSize = metaFontSize(scale),
       .color = colorSpecFromRole(isCritical ? ColorRole::Error : ColorRole::OnSurfaceVariant),
-      .maxWidth = innerWidth - closeButtonSize(scale) - Style::spaceXs * scale,
+      .maxWidth = innerWidth - closeButtonSize(scale) - (Style::spaceXs * scale),
   });
   appName->measure(*m_renderContext);
   *outAppName = appName.get();
@@ -2210,7 +2213,7 @@ InputArea* NotificationToast::buildCard(
   headerLeft->layout(*m_renderContext);
   headerRow->addChild(std::move(headerLeft));
 
-  *outCloseGlyph = static_cast<Glyph*>(headerRow->addChild(
+  *outCloseGlyph = dynamic_cast<Glyph*>(headerRow->addChild(
       ui::glyph({
           .glyph = "close",
           .glyphSize = kCloseGlyphSize * scale,
@@ -2454,7 +2457,7 @@ InputArea* NotificationToast::buildCard(
   }
 
   // Progress bar (countdown)
-  *outProgress = static_cast<ProgressBar*>(foreground->addChild(
+  *outProgress = dynamic_cast<ProgressBar*>(foreground->addChild(
       ui::progressBar({
           .fill = colorSpecFromRole(isCritical ? ColorRole::Error : ColorRole::Primary),
           .track = colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.35f),
@@ -2732,7 +2735,7 @@ std::string NotificationToast::resolveNotificationIconPath(const PopupEntry& ent
       m_remoteIconCache.erase(it);
     }
 
-    if (m_failedRemoteIconDownloads.find(iconValue) != m_failedRemoteIconDownloads.end()) {
+    if (m_failedRemoteIconDownloads.contains(iconValue)) {
       kLog.warn("notification toast: #{} remote icon URL marked failed url='{}'", entry.notificationId, iconValue);
       return {};
     }
@@ -2745,7 +2748,7 @@ std::string NotificationToast::resolveNotificationIconPath(const PopupEntry& ent
       return cachedPath;
     }
 
-    if (m_httpClient != nullptr && m_pendingRemoteIconDownloads.find(iconValue) == m_pendingRemoteIconDownloads.end()) {
+    if (m_httpClient != nullptr && !m_pendingRemoteIconDownloads.contains(iconValue)) {
       std::filesystem::create_directories(cached.parent_path(), ec);
       if (ec) {
         kLog.warn(

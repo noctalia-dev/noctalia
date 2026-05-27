@@ -104,7 +104,7 @@ namespace scripting {
     SubscriberId nextSubscriberId = 1;
     std::uint64_t generation = 0;
     std::chrono::milliseconds updateInterval{250};
-    std::chrono::steady_clock::time_point lastUpdateAccepted{};
+    std::chrono::steady_clock::time_point lastUpdateAccepted;
     std::vector<std::chrono::steady_clock::time_point> timeoutHistory;
     bool scheduled = false;
     bool stopped = false;

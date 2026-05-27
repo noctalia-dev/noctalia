@@ -344,16 +344,18 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
       break;
     case PointerEvent::Type::Motion:
       if (onSub || sub->pointerInside) {
-        if (onSub)
+        if (onSub) {
           sub->pointerInside = true;
+        }
         sub->inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), 0);
         subConsumed = true;
       }
       break;
     case PointerEvent::Type::Button:
       if (onSub || sub->pointerInside) {
-        if (onSub)
+        if (onSub) {
           sub->pointerInside = true;
+        }
         const bool pressed = (event.state == 1);
         sub->inputDispatcher.pointerButton(
             static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
@@ -366,8 +368,9 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
       break;
     case PointerEvent::Type::Axis:
       if (onSub || sub->pointerInside) {
-        if (onSub)
+        if (onSub) {
           sub->pointerInside = true;
+        }
         subConsumed = sub->inputDispatcher.pointerAxis(
             static_cast<float>(event.sx), static_cast<float>(event.sy), event.axis, event.axisSource, event.axisValue,
             event.axisDiscrete, event.axisValue120, event.axisLines
@@ -998,7 +1001,7 @@ void TrayMenu::openSubmenu(std::int32_t parentEntryId, float rowCenterY) {
   const auto mainContentX = static_cast<std::int32_t>(std::lround(m_instance->chrome.contentX()));
   const auto mainWidth = static_cast<std::int32_t>(std::lround(m_instance->chrome.contentWidth));
   const auto mainX = m_instance->surface->configuredX() + mainContentX;
-  const auto rowTop = static_cast<std::int32_t>(rowCenterY - Style::controlHeightSm * 0.5f);
+  const auto rowTop = static_cast<std::int32_t>(rowCenterY - (Style::controlHeightSm * 0.5f));
   const auto rowH = static_cast<std::int32_t>(Style::controlHeightSm);
   constexpr std::int32_t kSubGap = 4;
 

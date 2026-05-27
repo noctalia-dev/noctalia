@@ -461,7 +461,7 @@ void BluetoothService::refresh() {
   }
   m_impl->root->callMethodAsync("GetManagedObjects")
       .onInterface(kObjectManagerInterface)
-      .uponReplyInvoke([this](std::optional<sdbus::Error> err, ManagedObjects objects) {
+      .uponReplyInvoke([this](std::optional<sdbus::Error> err, const ManagedObjects& objects) {
         if (err.has_value()) {
           kLog.debug("GetManagedObjects failed: {}", err->what());
           return;
@@ -507,7 +507,7 @@ void BluetoothService::setPowered(bool enabled) {
     if (!enabled && m_state.discovering) {
       m_impl->adapter->callMethodAsync("StopDiscovery")
           .onInterface(kAdapterInterface)
-          .uponReplyInvoke([](std::optional<sdbus::Error>) {});
+          .uponReplyInvoke([](const std::optional<sdbus::Error>&) {});
     }
     m_impl->adapter->setProperty("Powered").onInterface(kAdapterInterface).toValue(enabled);
   } catch (const sdbus::Error& e) {

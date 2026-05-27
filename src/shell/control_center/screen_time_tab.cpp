@@ -101,9 +101,9 @@ namespace {
     rgbToHsv(primary, baseH, baseS, baseV);
 
     const float hashT = static_cast<float>(hashAppKey(appKey) % 1000u) / 1000.0f;
-    const float hue = baseH + hashT * 0.72f;
-    const float sat = std::clamp(baseS * (0.82f + hashT * 0.22f), 0.38f, 0.82f);
-    const float val = std::clamp(baseV * (0.86f + (1.0f - hashT) * 0.14f), 0.52f, 0.90f);
+    const float hue = baseH + (hashT * 0.72f);
+    const float sat = std::clamp(baseS * (0.82f + (hashT * 0.22f)), 0.38f, 0.82f);
+    const float val = std::clamp(baseV * (0.86f + ((1.0f - hashT) * 0.14f)), 0.52f, 0.90f);
     return hsv(hue, sat, val);
   }
 
@@ -248,7 +248,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
           .visible = false,
           .participatesInLayout = false,
       });
-      m_bucketColumns[bucket].segments[series] = static_cast<Box*>(hitArea->addChild(std::move(segment)));
+      m_bucketColumns[bucket].segments[series] = dynamic_cast<Box*>(hitArea->addChild(std::move(segment)));
       m_bucketColumns[bucket].segmentHits[series] = hitArea.get();
       plotColumn->addChild(std::move(hitArea));
     }
@@ -298,7 +298,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
     });
 
     for (std::size_t col = 0; col < kAppsPerRow; ++col) {
-      const std::size_t i = gridRow * kAppsPerRow + col;
+      const std::size_t i = (gridRow * kAppsPerRow) + col;
       if (i >= m_appRows.size()) {
         break;
       }
@@ -696,7 +696,7 @@ void ScreenTimeTab::syncContent(Renderer& renderer) {
     }
     bool rowVisible = false;
     for (std::size_t col = 0; col < kAppsPerRow; ++col) {
-      const std::size_t i = gridRow * kAppsPerRow + col;
+      const std::size_t i = (gridRow * kAppsPerRow) + col;
       if (i < m_appRows.size() && m_appRows[i].cell != nullptr && m_appRows[i].cell->visible()) {
         rowVisible = true;
         break;
@@ -726,7 +726,7 @@ void ScreenTimeTab::layoutChart(Renderer& renderer) {
     rowWidth = m_usageCard->width();
   }
   auto columnWidth = activeBuckets > 0 && rowWidth > 0.0f
-      ? (rowWidth - barGap * static_cast<float>(activeBuckets - 1)) / static_cast<float>(activeBuckets)
+      ? (rowWidth - (barGap * static_cast<float>(activeBuckets - 1))) / static_cast<float>(activeBuckets)
       : 0.0f;
 
   if (columnWidth <= 0.0f && activeBuckets > 0 && m_usageCard != nullptr) {
@@ -736,7 +736,7 @@ void ScreenTimeTab::layoutChart(Renderer& renderer) {
       rowWidth = m_usageCard->width();
     }
     columnWidth = activeBuckets > 0 && rowWidth > 0.0f
-        ? (rowWidth - barGap * static_cast<float>(activeBuckets - 1)) / static_cast<float>(activeBuckets)
+        ? (rowWidth - (barGap * static_cast<float>(activeBuckets - 1))) / static_cast<float>(activeBuckets)
         : 0.0f;
   }
 

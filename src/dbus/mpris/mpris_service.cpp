@@ -20,6 +20,7 @@
 #include <string_view>
 #include <tuple>
 #include <unordered_set>
+#include <utility>
 
 std::string joinedArtists(const std::vector<std::string>& artists) {
   if (artists.empty()) {
@@ -35,18 +36,18 @@ std::string joinedArtists(const std::vector<std::string>& artists) {
 
 namespace {
 
-  static constexpr auto kDbusInterface = "org.freedesktop.DBus";
-  static constexpr auto kPropertiesInterface = "org.freedesktop.DBus.Properties";
-  static constexpr auto kMprisRootInterface = "org.mpris.MediaPlayer2";
-  static constexpr auto kMprisPlayerInterface = "org.mpris.MediaPlayer2.Player";
-  static constexpr auto kNoctaliaMprisInterface = "dev.noctalia.Mpris";
-  static constexpr auto kPropertiesDebounceWindow = std::chrono::milliseconds{120};
-  static constexpr auto kMetadataStabilizeWindow = std::chrono::milliseconds{900};
-  static const sdbus::ServiceName kDbusName{"org.freedesktop.DBus"};
-  static const sdbus::ObjectPath kDbusPath{"/org/freedesktop/DBus"};
-  static const sdbus::ObjectPath kMprisPath{"/org/mpris/MediaPlayer2"};
-  static const sdbus::ServiceName kNoctaliaMprisBusName{"dev.noctalia.Mpris"};
-  static const sdbus::ObjectPath kNoctaliaMprisObjectPath{"/dev/noctalia/Mpris"};
+  constexpr auto kDbusInterface = "org.freedesktop.DBus";
+  constexpr auto kPropertiesInterface = "org.freedesktop.DBus.Properties";
+  constexpr auto kMprisRootInterface = "org.mpris.MediaPlayer2";
+  constexpr auto kMprisPlayerInterface = "org.mpris.MediaPlayer2.Player";
+  constexpr auto kNoctaliaMprisInterface = "dev.noctalia.Mpris";
+  constexpr auto kPropertiesDebounceWindow = std::chrono::milliseconds{120};
+  constexpr auto kMetadataStabilizeWindow = std::chrono::milliseconds{900};
+  const sdbus::ServiceName kDbusName{"org.freedesktop.DBus"};
+  const sdbus::ObjectPath kDbusPath{"/org/freedesktop/DBus"};
+  const sdbus::ObjectPath kMprisPath{"/org/mpris/MediaPlayer2"};
+  const sdbus::ServiceName kNoctaliaMprisBusName{"dev.noctalia.Mpris"};
+  const sdbus::ObjectPath kNoctaliaMprisObjectPath{"/dev/noctalia/Mpris"};
 
   bool is_mpris_bus_name(std::string_view name) { return name.starts_with("org.mpris.MediaPlayer2."); }
 
@@ -402,7 +403,7 @@ void MprisService::refreshPlayerPosition(const std::string& busName, bool notify
         .onInterface(kPropertiesInterface)
         .withArguments(std::string{kMprisPlayerInterface}, std::string{"Position"})
         .uponReplyInvoke([this, aliveGuard, busName,
-                          notifyChange](std::optional<sdbus::Error> err, sdbus::Variant value) {
+                          notifyChange](std::optional<sdbus::Error> err, const sdbus::Variant& value) {
           if (aliveGuard.expired()) {
             return;
           }
@@ -990,7 +991,7 @@ bool MprisService::setShuffleActive(bool shuffle) {
   return setShuffle(*active, shuffle);
 }
 
-bool MprisService::setLoopStatus(const std::string& busName, std::string loopStatus) {
+bool MprisService::setLoopStatus(const std::string& busName, const std::string& loopStatus) {
   if (!is_valid_loop_status(loopStatus)) {
     return false;
   }
@@ -1008,9 +1009,7 @@ bool MprisService::setLoopStatus(const std::string& busName, std::string loopSta
   try {
     proxyIt->second->callMethodAsync("Set")
         .onInterface(kPropertiesInterface)
-        .withArguments(
-            std::string{kMprisPlayerInterface}, std::string{"LoopStatus"}, sdbus::Variant{std::move(loopStatus)}
-        )
+        .withArguments(std::string{kMprisPlayerInterface}, std::string{"LoopStatus"}, sdbus::Variant{loopStatus})
         .uponReplyInvoke(makeAsyncReplyHandler("set-loop-status", busName));
     return true;
   } catch (const sdbus::Error& e) {
@@ -1019,12 +1018,12 @@ bool MprisService::setLoopStatus(const std::string& busName, std::string loopSta
   }
 }
 
-bool MprisService::setLoopStatusActive(std::string loopStatus) {
+bool MprisService::setLoopStatusActive(const std::string& loopStatus) {
   const auto active = chooseActivePlayer();
   if (!active.has_value()) {
     return false;
   }
-  return setLoopStatus(*active, std::move(loopStatus));
+  return setLoopStatus(*active, loopStatus);
 }
 
 std::optional<int64_t> MprisService::position(const std::string& busName) const {
@@ -1137,7 +1136,7 @@ void MprisService::setPreferredPlayers(std::vector<std::string> preferredBusName
   }
 }
 
-void MprisService::setBlacklist(std::vector<std::string> blacklist) {
+void MprisService::setBlacklist(const std::vector<std::string>& blacklist) {
   std::unordered_set<std::string> seen;
   std::vector<std::string> normalized;
   normalized.reserve(blacklist.size());
@@ -1447,7 +1446,7 @@ void MprisService::discoverPlayers() {
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
     m_dbusProxy->callMethodAsync("ListNames")
         .onInterface(kDbusInterface)
-        .uponReplyInvoke([this, aliveGuard](std::optional<sdbus::Error> err, std::vector<std::string> names) {
+        .uponReplyInvoke([this, aliveGuard](std::optional<sdbus::Error> err, const std::vector<std::string>& names) {
           if (aliveGuard.expired()) {
             return;
           }
@@ -1633,7 +1632,7 @@ void MprisService::addOrRefreshPlayer(const std::string& busName) {
         .onInterface(kPropertiesInterface)
         .withArguments(std::string{kMprisRootInterface})
         .uponReplyInvoke([this, aliveGuard, busName, hadPositionSignal](
-                             std::optional<sdbus::Error> rootErr, std::map<std::string, sdbus::Variant> rootProps
+                             const std::optional<sdbus::Error>& rootErr, std::map<std::string, sdbus::Variant> rootProps
                          ) {
           if (aliveGuard.expired()) {
             return;
@@ -1650,7 +1649,7 @@ void MprisService::addOrRefreshPlayer(const std::string& busName) {
                 .withArguments(std::string{kMprisPlayerInterface})
                 .uponReplyInvoke([this, aliveGuard, busName, hadPositionSignal, rootErr,
                                   rootProps = std::move(rootProps)](
-                                     std::optional<sdbus::Error> playerErr,
+                                     const std::optional<sdbus::Error>& playerErr,
                                      std::map<std::string, sdbus::Variant> playerProps
                                  ) {
                   if (aliveGuard.expired()) {
@@ -1674,9 +1673,11 @@ void MprisService::addOrRefreshPlayer(const std::string& busName) {
                         m_positionResyncTimers.erase(it);
                       }
                       return;
-                    } else if (failureCount > kPlayerPropertiesFailureThreshold) {
+                    }
+                    if (failureCount > kPlayerPropertiesFailureThreshold) {
                       return;
-                    } else if (failureCount > 1) {
+                    }
+                    if (failureCount > 1) {
                       // Keep the first failure on the normal retry cadence before backing off.
                       // Apply exponential backoff
                       auto& backoff = m_playerPropertiesRefreshBackoffMs[busName];
@@ -1712,7 +1713,7 @@ void MprisService::addOrRefreshPlayer(const std::string& busName) {
 
                   std::map<std::string, sdbus::Variant> effectivePlayerProps;
                   if (!playerFailed) {
-                    effectivePlayerProps = playerProps;
+                    effectivePlayerProps = std::move(playerProps);
                   }
 
                   const MprisPlayerInfo info =
@@ -2064,7 +2065,7 @@ std::optional<std::string> MprisService::chooseActivePlayer() const {
     const auto it = m_players.find(*m_pinnedPlayerPreference);
     if (it != m_players.end() && !isBlacklisted(it->second) && !isDismissed(*m_pinnedPlayerPreference)) {
       // kLog.debug("choose active player source=pinned name={}", *m_pinnedPlayerPreference);
-      return *m_pinnedPlayerPreference;
+      return m_pinnedPlayerPreference;
     }
   }
 

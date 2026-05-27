@@ -52,7 +52,7 @@ public:
     if (m_renderer == nullptr || m_entries == nullptr || index >= m_entries->size()) {
       return;
     }
-    auto* row = static_cast<FileEntryRow*>(&tile);
+    auto* row = dynamic_cast<FileEntryRow*>(&tile);
     const bool disabled = m_isSelectable && !m_isSelectable(index);
     row->bind(*m_renderer, (*m_entries)[index], index, row->width(), selected, hovered && !selected, disabled);
   }
@@ -90,7 +90,7 @@ public:
     if (m_renderer == nullptr || m_entries == nullptr || index >= m_entries->size()) {
       return;
     }
-    auto* file = static_cast<FileEntryTile*>(&tile);
+    auto* file = dynamic_cast<FileEntryTile*>(&tile);
     const bool disabled = m_isSelectable && !m_isSelectable(index);
     // FileEntryTile::bind detects same-thumbnailPath rebinds and skips acquire/release,
     // so per-frame rebinds that VirtualGridView's row-modulo recycling already filters
@@ -135,7 +135,7 @@ void FileDialogView::create() {
   listFocus->setFocusable(true);
   listFocus->setVisible(false);
   listFocus->setParticipatesInLayout(false);
-  m_listFocusArea = static_cast<InputArea*>(root->addChild(std::move(listFocus)));
+  m_listFocusArea = dynamic_cast<InputArea*>(root->addChild(std::move(listFocus)));
 
   root->addChild(
       ui::row(
@@ -1079,7 +1079,7 @@ void FileDialogView::ensureSelectionVisible() {
     const float gap = Style::spaceSm * contentScale();
     const float viewportW = m_gridGrid->scrollView().contentViewportWidth();
     const float columnsF = static_cast<float>(m_gridColumns);
-    const float cellW = std::max(0.0f, (viewportW - (columnsF - 1.0f) * gap) / std::max(columnsF, 1.0f));
+    const float cellW = std::max(0.0f, (viewportW - ((columnsF - 1.0f) * gap)) / std::max(columnsF, 1.0f));
     const float cellH = cellW; // squareCells
     const float pitch = cellH + gap;
     const std::size_t row = m_selectedIndex / m_gridColumns;

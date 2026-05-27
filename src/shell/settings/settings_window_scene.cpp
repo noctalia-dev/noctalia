@@ -257,7 +257,7 @@ void SettingsWindow::applyPendingContentScrollTarget(float margin) {
   }
 
   const float viewportHeight =
-      std::max(0.0f, m_contentScrollView->height() - m_contentScrollView->viewportPaddingV() * 2.0f);
+      std::max(0.0f, m_contentScrollView->height() - (m_contentScrollView->viewportPaddingV() * 2.0f));
   if (viewportHeight <= 0.0f) {
     clearPending();
     return;
@@ -889,7 +889,7 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
         box.setPosition(0.0f, 0.0f);
       },
   });
-  m_panelBackground = static_cast<Box*>(m_sceneRoot->addChild(std::move(bg)));
+  m_panelBackground = dynamic_cast<Box*>(m_sceneRoot->addChild(std::move(bg)));
 
   auto main = ui::column({
       .align = FlexAlign::Stretch,
@@ -913,7 +913,7 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   main->setSize(w, h);
   main->layout(*m_renderContext);
   applyPendingContentScrollTarget(Style::spaceMd * scale);
-  m_mainContainer = static_cast<Flex*>(m_sceneRoot->addChild(std::move(main)));
+  m_mainContainer = dynamic_cast<Flex*>(m_sceneRoot->addChild(std::move(main)));
 
   m_inputDispatcher.setSceneRoot(m_sceneRoot.get());
   m_inputDispatcher.setCursorShapeCallback([this](std::uint32_t serial, std::uint32_t shape) {

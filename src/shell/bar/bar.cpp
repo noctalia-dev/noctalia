@@ -645,11 +645,11 @@ namespace {
         const float pad = run.spec.padding * scale;
         const float padMain = pad;
         const float padCross = std::min(pad, Style::spaceXs * scale);
-        float capsuleCross = bodyExtent + 2.0f * padCross;
+        float capsuleCross = bodyExtent + (2.0f * padCross);
         if (isVertical) {
           capsuleCross = std::min(capsuleCross, slotCross);
         }
-        float shellMain = (isVertical ? ih : iw) + 2.0f * padMain;
+        float shellMain = (isVertical ? ih : iw) + (2.0f * padMain);
         float shellCross = capsuleCross;
         float shellW = isVertical ? shellCross : shellMain;
         float shellH = isVertical ? shellMain : shellCross;
@@ -736,7 +736,7 @@ namespace {
       }
     }
 
-    const float barMidline = contentMainStart + contentMainSpan * 0.5f;
+    const float barMidline = contentMainStart + (contentMainSpan * 0.5f);
     const float centerNaturalMain = isVertical ? instance.centerSection->height() : instance.centerSection->width();
 
     float centerSlotStart;
@@ -745,7 +745,7 @@ namespace {
     if (anchorNode != nullptr) {
       const float anchorOffsetInSection = isVertical ? anchorNode->y() : anchorNode->x();
       const float anchorSpan = isVertical ? anchorNode->height() : anchorNode->width();
-      const float anchorCenterInSection = anchorOffsetInSection + anchorSpan * 0.5f;
+      const float anchorCenterInSection = anchorOffsetInSection + (anchorSpan * 0.5f);
       // Place the section so that the anchor's center sits at barMidline.
       float desiredSectionStart = barMidline - anchorCenterInSection;
       // Clamp so the section stays within the content area.
@@ -801,7 +801,7 @@ namespace {
     applyBarWidgetHitTargets(instance.endSection, instance.endSlot, isVertical);
     if (screenEdgeClick) {
       if (!instance.startSection->children().empty()) {
-        auto node = instance.startSection->children().front().get();
+        auto* node = instance.startSection->children().front().get();
         auto hitTestOutset = node->hitTestOutset();
         if (isVertical) {
           hitTestOutset.top += paddingInsideSection;
@@ -811,7 +811,7 @@ namespace {
         node->setHitTestOutset(hitTestOutset);
       }
       if (!instance.endSection->children().empty()) {
-        auto node = instance.endSection->children().back().get();
+        auto* node = instance.endSection->children().back().get();
         auto hitTestOutset = node->hitTestOutset();
         if (isVertical) {
           hitTestOutset.bottom += paddingInsideSection;
@@ -1500,7 +1500,7 @@ void Bar::populateWidgets(BarInstance& instance) {
         if (wcPtr != nullptr && wcPtr->hasSetting("color")) {
           widget->setWidgetForeground(wcPtr->getOptionalColorSpec("color", "widget." + name + ".color"));
         } else if (instance.barConfig.widgetColor.has_value()) {
-          widget->setWidgetForeground(*instance.barConfig.widgetColor);
+          widget->setWidgetForeground(instance.barConfig.widgetColor);
         }
         dest.push_back(std::move(widget));
       }
@@ -1992,11 +1992,11 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
     instance.slideRoot = instance.sceneRoot->addChild(std::move(slide));
 
     // Bar background
-    instance.bg = static_cast<Box*>(instance.slideRoot->addChild(ui::box()));
+    instance.bg = dynamic_cast<Box*>(instance.slideRoot->addChild(ui::box()));
 
     // Shadow — bar shape copy rendered with large SDF softness to simulate a blurred drop shadow.
     if (shadowSize > 0.0f) {
-      instance.shadow = static_cast<Box*>(instance.slideRoot->addChild(
+      instance.shadow = dynamic_cast<Box*>(instance.slideRoot->addChild(
           ui::box({
               .configure = [](Box& shadow) { shadow.setHitTestVisible(false); },
           })
@@ -2006,13 +2006,13 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
       leftClip->setClipChildren(true);
       leftClip->setZIndex(-1);
       instance.shadowLeftClip = instance.slideRoot->addChild(std::move(leftClip));
-      instance.shadowLeft = static_cast<Box*>(instance.shadowLeftClip->addChild(ui::box()));
+      instance.shadowLeft = dynamic_cast<Box*>(instance.shadowLeftClip->addChild(ui::box()));
 
       auto rightClip = std::make_unique<Node>();
       rightClip->setClipChildren(true);
       rightClip->setZIndex(-1);
       instance.shadowRightClip = instance.slideRoot->addChild(std::move(rightClip));
-      instance.shadowRight = static_cast<Box*>(instance.shadowRightClip->addChild(ui::box()));
+      instance.shadowRight = dynamic_cast<Box*>(instance.shadowRightClip->addChild(ui::box()));
     }
     // Note: shadow is inserted before bar sections so it renders below them (z=-1 is set below).
 
@@ -2040,9 +2040,9 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
       );
     };
 
-    instance.startSection = static_cast<Flex*>(instance.startSlot->addChild(makeSection()));
-    instance.centerSection = static_cast<Flex*>(instance.centerSlot->addChild(makeSection()));
-    instance.endSection = static_cast<Flex*>(instance.endSlot->addChild(makeSection()));
+    instance.startSection = dynamic_cast<Flex*>(instance.startSlot->addChild(makeSection()));
+    instance.centerSection = dynamic_cast<Flex*>(instance.centerSlot->addChild(makeSection()));
+    instance.endSection = dynamic_cast<Flex*>(instance.endSlot->addChild(makeSection()));
 
     attachWidgetsToSections(instance);
 
@@ -2157,7 +2157,8 @@ void Bar::updateWidgets(BarInstance& instance) {
   const float bleedRight = static_cast<float>(sbi.right);
   const float bleedUp = static_cast<float>(sbi.up);
   const float bleedDown = static_cast<float>(sbi.down);
-  float barAreaW, barAreaH;
+  float barAreaW;
+  float barAreaH;
   if (isVertical) {
     const float barAreaY = std::min(marginEnds, bleedUp);
     barAreaW = barThickness;
@@ -2372,16 +2373,18 @@ bool Bar::onPointerEvent(const PointerEvent& event) {
     break;
   }
   case PointerEvent::Type::Motion: {
-    if (m_hoveredInstance == nullptr)
+    if (m_hoveredInstance == nullptr) {
       break;
+    }
     m_hoveredInstance->lastPointerSx = static_cast<float>(event.sx);
     m_hoveredInstance->lastPointerSy = static_cast<float>(event.sy);
     m_hoveredInstance->inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), 0);
     break;
   }
   case PointerEvent::Type::Button: {
-    if (m_hoveredInstance == nullptr)
+    if (m_hoveredInstance == nullptr) {
       break;
+    }
     m_hoveredInstance->lastPointerSx = static_cast<float>(event.sx);
     m_hoveredInstance->lastPointerSy = static_cast<float>(event.sy);
     bool pressed = (event.state == 1); // WL_POINTER_BUTTON_STATE_PRESSED
@@ -2428,8 +2431,9 @@ bool Bar::onPointerEvent(const PointerEvent& event) {
     break;
   }
   case PointerEvent::Type::Axis: {
-    if (m_hoveredInstance == nullptr)
+    if (m_hoveredInstance == nullptr) {
       break;
+    }
     m_hoveredInstance->lastPointerSx = static_cast<float>(event.sx);
     m_hoveredInstance->lastPointerSy = static_cast<float>(event.sy);
     m_hoveredInstance->inputDispatcher.pointerAxis(
@@ -2606,7 +2610,7 @@ std::string Bar::setBarAutoHideIpc(std::string_view args) {
     return "error: usage: bar-auto-hide-set <on|off|true|false|1|0> [bar-name] [monitor-selector]\n";
   }
 
-  const std::string value = parts[0];
+  const std::string& value = parts[0];
   bool enabled = false;
   if (value == "on" || value == "true" || value == "1") {
     enabled = true;
@@ -2684,7 +2688,7 @@ std::string Bar::setBarAutoHideIpc(std::string_view args) {
     return "error: bar service not initialized\n";
   }
 
-  const std::string selector = parts[2];
+  const std::string& selector = parts[2];
   std::vector<std::string> matches;
   std::vector<std::string> knownOutputs;
   for (const auto& output : m_platform->outputs()) {

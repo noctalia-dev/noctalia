@@ -95,14 +95,14 @@ void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, Dro
   m_menuWidth = request.menuWidth;
 
   const std::size_t visibleCount = std::min(request.maxVisibleOptions, m_options.size());
-  m_viewportHeight = static_cast<float>(visibleCount) * m_optionHeight + kMenuPadding * 2.0f;
+  m_viewportHeight = (static_cast<float>(visibleCount) * m_optionHeight) + (kMenuPadding * 2.0f);
   m_totalHeight = static_cast<float>(m_options.size()) * m_optionHeight;
   m_scrollOffset = 0.0f;
   const auto chrome = popup_chrome::computeGeometry(m_menuWidth, m_viewportHeight, m_shadowConfig);
 
   if (m_selectedIndex < m_options.size()) {
     const float selectedTop = static_cast<float>(m_selectedIndex) * m_optionHeight;
-    const float contentViewport = m_viewportHeight - kMenuPadding * 2.0f;
+    const float contentViewport = m_viewportHeight - (kMenuPadding * 2.0f);
     if (selectedTop + m_optionHeight > contentViewport) {
       m_scrollOffset = selectedTop + m_optionHeight - contentViewport;
     }
@@ -252,14 +252,14 @@ void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
           .borderWidth = Style::borderWidth,
       }
   );
-  auto* bgNode = static_cast<RectNode*>(m_sceneRoot->addChild(std::move(bg)));
+  auto* bgNode = dynamic_cast<RectNode*>(m_sceneRoot->addChild(std::move(bg)));
   bgNode->setPosition(menuX, menuY);
   bgNode->setFrameSize(m_menuWidth, m_viewportHeight);
 
-  const float contentViewport = m_viewportHeight - kMenuPadding * 2.0f;
+  const float contentViewport = m_viewportHeight - (kMenuPadding * 2.0f);
   const bool scrollable = m_totalHeight > contentViewport + 0.5f;
   const float scrollbarGutter = scrollable ? Style::scrollbarWidth : 0.0f;
-  const float rowWidth = m_menuWidth - kMenuPadding * 2.0f - scrollbarGutter;
+  const float rowWidth = m_menuWidth - (kMenuPadding * 2.0f) - scrollbarGutter;
 
   auto viewport = std::make_unique<Node>();
   viewport->setClipChildren(true);
@@ -282,7 +282,7 @@ void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
     auto rowBg = std::make_unique<RectNode>();
     rowBg->setPosition(0.0f, rowY);
     rowBg->setFrameSize(rowWidth, m_optionHeight);
-    auto* rowBgPtr = static_cast<RectNode*>(m_contentNode->addChild(std::move(rowBg)));
+    auto* rowBgPtr = dynamic_cast<RectNode*>(m_contentNode->addChild(std::move(rowBg)));
 
     const bool hasPreview = i < request.optionSwatchPreviews.size() && !request.optionSwatchPreviews[i].empty();
     float leadingInset = 0.0f;
@@ -315,7 +315,7 @@ void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
     label->measure(m_renderContext);
     float labelY = std::round((m_optionHeight - label->height()) * 0.5f);
     label->setPosition(labelLeft, rowY + labelY);
-    auto* labelPtr = static_cast<Label*>(m_contentNode->addChild(std::move(label)));
+    auto* labelPtr = dynamic_cast<Label*>(m_contentNode->addChild(std::move(label)));
 
     Glyph* checkPtr = nullptr;
     if (i == m_selectedIndex) {
@@ -325,7 +325,7 @@ void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
       checkGlyph->measure(m_renderContext);
       float glyphY = std::round((m_optionHeight - checkGlyph->height()) * 0.5f);
       checkGlyph->setPosition(rowWidth - request.horizontalPadding - checkGlyph->width(), rowY + glyphY);
-      checkPtr = static_cast<Glyph*>(m_contentNode->addChild(std::move(checkGlyph)));
+      checkPtr = dynamic_cast<Glyph*>(m_contentNode->addChild(std::move(checkGlyph)));
     }
 
     m_optionViews.push_back(OptionView{.background = rowBgPtr, .label = labelPtr, .checkGlyph = checkPtr});
@@ -362,7 +362,7 @@ void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
   const float scrollbarX = menuX + m_menuWidth - Style::scrollbarWidth - Style::borderWidth;
   scrollbar->setPosition(scrollbarX, menuY + kMenuPadding);
   scrollbar->update(contentViewport, m_totalHeight, m_scrollOffset);
-  m_scrollbar = static_cast<Scrollbar*>(m_sceneRoot->addChild(std::move(scrollbar)));
+  m_scrollbar = dynamic_cast<Scrollbar*>(m_sceneRoot->addChild(std::move(scrollbar)));
 
   applyHoverVisuals();
 }
@@ -381,7 +381,7 @@ void SelectDropdownPopup::selectAndClose(std::size_t index) {
 void SelectDropdownPopup::scrollBy(float delta) { setScrollOffset(m_scrollOffset + delta); }
 
 void SelectDropdownPopup::setScrollOffset(float offset) {
-  const float contentViewport = m_viewportHeight - kMenuPadding * 2.0f;
+  const float contentViewport = m_viewportHeight - (kMenuPadding * 2.0f);
   const float maxScroll = std::max(0.0f, m_totalHeight - contentViewport);
   m_scrollOffset = std::clamp(offset, 0.0f, maxScroll);
   applyScrollOffset();
@@ -395,7 +395,7 @@ void SelectDropdownPopup::applyScrollOffset() {
     m_contentNode->setPosition(kMenuPadding, -m_scrollOffset);
   }
   if (m_scrollbar != nullptr) {
-    const float contentViewport = m_viewportHeight - kMenuPadding * 2.0f;
+    const float contentViewport = m_viewportHeight - (kMenuPadding * 2.0f);
     m_scrollbar->update(contentViewport, m_totalHeight, m_scrollOffset);
   }
 }
@@ -436,7 +436,7 @@ void SelectDropdownPopup::applyHoverVisuals() {
 }
 
 void SelectDropdownPopup::clampScrollOffset() {
-  const float contentViewport = m_viewportHeight - kMenuPadding * 2.0f;
+  const float contentViewport = m_viewportHeight - (kMenuPadding * 2.0f);
   const float maxScroll = std::max(0.0f, m_totalHeight - contentViewport);
   m_scrollOffset = std::clamp(m_scrollOffset, 0.0f, maxScroll);
 }

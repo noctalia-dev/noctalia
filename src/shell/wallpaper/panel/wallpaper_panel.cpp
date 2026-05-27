@@ -102,7 +102,7 @@ public:
   }
 
   void bindTile(Node& tile, std::size_t index, bool selected, bool hovered) override {
-    auto* wt = static_cast<WallpaperTile*>(&tile);
+    auto* wt = dynamic_cast<WallpaperTile*>(&tile);
     wt->setCellSize(wt->width(), wt->height());
     if (m_renderer != nullptr && m_entries != nullptr && index < m_entries->size()) {
       wt->setEntry((*m_entries)[index], *m_renderer);

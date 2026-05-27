@@ -35,7 +35,7 @@ namespace {
 } // namespace
 
 DesktopWeatherWidget::DesktopWeatherWidget(const WeatherService* weather, ColorSpec color, bool shadow)
-    : m_weather(weather), m_color(std::move(color)), m_shadow(shadow) {}
+    : m_weather(weather), m_color(color), m_shadow(shadow) {}
 
 void DesktopWeatherWidget::create() {
   auto rootNode = std::make_unique<Node>();
@@ -79,12 +79,15 @@ bool DesktopWeatherWidget::applySetting(
   if (key == "color") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_color = colorSpecFromConfigString(*v, key);
-      if (m_glyph != nullptr)
+      if (m_glyph != nullptr) {
         m_glyph->setColor(m_color);
-      if (m_temperature != nullptr)
+      }
+      if (m_temperature != nullptr) {
         m_temperature->setColor(m_color);
-      if (m_condition != nullptr)
+      }
+      if (m_condition != nullptr) {
         m_condition->setColor(m_color);
+      }
       return true;
     }
     return false;
@@ -109,7 +112,7 @@ void DesktopWeatherWidget::doLayout(Renderer& renderer) {
   const float width = kBaseWidth * scale;
   const float height = kBaseHeight * scale;
   const float glyphSlotWidth = kGlyphSlotWidth * scale;
-  const float textX = glyphSlotWidth + kColumnGap * scale;
+  const float textX = glyphSlotWidth + (kColumnGap * scale);
   const float textWidth = std::max(1.0f, width - textX);
 
   m_temperature->setFontSize(temperatureFontSize(scale));

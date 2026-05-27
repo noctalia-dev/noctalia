@@ -484,7 +484,7 @@ void KeyboardLayoutWidget::sync(Renderer& renderer) {
     m_label->measure(renderer);
   }
 
-  if (auto* area = static_cast<InputArea*>(root()); area != nullptr) {
+  if (auto* area = dynamic_cast<InputArea*>(root()); area != nullptr) {
     if (m_showLabel) {
       area->clearTooltip();
     } else {

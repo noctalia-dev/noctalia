@@ -9,7 +9,7 @@ namespace {
     if (node == nullptr || root == nullptr) {
       return false;
     }
-    for (auto* current = node; current != nullptr; current = current->parent()) {
+    for (const auto* current = node; current != nullptr; current = current->parent()) {
       if (current == root) {
         return true;
       }

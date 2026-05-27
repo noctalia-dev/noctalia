@@ -170,7 +170,7 @@ void ControlCenterPanel::create() {
       PanelManager::instance().refresh();
     }
   });
-  m_contentDismissArea = static_cast<InputArea*>(content->addChild(std::move(dismissArea)));
+  m_contentDismissArea = dynamic_cast<InputArea*>(content->addChild(std::move(dismissArea)));
 
   auto header = ui::row({
       .out = &m_contentHeader,

@@ -118,9 +118,9 @@ void DisplayTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
 
   const float scale = contentScale();
   const float cardWidth = std::max(1.0f, contentWidth);
-  const float cardInnerWidth = std::max(1.0f, cardWidth - Style::spaceMd * scale * 2.0f);
+  const float cardInnerWidth = std::max(1.0f, cardWidth - (Style::spaceMd * scale * 2.0f));
   const float headerTextMaxWidth =
-      std::max(1.0f, cardInnerWidth - Style::fontSizeTitle * scale - Style::spaceSm * scale);
+      std::max(1.0f, cardInnerWidth - (Style::fontSizeTitle * scale) - (Style::spaceSm * scale));
   for (auto& card : m_cards) {
     if (card.card != nullptr) {
       card.card->setMinWidth(cardWidth);

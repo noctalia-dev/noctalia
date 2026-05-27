@@ -19,7 +19,7 @@ Spinner::Spinner() {
   m_paletteConn = paletteChanged().connect([this] { applyPalette(); });
   auto node = std::make_unique<SpinnerNode>();
   node->setThickness(kDefaultThickness);
-  m_spinnerNode = static_cast<SpinnerNode*>(addChild(std::move(node)));
+  m_spinnerNode = dynamic_cast<SpinnerNode*>(addChild(std::move(node)));
   m_spinnerSize = kDefaultSize;
   applyPalette();
   updateGeometry();

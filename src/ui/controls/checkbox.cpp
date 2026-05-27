@@ -13,11 +13,11 @@
 
 Checkbox::Checkbox() {
   auto box = std::make_unique<Box>();
-  m_box = static_cast<Box*>(addChild(std::move(box)));
+  m_box = dynamic_cast<Box*>(addChild(std::move(box)));
 
   auto checkGlyph = std::make_unique<Glyph>();
   checkGlyph->setGlyph("check");
-  m_checkGlyph = static_cast<Glyph*>(addChild(std::move(checkGlyph)));
+  m_checkGlyph = dynamic_cast<Glyph*>(addChild(std::move(checkGlyph)));
 
   auto area = std::make_unique<InputArea>();
   area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
@@ -34,7 +34,7 @@ Checkbox::Checkbox() {
       m_onChange(next);
     }
   });
-  m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
+  m_inputArea = dynamic_cast<InputArea*>(addChild(std::move(area)));
 
   applyState();
 }
@@ -69,9 +69,9 @@ void Checkbox::setScale(float scale) {
 void Checkbox::setCheckedColors(
     std::optional<ColorSpec> fill, std::optional<ColorSpec> border, std::optional<ColorSpec> glyph
 ) {
-  m_checkedFill = std::move(fill);
-  m_checkedBorder = std::move(border);
-  m_checkedGlyph = std::move(glyph);
+  m_checkedFill = fill;
+  m_checkedBorder = border;
+  m_checkedGlyph = glyph;
   applyState();
 }
 
@@ -93,11 +93,11 @@ void Checkbox::doLayout(Renderer& renderer) {
   }
 
   if (m_checkGlyph != nullptr) {
-    m_checkGlyph->setGlyphSize((Style::fontSizeBody + Style::spaceXs * 0.5f) * m_scale);
+    m_checkGlyph->setGlyphSize((Style::fontSizeBody + (Style::spaceXs * 0.5f)) * m_scale);
     m_checkGlyph->measure(renderer);
     m_checkGlyph->setPosition(
-        std::round(boxInset + (boxSize - m_checkGlyph->width()) * 0.5f),
-        std::round(boxInset + (boxSize - m_checkGlyph->height()) * 0.5f)
+        std::round(boxInset + ((boxSize - m_checkGlyph->width()) * 0.5f)),
+        std::round(boxInset + ((boxSize - m_checkGlyph->height()) * 0.5f))
     );
   }
 

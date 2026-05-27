@@ -78,7 +78,7 @@ std::unique_ptr<Flex> WeatherTab::create() {
   effectNode->setZIndex(-1);
   effectNode->setVisible(false);
   effectNode->setRadius(Style::scaledRadiusXl(scale));
-  m_effectNode = static_cast<EffectNode*>(currentCard->addChild(std::move(effectNode)));
+  m_effectNode = dynamic_cast<EffectNode*>(currentCard->addChild(std::move(effectNode)));
 
   auto glyphColumn = ui::row(
       {.out = &m_glyphColumn,
@@ -195,7 +195,7 @@ std::unique_ptr<Flex> WeatherTab::create() {
             .text = std::string(key),
             .fontSize = Style::fontSizeBody * scale,
             .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-            .minWidth = detailKeyWidth - (Style::fontSizeBody + Style::spaceXs) * scale - Style::spaceSm * scale,
+            .minWidth = detailKeyWidth - ((Style::fontSizeBody + Style::spaceXs) * scale) - (Style::spaceSm * scale),
         })
     );
     row->addChild(
@@ -687,7 +687,7 @@ void WeatherTab::sync(Renderer& renderer) {
                                        : std::string("--")
     );
   }
-  auto unit = m_weather->displayTemperatureUnit();
+  const auto* unit = m_weather->displayTemperatureUnit();
   if (m_tempMaxLabel != nullptr) {
     if (!snapshot.forecastDays.empty()) {
       const int temp =

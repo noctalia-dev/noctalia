@@ -66,13 +66,14 @@ public:
   [[nodiscard]] bool supportsSecretAgent() const noexcept override { return true; }
 
 private:
-  void refreshAccessPoints(std::function<void()> onComplete);
-  void refreshSavedConnections(std::function<void()> onComplete);
-  void refreshVpnConnections(std::function<void()> onComplete);
+  void refreshAccessPoints(const std::function<void()>& onComplete);
+  void refreshSavedConnections(const std::function<void()>& onComplete);
+  void refreshVpnConnections(const std::function<void()>& onComplete);
   void finishSavedConnections(
-      std::vector<std::string>& ssids, std::vector<std::string>& wiredConnectionPaths, std::function<void()> onComplete
+      std::vector<std::string>& ssids, std::vector<std::string>& wiredConnectionPaths,
+      const std::function<void()>& onComplete
   );
-  void finishRefreshAccessPoints(std::vector<AccessPointInfo>& aps, std::function<void()> onComplete);
+  void finishRefreshAccessPoints(std::vector<AccessPointInfo>& aps, const std::function<void()>& onComplete);
   bool addAndActivateAccessPoint(const AccessPointInfo& ap, const std::optional<std::string>& psk);
   void watchPendingAccessPointActivation(
       const std::string& ssid, const std::string& connectionPath, const std::string& activePath
@@ -84,7 +85,7 @@ private:
   void rebindActiveDevice(const std::string& devicePath);
   void rebindActiveAccessPoint(const std::string& apPath);
   void ensureWifiDeviceSubscribed(const std::string& devicePath);
-  void readStateAsync(std::function<void(NetworkState)> onComplete);
+  void readStateAsync(const std::function<void(NetworkState)>& onComplete);
   [[nodiscard]] NetworkChangeOrigin consumeWirelessEnabledChangeOrigin(bool enabled);
   void emitChangedIfNeeded(NetworkState next);
 

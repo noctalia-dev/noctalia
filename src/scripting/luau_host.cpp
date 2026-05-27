@@ -114,7 +114,7 @@ namespace {
     return true;
   }
 
-  bool startDetachedCommandInTerminalAsync(std::string command) {
+  bool startDetachedCommandInTerminalAsync(const std::string& command) {
     auto prepared = terminal_launch::prepareCommand(command);
     return prepared.has_value() && startDetachedProcessAsync(std::move(*prepared));
   }
@@ -324,10 +324,11 @@ namespace {
   int luau_getenv(lua_State* L) {
     const char* name = luaL_checkstring(L, 1);
     const char* val = std::getenv(name);
-    if (val)
+    if (val) {
       lua_pushstring(L, val);
-    else
+    } else {
       lua_pushnil(L);
+    }
     return 1;
   }
 
@@ -388,8 +389,9 @@ LuauHost::~LuauHost() {
       }
       m_asyncProcessMatchCallbackRefs.clear();
     }
-    if (m_threadRef != -1)
+    if (m_threadRef != -1) {
       lua_unref(m_L, m_threadRef);
+    }
     lua_close(m_L);
   }
 }
@@ -484,11 +486,11 @@ bool LuauHost::startAsyncProcessMatch(std::vector<std::string> needles, int call
 }
 
 bool LuauHost::hasAsyncCommandCallback(int callbackRef) const {
-  return m_asyncCommandCallbackRefs.find(callbackRef) != m_asyncCommandCallbackRefs.end();
+  return m_asyncCommandCallbackRefs.contains(callbackRef);
 }
 
 bool LuauHost::hasAsyncProcessMatchCallback(int callbackRef) const {
-  return m_asyncProcessMatchCallbackRefs.find(callbackRef) != m_asyncProcessMatchCallbackRefs.end();
+  return m_asyncProcessMatchCallbackRefs.contains(callbackRef);
 }
 
 bool LuauHost::callAsyncCommandCallback(

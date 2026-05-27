@@ -89,18 +89,22 @@ bool DesktopWidget::applySetting(
 
   auto getFloat = [&](const std::string& k, float fb) -> float {
     auto it = allSettings.find(k);
-    if (it == allSettings.end())
+    if (it == allSettings.end()) {
       return fb;
-    if (const auto* v = std::get_if<double>(&it->second))
+    }
+    if (const auto* v = std::get_if<double>(&it->second)) {
       return static_cast<float>(*v);
+    }
     return fb;
   };
   auto getColorSpec = [&](const std::string& k, const ColorSpec& fb) -> ColorSpec {
     auto it = allSettings.find(k);
-    if (it == allSettings.end())
+    if (it == allSettings.end()) {
       return fb;
-    if (const auto* v = std::get_if<std::string>(&it->second))
+    }
+    if (const auto* v = std::get_if<std::string>(&it->second)) {
       return colorSpecFromConfigString(*v, k);
+    }
     return fb;
   };
 
@@ -121,8 +125,8 @@ void DesktopWidget::applyBackground() {
 
   const float pad = std::round(m_bgPadding * m_contentScale);
   const float radius = std::round(m_bgRadius * m_contentScale);
-  const float w = m_contentRoot->width() + 2.0f * pad;
-  const float h = m_contentRoot->height() + 2.0f * pad;
+  const float w = m_contentRoot->width() + (2.0f * pad);
+  const float h = m_contentRoot->height() + (2.0f * pad);
 
   m_contentRoot->setPosition(pad, pad);
   m_bgBox->setPosition(0.0f, 0.0f);

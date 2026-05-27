@@ -266,7 +266,7 @@ void RenderContext::renderNode(
 
   switch (node->type()) {
   case NodeType::Rect: {
-    const auto* rect = static_cast<const RectNode*>(node);
+    const auto* rect = dynamic_cast<const RectNode*>(node);
     auto style = rect->style();
     style.fill.a *= effectiveOpacity;
     style.border.a *= effectiveOpacity;
@@ -277,7 +277,7 @@ void RenderContext::renderNode(
     break;
   }
   case NodeType::Text: {
-    const auto* text = static_cast<const TextNode*>(node);
+    const auto* text = dynamic_cast<const TextNode*>(node);
     if (!text->text().empty()) {
       const auto& font = text->fontFamily();
       if (text->hasShadow()) {
@@ -299,7 +299,7 @@ void RenderContext::renderNode(
     break;
   }
   case NodeType::Image: {
-    const auto* img = static_cast<const ImageNode*>(node);
+    const auto* img = dynamic_cast<const ImageNode*>(node);
     if (img->textureId() != 0) {
       auto tint = img->tint();
       tint.a *= effectiveOpacity;
@@ -325,7 +325,7 @@ void RenderContext::renderNode(
     break;
   }
   case NodeType::Glyph: {
-    const auto* icon = static_cast<const GlyphNode*>(node);
+    const auto* icon = dynamic_cast<const GlyphNode*>(node);
     if (icon->codepoint() != 0) {
       if (icon->hasShadow()) {
         auto shadowColor = icon->shadowColor();
@@ -342,14 +342,14 @@ void RenderContext::renderNode(
     break;
   }
   case NodeType::Spinner: {
-    const auto* spinner = static_cast<const SpinnerNode*>(node);
+    const auto* spinner = dynamic_cast<const SpinnerNode*>(node);
     auto style = spinner->style();
     style.color.a *= effectiveOpacity;
     m_backend->drawSpinner(sw, sh, node->width(), node->height(), style, worldTransform);
     break;
   }
   case NodeType::ScreenCorner: {
-    const auto* corner = static_cast<const ScreenCornerNode*>(node);
+    const auto* corner = dynamic_cast<const ScreenCornerNode*>(node);
     auto style = corner->style();
     style.color.a *= effectiveOpacity;
     const float pixelScaleX = sw > 0.0f ? bw / sw : 1.0f;
@@ -358,7 +358,7 @@ void RenderContext::renderNode(
     break;
   }
   case NodeType::AudioSpectrum: {
-    const auto* spectrum = static_cast<const AudioSpectrumNode*>(node);
+    const auto* spectrum = dynamic_cast<const AudioSpectrumNode*>(node);
     auto style = spectrum->style();
     style.lowColor.a *= effectiveOpacity;
     style.highColor.a *= effectiveOpacity;
@@ -370,14 +370,14 @@ void RenderContext::renderNode(
     break;
   }
   case NodeType::Effect: {
-    const auto* effect = static_cast<const EffectNode*>(node);
+    const auto* effect = dynamic_cast<const EffectNode*>(node);
     auto style = effect->style();
     style.bgColor.a *= effectiveOpacity;
     m_backend->drawEffect(sw, sh, node->width(), node->height(), style, worldTransform);
     break;
   }
   case NodeType::Graph: {
-    const auto* graph = static_cast<const GraphNode*>(node);
+    const auto* graph = dynamic_cast<const GraphNode*>(node);
     if (graph->textureId() != 0) {
       auto style = graph->style();
       style.lineColor1.a *= effectiveOpacity;
@@ -390,7 +390,7 @@ void RenderContext::renderNode(
     break;
   }
   case NodeType::Wallpaper: {
-    const auto* wallpaper = static_cast<const WallpaperNode*>(node);
+    const auto* wallpaper = dynamic_cast<const WallpaperNode*>(node);
     const bool hasSource1 = wallpaper->sourceKind1() == WallpaperSourceKind::Color || wallpaper->texture1() != 0;
     if (hasSource1) {
       const bool hasSource2 = wallpaper->sourceKind2() == WallpaperSourceKind::Color || wallpaper->texture2() != 0;

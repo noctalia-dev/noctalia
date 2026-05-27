@@ -309,7 +309,7 @@ void PipeWireSpectrum::Stream::handleProcess() {
     for (std::size_t i = 0; i < frameSize; ++i) {
       float sum = 0.0f;
       for (int c = 0; c < channelCount; ++c) {
-        sum += samples[i * channelCountSize + static_cast<std::size_t>(c)];
+        sum += samples[(i * channelCountSize) + static_cast<std::size_t>(c)];
       }
       mono[i] = sum * invChannels;
     }
@@ -579,7 +579,7 @@ void PipeWireSpectrum::configureListenerState(ListenerState& state, bool resetSt
   for (std::size_t i = 0; i < bandCountSize; ++i) {
     const std::int64_t low = (static_cast<std::int64_t>(i) * analysisBandCount) / listenerBandCount;
     const std::int64_t high =
-        ((static_cast<std::int64_t>(i + 1) * analysisBandCount) + listenerBandCount - 1) / listenerBandCount - 1;
+        (((static_cast<std::int64_t>(i + 1) * analysisBandCount) + listenerBandCount - 1) / listenerBandCount) - 1;
     state.analysisBandLow[i] = std::clamp<int>(static_cast<int>(low), 0, m_analysisBandCount - 1);
     state.analysisBandHigh[i] =
         std::clamp<int>(static_cast<int>(high), state.analysisBandLow[i], m_analysisBandCount - 1);
@@ -629,12 +629,8 @@ void PipeWireSpectrum::computeAnalysisBandBins() {
 
     if (i > 0 && binLow <= m_analysisBandBinHigh[i - 1]) {
       binLow = m_analysisBandBinHigh[i - 1] + 1;
-      if (binLow > fftBins) {
-        binLow = fftBins;
-      }
-      if (binHigh < binLow) {
-        binHigh = binLow;
-      }
+      binLow = std::min(binLow, fftBins);
+      binHigh = std::max(binHigh, binLow);
     }
 
     m_analysisBandBinLow[i] = binLow;
@@ -657,11 +653,9 @@ bool PipeWireSpectrum::processListenerView(ListenerState& state, float nrFactor,
     if (bands[i] < state.prevBands[i] && m_noiseReduction > 0.1f) {
       bands[i] = static_cast<float>(
           static_cast<double>(state.peak[i])
-          * (1.0 - static_cast<double>(state.fall[i]) * static_cast<double>(state.fall[i]) * gravityMod)
+          * (1.0 - (static_cast<double>(state.fall[i]) * static_cast<double>(state.fall[i]) * gravityMod))
       );
-      if (bands[i] < 0.0f) {
-        bands[i] = 0.0f;
-      }
+      bands[i] = std::max(bands[i], 0.0f);
       state.fall[i] += 0.028f;
     } else {
       state.peak[i] = bands[i];
@@ -669,7 +663,7 @@ bool PipeWireSpectrum::processListenerView(ListenerState& state, float nrFactor,
     }
     state.prevBands[i] = bands[i];
 
-    bands[i] = std::clamp(state.mem[i] * nrFactor + bands[i] * (1.0f - nrFactor), 0.0f, kMaxBandLevel);
+    bands[i] = std::clamp((state.mem[i] * nrFactor) + (bands[i] * (1.0f - nrFactor)), 0.0f, kMaxBandLevel);
     state.mem[i] = bands[i];
   }
 
@@ -755,7 +749,8 @@ void PipeWireSpectrum::processFrame() {
 
   const float invBandCount = 1.0f / static_cast<float>(std::max(1, m_analysisBandCount));
   for (std::size_t i = 0; i < analysisBandCountSize; ++i) {
-    const float weight = 1.0f + 0.5f * (static_cast<float>(m_analysisBandCount) - static_cast<float>(i)) * invBandCount;
+    const float weight =
+        1.0f + (0.5f * (static_cast<float>(m_analysisBandCount) - static_cast<float>(i)) * invBandCount);
     bands[i] *= weight;
   }
 

@@ -187,22 +187,30 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
       return nullptr;
     }
     auto parseStat = [](const std::string& s) -> DesktopSysmonStat {
-      if (s == "cpu_temp")
+      if (s == "cpu_temp") {
         return DesktopSysmonStat::CpuTemp;
-      if (s == "gpu_temp")
+      }
+      if (s == "gpu_temp") {
         return DesktopSysmonStat::GpuTemp;
-      if (s == "gpu_usage")
+      }
+      if (s == "gpu_usage") {
         return DesktopSysmonStat::GpuUsage;
-      if (s == "gpu_vram")
+      }
+      if (s == "gpu_vram") {
         return DesktopSysmonStat::GpuVram;
-      if (s == "ram_pct")
+      }
+      if (s == "ram_pct") {
         return DesktopSysmonStat::RamPct;
-      if (s == "swap_pct")
+      }
+      if (s == "swap_pct") {
         return DesktopSysmonStat::SwapPct;
-      if (s == "net_rx")
+      }
+      if (s == "net_rx") {
         return DesktopSysmonStat::NetRx;
-      if (s == "net_tx")
+      }
+      if (s == "net_tx") {
         return DesktopSysmonStat::NetTx;
+      }
       return DesktopSysmonStat::CpuUsage;
     };
     const DesktopSysmonStat stat = parseStat(getStringSetting(settings, "stat", "cpu_usage"));

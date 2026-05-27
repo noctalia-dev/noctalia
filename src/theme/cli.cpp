@@ -135,17 +135,20 @@ namespace noctalia::theme {
     std::unordered_map<std::string, TemplateListEntry> loadTemplateCatalog(const toml::table& root) {
       std::unordered_map<std::string, TemplateListEntry> out;
       const toml::table* catalog = root["catalog"].as_table();
-      if (catalog == nullptr)
+      if (catalog == nullptr) {
         return out;
+      }
 
       for (const auto& [idNode, node] : *catalog) {
         const auto id = std::string(idNode.str());
         TemplateListEntry entry{.id = id, .category = {}, .name = id};
         if (const toml::table* info = node.as_table()) {
-          if (const auto name = info->get_as<std::string>("name"))
+          if (const auto* const name = info->get_as<std::string>("name")) {
             entry.name = name->get();
-          if (const auto category = info->get_as<std::string>("category"))
+          }
+          if (const auto* const category = info->get_as<std::string>("category")) {
             entry.category = category->get();
+          }
         }
         out[id] = std::move(entry);
       }
@@ -156,8 +159,9 @@ namespace noctalia::theme {
     loadTemplateConfigList(const std::filesystem::path& path, bool required, std::string& err) {
       std::error_code ec;
       if (!std::filesystem::exists(path, ec)) {
-        if (required)
+        if (required) {
           err = "file does not exist";
+        }
         return {};
       }
 
@@ -171,14 +175,16 @@ namespace noctalia::theme {
 
       std::vector<TemplateListEntry> out;
       const toml::table* templates = root["templates"].as_table();
-      if (templates == nullptr)
+      if (templates == nullptr) {
         return out;
+      }
 
       const auto catalog = loadTemplateCatalog(root);
       out.reserve(templates->size());
       for (const auto& [idNode, node] : *templates) {
-        if (node.as_table() == nullptr)
+        if (node.as_table() == nullptr) {
           continue;
+        }
         const auto id = std::string(idNode.str());
         auto catalogIt = catalog.find(id);
         if (catalogIt != catalog.end()) {
@@ -192,11 +198,13 @@ namespace noctalia::theme {
     }
 
     void printTemplateListGroup(const char* title, const std::vector<TemplateListEntry>& entries, bool& firstGroup) {
-      if (entries.empty())
+      if (entries.empty()) {
         return;
+      }
 
-      if (!firstGroup)
+      if (!firstGroup) {
         std::putchar('\n');
+      }
       firstGroup = false;
       std::printf("%s\n", title);
 
@@ -253,14 +261,16 @@ namespace noctalia::theme {
       printTemplateListGroup(
           configPath != nullptr ? explicitConfigTitle.c_str() : "User templates", userTemplates, firstGroup
       );
-      if (firstGroup)
+      if (firstGroup) {
         std::puts("No templates found.");
+      }
       return 0;
     }
 
     std::optional<Color> loadHexColor(const nlohmann::json& src, const char* key) {
-      if (!src.contains(key) || !src[key].is_string())
+      if (!src.contains(key) || !src[key].is_string()) {
         return std::nullopt;
+      }
       try {
         return Color::fromHex(src[key].get<std::string>());
       } catch (...) {
@@ -325,20 +335,24 @@ namespace noctalia::theme {
     }
 
     void injectTerminalColors(TokenMap& dst, const nlohmann::json& modeJson) {
-      if (!modeJson.contains(kTerminalJsonKey) || !modeJson[kTerminalJsonKey].is_object())
+      if (!modeJson.contains(kTerminalJsonKey) || !modeJson[kTerminalJsonKey].is_object()) {
         return;
+      }
       const auto& terminal = modeJson[kTerminalJsonKey];
       for (const auto& [jsonKey, flatKey] : kTerminalDirectColorTokenKeys) {
-        if (terminal.contains(jsonKey) && terminal[jsonKey].is_string())
+        if (terminal.contains(jsonKey) && terminal[jsonKey].is_string()) {
           setToken(dst, flatKey, terminal[jsonKey].get<std::string>());
+        }
       }
       for (const auto& group : kTerminalAnsiGroupTokenKeys) {
-        if (!terminal.contains(group.jsonKey) || !terminal[group.jsonKey].is_object())
+        if (!terminal.contains(group.jsonKey) || !terminal[group.jsonKey].is_object()) {
           continue;
+        }
         for (const auto key : kTerminalAnsiColorJsonKeys) {
           const auto& groupJson = terminal[group.jsonKey];
-          if (!groupJson.contains(key) || !groupJson[key].is_string())
+          if (!groupJson.contains(key) || !groupJson[key].is_string()) {
             continue;
+          }
           setToken(dst, std::string(group.tokenPrefix) + "_" + std::string(key), groupJson[key].get<std::string>());
         }
       }
@@ -360,11 +374,13 @@ namespace noctalia::theme {
       }
 
       auto loadTokenMode = [](const nlohmann::json& src, TokenMap& dst) {
-        if (!src.is_object())
+        if (!src.is_object()) {
           return;
+        }
         for (auto it = src.begin(); it != src.end(); ++it) {
-          if (!it.value().is_string())
+          if (!it.value().is_string()) {
             continue;
+          }
           try {
             dst[it.key()] = Color::fromHex(it.value().get<std::string>()).toArgb();
           } catch (...) {
@@ -374,8 +390,9 @@ namespace noctalia::theme {
 
       auto loadFixedPalette = [&](const nlohmann::json& src, std::string_view mode, TokenMap& dst) -> bool {
         auto parsed = parseFixedPaletteJson(src, err);
-        if (!parsed)
+        if (!parsed) {
           return false;
+        }
         dst = expandFixedPaletteMode(*parsed, mode == "dark");
         injectTerminalColors(dst, src);
         return true;
@@ -386,23 +403,26 @@ namespace noctalia::theme {
       if (root.contains("dark") || root.contains("light")) {
         if (root.contains("dark")) {
           if (isFixedPaletteMode(root["dark"])) {
-            if (!loadFixedPalette(root["dark"], "dark", palette.dark))
+            if (!loadFixedPalette(root["dark"], "dark", palette.dark)) {
               return false;
+            }
           } else {
             loadTokenMode(root["dark"], palette.dark);
           }
         }
         if (root.contains("light")) {
           if (isFixedPaletteMode(root["light"])) {
-            if (!loadFixedPalette(root["light"], "light", palette.light))
+            if (!loadFixedPalette(root["light"], "light", palette.light)) {
               return false;
+            }
           } else {
             loadTokenMode(root["light"], palette.light);
           }
         }
       } else if (isFixedPaletteMode(root)) {
-        if (!loadFixedPalette(root, "dark", palette.dark) || !loadFixedPalette(root, "light", palette.light))
+        if (!loadFixedPalette(root, "dark", palette.dark) || !loadFixedPalette(root, "light", palette.light)) {
           return false;
+        }
       } else {
         loadTokenMode(root, palette.dark);
       }
@@ -488,8 +508,9 @@ namespace noctalia::theme {
       return 1;
     }
 
-    if (listTemplatesRequested)
+    if (listTemplatesRequested) {
       return listTemplates(configPath);
+    }
 
     if (builtinConfig) {
       if (configPath != nullptr) {
@@ -564,12 +585,14 @@ namespace noctalia::theme {
         const std::filesystem::path input = FileUtils::expandUserPath(spec.substr(0, colon));
         const std::filesystem::path output = FileUtils::expandUserPath(spec.substr(colon + 1));
         const auto result = engine.renderFile(input, output);
-        if (!result.success)
+        if (!result.success) {
           return 1;
+        }
       }
 
-      if (configPath && !engine.processConfigFile(configPath))
+      if (configPath && !engine.processConfigFile(configPath)) {
         return 1;
+      }
     }
 
     return 0;

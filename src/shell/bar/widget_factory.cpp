@@ -108,8 +108,6 @@ WidgetFactory::WidgetFactory(
       m_bluetooth(bluetooth), m_brightness(brightness), m_lockKeys(lockKeys), m_clipboard(clipboard),
       m_fileWatcher(fileWatcher) {}
 
-WidgetFactory::~WidgetFactory() = default;
-
 std::unique_ptr<Widget> WidgetFactory::create(
     const std::string& name, wl_output* output, float contentScale, const std::string& barPosition,
     const std::string& barName, float widgetSpacing
@@ -402,10 +400,11 @@ std::unique_ptr<Widget> WidgetFactory::create(
     }
     const std::string display = wc != nullptr ? wc->getString("display", "gauge") : std::string("gauge");
     SysmonDisplayMode displayMode = SysmonDisplayMode::Gauge;
-    if (display == "text")
+    if (display == "text") {
       displayMode = SysmonDisplayMode::Text;
-    else if (display == "graph")
+    } else if (display == "graph") {
       displayMode = SysmonDisplayMode::Graph;
+    }
     const bool showLabel = wc != nullptr ? wc->getBool("show_label", true) : true;
     const auto labelMinWidth = static_cast<float>(wc != nullptr ? wc->getDouble("label_min_width", 0.0) : 0.0);
     auto widget =

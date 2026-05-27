@@ -119,8 +119,8 @@ void WallpaperTile::setCellSize(float cellWidth, float cellHeight) {
   const float padding = Style::spaceXs * m_contentScale;
   const float innerGap = Style::spaceXs * m_contentScale;
   const float labelH = Style::fontSizeCaption * m_contentScale * 1.4f;
-  const float frameWidth = std::max(0.0f, cellWidth - padding * 2.0f);
-  const float frameHeight = std::max(0.0f, cellHeight - padding * 2.0f - innerGap - labelH);
+  const float frameWidth = std::max(0.0f, cellWidth - (padding * 2.0f));
+  const float frameHeight = std::max(0.0f, cellHeight - (padding * 2.0f) - innerGap - labelH);
 
   if (m_layout != nullptr) {
     m_layout->setGap(innerGap);

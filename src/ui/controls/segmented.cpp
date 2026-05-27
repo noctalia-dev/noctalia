@@ -138,7 +138,7 @@ void Segmented::setEnabled(bool enabled) {
   setOpacity(enabled ? 1.0f : 0.55f);
 }
 
-std::unique_ptr<Separator> Segmented::makeSegmentSeparator() {
+std::unique_ptr<Separator> Segmented::makeSegmentSeparator() const {
   auto sep = std::make_unique<Separator>();
   sep->setOrientation(SeparatorOrientation::VerticalRule);
   sep->setThickness(std::max(1.0f, Style::borderWidth * m_scale));
@@ -168,7 +168,7 @@ Segmented::makeSegmentButton(std::string_view label, std::string_view glyph, std
 
 void Segmented::applyButtonMetrics(Button& button) const {
   if (m_compact) {
-    button.setMinHeight((Style::fontSizeBody + Style::spaceXs * 2.0f) * m_scale);
+    button.setMinHeight((Style::fontSizeBody + (Style::spaceXs * 2.0f)) * m_scale);
     button.setPadding(Style::spaceXs * m_scale, Style::spaceXs * m_scale);
     return;
   }

@@ -40,11 +40,11 @@ namespace {
 
   // Integer centering; optional odd spare pixel on the end side (right/bottom).
   [[nodiscard]] float centeredOffset(float extent, float content, float inset = 0.0f, bool oddSpareOnEnd = true) {
-    const float inner = std::max(0.0f, extent - inset * 2.0f);
+    const float inner = std::max(0.0f, extent - (inset * 2.0f));
     const int innerPx = static_cast<int>(std::lround(inner));
     const int contentPx = static_cast<int>(std::lround(content));
     const int spare = std::max(0, innerPx - contentPx);
-    const int start = oddSpareOnEnd ? (spare / 2) : (spare / 2 + (spare % 2));
+    const int start = oddSpareOnEnd ? (spare / 2) : ((spare / 2) + (spare % 2));
     return inset + static_cast<float>(start);
   }
 
@@ -68,10 +68,10 @@ namespace {
   [[nodiscard]] float
   externalBadgeTileMainStart(WorkspaceLabelPlacement placement, float discMain, float groupPad, float groupGap) {
     if (placement == WorkspaceLabelPlacement::Centered) {
-      return std::round(discMain * 0.5f + groupGap);
+      return std::round((discMain * 0.5f) + groupGap);
     }
     constexpr float kCornerInsideMainFraction = 1.0f - 0.32f;
-    return std::round(std::max(groupPad, discMain * kCornerInsideMainFraction + groupGap));
+    return std::round(std::max(groupPad, (discMain * kCornerInsideMainFraction) + groupGap));
   }
 
   [[nodiscard]] ExternalBadgePosition externalBadgePosition(
@@ -137,7 +137,7 @@ namespace {
     const float pad = Style::spaceXs * scale;
     WorkspaceDiscSize size{};
     size.height = minHeight;
-    size.width = std::round(std::max(minHeight, textW + pad * 2.0f));
+    size.width = std::round(std::max(minHeight, textW + (pad * 2.0f)));
     return size;
   }
 
@@ -155,10 +155,9 @@ TaskbarWidget::TaskbarWidget(
       m_showWorkspaceLabel(showWorkspaceLabel), m_workspaceLabelPlacement(workspaceLabelPlacement),
       m_hideEmptyWorkspaces(hideEmptyWorkspaces), m_workspaceGroupCapsule(workspaceGroupCapsule),
       m_groupSingleIconPerApp(groupSingleIconPerApp), m_showActiveIndicator(showActiveIndicator),
-      m_activeOpacity(activeOpacity), m_inactiveOpacity(inactiveOpacity), m_focusedColor(std::move(focusedColor)),
-      m_occupiedColor(std::move(occupiedColor)), m_emptyColor(std::move(emptyColor)),
-      m_showWindowTitle(showWindowTitle), m_windowTitleMaxWidth(windowTitleMaxWidth),
-      m_barPosition(std::move(barPosition)), m_shadowConfig(std::move(shadowConfig)) {
+      m_activeOpacity(activeOpacity), m_inactiveOpacity(inactiveOpacity), m_focusedColor(focusedColor),
+      m_occupiedColor(occupiedColor), m_emptyColor(emptyColor), m_showWindowTitle(showWindowTitle),
+      m_windowTitleMaxWidth(windowTitleMaxWidth), m_barPosition(std::move(barPosition)), m_shadowConfig(shadowConfig) {
   // Window title not implemented for vertical bars or workspace grouping.
   if (m_barPosition == "left" || m_barPosition == "right" || m_groupByWorkspace) {
     m_showWindowTitle = false;
@@ -296,9 +295,9 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
   }
   const float iconSize = std::round(Style::barGlyphSize * m_contentScale);
   const float tilePadding = Style::spaceXs * 0.35f * m_contentScale;
-  const float tileSize = std::round(iconSize + tilePadding * 2.0f);
+  const float tileSize = std::round(iconSize + (tilePadding * 2.0f));
   const float tileWidthWithTitle =
-      tileSize + (m_showWindowTitle ? m_windowTitleMaxWidth * m_contentScale + tilePadding : 0.0f);
+      tileSize + (m_showWindowTitle ? (m_windowTitleMaxWidth * m_contentScale) + tilePadding : 0.0f);
   const float groupBorderInset = Style::borderWidth * m_contentScale;
   const float groupOutlineInset = m_workspaceGroupCapsule ? groupBorderInset : 0.0f;
   const FontWeight fontWeight = labelFontWeight();
@@ -427,12 +426,12 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       const float dotSize = std::round(std::max(2.0f, Style::barGlyphSize * 0.16f * m_contentScale));
       const float dotGap = std::round(std::max(1.0f, dotSize * 0.55f));
       const float runHeight =
-          dotSize * static_cast<float>(dotCount) + dotGap * static_cast<float>(dotCount > 0 ? dotCount - 1 : 0);
+          (dotSize * static_cast<float>(dotCount)) + (dotGap * static_cast<float>(dotCount > 0 ? dotCount - 1 : 0));
       const float iconInsetX = centeredOffset(tileSize, iconSize);
       const float iconInsetY = centeredOffset(tileSize, iconSize, 0.0f, iconOddSpareOnEnd);
       const float iconRightInset = std::round(std::max(1.0f, iconSize * 0.08f));
       const float dotX = std::round(iconInsetX + iconSize - dotSize - iconRightInset);
-      const float startY = std::round(iconInsetY + (iconSize - runHeight) * 0.5f);
+      const float startY = std::round(iconInsetY + ((iconSize - runHeight) * 0.5f));
       const ColorSpec dotColor = colorSpecFromRole(ColorRole::Primary, 0.9f);
 
       for (std::size_t i = 0; i < dotCount; ++i) {
@@ -442,7 +441,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
             .width = dotSize,
             .height = dotSize,
         });
-        dot->setPosition(dotX, std::round(startY + static_cast<float>(i) * (dotSize + dotGap)));
+        dot->setPosition(dotX, std::round(startY + (static_cast<float>(i) * (dotSize + dotGap))));
         area->addChild(std::move(dot));
       }
     }
@@ -455,7 +454,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
         auto indicator = ui::box({
             .fill = colorSpecFromRole(ColorRole::Primary),
             .radius = lineThickness * 0.5f,
-            .width = tileWidthWithTitle - tilePadding * 2,
+            .width = tileWidthWithTitle - (tilePadding * 2),
             .height = lineThickness,
         });
         indicator->setPosition(tilePadding, std::round(tileSize));
@@ -532,7 +531,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       auto badge = ui::box();
       badge->setPosition(badgeX, badgeY);
       styleWorkspaceDisc(*badge, disc.width, disc.height, ws.workspace);
-      auto* badgePtr = static_cast<Box*>(area->addChild(std::move(badge)));
+      auto* badgePtr = dynamic_cast<Box*>(area->addChild(std::move(badge)));
 
       const float badgeFontSize =
           fitBadgeFontSize(renderer, ws.label, disc.width, disc.height, m_contentScale, fontWeight);
@@ -577,7 +576,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       auto badge = ui::box();
       badge->setPosition(0.0f, 0.0f);
       styleWorkspaceDisc(*badge, disc.width, disc.height, ws.workspace);
-      auto* badgePtr = static_cast<Box*>(badgeHit->addChild(std::move(badge)));
+      auto* badgePtr = dynamic_cast<Box*>(badgeHit->addChild(std::move(badge)));
 
       const float badgeFontSize =
           fitBadgeFontSize(renderer, ws.label, disc.width, disc.height, m_contentScale, fontWeight);
@@ -702,7 +701,8 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
                      + (groupGap * (inlineSlotCount > 1 ? static_cast<float>(inlineSlotCount - 1) : 0.0f))
                                  : tileSize)
           : (tileSize * taskCount) + (groupGap * externalGapCount);
-      const float innerMainTotal = inlineBadge ? (groupPadMain * 2.0f + runLength) : (tileMain + groupPad + runLength);
+      const float innerMainTotal =
+          inlineBadge ? ((groupPadMain * 2.0f) + runLength) : (tileMain + groupPad + runLength);
       const bool paddedCrossEnvelope = inlineBadge || externalBadge || m_vertical;
       const float innerCrossSize =
           paddedCrossEnvelope ? std::round(tileSize + (groupPadCross * 2.0f)) : std::round(tileSize);
@@ -778,7 +778,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
         group->clearBorder();
         group->setRadius(0.0f);
       }
-      auto* groupPtr = static_cast<Box*>(m_taskStrip->addChild(std::move(group)));
+      auto* groupPtr = dynamic_cast<Box*>(m_taskStrip->addChild(std::move(group)));
 
       Box* contentPtr = groupPtr;
       if (externalInsetCapsule) {
@@ -792,7 +792,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
         inner->setFill(surfaceFill);
         inner->setBorder(borderColor, Style::borderWidth);
         inner->setRadius(resolvedBarCapsuleRadius(contentWidth, contentHeight));
-        contentPtr = static_cast<Box*>(groupPtr->addChild(std::move(inner)));
+        contentPtr = dynamic_cast<Box*>(groupPtr->addChild(std::move(inner)));
       }
 
       if (emptyWorkspace && !m_showWorkspaceLabel) {
@@ -1643,7 +1643,7 @@ void TaskbarWidget::updateModels() {
           std::remove_if(
               nextTasks.begin(), nextTasks.end(),
               [&activeKeys](const TaskModel& t) {
-                return !t.workspaceKey.empty() && activeKeys.find(t.workspaceKey) == activeKeys.end();
+                return !t.workspaceKey.empty() && !activeKeys.contains(t.workspaceKey);
               }
           ),
           nextTasks.end()
@@ -1812,7 +1812,7 @@ void TaskbarWidget::openTaskContextMenu(const TaskModel& task, InputArea& area) 
     if (entry.id >= 0) {
       const auto idx = static_cast<std::size_t>(entry.id);
       if (idx < entryActions.size()) {
-        const auto action = entryActions[idx];
+        const auto& action = entryActions[idx];
         auto& platform = m_platform;
         auto& configService = m_configService;
         DeferredCall::callLater([action, appName = entryAppName, workingDir = entryWorkingDir, terminal = entryTerminal,
@@ -1897,7 +1897,7 @@ void TaskbarWidget::openTaskContextMenu(const TaskModel& task, InputArea& area) 
   );
 }
 
-std::string TaskbarWidget::toLower(std::string value) { return StringUtils::toLower(std::move(value)); }
+std::string TaskbarWidget::toLower(const std::string& value) { return StringUtils::toLower(std::move(value)); }
 
 std::string TaskbarWidget::workspaceLabel(const Workspace& workspace, std::size_t index) {
   const auto parseLeadingNumber = [](const std::string& value) -> std::optional<std::size_t> {
@@ -1907,7 +1907,7 @@ std::string TaskbarWidget::workspaceLabel(const Workspace& workspace, std::size_
     std::size_t parsed = 0;
     std::size_t i = 0;
     while (i < value.size() && std::isdigit(static_cast<unsigned char>(value[i]))) {
-      parsed = parsed * 10 + static_cast<std::size_t>(value[i] - '0');
+      parsed = (parsed * 10) + static_cast<std::size_t>(value[i] - '0');
       ++i;
     }
     return parsed > 0 ? std::optional<std::size_t>(parsed) : std::nullopt;

@@ -9,15 +9,16 @@ namespace noctalia::theme {
 
     double linearizeChannel(int c) {
       const double n = c / 255.0;
-      if (n <= 0.03928)
+      if (n <= 0.03928) {
         return n / 12.92;
+      }
       return std::pow((n + 0.055) / 1.055, 2.4);
     }
 
   } // namespace
 
   double relativeLuminance(int r, int g, int b) {
-    return 0.2126 * linearizeChannel(r) + 0.7152 * linearizeChannel(g) + 0.0722 * linearizeChannel(b);
+    return (0.2126 * linearizeChannel(r)) + (0.7152 * linearizeChannel(g)) + (0.0722 * linearizeChannel(b));
   }
 
   double contrastRatio(const Color& a, const Color& b) {
@@ -31,17 +32,19 @@ namespace noctalia::theme {
   bool isDark(const Color& c) { return relativeLuminance(c.r, c.g, c.b) < 0.179; }
 
   Color ensureContrast(const Color& foreground, const Color& background, double minRatio, int preferLight) {
-    if (contrastRatio(foreground, background) >= minRatio)
+    if (contrastRatio(foreground, background) >= minRatio) {
       return foreground;
+    }
 
     auto [h, s, l] = foreground.toHsl();
     bool lighten;
-    if (preferLight > 0)
+    if (preferLight > 0) {
       lighten = true;
-    else if (preferLight < 0)
+    } else if (preferLight < 0) {
       lighten = false;
-    else
+    } else {
       lighten = isDark(background);
+    }
 
     double low = lighten ? l : 0.0;
     double high = lighten ? 1.0 : l;
@@ -52,15 +55,17 @@ namespace noctalia::theme {
       Color test = Color::fromHsl(h, s, mid);
       if (contrastRatio(test, background) >= minRatio) {
         best = test;
-        if (lighten)
+        if (lighten) {
           high = mid;
-        else
+        } else {
           low = mid;
+        }
       } else {
-        if (lighten)
+        if (lighten) {
           low = mid;
-        else
+        } else {
           high = mid;
+        }
       }
     }
     return best;

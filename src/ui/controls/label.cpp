@@ -17,9 +17,9 @@ namespace {
 
 } // namespace
 
-Label::Label() : InputArea() {
+Label::Label() {
   auto textNode = std::make_unique<TextNode>();
-  m_textNode = static_cast<TextNode*>(addChild(std::move(textNode)));
+  m_textNode = dynamic_cast<TextNode*>(addChild(std::move(textNode)));
   m_textNode->setFontSize(Style::fontSizeBody);
   applyPalette();
   m_paletteConn = paletteChanged().connect([this] { applyPalette(); });
@@ -453,10 +453,10 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
     float height = 0.0f;
     if (m_baselineMode == LabelBaselineMode::InkCentered) {
       height = std::round(std::max(actualHeight, inkHeight));
-      m_baselineOffset = std::round(-metrics.inkTop + (height - inkHeight) * 0.5f);
+      m_baselineOffset = std::round(-metrics.inkTop + ((height - inkHeight) * 0.5f));
     } else {
       height = std::round(actualHeight);
-      m_baselineOffset = std::round(-metrics.top + (height - actualHeight) * 0.5f);
+      m_baselineOffset = std::round(-metrics.top + ((height - actualHeight) * 0.5f));
     }
     float finalWidth = 0.0f;
     if (m_autoScroll) {

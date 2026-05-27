@@ -321,7 +321,7 @@ void AsyncTextureCache::workerLoop() {
   }
 }
 
-void AsyncTextureCache::signalMain() {
+void AsyncTextureCache::signalMain() const {
   if (m_eventFd < 0) {
     return;
   }
@@ -361,7 +361,7 @@ void AsyncTextureCache::notifyReady(const RequestKey& key, TextureHandle handle)
   }
 
   for (auto& [id, callback] : callbacks) {
-    if (m_readyListeners.find(id) != m_readyListeners.end()) {
+    if (m_readyListeners.contains(id)) {
       callback(handle);
     }
   }

@@ -32,43 +32,59 @@ DesktopSysmonWidget::DesktopSysmonWidget(
     : m_monitor(monitor), m_stat(stat), m_stat2(stat2), m_lineColor(lineColor), m_lineColor2(lineColor2),
       m_showLabel(showLabel), m_shadow(shadow) {
   if (m_monitor != nullptr) {
-    if (needsCpuTemp(m_stat))
+    if (needsCpuTemp(m_stat)) {
       m_monitor->retainCpuTemp();
-    if (needsGpuTemp(m_stat))
+    }
+    if (needsGpuTemp(m_stat)) {
       m_monitor->retainGpuTemp();
-    if (needsGpuUsage(m_stat))
+    }
+    if (needsGpuUsage(m_stat)) {
       m_monitor->retainGpuUsage();
-    if (needsGpuVram(m_stat))
+    }
+    if (needsGpuVram(m_stat)) {
       m_monitor->retainGpuVram();
-    if (m_stat2.has_value() && needsCpuTemp(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsCpuTemp(*m_stat2)) {
       m_monitor->retainCpuTemp();
-    if (m_stat2.has_value() && needsGpuTemp(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsGpuTemp(*m_stat2)) {
       m_monitor->retainGpuTemp();
-    if (m_stat2.has_value() && needsGpuUsage(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsGpuUsage(*m_stat2)) {
       m_monitor->retainGpuUsage();
-    if (m_stat2.has_value() && needsGpuVram(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsGpuVram(*m_stat2)) {
       m_monitor->retainGpuVram();
+    }
   }
 }
 
 DesktopSysmonWidget::~DesktopSysmonWidget() {
   if (m_monitor != nullptr) {
-    if (needsCpuTemp(m_stat))
+    if (needsCpuTemp(m_stat)) {
       m_monitor->releaseCpuTemp();
-    if (needsGpuTemp(m_stat))
+    }
+    if (needsGpuTemp(m_stat)) {
       m_monitor->releaseGpuTemp();
-    if (needsGpuUsage(m_stat))
+    }
+    if (needsGpuUsage(m_stat)) {
       m_monitor->releaseGpuUsage();
-    if (needsGpuVram(m_stat))
+    }
+    if (needsGpuVram(m_stat)) {
       m_monitor->releaseGpuVram();
-    if (m_stat2.has_value() && needsCpuTemp(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsCpuTemp(*m_stat2)) {
       m_monitor->releaseCpuTemp();
-    if (m_stat2.has_value() && needsGpuTemp(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsGpuTemp(*m_stat2)) {
       m_monitor->releaseGpuTemp();
-    if (m_stat2.has_value() && needsGpuUsage(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsGpuUsage(*m_stat2)) {
       m_monitor->releaseGpuUsage();
-    if (m_stat2.has_value() && needsGpuVram(*m_stat2))
+    }
+    if (m_stat2.has_value() && needsGpuVram(*m_stat2)) {
       m_monitor->releaseGpuVram();
+    }
   }
 }
 
@@ -84,7 +100,7 @@ void DesktopSysmonWidget::create() {
   auto graph = std::make_unique<GraphNode>();
   graph->setLineWidth(kGraphLineWidth);
   graph->setGraphFillOpacity(0.2f);
-  m_graphNode = static_cast<GraphNode*>(rootNode->addChild(std::move(graph)));
+  m_graphNode = dynamic_cast<GraphNode*>(rootNode->addChild(std::move(graph)));
 
   if (m_showLabel) {
     auto label = ui::label({
@@ -150,16 +166,18 @@ bool DesktopSysmonWidget::applySetting(
       m_shadow = *v;
       const Color shadow{0.0f, 0.0f, 0.0f, 0.5f};
       if (m_glyph != nullptr) {
-        if (m_shadow)
+        if (m_shadow) {
           m_glyph->setShadow(shadow, 0.0f, 1.0f);
-        else
+        } else {
           m_glyph->clearShadow();
+        }
       }
       if (m_label != nullptr) {
-        if (m_shadow)
+        if (m_shadow) {
           m_label->setShadow(shadow, 0.0f, 1.0f);
-        else
+        } else {
           m_label->clearShadow();
+        }
       }
       return true;
     }
@@ -258,13 +276,12 @@ double DesktopSysmonWidget::normalizedFromStats(
   case DesktopSysmonStat::CpuTemp:
     if (stats.cpuTempC.has_value()) {
       const double temp = *stats.cpuTempC;
-      if (temp < tempMin)
-        tempMin = temp;
-      if (temp > tempMax)
-        tempMax = temp;
+      tempMin = std::min(temp, tempMin);
+      tempMax = std::max(temp, tempMax);
       const double range = tempMax - tempMin;
-      if (range <= 0.0)
+      if (range <= 0.0) {
         return 0.5;
+      }
       return std::clamp((temp - tempMin) / range, 0.0, 1.0);
     }
     return 0.0;
@@ -272,13 +289,12 @@ double DesktopSysmonWidget::normalizedFromStats(
   case DesktopSysmonStat::GpuTemp:
     if (stats.gpuTempC.has_value()) {
       const double temp = *stats.gpuTempC;
-      if (temp < tempMin)
-        tempMin = temp;
-      if (temp > tempMax)
-        tempMax = temp;
+      tempMin = std::min(temp, tempMin);
+      tempMax = std::max(temp, tempMax);
       const double range = tempMax - tempMin;
-      if (range <= 0.0)
+      if (range <= 0.0) {
         return 0.5;
+      }
       return std::clamp((temp - tempMin) / range, 0.0, 1.0);
     }
     return 0.0;
@@ -305,13 +321,11 @@ double DesktopSysmonWidget::normalizedFromStats(
     return 0.0;
 
   case DesktopSysmonStat::NetRx:
-    if (stats.netRxBytesPerSec > tempMax)
-      tempMax = stats.netRxBytesPerSec;
+    tempMax = std::max(stats.netRxBytesPerSec, tempMax);
     return tempMax > 0.0 ? std::clamp(stats.netRxBytesPerSec / tempMax, 0.0, 1.0) : 0.0;
 
   case DesktopSysmonStat::NetTx:
-    if (stats.netTxBytesPerSec > tempMax)
-      tempMax = stats.netTxBytesPerSec;
+    tempMax = std::max(stats.netTxBytesPerSec, tempMax);
     return tempMax > 0.0 ? std::clamp(stats.netTxBytesPerSec / tempMax, 0.0, 1.0) : 0.0;
   }
 
@@ -418,7 +432,7 @@ void DesktopSysmonWidget::updateGraph(Renderer& renderer) {
   }
   const float last1 = data1[prev];
   const float prev1 = data1[prev2];
-  data1[last] = std::clamp(last1 + (last1 - prev1) * 0.5f, 0.0f, 1.0f);
+  data1[last] = std::clamp(last1 + ((last1 - prev1) * 0.5f), 0.0f, 1.0f);
 
   if (m_stat2.has_value()) {
     std::vector<float> data2(n + 1U);
@@ -428,7 +442,7 @@ void DesktopSysmonWidget::updateGraph(Renderer& renderer) {
     }
     const float last2 = data2[prev];
     const float previous2 = data2[prev2];
-    data2[last] = std::clamp(last2 + (last2 - previous2) * 0.5f, 0.0f, 1.0f);
+    data2[last] = std::clamp(last2 + ((last2 - previous2) * 0.5f), 0.0f, 1.0f);
 
     m_graphNode->setData(renderer.textureManager(), data1.data(), texSize, data2.data(), texSize);
     m_graphNode->setCount2(static_cast<float>(n));

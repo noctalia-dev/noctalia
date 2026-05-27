@@ -251,7 +251,9 @@ void ListEditor::rebuildRows() {
   markLayoutDirty();
 }
 
-void ListEditor::addGhostIconButton(Flex& row, std::string_view glyph, float size, std::function<void()> callback) {
+void ListEditor::addGhostIconButton(
+    Flex& row, std::string_view glyph, float size, std::function<void()> callback
+) const {
   row.addChild(
       ui::button({
           .glyph = std::string(glyph),

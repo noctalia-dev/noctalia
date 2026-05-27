@@ -66,8 +66,8 @@ struct NetworkSecretAgent::Impl {
   explicit Impl(SystemBus& b) : bus(b) {}
 
   void onGetSecrets(
-      sdbus::Result<SecretsDict>&& result, SecretsDict connection, sdbus::ObjectPath connectionPath,
-      std::string settingName, std::vector<std::string> /*hints*/, std::uint32_t flags
+      sdbus::Result<SecretsDict>&& result, const SecretsDict& connection, sdbus::ObjectPath connectionPath,
+      std::string settingName, const std::vector<std::string>& /*hints*/, std::uint32_t flags
   ) {
     if ((flags & kNmSecretAgentGetSecretsFlagAllowInteraction) == 0U) {
       kLog.debug("GetSecrets without ALLOW_INTERACTION -> NoSecrets");
@@ -102,7 +102,7 @@ struct NetworkSecretAgent::Impl {
     SecretRequest request;
     request.ssid = extractSsid(connection);
     request.settingName = settingName;
-    kLog.info("GetSecrets prompt ssid=\"{}\" path={}", request.ssid, std::string(connectionPath));
+    kLog.info("GetSecrets prompt ssid=\"{}\" path={}", request.ssid, std::string(std::move(connectionPath)));
 
     pendingResult = std::move(result);
     pendingSettingName = settingName;
@@ -147,13 +147,12 @@ NetworkSecretAgent::NetworkSecretAgent(SystemBus& bus) : m_impl(std::make_unique
               .withInputParamNames("connection", "connection_path", "setting_name", "hints", "flags")
               .withOutputParamNames("secrets")
               .implementedAs([this](
-                                 sdbus::Result<SecretsDict>&& result, SecretsDict connection,
+                                 sdbus::Result<SecretsDict>&& result, const SecretsDict& connection,
                                  sdbus::ObjectPath connectionPath, std::string settingName,
-                                 std::vector<std::string> hints, std::uint32_t flags
+                                 const std::vector<std::string>& hints, std::uint32_t flags
                              ) {
                 m_impl->onGetSecrets(
-                    std::move(result), std::move(connection), std::move(connectionPath), std::move(settingName),
-                    std::move(hints), flags
+                    std::move(result), connection, std::move(connectionPath), std::move(settingName), hints, flags
                 );
               }),
           sdbus::registerMethod("CancelGetSecrets")

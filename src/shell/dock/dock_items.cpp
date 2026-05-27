@@ -239,10 +239,10 @@ namespace shell::dock {
   ) {
     const bool vert = shell::dock::isVerticalPosition(cfg.position);
     const float iSize = static_cast<float>(cfg.iconSize);
-    const float cellMain = iSize + 2.0f * kCellPad;
-    const float cellCross = iSize + 2.0f * kCellPad;
+    const float cellMain = iSize + (2.0f * kCellPad);
+    const float cellCross = iSize + (2.0f * kCellPad);
     const float glyphSize = iSize * 0.8f;
-    const float glyphOffsetY = kCellPad + (iSize - glyphSize) * 0.5f;
+    const float glyphOffsetY = kCellPad + ((iSize - glyphSize) * 0.5f);
 
     auto areaNode = std::make_unique<InputArea>();
     if (!vert) {
@@ -336,7 +336,7 @@ namespace shell::dock {
     instance.items.clear();
 
     auto freshRow = makeDockItemRow(cfg, vert);
-    instance.row = static_cast<Flex*>(
+    instance.row = dynamic_cast<Flex*>(
         instance.panel != nullptr ? instance.panel->addChild(std::move(freshRow))
                                   : instance.sceneRoot->addChild(std::move(freshRow))
     );
@@ -391,8 +391,8 @@ namespace shell::dock {
       item.active = matchesActiveApp(item, activeIdLower);
       item.running = matchesRunningApp(item, runningLower);
 
-      const float cellMain = iSize + 2.0f * kCellPad;
-      const float cellCross = iSize + 2.0f * kCellPad;
+      const float cellMain = iSize + (2.0f * kCellPad);
+      const float cellCross = iSize + (2.0f * kCellPad);
       auto areaNode = std::make_unique<InputArea>();
       if (!vert) {
         areaNode->setSize(cellMain, cellCross);
@@ -433,9 +433,9 @@ namespace shell::dock {
       });
 
       if (iconImg->hasImage()) {
-        item.iconImage = static_cast<Image*>(areaNode->addChild(std::move(iconImg)));
+        item.iconImage = dynamic_cast<Image*>(areaNode->addChild(std::move(iconImg)));
       } else {
-        item.iconGlyph = static_cast<Glyph*>(areaNode->addChild(
+        item.iconGlyph = dynamic_cast<Glyph*>(areaNode->addChild(
             ui::glyph({
                 .glyph = "app-window",
                 .glyphSize = iSize,
@@ -452,7 +452,7 @@ namespace shell::dock {
         const bool verticalDots = shell::dock::isVerticalPosition(cfg.position);
 
         for (std::size_t dotIndex = 0; dotIndex < item.dotIndicators.size(); ++dotIndex) {
-          item.dotIndicators[dotIndex] = static_cast<Box*>(areaNode->addChild(
+          item.dotIndicators[dotIndex] = dynamic_cast<Box*>(areaNode->addChild(
               ui::box({
                   .fill = colorSpecFromRole(ColorRole::Secondary),
                   .radius = dot * 0.5f,
@@ -475,8 +475,8 @@ namespace shell::dock {
 
       if (cfg.showInstanceCount) {
         const float bd = std::max(kBadgeMinSize, iSize * kBadgeSizeRatio);
-        const float badgeX = kCellPad + iSize - bd * 0.55f;
-        const float badgeY = kCellPad - bd * 0.45f;
+        const float badgeX = kCellPad + iSize - (bd * 0.55f);
+        const float badgeY = kCellPad - (bd * 0.45f);
 
         areaNode->addChild(
             ui::box({
@@ -534,7 +534,7 @@ namespace shell::dock {
         }
       });
 
-      item.area = static_cast<InputArea*>(instance.row->addChild(std::move(areaNode)));
+      item.area = dynamic_cast<InputArea*>(instance.row->addChild(std::move(areaNode)));
     }
 
     if (cfg.launcherPosition == "end") {
@@ -604,10 +604,10 @@ namespace shell::dock {
       if (cfg.showDots) {
         const std::size_t dotCount = std::min<std::size_t>(count, 3);
         const float iSize = static_cast<float>(cfg.iconSize);
-        const float cellMain = iSize + 2.0f * kCellPad;
+        const float cellMain = iSize + (2.0f * kCellPad);
         const float dot = std::max(kDotMinSize, std::round(iSize * kDotSizeRatio));
         const float groupLength =
-            dotCount == 0 ? dot : dot * static_cast<float>(dotCount) + kDotGap * static_cast<float>(dotCount - 1);
+            dotCount == 0 ? dot : (dot * static_cast<float>(dotCount)) + (kDotGap * static_cast<float>(dotCount - 1));
         const float groupStart = std::round((cellMain - groupLength) * 0.5f);
         const bool verticalDots = shell::dock::isVerticalPosition(cfg.position);
 
@@ -620,7 +620,7 @@ namespace shell::dock {
           dotNode->setVisible(visible);
           dotNode->setFill(colorSpecFromRole(ColorRole::Secondary));
           if (visible) {
-            const float main = groupStart + static_cast<float>(dotIndex) * (dot + kDotGap);
+            const float main = groupStart + (static_cast<float>(dotIndex) * (dot + kDotGap));
             if (verticalDots) {
               const float x = cfg.position == "left" ? std::round(cellMain - dot - 1.0f) : 1.0f;
               dotNode->setPosition(x, main);

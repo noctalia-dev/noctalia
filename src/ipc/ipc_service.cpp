@@ -112,7 +112,7 @@ std::string IpcService::execute(const std::string& line) const {
   return executeParsed(command, args);
 }
 
-void IpcService::handleConnection(int connFd) {
+void IpcService::handleConnection(int connFd) const {
   // Set receive timeout so a slow client doesn't stall the main loop
   timeval tv{};
   tv.tv_sec = 0;

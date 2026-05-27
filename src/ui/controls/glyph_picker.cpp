@@ -75,7 +75,7 @@ public:
     }
     const Entry& entry = m_master[m_visible[index]];
 
-    auto* flex = static_cast<Flex*>(&tile);
+    auto* flex = dynamic_cast<Flex*>(&tile);
     auto* glyph = static_cast<Glyph*>(flex->userData());
 
     if (selected) {
@@ -301,7 +301,7 @@ void GlyphPicker::doLayout(Renderer& renderer) {
 
   if (!m_pendingInitialApplied && m_pendingInitialGlyph.has_value() && m_grid != nullptr && m_adapter != nullptr) {
     if (const auto idx = m_adapter->indexOfName(*m_pendingInitialGlyph); idx.has_value()) {
-      m_grid->setSelectedIndex(*idx);
+      m_grid->setSelectedIndex(idx);
       m_grid->scrollToIndex(*idx);
     }
     m_pendingInitialApplied = true;
@@ -323,7 +323,7 @@ void GlyphPicker::applyFilter(const std::string& filter) {
   // Drop selection if the previously selected name is no longer visible.
   if (previousResult.has_value()) {
     if (const auto idx = m_adapter->indexOfName(previousResult->name); idx.has_value()) {
-      m_grid->setSelectedIndex(*idx);
+      m_grid->setSelectedIndex(idx);
     } else {
       m_grid->setSelectedIndex(std::nullopt);
     }

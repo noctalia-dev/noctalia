@@ -19,7 +19,7 @@ namespace {
 
   constexpr Logger kLog("osd");
 
-  constexpr int kHideDelayMs = Style::animSlow * 3 + Style::animFast * 2;
+  constexpr int kHideDelayMs = (Style::animSlow * 3) + (Style::animFast * 2);
 
   struct SlideVector {
     float x = 0.0f;
@@ -46,7 +46,7 @@ namespace {
 
   // Base units at ui_scale=1; passive overlay (no hit targets), between bar and old OSD size.
   [[nodiscard]] float horizontalCardLength(float s) {
-    return (Style::controlHeight * 6 + Style::spaceMd + Style::spaceSm + Style::spaceXs) * s;
+    return ((Style::controlHeight * 6) + Style::spaceMd + Style::spaceSm + Style::spaceXs) * s;
   }
 
   [[nodiscard]] float cardWidth(float s, const std::string& orientation) {
@@ -59,7 +59,7 @@ namespace {
   [[nodiscard]] float cardHeight(float s, const std::string& orientation, bool showProgress) {
     if (isVerticalOrientation(orientation)) {
       if (!showProgress) {
-        return (Style::controlHeight * 2 + Style::spaceLg + Style::spaceSm) * s;
+        return ((Style::controlHeight * 2) + Style::spaceLg + Style::spaceSm) * s;
       }
       return horizontalCardLength(s);
     }
@@ -67,7 +67,7 @@ namespace {
   }
 
   [[nodiscard]] std::uint32_t osdSurfaceWidth(float s, const std::string& orientation) {
-    const float w = cardWidth(s, orientation) + Style::spaceMd * s * 2.0f;
+    const float w = cardWidth(s, orientation) + (Style::spaceMd * s * 2.0f);
     return static_cast<std::uint32_t>(std::max(1, static_cast<int>(std::ceil(w))));
   }
 
@@ -79,21 +79,21 @@ namespace {
   }
 
   [[nodiscard]] std::uint32_t osdSurfaceHeight(float s, const std::string& orientation, bool showProgress) {
-    const float h = cardHeight(s, orientation, showProgress) + Style::spaceLg * s;
+    const float h = cardHeight(s, orientation, showProgress) + (Style::spaceLg * s);
     return static_cast<std::uint32_t>(std::max(1, static_cast<int>(std::ceil(h))));
   }
 
-  [[nodiscard]] float glyphSize(float s) { return (Style::fontSizeTitle + Style::borderWidth * 4) * s; }
+  [[nodiscard]] float glyphSize(float s) { return (Style::fontSizeTitle + (Style::borderWidth * 4)) * s; }
 
   [[nodiscard]] float valueFontSize(float s) { return Style::fontSizeBody * s; }
 
-  [[nodiscard]] float progressHeight(float s) { return (Style::spaceXs + Style::borderWidth * 2) * s; }
+  [[nodiscard]] float progressHeight(float s) { return (Style::spaceXs + (Style::borderWidth * 2)) * s; }
 
   [[nodiscard]] float verticalProgressWidth(float s) { return progressHeight(s) * 1.75f; }
 
   [[nodiscard]] float cardPadding(float s) { return Style::spaceMd * s; }
 
-  [[nodiscard]] float innerGap(float s) { return (Style::spaceSm + Style::spaceXs * 0.5f) * s; }
+  [[nodiscard]] float innerGap(float s) { return (Style::spaceSm + (Style::spaceXs * 0.5f)) * s; }
 
   [[nodiscard]] float slideOffset(float s) { return Style::spaceSm * s; }
 
@@ -463,8 +463,8 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
       .align = FlexAlign::Center,
       .justify = FlexJustify::Start,
       .gap = gap,
-      .width = cw - pad * 2.0f,
-      .height = vertical ? ch - pad * 2.0f : ch,
+      .width = cw - (pad * 2.0f),
+      .height = vertical ? ch - (pad * 2.0f) : ch,
       .configure = [](Flex& flex) { flex.setZIndex(1); },
   };
 
@@ -480,7 +480,7 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
       .text = "100%",
       .fontSize = valueFontSize(s),
       .color = colorSpecFromRole(ColorRole::OnSurface),
-      .maxWidth = vertical ? cw - pad * 2.0f : 0.0f,
+      .maxWidth = vertical ? cw - (pad * 2.0f) : 0.0f,
       .fontWeight = FontWeight::Bold,
       .textAlign = vertical ? TextAlign::Center : TextAlign::End,
       .configure = [](Label& label) { label.setZIndex(1); },
@@ -541,7 +541,7 @@ void OsdOverlay::updateInstanceContent(Instance& inst) {
   inst.value->setFontSize(valueFontSize(s));
   inst.value->setColor(colorSpecFromRole(m_content.overLimit ? ColorRole::Error : ColorRole::OnSurface));
   inst.value->setTextAlign((vertical || !m_content.showProgress) ? TextAlign::Center : TextAlign::End);
-  inst.value->setMaxWidth(vertical ? inst.card->width() - cardPadding(s) * 2.0f : 0.0f);
+  inst.value->setMaxWidth(vertical ? inst.card->width() - (cardPadding(s) * 2.0f) : 0.0f);
   inst.value->setMinWidth((!vertical && m_content.showProgress) ? inst.progressValueMinWidth : 0.0f);
   inst.value->setText((vertical && !m_content.showProgress) ? verticalValueText(m_content.value) : m_content.value);
   inst.progress->setRadius(osdProgressRadius(s));
@@ -583,9 +583,9 @@ void OsdOverlay::animateInstance(Instance& inst) {
           startOpacity, 1.0f, Style::animNormal, Easing::EaseOutCubic,
           [&inst, baseX, baseY, slide](float v) {
             inst.sceneRoot->setOpacity(v);
-            inst.card->setPosition(baseX + slide.x * (1.0f - v), baseY + slide.y * (1.0f - v));
+            inst.card->setPosition(baseX + (slide.x * (1.0f - v)), baseY + (slide.y * (1.0f - v)));
             if (inst.background != nullptr) {
-              inst.background->setPosition(baseX + slide.x * (1.0f - v), baseY + slide.y * (1.0f - v));
+              inst.background->setPosition(baseX + (slide.x * (1.0f - v)), baseY + (slide.y * (1.0f - v)));
             }
           },
           [&inst]() {
@@ -609,9 +609,9 @@ void OsdOverlay::animateInstance(Instance& inst) {
             1.0f, 0.0f, Style::animNormal, Easing::EaseInOutQuad,
             [&inst, baseX, baseY, slide](float v) {
               inst.sceneRoot->setOpacity(v);
-              inst.card->setPosition(baseX + slide.x * (1.0f - v), baseY + slide.y * (1.0f - v));
+              inst.card->setPosition(baseX + (slide.x * (1.0f - v)), baseY + (slide.y * (1.0f - v)));
               if (inst.background != nullptr) {
-                inst.background->setPosition(baseX + slide.x * (1.0f - v), baseY + slide.y * (1.0f - v));
+                inst.background->setPosition(baseX + (slide.x * (1.0f - v)), baseY + (slide.y * (1.0f - v)));
               }
             },
             [this, &inst]() {

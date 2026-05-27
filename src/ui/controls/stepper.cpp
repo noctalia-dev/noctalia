@@ -258,7 +258,7 @@ void Stepper::syncValueFieldMinWidth(Renderer& renderer) {
   const float wMin = renderer.measureText(minText, fs, FontWeight::Normal).width;
   const float wMax = renderer.measureText(maxText, fs, FontWeight::Normal).width;
   const float textInset = valueInputHorizontalPadding(m_scale) + kInputTextInnerInset;
-  m_valueInput->setMinLayoutWidth(std::max(wMin, wMax) + textInset * 2.0f);
+  m_valueInput->setMinLayoutWidth(std::max(wMin, wMax) + (textInset * 2.0f));
 }
 
 LayoutSize Stepper::doMeasure(Renderer& renderer, const LayoutConstraints& constraints) {
@@ -379,7 +379,7 @@ void Stepper::commitValueField() {
   }
 }
 
-bool Stepper::swallowNonNumericKey(std::uint32_t sym, std::uint32_t modifiers) {
+bool Stepper::swallowNonNumericKey(std::uint32_t sym, std::uint32_t modifiers) const {
   (void)modifiers;
   if (sym >= XKB_KEY_0 && sym <= XKB_KEY_9) {
     return false;

@@ -25,7 +25,7 @@ namespace {
   constexpr auto kScheduleRecheckInterval = std::chrono::minutes(1);
 
   int timeToMinutes(std::string_view hhmm) {
-    return (hhmm[0] - '0') * 600 + (hhmm[1] - '0') * 60 + (hhmm[3] - '0') * 10 + (hhmm[4] - '0');
+    return ((hhmm[0] - '0') * 600) + ((hhmm[1] - '0') * 60) + ((hhmm[3] - '0') * 10) + (hhmm[4] - '0');
   }
 
   const zwlr_gamma_control_v1_listener kGammaControlListener = {
@@ -164,7 +164,7 @@ bool GammaService::isManualNightPhase() const {
   const std::time_t t = std::chrono::system_clock::to_time_t(now);
   std::tm local{};
   ::localtime_r(&t, &local);
-  const int nowMin = local.tm_hour * 60 + local.tm_min;
+  const int nowMin = (local.tm_hour * 60) + local.tm_min;
 
   const int sunsetMin = timeToMinutes(m_config.startTime);
   const int sunriseMin = timeToMinutes(m_config.stopTime);
@@ -180,7 +180,7 @@ std::chrono::milliseconds GammaService::msUntilNextManualBoundary() const {
   const std::time_t t = std::chrono::system_clock::to_time_t(now);
   std::tm local{};
   ::localtime_r(&t, &local);
-  const int nowMin = local.tm_hour * 60 + local.tm_min;
+  const int nowMin = (local.tm_hour * 60) + local.tm_min;
   const int nowSec = local.tm_sec;
 
   const int sunsetMin = timeToMinutes(m_config.startTime);
@@ -192,7 +192,7 @@ std::chrono::milliseconds GammaService::msUntilNextManualBoundary() const {
     diffMin += 1440;
   }
 
-  const auto ms = std::chrono::milliseconds(diffMin * 60 * 1000 - nowSec * 1000);
+  const auto ms = std::chrono::milliseconds((diffMin * 60 * 1000) - (nowSec * 1000));
   return std::max(ms, std::chrono::milliseconds(1000));
 }
 
@@ -221,8 +221,8 @@ std::optional<std::string> GammaService::normalizedClock(std::string_view value)
       || !std::isdigit(static_cast<unsigned char>(value[4]))) {
     return std::nullopt;
   }
-  const int hour = (value[0] - '0') * 10 + (value[1] - '0');
-  const int minute = (value[3] - '0') * 10 + (value[4] - '0');
+  const int hour = ((value[0] - '0') * 10) + (value[1] - '0');
+  const int minute = ((value[3] - '0') * 10) + (value[4] - '0');
   if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
     return std::nullopt;
   }
@@ -243,22 +243,22 @@ GammaService::SolarTimes GammaService::computeSolarTimes(double lat, double lon)
 
   const double equationOfTime = 229.18
       * (0.000075
-         + 0.001868 * std::cos(fractionalYear)
-         - 0.032077 * std::sin(fractionalYear)
-         - 0.014615 * std::cos(2.0 * fractionalYear)
-         - 0.040849 * std::sin(2.0 * fractionalYear));
+         + (0.001868 * std::cos(fractionalYear))
+         - (0.032077 * std::sin(fractionalYear))
+         - (0.014615 * std::cos(2.0 * fractionalYear))
+         - (0.040849 * std::sin(2.0 * fractionalYear)));
   const double declination = 0.006918
-      - 0.399912 * std::cos(fractionalYear)
-      + 0.070257 * std::sin(fractionalYear)
-      - 0.006758 * std::cos(2.0 * fractionalYear)
-      + 0.000907 * std::sin(2.0 * fractionalYear)
-      - 0.002697 * std::cos(3.0 * fractionalYear)
-      + 0.00148 * std::sin(3.0 * fractionalYear);
+      - (0.399912 * std::cos(fractionalYear))
+      + (0.070257 * std::sin(fractionalYear))
+      - (0.006758 * std::cos(2.0 * fractionalYear))
+      + (0.000907 * std::sin(2.0 * fractionalYear))
+      - (0.002697 * std::cos(3.0 * fractionalYear))
+      + (0.00148 * std::sin(3.0 * fractionalYear));
 
   constexpr double kSunriseZenith = 90.833 * kPi / 180.0;
   const double latRad = lat * kPi / 180.0;
-  const double hourAngleArg =
-      std::cos(kSunriseZenith) / (std::cos(latRad) * std::cos(declination)) - std::tan(latRad) * std::tan(declination);
+  const double hourAngleArg = (std::cos(kSunriseZenith) / (std::cos(latRad) * std::cos(declination)))
+      - (std::tan(latRad) * std::tan(declination));
 
   if (hourAngleArg > 1.0) {
     return SolarTimes{.sunriseMinutes = 0, .sunsetMinutes = 0};
@@ -269,7 +269,7 @@ GammaService::SolarTimes GammaService::computeSolarTimes(double lat, double lon)
 
   const double hourAngleDeg = std::acos(std::clamp(hourAngleArg, -1.0, 1.0)) * 180.0 / kPi;
   const double timeZoneOffsetMin = static_cast<double>(local.tm_gmtoff) / 60.0;
-  const double solarNoonMin = 720.0 - 4.0 * lon - equationOfTime + timeZoneOffsetMin;
+  const double solarNoonMin = 720.0 - (4.0 * lon) - equationOfTime + timeZoneOffsetMin;
 
   auto normalizeMinutes = [](double minutes) -> int {
     int rounded = static_cast<int>(std::round(minutes));
@@ -281,8 +281,8 @@ GammaService::SolarTimes GammaService::computeSolarTimes(double lat, double lon)
   };
 
   return SolarTimes{
-      .sunriseMinutes = normalizeMinutes(solarNoonMin - hourAngleDeg * 4.0),
-      .sunsetMinutes = normalizeMinutes(solarNoonMin + hourAngleDeg * 4.0),
+      .sunriseMinutes = normalizeMinutes(solarNoonMin - (hourAngleDeg * 4.0)),
+      .sunsetMinutes = normalizeMinutes(solarNoonMin + (hourAngleDeg * 4.0)),
   };
 }
 
@@ -304,7 +304,7 @@ bool GammaService::isGeoNightPhase() const {
   const std::time_t t = std::chrono::system_clock::to_time_t(now);
   std::tm local{};
   ::localtime_r(&t, &local);
-  const int nowMin = local.tm_hour * 60 + local.tm_min;
+  const int nowMin = (local.tm_hour * 60) + local.tm_min;
 
   const int sunset = times.sunsetMinutes;
   const int sunrise = times.sunriseMinutes;
@@ -329,7 +329,7 @@ std::chrono::milliseconds GammaService::msUntilNextGeoBoundary() const {
   const std::time_t t = std::chrono::system_clock::to_time_t(now);
   std::tm local{};
   ::localtime_r(&t, &local);
-  const int nowMin = local.tm_hour * 60 + local.tm_min;
+  const int nowMin = (local.tm_hour * 60) + local.tm_min;
   const int nowSec = local.tm_sec;
 
   const int targetMin = isGeoNightPhase() ? times.sunriseMinutes : times.sunsetMinutes;
@@ -338,7 +338,7 @@ std::chrono::milliseconds GammaService::msUntilNextGeoBoundary() const {
     diffMin += 1440;
   }
 
-  const auto ms = std::chrono::milliseconds(diffMin * 60 * 1000 - nowSec * 1000);
+  const auto ms = std::chrono::milliseconds((diffMin * 60 * 1000) - (nowSec * 1000));
   return std::max(ms, std::chrono::milliseconds(1000));
 }
 
@@ -372,11 +372,11 @@ GammaService::RgbMultipliers GammaService::kelvinToRgb(int kelvin) {
 
   if (temp <= 66.0) {
     mul.r = 1.0;
-    mul.g = std::clamp((99.4708025861 * std::log(temp) - 161.1195681661) / 255.0, 0.0, 1.0);
+    mul.g = std::clamp(((99.4708025861 * std::log(temp)) - 161.1195681661) / 255.0, 0.0, 1.0);
     if (temp <= 19.0) {
       mul.b = 0.0;
     } else {
-      mul.b = std::clamp((138.5177312231 * std::log(temp - 10.0) - 305.0447927307) / 255.0, 0.0, 1.0);
+      mul.b = std::clamp(((138.5177312231 * std::log(temp - 10.0)) - 305.0447927307) / 255.0, 0.0, 1.0);
     }
   } else {
     mul.r = std::clamp(329.698727446 * std::pow(temp - 60.0, -0.1332047592) / 255.0, 0.0, 1.0);
@@ -393,7 +393,7 @@ void GammaService::fillGammaRamp(std::uint16_t* ramp, std::uint32_t size, const 
     const double base = i * scale;
     ramp[i] = static_cast<std::uint16_t>(std::clamp(mul.r * base, 0.0, 65535.0));
     ramp[size + i] = static_cast<std::uint16_t>(std::clamp(mul.g * base, 0.0, 65535.0));
-    ramp[2 * size + i] = static_cast<std::uint16_t>(std::clamp(mul.b * base, 0.0, 65535.0));
+    ramp[(2 * size) + i] = static_cast<std::uint16_t>(std::clamp(mul.b * base, 0.0, 65535.0));
   }
 }
 

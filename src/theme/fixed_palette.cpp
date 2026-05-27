@@ -16,13 +16,14 @@ namespace noctalia::theme {
 
     ::Color tokenToColor(const TokenMap& tokens, std::string_view key) {
       auto it = tokens.find(std::string(key));
-      if (it == tokens.end())
+      if (it == tokens.end()) {
         return hex("#ff00ff");
+      }
       return rgbHex(it->second & 0x00FFFFFFU);
     }
 
     Color toUiColor(const ::Color& color) {
-      auto toByte = [](float value) { return static_cast<int>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f); };
+      auto toByte = [](float value) { return static_cast<int>((std::clamp(value, 0.0f, 1.0f) * 255.0f) + 0.5f); };
       return Color(toByte(color.r), toByte(color.g), toByte(color.b));
     }
 
@@ -30,7 +31,7 @@ namespace noctalia::theme {
 
     std::uint32_t colorToArgb(const ::Color& color) {
       auto toByte = [](float value) {
-        return static_cast<std::uint32_t>(value <= 0.0f ? 0.0f : (value >= 1.0f ? 255.0f : value * 255.0f + 0.5f));
+        return static_cast<std::uint32_t>(value <= 0.0f ? 0.0f : (value >= 1.0f ? 255.0f : (value * 255.0f) + 0.5f));
       };
       return kOpaqueBlack | (toByte(color.r) << 16U) | (toByte(color.g) << 8U) | toByte(color.b);
     }
@@ -39,9 +40,7 @@ namespace noctalia::theme {
       dst[std::string(key)] = colorToArgb(color);
     }
 
-    bool hasToken(const TokenMap& tokens, std::string_view key) {
-      return tokens.find(std::string(key)) != tokens.end();
-    }
+    bool hasToken(const TokenMap& tokens, std::string_view key) { return tokens.contains(std::string(key)); }
 
     std::uint32_t tokenOr(const TokenMap& tokens, std::string_view key, std::uint32_t fallback) {
       auto it = tokens.find(std::string(key));
@@ -55,34 +54,46 @@ namespace noctalia::theme {
     }
 
     const ::Color& ansiColorForKey(const TerminalAnsiColors& colors, std::string_view key) {
-      if (key == kTerminalBlackJsonKey)
+      if (key == kTerminalBlackJsonKey) {
         return colors.black;
-      if (key == kTerminalRedJsonKey)
+      }
+      if (key == kTerminalRedJsonKey) {
         return colors.red;
-      if (key == kTerminalGreenJsonKey)
+      }
+      if (key == kTerminalGreenJsonKey) {
         return colors.green;
-      if (key == kTerminalYellowJsonKey)
+      }
+      if (key == kTerminalYellowJsonKey) {
         return colors.yellow;
-      if (key == kTerminalBlueJsonKey)
+      }
+      if (key == kTerminalBlueJsonKey) {
         return colors.blue;
-      if (key == kTerminalMagentaJsonKey)
+      }
+      if (key == kTerminalMagentaJsonKey) {
         return colors.magenta;
-      if (key == kTerminalCyanJsonKey)
+      }
+      if (key == kTerminalCyanJsonKey) {
         return colors.cyan;
+      }
       return colors.white;
     }
 
     const ::Color& directColorForKey(const TerminalPalette& terminal, std::string_view key) {
-      if (key == kTerminalForegroundJsonKey)
+      if (key == kTerminalForegroundJsonKey) {
         return terminal.foreground;
-      if (key == kTerminalBackgroundJsonKey)
+      }
+      if (key == kTerminalBackgroundJsonKey) {
         return terminal.background;
-      if (key == kTerminalCursorJsonKey)
+      }
+      if (key == kTerminalCursorJsonKey) {
         return terminal.cursor;
-      if (key == kTerminalCursorTextJsonKey)
+      }
+      if (key == kTerminalCursorTextJsonKey) {
         return terminal.cursorText;
-      if (key == kTerminalSelectionFgJsonKey)
+      }
+      if (key == kTerminalSelectionFgJsonKey) {
         return terminal.selectionFg;
+      }
       return terminal.selectionBg;
     }
 
@@ -100,7 +111,7 @@ namespace noctalia::theme {
     }
 
     Color interpolateColor(const Color& a, const Color& b, double t) {
-      auto mix = [t](int lhs, int rhs) { return static_cast<int>(lhs + (rhs - lhs) * t); };
+      auto mix = [t](int lhs, int rhs) { return static_cast<int>(lhs + ((rhs - lhs) * t)); };
       return Color(mix(a.r, b.r), mix(a.g, b.g), mix(a.b, b.b));
     }
 

@@ -10,10 +10,10 @@
 
 ProgressBar::ProgressBar() {
   auto track = std::make_unique<RectNode>();
-  m_track = static_cast<RectNode*>(addChild(std::move(track)));
+  m_track = dynamic_cast<RectNode*>(addChild(std::move(track)));
 
   auto fill = std::make_unique<RectNode>();
-  m_fill = static_cast<RectNode*>(addChild(std::move(fill)));
+  m_fill = dynamic_cast<RectNode*>(addChild(std::move(fill)));
 
   setTrack(colorSpecFromRole(ColorRole::SurfaceVariant));
   setFill(colorSpecFromRole(ColorRole::Primary));

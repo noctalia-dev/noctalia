@@ -575,7 +575,9 @@ namespace settings {
       if (m_parentWidth > 0) {
         maxWidth = std::min(
             maxWidth,
-            std::max(kCreateMinWidth * m_scale, static_cast<float>(m_parentWidth) * m_scale - kParentMargin * m_scale)
+            std::max(
+                kCreateMinWidth * m_scale, (static_cast<float>(m_parentWidth) * m_scale) - (kParentMargin * m_scale)
+            )
         );
       }
       contentWidth = std::clamp(measured, kCreateMinWidth * m_scale, maxWidth);

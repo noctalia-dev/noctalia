@@ -71,40 +71,40 @@ FileEntryRow::FileEntryRow(float scale) : m_scale(scale), m_rowHeight(std::ceil(
   auto background = ui::box({
       .radius = Style::scaledRadiusMd(scale),
   });
-  m_background = static_cast<Box*>(addChild(std::move(background)));
+  m_background = dynamic_cast<Box*>(addChild(std::move(background)));
 
   auto row = ui::row({
       .align = FlexAlign::Center,
       .gap = Style::spaceSm * scale,
       .configure = [scale](Flex& container) { container.setPadding(Style::spaceXs * scale, Style::spaceSm * scale); },
   });
-  m_row = static_cast<Flex*>(addChild(std::move(row)));
+  m_row = dynamic_cast<Flex*>(addChild(std::move(row)));
 
   auto icon = ui::glyph({
       .glyphSize = Style::fontSizeBody * scale,
   });
-  m_icon = static_cast<Glyph*>(m_row->addChild(std::move(icon)));
+  m_icon = dynamic_cast<Glyph*>(m_row->addChild(std::move(icon)));
 
   auto name = ui::label({
       .fontSize = Style::fontSizeBody * scale,
       .maxLines = 1,
       .flexGrow = 1.0f,
   });
-  m_name = static_cast<Label*>(m_row->addChild(std::move(name)));
+  m_name = dynamic_cast<Label*>(m_row->addChild(std::move(name)));
 
   auto size = ui::label({
       .fontSize = Style::fontSizeCaption * scale,
       .minWidth = kSizeColumnWidth * scale,
       .textAlign = TextAlign::End,
   });
-  m_size = static_cast<Label*>(m_row->addChild(std::move(size)));
+  m_size = dynamic_cast<Label*>(m_row->addChild(std::move(size)));
 
   auto date = ui::label({
       .fontSize = Style::fontSizeCaption * scale,
       .minWidth = kDateColumnWidth * scale,
       .textAlign = TextAlign::End,
   });
-  m_date = static_cast<Label*>(m_row->addChild(std::move(date)));
+  m_date = dynamic_cast<Label*>(m_row->addChild(std::move(date)));
 
   setVisible(false);
 }
@@ -134,7 +134,7 @@ void FileEntryRow::bind(
 
   m_icon->setGlyph(entry.isDir ? "folder" : (DirectoryScanner::isImagePath(entry.absPath) ? "image" : "file"));
   m_name->setText(entry.name);
-  m_name->setMaxWidth(std::max(0.0f, width - (kSizeColumnWidth + kDateColumnWidth + 72.0f) * m_scale));
+  m_name->setMaxWidth(std::max(0.0f, width - ((kSizeColumnWidth + kDateColumnWidth + 72.0f) * m_scale)));
   m_size->setText(formatSize(entry));
   m_date->setText(formatFileTime(entry.mtime));
 

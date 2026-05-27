@@ -233,7 +233,7 @@ void WaylandToplevels::onHandleState(zwlr_foreign_toplevel_handle_v1* handle, wl
 
   bool activated = false;
   if (state != nullptr) {
-    auto* value = static_cast<const std::uint32_t*>(state->data);
+    const auto* value = static_cast<const std::uint32_t*>(state->data);
     const auto count = state->size / sizeof(std::uint32_t);
     for (std::size_t i = 0; i < count; ++i) {
       if (value[i] == ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_ACTIVATED) {
@@ -309,12 +309,14 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsForApp(
       continue;
     }
     const auto appId = effectiveAppId(state.appId, state.title);
-    if (appId.empty())
+    if (appId.empty()) {
       continue;
+    }
     const auto appLower = [&] {
       std::string s = appId;
-      for (auto& c : s)
+      for (auto& c : s) {
         c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+      }
       return s;
     }();
     if (app_identity::matchesLower(appLower, idLower, wmClassLower, {})) {
@@ -346,14 +348,16 @@ bool WaylandToplevels::containsWlrHandle(zwlr_foreign_toplevel_handle_v1* handle
 }
 
 void WaylandToplevels::activateHandle(zwlr_foreign_toplevel_handle_v1* handle, wl_seat* seat) {
-  if (handle == nullptr || seat == nullptr)
+  if (handle == nullptr || seat == nullptr) {
     return;
+  }
   zwlr_foreign_toplevel_handle_v1_activate(handle, seat);
 }
 
 void WaylandToplevels::closeHandle(zwlr_foreign_toplevel_handle_v1* handle) {
-  if (handle == nullptr)
+  if (handle == nullptr) {
     return;
+  }
   zwlr_foreign_toplevel_handle_v1_close(handle);
 }
 

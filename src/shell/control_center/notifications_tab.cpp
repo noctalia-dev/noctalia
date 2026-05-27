@@ -238,7 +238,7 @@ namespace {
     metrics.bodyText = metrics.expanded ? bodyText : collapsedBodyText;
 
     const float iconPx = kHistoryIconSize * scale;
-    const float iconColumn = iconPx + Style::spaceSm * scale;
+    const float iconColumn = iconPx + (Style::spaceSm * scale);
     const float actionButtonSize = kNotificationActionButtonSize * scale;
     const float actionButtonsGap = Style::spaceXs * scale;
     const float headerActionsWidth =
@@ -298,7 +298,7 @@ namespace {
       applyNotificationCardStyle(*this, scale, fillOpacity, showBorder);
       setFillWidth(true);
 
-      m_header = static_cast<Flex*>(addChild(
+      m_header = dynamic_cast<Flex*>(addChild(
           ui::row({
               .align = FlexAlign::Center,
               .justify = FlexJustify::SpaceBetween,
@@ -306,7 +306,7 @@ namespace {
           })
       ));
 
-      m_leftCluster = static_cast<Flex*>(m_header->addChild(
+      m_leftCluster = dynamic_cast<Flex*>(m_header->addChild(
           ui::row({
               .align = FlexAlign::Center,
               .gap = Style::spaceSm * scale,
@@ -314,7 +314,7 @@ namespace {
           })
       ));
 
-      m_iconSlot = static_cast<Box*>(m_leftCluster->addChild(
+      m_iconSlot = dynamic_cast<Box*>(m_leftCluster->addChild(
           ui::box({
               .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
               .radius = notificationIconRadius(kHistoryIconSize, scale),
@@ -323,20 +323,20 @@ namespace {
           })
       ));
 
-      m_image = static_cast<Image*>(m_iconSlot->addChild(
+      m_image = dynamic_cast<Image*>(m_iconSlot->addChild(
           ui::image({
               .visible = false,
           })
       ));
 
-      m_fallback = static_cast<Glyph*>(m_iconSlot->addChild(
+      m_fallback = dynamic_cast<Glyph*>(m_iconSlot->addChild(
           ui::glyph({
               .glyph = "bell",
               .visible = false,
           })
       ));
 
-      m_meta = static_cast<Label*>(m_leftCluster->addChild(
+      m_meta = dynamic_cast<Label*>(m_leftCluster->addChild(
           ui::label({
               .fontSize = Style::fontSizeCaption * scale,
               .flexGrow = 1.0f,
@@ -344,24 +344,24 @@ namespace {
           })
       ));
 
-      m_headerActions = static_cast<Flex*>(m_header->addChild(
+      m_headerActions = dynamic_cast<Flex*>(m_header->addChild(
           ui::row({
               .align = FlexAlign::Center,
               .gap = Style::spaceXs * scale,
           })
       ));
 
-      m_expand = static_cast<Button*>(m_headerActions->addChild(makeActionButton("chevron-down", scale)));
-      m_dismiss = static_cast<Button*>(m_headerActions->addChild(makeActionButton("trash", scale)));
+      m_expand = dynamic_cast<Button*>(m_headerActions->addChild(makeActionButton("chevron-down", scale)));
+      m_dismiss = dynamic_cast<Button*>(m_headerActions->addChild(makeActionButton("trash", scale)));
 
-      m_summary = static_cast<Label*>(addChild(
+      m_summary = dynamic_cast<Label*>(addChild(
           ui::label({
               .fontSize = Style::fontSizeBody * scale,
               .fontWeight = FontWeight::Bold,
           })
       ));
 
-      m_body = static_cast<Label*>(addChild(
+      m_body = dynamic_cast<Label*>(addChild(
           ui::label({
               .fontSize = Style::fontSizeCaption * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
@@ -369,7 +369,7 @@ namespace {
           })
       ));
 
-      m_actionsRow = static_cast<Flex*>(addChild(
+      m_actionsRow = dynamic_cast<Flex*>(addChild(
           ui::row({
               .align = FlexAlign::Center,
               .gap = Style::spaceXs * scale,
@@ -378,7 +378,7 @@ namespace {
           })
       ));
       for (int i = 0; i < kHistoryMaxActionButtons; ++i) {
-        m_actionButtons[static_cast<std::size_t>(i)] = static_cast<Button*>(m_actionsRow->addChild(
+        m_actionButtons[static_cast<std::size_t>(i)] = dynamic_cast<Button*>(m_actionsRow->addChild(
             ui::button({
                 .fontSize = Style::fontSizeCaption * scale,
                 .variant = ButtonVariant::Outline,

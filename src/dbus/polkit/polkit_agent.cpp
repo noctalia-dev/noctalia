@@ -157,7 +157,7 @@ namespace {
 // signatures are defined by libpolkit-agent.
 // NOLINTBEGIN(readability-identifier-naming)
 
-using NoctaliaPolkitListener = struct _NoctaliaPolkitListener {
+using NoctaliaPolkitListener = struct NoctaliaPolkitListener {
   PolkitAgentListener parent_instance;
   void* owner = nullptr;
   InitiateCallback initiate = nullptr;
@@ -165,7 +165,7 @@ using NoctaliaPolkitListener = struct _NoctaliaPolkitListener {
   gpointer registration_handle = nullptr;
 };
 
-using NoctaliaPolkitListenerClass = struct _NoctaliaPolkitListenerClass {
+using NoctaliaPolkitListenerClass = struct NoctaliaPolkitListenerClass {
   PolkitAgentListenerClass parent_class;
 };
 
@@ -484,19 +484,20 @@ struct PolkitAgent::Impl {
     static_cast<Impl*>(userData)->handleCompleted(gainedAuthorization != FALSE);
   }
 
-  static void requestCallback(PolkitAgentSession* /*session*/, gchar* request, gboolean echoOn, gpointer userData) {
+  static void
+  requestCallback(PolkitAgentSession* /*session*/, const gchar* request, gboolean echoOn, gpointer userData) {
     static_cast<Impl*>(userData)->handleRequest(request != nullptr ? request : "", echoOn != FALSE);
   }
 
-  static void showErrorCallback(PolkitAgentSession* /*session*/, gchar* text, gpointer userData) {
+  static void showErrorCallback(PolkitAgentSession* /*session*/, const gchar* text, gpointer userData) {
     static_cast<Impl*>(userData)->setSupplementary(text != nullptr ? text : "", true);
   }
 
-  static void showInfoCallback(PolkitAgentSession* /*session*/, gchar* text, gpointer userData) {
+  static void showInfoCallback(PolkitAgentSession* /*session*/, const gchar* text, gpointer userData) {
     static_cast<Impl*>(userData)->setSupplementary(text != nullptr ? text : "", false);
   }
 
-  void emitStateChanged() {
+  void emitStateChanged() const {
     if (stateCallback) {
       stateCallback();
     }

@@ -55,10 +55,12 @@ namespace {
     FcFontSet* fontSet = FcFontSetCreate();
     FcStrSet* dirs = FcStrSetCreate();
     if (!fontSet || !dirs) {
-      if (dirs)
+      if (dirs) {
         FcStrSetDestroy(dirs);
-      if (fontSet)
+      }
+      if (fontSet) {
         FcFontSetDestroy(fontSet);
+      }
       kLog.warn("failed to allocate font scan state for: {}", pathStr);
       return {};
     }
@@ -85,16 +87,19 @@ namespace {
   }
 
   std::filesystem::path resolveScriptPath(const std::string& path) {
-    if (path.empty())
+    if (path.empty()) {
       return {};
+    }
     if (path[0] == '~') {
       const char* home = std::getenv("HOME");
-      if (home)
+      if (home) {
         return std::string(home) + path.substr(1);
+      }
       return path;
     }
-    if (path[0] == '/')
+    if (path[0] == '/') {
       return path;
+    }
     return paths::assetPath(path);
   }
 
@@ -113,8 +118,9 @@ namespace {
 
   std::string readFile(const std::filesystem::path& path) {
     std::ifstream f(path);
-    if (!f)
+    if (!f) {
       return {};
+    }
     std::stringstream ss;
     ss << f.rdbuf();
     return ss.str();
@@ -160,8 +166,9 @@ void ScriptedWidget::create() {
   area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT, BTN_MIDDLE}));
   area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
   area->setOnClick([this](const InputArea::PointerData& data) {
-    if (!m_runtime)
+    if (!m_runtime) {
       return;
+    }
     const char* fn = nullptr;
     switch (data.button) {
     case BTN_LEFT:
@@ -179,12 +186,14 @@ void ScriptedWidget::create() {
     (void)m_runtime->enqueueCall(fn, makeScriptSnapshot());
   });
   area->setOnEnter([this](const InputArea::PointerData&) {
-    if (m_runtime)
+    if (m_runtime) {
       (void)m_runtime->enqueueCallBool("onHover", true, makeScriptSnapshot());
+    }
   });
   area->setOnLeave([this]() {
-    if (m_runtime)
+    if (m_runtime) {
       (void)m_runtime->enqueueCallBool("onHover", false, makeScriptSnapshot());
+    }
   });
 
   auto flex = ui::row({
@@ -245,12 +254,12 @@ void ScriptedWidget::create() {
   }
 
   auto alive = std::weak_ptr<bool>(m_alive);
-  m_runtimeSubscription = m_runtime->subscribe([this, alive](scripting::ScriptWidgetResult result) {
+  m_runtimeSubscription = m_runtime->subscribe([this, alive](const scripting::ScriptWidgetResult& result) {
     auto token = alive.lock();
     if (token == nullptr || !*token) {
       return;
     }
-    handleScriptResult(std::move(result));
+    handleScriptResult(result);
   });
 
   if (createdRuntime) {
@@ -259,14 +268,16 @@ void ScriptedWidget::create() {
   startUpdateTimer();
   setupAudioSpectrum();
 
-  if (m_hotReload)
+  if (m_hotReload) {
     setupScriptWatch();
+  }
 }
 
 void ScriptedWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   m_isVertical = containerHeight > containerWidth;
-  if (!m_flex)
+  if (!m_flex) {
     return;
+  }
 
   m_flex->setDirection(m_isVertical ? FlexDirection::Vertical : FlexDirection::Horizontal);
 
@@ -291,15 +302,17 @@ void ScriptedWidget::doLayout(Renderer& renderer, float containerWidth, float co
 
   m_flex->layout(renderer);
 
-  if (m_area)
+  if (m_area) {
     m_area->setSize(m_flex->width(), m_flex->height());
+  }
 }
 
 void ScriptedWidget::doUpdate(Renderer&) {}
 
 void ScriptedWidget::luaSetText(std::string_view text) {
-  if (!m_label)
+  if (!m_label) {
     return;
+  }
   bool changed = m_label->setText(text);
   bool vis = !text.empty();
   if (m_label->visible() != vis) {
@@ -310,8 +323,9 @@ void ScriptedWidget::luaSetText(std::string_view text) {
 }
 
 void ScriptedWidget::luaSetGlyph(std::string_view name) {
-  if (!m_glyph)
+  if (!m_glyph) {
     return;
+  }
   bool changed = m_glyph->setGlyph(name);
   if (!m_imagePath.empty()) {
     m_imagePath.clear();
@@ -405,16 +419,18 @@ void ScriptedWidget::luaSetTooltip(const scripting::ScriptWidgetTooltipPatch& to
 }
 
 void ScriptedWidget::luaSetFont(std::string_view familyOrPath) {
-  if (!m_label)
+  if (!m_label) {
     return;
+  }
   std::string family;
   // If it looks like a font file path, resolve and register it
   if (familyOrPath.ends_with(".otf") || familyOrPath.ends_with(".ttf") || familyOrPath.ends_with(".woff2")) {
     auto resolved = resolveScriptPath(std::string(familyOrPath));
     bool alreadyRegistered = registeredFontFiles().contains(resolved.string());
     family = registerFontFile(resolved);
-    if (family.empty())
+    if (family.empty()) {
       return;
+    }
     if (!alreadyRegistered) {
       m_fontConfigDirty = true;
     }
@@ -462,8 +478,9 @@ void ScriptedWidget::setTooltipRefreshCallback(std::function<void(InputArea*)> c
 
 void ScriptedWidget::luaSetVisible(bool visible) {
   auto* node = root();
-  if (!node || node->visible() == visible)
+  if (!node || node->visible() == visible) {
     return;
+  }
   node->setVisible(visible);
   m_dirty = true;
 }
@@ -590,7 +607,7 @@ void ScriptedWidget::runScriptUpdate() {
   }
 }
 
-void ScriptedWidget::handleScriptResult(scripting::ScriptWidgetResult result) {
+void ScriptedWidget::handleScriptResult(const scripting::ScriptWidgetResult& result) {
   if (result.hasOnIpcKnown) {
     m_hasOnIpc = result.hasOnIpc;
     m_hasOnIpcKnown = true;
@@ -774,14 +791,16 @@ void ScriptedWidget::handleAudioSpectrumChanged() {
 bool ScriptedWidget::shouldDeferUpdate() const { return m_updateDeferralCallback && m_updateDeferralCallback(); }
 
 void ScriptedWidget::setupScriptWatch() {
-  if (m_resolvedPath.empty() || !m_fileWatcher)
+  if (m_resolvedPath.empty() || !m_fileWatcher) {
     return;
+  }
   m_watchId = m_fileWatcher->watch(m_resolvedPath, [this] { reloadScript(); });
 }
 
 void ScriptedWidget::teardownScriptWatch() {
-  if (m_watchId == 0 || !m_fileWatcher)
+  if (m_watchId == 0 || !m_fileWatcher) {
     return;
+  }
   m_fileWatcher->unwatch(m_watchId);
   m_watchId = 0;
 }
@@ -802,10 +821,12 @@ void ScriptedWidget::reloadScript() {
   m_imageDirty = true;
   m_imageForceReload = false;
   m_imageReloadRetries = 0;
-  if (m_glyph)
+  if (m_glyph) {
     m_glyph->setVisible(false);
-  if (m_image)
+  }
+  if (m_image) {
     m_image->setVisible(false);
+  }
   if (m_label) {
     m_label->setText("");
     m_label->setVisible(false);

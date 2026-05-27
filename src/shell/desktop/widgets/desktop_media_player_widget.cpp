@@ -34,7 +34,7 @@ namespace {
 DesktopMediaPlayerWidget::DesktopMediaPlayerWidget(
     MprisService* mpris, HttpClient* httpClient, bool vertical, ColorSpec color, bool shadow
 )
-    : m_mpris(mpris), m_httpClient(httpClient), m_vertical(vertical), m_color(std::move(color)), m_shadow(shadow) {}
+    : m_mpris(mpris), m_httpClient(httpClient), m_vertical(vertical), m_color(color), m_shadow(shadow) {}
 
 void DesktopMediaPlayerWidget::create() {
   auto rootNode = std::make_unique<Node>();
@@ -116,10 +116,12 @@ bool DesktopMediaPlayerWidget::applySetting(
   if (key == "color") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_color = colorSpecFromConfigString(*v, key);
-      if (m_title != nullptr)
+      if (m_title != nullptr) {
         m_title->setColor(m_color);
-      if (m_artist != nullptr)
+      }
+      if (m_artist != nullptr) {
         m_artist->setColor(m_color);
+      }
       return true;
     }
     return false;
@@ -136,8 +138,9 @@ bool DesktopMediaPlayerWidget::applySetting(
 }
 
 void DesktopMediaPlayerWidget::doLayout(Renderer& renderer) {
-  if (root() == nullptr || m_artwork == nullptr || m_title == nullptr || m_artist == nullptr || m_controls == nullptr)
+  if (root() == nullptr || m_artwork == nullptr || m_title == nullptr || m_artist == nullptr || m_controls == nullptr) {
     return;
+  }
 
   sync(renderer);
   applyShadow();
@@ -167,7 +170,7 @@ void DesktopMediaPlayerWidget::layoutVertical(Renderer& renderer, float scale) {
   m_artist->setFontSize(fontSize * 0.9f);
   m_artist->setMaxWidth(artW);
   m_artist->measure(renderer);
-  const float artistY = m_title->y() + m_title->height() + spacing * 0.5f;
+  const float artistY = m_title->y() + m_title->height() + (spacing * 0.5f);
   m_artist->setPosition(0.0f, artistY);
 
   layoutButtons(renderer, scale);
@@ -203,15 +206,15 @@ void DesktopMediaPlayerWidget::layoutHorizontal(Renderer& renderer, float scale)
   layoutButtons(renderer, scale);
 
   const float titleH = m_title->height();
-  const float artistH = m_artist->visible() ? m_artist->height() + spacing * 0.5f : 0.0f;
+  const float artistH = m_artist->visible() ? m_artist->height() + (spacing * 0.5f) : 0.0f;
   const float controlsH = m_controls->height();
-  const float textBlockH = titleH + artistH + spacing * 0.5f + controlsH;
+  const float textBlockH = titleH + artistH + (spacing * 0.5f) + controlsH;
   const float textY = std::round((artH - textBlockH) * 0.5f);
 
   m_title->setPosition(textX, textY);
-  m_artist->setPosition(textX, textY + titleH + spacing * 0.5f);
+  m_artist->setPosition(textX, textY + titleH + (spacing * 0.5f));
 
-  const float controlsY = textY + titleH + artistH + spacing * 0.5f;
+  const float controlsY = textY + titleH + artistH + (spacing * 0.5f);
   m_controls->setPosition(textX, controlsY);
 
   const float totalWidth =
@@ -254,8 +257,9 @@ void DesktopMediaPlayerWidget::layoutButtons(Renderer& renderer, float scale) {
 void DesktopMediaPlayerWidget::doUpdate(Renderer& renderer) { sync(renderer); }
 
 void DesktopMediaPlayerWidget::sync(Renderer& renderer) {
-  if (m_title == nullptr || m_artist == nullptr || m_playPause == nullptr)
+  if (m_title == nullptr || m_artist == nullptr || m_playPause == nullptr) {
     return;
+  }
 
   const auto active = m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
 
@@ -276,8 +280,9 @@ void DesktopMediaPlayerWidget::sync(Renderer& renderer) {
   const bool artChanged = artUrl != m_lastArtUrl;
   const bool statusChanged = playbackStatus != m_lastPlaybackStatus;
   const bool artAwaitingDecode = m_artwork != nullptr && !artUrl.empty() && !m_artwork->hasImage();
-  if (!titleChanged && !artistChanged && !artChanged && !statusChanged && !artAwaitingDecode)
+  if (!titleChanged && !artistChanged && !artChanged && !statusChanged && !artAwaitingDecode) {
     return;
+  }
 
   m_lastTitle = title;
   m_lastArtist = artist;
@@ -311,8 +316,9 @@ void DesktopMediaPlayerWidget::sync(Renderer& renderer) {
 
     if (!artPath.empty()) {
       const int targetPx = static_cast<int>(std::round(kArtSize * contentScale()));
-      if (!m_artwork->setSourceFile(renderer, artPath, targetPx, true))
+      if (!m_artwork->setSourceFile(renderer, artPath, targetPx, true)) {
         m_artwork->clear(renderer);
+      }
     } else {
       m_artwork->clear(renderer);
     }
@@ -321,13 +327,15 @@ void DesktopMediaPlayerWidget::sync(Renderer& renderer) {
     if (artPath.empty() && isRemoteArtUrl(m_lastArtUrl)) {
       const auto cached = artCachePath(m_lastArtUrl);
       std::error_code ec;
-      if (std::filesystem::exists(cached, ec) && std::filesystem::file_size(cached, ec) > 0)
+      if (std::filesystem::exists(cached, ec) && std::filesystem::file_size(cached, ec) > 0) {
         artPath = cached.string();
+      }
     }
     if (!artPath.empty()) {
       const int targetPx = static_cast<int>(std::round(kArtSize * contentScale()));
-      if (m_artwork->setSourceFile(renderer, artPath, targetPx, true))
+      if (m_artwork->setSourceFile(renderer, artPath, targetPx, true)) {
         requestRedraw();
+      }
     }
   }
 

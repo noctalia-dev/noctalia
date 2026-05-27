@@ -11,7 +11,7 @@
 
 Glyph::Glyph() {
   auto glyph = std::make_unique<GlyphNode>();
-  m_glyphNode = static_cast<GlyphNode*>(addChild(std::move(glyph)));
+  m_glyphNode = dynamic_cast<GlyphNode*>(addChild(std::move(glyph)));
   m_logicalFontSize = Style::fontSizeBody;
   m_glyphNode->setFontSize(m_logicalFontSize);
   applyPalette();
@@ -20,16 +20,18 @@ Glyph::Glyph() {
 
 bool Glyph::setGlyph(std::string_view name) {
   char32_t cp = GlyphRegistry::lookup(name);
-  if (cp == 0 || cp == m_glyphNode->codepoint())
+  if (cp == 0 || cp == m_glyphNode->codepoint()) {
     return false;
+  }
   m_glyphNode->setCodepoint(cp);
   m_measureCached = false;
   return true;
 }
 
 bool Glyph::setCodepoint(char32_t codepoint) {
-  if (codepoint == m_glyphNode->codepoint())
+  if (codepoint == m_glyphNode->codepoint()) {
     return false;
+  }
   m_glyphNode->setCodepoint(codepoint);
   m_measureCached = false;
   return true;
@@ -108,8 +110,8 @@ LayoutSize Glyph::measureWithConstraints(Renderer& renderer, const LayoutConstra
 
   const float glyphCenterX = (metrics.left + metrics.right) * 0.5f;
   const float glyphInkCenter = (metrics.top + metrics.bottom) * 0.5f; // relative to baseline
-  m_baselineOffset = height() * 0.5f - glyphInkCenter;
-  m_glyphNode->setPosition(width() * 0.5f - glyphCenterX, m_baselineOffset);
+  m_baselineOffset = (height() * 0.5f) - glyphInkCenter;
+  m_glyphNode->setPosition((width() * 0.5f) - glyphCenterX, m_baselineOffset);
 
   m_cachedCodepoint = m_glyphNode->codepoint();
   m_cachedFontSize = m_glyphNode->fontSize();

@@ -24,7 +24,7 @@ ScrollView::ScrollView() {
   setClipChildren(true);
 
   auto background = std::make_unique<RectNode>();
-  m_background = static_cast<RectNode*>(addChild(std::move(background)));
+  m_background = dynamic_cast<RectNode*>(addChild(std::move(background)));
   m_background->setStyle(
       RoundedRectStyle{
           .fill = clearColor(),
@@ -62,16 +62,16 @@ ScrollView::ScrollView() {
 
     scrollBy(data.scrollDelta(m_scrollWheelStep));
   });
-  m_viewportArea = static_cast<InputArea*>(addChild(std::move(viewportArea)));
+  m_viewportArea = dynamic_cast<InputArea*>(addChild(std::move(viewportArea)));
 
   auto content = std::make_unique<Flex>();
   content->setDirection(FlexDirection::Vertical);
   content->setAlign(FlexAlign::Start);
-  m_content = static_cast<Flex*>(m_viewportArea->addChild(std::move(content)));
+  m_content = dynamic_cast<Flex*>(m_viewportArea->addChild(std::move(content)));
 
   auto scrollbar = std::make_unique<Scrollbar>();
   scrollbar->setOnScrollChanged([this](float offset) { setScrollOffset(offset); });
-  m_scrollbar = static_cast<Scrollbar*>(addChild(std::move(scrollbar)));
+  m_scrollbar = dynamic_cast<Scrollbar*>(addChild(std::move(scrollbar)));
 
   applyPalette();
 }
@@ -172,11 +172,11 @@ void ScrollView::setViewportPaddingV(float padding) {
 
 float ScrollView::contentViewportWidth() const noexcept {
   const float gutter = m_scrollbarShown ? (Style::scrollbarWidth + Style::scrollbarGap) : 0.0f;
-  return std::max(0.0f, width() - m_viewportPaddingH * 2.0f - gutter);
+  return std::max(0.0f, width() - (m_viewportPaddingH * 2.0f) - gutter);
 }
 
 float ScrollView::contentViewportHeight() const noexcept {
-  return std::max(0.0f, height() - m_viewportPaddingV * 2.0f);
+  return std::max(0.0f, height() - (m_viewportPaddingV * 2.0f));
 }
 
 void ScrollView::applyPalette() {
@@ -202,7 +202,7 @@ void ScrollView::doLayout(Renderer& renderer) {
   const float w = width() > 0.0f ? width() : kDefaultWidth;
   const float viewportX = m_viewportPaddingH;
   const float viewportY = m_viewportPaddingV;
-  const float viewportW = std::max(0.0f, w - m_viewportPaddingH * 2.0f);
+  const float viewportW = std::max(0.0f, w - (m_viewportPaddingH * 2.0f));
 
   m_content->setPosition(0.0f, 0.0f);
   LayoutConstraints contentConstraints;
@@ -210,9 +210,9 @@ void ScrollView::doLayout(Renderer& renderer) {
   LayoutSize contentSize = m_content->measure(renderer, contentConstraints);
   m_content->arrange(renderer, LayoutRect{.x = 0.0f, .y = 0.0f, .width = viewportW, .height = contentSize.height});
 
-  const float naturalH = contentSize.height + m_viewportPaddingV * 2.0f;
+  const float naturalH = contentSize.height + (m_viewportPaddingV * 2.0f);
   const float h = height() > 0.0f ? height() : naturalH;
-  const float viewportH = std::max(0.0f, h - m_viewportPaddingV * 2.0f);
+  const float viewportH = std::max(0.0f, h - (m_viewportPaddingV * 2.0f));
   m_viewportHeight = viewportH;
   m_viewportWidth = viewportW;
   setSize(w, h);

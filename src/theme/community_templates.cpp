@@ -53,16 +53,19 @@ namespace noctalia::theme {
 
     std::string stringField(const nlohmann::json& obj, std::string_view snake, std::string_view camel = {}) {
       auto read = [&](std::string_view key) -> std::string {
-        if (key.empty())
+        if (key.empty()) {
           return {};
+        }
         auto it = obj.find(std::string(key));
-        if (it == obj.end() || !it->is_string())
+        if (it == obj.end() || !it->is_string()) {
           return {};
+        }
         return it->get<std::string>();
       };
       std::string value = read(snake);
-      if (value.empty())
+      if (value.empty()) {
         value = read(camel);
+      }
       return value;
     }
 
@@ -98,8 +101,9 @@ namespace noctalia::theme {
       const bool bare = !key.empty() && std::all_of(key.begin(), key.end(), [](unsigned char ch) {
         return std::isalnum(ch) != 0 || ch == '_' || ch == '-';
       });
-      if (bare)
+      if (bare) {
         return std::string(key);
+      }
       return '"' + tomlEscape(key) + '"';
     }
 
@@ -108,16 +112,18 @@ namespace noctalia::theme {
     }
 
     void writeOutputPaths(std::ostream& out, const std::vector<std::string>& paths) {
-      if (paths.empty())
+      if (paths.empty()) {
         return;
+      }
       if (paths.size() == 1) {
         writeTomlString(out, "output_path", paths.front());
         return;
       }
       out << "output_path = [";
       for (std::size_t i = 0; i < paths.size(); ++i) {
-        if (i > 0)
+        if (i > 0) {
           out << ", ";
+        }
         out << '"' << tomlEscape(paths[i]) << '"';
       }
       out << "]\n";
@@ -126,58 +132,69 @@ namespace noctalia::theme {
     std::vector<std::string> readJsonStringArrayOrString(const nlohmann::json& obj, std::string_view key) {
       std::vector<std::string> out;
       auto it = obj.find(std::string(key));
-      if (it == obj.end())
+      if (it == obj.end()) {
         return out;
+      }
       if (it->is_string()) {
         out.push_back(it->get<std::string>());
         return out;
       }
-      if (!it->is_array())
+      if (!it->is_array()) {
         return out;
+      }
       for (const auto& item : *it) {
-        if (item.is_string())
+        if (item.is_string()) {
           out.push_back(item.get<std::string>());
+        }
       }
       return out;
     }
 
     std::optional<CommunityTemplateEntry> parseEntry(std::string_view fallbackId, const nlohmann::json& obj) {
-      if (!obj.is_object())
+      if (!obj.is_object()) {
         return std::nullopt;
+      }
 
       CommunityTemplateEntry entry;
       entry.id = stringField(obj, "id", "name");
-      if (entry.id.empty())
+      if (entry.id.empty()) {
         entry.id = std::string(fallbackId);
+      }
       entry.inputPath = stringField(obj, "input_path", "inputPath");
       entry.outputPaths = readJsonStringArrayOrString(obj, "output_path");
-      if (entry.outputPaths.empty())
+      if (entry.outputPaths.empty()) {
         entry.outputPaths = readJsonStringArrayOrString(obj, "outputPath");
+      }
       entry.preHook = stringField(obj, "pre_hook", "preHook");
       entry.postHook = stringField(obj, "post_hook", "postHook");
-      if (auto index = obj.find("index"); index != obj.end() && index->is_number_integer())
+      if (auto index = obj.find("index"); index != obj.end() && index->is_number_integer()) {
         entry.index = index->get<int>();
+      }
 
-      if (entry.id.empty() || entry.inputPath.empty())
+      if (entry.id.empty() || entry.inputPath.empty()) {
         return std::nullopt;
+      }
       return entry;
     }
 
     std::vector<CommunityTemplateEntry> parseEntries(const nlohmann::json& obj) {
       std::vector<CommunityTemplateEntry> out;
       auto it = obj.find("templates");
-      if (it == obj.end())
+      if (it == obj.end()) {
         return out;
+      }
 
       if (it->is_array()) {
         for (const auto& item : *it) {
-          if (auto entry = parseEntry({}, item))
+          if (auto entry = parseEntry({}, item)) {
             out.push_back(std::move(*entry));
+          }
         }
       } else if (it->is_object()) {
         for (const auto& [key, value] : it->items()) {
-          if (auto entry = parseEntry(key, value))
+          if (auto entry = parseEntry(key, value)) {
             out.push_back(std::move(*entry));
+          }
         }
       }
       return out;
@@ -186,30 +203,36 @@ namespace noctalia::theme {
     std::vector<CommunityTemplateFile> parseFiles(const nlohmann::json& obj) {
       std::vector<CommunityTemplateFile> out;
       auto it = obj.find("files");
-      if (it == obj.end() || !it->is_array())
+      if (it == obj.end() || !it->is_array()) {
         return out;
+      }
       for (const auto& item : *it) {
-        if (!item.is_object())
+        if (!item.is_object()) {
           continue;
+        }
         CommunityTemplateFile file;
         file.name = stringField(item, "name");
         file.md5 = stringField(item, "md5");
-        if (!file.name.empty())
+        if (!file.name.empty()) {
           out.push_back(std::move(file));
+        }
       }
       return out;
     }
 
     std::optional<CommunityTemplateInfo> parseInfo(const nlohmann::json& obj) {
-      if (!obj.is_object())
+      if (!obj.is_object()) {
         return std::nullopt;
+      }
       CommunityTemplateInfo info;
       info.id = stringField(obj, "name", "id");
-      if (info.id.empty() || !isSafeCommunityTemplateId(info.id))
+      if (info.id.empty() || !isSafeCommunityTemplateId(info.id)) {
         return std::nullopt;
+      }
       info.displayName = stringField(obj, "display_name", "displayName");
-      if (info.displayName.empty())
+      if (info.displayName.empty()) {
         info.displayName = info.id;
+      }
       info.category = stringField(obj, "category");
       info.files = parseFiles(obj);
       info.entries = parseEntries(obj);
@@ -218,8 +241,9 @@ namespace noctalia::theme {
 
     std::vector<CommunityTemplateInfo> parseCatalogFile(const std::filesystem::path& path) {
       std::ifstream in(path);
-      if (!in)
+      if (!in) {
         return {};
+      }
       try {
         std::stringstream buf;
         buf << in.rdbuf();
@@ -227,16 +251,19 @@ namespace noctalia::theme {
         const nlohmann::json* entries = &root;
         if (root.is_object()) {
           auto it = root.find("templates");
-          if (it != root.end())
+          if (it != root.end()) {
             entries = &*it;
+          }
         }
-        if (!entries->is_array())
+        if (!entries->is_array()) {
           return {};
+        }
 
         std::vector<CommunityTemplateInfo> out;
         for (const auto& item : *entries) {
-          if (auto info = parseInfo(item))
+          if (auto info = parseInfo(item)) {
             out.push_back(std::move(*info));
+          }
         }
         return out;
       } catch (const std::exception& e) {
@@ -250,21 +277,25 @@ namespace noctalia::theme {
       auto it = std::find_if(catalog.begin(), catalog.end(), [id](const CommunityTemplateInfo& info) {
         return info.id == id;
       });
-      if (it == catalog.end())
+      if (it == catalog.end()) {
         return std::nullopt;
+      }
       return *it;
     }
 
     bool isSafeRelativePath(std::string_view raw) {
-      if (raw.empty())
+      if (raw.empty()) {
         return false;
+      }
       const std::filesystem::path path(raw);
-      if (path.is_absolute())
+      if (path.is_absolute()) {
         return false;
+      }
       for (const auto& part : path) {
         const std::string token = part.string();
-        if (token == "." || token == ".." || token.empty())
+        if (token == "." || token == ".." || token.empty()) {
           return false;
+        }
       }
       return true;
     }
@@ -275,8 +306,9 @@ namespace noctalia::theme {
 
     std::string readSmallFile(const std::filesystem::path& path) {
       std::ifstream in(path);
-      if (!in)
+      if (!in) {
         return {};
+      }
       std::string value;
       std::getline(in, value);
       return value;
@@ -284,15 +316,18 @@ namespace noctalia::theme {
 
     void writeSmallFile(const std::filesystem::path& path, std::string_view value) {
       std::ofstream out(path);
-      if (out)
+      if (out) {
         out << value << '\n';
+      }
     }
 
     bool cacheMatches(const CommunityTemplateFile& file, const std::filesystem::path& dest) {
-      if (!std::filesystem::exists(dest))
+      if (!std::filesystem::exists(dest)) {
         return false;
-      if (file.md5.empty())
+      }
+      if (file.md5.empty()) {
         return true;
+      }
       return readSmallFile(sidecarPath(dest)) == file.md5;
     }
 
@@ -302,19 +337,22 @@ namespace noctalia::theme {
       while (start <= path.size()) {
         const std::size_t slash = path.find('/', start);
         const std::size_t end = slash == std::string_view::npos ? path.size() : slash;
-        if (!out.empty())
+        if (!out.empty()) {
           out.push_back('/');
+        }
         out += StringUtils::urlEncode(path.substr(start, end - start));
-        if (slash == std::string_view::npos)
+        if (slash == std::string_view::npos) {
           break;
+        }
         start = slash + 1;
       }
       return out;
     }
 
     void writeGeneratedTemplateToml(const CommunityTemplateInfo& info) {
-      if (info.entries.empty())
+      if (info.entries.empty()) {
         return;
+      }
 
       const std::filesystem::path path = communityTemplateConfigPath(info.id);
       std::error_code ec;
@@ -327,19 +365,23 @@ namespace noctalia::theme {
 
       out << "[catalog." << tomlKey(info.id) << "]\n";
       writeTomlString(out, "name", info.displayName);
-      if (!info.category.empty())
+      if (!info.category.empty()) {
         writeTomlString(out, "category", info.category);
+      }
 
       for (const auto& entry : info.entries) {
         out << "\n[templates." << tomlKey(entry.id) << "]\n";
         writeTomlString(out, "input_path", entry.inputPath);
         writeOutputPaths(out, entry.outputPaths);
-        if (!entry.preHook.empty())
+        if (!entry.preHook.empty()) {
           writeTomlString(out, "pre_hook", entry.preHook);
-        if (!entry.postHook.empty())
+        }
+        if (!entry.postHook.empty()) {
           writeTomlString(out, "post_hook", entry.postHook);
-        if (entry.index.has_value())
+        }
+        if (entry.index.has_value()) {
           out << "index = " << *entry.index << "\n";
+        }
       }
     }
 
@@ -347,17 +389,20 @@ namespace noctalia::theme {
       try {
         toml::table root = toml::parse_file(path.string());
         const toml::table* catalog = root["catalog"].as_table();
-        if (catalog == nullptr || catalog->empty())
+        if (catalog == nullptr || catalog->empty()) {
           return std::nullopt;
+        }
         const auto it = catalog->begin();
         AvailableTemplate out;
         out.id = std::string(it->first.str());
         out.displayName = out.id;
         if (const toml::table* info = it->second.as_table()) {
-          if (const auto name = info->get_as<std::string>("name"))
+          if (const auto* const name = info->get_as<std::string>("name")) {
             out.displayName = name->get();
-          if (const auto category = info->get_as<std::string>("category"))
+          }
+          if (const auto* const category = info->get_as<std::string>("category")) {
             out.category = category->get();
+          }
         }
         return out;
       } catch (const toml::parse_error&) {
@@ -385,8 +430,9 @@ namespace noctalia::theme {
 
     m_httpClient.download(
         kCatalogUrl, catalogCachePath(), [this, ids = templates.communityIds, generation](bool success) {
-          if (generation != m_generation)
+          if (generation != m_generation) {
             return;
+          }
           if (!success) {
             kLog.warn("failed to refresh community template catalog; using cached metadata when available");
           }
@@ -404,19 +450,22 @@ namespace noctalia::theme {
   void CommunityTemplateService::syncSelectedFromCatalog(
       const std::vector<std::string>& selectedIds, std::uint64_t generation, bool notifyWhenReady
   ) {
-    if (selectedIds.empty())
+    if (selectedIds.empty()) {
       return;
+    }
 
     const auto catalog = parseCatalogFile(catalogCachePath());
-    if (catalog.empty())
+    if (catalog.empty()) {
       return;
+    }
 
     auto pending = std::make_shared<std::size_t>(0);
     auto completed = std::make_shared<std::size_t>(0);
 
     auto notifyIfReady = [this, generation, notifyWhenReady, pending, completed]() {
-      if (!notifyWhenReady || generation != m_generation || *completed < *pending)
+      if (!notifyWhenReady || generation != m_generation || *completed < *pending) {
         return;
+      }
       if (m_readyCallback) {
         DeferredCall::callLater([callback = m_readyCallback]() { callback(); });
       }
@@ -424,8 +473,9 @@ namespace noctalia::theme {
 
     std::unordered_set<std::string> seen;
     for (const auto& id : selectedIds) {
-      if (!isSafeCommunityTemplateId(id) || !seen.insert(id).second)
+      if (!isSafeCommunityTemplateId(id) || !seen.insert(id).second) {
         continue;
+      }
       auto info = findInfo(catalog, id);
       if (!info.has_value()) {
         kLog.warn("selected community template '{}' is not in the cached catalog", id);
@@ -445,21 +495,25 @@ namespace noctalia::theme {
           continue;
         }
         const std::filesystem::path dest = dir / std::filesystem::path(file.name);
-        if (cacheMatches(file, dest))
+        if (cacheMatches(file, dest)) {
           continue;
-        if (dest.has_parent_path())
+        }
+        if (dest.has_parent_path()) {
           std::filesystem::create_directories(dest.parent_path(), ec);
+        }
         ++(*pending);
         const std::string url =
             std::string(kCatalogUrl) + "/" + StringUtils::urlEncode(id) + "/" + urlEncodePath(file.name);
         m_httpClient.download(
             url, dest, [this, file, dest, generation, pending, completed, notifyIfReady](bool success) {
               ++(*completed);
-              if (generation != m_generation)
+              if (generation != m_generation) {
                 return;
+              }
               if (success) {
-                if (!file.md5.empty())
+                if (!file.md5.empty()) {
                   writeSmallFile(sidecarPath(dest), file.md5);
+                }
               } else {
                 kLog.warn("failed to download community template file {}", dest.string());
               }
@@ -488,37 +542,45 @@ namespace noctalia::theme {
 
     const std::filesystem::path cacheDir = communityTemplatesCacheDir();
     std::error_code ec;
-    if (!std::filesystem::is_directory(cacheDir, ec))
+    if (!std::filesystem::is_directory(cacheDir, ec)) {
       return out;
+    }
 
     for (const auto& entry : std::filesystem::directory_iterator(cacheDir, ec)) {
-      if (!entry.is_directory())
+      if (!entry.is_directory()) {
         continue;
+      }
       const auto toml = entry.path() / "template.toml";
-      if (!std::filesystem::exists(toml))
+      if (!std::filesystem::exists(toml)) {
         continue;
+      }
       if (auto info = readTemplateTomlInfo(toml)) {
         auto exists = std::any_of(out.begin(), out.end(), [&](const AvailableTemplate& t) { return t.id == info->id; });
-        if (!exists)
+        if (!exists) {
           out.push_back(std::move(*info));
+        }
       }
     }
 
     std::sort(out.begin(), out.end(), [](const AvailableTemplate& a, const AvailableTemplate& b) {
-      if (a.category != b.category)
+      if (a.category != b.category) {
         return a.category < b.category;
-      if (a.displayName != b.displayName)
+      }
+      if (a.displayName != b.displayName) {
         return a.displayName < b.displayName;
+      }
       return a.id < b.id;
     });
     return out;
   }
 
   std::filesystem::path communityTemplatesCacheDir() {
-    if (const char* xdg = std::getenv("XDG_CACHE_HOME"); xdg != nullptr && xdg[0] != '\0')
+    if (const char* xdg = std::getenv("XDG_CACHE_HOME"); xdg != nullptr && xdg[0] != '\0') {
       return std::filesystem::path(xdg) / "noctalia" / "community-templates";
-    if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0')
+    }
+    if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
       return std::filesystem::path(home) / ".cache" / "noctalia" / "community-templates";
+    }
     return std::filesystem::path("/tmp") / "noctalia" / "community-templates";
   }
 

@@ -70,7 +70,7 @@ namespace {
     int ddcBus = -1;
     int failureCount = 0;
     bool quarantined = false;
-    std::chrono::steady_clock::time_point cooldownUntil{};
+    std::chrono::steady_clock::time_point cooldownUntil;
   };
 
   struct DdcCandidate {
@@ -114,9 +114,9 @@ namespace {
     std::vector<DdcCandidate> candidates;
   };
 
-  static const sdbus::ServiceName kLogindBusName{"org.freedesktop.login1"};
-  static constexpr auto kLogindManagerInterface = "org.freedesktop.login1.Manager";
-  static constexpr auto kLogindSessionInterface = "org.freedesktop.login1.Session";
+  const sdbus::ServiceName kLogindBusName{"org.freedesktop.login1"};
+  constexpr auto kLogindManagerInterface = "org.freedesktop.login1.Manager";
+  constexpr auto kLogindSessionInterface = "org.freedesktop.login1.Session";
 
   std::string joinBrightnessDisplayIds(const BrightnessService& service) {
     std::string out;
@@ -897,7 +897,7 @@ struct BrightnessService::Impl {
     }
   }
 
-  void setBacklightBrightness(DisplayInternal& display, float value) {
+  void setBacklightBrightness(DisplayInternal& display, float value) const {
     if (sessionProxy == nullptr) {
       return;
     }
@@ -1091,7 +1091,7 @@ struct BrightnessService::Impl {
     }
   }
 
-  void drainWorkerEvent() {
+  void drainWorkerEvent() const {
     if (eventFd < 0) {
       return;
     }
@@ -1336,7 +1336,7 @@ void BrightnessService::reload(const BrightnessConfig& config) { m_impl->reload(
 
 void BrightnessService::onOutputsChanged() { m_impl->onOutputsChanged(); }
 
-void BrightnessService::registerIpc(IpcService& ipc, std::function<void()> onBatchChange) {
+void BrightnessService::registerIpc(IpcService& ipc, const std::function<void()>& onBatchChange) {
   auto resolveTargets = [this](std::string_view token, std::vector<std::string>& ids, std::string& error) -> bool {
     if (!available()) {
       error = "error: brightness control unavailable\n";
@@ -1488,7 +1488,7 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void()> onBat
               }
 
               return applyToTargets(target, [this, step, direction](const BrightnessDisplay& display) {
-                setBrightness(display.id, display.brightness + direction * *step);
+                setBrightness(display.id, display.brightness + (direction * *step));
               });
             },
             std::move(usage), std::move(description)

@@ -71,7 +71,7 @@ namespace {
     const float titleHeight = Style::fontSizeBody * scale * 1.35f;
     const float subtitleHeight = Style::fontSizeCaption * scale * 1.25f;
     const float textHeight = titleHeight + textGap + subtitleHeight;
-    return std::ceil(std::max(kIconSize * scale, textHeight) + paddingY * 2.0f);
+    return std::ceil(std::max(kIconSize * scale, textHeight) + (paddingY * 2.0f));
   }
 
   // Must stay aligned with Dock::refreshPinnedAppsIfNeeded() matching rules.
@@ -220,8 +220,9 @@ namespace {
         m_glyph->setVisible(true);
       }
 
-      const float textWidth =
-          std::max(0.0f, width - kIconSize * m_scale - Style::spaceSm * m_scale * 2.0f - Style::spaceMd * m_scale);
+      const float textWidth = std::max(
+          0.0f, width - (kIconSize * m_scale) - (Style::spaceSm * m_scale * 2.0f) - (Style::spaceMd * m_scale)
+      );
       m_title->setText(result.title);
       m_title->setMaxWidth(textWidth);
 
@@ -327,7 +328,7 @@ public:
     if (m_renderer == nullptr || m_results == nullptr || index >= m_results->size()) {
       return;
     }
-    auto* row = static_cast<LauncherResultRow*>(&tile);
+    auto* row = dynamic_cast<LauncherResultRow*>(&tile);
     row->bind(*m_renderer, (*m_results)[index], tile.width(), selected, hovered);
   }
 

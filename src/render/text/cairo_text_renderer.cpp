@@ -27,11 +27,11 @@ namespace {
   constexpr float kAxisAlignedEpsilon = 0.0001f;
 
   inline std::uint32_t quantizeSize(float v) {
-    return static_cast<std::uint32_t>(std::max(0.0f, v) * static_cast<float>(kSizeQuant) + 0.5f);
+    return static_cast<std::uint32_t>((std::max(0.0f, v) * static_cast<float>(kSizeQuant)) + 0.5f);
   }
 
   inline std::uint16_t quantizeScale(float v) {
-    return static_cast<std::uint16_t>(std::max(0.0f, v) * static_cast<float>(kScaleQuant) + 0.5f);
+    return static_cast<std::uint16_t>((std::max(0.0f, v) * static_cast<float>(kScaleQuant)) + 0.5f);
   }
 
   bool isAxisAligned(const Mat3& transform) {
@@ -52,7 +52,7 @@ namespace {
   std::uint32_t packColorRgb(const Color& c) {
     const auto clamp8 = [](float v) -> std::uint32_t {
       const float s = std::clamp(v, 0.0f, 1.0f);
-      return static_cast<std::uint32_t>(s * 255.0f + 0.5f);
+      return static_cast<std::uint32_t>((s * 255.0f) + 0.5f);
     };
     return (clamp8(c.r) << 24) | (clamp8(c.g) << 16) | (clamp8(c.b) << 8) | 0xFFu;
   }
@@ -60,9 +60,9 @@ namespace {
   // Swap BGRA<->RGBA in place on a premultiplied ARGB32 Cairo surface buffer.
   void swizzleBgraToRgba(unsigned char* data, int width, int height, int stride) {
     for (int y = 0; y < height; ++y) {
-      unsigned char* row = data + y * stride;
+      unsigned char* row = data + (y * stride);
       for (int x = 0; x < width; ++x) {
-        unsigned char* p = row + x * 4;
+        unsigned char* p = row + (x * 4);
         std::swap(p[0], p[2]); // B <-> R; G and A unchanged
       }
     }
@@ -99,12 +99,15 @@ namespace {
         return true; // malformed — be safe
       }
       i += static_cast<std::size_t>(len);
-      if (cp >= 0x2600 && cp <= 0x27BF)
+      if (cp >= 0x2600 && cp <= 0x27BF) {
         return true; // misc symbols + dingbats
-      if (cp >= 0x1F000 && cp <= 0x1FFFF)
+      }
+      if (cp >= 0x1F000 && cp <= 0x1FFFF) {
         return true; // emoji planes
-      if (cp >= 0x1F900 && cp <= 0x1F9FF)
+      }
+      if (cp >= 0x1F900 && cp <= 0x1F9FF) {
         return true; // supplemental symbols
+      }
     }
     return false;
   }
@@ -575,7 +578,7 @@ void CairoTextRenderer::rasterizeLayout(PangoLayout* layout, const Color& color,
   // Baseline from top of layout, in raster pixels (shifted by any ink overhang above).
   const int baselinePango = pango_layout_get_baseline(layout);
   entry.baselinePx =
-      static_cast<float>(baselinePango) / static_cast<float>(PANGO_SCALE) + static_cast<float>(extraTopPx);
+      (static_cast<float>(baselinePango) / static_cast<float>(PANGO_SCALE)) + static_cast<float>(extraTopPx);
 
   if (m_glMaxTextureSize <= 0 && m_backend != nullptr) {
     m_glMaxTextureSize = m_backend->maxTextureSize();
@@ -626,9 +629,9 @@ void CairoTextRenderer::rasterizeLayout(PangoLayout* layout, const Color& color,
     do {
       PangoRectangle logical;
       pango_layout_iter_get_line_extents(iter, nullptr, &logical);
-      const int lineTopPx = logical.y / PANGO_SCALE + extraTopPx;
-      const int lineBottomPx = (logical.y + logical.height + PANGO_SCALE - 1) / PANGO_SCALE + extraTopPx;
-      const int lineBaselinePx = pango_layout_iter_get_baseline(iter) / PANGO_SCALE + extraTopPx;
+      const int lineTopPx = (logical.y / PANGO_SCALE) + extraTopPx;
+      const int lineBottomPx = ((logical.y + logical.height + PANGO_SCALE - 1) / PANGO_SCALE) + extraTopPx;
+      const int lineBaselinePx = (pango_layout_iter_get_baseline(iter) / PANGO_SCALE) + extraTopPx;
 
       // If adding this line would push the current tile past maxTex, close
       // the current tile and start a new one at this line's top.
@@ -715,7 +718,7 @@ void CairoTextRenderer::rasterizeLayout(PangoLayout* layout, const Color& color,
     // Repack tightly because the backend upload path expects contiguous rows.
     tight.resize(static_cast<std::size_t>(tightRowBytes) * static_cast<std::size_t>(tileH));
     for (int y = 0; y < tileH; ++y) {
-      std::memcpy(tight.data() + y * tightRowBytes, data + y * stride, static_cast<std::size_t>(tightRowBytes));
+      std::memcpy(tight.data() + (y * tightRowBytes), data + (y * stride), static_cast<std::size_t>(tightRowBytes));
     }
     cairo_surface_destroy(surface);
 

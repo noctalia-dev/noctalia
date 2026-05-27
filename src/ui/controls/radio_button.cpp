@@ -10,10 +10,10 @@
 
 RadioButton::RadioButton() {
   auto outer = std::make_unique<Box>();
-  m_outer = static_cast<Box*>(addChild(std::move(outer)));
+  m_outer = dynamic_cast<Box*>(addChild(std::move(outer)));
 
   auto inner = std::make_unique<Box>();
-  m_inner = static_cast<Box*>(addChild(std::move(inner)));
+  m_inner = dynamic_cast<Box*>(addChild(std::move(inner)));
 
   auto area = std::make_unique<InputArea>();
   area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
@@ -29,7 +29,7 @@ RadioButton::RadioButton() {
       m_onChange(true);
     }
   });
-  m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
+  m_inputArea = dynamic_cast<InputArea*>(addChild(std::move(area)));
 
   applyState();
 }
@@ -70,7 +70,7 @@ void RadioButton::doLayout(Renderer& /*renderer*/) {
   const float indicatorSize = (Style::fontSizeTitle + Style::spaceXs) * m_scale;
   const float indicatorInset = (touchSize - indicatorSize) * 0.5f;
   const float innerInset = (Style::spaceXs + Style::borderWidth) * m_scale;
-  const float innerSize = indicatorSize - innerInset * 2.0f;
+  const float innerSize = indicatorSize - (innerInset * 2.0f);
 
   setSize(touchSize, touchSize);
 

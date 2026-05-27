@@ -125,7 +125,7 @@ private:
 
   static std::size_t nextCharPos(const std::string& s, std::size_t pos);
   static std::size_t prevCharPos(const std::string& s, std::size_t pos);
-  static std::string utf32ToUtf8(std::uint32_t codepoint);
+  static std::string utf32ToUtf8(std::uint32_t cp);
 
   RectNode* m_background = nullptr;
   Node* m_textViewport = nullptr;

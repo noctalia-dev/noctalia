@@ -44,7 +44,7 @@ public:
   void requestDdcRefresh();
   void reload(const BrightnessConfig& config);
   void onOutputsChanged();
-  void registerIpc(IpcService& ipc, std::function<void()> onBatchChange = {});
+  void registerIpc(IpcService& ipc, const std::function<void()>& onBatchChange = {});
 
   void setChangeCallback(ChangeCallback callback);
 

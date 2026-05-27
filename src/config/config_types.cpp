@@ -294,7 +294,7 @@ std::optional<ColorSpec> WidgetConfig::getOptionalColorSpec(const std::string& k
   return std::nullopt;
 }
 
-bool WidgetConfig::hasSetting(const std::string& key) const { return settings.find(key) != settings.end(); }
+bool WidgetConfig::hasSetting(const std::string& key) const { return settings.contains(key); }
 
 WidgetBarCapsuleSpec resolveWidgetBarCapsuleSpec(const BarConfig& bar, const WidgetConfig* widget) {
   WidgetBarCapsuleSpec spec{};
