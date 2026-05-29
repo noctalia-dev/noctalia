@@ -94,9 +94,14 @@ public:
   [[nodiscard]] std::optional<WeatherCoordinates> resolvedCoordinates() const noexcept;
   [[nodiscard]] const std::string& error() const noexcept { return m_error; }
   [[nodiscard]] const WeatherSnapshot& snapshot() const noexcept { return m_snapshot; }
-  [[nodiscard]] bool useImperial() const noexcept;
+  [[nodiscard]] bool useImperialTemperature() const noexcept;
+  [[nodiscard]] bool useImperialWindSpeed() const noexcept;
   [[nodiscard]] double displayTemperature(double celsius) const noexcept;
   [[nodiscard]] const char* displayTemperatureUnit() const noexcept;
+  [[nodiscard]] double displayWindSpeed(double kmh) const noexcept;
+  [[nodiscard]] const char* displayWindSpeedUnit() const noexcept;
+  [[nodiscard]] double displayElevation(double meters) const noexcept;
+  [[nodiscard]] const char* displayElevationUnit() const noexcept;
 
   [[nodiscard]] static std::string glyphForCode(std::int32_t code, bool isDay);
   [[nodiscard]] static std::string shortDescriptionForCode(std::int32_t code);

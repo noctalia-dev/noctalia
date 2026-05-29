@@ -1080,9 +1080,17 @@
         "overlay": "Overlay"
       },
       "weather": {
-        "unit": {
-          "metric": "Metric",
-          "imperial": "Imperial"
+        "temperature_unit": {
+          "celsius": "Celsius",
+          "fahrenheit": "Fahrenheit",
+          "kelvin": "Kelvin"
+        },
+        "wind_speed_unit": {
+          "kmh": "km/h",
+          "mph": "mph",
+          "ms": "m/s",
+          "kn": "knots",
+          "bft": "Beaufort"
         }
       },
       "wallpaper": {
@@ -2188,9 +2196,13 @@
           "label": "Auto-Locate",
           "description": "Automatically detect location for weather"
         },
-        "weather-unit": {
-          "label": "Units",
-          "description": "Unit system for weather display"
+        "weather-temperature-unit": {
+          "label": "Temperature Unit",
+          "description": "Unit for temperature display"
+        },
+        "weather-wind-speed-unit": {
+          "label": "Wind Speed Unit",
+          "description": "Unit for wind speed display"
         },
         "weather-address": {
           "label": "Address",

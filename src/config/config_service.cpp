@@ -2056,8 +2056,10 @@ void ConfigService::parseTableInto(const toml::table& tbl, Config& config, bool 
       weather.address = *v;
     if (auto v = (*weatherTbl)["refresh_minutes"].value<int64_t>())
       weather.refreshMinutes = static_cast<std::int32_t>(*v);
-    if (auto v = (*weatherTbl)["unit"].value<std::string>())
-      weather.unit = *v;
+    if (auto v = (*weatherTbl)["temperature_unit"].value<std::string>())
+      weather.temperatureUnit = *v;
+    if (auto v = (*weatherTbl)["wind_speed_unit"].value<std::string>())
+      weather.windSpeedUnit = *v;
   }
 
   // Parse [system]

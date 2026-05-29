@@ -1264,14 +1264,32 @@ namespace settings {
     }
     {
       auto e = makeEntry(
-          "services", "weather", tr("settings.schema.services.weather-unit.label"),
-          tr("settings.schema.services.weather-unit.description"), {"weather", "unit"},
+          "services", "weather", tr("settings.schema.services.weather-temperature-unit.label"),
+          tr("settings.schema.services.weather-temperature-unit.description"), {"weather", "temperature_unit"},
           asSegmented(plainSelect(
-              {{"metric", "settings.options.weather.unit.metric"},
-               {"imperial", "settings.options.weather.unit.imperial"}},
-              cfg.weather.unit
+              {{"celsius", "settings.options.weather.temperature_unit.celsius"},
+               {"fahrenheit", "settings.options.weather.temperature_unit.fahrenheit"},
+               {"kelvin", "settings.options.weather.temperature_unit.kelvin"}},
+              cfg.weather.temperatureUnit
           )),
           "temperature"
+      );
+      e.visibleWhen = weatherOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          "services", "weather", tr("settings.schema.services.weather-wind-speed-unit.label"),
+          tr("settings.schema.services.weather-wind-speed-unit.description"), {"weather", "wind_speed_unit"},
+          plainSelect(
+              {{"kmh", "settings.options.weather.wind_speed_unit.kmh"},
+               {"mph", "settings.options.weather.wind_speed_unit.mph"},
+               {"ms", "settings.options.weather.wind_speed_unit.ms"},
+               {"kn", "settings.options.weather.wind_speed_unit.kn"},
+               {"bft", "settings.options.weather.wind_speed_unit.bft"}},
+              cfg.weather.windSpeedUnit
+          ),
+          "speed"
       );
       e.visibleWhen = weatherOn;
       entries.push_back(std::move(e));

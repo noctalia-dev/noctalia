@@ -148,7 +148,8 @@ enabled         = false
 auto_locate     = false             # resolve location from IP when true
 address         = "Toronto, ON"     # geocoded when auto_locate = false
 refresh_minutes = 30
-unit            = "celsius"         # celsius | fahrenheit
+temperature_unit = "celsius"        # celsius | fahrenheit | kelvin
+wind_speed_unit  = "kmh"            # kmh | mph | ms | kn | bft
 
 # ── Audio ─────────────────────────────────────────────────────────────────────
 

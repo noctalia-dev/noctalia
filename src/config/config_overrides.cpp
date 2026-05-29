@@ -513,7 +513,8 @@ namespace {
         && a.weather.effects == b.weather.effects
         && a.weather.address == b.weather.address
         && a.weather.refreshMinutes == b.weather.refreshMinutes
-        && a.weather.unit == b.weather.unit
+        && a.weather.temperatureUnit == b.weather.temperatureUnit
+        && a.weather.windSpeedUnit == b.weather.windSpeedUnit
         && a.system.monitor.enabled == b.system.monitor.enabled
         && a.system.monitor.cpuPollSeconds == b.system.monitor.cpuPollSeconds
         && a.system.monitor.gpuPollSeconds == b.system.monitor.gpuPollSeconds

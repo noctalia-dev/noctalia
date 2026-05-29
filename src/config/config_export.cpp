@@ -712,7 +712,8 @@ namespace config_export {
     weather.insert_or_assign("effects", config.weather.effects);
     weather.insert_or_assign("address", config.weather.address);
     weather.insert_or_assign("refresh_minutes", static_cast<std::int64_t>(config.weather.refreshMinutes));
-    weather.insert_or_assign("unit", config.weather.unit);
+    weather.insert_or_assign("temperature_unit", config.weather.temperatureUnit);
+    weather.insert_or_assign("wind_speed_unit", config.weather.windSpeedUnit);
     root.insert_or_assign("weather", std::move(weather));
 
     toml::table audio;

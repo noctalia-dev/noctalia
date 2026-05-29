@@ -32,7 +32,8 @@ namespace {
         && lhs.effects == rhs.effects
         && lhs.address == rhs.address
         && lhs.refreshMinutes == rhs.refreshMinutes
-        && lhs.unit == rhs.unit;
+        && lhs.temperatureUnit == rhs.temperatureUnit
+        && lhs.windSpeedUnit == rhs.windSpeedUnit;
   }
 
   bool weatherLocationConfigEqual(const WeatherConfig& lhs, const WeatherConfig& rhs) {
@@ -283,16 +284,72 @@ std::optional<WeatherCoordinates> WeatherService::resolvedCoordinates() const no
   return WeatherCoordinates{.latitude = m_resolvedLatitude, .longitude = m_resolvedLongitude};
 }
 
-bool WeatherService::useImperial() const noexcept { return m_activeConfig.unit == "imperial"; }
+bool WeatherService::useImperialTemperature() const noexcept { return m_activeConfig.temperatureUnit == "fahrenheit"; }
+
+bool WeatherService::useImperialWindSpeed() const noexcept { return m_activeConfig.windSpeedUnit == "mph"; }
 
 double WeatherService::displayTemperature(double celsius) const noexcept {
-  if (!useImperial()) {
-    return celsius;
+  if (m_activeConfig.temperatureUnit == "fahrenheit") {
+    return 32.0 + (celsius * 1.8);
   }
-  return 32.0 + (celsius * 1.8);
+  if (m_activeConfig.temperatureUnit == "kelvin") {
+    return celsius + 273.15;
+  }
+  return celsius;
 }
 
-const char* WeatherService::displayTemperatureUnit() const noexcept { return useImperial() ? "\u00b0F" : "\u00b0C"; }
+const char* WeatherService::displayTemperatureUnit() const noexcept {
+  if (m_activeConfig.temperatureUnit == "fahrenheit") {
+    return "\u00b0F";
+  }
+  if (m_activeConfig.temperatureUnit == "kelvin") {
+    return "K";
+  }
+  return "\u00b0C";
+}
+
+double WeatherService::displayWindSpeed(double kmh) const noexcept {
+  if (m_activeConfig.windSpeedUnit == "mph") {
+    return kmh * 0.621371;
+  }
+  if (m_activeConfig.windSpeedUnit == "ms") {
+    return kmh / 3.6;
+  }
+  if (m_activeConfig.windSpeedUnit == "kn") {
+    return kmh / 1.852;
+  }
+  if (m_activeConfig.windSpeedUnit == "bft") {
+    if (kmh < 1.0)
+      return 0.0;
+    return std::round(std::pow(kmh / 3.6 / 0.836, 2.0 / 3.0));
+  }
+  return kmh;
+}
+
+const char* WeatherService::displayWindSpeedUnit() const noexcept {
+  if (m_activeConfig.windSpeedUnit == "mph") {
+    return "mph";
+  }
+  if (m_activeConfig.windSpeedUnit == "ms") {
+    return "m/s";
+  }
+  if (m_activeConfig.windSpeedUnit == "kn") {
+    return "kn";
+  }
+  if (m_activeConfig.windSpeedUnit == "bft") {
+    return "Bft";
+  }
+  return "km/h";
+}
+
+double WeatherService::displayElevation(double meters) const noexcept {
+  if (!useImperialWindSpeed()) {
+    return meters;
+  }
+  return meters * 3.28084;
+}
+
+const char* WeatherService::displayElevationUnit() const noexcept { return useImperialWindSpeed() ? "ft" : "m"; }
 
 std::string WeatherService::glyphForCode(std::int32_t code, bool isDay) {
   if (code == 0) {
@@ -408,7 +465,9 @@ void WeatherService::onConfigReload() {
     } else {
       requestRefresh(false);
     }
-    if (previousConfig.unit != m_activeConfig.unit || previousConfig.effects != m_activeConfig.effects) {
+    if (previousConfig.temperatureUnit != m_activeConfig.temperatureUnit
+        || previousConfig.windSpeedUnit != m_activeConfig.windSpeedUnit
+        || previousConfig.effects != m_activeConfig.effects) {
       notifyChanged();
     }
     return;

@@ -662,10 +662,8 @@ void WeatherTab::sync(Renderer& renderer) {
   );
   m_statusLabel->setVisible(!status.empty());
   if (m_windLabel != nullptr) {
-    const bool imperial = m_weather->useImperial();
-    const double windSpeed = imperial ? snapshot.current.windSpeedKmh * 0.621371 : snapshot.current.windSpeedKmh;
-    const char* windUnit =
-        imperial ? "mph" : (snapshot.currentUnits.windSpeed.empty() ? "km/h" : snapshot.currentUnits.windSpeed.c_str());
+    const double windSpeed = m_weather->displayWindSpeed(snapshot.current.windSpeedKmh);
+    const char* windUnit = m_weather->displayWindSpeedUnit();
     m_windLabel->setText(
         std::format(
             "{} {} {}", static_cast<int>(std::lround(windSpeed)), windUnit,
@@ -707,9 +705,8 @@ void WeatherTab::sync(Renderer& renderer) {
     }
   }
   if (m_elevationLabel != nullptr) {
-    const bool imperial = m_weather->useImperial();
-    const int elevation = static_cast<int>(imperial ? snapshot.elevationM * 3.28084 : snapshot.elevationM);
-    m_elevationLabel->setText(std::format("{}{}", elevation, imperial ? "ft" : "m"));
+    const int elevation = static_cast<int>(std::lround(m_weather->displayElevation(snapshot.elevationM)));
+    m_elevationLabel->setText(std::format("{}{}", elevation, m_weather->displayElevationUnit()));
   }
   if (m_timeZoneLabel != nullptr) {
     // Use the last component of the IANA path ("America/Toronto" → "Toronto") to keep
