@@ -32,6 +32,7 @@ namespace i18n {
 
   inline constexpr std::array<LanguageOption, 1> kSupportedLanguages = {{
       {"en", "English"},
+      {"ru", "Русский"},
   }};
 
   // Loads translation catalogs and resolves dotted keys against them.
