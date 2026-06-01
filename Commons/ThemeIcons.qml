@@ -14,6 +14,8 @@ Singleton {
                                  "code-url-handler": "visual-studio-code",
                                  "Code": "visual-studio-code",
                                  "gnome-tweaks": "org.gnome.tweaks",
+                                 "opencode": "opencode-desktop",
+                                 "@opencode-aidesktop": "opencode-desktop",
                                  "pavucontrol-qt": "pavucontrol",
                                  "wps": "wps-office2019-kprometheus",
                                  "wpsoffice": "wps-office2019-kprometheus",
@@ -201,13 +203,21 @@ Singleton {
     if (typeof FuzzySort === 'undefined')
       return null;
 
+    // Require the matched entry id to be length-coherent with the query.
+    // Prevents a short id (e.g. "code", 4 chars) from outscoring a longer
+    // partial match (e.g. "opencode-desktop", 16 chars) when searching for
+    // "opencode" — FuzzySort normalizes score by target length, so tight
+    // short substrings otherwise dominate.
+    const minIdLen = Math.max(3, str.length - 2);
+    const lengthOk = (entry) => entry && entry.id && entry.id.length >= minIdLen;
+
     // Check filenames (IDs) first
     if (preppedIds.length > 0) {
-      let results = fuzzyQuery(str, preppedIds);
+      let results = fuzzyQuery(str, preppedIds).filter(lengthOk);
       if (results.length === 0) {
         const underscored = str.replace(/-/g, '_').toLowerCase();
         if (underscored !== str)
-          results = fuzzyQuery(underscored, preppedIds);
+          results = fuzzyQuery(underscored, preppedIds).filter(lengthOk);
       }
       if (results.length > 0)
         return results[0];
@@ -215,14 +225,14 @@ Singleton {
 
     // Then icons
     if (preppedIcons.length > 0) {
-      const results = fuzzyQuery(str, preppedIcons);
+      const results = fuzzyQuery(str, preppedIcons).filter(lengthOk);
       if (results.length > 0)
         return results[0];
     }
 
     // Then names
     if (preppedNames.length > 0) {
-      const results = fuzzyQuery(str, preppedNames);
+      const results = fuzzyQuery(str, preppedNames).filter(lengthOk);
       if (results.length > 0)
         return results[0];
     }
@@ -236,14 +246,19 @@ Singleton {
     if (typeof DesktopEntries === 'undefined' || !DesktopEntries.byId)
       return null;
 
-    // Aggressive fallback: strip all separators
+    // Aggressive fallback: strip all separators.
+    // Only match when the entry id is a superset of the query (cleaned) —
+    // never the other way around. The reverse direction (e.g. "code"
+    // matching a query of "opencode" because "opencode".includes("code"))
+    // was the source of the misresolution where VS Code's icon was shown
+    // for opencode-desktop.
     const cleanStr = str.toLowerCase().replace(/[\.\-_]/g, '');
     const list = Array.from(entryList);
 
     for (let i = 0; i < list.length; i++) {
       const entry = list[i];
       const cleanId = (entry.id || "").toLowerCase().replace(/[\.\-_]/g, '');
-      if (cleanId.includes(cleanStr) || cleanStr.includes(cleanId)) {
+      if (cleanId.includes(cleanStr)) {
         return entry;
       }
     }
