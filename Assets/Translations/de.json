@@ -172,7 +172,12 @@
       "wheel-update-text": "Anzeigetext beim Scrollen aktualisieren"
     },
     "keyboard-layout": {
-      "show-icon-description": "Das Tastaturlayout-Symbol anzeigen."
+      "show-icon-description": "Das Tastaturlayout-Symbol anzeigen.",
+      "custom-labels-header": "Benutzerdefinierte Bezeichnungen",
+      "custom-labels-description": "Überschreibt die automatisch erkannte Bezeichnung für ein bestimmtes Layout. Der vollständige Layoutname wird im Tooltip der Leiste angezeigt.",
+      "custom-labels-add-current": "Aktuelles Layout hinzufügen",
+      "custom-labels-placeholder": "z. B. DE",
+      "custom-labels-remove": "Zuordnung entfernen"
     },
     "lock-keys": {
       "hide-when-off-description": "Verstecke die Anzeige, wenn die Taste nicht aktiv ist.",
