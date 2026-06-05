@@ -108,6 +108,7 @@ Singleton {
   // These display the variant name when it's more meaningful than the country
   property var variantMap: {
     // Alternative keyboard layouts
+    "neo": "Neo",
     "colemak": "Colemak",
     "dvorak": "Dvorak",
     "workman": "Workman",
