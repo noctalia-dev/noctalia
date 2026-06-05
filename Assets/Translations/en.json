@@ -172,7 +172,12 @@
       "wheel-update-text": "Update displayed text on scroll"
     },
     "keyboard-layout": {
-      "show-icon-description": "Display the keyboard layout icon."
+      "show-icon-description": "Display the keyboard layout icon.",
+      "custom-labels-header": "Custom Labels",
+      "custom-labels-description": "Override the auto-detected label for a specific layout. The full layout name is shown in the bar tooltip.",
+      "custom-labels-add-current": "Add current layout",
+      "custom-labels-placeholder": "e.g. DE",
+      "custom-labels-remove": "Remove mapping"
     },
     "lock-keys": {
       "hide-when-off-description": "Hide the indicator when the key is not active.",

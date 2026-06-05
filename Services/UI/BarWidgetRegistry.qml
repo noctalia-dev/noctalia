@@ -174,7 +174,8 @@ Singleton {
                                     "displayMode": "onhover",
                                     "showIcon": true,
                                     "iconColor": "none",
-                                    "textColor": "none"
+                                    "textColor": "none",
+                                    "customLabels": {}
                                   },
                                   "LockKeys": {
                                     "showCapsLock": true,

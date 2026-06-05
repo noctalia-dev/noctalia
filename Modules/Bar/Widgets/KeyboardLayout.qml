@@ -42,9 +42,11 @@ Item {
   readonly property bool showIcon: (widgetSettings.showIcon !== undefined) ? widgetSettings.showIcon : widgetMetadata.showIcon
   readonly property string iconColorKey: widgetSettings.iconColor !== undefined ? widgetSettings.iconColor : widgetMetadata.iconColor
   readonly property string textColorKey: widgetSettings.textColor !== undefined ? widgetSettings.textColor : widgetMetadata.textColor
+  readonly property var customLabels: widgetSettings.customLabels !== undefined ? widgetSettings.customLabels : (widgetMetadata.customLabels ?? {})
 
   // Use the shared service for keyboard layout
   property string currentLayout: KeyboardLayoutService.currentLayout
+  readonly property string displayLabel: customLabels[KeyboardLayoutService.fullLayoutName] ?? currentLayout
 
   implicitWidth: pill.width
   implicitHeight: pill.height
@@ -79,7 +81,7 @@ Item {
     customTextColor: Color.resolveColorKeyOptional(root.textColorKey)
     icon: root.showIcon ? "keyboard" : ""
     autoHide: false // Important to be false so we can hover as long as we want
-    text: isBarVertical ? currentLayout.substring(0, 3).toUpperCase() : currentLayout
+    text: isBarVertical ? displayLabel.substring(0, 3).toUpperCase() : displayLabel
     tooltipText: KeyboardLayoutService.fullLayoutName
     // When icon is disabled, always show the layout text
     forceOpen: !root.showIcon || root.displayMode === "forceOpen"
