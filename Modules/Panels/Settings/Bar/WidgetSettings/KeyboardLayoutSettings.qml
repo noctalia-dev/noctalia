@@ -9,14 +9,12 @@ ColumnLayout {
   id: root
   spacing: Style.marginM
 
-  // Properties to receive data from parent
   property var screen: null
   property var widgetData: null
   property var widgetMetadata: null
 
   signal settingsChanged(var settings)
 
-  // Local state
   property string valueDisplayMode: widgetData.displayMode !== undefined ? widgetData.displayMode : widgetMetadata.displayMode
   property bool valueShowIcon: widgetData.showIcon !== undefined ? widgetData.showIcon : widgetMetadata.showIcon
   property string valueIconColor: widgetData.iconColor !== undefined ? widgetData.iconColor : widgetMetadata.iconColor
@@ -51,10 +49,7 @@ ColumnLayout {
     for (var i = 0; i < customLabelsModel.count; i++) {
       if (customLabelsModel.get(i).fullName === current) return;
     }
-    customLabelsModel.append({
-      fullName: current,
-      customLabel: valueCustomLabels[current] ?? ""
-    });
+    customLabelsModel.append({ fullName: current, customLabel: "" });
   }
 
   ListModel {
@@ -62,8 +57,15 @@ ColumnLayout {
 
     Component.onCompleted: {
       var labels = valueCustomLabels ?? {};
-      for (var key in labels) {
-        customLabelsModel.append({ fullName: key, customLabel: labels[key] });
+      var all = KeyboardLayoutService.allLayouts;
+      if (all && all.length > 0) {
+        for (var i = 0; i < all.length; i++) {
+          customLabelsModel.append({ fullName: all[i], customLabel: labels[all[i]] ?? "" });
+        }
+      } else {
+        for (var key in labels) {
+          customLabelsModel.append({ fullName: key, customLabel: labels[key] });
+        }
       }
     }
   }
@@ -74,18 +76,9 @@ ColumnLayout {
     description: I18n.tr("bar.volume.display-mode-description")
     minimumWidth: 200
     model: [
-      {
-        "key": "onhover",
-        "name": I18n.tr("display-modes.on-hover")
-      },
-      {
-        "key": "forceOpen",
-        "name": I18n.tr("display-modes.force-open")
-      },
-      {
-        "key": "alwaysHide",
-        "name": I18n.tr("display-modes.always-hide")
-      }
+      { "key": "onhover",    "name": I18n.tr("display-modes.on-hover") },
+      { "key": "forceOpen",  "name": I18n.tr("display-modes.force-open") },
+      { "key": "alwaysHide", "name": I18n.tr("display-modes.always-hide") }
     ]
     currentKey: valueDisplayMode
     onSelected: key => {
@@ -125,59 +118,54 @@ ColumnLayout {
     defaultValue: widgetMetadata.textColor
   }
 
-  NDivider {}
+  NDivider {
+    Layout.fillWidth: true
+  }
 
-  NCollapsible {
+  NLabel {
     label: I18n.tr("bar.keyboard-layout.custom-labels-header")
     description: I18n.tr("bar.keyboard-layout.custom-labels-description")
     Layout.fillWidth: true
+  }
 
-    ColumnLayout {
+  Repeater {
+    model: customLabelsModel
+
+    RowLayout {
       spacing: Style.marginS
-      width: parent.width
+      Layout.fillWidth: true
 
-      Repeater {
-        model: customLabelsModel
+      NText {
+        text: model.fullName
+        Layout.fillWidth: true
+        elide: Text.ElideMiddle
+        opacity: 0.7
+        pointSize: Style.fontSizeS
+      }
 
-        RowLayout {
-          spacing: Style.marginS
-          Layout.fillWidth: true
-
-          NLabel {
-            text: model.fullName
-            Layout.fillWidth: true
-            elide: Text.ElideMiddle
-            opacity: 0.7
-            font.pixelSize: Style.fontSizeS
-          }
-
-          NTextInput {
-            minimumWidth: 80
-            placeholderText: I18n.tr("bar.keyboard-layout.custom-labels-placeholder")
-            text: model.customLabel
-            onTextChanged: text => {
-                             customLabelsModel.setProperty(index, "customLabel", text);
-                             saveCustomLabels();
-                           }
-          }
-
-          NIconButton {
-            icon: "trash"
-            tooltipText: I18n.tr("bar.keyboard-layout.custom-labels-remove")
-            onClicked: {
-              customLabelsModel.remove(index);
-              saveCustomLabels();
-            }
-          }
+      NTextInput {
+        minimumInputWidth: 80 * Style.uiScaleRatio
+        text: model.customLabel
+        onTextChanged: {
+          customLabelsModel.setProperty(index, "customLabel", text);
+          saveCustomLabels();
         }
       }
 
-      NButton {
-        text: I18n.tr("bar.keyboard-layout.custom-labels-add-current")
-        icon: "plus"
-        Layout.alignment: Qt.AlignLeft
-        onClicked: addCurrentLayout()
+      NIconButton {
+        icon: "trash"
+        tooltipText: I18n.tr("bar.keyboard-layout.custom-labels-remove")
+        onClicked: {
+          customLabelsModel.remove(index);
+          saveCustomLabels();
+        }
       }
     }
+  }
+
+  NButton {
+    visible: !KeyboardLayoutService.allLayouts || KeyboardLayoutService.allLayouts.length === 0
+    text: I18n.tr("bar.keyboard-layout.custom-labels-add-current")
+    onClicked: addCurrentLayout()
   }
 }

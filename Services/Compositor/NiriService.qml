@@ -61,6 +61,7 @@ Item {
     }
     function onKeyboardLayoutsChanged() {
       keyboardLayouts = Niri.keyboardLayoutNames;
+      KeyboardLayoutService.setAllLayouts(keyboardLayouts);
       const layoutName = Niri.currentKeyboardLayoutName;
       if (layoutName) {
         KeyboardLayoutService.setCurrentLayout(layoutName);

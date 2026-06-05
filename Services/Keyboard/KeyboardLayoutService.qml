@@ -13,11 +13,17 @@ Singleton {
   property string fullLayoutName: I18n.tr("common.unknown")
   property string previousLayout: ""
   property bool isInitialized: false
+  property var allLayouts: []
 
   // Updates current layout from various format strings. Called by compositors
   function setCurrentLayout(layoutString) {
     root.fullLayoutName = layoutString || I18n.tr("common.unknown");
     root.currentLayout = extractLayoutCode(layoutString);
+  }
+
+  // Called by compositor backends that expose a full layout list (e.g. niri)
+  function setAllLayouts(layouts) {
+    root.allLayouts = layouts || [];
   }
 
   // Extract layout code from various format strings
