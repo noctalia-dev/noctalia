@@ -77,6 +77,7 @@ namespace settings {
         .showAdvanced = ctx.showAdvanced,
         .showOverriddenOnly = ctx.showOverriddenOnly,
         .batteryDeviceOptions = ctx.batteryDeviceOptions,
+        .keyboardLayoutNames = ctx.keyboardLayoutNames,
         .editingWidgetName = ctx.editingWidgetName,
         .editingCapsuleGroupId = ctx.editingCapsuleGroupId,
         .selectedLaneWidgets = ctx.selectedLaneWidgets,
@@ -123,6 +124,9 @@ namespace settings {
         .makeListBlock = [&factory](
                              Flex& section, const SettingEntry& entry, const ListSetting& list
                          ) { factory.makeListBlock(section, entry, list); },
+        .makeKeyValueMapBlock = [&factory](
+                                    Flex& section, const SettingEntry& entry, const KeyValueMapSetting& map
+                                ) { factory.makeKeyValueMapBlock(section, entry, map); },
     };
   }
 
@@ -1137,6 +1141,8 @@ namespace settings {
               });
             } else if constexpr (std::is_same_v<T, ColorSpecPickerSetting>) {
               return makeColorSpecPicker(control, entry.path);
+            } else if constexpr (std::is_same_v<T, KeyValueMapSetting>) {
+              return nullptr;
             }
           },
           entry.control
@@ -1287,6 +1293,8 @@ namespace settings {
           makeMultiSelectBlock(*activeSection, entry, *multi);
         } else if (const auto* templates = std::get_if<TemplateGridSetting>(&entry.control)) {
           makeTemplateGridBlock(*activeSection, entry, *templates);
+        } else if (const auto* kvm = std::get_if<KeyValueMapSetting>(&entry.control)) {
+          factory.makeKeyValueMapBlock(*activeSection, entry, *kvm);
         } else {
           makeRow(*activeSection, entry, makeControl(entry));
         }

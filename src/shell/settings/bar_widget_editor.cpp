@@ -27,6 +27,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -1504,6 +1505,21 @@ namespace settings {
           pickerSetting.allowNone = spec.advanced;
           pickerSetting.allowCustomColor = spec.allowCustomColor;
           ctx.makeRow(*panel, entry, ctx.makeColorSpecPicker(std::move(pickerSetting), path));
+          break;
+        }
+        case WidgetControlKind::KeyValueMap: {
+          const auto entries = widgetConfig != nullptr
+              ? widgetConfig->getStringMap(spec.schema.key)
+              : std::unordered_map<std::string, std::string>{};
+          ctx.makeKeyValueMapBlock(
+              *panel, entry,
+              KeyValueMapSetting{
+                  .entries = entries,
+                  .suggestedKeys = ctx.keyboardLayoutNames,
+                  .keyPlaceholder = "Layout name",
+                  .valuePlaceholder = "Label",
+              }
+          );
           break;
         }
         }

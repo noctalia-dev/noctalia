@@ -1243,6 +1243,7 @@
         "output": "Output",
         "ram-percent": "RAM Percent",
         "ram-used": "RAM Used",
+        "custom": "Custom",
         "short": "Short",
         "screenshot-primary-region": "Region",
         "screenshot-primary-fullscreen": "Fullscreen",

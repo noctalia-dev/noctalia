@@ -13,7 +13,7 @@ class Renderer;
 
 class KeyboardLayoutWidget : public Widget {
 public:
-  enum class DisplayMode : std::uint8_t { Short = 0, Full = 1 };
+  enum class DisplayMode : std::uint8_t { Short = 0, Full = 1, Custom = 2 };
 
   KeyboardLayoutWidget(
       CompositorPlatform& platform, std::string cycleCommand, DisplayMode displayMode, bool showIcon, bool showLabel,

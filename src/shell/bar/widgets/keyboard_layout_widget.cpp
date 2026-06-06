@@ -465,6 +465,8 @@ void KeyboardLayoutWidget::sync(Renderer& renderer) {
   std::string layoutLabel;
   if (auto it = m_customLabels.find(layoutName); it != m_customLabels.end()) {
     layoutLabel = it->second;
+  } else if (m_displayMode == DisplayMode::Custom) {
+    layoutLabel = layoutName.empty() ? std::string(kUnknownLabel) : layoutName;
   } else {
     layoutLabel = formatLayoutLabel(layoutName, m_displayMode);
     if (m_isVertical && layoutLabel.size() > 3) {
@@ -569,7 +571,13 @@ void KeyboardLayoutWidget::armRefreshTick() {
 }
 
 KeyboardLayoutWidget::DisplayMode KeyboardLayoutWidget::parseDisplayMode(const std::string& value) {
-  return value == "full" ? DisplayMode::Full : DisplayMode::Short;
+  if (value == "full") {
+    return DisplayMode::Full;
+  }
+  if (value == "custom") {
+    return DisplayMode::Custom;
+  }
+  return DisplayMode::Short;
 }
 
 std::string KeyboardLayoutWidget::formatLayoutLabel(const std::string& layoutName, DisplayMode displayMode) {

@@ -258,7 +258,7 @@ namespace {
   }
 
   bool widgetConfigEqual(const WidgetConfig& a, const WidgetConfig& b) {
-    return a.type == b.type && widgetSettingsEqual(a.settings, b.settings);
+    return a.type == b.type && widgetSettingsEqual(a.settings, b.settings) && a.tables == b.tables;
   }
 
   bool widgetMapEqual(

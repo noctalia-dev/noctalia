@@ -414,6 +414,7 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .showAdvanced = m_showAdvanced,
       .showOverriddenOnly = m_showOverriddenOnly,
       .batteryDeviceOptions = batteryDeviceOptions(),
+      .keyboardLayoutNames = m_wayland != nullptr ? m_wayland->keyboardLayoutNames() : std::vector<std::string>{},
       .editingWidgetName = m_editingWidgetName,
       .editingCapsuleGroupId = m_editingCapsuleGroupId,
       .selectedLaneWidgets = m_selectedLaneWidgets,

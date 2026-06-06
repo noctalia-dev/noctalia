@@ -59,6 +59,7 @@ namespace settings {
     StringList,
     Select,
     ColorSpec,
+    KeyValueMap,
   };
 
   enum class WidgetSettingGroup : std::uint8_t {

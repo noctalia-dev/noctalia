@@ -586,7 +586,7 @@ void Application::initServices() {
   m_compositorPlatform.setKeyboardLayoutChangeCallback([this]() {
     m_bar.refresh();
     if (m_configService.config().osd.keyboardLayout) {
-      m_keyboardLayoutOsd.onLayoutChanged(m_compositorPlatform);
+      m_keyboardLayoutOsd.onLayoutChanged(m_compositorPlatform, m_configService.config());
     }
   });
   m_compositorPlatform.setToplevelChangeCallback([this]() {
@@ -1511,7 +1511,7 @@ void Application::initUi() {
       m_lockscreenWidgetsController.onSecondTick();
       m_settingsWindow.onSecondTick();
       if (m_configService.config().osd.keyboardLayout) {
-        m_keyboardLayoutOsd.onLayoutChanged(m_compositorPlatform);
+        m_keyboardLayoutOsd.onLayoutChanged(m_compositorPlatform, m_configService.config());
       }
     }
     m_idleManager.onSecondTick();

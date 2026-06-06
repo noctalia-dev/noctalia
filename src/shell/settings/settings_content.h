@@ -35,6 +35,7 @@ namespace settings {
     bool showAdvanced = false;
     bool showOverriddenOnly = false;
     std::vector<SelectOption> batteryDeviceOptions;
+    std::vector<std::string> keyboardLayoutNames;
 
     std::string& editingWidgetName;
     std::string& editingCapsuleGroupId;

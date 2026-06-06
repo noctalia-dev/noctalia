@@ -124,6 +124,13 @@ namespace settings {
     std::vector<SelectOption> suggestedOptions = {};
   };
 
+  struct KeyValueMapSetting {
+    std::unordered_map<std::string, std::string> entries;
+    std::vector<std::string> suggestedKeys;
+    std::string keyPlaceholder;
+    std::string valuePlaceholder;
+  };
+
   struct ShortcutListSetting {
     std::vector<ShortcutConfig> items;
     std::vector<SelectOption> suggestedOptions = {};
@@ -173,7 +180,7 @@ namespace settings {
       ToggleSetting, SelectSetting, SliderSetting, TextSetting, OptionalNumberSetting, OptionalStepperSetting,
       StepperSetting, ListSetting, ShortcutListSetting, KeybindListSetting, SessionPanelActionsSetting,
       IdleBehaviorsSetting, MultiSelectSetting, TemplateGridSetting, ButtonSetting, ColorSpecPickerSetting,
-      SearchPickerSetting>;
+      SearchPickerSetting, KeyValueMapSetting>;
 
   struct SettingVisibilityCondition {
     std::vector<std::string> path;

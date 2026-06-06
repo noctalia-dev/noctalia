@@ -39,6 +39,8 @@ namespace settings {
       return schema::WidgetSettingType::Enum;
     case WidgetControlKind::ColorSpec:
       return schema::WidgetSettingType::Color;
+    case WidgetControlKind::KeyValueMap:
+      return schema::WidgetSettingType::String;
     }
     return schema::WidgetSettingType::String;
   }
@@ -663,9 +665,21 @@ namespace settings {
       add(boolSpec("show_icon", true));
       add(boolSpec("show_label", true));
       {
-        auto display = segmentedSpec("display", "short", shortFull);
+        const std::vector<WidgetSettingSelectOption> shortFullCustom = {
+            {"short", "settings.widgets.options.short"},
+            {"full", "settings.widgets.options.full"},
+            {"custom", "settings.widgets.options.custom"},
+        };
+        auto display = segmentedSpec("display", "short", shortFullCustom);
         display.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
         add(std::move(display));
+      }
+      {
+        auto customLabels = baseSpec("custom_labels", WidgetControlKind::KeyValueMap, std::string{}, false);
+        customLabels.literalLabel = "Custom Labels";
+        customLabels.literalDescription = "Map layout names to display labels (hover a layout to see its name)";
+        customLabels.visibleWhen = WidgetSettingVisibility{"display", {"custom"}};
+        add(std::move(customLabels));
       }
     } else if (type == "launcher") {
       add(glyphSpec("glyph", "search"));

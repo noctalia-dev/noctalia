@@ -25,6 +25,7 @@ namespace settings {
     bool showAdvanced = false;
     bool showOverriddenOnly = false;
     std::vector<SelectOption> batteryDeviceOptions;
+    std::vector<std::string> keyboardLayoutNames;
     std::string& editingWidgetName;
     std::string& editingCapsuleGroupId;
     std::vector<std::string>& selectedLaneWidgets;
@@ -56,6 +57,7 @@ namespace settings {
     std::function<std::unique_ptr<Node>(const std::string&, const std::string&, std::vector<std::string>)> makeText;
     std::function<std::unique_ptr<Node>(const ColorSpecPickerSetting&, std::vector<std::string>)> makeColorSpecPicker;
     std::function<void(Flex&, const SettingEntry&, const ListSetting&)> makeListBlock;
+    std::function<void(Flex&, const SettingEntry&, const KeyValueMapSetting&)> makeKeyValueMapBlock;
   };
 
   [[nodiscard]] bool isBarWidgetListPath(const std::vector<std::string>& path);
