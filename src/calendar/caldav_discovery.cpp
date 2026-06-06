@@ -15,7 +15,7 @@
 namespace calendar {
 
   namespace {
-    constexpr Logger kLog("calendar.caldav.discovery");
+    constexpr Logger kLog("calendar-caldav-discovery");
 
     struct DiscoveryContext {
       HttpClient& http;

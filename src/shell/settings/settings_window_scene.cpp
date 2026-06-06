@@ -952,7 +952,7 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
     m_settingsRegistry.insert(it, std::move(btn));
   }
 
-  if (m_connectCalendarAccount) {
+  if (m_config != nullptr) {
     auto it = std::find_if(m_settingsRegistry.begin(), m_settingsRegistry.end(), [](const settings::SettingEntry& e) {
       return e.section == "services"
           && e.group == "calendar"
@@ -962,23 +962,41 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
       ++it;
     }
     const settings::SettingVisibility calendarOn{{"calendar", "enabled"}, {"true"}};
+    settings::SettingEntry addBtn{
+        .section = "services",
+        .group = "calendar",
+        .title = i18n::tr("settings.schema.services.calendar-add.label"),
+        .subtitle = i18n::tr("settings.schema.services.calendar-add.description"),
+        .path = {},
+        .control =
+            settings::ButtonSetting{
+                .label = i18n::tr("settings.schema.services.calendar-add.button"),
+                .action = [this]() { openCalendarAccountEditor(std::nullopt); },
+                .glyph = "plus",
+            },
+        .searchText = "calendar add account icloud caldav google",
+        .visibleWhen = std::nullopt,
+    };
+    it = m_settingsRegistry.insert(it, std::move(addBtn));
+    ++it;
+
     for (const CalendarConfig::Account& account : cfg.calendar.accounts) {
-      if (account.type != "google") {
+      if (account.type != "google" && account.type != "caldav") {
         continue;
       }
       settings::SettingEntry btn{
           .section = "services",
           .group = "calendar",
           .title = account.displayName.empty() ? account.id : account.displayName,
-          .subtitle = i18n::tr("settings.schema.services.calendar-connect.description"),
+          .subtitle = i18n::tr("settings.schema.services.calendar-edit.description"),
           .path = {},
           .control =
               settings::ButtonSetting{
-                  .label = i18n::tr("settings.schema.services.calendar-connect.button"),
-                  .action = [cb = m_connectCalendarAccount, id = account.id]() { cb(id); },
-                  .glyph = {},
+                  .label = i18n::tr("settings.schema.services.calendar-edit.button"),
+                  .action = [this, id = account.id]() { openCalendarAccountEditor(id); },
+                  .glyph = "edit",
               },
-          .searchText = "calendar google connect authorize " + account.id,
+          .searchText = "calendar account edit connect authorize caldav icloud google password " + account.id,
           .visibleWhen = calendarOn,
       };
       it = m_settingsRegistry.insert(it, std::move(btn));

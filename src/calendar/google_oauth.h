@@ -23,6 +23,7 @@ namespace calendar {
       std::string pollToken;
       std::string authUrl;
       int expiresIn = 0;
+      long httpStatus = 0;
     };
     enum class PollStatus { Pending, Complete, Expired, Error };
 

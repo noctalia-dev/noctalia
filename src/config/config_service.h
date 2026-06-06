@@ -102,6 +102,7 @@ public:
   [[nodiscard]] bool hasOverride(const std::vector<std::string>& path) const;
   [[nodiscard]] bool hasEffectiveOverride(const std::vector<std::string>& path) const;
   [[nodiscard]] bool isOverrideOnlyBar(std::string_view name) const;
+  [[nodiscard]] bool isOverrideOnlyCalendarAccount(std::string_view id) const;
   [[nodiscard]] bool canMoveBarOverride(std::string_view name, int direction) const;
   [[nodiscard]] bool canDeleteBarOverride(std::string_view name) const;
   [[nodiscard]] bool isOverrideOnlyMonitorOverride(std::string_view barName, std::string_view match) const;
@@ -112,6 +113,7 @@ public:
   bool createMonitorOverride(std::string_view barName, std::string_view match);
   bool renameMonitorOverride(std::string_view barName, std::string_view oldMatch, std::string_view newMatch);
   bool deleteMonitorOverride(std::string_view barName, std::string_view match);
+  bool deleteCalendarAccountOverride(std::string_view id);
   bool setOverride(const std::vector<std::string>& path, ConfigOverrideValue value);
   bool setOverrides(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides);
   bool clearOverride(const std::vector<std::string>& path);
@@ -158,6 +160,7 @@ private:
   toml::table m_overridesTable;
   std::unordered_set<std::string> m_configFileBarNames;
   std::unordered_map<std::string, std::unordered_set<std::string>> m_configFileMonitorOverrideNames;
+  std::unordered_set<std::string> m_configFileCalendarAccountNames;
   std::string m_defaultWallpaperPath;
   std::string m_lastWallpaperPath;
   std::unordered_map<std::string, std::string> m_monitorWallpaperPaths;

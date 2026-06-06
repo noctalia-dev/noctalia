@@ -172,4 +172,5 @@ private:
   float m_tabTransitionProgress = 1.0f;
   int m_tabTransitionDirection = 1;
   bool m_tabTransitionActive = false;
+  bool m_firstOpenAfterCreate = false;
 };

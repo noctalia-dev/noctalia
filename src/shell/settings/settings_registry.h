@@ -66,6 +66,7 @@ namespace settings {
     double maxValue = 1.0;
     double step = 0.01;
     bool integerValue = false;
+    std::string valueSuffix = {};
     // Optional: when set, called with the user's just-committed value and returns extra overrides
     // to commit atomically alongside it. Use for cross-field constraints (e.g. linked sliders).
     std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double committedValue)>

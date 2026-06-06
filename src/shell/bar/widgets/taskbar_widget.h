@@ -35,7 +35,7 @@ public:
       WorkspaceLabelPlacement workspaceLabelPlacement, bool hideEmptyWorkspaces, bool workspaceGroupCapsule,
       bool groupSingleIconPerApp, bool showActiveIndicator, float activeOpacity, float inactiveOpacity,
       ColorSpec focusedColor, ColorSpec occupiedColor, ColorSpec emptyColor, bool showWindowTitle,
-      float windowTitleMaxWidth, std::string barPosition, ShellConfig::ShadowConfig shadowConfig
+      float windowTitleMaxWidth, float taskbarMaxWidth, std::string barPosition, ShellConfig::ShadowConfig shadowConfig
   );
   ~TaskbarWidget() override;
 
@@ -119,6 +119,7 @@ private:
   ColorSpec m_emptyColor = colorSpecFromRole(ColorRole::Secondary);
   bool m_showWindowTitle = false;
   float m_windowTitleMaxWidth = 100.0;
+  float m_taskbarMaxWidth = 8192.0;
   std::string m_barPosition;
   ShellConfig::ShadowConfig m_shadowConfig;
   bool m_rebuildPending = true;

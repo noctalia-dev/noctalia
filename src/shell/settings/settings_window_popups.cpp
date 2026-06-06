@@ -4,11 +4,13 @@
 #include "i18n/i18n.h"
 #include "render/render_context.h"
 #include "shell/settings/bar_widget_editor.h"
+#include "shell/settings/color_spec_picker.h"
 #include "shell/settings/settings_content.h"
 #include "shell/settings/settings_content_common.h"
 #include "shell/settings/settings_control_factory.h"
 #include "shell/settings/settings_window.h"
 #include "shell/settings/widget_settings_registry.h"
+#include "ui/builders.h"
 #include "ui/controls/button.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/context_menu_popup.h"
@@ -34,6 +36,73 @@ namespace {
 
   constexpr std::int32_t kActionSupportReport = 1;
   constexpr std::int32_t kActionExportConfig = 2;
+  constexpr std::string_view kCalendarCredentialOwner = "calendar_credentials";
+
+  enum class CalendarAccountProvider : std::uint8_t {
+    ICloud,
+    CustomCalDav,
+    Google,
+  };
+
+  struct CalendarAccountDraft {
+    bool creating = true;
+    CalendarAccountProvider provider = CalendarAccountProvider::ICloud;
+    std::string id = "personal_icloud";
+    std::string name;
+    std::string username;
+    std::string password;
+    std::string serverUrl;
+    std::string color;
+  };
+
+  bool validCalendarAccountId(std::string_view id) {
+    if (id.empty()) {
+      return false;
+    }
+    return std::all_of(id.begin(), id.end(), [](char ch) {
+      return (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_';
+    });
+  }
+
+  bool calendarAccountIdExists(const Config& cfg, std::string_view id) {
+    return std::any_of(
+        cfg.calendar.accounts.begin(), cfg.calendar.accounts.end(),
+        [id](const CalendarConfig::Account& a) { return a.id == id; }
+    );
+  }
+
+  const CalendarConfig::Account* findCalendarAccount(const Config& cfg, std::string_view id) {
+    const auto it = std::find_if(cfg.calendar.accounts.begin(), cfg.calendar.accounts.end(), [id](const auto& account) {
+      return account.id == id;
+    });
+    return it != cfg.calendar.accounts.end() ? &*it : nullptr;
+  }
+
+  std::string calendarProviderKey(CalendarAccountProvider provider) {
+    switch (provider) {
+    case CalendarAccountProvider::ICloud:
+      return "icloud";
+    case CalendarAccountProvider::CustomCalDav:
+      return "custom";
+    case CalendarAccountProvider::Google:
+      return "google";
+    }
+    return "icloud";
+  }
+
+  std::string calendarProviderTitle(CalendarAccountProvider provider) {
+    switch (provider) {
+    case CalendarAccountProvider::ICloud:
+      return i18n::tr("settings.calendar-accounts.provider.icloud");
+    case CalendarAccountProvider::CustomCalDav:
+      return i18n::tr("settings.calendar-accounts.provider.custom");
+    case CalendarAccountProvider::Google:
+      return i18n::tr("settings.calendar-accounts.provider.google");
+    }
+    return i18n::tr("settings.calendar-accounts.provider.icloud");
+  }
+
+  std::string trimInput(Input* input) { return input != nullptr ? StringUtils::trim(input->value()) : std::string{}; }
 
   std::string sessionActionTitle(const SessionPanelActionConfig& row) {
     return settings::sessionActionDisplayTitle(row);
@@ -625,6 +694,391 @@ void SettingsWindow::openIdleBehaviorCreateEditor() {
       m_surface->height(), scale, idleBehaviorTitle(*rowState), nullptr,
       [ctx, rowState, persistDraft](Flex& body) mutable {
         settings::buildIdleBehaviorEntryDetailContent(body, ctx, *rowState, persistDraft);
+      }
+  );
+}
+
+void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accountId) {
+  if (m_wayland == nullptr
+      || m_renderContext == nullptr
+      || m_surface == nullptr
+      || m_surface->xdgSurface() == nullptr
+      || m_config == nullptr) {
+    return;
+  }
+
+  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
+    m_editorSheetPopup->close();
+  }
+  if (m_widgetAddPopup != nullptr && m_widgetAddPopup->isOpen()) {
+    m_widgetAddPopup->close();
+  }
+  if (m_searchPickerPopup != nullptr && m_searchPickerPopup->isOpen()) {
+    m_searchPickerPopup->close();
+  }
+
+  const Config& cfg = m_config->config();
+  auto draft = std::make_shared<CalendarAccountDraft>();
+  if (accountId.has_value()) {
+    const CalendarConfig::Account* account = findCalendarAccount(cfg, *accountId);
+    if (account == nullptr || (account->type != "caldav" && account->type != "google")) {
+      return;
+    }
+    draft->creating = false;
+    draft->id = account->id;
+    draft->name = account->displayName;
+    draft->username = account->username;
+    draft->serverUrl = account->serverUrl;
+    draft->color = account->color;
+    if (account->type == "google") {
+      draft->provider = CalendarAccountProvider::Google;
+    } else {
+      draft->provider =
+          account->provider == "custom" ? CalendarAccountProvider::CustomCalDav : CalendarAccountProvider::ICloud;
+    }
+  }
+
+  if (m_editorSheetPopup == nullptr) {
+    m_editorSheetPopup = std::make_unique<settings::SettingsEditorSheetPopup>();
+    m_editorSheetPopup->initialize(*m_wayland, *m_config, *m_renderContext);
+  }
+
+  const float scale = uiScale();
+  wl_output* output = m_wayland->lastPointerOutput();
+  if (output == nullptr) {
+    output = m_output;
+  }
+
+  const std::string title = draft->creating ? i18n::tr("settings.calendar-accounts.add-title")
+                                            : i18n::tr("settings.calendar-accounts.edit-title");
+
+  std::function<void()> removeAccount;
+  if (!draft->creating && m_config->isOverrideOnlyCalendarAccount(draft->id)) {
+    removeAccount = [this, accountId = draft->id]() {
+      if (m_config == nullptr) {
+        return;
+      }
+      if (!m_config->deleteCalendarAccountOverride(accountId)) {
+        markSettingsWriteError(i18n::tr("settings.calendar-accounts.delete-error"));
+        return;
+      }
+      (void)m_config->setStateString(kCalendarCredentialOwner, accountId + "_password", "");
+      (void)m_config->setStateString(kCalendarCredentialOwner, accountId + "_refresh_token", "");
+      (void)m_config->setStateString(kCalendarCredentialOwner, accountId + "_access_token", "");
+      (void)m_config->setStateString(kCalendarCredentialOwner, accountId + "_access_expiry", "");
+      markSettingsWriteSuccess(true);
+      if (m_editorSheetPopup != nullptr) {
+        m_editorSheetPopup->close();
+      }
+    };
+  }
+
+  m_editorSheetPopup->open(
+      m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(), m_surface->width(),
+      m_surface->height(), scale, title, removeAccount, [this, draft, scale](Flex& body) mutable {
+        auto addField = [scale](Flex& parent, const std::string& label, std::unique_ptr<Node> control) {
+          auto field = ui::column({
+              .align = FlexAlign::Stretch,
+              .gap = Style::spaceXs * scale,
+          });
+          field->addChild(
+              ui::label({
+                  .text = label,
+                  .fontSize = Style::fontSizeCaption * scale,
+                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  .fontWeight = FontWeight::Medium,
+              })
+          );
+          field->addChild(std::move(control));
+          parent.addChild(std::move(field));
+        };
+
+        const auto providerIndex = [](CalendarAccountProvider provider) -> std::size_t {
+          switch (provider) {
+          case CalendarAccountProvider::ICloud:
+            return 0;
+          case CalendarAccountProvider::CustomCalDav:
+            return 1;
+          case CalendarAccountProvider::Google:
+            return 2;
+          }
+          return 0;
+        };
+        addField(
+            body, i18n::tr("settings.calendar-accounts.provider-label"),
+            ui::segmented({
+                .options =
+                    std::vector<ui::SegmentedOption>{
+                        {.label = calendarProviderTitle(CalendarAccountProvider::ICloud), .glyph = "brand-apple"},
+                        {.label = calendarProviderTitle(CalendarAccountProvider::CustomCalDav),
+                         .glyph = "calendar-cog"},
+                        {.label = calendarProviderTitle(CalendarAccountProvider::Google), .glyph = "brand-google"},
+                    },
+                .selectedIndex = providerIndex(draft->provider),
+                .scale = scale,
+                .enabled = draft->creating,
+                .equalSegmentWidths = true,
+                .onChange = [this, draft](std::size_t index) {
+                  CalendarAccountProvider provider = CalendarAccountProvider::ICloud;
+                  if (index == 1) {
+                    provider = CalendarAccountProvider::CustomCalDav;
+                  } else if (index == 2) {
+                    provider = CalendarAccountProvider::Google;
+                  }
+
+                  draft->provider = provider;
+                  if (provider == CalendarAccountProvider::Google && draft->id == "personal_icloud") {
+                    draft->id = "personal_google";
+                  } else if (provider == CalendarAccountProvider::CustomCalDav && draft->id == "personal_icloud") {
+                    draft->id = "home_nextcloud";
+                  } else if (provider == CalendarAccountProvider::ICloud && draft->id == "personal_google") {
+                    draft->id = "personal_icloud";
+                  }
+                  if (m_editorSheetPopup != nullptr) {
+                    m_editorSheetPopup->rebuildBody();
+                  }
+                },
+            })
+        );
+
+        Input* idInput = nullptr;
+        addField(
+            body, i18n::tr("settings.calendar-accounts.id-label"),
+            ui::input({
+                .out = &idInput,
+                .value = draft->id,
+                .placeholder = "personal_icloud",
+                .enabled = draft->creating,
+                .onChange = [draft](const std::string& value) {
+                  if (draft->creating) {
+                    draft->id = value;
+                  }
+                },
+            })
+        );
+
+        Input* nameInput = nullptr;
+        addField(
+            body, i18n::tr("settings.calendar-accounts.name-label"),
+            ui::input({
+                .out = &nameInput,
+                .value = draft->name,
+                .placeholder = i18n::tr("settings.calendar-accounts.name-placeholder"),
+                .onChange = [draft](const std::string& value) { draft->name = value; },
+            })
+        );
+
+        Input* usernameInput = nullptr;
+        Input* passwordInput = nullptr;
+        Input* serverInput = nullptr;
+        if (draft->provider != CalendarAccountProvider::Google) {
+          addField(
+              body, i18n::tr("settings.calendar-accounts.username-label"),
+              ui::input({
+                  .out = &usernameInput,
+                  .value = draft->username,
+                  .placeholder = i18n::tr("settings.calendar-accounts.username-placeholder"),
+                  .onChange = [draft](const std::string& value) { draft->username = value; },
+              })
+          );
+          addField(
+              body, i18n::tr("settings.calendar-accounts.password-label"),
+              ui::input({
+                  .out = &passwordInput,
+                  .value = {},
+                  .placeholder = draft->creating ? i18n::tr("settings.calendar-accounts.password-placeholder")
+                                                 : i18n::tr("settings.calendar-accounts.password-keep-placeholder"),
+                  .passwordMode = true,
+                  .onChange = [draft](const std::string& value) { draft->password = value; },
+              })
+          );
+        }
+        if (draft->provider == CalendarAccountProvider::CustomCalDav) {
+          addField(
+              body, i18n::tr("settings.calendar-accounts.server-url-label"),
+              ui::input({
+                  .out = &serverInput,
+                  .value = draft->serverUrl,
+                  .placeholder = "https://cloud.example.com/remote.php/dav/",
+                  .onChange = [draft](const std::string& value) { draft->serverUrl = value; },
+              })
+          );
+        }
+
+        addField(
+            body, i18n::tr("settings.calendar-accounts.color-label"),
+            settings::makeColorSpecSelect(
+                settings::ColorSpecSelectOptions{
+                    .roles = {},
+                    .selectedValue = draft->color,
+                    .allowNone = true,
+                    .allowCustomColor = true,
+                    .noneLabel = {},
+                    .fontSize = Style::fontSizeBody * scale,
+                    .controlHeight = Style::controlHeight * scale,
+                    .glyphSize = Style::fontSizeBody * scale,
+                    .flexGrow = true,
+                },
+                [draft](std::string value) { draft->color = StringUtils::trim(value); },
+                [draft]() { draft->color.clear(); }
+            )
+        );
+
+        const auto persistAccount = [this, draft, idInput, nameInput, usernameInput, passwordInput,
+                                     serverInput](bool closeAfter, bool connectAfter) {
+          if (m_config == nullptr) {
+            return;
+          }
+
+          draft->id = draft->creating ? trimInput(idInput) : draft->id;
+          draft->name = trimInput(nameInput);
+          draft->color = StringUtils::trim(draft->color);
+          draft->username = trimInput(usernameInput);
+          draft->password = trimInput(passwordInput);
+          draft->serverUrl = trimInput(serverInput);
+
+          bool valid = true;
+          const auto mark = [&](Input* input) {
+            if (input != nullptr) {
+              input->setInvalid(true);
+            }
+            valid = false;
+          };
+          const auto unmark = [](Input* input) {
+            if (input != nullptr) {
+              input->setInvalid(false);
+            }
+          };
+          unmark(idInput);
+          unmark(usernameInput);
+          unmark(passwordInput);
+          unmark(serverInput);
+
+          if (!validCalendarAccountId(draft->id)) {
+            mark(idInput);
+          }
+          if (draft->creating && calendarAccountIdExists(m_config->config(), draft->id)) {
+            mark(idInput);
+          }
+
+          const bool caldav = draft->provider != CalendarAccountProvider::Google;
+          if (caldav && draft->username.empty()) {
+            mark(usernameInput);
+          }
+          if (draft->provider == CalendarAccountProvider::CustomCalDav && draft->serverUrl.empty()) {
+            mark(serverInput);
+          }
+          if (caldav && draft->password.empty()) {
+            const std::string existing =
+                m_config->stateString(kCalendarCredentialOwner, draft->id + "_password").value_or(std::string{});
+            if (existing.empty()) {
+              mark(passwordInput);
+            }
+          }
+          if (!valid) {
+            showTransientStatus(i18n::tr("settings.calendar-accounts.invalid"), true);
+            return;
+          }
+
+          std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides;
+          if (draft->creating) {
+            overrides.push_back({{"calendar", "enabled"}, true});
+          }
+          const std::vector<std::string> base = {"calendar", "account", draft->id};
+          overrides.push_back(
+              {{base[0], base[1], base[2], "type"}, caldav ? std::string("caldav") : std::string("google")}
+          );
+          overrides.push_back({{base[0], base[1], base[2], "name"}, draft->name});
+          overrides.push_back({{base[0], base[1], base[2], "color"}, draft->color});
+          if (caldav) {
+            overrides.push_back({{base[0], base[1], base[2], "provider"}, calendarProviderKey(draft->provider)});
+            overrides.push_back({{base[0], base[1], base[2], "username"}, draft->username});
+            if (draft->provider == CalendarAccountProvider::CustomCalDav) {
+              overrides.push_back({{base[0], base[1], base[2], "server_url"}, draft->serverUrl});
+            }
+          }
+
+          if (!m_config->setOverrides(std::move(overrides))) {
+            markSettingsWriteError(i18n::tr("settings.calendar-accounts.save-error"));
+            return;
+          }
+          if (caldav && !draft->password.empty()) {
+            if (!m_config->setStateString(kCalendarCredentialOwner, draft->id + "_password", draft->password)) {
+              markSettingsWriteError(i18n::tr("settings.calendar-accounts.password-save-error"));
+              return;
+            }
+          }
+
+          std::function<void(std::string, std::string)> connectCalendarAccount;
+          std::string connectAccountId;
+          std::string connectActivationToken;
+          if (connectAfter && m_connectCalendarAccount) {
+            connectCalendarAccount = m_connectCalendarAccount;
+            connectAccountId = draft->id;
+            if (m_wayland != nullptr && m_surface != nullptr) {
+              connectActivationToken = m_wayland->requestActivationToken(m_surface->wlSurface());
+            }
+          }
+
+          markSettingsWriteSuccess(closeAfter);
+          if (connectCalendarAccount) {
+            DeferredCall::callLater([connectCalendarAccount = std::move(connectCalendarAccount),
+                                     connectAccountId = std::move(connectAccountId),
+                                     connectActivationToken = std::move(connectActivationToken)]() mutable {
+              connectCalendarAccount(connectAccountId, connectActivationToken);
+            });
+          }
+          if (closeAfter && m_editorSheetPopup != nullptr) {
+            m_editorSheetPopup->close();
+          }
+        };
+
+        auto actions = ui::row({
+            .align = FlexAlign::Center,
+            .justify = FlexJustify::End,
+            .gap = Style::spaceSm * scale,
+        });
+        actions->addChild(
+            ui::button({
+                .text = i18n::tr("common.actions.cancel"),
+                .variant = ButtonVariant::Secondary,
+                .minHeight = Style::controlHeight * scale,
+                .paddingH = Style::spaceMd * scale,
+                .radius = Style::scaledRadiusMd(scale),
+                .onClick = [this]() {
+                  if (m_editorSheetPopup != nullptr) {
+                    m_editorSheetPopup->close();
+                  }
+                },
+            })
+        );
+        const bool google = draft->provider == CalendarAccountProvider::Google;
+        if (!draft->creating && google) {
+          actions->addChild(
+              ui::button({
+                  .text = i18n::tr("settings.calendar-accounts.save"),
+                  .glyph = "device-floppy",
+                  .variant = ButtonVariant::Secondary,
+                  .minHeight = Style::controlHeight * scale,
+                  .paddingH = Style::spaceMd * scale,
+                  .radius = Style::scaledRadiusMd(scale),
+                  .onClick = [persistAccount]() { persistAccount(true, false); },
+              })
+          );
+        }
+        actions->addChild(
+            ui::button({
+                .text = google ? i18n::tr("settings.calendar-accounts.save-connect")
+                               : i18n::tr("settings.calendar-accounts.save"),
+                .glyph = google ? "brand-google" : "device-floppy",
+                .variant = ButtonVariant::Primary,
+                .minHeight = Style::controlHeight * scale,
+                .paddingH = Style::spaceMd * scale,
+                .radius = Style::scaledRadiusMd(scale),
+                .onClick = [persistAccount, google]() { persistAccount(true, google); },
+            })
+        );
+        body.addChild(std::move(actions));
       }
   );
 }

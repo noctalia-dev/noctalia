@@ -11,6 +11,7 @@
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/font_weight_catalog.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "system/sysmon_threshold_profile.h"
 #include "theme/builtin_palettes.h"
 #include "theme/builtin_templates.h"
 #include "ui/app_icon_colorization.h"
@@ -1440,6 +1441,100 @@ namespace settings {
           "settings.schema.services.system-monitor.disk-poll.description", {"system", "monitor", "disk_poll_seconds"},
           mon.diskPollSeconds
       );
+
+      auto addThresholdPair = [&](std::string_view baseKey, std::string_view statLabelKey, double activityValue,
+                                  double criticalValue, noctalia::sysmon::ThresholdProfile profile, bool integerValue,
+                                  std::string valueSuffix) {
+        const std::vector<std::string> activityPath = {
+            "system", "monitor", std::string(baseKey) + "_activity_threshold"
+        };
+        const std::vector<std::string> criticalPath = {
+            "system", "monitor", std::string(baseKey) + "_critical_threshold"
+        };
+        const std::string statLabel = tr(statLabelKey);
+
+        auto activitySlider =
+            SliderSetting{activityValue, profile.minValue, profile.maxValue, profile.step, integerValue};
+        activitySlider.valueSuffix = valueSuffix;
+        activitySlider.linkedCommit = [criticalValue, criticalPath](double committedValue) {
+          if (committedValue <= criticalValue) {
+            return std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>{};
+          }
+          return std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>{
+              {criticalPath, ConfigOverrideValue{committedValue}}
+          };
+        };
+        auto activity = makeEntry(
+            "system", "monitor",
+            tr("settings.schema.services.system-monitor.activity-threshold.label", "stat", statLabel),
+            tr("settings.schema.services.system-monitor.activity-threshold.description"), activityPath,
+            std::move(activitySlider), "system monitor threshold", true
+        );
+        activity.visibleWhen = monitorOn;
+        entries.push_back(std::move(activity));
+
+        auto criticalSlider =
+            SliderSetting{criticalValue, profile.minValue, profile.maxValue, profile.step, integerValue};
+        criticalSlider.valueSuffix = std::move(valueSuffix);
+        criticalSlider.linkedCommit = [activityValue, activityPath](double committedValue) {
+          if (committedValue >= activityValue) {
+            return std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>{};
+          }
+          return std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>{
+              {activityPath, ConfigOverrideValue{committedValue}}
+          };
+        };
+        auto critical = makeEntry(
+            "system", "monitor",
+            tr("settings.schema.services.system-monitor.critical-threshold.label", "stat", statLabel),
+            tr("settings.schema.services.system-monitor.critical-threshold.description"), criticalPath,
+            std::move(criticalSlider), "system monitor threshold", true
+        );
+        critical.visibleWhen = monitorOn;
+        entries.push_back(std::move(critical));
+      };
+
+      using noctalia::sysmon::Stat;
+      addThresholdPair(
+          "cpu_usage", "settings.schema.services.system-monitor.stats.cpu-usage", mon.cpuUsageActivityThreshold,
+          mon.cpuUsageCriticalThreshold, noctalia::sysmon::thresholdProfile(Stat::CpuUsage), true, "%"
+      );
+      addThresholdPair(
+          "cpu_temp", "settings.schema.services.system-monitor.stats.cpu-temp", mon.cpuTempActivityThreshold,
+          mon.cpuTempCriticalThreshold, noctalia::sysmon::thresholdProfile(Stat::CpuTemp), true, "°C"
+      );
+      addThresholdPair(
+          "gpu_temp", "settings.schema.services.system-monitor.stats.gpu-temp", mon.gpuTempActivityThreshold,
+          mon.gpuTempCriticalThreshold, noctalia::sysmon::thresholdProfile(Stat::GpuTemp), true, "°C"
+      );
+      addThresholdPair(
+          "gpu_usage", "settings.schema.services.system-monitor.stats.gpu-usage", mon.gpuUsageActivityThreshold,
+          mon.gpuUsageCriticalThreshold, noctalia::sysmon::thresholdProfile(Stat::GpuUsage), true, "%"
+      );
+      addThresholdPair(
+          "gpu_vram", "settings.schema.services.system-monitor.stats.gpu-vram", mon.gpuVramActivityThreshold,
+          mon.gpuVramCriticalThreshold, noctalia::sysmon::thresholdProfile(Stat::GpuVram), true, "%"
+      );
+      addThresholdPair(
+          "ram_pct", "settings.schema.services.system-monitor.stats.ram-usage", mon.ramPctActivityThreshold,
+          mon.ramPctCriticalThreshold, noctalia::sysmon::thresholdProfile(Stat::RamPct), true, "%"
+      );
+      addThresholdPair(
+          "swap_pct", "settings.schema.services.system-monitor.stats.swap-usage", mon.swapPctActivityThreshold,
+          mon.swapPctCriticalThreshold, noctalia::sysmon::thresholdProfile(Stat::SwapPct), true, "%"
+      );
+      addThresholdPair(
+          "disk_pct", "settings.schema.services.system-monitor.stats.disk-usage", mon.diskPctActivityThreshold,
+          mon.diskPctCriticalThreshold, noctalia::sysmon::thresholdProfile(Stat::DiskPct), true, "%"
+      );
+      addThresholdPair(
+          "net_rx", "settings.schema.services.system-monitor.stats.network-rx", mon.netRxActivityThreshold,
+          mon.netRxCriticalThreshold, noctalia::sysmon::thresholdProfile(Stat::NetRx), false, "MB/s"
+      );
+      addThresholdPair(
+          "net_tx", "settings.schema.services.system-monitor.stats.network-tx", mon.netTxActivityThreshold,
+          mon.netTxCriticalThreshold, noctalia::sysmon::thresholdProfile(Stat::NetTx), false, "MB/s"
+      );
     }
     entries.push_back(makeEntry(
         "system", "screen-time", tr("settings.schema.shell.screen-time-enabled.label"),
@@ -1823,7 +1918,7 @@ namespace settings {
     for (const auto& kind : kHookKinds) {
       const auto index = static_cast<std::size_t>(kind.value);
       const std::string key(kind.key);
-      const std::string baseKey = "settings.schema.hooks.events." + key;
+      const std::string baseKey = "settings.schema.hooks.events." + i18n::keySegment(key);
       const std::string hookCmd = cfg.hooks.commands[index].empty() ? "" : cfg.hooks.commands[index][0];
       entries.push_back(makeEntry(
           "hooks", hookGroup(kind.value), tr(baseKey + ".label"), tr(baseKey + ".description"), {"hooks", key},

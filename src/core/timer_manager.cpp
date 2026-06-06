@@ -21,7 +21,7 @@ namespace {
 
   struct TimerEntry {
     TimerManager::TimerId id = 0;
-    std::chrono::steady_clock::time_point dueAt{};
+    std::chrono::steady_clock::time_point dueAt;
     std::chrono::milliseconds interval{0};
     std::function<void()> callback;
     bool repeating = false;

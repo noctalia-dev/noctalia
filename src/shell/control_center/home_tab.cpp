@@ -101,8 +101,9 @@ namespace {
   }
 
   void applyShortcutButtonStyle(Button& button, bool enabled, bool active, float fillOpacity) {
-    button.setVariant(enabled && active ? ButtonVariant::Primary : ButtonVariant::Default);
-    button.setSurfaceOpacity(fillOpacity);
+    const bool on = enabled && active;
+    button.setVariant(on ? ButtonVariant::Primary : ButtonVariant::Default);
+    button.setSurfaceOpacity(on ? 1.0f : fillOpacity);
     button.setEnabled(enabled);
   }
 
@@ -534,17 +535,13 @@ std::unique_ptr<Flex> HomeTab::createHeaderActions() {
           .out = &m_settingsButton,
           .glyph = "settings",
           .onClick = []() { PanelManager::instance().openSettingsWindow(); },
-          .configure = [scale, opacity = panelCardOpacity()](
-                           Button& button
-                       ) { panel_button_style::configureHeaderIconButton(button, scale, opacity); },
+          .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
       }),
       ui::button({
           .out = &m_sessionButton,
           .glyph = "shutdown",
           .onClick = []() { PanelManager::instance().togglePanel("session"); },
-          .configure = [scale, opacity = panelCardOpacity()](
-                           Button& button
-                       ) { panel_button_style::configureHeaderIconButton(button, scale, opacity); },
+          .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
       })
   );
 }
@@ -896,12 +893,7 @@ void HomeTab::onClose() {
 }
 
 void HomeTab::onPanelCardOpacityChanged(float opacity) {
-  if (m_settingsButton != nullptr) {
-    m_settingsButton->setSurfaceOpacity(opacity);
-  }
-  if (m_sessionButton != nullptr) {
-    m_sessionButton->setSurfaceOpacity(opacity);
-  }
+  (void)opacity;
   syncShortcuts();
 }
 

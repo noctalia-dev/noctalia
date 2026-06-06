@@ -2,6 +2,7 @@
 
 #include "i18n/i18n_service.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <format>
@@ -46,6 +47,14 @@ namespace i18n {
     }
 
   } // namespace detail
+
+  // Convert a snake_case config/wire identifier into the dash-case segment used
+  // in translation keys (e.g. "art_size" -> "art-size").
+  inline std::string keySegment(std::string_view id) {
+    std::string out(id);
+    std::replace(out.begin(), out.end(), '_', '-');
+    return out;
+  }
 
   template <typename... Args> std::string tr(std::string_view key, Args&&... args) {
     static_assert(sizeof...(Args) % 2 == 0, "i18n::tr() requires an even number of trailing args (name, value pairs)");

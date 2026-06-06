@@ -18,9 +18,7 @@ namespace {
   std::string
   formatAgeSeconds(std::int64_t secs, std::optional<std::chrono::system_clock::time_point> calendarAfterSixDays) {
     using namespace std::chrono;
-    if (secs < 0) {
-      secs = 0;
-    }
+    secs = std::max<std::int64_t>(secs, 0);
     if (secs < 60) {
       return i18n::tr("time.relative.just-now");
     }

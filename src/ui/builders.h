@@ -256,6 +256,7 @@ namespace ui {
     std::optional<float> glyphSize = std::nullopt;
     std::optional<std::vector<ColorSpec>> optionIndicators = std::nullopt;
     std::optional<std::vector<ColorSwatchPreview>> colorSwatchPreviews = std::nullopt;
+    std::optional<bool> notifyOnReselect = std::nullopt;
     std::optional<bool> enabled = std::nullopt;
     std::optional<float> surfaceOpacity = std::nullopt;
     std::optional<float> width = std::nullopt;

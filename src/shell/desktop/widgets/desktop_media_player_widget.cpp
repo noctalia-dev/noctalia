@@ -34,7 +34,7 @@ namespace {
 DesktopMediaPlayerWidget::DesktopMediaPlayerWidget(
     MprisService* mpris, HttpClient* httpClient, bool vertical, ColorSpec color, bool shadow, bool hideWhenNoMedia
 )
-    : m_mpris(mpris), m_httpClient(httpClient), m_vertical(vertical), m_color(std::move(color)), m_shadow(shadow),
+    : m_mpris(mpris), m_httpClient(httpClient), m_vertical(vertical), m_color(color), m_shadow(shadow),
       m_hideWhenNoMedia(hideWhenNoMedia) {}
 
 DesktopMediaPlayerWidget::~DesktopMediaPlayerWidget() { cancelVisibilityAnimation(); }

@@ -190,8 +190,8 @@ namespace settings {
       spec.schema.type = schemaTypeForControl(control);
       spec.schema.defaultValue = std::move(defaultValue);
       spec.control = control;
-      spec.labelKey = std::string("settings.widgets.settings.") + std::string(key) + ".label";
-      spec.descriptionKey = std::string("settings.widgets.settings.") + std::string(key) + ".description";
+      spec.labelKey = std::string("settings.widgets.settings.") + i18n::keySegment(key) + ".label";
+      spec.descriptionKey = std::string("settings.widgets.settings.") + i18n::keySegment(key) + ".description";
       spec.advanced = advanced;
       return spec;
     }
@@ -737,6 +737,7 @@ namespace settings {
         gaugeColor.visibleWhen = WidgetSettingVisibility{"display", {"gauge"}};
         add(std::move(gaugeColor));
       }
+      add(colorSpec("highlight_color", "error"));
       add(boolSpec("show_label", true));
       {
         auto minW = intSpec("label_min_width", 0, 0.0, 200.0, 1.0);
@@ -767,7 +768,7 @@ namespace settings {
       }
       {
         auto groupCapsule = boolSpec("workspace_group_capsule", true);
-        groupCapsule.descriptionKey = "settings.widgets.settings.workspace_group_capsule.description";
+        groupCapsule.descriptionKey = "settings.widgets.settings.workspace-group-capsule.description";
         groupCapsule.visibleWhen =
             WidgetSettingVisibility{WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}}};
         add(std::move(groupCapsule));
@@ -801,7 +802,7 @@ namespace settings {
       }
       for (auto& spec : commonSpecs) {
         if (spec.schema.key == "capsule_radius") {
-          spec.descriptionKey = "settings.widgets.settings.capsule_radius.taskbar-description";
+          spec.descriptionKey = "settings.widgets.settings.capsule-radius.taskbar-description";
           spec.visibleWhen = WidgetSettingVisibility{WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}}};
           break;
         }
@@ -812,11 +813,20 @@ namespace settings {
             WidgetSettingVisibility{WidgetSettingVisibilityCondition{"group_by_workspace", {"false"}}};
         add(std::move(showWindowTitle));
       }
+      const WidgetSettingVisibility windowTitleSettings = [] {
+        WidgetSettingVisibility v;
+        v.all = {{"group_by_workspace", {"false"}}, {"show_window_title", {"true"}}};
+        return v;
+      }();
       {
         auto windowTitleMaxWidth = doubleSpec("window_title_max_width", 100.0, 10.0, 200.0, 1.0);
-        windowTitleMaxWidth.visibleWhen =
-            WidgetSettingVisibility{WidgetSettingVisibilityCondition{"group_by_workspace", {"false"}}};
+        windowTitleMaxWidth.visibleWhen = windowTitleSettings;
         add(std::move(windowTitleMaxWidth));
+      }
+      {
+        auto taskbarMaxWidth = doubleSpec("taskbar_max_width", 8192.0, 10.0, 8192.0, 1.0);
+        taskbarMaxWidth.visibleWhen = windowTitleSettings;
+        add(std::move(taskbarMaxWidth));
       }
     } else if (type == "tray") {
       add(stringListSpec("hidden"));
@@ -841,7 +851,7 @@ namespace settings {
       const WidgetSettingVisibility pillStyleOnly{{"minimal", {"false"}}};
       for (auto& spec : commonSpecs) {
         if (spec.schema.key == "capsule_radius") {
-          spec.descriptionKey = "settings.widgets.settings.capsule_radius.workspaces-description";
+          spec.descriptionKey = "settings.widgets.settings.capsule-radius.workspaces-description";
           spec.visibleWhen = pillStyleOnly;
           break;
         }
@@ -855,22 +865,22 @@ namespace settings {
       {
         auto labelsOnlyWhenOccupied = boolSpec("labels_only_when_occupied", false);
         labelsOnlyWhenOccupied.descriptionKey =
-            "settings.widgets.settings.labels_only_when_occupied.workspaces-description";
+            "settings.widgets.settings.labels-only-when-occupied.workspaces-description";
         add(std::move(labelsOnlyWhenOccupied));
       }
       {
         auto hideWhenEmpty = boolSpec("hide_when_empty", false);
-        hideWhenEmpty.descriptionKey = "settings.widgets.settings.hide_when_empty.workspaces-description";
+        hideWhenEmpty.descriptionKey = "settings.widgets.settings.hide-when-empty.workspaces-description";
         add(std::move(hideWhenEmpty));
       }
       {
         auto maxLabelChars = intSpec("max_label_chars", 1, 1.0, 20.0, 1.0);
-        maxLabelChars.descriptionKey = "settings.widgets.settings.max_label_chars.workspaces-description";
+        maxLabelChars.descriptionKey = "settings.widgets.settings.max-label-chars.workspaces-description";
         add(std::move(maxLabelChars));
       }
       {
         auto pillScale = doubleSpec("pill_scale", 1.0, 0.1, 1.0, 0.05);
-        pillScale.descriptionKey = "settings.widgets.settings.pill_scale.workspaces-description";
+        pillScale.descriptionKey = "settings.widgets.settings.pill-scale.workspaces-description";
         pillScale.visibleWhen = pillStyleOnly;
         add(std::move(pillScale));
       }
@@ -1024,8 +1034,13 @@ namespace settings {
   } // namespace
 
   std::optional<WidgetSettingSpec> findWidgetSettingSpec(std::string_view widgetType, std::string_view settingKey) {
+    return findWidgetSettingSpec(widgetType, settingKey, nullptr);
+  }
+
+  std::optional<WidgetSettingSpec>
+  findWidgetSettingSpec(std::string_view widgetType, std::string_view settingKey, const WidgetConfig* config) {
     const std::string key(settingKey);
-    for (const auto& spec : widgetSettingSpecs(widgetType, "sans-serif")) {
+    for (const auto& spec : widgetSettingSpecs(widgetType, config, "sans-serif")) {
       if (spec.schema.key == key) {
         return spec;
       }
@@ -1135,30 +1150,39 @@ namespace settings {
       std::string_view widgetName, std::string_view settingKey, const Config& withOverride,
       const Config& withoutOverride
   ) {
-    const auto valueInConfig = [](const Config& cfg, std::string_view name,
-                                  std::string_view key) -> std::optional<WidgetSettingValue> {
+    const auto widgetInConfig = [](const Config& cfg, std::string_view name) -> const WidgetConfig* {
       const auto widgetIt = cfg.widgets.find(std::string(name));
       if (widgetIt == cfg.widgets.end()) {
+        return nullptr;
+      }
+      return &widgetIt->second;
+    };
+    const auto valueInConfig = [&](const Config& cfg, std::string_view name,
+                                   std::string_view key) -> std::optional<WidgetSettingValue> {
+      const auto* widget = widgetInConfig(cfg, name);
+      if (widget == nullptr) {
         return std::nullopt;
       }
-      const auto settingIt = widgetIt->second.settings.find(std::string(key));
-      if (settingIt == widgetIt->second.settings.end()) {
+      const auto settingIt = widget->settings.find(std::string(key));
+      if (settingIt == widget->settings.end()) {
         return std::nullopt;
       }
       return settingIt->second;
     };
 
     std::string widgetType(widgetName);
-    if (const auto withIt = withOverride.widgets.find(std::string(widgetName)); withIt != withOverride.widgets.end()) {
-      widgetType = withIt->second.type;
-    } else if (
-        const auto withoutIt = withoutOverride.widgets.find(std::string(widgetName));
-        withoutIt != withoutOverride.widgets.end()
-    ) {
-      widgetType = withoutIt->second.type;
+    if (const auto* withWidget = widgetInConfig(withOverride, widgetName); withWidget != nullptr) {
+      widgetType = withWidget->type;
+    } else if (const auto* withoutWidget = widgetInConfig(withoutOverride, widgetName); withoutWidget != nullptr) {
+      widgetType = withoutWidget->type;
     }
 
-    const auto spec = findWidgetSettingSpec(widgetType, settingKey);
+    const WidgetConfig* defaultConfig = widgetInConfig(withoutOverride, widgetName);
+    if (defaultConfig == nullptr) {
+      defaultConfig = widgetInConfig(withOverride, widgetName);
+    }
+
+    const auto spec = findWidgetSettingSpec(widgetType, settingKey, defaultConfig);
     const auto withValue = valueInConfig(withOverride, widgetName, settingKey);
     const auto withoutValue = valueInConfig(withoutOverride, widgetName, settingKey);
     if (!withValue.has_value() && !withoutValue.has_value()) {

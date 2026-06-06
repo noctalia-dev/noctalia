@@ -339,9 +339,7 @@ namespace {
         for (std::uint32_t i = 0; i < n; ++i) {
           const float cubic = samples[i];
           const float linear = std::cbrt(std::max(0.0f, cubic));
-          if (linear > maxVol) {
-            maxVol = linear;
-          }
+          maxVol = std::max(linear, maxVol);
         }
         outVolume = maxVol;
         if (outChannelCount != nullptr) {

@@ -16,7 +16,6 @@
 #include <vector>
 
 class TextClipboard;
-class Glyph;
 class GlyphNode;
 class InputArea;
 class Label;
@@ -198,7 +197,7 @@ private:
   std::string m_labelVisibleSlice;
   std::size_t m_labelVisibleStartByte = 0;
   float m_labelSliceOriginX = 0.0f;
-  std::vector<Glyph*> m_passwordGlyphs;
+  std::vector<GlyphNode*> m_passwordGlyphs;
   float m_scrollOffset = 0.0f;
   bool m_cursorBlinkVisible = true;
   Timer m_cursorBlinkTimer;

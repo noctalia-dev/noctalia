@@ -14,7 +14,10 @@ on:
 
 jobs:
   cache:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     if: ${{ github.repository == 'noctalia-dev/noctalia-shell' }}
     steps:
       - uses: actions/checkout@v6

@@ -296,7 +296,7 @@ namespace {
             inherits.emplace_back(std::move(name));
           }
         }
-      } else if (!currentSection.empty() && dirMap.count(currentSection)) {
+      } else if (!currentSection.empty() && dirMap.contains(currentSection)) {
         auto& entry = dirMap[currentSection];
         if (key == "Size") {
           try {
@@ -340,7 +340,7 @@ namespace {
       const std::string& themeName, const std::vector<std::string>& baseDirs, std::set<std::string>& visited,
       std::vector<IconSearchDir>& searchDirs
   ) {
-    if (visited.count(themeName)) {
+    if (visited.contains(themeName)) {
       return;
     }
     visited.insert(themeName);

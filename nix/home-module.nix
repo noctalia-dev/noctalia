@@ -127,4 +127,6 @@ in
       }
     ];
   };
+
+  _class = "homeManager";
 }

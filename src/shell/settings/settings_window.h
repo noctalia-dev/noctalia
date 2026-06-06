@@ -76,7 +76,7 @@ public:
   }
   void setOpenWallpaperPanel(std::function<void()> callback) { m_openWallpaperPanel = std::move(callback); }
   void setSyncGreeterAppearance(std::function<void()> callback) { m_syncGreeterAppearance = std::move(callback); }
-  void setConnectCalendarAccount(std::function<void(std::string)> callback) {
+  void setConnectCalendarAccount(std::function<void(std::string, std::string)> callback) {
     m_connectCalendarAccount = std::move(callback);
   }
 
@@ -122,6 +122,7 @@ private:
   void syncSessionActionInlineSummary(std::size_t index, const SessionPanelActionConfig& row);
   void openIdleBehaviorEntryEditor(std::size_t index);
   void openIdleBehaviorCreateEditor();
+  void openCalendarAccountEditor(std::optional<std::string> accountId);
   void openWidgetInspectorEditor(std::vector<std::string> laneListPath, std::string widgetName);
   void openCapsuleGroupEditor(std::vector<std::string> laneListPath, std::string groupId);
   void openBarWidgetEditorSheet(std::string title, std::function<void(Flex&)> populate);
@@ -228,5 +229,5 @@ private:
   std::function<void()> m_openLockscreenWidgetEditor;
   std::function<void()> m_openWallpaperPanel;
   std::function<void()> m_syncGreeterAppearance;
-  std::function<void(std::string)> m_connectCalendarAccount;
+  std::function<void(std::string, std::string)> m_connectCalendarAccount;
 };

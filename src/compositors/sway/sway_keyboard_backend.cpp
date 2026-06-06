@@ -15,7 +15,7 @@ namespace {
 
   struct CurrentLayoutCache {
     std::optional<std::string> value;
-    std::chrono::steady_clock::time_point fetchedAt{};
+    std::chrono::steady_clock::time_point fetchedAt;
     bool valid = false;
   };
 

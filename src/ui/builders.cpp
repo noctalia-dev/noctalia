@@ -208,7 +208,7 @@ namespace ui {
       control->setVariant(*props.variant);
     }
     if (props.customPalette.has_value()) {
-      control->setCustomPalette(std::move(*props.customPalette));
+      control->setCustomPalette(*props.customPalette);
     }
     if (props.surfaceOpacity.has_value()) {
       control->setSurfaceOpacity(*props.surfaceOpacity);
@@ -463,6 +463,9 @@ namespace ui {
     }
     if (props.colorSwatchPreviews.has_value()) {
       control->setColorSwatchPreviews(std::move(*props.colorSwatchPreviews));
+    }
+    if (props.notifyOnReselect.has_value()) {
+      control->setNotifyOnReselect(*props.notifyOnReselect);
     }
     if (props.enabled.has_value()) {
       control->setEnabled(*props.enabled);
@@ -759,9 +762,7 @@ namespace ui {
       control->setScale(*props.scale);
     }
     if (props.checkedFill.has_value() || props.checkedBorder.has_value() || props.checkedGlyph.has_value()) {
-      control->setCheckedColors(
-          std::move(props.checkedFill), std::move(props.checkedBorder), std::move(props.checkedGlyph)
-      );
+      control->setCheckedColors(props.checkedFill, props.checkedBorder, props.checkedGlyph);
     }
     if (props.onChange) {
       control->setOnChange(std::move(props.onChange));

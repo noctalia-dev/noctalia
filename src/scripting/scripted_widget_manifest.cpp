@@ -27,7 +27,7 @@ namespace scripting {
     }
 
     struct CacheEntry {
-      std::filesystem::file_time_type mtime{};
+      std::filesystem::file_time_type mtime;
       std::uintmax_t size = 0;
       std::optional<ScriptWidgetManifest> manifest;
     };

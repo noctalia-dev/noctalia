@@ -15,6 +15,7 @@
 
 class ConfigService;
 class HttpClient;
+class NotificationManager;
 
 // Background service that syncs configured online calendars (CalDAV directly, Google via the
 // api.noctalia.dev OAuth broker) and exposes a merged, read-only event snapshot. Modeled on
@@ -25,7 +26,7 @@ public:
   using ChangeCallback = std::function<void()>;
   enum class ConnectState : std::uint8_t { Idle, Pending, Success, Failed };
 
-  CalendarService(ConfigService& configService, HttpClient& httpClient);
+  CalendarService(ConfigService& configService, HttpClient& httpClient, NotificationManager* notifications = nullptr);
 
   void initialize();
   void addChangeCallback(ChangeCallback callback);
@@ -38,7 +39,7 @@ public:
   [[nodiscard]] const CalendarSnapshot& snapshot() const noexcept { return m_snapshot; }
 
   // Start the Google OAuth Connect flow for a configured google account (opens a browser).
-  void connectGoogleAccount(const std::string& accountId);
+  void connectGoogleAccount(const std::string& accountId, const std::string& activationToken = {});
   [[nodiscard]] ConnectState connectState() const noexcept { return m_connect.state; }
   [[nodiscard]] const std::string& connectingAccountId() const noexcept { return m_connect.accountId; }
 
@@ -64,6 +65,7 @@ private:
   void refreshGoogleToken(const std::string& accountId, std::function<void(bool ok, std::string accessToken)> cb);
   void googleFetchWithToken(const std::string& accountId, const std::string& accessToken, bool allowRefreshRetry);
   void pollConnect();
+  void notifyGoogleConnectFailure(const std::string& body) const;
 
   // Credential helpers (state.toml, owner "calendar_credentials").
   [[nodiscard]] std::string credential(const std::string& accountId, const char* field) const;
@@ -76,6 +78,7 @@ private:
 
   ConfigService& m_configService;
   HttpClient& m_httpClient;
+  NotificationManager* m_notifications = nullptr;
   CalendarConfig m_activeConfig;
   std::vector<ChangeCallback> m_callbacks;
 

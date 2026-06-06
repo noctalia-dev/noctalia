@@ -225,12 +225,12 @@ namespace noctalia::theme {
           continue;
 
         const std::string mode = stringField(item, "mode");
-        if (mode.empty()) {
-          kLog.warn("community template '{}' file '{}' is missing mode metadata", templateId, file.name);
-        } else if (auto parsed = parseFileMode(mode)) {
-          file.mode = *parsed;
-        } else {
-          kLog.warn("community template '{}' file '{}' has invalid mode metadata '{}'", templateId, file.name, mode);
+        if (!mode.empty()) {
+          if (auto parsed = parseFileMode(mode)) {
+            file.mode = *parsed;
+          } else {
+            kLog.warn("community template '{}' file '{}' has invalid mode metadata '{}'", templateId, file.name, mode);
+          }
         }
         out.push_back(std::move(file));
       }

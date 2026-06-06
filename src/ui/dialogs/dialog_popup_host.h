@@ -192,6 +192,13 @@ protected:
   bool m_closeRequestedDuringOpen = false;
 
 private:
+  // Tear down any popup parented to this one (e.g. a glyph/color/file picker
+  // opened from inside this popup) before this surface is destroyed. xdg-shell
+  // requires popups be destroyed topmost-first. Resolved via the active-host
+  // registry because the child may be an app-owned singleton this popup has no
+  // direct handle to.
+  void closeChildPopups();
+
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void buildScene(std::uint32_t width, std::uint32_t height);
   void layoutScene(float width, float height);

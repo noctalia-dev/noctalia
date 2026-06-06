@@ -72,7 +72,7 @@ namespace {
     std::uint64_t ddcWriteEpoch = 0;
     int failureCount = 0;
     bool quarantined = false;
-    std::chrono::steady_clock::time_point cooldownUntil{};
+    std::chrono::steady_clock::time_point cooldownUntil;
   };
 
   struct DdcCandidate {
@@ -118,9 +118,9 @@ namespace {
     std::vector<DdcCandidate> candidates;
   };
 
-  static const sdbus::ServiceName kLogindBusName{"org.freedesktop.login1"};
-  static constexpr auto kLogindManagerInterface = "org.freedesktop.login1.Manager";
-  static constexpr auto kLogindSessionInterface = "org.freedesktop.login1.Session";
+  const sdbus::ServiceName kLogindBusName{"org.freedesktop.login1"};
+  constexpr auto kLogindManagerInterface = "org.freedesktop.login1.Manager";
+  constexpr auto kLogindSessionInterface = "org.freedesktop.login1.Session";
 
   std::string joinBrightnessDisplayIds(const BrightnessService& service) {
     std::string out;

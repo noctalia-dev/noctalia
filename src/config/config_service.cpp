@@ -999,6 +999,7 @@ void ConfigService::loadAll() {
 
   decltype(m_configFileBarNames) configFileBarNames;
   decltype(m_configFileMonitorOverrideNames) configFileMonitorOverrideNames;
+  decltype(m_configFileCalendarAccountNames) configFileCalendarAccountNames;
   if (auto* barTblMap = merged["bar"].as_table()) {
     for (const auto& [barName, barNode] : *barTblMap) {
       auto* barTbl = barNode.as_table();
@@ -1023,6 +1024,15 @@ void ConfigService::loadAll() {
       }
     }
   }
+  if (auto* calendarTbl = merged["calendar"].as_table()) {
+    if (auto* accountTblMap = (*calendarTbl)["account"].as_table()) {
+      for (const auto& [accountName, accountNode] : *accountTblMap) {
+        if (accountNode.as_table() != nullptr) {
+          configFileCalendarAccountNames.insert(std::string(accountName.str()));
+        }
+      }
+    }
+  }
 
   // Apply the app-writable overrides overlay last — sidecar wins.
   deepMerge(merged, m_overridesTable);
@@ -1033,6 +1043,7 @@ void ConfigService::loadAll() {
     m_config = makeDefaultConfig();
     m_configFileBarNames.clear();
     m_configFileMonitorOverrideNames.clear();
+    m_configFileCalendarAccountNames.clear();
     m_defaultWallpaperPath.clear();
     m_lastWallpaperPath.clear();
     m_monitorWallpaperPaths.clear();
@@ -1053,12 +1064,14 @@ void ConfigService::loadAll() {
     m_config = std::move(nextConfig);
     m_configFileBarNames = std::move(configFileBarNames);
     m_configFileMonitorOverrideNames = std::move(configFileMonitorOverrideNames);
+    m_configFileCalendarAccountNames = std::move(configFileCalendarAccountNames);
     extractWallpaperFromTable(merged);
   } else if (m_config.bars.empty()) {
     m_lastChange = ConfigChangeSet{};
     m_config = makeDefaultConfig();
     m_configFileBarNames.clear();
     m_configFileMonitorOverrideNames.clear();
+    m_configFileCalendarAccountNames.clear();
     m_defaultWallpaperPath.clear();
     m_lastWallpaperPath.clear();
     m_monitorWallpaperPaths.clear();

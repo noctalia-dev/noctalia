@@ -13,6 +13,7 @@ for config_file in "${config_files[@]}"; do
     elif grep -qE '^theme\s*=' "$config_file"; then
         sed -i -E 's/^theme\s*=.*/theme = noctalia/' "$config_file"
     else
+        [ -s "$config_file" ] && [ -n "$(tail -c1 "$config_file")" ] && echo >>"$config_file"
         echo "theme = noctalia" >>"$config_file"
     fi
 done

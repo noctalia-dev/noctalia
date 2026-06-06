@@ -868,6 +868,14 @@ namespace settings {
         }
         return false;
       };
+      for (const auto& condition : spec.visibleWhen->all) {
+        if (!matches(condition.key, condition.values)) {
+          return false;
+        }
+      }
+      if (spec.visibleWhen->any.empty()) {
+        return true;
+      }
       for (const auto& condition : spec.visibleWhen->any) {
         if (matches(condition.key, condition.values)) {
           return true;
@@ -1409,7 +1417,7 @@ namespace settings {
             FileDialogOptions options;
             options.mode = FileDialogMode::Open;
             options.defaultViewMode = FileDialogViewMode::Grid;
-            options.title = i18n::tr("settings.widgets.settings.custom_image.dialog-title");
+            options.title = i18n::tr("settings.widgets.settings.custom-image.dialog-title");
             options.extensions = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".bmp", ".gif"};
             ctx.makeRow(
                 *panel, entry,
@@ -1496,7 +1504,7 @@ namespace settings {
               defaultString != nullptr) {
             selectSetting.clearOnEmpty = defaultString->empty();
           }
-          ctx.makeRow(*panel, entry, ctx.makeSelect(std::move(selectSetting), path));
+          ctx.makeRow(*panel, entry, ctx.makeSelect(selectSetting, path));
           break;
         }
         case WidgetControlKind::ColorSpec: {
@@ -1504,7 +1512,7 @@ namespace settings {
           pickerSetting.selectedValue = settingValueAsString(value);
           pickerSetting.allowNone = spec.advanced;
           pickerSetting.allowCustomColor = spec.allowCustomColor;
-          ctx.makeRow(*panel, entry, ctx.makeColorSpecPicker(std::move(pickerSetting), path));
+          ctx.makeRow(*panel, entry, ctx.makeColorSpecPicker(pickerSetting, path));
           break;
         }
         case WidgetControlKind::KeyValueMap: {
@@ -1888,7 +1896,7 @@ namespace settings {
             valueInputPtr->setValue(formatSliderValue(next, integerValue));
           },
       });
-      slider->setOnDragEnd([sliderPtr, onCommit]() { onCommit(static_cast<double>(sliderPtr->value())); });
+      slider->setOnDragEnd([sliderPtr, onCommit]() { onCommit(sliderPtr->value()); });
 
       const auto commitInputText = [sliderPtr, valueInputPtr, minV, maxV, integerValue,
                                     onCommit](const std::string& text) {
@@ -1900,7 +1908,7 @@ namespace settings {
         valueInputPtr->setInvalid(false);
         sliderPtr->setValue(*parsed);
         valueInputPtr->setValue(formatSliderValue(sliderPtr->value(), integerValue));
-        onCommit(static_cast<double>(sliderPtr->value()));
+        onCommit(sliderPtr->value());
       };
       valueInput->setOnChange([valueInputPtr](const std::string& /*text*/) { valueInputPtr->setInvalid(false); });
       valueInput->setOnSubmit([commitInputText](const std::string& text) { commitInputText(text); });

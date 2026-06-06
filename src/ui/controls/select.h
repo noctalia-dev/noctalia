@@ -39,6 +39,7 @@ public:
   void setGlyphSize(float size);
   void setOptionIndicators(std::vector<ColorSpec> colors);
   void setColorSwatchPreviews(std::vector<ColorSwatchPreview> previews);
+  void setNotifyOnReselect(bool enabled);
   void setOnSelectionChanged(std::function<void(std::size_t, std::string_view)> callback);
 
   [[nodiscard]] std::size_t selectedIndex() const noexcept { return m_selectedIndex; }
@@ -82,6 +83,7 @@ private:
   float m_glyphSize = 14.0f;
   std::vector<ColorSpec> m_indicatorColors;
   std::vector<ColorSwatchPreview> m_optionSwatchPreviews;
+  bool m_notifyOnReselect = false;
   Signal<>::ScopedConnection m_paletteConn;
 
   std::function<void(std::size_t, std::string_view)> m_onSelectionChanged;

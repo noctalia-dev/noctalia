@@ -16,17 +16,17 @@
 
 namespace {
 
-  static const sdbus::ServiceName kWatcherBusName{"org.kde.StatusNotifierWatcher"};
-  static const sdbus::ObjectPath kWatcherObjectPath{"/StatusNotifierWatcher"};
-  static constexpr auto kWatcherInterface = "org.kde.StatusNotifierWatcher";
+  const sdbus::ServiceName kWatcherBusName{"org.kde.StatusNotifierWatcher"};
+  const sdbus::ObjectPath kWatcherObjectPath{"/StatusNotifierWatcher"};
+  constexpr auto kWatcherInterface = "org.kde.StatusNotifierWatcher";
 
-  static const sdbus::ServiceName kDbusName{"org.freedesktop.DBus"};
-  static const sdbus::ObjectPath kDbusPath{"/org/freedesktop/DBus"};
-  static constexpr auto kDbusInterface = "org.freedesktop.DBus";
-  static constexpr auto kItemInterface = "org.kde.StatusNotifierItem";
-  static constexpr auto kMenuInterface = "com.canonical.dbusmenu";
-  static constexpr auto kDefaultItemPath = "/StatusNotifierItem";
-  static constexpr auto kAyatanaItemPath = "/org/ayatana/NotificationItem";
+  const sdbus::ServiceName kDbusName{"org.freedesktop.DBus"};
+  const sdbus::ObjectPath kDbusPath{"/org/freedesktop/DBus"};
+  constexpr auto kDbusInterface = "org.freedesktop.DBus";
+  constexpr auto kItemInterface = "org.kde.StatusNotifierItem";
+  constexpr auto kMenuInterface = "com.canonical.dbusmenu";
+  constexpr auto kDefaultItemPath = "/StatusNotifierItem";
+  constexpr auto kAyatanaItemPath = "/org/ayatana/NotificationItem";
   constexpr auto kItemPropertyTimeout = std::chrono::milliseconds(200);
 
   bool isStatusNotifierItemBusName(std::string_view value) {

@@ -184,7 +184,7 @@ namespace {
   }
 
   struct ProcessCommandLineCache {
-    std::chrono::steady_clock::time_point capturedAt{};
+    std::chrono::steady_clock::time_point capturedAt;
     std::vector<std::string> commandLines;
   };
 
@@ -912,7 +912,7 @@ namespace process {
       return;
     }
     if (systemdAvailable()) {
-      (void)startSystemdService(args, activationToken, workingDir, appName);
+      startSystemdService(args, activationToken, workingDir, appName);
       return;
     }
 #endif

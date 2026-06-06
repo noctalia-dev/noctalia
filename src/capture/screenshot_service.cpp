@@ -909,7 +909,7 @@ void ScreenshotService::deliverFrozenGlobalRegion(LogicalRect globalRegion, cons
 
   const std::optional<std::filesystem::path> destPath =
       options.saveToFile ? std::optional(makeScreenshotPath(options, "region")) : std::nullopt;
-  deliverCaptureResult(std::move(*composed), options, std::move(destPath));
+  deliverCaptureResult(std::move(*composed), options, destPath);
 }
 
 void ScreenshotService::captureGlobalRegion(LogicalRect globalRegion, const OutputOptions& options) {
@@ -1068,7 +1068,7 @@ void ScreenshotService::deliverFrozenRegion(LogicalRect region, wl_output* outpu
 
   const std::optional<std::filesystem::path> destPath =
       options.saveToFile ? std::optional(makeScreenshotPath(options, "region")) : std::nullopt;
-  deliverCaptureResult(std::move(*cropped), options, std::move(destPath));
+  deliverCaptureResult(std::move(*cropped), options, destPath);
 }
 
 void ScreenshotService::completeFullscreenSelection(wl_output* output, const OutputOptions& options) {
@@ -1122,7 +1122,7 @@ void ScreenshotService::captureOutput(
       pending.output, pending.region, false,
       [this, options = pending.outputOptions, destPath = pending.destPath,
        output = pending.output](std::optional<ScreencopyImage> image, const std::string& error) {
-        onCaptureComplete(std::move(image), error, std::move(options), std::move(destPath), output);
+        onCaptureComplete(std::move(image), error, options, destPath, output);
       }
   );
 }
@@ -1141,7 +1141,7 @@ void ScreenshotService::startNextQueuedCapture() {
         pending.output, pending.region, false,
         [this, options = pending.outputOptions, destPath = pending.destPath,
          output = pending.output](std::optional<ScreencopyImage> image, const std::string& error) {
-          onCaptureComplete(std::move(image), error, std::move(options), std::move(destPath), output);
+          onCaptureComplete(std::move(image), error, options, destPath, output);
         }
     );
   });

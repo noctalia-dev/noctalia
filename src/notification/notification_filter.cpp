@@ -21,7 +21,7 @@ std::vector<std::string> normalizeNotificationBlacklist(std::vector<std::string>
       continue;
     }
     if (seen.insert(token).second) {
-      normalized.push_back(std::move(token));
+      normalized.push_back(token);
     }
   }
 

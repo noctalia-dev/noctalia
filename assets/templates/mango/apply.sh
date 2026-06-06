@@ -3,7 +3,14 @@ set -euo pipefail
 
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}"
 config_file="$config_dir/mango/config.conf"
-include_line="source=$config_dir/mango/noctalia.conf"
+
+# mango expands ~ in source paths; keep it tilde'd so the path stays portable.
+if [[ "$config_dir" == "$HOME"/* ]]; then
+    include_dir="~/${config_dir#"$HOME"/}"
+else
+    include_dir="$config_dir"
+fi
+include_line="source=$include_dir/mango/noctalia.conf"
 
 mkdir -p "$(dirname "$config_file")"
 

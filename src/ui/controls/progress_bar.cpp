@@ -12,8 +12,15 @@ ProgressBar::ProgressBar() {
   auto track = std::make_unique<RectNode>();
   m_track = static_cast<RectNode*>(addChild(std::move(track)));
 
+  // The fill is a full-size copy of the track revealed through a clip node, so
+  // its rounded (closed) end always matches the track exactly instead of
+  // squaring off at small progress values.
+  auto fillClip = std::make_unique<Node>();
+  fillClip->setClipChildren(true);
+  m_fillClip = addChild(std::move(fillClip));
+
   auto fill = std::make_unique<RectNode>();
-  m_fill = static_cast<RectNode*>(addChild(std::move(fill)));
+  m_fill = static_cast<RectNode*>(m_fillClip->addChild(std::move(fill)));
 
   setTrack(colorSpecFromRole(ColorRole::SurfaceVariant));
   setFill(colorSpecFromRole(ColorRole::Primary));
@@ -89,17 +96,36 @@ void ProgressBar::applyPalette() {
 }
 
 void ProgressBar::updateGeometry() {
-  m_track->setFrameSize(width(), height());
-  if (m_orientation == ProgressBarOrientation::Vertical) {
-    const float fillH = height() * m_progress;
-    m_fill->setPosition(0.0f, height() - fillH);
-    m_fill->setFrameSize(width(), fillH);
-  } else if (m_orientation == ProgressBarOrientation::HorizontalCentered) {
-    const float fillW = width() * m_progress;
-    m_fill->setPosition((width() - fillW) * 0.5f, 0.0f);
-    m_fill->setFrameSize(fillW, height());
-  } else {
-    m_fill->setPosition(0.0f, 0.0f);
-    m_fill->setFrameSize(width() * m_progress, height());
+  const float w = width();
+  const float h = height();
+  m_track->setFrameSize(w, h);
+
+  if (m_orientation == ProgressBarOrientation::HorizontalCentered) {
+    // Both ends are leading edges, so keep the fill's own rounded shape (a
+    // shrinking pill) rather than clipping it to flat slice edges.
+    const float fillW = w * m_progress;
+    m_fillClip->setPosition(0.0f, 0.0f);
+    m_fillClip->setFrameSize(w, h);
+    m_fill->setFrameSize(fillW, h);
+    m_fill->setPosition((w - fillW) * 0.5f, 0.0f);
+    return;
   }
+
+  // Anchored fill: reveal a full-size copy of the track through the clip so the
+  // rounded closed end always matches the track instead of squaring off.
+  m_fill->setFrameSize(w, h);
+  float clipX = 0.0f;
+  float clipY = 0.0f;
+  float clipW = w;
+  float clipH = h;
+  if (m_orientation == ProgressBarOrientation::Vertical) {
+    clipH = h * m_progress;
+    clipY = h - clipH;
+  } else {
+    clipW = w * m_progress;
+  }
+
+  m_fillClip->setPosition(clipX, clipY);
+  m_fillClip->setFrameSize(clipW, clipH);
+  m_fill->setPosition(-clipX, -clipY);
 }

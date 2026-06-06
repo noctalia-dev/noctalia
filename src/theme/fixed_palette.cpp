@@ -39,9 +39,7 @@ namespace noctalia::theme {
       dst[std::string(key)] = colorToArgb(color);
     }
 
-    bool hasToken(const TokenMap& tokens, std::string_view key) {
-      return tokens.find(std::string(key)) != tokens.end();
-    }
+    bool hasToken(const TokenMap& tokens, std::string_view key) { return tokens.contains(std::string(key)); }
 
     std::uint32_t tokenOr(const TokenMap& tokens, std::string_view key, std::uint32_t fallback) {
       auto it = tokens.find(std::string(key));

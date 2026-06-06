@@ -212,8 +212,8 @@ std::unique_ptr<Flex> WeatherTab::create() {
     detailsCard->addChild(std::move(row));
   };
 
-  addDetailRow("temperature-sun", i18n::tr("control-center.weather.details.tempMax"), m_tempMaxLabel);
-  addDetailRow("temperature", i18n::tr("control-center.weather.details.tempMin"), m_tempMinLabel);
+  addDetailRow("temperature-sun", i18n::tr("control-center.weather.details.temp-max"), m_tempMaxLabel);
+  addDetailRow("temperature", i18n::tr("control-center.weather.details.temp-min"), m_tempMinLabel);
   addDetailRow("wind", i18n::tr("control-center.weather.details.wind"), m_windLabel);
   addDetailRow("weather-sunrise", i18n::tr("control-center.weather.details.sunrise"), m_sunriseLabel);
   addDetailRow("weather-sunset", i18n::tr("control-center.weather.details.sunset"), m_sunsetLabel);

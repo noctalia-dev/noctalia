@@ -35,7 +35,7 @@ namespace {
 } // namespace
 
 DesktopWeatherWidget::DesktopWeatherWidget(const WeatherService* weather, ColorSpec color, bool shadow)
-    : m_weather(weather), m_color(std::move(color)), m_shadow(shadow) {}
+    : m_weather(weather), m_color(color), m_shadow(shadow) {}
 
 void DesktopWeatherWidget::create() {
   auto rootNode = std::make_unique<Node>();

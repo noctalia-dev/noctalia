@@ -58,7 +58,7 @@ namespace {
     return fallback;
   }
 
-  static std::string settingValueAsString(
+  std::string settingValueAsString(
       const Settings& s, const std::string& key, const std::vector<settings::WidgetSettingSpec>& allSpecs
   ) {
     const auto it = s.find(key);
@@ -84,7 +84,7 @@ namespace {
     return {};
   }
 
-  static bool isSpecVisible(
+  bool isSpecVisible(
       const settings::WidgetSettingSpec& spec, const Settings& s,
       const std::vector<settings::WidgetSettingSpec>& allSpecs
   ) {
@@ -171,7 +171,7 @@ namespace {
   ) {
     settings::ColorSpecSelectOptions options{
         .roles = {},
-        .selectedValue = getStr(s, key, std::move(fallbackValue)),
+        .selectedValue = getStr(s, key, fallbackValue),
         .allowNone = false,
         .allowCustomColor = true,
         .noneLabel = {},

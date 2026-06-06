@@ -51,6 +51,19 @@ format:
     find src \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format -i
     find src \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 grep -ZlP '\s+$' | xargs -0 -r sed -i 's/[[:space:]]*$//'
 
+_clang_tidy m=mode *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src_root="$(realpath src)"
+    run-clang-tidy -quiet -p build-{{m}} -j "$(nproc)" -header-filter="^${src_root}/.*" {{args}} "^${src_root}/.*"
+
+lint m=mode: (configure m)
+    just _clang_tidy {{m}}
+
+fix m=mode: (configure m)
+    just _clang_tidy {{m}} -fix
+    just format
+
 clean m=mode:
     #!/usr/bin/env bash
     set -euo pipefail

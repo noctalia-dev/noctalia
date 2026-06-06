@@ -17,6 +17,14 @@ conf_config_file="$config_dir/hyprland.conf"
 lua_output_file="$config_dir/noctalia.lua"
 conf_output_file="$config_dir/noctalia.conf"
 
+# hyprland expands ~ in source paths; tilde the include for portability while
+# the rendered file is still written to the real conf_output_file path.
+if [[ "$config_dir" == "$HOME"/* ]]; then
+  conf_source_path="~/${config_dir#"$HOME"/}/noctalia.conf"
+else
+  conf_source_path="$conf_output_file"
+fi
+
 detect_mode() {
   # Prefer probing the runner compositor when available
   if command -v hyprctl >/dev/null 2>&1 &&
@@ -53,7 +61,7 @@ require("noctalia")'
 
 apply_conf() {
   local include_line="# For Noctalia Color templates
-source = $conf_output_file"
+source = $conf_source_path"
 
   mkdir -p "$config_dir"
 

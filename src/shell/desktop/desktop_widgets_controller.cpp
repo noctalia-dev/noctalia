@@ -41,7 +41,7 @@ namespace {
     if (widget.type == "sticker") {
       const auto opacityIt = widget.settings.find("opacity");
       if (opacityIt == widget.settings.end()) {
-        widget.settings.insert_or_assign("opacity", static_cast<double>(1.0));
+        widget.settings.insert_or_assign("opacity", 1.0);
         return;
       }
       if (const auto* doubleValue = std::get_if<double>(&opacityIt->second)) {
@@ -53,7 +53,7 @@ namespace {
         widget.settings.insert_or_assign("opacity", clamped);
         return;
       }
-      widget.settings.insert_or_assign("opacity", static_cast<double>(1.0));
+      widget.settings.insert_or_assign("opacity", 1.0);
       return;
     }
 

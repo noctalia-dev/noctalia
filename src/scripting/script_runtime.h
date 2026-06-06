@@ -57,7 +57,7 @@ namespace scripting {
   class SharedScriptRuntimeRegistry {
   public:
     static SharedScriptRuntimeAcquireResult acquire(
-        const std::string& key, ScriptWidgetSettings settings, ScriptApiContext& api,
+        std::string_view baseKey, std::string_view scriptPath, ScriptWidgetSettings settings, ScriptApiContext& api,
         ClipboardService* clipboard = nullptr
     );
   };

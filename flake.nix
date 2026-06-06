@@ -8,7 +8,7 @@
   outputs =
     { self, nixpkgs }:
     let
-      inherit (nixpkgs) lib;
+      inherit (nixpkgs.lib) genAttrs getExe;
 
       systems = [
         "x86_64-linux"
@@ -17,34 +17,23 @@
 
       forEachSystem =
         perSystem:
-        lib.genAttrs systems (
+        genAttrs systems (
           system:
           let
             pkgs = nixpkgs.legacyPackages.${system};
           in
           perSystem { inherit pkgs system; }
         );
-
-      mkDate =
-        longDate:
-        nixpkgs.lib.concatStringsSep "-" [
-          (builtins.substring 0 4 longDate)
-          (builtins.substring 4 2 longDate)
-          (builtins.substring 6 2 longDate)
-        ];
-
-      shortRev = self.shortRev or "dirty";
-      version = mkDate (self.lastModifiedDate or "19700101") + "_" + shortRev;
     in
     {
       overlays.default = final: prev: {
-        noctalia = final.callPackage ./nix/package.nix { inherit version shortRev; };
+        noctalia = final.callPackage ./nix/package.nix { };
       };
 
       packages = forEachSystem (
         { pkgs, ... }:
         {
-          default = pkgs.callPackage ./nix/package.nix { inherit version shortRev; };
+          default = pkgs.callPackage ./nix/package.nix { };
         }
       );
 
@@ -62,7 +51,7 @@
         {
           default = {
             type = "app";
-            program = lib.getExe self.packages.${system}.default;
+            program = getExe self.packages.${system}.default;
           };
         }
       );
@@ -72,7 +61,6 @@
         {
           imports = [ ./nix/home-module.nix ];
           programs.noctalia.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.default;
-          _class = "homeManager";
         };
 
       hjemModules.default =
@@ -80,7 +68,6 @@
         {
           imports = [ ./nix/hjem-module.nix ];
           programs.noctalia.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.default;
-          _class = "hjem";
         };
     };
 }

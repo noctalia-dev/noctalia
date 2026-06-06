@@ -1,0 +1,10 @@
+Checks: >-
+  -clang-diagnostic-*,
+  performance-move-const-arg,
+  readability-container-contains,
+  readability-container-data-pointer,
+  readability-container-size-empty,
+  readability-redundant-casting,
+  readability-redundant-member-init,
+  readability-static-definition-in-anonymous-namespace,
+  readability-use-std-min-max,

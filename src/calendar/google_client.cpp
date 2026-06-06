@@ -13,7 +13,7 @@
 namespace calendar {
 
   namespace {
-    constexpr Logger kLog("calendar.google");
+    constexpr Logger kLog("calendar-google");
 
     int toInt(std::string_view text) {
       int value = 0;

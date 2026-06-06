@@ -76,7 +76,7 @@ KeybindRecorder::KeybindRecorder() {
 KeybindRecorder::~KeybindRecorder() = default;
 
 void KeybindRecorder::setChord(std::optional<KeyChord> chord) {
-  m_chord = std::move(chord);
+  m_chord = chord;
   refreshLabel();
 }
 

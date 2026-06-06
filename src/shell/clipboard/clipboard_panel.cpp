@@ -130,15 +130,14 @@ namespace {
   }
 
   std::unique_ptr<Button> makeCompactIconButton(
-      Button** out, std::string glyph, ButtonVariant variant, float scale, float surfaceOpacity,
-      std::function<void()> onClick, bool visible = true, bool participatesInLayout = true
+      Button** out, std::string glyph, ButtonVariant variant, float scale, std::function<void()> onClick,
+      bool visible = true, bool participatesInLayout = true
   ) {
     return ui::button({
         .out = out,
         .glyph = std::move(glyph),
         .glyphSize = Style::fontSizeBody * scale,
         .variant = variant,
-        .surfaceOpacity = surfaceOpacity,
         .minWidth = Style::controlHeightSm * scale,
         .minHeight = Style::controlHeightSm * scale,
         .padding = Style::spaceXs * scale,
@@ -557,10 +556,9 @@ void ClipboardPanel::create() {
           .color = colorSpecFromRole(ColorRole::Primary),
           .fontWeight = FontWeight::Bold,
       }),
-      makeCompactIconButton(
-          &m_clearHistoryButton, "trash", ButtonVariant::Destructive, scale, panelCardOpacity(),
-          [this]() { requestClearUnpinnedHistory(); }
-      )
+      makeCompactIconButton(&m_clearHistoryButton, "trash", ButtonVariant::Destructive, scale, [this]() {
+        requestClearUnpinnedHistory();
+      })
   );
   sidebar->addChild(std::move(sidebarHeader));
 
@@ -666,21 +664,16 @@ void ClipboardPanel::create() {
 
   auto previewActions = ui::row(
       {.align = FlexAlign::Center, .gap = Style::spaceSm * scale},
+      makeCompactIconButton(&m_copyButton, "copy", ButtonVariant::Default, scale, [this]() { activateSelected(); }),
       makeCompactIconButton(
-          &m_copyButton, "copy", ButtonVariant::Default, scale, panelCardOpacity(), [this]() { activateSelected(); }
+          &m_imageActionButton, "photo-edit", ButtonVariant::Default, scale, [this]() { runImageAction(); }, false,
+          false
       ),
+      makeCompactIconButton(&m_pinButton, "pin", ButtonVariant::Default, scale, [this]() { togglePinSelected(); }),
       makeCompactIconButton(
-          &m_imageActionButton, "photo-edit", ButtonVariant::Default, scale, panelCardOpacity(),
-          [this]() { runImageAction(); }, false, false
+          &m_deleteEntryButton, "trash", ButtonVariant::Destructive, scale, [this]() { requestDeleteSelectedEntry(); }
       ),
-      makeCompactIconButton(
-          &m_pinButton, "pin", ButtonVariant::Default, scale, panelCardOpacity(), [this]() { togglePinSelected(); }
-      ),
-      makeCompactIconButton(
-          &m_deleteEntryButton, "trash", ButtonVariant::Destructive, scale, panelCardOpacity(),
-          [this]() { requestDeleteSelectedEntry(); }
-      ),
-      makeCompactIconButton(&m_closeButton, "close", ButtonVariant::Default, scale, panelCardOpacity(), []() {
+      makeCompactIconButton(&m_closeButton, "close", ButtonVariant::Default, scale, []() {
         PanelManager::instance().close();
       })
   );
@@ -959,12 +952,6 @@ InputArea* ClipboardPanel::initialFocusArea() const {
 }
 
 void ClipboardPanel::onPanelCardOpacityChanged(float opacity) {
-  for (Button* btn :
-       {m_closeButton, m_copyButton, m_imageActionButton, m_pinButton, m_deleteEntryButton, m_clearHistoryButton}) {
-    if (btn != nullptr) {
-      btn->setSurfaceOpacity(opacity);
-    }
-  }
   if (m_previewScrollView != nullptr) {
     m_previewScrollView->setCardStyle(contentScale(), opacity, panelBordersEnabled());
   }

@@ -236,8 +236,9 @@ void ScriptedWidget::create() {
 
   bool createdRuntime = true;
   if (m_sharedScope) {
-    auto acquired =
-        scripting::SharedScriptRuntimeRegistry::acquire(m_widgetConfigName, m_settings, m_scriptApi, m_clipboard);
+    auto acquired = scripting::SharedScriptRuntimeRegistry::acquire(
+        m_widgetConfigName, m_resolvedPath.string(), m_settings, m_scriptApi, m_clipboard
+    );
     m_runtime = std::move(acquired.runtime);
     createdRuntime = acquired.created;
   } else {

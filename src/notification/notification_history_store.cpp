@@ -551,7 +551,7 @@ namespace {
       if (!legacyPerId && !contentAddressed) {
         continue;
       }
-      if (keepFiles.find(name) == keepFiles.end()) {
+      if (!keepFiles.contains(name)) {
         std::filesystem::remove(ent.path(), ec);
       }
     }

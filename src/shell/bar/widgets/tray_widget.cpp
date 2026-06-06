@@ -103,6 +103,36 @@ namespace {
     const std::uint8_t gg = toByte(symbolicColor.g);
     const std::uint8_t bb = toByte(symbolicColor.b);
 
+    // Symbolic assets come in two broad forms:
+    // 1) Proper alpha-mask icons (transparent background), where source alpha
+    //    already defines the shape and luminance should be ignored.
+    // 2) Opaque monochrome bitmaps/SVG rasterizations, where luminance polarity
+    //    (light-on-dark vs dark-on-light) must be converted into alpha.
+    std::size_t transparentPixels = 0;
+    float lumSum = 0.0f;
+    float alphaWeight = 0.0f;
+    const std::size_t pixelCount = loaded->rgba.size() / 4U;
+    for (std::size_t i = 0; i + 3 < loaded->rgba.size(); i += 4) {
+      const std::uint8_t a = loaded->rgba[i + 3];
+      if (a <= 8) {
+        ++transparentPixels;
+        continue;
+      }
+      const float lum = (static_cast<float>(loaded->rgba[i]) * 0.299f
+                         + static_cast<float>(loaded->rgba[i + 1]) * 0.587f
+                         + static_cast<float>(loaded->rgba[i + 2]) * 0.114f)
+          / 255.0f;
+      const float w = static_cast<float>(a) / 255.0f;
+      lumSum += lum * w;
+      alphaWeight += w;
+    }
+
+    const float transparentRatio =
+        pixelCount == 0 ? 0.0f : static_cast<float>(transparentPixels) / static_cast<float>(pixelCount);
+    const bool useSourceAlphaMask = transparentRatio > 0.10f;
+    const float avgLum = alphaWeight > 0.0f ? lumSum / alphaWeight : 0.0f;
+    const bool invertLumaMask = avgLum > 0.5f;
+
     for (std::size_t i = 0; i + 3 < loaded->rgba.size(); i += 4) {
       const std::uint8_t a = loaded->rgba[i + 3];
       if (a == 0) {
@@ -110,10 +140,11 @@ namespace {
       }
       const float lum =
           (loaded->rgba[i] * 0.299f + loaded->rgba[i + 1] * 0.587f + loaded->rgba[i + 2] * 0.114f) / 255.0f;
+      const float mask = useSourceAlphaMask ? 1.0f : (invertLumaMask ? (1.0f - lum) : lum);
       loaded->rgba[i + 0] = rr;
       loaded->rgba[i + 1] = gg;
       loaded->rgba[i + 2] = bb;
-      loaded->rgba[i + 3] = static_cast<std::uint8_t>(std::lround(a * lum));
+      loaded->rgba[i + 3] = static_cast<std::uint8_t>(std::lround(a * std::clamp(mask, 0.0f, 1.0f)));
     }
 
     return loaded;

@@ -24,10 +24,8 @@ namespace noctalia::theme {
 
     int roundClamp255(double v) {
       long r = std::lround(v * 255.0);
-      if (r < 0)
-        r = 0;
-      if (r > 255)
-        r = 255;
+      r = std::max<long>(r, 0);
+      r = std::min<long>(r, 255);
       return static_cast<int>(r);
     }
 

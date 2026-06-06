@@ -69,9 +69,9 @@ void Checkbox::setScale(float scale) {
 void Checkbox::setCheckedColors(
     std::optional<ColorSpec> fill, std::optional<ColorSpec> border, std::optional<ColorSpec> glyph
 ) {
-  m_checkedFill = std::move(fill);
-  m_checkedBorder = std::move(border);
-  m_checkedGlyph = std::move(glyph);
+  m_checkedFill = fill;
+  m_checkedBorder = border;
+  m_checkedGlyph = glyph;
   applyState();
 }
 

@@ -421,7 +421,6 @@ void WallpaperPanel::create() {
               .out = &m_closeButton,
               .glyph = "close",
               .glyphSize = Style::fontSizeBody * scale,
-              .surfaceOpacity = panelCardOpacity(),
               .minWidth = Style::controlHeightSm * scale,
               .minHeight = Style::controlHeightSm * scale,
               .padding = Style::spaceXs * scale,
@@ -479,7 +478,6 @@ void WallpaperPanel::create() {
           .glyph = "arrow-big-up",
           .glyphSize = Style::fontSizeBody * scale,
           .variant = ButtonVariant::Secondary,
-          .surfaceOpacity = panelCardOpacity(),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -546,7 +544,6 @@ void WallpaperPanel::create() {
           .glyph = "color-picker",
           .glyphSize = Style::fontSizeBody * scale,
           .variant = ButtonVariant::Default,
-          .surfaceOpacity = panelCardOpacity(),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -561,7 +558,6 @@ void WallpaperPanel::create() {
           .glyph = std::string(sortModeGlyph(m_sortMode)),
           .glyphSize = Style::fontSizeBody * scale,
           .variant = ButtonVariant::Default,
-          .surfaceOpacity = panelCardOpacity(),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -576,7 +572,6 @@ void WallpaperPanel::create() {
           .glyph = "refresh",
           .glyphSize = Style::fontSizeBody * scale,
           .variant = ButtonVariant::Default,
-          .surfaceOpacity = panelCardOpacity(),
           .minWidth = Style::controlHeightSm * scale,
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
@@ -833,11 +828,6 @@ void WallpaperPanel::doUpdate(Renderer& renderer) {
 }
 
 void WallpaperPanel::onPanelCardOpacityChanged(float opacity) {
-  for (Button* btn : {m_closeButton, m_backButton, m_colorButton, m_refreshButton}) {
-    if (btn != nullptr) {
-      btn->setSurfaceOpacity(opacity);
-    }
-  }
   if (m_filterInput != nullptr) {
     m_filterInput->setSurfaceOpacity(opacity);
   }
@@ -852,9 +842,6 @@ void WallpaperPanel::onPanelCardOpacityChanged(float opacity) {
   }
   if (m_favoritePaletteDetailSelect != nullptr) {
     m_favoritePaletteDetailSelect->setSurfaceOpacity(opacity);
-  }
-  if (m_sortButton != nullptr) {
-    m_sortButton->setSurfaceOpacity(opacity);
   }
 }
 

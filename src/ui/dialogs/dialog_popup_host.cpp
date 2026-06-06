@@ -19,6 +19,7 @@
 #include <cassert>
 #include <cmath>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -31,16 +32,41 @@ namespace {
     return config != nullptr ? config->config().shell.shadow : ShellConfig::ShadowConfig{};
   }
 
+  // Every live DialogPopupHost, used to resolve parent/child popup relationships
+  // across instances that don't own each other (e.g. the editor sheet popup and
+  // the app-global glyph/color/file pickers parented to it).
+  std::vector<DialogPopupHost*>& activeDialogHosts() {
+    static std::vector<DialogPopupHost*> hosts;
+    return hosts;
+  }
+
 } // namespace
 
-DialogPopupHost::DialogPopupHost() = default;
+DialogPopupHost::DialogPopupHost() { activeDialogHosts().push_back(this); }
 
 DialogPopupHost::~DialogPopupHost() {
+  auto& hosts = activeDialogHosts();
+  hosts.erase(std::remove(hosts.begin(), hosts.end(), this), hosts.end());
   // Subclass destructors are responsible for calling destroyPopup() before
   // their own members go away — by the time we reach this destructor the
   // subclass vtable has already been replaced and any virtual hook would
   // dispatch to the base no-op, not the subclass override.
   assert(m_surface == nullptr && "subclass must call destroyPopup() in its destructor");
+}
+
+void DialogPopupHost::closeChildPopups() {
+  wl_surface* const self = wlSurface();
+  if (self == nullptr) {
+    return;
+  }
+  // Snapshot: cancelling a child mutates the registry (and may recurse into
+  // grandchildren) while we iterate.
+  const std::vector<DialogPopupHost*> hosts = activeDialogHosts();
+  for (DialogPopupHost* host : hosts) {
+    if (host != this && host->isOpen() && host->m_parentSurface == self) {
+      host->cancel();
+    }
+  }
 }
 
 void DialogPopupHost::initializeBase(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext) {
@@ -171,6 +197,10 @@ void DialogPopupHost::destroyPopup() {
     m_closeRequestedDuringOpen = true;
     return;
   }
+  // Topmost-first teardown: any picker popup parented to this one must go before
+  // this surface is destroyed, or the compositor raises xdg_popup protocol error
+  // 2 ("destroyed while it was not the topmost popup").
+  closeChildPopups();
   m_closeRequestedDuringOpen = false;
   if (m_attachedToHost && m_popupHosts != nullptr) {
     m_popupHosts->endAttachedPopup(m_parentSurface);

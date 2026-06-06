@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <memory>
 #include <optional>
 #include <string_view>
 #include <utility>
@@ -120,13 +121,13 @@ namespace settings {
       indicators.push_back(selectedIsFixedColor ? fixedColorSpec(selectedFixedColor) : clearColorSpec());
     }
 
-    std::optional<Color> customInitialColor;
+    auto customInitialColor = std::make_shared<std::optional<Color>>();
     std::string selectedValue = options.selectedValue;
     if (selectedIsFixedColor) {
-      customInitialColor = selectedFixedColor;
+      *customInitialColor = selectedFixedColor;
       selectedValue = std::string(kCustomColorValue);
     } else if (const auto selectedRole = colorRoleFromToken(selectedValue); selectedRole.has_value()) {
-      customInitialColor = colorForRole(*selectedRole);
+      *customInitialColor = colorForRole(*selectedRole);
     }
 
     const auto selectedIndex = choiceIndex(choices, selectedValue);
@@ -143,41 +144,46 @@ namespace settings {
         .controlHeight = options.controlHeight > 0.0f ? std::optional<float>(options.controlHeight) : std::nullopt,
         .glyphSize = options.glyphSize > 0.0f ? std::optional<float>(options.glyphSize) : std::nullopt,
         .optionIndicators = std::move(indicators),
+        .notifyOnReselect = options.allowCustomColor,
         .width = options.width > 0.0f ? std::optional<float>(options.width) : std::nullopt,
         .height = options.width > 0.0f
             ? std::optional<float>(options.controlHeight > 0.0f ? options.controlHeight : Style::controlHeight)
             : std::nullopt,
         .flexGrow = options.flexGrow ? std::optional<float>(1.0f) : std::nullopt,
-        .onSelectionChanged =
-            [choices = std::move(choices), setValue = std::move(setValue), clearValue = std::move(clearValue),
-             initialColor = customInitialColor](std::size_t index, std::string_view /*label*/) mutable {
-              if (index >= choices.size()) {
-                return;
-              }
-              if (choices[index].value == kCustomColorValue) {
-                ColorPickerDialogOptions dialogOptions;
-                dialogOptions.title = i18n::tr("settings.dialogs.color-picker.title");
-                if (initialColor.has_value()) {
-                  dialogOptions.initialColor = *initialColor;
-                } else if (const auto last = ColorPickerDialog::lastResult()) {
-                  dialogOptions.initialColor = *last;
-                }
-                (void)ColorPickerDialog::open(std::move(dialogOptions), [setValue](std::optional<Color> result) {
+        .onSelectionChanged = [choices = std::move(choices), setValue = std::move(setValue),
+                               clearValue = std::move(clearValue), customInitialColor](
+                                  std::size_t index, std::string_view /*label*/
+                              ) mutable {
+          if (index >= choices.size()) {
+            return;
+          }
+          if (choices[index].value == kCustomColorValue) {
+            ColorPickerDialogOptions dialogOptions;
+            dialogOptions.title = i18n::tr("settings.dialogs.color-picker.title");
+            if (customInitialColor->has_value()) {
+              dialogOptions.initialColor = **customInitialColor;
+            } else if (const auto last = ColorPickerDialog::lastResult()) {
+              dialogOptions.initialColor = *last;
+            }
+            (void)ColorPickerDialog::open(
+                std::move(dialogOptions), [setValue, customInitialColor](std::optional<Color> result) {
                   if (!result.has_value()) {
                     return;
                   }
                   Color rgb = *result;
                   rgb.a = 1.0f;
+                  *customInitialColor = rgb;
                   setValue(formatFixedColorConfigValue(rgb));
-                });
-                return;
-              }
-              if (choices[index].value.empty()) {
-                clearValue();
-                return;
-              }
-              setValue(choices[index].value);
-            },
+                }
+            );
+            return;
+          }
+          if (choices[index].value.empty()) {
+            clearValue();
+            return;
+          }
+          setValue(choices[index].value);
+        },
     });
 
     return select;

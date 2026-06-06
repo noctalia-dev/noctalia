@@ -322,7 +322,7 @@ std::unordered_map<std::string, std::string> WidgetConfig::getStringMap(
   return it->second;
 }
 
-bool WidgetConfig::hasSetting(const std::string& key) const { return settings.find(key) != settings.end(); }
+bool WidgetConfig::hasSetting(const std::string& key) const { return settings.contains(key); }
 
 WidgetBarCapsuleSpec resolveWidgetBarCapsuleSpec(const BarConfig& bar, const WidgetConfig* widget) {
   WidgetBarCapsuleSpec spec{};

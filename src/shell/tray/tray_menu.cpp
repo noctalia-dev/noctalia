@@ -201,7 +201,6 @@ namespace {
   }
 
 } // namespace
-
 void TrayMenu::initialize(
     WaylandConnection& wayland, ConfigService* config, TrayService* tray, RenderContext* renderContext
 ) {
@@ -222,12 +221,27 @@ void TrayMenu::onTrayChanged() {
     close();
     return;
   }
-  if (m_entries == previousEntries) {
-    return;
+  bool needsRebuild = false;
+  if (m_entries != previousEntries) {
+    resizeMainSurfaceToEntries();
+    needsRebuild = true;
   }
 
-  resizeMainSurfaceToEntries();
-  rebuildScenes();
+  // Some dbusmenu providers rebuild submenu children only after the submenu is
+  // opened. Refresh visible submenu rows in place so activation uses fresh ids.
+  for (std::size_t levelIndex = 0; levelIndex < m_submenuLevels.size(); ++levelIndex) {
+    auto& level = m_submenuLevels[levelIndex];
+    if (level.instance == nullptr || level.parentEntryId == 0 || m_tray == nullptr) {
+      continue;
+    }
+    const auto refreshedEntries = m_tray->menuEntriesForParent(m_activeItemId, level.parentEntryId);
+    if (refreshedEntries.empty() || refreshedEntries == level.entries) {
+      continue;
+    }
+    level.entries = refreshedEntries;
+    closeSubmenusFrom(levelIndex + 1);
+    needsRebuild = true;
+  }
 
   for (std::size_t levelIndex = 0; levelIndex < m_submenuLevels.size(); ++levelIndex) {
     auto& level = m_submenuLevels[levelIndex];
@@ -239,7 +253,12 @@ void TrayMenu::onTrayChanged() {
     level.pendingParentEntryId = 0;
     level.pendingRowCenterY = 0.0f;
     openSubmenuAtLevel(levelIndex, parentId, rowCenterY);
+    needsRebuild = true;
     break;
+  }
+
+  if (needsRebuild) {
+    rebuildScenes();
   }
 }
 

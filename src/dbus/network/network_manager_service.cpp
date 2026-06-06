@@ -169,9 +169,7 @@ NetworkManagerService::NetworkManagerService(SystemBus& bus) : m_bus(bus) {
                 }
                 const auto lastScan =
                     getPropertyOr<std::int64_t>(*device, kNmDeviceWirelessInterface, "LastScan", std::int64_t{0});
-                if (lastScan > baseline) {
-                  baseline = lastScan;
-                }
+                baseline = std::max(lastScan, baseline);
               } catch (const sdbus::Error&) {
               }
             }
@@ -270,9 +268,7 @@ void NetworkManagerService::requestScan() {
         }
         const auto lastScan =
             getPropertyOr<std::int64_t>(*device, kNmDeviceWirelessInterface, "LastScan", std::int64_t{0});
-        if (lastScan > baseline) {
-          baseline = lastScan;
-        }
+        baseline = std::max(lastScan, baseline);
         const std::map<std::string, sdbus::Variant> options;
         device->callMethod("RequestScan").onInterface(kNmDeviceWirelessInterface).withArguments(options);
         anyRequested = true;

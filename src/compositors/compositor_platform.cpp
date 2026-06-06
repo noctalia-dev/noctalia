@@ -926,7 +926,7 @@ std::vector<std::string> CompositorPlatform::keyboardLayoutNames() const {
         return state->names;
       }
       auto waylandNames = m_wayland.keyboardLayoutNames();
-      return waylandNames.size() > state->names.size() ? std::move(waylandNames) : state->names;
+      return waylandNames.size() > state->names.size() ? waylandNames : state->names;
     }
   }
   return m_wayland.keyboardLayoutNames();

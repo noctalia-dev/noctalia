@@ -120,7 +120,7 @@ namespace {
       if (!singleRow.key.empty() || !singleRow.value.empty()) {
         patch.rows.push_back(std::move(singleRow));
       } else {
-        const int rowCount = static_cast<int>(lua_objlen(L, 1));
+        const int rowCount = lua_objlen(L, 1);
         patch.rows.reserve(static_cast<std::size_t>(std::max(0, rowCount)));
         for (int i = 1; i <= rowCount; ++i) {
           lua_rawgeti(L, 1, i);
@@ -326,7 +326,7 @@ namespace {
     lua_getfield(L, fieldIndex, "options");
     if (lua_istable(L, -1)) {
       const int optionsIndex = lua_gettop(L);
-      const int count = static_cast<int>(lua_objlen(L, optionsIndex));
+      const int count = lua_objlen(L, optionsIndex);
       for (int i = 1; i <= count; ++i) {
         lua_rawgeti(L, optionsIndex, i);
         if (lua_istable(L, -1)) {
@@ -351,7 +351,7 @@ namespace {
     lua_getfield(L, fieldIndex, "extensions");
     if (lua_istable(L, -1)) {
       const int extensionsIndex = lua_gettop(L);
-      const int count = static_cast<int>(lua_objlen(L, extensionsIndex));
+      const int count = lua_objlen(L, extensionsIndex);
       for (int i = 1; i <= count; ++i) {
         lua_rawgeti(L, extensionsIndex, i);
         if (lua_isstring(L, -1)) {
@@ -372,7 +372,7 @@ namespace {
       lua_getfield(L, visIndex, "values");
       if (lua_istable(L, -1)) {
         const int valuesIndex = lua_gettop(L);
-        const int count = static_cast<int>(lua_objlen(L, valuesIndex));
+        const int count = lua_objlen(L, valuesIndex);
         for (int i = 1; i <= count; ++i) {
           lua_rawgeti(L, valuesIndex, i);
           if (lua_isstring(L, -1)) {
@@ -401,7 +401,7 @@ namespace {
     lua_getfield(L, tableIndex, "settings");
     if (lua_istable(L, -1)) {
       const int settingsIndex = lua_gettop(L);
-      const int count = static_cast<int>(lua_objlen(L, settingsIndex));
+      const int count = lua_objlen(L, settingsIndex);
       for (int i = 1; i <= count; ++i) {
         lua_rawgeti(L, settingsIndex, i);
         if (lua_istable(L, -1)) {

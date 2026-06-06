@@ -43,7 +43,8 @@ namespace settings {
     [[nodiscard]] std::unique_ptr<Flex> makeSlider(
         double value, double minValue, double maxValue, double step, std::vector<std::string> path,
         bool integerValue = false,
-        std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)> linkedCommit = {}
+        std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)> linkedCommit = {},
+        std::string valueSuffix = {}
     );
 
     [[nodiscard]] std::unique_ptr<Input> makeText(

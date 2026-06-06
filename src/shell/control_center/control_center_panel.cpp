@@ -210,9 +210,7 @@ void ControlCenterPanel::create() {
           .out = &m_closeButton,
           .glyph = "close",
           .onClick = []() { PanelManager::instance().close(); },
-          .configure = [scale, opacity = panelCardOpacity()](
-                           Button& button
-                       ) { panel_button_style::configureHeaderIconButton(button, scale, opacity); },
+          .configure = [scale](Button& button) { panel_button_style::configureHeaderIconButton(button, scale); },
       })
   );
   header->addChild(std::move(headerActions));
@@ -245,6 +243,7 @@ void ControlCenterPanel::create() {
   }
 
   syncTabVisibility();
+  m_firstOpenAfterCreate = true;
   selectTab(m_activeTab);
 }
 
@@ -264,9 +263,6 @@ void ControlCenterPanel::onPanelCardOpacityChanged(float opacity) {
   }
   if (m_sidebar != nullptr) {
     m_sidebar->setFill(colorSpecFromRole(ColorRole::SurfaceVariant, opacity));
-  }
-  if (m_closeButton != nullptr) {
-    m_closeButton->setSurfaceOpacity(opacity);
   }
 }
 
@@ -344,7 +340,9 @@ void ControlCenterPanel::onOpen(std::string_view context) {
   if (m_dependencies != nullptr) {
     m_dependencies->rescan();
   }
-  selectTab(tabFromContext(context));
+  const bool animateTabSwitch = !m_firstOpenAfterCreate;
+  m_firstOpenAfterCreate = false;
+  selectTab(tabFromContext(context), animateTabSwitch);
 }
 
 bool ControlCenterPanel::isContextActive(std::string_view context) const {

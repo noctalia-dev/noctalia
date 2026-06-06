@@ -100,7 +100,7 @@ namespace capture {
       bar->setCardStyle(1.0f, 0.94f, true);
 
       auto hint = std::make_unique<Label>();
-      hint->setText(i18n::tr("bar.screenshot.choose_display"));
+      hint->setText(i18n::tr("bar.screenshot.choose-display"));
       hint->setFontSize(Style::fontSizeCaption);
       hint->setColor(colorForRole(ColorRole::OnSurface));
       bar->addChild(std::move(hint));

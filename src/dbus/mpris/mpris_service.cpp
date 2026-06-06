@@ -35,18 +35,18 @@ std::string joinedArtists(const std::vector<std::string>& artists) {
 
 namespace {
 
-  static constexpr auto kDbusInterface = "org.freedesktop.DBus";
-  static constexpr auto kPropertiesInterface = "org.freedesktop.DBus.Properties";
-  static constexpr auto kMprisRootInterface = "org.mpris.MediaPlayer2";
-  static constexpr auto kMprisPlayerInterface = "org.mpris.MediaPlayer2.Player";
-  static constexpr auto kNoctaliaMprisInterface = "dev.noctalia.Mpris";
-  static constexpr auto kPropertiesDebounceWindow = std::chrono::milliseconds{120};
-  static constexpr auto kMetadataStabilizeWindow = std::chrono::milliseconds{900};
-  static const sdbus::ServiceName kDbusName{"org.freedesktop.DBus"};
-  static const sdbus::ObjectPath kDbusPath{"/org/freedesktop/DBus"};
-  static const sdbus::ObjectPath kMprisPath{"/org/mpris/MediaPlayer2"};
-  static const sdbus::ServiceName kNoctaliaMprisBusName{"dev.noctalia.Mpris"};
-  static const sdbus::ObjectPath kNoctaliaMprisObjectPath{"/dev/noctalia/Mpris"};
+  constexpr auto kDbusInterface = "org.freedesktop.DBus";
+  constexpr auto kPropertiesInterface = "org.freedesktop.DBus.Properties";
+  constexpr auto kMprisRootInterface = "org.mpris.MediaPlayer2";
+  constexpr auto kMprisPlayerInterface = "org.mpris.MediaPlayer2.Player";
+  constexpr auto kNoctaliaMprisInterface = "dev.noctalia.Mpris";
+  constexpr auto kPropertiesDebounceWindow = std::chrono::milliseconds{120};
+  constexpr auto kMetadataStabilizeWindow = std::chrono::milliseconds{900};
+  const sdbus::ServiceName kDbusName{"org.freedesktop.DBus"};
+  const sdbus::ObjectPath kDbusPath{"/org/freedesktop/DBus"};
+  const sdbus::ObjectPath kMprisPath{"/org/mpris/MediaPlayer2"};
+  const sdbus::ServiceName kNoctaliaMprisBusName{"dev.noctalia.Mpris"};
+  const sdbus::ObjectPath kNoctaliaMprisObjectPath{"/dev/noctalia/Mpris"};
 
   bool is_mpris_bus_name(std::string_view name) { return name.starts_with("org.mpris.MediaPlayer2."); }
 
@@ -1008,9 +1008,7 @@ bool MprisService::setLoopStatus(const std::string& busName, std::string loopSta
   try {
     proxyIt->second->callMethodAsync("Set")
         .onInterface(kPropertiesInterface)
-        .withArguments(
-            std::string{kMprisPlayerInterface}, std::string{"LoopStatus"}, sdbus::Variant{std::move(loopStatus)}
-        )
+        .withArguments(std::string{kMprisPlayerInterface}, std::string{"LoopStatus"}, sdbus::Variant{loopStatus})
         .uponReplyInvoke(makeAsyncReplyHandler("set-loop-status", busName));
     return true;
   } catch (const sdbus::Error& e) {

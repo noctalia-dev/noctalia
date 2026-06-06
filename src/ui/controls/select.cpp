@@ -119,6 +119,9 @@ void Select::setSelectedIndex(std::size_t index) {
     return;
   }
   if (m_selectedIndex == index) {
+    if (m_notifyOnReselect && m_onSelectionChanged) {
+      m_onSelectionChanged(m_selectedIndex, selectedText());
+    }
     return;
   }
   m_selectedIndex = index;
@@ -194,6 +197,11 @@ void Select::setGlyphSize(float size) {
 
 void Select::setOptionIndicators(std::vector<ColorSpec> colors) {
   m_indicatorColors = std::move(colors);
+  if (m_triggerIndicator != nullptr && m_selectedIndex < m_indicatorColors.size()) {
+    m_triggerIndicator->setFill(m_indicatorColors[m_selectedIndex]);
+  }
+  applyVisualState();
+  markPaintDirty();
   markLayoutDirty();
 }
 
@@ -201,6 +209,8 @@ void Select::setColorSwatchPreviews(std::vector<ColorSwatchPreview> previews) {
   m_optionSwatchPreviews = std::move(previews);
   markLayoutDirty();
 }
+
+void Select::setNotifyOnReselect(bool enabled) { m_notifyOnReselect = enabled; }
 
 void Select::setOnSelectionChanged(std::function<void(std::size_t, std::string_view)> callback) {
   m_onSelectionChanged = std::move(callback);

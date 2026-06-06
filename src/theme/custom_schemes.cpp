@@ -56,10 +56,8 @@ namespace noctalia::theme {
       else
         n = 1.055 * std::pow(v, 1.0 / 2.4) - 0.055;
       long r = std::lround(n * 255.0);
-      if (r < 0)
-        r = 0;
-      if (r > 255)
-        r = 255;
+      r = std::max<long>(r, 0);
+      r = std::min<long>(r, 255);
       return static_cast<int>(r);
     }
 

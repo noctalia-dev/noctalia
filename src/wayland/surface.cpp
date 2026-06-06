@@ -536,9 +536,7 @@ std::vector<InputRect> Surface::tessellateRoundedRect(
     return out;
   }
 
-  if (stripPx < 1) {
-    stripPx = 1;
-  }
+  stripPx = std::max(stripPx, 1);
 
   const float halfW = static_cast<float>(w) * 0.5f;
   const float halfH = static_cast<float>(h) * 0.5f;
@@ -615,9 +613,7 @@ std::vector<InputRect> Surface::tessellateShape(
   if (w <= 0 || h <= 0) {
     return out;
   }
-  if (stripPx < 1) {
-    stripPx = 1;
-  }
+  stripPx = std::max(stripPx, 1);
 
   // (x, y, w, h) is the body rect. Expand outward by logicalInset to obtain the
   // visual rect that hosts concave-corner bulges; the body sits inside it offset

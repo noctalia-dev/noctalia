@@ -7,7 +7,7 @@
 namespace calendar {
 
   namespace {
-    constexpr Logger kLog("calendar.oauth");
+    constexpr Logger kLog("calendar-oauth");
     constexpr const char* kBrokerBase = "https://api.noctalia.dev/v1/calendar/oauth/google";
 
     std::chrono::system_clock::time_point expiryFromUnix(std::int64_t seconds) {
@@ -26,7 +26,9 @@ namespace calendar {
     m_http.request(std::move(req), [cb = std::move(cb)](HttpResponse resp) {
       if (!resp.transportOk || resp.status != 200) {
         kLog.warn("oauth start failed http={}", resp.status);
-        cb(false, {});
+        StartResult result;
+        result.httpStatus = resp.status;
+        cb(false, std::move(result));
         return;
       }
       try {
@@ -36,10 +38,13 @@ namespace calendar {
         result.pollToken = j.at("poll_token").get<std::string>();
         result.authUrl = j.at("auth_url").get<std::string>();
         result.expiresIn = j.value("expires_in", 0);
+        result.httpStatus = resp.status;
         cb(true, std::move(result));
       } catch (const std::exception& e) {
         kLog.warn("oauth start parse error: {}", e.what());
-        cb(false, {});
+        StartResult result;
+        result.httpStatus = resp.status;
+        cb(false, std::move(result));
       }
     });
   }

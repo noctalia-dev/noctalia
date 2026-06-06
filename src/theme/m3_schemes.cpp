@@ -84,8 +84,7 @@ namespace noctalia::theme {
     ) {
       if (max_colors == 0 || input_pixels.empty())
         return {};
-      if (max_colors > 256)
-        max_colors = 256;
+      max_colors = std::min<uint16_t>(max_colors, 256);
 
       // Dedupe input pixels in insertion order, building parallel
       // pixels/points/counts arrays. Matches matugen's IndexMap loop.

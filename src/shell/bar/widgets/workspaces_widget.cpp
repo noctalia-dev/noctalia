@@ -45,8 +45,7 @@ WorkspacesWidget::WorkspacesWidget(
 )
     : m_platform(platform), m_output(output), m_displayMode(displayMode), m_maxLabelChars(maxLabelChars),
       m_labelsOnlyWhenOccupied(labelsOnlyWhenOccupied), m_hideWhenEmpty(hideWhenEmpty), m_pillScale(pillScale),
-      m_minimal(minimal), m_focusedColor(std::move(focusedColor)), m_occupiedColor(std::move(occupiedColor)),
-      m_emptyColor(std::move(emptyColor)) {}
+      m_minimal(minimal), m_focusedColor(focusedColor), m_occupiedColor(occupiedColor), m_emptyColor(emptyColor) {}
 
 WorkspacesWidget::DisplayMode WorkspacesWidget::effectiveDisplayMode() const noexcept {
   if (m_minimal && m_displayMode == DisplayMode::None) {

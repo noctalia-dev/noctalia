@@ -308,7 +308,7 @@ CairoGlyphRenderer::CacheEntry* CairoGlyphRenderer::lookupOrRasterize(char32_t c
   const float invScale = 1.0f / m_contentScale;
   entry.metrics = metrics_from_extents(extents, invScale);
 
-  auto [ins, inserted] = m_cache.emplace(std::move(key), std::move(entry));
+  auto [ins, inserted] = m_cache.emplace(key, entry);
   m_lru.push_front(ins->first);
   ins->second.lruIt = m_lru.begin();
   m_cacheBytes += ins->second.bytes;

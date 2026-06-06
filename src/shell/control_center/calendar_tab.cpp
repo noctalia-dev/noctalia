@@ -112,9 +112,7 @@ namespace {
       endTp = event.end - std::chrono::hours{24};
     }
     int endKey = localDateKey(endTp);
-    if (endKey < startKey) {
-      endKey = startKey;
-    }
+    endKey = std::max(endKey, startKey);
     return {startKey, endKey};
   }
 
@@ -122,6 +120,9 @@ namespace {
     Color color;
     if (!event.colorHex.empty() && tryParseHexColor(event.colorHex, color)) {
       return fixedColorSpec(color);
+    }
+    if (const auto role = colorRoleFromToken(event.colorHex); role.has_value()) {
+      return colorSpecFromRole(*role);
     }
     return colorSpecFromRole(ColorRole::Primary);
   }

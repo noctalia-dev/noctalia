@@ -149,17 +149,18 @@ TaskbarWidget::TaskbarWidget(
     bool onlyActiveWorkspace, bool showWorkspaceLabel, WorkspaceLabelPlacement workspaceLabelPlacement,
     bool hideEmptyWorkspaces, bool workspaceGroupCapsule, bool groupSingleIconPerApp, bool showActiveIndicator,
     float activeOpacity, float inactiveOpacity, ColorSpec focusedColor, ColorSpec occupiedColor, ColorSpec emptyColor,
-    bool showWindowTitle, float windowTitleMaxWidth, std::string barPosition, ShellConfig::ShadowConfig shadowConfig
+    bool showWindowTitle, float windowTitleMaxWidth, float taskbarMaxWidth, std::string barPosition,
+    ShellConfig::ShadowConfig shadowConfig
 )
     : m_platform(platform), m_configService(config), m_output(output), m_groupByWorkspace(groupByWorkspace),
       m_showAllOutputs(showAllOutputs), m_onlyActiveWorkspace(onlyActiveWorkspace),
       m_showWorkspaceLabel(showWorkspaceLabel), m_workspaceLabelPlacement(workspaceLabelPlacement),
       m_hideEmptyWorkspaces(hideEmptyWorkspaces), m_workspaceGroupCapsule(workspaceGroupCapsule),
       m_groupSingleIconPerApp(groupSingleIconPerApp), m_showActiveIndicator(showActiveIndicator),
-      m_activeOpacity(activeOpacity), m_inactiveOpacity(inactiveOpacity), m_focusedColor(std::move(focusedColor)),
-      m_occupiedColor(std::move(occupiedColor)), m_emptyColor(std::move(emptyColor)),
-      m_showWindowTitle(showWindowTitle), m_windowTitleMaxWidth(windowTitleMaxWidth),
-      m_barPosition(std::move(barPosition)), m_shadowConfig(std::move(shadowConfig)) {
+      m_activeOpacity(activeOpacity), m_inactiveOpacity(inactiveOpacity), m_focusedColor(focusedColor),
+      m_occupiedColor(occupiedColor), m_emptyColor(emptyColor), m_showWindowTitle(showWindowTitle),
+      m_windowTitleMaxWidth(windowTitleMaxWidth), m_taskbarMaxWidth(taskbarMaxWidth),
+      m_barPosition(std::move(barPosition)), m_shadowConfig(shadowConfig) {
   // Window title not implemented for vertical bars or workspace grouping.
   if (m_barPosition == "left" || m_barPosition == "right" || m_groupByWorkspace) {
     m_showWindowTitle = false;
@@ -303,11 +304,26 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
   const float iconSize = std::round(Style::barGlyphSize * m_contentScale);
   const float tilePadding = Style::spaceXs * 0.35f * m_contentScale;
   const float tileSize = std::round(iconSize + tilePadding * 2.0f);
-  const float tileWidthWithTitle =
-      tileSize + (m_showWindowTitle ? m_windowTitleMaxWidth * m_contentScale + tilePadding : 0.0f);
+  const float tileGap = Style::spaceSm * m_contentScale;
+
   const float groupBorderInset = Style::borderWidth * m_contentScale;
   const float groupOutlineInset = m_workspaceGroupCapsule ? groupBorderInset : 0.0f;
   const FontWeight fontWeight = labelFontWeight();
+
+  const float maxTileWidth = m_tasks.empty()
+      ? m_taskbarMaxWidth * m_contentScale
+      : std::floor(
+            (m_taskbarMaxWidth * m_contentScale - tileGap * static_cast<float>(m_tasks.size() - 1))
+            / static_cast<float>(m_tasks.size())
+        );
+  // If the title text is too narrow, all it shows is "..." which isn't useful, so we hide it instead.
+  const auto metric = renderer.measureText("...", Style::fontSizeCaption * m_contentScale, fontWeight);
+  const float minWindowTitleWidth = (metric.right - metric.left) * 2;
+  const float windowTitleWidth =
+      std::min(m_windowTitleMaxWidth * m_contentScale, std::max(0.0f, maxTileWidth - tileSize - tilePadding));
+  const bool showWindowTitle = m_showWindowTitle && windowTitleWidth > minWindowTitleWidth;
+  const float tileWidthWithTitle = tileSize + (showWindowTitle ? windowTitleWidth + tilePadding : 0.0f);
+
   const auto workspaceAxisHandler = [this](const InputArea::PointerData& data) -> bool {
     if (!m_groupByWorkspace) {
       return false;
@@ -427,11 +443,11 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       area->addChild(std::move(glyph));
     }
 
-    if (m_showWindowTitle) {
+    if (showWindowTitle) {
       auto label = ui::label({
           .text = task.title,
           .fontSize = Style::fontSizeCaption * m_contentScale,
-          .maxWidth = m_windowTitleMaxWidth * m_contentScale,
+          .maxWidth = windowTitleWidth,
           .fontWeight = fontWeight,
       });
       label->measure(renderer);
@@ -465,7 +481,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     if (task.active && m_showActiveIndicator) {
       const float d = std::max(4.0f, std::round(Style::barGlyphSize * 0.32f * m_contentScale));
       const float bottomInset = 0.25f * m_contentScale;
-      if (m_showWindowTitle) {
+      if (showWindowTitle) {
         const float lineThickness = d * 0.5f;
         auto indicator = ui::box({
             .fill = colorSpecFromRole(ColorRole::Primary),
@@ -897,7 +913,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
   }
 
   m_taskStrip->setPadding(0.0f, 0.0f, 0.0f, 0.0f);
-  m_taskStrip->setGap(Style::spaceSm * m_contentScale);
+  m_taskStrip->setGap(tileGap);
   m_groupedAppCycleCursor.clear();
 
   for (const auto& task : m_tasks) {
@@ -1658,7 +1674,7 @@ void TaskbarWidget::updateModels() {
           std::remove_if(
               nextTasks.begin(), nextTasks.end(),
               [&activeKeys](const TaskModel& t) {
-                return !t.workspaceKey.empty() && activeKeys.find(t.workspaceKey) == activeKeys.end();
+                return !t.workspaceKey.empty() && !activeKeys.contains(t.workspaceKey);
               }
           ),
           nextTasks.end()

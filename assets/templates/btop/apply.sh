@@ -13,6 +13,7 @@ if grep -qE '^color_theme\s*=\s*"noctalia"' "$config_file"; then
 elif grep -qE '^color_theme\s*=' "$config_file"; then
     sed -i -E 's/^color_theme\s*=.*/color_theme = "noctalia"/' "$config_file"
 else
+    [ -s "$config_file" ] && [ -n "$(tail -c1 "$config_file")" ] && echo >>"$config_file"
     echo 'color_theme = "noctalia"' >>"$config_file"
 fi
 

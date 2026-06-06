@@ -1349,7 +1349,7 @@ void NotificationToast::resumeCountdowns(uint32_t notificationId) {
 
     state->progressBar->setOpacity(1.0f);
     state->progressBar->setProgress(remaining);
-    const bool isDriver = (m_instances.size() > 0 && m_instances[0].get() == inst.get());
+    const bool isDriver = (!m_instances.empty() && m_instances[0].get() == inst.get());
     state->countdownAnimId = inst->animations.animateTimer(
         remaining, 0.0f, static_cast<float>(entry->displayDurationMs) * remaining, Easing::Linear,
         [this, progressBar = state->progressBar, notificationId](float v) {
@@ -2782,7 +2782,7 @@ std::string NotificationToast::resolveNotificationIconPath(const PopupEntry& ent
       m_remoteIconCache.erase(it);
     }
 
-    if (m_failedRemoteIconDownloads.find(iconValue) != m_failedRemoteIconDownloads.end()) {
+    if (m_failedRemoteIconDownloads.contains(iconValue)) {
       kLog.warn("notification toast: #{} remote icon URL marked failed url='{}'", entry.notificationId, iconValue);
       return {};
     }
@@ -2795,7 +2795,7 @@ std::string NotificationToast::resolveNotificationIconPath(const PopupEntry& ent
       return cachedPath;
     }
 
-    if (m_httpClient != nullptr && m_pendingRemoteIconDownloads.find(iconValue) == m_pendingRemoteIconDownloads.end()) {
+    if (m_httpClient != nullptr && !m_pendingRemoteIconDownloads.contains(iconValue)) {
       std::filesystem::create_directories(cached.parent_path(), ec);
       if (ec) {
         kLog.warn(

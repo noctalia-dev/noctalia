@@ -21,7 +21,7 @@ namespace {
 } // namespace
 
 DesktopLabelWidget::DesktopLabelWidget(std::string title, std::string description, ColorSpec color, bool shadow)
-    : m_title(std::move(title)), m_description(std::move(description)), m_color(std::move(color)), m_shadow(shadow) {}
+    : m_title(std::move(title)), m_description(std::move(description)), m_color(color), m_shadow(shadow) {}
 
 void DesktopLabelWidget::create() {
   auto rootNode = std::make_unique<Node>();

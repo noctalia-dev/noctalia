@@ -12,7 +12,7 @@
 namespace calendar {
 
   namespace {
-    constexpr Logger kLog("calendar.caldav");
+    constexpr Logger kLog("calendar-caldav");
 
     std::string
     buildReportBody(std::chrono::system_clock::time_point start, std::chrono::system_clock::time_point end) {

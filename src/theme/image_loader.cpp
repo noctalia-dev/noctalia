@@ -99,12 +99,8 @@ namespace noctalia::theme {
       scale = 1.0 / scale;
 
       auto toU8 = [](float v) -> uint8_t {
-        if (v < 0.0f)
-          v = 0.0f;
-        if (v > 255.0f)
-          v = 255.0f;
-        float r = v < 0.0f ? std::ceil(v - 0.5f) : std::floor(v + 0.5f);
-        return static_cast<uint8_t>(r);
+        v = std::clamp(v, 0.0f, 255.0f);
+        return static_cast<uint8_t>(std::floor(v + 0.5f));
       };
 
       for (int outx = 0; outx < dstW; ++outx) {
@@ -147,14 +143,10 @@ namespace noctalia::theme {
         const float inputyOrig = (static_cast<float>(outy) + 0.5f) * ratio;
         int left = static_cast<int>(std::floor(inputyOrig - srcSupport));
         int right = static_cast<int>(std::ceil(inputyOrig + srcSupport));
-        if (left < 0)
-          left = 0;
-        if (left > srcH - 1)
-          left = srcH - 1;
-        if (right < left + 1)
-          right = left + 1;
-        if (right > srcH)
-          right = srcH;
+        left = std::max(left, 0);
+        left = std::min(left, srcH - 1);
+        right = std::max(right, left + 1);
+        right = std::min(right, srcH);
         const float inputy = inputyOrig - 0.5f;
 
         ws.clear();
@@ -200,14 +192,10 @@ namespace noctalia::theme {
         const float inputxOrig = (static_cast<float>(outx) + 0.5f) * ratio;
         int left = static_cast<int>(std::floor(inputxOrig - srcSupport));
         int right = static_cast<int>(std::ceil(inputxOrig + srcSupport));
-        if (left < 0)
-          left = 0;
-        if (left > srcW - 1)
-          left = srcW - 1;
-        if (right < left + 1)
-          right = left + 1;
-        if (right > srcW)
-          right = srcW;
+        left = std::max(left, 0);
+        left = std::min(left, srcW - 1);
+        right = std::max(right, left + 1);
+        right = std::min(right, srcW);
         const float inputx = inputxOrig - 0.5f;
 
         ws.clear();
@@ -234,12 +222,8 @@ namespace noctalia::theme {
           // FloatNearest(clamp(t, 0, 255)) → u8. Rust's f32::round is
           // round-half-away-from-zero.
           auto toU8 = [](float v) -> uint8_t {
-            if (v < 0)
-              v = 0;
-            if (v > 255)
-              v = 255;
-            float r = v < 0.0f ? std::ceil(v - 0.5f) : std::floor(v + 0.5f);
-            return static_cast<uint8_t>(r);
+            v = std::clamp(v, 0.0f, 255.0f);
+            return static_cast<uint8_t>(std::floor(v + 0.5f));
           };
           uint8_t* dp = dst + (y * dstW + outx) * 4;
           dp[0] = toU8(t0);

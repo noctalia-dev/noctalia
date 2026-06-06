@@ -460,7 +460,7 @@ LayoutSize Flex::runLayout(Renderer& renderer, const LayoutConstraints& constrai
     }
     auto& item = items.emplace_back();
     item.node = child.get();
-    item.gapExcluded = m_gapExcludedChildren.count(child.get()) > 0;
+    item.gapExcluded = m_gapExcludedChildren.contains(child.get());
     if (child->flexGrow() > 0.0f) {
       totalGrow += child->flexGrow();
     }

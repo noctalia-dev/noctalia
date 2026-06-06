@@ -14,9 +14,9 @@ namespace {
 
   Button::ButtonStateColors makeState(ColorSpec bg, ColorSpec border, ColorSpec label) {
     return Button::ButtonStateColors{
-        .bg = std::move(bg),
-        .border = std::move(border),
-        .label = std::move(label),
+        .bg = bg,
+        .border = border,
+        .label = label,
     };
   }
 
@@ -410,7 +410,7 @@ void Button::setVariant(ButtonVariant variant) {
 }
 
 void Button::setCustomPalette(ButtonPalette customPalette) {
-  m_customPalette = std::move(customPalette);
+  m_customPalette = customPalette;
   applyVariant();
 }
 

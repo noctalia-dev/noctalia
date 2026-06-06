@@ -629,12 +629,8 @@ void PipeWireSpectrum::computeAnalysisBandBins() {
 
     if (i > 0 && binLow <= m_analysisBandBinHigh[i - 1]) {
       binLow = m_analysisBandBinHigh[i - 1] + 1;
-      if (binLow > fftBins) {
-        binLow = fftBins;
-      }
-      if (binHigh < binLow) {
-        binHigh = binLow;
-      }
+      binLow = std::min(binLow, fftBins);
+      binHigh = std::max(binHigh, binLow);
     }
 
     m_analysisBandBinLow[i] = binLow;
@@ -659,9 +655,7 @@ bool PipeWireSpectrum::processListenerView(ListenerState& state, float nrFactor,
           static_cast<double>(state.peak[i])
           * (1.0 - static_cast<double>(state.fall[i]) * static_cast<double>(state.fall[i]) * gravityMod)
       );
-      if (bands[i] < 0.0f) {
-        bands[i] = 0.0f;
-      }
+      bands[i] = std::max(bands[i], 0.0f);
       state.fall[i] += 0.028f;
     } else {
       state.peak[i] = bands[i];

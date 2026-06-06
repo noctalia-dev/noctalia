@@ -16,11 +16,11 @@
 
 namespace {
 
-  static const sdbus::ServiceName kUpowerBusName{"org.freedesktop.UPower"};
-  static const sdbus::ObjectPath kUpowerObjectPath{"/org/freedesktop/UPower"};
-  static constexpr auto kUpowerInterface = "org.freedesktop.UPower";
-  static constexpr auto kDeviceInterface = "org.freedesktop.UPower.Device";
-  static constexpr auto kPropertiesInterface = "org.freedesktop.DBus.Properties";
+  const sdbus::ServiceName kUpowerBusName{"org.freedesktop.UPower"};
+  const sdbus::ObjectPath kUpowerObjectPath{"/org/freedesktop/UPower"};
+  constexpr auto kUpowerInterface = "org.freedesktop.UPower";
+  constexpr auto kDeviceInterface = "org.freedesktop.UPower.Device";
+  constexpr auto kPropertiesInterface = "org.freedesktop.DBus.Properties";
 
 } // namespace
 
@@ -31,11 +31,11 @@ std::string batteryStateLabel(BatteryState state) {
   case BatteryState::Discharging:
     return i18n::tr("power.battery.states.discharging");
   case BatteryState::FullyCharged:
-    return i18n::tr("power.battery.states.charged");
+    return i18n::tr("power.battery.states.plugged-in");
   case BatteryState::Empty:
     return i18n::tr("power.battery.states.empty");
   case BatteryState::PendingCharge:
-    return i18n::tr("power.battery.states.pending-charge");
+    return i18n::tr("power.battery.states.plugged-in");
   case BatteryState::PendingDischarge:
     return i18n::tr("power.battery.states.pending-discharge");
   case BatteryState::Unknown:

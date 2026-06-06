@@ -2759,7 +2759,7 @@ namespace {
     }
     barName = std::nullopt;
     monitorSelector = std::nullopt;
-    if (parts.size() >= 1) {
+    if (!parts.empty()) {
       barName = parts[0];
     }
     if (parts.size() >= 2) {

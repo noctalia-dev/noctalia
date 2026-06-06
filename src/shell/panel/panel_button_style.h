@@ -5,9 +5,8 @@
 
 namespace panel_button_style {
 
-  inline void configureHeaderIconButton(Button& button, float scale, float surfaceOpacity) {
+  inline void configureHeaderIconButton(Button& button, float scale) {
     button.setVariant(ButtonVariant::Default);
-    button.setSurfaceOpacity(surfaceOpacity);
     button.setGlyphSize(Style::fontSizeBody * scale);
     button.setMinWidth(Style::controlHeightSm * scale);
     button.setMinHeight(Style::controlHeightSm * scale);

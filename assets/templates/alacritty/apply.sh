@@ -3,7 +3,13 @@ set -euo pipefail
 
 config_dir="${XDG_CONFIG_HOME:-$HOME/.config}"
 config_file="$config_dir/alacritty/alacritty.toml"
-theme_path="$config_dir/alacritty/themes/noctalia.toml"
+
+# alacritty expands ~ in import paths; keep it tilde'd so the path stays portable.
+if [[ "$config_dir" == "$HOME"/* ]]; then
+    theme_path="~/${config_dir#"$HOME"/}/alacritty/themes/noctalia.toml"
+else
+    theme_path="$config_dir/alacritty/themes/noctalia.toml"
+fi
 
 mkdir -p "$(dirname "$config_file")"
 

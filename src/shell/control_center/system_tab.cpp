@@ -536,10 +536,8 @@ void SystemTab::updateGraphs(Renderer& renderer) {
 
       if (s.cpuTempC.has_value()) {
         const double t = *s.cpuTempC;
-        if (t < m_cpuTempMin)
-          m_cpuTempMin = t;
-        if (t > m_cpuTempMax)
-          m_cpuTempMax = t;
+        m_cpuTempMin = std::min(m_cpuTempMin, t);
+        m_cpuTempMax = std::max(m_cpuTempMax, t);
         const double range = m_cpuTempMax - m_cpuTempMin;
         cpuTemp[i] = range > 0.0 ? static_cast<float>(std::clamp((t - m_cpuTempMin) / range, 0.0, 1.0)) : 0.5f;
       }
@@ -585,10 +583,8 @@ void SystemTab::updateGraphs(Renderer& renderer) {
       if (s.gpuTempC.has_value()) {
         hasGpuTemp = true;
         const double t = *s.gpuTempC;
-        if (t < m_gpuTempMin)
-          m_gpuTempMin = t;
-        if (t > m_gpuTempMax)
-          m_gpuTempMax = t;
+        m_gpuTempMin = std::min(m_gpuTempMin, t);
+        m_gpuTempMax = std::max(m_gpuTempMax, t);
         const double range = m_gpuTempMax - m_gpuTempMin;
         gpuTemp[i] = range > 0.0 ? static_cast<float>(std::clamp((t - m_gpuTempMin) / range, 0.0, 1.0)) : 0.5f;
       }

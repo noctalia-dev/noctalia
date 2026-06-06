@@ -7,9 +7,9 @@
 #include <utility>
 
 namespace {
-  static const sdbus::ServiceName kLogindBusName{"org.freedesktop.login1"};
-  static const sdbus::ObjectPath kLogindObjectPath{"/org/freedesktop/login1"};
-  static constexpr auto kLogindManagerInterface = "org.freedesktop.login1.Manager";
+  const sdbus::ServiceName kLogindBusName{"org.freedesktop.login1"};
+  const sdbus::ObjectPath kLogindObjectPath{"/org/freedesktop/login1"};
+  constexpr auto kLogindManagerInterface = "org.freedesktop.login1.Manager";
 } // namespace
 
 LogindService::LogindService(SystemBus& bus) : m_bus(bus) {

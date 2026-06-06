@@ -80,7 +80,8 @@ namespace settings {
   };
 
   struct WidgetSettingVisibility {
-    std::vector<WidgetSettingVisibilityCondition> any;
+    std::vector<WidgetSettingVisibilityCondition> any; // visible if any alternative matches (empty = unconstrained)
+    std::vector<WidgetSettingVisibilityCondition> all; // additionally requires every condition to match
 
     WidgetSettingVisibility() = default;
     WidgetSettingVisibility(std::string key, std::vector<std::string> values)
@@ -143,6 +144,8 @@ namespace settings {
 
   [[nodiscard]] std::optional<WidgetSettingSpec>
   findWidgetSettingSpec(std::string_view widgetType, std::string_view settingKey);
+  [[nodiscard]] std::optional<WidgetSettingSpec>
+  findWidgetSettingSpec(std::string_view widgetType, std::string_view settingKey, const WidgetConfig* config);
   [[nodiscard]] bool configOverrideValueMatchesWidgetSetting(
       const ConfigOverrideValue& overrideValue, const WidgetSettingValue& settingValue
   );

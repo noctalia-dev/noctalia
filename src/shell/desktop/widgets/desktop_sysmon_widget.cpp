@@ -258,10 +258,8 @@ double DesktopSysmonWidget::normalizedFromStats(
   case DesktopSysmonStat::CpuTemp:
     if (stats.cpuTempC.has_value()) {
       const double temp = *stats.cpuTempC;
-      if (temp < tempMin)
-        tempMin = temp;
-      if (temp > tempMax)
-        tempMax = temp;
+      tempMin = std::min(tempMin, temp);
+      tempMax = std::max(tempMax, temp);
       const double range = tempMax - tempMin;
       if (range <= 0.0)
         return 0.5;
@@ -272,10 +270,8 @@ double DesktopSysmonWidget::normalizedFromStats(
   case DesktopSysmonStat::GpuTemp:
     if (stats.gpuTempC.has_value()) {
       const double temp = *stats.gpuTempC;
-      if (temp < tempMin)
-        tempMin = temp;
-      if (temp > tempMax)
-        tempMax = temp;
+      tempMin = std::min(tempMin, temp);
+      tempMax = std::max(tempMax, temp);
       const double range = tempMax - tempMin;
       if (range <= 0.0)
         return 0.5;
@@ -305,13 +301,11 @@ double DesktopSysmonWidget::normalizedFromStats(
     return 0.0;
 
   case DesktopSysmonStat::NetRx:
-    if (stats.netRxBytesPerSec > tempMax)
-      tempMax = stats.netRxBytesPerSec;
+    tempMax = std::max(tempMax, stats.netRxBytesPerSec);
     return tempMax > 0.0 ? std::clamp(stats.netRxBytesPerSec / tempMax, 0.0, 1.0) : 0.0;
 
   case DesktopSysmonStat::NetTx:
-    if (stats.netTxBytesPerSec > tempMax)
-      tempMax = stats.netTxBytesPerSec;
+    tempMax = std::max(tempMax, stats.netTxBytesPerSec);
     return tempMax > 0.0 ? std::clamp(stats.netTxBytesPerSec / tempMax, 0.0, 1.0) : 0.0;
   }
 

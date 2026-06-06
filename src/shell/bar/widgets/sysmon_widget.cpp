@@ -1,5 +1,6 @@
 #include "shell/bar/widgets/sysmon_widget.h"
 
+#include "config/config_service.h"
 #include "render/core/renderer.h"
 #include "render/scene/graph_node.h"
 #include "render/scene/input_area.h"
@@ -25,14 +26,50 @@ namespace {
     return raw.substr(0, raw.size() - 1);
   }
 
+  // The gauge track is a dimmed version of the gauge fill so it inherits the
+  // fill's readability against whatever sits behind it (e.g. a custom capsule).
+  [[nodiscard]] ColorSpec gaugeTrackColor(const ColorSpec& fill) {
+    ColorSpec track = fill;
+    track.alpha *= 0.3f;
+    return track;
+  }
+
   constexpr float kGraphLineWidth = 0.75f;
   constexpr auto kSamplePublishSlack = std::chrono::milliseconds(20);
   constexpr auto kSampleRetryDelay = std::chrono::milliseconds(25);
   constexpr auto kInitialSampleRetryDelay = std::chrono::milliseconds(250);
+  constexpr double kBytesPerMb = 1000.0 * 1000.0;
 
   [[nodiscard]] std::chrono::steady_clock::duration historyInterval(const SystemMonitorService* monitor) {
     return monitor != nullptr ? monitor->historySampleInterval()
                               : std::chrono::steady_clock::duration{std::chrono::seconds(1)};
+  }
+
+  [[nodiscard]] double gradientFactor(double value, double activityThreshold, double criticalThreshold) {
+    constexpr double kActivityInterpolation = 0.4;
+    const double clampedValue = std::max(value, 0.0);
+    const double clampedCritical = std::max(criticalThreshold, 0.0);
+    if (clampedCritical <= 0.0) {
+      return 0.0;
+    }
+    if (clampedValue <= 0.0) {
+      return 0.0;
+    }
+
+    const double clampedActivity = std::clamp(activityThreshold, 0.0, clampedCritical);
+    const double ratio = std::clamp(clampedValue / clampedCritical, 0.0, 1.0);
+    if (clampedActivity <= 0.0) {
+      return ratio <= 0.0 ? 0.0 : (kActivityInterpolation + (1.0 - kActivityInterpolation) * ratio);
+    }
+    if (clampedActivity >= clampedCritical) {
+      return ratio;
+    }
+
+    const double midpoint = clampedActivity / clampedCritical;
+    if (ratio <= midpoint) {
+      return kActivityInterpolation * (ratio / midpoint);
+    }
+    return kActivityInterpolation + (1.0 - kActivityInterpolation) * ((ratio - midpoint) / (1.0 - midpoint));
   }
 
   bool needsCpuTemp(SysmonStat stat) { return stat == SysmonStat::CpuTemp; }
@@ -71,10 +108,12 @@ namespace {
 
 SysmonWidget::SysmonWidget(
     SystemMonitorService* monitor, wl_output* /*output*/, SysmonStat stat, std::string diskPath,
-    SysmonDisplayMode displayMode, ColorSpec gaugeColor, bool showLabel, float labelMinWidth
+    SysmonDisplayMode displayMode, ColorSpec gaugeColor, ColorSpec highlightColor, ConfigService& configService,
+    bool showLabel, float labelMinWidth
 )
-    : m_monitor(monitor), m_stat(stat), m_displayMode(displayMode), m_gaugeColor(std::move(gaugeColor)),
-      m_showLabel(showLabel), m_labelMinWidth(labelMinWidth), m_diskPath(std::move(diskPath)) {
+    : m_monitor(monitor), m_stat(stat), m_displayMode(displayMode), m_gaugeColor(gaugeColor),
+      m_highlightColor(highlightColor), m_configService(configService), m_showLabel(showLabel),
+      m_labelMinWidth(labelMinWidth), m_diskPath(std::move(diskPath)) {
   if (m_monitor != nullptr) {
     if (needsCpuTemp(m_stat)) {
       m_monitor->retainCpuTemp();
@@ -142,7 +181,7 @@ void SysmonWidget::create() {
     m_gauge = static_cast<ProgressBar*>(container->addChild(
         ui::progressBar({
             .fill = m_gaugeColor,
-            .track = colorSpecFromRole(ColorRole::OnSurface, 0.25f),
+            .track = gaugeTrackColor(m_gaugeColor),
             .progress = 0.0f,
         })
     ));
@@ -178,11 +217,107 @@ void SysmonWidget::syncVisualPalette() {
     m_chartBg->setStyle(bgStyle);
   }
   if (m_graphNode != nullptr) {
-    m_graphNode->setLineColor1(colorForRole(ColorRole::Primary));
+    m_graphNode->setLineColor1(currentValueColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))));
+  }
+  if (m_gauge != nullptr) {
+    m_gauge->setFill(m_gaugeColor);
+    m_gauge->setTrack(gaugeTrackColor(m_gaugeColor));
+  }
+  syncValueColor();
+}
+
+void SysmonWidget::syncValueColor() {
+  const Color valueColor = currentValueColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
+  if (m_glyph != nullptr) {
+    m_glyph->setColor(valueColor);
+  }
+  if (m_label != nullptr) {
+    m_label->setColor(valueColor);
+  }
+  if (m_graphNode != nullptr) {
+    m_graphNode->setLineColor1(valueColor);
   }
   if (m_gauge != nullptr) {
     m_gauge->setFill(m_gaugeColor);
   }
+}
+
+Color SysmonWidget::currentValueColor(ColorSpec baseColor) {
+  const Color base = resolveColorSpec(baseColor);
+  const Color highlight = resolveColorSpec(m_highlightColor);
+  const auto [activityThreshold, criticalThreshold] = currentThresholds();
+  const float factor = static_cast<float>(gradientFactor(currentGradientValue(), activityThreshold, criticalThreshold));
+  return lerpColor(base, highlight, factor);
+}
+
+std::pair<double, double> SysmonWidget::currentThresholds() const {
+  const auto& monitorConfig = m_configService.config().system.monitor;
+  switch (m_stat) {
+  case SysmonStat::CpuUsage:
+    return {monitorConfig.cpuUsageActivityThreshold, monitorConfig.cpuUsageCriticalThreshold};
+  case SysmonStat::CpuTemp:
+    return {monitorConfig.cpuTempActivityThreshold, monitorConfig.cpuTempCriticalThreshold};
+  case SysmonStat::GpuTemp:
+    return {monitorConfig.gpuTempActivityThreshold, monitorConfig.gpuTempCriticalThreshold};
+  case SysmonStat::GpuUsage:
+    return {monitorConfig.gpuUsageActivityThreshold, monitorConfig.gpuUsageCriticalThreshold};
+  case SysmonStat::GpuVram:
+    return {monitorConfig.gpuVramActivityThreshold, monitorConfig.gpuVramCriticalThreshold};
+  case SysmonStat::RamUsed:
+  case SysmonStat::RamPct:
+    return {monitorConfig.ramPctActivityThreshold, monitorConfig.ramPctCriticalThreshold};
+  case SysmonStat::SwapPct:
+    return {monitorConfig.swapPctActivityThreshold, monitorConfig.swapPctCriticalThreshold};
+  case SysmonStat::DiskPct:
+    return {monitorConfig.diskPctActivityThreshold, monitorConfig.diskPctCriticalThreshold};
+  case SysmonStat::NetRx:
+    return {monitorConfig.netRxActivityThreshold, monitorConfig.netRxCriticalThreshold};
+  case SysmonStat::NetTx:
+    return {monitorConfig.netTxActivityThreshold, monitorConfig.netTxCriticalThreshold};
+  }
+  return {monitorConfig.cpuUsageActivityThreshold, monitorConfig.cpuUsageCriticalThreshold};
+}
+
+double SysmonWidget::currentGradientValue() {
+  if (m_monitor == nullptr || !m_monitor->isRunning()) {
+    return 0.0;
+  }
+
+  if (m_stat == SysmonStat::DiskPct) {
+    return std::max(static_cast<double>(m_monitor->diskUsagePercent(m_diskPath)), 0.0);
+  }
+
+  const auto stats = m_monitor->latest();
+  switch (m_stat) {
+  case SysmonStat::CpuUsage:
+    return std::max(stats.cpuUsagePercent, 0.0);
+  case SysmonStat::CpuTemp:
+    return stats.cpuTempC.value_or(0.0);
+  case SysmonStat::GpuTemp:
+    return stats.gpuTempC.value_or(0.0);
+  case SysmonStat::GpuUsage:
+    return stats.gpuUsagePercent.value_or(0.0);
+  case SysmonStat::GpuVram:
+    if (stats.gpuVramUsedBytes.has_value() && stats.gpuVramTotalBytes.has_value() && *stats.gpuVramTotalBytes > 0) {
+      return 100.0 * static_cast<double>(*stats.gpuVramUsedBytes) / static_cast<double>(*stats.gpuVramTotalBytes);
+    }
+    return 0.0;
+  case SysmonStat::RamUsed:
+  case SysmonStat::RamPct:
+    return std::max(stats.ramUsagePercent, 0.0);
+  case SysmonStat::SwapPct:
+    if (stats.swapTotalMb > 0) {
+      return 100.0 * static_cast<double>(stats.swapUsedMb) / static_cast<double>(stats.swapTotalMb);
+    }
+    return 0.0;
+  case SysmonStat::NetRx:
+    return std::max(stats.netRxBytesPerSec / kBytesPerMb, 0.0);
+  case SysmonStat::NetTx:
+    return std::max(stats.netTxBytesPerSec / kBytesPerMb, 0.0);
+  case SysmonStat::DiskPct:
+    return 0.0;
+  }
+  return 0.0;
 }
 
 bool SysmonWidget::syncLabelText(const std::string& raw) {
@@ -222,7 +357,6 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
   m_isVerticalBar = isVerticalBar;
 
   syncVisualPalette();
-  m_glyph->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
   m_glyph->measure(renderer);
   const float glyphH = m_glyph->height();
   const float gap = Style::spaceXs * m_contentScale;
@@ -233,7 +367,6 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       syncLabelText(m_lastRawValue.empty() ? formatValue() : m_lastRawValue);
     }
     m_label->setFontSize((verticalBar ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
-    m_label->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
     m_label->measure(renderer);
   }
   const float labelW = m_label != nullptr ? m_label->width() : 0.0f;
@@ -281,6 +414,7 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       rootNode->setSize(totalW, contentH);
     }
     syncGaugeProgress(currentNormalized());
+    syncValueColor();
     return;
   }
 
@@ -350,6 +484,7 @@ void SysmonWidget::doUpdate(Renderer& renderer) {
   }
 
   const std::string value = formatValue();
+  syncValueColor();
   if (m_label != nullptr) {
     m_label->setFontSize((m_isVerticalBar ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
     if (syncLabelText(value)) {
@@ -490,12 +625,8 @@ double SysmonWidget::normalizedFromStats(SysmonStat stat, const SystemStats& sta
   case SysmonStat::CpuTemp:
     if (stats.cpuTempC.has_value()) {
       const double temp = *stats.cpuTempC;
-      if (temp < tempMin) {
-        tempMin = temp;
-      }
-      if (temp > tempMax) {
-        tempMax = temp;
-      }
+      tempMin = std::min(tempMin, temp);
+      tempMax = std::max(tempMax, temp);
       const double range = tempMax - tempMin;
       if (range <= 0.0) {
         return 0.5;
@@ -507,12 +638,8 @@ double SysmonWidget::normalizedFromStats(SysmonStat stat, const SystemStats& sta
   case SysmonStat::GpuTemp:
     if (stats.gpuTempC.has_value()) {
       const double temp = *stats.gpuTempC;
-      if (temp < tempMin) {
-        tempMin = temp;
-      }
-      if (temp > tempMax) {
-        tempMax = temp;
-      }
+      tempMin = std::min(tempMin, temp);
+      tempMax = std::max(tempMax, temp);
       const double range = tempMax - tempMin;
       if (range <= 0.0) {
         return 0.5;
@@ -549,14 +676,12 @@ double SysmonWidget::normalizedFromStats(SysmonStat stat, const SystemStats& sta
     return 0.0;
 
   case SysmonStat::NetRx: {
-    if (stats.netRxBytesPerSec > tempMax)
-      tempMax = stats.netRxBytesPerSec;
+    tempMax = std::max(tempMax, stats.netRxBytesPerSec);
     return tempMax > 0.0 ? std::clamp(stats.netRxBytesPerSec / tempMax, 0.0, 1.0) : 0.0;
   }
 
   case SysmonStat::NetTx: {
-    if (stats.netTxBytesPerSec > tempMax)
-      tempMax = stats.netTxBytesPerSec;
+    tempMax = std::max(tempMax, stats.netTxBytesPerSec);
     return tempMax > 0.0 ? std::clamp(stats.netTxBytesPerSec / tempMax, 0.0, 1.0) : 0.0;
   }
 

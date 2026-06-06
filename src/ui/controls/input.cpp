@@ -11,7 +11,6 @@
 #include "render/scene/input_area.h"
 #include "render/scene/rect_node.h"
 #include "render/text/glyph_registry.h"
-#include "ui/controls/glyph.h"
 #include "ui/controls/label.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -86,6 +85,22 @@ namespace {
         GlyphRegistry::lookup("triangle-filled"),
     };
     return randomCodepoints[index % randomCodepoints.size()];
+  }
+
+  void layoutPasswordMaskGlyph(
+      Renderer& renderer, GlyphNode& glyph, char32_t codepoint, float glyphSize, float cellX, float cellSize,
+      float inputHeight
+  ) {
+    glyph.setCodepoint(codepoint);
+    glyph.setFontSize(glyphSize);
+    glyph.setHitTestVisible(false);
+    const auto metrics = renderer.measureGlyph(codepoint, glyphSize);
+    // Shared horizontal em grid; per-glyph ink center on a common row line.
+    const float cellCenterX = cellX + cellSize * 0.5f;
+    const float emCenterX = glyphSize * 0.5f;
+    const float inkCenterY = (metrics.top + metrics.bottom) * 0.5f;
+    const float rowCenterY = inputHeight * 0.5f;
+    glyph.setPosition(cellCenterX - emCenterX, rowCenterY - inkCenterY);
   }
 
   Color resolved(ColorRole role, float alpha = 1.0f) { return colorForRole(role, alpha); }
@@ -950,7 +965,7 @@ void Input::doLayout(Renderer& renderer) {
 
   std::size_t charCount = 0;
   if (showPasswordGlyphs) {
-    charCount = m_stopByte.size() > 0 ? m_stopByte.size() - 1 : 0;
+    charCount = !m_stopByte.empty() ? m_stopByte.size() - 1 : 0;
   }
   float passwordGlyphSize = 0.0f;
   const float passwordCellSize = showPasswordGlyphs ? std::round(m_fontSize * kPasswordGlyphScale) : 0.0f;
@@ -963,13 +978,9 @@ void Input::doLayout(Renderer& renderer) {
     float gx = m_contentLeadSlack - m_scrollOffset;
     for (std::size_t i = 0; i < m_passwordGlyphs.size(); ++i) {
       auto* glyph = m_passwordGlyphs[i];
-      const char32_t codepoint = passwordMaskCodepointForIndex(i);
-      glyph->setCodepoint(codepoint);
-      glyph->setGlyphSize(passwordGlyphSize);
-      glyph->setColor(colorForRole(ColorRole::OnSurface));
-      glyph->measure(renderer);
-      const float glyphY = std::round((h - glyph->height()) * 0.5f);
-      glyph->setPosition(gx, glyphY);
+      layoutPasswordMaskGlyph(
+          renderer, *glyph, passwordMaskCodepointForIndex(i), passwordGlyphSize, gx, passwordCellSize, h
+      );
       glyph->setVisible(true);
       gx += passwordCellSize;
     }
@@ -1709,8 +1720,8 @@ void Input::syncPasswordGlyphNodes(std::size_t count) {
     m_passwordGlyphs.pop_back();
   }
   while (m_passwordGlyphs.size() < count) {
-    auto glyph = std::make_unique<Glyph>();
-    auto* glyphPtr = static_cast<Glyph*>(m_textViewport->insertChildAt(2, std::move(glyph)));
+    auto glyph = std::make_unique<GlyphNode>();
+    auto* glyphPtr = static_cast<GlyphNode*>(m_textViewport->insertChildAt(2, std::move(glyph)));
     m_passwordGlyphs.push_back(glyphPtr);
   }
 }
