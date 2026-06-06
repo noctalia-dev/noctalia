@@ -241,7 +241,8 @@ enum class KeybindAction : std::uint8_t {
 
 [[nodiscard]] std::vector<KeyChord> defaultKeybindSet(KeybindAction action);
 
-using WidgetSettingValue = std::variant<bool, std::int64_t, double, std::string, std::vector<std::string>>;
+using WidgetSettingValue =
+    std::variant<bool, std::int64_t, double, std::string, std::vector<std::string>, std::unordered_map<std::string, std::string>>;
 using ConfigOverrideValue = std::variant<
     bool, std::int64_t, double, std::string, std::vector<std::string>, std::vector<ShortcutConfig>,
     std::vector<SessionPanelActionConfig>, std::vector<IdleBehaviorConfig>, std::vector<KeyChord>,
@@ -283,6 +284,8 @@ struct WidgetConfig {
   getColorSpec(const std::string& key, const ColorSpec& fallback, std::string_view context = {}) const;
   [[nodiscard]] std::optional<ColorSpec>
   getOptionalColorSpec(const std::string& key, std::string_view context = {}) const;
+  [[nodiscard]] std::unordered_map<std::string, std::string>
+  getStringMap(const std::string& key, const std::unordered_map<std::string, std::string>& fallback = {}) const;
   [[nodiscard]] bool hasSetting(const std::string& key) const;
 
   bool operator==(const WidgetConfig&) const = default;

@@ -997,6 +997,8 @@ namespace settings {
               }
               out += "]";
               return out;
+            } else {
+              return std::string{};
             }
           },
           value

@@ -4,6 +4,7 @@
 
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -30,6 +31,15 @@ namespace noctalia::config {
         }
       }
       return WidgetSettingValue{std::move(strings)};
+    }
+    if (const auto* tableValue = node.as_table()) {
+      std::unordered_map<std::string, std::string> map;
+      for (const auto& [k, v] : *tableValue) {
+        if (auto value = v.value<std::string>()) {
+          map.emplace(std::string(k.str()), *value);
+        }
+      }
+      return WidgetSettingValue{std::move(map)};
     }
     return std::nullopt;
   }

@@ -62,6 +62,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 namespace {
   constexpr Logger kLog("shell");
@@ -269,9 +270,10 @@ std::unique_ptr<Widget> WidgetFactory::create(
     const bool showIcon = wc != nullptr ? wc->getBool("show_icon", true) : true;
     const bool showLabel = wc != nullptr ? wc->getBool("show_label", true) : true;
     const bool hideWhenSingleLayout = wc != nullptr ? wc->getBool("hide_when_single_layout", false) : false;
+    auto customLabels = wc != nullptr ? wc->getStringMap("custom_labels") : std::unordered_map<std::string, std::string>{};
     auto widget = std::make_unique<KeyboardLayoutWidget>(
         m_platform, cycleCommand, KeyboardLayoutWidget::parseDisplayMode(display), showIcon, showLabel,
-        hideWhenSingleLayout
+        hideWhenSingleLayout, std::move(customLabels)
     );
     widget->setContentScale(contentScale);
     return widget;

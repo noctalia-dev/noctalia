@@ -5,6 +5,7 @@
 #include "shell/bar/widget.h"
 
 #include <string>
+#include <unordered_map>
 
 class Glyph;
 class Label;
@@ -16,7 +17,7 @@ public:
 
   KeyboardLayoutWidget(
       CompositorPlatform& platform, std::string cycleCommand, DisplayMode displayMode, bool showIcon, bool showLabel,
-      bool hideWhenSingleLayout
+      bool hideWhenSingleLayout, std::unordered_map<std::string, std::string> customLabels = {}
   );
   static DisplayMode parseDisplayMode(const std::string& value);
   static std::string formatLayoutLabel(const std::string& layoutName, DisplayMode displayMode);
@@ -38,6 +39,7 @@ private:
   bool m_showIcon = true;
   bool m_showLabel = true;
   bool m_hideWhenSingleLayout = false;
+  std::unordered_map<std::string, std::string> m_customLabels;
 
   Glyph* m_glyph = nullptr;
   Label* m_label = nullptr;

@@ -408,3 +408,13 @@ battery_low_percent_threshold = 0   # set to e.g. 15 to enable battery_under_thr
 # tooltip_format = "{:%A, %B %d, %Y}"
 # scale = 1.0                         # multiplies the bar scale for this widget only
 # font_weight = 700
+
+# [widget.keyboard_layout]
+# display               = "short"     # "short" (e.g. "DE") or "full" (full layout name)
+# show_icon             = true
+# show_label            = true
+# hide_when_single_layout = false     # hide the widget when only one layout is configured
+# cycle_command         = ""          # custom command to cycle layouts (empty = compositor backend)
+# [widget.keyboard_layout.custom_labels]  # override the auto-generated display label per layout name
+# "German (Neo 2)"      = "Neo2"
+# "English (US)"        = "EN"

@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -33,6 +34,12 @@ namespace config_export {
             using T = std::decay_t<decltype(concrete)>;
             if constexpr (std::is_same_v<T, std::vector<std::string>>) {
               table.insert_or_assign(key, stringArray(concrete));
+            } else if constexpr (std::is_same_v<T, std::unordered_map<std::string, std::string>>) {
+              toml::table subtable;
+              for (const auto& [k, v] : concrete) {
+                subtable.insert_or_assign(k, v);
+              }
+              table.insert_or_assign(key, std::move(subtable));
             } else {
               table.insert_or_assign(key, concrete);
             }

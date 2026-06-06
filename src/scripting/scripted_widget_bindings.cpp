@@ -242,6 +242,8 @@ namespace {
               lua_pushlstring(L, val[i].data(), val[i].size());
               lua_rawseti(L, -2, static_cast<int>(i + 1));
             }
+          } else {
+            lua_pushnil(L);
           }
         },
         it->second
