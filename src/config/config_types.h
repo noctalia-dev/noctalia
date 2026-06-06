@@ -241,8 +241,7 @@ enum class KeybindAction : std::uint8_t {
 
 [[nodiscard]] std::vector<KeyChord> defaultKeybindSet(KeybindAction action);
 
-using WidgetSettingValue =
-    std::variant<bool, std::int64_t, double, std::string, std::vector<std::string>, std::unordered_map<std::string, std::string>>;
+using WidgetSettingValue = std::variant<bool, std::int64_t, double, std::string, std::vector<std::string>>;
 using ConfigOverrideValue = std::variant<
     bool, std::int64_t, double, std::string, std::vector<std::string>, std::vector<ShortcutConfig>,
     std::vector<SessionPanelActionConfig>, std::vector<IdleBehaviorConfig>, std::vector<KeyChord>,
@@ -273,6 +272,7 @@ struct WidgetBarCapsuleSpec {
 struct WidgetConfig {
   std::string type; // widget type (e.g. "clock", "spacer"); defaults to the entry name
   std::unordered_map<std::string, WidgetSettingValue> settings;
+  std::unordered_map<std::string, std::unordered_map<std::string, std::string>> tables;
 
   [[nodiscard]] std::string getString(const std::string& key, const std::string& fallback = {}) const;
   [[nodiscard]] std::vector<std::string>

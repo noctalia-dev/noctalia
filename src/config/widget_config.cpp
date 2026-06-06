@@ -32,15 +32,6 @@ namespace noctalia::config {
       }
       return WidgetSettingValue{std::move(strings)};
     }
-    if (const auto* tableValue = node.as_table()) {
-      std::unordered_map<std::string, std::string> map;
-      for (const auto& [k, v] : *tableValue) {
-        if (auto value = v.value<std::string>()) {
-          map.emplace(std::string(k.str()), *value);
-        }
-      }
-      return WidgetSettingValue{std::move(map)};
-    }
     return std::nullopt;
   }
 
@@ -143,7 +134,15 @@ namespace noctalia::config {
       if (key == "type") {
         continue;
       }
-      if (auto parsed = readWidgetSettingValue(value); parsed.has_value()) {
+      if (const auto* tableValue = value.as_table()) {
+        std::unordered_map<std::string, std::string> map;
+        for (const auto& [k, v] : *tableValue) {
+          if (auto sv = v.value<std::string>()) {
+            map.emplace(std::string(k.str()), *sv);
+          }
+        }
+        wc.tables[std::string(key.str())] = std::move(map);
+      } else if (auto parsed = readWidgetSettingValue(value); parsed.has_value()) {
         wc.settings[std::string(key.str())] = std::move(*parsed);
       }
     }

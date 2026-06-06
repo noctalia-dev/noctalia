@@ -34,12 +34,6 @@ namespace config_export {
             using T = std::decay_t<decltype(concrete)>;
             if constexpr (std::is_same_v<T, std::vector<std::string>>) {
               table.insert_or_assign(key, stringArray(concrete));
-            } else if constexpr (std::is_same_v<T, std::unordered_map<std::string, std::string>>) {
-              toml::table subtable;
-              for (const auto& [k, v] : concrete) {
-                subtable.insert_or_assign(k, v);
-              }
-              table.insert_or_assign(key, std::move(subtable));
             } else {
               table.insert_or_assign(key, concrete);
             }
@@ -65,6 +59,15 @@ namespace config_export {
       for (const auto& key : keys) {
         insertWidgetSettingValue(table, key, widget.settings.at(key));
       }
+
+      for (const auto& [key, map] : widget.tables) {
+        toml::table subtable;
+        for (const auto& [k, v] : map) {
+          subtable.insert_or_assign(k, v);
+        }
+        table.insert_or_assign(key, std::move(subtable));
+      }
+
       return table;
     }
 

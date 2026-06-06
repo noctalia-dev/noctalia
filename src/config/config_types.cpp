@@ -315,14 +315,11 @@ std::optional<ColorSpec> WidgetConfig::getOptionalColorSpec(const std::string& k
 std::unordered_map<std::string, std::string> WidgetConfig::getStringMap(
     const std::string& key, const std::unordered_map<std::string, std::string>& fallback
 ) const {
-  auto it = settings.find(key);
-  if (it == settings.end()) {
+  auto it = tables.find(key);
+  if (it == tables.end()) {
     return fallback;
   }
-  if (const auto* v = std::get_if<std::unordered_map<std::string, std::string>>(&it->second)) {
-    return *v;
-  }
-  return fallback;
+  return it->second;
 }
 
 bool WidgetConfig::hasSetting(const std::string& key) const { return settings.find(key) != settings.end(); }
