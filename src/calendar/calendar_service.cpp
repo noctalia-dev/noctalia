@@ -2,6 +2,7 @@
 
 #include "calendar/caldav_client.h"
 #include "calendar/caldav_discovery.h"
+#include "calendar/ical_parser.h"
 #include "config/config_service.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
@@ -158,6 +159,8 @@ void CalendarService::startRefresh() {
       fetchCalDav(account);
     } else if (account.type == "google") {
       fetchGoogle(account);
+    } else if (account.type == "ics") {
+      fetchIcs(account);
     } else {
       kLog.warn("unknown calendar account type '{}' for id {}", account.type, account.id);
       accountDone(account.id, false, {});
@@ -361,6 +364,40 @@ void CalendarService::fetchGoogle(const CalendarConfig::Account& account) {
       }
     });
   }
+}
+
+void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
+  const std::string url = account.serverUrl;
+  if (url.empty()) {
+    kLog.warn("ics account {} is missing server_url", account.id);
+    accountDone(account.id, false, {});
+    return;
+  }
+
+  const std::string accountId = account.id;
+  const std::string displayName = account.displayName;
+  const std::string colorHex = account.color;
+
+  HttpRequest req;
+  req.url = url;
+  req.followRedirects = true;
+
+  m_httpClient.request(req, [this, accountId, displayName, colorHex](HttpResponse resp) {
+    if (!resp.transportOk || resp.status != 200) {
+      kLog.warn("failed to fetch ics for account {}: http status {}", accountId, resp.status);
+      accountDone(accountId, false, {});
+      return;
+    }
+
+    auto events = calendar::parseICalEvents(resp.body);
+    for (auto& event : events) {
+      event.calendarName = displayName;
+      if (!colorHex.empty()) {
+        event.colorHex = colorHex;
+      }
+    }
+    accountDone(accountId, true, std::move(events));
+  });
 }
 
 void CalendarService::connectGoogleAccount(const std::string& accountId, const std::string& activationToken) {

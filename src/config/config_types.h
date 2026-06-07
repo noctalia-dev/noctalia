@@ -811,7 +811,7 @@ struct CalendarConfig {
   // here; they live in state.toml keyed by id. id must be [a-z0-9_] (used as a state key).
   struct Account {
     std::string id;
-    std::string type; // "google" | "caldav"
+    std::string type; // "google" | "caldav" | "ics"
     std::string displayName;
     std::string color;                  // optional "#rrggbb" override
     std::string provider;               // "icloud" | "custom" (caldav only)

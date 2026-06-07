@@ -328,6 +328,12 @@ namespace noctalia::config::schema {
           field(&CalendarConfig::Account::calendars, "calendars"),
           finalize<CalendarConfig::Account>([](CalendarConfig::Account& out, std::string_view parentPath,
                                                Diagnostics& diag) {
+            if (out.type == "ics") {
+              if (out.serverUrl.empty()) {
+                diag.error(joinPath(parentPath, "server_url"), "ics accounts require server_url (the .ics file URL)");
+              }
+              return;
+            }
             if (out.type != "caldav") {
               return;
             }

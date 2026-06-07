@@ -619,6 +619,8 @@
       "delete-error": "Could not delete calendar account.",
       "edit-title": "Edit Calendar Account",
       "id-label": "Account ID",
+      "ics-url-label": "ICS URL",
+      "ics-url-placeholder": "https://example.com/calendar.ics",
       "invalid": "Check the highlighted calendar account fields.",
       "name-label": "Display Name",
       "name-placeholder": "Personal Calendar",
@@ -629,7 +631,8 @@
       "provider": {
         "custom": "CalDAV",
         "google": "Google",
-        "icloud": "iCloud"
+        "icloud": "iCloud",
+        "ics": "ICS URL"
       },
       "provider-label": "Provider",
       "save": "Save",
@@ -1679,7 +1682,7 @@
         },
         "calendar-add": {
           "button": "Add Account",
-          "description": "Add iCloud, CalDAV, or Google accounts",
+          "description": "Add iCloud, CalDAV, Google, or ICS URL accounts",
           "label": "Calendar Accounts"
         },
         "calendar-connect": {

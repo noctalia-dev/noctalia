@@ -933,14 +933,14 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
                 .action = [this]() { openCalendarAccountEditor(std::nullopt); },
                 .glyph = "plus",
             },
-        .searchText = "calendar add account icloud caldav google",
+        .searchText = "calendar add account icloud caldav google ics subscription",
         .visibleWhen = std::nullopt,
     };
     it = m_settingsRegistry.insert(it, std::move(addBtn));
     ++it;
 
     for (const CalendarConfig::Account& account : cfg.calendar.accounts) {
-      if (account.type != "google" && account.type != "caldav") {
+      if (account.type != "google" && account.type != "caldav" && account.type != "ics") {
         continue;
       }
       settings::SettingEntry btn{
@@ -955,7 +955,8 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
                   .action = [this, id = account.id]() { openCalendarAccountEditor(id); },
                   .glyph = "edit",
               },
-          .searchText = "calendar account edit connect authorize caldav icloud google password " + account.id,
+          .searchText =
+              "calendar account edit connect authorize caldav icloud google ics subscription password " + account.id,
           .visibleWhen = calendarOn,
       };
       it = m_settingsRegistry.insert(it, std::move(btn));
