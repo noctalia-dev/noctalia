@@ -33,3 +33,8 @@ recent-windows {
         urgent-color "{{colors.error.default.hex}}"
     }
 }
+
+layer-rule {
+    match namespace="^noctalia-backdrop$"
+    place-within-backdrop true
+}
