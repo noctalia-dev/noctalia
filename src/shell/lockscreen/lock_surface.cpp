@@ -452,15 +452,18 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
   m_loginPanel->setVisible(true);
   m_passwordField->setVisible(true);
   m_loginButton->setVisible(true);
-  const float panelHeight = lockscreen_login_box::panelHeight();
-  float panelWidth = lockscreen_login_box::panelWidth(sw);
+  const float loginScale = m_config != nullptr ? m_config->config().lockscreen.loginScale : 1.0f;
+  const float panelHeight = lockscreen_login_box::panelHeight(loginScale);
+  float panelWidth = lockscreen_login_box::panelWidth(sw, loginScale);
   float panelX = std::round((sw - panelWidth) * 0.5f);
-  float panelY = std::max(Style::spaceLg, sh - panelHeight - 84.0f);
+  float panelY = std::max(Style::spaceLg * loginScale, sh - panelHeight - 84.0f * loginScale);
   if (m_config != nullptr) {
     if (const DesktopWidgetState* loginBox =
             lockscreen_login_box::findForOutput(m_config->config().lockscreenWidgets.widgets, m_outputKey);
         loginBox != nullptr) {
-      lockscreen_login_box::panelOriginFromCenter(loginBox->cx, loginBox->cy, sw, panelX, panelY, panelWidth);
+      lockscreen_login_box::panelOriginFromCenter(
+          loginBox->cx, loginBox->cy, sw, loginScale, panelX, panelY, panelWidth
+      );
     }
   }
 
@@ -507,25 +510,29 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
           .fill = colorForRole(ColorRole::SurfaceVariant, 0.88f),
           .border = colorForRole(ColorRole::Outline, 0.95f),
           .fillMode = FillMode::Solid,
-          .radius = Style::scaledRadiusXl(),
+          .radius = Style::scaledRadiusXl(loginScale),
           .softness = 1.0f,
-          .borderWidth = Style::borderWidth,
+          .borderWidth = Style::borderWidth * loginScale,
       }
   );
 
-  const float contentLeft = panelX + Style::spaceLg;
-  const float contentTop = panelY + 22.0f;
-  const float rightInset = Style::spaceLg + Style::spaceSm;
-  const float contentWidth = panelWidth - Style::spaceLg - rightInset;
-  const float buttonWidth = Style::controlHeight;
-  const float gap = Style::spaceSm;
-  const float inputWidth = std::max(120.0f, contentWidth - buttonWidth - gap);
+  const float contentLeft = panelX + Style::spaceLg * loginScale;
+  const float contentTop = panelY + 22.0f * loginScale;
+  const float rightInset = (Style::spaceLg + Style::spaceSm) * loginScale;
+  const float contentWidth = panelWidth - Style::spaceLg * loginScale - rightInset;
+  const float buttonWidth = Style::controlHeight * loginScale;
+  const float gap = Style::spaceSm * loginScale;
+  const float inputWidth = std::max(120.0f * loginScale, contentWidth - buttonWidth - gap);
 
+  m_passwordField->setFontSize(Style::fontSizeBody * loginScale);
+  m_passwordField->setControlHeight(Style::controlHeight * loginScale);
+  m_passwordField->setHorizontalPadding(Style::spaceMd * loginScale);
   m_passwordField->setSize(inputWidth, 0.0f);
   m_passwordField->setPosition(contentLeft, contentTop);
   m_passwordField->layout(*renderer);
 
-  m_loginButton->setSize(buttonWidth, Style::controlHeight);
+  m_loginButton->setGlyphSize(16.0f * loginScale);
+  m_loginButton->setSize(buttonWidth, Style::controlHeight * loginScale);
   m_loginButton->setPosition(contentLeft + inputWidth + gap, contentTop);
   m_loginButton->layout(*renderer);
 }

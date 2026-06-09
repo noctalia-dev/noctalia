@@ -182,7 +182,11 @@ namespace {
     c.osd.kinds.keyboardLayout = false;
     c.backdrop = BackdropConfig{true, 0.8f, 0.2f};
     c.lockscreen = LockscreenConfig{
-        .blurredDesktop = true, .blurIntensity = 0.6f, .tintIntensity = 0.25f, .monitors = {"DP-1"}
+        .blurredDesktop = true,
+        .blurIntensity = 0.6f,
+        .tintIntensity = 0.25f,
+        .loginScale = 1.35f,
+        .monitors = {"DP-1"},
     };
     c.system.monitor.enabled = false;
     c.system.monitor.cpuPollSeconds = 5.0f;
@@ -344,6 +348,16 @@ namespace {
       readInto(t, o, osdSchema(), "osd", d);
       if (o.scale != 0.5f) {
         fail("osd.scale clamp: expected 0.5");
+      }
+    }
+    // lockscreen.login_scale above the max clamps to 2.5.
+    {
+      auto t = toml::parse("login_scale = 9.0");
+      LockscreenConfig lockscreen{};
+      Diagnostics d;
+      readInto(t, lockscreen, lockscreenSchema(), "lockscreen", d);
+      if (lockscreen.loginScale != 2.5f) {
+        fail("lockscreen.login_scale clamp: expected 2.5");
       }
     }
   }

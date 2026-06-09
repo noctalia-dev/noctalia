@@ -1518,6 +1518,10 @@
           "description": "Choose which monitors show the lock screen; leave empty to show on all monitors",
           "label": "Monitors"
         },
+        "login-scale": {
+          "description": "Size multiplier for the lock screen login and password field",
+          "label": "Login Scale"
+        },
         "tint-intensity": {
           "description": "Surface-color tint over the lock screen background",
           "label": "Tint Intensity"

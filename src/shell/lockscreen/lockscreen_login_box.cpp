@@ -8,6 +8,17 @@
 #include <format>
 #include <unordered_set>
 
+namespace {
+
+  [[nodiscard]] float clampedLoginScale(float loginScale) noexcept {
+    if (!std::isfinite(loginScale)) {
+      return 1.0f;
+    }
+    return std::clamp(loginScale, 0.5f, 2.5f);
+  }
+
+} // namespace
+
 namespace lockscreen_login_box {
 
   bool isLoginBoxWidget(const DesktopWidgetState& state) { return state.type == kWidgetType; }
@@ -18,23 +29,29 @@ namespace lockscreen_login_box {
 
   std::string widgetIdForOutput(std::string_view outputKey) { return std::format("{}{}", kWidgetIdPrefix, outputKey); }
 
-  float panelWidth(float screenWidth) { return std::min(screenWidth - Style::spaceLg * 2.0f, 520.0f); }
+  float panelWidth(float screenWidth, float loginScale) {
+    const float scale = clampedLoginScale(loginScale);
+    return std::min(screenWidth - Style::spaceLg * 2.0f * scale, 520.0f * scale);
+  }
 
-  float panelHeight() { return 78.0f; }
+  float panelHeight(float loginScale) { return 78.0f * clampedLoginScale(loginScale); }
 
-  void defaultPanelCenter(float screenWidth, float screenHeight, float& cx, float& cy) {
-    const float width = panelWidth(screenWidth);
-    const float height = panelHeight();
+  void defaultPanelCenter(float screenWidth, float screenHeight, float& cx, float& cy, float loginScale) {
+    const float scale = clampedLoginScale(loginScale);
+    const float width = panelWidth(screenWidth, scale);
+    const float height = panelHeight(scale);
     const float panelX = std::round((screenWidth - width) * 0.5f);
-    const float panelY = std::max(Style::spaceLg, screenHeight - height - 84.0f);
+    const float panelY = std::max(Style::spaceLg * scale, screenHeight - height - 84.0f * scale);
     cx = panelX + width * 0.5f;
     cy = panelY + height * 0.5f;
   }
 
-  void
-  panelOriginFromCenter(float cx, float cy, float screenWidth, float& panelX, float& panelY, float& panelWidthOut) {
-    panelWidthOut = panelWidth(screenWidth);
-    const float height = panelHeight();
+  void panelOriginFromCenter(
+      float cx, float cy, float screenWidth, float loginScale, float& panelX, float& panelY, float& panelWidthOut
+  ) {
+    const float scale = clampedLoginScale(loginScale);
+    panelWidthOut = panelWidth(screenWidth, scale);
+    const float height = panelHeight(scale);
     panelX = cx - panelWidthOut * 0.5f;
     panelY = cy - height * 0.5f;
   }

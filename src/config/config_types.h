@@ -389,6 +389,7 @@ struct LockscreenConfig {
   float blurIntensity = 0.5f;
   float tintIntensity = 0.3f;
   std::string wallpaper;
+  float loginScale = 1.0f;
   std::vector<std::string> monitors;
 
   bool operator==(const LockscreenConfig&) const = default;

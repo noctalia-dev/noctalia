@@ -1119,6 +1119,12 @@ namespace settings {
         sliderFor(cfg.lockscreen.tintIntensity, noctalia::config::schema::kUnitRange, false), "lock screen tint"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.login-scale.label"),
+        tr("settings.schema.lockscreen.login-scale.description"), {"lockscreen", "login_scale"},
+        sliderFor(cfg.lockscreen.loginScale, noctalia::config::schema::kLockscreenLoginScaleRange, false),
+        "lock screen login password input size scale"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.monitors.label"),
         tr("settings.schema.lockscreen.monitors.description"), {"lockscreen", "monitors"},
         ListSetting{.items = cfg.lockscreen.monitors, .suggestedOptions = env.availableOutputs},

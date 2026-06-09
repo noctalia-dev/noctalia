@@ -11,6 +11,7 @@ namespace noctalia::config::schema {
   // Shared ranges for concepts that recur verbatim across many settings.
   inline constexpr Range<float> kUnitRange{0.0f, 1.0f, 0.01f};          // opacities, intensities, 0..1 factors
   inline constexpr Range<float> kScaleRange{0.5f, 2.5f, 0.05f};         // ui_scale, notification/osd scale
+  inline constexpr Range<float> kLockscreenLoginScaleRange{0.5f, 2.5f, 0.05f}; // lockscreen login box scale
   inline constexpr Range<std::int64_t> kRefreshMinutesRange{5, 240, 5}; // calendar/weather refresh interval
 
   // Shell.

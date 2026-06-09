@@ -51,6 +51,7 @@ int main() {
   expectKnown({"theme", "templates", "enable_builtin_templates"});
   expectKnown({"wallpaper", "automation", "interval_seconds"});
   expectKnown({"wallpaper", "fill_color"});
+  expectKnown({"lockscreen", "login_scale"});
   expectKnown({"dock", "icon_size"});
   expectKnown({"dock", "radius_top_left"});
   expectKnown({"desktop_widgets", "enabled"});

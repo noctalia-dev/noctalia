@@ -17,10 +17,12 @@ namespace lockscreen_login_box {
   [[nodiscard]] bool isLoginBoxWidgetId(std::string_view id);
   [[nodiscard]] std::string widgetIdForOutput(std::string_view outputKey);
 
-  [[nodiscard]] float panelWidth(float screenWidth);
-  [[nodiscard]] float panelHeight();
-  void defaultPanelCenter(float screenWidth, float screenHeight, float& cx, float& cy);
-  void panelOriginFromCenter(float cx, float cy, float screenWidth, float& panelX, float& panelY, float& panelWidthOut);
+  [[nodiscard]] float panelWidth(float screenWidth, float loginScale = 1.0f);
+  [[nodiscard]] float panelHeight(float loginScale = 1.0f);
+  void defaultPanelCenter(float screenWidth, float screenHeight, float& cx, float& cy, float loginScale = 1.0f);
+  void panelOriginFromCenter(
+      float cx, float cy, float screenWidth, float loginScale, float& panelX, float& panelY, float& panelWidthOut
+  );
 
   [[nodiscard]] const DesktopWidgetState*
   findForOutput(const std::vector<DesktopWidgetState>& widgets, std::string_view outputKey);
