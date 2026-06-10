@@ -771,6 +771,153 @@
           }
         }
       }
+    },
+    "errors": {
+      "bar": {
+        "create": "Не ўдалося стварыць панэль.",
+        "delete": "Не ўдалося выдаліць панэль.",
+        "move": "Не ўдалося перамясьціць панэль.",
+        "rename": "Не ўдалося перайменаваць панэль."
+      },
+      "batch-write": "Некаторыя налады не ўдалося захаваць.",
+      "export-config": "Не ўдалося захаваць экспарт канфігурацыі.",
+      "export-wallpaper-palette": "Не ўдалося захаваць палітру шпалераў як карыстальніцкую палітру.",
+      "monitor-override": {
+        "create": "Не ўдалося стварыць перавызначэньне манітора.",
+        "delete": "Не ўдалося выдаліць перавызначэньне манітора.",
+        "rename": "Не ўдалося перайменаваць перавызначэньне манітора."
+      },
+      "reset-page": "Не ўдалося скінуць некаторыя налады.",
+      "support-report": "Не ўдалося захаваць справаздачу падтрымкі.",
+      "sync-greeter": "Не ўдалося сынхранізаваць выгляд з Noctalia Greeter.",
+      "widget": {
+        "rename": "Не ўдалося перайменаваць названы віджэт."
+      },
+      "write": "Не ўдалося захаваць налады."
+    },
+    "export-config": {
+      "export": "Экспартаваць",
+      "full-effective-description": "Экспартуе ўсе актыўныя налады, у тым ліку ўбудаваныя стандартныя значэньні. Карысна для праверкі або абмену здымкам, але яўна фіксуе бягучыя стандартныя значэньні.",
+      "full-effective-save-title": "Захаваць поўную выніковую канфігурацыю",
+      "full-effective-title": "Поўная выніковая канфігурацыя",
+      "merged-user-description": "Аб'ядноўвае файлы канфігурацыі і перавызначэньні GUI ў адзін файл TOML. Убудаваныя стандартныя значэньні застаюцца няяўнымі.",
+      "merged-user-save-title": "Захаваць аб'яднаную карыстальніцкую канфігурацыю",
+      "merged-user-title": "Аб'яднаная карыстальніцкая канфігурацыя (рэкамэндуецца)",
+      "title": "Экспарт канфігурацыі"
+    },
+    "idle": {
+      "behavior": {
+        "add": "Дадаць паводзіны",
+        "command-label": "Каманда бязьдзейнасьці",
+        "command-placeholder": "notify-send \"Idle\"",
+        "kind": {
+          "custom": "Карыстальніцкае",
+          "lock": "Блякаваньне",
+          "lock-and-suspend": "Блякаваньне і прыпыненьне",
+          "screen-off": "Выключыць экран",
+          "suspend": "Прыпыніць"
+        },
+        "kind-section-label": "Дзеяньне",
+        "name-label": "Назва",
+        "name-placeholder": "idle-behavior",
+        "resume-command-label": "Каманда аднаўленьня",
+        "resume-command-placeholder": "noctalia:dpms-on",
+        "summary": "{name} · {seconds} с",
+        "summary-disabled-timeout": "{name} · тайм-аўт адключаны",
+        "timeout-label": "Тайм-аўт у сэкундах",
+        "unnamed": "Безназоўныя паводзіны"
+      },
+      "live-status": {
+        "active": "Актыўна",
+        "idle-for-one": "Бязьдзейнічае 1 сэкунду",
+        "idle-for-seconds": "Бязьдзейнічае {seconds} сэкундаў"
+      }
+    },
+    "navigation": {
+      "groups": {
+        "audio": "Аўдыё",
+        "automation": "Аўтаматызацыя",
+        "backdrop": "Задні плян",
+        "background": "Фон",
+        "battery": "Батарэя",
+        "behavior": "Паводзіны",
+        "brightness": "Яркасьць",
+        "built-in": "Убудаваныя",
+        "calendar": "Каляндар",
+        "capsules": "Капсулы",
+        "clipboard": "Буфэр абмену",
+        "community": "Супольнасьць",
+        "control-center": "Цэнтар кіраваньня",
+        "directories": "Каталёгі",
+        "effects": "Эфэкты",
+        "filtering": "Фільтраваньне",
+        "focus-styling": "Стыль фокусу",
+        "formats": "Фарматы",
+        "general": "Агульнае",
+        "grouping": "Групаваньне",
+        "home": "Галоўная",
+        "idle": "Бязьдзейнасьць",
+        "interface": "Інтэрфэйс",
+        "keybinds": "Спалучэньні клявішаў",
+        "kinds": "Тыпы",
+        "launcher": "Запускальнік",
+        "layout": "Макет",
+        "lifecycle": "Жыцьцёвы цыкль",
+        "location": "Месцазнаходжаньне",
+        "lock-screen": "Экран блякаваньня",
+        "media": "Мэдыя",
+        "monitor": "Сыстэмны манітор",
+        "monitor-polling": "Інтэрвалы апытаньня",
+        "monitor-thresholds": "Парогі падсьветкі",
+        "monitors": "Маніторы",
+        "motion": "Рух",
+        "network": "Сетка",
+        "night-light": "Начное сьвятло",
+        "notifications": "Апавяшчэньні",
+        "osd": "OSD",
+        "overview": "Агляд",
+        "pinned-apps": "Замацаваныя праграмы",
+        "power": "Сілкаваньне",
+        "privacy-security": "Прыватнасьць і бясьпека",
+        "profile": "Профіль",
+        "screen-corners": "Вуглы экрана",
+        "screen-time": "Час экрана",
+        "screenshot": "Здымак экрана",
+        "security": "Бясьпека",
+        "session-panel": "Сэанс",
+        "shape": "Форма",
+        "system": "Сыстэма",
+        "theme": "Тэма",
+        "toasts": "Усплывальныя апавяшчэньні",
+        "transition": "Пераход",
+        "user": "Карыстальнік",
+        "wallpaper": "Шпалеры",
+        "weather": "Надвор'е",
+        "widget-list": "Спіс віджэтаў",
+        "widgets": "Віджэты"
+      },
+      "sections": {
+        "appearance": "Выгляд",
+        "backdrop": "Задні плян",
+        "bar": "Панэль",
+        "desktop": "Працоўны стол",
+        "dock": "Док",
+        "hooks": "Хукі",
+        "location": "Месцазнаходжаньне",
+        "niri": "Niri",
+        "notifications": "Апавяшчэньні",
+        "osd": "OSD",
+        "panels": "Панэлі",
+        "plugins": "Плягіны",
+        "popups": "Усплывальныя вокны",
+        "power": "Сілкаваньне",
+        "security": "Бясьпека",
+        "services": "Сэрвісы",
+        "shell": "Абалонка",
+        "system": "Сыстэма",
+        "templates": "Шаблёны",
+        "wallpaper": "Шпалеры"
+      }
     }
   }
 }
