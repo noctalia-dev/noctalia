@@ -143,6 +143,74 @@
       "unavailable": "Сэрвіс Bluetooth недаступны",
       "unknown-device": "Невядомая прылада",
       "visible": "Бачна для бліжэйшых прыладаў"
+    },
+    "calendar": {
+      "all-day": "Увесь дзень",
+      "events": "Падзеі",
+      "no-events": "Няма падзеяў."
+    },
+    "display": {
+      "disabled": "Адключана",
+      "no-displays": "Няма даступных манітораў",
+      "unknown-resolution": "Невядомае разрозьненьне"
+    },
+    "home": {
+      "media": {
+        "idle": "Бязьдзейнічае",
+        "no-active-player": "Няма актыўнага прайгравальніка",
+        "nothing-playing": "Нічога не прайграецца",
+        "paused": "Прыпынена",
+        "playback-unavailable": "Прайграваньне недаступнае",
+        "playing": "Прайграецца",
+        "unavailable": "Недаступна",
+        "unknown-artist": "Невядомы выканаўца",
+        "unknown-track": "Невядомы трэк"
+      },
+      "select-avatar": "Выбраць аватар",
+      "unknown": "невядома",
+      "user-facts": "{user}@{host}\nПрацуе - {uptime}\nNoctalia {version}",
+      "weather": {
+        "configure-location": "Дадайце [weather].address або ўключыце auto_locate.",
+        "data-unavailable": "Зьвесткі надвор'я недаступныя.",
+        "disabled": "Надвор'е адключана ў канфігурацыі.",
+        "fetching": "Атрыманьне прагнозу..."
+      }
+    },
+    "media": {
+      "active-player": "Актыўны прайгравальнік",
+      "nothing-playing": "Нічога не прайграецца",
+      "now-playing": "Цяпер прайграецца",
+      "start-playback": "Пачніце прайграваньне ў праграме MPRIS"
+    },
+    "network": {
+      "connect": "Падлучыцца",
+      "current-connection": "Бягучае падлучэньне",
+      "no-networks": "Няма сетак у зоне дзеяньня",
+      "not-connected": "Не падлучана",
+      "password": "Пароль",
+      "password-prompt": "Увядзіце пароль",
+      "password-prompt-for": "Увядзіце пароль для {ssid}",
+      "unavailable-detail": "Усталюйце і ўключыце NetworkManager, каб кіраваць сеткамі адсюль.",
+      "unavailable-title": "NetworkManager недаступны",
+      "vpns": "VPN",
+      "wi-fi": "Wi-Fi",
+      "wifi": "Wi-Fi",
+      "wifi-off": "Wi-Fi выключаны",
+      "wifi-on": "Wi-Fi уключаны",
+      "wired-connection": "Правадное падлучэньне"
+    },
+    "notifications": {
+      "empty-body": "Апошнія апавяшчэньні будуць паказвацца тут.",
+      "empty-title": "Няма апавяшчэньняў",
+      "filter": {
+        "all": "Усе",
+        "older": "Старэйшыя",
+        "today": "Сёньня",
+        "yesterday": "Учора"
+      },
+      "filter-empty-body": "Няма апавяшчэньняў, якія адпавядаюць гэтаму фільтру.",
+      "filter-empty-title": "Тут нічога няма",
+      "untitled": "Апавяшчэньне без назвы"
     }
   }
 }

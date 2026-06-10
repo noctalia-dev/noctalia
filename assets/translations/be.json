@@ -143,6 +143,74 @@
       "unavailable": "Сэрвіс Bluetooth недаступны",
       "unknown-device": "Невядомая прылада",
       "visible": "Бачна для бліжэйшых прылад"
+    },
+    "calendar": {
+      "all-day": "Увесь дзень",
+      "events": "Падзеі",
+      "no-events": "Няма падзей."
+    },
+    "display": {
+      "disabled": "Адключана",
+      "no-displays": "Няма даступных манітораў",
+      "unknown-resolution": "Невядомае раздзяленне"
+    },
+    "home": {
+      "media": {
+        "idle": "Бяздзейнічае",
+        "no-active-player": "Няма актыўнага прайгравальніка",
+        "nothing-playing": "Нічога не прайграваецца",
+        "paused": "Прыпынена",
+        "playback-unavailable": "Прайграванне недаступнае",
+        "playing": "Прайграваецца",
+        "unavailable": "Недаступна",
+        "unknown-artist": "Невядомы выканаўца",
+        "unknown-track": "Невядомы трэк"
+      },
+      "select-avatar": "Выбраць аватар",
+      "unknown": "невядома",
+      "user-facts": "{user}@{host}\nПрацуе - {uptime}\nNoctalia {version}",
+      "weather": {
+        "configure-location": "Дадайце [weather].address або ўключыце auto_locate.",
+        "data-unavailable": "Даныя надвор'я недаступныя.",
+        "disabled": "Надвор'е адключана ў канфігурацыі.",
+        "fetching": "Атрыманне прагнозу..."
+      }
+    },
+    "media": {
+      "active-player": "Актыўны прайгравальнік",
+      "nothing-playing": "Нічога не прайграваецца",
+      "now-playing": "Зараз прайграваецца",
+      "start-playback": "Пачніце прайграванне ў праграме MPRIS"
+    },
+    "network": {
+      "connect": "Падлучыцца",
+      "current-connection": "Бягучае падлучэнне",
+      "no-networks": "Няма сетак у зоне дзеяння",
+      "not-connected": "Не падлучана",
+      "password": "Пароль",
+      "password-prompt": "Увядзіце пароль",
+      "password-prompt-for": "Увядзіце пароль для {ssid}",
+      "unavailable-detail": "Усталюйце і ўключыце NetworkManager, каб кіраваць сеткамі адсюль.",
+      "unavailable-title": "NetworkManager недаступны",
+      "vpns": "VPN",
+      "wi-fi": "Wi-Fi",
+      "wifi": "Wi-Fi",
+      "wifi-off": "Wi-Fi выключаны",
+      "wifi-on": "Wi-Fi уключаны",
+      "wired-connection": "Правадное падлучэнне"
+    },
+    "notifications": {
+      "empty-body": "Апошнія апавяшчэнні будуць паказвацца тут.",
+      "empty-title": "Няма апавяшчэнняў",
+      "filter": {
+        "all": "Усе",
+        "older": "Старэйшыя",
+        "today": "Сёння",
+        "yesterday": "Учора"
+      },
+      "filter-empty-body": "Няма апавяшчэнняў, якія адпавядаюць гэтаму фільтру.",
+      "filter-empty-title": "Тут нічога няма",
+      "untitled": "Апавяшчэнне без назвы"
     }
   }
 }
