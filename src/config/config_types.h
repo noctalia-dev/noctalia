@@ -386,6 +386,8 @@ struct BackdropConfig {
 };
 
 struct LockscreenConfig {
+  /// Lock the session immediately when the shell starts.
+  bool lockOnStartup = false;
   bool blurredDesktop = false;
   float blurIntensity = 0.5f;
   float tintIntensity = 0.3f;

@@ -1510,6 +1510,10 @@
           "description": "Use uma captura de tela da área de trabalho como plano de fundo da tela de bloqueio",
           "label": "Captura da Área de Trabalho"
         },
+        "lock-on-startup": {
+          "description": "Bloqueia a sessão imediatamente quando o Noctalia inicia",
+          "label": "Bloquear ao Iniciar"
+        },
         "monitors": {
           "description": "Escolha em quais monitores a tela de bloqueio será exibida; deixe em branco para exibir em todos os monitores",
           "label": "Monitores"

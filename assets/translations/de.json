@@ -1510,6 +1510,10 @@
           "description": "Verwende einen Schnappschuss des Desktops als Hintergrund der Bildschirmsperre",
           "label": "Bildschirmaufnahme"
         },
+        "lock-on-startup": {
+          "description": "Sitzung sofort beim Start von Noctalia sperren",
+          "label": "Beim Start sperren"
+        },
         "monitors": {
           "description": "Wähle aus, welche Monitore den Sperrbildschirm anzeigen sollen; lass es leer, um ihn auf allen Monitoren anzuzeigen",
           "label": "Monitore"

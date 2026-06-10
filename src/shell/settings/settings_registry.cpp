@@ -1102,6 +1102,11 @@ namespace settings {
         tr("settings.schema.shell.password-style.description"), {"shell", "password_style"},
         asSegmented(enumSelect(kPasswordMaskStyles, cfg.shell.passwordMaskStyle)), "polkit lock mask"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.lock-on-startup.label"),
+        tr("settings.schema.lockscreen.lock-on-startup.description"), {"lockscreen", "lock_on_startup"},
+        ToggleSetting{cfg.lockscreen.lockOnStartup}, "lock screen startup boot login session"
+    ));
     if (env.screencopySupported) {
       entries.push_back(makeEntry(
           SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.blurred-desktop.label"),

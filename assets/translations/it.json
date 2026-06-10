@@ -1510,6 +1510,10 @@
           "description": "Usa un'istantanea del desktop come sfondo del blocco schermo",
           "label": "Cattura desktop"
         },
+        "lock-on-startup": {
+          "description": "Blocca la sessione immediatamente all'avvio di Noctalia",
+          "label": "Blocco all'avvio"
+        },
         "monitors": {
           "description": "Scegli quali monitor mostrano il blocco schermo; lascia vuoto per mostrare su tutti i monitor",
           "label": "Monitor"

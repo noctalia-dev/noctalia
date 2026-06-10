@@ -1508,6 +1508,10 @@
           "description": "Gebruik een momentopname van het bureaublad als achtergrond voor het vergrendelscherm",
           "label": "Bureaublad vastleggen"
         },
+        "lock-on-startup": {
+          "description": "Vergrendel de sessie onmiddellijk wanneer Noctalia start",
+          "label": "Vergrendelen bij opstarten"
+        },
         "monitors": {
           "description": "Kies welke monitoren het vergrendelscherm tonen; laat leeg om op alle te tonen",
           "label": "Monitoren"

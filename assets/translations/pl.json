@@ -1551,6 +1551,10 @@
           "description": "Użyj migawki pulpitu jako tła ekranu blokady",
           "label": "Przechwyt pulpitu"
         },
+        "lock-on-startup": {
+          "description": "Zablokuj sesję natychmiast po uruchomieniu Noctalii",
+          "label": "Blokada przy uruchomieniu"
+        },
         "monitors": {
           "description": "Wybierz które monitory wyświetlają ekran blokady; pozostaw puste by wyświetlać na wszystkich monitorach",
           "label": "Monitory"

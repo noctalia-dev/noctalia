@@ -76,6 +76,7 @@ namespace noctalia::config::schema {
 
   const Schema<LockscreenConfig>& lockscreenSchema() {
     static const Schema<LockscreenConfig> s = {
+        field(&LockscreenConfig::lockOnStartup, "lock_on_startup"),
         field(&LockscreenConfig::blurredDesktop, "blurred_desktop"),
         field(&LockscreenConfig::blurIntensity, "blur_intensity", kUnitRange),
         field(&LockscreenConfig::tintIntensity, "tint_intensity", kUnitRange),

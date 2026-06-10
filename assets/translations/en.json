@@ -1551,6 +1551,10 @@
           "description": "Use a snapshot of the desktop as the lock screen background",
           "label": "Desktop Capture"
         },
+        "lock-on-startup": {
+          "description": "Lock the session immediately when Noctalia starts",
+          "label": "Lock on Startup"
+        },
         "monitors": {
           "description": "Choose which monitors show the lock screen; leave empty to show on all monitors",
           "label": "Monitors"

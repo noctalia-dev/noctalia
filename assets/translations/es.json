@@ -664,6 +664,10 @@
         }
       },
       "lockscreen": {
+        "lock-on-startup": {
+          "description": "Bloquea la sesión inmediatamente cuando Noctalia se inicia",
+          "label": "Bloquear al Iniciar"
+        },
         "wallpaper": {
           "label": "Fondo de Pantalla"
         }

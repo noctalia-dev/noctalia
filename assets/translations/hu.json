@@ -1509,6 +1509,10 @@
           "description": "Használj egy pillanatképet az asztalról a képernyőzár háttereként",
           "label": "Képernyőfelvétel"
         },
+        "lock-on-startup": {
+          "description": "A munkamenet azonnali zárolása a Noctalia indulásakor",
+          "label": "Zárolás indításkor"
+        },
         "monitors": {
           "description": "Válaszd ki, mely monitorokon jelenjen meg a zárolási képernyő; hagyd üresen, hogy minden monitoron megjelenjen",
           "label": "Monitorok"

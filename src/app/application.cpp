@@ -400,6 +400,16 @@ void Application::run(std::function<void()> startupReadyCallback) {
     }
   });
   runStartupPhase("initUi", [this]() { initUi(); });
+  runStartupPhase("lockOnStartup", [this]() {
+    // Engage the lock right after the UI exists so the compositor blanks before
+    // the rest of startup runs; the locked event (and session_locked hook) still
+    // arrives in the main loop, after hooks are loaded.
+    if (m_configService.config().lockscreen.lockOnStartup) {
+      if (!m_lockScreen.lock()) {
+        kLog.warn("lock_on_startup: failed to engage lock screen");
+      }
+    }
+  });
   runStartupPhase("initPluginServices", [this]() {
     m_pluginServiceHost.start(m_configService.config().plugins.pluginSettings);
     // Reconcile services when plugin settings change (start new, stop removed, re-seed

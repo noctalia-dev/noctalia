@@ -1513,6 +1513,10 @@
           "description": "Sử dụng ảnh chụp màn hình nền làm nền màn hình khóa",
           "label": "Chụp màn hình"
         },
+        "lock-on-startup": {
+          "description": "Khóa phiên ngay khi Noctalia khởi động",
+          "label": "Khóa khi khởi động"
+        },
         "monitors": {
           "description": "Chọn màn hình hiển thị màn hình khóa; để trống để hiển thị trên tất cả các màn hình",
           "label": "Màn hình"

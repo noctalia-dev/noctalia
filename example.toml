@@ -155,6 +155,7 @@ keyboard_layout = true              # input keyboard layout changes
 # ── Lock Screen ───────────────────────────────────────────────────────────────
 
 [lockscreen]
+lock_on_startup         = false       # lock the session immediately when noctalia starts
 blurred_desktop         = false       # use a desktop snapshot as the lock screen background (requires wlr-screencopy)
 blur_intensity          = 0.5         # lock screen background blur (0.0 = none, 1.0 = maximum)
 tint_intensity          = 0.3         # surface-color tint over the lock screen background
