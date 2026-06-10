@@ -34,12 +34,12 @@ namespace i18n {
         const char* value = std::getenv(var);
         if (value != nullptr && value[0] != '\0') {
           std::string out(value);
-          if (auto pos = out.find('.'); pos != std::string::npos) {
-            out.resize(pos);
-          }
           std::string modifier;
           if (auto pos = out.find('@'); pos != std::string::npos) {
             modifier = out.substr(pos + 1);
+            out.resize(pos);
+          }
+          if (auto pos = out.find('.'); pos != std::string::npos) {
             out.resize(pos);
           }
           for (char& c : out) {
