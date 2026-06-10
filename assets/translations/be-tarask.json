@@ -1,0 +1,148 @@
+{
+  "auth": {
+    "pam": {
+      "authentication-failed": "Аўтэнтыфікацыя не ўдалася",
+      "start-failed": "Не ўдалося запусьціць PAM",
+      "user-unavailable": "Не ўдалося вызначыць бягучага карыстальніка"
+    },
+    "polkit": {
+      "authenticate": "Аўтарызавацца",
+      "authenticating": "Аўтарызацыя...",
+      "default-message": "Патрабуецца аўтэнтыфікацыя",
+      "invalid-password": "Няправільны пароль",
+      "password-placeholder": "Пароль",
+      "title": "Патрабуецца аўтарызацыя"
+    }
+  },
+  "bar": {
+    "screenshot": {
+      "choose-display": "Выбраць дысплэй",
+      "fullscreen": "Поўны экран",
+      "region": "Вылучыць вобласьць"
+    },
+    "widgets": {
+      "lock-keys": {
+        "caps": "Caps",
+        "caps-short": "C",
+        "num": "Num",
+        "num-short": "N",
+        "scroll": "Scroll",
+        "scroll-short": "S"
+      },
+      "media": {
+        "nothing-playing": "Нічога не прайграецца",
+        "playing": "Прайграецца"
+      },
+      "network": {
+        "wired": "Правадны"
+      },
+      "scripted": {
+        "reload-failed": "Не ўдалося перазагрузіць скрыпт",
+        "reloaded": "Скрыпт перазапушчаны"
+      },
+      "weather": {
+        "default": "Надвор'е",
+        "error": "Памылка надвор'я",
+        "loading": "Надвор'е...",
+        "no-location": "Няма месцазнаходжаньня",
+        "off": "Надвор'е выключана",
+        "vertical-default": "Н\nВ",
+        "vertical-error": "П\nА\nМ",
+        "vertical-loading": "...",
+        "vertical-no-location": "Н\nЯ\nМ\nА",
+        "vertical-off": "В\nЫ\nК\nЛ"
+      }
+    }
+  },
+  "clipboard": {
+    "actions": {
+      "clear-all": "Ачысьціць усё",
+      "delete-item": "Выдаліць элемэнт",
+      "keep-pinned": "Пакінуць замацаваныя"
+    },
+    "confirm": {
+      "clear-desc": "Выберыце, ці трэба захаваць замацаваныя элемэнты.",
+      "clear-desc-all-pinned": "Усе запісы замацаваныя. Выкарыстайце \"Ачысьціць усё\", каб выдаліць іх усе.",
+      "clear-desc-no-pinned": "Гэта выдаліць усе запісы з гісторыі буфэра абмену.",
+      "clear-title": "Ачысьціць гісторыю буфэра абмену?",
+      "delete-desc": "Гэта выдаліць выбраны элемэнт з гісторыі буфэра абмену.",
+      "delete-title": "Выдаліць элемэнт буфэра абмену?"
+    },
+    "empty": {
+      "history-message": "У гісторыі буфэра абмену няма запісаў.",
+      "history-title": "Гісторыя буфэра абмену пустая",
+      "no-matches-message": "Няма запісаў, якія адпавядаюць бягучаму фільтру.",
+      "no-matches-title": "Няма адпаведных запісаў"
+    },
+    "entry": {
+      "image": "Выява",
+      "title": "Запіс буфэра абмену"
+    },
+    "filter-placeholder": "Фільтраваць буфэр абмену...",
+    "preview": {
+      "empty-text-payload": "(пусты тэкставы зьмест)",
+      "image-title": "Выява з буфэра абмену",
+      "loading": "Загрузка папярэдняга прагляду...",
+      "text-title": "Тэкст з буфэра абмену",
+      "truncated": "… абрэзана"
+    },
+    "title": "Буфэр абмену"
+  },
+  "common": {
+    "actions": {
+      "apply": "Ужыць",
+      "cancel": "Скасаваць"
+    },
+    "states": {
+      "auto": "Аўта",
+      "custom": "Карыстальніцкі",
+      "inherit": "Успадкаваць",
+      "off": "Выключана"
+    }
+  },
+  "control-center": {
+    "audio": {
+      "application-volumes": "Гучнасьць праграмаў",
+      "input-volume": "Гучнасьць уваходу",
+      "no-application-audio": "Няма гуку праграмаў",
+      "no-application-audio-body": "Цяпер няма даступных плыняў прайграваньня праграмаў.",
+      "no-input-devices": "Няма прыладаў уводу",
+      "no-input-devices-body": "Цяпер няма даступных крыніцаў запісу.",
+      "no-input-selected": "Прылада ўводу ня выбраная",
+      "no-output-devices": "Няма прыладаў вываду",
+      "no-output-devices-body": "Цяпер няма даступных прыёмнікаў прайграваньня.",
+      "no-output-selected": "Прылада вываду ня выбраная",
+      "output-volume": "Гучнасьць вываду",
+      "unavailable-body": "PipeWire неактыўны.",
+      "unavailable-title": "Аўдыё недаступнае"
+    },
+    "bluetooth": {
+      "accept": "Прыняць",
+      "auto-reconnect": "Аўтаперападлучэньне",
+      "bluetooth": "Bluetooth",
+      "enter-code": "Увядзіце код",
+      "no-devices": "Прылады ня знойдзеныя. Запусьціце сканаваньне, каб выявіць бліжэйшыя прылады Bluetooth.",
+      "off": "Bluetooth выключаны",
+      "pair-title": "Спалучыць {device}",
+      "pairing-detail": {
+        "authorize": "Прыняць уваходны запыт на спалучэньне?",
+        "authorize-service": "Дазволіць доступ да сэрвісу {uuid}?",
+        "confirm": "Пацьвердзіце, што гэты код супадае з паказаным на прыладзе:",
+        "display-passkey": "Увядзіце гэты код на прыладзе:",
+        "display-pin": "Увядзіце гэты PIN на прыладзе:",
+        "passkey": "Увядзіце ключ доступу, паказаны на прыладзе:",
+        "pin-code": "Увядзіце PIN-код, паказаны на прыладзе:"
+      },
+      "reject": "Адхіліць",
+      "rfkill-blocked": "Bluetooth заблякаваны сыстэмай. Уключыце яго, каб зьняць блякаваньне.",
+      "sections": {
+        "available": "Даступныя",
+        "connected": "Падлучаныя",
+        "paired": "Спалучаныя"
+      },
+      "unavailable": "Сэрвіс Bluetooth недаступны",
+      "unknown-device": "Невядомая прылада",
+      "visible": "Бачна для бліжэйшых прыладаў"
+    }
+  }
+}
