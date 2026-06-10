@@ -304,5 +304,192 @@
       "refreshing": "Абнаўленьне надвор'я...",
       "waiting": "Чаканьне зьвестак надвор'я"
     }
+  },
+  "desktop-widgets": {
+    "editor": {
+      "actions": {
+        "done": "Гатова"
+      },
+      "dialogs": {
+        "select-sticker-image": "Выбраць выяву стыкера"
+      },
+      "settings": {
+        "aspect-ratio": "Суадносіны бакоў",
+        "background": "Фон",
+        "background-color": "Колер",
+        "background-opacity": "Непразрыстасьць",
+        "background-padding": "Водступ фону",
+        "background-radius": "Радыюс",
+        "background-section": "Фон",
+        "bands": "Палосы",
+        "bar-width": "Шырыня слупкоў",
+        "bloom-intensity": "Сьвячэньне",
+        "centered": "Па цэнтры",
+        "change-image": "Зьмяніць…",
+        "circle": "Круг",
+        "clock-style": "Стыль гадзіньніка",
+        "clock-style-analog": "Аналягавы",
+        "clock-style-digital": "Лічбавы",
+        "color": "Колер",
+        "color2": "Колер 2",
+        "custom-color": "Карыстальніцкі…",
+        "description": "Апісаньне",
+        "fade-when-idle": "Зьнікаць пры бязьдзейнасьці",
+        "font-family": "Шрыфт",
+        "font-family-default": "Сыстэмны стандарт",
+        "format": "Фармат",
+        "hide-when-no-media": "Хаваць, калі няма мэдыя",
+        "high-color": "Верхні колер",
+        "horizontal": "Гарызантальна",
+        "image-path": "Выява",
+        "inner-diameter": "Унутраны дыямэтар",
+        "layout": "Макет",
+        "low-color": "Ніжні колер",
+        "mirrored": "Адлюстравана",
+        "opacity": "Непразрыстасьць",
+        "primary-color": "Асноўны колер",
+        "ring-opacity": "Непразрыстасьць кольцаў",
+        "rotation-speed": "Хуткасьць кручэньня",
+        "secondary-color": "Другасны колер",
+        "sensitivity": "Адчувальнасьць",
+        "shadow": "Цень",
+        "show-label": "Паказваць метку",
+        "show-when-idle": "Паказваць пры бязьдзейнасьці",
+        "stat": "Паказьнік",
+        "stat-cpu-temp": "Тэмпэратура CPU",
+        "stat-cpu-usage": "Выкарыстаньне CPU",
+        "stat-gpu-temp": "Тэмпэратура GPU",
+        "stat-gpu-usage": "Выкарыстаньне GPU",
+        "stat-gpu-vram": "VRAM GPU",
+        "stat-net-rx": "Сетка Rx",
+        "stat-net-tx": "Сетка Tx",
+        "stat-none": "Няма",
+        "stat-ram-pct": "RAM %",
+        "stat-swap-pct": "Swap %",
+        "stat2": "Паказьнік 2",
+        "title": "Загаловак",
+        "vertical": "Вэртыкальна",
+        "visualization-mode": "Рэжым",
+        "visualization-mode-all": "Усё",
+        "visualization-mode-bars": "Слупкі",
+        "visualization-mode-bars-rings": "Слупкі + кольцы",
+        "visualization-mode-rings": "Кольцы",
+        "visualization-mode-wave": "Хваля",
+        "visualization-mode-wave-rings": "Хваля + кольцы",
+        "wave-thickness": "Таўшчыня хвалі",
+        "widget-section": "Віджэт"
+      },
+      "state": {
+        "grid-off": "Сетка выключана",
+        "grid-on": "Сетка ўключана"
+      },
+      "title": "Віджэты працоўнага стала",
+      "types": {
+        "audio-visualizer": "Аўдыёвізуалізатар",
+        "clock": "Гадзіньнік",
+        "fancy-audio-visualizer": "Пашыраны аўдыёвізуалізатар",
+        "label": "Метка",
+        "media-player": "Мэдыяпрайгравальнік",
+        "sticker": "Стыкер",
+        "system-monitor": "Сыстэмны манітор",
+        "weather": "Надвор'е"
+      }
+    },
+    "media": {
+      "nothing-playing": "Нічога не прайграецца"
+    },
+    "weather": {
+      "error": "Памылка",
+      "loading": "Загрузка",
+      "no-location": "Няма месцазнаходжаньня",
+      "off": "Надвор'е выключана"
+    }
+  },
+  "dock": {
+    "actions": {
+      "close": "Закрыць",
+      "close-all": "Закрыць усё"
+    },
+    "launcher": "Запускальнік"
+  },
+  "internal-apps": {
+    "settings": {
+      "display-name": "Налады"
+    }
+  },
+  "launcher": {
+    "categories": {
+      "all": "Усе",
+      "applications": {
+        "development": "Распрацоўка",
+        "education": "Адукацыя",
+        "games": "Гульні",
+        "graphics": "Графіка",
+        "internet": "Інтэрнэт",
+        "multimedia": "Мультымэдыя",
+        "office": "Офіс",
+        "system": "Сыстэма",
+        "utilities": "Утыліты"
+      },
+      "emoji": {
+        "activity": "Актыўнасьць",
+        "animals": "Жывёлы",
+        "flags": "Сьцягі",
+        "food": "Ежа",
+        "nature": "Прырода",
+        "objects": "Аб'екты",
+        "people": "Людзі",
+        "symbols": "Сымбалі",
+        "travel": "Падарожжы"
+      },
+      "recently-used": "Нядаўна выкарыстаныя"
+    },
+    "context-menu": {
+      "open": "Адкрыць",
+      "pin-to-dock": "Замацаваць у доку",
+      "unpin-from-dock": "Адмацаваць ад дока"
+    },
+    "empty": {
+      "no-results": "Нічога ня знойдзена",
+      "type-to-search": "Увядзіце для пошуку..."
+    },
+    "providers": {
+      "applications": {
+        "title": "Праграмы"
+      },
+      "calculator": {
+        "title": "Калькулятар"
+      },
+      "emoji": {
+        "title": "Эмодзі"
+      },
+      "session": {
+        "action-subtitle": "Выканаць дзеяньне сэансу",
+        "command-subtitle": "Выканаць наладжаную каманду",
+        "title": "Сэанс"
+      },
+      "wallpaper": {
+        "title": "Шпалеры"
+      },
+      "window": {
+        "title": "Вокны"
+      }
+    },
+    "search-placeholder": "Пошук праграмаў..."
+  },
+  "location": {
+    "errors": {
+      "address-lookup-failed": "Не ўдалося знайсьці адрас",
+      "ip-geolocation-failed": "Не ўдалася IP-геалякацыя",
+      "parse-geocode": "Не ўдалося разабраць адказ геакадаваньня",
+      "parse-ip-geolocation": "Не ўдалося разабраць адказ IP-геалякацыі"
+    },
+    "locations": {
+      "current": "Бягучае месцазнаходжаньне"
+    },
+    "source": {
+      "address": "Адрас",
+      "auto": "Аўта"
+    }
   }
 }
