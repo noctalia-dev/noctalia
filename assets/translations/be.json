@@ -2603,6 +2603,34 @@
         "tooltip-format": {
           "description": "Неабавязковы фармат для падказкі",
           "label": "Фармат падказкі"
+        },
+        "type": {
+          "description": "Убудаваны тып віджэта для гэтага названага віджэта",
+          "label": "Тып"
+        },
+        "vertical-format": {
+          "description": "Неабавязковы фармат, які выкарыстоўваецца на вертыкальных панэлях",
+          "label": "Вертыкальны фармат"
+        },
+        "warning-color": {
+          "description": "Колер, які ўжываецца, калі зарад на ўзроўні або ніжэй за парог папярэджання сістэмнай батарэі",
+          "label": "Колер папярэджання"
+        },
+        "width": {
+          "description": "Шырыня віджэта ў пікселях",
+          "label": "Шырыня"
+        },
+        "window-title-max-width": {
+          "description": "Максімальная шырыня ў пікселях для загалоўкаў вокнаў",
+          "label": "Максімальная шырыня загалоўка акна"
+        },
+        "workspace-group-capsule": {
+          "description": "Маляваць фон і контур вакол кожнай згрупаванай працоўнай прасторы. Выключыце, каб пакінуць толькі групоўку значкоў і дыскавыя меткі працоўных прастор.",
+          "label": "Капсула групы працоўнай прасторы"
+        },
+        "workspace-label-placement": {
+          "description": "Куточак, па цэнтры краю або ўнутры пілюлі.",
+          "label": "Размяшчэнне меткі працоўнай прасторы"
         }
       },
       "types": {
@@ -2638,8 +2666,24 @@
         "wallpaper": "Шпалеры",
         "weather": "Надвор'е",
         "workspaces": "Працоўныя прасторы"
-    }
-  },
+      }
+    },
+    "window": {
+        "export-config": "Экспартаваць канфігурацыю…",
+        "export-config-saved": "Экспарт канфігурацыі захаваны.",
+        "filter-modified": "Зменена",
+        "native-title": "Налады Noctalia",
+        "no-results": "Налад не знойдзена",
+        "no-results-hint": "Паспрабуйце іншую назву налад або ключ канфігурацыі.",
+        "reset-page": "Скінуць старонку",
+        "reset-page-confirm": "Пацвердзіць скід",
+        "search-placeholder": "Пошук налад…",
+        "support-report": "Справаздача падтрымкі",
+        "support-report-saved": "Справаздача падтрымкі захавана.",
+        "support-report-title": "Захаваць справаздачу падтрымкі",
+        "title": "Налады"
+      }
+    },
   "setup-wizard": {
     "browse": "Аглядзець",
     "builtin-palette": "Убудаваная палітра",
@@ -2661,20 +2705,146 @@
       "unknown-gpu": "Невядомы GPU"
     }
   },
-  "window": {
-      "export-config": "Экспартаваць канфігурацыю…",
-      "export-config-saved": "Экспарт канфігурацыі захаваны.",
-      "filter-modified": "Зменена",
-      "native-title": "Налады Noctalia",
-      "no-results": "Налад не знойдзена",
-      "no-results-hint": "Паспрабуйце іншую назву налад або ключ канфігурацыі.",
-      "reset-page": "Скінуць старонку",
-      "reset-page-confirm": "Пацвердзіць скід",
-      "search-placeholder": "Пошук налад…",
-      "support-report": "Справаздача падтрымкі",
-      "support-report-saved": "Справаздача падтрымкі захавана.",
-      "support-report-title": "Захаваць справаздачу падтрымкі",
-      "title": "Налады"
+  "theme": {
+    "scheme": {
+      "dysfunctional": "Няспраўная",
+      "faithful": "Верная",
+      "m3-content": "Кантэнт M3",
+      "m3-fruit-salad": "Фруктовы салат M3",
+      "m3-monochrome": "Манахром M3",
+      "m3-rainbow": "Радуга M3",
+      "m3-tonal-spot": "Танальны акцэнт M3",
+      "muted": "Прыглушаная",
+      "vibrant": "Яркая"
     }
+  },
+  "time": {
+    "duration": {
+      "days-hours-minutes": "{days}д {hours}г {minutes}хв",
+      "hours-minutes": "{hours}г {minutes}хв",
+      "less-than-minute": "<1хв",
+      "minutes": "{minutes}хв"
+    },
+    "file": {
+      "unknown": "Невядома"
+    },
+    "relative": {
+      "days-ago": "{count} дзень таму",
+      "days-ago-plural": "{count} дні таму",
+      "hours-ago": "{count} гадзіна таму",
+      "hours-ago-plural": "{count} гадзін таму",
+      "just-now": "толькі што",
+      "minutes-ago": "{count} хвіліна таму",
+      "minutes-ago-plural": "{count} хвілін таму"
+    }
+  },
+  "tray": {
+    "menu": {
+      "empty": "Няма пунктаў меню...",
+      "pin": "Замацаваць",
+      "unpin": "Адмацаваць"
+    }
+  },
+  "ui": {
+    "controls": {
+      "search-picker": {
+        "empty": "Няма вынікаў",
+        "placeholder": "Пошук..."
+      },
+      "select": {
+        "placeholder": "Выберыце варыянт"
+      }
+    },
+    "dialogs": {
+      "color-picker": {
+        "title": "Колер"
+      },
+      "file": {
+        "actions": {
+          "open": "Адкрыць",
+          "save": "Захаваць",
+          "select-folder": "Выбраць папку"
+        },
+        "empty-filtered": "Няма файлаў, якія адпавядаюць бягучаму фільтру",
+        "entry": {
+          "folder": "Папка"
+        },
+        "filename-placeholder": "Імя файла",
+        "filter-placeholder": "Фільтр...",
+        "sort": {
+          "ascending": "↑",
+          "date": "Дата",
+          "descending": "↓",
+          "name": "Імя",
+          "size": "Памер"
+        },
+        "title": {
+          "default": "Дыялог файла",
+          "open": "Адкрыць файл",
+          "save": "Захаваць файл",
+          "select-folder": "Выбраць папку"
+        }
+      },
+      "glyph-picker": {
+        "all-categories": "Усе",
+        "search-placeholder": "Пошук гліфаў…",
+        "title": "Выбраць гліф"
+      }
+    }
+  },
+  "wallpaper": {
+    "panel": {
+      "all-monitors": "УСЕ",
+      "color-title": "Колер шпалер",
+      "favorite-palette-label": "Колеры",
+      "favorite-theme-label": "Тэма",
+      "filter-placeholder": "Фільтр...",
+      "flatten": "Схаваць структуру",
+      "no-directory-configured": "Каталог не зададзены",
+      "sort-date-asc": "Сартаваць па даце (старыя першымі)",
+      "sort-date-desc": "Сартаваць па даце (новыя першымі)",
+      "sort-name-asc": "Сартаваць па назве (А-Я)",
+      "sort-name-desc": "Сартаваць па назве (Я-А)",
+      "title": "Шпалеры"
+    }
+  },
+  "weather": {
+    "conditions": {
+      "full": {
+        "clear-sky": "Яснае неба",
+        "drizzle": "Мжычка",
+        "fog": "Туман",
+        "mainly-clear": "Пераважна ясна",
+        "overcast": "Пахмурна",
+        "partly-cloudy": "Малавоблачна",
+        "rain-showers": "Ліўневыя дажджы",
+        "snow": "Снег",
+        "snow-showers": "Снегапады",
+        "thunderstorm": "Навальніца",
+        "unknown": "Невядома"
+      },
+      "short": {
+        "clear": "Ясна",
+        "cloudy": "Хмарна",
+        "drizzle": "Мжычка",
+        "fog": "Туман",
+        "mostly-clear": "Пераважна ясна",
+        "overcast": "Пахмурна",
+        "showers": "Лівень",
+        "snow": "Снег",
+        "snow-showers": "Снегапады",
+        "storm": "Навальніца",
+        "weather": "Надвор'е"
+      }
+    },
+    "errors": {
+      "fetch-failed": "Не ўдалося атрымаць надвор'е",
+      "parse-weather": "Не ўдалося разабраць адказ пра надвор'е"
+    }
+  },
+  "window-switcher": {
+    "empty": "Няма адкрытых вокнаў",
+    "hint": "Tab · Shift+Tab · стрэлкі · адпусціце Alt для пераключэння · Esc для адмены",
+    "title": "Вокны"
   }
 }
