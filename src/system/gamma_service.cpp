@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "ipc/ipc_service.h"
+#include "render/animation/animation.h"
 #include "system/day_night_schedule.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-gamma-control-unstable-v1-client-protocol.h"
@@ -19,7 +20,8 @@ namespace {
   constexpr Logger kLog("gamma");
 
   constexpr float kTransitionDurationMs = 1500.0f;
-  constexpr int kTransitionIntervalMs = 100;
+  constexpr int kTransitionIntervalMs = 20;
+
   constexpr auto kScheduleRecheckInterval = std::chrono::minutes(1);
 
   const zwlr_gamma_control_v1_listener kGammaControlListener = {
@@ -362,8 +364,9 @@ void GammaService::tickTransition() {
   m_transitionProgress = std::min(
       1.0f, static_cast<float>(std::chrono::duration<double, std::milli>(elapsed).count()) / kTransitionDurationMs
   );
+  const auto easeProgress = applyEasing(Easing::EaseInOutCubic, m_transitionProgress);
   const int interpolated = static_cast<int>(
-      std::lerp(static_cast<float>(m_transitionFromKelvin), static_cast<float>(m_targetKelvin), m_transitionProgress)
+      std::lerp(static_cast<float>(m_transitionFromKelvin), static_cast<float>(m_targetKelvin), easeProgress)
   );
   if (interpolated != m_currentKelvin) {
     applyGammaToAll(interpolated);
