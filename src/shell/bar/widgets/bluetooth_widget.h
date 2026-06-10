@@ -1,6 +1,7 @@
 #pragma once
 
 #include "dbus/bluetooth/bluetooth_service.h"
+#include "dbus/upower/upower_service.h"
 #include "shell/bar/widget.h"
 
 #include <string>
@@ -12,7 +13,8 @@ struct wl_output;
 class BluetoothWidget : public Widget {
 public:
   BluetoothWidget(
-      BluetoothService* bluetooth, wl_output* output, bool showLabel, bool hideWhenNoConnectedDevice = false
+      BluetoothService* bluetooth, UPowerService* upower, wl_output* output, bool showLabel,
+      bool hideWhenNoConnectedDevice = false
   );
 
   void create() override;
@@ -24,6 +26,7 @@ private:
   void syncWidgetVisibility(bool showWidget);
 
   BluetoothService* m_bluetooth = nullptr;
+  UPowerService* m_upower = nullptr;
   bool m_showLabel = false;
   bool m_hideWhenNoConnectedDevice = false;
   Glyph* m_glyph = nullptr;

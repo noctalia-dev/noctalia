@@ -2,6 +2,7 @@
 
 #include "dbus/bluetooth/bluetooth_agent.h"
 #include "dbus/bluetooth/bluetooth_service.h"
+#include "dbus/upower/upower_service.h"
 #include "shell/control_center/tab.h"
 
 #include <string>
@@ -17,7 +18,7 @@ class Toggle;
 
 class BluetoothTab : public Tab {
 public:
-  BluetoothTab(BluetoothService* service, BluetoothAgent* agent);
+  BluetoothTab(BluetoothService* service, BluetoothAgent* agent, UPowerService* upower);
   ~BluetoothTab() override;
 
   std::unique_ptr<Flex> create() override;
@@ -37,6 +38,7 @@ private:
 
   BluetoothService* m_service = nullptr;
   BluetoothAgent* m_agent = nullptr;
+  UPowerService* m_upower = nullptr;
 
   Flex* m_rootLayout = nullptr;
 

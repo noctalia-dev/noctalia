@@ -6,6 +6,7 @@
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/string_utils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -45,9 +46,11 @@ namespace {
 } // namespace
 
 BluetoothWidget::BluetoothWidget(
-    BluetoothService* bluetooth, wl_output* /*output*/, bool showLabel, bool hideWhenNoConnectedDevice
+    BluetoothService* bluetooth, UPowerService* upower, wl_output* /*output*/, bool showLabel,
+    bool hideWhenNoConnectedDevice
 )
-    : m_bluetooth(bluetooth), m_showLabel(showLabel), m_hideWhenNoConnectedDevice(hideWhenNoConnectedDevice) {}
+    : m_bluetooth(bluetooth), m_upower(upower), m_showLabel(showLabel),
+      m_hideWhenNoConnectedDevice(hideWhenNoConnectedDevice) {}
 
 void BluetoothWidget::create() {
   auto area = std::make_unique<InputArea>();
@@ -171,7 +174,16 @@ void BluetoothWidget::syncState(Renderer& renderer) {
       std::vector<TooltipRow> rows;
       for (const auto& d : devices) {
         if (d.connected) {
-          std::string value = d.hasBattery ? std::to_string(d.batteryPercent) + "%" : "Connected";
+          bool hasBattery = d.hasBattery;
+          uint8_t batteryPercent = d.batteryPercent;
+          if (!hasBattery && m_upower != nullptr) {
+            auto* upowerDevice = m_upower->deviceForSelector(StringUtils::toLower(d.address));
+            if (upowerDevice) {
+              hasBattery = true;
+              batteryPercent = static_cast<uint8_t>(upowerDevice->state.percentage);
+            }
+          }
+          std::string value = hasBattery ? std::to_string(batteryPercent) + "%" : "Connected";
           rows.push_back({d.alias, std::move(value)});
         }
       }

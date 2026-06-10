@@ -8,6 +8,7 @@
 #include "ui/controls/collapsible.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/string_utils.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -95,12 +96,14 @@ namespace {
 
   class BluetoothDeviceRow : public Collapsible {
   public:
-    BluetoothDeviceRow(BluetoothDeviceInfo device, BluetoothService* service, float scale)
+    BluetoothDeviceRow(BluetoothDeviceInfo device, BluetoothService* service, UPowerService* upower, float scale)
         : m_device(std::move(device)), m_service(service) {
       setScale(scale);
       setRadius(Style::scaledRadiusMd(scale));
       setFill(colorSpecFromRole(ColorRole::Surface));
       clearBorder();
+
+      const auto bucket = bucketFor(m_device);
 
       auto header = ui::row(
           {.align = FlexAlign::Center,
@@ -131,8 +134,15 @@ namespace {
         metrics->addChild(
             makeMetricPill("battery", std::to_string(static_cast<int>(m_device.batteryPercent)) + "%", scale)
         );
+      } else if (upower != nullptr && bucket == DeviceBucket::Connected) {
+        auto* upowerDevice = upower->deviceForSelector(StringUtils::toLower(m_device.address));
+        if (upowerDevice) {
+          metrics->addChild(
+              makeMetricPill("battery", std::to_string(static_cast<int>(upowerDevice->state.percentage)) + "%", scale)
+          );
+        }
       }
-      if (m_device.hasRssi && bucketFor(m_device) == DeviceBucket::Available) {
+      if (m_device.hasRssi && bucket == DeviceBucket::Available) {
         metrics->addChild(
             makeMetricPill("antenna-bars-5", std::to_string(signalPercentFromRssi(m_device.rssi)) + "%", scale)
         );
@@ -140,8 +150,6 @@ namespace {
       if (!metrics->children().empty()) {
         header->addChild(std::move(metrics));
       }
-
-      const auto bucket = bucketFor(m_device);
 
       if (m_device.connecting) {
         header->addChild(
@@ -260,7 +268,8 @@ namespace {
 
 } // namespace
 
-BluetoothTab::BluetoothTab(BluetoothService* service, BluetoothAgent* agent) : m_service(service), m_agent(agent) {}
+BluetoothTab::BluetoothTab(BluetoothService* service, BluetoothAgent* agent, UPowerService* upower)
+    : m_service(service), m_agent(agent), m_upower(upower) {}
 
 BluetoothTab::~BluetoothTab() = default;
 
@@ -795,7 +804,7 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
       currentBucket = bucket;
       first = false;
     }
-    auto row = std::make_unique<BluetoothDeviceRow>(device, m_service, scale);
+    auto row = std::make_unique<BluetoothDeviceRow>(device, m_service, m_upower, scale);
     auto* rowPtr = row.get();
     bucketCard->addChild(std::move(row));
     rowPtr->startConnectingSpinner();

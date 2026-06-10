@@ -68,7 +68,7 @@ ControlCenterPanel::ControlCenterPanel(
   m_tabs[tabIndex(TabId::Calendar)] = std::make_unique<CalendarTab>(config, calendar);
   m_tabs[tabIndex(TabId::Notifications)] = std::make_unique<NotificationsTab>(notifications);
   m_tabs[tabIndex(TabId::Network)] = std::make_unique<NetworkTab>(network, networkSecrets);
-  m_tabs[tabIndex(TabId::Bluetooth)] = std::make_unique<BluetoothTab>(bluetooth, bluetoothAgent);
+  m_tabs[tabIndex(TabId::Bluetooth)] = std::make_unique<BluetoothTab>(bluetooth, bluetoothAgent, upower);
   m_tabs[tabIndex(TabId::Display)] = std::make_unique<DisplayTab>(brightness, config);
   m_tabs[tabIndex(TabId::System)] = std::make_unique<SystemTab>(sysmon);
   m_tabs[tabIndex(TabId::ScreenTime)] = std::make_unique<ScreenTimeTab>(screenTime);
