@@ -211,6 +211,98 @@
       "filter-empty-body": "Няма апавяшчэнняў, якія адпавядаюць гэтаму фільтру.",
       "filter-empty-title": "Тут нічога няма",
       "untitled": "Апавяшчэнне без назвы"
+    },
+    "screen-time": {
+      "disabled": "Адсочванне часу экрана выключана. Уключыце яго ў наладах, каб запісваць выкарыстанне па праграмах.",
+      "empty": "Выкарыстанне праграм яшчэ не запісана. Сфакусуйце акно, каб пачаць адсочванне.",
+      "hour-0": "12 AM",
+      "hour-12": "12 PM",
+      "hour-18": "6 PM",
+      "hour-6": "6 AM",
+      "most-used": "НАЙЧАСЦЕЙ",
+      "range": {
+        "14-days": "14 дзён",
+        "3-days": "3 дні",
+        "today": "Сёння"
+      }
+    },
+    "shortcuts": {
+      "audio": "Аўдыя",
+      "bluetooth": "Bluetooth",
+      "caffeine": "Caffeine",
+      "clipboard": "Буфер",
+      "dark-mode": {
+        "auto": "Аўтарэжым",
+        "dark": "Цёмны рэжым",
+        "light": "Светлы рэжым"
+      },
+      "keyboard-layout": "Раскладка",
+      "media": "Медыя",
+      "mic-mute": "Мікрафон",
+      "nightlight": "Начное святло",
+      "nightlight-states": {
+        "forced": "Заўсёды ўкл.",
+        "off": "Начное святло",
+        "scheduled-day": "Запланавана",
+        "scheduled-night": "Працуе"
+      },
+      "notification": "Не турбаваць",
+      "power-profile": "Сілкаванне",
+      "screen-recorder": "Запіс",
+      "screen-time": "Час экрана",
+      "session": "Сеанс",
+      "system": "Сістэма",
+      "wallpaper": "Шпалеры",
+      "weather": "Надвор'е",
+      "wifi": "Wi-Fi"
+    },
+    "system": {
+      "titles": {
+        "cpu": "CPU",
+        "gpu": "GPU",
+        "memory": "Памяць",
+        "network": "Сетка",
+        "resources": "Рэсурсы",
+        "system": "Сістэма"
+      },
+      "unknown": "невядома",
+      "uptime-prefix": "Працуе {uptime} · {osAge}"
+    },
+    "tabs": {
+      "audio": "Аўдыя",
+      "bluetooth": "Bluetooth",
+      "calendar": "Каляндар",
+      "display": "Манітор",
+      "home": "Галоўная",
+      "media": "Медыя",
+      "network": "Сетка",
+      "notifications": "Апавяшчэнні",
+      "screen-time": "Час экрана",
+      "system": "Сістэма",
+      "weather": "Надвор'е"
+    },
+    "weather": {
+      "configure-location": "Задайце [weather].address або ўключыце auto_locate",
+      "data-unavailable": "Даныя надвор'я недаступныя",
+      "details": {
+        "elevation": "Вышыня",
+        "sunrise": "Усход сонца",
+        "sunset": "Заход сонца",
+        "temp-max": "Максімальная тэмпература",
+        "temp-min": "Мінімальная тэмпература",
+        "timezone": "Часавы пояс",
+        "wind": "Вецер"
+      },
+      "disabled": "Уключыце [weather] у config.toml",
+      "fetching": "Атрыманне прагнозу...",
+      "forecast-placeholder": {
+        "day": "Нядзеля",
+        "description": "Надвор'е",
+        "temperature": "10 / 4C"
+      },
+      "location-unavailable": "Месцазнаходжанне недаступнае",
+      "refreshing": "Абнаўленне надвор'я...",
+      "waiting": "Чаканне даных надвор'я"
     }
   }
 }
