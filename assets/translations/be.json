@@ -608,5 +608,169 @@
       "lock-body": "Пратакол блакавання сеанса недаступны.",
       "lock-title": "Блакаванне недаступнае"
     }
+  },
+  "settings": {
+    "actions": {
+      "reset": "Скінуць"
+    },
+    "badges": {
+      "advanced": "Пашыранае",
+      "inherited": "Успадкавана",
+      "monitor": "Манітор",
+      "override": "Перавызначэнне"
+    },
+    "calendar-accounts": {
+      "add-title": "Дадаць уліковы запіс календара",
+      "color-label": "Колер",
+      "delete-error": "Не ўдалося выдаліць уліковы запіс календара.",
+      "edit-title": "Рэдагаваць уліковы запіс календара",
+      "id-label": "ID уліковага запісу",
+      "invalid": "Праверце вылучаныя палі ўліковага запісу календара.",
+      "name-label": "Адлюстраваная назва",
+      "name-placeholder": "Асабісты каляндар",
+      "password-keep-placeholder": "Пакіньце пустым, каб захаваць бягучы пароль",
+      "password-label": "Пароль праграмы",
+      "password-placeholder": "Пароль для праграмы",
+      "password-save-error": "Не ўдалося захаваць пароль уліковага запісу календара.",
+      "provider": {
+        "custom": "CalDAV",
+        "google": "Google",
+        "icloud": "iCloud"
+      },
+      "provider-label": "Пастаўшчык",
+      "save": "Захаваць",
+      "save-connect": "Захаваць і падлучыць",
+      "save-error": "Не ўдалося захаваць уліковы запіс календара.",
+      "server-url-label": "URL сервера",
+      "username-label": "Імя карыстальніка",
+      "username-placeholder": "name@example.com"
+    },
+    "controls": {
+      "keybind": {
+        "add": "Націсніце, каб дадаць спалучэнне клавіш",
+        "recording-placeholder": "Націсніце спалучэнне клавіш…",
+        "unset-placeholder": "Націсніце, каб прывязаць…"
+      },
+      "list": {
+        "add-entry-placeholder": "Дадаць запіс…"
+      },
+      "path-browse": {
+        "file-title": "Выбраць файл",
+        "folder-title": "Выбраць папку"
+      },
+      "select": {
+        "unknown-value": "Невядома: {value}"
+      }
+    },
+    "dialogs": {
+      "color-picker": {
+        "title": "Выбраць колер"
+      }
+    },
+    "entities": {
+      "bar": {
+        "create": "Стварыць",
+        "delete": "Выдаліць",
+        "delete-confirm-desc": "Гэта панэль, створаная ў GUI, будзе выдалена з settings.toml.",
+        "delete-confirm-title": "Выдаліць \"{name}\"?",
+        "id-placeholder": "ID панэлі",
+        "label": "Панэль: {name}",
+        "management": "Панэль",
+        "move-down": "Перамясціць ніжэй",
+        "move-up": "Перамясціць вышэй",
+        "new": "Новая панэль",
+        "rename": "Перайменаваць",
+        "rename-save": "Захаваць"
+      },
+      "monitor-override": {
+        "create": "Стварыць",
+        "delete": "Выдаліць",
+        "delete-confirm-desc": "Гэта перавызначэнне манітора, створанае ў GUI, будзе выдалена з settings.toml.",
+        "delete-confirm-title": "Выдаліць \"{name}\"?",
+        "label": "Манітор: {name}",
+        "management": "Перавызначэнне манітора",
+        "match-placeholder": "Супадзенне манітора",
+        "new": "Перавызначэнне манітора",
+        "rename": "Перайменаваць",
+        "rename-save": "Захаваць"
+      },
+      "widget": {
+        "add": "Дадаць віджэт",
+        "detail": {
+          "custom": "карыстальніцкі віджэт"
+        },
+        "editor": {
+          "description": "Размясціце віджэты па палосах панэлі",
+          "title": "Віджэты панэлі"
+        },
+        "group": {
+          "action": "Згрупаваць",
+          "border": "Мяжа",
+          "border-description": "Колер контуру капсулы; пакіньце Default, каб не было контуру",
+          "clear": "Ачысціць",
+          "edit": "Рэдагаваць стыль",
+          "fill": "Фон",
+          "fill-description": "Колер фону капсулы; таксама падтрымліваюцца фіксаваныя HEX-колеры",
+          "foreground": "Пярэдні план",
+          "foreground-description": "Колер значкоў і метак для віджэтаў у гэтай групе",
+          "hint": "Частка групы-капсулы",
+          "members": "{count} віджэтаў",
+          "opacity": "Непразрыстасць",
+          "opacity-description": "Непразрыстасць фону капсулы",
+          "orphan": "Невядомая група",
+          "padding": "Водступ",
+          "padding-description": "Унутраны водступ паміж краем капсулы і яе віджэтамі, у пікселях",
+          "radius": "Радыус",
+          "radius-description": "Радыус вуглоў капсулы ў пікселях; Auto успадкоўвае радыус капсулы панэлі",
+          "selected": "Выбрана: {count}",
+          "style": "Стыль",
+          "title": "Група-капсула",
+          "ungroup": "Разгрупаваць"
+        },
+        "inspector": {
+          "add-instance-title": "Дадаць новы названы віджэт {widget} у {lane}",
+          "add-title": "Дадаць віджэт у {lane}",
+          "move-to-lane": "Перамясціць у {lane}"
+        },
+        "instance": {
+          "create-save": "Стварыць",
+          "delete": "Выдаліць",
+          "delete-confirm-desc": "Гэты названы віджэт будзе выдалены з кожнай панэлі, а яго налады будуць адкінуты.",
+          "delete-confirm-title": "Выдаліць \"{name}\"?",
+          "id-description": "Выкарыстоўвайце толькі літары, лічбы, падкрэсліванні або злучкі. Без прабелаў; значэнне мусіць быць унікальным.",
+          "id-placeholder": "ID віджэта",
+          "rename": "Перайменаваць",
+          "rename-save": "Захаваць"
+        },
+        "lanes": {
+          "center": "Цэнтр",
+          "customize": "Наладзіць",
+          "empty": "Няма віджэтаў",
+          "empty-hint": "Дадайце віджэт, каб запоўніць гэтую паласу.",
+          "end": "Канец",
+          "start": "Пачатак"
+        },
+        "picker": {
+          "empty": "Віджэты не знойдзены",
+          "instance-description": "Названы віджэт для тыпу \"{type}\"",
+          "instance-toggle": "Названы віджэт",
+          "placeholder": "Пошук віджэтаў..."
+        },
+        "raw": {
+          "delete": "Выдаліць",
+          "description": "Непадтрыманыя ключы, захаваныя з гэтай канфігурацыі віджэта.",
+          "title": "Сырыя налады"
+        },
+        "settings": {
+          "empty": "Няма налад, якія адпавядаюць бягучым фільтрам.",
+          "groups": {
+            "grouping": "Групаванне",
+            "presentation": "Паказ",
+            "runtime": "Выкананне",
+            "widget": "Віджэт"
+          }
+        }
+      }
+    }
   }
 }
