@@ -918,6 +918,141 @@
         "templates": "Шаблёны",
         "wallpaper": "Шпалеры"
       }
+    },
+    "options": {
+      "clipboard": {
+        "auto-paste": {
+          "ctrl-shift-v": "Ctrl+Shift+V",
+          "ctrl-v": "Ctrl+V",
+          "shift-insert": "Shift+Insert"
+        }
+      },
+      "control-center": {
+        "sidebar": {
+          "compact": "Кампактная",
+          "full": "Поўная",
+          "none": "Няма"
+        }
+      },
+      "dock-launcher-position": {
+        "end": "У канцы",
+        "none": "Няма",
+        "start": "У пачатку"
+      },
+      "edge": {
+        "bottom": "Зьнізу",
+        "left": "Зьлева",
+        "right": "Справа",
+        "top": "Зьверху"
+      },
+      "font-weight": {
+        "bold": "Тлусты",
+        "book": "Кніжны",
+        "default": "Стандартны (панэль)",
+        "heavy": "Цяжкі",
+        "light": "Лёгкі",
+        "medium": "Сярэдні",
+        "regular": "Звычайны",
+        "semi-bold": "Паўтлусты",
+        "semi-light": "Паўлёгкі",
+        "thin": "Тонкі",
+        "ultra-bold": "Ультратлусты",
+        "ultra-heavy": "Ультрацяжкі",
+        "ultra-light": "Ультралёгкі"
+      },
+      "layer": {
+        "overlay": "Накладка",
+        "top": "Зьверху"
+      },
+      "notification-urgency": {
+        "critical": "Крытычная",
+        "low": "Нізкая",
+        "normal": "Звычайная"
+      },
+      "orientation": {
+        "horizontal": "Гарызантальная",
+        "vertical": "Вэртыкальная"
+      },
+      "screen-position": {
+        "bottom-center": "Унізе па цэнтры",
+        "bottom-left": "Унізе зьлева",
+        "bottom-right": "Унізе справа",
+        "center-left": "Па цэнтры зьлева",
+        "center-right": "Па цэнтры справа",
+        "top-center": "Уверсе па цэнтры",
+        "top-left": "Уверсе зьлева",
+        "top-right": "Уверсе справа"
+      },
+      "shell": {
+        "panel-placement": {
+          "attached": "Прымацаваная",
+          "centered": "Па цэнтры",
+          "floating": "Плаваючая"
+        },
+        "panel-transparency": {
+          "glass": "Шкло",
+          "soft": "Мяккая",
+          "solid": "Суцэльная"
+        },
+        "password-style": {
+          "filled-circles": "Запоўненыя кругі",
+          "random-icons": "Выпадковыя значкі"
+        },
+        "shadow-direction": {
+          "center": "Па цэнтры",
+          "down": "Уніз",
+          "down-left": "Уніз зьлева",
+          "down-right": "Уніз справа",
+          "left": "Улева",
+          "right": "Управа",
+          "up": "Уверх",
+          "up-left": "Уверх зьлева",
+          "up-right": "Уверх справа"
+        }
+      },
+      "theme": {
+        "mode": {
+          "dark": "Цёмная",
+          "light": "Сьветлая"
+        },
+        "source": {
+          "built-in": "Убудаваная",
+          "community": "Супольнасьць",
+          "custom": "Карыстальніцкая",
+          "wallpaper": "Шпалеры"
+        }
+      },
+      "theme-role": {
+        "custom": "Карыстальніцкая…",
+        "default": "Стандартная"
+      },
+      "wallpaper": {
+        "fill": {
+          "center": "Па цэнтры",
+          "crop": "Абрэзаць",
+          "fit": "Упісаць",
+          "repeat": "Паўтараць",
+          "stretch": "Расцягнуць"
+        },
+        "order": {
+          "alphabetical": "Па альфабэце",
+          "random": "Выпадкова"
+        },
+        "transition": {
+          "disc": "Дыск",
+          "fade": "Згасаньне",
+          "honeycomb": "Соты",
+          "stripes": "Палосы",
+          "wipe": "Сьціраньне",
+          "zoom": "Маштабаваньне"
+        }
+      },
+      "weather": {
+        "unit": {
+          "imperial": "Імпэрская",
+          "metric": "Мэтрычная"
+        }
+      }
     }
   }
 }
