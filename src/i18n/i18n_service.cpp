@@ -37,7 +37,9 @@ namespace i18n {
           if (auto pos = out.find('.'); pos != std::string::npos) {
             out.resize(pos);
           }
+          std::string modifier;
           if (auto pos = out.find('@'); pos != std::string::npos) {
+            modifier = out.substr(pos + 1);
             out.resize(pos);
           }
           for (char& c : out) {
@@ -47,6 +49,11 @@ namespace i18n {
           }
           if (out == "C" || out == "POSIX") {
             return {};
+          }
+          // POSIX locales commonly spell Belarusian Taraškievica as be_BY@tarask.
+          // Map that modifier to the catalog name used by shipped translations.
+          if ((out == "be" || out == "be-BY") && modifier == "tarask") {
+            return "be-tarask";
           }
           return out;
         }
