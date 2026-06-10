@@ -491,5 +491,122 @@
       "address": "Адрас",
       "auto": "Аўта"
     }
+  },
+  "lockscreen": {
+    "authenticating": "Аўтарызацыя...",
+    "authentication-failed": "Праверка сапраўднасці не ўдалася",
+    "password-cleared": "Пароль ачышчаны",
+    "password-placeholder": "Пароль",
+    "ready": "Увядзіце пароль і націсніце Enter.",
+    "unlocked": "Разблакавана",
+    "waiting": "Чаканне пацвярджэння блакавання..."
+  },
+  "notifications": {
+    "actions": {
+      "fallback": "Дзеянне",
+      "open": "Адкрыць"
+    },
+    "inline-reply": {
+      "button": "Адказаць",
+      "placeholder": "Увядзіце адказ..."
+    },
+    "internal": {
+      "battery": "Батарэя",
+      "battery-device": "Прылада батарэі",
+      "battery-low-body": "{device}: засталося {percent}%",
+      "battery-low-title": "Нізкі зарад батарэі",
+      "calendar": "Каляндар",
+      "calendar-google-connect-browser-failed": "Не ўдалося запусціць браўзер для аўтарызацыі Google. Праверце стандартны браўзер або наладу xdg-open.",
+      "calendar-google-connect-expired": "Тэрмін аўтарызацыі Google скончыўся да завяршэння ўваходу. Запусціце падлучэнне зноў.",
+      "calendar-google-connect-failed-title": "Не ўдалося падлучыцца да Google Calendar",
+      "calendar-google-connect-missing-account": "Ніводзін наладжаны ўліковы запіс календара Google не адпавядае \"{account}\".",
+      "calendar-google-connect-rate-limited": "Аўтарызацыя Google часова абмежавана. Пачакайце крыху і паспрабуйце зноў.",
+      "calendar-google-connect-result-failed": "Не ўдалося завяршыць аўтарызацыю Google. Запусціце падлучэнне зноў.",
+      "calendar-google-connect-start-failed": "Не ўдалося запусціць аўтарызацыю Google. Праверце сеткавае злучэнне і паспрабуйце зноў.",
+      "calendar-google-connect-start-http": "Не ўдалося запусціць аўтарызацыю Google. OAuth-брокер вярнуў HTTP {status}.",
+      "calendar-google-connect-timeout": "Час чакання аўтарызацыі Google скончыўся. Запусціце падлучэнне зноў, калі будзеце гатовыя ўвайсці.",
+      "dbus-disabled": "Апавяшчэнні DBus адключаны",
+      "desktop-widgets-editor": "Рэдактар віджэтаў",
+      "desktop-widgets-editor-enabled": "Рэдактар віджэтаў працоўнага стала ўключаны. Пераключыцеся на пустую працоўную прастору, каб убачыць накладку рэдактара.",
+      "greeter-sync": "Noctalia Greeter",
+      "greeter-sync-success": "Выгляд сінхранізаваны. Змены прымяняцца на наступным экране ўваходу.",
+      "keybind-app": "Noctalia",
+      "keybind-invalid-modifier": "Гэта спалучэнне прымае адну клавішу без мадыфікатараў.",
+      "keybind-invalid-printable": "Друкаваныя клавішы (літары, лічбы, сімвалы) патрабуюць мадыфікатар, напрыклад Ctrl або Alt.",
+      "keybind-invalid-super": "Клавішу Super/Windows нельга выкарыстоўваць у спалучэннях клавіш абалонкі.",
+      "keybind-invalid-title": "Недапушчальнае спалучэнне клавіш",
+      "lockscreen-widgets-editor": "Рэдактар віджэтаў экрана блакавання",
+      "lockscreen-widgets-editor-blocked-locked": "Разблакуйце сеанс перад рэдагаваннем віджэтаў экрана блакавання.",
+      "lockscreen-widgets-editor-enabled": "Рэдактар віджэтаў экрана блакавання ўключаны. Размясціце віджэты на накладцы папярэдняга прагляду, потым заблакуйце сеанс, каб праверыць макет.",
+      "mpris-disabled": "MPRIS адключаны",
+      "session-bus-unavailable": "Шына сеанса недаступная",
+      "wallpaper-palette-export": "Карыстальніцкая палітра",
+      "wallpaper-palette-export-success": "Захавана \"{name}\", і крыніца палітры пераключана на карыстальніцкую."
+    }
+  },
+  "osd": {
+    "bluetooth": {
+      "off": "Bluetooth выключаны",
+      "on": "Bluetooth уключаны"
+    },
+    "caffeine": {
+      "off": "Caffeine выключаны",
+      "on": "Caffeine уключаны"
+    },
+    "dnd": {
+      "off": "Не турбаваць выключана",
+      "on": "Не турбаваць уключана"
+    },
+    "lock-keys": {
+      "caps-off": "Caps Lock выключаны",
+      "caps-on": "Caps Lock уключаны",
+      "num-off": "Num Lock выключаны",
+      "num-on": "Num Lock уключаны",
+      "scroll-off": "Scroll Lock выключаны",
+      "scroll-on": "Scroll Lock уключаны"
+    },
+    "wifi": {
+      "off": "Wi-Fi выключаны",
+      "on": "Wi-Fi уключаны"
+    }
+  },
+  "power": {
+    "battery": {
+      "states": {
+        "battery": "Батарэя",
+        "charging": "Зараджаецца",
+        "discharging": "Разраджаецца",
+        "empty": "Пустая",
+        "pending-discharge": "Чакае разрадкі",
+        "plugged-in": "Падлучана"
+      },
+      "tooltip": {
+        "health": "Стан",
+        "rate": "Хуткасць",
+        "status": "Статус",
+        "time-left": "Засталося часу",
+        "time-to-full": "Да поўнага зараду"
+      }
+    },
+    "profiles": {
+      "balanced": "Збалансаваны",
+      "performance": "Прадукцыйнасць",
+      "power-saver": "Эканомія энергіі"
+    }
+  },
+  "session": {
+    "actions": {
+      "custom": "Карыстальніцкае",
+      "lock": "Заблакаваць",
+      "lock-and-suspend": "Заблакаваць і прыпыніць",
+      "logout": "Выйсці",
+      "reboot": "Перазапусціць",
+      "shutdown": "Выключыць",
+      "suspend": "Прыпыніць"
+    },
+    "errors": {
+      "lock-body": "Пратакол блакавання сеанса недаступны.",
+      "lock-title": "Блакаванне недаступнае"
+    }
   }
 }
