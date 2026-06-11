@@ -63,11 +63,15 @@
           programs.noctalia.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.default;
         };
 
-      hjemModules.default =
-        { pkgs, lib, ... }:
-        {
-          imports = [ ./nix/hjem-module.nix ];
-          programs.noctalia.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.default;
-        };
+      nixosModules = {
+        default = self.nixosModules.noctalia;
+
+        noctalia =
+          { pkgs, lib, ... }:
+          {
+            imports = [ ./nix/hjem-module.nix ];
+            programs.noctalia.package = lib.mkDefault self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+          };
+      };
     };
 }
