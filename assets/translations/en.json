@@ -2474,6 +2474,10 @@
           "description": "Hide the battery widget when fully charged",
           "label": "Hide When Full"
         },
+        "hide-when-idle": {
+          "description": "Hide the battery widget while plugged in but not charging (e.g. held at a BIOS charge limit)",
+          "label": "Hide When Idle"
+        },
         "hide-when-no-connected-device": {
           "description": "Hide the bluetooth widget when no device is connected",
           "label": "Hide When No Connected Device"

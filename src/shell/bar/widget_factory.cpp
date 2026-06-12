@@ -182,6 +182,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
     const bool showLabel = wc != nullptr ? wc->getBool("show_label", true) : true;
     const bool hideWhenPlugged = wc != nullptr ? wc->getBool("hide_when_plugged", false) : false;
     const bool hideWhenFull = wc != nullptr ? wc->getBool("hide_when_full", false) : false;
+    const bool hideWhenIdle = wc != nullptr ? wc->getBool("hide_when_idle", false) : false;
     BatteryDisplayMode displayMode = BatteryDisplayMode::Glyph;
     if (displayModeStr == "graphic") {
       displayMode = BatteryDisplayMode::Graphic;
@@ -189,7 +190,8 @@ std::unique_ptr<Widget> WidgetFactory::create(
       kLog.warn("invalid widget.{}.display_mode '{}'; expected glyph or graphic", name, displayModeStr);
     }
     auto widget = std::make_unique<BatteryWidget>(
-        m_upower, deviceSelector, warningThreshold, warningColor, displayMode, showLabel, hideWhenPlugged, hideWhenFull
+        m_upower, deviceSelector, warningThreshold, warningColor, displayMode, showLabel, hideWhenPlugged, hideWhenFull,
+        hideWhenIdle
     );
     widget->setContentScale(contentScale);
     return widget;

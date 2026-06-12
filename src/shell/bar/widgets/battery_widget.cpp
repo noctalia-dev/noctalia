@@ -68,11 +68,11 @@ namespace {
 
 BatteryWidget::BatteryWidget(
     UPowerService* upower, std::string deviceSelector, int warningThreshold, ColorSpec warningColor,
-    BatteryDisplayMode displayMode, bool showLabel, bool hideWhenPlugged, bool hideWhenFull
+    BatteryDisplayMode displayMode, bool showLabel, bool hideWhenPlugged, bool hideWhenFull, bool hideWhenIdle
 )
     : m_upower(upower), m_deviceSelector(std::move(deviceSelector)), m_warningThreshold(warningThreshold),
       m_warningColor(warningColor), m_displayMode(displayMode), m_showLabel(showLabel),
-      m_hideWhenPlugged(hideWhenPlugged), m_hideWhenFull(hideWhenFull) {}
+      m_hideWhenPlugged(hideWhenPlugged), m_hideWhenFull(hideWhenFull), m_hideWhenIdle(hideWhenIdle) {}
 
 void BatteryWidget::create() {
   auto container = std::make_unique<InputArea>();
@@ -356,9 +356,13 @@ void BatteryWidget::syncState(Renderer& renderer) {
       || s.state == BatteryState::FullyCharged
       || s.state == BatteryState::PendingCharge;
 
+  // The battery is not charging due to a charge limit, but still plugged in.
+  const bool isIdle = s.state == BatteryState::PendingCharge;
+
   const bool showWidget = s.isPresent
       && !(m_hideWhenPlugged && isPluggedIn)
-      && !(m_hideWhenFull && (s.state == BatteryState::FullyCharged || s.state == BatteryState::PendingCharge));
+      && !(m_hideWhenFull && s.state == BatteryState::FullyCharged)
+      && !(m_hideWhenIdle && isIdle);
 
   auto* rootNode = root();
   if (rootNode != nullptr) {

@@ -639,6 +639,7 @@ namespace settings {
       add(boolSpec("show_label", true));
       add(boolSpec("hide_when_plugged", false));
       add(boolSpec("hide_when_full", false));
+      add(boolSpec("hide_when_idle", false));
       add(selectSpec("device", "auto", {{"auto", "common.states.auto"}}));
       {
         auto warn = colorSpec("warning_color", "error");
