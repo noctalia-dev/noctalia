@@ -215,7 +215,10 @@ namespace {
   }
 
   bool isPrimaryCpuSensorLabel(const std::string& label) {
-    return label.starts_with("Package id") || label.starts_with("Tdie") || label.starts_with("SoC Temperature");
+    return label.starts_with("Package id")
+        || label.starts_with("Tdie")
+        || label.starts_with("Tctl")
+        || label.starts_with("SoC Temperature");
   }
 
   bool isCoreCpuSensorLabel(const std::string& label) { return label.starts_with("Core") || label.starts_with("Tccd"); }
