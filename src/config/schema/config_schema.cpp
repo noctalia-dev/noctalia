@@ -1112,6 +1112,7 @@ namespace noctalia::config::schema {
         field(&ShellConfig::appIconColorize, "app_icon_colorize"),
         colorSpecField(&ShellConfig::appIconColor, "app_icon_color", /*alwaysEmit=*/false),
         field(&ShellConfig::launchAppsAsSystemdServices, "launch_apps_as_systemd_services"),
+        field(&ShellConfig::launchAppsCustomCommand, "launch_apps_custom_command"),
         field(&ShellConfig::clipboardEnabled, "clipboard_enabled"),
         field(
             &ShellConfig::clipboardHistoryMaxEntries, "clipboard_history_max_entries", kClipboardHistoryMaxEntriesRange

@@ -1988,6 +1988,11 @@
           "description": "Launches applications in separate systemd services so they don't share Noctalia's cgroup",
           "label": "Launch Apps as systemd Services"
         },
+        "launch-apps-custom-command": {
+          "description": "Custom command used by the app launcher, it substitutes $CMD with the original command.",
+          "label": "Custom Launcher Command",
+          "placeholder": "$CMD"
+        },
         "middle-click-opens-widget-settings": {
           "description": "Open a bar widget's settings from the bar with middle click",
           "label": "Middle Click Opens Widget Settings"

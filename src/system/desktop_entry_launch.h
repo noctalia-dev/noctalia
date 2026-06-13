@@ -12,6 +12,7 @@ namespace desktop_entry_launch {
   struct LaunchOptions {
     std::string activationToken;
     bool runAsSystemdService = false;
+    std::string customCommand;
   };
 
   struct PrepareOptions {

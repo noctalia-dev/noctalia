@@ -124,8 +124,25 @@ namespace desktop_entry_launch {
     return PreparedCommand{std::move(args)};
   }
 
+  std::string parseCustomCommand(const std::string& exec, const std::string& customCommand) {
+    std::string command;
+    if (!customCommand.empty()) {
+      command = customCommand;
+      size_t pos = 0;
+      while ((pos = command.find("$CMD", pos)) != std::string::npos) {
+        command.replace(pos, 4, exec);
+        pos += exec.length();
+      }
+    } else {
+      command = exec;
+    }
+    return command;
+  }
+
   bool launchEntry(const DesktopEntry& entry, const LaunchOptions& options) {
-    auto prepared = prepareCommand(entry.exec, entry.terminal);
+    const std::string command = parseCustomCommand(entry.exec, options.customCommand);
+    auto prepared = prepareCommand(command, entry.terminal);
+
     if (!prepared.has_value()) {
       kLog.warn("Failed to prepare launch command for desktop entry '{}'", entry.id.empty() ? entry.name : entry.id);
       return false;
@@ -142,7 +159,8 @@ namespace desktop_entry_launch {
       const DesktopAction& action, std::string_view appName, std::string_view workingDir, bool terminal,
       const LaunchOptions& options
   ) {
-    auto prepared = prepareCommand(action.exec, terminal);
+    const std::string command = parseCustomCommand(action.exec, options.customCommand);
+    auto prepared = prepareCommand(command, terminal);
     if (!prepared.has_value()) {
       kLog.warn(
           "Failed to prepare launch command for desktop action '{}'", action.id.empty() ? action.name : action.id

@@ -238,6 +238,7 @@ bool AppProvider::activate(const LauncherResult& result) {
     desktop_entry_launch::LaunchOptions launchOptions{
         .activationToken = std::move(token),
         .runAsSystemdService = m_config->config().shell.launchAppsAsSystemdServices,
+        .customCommand = m_config->config().shell.launchAppsCustomCommand,
     };
 
     if (chosen != nullptr) {

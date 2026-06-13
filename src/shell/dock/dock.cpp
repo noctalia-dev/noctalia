@@ -65,6 +65,7 @@ namespace {
     return desktop_entry_launch::LaunchOptions{
         .activationToken = std::move(token),
         .runAsSystemdService = config.config().shell.launchAppsAsSystemdServices,
+        .customCommand = config.config().shell.launchAppsCustomCommand,
     };
   }
 

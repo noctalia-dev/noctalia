@@ -1857,6 +1857,7 @@ void TaskbarWidget::openTaskContextMenu(const TaskModel& task, InputArea& area) 
               desktop_entry_launch::LaunchOptions{
                   .activationToken = std::move(token),
                   .runAsSystemdService = configService.config().shell.launchAppsAsSystemdServices,
+                  .customCommand = configService.config().shell.launchAppsCustomCommand,
               }
           );
         });
