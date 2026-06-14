@@ -15,9 +15,15 @@ Item {
   property color borderColor: "transparent"
   property int imageFillMode: Image.PreserveAspectCrop
 
-  readonly property bool _isAnimated: imagePath.toLowerCase().endsWith(".gif")
+  property string _loadedImagePath: ""
+
+  onImagePathChanged: {
+    _loadedImagePath = imagePath;
+  }
+
+  readonly property bool _isAnimated: _loadedImagePath.toLowerCase().endsWith(".gif")
   readonly property Item imageSource: imageSourceLoader.item
-  readonly property bool showFallback: fallbackIcon !== "" && (imagePath === "" || (imageSource && imageSource.status === Image.Error))
+  readonly property bool showFallback: fallbackIcon !== "" && (imagePath === "" || _loadedImagePath === "" || (imageSource && imageSource.status === Image.Error))
   readonly property int status: imageSource ? imageSource.status : Image.Null
 
   Rectangle {
@@ -31,7 +37,7 @@ Item {
       id: imageSourceLoader
       anchors.fill: parent
       anchors.margins: root.borderWidth
-      active: root.imagePath !== ""
+      active: root._loadedImagePath !== ""
       sourceComponent: root._isAnimated ? animatedComponent : staticComponent
     }
 
@@ -39,12 +45,16 @@ Item {
       id: staticComponent
       Image {
         visible: false
-        source: root.imagePath
+        source: root._loadedImagePath
         mipmap: true
         smooth: true
         asynchronous: true
         antialiasing: true
         fillMode: root.imageFillMode
+        onStatusChanged: {
+          if (status === Image.Error)
+            root._loadedImagePath = "";
+        }
       }
     }
 
@@ -52,13 +62,17 @@ Item {
       id: animatedComponent
       AnimatedImage {
         visible: false
-        source: root.imagePath
+        source: root._loadedImagePath
         mipmap: true
         smooth: true
         asynchronous: true
         antialiasing: true
         fillMode: root.imageFillMode
         playing: true
+        onStatusChanged: {
+          if (status === Image.Error)
+            root._loadedImagePath = "";
+        }
       }
     }
 
