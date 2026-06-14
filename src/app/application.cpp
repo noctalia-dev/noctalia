@@ -634,7 +634,11 @@ void Application::initServices() {
     }
   });
   m_compositorPlatform.setWorkspaceChangeCallback([this]() {
-    (void)m_compositorPlatform.clearActiveWorkspaceAlerts();
+    if (wl_output* output = m_compositorPlatform.preferredInteractiveOutput(); output != nullptr) {
+      (void)m_compositorPlatform.clearActiveWorkspaceAlerts(output);
+    } else {
+      (void)m_compositorPlatform.clearActiveWorkspaceAlerts();
+    }
     m_bar.refresh();
     m_windowSwitcher.onToplevelChange();
   });
@@ -1955,12 +1959,7 @@ void Application::initIpc() {
     if (keys.empty()) {
       return std::string{"(no workspace alerts)\n"};
     }
-    std::string out;
-    for (const auto& key : keys) {
-      out += key;
-      out += '\n';
-    }
-    return out;
+    return StringUtils::join(keys, "\n") + "\n";
   };
 
   m_ipcService.registerHandler(
@@ -1972,6 +1971,9 @@ void Application::initIpc() {
         }
         if (!m_compositorPlatform.isKnownWorkspaceAlertKey(workspaceKey)) {
           return "error: unknown workspace key '" + workspaceKey + "'\n";
+        }
+        if (m_compositorPlatform.isActiveWorkspaceAlertKey(workspaceKey)) {
+          return "ok\n";
         }
         (void)m_workspaceAlertService.add(workspaceKey);
         m_bar.refresh();
@@ -1989,6 +1991,9 @@ void Application::initIpc() {
         const auto workspaceKey = m_compositorPlatform.workspaceAlertKeyForWindow(parts[0]);
         if (!workspaceKey.has_value()) {
           return "error: could not resolve workspace for window id '" + parts[0] + "'\n";
+        }
+        if (m_compositorPlatform.isActiveWorkspaceAlertKey(*workspaceKey)) {
+          return "ok\n";
         }
         (void)m_workspaceAlertService.add(*workspaceKey);
         m_bar.refresh();

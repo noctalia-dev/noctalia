@@ -94,7 +94,8 @@ private:
   [[nodiscard]] static std::optional<std::size_t> parseTagIndex(const Workspace& workspace);
   [[nodiscard]] static std::optional<std::size_t> parseTagIndex(const std::string& id);
   [[nodiscard]] std::optional<std::size_t> shellActiveTagIndex(const std::vector<TagInfo>& tags) const;
-  [[nodiscard]] static Workspace makeWorkspace(const TagInfo& tag, bool shellActive);
+  [[nodiscard]] static std::string workspaceKey(std::string_view outputName, std::uint32_t tag);
+  [[nodiscard]] static Workspace makeWorkspace(const std::string& outputName, const TagInfo& tag, bool shellActive);
   [[nodiscard]] static std::optional<OutputState> parseMonitor(const nlohmann::json& json);
   [[nodiscard]] static std::optional<ClientState> parseClient(const nlohmann::json& json);
 

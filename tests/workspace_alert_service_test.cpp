@@ -30,6 +30,7 @@ int main() {
 
   WorkspaceAlertService service;
   ok &= check(service.empty(), "new service is empty");
+  ok &= check(service.clearActive(sampleWorkspaces()) == 0, "empty service clearActive is a no-op");
   ok &= check(service.add("2"), "add returns true for new key");
   ok &= check(!service.add("2"), "duplicate add returns false");
   ok &= check(!service.add(""), "empty add is rejected");

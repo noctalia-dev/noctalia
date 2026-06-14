@@ -361,6 +361,9 @@ void TriadWorkspaceBackend::apply(std::vector<Workspace>& workspaces, const std:
       workspace.occupied = false;
       continue;
     }
+    if (const std::string key = workspaceKey(**found); !key.empty()) {
+      workspace.key = key;
+    }
     workspace.index = (*found)->index;
     workspace.occupied = (*found)->occupied;
     workspace.urgent = (*found)->urgent;

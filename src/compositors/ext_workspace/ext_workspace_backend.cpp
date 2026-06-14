@@ -358,7 +358,7 @@ void ExtWorkspaceBackend::onWorkspaceIdChanged(ext_workspace_handle_v1* workspac
   if (it != m_workspaces.end()) {
     const std::string value = id != nullptr ? id : "";
     it->second.id = value;
-    it->second.key = value;
+    it->second.key = !value.empty() ? value : it->second.name;
   }
 }
 
@@ -366,6 +366,9 @@ void ExtWorkspaceBackend::onWorkspaceNameChanged(ext_workspace_handle_v1* worksp
   const auto it = m_workspaces.find(workspace);
   if (it != m_workspaces.end()) {
     it->second.name = name != nullptr ? name : "";
+    if (it->second.id.empty()) {
+      it->second.key = it->second.name;
+    }
   }
 }
 

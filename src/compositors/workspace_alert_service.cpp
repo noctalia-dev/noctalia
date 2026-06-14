@@ -45,6 +45,9 @@ void WorkspaceAlertService::applyOverlay(std::vector<Workspace>& workspaces) con
 }
 
 std::size_t WorkspaceAlertService::clearActive(const std::vector<Workspace>& workspaces) {
+  if (m_alerts.empty()) {
+    return 0;
+  }
   std::size_t cleared = 0;
   for (const auto& workspace : workspaces) {
     if (!workspace.active || workspace.key.empty()) {

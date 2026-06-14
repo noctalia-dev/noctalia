@@ -34,6 +34,10 @@ namespace {
     return it->get<std::string>();
   }
 
+  std::string swayWorkspaceKey(int num, std::string_view name) {
+    return num > 0 ? std::to_string(num) : std::string{name};
+  }
+
   void tallyWorkspaceWindows(
       const nlohmann::json& node, const std::string& currentWorkspace,
       std::unordered_map<std::string, std::size_t>& counts
@@ -148,8 +152,7 @@ namespace {
           workspaceName = name;
         }
         if (const auto numIt = node.find("num"); numIt != node.end() && numIt->is_number_integer()) {
-          const int num = numIt->get<int>();
-          workspaceKey = num > 0 ? std::to_string(num) : workspaceName;
+          workspaceKey = swayWorkspaceKey(numIt->get<int>(), workspaceName);
         } else {
           workspaceKey = workspaceName;
         }
@@ -417,10 +420,8 @@ std::vector<WorkspaceWindow> SwayWorkspaceBackend::workspaceWindows(wl_output* o
     if (workspace.output != outputName) {
       continue;
     }
-    if (workspace.num > 0) {
-      workspaceKeys.insert(std::to_string(workspace.num));
-    } else if (!workspace.name.empty()) {
-      workspaceKeys.insert(workspace.name);
+    if (const std::string key = swayWorkspaceKey(workspace.num, workspace.name); !key.empty()) {
+      workspaceKeys.insert(key);
     }
   }
 
@@ -664,11 +665,10 @@ void SwayWorkspaceBackend::refreshFromWorkspaceEvent() { requestSnapshot(); }
 Workspace SwayWorkspaceBackend::toWorkspace(const SwayWorkspace& workspace) {
   const std::uint32_t coord = workspace.num >= 0 ? static_cast<std::uint32_t>(workspace.num - 1)
                                                  : static_cast<std::uint32_t>(workspace.ordinal);
-  const std::string key = workspace.num > 0 ? std::to_string(workspace.num) : workspace.name;
   return Workspace{
       .id = workspace.name,
       .name = workspace.name,
-      .key = key,
+      .key = swayWorkspaceKey(workspace.num, workspace.name),
       .coordinates = {coord},
       .active = workspace.visible,
       .urgent = workspace.urgent,

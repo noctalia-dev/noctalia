@@ -161,7 +161,7 @@ std::vector<Workspace> MangoWorkspaceBackend::forOutput(wl_output* output) const
   std::vector<Workspace> result;
   result.reserve(state->tags.size());
   for (std::size_t i = 0; i < state->tags.size(); ++i) {
-    result.push_back(makeWorkspace(state->tags[i], shellActive.has_value() && i == *shellActive));
+    result.push_back(makeWorkspace(state->name, state->tags[i], shellActive.has_value() && i == *shellActive));
   }
   return result;
 }
@@ -542,12 +542,20 @@ std::optional<std::size_t> MangoWorkspaceBackend::shellActiveTagIndex(const std:
   return activeTags.front();
 }
 
-Workspace MangoWorkspaceBackend::makeWorkspace(const TagInfo& tag, bool shellActive) {
+std::string MangoWorkspaceBackend::workspaceKey(std::string_view outputName, std::uint32_t tag) {
+  const std::string key = std::to_string(tag);
+  if (outputName.empty()) {
+    return key;
+  }
+  return std::string(outputName) + ":" + key;
+}
+
+Workspace MangoWorkspaceBackend::makeWorkspace(const std::string& outputName, const TagInfo& tag, bool shellActive) {
   const std::string key = std::to_string(tag.index);
   return Workspace{
       .id = key,
       .name = key,
-      .key = key,
+      .key = workspaceKey(outputName, tag.index),
       .coordinates = {tag.index > 0 ? tag.index - 1 : 0},
       .index = tag.index,
       .active = shellActive,

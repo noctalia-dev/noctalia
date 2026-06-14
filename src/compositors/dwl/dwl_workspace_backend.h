@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -15,6 +16,7 @@ struct zdwl_ipc_output_v2;
 
 class DwlWorkspaceBackend final : public WorkspaceBackend,
                                   public OutputLifecycleObserver,
+                                  public WorkspaceOutputNameResolver,
                                   public DwlIpcWorkspaceProtocolBinder {
 public:
   void bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager) override;
@@ -22,6 +24,7 @@ public:
   [[nodiscard]] const char* backendName() const override { return "dwl-ipc"; }
   [[nodiscard]] bool isAvailable() const noexcept override { return m_manager != nullptr; }
   void setChangeCallback(ChangeCallback callback) override;
+  void setOutputNameResolver(WorkspaceOutputNameResolver::Resolver resolver) override;
   void activate(const std::string& id) override;
   void activateForOutput(wl_output* output, const std::string& id) override;
   void activateForOutput(wl_output* output, const Workspace& workspace) override;
@@ -71,15 +74,18 @@ private:
   [[nodiscard]] OutputState* activeOutputState();
   [[nodiscard]] const OutputState* preferredOutputState() const;
   [[nodiscard]] const OutputState* outputStateFor(wl_output* output) const;
+  [[nodiscard]] std::string outputName(wl_output* output) const;
   [[nodiscard]] static std::optional<std::size_t> parseTagIndex(const Workspace& workspace);
   [[nodiscard]] static std::optional<std::size_t> parseTagIndex(const std::string& id);
   [[nodiscard]] std::size_t protocolIndexForDisplay(std::size_t displayIndex) const;
-  [[nodiscard]] static Workspace makeWorkspace(std::size_t index, const TagInfo& tag);
+  [[nodiscard]] static std::string workspaceKey(std::string_view outputName, std::size_t index);
+  [[nodiscard]] static Workspace makeWorkspace(std::string_view outputName, std::size_t index, const TagInfo& tag);
   void notifyChanged();
 
   zdwl_ipc_manager_v2* m_manager = nullptr;
   std::uint32_t m_tagCount = 0;
   std::vector<std::string> m_layouts;
+  WorkspaceOutputNameResolver::Resolver m_outputNameResolver;
   std::unordered_map<wl_output*, OutputState> m_outputs;
   std::unordered_map<zdwl_ipc_output_v2*, wl_output*> m_outputByHandle;
   ChangeCallback m_changeCallback;

@@ -36,6 +36,7 @@ WaylandWorkspaces::WaylandWorkspaces(compositors::CompositorRuntimeRegistry& run
   auto dwlIpcBackend = std::make_unique<DwlWorkspaceBackend>();
   m_dwlIpcWorkspaceBinder = dwlIpcBackend.get();
   m_dwlIpcBackend = dwlIpcBackend.get();
+  m_outputNameResolvers.push_back(dwlIpcBackend.get());
   m_outputObservers.push_back(dwlIpcBackend.get());
   m_backends.push_back(std::move(dwlIpcBackend));
 

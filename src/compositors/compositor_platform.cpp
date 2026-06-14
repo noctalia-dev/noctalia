@@ -852,15 +852,71 @@ bool CompositorPlatform::isKnownWorkspaceAlertKey(std::string_view workspaceKey)
   return false;
 }
 
+bool CompositorPlatform::isActiveWorkspaceAlertKey(std::string_view workspaceKey) const {
+  if (workspaceKey.empty()) {
+    return false;
+  }
+  const auto containsActive = [workspaceKey](const std::vector<Workspace>& workspaces) {
+    return std::any_of(workspaces.begin(), workspaces.end(), [workspaceKey](const Workspace& workspace) {
+      return workspace.active && workspace.key == workspaceKey;
+    });
+  };
+  const auto& outputs = m_wayland.outputs();
+  if (outputs.empty()) {
+    return containsActive(workspaces());
+  }
+  for (const auto& output : outputs) {
+    if (containsActive(workspaces(output.output))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 std::optional<std::string> CompositorPlatform::workspaceAlertKeyForWindow(std::string_view windowId) const {
   if (windowId.empty()) {
     return std::nullopt;
   }
-  return WorkspaceAlertService::workspaceKeyForWindow(windowId, workspaceWindowAssignments());
+  const auto resolveForOutput = [this, windowId](wl_output* output) -> std::optional<std::string> {
+    const auto assignmentKey =
+        WorkspaceAlertService::workspaceKeyForWindow(windowId, workspaceWindowAssignments(output));
+    if (!assignmentKey.has_value()) {
+      return std::nullopt;
+    }
+
+    const auto current = workspaces(output);
+    if (WorkspaceAlertService::isKnownWorkspaceKey(*assignmentKey, current)) {
+      return assignmentKey;
+    }
+    for (const auto& workspace : current) {
+      if (!workspace.key.empty() && (workspace.id == *assignmentKey || workspace.name == *assignmentKey)) {
+        return workspace.key;
+      }
+    }
+    return std::nullopt;
+  };
+
+  const auto& outputs = m_wayland.outputs();
+  if (outputs.empty()) {
+    return resolveForOutput(nullptr);
+  }
+  for (const auto& output : outputs) {
+    if (auto workspaceKey = resolveForOutput(output.output); workspaceKey.has_value()) {
+      return workspaceKey;
+    }
+  }
+  return std::nullopt;
+}
+
+std::size_t CompositorPlatform::clearActiveWorkspaceAlerts(wl_output* output) {
+  if (m_workspaceAlertService == nullptr || m_workspaceAlertService->empty()) {
+    return 0;
+  }
+  return m_workspaceAlertService->clearActive(workspaces(output));
 }
 
 std::size_t CompositorPlatform::clearActiveWorkspaceAlerts() {
-  if (m_workspaceAlertService == nullptr) {
+  if (m_workspaceAlertService == nullptr || m_workspaceAlertService->empty()) {
     return 0;
   }
   std::size_t cleared = 0;

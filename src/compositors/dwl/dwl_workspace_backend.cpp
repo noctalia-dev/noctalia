@@ -103,6 +103,10 @@ void DwlWorkspaceBackend::bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager) {
 
 void DwlWorkspaceBackend::setChangeCallback(ChangeCallback callback) { m_changeCallback = std::move(callback); }
 
+void DwlWorkspaceBackend::setOutputNameResolver(WorkspaceOutputNameResolver::Resolver resolver) {
+  m_outputNameResolver = std::move(resolver);
+}
+
 void DwlWorkspaceBackend::activate(const std::string& id) {
   auto* state = activeOutputState();
   if (state == nullptr) {
@@ -151,7 +155,7 @@ std::vector<Workspace> DwlWorkspaceBackend::forOutput(wl_output* output) const {
   result.reserve(state->tags.size());
   for (std::size_t displayIndex = 0; displayIndex < state->tags.size(); ++displayIndex) {
     const std::size_t protocolIndex = protocolIndexForDisplay(displayIndex);
-    result.push_back(makeWorkspace(displayIndex, state->tags[protocolIndex]));
+    result.push_back(makeWorkspace(outputName(state->output), displayIndex, state->tags[protocolIndex]));
   }
   return result;
 }
@@ -345,6 +349,10 @@ const DwlWorkspaceBackend::OutputState* DwlWorkspaceBackend::outputStateFor(wl_o
   return it != m_outputs.end() ? &it->second : nullptr;
 }
 
+std::string DwlWorkspaceBackend::outputName(wl_output* output) const {
+  return m_outputNameResolver ? m_outputNameResolver(output) : std::string{};
+}
+
 std::optional<std::size_t> DwlWorkspaceBackend::parseTagIndex(const Workspace& workspace) {
   if (!workspace.coordinates.empty()) {
     return static_cast<std::size_t>(workspace.coordinates[0]);
@@ -369,12 +377,20 @@ std::optional<std::size_t> DwlWorkspaceBackend::parseTagIndex(const std::string&
 
 std::size_t DwlWorkspaceBackend::protocolIndexForDisplay(std::size_t displayIndex) const { return displayIndex; }
 
-Workspace DwlWorkspaceBackend::makeWorkspace(std::size_t index, const TagInfo& tag) {
+std::string DwlWorkspaceBackend::workspaceKey(std::string_view outputName, std::size_t index) {
+  const std::string key = std::to_string(index + 1);
+  if (outputName.empty()) {
+    return key;
+  }
+  return std::string(outputName) + ":" + key;
+}
+
+Workspace DwlWorkspaceBackend::makeWorkspace(std::string_view outputName, std::size_t index, const TagInfo& tag) {
   const std::string key = std::to_string(index + 1);
   return Workspace{
       .id = key,
       .name = key,
-      .key = key,
+      .key = workspaceKey(outputName, index),
       .coordinates = {static_cast<std::uint32_t>(index)},
       .index = static_cast<std::uint32_t>(index + 1),
       .active = tag.active,

@@ -106,7 +106,9 @@ public:
   [[nodiscard]] std::vector<Workspace> workspaces(wl_output* output) const;
   void setWorkspaceAlertService(WorkspaceAlertService* service) noexcept;
   [[nodiscard]] bool isKnownWorkspaceAlertKey(std::string_view workspaceKey) const;
+  [[nodiscard]] bool isActiveWorkspaceAlertKey(std::string_view workspaceKey) const;
   [[nodiscard]] std::optional<std::string> workspaceAlertKeyForWindow(std::string_view windowId) const;
+  [[nodiscard]] std::size_t clearActiveWorkspaceAlerts(wl_output* output);
   [[nodiscard]] std::size_t clearActiveWorkspaceAlerts();
   [[nodiscard]] std::unordered_map<std::string, std::vector<std::string>>
   appIdsByWorkspace(wl_output* outputFilter = nullptr) const;

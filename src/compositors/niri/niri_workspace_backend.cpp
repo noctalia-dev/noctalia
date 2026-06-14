@@ -197,7 +197,6 @@ void NiriWorkspaceBackend::apply(std::vector<Workspace>& workspaces, const std::
       }
       workspaces[i].occupied = m_occupancy.contains(matches[i]->id) && m_occupancy.at(matches[i]->id) > 0;
     } else {
-      workspaces[i].key = {};
       workspaces[i].index = 0;
       workspaces[i].occupied = false;
     }
