@@ -47,6 +47,7 @@
 #include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/style.h"
 #include "util/file_utils.h"
+#include "util/string_utils.h"
 
 #include <algorithm>
 #include <chrono>
@@ -1965,13 +1966,12 @@ void Application::initIpc() {
   m_ipcService.registerHandler(
       "workspace-alert-add",
       [this](const std::string& args) -> std::string {
-        const auto parts = noctalia::ipc::splitWords(args);
-        if (parts.size() != 1) {
+        const std::string workspaceKey = StringUtils::trim(args);
+        if (workspaceKey.empty()) {
           return "error: workspace-alert-add requires <workspace-key>\n";
         }
-        const std::string& workspaceKey = parts[0];
         if (!m_compositorPlatform.isKnownWorkspaceAlertKey(workspaceKey)) {
-          return "error: unknown workspace key '" + parts[0] + "'\n";
+          return "error: unknown workspace key '" + workspaceKey + "'\n";
         }
         (void)m_workspaceAlertService.add(workspaceKey);
         m_bar.refresh();
@@ -1999,11 +1999,11 @@ void Application::initIpc() {
   m_ipcService.registerHandler(
       "workspace-alert-clear",
       [this](const std::string& args) -> std::string {
-        const auto parts = noctalia::ipc::splitWords(args);
-        if (parts.size() != 1) {
+        const std::string workspaceKey = StringUtils::trim(args);
+        if (workspaceKey.empty()) {
           return "error: workspace-alert-clear requires <workspace-key>\n";
         }
-        (void)m_workspaceAlertService.clear(parts[0]);
+        (void)m_workspaceAlertService.clear(workspaceKey);
         m_bar.refresh();
         return "ok\n";
       },
