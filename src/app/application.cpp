@@ -386,6 +386,12 @@ void Application::syncClipboardService() {
   }
 }
 
+void Application::syncIdleInhibitLocks() {
+  const std::int64_t screenSaverLocks = m_screenSaverService ? m_screenSaverService->inhibitLocks() : 0;
+  const std::int64_t keepAwakeLocks = m_idleInhibitor.enabled() ? 1 : 0;
+  m_idleManager.setScreenSaverInhibitLocks(screenSaverLocks + keepAwakeLocks);
+}
+
 void Application::run(std::function<void()> startupReadyCallback) {
   initLogFile();
   kLog.info("noctalia {}", noctalia::build_info::displayVersion());
@@ -671,6 +677,7 @@ void Application::initServices() {
   }
   m_idleInhibitor.initialize(m_wayland, &m_renderContext);
   m_idleInhibitor.setChangeCallback([this, shouldRefreshControlCenter]() {
+    syncIdleInhibitLocks();
     m_bar.refresh();
     if (shouldRefreshControlCenter()) {
       m_panelManager.refresh();
@@ -1546,16 +1553,16 @@ void Application::initUi() {
   try {
     m_screenSaverService = std::make_unique<ScreenSaverService>(m_systemBus.get());
     if (m_screenSaverService->active()) {
-      m_screenSaverService->setChangeCallback([this](std::int64_t locks) {
-        m_idleManager.setScreenSaverInhibitLocks(locks);
-      });
-      m_idleManager.setScreenSaverInhibitLocks(m_screenSaverService->inhibitLocks());
+      m_screenSaverService->setChangeCallback([this](std::int64_t /*locks*/) { syncIdleInhibitLocks(); });
+      syncIdleInhibitLocks();
     } else {
       m_screenSaverService.reset();
+      syncIdleInhibitLocks();
     }
   } catch (const std::exception& e) {
     kLog.warn("idle inhibit service disabled: {}", e.what());
     m_screenSaverService.reset();
+    syncIdleInhibitLocks();
   }
   m_configService.addReloadCallback(
       [this]() {

@@ -142,6 +142,7 @@ private:
   void syncPolkitAgent();
   void syncClipboardService();
   void syncScreenTimeService();
+  void syncIdleInhibitLocks();
   bool runUserCommand(const std::string& command);
   bool runUserCommandBlocking(const std::string& command);
   bool runIdleAction(const IdleActionRequest& action);
