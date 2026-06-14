@@ -191,7 +191,9 @@ void NiriWorkspaceBackend::apply(std::vector<Workspace>& workspaces, const std::
 
   for (std::size_t i = 0; i < workspaces.size(); ++i) {
     if (matches[i] != nullptr) {
-      workspaces[i].key = workspaceKey(*matches[i]);
+      if (const std::string key = workspaceKey(*matches[i]); !key.empty()) {
+        workspaces[i].key = key;
+      }
       if (matches[i]->idx > 0) {
         workspaces[i].index = matches[i]->idx;
       }
