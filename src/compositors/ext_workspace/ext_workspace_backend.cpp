@@ -356,7 +356,9 @@ void ExtWorkspaceBackend::onWorkspaceCreated(ext_workspace_handle_v1* workspace)
 void ExtWorkspaceBackend::onWorkspaceIdChanged(ext_workspace_handle_v1* workspace, const char* id) {
   const auto it = m_workspaces.find(workspace);
   if (it != m_workspaces.end()) {
-    it->second.id = id != nullptr ? id : "";
+    const std::string value = id != nullptr ? id : "";
+    it->second.id = value;
+    it->second.key = value;
   }
 }
 

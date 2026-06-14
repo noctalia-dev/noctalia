@@ -543,9 +543,11 @@ std::optional<std::size_t> MangoWorkspaceBackend::shellActiveTagIndex(const std:
 }
 
 Workspace MangoWorkspaceBackend::makeWorkspace(const TagInfo& tag, bool shellActive) {
+  const std::string key = std::to_string(tag.index);
   return Workspace{
-      .id = std::to_string(tag.index),
-      .name = std::to_string(tag.index),
+      .id = key,
+      .name = key,
+      .key = key,
       .coordinates = {tag.index > 0 ? tag.index - 1 : 0},
       .index = tag.index,
       .active = shellActive,

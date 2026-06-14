@@ -664,9 +664,11 @@ void SwayWorkspaceBackend::refreshFromWorkspaceEvent() { requestSnapshot(); }
 Workspace SwayWorkspaceBackend::toWorkspace(const SwayWorkspace& workspace) {
   const std::uint32_t coord = workspace.num >= 0 ? static_cast<std::uint32_t>(workspace.num - 1)
                                                  : static_cast<std::uint32_t>(workspace.ordinal);
+  const std::string key = workspace.num > 0 ? std::to_string(workspace.num) : workspace.name;
   return Workspace{
       .id = workspace.name,
       .name = workspace.name,
+      .key = key,
       .coordinates = {coord},
       .active = workspace.visible,
       .urgent = workspace.urgent,

@@ -14,6 +14,7 @@ struct zdwl_ipc_manager_v2;
 struct Workspace {
   std::string id;
   std::string name;
+  std::string key;
   std::vector<std::uint32_t> coordinates;
   std::uint32_t index = 0;
   bool active = false;
@@ -22,6 +23,15 @@ struct Workspace {
 };
 
 struct WorkspaceWindow {
+  std::string windowId;
+  std::string workspaceKey;
+  std::string appId;
+  std::string title;
+  std::int32_t x = 0;
+  std::int32_t y = 0;
+};
+
+struct WorkspaceWindowAssignment {
   std::string windowId;
   std::string workspaceKey;
   std::string appId;

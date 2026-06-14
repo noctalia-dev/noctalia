@@ -172,6 +172,7 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
         Workspace{
             .id = ws.id,
             .name = ws.name,
+            .key = ws.key,
             .coordinates = ws.coordinates,
             .index = ws.index,
             .active = ws.active,

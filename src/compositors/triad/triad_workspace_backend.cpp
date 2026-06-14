@@ -184,10 +184,12 @@ std::vector<Workspace> TriadWorkspaceBackend::all() const {
   const auto workspaces = sortedWorkspaces();
   result.reserve(workspaces.size());
   for (const auto* workspace : workspaces) {
+    const std::string key = workspaceKey(*workspace);
     result.push_back(
         Workspace{
-            .id = workspaceKey(*workspace),
-            .name = workspace->name.empty() ? workspaceKey(*workspace) : workspace->name,
+            .id = key,
+            .name = workspace->name.empty() ? key : workspace->name,
+            .key = key,
             .coordinates = {workspace->index},
             .index = workspace->index,
             .active = workspace->active,
@@ -204,10 +206,12 @@ std::vector<Workspace> TriadWorkspaceBackend::forOutput(wl_output* output) const
   const auto workspaces = sortedWorkspaces(outputNameFor(output));
   result.reserve(workspaces.size());
   for (const auto* workspace : workspaces) {
+    const std::string key = workspaceKey(*workspace);
     result.push_back(
         Workspace{
-            .id = workspaceKey(*workspace),
-            .name = workspace->name.empty() ? workspaceKey(*workspace) : workspace->name,
+            .id = key,
+            .name = workspace->name.empty() ? key : workspace->name,
+            .key = key,
             .coordinates = {workspace->index},
             .index = workspace->index,
             .active = workspace->active,

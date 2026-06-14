@@ -370,9 +370,11 @@ std::optional<std::size_t> DwlWorkspaceBackend::parseTagIndex(const std::string&
 std::size_t DwlWorkspaceBackend::protocolIndexForDisplay(std::size_t displayIndex) const { return displayIndex; }
 
 Workspace DwlWorkspaceBackend::makeWorkspace(std::size_t index, const TagInfo& tag) {
+  const std::string key = std::to_string(index + 1);
   return Workspace{
-      .id = std::to_string(index + 1),
-      .name = std::to_string(index + 1),
+      .id = key,
+      .name = key,
+      .key = key,
       .coordinates = {static_cast<std::uint32_t>(index)},
       .index = static_cast<std::uint32_t>(index + 1),
       .active = tag.active,

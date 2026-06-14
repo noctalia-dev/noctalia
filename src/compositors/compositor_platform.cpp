@@ -1116,6 +1116,7 @@ bool CompositorPlatform::sameWorkspaceModelSnapshot(
   auto sameWorkspace = [](const Workspace& a, const Workspace& b) {
     return a.id == b.id
         && a.name == b.name
+        && a.key == b.key
         && a.coordinates == b.coordinates
         && a.active == b.active
         && a.urgent == b.urgent
