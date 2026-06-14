@@ -21,6 +21,7 @@
 #include "compositors/triad/triad_output_backend.h"
 #include "compositors/triad/triad_runtime.h"
 #include "compositors/triad/triad_workspace_backend.h"
+#include "compositors/workspace_alert_service.h"
 #include "core/log.h"
 #include "core/process.h"
 #include "wayland/wayland_connection.h"
@@ -814,6 +815,9 @@ std::vector<Workspace> CompositorPlatform::workspaces() const {
   if (m_workspaceMetadataBackend != nullptr) {
     m_workspaceMetadataBackend->apply(current);
   }
+  if (m_workspaceAlertService != nullptr) {
+    m_workspaceAlertService->applyOverlay(current);
+  }
   return current;
 }
 
@@ -822,7 +826,52 @@ std::vector<Workspace> CompositorPlatform::workspaces(wl_output* output) const {
   if (m_workspaceMetadataBackend != nullptr) {
     m_workspaceMetadataBackend->apply(current, connectorNameForOutput(output));
   }
+  if (m_workspaceAlertService != nullptr) {
+    m_workspaceAlertService->applyOverlay(current);
+  }
   return current;
+}
+
+void CompositorPlatform::setWorkspaceAlertService(WorkspaceAlertService* service) noexcept {
+  m_workspaceAlertService = service;
+}
+
+bool CompositorPlatform::isKnownWorkspaceAlertKey(std::string_view workspaceKey) const {
+  if (workspaceKey.empty()) {
+    return false;
+  }
+  const auto& outputs = m_wayland.outputs();
+  if (outputs.empty()) {
+    return WorkspaceAlertService::isKnownWorkspaceKey(workspaceKey, workspaces());
+  }
+  for (const auto& output : outputs) {
+    if (WorkspaceAlertService::isKnownWorkspaceKey(workspaceKey, workspaces(output.output))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::optional<std::string> CompositorPlatform::workspaceAlertKeyForWindow(std::string_view windowId) const {
+  if (windowId.empty()) {
+    return std::nullopt;
+  }
+  return WorkspaceAlertService::workspaceKeyForWindow(windowId, workspaceWindowAssignments());
+}
+
+std::size_t CompositorPlatform::clearActiveWorkspaceAlerts() {
+  if (m_workspaceAlertService == nullptr) {
+    return 0;
+  }
+  std::size_t cleared = 0;
+  const auto& outputs = m_wayland.outputs();
+  if (outputs.empty()) {
+    return m_workspaceAlertService->clearActive(workspaces());
+  }
+  for (const auto& output : outputs) {
+    cleared += m_workspaceAlertService->clearActive(workspaces(output.output));
+  }
+  return cleared;
 }
 
 std::unordered_map<std::string, std::vector<std::string>>

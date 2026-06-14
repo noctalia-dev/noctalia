@@ -11,6 +11,7 @@
 #include <optional>
 #include <poll.h>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -22,6 +23,7 @@ struct hyprland_toplevel_mapping_manager_v1;
 struct zwlr_foreign_toplevel_handle_v1;
 struct ext_foreign_toplevel_handle_v1;
 class WaylandWorkspaces;
+class WorkspaceAlertService;
 
 namespace compositors::hyprland {
   class HyprlandToplevelMapping;
@@ -102,6 +104,10 @@ public:
   void dispatchWorkspacePoll(const std::vector<pollfd>& fds, std::size_t startIdx);
   [[nodiscard]] std::vector<Workspace> workspaces() const;
   [[nodiscard]] std::vector<Workspace> workspaces(wl_output* output) const;
+  void setWorkspaceAlertService(WorkspaceAlertService* service) noexcept;
+  [[nodiscard]] bool isKnownWorkspaceAlertKey(std::string_view workspaceKey) const;
+  [[nodiscard]] std::optional<std::string> workspaceAlertKeyForWindow(std::string_view windowId) const;
+  [[nodiscard]] std::size_t clearActiveWorkspaceAlerts();
   [[nodiscard]] std::unordered_map<std::string, std::vector<std::string>>
   appIdsByWorkspace(wl_output* outputFilter = nullptr) const;
   [[nodiscard]] std::vector<std::string> workspaceDisplayKeys(wl_output* outputFilter = nullptr) const;
@@ -155,6 +161,7 @@ private:
   std::unique_ptr<compositors::CompositorRuntimeRegistry> m_runtimeRegistry;
   std::unique_ptr<WaylandWorkspaces> m_workspaces;
   std::unique_ptr<compositors::WorkspaceMetadataBackend> m_workspaceMetadataBackend;
+  WorkspaceAlertService* m_workspaceAlertService = nullptr;
   std::vector<std::unique_ptr<compositors::FocusedOutputBackend>> m_focusedOutputBackends;
   std::unique_ptr<compositors::OutputPowerBackend> m_outputPowerBackend;
   mutable std::optional<bool> m_lastRequestedOutputPowerState;
