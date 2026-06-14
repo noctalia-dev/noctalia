@@ -572,6 +572,7 @@ void Application::initServices() {
     throw std::runtime_error("failed to connect to Wayland display");
   }
   m_compositorPlatform.initialize();
+  m_compositorPlatform.setWorkspaceAlertService(&m_workspaceAlertService);
   m_screenTimeService.initialize(&m_wayland);
   syncScreenTimeService();
   m_screenTimeService.setChangeCallback([this]() {
@@ -632,6 +633,7 @@ void Application::initServices() {
     }
   });
   m_compositorPlatform.setWorkspaceChangeCallback([this]() {
+    (void)m_compositorPlatform.clearActiveWorkspaceAlerts();
     m_bar.refresh();
     m_windowSwitcher.onToplevelChange();
   });
@@ -1945,6 +1947,89 @@ void Application::initIpc() {
         return "ok\n";
       },
       "dpms-off", "Turn monitors off"
+  );
+
+  auto workspaceAlertStatus = [this]() {
+    const auto keys = m_workspaceAlertService.keys();
+    if (keys.empty()) {
+      return std::string{"(no workspace alerts)\n"};
+    }
+    std::string out;
+    for (const auto& key : keys) {
+      out += key;
+      out += '\n';
+    }
+    return out;
+  };
+
+  m_ipcService.registerHandler(
+      "workspace-alert-add",
+      [this](const std::string& args) -> std::string {
+        const auto parts = noctalia::ipc::splitWords(args);
+        if (parts.size() != 1) {
+          return "error: workspace-alert-add requires <workspace-key>\n";
+        }
+        const std::string& workspaceKey = parts[0];
+        if (!m_compositorPlatform.isKnownWorkspaceAlertKey(workspaceKey)) {
+          return "error: unknown workspace key '" + parts[0] + "'\n";
+        }
+        (void)m_workspaceAlertService.add(workspaceKey);
+        m_bar.refresh();
+        return "ok\n";
+      },
+      "workspace-alert-add <workspace-key>", "Add a workspace alert"
+  );
+  m_ipcService.registerHandler(
+      "workspace-alert-add-window",
+      [this](const std::string& args) -> std::string {
+        const auto parts = noctalia::ipc::splitWords(args);
+        if (parts.size() != 1) {
+          return "error: workspace-alert-add-window requires <window-id>\n";
+        }
+        const auto workspaceKey = m_compositorPlatform.workspaceAlertKeyForWindow(parts[0]);
+        if (!workspaceKey.has_value()) {
+          return "error: could not resolve workspace for window id '" + parts[0] + "'\n";
+        }
+        (void)m_workspaceAlertService.add(*workspaceKey);
+        m_bar.refresh();
+        return "ok\n";
+      },
+      "workspace-alert-add-window <window-id>", "Add a workspace alert for a window"
+  );
+  m_ipcService.registerHandler(
+      "workspace-alert-clear",
+      [this](const std::string& args) -> std::string {
+        const auto parts = noctalia::ipc::splitWords(args);
+        if (parts.size() != 1) {
+          return "error: workspace-alert-clear requires <workspace-key>\n";
+        }
+        (void)m_workspaceAlertService.clear(parts[0]);
+        m_bar.refresh();
+        return "ok\n";
+      },
+      "workspace-alert-clear <workspace-key>", "Clear a workspace alert"
+  );
+  m_ipcService.registerHandler(
+      "workspace-alert-clear-all",
+      [this](const std::string& args) -> std::string {
+        if (!noctalia::ipc::splitWords(args).empty()) {
+          return "error: workspace-alert-clear-all takes no arguments\n";
+        }
+        m_workspaceAlertService.clearAll();
+        m_bar.refresh();
+        return "ok\n";
+      },
+      "workspace-alert-clear-all", "Clear all workspace alerts"
+  );
+  m_ipcService.registerHandler(
+      "workspace-alert-status",
+      [workspaceAlertStatus](const std::string& args) -> std::string {
+        if (!noctalia::ipc::splitWords(args).empty()) {
+          return "error: workspace-alert-status takes no arguments\n";
+        }
+        return workspaceAlertStatus();
+      },
+      "workspace-alert-status", "Print workspace alerts"
   );
 
   registerSessionIpc(m_ipcService, m_sessionActionRunner, m_lockScreen, m_configService);
