@@ -27,5 +27,10 @@ in
     programs.noctalia.package = mkDefault package;
   };
 
+  nixosModule = {
+    imports = [ ./nix/nixos-module.nix ];
+    programs.noctalia.package = mkDefault package;
+  };
+
   inherit package;
 }
