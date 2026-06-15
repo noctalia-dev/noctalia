@@ -1190,6 +1190,7 @@ struct ThemeConfig {
   std::string communityPalette = "Oxocarbon";
   std::string customPalette;
   std::string wallpaperScheme = "m3-content";
+  std::vector<std::string> wallpaperFallbackColor = {"#4285f4"};
   ThemeMode mode = ThemeMode::Dark;
   TemplatesConfig templates;
 

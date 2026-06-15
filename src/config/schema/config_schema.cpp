@@ -1076,6 +1076,7 @@ namespace noctalia::config::schema {
         field(&ThemeConfig::communityPalette, "community_palette"),
         field(&ThemeConfig::customPalette, "custom_palette"),
         field(&ThemeConfig::wallpaperScheme, "wallpaper_scheme"),
+        field(&ThemeConfig::wallpaperFallbackColor, "wallpaper_fallback_colors"),
         enumField(&ThemeConfig::mode, "mode", kThemeModes),
         subTable(&ThemeConfig::templates, "templates", templatesSchema()),
     };

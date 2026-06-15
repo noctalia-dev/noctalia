@@ -38,28 +38,29 @@ namespace noctalia::theme {
         "schemes produce very different results.\n"
         "\n"
         "Options:\n"
-        "  --scheme <name>   Material You (Material Design 3):\n"
-        "                      m3-tonal-spot  (default)\n"
-        "                      m3-content\n"
-        "                      m3-fruit-salad\n"
-        "                      m3-rainbow\n"
-        "                      m3-monochrome\n"
-        "                    Custom (HSL-space, non-M3):\n"
-        "                      vibrant\n"
-        "                      faithful\n"
-        "                      dysfunctional\n"
-        "                      muted\n"
-        "  --dark            Emit only the dark variant (default)\n"
-        "  --light           Emit only the light variant\n"
-        "  --both            Emit both variants under dark/light keys\n"
-        "  --theme-json <f>  Load precomputed dark/light token maps from JSON\n"
-        "  -o <file>         Write JSON to file instead of stdout\n"
-        "  -r <in:out>       Render a template file to an output path\n"
-        "  -c <file>         Process a TOML template config file\n"
-        "  --builtin-config  Process the shipped built-in template catalog\n"
-        "  --list-templates  List built-in, cached community, and configured user templates\n"
-        "                    Use -c <file> to include a specific template config\n"
-        "  --default-mode    Template default mode: dark or light";
+        "  --scheme <name>           Material You (Material Design 3):\n"
+        "                              m3-tonal-spot  (default)\n"
+        "                              m3-content\n"
+        "                              m3-fruit-salad\n"
+        "                              m3-rainbow\n"
+        "                              m3-monochrome\n"
+        "                            Custom (HSL-space, non-M3):\n"
+        "                              vibrant\n"
+        "                              faithful\n"
+        "                              dysfunctional\n"
+        "                              muted\n"
+        "  --dark                    Emit only the dark variant (default)\n"
+        "  --light                   Emit only the light variant\n"
+        "  --both                    Emit both variants under dark/light keys\n"
+        "  --theme-json <f>          Load precomputed dark/light token maps from JSON\n"
+        "  --fallback-color <color>  Color to use if no good color found from the image\n"
+        "  -o <file>                 Write JSON to file instead of stdout\n"
+        "  -r <in:out>               Render a template file to an output path\n"
+        "  -c <file>                 Process a TOML template config file\n"
+        "  --builtin-config          Process the shipped built-in template catalog\n"
+        "  --list-templates          List built-in, cached community, and configured user templates\n"
+        "                            Use -c <file> to include a specific template config\n"
+        "  --default-mode            Template default mode: dark or light";
 
     std::filesystem::path builtinTemplateConfigPath() { return paths::assetPath("templates/builtin.toml"); }
 
@@ -429,6 +430,7 @@ namespace noctalia::theme {
     bool listTemplatesRequested = false;
     std::string defaultMode = "dark";
     std::vector<std::string> renderSpecs;
+    std::string fallbackColor = "#4285f4";
 
     for (int i = 2; i < argc; ++i) {
       const char* a = argv[i];
@@ -442,6 +444,10 @@ namespace noctalia::theme {
       }
       if (std::strcmp(a, "--theme-json") == 0 && i + 1 < argc) {
         themeJsonPath = argv[++i];
+        continue;
+      }
+      if (std::strcmp(a, "--fallback-color") == 0 && i + 1 < argc) {
+        fallbackColor = argv[++i];
         continue;
       }
       if (std::strcmp(a, "--dark") == 0) {
@@ -525,7 +531,9 @@ namespace noctalia::theme {
         return 1;
       }
 
-      palette = generate(loaded->rgb, *schemeOpt, &err);
+      const Color fallback = Color::fromHex(fallbackColor);
+
+      palette = generate(loaded->rgb, {fallback.toArgb()}, *schemeOpt, &err);
       if (palette.dark.empty() && palette.light.empty()) {
         std::fprintf(stderr, "error: palette generation failed: %s\n", err.empty() ? "unknown error" : err.c_str());
         return 1;

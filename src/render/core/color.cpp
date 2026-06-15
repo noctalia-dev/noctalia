@@ -90,6 +90,13 @@ void rgbToHsv(const Color& rgb, float& h, float& s, float& v) {
   h = h - std::floor(h);
 }
 
+uint32_t rgbToArgb(const Color& rgb) {
+  return (static_cast<uint32_t>(rgb.a * 255.0f) << 24U)
+      | (static_cast<uint32_t>(rgb.r * 255.0f) << 16U)
+      | (static_cast<uint32_t>(rgb.g * 255.0f) << 8U)
+      | static_cast<uint32_t>(rgb.b * 255.0f);
+}
+
 float relativeLuminance(const Color& color) {
   return 0.2126f * linearizedColorChannel(color.r)
       + 0.7152f * linearizedColorChannel(color.g)

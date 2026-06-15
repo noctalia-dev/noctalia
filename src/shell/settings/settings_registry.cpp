@@ -401,6 +401,12 @@ namespace settings {
           tr("settings.schema.appearance.wallpaper-generation-scheme.description"), {"theme", "wallpaper_scheme"},
           wallpaperSchemeSelect(cfg.theme.wallpaperScheme), "wallpaper palette generator scheme material you m3 colors"
       ));
+      entries.push_back(makeEntry(
+          SettingsSection::Appearance, "theme", tr("settings.schema.appearance.wallpaper-fallback-colors.label"),
+          tr("settings.schema.appearance.wallpaper-fallback-colors.description"),
+          {"theme", "wallpaper_fallback_colors"}, ListSetting{.items = cfg.theme.wallpaperFallbackColor},
+          "fallback colors for wallpaper palette generation"
+      ));
     } else if (cfg.theme.source == PaletteSource::Community) {
       SettingControl communityPaletteControl =
           TextSetting{.value = cfg.theme.communityPalette, .placeholder = "Oxocarbon", .browseFileExtensions = {}};

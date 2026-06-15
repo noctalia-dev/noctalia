@@ -6,6 +6,7 @@
 #include "core/scoped_timer.h"
 #include "ipc/ipc_service.h"
 #include "net/http_client.h"
+#include "render/core/color.h"
 #include "system/day_night_schedule.h"
 #include "theme/builtin_palettes.h"
 #include "theme/community_palettes.h"
@@ -436,7 +437,18 @@ namespace noctalia::theme {
       return std::nullopt;
     }
     profiling::StopWatch genWatch;
-    auto generated = generate(image->rgb, *scheme, &err);
+
+    std::vector<uint32_t> fallbackColors;
+    for (const auto& c : cfg.wallpaperFallbackColor) {
+      Color color;
+      if (tryParseHexColor(c, color)) {
+        fallbackColors.push_back(rgbToArgb(color));
+      } else {
+        kLog.warn("failed to parse wallpaper fallback color '{}'; ignoring", c);
+      }
+    }
+
+    auto generated = generate(image->rgb, fallbackColors, *scheme, &err);
     if (profiling::enabled()) {
       kLog.info("theme: wallpaper palette generate: {:.1f} ms", genWatch.elapsedMs());
     }

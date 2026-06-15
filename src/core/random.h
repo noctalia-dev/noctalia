@@ -14,4 +14,9 @@ namespace Random {
     return dist(rng());
   }
 
+  template <typename T> inline T randomInt(T min, T max) {
+    std::uniform_int_distribution<T> dist(min, max);
+    return dist(rng());
+  }
+
 } // namespace Random

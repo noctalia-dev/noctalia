@@ -1232,6 +1232,10 @@
         "wallpaper-generation-scheme": {
           "description": "Choose how wallpaper colors are converted into a palette",
           "label": "Wallpaper Generation Scheme"
+        },
+        "wallpaper-fallback-colors": {
+          "description": "Color to use for the palette when the wallpaper doesn't contains suitable colors",
+          "label": "Wallpaper Fallback Colors"
         }
       },
       "backdrop": {

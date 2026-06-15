@@ -1,3 +1,4 @@
+#include "core/random.h"
 #include "cpp/cam/cam.h"
 #include "cpp/cam/hct.h"
 #include "cpp/dynamiccolor/dynamic_scheme.h"
@@ -299,8 +300,6 @@ namespace noctalia::theme {
       }
 
       std::vector<mcu::Argb> out;
-      if (chosen.empty())
-        out.push_back(0xff4285f4u);
       for (auto& h : chosen)
         out.push_back(h.ToInt());
       return out;
@@ -308,7 +307,7 @@ namespace noctalia::theme {
 
     // Build pixels → wu seeds → wsmeans (matugen order) → chroma filter →
     // matugen-style score → first ranked.
-    mcu::Argb extractSeed(const std::vector<uint8_t>& rgb112) {
+    mcu::Argb extractSeed(const std::vector<uint8_t>& rgb112, const uint32_t fallback) {
       std::vector<mcu::Argb> pixels;
       pixels.reserve(rgb112.size() / 3);
       for (size_t i = 0; i + 2 < rgb112.size(); i += 3) {
@@ -342,7 +341,7 @@ namespace noctalia::theme {
       );
 
       auto ranked = scoreMatugen(clusters, 4, true);
-      return ranked.empty() ? 0xff4285f4u : ranked.front();
+      return ranked.empty() ? fallback : ranked.front();
     }
 
     std::unique_ptr<mcu::DynamicScheme> makeScheme(const mcu::Hct& source, Scheme scheme, bool isDark) {
@@ -441,8 +440,14 @@ namespace noctalia::theme {
 
   } // namespace
 
-  GeneratedPalette generateMaterial(const std::vector<uint8_t>& rgb112, Scheme scheme) {
-    const mcu::Argb seed = extractSeed(rgb112);
+  GeneratedPalette
+  generateMaterial(const std::vector<uint8_t>& rgb112, const std::vector<uint32_t>& fallback_colors, Scheme scheme) {
+    // Pick a fallback color if quantization fails to yield any seeds.
+    const uint32_t fallback_color = fallback_colors.empty()
+        ? 0xff4285f4u
+        : fallback_colors[Random::randomInt<size_t>(0, fallback_colors.size() - 1)];
+
+    const mcu::Argb seed = extractSeed(rgb112, fallback_color);
     const mcu::Hct source(seed);
 
     auto darkScheme = makeScheme(source, scheme, true);

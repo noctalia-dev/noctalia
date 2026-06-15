@@ -15,10 +15,14 @@ namespace noctalia::theme {
   //
   // The buffer must contain exactly 112 * 112 * 3 bytes. Returns an empty
   // palette and writes an error message if generation fails.
-  GeneratedPalette generate(const std::vector<uint8_t>& rgb112, Scheme scheme, std::string* errorMessage = nullptr);
+  GeneratedPalette generate(
+      const std::vector<uint8_t>& rgb112, const std::vector<uint32_t>& fallback_colors, Scheme scheme,
+      std::string* errorMessage = nullptr
+  );
 
   // Internal paths — exposed for unit testing / analysis tool reuse.
-  GeneratedPalette generateMaterial(const std::vector<uint8_t>& rgb112, Scheme scheme);
+  GeneratedPalette
+  generateMaterial(const std::vector<uint8_t>& rgb112, const std::vector<uint32_t>& fallback_colors, Scheme scheme);
   GeneratedPalette generateCustom(const std::vector<uint8_t>& rgb112, Scheme scheme);
 
 } // namespace noctalia::theme
