@@ -1,3 +1,4 @@
+#include "core/log.h"
 #include "core/random.h"
 #include "cpp/cam/cam.h"
 #include "cpp/cam/hct.h"
@@ -37,6 +38,8 @@ namespace mcu = material_color_utilities;
 namespace noctalia::theme {
 
   namespace {
+
+    constexpr auto kLog = Logger("theme");
 
     // ─── Matugen-faithful quant + score ────────────────────────────────
     //
@@ -341,6 +344,9 @@ namespace noctalia::theme {
       );
 
       auto ranked = scoreMatugen(clusters, 4, true);
+      if (ranked.empty()) {
+        kLog.warn("no seeds after chroma filter, using fallback color {}", fallback);
+      }
       return ranked.empty() ? fallback : ranked.front();
     }
 

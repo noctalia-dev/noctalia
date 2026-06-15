@@ -77,6 +77,7 @@ namespace settings {
     );
 
     void makeListBlock(Flex& section, const SettingEntry& entry, const ListSetting& list);
+    void makeColorListBlock(Flex& section, const SettingEntry& entry, const ColorListSetting& list);
     void makeStringMapBlock(Flex& section, const SettingEntry& entry, const StringMapSetting& map);
 
   private:

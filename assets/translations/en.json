@@ -695,6 +695,9 @@
       "list": {
         "add-entry-placeholder": "Add entry…"
       },
+      "color-list": {
+        "add-entry": "Add color"
+      },
       "path-browse": {
         "file-title": "Choose file",
         "folder-title": "Choose folder"

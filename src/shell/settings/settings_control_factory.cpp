@@ -2,6 +2,7 @@
 
 #include "config/config_types.h"
 #include "i18n/i18n.h"
+#include "render/core/color.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/settings_content_common.h"
 #include "ui/builders.h"
@@ -14,6 +15,7 @@
 #include "ui/controls/slider.h"
 #include "ui/controls/stepper.h"
 #include "ui/controls/toggle.h"
+#include "ui/dialogs/color_picker_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -770,6 +772,112 @@ namespace settings {
       setOverride(path, items);
     });
     block->addChild(std::move(listEditor));
+
+    section.addChild(std::move(block));
+  }
+
+  void
+  SettingsControlFactory::makeColorListBlock(Flex& section, const SettingEntry& entry, const ColorListSetting& list) {
+
+    constexpr float kSwatchSize = 16.0f;
+    constexpr float kLabelCellWidth = 200.0f;
+    constexpr float kAddButtonWidth = 190.0f;
+    constexpr float kItemRowHeight = 26.0f;
+
+    auto& ctx = m_ctx;
+    const float scale = m_scale;
+    const bool overridden = (ctx.configService != nullptr && ctx.configService->hasEffectiveOverride(entry.path));
+
+    auto block = makeCollectionBlock(entry, overridden);
+
+    auto addRow = ui::row({
+        .align = FlexAlign::Start,
+        .gap = Style::spaceSm * scale,
+    });
+    addRow->addChild(
+        ui::button({
+            .text = i18n::tr("settings.controls.color-list.add-entry"),
+            .glyph = "add",
+            .fontSize = Style::fontSizeBody * scale,
+            .glyphSize = Style::fontSizeBody * scale,
+            .variant = ButtonVariant::Outline,
+            .minWidth = kAddButtonWidth * scale,
+            .minHeight = Style::controlHeight * scale,
+            .radius = Style::scaledRadiusMd(scale),
+            .onClick = [setOverride = ctx.setOverride, items = list.items, path = entry.path] {
+              ColorPickerDialogOptions dialogOptions;
+              dialogOptions.title = i18n::tr("settings.dialogs.color-picker.title");
+              if (const auto last = ColorPickerDialog::lastResult()) {
+                dialogOptions.initialColor = *last;
+              }
+              (void)ColorPickerDialog::open(
+                  std::move(dialogOptions), [setOverride, items, path](std::optional<Color> result) mutable {
+                    if (!result.has_value()) {
+                      return;
+                    }
+                    Color rgb = *result;
+                    rgb.a = 1.0f;
+                    items.push_back(formatRgbHex(rgb));
+                    setOverride(path, items);
+                  }
+              );
+            },
+        })
+    );
+    block->addChild(std::move(addRow));
+
+    const float itemRowHeight = kItemRowHeight * scale;
+    const float labelCellWidth = kLabelCellWidth * scale;
+
+    for (std::size_t i = 0; i < list.items.size(); ++i) {
+      Color color;
+      if (!tryParseHexColor(list.items[i], color)) {
+        continue;
+      }
+
+      auto itemRow = ui::row({
+          .align = FlexAlign::Center,
+          .gap = Style::spaceXs * scale,
+          .minHeight = itemRowHeight,
+      });
+
+      itemRow->addChild(
+          ui::box({
+              .fill = fixedColorSpec(color),
+              .radius = kSwatchSize * scale / 2.0f,
+              .width = kSwatchSize * scale,
+              .height = kSwatchSize * scale,
+          })
+      );
+      itemRow->addChild(
+          ui::label({
+              .text = list.items[i],
+              .fontSize = Style::fontSizeBody * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .minWidth = labelCellWidth,
+          })
+      );
+      itemRow->addChild(
+          ui::button({
+              .glyph = "close",
+              .glyphSize = Style::fontSizeCaption * scale,
+              .variant = ButtonVariant::Ghost,
+              .minWidth = kItemRowHeight * scale,
+              .minHeight = kItemRowHeight * scale,
+              .padding = Style::spaceXs * scale,
+              .radius = Style::scaledRadiusSm(scale),
+              .onClick = [setOverride = ctx.setOverride, items = list.items, path = entry.path, i] mutable {
+                if (i >= items.size()) {
+                  return;
+                }
+                items.erase(items.begin() + static_cast<std::ptrdiff_t>(i));
+                setOverride(path, items);
+              },
+          })
+      );
+
+      block->addChild(std::move(itemRow));
+    }
 
     section.addChild(std::move(block));
   }

@@ -188,6 +188,10 @@ namespace settings {
     std::size_t maxItems = 0;
   };
 
+  struct ColorListSetting {
+    std::vector<std::string> items;
+  };
+
   struct SessionPanelActionsSetting {
     std::vector<SessionPanelActionConfig> items;
   };
@@ -228,7 +232,7 @@ namespace settings {
 
   using SettingControl = std::variant<
       ToggleSetting, SelectSetting, SliderSetting, RangeSliderSetting, TextSetting, OptionalNumberSetting,
-      OptionalStepperSetting, StepperSetting, ListSetting, ShortcutListSetting, KeybindListSetting,
+      OptionalStepperSetting, StepperSetting, ListSetting, ShortcutListSetting, KeybindListSetting, ColorListSetting,
       SessionPanelActionsSetting, IdleBehaviorsSetting, NotificationFiltersSetting, MultiSelectSetting,
       TemplateGridSetting, ButtonSetting, ColorSpecPickerSetting, SearchPickerSetting>;
 

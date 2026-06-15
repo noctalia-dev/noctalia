@@ -659,6 +659,10 @@ namespace settings {
       factory.makeListBlock(section, entry, list);
     };
 
+    const auto makeColorListBlock = [&](Flex& section, const SettingEntry& entry, const ColorListSetting& list) {
+      factory.makeColorListBlock(section, entry, list);
+    };
+
     const auto makeKeybindListBlock = [&](Flex& section, const SettingEntry& entry,
                                           const KeybindListSetting& keybinds) {
       const bool overridden = (ctx.configService != nullptr && ctx.configService->hasEffectiveOverride(entry.path));
@@ -1178,6 +1182,8 @@ namespace settings {
               return nullptr;
             } else if constexpr (std::is_same_v<T, ListSetting>) {
               return nullptr;
+            } else if constexpr (std::is_same_v<T, ColorListSetting>) {
+              return nullptr;
             } else if constexpr (std::is_same_v<T, ShortcutListSetting>) {
               return nullptr;
             } else if constexpr (std::is_same_v<T, KeybindListSetting>) {
@@ -1346,6 +1352,8 @@ namespace settings {
           } else if (!isBarWidgetListPath(entry.path)) {
             makeListBlock(*activeSection, entry, *list);
           }
+        } else if (const auto* colorList = std::get_if<ColorListSetting>(&entry.control)) {
+          makeColorListBlock(*activeSection, entry, *colorList);
         } else if (const auto* shortcuts = std::get_if<ShortcutListSetting>(&entry.control)) {
           makeShortcutListBlock(*activeSection, entry, *shortcuts);
         } else if (const auto* keybindList = std::get_if<KeybindListSetting>(&entry.control)) {
