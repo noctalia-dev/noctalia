@@ -14,6 +14,7 @@ jobs:
   format:
     name: clang-format
     runs-on: ubuntu-latest
+    if: ${{ github.repository == 'noctalia-dev/noctalia' }}
     container:
       image: archlinux:latest
     steps:
