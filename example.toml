@@ -60,7 +60,7 @@ blacklist = []                      # ignore MPRIS players by bus/identity/deskt
 
 [wallpaper]
 enabled             = true
-fill_mode           = "crop"        # center | crop | fit | stretch | repeat
+fill_mode           = "crop"        # center | crop | fit | stretch | repeat | span
 fill_color          = ""            # optional fallback/fill color: prefer a color role token; fixed hex also works
 transition          = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb"]
 transition_duration = 1500          # milliseconds

@@ -105,7 +105,7 @@ void WallpaperRenderer::render() {
   m_backend->drawWallpaper(
       m_transition, WallpaperSourceKind::Image, m_tex1, rgba(0.0f, 0.0f, 0.0f, 1.0f), WallpaperSourceKind::Image, tex2,
       rgba(0.0f, 0.0f, 0.0f, 1.0f), sw, sh, sw, sh, m_imgW1, m_imgH1, m_imgW2, m_imgH2, progress,
-      static_cast<float>(m_fillMode), m_params, m_fillColor, Mat3::identity()
+      static_cast<float>(m_fillMode), m_params, m_fillColor, Mat3::identity(), WallpaperSpanParams{}
   );
 
   float ms = elapsedSince(drawStart);
@@ -149,7 +149,7 @@ void WallpaperRenderer::renderToFramebuffer(const RenderFramebuffer& target) {
   m_backend->drawWallpaper(
       m_transition, WallpaperSourceKind::Image, m_tex1, rgba(0.0f, 0.0f, 0.0f, 1.0f), WallpaperSourceKind::Image, tex2,
       rgba(0.0f, 0.0f, 0.0f, 1.0f), sw, sh, sw, sh, m_imgW1, m_imgH1, m_imgW2, m_imgH2, progress,
-      static_cast<float>(m_fillMode), m_params, m_fillColor, Mat3::identity()
+      static_cast<float>(m_fillMode), m_params, m_fillColor, Mat3::identity(), WallpaperSpanParams{}
   );
   float ms = elapsedSince(drawStart);
   logSlowWallpaperRenderOperation(

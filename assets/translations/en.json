@@ -1125,6 +1125,7 @@
           "crop": "Crop",
           "fit": "Fit",
           "repeat": "Repeat",
+          "span": "Span",
           "stretch": "Stretch"
         },
         "order": {

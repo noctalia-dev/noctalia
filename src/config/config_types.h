@@ -354,6 +354,7 @@ enum class WallpaperFillMode : std::uint8_t {
   Fit = 2,
   Stretch = 3,
   Repeat = 4,
+  Span = 5,
 };
 
 enum class WallpaperTransition : std::uint8_t {
@@ -734,6 +735,7 @@ constexpr EnumOption<WallpaperFillMode> kWallpaperFillModes[] = {
     {WallpaperFillMode::Fit, "fit", "settings.options.wallpaper.fill.fit"},
     {WallpaperFillMode::Stretch, "stretch", "settings.options.wallpaper.fill.stretch"},
     {WallpaperFillMode::Repeat, "repeat", "settings.options.wallpaper.fill.repeat"},
+    {WallpaperFillMode::Span, "span", "settings.options.wallpaper.fill.span"},
 };
 
 constexpr EnumOption<WallpaperAutomationConfig::Order> kWallpaperAutomationOrders[] = {

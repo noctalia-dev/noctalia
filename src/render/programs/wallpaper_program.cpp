@@ -44,6 +44,9 @@ uniform float u_imageHeight2;
 uniform float u_screenWidth;
 uniform float u_screenHeight;
 uniform vec4 u_fillColor;
+uniform vec2 u_spanOffset;
+uniform vec2 u_spanMonitorSize;
+uniform vec2 u_spanTotalSize;
 
 varying vec2 v_texcoord;
 
@@ -76,10 +79,28 @@ vec2 calculateUV(vec2 uv, float imgWidth, float imgHeight) {
     else if (u_fillMode < 3.5) {
         // Stretch - no transform
     }
-    else {
+    else if (u_fillMode < 4.5) {
         // Repeat (tile)
         vec2 screenPixel = uv * vec2(u_screenWidth, u_screenHeight);
         transformedUV = screenPixel / vec2(imgWidth, imgHeight);
+    }
+    else {
+        // Span: cover-fit the image across the whole multi-monitor desktop and
+        // sample the slice that belongs to this output.
+        if (u_spanTotalSize.x <= 0.0 || u_spanTotalSize.y <= 0.0) {
+            // Span geometry unavailable: behave like Crop.
+            float scale = max(u_screenWidth / imgWidth, u_screenHeight / imgHeight);
+            vec2 scaledImageSize = vec2(imgWidth, imgHeight) * scale;
+            vec2 offset = (scaledImageSize - vec2(u_screenWidth, u_screenHeight)) / scaledImageSize;
+            transformedUV = uv * (vec2(1.0) - offset) + offset * 0.5;
+        } else {
+            vec2 imageSize = vec2(imgWidth, imgHeight);
+            float scale = max(u_spanTotalSize.x / imageSize.x, u_spanTotalSize.y / imageSize.y);
+            vec2 scaledImageSize = imageSize * scale;
+            vec2 desktopPixel = u_spanOffset + uv * u_spanMonitorSize;
+            vec2 imagePixel = desktopPixel + (scaledImageSize - u_spanTotalSize) * 0.5;
+            transformedUV = imagePixel / scaledImageSize;
+        }
     }
 
     return transformedUV;
@@ -88,7 +109,7 @@ vec2 calculateUV(vec2 uv, float imgWidth, float imgHeight) {
 vec4 sampleWithFillMode(sampler2D tex, vec2 uv, float imgWidth, float imgHeight) {
     vec2 transformedUV = calculateUV(uv, imgWidth, imgHeight);
 
-    if (u_fillMode > 3.5) {
+    if (u_fillMode > 3.5 && u_fillMode < 4.5) {
         return texture2D(tex, fract(transformedUV));
     }
 
@@ -369,6 +390,9 @@ void WallpaperProgram::initProgram(std::size_t index, const char* fragSource) {
   pd.screenWidthLoc = glGetUniformLocation(id, "u_screenWidth");
   pd.screenHeightLoc = glGetUniformLocation(id, "u_screenHeight");
   pd.fillColorLoc = glGetUniformLocation(id, "u_fillColor");
+  pd.spanOffsetLoc = glGetUniformLocation(id, "u_spanOffset");
+  pd.spanMonitorSizeLoc = glGetUniformLocation(id, "u_spanMonitorSize");
+  pd.spanTotalSizeLoc = glGetUniformLocation(id, "u_spanTotalSize");
 
   // Per-transition (may be -1 if not used by this shader)
   pd.directionLoc = glGetUniformLocation(id, "u_direction");
@@ -396,7 +420,7 @@ void WallpaperProgram::draw(
     WallpaperSourceKind sourceKind2, TextureId texture2, const Color& sourceColor2, float surfaceWidth,
     float surfaceHeight, float quadWidth, float quadHeight, float imageWidth1, float imageHeight1, float imageWidth2,
     float imageHeight2, float progress, float fillMode, const TransitionParams& params, const Color& fillColor,
-    const Mat3& transform
+    const Mat3& transform, const WallpaperSpanParams& span
 ) const {
   auto idx = static_cast<std::size_t>(type);
   if (idx >= kTransitionCount || !m_programs[idx].program.isValid() || quadWidth <= 0.0f || quadHeight <= 0.0f) {
@@ -454,6 +478,12 @@ void WallpaperProgram::draw(
     glUniform1f(pd.screenHeightLoc, quadHeight);
   if (pd.fillColorLoc >= 0)
     glUniform4f(pd.fillColorLoc, fillColor.r, fillColor.g, fillColor.b, fillColor.a);
+  if (pd.spanOffsetLoc >= 0)
+    glUniform2f(pd.spanOffsetLoc, span.offsetX, span.offsetY);
+  if (pd.spanMonitorSizeLoc >= 0)
+    glUniform2f(pd.spanMonitorSizeLoc, span.monitorWidth, span.monitorHeight);
+  if (pd.spanTotalSizeLoc >= 0)
+    glUniform2f(pd.spanTotalSizeLoc, span.totalWidth, span.totalHeight);
 
   // Per-transition uniforms
   if (pd.directionLoc >= 0)
