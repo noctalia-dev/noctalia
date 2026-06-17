@@ -44,12 +44,14 @@ in
         after = [ cfg.systemd.target ];
         wantedBy = [ cfg.systemd.target ];
 
+        enableDefaultPath = false;
+
         serviceConfig = {
           ExecStart = lib.getExe cfg.package;
+          # Expose user and global packages to noctalia, speficially for the app launcher
+          Environment = "PATH=/etc/profiles/per-user/%u/bin:/run/current-system/sw/bin";
           Restart = "on-failure";
         };
-
-        path = config.environment.systemPackages;
       };
 
       assertions = [
