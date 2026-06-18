@@ -96,6 +96,7 @@ namespace {
             .desktopEntry = notification.desktopEntry.has_value()
                 ? std::optional<std::string_view>{*notification.desktopEntry}
                 : std::nullopt,
+            .urgency = notification.urgency,
         }
     );
     return resolved.saveHistory
@@ -194,6 +195,25 @@ uint32_t NotificationManager::addOrReplace(
         n.appName, urgencyStr(n.urgency), n.timeout
     );
   };
+
+  if (timeout == 0) {
+    const auto resolved = resolveNotificationFilter(
+        m_filters,
+        NotificationFilterFields{
+            .appName = appName,
+            .category = category.has_value() ? std::optional<std::string_view>{*category} : std::nullopt,
+            .desktopEntry = desktopEntry.has_value() ? std::optional<std::string_view>{*desktopEntry} : std::nullopt,
+            .urgency = urgency,
+        }
+    );
+
+    kLog.debug(
+        "notification allowPermanent filter-matched={} filter-allow={}", resolved.matched, resolved.allowPermanent
+    );
+    if (resolved.matched && !resolved.allowPermanent) {
+      timeout = kDefaultNotificationTimeout;
+    }
+  }
 
   const ExternalNotificationDispatch externalDispatch = origin == NotificationOrigin::External
       ? evaluateExternalDispatch(urgency, appName, category, desktopEntry, transient)
@@ -590,15 +610,9 @@ NotificationManager::ExternalNotificationDispatch NotificationManager::evaluateE
           .appName = appName,
           .category = category.has_value() ? std::optional<std::string_view>{*category} : std::nullopt,
           .desktopEntry = desktopEntry.has_value() ? std::optional<std::string_view>{*desktopEntry} : std::nullopt,
+          .urgency = urgency,
       }
   );
-  if (resolved.matched && !urgencyIsAllowed(resolved.allowedUrgencies, urgency)) {
-    dispatch.fullySuppress = true;
-    dispatch.showToast = false;
-    dispatch.saveHistory = false;
-    dispatch.playSound = false;
-    return dispatch;
-  }
   dispatch.showToast = resolved.showToast;
   dispatch.saveHistory = resolved.saveHistory && shouldTrackHistory(NotificationOrigin::External, urgency, transient);
   dispatch.playSound = resolved.playSound && dispatch.showToast;

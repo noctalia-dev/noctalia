@@ -522,6 +522,7 @@ namespace {
               row.insert_or_assign("show_toast", item.showToast);
               row.insert_or_assign("save_history", item.saveHistory);
               row.insert_or_assign("play_sound", item.playSound);
+              row.insert_or_assign("allow_permanent", item.allowPermanent);
               if (!item.allowedUrgencies.empty()) {
                 toml::array urgencies;
                 for (const auto& urgency : item.allowedUrgencies) {

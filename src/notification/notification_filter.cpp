@@ -133,11 +133,17 @@ ResolvedNotificationFilter resolveNotificationFilter(
     if (!notificationMatchesToken(filter.match, fields)) {
       continue;
     }
+
+    const auto allowedUrgencies = normalizeAllowedUrgencies(filter.allowedUrgencies);
+    if (!urgencyIsAllowed(allowedUrgencies, fields.urgency)) {
+      continue;
+    }
     return ResolvedNotificationFilter{
         .showToast = filter.showToast,
         .saveHistory = filter.saveHistory,
         .playSound = filter.playSound,
-        .allowedUrgencies = normalizeAllowedUrgencies(filter.allowedUrgencies),
+        .allowPermanent = filter.allowPermanent,
+        .allowedUrgencies = allowedUrgencies,
         .matched = true,
     };
   }

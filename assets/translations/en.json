@@ -994,11 +994,13 @@
       "filter": {
         "add": "Add filter",
         "add-title": "Add Notification Filter",
+        "allow-permanent": "Allow permanent",
         "allowed-urgencies-label": "Allowed urgencies",
         "flag": {
           "history": "history",
           "sound": "sound",
-          "toast": "toast"
+          "toast": "toast",
+          "permanent": "permanent"
         },
         "flags-label": "When matched",
         "match-label": "App",

@@ -216,6 +216,7 @@ struct NotificationFilterConfig {
   bool showToast = true;
   bool saveHistory = true;
   bool playSound = true;
+  bool allowPermanent = true;
   /// Empty = allow low, normal, and critical. Otherwise only listed urgencies pass this filter.
   std::vector<std::string> allowedUrgencies;
 

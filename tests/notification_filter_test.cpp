@@ -1,4 +1,5 @@
 #include "config/config_types.h"
+#include "notification/notification.h"
 #include "notification/notification_filter.h"
 
 #include <iostream>
@@ -23,7 +24,7 @@ int main() {
   ok &= check(blacklist.size() == 1, "blacklist dedupes and normalizes");
   ok &= check(
       notificationMatchesBlacklist(
-          blacklist, NotificationFilterFields{.appName = "Discord", .category = std::nullopt, .desktopEntry = std::nullopt}
+          blacklist, NotificationFilterFields{.appName = "Discord", .category = std::nullopt, .desktopEntry = std::nullopt, .urgency = Urgency::Normal}
       ),
       "app name exact match"
   );
@@ -34,6 +35,7 @@ int main() {
               .appName = "My Discord Client",
               .category = std::nullopt,
               .desktopEntry = std::nullopt,
+              .urgency = Urgency::Normal,
           }
       ),
       "app name substring match"
@@ -45,6 +47,7 @@ int main() {
               .appName = "Other",
               .category = std::nullopt,
               .desktopEntry = std::optional<std::string_view>{"org.telegram.desktop"},
+              .urgency = Urgency::Normal,
           }
       ),
       "desktop entry no match"
@@ -56,6 +59,7 @@ int main() {
               .appName = "Telegram",
               .category = std::nullopt,
               .desktopEntry = std::optional<std::string_view>{"org.telegram.desktop"},
+              .urgency = Urgency::Normal,
           }
       ),
       "desktop entry exact match"
@@ -67,6 +71,7 @@ int main() {
               .appName = "Chat",
               .category = std::optional<std::string_view>{"im.received"},
               .desktopEntry = std::nullopt,
+              .urgency = Urgency::Normal,
           }
       ),
       "category exact match"

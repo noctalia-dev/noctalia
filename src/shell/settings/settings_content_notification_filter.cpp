@@ -158,6 +158,13 @@ namespace settings {
           persist();
         }
     );
+    addToggleRow(
+        *flagsBlock, scale, i18n::tr("settings.notifications.filter.allow-permanent"), row.allowPermanent,
+        [&row, persist](bool value) {
+          row.allowPermanent = value;
+          persist();
+        }
+    );
     body->addChild(std::move(flagsBlock));
 
     parent.addChild(std::move(body));

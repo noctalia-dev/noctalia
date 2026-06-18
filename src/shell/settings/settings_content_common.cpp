@@ -324,6 +324,9 @@ namespace settings {
     if (filter.playSound) {
       parts.emplace_back(i18n::tr("settings.notifications.filter.flag.sound"));
     }
+    if (filter.allowPermanent) {
+      parts.emplace_back(i18n::tr("settings.notifications.filter.flag.permanent"));
+    }
     if (!filter.allowedUrgencies.empty()) {
       std::vector<std::string> urgencyLabels;
       urgencyLabels.reserve(filter.allowedUrgencies.size());
