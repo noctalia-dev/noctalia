@@ -46,7 +46,8 @@ WorkspacesWidget::WorkspacesWidget(CompositorPlatform& platform, wl_output* outp
       m_hideWhenEmpty(options.hideWhenEmpty), m_pillScale(options.pillScale),
       m_activePillSize(std::clamp(options.activePillSize, 0.25f, 8.0f)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25f, 8.0f)), m_minimal(options.minimal),
-      m_focusedColor(options.focusedColor), m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor) {}
+      m_focusedOnly(options.focusedOnly), m_focusedColor(options.focusedColor), m_occupiedColor(options.occupiedColor),
+      m_emptyColor(options.emptyColor) {}
 
 WorkspacesWidget::DisplayMode WorkspacesWidget::effectiveDisplayMode() const noexcept {
   if (m_minimal && m_displayMode == DisplayMode::None) {
@@ -158,6 +159,13 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
   }
 
   if (!structuralChange && !activeChange) {
+    if (m_focusedOnly) {
+      const bool isFocused = isFocusedOutput();
+      if (isFocused != m_wasFocusedOutput) {
+        m_wasFocusedOutput = isFocused;
+        retarget(renderer);
+      }
+    }
     return;
   }
 
@@ -698,9 +706,14 @@ std::optional<std::size_t> WorkspacesWidget::numericWorkspaceId(const Workspace&
   return std::nullopt;
 }
 
+bool WorkspacesWidget::isFocusedOutput() const { return m_platform.preferredInteractiveOutput() == m_output; }
+
 ColorSpec WorkspacesWidget::workspaceFillColor(const Workspace& workspace) const {
   if (workspace.active) {
-    return m_focusedColor;
+    if (!m_focusedOnly || isFocusedOutput()) {
+      return m_focusedColor;
+    }
+    return m_occupiedColor;
   }
   if (workspace.urgent) {
     return colorSpecFromRole(ColorRole::Error);
@@ -721,7 +734,10 @@ ColorSpec WorkspacesWidget::workspaceTextColor(const Workspace& workspace) const
     return readableColorForFill(workspaceFillColor(workspace));
   }
   if (workspace.active) {
-    return m_focusedColor;
+    if (!m_focusedOnly || isFocusedOutput()) {
+      return m_focusedColor;
+    }
+    return m_occupiedColor;
   }
   if (workspace.occupied) {
     return m_occupiedColor;

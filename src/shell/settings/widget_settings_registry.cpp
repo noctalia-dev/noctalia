@@ -826,6 +826,13 @@ namespace settings {
           add(std::move(groupCapsule));
         }
         {
+          auto focusedOnly = boolSpec("focused_only", false);
+          focusedOnly.descriptionKey = "settings.widgets.settings.focused-only.taskbar-description";
+          focusedOnly.visibleWhen =
+              WidgetSettingVisibility{WidgetSettingVisibilityCondition{"show_workspace_label", {"true"}}};
+          add(std::move(focusedOnly));
+        }
+        {
           auto singleIconPerApp = boolSpec("group_single_icon_per_app", false);
           singleIconPerApp.visibleWhen =
               WidgetSettingVisibility{WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}}};
@@ -934,6 +941,11 @@ namespace settings {
         auto minimal = boolSpec("minimal", false);
         minimal.descriptionKey = "settings.widgets.settings.minimal.workspaces-description";
         add(std::move(minimal));
+      }
+      {
+        auto focusedOnly = boolSpec("focused_only", false);
+        focusedOnly.descriptionKey = "settings.widgets.settings.focused-only.workspaces-description";
+        add(std::move(focusedOnly));
       }
       add(segmentedSpec("display", "id", workspaceDisplay));
       {

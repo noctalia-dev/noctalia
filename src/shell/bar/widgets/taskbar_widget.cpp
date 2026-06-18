@@ -165,12 +165,12 @@ TaskbarWidget::TaskbarWidget(
     CompositorPlatform& platform, ConfigService& config, wl_output* output, TaskbarWidgetOptions options
 )
     : m_platform(platform), m_configService(config), m_output(output), m_configOptions(std::move(options)),
-      m_showAllOutputs(m_configOptions.showAllOutputs), m_showActiveIndicator(m_configOptions.showActiveIndicator),
-      m_activeOpacity(m_configOptions.activeOpacity), m_inactiveOpacity(m_configOptions.inactiveOpacity),
-      m_focusedColor(m_configOptions.focusedColor), m_occupiedColor(m_configOptions.occupiedColor),
-      m_emptyColor(m_configOptions.emptyColor), m_windowTitleMaxWidth(m_configOptions.windowTitleMaxWidth),
-      m_taskbarMaxWidth(m_configOptions.taskbarMaxWidth), m_barPosition(std::move(m_configOptions.barPosition)),
-      m_shadowConfig(m_configOptions.shadowConfig) {
+      m_showAllOutputs(m_configOptions.showAllOutputs), m_focusedOnly(m_configOptions.focusedOnly),
+      m_showActiveIndicator(m_configOptions.showActiveIndicator), m_activeOpacity(m_configOptions.activeOpacity),
+      m_inactiveOpacity(m_configOptions.inactiveOpacity), m_focusedColor(m_configOptions.focusedColor),
+      m_occupiedColor(m_configOptions.occupiedColor), m_emptyColor(m_configOptions.emptyColor),
+      m_windowTitleMaxWidth(m_configOptions.windowTitleMaxWidth), m_taskbarMaxWidth(m_configOptions.taskbarMaxWidth),
+      m_barPosition(std::move(m_configOptions.barPosition)), m_shadowConfig(m_configOptions.shadowConfig) {
   syncWorkspaceGroupingCapability();
   buildDesktopIconIndex();
 }
@@ -332,9 +332,18 @@ void TaskbarWidget::doLayout(Renderer& renderer, float containerWidth, float con
   }
 }
 
-void TaskbarWidget::doUpdate(Renderer& renderer) {
-  (void)renderer;
+void TaskbarWidget::doUpdate(Renderer& /*renderer*/) {
   updateModels();
+  if (m_focusedOnly) {
+    const bool isFocused = isFocusedOutput();
+    if (isFocused != m_wasFocusedOutput) {
+      m_wasFocusedOutput = isFocused;
+      m_rebuildPending = true;
+      if (root() != nullptr) {
+        root()->markLayoutDirty();
+      }
+    }
+  }
 }
 
 void TaskbarWidget::rebuild(Renderer& renderer) {
@@ -2320,7 +2329,10 @@ wl_output* TaskbarWidget::workspaceHostOutput(const WorkspaceModel& model) const
 
 ColorSpec TaskbarWidget::workspaceFillColor(const Workspace& workspace) const {
   if (workspace.active) {
-    return m_focusedColor;
+    if (!m_focusedOnly || isFocusedOutput()) {
+      return m_focusedColor;
+    }
+    return m_occupiedColor;
   }
   if (workspace.urgent) {
     return colorSpecFromRole(ColorRole::Error);
@@ -2332,6 +2344,8 @@ ColorSpec TaskbarWidget::workspaceFillColor(const Workspace& workspace) const {
   color.alpha *= 0.55f;
   return color;
 }
+
+bool TaskbarWidget::isFocusedOutput() const { return m_platform.preferredInteractiveOutput() == m_output; }
 
 ColorSpec TaskbarWidget::workspaceTextColor(const Workspace& workspace) const {
   if (workspace.urgent) {

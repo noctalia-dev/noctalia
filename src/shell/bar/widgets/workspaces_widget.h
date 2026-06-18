@@ -35,6 +35,7 @@ public:
     float activePillSize = 2.2f;
     float inactivePillSize = 1.0f;
     bool minimal = false;
+    bool focusedOnly = false;
   };
 
   WorkspacesWidget(CompositorPlatform& platform, wl_output* output, Options options);
@@ -88,6 +89,7 @@ private:
   [[nodiscard]] ColorSpec workspaceTextColor(const Workspace& workspace) const;
   [[nodiscard]] static ColorRole onRoleForFill(ColorRole fill);
   [[nodiscard]] static ColorSpec readableColorForFill(const ColorSpec& fill);
+  [[nodiscard]] bool isFocusedOutput() const;
 
   CompositorPlatform& m_platform;
   wl_output* m_output = nullptr;
@@ -99,6 +101,8 @@ private:
   float m_activePillSize = 2.2f;
   float m_inactivePillSize = 1.0f;
   bool m_minimal = false;
+  bool m_focusedOnly = false;
+  bool m_wasFocusedOutput = true;
   Node* m_container = nullptr;
   std::vector<Workspace> m_cachedState;
   std::vector<Item> m_items;
