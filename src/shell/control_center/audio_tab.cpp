@@ -1284,8 +1284,7 @@ namespace {
   }
 
   std::string widestPercentLabel(float sliderMaxValue) {
-    const std::size_t digits =
-        std::to_string(static_cast<int>(std::round(std::max(0.0f, sliderMaxValue) * 100.0f))).size();
+    const std::size_t digits = std::to_string(static_cast<int>(std::round(std::max(0.0f, sliderMaxValue)))).size();
     return std::string(std::max<std::size_t>(1, digits), '8') + "%";
   }
 
@@ -1424,6 +1423,7 @@ std::unique_ptr<Flex> AudioTab::create() {
         .fontSize = Style::fontSizeBody * scale,
         .minWidth = kValueLabelWidth * scale,
         .fontWeight = FontWeight::Bold,
+        .textAlign = TextAlign::End,
     });
   };
 
@@ -1465,35 +1465,51 @@ std::unique_ptr<Flex> AudioTab::create() {
       .flexGrow = 0.0f,
   });
 
-  auto outputVolumeCard = ui::column({
-      .out = &m_outputVolumeCard,
-      .flexGrow = 1.0f,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
-        applySectionCardStyle(card, scale, opacity, borders);
+  auto outputVolumeCard = ui::column(
+      {
+          .out = &m_outputVolumeCard,
+          .flexGrow = 1.0f,
+          .configure =
+              [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
+                applySectionCardStyle(card, scale, opacity, borders);
+                card.setGap(Style::spaceXs * scale);
+              },
       },
-  });
-
-  auto outputHeader = ui::row({
-      .out = &m_outputDeviceMenuAnchor,
-      .align = FlexAlign::Center,
-      .justify = FlexJustify::SpaceBetween,
-      .gap = Style::spaceXs * scale,
-  });
-  addTitle(*outputHeader, i18n::tr("control-center.audio.output-volume"), scale);
-  outputHeader->addChild(makeVolumeMenuButton(&m_outputDeviceMenuButton, true));
-  outputVolumeCard->addChild(std::move(outputHeader));
-  outputVolumeCard->addChild(
-      ui::label({
-          .out = &m_outputDeviceLabel,
-          .text = i18n::tr("control-center.audio.no-output-selected"),
-          .fontSize = Style::fontSizeCaption * scale,
-          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-      })
+      ui::row(
+          {
+              .out = &m_outputDeviceMenuAnchor,
+              .align = FlexAlign::Center,
+              .justify = FlexJustify::SpaceBetween,
+              .gap = Style::spaceXs * scale,
+          },
+          ui::row(
+              {
+                  .align = FlexAlign::Center,
+                  .gap = Style::spaceSm * scale,
+                  .flexGrow = 1.0f,
+              },
+              ui::label({
+                  .text = i18n::tr("control-center.audio.output-device-prefix"),
+                  .fontSize = Style::fontSizeTitle * scale,
+                  .color = colorSpecFromRole(ColorRole::OnSurface),
+                  .fontWeight = FontWeight::Bold,
+              }),
+              ui::label({
+                  .out = &m_outputDeviceLabel,
+                  .text = i18n::tr("control-center.audio.no-output-selected"),
+                  .fontSize = Style::fontSizeBody * scale,
+                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  .maxLines = 1,
+                  .flexGrow = 1.0f,
+              })
+          ),
+          makeVolumeMenuButton(&m_outputDeviceMenuButton, true)
+      )
   );
 
   auto outputRow = ui::row({
       .align = FlexAlign::Center,
-      .gap = Style::spaceSm * scale,
+      .gap = Style::spaceXs * scale,
   });
   outputRow->addChild(
       ui::slider({
@@ -1525,61 +1541,83 @@ std::unique_ptr<Flex> AudioTab::create() {
               },
       })
   );
-  outputRow->addChild(makePercentLabel(&m_outputValue));
   outputRow->addChild(
-      ui::button({
-          .out = &m_outputMuteButton,
-          .glyph = "volume-high",
-          .glyphSize = Style::fontSizeBody * scale,
-          .variant = ButtonVariant::Default,
-          .minWidth = Style::controlHeightSm * scale,
-          .minHeight = Style::controlHeightSm * scale,
-          .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() {
-            if (m_audio == nullptr) {
-              return;
-            }
-            if (const AudioNode* sink = m_audio->defaultSink(); sink != nullptr) {
-              m_audio->setSinkMuted(sink->id, !sink->muted);
-              PanelManager::instance().refresh();
-            }
+      ui::row(
+          {
+              .align = FlexAlign::Center,
+              .gap = Style::spaceSm * scale,
           },
-      })
+          makePercentLabel(&m_outputValue),
+          ui::button({
+              .out = &m_outputMuteButton,
+              .glyph = "volume-high",
+              .glyphSize = Style::fontSizeBody * scale,
+              .variant = ButtonVariant::Default,
+              .minWidth = Style::controlHeightSm * scale,
+              .minHeight = Style::controlHeightSm * scale,
+              .padding = Style::spaceXs * scale,
+              .radius = Style::scaledRadiusMd(scale),
+              .onClick = [this]() {
+                if (m_audio == nullptr) {
+                  return;
+                }
+                if (const AudioNode* sink = m_audio->defaultSink(); sink != nullptr) {
+                  m_audio->setSinkMuted(sink->id, !sink->muted);
+                  PanelManager::instance().refresh();
+                }
+              },
+          })
+      )
   );
   outputVolumeCard->addChild(std::move(outputRow));
   outputVolumeCard->addChild(makeEffectsProfileRow(&m_outputEffectsProfileRow, &m_outputEffectsProfileSelect));
   volumeRow->addChild(std::move(outputVolumeCard));
 
-  auto inputVolumeCard = ui::column({
-      .out = &m_inputVolumeCard,
-      .flexGrow = 1.0f,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
-        applySectionCardStyle(card, scale, opacity, borders);
+  auto inputVolumeCard = ui::column(
+      {
+          .out = &m_inputVolumeCard,
+          .flexGrow = 1.0f,
+          .configure =
+              [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
+                applySectionCardStyle(card, scale, opacity, borders);
+                card.setGap(Style::spaceXs * scale);
+              },
       },
-  });
-
-  auto inputHeader = ui::row({
-      .out = &m_inputDeviceMenuAnchor,
-      .align = FlexAlign::Center,
-      .justify = FlexJustify::SpaceBetween,
-      .gap = Style::spaceXs * scale,
-  });
-  addTitle(*inputHeader, i18n::tr("control-center.audio.input-volume"), scale);
-  inputHeader->addChild(makeVolumeMenuButton(&m_inputDeviceMenuButton, false));
-  inputVolumeCard->addChild(std::move(inputHeader));
-  inputVolumeCard->addChild(
-      ui::label({
-          .out = &m_inputDeviceLabel,
-          .text = i18n::tr("control-center.audio.no-input-selected"),
-          .fontSize = Style::fontSizeCaption * scale,
-          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-      })
+      ui::row(
+          {
+              .out = &m_inputDeviceMenuAnchor,
+              .align = FlexAlign::Center,
+              .justify = FlexJustify::SpaceBetween,
+              .gap = Style::spaceXs * scale,
+          },
+          ui::row(
+              {
+                  .align = FlexAlign::Center,
+                  .gap = Style::spaceSm * scale,
+                  .flexGrow = 1.0f,
+              },
+              ui::label({
+                  .text = i18n::tr("control-center.audio.input-device-prefix"),
+                  .fontSize = Style::fontSizeTitle * scale,
+                  .color = colorSpecFromRole(ColorRole::OnSurface),
+                  .fontWeight = FontWeight::Bold,
+              }),
+              ui::label({
+                  .out = &m_inputDeviceLabel,
+                  .text = i18n::tr("control-center.audio.no-input-selected"),
+                  .fontSize = Style::fontSizeBody * scale,
+                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  .maxLines = 1,
+                  .flexGrow = 1.0f,
+              })
+          ),
+          makeVolumeMenuButton(&m_inputDeviceMenuButton, false)
+      )
   );
 
   auto inputRow = ui::row({
       .align = FlexAlign::Center,
-      .gap = Style::spaceSm * scale,
+      .gap = Style::spaceXs * scale,
   });
   inputRow->addChild(
       ui::slider({
@@ -1611,27 +1649,33 @@ std::unique_ptr<Flex> AudioTab::create() {
               },
       })
   );
-  inputRow->addChild(makePercentLabel(&m_inputValue));
   inputRow->addChild(
-      ui::button({
-          .out = &m_inputMuteButton,
-          .glyph = "microphone",
-          .glyphSize = Style::fontSizeBody * scale,
-          .variant = ButtonVariant::Default,
-          .minWidth = Style::controlHeightSm * scale,
-          .minHeight = Style::controlHeightSm * scale,
-          .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() {
-            if (m_audio == nullptr) {
-              return;
-            }
-            if (const AudioNode* source = m_audio->defaultSource(); source != nullptr) {
-              m_audio->setSourceMuted(source->id, !source->muted);
-              PanelManager::instance().refresh();
-            }
+      ui::row(
+          {
+              .align = FlexAlign::Center,
+              .gap = Style::spaceSm * scale,
           },
-      })
+          makePercentLabel(&m_inputValue),
+          ui::button({
+              .out = &m_inputMuteButton,
+              .glyph = "microphone",
+              .glyphSize = Style::fontSizeBody * scale,
+              .variant = ButtonVariant::Default,
+              .minWidth = Style::controlHeightSm * scale,
+              .minHeight = Style::controlHeightSm * scale,
+              .padding = Style::spaceXs * scale,
+              .radius = Style::scaledRadiusMd(scale),
+              .onClick = [this]() {
+                if (m_audio == nullptr) {
+                  return;
+                }
+                if (const AudioNode* source = m_audio->defaultSource(); source != nullptr) {
+                  m_audio->setSourceMuted(source->id, !source->muted);
+                  PanelManager::instance().refresh();
+                }
+              },
+          })
+      )
   );
   inputVolumeCard->addChild(std::move(inputRow));
   inputVolumeCard->addChild(makeEffectsProfileRow(&m_inputEffectsProfileRow, &m_inputEffectsProfileSelect));
@@ -1697,21 +1741,6 @@ void AudioTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight
   }
 
   syncValueLabelWidths(renderer);
-
-  if (m_outputDeviceLabel != nullptr && m_outputVolumeCard != nullptr) {
-    m_outputDeviceLabel->setMaxWidth(
-        std::max(
-            0.0f, m_outputVolumeCard->width() - m_outputVolumeCard->paddingLeft() - m_outputVolumeCard->paddingRight()
-        )
-    );
-  }
-  if (m_inputDeviceLabel != nullptr && m_inputVolumeCard != nullptr) {
-    m_inputDeviceLabel->setMaxWidth(
-        std::max(
-            0.0f, m_inputVolumeCard->width() - m_inputVolumeCard->paddingLeft() - m_inputVolumeCard->paddingRight()
-        )
-    );
-  }
 
   m_rootLayout->setSize(contentWidth, bodyHeight);
   m_rootLayout->layout(renderer);
