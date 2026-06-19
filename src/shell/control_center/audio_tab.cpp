@@ -1400,6 +1400,8 @@ std::unique_ptr<Flex> AudioTab::create() {
         .glyphSize = Style::fontSizeCaption * scale,
         .enabled = false,
         .variant = ButtonVariant::Ghost,
+        .minWidth = Style::controlHeightSm * scale,
+        .minHeight = Style::controlHeightSm * scale,
         .padding = Style::spaceXs * scale,
         .radius = Style::scaledRadiusMd(scale),
         .onClick = [this, output]() {
