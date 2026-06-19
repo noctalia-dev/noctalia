@@ -90,6 +90,7 @@ namespace settings {
         {.type = "wallpaper", .labelKey = "settings.widgets.types.wallpaper", .glyph = "wallpaper-selector"},
         {.type = "weather", .labelKey = "settings.widgets.types.weather", .glyph = "weather-cloud"},
         {.type = "workspaces", .labelKey = "settings.widgets.types.workspaces", .glyph = "layout-grid"},
+        {.type = "workspace_tray", .labelKey = "settings.widgets.types.workspace-tray", .glyph = "selector"},
     };
 
     const WidgetTypeSpec* findWidgetTypeSpec(std::string_view type) {
@@ -1134,6 +1135,37 @@ namespace settings {
       add(withGroup(colorSpec("occupied_color", "secondary"), "workspaces.colors"));
       add(withGroup(colorSpec("empty_color", "secondary"), "workspaces.colors"));
       add(withGroup(colorSpec("urgent_color", "error"), "workspaces.colors"));
+    } else if (type == "workspace_tray") {
+      const std::vector<WidgetSettingSelectOption> trayDisplay = {
+          {"id", "settings.widgets.options.id"},
+          {"name", "settings.widgets.options.name"},
+      };
+      add(segmentedSpec("display", "id", trayDisplay));
+      {
+        auto maxLabelChars = intSpec("max_label_chars", 3, 1.0, 20.0, 1.0);
+        maxLabelChars.descriptionKey = "settings.widgets.settings.max-label-chars.workspace-tray-description";
+        add(std::move(maxLabelChars));
+      }
+      add(boolSpec("show_chevron", true));
+      {
+        auto focusedOnly = boolSpec("focused_only", false);
+        focusedOnly.descriptionKey = "settings.widgets.settings.focused-only.workspace-tray-description";
+        add(std::move(focusedOnly));
+      }
+      add(boolSpec("hide_when_empty", false));
+      add(boolSpec("show_new_workspace", false));
+      {
+        auto cmd = stringSpec("new_workspace_command", "");
+        cmd.visibleWhen = WidgetSettingVisibility{{"show_new_workspace", {"true"}}};
+        add(std::move(cmd));
+      }
+      {
+        auto glyph = glyphSpec("new_workspace_glyph", "plus");
+        glyph.visibleWhen = WidgetSettingVisibility{{"show_new_workspace", {"true"}}};
+        add(std::move(glyph));
+      }
+      add(colorSpec("focused_color", "primary"));
+      add(colorSpec("occupied_color", "secondary"));
     }
 
     specs.insert(specs.end(), std::make_move_iterator(commonSpecs.begin()), std::make_move_iterator(commonSpecs.end()));

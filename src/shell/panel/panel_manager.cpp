@@ -276,6 +276,9 @@ namespace {
     if (panelId == "session") {
       return !pinned(pc.sessionPlacement, pc.sessionPosition) && pc.openNearClickSession;
     }
+    if (panelId == "workspace-tray") {
+      return !pinned(pc.workspaceTrayPlacement, pc.workspaceTrayPosition) && pc.openNearClickWorkspaceTray;
+    }
     return false;
   }
 

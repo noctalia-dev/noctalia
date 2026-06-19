@@ -1315,6 +1315,19 @@ namespace settings {
         asSegmented(enumSelect(kPanelPlacements, cfg.shell.panel.controlCenterPlacement)),
         "attached floating bar panel position"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Panels, "workspace-tray", tr("settings.schema.panels.placement-workspace-tray.label"),
+        tr("settings.schema.panels.placement-workspace-tray.description"),
+        {"shell", "panel", "workspace_tray_placement"},
+        asSegmented(enumSelect(kPanelPlacements, cfg.shell.panel.workspaceTrayPlacement)),
+        "attached floating centered bar panel workspace tray position"
+    ));
+    entries.push_back(panelBarAlignmentEntry(
+        SettingsSection::Panels, "workspace-tray", "workspace_tray",
+        "settings.schema.panels.open-near-click-workspace-tray.label",
+        "settings.schema.panels.open-near-click-workspace-tray.description", cfg.shell.panel.openNearClickWorkspaceTray,
+        &ShellConfig::PanelConfig::workspaceTrayPlacement, &ShellConfig::PanelConfig::workspaceTrayPosition
+    ));
     entries.push_back(panelPositionEntry(
         SettingsSection::ControlCenter, "general", "control_center",
         "settings.schema.panels.position-control-center.label",

@@ -44,6 +44,7 @@
 #include "shell/bar/widgets/volume_widget.h"
 #include "shell/bar/widgets/wallpaper_widget.h"
 #include "shell/bar/widgets/weather_widget.h"
+#include "shell/bar/widgets/workspace_tray_widget.h"
 #include "shell/bar/widgets/workspaces_widget.h"
 #include "system/format_units.h"
 #include "ui/style.h"
@@ -713,6 +714,35 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .enableScroll = wc != nullptr ? wc->getBool("enable_scroll", true) : true,
     };
     auto widget = std::make_unique<WorkspacesWidget>(m_platform, m_configService, output, options);
+    widget->setContentScale(contentScale);
+    return widget;
+  }
+
+  if (type == "workspace_tray") {
+    const std::string display = wc != nullptr ? wc->getString("display", "id") : std::string("id");
+    const ColorSpec focusedColor = wc != nullptr
+        ? wc->getColorSpec("focused_color", colorSpecFromRole(ColorRole::Primary), "widget." + name + ".focused_color")
+        : colorSpecFromRole(ColorRole::Primary);
+    const ColorSpec occupiedColor = wc != nullptr
+        ? wc->getColorSpec(
+              "occupied_color", colorSpecFromRole(ColorRole::Secondary), "widget." + name + ".occupied_color"
+          )
+        : colorSpecFromRole(ColorRole::Secondary);
+    WorkspaceTrayWidget::DisplayMode displayMode = WorkspaceTrayWidget::DisplayMode::Id;
+    if (display == "name") {
+      displayMode = WorkspaceTrayWidget::DisplayMode::Name;
+    }
+    std::size_t maxLabelChars = 3;
+    if (wc != nullptr && wc->hasSetting("max_label_chars")) {
+      maxLabelChars = static_cast<std::size_t>(wc->getInt("max_label_chars", 3));
+    }
+    const bool showChevron = wc != nullptr ? wc->getBool("show_chevron", true) : true;
+    const bool focusedOnly = wc != nullptr ? wc->getBool("focused_only", false) : false;
+    const bool hideWhenEmpty = wc != nullptr ? wc->getBool("hide_when_empty", false) : false;
+    auto widget = std::make_unique<WorkspaceTrayWidget>(
+        m_platform, output, displayMode, maxLabelChars, focusedColor, occupiedColor, showChevron, focusedOnly,
+        hideWhenEmpty
+    );
     widget->setContentScale(contentScale);
     return widget;
   }

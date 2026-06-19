@@ -1151,7 +1151,8 @@
         "wallpaper": "Wallpaper",
         "weather": "Weather",
         "widget-list": "Widget List",
-        "widgets": "Widgets"
+        "widgets": "Widgets",
+        "workspace-tray": "Workspace Tray"
       },
       "sections": {
         "accessibility": "Accessibility",
@@ -2275,6 +2276,10 @@
           "description": "Position the session panel near the bar widget that opened it; openings without a bar trigger are centered",
           "label": "Along Bar"
         },
+        "open-near-click-workspace-tray": {
+          "description": "Position the workspace tray panel near the bar click instead of centering it along the bar",
+          "label": "Open Near Click"
+        },
         "open-near-click-wallpaper": {
           "description": "Position the wallpaper picker near the bar widget that opened it; openings without a bar trigger are centered",
           "label": "Along Bar"
@@ -2297,6 +2302,10 @@
         },
         "placement-session": {
           "description": "Choose whether the session panel attaches to the bar or floats at a chosen screen position",
+          "label": "Placement"
+        },
+        "placement-workspace-tray": {
+          "description": "Choose whether the workspace tray attaches to the bar, floats near it, or opens centered",
           "label": "Placement"
         },
         "placement-wallpaper": {
@@ -3166,7 +3175,8 @@
           "description": "Only highlight the active workspace on the focused monitor",
           "label": "Highlight Focused Monitor Only",
           "taskbar-description": "Only use the focused color for the active workspace on the monitor that has keyboard or pointer focus; other monitors use the occupied color",
-          "workspaces-description": "Only highlight the active workspace on the monitor that has keyboard or pointer focus; other monitors show their active workspace as occupied instead"
+          "workspaces-description": "Only highlight the active workspace on the monitor that has keyboard or pointer focus; other monitors show their active workspace as occupied instead",
+          "workspace-tray-description": "Only use the focused color on the monitor that has keyboard or pointer focus; other monitors use the occupied color"
         },
         "font-family": {
           "description": "Typeface for this widget; leave empty to inherit the bar font",
@@ -3221,7 +3231,8 @@
         "hide-when-empty": {
           "description": "Hide workspace pills when there are no open windows",
           "label": "Hide When Empty",
-          "workspaces-description": "Hide workspace pills that have no open windows"
+          "workspaces-description": "Hide workspace pills that have no open windows",
+          "workspace-tray-description": "Hide the widget when all workspaces on this monitor are empty"
         },
         "hide-when-full": {
           "description": "Hide the battery widget when fully charged",
@@ -3316,7 +3327,8 @@
         "max-label-chars": {
           "description": "Maximum number of characters to show for workspace names",
           "label": "Max Label Characters",
-          "workspaces-description": "Maximum characters for workspace name labels"
+          "workspaces-description": "Maximum characters for workspace name labels",
+          "workspace-tray-description": "Maximum characters for the workspace name shown on the bar pill"
         },
         "max-length": {
           "description": "Maximum widget length in pixels",
@@ -3366,6 +3378,14 @@
         "only-active-workspace": {
           "description": "Hide windows on inactive workspaces",
           "label": "Only Active Workspace"
+        },
+        "new-workspace-command": {
+          "description": "Shell command run when the new workspace button is clicked",
+          "label": "New Workspace Command"
+        },
+        "new-workspace-glyph": {
+          "description": "Icon shown on the new workspace button",
+          "label": "New Workspace Icon"
         },
         "path": {
           "description": "Path used by disk statistics",
@@ -3428,6 +3448,10 @@
           "description": "Show weather condition text",
           "label": "Show Condition"
         },
+        "show-chevron": {
+          "description": "Show a dropdown arrow next to the workspace label",
+          "label": "Show Chevron"
+        },
         "show-empty-label": {
           "description": "Show placeholder text when no window is focused instead of hiding the widget",
           "label": "Show Empty Label"
@@ -3443,6 +3467,10 @@
         "show-num-lock": {
           "description": "Show Num Lock state",
           "label": "Show Num Lock"
+        },
+        "show-new-workspace": {
+          "description": "Show a button at the bottom of the workspace list to create a new workspace",
+          "label": "Show New Workspace Button"
         },
         "show-scroll-lock": {
           "description": "Show Scroll Lock state",
@@ -3568,7 +3596,8 @@
         "volume": "Volume",
         "wallpaper": "Wallpaper",
         "weather": "Weather",
-        "workspaces": "Workspaces"
+        "workspaces": "Workspaces",
+        "workspace-tray": "Workspace Tray"
       }
     },
     "window": {

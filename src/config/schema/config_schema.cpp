@@ -1192,18 +1192,21 @@ namespace noctalia::config::schema {
           enumField(&ShellConfig::PanelConfig::wallpaperPlacement, "wallpaper_placement", kPanelPlacements),
           enumField(&ShellConfig::PanelConfig::sessionPlacement, "session_placement", kPanelPlacements),
           enumField(&ShellConfig::PanelConfig::polkitPlacement, "polkit_placement", kPanelPlacements),
+          enumField(&ShellConfig::PanelConfig::workspaceTrayPlacement, "workspace_tray_placement", kPanelPlacements),
           field(&ShellConfig::PanelConfig::launcherPosition, "launcher_position"),
           field(&ShellConfig::PanelConfig::clipboardPosition, "clipboard_position"),
           field(&ShellConfig::PanelConfig::controlCenterPosition, "control_center_position"),
           field(&ShellConfig::PanelConfig::wallpaperPosition, "wallpaper_position"),
           field(&ShellConfig::PanelConfig::sessionPosition, "session_position"),
           field(&ShellConfig::PanelConfig::polkitPosition, "polkit_position"),
+          field(&ShellConfig::PanelConfig::workspaceTrayPosition, "workspace_tray_position"),
           field(&ShellConfig::PanelConfig::floatingOffset, "floating_offset", Range<std::int64_t>{0, 100}),
           field(&ShellConfig::PanelConfig::openNearClickControlCenter, "open_near_click_control_center"),
           field(&ShellConfig::PanelConfig::openNearClickLauncher, "open_near_click_launcher"),
           field(&ShellConfig::PanelConfig::openNearClickClipboard, "open_near_click_clipboard"),
           field(&ShellConfig::PanelConfig::openNearClickWallpaper, "open_near_click_wallpaper"),
           field(&ShellConfig::PanelConfig::openNearClickSession, "open_near_click_session"),
+          field(&ShellConfig::PanelConfig::openNearClickWorkspaceTray, "open_near_click_workspace_tray"),
       };
       return s;
     }

@@ -76,6 +76,7 @@
 #include "shell/tray/tray_drawer_panel.h"
 #include "shell/wallpaper/panel/wallpaper_panel.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "shell/workspace_tray/workspace_tray_panel.h"
 #include "system/brightness_poll_source.h"
 #include "system/brightness_service.h"
 #include "system/distro_info.h"
@@ -666,6 +667,9 @@ void Application::initPanelManagerAndPanels() {
                                  return m_polkitAgent.get();
                                }));
   m_panelManager.registerPanel("setup-wizard", std::make_unique<SetupWizardPanel>(&m_configService, &m_wayland));
+  m_panelManager.registerPanel(
+      "workspace-tray", std::make_unique<WorkspaceTrayPanel>(&m_compositorPlatform, &m_configService)
+  );
 
   if (SetupWizardPanel::isFirstRun(m_configService)) {
     DeferredCall::callLater([]() { PanelManager::instance().togglePanel("setup-wizard"); });
