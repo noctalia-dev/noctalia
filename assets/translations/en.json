@@ -3087,7 +3087,8 @@
         "minimal": {
           "description": "Show workspace id or name labels only, without animated pills",
           "label": "Minimal Style",
-          "workspaces-description": "Text-only workspace labels without pill backgrounds or slide animation"
+          "workspaces-description": "Text-only workspace labels without pill backgrounds or slide animation",
+          "taskbar-description": "Text-only workspace labels without colored disc backgrounds"
         },
         "mirrored": {
           "description": "Mirror the visualizer around its center",

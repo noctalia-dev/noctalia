@@ -166,11 +166,12 @@ TaskbarWidget::TaskbarWidget(
 )
     : m_platform(platform), m_configService(config), m_output(output), m_configOptions(std::move(options)),
       m_showAllOutputs(m_configOptions.showAllOutputs), m_focusedOutputOnly(m_configOptions.focusedOutputOnly),
-      m_showActiveIndicator(m_configOptions.showActiveIndicator), m_activeOpacity(m_configOptions.activeOpacity),
-      m_inactiveOpacity(m_configOptions.inactiveOpacity), m_focusedColor(m_configOptions.focusedColor),
-      m_occupiedColor(m_configOptions.occupiedColor), m_emptyColor(m_configOptions.emptyColor),
-      m_windowTitleMaxWidth(m_configOptions.windowTitleMaxWidth), m_taskbarMaxWidth(m_configOptions.taskbarMaxWidth),
-      m_barPosition(std::move(m_configOptions.barPosition)), m_shadowConfig(m_configOptions.shadowConfig) {
+      m_minimal(m_configOptions.minimal), m_showActiveIndicator(m_configOptions.showActiveIndicator),
+      m_activeOpacity(m_configOptions.activeOpacity), m_inactiveOpacity(m_configOptions.inactiveOpacity),
+      m_focusedColor(m_configOptions.focusedColor), m_occupiedColor(m_configOptions.occupiedColor),
+      m_emptyColor(m_configOptions.emptyColor), m_windowTitleMaxWidth(m_configOptions.windowTitleMaxWidth),
+      m_taskbarMaxWidth(m_configOptions.taskbarMaxWidth), m_barPosition(std::move(m_configOptions.barPosition)),
+      m_shadowConfig(m_configOptions.shadowConfig) {
   syncWorkspaceGroupingCapability();
   buildDesktopIconIndex();
 }
@@ -607,7 +608,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     const auto styleWorkspaceDisc = [this](Box& badge, float width, float height, const Workspace& workspace) {
       badge.setFrameSize(width, height);
       badge.setRadius(resolvedBarCapsuleRadius(width, height));
-      badge.setFill(workspaceFillColor(workspace));
+      badge.setFill(m_minimal ? clearColorSpec() : workspaceFillColor(workspace));
       badge.clearBorder();
     };
 
@@ -647,7 +648,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
           .fontSize = badgeFontSize,
           .fontWeight = fontWeight,
           .fontFamily = fontFamily,
-          .color = workspaceTextColor(ws.workspace),
+          .color = m_minimal ? workspaceFillColor(ws.workspace) : workspaceTextColor(ws.workspace),
       });
       badgeText->measure(renderer);
       badgeText->setPosition(
@@ -693,7 +694,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
           .fontSize = badgeFontSize,
           .fontWeight = fontWeight,
           .fontFamily = fontFamily,
-          .color = workspaceTextColor(ws.workspace),
+          .color = m_minimal ? workspaceFillColor(ws.workspace) : workspaceTextColor(ws.workspace),
       });
       badgeText->measure(renderer);
       badgeText->setPosition(

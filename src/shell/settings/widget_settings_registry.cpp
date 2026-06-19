@@ -851,6 +851,11 @@ namespace settings {
           focusedOutputOnly.visibleWhen =
               WidgetSettingVisibility{WidgetSettingVisibilityCondition{"show_workspace_label", {"true"}}};
           add(std::move(focusedOutputOnly));
+          auto minimal = boolSpec("minimal", false);
+          minimal.descriptionKey = "settings.widgets.settings.minimal.taskbar-description";
+          minimal.visibleWhen =
+              WidgetSettingVisibility{WidgetSettingVisibilityCondition{"show_workspace_label", {"true"}}};
+          add(std::move(minimal));
         }
         {
           auto singleIconPerApp = boolSpec("group_single_icon_per_app", false);
