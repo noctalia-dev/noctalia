@@ -851,117 +851,117 @@ namespace {
     )
         : m_audio(audio), m_id(id), m_sliderMax(sliderMax), m_onQueueVolume(std::move(onQueueVolume)),
           m_onCommitVolume(std::move(onCommitVolume)) {
-      setDirection(FlexDirection::Vertical);
-      setAlign(FlexAlign::Stretch);
+      m_scale = scale;
+      setDirection(FlexDirection::Horizontal);
+      setAlign(FlexAlign::Center);
+      setGap(Style::spaceMd * scale);
       setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
-      setMinHeight((Style::controlHeightLg + Style::spaceXs) * scale);
+      setMinHeight((Style::controlHeightLg + Style::spaceSm) * scale);
       setRadius(Style::scaledRadiusMd(scale));
       setFill(colorSpecFromRole(ColorRole::Surface));
       clearBorder();
 
       constexpr float kIconSizeSm = 28.0f;
+      constexpr float kCompactSliderControlHeight = 20.0f;
       m_iconSize = kIconSizeSm * scale;
+      m_iconContentGap = Style::spaceSm * scale;
+      m_valueLabelMinWidth = kValueLabelWidth * scale;
 
-      auto headerRow = ui::row({
-          .out = &m_headerRow,
-          .align = FlexAlign::Center,
-          .gap = Style::spaceSm * scale,
-          .flexGrow = 0.0f,
-      });
-
-      headerRow->addChild(
-          ui::image({
-              .out = &m_icon,
-              .fit = ImageFit::Contain,
-              .radius = Style::scaledRadiusMd(scale),
-              .width = m_iconSize,
-              .height = m_iconSize,
-              .visible = false,
-          })
-      );
-
-      auto textCol = ui::column({
-          .out = &m_textCol,
-          .align = FlexAlign::Start,
-          .justify = FlexJustify::Center,
-          .gap = 0.0f,
-          .flexGrow = 1.0f,
-      });
-
-      textCol->addChild(
-          ui::label({
-              .out = &m_appNameLabel,
-              .fontSize = Style::fontSizeBody * scale,
-              .color = colorSpecFromRole(ColorRole::OnSurface),
-              .fontWeight = FontWeight::Bold,
-          })
-      );
-
-      textCol->addChild(
-          ui::label({
-              .out = &m_subtitleLabel,
-              .fontSize = Style::fontSizeCaption * scale,
-              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-              .visible = false,
-          })
-      );
-
-      headerRow->addChild(std::move(textCol));
-      addChild(std::move(headerRow));
-
-      auto controlsRow = ui::row({
-          .out = &m_controlsRow,
-          .align = FlexAlign::Center,
-          .gap = Style::spaceSm * scale,
-          .flexGrow = 0.0f,
-      });
-
-      controlsRow->addChild(
-          ui::slider({
-              .out = &m_slider,
-              .minValue = 0.0f,
-              .maxValue = sliderMax,
-              .step = 0.01f,
-              .trackHeight = Style::sliderTrackHeight * scale,
-              .thumbSize = Style::sliderThumbSize * scale,
-              .controlHeight = Style::controlHeight * scale,
-              .wheelAdjustEnabled = true,
-              .flexGrow = 1.0f,
-              .onValueChanged =
-                  [this](double value) {
-                    if (m_syncing || m_audio == nullptr) {
-                      return;
-                    }
-                    if (m_valueLabel != nullptr) {
-                      m_valueLabel->setText(std::to_string(static_cast<int>(std::round(value * 100.0))) + "%");
-                    }
-                    if (m_onQueueVolume) {
-                      m_onQueueVolume(static_cast<float>(value));
-                    }
+      addChild(
+          ui::row(
+              {
+                  .align = FlexAlign::Center,
+                  .gap = m_iconContentGap,
+                  .flexGrow = 1.0f,
+              },
+              ui::image({
+                  .out = &m_icon,
+                  .fit = ImageFit::Contain,
+                  .radius = Style::scaledRadiusMd(scale),
+                  .width = m_iconSize,
+                  .height = m_iconSize,
+                  .visible = false,
+              }),
+              ui::column(
+                  {
+                      .align = FlexAlign::Stretch,
+                      .justify = FlexJustify::Center,
+                      .gap = 0.0f,
+                      .flexGrow = 1.0f,
                   },
-              .onDragEnd =
-                  [this]() {
-                    if (m_audio == nullptr) {
-                      return;
-                    }
-                    if (m_onCommitVolume) {
-                      m_onCommitVolume();
-                    }
-                  },
-          })
+                  ui::row(
+                      {
+                          .align = FlexAlign::Center,
+                          .gap = Style::spaceSm * scale,
+                          .flexGrow = 0.0f,
+                      },
+                      ui::row(
+                          {
+                              .align = FlexAlign::Center,
+                              .gap = Style::spaceXs * scale,
+                              .flexGrow = 1.0f,
+                          },
+                          ui::label({
+                              .out = &m_appNameLabel,
+                              .fontSize = Style::fontSizeBody * scale,
+                              .color = colorSpecFromRole(ColorRole::OnSurface),
+                              .maxLines = 1,
+                              .fontWeight = FontWeight::Bold,
+                          }),
+                          ui::label({
+                              .out = &m_subtitleLabel,
+                              .fontSize = Style::fontSizeCaption * scale,
+                              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                              .maxLines = 1,
+                              .visible = false,
+                          })
+                      ),
+                      ui::label({
+                          .out = &m_valueLabel,
+                          .text = "0%",
+                          .fontSize = Style::fontSizeBody * scale,
+                          .minWidth = m_valueLabelMinWidth,
+                          .fontWeight = FontWeight::Bold,
+                          .textAlign = TextAlign::End,
+                      })
+                  ),
+                  ui::slider({
+                      .out = &m_slider,
+                      .minValue = 0.0f,
+                      .maxValue = sliderMax,
+                      .step = 0.01f,
+                      .trackHeight = Style::sliderTrackHeight * scale,
+                      .thumbSize = Style::sliderThumbSize * scale,
+                      .controlHeight = kCompactSliderControlHeight * scale,
+                      .wheelAdjustEnabled = true,
+                      .flexGrow = 1.0f,
+                      .onValueChanged =
+                          [this](double value) {
+                            if (m_syncing || m_audio == nullptr) {
+                              return;
+                            }
+                            if (m_valueLabel != nullptr) {
+                              m_valueLabel->setText(std::to_string(static_cast<int>(std::round(value * 100.0))) + "%");
+                            }
+                            if (m_onQueueVolume) {
+                              m_onQueueVolume(static_cast<float>(value));
+                            }
+                          },
+                      .onDragEnd =
+                          [this]() {
+                            if (m_audio == nullptr) {
+                              return;
+                            }
+                            if (m_onCommitVolume) {
+                              m_onCommitVolume();
+                            }
+                          },
+                  })
+              )
+          )
       );
 
-      controlsRow->addChild(
-          ui::label({
-              .out = &m_valueLabel,
-              .text = "0%",
-              .fontSize = Style::fontSizeBody * scale,
-              .minWidth = kValueLabelWidth * scale,
-              .fontWeight = FontWeight::Bold,
-          })
-      );
-
-      controlsRow->addChild(
+      addChild(
           ui::button({
               .out = &m_muteButton,
               .glyph = "volume-high",
@@ -981,7 +981,6 @@ namespace {
               },
           })
       );
-      addChild(std::move(controlsRow));
     }
 
     void doLayout(Renderer& renderer) override {
@@ -1014,16 +1013,34 @@ namespace {
         }
       }
 
-      // Bound labels to protect row layout; only react when the row width actually changes.
+      // Bound labels to protect row layout when app names or stream titles are long.
       if (m_appNameLabel != nullptr) {
         const float rowWidth = width();
-        if (std::abs(rowWidth - m_lastLabelLayoutWidth) >= 0.5f) {
-          m_lastLabelLayoutWidth = rowWidth;
-          const float textMax = std::max(80.0f, rowWidth - m_iconSize - gap() - paddingLeft() - paddingRight());
-          m_appNameLabel->setMaxWidth(textMax);
-          if (m_subtitleLabel != nullptr) {
-            m_subtitleLabel->setMaxWidth(textMax);
-          }
+        const float textMax = std::max(
+            80.0f * m_scale,
+            rowWidth
+                - paddingLeft()
+                - paddingRight()
+                - m_iconSize
+                - m_iconContentGap
+                - m_valueLabelMinWidth
+                - Style::spaceSm * m_scale
+                - Style::controlHeightSm * m_scale
+                - gap()
+        );
+        const bool showSubtitle = m_subtitleLabel != nullptr && m_subtitleLabel->visible();
+        const float titleGap = showSubtitle ? Style::spaceXs * m_scale : 0.0f;
+        const float titleBudget = std::max(0.0f, textMax - titleGap);
+        float appMax = showSubtitle ? std::max(44.0f * m_scale, titleBudget * 0.68f) : textMax;
+        float subtitleMax = showSubtitle ? std::max(0.0f, titleBudget - appMax) : textMax;
+        const float subtitleMin = 36.0f * m_scale;
+        if (showSubtitle && subtitleMax < subtitleMin) {
+          subtitleMax = std::min(subtitleMin, titleBudget * 0.45f);
+          appMax = std::max(0.0f, titleBudget - subtitleMax);
+        }
+        m_appNameLabel->setMaxWidth(appMax);
+        if (m_subtitleLabel != nullptr) {
+          m_subtitleLabel->setMaxWidth(showSubtitle ? subtitleMax : textMax);
         }
       }
 
@@ -1169,6 +1186,7 @@ namespace {
     }
 
     void setValueLabelMinWidth(float minWidth) {
+      m_valueLabelMinWidth = minWidth;
       if (m_valueLabel != nullptr) {
         m_valueLabel->setMinWidth(minWidth);
       }
@@ -1183,17 +1201,16 @@ namespace {
 
     Image* m_icon = nullptr;
     float m_iconSize = 0.0f;
-    Flex* m_headerRow = nullptr;
-    Flex* m_controlsRow = nullptr;
+    float m_scale = 1.0f;
+    float m_iconContentGap = 0.0f;
+    float m_valueLabelMinWidth = 0.0f;
     Label* m_appNameLabel = nullptr;
     Label* m_subtitleLabel = nullptr;
-    Flex* m_textCol = nullptr;
 
     std::string m_iconIdentityKey;
     std::string m_lastLoadedIconIdentity;
     std::string m_lastIconPath;
     std::vector<std::string> m_iconCandidates;
-    float m_lastLabelLayoutWidth = -1.0f;
     std::string m_programResolutionLogKey;
     std::string m_desktopMatchLogKey;
 
