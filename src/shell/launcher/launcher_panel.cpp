@@ -1252,6 +1252,23 @@ bool LauncherPanel::handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers) {
     return cycleCategory((modifiers & KeyMod::Shift) != 0);
   }
 
+  if (KeySymbol::isTab(sym) && (modifiers & ~(KeyMod::Shift)) == 0) {
+    if (!m_results.empty()) {
+      const bool reverse = (modifiers & KeyMod::Shift) != 0 || sym == XKB_KEY_ISO_Left_Tab;
+      const int last = static_cast<int>(m_results.size() - 1);
+      const int current = static_cast<int>(m_selectedIndex);
+      // Reuse the arrow-key selection path, wrapping around the ends to cycle.
+      int delta = reverse ? -1 : 1;
+      if (reverse && current == 0) {
+        delta = last;
+      } else if (!reverse && current == last) {
+        delta = -last;
+      }
+      moveSelection(delta);
+    }
+    return true;
+  }
+
   if (KeySymbol::isPageUp(sym)) {
     const int stride = m_grid != nullptr ? static_cast<int>(m_grid->pageItemStride()) : 1;
     moveSelection(-stride);

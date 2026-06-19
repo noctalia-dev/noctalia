@@ -2,6 +2,8 @@
 
 #include "config/config_service.h"
 #include "core/deferred_call.h"
+#include "core/key_modifiers.h"
+#include "core/key_symbols.h"
 #include "core/keybind_matcher.h"
 #include "core/log.h"
 #include "core/process.h"
@@ -1650,6 +1652,15 @@ bool ClipboardPanel::handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers) 
     if (m_selectedIndex + 1 < m_filteredIndices.size()) {
       selectIndex(m_selectedIndex + 1);
     }
+    return true;
+  }
+
+  if (KeySymbol::isTab(sym) && (modifiers & ~(KeyMod::Shift)) == 0) {
+    const bool reverse = (modifiers & KeyMod::Shift) != 0 || sym == XKB_KEY_ISO_Left_Tab;
+    const std::size_t count = m_filteredIndices.size();
+    const std::size_t next = reverse ? (m_selectedIndex == 0 ? count - 1 : m_selectedIndex - 1)
+                                     : (m_selectedIndex + 1 < count ? m_selectedIndex + 1 : 0);
+    selectIndex(next);
     return true;
   }
 
