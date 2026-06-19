@@ -81,6 +81,7 @@ private:
   void persistConnectionToDisk(const std::string& connectionPath, const std::string& ssid);
   void deleteUnsavedConnection(const std::string& connectionPath, const std::string& ssid);
   void rebindActiveConnection();
+  [[nodiscard]] std::string physicalActivatingConnection();
   void rebindActiveDevice(const std::string& devicePath);
   void rebindActiveAccessPoint(const std::string& apPath);
   void ensureWifiDeviceSubscribed(const std::string& devicePath);

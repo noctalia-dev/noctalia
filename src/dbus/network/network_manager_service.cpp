@@ -38,7 +38,12 @@ namespace {
   constexpr std::string_view kNmWiredConnectionType = "802-3-ethernet";
 
   // NMDeviceType values from NetworkManager D-Bus API.
+  constexpr std::uint32_t kNmDeviceTypeEthernet = 1;
   constexpr std::uint32_t kNmDeviceTypeWifi = 2;
+
+  // NMDeviceState: a device between Prepare and Activated is mid-activation.
+  constexpr std::uint32_t kNmDeviceStatePrepare = 40;
+  constexpr std::uint32_t kNmDeviceStateActivated = 100;
 
   // NMActiveConnectionState
   constexpr std::uint32_t kNmActiveConnectionStateActivating = 1;
@@ -1422,6 +1427,36 @@ void NetworkManagerService::finishRefreshAccessPoints(
   onComplete();
 }
 
+std::string NetworkManagerService::physicalActivatingConnection() {
+  std::vector<sdbus::ObjectPath> devices;
+  try {
+    m_nm->callMethod("GetDevices").onInterface(kNmInterface).storeResultsTo(devices);
+  } catch (const sdbus::Error&) {
+    return {};
+  }
+
+  for (const auto& devicePath : devices) {
+    try {
+      auto device = sdbus::createProxy(m_bus.connection(), kNmBusName, devicePath);
+      const auto deviceType = getPropertyOr<std::uint32_t>(*device, kNmDeviceInterface, "DeviceType", 0U);
+      if (deviceType != kNmDeviceTypeEthernet && deviceType != kNmDeviceTypeWifi) {
+        continue;
+      }
+      const auto state = getPropertyOr<std::uint32_t>(*device, kNmDeviceInterface, "State", 0U);
+      if (state < kNmDeviceStatePrepare || state >= kNmDeviceStateActivated) {
+        continue;
+      }
+      const auto active =
+          getPropertyOr<sdbus::ObjectPath>(*device, kNmDeviceInterface, "ActiveConnection", sdbus::ObjectPath{"/"});
+      if (!active.empty() && active != "/") {
+        return active;
+      }
+    } catch (const sdbus::Error&) {
+    }
+  }
+  return {};
+}
+
 void NetworkManagerService::rebindActiveConnection() {
   std::string newPath;
   try {
@@ -1429,6 +1464,14 @@ void NetworkManagerService::rebindActiveConnection() {
     newPath = value.get<sdbus::ObjectPath>();
   } catch (const sdbus::Error& e) {
     kLog.debug("PrimaryConnection unavailable: {}", e.what());
+  }
+
+  // PrimaryConnection stays "/" until a connection finishes activating, and NM's
+  // ActivatingConnection property tracks loopback rather than the real link. Fall
+  // back to a physical ethernet/wifi device that is mid-activation so the resolving
+  // state is observable while virtual devices (loopback, bridge, vlan, …) are not.
+  if (newPath.empty() || newPath == "/") {
+    newPath = physicalActivatingConnection();
   }
 
   if (newPath != m_activeConnectionPath) {
@@ -1803,6 +1846,7 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
 
               next->vpnActive = (type == "vpn" || type == "wireguard");
               next->connected = state == kNmActiveConnectionStateActivated;
+              next->resolving = state == kNmActiveConnectionStateActivating;
             }
 
             readDeviceState();

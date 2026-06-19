@@ -11,7 +11,7 @@ namespace {
 
   constexpr float kDefaultSize = 20.0f;
   constexpr float kDefaultThickness = 2.0f;
-  constexpr float kRevolutionMs = 800.0f;
+  constexpr float kRevolutionMs = 1200.0f;
   constexpr float kTwoPi = 2.0f * std::numbers::pi_v<float>;
 
 } // namespace

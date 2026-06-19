@@ -32,6 +32,8 @@ namespace {
 
   std::string onOffText(bool enabled) { return enabled ? "On" : "Off"; }
 
+  std::string disconnectedText(bool resolving) { return resolving ? "Connecting" : "Not connected"; }
+
   std::string yesNoText(bool enabled) { return enabled ? "Yes" : "No"; }
 
   std::string networkCountText(std::size_t count) {
@@ -68,6 +70,16 @@ void NetworkWidget::create() {
       })
   );
 
+  // Replaces the glyph while a wired link is activating.
+  area->addChild(
+      ui::spinner({
+          .out = &m_spinner,
+          .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
+          .spinnerSize = Style::baseGlyphSize * 0.8f * m_contentScale,
+          .visible = false,
+      })
+  );
+
   // Always create the label node: horizontal bars honor m_showLabel, but
   // vertical bars always display a 3-char truncation under the glyph to match
   // volume/brightness.
@@ -96,18 +108,22 @@ void NetworkWidget::doLayout(Renderer& renderer, float containerWidth, float con
     m_label->measure(renderer);
   }
 
+  // Glyph and spinner share one slot; only one is visible.
+  Node* icon =
+      (m_spinner != nullptr && m_spinner->visible()) ? static_cast<Node*>(m_spinner) : static_cast<Node*>(m_glyph);
+
   const bool labelVisible = m_label != nullptr && m_label->width() > 0.0f && m_label->visible();
   if (m_isVertical && labelVisible) {
-    const float w = std::max(m_glyph->width(), m_label->width());
-    m_glyph->setPosition(std::round((w - m_glyph->width()) * 0.5f), 0.0f);
-    m_label->setPosition(std::round((w - m_label->width()) * 0.5f), m_glyph->height());
-    rootNode->setSize(w, m_glyph->height() + m_label->height());
+    const float w = std::max(icon->width(), m_label->width());
+    icon->setPosition(std::round((w - icon->width()) * 0.5f), 0.0f);
+    m_label->setPosition(std::round((w - m_label->width()) * 0.5f), icon->height());
+    rootNode->setSize(w, icon->height() + m_label->height());
   } else {
-    const float h = labelVisible ? std::max(m_glyph->height(), m_label->height()) : m_glyph->height();
-    m_glyph->setPosition(0.0f, std::round((h - m_glyph->height()) * 0.5f));
-    float totalWidth = m_glyph->width();
+    const float h = labelVisible ? std::max(icon->height(), m_label->height()) : icon->height();
+    icon->setPosition(0.0f, std::round((h - icon->height()) * 0.5f));
+    float totalWidth = icon->width();
     if (labelVisible) {
-      m_label->setPosition(m_glyph->width() + Style::spaceXs, std::round((h - m_label->height()) * 0.5f));
+      m_label->setPosition(icon->width() + Style::spaceXs, std::round((h - m_label->height()) * 0.5f));
       totalWidth = m_label->x() + m_label->width();
     }
     rootNode->setSize(totalWidth, h);
@@ -129,6 +145,9 @@ void NetworkWidget::syncState(Renderer& renderer) {
   m_haveLastState = true;
   m_lastVertical = m_isVertical;
 
+  const bool showSpinner = s.kind == NetworkConnectivity::Wired && s.resolving;
+
+  m_glyph->setVisible(!showSpinner);
   m_glyph->setGlyph(network_glyphs::glyphForState(s));
   m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
   m_glyph->setColor(
@@ -136,6 +155,16 @@ void NetworkWidget::syncState(Renderer& renderer) {
                   : colorSpecFromRole(ColorRole::OnSurfaceVariant)
   );
   m_glyph->measure(renderer);
+
+  if (m_spinner != nullptr) {
+    m_spinner->setVisible(showSpinner);
+    m_spinner->setSpinnerSize(Style::baseGlyphSize * 0.8f * m_contentScale);
+    if (showSpinner && !m_spinner->spinning()) {
+      m_spinner->start();
+    } else if (!showSpinner && m_spinner->spinning()) {
+      m_spinner->stop();
+    }
+  }
 
   if (m_label != nullptr) {
     const bool showLabel = m_showLabel;
@@ -216,7 +245,7 @@ std::vector<TooltipRow> NetworkWidget::buildTooltipRows() const {
     return rows;
   }
 
-  rows.push_back({"Network", "Not connected"});
+  rows.push_back({"Network", disconnectedText(s.resolving)});
   rows.push_back({"Wi-Fi", onOffText(s.wirelessEnabled)});
   if (s.scanning) {
     rows.push_back({"Scanning", yesNoText(s.scanning)});

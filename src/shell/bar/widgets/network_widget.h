@@ -9,6 +9,7 @@
 
 class Glyph;
 class Label;
+class Spinner;
 class SystemMonitorService;
 struct wl_output;
 
@@ -28,6 +29,7 @@ private:
   SystemMonitorService* m_monitor = nullptr;
   bool m_showLabel = true;
   Glyph* m_glyph = nullptr;
+  Spinner* m_spinner = nullptr;
   Label* m_label = nullptr;
   NetworkState m_lastState;
   bool m_haveLastState = false;
