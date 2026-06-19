@@ -2719,6 +2719,10 @@
           "description": "Mirror the visualizer around its center",
           "label": "Mirrored"
         },
+        "mute-color": {
+          "description": "Color role used for the icon and label when muted; fixed hex colors are also supported",
+          "label": "Mute Color"
+        },
         "occupied-color": {
           "description": "Color role used for occupied workspaces; fixed hex colors are also supported",
           "label": "Occupied Color"

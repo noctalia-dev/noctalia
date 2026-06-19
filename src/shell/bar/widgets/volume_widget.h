@@ -21,7 +21,7 @@ class VolumeWidget : public Widget {
 public:
   VolumeWidget(
       PipeWireService* audio, EasyEffectsService* easyEffects, const Config* config, wl_output* output, bool showLabel,
-      VolumeWidgetTarget target, int scrollStepPercent
+      VolumeWidgetTarget target, int scrollStepPercent, ColorSpec muteColor
   );
 
   void create() override;
@@ -37,6 +37,7 @@ private:
   bool m_showLabel = true;
   float m_scrollStep = 0.05f;
   VolumeWidgetTarget m_target = VolumeWidgetTarget::Output;
+  ColorSpec m_muteColor;
   Glyph* m_glyph = nullptr;
   Label* m_label = nullptr;
   float m_lastVolume = -1.0f;

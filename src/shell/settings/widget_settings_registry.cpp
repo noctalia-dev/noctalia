@@ -891,6 +891,7 @@ namespace settings {
       add(segmentedSpec("device", "output", volumeDeviceOptions));
       add(stepperIntSpec("scroll_step", 5, 1.0, 25.0, 1.0, "%"));
       add(boolSpec("show_label", true));
+      add(colorSpec("mute_color", "error"));
     } else if (type == "wallpaper") {
       add(glyphSpec("glyph", "wallpaper-selector"));
     } else if (type == "weather") {
