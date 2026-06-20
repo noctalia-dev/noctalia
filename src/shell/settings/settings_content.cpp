@@ -924,8 +924,8 @@ namespace settings {
           .onClick = [state, commit]() {
             state->push_back(
                 SessionPanelActionConfig{
-                    "command", true, "notify-send 'Noctalia' 'Custom session entry'", std::nullopt, std::nullopt,
-                    SessionActionButtonVariant::Default, std::nullopt
+                    .action = "command",
+                    .command = "notify-send 'Noctalia' 'Custom session entry'",
                 }
             );
             commit();

@@ -193,11 +193,11 @@ struct SessionPanelActionConfig {
   std::string action;
   bool enabled = true;
   // When set, runs via `process::runAsync` (shell string) instead of the built-in handler.
-  std::optional<std::string> command;
-  std::optional<std::string> label;
-  std::optional<std::string> glyph;
+  std::optional<std::string> command = std::nullopt;
+  std::optional<std::string> label = std::nullopt;
+  std::optional<std::string> glyph = std::nullopt;
   SessionActionButtonVariant variant = SessionActionButtonVariant::Default;
-  std::optional<KeyChord> shortcut;
+  std::optional<KeyChord> shortcut = std::nullopt;
 
   bool operator==(const SessionPanelActionConfig&) const = default;
 };

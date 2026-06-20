@@ -94,24 +94,25 @@ bool isValidPluginSourceName(std::string_view name) {
 std::vector<SessionPanelActionConfig> defaultSessionPanelActions() {
   return {
       SessionPanelActionConfig{
-          "lock", true, std::nullopt, std::nullopt, std::nullopt, SessionActionButtonVariant::Default,
-          KeyChord{XKB_KEY_1, 0}
+          .action = "lock",
+          .shortcut = KeyChord{.sym = XKB_KEY_1},
       },
       SessionPanelActionConfig{
-          "logout", true, std::nullopt, std::nullopt, std::nullopt, SessionActionButtonVariant::Default,
-          KeyChord{XKB_KEY_2, 0}
+          .action = "logout",
+          .shortcut = KeyChord{.sym = XKB_KEY_2},
       },
       SessionPanelActionConfig{
-          "lock_and_suspend", true, std::nullopt, std::nullopt, std::nullopt, SessionActionButtonVariant::Default,
-          KeyChord{XKB_KEY_3, 0}
+          .action = "lock_and_suspend",
+          .shortcut = KeyChord{.sym = XKB_KEY_3},
       },
       SessionPanelActionConfig{
-          "reboot", true, std::nullopt, std::nullopt, std::nullopt, SessionActionButtonVariant::Default,
-          KeyChord{XKB_KEY_4, 0}
+          .action = "reboot",
+          .shortcut = KeyChord{.sym = XKB_KEY_4},
       },
       SessionPanelActionConfig{
-          "shutdown", true, std::nullopt, std::nullopt, std::nullopt, SessionActionButtonVariant::Destructive,
-          KeyChord{XKB_KEY_5, 0}
+          .action = "shutdown",
+          .variant = SessionActionButtonVariant::Destructive,
+          .shortcut = KeyChord{.sym = XKB_KEY_5},
       },
   };
 }
