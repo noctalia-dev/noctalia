@@ -80,6 +80,10 @@ category = "terminal"
 name = "Wezterm"
 category = "terminal"
 
+[catalog.velo]
+name = "velo"
+category = "misc"
+
 [templates.alacritty]
 input_path = "./alacritty/alacritty.toml"
 output_path = "$XDG_CONFIG_HOME/alacritty/themes/noctalia.toml"
@@ -177,3 +181,8 @@ post_hook = "bash '{{ config_dir }}/starship/apply.sh'"
 input_path = "./wezterm/wezterm.toml"
 output_path = "$XDG_CONFIG_HOME/wezterm/colors/Noctalia.toml"
 post_hook = "bash '{{ config_dir }}/wezterm/apply.sh'"
+
+[templates.velo]
+input_path = "./velo/palette.json"
+output_path = "$XDG_CONFIG_HOME/velo/palettes/current-noctalia-override.json"
+post_hook = "bash '{{ config_dir }}/velo/apply.sh' {{ mode }}"
