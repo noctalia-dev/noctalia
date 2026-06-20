@@ -1120,7 +1120,7 @@ bool Bar::instanceEffectivelyVisible(const BarInstance& instance) const noexcept
   if (instance.barConfig.autoHide) {
     return instance.hideOpacity > 0.5f;
   }
-  return instance.slideRoot == nullptr || instance.slideRoot->opacity() > 0.5f;
+  return instance.slideRoot == nullptr || instance.hideOpacity > 0.5f;
 }
 
 bool Bar::instanceAcceptsPointerInput(const BarInstance& instance) const noexcept {
@@ -1154,12 +1154,30 @@ void Bar::setInstanceIpcVisible(BarInstance& instance, bool visible) {
   if (instance.slideRoot == nullptr) {
     return;
   }
-  // Non-autohide IPC: instant show/hide (no opacity fade — avoids sluggish hide and blur bleed-through).
   instance.animations.cancelForOwner(instance.slideRoot);
-  instance.slideRoot->setOpacity(visible ? 1.0f : 0.0f);
+  instance.slideRoot->setOpacity(1.0f);
   if (!visible) {
     clearInstancePointerState(instance);
   }
+  const float current = instance.hideOpacity;
+  const float target = visible ? 1.0f : 0.0f;
+  instance.animations.animate(
+      current, target, Style::animNormal, visible ? Easing::EaseOutCubic : Easing::EaseInQuad,
+      [inst = &instance, this](float v) {
+        inst->hideOpacity = v;
+        syncBarSlideLayerTransform(*inst);
+        syncBarSurfaceChrome(*inst);
+      },
+      [inst = &instance, this]() {
+        syncBarSlideLayerTransform(*inst);
+        syncBarAutoHideInputRegion(*inst);
+        syncBarSurfaceChrome(*inst);
+        if (inst->surface != nullptr) {
+          inst->surface->requestRedraw();
+        }
+      },
+      instance.slideRoot
+  );
   syncBarAutoHideInputRegion(instance);
   syncBarSurfaceChrome(instance);
   instance.surface->requestRedraw();
@@ -1180,7 +1198,7 @@ bool Bar::barContentVisuallyShown(const BarInstance& instance) const noexcept {
   if (instance.barConfig.autoHide) {
     return instance.hideOpacity > kShownThreshold;
   }
-  return instance.slideRoot == nullptr || instance.slideRoot->opacity() > kShownThreshold;
+  return instance.slideRoot == nullptr || instance.hideOpacity > kShownThreshold;
 }
 
 bool Bar::shouldReserveExclusiveZone(const BarInstance& instance) const noexcept {
@@ -2021,7 +2039,7 @@ void Bar::syncBarSlideLayerTransform(BarInstance& instance) const {
   if (instance.slideRoot == nullptr) {
     return;
   }
-  if (instance.barConfig.autoHide) {
+  if (instance.barConfig.autoHide || instance.ipcLayoutReleased || instance.hideOpacity < 0.999f) {
     const float t = 1.0f - instance.hideOpacity;
     instance.slideRoot->setPosition(instance.slideHiddenDx * t, instance.slideHiddenDy * t);
   } else {
@@ -2250,34 +2268,29 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
 
   layoutBarSections(instance, *renderer, barAreaW, barAreaH, padding, isVertical);
 
-  if (instance.barConfig.autoHide) {
-    float contentLeft = barAreaX;
-    float contentTop = barAreaY;
-    float contentRight = barAreaX + barAreaW;
-    float contentBottom = barAreaY + barAreaH;
-    if (instance.shadow != nullptr) {
-      const float sx = barAreaX + shadowOffsetX;
-      const float sy = barAreaY + shadowOffsetY;
-      contentLeft = std::min(contentLeft, sx);
-      contentTop = std::min(contentTop, sy);
-      contentRight = std::max(contentRight, sx + barAreaW);
-      contentBottom = std::max(contentBottom, sy + barAreaH);
-    }
-    // Concave spikes extend past the body on the inner edge; include them so the bar
-    // slides fully off-screen when hidden.
-    contentLeft -= concave.logicalInset.left;
-    contentTop -= concave.logicalInset.top;
-    contentRight += concave.logicalInset.right;
-    contentBottom += concave.logicalInset.bottom;
-    const auto hiddenDelta = computeAutoHideHiddenDelta(
-        isVertical, isBottom, isRight, w, h, contentLeft, contentTop, contentRight, contentBottom
-    );
-    instance.slideHiddenDx = hiddenDelta.first;
-    instance.slideHiddenDy = hiddenDelta.second;
-  } else {
-    instance.slideHiddenDx = 0.0f;
-    instance.slideHiddenDy = 0.0f;
+  float contentLeft = barAreaX;
+  float contentTop = barAreaY;
+  float contentRight = barAreaX + barAreaW;
+  float contentBottom = barAreaY + barAreaH;
+  if (instance.shadow != nullptr) {
+    const float sx = barAreaX + shadowOffsetX;
+    const float sy = barAreaY + shadowOffsetY;
+    contentLeft = std::min(contentLeft, sx);
+    contentTop = std::min(contentTop, sy);
+    contentRight = std::max(contentRight, sx + barAreaW);
+    contentBottom = std::max(contentBottom, sy + barAreaH);
   }
+  // Concave spikes extend past the body on the inner edge; include them so the bar
+  // slides fully off-screen when hidden.
+  contentLeft -= concave.logicalInset.left;
+  contentTop -= concave.logicalInset.top;
+  contentRight += concave.logicalInset.right;
+  contentBottom += concave.logicalInset.bottom;
+  const auto hiddenDelta = computeAutoHideHiddenDelta(
+      isVertical, isBottom, isRight, w, h, contentLeft, contentTop, contentRight, contentBottom
+  );
+  instance.slideHiddenDx = hiddenDelta.first;
+  instance.slideHiddenDy = hiddenDelta.second;
   syncBarSlideLayerTransform(instance);
 
   syncBarAutoHideInputRegion(instance);
