@@ -504,7 +504,7 @@ namespace {
               }
               toml::table row;
               row.insert_or_assign("enabled", item.enabled);
-              row.insert_or_assign("timeout", static_cast<std::int64_t>(item.timeoutSeconds));
+              row.insert_or_assign("timeout", item.timeoutSeconds);
               if (!item.action.empty()) {
                 row.insert_or_assign("action", item.action);
               }

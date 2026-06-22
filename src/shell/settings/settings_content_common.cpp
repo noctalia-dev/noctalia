@@ -321,7 +321,9 @@ namespace settings {
     if (row.timeoutSeconds <= 0) {
       return i18n::tr("settings.idle.behavior.summary-disabled-timeout", "name", name);
     }
-    return i18n::tr("settings.idle.behavior.summary", "name", name, "seconds", std::to_string(row.timeoutSeconds));
+    return i18n::tr(
+        "settings.idle.behavior.summary", "name", name, "seconds", StringUtils::formatDotDecimal(row.timeoutSeconds)
+    );
   }
 
   std::string notificationFilterRowSummary(const NotificationFilterConfig& filter) {

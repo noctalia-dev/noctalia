@@ -221,7 +221,7 @@ struct ShellSessionConfig {
 struct IdleBehaviorConfig {
   std::string name;
   bool enabled = true;
-  std::int32_t timeoutSeconds = 0;
+  double timeoutSeconds = 0.0;
   /// lock | screen_off | suspend | lock_and_suspend | command (custom shell strings)
   std::string action;
   std::string command;
