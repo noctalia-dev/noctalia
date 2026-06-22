@@ -946,6 +946,12 @@ namespace settings {
         add(std::move(maxLabelChars));
       }
       {
+        auto labels = stringListSpec("labels");
+        labels.descriptionKey = "settings.widgets.settings.labels.workspaces-description";
+        labels.visibleWhen = WidgetSettingVisibility{{"display", {"id"}}};
+        add(std::move(labels));
+      }
+      {
         auto pillScale = doubleSpec("pill_scale", 1.0, 0.1, 1.0, 0.05);
         pillScale.descriptionKey = "settings.widgets.settings.pill-scale.workspaces-description";
         pillScale.visibleWhen = pillStyleOnly;

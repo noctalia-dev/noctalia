@@ -46,7 +46,8 @@ WorkspacesWidget::WorkspacesWidget(CompositorPlatform& platform, wl_output* outp
       m_hideWhenEmpty(options.hideWhenEmpty), m_pillScale(options.pillScale),
       m_activePillSize(std::clamp(options.activePillSize, 0.25f, 8.0f)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25f, 8.0f)), m_minimal(options.minimal),
-      m_focusedColor(options.focusedColor), m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor) {}
+      m_labels(std::move(options.labels)), m_focusedColor(options.focusedColor), m_occupiedColor(options.occupiedColor),
+      m_emptyColor(options.emptyColor) {}
 
 WorkspacesWidget::DisplayMode WorkspacesWidget::effectiveDisplayMode() const noexcept {
   if (m_minimal && m_displayMode == DisplayMode::None) {
@@ -654,13 +655,18 @@ void WorkspacesWidget::activateAdjacentWorkspace(int direction) {
 std::string WorkspacesWidget::workspaceLabel(const Workspace& workspace, std::size_t displayIndex) const {
   const DisplayMode displayMode = effectiveDisplayMode();
   if (displayMode == DisplayMode::Id) {
+    std::size_t numericIdx = 0;
     if (workspace.index > 0) {
-      return std::to_string(workspace.index);
+      numericIdx = workspace.index;
+    } else if (const auto numericId = numericWorkspaceId(workspace); numericId.has_value()) {
+      numericIdx = *numericId;
+    } else {
+      numericIdx = displayIndex + 1;
     }
-    if (const auto numericId = numericWorkspaceId(workspace); numericId.has_value()) {
-      return std::to_string(*numericId);
+    if (!m_labels.empty() && numericIdx > 0 && numericIdx <= m_labels.size()) {
+      return m_labels[numericIdx - 1];
     }
-    return std::to_string(displayIndex + 1);
+    return std::to_string(numericIdx);
   }
   if (displayMode == DisplayMode::Name) {
     std::string label = !workspace.name.empty() ? workspace.name : workspace.id;

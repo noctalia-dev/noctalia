@@ -35,6 +35,7 @@ public:
     float activePillSize = 2.2f;
     float inactivePillSize = 1.0f;
     bool minimal = false;
+    std::vector<std::string> labels;
   };
 
   WorkspacesWidget(CompositorPlatform& platform, wl_output* output, Options options);
@@ -99,6 +100,7 @@ private:
   float m_activePillSize = 2.2f;
   float m_inactivePillSize = 1.0f;
   bool m_minimal = false;
+  std::vector<std::string> m_labels;
   Node* m_container = nullptr;
   std::vector<Workspace> m_cachedState;
   std::vector<Item> m_items;

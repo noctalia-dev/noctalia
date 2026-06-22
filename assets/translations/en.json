@@ -3029,6 +3029,11 @@
         "workspace-label-placement": {
           "description": "Corner, centered on the edge, or inside the pill.",
           "label": "Workspace Label Placement"
+        },
+        "labels": {
+          "description": "Custom labels for workspaces, indexed by workspace number",
+          "label": "Workspace Labels",
+          "workspaces-description": "Override numeric workspace labels with custom labels. The first entry will be the label for workspace 1, the second entry for workspace 2, and so on."
         }
       },
       "types": {
