@@ -91,7 +91,7 @@ namespace {
     if (timeout <= 0) {
       return -1;
     }
-    return std::max(1000, static_cast<int>(timeout));
+    return static_cast<int>(timeout);
   }
   constexpr int kProgressHeight = 3;
   constexpr int kContentSlideOffset = 12; // subtle foreground slide during reveal/retract
