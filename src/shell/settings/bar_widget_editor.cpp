@@ -729,6 +729,7 @@ namespace settings {
       }
 
       std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> batch;
+      batch.reserve(laneEdits.size());
       for (const auto& edit : laneEdits) {
         batch.emplace_back(zones[edit.first].lanePath, edit.second);
       }

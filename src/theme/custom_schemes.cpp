@@ -329,6 +329,7 @@ namespace noctalia::theme {
 
       if (families.empty()) {
         std::vector<Scored> result;
+        result.reserve(in.size());
         for (const auto& [color, count] : in)
           result.push_back({color, static_cast<double>(count)});
         std::ranges::stable_sort(result, std::ranges::greater{}, &Scored::score);
@@ -387,6 +388,7 @@ namespace noctalia::theme {
 
       if (families.empty()) {
         std::vector<Scored> result;
+        result.reserve(in.size());
         for (const auto& [color, count] : in)
           result.push_back({color, static_cast<double>(count)});
         std::ranges::stable_sort(result, std::ranges::greater{}, &Scored::score);
@@ -538,6 +540,7 @@ namespace noctalia::theme {
       }
 
       std::vector<Color> finalColors;
+      finalColors.reserve(scored.size());
       for (const auto& s : scored)
         finalColors.push_back(s.color);
 

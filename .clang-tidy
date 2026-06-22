@@ -13,6 +13,7 @@ Checks: >-
   modernize-use-starts-ends-with,
   modernize-use-std-numbers,
   modernize-use-std-print,
+  performance-inefficient-vector-operation,
   performance-move-const-arg,
   performance-unnecessary-copy-initialization,
   readability-container-contains,
