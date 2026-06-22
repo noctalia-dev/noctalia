@@ -13,7 +13,6 @@ struct NotificationFilterFields {
   std::string_view appName;
   std::optional<std::string_view> category;
   std::optional<std::string_view> desktopEntry;
-  Urgency urgency;
 };
 
 struct ResolvedNotificationFilter {

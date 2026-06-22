@@ -133,6 +133,7 @@ private:
     bool showToast = true;
     bool saveHistory = true;
     bool playSound = true;
+    bool disallowPermanent = false;
   };
   [[nodiscard]] ExternalNotificationDispatch evaluateExternalDispatch(
       Urgency urgency, std::string_view appName, const std::optional<std::string>& category,

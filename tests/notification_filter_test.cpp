@@ -1,5 +1,4 @@
 #include "config/config_types.h"
-#include "notification/notification.h"
 #include "notification/notification_filter.h"
 
 #include <iostream>
@@ -24,7 +23,7 @@ int main() {
   ok &= check(blacklist.size() == 1, "blacklist dedupes and normalizes");
   ok &= check(
       notificationMatchesBlacklist(
-          blacklist, NotificationFilterFields{.appName = "Discord", .category = std::nullopt, .desktopEntry = std::nullopt, .urgency = Urgency::Normal}
+          blacklist, NotificationFilterFields{.appName = "Discord", .category = std::nullopt, .desktopEntry = std::nullopt}
       ),
       "app name exact match"
   );
@@ -35,7 +34,6 @@ int main() {
               .appName = "My Discord Client",
               .category = std::nullopt,
               .desktopEntry = std::nullopt,
-              .urgency = Urgency::Normal,
           }
       ),
       "app name substring match"
@@ -47,7 +45,6 @@ int main() {
               .appName = "Other",
               .category = std::nullopt,
               .desktopEntry = std::optional<std::string_view>{"org.telegram.desktop"},
-              .urgency = Urgency::Normal,
           }
       ),
       "desktop entry no match"
@@ -59,7 +56,6 @@ int main() {
               .appName = "Telegram",
               .category = std::nullopt,
               .desktopEntry = std::optional<std::string_view>{"org.telegram.desktop"},
-              .urgency = Urgency::Normal,
           }
       ),
       "desktop entry exact match"
@@ -71,7 +67,6 @@ int main() {
               .appName = "Chat",
               .category = std::optional<std::string_view>{"im.received"},
               .desktopEntry = std::nullopt,
-              .urgency = Urgency::Normal,
           }
       ),
       "category exact match"
@@ -133,6 +128,22 @@ int main() {
   );
   ok &= check(lowOnlyFilter.matched && urgencyIsAllowed(lowOnlyFilter.allowedUrgencies, Urgency::Low), "filter low allowed");
   ok &= check(!urgencyIsAllowed(lowOnlyFilter.allowedUrgencies, Urgency::Normal), "filter normal blocked");
+
+  const auto noPermanent = resolveNotificationFilter(
+      {NotificationFilterConfig{
+          .name = "browser",
+          .enabled = true,
+          .match = "browser",
+          .allowPermanent = false,
+      }},
+      NotificationFilterFields{
+          .appName = "Browser",
+          .category = std::nullopt,
+          .desktopEntry = std::nullopt,
+      }
+  );
+  ok &= check(noPermanent.matched && !noPermanent.allowPermanent, "filter disallows permanent");
+  ok &= check(resolveNotificationFilter({}, NotificationFilterFields{.appName = "Browser"}).allowPermanent, "default allows permanent");
 
   const auto music = resolveNotificationFilter(
       filters,
