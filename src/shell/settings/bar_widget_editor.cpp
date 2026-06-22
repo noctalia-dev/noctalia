@@ -1689,7 +1689,7 @@ namespace settings {
           );
           hint->setFlexGrow(1.0f);
           groupRow->addChild(std::move(hint));
-          const std::string editGroupId = capsuleGroup;
+          const std::string& editGroupId = capsuleGroup;
           groupRow->addChild(
               ui::button({
                   .text = i18n::tr("settings.entities.widget.group.edit"),
@@ -2768,8 +2768,8 @@ namespace settings {
       }
       laneHeader->addChild(ui::spacer());
       if (inherited) {
-        auto items = laneItems;
-        auto path = lanePath;
+        const auto& items = laneItems;
+        const auto& path = lanePath;
         laneHeader->addChild(
             ui::button({
                 .text = i18n::tr("settings.entities.widget.lanes.customize"),

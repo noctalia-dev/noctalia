@@ -2947,7 +2947,7 @@ std::string Bar::setBarAutoHideIpc(std::string_view args) {
     return "error: usage: bar-auto-hide-set <on|off|true|false|1|0> [bar-name] [monitor-selector]\n";
   }
 
-  const std::string value = parts[0];
+  const std::string& value = parts[0];
   bool enabled = false;
   if (value == "on" || value == "true" || value == "1") {
     enabled = true;

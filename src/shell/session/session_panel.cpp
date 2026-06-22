@@ -185,7 +185,7 @@ Button* SessionPanel::createActionButton(const SessionPanelActionConfig& cfg, fl
   button->setMinHeight(kActionButtonMinHeight * scale);
   button->setFlexGrow(1.0f);
 
-  SessionPanelActionConfig cfgCopy = cfg;
+  const SessionPanelActionConfig& cfgCopy = cfg;
   button->setOnClick([this, cfgCopy]() {
     PanelManager::instance().close();
     invokeEntry(cfgCopy);

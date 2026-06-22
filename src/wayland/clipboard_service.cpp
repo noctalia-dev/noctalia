@@ -1237,7 +1237,7 @@ bool ClipboardService::persistHistory() {
 
     const fs::path manifest(manifestPath());
     fs::create_directories(manifest.parent_path());
-    const fs::path tmp = manifest;
+    const fs::path& tmp = manifest;
     const fs::path tmpPath = tmp.string() + ".tmp";
     {
       std::ofstream out(tmpPath);

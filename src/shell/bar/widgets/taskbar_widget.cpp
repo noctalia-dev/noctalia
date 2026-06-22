@@ -1938,7 +1938,7 @@ void TaskbarWidget::openTaskContextMenu(const TaskModel& task, InputArea& area) 
     if (entry.id >= 0) {
       const auto idx = static_cast<std::size_t>(entry.id);
       if (idx < entryActions.size()) {
-        const auto action = entryActions[idx];
+        const auto& action = entryActions[idx];
         auto& platform = m_platform;
         auto& configService = m_configService;
         DeferredCall::callLater([action, appName = entryAppName, workingDir = entryWorkingDir, terminal = entryTerminal,

@@ -633,7 +633,7 @@ for (const window of workspace.windowList()) {{
       m_current.reset();
     } else {
       const std::string title = StringUtils::windowTitleSingleLine(caption);
-      const std::string appId = resourceClass;
+      const std::string& appId = resourceClass;
       if (isNoctaliaShellSurface(appId, title)) {
         return;
       }

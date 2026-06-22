@@ -160,7 +160,7 @@ void WpaSupplicantService::subscribeInterface(const std::string& ifacePath) {
     proxy->uponSignal("BSSAdded")
         .onInterface(kWpaIfaceInterface)
         .call([this](const sdbus::ObjectPath& bssPath, const std::map<std::string, sdbus::Variant>&) {
-          const std::string key{bssPath};
+          const std::string& key{bssPath};
           if (!m_bssProxies.contains(key)) {
             try {
               m_bssProxies.emplace(key, sdbus::createProxy(m_bus.connection(), kWpaBusName, bssPath));
@@ -180,7 +180,7 @@ void WpaSupplicantService::subscribeInterface(const std::string& ifacePath) {
       const auto bssPaths =
           proxy->getProperty("BSSs").onInterface(kWpaIfaceInterface).get<std::vector<sdbus::ObjectPath>>();
       for (const auto& bssPath : bssPaths) {
-        const std::string key{bssPath};
+        const std::string& key{bssPath};
         if (!m_bssProxies.contains(key)) {
           try {
             m_bssProxies.emplace(key, sdbus::createProxy(m_bus.connection(), kWpaBusName, bssPath));
@@ -430,7 +430,7 @@ void WpaSupplicantService::rebuildState() {
       const auto bssPaths =
           proxy->getProperty("BSSs").onInterface(kWpaIfaceInterface).get<std::vector<sdbus::ObjectPath>>();
       for (const auto& bssPath : bssPaths) {
-        const std::string key{bssPath};
+        const std::string& key{bssPath};
         auto cacheIt = m_bssProxies.find(key);
         if (cacheIt == m_bssProxies.end()) {
           // Not yet in cache (race between BSSAdded signal and this rebuild) — create and cache now.

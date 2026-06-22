@@ -89,7 +89,7 @@ namespace {
   }
 
   bool isTimeoutError(const sdbus::Error& error) {
-    const auto name = error.getName();
+    const auto& name = error.getName();
     return (
         name == sdbus::Error::Name{"org.freedesktop.DBus.Error.NoReply"}
         || name == sdbus::Error::Name{"org.freedesktop.DBus.Error.Timeout"}

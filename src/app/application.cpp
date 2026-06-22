@@ -2077,7 +2077,7 @@ void Application::initIpc() {
         if (parts.size() != 1) {
           return "error: notification-dnd-set requires <on|off|true|false|1|0>\n";
         }
-        const std::string value = parts[0];
+        const std::string& value = parts[0];
         std::optional<bool> nextState;
         if (value == "on" || value == "true" || value == "1") {
           nextState = true;
