@@ -49,7 +49,7 @@ namespace {
       if (!std::isfinite(*v)) {
         return std::nullopt;
       }
-      return *v;
+      return v;
     }
     if (auto v = node.value<int64_t>()) {
       return static_cast<double>(*v);

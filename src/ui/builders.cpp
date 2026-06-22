@@ -980,7 +980,7 @@ namespace ui {
       control->setScale(*props.scale);
     }
     if (props.chord.has_value()) {
-      control->setChord(*props.chord);
+      control->setChord(props.chord);
     }
     if (props.unsetPlaceholder.has_value()) {
       control->setUnsetPlaceholder(*props.unsetPlaceholder);

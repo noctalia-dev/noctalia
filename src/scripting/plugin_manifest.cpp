@@ -105,7 +105,7 @@ namespace scripting {
         return static_cast<double>(*i);
       }
       if (auto d = node.value<double>()) {
-        return *d;
+        return d;
       }
       return std::nullopt;
     }

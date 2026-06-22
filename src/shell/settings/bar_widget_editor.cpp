@@ -2546,10 +2546,10 @@ namespace settings {
               if (dragState->highlightZoneIndex != *targetZone || dragState->highlightItemIndex != hoveredIdx) {
                 clearHighlight();
                 setCardCombineHighlight(*zones, *targetZone, hoveredIdx, true);
-                dragState->highlightZoneIndex = *targetZone;
+                dragState->highlightZoneIndex = targetZone;
                 dragState->highlightItemIndex = hoveredIdx;
               }
-              dragState->combineZoneIndex = *targetZone;
+              dragState->combineZoneIndex = targetZone;
               dragState->combineItemIndex = hoveredIdx;
               dragState->targetZoneIndex = std::nullopt;
               dragState->targetInsertionIndex = std::nullopt;
@@ -2570,7 +2570,7 @@ namespace settings {
           hideDropIndicators(*zones);
           return;
         }
-        dragState->targetZoneIndex = *targetZone;
+        dragState->targetZoneIndex = targetZone;
         dragState->targetInsertionIndex = insertion;
         hideDropIndicators(*zones);
         updateDropIndicator(*zone.indicator, *zone.container, *zone.itemNodes, insertion, scale);

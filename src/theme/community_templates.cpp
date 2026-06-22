@@ -227,7 +227,7 @@ namespace noctalia::theme {
         const std::string mode = stringField(item, "mode");
         if (!mode.empty()) {
           if (auto parsed = parseFileMode(mode)) {
-            file.mode = *parsed;
+            file.mode = parsed;
           } else {
             kLog.warn("community template '{}' file '{}' has invalid mode metadata '{}'", templateId, file.name, mode);
           }

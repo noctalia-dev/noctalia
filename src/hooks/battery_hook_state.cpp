@@ -81,7 +81,7 @@ std::vector<BatteryHookState::Event> BatteryHookState::update(const UPowerState&
     if (!m_lastStateHook.has_value() || *m_lastStateHook != *stateHook) {
       events.push_back({*stateHook, {}});
     }
-    m_lastStateHook = *stateHook;
+    m_lastStateHook = stateHook;
   }
 
   const int percent = normalizedBatteryPercent(state.percentage);

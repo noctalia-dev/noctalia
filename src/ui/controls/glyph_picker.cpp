@@ -336,7 +336,7 @@ void GlyphPicker::doLayout(Renderer& renderer) {
 
   if (!m_pendingInitialApplied && m_pendingInitialGlyph.has_value() && m_grid != nullptr && m_adapter != nullptr) {
     if (const auto idx = m_adapter->indexOfName(*m_pendingInitialGlyph); idx.has_value()) {
-      m_grid->setSelectedIndex(*idx);
+      m_grid->setSelectedIndex(idx);
       m_grid->scrollToIndex(*idx);
     }
     m_pendingInitialApplied = true;
@@ -361,7 +361,7 @@ void GlyphPicker::applyFilter(const std::string& filter) {
   // Drop selection if the previously selected name is no longer visible.
   if (previousResult.has_value()) {
     if (const auto idx = m_adapter->indexOfName(previousResult->name); idx.has_value()) {
-      m_grid->setSelectedIndex(*idx);
+      m_grid->setSelectedIndex(idx);
     } else {
       m_grid->setSelectedIndex(std::nullopt);
     }

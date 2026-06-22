@@ -659,7 +659,7 @@ void Wallpaper::registerIpc(IpcService& ipc) {
           if (const std::string error = validateOutputConnector(*outputConnector); !error.empty()) {
             return error;
           }
-          m_config->setWallpaperPath(*outputConnector, resolved);
+          m_config->setWallpaperPath(outputConnector, resolved);
           return "ok\n";
         }
 

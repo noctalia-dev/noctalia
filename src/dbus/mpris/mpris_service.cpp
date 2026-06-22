@@ -2061,7 +2061,7 @@ std::optional<std::string> MprisService::chooseActivePlayer() const {
     const auto it = m_players.find(*m_pinnedPlayerPreference);
     if (it != m_players.end() && !isBlacklisted(it->second) && !isDismissed(*m_pinnedPlayerPreference)) {
       // kLog.debug("choose active player source=pinned name={}", *m_pinnedPlayerPreference);
-      return *m_pinnedPlayerPreference;
+      return m_pinnedPlayerPreference;
     }
   }
 

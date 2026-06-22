@@ -1716,7 +1716,7 @@ void ConfigService::extractWallpaperFromTable(const toml::table& table) {
       }
       if (auto sourceKey = (*favTbl)["palette_source"].value<std::string>()) {
         if (auto parsed = enumFromKey(kPaletteSources, *sourceKey)) {
-          favorite.paletteSource = *parsed;
+          favorite.paletteSource = parsed;
         }
       }
       if (auto v = (*favTbl)["builtin_palette"].value<std::string>()) {

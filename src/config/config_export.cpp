@@ -166,7 +166,7 @@ namespace config_export {
       if (ovr.widgetCapsulePadding)
         resolved.widgetCapsulePadding = static_cast<float>(*ovr.widgetCapsulePadding);
       if (ovr.widgetCapsuleRadius.has_value()) {
-        resolved.widgetCapsuleRadius = *ovr.widgetCapsuleRadius;
+        resolved.widgetCapsuleRadius = ovr.widgetCapsuleRadius;
       }
       if (ovr.widgetCapsuleOpacity)
         resolved.widgetCapsuleOpacity = static_cast<float>(*ovr.widgetCapsuleOpacity);

@@ -83,7 +83,7 @@ namespace {
       if (const toml::table* output = table["output"].as_table()) {
         const auto name = (*output)["name"].value<std::string>();
         if (name.has_value() && !name->empty()) {
-          return *name;
+          return name;
         }
       }
       return std::nullopt;

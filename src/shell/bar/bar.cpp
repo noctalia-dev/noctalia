@@ -1762,16 +1762,16 @@ void Bar::populateWidgets(BarInstance& instance) {
     if (wcPtr != nullptr && wcPtr->hasSetting("color")) {
       widget->setWidgetForeground(wcPtr->getOptionalColorSpec("color", "widget." + name + ".color"));
     } else if (groupForeground != nullptr && groupForeground->has_value()) {
-      widget->setWidgetForeground(**groupForeground);
+      widget->setWidgetForeground(*groupForeground);
     } else if (instance.barConfig.widgetColor.has_value()) {
-      widget->setWidgetForeground(*instance.barConfig.widgetColor);
+      widget->setWidgetForeground(instance.barConfig.widgetColor);
     }
     if (wcPtr != nullptr && wcPtr->hasSetting("icon_color")) {
       widget->setWidgetIconColor(wcPtr->getOptionalColorSpec("icon_color", "widget." + name + ".icon_color"));
     } else if (groupForeground != nullptr && groupForeground->has_value()) {
-      widget->setWidgetIconColor(**groupForeground);
+      widget->setWidgetIconColor(*groupForeground);
     } else if (instance.barConfig.widgetIconColor.has_value()) {
-      widget->setWidgetIconColor(*instance.barConfig.widgetIconColor);
+      widget->setWidgetIconColor(instance.barConfig.widgetIconColor);
     }
     dest.push_back(std::move(widget));
   };
