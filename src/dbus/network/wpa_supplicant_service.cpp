@@ -224,7 +224,7 @@ void WpaSupplicantService::loadSavedNetworks(const std::string& /*ifacePath*/, s
         const auto props =
             netProxy->getProperty("Properties").onInterface("fi.w1.wpa_supplicant1.Network").get<VariantMap>();
         if (const auto it = props.find("ssid"); it != props.end()) {
-          std::string ssid = it->second.get<std::string>();
+          auto ssid = it->second.get<std::string>();
           if (ssid.size() >= 2 && ssid.front() == '"' && ssid.back() == '"') {
             ssid = ssid.substr(1, ssid.size() - 2);
           }
@@ -313,7 +313,7 @@ void WpaSupplicantService::setWirelessEnabled(bool enabled) {
   bool rfkillDone = false;
   for (const auto& [ifacePath, proxy] : m_interfaces) {
     (void)ifacePath;
-    const std::string ifname = getPropertyOr<std::string>(*proxy, kWpaIfaceInterface, "Ifname", "");
+    const auto ifname = getPropertyOr<std::string>(*proxy, kWpaIfaceInterface, "Ifname", "");
     if (ifname.empty()) {
       continue;
     }
@@ -380,8 +380,8 @@ void WpaSupplicantService::rebuildState() {
   std::string activeBssPath;
 
   for (const auto& [ifacePath, proxy] : m_interfaces) {
-    const std::string state = getPropertyOr<std::string>(*proxy, kWpaIfaceInterface, "State", "inactive");
-    const std::string ifname = getPropertyOr<std::string>(*proxy, kWpaIfaceInterface, "Ifname", "");
+    const auto state = getPropertyOr<std::string>(*proxy, kWpaIfaceInterface, "State", "inactive");
+    const auto ifname = getPropertyOr<std::string>(*proxy, kWpaIfaceInterface, "Ifname", "");
     next.scanning = next.scanning || getPropertyOr(*proxy, kWpaIfaceInterface, "Scanning", false);
 
     const bool connected =

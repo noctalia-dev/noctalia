@@ -120,8 +120,8 @@ namespace {
     }
 
     const std::uint32_t dibHeaderSize = readU32LE(imgData);
-    const std::int32_t dibWidth = static_cast<std::int32_t>(readU32LE(imgData + 4));
-    const std::int32_t dibHeight = static_cast<std::int32_t>(readU32LE(imgData + 8));
+    const auto dibWidth = static_cast<std::int32_t>(readU32LE(imgData + 4));
+    const auto dibHeight = static_cast<std::int32_t>(readU32LE(imgData + 8));
     const std::uint16_t bpp = readU16LE(imgData + 14);
     const int width = dibWidth > 0 ? dibWidth : -dibWidth;
     const int height = (dibHeight > 0 ? dibHeight : -dibHeight) / 2;
@@ -180,7 +180,7 @@ namespace {
       bmp[kBmpHeaderSize + 11] = static_cast<std::uint8_t>((rh >> 24) & 0xFF);
     }
 
-    const std::uint32_t pixelOffset = static_cast<std::uint32_t>(kBmpHeaderSize + dibHeaderSize);
+    const auto pixelOffset = static_cast<std::uint32_t>(kBmpHeaderSize + dibHeaderSize);
     const auto totalSize = static_cast<std::uint32_t>(bmp.size());
 
     bmp[0] = 'B';
@@ -378,7 +378,7 @@ std::optional<DecodedRasterAnimation> decodeAnimatedGif(
   if (canvasBytes64 > maxRgbaBytes) {
     return fail("GIF canvas exceeds size cap");
   }
-  const std::size_t canvasBytes = static_cast<std::size_t>(canvasBytes64);
+  const auto canvasBytes = static_cast<std::size_t>(canvasBytes64);
 
   wuffs_base__pixel_config pixcfg{};
   wuffs_base__pixel_config__set(

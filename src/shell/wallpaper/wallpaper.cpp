@@ -202,7 +202,7 @@ namespace {
     if (it == candidates.end()) {
       return candidates.front();
     }
-    const std::size_t idx = static_cast<std::size_t>(std::distance(candidates.begin(), it));
+    const auto idx = static_cast<std::size_t>(std::distance(candidates.begin(), it));
     return candidates[(idx + 1) % candidates.size()];
   }
 
@@ -1031,8 +1031,8 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
 
   auto* inst = instance.get();
   instance->surface->setConfigureCallback([this, inst, wallpaperPath](std::uint32_t width, std::uint32_t height) {
-    const float sw = static_cast<float>(width);
-    const float sh = static_cast<float>(height);
+    const auto sw = static_cast<float>(width);
+    const auto sh = static_cast<float>(height);
     inst->sceneRoot->setSize(sw, sh);
     inst->fillNode->setPosition(0.0f, 0.0f);
     inst->fillNode->setSize(sw, sh);

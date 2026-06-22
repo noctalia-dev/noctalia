@@ -476,7 +476,7 @@ void CalendarTab::applyMonthSlide(float progress, bool slidingIn) {
     return;
   }
 
-  const float direction = static_cast<float>(m_monthSlideDirection);
+  const auto direction = static_cast<float>(m_monthSlideDirection);
   if (slidingIn) {
     m_grid->setPosition(direction * travel * (1.0f - progress), 0.0f);
     m_grid->setOpacity(0.7f + 0.3f * progress);

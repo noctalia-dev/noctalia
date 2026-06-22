@@ -244,7 +244,7 @@ Color SysmonWidget::currentValueColor(ColorSpec baseColor) {
   const Color base = resolveColorSpec(baseColor);
   const Color highlight = resolveColorSpec(m_highlightColor);
   const auto [activityThreshold, criticalThreshold] = currentThresholds();
-  const float factor = static_cast<float>(gradientFactor(currentGradientValue(), activityThreshold, criticalThreshold));
+  const auto factor = static_cast<float>(gradientFactor(currentGradientValue(), activityThreshold, criticalThreshold));
   return lerpColor(base, highlight, factor);
 }
 

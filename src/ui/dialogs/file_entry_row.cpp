@@ -25,7 +25,7 @@ namespace {
     }
 
     static constexpr const char* kUnits[] = {"B", "KB", "MB", "GB", "TB"};
-    double size = static_cast<double>(entry.size);
+    auto size = static_cast<double>(entry.size);
     std::size_t unit = 0;
     while (size >= 1024.0 && unit + 1 < std::size(kUnits)) {
       size /= 1024.0;

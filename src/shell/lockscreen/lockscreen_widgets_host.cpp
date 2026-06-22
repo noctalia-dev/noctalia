@@ -341,8 +341,8 @@ void LockscreenWidgetsHost::prepareFrame(LockSurface& surface, bool needsUpdate,
   m_renderContext->makeCurrent(surface.renderTarget());
 
   const float baseUiScale = m_config != nullptr ? m_config->config().shell.uiScale : 1.0f;
-  const float surfaceW = static_cast<float>(surface.width());
-  const float surfaceH = static_cast<float>(surface.height());
+  const auto surfaceW = static_cast<float>(surface.width());
+  const auto surfaceH = static_cast<float>(surface.height());
 
   Node* layer = surface.widgetLayer();
   if (layer != nullptr) {

@@ -205,7 +205,7 @@ void AudioSpectrumProgram::draw(
   glUniform1f(m_snapToDeviceLocation, canSnapToDevice ? 1.0f : 0.0f);
   glUniformMatrix3fv(m_transformLocation, 1, GL_FALSE, transform.m.data());
 
-  constexpr GLsizei kStride = static_cast<GLsizei>(sizeof(GLfloat) * 6U);
+  constexpr auto kStride = static_cast<GLsizei>(sizeof(GLfloat) * 6U);
   const auto posAttr = static_cast<GLuint>(m_positionLocation);
   const auto colorAttr = static_cast<GLuint>(m_colorLocation);
   glVertexAttribPointer(posAttr, 2, GL_FLOAT, GL_FALSE, kStride, m_vertices.data());

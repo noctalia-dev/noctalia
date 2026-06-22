@@ -96,7 +96,7 @@ namespace {
 
   std::string formatBytes(std::size_t bytes) {
     const char* units[] = {"B", "KB", "MB", "GB"};
-    double value = static_cast<double>(bytes);
+    auto value = static_cast<double>(bytes);
     std::size_t unitIndex = 0;
     while (value >= 1024.0 && unitIndex + 1 < std::size(units)) {
       value /= 1024.0;

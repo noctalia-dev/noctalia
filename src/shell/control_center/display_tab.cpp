@@ -310,7 +310,7 @@ void DisplayTab::rebuildCards(Renderer& /*renderer*/) {
               if (currentDisplay == nullptr || !currentDisplay->controllable) {
                 return;
               }
-              const float brightness = static_cast<float>(value);
+              const auto brightness = static_cast<float>(value);
               queueBrightness(displayId, brightness);
               // Update the value label immediately
               for (auto& c : m_cards) {

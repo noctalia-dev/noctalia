@@ -314,8 +314,8 @@ namespace capture {
 
     UiPhaseScope layoutPhase(UiPhase::Layout);
 
-    const float w = static_cast<float>(width);
-    const float h = static_cast<float>(height);
+    const auto w = static_cast<float>(width);
+    const auto h = static_cast<float>(height);
 
     inst.sceneRoot = std::make_unique<Node>();
     inst.sceneRoot->setSize(w, h);
@@ -654,8 +654,8 @@ namespace capture {
       if (inst->selection == nullptr || inst->surface == nullptr) {
         continue;
       }
-      const float surfaceW = static_cast<float>(inst->surface->width());
-      const float surfaceH = static_cast<float>(inst->surface->height());
+      const auto surfaceW = static_cast<float>(inst->surface->width());
+      const auto surfaceH = static_cast<float>(inst->surface->height());
       const auto* out = findOutput(*m_wayland, inst->output);
       if (out == nullptr) {
         layoutDimFrame(*inst, surfaceW, surfaceH, 0.0f, 0.0f, 0.0f, 0.0f);
@@ -684,10 +684,10 @@ namespace capture {
         continue;
       }
 
-      const float holeX0 = static_cast<float>(ix0 - outLeft);
-      const float holeY0 = static_cast<float>(iy0 - outTop);
-      const float holeX1 = static_cast<float>(ix1 - outLeft);
-      const float holeY1 = static_cast<float>(iy1 - outTop);
+      const auto holeX0 = static_cast<float>(ix0 - outLeft);
+      const auto holeY0 = static_cast<float>(iy0 - outTop);
+      const auto holeX1 = static_cast<float>(ix1 - outLeft);
+      const auto holeY1 = static_cast<float>(iy1 - outTop);
       layoutDimFrame(*inst, surfaceW, surfaceH, holeX0, holeY0, holeX1, holeY1);
 
       // The outline is inset, so expand it outward to keep the border out of the

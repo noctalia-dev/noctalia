@@ -271,8 +271,8 @@ namespace shell::dock {
 
     const auto sb = shell::surface_shadow::bleed(dockConfig.shadow, config.config().shell.shadow);
     const std::int32_t panelThk = shell::dock::dockThickness(dockConfig);
-    const std::int32_t ptrX = static_cast<std::int32_t>(platform.lastPointerX());
-    const std::int32_t ptrY = static_cast<std::int32_t>(platform.lastPointerY());
+    const auto ptrX = static_cast<std::int32_t>(platform.lastPointerX());
+    const auto ptrY = static_cast<std::int32_t>(platform.lastPointerY());
     const std::int32_t halfCell = dockConfig.iconSize / 2;
 
     // Anchor rect: pointer-centred on main axis x panel face on cross axis.

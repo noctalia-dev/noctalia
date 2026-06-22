@@ -912,7 +912,7 @@ void NotificationToast::finishRemoval(uint32_t notificationId) {
   if (it == m_entries.end()) {
     return;
   }
-  const std::size_t index = static_cast<std::size_t>(std::distance(m_entries.begin(), it));
+  const auto index = static_cast<std::size_t>(std::distance(m_entries.begin(), it));
 
   // Remove card nodes from all instances
   for (auto& inst : m_instances) {
@@ -1096,7 +1096,7 @@ void NotificationToast::finishExitingEntryIfOrphaned(uint32_t notificationId) {
     return;
   }
 
-  const std::size_t index = static_cast<std::size_t>(std::distance(m_entries.begin(), it));
+  const auto index = static_cast<std::size_t>(std::distance(m_entries.begin(), it));
   for (const auto& inst : m_instances) {
     if (index < inst->cards.size() && inst->cards[index].cardNode != nullptr) {
       return;
@@ -1568,7 +1568,7 @@ float NotificationToast::cardSurfaceY(const Instance& inst, std::size_t entryInd
   const float scale = notificationUiScale(m_config);
   const float layoutGap = kGap * scale;
   const bool bottom = isBottomStacking();
-  const float surfaceHeight = static_cast<float>(inst.surface->height());
+  const auto surfaceHeight = static_cast<float>(inst.surface->height());
   const float layoutBottom = layoutBottomForSurfaceHeight(surfaceHeight);
   const float placementBottom = maxPlacementBottom();
 

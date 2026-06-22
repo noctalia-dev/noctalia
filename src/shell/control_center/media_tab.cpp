@@ -287,7 +287,7 @@ std::unique_ptr<Flex> MediaTab::create() {
                   return;
                 }
                 const auto active = m_mpris->activePlayer();
-                const std::int64_t targetUs = static_cast<std::int64_t>(std::llround(value * 1000000.0));
+                const auto targetUs = static_cast<std::int64_t>(std::llround(value * 1000000.0));
                 const auto now = std::chrono::steady_clock::now();
                 m_positionUs = targetUs;
                 m_positionSampleAt = now;
@@ -482,7 +482,7 @@ std::unique_ptr<Flex> MediaTab::create() {
         if (entry.id == 0) {
           m_mpris->clearPinnedPlayerPreference();
         } else {
-          const std::size_t idx = static_cast<std::size_t>(entry.id - 1);
+          const auto idx = static_cast<std::size_t>(entry.id - 1);
           if (idx < m_playerBusNames.size()) {
             m_mpris->setPinnedPlayerPreference(m_playerBusNames[idx]);
           }
@@ -719,7 +719,7 @@ void MediaTab::commitPendingSeek(double valueSeconds) {
     return;
   }
 
-  const std::int64_t targetUs = static_cast<std::int64_t>(std::llround(valueSeconds * 1000000.0));
+  const auto targetUs = static_cast<std::int64_t>(std::llround(valueSeconds * 1000000.0));
   const auto now = std::chrono::steady_clock::now();
   m_positionUs = targetUs;
   m_positionSampleAt = now;

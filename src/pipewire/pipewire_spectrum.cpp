@@ -608,7 +608,7 @@ void PipeWireSpectrum::computeAnalysisBandBins() {
   m_analysisBandBinLow.resize(analysisBandCountSize);
   m_analysisBandBinHigh.resize(analysisBandCountSize);
 
-  const float fLow = static_cast<float>(m_lowerCutoff);
+  const auto fLow = static_cast<float>(m_lowerCutoff);
   const float fHigh = static_cast<float>(std::min(m_upperCutoff, m_sampleRate / 2));
   const float ratio = fHigh / fLow;
   const int fftBins = kFftSize / 2;

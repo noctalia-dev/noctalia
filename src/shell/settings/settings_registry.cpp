@@ -1891,9 +1891,9 @@ namespace settings {
       }
       // Both sliders span the same range; the day > night invariant is enforced at commit time
       // via SliderSetting::linkedCommit, which pushes the other temperature when needed.
-      const double tempMin = static_cast<double>(NightLightConfig::kTemperatureMin);
-      const double tempMax = static_cast<double>(NightLightConfig::kTemperatureMax);
-      const double tempStep = static_cast<double>(NightLightConfig::kTemperatureGap);
+      const auto tempMin = static_cast<double>(NightLightConfig::kTemperatureMin);
+      const auto tempMax = static_cast<double>(NightLightConfig::kTemperatureMax);
+      const auto tempStep = static_cast<double>(NightLightConfig::kTemperatureGap);
 
       SliderSetting daySlider{static_cast<double>(cfg.nightlight.dayTemperature), tempMin, tempMax, tempStep, true};
       daySlider.linkedCommit = [curNight = cfg.nightlight.nightTemperature](double v) {

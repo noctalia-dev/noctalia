@@ -23,14 +23,14 @@ namespace {
   // into the non-premultiplied RGBA buffer the rest of the pipeline expects.
   void argb32ToRgba(const unsigned char* src, int srcStride, std::uint8_t* dst, int width, int height) {
     for (int y = 0; y < height; ++y) {
-      const std::uint32_t* row = reinterpret_cast<const std::uint32_t*>(src + (y * srcStride));
+      const auto* row = reinterpret_cast<const std::uint32_t*>(src + (y * srcStride));
       std::uint8_t* outRow = dst + (static_cast<std::size_t>(y) * static_cast<std::size_t>(width) * 4U);
       for (int x = 0; x < width; ++x) {
         const std::uint32_t pixel = row[x];
-        const std::uint8_t a = static_cast<std::uint8_t>((pixel >> 24) & 0xFF);
-        std::uint8_t r = static_cast<std::uint8_t>((pixel >> 16) & 0xFF);
-        std::uint8_t g = static_cast<std::uint8_t>((pixel >> 8) & 0xFF);
-        std::uint8_t b = static_cast<std::uint8_t>(pixel & 0xFF);
+        const auto a = static_cast<std::uint8_t>((pixel >> 24) & 0xFF);
+        auto r = static_cast<std::uint8_t>((pixel >> 16) & 0xFF);
+        auto g = static_cast<std::uint8_t>((pixel >> 8) & 0xFF);
+        auto b = static_cast<std::uint8_t>(pixel & 0xFF);
         if (a != 0 && a != 255) {
           // Un-premultiply, rounding to nearest.
           r = static_cast<std::uint8_t>(std::min(255, ((r * 255) + (a / 2)) / a));

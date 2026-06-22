@@ -111,7 +111,7 @@ std::string osAgeLabel() {
     if (statx(AT_FDCWD, path, AT_SYMLINK_NOFOLLOW, STATX_BTIME, &sx) == 0
         && (sx.stx_mask & STATX_BTIME) != 0
         && sx.stx_btime.tv_sec > 0) {
-      const std::uint64_t birth = static_cast<std::uint64_t>(sx.stx_btime.tv_sec);
+      const auto birth = static_cast<std::uint64_t>(sx.stx_btime.tv_sec);
       if (oldest == 0 || birth < oldest) {
         oldest = birth;
       }

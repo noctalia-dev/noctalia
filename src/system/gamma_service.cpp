@@ -443,8 +443,8 @@ GammaService::GammaTarget GammaService::computeTarget() const {
   const int otherPhaseTemp = eval.night ? dayTemp : nightTemp;
   const float fade = kRampDurationMs;
   const float half = fade / 2.0f;
-  const float since = static_cast<float>(eval.sinceBoundary.count());
-  const float until = static_cast<float>(eval.untilBoundary.count());
+  const auto since = static_cast<float>(eval.sinceBoundary.count());
+  const auto until = static_cast<float>(eval.untilBoundary.count());
 
   int from = currentPhaseTemp;
   int to = currentPhaseTemp;

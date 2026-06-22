@@ -526,8 +526,8 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
     return;
   }
 
-  const float w = static_cast<float>(width);
-  const float h = static_cast<float>(height);
+  const auto w = static_cast<float>(width);
+  const auto h = static_cast<float>(height);
   const float s = inst.uiLayoutScale;
   const bool vertical = isVerticalOrientation(m_lastOrientation);
   const float cw = cardWidth(s, m_lastOrientation);

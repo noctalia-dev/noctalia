@@ -515,7 +515,7 @@ namespace {
       const std::vector<IconPixmapTuple>& pixmaps, std::vector<std::uint8_t>& outArgb, std::int32_t& outW,
       std::int32_t& outH
   ) {
-    std::size_t bestIndex = static_cast<std::size_t>(-1);
+    auto bestIndex = static_cast<std::size_t>(-1);
     std::int64_t bestArea = -1;
 
     for (std::size_t i = 0; i < pixmaps.size(); ++i) {

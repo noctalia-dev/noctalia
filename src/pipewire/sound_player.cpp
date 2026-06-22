@@ -200,7 +200,7 @@ void SoundPlayer::processStream(ActiveStream& streamState) {
 
   const auto* src = streamState.buffer->samples.data();
   const std::size_t sampleCount = streamState.buffer->samples.size();
-  float* dst = static_cast<float*>(data.data);
+  auto* dst = static_cast<float*>(data.data);
   const std::size_t capacitySamples = data.maxsize / sizeof(float);
   const std::size_t remaining =
       (streamState.cursor < sampleCount && !streamState.draining) ? (sampleCount - streamState.cursor) : 0;

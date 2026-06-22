@@ -201,8 +201,8 @@ void IdleGraceOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint
     return;
   }
 
-  const float w = static_cast<float>(width);
-  const float h = static_cast<float>(height);
+  const auto w = static_cast<float>(width);
+  const auto h = static_cast<float>(height);
 
   inst.sceneRoot = std::make_unique<Node>();
   inst.sceneRoot->setSize(w, h);
@@ -229,7 +229,7 @@ void IdleGraceOverlay::startFadeIn(Instance& inst, std::chrono::milliseconds fad
   }
 
   const float start = inst.dim->opacity();
-  const float durationMs = static_cast<float>(fadeIn.count());
+  const auto durationMs = static_cast<float>(fadeIn.count());
   Instance* instPtr = &inst;
   Box* dimPtr = inst.dim;
   inst.fadeAnimId = inst.animations.animate(

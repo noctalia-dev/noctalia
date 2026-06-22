@@ -117,8 +117,8 @@ namespace shell::dock {
     const auto& cfg = deps.config.config().dock;
     const bool vert = shell::dock::isVerticalEdge(cfg.position);
 
-    const float w = static_cast<float>(instance.surface->width());
-    const float h = static_cast<float>(instance.surface->height());
+    const auto w = static_cast<float>(instance.surface->width());
+    const auto h = static_cast<float>(instance.surface->height());
 
     const auto& shadowConfig = deps.config.config().shell.shadow;
     const auto panelGeometry = shell::dock::computePanelGeometry(cfg, shadowConfig, w, h);
@@ -194,8 +194,8 @@ namespace shell::dock {
     // Shadow
     if (instance.shadow != nullptr) {
       const auto shadowOff = shadowDirectionOffset(shadowConfig.direction);
-      const float shadowOffsetX = static_cast<float>(shadowOff.x);
-      const float shadowOffsetY = static_cast<float>(shadowOff.y);
+      const auto shadowOffsetX = static_cast<float>(shadowOff.x);
+      const auto shadowOffsetY = static_cast<float>(shadowOff.y);
       const RoundedRectStyle shadowStyle = shell::surface_shadow::style(
           shadowConfig, cfg.backgroundOpacity, shell::surface_shadow::Shape{.radius = radii}
       );

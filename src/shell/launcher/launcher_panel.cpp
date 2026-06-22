@@ -1152,10 +1152,10 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
   });
 
   const float inset = std::round(std::max(4.0f, Style::spaceXs * scale));
-  const std::int32_t ax = static_cast<std::int32_t>(std::round(anchorX - inset));
-  const std::int32_t ay = static_cast<std::int32_t>(std::round(anchorY - inset));
-  const std::int32_t aw = static_cast<std::int32_t>(std::round(inset * 2.0f));
-  const std::int32_t ah = static_cast<std::int32_t>(std::round(inset * 2.0f));
+  const auto ax = static_cast<std::int32_t>(std::round(anchorX - inset));
+  const auto ay = static_cast<std::int32_t>(std::round(anchorY - inset));
+  const auto aw = static_cast<std::int32_t>(std::round(inset * 2.0f));
+  const auto ah = static_cast<std::int32_t>(std::round(inset * 2.0f));
 
   m_actionsMenu->open(
       ContextMenuPopupRequest{

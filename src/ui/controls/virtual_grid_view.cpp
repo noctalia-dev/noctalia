@@ -234,7 +234,7 @@ void VirtualGridView::doLayout(Renderer& renderer) {
                   std::floor((availableW + m_columnGap) / std::max(1.0f, m_minCellWidth + m_columnGap))
               )
           );
-    const float columnsF = static_cast<float>(metrics.columns);
+    const auto columnsF = static_cast<float>(metrics.columns);
     metrics.cellW = std::max(0.0f, (availableW - (columnsF - 1.0f) * m_columnGap) / std::max(1.0f, columnsF));
     metrics.cellH = m_squareCells ? metrics.cellW : m_cellHeight;
     metrics.rowCount = (m_itemCount + metrics.columns - 1) / metrics.columns;

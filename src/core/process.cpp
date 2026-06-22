@@ -820,7 +820,7 @@ namespace process {
     if (pid <= 0) {
       return;
     }
-    const pid_t p = static_cast<pid_t>(pid);
+    const auto p = static_cast<pid_t>(pid);
     ::kill(p, SIGTERM);
     int status = 0;
     if (::waitpid(p, &status, WNOHANG) != p) {

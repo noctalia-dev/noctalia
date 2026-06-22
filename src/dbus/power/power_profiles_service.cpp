@@ -47,7 +47,7 @@ namespace {
           continue;
         }
         try {
-          const std::string profile = it->second.get<std::string>();
+          const auto profile = it->second.get<std::string>();
           if (!profile.empty()) {
             profiles.push_back(profile);
           }

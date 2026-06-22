@@ -35,7 +35,7 @@ namespace {
   [[nodiscard]] std::optional<uid_t> readUserUid(sdbus::IProxy& userProxy) {
     try {
       const sdbus::Variant value = userProxy.getProperty("Uid").onInterface(kUserInterface);
-      const std::uint64_t uid = value.get<std::uint64_t>();
+      const auto uid = value.get<std::uint64_t>();
       return static_cast<uid_t>(uid);
     } catch (const sdbus::Error& e) {
       kLog.warn("failed to read Accounts.User Uid: {}", e.what());
@@ -124,7 +124,7 @@ void AccountsService::readIconFile() {
   if (m_userProxy == nullptr) {
     return;
   }
-  const std::string iconFile = getPropertyOr<std::string>(*m_userProxy, kUserInterface, "IconFile", std::string{});
+  const auto iconFile = getPropertyOr<std::string>(*m_userProxy, kUserInterface, "IconFile", std::string{});
   emitChangedIfNeeded(iconFile);
 }
 

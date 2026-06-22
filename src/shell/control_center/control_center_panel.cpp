@@ -508,9 +508,9 @@ void ControlCenterPanel::layoutTabContainers(float bodyWidth, float bodyHeight) 
 
     float offsetY = 0.0f;
     float opacity = 1.0f;
-    const TabId tabId = static_cast<TabId>(i);
+    const auto tabId = static_cast<TabId>(i);
     if (m_tabTransitionActive && travel > 0.0f) {
-      const float direction = static_cast<float>(m_tabTransitionDirection);
+      const auto direction = static_cast<float>(m_tabTransitionDirection);
       if (tabId == m_tabTransitionOutgoing) {
         offsetY = -direction * travel * m_tabTransitionProgress;
         opacity = 1.0f - 0.3f * m_tabTransitionProgress;

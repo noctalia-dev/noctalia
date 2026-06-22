@@ -1033,8 +1033,8 @@ void WindowSwitcher::positionGrid(Instance& instance, float screenW, float scree
 void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::uint32_t height) {
   UiPhaseScope layoutPhase(UiPhase::Layout);
 
-  const float w = static_cast<float>(width);
-  const float h = static_cast<float>(height);
+  const auto w = static_cast<float>(width);
+  const auto h = static_cast<float>(height);
   const float scale = instance.uiLayoutScale;
 
   instance.sceneRoot = std::make_unique<Node>();

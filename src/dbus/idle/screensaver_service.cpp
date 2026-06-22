@@ -172,7 +172,7 @@ void ScreenSaverService::registerLogindIdleMonitor(SystemBus* systemBus) {
           applyLogindBlockInhibited(it->second.get<std::string>());
         });
 
-    const std::string blockInhibited =
+    const auto blockInhibited =
         m_logindProxy->getProperty("BlockInhibited").onInterface(kLogindManagerInterface).get<std::string>();
     applyLogindBlockInhibited(blockInhibited);
     kLog.info("logind idle inhibit monitor active");

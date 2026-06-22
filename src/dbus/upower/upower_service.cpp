@@ -308,7 +308,7 @@ UPowerState UPowerService::readDeviceState(sdbus::IProxy& proxy) const {
   if (next.state == BatteryState::Discharging && next.timeToEmpty <= 0 && next.energyRate > 0.0 && next.energy > 0.0) {
     next.timeToEmpty = static_cast<std::int64_t>(std::round((next.energy / next.energyRate) * 3600.0));
   } else if (next.state == BatteryState::Charging && next.timeToFull <= 0 && next.energyRate > 0.0) {
-    const double energyFull = getPropertyOr<double>(proxy, kDeviceInterface, "EnergyFull", 0.0);
+    const auto energyFull = getPropertyOr<double>(proxy, kDeviceInterface, "EnergyFull", 0.0);
     if (energyFull > next.energy) {
       next.timeToFull = static_cast<std::int64_t>(std::round(((energyFull - next.energy) / next.energyRate) * 3600.0));
     }

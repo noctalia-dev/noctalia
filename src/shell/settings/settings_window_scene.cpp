@@ -864,8 +864,8 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
     return;
   }
 
-  const float w = static_cast<float>(width);
-  const float h = static_cast<float>(height);
+  const auto w = static_cast<float>(width);
+  const auto h = static_cast<float>(height);
   const float scale = uiScale();
   m_actionsMenuButton = nullptr;
   m_contentScrollView = nullptr;

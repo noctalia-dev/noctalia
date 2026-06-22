@@ -66,7 +66,7 @@ namespace {
       return false;
     }
 
-    const unsigned char lead = static_cast<unsigned char>(text[bytePos]);
+    const auto lead = static_cast<unsigned char>(text[bytePos]);
     if ((lead & 0x80U) != 0) {
       return true;
     }

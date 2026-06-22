@@ -1080,7 +1080,7 @@ void FileDialogView::ensureSelectionVisible() {
     ScrollView& scroll = m_gridGrid->scrollView();
     const float gap = Style::spaceSm * contentScale();
     const float viewportW = m_gridGrid->scrollView().contentViewportWidth();
-    const float columnsF = static_cast<float>(m_gridColumns);
+    const auto columnsF = static_cast<float>(m_gridColumns);
     const float cellW = std::max(0.0f, (viewportW - (columnsF - 1.0f) * gap) / std::max(columnsF, 1.0f));
     const float cellH = cellW; // squareCells
     const float pitch = cellH + gap;

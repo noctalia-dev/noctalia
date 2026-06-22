@@ -210,7 +210,7 @@ namespace noctalia::theme {
         }
         for (int ci = 0; ci < k; ++ci) {
           if (cnt[static_cast<size_t>(ci)] > 0) {
-            const double nd = static_cast<double>(cnt[static_cast<size_t>(ci)]);
+            const auto nd = static_cast<double>(cnt[static_cast<size_t>(ci)]);
             centroids[static_cast<size_t>(ci)] = {
                 acc[static_cast<size_t>(ci)].L / nd, acc[static_cast<size_t>(ci)].a / nd,
                 acc[static_cast<size_t>(ci)].b / nd

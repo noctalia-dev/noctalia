@@ -112,8 +112,8 @@ TextureHandle GlesTextureManager::loadFromRaw(
   }
 
   const std::size_t channels = (format == PixmapFormat::RGB || format == PixmapFormat::BGR) ? 3U : 4U;
-  const std::size_t widthSize = static_cast<std::size_t>(width);
-  const std::size_t heightSize = static_cast<std::size_t>(height);
+  const auto widthSize = static_cast<std::size_t>(width);
+  const auto heightSize = static_cast<std::size_t>(height);
   const std::size_t minStride = widthSize * channels;
   const std::size_t actualStride = stride > 0 ? static_cast<std::size_t>(stride) : minStride;
   if (actualStride < minStride) {

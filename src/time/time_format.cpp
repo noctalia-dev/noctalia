@@ -367,7 +367,7 @@ std::string formatElapsedSince(std::chrono::steady_clock::time_point since) {
 }
 
 std::string formatDuration(std::chrono::seconds duration) {
-  const std::uint64_t totalSeconds = static_cast<std::uint64_t>(duration.count());
+  const auto totalSeconds = static_cast<std::uint64_t>(duration.count());
   const std::uint64_t days = totalSeconds / 86400;
   std::uint64_t rem = totalSeconds % 86400;
   const std::uint64_t hours = rem / 3600;

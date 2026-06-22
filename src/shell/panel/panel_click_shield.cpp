@@ -70,7 +70,7 @@ bool PanelClickShield::ensureSharedBuffer() {
   constexpr std::int32_t kWidth = 1;
   constexpr std::int32_t kHeight = 1;
   constexpr std::int32_t kStride = kWidth * 4;
-  constexpr std::size_t kSize = static_cast<std::size_t>(kStride * kHeight);
+  constexpr auto kSize = static_cast<std::size_t>(kStride * kHeight);
 
   int fd = createAnonFd(kSize);
   if (fd < 0) {

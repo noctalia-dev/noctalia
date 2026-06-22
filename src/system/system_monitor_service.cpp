@@ -1642,8 +1642,8 @@ std::optional<SystemMonitorService::GpuVramData> SystemMonitorService::readGpuVr
 float SystemMonitorService::readDiskUsagePercent(const std::string& path) {
   struct statvfs sv{};
   if (::statvfs(path.c_str(), &sv) == 0 && sv.f_blocks > 0) {
-    const double used = static_cast<double>(sv.f_blocks - sv.f_bfree);
-    const double total = static_cast<double>(sv.f_blocks);
+    const auto used = static_cast<double>(sv.f_blocks - sv.f_bfree);
+    const auto total = static_cast<double>(sv.f_blocks);
     return static_cast<float>(100.0 * used / total);
   }
   return 0.0f;

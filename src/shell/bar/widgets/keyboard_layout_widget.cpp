@@ -532,7 +532,7 @@ void KeyboardLayoutWidget::cycleLayout() {
       && stateBefore->currentIndex >= 0
       && stateBefore->currentIndex < static_cast<int>(stateBefore->names.size())
       && stateBefore->names.size() > 1) {
-    std::size_t nextIndex = static_cast<std::size_t>(stateBefore->currentIndex + 1);
+    auto nextIndex = static_cast<std::size_t>(stateBefore->currentIndex + 1);
     if (nextIndex >= stateBefore->names.size()) {
       nextIndex = 0;
     }

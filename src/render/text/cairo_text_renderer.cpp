@@ -775,7 +775,7 @@ void CairoTextRenderer::rasterizeLayout(PangoLayout* layout, const Color& color,
     // device origin placing the line's BASELINE at y=0, so move the device
     // origin to the line's baseline within the tile.
     for (const auto& ls : tilePlan.lines) {
-      const double baselineInTile = static_cast<double>(ls.baselinePx - tilePlan.yTopPx);
+      const auto baselineInTile = static_cast<double>(ls.baselinePx - tilePlan.yTopPx);
       cairo_save(cr);
       cairo_translate(cr, static_cast<double>(ls.xLeftPx - blockLeftPx + extraLeftPx), baselineInTile);
       pango_cairo_show_layout_line(cr, ls.line);

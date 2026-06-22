@@ -68,7 +68,7 @@ namespace {
     if (cellSize <= 0) {
       return value;
     }
-    const float cell = static_cast<float>(cellSize);
+    const auto cell = static_cast<float>(cellSize);
     return origin + std::round((value - origin) / cell) * cell;
   }
 
@@ -670,7 +670,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   if (m_snapshot.grid.visible && m_snapshot.grid.cellSize > 0) {
     const float width = root->width();
     const float height = root->height();
-    const float cell = static_cast<float>(m_snapshot.grid.cellSize);
+    const auto cell = static_cast<float>(m_snapshot.grid.cellSize);
     const std::int32_t majorInterval = std::max(1, m_snapshot.grid.majorInterval);
     const float centerX = width * 0.5f;
     const float centerY = height * 0.5f;
@@ -937,7 +937,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     root->addChild(std::move(selectionBorderTransform));
 
     for (std::size_t i = 0; i < kScaleCornerCount; ++i) {
-      const ScaleCorner corner = static_cast<ScaleCorner>(i);
+      const auto corner = static_cast<ScaleCorner>(i);
 
       auto scaleHandleShadow = ui::box({
           .fill = clearColorSpec(),
@@ -2278,8 +2278,8 @@ void DesktopWidgetsEditor::updateWallpaperPreview(OverlaySurface& surface) {
     return;
   }
 
-  const float width = static_cast<float>(surface.surface->width());
-  const float height = static_cast<float>(surface.surface->height());
+  const auto width = static_cast<float>(surface.surface->width());
+  const auto height = static_cast<float>(surface.surface->height());
   surface.wallpaperPreview->setPosition(0.0f, 0.0f);
   surface.wallpaperPreview->setSize(width, height);
 

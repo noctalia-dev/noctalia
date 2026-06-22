@@ -54,7 +54,7 @@ namespace day_night_schedule {
       ::localtime_r(&t, &local);
 
       constexpr double kPi = std::numbers::pi;
-      const double dayOfYear = static_cast<double>(local.tm_yday + 1);
+      const auto dayOfYear = static_cast<double>(local.tm_yday + 1);
       const double fractionalYear = 2.0 * kPi / 365.0 * (dayOfYear - 1.0);
 
       const double equationOfTime = 229.18

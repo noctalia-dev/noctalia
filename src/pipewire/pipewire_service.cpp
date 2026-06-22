@@ -1509,7 +1509,7 @@ void PipeWireService::refreshNodeIdentity(NodeData& nd) {
     idSuffix.reserve(renameTo.size());
     bool prevDash = false;
     for (const char ch : renameTo) {
-      const unsigned char u = static_cast<unsigned char>(ch);
+      const auto u = static_cast<unsigned char>(ch);
       const bool alphanumeric = (u >= 'a' && u <= 'z') || (u >= 'A' && u <= 'Z') || (u >= '0' && u <= '9');
       if (alphanumeric) {
         idSuffix.push_back(static_cast<char>(std::tolower(u)));

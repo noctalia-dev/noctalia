@@ -477,8 +477,8 @@ void DialogPopupHost::syncSceneGeometryFromSurface() {
     return;
   }
 
-  const float surfW = static_cast<float>(surfaceWidth);
-  const float surfH = static_cast<float>(surfaceHeight);
+  const auto surfW = static_cast<float>(surfaceWidth);
+  const auto surfH = static_cast<float>(surfaceHeight);
   if (surfaceWidth != m_chrome.surfaceWidth || surfaceHeight != m_chrome.surfaceHeight) {
     const auto& bleed = m_chrome.bleed;
     m_chrome.contentWidth = std::max(1.0f, surfW - static_cast<float>(bleed.left + bleed.right));

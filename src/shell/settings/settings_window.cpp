@@ -325,10 +325,10 @@ void SettingsWindow::open() {
   m_surface->setUpdateCallback([]() {});
 
   const float scale = uiScale();
-  const std::uint32_t width = static_cast<std::uint32_t>(std::round(kWindowWidth * scale));
-  const std::uint32_t height = static_cast<std::uint32_t>(std::round(kWindowHeight * scale));
-  const std::uint32_t minWidth = static_cast<std::uint32_t>(std::round(kWindowMinWidth * scale));
-  const std::uint32_t minHeight = static_cast<std::uint32_t>(std::round(kWindowMinHeight * scale));
+  const auto width = static_cast<std::uint32_t>(std::round(kWindowWidth * scale));
+  const auto height = static_cast<std::uint32_t>(std::round(kWindowHeight * scale));
+  const auto minWidth = static_cast<std::uint32_t>(std::round(kWindowMinWidth * scale));
+  const auto minHeight = static_cast<std::uint32_t>(std::round(kWindowMinHeight * scale));
 
   ToplevelSurfaceConfig cfg{
       .width = std::max<std::uint32_t>(1, width),
@@ -492,8 +492,8 @@ void SettingsWindow::prepareFrame(bool /*needsUpdate*/, bool needsLayout) {
     m_surface->clampToMinSize(newMinW, newMinH);
   } else if ((m_contentRebuildRequested || sizeChanged || needsLayout) && m_sceneRoot != nullptr) {
     UiPhaseScope layoutPhase(UiPhase::Layout);
-    const float w = static_cast<float>(width);
-    const float h = static_cast<float>(height);
+    const auto w = static_cast<float>(width);
+    const auto h = static_cast<float>(height);
     m_sceneRoot->setSize(w, h);
     if (m_panelBackground != nullptr) {
       m_panelBackground->setSize(w, h);

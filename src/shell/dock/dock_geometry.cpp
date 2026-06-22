@@ -164,14 +164,14 @@ namespace shell::dock {
     const DockEdge edge = cfg.position;
     const bool vertical = isVerticalEdge(edge);
     const auto sb = shell::surface_shadow::bleed(cfg.shadow, shadow);
-    const float bleedL = static_cast<float>(sb.left);
-    const float bleedR = static_cast<float>(sb.right);
-    const float bleedU = static_cast<float>(sb.up);
-    const float bleedD = static_cast<float>(sb.down);
-    const float mEdge = static_cast<float>(cfg.marginEdge);
+    const auto bleedL = static_cast<float>(sb.left);
+    const auto bleedR = static_cast<float>(sb.right);
+    const auto bleedU = static_cast<float>(sb.up);
+    const auto bleedD = static_cast<float>(sb.down);
+    const auto mEdge = static_cast<float>(cfg.marginEdge);
     const bool isBottom = edge == DockEdge::Bottom;
     const bool isRight = edge == DockEdge::Right;
-    const float panelThickness = static_cast<float>(dockThickness(cfg));
+    const auto panelThickness = static_cast<float>(dockThickness(cfg));
 
     if (!vertical) {
       float y = isBottom ? surfaceH - std::min(mEdge, bleedD) - panelThickness : std::min(mEdge, bleedU);

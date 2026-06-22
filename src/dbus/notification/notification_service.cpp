@@ -198,7 +198,7 @@ namespace notification_dbus {
     Urgency urgency = Urgency::Normal;
     if (auto it = hints.find("urgency"); it != hints.end()) {
       try {
-        const uint8_t raw = it->second.get<uint8_t>();
+        const auto raw = it->second.get<uint8_t>();
         if (raw <= static_cast<uint8_t>(Urgency::Critical)) {
           urgency = static_cast<Urgency>(raw);
         }

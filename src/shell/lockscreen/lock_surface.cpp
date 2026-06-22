@@ -346,8 +346,8 @@ void LockSurface::onPointerEvent(const PointerEvent& event) {
     break;
   case PointerEvent::Type::Button: {
     const bool pressed = event.state == WL_POINTER_BUTTON_STATE_PRESSED;
-    const float x = static_cast<float>(event.sx);
-    const float y = static_cast<float>(event.sy);
+    const auto x = static_cast<float>(event.sx);
+    const auto y = static_cast<float>(event.sy);
     if (m_locked && pressed && passwordFieldContainsPoint(x, y)) {
       focusPasswordField();
     }
@@ -439,8 +439,8 @@ void LockSurface::layoutScene(std::uint32_t width, std::uint32_t height) {
     return;
   }
 
-  const float sw = static_cast<float>(width);
-  const float sh = static_cast<float>(height);
+  const auto sw = static_cast<float>(width);
+  const auto sh = static_cast<float>(height);
 
   if (m_blackout) {
     m_root.setSize(sw, sh);

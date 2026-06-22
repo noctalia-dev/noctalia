@@ -348,10 +348,10 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   const bool isLeft = barConfig.position == "left";
   const bool isRight = barConfig.position == "right";
   const std::int32_t panelGap = m_config->config().shell.panel.floatingOffset;
-  const std::int32_t screenPadding = static_cast<std::int32_t>(Style::spaceSm);
+  const auto screenPadding = static_cast<std::int32_t>(Style::spaceSm);
 
-  std::int32_t outputWidth = static_cast<std::int32_t>(panelWidth);
-  std::int32_t outputHeight = static_cast<std::int32_t>(panelHeight);
+  auto outputWidth = static_cast<std::int32_t>(panelWidth);
+  auto outputHeight = static_cast<std::int32_t>(panelHeight);
   if (m_platform != nullptr) {
     const auto* wlOutput = m_platform->findOutputByWl(request.output);
     if (wlOutput != nullptr && wlOutput->width > 0) {
@@ -625,11 +625,11 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
       return static_cast<std::int32_t>(std::ceil(barR + cornerRadius));
     };
     // Bar corner radii at the attachment edge.
-    const float barRStart = static_cast<float>(
+    const auto barRStart = static_cast<float>(
         barIsVertical ? (barIsLeft ? barConfig.radiusTopRight : barConfig.radiusTopLeft)
                       : (barIsBottom ? barConfig.radiusTopLeft : barConfig.radiusBottomLeft)
     );
-    const float barREnd = static_cast<float>(
+    const auto barREnd = static_cast<float>(
         barIsVertical ? (barIsLeft ? barConfig.radiusBottomRight : barConfig.radiusBottomLeft)
                       : (barIsBottom ? barConfig.radiusTopRight : barConfig.radiusBottomRight)
     );
@@ -1604,8 +1604,8 @@ void PanelManager::applyPanelCompositorBlur() {
       m_surface->clearBlurRegion();
       return;
     }
-    const float panelW = static_cast<float>(m_panelVisualWidth);
-    const float panelH = static_cast<float>(m_panelVisualHeight);
+    const auto panelW = static_cast<float>(m_panelVisualWidth);
+    const auto panelH = static_cast<float>(m_panelVisualHeight);
     switch (m_attachedRevealDirection) {
     case AttachedRevealDirection::Down:
       by -= static_cast<int>(std::lround(panelH * (1.0f - progress)));
@@ -1896,8 +1896,8 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
   }
   applyAttachedReveal(m_attachedRevealProgress);
 
-  const float panelX = static_cast<float>(m_panelInsetX);
-  const float panelY = static_cast<float>(m_panelInsetY);
+  const auto panelX = static_cast<float>(m_panelInsetX);
+  const auto panelY = static_cast<float>(m_panelInsetY);
   const float panelW = m_panelVisualWidth > 0 ? static_cast<float>(m_panelVisualWidth) : w;
   const float panelH = m_panelVisualHeight > 0 ? static_cast<float>(m_panelVisualHeight) : h;
   const float attachedRadius = m_attachedToBar ? Style::scaledRadiusXl(m_activePanel->contentScale()) : 0.0f;
@@ -1914,8 +1914,8 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
         m_config->config().shell.panel.shadow && shell::surface_shadow::enabled(true, shadowConfig);
     m_panelShadowNode->setVisible(panelShadow);
     const auto shadowOff = shadowDirectionOffset(shadowConfig.direction);
-    const float shadowOffsetX = static_cast<float>(shadowOff.x);
-    const float shadowOffsetY = static_cast<float>(shadowOff.y);
+    const auto shadowOffsetX = static_cast<float>(shadowOff.x);
+    const auto shadowOffsetY = static_cast<float>(shadowOff.y);
     m_panelShadowNode->setPosition(bgX + shadowOffsetX, bgY + shadowOffsetY);
     m_panelShadowNode->setSize(bgW, bgH);
     if (!m_attachedToBar && panelShadow) {
