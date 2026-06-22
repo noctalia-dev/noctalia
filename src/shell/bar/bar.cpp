@@ -797,8 +797,8 @@ namespace {
         const float shellCross = capsuleCross;
         const float shellW = isVertical ? shellCross : shellMain;
         const float shellH = isVertical ? shellMain : shellCross;
-        const float contentX = std::round((shellW - iw) * 0.5f);
-        const float contentY = std::round((shellH - ih) * 0.5f);
+        const float contentX = (shellW - iw) * 0.5f;
+        const float contentY = (shellH - ih) * 0.5f;
         shell->setSize(shellW, shellH);
         bg->setVisible(true);
         bg->setPosition(0.0f, 0.0f);
