@@ -1,8 +1,8 @@
 #include "shell/launcher/launcher_panel.h"
 
 #include "config/config_service.h"
+#include "config/config_types.h"
 #include "core/deferred_call.h"
-#include "core/key_modifiers.h"
 #include "core/key_symbols.h"
 #include "core/keybind_matcher.h"
 #include "core/ui_phase.h"
@@ -1250,10 +1250,6 @@ bool LauncherPanel::handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers) {
     return true;
   };
 
-  if (sym == XKB_KEY_F6 && (modifiers & ~(KeyMod::Shift)) == 0) {
-    return cycleCategory((modifiers & KeyMod::Shift) != 0);
-  }
-
   if (KeySymbol::isPageUp(sym)) {
     const int stride = m_grid != nullptr ? static_cast<int>(m_grid->pageItemStride()) : 1;
     moveSelection(-stride);
@@ -1274,6 +1270,14 @@ bool LauncherPanel::handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers) {
   if (KeybindMatcher::matches(KeybindAction::Down, sym, modifiers)) {
     moveSelection(1);
     return true;
+  }
+
+  if (KeybindMatcher::matches(KeybindAction::Left, sym, modifiers)) {
+    return cycleCategory(true);
+  }
+
+  if (KeybindMatcher::matches(KeybindAction::Right, sym, modifiers)) {
+    return cycleCategory(false);
   }
 
   if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
