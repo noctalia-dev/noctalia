@@ -45,6 +45,12 @@ public:
   [[nodiscard]] Signal<>& changed() noexcept { return m_changed; }
 
 private:
+  enum class TransitionRedirect {
+    Unrelated,
+    AlreadyTargeting,
+    Redirected,
+  };
+
   void reload();
   void syncInstances();
   void applyStartupAutomation(std::int64_t secondStamp);
@@ -56,7 +62,13 @@ private:
   [[nodiscard]] TextureHandle acquireTexture(const std::string& path);
   void releaseTexture(TextureHandle& handle, const std::string& path);
   void loadWallpaper(WallpaperInstance& instance, const std::string& path);
+  TransitionRedirect redirectActiveTransition(WallpaperInstance& instance, const std::string& path);
   void startTransition(WallpaperInstance& instance);
+  void startTransitionAnimation(WallpaperInstance& instance, float fromTime, WallpaperTransitionDirection direction);
+  void finishTransition(WallpaperInstance& instance);
+  void promotePendingWallpaper(WallpaperInstance& instance);
+  void discardPendingWallpaper(WallpaperInstance& instance);
+  void runQueuedWallpaper(WallpaperInstance& instance);
   void updateRendererState(WallpaperInstance& instance);
   void releaseInstanceTextures(WallpaperInstance& inst);
 
