@@ -384,7 +384,7 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       if (m_label != nullptr)
         contentW = std::max(contentW, labelW);
       m_glyph->setPosition((contentW - m_glyph->width()) * 0.5f, 0.0f);
-      m_gauge->setPosition((contentW - trackW) * 0.5f, glyphH + gap);
+      m_gauge->setPosition(std::round((contentW - trackW) * 0.5f), glyphH + gap);
       m_gauge->setSize(trackW, trackH);
       float totalH = glyphH + gap + trackH;
       if (m_label != nullptr) {
@@ -400,7 +400,7 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       float contentH = std::max(glyphH, gaugeH);
       if (m_label != nullptr)
         contentH = std::max(contentH, labelH);
-      const float gaugeY = (contentH - gaugeH) * 0.5f;
+      const float gaugeY = std::round((contentH - gaugeH) * 0.5f);
       m_glyph->setPosition(0.0f, (contentH - glyphH) * 0.5f);
       m_gauge->setPosition(m_glyph->width() + gap, gaugeY);
       m_gauge->setSize(gaugeW, gaugeH);
@@ -426,7 +426,7 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
         contentW = std::max(contentW, labelW);
       m_glyph->setPosition((contentW - m_glyph->width()) * 0.5f, 0.0f);
       const float chartY = glyphH + gap;
-      m_chartBg->setPosition((contentW - chartW) * 0.5f, chartY);
+      m_chartBg->setPosition(std::round((contentW - chartW) * 0.5f), chartY);
       m_chartBg->setSize(chartW, glyphH);
 
       if (m_graph != nullptr) {
@@ -445,7 +445,7 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       if (m_label != nullptr)
         contentH = std::max(contentH, labelH);
       m_glyph->setPosition(0.0f, (contentH - glyphH) * 0.5f);
-      m_chartBg->setPosition(m_glyph->width() + gap, (contentH - glyphH) * 0.5f);
+      m_chartBg->setPosition(m_glyph->width() + gap, std::round((contentH - glyphH) * 0.5f));
       m_chartBg->setSize(chartW, glyphH);
 
       if (m_graph != nullptr) {
