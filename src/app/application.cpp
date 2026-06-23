@@ -1817,6 +1817,9 @@ void Application::initUi() {
   m_panelManager.setAttachedPanelAvailabilityCallback([this](wl_output* output, std::string_view barName) {
     return m_bar.canAttachPanelToBar(output, barName);
   });
+  m_panelManager.setAttachedPanelLayerProvider([this](wl_output* output, std::string_view barName) {
+    return m_bar.layerForBar(output, barName);
+  });
   m_panelManager.setAttachedPanelBarSettledCallback([this](wl_output* output, std::string_view barName) {
     return m_bar.isAttachedPanelBarSettled(output, barName);
   });

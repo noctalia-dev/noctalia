@@ -300,6 +300,12 @@ void PanelManager::setAttachedPanelAvailabilityCallback(std::function<bool(wl_ou
   m_attachedPanelAvailabilityCallback = std::move(callback);
 }
 
+void PanelManager::setAttachedPanelLayerProvider(
+    std::function<std::optional<std::string>(wl_output*, std::string_view)> provider
+) {
+  m_attachedPanelLayerProvider = std::move(provider);
+}
+
 void PanelManager::setAttachedPanelBarSettledCallback(std::function<bool(wl_output*, std::string_view)> callback) {
   m_attachedPanelBarSettledCallback = std::move(callback);
 }
@@ -350,8 +356,13 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
 
   const auto panelWidth = static_cast<std::uint32_t>(m_activePanel->preferredWidth());
   const auto panelHeight = static_cast<std::uint32_t>(m_activePanel->preferredHeight());
-  const auto barConfig = resolvePanelBarConfig(m_config, m_platform, request.output, request.sourceBarName);
+  auto barConfig = resolvePanelBarConfig(m_config, m_platform, request.output, request.sourceBarName);
   m_sourceBarName = request.sourceBarName.empty() ? barConfig.name : std::string(request.sourceBarName);
+  if (m_attachedPanelLayerProvider != nullptr) {
+    if (auto layer = m_attachedPanelLayerProvider(request.output, m_sourceBarName); layer.has_value()) {
+      barConfig.layer = *layer;
+    }
+  }
   const bool isBottom = barConfig.position == "bottom";
   const bool isLeft = barConfig.position == "left";
   const bool isRight = barConfig.position == "right";

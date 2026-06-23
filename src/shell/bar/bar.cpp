@@ -1500,6 +1500,14 @@ bool Bar::canAttachPanelToBar(wl_output* output, std::string_view barName) const
   return instance->barConfig.autoHide || instanceEffectivelyVisible(*instance);
 }
 
+std::optional<std::string> Bar::layerForBar(wl_output* output, std::string_view barName) const noexcept {
+  const BarInstance* instance = instanceForBar(output, barName);
+  if (instance == nullptr || instance->surface == nullptr || !instance->barConfig.enabled) {
+    return std::nullopt;
+  }
+  return instance->barConfig.layer;
+}
+
 bool Bar::isAttachedPanelBarSettled(wl_output* output, std::string_view barName) const noexcept {
   const BarInstance* instance = instanceForBar(output, barName);
   if (instance == nullptr || !instance->barConfig.autoHide) {
@@ -3051,6 +3059,43 @@ std::string Bar::setBarAutoHideIpc(std::string_view args) {
   return "ok\n";
 }
 
+std::string Bar::setBarLayerIpc(std::string_view args) {
+  const auto parts = StringUtils::splitWhitespace(StringUtils::trim(args));
+  if (parts.empty() || parts.size() > 3) {
+    return "error: usage: bar-layer-set <top|overlay> [bar-name] [monitor-selector]\n";
+  }
+
+  const std::string& layer = parts[0];
+  if (layer != "top" && layer != "overlay") {
+    return "error: invalid layer (use top or overlay)\n";
+  }
+
+  std::optional<std::string_view> barName;
+  std::optional<std::string_view> monitorSelector;
+  if (parts.size() >= 2) {
+    barName = parts[1];
+  }
+  if (parts.size() >= 3) {
+    monitorSelector = parts[2];
+  }
+
+  std::vector<BarInstance*> targets;
+  if (const auto collectError = collectBarIpcInstances(barName, monitorSelector, targets)) {
+    return *collectError;
+  }
+
+  const LayerShellLayer shellLayer = layerShellLayerFromConfig(layer);
+  for (BarInstance* instance : targets) {
+    if (instance == nullptr || instance->surface == nullptr) {
+      continue;
+    }
+    instance->surface->setLayer(shellLayer);
+    instance->barConfig.layer = layer;
+  }
+
+  return "ok\n";
+}
+
 void Bar::registerIpc(IpcService& ipc) {
   ipc.registerHandler(
       "bar-show", [this](const std::string& args) -> std::string { return showBarIpc(args); },
@@ -3070,5 +3115,10 @@ void Bar::registerIpc(IpcService& ipc) {
   ipc.registerHandler(
       "bar-auto-hide-set", [this](const std::string& args) -> std::string { return setBarAutoHideIpc(args); },
       "bar-auto-hide-set <on|off|true|false|1|0> [bar-name] [monitor-selector]", "Set auto-hide state for a bar"
+  );
+
+  ipc.registerHandler(
+      "bar-layer-set", [this](const std::string& args) -> std::string { return setBarLayerIpc(args); },
+      "bar-layer-set <top|overlay> [bar-name] [monitor-selector]", "Set one or all bar layers"
   );
 }

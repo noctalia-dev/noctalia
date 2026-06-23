@@ -60,6 +60,7 @@ public:
   // Requests a new surface size from the compositor. The compositor will
   // respond with a configure event, which triggers the configure callback.
   void requestSize(std::uint32_t width, std::uint32_t height);
+  void setLayer(LayerShellLayer layer);
   void setMargins(std::int32_t top, std::int32_t right, std::int32_t bottom, std::int32_t left);
   void setExclusiveZone(std::int32_t exclusiveZone);
   void setClickThrough(bool clickThrough);

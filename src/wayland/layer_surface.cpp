@@ -164,6 +164,18 @@ void LayerSurface::requestSize(std::uint32_t width, std::uint32_t height) {
   wl_surface_commit(m_surface);
 }
 
+void LayerSurface::setLayer(LayerShellLayer layer) {
+  if (m_config.layer == layer) {
+    return;
+  }
+  m_config.layer = layer;
+  if (m_layerSurface == nullptr || m_surface == nullptr) {
+    return;
+  }
+  zwlr_layer_surface_v1_set_layer(m_layerSurface, static_cast<std::uint32_t>(layer));
+  wl_surface_commit(m_surface);
+}
+
 void LayerSurface::setMargins(std::int32_t top, std::int32_t right, std::int32_t bottom, std::int32_t left) {
   m_config.marginTop = top;
   m_config.marginRight = right;
