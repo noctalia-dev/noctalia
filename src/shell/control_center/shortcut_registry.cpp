@@ -560,6 +560,7 @@ std::unique_ptr<Shortcut> ShortcutRegistry::create(std::string_view type, const 
         .sourcePath = entry->sourcePath,
         .settings = std::move(seeded),
         .scriptApi = *s.scriptApi,
+        .fileWatcher = s.fileWatcher,
         .httpClient = s.httpClient,
         .clipboard = s.clipboard,
         .platform = s.platform,

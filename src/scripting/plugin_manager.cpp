@@ -526,6 +526,7 @@ namespace scripting {
                 .icon = entry.icon,
                 .description = entry.description,
                 .license = entry.license,
+                .dependencies = entry.dependencies,
                 .source = sourceName,
                 .compatible = entry.compatible,
                 .deprecated = entry.deprecated,

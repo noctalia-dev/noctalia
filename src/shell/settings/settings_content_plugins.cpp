@@ -11,6 +11,7 @@
 #include "ui/controls/flex.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/string_utils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -192,6 +193,12 @@ namespace settings {
       info->addChild(std::move(title));
       if (!plugin.description.empty()) {
         info->addChild(makeLabel(plugin.description, Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant));
+      }
+      if (!plugin.dependencies.empty()) {
+        info->addChild(makeLabel(
+            i18n::tr("settings.plugins.plugins.requires", "dependencies", StringUtils::join(plugin.dependencies, ", ")),
+            Style::fontSizeCaption * scale, ColorRole::Secondary
+        ));
       }
       r->addChild(std::move(info));
 

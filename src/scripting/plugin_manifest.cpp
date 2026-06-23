@@ -98,6 +98,20 @@ namespace scripting {
       return tbl[key].value<bool>().value_or(fallback);
     }
 
+    std::vector<std::string> tableStringArray(const toml::table& tbl, std::string_view key) {
+      std::vector<std::string> out;
+      const auto* values = tbl[key].as_array();
+      if (values == nullptr) {
+        return out;
+      }
+      for (const auto& node : *values) {
+        if (auto value = node.value<std::string>()) {
+          out.push_back(*value);
+        }
+      }
+      return out;
+    }
+
     // A TOML number written as either an integer or a float.
     std::optional<double> tableNumber(const toml::table& tbl, std::string_view key) {
       const auto node = tbl[key];
@@ -374,13 +388,8 @@ namespace scripting {
     manifest.deprecated = tableBool(root, "deprecated", false);
     manifest.icon = tableString(root, "icon");
     manifest.description = tableString(root, "description");
-    if (const auto* tags = root["tags"].as_array()) {
-      for (const auto& node : *tags) {
-        if (auto value = node.value<std::string>()) {
-          manifest.tags.push_back(*value);
-        }
-      }
-    }
+    manifest.tags = tableStringArray(root, "tags");
+    manifest.dependencies = tableStringArray(root, "dependencies");
 
     std::string manifestError;
     for (const auto& [kind, tableName] : kEntryKinds) {

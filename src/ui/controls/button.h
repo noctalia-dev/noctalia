@@ -73,6 +73,7 @@ public:
   void setOnLeave(std::function<void()> callback);
   void setHoverSuppressed(bool suppressed);
   void setHoveredVisual(bool hovered);
+  void setPressedVisual(bool pressed);
   void setCursorShape(std::uint32_t shape);
   void setBadge(std::string_view text);
   void setBadgeFontSize(float size);
@@ -137,6 +138,7 @@ private:
   bool m_selected = false;
   bool m_hoverSuppressed = false;
   bool m_hoveredVisual = false;
+  bool m_pressedVisual = false;
   bool m_visualStateInitialized = false;
   Signal<>::ScopedConnection m_paletteConn;
 };

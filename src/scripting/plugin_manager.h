@@ -34,6 +34,7 @@ namespace scripting {
     std::string icon;
     std::string description;
     std::string license = "MIT";
+    std::vector<std::string> dependencies;
     std::string source; // source name ("local" for the implicit dev source)
     bool compatible = true;
     bool deprecated = false;

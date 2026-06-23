@@ -2,6 +2,8 @@
 
 #include "compositors/compositor_platform.h"
 #include "core/log.h"
+#include "i18n/i18n.h"
+#include "notification/notifications.h"
 #include "shell/panel/panel_manager.h"
 
 #include <algorithm>
@@ -26,15 +28,17 @@ namespace {
 
 PluginShortcut::PluginShortcut(scripting::PluginRuntimeContext context)
     : m_entryId(std::move(context.entryId)), m_sourcePath(std::move(context.sourcePath)),
-      m_pluginDir(m_sourcePath.parent_path()), m_scriptApi(context.scriptApi), m_httpClient(context.httpClient),
-      m_clipboard(context.clipboard), m_platform(context.platform) {
-  start(std::move(context.settings));
+      m_pluginDir(m_sourcePath.parent_path()), m_settings(std::move(context.settings)), m_scriptApi(context.scriptApi),
+      m_fileWatcher(context.fileWatcher), m_httpClient(context.httpClient), m_clipboard(context.clipboard),
+      m_platform(context.platform) {
+  start();
 }
 
 PluginShortcut::~PluginShortcut() {
   if (m_alive) {
     *m_alive = false;
   }
+  teardownScriptWatch();
   if (m_runtime != nullptr) {
     if (m_subscription != 0) {
       m_runtime->unsubscribe(m_subscription);
@@ -43,14 +47,14 @@ PluginShortcut::~PluginShortcut() {
   }
 }
 
-void PluginShortcut::start(std::unordered_map<std::string, WidgetSettingValue> settings) {
+void PluginShortcut::start() {
   std::string code = readFile(m_sourcePath);
   if (code.empty()) {
     kLog.warn("shortcut '{}': empty or unreadable source {}", m_entryId, m_sourcePath.string());
     return;
   }
   m_runtime = std::make_shared<scripting::ScriptRuntime>(
-      m_entryId, std::move(settings), m_scriptApi, m_pluginDir, m_httpClient, m_clipboard
+      m_entryId, m_settings, m_scriptApi, m_pluginDir, m_httpClient, m_clipboard
   );
 
   auto alive = std::weak_ptr<bool>(m_alive);
@@ -64,6 +68,54 @@ void PluginShortcut::start(std::unordered_map<std::string, WidgetSettingValue> s
 
   m_runtime->start(m_sourcePath.string(), std::move(code), makeScriptSnapshot());
   armTimer();
+  setupScriptWatch();
+}
+
+void PluginShortcut::setupScriptWatch() {
+  if (m_sourcePath.empty() || m_fileWatcher == nullptr) {
+    return;
+  }
+  m_watchId = m_fileWatcher->watch(m_sourcePath, [this] { reloadScript(); }, FileWatcher::WatchTrigger::WriteCompleted);
+}
+
+void PluginShortcut::teardownScriptWatch() {
+  if (m_watchId == 0 || m_fileWatcher == nullptr) {
+    return;
+  }
+  m_fileWatcher->unwatch(m_watchId);
+  m_watchId = 0;
+}
+
+void PluginShortcut::resetPresentation() {
+  m_label.clear();
+  m_iconOn = "circle";
+  m_iconOff = "circle";
+  m_active = false;
+  m_enabled = true;
+  m_updateIntervalMs = 1000;
+}
+
+void PluginShortcut::reloadScript() {
+  std::string code = readFile(m_sourcePath);
+  auto name = m_sourcePath.filename().string();
+  if (code.empty()) {
+    kLog.warn("shortcut '{}': failed to reload '{}'", m_entryId, m_sourcePath.string());
+    notify::error("Noctalia", i18n::tr("bar.widgets.scripted.reload-failed"), name);
+    return;
+  }
+  if (m_runtime == nullptr) {
+    kLog.warn("shortcut '{}': runtime unavailable for reload", m_entryId);
+    notify::error("Noctalia", i18n::tr("bar.widgets.scripted.reload-failed"), name);
+    return;
+  }
+
+  m_updateTimer.stop();
+  resetPresentation();
+  m_runtime->reload(m_sourcePath.string(), std::move(code), makeScriptSnapshot());
+  armTimer();
+  PanelManager::instance().refresh();
+  kLog.info("hot reload: reloaded shortcut '{}'", m_entryId);
+  notify::info("Noctalia", i18n::tr("bar.widgets.scripted.reloaded"), name);
 }
 
 void PluginShortcut::handleResult(const scripting::ScriptResult& result) {

@@ -48,6 +48,7 @@
 #include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/style.h"
 #include "util/file_utils.h"
+#include "util/string_utils.h"
 
 #include <algorithm>
 #include <chrono>
@@ -1581,6 +1582,7 @@ void Application::initUi() {
           .wallpaper = &m_wallpaper,
           .calendar = &m_calendarService,
           .scriptApi = &m_scriptApi,
+          .fileWatcher = &m_fileWatcher,
           .clipboard = &m_clipboardService,
           .accounts = m_accountsService.get(),
           .thumbnails = &m_thumbnailService,
@@ -2032,6 +2034,7 @@ void Application::reloadPluginLauncherProviders() {
                 .sourcePath = resolved.sourcePath,
                 .settings = std::move(seeded),
                 .scriptApi = m_scriptApi,
+                .fileWatcher = &m_fileWatcher,
                 .httpClient = &m_httpClient,
                 .clipboard = &m_clipboardService,
             },
@@ -2242,9 +2245,12 @@ void Application::initIpc() {
         if (cmd == "list") {
           std::string out;
           for (const auto& s : m_pluginManager.list()) {
+            const std::string dependencies =
+                s.dependencies.empty() ? std::string{} : " requires " + StringUtils::join(s.dependencies, ", ");
             out += std::format(
-                "{} [{}] {}{}{}{}\n", s.id, s.source, s.version.empty() ? "-" : s.version, s.enabled ? " enabled" : "",
-                s.compatible ? "" : " incompatible", s.deprecated ? " deprecated" : ""
+                "{} [{}] {}{}{}{}{}\n", s.id, s.source, s.version.empty() ? "-" : s.version,
+                s.enabled ? " enabled" : "", s.compatible ? "" : " incompatible", s.deprecated ? " deprecated" : "",
+                dependencies
             );
           }
           return out.empty() ? "(no plugins)\n" : out;

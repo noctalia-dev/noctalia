@@ -1,6 +1,8 @@
 #include "launcher/plugin_launcher_provider.h"
 
 #include "core/log.h"
+#include "i18n/i18n.h"
+#include "notification/notifications.h"
 
 #include <chrono>
 #include <fstream>
@@ -28,13 +30,14 @@ PluginLauncherProvider::PluginLauncherProvider(
       m_sourcePath(std::move(context.sourcePath)), m_pluginDir(m_sourcePath.parent_path()),
       m_prefix(std::move(options.prefix)), m_glyph(std::move(options.glyph)), m_globalSearch(options.globalSearch),
       m_debounceMs(options.debounceMs), m_categories(std::move(options.categories)),
-      m_settings(std::move(context.settings)), m_scriptApi(context.scriptApi), m_httpClient(context.httpClient),
-      m_clipboard(context.clipboard) {}
+      m_settings(std::move(context.settings)), m_scriptApi(context.scriptApi), m_fileWatcher(context.fileWatcher),
+      m_httpClient(context.httpClient), m_clipboard(context.clipboard) {}
 
 PluginLauncherProvider::~PluginLauncherProvider() {
   if (m_alive) {
     *m_alive = false;
   }
+  teardownScriptWatch();
   if (m_runtime != nullptr) {
     if (m_subscription != 0) {
       m_runtime->unsubscribe(m_subscription);
@@ -63,6 +66,7 @@ void PluginLauncherProvider::initialize() {
   });
 
   m_runtime->start(m_sourcePath.string(), std::move(code), {});
+  setupScriptWatch();
 }
 
 void PluginLauncherProvider::reset() {
@@ -117,7 +121,52 @@ void PluginLauncherProvider::armQueryTimer() const {
   });
 }
 
+void PluginLauncherProvider::setupScriptWatch() {
+  if (m_sourcePath.empty() || m_fileWatcher == nullptr) {
+    return;
+  }
+  m_watchId = m_fileWatcher->watch(m_sourcePath, [this] { reloadScript(); }, FileWatcher::WatchTrigger::WriteCompleted);
+}
+
+void PluginLauncherProvider::teardownScriptWatch() {
+  if (m_watchId == 0 || m_fileWatcher == nullptr) {
+    return;
+  }
+  m_fileWatcher->unwatch(m_watchId);
+  m_watchId = 0;
+}
+
+void PluginLauncherProvider::reloadScript() {
+  std::string code = readFile(m_sourcePath);
+  auto name = m_sourcePath.filename().string();
+  if (code.empty()) {
+    kLog.warn("launcher provider '{}': failed to reload '{}'", m_entryId, m_sourcePath.string());
+    notify::error("Noctalia", i18n::tr("bar.widgets.scripted.reload-failed"), name);
+    return;
+  }
+  if (m_runtime == nullptr) {
+    kLog.warn("launcher provider '{}': runtime unavailable for reload", m_entryId);
+    notify::error("Noctalia", i18n::tr("bar.widgets.scripted.reload-failed"), name);
+    return;
+  }
+
+  m_queryTimer.stop();
+  reset();
+  m_runtime->reload(m_sourcePath.string(), std::move(code), {});
+  if (m_onResultsChanged) {
+    m_onResultsChanged();
+  }
+  kLog.info("hot reload: reloaded launcher provider '{}'", m_entryId);
+  notify::info("Noctalia", i18n::tr("bar.widgets.scripted.reloaded"), name);
+}
+
 bool PluginLauncherProvider::activate(const LauncherResult& result) {
+  if (result.query.has_value()) {
+    if (m_onQueryRequested) {
+      m_onQueryRequested(*result.query);
+    }
+    return false;
+  }
   if (m_runtime != nullptr) {
     (void)m_runtime->enqueueCallStrings("onActivate", result.id, std::string(), {}, /*coalesce=*/false);
   }
@@ -125,6 +174,9 @@ bool PluginLauncherProvider::activate(const LauncherResult& result) {
 }
 
 void PluginLauncherProvider::handleResult(const scripting::ScriptResult& result) {
+  if (result.patch.launcherQuery.has_value() && m_onQueryRequested) {
+    m_onQueryRequested(*result.patch.launcherQuery);
+  }
   if (!result.patch.launcherResults.has_value()) {
     return;
   }
@@ -139,6 +191,7 @@ void PluginLauncherProvider::handleResult(const scripting::ScriptResult& result)
     lr.glyphName = r.glyph;
     lr.iconName = r.icon;
     lr.badge = r.badge;
+    lr.query = r.query;
     lr.score = r.score;
     m_cache.push_back(std::move(lr));
   }

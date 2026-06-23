@@ -24,11 +24,41 @@
 #include <optional>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 using Random::randomFloat;
 
 namespace {
+
+  constexpr Easing kWallpaperTransitionEasing = Easing::EaseInOutCubic;
+
+  [[nodiscard]] Color defaultWallpaperColor() { return rgba(0.0f, 0.0f, 0.0f, 1.0f); }
+
+  [[nodiscard]] float transitionProgressForTime(float time) {
+    return applyEasing(kWallpaperTransitionEasing, std::clamp(time, 0.0f, 1.0f));
+  }
+
+  void setTransitionTime(WallpaperInstance& instance, float time) {
+    instance.transitionTime = std::clamp(time, 0.0f, 1.0f);
+  }
+
+  [[nodiscard]] float transitionTargetTime(WallpaperTransitionDirection direction) {
+    return direction == WallpaperTransitionDirection::Forward ? 1.0f : 0.0f;
+  }
+
+  [[nodiscard]] std::optional<WallpaperTransitionDirection>
+  directionForPath(const WallpaperInstance& instance, const std::string& path) {
+    if (path == instance.currentPath) {
+      return WallpaperTransitionDirection::Reverse;
+    }
+
+    if (path == instance.pendingPath) {
+      return WallpaperTransitionDirection::Forward;
+    }
+
+    return std::nullopt;
+  }
 
   TransitionParams randomizeParams(WallpaperTransition type, float smoothness, float aspectRatio) {
     TransitionParams params;
@@ -513,7 +543,9 @@ void Wallpaper::onStateChange() {
         inst->currentPath.clear();
         inst->pendingPath.clear();
         inst->queuedPath.clear();
+        inst->transitionTime = 0.0f;
         inst->transitioning = false;
+        inst->transitionDirection = WallpaperTransitionDirection::Forward;
         updateRendererState(*inst);
         inst->surface->requestRedraw();
       }
@@ -521,14 +553,19 @@ void Wallpaper::onStateChange() {
     }
 
     if (inst->transitioning) {
-      if (newPath == inst->pendingPath) {
-        inst->queuedPath.clear();
+      switch (redirectActiveTransition(*inst, newPath)) {
+      case TransitionRedirect::AlreadyTargeting:
+        continue;
+      case TransitionRedirect::Redirected:
+        changed = true;
+        continue;
+      case TransitionRedirect::Unrelated:
+        inst->queuedPath = newPath;
+        changed = true;
         continue;
       }
 
-      inst->queuedPath = newPath;
-      changed = true;
-      continue;
+      std::unreachable();
     }
 
     if (newPath == inst->currentPath) {
@@ -1103,12 +1140,11 @@ void Wallpaper::loadWallpaper(WallpaperInstance& instance, const std::string& pa
   if (!instance.transitioning && path == instance.currentPath) {
     return;
   }
-  if (instance.transitioning && path == instance.pendingPath) {
-    return;
-  }
 
   if (instance.transitioning) {
-    instance.queuedPath = path;
+    if (redirectActiveTransition(instance, path) == TransitionRedirect::Unrelated) {
+      instance.queuedPath = path;
+    }
     return;
   }
 
@@ -1145,6 +1181,8 @@ void Wallpaper::loadWallpaper(WallpaperInstance& instance, const std::string& pa
     instance.currentPath = path;
     instance.pendingPath.clear();
     instance.queuedPath.clear();
+    instance.transitionTime = 0.0f;
+    instance.transitionDirection = WallpaperTransitionDirection::Forward;
     updateRendererState(instance);
     instance.surface->requestRedraw();
     m_changed.emit();
@@ -1156,6 +1194,26 @@ void Wallpaper::loadWallpaper(WallpaperInstance& instance, const std::string& pa
   instance.nextColor = newColor;
   instance.pendingPath = path;
   startTransition(instance);
+}
+
+Wallpaper::TransitionRedirect
+Wallpaper::redirectActiveTransition(WallpaperInstance& instance, const std::string& path) {
+  if (!instance.transitioning) {
+    return TransitionRedirect::Unrelated;
+  }
+
+  const auto direction = directionForPath(instance, path);
+  if (!direction.has_value()) {
+    return TransitionRedirect::Unrelated;
+  }
+
+  instance.queuedPath.clear();
+  if (instance.transitionDirection == *direction) {
+    return TransitionRedirect::AlreadyTargeting;
+  }
+
+  startTransitionAnimation(instance, instance.transitionTime, *direction);
+  return TransitionRedirect::Redirected;
 }
 
 void Wallpaper::startTransition(WallpaperInstance& instance) {
@@ -1171,47 +1229,88 @@ void Wallpaper::startTransition(WallpaperInstance& instance) {
       transitions[static_cast<std::size_t>(std::floor(randomFloat(0.0f, static_cast<float>(transitions.size()))))];
   instance.activeTransition = picked;
   instance.transitionParams = randomizeParams(picked, wpConfig.edgeSmoothness, aspectRatio);
+  startTransitionAnimation(instance, 0.0f, WallpaperTransitionDirection::Forward);
+}
+
+void Wallpaper::startTransitionAnimation(
+    WallpaperInstance& instance, float fromTime, WallpaperTransitionDirection direction
+) {
+  if (const auto animId = std::exchange(instance.transitionAnimId, 0); animId != 0) {
+    instance.animations.cancel(animId);
+  }
+
+  const auto& wpConfig = m_config->config().wallpaper;
+  fromTime = std::clamp(fromTime, 0.0f, 1.0f);
+  const float toTime = transitionTargetTime(direction);
+
   instance.transitioning = true;
-  instance.transitionProgress = 0.0f;
+  instance.transitionDirection = direction;
+  setTransitionTime(instance, fromTime);
+
+  const float durationMs = std::abs(toTime - fromTime) * wpConfig.transitionDurationMs;
+  if (durationMs <= 0.0f) {
+    setTransitionTime(instance, toTime);
+    finishTransition(instance);
+    return;
+  }
 
   auto* inst = &instance;
   // The transition runs on its own configured duration, decoupled from the global
   // motion system: animateTimer ignores both the animation-speed multiplier and the
   // animations-enabled toggle (disabling animations must not skip the crossfade).
   instance.transitionAnimId = instance.animations.animateTimer(
-      0.0f, 1.0f, wpConfig.transitionDurationMs, Easing::EaseInOutCubic,
-      [inst](float v) { inst->transitionProgress = v; },
-      [this, inst]() {
-        // Transition complete — release old current, promote next to current
-        releaseTexture(inst->currentTexture, inst->currentPath);
-        inst->currentSourceKind = inst->nextSourceKind;
-        inst->currentTexture = inst->nextTexture;
-        inst->currentColor = inst->nextColor;
-        inst->nextTexture = {};
-        inst->nextSourceKind = WallpaperSourceKind::Image;
-        inst->nextColor = rgba(0.0f, 0.0f, 0.0f, 1.0f);
-        inst->currentPath = inst->pendingPath;
-        inst->pendingPath.clear();
-        inst->transitionProgress = 0.0f;
-        inst->transitioning = false;
-        updateRendererState(*inst);
-        // The frame loop stops once there are no active animations, so the
-        // promoted final wallpaper needs one explicit redraw.
-        inst->surface->requestRedraw();
-        m_changed.emit();
-
-        if (!inst->queuedPath.empty() && inst->queuedPath != inst->currentPath) {
-          const std::string queuedPath = inst->queuedPath;
-          inst->queuedPath.clear();
-          loadWallpaper(*inst, queuedPath);
-        } else {
-          inst->queuedPath.clear();
-        }
-      }
+      fromTime, toTime, durationMs, Easing::Linear, [inst](float time) { setTransitionTime(*inst, time); },
+      [this, inst]() { finishTransition(*inst); }
   );
 
   updateRendererState(instance);
   instance.surface->requestRedraw();
+}
+
+void Wallpaper::finishTransition(WallpaperInstance& instance) {
+  const bool displayedWallpaperChanged = instance.transitionDirection == WallpaperTransitionDirection::Forward;
+  instance.transitionAnimId = 0;
+
+  if (displayedWallpaperChanged) {
+    promotePendingWallpaper(instance);
+  } else {
+    discardPendingWallpaper(instance);
+  }
+
+  instance.transitionTime = 0.0f;
+  instance.transitioning = false;
+  instance.transitionDirection = WallpaperTransitionDirection::Forward;
+  updateRendererState(instance);
+  instance.surface->requestRedraw();
+
+  if (displayedWallpaperChanged) {
+    m_changed.emit();
+  }
+
+  runQueuedWallpaper(instance);
+}
+
+void Wallpaper::promotePendingWallpaper(WallpaperInstance& instance) {
+  releaseTexture(instance.currentTexture, instance.currentPath);
+  instance.currentSourceKind = std::exchange(instance.nextSourceKind, WallpaperSourceKind::Image);
+  instance.currentTexture = std::exchange(instance.nextTexture, {});
+  instance.currentColor = std::exchange(instance.nextColor, defaultWallpaperColor());
+  instance.currentPath = std::exchange(instance.pendingPath, std::string{});
+}
+
+void Wallpaper::discardPendingWallpaper(WallpaperInstance& instance) {
+  releaseTexture(instance.nextTexture, instance.pendingPath);
+  instance.nextSourceKind = WallpaperSourceKind::Image;
+  instance.nextColor = defaultWallpaperColor();
+  instance.pendingPath.clear();
+}
+
+void Wallpaper::runQueuedWallpaper(WallpaperInstance& instance) {
+  const auto queuedPath = std::exchange(instance.queuedPath, std::string{});
+
+  if (!queuedPath.empty() && queuedPath != instance.currentPath) {
+    loadWallpaper(instance, queuedPath);
+  }
 }
 
 void Wallpaper::updateRendererState(WallpaperInstance& instance) {
@@ -1244,7 +1343,9 @@ void Wallpaper::updateRendererState(WallpaperInstance& instance) {
       static_cast<float>(instance.currentTexture.height), static_cast<float>(instance.nextTexture.width),
       static_cast<float>(instance.nextTexture.height)
   );
-  wallpaperNode->setTransition(instance.activeTransition, instance.transitionProgress, instance.transitionParams);
+  wallpaperNode->setTransition(
+      instance.activeTransition, transitionProgressForTime(instance.transitionTime), instance.transitionParams
+  );
   wallpaperNode->setFillMode(wpConfig.fillMode);
   wallpaperNode->setFillColor(fillColor);
 

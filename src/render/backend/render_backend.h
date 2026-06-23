@@ -21,6 +21,7 @@ struct GraphStyle;
 struct RoundedRectStyle;
 struct ScreenCornerStyle;
 struct SpinnerStyle;
+struct CountdownRingStyle;
 struct TransitionParams;
 struct WallpaperSpanParams;
 struct WallpaperDrawParams;
@@ -144,6 +145,10 @@ public:
   virtual void drawGlyph(const RenderGlyphDraw& draw) = 0;
   virtual void drawSpinner(
       float surfaceWidth, float surfaceHeight, float width, float height, const SpinnerStyle& style,
+      const Mat3& transform
+  ) = 0;
+  virtual void drawCountdownRing(
+      float surfaceWidth, float surfaceHeight, float width, float height, const CountdownRingStyle& style,
       const Mat3& transform
   ) = 0;
   virtual void drawScreenCorner(

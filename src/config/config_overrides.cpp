@@ -462,6 +462,7 @@ namespace {
               if (item.shortcut.has_value()) {
                 row.insert_or_assign("shortcut", keyChordToString(*item.shortcut));
               }
+              row.insert_or_assign("countdown_seconds", item.countdownSeconds);
               array.push_back(std::move(row));
             }
             table.insert_or_assign(key, std::move(array));
@@ -504,7 +505,7 @@ namespace {
               }
               toml::table row;
               row.insert_or_assign("enabled", item.enabled);
-              row.insert_or_assign("timeout", static_cast<std::int64_t>(item.timeoutSeconds));
+              row.insert_or_assign("timeout", item.timeoutSeconds);
               if (!item.action.empty()) {
                 row.insert_or_assign("action", item.action);
               }

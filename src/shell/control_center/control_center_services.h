@@ -12,6 +12,7 @@ class CompositorPlatform;
 class ConfigService;
 class DependencyService;
 class EasyEffectsService;
+class FileWatcher;
 class HttpClient;
 class IdleInhibitor;
 class INetworkService;
@@ -64,6 +65,7 @@ struct ControlCenterServices {
   Wallpaper* wallpaper = nullptr;
   CalendarService* calendar = nullptr;
   scripting::ScriptApiContext* scriptApi = nullptr;
+  FileWatcher* fileWatcher = nullptr;
   ClipboardService* clipboard = nullptr;
   AccountsService* accounts = nullptr;
   ThumbnailService* thumbnails = nullptr;
@@ -85,6 +87,7 @@ struct ControlCenterServices {
         .platform = platform,
         .ipc = ipc,
         .scriptApi = scriptApi,
+        .fileWatcher = fileWatcher,
         .httpClient = httpClient,
         .clipboard = clipboard,
     };

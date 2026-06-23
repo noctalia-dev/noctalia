@@ -1235,6 +1235,7 @@ namespace noctalia::config::schema {
                 );
               }
           ),
+          field(&SessionPanelActionConfig::countdownSeconds, "countdown_seconds"),
       };
       return s;
     }

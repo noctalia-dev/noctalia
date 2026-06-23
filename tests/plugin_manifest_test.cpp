@@ -65,6 +65,7 @@ int main() {
   if (defaults.has_value()) {
     ok = expectEq(defaults->license, "MIT", "license should default to MIT") && ok;
     ok = expect(!defaults->deprecated, "deprecated should default to false") && ok;
+    ok = expect(defaults->dependencies.empty(), "dependencies should default to empty") && ok;
   }
 
   const auto explicitManifestPath = root / "explicit/plugin.toml";
@@ -75,6 +76,7 @@ int main() {
            "min_noctalia = \"5.0.0\"\n"
            "license = \"Apache-2.0\"\n"
            "deprecated = true\n"
+           "dependencies = [\"grim\", \"slurp\"]\n"
        )
       && ok;
 
@@ -84,6 +86,11 @@ int main() {
   if (explicitManifest.has_value()) {
     ok = expectEq(explicitManifest->license, "Apache-2.0", "license should parse explicit value") && ok;
     ok = expect(explicitManifest->deprecated, "deprecated should parse explicit value") && ok;
+    ok = expect(explicitManifest->dependencies.size() == 2, "dependencies should parse explicit values") && ok;
+    if (explicitManifest->dependencies.size() == 2) {
+      ok = expectEq(explicitManifest->dependencies[0], "grim", "first dependency") && ok;
+      ok = expectEq(explicitManifest->dependencies[1], "slurp", "second dependency") && ok;
+    }
   }
 
   const auto translatedSettingsManifestPath = root / "translated-settings/plugin.toml";

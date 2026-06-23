@@ -19,6 +19,11 @@ namespace settings {
   namespace {
 
     constexpr float kSidebarWidth = 200.0f;
+    constexpr float kSidebarPadding = 6.0f;
+    constexpr float kSidebarGap = 2.0f;
+    constexpr float kPrimaryNavGlyphSize = 18.0f;
+    constexpr float kPrimaryNavGap = 6.0f;
+    constexpr float kPrimaryNavPaddingH = 10.0f;
 
     std::string normalizedConfigId(std::string_view text) { return StringUtils::trim(text); }
 
@@ -56,15 +61,15 @@ namespace settings {
       return ui::button({
           .text = std::move(text),
           .glyph = std::string(glyph),
-          .fontSize = Style::fontSizeBody * scale,
-          .glyphSize = 21.0f * scale,
+          .fontSize = Style::fontSizeCaption * scale,
+          .glyphSize = kPrimaryNavGlyphSize * scale,
           .contentAlign = ButtonContentAlign::Start,
           .variant = selected ? ButtonVariant::TabActive : ButtonVariant::Tab,
-          .minHeight = Style::controlHeight * scale,
-          .paddingV = Style::spaceSm * scale,
-          .paddingH = Style::spaceMd * scale,
-          .gap = Style::spaceSm * scale,
-          .radius = Style::scaledRadiusLg(scale),
+          .minHeight = Style::controlHeightSm * scale,
+          .paddingV = Style::spaceXs * scale,
+          .paddingH = kPrimaryNavPaddingH * scale,
+          .gap = kPrimaryNavGap * scale,
+          .radius = Style::scaledRadiusMd(scale),
           .onClick = std::move(onClick),
           .configure = [](Button& button) { makeButtonLabelBold(button); },
       });
@@ -159,8 +164,8 @@ namespace settings {
     auto* sidebar = sidebarScroll->content();
     sidebar->setDirection(FlexDirection::Vertical);
     sidebar->setAlign(FlexAlign::Stretch);
-    sidebar->setGap(Style::spaceXs * scale);
-    sidebar->setPadding(Style::spaceSm * scale);
+    sidebar->setGap(kSidebarGap * scale);
+    sidebar->setPadding(kSidebarPadding * scale);
 
     for (const auto& section : ctx.sections) {
       const std::string sectionId(settingsSectionId(section));
@@ -339,15 +344,15 @@ namespace settings {
         ui::button({
             .text = i18n::tr("settings.entities.bar.new"),
             .glyph = "add",
-            .fontSize = Style::fontSizeBody * scale,
-            .glyphSize = 21.0f * scale,
+            .fontSize = Style::fontSizeCaption * scale,
+            .glyphSize = kPrimaryNavGlyphSize * scale,
             .contentAlign = ButtonContentAlign::Start,
             .variant = ButtonVariant::Ghost,
-            .minHeight = Style::controlHeight * scale,
-            .paddingV = Style::spaceSm * scale,
-            .paddingH = Style::spaceMd * scale,
-            .gap = Style::spaceSm * scale,
-            .radius = Style::scaledRadiusLg(scale),
+            .minHeight = Style::controlHeightSm * scale,
+            .paddingV = Style::spaceXs * scale,
+            .paddingH = kPrimaryNavPaddingH * scale,
+            .gap = kPrimaryNavGap * scale,
+            .radius = Style::scaledRadiusMd(scale),
             .onClick =
                 [creatingBarName, nextBarName, clearTransientState, requestRebuild]() {
                   clearTransientState();

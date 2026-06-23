@@ -108,6 +108,7 @@ namespace scripting {
     std::string license = "MIT";
     bool deprecated = false;
     std::vector<std::string> tags;
+    std::vector<std::string> dependencies;
     std::string icon;
     std::string description;
     std::vector<PluginEntry> entries;

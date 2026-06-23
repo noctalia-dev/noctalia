@@ -55,6 +55,7 @@ namespace scripting {
     std::string glyph;
     std::string icon;
     std::string badge;
+    std::optional<std::string> query;
     double score = 0.0;
 
     bool operator==(const ScriptLauncherResult&) const = default;
@@ -89,6 +90,7 @@ namespace scripting {
 
     // Launcher-provider results (the `launcher.*` namespace).
     std::optional<ScriptLauncherResultSet> launcherResults;
+    std::optional<std::string> launcherQuery;
 
     // Desktop-widget fields (the `desktopWidget.*` namespace): the declarative
     // control tree from desktopWidget.render() plus tick opt-ins.
@@ -112,6 +114,7 @@ namespace scripting {
           && !active.has_value()
           && !enabled.has_value()
           && !launcherResults.has_value()
+          && !launcherQuery.has_value()
           && !uiTree.has_value()
           && !wantsSecondTicks.has_value()
           && !needsFrameTick.has_value();

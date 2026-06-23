@@ -661,6 +661,7 @@ PanelPlacement LauncherPanel::panelPlacement() const noexcept {
 void LauncherPanel::addProvider(std::unique_ptr<LauncherProvider> provider) {
   provider->initialize();
   provider->setResultsChangedCallback([this]() { onProviderResultsChanged(); });
+  provider->setQueryRequestedCallback([this](std::string query) { setQuery(std::move(query)); });
   m_providers.push_back(std::move(provider));
 }
 
@@ -1002,6 +1003,17 @@ void LauncherPanel::reapplyCurrentQuery() {
     }
   }
   refreshResults();
+}
+
+void LauncherPanel::setQuery(std::string query) {
+  if (m_input == nullptr) {
+    return;
+  }
+  m_input->setValue(query);
+  if (m_grid != nullptr) {
+    m_grid->scrollView().setScrollOffset(0.0f);
+  }
+  onInputChanged(query);
 }
 
 void LauncherPanel::onProviderResultsChanged() {

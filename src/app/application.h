@@ -174,13 +174,14 @@ private:
   VirtualKeyboardService m_virtualKeyboardService;
   ConfigService m_configService;
   HttpClient m_httpClient;
+  FileWatcher m_fileWatcher;
   noctalia::theme::CommunityPaletteService m_communityPaletteService{m_httpClient};
   noctalia::theme::CommunityTemplateService m_communityTemplateService{m_httpClient};
   noctalia::theme::ThemeService m_themeService{m_configService, m_httpClient};
   noctalia::theme::TemplateApplyService m_templateApplyService{m_configService};
   scripting::ScriptApiContext m_scriptApi;
   scripting::PluginManager m_pluginManager{m_configService};
-  scripting::PluginServiceHost m_pluginServiceHost{m_scriptApi, &m_httpClient, &m_clipboardService};
+  scripting::PluginServiceHost m_pluginServiceHost{m_scriptApi, &m_httpClient, &m_clipboardService, &m_fileWatcher};
   TimeService m_timeService;
   LockKeysService m_lockKeysService;
   NotificationManager m_notificationManager;
@@ -228,7 +229,6 @@ private:
 
   TelemetryService m_telemetryService;
   ScreenTimeService m_screenTimeService;
-  FileWatcher m_fileWatcher;
 
   GlSharedContext m_glShared;
   SharedTextureCache m_sharedTextureCache;

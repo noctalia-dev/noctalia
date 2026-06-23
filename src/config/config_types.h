@@ -198,6 +198,8 @@ struct SessionPanelActionConfig {
   std::optional<std::string> glyph = std::nullopt;
   SessionActionButtonVariant variant = SessionActionButtonVariant::Default;
   std::optional<KeyChord> shortcut = std::nullopt;
+  /// When > 0, the action arms a countdown (seconds) before running; activate again to confirm immediately.
+  double countdownSeconds = 0.0;
 
   bool operator==(const SessionPanelActionConfig&) const = default;
 };
@@ -221,7 +223,7 @@ struct ShellSessionConfig {
 struct IdleBehaviorConfig {
   std::string name;
   bool enabled = true;
-  std::int32_t timeoutSeconds = 0;
+  double timeoutSeconds = 0.0;
   /// lock | screen_off | suspend | lock_and_suspend | command (custom shell strings)
   std::string action;
   std::string command;

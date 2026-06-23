@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -24,6 +25,7 @@ struct LauncherResult {
   // When launching an application via AppProvider, matches DesktopAction::id (primary Exec leaves this empty).
   std::string desktopActionId;
   std::string category;
+  std::optional<std::string> query;
   double score = 0.0;
   int recentlyUsedIndex = 0; // Higher is more recent. <=0 means no record or too old.
 };
@@ -59,6 +61,10 @@ public:
   // panel installs this callback so the provider can ask for the current query to
   // be re-gathered when fresh results land. Synchronous providers ignore it.
   virtual void setResultsChangedCallback(std::function<void()> /*callback*/) {}
+
+  // Plugin-backed providers can request that the open launcher input be replaced,
+  // e.g. to implement autocomplete.
+  virtual void setQueryRequestedCallback(std::function<void(std::string)> /*callback*/) {}
 
   virtual void initialize() {}
 

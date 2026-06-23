@@ -30,13 +30,14 @@ namespace settings {
 
     constexpr int kBarMarginMax = 4096;
 
-    constexpr std::array<SettingsSectionDescriptor, 18> kSettingsSections{{
+    constexpr std::array<SettingsSectionDescriptor, 19> kSettingsSections{{
         {SettingsSection::Appearance, "appearance", "adjustments-horizontal"},
         {SettingsSection::Wallpaper, "wallpaper", "paint"},
         {SettingsSection::Templates, "templates", "color-swatch"},
         {SettingsSection::Desktop, "desktop", "layout-board"},
         {SettingsSection::Dock, "dock", "layout-bottombar-inactive"},
         {SettingsSection::Panels, "panels", "layout-bottombar"},
+        {SettingsSection::ControlCenter, "control-center", "adjustments"},
         {SettingsSection::Notifications, "notifications", "bell"},
         {SettingsSection::Osd, "osd", "message-circle"},
         {SettingsSection::Shell, "shell", "app-window"},
@@ -937,7 +938,7 @@ namespace settings {
         "floating detached panel gap offset distance bar"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Panels, "control-center", tr("settings.schema.panels.placement-control-center.label"),
+        SettingsSection::ControlCenter, "general", tr("settings.schema.panels.placement-control-center.label"),
         tr("settings.schema.panels.placement-control-center.description"),
         {"shell", "panel", "control_center_placement"},
         asSegmented(enumSelect(kPanelPlacements, cfg.shell.panel.controlCenterPlacement)),
@@ -945,7 +946,7 @@ namespace settings {
     ));
     {
       auto e = makeEntry(
-          SettingsSection::Panels, "control-center", tr("settings.schema.panels.open-near-click-control-center.label"),
+          SettingsSection::ControlCenter, "general", tr("settings.schema.panels.open-near-click-control-center.label"),
           tr("settings.schema.panels.open-near-click-control-center.description"),
           {"shell", "panel", "open_near_click_control_center"},
           ToggleSetting{cfg.shell.panel.openNearClickControlCenter}, "open near click position anchor"
@@ -958,25 +959,25 @@ namespace settings {
           sliderFor(cfg.controlCenter.width, noctalia::config::schema::kControlCenterWidthRange, true);
       width.valueSuffix = "px";
       entries.push_back(makeEntry(
-          SettingsSection::Panels, "control-center", tr("settings.schema.panels.control-center-width.label"),
+          SettingsSection::ControlCenter, "general", tr("settings.schema.panels.control-center-width.label"),
           tr("settings.schema.panels.control-center-width.description"), {"control_center", "width"}, std::move(width),
           "size dimension wide narrow"
       ));
     }
     entries.push_back(makeEntry(
-        SettingsSection::Panels, "control-center", tr("settings.schema.panels.control-center-sidebar.label"),
+        SettingsSection::ControlCenter, "general", tr("settings.schema.panels.control-center-sidebar.label"),
         tr("settings.schema.panels.control-center-sidebar.description"), {"control_center", "sidebar"},
         asSegmented(enumSelect(kControlCenterSidebarModes, cfg.controlCenter.sidebarMode)),
         "full compact none sidebar icons narrow hidden"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Panels, "control-center", tr("settings.schema.panels.control-center-sidebar-section.label"),
+        SettingsSection::ControlCenter, "general", tr("settings.schema.panels.control-center-sidebar-section.label"),
         tr("settings.schema.panels.control-center-sidebar-section.description"), {"control_center", "sidebar_section"},
         asSegmented(enumSelect(kControlCenterSidebarModes, cfg.controlCenter.sidebarSectionMode)),
         "full compact none sidebar icons narrow hidden tab direct widget shortcut"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Panels, "control-center", tr("settings.schema.panels.home-shortcuts.label"),
+        SettingsSection::ControlCenter, "general", tr("settings.schema.panels.home-shortcuts.label"),
         tr("settings.schema.panels.home-shortcuts.description"), {"control_center", "shortcuts"},
         ShortcutListSetting{
             .items = cfg.controlCenter.shortcuts, .suggestedOptions = controlCenterShortcutOptions(), .maxItems = 6

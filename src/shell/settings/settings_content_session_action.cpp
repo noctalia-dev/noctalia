@@ -9,11 +9,14 @@
 #include "ui/controls/input.h"
 #include "ui/controls/keybind_recorder.h"
 #include "ui/controls/select.h"
+#include "ui/controls/stepper.h"
 #include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <functional>
 #include <memory>
@@ -342,6 +345,29 @@ namespace settings {
     }
 
     fields->addChild(std::move(shortcutBlock));
+
+    auto countdownBlock = ui::column(
+        {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
+        makeLabel(
+            i18n::tr("settings.session-actions.countdown-seconds-label"), Style::fontSizeCaption * scale,
+            colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
+        )
+    );
+    const int countdownValue = std::clamp(static_cast<int>(std::lround(row.countdownSeconds)), 0, 60);
+    auto countdownStepper = ui::stepper({
+        .minValue = 0,
+        .maxValue = 60,
+        .step = 1,
+        .value = countdownValue,
+        .scale = scale,
+        .valueSuffix = std::optional<std::string>{"s"},
+        .onValueCommitted = [&row, persist](int value) {
+          row.countdownSeconds = static_cast<double>(value);
+          persist();
+        },
+    });
+    countdownBlock->addChild(std::move(countdownStepper));
+    fields->addChild(std::move(countdownBlock));
 
     body->addChild(std::move(fields));
     parent.addChild(std::move(body));

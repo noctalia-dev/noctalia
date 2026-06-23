@@ -28,6 +28,7 @@ namespace settings {
     Desktop,
     Dock,
     Panels,
+    ControlCenter,
     Notifications,
     Osd,
     Shell,

@@ -5,6 +5,8 @@
 #include "ui/signal.h"
 #include "ui/style.h"
 
+#include <chrono>
+#include <cstdint>
 #include <functional>
 
 class InputArea;
@@ -54,6 +56,10 @@ private:
   void doArrange(Renderer& renderer, const LayoutRect& rect) override;
   void applyPalette();
   void applyScrollOffset();
+  void applyScrollOffsetValue(float offset);
+  void stopScrollAnimation();
+  void animateScrollTo(float target, float durationMs = -1.0f);
+  void startFling();
   [[nodiscard]] float clampOffset(float offset) const noexcept;
 
   RectNode* m_background = nullptr;
@@ -70,10 +76,15 @@ private:
   float m_viewportPaddingH = Style::spaceXs;
   float m_viewportPaddingV = Style::spaceSm;
   float m_scrollOffset = 0.0f;
+  float m_targetScrollOffset = 0.0f;
   float m_maxScrollOffset = 0.0f;
   float m_scrollWheelStep = Style::scrollWheelStep;
   float m_dragStartLocalY = 0.0f;
   float m_dragStartOffset = 0.0f;
+  float m_lastDragLocalY = 0.0f;
+  float m_dragVelocity = 0.0f;
+  std::chrono::steady_clock::time_point m_lastDragSampleAt{};
+  std::uint32_t m_scrollAnimId = 0;
   float m_viewportHeight = 0.0f;
   float m_viewportWidth = 0.0f;
   float m_backgroundBorderWidth = 0.0f;
@@ -81,4 +92,5 @@ private:
   float m_backgroundSoftness = 1.0f;
   bool m_scrollbarShown = false;
   bool m_showScrollbar = true;
+  bool m_dragging = false;
 };

@@ -112,11 +112,24 @@ namespace {
         || (compositors::isKde() && (!window.title.empty() || !window.appId.empty()));
   }
 
-  [[nodiscard]] bool matchesActiveWindow(const ToplevelInfo& window, const ActiveToplevel& active) {
+  [[nodiscard]] bool matchesActiveWindow(
+      const ToplevelInfo& window, const ActiveToplevel& active, const std::vector<ToplevelInfo>& windows
+  ) {
     if (active.handle != nullptr && window.handle == active.handle) {
       return true;
     }
-    return !active.identifier.empty() && !window.identifier.empty() && active.identifier == window.identifier;
+
+    if (active.identifier.empty() || window.identifier.empty() || active.identifier != window.identifier) {
+      return false;
+    }
+
+    int count = 0;
+    for (const auto& w : windows) {
+      if (w.identifier == active.identifier && ++count > 1) {
+        return false;
+      }
+    }
+    return true;
   }
 
   const ToplevelInfo* nextActivatableWindow(
@@ -129,7 +142,7 @@ namespace {
 
     if (active.has_value()) {
       for (std::size_t i = 0; i < windows.size(); ++i) {
-        if (!matchesActiveWindow(windows[i], *active)) {
+        if (!matchesActiveWindow(windows[i], *active, windows)) {
           continue;
         }
         for (std::size_t offset = 1; offset <= windows.size(); ++offset) {

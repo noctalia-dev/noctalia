@@ -656,7 +656,7 @@ bool PipeWireSpectrum::processListenerView(ListenerState& state, float nrFactor,
           * (1.0 - static_cast<double>(state.fall[i]) * static_cast<double>(state.fall[i]) * gravityMod)
       );
       bands[i] = std::max(bands[i], 0.0f);
-      state.fall[i] += 0.028f;
+      state.fall[i] += 0.048f;
     } else {
       state.peak[i] = bands[i];
       state.fall[i] = 0.0f;
@@ -669,7 +669,7 @@ bool PipeWireSpectrum::processListenerView(ListenerState& state, float nrFactor,
 
   if (m_smoothing) {
     constexpr float kMonstercatFactor = 1.5f;
-    constexpr float kMinSpread = 0.001f;
+    constexpr float kMinSpread = 0.01f;
     for (std::size_t z = 0; z < bandCountSize; ++z) {
       float spread = bands[z] / kMonstercatFactor;
       for (std::size_t m = z; m > 0 && spread > kMinSpread;) {
@@ -749,11 +749,12 @@ void PipeWireSpectrum::processFrame() {
 
   const float nrFactor = m_noiseReduction;
   const float noiseGate = nrFactor * static_cast<float>(kFftSize) * 0.00005f;
+  constexpr float kMagnitudeCompression = 0.15f;
   for (auto& band : bands) {
     band = std::max(0.0f, band - noiseGate);
     // Log compression keeps quiet treble visible next to loud bass: a large linear
     // magnitude ratio collapses to a small additive offset, so one band can't crush the rest.
-    band = std::log1p(band);
+    band = std::log1p(band * kMagnitudeCompression) / kMagnitudeCompression;
     band *= m_sensitivity;
   }
 

@@ -477,6 +477,14 @@ void GlesRenderBackend::drawSpinner(
   m_spinnerProgram.draw(surfaceWidth, surfaceHeight, width, height, style, transform);
 }
 
+void GlesRenderBackend::drawCountdownRing(
+    float surfaceWidth, float surfaceHeight, float width, float height, const CountdownRingStyle& style,
+    const Mat3& transform
+) {
+  m_countdownRingProgram.ensureInitialized();
+  m_countdownRingProgram.draw(surfaceWidth, surfaceHeight, width, height, style, transform);
+}
+
 void GlesRenderBackend::drawScreenCorner(
     float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
     const ScreenCornerStyle& style, const Mat3& transform
@@ -597,6 +605,7 @@ void GlesRenderBackend::destroyGpuObjects() {
   m_imageProgram.destroy();
   m_glyphProgram.destroy();
   m_spinnerProgram.destroy();
+  m_countdownRingProgram.destroy();
   m_screenCornerProgram.destroy();
   m_audioSpectrumProgram.destroy();
   m_fancyAudioVisualizerProgram.destroy();

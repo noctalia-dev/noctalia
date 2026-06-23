@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "core/file_watcher.h"
 #include "core/timer_manager.h"
 #include "scripting/plugin_runtime_context.h"
 #include "scripting/script_runtime.h"
@@ -41,7 +42,11 @@ public:
   void onRightClick() override;
 
 private:
-  void start(std::unordered_map<std::string, WidgetSettingValue> settings);
+  void start();
+  void setupScriptWatch();
+  void teardownScriptWatch();
+  void reloadScript();
+  void resetPresentation();
   void handleResult(const scripting::ScriptResult& result);
   void armTimer();
   [[nodiscard]] scripting::ScriptSnapshot makeScriptSnapshot() const;
@@ -50,12 +55,15 @@ private:
   std::string m_entryId;
   std::filesystem::path m_sourcePath;
   std::filesystem::path m_pluginDir;
+  std::unordered_map<std::string, WidgetSettingValue> m_settings;
   scripting::ScriptApiContext& m_scriptApi;
+  FileWatcher* m_fileWatcher = nullptr;
   HttpClient* m_httpClient = nullptr;
   ClipboardService* m_clipboard = nullptr;
   CompositorPlatform* m_platform = nullptr;
   std::shared_ptr<scripting::ScriptRuntime> m_runtime;
   scripting::ScriptRuntime::SubscriberId m_subscription = 0;
+  FileWatcher::WatchId m_watchId = 0;
   std::string m_label;
   std::string m_iconOn = "circle";
   std::string m_iconOff = "circle";

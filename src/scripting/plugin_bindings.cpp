@@ -83,6 +83,18 @@ namespace {
     return out;
   }
 
+  std::optional<std::string> tableStringField(lua_State* L, int tableIndex, const char* key) {
+    lua_getfield(L, tableIndex, key);
+    std::optional<std::string> out;
+    if (lua_isstring(L, -1)) {
+      size_t len = 0;
+      const char* value = lua_tolstring(L, -1, &len);
+      out = std::string(value, len);
+    }
+    lua_pop(L, 1);
+    return out;
+  }
+
   std::string tableOptionalStringIndex(lua_State* L, int tableIndex, int rawIndex) {
     lua_rawgeti(L, tableIndex, rawIndex);
     std::string out;
@@ -295,6 +307,7 @@ namespace {
         result.glyph = tableOptionalStringField(L, row, "glyph");
         result.icon = tableOptionalStringField(L, row, "icon");
         result.badge = tableOptionalStringField(L, row, "badge");
+        result.query = tableStringField(L, row, "query");
         lua_getfield(L, row, "score");
         if (lua_isnumber(L, -1)) {
           result.score = lua_tonumber(L, -1);
@@ -310,8 +323,19 @@ namespace {
     return 0;
   }
 
+  // launcher.setQuery(text) — replaces the open launcher input text.
+  int luau_launcher_setQuery(lua_State* L) {
+    size_t queryLen = 0;
+    const char* query = luaL_checklstring(L, 1, &queryLen);
+    if (auto* context = getContext(L)) {
+      context->patch.launcherQuery = std::string(query, queryLen);
+    }
+    return 0;
+  }
+
   const luaL_Reg kLauncherLib[] = {
       {"setResults", luau_launcher_setResults},
+      {"setQuery", luau_launcher_setQuery},
       {"getConfig", scripting::luau_getConfig},
       {nullptr, nullptr},
   };
