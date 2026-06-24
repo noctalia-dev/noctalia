@@ -7,6 +7,7 @@
 #include "calendar/calendar_service.h"
 #include "capture/screenshot_service.h"
 #include "compositors/compositor_platform.h"
+#include "compositors/workspace_alert_service.h"
 #include "config/config_poll_source.h"
 #include "config/config_service.h"
 #include "core/file_watcher.h"
@@ -168,6 +169,7 @@ private:
   [[nodiscard]] std::vector<PollSource*> buildPollSources();
 
   WaylandConnection m_wayland;
+  WorkspaceAlertService m_workspaceAlertService;
   CompositorPlatform m_compositorPlatform{m_wayland};
   ClipboardService m_clipboardService;
   TextInputService m_textInputService;

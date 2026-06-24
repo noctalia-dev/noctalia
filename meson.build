@@ -753,6 +753,7 @@ _noctalia_sources = files(
   'src/wayland/text_input_service.cpp',
   'src/wayland/virtual_keyboard_service.cpp',
   'src/compositors/compositor_platform.cpp',
+  'src/compositors/workspace_alert_service.cpp',
   'src/compositors/compositor_detect.cpp',
   'src/compositors/compositor_runtime.cpp',
   'src/compositors/dwl/dwl_workspace_backend.cpp',
@@ -938,6 +939,16 @@ notification_filter_test = executable('notification_filter_test',
 )
 
 test('notification_filter', notification_filter_test)
+
+workspace_alert_service_test = executable('workspace_alert_service_test',
+  sources: files(
+    'tests/workspace_alert_service_test.cpp',
+    'src/compositors/workspace_alert_service.cpp',
+  ),
+  include_directories: _noctalia_inc,
+)
+
+test('workspace_alert_service', workspace_alert_service_test)
 
 animation_manager_test = executable('animation_manager_test',
   sources: files(
