@@ -96,10 +96,11 @@ namespace {
 
   std::optional<LoadedImageFile>
   loadSymbolicTrayIcon(const std::string& path, int targetSize, const Color& symbolicColor) {
-    std::string loadError;
-    auto loaded = loadImageFile(path, targetSize, &loadError);
+    auto loaded = loadImageFile(path, targetSize);
     if (!loaded) {
-      kLog.debug("tray widget symbolic icon decode failed path={} error={}", ImageSourceLog::describe(path), loadError);
+      kLog.debug(
+          "tray widget symbolic icon decode failed path={} error={}", ImageSourceLog::describe(path), loaded.error()
+      );
       return std::nullopt;
     }
 
@@ -155,7 +156,7 @@ namespace {
       loaded->rgba[i + 3] = static_cast<std::uint8_t>(std::lround(a * std::clamp(mask, 0.0f, 1.0f)));
     }
 
-    return loaded;
+    return std::move(*loaded);
   }
 
   bool isUniqueBusName(std::string_view value) { return !value.empty() && value.front() == ':'; }

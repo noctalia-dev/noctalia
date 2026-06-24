@@ -114,10 +114,9 @@ bool DesktopStickerWidget::tryLoadAnimated(Renderer& renderer) {
     return false;
   }
 
-  std::string err;
-  auto decoded = decodeAnimatedGif(bytes.data(), bytes.size(), kMaxStickerGifFrames, kMaxStickerGifBytes, &err);
+  auto decoded = decodeAnimatedGif(bytes.data(), bytes.size(), kMaxStickerGifFrames, kMaxStickerGifBytes);
   if (!decoded) {
-    kLog.warn("sticker: failed to decode GIF \"{}\": {}", m_imagePath, err);
+    kLog.warn("sticker: failed to decode GIF \"{}\": {}", m_imagePath, decoded.error());
     return false;
   }
   if (decoded->frames.size() <= 1) {

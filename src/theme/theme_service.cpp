@@ -425,33 +425,32 @@ namespace noctalia::theme {
       return m_wallpaperCacheGenerated;
     }
 
-    std::string err;
     profiling::StopWatch loadWatch;
-    auto image = loadAndResize(wallpaperPath, *scheme, &err);
+    auto image = loadAndResize(wallpaperPath, *scheme);
     if (profiling::enabled()) {
       kLog.info("theme: wallpaper load+resize: {:.1f} ms", loadWatch.elapsedMs());
     }
-    if (!image.has_value()) {
-      kLog.warn("failed to load wallpaper '{}': {}", wallpaperPath, err);
+    if (!image) {
+      kLog.warn("failed to load wallpaper '{}': {}", wallpaperPath, image.error());
       return std::nullopt;
     }
     profiling::StopWatch genWatch;
-    auto generated = generate(image->rgb, *scheme, &err);
+    auto generated = generate(image->rgb, *scheme);
     if (profiling::enabled()) {
       kLog.info("theme: wallpaper palette generate: {:.1f} ms", genWatch.elapsedMs());
     }
-    if (generated.dark.empty()) {
-      kLog.warn("failed to generate palette from wallpaper: {}", err);
+    if (!generated) {
+      kLog.warn("failed to generate palette from wallpaper: {}", generated.error());
       return std::nullopt;
     }
 
     if (mtimeNs != 0) {
-      m_wallpaperCacheGenerated = generated;
+      m_wallpaperCacheGenerated = *generated;
       m_wallpaperCachePath = wallpaperPath;
       m_wallpaperCacheScheme = cfg.wallpaperScheme;
       m_wallpaperCacheMtimeNs = mtimeNs;
     }
-    return generated;
+    return *generated;
   }
 
   void ThemeService::resolveAndSet(bool animate) {
@@ -616,7 +615,7 @@ namespace noctalia::theme {
 
     const std::string wallpaperPath = m_config.getPaletteWallpaperPath();
     const auto generated = resolveWallpaperGenerated(cfg, wallpaperPath);
-    if (!generated.has_value()) {
+    if (!generated) {
       return fail("failed to generate palette from wallpaper");
     }
 

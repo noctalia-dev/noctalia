@@ -49,28 +49,21 @@ TextureHandle GlesTextureManager::decodeEncodedRaster(
     return {};
   }
 
-  std::string errorMessage;
-  if (auto decoded = decodeRasterImage(data, size, &errorMessage)) {
+  if (auto decoded = decodeRasterImage(data, size)) {
     return uploadRgba(decoded->pixels.data(), decoded->width, decoded->height, mipmap);
+  } else if (debugPath != nullptr) {
+    kLog.warn("failed to decode image: {} ({})", ImageSourceLog::describe(*debugPath), decoded.error());
   }
 
-  if (debugPath != nullptr) {
-    kLog.warn("failed to decode image: {} ({})", ImageSourceLog::describe(*debugPath), errorMessage);
-  }
   return {};
 }
 
 GlesTextureManager::~GlesTextureManager() { cleanup(); }
 
 TextureHandle GlesTextureManager::loadFromFile(const std::string& path, int targetSize, bool mipmap) {
-  std::string errorMessage;
-  auto loaded = loadImageFile(path, targetSize, &errorMessage);
-  if (!loaded.has_value()) {
-    if (!errorMessage.empty()) {
-      kLog.warn("failed to load image: {} ({})", ImageSourceLog::describe(path), errorMessage);
-    } else {
-      kLog.warn("failed to load image: {}", ImageSourceLog::describe(path));
-    }
+  auto loaded = loadImageFile(path, targetSize);
+  if (!loaded) {
+    kLog.warn("failed to load image: {} ({})", ImageSourceLog::describe(path), loaded.error());
     return {};
   }
 

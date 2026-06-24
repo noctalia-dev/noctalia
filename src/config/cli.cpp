@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <expected>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -89,6 +90,11 @@ namespace noctalia::config {
       std::filesystem::path targetDir;
       bool flattened = false;
       bool force = false;
+    };
+
+    struct ReplayOptionsParse {
+      ReplayOptions options;
+      bool helpRequested = false;
     };
 
     struct SettingsCountSet {
@@ -227,25 +233,22 @@ namespace noctalia::config {
       return 0;
     }
 
-    bool writeTextFile(const std::filesystem::path& path, std::string_view content, std::string& error) {
+    std::expected<void, std::string> writeTextFile(const std::filesystem::path& path, std::string_view content) {
       std::error_code ec;
       std::filesystem::create_directories(path.parent_path(), ec);
       if (ec) {
-        error = "failed to create " + path.parent_path().string() + ": " + ec.message();
-        return false;
+        return std::unexpected("failed to create " + path.parent_path().string() + ": " + ec.message());
       }
 
       std::ofstream out(path, std::ios::binary | std::ios::trunc);
       if (!out.is_open()) {
-        error = "failed to open " + path.string();
-        return false;
+        return std::unexpected("failed to open " + path.string());
       }
       out.write(content.data(), static_cast<std::streamsize>(content.size()));
       if (!out.good()) {
-        error = "failed to write " + path.string();
-        return false;
+        return std::unexpected("failed to write " + path.string());
       }
-      return true;
+      return {};
     }
 
     std::optional<std::filesystem::path> safeRelativePath(const toml::table& table, std::string_view fallback) {
@@ -271,61 +274,56 @@ namespace noctalia::config {
       return path.lexically_normal();
     }
 
-    bool prepareTarget(const std::filesystem::path& target, bool force, std::string& error) {
+    std::expected<void, std::string> prepareTarget(const std::filesystem::path& target, bool force) {
       std::error_code ec;
       if (std::filesystem::exists(target, ec) && !force) {
-        error = "target already exists; pass --force to replace it: " + target.string();
-        return false;
+        return std::unexpected("target already exists; pass --force to replace it: " + target.string());
       }
       std::filesystem::create_directories(target, ec);
       if (ec) {
-        error = "failed to create target " + target.string() + ": " + ec.message();
-        return false;
+        return std::unexpected("failed to create target " + target.string() + ": " + ec.message());
       }
-      return true;
+      return {};
     }
 
-    std::optional<ReplayOptions> parseReplayOptions(int argc, char* argv[], std::string& error) {
-      ReplayOptions options;
+    std::expected<ReplayOptionsParse, std::string> parseReplayOptions(int argc, char* argv[]) {
+      ReplayOptionsParse parsed;
       for (int i = 3; i < argc; ++i) {
         const char* arg = argv[i];
         if (std::strcmp(arg, "--help") == 0) {
           std::println("{}", kReplayHelpText);
-          return std::nullopt;
+          parsed.helpRequested = true;
+          return parsed;
         }
         if (std::strcmp(arg, "--target") == 0) {
           if (i + 1 >= argc) {
-            error = "--target requires a directory";
-            return std::nullopt;
+            return std::unexpected("--target requires a directory");
           }
-          options.targetDir = argv[++i];
+          parsed.options.targetDir = argv[++i];
           continue;
         }
         if (std::strcmp(arg, "--flattened") == 0) {
-          options.flattened = true;
+          parsed.options.flattened = true;
           continue;
         }
         if (std::strcmp(arg, "--force") == 0) {
-          options.force = true;
+          parsed.options.force = true;
           continue;
         }
-        if (options.reportPath.empty()) {
-          options.reportPath = arg;
+        if (parsed.options.reportPath.empty()) {
+          parsed.options.reportPath = arg;
           continue;
         }
-        error = std::string("unknown argument: ") + arg;
-        return std::nullopt;
+        return std::unexpected(std::string("unknown argument: ") + arg);
       }
 
-      if (options.reportPath.empty()) {
-        error = "missing report path";
-        return std::nullopt;
+      if (parsed.options.reportPath.empty()) {
+        return std::unexpected("missing report path");
       }
-      if (options.targetDir.empty()) {
-        error = "missing --target <dir>";
-        return std::nullopt;
+      if (parsed.options.targetDir.empty()) {
+        return std::unexpected("missing --target <dir>");
       }
-      return options;
+      return parsed;
     }
 
     int replayReport(const ReplayOptions& options, const char* argv0) {
@@ -338,9 +336,8 @@ namespace noctalia::config {
       }
 
       const std::filesystem::path target = std::filesystem::absolute(options.targetDir).lexically_normal();
-      std::string error;
-      if (!prepareTarget(target, options.force, error)) {
-        std::println(stderr, "error: {}", error);
+      if (auto prepared = prepareTarget(target, options.force); !prepared) {
+        std::println(stderr, "error: {}", prepared.error());
         return 1;
       }
 
@@ -369,8 +366,8 @@ namespace noctalia::config {
           std::println(stderr, "error: report has no [merged_config].content");
           return 1;
         }
-        if (!writeTextFile(configDir / "config.toml", *merged, error)) {
-          std::println(stderr, "error: {}", error);
+        if (auto written = writeTextFile(configDir / "config.toml", *merged); !written) {
+          std::println(stderr, "error: {}", written.error());
           return 1;
         }
         std::error_code ec;
@@ -398,8 +395,8 @@ namespace noctalia::config {
               std::println(stderr, "error: report contains an unsafe config source path");
               return 1;
             }
-            if (!writeTextFile(configDir / *relative, *content, error)) {
-              std::println(stderr, "error: {}", error);
+            if (auto written = writeTextFile(configDir / *relative, *content); !written) {
+              std::println(stderr, "error: {}", written.error());
               return 1;
             }
           }
@@ -414,8 +411,8 @@ namespace noctalia::config {
         }
         if (stateExists && state != nullptr) {
           const auto content = (*state)["content"].value<std::string>().value_or("");
-          if (!writeTextFile(stateDir / "settings.toml", content, error)) {
-            std::println(stderr, "error: {}", error);
+          if (auto written = writeTextFile(stateDir / "settings.toml", content); !written) {
+            std::println(stderr, "error: {}", written.error());
             return 1;
           }
         } else {
@@ -436,8 +433,8 @@ namespace noctalia::config {
         }
         if (appStateExists && appState != nullptr) {
           const auto content = (*appState)["content"].value<std::string>().value_or("");
-          if (!writeTextFile(stateDir / "state.toml", content, error)) {
-            std::println(stderr, "error: {}", error);
+          if (auto written = writeTextFile(stateDir / "state.toml", content); !written) {
+            std::println(stderr, "error: {}", written.error());
             return 1;
           }
         }
@@ -607,17 +604,16 @@ namespace noctalia::config {
     }
 
     if (std::strcmp(argv[2], "replay-report") == 0) {
-      std::string error;
-      const auto options = parseReplayOptions(argc, argv, error);
-      if (!options.has_value()) {
-        if (!error.empty()) {
-          std::println(stderr, "error: {}", error);
-          std::println(stderr, "Run 'noctalia config replay-report --help' for usage.");
-          return 1;
-        }
+      const auto parsed = parseReplayOptions(argc, argv);
+      if (!parsed) {
+        std::println(stderr, "error: {}", parsed.error());
+        std::println(stderr, "Run 'noctalia config replay-report --help' for usage.");
+        return 1;
+      }
+      if (parsed->helpRequested) {
         return 0;
       }
-      return replayReport(*options, argv[0]);
+      return replayReport(parsed->options, argv[0]);
     }
 
     std::println(stderr, "error: unknown config command: {}", argv[2]);

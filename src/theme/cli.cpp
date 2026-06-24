@@ -516,17 +516,18 @@ namespace noctalia::theme {
         return 1;
       }
     } else {
-      auto loaded = loadAndResize(imagePath, *schemeOpt, &err);
+      auto loaded = loadAndResize(imagePath, *schemeOpt);
       if (!loaded) {
-        std::println(stderr, "error: failed to load image: {}", err);
+        std::println(stderr, "error: failed to load image: {}", loaded.error());
         return 1;
       }
 
-      palette = generate(loaded->rgb, *schemeOpt, &err);
-      if (palette.dark.empty() && palette.light.empty()) {
-        std::println(stderr, "error: palette generation failed: {}", err.empty() ? "unknown error" : err.c_str());
+      auto generated = generate(loaded->rgb, *schemeOpt);
+      if (!generated) {
+        std::println(stderr, "error: palette generation failed: {}", generated.error());
         return 1;
       }
+      palette = std::move(*generated);
     }
 
     const std::string json = toJson(palette, *schemeOpt, variant);

@@ -3,7 +3,7 @@
 #include "theme/scheme.h"
 
 #include <cstdint>
-#include <optional>
+#include <expected>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -21,6 +21,6 @@ namespace noctalia::theme {
   // Load `path`, decode via Wuffs, and resize to exactly 112×112 (aspect ratio
   // squashed) with alpha stripped. The resize filter is scheme-dependent:
   // triangle for M3 schemes, box for the custom schemes.
-  std::optional<LoadedImage> loadAndResize(std::string_view path, Scheme scheme, std::string* errorMessage = nullptr);
+  std::expected<LoadedImage, std::string> loadAndResize(std::string_view path, Scheme scheme);
 
 } // namespace noctalia::theme

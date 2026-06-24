@@ -308,13 +308,10 @@ void AsyncTextureCache::reloadResidentTextures() {
     entry.handle = {};
     entry.failed = false;
 
-    std::string errorMessage;
-    auto loaded = loadImageFile(key.path, key.targetSize, &errorMessage);
-    if (!loaded.has_value()) {
+    auto loaded = loadImageFile(key.path, key.targetSize);
+    if (!loaded) {
       entry.failed = true;
-      if (!errorMessage.empty()) {
-        kLog.warn("failed to reload image after GPU reset: {} ({})", ImageSourceLog::describe(key.path), errorMessage);
-      }
+      kLog.warn("failed to reload image after GPU reset: {} ({})", ImageSourceLog::describe(key.path), loaded.error());
       continue;
     }
 
@@ -351,14 +348,13 @@ void AsyncTextureCache::workerLoop() {
     DecodedJob result;
     result.key = key;
 
-    std::string errorMessage;
-    if (auto loaded = loadImageFile(key.path, key.targetSize, &errorMessage)) {
+    if (auto loaded = loadImageFile(key.path, key.targetSize)) {
       result.rgba = std::move(loaded->rgba);
       result.width = loaded->width;
       result.height = loaded->height;
     } else {
       result.failed = true;
-      kLog.warn("failed to decode image: {} ({})", ImageSourceLog::describe(key.path), errorMessage);
+      kLog.warn("failed to decode image: {} ({})", ImageSourceLog::describe(key.path), loaded.error());
     }
 
     pushResult(std::move(result));

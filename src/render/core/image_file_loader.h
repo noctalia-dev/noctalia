@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
+#include <expected>
 #include <string>
 #include <vector>
 
@@ -11,6 +11,5 @@ struct LoadedImageFile {
   int height = 0;
 };
 
-[[nodiscard]] std::optional<LoadedImageFile> loadImageFile(
-    const std::string& path, int targetSize = 0, std::string* errorMessage = nullptr, bool centerSquareCrop = false
-);
+[[nodiscard]] std::expected<LoadedImageFile, std::string>
+loadImageFile(const std::string& path, int targetSize = 0, bool centerSquareCrop = false);

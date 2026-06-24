@@ -199,9 +199,8 @@ bool Image::setSourceFile(
     return false;
   }
 
-  std::string errorMessage;
-  auto loaded = loadImageFile(path, textureTargetSize, &errorMessage, centerSquareCrop);
-  if (!loaded.has_value()) {
+  auto loaded = loadImageFile(path, textureTargetSize, centerSquareCrop);
+  if (!loaded) {
     m_sourcePath.clear();
     if (m_image != nullptr) {
       m_image->setTextureId({});
@@ -238,8 +237,8 @@ bool Image::reloadSourceFile(
 
   const int requestedTargetSize = std::max(0, targetSize);
   const int textureTargetSize = renderTargetSize(renderer, requestedTargetSize);
-  auto loaded = loadImageFile(path, textureTargetSize, nullptr, centerSquareCrop);
-  if (!loaded.has_value()) {
+  auto loaded = loadImageFile(path, textureTargetSize, centerSquareCrop);
+  if (!loaded) {
     return false;
   }
 
@@ -325,7 +324,7 @@ bool Image::setSourceBytes(Renderer& renderer, const std::uint8_t* data, std::si
   }
 
   auto decoded = decodeRasterImage(data, size);
-  if (!decoded.has_value()) {
+  if (!decoded) {
     m_sourcePath.clear();
     if (m_image != nullptr) {
       m_image->setTextureId({});
@@ -475,8 +474,8 @@ void Image::doLayout(Renderer& renderer) {
   if (m_ownsTexture && !m_sourcePath.empty() && m_sourceRequestedTargetSize > 0) {
     const int textureTargetSize = renderTargetSize(renderer, m_sourceRequestedTargetSize);
     if (textureTargetSize != m_sourceTargetSize) {
-      auto loaded = loadImageFile(m_sourcePath, textureTargetSize, nullptr, m_sourceCenterSquareCrop);
-      if (loaded.has_value()) {
+      auto loaded = loadImageFile(m_sourcePath, textureTargetSize, m_sourceCenterSquareCrop);
+      if (loaded) {
         if (commitColorizedRgba(renderer, loaded->rgba.data(), loaded->width, loaded->height, m_sourceMipmap)) {
           m_sourceTargetSize = textureTargetSize;
           updateLayout();

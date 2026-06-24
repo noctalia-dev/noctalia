@@ -40,12 +40,11 @@ namespace {
   [[nodiscard]] std::optional<std::filesystem::path> prepareAvatarForAccounts(
       const std::filesystem::path& sourcePath, AvatarPrepareError& errorOut, std::string* logDetail
   ) {
-    std::string loadError;
-    const auto loaded = loadImageFile(sourcePath.string(), kAccountsAvatarMaxSize, &loadError, true);
-    if (!loaded.has_value()) {
+    const auto loaded = loadImageFile(sourcePath.string(), kAccountsAvatarMaxSize, true);
+    if (!loaded) {
       errorOut = AvatarPrepareError::LoadFailed;
       if (logDetail != nullptr) {
-        *logDetail = loadError.empty() ? "failed to load avatar image" : loadError;
+        *logDetail = loaded.error();
       }
       return std::nullopt;
     }
