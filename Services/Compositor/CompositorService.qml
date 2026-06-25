@@ -31,6 +31,10 @@ Singleton {
   // Overview state (Niri-specific, defaults to false for other compositors)
   property bool overviewActive: false
 
+  // Hyprland input:follow_mouse value (default 1, mirrored from the Hyprland backend).
+  // Lets panel logic decide whether it must explicitly restore focus when a panel closes.
+  property int hyprlandFollowMouse: 1
+
   // Global workspaces flag (workspaces shared across all outputs)
   // True for LabWC (stacking compositor), false for tiling WMs with per-output workspaces
   property bool globalWorkspaces: false
@@ -242,6 +246,13 @@ Singleton {
                                             });
     }
 
+    // Hyprland follow_mouse (only the Hyprland backend exposes this)
+    if (backend.followMouseChanged) {
+      backend.followMouseChanged.connect(() => {
+                                           hyprlandFollowMouse = backend.followMouse;
+                                         });
+    }
+
     // Initial sync
     syncWorkspaces();
     syncWindows();
@@ -251,6 +262,9 @@ Singleton {
     }
     if (backend.globalWorkspaces !== undefined) {
       globalWorkspaces = backend.globalWorkspaces;
+    }
+    if (backend.followMouse !== undefined) {
+      hyprlandFollowMouse = backend.followMouse;
     }
   }
 

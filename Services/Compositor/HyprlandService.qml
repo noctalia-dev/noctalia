@@ -28,6 +28,11 @@ Item {
   property bool dispatchModeChecked: false
   property bool useLuaDispatch: false
 
+  // input:follow_mouse value (Hyprland default is 1). When follow_mouse != 1 the
+  // compositor does not reliably refocus the app after a still-mapped layer surface
+  // releases keyboard focus, so the shell restores focus explicitly on panel close.
+  property int followMouse: 1
+
   // Debounce timer for window updates
   Timer {
     id: updateTimer
@@ -57,6 +62,7 @@ Item {
                      safeUpdateWindows();
                      queryDisplayScales();
                      queryKeyboardLayout();
+                     queryFollowMouse();
                      // Detect Hyprland dispatch syntax once during startup
                      detectDispatchMode();
                    });
@@ -225,6 +231,48 @@ Item {
         Logger.e("HyprlandService", "Failed to parse devices:", e);
       } finally {
         // Clear accumulated output for next query
+        accumulatedOutput = "";
+      }
+    }
+  }
+
+  // Query input:follow_mouse so the shell knows whether it must explicitly restore
+  // window focus after a panel closes (only needed when follow_mouse != 1).
+  function queryFollowMouse() {
+    followMouseProcess.running = true;
+  }
+
+  Process {
+    id: followMouseProcess
+    running: false
+    command: ["hyprctl", "getoption", "input:follow_mouse", "-j"]
+
+    property string accumulatedOutput: ""
+
+    stdout: SplitParser {
+      onRead: function (line) {
+        followMouseProcess.accumulatedOutput += line;
+      }
+    }
+
+    onExited: function (exitCode) {
+      if (exitCode !== 0 || !accumulatedOutput) {
+        Logger.e("HyprlandService", "Failed to query follow_mouse, exit code:", exitCode);
+        accumulatedOutput = "";
+        return;
+      }
+
+      try {
+        const data = JSON.parse(accumulatedOutput);
+        if (typeof data.int === "number") {
+          root.followMouse = data.int;
+          Logger.d("HyprlandService", "follow_mouse =", root.followMouse);
+        } else {
+          Logger.w("HyprlandService", "follow_mouse: unexpected getoption payload, keeping default", root.followMouse, "-", accumulatedOutput);
+        }
+      } catch (e) {
+        Logger.e("HyprlandService", "Failed to parse follow_mouse:", e);
+      } finally {
         accumulatedOutput = "";
       }
     }
@@ -581,6 +629,10 @@ Item {
 
       if (monitorsEvents.includes(event.name)) {
         Qt.callLater(queryDisplayScales);
+      }
+
+      if (event.name === "configreloaded") {
+        Qt.callLater(queryFollowMouse);
       }
 
       if (event.name == "activelayout") {

@@ -28,6 +28,15 @@ Singleton {
   // Global state for keybind recording components to block global shortcuts
   property bool isKeybindRecording: false
 
+  // Hyprland refocus workaround: id (address) of the toplevel that held keyboard
+  // focus before a panel opened. When the last panel closes, focus is handed back
+  // to it explicitly, because Hyprland (with follow_mouse != 1) leaves the app
+  // "active" but unable to receive keyboard input after a still-mapped layer
+  // surface releases keyboard focus. See Hyprland #14285 / #14730 and the
+  // DankMaterialShell fix (PR #2655); noctalia's persistent MainScreen surface
+  // can't release-on-unmap like a per-popout surface, so it nudges focus instead.
+  property string windowIdToRestoreFocus: ""
+
   signal willOpen
   signal didClose
 
@@ -235,8 +244,45 @@ Singleton {
     }
   }
 
+  // Remember the toplevel that currently holds focus, before any panel grabs the
+  // keyboard, so it can be refocused when panels fully close (Hyprland workaround).
+  function captureFocusForRestore() {
+    windowIdToRestoreFocus = "";
+    if (!CompositorService.isHyprland)
+      return;
+    var w = CompositorService.getFocusedWindow();
+    if (w && w.id)
+      windowIdToRestoreFocus = String(w.id);
+  }
+
+  // Hand keyboard focus back to the window that was focused before the panel opened.
+  // Only acts on Hyprland when follow_mouse != 1 (otherwise the compositor restores
+  // focus on its own, and forcing it would fight focus-follows-mouse). No-op elsewhere.
+  // (focusWindow also re-raises the window via alterzorder, which is fine: it was the
+  //  active/top window before the panel opened.)
+  function restoreFocusAfterClose() {
+    var id = windowIdToRestoreFocus;
+    windowIdToRestoreFocus = "";
+    if (!id)
+      return;
+    if (!CompositorService.isHyprland)
+      return;
+    if (CompositorService.hyprlandFollowMouse === 1)
+      return;
+    Logger.d("PanelService", "Restoring keyboard focus to window:", id);
+    CompositorService.focusWindow({
+                                    "id": id
+                                  });
+  }
+
   // Helper to keep only one panel open at any time
   function willOpenPanel(panel) {
+    // Capture pre-panel focus only when no panel is currently open (the first panel
+    // in a sequence); switching between panels keeps the originally focused window.
+    if (openedPanel === null) {
+      captureFocusForRestore();
+    }
+
     // Close overlay launcher if open
     if (overlayLauncherOpen) {
       overlayLauncherOpen = false;
@@ -389,7 +435,8 @@ Singleton {
   }
 
   function closedPanel(panel) {
-    if (openedPanel && openedPanel === panel) {
+    var wasActivePanel = (openedPanel && openedPanel === panel);
+    if (wasActivePanel) {
       openedPanel = null;
       assignToSlot(0, null);
     }
@@ -402,6 +449,13 @@ Singleton {
     // Reset keyboard init state
     isInitializingKeyboard = false;
     keyboardInitTimer.stop();
+
+    // When the active panel fully closes via a normal (animated) close, nudge
+    // Hyprland to refocus the window that was focused before it opened. Skipped for
+    // immediate closes (app launches) where the launched app should take focus.
+    if (wasActivePanel && !closedImmediately) {
+      restoreFocusAfterClose();
+    }
 
     // emit signal
     didClose();
