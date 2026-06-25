@@ -2,6 +2,7 @@
 
 #include "render/scene/node.h"
 #include "render/scene/rect_node.h"
+#include "wayland/popup_surface.h"
 
 #include <algorithm>
 #include <cmath>

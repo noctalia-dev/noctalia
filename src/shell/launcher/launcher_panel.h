@@ -13,14 +13,10 @@
 
 class ContextMenuPopup;
 class Flex;
-class Glyph;
-class Image;
 class Input;
-class InputArea;
 class Label;
 class LauncherResultAdapter;
 class LauncherAppGridAdapter;
-class Node;
 class Renderer;
 class Segmented;
 class VirtualGridView;

@@ -1,5 +1,7 @@
 #include "shell/settings/settings_bar_management.h"
 
+#include "config/config_service.h"
+#include "config/config_types.h"
 #include "i18n/i18n.h"
 #include "ui/builders.h"
 #include "ui/palette.h"

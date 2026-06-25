@@ -4,7 +4,6 @@
 #include "render/scene/input_dispatcher.h"
 #include "ui/dialogs/layer_popup_host.h"
 #include "ui/popup_chrome.h"
-#include "ui/popup_parent.h"
 #include "wayland/popup_surface.h"
 
 #include <cstdint>
@@ -18,10 +17,10 @@ class Node;
 class RectNode;
 class RenderContext;
 class WaylandConnection;
+struct XdgPopupParent;
 struct KeyboardEvent;
 struct PointerEvent;
 struct wl_surface;
-struct wl_output;
 struct xdg_surface;
 
 // Shared base for the three xdg_popup-backed dialog popups (GlyphPicker,

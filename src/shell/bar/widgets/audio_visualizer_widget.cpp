@@ -4,7 +4,6 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
-#include "ui/palette.h"
 #include "ui/style.h"
 #include "ui/visuals/audio_visualizer.h"
 

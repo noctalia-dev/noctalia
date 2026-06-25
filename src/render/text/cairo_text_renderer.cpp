@@ -14,7 +14,6 @@
 #include <hb-ot.h>
 #include <limits>
 #include <pango/pango-attributes.h>
-#include <pango/pango.h>
 #include <pango/pangocairo.h>
 #include <pango/pangofc-fontmap.h>
 #include <vector>

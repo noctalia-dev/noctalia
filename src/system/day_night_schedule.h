@@ -1,10 +1,10 @@
 #pragma once
 
-#include "config/config_types.h"
-
 #include <chrono>
 #include <optional>
 #include <string_view>
+
+struct LocationConfig;
 
 namespace day_night_schedule {
 

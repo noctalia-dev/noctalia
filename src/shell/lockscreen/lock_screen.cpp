@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <string>
 #include <thread>
-#include <wayland-client.h>
 
 namespace {
 

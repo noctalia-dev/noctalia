@@ -1,5 +1,6 @@
 #include "theme/json_output.h"
 
+#include "theme/palette.h"
 #include "theme/tokens.h"
 
 #include <cstdio>

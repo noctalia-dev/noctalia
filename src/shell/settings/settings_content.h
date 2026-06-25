@@ -1,6 +1,5 @@
 #pragma once
 
-#include "config/config_service.h"
 #include "shell/settings/settings_registry.h"
 
 #include <cstddef>
@@ -13,9 +12,9 @@
 
 class Flex;
 class InputArea;
-class Button;
 class Label;
 class Node;
+class ConfigService;
 
 namespace settings {
 

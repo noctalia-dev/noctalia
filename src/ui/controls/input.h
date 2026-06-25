@@ -20,7 +20,6 @@ class GlyphNode;
 class InputArea;
 class Label;
 class RectNode;
-class Renderer;
 
 class Input : public Node, public TextInputClient {
 public:

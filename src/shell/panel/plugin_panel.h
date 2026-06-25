@@ -4,7 +4,6 @@
 #include "core/timer_manager.h"
 #include "scripting/plugin_ipc.h"
 #include "scripting/plugin_panel_shell.h"
-#include "scripting/plugin_runtime_context.h"
 #include "scripting/script_runtime.h"
 #include "shell/panel/panel.h"
 #include "ui/ui_tree.h"
@@ -21,8 +20,9 @@ class ClipboardService;
 class Flex;
 class HttpClient;
 namespace scripting {
+  struct PluginRuntimeContext;
   class ScriptApiContext;
-}
+} // namespace scripting
 
 // Static panel options parsed from the manifest `[[panel]]` entry. Size is
 // host-owned and declared once so the surface is sized correctly on first open.

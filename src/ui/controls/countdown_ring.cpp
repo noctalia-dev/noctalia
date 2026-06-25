@@ -6,7 +6,6 @@
 #include "ui/palette.h"
 
 #include <algorithm>
-#include <cmath>
 #include <memory>
 
 namespace {

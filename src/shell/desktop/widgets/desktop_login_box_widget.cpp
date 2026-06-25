@@ -7,7 +7,6 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 
-#include <algorithm>
 #include <memory>
 
 namespace {

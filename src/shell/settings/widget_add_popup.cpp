@@ -14,7 +14,6 @@
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <string>
 #include <string_view>

@@ -1,11 +1,12 @@
 #pragma once
 
-#include "system/desktop_entry.h"
-
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
+
+struct DesktopAction;
+struct DesktopEntry;
 
 namespace desktop_entry_launch {
 

@@ -1,5 +1,6 @@
 #include "scripting/plugin_source_paths.h"
 
+#include "config/config_types.h"
 #include "util/file_utils.h"
 
 #include <system_error>

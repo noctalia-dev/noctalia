@@ -32,12 +32,10 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
-#include <pthread.h>
 #include <stb_image_resize2.h>
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
-#include <wayland-client.h>
 
 namespace {
 

@@ -21,6 +21,7 @@
 #include "ui/controls/toggle.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "ui/ui_tree.h"
 
 #include <cmath>
 #include <format>

@@ -15,15 +15,15 @@
 #include <unordered_set>
 #include <vector>
 
+class SessionBus;
+class IpcService;
+
 namespace sdbus {
   class Error;
   class IObject;
   class IProxy;
   class Variant;
 } // namespace sdbus
-
-class SessionBus;
-class IpcService;
 
 struct MprisPlayerInfo {
   std::string busName;

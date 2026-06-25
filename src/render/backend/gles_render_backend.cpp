@@ -7,7 +7,6 @@
 #include "render/render_target.h"
 
 #include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
 #include <chrono>
 #include <format>
 #include <stdexcept>

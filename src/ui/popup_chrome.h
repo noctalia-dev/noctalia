@@ -2,12 +2,14 @@
 
 #include "config/config_types.h"
 #include "shell/surface/shadow.h"
-#include "wayland/popup_surface.h"
 
 #include <cstdint>
 
 class Node;
+class PopupSurface;
 class RectNode;
+struct InputRect;
+struct PopupSurfaceConfig;
 
 namespace popup_chrome {
 

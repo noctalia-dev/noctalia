@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <chrono>
 #include <map>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 

@@ -1,5 +1,7 @@
 #include "render/programs/blur_program.h"
 
+#include "render/core/texture_handle.h"
+
 #include <stdexcept>
 
 namespace {

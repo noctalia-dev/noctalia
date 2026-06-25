@@ -13,7 +13,6 @@
 #include "core/scoped_timer.h"
 #include "ipc/ipc_service.h"
 #include "notification/notification_manager.h"
-#include "render/core/renderer.h"
 #include "shell/desktop/desktop_widget_settings_registry.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "system/distro_info.h"

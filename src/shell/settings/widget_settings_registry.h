@@ -1,8 +1,7 @@
 #pragma once
 
-#include "config/config_service.h"
+#include "config/config_types.h"
 #include "config/schema/widget_schema.h"
-#include "scripting/plugin_manifest.h"
 
 #include <cstdint>
 #include <initializer_list>
@@ -13,8 +12,10 @@
 #include <vector>
 
 namespace scripting {
+  struct ManifestField;
+  struct PluginEntry;
   class PluginTranslationCatalog;
-}
+} // namespace scripting
 
 namespace settings {
 

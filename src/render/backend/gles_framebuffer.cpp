@@ -1,5 +1,7 @@
 #include "render/backend/gles_framebuffer.h"
 
+#include "render/core/texture_manager.h"
+
 #include <utility>
 
 GlesFramebuffer::~GlesFramebuffer() { destroy(); }

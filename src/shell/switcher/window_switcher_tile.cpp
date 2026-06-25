@@ -1,8 +1,6 @@
 #include "shell/switcher/window_switcher_tile.h"
 
-#include "render/core/async_texture_cache.h"
 #include "render/core/renderer.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "app/poll_source.h"
-#include "render/core/texture_manager.h"
+#include "render/core/texture_handle.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -17,6 +17,7 @@
 #include <vector>
 
 class GlSharedContext;
+class TextureManager;
 
 class AsyncTextureCache : public PollSource {
 public:

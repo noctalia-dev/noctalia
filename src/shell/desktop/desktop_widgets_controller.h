@@ -1,7 +1,7 @@
 #pragma once
 
-#include "config/config_service.h"
-#include "shell/desktop/desktop_widget_factory.h"
+#include "config/config_types.h"
+#include "shell/desktop/desktop_widget_services.h"
 #include "ui/dialogs/layer_popup_host.h"
 
 #include <cstdint>
@@ -10,15 +10,10 @@
 
 class DesktopWidgetsEditor;
 class DesktopWidgetsHost;
-class HttpClient;
 class LockscreenWidgetsController;
 class IpcService;
-class MprisService;
-class PipeWireSpectrum;
 class RenderContext;
-class SystemMonitorService;
 class WaylandConnection;
-class WeatherService;
 struct KeyboardEvent;
 struct PointerEvent;
 

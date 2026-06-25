@@ -1,6 +1,5 @@
 #pragma once
 
-#include "config/config_types.h"
 #include "render/scene/input_area.h"
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
 
@@ -17,6 +16,7 @@ class Image;
 class Label;
 class Renderer;
 class ThumbnailService;
+enum class ThemeMode : std::uint8_t;
 
 // A single cell in the wallpaper grid: rounded thumbnail (or folder glyph for
 // directories) with filename underneath. Inherits InputArea so the whole tile

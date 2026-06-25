@@ -3,6 +3,7 @@
 #include "core/log.h"
 #include "render/core/image_decoder.h"
 #include "render/core/renderer.h"
+#include "render/core/texture_manager.h"
 #include "render/scene/node.h"
 #include "ui/builders.h"
 #include "util/file_utils.h"

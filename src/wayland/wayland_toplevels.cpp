@@ -8,7 +8,6 @@
 #include <algorithm>
 #include <cctype>
 #include <utility>
-#include <wayland-client.h>
 
 namespace {
 

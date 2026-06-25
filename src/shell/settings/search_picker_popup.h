@@ -14,9 +14,7 @@ class RenderContext;
 class WaylandConnection;
 struct KeyboardEvent;
 struct PointerEvent;
-struct wl_output;
 struct wl_surface;
-struct xdg_surface;
 
 namespace settings {
 

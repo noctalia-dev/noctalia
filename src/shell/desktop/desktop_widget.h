@@ -1,7 +1,6 @@
 #pragma once
 
 #include "config/config_types.h"
-#include "core/ui_phase.h"
 #include "render/scene/node.h"
 #include "ui/palette.h"
 

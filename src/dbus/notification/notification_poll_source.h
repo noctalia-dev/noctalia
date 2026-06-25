@@ -1,8 +1,9 @@
 #pragma once
 
 #include "app/poll_source.h"
-#include "dbus/notification/notification_dbus_host.h"
 #include "notification/notification_manager.h"
+
+class NotificationDBusHost;
 
 class NotificationPollSource final : public PollSource {
 public:

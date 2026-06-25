@@ -7,7 +7,6 @@
 
 #include <stdexcept>
 #include <utility>
-#include <wayland-client.h>
 
 namespace {
 

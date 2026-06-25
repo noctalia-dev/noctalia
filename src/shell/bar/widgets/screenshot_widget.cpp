@@ -4,7 +4,6 @@
 #include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "i18n/i18n.h"
-#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "ui/builders.h"
@@ -12,7 +11,6 @@
 #include "ui/controls/context_menu_popup.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 #include "xdg-shell-client-protocol.h"
 

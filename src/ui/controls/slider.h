@@ -7,7 +7,6 @@
 
 class InputArea;
 class RectNode;
-class Renderer;
 
 class Slider : public Flex {
 public:

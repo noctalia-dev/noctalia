@@ -7,7 +7,6 @@
 #include <cstdint>
 
 class RectNode;
-class Renderer;
 
 enum class SeparatorOrientation : std::uint8_t {
   // Infer from parent: horizontal rule inside a vertical Flex, vertical rule inside a horizontal Flex.

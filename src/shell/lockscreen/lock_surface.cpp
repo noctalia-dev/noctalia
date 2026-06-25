@@ -22,7 +22,6 @@
 #include <cmath>
 #include <memory>
 #include <string_view>
-#include <wayland-client.h>
 
 namespace {
 

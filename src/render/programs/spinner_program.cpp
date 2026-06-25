@@ -1,5 +1,7 @@
 #include "render/programs/spinner_program.h"
 
+#include "render/core/render_styles.h"
+
 #include <array>
 #include <stdexcept>
 

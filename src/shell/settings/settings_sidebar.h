@@ -1,19 +1,19 @@
 #pragma once
 
-#include "config/config_service.h"
-#include "shell/settings/settings_registry.h"
-#include "ui/controls/scroll_view.h"
-
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
+struct Config;
+struct ScrollViewState;
 class Flex;
 class Node;
 class RovingListNavHost;
 
 namespace settings {
+  enum class SettingsSection : std::uint8_t;
 
   struct SettingsSidebarContext {
     const Config& config;

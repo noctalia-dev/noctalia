@@ -4,7 +4,6 @@
 #include "core/keybind_matcher.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
-#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/session/session_action_meta.h"

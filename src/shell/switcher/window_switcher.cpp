@@ -5,7 +5,6 @@
 #include "compositors/hyprland/hyprland_window_id.h"
 #include "config/config_service.h"
 #include "core/deferred_call.h"
-#include "core/key_chord.h"
 #include "core/key_modifiers.h"
 #include "core/key_symbols.h"
 #include "core/keybind_matcher.h"

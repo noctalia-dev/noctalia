@@ -4,8 +4,6 @@
 
 #include <cstddef>
 
-class Renderer;
-
 class GridView : public Node {
 public:
   void setColumns(std::size_t columns);

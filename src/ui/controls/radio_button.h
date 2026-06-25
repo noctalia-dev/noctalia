@@ -1,13 +1,11 @@
 #pragma once
 
-#include "render/core/color.h"
 #include "render/scene/node.h"
 
 #include <functional>
 
 class Box;
 class InputArea;
-class Renderer;
 
 class RadioButton : public Node {
 public:

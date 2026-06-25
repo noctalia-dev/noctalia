@@ -1,14 +1,18 @@
 #pragma once
 
 #include "config/config_types.h"
-#include "shell/desktop/desktop_widget_settings_registry.h"
 #include "ui/palette.h"
-#include "wayland/wayland_connection.h"
 
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
+
+class WaylandConnection;
+
+namespace desktop_settings {
+  enum class DesktopWidgetSettingsScope;
+}
 
 namespace lockscreen_login_box {
 

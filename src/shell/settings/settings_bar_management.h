@@ -1,11 +1,12 @@
 #pragma once
 
-#include "config/config_service.h"
-
 #include <functional>
 #include <string>
 #include <string_view>
 
+struct BarConfig;
+struct BarMonitorOverride;
+struct Config;
 class ConfigService;
 class Flex;
 

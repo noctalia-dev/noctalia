@@ -4,6 +4,7 @@
 #include "render/backend/render_backend.h"
 #include "render/core/image_file_loader.h"
 #include "render/core/image_source_log.h"
+#include "render/core/texture_manager.h"
 #include "render/gl_shared_context.h"
 
 #include <algorithm>

@@ -46,7 +46,6 @@ struct wl_surface;
 
 namespace settings {
   struct SettingsContentContext;
-  class SettingsControlFactory;
 } // namespace settings
 
 // Standalone xdg-toplevel settings UI (same binary as the shell; shares RenderContext).

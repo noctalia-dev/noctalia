@@ -2,11 +2,9 @@
 
 #include "config/schema/config_schema.h"
 #include "config/schema/engine.h"
-#include "core/key_chord.h"
 
 #include <algorithm>
 #include <cstdint>
-#include <cstdio>
 #include <string>
 #include <string_view>
 #include <type_traits>

@@ -6,8 +6,6 @@
 struct hyprland_focus_grab_manager_v1;
 struct hyprland_focus_grab_v1;
 struct wl_surface;
-
-class FocusGrabService;
 class PopupGrabHost;
 
 // A single focus grab. While committed with at least one whitelisted surface,

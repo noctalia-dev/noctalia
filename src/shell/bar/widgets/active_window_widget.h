@@ -1,6 +1,5 @@
 #pragma once
 
-#include "compositors/compositor_platform.h"
 #include "shell/bar/widget.h"
 #include "system/icon_resolver.h"
 #include "ui/signal.h"
@@ -13,6 +12,7 @@ class Image;
 class Label;
 class Renderer;
 class InputArea;
+class CompositorPlatform;
 
 enum class ActiveWindowTitleScrollMode : std::uint8_t {
   None,

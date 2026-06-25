@@ -9,9 +9,6 @@
 #include <cstring>
 #include <format>
 #include <string_view>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <unistd.h>
 #include <unordered_set>
 
 HyprlandWorkspaceBackend::HyprlandWorkspaceBackend(

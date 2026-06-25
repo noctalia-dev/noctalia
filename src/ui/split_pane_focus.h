@@ -1,10 +1,9 @@
 #pragma once
 
-#include "render/scene/input_dispatcher.h"
-
 #include <cstdint>
 
 class InputArea;
+class InputDispatcher;
 class Node;
 
 struct SplitPaneFocusConfig {

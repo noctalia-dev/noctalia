@@ -1,7 +1,5 @@
 #pragma once
 
-#include "render/backend/render_backend.h"
-#include "render/core/mat3.h"
 #include "render/core/renderer.h"
 #include "render/text/cairo_glyph_renderer.h"
 #include "render/text/cairo_text_renderer.h"
@@ -14,7 +12,10 @@
 
 class GlSharedContext;
 class Node;
+class RenderBackend;
 class RenderTarget;
+enum class RenderGraphicsResetStatus;
+struct Mat3;
 
 class RenderContext : public Renderer {
 public:

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "notification/notification_manager.h"
+#include "notification/notification.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
 #include "system/icon_resolver.h"
@@ -11,15 +11,16 @@
 #include <vector>
 
 class ConfigService;
-class Glyph;
 class HttpClient;
 class Input;
 class InputArea;
 class LayerSurface;
+class NotificationManager;
 class Node;
 class ProgressBar;
 class RenderContext;
 class WaylandConnection;
+enum class NotificationEvent;
 struct KeyboardEvent;
 struct PointerEvent;
 struct WaylandOutput;

@@ -1,10 +1,10 @@
 #pragma once
 
-#include "capture/screencopy_capture.h"
-
 #include <string>
 
 struct wl_output;
+class ScreencopyCapture;
+struct ScreencopyImage;
 class WaylandConnection;
 
 namespace screencopy {

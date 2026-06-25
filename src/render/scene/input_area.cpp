@@ -3,7 +3,6 @@
 #include "cursor-shape-v1-client-protocol.h"
 
 #include <algorithm>
-#include <cmath>
 
 namespace {
 

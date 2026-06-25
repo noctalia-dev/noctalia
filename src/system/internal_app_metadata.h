@@ -1,10 +1,10 @@
 #pragma once
 
-#include "system/desktop_entry.h"
-
 #include <optional>
 #include <string>
 #include <string_view>
+
+struct DesktopEntry;
 
 namespace internal_apps {
 

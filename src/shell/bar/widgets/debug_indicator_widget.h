@@ -7,7 +7,6 @@
 class Flex;
 class Glyph;
 class Label;
-class Renderer;
 
 class DebugIndicatorWidget : public Widget {
 public:

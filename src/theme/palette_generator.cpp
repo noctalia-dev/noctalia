@@ -1,5 +1,7 @@
 #include "theme/palette_generator.h"
 
+#include "theme/scheme.h"
+
 #include <utility>
 
 namespace noctalia::theme {

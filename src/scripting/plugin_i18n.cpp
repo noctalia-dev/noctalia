@@ -5,7 +5,6 @@
 
 #include <fstream>
 #include <json.hpp>
-#include <utility>
 
 namespace scripting {
 

@@ -1,9 +1,10 @@
 #pragma once
 
-#include "config/config_service.h"
+#include "config/config_types.h"
 #include "core/ui_phase.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
+#include "ui/palette.h"
 
 #include <functional>
 #include <memory>
@@ -14,7 +15,6 @@
 
 class AnimationManager;
 class Box;
-class Renderer;
 struct PointerEvent;
 
 class Widget {

@@ -1,5 +1,7 @@
 #include "render/programs/image_program.h"
 
+#include "render/core/texture_handle.h"
+
 #include <algorithm>
 #include <array>
 #include <stdexcept>

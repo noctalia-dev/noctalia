@@ -1,7 +1,5 @@
 #include "ui/controls/grid_view.h"
 
-#include "render/core/renderer.h"
-
 #include <algorithm>
 #include <numeric>
 #include <vector>

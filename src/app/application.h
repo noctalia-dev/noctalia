@@ -1,7 +1,6 @@
 #pragma once
 
 #include "app/deferred_call_poll_source.h"
-#include "app/main_loop.h"
 #include "app/timer_poll_source.h"
 #include "calendar/calendar_poll_source.h"
 #include "calendar/calendar_service.h"
@@ -11,29 +10,7 @@
 #include "config/config_service.h"
 #include "core/file_watcher.h"
 #include "core/timer_manager.h"
-#include "dbus/accounts/accounts_service.h"
-#include "dbus/bluetooth/bluetooth_agent.h"
-#include "dbus/bluetooth/bluetooth_service.h"
-#include "dbus/idle/screensaver_poll_source.h"
-#include "dbus/idle/screensaver_service.h"
-#include "dbus/logind/logind_service.h"
-#include "dbus/mpris/mpris_service.h"
-#include "dbus/network/inetwork_service.h"
-#include "dbus/network/network_secret_agent.h"
-#include "dbus/notification/kde_notification_client.h"
-#include "dbus/notification/notification_dbus_host.h"
 #include "dbus/notification/notification_poll_source.h"
-#include "dbus/notification/notification_service.h"
-#include "dbus/polkit/polkit_agent.h"
-#include "dbus/polkit/polkit_poll_source.h"
-#include "dbus/power/power_profiles_service.h"
-#include "dbus/session_bus.h"
-#include "dbus/session_bus_poll_source.h"
-#include "dbus/system_bus.h"
-#include "dbus/system_bus_poll_source.h"
-#include "dbus/tray/tray_service.h"
-#include "dbus/upower/upower_service.h"
-#include "debug/debug_service.h"
 #include "hooks/battery_hook_state.h"
 #include "hooks/hook_manager.h"
 #include "idle/idle_grace_overlay.h"
@@ -44,17 +21,11 @@
 #include "net/http_client.h"
 #include "net/http_client_poll_source.h"
 #include "notification/notification_manager.h"
-#include "pipewire/pipewire_poll_source.h"
-#include "pipewire/pipewire_service.h"
-#include "pipewire/pipewire_spectrum.h"
-#include "pipewire/pipewire_spectrum_poll_source.h"
-#include "pipewire/sound_player.h"
 #include "render/core/async_texture_cache.h"
 #include "render/core/shared_texture_cache.h"
 #include "render/core/thumbnail_service.h"
 #include "render/gl_shared_context.h"
 #include "render/render_context.h"
-#include "scripting/plugin_ipc.h"
 #include "scripting/plugin_manager.h"
 #include "scripting/plugin_service_host.h"
 #include "scripting/script_api_context.h"
@@ -74,21 +45,16 @@
 #include "shell/osd/privacy_osd.h"
 #include "shell/overview/overview_launcher_capture.h"
 #include "shell/panel/panel_manager.h"
-#include "shell/polkit/polkit_panel.h"
 #include "shell/screen_corners/screen_corners.h"
 #include "shell/session/session_action_runner.h"
-#include "shell/session/session_panel.h"
 #include "shell/settings/settings_window.h"
 #include "shell/switcher/window_switcher.h"
 #include "shell/tray/tray_menu.h"
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
 #include "shell/wallpaper/wallpaper.h"
 #include "system/battery_warning_monitor.h"
-#include "system/brightness_poll_source.h"
-#include "system/brightness_service.h"
 #include "system/dependency_service.h"
 #include "system/desktop_entry_poll_source.h"
-#include "system/easyeffects_service.h"
 #include "system/gamma_service.h"
 #include "system/icon_theme_poll_source.h"
 #include "system/location_poll_source.h"
@@ -96,7 +62,6 @@
 #include "system/lock_keys_poll_source.h"
 #include "system/lock_keys_service.h"
 #include "system/screen_time_service.h"
-#include "system/system_monitor_service.h"
 #include "system/telemetry_service.h"
 #include "system/weather_poll_source.h"
 #include "system/weather_service.h"
@@ -131,6 +96,42 @@ namespace sdbus {
 }
 
 class LauncherPanel;
+class AccountsService;
+class BluetoothAgent;
+class BluetoothService;
+class BrightnessPollSource;
+class BrightnessService;
+class DebugService;
+class EasyEffectsService;
+class INetworkService;
+class LogindService;
+class MainLoop;
+class MprisService;
+class NetworkSecretAgent;
+class NotificationDBusHost;
+class PipeWirePollSource;
+class PipeWireService;
+class PipeWireSpectrum;
+class PipeWireSpectrumPollSource;
+class PolkitAgent;
+class PolkitPollSource;
+class PowerProfilesService;
+class ScreenSaverPollSource;
+class ScreenSaverService;
+class SessionBus;
+class SessionBusPollSource;
+class SoundPlayer;
+class SystemBus;
+class SystemBusPollSource;
+class SystemMonitorService;
+class TrayService;
+class UPowerService;
+enum class BluetoothStateChangeOrigin : std::uint8_t;
+enum class NetworkChangeOrigin : std::uint8_t;
+enum class PowerProfilesChangeOrigin : std::uint8_t;
+struct BluetoothState;
+struct NetworkState;
+struct PowerProfilesState;
 
 class Application {
 public:

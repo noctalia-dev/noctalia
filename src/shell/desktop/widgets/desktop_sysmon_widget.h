@@ -12,7 +12,6 @@
 #include <utility>
 
 struct SystemStats;
-
 class ConfigService;
 class Glyph;
 class Graph;

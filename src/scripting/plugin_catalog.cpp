@@ -1,5 +1,6 @@
 #include "scripting/plugin_catalog.h"
 
+#include "config/config_types.h"
 #include "core/build_info.h"
 #include "core/log.h"
 #include "core/toml.h" // IWYU pragma: keep

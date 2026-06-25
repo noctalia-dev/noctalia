@@ -1,6 +1,5 @@
 #include "ui/controls/checkbox.h"
 
-#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/controls/box.h"
 #include "ui/controls/glyph.h"

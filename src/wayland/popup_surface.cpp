@@ -9,7 +9,6 @@
 
 #include <algorithm>
 #include <utility>
-#include <wayland-client.h>
 
 namespace {
 

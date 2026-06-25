@@ -1,7 +1,6 @@
 #pragma once
 
 #include "render/animation/animation_manager.h"
-#include "ui/controls/progress_bar.h"
 #include "wayland/layer_surface.h"
 
 #include <cstdint>
@@ -14,7 +13,7 @@ class Box;
 class Flex;
 class Glyph;
 class Label;
-class Node;
+class ProgressBar;
 class RenderContext;
 class WaylandConnection;
 struct WaylandOutput;

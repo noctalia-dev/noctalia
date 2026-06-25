@@ -5,15 +5,11 @@
 #include "system/rfkill_helper.h"
 
 #include <algorithm>
-#include <cerrno>
 #include <cstdint>
-#include <cstdio>
-#include <cstring>
 #include <map>
 #include <sdbus-c++/IProxy.h>
 #include <sdbus-c++/Types.h>
 #include <string>
-#include <unistd.h>
 #include <vector>
 
 namespace {

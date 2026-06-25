@@ -14,7 +14,6 @@
 #include "shell/settings/settings_content.h"
 #include "shell/settings/settings_content_common.h"
 #include "shell/settings/settings_content_plugins.h"
-#include "shell/settings/settings_control_factory.h"
 #include "shell/settings/settings_sidebar.h"
 #include "shell/settings/settings_window.h"
 #include "shell/tooltip/tooltip_manager.h"

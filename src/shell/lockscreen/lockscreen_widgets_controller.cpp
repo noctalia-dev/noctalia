@@ -1,7 +1,6 @@
 #include "shell/lockscreen/lockscreen_widgets_controller.h"
 
 #include "ipc/ipc_service.h"
-#include "pipewire/pipewire_spectrum.h"
 #include "shell/bar/bar.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/desktop_widgets_controller.h"
@@ -12,7 +11,6 @@
 #include "shell/lockscreen/lock_surface.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
 #include "shell/lockscreen/lockscreen_widgets_host.h"
-#include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <charconv>

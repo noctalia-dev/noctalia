@@ -7,7 +7,7 @@
 
 #include <cctype>
 #include <filesystem>
-#include <libqalculate/qalculate.h>
+#include <libqalculate/Calculator.h>
 #include <memory>
 #include <string>
 

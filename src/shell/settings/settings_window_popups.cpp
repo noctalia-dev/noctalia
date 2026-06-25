@@ -4,7 +4,6 @@
 #include "core/deferred_call.h"
 #include "i18n/i18n.h"
 #include "notification/notification_filter.h"
-#include "render/render_context.h"
 #include "scripting/plugin_registry.h"
 #include "shell/settings/bar_widget_editor.h"
 #include "shell/settings/color_spec_picker.h"

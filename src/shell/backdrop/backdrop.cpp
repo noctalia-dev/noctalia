@@ -5,6 +5,7 @@
 #include "core/log.h"
 #include "render/backend/render_backend.h"
 #include "render/core/shared_texture_cache.h"
+#include "shell/backdrop/backdrop_instance.h"
 #include "shell/backdrop/backdrop_surface.h"
 #include "ui/palette.h"
 #include "wayland/wayland_connection.h"

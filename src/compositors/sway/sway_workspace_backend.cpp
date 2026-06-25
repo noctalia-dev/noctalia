@@ -5,7 +5,6 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
-#include <arpa/inet.h>
 #include <cerrno>
 #include <cstring>
 #include <format>

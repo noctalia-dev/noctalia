@@ -10,9 +10,6 @@
 #include <string_view>
 #include <vector>
 
-class AnimationManager;
-
-class Flex;
 class Glyph;
 class InputArea;
 class Label;

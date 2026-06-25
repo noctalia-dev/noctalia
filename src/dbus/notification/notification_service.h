@@ -1,7 +1,7 @@
 #pragma once
 
 #include "dbus/notification/notification_dbus_host.h"
-#include "notification/notification_manager.h"
+#include "notification/notification.h"
 
 #include <map>
 #include <memory>
@@ -12,6 +12,7 @@
 #include <vector>
 
 class SessionBus;
+class NotificationManager;
 
 namespace notification_dbus {
 

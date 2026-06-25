@@ -22,8 +22,6 @@
 #include "util/string_utils.h"
 #include "wayland/wayland_seat.h"
 #include "wayland/wayland_toplevels.h"
-
-struct ext_foreign_toplevel_handle_v1;
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>

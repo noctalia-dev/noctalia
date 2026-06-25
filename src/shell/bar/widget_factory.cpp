@@ -3,14 +3,6 @@
 #include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "core/log.h"
-#include "dbus/mpris/mpris_service.h"
-#include "dbus/power/power_profiles_service.h"
-#include "dbus/tray/tray_service.h"
-#include "idle/idle_inhibitor.h"
-#include "net/http_client.h"
-#include "notification/notification_manager.h"
-#include "pipewire/pipewire_spectrum.h"
-#include "scripting/script_api_context.h"
 #include "shell/bar/widgets/active_window_widget.h"
 #include "shell/bar/widgets/audio_visualizer_widget.h"
 #include "shell/bar/widgets/battery_widget.h"
@@ -21,7 +13,6 @@
 #include "shell/bar/widgets/control_center_widget.h"
 #include "shell/bar/widgets/custom_button_widget.h"
 #include "system/battery_warning_monitor.h"
-#include "ui/app_icon_colorization.h"
 #ifndef NDEBUG
 #include "shell/bar/widgets/debug_indicator_widget.h"
 #endif
@@ -52,18 +43,12 @@
 #include "shell/bar/widgets/wallpaper_widget.h"
 #include "shell/bar/widgets/weather_widget.h"
 #include "shell/bar/widgets/workspaces_widget.h"
-#include "system/easyeffects_service.h"
-#include "system/lock_keys_service.h"
-#include "system/system_monitor_service.h"
-#include "system/weather_service.h"
-#include "theme/theme_service.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>

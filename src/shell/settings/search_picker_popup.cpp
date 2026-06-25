@@ -2,11 +2,9 @@
 
 #include "core/deferred_call.h"
 #include "render/render_context.h"
-#include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "ui/builders.h"
 #include "ui/style.h"
-#include "wayland/wayland_connection.h"
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>

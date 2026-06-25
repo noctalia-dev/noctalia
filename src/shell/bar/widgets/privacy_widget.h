@@ -12,7 +12,6 @@ class Glyph;
 class ConfigService;
 class InputArea;
 class PipeWireService;
-class Renderer;
 
 struct PrivacyWidgetConfig {
   bool hideInactive = false;

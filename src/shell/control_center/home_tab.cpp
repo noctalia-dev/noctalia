@@ -1,6 +1,5 @@
 #include "shell/control_center/home_tab.h"
 
-#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "core/build_info.h"
 #include "core/deferred_call.h"
@@ -11,7 +10,6 @@
 #include "dbus/mpris/mpris_art.h"
 #include "dbus/mpris/mpris_service.h"
 #include "i18n/i18n.h"
-#include "net/http_client.h"
 #include "notification/notifications.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_area.h"
@@ -20,7 +18,6 @@
 #include "shell/panel/panel_manager.h"
 #include "shell/profile/avatar_path.h"
 #include "shell/wallpaper/wallpaper.h"
-#include "system/dependency_service.h"
 #include "system/distro_info.h"
 #include "system/weather_service.h"
 #include "time/time_format.h"

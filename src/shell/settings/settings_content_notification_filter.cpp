@@ -7,10 +7,8 @@
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/input.h"
-#include "ui/controls/toggle.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "util/string_utils.h"
 
 #include <algorithm>
 #include <functional>

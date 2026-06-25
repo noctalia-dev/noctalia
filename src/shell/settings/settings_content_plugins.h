@@ -2,7 +2,6 @@
 
 #include "config/config_types.h"
 #include "scripting/plugin_manager.h"
-#include "scripting/plugin_manifest.h"
 
 #include <functional>
 #include <string>
@@ -10,6 +9,10 @@
 #include <vector>
 
 class Flex;
+
+namespace scripting {
+  struct PluginManifest;
+}
 
 namespace settings {
 

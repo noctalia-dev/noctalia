@@ -5,7 +5,6 @@
 
 #include <cairo-ft.h>
 #include <cairo.h>
-#include <ft2build.h>
 #include FT_FREETYPE_H
 
 #include <algorithm>

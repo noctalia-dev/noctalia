@@ -1,5 +1,6 @@
 #include "shell/wallpaper/panel/wallpaper_tile.h"
 
+#include "config/config_types.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"

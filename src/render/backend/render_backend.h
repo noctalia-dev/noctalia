@@ -12,8 +12,6 @@ class GlSharedContext;
 class RenderTarget;
 class TextureManager;
 struct wl_surface;
-enum class WallpaperSourceKind : std::uint8_t;
-enum class WallpaperTransition : std::uint8_t;
 struct AudioSpectrumStyle;
 struct EffectStyle;
 struct FancyAudioVisualizerStyle;
@@ -22,8 +20,6 @@ struct RoundedRectStyle;
 struct ScreenCornerStyle;
 struct SpinnerStyle;
 struct CountdownRingStyle;
-struct TransitionParams;
-struct WallpaperSpanParams;
 struct WallpaperDrawParams;
 
 class RenderFramebuffer {

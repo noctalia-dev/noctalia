@@ -11,9 +11,11 @@
 #include <pipewire/keys.h>
 #include <pipewire/properties.h>
 #include <pipewire/stream.h>
-#include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/format.h>
+#include <spa/param/audio/raw-utils.h>
 #include <spa/param/audio/raw.h>
 #include <spa/param/format-utils.h>
+#include <spa/pod/builder.h>
 #include <spa/pod/pod.h>
 #include <string>
 #include <utility>

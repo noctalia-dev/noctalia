@@ -1,7 +1,8 @@
 #include "scripting/plugin_panel_shell.h"
 
+#include "scripting/plugin_manifest.h"
+
 #include <algorithm>
-#include <ranges>
 
 namespace scripting {
 

@@ -5,7 +5,6 @@
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
 #include "shell/desktop/desktop_widget_factory.h"
-#include "shell/desktop/desktop_widget_settings_registry.h"
 #include "shell/desktop/editor/desktop_widgets_editor_types.h"
 #include "ui/controls/select_dropdown_popup.h"
 #include "ui/dialogs/layer_popup_host.h"
@@ -20,19 +19,12 @@
 #include <vector>
 
 class Box;
-class Button;
 class ConfigService;
-class HttpClient;
 class SharedTextureCache;
 class WallpaperNode;
 class InputArea;
-class MprisService;
-class PipeWireSpectrum;
 class RenderContext;
-class Select;
-class SystemMonitorService;
 class WaylandConnection;
-class WeatherService;
 struct KeyboardEvent;
 struct PointerEvent;
 struct WaylandOutput;

@@ -2,8 +2,6 @@
 
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
-#include "render/scene/input_area.h"
-#include "render/scene/node.h"
 #include "shell/settings/settings_registry.h"
 #include "ui/builders.h"
 #include "ui/controls/roving_list_nav.h"

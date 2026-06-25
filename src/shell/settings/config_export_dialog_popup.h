@@ -12,9 +12,7 @@ class Flex;
 class RadioButton;
 class RenderContext;
 class WaylandConnection;
-struct wl_output;
 struct wl_surface;
-struct xdg_surface;
 
 namespace settings {
 

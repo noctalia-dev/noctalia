@@ -4,7 +4,6 @@
 #include "wayland/wayland_connection.h"
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
 
-#include <cerrno>
 #include <cstring>
 #include <sys/mman.h>
 #include <unistd.h>

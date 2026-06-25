@@ -4,7 +4,6 @@
 #include "net/http_client.h"
 #include "net/uri.h"
 
-#include <algorithm>
 #include <cctype>
 #include <cstring>
 #include <libxml/parser.h>

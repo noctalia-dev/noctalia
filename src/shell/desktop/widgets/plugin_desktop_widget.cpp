@@ -3,7 +3,7 @@
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "notification/notifications.h"
-#include "scripting/script_api_context.h"
+#include "scripting/plugin_runtime_context.h"
 #include "ui/controls/flex.h"
 
 #include <cstdlib>

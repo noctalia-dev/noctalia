@@ -1,7 +1,6 @@
 #pragma once
 
 #include "theme/palette.h"
-#include "theme/scheme.h"
 
 #include <cstdint>
 #include <expected>
@@ -9,6 +8,8 @@
 #include <vector>
 
 namespace noctalia::theme {
+
+  enum class Scheme;
 
   // Top-level entry point. Accepts a forced-112×112 RGB (no alpha) pixel buffer
   // and a scheme; dispatches to the M3 (MCU-based) or custom (HSL-based) path

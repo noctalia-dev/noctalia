@@ -4,7 +4,6 @@
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/process.h"
-#include "i18n/i18n_service.h"
 #include "lua.h"
 #include "luacode.h"
 #include "lualib.h"

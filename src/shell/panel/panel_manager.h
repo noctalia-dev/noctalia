@@ -3,16 +3,10 @@
 #include "core/timer_manager.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
-#include "render/scene/node.h"
 #include "shell/panel/attached_panel_context.h"
-#include "shell/panel/panel.h"
 #include "shell/panel/panel_click_shield.h"
 #include "ui/dialogs/layer_popup_host.h"
-#include "wayland/hyprland/focus_grab_service.h"
 #include "wayland/hyprland/popup_grab_host.h"
-#include "wayland/layer_surface.h"
-#include "wayland/surface.h"
-#include "wayland/wayland_seat.h"
 
 #include <cstdint>
 #include <functional>
@@ -28,9 +22,15 @@ class ContextMenuPopup;
 class SelectDropdownPopup;
 class Box;
 class IpcService;
-class Renderer;
+class FocusGrab;
+class LayerSurface;
+class Node;
+class Panel;
 class RenderContext;
+class Surface;
 class WaylandConnection;
+enum class LayerShellLayer : std::uint32_t;
+struct KeyboardEvent;
 struct PointerEvent;
 struct wl_output;
 struct wl_surface;

@@ -4,7 +4,6 @@
 #include "core/file_watcher.h"
 #include "core/timer_manager.h"
 #include "scripting/plugin_ipc.h"
-#include "scripting/plugin_runtime_context.h"
 #include "scripting/script_runtime.h"
 #include "shell/desktop/desktop_widget.h"
 #include "ui/ui_tree.h"
@@ -21,8 +20,9 @@ class ClipboardService;
 class Flex;
 class HttpClient;
 namespace scripting {
+  struct PluginRuntimeContext;
   class ScriptApiContext;
-}
+} // namespace scripting
 
 // A desktop widget backed by a plugin's `[[desktop_widget]]` entry. The script
 // runs off-thread on its own Luau runtime and describes its UI declaratively:

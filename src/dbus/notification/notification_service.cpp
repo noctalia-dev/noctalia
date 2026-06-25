@@ -7,7 +7,6 @@
 #include "notification/notification_manager.h"
 #include "util/string_utils.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <tuple>
 

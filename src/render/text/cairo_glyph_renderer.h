@@ -1,7 +1,5 @@
 #pragma once
 
-#include "render/core/color.h"
-#include "render/core/mat3.h"
 #include "render/core/texture_handle.h"
 
 #include <cstdint>
@@ -19,6 +17,8 @@ typedef struct _cairo_font_options cairo_font_options_t;
 
 class RenderBackend;
 class TextureManager;
+struct Color;
+struct Mat3;
 
 // Direct FreeType + Cairo renderer for single codepoints in a dedicated font
 // (tabler.ttf icon font). No Pango, no shaping, no fallback — the icon font

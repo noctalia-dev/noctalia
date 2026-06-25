@@ -1,5 +1,6 @@
 #include "shell/wallpaper/wallpaper_paths.h"
 
+#include "config/config_types.h"
 #include "util/file_utils.h"
 
 const WallpaperMonitorOverride*

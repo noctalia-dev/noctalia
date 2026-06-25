@@ -1,12 +1,13 @@
 #pragma once
 
 #include "render/core/mat3.h"
-#include "render/core/render_styles.h"
 #include "render/core/shader_program.h"
 
 #include <GLES2/gl2.h>
 #include <span>
 #include <vector>
+
+struct AudioSpectrumStyle;
 
 class AudioSpectrumProgram {
 public:

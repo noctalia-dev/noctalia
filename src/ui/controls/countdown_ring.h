@@ -1,13 +1,11 @@
 #pragma once
 
-#include "render/core/color.h"
 #include "render/scene/node.h"
 #include "ui/palette.h"
 #include "ui/signal.h"
 
 class CountdownRingNode;
 class Label;
-class Renderer;
 
 class CountdownRing : public Node {
 public:

@@ -7,8 +7,9 @@
 #include <cmath>
 #include <cstring>
 #include <pipewire/pipewire.h>
-#include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/raw-utils.h>
 #include <spa/param/param.h>
+#include <spa/pod/builder.h>
 #include <spa/utils/result.h>
 
 namespace {

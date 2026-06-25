@@ -2,7 +2,6 @@
 
 #include "core/log.h"
 #include "render/backend/render_backend.h"
-#include "render/gl_shared_context.h"
 #include "render/render_target.h"
 
 #include <chrono>

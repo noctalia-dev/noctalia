@@ -7,7 +7,6 @@
 
 class Box;
 class Glyph;
-class Renderer;
 
 class DesktopLoginBoxWidget : public DesktopWidget {
 public:

@@ -11,7 +11,6 @@
 struct ext_foreign_toplevel_handle_v1;
 struct ext_foreign_toplevel_list_v1;
 struct wl_display;
-struct wl_output;
 
 // ext-foreign-toplevel-list enumerates all mapped toplevels on bind (unlike wlr foreign-toplevel on Hyprland).
 class WaylandExtForeignToplevels {

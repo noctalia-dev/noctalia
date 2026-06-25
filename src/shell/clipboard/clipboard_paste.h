@@ -1,7 +1,9 @@
 #pragma once
 
-#include "config/config_service.h"
-#include "wayland/virtual_keyboard_service.h"
+#include <cstdint>
+
+class VirtualKeyboardService;
+enum class ClipboardAutoPasteMode : std::uint8_t;
 
 namespace clipboard_paste {
 

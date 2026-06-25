@@ -1,7 +1,6 @@
 #pragma once
 
 #include "shell/settings/settings_content.h"
-#include "shell/settings/settings_registry.h"
 
 #include <functional>
 #include <memory>

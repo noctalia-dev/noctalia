@@ -7,7 +7,6 @@
 
 class Glyph;
 class InputArea;
-class Renderer;
 
 class Collapsible : public Flex {
 public:

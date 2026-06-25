@@ -10,7 +10,6 @@
 #include <ranges>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <wayland-client.h>
 #include <xkbcommon/xkbcommon-compose.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon.h>

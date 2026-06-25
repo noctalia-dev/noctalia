@@ -2,7 +2,6 @@
 
 #include "ui/controls/color_swatch_preview.h"
 #include "ui/controls/flex.h"
-#include "ui/palette.h"
 #include "ui/signal.h"
 #include "ui/style.h"
 
@@ -17,10 +16,8 @@ class Box;
 class InputArea;
 class Glyph;
 class Label;
-class Node;
 class ColorSwatchPreviewStrip;
 class RectNode;
-class Renderer;
 
 class Select : public Flex {
 public:

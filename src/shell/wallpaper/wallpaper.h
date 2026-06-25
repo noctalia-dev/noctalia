@@ -1,7 +1,6 @@
 #pragma once
 
 #include "config/config_types.h"
-#include "shell/wallpaper/wallpaper_instance.h"
 #include "ui/signal.h"
 
 #include <cstdint>
@@ -16,6 +15,9 @@ class IpcService;
 class RenderContext;
 class SharedTextureCache;
 class WaylandConnection;
+enum class WallpaperTransitionDirection;
+struct TextureHandle;
+struct WallpaperInstance;
 struct PointerEvent;
 struct WaylandOutput;
 struct wl_surface;

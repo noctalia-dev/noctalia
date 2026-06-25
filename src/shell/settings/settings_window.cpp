@@ -1,6 +1,5 @@
 #include "shell/settings/settings_window.h"
 
-#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "core/deferred_call.h"

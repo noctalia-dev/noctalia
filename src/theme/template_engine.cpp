@@ -11,6 +11,7 @@
 #include "cpp/scheme/scheme_rainbow.h"
 #include "cpp/scheme/scheme_tonal_spot.h"
 #include "theme/color.h"
+#include "theme/palette.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 

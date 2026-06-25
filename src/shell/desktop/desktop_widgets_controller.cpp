@@ -1,13 +1,12 @@
 #include "shell/desktop/desktop_widgets_controller.h"
 
+#include "config/config_service.h"
 #include "ipc/ipc_service.h"
-#include "pipewire/pipewire_spectrum.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/desktop_widgets_host.h"
 #include "shell/desktop/editor/desktop_widgets_editor.h"
 #include "shell/desktop/editor/desktop_widgets_editor_types.h"
 #include "shell/lockscreen/lockscreen_widgets_controller.h"
-#include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <charconv>

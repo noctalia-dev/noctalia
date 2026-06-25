@@ -1,5 +1,7 @@
 #include "render/programs/audio_spectrum_program.h"
 
+#include "render/core/render_styles.h"
+
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>

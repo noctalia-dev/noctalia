@@ -4,7 +4,6 @@
 #include "core/file_watcher.h"
 #include "core/timer_manager.h"
 #include "launcher/launcher_provider.h"
-#include "scripting/plugin_runtime_context.h"
 #include "scripting/script_runtime.h"
 
 #include <filesystem>
@@ -18,8 +17,9 @@
 class HttpClient;
 class ClipboardService;
 namespace scripting {
+  struct PluginRuntimeContext;
   class ScriptApiContext;
-}
+} // namespace scripting
 
 struct PluginLauncherProviderOptions {
   std::string displayName;

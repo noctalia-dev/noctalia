@@ -12,7 +12,6 @@
 class Glyph;
 class InputArea;
 class Label;
-class Renderer;
 
 enum class ModifierPolicy : std::uint8_t {
   Required,  // A modifier (Ctrl/Alt/Shift) must accompany printable keys.

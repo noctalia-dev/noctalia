@@ -11,7 +11,7 @@ class RenderSurfaceTarget;
 
 class RenderTarget {
 public:
-  RenderTarget() = default;
+  RenderTarget();
   ~RenderTarget();
 
   RenderTarget(const RenderTarget&) = delete;

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "config/config_service.h"
 #include "shell/desktop/desktop_widget.h"
 #include "shell/desktop/desktop_widget_services.h"
 
@@ -8,16 +7,11 @@
 #include <string>
 #include <unordered_map>
 
-class ClipboardService;
-class FileWatcher;
 class HttpClient;
 class MprisService;
 class SystemMonitorService;
 class PipeWireSpectrum;
 class WeatherService;
-namespace scripting {
-  class ScriptApiContext;
-}
 
 class DesktopWidgetFactory {
 public:

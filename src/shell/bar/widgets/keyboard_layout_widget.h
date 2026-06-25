@@ -1,6 +1,5 @@
 #pragma once
 
-#include "compositors/compositor_platform.h"
 #include "core/timer_manager.h"
 #include "shell/bar/widget.h"
 
@@ -10,6 +9,7 @@
 class Glyph;
 class Label;
 class Renderer;
+class CompositorPlatform;
 
 class KeyboardLayoutWidget : public Widget {
 public:

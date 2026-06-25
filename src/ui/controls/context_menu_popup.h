@@ -17,10 +17,7 @@ class PopupSurface;
 class RenderContext;
 class WaylandConnection;
 struct PointerEvent;
-struct wl_output;
 struct wl_surface;
-struct xdg_surface;
-struct zwlr_layer_surface_v1;
 
 struct ContextMenuPopupPlacement {
   std::uint32_t anchor = 0;

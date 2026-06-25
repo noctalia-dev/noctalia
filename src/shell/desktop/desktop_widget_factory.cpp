@@ -1,8 +1,9 @@
 #include "shell/desktop/desktop_widget_factory.h"
 
+#include "config/config_service.h"
 #include "core/log.h"
-#include "pipewire/pipewire_spectrum.h"
 #include "scripting/plugin_registry.h"
+#include "scripting/plugin_runtime_context.h"
 #include "shell/desktop/widgets/desktop_audio_visualizer_widget.h"
 #include "shell/desktop/widgets/desktop_button_widget.h"
 #include "shell/desktop/widgets/desktop_clock_widget.h"

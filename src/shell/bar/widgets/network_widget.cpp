@@ -2,7 +2,6 @@
 
 #include "dbus/network/network_glyphs.h"
 #include "i18n/i18n.h"
-#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "system/format_units.h"

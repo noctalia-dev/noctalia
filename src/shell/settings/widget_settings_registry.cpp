@@ -1,13 +1,11 @@
 #include "shell/settings/widget_settings_registry.h"
 
 #include "i18n/i18n.h"
-#include "render/core/renderer.h"
 #include "scripting/plugin_i18n.h"
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/font_weight_catalog.h"
-#include "shell/settings/font_weight_i18n.h"
 #include "ui/style.h"
 
 #include <algorithm>

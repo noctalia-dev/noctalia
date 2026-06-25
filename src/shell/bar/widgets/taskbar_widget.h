@@ -19,7 +19,6 @@ class Flex;
 class InputArea;
 struct wl_output;
 struct zwlr_foreign_toplevel_handle_v1;
-struct PointerEvent;
 
 enum class WorkspaceLabelPlacement {
   Corner,

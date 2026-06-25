@@ -11,7 +11,6 @@
 
 class InputArea;
 class RectNode;
-class Renderer;
 class Scrollbar;
 
 struct ScrollViewState {

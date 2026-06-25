@@ -1,6 +1,5 @@
 #include "shell/bar/widgets/theme_mode_widget.h"
 
-#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "theme/theme_service.h"
 #include "ui/builders.h"

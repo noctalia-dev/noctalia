@@ -1,5 +1,7 @@
 #include "system/day_night_schedule.h"
 
+#include "config/config_types.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cmath>

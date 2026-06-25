@@ -10,7 +10,6 @@
 #include <vector>
 
 class InputArea;
-class Renderer;
 class ScrollView;
 
 // Adapter that drives a VirtualGridView from an external data source.

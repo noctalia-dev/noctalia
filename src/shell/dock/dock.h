@@ -23,7 +23,6 @@ struct zwlr_foreign_toplevel_handle_v1;
 namespace shell::dock {
   struct DockInstance;
   struct DockItemAction;
-  struct DockItemView;
   struct DockPopup;
 } // namespace shell::dock
 

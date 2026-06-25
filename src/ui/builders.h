@@ -1,7 +1,5 @@
 #pragma once
 
-#include "render/core/color.h"
-#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "ui/controls/box.h"

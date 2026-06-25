@@ -1,7 +1,5 @@
 #pragma once
 
-#include "ui/ui_tree.h"
-
 #include <functional>
 #include <memory>
 #include <string>
@@ -13,6 +11,8 @@ class Node;
 class Renderer;
 
 namespace ui {
+
+  struct UiTreeNode;
 
   // Maps a declarative UiTreeNode tree onto a retained tree of src/ui/controls/.
   // The single place plugin UI intent becomes controls: plugin code never sees a

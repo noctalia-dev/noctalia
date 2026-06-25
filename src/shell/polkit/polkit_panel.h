@@ -9,7 +9,6 @@ class Flex;
 class Input;
 class InputArea;
 class Label;
-class Renderer;
 class PolkitAgent;
 class ConfigService;
 

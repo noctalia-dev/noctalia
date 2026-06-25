@@ -20,8 +20,6 @@
 #include <string_view>
 #include <unistd.h>
 #include <unordered_set>
-#include <wayland-client-core.h>
-#include <wayland-client.h>
 
 namespace {
 

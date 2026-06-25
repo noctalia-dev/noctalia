@@ -1,13 +1,14 @@
 #pragma once
 
 #include "config/config_types.h"
-#include "scripting/plugin_manifest.h"
 
 #include <string>
 #include <string_view>
 #include <unordered_map>
 
 namespace scripting {
+
+  struct PluginEntry;
 
   struct PluginPanelShellConfig {
     PanelPlacement placement = PanelPlacement::Floating;

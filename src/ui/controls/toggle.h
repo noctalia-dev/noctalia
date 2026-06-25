@@ -13,7 +13,6 @@ enum class ToggleSize : std::uint8_t {
 };
 
 class InputArea;
-class Renderer;
 
 class Toggle : public Flex {
 public:

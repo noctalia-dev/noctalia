@@ -6,10 +6,6 @@
 
 class SystemBus;
 
-namespace sdbus {
-  class IObject;
-}
-
 // NetworkManager secret agent. Registers with org.freedesktop.NetworkManager.AgentManager
 // on the system bus and answers GetSecrets requests for new Wi-Fi PSK connections.
 //

@@ -9,7 +9,6 @@
 class Box;
 class Glyph;
 class InputArea;
-class Renderer;
 
 class Checkbox : public Node {
 public:

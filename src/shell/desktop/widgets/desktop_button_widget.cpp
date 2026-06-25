@@ -3,7 +3,6 @@
 #include "core/log.h"
 #include "core/process.h"
 #include "core/ui_phase.h"
-#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "ui/builders.h"

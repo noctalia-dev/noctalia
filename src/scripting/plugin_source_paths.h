@@ -1,8 +1,8 @@
 #pragma once
 
-#include "config/config_types.h"
-
 #include <filesystem>
+
+struct PluginSourceConfig;
 
 namespace scripting::plugin_paths {
 

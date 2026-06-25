@@ -4,7 +4,7 @@
 #include "wayland/wayland_connection.h"
 
 #include <stdexcept>
-#include <wayland-client.h>
+#include <wayland-client-protocol.h>
 
 BackdropSurface::~BackdropSurface() {
   m_wallpaperRenderer.makeCurrent();

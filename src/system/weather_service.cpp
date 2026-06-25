@@ -1,5 +1,6 @@
 #include "system/weather_service.h"
 
+#include "config/config_service.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "json.hpp"

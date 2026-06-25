@@ -1,6 +1,5 @@
 #pragma once
 
-#include "config/config_types.h"
 #include "config/schema/field.h"
 
 // Per-section field schemas: the single source of truth for reading, writing,

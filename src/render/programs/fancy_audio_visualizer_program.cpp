@@ -1,5 +1,8 @@
 #include "render/programs/fancy_audio_visualizer_program.h"
 
+#include "render/core/render_styles.h"
+#include "render/core/texture_handle.h"
+
 #include <array>
 #include <stdexcept>
 

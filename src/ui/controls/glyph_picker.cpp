@@ -1,7 +1,6 @@
 #include "ui/controls/glyph_picker.h"
 
 #include "i18n/i18n.h"
-#include "render/scene/input_area.h"
 #include "render/text/glyph_registry.h"
 #include "ui/builders.h"
 #include "ui/palette.h"

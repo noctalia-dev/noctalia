@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "render/core/image_decoder.h"
+#include "render/core/texture_manager.h"
 #include "util/file_utils.h"
 
 #include <algorithm>

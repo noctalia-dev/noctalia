@@ -1,6 +1,7 @@
 #include "shell/tray/tray_drawer_panel.h"
 
 #include "config/config_service.h"
+#include "dbus/tray/tray_service.h"
 #include "shell/bar/widgets/tray_widget.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tray/tray_identifier.h"

@@ -1,7 +1,5 @@
 #include "ui/controls/grid_tile.h"
 
-#include "render/core/renderer.h"
-
 #include <algorithm>
 
 void GridTile::doLayout(Renderer& renderer) {

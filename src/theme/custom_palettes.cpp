@@ -2,7 +2,6 @@
 
 #include "theme/fixed_palette.h"
 #include "util/file_utils.h"
-#include "util/string_utils.h"
 
 #include <algorithm>
 #include <array>

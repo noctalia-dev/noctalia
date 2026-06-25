@@ -1,6 +1,5 @@
 #pragma once
 
-#include "config/config_types.h"
 #include "system/desktop_entry.h"
 
 #include <cstddef>
@@ -9,6 +8,7 @@
 #include <vector>
 
 class CompositorPlatform;
+struct DockConfig;
 struct ToplevelInfo;
 struct wl_output;
 

@@ -4,7 +4,6 @@
 #include "shell/bar/bar_instance.h"
 #include "shell/bar/bar_services.h"
 #include "shell/bar/widget_factory.h"
-#include "shell/panel/attached_panel_context.h"
 #include "ui/dialogs/layer_popup_host.h"
 #include "wayland/surface.h"
 

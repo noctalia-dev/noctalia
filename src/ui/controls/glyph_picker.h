@@ -14,7 +14,6 @@ class GlyphGridAdapter;
 class InputArea;
 class Input;
 class Label;
-class Renderer;
 class Select;
 class VirtualGridView;
 

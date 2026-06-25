@@ -2,7 +2,6 @@
 
 #include "config/config_types.h"
 #include "render/animation/animation_manager.h"
-#include "render/scene/node.h"
 #include "shell/desktop/desktop_widget_factory.h"
 
 #include <memory>
@@ -10,15 +9,10 @@
 #include <vector>
 
 class ConfigService;
-class HttpClient;
 class LockScreen;
 class LockSurface;
-class MprisService;
-class PipeWireSpectrum;
 class RenderContext;
-class SystemMonitorService;
 class WaylandConnection;
-class WeatherService;
 
 using LockscreenWidgetsSnapshot = LockscreenWidgetsConfig;
 

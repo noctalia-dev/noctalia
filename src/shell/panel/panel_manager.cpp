@@ -21,6 +21,7 @@
 #include "ui/style.h"
 #include "util/string_utils.h"
 #include "util/sys_utils.h"
+#include "wayland/hyprland/focus_grab_service.h"
 #include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
@@ -28,7 +29,6 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
-#include <malloc.h>
 #include <string>
 
 PanelManager* PanelManager::s_instance = nullptr;

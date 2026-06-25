@@ -1,7 +1,7 @@
 #pragma once
 
-#include "config/config_types.h"
 #include "render/core/color.h"
+#include "ui/palette.h"
 #include "ui/signal.h"
 
 #include <cstdint>

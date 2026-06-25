@@ -1,6 +1,5 @@
 #pragma once
 
-#include "config/config_service.h"
 #include "shell/settings/settings_registry.h"
 
 #include <functional>
@@ -10,6 +9,7 @@
 #include <vector>
 
 class Button;
+class ConfigService;
 class Flex;
 class InputArea;
 class Node;

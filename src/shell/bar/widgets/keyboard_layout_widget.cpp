@@ -1,5 +1,6 @@
 #include "shell/bar/widgets/keyboard_layout_widget.h"
 
+#include "compositors/compositor_platform.h"
 #include "core/log.h"
 #include "core/process.h"
 #include "render/core/renderer.h"

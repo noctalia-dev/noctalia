@@ -1,5 +1,6 @@
 #include "ui/dialogs/glyph_picker_dialog_popup.h"
 
+#include "config/config_service.h"
 #include "core/deferred_call.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"

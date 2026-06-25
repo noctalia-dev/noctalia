@@ -5,12 +5,10 @@
 #include <cstdint>
 #include <string>
 
-class Button;
 class ConfigService;
 class Flex;
 class Image;
 class Label;
-class Renderer;
 class Select;
 class Toggle;
 class WaylandConnection;

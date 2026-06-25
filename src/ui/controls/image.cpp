@@ -4,7 +4,9 @@
 #include "render/core/image_decoder.h"
 #include "render/core/image_file_loader.h"
 #include "render/core/renderer.h"
+#include "render/core/texture_manager.h"
 #include "render/scene/image_node.h"
+#include "ui/app_icon_colorization.h"
 
 #include <algorithm>
 #include <cmath>

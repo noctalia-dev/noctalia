@@ -1,6 +1,7 @@
 #include "shell/dock/dock_model.h"
 
 #include "compositors/compositor_platform.h"
+#include "config/config_types.h"
 #include "core/log.h"
 #include "shell/dock/pinned_apps.h"
 #include "system/app_identity.h"

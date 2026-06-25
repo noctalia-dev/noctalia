@@ -1,7 +1,7 @@
 #pragma once
 
 #include "app/poll_source.h"
-#include "render/core/texture_manager.h"
+#include "render/core/texture_handle.h"
 
 #include <atomic>
 #include <condition_variable>
@@ -15,6 +15,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+class TextureManager;
 
 // Shared async thumbnail loader for image-backed UI. Worker threads decode and
 // downsample images off the main thread; the main loop uploads finished

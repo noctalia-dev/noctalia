@@ -1,6 +1,5 @@
 #pragma once
 
-#include "render/core/color.h"
 #include "shell/settings/settings_registry.h"
 #include "ui/controls/label.h"
 

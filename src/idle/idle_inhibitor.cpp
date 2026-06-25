@@ -7,7 +7,6 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
-#include <wayland-client.h>
 
 namespace {
 

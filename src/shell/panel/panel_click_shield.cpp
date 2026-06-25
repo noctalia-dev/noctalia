@@ -3,15 +3,14 @@
 #include "compositors/compositor_detect.h"
 #include "core/log.h"
 #include "viewporter-client-protocol.h"
+#include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 #include <cerrno>
 #include <cstring>
-#include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <wayland-client.h>
 
 namespace {
 

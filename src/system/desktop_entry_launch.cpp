@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "core/process.h"
+#include "system/desktop_entry.h"
 #include "system/terminal_launch.h"
 #include "util/file_utils.h"
 

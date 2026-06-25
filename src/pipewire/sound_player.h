@@ -8,7 +8,6 @@
 #include <unordered_map>
 #include <vector>
 
-struct pw_loop;
 struct pw_stream;
 struct spa_hook;
 

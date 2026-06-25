@@ -19,7 +19,6 @@ class Button;
 class ConfigService;
 class Flex;
 class Input;
-class InputArea;
 class Label;
 class Segmented;
 class Select;

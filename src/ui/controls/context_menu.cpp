@@ -1,7 +1,6 @@
 #include "ui/controls/context_menu.h"
 
 #include "core/ui_phase.h"
-#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/builders.h"
 #include "ui/palette.h"

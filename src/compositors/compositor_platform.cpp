@@ -24,7 +24,6 @@
 #include "compositors/triad/triad_workspace_backend.h"
 #include "core/log.h"
 #include "core/process.h"
-#include "dbus/session_bus.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_workspaces.h"
 

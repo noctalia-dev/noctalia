@@ -5,6 +5,8 @@
 
 #include <stdexcept>
 
+RenderTarget::RenderTarget() = default;
+
 RenderTarget::~RenderTarget() { destroy(); }
 
 void RenderTarget::create(wl_surface* surface, RenderContext& context) { create(surface, context.backend()); }

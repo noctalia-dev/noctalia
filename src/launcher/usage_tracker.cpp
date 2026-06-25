@@ -2,7 +2,6 @@
 
 #include "util/file_utils.h"
 
-#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <json.hpp>

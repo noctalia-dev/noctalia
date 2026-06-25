@@ -2,11 +2,7 @@
 
 #include "compositors/hyprland/hyprland_runtime.h"
 
-#include <fcntl.h>
 #include <string_view>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <unistd.h>
 
 HyprlandKeyboardBackend::HyprlandKeyboardBackend(compositors::hyprland::HyprlandRuntime& runtime)
     : compositors::hyprland::HyprlandEventHandler(runtime) {}

@@ -9,7 +9,6 @@
 #include "pipewire/pipewire_spectrum.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
-#include "scripting/script_api_context.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"

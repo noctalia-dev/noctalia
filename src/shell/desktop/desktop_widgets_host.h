@@ -12,13 +12,8 @@
 #include <vector>
 
 class ConfigService;
-class HttpClient;
-class MprisService;
-class PipeWireSpectrum;
 class RenderContext;
-class SystemMonitorService;
 class WaylandConnection;
-class WeatherService;
 struct PointerEvent;
 struct WaylandOutput;
 struct wl_output;

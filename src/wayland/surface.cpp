@@ -21,7 +21,6 @@
 #include <typeinfo>
 #include <unordered_map>
 #include <utility>
-#include <wayland-client.h>
 
 namespace {
 

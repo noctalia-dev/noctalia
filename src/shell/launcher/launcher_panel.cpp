@@ -9,8 +9,6 @@
 #include "i18n/i18n.h"
 #include "render/core/async_texture_cache.h"
 #include "render/core/renderer.h"
-#include "render/render_context.h"
-#include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
@@ -23,7 +21,6 @@
 #include "ui/style.h"
 #include "util/fuzzy_match.h"
 #include "util/string_utils.h"
-#include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <cmath>

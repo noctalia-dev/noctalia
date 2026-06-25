@@ -1,7 +1,5 @@
 #include "render/scene/input_dispatcher.h"
 
-#include "core/key_modifiers.h"
-#include "core/key_symbols.h"
 #include "core/keybind_matcher.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"

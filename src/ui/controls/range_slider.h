@@ -7,7 +7,6 @@
 
 class InputArea;
 class RectNode;
-class Renderer;
 
 // Dual-thumb slider expressing a low/high pair on one axis (e.g. activity + critical
 // thresholds). The two thumbs cannot cross — the low value is always <= the high value.

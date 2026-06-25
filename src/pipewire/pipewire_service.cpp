@@ -21,7 +21,6 @@
 #include <pipewire/keys.h>
 #include <pipewire/pipewire.h>
 #include <ranges>
-#include <spa/param/audio/format-utils.h>
 #include <spa/param/param.h>
 #include <spa/param/props.h>
 #include <spa/param/route.h>

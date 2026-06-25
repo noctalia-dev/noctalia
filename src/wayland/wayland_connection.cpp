@@ -39,9 +39,7 @@
 #include <cstring>
 #include <format>
 #include <stdexcept>
-#include <unordered_set>
 #include <utility>
-#include <wayland-client.h>
 
 namespace {
 

@@ -1,7 +1,5 @@
 #pragma once
 
-#include "theme/scheme.h"
-
 #include <cstdint>
 #include <expected>
 #include <string>
@@ -9,6 +7,8 @@
 #include <vector>
 
 namespace noctalia::theme {
+
+  enum class Scheme;
 
   // A 112×112 RGB pixel buffer ready for quantization/clustering. No alpha.
   // 112 * 112 * 3 = 37632 bytes.

@@ -1,9 +1,7 @@
 #pragma once
 
-#include "config/config_types.h"
 #include "dbus/tray/tray_service.h"
 #include "shell/bar/widget.h"
-#include "system/desktop_entry.h"
 #include "system/icon_resolver.h"
 #include "ui/palette.h"
 #include "ui/signal.h"
@@ -20,7 +18,6 @@ class Flex;
 class Image;
 class InputArea;
 class Glyph;
-class TrayService;
 
 struct TrayWidgetOptions {
   std::vector<std::string> hiddenItems;

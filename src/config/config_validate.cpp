@@ -6,7 +6,6 @@
 #include "config/schema/config_schema.h"
 #include "config/schema/engine.h"
 #include "config/widget_config.h"
-#include "core/toml.h"
 #include "scripting/plugin_manager.h"
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"

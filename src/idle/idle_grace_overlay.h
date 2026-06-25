@@ -11,7 +11,6 @@
 #include <vector>
 
 class Box;
-class Node;
 class RenderContext;
 class WaylandConnection;
 

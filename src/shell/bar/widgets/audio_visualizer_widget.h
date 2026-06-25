@@ -7,7 +7,6 @@
 
 class AudioVisualizer;
 class PipeWireSpectrum;
-class Renderer;
 
 class AudioVisualizerWidget : public Widget {
 public:

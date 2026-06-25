@@ -1,7 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
-#include "shell/desktop/desktop_widget_factory.h"
+#include "shell/desktop/desktop_widget_services.h"
 #include "ui/dialogs/layer_popup_host.h"
 
 #include <memory>
@@ -10,18 +10,12 @@ class Bar;
 class ConfigService;
 class Dock;
 class DesktopWidgetsController;
-class HttpClient;
 class IpcService;
 class LockScreen;
 class DesktopWidgetsEditor;
 class LockscreenWidgetsHost;
-class MprisService;
-class PipeWireSpectrum;
 class RenderContext;
-class SharedTextureCache;
-class SystemMonitorService;
 class WaylandConnection;
-class WeatherService;
 struct KeyboardEvent;
 struct PointerEvent;
 

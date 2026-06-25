@@ -3,6 +3,7 @@
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "notification/notifications.h"
+#include "scripting/plugin_runtime_context.h"
 
 #include <chrono>
 #include <fstream>

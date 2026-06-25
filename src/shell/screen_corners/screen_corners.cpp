@@ -2,7 +2,6 @@
 
 #include "config/config_service.h"
 #include "core/ui_phase.h"
-#include "render/render_context.h"
 #include "ui/controls/screen_corner.h"
 #include "wayland/wayland_connection.h"
 

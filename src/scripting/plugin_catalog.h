@@ -1,9 +1,9 @@
 #pragma once
 
-#include "config/config_types.h"
-
 #include <string>
 #include <vector>
+
+struct PluginSourceConfig;
 
 namespace scripting {
 

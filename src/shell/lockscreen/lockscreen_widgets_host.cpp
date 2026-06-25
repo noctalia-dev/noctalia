@@ -2,7 +2,6 @@
 
 #include "config/config_service.h"
 #include "core/log.h"
-#include "pipewire/pipewire_spectrum.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
 #include "shell/desktop/desktop_widget_layout.h"
@@ -14,7 +13,7 @@
 
 #include <algorithm>
 #include <string>
-#include <wayland-client.h>
+#include <wayland-client-protocol.h>
 
 namespace {
 

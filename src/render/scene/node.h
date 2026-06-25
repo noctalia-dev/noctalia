@@ -6,7 +6,6 @@
 #include <vector>
 
 struct Mat3;
-
 class AnimationManager;
 class Renderer;
 class SelectPopupContext;

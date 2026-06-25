@@ -1,6 +1,7 @@
 #include "shell/control_center/network_tab.h"
 
 #include "core/ui_phase.h"
+#include "dbus/network/inetwork_service.h"
 #include "dbus/network/network_glyphs.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"

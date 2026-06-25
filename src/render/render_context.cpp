@@ -6,7 +6,6 @@
 #include "render/backend/render_backend.h"
 #include "render/core/texture_handle.h"
 #include "render/core/texture_manager.h"
-#include "render/gl_shared_context.h"
 #include "render/render_target.h"
 #include "render/scene/audio_spectrum_node.h"
 #include "render/scene/countdown_ring_node.h"

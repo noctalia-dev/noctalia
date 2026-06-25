@@ -11,6 +11,7 @@
 #include "net/uri.h"
 #include "notification/notification_display_name.h"
 #include "notification/notification_manager.h"
+#include "render/core/texture_manager.h"
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
 #include "shell/surface/edge_inset.h"

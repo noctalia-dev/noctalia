@@ -13,13 +13,10 @@
 
 struct pw_context;
 struct pw_core;
-struct pw_client;
-struct pw_device;
 struct pw_loop;
 struct pw_registry;
 struct spa_hook;
 struct spa_dict;
-
 class ConfigService;
 class IpcService;
 

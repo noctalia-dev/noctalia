@@ -3,7 +3,6 @@
 #include "config/config_types.h"
 #include "i18n/i18n.h"
 #include "pipewire/pipewire_service.h"
-#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "system/easyeffects_service.h"

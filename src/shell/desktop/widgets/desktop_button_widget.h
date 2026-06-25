@@ -7,8 +7,6 @@
 #include <optional>
 #include <string>
 
-class Button;
-
 class DesktopButtonWidget : public DesktopWidget {
 public:
   struct Options {

@@ -9,6 +9,7 @@
 #include "render/scene/rect_node.h"
 #include "ui/builders.h"
 #include "ui/popup_chrome.h"
+#include "ui/popup_parent.h"
 #include "ui/style.h"
 #include "wayland/popup_surface.h"
 #include "wayland/wayland_connection.h"

@@ -3,7 +3,6 @@
 #include "config/config_types.h"
 #include "core/file_watcher.h"
 #include "core/timer_manager.h"
-#include "scripting/plugin_runtime_context.h"
 #include "scripting/script_runtime.h"
 #include "shell/control_center/shortcut_registry.h"
 
@@ -17,8 +16,9 @@ class HttpClient;
 class ClipboardService;
 class CompositorPlatform;
 namespace scripting {
+  struct PluginRuntimeContext;
   class ScriptApiContext;
-}
+} // namespace scripting
 
 // A control-center shortcut backed by a plugin's [[shortcut]] entry. The native
 // Shortcut interface is polled, so the latest label/icon/active/enabled patch is

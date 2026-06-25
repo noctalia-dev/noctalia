@@ -10,7 +10,7 @@
 #include "ui/popup_chrome.h"
 #include "ui/style.h"
 #include "wayland/popup_surface.h"
-#include "wayland/wayland_connection.h"
+#include "wayland/wayland_seat.h"
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>
