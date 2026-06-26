@@ -122,6 +122,20 @@ sudo dnf install meson gcc-c++ just \
   jemalloc-devel
 ```
 
+### openSUSE (Tumbleweed & Slowroll)
+```sh
+sudo zypper install meson gcc-c++ just \
+  wayland-devel wayland-protocols-devel \
+  Mesa-libEGL-devel Mesa-libGLESv2-devel \
+  freetype2-devel fontconfig-devel \
+  cairo-devel pango-devel harfbuzz-devel \
+  libxkbcommon-devel glib2-devel \
+  sdbus-cpp-devel pipewire-devel \
+  pam-devel polkit-devel libcurl-devel libwebp-devel librsvg-devel \
+  libqalculate-devel libxml2-devel \
+  jemalloc-devel
+```
+
 ### Debian / Ubuntu
 ```sh
 sudo apt install meson g++ just \
@@ -152,7 +166,7 @@ sudo moss it meson build-essential \
   extra-cmake-modules jemalloc-devel
 ```
 
-### VoidLinux
+### Void Linux
 ```sh
 sudo xbps-install meson ninja pkg-config git \
   wayland-devel wayland-protocols libepoxy-devel \
