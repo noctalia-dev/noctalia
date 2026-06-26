@@ -691,7 +691,7 @@ void MprisService::registerIpc(IpcService& ipc) {
       [this](const std::string& args) -> std::string {
         const auto parts = noctalia::ipc::splitWords(args);
         if (parts.size() != 1) {
-          return "error: media requires exactly one action <next|previous|toggle|stop>\n";
+          return "error: media requires exactly one action <next|previous|toggle|play|stop>\n";
         }
 
         const std::string& action = parts[0];
@@ -704,13 +704,16 @@ void MprisService::registerIpc(IpcService& ipc) {
         if (action == "toggle" || action == "playPause" || action == "play-pause") {
           return playPauseActive() ? "ok\n" : "error: no active player or PlayPause unsupported\n";
         }
+        if (action == "play") {
+          return playActive() ? "ok\n" : "error: no active player or Play unsupported\n";
+        }
         if (action == "stop") {
           return stopActive() ? "ok\n" : "error: no active player or Stop unsupported\n";
         }
 
-        return "error: invalid media action (use next, previous, toggle, stop)\n";
+        return "error: invalid media action (use next, previous, toggle, play, stop)\n";
       },
-      "media <next|previous|toggle|stop>", "Control active media playback"
+      "media <next|previous|toggle|play|stop>", "Control active media playback"
   );
 }
 
@@ -771,6 +774,18 @@ bool MprisService::playPause(const std::string& busName) {
   return callPlayerMethod(busName, "PlayPause");
 }
 
+bool MprisService::play(const std::string& busName) {
+  const auto it = m_players.find(busName);
+  if (it == m_players.end()) {
+    return false;
+  }
+  if (!canInvoke(it->second, "Play")) {
+    return false;
+  }
+  m_stoppedPlayers.erase(busName);
+  return callPlayerMethod(busName, "Play");
+}
+
 bool MprisService::stop(const std::string& busName) {
   const auto it = m_players.find(busName);
   if (it == m_players.end()) {
@@ -814,6 +829,14 @@ bool MprisService::playPauseActive() {
     return false;
   }
   return playPause(*active);
+}
+
+bool MprisService::playActive() {
+  const auto active = chooseActivePlayer();
+  if (!active.has_value()) {
+    return false;
+  }
+  return play(*active);
 }
 
 bool MprisService::stopActive() {
@@ -2164,6 +2187,9 @@ bool MprisService::callPlayerMethod(const std::string& busName, const char* meth
 
 bool MprisService::canInvoke(const MprisPlayerInfo& player, const char* methodName) const {
   const std::string_view method{methodName};
+  if (method == "Play") {
+    return player.canPlay;
+  }
   if (method == "PlayPause" || method == "Stop") {
     return player.canPlay || player.canPause;
   }

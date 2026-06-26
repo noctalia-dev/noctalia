@@ -64,10 +64,12 @@ public:
   void registerIpc(IpcService& ipc);
 
   bool playPause(const std::string& busName);
+  bool play(const std::string& busName);
   bool stop(const std::string& busName);
   bool next(const std::string& busName);
   bool previous(const std::string& busName);
   bool playPauseActive();
+  bool playActive();
   bool stopActive();
   bool nextActive();
   bool previousActive();
