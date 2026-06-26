@@ -23,8 +23,15 @@ public:
     Name,
   };
 
+  enum class ColorMode : std::uint8_t {
+    State,
+    Cycle,
+  };
+
   struct Options {
     DisplayMode displayMode = DisplayMode::Id;
+    ColorMode colorMode = ColorMode::State;
+    std::vector<ColorSpec> cycleColors;
     ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
     ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
     ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
@@ -86,6 +93,7 @@ private:
   };
 
   [[nodiscard]] ColorSpec workspaceFillColor(const Workspace& workspace) const;
+  [[nodiscard]] ColorSpec workspaceCycleColor(const Workspace& workspace) const;
   [[nodiscard]] ColorSpec workspaceTextColor(const Workspace& workspace) const;
   [[nodiscard]] static ColorRole onRoleForFill(ColorRole fill);
   [[nodiscard]] static ColorSpec readableColorForFill(const ColorSpec& fill);
@@ -94,6 +102,8 @@ private:
   CompositorPlatform& m_platform;
   wl_output* m_output = nullptr;
   DisplayMode m_displayMode = DisplayMode::None;
+  ColorMode m_colorMode = ColorMode::State;
+  std::vector<ColorSpec> m_cycleColors;
   std::size_t m_maxLabelChars = 1;
   bool m_labelsOnlyWhenOccupied = false;
   bool m_hideWhenEmpty = false;

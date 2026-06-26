@@ -41,10 +41,10 @@ namespace {
 } // namespace
 
 WorkspacesWidget::WorkspacesWidget(CompositorPlatform& platform, wl_output* output, Options options)
-    : m_platform(platform), m_output(output), m_displayMode(options.displayMode),
-      m_maxLabelChars(options.maxLabelChars), m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied),
-      m_hideWhenEmpty(options.hideWhenEmpty), m_pillScale(options.pillScale),
-      m_activePillSize(std::clamp(options.activePillSize, 0.25f, 8.0f)),
+    : m_platform(platform), m_output(output), m_displayMode(options.displayMode), m_colorMode(options.colorMode),
+      m_cycleColors(std::move(options.cycleColors)), m_maxLabelChars(options.maxLabelChars),
+      m_labelsOnlyWhenOccupied(options.labelsOnlyWhenOccupied), m_hideWhenEmpty(options.hideWhenEmpty),
+      m_pillScale(options.pillScale), m_activePillSize(std::clamp(options.activePillSize, 0.25f, 8.0f)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25f, 8.0f)), m_minimal(options.minimal),
       m_focusedOutputOnly(options.focusedOutputOnly), m_focusedColor(options.focusedColor),
       m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor) {}
@@ -708,21 +708,48 @@ std::optional<std::size_t> WorkspacesWidget::numericWorkspaceId(const Workspace&
   return std::nullopt;
 }
 
+ColorSpec WorkspacesWidget::workspaceCycleColor(const Workspace& workspace) const {
+  if (m_cycleColors.empty()) {
+    return m_emptyColor;
+  }
+
+  std::size_t workspaceNumber = workspace.index;
+
+  if (workspaceNumber == 0) {
+    workspaceNumber = numericWorkspaceId(workspace).value_or(1);
+  }
+
+  const std::size_t colorIndex = (workspaceNumber - 1) % m_cycleColors.size();
+  return m_cycleColors[colorIndex];
+}
+
 bool WorkspacesWidget::isFocusedOutput() const { return m_platform.preferredInteractiveOutput() == m_output; }
 
 ColorSpec WorkspacesWidget::workspaceFillColor(const Workspace& workspace) const {
   if (workspace.active) {
+    if (m_colorMode == ColorMode::Cycle && !m_cycleColors.empty()) {
+      return workspaceCycleColor(workspace);
+    }
+
     if (m_activeUsesFocusedColor) {
       return m_focusedColor;
     }
+
     return m_occupiedColor;
   }
+
   if (workspace.urgent) {
     return colorSpecFromRole(ColorRole::Error);
   }
+
   if (workspace.occupied) {
+    if (m_colorMode == ColorMode::Cycle && !m_cycleColors.empty()) {
+      return workspaceCycleColor(workspace);
+    }
+
     return m_occupiedColor;
   }
+
   ColorSpec color = m_emptyColor;
   color.alpha *= 0.55f;
   return color;

@@ -646,12 +646,45 @@ std::unique_ptr<Widget> WidgetFactory::create(
     } else if (display == "none") {
       displayMode = WorkspacesWidget::DisplayMode::None;
     }
+
+    const std::string colorModeValue = wc != nullptr ? wc->getString("color_mode", "state") : std::string("state");
+
+    WorkspacesWidget::ColorMode colorMode = WorkspacesWidget::ColorMode::State;
+
+    if (colorModeValue == "cycle") {
+      colorMode = WorkspacesWidget::ColorMode::Cycle;
+    } else if (colorModeValue != "state") {
+      kLog.warn("invalid widget.{}.color_mode '{}'; expected state or cycle", name, colorModeValue);
+    }
+
+    std::vector<ColorSpec> cycleColors;
+
+    if (wc != nullptr) {
+      const auto configuredColors = wc->getStringList("cycle_colors");
+
+      cycleColors.reserve(configuredColors.size());
+
+      for (std::size_t i = 0; i < configuredColors.size(); ++i) {
+        cycleColors.push_back(colorSpecFromConfigString(
+            configuredColors[i], "widget." + name + ".cycle_colors[" + std::to_string(i) + "]"
+        ));
+      }
+    }
+
+    if (colorMode == WorkspacesWidget::ColorMode::Cycle && cycleColors.empty()) {
+      kLog.warn("widget.{}.color_mode is cycle but cycle_colors is empty; falling back to state", name);
+
+      colorMode = WorkspacesWidget::ColorMode::State;
+    }
+
     std::size_t maxLabelChars = 1; // Default: truncate names to 1 char (v4 behavior)
     if (wc != nullptr && wc->hasSetting("max_label_chars")) {
       maxLabelChars = static_cast<std::size_t>(wc->getInt("max_label_chars", 1));
     }
     WorkspacesWidget::Options options{
         .displayMode = displayMode,
+        .colorMode = colorMode,
+        .cycleColors = std::move(cycleColors),
         .focusedColor = focusedColor,
         .occupiedColor = occupiedColor,
         .emptyColor = emptyColor,
@@ -664,7 +697,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .minimal = wc != nullptr ? wc->getBool("minimal", false) : false,
         .focusedOutputOnly = wc != nullptr ? wc->getBool("focused_output_only", false) : false,
     };
-    auto widget = std::make_unique<WorkspacesWidget>(m_platform, output, options);
+    auto widget = std::make_unique<WorkspacesWidget>(m_platform, output, std::move(options));
     widget->setContentScale(contentScale);
     return widget;
   }
