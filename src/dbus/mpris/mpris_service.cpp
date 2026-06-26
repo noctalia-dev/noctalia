@@ -1774,17 +1774,45 @@ void MprisService::applyPlayerSnapshot(
   }
   const auto previousActive = activePlayer();
   const auto now = std::chrono::steady_clock::now();
+  bool clearedPinnedPlayerPreference = false;
+  const auto existing = m_players.find(busName);
+  const bool becamePlaying =
+      info.playbackStatus == "Playing" && (existing == m_players.end() || existing->second.playbackStatus != "Playing");
+  const bool transitionedFromPlaying =
+      info.playbackStatus != "Playing" && existing != m_players.end() && existing->second.playbackStatus == "Playing";
+  const auto hasOtherPlayingPlayer = [this, &busName]() {
+    for (const auto& [otherBusName, player] : m_players) {
+      if (otherBusName != busName && !isBlacklisted(player) && player.playbackStatus == "Playing") {
+        return true;
+      }
+    }
+    return false;
+  };
 
   if (info.playbackStatus == "Playing") {
+    if (becamePlaying && m_pinnedPlayerPreference.has_value() && *m_pinnedPlayerPreference != busName) {
+      const auto pinnedIt = m_players.find(*m_pinnedPlayerPreference);
+      if (pinnedIt != m_players.end() && pinnedIt->second.playbackStatus != "Playing") {
+        m_pinnedPlayerPreference.reset();
+        clearedPinnedPlayerPreference = true;
+      }
+    }
     m_stoppedPlayers.erase(busName);
+    if (becamePlaying) {
+      m_lastActivePlayer = busName;
+      m_lastPlayingUpdate[busName] = now;
+    }
+  } else if (transitionedFromPlaying) {
     m_lastActivePlayer = busName;
-    m_lastPlayingUpdate[busName] = now;
+    if (m_pinnedPlayerPreference.has_value() && *m_pinnedPlayerPreference == busName && hasOtherPlayingPlayer()) {
+      m_pinnedPlayerPreference.reset();
+      clearedPinnedPlayerPreference = true;
+    }
   }
   if (hasStrongNowPlayingMetadata(info)) {
     m_lastStrongMetadataUpdate[busName] = now;
   }
 
-  const auto existing = m_players.find(busName);
   if (existing == m_players.end()) {
     MprisPlayerInfo initial = info;
     if (!hadPositionSignal) {
@@ -2015,7 +2043,7 @@ void MprisService::applyPlayerSnapshot(
     }
 
     syncSignals(previousActive);
-    if (significantChanged && m_changeCallback) {
+    if ((significantChanged || clearedPinnedPlayerPreference) && m_changeCallback) {
       m_changeCallback();
     }
   }
