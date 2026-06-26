@@ -556,7 +556,6 @@ void MprisService::applyPositionSample(const std::string& busName, int64_t rawPo
       } else if (pausedJumpUs < kPauseRecoveryMinJumpUs) {
         return;
       } else {
-        playerIt->second.playbackStatus = "Playing";
         m_recentNoSignalPauseAt.erase(pauseIt);
       }
     } else if (!recentLocalSeek && pausedJumpUs < kPausedSameTrackPositionJumpToleranceUs) {
@@ -1638,7 +1637,6 @@ void MprisService::addOrRefreshPlayer(const std::string& busName) {
             seekCommandIt != m_lastSeekCommandAt.end() && now - seekCommandIt->second <= kSeekPauseGraceWindow;
         const std::int64_t pausedJumpUs = std::llabs(normalizedUs - previousPosUs);
         if (recoveringRecentPause && !recentLocalSeek && pausedJumpUs >= kPauseRecoveryMinJumpUs) {
-          playerIt->second.playbackStatus = "Playing";
           m_recentNoSignalPauseAt.erase(pauseIt);
         }
       }
