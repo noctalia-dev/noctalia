@@ -1,5 +1,6 @@
 #include "auth/pam_authenticator.h"
 
+#include "core/log.h"
 #include "i18n/i18n.h"
 
 #include <algorithm>
@@ -16,6 +17,8 @@
 #include <vector>
 
 namespace {
+
+  constexpr Logger kLog("pam");
 
   constexpr std::size_t kMaxPamMessageBytes = 4096;
 
@@ -188,18 +191,25 @@ namespace {
         .appdata_ptr = &convData,
     };
 
+    kLog.debug("authenticating user='{}' service='{}'", user, service);
+
     PamHandle pamh;
     const int startRc = pam_start(service.data(), user.c_str(), &conv, &pamh.h);
     if (startRc != PAM_SUCCESS || pamh.h == nullptr) {
+      kLog.error(
+          "pam_start failed rc={} ({})", startRc, pamh.h != nullptr ? pam_strerror(pamh.h, startRc) : "no handle"
+      );
       secureClear(passwordCopy);
       return PamAuthenticator::Result{.success = false, .message = i18n::tr("auth.pam.start-failed")};
     }
 
     int rc = pam_authenticate(pamh.h, 0);
+    kLog.debug("pam_authenticate rc={} ({})", rc, pam_strerror(pamh.h, rc));
     if (rc == PAM_SUCCESS) {
       // An unprivileged locker can't read /etc/shadow for the account stack, so
       // ignore PAM_AUTHINFO_UNAVAIL; pam_authenticate already proved identity.
       const int acctRc = pam_acct_mgmt(pamh.h, 0);
+      kLog.debug("pam_acct_mgmt rc={} ({})", acctRc, pam_strerror(pamh.h, acctRc));
       if (acctRc != PAM_SUCCESS && acctRc != PAM_AUTHINFO_UNAVAIL) {
         rc = acctRc;
       }
@@ -211,9 +221,11 @@ namespace {
     secureClear(passwordCopy);
 
     if (rc == PAM_SUCCESS) {
+      kLog.debug("authentication succeeded for user='{}'", user);
       return PamAuthenticator::Result{.success = true, .message = {}};
     }
 
+    kLog.warn("authentication failed for user='{}' rc={} ({})", user, rc, errStr);
     return PamAuthenticator::Result{.success = false, .message = errStr};
   }
 
