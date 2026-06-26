@@ -690,7 +690,8 @@ void MprisService::registerIpc(IpcService& ipc) {
       [this](const std::string& args) -> std::string {
         const auto parts = noctalia::ipc::splitWords(args);
         if (parts.size() != 1) {
-          return "error: media requires exactly one action <next|previous|toggle|play|stop>\n";
+          return "error: media requires exactly one action "
+                 "<next|previous|toggle|play|stop|next-player|previous-player>\n";
         }
 
         const std::string& action = parts[0];
@@ -709,10 +710,16 @@ void MprisService::registerIpc(IpcService& ipc) {
         if (action == "stop") {
           return stopActive() ? "ok\n" : "error: no active player or Pause/Stop unsupported\n";
         }
+        if (action == "next-player") {
+          return cycleActivePlayer(1) ? "ok\n" : "error: no media players available\n";
+        }
+        if (action == "previous-player") {
+          return cycleActivePlayer(-1) ? "ok\n" : "error: no media players available\n";
+        }
 
-        return "error: invalid media action (use next, previous, toggle, play, stop)\n";
+        return "error: invalid media action (use next, previous, toggle, play, stop, next-player, previous-player)\n";
       },
-      "media <next|previous|toggle|play|stop>", "Control active media playback"
+      "media <next|previous|toggle|play|stop|next-player|previous-player>", "Control active media playback"
   );
 }
 
@@ -2181,6 +2188,27 @@ std::optional<std::string> MprisService::chooseActivePlayer() const {
 
   // kLog.debug("choose active player source=none");
   return std::nullopt;
+}
+
+bool MprisService::cycleActivePlayer(int direction) {
+  const std::vector<MprisPlayerInfo> players = listPlayers();
+  if (players.empty()) {
+    return false;
+  }
+
+  const auto active = chooseActivePlayer();
+  std::size_t targetIndex = direction >= 0 ? 0 : players.size() - 1;
+  if (active.has_value()) {
+    for (std::size_t i = 0; i < players.size(); ++i) {
+      if (players[i].busName != *active) {
+        continue;
+      }
+      targetIndex = direction >= 0 ? (i + 1) % players.size() : (i + players.size() - 1) % players.size();
+      break;
+    }
+  }
+
+  return setPinnedPlayerPreference(players[targetIndex].busName);
 }
 
 bool MprisService::isBlacklisted(const MprisPlayerInfo& player) const {
