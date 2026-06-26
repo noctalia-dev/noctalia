@@ -800,7 +800,6 @@ bool MprisService::stop(const std::string& busName) {
     if (!callPlayerMethod(busName, "Pause")) {
       return false;
     }
-    dismissPlayer(busName);
     return true;
   }
 
@@ -811,7 +810,6 @@ bool MprisService::stop(const std::string& busName) {
     return false;
   }
 
-  dismissPlayer(busName);
   return true;
 }
 
