@@ -708,7 +708,7 @@ void MprisService::registerIpc(IpcService& ipc) {
           return playActive() ? "ok\n" : "error: no active player or Play unsupported\n";
         }
         if (action == "stop") {
-          return stopActive() ? "ok\n" : "error: no active player or Stop unsupported\n";
+          return stopActive() ? "ok\n" : "error: no active player or Pause/Stop unsupported\n";
         }
 
         return "error: invalid media action (use next, previous, toggle, play, stop)\n";
@@ -791,12 +791,26 @@ bool MprisService::stop(const std::string& busName) {
   if (it == m_players.end()) {
     return false;
   }
+
+  if (it->second.playbackStatus != "Playing") {
+    return true;
+  }
+
+  if (it->second.canPause) {
+    if (!callPlayerMethod(busName, "Pause")) {
+      return false;
+    }
+    dismissPlayer(busName);
+    return true;
+  }
+
   if (!canInvoke(it->second, "Stop")) {
     return false;
   }
   if (!callPlayerMethod(busName, "Stop")) {
     return false;
   }
+
   dismissPlayer(busName);
   return true;
 }
