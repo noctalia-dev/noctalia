@@ -606,7 +606,7 @@ void DesktopWidgetsEditor::prepareFrame(OverlaySurface& surface, bool needsUpdat
     updateWallpaperPreview(surface);
   }
 
-  const bool needsFrameTick = std::any_of(surface.views.begin(), surface.views.end(), [](const auto& entry) {
+  const bool needsFrameTick = std::ranges::any_of(surface.views, [](const auto& entry) {
     return entry.second.widget != nullptr && entry.second.widget->needsFrameTick();
   });
   if (needsFrameTick) {
