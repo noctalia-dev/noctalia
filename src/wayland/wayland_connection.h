@@ -37,6 +37,7 @@ struct ext_session_lock_manager_v1;
 struct zwlr_foreign_toplevel_manager_v1;
 struct zwlr_foreign_toplevel_handle_v1;
 struct ext_workspace_manager_v1;
+struct org_kde_plasma_virtual_desktop_management;
 struct zdwl_ipc_manager_v2;
 struct zwp_virtual_keyboard_manager_v1;
 struct zwp_text_input_manager_v3;
@@ -69,6 +70,32 @@ struct WaylandOutput {
   std::int32_t transform = 0;
   zxdg_output_v1* xdgOutput = nullptr;
   bool done = false;
+
+  [[nodiscard]] std::int32_t effectiveLogicalWidth() const noexcept {
+    if (logicalWidth > 0) {
+      return logicalWidth;
+    }
+    if (width <= 0 || scale <= 0) {
+      return 0;
+    }
+    const std::int32_t scaled = width / scale;
+    return scaled > 0 ? scaled : 1;
+  }
+
+  [[nodiscard]] std::int32_t effectiveLogicalHeight() const noexcept {
+    if (logicalHeight > 0) {
+      return logicalHeight;
+    }
+    if (height <= 0 || scale <= 0) {
+      return 0;
+    }
+    const std::int32_t scaled = height / scale;
+    return scaled > 0 ? scaled : 1;
+  }
+
+  [[nodiscard]] bool hasUsableGeometry() const noexcept {
+    return effectiveLogicalWidth() > 0 && effectiveLogicalHeight() > 0;
+  }
 };
 
 class WaylandConnection {
@@ -89,6 +116,7 @@ public:
   void setWorkspaceManagerCallbacks(
       std::function<void(ext_workspace_manager_v1*)> extWorkspace, std::function<void(zdwl_ipc_manager_v2*)> dwlIpc
   );
+  void setKdeVirtualDesktopManagerCallback(std::function<void(org_kde_plasma_virtual_desktop_management*)> callback);
   void setToplevelChangeCallback(ChangeCallback callback);
   void setHyprlandToplevelMappingManagerCallback(
       std::function<void(hyprland_toplevel_mapping_manager_v1* manager)> callback
@@ -114,6 +142,7 @@ public:
   [[nodiscard]] bool hasXdgOutputManager() const noexcept;
   [[nodiscard]] bool hasXdgShell() const noexcept;
   [[nodiscard]] bool hasExtWorkspaceManager() const noexcept;
+  [[nodiscard]] bool hasKdeVirtualDesktopManager() const noexcept;
   [[nodiscard]] bool hasDwlIpcManager() const noexcept;
   [[nodiscard]] bool hasForeignToplevelManager() const noexcept;
   [[nodiscard]] bool hasExtForeignToplevelList() const noexcept;
@@ -153,6 +182,7 @@ public:
   [[nodiscard]] bool hasXdgActivation() const noexcept;
   [[nodiscard]] std::string requestActivationToken(wl_surface* surface) const;
   void activateSurface(wl_surface* surface);
+  void activateToplevelForAppId(std::string_view appId);
 
   [[nodiscard]] std::optional<ActiveToplevel> activeToplevel() const;
   [[nodiscard]] std::optional<ActiveToplevel>
@@ -171,6 +201,9 @@ public:
   void closeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   template <typename Fn> void visitWlrToplevelHandles(Fn&& fn) const {
     m_toplevelsHandler.visitWlrHandles(std::forward<Fn>(fn));
+  }
+  template <typename Fn> void visitWlrToplevels(Fn&& fn) const {
+    m_toplevelsHandler.visitWlrToplevels(std::forward<Fn>(fn));
   }
   [[nodiscard]] wl_output* lastPointerOutput() const noexcept;
   [[nodiscard]] wl_surface* lastPointerSurface() const noexcept;
@@ -242,6 +275,7 @@ private:
   VirtualKeyboardService* m_virtualKeyboardService = nullptr;
   bool m_hasLayerShellGlobal = false;
   bool m_hasExtWorkspaceGlobal = false;
+  bool m_hasKdeVirtualDesktopGlobal = false;
   bool m_hasDwlIpcGlobal = false;
   bool m_hasForeignToplevelManagerGlobal = false;
   bool m_hasExtForeignToplevelListGlobal = false;
@@ -251,6 +285,7 @@ private:
   std::function<void(wl_output*)> m_outputAddedCallback;
   std::function<void(wl_output*)> m_outputRemovedCallback;
   std::function<void(ext_workspace_manager_v1*)> m_extWorkspaceManagerCallback;
+  std::function<void(org_kde_plasma_virtual_desktop_management*)> m_kdeVirtualDesktopManagerCallback;
   std::function<void(zdwl_ipc_manager_v2*)> m_dwlIpcManagerCallback;
   std::function<void(hyprland_toplevel_mapping_manager_v1*)> m_hyprlandToplevelMappingManagerCallback;
   std::unordered_map<wl_surface*, wl_output*> m_surfaceOutputMap;

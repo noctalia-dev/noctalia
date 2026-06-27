@@ -2,6 +2,7 @@
 
 #include "compositors/compositor_platform.h"
 #include "config/config_types.h"
+#include "scripting/script_runtime_types.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -69,6 +70,14 @@ namespace scripting {
       return e->ipcEntryId() == entryId && (!hasBarName || e->ipcBarName() == barName);
     };
 
+    const auto focusedOutputName = [&]() -> std::string {
+      if (m_platform == nullptr) {
+        return {};
+      }
+      const auto* info = m_platform->findOutputByWl(m_platform->preferredInteractiveOutput());
+      return info != nullptr ? info->connectorName : std::string{};
+    };
+
     std::vector<PluginIpcEndpoint*> candidates;
     if (allOutputs) {
       for (auto* e : m_endpoints) {
@@ -77,12 +86,7 @@ namespace scripting {
         }
       }
     } else if (outputSelector == "focused") {
-      std::string focused;
-      if (m_platform != nullptr) {
-        if (const auto* info = m_platform->findOutputByWl(m_platform->preferredInteractiveOutput()); info != nullptr) {
-          focused = info->connectorName;
-        }
-      }
+      const std::string focused = focusedOutputName();
       for (auto* e : m_endpoints) {
         if (matchesEntry(e) && e->ipcOutputName() == focused && !focused.empty()) {
           candidates.push_back(e);
@@ -101,8 +105,7 @@ namespace scripting {
         return "error: target '" + target + "' matched multiple outputs; use a connector name or 'all'\n";
       }
       for (auto* e : m_endpoints) {
-        if (matchesEntry(e)
-            && std::find(connectors.begin(), connectors.end(), std::string(e->ipcOutputName())) != connectors.end()) {
+        if (matchesEntry(e) && std::ranges::contains(connectors, e->ipcOutputName())) {
           candidates.push_back(e);
         }
       }
@@ -115,12 +118,15 @@ namespace scripting {
       return "error: target '" + target + "' matched multiple plugin instances; use '<target>:<bar-name>' or 'all'\n";
     }
 
+    ScriptSnapshot snapshot;
+    snapshot.focusedOutputName = focusedOutputName();
+
     int handled = 0;
     int failed = 0;
     int missingHost = 0;
     int missingCallback = 0;
     for (auto* e : candidates) {
-      switch (e->dispatchIpc(event, payload)) {
+      switch (e->dispatchIpc(event, payload, snapshot)) {
       case PluginIpcEndpoint::DispatchResult::Handled:
         ++handled;
         break;

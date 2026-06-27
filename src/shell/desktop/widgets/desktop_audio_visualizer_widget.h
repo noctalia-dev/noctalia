@@ -11,13 +11,20 @@ class Renderer;
 
 class DesktopAudioVisualizerWidget : public DesktopWidget {
 public:
-  DesktopAudioVisualizerWidget(
-      PipeWireSpectrum* spectrum, float aspectRatio, int bands, bool mirrored, ColorSpec color1, ColorSpec color2,
-      bool centered, bool showWhenIdle
-  );
+  struct Options {
+    int bands = 32;
+    bool mirrored = true;
+    bool centered = true;
+    bool showWhenIdle = true;
+    ColorSpec color1 = colorSpecFromRole(ColorRole::Primary);
+    ColorSpec color2 = colorSpecFromRole(ColorRole::Primary);
+  };
+
+  DesktopAudioVisualizerWidget(PipeWireSpectrum* spectrum, Options options);
   ~DesktopAudioVisualizerWidget() override;
 
   void create() override;
+  void layout(Renderer& renderer) override;
   bool applySetting(
       const std::string& key, const WidgetSettingValue& value,
       const std::unordered_map<std::string, WidgetSettingValue>& allSettings, Renderer& renderer
@@ -39,7 +46,6 @@ private:
   void startOpacityAnimation(float targetOpacity, bool collapseOnComplete);
 
   PipeWireSpectrum* m_spectrum = nullptr;
-  float m_aspectRatio = 2.5f;
   int m_bands = 32;
   bool m_mirrored = true;
   bool m_centered = true;

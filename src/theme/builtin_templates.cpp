@@ -42,7 +42,7 @@ namespace noctalia::theme {
       out.push_back(std::move(entry));
     }
 
-    std::sort(out.begin(), out.end(), [](const BuiltinTemplateInfo& lhs, const BuiltinTemplateInfo& rhs) {
+    std::ranges::sort(out, [](const BuiltinTemplateInfo& lhs, const BuiltinTemplateInfo& rhs) {
       if (lhs.category != rhs.category) {
         return lhs.category < rhs.category;
       }
@@ -62,16 +62,16 @@ namespace noctalia::theme {
       t.category = std::move(entry.category);
       out.push_back(std::move(t));
     }
-    std::sort(out.begin(), out.end(), [](const AvailableTemplate& a, const AvailableTemplate& b) {
+    std::ranges::sort(out, [](const AvailableTemplate& a, const AvailableTemplate& b) {
       if (a.displayName != b.displayName) {
         return a.displayName < b.displayName;
       }
       return a.id < b.id;
     });
     out.erase(
-        std::unique(
-            out.begin(), out.end(), [](const AvailableTemplate& a, const AvailableTemplate& b) { return a.id == b.id; }
-        ),
+        std::ranges::unique(
+            out, [](const AvailableTemplate& a, const AvailableTemplate& b) { return a.id == b.id; }
+        ).begin(),
         out.end()
     );
     return out;

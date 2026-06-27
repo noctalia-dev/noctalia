@@ -7,18 +7,13 @@
 #include "ui/controls/flex.h"
 #include "ui/controls/input.h"
 #include "ui/controls/select.h"
-#include "ui/controls/toggle.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
 
-#include <cmath>
 #include <cstdint>
-#include <format>
 #include <functional>
 #include <limits>
-#include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -186,7 +181,7 @@ namespace settings {
     Input* timeoutPtr = nullptr;
     auto timeoutIn = ui::input({
         .out = &timeoutPtr,
-        .value = std::format("{}", row.timeoutSeconds),
+        .value = StringUtils::formatDotDecimal(row.timeoutSeconds),
         .placeholder = "660",
         .fontSize = Style::fontSizeBody * scale,
         .controlHeight = Style::controlHeight * scale,
@@ -194,15 +189,14 @@ namespace settings {
     });
     const auto commitTimeout = [&row, persist, timeoutPtr]() {
       const auto parsed = parseDoubleInput(timeoutPtr->value());
-      if (!parsed.has_value()
-          || *parsed < 0.0
-          || *parsed > static_cast<double>(std::numeric_limits<std::int32_t>::max())) {
+      constexpr double kMaxIdleTimeoutSeconds = static_cast<double>(std::numeric_limits<std::uint32_t>::max()) / 1000.0;
+      if (!parsed.has_value() || *parsed < 0.0 || *parsed > kMaxIdleTimeoutSeconds) {
         timeoutPtr->setInvalid(true);
         return;
       }
-      row.timeoutSeconds = static_cast<std::int32_t>(std::lround(*parsed));
+      row.timeoutSeconds = *parsed;
       timeoutPtr->setInvalid(false);
-      timeoutPtr->setValue(std::format("{}", row.timeoutSeconds));
+      timeoutPtr->setValue(StringUtils::formatDotDecimal(row.timeoutSeconds));
       persist();
     };
     timeoutIn->setOnChange([timeoutPtr](const std::string& /*t*/) { timeoutPtr->setInvalid(false); });

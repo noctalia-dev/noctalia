@@ -66,6 +66,7 @@ void MediaWidget::create() {
       ui::label({
           .out = &m_label,
           .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontFamily = labelFontFamily(),
           .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
           .maxWidth = m_maxWidth * m_contentScale,
           .maxLines = 1,
@@ -253,10 +254,10 @@ void MediaWidget::syncState(Renderer& renderer) {
     );
     if (!artPath.empty()) {
       if (!m_art->setSourceFile(renderer, artPath, artDecodePx, true, true)) {
-        kLog.warn("artwork load failed url=\"{}\" path=\"{}\"", m_lastArtUrl, artPath);
+        kLog.warn(R"(artwork load failed url="{}" path="{}")", m_lastArtUrl, artPath);
         m_art->clear(renderer);
       } else {
-        kLog.debug("artwork loaded url=\"{}\" path=\"{}\"", m_lastArtUrl, artPath);
+        kLog.debug(R"(artwork loaded url="{}" path="{}")", m_lastArtUrl, artPath);
       }
     } else {
       if (!m_lastArtUrl.empty()) {

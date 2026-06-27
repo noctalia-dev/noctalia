@@ -6,7 +6,6 @@
 #include <vector>
 
 struct Mat3;
-
 class AnimationManager;
 class Renderer;
 class SelectPopupContext;
@@ -18,6 +17,7 @@ enum class NodeType : std::uint8_t {
   Image,
   Glyph,
   Spinner,
+  CountdownRing,
   ScreenCorner,
   AudioSpectrum,
   FancyAudioVisualizer,
@@ -89,7 +89,9 @@ public:
   [[nodiscard]] float width() const noexcept { return m_width; }
   [[nodiscard]] float height() const noexcept { return m_height; }
   [[nodiscard]] float rotation() const noexcept { return m_rotation; }
-  [[nodiscard]] float scale() const noexcept { return m_scale; }
+  [[nodiscard]] float scale() const noexcept { return m_scaleX; }
+  [[nodiscard]] float scaleX() const noexcept { return m_scaleX; }
+  [[nodiscard]] float scaleY() const noexcept { return m_scaleY; }
   [[nodiscard]] float opacity() const noexcept { return m_opacity; }
   [[nodiscard]] float flexGrow() const noexcept { return m_flexGrow; }
   [[nodiscard]] bool visible() const noexcept { return m_visible; }
@@ -110,6 +112,7 @@ public:
   void setFrameSize(float width, float height);
   void setRotation(float radians);
   void setScale(float scale);
+  void setScale(float scaleX, float scaleY);
   void setOpacity(float opacity);
   void setFlexGrow(float grow);
   void setVisible(bool visible);
@@ -118,13 +121,15 @@ public:
   void setHitTestVisible(bool hitTestVisible);
   void setHitTestOutset(const HitTestOutset& outset);
   void setZIndex(std::int32_t zIndex);
+  void setExcludeSubtreeFromTabOrder(bool exclude) noexcept;
+  [[nodiscard]] bool excludeSubtreeFromTabOrder() const noexcept { return m_excludeSubtreeFromTabOrder; }
 
   virtual Node* addChild(std::unique_ptr<Node> child);
   // Insert at a specific vector position to control Flex layout order (not rendering order — use zIndex for that).
   virtual Node* insertChildAt(std::size_t index, std::unique_ptr<Node> child);
   virtual std::unique_ptr<Node> removeChild(Node* child);
 
-  void setAnimationManager(AnimationManager* mgr);
+  virtual void setAnimationManager(AnimationManager* mgr);
   [[nodiscard]] AnimationManager* animationManager() const noexcept { return m_animationManager; }
   void setPopupContext(SelectPopupContext* ctx);
   [[nodiscard]] SelectPopupContext* popupContext() const noexcept { return m_popupContext; }
@@ -168,7 +173,8 @@ private:
   float m_width = 0.0f;
   float m_height = 0.0f;
   float m_rotation = 0.0f;
-  float m_scale = 1.0f;
+  float m_scaleX = 1.0f;
+  float m_scaleY = 1.0f;
   float m_opacity = 1.0f;
   float m_flexGrow = 0.0f;
   bool m_visible = true;
@@ -176,6 +182,7 @@ private:
   bool m_paintDirty = true;
   bool m_layoutDirty = true;
   bool m_clipChildren = false;
+  bool m_excludeSubtreeFromTabOrder = false;
   bool m_hitTestVisible = true;
   HitTestOutset m_hitTestOutset{};
   bool m_sizeAssignedByLayout = false;

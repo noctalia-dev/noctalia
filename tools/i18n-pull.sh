@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env -S bash
 
 # Pull translations from Noctalia Translate API
 # Usage: ./i18n-pull.sh <project-slug> <output-dir>

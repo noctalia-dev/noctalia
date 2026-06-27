@@ -30,6 +30,10 @@ shared_gl_context     = true         # startup-only; false isolates GPU contexts
 # lang                = "en"
 # avatar_path         = "~/Pictures/avatar.png"
 
+[shell.privacy]
+mic_filter_regex = ""                # microphone app names to ignore in privacy indicators and OSD
+cam_filter_regex = ""                # camera app names to ignore in privacy indicators and OSD
+
 [shell.animation]
 enabled = true
 speed   = 1.0                       # 0.5 = 2× slower, 2.0 = 2× faster
@@ -60,7 +64,7 @@ blacklist = []                      # ignore MPRIS players by bus/identity/deskt
 
 [wallpaper]
 enabled             = true
-fill_mode           = "crop"        # center | crop | fit | stretch | repeat
+fill_mode           = "crop"        # center | crop | fit | stretch | repeat | span
 fill_color          = ""            # optional fallback/fill color: prefer a color role token; fixed hex also works
 transition          = ["fade", "wipe", "disc", "stripes", "zoom", "honeycomb"]
 transition_duration = 1500          # milliseconds
@@ -121,9 +125,13 @@ scale              = 1.0            # notification size multiplier applied on to
 background_opacity = 0.97
 offset_x           = 20             # absolute horizontal margin from the screen edge
 offset_y           = 8              # absolute vertical margin from the screen edge
-# blacklist            = ["discord", "org.telegram.desktop"]
-# blacklist_allow_critical = true
-# allowed_urgencies      = ["normal", "critical"]  # omit or list all three to allow every level
+# [notification.filter.rhythmbox]
+# enabled         = true
+# match           = "rhythmbox"
+# show_toast      = true
+# save_history    = false
+# play_sound      = true
+# allowed_urgencies = ["normal", "critical"]  # omit or list all three to allow every level
 # IPC examples:
 # noctalia msg notification-clear-active
 # noctalia msg notification-clear-history
@@ -132,7 +140,8 @@ offset_y           = 8              # absolute vertical margin from the screen e
 
 [osd]
 position = "top_right"              # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center | center_right | center_left
-orientation = "horizontal"          # horizontal | vertical
+position_vertical = "top_center"    # same options; used when orientation = "vertical"
+orientation = "horizontal"          # horizontal | vertical (volume/brightness sliders only; text popups stay horizontal)
 scale = 1.0                         # OSD size multiplier applied on top of shell.ui_scale
 background_opacity = 0.97           # background opacity of OSD popups
 offset_x = 20                       # absolute horizontal margin from the screen edge
@@ -148,9 +157,11 @@ wifi = true                         # Wi-Fi toggle
 bluetooth = true                    # Bluetooth toggle
 power_profile = true                # power profile changes
 caffeine = true                     # idle inhibitor (caffeine) toggle
+nightlight = true                   # night light toggle
 dnd = true                          # Do Not Disturb toggle
 lock_keys = true                    # Caps/Num/Scroll Lock changes; disable to stop polling when no widget uses them
 keyboard_layout = true              # input keyboard layout changes
+privacy = true                      # microphone/camera/screen-share capture changes
 
 # ── Lock Screen ───────────────────────────────────────────────────────────────
 
@@ -195,6 +206,7 @@ notification_sound = ""             # empty = bundled sounds/notification.wav
 [brightness]
 enable_ddcutil = false
 # ignore_mmids = []                 # skip these monitors from ddcutil; run: ddcutil --verbose detect
+# minimum_brightness = 0.0          # never let brightness drop below this floor (0.0 to 1.0)
 
 # Per-monitor backend override:
 # [brightness.monitor.eDP-1]
@@ -244,12 +256,14 @@ enabled = false
 # ── Keybinds ──────────────────────────────────────────────────────────────────
 
 [keybinds]
-validate = ["return", "kp_enter"]
+validate = ["return", "kp_enter", "space"]
 cancel   = ["escape"]
 left     = ["left"]
 right    = ["right"]
 up       = ["up"]
 down     = ["down"]
+tab_next = ["tab"]
+tab_previous = ["shift+iso_left_tab"]
 
 # ── Bar ───────────────────────────────────────────────────────────────────────
 
@@ -265,6 +279,7 @@ widget_spacing     = 6
 scale              = 1.0
 shadow             = true
 auto_hide          = false
+# show_on_workspace_switch = true   # with auto_hide: briefly reveal when the active workspace changes
 reserve_space      = true
 capsule            = false
 # capsule_fill     = "surface_variant"
@@ -276,10 +291,20 @@ start  = ["launcher", "wallpaper", "workspaces"]
 center = ["clock"]
 end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth", "volume", "brightness", "battery", "control-center", "session"]
 
+# Commands for the bar margin outside widget sections (dead zone):
+# [bar.main.dead_zone]
+# command = "noctalia msg launcher toggle"
+# right_command = ""               # empty = open Control Center (default)
+# middle_command = ""
+# scroll_up_command = "..."
+# scroll_down_command = "..."
+
 # Per-monitor override example — only the fields you list are overridden:
 # [bar.main.monitor.dp1]
 # match     = "DP-1"
 # thickness = 44
+# [bar.main.monitor.dp1.dead_zone]
+# command = "noctalia msg launcher toggle"
 
 # ── Dock ──────────────────────────────────────────────────────────────────────
 

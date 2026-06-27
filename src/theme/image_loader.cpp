@@ -1,11 +1,13 @@
 #include "theme/image_loader.h"
 
 #include "render/core/image_decoder.h"
+#include "theme/scheme.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <expected>
 #include <fstream>
 #include <iterator>
 
@@ -15,12 +17,10 @@ namespace noctalia::theme {
 
     constexpr int kTarget = 112;
 
-    std::vector<uint8_t> readFile(std::string_view path, std::string* err) {
+    std::expected<std::vector<uint8_t>, std::string> readFile(std::string_view path) {
       std::ifstream f(std::string(path), std::ios::binary);
       if (!f) {
-        if (err)
-          *err = "cannot open file";
-        return {};
+        return std::unexpected("cannot open file");
       }
       return std::vector<uint8_t>((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     }
@@ -254,21 +254,24 @@ namespace noctalia::theme {
 
   } // namespace
 
-  std::optional<LoadedImage> loadAndResize(std::string_view path, Scheme scheme, std::string* errorMessage) {
-    auto bytes = readFile(path, errorMessage);
-    if (bytes.empty())
-      return std::nullopt;
+  std::expected<LoadedImage, std::string> loadAndResize(std::string_view path, Scheme scheme) {
+    auto bytes = readFile(path);
+    if (!bytes) {
+      return std::unexpected(bytes.error());
+    }
+    if (bytes->empty()) {
+      return std::unexpected("empty image file");
+    }
 
-    auto decoded = decodeRasterImage(bytes.data(), bytes.size(), errorMessage);
-    if (!decoded)
-      return std::nullopt;
+    auto decoded = decodeRasterImage(bytes->data(), bytes->size());
+    if (!decoded) {
+      return std::unexpected(decoded.error());
+    }
 
     const int srcW = decoded->width;
     const int srcH = decoded->height;
     if (srcW <= 0 || srcH <= 0) {
-      if (errorMessage)
-        *errorMessage = "invalid image dimensions";
-      return std::nullopt;
+      return std::unexpected("invalid image dimensions");
     }
 
     // Force-resize to 112×112 (aspect ratio ignored).

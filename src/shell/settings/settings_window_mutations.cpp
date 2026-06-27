@@ -2,7 +2,7 @@
 #include "core/deferred_call.h"
 #include "i18n/i18n.h"
 #include "render/text/font_weight_catalog.h"
-#include "shell/avatar_path.h"
+#include "shell/profile/avatar_path.h"
 #include "shell/settings/settings_window.h"
 
 #include <string>
@@ -46,11 +46,12 @@ void SettingsWindow::setSettingOverride(std::vector<std::string> path, ConfigOve
         markSettingsWriteError(i18n::tr("settings.errors.write"));
         return;
       }
-      if (shell::applyAvatarPath(m_accounts, m_config, *avatarPath)) {
+      const auto result = shell::applyAvatarPath(m_accounts, m_config, *avatarPath);
+      if (result.success()) {
         markSettingsWriteSuccess();
         return;
       }
-      markSettingsWriteError(i18n::tr("settings.errors.write"));
+      markSettingsWriteError(i18n::tr(shell::avatarApplyErrorTranslationKey(result.error)));
       return;
     }
     if (m_config->setOverride(path, std::move(value))) {

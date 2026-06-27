@@ -26,6 +26,7 @@ struct HttpRequest {
 struct HttpResponse {
   bool transportOk = false; // true when the request completed without a transport error
   long status = 0;          // HTTP status code (0 when transportOk is false)
+  std::string effectiveUrl; // final URL after redirects (empty when unavailable)
   std::string body;
 };
 

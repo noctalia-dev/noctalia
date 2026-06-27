@@ -5,6 +5,7 @@
 #include "core/log.h"
 #include "render/backend/render_backend.h"
 #include "render/core/shared_texture_cache.h"
+#include "shell/backdrop/backdrop_instance.h"
 #include "shell/backdrop/backdrop_surface.h"
 #include "ui/palette.h"
 #include "wayland/wayland_connection.h"
@@ -192,8 +193,8 @@ void Backdrop::syncInstances() {
 
   // Remove instances for outputs that no longer exist
   std::erase_if(m_instances, [&](const auto& inst) {
-    bool found =
-        std::any_of(outputs.begin(), outputs.end(), [&inst](const auto& out) { return out.name == inst->outputName; });
+    const auto it = std::ranges::find(outputs, inst->outputName, &WaylandOutput::name);
+    const bool found = it != outputs.end() && it->done && it->hasUsableGeometry();
     if (!found) {
       kLog.info("removing instance for output {}", inst->outputName);
       releaseInstanceTexture(*inst);
@@ -203,13 +204,12 @@ void Backdrop::syncInstances() {
 
   // Create instances for new outputs
   for (const auto& output : outputs) {
-    if (!output.done || output.connectorName.empty()) {
+    if (!output.done || output.connectorName.empty() || !output.hasUsableGeometry()) {
       continue;
     }
 
-    bool exists = std::any_of(m_instances.begin(), m_instances.end(), [&output](const auto& inst) {
-      return inst->outputName == output.name;
-    });
+    bool exists =
+        std::ranges::any_of(m_instances, [&output](const auto& inst) { return inst->outputName == output.name; });
     if (!exists) {
       createInstance(output);
     }
@@ -237,6 +237,7 @@ void Backdrop::createInstance(const WaylandOutput& output) {
 
   inst->surface = std::make_unique<BackdropSurface>(*m_wayland, std::move(surfaceConfig));
   inst->surface->setSharedGl(m_sharedGl);
+  inst->surface->setClickThrough(true);
 
   updateRendererState(*inst);
 

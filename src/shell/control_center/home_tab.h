@@ -1,8 +1,11 @@
 #pragma once
 
 #include "core/timer_manager.h"
+#include "render/core/thumbnail_service.h"
+#include "shell/control_center/control_center_services.h"
 #include "shell/control_center/shortcut_services.h"
 #include "shell/control_center/tab.h"
+#include "ui/signal.h"
 
 #include <chrono>
 #include <cstdint>
@@ -40,14 +43,7 @@ struct ShortcutPad {
 
 class HomeTab : public Tab {
 public:
-  HomeTab(
-      MprisService* mpris, HttpClient* httpClient, WeatherService* weather, PipeWireService* audio,
-      PowerProfilesService* powerProfiles, ConfigService* config, INetworkService* network, BluetoothService* bluetooth,
-      GammaService* nightLight, noctalia::theme::ThemeService* theme, NotificationManager* notifications,
-      IdleInhibitor* idleInhibitor, DependencyService* dependencies, CompositorPlatform* platform, IpcService* ipc,
-      Wallpaper* wallpaper = nullptr, scripting::ScriptApiContext* scriptApi = nullptr,
-      ClipboardService* clipboard = nullptr, AccountsService* accounts = nullptr
-  );
+  explicit HomeTab(const ControlCenterServices& services);
   ~HomeTab() override;
 
   std::unique_ptr<Flex> create() override;
@@ -60,8 +56,18 @@ private:
   void doLayout(Renderer& renderer, float contentWidth, float bodyHeight) override;
   void doUpdate(Renderer& renderer) override;
   void layoutWallpaperBackground(Renderer& renderer);
-  void layoutCardButton(Renderer& renderer, Flex* card, Button* button);
+  // Adds a card overlay for pointer and/or keyboard activation.
+  struct CardOverlayOptions {
+    bool keyboardFocus = true;
+    bool pointerHitTest = true;
+  };
+  InputArea* addCardOverlay(Flex& card, std::function<void()> onActivate);
+  InputArea* addCardOverlay(Flex& card, std::function<void()> onActivate, CardOverlayOptions options);
+  void layoutCardOverlays();
   void syncWallpaperBackground(Renderer& renderer);
+  void ensureWallpaperThumbnail(const std::string& path, int targetPx);
+  void startCrispFade();
+  void cancelCrispFade();
   void sync(Renderer& renderer);
   void syncScaledFonts();
   void syncShortcuts();
@@ -74,6 +80,7 @@ private:
   ConfigService* m_config = nullptr;
   AccountsService* m_accounts = nullptr;
   Wallpaper* m_wallpaper = nullptr;
+  ThumbnailService* m_thumbnails = nullptr;
   ShortcutServices m_services;
   bool m_active = false;
 
@@ -96,13 +103,28 @@ private:
   Label* m_userVersion = nullptr;
   Button* m_settingsButton = nullptr;
   Button* m_sessionButton = nullptr;
-  Button* m_wallpaperButton = nullptr;
-  Button* m_mediaButton = nullptr;
-  Button* m_weatherButton = nullptr;
+  InputArea* m_userCardKeyboardArea = nullptr;
+  InputArea* m_userCardArea = nullptr;
+  InputArea* m_mediaCardArea = nullptr;
+  InputArea* m_dateTimeCardArea = nullptr;
   std::string m_loadedAvatarPath;
+  int m_loadedAvatarSize = 0;
 
+  // Two stacked layers: m_wallpaperPlaceholder shows the resident full-screen
+  // wallpaper texture immediately (slightly soft), m_wallpaperBg holds the crisp
+  // card-sized thumbnail and crossfades in over it once decoded.
+  Image* m_wallpaperPlaceholder = nullptr;
   Image* m_wallpaperBg = nullptr;
   Box* m_wallpaperGradient = nullptr;
+  std::string m_loadedWallpaperPath;
+  int m_loadedWallpaperSize = 0;
+  std::string m_crispWorkingPath;
+  int m_crispWorkingSize = 0;
+  bool m_crispShown = false;
+  bool m_crispNeedsFade = false;
+  std::uint32_t m_wallpaperCrispAnimId = 0;
+  ThumbnailService::Subscription m_thumbnailPendingSub;
+  Signal<>::ScopedConnection m_wallpaperChangedConn;
 
   Label* m_mediaTrack = nullptr;
   Label* m_mediaArtist = nullptr;

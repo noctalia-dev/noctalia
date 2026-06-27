@@ -3,14 +3,13 @@
 #include "app/poll_source.h"
 #include "notification/notification_manager.h"
 
-class NotificationService;
+class NotificationDBusHost;
 
 class NotificationPollSource final : public PollSource {
 public:
   explicit NotificationPollSource(NotificationManager& manager) : m_manager(manager) {}
 
-  // Optional: set the D-Bus service for emitting close signals on expiry
-  void setDbusService(NotificationService* dbus) { m_dbus = dbus; }
+  void setDbusService(NotificationDBusHost* dbus) { m_dbus = dbus; }
 
   [[nodiscard]] int pollTimeoutMs() const override { return m_manager.nextExpiryTimeoutMs(); }
 
@@ -21,5 +20,5 @@ protected:
 
 private:
   NotificationManager& m_manager;
-  NotificationService* m_dbus = nullptr;
+  NotificationDBusHost* m_dbus = nullptr;
 };

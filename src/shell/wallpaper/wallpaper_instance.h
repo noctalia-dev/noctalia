@@ -15,6 +15,11 @@
 
 class Box;
 
+enum class WallpaperTransitionDirection {
+  Forward,
+  Reverse,
+};
+
 struct WallpaperInstance {
   std::uint32_t outputName = 0;
   struct wl_output* output = nullptr;
@@ -23,10 +28,10 @@ struct WallpaperInstance {
   std::string description;
 
   std::unique_ptr<LayerSurface> surface;
+  AnimationManager animations;
   std::unique_ptr<Node> sceneRoot;
   Box* fillNode = nullptr;
   WallpaperNode* wallpaperNode = nullptr;
-  AnimationManager animations;
 
   // Wallpaper state
   std::string currentPath;
@@ -40,8 +45,9 @@ struct WallpaperInstance {
   TextureHandle nextTexture;
 
   // Transition state
-  float transitionProgress = 0.0f;
+  float transitionTime = 0.0f;
   bool transitioning = false;
+  WallpaperTransitionDirection transitionDirection = WallpaperTransitionDirection::Forward;
   AnimationManager::Id transitionAnimId = 0;
   WallpaperTransition activeTransition = WallpaperTransition::Fade;
   TransitionParams transitionParams;

@@ -6,7 +6,6 @@
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "json.hpp"
-#include "net/http_client.h"
 #include "net/url_open.h"
 #include "notification/notification_manager.h"
 
@@ -23,8 +22,9 @@ namespace {
   constexpr const char* kCredentialOwner = "calendar_credentials";
   constexpr const char* kICloudCalDavServerUrl = "https://caldav.icloud.com/";
   constexpr auto kConnectPollInterval = std::chrono::seconds{2};
-  constexpr auto kWindowBefore = std::chrono::hours{24 * 31};
-  constexpr auto kWindowAfter = std::chrono::hours{24 * 90};
+  // Wide enough for month navigation in the control-center calendar (~1 year each way).
+  constexpr auto kWindowBefore = std::chrono::hours{24 * 365};
+  constexpr auto kWindowAfter = std::chrono::hours{24 * 365};
 
   std::int64_t toUnix(std::chrono::system_clock::time_point tp) {
     return std::chrono::duration_cast<std::chrono::seconds>(tp.time_since_epoch()).count();
@@ -146,6 +146,14 @@ void CalendarService::scheduleNextRefresh() {
   m_nextRefreshAt = std::chrono::steady_clock::now() + std::chrono::minutes{minutes};
 }
 
+void CalendarService::requestRefresh() {
+  if (!m_activeConfig.enabled) {
+    return;
+  }
+  m_nextRefreshAt = std::chrono::steady_clock::now();
+  notifyChanged();
+}
+
 void CalendarService::startRefresh() {
   if (m_activeConfig.accounts.empty()) {
     scheduleNextRefresh();
@@ -184,10 +192,8 @@ void CalendarService::accountDone(const std::string& accountId, bool ok, std::ve
 void CalendarService::rebuildSnapshot() {
   // Drop cached events for accounts no longer configured.
   for (auto it = m_eventsByAccount.begin(); it != m_eventsByAccount.end();) {
-    const bool stillConfigured = std::any_of(
-        m_activeConfig.accounts.begin(), m_activeConfig.accounts.end(),
-        [&](const CalendarConfig::Account& a) { return a.id == it->first; }
-    );
+    const bool stillConfigured =
+        std::ranges::contains(m_activeConfig.accounts, it->first, &CalendarConfig::Account::id);
     it = stillConfigured ? std::next(it) : m_eventsByAccount.erase(it);
   }
 
@@ -195,9 +201,7 @@ void CalendarService::rebuildSnapshot() {
   for (const auto& [accountId, events] : m_eventsByAccount) {
     merged.insert(merged.end(), events.begin(), events.end());
   }
-  std::sort(merged.begin(), merged.end(), [](const CalendarEvent& a, const CalendarEvent& b) {
-    return a.start < b.start;
-  });
+  std::ranges::sort(merged, {}, &CalendarEvent::start);
   m_snapshot.events = std::move(merged);
   m_snapshot.valid = true;
 }
@@ -220,7 +224,7 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
 
   calendar::discoverCalDavCollections(
       m_httpClient, serverUrl, username, password, allowRedirectAuth,
-      [this, accountId, username, password, accountColor, selectedCalendars,
+      [this, accountId, username, password, accountColor, selectedCalendars, allowRedirectAuth,
        now](bool discovered, std::vector<calendar::CalDavCollection> collections) {
         if (!discovered) {
           accountDone(accountId, false, {});
@@ -229,13 +233,9 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
 
         if (!selectedCalendars.empty()) {
           const std::unordered_set<std::string> selected(selectedCalendars.begin(), selectedCalendars.end());
-          collections.erase(
-              std::remove_if(
-                  collections.begin(), collections.end(),
-                  [&](const calendar::CalDavCollection& collection) { return !selected.contains(collection.id); }
-              ),
-              collections.end()
-          );
+          std::erase_if(collections, [&](const calendar::CalDavCollection& collection) {
+            return !selected.contains(collection.id);
+          });
         }
 
         if (collections.empty()) {
@@ -265,7 +265,7 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
           caldav.color = accountColor.empty() ? collection.color : accountColor;
 
           calendar::fetchCalDavEvents(
-              m_httpClient, caldav, now - kWindowBefore, now + kWindowAfter,
+              m_httpClient, caldav, now - kWindowBefore, now + kWindowAfter, allowRedirectAuth,
               [ctx](bool ok, std::vector<CalendarEvent> events) {
                 if (ok) {
                   ctx->anyOk = true;
@@ -364,10 +364,9 @@ void CalendarService::fetchGoogle(const CalendarConfig::Account& account) {
 }
 
 void CalendarService::connectGoogleAccount(const std::string& accountId, const std::string& activationToken) {
-  const auto it = std::find_if(
-      m_activeConfig.accounts.begin(), m_activeConfig.accounts.end(),
-      [&](const CalendarConfig::Account& a) { return a.id == accountId && a.type == "google"; }
-  );
+  const auto it = std::ranges::find_if(m_activeConfig.accounts, [&](const CalendarConfig::Account& a) {
+    return a.id == accountId && a.type == "google";
+  });
   if (it == m_activeConfig.accounts.end()) {
     kLog.warn("connectGoogleAccount: no google account with id {}", accountId);
     notifyGoogleConnectFailure(

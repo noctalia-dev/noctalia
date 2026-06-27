@@ -1,0 +1,45 @@
+name: Mirror to Codeberg
+
+on:
+  push:
+    branches:
+      - '**'
+    tags:
+      - '**'
+  delete:
+  workflow_dispatch:
+
+concurrency:
+  group: codeberg-mirror
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository == 'noctalia-dev/noctalia' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all branches and tags
+        run: git fetch origin --prune --tags
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.CODEBERG_SSH_KEY }}" > ~/.ssh/codeberg
+          chmod 600 ~/.ssh/codeberg
+          ssh-keyscan codeberg.org >> ~/.ssh/known_hosts
+          cat >> ~/.ssh/config << 'SSHEOF'
+          Host codeberg.org
+            IdentityFile ~/.ssh/codeberg
+            StrictHostKeyChecking yes
+          SSHEOF
+
+      - name: Push mirror to Codeberg
+        run: |
+          git remote add codeberg git@codeberg.org:noctalia-dev/noctalia.git
+          branches=$(git for-each-ref --format='%(refname):refs/heads/%(refname:strip=3)' refs/remotes/origin | grep -v '/HEAD:refs/heads/')
+          git push codeberg --force --prune ${branches} '+refs/tags/*:refs/tags/*'

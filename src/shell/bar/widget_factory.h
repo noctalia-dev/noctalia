@@ -1,5 +1,6 @@
 #pragma once
 
+#include "shell/bar/bar_services.h"
 #include "shell/bar/widget.h"
 
 #include <memory>
@@ -17,6 +18,7 @@ class MprisService;
 class BluetoothService;
 class BrightnessService;
 class ClipboardService;
+class EasyEffectsService;
 class RenderContext;
 class ScreenshotService;
 class INetworkService;
@@ -38,16 +40,7 @@ namespace scripting {
 
 class WidgetFactory {
 public:
-  WidgetFactory(
-      CompositorPlatform& platform, ConfigService& config, NotificationManager* notifications, TrayService* tray,
-      PipeWireService* audio, UPowerService* upower, SystemMonitorService* sysmon, PowerProfilesService* powerProfiles,
-      INetworkService* network, IdleInhibitor* idleInhibitor, MprisService* mpris, PipeWireSpectrum* audioSpectrum,
-      HttpClient* httpClient, WeatherService* weather, GammaService* nightLight,
-      noctalia::theme::ThemeService* themeService, BluetoothService* bluetooth, BrightnessService* brightness,
-      LockKeysService* lockKeys, ClipboardService* clipboard, FileWatcher* fileWatcher = nullptr,
-      ScreenshotService* screenshots = nullptr, RenderContext* renderContext = nullptr,
-      scripting::ScriptApiContext* scriptApi = nullptr
-  );
+  explicit WidgetFactory(const BarServices& services);
   ~WidgetFactory();
 
   [[nodiscard]] std::unique_ptr<Widget> create(
@@ -62,6 +55,7 @@ private:
   NotificationManager* m_notifications;
   TrayService* m_tray;
   PipeWireService* m_audio;
+  EasyEffectsService* m_easyEffects;
   UPowerService* m_upower;
   SystemMonitorService* m_sysmon;
   PowerProfilesService* m_powerProfiles;

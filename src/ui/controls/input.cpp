@@ -53,7 +53,6 @@ namespace {
   constexpr auto kDoubleClickThreshold = std::chrono::milliseconds(400);
   constexpr float kDoubleClickDistance = 6.0f;
   constexpr std::size_t kUndoStackLimit = 100;
-  constexpr std::size_t kIncrementalTextMetricsMaxBytes = 64;
   // Keep in sync with cairo_text_renderer single-texture width clip (GL_MAX_TEXTURE_SIZE).
   constexpr float kMaxLabelRasterWidth = 8192.0f - 64.0f;
   constexpr auto kTypingUndoCoalesceWindow = std::chrono::milliseconds(1000);
@@ -67,7 +66,7 @@ namespace {
       return false;
     }
 
-    const unsigned char lead = static_cast<unsigned char>(text[bytePos]);
+    const auto lead = static_cast<unsigned char>(text[bytePos]);
     if ((lead & 0x80U) != 0) {
       return true;
     }
@@ -200,7 +199,7 @@ Input::Input() {
     markPaintDirty();
     if (removedPreedit) {
       updateDisplayText();
-      markTextContentChanged(TextMetricsEdit::full());
+      markTextContentChanged();
       markPaintDirty();
     }
     if (m_submitOnFocusLoss && m_onSubmit) {
@@ -336,7 +335,7 @@ void Input::setValue(std::string_view value) {
   clearEditHistory();
   updateDisplayText();
   notifyTextInputStateChanged(TextInputChangeCause::Other);
-  markTextContentChanged(TextMetricsEdit::full());
+  markTextContentChanged();
 }
 
 void Input::setPlaceholder(std::string_view placeholder) {
@@ -352,7 +351,7 @@ void Input::setFontSize(float size) {
   if (m_label != nullptr) {
     m_label->setFontSize(m_fontSize);
   }
-  markTextContentChanged(TextMetricsEdit::full());
+  markTextContentChanged();
 }
 
 void Input::setControlHeight(float height) {
@@ -383,7 +382,7 @@ void Input::setPasswordMode(bool enabled) {
   }
   updateDisplayText();
   notifyTextInputStateChanged(TextInputChangeCause::Other);
-  markTextContentChanged(TextMetricsEdit::full());
+  markTextContentChanged();
 }
 
 void Input::setInvalid(bool invalid) {
@@ -417,7 +416,7 @@ void Input::setFontWeight(FontWeight fontWeight) {
   if (m_label != nullptr) {
     m_label->setFontWeight(fontWeight);
   }
-  markTextContentChanged(TextMetricsEdit::full());
+  markTextContentChanged();
 }
 
 void Input::setMinLayoutWidth(float width) {
@@ -655,12 +654,7 @@ void Input::textInputApplyEdit(const TextInputEdit& edit) {
 
   if (displayChanged || edit.submit) {
     updateDisplayText();
-    TextMetricsEdit metricsEdit = TextMetricsEdit::full();
-    if (permanentChanged && edit.hasCommitText && !edit.commitText.empty() && !edit.hasDelete) {
-      const std::size_t insertAt = m_cursorPos - edit.commitText.size();
-      metricsEdit = TextMetricsEdit::insert(insertAt, edit.commitText);
-    }
-    markTextContentChanged(std::move(metricsEdit));
+    markTextContentChanged();
     updateInteractiveGeometry();
     revealCursor();
     markPaintDirty();
@@ -682,7 +676,7 @@ void Input::textInputResetPreedit() {
     return;
   }
   updateDisplayText();
-  markTextContentChanged(TextMetricsEdit::full());
+  markTextContentChanged();
   updateInteractiveGeometry();
   revealCursor();
   markPaintDirty();
@@ -696,36 +690,9 @@ void Input::textInputDeactivated(TextInputService& service) {
   }
 }
 
-void Input::markTextContentChanged(TextMetricsEdit edit) {
-  if (edit.kind != TextMetricsEdit::Kind::Full && edit.fragment.size() > kIncrementalTextMetricsMaxBytes) {
-    edit.kind = TextMetricsEdit::Kind::Full;
-    edit.fragment.clear();
-  }
-  m_pendingMetricsEdit = std::move(edit);
+void Input::markTextContentChanged() {
   m_textMetricsDirty = true;
   markLayoutDirty();
-}
-
-float Input::measureTextWidth(Renderer& renderer, std::string_view text) const {
-  if (text.empty()) {
-    return 0.0f;
-  }
-  return renderer.measureText(text, m_fontSize, m_label->fontWeight()).width;
-}
-
-std::size_t Input::stopIndexForByte(std::size_t bytePos) const {
-  std::size_t best = 0;
-  for (std::size_t i = 0; i < m_stopByte.size(); ++i) {
-    if (m_stopByte[i] == bytePos) {
-      return i;
-    }
-    if (m_stopByte[i] < bytePos) {
-      best = i;
-    } else {
-      break;
-    }
-  }
-  return best;
 }
 
 void Input::rebuildCursorStopsFull(Renderer& renderer) {
@@ -759,99 +726,11 @@ void Input::rebuildCursorStopsFull(Renderer& renderer) {
   }
 }
 
-bool Input::tryApplyIncrementalCursorStops(Renderer& renderer, const TextMetricsEdit& edit) {
-  if (edit.kind == TextMetricsEdit::Kind::Full) {
-    return false;
-  }
-  if (m_passwordMode) {
-    return false;
-  }
-  if (m_stopByte.size() != m_stopX.size() || m_stopByte.empty()) {
-    return false;
-  }
-
-  if (edit.kind == TextMetricsEdit::Kind::Insert) {
-    if (edit.fragment.empty()) {
-      return true;
-    }
-    const std::size_t startByte = edit.startByte;
-    const std::size_t stopIdx = stopIndexForByte(startByte);
-    if (stopIdx >= m_stopByte.size() || m_stopByte[stopIdx] != startByte) {
-      return false;
-    }
-
-    const float baseX = m_stopX[stopIdx];
-    const std::size_t insertLen = edit.fragment.size();
-    for (std::size_t j = stopIdx + 1; j < m_stopByte.size(); ++j) {
-      m_stopByte[j] += insertLen;
-    }
-
-    std::size_t pos = startByte;
-    std::size_t insertIdx = stopIdx + 1;
-    while (pos < startByte + insertLen) {
-      pos = nextCharPos(m_value, pos);
-      const float segmentWidth = measureTextWidth(renderer, m_value.substr(startByte, pos - startByte));
-      m_stopByte.insert(m_stopByte.begin() + static_cast<std::ptrdiff_t>(insertIdx), pos);
-      m_stopX.insert(m_stopX.begin() + static_cast<std::ptrdiff_t>(insertIdx), baseX + segmentWidth);
-      ++insertIdx;
-    }
-
-    const float totalDelta = measureTextWidth(renderer, edit.fragment);
-    for (std::size_t j = insertIdx; j < m_stopX.size(); ++j) {
-      m_stopX[j] += totalDelta;
-    }
-    return true;
-  }
-
-  if (edit.kind == TextMetricsEdit::Kind::Delete) {
-    if (edit.fragment.empty()) {
-      return true;
-    }
-    const std::size_t startByte = edit.startByte;
-    const std::size_t delLen = edit.fragment.size();
-    const std::size_t endByte = startByte + delLen;
-    const std::size_t startIdx = stopIndexForByte(startByte);
-    if (startIdx >= m_stopByte.size() || m_stopByte[startIdx] != startByte) {
-      return false;
-    }
-
-    const float deletedWidth = measureTextWidth(renderer, edit.fragment);
-    const std::size_t eraseBegin = startIdx + 1;
-    std::size_t eraseEnd = eraseBegin;
-    while (eraseEnd < m_stopByte.size() && m_stopByte[eraseEnd] <= endByte) {
-      ++eraseEnd;
-    }
-    if (eraseBegin >= eraseEnd) {
-      return false;
-    }
-
-    m_stopByte.erase(
-        m_stopByte.begin() + static_cast<std::ptrdiff_t>(eraseBegin),
-        m_stopByte.begin() + static_cast<std::ptrdiff_t>(eraseEnd)
-    );
-    m_stopX.erase(
-        m_stopX.begin() + static_cast<std::ptrdiff_t>(eraseBegin),
-        m_stopX.begin() + static_cast<std::ptrdiff_t>(eraseEnd)
-    );
-
-    for (std::size_t j = startIdx + 1; j < m_stopByte.size(); ++j) {
-      m_stopByte[j] -= delLen;
-      m_stopX[j] -= deletedWidth;
-    }
-    return true;
-  }
-
-  return false;
-}
-
 void Input::rebuildCursorStops(Renderer& renderer) {
   if (!m_textMetricsDirty) {
     return;
   }
-  if (!tryApplyIncrementalCursorStops(renderer, m_pendingMetricsEdit)) {
-    rebuildCursorStopsFull(renderer);
-  }
-  m_pendingMetricsEdit = {};
+  rebuildCursorStopsFull(renderer);
   m_textMetricsDirty = false;
 }
 
@@ -1039,13 +918,17 @@ void Input::doLayout(Renderer& renderer) {
 void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool preedit) {
   clampEditState();
 
-  if (m_onKeyEvent && m_onKeyEvent(sym, modifiers)) {
-    return;
-  }
-
   const bool validateMatch = g_validateKeyMatcher && g_validateKeyMatcher(sym, modifiers);
   const bool shift = (modifiers & KeyMod::Shift) != 0;
   const bool ctrl = (modifiers & KeyMod::Ctrl) != 0;
+  const bool plainPrintableText =
+      !preedit && utf32 >= 0x20U && utf32 != 0x7FU && (modifiers & (KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super)) == 0;
+
+  // A printable key that doubles as a keybind chord (Space is bound to Validate)
+  // is text while the field is focused, not an activation to hand to the panel.
+  if (m_onKeyEvent && !(plainPrintableText && validateMatch) && m_onKeyEvent(sym, modifiers)) {
+    return;
+  }
   const bool undoShortcut = ctrl && !shift && (sym == 'z' || sym == 'Z');
   const bool redoShortcut = (ctrl && (sym == 'y' || sym == 'Y')) || (ctrl && shift && (sym == 'z' || sym == 'Z'));
   const bool clearShortcut = ctrl && !shift && (sym == 'u' || sym == 'U');
@@ -1068,7 +951,6 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
   }
 
   bool changed = false;
-  TextMetricsEdit metricsEdit = TextMetricsEdit::full();
 
   // Remove previous preedit text before processing
   changed = removePreeditText();
@@ -1084,7 +966,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     }
     if (changed) {
       updateDisplayText();
-      markTextContentChanged(TextMetricsEdit::full());
+      markTextContentChanged();
       revealCursor();
       notifyTextInputStateChanged(TextInputChangeCause::Other);
       if (!preedit && m_onChange) {
@@ -1099,7 +981,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     }
     if (changed) {
       updateDisplayText();
-      markTextContentChanged(TextMetricsEdit::full());
+      markTextContentChanged();
       revealCursor();
       notifyTextInputStateChanged(TextInputChangeCause::Other);
       if (!preedit && m_onChange) {
@@ -1140,7 +1022,6 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
         if (hasSelection()) {
           deleteSelection();
         }
-        metricsEdit = TextMetricsEdit::full();
         m_value.insert(m_cursorPos, *text);
         m_cursorPos += text->size();
         m_selectionAnchor = m_cursorPos;
@@ -1155,9 +1036,6 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     } else if (m_cursorPos > 0) {
       pushUndoSnapshot(EditCoalesceKind::Discrete);
       const std::size_t prev = ctrl ? previousWordStartForByteOffset(m_cursorPos) : prevCharPos(m_value, m_cursorPos);
-      if (!ctrl) {
-        metricsEdit = TextMetricsEdit::deleteRange(prev, m_value.substr(prev, m_cursorPos - prev));
-      }
       m_value.erase(prev, m_cursorPos - prev);
       m_cursorPos = prev;
       m_selectionAnchor = prev;
@@ -1171,9 +1049,6 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     } else if (m_cursorPos < m_value.size()) {
       pushUndoSnapshot(EditCoalesceKind::Discrete);
       const std::size_t next = ctrl ? nextWordEndForByteOffset(m_cursorPos) : nextCharPos(m_value, m_cursorPos);
-      if (!ctrl) {
-        metricsEdit = TextMetricsEdit::deleteRange(m_cursorPos, m_value.substr(m_cursorPos, next - m_cursorPos));
-      }
       m_value.erase(m_cursorPos, next - m_cursorPos);
       changed = true;
     }
@@ -1213,7 +1088,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     if (!shift) {
       m_selectionAnchor = m_cursorPos;
     }
-  } else if (validateMatch) {
+  } else if (validateMatch && !plainPrintableText) {
     if (m_onSubmit) {
       m_onSubmit(m_value);
     }
@@ -1224,15 +1099,12 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     }
     if (hasSelection()) {
       deleteSelection();
-      changed = true;
     }
     const auto bytes = utf32ToUtf8(utf32);
-    metricsEdit = TextMetricsEdit::insert(m_cursorPos, bytes);
     m_value.insert(m_cursorPos, bytes);
     if (preedit) {
       m_preeditStart = m_cursorPos;
       m_preeditLen = bytes.size();
-      metricsEdit = TextMetricsEdit::full();
     }
     m_cursorPos += bytes.size();
     m_selectionAnchor = m_cursorPos;
@@ -1244,7 +1116,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
 
   updateDisplayText();
   if (changed) {
-    markTextContentChanged(std::move(metricsEdit));
+    markTextContentChanged();
     revealCursor();
     notifyTextInputStateChanged(TextInputChangeCause::Other);
     if (!preedit && m_onChange) {
@@ -1336,7 +1208,7 @@ void Input::applyVisualState() {
                                : resolved(ColorRole::SurfaceVariant, m_surfaceOpacity);
     const Color border = m_invalid
         ? resolved(ColorRole::Error)
-        : (focused ? resolved(ColorRole::Primary)
+        : (focused ? resolveColorSpec(focusRingColorSpec())
                    : (inputHovered ? resolved(ColorRole::Hover) : resolved(ColorRole::Outline)));
 
     m_background->setStyle(
@@ -1346,7 +1218,7 @@ void Input::applyVisualState() {
             .fillMode = FillMode::Solid,
             .radius = Style::scaledRadius(m_frameRadius, chromeScale),
             .softness = 1.0f,
-            .borderWidth = Style::borderWidth,
+            .borderWidth = focused ? Style::focusRingWidth : Style::borderWidth,
         }
     );
   } else if (m_background != nullptr) {
@@ -1458,7 +1330,7 @@ void Input::clearFromButton() {
   updateInteractiveGeometry();
   revealCursor();
   applyVisualState();
-  markTextContentChanged(TextMetricsEdit::full());
+  markTextContentChanged();
   markPaintDirty();
   notifyTextInputStateChanged(TextInputChangeCause::Other);
   if (m_onChange) {
@@ -1769,7 +1641,7 @@ float Input::clearButtonTextReserveWidth() const noexcept {
 bool Input::hasSelection() const noexcept { return selectionStart() != selectionEnd(); }
 
 std::size_t Input::selectionStart() const noexcept {
-  return std::min(std::min(m_selectionAnchor, m_cursorPos), m_value.size());
+  return std::min({m_selectionAnchor, m_cursorPos, m_value.size()});
 }
 
 std::size_t Input::selectionEnd() const noexcept {
@@ -1874,7 +1746,7 @@ void Input::restoreEditSnapshot(const EditSnapshot& snapshot) {
   updateInteractiveGeometry();
   revealCursor();
   applyVisualState();
-  markTextContentChanged(TextMetricsEdit::full());
+  markTextContentChanged();
   markPaintDirty();
   notifyTextInputStateChanged(TextInputChangeCause::Other);
   if (m_value != previousValue && m_onChange) {

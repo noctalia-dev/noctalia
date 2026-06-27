@@ -19,7 +19,7 @@ namespace scripting {
 
   ScriptWorkerPool::~ScriptWorkerPool() {
     {
-      std::lock_guard lock(m_mutex);
+      std::scoped_lock lock(m_mutex);
       m_stopping = true;
     }
     m_cv.notify_all();
@@ -35,7 +35,7 @@ namespace scripting {
       return;
     }
     {
-      std::lock_guard lock(m_mutex);
+      std::scoped_lock lock(m_mutex);
       if (m_stopping) {
         return;
       }

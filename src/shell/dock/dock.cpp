@@ -1,12 +1,10 @@
 #include "shell/dock/dock.h"
 
+#include "compositors/compositor_detect.h"
 #include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "core/log.h"
-#include "core/ui_phase.h"
 #include "ipc/ipc_service.h"
-#include "render/render_context.h"
-#include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "shell/dock/dock_context_menu.h"
 #include "shell/dock/dock_geometry.h"
@@ -15,21 +13,16 @@
 #include "shell/dock/dock_model.h"
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
-#include "shell/surface/shadow.h"
-#include "shell/tooltip/tooltip_manager.h"
-#include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/desktop_entry_launch.h"
 #include "system/internal_app_metadata.h"
 #include "ui/app_icon_colorization.h"
-#include "ui/builders.h"
-#include "ui/palette.h"
 #include "ui/style.h"
-#include "util/string_utils.h"
 #include "wayland/layer_surface.h"
 #include "wayland/surface.h"
 #include "wayland/wayland_toplevels.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cerrno>
 #include <format>
@@ -103,6 +96,71 @@ namespace {
     }
 
     return signature;
+  }
+
+  [[nodiscard]] bool canActivateWindow(const ToplevelInfo& window) {
+    return window.handle != nullptr
+        || !window.identifier.empty()
+        || (compositors::isKde() && (!window.title.empty() || !window.appId.empty()));
+  }
+
+  [[nodiscard]] bool matchesActiveWindow(
+      const ToplevelInfo& window, const ActiveToplevel& active, const std::vector<ToplevelInfo>& windows
+  ) {
+    if (active.handle != nullptr && window.handle == active.handle) {
+      return true;
+    }
+
+    if (active.identifier.empty() || window.identifier.empty() || active.identifier != window.identifier) {
+      return false;
+    }
+
+    int count = 0;
+    for (const auto& w : windows) {
+      if (w.identifier == active.identifier && ++count > 1) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  const ToplevelInfo* nextActivatableWindow(
+      const std::vector<ToplevelInfo>& windows, const std::optional<ActiveToplevel>& active,
+      std::string_view preferredIdentifier
+  ) {
+    if (windows.empty()) {
+      return nullptr;
+    }
+
+    if (active.has_value()) {
+      for (std::size_t i = 0; i < windows.size(); ++i) {
+        if (!matchesActiveWindow(windows[i], *active, windows)) {
+          continue;
+        }
+        for (std::size_t offset = 1; offset <= windows.size(); ++offset) {
+          const auto& candidate = windows[(i + offset) % windows.size()];
+          if (canActivateWindow(candidate)) {
+            return &candidate;
+          }
+        }
+        return nullptr;
+      }
+    }
+
+    if (!preferredIdentifier.empty()) {
+      for (const auto& window : windows) {
+        if (window.identifier == preferredIdentifier && canActivateWindow(window)) {
+          return &window;
+        }
+      }
+    }
+
+    for (const auto& window : windows) {
+      if (canActivateWindow(window)) {
+        return &window;
+      }
+    }
+    return nullptr;
   }
 
   zwlr_foreign_toplevel_handle_v1* nextActivatableWindowHandle(
@@ -365,10 +423,14 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
       break;
     }
     m_hoveredInstance = it->second;
-    m_hoveredInstance->pointerInside = true;
-    m_hoveredInstance->inputDispatcher.pointerEnter(
-        static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial
-    );
+    shell::dock::DockInstance* const entered = m_hoveredInstance;
+    entered->pointerInside = true;
+    entered->inputDispatcher.pointerEnter(static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial);
+    // pointerEnter can re-enter the Wayland event loop (tooltip popup creation),
+    // which may clear or change m_hoveredInstance before we dereference it.
+    if (m_hoveredInstance != entered) {
+      break;
+    }
     updateHoverZoomPointer(*m_hoveredInstance, static_cast<float>(event.sx), static_cast<float>(event.sy));
     // Auto-hide: show the dock when the pointer enters.
     if (m_config->config().dock.autoHide && m_hoveredInstance->sceneRoot != nullptr) {
@@ -414,7 +476,12 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
   case PointerEvent::Type::Motion: {
     if (m_hoveredInstance == nullptr)
       break;
-    m_hoveredInstance->inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), 0);
+    shell::dock::DockInstance* const hovered = m_hoveredInstance;
+    hovered->inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), 0);
+    // pointerMotion can re-enter the Wayland event loop (tooltip popup creation),
+    // which may clear or change m_hoveredInstance before we dereference it.
+    if (m_hoveredInstance != hovered)
+      break;
     updateHoverZoomPointer(*m_hoveredInstance, static_cast<float>(event.sx), static_cast<float>(event.sy));
     break;
   }
@@ -438,7 +505,11 @@ bool Dock::onPointerEvent(const PointerEvent& event) {
             static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial
         );
       }
-      updateHoverZoomPointer(*m_hoveredInstance, static_cast<float>(event.sx), static_cast<float>(event.sy));
+      // pointerEnter/pointerMotion can re-enter the Wayland event loop (tooltip
+      // popup creation), which may clear m_hoveredInstance before we use it.
+      if (m_hoveredInstance != nullptr) {
+        updateHoverZoomPointer(*m_hoveredInstance, static_cast<float>(event.sx), static_cast<float>(event.sy));
+      }
     }
 
     if (m_hoveredInstance == nullptr)
@@ -487,10 +558,12 @@ void Dock::syncInstances() {
       ? !m_platform->runningAppIds(nullptr).empty()
       : false;
   const auto outputAllowed = [&](const WaylandOutput& output) {
-    if (!selectedMonitors.empty()
-        && std::none_of(selectedMonitors.begin(), selectedMonitors.end(), [&output](const std::string& m) {
-             return outputMatchesSelector(m, output);
-           })) {
+    if (!output.done || !output.hasUsableGeometry()) {
+      return false;
+    }
+    if (!selectedMonitors.empty() && std::ranges::none_of(selectedMonitors, [&output](const std::string& m) {
+          return outputMatchesSelector(m, output);
+        })) {
       return false;
     }
     if (hasStaticContent) {
@@ -507,8 +580,7 @@ void Dock::syncInstances() {
 
   // Remove instances for dead outputs or outputs no longer selected.
   std::erase_if(m_instances, [this, &outputs, &outputAllowed](const auto& inst) {
-    const auto it =
-        std::find_if(outputs.begin(), outputs.end(), [&inst](const auto& o) { return o.name == inst->outputName; });
+    const auto it = std::ranges::find(outputs, inst->outputName, &WaylandOutput::name);
     const bool drop = (it == outputs.end()) || !outputAllowed(*it);
     if (drop) {
       detachInstanceState(*inst);
@@ -517,13 +589,10 @@ void Dock::syncInstances() {
   });
 
   for (const auto& output : outputs) {
-    if (!output.done)
-      continue;
     if (!outputAllowed(output))
       continue;
-    const bool exists = std::any_of(m_instances.begin(), m_instances.end(), [&output](const auto& inst) {
-      return inst->outputName == output.name;
-    });
+    const bool exists =
+        std::ranges::any_of(m_instances, [&output](const auto& inst) { return inst->outputName == output.name; });
     if (!exists) {
       createInstance(output);
     }
@@ -605,8 +674,13 @@ bool Dock::syncInstanceModel(shell::dock::DockInstance& instance) {
   // keeping buildDockSnapshot a pure query.
   const std::string activeIdLower = shell::dock::currentActiveEntryIdLower(*m_platform);
   if (!activeIdLower.empty()) {
-    if (const auto active = m_platform->activeToplevel(); active.has_value() && active->handle != nullptr) {
-      m_lastActiveHandleByAppIdLower[activeIdLower] = active->handle;
+    if (const auto active = m_platform->activeToplevel(); active.has_value()) {
+      if (active->handle != nullptr) {
+        m_lastActiveHandleByAppIdLower[activeIdLower] = active->handle;
+      }
+      if (!active->identifier.empty()) {
+        m_lastActiveIdentifierByAppIdLower[activeIdLower] = active->identifier;
+      }
     }
   }
 
@@ -740,8 +814,8 @@ void Dock::activateOrLaunchItem(shell::dock::DockInstance& instance, const shell
 
   pruneCachedToplevelHandles();
 
-  auto windows = m_platform->windowsForApp(
-      action.idLower, action.startupWmClassLower,
+  auto windows = shell::dock::windowsForDockItem(
+      *m_platform, action.windowLookupIdLower, action.windowLookupWmClassLower,
       shell::dock::dockFilterOutput(m_config->config().dock, instance.output)
   );
 
@@ -757,12 +831,25 @@ void Dock::activateOrLaunchItem(shell::dock::DockInstance& instance, const shell
   }
 
   if (windows.size() == 1) {
-    m_platform->activateToplevel(windows[0].handle);
+    m_platform->activateToplevelInfo(windows[0]);
+    return;
+  }
+
+  const auto active = m_platform->activeToplevel();
+  std::string preferredIdentifier;
+  if (const auto it = m_lastActiveIdentifierByAppIdLower.find(action.idLower);
+      it != m_lastActiveIdentifierByAppIdLower.end()) {
+    preferredIdentifier = it->second;
+  }
+
+  if (const ToplevelInfo* nextWindow = nextActivatableWindow(windows, active, preferredIdentifier);
+      nextWindow != nullptr) {
+    m_platform->activateToplevelInfo(*nextWindow);
     return;
   }
 
   zwlr_foreign_toplevel_handle_v1* activeHandle = nullptr;
-  if (const auto active = m_platform->activeToplevel(); active.has_value()) {
+  if (active.has_value()) {
     activeHandle = active->handle;
   }
 
@@ -786,8 +873,8 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
 
   m_popupOwnerInstance = &instance;
 
-  auto windows = m_platform->windowsForApp(
-      action.idLower, action.startupWmClassLower,
+  auto windows = shell::dock::windowsForDockItem(
+      *m_platform, action.windowLookupIdLower, action.windowLookupWmClassLower,
       shell::dock::dockFilterOutput(m_config->config().dock, instance.output)
   );
   const std::string entryId = action.entry.id;
@@ -796,8 +883,18 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
   const DesktopEntry entryForPin = action.entry;
 
   shell::dock::DockMenuCallbacks callbacks{
-      .activateWindow = [this](zwlr_foreign_toplevel_handle_v1* handle) { m_platform->activateToplevel(handle); },
-      .closeWindow = [this](zwlr_foreign_toplevel_handle_v1* handle) { m_platform->closeToplevel(handle); },
+      .activateWindow =
+          [this, windows](std::size_t windowIndex) {
+            if (windowIndex < windows.size()) {
+              m_platform->activateToplevelInfo(windows[windowIndex]);
+            }
+          },
+      .closeWindow =
+          [this, windows](std::size_t windowIndex) {
+            if (windowIndex < windows.size()) {
+              m_platform->closeToplevelInfo(windows[windowIndex]);
+            }
+          },
       .launchAction =
           [this, entryId, entryWorkingDir, entryTerminal](const DesktopAction& desktopAction) {
             (void)desktop_entry_launch::launchAction(

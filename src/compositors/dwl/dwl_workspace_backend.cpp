@@ -202,7 +202,7 @@ void DwlWorkspaceBackend::onTagCount(std::uint32_t amount) {
   }
 }
 
-void DwlWorkspaceBackend::onLayoutAnnounced(const char* name) { m_layouts.push_back(name != nullptr ? name : ""); }
+void DwlWorkspaceBackend::onLayoutAnnounced(const char* name) { m_layouts.emplace_back(name != nullptr ? name : ""); }
 
 void DwlWorkspaceBackend::onOutputActive(zdwl_ipc_output_v2* handle, std::uint32_t active) {
   const auto it = m_outputByHandle.find(handle);

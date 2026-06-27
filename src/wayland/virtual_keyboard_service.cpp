@@ -130,7 +130,16 @@ bool VirtualKeyboardService::ensureKeymap() {
     return false;
   }
   if (m_xkbKeymap == nullptr) {
-    m_xkbKeymap = xkb_keymap_new_from_names(m_xkbContext, nullptr, XKB_KEYMAP_COMPILE_NO_FLAGS);
+    // Build a fixed, minimal US keymap rather than the session default. We only ever press v/Insert
+    // plus Ctrl/Shift, so the active layout is irrelevant; pinning rules/model/layout and clearing
+    // options keeps the serialized keymap small and free of locale-specific symbols. The compositor
+    // recompiles the text we send, and a default keymap carrying exotic compose options can fail that
+    // round-trip on an xkbcommon/xkeyboard-config version skew, leaving the virtual keyboard with no
+    // keymap and crashing the session on the first key event.
+    const xkb_rule_names names = {
+        .rules = "evdev", .model = "pc105", .layout = "us", .variant = nullptr, .options = ""
+    };
+    m_xkbKeymap = xkb_keymap_new_from_names(m_xkbContext, &names, XKB_KEYMAP_COMPILE_NO_FLAGS);
   }
   if (m_xkbKeymap == nullptr) {
     kLog.warn("failed to compile virtual keyboard keymap");

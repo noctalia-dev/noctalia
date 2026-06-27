@@ -22,12 +22,9 @@ public:
       float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
       std::function<void()> onComplete = {}, const void* owner = nullptr
   );
-  Id animateUnscaled(
-      float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
-      std::function<void()> onComplete = {}, const void* owner = nullptr
-  );
   // Real elapsed-time driver: ignores global motion enable/speed. Use for timeouts,
-  // not visual transitions.
+  // and for visual effects with a deliberate fixed duration that must stay independent
+  // of the global animation settings (e.g. the wallpaper crossfade).
   Id animateTimer(
       float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
       std::function<void()> onComplete = {}, const void* owner = nullptr

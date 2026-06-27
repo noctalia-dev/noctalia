@@ -83,7 +83,7 @@ std::vector<ListEditorOption> ListEditor::remainingOptions() const {
   std::vector<ListEditorOption> remaining;
   remaining.reserve(m_suggestedOptions.size());
   for (const auto& opt : m_suggestedOptions) {
-    if (std::find(m_items.begin(), m_items.end(), opt.value) == m_items.end()) {
+    if (!std::ranges::contains(m_items, opt.value)) {
       remaining.push_back(opt);
     }
   }

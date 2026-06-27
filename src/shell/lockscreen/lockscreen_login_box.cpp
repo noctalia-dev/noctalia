@@ -1,6 +1,7 @@
 #include "shell/lockscreen/lockscreen_login_box.h"
 
 #include "shell/desktop/desktop_widget_layout.h"
+#include "shell/desktop/desktop_widget_settings_registry.h"
 #include "ui/style.h"
 
 #include <algorithm>
@@ -84,6 +85,15 @@ namespace lockscreen_login_box {
       }
     }
 
+    [[nodiscard]] float screenWidthForOutput(const WaylandConnection& wayland, std::string_view outputName) {
+      for (const auto& output : wayland.outputs()) {
+        if (desktop_widgets::outputKey(output) == outputName) {
+          return desktop_widgets::outputLogicalWidth(output);
+        }
+      }
+      return 1920.0f;
+    }
+
   } // namespace
 
   bool isLoginBoxWidget(const DesktopWidgetState& state) { return state.type == kWidgetType; }
@@ -94,25 +104,72 @@ namespace lockscreen_login_box {
 
   std::string widgetIdForOutput(std::string_view outputKey) { return std::format("{}{}", kWidgetIdPrefix, outputKey); }
 
-  float panelWidth(float screenWidth) { return std::min(screenWidth - Style::spaceLg * 2.0f, 520.0f); }
+  float defaultPanelWidth(float screenWidth) {
+    return std::min(screenWidth - Style::spaceLg * 2.0f, kDefaultPanelWidthCap);
+  }
 
-  float panelHeight() { return 78.0f; }
+  float defaultPanelHeight() { return 70.0f; }
+
+  float panelWidth(float screenWidth) { return defaultPanelWidth(screenWidth); }
+
+  float panelHeight() { return defaultPanelHeight(); }
+
+  float resolvePanelWidth(float screenWidth, float boxWidth) {
+    if (boxWidth > 0.0f) {
+      return std::clamp(boxWidth, kMinPanelWidth, screenWidth - Style::spaceLg * 2.0f);
+    }
+    return defaultPanelWidth(screenWidth);
+  }
+
+  float resolvePanelHeight(float boxHeight) {
+    if (boxHeight > 0.0f) {
+      return std::clamp(boxHeight, kMinPanelHeight, kMaxPanelHeight);
+    }
+    return defaultPanelHeight();
+  }
+
+  void defaultPanelSize(float screenWidth, float& boxWidth, float& boxHeight) {
+    boxWidth = defaultPanelWidth(screenWidth);
+    boxHeight = defaultPanelHeight();
+  }
+
+  void clampPanelSize(float screenWidth, float& boxWidth, float& boxHeight) {
+    boxWidth = resolvePanelWidth(screenWidth, boxWidth);
+    boxHeight = resolvePanelHeight(boxHeight);
+  }
+
+  PanelContentLayout panelContentLayout(float panelWidth, float panelHeight, bool showLoginButton) {
+    PanelContentLayout layout;
+    layout.contentLeft = Style::spaceLg;
+    layout.controlHeight = std::min(Style::controlHeight, panelHeight - Style::spaceSm * 2.0f);
+    layout.contentTop = std::max(Style::spaceSm, (panelHeight - layout.controlHeight) * 0.5f);
+    const float rightInset = Style::spaceLg + Style::spaceSm;
+    const float contentWidth = panelWidth - Style::spaceLg - rightInset;
+    const float buttonWidth = layout.controlHeight;
+    const float gap = Style::spaceSm;
+    layout.inputWidth =
+        showLoginButton ? std::max(120.0f, contentWidth - buttonWidth - gap) : std::max(120.0f, contentWidth);
+    layout.buttonX = layout.contentLeft + layout.inputWidth + gap;
+    return layout;
+  }
 
   void defaultPanelCenter(float screenWidth, float screenHeight, float& cx, float& cy) {
-    const float width = panelWidth(screenWidth);
-    const float height = panelHeight();
+    float width = defaultPanelWidth(screenWidth);
+    float height = defaultPanelHeight();
     const float panelX = std::round((screenWidth - width) * 0.5f);
     const float panelY = std::max(Style::spaceLg, screenHeight - height - 84.0f);
     cx = panelX + width * 0.5f;
     cy = panelY + height * 0.5f;
   }
 
-  void
-  panelOriginFromCenter(float cx, float cy, float screenWidth, float& panelX, float& panelY, float& panelWidthOut) {
-    panelWidthOut = panelWidth(screenWidth);
-    const float height = panelHeight();
+  void panelOriginFromCenter(
+      float cx, float cy, float screenWidth, float boxWidth, float boxHeight, float& panelX, float& panelY,
+      float& panelWidthOut, float& panelHeightOut
+  ) {
+    panelWidthOut = resolvePanelWidth(screenWidth, boxWidth);
+    panelHeightOut = resolvePanelHeight(boxHeight);
     panelX = cx - panelWidthOut * 0.5f;
-    panelY = cy - height * 0.5f;
+    panelY = cy - panelHeightOut * 0.5f;
   }
 
   const DesktopWidgetState* findForOutput(const std::vector<DesktopWidgetState>& widgets, std::string_view outputKey) {
@@ -187,16 +244,20 @@ namespace lockscreen_login_box {
       if (!isLoginBoxWidget(widget)) {
         continue;
       }
-      widget.boxWidth = 0.0f;
-      widget.boxHeight = 0.0f;
       widget.rotationRad = 0.0f;
       widget.enabled = true;
       widget.type = std::string(kWidgetType);
       normalizeSettings(widget.settings);
+      const float screenWidth = screenWidthForOutput(wayland, widget.outputName);
+      if (widget.boxWidth <= 0.0f || widget.boxHeight <= 0.0f) {
+        defaultPanelSize(screenWidth, widget.boxWidth, widget.boxHeight);
+      } else {
+        clampPanelSize(screenWidth, widget.boxWidth, widget.boxHeight);
+      }
     }
 
     for (const auto& output : wayland.outputs()) {
-      if (!output.done || output.output == nullptr) {
+      if (!output.done || output.output == nullptr || !output.hasUsableGeometry()) {
         continue;
       }
       const std::string outputKey = desktop_widgets::outputKey(output);
@@ -210,10 +271,9 @@ namespace lockscreen_login_box {
       widget.outputName = outputKey;
       widget.rotationRad = 0.0f;
       widget.enabled = true;
-      defaultPanelCenter(
-          desktop_widgets::outputLogicalWidth(output), desktop_widgets::outputLogicalHeight(output), widget.cx,
-          widget.cy
-      );
+      const float screenWidth = desktop_widgets::outputLogicalWidth(output);
+      defaultPanelCenter(screenWidth, desktop_widgets::outputLogicalHeight(output), widget.cx, widget.cy);
+      defaultPanelSize(screenWidth, widget.boxWidth, widget.boxHeight);
       applyDefaultSettings(widget.settings, desktop_settings::DesktopWidgetSettingsScope::Widget);
       applyDefaultSettings(widget.settings, desktop_settings::DesktopWidgetSettingsScope::Background);
       widgets.insert(widgets.begin(), std::move(widget));

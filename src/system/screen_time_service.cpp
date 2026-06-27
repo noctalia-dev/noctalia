@@ -542,6 +542,23 @@ ScreenTimeSnapshot ScreenTimeService::snapshot(int rangeDays) {
   return snapshot;
 }
 
+void ScreenTimeService::clearAll() {
+  m_activeAppKey.clear();
+  m_activeSince = {};
+  m_days.clear();
+  m_currentDay = {};
+  m_currentDayKey.clear();
+  ensureCurrentDayLocked(localNow());
+  m_dirty = true;
+  save();
+  if (m_enabled) {
+    onFocusChange();
+  }
+  if (m_changeCallback) {
+    m_changeCallback();
+  }
+}
+
 void ScreenTimeService::flushActiveSession(std::chrono::steady_clock::time_point now) {
   if (m_activeAppKey.empty()
       || m_activeSince == std::chrono::steady_clock::time_point{}

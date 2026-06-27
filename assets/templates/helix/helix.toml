@@ -96,7 +96,7 @@
 "ui.menu" = { fg = "onSurface", bg = "surfaceContainer" }
 "ui.menu.selected" = { fg = "onPrimary", bg = "primary", modifiers = ["bold"] }
 
-"ui.selection" = { bg = "primary", fg = "onPrimary" }
+"ui.selection" = { bg = "primaryContainer", fg = "onPrimaryContainer" }
 
 "ui.highlight" = { bg = "primaryContainer", modifiers = ["bold"] }
 

@@ -1,12 +1,14 @@
 #include "shell/desktop/desktop_widget_settings_registry.h"
 
 #include "i18n/i18n.h"
+#include "scripting/plugin_i18n.h"
 #include "scripting/plugin_registry.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <cstdint>
 
 namespace desktop_settings {
   namespace {
@@ -15,9 +17,11 @@ namespace desktop_settings {
     using settings::WidgetSettingSelectOption;
     using settings::WidgetSettingSpec;
     using settings::WidgetSettingVisibility;
+    using settings::WidgetSettingVisibilityCondition;
 
     const std::vector<DesktopWidgetTypeSpec> kDesktopWidgetTypeSpecs = {
         {.type = "audio_visualizer", .labelKey = "desktop-widgets.editor.types.audio-visualizer"},
+        {.type = "button", .labelKey = "desktop-widgets.editor.types.button"},
         {.type = "clock", .labelKey = "desktop-widgets.editor.types.clock"},
         {.type = "fancy_audio_visualizer", .labelKey = "desktop-widgets.editor.types.fancy-audio-visualizer"},
         {.type = "label", .labelKey = "desktop-widgets.editor.types.label"},
@@ -42,6 +46,23 @@ namespace desktop_settings {
     }
 
     WidgetSettingSpec
+    intSpec(std::string_view key, std::int64_t defaultValue, double minValue, double maxValue, double step = 1.0) {
+      auto spec = baseSpec(key, WidgetControlKind::Int, defaultValue);
+      spec.schema.minValue = minValue;
+      spec.schema.maxValue = maxValue;
+      spec.schema.step = step;
+      return spec;
+    }
+
+    WidgetSettingSpec stepperIntSpec(
+        std::string_view key, std::int64_t defaultValue, double minValue, double maxValue, double step = 1.0
+    ) {
+      auto spec = intSpec(key, defaultValue, minValue, maxValue, step);
+      spec.stepper = true;
+      return spec;
+    }
+
+    WidgetSettingSpec
     doubleSpec(std::string_view key, double defaultValue, double minValue, double maxValue, double step = 1.0) {
       auto spec = baseSpec(key, WidgetControlKind::Double, defaultValue);
       spec.schema.minValue = minValue;
@@ -52,6 +73,10 @@ namespace desktop_settings {
 
     WidgetSettingSpec stringSpec(std::string_view key, std::string defaultValue = {}) {
       return baseSpec(key, WidgetControlKind::String, std::move(defaultValue));
+    }
+
+    WidgetSettingSpec glyphSpec(std::string_view key, std::string defaultValue = {}) {
+      return baseSpec(key, WidgetControlKind::Glyph, std::move(defaultValue));
     }
 
     WidgetSettingSpec colorSpec(std::string_view key, std::string defaultValue = {}) {
@@ -118,8 +143,25 @@ namespace desktop_settings {
       options.push_back(DesktopWidgetTypeOption{.value = entryId, .label = std::move(label)});
     }
 
-    std::sort(options.begin(), options.end(), [](const auto& a, const auto& b) { return a.label < b.label; });
+    std::ranges::sort(options, {}, &DesktopWidgetTypeOption::label);
     return options;
+  }
+
+  std::string desktopWidgetTypeLabel(std::string_view type) {
+    for (const auto& spec : kDesktopWidgetTypeSpecs) {
+      if (spec.type == type) {
+        return i18n::tr(spec.labelKey);
+      }
+    }
+    if (type == "login_box") {
+      return i18n::tr("desktop-widgets.editor.types.login-box");
+    }
+    if (auto entry = resolvePluginDesktopWidget(type); entry.has_value()) {
+      if (!entry->manifest->name.empty()) {
+        return entry->manifest->name;
+      }
+    }
+    return std::string(type);
   }
 
   std::vector<WidgetSettingSpec> commonDesktopWidgetSettingSpecs(std::string_view type) {
@@ -132,6 +174,10 @@ namespace desktop_settings {
           std::move(bgOpacity),
           std::move(bgRadius),
       };
+    }
+
+    if (type == "button") {
+      return {};
     }
 
     const WidgetSettingVisibility backgroundOn{"background", {"true"}};
@@ -160,7 +206,9 @@ namespace desktop_settings {
 
   std::vector<WidgetSettingSpec> desktopWidgetSettingSpecs(std::string_view type) {
     if (auto pluginEntry = resolvePluginDesktopWidget(type)) {
-      return settings::manifestSettingSpecs(pluginEntry->entry->settings);
+      scripting::PluginTranslationCatalog translations;
+      translations.load(pluginEntry->sourcePath.parent_path());
+      return settings::manifestSettingSpecs(pluginEntry->entry->settings, &translations);
     }
 
     const std::vector<WidgetSettingSelectOption> sysmonStats = {
@@ -194,15 +242,20 @@ namespace desktop_settings {
       auto format = stringSpec("format", "{:%H:%M}");
       format.visibleWhen = digitalOnly;
       add(std::move(format));
+      auto centerText = boolSpec("center_text", false);
+      centerText.visibleWhen = digitalOnly;
+      add(std::move(centerText));
       add(colorSpec("color", "on_surface"));
       add(fontFamilySpec());
-      add(boolSpec("shadow", true));
+      // Shadow is a text shadow on the digital label; analog mode has no shadow.
+      auto shadow = boolSpec("shadow", true);
+      shadow.visibleWhen = digitalOnly;
+      add(std::move(shadow));
       auto circle = boolSpec("circle", true);
       circle.visibleWhen = analogOnly;
       add(std::move(circle));
     } else if (type == "audio_visualizer") {
-      add(doubleSpec("aspect_ratio", 2.5, 0.5, 6.0, 0.1));
-      add(doubleSpec("bands", 32.0, 4.0, 128.0, 4.0));
+      add(intSpec("bands", 32, 4.0, 128.0, 4.0));
       add(boolSpec("mirrored", true));
       add(boolSpec("centered", true));
       add(boolSpec("show_when_idle", true));
@@ -235,7 +288,7 @@ namespace desktop_settings {
       add(std::move(ringOpacity));
       add(doubleSpec("inner_diameter", 0.7, 0.0, 1.0, 0.05));
       add(doubleSpec("bloom_intensity", 0.5, 0.0, 1.0, 0.05));
-      add(boolSpec("fade_when_idle", false));
+      add(boolSpec("fade_when_idle", true));
       add(colorSpec("primary_color", "primary"));
       add(colorSpec("secondary_color", "secondary"));
     } else if (type == "sticker") {
@@ -245,6 +298,10 @@ namespace desktop_settings {
       add(colorSpec("color", "on_surface"));
       add(fontFamilySpec());
       add(boolSpec("shadow", true));
+      add(boolSpec("show_forecast", false));
+      auto forecastDays = stepperIntSpec("forecast_days", 3, 1.0, 6.0, 1.0);
+      forecastDays.visibleWhen = WidgetSettingVisibility{"show_forecast", {"true"}};
+      add(std::move(forecastDays));
     } else if (type == "media_player") {
       add(segmentedSpec(
           "layout", "horizontal",
@@ -259,15 +316,81 @@ namespace desktop_settings {
       add(stringSpec("title", "Title"));
       add(stringSpec("description"));
       add(colorSpec("color", "on_surface"));
+      add(doubleSpec("opacity", 1.0, 0.0, 1.0, 0.01));
       add(fontFamilySpec());
       add(boolSpec("shadow", true));
+    } else if (type == "button") {
+      add(boolSpec("background", true));
+      add(glyphSpec("glyph", "heart"));
+      add(stringSpec("label"));
+      add(stringSpec("command"));
+      add(selectSpec(
+          "variant", "default",
+          {{"default", "desktop-widgets.editor.settings.variant-default"},
+           {"primary", "desktop-widgets.editor.settings.variant-primary"},
+           {"secondary", "desktop-widgets.editor.settings.variant-secondary"},
+           {"outline", "desktop-widgets.editor.settings.variant-outline"},
+           {"ghost", "desktop-widgets.editor.settings.variant-ghost"},
+           {"destructive", "desktop-widgets.editor.settings.variant-destructive"}}
+      ));
+      add(colorSpec("color"));
+      add(colorSpec("hover_background", "hover"));
+      add(fontFamilySpec());
     } else if (type == "sysmon") {
+      const std::vector<WidgetSettingSelectOption> sysmonDisplay = {
+          {"graph", "desktop-widgets.editor.settings.display-graph"},
+          {"gauge", "desktop-widgets.editor.settings.display-gauge"},
+      };
+      const WidgetSettingVisibility graphOnly{"display", {"graph"}};
+      const WidgetSettingVisibility gaugeOnly{"display", {"gauge"}};
+
       add(selectSpec("stat", "cpu_usage", sysmonStats));
-      add(selectSpec("stat2", "", sysmonStatsWithNone));
+      {
+        auto stat2 = selectSpec("stat2", "", sysmonStatsWithNone);
+        stat2.visibleWhen = graphOnly;
+        add(std::move(stat2));
+      }
+      {
+        auto interface = stringSpec("interface");
+        interface.visibleWhen =
+            WidgetSettingVisibility{{{"stat", {"net_rx", "net_tx"}}, {"stat2", {"net_rx", "net_tx"}}}};
+        add(std::move(interface));
+      }
+      add(segmentedSpec("display", "graph", sysmonDisplay));
+      {
+        auto gaugeLayout = segmentedSpec(
+            "gauge_layout", "horizontal",
+            {
+                {"horizontal", "desktop-widgets.editor.settings.horizontal"},
+                {"vertical", "desktop-widgets.editor.settings.vertical"},
+            }
+        );
+        gaugeLayout.visibleWhen = gaugeOnly;
+        add(std::move(gaugeLayout));
+      }
       add(colorSpec("color", "primary"));
-      add(colorSpec("color2", "secondary"));
+      {
+        auto color2 = colorSpec("color2", "secondary");
+        color2.visibleWhen = graphOnly;
+        add(std::move(color2));
+      }
+      {
+        auto highlight = colorSpec("highlight_color", "error");
+        highlight.visibleWhen = gaugeOnly;
+        add(std::move(highlight));
+      }
       add(fontFamilySpec());
       add(boolSpec("show_label", true));
+      {
+        auto minW = intSpec("label_min_width", 0, 0.0, 200.0, 1.0);
+        WidgetSettingVisibility showLabelGauge;
+        showLabelGauge.all = {
+            WidgetSettingVisibilityCondition{"display", {"gauge"}},
+            WidgetSettingVisibilityCondition{"show_label", {"true"}},
+        };
+        minW.visibleWhen = showLabelGauge;
+        add(std::move(minW));
+      }
       add(boolSpec("shadow", true));
     } else if (type == "login_box") {
       add(boolSpec("show_login_button", true));

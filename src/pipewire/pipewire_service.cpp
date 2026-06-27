@@ -8,6 +8,8 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <array>
+#include <cctype>
 #include <charconv>
 #include <chrono>
 #include <cmath>
@@ -18,7 +20,7 @@
 #include <pipewire/extensions/metadata.h>
 #include <pipewire/keys.h>
 #include <pipewire/pipewire.h>
-#include <spa/param/audio/format-utils.h>
+#include <ranges>
 #include <spa/param/param.h>
 #include <spa/param/props.h>
 #include <spa/param/route.h>
@@ -30,11 +32,15 @@
 #include <spa/utils/type.h>
 #include <string>
 #include <string_view>
+#include <tuple>
 
 namespace {
 
   constexpr float kDefaultVolumeStep = 0.05f;
   constexpr auto kVolumeApplyMinInterval = std::chrono::milliseconds(25);
+  constexpr auto kVolumeWriteGuardDuration = std::chrono::milliseconds(400);
+  constexpr auto kMuteWriteGuardDuration = std::chrono::milliseconds(1200);
+  constexpr float kVolumeWriteGuardEpsilon = 0.02f;
 
   // Registry events.
   void onRegistryGlobal(
@@ -221,13 +227,20 @@ namespace {
       }
     }
 
-    if (mergeOnly && !dictHas(props, PW_KEY_NODE_PASSIVE)) {
-      return changed;
+    if (!mergeOnly || dictHas(props, PW_KEY_NODE_PASSIVE)) {
+      const bool passive = isTruthyPipeWireProp(dictGet(props, PW_KEY_NODE_PASSIVE));
+      if (nd.nodePassive != passive) {
+        nd.nodePassive = passive;
+        changed = true;
+      }
     }
-    const bool passive = isTruthyPipeWireProp(dictGet(props, PW_KEY_NODE_PASSIVE));
-    if (nd.nodePassive != passive) {
-      nd.nodePassive = passive;
-      changed = true;
+
+    if (!mergeOnly || dictHas(props, "stream.capture.sink")) {
+      const bool captureSink = isTruthyPipeWireProp(dictGet(props, "stream.capture.sink"));
+      if (nd.streamCaptureSink != captureSink) {
+        nd.streamCaptureSink = captureSink;
+        changed = true;
+      }
     }
     return changed;
   }
@@ -410,6 +423,51 @@ namespace {
     }
   }
 
+  [[nodiscard]] float resolvedVolume(const ParsedPropsVolumes& p) {
+    if (p.hasChannel) {
+      return p.channelVol;
+    }
+    if (p.hasScalar) {
+      return p.scalarVol;
+    }
+    if (p.hasSoft) {
+      return p.softVol;
+    }
+    return -1.0f;
+  }
+
+  [[nodiscard]] bool shouldRejectVolumeWrite(const PipeWireService::NodeData& nd, float candidateVol) {
+    if (nd.lastWrittenVolume < 0.0f) {
+      return false;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= nd.volumeWriteGuardUntil) {
+      return false;
+    }
+    return std::abs(candidateVol - nd.lastWrittenVolume) > kVolumeWriteGuardEpsilon;
+  }
+
+  void confirmVolumeWrite(PipeWireService::NodeData& nd, float candidateVol) {
+    if (nd.lastWrittenVolume < 0.0f) {
+      return;
+    }
+    if (std::abs(candidateVol - nd.lastWrittenVolume) <= kVolumeWriteGuardEpsilon) {
+      nd.volumeWriteGuardUntil = {};
+    }
+  }
+
+  bool mergeIncomingVolumes(PipeWireService::NodeData& nd, const ParsedPropsVolumes& p) {
+    const float candidate = resolvedVolume(p);
+    if (candidate >= 0.0f && shouldRejectVolumeWrite(nd, candidate)) {
+      return false;
+    }
+    mergeParsedVolumesIntoNode(nd, p);
+    if (candidate >= 0.0f) {
+      confirmVolumeWrite(nd, candidate);
+    }
+    return true;
+  }
+
   // Device ParamRoute updates are per-direction; applying every route's volume to all nodes on the same
   // device.id merges playback and capture on combo hardware (see activeRouteForDirection).
   [[nodiscard]] bool routeVolumeDirectionMatchesNode(std::string_view mediaClass, std::uint32_t routeDirection) {
@@ -456,9 +514,7 @@ namespace {
     if (lookupIndex < 0) {
       return;
     }
-    const auto existing = std::find_if(routes.begin(), routes.end(), [lookupIndex](const auto& entry) {
-      return entry.index == lookupIndex;
-    });
+    const auto existing = std::ranges::find(routes, lookupIndex, &PipeWireService::DeviceRouteData::index);
     if (existing == routes.end()) {
       routes.push_back(route);
       return;
@@ -478,15 +534,176 @@ namespace {
 
   constexpr Logger kLog("pipewire");
 
+  constexpr auto kTrackedNodeClasses = std::to_array<std::string_view>({
+      "Audio/Sink",
+      "Audio/Source",
+      "Stream/Output/Audio",
+      "Stream/Input/Audio",
+  });
+
+  constexpr auto kPrivacyAudioNodeClasses = std::to_array<std::string_view>({
+      "Stream/Input/Audio",
+  });
+
+  constexpr auto kMicrophoneSourceClasses = std::to_array<std::string_view>({
+      "Audio/Source",
+  });
+
+  constexpr auto kAudioCaptureConsumerClasses = std::to_array<std::string_view>({
+      "Stream/Input/Audio",
+  });
+
+  constexpr auto kCameraSourceClasses = std::to_array<std::string_view>({
+      "Video/Source",
+  });
+
+  constexpr auto kVideoCaptureConsumerClasses = std::to_array<std::string_view>({
+      "Stream/Input/Video",
+  });
+
+  constexpr auto kScreenShareNamePrefixes = std::to_array<std::string_view>({
+      "xdph-streaming",
+      "gsr-default",
+      "game capture",
+      "screen",
+      "desktop",
+      "display",
+      "cast",
+      "webrtc",
+  });
+
+  constexpr auto kScreenShareExactNames = std::to_array<std::string_view>({
+      "gsr-default_output",
+  });
+
+  constexpr auto kScreenShareWeakNamePrefixes = std::to_array<std::string_view>({
+      "v4l2",
+  });
+
+  constexpr auto kScreenShareNameFragments = std::to_array<std::string_view>({
+      "screen-cast",
+      "screen-capture",
+      "desktop-capture",
+      "monitor-capture",
+      "window-capture",
+      "game-capture",
+  });
+
   bool isProgramStreamClass(std::string_view mediaClass) { return mediaClass == "Stream/Output/Audio"; }
 
+  [[nodiscard]] bool isTrackedNodeClass(std::string_view mediaClass) {
+    return std::ranges::contains(kTrackedNodeClasses, mediaClass) || mediaClass.contains("Video");
+  }
+
+  [[nodiscard]] bool isPrivacyCandidateClass(std::string_view mediaClass) {
+    return std::ranges::contains(kPrivacyAudioNodeClasses, mediaClass)
+        || (mediaClass.contains("Video") && !mediaClass.contains("Audio"));
+  }
+
+  [[nodiscard]] std::string lowercaseAscii(std::string_view value) {
+    std::string out(value);
+    std::ranges::transform(out, out.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    return out;
+  }
+
+  [[nodiscard]] bool matchesScreenShareName(std::string_view mediaName, bool includeWeakPrefixes) {
+    if (mediaName.empty()) {
+      return false;
+    }
+
+    const std::string lower = lowercaseAscii(mediaName);
+    return std::ranges::any_of(
+               kScreenShareNamePrefixes, [&lower](std::string_view prefix) { return lower.starts_with(prefix); }
+           )
+        || (includeWeakPrefixes
+            && std::ranges::any_of(
+                kScreenShareWeakNamePrefixes, [&lower](std::string_view prefix) { return lower.starts_with(prefix); }
+            ))
+        || std::ranges::contains(kScreenShareExactNames, lower)
+        || std::ranges::any_of(kScreenShareNameFragments, [&lower](std::string_view fragment) {
+             return lower.contains(fragment);
+           });
+  }
+
+  [[nodiscard]] bool isMicrophoneSource(const PipeWireService::NodeData& nd) {
+    return std::ranges::contains(kMicrophoneSourceClasses, nd.mediaClass);
+  }
+
+  [[nodiscard]] bool isAudioCaptureConsumer(const PipeWireService::NodeData& nd) {
+    return std::ranges::contains(kAudioCaptureConsumerClasses, nd.mediaClass) && !nd.streamCaptureSink;
+  }
+
+  [[nodiscard]] bool isCameraSource(const PipeWireService::NodeData& nd) {
+    return std::ranges::contains(kCameraSourceClasses, nd.mediaClass);
+  }
+
+  [[nodiscard]] bool isVideoCaptureConsumer(const PipeWireService::NodeData& nd) {
+    return std::ranges::contains(kVideoCaptureConsumerClasses, nd.mediaClass);
+  }
+
+  [[nodiscard]] bool isScreenSource(const PipeWireService::NodeData& nd) {
+    if (!nd.mediaClass.contains("Video") || nd.mediaClass.contains("Audio")) {
+      return false;
+    }
+
+    if (matchesScreenShareName(nd.mediaName, true) || matchesScreenShareName(nd.streamTitle, false)) {
+      return true;
+    }
+
+    if (isCameraSource(nd)) {
+      return matchesScreenShareName(nd.name, false);
+    }
+    return matchesScreenShareName(nd.name, true);
+  }
+
+  [[nodiscard]] std::string privacyAppName(const PipeWireService::NodeData& nd) {
+    if (!nd.applicationName.empty()) {
+      return nd.applicationName;
+    }
+    if (!nd.streamTitle.empty()) {
+      return nd.streamTitle;
+    }
+    if (!nd.description.empty()) {
+      return nd.description;
+    }
+    return nd.name;
+  }
+
+  [[nodiscard]] std::optional<PrivacyCaptureKind>
+  classifyPrivacyCapture(const PipeWireService::NodeData& source, const PipeWireService::NodeData& consumer) {
+    if (isMicrophoneSource(source) && isAudioCaptureConsumer(consumer)) {
+      return PrivacyCaptureKind::Microphone;
+    }
+
+    if (isScreenSource(source) && isVideoCaptureConsumer(consumer)) {
+      return PrivacyCaptureKind::Screen;
+    }
+
+    if (isCameraSource(source) && isVideoCaptureConsumer(consumer)) {
+      return PrivacyCaptureKind::Camera;
+    }
+
+    return std::nullopt;
+  }
+
+  // QEMU's libvirt PipeWire backend (node.name "qemu-system-<arch>") is a program stream that needs
+  // special handling: it sets target.object and never sets application.name.
+  [[nodiscard]] bool isQemuStreamNode(const PipeWireService::NodeData& nd) {
+    return isProgramStreamClass(nd.mediaClass) && nd.name.starts_with("qemu-system-");
+  }
+
   [[nodiscard]] bool isProgramOutputNode(const PipeWireService::NodeData& nd) {
-    // Match wpctl "Streams": Stream/Output/Audio without node.link-group. Loopback/filter endpoints also
-    // expose target.object or node.passive and must not appear as application volumes.
+    // Match wpctl "Streams": Stream/Output/Audio without node.link-group. Loopback/filter endpoints
+    // also expose target.object or node.passive and must not appear as application volumes. QEMU
+    // streams are the exception: they set target.object to name the VM target but are still
+    // user-controllable application volumes (as pavucontrol/wpctl show them).
     if (!isProgramStreamClass(nd.mediaClass) || !nd.streamClassificationReady) {
       return false;
     }
-    if (!nd.linkGroup.empty() || !nd.targetObject.empty() || nd.nodePassive) {
+    if (!nd.linkGroup.empty() || nd.nodePassive) {
+      return false;
+    }
+    if (!nd.targetObject.empty() && !isQemuStreamNode(nd)) {
       return false;
     }
     return true;
@@ -716,10 +933,22 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
     return;
   }
 
-  // Track audio sink/source nodes
+  if (std::strcmp(type, PW_TYPE_INTERFACE_Link) == 0) {
+    LinkData link;
+    link.id = id;
+    link.outputNodeId = parseUint32Or(dictGet(props, PW_KEY_LINK_OUTPUT_NODE));
+    link.inputNodeId = parseUint32Or(dictGet(props, PW_KEY_LINK_INPUT_NODE));
+    if (link.outputNodeId != 0 && link.inputNodeId != 0) {
+      m_links.insert_or_assign(id, link);
+      rebuildState();
+    }
+    return;
+  }
+
+  // Track audio nodes and privacy-relevant stream nodes.
   if (std::strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
     std::string mediaClass = dictGet(props, PW_KEY_MEDIA_CLASS);
-    if (mediaClass != "Audio/Sink" && mediaClass != "Audio/Source" && mediaClass != "Stream/Output/Audio") {
+    if (!isTrackedNodeClass(mediaClass)) {
       return;
     }
 
@@ -753,8 +982,9 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
     }
 
     nd->streamTitle = dictGet(props, "media.title");
+    nd->mediaName = dictGet(props, "media.name");
     if (nd->streamTitle.empty()) {
-      nd->streamTitle = dictGet(props, "media.name");
+      nd->streamTitle = nd->mediaName;
     }
     if (nd->streamTitle.empty()) {
       nd->streamTitle = dictGet(props, "node.nick");
@@ -770,8 +1000,8 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
     if (nd->iconName.empty()) {
       nd->iconName = nd->applicationBinary;
     }
-    applyStreamFilterPropsFromDict(*nd, props, false);
     nd->mediaClass = mediaClass;
+    applyStreamFilterPropsFromDict(*nd, props, false);
     const bool audioDeviceNode = mediaClass == "Audio/Sink" || mediaClass == "Audio/Source";
     applyVolumePropsFromDict(*nd, props, !audioDeviceNode);
     refreshNodeIdentity(*nd);
@@ -815,7 +1045,7 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
         spa_zero(*md->listener);
         pw_metadata_add_listener(proxy, md->listener, &kMetadataEvents, md);
         pw_core_sync(md->service->coreHandle(), PW_ID_CORE, 0);
-        m_metadataCleanups.push_back([md]() {
+        m_metadataCleanups.emplace_back([md]() {
           if (md->listener != nullptr) {
             spa_hook_remove(md->listener);
             delete md->listener;
@@ -870,6 +1100,12 @@ void PipeWireService::onRegistryGlobalRemove(std::uint32_t id) {
     return;
   }
 
+  if (auto it = m_links.find(id); it != m_links.end()) {
+    m_links.erase(it);
+    rebuildState();
+    return;
+  }
+
   auto it = m_nodes.find(id);
   if (it == m_nodes.end()) {
     return;
@@ -899,10 +1135,15 @@ void PipeWireService::onNodeInfo(std::uint32_t id, const pw_node_info* info) {
 
   // Update name/description from props if available
   auto& nd = *it->second;
-  const bool isStream = isProgramStreamClass(nd.mediaClass);
+  const bool wasProgramStream = isProgramStreamClass(nd.mediaClass);
+  const bool wasPrivacyCandidate = isPrivacyCandidateClass(nd.mediaClass);
   bool filterPropsChanged = false;
 
   if (info->props != nullptr) {
+    std::string mediaClass = dictGet(info->props, PW_KEY_MEDIA_CLASS);
+    if (!mediaClass.empty()) {
+      nd.mediaClass = std::move(mediaClass);
+    }
     std::string desc = dictGet(info->props, PW_KEY_NODE_DESCRIPTION);
     if (!desc.empty()) {
       nd.description = desc;
@@ -941,8 +1182,12 @@ void PipeWireService::onNodeInfo(std::uint32_t id, const pw_node_info* info) {
       }
     }
     std::string mediaName = dictGet(info->props, "media.title");
+    std::string rawMediaName = dictGet(info->props, "media.name");
+    if (!rawMediaName.empty()) {
+      nd.mediaName = rawMediaName;
+    }
     if (mediaName.empty()) {
-      mediaName = dictGet(info->props, "media.name");
+      mediaName = rawMediaName;
     }
     if (!mediaName.empty()) {
       nd.streamTitle = mediaName;
@@ -960,11 +1205,16 @@ void PipeWireService::onNodeInfo(std::uint32_t id, const pw_node_info* info) {
     refreshNodeIdentity(nd);
   }
 
+  const bool isStream = isProgramStreamClass(nd.mediaClass);
+  const bool isPrivacyCandidate = isPrivacyCandidateClass(nd.mediaClass);
   const bool wasStreamReady = nd.streamClassificationReady;
   if (isStream) {
     nd.streamClassificationReady = true;
   }
-  if (isStream && (!wasStreamReady || filterPropsChanged)) {
+  if ((isStream && (!wasStreamReady || filterPropsChanged))
+      || wasProgramStream != isStream
+      || wasPrivacyCandidate
+      || isPrivacyCandidate) {
     rebuildState();
   }
 
@@ -1041,7 +1291,7 @@ void PipeWireService::onNodeParam(
         basis.channelCount = nd.channelCount;
         ParsedPropsVolumes fromRoute{};
         parsePropsObjectVolumeFields(routeProps, basis, &fromRoute);
-        mergeParsedVolumesIntoNode(nd, fromRoute);
+        mergeIncomingVolumes(nd, fromRoute);
       }
       recomputeEffectiveMute(nd);
       rebuildState();
@@ -1068,20 +1318,9 @@ void PipeWireService::onNodeParam(
     }
   }
 
-  float candidateVol = -1.0f;
-  if (parsed.hasChannel) {
-    candidateVol = parsed.channelVol;
-  } else if (parsed.hasScalar) {
-    candidateVol = parsed.scalarVol;
-  } else if (parsed.hasSoft) {
-    candidateVol = parsed.softVol;
-  }
-  const bool isAudioDeviceNode = nd.mediaClass == "Audio/Sink" || nd.mediaClass == "Audio/Source";
-  const bool rejectStaleFullScaleProps =
-      isAudioDeviceNode && candidateVol >= 0.0f && candidateVol >= 0.99f && nd.volume < 0.93f;
-
-  if (!rejectStaleFullScaleProps) {
-    mergeParsedVolumesIntoNode(nd, parsed);
+  float candidateVol = resolvedVolume(parsed);
+  if (candidateVol >= 0.0f) {
+    mergeIncomingVolumes(nd, parsed);
   }
 
   recomputeEffectiveMute(nd);
@@ -1202,7 +1441,7 @@ void PipeWireService::onDeviceParam(
       if (node != nullptr
           && node->deviceId == id
           && routeVolumeDirectionMatchesNode(node->mediaClass, routeDirection)) {
-        mergeParsedVolumesIntoNode(*node, fromRoute);
+        mergeIncomingVolumes(*node, fromRoute);
       }
     }
   }
@@ -1257,10 +1496,77 @@ void PipeWireService::refreshNodeIdentity(NodeData& nd) {
   if (nd.iconName.empty() && !client.iconName.empty()) {
     nd.iconName = client.iconName;
   }
+
+  // QEMU sets target.object (the libvirt VM name) but never application.name. Surface that name as
+  // the identity. Runs unconditionally, not gated on applicationName: onClientInfo fires before
+  // target.object is populated and would otherwise pin applicationName to "QEMU" for the stream's
+  // lifetime; onNodeInfo fills target.object in later.
+  if (isQemuStreamNode(nd)) {
+    const std::string renameTo = nd.targetObject.empty() ? std::string{"QEMU"} : nd.targetObject;
+    nd.applicationName = renameTo;
+    // Slugify the free-form VM name into a lowercase-hyphenated reverse-DNS suffix.
+    std::string idSuffix;
+    idSuffix.reserve(renameTo.size());
+    bool prevDash = false;
+    for (const char ch : renameTo) {
+      const auto u = static_cast<unsigned char>(ch);
+      const bool alphanumeric = (u >= 'a' && u <= 'z') || (u >= 'A' && u <= 'Z') || (u >= '0' && u <= '9');
+      if (alphanumeric) {
+        idSuffix.push_back(static_cast<char>(std::tolower(u)));
+        prevDash = false;
+      } else if (!prevDash) {
+        idSuffix.push_back('-');
+        prevDash = true;
+      }
+    }
+    while (!idSuffix.empty() && idSuffix.back() == '-') {
+      idSuffix.pop_back();
+    }
+    if (idSuffix.empty()) {
+      idSuffix = "qemu";
+    }
+    nd.applicationId = "org.qemu.vm." + idSuffix;
+  }
 }
 
 void PipeWireService::rebuildState() {
   AudioState next;
+  PrivacyState nextPrivacy;
+
+  auto findNode = [this](std::uint32_t nodeId) -> const NodeData* {
+    const auto it = m_nodes.find(nodeId);
+    if (it == m_nodes.end() || it->second == nullptr) {
+      return nullptr;
+    }
+    return it->second.get();
+  };
+
+  auto addCapture = [&nextPrivacy](PrivacyCaptureKind kind, std::uint32_t nodeId, std::string appName) {
+    if (appName.empty()) {
+      return false;
+    }
+    const auto duplicate = std::ranges::find_if(nextPrivacy.captures, [&](const PrivacyCapture& capture) {
+      return capture.kind == kind && capture.appName == appName;
+    });
+    if (duplicate != nextPrivacy.captures.end()) {
+      return false;
+    }
+    nextPrivacy.captures.push_back(
+        PrivacyCapture{
+            .kind = kind,
+            .nodeId = nodeId,
+            .appName = std::move(appName),
+        }
+    );
+    return true;
+  };
+
+  auto addLinkedAudioCapture = [&addCapture](const NodeData* node) {
+    if (node == nullptr || !isAudioCaptureConsumer(*node)) {
+      return false;
+    }
+    return addCapture(PrivacyCaptureKind::Microphone, node->id, privacyAppName(*node));
+  };
 
   for (const auto& [id, nd] : m_nodes) {
     AudioNode node;
@@ -1294,16 +1600,38 @@ void PipeWireService::rebuildState() {
     }
   }
 
-  // Sort by id for stable ordering
-  std::ranges::sort(next.sinks, [](const auto& a, const auto& b) { return a.id < b.id; });
-  std::ranges::sort(next.sources, [](const auto& a, const auto& b) { return a.id < b.id; });
-  std::ranges::sort(next.programOutputs, [](const auto& a, const auto& b) { return a.id < b.id; });
+  for (const LinkData& link : std::views::values(m_links)) {
+    const NodeData* source = findNode(link.outputNodeId);
+    const NodeData* consumer = findNode(link.inputNodeId);
+    addLinkedAudioCapture(source);
+    addLinkedAudioCapture(consumer);
 
-  if (next == m_state) {
+    if (source == nullptr || consumer == nullptr) {
+      continue;
+    }
+
+    const std::optional<PrivacyCaptureKind> kind = classifyPrivacyCapture(*source, *consumer);
+    if (!kind.has_value()) {
+      continue;
+    }
+
+    addCapture(*kind, consumer->id, privacyAppName(*consumer));
+  }
+
+  // Sort by id for stable ordering
+  std::ranges::sort(next.sinks, {}, &AudioNode::id);
+  std::ranges::sort(next.sources, {}, &AudioNode::id);
+  std::ranges::sort(next.programOutputs, {}, &AudioNode::id);
+  std::ranges::sort(nextPrivacy.captures, {}, [](const PrivacyCapture& capture) {
+    return std::tie(capture.kind, capture.appName, capture.nodeId);
+  });
+
+  if (next == m_state && nextPrivacy == m_privacyState) {
     return;
   }
 
   m_state = std::move(next);
+  m_privacyState = std::move(nextPrivacy);
   ++m_changeSerial;
   emitChanged();
 }
@@ -1335,7 +1663,51 @@ void PipeWireService::recomputeEffectiveMute(NodeData& nd) {
   }
 
   const bool deviceRouteMuted = deviceRoute != nullptr && deviceRoute->muted;
-  nd.muted = nd.swMute || routeMuted || deviceRouteMuted;
+  const bool backendMuted = nd.swMute || routeMuted || deviceRouteMuted;
+  if (nd.pendingMute.has_value() && std::chrono::steady_clock::now() >= nd.muteWriteGuardUntil) {
+    nd.pendingMute.reset();
+    nd.muteWriteGuardUntil = {};
+  }
+  nd.muted = nd.pendingMute.value_or(backendMuted);
+}
+
+void PipeWireService::scheduleMuteWriteGuard() {
+  std::optional<std::chrono::steady_clock::time_point> nextExpiry;
+  for (const auto& node : std::views::values(m_nodes)) {
+    if (node == nullptr || !node->pendingMute.has_value()) {
+      continue;
+    }
+    if (!nextExpiry.has_value() || node->muteWriteGuardUntil < *nextExpiry) {
+      nextExpiry = node->muteWriteGuardUntil;
+    }
+  }
+
+  if (!nextExpiry.has_value()) {
+    m_muteWriteGuardTimer.stop();
+    return;
+  }
+
+  const auto now = std::chrono::steady_clock::now();
+  const auto delay = *nextExpiry > now ? std::chrono::ceil<std::chrono::milliseconds>(*nextExpiry - now)
+                                       : std::chrono::milliseconds(0);
+  m_muteWriteGuardTimer.start(delay, [this]() { expireMuteWriteGuards(); });
+}
+
+void PipeWireService::expireMuteWriteGuards() {
+  bool changed = false;
+  for (auto& node : std::views::values(m_nodes)) {
+    if (node == nullptr || !node->pendingMute.has_value()) {
+      continue;
+    }
+    const bool before = node->muted;
+    recomputeEffectiveMute(*node);
+    changed = changed || before != node->muted;
+  }
+
+  if (changed) {
+    rebuildState();
+  }
+  scheduleMuteWriteGuard();
 }
 
 void PipeWireService::applyVolumePropsFromDict(NodeData& nd, const spa_dict* props, bool applyMixerFieldsFromDict) {
@@ -1344,11 +1716,16 @@ void PipeWireService::applyVolumePropsFromDict(NodeData& nd, const spa_dict* pro
   }
 
   if (applyMixerFieldsFromDict) {
+    float candidate = -1.0f;
     if (const auto maybeChannelmixVolume = parseFloat(dictGet(props, "channelmix.volume"));
         maybeChannelmixVolume.has_value()) {
-      nd.volume = std::clamp(*maybeChannelmixVolume, 0.0f, 1.5f);
+      candidate = std::clamp(*maybeChannelmixVolume, 0.0f, 1.5f);
     } else if (const auto maybeVolume = parseFloat(dictGet(props, "volume")); maybeVolume.has_value()) {
-      nd.volume = std::clamp(*maybeVolume, 0.0f, 1.5f);
+      candidate = std::clamp(*maybeVolume, 0.0f, 1.5f);
+    }
+    if (candidate >= 0.0f && !shouldRejectVolumeWrite(nd, candidate)) {
+      nd.volume = candidate;
+      confirmVolumeWrite(nd, candidate);
     }
 
     if (const auto maybeChannelmixMuted = parseBool(dictGet(props, "channelmix.mute"));
@@ -1408,6 +1785,11 @@ void PipeWireService::flushPendingNodeVolumes() {
   }
 }
 
+void PipeWireService::noteVolumeWritten(NodeData& nd, float volume) {
+  nd.lastWrittenVolume = volume;
+  nd.volumeWriteGuardUntil = std::chrono::steady_clock::now() + kVolumeWriteGuardDuration;
+}
+
 bool PipeWireService::applyNodeVolumeImmediate(std::uint32_t id, float volume) {
   auto it = m_nodes.find(id);
   if (it == m_nodes.end()) {
@@ -1420,6 +1802,7 @@ bool PipeWireService::applyNodeVolumeImmediate(std::uint32_t id, float volume) {
   }
 
   volume = std::clamp(volume, 0.0f, 1.5f);
+  noteVolumeWritten(nd, volume);
 
   // Keep WirePlumber policy in sync without blocking the main loop.
   // `runAsync` is fire-and-forget, so rapid wheel/slider updates remain responsive.
@@ -1493,8 +1876,10 @@ void PipeWireService::setNodeMuted(std::uint32_t id, bool muted) {
     const bool launched = process::runAsync({"wpctl", "set-mute", std::to_string(id), muted ? "1" : "0"});
     if (launched) {
       const bool before = nd.muted;
-      nd.swMute = muted;
+      nd.pendingMute = muted;
+      nd.muteWriteGuardUntil = std::chrono::steady_clock::now() + kMuteWriteGuardDuration;
       recomputeEffectiveMute(nd);
+      scheduleMuteWriteGuard();
       if (before != nd.muted) {
         if (id == m_state.defaultSinkId && m_state.defaultSinkId != 0) {
           emitVolumePreview(false, id, nd.volume);
@@ -1546,6 +1931,8 @@ void PipeWireService::setNodeMuted(std::uint32_t id, bool muted) {
   pw_node_set_param(nd.proxy, SPA_PARAM_Props, 0, pod);
 
   const bool before = nd.muted;
+  nd.pendingMute.reset();
+  nd.muteWriteGuardUntil = {};
   nd.swMute = muted;
   if (nd.hasRoute && nd.routeIndex >= 0) {
     nd.nodeRouteMute = muted;
@@ -1603,7 +1990,7 @@ void PipeWireService::setDefaultNode(std::uint32_t id, const char* key) {
     return;
   }
 
-  const std::string payload = "{\"name\":\"" + escapeJsonString(it->second->name) + "\"}";
+  const std::string payload = R"({"name":")" + escapeJsonString(it->second->name) + "\"}";
   const int rc = pw_metadata_set_property(m_defaultMetadata, PW_ID_CORE, key, "Spa:String:JSON", payload.c_str());
   if (rc < 0) {
     kLog.warn("failed to set {} to \"{}\" ({})", key, it->second->name, spa_strerror(rc));

@@ -25,9 +25,20 @@ struct ActiveToplevel {
 struct ToplevelInfo {
   std::string title;
   std::string appId;
+  std::string identifier;
   std::uint64_t order = 0;
   zwlr_foreign_toplevel_handle_v1* handle = nullptr;
   ext_foreign_toplevel_handle_v1* extHandle = nullptr;
+};
+
+struct WlrToplevelSnapshot {
+  zwlr_foreign_toplevel_handle_v1* handle = nullptr;
+  std::string title;
+  std::string appId;
+  wl_output* output = nullptr;
+  bool activated = false;
+  bool minimized = false;
+  std::uint64_t order = 0;
 };
 
 class WaylandToplevels {
@@ -68,12 +79,30 @@ public:
     }
   }
 
+  template <typename Fn> void visitWlrToplevels(Fn&& fn) const {
+    for (const auto& [handle, state] : m_handles) {
+      if (handle == nullptr) {
+        continue;
+      }
+      fn(WlrToplevelSnapshot{
+          .handle = handle,
+          .title = state.title,
+          .appId = state.appId,
+          .output = state.output,
+          .activated = state.activated,
+          .minimized = state.minimized,
+          .order = state.order,
+      });
+    }
+  }
+
 private:
   struct ToplevelState {
     std::string title;
     std::string appId;
     wl_output* output = nullptr;
     bool activated = false;
+    bool minimized = false;
     bool dirty = false;
     std::uint64_t generation = 0;
     std::uint64_t order = 0;

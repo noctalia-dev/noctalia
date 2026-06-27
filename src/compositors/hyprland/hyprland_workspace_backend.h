@@ -90,6 +90,7 @@ private:
   [[nodiscard]] static bool isSpecial(const WorkspaceState& state);
   [[nodiscard]] static bool workspaceOrderLess(const WorkspaceState* a, const WorkspaceState* b);
   [[nodiscard]] static Workspace toWorkspace(const WorkspaceState& state);
+  [[nodiscard]] std::string workspaceKeyForId(int workspaceId) const;
 
   OutputNameResolver m_outputNameResolver;
   std::vector<WorkspaceState> m_workspaces;

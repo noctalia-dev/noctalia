@@ -55,18 +55,21 @@ void LockKeysWidget::create() {
   rootNode->addChild(
       ui::label({
           .out = &m_capsLabel,
+          .fontFamily = labelFontFamily(),
       })
   );
 
   rootNode->addChild(
       ui::label({
           .out = &m_numLabel,
+          .fontFamily = labelFontFamily(),
       })
   );
 
   rootNode->addChild(
       ui::label({
           .out = &m_scrollLabel,
+          .fontFamily = labelFontFamily(),
       })
   );
 

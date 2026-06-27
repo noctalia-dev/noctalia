@@ -11,11 +11,17 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <vector>
 
 struct SystemStats {
+  struct NetThroughput {
+    double rxBytesPerSec{0.0};
+    double txBytesPerSec{0.0};
+  };
+
   std::chrono::steady_clock::time_point sampledAt{};
   double cpuUsagePercent{0.0};
   double ramUsagePercent{0.0};
@@ -24,12 +30,14 @@ struct SystemStats {
   std::uint64_t swapUsedMb{0};
   std::uint64_t swapTotalMb{0};
   std::optional<double> cpuTempC;
+  bool cpuTempAvailable{false};
   std::optional<double> gpuTempC;
   std::optional<double> gpuUsagePercent;
   std::optional<std::uint64_t> gpuVramUsedBytes;
   std::optional<std::uint64_t> gpuVramTotalBytes;
   double netRxBytesPerSec{0.0};
   double netTxBytesPerSec{0.0};
+  std::unordered_map<std::string, NetThroughput> netThroughputByInterface;
   double loadAvg1{0.0};
   double loadAvg5{0.0};
   double loadAvg15{0.0};
@@ -51,6 +59,8 @@ public:
   [[nodiscard]] SystemStats latest() const;
   [[nodiscard]] std::vector<SystemStats> history(int windowSize = kHistorySize) const;
   [[nodiscard]] std::chrono::steady_clock::duration historySampleInterval() const noexcept;
+  [[nodiscard]] double netRxBytesPerSec(std::string_view interfaceName = {}) const;
+  [[nodiscard]] double netTxBytesPerSec(std::string_view interfaceName = {}) const;
 
   void retainCpuTemp();
   void releaseCpuTemp();
@@ -112,7 +122,7 @@ private:
     std::uint64_t swapUsedKb{0};
   };
   [[nodiscard]] static std::optional<MemData> readMemoryKb();
-  [[nodiscard]] static std::optional<double> readCpuTempCelsius();
+  [[nodiscard]] static std::optional<double> readCpuTempCelsius(const SystemConfig::MonitorConfig& config);
   [[nodiscard]] static NvidiaDisplayDeviceState detectNvidiaPciDisplayDeviceState();
   [[nodiscard]] NvidiaNvmlReader& ensureNvmlReader();
   [[nodiscard]] AmdRsmiReader& ensureAmdRsmiReader();

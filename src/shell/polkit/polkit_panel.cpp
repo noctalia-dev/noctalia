@@ -4,12 +4,15 @@
 #include "config/config_types.h"
 #include "core/key_modifiers.h"
 #include "core/keybind_matcher.h"
+#include "core/resource_paths.h"
 #include "dbus/polkit/polkit_agent.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "shell/panel/panel_manager.h"
 #include "ui/builders.h"
+#include "ui/controls/glyph.h"
+#include "ui/controls/image.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -40,11 +43,16 @@ namespace {
 
 } // namespace
 
-PolkitPanel::PolkitPanel(ConfigService* /*config*/, std::function<PolkitAgent*()> agentProvider)
-    : m_agentProvider(std::move(agentProvider)) {}
+PolkitPanel::PolkitPanel(ConfigService* config, std::function<PolkitAgent*()> agentProvider)
+    : m_config(config), m_agentProvider(std::move(agentProvider)) {}
+
+PanelPlacement PolkitPanel::panelPlacement() const noexcept {
+  return m_config != nullptr ? m_config->config().shell.panel.polkitPlacement : PanelPlacement::Floating;
+}
 
 void PolkitPanel::create() {
   const float scale = contentScale();
+  const float iconSize = scaled(48.0f);
   auto root = ui::column({
       .out = &m_rootLayout,
       .align = FlexAlign::Stretch,
@@ -57,21 +65,43 @@ void PolkitPanel::create() {
   focusArea->setVisible(false);
   m_focusArea = static_cast<InputArea*>(root->addChild(std::move(focusArea)));
 
-  auto topContent = ui::column(
-      {.align = FlexAlign::Stretch, .gap = Style::spaceSm * scale},
-      ui::label({
-          .out = &m_titleLabel,
-          .text = i18n::tr("auth.polkit.title"),
-          .fontSize = Style::fontSizeTitle * scale,
-          .color = colorSpecFromRole(ColorRole::Primary),
-          .fontWeight = FontWeight::Bold,
-      }),
-      ui::label({
-          .out = &m_messageLabel,
-          .fontSize = Style::fontSizeBody * scale,
-          .color = colorSpecFromRole(ColorRole::OnSurface),
-          .maxLines = 6,
-      })
+  auto iconContainer = ui::node({
+      .out = &m_iconContainer,
+      .width = iconSize,
+      .height = iconSize,
+  });
+  auto iconFallback = ui::glyph({
+      .out = &m_fallbackIcon,
+      .glyph = "shield-lock",
+      .glyphSize = iconSize * 0.65f,
+      .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+  });
+  iconContainer->addChild(std::move(iconFallback));
+  auto iconImage = ui::image({
+      .out = &m_icon,
+      .fit = ImageFit::Contain,
+      .visible = false,
+  });
+  iconContainer->addChild(std::move(iconImage));
+
+  auto topContent = ui::row(
+      {.align = FlexAlign::Center, .gap = Style::spaceMd * scale}, std::move(iconContainer),
+      ui::column(
+          {.align = FlexAlign::Stretch, .flexGrow = 1.0f},
+          ui::label({
+              .out = &m_titleLabel,
+              .text = i18n::tr("auth.polkit.title"),
+              .fontSize = Style::fontSizeTitle * scale,
+              .color = colorSpecFromRole(ColorRole::Primary),
+              .fontWeight = FontWeight::Bold,
+          }),
+          ui::label({
+              .out = &m_messageLabel,
+              .fontSize = Style::fontSizeBody * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .maxLines = 6,
+          })
+      )
   );
   root->addChild(std::move(topContent));
 
@@ -120,6 +150,7 @@ void PolkitPanel::create() {
 
 void PolkitPanel::onOpen(std::string_view /*context*/) {
   m_lastResponseRequired = false;
+  m_iconResolved = false;
   if (m_input != nullptr) {
     m_input->setValue("");
   }
@@ -148,18 +179,30 @@ void PolkitPanel::doLayout(Renderer& renderer, float width, float height) {
     return;
   }
   m_rootLayout->setSize(width, height);
-  // Labels auto-wrap via Flex Stretch propagation (root → topContent/bottomContent → labels).
   m_rootLayout->layout(renderer);
+  if (m_iconContainer != nullptr) {
+    if (m_icon != nullptr && m_icon->visible()) {
+      m_icon->setSize(m_iconContainer->width(), m_iconContainer->height());
+      m_icon->setPosition(0.0f, 0.0f);
+    }
+    if (m_fallbackIcon != nullptr && m_fallbackIcon->visible()) {
+      const float ox = std::round((m_iconContainer->width() - m_fallbackIcon->width()) * 0.5f);
+      const float oy = std::round((m_iconContainer->height() - m_fallbackIcon->height()) * 0.5f);
+      m_fallbackIcon->setPosition(ox, oy);
+    }
+  }
 }
 
-void PolkitPanel::doUpdate(Renderer& /*renderer*/) {
+void PolkitPanel::doUpdate(Renderer& renderer) {
   PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
   if (agent == nullptr
       || m_messageLabel == nullptr
       || m_promptLabel == nullptr
       || m_supplementaryLabel == nullptr
       || m_submitButton == nullptr
-      || m_input == nullptr) {
+      || m_input == nullptr
+      || m_icon == nullptr
+      || m_fallbackIcon == nullptr) {
     return;
   }
   const PolkitRequest request = agent->pendingRequest();
@@ -195,6 +238,43 @@ void PolkitPanel::doUpdate(Renderer& /*renderer*/) {
     }
   }
   m_lastResponseRequired = needsInput;
+
+  if (request.iconName != m_lastIconName || !m_iconResolved) {
+    m_lastIconName = request.iconName;
+    m_iconResolved = true;
+    resolveIcon(renderer, request);
+  }
+}
+
+void PolkitPanel::resolveIcon(Renderer& renderer, const PolkitRequest& request) {
+  const float iconSize = scaled(48.0f);
+  if (m_iconContainer != nullptr) {
+    m_iconContainer->setSize(iconSize, iconSize);
+  }
+
+  if (request.isInternal) {
+    const auto logoPath = paths::assetPath("noctalia.svg");
+    m_fallbackIcon->setVisible(false);
+    m_icon->setSize(iconSize, iconSize);
+    m_icon->setSourceFile(renderer, logoPath.string(), static_cast<int>(std::round(iconSize)), true);
+    m_icon->setVisible(true);
+    return;
+  }
+
+  if (!request.iconName.empty()) {
+    const std::string& resolved = m_iconResolver.resolve(request.iconName, static_cast<int>(std::round(iconSize)));
+    if (!resolved.empty()) {
+      m_fallbackIcon->setVisible(false);
+      m_icon->setSize(iconSize, iconSize);
+      m_icon->setSourceFile(renderer, resolved, static_cast<int>(std::round(iconSize)), true);
+      m_icon->setVisible(true);
+      return;
+    }
+  }
+
+  m_icon->clear(renderer);
+  m_icon->setVisible(false);
+  m_fallbackIcon->setVisible(true);
 }
 
 void PolkitPanel::submit() {

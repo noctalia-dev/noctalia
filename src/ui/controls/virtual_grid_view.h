@@ -10,7 +10,6 @@
 #include <vector>
 
 class InputArea;
-class Renderer;
 class ScrollView;
 
 // Adapter that drives a VirtualGridView from an external data source.
@@ -65,6 +64,8 @@ class VirtualGridView : public Flex {
 public:
   VirtualGridView();
 
+  [[nodiscard]] InputArea* focusArea() const noexcept { return m_inputArea; }
+
   // Adapter is non-owning and must outlive the grid.
   void setAdapter(VirtualGridAdapter* adapter);
 
@@ -86,6 +87,8 @@ public:
   [[nodiscard]] std::optional<std::size_t> selectedIndex() const noexcept { return m_selectedIndex; }
   // Items to move for a Page Up/Down step (one viewport of rows, at least one item).
   [[nodiscard]] std::size_t pageItemStride() const noexcept;
+  // Column count from the most recent layout pass (for keyboard navigation).
+  [[nodiscard]] std::size_t layoutColumnCount() const noexcept { return m_layoutColumns; }
 
   void setOnSelectionChanged(std::function<void(std::optional<std::size_t>)> callback);
 

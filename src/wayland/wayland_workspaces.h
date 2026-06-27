@@ -10,6 +10,7 @@
 
 struct wl_output;
 struct ext_workspace_manager_v1;
+struct org_kde_plasma_virtual_desktop_management;
 struct zdwl_ipc_manager_v2;
 
 namespace compositors {
@@ -24,6 +25,7 @@ public:
   ~WaylandWorkspaces();
 
   void bindExtWorkspace(ext_workspace_manager_v1* manager);
+  void bindKdeVirtualDesktop(org_kde_plasma_virtual_desktop_management* management);
   void bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager);
   void setOutputNameResolver(std::function<std::string(wl_output*)> resolver);
   void initialize();
@@ -64,6 +66,7 @@ private:
   std::vector<class OutputLifecycleObserver*> m_outputObservers;
   std::vector<WorkspaceOutputNameResolver*> m_outputNameResolvers;
   ExtWorkspaceProtocolBinder* m_extWorkspaceBinder = nullptr;
+  KdeVirtualDesktopProtocolBinder* m_kdeVirtualDesktopBinder = nullptr;
   DwlIpcWorkspaceProtocolBinder* m_dwlIpcWorkspaceBinder = nullptr;
   WorkspaceBackend* m_extBackend = nullptr;
   WorkspaceBackend* m_mangoIpcBackend = nullptr;
@@ -71,6 +74,7 @@ private:
   WorkspaceBackend* m_dwlIpcBackend = nullptr;
   WorkspaceBackend* m_hyprlandBackend = nullptr;
   WorkspaceBackend* m_swayBackend = nullptr;
+  WorkspaceBackend* m_kwinBackend = nullptr;
   WorkspaceBackend* m_triadBackend = nullptr;
   WorkspaceSocketConnector* m_hyprlandConnector = nullptr;
   WorkspaceSocketConnector* m_swayConnector = nullptr;

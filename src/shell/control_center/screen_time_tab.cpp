@@ -212,9 +212,9 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
       .fillWidth = true,
   });
 
-  for (std::size_t bucket = 0; bucket < m_bucketColumns.size(); ++bucket) {
+  for (auto& bucketColumn : m_bucketColumns) {
     auto plotColumn = ui::column({
-        .out = &m_bucketColumns[bucket].plotColumn,
+        .out = &bucketColumn.plotColumn,
         .align = FlexAlign::Stretch,
         .justify = FlexJustify::End,
         .flexGrow = 1.0f,
@@ -231,7 +231,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
 
     plotColumn->addChild(
         ui::box({
-            .out = &m_bucketColumns[bucket].track,
+            .out = &bucketColumn.track,
             .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
             .participatesInLayout = false,
             .configure = [](Box& box) { box.setZIndex(-1); },
@@ -248,24 +248,32 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
           .visible = false,
           .participatesInLayout = false,
       });
-      m_bucketColumns[bucket].segments[series] = static_cast<Box*>(hitArea->addChild(std::move(segment)));
-      m_bucketColumns[bucket].segmentHits[series] = hitArea.get();
+      bucketColumn.segments[series] = static_cast<Box*>(hitArea->addChild(std::move(segment)));
+      bucketColumn.segmentHits[series] = hitArea.get();
       plotColumn->addChild(std::move(hitArea));
     }
 
     chartPlotRow->addChild(std::move(plotColumn));
 
     auto labelCell = ui::row(
-        {.out = &m_bucketColumns[bucket].labelCell,
+        {.out = &bucketColumn.labelCell,
          .align = FlexAlign::Center,
          .justify = FlexJustify::Center,
          .flexGrow = 1.0f,
-         .visible = false},
+         .visible = false,
+         .configure = [scale](Flex& cell) { cell.setMinHeight(Style::fontSizeMini * scale * 2.25f); }},
         ui::label({
-            .out = &m_bucketColumns[bucket].label,
+            .out = &bucketColumn.label,
             .fontSize = Style::fontSizeMini * scale,
             .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .flexGrow = 1.0f,
             .visible = false,
+            .configure = [this](Label& label) {
+              label.setTextAlign(TextAlign::Center);
+              const auto requestHoverRedraw = [this]() { PanelManager::instance().requestRedraw(); };
+              label.setOnEnter([requestHoverRedraw](const InputArea::PointerData&) { requestHoverRedraw(); });
+              label.setOnLeave(requestHoverRedraw);
+            },
         })
     );
     chartLabelRow->addChild(std::move(labelCell));
@@ -365,19 +373,13 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
                       .color = colorSpecFromRole(ColorRole::OnSurface),
                       .maxLines = 1,
                       .flexGrow = 1.0f,
-                      // Labels opt out of hit-testing by default; the per-row tooltip needs hover events.
-                      .configure = [](Label& label) { label.setHitTestVisible(true); },
                   }),
                   ui::label({
                       .out = &m_appRows[i].duration,
                       .fontSize = usageDurationFontSize(scale),
                       .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
                       .maxLines = 1,
-                      .configure =
-                          [](Label& label) {
-                            label.setTextAlign(TextAlign::End);
-                            label.setHitTestVisible(true);
-                          },
+                      .configure = [](Label& label) { label.setTextAlign(TextAlign::End); },
                   })
               ),
               ui::row(
@@ -485,6 +487,7 @@ void ScreenTimeTab::doLayout(Renderer& renderer, float contentWidth, float bodyH
   m_root->layout(renderer);
   layoutChart(renderer);
   layoutAppRows(renderer);
+  syncDayLabelHover();
 }
 
 void ScreenTimeTab::doUpdate(Renderer& renderer) {
@@ -498,6 +501,7 @@ void ScreenTimeTab::doUpdate(Renderer& renderer) {
   }
   layoutChart(renderer);
   layoutAppRows(renderer);
+  syncDayLabelHover();
 }
 
 void ScreenTimeTab::bindAppNameMaxWidths(Renderer& renderer, float gridWidth) {
@@ -600,7 +604,9 @@ void ScreenTimeTab::syncContent(Renderer& renderer) {
     if (columnWidgets.label != nullptr) {
       if (!bucketActive) {
         columnWidgets.label->setVisible(false);
+        columnWidgets.label->clearTooltip();
       } else if (snapshot.hourlyBuckets) {
+        columnWidgets.label->clearTooltip();
         const int hour = static_cast<int>(bucket);
         if (hour == 0) {
           columnWidgets.label->setText(i18n::tr("control-center.screen-time.hour-0"));
@@ -620,8 +626,11 @@ void ScreenTimeTab::syncContent(Renderer& renderer) {
       } else if (bucket < snapshot.bucketLabels.size()) {
         columnWidgets.label->setText(snapshot.bucketLabels[bucket]);
         columnWidgets.label->setVisible(true);
+        const auto dayTotal = bucket < snapshot.buckets.size() ? snapshot.buckets[bucket] : std::chrono::seconds{0};
+        columnWidgets.label->setTooltip(appUsageTooltip(snapshot.bucketLabels[bucket], dayTotal));
       } else {
         columnWidgets.label->setVisible(false);
+        columnWidgets.label->clearTooltip();
       }
       columnWidgets.label->setFontSize(Style::fontSizeMini * scale);
     }
@@ -844,6 +853,22 @@ void ScreenTimeTab::layoutChart(Renderer& renderer) {
       segment->setPosition(0.0f, 0.0f);
       segment->setSize(resolvedColumnWidth, segmentHeight);
     }
+  }
+}
+
+void ScreenTimeTab::syncDayLabelHover() {
+  if (m_rangeDays <= 1) {
+    return;
+  }
+
+  for (auto& columnWidgets : m_bucketColumns) {
+    if (columnWidgets.label == nullptr || !columnWidgets.label->visible()) {
+      continue;
+    }
+    columnWidgets.label->setColor(
+        columnWidgets.label->hovered() ? colorSpecFromRole(ColorRole::Primary)
+                                       : colorSpecFromRole(ColorRole::OnSurfaceVariant)
+    );
   }
 }
 

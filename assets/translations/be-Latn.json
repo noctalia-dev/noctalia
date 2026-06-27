@@ -1,0 +1,16 @@
+{
+  "auth": {
+    "fingerprint": {
+      "disconnected": "Čytalnik adbitkaŭ palcaŭ adklučany",
+      "error": "Nia ŭdałosia aŭtaryzavacca pa adbitku palca",
+      "no-match": "Adbitak palca nie supadaje",
+      "not-centered": "Pastaŭcie vaš palec pa centru čytalnika i pasprabujcie jašče raz",
+      "present": "Čytannie adbitka palcu...",
+      "ready": "Prykładzicie palec da čytalniku",
+      "remove-and-retry": "Padymicie palec i pasprabujcie jašče raz",
+      "retry": "Praskanujcie vaš adbitak palcu jašče raz",
+      "swipe-too-short": "Čyrkannie było nadta karotkim, pasprabujcie jašče raz",
+      "too-many-attempts": "Adbitak palcu byŭ adklučany (nadta šmat sprob)"
+    }
+  }
+}

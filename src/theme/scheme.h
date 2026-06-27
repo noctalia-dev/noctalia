@@ -8,7 +8,7 @@ namespace noctalia::theme {
 
   // Color generation strategies. The first five are Material Design 3 schemes
   // (TonalPalette + tone tables, built on top of material_color_utilities).
-  // The last four are custom HSL-space generators with very different
+  // The last five are custom HSL-space generators with very different
   // aesthetics — they are not Material You and will produce different output.
   enum class Scheme {
     TonalSpot,
@@ -18,6 +18,7 @@ namespace noctalia::theme {
     Monochrome,
     Vibrant,
     Faithful,
+    Soft,
     Dysfunctional,
     Muted,
   };

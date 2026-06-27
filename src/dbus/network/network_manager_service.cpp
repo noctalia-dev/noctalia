@@ -38,7 +38,12 @@ namespace {
   constexpr std::string_view kNmWiredConnectionType = "802-3-ethernet";
 
   // NMDeviceType values from NetworkManager D-Bus API.
+  constexpr std::uint32_t kNmDeviceTypeEthernet = 1;
   constexpr std::uint32_t kNmDeviceTypeWifi = 2;
+
+  // NMDeviceState: a device between Prepare and Activated is mid-activation.
+  constexpr std::uint32_t kNmDeviceStatePrepare = 40;
+  constexpr std::uint32_t kNmDeviceStateActivated = 100;
 
   // NMActiveConnectionState
   constexpr std::uint32_t kNmActiveConnectionStateActivating = 1;
@@ -854,7 +859,7 @@ bool NetworkManagerService::hasSavedConnection(const std::string& ssid) const {
       return false;
     }
   }
-  return std::find(m_savedSsids.begin(), m_savedSsids.end(), ssid) != m_savedSsids.end();
+  return std::ranges::contains(m_savedSsids, ssid);
 }
 
 void NetworkManagerService::refreshSavedConnections(std::function<void()> onComplete) {
@@ -916,7 +921,7 @@ void NetworkManagerService::refreshSavedConnections(std::function<void()> onComp
                           try {
                             const auto type = typeIt->second.get<std::string>();
                             if (type == kNmWiredConnectionType) {
-                              savedState->wiredConnectionPaths.push_back(std::string(connectionPath));
+                              savedState->wiredConnectionPaths.emplace_back(connectionPath);
                             }
                           } catch (const sdbus::Error&) {
                           }
@@ -1372,13 +1377,11 @@ void NetworkManagerService::finishSavedConnections(
     std::vector<std::string>& ssids, std::vector<std::string>& wiredConnectionPaths, std::function<void()> onComplete
 ) {
   std::ranges::sort(ssids);
-  ssids.erase(std::unique(ssids.begin(), ssids.end()), ssids.end());
+  ssids.erase(std::ranges::unique(ssids).begin(), ssids.end());
   m_savedSsids = std::move(ssids);
 
   std::ranges::sort(wiredConnectionPaths);
-  wiredConnectionPaths.erase(
-      std::unique(wiredConnectionPaths.begin(), wiredConnectionPaths.end()), wiredConnectionPaths.end()
-  );
+  wiredConnectionPaths.erase(std::ranges::unique(wiredConnectionPaths).begin(), wiredConnectionPaths.end());
   m_savedWiredConnectionPaths = std::move(wiredConnectionPaths);
   onComplete();
 }
@@ -1390,9 +1393,7 @@ void NetworkManagerService::finishRefreshAccessPoints(
   std::vector<AccessPointInfo> deduped;
   deduped.reserve(aps.size());
   for (auto& ap : aps) {
-    auto it = std::find_if(deduped.begin(), deduped.end(), [&](const AccessPointInfo& other) {
-      return other.ssid == ap.ssid;
-    });
+    auto it = std::ranges::find(deduped, ap.ssid, &AccessPointInfo::ssid);
     if (it == deduped.end()) {
       deduped.push_back(std::move(ap));
       continue;
@@ -1426,6 +1427,36 @@ void NetworkManagerService::finishRefreshAccessPoints(
   onComplete();
 }
 
+std::string NetworkManagerService::physicalActivatingConnection() {
+  std::vector<sdbus::ObjectPath> devices;
+  try {
+    m_nm->callMethod("GetDevices").onInterface(kNmInterface).storeResultsTo(devices);
+  } catch (const sdbus::Error&) {
+    return {};
+  }
+
+  for (const auto& devicePath : devices) {
+    try {
+      auto device = sdbus::createProxy(m_bus.connection(), kNmBusName, devicePath);
+      const auto deviceType = getPropertyOr<std::uint32_t>(*device, kNmDeviceInterface, "DeviceType", 0U);
+      if (deviceType != kNmDeviceTypeEthernet && deviceType != kNmDeviceTypeWifi) {
+        continue;
+      }
+      const auto state = getPropertyOr<std::uint32_t>(*device, kNmDeviceInterface, "State", 0U);
+      if (state < kNmDeviceStatePrepare || state >= kNmDeviceStateActivated) {
+        continue;
+      }
+      const auto active =
+          getPropertyOr<sdbus::ObjectPath>(*device, kNmDeviceInterface, "ActiveConnection", sdbus::ObjectPath{"/"});
+      if (!active.empty() && active != "/") {
+        return active;
+      }
+    } catch (const sdbus::Error&) {
+    }
+  }
+  return {};
+}
+
 void NetworkManagerService::rebindActiveConnection() {
   std::string newPath;
   try {
@@ -1433,6 +1464,14 @@ void NetworkManagerService::rebindActiveConnection() {
     newPath = value.get<sdbus::ObjectPath>();
   } catch (const sdbus::Error& e) {
     kLog.debug("PrimaryConnection unavailable: {}", e.what());
+  }
+
+  // PrimaryConnection stays "/" until a connection finishes activating, and NM's
+  // ActivatingConnection property tracks loopback rather than the real link. Fall
+  // back to a physical ethernet/wifi device that is mid-activation so the resolving
+  // state is observable while virtual devices (loopback, bridge, vlan, …) are not.
+  if (newPath.empty() || newPath == "/") {
+    newPath = physicalActivatingConnection();
   }
 
   if (newPath != m_activeConnectionPath) {
@@ -1807,6 +1846,7 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
 
               next->vpnActive = (type == "vpn" || type == "wireguard");
               next->connected = state == kNmActiveConnectionStateActivated;
+              next->resolving = state == kNmActiveConnectionStateActivating;
             }
 
             readDeviceState();

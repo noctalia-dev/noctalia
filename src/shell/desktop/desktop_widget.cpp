@@ -9,14 +9,33 @@
 #include <string>
 
 namespace {
-  // Bounds on the content-fit factor so a tiny or huge box never produces unreadable or
-  // absurdly large content.
   constexpr float kMinContentFit = 0.05f;
   constexpr float kMaxContentFit = 20.0f;
 } // namespace
 
+float DesktopWidget::boxInnerWidth() const noexcept {
+  if (m_boxWidth <= 0.0f) {
+    return 0.0f;
+  }
+  const float pad = m_bgEnabled ? std::round(m_bgPadding * m_baseScale) : 0.0f;
+  return std::max(1.0f, m_boxWidth - 2.0f * pad);
+}
+
+float DesktopWidget::boxInnerHeight() const noexcept {
+  if (m_boxHeight <= 0.0f) {
+    return 0.0f;
+  }
+  const float pad = m_bgEnabled ? std::round(m_bgPadding * m_baseScale) : 0.0f;
+  return std::max(1.0f, m_boxHeight - 2.0f * pad);
+}
+
 void DesktopWidget::layout(Renderer& renderer) {
   UiPhaseScope layoutPhase(UiPhase::Layout);
+  m_inLayout = true;
+  struct InLayoutReset {
+    bool& flag;
+    ~InLayoutReset() { flag = false; }
+  } inLayoutReset{m_inLayout};
 
   // Apply the configured font before measuring so text metrics are correct on the first pass and
   // the family survives widget rebuilds (the factory only stores it on the widget).
@@ -35,21 +54,29 @@ void DesktopWidget::layout(Renderer& renderer) {
       m_maxNaturalHeight = 0.0f;
       m_fitRefScale = m_baseScale;
     }
-    m_maxNaturalWidth = std::max(m_maxNaturalWidth, std::max(1.0f, m_contentRoot->width()));
-    m_maxNaturalHeight = std::max(m_maxNaturalHeight, std::max(1.0f, m_contentRoot->height()));
+    m_maxNaturalWidth = std::max({m_maxNaturalWidth, 1.0f, m_contentRoot->width()});
+    m_maxNaturalHeight = std::max({m_maxNaturalHeight, 1.0f, m_contentRoot->height()});
 
-    const float pad = m_bgEnabled ? std::round(m_bgPadding * m_baseScale) : 0.0f;
-    const float innerW = std::max(1.0f, m_boxWidth - 2.0f * pad);
-    const float innerH = std::max(1.0f, m_boxHeight - 2.0f * pad);
-    const float fit =
-        std::clamp(std::min(innerW / m_maxNaturalWidth, innerH / m_maxNaturalHeight), kMinContentFit, kMaxContentFit);
-    if (std::abs(fit - 1.0f) > 0.001f) {
-      m_contentScale = m_baseScale * fit;
+    const float fitted = contentScaleForBox(m_boxWidth, m_boxHeight);
+    if (std::abs(fitted - m_baseScale) > 0.001f * m_baseScale) {
+      m_contentScale = fitted;
       doLayout(renderer);
     }
   }
 
   applyBackground();
+}
+
+float DesktopWidget::contentScaleForBox(float boxWidth, float boxHeight) const noexcept {
+  if (boxWidth <= 0.0f || boxHeight <= 0.0f || m_maxNaturalWidth <= 0.0f || m_maxNaturalHeight <= 0.0f) {
+    return m_contentScale;
+  }
+  const float pad = m_bgEnabled ? std::round(m_bgPadding * m_baseScale) : 0.0f;
+  const float innerW = std::max(1.0f, boxWidth - 2.0f * pad);
+  const float innerH = std::max(1.0f, boxHeight - 2.0f * pad);
+  const float fit =
+      std::clamp(std::min(innerW / m_maxNaturalWidth, innerH / m_maxNaturalHeight), kMinContentFit, kMaxContentFit);
+  return m_baseScale * fit;
 }
 
 void DesktopWidget::update(Renderer& renderer) {

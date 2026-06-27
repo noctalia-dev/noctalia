@@ -239,7 +239,7 @@ void FileDialogView::create() {
       .flexGrow = 1.0f,
       .configure = [scale](Flex& card) {
         card.setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
-        card.setBorder(colorSpecFromRole(ColorRole::Outline, 0.5f), Style::borderWidth);
+        card.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
         card.setRadius(Style::scaledRadiusXl(scale));
         card.setPadding(Style::cardPadding * scale);
         card.setClipChildren(true);
@@ -557,8 +557,13 @@ bool FileDialogView::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers,
     return true;
   }
 
-  if (sym == XKB_KEY_Tab) {
-    cycleFocus((modifiers & KeyMod::Shift) != 0);
+  if (KeybindMatcher::matches(KeybindAction::TabPrevious, sym, modifiers)) {
+    cycleFocus(true);
+    return true;
+  }
+
+  if (KeybindMatcher::matches(KeybindAction::TabNext, sym, modifiers)) {
+    cycleFocus(false);
     return true;
   }
 
@@ -1046,7 +1051,7 @@ void FileDialogView::cycleFocus(bool reverse) {
   }
 
   InputArea* current = hostFocusedArea();
-  auto it = std::find(order.begin(), order.end(), current);
+  auto it = std::ranges::find(order, current);
   std::size_t index = it == order.end() ? 0 : static_cast<std::size_t>(std::distance(order.begin(), it));
   if (reverse) {
     index = index == 0 ? order.size() - 1 : index - 1;
@@ -1080,7 +1085,7 @@ void FileDialogView::ensureSelectionVisible() {
     ScrollView& scroll = m_gridGrid->scrollView();
     const float gap = Style::spaceSm * contentScale();
     const float viewportW = m_gridGrid->scrollView().contentViewportWidth();
-    const float columnsF = static_cast<float>(m_gridColumns);
+    const auto columnsF = static_cast<float>(m_gridColumns);
     const float cellW = std::max(0.0f, (viewportW - (columnsF - 1.0f) * gap) / std::max(columnsF, 1.0f));
     const float cellH = cellW; // squareCells
     const float pitch = cellH + gap;

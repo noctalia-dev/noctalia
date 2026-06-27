@@ -39,6 +39,16 @@ _ensure-configured m=mode:
 run m=mode: (build m)
     ./build-{{m}}/noctalia
 
+# Build (forcing tests on, even for release) and run the unit tests.
+test m=mode *args: (_ensure-configured m)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Plain reconfigure first so build dirs predating the 'tests' option learn it,
+    # then force it on (covers release, where it defaults off).
+    meson setup "build-{{m}}" --reconfigure >/dev/null
+    meson setup "build-{{m}}" -Dtests=enabled --reconfigure >/dev/null
+    meson test -C build-{{m}} {{args}}
+
 install m:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -68,7 +78,7 @@ _clang_tidy m=mode *args:
     run-clang-tidy -quiet -p build-{{m}} -j "$(nproc)" -header-filter="^${src_root}/.*" {{args}} "^${src_root}/.*"
 
 lint m=mode: (configure m)
-    just _clang_tidy {{m}}
+    just _clang_tidy {{m}} '-warnings-as-errors=*'
 
 fix m=mode: (configure m)
     just _clang_tidy {{m}} -fix

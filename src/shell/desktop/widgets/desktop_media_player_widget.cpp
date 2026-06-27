@@ -31,11 +31,9 @@ namespace {
 
 } // namespace
 
-DesktopMediaPlayerWidget::DesktopMediaPlayerWidget(
-    MprisService* mpris, HttpClient* httpClient, bool vertical, ColorSpec color, bool shadow, bool hideWhenNoMedia
-)
-    : m_mpris(mpris), m_httpClient(httpClient), m_vertical(vertical), m_color(color), m_shadow(shadow),
-      m_hideWhenNoMedia(hideWhenNoMedia) {}
+DesktopMediaPlayerWidget::DesktopMediaPlayerWidget(MprisService* mpris, HttpClient* httpClient, Options options)
+    : m_mpris(mpris), m_httpClient(httpClient), m_vertical(options.vertical), m_color(options.color),
+      m_shadow(options.shadow), m_hideWhenNoMedia(options.hideWhenNoMedia) {}
 
 DesktopMediaPlayerWidget::~DesktopMediaPlayerWidget() {
   m_aliveGuard.reset();

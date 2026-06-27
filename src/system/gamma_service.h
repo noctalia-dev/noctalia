@@ -19,6 +19,7 @@ struct zwlr_gamma_control_v1;
 class GammaService {
 public:
   using ChangeCallback = std::function<void()>;
+  using StateFeedbackCallback = std::function<void()>;
 
   explicit GammaService(WaylandConnection& wayland);
   ~GammaService();
@@ -35,6 +36,7 @@ public:
   void toggleForceEnabled();
   void clearForceOverride();
   void setChangeCallback(ChangeCallback callback);
+  void setStateFeedbackCallback(StateFeedbackCallback callback);
   void onOutputsChanged();
   void reevaluateSchedule();
 
@@ -57,7 +59,12 @@ private:
   void scheduleGeoTimer();
 
   void apply();
-  [[nodiscard]] int targetTemperature() const;
+
+  struct GammaTarget {
+    int kelvin = -1;            // instantaneous clock-anchored target, -1 when no schedule applies
+    bool transitioning = false; // true while inside the fade ramp window (target still drifting)
+  };
+  [[nodiscard]] GammaTarget computeTarget() const;
   [[nodiscard]] bool isNightPhase() const;
 
   struct OutputGamma {
@@ -74,9 +81,11 @@ private:
   void applyGammaToAll(int kelvin);
   void restoreAll();
 
-  void startTransition(int fromKelvin, int toKelvin);
-  void stopTransition();
-  void tickTransition();
+  void applyTarget(int kelvin);
+  void ensureTick();
+  void tickGamma();
+
+  void notifyStateFeedback();
 
   struct RgbMultipliers {
     double r = 1.0;
@@ -95,17 +104,14 @@ private:
   std::optional<double> m_resolvedLatitude;
   std::optional<double> m_resolvedLongitude;
   ChangeCallback m_changeCallback;
+  StateFeedbackCallback m_stateFeedback;
 
   std::list<OutputGamma> m_outputs;
 
   int m_currentKelvin = -1;
   int m_targetKelvin = -1;
-  int m_transitionFromKelvin = -1;
-  float m_transitionProgress = 0.0f;
-  std::chrono::steady_clock::time_point m_transitionStart{};
   Timer m_transitionTimer;
 
-  bool m_restoreAfterTransition = false;
   Timer m_scheduleTimer;
   bool m_gammaUnavailableLogged = false;
 };

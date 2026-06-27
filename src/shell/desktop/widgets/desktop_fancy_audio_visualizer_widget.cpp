@@ -30,15 +30,12 @@ namespace {
 
 } // namespace
 
-DesktopFancyAudioVisualizerWidget::DesktopFancyAudioVisualizerWidget(
-    PipeWireSpectrum* spectrum, FancyAudioVisualizerMode mode, float sensitivity, float rotationSpeed, float barWidth,
-    float ringOpacity, float bloomIntensity, float waveThickness, float innerDiameter, bool fadeWhenIdle,
-    ColorSpec primaryColor, ColorSpec secondaryColor
-)
-    : m_spectrum(spectrum), m_mode(mode), m_sensitivity(sensitivity), m_rotationSpeed(rotationSpeed),
-      m_barWidth(barWidth), m_ringOpacity(ringOpacity), m_bloomIntensity(bloomIntensity),
-      m_waveThickness(waveThickness), m_innerDiameter(innerDiameter), m_fadeWhenIdle(fadeWhenIdle),
-      m_primaryColor(primaryColor), m_secondaryColor(secondaryColor) {}
+DesktopFancyAudioVisualizerWidget::DesktopFancyAudioVisualizerWidget(PipeWireSpectrum* spectrum, Options options)
+    : m_spectrum(spectrum), m_mode(options.mode), m_sensitivity(options.sensitivity),
+      m_rotationSpeed(options.rotationSpeed), m_barWidth(options.barWidth), m_ringOpacity(options.ringOpacity),
+      m_bloomIntensity(options.bloomIntensity), m_waveThickness(options.waveThickness),
+      m_innerDiameter(options.innerDiameter), m_fadeWhenIdle(options.fadeWhenIdle),
+      m_primaryColor(options.primaryColor), m_secondaryColor(options.secondaryColor) {}
 
 DesktopFancyAudioVisualizerWidget::~DesktopFancyAudioVisualizerWidget() {
   cancelVisibilityAnimation();
@@ -59,7 +56,13 @@ void DesktopFancyAudioVisualizerWidget::create() {
   if (m_spectrum != nullptr) {
     m_listenerId = m_spectrum->addChangeListener(kBandCount, [this]() {
       m_pendingSpectrumUpdate = true;
+      // Spectrum animation is paint-only; the frame tick pulls new values and repaints. Only a
+      // visibility change needs layout.
+      if (applyVisibility()) {
+        requestLayout();
+      }
       requestFrameTick();
+      requestRedraw();
     });
   }
 
@@ -176,6 +179,7 @@ bool DesktopFancyAudioVisualizerWidget::needsFrameTick() const {
   return m_visualizer != nullptr
       && (m_pendingSpectrumUpdate
           || !m_spectrumTextureInitialized
+          || m_visualizer->textureId() == 0
           || shouldAnimateTime()
           || shouldBeVisible() != m_visible
           || m_fadingOut
@@ -228,12 +232,16 @@ void DesktopFancyAudioVisualizerWidget::layoutContentSize(Renderer& renderer) {
 }
 
 void DesktopFancyAudioVisualizerWidget::ensureSpectrumTexture(Renderer& renderer) {
-  if (m_visualizer == nullptr || m_spectrumTextureInitialized) {
+  if (m_visualizer == nullptr) {
+    return;
+  }
+  if (m_spectrumTextureInitialized && m_visualizer->textureId() != 0) {
     return;
   }
   const std::array<float, kBandCount> empty{};
-  m_visualizer->setValues(renderer.textureManager(), std::span<const float>(empty.data(), empty.size()));
-  m_spectrumTextureInitialized = true;
+  if (m_visualizer->setValues(renderer.textureManager(), std::span<const float>(empty.data(), empty.size()))) {
+    m_spectrumTextureInitialized = true;
+  }
 }
 
 void DesktopFancyAudioVisualizerWidget::pullSpectrumValues(Renderer& renderer) {
@@ -358,7 +366,7 @@ void DesktopFancyAudioVisualizerWidget::startOpacityAnimation(float targetOpacit
   }
 
   m_visibilityAnimId = m_animations->animate(
-      root()->opacity(), targetOpacity, Style::animNormal, Easing::EaseOutCubic,
+      root()->opacity(), targetOpacity, Style::animSlow, Easing::EaseOutCubic,
       [this](float opacity) {
         if (root() != nullptr) {
           root()->setOpacity(opacity);

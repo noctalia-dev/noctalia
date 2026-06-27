@@ -10,7 +10,6 @@
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 
-#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <format>

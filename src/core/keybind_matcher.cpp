@@ -4,7 +4,7 @@
 
 namespace {
 
-  std::array<std::optional<KeybindMatcher::Matcher>, 6> g_matchers{};
+  std::array<std::optional<KeybindMatcher::Matcher>, 8> g_matchers{};
 
 } // namespace
 
@@ -18,7 +18,7 @@ namespace KeybindMatcher {
   }
 
   bool matches(KeybindAction action, std::uint32_t sym, std::uint32_t modifiers) {
-    if (isPrintableKey(sym) && modifiers == 0) {
+    if (action != KeybindAction::Validate && isPrintableKey(sym) && modifiers == 0) {
       return false;
     }
     auto idx = static_cast<std::size_t>(action);

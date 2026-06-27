@@ -55,6 +55,9 @@ namespace scripting {
     std::string glyph;
     std::string icon;
     std::string badge;
+    std::string category;
+    std::string presentation;
+    std::optional<std::string> query;
     double score = 0.0;
 
     bool operator==(const ScriptLauncherResult&) const = default;
@@ -89,12 +92,16 @@ namespace scripting {
 
     // Launcher-provider results (the `launcher.*` namespace).
     std::optional<ScriptLauncherResultSet> launcherResults;
+    std::optional<std::string> launcherQuery;
 
     // Desktop-widget fields (the `desktopWidget.*` namespace): the declarative
     // control tree from desktopWidget.render() plus tick opt-ins.
     std::optional<ui::UiTreeNode> uiTree;
     std::optional<bool> wantsSecondTicks;
     std::optional<bool> needsFrameTick;
+
+    // Panel field (the `panel.*` namespace): a close request.
+    std::optional<bool> requestClose;
 
     [[nodiscard]] bool empty() const {
       return !text.has_value()
@@ -112,9 +119,11 @@ namespace scripting {
           && !active.has_value()
           && !enabled.has_value()
           && !launcherResults.has_value()
+          && !launcherQuery.has_value()
           && !uiTree.has_value()
           && !wantsSecondTicks.has_value()
-          && !needsFrameTick.has_value();
+          && !needsFrameTick.has_value()
+          && !requestClose.has_value();
     }
   };
 
@@ -123,12 +132,19 @@ namespace scripting {
     NotifyInfo,
     NotifyError,
     CopyToClipboard,
+    SetWallpaperEnabled,
+    SetWallpaper,
+    TogglePanel,
   };
 
   struct ScriptSideEffect {
     ScriptSideEffectKind kind = ScriptSideEffectKind::Log;
     std::string title;
     std::string body;
+    // SetWallpaperEnabled: title holds the output connector, flag the enabled state.
+    // SetWallpaper: title holds the output connector (empty = all outputs), body the image path.
+    // TogglePanel: title holds the panel id ("author/plugin:panel").
+    bool flag = false;
   };
 
   struct ScriptSnapshot {

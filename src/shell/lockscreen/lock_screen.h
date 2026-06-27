@@ -21,9 +21,11 @@ struct wl_surface;
 struct wl_output;
 class ConfigService;
 
+class FingerprintAuthenticator;
 class LockSurface;
 class RenderContext;
 class SharedTextureCache;
+class SystemBus;
 class WaylandConnection;
 
 class LockScreen {
@@ -33,7 +35,7 @@ public:
 
   bool initialize(
       WaylandConnection& wayland, RenderContext* renderContext, ConfigService* configService,
-      SharedTextureCache* textureCache
+      SharedTextureCache* textureCache, SystemBus* systemBus
   );
   void setSessionHooks(std::function<void()> onLocked, std::function<void()> onUnlocked);
   void setLockEngagedCallback(std::function<void()> callback);
@@ -90,21 +92,30 @@ private:
   void updatePromptOnSurfaces();
   void handlePasswordEdited(const std::string& value);
   void tryAuthenticate();
+  void handleAuthResult(std::uint64_t generation, PamAuthenticator::Result result);
+  void invalidatePendingAuthentication();
+  void startFingerprint();
+  void stopFingerprint();
+  void handleFingerprintStatus(const std::string& message, bool isError);
   static void clearSensitiveString(std::string& value);
 
   WaylandConnection* m_wayland = nullptr;
   RenderContext* m_renderContext = nullptr;
   ConfigService* m_configService = nullptr;
   SharedTextureCache* m_textureCache = nullptr;
+  SystemBus* m_systemBus = nullptr;
   ext_session_lock_v1* m_lock = nullptr;
   std::vector<Instance> m_instances;
   std::unordered_map<wl_output*, ScreencopyImage> m_desktopCaptures;
   PamAuthenticator m_authenticator;
+  std::unique_ptr<FingerprintAuthenticator> m_fingerprint;
   std::string m_user;
   std::string m_password;
   std::string m_status;
   wl_surface* m_pointerSurface = nullptr;
   bool m_statusIsError = false;
+  bool m_authenticating = false;
+  std::uint64_t m_authGeneration = 0;
   bool m_lockPending = false;
   bool m_locked = false;
   bool m_desktopCapturesPrimed = false;

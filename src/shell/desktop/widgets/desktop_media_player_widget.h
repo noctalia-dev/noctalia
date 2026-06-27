@@ -17,9 +17,14 @@ class MprisService;
 
 class DesktopMediaPlayerWidget : public DesktopWidget {
 public:
-  DesktopMediaPlayerWidget(
-      MprisService* mpris, HttpClient* httpClient, bool vertical, ColorSpec color, bool shadow, bool hideWhenNoMedia
-  );
+  struct Options {
+    bool vertical = false;
+    ColorSpec color = colorSpecFromRole(ColorRole::OnSurface);
+    bool shadow = true;
+    bool hideWhenNoMedia = false;
+  };
+
+  DesktopMediaPlayerWidget(MprisService* mpris, HttpClient* httpClient, Options options);
   ~DesktopMediaPlayerWidget() override;
 
   void create() override;

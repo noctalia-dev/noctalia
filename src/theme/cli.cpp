@@ -21,6 +21,7 @@
 #include <fstream>
 #include <json.hpp>
 #include <optional>
+#include <print>
 #include <string>
 #include <tuple>
 #include <unordered_map>
@@ -47,6 +48,7 @@ namespace noctalia::theme {
         "                    Custom (HSL-space, non-M3):\n"
         "                      vibrant\n"
         "                      faithful\n"
+        "                      soft\n"
         "                      dysfunctional\n"
         "                      muted\n"
         "  --dark            Emit only the dark variant (default)\n"
@@ -74,7 +76,7 @@ namespace noctalia::theme {
     std::string templateNameOrId(const std::string& id, const std::string& name) { return name.empty() ? id : name; }
 
     void sortTemplateList(std::vector<TemplateListEntry>& entries) {
-      std::sort(entries.begin(), entries.end(), [](const TemplateListEntry& lhs, const TemplateListEntry& rhs) {
+      std::ranges::sort(entries, [](const TemplateListEntry& lhs, const TemplateListEntry& rhs) {
         return std::tie(lhs.category, lhs.id, lhs.name) < std::tie(rhs.category, rhs.id, rhs.name);
       });
     }
@@ -196,9 +198,9 @@ namespace noctalia::theme {
         return;
 
       if (!firstGroup)
-        std::putchar('\n');
+        std::println();
       firstGroup = false;
-      std::printf("%s\n", title);
+      std::println("{}", title);
 
       std::size_t idWidth = std::strlen("ID");
       std::size_t categoryWidth = std::strlen("Category");
@@ -209,12 +211,10 @@ namespace noctalia::theme {
 
       const auto idColumn = static_cast<int>(idWidth);
       const auto categoryColumn = static_cast<int>(categoryWidth);
-      std::printf("  %-*s  %-*s  %s\n", idColumn, "ID", categoryColumn, "Category", "Name");
+      std::println("  {:{}}  {:{}}  {}", "ID", idColumn, "Category", categoryColumn, "Name");
       for (const auto& entry : entries) {
         const std::string category = entry.category.empty() ? "-" : entry.category;
-        std::printf(
-            "  %-*s  %-*s  %s\n", idColumn, entry.id.c_str(), categoryColumn, category.c_str(), entry.name.c_str()
-        );
+        std::println("  {:{}}  {:{}}  {}", entry.id, idColumn, category, categoryColumn, entry.name);
       }
     }
 
@@ -222,7 +222,7 @@ namespace noctalia::theme {
       std::string err;
       const auto builtins = loadBuiltinTemplateList(err);
       if (!err.empty()) {
-        std::fprintf(stderr, "error: failed to load built-in templates: %s\n", err.c_str());
+        std::println(stderr, "error: failed to load built-in templates: {}", err);
         return 1;
       }
 
@@ -234,10 +234,7 @@ namespace noctalia::theme {
         std::string userErr;
         userTemplates = loadTemplateConfigList(templateConfigPath, true, userErr);
         if (!userErr.empty()) {
-          std::fprintf(
-              stderr, "error: failed to load template config %s: %s\n", templateConfigPath.string().c_str(),
-              userErr.c_str()
-          );
+          std::println(stderr, "error: failed to load template config {}: {}", templateConfigPath.string(), userErr);
           return 1;
         }
         explicitConfigTitle += " (";
@@ -254,7 +251,7 @@ namespace noctalia::theme {
           configPath != nullptr ? explicitConfigTitle.c_str() : "User templates", userTemplates, firstGroup
       );
       if (firstGroup)
-        std::puts("No templates found.");
+        std::println("No templates found.");
       return 0;
     }
 
@@ -433,7 +430,7 @@ namespace noctalia::theme {
     for (int i = 2; i < argc; ++i) {
       const char* a = argv[i];
       if (std::strcmp(a, "--help") == 0) {
-        std::puts(kHelpText);
+        std::println("{}", kHelpText);
         return 0;
       }
       if (std::strcmp(a, "--scheme") == 0 && i + 1 < argc) {
@@ -484,7 +481,7 @@ namespace noctalia::theme {
         imagePath = a;
         continue;
       }
-      std::fprintf(stderr, "error: unknown theme argument: %s\n", a);
+      std::println(stderr, "error: unknown theme argument: {}", a);
       return 1;
     }
 
@@ -493,7 +490,7 @@ namespace noctalia::theme {
 
     if (builtinConfig) {
       if (configPath != nullptr) {
-        std::fputs("error: --builtin-config cannot be combined with --config\n", stderr);
+        std::println(stderr, "error: --builtin-config cannot be combined with --config");
         return 1;
       }
       builtinConfigPathStorage = builtinTemplateConfigPath().string();
@@ -501,13 +498,13 @@ namespace noctalia::theme {
     }
 
     if (!imagePath && !themeJsonPath) {
-      std::fputs("error: theme requires an image path or --theme-json (try: noctalia theme --help)\n", stderr);
+      std::println(stderr, "error: theme requires an image path or --theme-json (try: noctalia theme --help)");
       return 1;
     }
 
     auto schemeOpt = schemeFromString(schemeName);
     if (!schemeOpt) {
-      std::fprintf(stderr, "error: unknown scheme '%s'\n", schemeName.c_str());
+      std::println(stderr, "error: unknown scheme '{}'", schemeName);
       return 1;
     }
 
@@ -515,21 +512,22 @@ namespace noctalia::theme {
     GeneratedPalette palette;
     if (themeJsonPath) {
       if (!loadThemeJson(FileUtils::expandUserPath(themeJsonPath), palette, err)) {
-        std::fprintf(stderr, "error: failed to load theme json: %s\n", err.c_str());
+        std::println(stderr, "error: failed to load theme json: {}", err);
         return 1;
       }
     } else {
-      auto loaded = loadAndResize(imagePath, *schemeOpt, &err);
+      auto loaded = loadAndResize(imagePath, *schemeOpt);
       if (!loaded) {
-        std::fprintf(stderr, "error: failed to load image: %s\n", err.c_str());
+        std::println(stderr, "error: failed to load image: {}", loaded.error());
         return 1;
       }
 
-      palette = generate(loaded->rgb, *schemeOpt, &err);
-      if (palette.dark.empty() && palette.light.empty()) {
-        std::fprintf(stderr, "error: palette generation failed: %s\n", err.empty() ? "unknown error" : err.c_str());
+      auto generated = generate(loaded->rgb, *schemeOpt);
+      if (!generated) {
+        std::println(stderr, "error: palette generation failed: {}", generated.error());
         return 1;
       }
+      palette = std::move(*generated);
     }
 
     const std::string json = toJson(palette, *schemeOpt, variant);
@@ -537,7 +535,7 @@ namespace noctalia::theme {
     if (outPath) {
       std::ofstream f(outPath);
       if (!f) {
-        std::fprintf(stderr, "error: cannot open output file: %s\n", outPath);
+        std::println(stderr, "error: cannot open output file: {}", outPath);
         return 1;
       }
       f << json << '\n';
@@ -551,14 +549,14 @@ namespace noctalia::theme {
       options.defaultMode = defaultMode;
       options.imagePath = imagePath ? imagePath : "";
       options.closestColor.clear();
-      options.schemeType = schemeName.rfind("m3-", 0) == 0 ? schemeName.substr(3) : schemeName;
+      options.schemeType = schemeName.starts_with("m3-") ? schemeName.substr(3) : schemeName;
       options.verbose = true;
       TemplateEngine engine(TemplateEngine::makeThemeData(palette), std::move(options));
 
       for (const auto& spec : renderSpecs) {
         const size_t colon = spec.find(':');
         if (colon == std::string::npos) {
-          std::fprintf(stderr, "error: invalid render spec (expected input:output): %s\n", spec.c_str());
+          std::println(stderr, "error: invalid render spec (expected input:output): {}", spec);
           return 1;
         }
         const std::filesystem::path input = FileUtils::expandUserPath(spec.substr(0, colon));

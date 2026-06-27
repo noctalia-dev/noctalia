@@ -9,7 +9,6 @@
 #include <optional>
 #include <vector>
 
-class InputArea;
 class Renderer;
 class ScrollView;
 

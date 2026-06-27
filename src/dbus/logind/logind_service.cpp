@@ -59,6 +59,8 @@ LogindService::LogindService(SystemBus& bus) : m_bus(bus) {
   });
 }
 
+LogindService::~LogindService() { releaseIdleInhibit(); }
+
 void LogindService::ensureSessionLockMonitor() {
   if (m_sessionProxy != nullptr) {
     return;
@@ -127,4 +129,44 @@ void LogindService::syncSessionUnlocked() {
   } catch (const sdbus::Error& e) {
     kLog.warn("failed to sync logind session unlock state: {}", e.what());
   }
+}
+
+bool LogindService::supportsIdleInhibit() const noexcept { return m_managerProxy != nullptr; }
+
+bool LogindService::hasIdleInhibit() const noexcept { return m_idleInhibitFd >= 0; }
+
+bool LogindService::acquireIdleInhibit() {
+  if (m_idleInhibitFd >= 0) {
+    return true;
+  }
+  if (m_managerProxy == nullptr) {
+    return false;
+  }
+
+  try {
+    sdbus::UnixFd fd;
+    m_managerProxy->callMethod("Inhibit")
+        .onInterface(kLogindManagerInterface)
+        .withArguments(std::string("idle"), std::string("noctalia"), std::string("Caffeine"), std::string("block"))
+        .storeResultsTo(fd);
+    m_idleInhibitFd = fd.release();
+    if (m_idleInhibitFd < 0) {
+      kLog.warn("logind idle inhibit returned invalid fd");
+      return false;
+    }
+    kLog.info("logind idle inhibit acquired");
+    return true;
+  } catch (const sdbus::Error& e) {
+    kLog.warn("failed to acquire logind idle inhibit: {}", e.what());
+    return false;
+  }
+}
+
+void LogindService::releaseIdleInhibit() {
+  if (m_idleInhibitFd < 0) {
+    return;
+  }
+  ::close(m_idleInhibitFd);
+  m_idleInhibitFd = -1;
+  kLog.debug("logind idle inhibit released");
 }

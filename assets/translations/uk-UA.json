@@ -97,7 +97,6 @@
   "control-center": {
     "audio": {
       "application-volumes": "Гучність застосунків",
-      "input-volume": "Вхідна гучність",
       "no-application-audio": "Немає звуку застосунку",
       "no-application-audio-body": "Наразі немає доступних потоків відтворення застосунків.",
       "no-input-devices": "Немає пристроїв введення",
@@ -106,7 +105,6 @@
       "no-output-devices": "Немає пристроїв виведення",
       "no-output-devices-body": "Наразі немає доступних пристроїв відтворення.",
       "no-output-selected": "Вихідний пристрій не вибрано",
-      "output-volume": "Вихідна гучність",
       "unavailable-body": "PipeWire неактивний.",
       "unavailable-title": "Аудіо недоступне"
     },
@@ -164,7 +162,6 @@
       "unknown": "невідомо",
       "uptime": "Час роботи - {uptime}",
       "weather": {
-        "configure-location": "Додайте [weather].address або увімкніть auto_locate.",
         "data-unavailable": "Дані про погоду недоступні.",
         "disabled": "Погода вимкнена у конфігурації.",
         "fetching": "Отримання прогнозу..."
@@ -242,7 +239,6 @@
       },
       "notification": "DND",
       "power-profile": "Живлення",
-      "screen-recorder": "Запис",
       "screen-time": "Час екрану",
       "session": "Сесія",
       "system": "Система",
@@ -276,7 +272,6 @@
       "weather": "Погода"
     },
     "weather": {
-      "configure-location": "Встановіть [weather].address або увімкніть auto_locate",
       "data-unavailable": "Дані про погоду недоступні",
       "details": {
         "elevation": "Висота",
@@ -977,7 +972,6 @@
       "shell": {
         "panel-placement": {
           "attached": "Прикріплений",
-          "centered": "По центру",
           "floating": "Плаваюча"
         },
         "panel-transparency": {
@@ -1539,8 +1533,7 @@
           "label": "Чорний список сповіщень"
         },
         "blacklist-allow-critical": {
-          "description": "Все ще показувати критичні сповіщення від заблокованих відправників",
-          "label": "Дозволити критичні через чорний список"
+          "description": "Все ще показувати критичні сповіщення від заблокованих відправників"
         },
         "collapse-on-dismiss": {
           "description": "Зсувати решту Toast-повідомлень, щоб закрити прогалини, коли одне з них зникає",
@@ -1605,7 +1598,7 @@
           "label": "Головні ярлики"
         },
         "launcher-categories": {
-          "description": "Показати фільтри категорій у Launcher; перемикати за допомогою Tab, коли Launcher відкрито",
+          "description": "Показати фільтри категорій у Launcher; покажіть їх F6, потім перемикайте F6 і Shift+F6",
           "label": "Показати категорії"
         },
         "launcher-compact": {
@@ -2703,10 +2696,7 @@
   },
   "time": {
     "duration": {
-      "days-hours-minutes": "{days}д {hours}год {minutes}хв",
-      "hours-minutes": "{hours} год {minutes} хв",
-      "less-than-minute": "1хв",
-      "minutes": "{minutes}хв"
+      "less-than-minute": "1хв"
     },
     "file": {
       "unknown": "Невідомо"

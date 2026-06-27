@@ -23,11 +23,21 @@ public:
     Name,
   };
 
-  WorkspacesWidget(
-      CompositorPlatform& platform, wl_output* output, DisplayMode displayMode, ColorSpec focusedColor,
-      ColorSpec occupiedColor, ColorSpec emptyColor, std::size_t maxLabelChars, bool labelsOnlyWhenOccupied,
-      bool hideWhenEmpty, float pillScale, bool minimal
-  );
+  struct Options {
+    DisplayMode displayMode = DisplayMode::Id;
+    ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
+    ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
+    ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
+    std::size_t maxLabelChars = 1;
+    bool labelsOnlyWhenOccupied = false;
+    bool hideWhenEmpty = false;
+    float pillScale = 1.0f;
+    float activePillSize = 2.2f;
+    float inactivePillSize = 1.0f;
+    bool minimal = false;
+  };
+
+  WorkspacesWidget(CompositorPlatform& platform, wl_output* output, Options options);
   ~WorkspacesWidget() override;
 
   void create() override;
@@ -43,6 +53,7 @@ private:
   void cancelAnimation();
   void applyItemLayout(std::size_t i);
   [[nodiscard]] float workspacePillRadius(float width, float height) const noexcept;
+  [[nodiscard]] float workspaceMainAxisMinWidth(float baseSize, bool active) const noexcept;
   [[nodiscard]] std::optional<std::size_t> activeWorkspaceIndex() const;
   void activateAdjacentWorkspace(int direction);
 
@@ -85,6 +96,8 @@ private:
   bool m_labelsOnlyWhenOccupied = false;
   bool m_hideWhenEmpty = false;
   float m_pillScale = 1.0f;
+  float m_activePillSize = 2.2f;
+  float m_inactivePillSize = 1.0f;
   bool m_minimal = false;
   Node* m_container = nullptr;
   std::vector<Workspace> m_cachedState;

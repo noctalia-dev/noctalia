@@ -17,11 +17,17 @@
 struct wl_output;
 struct wl_surface;
 struct ext_workspace_manager_v1;
+struct org_kde_plasma_virtual_desktop_management;
 struct zdwl_ipc_manager_v2;
 struct hyprland_toplevel_mapping_manager_v1;
 struct zwlr_foreign_toplevel_handle_v1;
 struct ext_foreign_toplevel_handle_v1;
+class SessionBus;
 class WaylandWorkspaces;
+
+namespace compositors::kde {
+  class KwinActiveWindow;
+}
 
 namespace compositors::hyprland {
   class HyprlandToplevelMapping;
@@ -56,6 +62,7 @@ public:
   CompositorPlatform& operator=(const CompositorPlatform&) = delete;
 
   void initialize();
+  void startKdeActiveWindow(SessionBus& bus);
   void cleanup();
 
   [[nodiscard]] WaylandConnection& wayland() noexcept { return m_wayland; }
@@ -88,8 +95,12 @@ public:
   windowsForApp(const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter = nullptr) const;
   [[nodiscard]] bool containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
   void activateToplevel(zwlr_foreign_toplevel_handle_v1* handle);
+  void activateToplevelInfo(const ToplevelInfo& window);
   void closeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
+  void closeToplevelInfo(const ToplevelInfo& window);
   void focusCompositorWindow(const std::string& windowId) const;
+
+  void activateKdeWindow(const std::string& title, const std::string& appId, const std::string& uuid = {});
 
   void setToplevelChangeCallback(ChangeCallback callback);
   void bindHyprlandToplevelMappingManager(hyprland_toplevel_mapping_manager_v1* manager);
@@ -97,6 +108,7 @@ public:
   [[nodiscard]] std::optional<std::string> compositorWindowIdForToplevel(zwlr_foreign_toplevel_handle_v1* handle) const;
   [[nodiscard]] std::optional<std::string>
   compositorWindowIdForExtToplevel(ext_foreign_toplevel_handle_v1* handle) const;
+  [[nodiscard]] std::optional<std::string> compositorWindowIdForToplevelInfo(const ToplevelInfo& info) const;
   [[nodiscard]] zwlr_foreign_toplevel_handle_v1* toplevelHandleForCompositorWindowId(std::string_view windowId) const;
   [[nodiscard]] bool isCompositorWindowIdKnown(std::string_view windowId) const;
   [[nodiscard]] std::optional<std::string> focusedCompositorWindowId() const;
@@ -117,6 +129,7 @@ public:
   [[nodiscard]] std::vector<WorkspaceWindowAssignment>
   workspaceWindowAssignments(wl_output* outputFilter = nullptr) const;
   [[nodiscard]] TaskbarAssignmentMode taskbarAssignmentMode() const noexcept;
+  [[nodiscard]] bool supportsTaskbarWorkspaceGrouping() const noexcept;
   [[nodiscard]] std::unordered_map<std::uintptr_t, WorkspaceWindow>
   assignTaskbarWindows(const std::vector<TaskbarWindowCandidate>& windows, wl_output* outputFilter = nullptr) const;
   [[nodiscard]] const char* workspaceBackendName() const noexcept;
@@ -149,6 +162,7 @@ private:
   };
 
   void bindExtWorkspace(ext_workspace_manager_v1* manager);
+  void bindKdeVirtualDesktop(org_kde_plasma_virtual_desktop_management* management);
   void bindDwlIpcWorkspace(zdwl_ipc_manager_v2* manager);
   void notifyToplevelsChanged();
   void onOutputAdded(wl_output* output);
@@ -173,6 +187,7 @@ private:
   ChangeCallback m_keyboardLayoutChangeCallback;
   ChangeCallback m_toplevelChangeCallback;
   std::unique_ptr<compositors::hyprland::HyprlandToplevelMapping> m_hyprlandToplevelMapping;
+  std::unique_ptr<compositors::kde::KwinActiveWindow> m_kwinActiveWindow;
   std::vector<WorkspaceModelSnapshot> m_lastWorkspaceModelSnapshot;
   bool m_initialized = false;
 };

@@ -1,6 +1,7 @@
 #include "dbus/polkit/polkit_agent.h"
 
 #include "core/log.h"
+#include "dbus/polkit/polkit_session_support.h"
 #include "i18n/i18n.h"
 
 #include <algorithm>
@@ -108,6 +109,7 @@ namespace {
     std::string message;
     std::string iconName;
     std::string cookie;
+    bool isInternal = false;
     std::vector<IdentityRef> identities;
     GTask* task = nullptr;
     GCancellable* cancellable = nullptr;
@@ -261,6 +263,7 @@ struct PolkitAgent::Impl {
   std::thread registerThread;
   mutable std::mutex registerMutex;
   gpointer pendingRegistrationHandle = nullptr;
+  bool m_nextInternal = false;
   bool registrationComplete = false;
   bool registrationOk = false;
   bool registrationShutdown = false;
@@ -294,7 +297,7 @@ struct PolkitAgent::Impl {
       g_cancellable_cancel(registerCancellable);
     }
     {
-      std::lock_guard lock(registerMutex);
+      std::scoped_lock lock(registerMutex);
       registrationShutdown = true;
     }
     if (registerThread.joinable()) {
@@ -361,6 +364,21 @@ struct PolkitAgent::Impl {
       return;
     }
 
+    if (pidSubject == nullptr || error != nullptr) {
+      const bool noSession = error != nullptr && polkit_session::isNoSessionForPidError(error->message);
+      if (pidSubject != nullptr) {
+        g_object_unref(pidSubject);
+        pidSubject = nullptr;
+      }
+      if (noSession) {
+        g_clear_error(&error);
+        kLog.info("polkit: no logind session for pid; trying unix-user authentication agent");
+        PolkitSubject* userSubject = POLKIT_SUBJECT(polkit_unix_user_new(static_cast<gint>(::getuid())));
+        beginRegisterSubject(userSubject, nullptr);
+        return;
+      }
+    }
+
     beginRegisterSubject(pidSubject, error);
   }
 
@@ -398,7 +416,7 @@ struct PolkitAgent::Impl {
   void setRegistrationResult(gpointer handle, bool ok, std::string error) {
     bool shouldUnregister = false;
     {
-      std::lock_guard lock(registerMutex);
+      std::scoped_lock lock(registerMutex);
       if (registrationShutdown) {
         shouldUnregister = handle != nullptr;
       } else {
@@ -415,7 +433,7 @@ struct PolkitAgent::Impl {
   }
 
   bool registrationReady() const {
-    std::lock_guard lock(registerMutex);
+    std::scoped_lock lock(registerMutex);
     return registrationComplete;
   }
 
@@ -424,7 +442,7 @@ struct PolkitAgent::Impl {
     bool ok = false;
     std::string error;
     {
-      std::lock_guard lock(registerMutex);
+      std::scoped_lock lock(registerMutex);
       if (!registrationComplete) {
         return;
       }
@@ -536,6 +554,9 @@ struct PolkitAgent::Impl {
     if (pending != nullptr) {
       clearPending("Replaced by a newer authentication request", true);
     }
+
+    request->isInternal = m_nextInternal;
+    m_nextInternal = false;
 
     if (request->identities.empty()) {
       kLog.warn("polkit request \"{}\" has no identities", request->actionId);
@@ -734,6 +755,7 @@ struct PolkitAgent::Impl {
     request.message = pending->message;
     request.iconName = pending->iconName;
     request.cookie = pending->cookie;
+    request.isInternal = pending->isInternal;
     request.identities.reserve(pending->identities.size());
     for (const IdentityRef& identity : pending->identities) {
       request.identities.push_back(toRequestIdentity(identity.get()));
@@ -773,6 +795,12 @@ void PolkitAgent::submitResponse(const std::string& response) {
 void PolkitAgent::cancelRequest() {
   if (m_impl != nullptr) {
     m_impl->cancelRequest();
+  }
+}
+
+void PolkitAgent::markNextRequestInternal() {
+  if (m_impl != nullptr) {
+    m_impl->m_nextInternal = true;
   }
 }
 

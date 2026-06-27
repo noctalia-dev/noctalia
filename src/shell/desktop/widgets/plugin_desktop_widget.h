@@ -20,8 +20,9 @@ class ClipboardService;
 class Flex;
 class HttpClient;
 namespace scripting {
+  struct PluginRuntimeContext;
   class ScriptApiContext;
-}
+} // namespace scripting
 
 // A desktop widget backed by a plugin's `[[desktop_widget]]` entry. The script
 // runs off-thread on its own Luau runtime and describes its UI declaratively:
@@ -30,12 +31,7 @@ namespace scripting {
 // rotation) stay host-owned; the script only reads its declared settings.
 class PluginDesktopWidget : public DesktopWidget, public scripting::PluginIpcEndpoint {
 public:
-  PluginDesktopWidget(
-      std::string entryId, std::filesystem::path sourcePath,
-      std::unordered_map<std::string, WidgetSettingValue> settings, std::string outputName,
-      scripting::ScriptApiContext& scriptApi, FileWatcher* fileWatcher = nullptr, HttpClient* httpClient = nullptr,
-      ClipboardService* clipboard = nullptr
-  );
+  PluginDesktopWidget(scripting::PluginRuntimeContext context, std::string outputName);
   ~PluginDesktopWidget() override;
 
   void create() override;
@@ -48,7 +44,8 @@ public:
   [[nodiscard]] std::string_view ipcEntryId() const override { return m_entryId; }
   [[nodiscard]] std::string_view ipcOutputName() const override { return m_outputName; }
   [[nodiscard]] std::string_view ipcBarName() const override { return {}; }
-  [[nodiscard]] DispatchResult dispatchIpc(std::string_view event, std::string_view payload) override;
+  [[nodiscard]] DispatchResult
+  dispatchIpc(std::string_view event, std::string_view payload, const scripting::ScriptSnapshot& snapshot) override;
 
 private:
   void doLayout(Renderer& renderer) override;

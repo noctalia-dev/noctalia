@@ -1,6 +1,6 @@
 #pragma once
 
-#include "config/config_service.h"
+#include "config/config_types.h"
 #include "render/core/render_styles.h"
 
 #include <cstdint>

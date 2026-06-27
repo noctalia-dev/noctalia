@@ -29,8 +29,7 @@ namespace {
     if (dir.path.empty()) {
       return;
     }
-    if (std::find_if(dirs.begin(), dirs.end(), [&](const IconSearchDir& d) { return d.path == dir.path; })
-        == dirs.end()) {
+    if (!std::ranges::contains(dirs, dir.path, &IconSearchDir::path)) {
       dirs.push_back(std::move(dir));
     }
   }
@@ -68,7 +67,7 @@ namespace {
     if (value.empty()) {
       return;
     }
-    if (std::find(values.begin(), values.end(), value) == values.end()) {
+    if (!std::ranges::contains(values, value)) {
       values.push_back(std::move(value));
     }
   }
@@ -316,7 +315,7 @@ namespace {
     }
 
     // Sort dirs: scalable first, then by size descending (MaxSize first, then use Size as a tiebreaker)
-    std::stable_sort(dirNames.begin(), dirNames.end(), [&](const std::string& a, const std::string& b) {
+    std::ranges::stable_sort(dirNames, [&](const std::string& a, const std::string& b) {
       const auto& da = dirMap[a];
       const auto& db = dirMap[b];
       if (da.scalable != db.scalable)

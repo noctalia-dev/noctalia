@@ -45,12 +45,15 @@ jobs:
             sdbus-cpp libpipewire polkit \
             pam curl libwebp librsvg \
             libqalculate libxml2 \
-            jemalloc
+            jemalloc just clang
 
       - uses: actions/checkout@v4
 
-      - name: Configure
-        run: meson setup build-debug --buildtype=debug
-
       - name: Build
-        run: meson compile -C build-debug
+        run: just build
+
+      - name: Test
+        run: just test debug --print-errorlogs
+
+      - name: Lint
+        run: just lint

@@ -1,9 +1,9 @@
 #pragma once
 
-#include "config/config_types.h"
 #include "render/scene/input_area.h"
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
 
+#include <cstdint>
 #include <functional>
 #include <optional>
 #include <string>
@@ -16,6 +16,7 @@ class Image;
 class Label;
 class Renderer;
 class ThumbnailService;
+enum class ThemeMode : std::uint8_t;
 
 // A single cell in the wallpaper grid: rounded thumbnail (or folder glyph for
 // directories) with filename underneath. Inherits InputArea so the whole tile
@@ -66,9 +67,14 @@ public:
 private:
   void applyVisualState();
   void applyStarVisualState();
+  void applyThumbScale(float scale);
+  void animateThumbScale(float targetScale);
+  void cancelThumbScaleAnimation();
   void layoutThumbOverlays();
   void doLayout(Renderer& renderer) override;
   void releaseThumbnail();
+  // Thumbnail long-edge in physical pixels for this tile's current display size.
+  [[nodiscard]] int thumbnailTargetPx(const Renderer& renderer) const;
 
   float m_cellWidth;
   float m_cellHeight;
@@ -96,6 +102,10 @@ private:
   bool m_missingFile = false;
   bool m_loadingThumbnail = false;
   std::string m_thumbPath;
+  int m_thumbTargetPx = 0;
+  float m_thumbScale = 1.0f;
+  float m_thumbScaleTarget = 1.0f;
+  std::uint32_t m_thumbScaleAnimId = 0;
   ClickCallback m_onClick;
   std::function<void(const WallpaperEntry&)> m_onStarClick;
   HoverCallback m_onMotion;

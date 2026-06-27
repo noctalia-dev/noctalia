@@ -1,6 +1,5 @@
 #pragma once
 
-#include "render/core/color.h"
 #include "shell/settings/settings_registry.h"
 #include "ui/controls/label.h"
 
@@ -41,5 +40,6 @@ namespace settings {
   );
   void normalizeIdleBehaviorNames(std::vector<IdleBehaviorConfig>& rows);
   [[nodiscard]] std::string idleBehaviorRowSummary(const IdleBehaviorConfig& row);
+  [[nodiscard]] std::string notificationFilterRowSummary(const NotificationFilterConfig& filter);
 
 } // namespace settings

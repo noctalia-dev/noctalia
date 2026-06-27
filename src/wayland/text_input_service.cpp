@@ -4,9 +4,7 @@
 #include "text-input-unstable-v3-client-protocol.h"
 
 #include <algorithm>
-#include <array>
 #include <limits>
-#include <wayland-client.h>
 
 namespace {
 

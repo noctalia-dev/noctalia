@@ -1,6 +1,7 @@
 #include "system/system_monitor_service.h"
 
 #include "core/log.h"
+#include "system/cpu_temp_sensor.h"
 #include "system/format_units.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
@@ -45,24 +46,6 @@ namespace {
     return result;
   }
 
-  std::optional<std::string> readSmallTextFile(const std::filesystem::path& path) {
-    std::ifstream file{path};
-    if (!file.is_open()) {
-      return std::nullopt;
-    }
-
-    std::string text;
-    std::getline(file, text);
-    if (text.empty()) {
-      return std::nullopt;
-    }
-
-    while (!text.empty() && (text.back() == '\n' || text.back() == '\r' || text.back() == ' ' || text.back() == '\t')) {
-      text.pop_back();
-    }
-    return text;
-  }
-
   std::optional<double> readTempInputCelsius(const std::filesystem::path& path) {
     std::ifstream file{path};
     if (!file.is_open()) {
@@ -80,19 +63,6 @@ namespace {
       return static_cast<double>(raw) / 1000.0;
     }
     return static_cast<double>(raw);
-  }
-
-  double readCpuTempInputCelsius(const std::filesystem::path& path) {
-    std::ifstream file{path};
-    long long raw = 0;
-    if (file.is_open()) {
-      file >> raw;
-      if (file.fail()) {
-        raw = 0;
-      }
-    }
-
-    return static_cast<double>(raw / 1000);
   }
 
   std::optional<std::uint64_t> readUint64File(const std::filesystem::path& path) {
@@ -168,6 +138,28 @@ namespace {
     return fastest;
   }
 
+  [[nodiscard]] double netRxFromStats(const SystemStats& stats, std::string_view interfaceName) {
+    if (interfaceName.empty()) {
+      return stats.netRxBytesPerSec;
+    }
+    if (const auto it = stats.netThroughputByInterface.find(std::string(interfaceName));
+        it != stats.netThroughputByInterface.end()) {
+      return it->second.rxBytesPerSec;
+    }
+    return 0.0;
+  }
+
+  [[nodiscard]] double netTxFromStats(const SystemStats& stats, std::string_view interfaceName) {
+    if (interfaceName.empty()) {
+      return stats.netTxBytesPerSec;
+    }
+    if (const auto it = stats.netThroughputByInterface.find(std::string(interfaceName));
+        it != stats.netThroughputByInterface.end()) {
+      return it->second.txBytesPerSec;
+    }
+    return 0.0;
+  }
+
   [[nodiscard]] SystemConfig::MonitorConfig sanitizeMonitorConfig(SystemConfig::MonitorConfig config) {
     config.cpuPollSeconds = clampPollSeconds(config.cpuPollSeconds);
     config.gpuPollSeconds = clampPollSeconds(config.gpuPollSeconds);
@@ -205,20 +197,9 @@ namespace {
     return std::format("hwmon:{} label=\"{}\" {}", name, label, inputPath.string());
   }
 
-  std::string formatThermalZoneTempSource(const std::string& zoneType, const std::filesystem::path& inputPath) {
-    const std::string type = zoneType.empty() ? "unknown" : zoneType;
-    return std::format("thermal_zone:{} {}", type, inputPath.string());
-  }
-
   bool isBetterHwmonSensor(int score, double tempC, int bestScore, const std::optional<double>& bestTemp) {
     return score > bestScore || (score == bestScore && (!bestTemp.has_value() || tempC > *bestTemp));
   }
-
-  bool isPrimaryCpuSensorLabel(const std::string& label) {
-    return label.starts_with("Package id") || label.starts_with("Tdie") || label.starts_with("SoC Temperature");
-  }
-
-  bool isCoreCpuSensorLabel(const std::string& label) { return label.starts_with("Core") || label.starts_with("Tccd"); }
 
   int scoreGpuHwmonSensor(const std::string& hwmonName, const std::string& label) {
     const std::string name = StringUtils::toLower(hwmonName);
@@ -252,7 +233,7 @@ namespace {
     if (!fs::exists(deviceLink)) {
       return true;
     }
-    const auto status = readSmallTextFile(deviceLink / "power" / "runtime_status");
+    const auto status = FileUtils::readSmallTextFile(deviceLink / "power" / "runtime_status");
     if (!status.has_value()) {
       return true;
     }
@@ -303,7 +284,7 @@ namespace {
         continue;
       }
 
-      if (readSmallTextFile(devicePath / "vendor").value_or("") != "0x1002") {
+      if (FileUtils::readSmallTextFile(devicePath / "vendor").value_or("") != "0x1002") {
         continue;
       }
 
@@ -410,147 +391,14 @@ namespace {
     return total;
   }
 
-  std::optional<TempSensorReading> readCpuTempSensor() {
-    namespace fs = std::filesystem;
-
-    std::vector<fs::path> searchPaths;
-    std::unordered_map<std::string, TempSensorReading> foundSensors;
-    std::string cpuSensor;
-    bool gotCpu = false;
-    bool gotCoretemp = false;
-
+  noctalia::system::cpu_temp::ProbeResult readCpuTempSensor(const SystemConfig::MonitorConfig& config) {
     try {
-      const fs::path hwmonRoot{"/sys/class/hwmon"};
-      if (fs::exists(hwmonRoot) && fs::is_directory(hwmonRoot)) {
-        for (const auto& dir : fs::directory_iterator{hwmonRoot}) {
-          std::error_code ec;
-          const fs::path addPath = fs::canonical(dir.path(), ec);
-          if (ec
-              || FileUtils::containsPath(searchPaths, addPath)
-              || FileUtils::containsPath(searchPaths, addPath / "device")) {
-            continue;
-          }
-
-          if (addPath.string().contains("coretemp")) {
-            gotCoretemp = true;
-          }
-
-          for (const auto& file : fs::directory_iterator{addPath}) {
-            if (file.path().filename() == "device") {
-              for (const auto& devFile : fs::directory_iterator{file.path()}) {
-                const std::string devFileName = devFile.path().filename().string();
-                if (devFileName.starts_with("temp") && devFileName.ends_with("_input")) {
-                  searchPaths.push_back(file.path());
-                  break;
-                }
-              }
-            }
-
-            const std::string fileName = file.path().filename().string();
-            if (fileName.starts_with("temp") && fileName.ends_with("_input")) {
-              searchPaths.push_back(addPath);
-              break;
-            }
-          }
-        }
-      }
-
-      if (!gotCoretemp) {
-        const fs::path coretempRoot{"/sys/devices/platform/coretemp.0/hwmon"};
-        if (fs::exists(coretempRoot) && fs::is_directory(coretempRoot)) {
-          for (const auto& dir : fs::directory_iterator{coretempRoot}) {
-            std::error_code ec;
-            const fs::path addPath = fs::canonical(dir.path(), ec);
-            if (ec) {
-              continue;
-            }
-
-            for (const auto& file : fs::directory_iterator{addPath}) {
-              const std::string fileName = file.path().filename().string();
-              if (fileName.starts_with("temp")
-                  && fileName.ends_with("_input")
-                  && !FileUtils::containsPath(searchPaths, addPath)) {
-                searchPaths.push_back(addPath);
-                gotCoretemp = true;
-                break;
-              }
-            }
-          }
-        }
-      }
-
-      for (const auto& path : searchPaths) {
-        const std::string hwmonName = readSmallTextFile(path / "name").value_or(path.filename().string());
-        for (const auto& file : fs::directory_iterator{path}) {
-          const fs::path inputPath = file.path();
-          const std::string fileName = inputPath.filename().string();
-          const std::string fileSuffix = "input";
-          std::string filePath = inputPath.string();
-          if (!filePath.contains(fileSuffix) || filePath.contains("nvme")) {
-            continue;
-          }
-
-          const int fileId = fileName.size() > 4 ? std::atoi(fileName.c_str() + 4) : 0;
-          const std::string basePath = filePath.erase(filePath.find(fileSuffix), fileSuffix.length());
-          const std::string label =
-              readSmallTextFile(fs::path(basePath + "label")).value_or("temp" + std::to_string(fileId));
-          const fs::path valuePath = fs::path(basePath + "input");
-          const std::string sensorName = hwmonName + "/" + label;
-          foundSensors[sensorName] = TempSensorReading{
-              .tempC = readCpuTempInputCelsius(valuePath),
-              .score = 0,
-              .source = formatHwmonTempSource(hwmonName, label, valuePath)
-          };
-
-          if (!gotCpu && isPrimaryCpuSensorLabel(label)) {
-            gotCpu = true;
-            cpuSensor = sensorName;
-          } else if (isCoreCpuSensorLabel(label)) {
-            gotCoretemp = true;
-          }
-        }
-      }
-
-      if (!gotCpu) {
-        const fs::path thermalRoot{"/sys/class/thermal"};
-        for (int i = 0; fs::exists(thermalRoot / ("thermal_zone" + std::to_string(i))); ++i) {
-          const fs::path basePath = thermalRoot / ("thermal_zone" + std::to_string(i));
-          const fs::path tempPath = basePath / "temp";
-          if (!fs::exists(tempPath)) {
-            continue;
-          }
-
-          const std::string label = readSmallTextFile(basePath / "type").value_or("temp" + std::to_string(i));
-          const std::string sensorName = "thermal" + std::to_string(i) + "/" + label;
-          foundSensors[sensorName] = TempSensorReading{
-              .tempC = readCpuTempInputCelsius(tempPath),
-              .score = 0,
-              .source = formatThermalZoneTempSource(label, tempPath)
-          };
-        }
-      }
+      return noctalia::system::cpu_temp::read("/sys/class/hwmon", "/sys/class/thermal", config.cpuTempSensorPath);
     } catch (...) {
+      return noctalia::system::cpu_temp::ProbeResult{
+          .reading = std::nullopt, .error = "CPU temperature sensor scan failed"
+      };
     }
-
-    if (!cpuSensor.empty()) {
-      const auto it = foundSensors.find(cpuSensor);
-      if (it != foundSensors.end()) {
-        return it->second;
-      }
-    }
-
-    for (const auto& [name, sensor] : foundSensors) {
-      const std::string lowerName = StringUtils::toLower(name);
-      if (lowerName.contains("cpu") || lowerName.contains("k10temp")) {
-        return sensor;
-      }
-    }
-
-    if (!foundSensors.empty()) {
-      return foundSensors.begin()->second;
-    }
-
-    return std::nullopt;
   }
 
   GpuHwmonProbe readGpuHwmonTempSensor() {
@@ -568,7 +416,7 @@ namespace {
         continue;
       }
 
-      const std::string hwmonName = readSmallTextFile(hwmonEntry.path() / "name").value_or("");
+      const std::string hwmonName = FileUtils::readSmallTextFile(hwmonEntry.path() / "name").value_or("");
       const int nameScore = scoreGpuHwmonSensor(hwmonName, "");
       if (nameScore < 0) {
         continue;
@@ -592,7 +440,7 @@ namespace {
         }
 
         const std::string base = fileName.substr(0, fileName.size() - 6);
-        const std::string label = readSmallTextFile(hwmonEntry.path() / (base + "_label")).value_or("");
+        const std::string label = FileUtils::readSmallTextFile(hwmonEntry.path() / (base + "_label")).value_or("");
         const auto tempC = readTempInputCelsius(fileEntry.path());
         if (!tempC.has_value()) {
           continue;
@@ -704,6 +552,36 @@ namespace {
   using RsmiDevPciThroughputGetFn = RsmiReturn (*)(std::uint32_t, std::uint64_t*, std::uint64_t*, std::uint64_t*);
 
   constexpr Logger kLog("sysmon");
+
+  std::uint64_t readZfsEvictableArcKb() {
+    std::ifstream file{"/proc/spl/kstat/zfs/arcstats"};
+    if (!file.is_open()) {
+      return 0;
+    }
+
+    std::uint64_t arcSize = 0;
+    std::uint64_t arcMin = 0;
+    std::string line;
+    while (std::getline(file, line)) {
+      std::string key;
+      std::uint32_t type = 0;
+      std::uint64_t value = 0;
+
+      std::istringstream iss{line};
+      if (iss >> key >> type >> value) {
+        if (key == "size") {
+          arcSize = value;
+        } else if (key == "c_min") {
+          arcMin = value;
+        }
+      }
+    }
+
+    if (arcSize > arcMin) {
+      return (arcSize - arcMin) / 1024;
+    }
+    return 0;
+  }
 
 } // namespace
 
@@ -1058,19 +936,19 @@ SystemMonitorService::~SystemMonitorService() { stop(); }
 bool SystemMonitorService::isRunning() const noexcept { return m_running.load(); }
 
 SystemConfig::MonitorConfig SystemMonitorService::pollConfig() const {
-  std::lock_guard lock{m_configMutex};
+  std::scoped_lock lock{m_configMutex};
   return m_pollConfig;
 }
 
 std::chrono::steady_clock::duration SystemMonitorService::historySampleInterval() const noexcept {
-  std::lock_guard lock{m_configMutex};
+  std::scoped_lock lock{m_configMutex};
   return m_historyInterval;
 }
 
 void SystemMonitorService::applyConfig(const SystemConfig::MonitorConfig& config) {
   const SystemConfig::MonitorConfig sanitized = sanitizeMonitorConfig(config);
   {
-    std::lock_guard lock{m_configMutex};
+    std::scoped_lock lock{m_configMutex};
     m_pollConfig = sanitized;
     m_historyInterval = pollDuration(effectiveHistoryPollSeconds(sanitized));
   }
@@ -1089,13 +967,23 @@ void SystemMonitorService::setEnabled(bool enabled) {
 }
 
 SystemStats SystemMonitorService::latest() const {
-  std::lock_guard lock{m_statsMutex};
+  std::scoped_lock lock{m_statsMutex};
   return m_latest;
 }
 
 std::vector<SystemStats> SystemMonitorService::history(int windowSize) const {
-  std::lock_guard lock{m_statsMutex};
+  std::scoped_lock lock{m_statsMutex};
   return historyWindowFromRing(m_history, m_historyHead, windowSize);
+}
+
+double SystemMonitorService::netRxBytesPerSec(std::string_view interfaceName) const {
+  std::scoped_lock lock{m_statsMutex};
+  return netRxFromStats(m_latest, interfaceName);
+}
+
+double SystemMonitorService::netTxBytesPerSec(std::string_view interfaceName) const {
+  std::scoped_lock lock{m_statsMutex};
+  return netTxFromStats(m_latest, interfaceName);
 }
 
 void SystemMonitorService::retainCpuTemp() { m_cpuTempRefs.fetch_add(1, std::memory_order_relaxed); }
@@ -1116,7 +1004,7 @@ void SystemMonitorService::releaseGpuVram() { m_gpuVramRefs.fetch_sub(1, std::me
 
 void SystemMonitorService::retainDiskPath(const std::string& path) {
   const float initialPercent = isRunning() ? readDiskUsagePercent(path) : 0.0f;
-  std::lock_guard lock{m_statsMutex};
+  std::scoped_lock lock{m_statsMutex};
   auto& disk = m_diskHistories[path];
   if (disk.refs == 0) {
     disk.latestPercent = initialPercent;
@@ -1126,7 +1014,7 @@ void SystemMonitorService::retainDiskPath(const std::string& path) {
 }
 
 void SystemMonitorService::releaseDiskPath(const std::string& path) {
-  std::lock_guard lock{m_statsMutex};
+  std::scoped_lock lock{m_statsMutex};
   const auto it = m_diskHistories.find(path);
   if (it == m_diskHistories.end()) {
     return;
@@ -1138,13 +1026,13 @@ void SystemMonitorService::releaseDiskPath(const std::string& path) {
 }
 
 float SystemMonitorService::diskUsagePercent(const std::string& path) const {
-  std::lock_guard lock{m_statsMutex};
+  std::scoped_lock lock{m_statsMutex};
   const auto it = m_diskHistories.find(path);
   return it != m_diskHistories.end() ? it->second.latestPercent : 0.0f;
 }
 
 std::vector<float> SystemMonitorService::diskHistory(const std::string& path, int windowSize) const {
-  std::lock_guard lock{m_statsMutex};
+  std::scoped_lock lock{m_statsMutex};
   const auto it = m_diskHistories.find(path);
   if (it == m_diskHistories.end() || windowSize <= 0) {
     return {};
@@ -1177,6 +1065,7 @@ void SystemMonitorService::stop() {
 }
 
 void SystemMonitorService::logDetectedSources() {
+  const SystemConfig::MonitorConfig pollCfg = pollConfig();
   const NvidiaDisplayDeviceState nvidiaDisplayState = detectNvidiaPciDisplayDeviceState();
   const auto cpu = readCpuTotals();
   const auto mem = readMemoryKb();
@@ -1190,8 +1079,11 @@ void SystemMonitorService::logDetectedSources() {
       load.has_value() ? "/proc/loadavg" : "unavailable"
   );
 
-  if (const auto cpuTemp = readCpuTempSensor(); cpuTemp.has_value()) {
-    kLog.info("detected CPU temperature source: {} ({:.0f}C)", cpuTemp->source, cpuTemp->tempC);
+  const auto cpuTemp = readCpuTempSensor(pollCfg);
+  if (cpuTemp.reading.has_value()) {
+    kLog.info("detected CPU temperature source: {} ({:.0f}C)", cpuTemp.reading->source, cpuTemp.reading->tempC);
+  } else if (!cpuTemp.error.empty()) {
+    kLog.warn("detected CPU temperature source: unavailable; {}", cpuTemp.error);
   } else {
     kLog.info("detected CPU temperature source: unavailable");
   }
@@ -1260,7 +1152,7 @@ void SystemMonitorService::samplingLoop() {
         const std::uint64_t totalDelta = currentCpu->total - prevCpu->total;
         const std::uint64_t idleDelta = currentCpu->idle - prevCpu->idle;
         if (totalDelta > 0) {
-          std::lock_guard lock{m_statsMutex};
+          std::scoped_lock lock{m_statsMutex};
           m_latest.cpuUsagePercent = 100.0 * (1.0 - static_cast<double>(idleDelta) / static_cast<double>(totalDelta));
         }
       }
@@ -1269,19 +1161,21 @@ void SystemMonitorService::samplingLoop() {
       }
 
       if (const auto la = readLoadAvg(); la.has_value()) {
-        std::lock_guard lock{m_statsMutex};
+        std::scoped_lock lock{m_statsMutex};
         m_latest.loadAvg1 = (*la)[0];
         m_latest.loadAvg5 = (*la)[1];
         m_latest.loadAvg15 = (*la)[2];
       }
 
       if (m_cpuTempRefs.load(std::memory_order_relaxed) > 0) {
-        std::optional<double> cpuTemp = readCpuTempCelsius();
-        std::lock_guard lock{m_statsMutex};
+        std::optional<double> cpuTemp = readCpuTempCelsius(pollCfg);
+        std::scoped_lock lock{m_statsMutex};
         if (cpuTemp.has_value()) {
           m_latest.cpuTempC = cpuTemp;
+          m_latest.cpuTempAvailable = true;
         } else if (!m_latest.cpuTempC.has_value()) {
           m_latest.cpuTempC = 40.0;
+          m_latest.cpuTempAvailable = false;
         }
       }
 
@@ -1291,7 +1185,7 @@ void SystemMonitorService::samplingLoop() {
 
     if (memoryEnabled && now >= nextMemory) {
       if (const auto memKb = readMemoryKb(); memKb.has_value()) {
-        std::lock_guard lock{m_statsMutex};
+        std::scoped_lock lock{m_statsMutex};
         m_latest.ramTotalMb = memKb->totalKb / 1024;
         m_latest.ramUsedMb = memKb->usedKb / 1024;
         if (memKb->totalKb > 0) {
@@ -1308,21 +1202,30 @@ void SystemMonitorService::samplingLoop() {
         const double scale = intervalSeconds > 0.0 ? 1.0 / intervalSeconds : 1.0;
         double totalRx = 0.0;
         double totalTx = 0.0;
+        std::unordered_map<std::string, SystemStats::NetThroughput> byInterface;
         for (const auto& [iface, cur] : *currentNetBytes) {
           const auto it = m_prevNetBytes.find(iface);
+          double ifaceRx = 0.0;
+          double ifaceTx = 0.0;
           if (it != m_prevNetBytes.end()) {
             if (cur.rx >= it->second.rx) {
-              totalRx += static_cast<double>(cur.rx - it->second.rx) * scale;
+              ifaceRx = static_cast<double>(cur.rx - it->second.rx) * scale;
             }
             if (cur.tx >= it->second.tx) {
-              totalTx += static_cast<double>(cur.tx - it->second.tx) * scale;
+              ifaceTx = static_cast<double>(cur.tx - it->second.tx) * scale;
             }
           }
+          if (iface != "lo") {
+            totalRx += ifaceRx;
+            totalTx += ifaceTx;
+          }
+          byInterface.emplace(iface, SystemStats::NetThroughput{.rxBytesPerSec = ifaceRx, .txBytesPerSec = ifaceTx});
         }
         m_prevNetBytes = *currentNetBytes;
-        std::lock_guard lock{m_statsMutex};
+        std::scoped_lock lock{m_statsMutex};
         m_latest.netRxBytesPerSec = totalRx;
         m_latest.netTxBytesPerSec = totalTx;
+        m_latest.netThroughputByInterface = std::move(byInterface);
       }
       nextNetwork = now + networkInterval;
       statsTouched = true;
@@ -1338,21 +1241,21 @@ void SystemMonitorService::samplingLoop() {
 
         if (pollGpuTemp) {
           const auto gpuTemp = readGpuTempData(nvidiaDisplayState).tempC;
-          std::lock_guard lock{m_statsMutex};
+          std::scoped_lock lock{m_statsMutex};
           if (gpuTemp.has_value()) {
             m_latest.gpuTempC = gpuTemp;
           }
         }
         if (pollGpuUsage) {
           const auto gpuUsage = readGpuUsageData(nvidiaDisplayState).percent;
-          std::lock_guard lock{m_statsMutex};
+          std::scoped_lock lock{m_statsMutex};
           if (gpuUsage.has_value()) {
             m_latest.gpuUsagePercent = gpuUsage;
           }
         }
         if (pollGpuVram) {
           if (const auto gpuVram = readGpuVramData(nvidiaDisplayState); gpuVram.has_value()) {
-            std::lock_guard lock{m_statsMutex};
+            std::scoped_lock lock{m_statsMutex};
             m_latest.gpuVramUsedBytes = gpuVram->usedBytes;
             m_latest.gpuVramTotalBytes = gpuVram->totalBytes;
           }
@@ -1364,13 +1267,13 @@ void SystemMonitorService::samplingLoop() {
 
     if (diskEnabled && now >= nextDisk) {
       if (const auto memKb = readMemoryKb(); memKb.has_value()) {
-        std::lock_guard lock{m_statsMutex};
+        std::scoped_lock lock{m_statsMutex};
         m_latest.swapTotalMb = memKb->swapTotalKb / 1024;
         m_latest.swapUsedMb = memKb->swapUsedKb / 1024;
       }
       std::vector<std::string> diskPaths;
       {
-        std::lock_guard lock{m_statsMutex};
+        std::scoped_lock lock{m_statsMutex};
         diskPaths.reserve(m_diskHistories.size());
         for (const auto& [path, disk] : m_diskHistories) {
           if (disk.refs > 0) {
@@ -1380,7 +1283,7 @@ void SystemMonitorService::samplingLoop() {
       }
       for (const auto& path : diskPaths) {
         const float percent = readDiskUsagePercent(path);
-        std::lock_guard lock{m_statsMutex};
+        std::scoped_lock lock{m_statsMutex};
         const auto it = m_diskHistories.find(path);
         if (it != m_diskHistories.end() && it->second.refs > 0) {
           it->second.latestPercent = percent;
@@ -1390,12 +1293,12 @@ void SystemMonitorService::samplingLoop() {
     }
 
     if (statsTouched) {
-      std::lock_guard lock{m_statsMutex};
+      std::scoped_lock lock{m_statsMutex};
       m_latest.sampledAt = now;
     }
 
     if (historyEnabled && now >= nextHistory) {
-      std::lock_guard lock{m_statsMutex};
+      std::scoped_lock lock{m_statsMutex};
       const auto writeIndex = static_cast<std::size_t>(m_historyHead);
       m_history[writeIndex] = m_latest;
       for (auto& [path, disk] : m_diskHistories) {
@@ -1498,6 +1401,9 @@ std::optional<SystemMonitorService::MemData> SystemMonitorService::readMemoryKb(
     return std::nullopt;
   }
 
+  std::uint64_t zfsArcKb = readZfsEvictableArcKb();
+  availableKb = std::min(availableKb + zfsArcKb, totalKb);
+
   MemData data;
   data.totalKb = totalKb;
   data.usedKb = totalKb - availableKb;
@@ -1506,9 +1412,9 @@ std::optional<SystemMonitorService::MemData> SystemMonitorService::readMemoryKb(
   return data;
 }
 
-std::optional<double> SystemMonitorService::readCpuTempCelsius() {
-  const auto reading = readCpuTempSensor();
-  return reading.has_value() ? std::optional<double>{reading->tempC} : std::nullopt;
+std::optional<double> SystemMonitorService::readCpuTempCelsius(const SystemConfig::MonitorConfig& config) {
+  const auto reading = readCpuTempSensor(config);
+  return reading.reading.has_value() ? std::optional<double>{reading.reading->tempC} : std::nullopt;
 }
 
 SystemMonitorService::NvidiaDisplayDeviceState SystemMonitorService::detectNvidiaPciDisplayDeviceState() {
@@ -1525,17 +1431,18 @@ SystemMonitorService::NvidiaDisplayDeviceState SystemMonitorService::detectNvidi
       continue;
     }
 
-    const std::string vendor = StringUtils::toLower(readSmallTextFile(entry.path() / "vendor").value_or(""));
+    const std::string vendor = StringUtils::toLower(FileUtils::readSmallTextFile(entry.path() / "vendor").value_or(""));
     if (vendor != "0x10de") {
       continue;
     }
 
-    const std::string deviceClass = StringUtils::toLower(readSmallTextFile(entry.path() / "class").value_or(""));
+    const std::string deviceClass =
+        StringUtils::toLower(FileUtils::readSmallTextFile(entry.path() / "class").value_or(""));
     if (!deviceClass.starts_with("0x03")) {
       continue;
     }
 
-    const auto runtimeStatus = readSmallTextFile(entry.path() / "power" / "runtime_status");
+    const auto runtimeStatus = FileUtils::readSmallTextFile(entry.path() / "power" / "runtime_status");
     if (runtimeStatus.has_value() && isInactiveRuntimeStatus(*runtimeStatus)) {
       foundInactiveNvidiaDisplay = true;
       continue;
@@ -1737,8 +1644,8 @@ std::optional<SystemMonitorService::GpuVramData> SystemMonitorService::readGpuVr
 float SystemMonitorService::readDiskUsagePercent(const std::string& path) {
   struct statvfs sv{};
   if (::statvfs(path.c_str(), &sv) == 0 && sv.f_blocks > 0) {
-    const double used = static_cast<double>(sv.f_blocks - sv.f_bfree);
-    const double total = static_cast<double>(sv.f_blocks);
+    const auto used = static_cast<double>(sv.f_blocks - sv.f_bfree);
+    const auto total = static_cast<double>(sv.f_blocks);
     return static_cast<float>(100.0 * used / total);
   }
   return 0.0f;
@@ -1766,9 +1673,6 @@ SystemMonitorService::readNetBytes() {
     std::string iface = line.substr(0, colonPos);
     while (!iface.empty() && iface.front() == ' ') {
       iface.erase(iface.begin());
-    }
-    if (iface == "lo") {
-      continue;
     }
 
     std::istringstream iss{line.substr(colonPos + 1)};

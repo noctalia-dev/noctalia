@@ -2,7 +2,6 @@
 
 #include "config/config_service.h"
 #include "core/ui_phase.h"
-#include "render/render_context.h"
 #include "ui/controls/screen_corner.h"
 #include "wayland/wayland_connection.h"
 
@@ -32,6 +31,14 @@ namespace {
     }
   }
 
+  bool outputEligible(const WaylandOutput& output) noexcept {
+    return output.done && output.output != nullptr && output.hasUsableGeometry();
+  }
+
+  std::size_t eligibleOutputCount(const WaylandConnection& wayland) {
+    return static_cast<std::size_t>(std::ranges::count_if(wayland.outputs(), outputEligible));
+  }
+
 } // namespace
 
 void ScreenCorners::initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext) {
@@ -54,7 +61,7 @@ void ScreenCorners::onConfigReload() {
     return;
   }
 
-  if (cfg.enabled != m_lastEnabled || cfg.size != m_lastSize || m_instances.size() != m_wayland->outputs().size()) {
+  if (cfg.enabled != m_lastEnabled || cfg.size != m_lastSize || m_instances.size() != eligibleOutputCount(*m_wayland)) {
     destroySurfaces();
     m_lastEnabled = cfg.enabled;
     m_lastSize = cfg.size;
@@ -93,6 +100,10 @@ void ScreenCorners::ensureSurfaces() {
   const auto size = static_cast<std::uint32_t>(std::clamp(cfg.size, 1, 100));
 
   for (const auto& output : m_wayland->outputs()) {
+    if (!outputEligible(output)) {
+      continue;
+    }
+
     auto inst = std::make_unique<OutputInstance>();
     inst->output = output.output;
 

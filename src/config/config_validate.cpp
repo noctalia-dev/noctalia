@@ -1,12 +1,13 @@
 #include "config/config_validate.h"
 
+#include "config/config_merge.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "config/schema/config_schema.h"
 #include "config/schema/engine.h"
 #include "config/widget_config.h"
-#include "core/toml.h"
 #include "scripting/plugin_manager.h"
+#include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"
 #include "shell/desktop/desktop_widget_settings_registry.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
@@ -31,21 +32,6 @@ namespace noctalia::config {
       return std::to_string(value);
     }
 
-    std::vector<std::filesystem::path> sortedTomlFiles(std::string_view dir) {
-      std::vector<std::filesystem::path> files;
-      std::error_code ec;
-      if (dir.empty() || !std::filesystem::is_directory(dir, ec) || ec) {
-        return files;
-      }
-      for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
-        if (entry.is_regular_file() && entry.path().extension() == ".toml") {
-          files.push_back(entry.path());
-        }
-      }
-      std::sort(files.begin(), files.end());
-      return files;
-    }
-
     std::string formatParseError(const std::filesystem::path& file, const toml::parse_error& e) {
       const auto& pos = e.source().begin;
       return file.string()
@@ -57,17 +43,18 @@ namespace noctalia::config {
           + std::string(e.description());
     }
 
-    // Merge config-dir *.toml then the state-dir settings.toml, mirroring loadAll's
-    // order. Syntax errors are recorded and merging continues with what parsed.
-    toml::table mergeSources(std::string_view configDir, std::string_view settingsTomlPath, schema::Diagnostics& diag) {
-      toml::table merged;
-      for (const auto& file : sortedTomlFiles(configDir)) {
-        try {
-          toml::table parsed = toml::parse_file(file.string());
-          ConfigService::deepMerge(merged, parsed);
-        } catch (const toml::parse_error& e) {
-          diag.error("syntax", formatParseError(file, e));
-        }
+    // Merge config-dir *.toml (honoring [include]) then the state-dir settings.toml,
+    // mirroring loadAll's order. Syntax / missing-include errors are recorded and
+    // merging continues with what parsed.
+    toml::table mergeSources(
+        std::string_view configDir, std::string_view settingsTomlPath, schema::Diagnostics& diag,
+        std::vector<std::filesystem::path>& loadedFilesOut
+    ) {
+      auto mergeResult = mergeConfigWithIncludes(configDir);
+      toml::table merged = std::move(mergeResult.merged);
+      loadedFilesOut = std::move(mergeResult.loadedFiles);
+      if (!mergeResult.firstError.empty()) {
+        diag.error("syntax", mergeResult.firstError);
       }
       if (!settingsTomlPath.empty() && std::filesystem::exists(settingsTomlPath)) {
         try {
@@ -78,6 +65,42 @@ namespace noctalia::config {
         }
       }
       return merged;
+    }
+
+    // Shape-checks a file's [include] table. The merged config has [include]
+    // stripped, so this runs on raw per-file tables (single-file validate, and the
+    // per-loaded-file pass in validateConfigSources).
+    void validateIncludeShape(const toml::table& tbl, schema::Diagnostics& diag) {
+      if (!tbl.contains("include")) {
+        return;
+      }
+      const auto* inc = tbl["include"].as_table();
+      if (inc == nullptr) {
+        diag.error("include", "[include] must be a table");
+        return;
+      }
+      for (const auto& [key, node] : *inc) {
+        const std::string k(key.str());
+        if (k == "autoload") {
+          if (!node.is_boolean()) {
+            diag.error("include.autoload", "must be a boolean");
+          }
+        } else if (k == "files") {
+          const auto* arr = node.as_array();
+          if (arr == nullptr) {
+            diag.error("include.files", "must be an array of strings");
+          } else {
+            for (const auto& el : *arr) {
+              if (!el.is_string()) {
+                diag.error("include.files", "every entry must be a string");
+                break;
+              }
+            }
+          }
+        } else {
+          diag.warn("include." + k, "unknown setting");
+        }
+      }
     }
 
     // collectUnknownKeys + a defaulted readInto: the former flags misspelled keys,
@@ -183,7 +206,7 @@ namespace noctalia::config {
         }
         if (!value) {
           diag.error(path, "expected a string or integer");
-        } else if (std::find(f.enumValues.begin(), f.enumValues.end(), *value) == f.enumValues.end()) {
+        } else if (!std::ranges::contains(f.enumValues, *value)) {
           diag.warn(path, "\"" + *value + "\" is not one of the allowed values");
         }
         break;
@@ -214,7 +237,7 @@ namespace noctalia::config {
         if (ignoreKeys.contains(keyStr)) {
           continue;
         }
-        const auto field = std::find_if(fields.begin(), fields.end(), [&](const auto& f) { return f.key == keyStr; });
+        const auto field = std::ranges::find(fields, keyStr, &schema::WidgetSettingField::key);
         if (field == fields.end()) {
           if (flagUnknown) {
             diag.warn(base + "." + keyStr, "unknown setting");
@@ -269,6 +292,20 @@ namespace noctalia::config {
         schema::WidgetSettingSchema fields;
         for (const auto& spec : settings::manifestSettingSpecs(manifest->settings)) {
           fields.push_back(spec.schema);
+        }
+        for (const auto& entry : manifest->entries) {
+          if (entry.kind != scripting::PluginEntryKind::Panel) {
+            continue;
+          }
+          for (const auto& spec : settings::pluginPanelShellSettingSpecs(entry)) {
+            fields.push_back(spec.schema);
+          }
+          for (const auto& spec : settings::manifestSettingSpecs(entry.settings)) {
+            if (scripting::isPanelShellSettingKey(entry.id, spec.schema.key)) {
+              continue;
+            }
+            fields.push_back(spec.schema);
+          }
         }
         validateSettingsMap(*perPlugin, fields, base, /*flagUnknown=*/true, diag);
       }
@@ -334,9 +371,9 @@ namespace noctalia::config {
       if (widgets == nullptr) {
         return;
       }
-      static const std::unordered_set<std::string> kWidgetKeys = {"id",      "type",      "output",     "cx",
-                                                                  "cy",      "box_width", "box_height", "rotation",
-                                                                  "enabled", "settings",  "scale"};
+      static const std::unordered_set<std::string> kWidgetKeys = {"id",     "type",      "output",     "cx",
+                                                                  "cy",     "box_width", "box_height", "rotation",
+                                                                  "flip_x", "flip_y",    "enabled",    "settings"};
       for (const auto& [id, node] : *widgets) {
         const auto* tbl = node.as_table();
         if (tbl == nullptr) {
@@ -399,9 +436,9 @@ namespace noctalia::config {
       if (widgets == nullptr) {
         return;
       }
-      static const std::unordered_set<std::string> kWidgetKeys = {"id",      "type",      "output",     "cx",
-                                                                  "cy",      "box_width", "box_height", "rotation",
-                                                                  "enabled", "settings",  "scale"};
+      static const std::unordered_set<std::string> kWidgetKeys = {"id",     "type",      "output",     "cx",
+                                                                  "cy",     "box_width", "box_height", "rotation",
+                                                                  "flip_x", "flip_y",    "enabled",    "settings"};
       for (const auto& [id, node] : *widgets) {
         const auto* tbl = node.as_table();
         if (tbl == nullptr) {
@@ -533,6 +570,7 @@ namespace noctalia::config {
       validatePluginSettings(merged, diag);
       validateDesktopWidgets(merged, diag);
       validateLockscreenWidgets(merged, diag);
+      validateIncludeShape(merged, diag);
 
       // Unknown top-level sections.
       static const std::unordered_set<std::string> kKnownSections = {
@@ -563,6 +601,7 @@ namespace noctalia::config {
           "plugins",
           "plugin_settings",
           "hooks",
+          "include",
       };
       for (const auto& [key, node] : merged) {
         (void)node;
@@ -576,7 +615,18 @@ namespace noctalia::config {
 
   schema::Diagnostics validateConfigSources(std::string_view configDir, std::string_view settingsTomlPath) {
     schema::Diagnostics diag;
-    const toml::table merged = mergeSources(configDir, settingsTomlPath, diag);
+    std::vector<std::filesystem::path> loadedFiles;
+    const toml::table merged = mergeSources(configDir, settingsTomlPath, diag, loadedFiles);
+    // [include] is stripped from the merged table, so validate each loaded file's
+    // raw [include] shape directly (covers root and subdirectory includes).
+    for (const auto& file : loadedFiles) {
+      try {
+        const toml::table raw = toml::parse_file(file.string());
+        validateIncludeShape(raw, diag);
+      } catch (const toml::parse_error&) {
+        // Syntax errors were already reported during the merge.
+      }
+    }
     validateMergedConfig(merged, diag);
     return diag;
   }

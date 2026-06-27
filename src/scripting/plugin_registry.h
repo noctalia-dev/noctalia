@@ -59,6 +59,7 @@ namespace scripting {
 
     // The manifest of a loaded plugin by its id ("author/plugin"), or null.
     [[nodiscard]] const PluginManifest* findManifest(std::string_view pluginId) const;
+    [[nodiscard]] std::optional<std::filesystem::path> findPluginDir(std::string_view pluginId) const;
 
   private:
     struct LoadedPlugin {

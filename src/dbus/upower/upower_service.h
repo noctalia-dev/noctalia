@@ -37,6 +37,12 @@ enum class BatteryState : std::uint8_t {
 
 [[nodiscard]] std::string batteryStateLabel(BatteryState state);
 
+// Level-aware battery icon (battery-0..4 / charging / plugged), shared by the bar widget and Power tab.
+[[nodiscard]] const char* batteryGlyphName(double percentage, BatteryState state);
+
+// Icon for a non-laptop battery device (peripherals) keyed on its UPower device type.
+[[nodiscard]] const char* batteryDeviceGlyphName(UPowerDeviceType type);
+
 struct UPowerState {
   double percentage = 0.0;
   double energyRate = 0.0; // watts

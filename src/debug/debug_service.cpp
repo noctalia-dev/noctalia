@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "dbus/session_bus.h"
+#include "notification/notification_manager.h"
 
 namespace {
 

@@ -55,13 +55,15 @@ namespace calendar {
 
   void fetchCalDavEvents(
       HttpClient& http, const CalDavAccount& account, std::chrono::system_clock::time_point start,
-      std::chrono::system_clock::time_point end, std::function<void(bool, std::vector<CalendarEvent>)> cb
+      std::chrono::system_clock::time_point end, bool allowRedirectAuth,
+      std::function<void(bool, std::vector<CalendarEvent>)> cb
   ) {
     HttpRequest req;
     req.method = "REPORT";
     req.url = account.url;
     req.body = buildReportBody(start, end);
     req.followRedirects = true;
+    req.allowRedirectAuth = allowRedirectAuth;
     req.basicUsername = account.username;
     req.basicPassword = account.password;
     req.headers = {

@@ -4,6 +4,7 @@
 #include "render/backend/render_backend.h"
 #include "render/core/image_file_loader.h"
 #include "render/core/image_source_log.h"
+#include "render/core/texture_manager.h"
 #include "render/gl_shared_context.h"
 
 #include <algorithm>
@@ -82,7 +83,7 @@ AsyncTextureCache::~AsyncTextureCache() {
   m_readyListeners.clear();
 
   {
-    std::lock_guard<std::mutex> lock(m_queueMutex);
+    std::scoped_lock lock(m_queueMutex);
     m_shutdown.store(true);
   }
   m_queueCv.notify_all();
@@ -149,7 +150,7 @@ TextureHandle AsyncTextureCache::acquire(const std::string& path, int targetSize
   }
 
   {
-    std::lock_guard<std::mutex> lock(m_queueMutex);
+    std::scoped_lock lock(m_queueMutex);
     m_canceled.erase(key);
     if (!m_inFlight.contains(key)) {
       m_inFlight.insert(key);
@@ -199,7 +200,7 @@ void AsyncTextureCache::release(const std::string& path, int targetSize, bool mi
   }
 
   {
-    std::lock_guard<std::mutex> lock(m_queueMutex);
+    std::scoped_lock lock(m_queueMutex);
     if (m_inFlight.contains(key)) {
       m_canceled.insert(key);
     }
@@ -229,7 +230,7 @@ void AsyncTextureCache::dispatch(const std::vector<pollfd>& fds, std::size_t sta
 
   std::deque<DecodedJob> jobs;
   {
-    std::lock_guard<std::mutex> lock(m_resultMutex);
+    std::scoped_lock lock(m_resultMutex);
     jobs = std::move(m_results);
     m_results.clear();
   }
@@ -242,7 +243,7 @@ void AsyncTextureCache::dispatch(const std::vector<pollfd>& fds, std::size_t sta
   for (auto& job : jobs) {
     bool dropped = false;
     {
-      std::lock_guard<std::mutex> lock(m_queueMutex);
+      std::scoped_lock lock(m_queueMutex);
       m_inFlight.erase(job.key);
       if (auto canceled = m_canceled.find(job.key); canceled != m_canceled.end()) {
         m_canceled.erase(canceled);
@@ -308,13 +309,10 @@ void AsyncTextureCache::reloadResidentTextures() {
     entry.handle = {};
     entry.failed = false;
 
-    std::string errorMessage;
-    auto loaded = loadImageFile(key.path, key.targetSize, &errorMessage);
-    if (!loaded.has_value()) {
+    auto loaded = loadImageFile(key.path, key.targetSize);
+    if (!loaded) {
       entry.failed = true;
-      if (!errorMessage.empty()) {
-        kLog.warn("failed to reload image after GPU reset: {} ({})", ImageSourceLog::describe(key.path), errorMessage);
-      }
+      kLog.warn("failed to reload image after GPU reset: {} ({})", ImageSourceLog::describe(key.path), loaded.error());
       continue;
     }
 
@@ -351,14 +349,13 @@ void AsyncTextureCache::workerLoop() {
     DecodedJob result;
     result.key = key;
 
-    std::string errorMessage;
-    if (auto loaded = loadImageFile(key.path, key.targetSize, &errorMessage)) {
+    if (auto loaded = loadImageFile(key.path, key.targetSize)) {
       result.rgba = std::move(loaded->rgba);
       result.width = loaded->width;
       result.height = loaded->height;
     } else {
       result.failed = true;
-      kLog.warn("failed to decode image: {} ({})", ImageSourceLog::describe(key.path), errorMessage);
+      kLog.warn("failed to decode image: {} ({})", ImageSourceLog::describe(key.path), loaded.error());
     }
 
     pushResult(std::move(result));
@@ -379,7 +376,7 @@ void AsyncTextureCache::signalMain() {
 
 void AsyncTextureCache::pushResult(DecodedJob job) {
   {
-    std::lock_guard<std::mutex> lock(m_resultMutex);
+    std::scoped_lock lock(m_resultMutex);
     m_results.push_back(std::move(job));
   }
   signalMain();
@@ -434,9 +431,7 @@ void AsyncTextureCache::pruneUnusedEntries(std::size_t maxUnusedEntries) {
     return;
   }
 
-  std::sort(unused.begin(), unused.end(), [](const It& a, const It& b) {
-    return a->second.lastTouch < b->second.lastTouch;
-  });
+  std::ranges::sort(unused, [](const It& a, const It& b) { return a->second.lastTouch < b->second.lastTouch; });
 
   const std::size_t toEvict = unused.size() - maxUnusedEntries;
   bool madeCurrent = false;

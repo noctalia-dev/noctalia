@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ui/dialogs/dialog_popup_host.h"
+#include "ui/popup_parent.h"
 
 #include <cstdint>
 #include <functional>
@@ -11,15 +12,19 @@ class Flex;
 class RadioButton;
 class RenderContext;
 class WaylandConnection;
-struct wl_output;
 struct wl_surface;
-struct xdg_surface;
 
 namespace settings {
 
   enum class ConfigExportMode : std::uint8_t {
     MergedUser,
     FullEffective,
+  };
+
+  struct ConfigExportDialogPopupRequest {
+    XdgPopupParent parent;
+    float scale = 1.0f;
+    std::function<void(ConfigExportMode mode)> callback;
   };
 
   class ConfigExportDialogPopup final : public DialogPopupHost {
@@ -31,10 +36,7 @@ namespace settings {
 
     void initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext);
 
-    void open(
-        xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
-        std::uint32_t parentWidth, std::uint32_t parentHeight, float scale, ExportCallback callback
-    );
+    void open(ConfigExportDialogPopupRequest request);
     void close();
 
     [[nodiscard]] bool isOpen() const noexcept;

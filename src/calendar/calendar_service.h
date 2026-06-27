@@ -40,6 +40,8 @@ public:
 
   // Start the Google OAuth Connect flow for a configured google account (opens a browser).
   void connectGoogleAccount(const std::string& accountId, const std::string& activationToken = {});
+  // Schedule an immediate sync (used after saving CalDAV credentials).
+  void requestRefresh();
   [[nodiscard]] ConnectState connectState() const noexcept { return m_connect.state; }
   [[nodiscard]] const std::string& connectingAccountId() const noexcept { return m_connect.accountId; }
 

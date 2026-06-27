@@ -133,6 +133,42 @@ namespace StringUtils {
     return encoded;
   }
 
+  [[nodiscard]] inline std::string urlDecode(std::string_view text) {
+    auto hexValue = [](unsigned char ch) -> int {
+      if (ch >= '0' && ch <= '9') {
+        return ch - '0';
+      }
+      if (ch >= 'A' && ch <= 'F') {
+        return ch - 'A' + 10;
+      }
+      if (ch >= 'a' && ch <= 'f') {
+        return ch - 'a' + 10;
+      }
+      return -1;
+    };
+
+    std::string decoded;
+    decoded.reserve(text.size());
+    for (std::size_t i = 0; i < text.size(); ++i) {
+      const char ch = text[i];
+      if (ch == '%' && i + 2 < text.size()) {
+        const int hi = hexValue(static_cast<unsigned char>(text[i + 1]));
+        const int lo = hexValue(static_cast<unsigned char>(text[i + 2]));
+        if (hi >= 0 && lo >= 0) {
+          decoded.push_back(static_cast<char>((hi << 4) | lo));
+          i += 2;
+          continue;
+        }
+      }
+      if (ch == '+') {
+        decoded.push_back(' ');
+        continue;
+      }
+      decoded.push_back(ch);
+    }
+    return decoded;
+  }
+
   inline void toLowerInPlace(std::string& s) {
     std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
   }

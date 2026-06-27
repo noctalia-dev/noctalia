@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/file_watcher.h"
 #include "core/timer_manager.h"
 #include "scripting/plugin_ipc.h"
 #include "scripting/script_runtime.h"
@@ -28,7 +29,9 @@ namespace scripting {
   // plugin's UI entries (widgets, panels) consume it via noctalia.state.
   class PluginServiceHost {
   public:
-    PluginServiceHost(ScriptApiContext& scriptApi, HttpClient* httpClient, ClipboardService* clipboard);
+    PluginServiceHost(
+        ScriptApiContext& scriptApi, HttpClient* httpClient, ClipboardService* clipboard, FileWatcher* fileWatcher
+    );
     ~PluginServiceHost();
 
     PluginServiceHost(const PluginServiceHost&) = delete;
@@ -42,13 +45,20 @@ namespace scripting {
     // whose effective settings changed. Called on config reload.
     void refresh(const PluginSettingsMap& pluginSettings);
 
+    // Notify every service that the set/geometry of connected outputs changed, so a
+    // service can reconcile (e.g. relaunch a per-output child). The current output
+    // list is read via noctalia.outputs() inside the callback.
+    void onOutputChange();
+
   private:
     // A service is reachable by IPC via the `all` target (it is a singleton with no
     // output): `noctalia msg plugin <author/plugin:entry> all <event> [payload]`.
     struct Service : public PluginIpcEndpoint {
       std::string entryId;
+      std::filesystem::path sourcePath;
       std::shared_ptr<ScriptRuntime> runtime;
       ScriptRuntime::SubscriberId subscription = 0;
+      FileWatcher::WatchId watchId = 0;
       Timer updateTimer;
       int updateIntervalMs = 1000;
       ScriptSettings lastSeededSettings;
@@ -57,10 +67,14 @@ namespace scripting {
       [[nodiscard]] std::string_view ipcEntryId() const override { return entryId; }
       [[nodiscard]] std::string_view ipcOutputName() const override { return {}; }
       [[nodiscard]] std::string_view ipcBarName() const override { return {}; }
-      [[nodiscard]] DispatchResult dispatchIpc(std::string_view event, std::string_view payload) override;
+      [[nodiscard]] DispatchResult
+      dispatchIpc(std::string_view event, std::string_view payload, const ScriptSnapshot& snapshot) override;
     };
 
     void armTimer(Service& service);
+    void setupScriptWatch(Service& service);
+    void teardownScriptWatch(Service& service);
+    void reloadService(Service& service);
     // Subscribe to the service's runtime (to track update-interval changes) and arm
     // its update timer. Shared by start() and refresh().
     void subscribeAndArm(Service& service);
@@ -79,6 +93,7 @@ namespace scripting {
     ScriptApiContext& m_scriptApi;
     HttpClient* m_httpClient = nullptr;
     ClipboardService* m_clipboard = nullptr;
+    FileWatcher* m_fileWatcher = nullptr;
     std::vector<std::unique_ptr<Service>> m_services;
   };
 

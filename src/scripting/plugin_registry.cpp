@@ -95,9 +95,8 @@ namespace scripting {
       // Roots are scanned lowest-to-highest precedence, so a later copy of the same
       // canonical id overrides an earlier one (e.g. a sideloaded source shadowing a
       // built-in). One plugin runs per id — no duplicate providers/services/IPC.
-      const auto existing = std::find_if(m_plugins.begin(), m_plugins.end(), [&](const LoadedPlugin& p) {
-        return p.manifest.id == manifest->id;
-      });
+      const auto existing =
+          std::ranges::find_if(m_plugins, [&](const LoadedPlugin& p) { return p.manifest.id == manifest->id; });
       if (existing != m_plugins.end()) {
         kLog.info(
             "plugin '{}' at {} overrides earlier copy at {}", manifest->id, sub.path().string(), existing->dir.string()
@@ -112,9 +111,8 @@ namespace scripting {
   }
 
   const PluginRegistry::LoadedPlugin* PluginRegistry::findPlugin(std::string_view pluginId) const {
-    const auto it = std::find_if(m_plugins.begin(), m_plugins.end(), [pluginId](const LoadedPlugin& p) {
-      return p.manifest.id == pluginId;
-    });
+    const auto it =
+        std::ranges::find_if(m_plugins, [pluginId](const LoadedPlugin& p) { return p.manifest.id == pluginId; });
     return it != m_plugins.end() ? &*it : nullptr;
   }
 
@@ -156,6 +154,14 @@ namespace scripting {
   const PluginManifest* PluginRegistry::findManifest(std::string_view pluginId) const {
     const LoadedPlugin* plugin = findPlugin(pluginId);
     return plugin != nullptr ? &plugin->manifest : nullptr;
+  }
+
+  std::optional<std::filesystem::path> PluginRegistry::findPluginDir(std::string_view pluginId) const {
+    const LoadedPlugin* plugin = findPlugin(pluginId);
+    if (plugin == nullptr) {
+      return std::nullopt;
+    }
+    return plugin->dir;
   }
 
 } // namespace scripting

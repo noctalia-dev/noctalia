@@ -27,37 +27,11 @@ ContextMenuPopup::ContextMenuPopup(WaylandConnection& wayland, RenderContext& re
 
 ContextMenuPopup::~ContextMenuPopup() { close(); }
 
-void ContextMenuPopup::open(
-    std::vector<ContextMenuControlEntry> entries, float menuWidth, std::size_t maxVisible, std::int32_t anchorX,
-    std::int32_t anchorY, std::int32_t anchorW, std::int32_t anchorH, zwlr_layer_surface_v1* parentLayerSurface,
-    wl_output* output, const ContextMenuPopupPlacement* placement
-) {
-  openCommon(
-      std::move(entries), menuWidth, maxVisible, anchorX, anchorY, anchorW, anchorH, parentLayerSurface, nullptr,
-      output, placement
-  );
-}
-
-void ContextMenuPopup::openAsChild(
-    std::vector<ContextMenuControlEntry> entries, float menuWidth, std::size_t maxVisible, std::int32_t anchorX,
-    std::int32_t anchorY, std::int32_t anchorW, std::int32_t anchorH, xdg_surface* parentXdgSurface, wl_output* output,
-    const ContextMenuPopupPlacement* placement
-) {
-  openCommon(
-      std::move(entries), menuWidth, maxVisible, anchorX, anchorY, anchorW, anchorH, nullptr, parentXdgSurface, output,
-      placement
-  );
-}
-
-void ContextMenuPopup::openCommon(
-    std::vector<ContextMenuControlEntry> entries, float menuWidth, std::size_t maxVisible, std::int32_t anchorX,
-    std::int32_t anchorY, std::int32_t anchorW, std::int32_t anchorH, zwlr_layer_surface_v1* parentLayerSurface,
-    xdg_surface* parentXdgSurface, wl_output* output, const ContextMenuPopupPlacement* placement
-) {
+void ContextMenuPopup::open(ContextMenuPopupRequest request) {
   close();
 
-  const float menuHeight = ContextMenuControl::preferredHeight(entries, maxVisible);
-  const auto chrome = popup_chrome::computeGeometry(menuWidth, menuHeight, m_shadowConfig);
+  const float menuHeight = ContextMenuControl::preferredHeight(request.entries, request.maxVisible);
+  const auto chrome = popup_chrome::computeGeometry(request.menuWidth, menuHeight, m_shadowConfig);
 
   const ContextMenuPopupPlacement defaultPlacement{
       .anchor = XDG_POSITIONER_ANCHOR_BOTTOM,
@@ -68,13 +42,13 @@ void ContextMenuPopup::openCommon(
           .horizontal = popup_chrome::HorizontalAttachment::Center, .vertical = popup_chrome::VerticalAttachment::Top
       },
   };
-  const ContextMenuPopupPlacement& resolvedPlacement = placement != nullptr ? *placement : defaultPlacement;
+  const ContextMenuPopupPlacement resolvedPlacement = request.placement.value_or(defaultPlacement);
 
   PopupSurfaceConfig popupCfg{
-      .anchorX = anchorX,
-      .anchorY = anchorY,
-      .anchorWidth = std::max(1, anchorW),
-      .anchorHeight = std::max(1, anchorH),
+      .anchorX = request.anchor.x,
+      .anchorY = request.anchor.y,
+      .anchorWidth = std::max(1, request.anchor.width),
+      .anchorHeight = std::max(1, request.anchor.height),
       .width = chrome.surfaceWidth,
       .height = chrome.surfaceHeight,
       .anchor = resolvedPlacement.anchor,
@@ -99,7 +73,7 @@ void ContextMenuPopup::openCommon(
     self->m_surface->requestLayout();
   });
 
-  m_surface->setPrepareFrameCallback([self, entries = std::move(entries), maxVisible,
+  m_surface->setPrepareFrameCallback([self, entries = std::move(request.entries), maxVisible = request.maxVisible,
                                       chrome](bool /*needsUpdate*/, bool needsLayout) {
     if (self->m_surface == nullptr) {
       return;
@@ -160,9 +134,9 @@ void ContextMenuPopup::openCommon(
 
   m_surface->setDismissedCallback([self]() { DeferredCall::callLater([self]() { self->close(); }); });
 
-  const bool initialized = parentXdgSurface != nullptr
-      ? m_surface->initializeAsChild(parentXdgSurface, output, popupCfg)
-      : m_surface->initialize(parentLayerSurface, output, popupCfg);
+  const bool initialized = request.parent.xdgSurface != nullptr
+      ? m_surface->initializeAsChild(request.parent.xdgSurface, request.parent.output, popupCfg)
+      : m_surface->initialize(request.parent.layerSurface, request.parent.output, popupCfg);
   if (!initialized) {
     kLog.warn("failed to create context menu popup");
     m_surface.reset();

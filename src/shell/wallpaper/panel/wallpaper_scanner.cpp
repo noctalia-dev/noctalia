@@ -4,7 +4,11 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
+#include <sys/eventfd.h>
 #include <system_error>
+#include <unistd.h>
+#include <utility>
 
 namespace {
 
@@ -16,6 +20,17 @@ namespace {
       c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     }
     return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" || ext == ".bmp" || ext == ".gif";
+  }
+
+  // Pull the entry's modification time from the cached directory_entry metadata
+  // so date sorting later never has to stat again.
+  void cacheMtime(const std::filesystem::directory_entry& entry, WallpaperEntry& out) {
+    std::error_code ec;
+    const auto mtime = entry.last_write_time(ec);
+    if (!ec) {
+      out.mtime = mtime;
+      out.hasMtime = true;
+    }
   }
 
   void collectFlat(const std::filesystem::path& dir, std::vector<WallpaperEntry>& out) {
@@ -46,6 +61,7 @@ namespace {
       e.name = entry.path().filename().string();
       e.absPath = entry.path();
       e.isDir = false;
+      cacheMtime(entry, e);
       out.push_back(std::move(e));
     }
   }
@@ -75,64 +91,186 @@ namespace {
         e.name = entry.path().filename().string();
         e.absPath = entry.path();
         e.isDir = false;
+        cacheMtime(entry, e);
         out.push_back(std::move(e));
       }
     }
   }
 
+  void sortEntries(std::vector<WallpaperEntry>& entries) {
+    // Directories first, then files; both sorted case-insensitively by name.
+    std::ranges::sort(entries, [](const WallpaperEntry& a, const WallpaperEntry& b) {
+      if (a.isDir != b.isDir) {
+        return a.isDir;
+      }
+      const auto& as = a.name;
+      const auto& bs = b.name;
+      for (std::size_t i = 0; i < as.size() && i < bs.size(); ++i) {
+        const auto ac = std::tolower(static_cast<unsigned char>(as[i]));
+        const auto bc = std::tolower(static_cast<unsigned char>(bs[i]));
+        if (ac != bc) {
+          return ac < bc;
+        }
+      }
+      return as.size() < bs.size();
+    });
+  }
+
+  WallpaperScanResult scanDirectory(const std::string& dir, bool flatten, std::filesystem::file_time_type dirMtime) {
+    WallpaperScanResult result;
+    result.dir = dir;
+    result.flatten = flatten;
+    result.dirMtime = dirMtime;
+    if (flatten) {
+      collectFlat(dir, result.entries);
+    } else {
+      collectShallow(dir, result.entries);
+    }
+    sortEntries(result.entries);
+    return result;
+  }
+
 } // namespace
 
-const WallpaperScanResult& WallpaperScanner::scan(const std::filesystem::path& dir, bool flatten) {
-  if (dir.empty()) {
-    return m_empty;
+WallpaperScanner::WallpaperScanner() {
+  m_eventFd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+  if (m_eventFd < 0) {
+    kLog.warn("failed to create eventfd; wallpaper scans will not wake the loop");
   }
+  m_worker = std::thread([this]() { workerLoop(); });
+}
+
+WallpaperScanner::~WallpaperScanner() {
+  {
+    std::scoped_lock lock(m_queueMutex);
+    m_shutdown.store(true);
+  }
+  m_queueCv.notify_all();
+  if (m_worker.joinable()) {
+    m_worker.join();
+  }
+  if (m_eventFd >= 0) {
+    ::close(m_eventFd);
+    m_eventFd = -1;
+  }
+}
+
+bool WallpaperScanner::requestScan(const std::filesystem::path& dir, bool flatten) {
+  CacheKey key{dir.string(), flatten};
 
   std::error_code ec;
-  if (!std::filesystem::exists(dir, ec) || !std::filesystem::is_directory(dir, ec)) {
-    return m_empty;
+  if (dir.empty() || !std::filesystem::is_directory(dir, ec) || ec) {
+    // Cache an empty result so cached() reports "scanned, nothing there".
+    WallpaperScanResult empty;
+    empty.dir = key.dir;
+    empty.flatten = flatten;
+    m_cache.insert_or_assign(key, std::move(empty));
+    m_pending.erase(key);
+    return true;
   }
 
-  CacheKey key{dir.string(), flatten};
   const auto mtime = std::filesystem::last_write_time(dir, ec);
   if (ec) {
-    return m_empty;
+    return true;
   }
 
-  auto it = m_cache.find(key);
-  if (it != m_cache.end() && it->second.dirMtime == mtime) {
-    return it->second;
+  if (const auto it = m_cache.find(key); it != m_cache.end() && it->second.dirMtime == mtime) {
+    return true; // fresh
   }
 
-  WallpaperScanResult result;
-  result.flatten = flatten;
-  result.dirMtime = mtime;
-  if (flatten) {
-    collectFlat(dir, result.entries);
-  } else {
-    collectShallow(dir, result.entries);
+  if (!m_pending.insert(key).second) {
+    return false; // already queued/in flight
   }
 
-  // Directories first, then files; both sorted case-insensitively by name.
-  std::sort(result.entries.begin(), result.entries.end(), [](const WallpaperEntry& a, const WallpaperEntry& b) {
-    if (a.isDir != b.isDir) {
-      return a.isDir;
-    }
-    const auto& as = a.name;
-    const auto& bs = b.name;
-    for (std::size_t i = 0; i < as.size() && i < bs.size(); ++i) {
-      const auto ac = std::tolower(static_cast<unsigned char>(as[i]));
-      const auto bc = std::tolower(static_cast<unsigned char>(bs[i]));
-      if (ac != bc) {
-        return ac < bc;
-      }
-    }
-    return as.size() < bs.size();
-  });
+  {
+    std::scoped_lock lock(m_queueMutex);
+    m_jobQueue.push_back(Job{.dir = key.dir, .flatten = flatten, .dirMtime = mtime});
+  }
+  m_queueCv.notify_one();
+  return false;
+}
 
-  kLog.debug("scanned {} ({}): {} entries", dir.string(), flatten ? "flat" : "shallow", result.entries.size());
+const WallpaperScanResult* WallpaperScanner::cached(const std::filesystem::path& dir, bool flatten) const {
+  const auto it = m_cache.find(CacheKey{dir.string(), flatten});
+  return it == m_cache.end() ? nullptr : &it->second;
+}
 
-  auto [insIt, _] = m_cache.insert_or_assign(std::move(key), std::move(result));
-  return insIt->second;
+bool WallpaperScanner::scanning(const std::filesystem::path& dir, bool flatten) const {
+  return m_pending.contains(CacheKey{dir.string(), flatten});
 }
 
 void WallpaperScanner::invalidate() { m_cache.clear(); }
+
+void WallpaperScanner::doAddPollFds(std::vector<pollfd>& fds) {
+  if (m_eventFd < 0) {
+    return;
+  }
+  fds.push_back({.fd = m_eventFd, .events = POLLIN, .revents = 0});
+}
+
+void WallpaperScanner::dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) {
+  if (m_eventFd < 0 || startIdx >= fds.size()) {
+    return;
+  }
+  if ((fds[startIdx].revents & POLLIN) == 0) {
+    return;
+  }
+
+  std::uint64_t ignored = 0;
+  while (::read(m_eventFd, &ignored, sizeof(ignored)) > 0) {
+  }
+
+  std::deque<WallpaperScanResult> results;
+  {
+    std::scoped_lock lock(m_resultMutex);
+    results = std::move(m_results);
+    m_results.clear();
+  }
+  if (results.empty()) {
+    return;
+  }
+
+  for (auto& result : results) {
+    CacheKey key{result.dir, result.flatten};
+    m_pending.erase(key);
+    m_cache.insert_or_assign(std::move(key), std::move(result));
+  }
+
+  if (m_onComplete) {
+    m_onComplete();
+  }
+}
+
+void WallpaperScanner::signalMain() {
+  if (m_eventFd < 0) {
+    return;
+  }
+  const std::uint64_t one = 1;
+  const ssize_t written = ::write(m_eventFd, &one, sizeof(one));
+  if (written < 0 && errno != EAGAIN) {
+    kLog.warn("failed to signal wallpaper scan eventfd: errno={}", errno);
+  }
+}
+
+void WallpaperScanner::workerLoop() {
+  while (true) {
+    Job job;
+    {
+      std::unique_lock<std::mutex> lock(m_queueMutex);
+      m_queueCv.wait(lock, [this]() { return m_shutdown.load() || !m_jobQueue.empty(); });
+      if (m_shutdown.load()) {
+        return;
+      }
+      job = std::move(m_jobQueue.front());
+      m_jobQueue.pop_front();
+    }
+
+    WallpaperScanResult result = scanDirectory(job.dir, job.flatten, job.dirMtime);
+    kLog.debug("scanned {} ({}): {} entries", result.dir, result.flatten ? "flat" : "shallow", result.entries.size());
+    {
+      std::scoped_lock lock(m_resultMutex);
+      m_results.push_back(std::move(result));
+    }
+    signalMain();
+  }
+}

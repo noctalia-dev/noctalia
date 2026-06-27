@@ -1,7 +1,5 @@
 #pragma once
 
-#include "render/backend/render_backend.h"
-#include "render/core/mat3.h"
 #include "render/core/renderer.h"
 #include "render/text/cairo_glyph_renderer.h"
 #include "render/text/cairo_text_renderer.h"
@@ -14,7 +12,10 @@
 
 class GlSharedContext;
 class Node;
+class RenderBackend;
 class RenderTarget;
+enum class RenderGraphicsResetStatus;
+struct Mat3;
 
 class RenderContext : public Renderer {
 public:
@@ -31,7 +32,9 @@ public:
   void setGraphicsResetCallback(std::function<void(RenderGraphicsResetStatus)> callback) {
     m_graphicsResetCallback = std::move(callback);
   }
-  void makeCurrent(RenderTarget& target);
+  // Returns false if the surface could not be made current (e.g. teardown);
+  // best-effort callers may ignore it, render paths must skip the frame.
+  bool makeCurrent(RenderTarget& target);
   // Sync text/glyph renderer content scale to the given target's
   // buffer-to-logical ratio. Must be called before any measureText /
   // measureGlyph performed on behalf of this target, because those

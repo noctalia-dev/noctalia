@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/animation/animation_manager.h"
 #include "shell/control_center/tab.h"
 
 #include <limits>
@@ -20,7 +21,12 @@ public:
   void onClose() override;
 
 private:
-  void resetToCurrentMonth();
+  void focusToday();
+  void changeMonthBy(int delta);
+  void cancelMonthSlide();
+  void beginSlideOut(int delta);
+  void beginSlideIn();
+  void applyMonthSlide(float progress, bool slidingIn);
   void doLayout(Renderer& renderer, float contentWidth, float bodyHeight) override;
   void doUpdate(Renderer& renderer) override;
   void rebuild();
@@ -41,6 +47,7 @@ private:
   Label* m_monthLabel = nullptr;
   Button* m_previousButton = nullptr;
   Button* m_nextButton = nullptr;
+  Flex* m_gridViewport = nullptr;
   Flex* m_grid = nullptr;
   Flex* m_eventsCard = nullptr;
   Label* m_eventsTitle = nullptr;
@@ -57,4 +64,8 @@ private:
   int m_lastCurrentYear = std::numeric_limits<int>::min();
   int m_lastCurrentMonth = -1;
   int m_lastToday = -1;
+  int m_monthSlideDirection = 0;
+  int m_pendingMonthDelta = 0;
+  bool m_startMonthSlideIn = false;
+  AnimationManager::Id m_monthSlideAnimId = 0;
 };

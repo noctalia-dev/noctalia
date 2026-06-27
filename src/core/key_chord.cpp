@@ -38,6 +38,12 @@ namespace {
     if (lower == "down") {
       return "Down";
     }
+    if (lower == "tab") {
+      return "Tab";
+    }
+    if (lower == "iso_left_tab" || lower == "shift_tab") {
+      return "ISO_Left_Tab";
+    }
     return raw;
   }
 

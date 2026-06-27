@@ -19,8 +19,8 @@ public:
 // Best-effort pretty label for the running distribution.
 [[nodiscard]] std::string distroLabel();
 
-// Kernel release string (uname -r), or "unknown" on failure.
-[[nodiscard]] std::string kernelRelease();
+// Kernel label: sysname + release (e.g. "Linux 6.9.3-..."), or "unknown" on failure.
+[[nodiscard]] std::string kernelLabel();
 
 // Approximate OS install age, formatted as "{y}y {m}mo" / "{y}y" / "{d}d".
 [[nodiscard]] std::string osAgeLabel();

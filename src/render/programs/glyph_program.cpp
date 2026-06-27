@@ -1,5 +1,8 @@
 #include "render/programs/glyph_program.h"
 
+#include "render/core/color.h"
+#include "render/core/texture_handle.h"
+
 #include <array>
 #include <stdexcept>
 

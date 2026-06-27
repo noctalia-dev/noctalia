@@ -7,9 +7,9 @@
 #include <clocale>
 #include <cstring>
 #include <linux/input-event-codes.h>
+#include <ranges>
 #include <sys/mman.h>
 #include <unistd.h>
-#include <wayland-client.h>
 #include <xkbcommon/xkbcommon-compose.h>
 #include <xkbcommon/xkbcommon-names.h>
 #include <xkbcommon/xkbcommon.h>
@@ -339,11 +339,11 @@ void WaylandSeat::handlePointerAxisDiscrete(
     void* data, wl_pointer* /*pointer*/, std::uint32_t axis, std::int32_t discrete
 ) {
   auto* self = static_cast<WaylandSeat*>(data);
-  for (auto it = self->m_pendingPointerEvents.rbegin(); it != self->m_pendingPointerEvents.rend(); ++it) {
-    if (it->type == PointerEvent::Type::Axis && it->axis == axis) {
-      it->axisDiscrete = discrete;
-      if (it->axisLines == 0.0f) {
-        it->axisLines = static_cast<float>(discrete);
+  for (auto& pendingEvent : std::views::reverse(self->m_pendingPointerEvents)) {
+    if (pendingEvent.type == PointerEvent::Type::Axis && pendingEvent.axis == axis) {
+      pendingEvent.axisDiscrete = discrete;
+      if (pendingEvent.axisLines == 0.0f) {
+        pendingEvent.axisLines = static_cast<float>(discrete);
       }
       return;
     }
@@ -354,10 +354,10 @@ void WaylandSeat::handlePointerAxisValue120(
     void* data, wl_pointer* /*pointer*/, std::uint32_t axis, std::int32_t value120
 ) {
   auto* self = static_cast<WaylandSeat*>(data);
-  for (auto it = self->m_pendingPointerEvents.rbegin(); it != self->m_pendingPointerEvents.rend(); ++it) {
-    if (it->type == PointerEvent::Type::Axis && it->axis == axis) {
-      it->axisValue120 = value120;
-      it->axisLines = static_cast<float>(value120) / kAxisValue120PerStep;
+  for (auto& pendingEvent : std::views::reverse(self->m_pendingPointerEvents)) {
+    if (pendingEvent.type == PointerEvent::Type::Axis && pendingEvent.axis == axis) {
+      pendingEvent.axisValue120 = value120;
+      pendingEvent.axisLines = static_cast<float>(value120) / kAxisValue120PerStep;
       return;
     }
   }

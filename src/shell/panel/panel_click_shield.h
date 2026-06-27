@@ -1,6 +1,5 @@
 #pragma once
 
-#include "wayland/layer_surface.h"
 #include "wayland/surface.h"
 
 #include <cstdint>
@@ -10,7 +9,7 @@
 #include <vector>
 
 class WaylandConnection;
-struct PointerEvent;
+enum class LayerShellLayer : std::uint32_t;
 struct wl_buffer;
 struct wl_output;
 struct wl_surface;

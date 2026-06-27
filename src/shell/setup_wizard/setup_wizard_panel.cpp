@@ -43,6 +43,7 @@ namespace {
       {"theme.scheme.m3-monochrome", "m3-monochrome"},
       {"theme.scheme.vibrant", "vibrant"},
       {"theme.scheme.faithful", "faithful"},
+      {"theme.scheme.soft", "soft"},
       {"theme.scheme.dysfunctional", "dysfunctional"},
       {"theme.scheme.muted", "muted"},
   };

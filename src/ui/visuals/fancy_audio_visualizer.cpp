@@ -1,6 +1,5 @@
 #include "ui/visuals/fancy_audio_visualizer.h"
 
-#include "render/core/texture_manager.h"
 #include "ui/palette.h"
 
 #include <algorithm>

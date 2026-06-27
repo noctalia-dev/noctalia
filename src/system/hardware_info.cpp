@@ -185,7 +185,7 @@ namespace {
       }
       cardPaths.push_back(entry.path());
     }
-    std::sort(cardPaths.begin(), cardPaths.end());
+    std::ranges::sort(cardPaths);
 
     std::vector<std::string> gpus;
     for (const auto& cardPath : cardPaths) {
@@ -232,7 +232,7 @@ namespace {
       if (!vendorHex.empty() && !deviceHex.empty()) {
         auto pciName = lookupPciIds(vendorHex, deviceHex, subVendorHex, subDeviceHex);
         if (!pciName.empty()) {
-          if (std::find(gpus.begin(), gpus.end(), pciName) == gpus.end()) {
+          if (!std::ranges::contains(gpus, pciName)) {
             gpus.push_back(std::move(pciName));
           }
           continue;
@@ -250,7 +250,7 @@ namespace {
         } else {
           label = driver + " GPU";
         }
-        if (std::find(gpus.begin(), gpus.end(), label) == gpus.end()) {
+        if (!std::ranges::contains(gpus, label)) {
           gpus.push_back(std::move(label));
         }
       }
@@ -394,11 +394,11 @@ std::vector<std::string> physicalDiskMountPoints() {
     if (!(iss >> device >> mount >> fstype)) {
       continue;
     }
-    if (device.rfind("/dev/", 0) != 0 || device.rfind("/dev/loop", 0) == 0 || fstype == "squashfs") {
+    if (!device.starts_with("/dev/") || device.starts_with("/dev/loop") || fstype == "squashfs") {
       continue;
     }
     mount = unescapeMountField(mount);
-    if (mount == "/boot" || mount.rfind("/boot/", 0) == 0) {
+    if (mount == "/boot" || mount.starts_with("/boot/")) {
       continue;
     }
     const auto it = byDevice.find(device);
@@ -412,7 +412,7 @@ std::vector<std::string> physicalDiskMountPoints() {
   for (auto& [device, mount] : byDevice) {
     mounts.push_back(mount);
   }
-  std::sort(mounts.begin(), mounts.end());
+  std::ranges::sort(mounts);
   return mounts;
 }
 

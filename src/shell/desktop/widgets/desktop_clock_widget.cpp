@@ -13,6 +13,8 @@
 #include <cmath>
 #include <ctime>
 #include <memory>
+#include <numbers>
+#include <utility>
 
 namespace {
 
@@ -61,12 +63,11 @@ namespace {
 
   constexpr float kShadowAlpha = 0.6f;
   constexpr float kShadowOffset = 1.5f;
-  constexpr float kPi = 3.14159265358979323846f;
   constexpr float kHourHandReach = 0.54f;
   constexpr float kMinuteHandReach = 0.90f;
   constexpr float kSecondHandReach = 0.84f;
 
-  [[nodiscard]] float degreesToRadians(float degrees) { return degrees * (kPi / 180.0f); }
+  [[nodiscard]] float degreesToRadians(float degrees) { return degrees * (std::numbers::pi_v<float> / 180.0f); }
 
   struct LocalTimeParts {
     int hour = 0;
@@ -183,8 +184,9 @@ DesktopClockWidget::Style DesktopClockWidget::styleFromSetting(std::string_view 
   return Style::Digital;
 }
 
-DesktopClockWidget::DesktopClockWidget(Style style, std::string format, ColorSpec color, bool shadow, bool circle)
-    : m_style(style), m_format(std::move(format)), m_color(color), m_shadow(shadow), m_showCircle(circle),
+DesktopClockWidget::DesktopClockWidget(Options options)
+    : m_style(options.style), m_format(std::move(options.format)), m_color(options.color), m_shadow(options.shadow),
+      m_showCircle(options.showCircle), m_centerText(options.centerText),
       m_showsSeconds(m_style == Style::Analog || formatShowsSeconds(m_format)) {}
 
 void DesktopClockWidget::create() {
@@ -197,7 +199,6 @@ void DesktopClockWidget::create() {
       .fontSize = clockFontSize(contentScale()),
       .color = m_color,
       .fontWeight = FontWeight::Bold,
-      .textAlign = TextAlign::Center,
   });
   m_digitalRoot->addChild(std::move(label));
   rootNode->addChild(std::move(digitalRoot));
@@ -250,6 +251,7 @@ void DesktopClockWidget::create() {
 
   rootNode->addChild(std::move(analogRoot));
   setRoot(std::move(rootNode));
+  syncDigitalTextAlign();
   syncStyleVisibility();
   syncCircleVisibility();
   applyShadow();
@@ -279,6 +281,13 @@ void DesktopClockWidget::syncCircleVisibility() {
   }
 }
 
+void DesktopClockWidget::syncDigitalTextAlign() {
+  if (m_label == nullptr) {
+    return;
+  }
+  m_label->setTextAlign(m_centerText ? TextAlign::Center : TextAlign::Start);
+}
+
 void DesktopClockWidget::syncAnalogColors() {
   if (m_face == nullptr || m_analogRoot == nullptr) {
     return;
@@ -291,15 +300,6 @@ void DesktopClockWidget::syncAnalogColors() {
 
   RoundedRectStyle faceStyle = m_face->style();
   faceStyle.border = handColor;
-  faceStyle.outerShadow = m_shadow && m_showCircle;
-  if (m_shadow && m_showCircle) {
-    const float offset = kShadowOffset * scale;
-    faceStyle.shadowCutoutOffsetX = offset;
-    faceStyle.shadowCutoutOffsetY = offset;
-  } else {
-    faceStyle.shadowCutoutOffsetX = 0.0f;
-    faceStyle.shadowCutoutOffsetY = 0.0f;
-  }
   m_face->setStyle(faceStyle);
   layoutAnalogFace(*m_face, metrics, handColor);
 
@@ -333,17 +333,6 @@ void DesktopClockWidget::layoutAnalog(Renderer& /*renderer*/, float size) {
   const Color handColor = resolvedColor(m_color);
 
   layoutAnalogFace(*m_face, metrics, handColor);
-  RoundedRectStyle faceStyle = m_face->style();
-  faceStyle.outerShadow = m_shadow && m_showCircle;
-  if (m_shadow && m_showCircle) {
-    const float offset = kShadowOffset * scale;
-    faceStyle.shadowCutoutOffsetX = offset;
-    faceStyle.shadowCutoutOffsetY = offset;
-  } else {
-    faceStyle.shadowCutoutOffsetX = 0.0f;
-    faceStyle.shadowCutoutOffsetY = 0.0f;
-  }
-  m_face->setStyle(faceStyle);
 
   if (m_hourPivot != nullptr) {
     m_hourPivot->setPosition(metrics.center, metrics.center);
@@ -397,9 +386,11 @@ void DesktopClockWidget::layoutDigital(Renderer& renderer) {
   applyShadow();
   update(renderer);
   m_label->measure(renderer);
-  m_label->setPosition(0.0f, 0.0f);
+  // Start-aligned mode shifts the label right so proportional digits stay visually stable; centered
+  // mode relies on TextAlign::Center inside the reserved widest-digit width.
+  m_label->setPosition(m_centerText ? 0.0f : m_digitOffsetX, 0.0f);
   if (m_digitalRoot != nullptr) {
-    m_digitalRoot->setSize(m_label->width(), m_label->height());
+    m_digitalRoot->setSize(m_label->width() + m_digitOffsetX, m_label->height());
   }
   if (root() != nullptr && m_digitalRoot != nullptr) {
     root()->setSize(m_digitalRoot->width(), m_digitalRoot->height());
@@ -496,6 +487,16 @@ bool DesktopClockWidget::applySetting(
     }
     return false;
   }
+  if (key == "center_text") {
+    if (const auto* v = std::get_if<bool>(&value)) {
+      m_centerText = *v;
+      syncDigitalTextAlign();
+      m_stableSample.clear();
+      requestLayout();
+      return true;
+    }
+    return false;
+  }
   return DesktopWidget::applySetting(key, value, allSettings, renderer);
 }
 
@@ -521,6 +522,68 @@ void DesktopClockWidget::doLayout(Renderer& renderer) {
   layoutDigital(renderer);
 }
 
+void DesktopClockWidget::updateStableDigitalWidth(Renderer& renderer, const std::string& text) {
+  if (m_label == nullptr) {
+    return;
+  }
+
+  const float fontSize = clockFontSize(contentScale());
+
+  // Re-pick the widest digit only when the font identity (size or family) changes.
+  if (fontSize != m_metricsFontSize || m_fontFamily != m_metricsFontFamily) {
+    m_metricsFontSize = fontSize;
+    m_metricsFontFamily = m_fontFamily;
+    float widest = -1.0f;
+    float advanceSum = 0.0f;
+    for (char digit = '0'; digit <= '9'; ++digit) {
+      const std::string glyph(1, digit);
+      const float advance =
+          renderer.measureText(glyph, fontSize, FontWeight::Bold, 0.0f, 0, TextAlign::Start, m_fontFamily).width;
+      advanceSum += advance;
+      if (advance > widest) {
+        widest = advance;
+        m_widestDigit = digit;
+      }
+    }
+    m_maxDigitAdvance = widest;
+    m_meanDigitAdvance = advanceSum / 10.0f;
+    m_stableSample.clear(); // force a width recompute below
+  }
+
+  // Normalize digits to the widest glyph: the result's width is invariant across
+  // seconds (and minutes), so the box keeps a constant size and never reflows.
+  std::string sample = text;
+  int digitCount = 0;
+  for (char& ch : sample) {
+    if (ch >= '0' && ch <= '9') {
+      ch = m_widestDigit;
+      ++digitCount;
+    }
+  }
+  if (sample == m_stableSample) {
+    return;
+  }
+  m_stableSample = sample;
+
+  const float width =
+      renderer.measureText(sample, fontSize, FontWeight::Bold, 0.0f, 0, TextAlign::Start, m_fontFamily).width;
+  const float offset = m_centerText ? 0.0f : static_cast<float>(digitCount) * (m_maxDigitAdvance - m_meanDigitAdvance);
+  if (std::abs(width - m_stableWidth) > 0.5f || std::abs(offset - m_digitOffsetX) > 0.5f) {
+    m_stableWidth = width;
+    m_digitOffsetX = offset;
+    m_label->setMinWidth(m_stableWidth);
+    m_label->setMaxWidth(m_stableWidth);
+    // Re-arm layout only when the change surfaces outside layout (a non-digit field like the
+    // date/AM-PM rolling over on the Update tick). During layout() the new width/offset already
+    // apply in this same pass, and its two box-fit passes (base then fitted scale) each measure a
+    // different width — re-arming here would loop forever. The nested update() inside doLayout opens
+    // an Update phase scope, so guard on isLayingOut() rather than the phase.
+    if (!isLayingOut()) {
+      requestLayout();
+    }
+  }
+}
+
 void DesktopClockWidget::doUpdate(Renderer& renderer) {
   if (m_style == Style::Analog) {
     updateAnalogHands();
@@ -533,6 +596,7 @@ void DesktopClockWidget::doUpdate(Renderer& renderer) {
 
   m_label->setFontSize(clockFontSize(contentScale()));
   const std::string text = formatText();
+  updateStableDigitalWidth(renderer, text);
   if (text == m_lastText) {
     return;
   }

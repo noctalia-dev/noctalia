@@ -41,6 +41,9 @@ namespace settings {
     if (key == "auto_hide") {
       return override->autoHide.has_value();
     }
+    if (key == "show_on_workspace_switch") {
+      return override->showOnWorkspaceSwitch.has_value();
+    }
     if (key == "reserve_space") {
       return override->reserveSpace.has_value();
     }
@@ -55,6 +58,9 @@ namespace settings {
     }
     if (key == "margin_edge") {
       return override->marginEdge.has_value();
+    }
+    if (key == "margin_opposite_edge") {
+      return override->marginOppositeEdge.has_value();
     }
     if (key == "padding") {
       return override->padding.has_value();
@@ -127,6 +133,23 @@ namespace settings {
     }
     if (key == "end") {
       return override->endWidgets.has_value();
+    }
+    if (path.size() >= 6 && path[4] == "dead_zone") {
+      if (key == "command") {
+        return override->deadZone.command.has_value();
+      }
+      if (key == "right_command") {
+        return override->deadZone.rightCommand.has_value();
+      }
+      if (key == "middle_command") {
+        return override->deadZone.middleCommand.has_value();
+      }
+      if (key == "scroll_up_command") {
+        return override->deadZone.scrollUpCommand.has_value();
+      }
+      if (key == "scroll_down_command") {
+        return override->deadZone.scrollDownCommand.has_value();
+      }
     }
     return false;
   }
@@ -301,7 +324,48 @@ namespace settings {
     if (row.timeoutSeconds <= 0) {
       return i18n::tr("settings.idle.behavior.summary-disabled-timeout", "name", name);
     }
-    return i18n::tr("settings.idle.behavior.summary", "name", name, "seconds", std::to_string(row.timeoutSeconds));
+    return i18n::tr(
+        "settings.idle.behavior.summary", "name", name, "seconds", StringUtils::formatDotDecimal(row.timeoutSeconds)
+    );
+  }
+
+  std::string notificationFilterRowSummary(const NotificationFilterConfig& filter) {
+    if (!filter.enabled) {
+      if (!filter.match.empty()) {
+        return i18n::tr("settings.notifications.filter.summary-disabled", "match", filter.match);
+      }
+      return i18n::tr("settings.notifications.filter.unnamed");
+    }
+
+    const std::string matchLabel =
+        filter.match.empty() ? i18n::tr("settings.notifications.filter.unnamed") : filter.match;
+    std::vector<std::string> parts;
+    if (filter.showToast) {
+      parts.emplace_back(i18n::tr("settings.notifications.filter.flag.toast"));
+    }
+    if (filter.saveHistory) {
+      parts.emplace_back(i18n::tr("settings.notifications.filter.flag.history"));
+    }
+    if (filter.playSound) {
+      parts.emplace_back(i18n::tr("settings.notifications.filter.flag.sound"));
+    }
+    if (filter.allowPermanent) {
+      parts.emplace_back(i18n::tr("settings.notifications.filter.flag.permanent"));
+    }
+    if (!filter.allowedUrgencies.empty()) {
+      std::vector<std::string> urgencyLabels;
+      urgencyLabels.reserve(filter.allowedUrgencies.size());
+      for (const auto& urgency : filter.allowedUrgencies) {
+        urgencyLabels.emplace_back(i18n::tr("settings.options.notification-urgency." + urgency));
+      }
+      parts.emplace_back(StringUtils::join(urgencyLabels, ", "));
+    }
+    if (parts.empty()) {
+      return i18n::tr("settings.notifications.filter.summary-blocked", "match", matchLabel);
+    }
+    return i18n::tr(
+        "settings.notifications.filter.summary", "match", matchLabel, "flags", StringUtils::join(parts, ", ")
+    );
   }
 
 } // namespace settings

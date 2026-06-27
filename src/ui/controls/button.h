@@ -5,12 +5,11 @@
 #include "ui/signal.h"
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string_view>
+#include <vector>
 
-class AnimationManager;
-
-class Flex;
 class Glyph;
 class InputArea;
 class Label;
@@ -56,6 +55,9 @@ public:
   void setGlyph(std::string_view name);
   void setFontSize(float size);
   void setGlyphSize(float size);
+  // Pin the button to an exact height (e.g. Style::controlHeightSm) instead of the content-derived
+  // default, so it can sit on the same size tier as the Select/Input controls beside it.
+  void setControlHeight(float height);
   void setEnabled(bool enabled);
   void setSelected(bool selected);
   void setContentAlign(ButtonContentAlign align);
@@ -71,10 +73,14 @@ public:
   void setOnLeave(std::function<void()> callback);
   void setHoverSuppressed(bool suppressed);
   void setHoveredVisual(bool hovered);
+  void setPressedVisual(bool pressed);
   void setCursorShape(std::uint32_t shape);
   void setBadge(std::string_view text);
   void setBadgeFontSize(float size);
   void setTooltip(std::string_view text);
+
+  void setTabStop(bool tabStop);
+  void setKeyboardFocusHint(bool hint);
 
   // Call after layout() to sync InputArea bounds
   void updateInputArea();
@@ -85,6 +91,9 @@ public:
   [[nodiscard]] bool hovered() const noexcept;
   [[nodiscard]] bool pressed() const noexcept;
   [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
+  [[nodiscard]] ButtonVariant variant() const noexcept { return m_variant; }
+
+  [[nodiscard]] static ButtonPalette defaultPalette(ButtonVariant variant);
 
 private:
   void refreshInputAreaEnabled();
@@ -98,6 +107,9 @@ private:
   void doArrange(Renderer& renderer, const LayoutRect& rect) override;
 
   void applyColors(const Color& bg, const Color& border, const Color& label);
+
+  // Constrain the label to the button's max width (minus padding/glyph) and ellipsize on overflow.
+  void applyLabelMaxWidth();
 
   void ensureBadge();
 
@@ -128,8 +140,22 @@ private:
   float m_surfaceOpacity = 1.0f;
   bool m_enabled = true;
   bool m_selected = false;
+  bool m_keyboardFocusHint = false;
   bool m_hoverSuppressed = false;
   bool m_hoveredVisual = false;
+  bool m_pressedVisual = false;
   bool m_visualStateInitialized = false;
   Signal<>::ScopedConnection m_paletteConn;
 };
+
+class Renderer;
+
+// returns rows of buttons packed to fit maxWidth, gap between buttons
+std::vector<std::vector<std::unique_ptr<Button>>>
+wrapButtonsIntoRows(Renderer& renderer, std::vector<std::unique_ptr<Button>>& buttons, float maxWidth, float gap);
+
+// Populates a container column with row sub-containers, applying layout alignment,
+// gaps, setFlexGrow(1.0f), and setMaxWidth for single-button rows.
+void populateRowContainer(
+    Flex& container, std::vector<std::vector<std::unique_ptr<Button>>> rows, float maxWidth, float gap
+);

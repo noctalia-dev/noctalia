@@ -1,7 +1,6 @@
 #include "compositors/mango/mango_output_backend.h"
 
 #include "compositors/mango/mango_runtime.h"
-#include "core/process.h"
 #include "wayland/wayland_connection.h"
 
 #include <string>

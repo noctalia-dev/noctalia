@@ -4,7 +4,6 @@
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/process.h"
-#include "i18n/i18n_service.h"
 #include "lua.h"
 #include "luacode.h"
 #include "lualib.h"
@@ -14,7 +13,10 @@
 #include "scripting/plugin_state_store.h"
 #include "scripting/script_api_context.h"
 #include "system/terminal_launch.h"
+#include "time/time_format.h"
 #include "util/file_utils.h"
+#include "util/fuzzy_match.h"
+#include "util/string_utils.h"
 
 #include <algorithm>
 #include <atomic>
@@ -27,8 +29,10 @@
 #include <json.hpp>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -289,9 +293,92 @@ namespace {
     return 1;
   }
 
+  int luau_outputs(lua_State* L) {
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      lua_newtable(L);
+      return 1;
+    }
+    const auto outputs = host->api().outputs();
+    lua_createtable(L, static_cast<int>(outputs.size()), 0);
+    int index = 1;
+    for (const auto& out : outputs) {
+      lua_createtable(L, 0, 8);
+      setTableString(L, "name", out.name);
+      setTableString(L, "description", out.description);
+      setTableInteger(L, "width", out.width);
+      setTableInteger(L, "height", out.height);
+      setTableInteger(L, "x", out.x);
+      setTableInteger(L, "y", out.y);
+      setTableInteger(L, "scale", out.scale);
+      setTableBool(L, "focused", out.focused);
+      lua_rawseti(L, -2, index++);
+    }
+    return 1;
+  }
+
+  int luau_setWallpaperEnabled(lua_State* L) {
+    size_t len = 0;
+    const char* connector = luaL_checklstring(L, 1, &len);
+    luaL_checktype(L, 2, LUA_TBOOLEAN);
+    const bool enabled = lua_toboolean(L, 2) != 0;
+    if (auto* host = hostForState(L)) {
+      host->scriptSetWallpaperEnabled(std::string(connector, len), enabled);
+    }
+    return 0;
+  }
+
+  // setWallpaper(path) or setWallpaper(connector, path) — apply and persist a
+  // wallpaper image. With one argument it targets all outputs.
+  int luau_setWallpaper(lua_State* L) {
+    std::string connector;
+    std::string path;
+    if (lua_gettop(L) >= 2 && !lua_isnil(L, 2)) {
+      size_t connectorLen = 0;
+      const char* connectorStr = luaL_checklstring(L, 1, &connectorLen);
+      size_t pathLen = 0;
+      const char* pathStr = luaL_checklstring(L, 2, &pathLen);
+      connector.assign(connectorStr, connectorLen);
+      path.assign(pathStr, pathLen);
+    } else {
+      size_t pathLen = 0;
+      const char* pathStr = luaL_checklstring(L, 1, &pathLen);
+      path.assign(pathStr, pathLen);
+    }
+    if (auto* host = hostForState(L)) {
+      host->scriptSetWallpaper(std::move(connector), std::move(path));
+    }
+    return 0;
+  }
+
+  // togglePanel("author/plugin:panel") — toggle a host panel by id.
+  int luau_togglePanel(lua_State* L) {
+    size_t len = 0;
+    const char* panelId = luaL_checklstring(L, 1, &len);
+    if (auto* host = hostForState(L)) {
+      host->scriptTogglePanel(std::string(panelId, len));
+    }
+    return 0;
+  }
+
   int luau_isDarkMode(lua_State* L) {
     auto* host = hostForState(L);
     lua_pushboolean(L, host != nullptr && host->api().isDarkMode() ? 1 : 0);
+    return 1;
+  }
+
+  int luau_wallpaperDirectory(lua_State* L) {
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      lua_pushnil(L);
+      return 1;
+    }
+    const std::string directory = host->api().wallpaperDirectory();
+    if (directory.empty()) {
+      lua_pushnil(L);
+      return 1;
+    }
+    lua_pushlstring(L, directory.data(), directory.size());
     return 1;
   }
 
@@ -378,6 +465,26 @@ namespace {
     const char* path = luaL_checklstring(L, 1, &len);
     const std::string expanded = FileUtils::expandUserPath(std::string(path, len)).string();
     lua_pushlstring(L, expanded.data(), expanded.size());
+    return 1;
+  }
+
+  int luau_formatTime(lua_State* L) {
+    size_t patternLen = 0;
+    const char* pattern = luaL_checklstring(L, 1, &patternLen);
+
+    std::int64_t unixSeconds = 0;
+    if (lua_isnoneornil(L, 2)) {
+      unixSeconds = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    } else {
+      const double raw = luaL_checknumber(L, 2);
+      if (!std::isfinite(raw)) {
+        luaL_argerror(L, 2, "expected finite unix timestamp");
+      }
+      unixSeconds = static_cast<std::int64_t>(raw);
+    }
+
+    const std::string result = formatLocalUnixTime(unixSeconds, std::string_view(pattern, patternLen));
+    lua_pushlstring(L, result.data(), result.size());
     return 1;
   }
 
@@ -820,6 +927,52 @@ namespace {
       {nullptr, nullptr},
   };
 
+  int luau_string_trim(lua_State* L) {
+    size_t len = 0;
+    const char* str = luaL_checklstring(L, 1, &len);
+    const std::string out = StringUtils::trim(std::string_view(str, len));
+    lua_pushlstring(L, out.data(), out.size());
+    return 1;
+  }
+
+  int luau_string_urlEncode(lua_State* L) {
+    size_t len = 0;
+    const char* str = luaL_checklstring(L, 1, &len);
+    const std::string out = StringUtils::urlEncode(std::string_view(str, len));
+    lua_pushlstring(L, out.data(), out.size());
+    return 1;
+  }
+
+  int luau_string_urlDecode(lua_State* L) {
+    size_t len = 0;
+    const char* str = luaL_checklstring(L, 1, &len);
+    const std::string out = StringUtils::urlDecode(std::string_view(str, len));
+    lua_pushlstring(L, out.data(), out.size());
+    return 1;
+  }
+
+  const luaL_Reg kNoctaliaStringLib[] = {
+      {"trim", luau_string_trim},
+      {"urlEncode", luau_string_urlEncode},
+      {"urlDecode", luau_string_urlDecode},
+      {nullptr, nullptr},
+  };
+
+  int luau_fuzzyScore(lua_State* L) {
+    size_t patternLen = 0;
+    const char* pattern = luaL_checklstring(L, 1, &patternLen);
+    size_t textLen = 0;
+    const char* text = luaL_checklstring(L, 2, &textLen);
+
+    const double score = FuzzyMatch::score(std::string_view(pattern, patternLen), std::string_view(text, textLen));
+    if (!FuzzyMatch::isMatch(score)) {
+      lua_pushnil(L);
+      return 1;
+    }
+    lua_pushnumber(L, score);
+    return 1;
+  }
+
   const luaL_Reg kNoctaliaBaseLib[] = {
       {"log", luau_log},
       {"runAsync", luau_runAsync},
@@ -830,12 +983,18 @@ namespace {
       {"flatpakAppInstalled", luau_flatpakAppInstalled},
       {"portalAvailable", luau_portalAvailable},
       {"focusedOutputName", luau_focusedOutputName},
+      {"outputs", luau_outputs},
+      {"setWallpaperEnabled", luau_setWallpaperEnabled},
+      {"setWallpaper", luau_setWallpaper},
+      {"togglePanel", luau_togglePanel},
       {"isDarkMode", luau_isDarkMode},
+      {"wallpaperDirectory", luau_wallpaperDirectory},
       {"notify", luau_notify},
       {"notifyError", luau_notifyError},
       {"copyToClipboard", luau_copyToClipboard},
       {"getenv", luau_getenv},
       {"expandPath", luau_expandPath},
+      {"formatTime", luau_formatTime},
       {"setUpdateInterval", luau_setUpdateInterval},
       {"readFile", luau_readFile},
       {"writeFile", luau_writeFile},
@@ -846,6 +1005,7 @@ namespace {
       {"trp", luau_trp},
       {"http", luau_http},
       {"download", luau_download},
+      {"fuzzyScore", luau_fuzzyScore},
       {"getConfig", scripting::luau_getConfig},
       {nullptr, nullptr},
   };
@@ -860,6 +1020,10 @@ namespace {
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaJsonLib);
     lua_setfield(L, -2, "json");
+    // noctalia.string = { trim, urlEncode, urlDecode }
+    lua_createtable(L, 0, 0);
+    luaL_register(L, nullptr, kNoctaliaStringLib);
+    lua_setfield(L, -2, "string");
     lua_pop(L, 1);
   }
 } // namespace
@@ -958,7 +1122,7 @@ bool LuauHost::startAsyncProcessMatch(std::vector<std::string> needles, int call
     return false;
   }
 
-  if (std::any_of(needles.begin(), needles.end(), [](const auto& needle) { return needle.empty(); })) {
+  if (std::ranges::any_of(needles, [](const auto& needle) { return needle.empty(); })) {
     return false;
   }
 
@@ -1274,76 +1438,10 @@ void LuauHost::interruptIfBudgetExceeded(lua_State* L) {
   luaL_error(L, "script callback '%s' timed out", m_currentCallName.empty() ? "(unknown)" : m_currentCallName.c_str());
 }
 
-namespace {
-  // Flatten a nested JSON object into dotted keys, e.g. {"a":{"b":"c"}} -> {"a.b":"c"}.
-  void flattenTranslations(
-      const nlohmann::json& node, const std::string& prefix, std::unordered_map<std::string, std::string>& out
-  ) {
-    if (node.is_object()) {
-      for (const auto& [key, value] : node.items()) {
-        flattenTranslations(value, prefix.empty() ? key : prefix + "." + key, out);
-      }
-    } else if (node.is_string()) {
-      out[prefix] = node.get<std::string>();
-    }
-  }
-
-  void mergeTranslationFile(const std::filesystem::path& path, std::unordered_map<std::string, std::string>& out) {
-    std::ifstream file(path);
-    if (!file) {
-      return;
-    }
-    try {
-      flattenTranslations(nlohmann::json::parse(file), {}, out);
-    } catch (const nlohmann::json::exception&) {
-      kLog.warn("failed to parse plugin translations: {}", path.string());
-    }
-  }
-} // namespace
-
-void LuauHost::loadTranslations() {
-  m_translations.clear();
-  if (m_pluginDir.empty()) {
-    return;
-  }
-  const std::filesystem::path dir = m_pluginDir / "translations";
-  // English is the fallback layer; the active language overrides it.
-  mergeTranslationFile(dir / "en.json", m_translations);
-  if (const std::string_view lang = i18n::Service::instance().language(); !lang.empty() && lang != "en") {
-    mergeTranslationFile(dir / (std::string(lang) + ".json"), m_translations);
-  }
-}
+void LuauHost::loadTranslations() { m_translations.load(m_pluginDir); }
 
 std::string LuauHost::translate(std::string_view key, const std::unordered_map<std::string, std::string>& subst) const {
-  const auto it = m_translations.find(std::string(key));
-  if (it == m_translations.end()) {
-    kLog.warn("plugin translation key '{}' not found", key);
-    return std::string(key);
-  }
-  const std::string& tmpl = it->second;
-  if (subst.empty() || tmpl.find('{') == std::string::npos) {
-    return tmpl;
-  }
-  std::string out;
-  out.reserve(tmpl.size());
-  for (std::size_t i = 0; i < tmpl.size();) {
-    if (tmpl[i] == '{') {
-      const std::size_t end = tmpl.find('}', i + 1);
-      if (end != std::string::npos) {
-        const std::string name = tmpl.substr(i + 1, end - i - 1);
-        if (const auto found = subst.find(name); found != subst.end()) {
-          out += found->second;
-        } else {
-          out.append(tmpl, i, end - i + 1); // leave unknown placeholders verbatim
-        }
-        i = end + 1;
-        continue;
-      }
-    }
-    out.push_back(tmpl[i]);
-    ++i;
-  }
-  return out;
+  return m_translations.translate(key, subst);
 }
 
 void LuauHost::scriptSetUpdateInterval(int ms) {
@@ -1380,6 +1478,33 @@ void LuauHost::scriptNotifyError(std::string title, std::string body) {
     return;
   }
   notify::error("Noctalia", title, body);
+}
+
+void LuauHost::scriptSetWallpaperEnabled(std::string connector, bool enabled) {
+  if (m_scriptContext != nullptr) {
+    m_scriptContext->sideEffects.push_back(
+        {.kind = scripting::ScriptSideEffectKind::SetWallpaperEnabled,
+         .title = std::move(connector),
+         .body = {},
+         .flag = enabled}
+    );
+  }
+}
+
+void LuauHost::scriptSetWallpaper(std::string connector, std::string path) {
+  if (m_scriptContext != nullptr) {
+    m_scriptContext->sideEffects.push_back(
+        {.kind = scripting::ScriptSideEffectKind::SetWallpaper, .title = std::move(connector), .body = std::move(path)}
+    );
+  }
+}
+
+void LuauHost::scriptTogglePanel(std::string panelId) {
+  if (m_scriptContext != nullptr) {
+    m_scriptContext->sideEffects.push_back(
+        {.kind = scripting::ScriptSideEffectKind::TogglePanel, .title = std::move(panelId), .body = {}}
+    );
+  }
 }
 
 bool LuauHost::scriptCopyToClipboard(std::string text, std::string mimeType) {

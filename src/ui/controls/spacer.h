@@ -2,8 +2,6 @@
 
 #include "render/scene/node.h"
 
-class Renderer;
-
 class Spacer : public Node {
 public:
   Spacer();

@@ -1,7 +1,6 @@
 #include "compositors/niri/niri_output_backend.h"
 
 #include "compositors/niri/niri_runtime.h"
-#include "core/log.h"
 #include "util/string_utils.h"
 
 #include <json.hpp>
@@ -11,7 +10,6 @@
 
 namespace {
 
-  constexpr Logger kLog("niri_output");
   constexpr std::string_view kFocusedOutputRequest = "\"FocusedOutput\"\n";
 
   [[nodiscard]] std::optional<std::string> trimOutputName(const nlohmann::json& value) {
@@ -57,7 +55,6 @@ std::optional<std::string> NiriOutputBackend::focusedOutputName() const {
     }
   }
 
-  kLog.debug("failed to resolve focused output from niri IPC");
   return std::nullopt;
 }
 

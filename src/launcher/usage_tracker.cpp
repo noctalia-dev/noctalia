@@ -2,7 +2,6 @@
 
 #include "util/file_utils.h"
 
-#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <json.hpp>
@@ -23,7 +22,7 @@ void UsageTracker::record(std::string_view providerId, std::string_view resultId
 
   auto& recentlyUsedList = m_recentlyUsed[std::string(providerId)];
   const auto id = std::string(resultId);
-  recentlyUsedList.erase(std::remove(recentlyUsedList.begin(), recentlyUsedList.end(), id), recentlyUsedList.end());
+  std::erase(recentlyUsedList, id);
   recentlyUsedList.push_front(id);
   while (recentlyUsedList.size() > kMaxRecentlyUsedCount) {
     recentlyUsedList.pop_back();
@@ -34,6 +33,13 @@ void UsageTracker::record(std::string_view providerId, std::string_view resultId
     indexMap[recentlyUsedList[i]] = static_cast<int>(recentlyUsedList.size() - i);
   }
 
+  save();
+}
+
+void UsageTracker::clear() {
+  m_counts.clear();
+  m_recentlyUsed.clear();
+  m_recentlyUsedIndex.clear();
   save();
 }
 

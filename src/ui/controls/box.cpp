@@ -139,10 +139,12 @@ void Box::setPanelStyle(bool showBorder) {
   syncStyle();
 }
 
+void Box::setDialogStyle() { setPanelStyle(/*showBorder=*/true); }
+
 void Box::setCardStyle(float scale, float fillOpacity, bool showBorder) {
   setFill(colorSpecFromRole(ColorRole::SurfaceVariant, fillOpacity));
   if (showBorder) {
-    setBorder(colorSpecFromRole(ColorRole::Outline, 0.5f), Style::borderWidth);
+    setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
   } else {
     clearBorder();
   }

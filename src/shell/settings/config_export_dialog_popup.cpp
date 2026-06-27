@@ -9,7 +9,6 @@
 #include "ui/popup_chrome.h"
 #include "ui/style.h"
 #include "wayland/popup_surface.h"
-#include "wayland/wayland_connection.h"
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>
@@ -55,11 +54,8 @@ namespace settings {
     initializeBase(wayland, config, renderContext);
   }
 
-  void ConfigExportDialogPopup::open(
-      xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
-      std::uint32_t parentWidth, std::uint32_t parentHeight, float scale, ExportCallback callback
-  ) {
-    if (parentXdgSurface == nullptr || parentWlSurface == nullptr) {
+  void ConfigExportDialogPopup::open(ConfigExportDialogPopupRequest request) {
+    if (request.parent.xdgSurface == nullptr || request.parent.wlSurface == nullptr) {
       return;
     }
 
@@ -67,22 +63,22 @@ namespace settings {
       close();
     }
 
-    m_scale = std::max(0.1f, scale);
+    m_scale = std::max(0.1f, request.scale);
     m_mode = ConfigExportMode::MergedUser;
-    m_callback = std::move(callback);
+    m_callback = std::move(request.callback);
     m_root = nullptr;
     m_mergedRadio = nullptr;
     m_fullRadio = nullptr;
-    m_parentHeight = parentHeight;
+    m_parentHeight = request.parent.height;
 
     const float popupWidth = kPopupWidth * m_scale;
     const float popupHeight = kInitialPopupHeight * m_scale;
     const auto cfg = centeredPopupConfig(
-        parentWidth, parentHeight, static_cast<std::uint32_t>(std::max(1.0f, popupWidth)),
-        static_cast<std::uint32_t>(std::max(1.0f, popupHeight)), serial
+        request.parent.width, request.parent.height, static_cast<std::uint32_t>(std::max(1.0f, popupWidth)),
+        static_cast<std::uint32_t>(std::max(1.0f, popupHeight)), request.parent.serial
     );
 
-    if (!openPopupAsChild(cfg, parentXdgSurface, parentWlSurface, output)) {
+    if (!openPopupAsChild(cfg, request.parent)) {
       close();
     }
   }
@@ -126,7 +122,7 @@ namespace settings {
                 [this](Flex& row) {
                   row.setRadius(Style::scaledRadiusMd(m_scale));
                   row.setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.45f));
-                  row.setBorder(colorSpecFromRole(ColorRole::Outline, 0.55f), Style::borderWidth);
+                  row.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
                 },
         },
         ui::radioButton({

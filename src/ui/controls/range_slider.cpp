@@ -1,5 +1,8 @@
 #include "ui/controls/range_slider.h"
 
+#include "core/key_modifiers.h"
+#include "core/key_symbols.h"
+#include "core/keybind_matcher.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "render/core/render_styles.h"
 #include "render/scene/input_area.h"
@@ -85,6 +88,69 @@ RangeSlider::RangeSlider() {
       return;
     }
     updateFromLocalX(data.localX);
+  });
+  area->setFocusable(true);
+  area->setOnFocusGain([this]() {
+    if (m_activeThumb == ActiveThumb::None) {
+      m_activeThumb = ActiveThumb::Low;
+    }
+    applyVisualState();
+    markPaintDirty();
+  });
+  area->setOnFocusLoss([this]() {
+    m_activeThumb = ActiveThumb::None;
+    applyVisualState();
+    markPaintDirty();
+  });
+  area->setOnKeyDown([this](const InputArea::KeyData& key) {
+    if (!key.pressed || !m_enabled) {
+      return;
+    }
+    const bool adjustHigh = (key.modifiers & KeyMod::Shift) != 0;
+    m_activeThumb = adjustHigh ? ActiveThumb::High : ActiveThumb::Low;
+    const double step = m_step > 0.0 ? m_step : (m_max - m_min) * 0.05;
+    if (step <= 0.0) {
+      return;
+    }
+    auto nudge = [&](double delta) {
+      if (adjustHigh) {
+        setHighValue(m_high + delta);
+      } else {
+        setLowValue(m_low + delta);
+      }
+      if (m_onDragEnd) {
+        m_onDragEnd();
+      }
+    };
+    if (KeybindMatcher::matches(KeybindAction::Left, key.sym, key.modifiers)) {
+      nudge(-step);
+    } else if (KeybindMatcher::matches(KeybindAction::Right, key.sym, key.modifiers)) {
+      nudge(step);
+    } else if (KeySymbol::isPageDown(key.sym)) {
+      nudge(-step * 10.0);
+    } else if (KeySymbol::isPageUp(key.sym)) {
+      nudge(step * 10.0);
+    } else if (KeySymbol::isHome(key.sym)) {
+      if (adjustHigh) {
+        setHighValue(m_low);
+      } else {
+        setLowValue(m_min);
+      }
+      if (m_onDragEnd) {
+        m_onDragEnd();
+      }
+    } else if (KeySymbol::isEnd(key.sym)) {
+      if (adjustHigh) {
+        setHighValue(m_max);
+      } else {
+        setLowValue(m_high);
+      }
+      if (m_onDragEnd) {
+        m_onDragEnd();
+      }
+    }
+    applyVisualState();
+    markPaintDirty();
   });
   m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
   m_inputArea->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
@@ -248,6 +314,7 @@ void RangeSlider::updateFromLocalX(float x) {
 
 void RangeSlider::applyVisualState() {
   const bool hovering = m_inputArea != nullptr && m_inputArea->hovered();
+  const bool focused = m_inputArea != nullptr && m_inputArea->focused();
 
   Color trackColor = resolved(ColorRole::Outline);
   Color fillColor = resolved(ColorRole::Primary);
@@ -258,8 +325,10 @@ void RangeSlider::applyVisualState() {
   m_highThumb->setVisible(m_enabled);
 
   if (!m_enabled) {
-    trackColor = resolved(ColorRole::Outline, 0.5f);
+    trackColor = resolved(ColorRole::Outline, Style::disabledOutlineAlpha);
     fillColor = resolved(ColorRole::Primary, 0.5f);
+  } else if (focused) {
+    thumbBorder = resolveColorSpec(focusRingColorSpec());
   } else if (hovering) {
     thumbBorder = resolved(ColorRole::Hover);
   }
@@ -269,9 +338,20 @@ void RangeSlider::applyVisualState() {
 
   auto thumbStyle = solidStyle(thumbColor, m_thumbSizePx * 0.5f);
   thumbStyle.border = thumbBorder;
-  thumbStyle.borderWidth = Style::borderWidth;
+  thumbStyle.borderWidth = focused ? Style::focusRingWidth : Style::borderWidth;
   m_lowThumb->setStyle(thumbStyle);
   m_highThumb->setStyle(thumbStyle);
+
+  if (m_enabled && focused && m_activeThumb != ActiveThumb::None) {
+    auto activeStyle = thumbStyle;
+    activeStyle.border = resolveColorSpec(focusRingColorSpec());
+    activeStyle.borderWidth = Style::focusRingWidth;
+    if (m_activeThumb == ActiveThumb::Low) {
+      m_lowThumb->setStyle(activeStyle);
+    } else {
+      m_highThumb->setStyle(activeStyle);
+    }
+  }
 }
 
 float RangeSlider::normalized(double value) const noexcept {

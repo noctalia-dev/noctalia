@@ -19,6 +19,7 @@ namespace scripting {
     Int,
     Double,
     String,
+    StringList,
     File,
     Folder,
     Glyph,
@@ -29,6 +30,7 @@ namespace scripting {
   struct ManifestSelectOption {
     std::string value;
     std::string label;
+    std::string labelKey;
   };
 
   struct ManifestVisibility {
@@ -39,13 +41,16 @@ namespace scripting {
   struct ManifestField {
     std::string key;
     std::string label;
+    std::string labelKey;
     std::string description;
+    std::string descriptionKey;
     ManifestFieldType type = ManifestFieldType::String;
 
     // Typed default; the active member is selected by `type`.
     bool boolDefault = false;
     double numberDefault = 0.0;
     std::string stringDefault;
+    std::vector<std::string> stringListDefault;
 
     std::optional<double> minValue;
     std::optional<double> maxValue;
@@ -92,6 +97,17 @@ namespace scripting {
     // Wait this many ms after the last keystroke before running onQuery, so a
     // network-backed provider isn't hit on every character. 0 = no debounce.
     int launcherDebounceMs = 0;
+
+    // Panel size in logical pixels (parsed only for Panel entries). Geometry is
+    // host-owned and declared once here so the surface is sized correctly on the
+    // very first open (panel.render lands async). 0 = use the host default.
+    double panelWidth = 0.0;
+    double panelHeight = 0.0;
+    // Host-standard shell placement settings (see plugin_panel_shell.*). Parsed from
+    // optional [[panel]] keys; injected settings use "{id}_placement" etc.
+    std::string panelPlacementDefault = "floating";
+    std::string panelPositionDefault = "auto";
+    bool panelOpenNearClickDefault = false;
   };
 
   struct PluginManifest {
@@ -103,6 +119,7 @@ namespace scripting {
     std::string license = "MIT";
     bool deprecated = false;
     std::vector<std::string> tags;
+    std::vector<std::string> dependencies;
     std::string icon;
     std::string description;
     std::vector<PluginEntry> entries;

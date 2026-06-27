@@ -44,6 +44,45 @@ std::string batteryStateLabel(BatteryState state) {
   }
 }
 
+const char* batteryGlyphName(double percentage, BatteryState state) {
+  if (state == BatteryState::Charging) {
+    return "battery-charging";
+  }
+  if (state == BatteryState::FullyCharged || state == BatteryState::PendingCharge) {
+    return "battery-plugged";
+  }
+  if (state == BatteryState::Unknown && percentage <= 0.0) {
+    return "battery-exclamation";
+  }
+  if (percentage >= 85.0) {
+    return "battery-4";
+  }
+  if (percentage >= 55.0) {
+    return "battery-3";
+  }
+  if (percentage >= 30.0) {
+    return "battery-2";
+  }
+  if (percentage >= 10.0) {
+    return "battery-1";
+  }
+  return "battery-0";
+}
+
+const char* batteryDeviceGlyphName(UPowerDeviceType type) {
+  switch (type) {
+  case UPowerDeviceType::Mouse:
+    return "mouse-2";
+  case UPowerDeviceType::Keyboard:
+    return "keyboard";
+  case UPowerDeviceType::Phone:
+  case UPowerDeviceType::Pda:
+    return "device-mobile";
+  default:
+    return "bluetooth";
+  }
+}
+
 namespace {
 
   template <typename T>
@@ -209,7 +248,7 @@ void UPowerService::rescanDevices() {
     }
   }
 
-  std::sort(nextDevices.begin(), nextDevices.end(), [](const TrackedDevice& lhs, const TrackedDevice& rhs) {
+  std::ranges::sort(nextDevices, [](const TrackedDevice& lhs, const TrackedDevice& rhs) {
     return lhs.info.path < rhs.info.path;
   });
 
@@ -269,7 +308,7 @@ UPowerState UPowerService::readDeviceState(sdbus::IProxy& proxy) const {
   if (next.state == BatteryState::Discharging && next.timeToEmpty <= 0 && next.energyRate > 0.0 && next.energy > 0.0) {
     next.timeToEmpty = static_cast<std::int64_t>(std::round((next.energy / next.energyRate) * 3600.0));
   } else if (next.state == BatteryState::Charging && next.timeToFull <= 0 && next.energyRate > 0.0) {
-    const double energyFull = getPropertyOr<double>(proxy, kDeviceInterface, "EnergyFull", 0.0);
+    const auto energyFull = getPropertyOr<double>(proxy, kDeviceInterface, "EnergyFull", 0.0);
     if (energyFull > next.energy) {
       next.timeToFull = static_cast<std::int64_t>(std::round(((energyFull - next.energy) / next.energyRate) * 3600.0));
     }

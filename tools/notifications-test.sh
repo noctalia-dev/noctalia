@@ -40,6 +40,7 @@ gdbus call --session \
           "{}" \
           5000
 
+sleep 0.5
 gdbus call --session \
           --dest org.freedesktop.Notifications \
           --object-path /org/freedesktop/Notifications \
@@ -49,10 +50,11 @@ gdbus call --session \
           "dialog-question" \
           "Notification #9 - Longer Body" \
           "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin lectus nibh, mollis eget pulvinar eget, aliquet vel enim. Sed quis tortor ut urna tincidunt porta. In non leo nunc. Aliquam vestibulum aliquet risus. Praesent cursus lacus vitae egestas ultrices. Ut eleifend, ligula id vulputate aliquam, lectus lacus lobortis nulla, nec ornare nisl lorem aliquam nulla. Sed fermentum, dolor ullamcorper pharetra condimentum, leo erat ultricies nibh, ac sagittis neque tellus vel lacus. Fusce volutpat sem est, vel vehicula sapien viverra sed. Integer varius justo ut lorem mattis fermentum. Mauris ac purus et turpis accumsan pulvinar. https://github.com/noctalia-dev/noctalia-shell" \
-          "['default', 'OK', 'cancel', 'Cancel', 'maybe', 'Maybe', 'undecided', 'Undecided']" \
+          "['default', 'OK', 'cancel', 'Cancel', 'maybe', 'Maybe', 'undecided', 'Undecided', 'another', 'Another', 'bail', 'Bail', 'wontappear', 'Will not appear']" \
           "{}" \
           5000
 
+sleep 0.5
 gdbus call --session \
           --dest org.freedesktop.Notifications \
           --object-path /org/freedesktop/Notifications \
@@ -60,8 +62,8 @@ gdbus call --session \
           "System Notifications" \
           0 \
           "" \
-          "KDE Connect Background Service Crash" \
+          "A long title that may take a bit of space" \
           "Please send a bug report to help improve this program." \
-          "['report', 'Report a bug please please report it', 'restart', 'Restart program quick before it is too late']" \
+          "['report', 'Report a bug please please please report it, we want more bugs', 'restart', 'Restart program quick before it is too late']" \
           "{}" \
           30000

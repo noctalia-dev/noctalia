@@ -1,25 +1,32 @@
 #pragma once
 
-#include "shell/settings/settings_content.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/dialogs/dialog_popup_host.h"
+#include "ui/popup_parent.h"
 
 #include <functional>
 #include <memory>
 #include <string>
 
 class Flex;
+class Label;
 class RenderContext;
 class WaylandConnection;
 struct KeyboardEvent;
 struct PointerEvent;
 struct wl_output;
 struct wl_surface;
-struct xdg_surface;
-
 class SelectDropdownPopup;
 
 namespace settings {
+
+  struct SettingsEditorSheetPopupRequest {
+    XdgPopupParent parent;
+    std::string sheetTitle;
+    std::function<void()> removeAction;
+    std::function<void(Flex& sheetBody)> populateSheetBody;
+    float scale = 1.0f;
+  };
 
   class SettingsEditorSheetPopup final : public DialogPopupHost {
   public:
@@ -28,11 +35,7 @@ namespace settings {
 
     void initialize(WaylandConnection& wayland, ConfigService& config, RenderContext& renderContext);
 
-    void open(
-        xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
-        std::uint32_t parentWidth, std::uint32_t parentHeight, float scale, std::string sheetTitle,
-        std::function<void()> removeAction, std::function<void(Flex& sheetBody)> populateSheetBody
-    );
+    void open(SettingsEditorSheetPopupRequest request);
     void close();
 
     [[nodiscard]] bool isOpen() const noexcept;
@@ -60,7 +63,7 @@ namespace settings {
 
     float m_scale = 1.0f;
     std::string m_sheetTitle;
-    class Label* m_sheetTitleLabel = nullptr;
+    Label* m_sheetTitleLabel = nullptr;
     std::function<void()> m_removeAction;
     std::function<void(Flex&)> m_populateSheetBody;
 

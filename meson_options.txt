@@ -1,1 +1,2 @@
 option('jemalloc', type: 'feature', value: 'auto', description: 'Use jemalloc on glibc builds')
+option('tests', type: 'feature', value: 'auto', description: 'Build unit tests (auto: on for unsanitized debug builds)')

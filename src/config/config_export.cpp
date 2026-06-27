@@ -2,11 +2,9 @@
 
 #include "config/schema/config_schema.h"
 #include "config/schema/engine.h"
-#include "core/key_chord.h"
 
 #include <algorithm>
 #include <cstdint>
-#include <cstdio>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -53,7 +51,7 @@ namespace config_export {
         (void)value;
         keys.push_back(key);
       }
-      std::sort(keys.begin(), keys.end());
+      std::ranges::sort(keys);
 
       for (const auto& key : keys) {
         insertWidgetSettingValue(table, key, widget.settings.at(key));
@@ -64,7 +62,7 @@ namespace config_export {
         (void)map;
         tableKeys.push_back(key);
       }
-      std::sort(tableKeys.begin(), tableKeys.end());
+      std::ranges::sort(tableKeys);
       for (const auto& key : tableKeys) {
         const auto& map = widget.tables.at(key);
         toml::table subtable;
@@ -74,7 +72,7 @@ namespace config_export {
           (void)value;
           mapKeys.push_back(mapKey);
         }
-        std::sort(mapKeys.begin(), mapKeys.end());
+        std::ranges::sort(mapKeys);
         for (const auto& mapKey : mapKeys) {
           const auto& value = map.at(mapKey);
           subtable.insert_or_assign(mapKey, value);
@@ -92,6 +90,8 @@ namespace config_export {
         resolved.enabled = *ovr.enabled;
       if (ovr.autoHide)
         resolved.autoHide = *ovr.autoHide;
+      if (ovr.showOnWorkspaceSwitch)
+        resolved.showOnWorkspaceSwitch = *ovr.showOnWorkspaceSwitch;
       if (ovr.reserveSpace)
         resolved.reserveSpace = *ovr.reserveSpace;
       if (ovr.layer)
@@ -123,6 +123,8 @@ namespace config_export {
         resolved.marginEnds = *ovr.marginEnds;
       if (ovr.marginEdge)
         resolved.marginEdge = *ovr.marginEdge;
+      if (ovr.marginOppositeEdge)
+        resolved.marginOppositeEdge = *ovr.marginOppositeEdge;
       if (ovr.padding)
         resolved.padding = *ovr.padding;
       if (ovr.widgetSpacing)
@@ -133,6 +135,10 @@ namespace config_export {
         resolved.contactShadow = *ovr.contactShadow;
       if (ovr.panelOverlap)
         resolved.panelOverlap = *ovr.panelOverlap;
+      if (ovr.capsuleThickness)
+        resolved.capsuleThickness = *ovr.capsuleThickness;
+      if (ovr.fontFamily)
+        resolved.fontFamily = *ovr.fontFamily;
       if (ovr.startWidgets)
         resolved.startWidgets = *ovr.startWidgets;
       if (ovr.centerWidgets)
@@ -160,10 +166,20 @@ namespace config_export {
       if (ovr.widgetCapsulePadding)
         resolved.widgetCapsulePadding = static_cast<float>(*ovr.widgetCapsulePadding);
       if (ovr.widgetCapsuleRadius.has_value()) {
-        resolved.widgetCapsuleRadius = *ovr.widgetCapsuleRadius;
+        resolved.widgetCapsuleRadius = ovr.widgetCapsuleRadius;
       }
       if (ovr.widgetCapsuleOpacity)
         resolved.widgetCapsuleOpacity = static_cast<float>(*ovr.widgetCapsuleOpacity);
+      if (ovr.deadZone.command)
+        resolved.deadZone.command = *ovr.deadZone.command;
+      if (ovr.deadZone.rightCommand)
+        resolved.deadZone.rightCommand = *ovr.deadZone.rightCommand;
+      if (ovr.deadZone.middleCommand)
+        resolved.deadZone.middleCommand = *ovr.deadZone.middleCommand;
+      if (ovr.deadZone.scrollUpCommand)
+        resolved.deadZone.scrollUpCommand = *ovr.deadZone.scrollUpCommand;
+      if (ovr.deadZone.scrollDownCommand)
+        resolved.deadZone.scrollDownCommand = *ovr.deadZone.scrollDownCommand;
       return resolved;
     }
 
@@ -223,6 +239,12 @@ namespace config_export {
           item.insert_or_assign("box_width", static_cast<double>(widget.boxWidth));
           item.insert_or_assign("box_height", static_cast<double>(widget.boxHeight));
           item.insert_or_assign("rotation", static_cast<double>(widget.rotationRad));
+          if (widget.flipX) {
+            item.insert_or_assign("flip_x", true);
+          }
+          if (widget.flipY) {
+            item.insert_or_assign("flip_y", true);
+          }
           item.insert_or_assign("enabled", widget.enabled);
 
           toml::table settings;
@@ -232,7 +254,7 @@ namespace config_export {
             (void)value;
             keys.push_back(key);
           }
-          std::sort(keys.begin(), keys.end());
+          std::ranges::sort(keys);
           for (const auto& key : keys) {
             insertWidgetSettingValue(settings, key, widget.settings.at(key));
           }
@@ -313,7 +335,7 @@ namespace config_export {
       (void)widget;
       widgetNames.push_back(name);
     }
-    std::sort(widgetNames.begin(), widgetNames.end());
+    std::ranges::sort(widgetNames);
     for (const auto& name : widgetNames) {
       widgetRoot.insert_or_assign(name, widgetConfigTable(config.widgets.at(name)));
     }

@@ -3,7 +3,7 @@
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "notification/notifications.h"
-#include "scripting/script_api_context.h"
+#include "scripting/plugin_runtime_context.h"
 #include "ui/controls/flex.h"
 
 #include <cstdlib>
@@ -29,14 +29,11 @@ namespace {
 
 } // namespace
 
-PluginDesktopWidget::PluginDesktopWidget(
-    std::string entryId, std::filesystem::path sourcePath, std::unordered_map<std::string, WidgetSettingValue> settings,
-    std::string outputName, scripting::ScriptApiContext& scriptApi, FileWatcher* fileWatcher, HttpClient* httpClient,
-    ClipboardService* clipboard
-)
-    : m_entryId(std::move(entryId)), m_sourcePath(std::move(sourcePath)), m_pluginDir(m_sourcePath.parent_path()),
-      m_outputName(std::move(outputName)), m_scriptApi(scriptApi), m_settings(std::move(settings)),
-      m_fileWatcher(fileWatcher), m_httpClient(httpClient), m_clipboard(clipboard) {
+PluginDesktopWidget::PluginDesktopWidget(scripting::PluginRuntimeContext context, std::string outputName)
+    : m_entryId(std::move(context.entryId)), m_sourcePath(std::move(context.sourcePath)),
+      m_pluginDir(m_sourcePath.parent_path()), m_outputName(std::move(outputName)), m_scriptApi(context.scriptApi),
+      m_settings(std::move(context.settings)), m_fileWatcher(context.fileWatcher), m_httpClient(context.httpClient),
+      m_clipboard(context.clipboard) {
   scripting::PluginIpcRouter::instance().registerEndpoint(this);
 }
 
@@ -60,9 +57,11 @@ void PluginDesktopWidget::create() {
   m_flex = flex.get();
   setRoot(std::move(flex));
 
-  m_reconciler.setCallbackSink([this](const std::string& functionName) {
+  m_reconciler.setCallbackSink([this](const ui::UiTreeReconciler::ControlCallback& callback) {
     if (m_runtime != nullptr) {
-      (void)m_runtime->enqueueCall(functionName, makeScriptSnapshot());
+      (void)m_runtime->enqueueCallStrings(
+          callback.fn, callback.arg1, callback.arg2, makeScriptSnapshot(), callback.coalesce
+      );
     }
   });
   m_reconciler.setPathResolver([this](const std::string& path) { return resolvePluginPath(path); });
@@ -128,7 +127,10 @@ void PluginDesktopWidget::onFrameTick(float deltaMs, Renderer& renderer) {
   requestRedraw(); // keep the frame loop alive while animating
 }
 
-PluginDesktopWidget::DispatchResult PluginDesktopWidget::dispatchIpc(std::string_view event, std::string_view payload) {
+PluginDesktopWidget::DispatchResult PluginDesktopWidget::dispatchIpc(
+    std::string_view event, std::string_view payload, const scripting::ScriptSnapshot& snapshot
+) {
+  (void)snapshot;
   if (m_runtime == nullptr) {
     return DispatchResult::MissingHost;
   }

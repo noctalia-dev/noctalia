@@ -52,7 +52,7 @@ namespace {
   }
 
   void wakeMainLoop() {
-    std::lock_guard lock(deferredMutex());
+    std::scoped_lock lock(deferredMutex());
     if (!ensureWakePipe()) {
       return;
     }
@@ -78,14 +78,14 @@ std::vector<std::function<void()>>& DeferredCall::queue() {
 
 void DeferredCall::callLater(std::function<void()> fn) {
   {
-    std::lock_guard lock(deferredMutex());
+    std::scoped_lock lock(deferredMutex());
     queue().push_back(std::move(fn));
   }
   wakeMainLoop();
 }
 
 std::vector<std::function<void()>> DeferredCall::takePending() {
-  std::lock_guard lock(deferredMutex());
+  std::scoped_lock lock(deferredMutex());
   auto pending = std::move(queue());
   queue().clear();
   return pending;
@@ -113,6 +113,6 @@ void DeferredCall::drainWakeFd() {
 }
 
 int DeferredCall::wakeFd() {
-  std::lock_guard lock(deferredMutex());
+  std::scoped_lock lock(deferredMutex());
   return ensureWakePipe() ? wakePipe()[0] : -1;
 }

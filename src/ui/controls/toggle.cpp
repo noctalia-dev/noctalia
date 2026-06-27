@@ -1,5 +1,6 @@
 #include "ui/controls/toggle.h"
 
+#include "core/keybind_matcher.h"
 #include "render/animation/animation_manager.h"
 #include "render/core/color.h"
 #include "render/core/render_styles.h"
@@ -27,10 +28,17 @@ Toggle::Toggle() {
     if (!m_enabled) {
       return;
     }
-    const bool next = !m_checked;
-    setChecked(next);
-    if (m_onChange) {
-      m_onChange(next);
+    activateFromInput();
+  });
+  area->setFocusable(true);
+  area->setOnFocusGain([this]() { applyState(); });
+  area->setOnFocusLoss([this]() { applyState(); });
+  area->setOnKeyDown([this](const InputArea::KeyData& key) {
+    if (!key.pressed || !m_enabled) {
+      return;
+    }
+    if (KeybindMatcher::matches(KeybindAction::Validate, key.sym, key.modifiers)) {
+      activateFromInput();
     }
   });
   m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
@@ -106,6 +114,20 @@ void Toggle::setScale(float scale) {
 
 void Toggle::setOnChange(std::function<void(bool)> callback) { m_onChange = std::move(callback); }
 
+void Toggle::setTabFocusKey(std::string key) {
+  if (m_inputArea != nullptr) {
+    m_inputArea->setTabFocusKey(std::move(key));
+  }
+}
+
+void Toggle::activateFromInput() {
+  const bool next = !m_checked;
+  setChecked(next);
+  if (m_onChange) {
+    m_onChange(next);
+  }
+}
+
 bool Toggle::hovered() const noexcept { return m_inputArea != nullptr && m_inputArea->hovered(); }
 
 bool Toggle::pressed() const noexcept { return m_inputArea != nullptr && m_inputArea->pressed(); }
@@ -158,15 +180,17 @@ void Toggle::applyAnimatedState(float t) {
   ColorSpec borderColor = colorSpecFromRole(ColorRole::Outline);
 
   if (m_enabled) {
-    if (m_checked) {
-      borderColor = colorSpecFromRole(ColorRole::Primary);
+    if (m_inputArea != nullptr && m_inputArea->focused()) {
+      borderColor = focusRingColorSpec();
     } else if (hovered()) {
       borderColor = colorSpecFromRole(ColorRole::Hover);
+    } else if (m_checked) {
+      borderColor = colorSpecFromRole(ColorRole::Primary);
     }
   }
 
   setFill(trackColor);
-  setBorder(borderColor, Style::borderWidth);
+  setBorder(borderColor, m_inputArea != nullptr && m_inputArea->focused() ? Style::focusRingWidth : Style::borderWidth);
   m_thumb->setPosition(thumbX, m_inset);
 
   auto thumbStyle = m_thumb->style();

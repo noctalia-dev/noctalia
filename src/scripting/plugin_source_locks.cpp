@@ -16,7 +16,7 @@ namespace scripting::plugin_source_locks {
   SourceLock acquire(std::string_view sourceName) {
     std::shared_ptr<std::recursive_mutex> sourceMutex;
     {
-      std::lock_guard guard(gLocksMutex);
+      std::scoped_lock guard(gLocksMutex);
       auto& slot = gLocks[std::string(sourceName)];
       if (!slot) {
         slot = std::make_shared<std::recursive_mutex>();

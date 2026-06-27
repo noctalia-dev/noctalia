@@ -83,6 +83,18 @@ namespace {
     return out;
   }
 
+  std::optional<std::string> tableStringField(lua_State* L, int tableIndex, const char* key) {
+    lua_getfield(L, tableIndex, key);
+    std::optional<std::string> out;
+    if (lua_isstring(L, -1)) {
+      size_t len = 0;
+      const char* value = lua_tolstring(L, -1, &len);
+      out = std::string(value, len);
+    }
+    lua_pop(L, 1);
+    return out;
+  }
+
   std::string tableOptionalStringIndex(lua_State* L, int tableIndex, int rawIndex) {
     lua_rawgeti(L, tableIndex, rawIndex);
     std::string out;
@@ -271,7 +283,10 @@ namespace {
   // launcher.setResults(query, results) — replaces this provider's result set.
   // `query` echoes the text passed to onQuery so late async results map back to the
   // right query. Each result is a table { id, title, subtitle?, glyph?, icon?,
-  // badge?, score? }. An empty array clears the provider's results.
+  // badge?, category?, presentation?, score? }. `category` matches a label
+  // declared by a [[launcher_provider.category]] manifest entry, letting the
+  // launcher's category filter bar narrow this provider's results. An empty
+  // array clears the provider's results.
   int luau_launcher_setResults(lua_State* L) {
     size_t queryLen = 0;
     const char* query = luaL_checklstring(L, 1, &queryLen);
@@ -295,6 +310,9 @@ namespace {
         result.glyph = tableOptionalStringField(L, row, "glyph");
         result.icon = tableOptionalStringField(L, row, "icon");
         result.badge = tableOptionalStringField(L, row, "badge");
+        result.category = tableOptionalStringField(L, row, "category");
+        result.presentation = tableOptionalStringField(L, row, "presentation");
+        result.query = tableStringField(L, row, "query");
         lua_getfield(L, row, "score");
         if (lua_isnumber(L, -1)) {
           result.score = lua_tonumber(L, -1);
@@ -310,8 +328,19 @@ namespace {
     return 0;
   }
 
+  // launcher.setQuery(text) — replaces the open launcher input text.
+  int luau_launcher_setQuery(lua_State* L) {
+    size_t queryLen = 0;
+    const char* query = luaL_checklstring(L, 1, &queryLen);
+    if (auto* context = getContext(L)) {
+      context->patch.launcherQuery = std::string(query, queryLen);
+    }
+    return 0;
+  }
+
   const luaL_Reg kLauncherLib[] = {
       {"setResults", luau_launcher_setResults},
+      {"setQuery", luau_launcher_setQuery},
       {"getConfig", scripting::luau_getConfig},
       {nullptr, nullptr},
   };
@@ -322,7 +351,8 @@ namespace {
   constexpr int kUiTreeMaxChildren = 256;
 
   // Reads the value at `index` into a UiTreeValue. A table is read as a number
-  // array (graph data); any other shape is rejected.
+  // array (graph data) or a string array (select options) — its element type is
+  // decided by the first element and must be uniform; any other shape is rejected.
   bool readUiTreeValue(lua_State* L, int index, ui::UiTreeValue& out) {
     switch (lua_type(L, index)) {
     case LUA_TBOOLEAN:
@@ -338,8 +368,29 @@ namespace {
       return true;
     }
     case LUA_TTABLE: {
-      std::vector<double> numbers;
       const int count = lua_objlen(L, index);
+      // An empty table is an empty number array (the common graph-data case).
+      lua_rawgeti(L, index, 1);
+      const bool stringArray = count > 0 && lua_type(L, -1) == LUA_TSTRING;
+      lua_pop(L, 1);
+      if (stringArray) {
+        std::vector<std::string> strings;
+        strings.reserve(static_cast<std::size_t>(count));
+        for (int i = 1; i <= count; ++i) {
+          lua_rawgeti(L, index, i);
+          if (lua_type(L, -1) != LUA_TSTRING) {
+            lua_pop(L, 1);
+            return false;
+          }
+          size_t len = 0;
+          const char* value = lua_tolstring(L, -1, &len);
+          strings.emplace_back(value, len);
+          lua_pop(L, 1);
+        }
+        out = std::move(strings);
+        return true;
+      }
+      std::vector<double> numbers;
       numbers.reserve(static_cast<std::size_t>(std::max(0, count)));
       for (int i = 1; i <= count; ++i) {
         lua_rawgeti(L, index, i);
@@ -466,6 +517,46 @@ namespace {
       {nullptr, nullptr},
   };
 
+  // ── panel.* — declarative UI tree for a [[panel]] entry ──
+
+  // panel.render(tree) — replaces the panel's declarative control tree.
+  int luau_panel_render(lua_State* L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    auto* context = getContext(L);
+    if (context == nullptr) {
+      return 0;
+    }
+    ui::UiTreeNode tree;
+    if (readUiTreeNode(L, 1, tree, 0, context->ownerId)) {
+      context->patch.uiTree = std::move(tree);
+    }
+    return 0;
+  }
+
+  // panel.close() — request the host close this panel.
+  int luau_panel_close(lua_State* L) {
+    if (auto* context = getContext(L)) {
+      context->patch.requestClose = true;
+    }
+    return 0;
+  }
+
+  int luau_panel_setWantsSecondTicks(lua_State* L) {
+    const bool wants = lua_toboolean(L, 1) != 0;
+    if (auto* context = getContext(L)) {
+      context->patch.wantsSecondTicks = wants;
+    }
+    return 0;
+  }
+
+  const luaL_Reg kPanelLib[] = {
+      {"render", luau_panel_render},
+      {"close", luau_panel_close},
+      {"setWantsSecondTicks", luau_panel_setWantsSecondTicks},
+      {"getConfig", scripting::luau_getConfig},
+      {nullptr, nullptr},
+  };
+
 } // namespace
 
 namespace scripting {
@@ -522,6 +613,8 @@ namespace scripting {
     luaL_register(L, "launcher", kLauncherLib);
     lua_pop(L, 1);
     luaL_register(L, "desktopWidget", kDesktopWidgetLib);
+    lua_pop(L, 1);
+    luaL_register(L, "panel", kPanelLib);
     lua_pop(L, 1);
   }
 

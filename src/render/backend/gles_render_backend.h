@@ -5,6 +5,7 @@
 #include "render/core/shader_program.h"
 #include "render/programs/audio_spectrum_program.h"
 #include "render/programs/blur_program.h"
+#include "render/programs/countdown_ring_program.h"
 #include "render/programs/effect_program.h"
 #include "render/programs/fancy_audio_visualizer_program.h"
 #include "render/programs/glyph_program.h"
@@ -29,9 +30,9 @@ public:
   void initialize(GlSharedContext& shared) override;
   void cleanup() override;
 
-  void makeCurrent(RenderTarget& target) override;
+  bool makeCurrent(RenderTarget& target) override;
   void makeCurrentNoSurface() override;
-  void beginFrame(RenderTarget& target) override;
+  bool beginFrame(RenderTarget& target) override;
   void endFrame(RenderTarget& target) override;
   [[nodiscard]] RenderGraphicsResetStatus graphicsResetStatus() override;
   void invalidateGpuResources() override;
@@ -57,6 +58,10 @@ public:
       float surfaceWidth, float surfaceHeight, float width, float height, const SpinnerStyle& style,
       const Mat3& transform
   ) override;
+  void drawCountdownRing(
+      float surfaceWidth, float surfaceHeight, float width, float height, const CountdownRingStyle& style,
+      const Mat3& transform
+  ) override;
   void drawScreenCorner(
       float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
       const ScreenCornerStyle& style, const Mat3& transform
@@ -77,13 +82,7 @@ public:
       TextureId dataTexture, int textureWidth, float surfaceWidth, float surfaceHeight, float width, float height,
       const GraphStyle& style, const Mat3& transform
   ) override;
-  void drawWallpaper(
-      WallpaperTransition transition, WallpaperSourceKind sourceKind1, TextureId texture1, const Color& sourceColor1,
-      WallpaperSourceKind sourceKind2, TextureId texture2, const Color& sourceColor2, float surfaceWidth,
-      float surfaceHeight, float width, float height, float imageWidth1, float imageHeight1, float imageWidth2,
-      float imageHeight2, float progress, float fillMode, const TransitionParams& params, const Color& fillColor,
-      const Mat3& transform
-  ) override;
+  void drawWallpaper(const WallpaperDrawParams& params) override;
   void drawFullscreenTexture(TextureId texture, bool flipY) override;
   void drawFullscreenTint(Color color) override;
   void drawFramebufferBlur(
@@ -113,6 +112,7 @@ private:
   ImageProgram m_imageProgram;
   GlyphProgram m_glyphProgram;
   SpinnerProgram m_spinnerProgram;
+  CountdownRingProgram m_countdownRingProgram;
   ScreenCornerProgram m_screenCornerProgram;
   AudioSpectrumProgram m_audioSpectrumProgram;
   FancyAudioVisualizerProgram m_fancyAudioVisualizerProgram;

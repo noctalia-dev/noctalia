@@ -61,6 +61,7 @@ VirtualGridView::VirtualGridView() {
 
   auto inputArea = std::make_unique<InputArea>();
   inputArea->setZIndex(50);
+  inputArea->setFocusable(true);
   inputArea->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
   inputArea->setOnEnter([this](const InputArea::PointerData& data) { onPointerEnter(data.localX, data.localY); });
   inputArea->setOnMotion([this](const InputArea::PointerData& data) { onPointerMotion(data.localX, data.localY); });
@@ -99,14 +100,14 @@ void VirtualGridView::setAdapter(VirtualGridAdapter* adapter) {
 
 void VirtualGridView::notifyDataChanged() {
   // Force every visible slot to rebind on the next layout.
-  std::fill(m_slotBoundIndex.begin(), m_slotBoundIndex.end(), std::nullopt);
+  std::ranges::fill(m_slotBoundIndex, std::nullopt);
   markLayoutDirty();
 }
 
 void VirtualGridView::notifyItemChanged(std::size_t index) {
-  for (std::size_t slot = 0; slot < m_slotBoundIndex.size(); ++slot) {
-    if (m_slotBoundIndex[slot].has_value() && *m_slotBoundIndex[slot] == index) {
-      m_slotBoundIndex[slot].reset();
+  for (auto& boundIndex : m_slotBoundIndex) {
+    if (boundIndex.has_value() && *boundIndex == index) {
+      boundIndex.reset();
       markLayoutDirty();
       return;
     }
@@ -234,7 +235,7 @@ void VirtualGridView::doLayout(Renderer& renderer) {
                   std::floor((availableW + m_columnGap) / std::max(1.0f, m_minCellWidth + m_columnGap))
               )
           );
-    const float columnsF = static_cast<float>(metrics.columns);
+    const auto columnsF = static_cast<float>(metrics.columns);
     metrics.cellW = std::max(0.0f, (availableW - (columnsF - 1.0f) * m_columnGap) / std::max(1.0f, columnsF));
     metrics.cellH = m_squareCells ? metrics.cellW : m_cellHeight;
     metrics.rowCount = (m_itemCount + metrics.columns - 1) / metrics.columns;
@@ -308,7 +309,7 @@ void VirtualGridView::doLayout(Renderer& renderer) {
   // expensive per-tile state (e.g. wallpaper thumbnails).
   if (previousLayoutColumns != columns) {
     // Column count changed (resize): existing slot→logicalIndex mapping is stale.
-    std::fill(m_slotBoundIndex.begin(), m_slotBoundIndex.end(), std::nullopt);
+    std::ranges::fill(m_slotBoundIndex, std::nullopt);
   }
   while (m_pool.size() < desiredPoolSize) {
     auto tile = m_adapter->createTile();

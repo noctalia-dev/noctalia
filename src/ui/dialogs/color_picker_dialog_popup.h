@@ -1,6 +1,5 @@
 #pragma once
 
-#include "render/core/color.h"
 #include "ui/dialogs/color_picker_dialog.h"
 #include "ui/dialogs/dialog_popup_host.h"
 

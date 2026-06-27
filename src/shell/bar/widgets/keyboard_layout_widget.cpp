@@ -1,5 +1,6 @@
 #include "shell/bar/widgets/keyboard_layout_widget.h"
 
+#include "compositors/compositor_platform.h"
 #include "core/log.h"
 #include "core/process.h"
 #include "render/core/renderer.h"
@@ -9,6 +10,7 @@
 #include "ui/style.h"
 #include "util/string_utils.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <memory>
@@ -79,7 +81,7 @@ namespace {
     if (inner.size() < 2 || inner.size() > 3) {
       return false;
     }
-    if (!std::all_of(inner.begin(), inner.end(), [](char ch) { return isAsciiAlpha(ch); })) {
+    if (!std::ranges::all_of(inner, [](char ch) { return isAsciiAlpha(ch); })) {
       return false;
     }
     out.assign(inner);
@@ -266,7 +268,7 @@ namespace {
     }
 
     for (const auto& [lang, mapped] : languageMap()) {
-      if (lower.rfind(lang, 0) == 0) {
+      if (lower.starts_with(lang)) {
         code = std::string(mapped);
         uppercaseAscii(code);
         return code;
@@ -293,10 +295,11 @@ namespace {
 
 KeyboardLayoutWidget::KeyboardLayoutWidget(
     CompositorPlatform& platform, std::string cycleCommand, DisplayMode displayMode, bool showIcon, bool showLabel,
-    bool hideWhenSingleLayout, std::unordered_map<std::string, std::string> customLabels
+    bool hideWhenSingleLayout, std::unordered_map<std::string, std::string> customLabels, std::string glyph
 )
     : m_platform(platform), m_cycleCommand(std::move(cycleCommand)), m_displayMode(displayMode), m_showIcon(showIcon),
-      m_showLabel(showLabel), m_hideWhenSingleLayout(hideWhenSingleLayout), m_customLabels(std::move(customLabels)) {}
+      m_showLabel(showLabel), m_hideWhenSingleLayout(hideWhenSingleLayout), m_customLabels(std::move(customLabels)),
+      m_glyphName(std::move(glyph)) {}
 
 void KeyboardLayoutWidget::create() {
   auto area = std::make_unique<InputArea>();
@@ -318,7 +321,7 @@ void KeyboardLayoutWidget::create() {
   area->addChild(
       ui::glyph({
           .out = &m_glyph,
-          .glyph = "keyboard",
+          .glyph = m_glyphName,
           .glyphSize = Style::baseGlyphSize * m_contentScale,
           .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
       })
@@ -329,6 +332,7 @@ void KeyboardLayoutWidget::create() {
           .out = &m_label,
           .text = "--",
           .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontFamily = labelFontFamily(),
           .fontWeight = labelFontWeight(),
       })
   );
@@ -359,7 +363,7 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
     m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
     m_glyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
     m_glyph->measure(renderer);
-    if (m_glyph->width() <= 0.0f) {
+    if (m_glyph->width() <= 0.0f && m_glyphName == "keyboard") {
       // Some icon fonts may miss the keyboard glyph; use a guaranteed fallback.
       m_glyph->setGlyph("world");
       m_glyph->measure(renderer);
@@ -370,8 +374,12 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
   m_label->setVisible(m_showLabel);
   m_label->setTextAlign(m_isVertical ? TextAlign::Center : TextAlign::Start);
   if (m_showLabel) {
-    const float stableLabelWidth =
-        std::round(renderer.measureText(kVerticalStableLabel, m_label->fontSize(), labelFontWeight()).width);
+    const float stableLabelWidth = std::round(renderer
+                                                  .measureText(
+                                                      kVerticalStableLabel, m_label->fontSize(), labelFontWeight(),
+                                                      0.0f, 0, TextAlign::Start, labelFontFamily()
+                                                  )
+                                                  .width);
     m_label->setMinWidth(m_isVertical ? std::min(containerWidth, stableLabelWidth) : 0.0f);
     m_label->measure(renderer);
   }
@@ -525,7 +533,7 @@ void KeyboardLayoutWidget::cycleLayout() {
       && stateBefore->currentIndex >= 0
       && stateBefore->currentIndex < static_cast<int>(stateBefore->names.size())
       && stateBefore->names.size() > 1) {
-    std::size_t nextIndex = static_cast<std::size_t>(stateBefore->currentIndex + 1);
+    auto nextIndex = static_cast<std::size_t>(stateBefore->currentIndex + 1);
     if (nextIndex >= stateBefore->names.size()) {
       nextIndex = 0;
     }

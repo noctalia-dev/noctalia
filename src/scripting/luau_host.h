@@ -1,5 +1,7 @@
 #pragma once
 
+#include "scripting/plugin_i18n.h"
+
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -105,7 +107,7 @@ public:
   // A missing key is logged and returned verbatim (no silent fallback chain).
   [[nodiscard]] std::string
   translate(std::string_view key, const std::unordered_map<std::string, std::string>& subst) const;
-  [[nodiscard]] bool hasTranslation(std::string_view key) const { return m_translations.contains(std::string(key)); }
+  [[nodiscard]] bool hasTranslation(std::string_view key) const { return m_translations.has(key); }
   void setAsyncCommandResultHandler(AsyncCommandResultHandler handler) {
     m_asyncCommandResultHandler = std::move(handler);
   }
@@ -134,6 +136,14 @@ public:
   void scriptSetUpdateInterval(int ms);
   void scriptNotifyInfo(std::string title, std::string body);
   void scriptNotifyError(std::string title, std::string body);
+  // Toggle the host wallpaper surface on an output. Queued as a side effect and
+  // applied on the main thread (Wallpaper is not worker-thread safe).
+  void scriptSetWallpaperEnabled(std::string connector, bool enabled);
+  // Apply and persist a wallpaper image. Empty connector targets all outputs.
+  // Queued as a side effect and applied on the main thread.
+  void scriptSetWallpaper(std::string connector, std::string path);
+  // Toggle a host panel by id ("author/plugin:panel"). Queued, applied on the main thread.
+  void scriptTogglePanel(std::string panelId);
   [[nodiscard]] bool scriptCopyToClipboard(std::string text, std::string mimeType);
   [[nodiscard]] std::optional<std::string> scriptFocusedOutputName() const;
 
@@ -150,7 +160,7 @@ private:
   scripting::PluginBindingContext* m_scriptContext = nullptr;
   std::filesystem::path m_pluginDir;
   std::string m_pluginId;
-  std::unordered_map<std::string, std::string> m_translations;
+  scripting::PluginTranslationCatalog m_translations;
   std::unordered_set<int> m_stateWatchCallbackRefs;
   StateWatchHandler m_stateWatchHandler;
   std::unordered_set<int> m_streamCallbackRefs;

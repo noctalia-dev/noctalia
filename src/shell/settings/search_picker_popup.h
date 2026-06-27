@@ -2,6 +2,7 @@
 
 #include "ui/controls/search_picker.h"
 #include "ui/dialogs/dialog_popup_host.h"
+#include "ui/popup_parent.h"
 
 #include <functional>
 #include <string>
@@ -13,11 +14,19 @@ class RenderContext;
 class WaylandConnection;
 struct KeyboardEvent;
 struct PointerEvent;
-struct wl_output;
 struct wl_surface;
-struct xdg_surface;
 
 namespace settings {
+
+  struct SearchPickerPopupRequest {
+    XdgPopupParent parent;
+    std::string title;
+    std::vector<SearchPickerOption> options;
+    std::string selectedValue;
+    std::string placeholder;
+    std::string emptyText;
+    float scale = 1.0f;
+  };
 
   class SearchPickerPopup final : public DialogPopupHost {
   public:
@@ -31,12 +40,7 @@ namespace settings {
     void setOnSelect(SelectCallback callback);
     void setOnDismissed(std::function<void()> callback);
 
-    void open(
-        xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
-        std::uint32_t parentWidth, std::uint32_t parentHeight, const std::string& title,
-        const std::vector<SearchPickerOption>& options, const std::string& selectedValue,
-        const std::string& placeholder, const std::string& emptyText, float scale
-    );
+    void open(SearchPickerPopupRequest request);
     void close();
 
     [[nodiscard]] bool isOpen() const noexcept;

@@ -1,9 +1,11 @@
 #include "shell/desktop/desktop_widget_factory.h"
 
+#include "config/config_service.h"
 #include "core/log.h"
-#include "pipewire/pipewire_spectrum.h"
 #include "scripting/plugin_registry.h"
+#include "scripting/plugin_runtime_context.h"
 #include "shell/desktop/widgets/desktop_audio_visualizer_widget.h"
+#include "shell/desktop/widgets/desktop_button_widget.h"
 #include "shell/desktop/widgets/desktop_clock_widget.h"
 #include "shell/desktop/widgets/desktop_fancy_audio_visualizer_widget.h"
 #include "shell/desktop/widgets/desktop_label_widget.h"
@@ -13,6 +15,7 @@
 #include "shell/desktop/widgets/desktop_sysmon_widget.h"
 #include "shell/desktop/widgets/desktop_weather_widget.h"
 #include "shell/desktop/widgets/plugin_desktop_widget.h"
+#include "ui/controls/button.h"
 
 #include <algorithm>
 #include <optional>
@@ -20,7 +23,6 @@
 namespace {
 
   constexpr Logger kLog("desktop");
-  constexpr float kDefaultDesktopAudioVisualizerAspectRatio = 240.0f / 96.0f;
 
   std::string getStringSetting(
       const std::unordered_map<std::string, WidgetSettingValue>& settings, const std::string& key,
@@ -95,6 +97,20 @@ namespace {
     return fallback;
   }
 
+  std::optional<ColorSpec> getOptionalColorSpecSetting(
+      const std::unordered_map<std::string, WidgetSettingValue>& settings, const std::string& key
+  ) {
+    const auto it = settings.find(key);
+    if (it == settings.end()) {
+      return std::nullopt;
+    }
+    const auto* value = std::get_if<std::string>(&it->second);
+    if (value == nullptr || value->empty()) {
+      return std::nullopt;
+    }
+    return colorSpecFromConfigString(*value, key);
+  }
+
   constexpr float kDefaultBgRadius = 12.0f;
   constexpr float kDefaultBgPadding = 10.0f;
 
@@ -125,6 +141,26 @@ namespace {
     return std::nullopt;
   }
 
+  ButtonVariant getButtonVariant(const std::unordered_map<std::string, WidgetSettingValue>& settings) {
+    const std::string value = getStringSetting(settings, "variant", "default");
+    if (value == "primary") {
+      return ButtonVariant::Primary;
+    }
+    if (value == "secondary") {
+      return ButtonVariant::Secondary;
+    }
+    if (value == "destructive") {
+      return ButtonVariant::Destructive;
+    }
+    if (value == "outline") {
+      return ButtonVariant::Outline;
+    }
+    if (value == "ghost") {
+      return ButtonVariant::Ghost;
+    }
+    return ButtonVariant::Default;
+  }
+
   void applyCommonSettings(
       DesktopWidget& widget, const std::unordered_map<std::string, WidgetSettingValue>& settings,
       bool defaultBackground = true
@@ -143,12 +179,9 @@ namespace {
 
 } // namespace
 
-DesktopWidgetFactory::DesktopWidgetFactory(
-    PipeWireSpectrum* pipewireSpectrum, const WeatherService* weather, MprisService* mpris, HttpClient* httpClient,
-    SystemMonitorService* sysmon, DesktopWidgetScriptDeps scriptDeps
-)
-    : m_pipewireSpectrum(pipewireSpectrum), m_weather(weather), m_mpris(mpris), m_httpClient(httpClient),
-      m_sysmon(sysmon), m_scriptDeps(scriptDeps) {}
+DesktopWidgetFactory::DesktopWidgetFactory(DesktopWidgetRuntimeServices services)
+    : m_pipewireSpectrum(services.pipewireSpectrum), m_weather(services.weather), m_mpris(services.mpris),
+      m_httpClient(services.httpClient), m_sysmon(services.sysmon), m_scriptDeps(services.scriptDeps) {}
 
 std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
     const std::string& type, const std::unordered_map<std::string, WidgetSettingValue>& settings, float contentScale
@@ -157,11 +190,14 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
     const std::string styleSetting = getStringSetting(settings, "clock_style", "digital");
     const DesktopClockWidget::Style style =
         styleSetting == "analog" ? DesktopClockWidget::Style::Analog : DesktopClockWidget::Style::Digital;
-    auto widget = std::make_unique<DesktopClockWidget>(
-        style, getStringSetting(settings, "format", "{:%H:%M}"),
-        getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
-        getBoolSetting(settings, "shadow", true), getBoolSetting(settings, "circle", true)
-    );
+    auto widget = std::make_unique<DesktopClockWidget>(DesktopClockWidget::Options{
+        .style = style,
+        .format = getStringSetting(settings, "format", "{:%H:%M}"),
+        .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
+        .shadow = getBoolSetting(settings, "shadow", true),
+        .showCircle = getBoolSetting(settings, "circle", true),
+        .centerText = getBoolSetting(settings, "center_text", false),
+    });
     applyCommonSettings(*widget, settings);
     widget->setContentScale(contentScale);
     return widget;
@@ -173,11 +209,15 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
       return nullptr;
     }
     auto widget = std::make_unique<DesktopAudioVisualizerWidget>(
-        m_pipewireSpectrum, getFloatSetting(settings, "aspect_ratio", kDefaultDesktopAudioVisualizerAspectRatio),
-        getIntSetting(settings, "bands", 32), getBoolSetting(settings, "mirrored", true),
-        getColorSpecSetting(settings, "color_1", colorSpecFromRole(ColorRole::Primary)),
-        getColorSpecSetting(settings, "color_2", colorSpecFromRole(ColorRole::Primary)),
-        getBoolSetting(settings, "centered", true), getBoolSetting(settings, "show_when_idle", true)
+        m_pipewireSpectrum,
+        DesktopAudioVisualizerWidget::Options{
+            .bands = getIntSetting(settings, "bands", 32),
+            .mirrored = getBoolSetting(settings, "mirrored", true),
+            .centered = getBoolSetting(settings, "centered", true),
+            .showWhenIdle = getBoolSetting(settings, "show_when_idle", true),
+            .color1 = getColorSpecSetting(settings, "color_1", colorSpecFromRole(ColorRole::Primary)),
+            .color2 = getColorSpecSetting(settings, "color_2", colorSpecFromRole(ColorRole::Primary)),
+        }
     );
     applyCommonSettings(*widget, settings);
     widget->setContentScale(contentScale);
@@ -194,13 +234,20 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
       return nullptr;
     }
     auto widget = std::make_unique<DesktopFancyAudioVisualizerWidget>(
-        m_pipewireSpectrum, *mode, getFloatSetting(settings, "sensitivity", 1.5f),
-        getFloatSetting(settings, "rotation_speed", 0.5f), getFloatSetting(settings, "bar_width", 0.6f),
-        getFloatSetting(settings, "ring_opacity", 0.8f), getFloatSetting(settings, "bloom_intensity", 0.5f),
-        getFloatSetting(settings, "wave_thickness", 1.0f), getFloatSetting(settings, "inner_diameter", 0.7f),
-        getBoolSetting(settings, "fade_when_idle", false),
-        getColorSpecSetting(settings, "primary_color", colorSpecFromRole(ColorRole::Primary)),
-        getColorSpecSetting(settings, "secondary_color", colorSpecFromRole(ColorRole::Secondary))
+        m_pipewireSpectrum,
+        DesktopFancyAudioVisualizerWidget::Options{
+            .mode = *mode,
+            .sensitivity = getFloatSetting(settings, "sensitivity", 1.5f),
+            .rotationSpeed = getFloatSetting(settings, "rotation_speed", 0.5f),
+            .barWidth = getFloatSetting(settings, "bar_width", 0.6f),
+            .ringOpacity = getFloatSetting(settings, "ring_opacity", 0.8f),
+            .bloomIntensity = getFloatSetting(settings, "bloom_intensity", 0.5f),
+            .waveThickness = getFloatSetting(settings, "wave_thickness", 1.0f),
+            .innerDiameter = getFloatSetting(settings, "inner_diameter", 0.7f),
+            .fadeWhenIdle = getBoolSetting(settings, "fade_when_idle", true),
+            .primaryColor = getColorSpecSetting(settings, "primary_color", colorSpecFromRole(ColorRole::Primary)),
+            .secondaryColor = getColorSpecSetting(settings, "secondary_color", colorSpecFromRole(ColorRole::Secondary)),
+        }
     );
     applyCommonSettings(*widget, settings, false);
     widget->setContentScale(contentScale);
@@ -222,8 +269,13 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
       return nullptr;
     }
     auto widget = std::make_unique<DesktopWeatherWidget>(
-        m_weather, getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
-        getBoolSetting(settings, "shadow", true)
+        m_weather,
+        DesktopWeatherWidget::Options{
+            .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
+            .shadow = getBoolSetting(settings, "shadow", true),
+            .showForecast = getBoolSetting(settings, "show_forecast", false),
+            .forecastDays = getIntSetting(settings, "forecast_days", 3),
+        }
     );
     applyCommonSettings(*widget, settings);
     widget->setContentScale(contentScale);
@@ -235,11 +287,14 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
       kLog.warn("desktop widget factory: media_player requires MprisService");
       return nullptr;
     }
-    const bool vertical = getStringSetting(settings, "layout", "horizontal") == "vertical";
     auto widget = std::make_unique<DesktopMediaPlayerWidget>(
-        m_mpris, m_httpClient, vertical,
-        getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
-        getBoolSetting(settings, "shadow", true), getBoolSetting(settings, "hide_when_no_media", false)
+        m_mpris, m_httpClient,
+        DesktopMediaPlayerWidget::Options{
+            .vertical = getStringSetting(settings, "layout", "horizontal") == "vertical",
+            .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
+            .shadow = getBoolSetting(settings, "shadow", true),
+            .hideWhenNoMedia = getBoolSetting(settings, "hide_when_no_media", false),
+        }
     );
     applyCommonSettings(*widget, settings);
     widget->setContentScale(contentScale);
@@ -247,12 +302,29 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
   }
 
   if (type == "label") {
-    auto widget = std::make_unique<DesktopLabelWidget>(
-        getStringSetting(settings, "title", "Title"), getStringSetting(settings, "description"),
-        getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
-        getBoolSetting(settings, "shadow", true)
-    );
+    auto widget = std::make_unique<DesktopLabelWidget>(DesktopLabelWidget::Options{
+        .title = getStringSetting(settings, "title", "Title"),
+        .description = getStringSetting(settings, "description"),
+        .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
+        .opacity = std::clamp(getFloatSetting(settings, "opacity", 1.0f), 0.0f, 1.0f),
+        .shadow = getBoolSetting(settings, "shadow", true),
+    });
     applyCommonSettings(*widget, settings);
+    widget->setContentScale(contentScale);
+    return widget;
+  }
+
+  if (type == "button") {
+    auto widget = std::make_unique<DesktopButtonWidget>(DesktopButtonWidget::Options{
+        .glyph = getStringSetting(settings, "glyph"),
+        .label = getStringSetting(settings, "label"),
+        .command = getStringSetting(settings, "command"),
+        .variant = getButtonVariant(settings),
+        .showBackground = getBoolSetting(settings, "background", true),
+        .labelColor = getOptionalColorSpecSetting(settings, "color"),
+        .hoverBackground = getColorSpecSetting(settings, "hover_background", colorSpecFromRole(ColorRole::Hover)),
+    });
+    widget->setFontFamily(getStringSetting(settings, "font_family", ""));
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -282,15 +354,35 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
       return DesktopSysmonStat::CpuUsage;
     };
     const DesktopSysmonStat stat = parseStat(getStringSetting(settings, "stat", "cpu_usage"));
-    const std::string stat2Str = getStringSetting(settings, "stat2");
+    const std::string displayStr = getStringSetting(settings, "display", "graph");
+    const DesktopSysmonDisplayMode displayMode =
+        displayStr == "gauge" ? DesktopSysmonDisplayMode::Gauge : DesktopSysmonDisplayMode::Graph;
+    const std::string gaugeLayoutStr = getStringSetting(settings, "gauge_layout", "horizontal");
+    const DesktopSysmonGaugeLayout gaugeLayout =
+        gaugeLayoutStr == "vertical" ? DesktopSysmonGaugeLayout::Vertical : DesktopSysmonGaugeLayout::Horizontal;
     std::optional<DesktopSysmonStat> stat2;
-    if (!stat2Str.empty()) {
-      stat2 = parseStat(stat2Str);
+    if (displayMode == DesktopSysmonDisplayMode::Graph) {
+      const std::string stat2Str = getStringSetting(settings, "stat2");
+      if (!stat2Str.empty()) {
+        stat2 = parseStat(stat2Str);
+      }
     }
     auto widget = std::make_unique<DesktopSysmonWidget>(
-        m_sysmon, stat, stat2, getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::Primary)),
-        getColorSpecSetting(settings, "color2", colorSpecFromRole(ColorRole::Secondary)),
-        getBoolSetting(settings, "show_label", true), getBoolSetting(settings, "shadow", true)
+        m_sysmon,
+        DesktopSysmonWidget::Options{
+            .stat = stat,
+            .stat2 = stat2,
+            .displayMode = displayMode,
+            .gaugeLayout = gaugeLayout,
+            .lineColor = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::Primary)),
+            .lineColor2 = getColorSpecSetting(settings, "color2", colorSpecFromRole(ColorRole::Secondary)),
+            .highlightColor = getColorSpecSetting(settings, "highlight_color", colorSpecFromRole(ColorRole::Error)),
+            .networkInterface = getStringSetting(settings, "interface"),
+            .showLabel = getBoolSetting(settings, "show_label", true),
+            .labelMinWidth = getFloatSetting(settings, "label_min_width", 0.0f),
+            .shadow = getBoolSetting(settings, "shadow", true),
+            .config = m_scriptDeps.configService,
+        }
     );
     applyCommonSettings(*widget, settings);
     widget->setContentScale(contentScale);
@@ -321,8 +413,16 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
     }
     scripting::mergePluginSettings(*pluginEntry->manifest, *pluginOverrides, seeded);
     auto widget = std::make_unique<PluginDesktopWidget>(
-        pluginEntry->fullId(), pluginEntry->sourcePath, std::move(seeded), std::string{}, *m_scriptDeps.scriptApi,
-        m_scriptDeps.fileWatcher, m_httpClient, m_scriptDeps.clipboard
+        scripting::PluginRuntimeContext{
+            .entryId = pluginEntry->fullId(),
+            .sourcePath = pluginEntry->sourcePath,
+            .settings = std::move(seeded),
+            .scriptApi = *m_scriptDeps.scriptApi,
+            .fileWatcher = m_scriptDeps.fileWatcher,
+            .httpClient = m_httpClient,
+            .clipboard = m_scriptDeps.clipboard,
+        },
+        std::string{}
     );
     applyCommonSettings(*widget, settings);
     widget->setContentScale(contentScale);

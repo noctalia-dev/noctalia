@@ -121,9 +121,8 @@ in
             in
             if cfg.validateConfig && cfg.package != null then
               pkgs.runCommand "noctalia-config" { } ''
-                cp ${rawConfig} config.toml
-                ${lib.getExe cfg.package} config validate .
-                cp config.toml $out
+                ${lib.getExe cfg.package} config validate ${rawConfig}
+                cp ${rawConfig} $out
               ''
             else
               rawConfig;

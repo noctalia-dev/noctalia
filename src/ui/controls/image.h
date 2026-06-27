@@ -1,9 +1,7 @@
 #pragma once
 
 #include "render/core/async_texture_cache.h"
-#include "render/core/texture_manager.h"
 #include "render/scene/node.h"
-#include "ui/app_icon_colorization.h"
 #include "ui/palette.h"
 #include "ui/signal.h"
 
@@ -15,6 +13,7 @@
 
 class ImageNode;
 class Renderer;
+enum class PixmapFormat;
 
 enum class ImageFit : std::uint8_t {
   Contain,

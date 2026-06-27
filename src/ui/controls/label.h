@@ -15,6 +15,11 @@ class Renderer;
 enum class LabelBaselineMode : std::uint8_t {
   StableLogical,
   InkCentered,
+  // Cap-band centering like StableLogical, but the box height comes from the
+  // primary font's line extent (measureFont) instead of the per-string metrics.
+  // Prevents fallback fonts for unusual Unicode characters from inflating the
+  // label height — useful in lists with unpredictable content.
+  StableFont,
 };
 
 class Label : public InputArea {
@@ -62,6 +67,8 @@ public:
   void measure(Renderer& renderer);
 
 private:
+  // Labels opt out of hit-testing by default; a tooltip needs hits to reach the label.
+  void onTooltipChanged() override { syncHoverInteraction(); }
   void doLayout(Renderer& renderer) override;
   LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override;
   void doArrange(Renderer& renderer, const LayoutRect& rect) override;

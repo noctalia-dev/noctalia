@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <utility>
 
 namespace {
 
@@ -20,8 +21,9 @@ namespace {
 
 } // namespace
 
-DesktopLabelWidget::DesktopLabelWidget(std::string title, std::string description, ColorSpec color, bool shadow)
-    : m_title(std::move(title)), m_description(std::move(description)), m_color(color), m_shadow(shadow) {}
+DesktopLabelWidget::DesktopLabelWidget(Options options)
+    : m_title(std::move(options.title)), m_description(std::move(options.description)), m_color(options.color),
+      m_opacity(std::clamp(options.opacity, 0.0f, 1.0f)), m_shadow(options.shadow) {}
 
 void DesktopLabelWidget::create() {
   auto rootNode = std::make_unique<Node>();
@@ -49,6 +51,7 @@ void DesktopLabelWidget::create() {
   rootNode->addChild(std::move(descriptionLabel));
 
   setRoot(std::move(rootNode));
+  applyLabelColors();
   applyShadow();
 }
 
@@ -81,13 +84,23 @@ bool DesktopLabelWidget::applySetting(
   if (key == "color") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_color = colorSpecFromConfigString(*v, key);
-      if (m_titleLabel != nullptr) {
-        m_titleLabel->setColor(m_color);
-      }
-      if (m_descriptionLabel != nullptr) {
-        m_descriptionLabel->setColor(m_color);
-      }
+      applyLabelColors();
       requestLayout();
+      return true;
+    }
+    return false;
+  }
+  if (key == "opacity") {
+    if (const auto* v = std::get_if<double>(&value)) {
+      m_opacity = std::clamp(static_cast<float>(*v), 0.0f, 1.0f);
+      applyLabelColors();
+      applyShadow();
+      return true;
+    }
+    if (const auto* v = std::get_if<std::int64_t>(&value)) {
+      m_opacity = std::clamp(static_cast<float>(*v), 0.0f, 1.0f);
+      applyLabelColors();
+      applyShadow();
       return true;
     }
     return false;
@@ -142,12 +155,24 @@ void DesktopLabelWidget::doLayout(Renderer& renderer) {
 
   m_titleLabel->setPosition(0.0f, 0.0f);
   root()->setSize(width, height);
+  applyLabelColors();
   applyShadow();
+}
+
+void DesktopLabelWidget::applyLabelColors() {
+  ColorSpec effective = m_color;
+  effective.alpha *= m_opacity;
+  if (m_titleLabel != nullptr) {
+    m_titleLabel->setColor(effective);
+  }
+  if (m_descriptionLabel != nullptr) {
+    m_descriptionLabel->setColor(effective);
+  }
 }
 
 void DesktopLabelWidget::applyShadow() {
   const float offset = kShadowOffset * contentScale();
-  const Color shadowColor(0.0f, 0.0f, 0.0f, kShadowAlpha);
+  const Color shadowColor(0.0f, 0.0f, 0.0f, kShadowAlpha * m_opacity);
 
   auto applyTo = [this, offset, shadowColor](Label* label) {
     if (label == nullptr) {

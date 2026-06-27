@@ -1,12 +1,13 @@
 #pragma once
 
-#include "render/core/texture_manager.h"
+#include "render/core/texture_handle.h"
 
 #include <memory>
 #include <string>
 #include <unordered_map>
 
 class GlSharedContext;
+class TextureManager;
 
 // Path-keyed, refcounted texture cache backed by a TextureManager living in
 // the shared EGL context. Any subsystem in the shared context's share group

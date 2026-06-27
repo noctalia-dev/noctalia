@@ -98,7 +98,6 @@
   "control-center": {
     "audio": {
       "application-volumes": "Głośność aplikacji",
-      "input-volume": "Głośność wejścia",
       "no-application-audio": "Brak dźwięku aplikacji",
       "no-application-audio-body": "Brak dostępnych strumieni odtwarzania aplikacji.",
       "no-input-devices": "Brak urządzeń wejściowych",
@@ -107,7 +106,6 @@
       "no-output-devices": "Brak urządzeń wyjściowych",
       "no-output-devices-body": "Brak dostępnych wyjść do odtwarzania.",
       "no-output-selected": "Nie wybrano urządzenia wyjściowego",
-      "output-volume": "Głośność wyjścia",
       "unavailable-body": "PipeWire nie jest aktywny.",
       "unavailable-title": "Audio niedostępne"
     },
@@ -165,7 +163,6 @@
       "unknown": "nieznane",
       "uptime": "Czas działania - {uptime}",
       "weather": {
-        "configure-location": "Dodaj [weather].address lub włącz auto_locate.",
         "data-unavailable": "Dane pogodowe niedostępne.",
         "disabled": "Pogoda jest wyłączona w konfiguracji.",
         "fetching": "Pobieranie prognozy…"
@@ -243,7 +240,6 @@
       },
       "notification": "DND",
       "power-profile": "Zasilanie",
-      "screen-recorder": "Rejestrator",
       "screen-time": "Czas na ekranie",
       "session": "Sesja",
       "system": "System",
@@ -277,7 +273,6 @@
       "weather": "Pogoda"
     },
     "weather": {
-      "configure-location": "Ustaw [weather].address lub włącz auto_locate",
       "data-unavailable": "Dane pogodowe niedostępne",
       "details": {
         "elevation": "Wysokość",
@@ -983,7 +978,6 @@
       "shell": {
         "panel-placement": {
           "attached": "Przyłączone",
-          "centered": "Wyśrodkowane",
           "floating": "Pływające"
         },
         "panel-transparency": {
@@ -1582,8 +1576,7 @@
           "label": "Czarna lista Toast-ów"
         },
         "blacklist-allow-critical": {
-          "description": "Nadal wyświetlaj krytyczne Toast-y od nadawców na czarnej liście",
-          "label": "Dopuść krytyczne przez czarną listę"
+          "description": "Nadal wyświetlaj krytyczne Toast-y od nadawców na czarnej liście"
         },
         "collapse-on-dismiss": {
           "description": "Przesuń pozostałe Toast-y by zamknąć przerwy gdy jeden zostaje odrzucony",
@@ -1648,7 +1641,7 @@
           "label": "Skróty główne"
         },
         "launcher-categories": {
-          "description": "Wyświetl filtry kategorii w launcherze; przełącz klawiszem Tab podczas otwartego launchera",
+          "description": "Wyświetl filtry kategorii w launcherze; pokaż je klawiszem F6, potem przełączaj F6 i Shift+F6",
           "label": "Pokaż kategorie"
         },
         "launcher-compact": {
@@ -2746,10 +2739,7 @@
   },
   "time": {
     "duration": {
-      "days-hours-minutes": "{days}d {hours}h {minutes}m",
-      "hours-minutes": "{hours}h {minutes}m",
-      "less-than-minute": "<1m",
-      "minutes": "{minutes}m"
+      "less-than-minute": "<1m"
     },
     "file": {
       "unknown": "Nieznane"

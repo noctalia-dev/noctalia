@@ -13,6 +13,7 @@ public:
   UsageTracker();
 
   void record(std::string_view providerId, std::string_view resultId);
+  void clear();
   [[nodiscard]] int getCount(std::string_view providerId, std::string_view resultId) const;
   [[nodiscard]] int getRecentlyUsedIndex(std::string_view providerId, std::string_view resultId) const;
   [[nodiscard]] std::size_t getRecentlyUsedCount(std::string_view providerId) const;

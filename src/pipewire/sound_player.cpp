@@ -7,8 +7,9 @@
 #include <cmath>
 #include <cstring>
 #include <pipewire/pipewire.h>
-#include <spa/param/audio/format-utils.h>
+#include <spa/param/audio/raw-utils.h>
 #include <spa/param/param.h>
+#include <spa/pod/builder.h>
 #include <spa/utils/result.h>
 
 namespace {
@@ -94,6 +95,12 @@ void SoundPlayer::play(const std::string& name) {
   }
 
   removeFinished();
+
+  for (const auto& active : m_active) {
+    if (!active->finished && active->buffer == buffer) {
+      return;
+    }
+  }
 
   auto active = std::make_unique<ActiveStream>();
   active->owner = this;
@@ -194,7 +201,7 @@ void SoundPlayer::processStream(ActiveStream& streamState) {
 
   const auto* src = streamState.buffer->samples.data();
   const std::size_t sampleCount = streamState.buffer->samples.size();
-  float* dst = static_cast<float*>(data.data);
+  auto* dst = static_cast<float*>(data.data);
   const std::size_t capacitySamples = data.maxsize / sizeof(float);
   const std::size_t remaining =
       (streamState.cursor < sampleCount && !streamState.draining) ? (sampleCount - streamState.cursor) : 0;

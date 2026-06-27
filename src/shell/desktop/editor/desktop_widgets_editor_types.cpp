@@ -1,7 +1,7 @@
-#include "shell/widgets_editor/background_widgets_editor_config.h"
+#include "shell/desktop/editor/desktop_widgets_editor_types.h"
 
-BackgroundWidgetsEditorProfile BackgroundWidgetsEditorProfile::desktop() {
-  return BackgroundWidgetsEditorProfile{
+DesktopWidgetsEditorProfile DesktopWidgetsEditorProfile::desktop() {
+  return DesktopWidgetsEditorProfile{
       .logSection = "desktop",
       .layerNamespace = "noctalia-desktop-widgets-editor",
       .widgetIdPrefix = "desktop-widget-",
@@ -9,8 +9,8 @@ BackgroundWidgetsEditorProfile BackgroundWidgetsEditorProfile::desktop() {
   };
 }
 
-BackgroundWidgetsEditorProfile BackgroundWidgetsEditorProfile::lockscreen() {
-  return BackgroundWidgetsEditorProfile{
+DesktopWidgetsEditorProfile DesktopWidgetsEditorProfile::lockscreen() {
+  return DesktopWidgetsEditorProfile{
       .logSection = "lockscreen",
       .layerNamespace = "noctalia-lockscreen-widgets-editor",
       .widgetIdPrefix = "lockscreen-widget-",

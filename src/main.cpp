@@ -3,7 +3,9 @@
 #include "config/cli.h"
 #include "core/build_info.h"
 #include "core/log.h"
+#include "core/process_fds.h"
 #include "ipc/cli.h"
+#include "launcher/dmenu_cli.h"
 #include "theme/cli.h"
 
 #include <array>
@@ -14,6 +16,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
+#include <print>
 #include <string>
 #include <unistd.h>
 
@@ -112,22 +115,22 @@ namespace {
 
     const int result = code;
     if (!writeAll(g_daemonPipe, &result, sizeof(result))) {
-      std::fprintf(stderr, "error: failed to notify daemon parent: %s\n", std::strerror(errno));
+      std::println(stderr, "error: failed to notify daemon parent: {}", std::strerror(errno));
     }
     closeFd(g_daemonPipe);
     if (code == 0 && !redirectStdioToNull()) {
-      std::fprintf(stderr, "error: failed to redirect daemon stdio\n");
+      std::println(stderr, "error: failed to redirect daemon stdio");
     }
   }
 
   int runTopLevelFlag(const char* flag) {
     if (std::strcmp(flag, "--version") == 0 || std::strcmp(flag, "-v") == 0) {
       const std::string version = noctalia::build_info::displayVersion();
-      std::printf("noctalia %s\n", version.c_str());
+      std::println("noctalia {}", version);
       return 0;
     }
     if (std::strcmp(flag, "--help") == 0 || std::strcmp(flag, "-h") == 0) {
-      std::puts(
+      std::println(
           "Usage: noctalia [OPTIONS]\n"
           "\n"
           "Options:\n"
@@ -162,7 +165,7 @@ namespace {
     const long fd = std::strtol(value, &end, 10);
     (void)::unsetenv(kDaemonPipeEnv);
     if (errno != 0 || end == value || *end != '\0' || fd < 0) {
-      std::fprintf(stderr, "error: invalid %s value: %s\n", kDaemonPipeEnv, value);
+      std::println(stderr, "error: invalid {} value: {}", kDaemonPipeEnv, value);
       return false;
     }
 
@@ -224,11 +227,17 @@ namespace {
   }
 
   int runShell() {
+    // Raise the soft fd limit before any Wayland/EGL init. The NVIDIA EGL/Wayland
+    // driver leaks internal sync_file fences slowly across a session; the default
+    // 1024 soft cap can be exhausted in a long-running session, after which the
+    // Wayland connection fails fatally.
+    logInfo("{}", ProcessFds::raiseOpenFileLimit());
+
     // Claim the single-instance lock before any shell/Wayland init so the answer
     // is settled before bars or surfaces are created. Held for the process lifetime.
     SingleInstanceLock instanceLock;
     if (!instanceLock.tryAcquire()) {
-      std::fputs("error: noctalia is already running\n", stderr);
+      std::println(stderr, "error: noctalia is already running");
       completeDaemonStartup(1);
       return 1;
     }
@@ -282,6 +291,8 @@ int main(int argc, char* argv[]) {
       return noctalia::ipc::runCli(argc, argv);
     if (std::strcmp(argv[1], "config") == 0)
       return noctalia::config::runCli(argc, argv);
+    if (std::strcmp(argv[1], "dmenu") == 0)
+      return noctalia::launcher::runDmenuCli(argc, argv);
   }
 
   for (int i = 1; i < argc; ++i) {
@@ -290,7 +301,7 @@ int main(int argc, char* argv[]) {
       if (rc >= 0)
         return rc;
 
-      std::fprintf(stderr, "error: unknown option: %s\n", argv[i]);
+      std::println(stderr, "error: unknown option: {}", argv[i]);
       return 1;
     }
   }
@@ -298,7 +309,7 @@ int main(int argc, char* argv[]) {
   {
     const char* home = std::getenv("HOME");
     if (home != nullptr && home[0] != '\0' && ::chdir(home) != 0) {
-      std::fprintf(stderr, "warning: failed to chdir to HOME (%s): %s\n", home, std::strerror(errno));
+      std::println(stderr, "warning: failed to chdir to HOME ({}): {}", home, std::strerror(errno));
     }
   }
 
@@ -315,11 +326,11 @@ int main(int argc, char* argv[]) {
       const bool receivedResult = readAll(parentPipe, &daemonResult, sizeof(daemonResult));
       closeFd(parentPipe);
       if (!receivedResult) {
-        std::fputs("error: failed to wait for daemon startup\n", stderr);
+        std::println(stderr, "error: failed to wait for daemon startup");
         return 1;
       }
       if (daemonResult == 0) {
-        std::printf("noctalia started [pid: %d]\n", pid);
+        std::println("noctalia started [pid: {}]", pid);
       }
       return daemonResult;
     }

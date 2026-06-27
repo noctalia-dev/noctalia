@@ -179,7 +179,7 @@ namespace {
   }
 
   void flushLogFileAtExit() {
-    std::lock_guard lock(gLogMutex);
+    std::scoped_lock lock(gLogMutex);
     flushLogFileUnlocked();
   }
 
@@ -263,7 +263,7 @@ void initLogFile() {
   const std::string logPath = dir + "/noctalia.log";
   const std::string backupPath = dir + "/noctalia.log.1";
 
-  std::lock_guard lock(gLogMutex);
+  std::scoped_lock lock(gLogMutex);
   closeLogFileUnlocked();
   gLogPath = logPath;
   gBackupLogPath = backupPath;
@@ -289,7 +289,7 @@ namespace detail {
     std::tm tm{};
     localtime_r(&ts.tv_sec, &tm);
 
-    std::lock_guard lock(gLogMutex);
+    std::scoped_lock lock(gLogMutex);
 
     // Console: respects gMinLevel, ANSI colours, time only
     if (level >= gMinLevel) {

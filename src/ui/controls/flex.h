@@ -87,6 +87,8 @@ public:
   [[nodiscard]] FlexSizePolicy heightPolicy() const noexcept { return m_heightPolicy; }
   [[nodiscard]] float minWidth() const noexcept { return m_minWidth; }
   [[nodiscard]] float minHeight() const noexcept { return m_minHeight; }
+  [[nodiscard]] float maxWidth() const noexcept { return m_maxWidth; }
+  [[nodiscard]] float maxHeight() const noexcept { return m_maxHeight; }
   [[nodiscard]] float paddingTop() const noexcept { return m_paddingTop; }
   [[nodiscard]] float paddingRight() const noexcept { return m_paddingRight; }
   [[nodiscard]] float paddingBottom() const noexcept { return m_paddingBottom; }
@@ -101,6 +103,11 @@ protected:
   void doArrange(Renderer& renderer, const LayoutRect& rect) override;
   LayoutSize measureByLayout(Renderer& renderer, const LayoutConstraints& constraints);
   void arrangeByLayout(Renderer& renderer, const LayoutRect& rect);
+  // Set the node size as part of a layout pass without marking it as an explicit (caller-pinned)
+  // size. Subclasses must use this — not setSize() — for sizes they compute inside doLayout, so a
+  // later measure can still re-derive the size from content/min instead of being pinned to a stale
+  // value.
+  void setSizeFromLayout(float width, float height);
 
 public:
   struct ChildLayout;
@@ -109,7 +116,6 @@ private:
   void ensureBackground();
   void applyPalette();
   LayoutSize runLayout(Renderer& renderer, const LayoutConstraints& constraints, bool arrangeChildren);
-  void setSizeFromLayout(float width, float height);
 
   RectNode* m_background = nullptr;
   ColorSpec m_fill = clearColorSpec();

@@ -1,7 +1,6 @@
 #include "ui/controls/glyph_picker.h"
 
 #include "i18n/i18n.h"
-#include "render/scene/input_area.h"
 #include "render/text/glyph_registry.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
@@ -44,7 +43,7 @@ public:
         categories.insert(metadata.category);
       }
     }
-    std::sort(m_master.begin(), m_master.end(), [](const Entry& a, const Entry& b) { return a.name < b.name; });
+    std::ranges::sort(m_master, {}, &Entry::name);
     m_categories.assign(categories.begin(), categories.end());
 
     m_visible.reserve(m_master.size());
@@ -336,7 +335,7 @@ void GlyphPicker::doLayout(Renderer& renderer) {
 
   if (!m_pendingInitialApplied && m_pendingInitialGlyph.has_value() && m_grid != nullptr && m_adapter != nullptr) {
     if (const auto idx = m_adapter->indexOfName(*m_pendingInitialGlyph); idx.has_value()) {
-      m_grid->setSelectedIndex(*idx);
+      m_grid->setSelectedIndex(idx);
       m_grid->scrollToIndex(*idx);
     }
     m_pendingInitialApplied = true;
@@ -361,7 +360,7 @@ void GlyphPicker::applyFilter(const std::string& filter) {
   // Drop selection if the previously selected name is no longer visible.
   if (previousResult.has_value()) {
     if (const auto idx = m_adapter->indexOfName(previousResult->name); idx.has_value()) {
-      m_grid->setSelectedIndex(*idx);
+      m_grid->setSelectedIndex(idx);
     } else {
       m_grid->setSelectedIndex(std::nullopt);
     }

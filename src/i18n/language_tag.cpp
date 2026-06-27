@@ -81,7 +81,7 @@ namespace i18n::detail {
       if (value.empty()) {
         return;
       }
-      if (std::ranges::find(out, value) == out.end()) {
+      if (!std::ranges::contains(out, value)) {
         out.push_back(std::move(value));
       }
     }
@@ -97,7 +97,7 @@ namespace i18n::detail {
     [[nodiscard]] ParsedTag parseTag(std::string_view tag) {
       ParsedTag parsed;
       for (std::string_view part : split(tag)) {
-        parsed.parts.push_back(std::string(part));
+        parsed.parts.emplace_back(part);
       }
       if (parsed.parts.empty()) {
         return parsed;
@@ -123,10 +123,10 @@ namespace i18n::detail {
 
       constexpr std::array<std::string_view, 3> simplifiedRegions = {"CN", "SG", "MY"};
       constexpr std::array<std::string_view, 3> traditionalRegions = {"TW", "HK", "MO"};
-      if (std::ranges::find(simplifiedRegions, region) != simplifiedRegions.end()) {
+      if (std::ranges::contains(simplifiedRegions, region)) {
         return "Hans";
       }
-      if (std::ranges::find(traditionalRegions, region) != traditionalRegions.end()) {
+      if (std::ranges::contains(traditionalRegions, region)) {
         return "Hant";
       }
       return {};

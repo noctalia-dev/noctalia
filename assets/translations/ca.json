@@ -1,0 +1,3076 @@
+{
+  "auth": {
+    "fingerprint": {
+      "disconnected": "Lector d'empremtes desconnectat",
+      "error": "Error d'autenticació d'empremta",
+      "no-match": "L'empremta no coincideix",
+      "not-centered": "Centra el dit i torna-ho a provar",
+      "present": "Llegint empremta...",
+      "ready": "Posa el dit al lector",
+      "remove-and-retry": "Retira el dit i torna-ho a provar",
+      "retry": "Torna a escanejar l'empremta",
+      "swipe-too-short": "El lliscament ha estat massa curt, torna-ho a provar",
+      "too-many-attempts": "Empremta desactivada (massa intents)"
+    },
+    "pam": {
+      "authentication-failed": "Autenticació fallida",
+      "start-failed": "Inici de PAM fallit",
+      "user-unavailable": "No s'ha pogut resoldre l'usuari actual"
+    },
+    "polkit": {
+      "authenticate": "Autentica",
+      "authenticating": "Autenticant...",
+      "default-message": "Autenticació requerida",
+      "invalid-password": "Contrasenya no vàlida",
+      "password-placeholder": "Contrasenya",
+      "title": "Autenticació requerida"
+    }
+  },
+  "bar": {
+    "screenshot": {
+      "choose-display": "Tria la pantalla",
+      "fullscreen": "Pantalla completa",
+      "region": "Selecciona la regió"
+    },
+    "widgets": {
+      "active-window": {
+        "no-active-window": "No hi ha cap finestra activa"
+      },
+      "lock-keys": {
+        "caps": "Majús",
+        "caps-short": "M",
+        "num": "Num",
+        "num-short": "N",
+        "scroll": "Despl",
+        "scroll-short": "D"
+      },
+      "media": {
+        "nothing-playing": "No s'està reproduint res",
+        "playing": "Reproduint"
+      },
+      "network": {
+        "wired": "Amb cable"
+      },
+      "privacy": {
+        "camera": "Càmera",
+        "microphone": "Micròfon",
+        "screen-sharing": "Compartir pantalla"
+      },
+      "scripted": {
+        "reload-failed": "Ha fallat la recàrrega de l'script",
+        "reloaded": "Script recarregat"
+      },
+      "weather": {
+        "default": "Temps",
+        "error": "Error del temps",
+        "loading": "Temps...",
+        "no-location": "Sense ubicació",
+        "off": "Temps desactivat"
+      }
+    }
+  },
+  "clipboard": {
+    "actions": {
+      "clear-all": "Netejar-ho tot",
+      "delete-item": "Elimina l'element",
+      "keep-pinned": "Manté fixat"
+    },
+    "confirm": {
+      "clear-desc": "Tria si vols mantenir els elements fixats.",
+      "clear-desc-all-pinned": "Totes les entrades estan fixades. Fes servir Netejar-ho tot per eliminar-les totes.",
+      "clear-desc-no-pinned": "Això elimina totes les entrades de l'historial del porta-retalls.",
+      "clear-title": "Vols netejar l'historial del porta-retalls?",
+      "delete-desc": "Això elimina l'element seleccionat de l'historial del porta-retalls.",
+      "delete-title": "Vols eliminar l'element del porta-retalls?"
+    },
+    "empty": {
+      "history-message": "No hi ha entrades a l'historial del porta-retalls.",
+      "history-title": "L'historial del porta-retalls està buit",
+      "no-matches-message": "No hi ha entrades que coincideixin amb el filtre actual.",
+      "no-matches-title": "No hi ha coincidències"
+    },
+    "entry": {
+      "image": "Imatge",
+      "title": "Entrada del porta-retalls"
+    },
+    "filter-placeholder": "Filtra el porta-retalls...",
+    "preview": {
+      "empty-text-payload": "(contingut de text buit)",
+      "image-title": "Entrada d'imatge del porta-retalls",
+      "loading": "S'està carregant la previsualització...",
+      "text-title": "Entrada de text del porta-retalls",
+      "truncated": "… truncat"
+    },
+    "title": "Porta-retalls"
+  },
+  "common": {
+    "actions": {
+      "apply": "Aplica",
+      "cancel": "Cancel·la"
+    },
+    "states": {
+      "auto": "Auto",
+      "custom": "Personalitzat",
+      "inherit": "Hereta",
+      "off": "Desactivat"
+    }
+  },
+  "control-center": {
+    "audio": {
+      "application-volumes": "Volum d'aplicacions",
+      "choose-effects-profile": "Tria un perfil",
+      "effects-profile": "Efectes",
+      "no-application-audio": "Sense àudio d'aplicacions",
+      "no-application-audio-body": "No hi ha cap flux de reproducció d'aplicació disponible.",
+      "no-input-devices": "No hi ha dispositius d'entrada",
+      "no-input-devices-body": "No hi ha cap font d'enregistrament disponible.",
+      "no-input-selected": "No s'ha seleccionat cap dispositiu d'entrada",
+      "no-output-devices": "No hi ha dispositius de sortida",
+      "no-output-devices-body": "No hi ha cap dispositiu de sortida d'àudio disponible.",
+      "no-output-selected": "No s'ha seleccionat cap dispositiu de sortida",
+      "unavailable-body": "El PipeWire no està actiu.",
+      "unavailable-title": "Àudio no disponible"
+    },
+    "bluetooth": {
+      "accept": "Accepta",
+      "auto-reconnect": "Reconnexió automàtica",
+      "bluetooth": "Bluetooth",
+      "enter-code": "Introdueix el codi",
+      "no-devices": "No s'han trobat dispositius. Inicia l'escaneig per descobrir dispositius Bluetooth propers.",
+      "off": "El Bluetooth està desactivat",
+      "pair-title": "Aparella {device}",
+      "pairing-detail": {
+        "authorize": "Acceptes la sol·licitud d'aparellament entrant?",
+        "authorize-service": "Permets l'accés al servei {uuid}?",
+        "confirm": "Confirma que aquest codi coincideix amb el que es mostra al dispositiu:",
+        "display-passkey": "Introdueix aquest codi al dispositiu:",
+        "display-pin": "Introdueix aquest PIN al dispositiu:",
+        "passkey": "Introdueix la clau d'accés que es mostra al dispositiu:",
+        "pin-code": "Introdueix el PIN que es mostra al dispositiu:"
+      },
+      "reject": "Rebutja",
+      "rfkill-blocked": "El Bluetooth està blocat pel sistema. Activa'l per treure el blocatge.",
+      "sections": {
+        "available": "Disponible",
+        "connected": "Connectat",
+        "paired": "Aparellat"
+      },
+      "unavailable": "El servei Bluetooth no està disponible",
+      "unknown-device": "Dispositiu desconegut",
+      "visible": "Visible per a dispositius propers"
+    },
+    "calendar": {
+      "all-day": "Tot el dia",
+      "events": "Esdeveniments",
+      "no-events": "No hi ha esdeveniments.",
+      "today": "Avui"
+    },
+    "display": {
+      "disabled": "Desactivat",
+      "no-displays": "No hi ha monitors disponibles",
+      "unknown-resolution": "Resolució desconeguda"
+    },
+    "home": {
+      "avatar-error-title": "L'avatar no s'ha actualitzat",
+      "media": {
+        "idle": "Inactiu",
+        "no-active-player": "No hi ha cap reproductor actiu",
+        "nothing-playing": "No s'està reproduint res",
+        "paused": "En pausa",
+        "playback-unavailable": "Reproducció no disponible",
+        "playing": "Reproduint",
+        "unavailable": "No disponible",
+        "unknown-artist": "Artista desconegut",
+        "unknown-track": "Pista desconeguda"
+      },
+      "select-avatar": "Selecciona l'avatar",
+      "unknown": "Desconegut",
+      "uptime": "Temps actiu - {uptime}",
+      "weather": {
+        "data-unavailable": "Dades meteorològiques no disponibles.",
+        "disabled": "El temps està desactivat a la configuració.",
+        "fetching": "S'està obtenint la previsió..."
+      }
+    },
+    "media": {
+      "active-player": "Reproductor actiu",
+      "nothing-playing": "No s'està reproduint res",
+      "now-playing": "S'està reproduint",
+      "start-playback": "Inicia la reproducció en una aplicació MPRIS"
+    },
+    "network": {
+      "connect": "Connecta",
+      "current-connection": "Connexió actual",
+      "no-networks": "No hi ha xarxes disponibles a prop",
+      "not-connected": "No connectat",
+      "password": "Contrasenya",
+      "password-prompt": "Introdueix la contrasenya",
+      "password-prompt-for": "Introdueix la contrasenya per a {ssid}",
+      "unavailable-detail": "Instal·la i activa el NetworkManager per gestionar xarxes des d'aquí.",
+      "unavailable-title": "NetworkManager no disponible",
+      "vpns": "VPNs",
+      "wi-fi": "Wi-Fi",
+      "wifi": "Wi-Fi",
+      "wifi-off": "Wi-Fi desactivat",
+      "wifi-on": "Wi-Fi activat",
+      "wired-connection": "Connexió per cable"
+    },
+    "notifications": {
+      "empty-body": "Les notificacions recents es mostraran aquí.",
+      "empty-title": "No hi ha notificacions",
+      "filter": {
+        "all": "Totes",
+        "older": "Anteriors",
+        "today": "Avui",
+        "yesterday": "Ahir"
+      },
+      "filter-empty-body": "No hi ha notificacions que coincideixin amb aquest filtre.",
+      "filter-empty-title": "No hi ha res aquí",
+      "untitled": "Notificació sense títol"
+    },
+    "screen-time": {
+      "disabled": "El seguiment del temps de pantalla està desactivat. Activa'l a Configuració per registrar l'ús de cada aplicació.",
+      "empty": "Encara no s'ha registrat l'ús de cap aplicació. Focalitza una finestra per començar el seguiment.",
+      "hour-0": "12 AM",
+      "hour-12": "12 PM",
+      "hour-18": "6 PM",
+      "hour-6": "6 AM",
+      "most-used": "MÉS UTILITZADES",
+      "range": {
+        "14-days": "14 dies",
+        "3-days": "3 dies",
+        "today": "Avui"
+      }
+    },
+    "shortcuts": {
+      "audio": "Àudio",
+      "bluetooth": "Bluetooth",
+      "caffeine": "Caffeine",
+      "clipboard": "Porta-retalls",
+      "dark-mode": {
+        "auto": "Mode auto",
+        "dark": "Mode fosc",
+        "light": "Mode clar"
+      },
+      "keyboard-layout": "Disposició",
+      "media": "Multimèdia",
+      "mic-mute": "Micròfon",
+      "nightlight": "Night Light",
+      "nightlight-states": {
+        "forced": "Sempre actiu",
+        "off": "Night Light",
+        "scheduled-day": "Programat",
+        "scheduled-night": "Actiu"
+      },
+      "notification": "DND",
+      "power-profile": "Energia",
+      "screen-time": "Temps de pantalla",
+      "session": "Sessió",
+      "system": "Sistema",
+      "wallpaper": "Fons de pantalla",
+      "weather": "Temps",
+      "wifi": "Wi-Fi"
+    },
+    "system": {
+      "labels": {
+        "load": "Càrrega CPU",
+        "ram": "RAM",
+        "swap": "Swap"
+      },
+      "titles": {
+        "cpu": "CPU",
+        "gpu": "GPU",
+        "memory": "Memòria",
+        "network": "Xarxa",
+        "resources": "Recursos",
+        "system": "Sistema"
+      },
+      "tooltips": {
+        "load": "Mitjana de càrrega en 1 / 5 / 15 minuts"
+      },
+      "unknown": "desconegut",
+      "uptime-prefix": "Actiu {uptime} · {osAge}"
+    },
+    "tabs": {
+      "audio": "Àudio",
+      "bluetooth": "Bluetooth",
+      "calendar": "Calendari",
+      "display": "Monitor",
+      "home": "Inici",
+      "media": "Multimèdia",
+      "network": "Xarxa",
+      "notifications": "Notificacions",
+      "screen-time": "Temps de pantalla",
+      "system": "Sistema",
+      "weather": "Temps"
+    },
+    "weather": {
+      "data-unavailable": "Dades meteorològiques no disponibles",
+      "details": {
+        "elevation": "Elevació",
+        "sunrise": "Sortida del sol",
+        "sunset": "Posta de sol",
+        "temp-max": "Temperatura màxima",
+        "temp-min": "Temperatura mínima",
+        "timezone": "Zona horària",
+        "wind": "Vent"
+      },
+      "disabled": "Activa [weather] a config.toml",
+      "fetching": "S'està obtenint la previsió...",
+      "forecast-placeholder": {
+        "day": "Diumenge",
+        "description": "Temps",
+        "temperature": "10 / 4C"
+      },
+      "location-unavailable": "Ubicació no disponible",
+      "refreshing": "S'està actualitzant el temps...",
+      "waiting": "Esperant les dades meteorològiques"
+    }
+  },
+  "desktop-widgets": {
+    "editor": {
+      "actions": {
+        "add": "Afegeix",
+        "clone": "Duplica (Ctrl+C, Ctrl+V per copiar/enganxar)",
+        "done": "Fet",
+        "flip-horizontal": "Gira horitzontalment",
+        "flip-vertical": "Gira verticalment",
+        "hide": "Amaga",
+        "settings": "Configuració",
+        "show": "Mostra",
+        "stack-back": "Envia al darrere",
+        "stack-front": "Porta al davant",
+        "trash": "Elimina"
+      },
+      "dialogs": {
+        "select-sticker-image": "Selecciona una imatge d'adhesiu"
+      },
+      "settings": {
+        "aspect-ratio": "Relació d'aspecte",
+        "background": "Fons",
+        "background-color": "Color",
+        "background-opacity": "Opacitat",
+        "background-padding": "Farcit",
+        "background-radius": "Radi",
+        "background-section": "Fons",
+        "bands": "Bandes",
+        "bar-width": "Amplada de la barra",
+        "bloom-intensity": "Bloom",
+        "center-text": "Centrar text",
+        "centered": "Centrat",
+        "change-image": "Canvia…",
+        "circle": "Cercle",
+        "clock-style": "Estil del rellotge",
+        "clock-style-analog": "Analògic",
+        "clock-style-digital": "Digital",
+        "color": "Color",
+        "color-1": "Color u",
+        "color-2": "Color dos",
+        "color2": "Color 2",
+        "command": "Ordre",
+        "custom-color": "Personalitzat…",
+        "description": "Descripció",
+        "fade-when-idle": "Atenua quan està inactiu",
+        "font-family": "Font",
+        "font-family-default": "Per defecte del sistema",
+        "forecast-days": "Dies de previsió",
+        "format": "Format",
+        "glyph": "Glif",
+        "hide-when-no-media": "Amaga sense multimèdia",
+        "horizontal": "Horitzontal",
+        "hover-background": "Fons en passar el ratolí",
+        "hover-foreground": "Primer pla en passar el ratolí",
+        "image-path": "Imatge",
+        "inner-diameter": "Diàmetre interior",
+        "input-opacity": "Opacitat d'entrada",
+        "input-radius": "Radi d'entrada",
+        "interface": "Interfície",
+        "label": "Etiqueta",
+        "layout": "Disposició",
+        "mirrored": "Mirall",
+        "opacity": "Opacitat",
+        "primary-color": "Color primari",
+        "reset-defaults": "Restableix als valors per defecte",
+        "ring-opacity": "Opacitat de l'anell",
+        "rotation-speed": "Velocitat de rotació",
+        "secondary-color": "Color secundari",
+        "sensitivity": "Sensibilitat",
+        "shadow": "Ombra",
+        "show-forecast": "Mostra la previsió",
+        "show-label": "Mostra l'etiqueta",
+        "show-login-button": "Botó d'inici de sessió",
+        "show-when-idle": "Mostra quan està inactiu",
+        "stat": "Estadística",
+        "stat-cpu-temp": "Temp. CPU",
+        "stat-cpu-usage": "Ús CPU",
+        "stat-gpu-temp": "Temp. GPU",
+        "stat-gpu-usage": "Ús GPU",
+        "stat-gpu-vram": "VRAM GPU",
+        "stat-net-rx": "Xarxa Rx",
+        "stat-net-tx": "Xarxa Tx",
+        "stat-none": "Cap",
+        "stat-ram-pct": "RAM %",
+        "stat-swap-pct": "Swap %",
+        "stat2": "Estadística 2",
+        "title": "Títol",
+        "variant": "Estil",
+        "variant-default": "Per defecte",
+        "variant-destructive": "Destructiu",
+        "variant-ghost": "Ghost",
+        "variant-outline": "Outline",
+        "variant-primary": "Primari",
+        "variant-secondary": "Secundari",
+        "vertical": "Vertical",
+        "visualization-mode": "Mode",
+        "visualization-mode-all": "Tot",
+        "visualization-mode-bars": "Barres",
+        "visualization-mode-bars-rings": "Barres + Anells",
+        "visualization-mode-rings": "Anells",
+        "visualization-mode-wave": "Ona",
+        "visualization-mode-wave-rings": "Ona + Anells",
+        "wave-thickness": "Gruix de l'ona",
+        "widget-section": "Widget"
+      },
+      "state": {
+        "grid-off": "Graella desactivada",
+        "grid-on": "Graella activada"
+      },
+      "title": "Widgets d'escriptori",
+      "types": {
+        "audio-visualizer": "Visualitzador d'àudio",
+        "button": "Botó",
+        "clock": "Rellotge",
+        "fancy-audio-visualizer": "Visualitzador d'àudio avançat",
+        "label": "Etiqueta",
+        "login-box": "Caixa d'inici de sessió",
+        "media-player": "Reproductor multimèdia",
+        "sticker": "Adhesiu",
+        "system-monitor": "Monitor del sistema",
+        "weather": "Temps"
+      }
+    },
+    "media": {
+      "nothing-playing": "No s'està reproduint res"
+    },
+    "weather": {
+      "error": "Error",
+      "loading": "S'està carregant",
+      "no-location": "Sense ubicació",
+      "off": "Temps desactivat"
+    }
+  },
+  "dock": {
+    "actions": {
+      "close": "Tanca",
+      "close-all": "Tanca-ho tot"
+    },
+    "launcher": "Launcher"
+  },
+  "internal-apps": {
+    "settings": {
+      "display-name": "Configuració"
+    }
+  },
+  "launcher": {
+    "categories": {
+      "all": "Totes",
+      "applications": {
+        "development": "Desenvolupament",
+        "education": "Educació",
+        "games": "Jocs",
+        "graphics": "Gràfics",
+        "internet": "Internet",
+        "multimedia": "Multimèdia",
+        "office": "Oficina",
+        "system": "Sistema",
+        "utilities": "Utilitats"
+      },
+      "emoji": {
+        "activity": "Activitat",
+        "animals": "Animals",
+        "flags": "Banderes",
+        "food": "Menjar",
+        "nature": "Natura",
+        "objects": "Objectes",
+        "people": "Persones",
+        "symbols": "Símbols",
+        "travel": "Viatges"
+      },
+      "recently-used": "Utilitzades recentment"
+    },
+    "context-menu": {
+      "open": "Obre",
+      "pin-to-dock": "Fixa al dock",
+      "unpin-from-dock": "Desfixa del dock"
+    },
+    "empty": {
+      "no-results": "No s'han trobat resultats",
+      "type-to-search": "Escriu per cercar..."
+    },
+    "providers": {
+      "applications": {
+        "title": "Aplicacions"
+      },
+      "calculator": {
+        "title": "Calculadora"
+      },
+      "emoji": {
+        "title": "Emoji"
+      },
+      "session": {
+        "action-subtitle": "Executa acció de sessió",
+        "command-subtitle": "Executa l'ordre configurada",
+        "title": "Sessió"
+      },
+      "wallpaper": {
+        "title": "Fons de pantalla"
+      },
+      "window": {
+        "title": "Finestres"
+      }
+    },
+    "search-placeholder": "Cerca aplicacions..."
+  },
+  "location": {
+    "errors": {
+      "address-lookup-failed": "Ha fallat la cerca de l'adreça",
+      "ip-geolocation-failed": "Ha fallat la geolocalització per IP",
+      "parse-geocode": "No s'ha pogut analitzar la resposta de geocodificació",
+      "parse-ip-geolocation": "No s'ha pogut analitzar la resposta de geolocalització IP"
+    },
+    "locations": {
+      "current": "Ubicació actual"
+    },
+    "source": {
+      "address": "Adreça",
+      "auto": "Auto"
+    }
+  },
+  "lockscreen": {
+    "authenticating": "Autenticant...",
+    "authentication-failed": "Autenticació fallida",
+    "password-cleared": "Contrasenya esborrada",
+    "password-placeholder": "Contrasenya",
+    "ready": "Escriu la contrasenya i prem Enter.",
+    "unlocked": "Desbloquejat",
+    "waiting": "Esperant la confirmació del bloqueig..."
+  },
+  "notifications": {
+    "actions": {
+      "fallback": "Acció",
+      "open": "Obre"
+    },
+    "inline-reply": {
+      "button": "Respon",
+      "placeholder": "Escriu una resposta..."
+    },
+    "internal": {
+      "battery": "Bateria",
+      "battery-device": "Dispositiu de bateria",
+      "battery-low-body": "{device}: {percent}% restant",
+      "battery-low-title": "Bateria baixa",
+      "calendar": "Calendari",
+      "calendar-google-connect-browser-failed": "No s'ha pogut obrir el navegador per a l'autorització de Google. Comprova el navegador per defecte o la configuració xdg-open.",
+      "calendar-google-connect-expired": "L'autorització de Google ha caducat abans de finalitzar l'inici de sessió. Torna a iniciar la connexió.",
+      "calendar-google-connect-failed-title": "Ha fallat la connexió del Calendari de Google",
+      "calendar-google-connect-missing-account": "No s'ha trobat cap compte de Google Calendar configurat que coincideixi amb \"{account}\".",
+      "calendar-google-connect-rate-limited": "L'autorització de Google està temporalment limitada. Espera una mica i torna-ho a provar.",
+      "calendar-google-connect-result-failed": "No s'ha pogut finalitzar l'autorització de Google. Torna a iniciar la connexió.",
+      "calendar-google-connect-start-failed": "No s'ha pogut iniciar l'autorització de Google. Comprova la connexió de xarxa i torna-ho a provar.",
+      "calendar-google-connect-start-http": "No s'ha pogut iniciar l'autorització de Google. El broker OAuth ha retornat HTTP {status}.",
+      "calendar-google-connect-timeout": "L'autorització de Google ha superat el temps d'espera. Torna a iniciar la connexió quan estiguis preparat per iniciar sessió.",
+      "dbus-disabled": "Notificacions DBus desactivades",
+      "desktop-widgets-editor": "Editor de widgets",
+      "desktop-widgets-editor-enabled": "L'editor de widgets d'escriptori està activat. Canvia a un espai de treball buit per veure la superposició de l'editor.",
+      "greeter-sync": "Noctalia Greeter",
+      "greeter-sync-success": "Aparença sincronitzada. Els canvis s'apliquen a la següent pantalla d'inici de sessió.",
+      "keybind-app": "Noctalia",
+      "keybind-invalid-modifier": "Aquesta drecera accepta una sola tecla sense modificadors.",
+      "keybind-invalid-printable": "Les tecles imprimibles (lletres, números, símbols) requereixen un modificador com Ctrl o Alt.",
+      "keybind-invalid-super": "La tecla Super/Windows no es pot utilitzar a les dreceres del shell.",
+      "keybind-invalid-title": "Drecera no permesa",
+      "launcher-usage-reset": "Launcher",
+      "launcher-usage-reset-success": "Dades d'ús esborrades.",
+      "lockscreen-widgets-editor": "Editor de widgets de la pantalla de bloqueig",
+      "lockscreen-widgets-editor-blocked-locked": "Desbloqueja la sessió abans d'editar els widgets de la pantalla de bloqueig.",
+      "lockscreen-widgets-editor-enabled": "L'editor de widgets de la pantalla de bloqueig està activat. Organitza els widgets a la superposició de previsualització i després bloqueja la sessió per verificar-ne la disposició.",
+      "mpris-disabled": "MPRIS desactivat",
+      "screen-time-reset": "Temps de pantalla",
+      "screen-time-reset-success": "Historial d'ús esborrat.",
+      "session-bus-unavailable": "Bus de sessió no disponible",
+      "wallpaper-palette-export": "Paleta personalitzada",
+      "wallpaper-palette-export-success": "S'ha desat \"{name}\" i s'ha canviat l'origen de la paleta a personalitzada."
+    }
+  },
+  "osd": {
+    "bluetooth": {
+      "off": "Bluetooth desactivat",
+      "on": "Bluetooth activat"
+    },
+    "caffeine": {
+      "off": "Caffeine desactivat",
+      "on": "Caffeine activat"
+    },
+    "dnd": {
+      "off": "DND desactivat",
+      "on": "DND activat"
+    },
+    "effects": {
+      "input": "Efectes d'entrada",
+      "output": "Efectes de sortida"
+    },
+    "lock-keys": {
+      "caps-off": "Bloq Majús desactivat",
+      "caps-on": "Bloq Majús activat",
+      "num-off": "Bloq Num desactivat",
+      "num-on": "Bloq Num activat",
+      "scroll-off": "Bloq Despl desactivat",
+      "scroll-on": "Bloq Despl activat"
+    },
+    "wifi": {
+      "off": "Wi-Fi desactivat",
+      "on": "Wi-Fi activat"
+    }
+  },
+  "power": {
+    "battery": {
+      "states": {
+        "battery": "Bateria",
+        "charging": "Carregant",
+        "discharging": "Descarregant",
+        "empty": "Buida",
+        "pending-discharge": "Descàrrega pendent",
+        "plugged-in": "Endollada"
+      },
+      "tooltip": {
+        "health": "Salut",
+        "rate": "Taxa",
+        "status": "Estat",
+        "time-left": "Temps restant",
+        "time-to-full": "Temps fins a completar"
+      }
+    },
+    "profiles": {
+      "balanced": "Equilibrat",
+      "performance": "Rendiment",
+      "power-saver": "Estalvi d'energia"
+    }
+  },
+  "session": {
+    "actions": {
+      "custom": "Personalitzada",
+      "lock": "Bloqueja",
+      "lock-and-suspend": "Bloqueja i suspèn",
+      "logout": "Tanca la sessió",
+      "reboot": "Reinicia",
+      "shutdown": "Apaga",
+      "suspend": "Suspèn"
+    },
+    "errors": {
+      "lock-body": "El protocol de bloqueig de sessió no està disponible.",
+      "lock-title": "Bloqueig no disponible"
+    }
+  },
+  "settings": {
+    "actions": {
+      "reset": "Restableix"
+    },
+    "badges": {
+      "advanced": "Avançat",
+      "inherited": "Heretat",
+      "monitor": "Monitor",
+      "official": "Oficial",
+      "override": "Sobreescriu"
+    },
+    "calendar-accounts": {
+      "add-title": "Afegeix un compte de calendari",
+      "color-label": "Color",
+      "delete-error": "No s'ha pogut eliminar el compte de calendari.",
+      "edit-title": "Edita el compte de calendari",
+      "id-label": "ID del compte",
+      "invalid": "Comprova els camps del compte de calendari ressaltats.",
+      "name-label": "Nom de visualització",
+      "name-placeholder": "Calendari personal",
+      "password-keep-placeholder": "Deixa en blanc per mantenir la contrasenya actual",
+      "password-label": "Contrasenya d'aplicació",
+      "password-placeholder": "Contrasenya específica de l'aplicació",
+      "password-save-error": "No s'ha pogut desar la contrasenya del compte de calendari.",
+      "provider": {
+        "custom": "CalDAV",
+        "google": "Google",
+        "icloud": "iCloud"
+      },
+      "provider-label": "Proveïdor",
+      "save": "Desa",
+      "save-connect": "Desa i connecta",
+      "save-error": "No s'ha pogut desar el compte de calendari.",
+      "server-url-label": "URL del servidor",
+      "username-label": "Nom d'usuari",
+      "username-placeholder": "nom@exemple.cat"
+    },
+    "controls": {
+      "keybind": {
+        "add": "Fes clic per afegir una drecera",
+        "recording-placeholder": "Prem una combinació de tecles…",
+        "unset-placeholder": "Fes clic per vincular…"
+      },
+      "list": {
+        "add-entry-placeholder": "Afegeix una entrada…"
+      },
+      "path-browse": {
+        "file-title": "Tria un fitxer",
+        "folder-title": "Tria una carpeta"
+      },
+      "select": {
+        "unknown-value": "Desconegut: {value}"
+      }
+    },
+    "dialogs": {
+      "color-picker": {
+        "title": "Tria un color"
+      }
+    },
+    "entities": {
+      "bar": {
+        "create": "Crea",
+        "delete": "Elimina",
+        "delete-confirm-desc": "Aquesta barra creada per la GUI s'eliminarà de settings.toml.",
+        "delete-confirm-title": "Vols eliminar «{name}»?",
+        "id-placeholder": "Id de la barra",
+        "label": "Barra: {name}",
+        "management": "Barra",
+        "move-down": "Mou avall",
+        "move-up": "Mou amunt",
+        "new": "Barra nova",
+        "rename": "Canvia el nom",
+        "rename-save": "Desa"
+      },
+      "monitor-override": {
+        "create": "Crea",
+        "delete": "Elimina",
+        "delete-confirm-desc": "Aquesta sobrescriptura de monitor creada per la GUI s'eliminarà de settings.toml.",
+        "delete-confirm-title": "Vols eliminar «{name}»?",
+        "label": "Monitor: {name}",
+        "management": "Sobreescriptura de monitor",
+        "match-placeholder": "Coincidència del monitor",
+        "new": "Sobreescriptura de monitor",
+        "rename": "Canvia el nom",
+        "rename-save": "Desa"
+      },
+      "widget": {
+        "add": "Afegeix un widget",
+        "detail": {
+          "custom": "widget personalitzat"
+        },
+        "editor": {
+          "description": "Organitza els widgets a través dels carrils de la barra",
+          "title": "Widgets de la barra"
+        },
+        "group": {
+          "action": "Agrupa",
+          "border": "Vora",
+          "border-description": "Color de la vora de la càpsula; deixa a Per defecte per no tenir vora",
+          "clear": "Esborra",
+          "edit": "Edita l'estil",
+          "fill": "Fons",
+          "fill-description": "Color de fons de la càpsula; també s'admeten colors hex fixos",
+          "foreground": "Primer pla",
+          "foreground-description": "Color d'icona i etiqueta per als widgets d'aquest grup",
+          "hint": "Part d'un grup de càpsula",
+          "members": "{count} widgets",
+          "opacity": "Opacitat",
+          "opacity-description": "Opacitat del fons de la càpsula",
+          "orphan": "Grup desconegut",
+          "padding": "Farcit",
+          "padding-description": "Farcit interior entre la vora de la càpsula i els widgets, en píxels",
+          "radius": "Radi",
+          "radius-description": "Radi de les cantonades de la càpsula en píxels; Auto hereta el radi de la barra",
+          "selected": "{count} seleccionats",
+          "style": "Estil",
+          "title": "Grup de càpsula",
+          "ungroup": "Desagrupa"
+        },
+        "inspector": {
+          "add-instance-title": "Afegeix el widget {widget} a {lane}",
+          "add-title": "Afegeix un widget a {lane}",
+          "move-to-lane": "Mou a {lane}"
+        },
+        "instance": {
+          "create-save": "Crea",
+          "delete": "Elimina",
+          "delete-confirm-desc": "Aquest widget s'eliminarà de totes les barres i la seva configuració es descartarà.",
+          "delete-confirm-title": "Vols eliminar «{name}»?",
+          "id-description": "Utilitza només lletres, números, guions baixos o guions. Sense espais; ha de ser únic.",
+          "id-placeholder": "Id del widget",
+          "rename": "Canvia el nom",
+          "rename-save": "Desa"
+        },
+        "lanes": {
+          "center": "Centre",
+          "customize": "Personalitza",
+          "empty": "No hi ha widgets",
+          "empty-hint": "Afegeix un widget per omplir aquest carril.",
+          "end": "Final",
+          "start": "Inici"
+        },
+        "picker": {
+          "empty": "No s'han trobat widgets",
+          "instance-description": "Widget amb nom del tipus «{type}»",
+          "instance-toggle": "Widget amb nom",
+          "placeholder": "Cerca widgets..."
+        },
+        "raw": {
+          "delete": "Elimina",
+          "description": "Claus no suportades conservades de la configuració d'aquest widget.",
+          "title": "Configuració sense processar"
+        },
+        "settings": {
+          "empty": "No hi ha paràmetres que coincideixin amb els filtres actuals.",
+          "groups": {
+            "grouping": "Agrupació",
+            "presentation": "Presentació",
+            "runtime": "Execució",
+            "widget": "Widget"
+          }
+        }
+      }
+    },
+    "errors": {
+      "avatar-accounts": "No s'ha pogut actualitzar l'avatar del compte del sistema.",
+      "avatar-invalid-path": "El camí de l'avatar seleccionat no és un fitxer d'imatge llegible.",
+      "avatar-load": "No s'ha pogut carregar la imatge seleccionada. Utilitza PNG, JPEG, WebP, GIF, BMP o SVG.",
+      "avatar-write": "No s'ha pogut preparar la imatge de l'avatar per desar-la.",
+      "bar": {
+        "create": "No s'ha pogut crear la barra.",
+        "delete": "No s'ha pogut eliminar la barra.",
+        "move": "No s'ha pogut moure la barra.",
+        "rename": "No s'ha pogut canviar el nom de la barra."
+      },
+      "batch-write": "No s'han pogut desar alguns paràmetres.",
+      "export-config": "No s'ha pogut desar l'exportació de la configuració.",
+      "export-wallpaper-palette": "No s'ha pogut desar la paleta del fons de pantalla com a paleta personalitzada.",
+      "monitor-override": {
+        "create": "No s'ha pogut crear la sobrescriptura de monitor.",
+        "delete": "No s'ha pogut eliminar la sobrescriptura de monitor.",
+        "rename": "No s'ha pogut canviar el nom de la sobrescriptura de monitor."
+      },
+      "reset-page": "No s'han pogut restablir alguns paràmetres.",
+      "support-report": "No s'ha pogut desar l'informe d'assistència.",
+      "sync-greeter": "No s'ha pogut sincronitzar l'aparença amb el Noctalia Greeter.",
+      "widget": {
+        "rename": "No s'ha pogut canviar el nom del widget."
+      },
+      "write": "No s'han pogut desar els paràmetres."
+    },
+    "export-config": {
+      "export": "Exporta",
+      "full-effective-description": "Exporta tots els paràmetres actius, inclosos els valors per defecte integrats. Útil per inspeccionar o compartir una instantània, però fixa els valors per defecte actuals explícitament.",
+      "full-effective-save-title": "Desa la configuració efectiva completa",
+      "full-effective-title": "Configuració efectiva completa",
+      "merged-user-description": "Combina fitxers de configuració i canvis de la GUI en un fitxer TOML. Els valors per defecte integrats romanen implícits.",
+      "merged-user-save-title": "Desa la configuració d'usuari combinada",
+      "merged-user-title": "Configuració d'usuari combinada (recomanada)",
+      "title": "Exporta la configuració"
+    },
+    "idle": {
+      "behavior": {
+        "add": "Afegeix un comportament",
+        "command-label": "Ordre d'inactivitat",
+        "command-placeholder": "notify-send \"Inactiu\"",
+        "kind": {
+          "custom": "Personalitzada",
+          "lock": "Bloqueja",
+          "lock-and-suspend": "Bloqueja i suspèn",
+          "screen-off": "Pantalla apagada",
+          "suspend": "Suspèn"
+        },
+        "kind-section-label": "Acció",
+        "name-label": "Nom",
+        "name-placeholder": "comportament-inactivitat",
+        "resume-command-label": "Ordre de represa",
+        "resume-command-placeholder": "noctalia:dpms-on",
+        "summary": "{name} · {seconds}s",
+        "summary-disabled-timeout": "{name} · temps d'espera desactivat",
+        "timeout-label": "Temps d'espera en segons",
+        "unnamed": "Comportament sense nom"
+      },
+      "live-status": {
+        "active": "Actiu",
+        "idle-for-one": "Inactiu durant 1 segon",
+        "idle-for-seconds": "Inactiu durant {seconds} segons"
+      }
+    },
+    "navigation": {
+      "groups": {
+        "audio": "Àudio",
+        "automation": "Automatització",
+        "backdrop": "Backdrop",
+        "background": "Fons",
+        "battery": "Bateria",
+        "behavior": "Comportament",
+        "brightness": "Brillantor",
+        "built-in": "Integrat",
+        "calendar": "Calendari",
+        "capsules": "Càpsules",
+        "clipboard": "Porta-retalls",
+        "community": "Comunitat",
+        "control-center": "Centre de control",
+        "directories": "Directoris",
+        "effects": "Efectes",
+        "filtering": "Filtratge",
+        "focus-styling": "Estil de focus",
+        "formats": "Formats",
+        "general": "General",
+        "grouping": "Agrupació",
+        "home": "Inici",
+        "idle": "Inactivitat",
+        "interface": "Interfície",
+        "keybinds": "Dreceres",
+        "kinds": "Tipus",
+        "launcher": "Launcher",
+        "layout": "Disposició",
+        "lifecycle": "Cicle de vida",
+        "location": "Ubicació",
+        "lock-screen": "Pantalla de bloqueig",
+        "media": "Multimèdia",
+        "monitor": "Monitor del sistema",
+        "monitor-polling": "Intervals de sondeig",
+        "monitor-thresholds": "Llindars de ressaltat",
+        "monitors": "Monitors",
+        "motion": "Moviment",
+        "network": "Xarxa",
+        "night-light": "Night Light",
+        "notifications": "Notificacions",
+        "osd": "OSD",
+        "overview": "Vista general",
+        "pinned-apps": "Aplicacions fixades",
+        "power": "Energia",
+        "privacy-security": "Privadesa i seguretat",
+        "profile": "Perfil",
+        "screen-corners": "Cantonades de pantalla",
+        "screen-time": "Temps de pantalla",
+        "screenshot": "Captura de pantalla",
+        "security": "Seguretat",
+        "session-panel": "Sessió",
+        "shape": "Forma",
+        "system": "Sistema",
+        "theme": "Tema",
+        "toasts": "Toasts",
+        "transition": "Transició",
+        "user": "Usuari",
+        "wallpaper": "Fons de pantalla",
+        "weather": "Temps",
+        "widget-list": "Llista de widgets",
+        "widgets": "Widgets"
+      },
+      "sections": {
+        "appearance": "Aparença",
+        "backdrop": "Backdrop",
+        "bar": "Barra",
+        "desktop": "Escriptori",
+        "dock": "Dock",
+        "hooks": "Hooks",
+        "location": "Ubicació",
+        "niri": "Niri",
+        "notifications": "Notificacions",
+        "osd": "OSD",
+        "panels": "Panells",
+        "plugins": "Plugins",
+        "popups": "Finestres emergents",
+        "power": "Energia",
+        "security": "Seguretat",
+        "services": "Serveis",
+        "shell": "Shell",
+        "system": "Sistema",
+        "templates": "Plantilles",
+        "wallpaper": "Fons de pantalla"
+      }
+    },
+    "notifications": {
+      "filter": {
+        "add": "Afegeix un filtre",
+        "add-title": "Afegeix un filtre de notificacions",
+        "allowed-urgencies-label": "Urgències permeses",
+        "flag": {
+          "history": "historial",
+          "sound": "so",
+          "toast": "toast"
+        },
+        "flags-label": "Quan coincideix",
+        "match-label": "Aplicació",
+        "match-placeholder": "Nom de l'aplicació, entrada d'escriptori o categoria…",
+        "play-sound": "Reprodueix so",
+        "save-history": "Desa a l'historial",
+        "show-toast": "Mostra toast",
+        "summary": "{match} · {flags}",
+        "summary-blocked": "{match} · blocat",
+        "summary-disabled": "{match} · desactivat",
+        "unnamed": "Filtre sense nom"
+      }
+    },
+    "options": {
+      "clipboard": {
+        "auto-paste": {
+          "ctrl-shift-v": "Ctrl+Maj+V",
+          "ctrl-v": "Ctrl+V",
+          "shift-insert": "Maj+Insert"
+        }
+      },
+      "control-center": {
+        "sidebar": {
+          "compact": "Compacte",
+          "full": "Complet",
+          "none": "Cap"
+        }
+      },
+      "dock-launcher-position": {
+        "end": "Final",
+        "none": "Cap",
+        "start": "Inici"
+      },
+      "edge": {
+        "bottom": "Inferior",
+        "left": "Esquerra",
+        "right": "Dreta",
+        "top": "Superior"
+      },
+      "font-weight": {
+        "bold": "Negreta",
+        "book": "Llibre",
+        "default": "Per defecte (barra)",
+        "heavy": "Molt gruixut",
+        "light": "Prim",
+        "medium": "Mitjà",
+        "regular": "Normal",
+        "semi-bold": "Semi negreta",
+        "semi-light": "Semi prim",
+        "thin": "Fi",
+        "ultra-bold": "Ultra negreta",
+        "ultra-heavy": "Ultra gruixut",
+        "ultra-light": "Ultra prim"
+      },
+      "layer": {
+        "overlay": "Overlay",
+        "top": "Superior"
+      },
+      "notification-urgency": {
+        "critical": "Crítica",
+        "low": "Baixa",
+        "normal": "Normal"
+      },
+      "orientation": {
+        "horizontal": "Horitzontal",
+        "vertical": "Vertical"
+      },
+      "screen-position": {
+        "bottom-center": "Inferior centre",
+        "bottom-left": "Inferior esquerra",
+        "bottom-right": "Inferior dreta",
+        "center-left": "Centre esquerra",
+        "center-right": "Centre dreta",
+        "top-center": "Superior centre",
+        "top-left": "Superior esquerra",
+        "top-right": "Superior dreta"
+      },
+      "shell": {
+        "panel-placement": {
+          "attached": "Adjunt",
+          "floating": "Flotant"
+        },
+        "panel-transparency": {
+          "glass": "Vidre",
+          "soft": "Suau",
+          "solid": "Sòlid"
+        },
+        "password-style": {
+          "filled-circles": "Cercles plens",
+          "random-icons": "Icones aleatòries"
+        },
+        "shadow-direction": {
+          "center": "Centre",
+          "down": "Avall",
+          "down-left": "Avall esquerra",
+          "down-right": "Avall dreta",
+          "left": "Esquerra",
+          "right": "Dreta",
+          "up": "Amunt",
+          "up-left": "Amunt esquerra",
+          "up-right": "Amunt dreta"
+        }
+      },
+      "theme": {
+        "mode": {
+          "dark": "Fosc",
+          "light": "Clar"
+        },
+        "source": {
+          "built-in": "Integrat",
+          "community": "Comunitat",
+          "custom": "Personalitzat",
+          "wallpaper": "Fons de pantalla"
+        }
+      },
+      "theme-role": {
+        "custom": "Personalitzat…",
+        "default": "Per defecte"
+      },
+      "wallpaper": {
+        "fill": {
+          "center": "Centre",
+          "crop": "Retalla",
+          "fit": "Ajusta",
+          "repeat": "Repeteix",
+          "stretch": "Estira"
+        },
+        "order": {
+          "alphabetical": "Alfabètic",
+          "random": "Aleatori"
+        },
+        "transition": {
+          "disc": "Disc",
+          "fade": "Esvaeix",
+          "honeycomb": "Panell",
+          "stripes": "Ratlles",
+          "wipe": "Escombra",
+          "zoom": "Zoom"
+        }
+      },
+      "weather": {
+        "unit": {
+          "imperial": "Imperial",
+          "metric": "Mètric"
+        }
+      }
+    },
+    "plugins": {
+      "plugins": {
+        "configure": "Configura",
+        "deprecated": "obsolet",
+        "empty": "No s'han trobat plugins. Afegeix una font o comprova la xarxa.",
+        "loading": "S'estan carregant els plugins...",
+        "refreshing": "S'estan actualitzant els plugins...",
+        "requires-newer-noctalia": "requereix una versió més recent del Noctalia",
+        "title": "Plugins"
+      },
+      "settings": {
+        "empty": "No hi ha paràmetres disponibles."
+      },
+      "sources": {
+        "add": "Afegeix una font",
+        "add-title": "Afegeix una font de plugins",
+        "edit": "Edita la font",
+        "edit-title": "Edita la font de plugins",
+        "empty": "No hi ha fonts configurades.",
+        "errors": {
+          "duplicate-name": "Ja existeix una font amb aquest ID.",
+          "invalid-name": "L'ID de la font ha d'utilitzar lletres, dígits, '.', '_' o '-', començant per una lletra o dígit.",
+          "location-required": "La ubicació de la font és obligatòria."
+        },
+        "kind": {
+          "git": "Git",
+          "path": "Camí"
+        },
+        "kind-label": "Tipus",
+        "location-label": "Ubicació",
+        "location-placeholder-git": "https://github.com/jo/noctalia-plugins",
+        "location-placeholder-path": "~/dev/noctalia-plugins",
+        "name-label": "ID de la font",
+        "name-placeholder": "els-meus-plugins",
+        "remove": "Elimina la font",
+        "save": "Desa",
+        "title": "Fonts",
+        "update": "Actualitza",
+        "update-on-startup": "Actualitza a l'inici"
+      }
+    },
+    "schema": {
+      "appearance": {
+        "animation-speed": {
+          "description": "Multiplicador de velocitat per a totes les animacions",
+          "label": "Velocitat d'animació"
+        },
+        "animations": {
+          "description": "Activa o desactiva les animacions de la interfície",
+          "label": "Animacions"
+        },
+        "app-icon-color": {
+          "description": "Color de la paleta utilitzat en acolorir les icones de les aplicacions",
+          "label": "Color d'icona d'aplicació"
+        },
+        "app-icon-colorize": {
+          "description": "Recoloreja les icones d'aplicació a tot el shell perquè coincideixin amb la paleta activa",
+          "label": "Acoloreix les icones d'aplicació"
+        },
+        "builtin-palette": {
+          "description": "Tria una paleta del catàleg integrat",
+          "label": "Paleta integrada"
+        },
+        "community-palette": {
+          "description": "Tria una paleta del catàleg de la comunitat",
+          "label": "Paleta de la comunitat",
+          "search-placeholder": "Cerca paletes..."
+        },
+        "corner-roundness": {
+          "description": "Escala el radi de les cantonades en els contenidors i controls de la interfície del shell",
+          "label": "Arrodoniment de cantonades"
+        },
+        "custom-palette": {
+          "description": "Tria una paleta de ~/.config/noctalia/palettes/",
+          "label": "Paleta personalitzada",
+          "search-placeholder": "Cerca paletes personalitzades..."
+        },
+        "export-wallpaper-palette": {
+          "button": "Desa com a paleta personalitzada",
+          "description": "Desa la paleta actual generada pel fons de pantalla com un fitxer de paleta personalitzada reutilitzable",
+          "label": "Exporta la paleta del fons de pantalla"
+        },
+        "font-family": {
+          "description": "Família de tipus de lletra per a la interfície del shell",
+          "label": "Tipus de lletra"
+        },
+        "global-shadow-alpha": {
+          "description": "Opacitat global de l'ombra de les superfícies"
+        },
+        "global-shadow-direction": {
+          "description": "Direcció de l'ombra projectada per les superfícies"
+        },
+        "language": {
+          "description": "Sobreescriu la detecció automàtica de la configuració regional",
+          "label": "Idioma"
+        },
+        "palette-source": {
+          "description": "D'on derivar la paleta de colors",
+          "label": "Origen de la paleta"
+        },
+        "theme-mode": {
+          "description": "Tria fosc, clar o automàtic segons l'hora del dia",
+          "label": "Mode del tema"
+        },
+        "ui-scale": {
+          "description": "Escala tota la interfície cap amunt o cap avall",
+          "label": "Escala de la interfície"
+        },
+        "wallpaper-generation-scheme": {
+          "description": "Tria com es converteixen els colors del fons de pantalla en una paleta",
+          "label": "Esquema de generació del fons de pantalla"
+        }
+      },
+      "backdrop": {
+        "blur-intensity": {
+          "description": "Intensitat del desenfocament del backdrop",
+          "label": "Intensitat del desenfocament"
+        },
+        "enabled": {
+          "description": "Activa el backdrop"
+        },
+        "tint-intensity": {
+          "description": "Intensitat del tint del backdrop",
+          "label": "Intensitat del tint"
+        }
+      },
+      "bar": {
+        "auto-hide": {
+          "description": "Amaga automàticament la barra quan no s'utilitza"
+        },
+        "background-opacity": {
+          "description": "Opacitat del fons de la barra"
+        },
+        "border": {
+          "description": "Color de la vora de la barra; també s'admeten colors hex fixos",
+          "label": "Vora"
+        },
+        "border-width": {
+          "description": "Amplada de la vora interior de la barra",
+          "label": "Amplada de la vora"
+        },
+        "capsule-border": {
+          "description": "Color de la vora de la càpsula per defecte; també s'admeten colors hex fixos",
+          "label": "Vora de la càpsula"
+        },
+        "capsule-fill": {
+          "description": "Color de fons de la càpsula per defecte; també s'admeten colors hex fixos",
+          "label": "Fons de la càpsula"
+        },
+        "capsule-foreground": {
+          "description": "Color d'icona i etiqueta per defecte dins de les càpsules; també s'admeten colors hex fixos",
+          "label": "Primer pla de la càpsula"
+        },
+        "capsule-opacity": {
+          "description": "Opacitat dels fons de les càpsules dels widgets",
+          "label": "Opacitat de la càpsula"
+        },
+        "capsule-padding": {
+          "description": "Farcit interior de les càpsules dels widgets",
+          "label": "Farcit de la càpsula"
+        },
+        "capsule-radius": {
+          "description": "Radi de les cantonades per defecte per a les càpsules dels widgets, les pastilles d'espais de treball i els grups d'espais de treball de la barra de tasques; deixa en blanc per a forma de pastilla automàtica o posa 0 per a cantonades quadrades",
+          "label": "Radi de la càpsula"
+        },
+        "capsule-thickness": {
+          "description": "Mida de la càpsula a través de la barra com a fracció del gruix de la barra (1.0 omple la barra)",
+          "label": "Gruix de la càpsula"
+        },
+        "center-widgets": {
+          "description": "Widgets al centre de la barra",
+          "label": "Widgets centrals"
+        },
+        "contact-shadow": {
+          "description": "Gradient fosc entre un panell adjunt i la barra per suggerir profunditat a la unió"
+        },
+        "content-padding": {
+          "description": "Farcit interior de l'àrea de contingut de la barra",
+          "label": "Farcit del contingut"
+        },
+        "content-scale": {
+          "description": "Factor d'escala per al contingut de la barra",
+          "label": "Escala del contingut"
+        },
+        "corner-bottom-left": {
+          "description": "Radi de la cantonada inferior esquerra de la barra; els valors negatius tallen una cantonada còncava quan aquesta cantonada està oposada a la vora de la pantalla"
+        },
+        "corner-bottom-right": {
+          "description": "Radi de la cantonada inferior dreta de la barra; els valors negatius tallen una cantonada còncava quan aquesta cantonada està oposada a la vora de la pantalla"
+        },
+        "corner-radius": {
+          "description": "Radi de les cantonades de la barra"
+        },
+        "corner-top-left": {
+          "description": "Radi de la cantonada superior esquerra de la barra; els valors negatius tallen una cantonada còncava quan aquesta cantonada està oposada a la vora de la pantalla"
+        },
+        "corner-top-right": {
+          "description": "Radi de la cantonada superior dreta de la barra; els valors negatius tallen una cantonada còncava quan aquesta cantonada està oposada a la vora de la pantalla"
+        },
+        "edge-margin": {
+          "description": "Distància des de la vora de pantalla més propera; els valors positius fan flotar la barra"
+        },
+        "enabled": {
+          "description": "Mostra o amaga aquesta barra"
+        },
+        "end-widgets": {
+          "description": "Widgets al final (dreta/avall) de la barra",
+          "label": "Widgets del final"
+        },
+        "ends-margin": {
+          "description": "Marge des de cada extrem de la barra al llarg del seu eix principal"
+        },
+        "font-family": {
+          "description": "Tipus de lletra per als widgets d'aquesta barra; deixa buit per heretar el tipus de lletra global. El tipus de lletra per widget el sobrescriu.",
+          "label": "Tipus de lletra"
+        },
+        "font-weight": {
+          "description": "Pes per defecte de les etiquetes dels widgets d'aquesta barra.",
+          "label": "Pes de la lletra"
+        },
+        "layer": {
+          "description": "Utilitza Overlay per mostrar la barra per sobre de les aplicacions a pantalla completa. Els panells adjunts segueixen la barra.",
+          "label": "Capa Wayland"
+        },
+        "panel-overlap": {
+          "description": "Píxels que un panell adjunt se superposa a la vora de la barra per amagar la unió (ajusta si veus una línia o espai)",
+          "label": "Superposició del panell"
+        },
+        "position": {
+          "description": "A quina vora de la pantalla se situa la barra"
+        },
+        "reserve-space": {
+          "description": "Empeny les finestres lluny de la vora de la barra"
+        },
+        "shadow": {
+          "description": "Projecta l'ombra global de la superfície des de la barra"
+        },
+        "start-widgets": {
+          "description": "Widgets a l'inici (esquerra/amunt) de la barra",
+          "label": "Widgets d'inici"
+        },
+        "thickness": {
+          "description": "Gruix de la barra en píxels",
+          "label": "Gruix"
+        },
+        "widget-capsules": {
+          "description": "Embolcalla els widgets en fons de càpsula",
+          "label": "Càpsules de widgets"
+        },
+        "widget-color": {
+          "description": "Color d'icona i etiqueta per defecte per als widgets d'aquesta barra; també s'admeten colors hex fixos",
+          "label": "Color del widget"
+        },
+        "widget-icon-color": {
+          "description": "Sobreescriu el color del widget per a les icones d'aquesta barra; també s'admeten colors hex fixos",
+          "label": "Color d'icona del widget"
+        },
+        "widget-spacing": {
+          "description": "Espai entre els widgets de la barra",
+          "label": "Espaiat dels widgets"
+        }
+      },
+      "desktop": {
+        "screen-corners-enabled": {
+          "description": "Arrodoneix les cantonades de la pantalla amb una superposició negra",
+          "label": "Cantonades de pantalla"
+        },
+        "screen-corners-size": {
+          "description": "Radi de les cantonades arrodonides de la pantalla en píxels",
+          "label": "Mida de la cantonada"
+        },
+        "widgets": {
+          "description": "Mostra widgets a l'escriptori",
+          "label": "Widgets d'escriptori"
+        },
+        "widgets-editor": {
+          "button": "Commuta l'editor",
+          "description": "Afegeix, mou i redimensiona widgets d'escriptori",
+          "label": "Editor de widgets"
+        }
+      },
+      "dock": {
+        "active-icon-opacity": {
+          "description": "Opacitat de la icona del dock enfocada",
+          "label": "Opacitat d'icona activa"
+        },
+        "active-icon-scale": {
+          "description": "Escala de la icona del dock enfocada",
+          "label": "Escala d'icona activa"
+        },
+        "active-monitor-only": {
+          "description": "Mostra només les aplicacions en execució al monitor actiu",
+          "label": "Només al monitor actiu"
+        },
+        "auto-hide": {
+          "description": "Amaga automàticament el dock quan no s'utilitza"
+        },
+        "background-opacity": {
+          "description": "Opacitat del fons del dock"
+        },
+        "corner-bottom-left": {
+          "description": "Radi de la cantonada inferior esquerra del dock"
+        },
+        "corner-bottom-right": {
+          "description": "Radi de la cantonada inferior dreta del dock"
+        },
+        "corner-radius": {
+          "description": "Radi de cantonada del dock"
+        },
+        "corner-top-left": {
+          "description": "Radi de la cantonada superior esquerra del dock"
+        },
+        "corner-top-right": {
+          "description": "Radi de la cantonada superior dreta del dock"
+        },
+        "cross-axis-padding": {
+          "description": "Farcit interior a l'eix transversal del dock (entre les icones i la vora de la pantalla)"
+        },
+        "edge-margin": {
+          "description": "Distància des de la vora de pantalla més propera; els valors positius fan flotar el dock"
+        },
+        "enabled": {
+          "description": "Mostra o amaga el dock"
+        },
+        "ends-margin": {
+          "description": "Marge des de cada extrem del dock al llarg del seu eix principal"
+        },
+        "icon-size": {
+          "description": "Mida de les icones del dock en píxels",
+          "label": "Mida d'icona"
+        },
+        "inactive-icon-opacity": {
+          "description": "Opacitat de les icones del dock no enfocades",
+          "label": "Opacitat d'icona inactiva"
+        },
+        "inactive-icon-scale": {
+          "description": "Escala de les icones del dock no enfocades",
+          "label": "Escala d'icona inactiva"
+        },
+        "item-spacing": {
+          "description": "Espai entre elements del dock",
+          "label": "Espaiat d'elements"
+        },
+        "launcher-icon": {
+          "description": "Icona Tabler que es mostra al botó del launcher del dock",
+          "label": "Icona del Launcher"
+        },
+        "launcher-position": {
+          "description": "Mostra un botó de launcher a l'inici o al final del dock",
+          "label": "Botó del Launcher"
+        },
+        "magnification": {
+          "description": "Amplia les icones del dock a prop del punter, estil macOS",
+          "label": "Ampliació"
+        },
+        "magnification-scale": {
+          "description": "Multiplicador d'escala màxima d'icona al centre del punter (1.0 desactiva l'ampliació)",
+          "label": "Escala d'ampliació"
+        },
+        "main-axis-padding": {
+          "description": "Farcit interior al llarg de l'eix principal del dock (entre les icones i els extrems curts de la càpsula)"
+        },
+        "monitors": {
+          "description": "Tria quins monitors mostren el dock (deixa buit per a tots); el filtratge de monitor actiu s'aplica dins d'aquests monitors",
+          "label": "Monitors"
+        },
+        "pinned-apps": {
+          "description": "IDs d'entrada d'escriptori de les aplicacions fixades al dock",
+          "label": "Aplicacions fixades"
+        },
+        "position": {
+          "description": "A quina vora de la pantalla se situa el dock"
+        },
+        "reserve-space": {
+          "description": "Empeny les finestres lluny de la vora del dock"
+        },
+        "shadow": {
+          "description": "Projecta l'ombra global de la superfície des del dock"
+        },
+        "show-dots": {
+          "description": "Mostra punts de finestres en execució al costat de les icones del dock",
+          "label": "Mostra punts"
+        },
+        "show-instance-count": {
+          "description": "Mostra una insígnia amb el nombre d'instàncies obertes",
+          "label": "Mostra el nombre d'instàncies"
+        },
+        "show-running": {
+          "description": "Mostra aplicacions en execució que no estan fixades",
+          "label": "Mostra en execució"
+        }
+      },
+      "hooks": {
+        "command-placeholder": "ordre de shell o camí de l'script",
+        "events": {
+          "battery-charging": {
+            "description": "Ordre a executar quan la bateria comença a carregar",
+            "label": "En carregar la bateria"
+          },
+          "battery-discharging": {
+            "description": "Ordre a executar quan la bateria comença a descarregar",
+            "label": "En descarregar la bateria"
+          },
+          "battery-percentage-changed": {
+            "description": "Ordre a executar quan canvia el percentatge de bateria",
+            "label": "En canviar el percentatge de bateria"
+          },
+          "battery-plugged": {
+            "description": "Ordre a executar quan la bateria està completament carregada o en càrrega pendent",
+            "label": "En endollar la bateria"
+          },
+          "bluetooth-disabled": {
+            "description": "Ordre a executar quan es desactiva el Bluetooth",
+            "label": "En desactivar el Bluetooth"
+          },
+          "bluetooth-enabled": {
+            "description": "Ordre a executar quan s'activa el Bluetooth",
+            "label": "En activar el Bluetooth"
+          },
+          "colors-changed": {
+            "description": "Ordre a executar quan canvia la paleta de colors activa",
+            "label": "En canviar els colors"
+          },
+          "logging-out": {
+            "description": "Ordre a executar abans de tancar la sessió",
+            "label": "En tancar la sessió"
+          },
+          "power-profile-changed": {
+            "description": "Ordre a executar quan canvia el perfil d'energia UPower/PPD actiu",
+            "label": "En canviar el perfil d'energia"
+          },
+          "rebooting": {
+            "description": "Ordre a executar abans de reiniciar",
+            "label": "En reiniciar"
+          },
+          "session-locked": {
+            "description": "Ordre a executar quan es bloqueja la sessió",
+            "label": "En bloquejar la sessió"
+          },
+          "session-unlocked": {
+            "description": "Ordre a executar després de desbloquejar la sessió",
+            "label": "En desbloquejar la sessió"
+          },
+          "shutting-down": {
+            "description": "Ordre a executar abans d'apagar",
+            "label": "En apagar"
+          },
+          "started": {
+            "description": "Ordre a executar després que el Noctalia s'iniciï",
+            "label": "En iniciar"
+          },
+          "theme-mode-changed": {
+            "description": "Ordre a executar quan el mode del tema canvïa entre clar i fosc",
+            "label": "En canviar el mode del tema"
+          },
+          "wallpaper-changed": {
+            "description": "Ordre a executar quan canvia el fons de pantalla",
+            "label": "En canviar el fons de pantalla"
+          },
+          "wifi-disabled": {
+            "description": "Ordre a executar quan es desactiva el Wi-Fi",
+            "label": "En desactivar el Wi-Fi"
+          },
+          "wifi-enabled": {
+            "description": "Ordre a executar quan s'activa el Wi-Fi",
+            "label": "En activar el Wi-Fi"
+          }
+        }
+      },
+      "idle": {
+        "behaviors": {
+          "description": "Accions d'inactivitat amb nom amb ajustos predefinits (bloqueig, pantalles apagades, suspensió) o ordres personalitzades, temps d'espera, aparellament de represa i ordre",
+          "label": "Comportaments"
+        },
+        "pre-action-fade": {
+          "description": "Segons d'atenuació de pantalla completa abans de l'ordre d'inactivitat; utilitza 0 per desactivar",
+          "label": "Atenuació d'inactivitat"
+        }
+      },
+      "keybinds": {
+        "cancel": {
+          "description": "Tanca finestres emergents, descarta panells o cancel·la l'operació actual",
+          "label": "Cancel·la"
+        },
+        "down": {
+          "description": "Mou el focus o la selecció una fila cap avall",
+          "label": "Navega avall"
+        },
+        "left": {
+          "description": "Mou el focus o la selecció cap a l'esquerra",
+          "label": "Navega a l'esquerra"
+        },
+        "right": {
+          "description": "Mou el focus o la selecció cap a la dreta",
+          "label": "Navega a la dreta"
+        },
+        "up": {
+          "description": "Mou el focus o la selecció una fila cap amunt",
+          "label": "Navega amunt"
+        },
+        "validate": {
+          "description": "Confirma seleccions, envia entrades o activa l'element enfocat",
+          "label": "Confirma"
+        }
+      },
+      "lockscreen": {
+        "allow-empty-password": {
+          "description": "Permet que Enter enviï una contrasenya buida. Activa-ho per a piles PAM sense contrasenya o amb clau de seguretat; mantén-ho desactivat per evitar bloquejos accidentals amb la tecla de despertar.",
+          "label": "Enviament de contrasenya buida"
+        },
+        "blur-intensity": {
+          "description": "Quant es desenfoca el fons de la pantalla de bloqueig",
+          "label": "Intensitat del desenfocament"
+        },
+        "blurred-desktop": {
+          "description": "Utilitza una instantània de l'escriptori com a fons de la pantalla de bloqueig",
+          "label": "Captura d'escriptori"
+        },
+        "enabled": {
+          "description": "Activa el bloqueig de sessió, la integració amb logind i les accions de bloqueig",
+          "label": "Pantalla de bloqueig"
+        },
+        "fingerprint": {
+          "description": "Desbloqueja amb un lector d'empremtes via fprintd, juntament amb l'entrada de contrasenya",
+          "label": "Desbloqueig per empremta"
+        },
+        "monitors": {
+          "description": "Tria quins monitors mostren la pantalla de bloqueig; deixa buit per mostrar a tots els monitors",
+          "label": "Monitors"
+        },
+        "tint-intensity": {
+          "description": "Tint de color de superfície sobre el fons de la pantalla de bloqueig",
+          "label": "Intensitat del tint"
+        },
+        "wallpaper": {
+          "description": "Imatge personalitzada per al fons de la pantalla de bloqueig. Deixa buit per utilitzar el fons de pantalla de l'escriptori.",
+          "label": "Fons de pantalla",
+          "placeholder": "Utilitza el fons de pantalla de l'escriptori"
+        },
+        "widgets": {
+          "description": "Mostra widgets configurables a la pantalla de bloqueig",
+          "label": "Widgets de la pantalla de bloqueig"
+        },
+        "widgets-editor": {
+          "button": "Commuta l'editor",
+          "description": "Afegeix, mou i redimensiona widgets a la pantalla de bloqueig",
+          "label": "Editor de widgets de la pantalla de bloqueig"
+        }
+      },
+      "notifications": {
+        "allowed-urgencies": {
+          "description": "Mostra només notificacions externes als nivells d'urgència seleccionats",
+          "label": "Urgències permeses"
+        },
+        "blacklist": {
+          "description": "Amaga els remitents coincidents (nom d'aplicació, entrada d'escriptori o categoria)",
+          "label": "Llista negra de notificacions"
+        },
+        "blacklist-allow-critical": {
+          "description": "Mostra igualment les notificacions crítiques dels remitents a la llista negra"
+        },
+        "collapse-on-dismiss": {
+          "description": "Llisca els toasts restants per tancar espais quan se'n descarta un",
+          "label": "Col·lapsa en descartar"
+        },
+        "daemon": {
+          "description": "Activa el dimoni de notificacions integrat",
+          "label": "Dimoni de notificacions"
+        },
+        "filters": {
+          "description": "Regles per remitent per a toasts, historial i sons; el primer filtre actiu que coincideixi guanya",
+          "label": "Filtres de notificacions"
+        },
+        "layer": {
+          "description": "Utilitza Overlay per mostrar els toasts de notificació per sobre de les aplicacions a pantalla completa.",
+          "label": "Capa Wayland"
+        },
+        "monitors": {
+          "description": "Tria quins monitors mostren els toasts de notificació; deixa buit per mostrar a tots els monitors",
+          "label": "Monitors"
+        },
+        "offset-x": {
+          "description": "Marge horitzontal absolut des de la vora de la pantalla o de la barra",
+          "label": "Marge horitzontal"
+        },
+        "offset-y": {
+          "description": "Marge vertical absolut des de la vora de la pantalla o de la barra",
+          "label": "Marge vertical"
+        },
+        "position": {
+          "description": "Posició a la pantalla per als toasts de notificació",
+          "label": "Posició a la pantalla"
+        },
+        "scale": {
+          "description": "Escala els toasts de notificació en relació amb l'escala de la interfície del shell",
+          "label": "Mida"
+        },
+        "show-actions": {
+          "description": "Mostra botons d'acció als toasts de notificació; quan està desactivat, fer clic al toast activa la seva acció per defecte",
+          "label": "Mostra botons d'acció"
+        },
+        "show-app-name": {
+          "description": "Mostra el nom de l'aplicació remitent als toasts de notificació",
+          "label": "Mostra el nom de l'aplicació"
+        },
+        "toast-opacity": {
+          "description": "Opacitat del fons dels toasts de notificació",
+          "label": "Opacitat del fons"
+        }
+      },
+      "panels": {
+        "borders": {
+          "description": "Dibuixa una vora als panells i a les targetes de secció dins dels panells",
+          "label": "Vores"
+        },
+        "control-center-sidebar": {
+          "description": "Tria com mostrar la barra lateral",
+          "label": "Barra lateral"
+        },
+        "control-center-sidebar-section": {
+          "description": "En obrir una pestanya específica (volum, multimèdia, etc.)",
+          "label": "Barra lateral en obrir una pestanya"
+        },
+        "floating-offset": {
+          "description": "Espai en píxels entre un panell flotant o desacoblat i la vora de la barra",
+          "label": "Marge flotant"
+        },
+        "home-shortcuts": {
+          "description": "Tria fins a sis botons de drecera per a la pestanya d'inici",
+          "label": "Dreceres d'inici"
+        },
+        "launcher-categories": {
+          "description": "Mostra filtres de categoria al launcher; mostra amb F6, després alterna amb F6 i Maj+F6",
+          "label": "Mostra categories"
+        },
+        "launcher-compact": {
+          "description": "Utilitza icones més petites i files de resultats més ajustades",
+          "label": "Files compactes"
+        },
+        "launcher-reset-usage": {
+          "button": "Restableix",
+          "description": "Esborra els recomptes de llançament i l'historial d'ús recent per a l'ordenació del launcher",
+          "label": "Restableix les dades d'ús"
+        },
+        "launcher-session-search": {
+          "description": "Inclou les accions de sessió (bloqueig, suspensió, reinici, apagada, tancament de sessió) a les cerques generals del launcher, no només darrere del prefix /session",
+          "label": "Activa la cerca de sessió"
+        },
+        "launcher-show-icons": {
+          "description": "Mostra icones d'aplicació als resultats del launcher",
+          "label": "Mostra icones d'aplicació"
+        },
+        "launcher-sort-by-usage": {
+          "description": "Impulsa les aplicacions més utilitzades cap a dalt i mostra un filtre de categoria d'ús recent",
+          "label": "Ordena per ús"
+        },
+        "open-near-click-clipboard": {
+          "description": "Posiciona el panell del porta-retalls a prop del clic de la barra en lloc de centrar-lo al llarg de la barra",
+          "label": "Obre a prop del clic"
+        },
+        "open-near-click-control-center": {
+          "description": "Posiciona el panell del centre de control a prop del clic de la barra en lloc de centrar-lo al llarg de la barra",
+          "label": "Obre a prop del clic"
+        },
+        "open-near-click-launcher": {
+          "description": "Posiciona el panell del launcher a prop del clic de la barra en lloc de centrar-lo al llarg de la barra",
+          "label": "Obre a prop del clic"
+        },
+        "open-near-click-session": {
+          "description": "Posiciona el panell del menú de sessió a prop del clic de la barra en lloc de centrar-lo al llarg de la barra",
+          "label": "Obre a prop del clic"
+        },
+        "open-near-click-wallpaper": {
+          "description": "Posiciona el panell del selector de fons de pantalla a prop del clic de la barra en lloc de centrar-lo al llarg de la barra",
+          "label": "Obre a prop del clic"
+        },
+        "placement-clipboard": {
+          "description": "Tria si el porta-retalls s'adjunta a la barra, flota a prop o s'obre centrat",
+          "label": "Ubicació"
+        },
+        "placement-control-center": {
+          "description": "Tria si el centre de control s'adjunta a la barra, flota a prop o s'obre centrat",
+          "label": "Ubicació"
+        },
+        "placement-launcher": {
+          "description": "Tria si el launcher s'adjunta a la barra, flota a prop o s'obre centrat",
+          "label": "Ubicació"
+        },
+        "placement-session": {
+          "description": "Tria si el menú de sessió s'adjunta a la barra, flota a prop o s'obre centrat",
+          "label": "Ubicació"
+        },
+        "placement-wallpaper": {
+          "description": "Tria si el selector de fons de pantalla s'adjunta a la barra, flota a prop o s'obre centrat",
+          "label": "Ubicació"
+        },
+        "shadow": {
+          "description": "Projecta l'ombra global de la superfície des de les superfícies dels panells"
+        },
+        "transparency-mode": {
+          "description": "Estil de vidre del panell, incloent l'opacitat del panell flotant/centrat i la translucidesa de les targetes",
+          "label": "Transparència"
+        }
+      },
+      "power": {
+        "session-actions": {
+          "description": "Entrades del menú d'energia, ordre, ordres personalitzades i icones",
+          "label": "Entrades"
+        }
+      },
+      "services": {
+        "audio-overdrive": {
+          "description": "Permet un volum superior al 100%",
+          "label": "Sobremarxa d'àudio"
+        },
+        "calendar": {
+          "description": "Mostra esdeveniments dels teus comptes de calendari en línia",
+          "label": "Calendari"
+        },
+        "calendar-add": {
+          "button": "Afegeix un compte",
+          "description": "Afegeix comptes d'iCloud, CalDAV o Google",
+          "label": "Comptes de calendari"
+        },
+        "calendar-edit": {
+          "button": "Edita",
+          "description": "Actualitza aquest compte de calendari"
+        },
+        "calendar-refresh-interval": {
+          "description": "Cada quants minuts se sincronitzen els esdeveniments del calendari",
+          "label": "Interval d'actualització"
+        },
+        "day-temperature": {
+          "description": "Temperatura de color durant el dia (Kelvin)",
+          "label": "Temperatura de dia"
+        },
+        "ddcutil": {
+          "description": "Controla la brillantor del monitor extern mitjançant DDC/CI",
+          "label": "DDC/CI (ddcutil)",
+          "requires-ddcutil": "Instal·la ddcutil per activar el control de brillantor DDC/CI"
+        },
+        "force-night-light": {
+          "description": "Aplica sempre el Night Light independentment de l'hora",
+          "label": "Força el Night Light"
+        },
+        "latitude": {
+          "description": "Latitud manual per a l'horari de sortida/posta de sol, utilitzat quan auto-locate i adreça estan desactivats",
+          "label": "Latitud"
+        },
+        "location-address": {
+          "description": "Ciutat o adreça per localitzar, utilitzat quan auto-locate està desactivat",
+          "label": "Adreça",
+          "placeholder": "Ciutat, País"
+        },
+        "location-auto-locate": {
+          "description": "Detecta la teva ubicació automàticament des de la teva adreça IP",
+          "label": "Auto-localització (IP)"
+        },
+        "longitude": {
+          "description": "Longitud manual per a l'horari de sortida/posta de sol, utilitzat quan auto-locate i adreça estan desactivats",
+          "label": "Longitud"
+        },
+        "minimum-brightness": {
+          "description": "Evita que la pantalla es quedi completament fosca",
+          "label": "Brillantor mínima"
+        },
+        "mpris-blacklist": {
+          "description": "Reproductors a ignorar per als controls multimèdia i Reproduint",
+          "label": "Llista negra de reproductors MPRIS"
+        },
+        "night-light": {
+          "description": "Canvia els colors de la pantalla a més càlids a la nit",
+          "label": "Night Light",
+          "requires-gamma-control": "El compositor no suporta el control de gamma"
+        },
+        "night-temperature": {
+          "description": "Temperatura de color a la nit (Kelvin)",
+          "label": "Temperatura nocturna"
+        },
+        "notification-sound": {
+          "description": "Fitxer de so utilitzat per a la retroalimentació de notificacions",
+          "label": "So de notificació",
+          "placeholder": "/camí/al/so.wav"
+        },
+        "shell-sounds": {
+          "description": "Reprodueix efectes de so per als esdeveniments del shell",
+          "label": "Sons del shell"
+        },
+        "sound-volume": {
+          "description": "Volum dels efectes de so del shell",
+          "label": "Volum dels sons"
+        },
+        "sunrise": {
+          "description": "Hora de sortida del sol manual en HH:MM, utilitzat quan no hi ha ubicació configurada",
+          "label": "Sortida del sol"
+        },
+        "sunset": {
+          "description": "Hora de posta de sol manual en HH:MM, utilitzat quan no hi ha ubicació configurada",
+          "label": "Posta de sol"
+        },
+        "system-monitor": {
+          "cpu-poll": {
+            "description": "Segons entre mostres d'ús de CPU, temperatura de CPU i mitjana de càrrega (0 desactiva)",
+            "label": "Interval de sondeig de CPU"
+          },
+          "description": "Mostreja estadístiques de CPU, memòria, xarxa, càrrega, temperatura i disc",
+          "disk-poll": {
+            "description": "Segons entre mostres d'ús de disc i ús de swap (0 desactiva)",
+            "label": "Interval de sondeig de disc"
+          },
+          "gpu-poll": {
+            "description": "Segons entre mostres de temperatura de GPU i VRAM. 0 el desactiva (per defecte), la qual cosa evita despertar una GPU discreta; 5 és un bon interval si l'actives",
+            "label": "Interval de sondeig de GPU"
+          },
+          "label": "Monitor del sistema",
+          "memory-poll": {
+            "description": "Segons entre mostres d'ús de RAM (0 desactiva)",
+            "label": "Interval de sondeig de memòria"
+          },
+          "network-poll": {
+            "description": "Segons entre mostres de rendiment de xarxa (0 desactiva)",
+            "label": "Interval de sondeig de xarxa"
+          },
+          "stats": {
+            "cpu-temp": "Temp. CPU",
+            "cpu-usage": "Ús CPU",
+            "disk-usage": "Ús del disc",
+            "gpu-temp": "Temp. GPU",
+            "gpu-usage": "Ús GPU",
+            "gpu-vram": "VRAM GPU",
+            "network-rx": "Descàrrega",
+            "network-tx": "Càrrega",
+            "ram-usage": "Ús RAM",
+            "swap-usage": "Ús Swap"
+          },
+          "threshold": {
+            "description": "Llindar d'activitat (esquerra) i llindar crític (dreta)",
+            "label": "{stat}"
+          }
+        },
+        "volume-change-sound": {
+          "description": "Fitxer de so utilitzat per a la retroalimentació de volum",
+          "label": "So de canvi de volum",
+          "placeholder": "/camí/al/so.wav"
+        },
+        "weather": {
+          "description": "Activa el servei meteorològic",
+          "label": "Temps"
+        },
+        "weather-effects": {
+          "description": "Mostra efectes meteorològics visuals",
+          "label": "Efectes meteorològics"
+        },
+        "weather-refresh-interval": {
+          "description": "Cada quants minuts s'actualitzen les dades meteorològiques",
+          "label": "Interval d'actualització"
+        },
+        "weather-unit": {
+          "description": "Sistema d'unitats per a la visualització meteorològica",
+          "label": "Unitats"
+        }
+      },
+      "shared": {
+        "auto-hide": {
+          "label": "Amagat automàtic"
+        },
+        "background-opacity": {
+          "label": "Opacitat del fons"
+        },
+        "contact-shadow": {
+          "label": "Ombra de contacte"
+        },
+        "corner-bottom-left": {
+          "label": "Radi inferior esquerre"
+        },
+        "corner-bottom-right": {
+          "label": "Radi inferior dret"
+        },
+        "corner-radius": {
+          "label": "Radi de cantonada"
+        },
+        "corner-top-left": {
+          "label": "Radi superior esquerre"
+        },
+        "corner-top-right": {
+          "label": "Radi superior dret"
+        },
+        "cross-axis-padding": {
+          "label": "Farcit de l'eix transversal"
+        },
+        "edge-margin": {
+          "label": "Marge de vora"
+        },
+        "enabled": {
+          "label": "Activat"
+        },
+        "ends-margin": {
+          "label": "Marge dels extrems"
+        },
+        "main-axis-padding": {
+          "label": "Farcit de l'eix principal"
+        },
+        "position": {
+          "label": "Posició"
+        },
+        "reserve-space": {
+          "label": "Reserva espai"
+        },
+        "shadow": {
+          "label": "Ombra"
+        },
+        "shadow-alpha": {
+          "label": "Opacitat de l'ombra"
+        },
+        "shadow-direction": {
+          "label": "Direcció de l'ombra"
+        }
+      },
+      "shell": {
+        "avatar-path": {
+          "description": "Camí a una imatge d'avatar personalitzada. Les imatges grans es retallen i redimensionen automàticament.",
+          "label": "Camí de l'avatar",
+          "placeholder": "/camí/al/avatar.png"
+        },
+        "clipboard-auto-paste": {
+          "description": "Enganxa automàticament les seleccions del porta-retalls",
+          "label": "Auto-enganxat del porta-retalls"
+        },
+        "clipboard-confirm-clear-history": {
+          "description": "Demana abans de netejar l'historial del porta-retalls o eliminar una entrada no fixada del panell; quan està desactivat, aquestes accions s'apliquen immediatament (les entrades fixades encara demanen confirmació abans d'eliminar)",
+          "label": "Confirma la neteja de l'historial"
+        },
+        "clipboard-enabled": {
+          "description": "Activa l'historial del porta-retalls, el panell del porta-retalls i la integració de copiar/enganxar",
+          "label": "Porta-retalls"
+        },
+        "clipboard-history-max-entries": {
+          "description": "Nombre màxim d'entrades no fixades a l'historial del porta-retalls",
+          "label": "Mida de l'historial"
+        },
+        "clipboard-image-action": {
+          "description": "Ordre a executar des de les entrades d'imatge del porta-retalls; utilitza {path} per al camí del fitxer, {stdin} per marcar la posició stdin, o omet {path} per canalitzar automàticament",
+          "label": "Ordre d'acció d'imatge",
+          "placeholder": "gimp {path} o satty -f -"
+        },
+        "date-format": {
+          "description": "Format de data per defecte per a la interfície del shell sense la seva pròpia configuració",
+          "label": "Format de data"
+        },
+        "launch-apps-as-systemd-services": {
+          "description": "Llança aplicacions en serveis systemd separats perquè no comparteixin el cgroup del Noctalia",
+          "label": "Llança aplicacions com a serveis systemd"
+        },
+        "middle-click-opens-widget-settings": {
+          "description": "Obre la configuració d'un widget de la barra des de la barra amb clic del mig",
+          "label": "El clic del mig obre la configuració del widget"
+        },
+        "niri-overview-type-to-launch": {
+          "description": "Obre el launcher en escriure a la vista general de niri; utilitza una petita superfície d'enfocament del teclat mentre la vista general està oberta",
+          "label": "Escriu per llançar"
+        },
+        "offline-mode": {
+          "description": "Bloqueja totes les sol·licituds de xarxa sortints",
+          "label": "Mode fora de línia"
+        },
+        "osd-background-opacity": {
+          "description": "Opacitat del fons de les finestres emergents OSD",
+          "label": "Opacitat del fons"
+        },
+        "osd-kinds-bluetooth": {
+          "description": "Mostra una finestra emergent OSD quan es commuta el Bluetooth",
+          "label": "Bluetooth"
+        },
+        "osd-kinds-brightness": {
+          "description": "Mostra una finestra emergent OSD quan canvia la brillantor de la pantalla",
+          "label": "Brillantor"
+        },
+        "osd-kinds-caffeine": {
+          "description": "Mostra una finestra emergent OSD quan canvia l'estat de la cafeïna (inhibidor d'inactivitat)",
+          "label": "Caffeine"
+        },
+        "osd-kinds-dnd": {
+          "description": "Mostra una finestra emergent OSD quan es commuta No Molestar",
+          "label": "No molestar"
+        },
+        "osd-kinds-keyboard-layout": {
+          "description": "Mostra una finestra emergent OSD quan canvia la disposició del teclat",
+          "label": "Disposició del teclat"
+        },
+        "osd-kinds-lock-keys": {
+          "description": "Mostra finestres emergents OSD per als canvis de Bloq Majús, Bloq Num i Bloq Despl",
+          "label": "Tecles de bloqueig"
+        },
+        "osd-kinds-media": {
+          "description": "Mostra una finestra emergent OSD quan comença una nova pista",
+          "label": "S'està reproduint"
+        },
+        "osd-kinds-power-profile": {
+          "description": "Mostra una finestra emergent OSD quan canvia el perfil d'energia",
+          "label": "Perfil d'energia"
+        },
+        "osd-kinds-volume": {
+          "description": "Mostra finestres emergents OSD quan canvia el volum; utilitza la configuració avançada per controlar sortida i entrada per separat",
+          "label": "Volum"
+        },
+        "osd-kinds-volume-input": {
+          "description": "Mostra una finestra emergent OSD quan canvia el volum d'entrada (micròfon)",
+          "label": "Volum d'entrada"
+        },
+        "osd-kinds-volume-output": {
+          "description": "Mostra una finestra emergent OSD quan canvia el volum de sortida (altaveu)",
+          "label": "Volum de sortida"
+        },
+        "osd-kinds-wifi": {
+          "description": "Mostra una finestra emergent OSD quan es commuta el Wi-Fi",
+          "label": "Wi-Fi"
+        },
+        "osd-monitors": {
+          "description": "Tria quins monitors mostren les finestres emergents OSD; deixa buit per mostrar a tots els monitors",
+          "label": "Monitors"
+        },
+        "osd-offset-x": {
+          "description": "Marge horitzontal absolut des de la vora de la pantalla",
+          "label": "Marge horitzontal"
+        },
+        "osd-offset-y": {
+          "description": "Marge vertical absolut des de la vora de la pantalla",
+          "label": "Marge vertical"
+        },
+        "osd-orientation": {
+          "description": "Direcció de la disposició per a les finestres emergents OSD",
+          "label": "Orientació"
+        },
+        "osd-position": {
+          "description": "Posició a la pantalla per a les finestres emergents OSD",
+          "label": "Posició a la pantalla"
+        },
+        "osd-scale": {
+          "description": "Escala les finestres emergents OSD en relació amb l'escala de la interfície del shell (1.0 manté la mida per defecte)",
+          "label": "Escala"
+        },
+        "password-style": {
+          "description": "Estil visual per a l'emmascarament de l'entrada de contrasenya",
+          "label": "Estil de contrasenya"
+        },
+        "polkit-agent": {
+          "description": "Activa l'agent d'autenticació integrat",
+          "label": "Agent polkit"
+        },
+        "screen-time-enabled": {
+          "description": "Registra l'ús per aplicació i mostra-ho al centre de control",
+          "label": "Temps de pantalla"
+        },
+        "screen-time-reset": {
+          "button": "Restableix",
+          "description": "Esborra l'historial d'ús en primer pla per aplicació emmagatzemat",
+          "label": "Restableix les dades de temps de pantalla"
+        },
+        "screenshot-copy-to-clipboard": {
+          "description": "Col·loca el PNG capturat a la selecció del porta-retalls",
+          "label": "Copia al porta-retalls"
+        },
+        "screenshot-directory": {
+          "description": "Carpeta per als fitxers PNG desats; deixa buit per utilitzar ~/Imatges",
+          "label": "Directori de sortida",
+          "placeholder": "~/Imatges"
+        },
+        "screenshot-filename-pattern": {
+          "description": "Patró strftime sense extensió (s'afegeix .png); utilitza %s per a l'època unix",
+          "label": "Patró del nom de fitxer"
+        },
+        "screenshot-freeze-screen": {
+          "description": "Captura l'escriptori abans de la selecció de regió perquè el contingut en moviment es mantingui quiet",
+          "label": "Congela la pantalla"
+        },
+        "screenshot-pipe-command": {
+          "description": "Ordre executada com a /bin/sh -lc amb el PNG a stdin; per a anotadors o carregadors (per exemple: swappy -f - o satty -f -)",
+          "label": "Ordre de canonada",
+          "placeholder": "swappy -f -"
+        },
+        "screenshot-pipe-to-command": {
+          "description": "Envia el PNG capturat a una ordre de shell per stdin",
+          "label": "Canonada a l'ordre"
+        },
+        "screenshot-save-to-file": {
+          "description": "Escriu les captures de pantalla com a fitxers PNG al directori de sortida",
+          "label": "Desa al fitxer"
+        },
+        "show-location": {
+          "description": "Mostra el nom de la ubicació als widgets del temps",
+          "label": "Mostra la ubicació"
+        },
+        "sync-greeter": {
+          "button": "Sincronitza ara",
+          "description": "Copia el fons de pantalla i els colors actuals al Noctalia Greeter (requereix aprovació d'administrador)",
+          "label": "Noctalia Greeter"
+        },
+        "telemetry": {
+          "description": "Envia un petit ping anònim d'inici amb versió, SO, compositor, resolucions de monitor, RAM i escala de la interfície",
+          "label": "Ping d'inici anònim"
+        },
+        "time-format": {
+          "description": "Format d'hora per defecte per a la interfície del shell sense la seva pròpia configuració",
+          "label": "Format d'hora"
+        }
+      },
+      "system": {
+        "battery-device-warning-threshold": {
+          "description": "Sobreescriu el llindar d'advertència de bateria per a aquest dispositiu. Posa 0 per desactivar els avisos d'aquest dispositiu.",
+          "label": "Llindar d'advertència de {device}"
+        },
+        "battery-warning-threshold": {
+          "description": "Percentatge de bateria del sistema en el qual o per sota del qual el shell envia una notificació de bateria baixa i els widgets de bateria utilitzen el seu color d'advertència. Posa 0 per desactivar.",
+          "label": "Llindar d'advertència de bateria"
+        }
+      },
+      "templates": {
+        "builtin-ids": {
+          "description": "Commuta les plantilles d'aplicació integrades per renderitzar a cada canvi de tema",
+          "empty": "No hi ha plantilles integrades disponibles.",
+          "label": "Plantilles integrades"
+        },
+        "community-ids": {
+          "description": "Commuta les plantilles de la comunitat en memòria cau per renderitzar a cada canvi de tema",
+          "empty": "Encara no hi ha plantilles de la comunitat disponibles. Activa les plantilles de la comunitat i actualitza el catàleg primer.",
+          "label": "Plantilles de la comunitat"
+        },
+        "enable-builtins": {
+          "description": "Utilitza el catàleg integrat de plantilles de tema per a aplicacions",
+          "label": "Activa les plantilles integrades"
+        },
+        "enable-community-templates": {
+          "description": "Descarrega i aplica plantilles del catàleg de la comunitat",
+          "label": "Activa les plantilles de la comunitat"
+        }
+      },
+      "wallpaper": {
+        "automation": {
+          "description": "Canvia els fons de pantalla automàticament amb un temporitzador",
+          "label": "Rotació automàtica"
+        },
+        "automation-interval": {
+          "description": "Segons entre canvis de fons de pantalla",
+          "label": "Interval de rotació"
+        },
+        "automation-order": {
+          "description": "Tria fons de pantalla aleatòriament o alfabèticament",
+          "label": "Ordre"
+        },
+        "automation-recursive": {
+          "description": "Cerca carpetes niades per a fons de pantalla",
+          "label": "Inclou subcarpetes"
+        },
+        "directory": {
+          "description": "Carpeta que conté fons de pantalla",
+          "label": "Directori de fons de pantalla"
+        },
+        "directory-dark": {
+          "description": "Carpeta de fons de pantalla utilitzada en mode de tema fosc",
+          "label": "Directori del mode fosc",
+          "placeholder": "~/Imatges/Fons"
+        },
+        "directory-light": {
+          "description": "Carpeta de fons de pantalla utilitzada en mode de tema clar",
+          "label": "Directori del mode clar",
+          "placeholder": "~/Imatges/Fons"
+        },
+        "edge-smoothness": {
+          "description": "Difuminat de les vores de transició entre fons de pantalla",
+          "label": "Suavitat de vores"
+        },
+        "enabled": {
+          "description": "Activa el servei de fons de pantalla"
+        },
+        "fill-color": {
+          "description": "Color sòlid mostrat darrere de la imatge a les àrees no cobertes",
+          "label": "Color de farciment"
+        },
+        "fill-mode": {
+          "description": "Com s'ajusten els fons de pantalla a la pantalla",
+          "label": "Mode d'ajust"
+        },
+        "monitor-directory": {
+          "label": "Directori de fons de pantalla"
+        },
+        "monitor-directory-dark": {
+          "label": "Directori del mode fosc",
+          "placeholder": "~/Imatges/Fons"
+        },
+        "monitor-directory-light": {
+          "label": "Directori del mode clar",
+          "placeholder": "~/Imatges/Fons"
+        },
+        "panel": {
+          "button": "Obre el panell",
+          "description": "Obre el panell del selector de fons de pantalla",
+          "label": "Panell de fons de pantalla"
+        },
+        "per-monitor-directories": {
+          "description": "Utilitza carpetes de fons de pantalla separades per a cada monitor",
+          "label": "Directoris per monitor"
+        },
+        "transition-duration": {
+          "description": "Durada de l'animació de canvi de fons de pantalla en mil·lisegons",
+          "label": "Durada de la transició"
+        },
+        "transition-on-startup": {
+          "description": "Reprodueix una transició quan el shell mostra un fons de pantalla per primera vegada",
+          "label": "Anima a l'inici"
+        },
+        "transitions": {
+          "description": "Efectes disponibles en canviar el fons de pantalla (se'n tria un a l'atzar per canvi)",
+          "label": "Efectes de transició"
+        }
+      }
+    },
+    "session-actions": {
+      "add": "Afegeix una acció",
+      "clear-glyph": "Esborra",
+      "command-label": "Ordre de shell",
+      "command-placeholder": "Ordre bash opcional, deixa buit per al comportament integrat",
+      "command-required-placeholder": "Ordre de shell a executar",
+      "glyph-label": "Glif",
+      "glyph-picker-title": "Glif de l'acció",
+      "kind-section-label": "Comportament",
+      "label-field": "Etiqueta",
+      "label-placeholder": "Text del botó opcional",
+      "shortcut-label": "Drecera",
+      "variant": {
+        "default": "Per defecte",
+        "destructive": "Destructiu",
+        "ghost": "Ghost",
+        "outline": "Outline",
+        "primary": "Primari",
+        "secondary": "Secundari"
+      },
+      "variant-label": "Estil del botó"
+    },
+    "widgets": {
+      "instances": {
+        "cpu": "CPU",
+        "date": "Data",
+        "input-volume": "Volum d'entrada",
+        "network-rx": "Xarxa RX",
+        "network-tx": "Xarxa TX",
+        "output-volume": "Volum de sortida",
+        "ram": "RAM",
+        "temp": "Temperatura"
+      },
+      "options": {
+        "always": "Sempre",
+        "cpu-temp": "Temperatura CPU",
+        "cpu-usage": "Ús CPU",
+        "disk-percent": "Percentatge disc",
+        "full": "Complet",
+        "gauge": "Gauge",
+        "glyph": "Glif",
+        "gpu-temp": "Temperatura GPU",
+        "gpu-usage": "Ús GPU",
+        "gpu-vram": "VRAM GPU",
+        "graph": "Gràfic",
+        "graphic": "Gràfic",
+        "icon-and-text": "Icona i text",
+        "icon-only": "Només icona",
+        "id": "ID",
+        "input": "Entrada",
+        "instance": "Per ubicació",
+        "name": "Nom",
+        "net-rx": "Xarxa RX",
+        "net-tx": "Xarxa TX",
+        "none": "Cap",
+        "on-hover": "En passar el ratolí",
+        "output": "Sortida",
+        "ram-percent": "Percentatge RAM",
+        "ram-used": "RAM utilitzada",
+        "screenshot-primary-fullscreen": "Pantalla completa",
+        "screenshot-primary-region": "Regió",
+        "shared": "Compartit",
+        "short": "Curt",
+        "swap-percent": "Percentatge Swap",
+        "text": "Text",
+        "text-only": "Només text",
+        "workspace-label-centered": "Centrat",
+        "workspace-label-corner": "Cantonada",
+        "workspace-label-inside": "Dins de la pastilla"
+      },
+      "settings": {
+        "active-color": {
+          "description": "Color utilitzat per als indicadors de privadesa actius; també s'admeten colors hex fixos",
+          "label": "Color actiu"
+        },
+        "active-opacity": {
+          "description": "Opacitat de la icona de la finestra activa (enfocada).",
+          "label": "Opacitat d'icona activa"
+        },
+        "album-art-only": {
+          "description": "Mostra només la caràtula circular sense el títol de la pista",
+          "label": "Només caràtula"
+        },
+        "anchor": {
+          "description": "Fixa aquest widget com a àncora d'alineació central",
+          "label": "Àncora"
+        },
+        "art-size": {
+          "description": "Mida de la caràtula multimèdia en píxels",
+          "label": "Mida de la caràtula"
+        },
+        "bands": {
+          "description": "Nombre de bandes del visualitzador",
+          "label": "Bandes"
+        },
+        "cam-filter-regex": {
+          "description": "Expressió regular per als noms de procés de càmera a ignorar",
+          "label": "Regex de filtre de càmera"
+        },
+        "capsule": {
+          "description": "Dibuixa una càpsula darrere d'aquest widget",
+          "label": "Càpsula"
+        },
+        "capsule-border": {
+          "description": "Color de la vora de la càpsula; també s'admeten colors hex fixos",
+          "label": "Vora de la càpsula"
+        },
+        "capsule-fill": {
+          "description": "Color de fons de la càpsula; també s'admeten colors hex fixos",
+          "label": "Fons de la càpsula"
+        },
+        "capsule-foreground": {
+          "description": "Color del contingut dins de la càpsula; també s'admeten colors hex fixos",
+          "label": "Primer pla de la càpsula"
+        },
+        "capsule-opacity": {
+          "description": "Opacitat del fons de la càpsula",
+          "label": "Opacitat de la càpsula"
+        },
+        "capsule-padding": {
+          "description": "Farcit interior dins de la càpsula",
+          "label": "Farcit de la càpsula"
+        },
+        "capsule-radius": {
+          "description": "Radi de les cantonades d'aquesta càpsula de widget; deixa en blanc per a forma de pastilla automàtica o posa 0 per a cantonades quadrades",
+          "label": "Radi de la càpsula",
+          "taskbar-description": "Radi de les cantonades per a la càpsula del widget, els indicadors de disc d'espai de treball i les càpsules de grup d'espai de treball; deixa en blanc per a forma de pastilla automàtica o posa 0 per a cantonades quadrades",
+          "workspaces-description": "Radi de les cantonades per a aquesta càpsula de widget i les pastilles d'espai de treball; deixa en blanc per a forma de pastilla automàtica o posa 0 per a cantonades quadrades"
+        },
+        "centered": {
+          "description": "Centra les barres del visualitzador en lloc d'alinear-les a la vora",
+          "label": "Centrat"
+        },
+        "color": {
+          "description": "Color de la icona i l'etiqueta d'aquest widget; també s'admeten colors hex fixos",
+          "label": "Color"
+        },
+        "color-1": {
+          "description": "Primer color del degradat al visualitzador",
+          "label": "Color u"
+        },
+        "color-2": {
+          "description": "Segon color del degradat al visualitzador",
+          "label": "Color dos"
+        },
+        "command": {
+          "description": "Ordre de shell executada en fer clic esquerre en aquest botó",
+          "label": "Ordre del clic esquerre"
+        },
+        "custom-image": {
+          "description": "Camí a una imatge personalitzada. Deixa buit per utilitzar el glif de la icona.",
+          "dialog-title": "Selecciona una imatge personalitzada",
+          "label": "Imatge personalitzada"
+        },
+        "custom-image-colorize": {
+          "description": "Tinta la imatge personalitzada amb el color d'icona del widget",
+          "label": "Acoloreix la imatge personalitzada"
+        },
+        "custom-labels": {
+          "description": "Mapeja noms de disposició de teclat a etiquetes personalitzades",
+          "label": "Etiquetes personalitzades"
+        },
+        "cycle-command": {
+          "description": "Ordre executada en alternar les disposicions de teclat",
+          "label": "Ordre d'alternança"
+        },
+        "detached-panel": {
+          "description": "Obre el calaix com a panell flotant amb el seu propi fons en lloc de fusionar-se amb la barra",
+          "label": "Panell desacoblat"
+        },
+        "device": {
+          "description": "Dispositiu a monitoritzar o controlar",
+          "label": "Dispositiu"
+        },
+        "display": {
+          "active-window-description": "Icona, títol o tots dos a les barres horitzontals. Les barres verticals només mostren la icona.",
+          "description": "Mode de visualització per a aquest widget",
+          "label": "Visualització"
+        },
+        "display-mode": {
+          "description": "Renderitza la bateria com a forma gràfica o com a glif Tabler",
+          "label": "Mode de visualització"
+        },
+        "drawer": {
+          "description": "Mostra un botó de safata a la barra i obre els elements en un panell",
+          "label": "Utilitza panell calaix"
+        },
+        "drawer-columns": {
+          "description": "Nombre d'icones de safata per fila al panell calaix",
+          "label": "Columnes del calaix"
+        },
+        "empty-color": {
+          "description": "Color utilitzat per als espais de treball buits; també s'admeten colors hex fixos",
+          "label": "Color buit"
+        },
+        "focused-color": {
+          "description": "Color utilitzat per a l'espai de treball enfocat; també s'admeten colors hex fixos",
+          "label": "Color enfocat"
+        },
+        "font-family": {
+          "description": "Tipus de lletra per a aquest widget; deixa buit per heretar el tipus de lletra de la barra",
+          "label": "Tipus de lletra"
+        },
+        "font-weight": {
+          "description": "Per defecte hereta el pes de la lletra de la barra",
+          "label": "Pes de la lletra"
+        },
+        "format": {
+          "description": "Cadena de format d'hora",
+          "label": "Format"
+        },
+        "glyph": {
+          "description": "Nom del glif de la icona",
+          "label": "Glif",
+          "sysmon-description": "Glif d'icona personalitzat. Deixa buit per utilitzar la icona de l'estadística seleccionada."
+        },
+        "group-by-workspace": {
+          "description": "Agrupa les icones de la barra de tasques en càpsules d'espai de treball quan hi ha dades del compositor",
+          "label": "Agrupa per espai de treball"
+        },
+        "group-single-icon-per-app": {
+          "description": "En agrupar per espai de treball, col·lapsa múltiples finestres de la mateixa aplicació en una sola icona amb una insígnia de recompte.",
+          "label": "Icona única per aplicació"
+        },
+        "height": {
+          "description": "Alçada del widget en píxels",
+          "label": "Alçada"
+        },
+        "hidden": {
+          "description": "IDs d'elements de safata a amagar",
+          "label": "Elements amagats"
+        },
+        "hide-empty-workspaces": {
+          "description": "En agrupar per espai de treball, omet les càpsules que no tenen finestres en execució a la llista de la barra de tasques.",
+          "label": "Amaga espais de treball buits"
+        },
+        "hide-inactive": {
+          "description": "Amaga les icones de privadesa inactives i amaga el widget quan no hi ha res actiu",
+          "label": "Amaga inactiu"
+        },
+        "hide-when-empty": {
+          "description": "Amaga les pastilles d'espai de treball quan no hi ha finestres obertes",
+          "label": "Amaga quan està buit",
+          "workspaces-description": "Amaga les pastilles d'espai de treball que no tenen finestres obertes"
+        },
+        "hide-when-full": {
+          "description": "Amaga el widget de bateria quan està completament carregada",
+          "label": "Amaga quan està ple"
+        },
+        "hide-when-no-connected-device": {
+          "description": "Amaga el widget de Bluetooth quan no hi ha cap dispositiu connectat",
+          "label": "Amaga sense dispositiu connectat"
+        },
+        "hide-when-no-media": {
+          "description": "Amaga el widget multimèdia quan no hi ha cap reproductor MPRIS actiu",
+          "label": "Amaga sense multimèdia"
+        },
+        "hide-when-no-unread": {
+          "description": "Amaga el widget de notificacions quan no hi ha notificacions no llegides",
+          "label": "Amaga sense novetats"
+        },
+        "hide-when-off": {
+          "description": "Amaga l'indicador de tecla de bloqueig quan està inactiu",
+          "label": "Amaga quan està desactivat"
+        },
+        "hide-when-plugged": {
+          "description": "Amaga el widget de bateria mentre està connectat a la corrent",
+          "label": "Amaga quan està endollat"
+        },
+        "hide-when-single-layout": {
+          "description": "Amaga el widget de disposició de teclat tret que hi hagi més d'una disposició configurada",
+          "label": "Amaga amb una sola disposició"
+        },
+        "highlight-color": {
+          "description": "Color aconseguit en o per sobre del llindar crític",
+          "label": "Color de ressaltat"
+        },
+        "hot-reload": {
+          "description": "Recarrega el widget amb script quan la seva font canvia",
+          "label": "Hot reload"
+        },
+        "icon-color": {
+          "description": "Sobreescriu el color del widget només per a les icones; també s'admeten colors hex fixos",
+          "label": "Color d'icona"
+        },
+        "icon-size": {
+          "description": "Mida de la icona en píxels",
+          "label": "Mida d'icona"
+        },
+        "icon-spacing": {
+          "description": "Espaiat entre les icones d'indicador de privadesa en píxels",
+          "label": "Espaiat entre icones"
+        },
+        "inactive-color": {
+          "description": "Color utilitzat per als indicadors de privadesa inactius; també s'admeten colors hex fixos",
+          "label": "Color inactiu"
+        },
+        "inactive-opacity": {
+          "description": "Opacitat de les icones de les finestres inactives (no enfocades).",
+          "label": "Opacitat d'icona inactiva"
+        },
+        "interface": {
+          "description": "Interfície de xarxa a monitoritzar; deixa buit per utilitzar el total de totes les interfícies",
+          "label": "Interfície"
+        },
+        "label": {
+          "description": "Text estàtic opcional mostrat en aquest botó",
+          "label": "Etiqueta"
+        },
+        "label-min-width": {
+          "description": "Amplada mínima de l'etiqueta en píxels per evitar redimensionaments",
+          "label": "Amplada mínima de l'etiqueta"
+        },
+        "labels-only-when-occupied": {
+          "description": "Amaga les etiquetes d'espai de treball als espais de treball buits i inactius",
+          "label": "Etiquetes només quan està ocupat",
+          "workspaces-description": "Mostra les etiquetes d'id o nom d'espai de treball als espais de treball amb finestres obertes i a l'espai de treball actiu encara que estigui buit; altres etiquetes buides romanen sense etiqueta"
+        },
+        "length": {
+          "description": "Longitud de l'espaiador en píxels",
+          "label": "Longitud"
+        },
+        "match-adjacent-spacing": {
+          "description": "Amplia els espais entre les icones de safata en línia perquè coincideixin amb l'espaiat visual dels widgets de barra veïns (inclou el farcit de la càpsula)",
+          "label": "Iguala l'espaiat dels widgets adjacents"
+        },
+        "max-label-chars": {
+          "description": "Nombre màxim de caràcters a mostrar per als noms d'espai de treball",
+          "label": "Caràcters màx. de l'etiqueta",
+          "workspaces-description": "Caràcters màxims per a les etiquetes de nom d'espai de treball"
+        },
+        "max-length": {
+          "description": "Longitud màxima del widget en píxels",
+          "label": "Longitud màxima"
+        },
+        "mic-filter-regex": {
+          "description": "Expressió regular per als noms d'aplicació de micròfon a ignorar",
+          "label": "Regex de filtre de micròfon"
+        },
+        "middle-command": {
+          "description": "Ordre de shell executada en fer clic del mig en aquest botó. Quan està configurat, el clic del mig obre aquesta ordre en lloc de la configuració del widget.",
+          "label": "Ordre del clic del mig"
+        },
+        "min-length": {
+          "description": "Longitud mínima del widget en píxels",
+          "label": "Longitud mínima"
+        },
+        "minimal": {
+          "description": "Mostra només les etiquetes d'id o nom d'espai de treball, sense pastilles animades",
+          "label": "Estil mínim",
+          "workspaces-description": "Etiquetes d'espai de treball només de text sense fons de pastilla ni animació de lliscament"
+        },
+        "mirrored": {
+          "description": "Reflecteix el visualitzador al voltant del seu centre",
+          "label": "Mirall"
+        },
+        "occupied-color": {
+          "description": "Color utilitzat per als espais de treball ocupats; també s'admeten colors hex fixos",
+          "label": "Color ocupat"
+        },
+        "only-active-workspace": {
+          "description": "Amaga les finestres dels espais de treball inactius.",
+          "label": "Només espai de treball actiu"
+        },
+        "path": {
+          "description": "Camí utilitzat per les estadístiques de disc",
+          "label": "Camí"
+        },
+        "pill-scale": {
+          "description": "Ajusta l'escala de les pastilles d'espai de treball",
+          "label": "Escala de pastilla",
+          "workspaces-description": "Ajusta l'escala de les pastilles d'espai de treball"
+        },
+        "pinned": {
+          "description": "IDs d'elements de safata que romanen visibles a la barra quan el mode calaix està activat",
+          "label": "Elements fixats"
+        },
+        "primary-click": {
+          "description": "Acció realitzada en fer clic esquerre al botó de la barra",
+          "label": "Clic principal"
+        },
+        "right-command": {
+          "description": "Ordre de shell executada en fer clic dret en aquest botó",
+          "label": "Ordre del clic dret"
+        },
+        "scale": {
+          "description": "Escala aquest widget en relació amb l'escala del contingut de la barra",
+          "label": "Escala"
+        },
+        "scope": {
+          "description": "Executa un temps d'execució d'script per ubicació de widget en viu, o comparteix un temps d'execució entre barres amb el mateix id de widget",
+          "label": "Àmbit d'execució"
+        },
+        "script": {
+          "description": "Camí a l'script lua",
+          "label": "Script"
+        },
+        "scroll-down-command": {
+          "description": "Ordre de shell executada en desplaçar cap avall sobre aquest botó",
+          "label": "Ordre de desplaçament avall"
+        },
+        "scroll-step": {
+          "description": "Canvi percentual aplicat a cada pas de la roda del ratolí",
+          "label": "Pas de desplaçament"
+        },
+        "scroll-up-command": {
+          "description": "Ordre de shell executada en desplaçar cap amunt sobre aquest botó",
+          "label": "Ordre de desplaçament amunt"
+        },
+        "show-active-indicator": {
+          "description": "Mostra un petit punt sota la icona de la finestra activa a la barra de tasques.",
+          "label": "Indicador de finestra activa"
+        },
+        "show-all-outputs": {
+          "description": "Inclou finestres de totes les pantalles en aquest widget.",
+          "label": "Mostra tots els monitors"
+        },
+        "show-caps-lock": {
+          "description": "Mostra l'estat de Bloq Majús",
+          "label": "Mostra Bloq Majús"
+        },
+        "show-condition": {
+          "description": "Mostra el text de la condició meteorològica",
+          "label": "Mostra la condició"
+        },
+        "show-empty-label": {
+          "description": "Mostra text de marcador de posició quan no hi ha cap finestra enfocada en lloc d'amagar el widget",
+          "label": "Mostra l'etiqueta buida"
+        },
+        "show-icon": {
+          "description": "Mostra la icona d'aquest widget",
+          "label": "Mostra la icona"
+        },
+        "show-label": {
+          "description": "Mostra text al costat de la icona",
+          "label": "Mostra l'etiqueta"
+        },
+        "show-num-lock": {
+          "description": "Mostra l'estat de Bloq Num",
+          "label": "Mostra Bloq Num"
+        },
+        "show-scroll-lock": {
+          "description": "Mostra l'estat de Bloq Despl",
+          "label": "Mostra Bloq Despl"
+        },
+        "show-when-idle": {
+          "description": "Manté el visualitzador visible fins i tot quan no s'està reproduint multimèdia",
+          "label": "Mostra quan està inactiu"
+        },
+        "show-window-title": {
+          "description": "Mostra el títol de la finestra al costat de la seva icona (només a les barres horitzontals)",
+          "label": "Mostra el títol de la finestra"
+        },
+        "show-workspace-label": {
+          "description": "Mostra la petita etiqueta d'espai de treball a les càpsules de la barra de tasques agrupades. Desactiva per a grups només amb icona.",
+          "label": "Etiqueta de càpsula d'espai de treball"
+        },
+        "stat": {
+          "description": "Estadística del sistema a mostrar",
+          "label": "Estadística"
+        },
+        "taskbar-max-width": {
+          "description": "Pressupost total d'amplada en píxels; els títols de finestra es redueixen per ajustar-se i s'amaguen quan són massa estrets",
+          "label": "Amplada màx. de la barra de tasques"
+        },
+        "title-scroll": {
+          "description": "Quan s'ha de desplaçar el títol del widget",
+          "label": "Desplaçament del títol"
+        },
+        "tooltip": {
+          "description": "Informació sobre eines mostrada en passar el ratolí per sobre d'aquest botó",
+          "label": "Informació sobre eines"
+        },
+        "tooltip-format": {
+          "description": "Format opcional per a la informació sobre eines",
+          "label": "Format de la informació sobre eines"
+        },
+        "type": {
+          "description": "Tipus de widget integrat per a aquest widget amb nom",
+          "label": "Tipus"
+        },
+        "vertical-format": {
+          "description": "Format opcional utilitzat a les barres verticals",
+          "label": "Format vertical"
+        },
+        "warning-color": {
+          "description": "Color aplicat quan la càrrega està en o per sota del llindar d'advertència de bateria del sistema",
+          "label": "Color d'advertència"
+        },
+        "width": {
+          "description": "Amplada del widget en píxels",
+          "label": "Amplada"
+        },
+        "window-title-max-width": {
+          "description": "Amplada màxima en píxels per als títols de finestra",
+          "label": "Amplada màx. del títol de finestra"
+        },
+        "workspace-group-capsule": {
+          "description": "Dibuixa el fons i la vora al voltant de cada espai de treball agrupat. Desactiva per mantenir només l'agrupació d'icones i les etiquetes de disc d'espai de treball.",
+          "label": "Càpsula de grup d'espai de treball"
+        },
+        "workspace-label-placement": {
+          "description": "Cantonada, centrada a la vora o dins de la pastilla.",
+          "label": "Ubicació de l'etiqueta d'espai de treball"
+        }
+      },
+      "types": {
+        "active-window": "Finestra activa",
+        "audio-visualizer": "Visualitzador d'àudio",
+        "battery": "Bateria",
+        "bluetooth": "Bluetooth",
+        "brightness": "Brillantor",
+        "caffeine": "Caffeine",
+        "clipboard": "Porta-retalls",
+        "clock": "Rellotge",
+        "control-center": "Centre de control",
+        "custom-button": "Botó personalitzat",
+        "keyboard-layout": "Disposició del teclat",
+        "launcher": "Launcher",
+        "lock-keys": "Tecles de bloqueig",
+        "media": "Multimèdia",
+        "network": "Xarxa",
+        "nightlight": "Night Light",
+        "notifications": "Notificacions",
+        "power-profile": "Perfil d'energia",
+        "privacy": "Indicador de privacitat",
+        "screenshot": "Captura de pantalla",
+        "scripted": "Amb script",
+        "session": "Sessió",
+        "settings": "Configuració",
+        "spacer": "Espaiador",
+        "sysmon": "Monitor del sistema",
+        "taskbar": "Barra de tasques",
+        "test": "Prova",
+        "theme-mode": "Mode del tema",
+        "tray": "Safata",
+        "volume": "Volum",
+        "wallpaper": "Fons de pantalla",
+        "weather": "Temps",
+        "workspaces": "Espais de treball"
+      }
+    },
+    "window": {
+      "export-config": "Exporta la configuració…",
+      "export-config-saved": "Exportació de la configuració desada.",
+      "filter-modified": "Modificat",
+      "native-title": "Configuració del Noctalia",
+      "no-results": "No s'han trobat paràmetres",
+      "no-results-hint": "Prova amb un nom de paràmetre o una clau de configuració diferent.",
+      "reset-page": "Restableix la pàgina",
+      "reset-page-confirm": "Confirma el restabliment",
+      "search-placeholder": "Cerca paràmetres…",
+      "support-report": "Informe d'assistència",
+      "support-report-saved": "Informe d'assistència desat.",
+      "support-report-title": "Desa l'informe d'assistència",
+      "title": "Configuració"
+    }
+  },
+  "setup-wizard": {
+    "browse": "Navega",
+    "builtin-palette": "Paleta integrada",
+    "footer-note": "Pots canviar-ho més tard a la configuració.",
+    "get-started": "Comença",
+    "mode": "Mode",
+    "no-wallpaper-selected": "No s'ha seleccionat cap fons de pantalla",
+    "select-wallpaper": "Selecciona un fons de pantalla",
+    "subtitle": "Unes quantes opcions ràpides per començar.",
+    "title": "Benvingut al Noctalia",
+    "wallpaper": "Fons de pantalla",
+    "wallpaper-scheme": "Esquema del fons de pantalla"
+  },
+  "system": {
+    "hardware": {
+      "unknown": "Desconegut",
+      "unknown-cpu": "CPU desconeguda",
+      "unknown-distro": "Distribució desconeguda",
+      "unknown-gpu": "GPU desconeguda"
+    }
+  },
+  "theme": {
+    "scheme": {
+      "dysfunctional": "Disfuncional",
+      "faithful": "Fidel",
+      "m3-content": "M3 Contingut",
+      "m3-fruit-salad": "M3 Amanida de fruites",
+      "m3-monochrome": "M3 Monocrom",
+      "m3-rainbow": "M3 Arc de Sant Martí",
+      "m3-tonal-spot": "M3 Punt tonal",
+      "muted": "Atenuat",
+      "vibrant": "Vibrant"
+    }
+  },
+  "time": {
+    "duration": {
+      "less-than-minute": "<1m"
+    },
+    "file": {
+      "unknown": "Desconegut"
+    },
+    "relative": {
+      "days-ago": "Fa {count} dia",
+      "days-ago-plural": "Fa {count} dies",
+      "hours-ago": "Fa {count} h",
+      "hours-ago-plural": "Fa {count} h",
+      "just-now": "ara mateix",
+      "minutes-ago": "Fa {count} min",
+      "minutes-ago-plural": "Fa {count} min"
+    }
+  },
+  "tray": {
+    "menu": {
+      "empty": "No hi ha elements del menú...",
+      "pin": "Fixa",
+      "unpin": "Desfixa"
+    }
+  },
+  "ui": {
+    "controls": {
+      "search-picker": {
+        "empty": "No hi ha resultats",
+        "placeholder": "Cerca..."
+      },
+      "select": {
+        "placeholder": "Selecciona una opció"
+      }
+    },
+    "dialogs": {
+      "color-picker": {
+        "title": "Color"
+      },
+      "file": {
+        "actions": {
+          "open": "Obre",
+          "save": "Desa",
+          "select-folder": "Selecciona una carpeta"
+        },
+        "empty-filtered": "No hi ha fitxers que coincideixin amb el filtre",
+        "entry": {
+          "folder": "Carpeta"
+        },
+        "filename-placeholder": "Nom del fitxer",
+        "filter-placeholder": "Filtra...",
+        "sort": {
+          "ascending": "↑",
+          "date": "Data",
+          "descending": "↓",
+          "name": "Nom",
+          "size": "Mida"
+        },
+        "title": {
+          "default": "Diàleg de fitxer",
+          "open": "Obre un fitxer",
+          "save": "Desa un fitxer",
+          "select-folder": "Selecciona una carpeta"
+        }
+      },
+      "glyph-picker": {
+        "all-categories": "Totes",
+        "search-placeholder": "Cerca glifs…",
+        "title": "Tria un glif"
+      }
+    }
+  },
+  "wallpaper": {
+    "panel": {
+      "all-monitors": "TOTS",
+      "color-title": "Color del fons de pantalla",
+      "filter-placeholder": "Filtra...",
+      "flatten": "Aplana",
+      "sort-date-asc": "Ordena per data (més antic primer)",
+      "sort-date-desc": "Ordena per data (més nou primer)",
+      "sort-name-asc": "Ordena per nom (A-Z)",
+      "sort-name-desc": "Ordena per nom (Z-A)",
+      "title": "Fons de pantalla"
+    }
+  },
+  "weather": {
+    "conditions": {
+      "full": {
+        "clear-sky": "Cel clar",
+        "drizzle": "Plugim",
+        "fog": "Boira",
+        "mainly-clear": "Majoritàriament clar",
+        "overcast": "Ennuvolat",
+        "partly-cloudy": "Parcialment ennuvolat",
+        "rain-showers": "Pluges",
+        "snow": "Neu",
+        "snow-showers": "Xàfecs de neu",
+        "thunderstorm": "Tempesta",
+        "unknown": "Desconegut"
+      },
+      "short": {
+        "clear": "Clar",
+        "cloudy": "Ennuvolat",
+        "drizzle": "Plugim",
+        "fog": "Boira",
+        "mostly-clear": "Majoritàriament clar",
+        "overcast": "Ennuvolat",
+        "showers": "Xàfecs",
+        "snow": "Neu",
+        "snow-showers": "Xàfecs de neu",
+        "storm": "Tempesta",
+        "weather": "Temps"
+      }
+    },
+    "errors": {
+      "fetch-failed": "Ha fallat l'obtenció del temps",
+      "parse-weather": "No s'ha pogut analitzar la resposta del temps"
+    }
+  },
+  "window-switcher": {
+    "empty": "No hi ha finestres obertes",
+    "hint": "Tab · Maj+Tab · Tecles de fletxa · Deixa anar Alt per canviar · Esc per cancel·lar",
+    "title": "Finestres"
+  }
+}

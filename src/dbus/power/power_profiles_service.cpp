@@ -7,9 +7,13 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <array>
 #include <map>
+#include <optional>
 #include <sdbus-c++/IProxy.h>
 #include <sdbus-c++/Types.h>
+#include <span>
+#include <vector>
 
 std::string profileLabel(std::string_view profile) {
   if (profile == "power-saver") {
@@ -32,15 +36,7 @@ namespace {
   const sdbus::ObjectPath kPowerProfilesObjectPath{"/org/freedesktop/UPower/PowerProfiles"};
   constexpr auto kPowerProfilesInterface = "org.freedesktop.UPower.PowerProfiles";
   constexpr auto kPropertiesInterface = "org.freedesktop.DBus.Properties";
-
-  template <typename T> T getPropertyOr(sdbus::IProxy& proxy, std::string_view propertyName, T fallback) {
-    try {
-      const sdbus::Variant value = proxy.getProperty(propertyName).onInterface(kPowerProfilesInterface);
-      return value.get<T>();
-    } catch (const sdbus::Error&) {
-      return fallback;
-    }
-  }
+  using VariantMap = std::map<std::string, sdbus::Variant>;
 
   std::vector<std::string> decodeProfiles(const sdbus::Variant& value) {
     std::vector<std::string> profiles;
@@ -54,7 +50,7 @@ namespace {
           continue;
         }
         try {
-          const std::string profile = it->second.get<std::string>();
+          const auto profile = it->second.get<std::string>();
           if (!profile.empty()) {
             profiles.push_back(profile);
           }
@@ -65,8 +61,69 @@ namespace {
     }
 
     std::ranges::sort(profiles);
-    profiles.erase(std::unique(profiles.begin(), profiles.end()), profiles.end());
+    profiles.erase(std::ranges::unique(profiles).begin(), profiles.end());
     return profiles;
+  }
+
+  std::string stringProperty(const VariantMap& properties, std::string_view name) {
+    const auto it = properties.find(std::string{name});
+    if (it == properties.end()) {
+      return {};
+    }
+
+    try {
+      return it->second.get<std::string>();
+    } catch (const sdbus::Error&) {
+      return {};
+    }
+  }
+
+  PowerProfilesState decodeState(const VariantMap& properties) {
+    PowerProfilesState next;
+    next.activeProfile = stringProperty(properties, "ActiveProfile");
+    next.performanceInhibited = stringProperty(properties, "PerformanceInhibited");
+
+    const auto profilesIt = properties.find("Profiles");
+    if (profilesIt != properties.end()) {
+      next.profiles = decodeProfiles(profilesIt->second);
+    }
+
+    return next;
+  }
+
+  bool isTimeoutError(const sdbus::Error& error) {
+    const auto& name = error.getName();
+    return (
+        name == sdbus::Error::Name{"org.freedesktop.DBus.Error.NoReply"}
+        || name == sdbus::Error::Name{"org.freedesktop.DBus.Error.Timeout"}
+        || name == sdbus::Error::Name{"org.freedesktop.DBus.Error.TimedOut"}
+    );
+  }
+
+  void appendCanonicalCycleSequence(std::vector<std::string_view>& seq) {
+    for (const auto& candidate : powerProfileOrder()) {
+      seq.push_back(candidate);
+    }
+  }
+
+  std::vector<std::string_view>
+  cycleSequenceFor(const std::vector<std::string>& profs, std::string_view activeProfile) {
+    std::vector<std::string_view> seq;
+    if (!profs.empty()) {
+      for (const auto& candidate : powerProfileOrder()) {
+        if (std::ranges::contains(profs, candidate)) {
+          seq.push_back(candidate);
+        }
+      }
+      if (seq.empty()) {
+        seq.assign(profs.begin(), profs.end());
+      }
+      return seq;
+    }
+    if (!activeProfile.empty()) {
+      appendCanonicalCycleSequence(seq);
+    }
+    return seq;
   }
 
 } // namespace
@@ -79,6 +136,11 @@ std::string_view profileGlyphName(std::string_view profile) {
     return "powersaver";
   }
   return "balanced";
+}
+
+std::span<const std::string_view> powerProfileOrder() {
+  static constexpr std::array<std::string_view, 3> kOrder = {"power-saver", "balanced", "performance"};
+  return kOrder;
 }
 
 PowerProfilesService::PowerProfilesService(SystemBus& bus) : m_bus(bus) {
@@ -99,9 +161,9 @@ PowerProfilesService::PowerProfilesService(SystemBus& bus) : m_bus(bus) {
             || changedProperties.contains("PerformanceInhibited");
 
         if (!relevant) {
-          relevant = std::ranges::find(invalidatedProperties, "ActiveProfile") != invalidatedProperties.end()
-              || std::ranges::find(invalidatedProperties, "Profiles") != invalidatedProperties.end()
-              || std::ranges::find(invalidatedProperties, "PerformanceInhibited") != invalidatedProperties.end();
+          relevant = std::ranges::contains(invalidatedProperties, "ActiveProfile")
+              || std::ranges::contains(invalidatedProperties, "Profiles")
+              || std::ranges::contains(invalidatedProperties, "PerformanceInhibited");
         }
 
         if (relevant) {
@@ -112,9 +174,52 @@ PowerProfilesService::PowerProfilesService(SystemBus& bus) : m_bus(bus) {
   refresh();
 }
 
+PowerProfilesService::~PowerProfilesService() { m_lifetimeToken.reset(); }
+
 void PowerProfilesService::setChangeCallback(ChangeCallback callback) { m_changeCallback = std::move(callback); }
 
-void PowerProfilesService::refresh() { emitChangedIfNeeded(readState()); }
+void PowerProfilesService::refresh() {
+  if (m_refreshInFlight) {
+    m_refreshQueued = true;
+    return;
+  }
+
+  m_refreshInFlight = true;
+  const std::weak_ptr<int> lifetimeToken = m_lifetimeToken;
+
+  try {
+    m_proxy->callMethodAsync("GetAll")
+        .onInterface(kPropertiesInterface)
+        .withArguments(std::string{kPowerProfilesInterface})
+        .uponReplyInvoke([this, lifetimeToken](std::optional<sdbus::Error> err, VariantMap properties) {
+          if (lifetimeToken.expired()) {
+            return;
+          }
+
+          if (err.has_value()) {
+            kLog.debug("power profiles refresh failed: {}", err->what());
+            if (!m_hasStateSnapshot && isTimeoutError(*err)) {
+              m_refreshQueued = true;
+            }
+          } else {
+            emitChangedIfNeeded(decodeState(properties), true);
+          }
+
+          m_refreshInFlight = false;
+          if (m_refreshQueued) {
+            m_refreshQueued = false;
+            refresh();
+          }
+        });
+  } catch (const sdbus::Error& e) {
+    kLog.debug("power profiles refresh dispatch failed: {}", e.what());
+    m_refreshInFlight = false;
+    if (m_refreshQueued) {
+      m_refreshQueued = false;
+      refresh();
+    }
+  }
+}
 
 bool PowerProfilesService::setActiveProfile(std::string_view profile) {
   if (profile.empty()) {
@@ -125,49 +230,53 @@ bool PowerProfilesService::setActiveProfile(std::string_view profile) {
   if (requested != m_state.activeProfile) {
     m_pendingLocalActiveProfile = requested;
   }
+
+  const std::weak_ptr<int> lifetimeToken = m_lifetimeToken;
   try {
-    m_proxy->setProperty("ActiveProfile").onInterface(kPowerProfilesInterface).toValue(requested);
-    refresh();
-    return true;
+    m_proxy->setPropertyAsync("ActiveProfile")
+        .onInterface(kPowerProfilesInterface)
+        .toValue(requested)
+        .uponReplyInvoke([lifetimeToken, requested](std::optional<sdbus::Error> err) {
+          if (lifetimeToken.expired() || !err.has_value()) {
+            return;
+          }
+          // The optimistic update below already reconciles via refresh(); just surface the failure.
+          kLog.warn("power profile change failed profile={} err={}", requested, err->what());
+        });
   } catch (const sdbus::Error& e) {
     if (m_pendingLocalActiveProfile.has_value() && *m_pendingLocalActiveProfile == requested) {
       m_pendingLocalActiveProfile.reset();
     }
-    kLog.warn("power profile change failed profile={} err={}", requested, e.what());
+    kLog.warn("power profile change dispatch failed profile={} err={}", requested, e.what());
     return false;
   }
+
+  PowerProfilesState next = m_state;
+  next.activeProfile = requested;
+  emitChangedIfNeeded(std::move(next), false);
+  refresh();
+  return true;
 }
 
-bool PowerProfilesService::cycleActiveProfile() {
-  const auto& profs = profiles();
-  if (profs.empty()) {
+bool PowerProfilesService::cycleActiveProfile(int direction) {
+  const std::vector<std::string_view> seq = cycleSequenceFor(profiles(), activeProfile());
+  if (seq.empty()) {
     return false;
   }
-  const std::string& current = activeProfile();
-  auto it = std::find(profs.begin(), profs.end(), current);
-  if (it == profs.end()) {
-    return setActiveProfile(profs.front());
-  }
-  ++it;
-  if (it == profs.end()) {
-    it = profs.begin();
-  }
-  return setActiveProfile(*it);
-}
 
-PowerProfilesState PowerProfilesService::readState() const {
-  PowerProfilesState next;
-  next.activeProfile = getPropertyOr<std::string>(*m_proxy, "ActiveProfile", "");
-  next.performanceInhibited = getPropertyOr<std::string>(*m_proxy, "PerformanceInhibited", "");
-
-  try {
-    const sdbus::Variant profilesVariant = m_proxy->getProperty("Profiles").onInterface(kPowerProfilesInterface);
-    next.profiles = decodeProfiles(profilesVariant);
-  } catch (const sdbus::Error&) {
-    next.profiles.clear();
+  const long n = static_cast<long>(seq.size());
+  const int step = direction >= 0 ? 1 : -1;
+  const auto it = std::ranges::find(seq, activeProfile());
+  if (it == seq.end()) {
+    // Current profile unknown: land on the end matching the requested direction.
+    return setActiveProfile(seq[step > 0 ? 0U : static_cast<std::size_t>(n - 1)]);
   }
-
-  return next;
+  long target = std::distance(seq.begin(), it) + step;
+  target %= n;
+  if (target < 0) {
+    target += n;
+  }
+  return setActiveProfile(seq[static_cast<std::size_t>(target)]);
 }
 
 PowerProfilesChangeOrigin PowerProfilesService::consumeActiveProfileChangeOrigin(std::string_view profile) {
@@ -179,16 +288,23 @@ PowerProfilesChangeOrigin PowerProfilesService::consumeActiveProfileChangeOrigin
   return matchesLocalRequest ? PowerProfilesChangeOrigin::Noctalia : PowerProfilesChangeOrigin::External;
 }
 
-void PowerProfilesService::emitChangedIfNeeded(const PowerProfilesState& next) {
-  if (next == m_state) {
-    return;
+void PowerProfilesService::emitChangedIfNeeded(PowerProfilesState next, bool stateSnapshot) {
+  if (stateSnapshot && next.profiles.empty() && !m_state.profiles.empty()) {
+    next.profiles = m_state.profiles;
   }
 
+  const bool firstSnapshot = stateSnapshot && !m_hasStateSnapshot;
+  const bool stateChanged = next != m_state;
   const bool activeProfileChanged = next.activeProfile != m_state.activeProfile;
   const PowerProfilesChangeOrigin origin =
       activeProfileChanged ? consumeActiveProfileChangeOrigin(next.activeProfile) : PowerProfilesChangeOrigin::External;
-  m_state = next;
-  if (m_changeCallback) {
+
+  m_state = std::move(next);
+  if (stateSnapshot) {
+    m_hasStateSnapshot = true;
+  }
+
+  if ((firstSnapshot || stateChanged) && m_changeCallback) {
     m_changeCallback(m_state, origin);
   }
 }
@@ -204,11 +320,11 @@ void PowerProfilesService::registerIpc(IpcService& ipc, StateFeedbackCallback st
         }
         const auto& available = profiles();
         if (!available.empty()) {
-          if (std::find(available.begin(), available.end(), profile) == available.end()) {
+          if (!std::ranges::contains(available, profile)) {
             std::string suffix = "; available:";
-            for (std::size_t i = 0; i < available.size(); ++i) {
+            for (const auto& availableProfile : available) {
               suffix.push_back(' ');
-              suffix += available[i];
+              suffix += availableProfile;
             }
             suffix.push_back('\n');
             return "error: unknown profile \"" + profile + "\"" + suffix;
@@ -233,7 +349,10 @@ void PowerProfilesService::registerIpc(IpcService& ipc, StateFeedbackCallback st
         }
         const std::string previous = activeProfile();
         if (!cycleActiveProfile()) {
-          return "error: could not cycle power profile (no profiles from UPower or set failed)\n";
+          if (profiles().empty() && activeProfile().empty()) {
+            return "error: could not cycle power profile (UPower profile list not loaded)\n";
+          }
+          return "error: could not cycle power profile (set failed)\n";
         }
         if (stateFeedback && previous != activeProfile() && !activeProfile().empty()) {
           stateFeedback(activeProfile());

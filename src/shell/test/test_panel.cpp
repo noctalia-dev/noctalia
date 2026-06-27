@@ -14,6 +14,7 @@
 
 #include <cmath>
 #include <memory>
+#include <numbers>
 #include <string>
 #include <vector>
 
@@ -748,7 +749,7 @@ void TestPanel::create() {
         .color = colorSpecFromRole(ColorRole::Primary),
         .configure = [scale](Glyph& glyph) {
           glyph.setPosition(150.0f * scale, 60.0f * scale);
-          glyph.setRotation(static_cast<float>(M_PI) * 0.5f);
+          glyph.setRotation(std::numbers::pi_v<float> * 0.5f);
         },
     });
     m_transformDemoBox->addChild(std::move(demoGlyph));
@@ -835,7 +836,7 @@ void TestPanel::create() {
   }
 
   if (m_animations != nullptr && m_transformDemoBox != nullptr) {
-    m_animations->animate(0.0f, 2.0f * static_cast<float>(M_PI), 8000.0f, Easing::Linear, [this](float phase) {
+    m_animations->animate(0.0f, 2.0f * std::numbers::pi_v<float>, 8000.0f, Easing::Linear, [this](float phase) {
       if (m_transformDemoBox != nullptr) {
         m_transformDemoBox->setRotation(phase);
         m_transformDemoBox->setScale(1.0f + 0.16f * std::sin(phase));

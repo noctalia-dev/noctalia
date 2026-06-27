@@ -1,10 +1,12 @@
 #pragma once
 
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -28,9 +30,79 @@ namespace FileUtils {
     return std::filesystem::path(path);
   }
 
+  // Expands $NAME and ${NAME} environment-variable references. NAME matches
+  // [A-Za-z_][A-Za-z0-9_]*; undefined variables expand to the empty string. A
+  // lone '$' or '$' followed by a non-name character is left verbatim. This is a
+  // deliberate, minimal substitution — never wordexp()/shell expansion, which
+  // would run command substitution on config input.
+  [[nodiscard]] inline std::string expandEnvVars(std::string_view in) {
+    std::string out;
+    out.reserve(in.size());
+    const auto isNameStart = [](char c) { return (std::isalpha(static_cast<unsigned char>(c)) != 0) || c == '_'; };
+    const auto isNameChar = [](char c) { return (std::isalnum(static_cast<unsigned char>(c)) != 0) || c == '_'; };
+
+    for (std::size_t i = 0; i < in.size();) {
+      if (in[i] != '$') {
+        out.push_back(in[i]);
+        ++i;
+        continue;
+      }
+      // in[i] == '$'
+      if (i + 1 < in.size() && in[i + 1] == '{') {
+        const std::size_t close = in.find('}', i + 2);
+        if (close != std::string_view::npos) {
+          const std::string name(in.substr(i + 2, close - (i + 2)));
+          if (const char* val = std::getenv(name.c_str()); val != nullptr) {
+            out.append(val);
+          }
+          i = close + 1;
+          continue;
+        }
+        // No closing brace — emit '$' verbatim and continue.
+        out.push_back('$');
+        ++i;
+        continue;
+      }
+      if (i + 1 < in.size() && isNameStart(in[i + 1])) {
+        std::size_t j = i + 1;
+        while (j < in.size() && isNameChar(in[j])) {
+          ++j;
+        }
+        const std::string name(in.substr(i + 1, j - (i + 1)));
+        if (const char* val = std::getenv(name.c_str()); val != nullptr) {
+          out.append(val);
+        }
+        i = j;
+        continue;
+      }
+      // Lone '$' — leave verbatim.
+      out.push_back('$');
+      ++i;
+    }
+    return out;
+  }
+
   [[nodiscard]] inline bool
   containsPath(const std::vector<std::filesystem::path>& paths, const std::filesystem::path& path) {
-    return std::ranges::find(paths, path) != paths.end();
+    return std::ranges::contains(paths, path);
+  }
+
+  [[nodiscard]] inline std::optional<std::string> readSmallTextFile(const std::filesystem::path& path) {
+    std::ifstream file{path};
+    if (!file.is_open()) {
+      return std::nullopt;
+    }
+
+    std::string text;
+    std::getline(file, text);
+    if (text.empty()) {
+      return std::nullopt;
+    }
+
+    while (!text.empty() && (text.back() == '\n' || text.back() == '\r' || text.back() == ' ' || text.back() == '\t')) {
+      text.pop_back();
+    }
+    return text;
   }
 
   [[nodiscard]] inline std::string configDir() {
@@ -133,6 +205,31 @@ namespace FileUtils {
       return {};
     }
     return data;
+  }
+
+  // Expands ~ and resolves relative paths against baseDir when provided; otherwise uses the
+  // process working directory for relative paths.
+  [[nodiscard]] inline std::filesystem::path
+  resolvePath(std::string_view path, std::optional<std::string_view> baseDir = std::nullopt) {
+    if (path.empty() || path.starts_with("color:")) {
+      return std::filesystem::path(path);
+    }
+
+    std::filesystem::path resolved = expandUserPath(std::string(path));
+    if (!resolved.is_absolute()) {
+      if (baseDir.has_value() && !baseDir->empty()) {
+        resolved = std::filesystem::path(*baseDir) / resolved;
+      } else {
+        std::error_code ec;
+        resolved = std::filesystem::absolute(resolved, ec);
+        if (ec) {
+          return std::filesystem::path(path);
+        }
+      }
+    }
+
+    std::error_code ec;
+    return resolved.lexically_normal();
   }
 
   [[nodiscard]] inline std::string normalizeWallpaperPath(std::string_view path) {

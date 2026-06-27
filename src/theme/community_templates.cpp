@@ -108,9 +108,8 @@ namespace noctalia::theme {
     }
 
     std::string tomlKey(std::string_view key) {
-      const bool bare = !key.empty() && std::all_of(key.begin(), key.end(), [](unsigned char ch) {
-        return std::isalnum(ch) != 0 || ch == '_' || ch == '-';
-      });
+      const bool bare = !key.empty()
+          && std::ranges::all_of(key, [](unsigned char ch) { return std::isalnum(ch) != 0 || ch == '_' || ch == '-'; });
       if (bare)
         return std::string(key);
       return '"' + tomlEscape(key) + '"';
@@ -228,7 +227,7 @@ namespace noctalia::theme {
         const std::string mode = stringField(item, "mode");
         if (!mode.empty()) {
           if (auto parsed = parseFileMode(mode)) {
-            file.mode = *parsed;
+            file.mode = parsed;
           } else {
             kLog.warn("community template '{}' file '{}' has invalid mode metadata '{}'", templateId, file.name, mode);
           }
@@ -285,9 +284,7 @@ namespace noctalia::theme {
 
     std::optional<CommunityTemplateInfo>
     findInfo(const std::vector<CommunityTemplateInfo>& catalog, std::string_view id) {
-      auto it = std::find_if(catalog.begin(), catalog.end(), [id](const CommunityTemplateInfo& info) {
-        return info.id == id;
-      });
+      auto it = std::ranges::find(catalog, id, &CommunityTemplateInfo::id);
       if (it == catalog.end())
         return std::nullopt;
       return *it;
@@ -767,8 +764,7 @@ namespace noctalia::theme {
       if (!entry.is_directory())
         continue;
       const std::string cacheId = entry.path().filename().string();
-      const bool exists =
-          std::any_of(out.begin(), out.end(), [&](const AvailableTemplate& t) { return t.id == cacheId; });
+      const bool exists = std::ranges::contains(out, cacheId, &AvailableTemplate::id);
       if (exists)
         continue;
       const auto toml = entry.path() / "template.toml";
@@ -779,7 +775,7 @@ namespace noctalia::theme {
       }
     }
 
-    std::sort(out.begin(), out.end(), [](const AvailableTemplate& a, const AvailableTemplate& b) {
+    std::ranges::sort(out, [](const AvailableTemplate& a, const AvailableTemplate& b) {
       if (a.category != b.category)
         return a.category < b.category;
       if (a.displayName != b.displayName)
@@ -807,7 +803,7 @@ namespace noctalia::theme {
   }
 
   bool isSafeCommunityTemplateId(std::string_view id) {
-    return !id.empty() && std::all_of(id.begin(), id.end(), [](unsigned char ch) {
+    return !id.empty() && std::ranges::all_of(id, [](unsigned char ch) {
       return std::isalnum(ch) != 0 || ch == '_' || ch == '-' || ch == '.';
     });
   }

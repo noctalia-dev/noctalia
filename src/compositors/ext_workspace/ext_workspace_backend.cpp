@@ -133,7 +133,7 @@ void ExtWorkspaceBackend::activateForOutput(wl_output* output, const std::string
   }
 
   for (const auto& group : m_groups) {
-    const bool hasOutput = std::find(group.outputs.begin(), group.outputs.end(), output) != group.outputs.end();
+    const bool hasOutput = std::ranges::contains(group.outputs, output);
     if (!hasOutput) {
       continue;
     }
@@ -175,7 +175,7 @@ void ExtWorkspaceBackend::activateForOutput(wl_output* output, const Workspace& 
   };
 
   for (const auto& group : m_groups) {
-    const bool hasOutput = std::find(group.outputs.begin(), group.outputs.end(), output) != group.outputs.end();
+    const bool hasOutput = std::ranges::contains(group.outputs, output);
     if (!hasOutput) {
       continue;
     }
@@ -247,7 +247,7 @@ std::vector<Workspace> ExtWorkspaceBackend::all() const {
 
   for (const auto& group : m_groups) {
     for (auto* handle : group.workspaces) {
-      if (std::find(seen.begin(), seen.end(), handle) != seen.end()) {
+      if (std::ranges::contains(seen, handle)) {
         continue;
       }
       const auto it = m_workspaces.find(handle);
@@ -259,20 +259,20 @@ std::vector<Workspace> ExtWorkspaceBackend::all() const {
   }
 
   for (const auto& [handle, ws] : m_workspaces) {
-    if (ws.name.empty() || std::find(seen.begin(), seen.end(), handle) != seen.end()) {
+    if (ws.name.empty() || std::ranges::contains(seen, handle)) {
       continue;
     }
     result.push_back(ws);
   }
 
-  std::sort(result.begin(), result.end(), [](const auto& a, const auto& b) { return a.coordinates < b.coordinates; });
+  std::ranges::sort(result, {}, &Workspace::coordinates);
   return result;
 }
 
 std::vector<Workspace> ExtWorkspaceBackend::forOutput(wl_output* output) const {
   std::vector<ext_workspace_handle_v1*> handles;
   for (const auto& group : m_groups) {
-    const bool hasOutput = std::find(group.outputs.begin(), group.outputs.end(), output) != group.outputs.end();
+    const bool hasOutput = std::ranges::contains(group.outputs, output);
     if (hasOutput) {
       handles.insert(handles.end(), group.workspaces.begin(), group.workspaces.end());
     }
@@ -286,7 +286,7 @@ std::vector<Workspace> ExtWorkspaceBackend::forOutput(wl_output* output) const {
     }
   }
 
-  std::sort(result.begin(), result.end(), [](const auto& a, const auto& b) { return a.coordinates < b.coordinates; });
+  std::ranges::sort(result, {}, &Workspace::coordinates);
   return result;
 }
 

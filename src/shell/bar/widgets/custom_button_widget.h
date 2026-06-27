@@ -10,10 +10,18 @@ class Label;
 
 class CustomButtonWidget : public Widget {
 public:
-  CustomButtonWidget(
-      std::string glyph, std::string label, std::string tooltip, std::string command, std::string rightCommand,
-      std::string middleCommand, std::string scrollUpCommand, std::string scrollDownCommand
-  );
+  struct Options {
+    std::string glyph;
+    std::string label;
+    std::string tooltip;
+    std::string command;
+    std::string rightCommand;
+    std::string middleCommand;
+    std::string scrollUpCommand;
+    std::string scrollDownCommand;
+  };
+
+  explicit CustomButtonWidget(Options options);
 
   void create() override;
   [[nodiscard]] bool reservesMiddleClick() const noexcept override;

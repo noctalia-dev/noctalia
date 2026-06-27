@@ -97,7 +97,7 @@ void FileWatcher::dispatch() {
           if (entry.dirWd == event->wd
               && entry.filename == name
               && eventMatchesTrigger(entry.trigger, event->mask)
-              && std::find(triggered.begin(), triggered.end(), id) == triggered.end())
+              && !std::ranges::contains(triggered, id))
             triggered.push_back(id);
         }
       }

@@ -17,6 +17,8 @@ namespace noctalia::theme {
       return Scheme::Vibrant;
     if (s == "faithful")
       return Scheme::Faithful;
+    if (s == "soft")
+      return Scheme::Soft;
     if (s == "dysfunctional")
       return Scheme::Dysfunctional;
     if (s == "muted")
@@ -40,6 +42,8 @@ namespace noctalia::theme {
       return "vibrant";
     case Scheme::Faithful:
       return "faithful";
+    case Scheme::Soft:
+      return "soft";
     case Scheme::Dysfunctional:
       return "dysfunctional";
     case Scheme::Muted:

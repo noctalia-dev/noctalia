@@ -32,7 +32,8 @@ namespace {
         .icon = volumeIconName(volume, muted),
         .value = std::to_string(percent) + "%",
         .progress = std::clamp(volume, 0.0f, 1.0f),
-        .overLimit = volume > 1.0f,
+        .overLimit = percent > 100,
+        .inactive = muted,
     };
   }
 
@@ -43,7 +44,8 @@ namespace {
         .icon = muted ? "microphone-mute" : "microphone",
         .value = std::to_string(percent) + "%",
         .progress = std::clamp(volume, 0.0f, 1.0f),
-        .overLimit = volume > 1.0f,
+        .overLimit = percent > 100,
+        .inactive = muted,
     };
   }
 

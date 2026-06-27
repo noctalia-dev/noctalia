@@ -1,12 +1,11 @@
 #pragma once
 
-#include "theme/palette.h"
-#include "theme/scheme.h"
-
 #include <string>
 
 namespace noctalia::theme {
 
+  struct GeneratedPalette;
+  enum class Scheme;
   enum class Variant { Dark, Light, Both };
 
   // Serialize a GeneratedPalette to JSON. Values are "#rrggbb" strings emitted

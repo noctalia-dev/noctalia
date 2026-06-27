@@ -1,7 +1,6 @@
 #pragma once
 
 #include "shell/settings/settings_content.h"
-#include "shell/settings/settings_registry.h"
 
 #include <functional>
 #include <memory>
@@ -42,6 +41,10 @@ namespace settings {
 
     [[nodiscard]] std::unique_ptr<Node> makeSelect(const SelectSetting& setting, std::vector<std::string> path);
 
+    // Filterable search-picker button (opens the search popup). `title` is the popup heading.
+    [[nodiscard]] std::unique_ptr<Node>
+    makeSearchPicker(const SearchPickerSetting& setting, std::string title, std::vector<std::string> path);
+
     [[nodiscard]] std::unique_ptr<Flex> makeSlider(
         double value, double minValue, double maxValue, double step, std::vector<std::string> path,
         bool integerValue = false,
@@ -75,12 +78,13 @@ namespace settings {
     void makeListBlock(Flex& section, const SettingEntry& entry, const ListSetting& list);
     void makeStringMapBlock(Flex& section, const SettingEntry& entry, const StringMapSetting& map);
 
+    [[nodiscard]] std::unique_ptr<Flex> makeOverrideResetActions(const std::vector<std::string>& path);
+
   private:
     [[nodiscard]] std::unique_ptr<Flex>
     makeStatusBadge(std::string_view label, const ColorSpec& fill, const ColorSpec& color, bool matchResetHeight);
     [[nodiscard]] std::unique_ptr<Flex> makeOverrideBadge();
     [[nodiscard]] std::unique_ptr<Flex> makeAdvancedBadge();
-    [[nodiscard]] std::unique_ptr<Flex> makeOverrideResetActions(const std::vector<std::string>& path);
     [[nodiscard]] static bool isTemplateEnableTogglePath(const std::vector<std::string>& path);
 
     SettingsContentContext m_ctx;

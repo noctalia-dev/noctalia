@@ -151,6 +151,7 @@ location = "https://example.invalid/bad"
     bar.position = "bottom";
     bar.enabled = false;
     bar.autoHide = true;
+    bar.showOnWorkspaceSwitch = true;
     bar.reserveSpace = false;
     bar.layer = "overlay";
     bar.thickness = 44;
@@ -164,13 +165,21 @@ location = "https://example.invalid/bad"
     bar.radiusBottomRight = 10;
     bar.marginEnds = 100;
     bar.marginEdge = 5;
+    bar.marginOppositeEdge = 12;
+    bar.deadZone.command = "notify-send bar-left";
+    bar.deadZone.rightCommand = "notify-send bar-right";
+    bar.deadZone.middleCommand = "notify-send bar-middle";
+    bar.deadZone.scrollUpCommand = "notify-send bar-scroll-up";
+    bar.deadZone.scrollDownCommand = "notify-send bar-scroll-down";
     bar.padding = 12;
     bar.widgetSpacing = 8;
     bar.shadow = false;
     bar.contactShadow = true;
     bar.panelOverlap = 2;
+    bar.capsuleThickness = 0.5f;
     bar.scale = 2.0f;
     bar.fontWeight = 600;
+    bar.fontFamily = "Inter";
     bar.startWidgets = {"launcher"};
     bar.centerWidgets = {"clock", "weather"};
     bar.endWidgets = {"battery"};
@@ -201,6 +210,7 @@ location = "https://example.invalid/bad"
     ovr.position = "top";
     ovr.enabled = true;
     ovr.autoHide = false;
+    ovr.showOnWorkspaceSwitch = true;
     ovr.reserveSpace = true;
     ovr.layer = "top";
     ovr.thickness = 50;
@@ -214,12 +224,20 @@ location = "https://example.invalid/bad"
     ovr.radiusBottomRight = 4;
     ovr.marginEnds = 70;
     ovr.marginEdge = 9;
+    ovr.marginOppositeEdge = 4;
+    ovr.deadZone.command = "notify-send bar-left";
+    ovr.deadZone.rightCommand = "notify-send bar-right";
+    ovr.deadZone.middleCommand = "notify-send monitor-middle";
+    ovr.deadZone.scrollUpCommand = "notify-send monitor-scroll-up";
+    ovr.deadZone.scrollDownCommand = "notify-send bar-scroll-down";
     ovr.padding = 11;
     ovr.widgetSpacing = 7;
     ovr.shadow = true;
     ovr.contactShadow = false;
     ovr.panelOverlap = -1;
+    ovr.capsuleThickness = 0.25f;
     ovr.scale = 1.5f;
+    ovr.fontFamily = "Fira Sans";
     ovr.startWidgets = std::vector<std::string>{"tray"};
     ovr.centerWidgets = std::vector<std::string>{"media"};
     ovr.endWidgets = std::vector<std::string>{"volume"};
@@ -255,6 +273,7 @@ location = "https://example.invalid/bad"
     c.audio = AudioConfig{true, true, 0.73f, "change.ogg", "notify.ogg"};
     c.weather = WeatherConfig{false, false, 17, "imperial"};
     c.osd.position = "bottom_left";
+    c.osd.positionVertical = "top_right";
     c.osd.orientation = "vertical";
     c.osd.scale = 1.4f;
     c.osd.backgroundOpacity = 0.42f;
@@ -268,6 +287,7 @@ location = "https://example.invalid/bad"
         .blurredDesktop = true, .blurIntensity = 0.6f, .tintIntensity = 0.25f, .monitors = {"DP-1"}
     };
     c.system.monitor.enabled = false;
+    c.system.monitor.cpuTempSensorPath = "/sys/class/hwmon/hwmon3/temp1_input";
     c.system.monitor.cpuPollSeconds = 5.0f;
     c.system.monitor.gpuPollSeconds = 4.0f;
     c.system.monitor.memoryPollSeconds = 6.0f;
@@ -281,8 +301,27 @@ location = "https://example.invalid/bad"
     c.location.latitude = 52.52;
     c.location.longitude = 13.405;
     c.notification = NotificationConfig{
-        false, false, false,    "bottom_left", "overlay",   1.3f, 0.5f,
-        12,    6,     {"DP-2"}, false,         {"discord"}, true, {"normal", "critical"},
+        false,
+        false,
+        false,
+        "bottom_left",
+        "overlay",
+        1.3f,
+        0.5f,
+        12,
+        6,
+        {"DP-2"},
+        false,
+        {NotificationFilterConfig{
+            .name = "discord",
+            .enabled = true,
+            .match = "discord",
+            .showToast = false,
+            .saveHistory = false,
+            .playSound = false,
+            .allowPermanent = false,
+            .allowedUrgencies = {"normal", "critical"},
+        }},
     };
     c.dock.enabled = true;
     c.dock.position = DockEdge::Left;
@@ -319,6 +358,8 @@ location = "https://example.invalid/bad"
     c.keybinds.right = {*parseKeyChordSpec("Right")};
     c.keybinds.up = {*parseKeyChordSpec("Up")};
     c.keybinds.down = {*parseKeyChordSpec("Down")};
+    c.keybinds.tabNext = defaultKeybindSet(KeybindAction::TabNext);
+    c.keybinds.tabPrevious = defaultKeybindSet(KeybindAction::TabPrevious);
     c.hooks.commands[0] = {"notify-send hi"};
     c.hooks.commands[2] = {"cmd-a", "cmd-b"};
     c.idle.preActionFadeSeconds = 3.0f;
@@ -351,8 +392,9 @@ location = "https://example.invalid/bad"
     c.shell.shadow.direction = ShadowDirection::UpLeft;
     c.shell.panel.transparencyMode = PanelTransparencyMode::Glass;
     c.shell.panel.launcherPlacement = PanelPlacement::Floating;
-    c.shell.panel.launcherCompact = true;
-    c.shell.panel.launcherSessionSearch = true;
+    c.shell.launcher.compact = true;
+    c.shell.launcher.sessionSearch = true;
+    c.shell.launcher.sortByUsage = false;
     c.shell.screenCorners.enabled = true;
     c.shell.screenCorners.size = 24;
     c.shell.mpris.blacklist = {"firefox"};
@@ -373,6 +415,9 @@ location = "https://example.invalid/bad"
             std::nullopt
         },
     };
+    c.shell.session.power.suspend = "zzz";
+    c.shell.session.power.reboot = "sudo -n reboot";
+    c.shell.session.power.shutdown = "sudo -n poweroff";
     c.theme.source = PaletteSource::Wallpaper;
     c.theme.builtinPalette = "Tokyo";
     c.theme.mode = ThemeMode::Light;
@@ -465,16 +510,19 @@ capsule_foreground = "#FEDCBA"
 capsule_opacity = 0.89999997615814209
 capsule_padding = 16.0
 capsule_radius = 12.0
+capsule_thickness = 0.5
 center = [ "clock", "weather" ]
 color = "#0A0B0C"
 contact_shadow = true
 enabled = false
 end = [ "battery" ]
+font_family = "Inter"
 font_weight = 600
 icon_color = "#0C0B0A"
 layer = "overlay"
 margin_edge = 5
 margin_ends = 100
+margin_opposite_edge = 12
 padding = 12
 panel_overlap = 2
 position = "bottom"
@@ -486,9 +534,17 @@ radius_top_right = 6
 reserve_space = false
 scale = 2.0
 shadow = false
+show_on_workspace_switch = true
 start = [ "launcher" ]
 thickness = 44
 widget_spacing = 8
+
+    [default.dead_zone]
+    command = "notify-send bar-left"
+    middle_command = "notify-send bar-middle"
+    right_command = "notify-send bar-right"
+    scroll_down_command = "notify-send bar-scroll-down"
+    scroll_up_command = "notify-send bar-scroll-up"
 
     [default.monitor.DP-1]
     auto_hide = false
@@ -502,16 +558,19 @@ widget_spacing = 8
     capsule_opacity = 0.5
     capsule_padding = 24.0
     capsule_radius = 30.0
+    capsule_thickness = 0.25
     center = [ "media" ]
     color = "#E1E2E3"
     contact_shadow = false
     enabled = true
     end = [ "volume" ]
+    font_family = "Fira Sans"
     font_weight = 600
     icon_color = "#E3E2E1"
     layer = "top"
     margin_edge = 9
     margin_ends = 70
+    margin_opposite_edge = 4
     match = "DP-1"
     padding = 11
     panel_overlap = -1
@@ -524,9 +583,17 @@ widget_spacing = 8
     reserve_space = true
     scale = 1.5
     shadow = true
+    show_on_workspace_switch = true
     start = [ "tray" ]
     thickness = 50
     widget_spacing = 7
+
+        [default.monitor.DP-1.dead_zone]
+        command = "notify-send bar-left"
+        middle_command = "notify-send monitor-middle"
+        right_command = "notify-send bar-right"
+        scroll_down_command = "notify-send bar-scroll-down"
+        scroll_up_command = "notify-send monitor-scroll-up"
 
         [[default.monitor.DP-1.capsule_group]]
         border = "#0F0E0D"

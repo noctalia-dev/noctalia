@@ -85,6 +85,7 @@ void ClockWidget::create() {
       ui::label({
           .out = &m_label,
           .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontFamily = labelFontFamily(),
           .fontWeight = labelFontWeight(),
           .textAlign = TextAlign::Center,
       })
@@ -94,6 +95,7 @@ void ClockWidget::create() {
       ui::label({
           .out = &m_secondaryLabel,
           .fontSize = Style::fontSizeBody * m_contentScale * kStackedSecondaryScale,
+          .fontFamily = labelFontFamily(),
           .fontWeight = labelFontWeight(),
           .textAlign = TextAlign::Center,
           .visible = false,

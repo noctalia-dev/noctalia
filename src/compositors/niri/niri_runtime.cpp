@@ -179,8 +179,7 @@ namespace compositors::niri {
   }
 
   void NiriRuntime::registerEventHandler(NiriEventHandler* handler) {
-    if (handler == nullptr
-        || std::find(m_eventHandlers.begin(), m_eventHandlers.end(), handler) != m_eventHandlers.end()) {
+    if (handler == nullptr || std::ranges::contains(m_eventHandlers, handler)) {
       return;
     }
     m_eventHandlers.push_back(handler);
@@ -189,9 +188,7 @@ namespace compositors::niri {
     }
   }
 
-  void NiriRuntime::unregisterEventHandler(NiriEventHandler* handler) {
-    m_eventHandlers.erase(std::remove(m_eventHandlers.begin(), m_eventHandlers.end(), handler), m_eventHandlers.end());
-  }
+  void NiriRuntime::unregisterEventHandler(NiriEventHandler* handler) { std::erase(m_eventHandlers, handler); }
 
   void NiriRuntime::dispatchEvent(std::string_view key, const nlohmann::json& value) const {
     for (auto* handler : m_eventHandlers) {

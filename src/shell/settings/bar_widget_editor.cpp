@@ -1,5 +1,7 @@
 #include "shell/settings/bar_widget_editor.h"
 
+#include "config/config_service.h"
+#include "config/config_types.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/scene/node.h"
@@ -303,7 +305,7 @@ namespace settings {
     std::string_view widgetBadgeGlyph(WidgetReferenceKind kind) {
       switch (kind) {
       case WidgetReferenceKind::BuiltIn:
-        return "puzzle";
+        return "box";
       case WidgetReferenceKind::Named:
         return "tag";
       case WidgetReferenceKind::Plugin:
@@ -362,7 +364,7 @@ namespace settings {
     bool removeWidgetReference(std::vector<std::string>& items, std::string_view widgetName) {
       const auto oldSize = items.size();
       const std::string key(widgetName);
-      items.erase(std::remove(items.begin(), items.end(), key), items.end());
+      std::erase(items, key);
       return items.size() != oldSize;
     }
 
@@ -371,7 +373,7 @@ namespace settings {
         std::vector<std::string> items, std::string_view widgetName
     ) {
       if (removeWidgetReference(items, widgetName)) {
-        overrides.push_back({std::move(path), std::move(items)});
+        overrides.emplace_back(std::move(path), std::move(items));
       }
     }
 
@@ -418,7 +420,7 @@ namespace settings {
             }
           }
           if (changed) {
-            overrides.push_back({std::move(path), std::move(items)});
+            overrides.emplace_back(std::move(path), std::move(items));
           }
         };
 
@@ -469,34 +471,102 @@ namespace settings {
       return isValidWidgetInstanceId(newName) && oldName != newName && !widgetReferenceNameExists(cfg, newName);
     }
 
-    // Smallest unused `g<N>` id within the bar's existing groups.
-    std::string nextCapsuleGroupId(const BarConfig& bar) {
+    const BarConfig* barForLanePath(const Config& cfg, const std::vector<std::string>& path) {
+      if (path.size() < 2 || path[0] != "bar") {
+        return nullptr;
+      }
+      return findBar(cfg, path[1]);
+    }
+
+    const BarMonitorOverride* monitorOverrideForLanePath(const Config& cfg, const std::vector<std::string>& path) {
+      if (!isMonitorWidgetListPath(path)) {
+        return nullptr;
+      }
+      const BarConfig* bar = barForLanePath(cfg, path);
+      return bar != nullptr ? findMonitorOverride(*bar, path[3]) : nullptr;
+    }
+
+    std::vector<std::string> capsuleGroupPathForLanePath(const std::vector<std::string>& lanePath) {
+      if (isMonitorWidgetListPath(lanePath)) {
+        return {"bar", lanePath[1], "monitor", lanePath[3], "capsule_group"};
+      }
+      if (lanePath.size() >= 2 && lanePath[0] == "bar") {
+        return {"bar", lanePath[1], "capsule_group"};
+      }
+      return {};
+    }
+
+    std::vector<BarCapsuleGroupStyle>
+    capsuleGroupsForLanePath(const Config& cfg, const std::vector<std::string>& lanePath) {
+      const BarConfig* bar = barForLanePath(cfg, lanePath);
+      if (bar == nullptr) {
+        return {};
+      }
+      const BarMonitorOverride* ovr = monitorOverrideForLanePath(cfg, lanePath);
+      if (ovr != nullptr && ovr->widgetCapsuleGroups.has_value()) {
+        return *ovr->widgetCapsuleGroups;
+      }
+      return bar->widgetCapsuleGroups;
+    }
+
+    const BarCapsuleGroupStyle*
+    findCapsuleGroupStyle(const std::vector<BarCapsuleGroupStyle>& groups, std::string_view id) {
+      const auto it = std::ranges::find(groups, id, &BarCapsuleGroupStyle::id);
+      return it != groups.end() ? &*it : nullptr;
+    }
+
+    // Smallest unused `g<N>` id within an owner scope's existing groups.
+    std::string nextCapsuleGroupId(const std::vector<BarCapsuleGroupStyle>& groups) {
       int n = 1;
-      const auto exists = [&](const std::string& id) {
-        return std::any_of(bar.widgetCapsuleGroups.begin(), bar.widgetCapsuleGroups.end(), [&](const auto& g) {
-          return g.id == id;
-        });
-      };
       std::string candidate = "g" + std::to_string(n);
-      while (exists(candidate)) {
+      while (std::ranges::contains(groups, candidate, &BarCapsuleGroupStyle::id)) {
         candidate = "g" + std::to_string(++n);
       }
       return candidate;
     }
 
-    // New group style seeded from the bar's capsule defaults.
-    BarCapsuleGroupStyle seedCapsuleGroupStyle(const BarConfig& bar, std::string id) {
+    // New group style seeded from the effective bar/monitor capsule defaults.
+    BarCapsuleGroupStyle
+    seedCapsuleGroupStyle(const Config& cfg, const std::vector<std::string>& lanePath, std::string id) {
       BarCapsuleGroupStyle group;
       group.id = std::move(id);
-      group.fill = bar.widgetCapsuleFill;
-      group.borderSpecified = bar.widgetCapsuleBorderSpecified;
-      group.border = bar.widgetCapsuleBorder;
-      group.foreground = bar.widgetCapsuleForeground;
-      group.padding = bar.widgetCapsulePadding;
-      if (bar.widgetCapsuleRadius.has_value()) {
-        group.radius = static_cast<float>(*bar.widgetCapsuleRadius);
+      const BarConfig* bar = barForLanePath(cfg, lanePath);
+      if (bar == nullptr) {
+        return group;
       }
-      group.opacity = bar.widgetCapsuleOpacity;
+      group.fill = bar->widgetCapsuleFill;
+      group.borderSpecified = bar->widgetCapsuleBorderSpecified;
+      group.border = bar->widgetCapsuleBorder;
+      group.foreground = bar->widgetCapsuleForeground;
+      group.padding = bar->widgetCapsulePadding;
+      if (bar->widgetCapsuleRadius.has_value()) {
+        group.radius = static_cast<float>(*bar->widgetCapsuleRadius);
+      }
+      group.opacity = bar->widgetCapsuleOpacity;
+
+      const BarMonitorOverride* ovr = monitorOverrideForLanePath(cfg, lanePath);
+      if (ovr == nullptr) {
+        return group;
+      }
+      if (ovr->widgetCapsuleFill.has_value()) {
+        group.fill = *ovr->widgetCapsuleFill;
+      }
+      if (ovr->widgetCapsuleBorderSpecified) {
+        group.borderSpecified = true;
+        group.border = ovr->widgetCapsuleBorder;
+      }
+      if (ovr->widgetCapsuleForeground.has_value()) {
+        group.foreground = *ovr->widgetCapsuleForeground;
+      }
+      if (ovr->widgetCapsulePadding.has_value()) {
+        group.padding = std::clamp(static_cast<float>(*ovr->widgetCapsulePadding), 0.0f, 48.0f);
+      }
+      if (ovr->widgetCapsuleRadius.has_value()) {
+        group.radius = static_cast<float>(std::clamp(*ovr->widgetCapsuleRadius, 0.0, 80.0));
+      }
+      if (ovr->widgetCapsuleOpacity.has_value()) {
+        group.opacity = std::clamp(static_cast<float>(*ovr->widgetCapsuleOpacity), 0.0f, 1.0f);
+      }
       return group;
     }
 
@@ -559,8 +629,8 @@ namespace settings {
     // Applies a drag move from (srcZone, srcIdx) to (dstZone, insertionIndex) by writing the affected lane
     // vectors and/or the bar's capsule-group vector. Group member edits funnel through one group-vector write.
     void performZoneMove(
-        const Config& cfg, const std::string& barName, const std::vector<DropZone>& zones, std::size_t srcZone,
-        std::size_t srcIdx, std::size_t dstZone, std::size_t insertionIndex,
+        const Config& cfg, const std::vector<std::string>& laneListPath, const std::vector<DropZone>& zones,
+        std::size_t srcZone, std::size_t srcIdx, std::size_t dstZone, std::size_t insertionIndex,
         const std::function<void(std::vector<std::string>, ConfigOverrideValue)>& setOverride,
         const std::function<void(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>)>& setOverrides
     ) {
@@ -590,9 +660,7 @@ namespace settings {
       insert = std::min(insert, dstItems.size());
       dstItems.insert(dstItems.begin() + static_cast<std::ptrdiff_t>(insert), moving);
 
-      const BarConfig* bar = findBar(cfg, barName);
-      std::vector<BarCapsuleGroupStyle> groups =
-          bar != nullptr ? bar->widgetCapsuleGroups : std::vector<BarCapsuleGroupStyle>{};
+      std::vector<BarCapsuleGroupStyle> groups = capsuleGroupsForLanePath(cfg, laneListPath);
       bool groupsTouched = false;
       // Lane edits keyed by zone index, so a later empty-group cleanup can also drop a token from a lane.
       std::vector<std::pair<std::size_t, std::vector<std::string>>> laneEdits;
@@ -603,7 +671,7 @@ namespace settings {
             return;
           }
         }
-        laneEdits.push_back({zoneIndex, std::move(items)});
+        laneEdits.emplace_back(zoneIndex, std::move(items));
       };
       const auto laneItemsFor = [&](std::size_t zoneIndex) {
         for (const auto& edit : laneEdits) {
@@ -646,7 +714,7 @@ namespace settings {
               continue;
             }
             std::vector<std::string> items = laneItemsFor(zi);
-            const auto it = std::find(items.begin(), items.end(), token);
+            const auto it = std::ranges::find(items, token);
             if (it != items.end()) {
               items.erase(it);
               setLane(zi, std::move(items));
@@ -663,11 +731,15 @@ namespace settings {
       }
 
       std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> batch;
+      batch.reserve(laneEdits.size());
       for (const auto& edit : laneEdits) {
-        batch.push_back({zones[edit.first].lanePath, edit.second});
+        batch.emplace_back(zones[edit.first].lanePath, edit.second);
       }
       if (groupsTouched) {
-        batch.push_back({{"bar", barName, "capsule_group"}, groups});
+        const std::vector<std::string> groupPath = capsuleGroupPathForLanePath(laneListPath);
+        if (!groupPath.empty()) {
+          batch.emplace_back(groupPath, groups);
+        }
       }
       if (batch.size() == 1) {
         setOverride(batch[0].first, batch[0].second);
@@ -711,15 +783,15 @@ namespace settings {
       if (on) {
         card->setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth * 2.0f);
       } else {
-        card->setBorder(colorSpecFromRole(ColorRole::Outline, 0.22f), Style::borderWidth);
+        card->setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
       }
     }
 
     // Creates a new group from two loose widgets (the dragged one dropped onto the target). The target keeps
     // its lane position (now a group token); the dragged widget is pulled from its source lane.
     void createGroupByCombine(
-        const Config& cfg, const std::string& barName, const std::vector<DropZone>& zones, std::size_t draggedZone,
-        std::size_t draggedIdx, std::size_t targetZone, std::size_t targetIdx,
+        const Config& cfg, const std::vector<DropZone>& zones, std::size_t draggedZone, std::size_t draggedIdx,
+        std::size_t targetZone, std::size_t targetIdx,
         const std::function<void(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>)>& setOverrides
     ) {
       if (draggedZone >= zones.size()
@@ -738,14 +810,14 @@ namespace settings {
       if (isCapsuleGroupToken(draggedName) || isCapsuleGroupToken(targetName)) {
         return;
       }
-      const BarConfig* bar = findBar(cfg, barName);
-      if (bar == nullptr) {
+      const std::vector<std::string> groupPath = capsuleGroupPathForLanePath(dz.lanePath);
+      if (groupPath.empty()) {
         return;
       }
-      const std::string newId = nextCapsuleGroupId(*bar);
-      BarCapsuleGroupStyle newGroup = seedCapsuleGroupStyle(*bar, newId);
+      std::vector<BarCapsuleGroupStyle> groups = capsuleGroupsForLanePath(cfg, dz.lanePath);
+      const std::string newId = nextCapsuleGroupId(groups);
+      BarCapsuleGroupStyle newGroup = seedCapsuleGroupStyle(cfg, dz.lanePath, newId);
       newGroup.members = {targetName, draggedName};
-      std::vector<BarCapsuleGroupStyle> groups = bar->widgetCapsuleGroups;
       groups.push_back(std::move(newGroup));
       const std::string token = makeCapsuleGroupToken(newId);
 
@@ -763,16 +835,16 @@ namespace settings {
           }
           lane.push_back(dz.items[k]);
         }
-        batch.push_back({dz.lanePath, lane});
+        batch.emplace_back(dz.lanePath, lane);
       } else {
         std::vector<std::string> draggedLane = dz.items;
         draggedLane.erase(draggedLane.begin() + static_cast<std::ptrdiff_t>(draggedIdx));
         std::vector<std::string> targetLane = tz.items;
         targetLane[targetIdx] = token;
-        batch.push_back({dz.lanePath, draggedLane});
-        batch.push_back({tz.lanePath, targetLane});
+        batch.emplace_back(dz.lanePath, draggedLane);
+        batch.emplace_back(tz.lanePath, targetLane);
       }
-      batch.push_back({{"bar", barName, "capsule_group"}, groups});
+      batch.emplace_back(groupPath, groups);
       setOverrides(batch);
     }
 
@@ -984,6 +1056,30 @@ namespace settings {
       return settingValueAsString(settingIt->second);
     }
 
+    // Effective typeface for the widget's labels: its own font_family override, else the hosting bar's
+    // font_family, else the global shell font. Used to list only the weights the real font provides.
+    std::string widgetResolvedFontFamily(const Config& cfg, std::string_view widgetName) {
+      if (const auto widgetIt = cfg.widgets.find(std::string(widgetName)); widgetIt != cfg.widgets.end()) {
+        const auto it = widgetIt->second.settings.find("font_family");
+        if (it != widgetIt->second.settings.end()) {
+          const std::string family = settingValueAsString(it->second);
+          if (!family.empty()) {
+            return family;
+          }
+        }
+      }
+      const auto inLane = [&](const std::vector<std::string>& lane) { return std::ranges::contains(lane, widgetName); };
+      for (const BarConfig& bar : cfg.bars) {
+        if (inLane(bar.startWidgets) || inLane(bar.centerWidgets) || inLane(bar.endWidgets)) {
+          if (bar.fontFamily && !bar.fontFamily->empty()) {
+            return *bar.fontFamily;
+          }
+          break;
+        }
+      }
+      return cfg.shell.fontFamily;
+    }
+
     std::vector<std::string> settingValueAsStringList(const WidgetSettingValue& value) {
       if (const auto* v = std::get_if<std::vector<std::string>>(&value)) {
         return *v;
@@ -1055,7 +1151,7 @@ namespace settings {
     }
 
     SelectSetting labelFontWeightSelectSetting(
-        const BarWidgetEditorContext& ctx, const WidgetSettingSpec& spec, std::string selectedValue
+        const WidgetSettingSpec& spec, std::string selectedValue, std::string_view fontFamily
     ) {
       std::optional<int> preserveWeight;
       if (!selectedValue.empty()) {
@@ -1063,9 +1159,8 @@ namespace settings {
       }
 
       std::vector<SelectOption> options;
-      const auto catalogOptions = buildLabelFontWeightSelectOptions(
-          ctx.config.shell.fontFamily, FontWeightSelectKind::WidgetInheritDefault, preserveWeight
-      );
+      const auto catalogOptions =
+          buildLabelFontWeightSelectOptions(fontFamily, FontWeightSelectKind::WidgetInheritDefault, preserveWeight);
       options.reserve(catalogOptions.size());
       for (const auto& option : catalogOptions) {
         options.push_back(SelectOption{option.value, i18n::tr(option.labelKey)});
@@ -1086,9 +1181,7 @@ namespace settings {
         options.push_back(SelectOption{.value = "auto", .label = i18n::tr("common.states.auto")});
       }
 
-      const auto hasSelected = std::any_of(options.begin(), options.end(), [&selectedValue](const SelectOption& opt) {
-        return opt.value == selectedValue;
-      });
+      const auto hasSelected = std::ranges::contains(options, selectedValue, &SelectOption::value);
       if (!selectedValue.empty() && !hasSelected) {
         options.push_back(
             SelectOption{
@@ -1136,7 +1229,7 @@ namespace settings {
       if (rawKeys.empty()) {
         return;
       }
-      std::sort(rawKeys.begin(), rawKeys.end());
+      std::ranges::sort(rawKeys);
 
       panel.addChild(
           ui::column(
@@ -1225,7 +1318,9 @@ namespace settings {
 
       const auto widgetIt = ctx.config.widgets.find(widgetName);
       const WidgetConfig* widgetConfig = widgetIt != ctx.config.widgets.end() ? &widgetIt->second : nullptr;
-      auto specs = widgetSettingSpecs(widgetType, widgetConfig, ctx.config.shell.fontFamily);
+      auto specs = widgetSettingSpecs(
+          widgetType, widgetConfig, ctx.config.shell.fontFamily, ctx.supportsTaskbarWorkspaceGrouping
+      );
       if (specs.empty()) {
         return;
       }
@@ -1483,11 +1578,30 @@ namespace settings {
         case WidgetControlKind::Select: {
           SelectSetting selectSetting;
           const std::string selectedValue = settingValueAsString(value);
+          // Font family uses the filterable search picker (catalogs can hold thousands of families).
+          if (spec.schema.key == "font_family" && ctx.makeSearchPicker) {
+            std::vector<SelectOption> familyOptions;
+            familyOptions.reserve(spec.options.size());
+            for (const auto& option : spec.options) {
+              familyOptions.push_back(
+                  SelectOption{option.value, spec.literalLabels ? option.labelKey : i18n::tr(option.labelKey)}
+              );
+            }
+            SearchPickerSetting picker;
+            picker.options = std::move(familyOptions);
+            picker.selectedValue = selectedValue;
+            picker.placeholder = ctx.config.shell.fontFamily;
+            picker.emptyText = i18n::tr("ui.controls.search-picker.empty");
+            ctx.makeRow(*panel, entry, ctx.makeSearchPicker(picker, entry.title, path));
+            break;
+          }
           if (widgetType == "battery" && spec.schema.key == "device") {
             selectSetting = batteryDeviceSelectSetting(ctx, selectedValue);
           } else if (spec.schema.key == "font_weight") {
-            selectSetting =
-                labelFontWeightSelectSetting(ctx, spec, widgetLabelFontWeightSelectedValue(ctx.config, widgetName));
+            selectSetting = labelFontWeightSelectSetting(
+                spec, widgetLabelFontWeightSelectedValue(ctx.config, widgetName),
+                widgetResolvedFontFamily(ctx.config, widgetName)
+            );
           } else if (widgetType == "workspaces" && spec.schema.key == "display") {
             selectSetting = workspacesDisplaySelectSetting(ctx, widgetName, spec, specs, selectedValue);
           } else {
@@ -1551,7 +1665,7 @@ namespace settings {
         for (const auto laneKey : kLaneKeys) {
           auto p = pathWithLastSegment(laneListPath, std::string(laneKey));
           auto items = barWidgetItemsForPath(ctx.config, p);
-          if (std::find(items.begin(), items.end(), widgetName) != items.end()) {
+          if (std::ranges::contains(items, widgetName)) {
             currentLaneKey = std::string(laneKey);
             currentLanePath = std::move(p);
             currentLaneItems = std::move(items);
@@ -1561,14 +1675,12 @@ namespace settings {
           }
         }
 
-        const BarConfig* inspectorBar = laneListPath.size() >= 2 ? findBar(ctx.config, laneListPath[1]) : nullptr;
+        const std::vector<BarCapsuleGroupStyle> inspectorGroups = capsuleGroupsForLanePath(ctx.config, laneListPath);
         std::string capsuleGroup;
-        if (inspectorBar != nullptr) {
-          for (const auto& g : inspectorBar->widgetCapsuleGroups) {
-            if (std::find(g.members.begin(), g.members.end(), widgetName) != g.members.end()) {
-              capsuleGroup = g.id;
-              break;
-            }
+        for (const auto& g : inspectorGroups) {
+          if (std::ranges::contains(g.members, widgetName)) {
+            capsuleGroup = g.id;
+            break;
           }
         }
         if (!capsuleGroup.empty()) {
@@ -1582,7 +1694,7 @@ namespace settings {
           );
           hint->setFlexGrow(1.0f);
           groupRow->addChild(std::move(hint));
-          const std::string editGroupId = capsuleGroup;
+          const std::string& editGroupId = capsuleGroup;
           groupRow->addChild(
               ui::button({
                   .text = i18n::tr("settings.entities.widget.group.edit"),
@@ -1632,7 +1744,7 @@ namespace settings {
                     .radius = Style::scaledRadiusSm(ctx.scale),
                     .onClick = [setOverrides = ctx.setOverrides, sourceItems, sourcePath, targetItems, targetPath,
                                 widgetName]() mutable {
-                      auto it = std::find(sourceItems.begin(), sourceItems.end(), widgetName);
+                      auto it = std::ranges::find(sourceItems, widgetName);
                       if (it == sourceItems.end()) {
                         return;
                       }
@@ -1948,10 +2060,13 @@ namespace settings {
       if (ctx.editingCapsuleGroupId.empty() || laneListPath.size() < 2 || laneListPath[0] != "bar") {
         return;
       }
-      const std::string barName = laneListPath[1];
       const std::string groupId = ctx.editingCapsuleGroupId;
-      const BarConfig* bar = findBar(ctx.config, barName);
-      const BarCapsuleGroupStyle* stylePtr = bar != nullptr ? findBarCapsuleGroupStyle(*bar, groupId) : nullptr;
+      const std::vector<std::string> groupPath = capsuleGroupPathForLanePath(laneListPath);
+      if (groupPath.empty()) {
+        return;
+      }
+      const std::vector<BarCapsuleGroupStyle> groups = capsuleGroupsForLanePath(ctx.config, laneListPath);
+      const BarCapsuleGroupStyle* stylePtr = findCapsuleGroupStyle(groups, groupId);
       if (stylePtr == nullptr) {
         if (ctx.closeHostedEditor) {
           ctx.closeHostedEditor();
@@ -1959,9 +2074,7 @@ namespace settings {
         return;
       }
       const BarCapsuleGroupStyle style = *stylePtr;
-      const std::vector<BarCapsuleGroupStyle> groups = bar->widgetCapsuleGroups;
       const std::size_t memberCount = stylePtr->members.size();
-      const std::vector<std::string> groupPath{"bar", barName, "capsule_group"};
 
       body.addChild(makeSettingSubtitleLabel(
           i18n::tr("settings.entities.widget.group.members", "count", std::to_string(memberCount)), ctx.scale
@@ -1989,12 +2102,15 @@ namespace settings {
 
       const auto groupEntry = [&](std::string_view field) {
         const std::string base = std::string("settings.entities.widget.group.") + std::string(field);
+        std::vector<std::string> fieldPath = groupPath;
+        fieldPath.push_back(groupId);
+        fieldPath.emplace_back(field);
         return SettingEntry{
             .section = SettingsSection::Bar,
             .group = "capsule-group",
             .title = i18n::tr(base),
             .subtitle = i18n::tr(base + "-description"),
-            .path = {"bar", barName, "capsule_group", groupId, std::string(field)},
+            .path = std::move(fieldPath),
             .control = {},
             .searchText = {},
             .visibleWhen = std::nullopt,
@@ -2067,39 +2183,42 @@ namespace settings {
               .paddingV = Style::spaceXs * ctx.scale,
               .paddingH = Style::spaceSm * ctx.scale,
               .radius = Style::scaledRadiusSm(ctx.scale),
-              .onClick = [setOverrides = ctx.setOverrides, groups, groupPath, groupId, barName, config = &ctx.config,
+              .onClick = [setOverrides = ctx.setOverrides, groupId, groupPath, laneListPath, config = &ctx.config,
                           closeHostedEditor = ctx.closeHostedEditor]() {
-                const BarConfig* targetBar = findBar(*config, barName);
-                const BarCapsuleGroupStyle* g =
-                    targetBar != nullptr ? findBarCapsuleGroupStyle(*targetBar, groupId) : nullptr;
+                std::vector<BarCapsuleGroupStyle> currentGroups = capsuleGroupsForLanePath(*config, laneListPath);
+                const BarCapsuleGroupStyle* g = findCapsuleGroupStyle(currentGroups, groupId);
                 if (g == nullptr) {
                   if (closeHostedEditor) {
                     closeHostedEditor();
                   }
                   return;
                 }
+                if (groupPath.empty()) {
+                  return;
+                }
+                const std::vector<std::string> members = g->members;
                 std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> batch;
                 // Replace the group token with its members in whichever lane holds it.
                 const std::string token = makeCapsuleGroupToken(groupId);
                 for (const auto laneKey : {"start", "center", "end"}) {
-                  std::vector<std::string> lanePath{"bar", barName, laneKey};
+                  std::vector<std::string> lanePath = pathWithLastSegment(laneListPath, laneKey);
                   std::vector<std::string> lane = barWidgetItemsForPath(*config, lanePath);
-                  const auto it = std::find(lane.begin(), lane.end(), token);
+                  const auto it = std::ranges::find(lane, token);
                   if (it == lane.end()) {
                     continue;
                   }
                   const std::size_t pos = static_cast<std::size_t>(it - lane.begin());
                   lane.erase(lane.begin() + static_cast<std::ptrdiff_t>(pos));
-                  lane.insert(lane.begin() + static_cast<std::ptrdiff_t>(pos), g->members.begin(), g->members.end());
-                  batch.push_back({lanePath, lane});
+                  lane.insert(lane.begin() + static_cast<std::ptrdiff_t>(pos), members.begin(), members.end());
+                  batch.emplace_back(lanePath, lane);
                 }
                 std::vector<BarCapsuleGroupStyle> remaining;
-                for (const auto& gx : groups) {
+                for (const auto& gx : currentGroups) {
                   if (gx.id != groupId) {
                     remaining.push_back(gx);
                   }
                 }
-                batch.push_back({groupPath, remaining});
+                batch.emplace_back(groupPath, remaining);
                 setOverrides(std::move(batch));
                 if (closeHostedEditor) {
                   closeHostedEditor();
@@ -2139,14 +2258,15 @@ namespace settings {
         }
         indices.push_back(static_cast<std::size_t>(std::strtoul(token.c_str() + hash + 1, nullptr, 10)));
       }
-      std::sort(indices.begin(), indices.end());
+      std::ranges::sort(indices);
       for (std::size_t k = 1; k < indices.size(); ++k) {
         if (indices[k] != indices[k - 1] + 1) {
           return plan; // not contiguous
         }
       }
 
-      const std::vector<std::string> items = barWidgetItemsForPath(ctx.config, {"bar", entry.path[1], laneKey});
+      const std::vector<std::string> items =
+          barWidgetItemsForPath(ctx.config, pathWithLastSegment(entry.path, laneKey));
       for (const auto idx : indices) {
         if (idx >= items.size() || isCapsuleGroupToken(items[idx])) {
           return plan;
@@ -2161,7 +2281,6 @@ namespace settings {
 
     void addLaneSelectionToolbar(Flex& block, const SettingEntry& entry, const BarWidgetEditorContext& ctx) {
       const LaneGroupPlan plan = computeLaneGroupPlan(entry, ctx);
-      const std::string barName = entry.path.size() >= 2 ? entry.path[1] : std::string{};
 
       auto toolbar = ui::row({
           .align = FlexAlign::Center,
@@ -2191,22 +2310,22 @@ namespace settings {
                 .paddingV = Style::spaceXs * ctx.scale,
                 .paddingH = Style::spaceSm * ctx.scale,
                 .radius = Style::scaledRadiusSm(ctx.scale),
-                .onClick = [setOverrides = ctx.setOverrides, config = &ctx.config, barName, laneKey = plan.laneKey,
-                            firstIndex = plan.firstIndex, members = plan.members,
+                .onClick = [setOverrides = ctx.setOverrides, config = &ctx.config, laneKey = plan.laneKey,
+                            firstIndex = plan.firstIndex, members = plan.members, laneListPath = entry.path,
                             &selectedLaneWidgets = ctx.selectedLaneWidgets,
-                            openCapsuleGroupInspector = ctx.openCapsuleGroupInspector, laneListPath = entry.path]() {
-                  const BarConfig* bar = findBar(*config, barName);
-                  if (bar == nullptr) {
+                            openCapsuleGroupInspector = ctx.openCapsuleGroupInspector]() {
+                  const std::vector<std::string> groupPath = capsuleGroupPathForLanePath(laneListPath);
+                  if (groupPath.empty()) {
                     return;
                   }
-                  const std::string newId = nextCapsuleGroupId(*bar);
-                  std::vector<BarCapsuleGroupStyle> groups = bar->widgetCapsuleGroups;
-                  BarCapsuleGroupStyle newGroup = seedCapsuleGroupStyle(*bar, newId);
+                  std::vector<BarCapsuleGroupStyle> groups = capsuleGroupsForLanePath(*config, laneListPath);
+                  const std::string newId = nextCapsuleGroupId(groups);
+                  BarCapsuleGroupStyle newGroup = seedCapsuleGroupStyle(*config, laneListPath, newId);
                   newGroup.members = members;
                   groups.push_back(std::move(newGroup));
 
                   // Replace the contiguous selected run with a single group token.
-                  std::vector<std::string> lanePath{"bar", barName, laneKey};
+                  std::vector<std::string> lanePath = pathWithLastSegment(laneListPath, laneKey);
                   std::vector<std::string> lane = barWidgetItemsForPath(*config, lanePath);
                   const std::size_t count = std::min(members.size(), lane.size() - std::min(firstIndex, lane.size()));
                   if (firstIndex <= lane.size()) {
@@ -2218,7 +2337,7 @@ namespace settings {
                   }
 
                   selectedLaneWidgets.clear();
-                  setOverrides({{lanePath, lane}, {{"bar", barName, "capsule_group"}, groups}});
+                  setOverrides({{lanePath, lane}, {groupPath, groups}});
                   if (openCapsuleGroupInspector) {
                     openCapsuleGroupInspector(laneListPath, newId);
                   }
@@ -2308,7 +2427,6 @@ namespace settings {
         .fillWidth = true,
     });
 
-    const std::string barName = entry.path.size() >= 2 ? entry.path[1] : std::string{};
     auto zones = std::make_shared<std::vector<DropZone>>();
 
     // Shared compact icon-button footprint for lane cards and group headers.
@@ -2317,152 +2435,152 @@ namespace settings {
     const float rowGap = 2.0f * ctx.scale;
 
     // Wires a drag handle so its card can be dragged between any registered zone (lane or group).
-    auto wireDrag =
-        [&ctx, zones,
-         barName](Button& handle, Button* handlePtr, Flex* cardPtr, std::size_t homeZoneIndex, std::size_t itemIndex) {
-          auto dragState = std::make_shared<LaneWidgetDragState>();
-          handle.setOnPress([dragState, cardPtr, zones, config = &ctx.config, barName, setOverride = ctx.setOverride,
-                             setOverrides = ctx.setOverrides, homeZoneIndex,
-                             itemIndex](float localX, float localY, bool pressed) {
-            const auto clearHighlight = [&]() {
-              if (dragState->highlightZoneIndex.has_value() && dragState->highlightItemIndex.has_value()) {
-                setCardCombineHighlight(*zones, *dragState->highlightZoneIndex, *dragState->highlightItemIndex, false);
-              }
-              dragState->highlightZoneIndex = std::nullopt;
-              dragState->highlightItemIndex = std::nullopt;
-            };
-            if (pressed) {
-              dragState->active = true;
-              dragState->moved = false;
-              dragState->startLocalX = localX;
-              dragState->startLocalY = localY;
-              dragState->lastLocalX = localX;
-              dragState->lastLocalY = localY;
-              dragState->targetZoneIndex = std::nullopt;
-              dragState->targetInsertionIndex = std::nullopt;
-              dragState->combineZoneIndex = std::nullopt;
-              dragState->combineItemIndex = std::nullopt;
-              clearHighlight();
-              cardPtr->setOpacity(0.72f);
-              hideDropIndicators(*zones);
-              return;
-            }
-            if (!dragState->active) {
-              return;
-            }
-            dragState->active = false;
-            cardPtr->setOpacity(1.0f);
-            clearHighlight();
-            hideDropIndicators(*zones);
-            if (!dragState->moved) {
-              return;
-            }
-            if (dragState->combineZoneIndex.has_value() && dragState->combineItemIndex.has_value()) {
-              createGroupByCombine(
-                  *config, barName, *zones, homeZoneIndex, itemIndex, *dragState->combineZoneIndex,
-                  *dragState->combineItemIndex, setOverrides
-              );
-              return;
-            }
-            if (!dragState->targetZoneIndex.has_value() || !dragState->targetInsertionIndex.has_value()) {
-              return;
-            }
-            performZoneMove(
-                *config, barName, *zones, homeZoneIndex, itemIndex, *dragState->targetZoneIndex,
-                *dragState->targetInsertionIndex, setOverride, setOverrides
-            );
-          });
-          handle.setOnPointerMotion([dragState, handlePtr, zones, homeZoneIndex, itemIndex,
-                                     scale = ctx.scale](float localX, float localY) {
-            if (!dragState->active) {
-              return;
-            }
-            dragState->lastLocalX = localX;
-            dragState->lastLocalY = localY;
-            if (std::hypot(localX - dragState->startLocalX, localY - dragState->startLocalY)
-                >= kDragStartThresholdPx * scale) {
-              dragState->moved = true;
-            }
-            if (!dragState->moved) {
-              return;
-            }
-            const auto clearHighlight = [&]() {
-              if (dragState->highlightZoneIndex.has_value() && dragState->highlightItemIndex.has_value()) {
-                setCardCombineHighlight(*zones, *dragState->highlightZoneIndex, *dragState->highlightItemIndex, false);
-              }
-              dragState->highlightZoneIndex = std::nullopt;
-              dragState->highlightItemIndex = std::nullopt;
-            };
-            const auto clear = [&]() {
-              dragState->targetZoneIndex = std::nullopt;
-              dragState->targetInsertionIndex = std::nullopt;
-              dragState->combineZoneIndex = std::nullopt;
-              dragState->combineItemIndex = std::nullopt;
-              clearHighlight();
-              hideDropIndicators(*zones);
-            };
-            float absX = 0.0f;
-            float absY = 0.0f;
-            Node::absolutePosition(handlePtr, absX, absY);
-            const float sceneX = absX + localX;
-            const float sceneY = absY + localY;
-            const auto targetZone = zoneAtScenePoint(*zones, sceneX, sceneY);
-            if (!targetZone.has_value() || *targetZone >= zones->size()) {
-              clear();
-              return;
-            }
-            const DropZone& zone = (*zones)[*targetZone];
-            if (zone.itemNodes == nullptr || zone.container == nullptr || zone.indicator == nullptr) {
-              clear();
-              return;
-            }
-
-            // Combine: a loose widget dropped onto the middle of another loose widget forms a new group.
-            const bool draggedIsLooseWidget = homeZoneIndex < zones->size()
-                && !(*zones)[homeZoneIndex].isGroup
-                && itemIndex < (*zones)[homeZoneIndex].items.size()
-                && !isCapsuleGroupToken((*zones)[homeZoneIndex].items[itemIndex]);
-            if (!zone.isGroup && draggedIsLooseWidget) {
-              if (const auto hovered = hoveredItemBand(sceneY, *zone.itemNodes); hovered.has_value()) {
-                const std::size_t hoveredIdx = hovered->first;
-                const bool onMiddle = hovered->second;
-                const bool sameItem = *targetZone == homeZoneIndex && hoveredIdx == itemIndex;
-                const bool hoveredIsWidget =
-                    hoveredIdx < zone.items.size() && !isCapsuleGroupToken(zone.items[hoveredIdx]);
-                if (onMiddle && hoveredIsWidget && !sameItem) {
-                  if (dragState->highlightZoneIndex != *targetZone || dragState->highlightItemIndex != hoveredIdx) {
-                    clearHighlight();
-                    setCardCombineHighlight(*zones, *targetZone, hoveredIdx, true);
-                    dragState->highlightZoneIndex = *targetZone;
-                    dragState->highlightItemIndex = hoveredIdx;
-                  }
-                  dragState->combineZoneIndex = *targetZone;
-                  dragState->combineItemIndex = hoveredIdx;
-                  dragState->targetZoneIndex = std::nullopt;
-                  dragState->targetInsertionIndex = std::nullopt;
-                  hideDropIndicators(*zones);
-                  return;
-                }
-              }
-            }
-
-            // Insertion (between items / into a group).
-            clearHighlight();
-            dragState->combineZoneIndex = std::nullopt;
-            dragState->combineItemIndex = std::nullopt;
-            const std::size_t insertion = insertionIndexForSceneY(sceneY, *zone.itemNodes);
-            if (insertionWouldNotMove(homeZoneIndex, *targetZone, itemIndex, insertion)) {
-              dragState->targetZoneIndex = std::nullopt;
-              dragState->targetInsertionIndex = std::nullopt;
-              hideDropIndicators(*zones);
-              return;
-            }
-            dragState->targetZoneIndex = *targetZone;
-            dragState->targetInsertionIndex = insertion;
-            hideDropIndicators(*zones);
-            updateDropIndicator(*zone.indicator, *zone.container, *zone.itemNodes, insertion, scale);
-          });
+    auto wireDrag = [&ctx, zones, laneListPath = entry.path](
+                        Button& handle, Button* handlePtr, Flex* cardPtr, std::size_t homeZoneIndex,
+                        std::size_t itemIndex
+                    ) {
+      auto dragState = std::make_shared<LaneWidgetDragState>();
+      handle.setOnPress([dragState, cardPtr, zones, config = &ctx.config, laneListPath, setOverride = ctx.setOverride,
+                         setOverrides = ctx.setOverrides, homeZoneIndex,
+                         itemIndex](float localX, float localY, bool pressed) {
+        const auto clearHighlight = [&]() {
+          if (dragState->highlightZoneIndex.has_value() && dragState->highlightItemIndex.has_value()) {
+            setCardCombineHighlight(*zones, *dragState->highlightZoneIndex, *dragState->highlightItemIndex, false);
+          }
+          dragState->highlightZoneIndex = std::nullopt;
+          dragState->highlightItemIndex = std::nullopt;
         };
+        if (pressed) {
+          dragState->active = true;
+          dragState->moved = false;
+          dragState->startLocalX = localX;
+          dragState->startLocalY = localY;
+          dragState->lastLocalX = localX;
+          dragState->lastLocalY = localY;
+          dragState->targetZoneIndex = std::nullopt;
+          dragState->targetInsertionIndex = std::nullopt;
+          dragState->combineZoneIndex = std::nullopt;
+          dragState->combineItemIndex = std::nullopt;
+          clearHighlight();
+          cardPtr->setOpacity(0.72f);
+          hideDropIndicators(*zones);
+          return;
+        }
+        if (!dragState->active) {
+          return;
+        }
+        dragState->active = false;
+        cardPtr->setOpacity(1.0f);
+        clearHighlight();
+        hideDropIndicators(*zones);
+        if (!dragState->moved) {
+          return;
+        }
+        if (dragState->combineZoneIndex.has_value() && dragState->combineItemIndex.has_value()) {
+          createGroupByCombine(
+              *config, *zones, homeZoneIndex, itemIndex, *dragState->combineZoneIndex, *dragState->combineItemIndex,
+              setOverrides
+          );
+          return;
+        }
+        if (!dragState->targetZoneIndex.has_value() || !dragState->targetInsertionIndex.has_value()) {
+          return;
+        }
+        performZoneMove(
+            *config, laneListPath, *zones, homeZoneIndex, itemIndex, *dragState->targetZoneIndex,
+            *dragState->targetInsertionIndex, setOverride, setOverrides
+        );
+      });
+      handle.setOnPointerMotion([dragState, handlePtr, zones, homeZoneIndex, itemIndex,
+                                 scale = ctx.scale](float localX, float localY) {
+        if (!dragState->active) {
+          return;
+        }
+        dragState->lastLocalX = localX;
+        dragState->lastLocalY = localY;
+        if (std::hypot(localX - dragState->startLocalX, localY - dragState->startLocalY)
+            >= kDragStartThresholdPx * scale) {
+          dragState->moved = true;
+        }
+        if (!dragState->moved) {
+          return;
+        }
+        const auto clearHighlight = [&]() {
+          if (dragState->highlightZoneIndex.has_value() && dragState->highlightItemIndex.has_value()) {
+            setCardCombineHighlight(*zones, *dragState->highlightZoneIndex, *dragState->highlightItemIndex, false);
+          }
+          dragState->highlightZoneIndex = std::nullopt;
+          dragState->highlightItemIndex = std::nullopt;
+        };
+        const auto clear = [&]() {
+          dragState->targetZoneIndex = std::nullopt;
+          dragState->targetInsertionIndex = std::nullopt;
+          dragState->combineZoneIndex = std::nullopt;
+          dragState->combineItemIndex = std::nullopt;
+          clearHighlight();
+          hideDropIndicators(*zones);
+        };
+        float absX = 0.0f;
+        float absY = 0.0f;
+        Node::absolutePosition(handlePtr, absX, absY);
+        const float sceneX = absX + localX;
+        const float sceneY = absY + localY;
+        const auto targetZone = zoneAtScenePoint(*zones, sceneX, sceneY);
+        if (!targetZone.has_value() || *targetZone >= zones->size()) {
+          clear();
+          return;
+        }
+        const DropZone& zone = (*zones)[*targetZone];
+        if (zone.itemNodes == nullptr || zone.container == nullptr || zone.indicator == nullptr) {
+          clear();
+          return;
+        }
+
+        // Combine: a loose widget dropped onto the middle of another loose widget forms a new group.
+        const bool draggedIsLooseWidget = homeZoneIndex < zones->size()
+            && !(*zones)[homeZoneIndex].isGroup
+            && itemIndex < (*zones)[homeZoneIndex].items.size()
+            && !isCapsuleGroupToken((*zones)[homeZoneIndex].items[itemIndex]);
+        if (!zone.isGroup && draggedIsLooseWidget) {
+          if (const auto hovered = hoveredItemBand(sceneY, *zone.itemNodes); hovered.has_value()) {
+            const std::size_t hoveredIdx = hovered->first;
+            const bool onMiddle = hovered->second;
+            const bool sameItem = *targetZone == homeZoneIndex && hoveredIdx == itemIndex;
+            const bool hoveredIsWidget = hoveredIdx < zone.items.size() && !isCapsuleGroupToken(zone.items[hoveredIdx]);
+            if (onMiddle && hoveredIsWidget && !sameItem) {
+              if (dragState->highlightZoneIndex != *targetZone || dragState->highlightItemIndex != hoveredIdx) {
+                clearHighlight();
+                setCardCombineHighlight(*zones, *targetZone, hoveredIdx, true);
+                dragState->highlightZoneIndex = targetZone;
+                dragState->highlightItemIndex = hoveredIdx;
+              }
+              dragState->combineZoneIndex = targetZone;
+              dragState->combineItemIndex = hoveredIdx;
+              dragState->targetZoneIndex = std::nullopt;
+              dragState->targetInsertionIndex = std::nullopt;
+              hideDropIndicators(*zones);
+              return;
+            }
+          }
+        }
+
+        // Insertion (between items / into a group).
+        clearHighlight();
+        dragState->combineZoneIndex = std::nullopt;
+        dragState->combineItemIndex = std::nullopt;
+        const std::size_t insertion = insertionIndexForSceneY(sceneY, *zone.itemNodes);
+        if (insertionWouldNotMove(homeZoneIndex, *targetZone, itemIndex, insertion)) {
+          dragState->targetZoneIndex = std::nullopt;
+          dragState->targetInsertionIndex = std::nullopt;
+          hideDropIndicators(*zones);
+          return;
+        }
+        dragState->targetZoneIndex = targetZone;
+        dragState->targetInsertionIndex = insertion;
+        hideDropIndicators(*zones);
+        updateDropIndicator(*zone.indicator, *zone.container, *zone.itemNodes, insertion, scale);
+      });
+    };
 
     // Builds a draggable widget card (used for both loose lane widgets and group members).
     auto makeWidgetCard = [&ctx, &wireDrag, &entry, iconSize, iconPad, rowGap](
@@ -2477,8 +2595,8 @@ namespace settings {
           .paddingH = Style::spaceXs * ctx.scale,
           .fill = colorSpecFromRole(ColorRole::Surface, 0.72f),
           .radius = Style::scaledRadiusSm(ctx.scale),
-          .border = isSelected ? colorSpecFromRole(ColorRole::Primary) : colorSpecFromRole(ColorRole::Outline, 0.22f),
-          .borderWidth = isSelected ? Style::borderWidth * 1.5f : Style::borderWidth,
+          .border = isSelected ? colorSpecFromRole(ColorRole::Primary) : clearColorSpec(),
+          .borderWidth = Style::borderWidth,
       });
       auto* cardPtr = card.get();
 
@@ -2576,7 +2694,7 @@ namespace settings {
           .padding = Style::spaceSm * ctx.scale,
           .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.45f),
           .radius = Style::scaledRadiusMd(ctx.scale),
-          .border = colorSpecFromRole(ColorRole::Outline, 0.5f),
+          .border = colorSpecFromRole(ColorRole::Outline),
           .minWidth = 160.0f * ctx.scale,
           .flexGrow = 1.0f,
       });
@@ -2655,8 +2773,8 @@ namespace settings {
       }
       laneHeader->addChild(ui::spacer());
       if (inherited) {
-        auto items = laneItems;
-        auto path = lanePath;
+        const auto& items = laneItems;
+        const auto& path = lanePath;
         laneHeader->addChild(
             ui::button({
                 .text = i18n::tr("settings.entities.widget.lanes.customize"),
@@ -2675,14 +2793,14 @@ namespace settings {
       }
       lane->addChild(std::move(laneHeader));
 
-      const BarConfig* laneBar = !barName.empty() ? findBar(ctx.config, barName) : nullptr;
+      const std::vector<BarCapsuleGroupStyle> laneGroups = capsuleGroupsForLanePath(ctx.config, lanePath);
       for (std::size_t i = 0; i < laneItems.size(); ++i) {
         const std::string& entryName = laneItems[i];
 
         // Group token → render a container holding its members; members are dragged in/out of it.
         if (isCapsuleGroupToken(entryName)) {
           const std::string gid = capsuleGroupTokenId(entryName);
-          const BarCapsuleGroupStyle* group = laneBar != nullptr ? findBarCapsuleGroupStyle(*laneBar, gid) : nullptr;
+          const BarCapsuleGroupStyle* group = findCapsuleGroupStyle(laneGroups, gid);
           if (group == nullptr) {
             auto orphan = ui::column({
                 .align = FlexAlign::Center,
@@ -2764,7 +2882,7 @@ namespace settings {
                   .width = Style::fontSizeCaption * ctx.scale,
                   .height = Style::fontSizeCaption * ctx.scale,
                   .configure = [](Box& box) {
-                    box.setBorder(colorSpecFromRole(ColorRole::Outline, 0.6f), Style::borderWidth);
+                    box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
                   },
               })
           );
@@ -2803,29 +2921,34 @@ namespace settings {
                     .minHeight = iconSize,
                     .padding = iconPad,
                     .radius = Style::scaledRadiusSm(ctx.scale),
-                    .onClick = [config = &ctx.config, barName, lanePath, gid, setOverrides = ctx.setOverrides]() {
-                      const BarConfig* bar = findBar(*config, barName);
-                      const BarCapsuleGroupStyle* g = bar != nullptr ? findBarCapsuleGroupStyle(*bar, gid) : nullptr;
+                    .onClick = [config = &ctx.config, lanePath, gid, setOverrides = ctx.setOverrides]() {
+                      std::vector<BarCapsuleGroupStyle> groups = capsuleGroupsForLanePath(*config, lanePath);
+                      const BarCapsuleGroupStyle* g = findCapsuleGroupStyle(groups, gid);
                       if (g == nullptr) {
                         return;
                       }
+                      const std::vector<std::string> groupPath = capsuleGroupPathForLanePath(lanePath);
+                      if (groupPath.empty()) {
+                        return;
+                      }
+                      const std::vector<std::string> members = g->members;
                       std::vector<std::string> laneEntries = barWidgetItemsForPath(*config, lanePath);
                       const std::string token = makeCapsuleGroupToken(gid);
-                      const auto it = std::find(laneEntries.begin(), laneEntries.end(), token);
+                      const auto it = std::ranges::find(laneEntries, token);
                       if (it != laneEntries.end()) {
                         const std::size_t pos = static_cast<std::size_t>(it - laneEntries.begin());
                         laneEntries.erase(laneEntries.begin() + static_cast<std::ptrdiff_t>(pos));
                         laneEntries.insert(
-                            laneEntries.begin() + static_cast<std::ptrdiff_t>(pos), g->members.begin(), g->members.end()
+                            laneEntries.begin() + static_cast<std::ptrdiff_t>(pos), members.begin(), members.end()
                         );
                       }
-                      std::vector<BarCapsuleGroupStyle> groups;
-                      for (const auto& x : bar->widgetCapsuleGroups) {
+                      std::vector<BarCapsuleGroupStyle> remaining;
+                      for (const auto& x : groups) {
                         if (x.id != gid) {
-                          groups.push_back(x);
+                          remaining.push_back(x);
                         }
                       }
-                      setOverrides({{lanePath, laneEntries}, {{"bar", barName, "capsule_group"}, groups}});
+                      setOverrides({{lanePath, laneEntries}, {groupPath, remaining}});
                     },
                 })
             );
@@ -2863,12 +2986,12 @@ namespace settings {
           for (std::size_t m = 0; m < group->members.size(); ++m) {
             std::function<void()> eject;
             if (!inherited) {
-              eject = [config = &ctx.config, barName, lanePath, gid, m, setOverrides = ctx.setOverrides]() {
-                const BarConfig* bar = findBar(*config, barName);
-                if (bar == nullptr) {
+              eject = [config = &ctx.config, lanePath, gid, m, setOverrides = ctx.setOverrides]() {
+                const std::vector<std::string> groupPath = capsuleGroupPathForLanePath(lanePath);
+                if (groupPath.empty()) {
                   return;
                 }
-                std::vector<BarCapsuleGroupStyle> groups = bar->widgetCapsuleGroups;
+                std::vector<BarCapsuleGroupStyle> groups = capsuleGroupsForLanePath(*config, lanePath);
                 std::string ejected;
                 bool emptyNow = false;
                 for (auto& g : groups) {
@@ -2886,7 +3009,7 @@ namespace settings {
                 }
                 std::vector<std::string> laneEntries = barWidgetItemsForPath(*config, lanePath);
                 const std::string token = makeCapsuleGroupToken(gid);
-                const auto it = std::find(laneEntries.begin(), laneEntries.end(), token);
+                const auto it = std::ranges::find(laneEntries, token);
                 std::size_t insertAt = it != laneEntries.end() ? static_cast<std::size_t>(it - laneEntries.begin()) + 1
                                                                : laneEntries.size();
                 if (emptyNow && it != laneEntries.end()) {
@@ -2903,7 +3026,7 @@ namespace settings {
                 }
                 insertAt = std::min(insertAt, laneEntries.size());
                 laneEntries.insert(laneEntries.begin() + static_cast<std::ptrdiff_t>(insertAt), ejected);
-                setOverrides({{lanePath, laneEntries}, {{"bar", barName, "capsule_group"}, groups}});
+                setOverrides({{lanePath, laneEntries}, {groupPath, groups}});
               };
             }
             auto memberCard = makeWidgetCard(
@@ -2921,9 +3044,7 @@ namespace settings {
 
         // Loose widget card.
         const std::string selectionToken = std::string(laneKey) + "#" + std::to_string(i);
-        const bool isSelected =
-            std::find(ctx.selectedLaneWidgets.begin(), ctx.selectedLaneWidgets.end(), selectionToken)
-            != ctx.selectedLaneWidgets.end();
+        const bool isSelected = std::ranges::contains(ctx.selectedLaneWidgets, selectionToken);
         std::function<void()> removeClose;
         if (!inherited) {
           removeClose = [setOverride = ctx.setOverride, items = laneItems, lanePath, i]() mutable {
@@ -2935,7 +3056,7 @@ namespace settings {
         if (!inherited) {
           toggleSelect = [&selectedLaneWidgets = ctx.selectedLaneWidgets, selectionToken,
                           requestRebuild = ctx.requestRebuild]() {
-            const auto it = std::find(selectedLaneWidgets.begin(), selectedLaneWidgets.end(), selectionToken);
+            const auto it = std::ranges::find(selectedLaneWidgets, selectionToken);
             if (it != selectedLaneWidgets.end()) {
               selectedLaneWidgets.erase(it);
             } else {
@@ -2962,7 +3083,7 @@ namespace settings {
                     .paddingH = Style::spaceSm * ctx.scale,
                     .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.25f),
                     .radius = Style::scaledRadiusSm(ctx.scale),
-                    .border = colorSpecFromRole(ColorRole::Outline, 0.18f),
+                    .border = colorSpecFromRole(ColorRole::Outline),
                 },
                 makeLabel(
                     i18n::tr("settings.entities.widget.lanes.empty"), Style::fontSizeCaption * ctx.scale,
@@ -2987,7 +3108,7 @@ namespace settings {
                 .minHeight = Style::controlHeightSm * ctx.scale,
                 .paddingV = Style::spaceXs * ctx.scale,
                 .paddingH = Style::spaceSm * ctx.scale,
-                .radius = Style::scaledRadiusSm(ctx.scale),
+                .radius = Style::scaledRadiusMd(ctx.scale),
                 .onClick = [&editingWidgetName = ctx.editingWidgetName, &renamingWidgetName = ctx.renamingWidgetName,
                             &pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
                             &pendingDeleteWidgetSettingPath = ctx.pendingDeleteWidgetSettingPath,

@@ -1,14 +1,18 @@
 #pragma once
 
 #include "ui/controls/flex.h"
+#include "ui/controls/roving_list_nav.h"
+#include "ui/palette.h"
 
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <vector>
 
 class Button;
+class InputArea;
 class Separator;
 
 class Segmented : public Flex {
@@ -36,10 +40,15 @@ public:
 
   void setEnabled(bool enabled);
   void setSurfaceOpacity(float opacity);
+  void setSurfaceRole(ColorRole role);
   [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
 
   // When true, each segment gets flexGrow 1 so the group fills the available width (e.g. full bar).
   void setEqualSegmentWidths(bool equalWidths);
+
+  [[nodiscard]] InputArea* focusArea() const noexcept { return m_focusArea; }
+
+  void doLayout(Renderer& renderer) override;
 
 private:
   [[nodiscard]] std::unique_ptr<Separator> makeSegmentSeparator();
@@ -50,8 +59,10 @@ private:
   void applyOuterStyle();
   [[nodiscard]] float effectiveFontSize() const noexcept;
 
+  RovingListNavController m_rovingNav;
   std::vector<Separator*> m_separators;
   std::vector<Button*> m_buttons;
+  InputArea* m_focusArea = nullptr;
   std::size_t m_selected = 0;
   std::function<void(std::size_t)> m_onChange;
   float m_fontSize = 0.0f;
@@ -60,5 +71,6 @@ private:
   bool m_compact = false;
   float m_outerPadding = 0.0f;
   float m_surfaceOpacity = 1.0f;
+  ColorRole m_surfaceRole = ColorRole::SurfaceVariant;
   bool m_enabled = true;
 };

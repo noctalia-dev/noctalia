@@ -5,29 +5,41 @@ local surface = "rgb({{colors.surface.default.hex_stripped}})"
 local secondary = "rgb({{colors.secondary.default.hex_stripped}})"
 local error = "rgb({{colors.error.default.hex_stripped}})"
 
-hl.config({
-	general = {
-		col = {
-			active_border = primary,
-			inactive_border = surface,
-		},
-	},
+local function apply_theme()
+    hl.config({
+        general = {
+            col = {
+                active_border = primary,
+                inactive_border = surface,
+            },
+        },
 
-	group = {
-		col = {
-			border_active = secondary,
-			border_inactive = surface,
-			border_locked_active = error,
-			border_locked_inactive = surface,
-		},
+        group = {
+            col = {
+                border_active = secondary,
+                border_inactive = surface,
+                border_locked_active = error,
+                border_locked_inactive = surface,
+            },
 
-		groupbar = {
-			col = {
-				active = secondary,
-				inactive = surface,
-				locked_active = error,
-				locked_inactive = surface,
-			},
-		},
-	},
-})
+            groupbar = {
+                col = {
+                    active = secondary,
+                    inactive = surface,
+                    locked_active = error,
+                    locked_inactive = surface,
+                },
+            },
+        },
+    })
+end
+
+return {
+    colors = {
+        primary = primary,
+        surface = surface,
+        secondary = secondary,
+        error = error,
+    },
+    apply_theme = apply_theme
+}

@@ -23,7 +23,8 @@ namespace calendar {
   // server-side recurrence expansion. cb receives ok=false on any transport/HTTP/parse failure.
   void fetchCalDavEvents(
       HttpClient& http, const CalDavAccount& account, std::chrono::system_clock::time_point start,
-      std::chrono::system_clock::time_point end, std::function<void(bool ok, std::vector<CalendarEvent>)> cb
+      std::chrono::system_clock::time_point end, bool allowRedirectAuth,
+      std::function<void(bool ok, std::vector<CalendarEvent>)> cb
   );
 
 } // namespace calendar

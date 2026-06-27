@@ -1,5 +1,17 @@
 {
   "auth": {
+    "fingerprint": {
+      "disconnected": "Thiết bị đọc vân tay đã bị ngắt kết nối",
+      "error": "Đã xảy ra lỗi khi xác thực vân tay",
+      "no-match": "Vân tay không khớp",
+      "not-centered": "Đặt ngón tay vào giữa và thử lại",
+      "present": "Đang đọc vân tay...",
+      "ready": "Đặt ngón tay lên bộ đọc vân tay",
+      "remove-and-retry": "Bỏ ngón tay khỏi cảm biến rồi thử lại",
+      "retry": "Vui lòng quét lại vân tay",
+      "swipe-too-short": "Thao tác vuốt quá ngắn, vui lòng thử lại",
+      "too-many-attempts": "Vân tay đã bị vô hiệu hóa (quá nhiều lần thử)"
+    },
     "pam": {
       "authentication-failed": "Xác thực không thành công",
       "start-failed": "Khởi động PAM không thành công",
@@ -21,6 +33,16 @@
       "region": "Chọn khu vực"
     },
     "widgets": {
+      "active-window": {
+        "no-active-window": "Không có cửa sổ hoạt động"
+      },
+      "bluetooth": {
+        "connected": "Đã kết nối"
+      },
+      "brightness": {
+        "brightness": "Độ sáng",
+        "display": "Hiển thị"
+      },
       "lock-keys": {
         "caps": "Caps",
         "caps-short": "C",
@@ -34,11 +56,52 @@
         "playing": "Đang phát"
       },
       "network": {
-        "wired": "Mạng có dây"
+        "active": "Hoạt động",
+        "connected": "Đã kết nối",
+        "connecting": "Đang kết nối",
+        "download": "Tải xuống",
+        "interface": "Giao diện",
+        "ip": "IP",
+        "network": "Mạng",
+        "networks-count": "{count} mạng",
+        "no": "Không",
+        "not-connected": "Chưa kết nối",
+        "off": "Tắt",
+        "on": "Bật",
+        "scanning": "Đang tìm kiếm",
+        "signal": "Tín hiệu",
+        "upload": "Tải lên",
+        "vpn": "VPN",
+        "wifi": "Wi-Fi",
+        "wired": "Mạng có dây",
+        "yes": "Có"
+      },
+      "privacy": {
+        "camera": "Camera",
+        "microphone": "Micrô",
+        "screen-sharing": "Chia sẻ màn hình"
       },
       "scripted": {
         "reload-failed": "Tải lại script thất bại",
         "reloaded": "Script đã được tải lại"
+      },
+      "sysmon": {
+        "cpu": "CPU",
+        "cpu-temp": "Nhiệt độ CPU",
+        "disk": "Ổ đĩa",
+        "download": "Tải xuống",
+        "gpu-temp": "Nhiệt độ GPU",
+        "gpu-usage": "Mức sử dụng GPU",
+        "gpu-vram": "GPU VRAM",
+        "ram": "RAM",
+        "swap": "Swap",
+        "system": "Hệ thống",
+        "upload": "Tải lên"
+      },
+      "volume": {
+        "device": "Thiết bị",
+        "mic": "Micrô",
+        "volume": "Âm lượng"
       },
       "weather": {
         "default": "Thời tiết",
@@ -98,7 +161,9 @@
   "control-center": {
     "audio": {
       "application-volumes": "Âm lượng ứng dụng",
-      "input-volume": "Âm lượng đầu vào",
+      "choose-effects-profile": "Chọn một cấu hình",
+      "effects-profile": "Hiệu ứng",
+      "input-device-prefix": "Đầu vào:",
       "no-application-audio": "Không có âm thanh từ ứng dụng",
       "no-application-audio-body": "Hiện không có ứng dụng nào đang phát âm thanh.",
       "no-input-devices": "Không tìm thấy thiết bị đầu vào",
@@ -107,7 +172,7 @@
       "no-output-devices": "Không tìm thấy thiết bị đầu ra",
       "no-output-devices-body": "Không có thiết bị phát âm thanh khả dụng.",
       "no-output-selected": "Không có thiết bị đầu ra nào được chọn",
-      "output-volume": "Âm lượng đầu ra",
+      "output-device-prefix": "Đầu ra:",
       "unavailable-body": "PipeWire hiện không hoạt động.",
       "unavailable-title": "Âm thanh không khả dụng"
     },
@@ -142,7 +207,8 @@
     "calendar": {
       "all-day": "Cả ngày",
       "events": "Sự kiện",
-      "no-events": "Không có sự kiện."
+      "no-events": "Không có sự kiện.",
+      "today": "Hôm nay"
     },
     "display": {
       "disabled": "Đã tắt",
@@ -150,6 +216,7 @@
       "unknown-resolution": "Độ phân giải không xác định"
     },
     "home": {
+      "avatar-error-title": "Ảnh đại diện chưa được cập nhật",
       "media": {
         "idle": "Chờ",
         "no-active-player": "Không có trình phát nào đang hoạt động",
@@ -165,7 +232,6 @@
       "unknown": "không xác định",
       "uptime": "Thời gian hoạt động - {uptime}",
       "weather": {
-        "configure-location": "Thêm [weather].address hoặc bật auto_locate.",
         "data-unavailable": "Không thể tải dữ liệu thời tiết.",
         "disabled": "Tính năng thời tiết đã bị vô hiệu hóa trong config.",
         "fetching": "Đang cập nhật dự báo thời tiết..."
@@ -195,6 +261,9 @@
       "wired-connection": "Kết nối mạng có dây"
     },
     "notifications": {
+      "clear-all": "Xóa tất cả thông báo",
+      "dnd-off": "Tắt chế độ không làm phiền",
+      "dnd-on": "Bật chế độ không làm phiền",
       "empty-body": "Các thông báo gần đây sẽ được hiển thị tại đây.",
       "empty-title": "Không có thông báo",
       "filter": {
@@ -206,6 +275,11 @@
       "filter-empty-body": "Không có thông báo nào khớp với bộ lọc này.",
       "filter-empty-title": "Không có nội dung",
       "untitled": "Thông báo chưa có tiêu đề"
+    },
+    "power": {
+      "battery": "Pin",
+      "design-capacity": "Công suất thiết kế",
+      "health": "Trình trạng pin"
     },
     "screen-time": {
       "disabled": "Tính năng theo dõi thời gian sử dụng màn hình đang tắt. Bật trong Cài đặt để ghi lại dữ liệu theo từng ứng dụng.",
@@ -243,7 +317,6 @@
       },
       "notification": "DND",
       "power-profile": "Nguồn",
-      "screen-recorder": "Ghi hình",
       "screen-time": "Thời gian Sử dụng",
       "session": "Phiên",
       "system": "Hệ thống",
@@ -252,6 +325,11 @@
       "wifi": "Wi-Fi"
     },
     "system": {
+      "labels": {
+        "load": "Mức sử dụng CPU",
+        "ram": "RAM",
+        "swap": "Swap"
+      },
       "titles": {
         "cpu": "CPU",
         "gpu": "GPU",
@@ -259,6 +337,9 @@
         "network": "Mạng",
         "resources": "Tài nguyên",
         "system": "Hệ thống"
+      },
+      "tooltips": {
+        "load": "Mức tải trung bình trong 1 / 5 / 15 phút"
       },
       "unknown": "không xác định",
       "uptime-prefix": "Hoạt động {uptime} · {osAge}"
@@ -277,7 +358,6 @@
       "weather": "Thời tiết"
     },
     "weather": {
-      "configure-location": "Thêm [weather].address hoặc bật auto_locate",
       "data-unavailable": "Không thể tải dữ liệu thời tiết",
       "details": {
         "elevation": "Độ cao",
@@ -303,7 +383,17 @@
   "desktop-widgets": {
     "editor": {
       "actions": {
-        "done": "Xong"
+        "add": "Thêm",
+        "clone": "Nhân bản (Ctrl+C, Ctrl+V để sao chép/dán)",
+        "done": "Xong",
+        "flip-horizontal": "Lật ngang",
+        "flip-vertical": "Lật dọc",
+        "hide": "Ẩn",
+        "settings": "Cài đặt",
+        "show": "Hiển thị",
+        "stack-back": "Đưa ra phía sau",
+        "stack-front": "Đưa ra phía trước",
+        "trash": "Xóa"
       },
       "dialogs": {
         "select-sticker-image": "Chọn hình ảnh Sticker"
@@ -326,12 +416,15 @@
         "clock-style-analog": "Analog",
         "clock-style-digital": "Kỹ thuật số",
         "color": "Màu sắc",
+        "color-1": "Màu thứ nhất",
+        "color-2": "Màu thứ hai",
         "color2": "Màu 2",
         "custom-color": "Tùy chỉnh…",
         "description": "Mô tả",
         "fade-when-idle": "Làm mờ khi không hoạt động",
         "font-family": "Phông chữ",
         "font-family-default": "Mặc định hệ thống",
+        "forecast-days": "Số ngày dự báo",
         "format": "Định dạng",
         "hide-when-no-media": "Ẩn khi không có trình phát đang chạy",
         "horizontal": "Ngang",
@@ -339,6 +432,7 @@
         "inner-diameter": "Đường kính trong",
         "input-opacity": "Độ mờ đầu vào",
         "input-radius": "Bo góc đầu vào",
+        "interface": "Giao diện",
         "layout": "Bố cục",
         "mirrored": "Phản chiếu",
         "opacity": "Độ trong suốt",
@@ -349,6 +443,7 @@
         "secondary-color": "Màu phụ",
         "sensitivity": "Độ nhạy",
         "shadow": "Bóng",
+        "show-forecast": "Hiển thị dự báo",
         "show-label": "Hiển thị nhãn",
         "show-login-button": "Nút đăng nhập",
         "show-when-idle": "Hiển thị khi không hoạt động",
@@ -386,6 +481,7 @@
         "clock": "Đồng hồ",
         "fancy-audio-visualizer": "Trình hiển thị âm thanh đẹp mắt",
         "label": "Nhãn",
+        "login-box": "Ô đăng nhập",
         "media-player": "Trình phát đa phương tiện",
         "sticker": "Hình dán",
         "system-monitor": "Theo dõi hệ thống",
@@ -532,10 +628,14 @@
       "keybind-invalid-printable": "Các phím ký tự (chữ cái, số, ký hiệu) cần một phím bổ trợ như Ctrl hoặc Alt.",
       "keybind-invalid-super": "Không thể dùng phím Super/Windows trong các phím tắt của shell.",
       "keybind-invalid-title": "Phím tắt không được phép",
+      "launcher-usage-reset": "Trình khởi chạy",
+      "launcher-usage-reset-success": "Đã xóa toàn bộ dữ liệu sử dụng.",
       "lockscreen-widgets-editor": "Trình chỉnh sửa tiện ích màn hình khóa",
       "lockscreen-widgets-editor-blocked-locked": "Mở khóa phiên trước khi chỉnh sửa các widget màn hình khóa.",
       "lockscreen-widgets-editor-enabled": "Trình chỉnh sửa Widget màn hình khóa đang bật. Sắp xếp các Widget trên Overlay xem trước, sau đó khóa phiên để kiểm tra bố cục.",
       "mpris-disabled": "MPRIS đã tắt",
+      "screen-time-reset": "Thời gian sử dụng",
+      "screen-time-reset-success": "Đã xóa toàn bộ dữ liệu sử dụng.",
       "session-bus-unavailable": "Bus phiên không khả dụng",
       "wallpaper-palette-export": "Bảng màu tùy chỉnh",
       "wallpaper-palette-export-success": "Đã lưu \"{name}\" và chuyển từ bảng màu sang tùy chỉnh."
@@ -553,6 +653,10 @@
     "dnd": {
       "off": "DND Tắt",
       "on": "DND Bật"
+    },
+    "effects": {
+      "input": "Hiệu ứng đầu vào",
+      "output": "Hiệu ứng đầu ra"
     },
     "lock-keys": {
       "caps-off": "Caps Lock Tắt",
@@ -614,6 +718,7 @@
       "advanced": "Nâng cao",
       "inherited": "Kế thừa",
       "monitor": "Màn hình",
+      "official": "Chính thức",
       "override": "Ghi đè"
     },
     "calendar-accounts": {
@@ -770,6 +875,10 @@
       }
     },
     "errors": {
+      "avatar-accounts": "Không thể cập nhật ảnh đại diện của tài khoản hệ thống.",
+      "avatar-invalid-path": "Đường dẫn ảnh đại diện đã chọn không phải là tệp hình ảnh hợp lệ hoặc không thể đọc được.",
+      "avatar-load": "Không thể tải ảnh đã chọn. Hãy sử dụng định dạng PNG, JPEG, WebP, GIF, BMP hoặc SVG.",
+      "avatar-write": "Không thể chuẩn bị ảnh đại diện để lưu.",
       "bar": {
         "create": "Không thể tạo thanh.",
         "delete": "Không thể xóa thanh.",
@@ -916,6 +1025,28 @@
         "wallpaper": "Hình nền"
       }
     },
+    "notifications": {
+      "filter": {
+        "add": "Thêm bộ lọc",
+        "add-title": "Thêm bộ lọc thông báo",
+        "allowed-urgencies-label": "Mức độ ưu tiên được phép",
+        "flag": {
+          "history": "lịch sử",
+          "sound": "âm thanh",
+          "toast": "thông báo nổi"
+        },
+        "flags-label": "Khi phù hợp",
+        "match-label": "Ứng dụng",
+        "match-placeholder": "Tên ứng dụng, mục khởi chạy hoặc danh mục…",
+        "play-sound": "Phát âm thanh",
+        "save-history": "Lưu vào lịch sử",
+        "show-toast": "Hiển thị thông báo nổi",
+        "summary": "{match} · {flags}",
+        "summary-blocked": "{match} · đã bị chặn",
+        "summary-disabled": "{match} · đã bị vô hiệu hóa",
+        "unnamed": "Bộ lọc chưa có tên"
+      }
+    },
     "options": {
       "clipboard": {
         "auto-paste": {
@@ -983,7 +1114,6 @@
       "shell": {
         "panel-placement": {
           "attached": "Gắn vào",
-          "centered": "Canh giữa",
           "floating": "Nổi"
         },
         "panel-transparency": {
@@ -1067,6 +1197,8 @@
       "sources": {
         "add": "Thêm nguồn",
         "add-title": "Thêm nguồn của plugin",
+        "edit": "Chỉnh sửa nguồn",
+        "edit-title": "Chỉnh sửa nguồn plugin",
         "empty": "Chưa có nguồn nào được cấu hình.",
         "errors": {
           "duplicate-name": "Nguồn có ID này đã tồn tại.",
@@ -1084,6 +1216,7 @@
         "name-label": "Mã nguồn",
         "name-placeholder": "my-plugins",
         "remove": "Xóa nguồn",
+        "save": "Lưu",
         "title": "Các nguồn",
         "update": "Cập nhật",
         "update-on-startup": "Cập nhật khi khởi động"
@@ -1213,6 +1346,10 @@
           "description": "Bán kính bo góc mặc định cho các capsule widget, pill workspace và nhóm workspace trên taskbar; để trống để có hình dạng pill tự động, hoặc đặt 0 để có góc vuông",
           "label": "Bán kính khung bo tròn"
         },
+        "capsule-thickness": {
+          "description": "Kích thước viên nang theo chiều ngang của thanh, tính theo tỷ lệ độ dày của thanh (1.0 sẽ lấp đầy toàn bộ thanh)",
+          "label": "Độ dày viên nang"
+        },
         "center-widgets": {
           "description": "Widgets ở giữa Bar",
           "label": "Căn giữa các tiện ích"
@@ -1255,6 +1392,10 @@
         },
         "ends-margin": {
           "description": "Đệm từ hai đầu thanh dọc theo trục chính"
+        },
+        "font-family": {
+          "description": "Phông chữ dùng cho các widget trên thanh này. Để trống để sử dụng phông chữ toàn cục. Thiết lập Họ phông chữ riêng của widget sẽ ưu tiên hơn tùy chọn này.",
+          "label": "Phông chữ"
         },
         "font-weight": {
           "description": "Độ đậm mặc định cho nhãn tiện ích trên thanh này.",
@@ -1546,6 +1687,10 @@
         }
       },
       "lockscreen": {
+        "allow-empty-password": {
+          "description": "Cho phép nhấn Enter để gửi mật khẩu trống. Bật tùy chọn này khi sử dụng khóa bảo mật hoặc các cấu hình PAM không cần mật khẩu. Nên tắt để tránh bị khóa ngoài ý muốn do vô tình nhấn phím khi đánh thức thiết bị.",
+          "label": "Cho phép gửi mật khẩu trống"
+        },
         "blur-intensity": {
           "description": "Mức độ làm mờ nền màn hình khóa",
           "label": "Cường độ làm mờ"
@@ -1557,6 +1702,10 @@
         "enabled": {
           "description": "Kích hoạt khóa phiên, tích hợp với logind và các hành động khóa",
           "label": "Khóa màn hình"
+        },
+        "fingerprint": {
+          "description": "Cho phép mở khóa bằng vân tay qua fprintd cùng với mật khẩu.",
+          "label": "Mở khóa bằng vân tay"
         },
         "monitors": {
           "description": "Chọn màn hình hiển thị màn hình khóa; để trống để hiển thị trên tất cả các màn hình",
@@ -1591,8 +1740,7 @@
           "label": "Danh sách đen thông báo"
         },
         "blacklist-allow-critical": {
-          "description": "Vẫn hiển thị thông báo khẩn cấp từ người gửi bị chặn",
-          "label": "Cho phép quan trọng vượt qua danh sách đen"
+          "description": "Vẫn hiển thị thông báo khẩn cấp từ người gửi bị chặn"
         },
         "collapse-on-dismiss": {
           "description": "Trượt các Toast còn lại để lấp đầy khoảng trống khi một cái bị đóng",
@@ -1601,6 +1749,10 @@
         "daemon": {
           "description": "Bật dịch vụ thông báo tích hợp",
           "label": "Dịch vụ thông báo"
+        },
+        "filters": {
+          "description": "Thiết lập quy tắc riêng cho từng nguồn gửi đối với thông báo nổi, lịch sử thông báo và âm thanh. Bộ lọc đang bật đầu tiên khớp với điều kiện sẽ được áp dụng",
+          "label": "Bộ lọc thông báo"
         },
         "layer": {
           "description": "Dùng Overlay để hiển thị các Toast thông báo trên các ứng dụng toàn màn hình.",
@@ -1652,17 +1804,26 @@
           "description": "Khi mở một tab cụ thể (âm lượng, phương tiện, v.v.)",
           "label": "Thanh bên khi mở thẻ"
         },
+        "floating-offset": {
+          "description": "Khoảng cách (tính bằng pixel) giữa bảng nổi hoặc bảng tách rời và mép của thanh",
+          "label": "Độ lệch nổi"
+        },
         "home-shortcuts": {
           "description": "Chọn tối đa sáu nút lối tắt cho tab Trang chủ",
           "label": "Lối tắt Trang chủ"
         },
         "launcher-categories": {
-          "description": "Hiển thị bộ lọc danh mục trong Trình khởi chạy; chuyển đổi bằng Tab khi Trình khởi chạy đang mở",
+          "description": "Hiển thị bộ lọc danh mục trong Trình khởi chạy; hiện bằng F6, sau đó chuyển bằng F6 và Shift+F6",
           "label": "Hiển thị danh mục"
         },
         "launcher-compact": {
           "description": "Dùng biểu tượng nhỏ hơn và hàng kết quả gọn hơn",
           "label": "Hàng gọn"
+        },
+        "launcher-reset-usage": {
+          "button": "Đặt lại",
+          "description": "Xóa dữ liệu số lần mở ứng dụng và lịch sử dùng gần đây phục vụ cho việc sắp xếp trình khởi chạy",
+          "label": "Đặt lại dữ liệu sử dụng"
         },
         "launcher-session-search": {
           "description": "Cho phép tìm thấy các thao tác phiên (khóa, tạm ngủ, khởi động lại, tắt máy, đăng xuất) từ tìm kiếm thông thường, thay vì chỉ qua /session",
@@ -1671,6 +1832,10 @@
         "launcher-show-icons": {
           "description": "Hiển thị biểu tượng ứng dụng trong kết quả của Launcher",
           "label": "Hiển thị biểu tượng ứng dụng"
+        },
+        "launcher-sort-by-usage": {
+          "description": "Đưa các ứng dụng được sử dụng thường xuyên lên đầu danh sách và hiển thị bộ lọc \"Dùng gần đây\"",
+          "label": "Sắp xếp theo mức độ sử dụng"
         },
         "open-near-click-clipboard": {
           "description": "Định vị bảng điều khiển khay nhớ tạm gần vị trí nhấp chuột trên Bar thay vì căn giữa nó dọc theo Bar",
@@ -1777,6 +1942,10 @@
         "longitude": {
           "description": "Kinh độ thủ công cho lịch mặt trời mọc/lặn, được sử dụng khi tính năng tự động định vị và địa chỉ bị tắt",
           "label": "Kinh độ"
+        },
+        "minimum-brightness": {
+          "description": "Ngăn màn hình tối hoàn toàn",
+          "label": "Độ sáng tối thiểu"
         },
         "mpris-blacklist": {
           "description": "Các trình phát bỏ qua cho điều khiển media và Now Playing",
@@ -2005,6 +2174,10 @@
           "description": "Hiển thị OSD popups khi Caps Lock, Num Lock và Scroll Lock thay đổi",
           "label": "Phím khóa"
         },
+        "osd-kinds-media": {
+          "description": "Hiển thị cửa sổ OSD khi bắt đầu phát bài hát mới",
+          "label": "Đang phát"
+        },
         "osd-kinds-power-profile": {
           "description": "Hiển thị OSD khi cấu hình nguồn thay đổi",
           "label": "Chế độ nguồn"
@@ -2060,6 +2233,11 @@
         "screen-time-enabled": {
           "description": "Theo dõi mức sử dụng của từng ứng dụng và hiển thị trong Trung tâm điều khiển",
           "label": "Thời gian sử dụng màn hình"
+        },
+        "screen-time-reset": {
+          "button": "Đặt lại",
+          "description": "Xóa lịch sử sử dụng ứng dụng ở trạng thái đang chạy nền trước đã lưu",
+          "label": "Đặt lại dữ liệu thời gian sử dụng"
         },
         "screenshot-copy-to-clipboard": {
           "description": "Sao chép ảnh PNG đã chụp vào khay nhớ tạm.",
@@ -2290,9 +2468,17 @@
         "workspace-label-inside": "Bên trong viên thuốc"
       },
       "settings": {
+        "active-color": {
+          "description": "Màu dùng cho các chỉ báo quyền riêng tư đang hoạt động. Mã màu hex cố định cũng được hỗ trợ",
+          "label": "Màu khi hoạt động"
+        },
         "active-opacity": {
           "description": "Độ mờ đục của biểu tượng cho cửa sổ đang hoạt động (được lấy nét).",
           "label": "Độ mờ biểu tượng đang hoạt động"
+        },
+        "album-art-only": {
+          "description": "Chỉ hiển thị ảnh bìa album dạng tròn, không hiển thị tên bài hát",
+          "label": "Chỉ hiển thị ảnh album"
         },
         "anchor": {
           "description": "Ghim widget này làm điểm neo căn giữa",
@@ -2305,6 +2491,10 @@
         "bands": {
           "description": "Số lượng dải tần trực quan hóa",
           "label": "Băng"
+        },
+        "cam-filter-regex": {
+          "description": "Biểu thức chính quy cho tên tiến trình camera cần bỏ qua",
+          "label": "Bộ lọc camera"
         },
         "capsule": {
           "description": "Vẽ một Capsule phía sau Widget này",
@@ -2343,6 +2533,14 @@
         "color": {
           "description": "Vai trò màu sắc cho nền trước của widget; cũng hỗ trợ các màu hex cố định",
           "label": "Màu sắc"
+        },
+        "color-1": {
+          "description": "Màu chuyển sắc đầu tiên trong trình hiển thị",
+          "label": "Màu thứ nhất"
+        },
+        "color-2": {
+          "description": "Màu chuyển sắc thứ hai trong trình hiển thị",
+          "label": "Màu thứ hai"
         },
         "command": {
           "description": "Lệnh shell chạy khi nhấp chuột trái vào nút này",
@@ -2398,6 +2596,10 @@
           "description": "Vai trò màu sắc được sử dụng cho không gian làm việc đang được tập trung; mã màu hex cố định cũng được hỗ trợ",
           "label": "Màu tiêu điểm"
         },
+        "font-family": {
+          "description": "Kiểu chữ cho widget này. Để trống để kế thừa phông chữ của thanh.",
+          "label": "Phông chữ"
+        },
         "font-weight": {
           "description": "Mặc định kế thừa độ đậm phông chữ của thanh",
           "label": "Độ đậm phông chữ"
@@ -2408,7 +2610,8 @@
         },
         "glyph": {
           "description": "Tên ký hiệu biểu tượng",
-          "label": "Biểu tượng"
+          "label": "Biểu tượng",
+          "sysmon-description": "Ký tự biểu tượng tùy chỉnh. Để trống để sử dụng biểu tượng của chỉ số đã chọn."
         },
         "group-by-workspace": {
           "description": "Nhóm các biểu tượng Taskbar vào các viên nang Workspace khi dữ liệu compositor có sẵn",
@@ -2429,6 +2632,10 @@
         "hide-empty-workspaces": {
           "description": "Khi nhóm theo Workspace, bỏ qua các Capsule không có cửa sổ nào đang chạy trong danh sách Taskbar.",
           "label": "Ẩn các không gian làm việc trống"
+        },
+        "hide-inactive": {
+          "description": "Ẩn các biểu tượng quyền riêng tư không hoạt động và ẩn widget khi không có mục nào đang hoạt động",
+          "label": "Ẩn khi không hoạt động"
         },
         "hide-when-empty": {
           "description": "Ẩn các thẻ không gian làm việc khi không có cửa sổ nào đang mở",
@@ -2479,9 +2686,21 @@
           "description": "Kích thước biểu tượng (pixel)",
           "label": "Kích thước biểu tượng"
         },
+        "icon-spacing": {
+          "description": "Khoảng cách giữa các biểu tượng chỉ báo quyền riêng tư (tính bằng pixel)",
+          "label": "Khoảng cách giữa các biểu tượng"
+        },
+        "inactive-color": {
+          "description": "Màu dùng cho các chỉ báo quyền riêng tư không hoạt động. Mã màu hex cố định cũng được hỗ trợ",
+          "label": "Màu khi không hoạt động"
+        },
         "inactive-opacity": {
           "description": "Độ mờ của các biểu tượng cho các cửa sổ không hoạt động (không được lấy nét)",
           "label": "Độ mờ biểu tượng không hoạt động"
+        },
+        "interface": {
+          "description": "Giao diện mạng cần theo dõi. Để trống để sử dụng tổng lưu lượng của tất cả giao diện",
+          "label": "Giao diện"
         },
         "label": {
           "description": "Văn bản tĩnh tùy chọn hiển thị trên nút này",
@@ -2512,6 +2731,10 @@
         "max-length": {
           "description": "Chiều dài tối đa của tiện ích (pixel)",
           "label": "Độ dài tối đa"
+        },
+        "mic-filter-regex": {
+          "description": "Biểu thức chính quy cho tên ứng dụng microphone cần bỏ qua",
+          "label": "Bộ lọc micrô"
         },
         "middle-command": {
           "description": "Lệnh shell được chạy khi nhấp chuột giữa vào nút này. Khi được đặt, nhấp chuột giữa sẽ mở lệnh này thay vì cài đặt widget.",
@@ -2598,6 +2821,10 @@
         "show-condition": {
           "description": "Hiển thị văn bản điều kiện thời tiết",
           "label": "Điều kiện hiển thị"
+        },
+        "show-empty-label": {
+          "description": "Hiển thị nội dung thay thế khi không có cửa sổ đang hoạt động thay vì ẩn widget",
+          "label": "Hiển thị chữ thay thế khi trống"
         },
         "show-icon": {
           "description": "Hiển thị biểu tượng của tiện ích này",
@@ -2695,6 +2922,7 @@
         "nightlight": "Ánh sáng đêm",
         "notifications": "Thông báo",
         "power-profile": "Chế độ nguồn",
+        "privacy": "Trạng thái quyền riêng tư",
         "screenshot": "Chụp màn hình",
         "scripted": "Kịch bản",
         "session": "Phiên",
@@ -2763,10 +2991,7 @@
   },
   "time": {
     "duration": {
-      "days-hours-minutes": "{days} ngày {hours} giờ {minutes} phút",
-      "hours-minutes": "{hours} giờ {minutes} phút",
-      "less-than-minute": "1 phút",
-      "minutes": "{minutes} phút"
+      "less-than-minute": "1 phút"
     },
     "file": {
       "unknown": "Không xác định"

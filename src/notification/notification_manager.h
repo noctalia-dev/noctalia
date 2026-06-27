@@ -1,7 +1,9 @@
 #pragma once
 
+#include "config/config_types.h"
 #include "notification.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <functional>
@@ -26,6 +28,10 @@ struct NotificationHistoryEntry {
 
 constexpr int32_t kDefaultNotificationTimeout = 6000;
 
+// Upper bound on action pairs (key + label) kept per notification. Enforced once at ingress
+// in addOrReplace(); render sites clamp defensively against the same value.
+constexpr std::size_t kMaxNotificationActions = 6;
+
 // Freedesktop expire_timeout: 0 = persistent, -1 = server default, positive = milliseconds.
 // Normalize once at Notify ingress so manager timers and toast countdowns stay aligned.
 [[nodiscard]] inline int32_t normalizeNotifyExpireTimeout(int32_t expireTimeout) noexcept {
@@ -37,6 +43,23 @@ constexpr int32_t kDefaultNotificationTimeout = 6000;
   }
   return expireTimeout;
 }
+
+struct NotificationRequest {
+  uint32_t replacesId = 0;
+  std::string appName;
+  std::string summary;
+  std::string body;
+  Urgency urgency = Urgency::Normal;
+  int32_t timeout = kDefaultNotificationTimeout;
+  NotificationOrigin origin = NotificationOrigin::External;
+  bool transient = false;
+  std::vector<std::string> actions = {};
+  std::optional<std::string> icon = std::nullopt;
+  std::optional<NotificationImageData> imageData = std::nullopt;
+  std::optional<std::string> category = std::nullopt;
+  std::optional<std::string> desktopEntry = std::nullopt;
+  std::optional<uint32_t> forcedId = std::nullopt;
+};
 
 class NotificationManager {
 public:
@@ -52,13 +75,10 @@ public:
   void removeEventCallback(int token);
 
   // Adds a new notification or updates an existing one.
-  uint32_t addOrReplace(
-      uint32_t replacesId, std::string appName, std::string summary, std::string body, Urgency urgency, int32_t timeout,
-      NotificationOrigin origin = NotificationOrigin::External, bool transient = false,
-      std::vector<std::string> actions = {}, std::optional<std::string> icon = std::nullopt,
-      std::optional<NotificationImageData> imageData = std::nullopt, std::optional<std::string> category = std::nullopt,
-      std::optional<std::string> desktopEntry = std::nullopt
-  );
+  uint32_t addOrReplace(NotificationRequest request);
+
+  // Adopts a notification id assigned by an external server (e.g. KDE Plasma).
+  uint32_t adoptExternal(uint32_t id, NotificationRequest request);
 
   // Adds an internal notification to the same store as external notifications.
   uint32_t addInternal(
@@ -101,12 +121,8 @@ public:
   [[nodiscard]] std::uint64_t changeSerial() const noexcept;
   void removeHistoryEntry(uint32_t id, std::optional<CloseReason> dbusCloseReason = std::nullopt);
   void clearHistory();
-  void setBlacklist(std::vector<std::string> blacklist);
-  void setBlacklistAllowCritical(bool allowCritical);
-  void setAllowedUrgencies(std::vector<std::string> allowedUrgencies);
-  [[nodiscard]] const std::vector<std::string>& blacklist() const noexcept;
-  [[nodiscard]] bool blacklistAllowCritical() const noexcept;
-  [[nodiscard]] const std::unordered_set<Urgency>& allowedUrgencies() const noexcept;
+  void setFilters(std::vector<NotificationFilterConfig> filters);
+  [[nodiscard]] const std::vector<NotificationFilterConfig>& filters() const noexcept;
   void setDoNotDisturb(bool enabled);
   [[nodiscard]] bool doNotDisturb() const noexcept;
   [[nodiscard]] bool toggleDoNotDisturb();
@@ -131,9 +147,16 @@ private:
   void emitPendingDBusClose(uint32_t id, CloseReason reason);
   [[nodiscard]] bool computeHasUnreadNotificationHistory() const noexcept;
   void notifyUnreadStateChangedIfNeeded(bool previousUnreadState);
-  [[nodiscard]] bool shouldSuppressExternal(
+  struct ExternalNotificationDispatch {
+    bool fullySuppress = false;
+    bool showToast = true;
+    bool saveHistory = true;
+    bool playSound = true;
+    bool disallowPermanent = false;
+  };
+  [[nodiscard]] ExternalNotificationDispatch evaluateExternalDispatch(
       Urgency urgency, std::string_view appName, const std::optional<std::string>& category,
-      const std::optional<std::string>& desktopEntry
+      const std::optional<std::string>& desktopEntry, bool transient
   ) const;
   uint32_t suppressExternal(std::string_view appName, Urgency urgency);
 
@@ -142,9 +165,7 @@ private:
   std::deque<Notification> m_notifications;
   std::unordered_map<uint32_t, size_t> m_idToIndex;
   std::unordered_set<uint32_t> m_suppressedIds;
-  std::vector<std::string> m_blacklist;
-  bool m_blacklistAllowCritical = true;
-  std::unordered_set<Urgency> m_allowedUrgencies;
+  std::vector<NotificationFilterConfig> m_filters;
   /// Expired notifications with actions: NotificationClosed deferred until dismiss, action, or history removal.
   std::unordered_set<uint32_t> m_pendingDBusClose;
   std::deque<NotificationHistoryEntry> m_history;

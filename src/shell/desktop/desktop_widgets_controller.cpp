@@ -1,13 +1,12 @@
 #include "shell/desktop/desktop_widgets_controller.h"
 
+#include "config/config_service.h"
 #include "ipc/ipc_service.h"
-#include "pipewire/pipewire_spectrum.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/desktop_widgets_host.h"
+#include "shell/desktop/editor/desktop_widgets_editor.h"
+#include "shell/desktop/editor/desktop_widgets_editor_types.h"
 #include "shell/lockscreen/lockscreen_widgets_controller.h"
-#include "shell/widgets_editor/background_widgets_editor.h"
-#include "shell/widgets_editor/background_widgets_editor_config.h"
-#include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <charconv>
@@ -17,7 +16,6 @@
 namespace {
 
   constexpr std::string_view kDesktopWidgetIdPrefix = "desktop-widget-";
-  constexpr float kDefaultDesktopAudioVisualizerAspectRatio = 240.0f / 96.0f;
 
   void clampOpacitySetting(DesktopWidgetState& widget, const std::string& key, double fallback) {
     const auto it = widget.settings.find(key);
@@ -38,7 +36,7 @@ namespace {
   void normalizeDesktopWidgetSettings(DesktopWidgetState& widget) {
     clampOpacitySetting(widget, "background_opacity", 0.8);
 
-    if (widget.type == "sticker") {
+    if (widget.type == "sticker" || widget.type == "label") {
       const auto opacityIt = widget.settings.find("opacity");
       if (opacityIt == widget.settings.end()) {
         widget.settings.insert_or_assign("opacity", 1.0);
@@ -61,20 +59,7 @@ namespace {
       return;
     }
 
-    bool hasValidAspectRatio = false;
-    const auto it = widget.settings.find("aspect_ratio");
-    if (it != widget.settings.end()) {
-      if (const auto* doubleValue = std::get_if<double>(&it->second); doubleValue != nullptr && *doubleValue > 0.0) {
-        hasValidAspectRatio = true;
-      }
-      if (const auto* intValue = std::get_if<std::int64_t>(&it->second); intValue != nullptr && *intValue > 0) {
-        hasValidAspectRatio = true;
-      }
-    }
-
-    if (!hasValidAspectRatio) {
-      widget.settings.insert_or_assign("aspect_ratio", static_cast<double>(kDefaultDesktopAudioVisualizerAspectRatio));
-    }
+    widget.settings.erase("aspect_ratio"); // setting removed; drop stale key
     widget.settings.erase("min_value");
   }
 
@@ -103,24 +88,21 @@ DesktopWidgetsController::DesktopWidgetsController() = default;
 
 DesktopWidgetsController::~DesktopWidgetsController() = default;
 
-void DesktopWidgetsController::initialize(
-    WaylandConnection& wayland, ConfigService* config, PipeWireSpectrum* pipewireSpectrum,
-    const WeatherService* weather, RenderContext* renderContext, MprisService* mpris, HttpClient* httpClient,
-    SystemMonitorService* sysmon, LockscreenWidgetsController* lockscreenWidgets, DesktopWidgetScriptDeps scriptDeps
-) {
-  m_wayland = &wayland;
-  m_config = config;
-  m_lockscreenWidgets = lockscreenWidgets;
-  m_renderContext = renderContext;
+void DesktopWidgetsController::initialize(const DesktopWidgetsControllerServices& services) {
+  m_wayland = &services.widgets.wayland;
+  m_config = services.widgets.config;
+  m_lockscreenWidgets = services.lockscreenWidgets;
+  m_renderContext = services.widgets.renderContext;
   m_host = std::make_unique<DesktopWidgetsHost>();
-  m_host->initialize(wayland, config, pipewireSpectrum, weather, renderContext, mpris, httpClient, sysmon, scriptDeps);
-  m_editor = std::make_unique<BackgroundWidgetsEditor>(BackgroundWidgetsEditorProfile::desktop());
-  m_editor->initialize(
-      wayland, config, pipewireSpectrum, weather, renderContext, mpris, httpClient, sysmon, nullptr, scriptDeps
-  );
+  m_host->initialize(services.widgets);
+  m_editor = std::make_unique<DesktopWidgetsEditor>(DesktopWidgetsEditorProfile::desktop());
+  m_editor->initialize(services.widgets);
   m_editor->setExitRequestedCallback([this]() { exitEdit(); });
   loadSnapshotFromConfig();
   m_initialized = true;
+  if (m_config != nullptr) {
+    m_lastEnabled = m_config->config().desktopWidgets.enabled;
+  }
   applyVisibility();
 
   if (m_config != nullptr) {
@@ -155,6 +137,70 @@ void DesktopWidgetsController::registerIpc(IpcService& ipc) {
       },
       "desktop-widgets-toggle-edit", "Toggle desktop widgets edit mode"
   );
+
+  // Ephemeral runtime show/hide override layered on top of the saved `desktop_widgets.enabled`
+  // setting (bidirectional version of bar-show/bar-hide/bar-toggle). These never touch settings.toml
+  // -- they flip a runtime override that resets on restart -- so a peek-desktop keybind can reveal
+  // widgets on demand without rewriting the user's saved preference on every keypress. `show` is a
+  // force-show: it reveals widgets even when the saved setting is disabled, so an opt-in workflow
+  // (saved default off, revealed only on demand) works without persisting transient state.
+  ipc.registerHandler(
+      "desktop-widgets-show",
+      [this](const std::string&) -> std::string {
+        setRuntimeVisibility(RuntimeVisibility::ForceShown);
+        return "ok\n";
+      },
+      "desktop-widgets-show", "Show desktop widgets now (runtime only; does not change the saved setting)"
+  );
+
+  ipc.registerHandler(
+      "desktop-widgets-hide",
+      [this](const std::string&) -> std::string {
+        setRuntimeVisibility(RuntimeVisibility::ForceHidden);
+        return "ok\n";
+      },
+      "desktop-widgets-hide", "Hide desktop widgets now (runtime only; does not change the saved setting)"
+  );
+
+  ipc.registerHandler(
+      "desktop-widgets-toggle",
+      [this](const std::string&) -> std::string {
+        toggleRuntimeVisibility();
+        return isEffectivelyVisible() ? "shown\n" : "hidden\n";
+      },
+      "desktop-widgets-toggle", "Toggle desktop widgets visibility (runtime only; does not change the saved setting)"
+  );
+}
+
+bool DesktopWidgetsController::runtimeWantsVisible() const noexcept {
+  switch (m_runtimeVisibility) {
+  case RuntimeVisibility::ForceShown:
+    return true;
+  case RuntimeVisibility::ForceHidden:
+    return false;
+  case RuntimeVisibility::FollowConfig:
+    return m_config != nullptr && m_config->config().desktopWidgets.enabled;
+  }
+  return false;
+}
+
+void DesktopWidgetsController::setRuntimeVisibility(RuntimeVisibility visibility) {
+  if (m_runtimeVisibility == visibility) {
+    return;
+  }
+  m_runtimeVisibility = visibility;
+  applyVisibility();
+}
+
+void DesktopWidgetsController::toggleRuntimeVisibility() {
+  setRuntimeVisibility(isEffectivelyVisible() ? RuntimeVisibility::ForceHidden : RuntimeVisibility::ForceShown);
+}
+
+bool DesktopWidgetsController::isEffectivelyVisible() const noexcept {
+  if (!m_initialized) {
+    return false;
+  }
+  return runtimeWantsVisible() && !m_displaySuppressed && !isEditing();
 }
 
 void DesktopWidgetsController::onOutputChange() {
@@ -177,6 +223,17 @@ void DesktopWidgetsController::onSecondTick() {
     m_editor->onSecondTick();
   } else if (m_host != nullptr) {
     m_host->onSecondTick();
+  }
+}
+
+void DesktopWidgetsController::requestUpdate() {
+  if (!m_initialized) {
+    return;
+  }
+  if (isEditing()) {
+    m_editor->requestUpdate();
+  } else if (m_host != nullptr) {
+    m_host->requestUpdate();
   }
 }
 
@@ -212,6 +269,9 @@ void DesktopWidgetsController::enterEdit() {
   if (m_config != nullptr && !m_config->config().desktopWidgets.enabled) {
     return;
   }
+  if (m_onEnterEdit) {
+    m_onEnterEdit();
+  }
   // Open the editor before tearing down host widgets so the PipeWire spectrum
   // listener hand-off does not briefly drop to zero listeners (which resets the
   // stream and leaves a new editor instance with empty spectrum values).
@@ -238,6 +298,10 @@ void DesktopWidgetsController::toggleEdit() {
   } else {
     enterEdit();
   }
+}
+
+void DesktopWidgetsController::setOnEnterEditCallback(std::function<void()> callback) {
+  m_onEnterEdit = std::move(callback);
 }
 
 void DesktopWidgetsController::suppressDisplay() {
@@ -309,8 +373,9 @@ void DesktopWidgetsController::applyVisibility() {
     return;
   }
 
-  const bool enabled = m_config->config().desktopWidgets.enabled;
-  if (!enabled) {
+  // The runtime override resolves against the saved setting: ForceShown reveals widgets even when the
+  // setting is disabled, ForceHidden suppresses them even when enabled, FollowConfig honors it.
+  if (!runtimeWantsVisible()) {
     if (isEditing() && m_editor != nullptr) {
       m_snapshot = m_editor->close();
       saveSnapshotToConfig();
@@ -330,6 +395,16 @@ void DesktopWidgetsController::applyVisibility() {
 void DesktopWidgetsController::handleConfigReload() {
   if (!m_initialized) {
     return;
+  }
+
+  // An explicit change to the saved enable toggle cancels any IPC runtime override, so the settings
+  // UI takes back control. Gated on an actual transition: unrelated reloads leave the override intact.
+  if (m_config != nullptr) {
+    const bool enabled = m_config->config().desktopWidgets.enabled;
+    if (enabled != m_lastEnabled) {
+      m_lastEnabled = enabled;
+      m_runtimeVisibility = RuntimeVisibility::FollowConfig;
+    }
   }
 
   if (!isEditing()) {

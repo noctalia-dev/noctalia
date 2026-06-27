@@ -24,6 +24,11 @@ ui.spacer = ctor("spacer")
 ui.progress = ctor("progress")
 ui.button = ctor("button")
 ui.graph = ctor("graph")
+ui.input = ctor("input")
+ui.select = ctor("select")
+ui.slider = ctor("slider")
+ui.toggle = ctor("toggle")
+ui.scroll = ctor("scroll")
 )luau";
 
 } // namespace scripting

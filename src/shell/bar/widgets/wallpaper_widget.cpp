@@ -1,6 +1,5 @@
 #include "shell/bar/widgets/wallpaper_widget.h"
 
-#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/builders.h"
 #include "ui/palette.h"

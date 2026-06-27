@@ -1,8 +1,10 @@
 #include "shell/settings/settings_sidebar.h"
 
 #include "i18n/i18n.h"
+#include "render/core/renderer.h"
 #include "shell/settings/settings_registry.h"
 #include "ui/builders.h"
+#include "ui/controls/roving_list_nav.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -19,6 +21,17 @@ namespace settings {
   namespace {
 
     constexpr float kSidebarWidth = 200.0f;
+    constexpr float kSidebarPadding = 6.0f;
+    constexpr float kSidebarGap = 2.0f;
+    constexpr float kPrimaryNavGlyphSize = 18.0f;
+    constexpr float kPrimaryNavGap = 6.0f;
+    constexpr float kPrimaryNavPaddingH = 10.0f;
+
+    void addNavButton(RovingListNavHost& nav, std::unique_ptr<Button> button, std::function<void()> onClick) {
+      Button* raw = button.get();
+      nav.registerItem(raw, onClick);
+      nav.addChild(std::move(button));
+    }
 
     std::string normalizedConfigId(std::string_view text) { return StringUtils::trim(text); }
 
@@ -27,15 +40,11 @@ namespace settings {
       if (trimmed.empty()) {
         return false;
       }
-      return std::all_of(trimmed.begin(), trimmed.end(), [](unsigned char c) {
-        return std::isalnum(c) != 0 || c == '_' || c == '-';
-      });
+      return std::ranges::all_of(trimmed, [](unsigned char c) { return std::isalnum(c) != 0 || c == '_' || c == '-'; });
     }
 
     bool barNameExists(const std::vector<std::string>& barNames, std::string_view name) {
-      return std::any_of(barNames.begin(), barNames.end(), [name](const std::string& barName) {
-        return barName == name;
-      });
+      return std::ranges::contains(barNames, name);
     }
 
     std::string nextAvailableBarName(const std::vector<std::string>& barNames) {
@@ -60,17 +69,20 @@ namespace settings {
       return ui::button({
           .text = std::move(text),
           .glyph = std::string(glyph),
-          .fontSize = Style::fontSizeBody * scale,
-          .glyphSize = 21.0f * scale,
+          .fontSize = Style::fontSizeCaption * scale,
+          .glyphSize = kPrimaryNavGlyphSize * scale,
           .contentAlign = ButtonContentAlign::Start,
           .variant = selected ? ButtonVariant::TabActive : ButtonVariant::Tab,
-          .minHeight = Style::controlHeight * scale,
-          .paddingV = Style::spaceSm * scale,
-          .paddingH = Style::spaceMd * scale,
-          .gap = Style::spaceSm * scale,
-          .radius = Style::scaledRadiusLg(scale),
+          .minHeight = Style::controlHeightSm * scale,
+          .paddingV = Style::spaceXs * scale,
+          .paddingH = kPrimaryNavPaddingH * scale,
+          .gap = kPrimaryNavGap * scale,
+          .radius = Style::scaledRadiusMd(scale),
           .onClick = std::move(onClick),
-          .configure = [](Button& button) { makeButtonLabelBold(button); },
+          .configure = [](Button& button) {
+            makeButtonLabelBold(button);
+            button.setTabStop(false);
+          },
       });
     }
 
@@ -93,6 +105,7 @@ namespace settings {
           .gap = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
           .onClick = std::move(onClick),
+          .configure = [](Button& button) { button.setTabStop(false); },
       });
     }
 
@@ -160,51 +173,66 @@ namespace settings {
         .configure = [](ScrollView& scrollView) { scrollView.clearBorder(); },
     });
 
-    auto* sidebar = sidebarScroll->content();
-    sidebar->setDirection(FlexDirection::Vertical);
-    sidebar->setAlign(FlexAlign::Stretch);
-    sidebar->setGap(Style::spaceXs * scale);
-    sidebar->setPadding(Style::spaceSm * scale);
+    auto sidebarNav = std::make_unique<RovingListNavHost>(RovingListNavController::Options{
+        .axis = RovingListNavAxis::Vertical,
+        .mode = RovingListNavMode::FollowFocus,
+        .keepItemsInTabOrder = false,
+        .scrollIntoView = std::move(ctx.scrollSidebarNodeIntoView),
+        .syncIndexFromSelection = {},
+    });
+    sidebarNav->setTabFocusKey("settings.sidebar");
+    sidebarNav->setGap(kSidebarGap * scale);
+    sidebarNav->setPadding(kSidebarPadding * scale);
+    RovingListNavHost* nav = sidebarNav.get();
 
     for (const auto& section : ctx.sections) {
       const std::string sectionId(settingsSectionId(section));
       const bool selected = showActiveTab && sectionId == *selectedSection;
-      sidebar->addChild(makePrimaryNavButton(
-          sectionGlyph(section), i18n::tr(settingsSectionLabelKey(section)), scale, selected,
-          [selectedSection, scroll, sectionId, searchActive, clearTransientState, clearSearchQuery, requestRebuild]() {
-            if (searchActive || *selectedSection != sectionId) {
-              scroll->offset = 0.0f;
-            }
-            *selectedSection = sectionId;
-            clearSearchQuery();
-            clearTransientState();
-            requestRebuild();
-          }
-      ));
+      const auto onClick = [selectedSection, scroll, sectionId, searchActive, clearTransientState, clearSearchQuery,
+                            requestRebuild]() {
+        if (searchActive || *selectedSection != sectionId) {
+          scroll->offset = 0.0f;
+        }
+        *selectedSection = sectionId;
+        clearSearchQuery();
+        clearTransientState();
+        requestRebuild();
+      };
+      addNavButton(
+          *nav,
+          makePrimaryNavButton(
+              sectionGlyph(section), i18n::tr(settingsSectionLabelKey(section)), scale, selected, onClick
+          ),
+          onClick
+      );
     }
 
     for (const auto& barName : ctx.availableBars) {
       const bool barSelected =
           showActiveTab && *selectedSection == "bar" && *selectedBarName == barName && selectedMonitorOverride->empty();
-      sidebar->addChild(makePrimaryNavButton(
-          sectionGlyph(SettingsSection::Bar), i18n::tr("settings.entities.bar.label", "name", barName), scale,
-          barSelected,
-          [selectedSection, selectedBarName, selectedMonitorOverride, scroll, barName, searchActive,
-           clearTransientState, clearSearchQuery, requestRebuild]() {
-            if (searchActive
-                || *selectedSection != "bar"
-                || *selectedBarName != barName
-                || !selectedMonitorOverride->empty()) {
-              scroll->offset = 0.0f;
-            }
-            *selectedSection = "bar";
-            *selectedBarName = barName;
-            selectedMonitorOverride->clear();
-            clearSearchQuery();
-            clearTransientState();
-            requestRebuild();
-          }
-      ));
+      const auto onBarClick = [selectedSection, selectedBarName, selectedMonitorOverride, scroll, barName, searchActive,
+                               clearTransientState, clearSearchQuery, requestRebuild]() {
+        if (searchActive
+            || *selectedSection != "bar"
+            || *selectedBarName != barName
+            || !selectedMonitorOverride->empty()) {
+          scroll->offset = 0.0f;
+        }
+        *selectedSection = "bar";
+        *selectedBarName = barName;
+        selectedMonitorOverride->clear();
+        clearSearchQuery();
+        clearTransientState();
+        requestRebuild();
+      };
+      addNavButton(
+          *nav,
+          makePrimaryNavButton(
+              sectionGlyph(SettingsSection::Bar), i18n::tr("settings.entities.bar.label", "name", barName), scale,
+              barSelected, onBarClick
+          ),
+          onBarClick
+      );
 
       const auto* bar = settings::findBar(cfg, barName);
       if (bar == nullptr) {
@@ -217,25 +245,29 @@ namespace settings {
             && *selectedBarName == barName
             && *selectedMonitorOverride == ovr.match;
         auto match = ovr.match;
-        sidebar->addChild(makeSecondaryNavButton(
-            "device-desktop", i18n::tr("settings.entities.monitor-override.label", "name", ovr.match), scale,
-            ovrSelected,
-            [selectedSection, selectedBarName, selectedMonitorOverride, scroll, barName, match, searchActive,
-             clearTransientState, clearSearchQuery, requestRebuild]() {
-              if (searchActive
-                  || *selectedSection != "bar"
-                  || *selectedBarName != barName
-                  || *selectedMonitorOverride != match) {
-                scroll->offset = 0.0f;
-              }
-              *selectedSection = "bar";
-              *selectedBarName = barName;
-              *selectedMonitorOverride = match;
-              clearSearchQuery();
-              clearTransientState();
-              requestRebuild();
-            }
-        ));
+        const auto onMonitorClick = [selectedSection, selectedBarName, selectedMonitorOverride, scroll, barName, match,
+                                     searchActive, clearTransientState, clearSearchQuery, requestRebuild]() {
+          if (searchActive
+              || *selectedSection != "bar"
+              || *selectedBarName != barName
+              || *selectedMonitorOverride != match) {
+            scroll->offset = 0.0f;
+          }
+          *selectedSection = "bar";
+          *selectedBarName = barName;
+          *selectedMonitorOverride = match;
+          clearSearchQuery();
+          clearTransientState();
+          requestRebuild();
+        };
+        addNavButton(
+            *nav,
+            makeSecondaryNavButton(
+                "device-desktop", i18n::tr("settings.entities.monitor-override.label", "name", ovr.match), scale,
+                ovrSelected, onMonitorClick
+            ),
+            onMonitorClick
+        );
       }
 
       if (*selectedSection != "bar" || *selectedBarName != barName) {
@@ -243,7 +275,15 @@ namespace settings {
       }
 
       // Secondary sidebar action style: same compact indentation as monitor rows.
-      sidebar->addChild(
+      const auto onNewMonitorClick = [creatingMonitorOverrideBarName, creatingMonitorOverrideMatch, barName,
+                                      clearTransientState, requestRebuild]() {
+        clearTransientState();
+        *creatingMonitorOverrideBarName = barName;
+        creatingMonitorOverrideMatch->clear();
+        requestRebuild();
+      };
+      addNavButton(
+          *nav,
           ui::button({
               .text = i18n::tr("settings.entities.monitor-override.new"),
               .glyph = "add",
@@ -258,14 +298,10 @@ namespace settings {
               .paddingLeft = Style::spaceLg * scale,
               .gap = Style::spaceXs * scale,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [creatingMonitorOverrideBarName, creatingMonitorOverrideMatch, barName, clearTransientState,
-                          requestRebuild]() {
-                clearTransientState();
-                *creatingMonitorOverrideBarName = barName;
-                creatingMonitorOverrideMatch->clear();
-                requestRebuild();
-              },
-          })
+              .onClick = onNewMonitorClick,
+              .configure = [](Button& button) { button.setTabStop(false); },
+          }),
+          onNewMonitorClick
       );
 
       if (*creatingMonitorOverrideBarName != barName) {
@@ -301,8 +337,7 @@ namespace settings {
       auto doCreate = [barName, createMonitorOverride, inputPtr,
                        existingMatches = std::move(existingMatches)](std::string rawMatch) {
         const std::string match = normalizedConfigId(rawMatch);
-        if (match.empty()
-            || std::find(existingMatches.begin(), existingMatches.end(), match) != existingMatches.end()) {
+        if (match.empty() || std::ranges::contains(existingMatches, match)) {
           inputPtr->setInvalid(true);
           return;
         }
@@ -336,31 +371,37 @@ namespace settings {
               )
           )
       );
-      sidebar->addChild(std::move(createPanel));
+      sidebarNav->addChild(std::move(createPanel));
     }
 
     // Primary sidebar action style: same scale as top-level section rows.
-    sidebar->addChild(
+    const auto onNewBarClick = [creatingBarName, nextBarName, clearTransientState, requestRebuild]() {
+      clearTransientState();
+      *creatingBarName = nextBarName;
+      requestRebuild();
+    };
+    addNavButton(
+        *nav,
         ui::button({
             .text = i18n::tr("settings.entities.bar.new"),
             .glyph = "add",
-            .fontSize = Style::fontSizeBody * scale,
-            .glyphSize = 21.0f * scale,
+            .fontSize = Style::fontSizeCaption * scale,
+            .glyphSize = kPrimaryNavGlyphSize * scale,
             .contentAlign = ButtonContentAlign::Start,
             .variant = ButtonVariant::Ghost,
-            .minHeight = Style::controlHeight * scale,
-            .paddingV = Style::spaceSm * scale,
-            .paddingH = Style::spaceMd * scale,
-            .gap = Style::spaceSm * scale,
-            .radius = Style::scaledRadiusLg(scale),
-            .onClick =
-                [creatingBarName, nextBarName, clearTransientState, requestRebuild]() {
-                  clearTransientState();
-                  *creatingBarName = nextBarName;
-                  requestRebuild();
+            .minHeight = Style::controlHeightSm * scale,
+            .paddingV = Style::spaceXs * scale,
+            .paddingH = kPrimaryNavPaddingH * scale,
+            .gap = kPrimaryNavGap * scale,
+            .radius = Style::scaledRadiusMd(scale),
+            .onClick = onNewBarClick,
+            .configure =
+                [](Button& button) {
+                  makeButtonLabelBold(button);
+                  button.setTabStop(false);
                 },
-            .configure = [](Button& button) { makeButtonLabelBold(button); },
-        })
+        }),
+        onNewBarClick
     );
 
     if (!creatingBarName->empty()) {
@@ -415,7 +456,16 @@ namespace settings {
               })
           )
       );
-      sidebar->addChild(std::move(createPanel));
+      sidebarNav->addChild(std::move(createPanel));
+    }
+
+    auto* sidebar = sidebarScroll->content();
+    sidebar->setDirection(FlexDirection::Vertical);
+    sidebar->setAlign(FlexAlign::Stretch);
+    sidebar->addChild(std::move(sidebarNav));
+
+    if (ctx.outNav != nullptr) {
+      *ctx.outNav = nav;
     }
 
     return sidebarScroll;

@@ -2,7 +2,6 @@
 
 #include "ui/controls/color_swatch_preview.h"
 #include "ui/controls/flex.h"
-#include "ui/palette.h"
 #include "ui/signal.h"
 #include "ui/style.h"
 
@@ -17,10 +16,8 @@ class Box;
 class InputArea;
 class Glyph;
 class Label;
-class Node;
 class ColorSwatchPreviewStrip;
 class RectNode;
-class Renderer;
 
 class Select : public Flex {
 public:
@@ -29,6 +26,7 @@ public:
 
   void setOptions(std::vector<std::string> options);
   void setSelectedIndex(std::size_t index);
+  void setSelectedIndexSilently(std::size_t index);
   void clearSelection();
   void setEnabled(bool enabled);
   void setSurfaceOpacity(float opacity);
@@ -56,7 +54,8 @@ private:
   void syncTriggerText();
   void applyVisualState();
   void animateCaret(bool open);
-  void handleKey(std::uint32_t sym, std::uint32_t utf32, bool pressed);
+  void setSelectedIndexInternal(std::size_t index, bool notify);
+  void handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed);
   void toggleOpen();
   void closeMenu();
   void openPopupDropdown();

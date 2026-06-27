@@ -7,6 +7,7 @@
 class CompositorPlatform;
 
 namespace scripting {
+  struct ScriptSnapshot;
 
   // A live plugin entry instance reachable by IPC. Any surface that hosts a
   // plugin entry (bar widget today; panels/shortcuts/etc. later) implements this
@@ -25,7 +26,8 @@ namespace scripting {
     [[nodiscard]] virtual std::string_view ipcEntryId() const = 0;    // "author/plugin:entry"
     [[nodiscard]] virtual std::string_view ipcOutputName() const = 0; // connector, or empty
     [[nodiscard]] virtual std::string_view ipcBarName() const = 0;    // bar name, or empty for non-bar surfaces
-    [[nodiscard]] virtual DispatchResult dispatchIpc(std::string_view event, std::string_view payload) = 0;
+    [[nodiscard]] virtual DispatchResult
+    dispatchIpc(std::string_view event, std::string_view payload, const ScriptSnapshot& snapshot) = 0;
   };
 
   // Routes `noctalia msg plugin <author/plugin:entry> <target> <event> [payload]`

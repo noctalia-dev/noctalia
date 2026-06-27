@@ -2,7 +2,6 @@
 
 #include "config/config_service.h"
 #include "core/log.h"
-#include "pipewire/pipewire_spectrum.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
 #include "shell/desktop/desktop_widget_layout.h"
@@ -30,15 +29,11 @@ namespace {
 
 } // namespace
 
-void DesktopWidgetsHost::initialize(
-    WaylandConnection& wayland, ConfigService* config, PipeWireSpectrum* pipewireSpectrum,
-    const WeatherService* weather, RenderContext* renderContext, MprisService* mpris, HttpClient* httpClient,
-    SystemMonitorService* sysmon, DesktopWidgetScriptDeps scriptDeps
-) {
-  m_wayland = &wayland;
-  m_config = config;
-  m_renderContext = renderContext;
-  m_factory = std::make_unique<DesktopWidgetFactory>(pipewireSpectrum, weather, mpris, httpClient, sysmon, scriptDeps);
+void DesktopWidgetsHost::initialize(const DesktopWidgetServices& services) {
+  m_wayland = &services.wayland;
+  m_config = services.config;
+  m_renderContext = services.renderContext;
+  m_factory = std::make_unique<DesktopWidgetFactory>(services.runtime);
 }
 
 void DesktopWidgetsHost::show(const DesktopWidgetsSnapshot& snapshot) {
@@ -77,8 +72,18 @@ void DesktopWidgetsHost::onSecondTick() {
     if (instance->surface == nullptr || instance->widget == nullptr) {
       continue;
     }
-    if (instance->widget->wantsSecondTicks() || minuteBoundary) {
+    if (instance->widget->wantsSecondTicks()) {
+      instance->surface->requestUpdateOnly();
+    } else if (minuteBoundary) {
       instance->surface->requestUpdate();
+    }
+  }
+}
+
+void DesktopWidgetsHost::requestUpdate() {
+  for (auto& instance : m_instances) {
+    if (instance->surface != nullptr) {
+      instance->surface->requestUpdateOnly();
     }
   }
 }
@@ -162,7 +167,7 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
   }
 
   const float baseUiScale = m_config != nullptr ? m_config->config().shell.uiScale : 1.0f;
-  auto widget = m_factory->create(state.type, state.settings, desktop_widgets::widgetContentScale(baseUiScale, state));
+  auto widget = m_factory->create(state.type, state.settings, desktop_widgets::widgetContentScale(baseUiScale));
   if (widget == nullptr) {
     return;
   }
@@ -294,7 +299,7 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
   buildScene(instance);
 
   const float baseUiScale = m_config != nullptr ? m_config->config().shell.uiScale : 1.0f;
-  instance.widget->setContentScale(desktop_widgets::widgetContentScale(baseUiScale, instance.state));
+  instance.widget->setContentScale(desktop_widgets::widgetContentScale(baseUiScale));
   instance.widget->setBox(instance.state.boxWidth, instance.state.boxHeight);
 
   if (needsUpdate) {
@@ -342,7 +347,25 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
         geometry.contentOffsetY - instance.intrinsicHeight * 0.5f
     );
     instance.transformNode->setRotation(instance.state.rotationRad);
-    instance.transformNode->setScale(1.0f);
+    float flipScaleX = 1.0f;
+    float flipScaleY = 1.0f;
+    desktop_widgets::widgetNodeScale(instance.state, flipScaleX, flipScaleY);
+    instance.transformNode->setScale(flipScaleX, flipScaleY);
+  }
+
+  if (instance.widget->needsFrameTick()) {
+    instance.surface->requestFrameTick();
+  }
+
+  if (instance.widget->hasBackground()) {
+    const float radius = instance.widget->backgroundRadius();
+    auto blurStrips = Surface::tessellateRotatedRoundedRect(
+        geometry.contentOffsetX, geometry.contentOffsetY, instance.intrinsicWidth, instance.intrinsicHeight, radius,
+        instance.state.rotationRad
+    );
+    instance.surface->setBlurRegion(blurStrips);
+  } else {
+    instance.surface->clearBlurRegion();
   }
 }
 

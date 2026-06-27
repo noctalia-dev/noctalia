@@ -2,7 +2,6 @@
 
 #include "theme/fixed_palette.h"
 #include "util/file_utils.h"
-#include "util/string_utils.h"
 
 #include <algorithm>
 #include <array>
@@ -197,9 +196,9 @@ namespace noctalia::theme {
 
     std::string shortSchemeTag(std::string_view scheme) {
       static constexpr std::pair<std::string_view, std::string_view> kTags[] = {
-          {"m3-tonal-spot", "ts"}, {"m3-content", "mc"},     {"m3-fruit-salad", "fs"},
-          {"m3-rainbow", "rb"},    {"m3-monochrome", "mo"},  {"vibrant", "vib"},
-          {"faithful", "fth"},     {"dysfunctional", "dys"}, {"muted", "mut"},
+          {"m3-tonal-spot", "ts"},  {"m3-content", "mc"}, {"m3-fruit-salad", "fs"}, {"m3-rainbow", "rb"},
+          {"m3-monochrome", "mo"},  {"vibrant", "vib"},   {"faithful", "fth"},      {"soft", "sft"},
+          {"dysfunctional", "dys"}, {"muted", "mut"},
       };
       for (const auto& [full, tag] : kTags) {
         if (scheme == full) {
@@ -242,9 +241,7 @@ namespace noctalia::theme {
       }
       out.push_back(AvailablePalette{.name = path.stem().string(), .preview = palettePreviewFromFile(path)});
     }
-    std::sort(out.begin(), out.end(), [](const AvailablePalette& a, const AvailablePalette& b) {
-      return a.name < b.name;
-    });
+    std::ranges::sort(out, {}, &AvailablePalette::name);
     return out;
   }
 

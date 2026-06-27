@@ -12,6 +12,7 @@
 #include "shell/settings/settings_registry.h"
 #include "shell/settings/widget_add_popup.h"
 #include "ui/controls/context_menu_popup.h"
+#include "ui/controls/roving_list_nav.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/select_dropdown_popup.h"
 #include "ui/dialogs/layer_popup_host.h"
@@ -29,9 +30,11 @@ class Box;
 class Button;
 class AccountsService;
 class ConfigService;
+class CompositorPlatform;
 class DependencyService;
 class Flex;
 class IdleManager;
+class Input;
 class Label;
 class RenderContext;
 class UPowerService;
@@ -43,7 +46,6 @@ struct wl_surface;
 
 namespace settings {
   struct SettingsContentContext;
-  class SettingsControlFactory;
 } // namespace settings
 
 // Standalone xdg-toplevel settings UI (same binary as the shell; shares RenderContext).
@@ -53,7 +55,7 @@ public:
 
   void initialize(
       WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext, DependencyService* dependencies,
-      UPowerService* upower, IdleManager* idleManager, AccountsService* accounts = nullptr
+      UPowerService* upower, IdleManager* idleManager, CompositorPlatform* platform, AccountsService* accounts = nullptr
   );
 
   void open();
@@ -81,6 +83,8 @@ public:
   void setOpenWallpaperPanel(std::function<void()> callback) { m_openWallpaperPanel = std::move(callback); }
   void setPluginManager(scripting::PluginManager* manager) { m_pluginManager = manager; }
   void setSyncGreeterAppearance(std::function<void()> callback) { m_syncGreeterAppearance = std::move(callback); }
+  void setResetLauncherUsage(std::function<void()> callback) { m_resetLauncherUsage = std::move(callback); }
+  void setResetScreenTime(std::function<void()> callback) { m_resetScreenTime = std::move(callback); }
   void setSaveWallpaperPaletteAsCustom(std::function<void()> callback) {
     m_saveWallpaperPaletteAsCustom = std::move(callback);
   }
@@ -119,19 +123,21 @@ private:
   void refreshPluginListIfNeeded();
   void maybeOpenPendingWidgetInspector();
   void applyPendingContentScrollTarget(float margin);
+  void scrollFocusedAreaIntoView(class InputArea* area);
+  void scrollSidebarNodeIntoView(const Node* node);
   void clearStatusMessage();
   void clearTransientSettingsState();
   void openActionsMenu();
   void openConfigExportDialog();
   void openBarWidgetAddPopup(const std::vector<std::string>& lanePath);
-  void openSearchPickerPopup(
-      const std::string& title, const std::vector<settings::SelectOption>& options, const std::string& selectedValue,
-      const std::string& placeholder, const std::string& emptyText, const std::vector<std::string>& settingPath
-  );
+  // Request is taken by value because opening the popup can close the sheet that owns the forwarding control.
+  void openSearchPickerPopup(settings::SearchPickerOpenRequest request);
   void openSessionActionEntryEditor(std::size_t index);
   void syncSessionActionInlineSummary(std::size_t index, const SessionPanelActionConfig& row);
   void openIdleBehaviorEntryEditor(std::size_t index);
   void openIdleBehaviorCreateEditor();
+  void openNotificationFilterEntryEditor(std::size_t index);
+  void openNotificationFilterCreateEditor();
   void openCalendarAccountEditor(std::optional<std::string> accountId);
   void openWidgetInspectorEditor(std::vector<std::string> laneListPath, std::string widgetName);
   void openCapsuleGroupEditor(std::vector<std::string> laneListPath, std::string groupId);
@@ -166,6 +172,7 @@ private:
   void dismissOpenSelectDropdown();
 
   WaylandConnection* m_wayland = nullptr;
+  CompositorPlatform* m_platform = nullptr;
   IdleManager* m_idleManager = nullptr;
   ConfigService* m_config = nullptr;
   scripting::PluginManager* m_pluginManager = nullptr;
@@ -192,6 +199,8 @@ private:
   Button* m_actionsMenuButton = nullptr;
   Flex* m_contentContainer = nullptr;
   ScrollView* m_contentScrollView = nullptr;
+  ScrollView* m_sidebarScrollView = nullptr;
+  RovingListNavHost* m_sidebarNav = nullptr;
   std::unique_ptr<ContextMenuPopup> m_actionsMenuPopup;
   std::unique_ptr<settings::WidgetAddPopup> m_widgetAddPopup;
   std::unique_ptr<settings::ConfigExportDialogPopup> m_configExportDialogPopup;
@@ -212,6 +221,7 @@ private:
   bool m_rebuildRequested = false;
   bool m_contentRebuildRequested = false;
   bool m_focusSearchOnRebuild = false;
+  Input* m_settingsSearchInput = nullptr;
   bool m_scrollToPendingContentTarget = false;
   Node* m_pendingContentScrollTarget = nullptr;
   std::string m_searchQuery;
@@ -251,6 +261,8 @@ private:
   std::function<void()> m_openLockscreenWidgetEditor;
   std::function<void()> m_openWallpaperPanel;
   std::function<void()> m_syncGreeterAppearance;
+  std::function<void()> m_resetLauncherUsage;
+  std::function<void()> m_resetScreenTime;
   std::function<void()> m_saveWallpaperPaletteAsCustom;
   std::function<void(std::string, std::string)> m_connectCalendarAccount;
 };

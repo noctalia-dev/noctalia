@@ -100,14 +100,7 @@ void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, Dro
   m_scrollOffset = 0.0f;
   const auto chrome = popup_chrome::computeGeometry(m_menuWidth, m_viewportHeight, m_shadowConfig);
 
-  if (m_selectedIndex < m_options.size()) {
-    const float selectedTop = static_cast<float>(m_selectedIndex) * m_optionHeight;
-    const float contentViewport = m_viewportHeight - kMenuPadding * 2.0f;
-    if (selectedTop + m_optionHeight > contentViewport) {
-      m_scrollOffset = selectedTop + m_optionHeight - contentViewport;
-    }
-    clampScrollOffset();
-  }
+  ensureHoveredIndexVisible();
 
   PopupSurfaceConfig popupCfg{
       .anchorX = request.anchorX,
@@ -450,6 +443,22 @@ void SelectDropdownPopup::clampScrollOffset() {
   m_scrollOffset = std::clamp(m_scrollOffset, 0.0f, maxScroll);
 }
 
+void SelectDropdownPopup::ensureHoveredIndexVisible() {
+  if (m_options.empty() || m_hoveredIndex >= m_options.size()) {
+    return;
+  }
+
+  const float contentViewport = m_viewportHeight - kMenuPadding * 2.0f;
+  const float itemTop = static_cast<float>(m_hoveredIndex) * m_optionHeight;
+  const float itemBottom = itemTop + m_optionHeight;
+
+  if (itemTop < m_scrollOffset) {
+    setScrollOffset(itemTop);
+  } else if (itemBottom > m_scrollOffset + contentViewport) {
+    setScrollOffset(itemBottom - contentViewport);
+  }
+}
+
 bool SelectDropdownPopup::onPointerEvent(const PointerEvent& event) {
   if (!isSelectDropdownOpen()) {
     return false;
@@ -546,15 +555,15 @@ void SelectDropdownPopup::onKeyboardEvent(const KeyboardEvent& event) {
   if (!isSelectDropdownOpen()) {
     return;
   }
-  handleKey(event.sym, event.utf32, event.pressed);
+  handleKey(event.sym, event.utf32, event.modifiers, event.pressed);
 }
 
-void SelectDropdownPopup::handleKey(std::uint32_t sym, std::uint32_t /*utf32*/, bool pressed) {
+void SelectDropdownPopup::handleKey(std::uint32_t sym, std::uint32_t /*utf32*/, std::uint32_t modifiers, bool pressed) {
   if (!pressed) {
     return;
   }
 
-  if (KeybindMatcher::matches(KeybindAction::Cancel, sym, 0)) {
+  if (KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
     auto onDismiss = m_callbacks.onDismiss;
     DeferredCall::callLater([this, onDismiss]() {
       closeSelectDropdown();
@@ -562,28 +571,31 @@ void SelectDropdownPopup::handleKey(std::uint32_t sym, std::uint32_t /*utf32*/, 
         onDismiss();
       }
     });
-  } else if (KeybindMatcher::matches(KeybindAction::Down, sym, 0)) {
+  } else if (KeybindMatcher::matches(KeybindAction::Down, sym, modifiers)) {
     if (!m_options.empty()) {
       m_hoveredIndex = (m_hoveredIndex + 1) % m_options.size();
+      ensureHoveredIndexVisible();
       applyHoverVisuals();
       if (m_surface) {
         m_surface->requestRedraw();
       }
     }
-  } else if (KeybindMatcher::matches(KeybindAction::Up, sym, 0)) {
+  } else if (KeybindMatcher::matches(KeybindAction::Up, sym, modifiers)) {
     if (!m_options.empty()) {
       m_hoveredIndex = (m_hoveredIndex + m_options.size() - 1) % m_options.size();
+      ensureHoveredIndexVisible();
       applyHoverVisuals();
       if (m_surface) {
         m_surface->requestRedraw();
       }
     }
-  } else if (KeybindMatcher::matches(KeybindAction::Validate, sym, 0)) {
+  } else if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
     if (m_hoveredIndex < m_options.size()) {
       selectAndClose(m_hoveredIndex);
     }
   } else if (KeySymbol::isHome(sym)) {
     m_hoveredIndex = 0;
+    ensureHoveredIndexVisible();
     applyHoverVisuals();
     if (m_surface) {
       m_surface->requestRedraw();
@@ -591,6 +603,7 @@ void SelectDropdownPopup::handleKey(std::uint32_t sym, std::uint32_t /*utf32*/, 
   } else if (KeySymbol::isEnd(sym)) {
     if (!m_options.empty()) {
       m_hoveredIndex = m_options.size() - 1;
+      ensureHoveredIndexVisible();
       applyHoverVisuals();
       if (m_surface) {
         m_surface->requestRedraw();

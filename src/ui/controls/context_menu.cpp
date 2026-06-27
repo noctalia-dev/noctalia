@@ -1,7 +1,6 @@
 #include "ui/controls/context_menu.h"
 
 #include "core/ui_phase.h"
-#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
@@ -146,6 +145,9 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
   const float itemGap = kItemGap * scale;
   const std::size_t visibleItems = std::min(m_entries.size(), m_maxVisible);
   const float rowWidth = width() - menuPadding * 2.0f;
+  // Concentric with the container: the highlight is inset by menuPadding, so its
+  // radius tracks the container radius minus that inset at any corner roundness.
+  const float highlightRadius = std::max(0.0f, Style::scaledRadiusLg(scale) - menuPadding);
   float currentY = menuPadding;
 
   for (std::size_t i = 0; i < visibleItems; ++i) {
@@ -185,7 +187,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
           ui::box({
               .out = &rowBgPtr,
               .fill = clearColorSpec(),
-              .radius = Style::scaledRadiusSm(scale),
+              .radius = highlightRadius,
               .width = rowWidth,
               .height = rowHeight,
           })
@@ -234,7 +236,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
           ui::box({
               .out = &rowBgPtr,
               .fill = clearColorSpec(),
-              .radius = Style::scaledRadiusSm(scale),
+              .radius = highlightRadius,
               .width = rowWidth,
               .height = rowHeight,
           })

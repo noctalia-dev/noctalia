@@ -9,6 +9,7 @@
 #include <cmath>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 namespace {
 
@@ -21,13 +22,6 @@ namespace {
     return state == BatteryState::Charging
         || state == BatteryState::FullyCharged
         || state == BatteryState::PendingCharge;
-  }
-
-  bool isWarningState(const UPowerDeviceInfo& device, int threshold) {
-    return threshold > 0
-        && device.state.isPresent
-        && static_cast<int>(std::round(device.state.percentage)) <= threshold
-        && !isPluggedIn(device.state.state);
   }
 
   std::string deviceKey(const UPowerDeviceInfo& device) {
@@ -100,27 +94,70 @@ int batteryWarningThresholdForSelector(
   return config.warningThreshold;
 }
 
-void BatteryWarningMonitor::reset(const BatteryConfig& config, const UPowerService& upower) {
-  m_devices.clear();
-  const auto* systemBattery = upower.defaultSystemBattery();
-  for (const auto& device : upower.batteryDevices()) {
-    const std::string key = deviceKey(device);
-    if (key.empty()) {
-      continue;
+namespace {
+
+  // Escalating alert levels (percent), descending. The system battery adds fixed deeper levels at 5%
+  // and 2% below the configurable threshold; peripherals warn only at their single configured level.
+  std::vector<int> alertPointsForDevice(int threshold, bool isSystem) {
+    std::vector<int> points;
+    if (threshold <= 0) {
+      return points;
     }
-    const int threshold = batteryWarningThresholdForDevice(config, device, systemBattery);
-    m_devices.emplace(
-        key,
-        DeviceWarningState{
-            .initialized = true,
-            .warningActive = isWarningState(device, threshold),
-            .threshold = threshold,
+    points.push_back(threshold);
+    if (isSystem) {
+      for (const int deep : {5, 2}) {
+        if (deep < threshold) {
+          points.push_back(deep);
         }
+      }
+    }
+    return points; // already descending
+  }
+
+  // Smallest alert point at or above the current percentage (the most severe level entered), or
+  // BatteryWarningMonitor::kNoLevel if the battery is above every alert point.
+  int currentLevelFor(const std::vector<int>& points, int percent) {
+    int level = BatteryWarningMonitor::kNoLevel;
+    for (const int point : points) { // descending → last qualifying assignment is the smallest
+      if (point >= percent) {
+        level = point;
+      }
+    }
+    return level;
+  }
+
+  void fireLowBatteryNotification(
+      NotificationManager& notifications, const UPowerDeviceInfo& device, int level, bool isSystem
+  ) {
+    const int percent = std::clamp(static_cast<int>(std::round(device.state.percentage)), 0, 100);
+    const std::string label = deviceLabel(device);
+
+    Urgency urgency = Urgency::Critical;
+    int32_t timeout = kDefaultNotificationTimeout * 2;
+    std::string title;
+    std::string body;
+    if (isSystem && level <= 2) {
+      timeout = 0; // persistent: imminent shutdown stays on screen until charged or dismissed
+      title = i18n::tr("notifications.internal.battery-critical-title");
+      body = i18n::tr("notifications.internal.battery-critical-body", "device", label, "percent", percent);
+    } else {
+      if (isSystem && level > 5) {
+        urgency = Urgency::Normal;
+        timeout = kDefaultNotificationTimeout;
+      }
+      title = i18n::tr("notifications.internal.battery-low-title");
+      body = i18n::tr("notifications.internal.battery-low-body", "device", label, "percent", percent);
+    }
+
+    notifications.addInternal(
+        i18n::tr("notifications.internal.battery"), title, body, urgency, timeout,
+        std::string("noctalia-glyph:battery-exclamation")
     );
   }
-}
 
-void BatteryWarningMonitor::update(
+} // namespace
+
+void BatteryWarningMonitor::evaluate(
     const BatteryConfig& config, const UPowerService& upower, NotificationManager& notifications
 ) {
   std::unordered_set<std::string> seen;
@@ -132,33 +169,35 @@ void BatteryWarningMonitor::update(
     }
     seen.insert(key);
 
+    const bool isSystem = isSystemBattery(device, systemBattery);
     const int threshold = batteryWarningThresholdForDevice(config, device, systemBattery);
-    const bool warning = isWarningState(device, threshold);
     auto& state = m_devices[key];
-    if (!state.initialized || state.threshold != threshold) {
-      state.initialized = true;
-      state.warningActive = warning;
-      state.threshold = threshold;
+
+    // Re-arm when charging, absent, or warnings disabled. firedLevel is percentage-based, so a
+    // threshold change across config reloads needs no special handling — the next level decides.
+    if (!device.state.isPresent || isPluggedIn(device.state.state) || threshold <= 0) {
+      state.firedLevel = kNoLevel;
       continue;
     }
 
-    if (!warning) {
-      state.warningActive = false;
+    const std::vector<int> points = alertPointsForDevice(threshold, isSystem);
+    const int percent = static_cast<int>(std::round(device.state.percentage));
+    const int currentLevel = currentLevelFor(points, percent);
+
+    if (currentLevel == kNoLevel) {
+      state.firedLevel = kNoLevel; // above every alert point
       continue;
     }
 
-    if (state.warningActive) {
-      continue;
+    // Level-triggered: fire once per level as the battery drains into it. Empty state on the first
+    // evaluate (startup) fires whatever level the battery already sits in — this is a deliberate
+    // safety notification at boot, not a baseline state transition.
+    if (currentLevel < state.firedLevel) {
+      fireLowBatteryNotification(notifications, device, currentLevel, isSystem);
+      state.firedLevel = currentLevel;
+    } else if (currentLevel > state.firedLevel) {
+      state.firedLevel = currentLevel; // partial recharge → arm so re-dropping re-alerts
     }
-
-    state.warningActive = true;
-    const int percent = std::clamp(static_cast<int>(std::round(device.state.percentage)), 0, 100);
-    const std::string label = deviceLabel(device);
-    notifications.addInternal(
-        i18n::tr("notifications.internal.battery"), i18n::tr("notifications.internal.battery-low-title"),
-        i18n::tr("notifications.internal.battery-low-body", "device", label, "percent", percent), Urgency::Critical,
-        kDefaultNotificationTimeout * 2, std::string("noctalia-glyph:battery-exclamation")
-    );
   }
 
   for (auto it = m_devices.begin(); it != m_devices.end();) {

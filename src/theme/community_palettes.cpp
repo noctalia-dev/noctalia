@@ -8,7 +8,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -107,16 +106,8 @@ namespace noctalia::theme {
             out.push_back(std::move(palette));
           }
         }
-        std::sort(out.begin(), out.end(), [](const AvailablePalette& a, const AvailablePalette& b) {
-          return a.name < b.name;
-        });
-        out.erase(
-            std::unique(
-                out.begin(), out.end(),
-                [](const AvailablePalette& a, const AvailablePalette& b) { return a.name == b.name; }
-            ),
-            out.end()
-        );
+        std::ranges::sort(out, {}, &AvailablePalette::name);
+        out.erase(std::ranges::unique(out, {}, &AvailablePalette::name).begin(), out.end());
         return out;
       } catch (const std::exception& e) {
         kLog.warn("failed to parse community palette catalog {}: {}", path.string(), e.what());
@@ -157,9 +148,7 @@ namespace noctalia::theme {
 
   std::string communityPaletteCatalogMd5(std::string_view name) {
     const auto catalog = parseCatalogFile(catalogCachePath());
-    auto it = std::find_if(catalog.begin(), catalog.end(), [name](const AvailablePalette& palette) {
-      return palette.name == name;
-    });
+    auto it = std::ranges::find(catalog, name, &AvailablePalette::name);
     if (it == catalog.end()) {
       return {};
     }

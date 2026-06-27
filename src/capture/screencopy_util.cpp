@@ -1,10 +1,12 @@
 #include "capture/screencopy_util.h"
 
+#include "capture/screencopy_capture.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <cstring>
-#include <wayland-client.h>
+#include <wayland-client-core.h>
+#include <wayland-client-protocol.h>
 
 namespace {
 

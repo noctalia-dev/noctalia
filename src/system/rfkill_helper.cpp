@@ -73,7 +73,7 @@ namespace {
     struct dirent* ent = nullptr;
     while ((ent = readdir(dir)) != nullptr) {
       const std::string name = ent->d_name;
-      if (name.rfind("rfkill", 0) != 0) {
+      if (!name.starts_with("rfkill")) {
         continue;
       }
 
@@ -128,7 +128,7 @@ namespace {
     struct dirent* ent = nullptr;
     while ((ent = readdir(dir)) != nullptr) {
       const std::string name = ent->d_name;
-      if (name.rfind("rfkill", 0) != 0) {
+      if (!name.starts_with("rfkill")) {
         continue;
       }
       unsigned value = 0;

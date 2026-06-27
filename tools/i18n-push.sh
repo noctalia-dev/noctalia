@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env -S bash
 
 # Push translations to Noctalia Translate API
 # Usage: NOCTALIA_TRANSLATION_PUSH_SECRET=your_secret ./i18n-push.sh [--overwrite] [--lang <code>] [/path/to/assets/translations]

@@ -1,9 +1,9 @@
 #pragma once
 
-#include "config/config_types.h"
-
 #include <string>
 #include <vector>
+
+struct PluginSourceConfig;
 
 namespace scripting {
 
@@ -13,6 +13,7 @@ namespace scripting {
     std::string id;   // "author/plugin"
     std::string name; // mandatory display name
     std::vector<std::string> tags;
+    std::vector<std::string> dependencies;
     std::string version; // latest available in the source
     std::string author;
     std::string icon;

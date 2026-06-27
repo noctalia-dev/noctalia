@@ -1,0 +1,960 @@
+{
+  "auth": {
+    "fingerprint": {
+      "disconnected": "Čtečka otisků prstů odpojena",
+      "error": "Chyba ověřování otisku prstu",
+      "no-match": "Otisk prstu se neshoduje",
+      "not-centered": "Vycentrujte prst a zkuste to znovu",
+      "present": "Čtení otisku prstu…",
+      "ready": "Přiložte prst na čtečku",
+      "remove-and-retry": "Zvedněte prst a zkuste to znovu",
+      "retry": "Naskenujte prosím otisk prstu znovu",
+      "swipe-too-short": "Přejetí bylo příliš krátké, zkuste to znovu",
+      "too-many-attempts": "Ověřování otiskem prstu zakázáno (příliš mnoho pokusů)"
+    },
+    "pam": {
+      "authentication-failed": "Ověření selhalo",
+      "start-failed": "Spuštění PAM selhalo",
+      "user-unavailable": "Nelze zjistit aktuálního uživatele"
+    },
+    "polkit": {
+      "authenticate": "Ověřit",
+      "authenticating": "Ověřování…",
+      "default-message": "Vyžadováno ověření",
+      "invalid-password": "Neplatné heslo",
+      "password-placeholder": "Heslo",
+      "title": "Vyžadováno ověření"
+    }
+  },
+  "bar": {
+    "screenshot": {
+      "choose-display": "Vyberte displej",
+      "confirm-region": "Enter nebo Space pro zachycení · Esc pro zrušení · označit tažením",
+      "fullscreen": "Celá obrazovka",
+      "region": "Vybrat oblast"
+    },
+    "widgets": {
+      "active-window": {
+        "no-active-window": "Žádné aktivní okno"
+      },
+      "bluetooth": {
+        "connected": "Připojeno"
+      },
+      "brightness": {
+        "brightness": "Jas",
+        "display": "Displej"
+      },
+      "lock-keys": {
+        "caps": "Caps",
+        "caps-short": "C",
+        "num": "Num",
+        "num-short": "N",
+        "scroll": "Scroll",
+        "scroll-short": "S"
+      },
+      "media": {
+        "nothing-playing": "Nic se nepřehrává",
+        "playing": "Přehrává se"
+      },
+      "network": {
+        "active": "Aktivní",
+        "connected": "Připojeno",
+        "connecting": "Připojování",
+        "download": "Stahování",
+        "interface": "Rozhraní",
+        "ip": "IP",
+        "network": "Síť",
+        "networks": "Sítě",
+        "networks-count": "{count} síť",
+        "networks-count-plural": "{count} sítí",
+        "no": "Ne",
+        "not-connected": "Nepřipojeno",
+        "off": "Vypnuto",
+        "on": "Zapnuto",
+        "scanning": "Skenování",
+        "signal": "Signál",
+        "upload": "Nahrávání",
+        "vpn": "VPN",
+        "wifi": "Wi-Fi",
+        "wired": "Drátové",
+        "yes": "Ano"
+      },
+      "privacy": {
+        "camera": "Kamera",
+        "microphone": "Mikrofon",
+        "screen-sharing": "Sdílení obrazovky"
+      },
+      "scripted": {
+        "reload-failed": "Znovunačtení skriptu selhalo",
+        "reloaded": "Skript znovu načten"
+      },
+      "sysmon": {
+        "cpu": "CPU",
+        "cpu-temp": "Teplota CPU",
+        "disk": "Disk",
+        "download": "Stahování",
+        "gpu-temp": "Teplota GPU",
+        "gpu-usage": "Využití GPU",
+        "gpu-vram": "GPU VRAM",
+        "ram": "RAM",
+        "swap": "Swap",
+        "system": "Systém",
+        "upload": "Nahrávání"
+      },
+      "volume": {
+        "device": "Zařízení",
+        "mic": "Mikrofon",
+        "volume": "Hlasitost"
+      },
+      "weather": {
+        "default": "Počasí",
+        "error": "Chyba počasí",
+        "loading": "Načítání počasí…",
+        "no-location": "Žádná poloha",
+        "off": "Počasí vypnuto"
+      }
+    }
+  },
+  "clipboard": {
+    "actions": {
+      "clear-all": "Vymazat vše",
+      "delete-item": "Smazat položku",
+      "keep-pinned": "Ponechat připnuté"
+    },
+    "confirm": {
+      "clear-desc": "Zvolte, zda mají být připnuté položky zachovány.",
+      "clear-desc-all-pinned": "Každá položka je připnutá. Použijte „Vymazat vše“ pro jejich odstranění.",
+      "clear-desc-no-pinned": "Tímto odstraníte všechny položky z historie schránky.",
+      "clear-title": "Vymazat historii schránky?",
+      "delete-desc": "Tímto odstraníte vybranou položku z historie schránky.",
+      "delete-title": "Smazat položku schránky?"
+    },
+    "empty": {
+      "history-message": "V historii schránky nejsou žádné položky.",
+      "history-title": "Historie schránky je prázdná",
+      "no-matches-message": "Žádné položky neodpovídají aktuálnímu filtru.",
+      "no-matches-title": "Žádné odpovídající položky"
+    },
+    "entry": {
+      "image": "Obrázek",
+      "title": "Položka schránky"
+    },
+    "filter-placeholder": "Filtrovat schránku…",
+    "preview": {
+      "empty-text-payload": "(prázdný textový obsah)",
+      "image-title": "Obrázková položka schránky",
+      "loading": "Načítání náhledu…",
+      "text-title": "Textová položka schránky",
+      "truncated": "… zkráceno"
+    },
+    "title": "Schránka"
+  },
+  "common": {
+    "actions": {
+      "apply": "Použít",
+      "cancel": "Zrušit"
+    },
+    "states": {
+      "auto": "Auto",
+      "custom": "Vlastní",
+      "inherit": "Zdědit",
+      "off": "Vypnuto"
+    }
+  },
+  "control-center": {
+    "audio": {
+      "application-volumes": "Hlasitost aplikací",
+      "choose-effects-profile": "Vyberte profil",
+      "effects-profile": "Efekty",
+      "input-device-prefix": "Vstup:",
+      "no-application-audio": "Žádný zvuk z aplikací",
+      "no-application-audio-body": "Momentálně nejsou k dispozici žádné přehrávací streamy aplikací.",
+      "no-input-devices": "Žádná vstupní zařízení",
+      "no-input-devices-body": "Momentálně nejsou k dispozici žádné zdroje záznamu.",
+      "no-input-selected": "Není vybráno žádné vstupní zařízení",
+      "no-output-devices": "Žádná výstupní zařízení",
+      "no-output-devices-body": "Momentálně nejsou k dispozici žádné výstupní cíle přehrávání.",
+      "no-output-selected": "Není vybráno žádné výstupní zařízení",
+      "output-device-prefix": "Výstup:",
+      "unavailable-body": "PipeWire není aktivní.",
+      "unavailable-title": "Zvuk není k dispozici"
+    },
+    "bluetooth": {
+      "accept": "Přijmout",
+      "auto-reconnect": "Automaticky znovu připojit",
+      "bluetooth": "Bluetooth",
+      "enter-code": "Zadejte kód",
+      "no-devices": "Nebyla nalezena žádná zařízení. Spusťte skenování pro nalezení zařízení v okolí.",
+      "off": "Bluetooth je vypnutý",
+      "pair-title": "Spárovat {device}",
+      "pairing-detail": {
+        "authorize": "Přijmout příchozí požadavek na párování?",
+        "authorize-service": "Povolit přístup ke službě {uuid}?",
+        "confirm": "Potvrďte, že tento kód odpovídá tomu na zařízení:",
+        "display-passkey": "Zadejte tento kód na zařízení:",
+        "display-pin": "Zadejte tento PIN na zařízení:",
+        "passkey": "Zadejte přístupový kód zobrazený na zařízení:",
+        "pin-code": "Zadejte PIN zobrazený na zařízení:"
+      },
+      "reject": "Odmítnout",
+      "rfkill-blocked": "Bluetooth je blokován systémem. Zapněte jej pro odstranění blokace.",
+      "sections": {
+        "available": "Dostupná",
+        "connected": "Připojená",
+        "paired": "Spárovaná"
+      },
+      "unavailable": "Služba Bluetooth není k dispozici",
+      "unknown-device": "Neznámé zařízení",
+      "visible": "Viditelné pro zařízení v okolí"
+    },
+    "calendar": {
+      "all-day": "Celý den",
+      "events": "Události",
+      "no-events": "Žádné události.",
+      "today": "Dnes"
+    },
+    "display": {
+      "disabled": "Zakázáno",
+      "no-displays": "Žádné monitory k dispozici",
+      "unknown-resolution": "Neznámé rozlišení"
+    },
+    "home": {
+      "avatar-error-title": "Avatar nebyl aktualizován",
+      "media": {
+        "idle": "Nečinné",
+        "no-active-player": "Žádný aktivní přehrávač",
+        "nothing-playing": "Nic se nepřehrává",
+        "paused": "Pozastaveno",
+        "playback-unavailable": "Přehrávání není k dispozici",
+        "playing": "Přehrává se",
+        "unavailable": "Nedostupné",
+        "unknown-artist": "Neznámý interpret",
+        "unknown-track": "Neznámá skladba"
+      },
+      "select-avatar": "Vybrat avatar",
+      "unknown": "neznámé",
+      "uptime": "Doba běhu – {uptime}",
+      "weather": {
+        "data-unavailable": "Údaje o počasí nejsou k dispozici.",
+        "disabled": "Počasí je v konfiguraci vypnuto.",
+        "fetching": "Načítání předpovědi…"
+      }
+    },
+    "media": {
+      "active-player": "Aktivní přehrávač",
+      "nothing-playing": "Nic se nepřehrává",
+      "now-playing": "Právě hraje",
+      "start-playback": "Spusťte přehrávání v aplikaci s podporou MPRIS"
+    },
+    "network": {
+      "connect": "Připojit",
+      "current-connection": "Aktuální připojení",
+      "no-networks": "Žádné sítě v dosahu",
+      "not-connected": "Nepřipojeno",
+      "password": "Heslo",
+      "password-prompt": "Zadejte heslo",
+      "password-prompt-for": "Zadejte heslo pro {ssid}",
+      "unavailable-detail": "Nainstalujte a povolte NetworkManager pro správu sítí odsud.",
+      "unavailable-title": "NetworkManager není k dispozici",
+      "vpns": "VPN",
+      "wi-fi": "Wi‑Fi",
+      "wifi": "Wi‑Fi",
+      "wifi-off": "Wi‑Fi je vypnutá",
+      "wifi-on": "Wi‑Fi je zapnutá",
+      "wired-connection": "Drátové připojení"
+    },
+    "notifications": {
+      "clear-all": "Smazat všechny oznámení",
+      "dnd-off": "Vypnout režim Nerušit",
+      "dnd-on": "Zapnout režim Nerušit",
+      "empty-body": "Zde se zobrazí nedávná oznámení.",
+      "empty-title": "Žádná oznámení",
+      "filter": {
+        "all": "Všechna",
+        "older": "Starší",
+        "today": "Dnes",
+        "yesterday": "Včera"
+      },
+      "filter-empty-body": "Žádná oznámení neodpovídají tomuto filtru.",
+      "filter-empty-title": "Nic zde není",
+      "untitled": "Oznámení bez názvu"
+    },
+    "power": {
+      "battery": "Baterie",
+      "design-capacity": "Z originální kapacity",
+      "health": "Zdraví baterie",
+      "performance-inhibited": "Výkon nedostupný",
+      "peripherals": "Připojená zařízení",
+      "power-profile": "Profil výkonu",
+      "time-to-empty": "Zbývá {time}",
+      "time-to-full": "{time} do úplného nabití",
+      "unknown-device": "Neznámé zařízení"
+    },
+    "screen-time": {
+      "disabled": "Sledování času u obrazovky je vypnuté. Povolte jej v Nastavení pro zaznamenávání použití aplikací.",
+      "empty": "Zatím nebylo zaznamenáno žádné použití aplikací. Zaměřte okno pro zahájení sledování.",
+      "hour-0": "0:00",
+      "hour-12": "12:00",
+      "hour-18": "18:00",
+      "hour-6": "6:00",
+      "most-used": "NEJPOUŽÍVANĚJŠÍ",
+      "range": {
+        "14-days": "14 dní",
+        "3-days": "3 dny",
+        "today": "Dnes"
+      }
+    },
+    "shortcuts": {
+      "audio": "Zvuk",
+      "bluetooth": "Bluetooth",
+      "caffeine": "Caffeine",
+      "clipboard": "Schránka",
+      "dark-mode": {
+        "auto": "Automatický režim",
+        "dark": "Tmavý režim",
+        "light": "Světlý režim"
+      },
+      "keyboard-layout": "Rozložení",
+      "media": "Média",
+      "mic-mute": "Mikrofon",
+      "nightlight": "Noční osvětlení",
+      "nightlight-states": {
+        "forced": "Vždy zapnuto",
+        "off": "Noční osvětlení",
+        "scheduled-day": "Naplánováno",
+        "scheduled-night": "Běží"
+      },
+      "notification": "Nerušit",
+      "power-profile": "Napájení",
+      "screen-time": "Čas u obrazovky",
+      "session": "Relace",
+      "system": "Systém",
+      "wallpaper": "Tapeta",
+      "weather": "Počasí",
+      "wifi": "Wi‑Fi"
+    },
+    "system": {
+      "labels": {
+        "load": "Zatížení CPU",
+        "ram": "RAM",
+        "swap": "Swap"
+      },
+      "titles": {
+        "cpu": "CPU",
+        "gpu": "GPU",
+        "memory": "Paměť",
+        "network": "Síť",
+        "resources": "Zdroje",
+        "system": "Systém"
+      },
+      "tooltips": {
+        "load": "Průměrné zatížení za 1 / 5 / 15 minut"
+      },
+      "unknown": "neznámé",
+      "uptime-prefix": "Běží {uptime} · {osAge}"
+    },
+    "tabs": {
+      "audio": "Zvuk",
+      "bluetooth": "Bluetooth",
+      "calendar": "Kalendář",
+      "display": "Monitor",
+      "home": "Domů",
+      "media": "Média",
+      "network": "Síť",
+      "notifications": "Oznámení",
+      "power": "Napájení",
+      "screen-time": "Čas u obrazovky",
+      "system": "Systém",
+      "weather": "Počasí"
+    },
+    "weather": {
+      "data-unavailable": "Údaje o počasí nejsou k dispozici",
+      "details": {
+        "elevation": "Nadmořská výška",
+        "sunrise": "Východ slunce",
+        "sunset": "Západ slunce",
+        "temp-max": "Maximální teplota",
+        "temp-min": "Minimální teplota",
+        "timezone": "Časové pásmo",
+        "wind": "Vítr"
+      },
+      "disabled": "Povolte [weather] v config.toml",
+      "fetching": "Načítání předpovědi…",
+      "forecast-placeholder": {
+        "day": "Neděle",
+        "description": "Počasí",
+        "temperature": "10 / 4 °C"
+      },
+      "location-unavailable": "Poloha není k dispozici",
+      "no-location-body": "Claude responded: Přidej svou adresu nebo povol automatické určení polohy v nastavení Polohy.Přidej svou adresu nebo povol automatické určení polohy v nastavení Polohy.",
+      "no-location-title": "Žádná poloha nenastavena",
+      "refreshing": "Obnovování počasí…",
+      "waiting": "Čekání na údaje o počasí"
+    }
+  },
+  "desktop-widgets": {
+    "editor": {
+      "actions": {
+        "add": "Přidat",
+        "clone": "Duplikovat (Ctrl+C, Ctrl+V pro kopírování/vložení)",
+        "done": "Hotovo",
+        "flip-horizontal": "Převrátit vodorovně",
+        "flip-vertical": "Převrátit svisle",
+        "hide": "Skrýt",
+        "settings": "Nastavení",
+        "show": "Zobrazit",
+        "stack-back": "Poslat dozadu",
+        "stack-front": "Přenést dopředu",
+        "trash": "Smazat"
+      },
+      "dialogs": {
+        "select-sticker-image": "Vybrat obrázek nálepky"
+      },
+      "settings": {
+        "aspect-ratio": "Poměr stran",
+        "background": "Pozadí",
+        "background-color": "Barva",
+        "background-opacity": "Průhlednost",
+        "background-padding": "Odsazení",
+        "background-radius": "Zaoblení",
+        "background-section": "Pozadí",
+        "bands": "Pásy",
+        "bar-width": "Šířka pruhu",
+        "bloom-intensity": "Bloom",
+        "center-text": "Centrovat text",
+        "centered": "Centrované",
+        "change-image": "Změnit…",
+        "circle": "Kruh",
+        "clock-style": "Styl hodin",
+        "clock-style-analog": "Analogové",
+        "clock-style-digital": "Digitální",
+        "color": "Barva",
+        "color-1": "Barva jedna",
+        "color-2": "Barva dvě",
+        "color2": "Barva 2",
+        "command": "Příkaz",
+        "custom-color": "Vlastní…",
+        "description": "Popis",
+        "display": "Zobrazení",
+        "display-gauge": "Gauge",
+        "display-graph": "Graf",
+        "fade-when-idle": "Při nečinnosti ztlumit",
+        "font-family": "Písmo",
+        "font-family-default": "Výchozí systémové",
+        "forecast-days": "Dny předpovědi",
+        "format": "Formát",
+        "gauge-layout": "Rozložení Gauge",
+        "glyph": "Symbol",
+        "hide-when-no-media": "Skrýt, když se nic nepřehrává",
+        "highlight-color": "Barva zvýraznění",
+        "horizontal": "Vodorovné",
+        "hover-background": "Pozadí při najetí",
+        "hover-foreground": "Popředí při najetí",
+        "image-path": "Obrázek",
+        "inner-diameter": "Vnitřní průměr",
+        "input-opacity": "Průhlednost vstupu",
+        "input-radius": "Zaoblení vstupu",
+        "interface": "Rozhraní",
+        "label": "Popisek",
+        "label-min-width": "Min. šířka popisu",
+        "layout": "Rozvržení",
+        "mirrored": "Zrcadlené",
+        "opacity": "Průhlednost",
+        "primary-color": "Primární barva",
+        "reset-defaults": "Obnovit výchozí",
+        "ring-opacity": "Průhlednost kruhu",
+        "rotation-speed": "Rychlost otáčení",
+        "secondary-color": "Sekundární barva",
+        "sensitivity": "Citlivost",
+        "shadow": "Stín",
+        "show-forecast": "Zobrazit předpověď",
+        "show-label": "Zobrazit popisek",
+        "show-login-button": "Tlačítko přihlášení",
+        "show-when-idle": "Zobrazit při nečinnosti",
+        "stat": "Statistika",
+        "stat-cpu-temp": "Teplota CPU",
+        "stat-cpu-usage": "Využití CPU",
+        "stat-gpu-temp": "Teplota GPU",
+        "stat-gpu-usage": "Využití GPU",
+        "stat-gpu-vram": "GPU VRAM",
+        "stat-net-rx": "Síť Rx",
+        "stat-net-tx": "Síť Tx",
+        "stat-none": "Žádná",
+        "stat-ram-pct": "RAM %",
+        "stat-swap-pct": "Swap %",
+        "stat2": "Statistika 2",
+        "title": "Název",
+        "variant": "Styl",
+        "variant-default": "Výchozí",
+        "variant-destructive": "Destruktivní",
+        "variant-ghost": "Ghost",
+        "variant-outline": "Obrys",
+        "variant-primary": "Primární",
+        "variant-secondary": "Sekundární",
+        "vertical": "Svislé",
+        "visualization-mode": "Režim",
+        "visualization-mode-all": "Vše",
+        "visualization-mode-bars": "Pruhy",
+        "visualization-mode-bars-rings": "Pruhy + kruhy",
+        "visualization-mode-rings": "Kruhy",
+        "visualization-mode-wave": "Vlna",
+        "visualization-mode-wave-rings": "Vlna + kruhy",
+        "wave-thickness": "Tloušťka vlny",
+        "widget-section": "Widget"
+      },
+      "state": {
+        "grid-off": "Mřížka vypnuta",
+        "grid-on": "Mřížka zapnuta"
+      },
+      "title": "Desktopové widgety",
+      "types": {
+        "audio-visualizer": "Zvukový vizualizér",
+        "button": "Tlačítko",
+        "clock": "Hodiny",
+        "fancy-audio-visualizer": "Pokročilý zvukový vizualizér",
+        "label": "Popisek",
+        "login-box": "Přihlašovací box",
+        "media-player": "Mediální přehrávač",
+        "sticker": "Nálepka",
+        "system-monitor": "Systémový monitor",
+        "weather": "Počasí"
+      }
+    },
+    "media": {
+      "nothing-playing": "Nic se nepřehrává"
+    },
+    "weather": {
+      "error": "Chyba",
+      "loading": "Načítání",
+      "no-location": "Žádná poloha",
+      "off": "Počasí vypnuto"
+    }
+  },
+  "dock": {
+    "actions": {
+      "close": "Zavřít",
+      "close-all": "Zavřít vše"
+    },
+    "launcher": "Spouštěč"
+  },
+  "internal-apps": {
+    "settings": {
+      "display-name": "Nastavení"
+    }
+  },
+  "launcher": {
+    "categories": {
+      "all": "Vše",
+      "applications": {
+        "development": "Vývoj",
+        "education": "Vzdělávání",
+        "games": "Hry",
+        "graphics": "Grafika",
+        "internet": "Internet",
+        "multimedia": "Multimédia",
+        "office": "Kancelář",
+        "system": "Systém",
+        "utilities": "Nástroje"
+      },
+      "emoji": {
+        "activity": "Aktivity",
+        "animals": "Zvířata",
+        "flags": "Vlajky",
+        "food": "Jídlo",
+        "nature": "Příroda",
+        "objects": "Předměty",
+        "people": "Lidé",
+        "symbols": "Symboly",
+        "travel": "Cestování"
+      },
+      "recently-used": "Nedávno použité"
+    },
+    "context-menu": {
+      "open": "Otevřít",
+      "pin-to-dock": "Připnout do doku",
+      "unpin-from-dock": "Odepnout z doku"
+    },
+    "empty": {
+      "no-results": "Nebyly nalezeny žádné výsledky",
+      "type-to-search": "Začněte psát pro hledání…"
+    },
+    "providers": {
+      "applications": {
+        "title": "Aplikace"
+      },
+      "calculator": {
+        "title": "Kalkulačka"
+      },
+      "emoji": {
+        "title": "Emoji"
+      },
+      "session": {
+        "action-subtitle": "Spustit akci relace",
+        "command-subtitle": "Spustit nakonfigurovaný příkaz",
+        "title": "Relace"
+      },
+      "wallpaper": {
+        "title": "Tapeta"
+      },
+      "window": {
+        "title": "Okna"
+      }
+    },
+    "search-placeholder": "Hledat aplikace…"
+  },
+  "location": {
+    "errors": {
+      "address-lookup-failed": "Vyhledání adresy selhalo",
+      "ip-geolocation-failed": "Geolokace podle IP selhala",
+      "parse-geocode": "Nepodařilo se zpracovat odpověď geokódování",
+      "parse-ip-geolocation": "Nepodařilo se zpracovat odpověď geolokace IP"
+    },
+    "locations": {
+      "current": "Aktuální poloha"
+    },
+    "source": {
+      "address": "Adresa",
+      "auto": "Auto"
+    }
+  },
+  "lockscreen": {
+    "authenticating": "Ověřování…",
+    "authentication-failed": "Ověření selhalo",
+    "password-cleared": "Heslo vymazáno",
+    "password-placeholder": "Heslo",
+    "ready": "Zadejte heslo a stiskněte Enter.",
+    "unlocked": "Odemčeno",
+    "waiting": "Čekání na potvrzení uzamčení…"
+  },
+  "notifications": {
+    "actions": {
+      "fallback": "Akce",
+      "open": "Otevřít"
+    },
+    "inline-reply": {
+      "button": "Odpovědět",
+      "placeholder": "Napište odpověď…"
+    },
+    "internal": {
+      "battery": "Baterie",
+      "battery-critical-body": "{device}: {percent}% – počítač se brzy vypne",
+      "battery-critical-title": "Baterie kriticky vybitá",
+      "battery-device": "Zařízení na baterii",
+      "battery-low-body": "{device}: zbývá {percent} %",
+      "battery-low-title": "Nízký stav baterie",
+      "calendar": "Kalendář",
+      "calendar-google-connect-browser-failed": "Nepodařilo se spustit prohlížeč pro autorizaci Google. Zkontrolujte výchozí prohlížeč nebo nastavení xdg-open.",
+      "calendar-google-connect-expired": "Autorizace Google vypršela dříve, než bylo dokončeno přihlášení. Spusťte připojení znovu.",
+      "calendar-google-connect-failed-title": "Připojení Google Kalendáře selhalo",
+      "calendar-google-connect-missing-account": "Žádný nakonfigurovaný účet Google kalendáře neodpovídá „{account}“.",
+      "calendar-google-connect-rate-limited": "Autorizace Google je dočasně omezena. Počkejte chvíli a zkuste to znovu.",
+      "calendar-google-connect-result-failed": "Nepodařilo se dokončit autorizaci Google. Spusťte připojení znovu.",
+      "calendar-google-connect-start-failed": "Nepodařilo se spustit autorizaci Google. Zkontrolujte připojení k síti a zkuste to znovu.",
+      "calendar-google-connect-start-http": "Nepodařilo se spustit autorizaci Google. OAuth broker vrátil HTTP {status}.",
+      "calendar-google-connect-timeout": "Autorizace Google vypršela. Spusťte připojení znovu, až budete připraveni se přihlásit.",
+      "dbus-disabled": "DBus oznámení jsou vypnuta",
+      "desktop-widgets-editor": "Editor widgetů",
+      "desktop-widgets-editor-enabled": "Editor desktopových widgetů je zapnutý. Přepněte na prázdnou plochu pro zobrazení překryvu editoru.",
+      "greeter-sync": "Noctalia Greeter",
+      "greeter-sync-pending": "Čeká se na schválení administrátorem pro zápis do greetera.",
+      "greeter-sync-pending-console": "Čeká se na schválení administrátorem. Potvrď polkit výzvu v Noctalia, na TTY nebo konzoli, nebo spusť pkexec ručně.",
+      "greeter-sync-pending-manual": "Claude responded: Soubory jsou připraveny.Soubory jsou připraveny. Spusť v terminálu: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". Nebo nastav shell.greeter_sync.privilege_command (např. ghostty -e pkexec) a synchronizuj znovu.",
+      "greeter-sync-success": "Vzhled synchronizován. Změny se projeví při příští přihlašovací obrazovce.",
+      "greeter-sync-timeout": "Claude responded: Synchronizace greetera stále čeká na schválení administrátorem.Synchronizace greetera stále čeká na schválení administrátorem. Zkontroluj TTY nebo konzoli pro polkit výzvu, povol polkit agenta v nastavení Zabezpečení, nebo spusť pkexec ručně.",
+      "greeter-sync-timeout-manual": "Synchronizace greetera stále vyžaduje schválení administrátorem. Spusť v terminálu: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "keybind-app": "Noctalia",
+      "keybind-invalid-modifier": "Tato zkratka přijímá pouze jednu klávesu bez modifikátorů.",
+      "keybind-invalid-printable": "Tisknutelné klávesy (písmena, čísla, symboly) vyžadují modifikátor jako Ctrl nebo Alt.",
+      "keybind-invalid-super": "Klávesu Super/Windows nelze použít v klávesových zkratkách shellu.",
+      "keybind-invalid-title": "Klávesová zkratka není povolena",
+      "launcher-usage-reset": "Spouštěč",
+      "launcher-usage-reset-success": "Údaje o použití byly vymazány.",
+      "lockscreen-widgets-editor": "Editor widgetů zamykací obrazovky",
+      "lockscreen-widgets-editor-blocked-locked": "Odemkněte relaci před úpravou widgetů zamykací obrazovky.",
+      "lockscreen-widgets-editor-enabled": "Editor widgetů zamykací obrazovky je zapnutý. Uspořádejte widgety v náhledu a poté uzamkněte relaci pro ověření rozvržení.",
+      "mpris-disabled": "MPRIS vypnutý",
+      "polkit-agent": "Polkit Agent",
+      "polkit-no-session": "Polkit agent vyžaduje logind, elogind nebo XDG_SESSION_ID. Na seatd-only sestavách se nemůže registrovat pro grafické výzvy. Pro synchronizaci greetera použij pkexec v terminálu, nebo nainstaluj elogind pro autentizaci v rámci sezení.",
+      "screen-time-reset": "Čas u obrazovky",
+      "screen-time-reset-success": "Historie použití byla vymazána.",
+      "session-bus-unavailable": "Session bus není k dispozici",
+      "wallpaper-palette-export": "Vlastní paleta",
+      "wallpaper-palette-export-success": "„{name}“ uloženo a zdroj palety přepnut na vlastní."
+    }
+  },
+  "osd": {
+    "bluetooth": {
+      "off": "Bluetooth vypnuto",
+      "on": "Bluetooth zapnuto"
+    },
+    "caffeine": {
+      "off": "Caffeine vypnuto",
+      "on": "Caffeine zapnuto"
+    },
+    "dnd": {
+      "off": "Režim Nerušit vypnut",
+      "on": "Režim Nerušit zapnut"
+    },
+    "effects": {
+      "input": "Vstupní efekty",
+      "output": "Výstupní efekty"
+    },
+    "lock-keys": {
+      "caps-off": "Caps Lock vypnut",
+      "caps-on": "Caps Lock zapnut",
+      "num-off": "Num Lock vypnut",
+      "num-on": "Num Lock zapnut",
+      "scroll-off": "Scroll Lock vypnut",
+      "scroll-on": "Scroll Lock zapnut"
+    },
+    "nightlight": {
+      "forced": "Vždy zapnuto",
+      "off": "Night Light vypnutý"
+    },
+    "wifi": {
+      "off": "Wi‑Fi vypnuta",
+      "on": "Wi‑Fi zapnuta"
+    }
+  },
+  "power": {
+    "battery": {
+      "states": {
+        "battery": "Baterie",
+        "charging": "Nabíjení",
+        "discharging": "Vybíjení",
+        "empty": "Vybitá",
+        "pending-discharge": "Čeká na vybíjení",
+        "plugged-in": "Připojeno k napájení"
+      },
+      "tooltip": {
+        "health": "Stav",
+        "rate": "Rychlost",
+        "status": "Stav",
+        "time-left": "Zbývající čas",
+        "time-to-full": "Čas do plného nabití"
+      }
+    },
+    "profiles": {
+      "balanced": "Vyvážený",
+      "performance": "Výkon",
+      "power-saver": "Úsporný režim"
+    }
+  },
+  "session": {
+    "actions": {
+      "custom": "Vlastní",
+      "lock": "Uzamknout",
+      "lock-and-suspend": "Uzamknout a uspat",
+      "logout": "Odhlásit se",
+      "reboot": "Restartovat",
+      "shutdown": "Vypnout",
+      "suspend": "Uspat"
+    },
+    "errors": {
+      "lock-body": "Protokol uzamčení relace není k dispozici.",
+      "lock-title": "Uzamčení není k dispozici"
+    }
+  },
+  "settings": {
+    "actions": {
+      "reset": "Obnovit"
+    },
+    "badges": {
+      "advanced": "Pokročilé",
+      "inherited": "Zděděno",
+      "monitor": "Monitor",
+      "official": "Oficiální",
+      "override": "Přepsání"
+    },
+    "calendar-accounts": {
+      "add-title": "Přidat účet kalendáře",
+      "color-label": "Barva",
+      "delete-error": "Nepodařilo se smazat účet kalendáře.",
+      "edit-title": "Upravit účet kalendáře",
+      "id-label": "ID účtu",
+      "invalid": "Zkontrolujte zvýrazněná pole účtu kalendáře.",
+      "name-label": "Zobrazované jméno",
+      "name-placeholder": "Osobní kalendář",
+      "password-keep-placeholder": "Ponechte prázdné pro zachování aktuálního hesla",
+      "password-label": "Heslo aplikace",
+      "password-placeholder": "Heslo specifické pro aplikaci",
+      "password-save-error": "Nepodařilo se uložit heslo účtu kalendáře.",
+      "provider": {
+        "custom": "CalDAV",
+        "google": "Google",
+        "icloud": "iCloud"
+      },
+      "provider-label": "Poskytovatel",
+      "save": "Uložit",
+      "save-connect": "Uložit a připojit",
+      "save-error": "Nepodařilo se uložit účet kalendáře.",
+      "server-url-label": "URL serveru",
+      "username-label": "Uživatelské jméno",
+      "username-placeholder": "name@example.com"
+    },
+    "controls": {
+      "keybind": {
+        "add": "Kliknutím přidáte klávesovou zkratku",
+        "recording-placeholder": "Stiskněte kombinaci kláves…",
+        "unset-placeholder": "Kliknutím přiřadíte…"
+      },
+      "list": {
+        "add-entry-placeholder": "Přidat položku…"
+      },
+      "path-browse": {
+        "file-title": "Vyberte soubor",
+        "folder-title": "Vyberte složku"
+      },
+      "select": {
+        "unknown-value": "Neznámé: {value}"
+      }
+    },
+    "dialogs": {
+      "color-picker": {
+        "title": "Vyberte barvu"
+      }
+    },
+    "entities": {
+      "bar": {
+        "create": "Vytvořit",
+        "delete": "Smazat",
+        "delete-confirm-desc": "Tento panelem vytvořený přes GUI bude odstraněn ze settings.toml.",
+        "delete-confirm-title": "Smazat „{name}“?",
+        "id-placeholder": "ID panelu",
+        "label": "Panel: {name}",
+        "management": "Panel",
+        "move-down": "Posunout dolů",
+        "move-up": "Posunout nahoru",
+        "new": "Nový panel",
+        "rename": "Přejmenovat",
+        "rename-save": "Uložit"
+      },
+      "monitor-override": {
+        "create": "Vytvořit",
+        "delete": "Smazat",
+        "delete-confirm-desc": "Toto přepsání monitoru vytvořené přes GUI bude odstraněno ze settings.toml.",
+        "delete-confirm-title": "Smazat „{name}“?",
+        "label": "Monitor: {name}",
+        "management": "Přepsání monitoru",
+        "match-placeholder": "Shoda monitoru",
+        "new": "Přepsání monitoru",
+        "rename": "Přejmenovat",
+        "rename-save": "Uložit"
+      },
+      "widget": {
+        "add": "Přidat widget",
+        "detail": {
+          "custom": "vlastní widget"
+        },
+        "editor": {
+          "description": "Uspořádejte widgety napříč pruhy panelu",
+          "title": "Widgety panelu"
+        },
+        "group": {
+          "action": "Seskupit",
+          "border": "Ohraničení",
+          "border-description": "Barva obrysu kapsle; ponechte Výchozí pro žádný obrys",
+          "clear": "Vyčistit",
+          "edit": "Upravit styl",
+          "fill": "Pozadí",
+          "fill-description": "Barva pozadí kapsle; podporovány jsou i pevné hex barvy",
+          "foreground": "Popředí",
+          "foreground-description": "Barva ikon a popisků widgetů v této skupině",
+          "hint": "Součást kapslové skupiny",
+          "members": "{count} widgetů",
+          "opacity": "Průhlednost",
+          "opacity-description": "Průhlednost pozadí kapsle",
+          "orphan": "Neznámá skupina",
+          "padding": "Odsazení",
+          "padding-description": "Vnitřní odsazení mezi okrajem kapsle a widgety v pixelech",
+          "radius": "Zaoblení",
+          "radius-description": "Poloměr zaoblení rohů kapsle v pixelech; Auto dědí zaoblení panelu",
+          "selected": "Vybráno: {count}",
+          "style": "Styl",
+          "title": "Kapslová skupina",
+          "ungroup": "Zrušit seskupení"
+        },
+        "inspector": {
+          "add-instance-title": "Přidat nový pojmenovaný widget {widget} do {lane}",
+          "add-title": "Přidat widget do {lane}",
+          "move-to-lane": "Přesunout do {lane}"
+        },
+        "instance": {
+          "create-save": "Vytvořit",
+          "delete": "Smazat",
+          "delete-confirm-desc": "Tento pojmenovaný widget bude odstraněn ze všech panelů a jeho nastavení bude zahozeno.",
+          "delete-confirm-title": "Smazat „{name}“?",
+          "id-description": "Používejte pouze písmena, čísla, podtržítka nebo pomlčky. Bez mezer; musí být jedinečné.",
+          "id-placeholder": "ID widgetu",
+          "rename": "Přejmenovat",
+          "rename-save": "Uložit"
+        },
+        "lanes": {
+          "center": "Střed",
+          "customize": "Přizpůsobit",
+          "empty": "Žádné widgety",
+          "empty-hint": "Přidejte widget pro naplnění tohoto pruhu.",
+          "end": "Konec",
+          "start": "Začátek"
+        },
+        "picker": {
+          "empty": "Nebyly nalezeny žádné widgety",
+          "instance-description": "Pojmenovaný widget typu „{type}“",
+          "instance-toggle": "Pojmenovaný widget",
+          "placeholder": "Hledat widgety…"
+        },
+        "raw": {
+          "delete": "Smazat",
+          "description": "Nepodporované klíče zachované z této konfigurace widgetu.",
+          "title": "Surové nastavení"
+        },
+        "settings": {
+          "empty": "Žádná nastavení neodpovídají aktuálním filtrům.",
+          "groups": {
+            "grouping": "Seskupování",
+            "presentation": "Prezentace",
+            "runtime": "Běh",
+            "widget": "Widget"
+          }
+        }
+      }
+    },
+    "errors": {
+      "avatar-accounts": "Nepodařilo se aktualizovat avatar systémového účtu.",
+      "avatar-invalid-path": "Vybraná cesta k avataru není čitelný obrázkový soubor.",
+      "avatar-load": "Nepodařilo se načíst vybraný obrázek. Použijte PNG, JPEG, WebP, GIF, BMP nebo SVG.",
+      "avatar-write": "Nepodařilo se připravit obrázek avataru pro uložení.",
+      "bar": {
+        "create": "Nepodařilo se vytvořit panel.",
+        "delete": "Nepodařilo se smazat panel.",
+        "move": "Nepodařilo se přesunout panel.",
+        "rename": "Nepodařilo se přejmenovat panel."
+      },
+      "batch-write": "Některá nastavení se nepodařilo uložit.",
+      "export-config": "Nepodařilo se uložit export konfigurace.",
+      "export-wallpaper-palette": "Nepodařilo se uložit paletu tapety jako vlastní paletu.",
+      "monitor-override": {
+        "create": "Nepodařilo se vytvořit přepsání monitoru.",
+        "delete": "Nepodařilo se smazat přepsání monitoru.",
+        "rename": "Nepodařilo se přejmenovat přepsání monitoru."
+      },
+      "reset-page": "Nepodařilo se resetovat některá nastavení.",
+      "support-report": "Nepodařilo se uložit podpůrnou zprávu.",
+      "sync-greeter": "Nepodařilo se synchronizovat vzhled s Noctalia Greeter.",
+      "widget": {
+        "rename": "Nepodařilo se přejmenovat pojmenovaný widget."
+      },
+      "write": "Nepodařilo se uložit nastavení."
+    },
+    "export-config": {
+      "export": "Exportovat",
+      "full-effective-description": "Exportuje všechna aktivní nastavení včetně vestavěných výchozích hodnot. Užitečné pro kontrolu nebo sdílení snímku, ale pevně zapisuje aktuální výchozí hodnoty.",
+      "full-effective-save-title": "Uložit úplnou efektivní konfiguraci",
+      "full-effective-title": "Úplná efektivní konfigurace",
+      "merged-user-description": "Kombinuje konfigurační soubory a přepsání z GUI do jednoho souboru TOML. Vestavěné výchozí hodnoty zůstávají implicitní.",
+      "merged-user-save-title": "Uložit sloučenou uživatelskou konfiguraci",
+      "merged-user-title": "Sloučená uživatelská konfigurace (doporučeno)",
+      "title": "Export konfigurace"
+    }
+  }
+}

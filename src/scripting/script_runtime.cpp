@@ -106,7 +106,9 @@ namespace scripting {
       dest.unhealthy = dest.unhealthy || src.unhealthy;
     }
 
-    void dispatchSideEffects(const std::vector<ScriptSideEffect>& effects, ClipboardService* clipboard) {
+    void dispatchSideEffects(
+        const std::vector<ScriptSideEffect>& effects, ClipboardService* clipboard, ScriptApiContext& api
+    ) {
       for (const auto& effect : effects) {
         switch (effect.kind) {
         case ScriptSideEffectKind::Log:
@@ -122,6 +124,15 @@ namespace scripting {
           if (clipboard == nullptr || !clipboard->copyText(effect.title, effect.body)) {
             kLog.warn("scripted clipboard copy failed");
           }
+          break;
+        case ScriptSideEffectKind::SetWallpaperEnabled:
+          api.invokeWallpaperEnabled(effect.title, effect.flag);
+          break;
+        case ScriptSideEffectKind::SetWallpaper:
+          api.invokeSetWallpaper(effect.title, effect.body);
+          break;
+        case ScriptSideEffectKind::TogglePanel:
+          api.invokeTogglePanel(effect.title);
           break;
         }
       }
@@ -162,6 +173,8 @@ namespace scripting {
     bool updateRunning = false;
     bool hasOnIpc = false;
     bool hasOnIpcKnown = false;
+    bool hasOnActivate = false;
+    bool hasOnActivateKnown = false;
     bool unhealthy = false;
     int consecutiveTimeouts = 0;
 
@@ -173,7 +186,7 @@ namespace scripting {
       ScriptResult replay;
       bool hasReplay = false;
       {
-        std::lock_guard lock(mutex);
+        std::scoped_lock lock(mutex);
         id = nextSubscriberId++;
         subscribers[id] = std::move(callback);
         if (replayStateReady) {
@@ -190,7 +203,7 @@ namespace scripting {
       DeferredCall::callLater([self, id, replay = std::move(replay)]() mutable {
         ScriptResultCallback subscriber;
         {
-          std::lock_guard replayLock(self->mutex);
+          std::scoped_lock replayLock(self->mutex);
           if (self->stopped || replay.generation != self->generation) {
             return;
           }
@@ -210,13 +223,13 @@ namespace scripting {
     }
 
     void unsubscribe(SubscriberId id) {
-      std::lock_guard lock(mutex);
+      std::scoped_lock lock(mutex);
       subscribers.erase(id);
     }
 
     void stop() {
       PluginStateStore::instance().removeWatchers(stateToken);
-      std::lock_guard lock(mutex);
+      std::scoped_lock lock(mutex);
       stopped = true;
       queue.clear();
       subscribers.clear();
@@ -225,7 +238,7 @@ namespace scripting {
     bool enqueue(ScriptEvent event) {
       bool shouldSchedule = false;
       {
-        std::lock_guard lock(mutex);
+        std::scoped_lock lock(mutex);
         if (stopped) {
           return false;
         }
@@ -241,7 +254,7 @@ namespace scripting {
         // to a single pending event per callback (e.g. onAudioSpectrum at 60Hz),
         // so a slow script can never accumulate stale spectrum frames.
         if (event.kind == ScriptEventKind::CallStrings && event.coalesce) {
-          const auto existing = std::find_if(queue.begin(), queue.end(), [&event](const auto& queued) {
+          const auto existing = std::ranges::find_if(queue, [&event](const auto& queued) {
             return queued.kind == ScriptEventKind::CallStrings
                 && queued.coalesce
                 && queued.functionName == event.functionName;
@@ -275,7 +288,7 @@ namespace scripting {
           if (event.kind == ScriptEventKind::CallBool) {
             return false;
           }
-          const auto droppable = std::find_if(queue.begin(), queue.end(), [](const auto& queued) {
+          const auto droppable = std::ranges::find_if(queue, [](const auto& queued) {
             return queued.kind == ScriptEventKind::Update || queued.kind == ScriptEventKind::CallBool;
           });
           if (droppable != queue.end()) {
@@ -376,7 +389,7 @@ namespace scripting {
       for (;;) {
         ScriptEvent event;
         {
-          std::lock_guard lock(mutex);
+          std::scoped_lock lock(mutex);
           if (queue.empty() || stopped) {
             scheduled = false;
             return;
@@ -392,7 +405,7 @@ namespace scripting {
         auto result = processEvent(event);
 
         {
-          std::lock_guard lock(mutex);
+          std::scoped_lock lock(mutex);
           if (event.kind == ScriptEventKind::Update) {
             updateRunning = false;
           }
@@ -567,10 +580,13 @@ namespace scripting {
 
       result.hasOnIpc = host != nullptr && host->hasGlobal("onIpc");
       result.hasOnIpcKnown = true;
+      const bool onActivatePresent = host != nullptr && host->hasGlobal("onActivate");
       {
-        std::lock_guard lock(mutex);
+        std::scoped_lock lock(mutex);
         hasOnIpc = result.hasOnIpc;
         hasOnIpcKnown = true;
+        hasOnActivate = onActivatePresent;
+        hasOnActivateKnown = true;
       }
       return result;
     }
@@ -589,7 +605,7 @@ namespace scripting {
       }
 
       if (result.patch.updateIntervalMs.has_value()) {
-        std::lock_guard lock(mutex);
+        std::scoped_lock lock(mutex);
         updateInterval = std::chrono::milliseconds(*result.patch.updateIntervalMs);
       }
 
@@ -598,7 +614,7 @@ namespace scripting {
     }
 
     void updateHealth(ScriptResult& result) {
-      std::lock_guard lock(mutex);
+      std::scoped_lock lock(mutex);
       if (!result.timedOut) {
         consecutiveTimeouts = 0;
         result.unhealthy = unhealthy;
@@ -624,7 +640,7 @@ namespace scripting {
     void deliverResult(ScriptResult result) {
       std::vector<ScriptResultCallback> callbacks;
       {
-        std::lock_guard lock(mutex);
+        std::scoped_lock lock(mutex);
         if (result.generation != generation || stopped) {
           return;
         }
@@ -654,7 +670,7 @@ namespace scripting {
         }
       }
 
-      dispatchSideEffects(result.sideEffects, clipboard);
+      dispatchSideEffects(result.sideEffects, clipboard, scriptApi);
       result.sideEffects.clear();
 
       for (auto& callback : callbacks) {
@@ -764,15 +780,23 @@ namespace scripting {
     if (m_state == nullptr) {
       return false;
     }
-    std::lock_guard lock(m_state->mutex);
+    std::scoped_lock lock(m_state->mutex);
     return m_state->hasOnIpcKnown && m_state->hasOnIpc;
+  }
+
+  bool ScriptRuntime::hasOnActivate() const {
+    if (m_state == nullptr) {
+      return false;
+    }
+    std::scoped_lock lock(m_state->mutex);
+    return m_state->hasOnActivateKnown && m_state->hasOnActivate;
   }
 
   bool ScriptRuntime::unhealthy() const {
     if (m_state == nullptr) {
       return true;
     }
-    std::lock_guard lock(m_state->mutex);
+    std::scoped_lock lock(m_state->mutex);
     return m_state->unhealthy;
   }
 

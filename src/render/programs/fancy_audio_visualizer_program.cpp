@@ -1,5 +1,8 @@
 #include "render/programs/fancy_audio_visualizer_program.h"
 
+#include "render/core/render_styles.h"
+#include "render/core/texture_handle.h"
+
 #include <array>
 #include <stdexcept>
 
@@ -50,6 +53,7 @@ varying vec2 v_texcoord;
 #define TWOPI 6.28318530718
 #define PI 3.14159265359
 #define NBARS 32.0
+#define MAX_VISUAL_RADIUS 0.95
 
 bool hasRings() { return u_mode >= 2.0; }
 bool hasBars() { return u_mode == 0.0 || u_mode == 3.0 || u_mode >= 5.0; }
@@ -183,7 +187,7 @@ vec4 computePolarWave(vec2 uv, float iTime, float bass, float mid, float highMid
         float normalizedAngle = mod(adjustedTheta, TWOPI) / TWOPI;
         float mirroredPos = normalizedAngle < 0.5 ? normalizedAngle * 2.0 : (1.0 - normalizedAngle) * 2.0;
         float smoothedAudio = catmullAudio(mirroredPos);
-        float waveRadius = baseRadius + smoothedAudio * 0.5;
+        float waveRadius = min(baseRadius + smoothedAudio * 0.5, MAX_VISUAL_RADIUS);
 
         if (d >= innerRadius && d <= waveRadius) {
             float fillFactor = (d - innerRadius) / max(waveRadius - innerRadius, 0.001);
@@ -239,7 +243,7 @@ vec4 computeBars(vec2 uv, float iTime, float bass, float mid, float highMid, flo
             v = max(v + wave, 0.0);
 
             float barStart = innerRadius;
-            float barEnd = baseRadius + v * 0.5;
+            float barEnd = min(baseRadius + v * 0.5, MAX_VISUAL_RADIUS);
             if (d >= barStart && d <= barEnd) {
                 float heightFactor = (d - barStart) / max(barEnd - barStart, 0.001);
                 vec3 bottomColor = u_primary_color.rgb * 0.6;
@@ -301,7 +305,7 @@ void addBloom(inout vec4 color, vec2 uv, float iTime, float bass, float mid, flo
 
         if (hasWave()) {
             float smoothedAudio = catmullAudio(mirroredPos);
-            float waveRadius = baseRadius + smoothedAudio * 0.5;
+            float waveRadius = min(baseRadius + smoothedAudio * 0.5, MAX_VISUAL_RADIUS);
             float distToWave = abs(d - waveRadius);
             float waveGlow = exp(-distToWave * 8.0 / u_bloom_intensity) * smoothedAudio * 2.5;
             glowColor += mix(u_primary_color.rgb, u_secondary_color.rgb, smoothedAudio) * waveGlow;
@@ -313,7 +317,7 @@ void addBloom(inout vec4 color, vec2 uv, float iTime, float bass, float mid, flo
             float m = mod(adjustedTheta, section);
             float center = section / 2.0;
             float barAngleDist = min(abs(m - center), section - abs(m - center));
-            float barEnd = baseRadius + v * 0.5;
+            float barEnd = min(baseRadius + v * 0.5, MAX_VISUAL_RADIUS);
             float radialDist = d < innerRadius ? innerRadius - d : (d > barEnd ? d - barEnd : 0.0);
             float totalDist = length(vec2(barAngleDist * d, radialDist));
             float barGlow = exp(-totalDist * 15.0 / u_bloom_intensity) * v * 2.0;
@@ -329,12 +333,7 @@ void addBloom(inout vec4 color, vec2 uv, float iTime, float bass, float mid, flo
 }
 
 void main() {
-    float maxContentRadius = 0.35 + u_sensitivity * 0.5;
-    float maxBloomReach = u_bloom_intensity;
-    float maxTotalRadius = maxContentRadius + maxBloomReach;
-    float contentScale = max(maxTotalRadius * 1.05, 1.0);
-
-    vec2 uv = (v_texcoord - 0.5) * contentScale + 0.5;
+    vec2 uv = v_texcoord;
     float iTime = sin(u_time * TWOPI / 3600.0) * 1800.0 + 1800.0;
 
     float bass = getBass();
@@ -357,7 +356,7 @@ void main() {
 
     vec2 fromCenter = (v_texcoord - 0.5) * 2.0;
     float edgeProximity = max(abs(fromCenter.x), abs(fromCenter.y));
-    float fadeStart = maxContentRadius / contentScale;
+    float fadeStart = MAX_VISUAL_RADIUS;
     color *= 1.0 - smoothstep(fadeStart, 1.0, edgeProximity);
 
     vec2 pixelPos = v_texcoord * vec2(u_item_width, u_item_height);

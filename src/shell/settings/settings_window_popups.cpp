@@ -3,7 +3,7 @@
 #include "config/config_types.h"
 #include "core/deferred_call.h"
 #include "i18n/i18n.h"
-#include "render/render_context.h"
+#include "notification/notification_filter.h"
 #include "scripting/plugin_registry.h"
 #include "shell/settings/bar_widget_editor.h"
 #include "shell/settings/color_spec_picker.h"
@@ -19,6 +19,7 @@
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/flex.h"
 #include "ui/dialogs/file_dialog.h"
+#include "ui/popup_parent.h"
 #include "util/string_utils.h"
 #include "wayland/toplevel_surface.h"
 #include "wayland/wayland_connection.h"
@@ -39,6 +40,17 @@ namespace {
   constexpr std::int32_t kActionSupportReport = 1;
   constexpr std::int32_t kActionExportConfig = 2;
   constexpr std::string_view kCalendarCredentialOwner = "calendar_credentials";
+
+  XdgPopupParent popupParentFor(ToplevelSurface& surface, wl_output* output, std::uint32_t serial) {
+    return XdgPopupParent{
+        .xdgSurface = surface.xdgSurface(),
+        .wlSurface = surface.wlSurface(),
+        .output = output,
+        .serial = serial,
+        .width = surface.width(),
+        .height = surface.height(),
+    };
+  }
 
   struct PluginSourceDraft {
     PluginSourceKind kind = PluginSourceKind::Git;
@@ -67,36 +79,33 @@ namespace {
     std::string password;
     std::string serverUrl;
     std::string color;
+    bool idInvalid = false;
+    bool usernameInvalid = false;
+    bool passwordInvalid = false;
+    bool serverUrlInvalid = false;
   };
 
   bool validCalendarAccountId(std::string_view id) {
     if (id.empty()) {
       return false;
     }
-    return std::all_of(id.begin(), id.end(), [](char ch) {
+    return std::ranges::all_of(id, [](char ch) {
       return (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_';
     });
   }
 
   bool calendarAccountIdExists(const Config& cfg, std::string_view id) {
-    return std::any_of(
-        cfg.calendar.accounts.begin(), cfg.calendar.accounts.end(),
-        [id](const CalendarConfig::Account& a) { return a.id == id; }
-    );
+    return std::ranges::contains(cfg.calendar.accounts, id, &CalendarConfig::Account::id);
   }
 
   bool pluginSourceNameExists(const Config& cfg, std::string_view name) {
-    return std::any_of(cfg.plugins.sources.begin(), cfg.plugins.sources.end(), [name](const PluginSourceConfig& src) {
-      return src.name == name;
-    });
+    return std::ranges::contains(cfg.plugins.sources, name, &PluginSourceConfig::name);
   }
 
   std::size_t pluginSourceKindIndex(PluginSourceKind kind) { return kind == PluginSourceKind::Path ? 1u : 0u; }
 
   const CalendarConfig::Account* findCalendarAccount(const Config& cfg, std::string_view id) {
-    const auto it = std::find_if(cfg.calendar.accounts.begin(), cfg.calendar.accounts.end(), [id](const auto& account) {
-      return account.id == id;
-    });
+    const auto it = std::ranges::find(cfg.calendar.accounts, id, &CalendarConfig::Account::id);
     return it != cfg.calendar.accounts.end() ? &*it : nullptr;
   }
 
@@ -132,7 +141,7 @@ namespace {
 
   std::string idleBehaviorTitle(const IdleBehaviorConfig& row) {
     IdleBehaviorConfig norm = row;
-    inferIdleBehaviorActionFromLegacyFields(norm);
+    normalizeIdleBehaviorAction(norm);
     if (norm.action == "lock") {
       return i18n::tr("settings.idle.behavior.kind.lock");
     }
@@ -151,6 +160,16 @@ namespace {
     return i18n::tr("settings.idle.behavior.unnamed");
   }
 
+  std::string notificationFilterTitle(const NotificationFilterConfig& row) {
+    if (!row.match.empty()) {
+      return row.match;
+    }
+    if (!StringUtils::trim(row.name).empty()) {
+      return row.name;
+    }
+    return i18n::tr("settings.notifications.filter.unnamed");
+  }
+
   void normalizeIdleBehaviorNames(std::vector<IdleBehaviorConfig>& rows) {
     std::vector<std::string> used;
     used.reserve(rows.size());
@@ -166,7 +185,7 @@ namespace {
       }
 
       std::string candidate = base;
-      for (int suffix = 2; std::find(used.begin(), used.end(), candidate) != used.end(); ++suffix) {
+      for (int suffix = 2; std::ranges::contains(used, candidate); ++suffix) {
         candidate = std::format("{}-{}", base, suffix);
       }
       row.name = candidate;
@@ -285,10 +304,23 @@ void SettingsWindow::openActionsMenu() {
   if (m_config != nullptr) {
     m_actionsMenuPopup->setShadowConfig(m_config->config().shell.shadow);
   }
-  m_actionsMenuPopup->openAsChild(
-      std::move(entries), 220.0f * scale, 8, static_cast<std::int32_t>(anchorAbsX),
-      static_cast<std::int32_t>(anchorAbsY), static_cast<std::int32_t>(m_actionsMenuButton->width()),
-      static_cast<std::int32_t>(m_actionsMenuButton->height()), m_surface->xdgSurface(), output
+  m_actionsMenuPopup->open(
+      ContextMenuPopupRequest{
+          .entries = std::move(entries),
+          .menuWidth = 220.0f * scale,
+          .maxVisible = 8,
+          .anchor =
+              PopupAnchorRect{
+                  .x = static_cast<std::int32_t>(anchorAbsX),
+                  .y = static_cast<std::int32_t>(anchorAbsY),
+                  .width = static_cast<std::int32_t>(m_actionsMenuButton->width()),
+                  .height = static_cast<std::int32_t>(m_actionsMenuButton->height()),
+              },
+          .parent = PopupSurfaceParent{
+              .xdgSurface = m_surface->xdgSurface(),
+              .output = output,
+          },
+      }
   );
 }
 
@@ -312,8 +344,11 @@ void SettingsWindow::openConfigExportDialog() {
   }
 
   m_configExportDialogPopup->open(
-      m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(), m_surface->width(),
-      m_surface->height(), uiScale(), [this](settings::ConfigExportMode mode) { saveConfigExport(mode); }
+      settings::ConfigExportDialogPopupRequest{
+          .parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial()),
+          .scale = uiScale(),
+          .callback = [this](settings::ConfigExportMode mode) { saveConfigExport(mode); },
+      }
   );
 }
 
@@ -361,7 +396,7 @@ void SettingsWindow::openBarWidgetAddPopup(const std::vector<std::string>& laneP
         for (const auto& [key, settingValue] : initialSettings) {
           overrides.push_back({{"widget", newInstanceId, key}, settingValue});
         }
-        overrides.push_back({selectedLanePath, laneItems});
+        overrides.emplace_back(selectedLanePath, laneItems);
         setSettingOverrides(overrides);
         return;
       }
@@ -377,21 +412,22 @@ void SettingsWindow::openBarWidgetAddPopup(const std::vector<std::string>& laneP
   }
 
   m_widgetAddPopup->open(
-      m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(), m_surface->width(),
-      m_surface->height(), lanePath, m_config->config(), uiScale()
+      settings::WidgetAddPopupRequest{
+          .parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial()),
+          .lanePath = lanePath,
+          .config = m_config->config(),
+          .scale = uiScale(),
+      }
   );
 }
 
-void SettingsWindow::openSearchPickerPopup(
-    const std::string& title, const std::vector<settings::SelectOption>& options, const std::string& selectedValue,
-    const std::string& placeholder, const std::string& emptyText, const std::vector<std::string>& settingPath
-) {
+void SettingsWindow::openSearchPickerPopup(settings::SearchPickerOpenRequest request) {
   if (m_wayland == nullptr
       || m_renderContext == nullptr
       || m_surface == nullptr
       || m_surface->xdgSurface() == nullptr
       || m_config == nullptr
-      || options.empty()) {
+      || request.options.empty()) {
     return;
   }
 
@@ -403,19 +439,22 @@ void SettingsWindow::openSearchPickerPopup(
   if (m_widgetAddPopup != nullptr && m_widgetAddPopup->isOpen()) {
     m_widgetAddPopup->close();
   }
-  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
-    m_editorSheetPopup->close();
-  }
 
-  m_searchPickerPopup->setOnSelect([this, settingPath, selectedValue](const std::string& value) {
-    if (value != selectedValue) {
-      setSettingOverride(settingPath, value);
+  m_searchPickerPopup->setOnSelect([this, settingPath = request.settingPath,
+                                    selectedValue = request.selectedValue](const std::string& value) {
+    if (value == selectedValue) {
+      return;
     }
+    if (value.empty()) {
+      clearSettingOverride(settingPath);
+      return;
+    }
+    setSettingOverride(settingPath, value);
   });
 
   std::vector<SearchPickerOption> pickerOptions;
-  pickerOptions.reserve(options.size());
-  for (const auto& opt : options) {
+  pickerOptions.reserve(request.options.size());
+  for (const auto& opt : request.options) {
     pickerOptions.push_back(
         SearchPickerOption{
             .value = opt.value,
@@ -433,9 +472,24 @@ void SettingsWindow::openSearchPickerPopup(
     output = m_output;
   }
 
+  XdgPopupParent parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial());
+  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
+    parent.xdgSurface = m_editorSheetPopup->xdgSurface();
+    parent.wlSurface = m_editorSheetPopup->wlSurface();
+    parent.width = m_editorSheetPopup->width();
+    parent.height = m_editorSheetPopup->height();
+  }
+
   m_searchPickerPopup->open(
-      m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(), m_surface->width(),
-      m_surface->height(), title, pickerOptions, selectedValue, placeholder, emptyText, uiScale()
+      settings::SearchPickerPopupRequest{
+          .parent = parent,
+          .title = std::move(request.title),
+          .options = std::move(pickerOptions),
+          .selectedValue = std::move(request.selectedValue),
+          .placeholder = std::move(request.placeholder),
+          .emptyText = std::move(request.emptyText),
+          .scale = uiScale(),
+      }
   );
 }
 
@@ -526,9 +580,15 @@ void SettingsWindow::openSessionActionEntryEditor(std::size_t index) {
   }
 
   m_editorSheetPopup->open(
-      m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(), m_surface->width(),
-      m_surface->height(), scale, sheetTitle, removeRow, [ctx, rowState, persist](Flex& body) mutable {
-        settings::buildSessionActionEntryDetailContent(body, ctx, *rowState, persist);
+      settings::SettingsEditorSheetPopupRequest{
+          .parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial()),
+          .sheetTitle = sheetTitle,
+          .removeAction = removeRow,
+          .populateSheetBody =
+              [ctx, rowState, persist](Flex& body) mutable {
+                settings::buildSessionActionEntryDetailContent(body, ctx, *rowState, persist);
+              },
+          .scale = scale,
       }
   );
 }
@@ -573,17 +633,15 @@ void SettingsWindow::openIdleBehaviorEntryEditor(std::size_t index) {
 
   auto rowState = std::make_shared<IdleBehaviorConfig>(cfg.idle.behaviors[index]);
   auto rowKey = std::make_shared<std::string>(rowState->name);
-  inferIdleBehaviorActionFromLegacyFields(*rowState);
+  normalizeIdleBehaviorAction(*rowState);
 
   const auto persist = [this, rowState, rowKey, index]() {
     if (m_config == nullptr) {
       return;
     }
-    inferIdleBehaviorActionFromLegacyFields(*rowState);
+    normalizeIdleBehaviorAction(*rowState);
     auto next = m_config->config().idle.behaviors;
-    auto target = std::find_if(next.begin(), next.end(), [rowKey](const IdleBehaviorConfig& behavior) {
-      return behavior.name == *rowKey;
-    });
+    auto target = std::ranges::find(next, *rowKey, &IdleBehaviorConfig::name);
     if (target == next.end() && index < next.size()) {
       target = next.begin() + static_cast<std::ptrdiff_t>(index);
     }
@@ -634,10 +692,15 @@ void SettingsWindow::openIdleBehaviorEntryEditor(std::size_t index) {
   }
 
   m_editorSheetPopup->open(
-      m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(), m_surface->width(),
-      m_surface->height(), scale, idleBehaviorTitle(*rowState), removeRow,
-      [ctx, rowState, persist](Flex& body) mutable {
-        settings::buildIdleBehaviorEntryDetailContent(body, ctx, *rowState, persist);
+      settings::SettingsEditorSheetPopupRequest{
+          .parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial()),
+          .sheetTitle = idleBehaviorTitle(*rowState),
+          .removeAction = removeRow,
+          .populateSheetBody =
+              [ctx, rowState, persist](Flex& body) mutable {
+                settings::buildIdleBehaviorEntryDetailContent(body, ctx, *rowState, persist);
+              },
+          .scale = scale,
       }
   );
 }
@@ -696,7 +759,7 @@ void SettingsWindow::openIdleBehaviorCreateEditor() {
     if (m_config == nullptr) {
       return;
     }
-    inferIdleBehaviorActionFromLegacyFields(*rowState);
+    normalizeIdleBehaviorAction(*rowState);
     auto next = m_config->config().idle.behaviors;
     next.push_back(*rowState);
     normalizeIdleBehaviorNames(next);
@@ -715,10 +778,209 @@ void SettingsWindow::openIdleBehaviorCreateEditor() {
   }
 
   m_editorSheetPopup->open(
-      m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(), m_surface->width(),
-      m_surface->height(), scale, idleBehaviorTitle(*rowState), nullptr,
-      [ctx, rowState, persistDraft](Flex& body) mutable {
-        settings::buildIdleBehaviorEntryDetailContent(body, ctx, *rowState, persistDraft);
+      settings::SettingsEditorSheetPopupRequest{
+          .parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial()),
+          .sheetTitle = idleBehaviorTitle(*rowState),
+          .removeAction = nullptr,
+          .populateSheetBody =
+              [ctx, rowState, persistDraft](Flex& body) mutable {
+                settings::buildIdleBehaviorEntryDetailContent(body, ctx, *rowState, persistDraft);
+              },
+          .scale = scale,
+      }
+  );
+}
+
+void SettingsWindow::openNotificationFilterEntryEditor(std::size_t index) {
+  if (m_wayland == nullptr
+      || m_renderContext == nullptr
+      || m_surface == nullptr
+      || m_surface->xdgSurface() == nullptr
+      || m_config == nullptr) {
+    return;
+  }
+
+  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
+    m_editorSheetPopup->close();
+  }
+
+  const Config& cfg = m_config->config();
+  if (index >= cfg.notification.filters.size()) {
+    return;
+  }
+
+  if (m_widgetAddPopup != nullptr && m_widgetAddPopup->isOpen()) {
+    m_widgetAddPopup->close();
+  }
+  if (m_searchPickerPopup != nullptr && m_searchPickerPopup->isOpen()) {
+    m_searchPickerPopup->close();
+  }
+
+  if (m_editorSheetPopup == nullptr) {
+    m_editorSheetPopup = std::make_unique<settings::SettingsEditorSheetPopup>();
+    m_editorSheetPopup->initialize(*m_wayland, *m_config, *m_renderContext);
+  }
+  const float scale = uiScale();
+  const BarConfig* selectedBar = settings::findBar(cfg, m_selectedBarName);
+  const BarMonitorOverride* selectedMonitorOverride = nullptr;
+  if (selectedBar != nullptr && !m_selectedMonitorOverride.empty()) {
+    selectedMonitorOverride = settings::findMonitorOverride(*selectedBar, m_selectedMonitorOverride);
+  }
+
+  auto rowState = std::make_shared<NotificationFilterConfig>(cfg.notification.filters[index]);
+  auto rowKey = std::make_shared<std::string>(rowState->name);
+
+  const auto persist = [this, rowState, rowKey, index]() {
+    if (m_config == nullptr) {
+      return;
+    }
+    auto next = m_config->config().notification.filters;
+    auto target = std::ranges::find(next, *rowKey, &NotificationFilterConfig::name);
+    if (target == next.end() && index < next.size()) {
+      target = next.begin() + static_cast<std::ptrdiff_t>(index);
+    }
+    if (target == next.end()) {
+      return;
+    }
+    const auto targetIndex = static_cast<std::size_t>(std::distance(next.begin(), target));
+    next[targetIndex] = *rowState;
+    normalizeNotificationFilterNames(next);
+    *rowState = next[targetIndex];
+    *rowKey = rowState->name;
+    setSettingOverride({"notification", "filter"}, next);
+    requestContentRebuild();
+    if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
+      m_editorSheetPopup->requestLayout();
+    }
+  };
+
+  const auto removeRow = [this, index]() {
+    if (m_config == nullptr) {
+      return;
+    }
+    auto next = m_config->config().notification.filters;
+    if (index >= next.size()) {
+      return;
+    }
+    next.erase(next.begin() + static_cast<std::ptrdiff_t>(index));
+    normalizeNotificationFilterNames(next);
+    setSettingOverride({"notification", "filter"}, next);
+    if (m_editorSheetPopup != nullptr) {
+      m_editorSheetPopup->close();
+    }
+    requestContentRebuild();
+  };
+
+  auto ctx = makeContentContext(cfg, selectedBar, selectedMonitorOverride);
+  ctx.openNotificationFilterEntryEditor = {};
+  ctx.afterNotificationFilterApply = [persist]() { persist(); };
+  ctx.closeHostedEditor = [this]() {
+    if (m_editorSheetPopup != nullptr) {
+      m_editorSheetPopup->close();
+    }
+  };
+
+  wl_output* output = m_wayland->lastPointerOutput();
+  if (output == nullptr) {
+    output = m_output;
+  }
+
+  m_editorSheetPopup->open(
+      settings::SettingsEditorSheetPopupRequest{
+          .parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial()),
+          .sheetTitle = notificationFilterTitle(*rowState),
+          .removeAction = removeRow,
+          .populateSheetBody =
+              [ctx, rowState, persist](Flex& body) mutable {
+                settings::buildNotificationFilterEntryDetailContent(body, ctx, *rowState, persist);
+              },
+          .scale = scale,
+      }
+  );
+}
+
+void SettingsWindow::openNotificationFilterCreateEditor() {
+  if (m_wayland == nullptr
+      || m_renderContext == nullptr
+      || m_surface == nullptr
+      || m_surface->xdgSurface() == nullptr
+      || m_config == nullptr) {
+    return;
+  }
+
+  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
+    m_editorSheetPopup->close();
+  }
+  if (m_widgetAddPopup != nullptr && m_widgetAddPopup->isOpen()) {
+    m_widgetAddPopup->close();
+  }
+  if (m_searchPickerPopup != nullptr && m_searchPickerPopup->isOpen()) {
+    m_searchPickerPopup->close();
+  }
+
+  if (m_editorSheetPopup == nullptr) {
+    m_editorSheetPopup = std::make_unique<settings::SettingsEditorSheetPopup>();
+    m_editorSheetPopup->initialize(*m_wayland, *m_config, *m_renderContext);
+  }
+
+  const Config& cfg = m_config->config();
+  const float scale = uiScale();
+  const BarConfig* selectedBar = settings::findBar(cfg, m_selectedBarName);
+  const BarMonitorOverride* selectedMonitorOverride = nullptr;
+  if (selectedBar != nullptr && !m_selectedMonitorOverride.empty()) {
+    selectedMonitorOverride = settings::findMonitorOverride(*selectedBar, m_selectedMonitorOverride);
+  }
+
+  auto rowState = std::make_shared<NotificationFilterConfig>(NotificationFilterConfig{
+      .name = "filter",
+      .enabled = true,
+      .match = {},
+      .showToast = true,
+      .saveHistory = true,
+      .playSound = true,
+      .allowPermanent = true,
+      .allowedUrgencies = {},
+  });
+
+  const auto persistDraft = [this]() {
+    if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
+      m_editorSheetPopup->requestLayout();
+    }
+  };
+
+  auto ctx = makeContentContext(cfg, selectedBar, selectedMonitorOverride);
+  ctx.openNotificationFilterEntryEditor = {};
+  ctx.afterNotificationFilterApply = [this, rowState]() {
+    if (m_config == nullptr || rowState->match.empty()) {
+      return;
+    }
+    auto next = m_config->config().notification.filters;
+    next.push_back(*rowState);
+    normalizeNotificationFilterNames(next);
+    setSettingOverride({"notification", "filter"}, next);
+    requestContentRebuild();
+  };
+  ctx.closeHostedEditor = [this]() {
+    if (m_editorSheetPopup != nullptr) {
+      m_editorSheetPopup->close();
+    }
+  };
+
+  wl_output* output = m_wayland->lastPointerOutput();
+  if (output == nullptr) {
+    output = m_output;
+  }
+
+  m_editorSheetPopup->open(
+      settings::SettingsEditorSheetPopupRequest{
+          .parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial()),
+          .sheetTitle = i18n::tr("settings.notifications.filter.add-title"),
+          .removeAction = nullptr,
+          .populateSheetBody =
+              [ctx, rowState, persistDraft](Flex& body) mutable {
+                settings::buildNotificationFilterEntryDetailContent(body, ctx, *rowState, persistDraft);
+              },
+          .scale = scale,
       }
   );
 }
@@ -798,312 +1060,320 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     };
   }
 
-  m_editorSheetPopup->open(
-      m_surface->xdgSurface(), output, m_wayland->lastInputSerial(), m_surface->wlSurface(), m_surface->width(),
-      m_surface->height(), scale, title, removeAccount, [this, draft, scale](Flex& body) mutable {
-        auto addField = [scale](Flex& parent, const std::string& label, std::unique_ptr<Node> control) {
-          auto field = ui::column({
-              .align = FlexAlign::Stretch,
-              .gap = Style::spaceXs * scale,
-          });
-          field->addChild(
-              ui::label({
-                  .text = label,
-                  .fontSize = Style::fontSizeCaption * scale,
-                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                  .fontWeight = FontWeight::Medium,
-              })
-          );
-          field->addChild(std::move(control));
-          parent.addChild(std::move(field));
-        };
+  auto populateSheetBody = [this, draft, scale](Flex& body) mutable {
+    auto addField = [scale](Flex& parent, const std::string& label, std::unique_ptr<Node> control) {
+      auto field = ui::column({
+          .align = FlexAlign::Stretch,
+          .gap = Style::spaceXs * scale,
+      });
+      field->addChild(
+          ui::label({
+              .text = label,
+              .fontSize = Style::fontSizeCaption * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .fontWeight = FontWeight::Medium,
+          })
+      );
+      field->addChild(std::move(control));
+      parent.addChild(std::move(field));
+    };
 
-        const auto providerIndex = [](CalendarAccountProvider provider) -> std::size_t {
-          switch (provider) {
-          case CalendarAccountProvider::ICloud:
-            return 0;
-          case CalendarAccountProvider::CustomCalDav:
-            return 1;
-          case CalendarAccountProvider::Google:
-            return 2;
-          }
-          return 0;
-        };
-        addField(
-            body, i18n::tr("settings.calendar-accounts.provider-label"),
-            ui::segmented({
-                .options =
-                    std::vector<ui::SegmentedOption>{
-                        {.label = calendarProviderTitle(CalendarAccountProvider::ICloud), .glyph = "brand-apple"},
-                        {.label = calendarProviderTitle(CalendarAccountProvider::CustomCalDav),
-                         .glyph = "calendar-cog"},
-                        {.label = calendarProviderTitle(CalendarAccountProvider::Google), .glyph = "brand-google"},
-                    },
-                .selectedIndex = providerIndex(draft->provider),
-                .scale = scale,
-                .enabled = draft->creating,
-                .equalSegmentWidths = true,
-                .onChange = [this, draft](std::size_t index) {
-                  CalendarAccountProvider provider = CalendarAccountProvider::ICloud;
-                  if (index == 1) {
-                    provider = CalendarAccountProvider::CustomCalDav;
-                  } else if (index == 2) {
-                    provider = CalendarAccountProvider::Google;
-                  }
-
-                  draft->provider = provider;
-                  if (provider == CalendarAccountProvider::Google && draft->id == "personal_icloud") {
-                    draft->id = "personal_google";
-                  } else if (provider == CalendarAccountProvider::CustomCalDav && draft->id == "personal_icloud") {
-                    draft->id = "home_nextcloud";
-                  } else if (provider == CalendarAccountProvider::ICloud && draft->id == "personal_google") {
-                    draft->id = "personal_icloud";
-                  }
-                  if (m_editorSheetPopup != nullptr) {
-                    m_editorSheetPopup->rebuildBody();
-                  }
+    const auto providerIndex = [](CalendarAccountProvider provider) -> std::size_t {
+      switch (provider) {
+      case CalendarAccountProvider::ICloud:
+        return 0;
+      case CalendarAccountProvider::CustomCalDav:
+        return 1;
+      case CalendarAccountProvider::Google:
+        return 2;
+      }
+      return 0;
+    };
+    addField(
+        body, i18n::tr("settings.calendar-accounts.provider-label"),
+        ui::segmented({
+            .options =
+                std::vector<ui::SegmentedOption>{
+                    {.label = calendarProviderTitle(CalendarAccountProvider::ICloud), .glyph = "brand-apple"},
+                    {.label = calendarProviderTitle(CalendarAccountProvider::CustomCalDav), .glyph = "calendar-cog"},
+                    {.label = calendarProviderTitle(CalendarAccountProvider::Google), .glyph = "brand-google"},
                 },
-            })
-        );
+            .selectedIndex = providerIndex(draft->provider),
+            .scale = scale,
+            .enabled = draft->creating,
+            .equalSegmentWidths = true,
+            .onChange = [this, draft](std::size_t index) {
+              CalendarAccountProvider provider = CalendarAccountProvider::ICloud;
+              if (index == 1) {
+                provider = CalendarAccountProvider::CustomCalDav;
+              } else if (index == 2) {
+                provider = CalendarAccountProvider::Google;
+              }
 
-        Input* idInput = nullptr;
-        addField(
-            body, i18n::tr("settings.calendar-accounts.id-label"),
-            ui::input({
-                .out = &idInput,
-                .value = draft->id,
-                .placeholder = "personal_icloud",
-                .enabled = draft->creating,
-                .onChange = [draft](const std::string& value) {
-                  if (draft->creating) {
-                    draft->id = value;
-                  }
-                },
-            })
-        );
+              draft->provider = provider;
+              if (provider == CalendarAccountProvider::Google && draft->id == "personal_icloud") {
+                draft->id = "personal_google";
+              } else if (provider == CalendarAccountProvider::CustomCalDav && draft->id == "personal_icloud") {
+                draft->id = "home_nextcloud";
+              } else if (provider == CalendarAccountProvider::ICloud && draft->id == "personal_google") {
+                draft->id = "personal_icloud";
+              }
+              if (m_editorSheetPopup != nullptr) {
+                m_editorSheetPopup->rebuildBody();
+              }
+            },
+        })
+    );
 
-        Input* nameInput = nullptr;
-        addField(
-            body, i18n::tr("settings.calendar-accounts.name-label"),
-            ui::input({
-                .out = &nameInput,
-                .value = draft->name,
-                .placeholder = i18n::tr("settings.calendar-accounts.name-placeholder"),
-                .onChange = [draft](const std::string& value) { draft->name = value; },
-            })
-        );
+    Input* idInput = nullptr;
+    addField(
+        body, i18n::tr("settings.calendar-accounts.id-label"),
+        ui::input({
+            .out = &idInput,
+            .value = draft->id,
+            .placeholder = "personal_icloud",
+            .invalid = draft->idInvalid,
+            .enabled = draft->creating,
+            .onChange = [draft](const std::string& value) {
+              if (draft->creating) {
+                draft->id = value;
+              }
+              draft->idInvalid = false;
+            },
+        })
+    );
 
-        Input* usernameInput = nullptr;
-        Input* passwordInput = nullptr;
-        Input* serverInput = nullptr;
-        if (draft->provider != CalendarAccountProvider::Google) {
-          addField(
-              body, i18n::tr("settings.calendar-accounts.username-label"),
-              ui::input({
-                  .out = &usernameInput,
-                  .value = draft->username,
-                  .placeholder = i18n::tr("settings.calendar-accounts.username-placeholder"),
-                  .onChange = [draft](const std::string& value) { draft->username = value; },
-              })
-          );
-          addField(
-              body, i18n::tr("settings.calendar-accounts.password-label"),
-              ui::input({
-                  .out = &passwordInput,
-                  .value = {},
-                  .placeholder = draft->creating ? i18n::tr("settings.calendar-accounts.password-placeholder")
-                                                 : i18n::tr("settings.calendar-accounts.password-keep-placeholder"),
-                  .passwordMode = true,
-                  .onChange = [draft](const std::string& value) { draft->password = value; },
-              })
-          );
+    Input* nameInput = nullptr;
+    addField(
+        body, i18n::tr("settings.calendar-accounts.name-label"),
+        ui::input({
+            .out = &nameInput,
+            .value = draft->name,
+            .placeholder = i18n::tr("settings.calendar-accounts.name-placeholder"),
+            .onChange = [draft](const std::string& value) { draft->name = value; },
+        })
+    );
+
+    Input* usernameInput = nullptr;
+    Input* passwordInput = nullptr;
+    Input* serverInput = nullptr;
+    if (draft->provider != CalendarAccountProvider::Google) {
+      addField(
+          body, i18n::tr("settings.calendar-accounts.username-label"),
+          ui::input({
+              .out = &usernameInput,
+              .value = draft->username,
+              .placeholder = i18n::tr("settings.calendar-accounts.username-placeholder"),
+              .invalid = draft->usernameInvalid,
+              .onChange = [draft](const std::string& value) {
+                draft->username = value;
+                draft->usernameInvalid = false;
+              },
+          })
+      );
+      addField(
+          body, i18n::tr("settings.calendar-accounts.password-label"),
+          ui::input({
+              .out = &passwordInput,
+              .value = {},
+              .placeholder = draft->creating ? i18n::tr("settings.calendar-accounts.password-placeholder")
+                                             : i18n::tr("settings.calendar-accounts.password-keep-placeholder"),
+              .passwordMode = true,
+              .invalid = draft->passwordInvalid,
+              .onChange = [draft](const std::string& value) {
+                draft->password = value;
+                draft->passwordInvalid = false;
+              },
+          })
+      );
+    }
+    if (draft->provider == CalendarAccountProvider::CustomCalDav) {
+      addField(
+          body, i18n::tr("settings.calendar-accounts.server-url-label"),
+          ui::input({
+              .out = &serverInput,
+              .value = draft->serverUrl,
+              .placeholder = "https://cloud.example.com/remote.php/dav/",
+              .invalid = draft->serverUrlInvalid,
+              .onChange = [draft](const std::string& value) {
+                draft->serverUrl = value;
+                draft->serverUrlInvalid = false;
+              },
+          })
+      );
+    }
+
+    addField(
+        body, i18n::tr("settings.calendar-accounts.color-label"),
+        settings::makeColorSpecSelect(
+            settings::ColorSpecSelectOptions{
+                .roles = {},
+                .selectedValue = draft->color,
+                .allowNone = true,
+                .allowCustomColor = true,
+                .noneLabel = {},
+                .fontSize = Style::fontSizeBody * scale,
+                .controlHeight = Style::controlHeight * scale,
+                .glyphSize = Style::fontSizeBody * scale,
+                .flexGrow = true,
+            },
+            [draft](std::string value) { draft->color = StringUtils::trim(value); }, [draft]() { draft->color.clear(); }
+        )
+    );
+
+    const auto persistAccount = [this, draft, idInput, nameInput, usernameInput, passwordInput,
+                                 serverInput](bool closeAfter, bool connectAfter) {
+      if (m_config == nullptr) {
+        return;
+      }
+
+      draft->id = draft->creating ? trimInput(idInput) : draft->id;
+      draft->name = trimInput(nameInput);
+      draft->color = StringUtils::trim(draft->color);
+      draft->username = trimInput(usernameInput);
+      draft->password = trimInput(passwordInput);
+      draft->serverUrl = trimInput(serverInput);
+
+      draft->idInvalid = false;
+      draft->usernameInvalid = false;
+      draft->passwordInvalid = false;
+      draft->serverUrlInvalid = false;
+
+      if (!validCalendarAccountId(draft->id)) {
+        draft->idInvalid = true;
+      }
+      if (draft->creating && calendarAccountIdExists(m_config->config(), draft->id)) {
+        draft->idInvalid = true;
+      }
+
+      const bool caldav = draft->provider != CalendarAccountProvider::Google;
+      if (caldav && draft->username.empty()) {
+        draft->usernameInvalid = true;
+      }
+      if (draft->provider == CalendarAccountProvider::CustomCalDav && draft->serverUrl.empty()) {
+        draft->serverUrlInvalid = true;
+      }
+      if (caldav && draft->password.empty()) {
+        const std::string existing =
+            m_config->stateString(kCalendarCredentialOwner, draft->id + "_password").value_or(std::string{});
+        if (existing.empty()) {
+          draft->passwordInvalid = true;
         }
+      }
+      if (draft->idInvalid || draft->usernameInvalid || draft->passwordInvalid || draft->serverUrlInvalid) {
+        showTransientStatus(i18n::tr("settings.calendar-accounts.invalid"), true);
+        return;
+      }
+
+      std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides;
+      if (draft->creating) {
+        overrides.push_back({{"calendar", "enabled"}, true});
+      }
+      const std::vector<std::string> base = {"calendar", "account", draft->id};
+      overrides.push_back(
+          {{base[0], base[1], base[2], "type"}, caldav ? std::string("caldav") : std::string("google")}
+      );
+      overrides.push_back({{base[0], base[1], base[2], "name"}, draft->name});
+      overrides.push_back({{base[0], base[1], base[2], "color"}, draft->color});
+      if (caldav) {
+        overrides.push_back({{base[0], base[1], base[2], "provider"}, calendarProviderKey(draft->provider)});
+        overrides.push_back({{base[0], base[1], base[2], "username"}, draft->username});
         if (draft->provider == CalendarAccountProvider::CustomCalDav) {
-          addField(
-              body, i18n::tr("settings.calendar-accounts.server-url-label"),
-              ui::input({
-                  .out = &serverInput,
-                  .value = draft->serverUrl,
-                  .placeholder = "https://cloud.example.com/remote.php/dav/",
-                  .onChange = [draft](const std::string& value) { draft->serverUrl = value; },
-              })
-          );
+          overrides.push_back({{base[0], base[1], base[2], "server_url"}, draft->serverUrl});
         }
+      }
 
-        addField(
-            body, i18n::tr("settings.calendar-accounts.color-label"),
-            settings::makeColorSpecSelect(
-                settings::ColorSpecSelectOptions{
-                    .roles = {},
-                    .selectedValue = draft->color,
-                    .allowNone = true,
-                    .allowCustomColor = true,
-                    .noneLabel = {},
-                    .fontSize = Style::fontSizeBody * scale,
-                    .controlHeight = Style::controlHeight * scale,
-                    .glyphSize = Style::fontSizeBody * scale,
-                    .flexGrow = true,
-                },
-                [draft](std::string value) { draft->color = StringUtils::trim(value); },
-                [draft]() { draft->color.clear(); }
-            )
-        );
+      if (caldav && !draft->password.empty()) {
+        if (!m_config->setStateString(kCalendarCredentialOwner, draft->id + "_password", draft->password)) {
+          markSettingsWriteError(i18n::tr("settings.calendar-accounts.password-save-error"));
+          return;
+        }
+      }
 
-        const auto persistAccount = [this, draft, idInput, nameInput, usernameInput, passwordInput,
-                                     serverInput](bool closeAfter, bool connectAfter) {
-          if (m_config == nullptr) {
-            return;
-          }
+      if (!m_config->setOverrides(std::move(overrides))) {
+        markSettingsWriteError(i18n::tr("settings.calendar-accounts.save-error"));
+        return;
+      }
 
-          draft->id = draft->creating ? trimInput(idInput) : draft->id;
-          draft->name = trimInput(nameInput);
-          draft->color = StringUtils::trim(draft->color);
-          draft->username = trimInput(usernameInput);
-          draft->password = trimInput(passwordInput);
-          draft->serverUrl = trimInput(serverInput);
+      std::function<void(std::string, std::string)> connectCalendarAccount;
+      std::string connectAccountId;
+      std::string connectActivationToken;
+      if (connectAfter && m_connectCalendarAccount) {
+        connectCalendarAccount = m_connectCalendarAccount;
+        connectAccountId = draft->id;
+        if (m_wayland != nullptr && m_surface != nullptr) {
+          connectActivationToken = m_wayland->requestActivationToken(m_surface->wlSurface());
+        }
+      }
 
-          bool valid = true;
-          const auto mark = [&](Input* input) {
-            if (input != nullptr) {
-              input->setInvalid(true);
-            }
-            valid = false;
-          };
-          const auto unmark = [](Input* input) {
-            if (input != nullptr) {
-              input->setInvalid(false);
-            }
-          };
-          unmark(idInput);
-          unmark(usernameInput);
-          unmark(passwordInput);
-          unmark(serverInput);
-
-          if (!validCalendarAccountId(draft->id)) {
-            mark(idInput);
-          }
-          if (draft->creating && calendarAccountIdExists(m_config->config(), draft->id)) {
-            mark(idInput);
-          }
-
-          const bool caldav = draft->provider != CalendarAccountProvider::Google;
-          if (caldav && draft->username.empty()) {
-            mark(usernameInput);
-          }
-          if (draft->provider == CalendarAccountProvider::CustomCalDav && draft->serverUrl.empty()) {
-            mark(serverInput);
-          }
-          if (caldav && draft->password.empty()) {
-            const std::string existing =
-                m_config->stateString(kCalendarCredentialOwner, draft->id + "_password").value_or(std::string{});
-            if (existing.empty()) {
-              mark(passwordInput);
-            }
-          }
-          if (!valid) {
-            showTransientStatus(i18n::tr("settings.calendar-accounts.invalid"), true);
-            return;
-          }
-
-          std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides;
-          if (draft->creating) {
-            overrides.push_back({{"calendar", "enabled"}, true});
-          }
-          const std::vector<std::string> base = {"calendar", "account", draft->id};
-          overrides.push_back(
-              {{base[0], base[1], base[2], "type"}, caldav ? std::string("caldav") : std::string("google")}
-          );
-          overrides.push_back({{base[0], base[1], base[2], "name"}, draft->name});
-          overrides.push_back({{base[0], base[1], base[2], "color"}, draft->color});
-          if (caldav) {
-            overrides.push_back({{base[0], base[1], base[2], "provider"}, calendarProviderKey(draft->provider)});
-            overrides.push_back({{base[0], base[1], base[2], "username"}, draft->username});
-            if (draft->provider == CalendarAccountProvider::CustomCalDav) {
-              overrides.push_back({{base[0], base[1], base[2], "server_url"}, draft->serverUrl});
-            }
-          }
-
-          if (!m_config->setOverrides(std::move(overrides))) {
-            markSettingsWriteError(i18n::tr("settings.calendar-accounts.save-error"));
-            return;
-          }
-          if (caldav && !draft->password.empty()) {
-            if (!m_config->setStateString(kCalendarCredentialOwner, draft->id + "_password", draft->password)) {
-              markSettingsWriteError(i18n::tr("settings.calendar-accounts.password-save-error"));
-              return;
-            }
-          }
-
-          std::function<void(std::string, std::string)> connectCalendarAccount;
-          std::string connectAccountId;
-          std::string connectActivationToken;
-          if (connectAfter && m_connectCalendarAccount) {
-            connectCalendarAccount = m_connectCalendarAccount;
-            connectAccountId = draft->id;
-            if (m_wayland != nullptr && m_surface != nullptr) {
-              connectActivationToken = m_wayland->requestActivationToken(m_surface->wlSurface());
-            }
-          }
-
-          markSettingsWriteSuccess(closeAfter);
-          if (connectCalendarAccount) {
-            DeferredCall::callLater([connectCalendarAccount = std::move(connectCalendarAccount),
-                                     connectAccountId = std::move(connectAccountId),
-                                     connectActivationToken = std::move(connectActivationToken)]() mutable {
-              connectCalendarAccount(connectAccountId, connectActivationToken);
-            });
-          }
-          if (closeAfter && m_editorSheetPopup != nullptr) {
-            m_editorSheetPopup->close();
-          }
-        };
-
-        auto actions = ui::row({
-            .align = FlexAlign::Center,
-            .justify = FlexJustify::End,
-            .gap = Style::spaceSm * scale,
+      markSettingsWriteSuccess(closeAfter);
+      if (connectCalendarAccount) {
+        DeferredCall::callLater([connectCalendarAccount = std::move(connectCalendarAccount),
+                                 connectAccountId = std::move(connectAccountId),
+                                 connectActivationToken = std::move(connectActivationToken)]() mutable {
+          connectCalendarAccount(connectAccountId, connectActivationToken);
         });
-        actions->addChild(
-            ui::button({
-                .text = i18n::tr("common.actions.cancel"),
-                .variant = ButtonVariant::Secondary,
-                .minHeight = Style::controlHeight * scale,
-                .paddingH = Style::spaceMd * scale,
-                .radius = Style::scaledRadiusMd(scale),
-                .onClick = [this]() {
-                  if (m_editorSheetPopup != nullptr) {
-                    m_editorSheetPopup->close();
-                  }
-                },
-            })
-        );
-        const bool google = draft->provider == CalendarAccountProvider::Google;
-        if (!draft->creating && google) {
-          actions->addChild(
-              ui::button({
-                  .text = i18n::tr("settings.calendar-accounts.save"),
-                  .glyph = "device-floppy",
-                  .variant = ButtonVariant::Secondary,
-                  .minHeight = Style::controlHeight * scale,
-                  .paddingH = Style::spaceMd * scale,
-                  .radius = Style::scaledRadiusMd(scale),
-                  .onClick = [persistAccount]() { persistAccount(true, false); },
-              })
-          );
-        }
-        actions->addChild(
-            ui::button({
-                .text = google ? i18n::tr("settings.calendar-accounts.save-connect")
-                               : i18n::tr("settings.calendar-accounts.save"),
-                .glyph = google ? "brand-google" : "device-floppy",
-                .variant = ButtonVariant::Primary,
-                .minHeight = Style::controlHeight * scale,
-                .paddingH = Style::spaceMd * scale,
-                .radius = Style::scaledRadiusMd(scale),
-                .onClick = [persistAccount, google]() { persistAccount(true, google); },
-            })
-        );
-        body.addChild(std::move(actions));
+      }
+      if (closeAfter && m_editorSheetPopup != nullptr) {
+        m_editorSheetPopup->close();
+      }
+    };
+
+    auto actions = ui::row({
+        .align = FlexAlign::Center,
+        .justify = FlexJustify::End,
+        .gap = Style::spaceSm * scale,
+    });
+    actions->addChild(
+        ui::button({
+            .text = i18n::tr("common.actions.cancel"),
+            .variant = ButtonVariant::Secondary,
+            .minHeight = Style::controlHeight * scale,
+            .paddingH = Style::spaceMd * scale,
+            .radius = Style::scaledRadiusMd(scale),
+            .onClick = [this]() {
+              if (m_editorSheetPopup != nullptr) {
+                m_editorSheetPopup->close();
+              }
+            },
+        })
+    );
+    const bool google = draft->provider == CalendarAccountProvider::Google;
+    if (!draft->creating && google) {
+      actions->addChild(
+          ui::button({
+              .text = i18n::tr("settings.calendar-accounts.save"),
+              .glyph = "device-floppy",
+              .variant = ButtonVariant::Secondary,
+              .minHeight = Style::controlHeight * scale,
+              .paddingH = Style::spaceMd * scale,
+              .radius = Style::scaledRadiusMd(scale),
+              .onClick = [persistAccount]() { persistAccount(true, false); },
+          })
+      );
+    }
+    actions->addChild(
+        ui::button({
+            .text = google ? i18n::tr("settings.calendar-accounts.save-connect")
+                           : i18n::tr("settings.calendar-accounts.save"),
+            .glyph = google ? "brand-google" : "device-floppy",
+            .variant = ButtonVariant::Primary,
+            .minHeight = Style::controlHeight * scale,
+            .paddingH = Style::spaceMd * scale,
+            .radius = Style::scaledRadiusMd(scale),
+            .onClick = [persistAccount, google]() { persistAccount(true, google); },
+        })
+    );
+    body.addChild(std::move(actions));
+  };
+
+  m_editorSheetPopup->open(
+      settings::SettingsEditorSheetPopupRequest{
+          .parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial()),
+          .sheetTitle = title,
+          .removeAction = removeAccount,
+          .populateSheetBody = std::move(populateSheetBody),
+          .scale = scale,
       }
   );
 }
@@ -1180,8 +1450,13 @@ void SettingsWindow::openBarWidgetEditorSheet(
   const std::uint32_t grabSerial = m_pendingEditorSheetNoGrab ? 0u : m_wayland->lastInputSerial();
   m_pendingEditorSheetNoGrab = false;
   m_editorSheetPopup->open(
-      m_surface->xdgSurface(), output, grabSerial, m_surface->wlSurface(), m_surface->width(), m_surface->height(),
-      scale, std::move(title), std::move(removeAction), std::move(populate)
+      settings::SettingsEditorSheetPopupRequest{
+          .parent = popupParentFor(*m_surface, output, grabSerial),
+          .sheetTitle = std::move(title),
+          .removeAction = std::move(removeAction),
+          .populateSheetBody = std::move(populate),
+          .scale = scale,
+      }
   );
 }
 
@@ -1468,7 +1743,14 @@ void SettingsWindow::openPluginSettingsEditor(std::string pluginId) {
       return;
     }
     const auto* manifest = scripting::PluginRegistry::instance().findManifest(pluginId);
-    if (manifest == nullptr || manifest->settings.empty()) {
+    if (manifest == nullptr) {
+      return;
+    }
+    const bool hasSettings =
+        !manifest->settings.empty() || std::ranges::any_of(manifest->entries, [](const scripting::PluginEntry& entry) {
+          return entry.kind == scripting::PluginEntryKind::Panel && !entry.settings.empty();
+        });
+    if (!hasSettings) {
       return;
     }
 

@@ -1,4 +1,4 @@
-// Custom (non-M3) schemes: vibrant, faithful, dysfunctional, muted.
+// Custom (non-M3) schemes: vibrant, faithful, soft, dysfunctional, muted.
 //
 // These do NOT use TonalPalette. Pipeline:
 //   downsample → k-means in Lab space (deterministic init by sort-by-L) →
@@ -172,7 +172,7 @@ namespace noctalia::theme {
       for (int i = 0; i < n; ++i)
         sortedIdx[static_cast<size_t>(i)] = i;
       // Stable sort so tied L values preserve their original order.
-      std::stable_sort(sortedIdx.begin(), sortedIdx.end(), [&](int a, int b) {
+      std::ranges::stable_sort(sortedIdx, [&](int a, int b) {
         return labs[static_cast<size_t>(a)].L < labs[static_cast<size_t>(b)].L;
       });
 
@@ -210,7 +210,7 @@ namespace noctalia::theme {
         }
         for (int ci = 0; ci < k; ++ci) {
           if (cnt[static_cast<size_t>(ci)] > 0) {
-            const double nd = static_cast<double>(cnt[static_cast<size_t>(ci)]);
+            const auto nd = static_cast<double>(cnt[static_cast<size_t>(ci)]);
             centroids[static_cast<size_t>(ci)] = {
                 acc[static_cast<size_t>(ci)].L / nd, acc[static_cast<size_t>(ci)].a / nd,
                 acc[static_cast<size_t>(ci)].b / nd
@@ -242,9 +242,7 @@ namespace noctalia::theme {
           );
         }
       }
-      std::stable_sort(results.begin(), results.end(), [](const Cluster& a, const Cluster& b) {
-        return a.count > b.count;
-      });
+      std::ranges::stable_sort(results, std::ranges::greater{}, &Cluster::count);
       return results;
     }
 
@@ -307,7 +305,7 @@ namespace noctalia::theme {
         const double score = (chromaScore - tonePenalty - huePenalty) * std::pow(static_cast<double>(count), 0.3);
         out.push_back({color, score});
       }
-      std::stable_sort(out.begin(), out.end(), [](const Scored& a, const Scored& b) { return a.score > b.score; });
+      std::ranges::stable_sort(out, std::ranges::greater{}, &Scored::score);
       return out;
     }
 
@@ -331,11 +329,10 @@ namespace noctalia::theme {
 
       if (families.empty()) {
         std::vector<Scored> result;
+        result.reserve(in.size());
         for (const auto& [color, count] : in)
           result.push_back({color, static_cast<double>(count)});
-        std::stable_sort(result.begin(), result.end(), [](const Scored& a, const Scored& b) {
-          return a.score > b.score;
-        });
+        std::ranges::stable_sort(result, std::ranges::greater{}, &Scored::score);
         return result;
       }
 
@@ -344,17 +341,15 @@ namespace noctalia::theme {
         int tot = 0;
         for (const auto& e : entries)
           tot += e.count;
-        familyTotals.push_back({fam, tot});
+        familyTotals.emplace_back(fam, tot);
       }
-      std::stable_sort(familyTotals.begin(), familyTotals.end(), [](const auto& a, const auto& b) {
-        return a.second > b.second;
-      });
+      std::ranges::stable_sort(familyTotals, std::ranges::greater{}, [](const auto& entry) { return entry.second; });
 
       std::vector<Scored> result;
       for (size_t rank = 0; rank < familyTotals.size(); ++rank) {
         const int fam = familyTotals[rank].first;
         auto& entries = families[fam];
-        std::stable_sort(entries.begin(), entries.end(), [](const Entry& a, const Entry& b) {
+        std::ranges::stable_sort(entries, [](const Entry& a, const Entry& b) {
           if (a.count != b.count)
             return a.count > b.count;
           return a.chroma > b.chroma;
@@ -366,9 +361,7 @@ namespace noctalia::theme {
           result.push_back({e.color, score});
         }
       }
-      std::stable_sort(result.begin(), result.end(), [](const Scored& a, const Scored& b) {
-        return a.score > b.score;
-      });
+      std::ranges::stable_sort(result, std::ranges::greater{}, &Scored::score);
       return result;
     }
 
@@ -395,11 +388,10 @@ namespace noctalia::theme {
 
       if (families.empty()) {
         std::vector<Scored> result;
+        result.reserve(in.size());
         for (const auto& [color, count] : in)
           result.push_back({color, static_cast<double>(count)});
-        std::stable_sort(result.begin(), result.end(), [](const Scored& a, const Scored& b) {
-          return a.score > b.score;
-        });
+        std::ranges::stable_sort(result, std::ranges::greater{}, &Scored::score);
         return result;
       }
 
@@ -408,11 +400,9 @@ namespace noctalia::theme {
         int tot = 0;
         for (const auto& e : entries)
           tot += e.count;
-        familyTotals.push_back({fam, tot});
+        familyTotals.emplace_back(fam, tot);
       }
-      std::stable_sort(familyTotals.begin(), familyTotals.end(), [](const auto& a, const auto& b) {
-        return a.second > b.second;
-      });
+      std::ranges::stable_sort(familyTotals, std::ranges::greater{}, [](const auto& entry) { return entry.second; });
 
       const int dominantFamily = familyTotals[0].first;
       const double dominantCenter = familyCenterHue(dominantFamily);
@@ -444,7 +434,7 @@ namespace noctalia::theme {
         }
       }
 
-      std::stable_sort(distant.begin(), distant.end(), [](const Distant& a, const Distant& b) {
+      std::ranges::stable_sort(distant, [](const Distant& a, const Distant& b) {
         return a.hueDiff * a.maxChroma > b.hueDiff * b.maxChroma;
       });
 
@@ -452,7 +442,7 @@ namespace noctalia::theme {
       for (size_t rank = 0; rank < distant.size(); ++rank) {
         const int fam = distant[rank].family;
         auto& entries = families[fam];
-        std::stable_sort(entries.begin(), entries.end(), [](const Entry& a, const Entry& b) {
+        std::ranges::stable_sort(entries, [](const Entry& a, const Entry& b) {
           if (a.chroma != b.chroma)
             return a.chroma > b.chroma;
           return a.count > b.count;
@@ -466,7 +456,7 @@ namespace noctalia::theme {
       }
       for (int fam : close) {
         auto& entries = families[fam];
-        std::stable_sort(entries.begin(), entries.end(), [](const Entry& a, const Entry& b) {
+        std::ranges::stable_sort(entries, [](const Entry& a, const Entry& b) {
           if (a.count != b.count)
             return a.count > b.count;
           return a.chroma > b.chroma;
@@ -476,9 +466,7 @@ namespace noctalia::theme {
           result.push_back({e.color, score});
         }
       }
-      std::stable_sort(result.begin(), result.end(), [](const Scored& a, const Scored& b) {
-        return a.score > b.score;
-      });
+      std::ranges::stable_sort(result, std::ranges::greater{}, &Scored::score);
       return result;
     }
 
@@ -488,7 +476,7 @@ namespace noctalia::theme {
       out.reserve(in.size());
       for (const auto& [color, count] : in)
         out.push_back({color, static_cast<double>(count)});
-      std::stable_sort(out.begin(), out.end(), [](const Scored& a, const Scored& b) { return a.score > b.score; });
+      std::ranges::stable_sort(out, std::ranges::greater{}, &Scored::score);
       return out;
     }
 
@@ -512,7 +500,7 @@ namespace noctalia::theme {
             kept.push_back(c);
         }
         filtered = (static_cast<int>(kept.size()) >= clusterCount * 2) ? kept : sampled;
-      } else if (scheme == Scheme::Faithful || scheme == Scheme::Dysfunctional) {
+      } else if (scheme == Scheme::Faithful || scheme == Scheme::Soft || scheme == Scheme::Dysfunctional) {
         clusterCount = 48;
       } else if (scheme == Scheme::Muted) {
         clusterCount = 24;
@@ -526,10 +514,10 @@ namespace noctalia::theme {
       scoringInput.reserve(clusters.size());
       if (scheme == Scheme::Vibrant) {
         for (const auto& c : clusters)
-          scoringInput.push_back({c.centroid, c.count});
+          scoringInput.emplace_back(c.centroid, c.count);
       } else {
         for (const auto& c : clusters)
-          scoringInput.push_back({c.representative, c.count});
+          scoringInput.emplace_back(c.representative, c.count);
       }
 
       std::vector<Scored> scored;
@@ -538,6 +526,9 @@ namespace noctalia::theme {
         scored = scoreChroma(scoringInput);
         break;
       case Scheme::Faithful:
+        scored = scoreCount(scoringInput);
+        break;
+      case Scheme::Soft:
         scored = scoreCount(scoringInput);
         break;
       case Scheme::Dysfunctional:
@@ -552,6 +543,7 @@ namespace noctalia::theme {
       }
 
       std::vector<Color> finalColors;
+      finalColors.reserve(scored.size());
       for (const auto& s : scored)
         finalColors.push_back(s.color);
 
@@ -585,7 +577,7 @@ namespace noctalia::theme {
     }
 
     // ────────────────────────────────────────────────────────────────────────────
-    // HSL-space token map generators (vibrant / faithful / dysfunctional).
+    // HSL-space token map generators (vibrant / faithful / soft / dysfunctional).
     // ────────────────────────────────────────────────────────────────────────────
 
     using TokenMap = std::unordered_map<std::string, uint32_t>;
@@ -880,6 +872,335 @@ namespace noctalia::theme {
       const Color inverse_surface = fromHsl(text_h, 0.08, 0.15);
       const Color inverse_on_surface = fromHsl(text_h, 0.05, 0.90);
       const Color inverse_primary = fromHsl(primary_h, std::max(primary_s * 0.8, 0.5), 0.70);
+
+      const Color background = surface;
+      const Color on_background = on_surface;
+
+      TokenMap m;
+      m["primary"] = primary_adjusted.toArgb();
+      m["on_primary"] = on_primary.toArgb();
+      m["primary_container"] = primary_container.toArgb();
+      m["on_primary_container"] = on_primary_container.toArgb();
+      m["primary_fixed"] = primary_fixed.toArgb();
+      m["primary_fixed_dim"] = primary_fixed_dim.toArgb();
+      m["on_primary_fixed"] = on_primary_fixed.toArgb();
+      m["on_primary_fixed_variant"] = on_primary_fixed_variant.toArgb();
+      m["surface_tint"] = primary_adjusted.toArgb();
+      m["secondary"] = secondary_adjusted.toArgb();
+      m["on_secondary"] = on_secondary.toArgb();
+      m["secondary_container"] = secondary_container.toArgb();
+      m["on_secondary_container"] = on_secondary_container.toArgb();
+      m["secondary_fixed"] = secondary_fixed.toArgb();
+      m["secondary_fixed_dim"] = secondary_fixed_dim.toArgb();
+      m["on_secondary_fixed"] = on_secondary_fixed.toArgb();
+      m["on_secondary_fixed_variant"] = on_secondary_fixed_variant.toArgb();
+      m["tertiary"] = tertiary_adjusted.toArgb();
+      m["on_tertiary"] = on_tertiary.toArgb();
+      m["tertiary_container"] = tertiary_container.toArgb();
+      m["on_tertiary_container"] = on_tertiary_container.toArgb();
+      m["tertiary_fixed"] = tertiary_fixed.toArgb();
+      m["tertiary_fixed_dim"] = tertiary_fixed_dim.toArgb();
+      m["on_tertiary_fixed"] = on_tertiary_fixed.toArgb();
+      m["on_tertiary_fixed_variant"] = on_tertiary_fixed_variant.toArgb();
+      m["error"] = error.toArgb();
+      m["on_error"] = on_error.toArgb();
+      m["error_container"] = error_container.toArgb();
+      m["on_error_container"] = on_error_container.toArgb();
+      m["surface"] = surface.toArgb();
+      m["on_surface"] = on_surface.toArgb();
+      m["surface_variant"] = surface_variant.toArgb();
+      m["on_surface_variant"] = on_surface_variant.toArgb();
+      m["surface_dim"] = surface_dim.toArgb();
+      m["surface_bright"] = surface_bright.toArgb();
+      m["surface_container_lowest"] = surface_container_lowest.toArgb();
+      m["surface_container_low"] = surface_container_low.toArgb();
+      m["surface_container"] = surface_container.toArgb();
+      m["surface_container_high"] = surface_container_high.toArgb();
+      m["surface_container_highest"] = surface_container_highest.toArgb();
+      m["outline"] = outline.toArgb();
+      m["outline_variant"] = outline_variant.toArgb();
+      m["shadow"] = shadow.toArgb();
+      m["scrim"] = scrim.toArgb();
+      m["inverse_surface"] = inverse_surface.toArgb();
+      m["inverse_on_surface"] = inverse_on_surface.toArgb();
+      m["inverse_primary"] = inverse_primary.toArgb();
+      m["background"] = background.toArgb();
+      m["on_background"] = on_background.toArgb();
+      return m;
+    }
+
+    TokenMap generateSoftDark(const std::vector<Color>& palette) {
+      const Color primary = palette.empty() ? Color(255, 245, 155) : palette[0];
+      auto [primary_h, primary_s, primary_l] = primary.toHsl();
+      (void)primary_l;
+
+      constexpr double MIN_HUE_DISTANCE = 30.0;
+      Color secondary = shiftHue(primary, 30.0);
+      if (palette.size() > 1) {
+        const auto [sh, ss, sl] = palette[1].toHsl();
+        (void)ss;
+        (void)sl;
+        if (hueDistance(primary_h, sh) > MIN_HUE_DISTANCE)
+          secondary = palette[1];
+      }
+      Color tertiary = shiftHue(primary, 60.0);
+      if (palette.size() > 2) {
+        const auto [th, ts, tl] = palette[2].toHsl();
+        const auto [sh, ss, sl] = secondary.toHsl();
+        (void)ts;
+        (void)tl;
+        (void)ss;
+        (void)sl;
+        if (hueDistance(primary_h, th) > MIN_HUE_DISTANCE && hueDistance(sh, th) > MIN_HUE_DISTANCE) {
+          tertiary = palette[2];
+        }
+      }
+      const Color error = findErrorColor(palette);
+
+      auto clamp = [](double v, double lo, double hi) { return std::clamp(v, lo, hi); };
+
+      auto [ph, ps, pl] = primary.toHsl();
+      const Color primary_adjusted = fromHsl(ph, clamp(ps, 0.30, 0.55), std::max(pl, 0.65));
+      auto [sh2, ss2, sl2] = secondary.toHsl();
+      const Color secondary_adjusted = fromHsl(sh2, clamp(ss2, 0.24, 0.45), std::max(sl2, 0.60));
+      auto [th2, ts2, tl2] = tertiary.toHsl();
+      const Color tertiary_adjusted = fromHsl(th2, clamp(ts2, 0.20, 0.40), std::max(tl2, 0.60));
+
+      auto makeContainerDark = [](const Color& base) {
+        auto [h, s, l] = base.toHsl();
+        return fromHsl(h, std::min(s + 0.08, 0.60), std::max(l - 0.35, 0.15));
+      };
+      const Color primary_container = makeContainerDark(primary_adjusted);
+      const Color secondary_container = makeContainerDark(secondary_adjusted);
+      const Color tertiary_container = makeContainerDark(tertiary_adjusted);
+      const Color error_container = makeContainerDark(error);
+
+      const Color base_surface = fromHsl(primary_h, std::min(primary_s, 0.22), 0.5);
+      const Color surface = adjustSurface(base_surface, 0.16, 0.12);
+      const Color surface_variant = adjustSurface(base_surface, 0.18, 0.16);
+      const Color surface_container_lowest = adjustSurface(base_surface, 0.12, 0.06);
+      const Color surface_container_low = adjustSurface(base_surface, 0.14, 0.10);
+      const Color surface_container = adjustSurface(base_surface, 0.16, 0.20);
+      const Color surface_container_high = adjustSurface(base_surface, 0.18, 0.18);
+      const Color surface_container_highest = adjustSurface(base_surface, 0.20, 0.22);
+
+      const Color base_on_surface = fromHsl(primary_h, 0.04, 0.95);
+      const Color on_surface = ensureContrast(base_on_surface, surface, 4.5);
+      const Color base_on_surface_variant = fromHsl(primary_h, 0.05, 0.70);
+      const Color on_surface_variant = ensureContrast(base_on_surface_variant, surface_variant, 4.5);
+
+      const Color outline = ensureContrast(fromHsl(primary_h, 0.10, 0.30), surface, 3.0);
+      const Color outline_variant = ensureContrast(fromHsl(primary_h, 0.12, 0.40), surface, 3.0);
+
+      const Color dark_fg = fromHsl(primary_h, 0.12, 0.12);
+      const Color on_primary = ensureContrast(dark_fg, primary_adjusted, 7.0);
+      const Color on_secondary = ensureContrast(dark_fg, secondary_adjusted, 7.0);
+      const Color on_tertiary = ensureContrast(dark_fg, tertiary_adjusted, 7.0);
+      const Color on_error = ensureContrast(dark_fg, error, 7.0);
+
+      const Color on_primary_container = ensureContrast(fromHsl(primary_h, 0.20, 0.90), primary_container, 4.5, 1);
+      auto [sec_h, sec_s, _sl] = secondary.toHsl();
+      (void)_sl;
+      const Color on_secondary_container =
+          ensureContrast(fromHsl(sec_h, std::min(sec_s, 0.20), 0.90), secondary_container, 4.5, 1);
+      auto [ter_h, ter_s, _tl] = tertiary.toHsl();
+      (void)_tl;
+      const Color on_tertiary_container =
+          ensureContrast(fromHsl(ter_h, std::min(ter_s, 0.20), 0.90), tertiary_container, 4.5, 1);
+      auto [err_h, err_s, _el] = error.toHsl();
+      (void)_el;
+      const Color on_error_container =
+          ensureContrast(fromHsl(err_h, std::min(err_s, 0.25), 0.90), error_container, 4.5, 1);
+
+      const Color shadow = surface;
+      const Color scrim = Color(0, 0, 0);
+
+      const Color inverse_surface = fromHsl(primary_h, 0.05, 0.90);
+      const Color inverse_on_surface = fromHsl(primary_h, 0.04, 0.15);
+      const Color inverse_primary = fromHsl(primary_h, clamp(primary_s * 0.65, 0.25, 0.45), 0.40);
+
+      const Color background = surface;
+      const Color on_background = on_surface;
+
+      auto makeFixedDark = [&](const Color& base) {
+        auto [h, s, l] = base.toHsl();
+        (void)l;
+        return std::pair<Color, Color>{fromHsl(h, clamp(s, 0.30, 0.55), 0.85), fromHsl(h, clamp(s, 0.26, 0.48), 0.75)};
+      };
+      auto [primary_fixed, primary_fixed_dim] = makeFixedDark(primary_adjusted);
+      auto [secondary_fixed, secondary_fixed_dim] = makeFixedDark(secondary_adjusted);
+      auto [tertiary_fixed, tertiary_fixed_dim] = makeFixedDark(tertiary_adjusted);
+
+      const Color on_primary_fixed = ensureContrast(fromHsl(primary_h, 0.10, 0.15), primary_fixed, 4.5);
+      const Color on_primary_fixed_variant = ensureContrast(fromHsl(primary_h, 0.10, 0.20), primary_fixed_dim, 4.5);
+      const Color on_secondary_fixed = ensureContrast(fromHsl(sec_h, 0.10, 0.15), secondary_fixed, 4.5);
+      const Color on_secondary_fixed_variant = ensureContrast(fromHsl(sec_h, 0.10, 0.20), secondary_fixed_dim, 4.5);
+      const Color on_tertiary_fixed = ensureContrast(fromHsl(ter_h, 0.10, 0.15), tertiary_fixed, 4.5);
+      const Color on_tertiary_fixed_variant = ensureContrast(fromHsl(ter_h, 0.10, 0.20), tertiary_fixed_dim, 4.5);
+
+      const Color surface_dim = adjustSurface(base_surface, 0.14, 0.08);
+      const Color surface_bright = adjustSurface(base_surface, 0.20, 0.24);
+
+      TokenMap m;
+      m["primary"] = primary_adjusted.toArgb();
+      m["on_primary"] = on_primary.toArgb();
+      m["primary_container"] = primary_container.toArgb();
+      m["on_primary_container"] = on_primary_container.toArgb();
+      m["primary_fixed"] = primary_fixed.toArgb();
+      m["primary_fixed_dim"] = primary_fixed_dim.toArgb();
+      m["on_primary_fixed"] = on_primary_fixed.toArgb();
+      m["on_primary_fixed_variant"] = on_primary_fixed_variant.toArgb();
+      m["surface_tint"] = primary_adjusted.toArgb();
+      m["secondary"] = secondary_adjusted.toArgb();
+      m["on_secondary"] = on_secondary.toArgb();
+      m["secondary_container"] = secondary_container.toArgb();
+      m["on_secondary_container"] = on_secondary_container.toArgb();
+      m["secondary_fixed"] = secondary_fixed.toArgb();
+      m["secondary_fixed_dim"] = secondary_fixed_dim.toArgb();
+      m["on_secondary_fixed"] = on_secondary_fixed.toArgb();
+      m["on_secondary_fixed_variant"] = on_secondary_fixed_variant.toArgb();
+      m["tertiary"] = tertiary_adjusted.toArgb();
+      m["on_tertiary"] = on_tertiary.toArgb();
+      m["tertiary_container"] = tertiary_container.toArgb();
+      m["on_tertiary_container"] = on_tertiary_container.toArgb();
+      m["tertiary_fixed"] = tertiary_fixed.toArgb();
+      m["tertiary_fixed_dim"] = tertiary_fixed_dim.toArgb();
+      m["on_tertiary_fixed"] = on_tertiary_fixed.toArgb();
+      m["on_tertiary_fixed_variant"] = on_tertiary_fixed_variant.toArgb();
+      m["error"] = error.toArgb();
+      m["on_error"] = on_error.toArgb();
+      m["error_container"] = error_container.toArgb();
+      m["on_error_container"] = on_error_container.toArgb();
+      m["surface"] = surface.toArgb();
+      m["on_surface"] = on_surface.toArgb();
+      m["surface_variant"] = surface_variant.toArgb();
+      m["on_surface_variant"] = on_surface_variant.toArgb();
+      m["surface_dim"] = surface_dim.toArgb();
+      m["surface_bright"] = surface_bright.toArgb();
+      m["surface_container_lowest"] = surface_container_lowest.toArgb();
+      m["surface_container_low"] = surface_container_low.toArgb();
+      m["surface_container"] = surface_container.toArgb();
+      m["surface_container_high"] = surface_container_high.toArgb();
+      m["surface_container_highest"] = surface_container_highest.toArgb();
+      m["outline"] = outline.toArgb();
+      m["outline_variant"] = outline_variant.toArgb();
+      m["shadow"] = shadow.toArgb();
+      m["scrim"] = scrim.toArgb();
+      m["inverse_surface"] = inverse_surface.toArgb();
+      m["inverse_on_surface"] = inverse_on_surface.toArgb();
+      m["inverse_primary"] = inverse_primary.toArgb();
+      m["background"] = background.toArgb();
+      m["on_background"] = on_background.toArgb();
+      return m;
+    }
+
+    TokenMap generateSoftLight(const std::vector<Color>& palette) {
+      const Color primary = palette.empty() ? Color(93, 101, 245) : palette[0];
+      auto [primary_h, primary_s, _pl] = primary.toHsl();
+      (void)_pl;
+
+      constexpr double MIN_HUE_DISTANCE = 30.0;
+      Color secondary = shiftHue(primary, 30.0);
+      if (palette.size() > 1) {
+        const auto [sh, ss, sl] = palette[1].toHsl();
+        (void)ss;
+        (void)sl;
+        if (hueDistance(primary_h, sh) > MIN_HUE_DISTANCE)
+          secondary = palette[1];
+      }
+      Color tertiary = shiftHue(primary, 60.0);
+      if (palette.size() > 2) {
+        const auto [th, ts, tl] = palette[2].toHsl();
+        (void)ts;
+        (void)tl;
+        const auto [sh, ss, sl] = secondary.toHsl();
+        (void)ss;
+        (void)sl;
+        if (hueDistance(primary_h, th) > MIN_HUE_DISTANCE && hueDistance(sh, th) > MIN_HUE_DISTANCE) {
+          tertiary = palette[2];
+        }
+      }
+      const Color error = findErrorColor(palette);
+
+      auto clamp = [](double v, double lo, double hi) { return std::clamp(v, lo, hi); };
+
+      auto [ph, ps, pl] = primary.toHsl();
+      const Color primary_adjusted = fromHsl(ph, clamp(ps, 0.30, 0.55), clamp(pl, 0.25, 0.45));
+      auto [sh2, ss2, sl2] = secondary.toHsl();
+      const Color secondary_adjusted = fromHsl(sh2, clamp(ss2, 0.24, 0.45), clamp(sl2, 0.22, 0.40));
+      auto [th2, ts2, tl2] = tertiary.toHsl();
+      const Color tertiary_adjusted = fromHsl(th2, clamp(ts2, 0.20, 0.40), clamp(tl2, 0.20, 0.35));
+
+      auto makeContainerLight = [](const Color& base) {
+        auto [h, s, l] = base.toHsl();
+        return fromHsl(h, std::max(s - 0.10, 0.18), std::min(l + 0.35, 0.85));
+      };
+      const Color primary_container = makeContainerLight(primary_adjusted);
+      const Color secondary_container = makeContainerLight(secondary_adjusted);
+      const Color tertiary_container = makeContainerLight(tertiary_adjusted);
+      const Color error_container = makeContainerLight(error);
+
+      const Color base_surface = fromHsl(primary_h, std::min(primary_s, 0.22), 0.5);
+      const Color surface = adjustSurface(base_surface, 0.16, 0.90);
+      const Color surface_variant = adjustSurface(base_surface, 0.18, 0.78);
+      const Color surface_container_lowest = adjustSurface(base_surface, 0.12, 0.96);
+      const Color surface_container_low = adjustSurface(base_surface, 0.14, 0.92);
+      const Color surface_container = adjustSurface(base_surface, 0.16, 0.86);
+      const Color surface_container_high = adjustSurface(base_surface, 0.18, 0.84);
+      const Color surface_container_highest = adjustSurface(base_surface, 0.20, 0.80);
+
+      const Color base_on_surface = fromHsl(primary_h, 0.04, 0.10);
+      const Color on_surface = ensureContrast(base_on_surface, surface, 4.5);
+      const Color base_on_surface_variant = fromHsl(primary_h, 0.05, 0.35);
+      const Color on_surface_variant = ensureContrast(base_on_surface_variant, surface_variant, 4.5);
+
+      const Color light_fg = fromHsl(primary_h, 0.08, 0.98);
+      const Color on_primary = ensureContrast(light_fg, primary_adjusted, 7.0);
+      const Color on_secondary = ensureContrast(light_fg, secondary_adjusted, 7.0);
+      const Color on_tertiary = ensureContrast(light_fg, tertiary_adjusted, 7.0);
+      const Color on_error = ensureContrast(light_fg, error, 7.0);
+
+      const Color on_primary_container = ensureContrast(fromHsl(primary_h, 0.20, 0.15), primary_container, 4.5, -1);
+      auto [sec_h, sec_s, _sl] = secondary.toHsl();
+      (void)_sl;
+      const Color on_secondary_container =
+          ensureContrast(fromHsl(sec_h, std::min(sec_s, 0.20), 0.15), secondary_container, 4.5, -1);
+      auto [ter_h, ter_s, _tl] = tertiary.toHsl();
+      (void)_tl;
+      const Color on_tertiary_container =
+          ensureContrast(fromHsl(ter_h, std::min(ter_s, 0.20), 0.15), tertiary_container, 4.5, -1);
+      auto [err_h, err_s, _el] = error.toHsl();
+      (void)_el;
+      const Color on_error_container =
+          ensureContrast(fromHsl(err_h, std::min(err_s, 0.25), 0.15), error_container, 4.5, -1);
+
+      auto makeFixedLight = [&](const Color& base) {
+        auto [h, s, l] = base.toHsl();
+        (void)l;
+        return std::pair<Color, Color>{fromHsl(h, clamp(s, 0.30, 0.55), 0.40), fromHsl(h, clamp(s, 0.26, 0.48), 0.30)};
+      };
+      auto [primary_fixed, primary_fixed_dim] = makeFixedLight(primary_adjusted);
+      auto [secondary_fixed, secondary_fixed_dim] = makeFixedLight(secondary_adjusted);
+      auto [tertiary_fixed, tertiary_fixed_dim] = makeFixedLight(tertiary_adjusted);
+
+      const Color on_primary_fixed = ensureContrast(fromHsl(primary_h, 0.10, 0.90), primary_fixed, 4.5);
+      const Color on_primary_fixed_variant = ensureContrast(fromHsl(primary_h, 0.10, 0.85), primary_fixed_dim, 4.5);
+      const Color on_secondary_fixed = ensureContrast(fromHsl(sec_h, 0.10, 0.90), secondary_fixed, 4.5);
+      const Color on_secondary_fixed_variant = ensureContrast(fromHsl(sec_h, 0.10, 0.85), secondary_fixed_dim, 4.5);
+      const Color on_tertiary_fixed = ensureContrast(fromHsl(ter_h, 0.10, 0.90), tertiary_fixed, 4.5);
+      const Color on_tertiary_fixed_variant = ensureContrast(fromHsl(ter_h, 0.10, 0.85), tertiary_fixed_dim, 4.5);
+
+      const Color surface_dim = adjustSurface(base_surface, 0.14, 0.82);
+      const Color surface_bright = adjustSurface(base_surface, 0.20, 0.95);
+
+      const Color outline = ensureContrast(fromHsl(primary_h, 0.12, 0.65), surface, 3.0);
+      const Color outline_variant = ensureContrast(fromHsl(primary_h, 0.10, 0.75), surface, 3.0);
+      const Color shadow = fromHsl(primary_h, 0.10, 0.80);
+      const Color scrim = Color(0, 0, 0);
+
+      const Color inverse_surface = fromHsl(primary_h, 0.05, 0.15);
+      const Color inverse_on_surface = fromHsl(primary_h, 0.04, 0.90);
+      const Color inverse_primary = fromHsl(primary_h, clamp(primary_s * 0.65, 0.25, 0.45), 0.70);
 
       const Color background = surface;
       const Color on_background = on_surface;
@@ -1243,7 +1564,10 @@ namespace noctalia::theme {
   GeneratedPalette generateCustom(const std::vector<uint8_t>& rgb112, Scheme scheme) {
     const auto palette = extractPalette(rgb112, scheme, 5);
     GeneratedPalette out;
-    if (scheme == Scheme::Muted) {
+    if (scheme == Scheme::Soft) {
+      out.dark = generateSoftDark(palette);
+      out.light = generateSoftLight(palette);
+    } else if (scheme == Scheme::Muted) {
       out.dark = generateMutedDark(palette);
       out.light = generateMutedLight(palette);
     } else {

@@ -14,7 +14,6 @@
 #include <hb-ot.h>
 #include <limits>
 #include <pango/pango-attributes.h>
-#include <pango/pango.h>
 #include <pango/pangocairo.h>
 #include <pango/pangofc-fontmap.h>
 #include <vector>
@@ -457,6 +456,7 @@ CairoTextRenderer::TextMetrics CairoTextRenderer::metricsFromLayout(PangoLayout*
   const float pscale = 1.0f / static_cast<float>(PANGO_SCALE);
 
   const float width = static_cast<float>(logical.width) * pscale * invScale;
+
   // Pango logical rect y is 0 at top of layout box; baseline is offset from top.
   const float ascent = static_cast<float>(baselinePango - logical.y) * pscale * invScale;
   const float descent = static_cast<float>(logical.height - (baselinePango - logical.y)) * pscale * invScale;
@@ -611,6 +611,7 @@ void CairoTextRenderer::measureCursorStops(
     pango_layout_get_cursor_pos(layout, index, &strong, &weak);
     outStops.push_back(static_cast<float>(strong.x) * pscale * invScale);
   }
+
   g_object_unref(layout);
 }
 
@@ -773,7 +774,7 @@ void CairoTextRenderer::rasterizeLayout(PangoLayout* layout, const Color& color,
     // device origin placing the line's BASELINE at y=0, so move the device
     // origin to the line's baseline within the tile.
     for (const auto& ls : tilePlan.lines) {
-      const double baselineInTile = static_cast<double>(ls.baselinePx - tilePlan.yTopPx);
+      const auto baselineInTile = static_cast<double>(ls.baselinePx - tilePlan.yTopPx);
       cairo_save(cr);
       cairo_translate(cr, static_cast<double>(ls.xLeftPx - blockLeftPx + extraLeftPx), baselineInTile);
       pango_cairo_show_layout_line(cr, ls.line);

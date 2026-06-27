@@ -16,6 +16,10 @@ namespace {
 
   constexpr Logger kLog("idle-grace");
 
+  bool outputEligible(const WaylandOutput& output) noexcept {
+    return output.done && output.output != nullptr && output.hasUsableGeometry();
+  }
+
 } // namespace
 
 void IdleGraceOverlay::initialize(WaylandConnection& wayland, RenderContext* renderContext) {
@@ -93,6 +97,10 @@ void IdleGraceOverlay::ensureSurfaces() {
   }
 
   for (const auto& output : m_wayland->outputs()) {
+    if (!outputEligible(output)) {
+      continue;
+    }
+
     auto inst = std::make_unique<Instance>();
     inst->output = output.output;
     inst->scale = output.scale;
@@ -138,12 +146,18 @@ bool IdleGraceOverlay::surfacesMatchOutputs() const {
     return m_instances.empty();
   }
   const auto& outputs = m_wayland->outputs();
-  if (m_instances.size() != outputs.size()) {
+  const auto eligibleCount = static_cast<std::size_t>(std::ranges::count_if(outputs, outputEligible));
+  if (m_instances.size() != eligibleCount) {
     return false;
   }
-  for (std::size_t i = 0; i < outputs.size(); ++i) {
-    const auto* instance = m_instances[i].get();
-    if (instance == nullptr || instance->output != outputs[i].output) {
+  for (const auto& instance : m_instances) {
+    if (instance == nullptr) {
+      return false;
+    }
+    const auto it = std::ranges::find_if(outputs, [&](const WaylandOutput& output) {
+      return outputEligible(output) && output.output == instance->output;
+    });
+    if (it == outputs.end()) {
       return false;
     }
   }
@@ -201,8 +215,8 @@ void IdleGraceOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint
     return;
   }
 
-  const float w = static_cast<float>(width);
-  const float h = static_cast<float>(height);
+  const auto w = static_cast<float>(width);
+  const auto h = static_cast<float>(height);
 
   inst.sceneRoot = std::make_unique<Node>();
   inst.sceneRoot->setSize(w, h);
@@ -229,7 +243,7 @@ void IdleGraceOverlay::startFadeIn(Instance& inst, std::chrono::milliseconds fad
   }
 
   const float start = inst.dim->opacity();
-  const float durationMs = static_cast<float>(fadeIn.count());
+  const auto durationMs = static_cast<float>(fadeIn.count());
   Instance* instPtr = &inst;
   Box* dimPtr = inst.dim;
   inst.fadeAnimId = inst.animations.animate(

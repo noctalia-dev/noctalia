@@ -45,3 +45,8 @@ const std::vector<DesktopEntry>& desktopEntries();
 std::uint64_t desktopEntriesVersion();
 int desktopEntryWatchFd() noexcept;
 void checkDesktopEntryReload();
+
+// Cheaply re-stat the resolved XDG application source directories and mark the
+// cache dirty only if they changed. Catches Nix profile-generation symlink
+// swaps that inotify cannot see (the watched store path is immutable).
+void refreshDesktopEntriesIfSourcesChanged();

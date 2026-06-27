@@ -52,7 +52,7 @@ namespace tray {
       if (candidate.empty()) {
         return;
       }
-      if (std::ranges::find(out, candidate) == out.end()) {
+      if (!std::ranges::contains(out, candidate)) {
         out.push_back(std::move(candidate));
       }
     };
@@ -144,7 +144,7 @@ namespace tray {
     for (const auto& variant : identifierVariants(text)) {
       if (!isTransientUniqueIdentifier(variant)
           && !looksGenericStatusItemName(variant)
-          && std::ranges::find(candidates, variant) == candidates.end()) {
+          && !std::ranges::contains(candidates, variant)) {
         candidates.push_back(variant);
       }
     }
@@ -172,7 +172,7 @@ namespace tray {
     }
     const auto normalizedToken = StringUtils::toLower(token);
     const auto candidates = pinMatchCandidates(item);
-    return std::ranges::find(candidates, normalizedToken) != candidates.end();
+    return std::ranges::contains(candidates, normalizedToken);
   }
 
   [[nodiscard]] inline std::string capitalizeFirstLetter(std::string text) {

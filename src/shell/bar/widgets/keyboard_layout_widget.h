@@ -1,6 +1,5 @@
 #pragma once
 
-#include "compositors/compositor_platform.h"
 #include "core/timer_manager.h"
 #include "shell/bar/widget.h"
 
@@ -10,6 +9,7 @@
 class Glyph;
 class Label;
 class Renderer;
+class CompositorPlatform;
 
 class KeyboardLayoutWidget : public Widget {
 public:
@@ -17,7 +17,8 @@ public:
 
   KeyboardLayoutWidget(
       CompositorPlatform& platform, std::string cycleCommand, DisplayMode displayMode, bool showIcon, bool showLabel,
-      bool hideWhenSingleLayout, std::unordered_map<std::string, std::string> customLabels = {}
+      bool hideWhenSingleLayout, std::unordered_map<std::string, std::string> customLabels = {},
+      std::string glyph = "keyboard"
   );
   static DisplayMode parseDisplayMode(const std::string& value);
   static std::string formatLayoutLabel(const std::string& layoutName, DisplayMode displayMode);
@@ -44,6 +45,7 @@ private:
   bool m_showLabel = true;
   bool m_hideWhenSingleLayout = false;
   std::unordered_map<std::string, std::string> m_customLabels;
+  std::string m_glyphName = "keyboard";
 
   Glyph* m_glyph = nullptr;
   Label* m_label = nullptr;

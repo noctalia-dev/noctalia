@@ -5,6 +5,7 @@
 #include "core/toml.h"
 
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <optional>
 #include <string>
@@ -146,13 +147,18 @@ public:
 private:
   void loadAll();
   [[nodiscard]] static Config makeDefaultConfig();
-  static void parseConfigTable(const toml::table& tbl, Config& config, bool logSummary);
+  static void
+  parseConfigTable(const toml::table& tbl, Config& config, bool logSummary, bool logSchemaDiagnostics = true);
   [[nodiscard]] std::optional<Config> configForOverrides(const toml::table& overrides) const;
   [[nodiscard]] bool overridePathEffectiveInTable(
       const std::vector<std::string>& path, const toml::table& overrides, const Config* parsedWith = nullptr
   ) const;
   [[nodiscard]] std::size_t overridePreserveDepthForPath(const std::vector<std::string>& path) const;
   void setupWatch();
+  // Reconciles inotify watches for [include]d files: watches the parent dir of
+  // every loaded file plus every directory named in an [include].files list, and
+  // drops watches no longer needed. Safe no-op when hot reload is disabled.
+  void refreshIncludeWatches();
   void fireReloadCallbacks();
   void loadOverridesFromFile();
   void setConfigParseError(std::string parseError);
@@ -201,6 +207,17 @@ private:
   };
   // Extra watches on symlink-target directories: wd -> list of filenames to match.
   std::unordered_map<int, std::vector<SymlinkTargetWatch>> m_symlinkDirWds;
+
+  // Watches on directories that hold [include]d files (subdirs / absolute paths
+  // outside the config dir). Any *.toml change in one of these is a config change.
+  // Kept separate from m_symlinkDirWds because matching is dir-wide, not per-file.
+  std::unordered_set<int> m_includeDirWds;
+  // Canonical directory path -> inotify watch descriptor, for diffing on reload.
+  std::unordered_map<std::string, int> m_includeDirWatches;
+  // Set by the last loadAll(): every file pulled in (root + included) and every
+  // directory named in an [include].files list. Drives refreshIncludeWatches().
+  std::vector<std::filesystem::path> m_includeLoadedFiles;
+  std::vector<std::filesystem::path> m_includeDirs;
 
   bool m_ownOverridesWritePending = false;
   int m_wallpaperBatchDepth = 0;

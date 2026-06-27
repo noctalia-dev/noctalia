@@ -2,11 +2,9 @@
 
 #include "core/deferred_call.h"
 #include "render/render_context.h"
-#include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "ui/builders.h"
 #include "ui/style.h"
-#include "wayland/wayland_connection.h"
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>
@@ -53,13 +51,8 @@ namespace settings {
 
   void SearchPickerPopup::setOnDismissed(std::function<void()> callback) { m_onDismissed = std::move(callback); }
 
-  void SearchPickerPopup::open(
-      xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
-      std::uint32_t parentWidth, std::uint32_t parentHeight, const std::string& title,
-      const std::vector<SearchPickerOption>& options, const std::string& selectedValue, const std::string& placeholder,
-      const std::string& emptyText, float scale
-  ) {
-    if (parentXdgSurface == nullptr || parentWlSurface == nullptr || options.empty()) {
+  void SearchPickerPopup::open(SearchPickerPopupRequest request) {
+    if (request.parent.xdgSurface == nullptr || request.parent.wlSurface == nullptr || request.options.empty()) {
       return;
     }
 
@@ -67,23 +60,23 @@ namespace settings {
       close();
     }
 
-    m_scale = std::max(0.1f, scale);
-    m_title = title;
-    m_options = options;
-    m_selectedValue = selectedValue;
-    m_placeholder = placeholder;
-    m_emptyText = emptyText;
+    m_scale = std::max(0.1f, request.scale);
+    m_title = std::move(request.title);
+    m_options = std::move(request.options);
+    m_selectedValue = std::move(request.selectedValue);
+    m_placeholder = std::move(request.placeholder);
+    m_emptyText = std::move(request.emptyText);
     m_root = nullptr;
     m_searchPicker = nullptr;
 
     const float panelWidth = 420.0f * m_scale;
     const float panelHeight = 380.0f * m_scale;
     const auto cfg = centeredPopupConfig(
-        parentWidth, parentHeight, static_cast<std::uint32_t>(std::max(1.0f, panelWidth)),
-        static_cast<std::uint32_t>(std::max(1.0f, panelHeight)), serial
+        request.parent.width, request.parent.height, static_cast<std::uint32_t>(std::max(1.0f, panelWidth)),
+        static_cast<std::uint32_t>(std::max(1.0f, panelHeight)), request.parent.serial
     );
 
-    if (!openPopupAsChild(cfg, parentXdgSurface, parentWlSurface, output)) {
+    if (!openPopupAsChild(cfg, request.parent)) {
       close();
     }
   }
@@ -146,9 +139,6 @@ namespace settings {
                 .flexGrow = 1.0f,
                 .onActivated =
                     [this](const SearchPickerOption& option) {
-                      if (option.value.empty()) {
-                        return;
-                      }
                       if (m_onSelect) {
                         m_onSelect(option.value);
                       }

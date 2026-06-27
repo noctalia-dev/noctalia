@@ -1,5 +1,6 @@
 #include "system/app_identity.h"
 #include "system/internal_app_metadata.h"
+#include "util/string_utils.h"
 
 #include <cassert>
 #include <string>
@@ -61,6 +62,30 @@ namespace {
     assert(!app_identity::desktopEntryMatchesLower(entry, token));
   }
 
+  DesktopEntry easyEffectsEntry() {
+    DesktopEntry entry;
+    entry.id = "com.github.wwmm.easyeffects";
+    entry.name = "Easy Effects";
+    entry.nameLower = "easy effects";
+    entry.startupWmClass = "easyeffects";
+    entry.startupWmClassLower = "easyeffects";
+    entry.exec = "easyeffects";
+    entry.icon = "easyeffects";
+    return entry;
+  }
+
+  DesktopEntry duplicateTailEntry(std::string_view id, std::string_view startupWmClass) {
+    DesktopEntry entry;
+    entry.id = std::string(id);
+    entry.name = std::string(id);
+    entry.nameLower = StringUtils::toLower(entry.name);
+    entry.startupWmClass = std::string(startupWmClass);
+    entry.startupWmClassLower = StringUtils::toLower(entry.startupWmClass);
+    entry.exec = entry.id;
+    entry.icon = entry.id;
+    return entry;
+  }
+
 } // namespace
 
 int main() {
@@ -113,6 +138,21 @@ int main() {
   assert(unknownApps.size() == 2);
   assert(unknownApps[0].entry.id == "Unknown.App");
   assert(unknownApps[1].entry.id == "unknown-app");
+
+  const DesktopEntry easyEffects = easyEffectsEntry();
+  const DesktopEntry kdeResolved =
+      app_identity::resolveRunningDesktopEntry("org.kde.easyeffects", {easyEffects});
+  assert(kdeResolved.id == "com.github.wwmm.easyeffects");
+  assert(kdeResolved.name == "Easy Effects");
+  assert(kdeResolved.icon == "easyeffects");
+
+  const std::vector<DesktopEntry> ambiguousTail = {
+      duplicateTailEntry("com.foo.easyeffects", "foo-easyeffects"),
+      duplicateTailEntry("com.bar.easyeffects", "bar-easyeffects"),
+  };
+  const DesktopEntry ambiguousResolved =
+      app_identity::resolveRunningDesktopEntry("org.kde.easyeffects", ambiguousTail);
+  assert(ambiguousResolved.id == "org.kde.easyeffects");
 
   return 0;
 }

@@ -9,7 +9,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <optional>
+#include <expected>
 #include <stb_image_resize2.h>
 #include <string_view>
 #pragma GCC diagnostic push
@@ -23,14 +23,14 @@ namespace {
   // into the non-premultiplied RGBA buffer the rest of the pipeline expects.
   void argb32ToRgba(const unsigned char* src, int srcStride, std::uint8_t* dst, int width, int height) {
     for (int y = 0; y < height; ++y) {
-      const std::uint32_t* row = reinterpret_cast<const std::uint32_t*>(src + (y * srcStride));
+      const auto* row = reinterpret_cast<const std::uint32_t*>(src + (y * srcStride));
       std::uint8_t* outRow = dst + (static_cast<std::size_t>(y) * static_cast<std::size_t>(width) * 4U);
       for (int x = 0; x < width; ++x) {
         const std::uint32_t pixel = row[x];
-        const std::uint8_t a = static_cast<std::uint8_t>((pixel >> 24) & 0xFF);
-        std::uint8_t r = static_cast<std::uint8_t>((pixel >> 16) & 0xFF);
-        std::uint8_t g = static_cast<std::uint8_t>((pixel >> 8) & 0xFF);
-        std::uint8_t b = static_cast<std::uint8_t>(pixel & 0xFF);
+        const auto a = static_cast<std::uint8_t>((pixel >> 24) & 0xFF);
+        auto r = static_cast<std::uint8_t>((pixel >> 16) & 0xFF);
+        auto g = static_cast<std::uint8_t>((pixel >> 8) & 0xFF);
+        auto b = static_cast<std::uint8_t>(pixel & 0xFF);
         if (a != 0 && a != 255) {
           // Un-premultiply, rounding to nearest.
           r = static_cast<std::uint8_t>(std::min(255, ((r * 255) + (a / 2)) / a));
@@ -45,9 +45,8 @@ namespace {
     }
   }
 
-  std::optional<LoadedImageFile> rasterizeSvg(
-      const std::vector<std::uint8_t>& fileData, int targetSize, std::string* errorMessage, bool centerSquareCrop
-  );
+  std::expected<LoadedImageFile, std::string>
+  rasterizeSvg(const std::vector<std::uint8_t>& fileData, int targetSize, bool centerSquareCrop);
 
   [[nodiscard]] bool asciiStartsWithDataScheme(std::string_view source) {
     if (source.size() < 5) {
@@ -101,8 +100,7 @@ namespace {
     return -1;
   }
 
-  [[nodiscard]] std::optional<std::vector<std::uint8_t>>
-  percentDecode(std::string_view value, std::string* errorMessage) {
+  [[nodiscard]] std::expected<std::vector<std::uint8_t>, std::string> percentDecode(std::string_view value) {
     std::vector<std::uint8_t> out;
     out.reserve(value.size());
 
@@ -114,19 +112,13 @@ namespace {
       }
 
       if (i + 2 >= value.size()) {
-        if (errorMessage != nullptr) {
-          *errorMessage = "data URI has truncated percent escape";
-        }
-        return std::nullopt;
+        return std::unexpected("data URI has truncated percent escape");
       }
 
       const int hi = hexValue(value[i + 1]);
       const int lo = hexValue(value[i + 2]);
       if (hi < 0 || lo < 0) {
-        if (errorMessage != nullptr) {
-          *errorMessage = "data URI has invalid percent escape";
-        }
-        return std::nullopt;
+        return std::unexpected("data URI has invalid percent escape");
       }
 
       out.push_back(static_cast<std::uint8_t>((hi << 4) | lo));
@@ -155,8 +147,7 @@ namespace {
     return -1;
   }
 
-  [[nodiscard]] std::optional<std::vector<std::uint8_t>>
-  base64Decode(std::string_view value, std::string* errorMessage) {
+  [[nodiscard]] std::expected<std::vector<std::uint8_t>, std::string> base64Decode(std::string_view value) {
     std::vector<std::uint8_t> out;
     out.reserve((value.size() * 3U) / 4U);
 
@@ -164,11 +155,8 @@ namespace {
     int quadSize = 0;
     bool finished = false;
 
-    auto fail = [&](const char* message) -> std::optional<std::vector<std::uint8_t>> {
-      if (errorMessage != nullptr) {
-        *errorMessage = message;
-      }
-      return std::nullopt;
+    auto fail = [](const char* message) -> std::expected<std::vector<std::uint8_t>, std::string> {
+      return std::unexpected(message);
     };
 
     auto emitQuad = [&]() -> bool {
@@ -250,13 +238,10 @@ namespace {
     bool declaredSvg = false;
   };
 
-  [[nodiscard]] std::optional<DecodedDataUri> decodeDataUri(std::string_view source, std::string* errorMessage) {
+  [[nodiscard]] std::expected<DecodedDataUri, std::string> decodeDataUri(std::string_view source) {
     const std::size_t comma = source.find(',');
     if (comma == std::string_view::npos) {
-      if (errorMessage != nullptr) {
-        *errorMessage = "data URI is missing payload separator";
-      }
-      return std::nullopt;
+      return std::unexpected("data URI is missing payload separator");
     }
 
     const std::string_view header = source.substr(5, comma - 5);
@@ -284,9 +269,9 @@ namespace {
       firstToken = false;
     }
 
-    auto decodedPayload = percentDecode(payload, errorMessage);
-    if (!decodedPayload.has_value()) {
-      return std::nullopt;
+    auto decodedPayload = percentDecode(payload);
+    if (!decodedPayload) {
+      return std::unexpected(decodedPayload.error());
     }
 
     if (!base64) {
@@ -299,9 +284,9 @@ namespace {
       decodedText.push_back(static_cast<char>(byte));
     }
 
-    auto decodedBytes = base64Decode(decodedText, errorMessage);
-    if (!decodedBytes.has_value()) {
-      return std::nullopt;
+    auto decodedBytes = base64Decode(decodedText);
+    if (!decodedBytes) {
+      return std::unexpected(decodedBytes.error());
     }
     return DecodedDataUri{.bytes = std::move(*decodedBytes), .declaredSvg = declaredSvg};
   }
@@ -351,75 +336,69 @@ namespace {
     return image;
   }
 
-  std::optional<LoadedImageFile> loadImageBytes(
-      std::vector<std::uint8_t> fileData, bool preferSvg, int targetSize, std::string* errorMessage,
-      bool centerSquareCrop
-  ) {
+  std::expected<LoadedImageFile, std::string>
+  loadImageBytes(std::vector<std::uint8_t> fileData, bool preferSvg, int targetSize, bool centerSquareCrop) {
     if (fileData.empty()) {
-      if (errorMessage != nullptr) {
-        *errorMessage = "empty image data";
-      }
-      return std::nullopt;
+      return std::unexpected("empty image data");
     }
 
     const bool svgLike = looksLikeSvg(fileData);
     if (preferSvg || svgLike) {
-      if (auto loaded = rasterizeSvg(fileData, targetSize, errorMessage, centerSquareCrop)) {
+      auto loaded = rasterizeSvg(fileData, targetSize, centerSquareCrop);
+      if (loaded) {
         return loaded;
       }
       if (svgLike) {
-        return std::nullopt;
+        return loaded;
       }
     }
 
-    if (auto decoded = decodeRasterImage(fileData.data(), fileData.size(), errorMessage)) {
-      LoadedImageFile loaded{.rgba = std::move(decoded->pixels), .width = decoded->width, .height = decoded->height};
-
-      // Crop before resizing so the kept square fills targetSize at full detail,
-      // instead of resizing the whole frame and discarding most of it afterwards.
-      if (centerSquareCrop) {
-        loaded = cropCenterSquare(std::move(loaded));
-      }
-
-      const int maxDim = std::max(loaded.width, loaded.height);
-      if (targetSize > 0 && maxDim > targetSize && loaded.width > 0 && loaded.height > 0) {
-        const float scale = static_cast<float>(targetSize) / static_cast<float>(maxDim);
-        const int resizedW = std::max(1, static_cast<int>(std::lround(static_cast<float>(loaded.width) * scale)));
-        const int resizedH = std::max(1, static_cast<int>(std::lround(static_cast<float>(loaded.height) * scale)));
-
-        std::vector<std::uint8_t> resized(static_cast<std::size_t>(resizedW) * static_cast<std::size_t>(resizedH) * 4U);
-        // Use the sRGB resize: image bytes are sRGB-encoded, so averaging them
-        // directly (the _linear variant) darkens and muddies downscaled icons.
-        // STBIR_RGBA handles the non-premultiplied alpha correctly.
-        unsigned char* result = stbir_resize_uint8_srgb(
-            loaded.rgba.data(), loaded.width, loaded.height, 0, resized.data(), resizedW, resizedH, 0, STBIR_RGBA
-        );
-        if (result != nullptr) {
-          loaded.rgba = std::move(resized);
-          loaded.width = resizedW;
-          loaded.height = resizedH;
-        }
-      }
-
-      return loaded;
+    auto decoded = decodeRasterImage(fileData.data(), fileData.size());
+    if (!decoded) {
+      return std::unexpected(decoded.error());
     }
 
-    return std::nullopt;
+    LoadedImageFile loaded{.rgba = std::move(decoded->pixels), .width = decoded->width, .height = decoded->height};
+
+    // Crop before resizing so the kept square fills targetSize at full detail,
+    // instead of resizing the whole frame and discarding most of it afterwards.
+    if (centerSquareCrop) {
+      loaded = cropCenterSquare(std::move(loaded));
+    }
+
+    const int maxDim = std::max(loaded.width, loaded.height);
+    if (targetSize > 0 && maxDim > targetSize && loaded.width > 0 && loaded.height > 0) {
+      const float scale = static_cast<float>(targetSize) / static_cast<float>(maxDim);
+      const int resizedW = std::max(1, static_cast<int>(std::lround(static_cast<float>(loaded.width) * scale)));
+      const int resizedH = std::max(1, static_cast<int>(std::lround(static_cast<float>(loaded.height) * scale)));
+
+      std::vector<std::uint8_t> resized(static_cast<std::size_t>(resizedW) * static_cast<std::size_t>(resizedH) * 4U);
+      // Use the sRGB resize: image bytes are sRGB-encoded, so averaging them
+      // directly (the _linear variant) darkens and muddies downscaled icons.
+      // STBIR_RGBA handles the non-premultiplied alpha correctly.
+      unsigned char* result = stbir_resize_uint8_srgb(
+          loaded.rgba.data(), loaded.width, loaded.height, 0, resized.data(), resizedW, resizedH, 0, STBIR_RGBA
+      );
+      if (result != nullptr) {
+        loaded.rgba = std::move(resized);
+        loaded.width = resizedW;
+        loaded.height = resizedH;
+      }
+    }
+
+    return loaded;
   }
 
-  std::optional<LoadedImageFile> rasterizeSvg(
-      const std::vector<std::uint8_t>& fileData, int targetSize, std::string* errorMessage, bool centerSquareCrop
-  ) {
+  std::expected<LoadedImageFile, std::string>
+  rasterizeSvg(const std::vector<std::uint8_t>& fileData, int targetSize, bool centerSquareCrop) {
     GError* gerror = nullptr;
     RsvgHandle* handle = rsvg_handle_new_from_data(fileData.data(), fileData.size(), &gerror);
     if (handle == nullptr) {
-      if (errorMessage != nullptr) {
-        *errorMessage = std::string("failed to parse SVG: ") + (gerror != nullptr ? gerror->message : "unknown");
-      }
+      std::string error = std::string("failed to parse SVG: ") + (gerror != nullptr ? gerror->message : "unknown");
       if (gerror != nullptr) {
         g_error_free(gerror);
       }
-      return std::nullopt;
+      return std::unexpected(std::move(error));
     }
 
     // Determine intrinsic pixel size. Many real-world SVGs (e.g. viewBox-only)
@@ -454,21 +433,15 @@ namespace {
       height = std::max(1, static_cast<int>(std::round(intrinsicH * scale)));
     }
     if (width <= 0 || height <= 0) {
-      if (errorMessage != nullptr) {
-        *errorMessage = "invalid SVG dimensions";
-      }
       g_object_unref(handle);
-      return std::nullopt;
+      return std::unexpected("invalid SVG dimensions");
     }
 
     cairo_surface_t* surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
     if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
-      if (errorMessage != nullptr) {
-        *errorMessage = "failed to create cairo surface";
-      }
       cairo_surface_destroy(surface);
       g_object_unref(handle);
-      return std::nullopt;
+      return std::unexpected("failed to create cairo surface");
     }
 
     cairo_t* cr = cairo_create(surface);
@@ -480,17 +453,15 @@ namespace {
     };
     GError* renderError = nullptr;
     if (rsvg_handle_render_document(handle, cr, &viewport, &renderError) == FALSE) {
-      if (errorMessage != nullptr) {
-        *errorMessage =
-            std::string("failed to render SVG: ") + (renderError != nullptr ? renderError->message : "unknown");
-      }
+      std::string error =
+          std::string("failed to render SVG: ") + (renderError != nullptr ? renderError->message : "unknown");
       if (renderError != nullptr) {
         g_error_free(renderError);
       }
       cairo_destroy(cr);
       cairo_surface_destroy(surface);
       g_object_unref(handle);
-      return std::nullopt;
+      return std::unexpected(std::move(error));
     }
     cairo_destroy(cr);
     cairo_surface_flush(surface);
@@ -515,32 +486,24 @@ namespace {
 
 } // namespace
 
-std::optional<LoadedImageFile>
-loadImageFile(const std::string& path, int targetSize, std::string* errorMessage, bool centerSquareCrop) {
+std::expected<LoadedImageFile, std::string>
+loadImageFile(const std::string& path, int targetSize, bool centerSquareCrop) {
   if (path.empty()) {
-    if (errorMessage != nullptr) {
-      *errorMessage = "empty image path";
-    }
-    return std::nullopt;
+    return std::unexpected("empty image path");
   }
 
   if (asciiStartsWithDataScheme(path)) {
-    auto dataUri = decodeDataUri(path, errorMessage);
-    if (!dataUri.has_value()) {
-      return std::nullopt;
-    }
-    return loadImageBytes(std::move(dataUri->bytes), dataUri->declaredSvg, targetSize, errorMessage, centerSquareCrop);
+    return decodeDataUri(path).and_then([&](DecodedDataUri dataUri) {
+      return loadImageBytes(std::move(dataUri.bytes), dataUri.declaredSvg, targetSize, centerSquareCrop);
+    });
   }
 
   auto fileData = FileUtils::readBinaryFile(path);
   if (fileData.empty()) {
-    if (errorMessage != nullptr) {
-      *errorMessage = "failed to read image file";
-    }
-    return std::nullopt;
+    return std::unexpected("failed to read image file");
   }
 
   return loadImageBytes(
-      std::move(fileData), path.ends_with(".svg") || path.ends_with(".SVG"), targetSize, errorMessage, centerSquareCrop
+      std::move(fileData), path.ends_with(".svg") || path.ends_with(".SVG"), targetSize, centerSquareCrop
   );
 }

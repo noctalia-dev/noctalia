@@ -1,10 +1,7 @@
 #include "ui/controls/flex.h"
 
 #include "render/core/render_styles.h"
-#include "render/core/renderer.h"
 #include "render/scene/rect_node.h"
-#include "ui/controls/glyph.h"
-#include "ui/controls/label.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
@@ -261,7 +258,7 @@ void Flex::setSoftness(float softness) {
 void Flex::setCardStyle(float scale, float fillOpacity, bool showBorder) {
   setFill(colorSpecFromRole(ColorRole::SurfaceVariant, fillOpacity));
   if (showBorder) {
-    setBorder(colorSpecFromRole(ColorRole::Outline, 0.5f), Style::borderWidth);
+    setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
   } else {
     clearBorder();
   }

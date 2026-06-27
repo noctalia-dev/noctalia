@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/frame_rate_limiter.h"
 #include "shell/control_center/tab.h"
 
 #include <chrono>
@@ -36,7 +37,8 @@ private:
   bool m_graphInitialized = false;
   bool m_gpuVisible = false;
   float m_scrollProgress = 1.0f;
-  std::chrono::steady_clock::time_point m_lastSampleAt{};
+  std::chrono::steady_clock::time_point m_lastSampleAt;
+  FrameRateLimiter m_redrawLimiter{std::chrono::milliseconds{200}};
 
   double m_cpuTempMin = 30.0;
   double m_cpuTempMax = 80.0;
@@ -55,6 +57,11 @@ private:
   Flex* m_ramCard = nullptr;
   Flex* m_gpuCard = nullptr;
   Flex* m_netCard = nullptr;
+
+  Flex* m_cpuLegend = nullptr;
+  Flex* m_ramLegend = nullptr;
+  Flex* m_gpuLegend = nullptr;
+  Flex* m_netLegend = nullptr;
 
   Glyph* m_cpuPctIcon = nullptr;
   Label* m_cpuPctLabel = nullptr;
@@ -76,11 +83,11 @@ private:
   Glyph* m_txIcon = nullptr;
   Label* m_txLabel = nullptr;
 
-  // System card: distro, kernel, compositor, uptime, board, cpu, gpu
+  // System card: cpu, gpu, distro, kernel, wm, uptime + os age
   static constexpr int kSystemLines = 6;
   Label* m_systemLines[kSystemLines] = {};
 
-  // Resources card: load, memory, swap (hidden when no swap), then one line per discovered physical disk.
+  // Resources card: load, memory, swap (hidden when no swap), then up to four discovered physical disks.
   static constexpr int kResourcesLines = 2;
   Label* m_resourcesLines[kResourcesLines] = {};
   Flex* m_swapRow = nullptr;

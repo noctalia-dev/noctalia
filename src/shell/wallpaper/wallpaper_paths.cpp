@@ -1,5 +1,8 @@
 #include "shell/wallpaper/wallpaper_paths.h"
 
+#include "config/config_types.h"
+#include "util/file_utils.h"
+
 const WallpaperMonitorOverride*
 wallpaper::findWallpaperMonitorOverride(const WallpaperConfig& config, const WaylandOutput& output) {
   for (const auto& ovr : config.monitorOverrides) {
@@ -35,5 +38,8 @@ std::string wallpaper::resolveGlobalWallpaperDirectory(const WallpaperConfig& co
   if (mode == ThemeMode::Dark && !config.directoryDark.empty()) {
     return config.directoryDark;
   }
-  return config.directory;
+  if (!config.directory.empty()) {
+    return config.directory;
+  }
+  return FileUtils::expandUserPath(std::string(kDefaultWallpaperDirectory)).string();
 }

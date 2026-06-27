@@ -1,7 +1,6 @@
 #pragma once
 
-#include "core/toml.h"
-#include "theme/palette.h"
+#include "core/toml.h" // IWYU pragma: keep
 
 #include <filesystem>
 #include <functional>
@@ -10,6 +9,8 @@
 #include <unordered_set>
 
 namespace noctalia::theme {
+
+  struct GeneratedPalette;
 
   struct RenderResult {
     std::string text;

@@ -8,7 +8,6 @@
 #include <ctime>
 #include <fcntl.h>
 #include <filesystem>
-#include <format>
 #include <fstream>
 #include <pwd.h>
 #include <string>
@@ -96,9 +95,12 @@ std::string distroLabel() {
   return i18n::tr("system.hardware.unknown-distro");
 }
 
-std::string kernelRelease() {
+std::string kernelLabel() {
   struct utsname un{};
   if (uname(&un) == 0 && un.release[0] != '\0') {
+    if (un.sysname[0] != '\0') {
+      return std::string(un.sysname) + " " + un.release;
+    }
     return un.release;
   }
   return i18n::tr("control-center.system.unknown");
@@ -112,7 +114,7 @@ std::string osAgeLabel() {
     if (statx(AT_FDCWD, path, AT_SYMLINK_NOFOLLOW, STATX_BTIME, &sx) == 0
         && (sx.stx_mask & STATX_BTIME) != 0
         && sx.stx_btime.tv_sec > 0) {
-      const std::uint64_t birth = static_cast<std::uint64_t>(sx.stx_btime.tv_sec);
+      const auto birth = static_cast<std::uint64_t>(sx.stx_btime.tv_sec);
       if (oldest == 0 || birth < oldest) {
         oldest = birth;
       }
@@ -131,7 +133,7 @@ std::string osAgeLabel() {
   }
   const std::time_t now = std::time(nullptr);
   if (now <= 0 || static_cast<std::uint64_t>(now) <= oldest) {
-    return "<1d";
+    return i18n::tr("time.duration.less-than-day");
   }
 
   const std::uint64_t seconds = static_cast<std::uint64_t>(now) - oldest;
@@ -139,12 +141,14 @@ std::string osAgeLabel() {
   const std::uint64_t years = days / 365;
   const std::uint64_t months = (days % 365) / 30;
   if (years > 0) {
+    const std::string yearText = i18n::trp("time.units.year", static_cast<long>(years));
     if (months > 0) {
-      return std::format("{}y {}mo", years, months);
+      const std::string monthText = i18n::trp("time.units.month", static_cast<long>(months));
+      return i18n::tr("time.duration.two-parts", "first", yearText, "second", monthText);
     }
-    return std::format("{}y", years);
+    return yearText;
   }
-  return std::format("{} days", days);
+  return i18n::trp("time.units.day", static_cast<long>(days));
 }
 
 std::string sessionDisplayName() {

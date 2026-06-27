@@ -7,7 +7,6 @@
 #include <vector>
 
 class ConfigService;
-class Node;
 class RenderContext;
 class WaylandConnection;
 

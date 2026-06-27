@@ -11,6 +11,7 @@
 #include "net/uri.h"
 #include "notification/notification_display_name.h"
 #include "notification/notification_manager.h"
+#include "render/core/texture_manager.h"
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
 #include "shell/surface/edge_inset.h"
@@ -63,11 +64,11 @@ namespace {
   constexpr float kIconTextGap = Style::spaceSm;
   constexpr float kActionGap = Style::spaceXs;
   constexpr float kActionRowGap = Style::spaceSm;
-  constexpr int kMaxActionButtons = 2;
   std::string fallbackActionLabel() { return i18n::tr("notifications.actions.fallback"); }
 
   bool hasInlineReplyAction(const std::vector<std::string>& actions) {
-    for (std::size_t i = 0; i + 1 < actions.size(); i += 2) {
+    const std::size_t limit = std::min(actions.size(), kMaxNotificationActions * 2);
+    for (std::size_t i = 0; i + 1 < limit; i += 2) {
       if (actions[i] == "inline-reply") {
         return true;
       }
@@ -76,7 +77,8 @@ namespace {
   }
 
   std::string inlineReplyPlaceholder(const std::vector<std::string>& actions) {
-    for (std::size_t i = 0; i + 1 < actions.size(); i += 2) {
+    const std::size_t limit = std::min(actions.size(), kMaxNotificationActions * 2);
+    for (std::size_t i = 0; i + 1 < limit; i += 2) {
       if (actions[i] == "inline-reply") {
         return actions[i + 1];
       }
@@ -90,7 +92,7 @@ namespace {
     if (timeout <= 0) {
       return -1;
     }
-    return std::max(1000, static_cast<int>(timeout));
+    return static_cast<int>(timeout);
   }
   constexpr int kProgressHeight = 3;
   constexpr int kContentSlideOffset = 12; // subtle foreground slide during reveal/retract
@@ -251,15 +253,7 @@ namespace {
     }
   }
 
-  std::int32_t outputLogicalHeight(const WaylandOutput& output) {
-    if (output.logicalHeight > 0) {
-      return output.logicalHeight;
-    }
-    if (output.height > 0) {
-      return output.height / std::max(1, output.scale);
-    }
-    return 0;
-  }
+  std::int32_t outputLogicalHeight(const WaylandOutput& output) { return output.effectiveLogicalHeight(); }
 
   float notificationTextMaxWidth(float scale, bool showActions) {
     return std::max(
@@ -305,8 +299,8 @@ namespace {
   std::vector<std::unique_ptr<Button>>
   collectNotificationActionButtons(const std::vector<std::string>& actions, float scale) {
     std::vector<std::unique_ptr<Button>> buttons;
-    buttons.reserve(kMaxActionButtons);
-    for (std::size_t i = 0; i + 1 < actions.size() && static_cast<int>(buttons.size()) < kMaxActionButtons; i += 2) {
+    const std::size_t limit = std::min(actions.size(), kMaxNotificationActions * 2);
+    for (std::size_t i = 0; i + 1 < limit; i += 2) {
       const std::string& actionKey = actions[i];
       std::string actionLabel = actions[i + 1];
       if (actionKey.empty() || actionKey == "default") {
@@ -320,56 +314,22 @@ namespace {
     return buttons;
   }
 
-  bool
-  notificationActionsPreferStack(RenderContext& rc, const std::vector<std::unique_ptr<Button>>& buttons, float scale) {
-    if (buttons.size() < 2) {
-      return false;
-    }
-    const float rowWidth = notificationTextMaxWidth(scale, true);
-    float totalWidth = 0.0f;
-    for (std::size_t i = 0; i < buttons.size(); ++i) {
-      if (i > 0) {
-        totalWidth += actionGap(scale);
-      }
-      const LayoutSize measured = buttons[i]->measure(rc, LayoutConstraints{});
-      totalWidth += measured.width;
-    }
-    return totalWidth > rowWidth + 0.5f;
-  }
-
-  void configureNotificationActionsRow(Flex& row, bool stacked, float scale) {
-    if (stacked) {
-      row.setDirection(FlexDirection::Vertical);
-      row.setAlign(FlexAlign::Start);
-      row.setJustify(FlexJustify::End);
-    } else {
-      row.setDirection(FlexDirection::Horizontal);
-      row.setAlign(FlexAlign::Center);
-      row.setJustify(FlexJustify::Start);
-    }
-    row.setGap(actionGap(scale));
-  }
-
   float layoutNotificationActionsRow(
-      RenderContext& rc, Flex& row, std::vector<std::unique_ptr<Button>>& buttons, float scale
+      RenderContext& rc, Flex& container, std::vector<std::unique_ptr<Button>>& buttons, float scale
   ) {
-    const bool stacked = notificationActionsPreferStack(rc, buttons, scale);
-    configureNotificationActionsRow(row, stacked, scale);
-    const float rowWidth = notificationTextMaxWidth(scale, true);
-    for (auto& button : buttons) {
-      if (stacked) {
-        button->setMaxWidth(0.0f);
-      } else if (buttons.size() == 1) {
-        button->setMaxWidth(rowWidth);
-      } else {
-        button->setMaxWidth(0.0f);
-      }
-      row.addChild(std::move(button));
-    }
-    buttons.clear();
-    row.setSize(rowWidth, 0.0f);
-    row.layout(rc);
-    return row.height() + actionRowGap(scale);
+    container.setDirection(FlexDirection::Vertical);
+    container.setAlign(FlexAlign::Stretch);
+    container.setJustify(FlexJustify::Start);
+    container.setGap(actionGap(scale));
+
+    const float maxRowWidth = notificationTextMaxWidth(scale, true);
+
+    auto rows = wrapButtonsIntoRows(rc, buttons, maxRowWidth, actionGap(scale));
+    populateRowContainer(container, std::move(rows), maxRowWidth, actionGap(scale));
+
+    container.setSize(maxRowWidth, 0.0f);
+    container.layout(rc);
+    return container.height() + actionRowGap(scale);
   }
 
   float measureToastCardHeight(
@@ -443,7 +403,7 @@ namespace {
     auto buttons = shouldShowNotificationActions(config) ? collectNotificationActionButtons(actions, scale)
                                                          : std::vector<std::unique_ptr<Button>>{};
     if (!buttons.empty()) {
-      auto actionsRow = ui::row({
+      auto actionsRow = ui::column({
           .padding = Style::spaceXs * scale,
       });
       layoutNotificationActionsRow(rc, *actionsRow, buttons, scale);
@@ -626,9 +586,16 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
     if (m_notifications != nullptr && m_notifications->doNotDisturb()) {
       break;
     }
-    addPopup(n);
+    m_pendingAdds.push_back(n);
+    schedulePendingAdds();
     break;
   case NotificationEvent::Updated: {
+    for (auto& pending : m_pendingAdds) {
+      if (pending.id == n.id) {
+        pending = n;
+        return;
+      }
+    }
     for (std::size_t i = 0; i < m_entries.size(); ++i) {
       if (m_entries[i].notificationId == n.id && !m_entries[i].exiting) {
         const bool contentChanged =
@@ -817,8 +784,29 @@ void NotificationToast::onNotificationEvent(const Notification& n, NotificationE
     break;
   }
   case NotificationEvent::Closed:
+    std::erase_if(m_pendingAdds, [id = n.id](const Notification& pending) { return pending.id == id; });
     removePopup(n.id);
     break;
+  }
+}
+
+void NotificationToast::schedulePendingAdds() {
+  if (m_pendingAddsScheduled) {
+    return;
+  }
+  m_pendingAddsScheduled = true;
+  DeferredCall::callLater([this]() { flushPendingAdds(); });
+}
+
+void NotificationToast::flushPendingAdds() {
+  m_pendingAddsScheduled = false;
+  if (m_pendingAdds.empty()) {
+    return;
+  }
+  auto pending = std::move(m_pendingAdds);
+  m_pendingAdds.clear();
+  for (const auto& n : pending) {
+    addPopup(n);
   }
 }
 
@@ -911,13 +899,13 @@ void NotificationToast::dismissPopup(std::size_t index) {
 }
 
 void NotificationToast::finishRemoval(uint32_t notificationId) {
-  const auto it = std::find_if(m_entries.begin(), m_entries.end(), [notificationId](const PopupEntry& entry) {
+  const auto it = std::ranges::find_if(m_entries, [notificationId](const PopupEntry& entry) {
     return entry.notificationId == notificationId;
   });
   if (it == m_entries.end()) {
     return;
   }
-  const std::size_t index = static_cast<std::size_t>(std::distance(m_entries.begin(), it));
+  const auto index = static_cast<std::size_t>(std::distance(m_entries.begin(), it));
 
   // Remove card nodes from all instances
   for (auto& inst : m_instances) {
@@ -1094,14 +1082,14 @@ void NotificationToast::removeCardFromInstance(Instance& inst, std::size_t entry
 }
 
 void NotificationToast::finishExitingEntryIfOrphaned(uint32_t notificationId) {
-  const auto it = std::find_if(m_entries.begin(), m_entries.end(), [notificationId](const PopupEntry& entry) {
+  const auto it = std::ranges::find_if(m_entries, [notificationId](const PopupEntry& entry) {
     return entry.notificationId == notificationId && entry.exiting;
   });
   if (it == m_entries.end()) {
     return;
   }
 
-  const std::size_t index = static_cast<std::size_t>(std::distance(m_entries.begin(), it));
+  const auto index = static_cast<std::size_t>(std::distance(m_entries.begin(), it));
   for (const auto& inst : m_instances) {
     if (index < inst->cards.size() && inst->cards[index].cardNode != nullptr) {
       return;
@@ -1196,7 +1184,7 @@ void NotificationToast::dismissCardFromInstance(Instance& inst, std::size_t entr
 }
 
 NotificationToast::PopupEntry* NotificationToast::findEntry(uint32_t notificationId) {
-  const auto it = std::find_if(m_entries.begin(), m_entries.end(), [notificationId](const PopupEntry& entry) {
+  const auto it = std::ranges::find_if(m_entries, [notificationId](const PopupEntry& entry) {
     return entry.notificationId == notificationId;
   });
   if (it == m_entries.end()) {
@@ -1527,7 +1515,7 @@ bool NotificationToast::shouldRenderOnOutput(const WaylandOutput& output) const 
   if (selectedMonitors.empty()) {
     return true;
   }
-  return std::any_of(selectedMonitors.begin(), selectedMonitors.end(), [&output](const std::string& match) {
+  return std::ranges::any_of(selectedMonitors, [&output](const std::string& match) {
     return outputMatchesSelector(match, output);
   });
 }
@@ -1573,7 +1561,7 @@ float NotificationToast::cardSurfaceY(const Instance& inst, std::size_t entryInd
   const float scale = notificationUiScale(m_config);
   const float layoutGap = kGap * scale;
   const bool bottom = isBottomStacking();
-  const float surfaceHeight = static_cast<float>(inst.surface->height());
+  const auto surfaceHeight = static_cast<float>(inst.surface->height());
   const float layoutBottom = layoutBottomForSurfaceHeight(surfaceHeight);
   const float placementBottom = maxPlacementBottom();
 
@@ -1601,7 +1589,7 @@ float NotificationToast::cardSurfaceY(const Instance& inst, std::size_t entryInd
   if (items.empty()) {
     return bottom ? layoutBottom : paddingTop(scale);
   }
-  std::sort(items.begin(), items.end(), [](const Item& a, const Item& b) { return a.primary < b.primary; });
+  std::ranges::sort(items, {}, &Item::primary);
 
   float cursor = items.front().primary;
   for (std::size_t k = 0; k < items.size(); ++k) {
@@ -1632,7 +1620,7 @@ float NotificationToast::maxPlacementBottom() const {
   }
   if (!haveSurfaceHeight && m_wayland != nullptr) {
     for (const auto& output : m_wayland->outputs()) {
-      if (output.output == nullptr) {
+      if (!output.done || output.output == nullptr || !output.hasUsableGeometry()) {
         continue;
       }
       if (!shouldRenderOnOutput(output)) {
@@ -1714,9 +1702,7 @@ void NotificationToast::collapseStack() {
     return;
   }
 
-  std::sort(placed.begin(), placed.end(), [](const PlacedEntry& a, const PlacedEntry& b) {
-    return a.oldPrimary < b.oldPrimary;
-  });
+  std::ranges::sort(placed, {}, &PlacedEntry::oldPrimary);
 
   const float initialCursor = isBottomStacking() ? 0.0f : topPad;
   float cursor = initialCursor;
@@ -1836,9 +1822,7 @@ NotificationToast::findPlacementY(float candidateHeight, std::optional<uint32_t>
   const float layoutGap = kGap * scale;
   const float topPadding = paddingTop(scale);
   if (isBottomStacking()) {
-    std::sort(occupied.begin(), occupied.end(), [](const Interval& a, const Interval& b) {
-      return a.bottom > b.bottom;
-    });
+    std::ranges::sort(occupied, std::ranges::greater{}, &Interval::bottom);
     float cursorBottom = bottom;
     for (const auto& interval : occupied) {
       const float candidateTop = cursorBottom - candidateHeight;
@@ -1854,7 +1838,7 @@ NotificationToast::findPlacementY(float candidateHeight, std::optional<uint32_t>
     return std::nullopt;
   }
 
-  std::sort(occupied.begin(), occupied.end(), [](const Interval& a, const Interval& b) { return a.top < b.top; });
+  std::ranges::sort(occupied, {}, &Interval::top);
   float cursor = topPadding;
   for (const auto& interval : occupied) {
     if (cursor + candidateHeight <= interval.top - layoutGap + 0.5f) {
@@ -1919,19 +1903,32 @@ void NotificationToast::ensureSurfaces() {
   // currently connected (e.g. an external display was undocked), fall back to every available
   // output so notifications never silently disappear. Targeting is restored automatically when a
   // configured monitor reconnects via onOutputChange().
-  const bool anyConfiguredPresent = selectedMonitors.empty()
-      || std::any_of(m_wayland->outputs().begin(), m_wayland->outputs().end(),
-                     [this](const WaylandOutput& o) { return o.output != nullptr && shouldRenderOnOutput(o); });
+  const bool anyConfiguredPresent =
+      selectedMonitors.empty()
+      || std::any_of(m_wayland->outputs().begin(), m_wayland->outputs().end(), [this](const WaylandOutput& o) {
+           return o.done && o.output != nullptr && o.hasUsableGeometry() && shouldRenderOnOutput(o);
+         });
+
+  std::erase_if(m_instances, [this, anyConfiguredPresent](const auto& inst) {
+    if (inst == nullptr || inst->output == nullptr) {
+      return true;
+    }
+    const auto* output = m_wayland->findOutputByWl(inst->output);
+    if (output == nullptr || !output->done || !output->hasUsableGeometry()) {
+      return true;
+    }
+    return anyConfiguredPresent && !shouldRenderOnOutput(*output);
+  });
 
   for (const auto& output : m_wayland->outputs()) {
-    if (output.output == nullptr) {
+    if (!output.done || output.output == nullptr || !output.hasUsableGeometry()) {
       continue;
     }
     if (anyConfiguredPresent && !shouldRenderOnOutput(output)) {
       continue;
     }
 
-    auto existingIt = std::find_if(m_instances.begin(), m_instances.end(), [&output](const auto& inst) {
+    auto existingIt = std::ranges::find_if(m_instances, [&output](const auto& inst) {
       return inst != nullptr && inst->output == output.output;
     });
     if (existingIt != m_instances.end()) {
@@ -1968,6 +1965,7 @@ void NotificationToast::ensureSurfaces() {
         .keyboard = LayerShellKeyboard::None,
         .defaultWidth = surfaceWidth,
         .defaultHeight = surfaceHeightForOutput(output.output),
+        .prewarmBlur = true,
     };
 
     inst->surface = std::make_unique<LayerSurface>(*m_wayland, std::move(surfaceConfig));
@@ -2346,8 +2344,8 @@ InputArea* NotificationToast::buildCard(
     // Build action buttons row (always visible initially)
     {
       std::vector<std::unique_ptr<Button>> buttons;
-      for (std::size_t i = 0; i + 1 < entry.actions.size() && static_cast<int>(buttons.size()) < kMaxActionButtons;
-           i += 2) {
+      const std::size_t limit = std::min(entry.actions.size(), kMaxNotificationActions * 2);
+      for (std::size_t i = 0; i + 1 < limit; i += 2) {
         const std::string actionKey = entry.actions[i];
         std::string actionLabel = entry.actions[i + 1];
         if (actionKey.empty() || actionKey == "default") {
@@ -2379,7 +2377,7 @@ InputArea* NotificationToast::buildCard(
       }
 
       if (!buttons.empty()) {
-        actionsRow = ui::row({
+        actionsRow = ui::column({
             .padding = Style::spaceXs * scale,
         });
         layoutNotificationActionsRow(*m_renderContext, *actionsRow, buttons, scale);
@@ -2534,7 +2532,7 @@ InputArea* NotificationToast::buildCard(
             box.setCardStyle();
             box.setRadius(Style::scaledRadiusXl(scale));
             box.setFill(colorSpecFromRole(ColorRole::Surface, bgAlpha));
-            box.setBorder(colorSpecFromRole(ColorRole::Outline, 0.8f), Style::borderWidth);
+            box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
           },
       })
   );

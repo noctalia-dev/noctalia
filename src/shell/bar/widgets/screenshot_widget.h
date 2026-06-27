@@ -13,7 +13,6 @@ class ContextMenuPopup;
 class Glyph;
 class InputArea;
 class RenderContext;
-struct PointerEvent;
 struct wl_output;
 
 class ScreenshotWidget : public Widget {

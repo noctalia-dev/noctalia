@@ -55,12 +55,13 @@ private:
   };
 
   void buildScene(const DropdownRequest& request);
-  void handleKey(std::uint32_t sym, std::uint32_t utf32, bool pressed);
+  void handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed);
   void invalidateScene();
   void scrollBy(float delta);
   void setScrollOffset(float offset);
   void applyScrollOffset();
   void clampScrollOffset();
+  void ensureHoveredIndexVisible();
   void applyHoverVisuals();
   void selectAndClose(std::size_t index);
   [[nodiscard]] bool mapPointerEvent(const PointerEvent& event, float& localX, float& localY) const noexcept;

@@ -85,10 +85,10 @@ std::vector<FileEntry> DirectoryScanner::scan(
   }
 
   std::vector<std::size_t> indices(entries.size());
-  std::iota(indices.begin(), indices.end(), std::size_t{0});
+  std::ranges::iota(indices, std::size_t{0});
 
   const bool ascending = sortOrder == FileDialogSortOrder::Ascending;
-  std::sort(indices.begin(), indices.end(), [&](std::size_t ai, std::size_t bi) {
+  std::ranges::sort(indices, [&](std::size_t ai, std::size_t bi) {
     const auto& a = entries[ai];
     const auto& b = entries[bi];
 
@@ -138,7 +138,7 @@ bool DirectoryScanner::isImagePath(const std::filesystem::path& path) {
   };
 
   const std::string ext = normalizeExtension(path.extension().string());
-  return std::find(kImageExtensions.begin(), kImageExtensions.end(), ext) != kImageExtensions.end();
+  return std::ranges::contains(kImageExtensions, ext);
 }
 
 bool DirectoryScanner::matchesExtension(const std::filesystem::path& path, const std::vector<std::string>& extensions) {
@@ -147,7 +147,7 @@ bool DirectoryScanner::matchesExtension(const std::filesystem::path& path, const
   }
 
   const std::string ext = normalizeExtension(path.extension().string());
-  return std::find(extensions.begin(), extensions.end(), ext) != extensions.end();
+  return std::ranges::contains(extensions, ext);
 }
 
 bool DirectoryScanner::isHiddenName(std::string_view name) { return !name.empty() && name.front() == '.'; }

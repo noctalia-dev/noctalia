@@ -9,7 +9,6 @@
 #include "pipewire/pipewire_spectrum.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
-#include "scripting/script_api_context.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -129,16 +128,12 @@ namespace {
 
 } // namespace
 
-PluginWidget::PluginWidget(
-    std::string entryId, std::filesystem::path sourcePath, std::unordered_map<std::string, WidgetSettingValue> settings,
-    std::string barName, std::string outputName, scripting::ScriptApiContext& scriptApi, FileWatcher* fileWatcher,
-    CompositorPlatform* platform, ClipboardService* clipboard, HttpClient* httpClient, PipeWireSpectrum* audioSpectrum,
-    MprisService* mpris
-)
-    : m_entryId(std::move(entryId)), m_sourcePath(std::move(sourcePath)), m_pluginDir(m_sourcePath.parent_path()),
-      m_barName(std::move(barName)), m_outputName(std::move(outputName)), m_scriptApi(scriptApi),
-      m_settings(std::move(settings)), m_fileWatcher(fileWatcher), m_platform(platform), m_clipboard(clipboard),
-      m_httpClient(httpClient), m_audioSpectrum(audioSpectrum), m_mpris(mpris), m_timerPhase(nextTimerPhase()) {
+PluginWidget::PluginWidget(scripting::PluginRuntimeContext context, std::string barName, std::string outputName)
+    : m_entryId(std::move(context.entryId)), m_sourcePath(std::move(context.sourcePath)),
+      m_pluginDir(m_sourcePath.parent_path()), m_barName(std::move(barName)), m_outputName(std::move(outputName)),
+      m_scriptApi(context.scriptApi), m_settings(std::move(context.settings)), m_fileWatcher(context.fileWatcher),
+      m_platform(context.platform), m_clipboard(context.clipboard), m_httpClient(context.httpClient),
+      m_audioSpectrum(context.audioSpectrum), m_mpris(context.mpris), m_timerPhase(nextTimerPhase()) {
   m_audioSpectrumEnabled = settingBool(m_settings, "audio_spectrum", false);
   m_audioSpectrumBands =
       static_cast<int>(std::clamp<std::int64_t>(settingInt(m_settings, "audio_spectrum_bands", 16), 1, 128));
@@ -236,6 +231,7 @@ void PluginWidget::create() {
       ui::label({
           .out = &m_label,
           .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontFamily = labelFontFamily(),
           .fontWeight = labelFontWeight(),
           .visible = false,
       })
@@ -497,7 +493,9 @@ void PluginWidget::luaSetVisible(bool visible) {
   m_dirty = true;
 }
 
-PluginWidget::DispatchResult PluginWidget::dispatchIpc(std::string_view event, std::string_view payload) {
+PluginWidget::DispatchResult
+PluginWidget::dispatchIpc(std::string_view event, std::string_view payload, const scripting::ScriptSnapshot& snapshot) {
+  (void)snapshot;
   if (!m_runtime) {
     return DispatchResult::MissingHost;
   }

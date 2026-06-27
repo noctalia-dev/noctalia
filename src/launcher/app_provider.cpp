@@ -9,8 +9,10 @@
 
 #include <algorithm>
 #include <array>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 
 namespace {
 
@@ -55,65 +57,67 @@ namespace {
   struct AppCategoryDef {
     std::string_view id;
     std::string_view glyph;
+    std::string_view desktopTokens;
   };
 
-  // Stable category ids (used for matching) paired with their chip glyph. Display
-  // labels are resolved from i18n via appCategoryLabel(), keyed on the id.
+  // Stable category ids (used for matching) paired with chip glyphs and freedesktop
+  // Categories keys. Display labels are resolved from i18n via appCategoryLabel().
   constexpr std::array<AppCategoryDef, 9> kAppCategories = {{
-      {"internet", "world"},
-      {"multimedia", "player-play"},
-      {"development", "code"},
-      {"games", "device-gamepad-2"},
-      {"graphics", "photo"},
-      {"office", "briefcase"},
-      {"education", "school"},
-      {"system", "settings"},
-      {"utilities", "tool"},
+      {"internet", "world", "Network"},
+      {"multimedia", "player-play", "AudioVideo;Audio;Video"},
+      {"development", "code", "Development"},
+      {"games", "device-gamepad-2", "Game"},
+      {"graphics", "photo", "Graphics"},
+      {"office", "briefcase", "Office"},
+      {"education", "school", "Education;Science"},
+      {"system", "settings", "System"},
+      {"utilities", "tool", "Utility;Settings"},
   }};
 
-  std::string appCategoryLabel(std::string_view id) {
-    return i18n::tr("launcher.categories.applications." + std::string(id));
-  }
-
-  // Maps a desktop-entry category list to one of kAppCategories' stable ids.
-  std::string_view primaryCategory(std::string_view categories) {
+  template <typename Fn> void forEachSemicolonToken(std::string_view list, Fn&& fn) {
     std::size_t start = 0;
-    while (start < categories.size()) {
-      auto semi = categories.find(';', start);
-      auto token = (semi == std::string_view::npos) ? categories.substr(start) : categories.substr(start, semi - start);
-      if (token == "AudioVideo" || token == "Audio" || token == "Video") {
-        return "multimedia";
-      }
-      if (token == "Development") {
-        return "development";
-      }
-      if (token == "Game") {
-        return "games";
-      }
-      if (token == "Graphics") {
-        return "graphics";
-      }
-      if (token == "Network") {
-        return "internet";
-      }
-      if (token == "Office") {
-        return "office";
-      }
-      if (token == "System") {
-        return "system";
-      }
-      if (token == "Utility" || token == "Settings") {
-        return "utilities";
-      }
-      if (token == "Education" || token == "Science") {
-        return "education";
+    while (start < list.size()) {
+      const auto semi = list.find(';', start);
+      const auto token = (semi == std::string_view::npos) ? list.substr(start) : list.substr(start, semi - start);
+      if (!token.empty() && !fn(token)) {
+        return;
       }
       if (semi == std::string_view::npos) {
         break;
       }
       start = semi + 1;
     }
-    return {};
+  }
+
+  const std::unordered_map<std::string_view, std::size_t>& desktopCategoryIndexByToken() {
+    static const auto map = [] {
+      std::unordered_map<std::string_view, std::size_t> result;
+      for (std::size_t i = 0; i < kAppCategories.size(); ++i) {
+        forEachSemicolonToken(kAppCategories[i].desktopTokens, [&](std::string_view token) {
+          result.emplace(token, i);
+          return true;
+        });
+      }
+      return result;
+    }();
+    return map;
+  }
+
+  std::string appCategoryLabel(std::string_view id) {
+    return i18n::tr("launcher.categories.applications." + std::string(id));
+  }
+
+  std::optional<std::size_t> primaryCategoryIndex(std::string_view categories) {
+    const auto& indexByToken = desktopCategoryIndexByToken();
+    std::optional<std::size_t> found;
+    forEachSemicolonToken(categories, [&](std::string_view token) {
+      if (const auto it = indexByToken.find(token); it != indexByToken.end()) {
+        found = it->second;
+        return false;
+      }
+      return true;
+    });
+    return found;
   }
 
 } // namespace
@@ -130,15 +134,8 @@ std::vector<LauncherCategory> AppProvider::categories() const {
 
   std::array<bool, kAppCategories.size()> populated{};
   for (const auto& entry : m_entries) {
-    const std::string_view categoryId = primaryCategory(entry.categories);
-    if (categoryId.empty()) {
-      continue;
-    }
-    for (std::size_t i = 0; i < kAppCategories.size(); ++i) {
-      if (kAppCategories[i].id == categoryId) {
-        populated[i] = true;
-        break;
-      }
+    if (const auto index = primaryCategoryIndex(entry.categories)) {
+      populated[*index] = true;
     }
   }
 
@@ -174,8 +171,9 @@ std::vector<LauncherResult> AppProvider::query(std::string_view text) const {
     result.subtitle = entry.genericName.empty() ? entry.comment : entry.genericName;
     result.iconName = entry.icon.empty() ? std::string(kDefaultAppIcon) : entry.icon;
     result.glyphName = "app-window";
-    const std::string_view categoryId = primaryCategory(entry.categories);
-    result.category = categoryId.empty() ? std::string() : appCategoryLabel(categoryId);
+    if (const auto index = primaryCategoryIndex(entry.categories)) {
+      result.category = appCategoryLabel(kAppCategories[*index].id);
+    }
     result.score = s;
     return result;
   };

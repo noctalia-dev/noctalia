@@ -10,7 +10,7 @@
 #include "ui/popup_chrome.h"
 #include "ui/style.h"
 #include "wayland/popup_surface.h"
-#include "wayland/wayland_connection.h"
+#include "wayland/wayland_seat.h"
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>
@@ -47,7 +47,7 @@ namespace settings {
   constexpr float kPopupWidth = 640.0f;    // minimum / fallback logical width
   constexpr float kPopupWidthMax = 820.0f; // absolute maximum logical width
   constexpr float kPopupWidthParentFraction = 0.75f;
-  constexpr float kInitialPopupHeight = 360.0f;
+  constexpr float kInitialPopupHeight = 480.0f;
   constexpr float kParentMargin = 48.0f;
 
   SettingsEditorSheetPopup::~SettingsEditorSheetPopup() { destroyPopup(); }
@@ -58,12 +58,8 @@ namespace settings {
     initializeBase(wayland, config, renderContext);
   }
 
-  void SettingsEditorSheetPopup::open(
-      xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
-      std::uint32_t parentWidth, std::uint32_t parentHeight, float scale, std::string sheetTitle,
-      std::function<void()> removeAction, std::function<void(Flex& sheetBody)> populateSheetBody
-  ) {
-    if (parentXdgSurface == nullptr || parentWlSurface == nullptr) {
+  void SettingsEditorSheetPopup::open(SettingsEditorSheetPopupRequest request) {
+    if (request.parent.xdgSurface == nullptr || request.parent.wlSurface == nullptr) {
       return;
     }
 
@@ -71,26 +67,26 @@ namespace settings {
       close();
     }
 
-    m_scale = std::max(0.1f, scale);
-    m_sheetTitle = std::move(sheetTitle);
-    m_removeAction = std::move(removeAction);
-    m_populateSheetBody = std::move(populateSheetBody);
+    m_scale = std::max(0.1f, request.scale);
+    m_sheetTitle = std::move(request.sheetTitle);
+    m_removeAction = std::move(request.removeAction);
+    m_populateSheetBody = std::move(request.populateSheetBody);
     m_root = nullptr;
-    m_parentWidth = parentWidth;
-    m_parentHeight = parentHeight;
+    m_parentWidth = request.parent.width;
+    m_parentHeight = request.parent.height;
 
     const float popupWidth = kPopupWidth * m_scale;
     const float popupHeight = kInitialPopupHeight * m_scale;
     const auto cfg = centeredPopupConfig(
-        parentWidth, parentHeight, static_cast<std::uint32_t>(std::max(1.0f, popupWidth)),
-        static_cast<std::uint32_t>(std::max(1.0f, popupHeight)), serial
+        request.parent.width, request.parent.height, static_cast<std::uint32_t>(std::max(1.0f, popupWidth)),
+        static_cast<std::uint32_t>(std::max(1.0f, popupHeight)), request.parent.serial
     );
 
-    if (!openPopupAsChild(cfg, parentXdgSurface, parentWlSurface, output)) {
+    if (!openPopupAsChild(cfg, request.parent)) {
       close();
       return;
     }
-    m_parentOutput = output;
+    m_parentOutput = request.parent.output;
   }
 
   void SettingsEditorSheetPopup::close() { destroyPopup(); }
@@ -306,7 +302,10 @@ namespace settings {
     const auto naturalHeight = [&](float widthBudget) {
       const float innerCw = std::max(1.0f, widthBudget - 2.0f * popupPadding);
       LayoutConstraints c;
-      c.setMaxWidth(innerCw);
+      // Exact width so wrapped setting labels measure their full line count. Max width
+      // alone leaves cross-axis unconstrained during measure, which under-counts height
+      // for short bodies (e.g. a two-setting plugin sheet) and clips the last row.
+      c.setExactWidth(innerCw);
       const float headerH = m_header->measure(renderer, c).height;
       const float contentH = m_scrollView->content()->measure(renderer, c).height;
       return 2.0f * popupPadding + headerH + popupGap + contentH;

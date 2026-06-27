@@ -147,7 +147,7 @@ void main() {
     resultRGB = mix(resultRGB, resultRGB * vec3(1.08, 1.04, 0.98), 0.15);
 
     float mask = cornerMask();
-    float finalAlpha = resultAlpha * mask;
+    float finalAlpha = resultAlpha * mask * u_bg_color.a;
     gl_FragColor = vec4(resultRGB * (finalAlpha / max(resultAlpha, 0.001)), finalAlpha);
 }
 )";
@@ -195,7 +195,7 @@ void main() {
     vec3 blended = mix(u_bg_color.rgb, snowColor, snowAlpha);
 
     float mask = cornerMask();
-    float finalAlpha = mask;
+    float finalAlpha = mask * u_bg_color.a;
     gl_FragColor = vec4(blended * finalAlpha, finalAlpha);
 }
 )";
@@ -293,7 +293,8 @@ void main() {
     vec3 resultRGB = mix(col, rainTint, rain * 0.45);
 
     float mask = cornerMask();
-    gl_FragColor = vec4(resultRGB * mask, mask);
+    float finalAlpha = mask * u_bg_color.a;
+    gl_FragColor = vec4(resultRGB * finalAlpha, finalAlpha);
 }
 )";
 
@@ -384,7 +385,7 @@ void main() {
     float resultAlpha = fogAlpha + col.a * (1.0 - fogAlpha);
 
     float mask = cornerMask();
-    float finalAlpha = resultAlpha * mask;
+    float finalAlpha = resultAlpha * mask * u_bg_color.a;
     gl_FragColor = vec4(resultRGB * (finalAlpha / max(resultAlpha, 0.001)), finalAlpha);
 }
 )";
@@ -475,7 +476,7 @@ void main() {
     float resultAlpha = starsAlpha + col.a * (1.0 - starsAlpha);
 
     float mask = cornerMask();
-    float finalAlpha = resultAlpha * mask;
+    float finalAlpha = resultAlpha * mask * u_bg_color.a;
     gl_FragColor = vec4(resultRGB * (finalAlpha / max(resultAlpha, 0.001)), finalAlpha);
 }
 )";

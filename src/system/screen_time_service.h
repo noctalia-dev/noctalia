@@ -50,6 +50,8 @@ public:
 
   [[nodiscard]] ScreenTimeSnapshot snapshot(int rangeDays = 1);
 
+  void clearAll();
+
 private:
   struct DayRecord {
     std::unordered_map<std::string, std::chrono::seconds> apps;

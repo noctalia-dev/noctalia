@@ -7,6 +7,7 @@ SpacerWidget::SpacerWidget(float length, bool verticalBar) : m_fixedLength(lengt
 void SpacerWidget::create() {
   auto spacer = std::make_unique<Node>();
   spacer->setSize(0.0f, 0.0f);
+  spacer->setHitTestVisible(false);
   setRoot(std::move(spacer));
 }
 

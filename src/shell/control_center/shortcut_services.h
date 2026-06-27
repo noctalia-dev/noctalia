@@ -4,6 +4,7 @@ class BluetoothService;
 class CompositorPlatform;
 class ConfigService;
 class DependencyService;
+class FileWatcher;
 class IdleInhibitor;
 class INetworkService;
 class MprisService;
@@ -40,6 +41,7 @@ struct ShortcutServices {
   IpcService* ipc = nullptr;
   // Plugin shortcut runtime dependencies.
   scripting::ScriptApiContext* scriptApi = nullptr;
+  FileWatcher* fileWatcher = nullptr;
   HttpClient* httpClient = nullptr;
   ClipboardService* clipboard = nullptr;
 };

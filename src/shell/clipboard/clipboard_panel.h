@@ -3,9 +3,6 @@
 #include "core/timer_manager.h"
 #include "render/core/thumbnail_service.h"
 #include "shell/panel/panel.h"
-#include "wayland/clipboard_service.h"
-
-class AsyncTextureCache;
 
 #include <cstddef>
 #include <cstdint>
@@ -15,6 +12,7 @@ class AsyncTextureCache;
 #include <vector>
 
 class Button;
+class AsyncTextureCache;
 class ClipboardService;
 class Flex;
 class Image;
@@ -26,6 +24,7 @@ class ScrollView;
 class ConfigService;
 class ClipboardListAdapter;
 class VirtualGridView;
+struct ClipboardEntry;
 
 class ClipboardPanel : public Panel {
 public:
@@ -44,6 +43,7 @@ public:
   [[nodiscard]] float preferredHeight() const override { return scaled(560.0f); }
   [[nodiscard]] LayerShellLayer layer() const override { return LayerShellLayer::Overlay; }
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
+  [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
   [[nodiscard]] InputArea* initialFocusArea() const override;
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
 

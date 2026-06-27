@@ -5,6 +5,7 @@
 #include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
 #include "shell/lockscreen/lock_screen.h"
+#include "shell/session/session_action_meta.h"
 #include "shell/session/session_action_runner.h"
 
 #include <string>
@@ -12,16 +13,23 @@
 
 namespace {
 
-  [[nodiscard]] SessionPanelActionConfig sessionActionConfig(std::string_view action) {
-    SessionPanelActionConfig cfg;
-    cfg.action = std::string(action);
-    return cfg;
-  }
-
   [[nodiscard]] std::string unknownSessionActionError(std::string_view action) {
     return "error: unknown session action \""
         + std::string(action)
         + "\" (try: lock, suspend, lock-and-suspend, logout, reboot, shutdown)\n";
+  }
+
+  [[nodiscard]] std::string sessionActionUnavailableError(std::string_view action) {
+    return "error: session action \"" + std::string(action) + "\" is disabled or not configured\n";
+  }
+
+  [[nodiscard]] std::optional<SessionPanelActionConfig>
+  resolveIpcAction(const ConfigService& config, std::string_view ipcAction) {
+    const auto canonical = session_action::canonicalActionName(ipcAction);
+    if (!canonical.has_value()) {
+      return std::nullopt;
+    }
+    return session_action::resolveConfiguredAction(config.config().shell.session, *canonical);
   }
 
 } // namespace
@@ -33,7 +41,16 @@ void registerSessionIpc(IpcService& ipc, SessionActionRunner& runner, LockScreen
       return "error: session requires <lock|suspend|lock-and-suspend|logout|reboot|shutdown>\n";
     }
 
-    const std::string& action = parts[0];
+    const std::string& ipcAction = parts[0];
+    const auto resolved = resolveIpcAction(config, ipcAction);
+    if (!resolved.has_value()) {
+      if (session_action::canonicalActionName(ipcAction).has_value()) {
+        return sessionActionUnavailableError(ipcAction);
+      }
+      return unknownSessionActionError(ipcAction);
+    }
+
+    const std::string_view action = resolved->action;
     if (action == "lock") {
       if (!config.isLockScreenEnabled()) {
         return "error: lock screen disabled\n";
@@ -43,30 +60,20 @@ void registerSessionIpc(IpcService& ipc, SessionActionRunner& runner, LockScreen
       }
       return "error: lock screen unavailable\n";
     }
-    if (action == "suspend") {
-      if (runner.requestSuspendDetached()) {
-        return "ok\n";
-      }
-      return "error: failed to suspend\n";
-    }
-    if (action == "lock-and-suspend") {
+    if (action == "lock_and_suspend") {
       if (!config.isLockScreenEnabled()) {
-        if (runner.requestSuspendDetached()) {
+        if (const auto suspend = session_action::resolveConfiguredAction(config.config().shell.session, "suspend")) {
+          runner.invoke(*suspend);
           return "ok\n";
         }
-        return "error: failed to suspend\n";
+        return sessionActionUnavailableError("suspend");
       }
-      if (runner.lockThenSuspendDetached()) {
-        return "ok\n";
-      }
-      return "error: failed to lock and suspend\n";
-    }
-    if (action == "logout" || action == "reboot" || action == "shutdown") {
-      runner.invoke(sessionActionConfig(action));
+      runner.invoke(*resolved);
       return "ok\n";
     }
 
-    return unknownSessionActionError(action);
+    runner.invoke(*resolved);
+    return "ok\n";
   };
 
   ipc.registerHandler(

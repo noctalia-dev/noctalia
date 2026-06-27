@@ -1,7 +1,7 @@
 #include "shell/bar/widgets/sysmon_widget.h"
 
 #include "config/config_service.h"
-#include "render/core/renderer.h"
+#include "i18n/i18n.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "system/format_units.h"
@@ -12,6 +12,7 @@
 #include "ui/style.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <format>
 #include <optional>
@@ -74,43 +75,68 @@ namespace {
   bool needsGpuUsage(SysmonStat stat) { return stat == SysmonStat::GpuUsage; }
   bool needsGpuVram(SysmonStat stat) { return stat == SysmonStat::GpuVram; }
 
-  const char* statDisplayName(SysmonStat stat) {
+  constexpr std::array<SysmonStat, 11> kTooltipStats{
+      SysmonStat::CpuUsage, SysmonStat::CpuTemp, SysmonStat::GpuTemp, SysmonStat::GpuUsage,
+      SysmonStat::GpuVram,  SysmonStat::RamUsed, SysmonStat::RamPct,  SysmonStat::SwapPct,
+      SysmonStat::DiskPct,  SysmonStat::NetRx,   SysmonStat::NetTx,
+  };
+
+  [[nodiscard]] double netRxFromStats(const SystemStats& stats, std::string_view interfaceName) {
+    if (interfaceName.empty()) {
+      return stats.netRxBytesPerSec;
+    }
+    if (const auto it = stats.netThroughputByInterface.find(std::string(interfaceName));
+        it != stats.netThroughputByInterface.end()) {
+      return it->second.rxBytesPerSec;
+    }
+    return 0.0;
+  }
+
+  [[nodiscard]] double netTxFromStats(const SystemStats& stats, std::string_view interfaceName) {
+    if (interfaceName.empty()) {
+      return stats.netTxBytesPerSec;
+    }
+    if (const auto it = stats.netThroughputByInterface.find(std::string(interfaceName));
+        it != stats.netThroughputByInterface.end()) {
+      return it->second.txBytesPerSec;
+    }
+    return 0.0;
+  }
+
+  std::string statDisplayName(SysmonStat stat) {
     switch (stat) {
     case SysmonStat::CpuUsage:
-      return "CPU";
+      return i18n::tr("bar.widgets.sysmon.cpu");
     case SysmonStat::CpuTemp:
-      return "CPU Temp";
+      return i18n::tr("bar.widgets.sysmon.cpu-temp");
     case SysmonStat::GpuTemp:
-      return "GPU Temp";
+      return i18n::tr("bar.widgets.sysmon.gpu-temp");
     case SysmonStat::GpuUsage:
-      return "GPU Usage";
+      return i18n::tr("bar.widgets.sysmon.gpu-usage");
     case SysmonStat::GpuVram:
-      return "GPU VRAM";
+      return i18n::tr("bar.widgets.sysmon.gpu-vram");
     case SysmonStat::RamUsed:
     case SysmonStat::RamPct:
-      return "RAM";
+      return i18n::tr("bar.widgets.sysmon.ram");
     case SysmonStat::SwapPct:
-      return "Swap";
+      return i18n::tr("bar.widgets.sysmon.swap");
     case SysmonStat::DiskPct:
-      return "Disk";
+      return i18n::tr("bar.widgets.sysmon.disk");
     case SysmonStat::NetRx:
-      return "Download";
+      return i18n::tr("bar.widgets.sysmon.download");
     case SysmonStat::NetTx:
-      return "Upload";
+      return i18n::tr("bar.widgets.sysmon.upload");
     }
-    return "System";
+    return i18n::tr("bar.widgets.sysmon.system");
   }
 
 } // namespace
 
-SysmonWidget::SysmonWidget(
-    SystemMonitorService* monitor, wl_output* /*output*/, SysmonStat stat, std::string diskPath,
-    SysmonDisplayMode displayMode, ColorSpec highlightColor, ConfigService& configService, bool showLabel,
-    float labelMinWidth
-)
-    : m_monitor(monitor), m_stat(stat), m_displayMode(displayMode), m_highlightColor(highlightColor),
-      m_configService(configService), m_showLabel(showLabel), m_labelMinWidth(labelMinWidth),
-      m_diskPath(std::move(diskPath)) {
+SysmonWidget::SysmonWidget(SystemMonitorService* monitor, ConfigService& configService, SysmonWidgetOptions options)
+    : m_monitor(monitor), m_stat(options.stat), m_displayMode(options.displayMode),
+      m_highlightColor(options.highlightColor), m_configService(configService), m_showLabel(options.showLabel),
+      m_labelMinWidth(options.labelMinWidth), m_diskPath(std::move(options.diskPath)),
+      m_networkInterface(std::move(options.networkInterface)), m_glyphOverride(std::move(options.glyph)) {
   if (m_monitor != nullptr) {
     if (needsCpuTemp(m_stat)) {
       m_monitor->retainCpuTemp();
@@ -159,7 +185,7 @@ void SysmonWidget::create() {
   container->addChild(
       ui::glyph({
           .out = &m_glyph,
-          .glyph = glyphName(m_stat),
+          .glyph = m_glyphOverride.empty() ? glyphName(m_stat) : m_glyphOverride,
           .glyphSize = Style::baseGlyphSize * m_contentScale,
           .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
       })
@@ -190,6 +216,7 @@ void SysmonWidget::create() {
         ui::label({
             .out = &m_label,
             .fontSize = Style::fontSizeBody * m_contentScale,
+            .fontFamily = labelFontFamily(),
             .minWidth = m_labelMinWidth > 0.0f ? std::optional<float>{m_labelMinWidth * m_contentScale}
                                                : std::optional<float>{},
             .fontWeight = labelFontWeight(),
@@ -245,7 +272,7 @@ Color SysmonWidget::currentValueColor(ColorSpec baseColor) {
   const Color base = resolveColorSpec(baseColor);
   const Color highlight = resolveColorSpec(m_highlightColor);
   const auto [activityThreshold, criticalThreshold] = currentThresholds();
-  const float factor = static_cast<float>(gradientFactor(currentGradientValue(), activityThreshold, criticalThreshold));
+  const auto factor = static_cast<float>(gradientFactor(currentGradientValue(), activityThreshold, criticalThreshold));
   return lerpColor(base, highlight, factor);
 }
 
@@ -291,7 +318,7 @@ double SysmonWidget::currentGradientValue() {
   case SysmonStat::CpuUsage:
     return std::max(stats.cpuUsagePercent, 0.0);
   case SysmonStat::CpuTemp:
-    return stats.cpuTempC.value_or(0.0);
+    return stats.cpuTempAvailable ? stats.cpuTempC.value_or(0.0) : 0.0;
   case SysmonStat::GpuTemp:
     return stats.gpuTempC.value_or(0.0);
   case SysmonStat::GpuUsage:
@@ -310,9 +337,9 @@ double SysmonWidget::currentGradientValue() {
     }
     return 0.0;
   case SysmonStat::NetRx:
-    return std::max(stats.netRxBytesPerSec / kBytesPerMb, 0.0);
+    return std::max(m_monitor->netRxBytesPerSec(m_networkInterface) / kBytesPerMb, 0.0);
   case SysmonStat::NetTx:
-    return std::max(stats.netTxBytesPerSec / kBytesPerMb, 0.0);
+    return std::max(m_monitor->netTxBytesPerSec(m_networkInterface) / kBytesPerMb, 0.0);
   case SysmonStat::DiskPct:
     return 0.0;
   }
@@ -384,12 +411,12 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       float contentW = std::max(m_glyph->width(), trackW);
       if (m_label != nullptr)
         contentW = std::max(contentW, labelW);
-      m_glyph->setPosition(std::round((contentW - m_glyph->width()) * 0.5f), 0.0f);
+      m_glyph->setPosition((contentW - m_glyph->width()) * 0.5f, 0.0f);
       m_gauge->setPosition(std::round((contentW - trackW) * 0.5f), glyphH + gap);
       m_gauge->setSize(trackW, trackH);
       float totalH = glyphH + gap + trackH;
       if (m_label != nullptr) {
-        m_label->setPosition(std::round((contentW - labelW) * 0.5f), totalH + gap);
+        m_label->setPosition((contentW - labelW) * 0.5f, totalH + gap);
         totalH += gap + labelH;
       }
       rootNode->setSize(contentW, totalH);
@@ -402,12 +429,12 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       if (m_label != nullptr)
         contentH = std::max(contentH, labelH);
       const float gaugeY = std::round((contentH - gaugeH) * 0.5f);
-      m_glyph->setPosition(0.0f, std::round((contentH - glyphH) * 0.5f));
+      m_glyph->setPosition(0.0f, (contentH - glyphH) * 0.5f);
       m_gauge->setPosition(m_glyph->width() + gap, gaugeY);
       m_gauge->setSize(gaugeW, gaugeH);
       float totalW = m_gauge->x() + gaugeW;
       if (m_label != nullptr) {
-        m_label->setPosition(totalW + gap, std::round((contentH - labelH) * 0.5f));
+        m_label->setPosition(totalW + gap, (contentH - labelH) * 0.5f);
         totalW = m_label->x() + labelW;
       }
       rootNode->setSize(totalW, contentH);
@@ -425,7 +452,7 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       float contentW = std::max(m_glyph->width(), chartW);
       if (m_label != nullptr)
         contentW = std::max(contentW, labelW);
-      m_glyph->setPosition(std::round((contentW - m_glyph->width()) * 0.5f), 0.0f);
+      m_glyph->setPosition((contentW - m_glyph->width()) * 0.5f, 0.0f);
       const float chartY = glyphH + gap;
       m_chartBg->setPosition(std::round((contentW - chartW) * 0.5f), chartY);
       m_chartBg->setSize(chartW, glyphH);
@@ -437,7 +464,7 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
 
       float totalH = chartY + glyphH;
       if (m_label != nullptr) {
-        m_label->setPosition(std::round((contentW - labelW) * 0.5f), totalH + gap);
+        m_label->setPosition((contentW - labelW) * 0.5f, totalH + gap);
         totalH += gap + labelH;
       }
       rootNode->setSize(contentW, totalH);
@@ -445,7 +472,7 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
       float contentH = glyphH;
       if (m_label != nullptr)
         contentH = std::max(contentH, labelH);
-      m_glyph->setPosition(0.0f, std::round((contentH - glyphH) * 0.5f));
+      m_glyph->setPosition(0.0f, (contentH - glyphH) * 0.5f);
       m_chartBg->setPosition(m_glyph->width() + gap, std::round((contentH - glyphH) * 0.5f));
       m_chartBg->setSize(chartW, glyphH);
 
@@ -456,20 +483,20 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
 
       float totalW = m_chartBg->x() + chartW;
       if (m_label != nullptr) {
-        m_label->setPosition(totalW + gap, std::round((contentH - labelH) * 0.5f));
+        m_label->setPosition(totalW + gap, (contentH - labelH) * 0.5f);
         totalW = m_label->x() + labelW;
       }
       rootNode->setSize(totalW, contentH);
     }
   } else if (m_label != nullptr && verticalBar) {
     const float contentW = std::max(m_glyph->width(), labelW);
-    m_glyph->setPosition(std::round((contentW - m_glyph->width()) * 0.5f), 0.0f);
-    m_label->setPosition(std::round((contentW - labelW) * 0.5f), glyphH + gap);
+    m_glyph->setPosition((contentW - m_glyph->width()) * 0.5f, 0.0f);
+    m_label->setPosition((contentW - labelW) * 0.5f, glyphH + gap);
     rootNode->setSize(contentW, glyphH + gap + labelH);
   } else if (m_label != nullptr) {
     const float contentH = std::max(glyphH, labelH);
-    m_glyph->setPosition(0.0f, std::round((contentH - glyphH) * 0.5f));
-    m_label->setPosition(m_glyph->width() + gap, std::round((contentH - labelH) * 0.5f));
+    m_glyph->setPosition(0.0f, (contentH - glyphH) * 0.5f);
+    m_label->setPosition(m_glyph->width() + gap, (contentH - labelH) * 0.5f);
     rootNode->setSize(m_label->x() + labelW, contentH);
   } else {
     m_glyph->setPosition(0.0f, 0.0f);
@@ -492,7 +519,7 @@ void SysmonWidget::doUpdate(Renderer& renderer) {
   }
 
   if (auto* rootNode = root(); rootNode != nullptr) {
-    static_cast<InputArea*>(rootNode)->setTooltip(std::vector<TooltipRow>{{statDisplayName(m_stat), value}});
+    static_cast<InputArea*>(rootNode)->setTooltip(buildTooltipRows(value));
   }
 
   if (m_displayMode == SysmonDisplayMode::Gauge) {
@@ -513,12 +540,18 @@ void SysmonWidget::doUpdate(Renderer& renderer) {
 void SysmonWidget::onFrameTick(float deltaMs) {
   (void)deltaMs;
   if (m_graph == nullptr || m_scrollProgress >= 1.0f) {
+    m_redrawLimiter.reset();
+    return;
+  }
+  if (!m_redrawLimiter.shouldStep([this]() { requestRedraw(); })) {
     return;
   }
   m_scrollProgress = scrollProgressForSample(m_lastSampleAt);
   m_graph->setScroll(m_scrollProgress);
   if (m_scrollProgress < 1.0f) {
     requestRedraw();
+  } else {
+    m_redrawLimiter.reset();
   }
 }
 
@@ -578,7 +611,9 @@ void SysmonWidget::updateGraph(Renderer& renderer) {
     }
     data.resize(hist.size());
     for (std::size_t i = 0; i < hist.size(); ++i) {
-      data[i] = static_cast<float>(std::clamp(normalizedFromStats(m_stat, hist[i], m_tempMin, m_tempMax), 0.0, 1.0));
+      data[i] = static_cast<float>(
+          std::clamp(normalizedFromStats(m_stat, hist[i], m_tempMin, m_tempMax, m_networkInterface), 0.0, 1.0)
+      );
     }
   }
 
@@ -606,13 +641,15 @@ float SysmonWidget::scrollProgressForSample(std::chrono::steady_clock::time_poin
   return std::chrono::duration<float>(clamped).count() / std::chrono::duration<float>(sampleInterval).count();
 }
 
-double SysmonWidget::normalizedFromStats(SysmonStat stat, const SystemStats& stats, double& tempMin, double& tempMax) {
+double SysmonWidget::normalizedFromStats(
+    SysmonStat stat, const SystemStats& stats, double& tempMin, double& tempMax, std::string_view networkInterface
+) {
   switch (stat) {
   case SysmonStat::CpuUsage:
     return stats.cpuUsagePercent / 100.0;
 
   case SysmonStat::CpuTemp:
-    if (stats.cpuTempC.has_value()) {
+    if (stats.cpuTempAvailable && stats.cpuTempC.has_value()) {
       const double temp = *stats.cpuTempC;
       tempMin = std::min(tempMin, temp);
       tempMax = std::max(tempMax, temp);
@@ -665,13 +702,27 @@ double SysmonWidget::normalizedFromStats(SysmonStat stat, const SystemStats& sta
     return 0.0;
 
   case SysmonStat::NetRx: {
-    tempMax = std::max(tempMax, stats.netRxBytesPerSec);
-    return tempMax > 0.0 ? std::clamp(stats.netRxBytesPerSec / tempMax, 0.0, 1.0) : 0.0;
+    const double value = networkInterface.empty() ? stats.netRxBytesPerSec : [&stats, networkInterface]() {
+      if (const auto it = stats.netThroughputByInterface.find(std::string(networkInterface));
+          it != stats.netThroughputByInterface.end()) {
+        return it->second.rxBytesPerSec;
+      }
+      return 0.0;
+    }();
+    tempMax = std::max(tempMax, value);
+    return tempMax > 0.0 ? std::clamp(value / tempMax, 0.0, 1.0) : 0.0;
   }
 
   case SysmonStat::NetTx: {
-    tempMax = std::max(tempMax, stats.netTxBytesPerSec);
-    return tempMax > 0.0 ? std::clamp(stats.netTxBytesPerSec / tempMax, 0.0, 1.0) : 0.0;
+    const double value = networkInterface.empty() ? stats.netTxBytesPerSec : [&stats, networkInterface]() {
+      if (const auto it = stats.netThroughputByInterface.find(std::string(networkInterface));
+          it != stats.netThroughputByInterface.end()) {
+        return it->second.txBytesPerSec;
+      }
+      return 0.0;
+    }();
+    tempMax = std::max(tempMax, value);
+    return tempMax > 0.0 ? std::clamp(value / tempMax, 0.0, 1.0) : 0.0;
   }
 
   case SysmonStat::DiskPct:
@@ -689,7 +740,9 @@ double SysmonWidget::currentNormalized() {
     return std::clamp(static_cast<double>(m_monitor->diskUsagePercent(m_diskPath)) / 100.0, 0.0, 1.0);
   }
 
-  return std::clamp(normalizedFromStats(m_stat, m_monitor->latest(), m_tempMin, m_tempMax), 0.0, 1.0);
+  return std::clamp(
+      normalizedFromStats(m_stat, m_monitor->latest(), m_tempMin, m_tempMax, m_networkInterface), 0.0, 1.0
+  );
 }
 
 std::string SysmonWidget::formatValue() const {
@@ -697,33 +750,39 @@ std::string SysmonWidget::formatValue() const {
     return "--";
   }
 
-  if (m_stat == SysmonStat::DiskPct) {
+  return formatValueFor(m_stat, m_monitor->latest()).value_or("--");
+}
+
+std::optional<std::string> SysmonWidget::formatValueFor(SysmonStat stat, const SystemStats& stats) const {
+  if (m_monitor == nullptr || !m_monitor->isRunning()) {
+    return std::nullopt;
+  }
+
+  if (stat == SysmonStat::DiskPct) {
     return std::format("{:.0f}%", m_monitor->diskUsagePercent(m_diskPath));
   }
 
-  const auto stats = m_monitor->latest();
-
-  switch (m_stat) {
+  switch (stat) {
   case SysmonStat::CpuUsage:
     return std::format("{:.0f}%", stats.cpuUsagePercent);
 
   case SysmonStat::CpuTemp:
-    if (stats.cpuTempC.has_value()) {
+    if (stats.cpuTempAvailable && stats.cpuTempC.has_value()) {
       return std::format("{:.0f}°C", *stats.cpuTempC);
     }
-    return "--";
+    return std::nullopt;
 
   case SysmonStat::GpuTemp:
     if (stats.gpuTempC.has_value()) {
       return std::format("{:.0f}°C", *stats.gpuTempC);
     }
-    return "--";
+    return std::nullopt;
 
   case SysmonStat::GpuUsage:
     if (stats.gpuUsagePercent.has_value()) {
       return std::format("{:.0f}%", *stats.gpuUsagePercent);
     }
-    return "--";
+    return std::nullopt;
 
   case SysmonStat::GpuVram:
     if (stats.gpuVramUsedBytes.has_value() && stats.gpuVramTotalBytes.has_value() && *stats.gpuVramTotalBytes > 0) {
@@ -732,7 +791,7 @@ std::string SysmonWidget::formatValue() const {
           100.0 * static_cast<double>(*stats.gpuVramUsedBytes) / static_cast<double>(*stats.gpuVramTotalBytes)
       );
     }
-    return "--";
+    return std::nullopt;
 
   case SysmonStat::RamUsed:
     return FormatUnits::formatBinaryMib(stats.ramUsedMb);
@@ -746,19 +805,81 @@ std::string SysmonWidget::formatValue() const {
           "{:.0f}%", 100.0 * static_cast<double>(stats.swapUsedMb) / static_cast<double>(stats.swapTotalMb)
       );
     }
-    return "--";
+    return std::nullopt;
 
   case SysmonStat::NetRx:
-    return FormatUnits::formatDecimalBytesPerSecond(stats.netRxBytesPerSec);
+    return FormatUnits::formatDecimalBytesPerSecond(netRxFromStats(stats, m_networkInterface));
 
   case SysmonStat::NetTx:
-    return FormatUnits::formatDecimalBytesPerSecond(stats.netTxBytesPerSec);
+    return FormatUnits::formatDecimalBytesPerSecond(netTxFromStats(stats, m_networkInterface));
 
   case SysmonStat::DiskPct:
     break; // handled above
   }
 
-  return "--";
+  return std::nullopt;
+}
+
+bool SysmonWidget::statAvailableForTooltip(SysmonStat stat, const SystemStats& stats) const {
+  const auto& monitorConfig = m_configService.config().system.monitor;
+  const bool sampled = stats.sampledAt != std::chrono::steady_clock::time_point{};
+
+  switch (stat) {
+  case SysmonStat::CpuUsage:
+    return monitorConfig.cpuPollSeconds > 0.0f && sampled;
+  case SysmonStat::CpuTemp:
+    return monitorConfig.cpuPollSeconds > 0.0f && stats.cpuTempAvailable && stats.cpuTempC.has_value();
+  case SysmonStat::GpuTemp:
+    return monitorConfig.gpuPollSeconds > 0.0f && stats.gpuTempC.has_value();
+  case SysmonStat::GpuUsage:
+    return monitorConfig.gpuPollSeconds > 0.0f && stats.gpuUsagePercent.has_value();
+  case SysmonStat::GpuVram:
+    return monitorConfig.gpuPollSeconds > 0.0f
+        && stats.gpuVramUsedBytes.has_value()
+        && stats.gpuVramTotalBytes.has_value()
+        && *stats.gpuVramTotalBytes > 0;
+  case SysmonStat::RamUsed:
+  case SysmonStat::RamPct:
+    return monitorConfig.memoryPollSeconds > 0.0f && stats.ramTotalMb > 0;
+  case SysmonStat::SwapPct:
+    return monitorConfig.diskPollSeconds > 0.0f && stats.swapTotalMb > 0;
+  case SysmonStat::DiskPct:
+    return monitorConfig.diskPollSeconds > 0.0f
+        && m_monitor != nullptr
+        && !m_diskPath.empty()
+        && !m_monitor->diskHistory(m_diskPath, 1).empty();
+  case SysmonStat::NetRx:
+  case SysmonStat::NetTx:
+    return monitorConfig.networkPollSeconds > 0.0f
+        && sampled
+        && (m_networkInterface.empty() || stats.netThroughputByInterface.contains(m_networkInterface));
+  }
+
+  return false;
+}
+
+std::vector<TooltipRow> SysmonWidget::buildTooltipRows(const std::string& currentValue) const {
+  std::vector<TooltipRow> rows;
+  rows.push_back({statDisplayName(m_stat), currentValue});
+
+  if (m_monitor == nullptr || !m_monitor->isRunning()) {
+    return rows;
+  }
+
+  const SystemStats stats = m_monitor->latest();
+  for (const SysmonStat stat : kTooltipStats) {
+    if (stat == m_stat) {
+      continue;
+    }
+    if (!statAvailableForTooltip(stat, stats)) {
+      continue;
+    }
+    if (auto value = formatValueFor(stat, stats); value.has_value()) {
+      rows.push_back({statDisplayName(stat), std::move(*value)});
+    }
+  }
+
+  return rows;
 }
 
 const char* SysmonWidget::glyphName(SysmonStat stat) {

@@ -19,7 +19,6 @@ class Flex;
 class InputArea;
 struct wl_output;
 struct zwlr_foreign_toplevel_handle_v1;
-struct PointerEvent;
 
 enum class WorkspaceLabelPlacement {
   Corner,
@@ -27,16 +26,31 @@ enum class WorkspaceLabelPlacement {
   Inside,
 };
 
+struct TaskbarWidgetOptions {
+  bool groupByWorkspace = false;
+  bool showAllOutputs = false;
+  bool onlyActiveWorkspace = false;
+  bool showWorkspaceLabel = true;
+  WorkspaceLabelPlacement workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
+  bool hideEmptyWorkspaces = false;
+  bool workspaceGroupCapsule = true;
+  bool groupSingleIconPerApp = false;
+  bool showActiveIndicator = true;
+  float activeOpacity = 1.0f;
+  float inactiveOpacity = 1.0f;
+  ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
+  ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
+  ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
+  bool showWindowTitle = false;
+  float windowTitleMaxWidth = 100.0f;
+  float taskbarMaxWidth = 8192.0f;
+  std::string barPosition;
+  ShellConfig::ShadowConfig shadowConfig;
+};
+
 class TaskbarWidget : public Widget {
 public:
-  TaskbarWidget(
-      CompositorPlatform& platform, ConfigService& config, wl_output* output, bool groupByWorkspace,
-      bool showAllOutputs, bool onlyActiveWorkspace, bool showWorkspaceLabel,
-      WorkspaceLabelPlacement workspaceLabelPlacement, bool hideEmptyWorkspaces, bool workspaceGroupCapsule,
-      bool groupSingleIconPerApp, bool showActiveIndicator, float activeOpacity, float inactiveOpacity,
-      ColorSpec focusedColor, ColorSpec occupiedColor, ColorSpec emptyColor, bool showWindowTitle,
-      float windowTitleMaxWidth, float taskbarMaxWidth, std::string barPosition, ShellConfig::ShadowConfig shadowConfig
-  );
+  TaskbarWidget(CompositorPlatform& platform, ConfigService& config, wl_output* output, TaskbarWidgetOptions options);
   ~TaskbarWidget() override;
 
   void create() override;
@@ -79,6 +93,7 @@ private:
   void clearChildren(Flex* flex) const;
   void buildTaskButtons(Renderer& renderer);
   void updateModels();
+  void syncWorkspaceGroupingCapability();
   [[nodiscard]] static std::string toLower(std::string value);
   [[nodiscard]] static std::string workspaceLabel(const Workspace& workspace, std::size_t index);
   [[nodiscard]] bool
@@ -103,6 +118,7 @@ private:
   CompositorPlatform& m_platform;
   ConfigService& m_configService;
   wl_output* m_output = nullptr;
+  TaskbarWidgetOptions m_configOptions;
   bool m_groupByWorkspace = false;
   bool m_showAllOutputs = false;
   bool m_onlyActiveWorkspace = false;

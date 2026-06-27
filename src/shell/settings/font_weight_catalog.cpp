@@ -19,7 +19,7 @@ namespace settings {
     }
 
     [[nodiscard]] bool vectorContainsWeight(const std::vector<FontWeight>& weights, int weightValue) {
-      return std::any_of(weights.begin(), weights.end(), [weightValue](FontWeight weight) {
+      return std::ranges::any_of(weights, [weightValue](FontWeight weight) {
         return static_cast<int>(weight) == weightValue;
       });
     }

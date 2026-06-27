@@ -1,5 +1,6 @@
 #include "ui/app_icon_colorization.h"
 
+#include "config/config_types.h"
 #include "render/core/color.h"
 #include "ui/palette.h"
 

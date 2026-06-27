@@ -55,7 +55,7 @@ namespace settings {
       }
 
       families.assign(seen.begin(), seen.end());
-      std::sort(families.begin(), families.end(), [](const std::string& a, const std::string& b) {
+      std::ranges::sort(families, [](const std::string& a, const std::string& b) {
         return StringUtils::toLower(a) < StringUtils::toLower(b);
       });
       return families;

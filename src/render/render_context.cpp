@@ -6,9 +6,9 @@
 #include "render/backend/render_backend.h"
 #include "render/core/texture_handle.h"
 #include "render/core/texture_manager.h"
-#include "render/gl_shared_context.h"
 #include "render/render_target.h"
 #include "render/scene/audio_spectrum_node.h"
+#include "render/scene/countdown_ring_node.h"
 #include "render/scene/effect_node.h"
 #include "render/scene/fancy_audio_visualizer_node.h"
 #include "render/scene/glyph_node.h"
@@ -26,7 +26,6 @@
 #include <cmath>
 #include <cstdint>
 #include <format>
-#include <stdexcept>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -102,7 +101,7 @@ namespace {
     return Mat3::translation(node->x(), node->y())
         * Mat3::translation(cx, cy)
         * Mat3::rotation(node->rotation())
-        * Mat3::scale(node->scale(), node->scale())
+        * Mat3::scale(node->scaleX(), node->scaleY())
         * Mat3::translation(-cx, -cy);
   }
 
@@ -134,11 +133,10 @@ void RenderContext::makeCurrentNoSurface() {
   m_backend->makeCurrentNoSurface();
 }
 
-void RenderContext::makeCurrent(RenderTarget& target) {
-  if (m_backend == nullptr) {
-    throw std::runtime_error("RenderContext has no initialized backend");
+bool RenderContext::makeCurrent(RenderTarget& target) {
+  if (m_backend == nullptr || !m_backend->makeCurrent(target)) {
+    return false;
   }
-  m_backend->makeCurrent(target);
   // Sync the shared text/glyph renderer to this target's buffer/logical ratio
   // unconditionally on every makeCurrent. The text and glyph renderers are
   // process-singletons; if this is left out, layout/measure on one surface can
@@ -146,6 +144,7 @@ void RenderContext::makeCurrent(RenderTarget& target) {
   // jitter on multi-monitor setups with mixed fractional scales). renderScene
   // also goes through this path indirectly via beginFrame.
   syncContentScale(target);
+  return true;
 }
 
 void RenderContext::syncContentScale(RenderTarget& target) {
@@ -179,7 +178,9 @@ void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot) {
     return;
   }
   const auto totalStart = std::chrono::steady_clock::now();
-  m_backend->beginFrame(target);
+  if (!m_backend->beginFrame(target)) {
+    return;
+  }
   syncContentScale(target);
 
   if (sceneRoot != nullptr
@@ -408,6 +409,13 @@ void RenderContext::renderNode(
     m_backend->drawSpinner(sw, sh, node->width(), node->height(), style, worldTransform);
     break;
   }
+  case NodeType::CountdownRing: {
+    const auto* ring = static_cast<const CountdownRingNode*>(node);
+    auto style = ring->style();
+    style.color.a *= effectiveOpacity;
+    m_backend->drawCountdownRing(sw, sh, node->width(), node->height(), style, worldTransform);
+    break;
+  }
   case NodeType::ScreenCorner: {
     const auto* corner = static_cast<const ScreenCornerNode*>(node);
     auto style = corner->style();
@@ -455,6 +463,7 @@ void RenderContext::renderNode(
       auto style = graph->style();
       style.lineColor1.a *= effectiveOpacity;
       style.lineColor2.a *= effectiveOpacity;
+      style.lineColor3.a *= effectiveOpacity;
       style.graphFillOpacity *= effectiveOpacity;
       m_backend->drawGraph(
           graph->textureId(), graph->textureWidth(), sw, sh, node->width(), node->height(), style, worldTransform
@@ -474,10 +483,31 @@ void RenderContext::renderNode(
       const float imageHeight2 = hasSource2 ? wallpaper->imageHeight2() : wallpaper->imageHeight1();
       const float progress = hasSource2 ? wallpaper->progress() : 0.0f;
       m_backend->drawWallpaper(
-          wallpaper->transition(), wallpaper->sourceKind1(), wallpaper->texture1(), wallpaper->sourceColor1(),
-          sourceKind2, texture2, sourceColor2, sw, sh, node->width(), node->height(), wallpaper->imageWidth1(),
-          wallpaper->imageHeight1(), imageWidth2, imageHeight2, progress, static_cast<float>(wallpaper->fillMode()),
-          wallpaper->transitionParams(), wallpaper->fillColor(), worldTransform
+          WallpaperDrawParams{
+              .transition = wallpaper->transition(),
+              .from =
+                  {.kind = wallpaper->sourceKind1(),
+                   .texture = wallpaper->texture1(),
+                   .color = wallpaper->sourceColor1(),
+                   .imageWidth = wallpaper->imageWidth1(),
+                   .imageHeight = wallpaper->imageHeight1()},
+              .to =
+                  {.kind = sourceKind2,
+                   .texture = texture2,
+                   .color = sourceColor2,
+                   .imageWidth = imageWidth2,
+                   .imageHeight = imageHeight2},
+              .surfaceWidth = sw,
+              .surfaceHeight = sh,
+              .quadWidth = node->width(),
+              .quadHeight = node->height(),
+              .progress = progress,
+              .fillMode = static_cast<float>(wallpaper->fillMode()),
+              .params = wallpaper->transitionParams(),
+              .fillColor = wallpaper->fillColor(),
+              .transform = worldTransform,
+              .span = wallpaper->spanParams(),
+          }
       );
     }
     break;
@@ -506,9 +536,7 @@ void RenderContext::renderNode(
     for (const auto& child : children) {
       orderedChildren.push_back(child.get());
     }
-    std::stable_sort(orderedChildren.begin(), orderedChildren.end(), [](const Node* a, const Node* b) {
-      return a->zIndex() < b->zIndex();
-    });
+    std::ranges::stable_sort(orderedChildren, [](const Node* a, const Node* b) { return a->zIndex() < b->zIndex(); });
   }
 
   float childClipLeft = clipLeft;

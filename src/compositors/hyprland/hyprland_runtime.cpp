@@ -243,9 +243,7 @@ namespace compositors::hyprland {
 
   void HyprlandRuntime::registerEventHandler(HyprlandEventHandler* handler) { m_eventHandlers.push_back(handler); }
 
-  void HyprlandRuntime::unregisterEventHandler(HyprlandEventHandler* handler) {
-    m_eventHandlers.erase(std::remove(m_eventHandlers.begin(), m_eventHandlers.end(), handler), m_eventHandlers.end());
-  }
+  void HyprlandRuntime::unregisterEventHandler(HyprlandEventHandler* handler) { std::erase(m_eventHandlers, handler); }
 
   void HyprlandRuntime::handleEvent(std::string_view line) {
     const auto split = line.find(">>");
@@ -293,7 +291,7 @@ namespace compositors::hyprland {
 
   void HyprlandRuntime::parseMessages() {
     while (true) {
-      auto it = std::find(m_readBuffer.begin(), m_readBuffer.end(), '\n');
+      auto it = std::ranges::find(m_readBuffer, '\n');
       if (it == m_readBuffer.end()) {
         return;
       }

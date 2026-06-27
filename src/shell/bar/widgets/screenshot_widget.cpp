@@ -4,7 +4,6 @@
 #include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "i18n/i18n.h"
-#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "ui/builders.h"
@@ -12,7 +11,6 @@
 #include "ui/controls/context_menu_popup.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 #include "xdg-shell-client-protocol.h"
 
@@ -255,7 +253,23 @@ void ScreenshotWidget::openCaptureMenu() {
   const float menuWidth = kMenuWidth * m_contentScale;
   const std::size_t maxVisible = std::max<std::size_t>(1, entries.size());
   m_menuPopup->open(
-      std::move(entries), menuWidth, maxVisible, menuAnchor.x, menuAnchor.y, menuAnchor.w, menuAnchor.h, layerSurface,
-      m_output, &menuAnchor.placement
+      ContextMenuPopupRequest{
+          .entries = std::move(entries),
+          .menuWidth = menuWidth,
+          .maxVisible = maxVisible,
+          .anchor =
+              PopupAnchorRect{
+                  .x = menuAnchor.x,
+                  .y = menuAnchor.y,
+                  .width = menuAnchor.w,
+                  .height = menuAnchor.h,
+              },
+          .parent =
+              PopupSurfaceParent{
+                  .layerSurface = layerSurface,
+                  .output = m_output,
+              },
+          .placement = menuAnchor.placement,
+      }
   );
 }

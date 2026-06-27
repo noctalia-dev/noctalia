@@ -17,10 +17,10 @@ class Node;
 class RectNode;
 class RenderContext;
 class WaylandConnection;
+struct XdgPopupParent;
 struct KeyboardEvent;
 struct PointerEvent;
 struct wl_surface;
-struct wl_output;
 struct xdg_surface;
 
 // Shared base for the three xdg_popup-backed dialog popups (GlyphPicker,
@@ -86,9 +86,7 @@ protected:
   // Build the PopupSurface as a child of an xdg parent. Uses the same scene/
   // input/prepareFrame plumbing as openPopup() but bypasses LayerPopupHostRegistry
   // parent resolution.
-  [[nodiscard]] bool openPopupAsChild(
-      PopupSurfaceConfig config, xdg_surface* parentXdgSurface, wl_surface* parentWlSurface, wl_output* output
-  );
+  [[nodiscard]] bool openPopupAsChild(PopupSurfaceConfig config, const XdgPopupParent& parent);
 
   // Tear the popup down — endAttachedPopup, invoke `onSheetClose()` hook,
   // reset the scene tree, drop the PopupSurface. Safe to call repeatedly.

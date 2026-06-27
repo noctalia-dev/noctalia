@@ -1,11 +1,12 @@
 #include "wayland/layer_surface.h"
 
 #include "core/log.h"
+#include "util/sys_utils.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 
 #include <stdexcept>
-#include <wayland-client.h>
+#include <utility>
 
 namespace {
 
@@ -15,6 +16,26 @@ namespace {
       .configure = &LayerSurface::handleConfigure,
       .closed = &LayerSurface::handleClosed,
   };
+
+  bool blurTraceEnabled() {
+    static const bool enabled = SysUtils::isEnvFlagOn("NOCTALIA_BLUR_TRACE");
+    return enabled;
+  }
+
+  void traceLayerCommit(const LayerSurface& surface, const LayerSurfaceConfig& config, std::string_view reason) {
+    if (!blurTraceEnabled()) {
+      return;
+    }
+
+    kLog.debug(
+        "blur-trace layer-commit reason={} name={} wl={} requested={}x{} default={}x{} anchor={} margins={},{},{},{} "
+        "exclusive={} layer={} keyboard={} prewarm_blur={}",
+        reason, surface.debugName(), static_cast<const void*>(surface.wlSurface()), config.width, config.height,
+        config.defaultWidth, config.defaultHeight, config.anchor, config.marginTop, config.marginRight,
+        config.marginBottom, config.marginLeft, config.exclusiveZone, static_cast<std::uint32_t>(config.layer),
+        static_cast<std::uint32_t>(config.keyboard), config.prewarmBlur
+    );
+  }
 
 } // namespace
 
@@ -30,7 +51,9 @@ LayerShellLayer layerShellLayerFromConfig(std::string_view layer) {
 }
 
 LayerSurface::LayerSurface(WaylandConnection& connection, LayerSurfaceConfig config)
-    : Surface(connection), m_config(std::move(config)) {}
+    : Surface(connection), m_config(std::move(config)) {
+  setDebugName("layer:" + m_config.nameSpace);
+}
 
 LayerSurface::~LayerSurface() {
   m_connection.unregisterSurface(m_surface);
@@ -89,6 +112,10 @@ bool LayerSurface::initialize(wl_output* output) {
   zwlr_layer_surface_v1_set_keyboard_interactivity(m_layerSurface, static_cast<std::uint32_t>(m_config.keyboard));
   applyInputRegion();
 
+  if (m_config.prewarmBlur) {
+    prepareBlurEffect();
+  }
+  traceLayerCommit(*this, m_config, "initialize");
   wl_surface_commit(m_surface);
 
   setRunning(true);
@@ -122,7 +149,17 @@ void LayerSurface::requestSize(std::uint32_t width, std::uint32_t height) {
   std::uint32_t resolvedWidth = width;
   std::uint32_t resolvedHeight = height;
   if (resolvedWidth == 0) {
-    resolvedWidth = m_config.width != 0 ? m_config.width : std::max(Surface::width(), 1u);
+    const bool stretchWidth =
+        (m_config.anchor & LayerShellAnchor::Left) != 0 && (m_config.anchor & LayerShellAnchor::Right) != 0;
+    if (stretchWidth) {
+      resolvedWidth = 0;
+    } else if (m_config.width != 0) {
+      resolvedWidth = m_config.width;
+    } else if (Surface::width() != 0) {
+      resolvedWidth = Surface::width();
+    } else {
+      resolvedWidth = std::max(m_config.defaultWidth, 1u);
+    }
   }
   if (resolvedHeight == 0) {
     const bool stretchHeight =
@@ -151,10 +188,30 @@ void LayerSurface::requestSize(std::uint32_t width, std::uint32_t height) {
     m_config.defaultHeight = resolvedHeight;
   }
   zwlr_layer_surface_v1_set_size(m_layerSurface, resolvedWidth, resolvedHeight);
+  traceLayerCommit(*this, m_config, "request-size");
+  wl_surface_commit(m_surface);
+}
+
+void LayerSurface::setLayer(LayerShellLayer layer) {
+  if (m_config.layer == layer) {
+    return;
+  }
+  m_config.layer = layer;
+  if (m_layerSurface == nullptr || m_surface == nullptr) {
+    return;
+  }
+  zwlr_layer_surface_v1_set_layer(m_layerSurface, static_cast<std::uint32_t>(layer));
+  traceLayerCommit(*this, m_config, "set-layer");
   wl_surface_commit(m_surface);
 }
 
 void LayerSurface::setMargins(std::int32_t top, std::int32_t right, std::int32_t bottom, std::int32_t left) {
+  if (m_config.marginTop == top
+      && m_config.marginRight == right
+      && m_config.marginBottom == bottom
+      && m_config.marginLeft == left) {
+    return;
+  }
   m_config.marginTop = top;
   m_config.marginRight = right;
   m_config.marginBottom = bottom;
@@ -163,6 +220,7 @@ void LayerSurface::setMargins(std::int32_t top, std::int32_t right, std::int32_t
     return;
   }
   zwlr_layer_surface_v1_set_margin(m_layerSurface, top, right, bottom, left);
+  traceLayerCommit(*this, m_config, "set-margins");
   wl_surface_commit(m_surface);
 }
 
@@ -175,6 +233,7 @@ void LayerSurface::setExclusiveZone(std::int32_t exclusiveZone) {
     return;
   }
   zwlr_layer_surface_v1_set_exclusive_zone(m_layerSurface, exclusiveZone);
+  traceLayerCommit(*this, m_config, "set-exclusive-zone");
   wl_surface_commit(m_surface);
 }
 
@@ -189,6 +248,7 @@ void LayerSurface::setKeyboardInteractivity(LayerShellKeyboard mode) {
     return;
   }
   zwlr_layer_surface_v1_set_keyboard_interactivity(m_layerSurface, static_cast<std::uint32_t>(mode));
+  traceLayerCommit(*this, m_config, "set-keyboard");
   wl_surface_commit(m_surface);
 }
 
@@ -199,6 +259,7 @@ void LayerSurface::setClickThrough(bool clickThrough) {
   m_clickThrough = clickThrough;
   applyInputRegion();
   if (m_surface != nullptr) {
+    traceLayerCommit(*this, m_config, "set-click-through");
     wl_surface_commit(m_surface);
   }
 }

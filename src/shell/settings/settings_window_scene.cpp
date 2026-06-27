@@ -1,17 +1,19 @@
 #include "compositors/compositor_detect.h"
+#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "core/ui_phase.h"
 #include "dbus/upower/upower_service.h"
 #include "i18n/i18n.h"
 #include "render/render_context.h"
-#include "shell/avatar_path.h"
+#include "render/scene/input_area.h"
+#include "render/scene/node.h"
 #include "shell/greeter/greeter_appearance_sync.h"
+#include "shell/profile/avatar_path.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/settings_bar_management.h"
 #include "shell/settings/settings_content.h"
 #include "shell/settings/settings_content_common.h"
 #include "shell/settings/settings_content_plugins.h"
-#include "shell/settings/settings_control_factory.h"
 #include "shell/settings/settings_sidebar.h"
 #include "shell/settings/settings_window.h"
 #include "shell/tooltip/tooltip_manager.h"
@@ -23,6 +25,7 @@
 #include "ui/builders.h"
 #include "ui/controls/select_dropdown_popup.h"
 #include "ui/palette.h"
+#include "ui/scroll_into_view.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
 #include "util/sys_utils.h"
@@ -100,8 +103,8 @@ namespace {
         continue;
       }
       const bool present = descriptor.alwaysShow
-          || std::find_if(
-                 entries.begin(), entries.end(), [section = descriptor.section](const settings::SettingEntry& entry) {
+          || std::ranges::find_if(
+                 entries, [section = descriptor.section](const settings::SettingEntry& entry) {
                    return entry.section == section;
                  }
              ) != entries.end();
@@ -113,7 +116,7 @@ namespace {
   }
 
   bool containsPath(const std::vector<std::vector<std::string>>& paths, const std::vector<std::string>& path) {
-    return std::find(paths.begin(), paths.end(), path) != paths.end();
+    return std::ranges::contains(paths, path);
   }
 
   bool settingEntryBelongsToPage(
@@ -227,39 +230,41 @@ void SettingsWindow::applyPendingContentScrollTarget(float margin) {
     return;
   }
 
-  const float viewportHeight =
-      std::max(0.0f, m_contentScrollView->height() - m_contentScrollView->viewportPaddingV() * 2.0f);
-  if (viewportHeight <= 0.0f) {
-    clearPending();
+  scrollNodeIntoScrollView(*m_contentScrollView, &m_contentScrollState, *m_pendingContentScrollTarget, margin);
+  clearPending();
+}
+
+void SettingsWindow::scrollSidebarNodeIntoView(const Node* node) {
+  if (node == nullptr || m_sidebarScrollView == nullptr) {
+    return;
+  }
+  scrollNodeIntoScrollView(*m_sidebarScrollView, &m_sidebarScrollState, *node, Style::spaceXs * uiScale());
+}
+
+void SettingsWindow::scrollFocusedAreaIntoView(InputArea* area) {
+  if (area == nullptr) {
     return;
   }
 
-  float targetX = 0.0f;
-  float targetY = 0.0f;
-  float contentX = 0.0f;
-  float contentY = 0.0f;
-  Node::absolutePosition(m_pendingContentScrollTarget, targetX, targetY);
-  Node::absolutePosition(m_contentScrollView->content(), contentX, contentY);
-  (void)targetX;
-  (void)contentX;
-
-  const float targetTop = std::max(0.0f, targetY - contentY - margin);
-  const float targetBottom = targetY - contentY + m_pendingContentScrollTarget->height() + margin;
-  const float currentTop = m_contentScrollView->scrollOffset();
-  const float currentBottom = currentTop + viewportHeight;
-
-  float desiredOffset = currentTop;
-  if (targetBottom - targetTop >= viewportHeight) {
-    desiredOffset = targetTop;
-  } else if (targetTop < currentTop) {
-    desiredOffset = targetTop;
-  } else if (targetBottom > currentBottom) {
-    desiredOffset = targetBottom - viewportHeight;
+  if (m_contentScrollView != nullptr && m_contentScrollView->content() != nullptr) {
+    for (const Node* node = area; node != nullptr; node = node->parent()) {
+      if (node == m_contentScrollView->content()) {
+        m_pendingContentScrollTarget = area;
+        m_scrollToPendingContentTarget = true;
+        applyPendingContentScrollTarget(Style::spaceMd * uiScale());
+        return;
+      }
+    }
   }
 
-  m_contentScrollView->setScrollOffset(desiredOffset);
-  m_contentScrollState.offset = m_contentScrollView->scrollOffset();
-  clearPending();
+  if (m_sidebarScrollView != nullptr && m_sidebarScrollView->content() != nullptr) {
+    for (const Node* node = area; node != nullptr; node = node->parent()) {
+      if (node == m_sidebarScrollView->content()) {
+        scrollSidebarNodeIntoView(area);
+        return;
+      }
+    }
+  }
 }
 
 settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
@@ -272,7 +277,8 @@ settings::RegistryEnvironment SettingsWindow::buildRegistryEnvironment() const {
   env.niriOverviewTypeToLaunchSupported = (m_wayland != nullptr && compositors::isNiri());
   env.ddcutilAvailable = (m_dependencies != nullptr && m_dependencies->hasDdcutil());
   env.gammaControlAvailable = (m_wayland != nullptr && m_wayland->hasGammaControl());
-  env.greeterSyncAvailable = greeter::appearanceSyncAvailable();
+  env.greeterSyncAvailable =
+      m_config != nullptr && greeter::appearanceSyncAvailable(m_config->config().shell.greeterSync);
   const ThemeMode previewMode = m_config != nullptr ? m_config->config().theme.mode : ThemeMode::Dark;
   for (const auto& paletteInfo : noctalia::theme::availableCommunityPalettes()) {
     env.communityPalettes.push_back(
@@ -396,11 +402,7 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .focusArea = [this](InputArea* area) { m_inputDispatcher.setFocus(area); },
       .openBarWidgetAddPopup = [this](const std::vector<std::string>& lanePath) { openBarWidgetAddPopup(lanePath); },
       .openSearchPickerPopup =
-          [this](
-              const std::string& title, const std::vector<settings::SelectOption>& options,
-              const std::string& selectedValue, const std::string& placeholder, const std::string& emptyText,
-              const std::vector<std::string>& settingPath
-          ) { openSearchPickerPopup(title, options, selectedValue, placeholder, emptyText, settingPath); },
+          [this](settings::SearchPickerOpenRequest request) { openSearchPickerPopup(std::move(request)); },
       .setOverride = setOverride,
       .setOverrides = setOverrides,
       .clearOverride = clearOverride,
@@ -408,6 +410,9 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .openSessionActionEntryEditor = [this](std::size_t entryIndex) { openSessionActionEntryEditor(entryIndex); },
       .openIdleBehaviorEntryEditor = [this](std::size_t entryIndex) { openIdleBehaviorEntryEditor(entryIndex); },
       .openIdleBehaviorCreateEditor = [this]() { openIdleBehaviorCreateEditor(); },
+      .openNotificationFilterEntryEditor =
+          [this](std::size_t entryIndex) { openNotificationFilterEntryEditor(entryIndex); },
+      .openNotificationFilterCreateEditor = [this]() { openNotificationFilterCreateEditor(); },
       .openWidgetInspectorEditor = [this](
                                        std::vector<std::string> laneListPath, std::string widgetName
                                    ) { openWidgetInspectorEditor(std::move(laneListPath), std::move(widgetName)); },
@@ -431,7 +436,9 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
                                      ) { m_sessionActionsEditState = std::move(state); },
       .afterSessionActionsCommit = {},
       .afterIdleBehaviorApply = {},
+      .afterNotificationFilterApply = {},
       .closeHostedEditor = {},
+      .supportsTaskbarWorkspaceGrouping = m_platform != nullptr && m_platform->supportsTaskbarWorkspaceGrouping(),
   };
 }
 
@@ -528,6 +535,7 @@ void SettingsWindow::rebuildSettingsContent() {
                   markPluginListDirty();
                   requestSceneRebuild();
                 },
+            .isEnabling = [this](const std::string& id) { return m_pluginManager->isEnabling(id); },
             .addSource = [this]() { openPluginSourceCreateEditor(); },
             .setSourceEnabled =
                 [this](PluginSourceConfig source, bool enabled) {
@@ -574,6 +582,7 @@ std::unique_ptr<Flex> SettingsWindow::buildHeaderRow(float scale) {
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
           .onClick = [this]() { openActionsMenu(); },
+          .configure = [](Button& button) { button.setTabStop(false); },
       }),
       ui::button({
           .glyph = "close",
@@ -584,6 +593,7 @@ std::unique_ptr<Flex> SettingsWindow::buildHeaderRow(float scale) {
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
           .onClick = [this]() { close(); },
+          .configure = [](Button& button) { button.setTabStop(false); },
       })
   );
 }
@@ -635,6 +645,10 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(
           },
       })
   );
+  m_settingsSearchInput = searchInputPtr;
+  if (searchInputPtr != nullptr && searchInputPtr->inputArea() != nullptr) {
+    searchInputPtr->inputArea()->setTabFocusKey("settings.search");
+  }
   filters->addChild(ui::spacer());
 
   static const bool translatorMode = SysUtils::isEnvFlagOn("NOCTALIA_TRANSLATOR");
@@ -826,8 +840,11 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(
           .requestRebuild = requestRebuild,
           .createBar = createBar,
           .createMonitorOverride = createMonitorOverride,
+          .scrollSidebarNodeIntoView = [this](const Node* node) { scrollSidebarNodeIntoView(node); },
+          .outNav = &m_sidebarNav,
       }
   );
+  m_sidebarScrollView = dynamic_cast<ScrollView*>(sidebar.get());
 
   body->addChild(std::move(sidebar));
   body->addChild(ui::separator());
@@ -864,8 +881,8 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
     return;
   }
 
-  const float w = static_cast<float>(width);
-  const float h = static_cast<float>(height);
+  const auto w = static_cast<float>(width);
+  const auto h = static_cast<float>(height);
   const float scale = uiScale();
   m_actionsMenuButton = nullptr;
   m_contentScrollView = nullptr;
@@ -881,7 +898,7 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   m_settingsRegistry = settings::buildSettingsRegistry(cfg, nullptr, nullptr, env);
 
   if (m_syncGreeterAppearance && env.greeterSyncAvailable) {
-    auto it = std::find_if(m_settingsRegistry.begin(), m_settingsRegistry.end(), [](const settings::SettingEntry& e) {
+    auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
       return e.section == settings::SettingsSection::Shell
           && e.group == "privacy-security"
           && e.path == std::vector<std::string>{"shell", "password_style"};
@@ -907,8 +924,62 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
     m_settingsRegistry.insert(it, std::move(btn));
   }
 
+  if (m_resetLauncherUsage) {
+    auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
+      return e.section == settings::SettingsSection::Panels
+          && e.group == "launcher"
+          && e.path == std::vector<std::string>{"shell", "panel", "launcher_sort_by_usage"};
+    });
+    if (it != m_settingsRegistry.end()) {
+      ++it;
+    }
+    settings::SettingEntry btn{
+        .section = settings::SettingsSection::Panels,
+        .group = "launcher",
+        .title = i18n::tr("settings.schema.panels.launcher-reset-usage.label"),
+        .subtitle = i18n::tr("settings.schema.panels.launcher-reset-usage.description"),
+        .path = {},
+        .control =
+            settings::ButtonSetting{
+                .label = i18n::tr("settings.schema.panels.launcher-reset-usage.button"),
+                .action = m_resetLauncherUsage,
+                .glyph = "refresh",
+            },
+        .searchText = "launcher reset usage recently used launch count history clear",
+        .visibleWhen = std::nullopt,
+    };
+    m_settingsRegistry.insert(it, std::move(btn));
+  }
+
+  if (m_resetScreenTime) {
+    auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
+      return e.section == settings::SettingsSection::System
+          && e.group == "screen-time"
+          && e.path == std::vector<std::string>{"shell", "screen_time_enabled"};
+    });
+    if (it != m_settingsRegistry.end()) {
+      ++it;
+    }
+    settings::SettingEntry btn{
+        .section = settings::SettingsSection::System,
+        .group = "screen-time",
+        .title = i18n::tr("settings.schema.shell.screen-time-reset.label"),
+        .subtitle = i18n::tr("settings.schema.shell.screen-time-reset.description"),
+        .path = {},
+        .control =
+            settings::ButtonSetting{
+                .label = i18n::tr("settings.schema.shell.screen-time-reset.button"),
+                .action = m_resetScreenTime,
+                .glyph = "refresh",
+            },
+        .searchText = "screen time reset usage history clear tracking",
+        .visibleWhen = settings::SettingVisibility{{"shell", "screen_time_enabled"}, {"true"}},
+    };
+    m_settingsRegistry.insert(it, std::move(btn));
+  }
+
   if (m_saveWallpaperPaletteAsCustom && cfg.theme.source == PaletteSource::Wallpaper) {
-    auto it = std::find_if(m_settingsRegistry.begin(), m_settingsRegistry.end(), [](const settings::SettingEntry& e) {
+    auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
       return e.section == settings::SettingsSection::Appearance
           && e.group == "theme"
           && e.path == std::vector<std::string>{"theme", "wallpaper_scheme"};
@@ -935,7 +1006,7 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   }
 
   if (m_openWallpaperPanel) {
-    auto it = std::find_if(m_settingsRegistry.begin(), m_settingsRegistry.end(), [](const settings::SettingEntry& e) {
+    auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
       return e.section == settings::SettingsSection::Wallpaper
           && e.group == "general"
           && e.path == std::vector<std::string>{"wallpaper", "fill_mode"};
@@ -959,7 +1030,7 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   }
 
   if (m_openDesktopWidgetEditor) {
-    auto it = std::find_if(m_settingsRegistry.begin(), m_settingsRegistry.end(), [](const settings::SettingEntry& e) {
+    auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
       return e.section == settings::SettingsSection::Desktop && e.group == "widgets";
     });
     if (it != m_settingsRegistry.end()) {
@@ -984,7 +1055,7 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   }
 
   if (m_openLockscreenWidgetEditor) {
-    auto it = std::find_if(m_settingsRegistry.begin(), m_settingsRegistry.end(), [](const settings::SettingEntry& e) {
+    auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
       return e.section == settings::SettingsSection::Security
           && e.group == "lock-screen"
           && e.path == std::vector<std::string>{"lockscreen_widgets", "enabled"};
@@ -1014,7 +1085,7 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   }
 
   if (m_config != nullptr) {
-    auto it = std::find_if(m_settingsRegistry.begin(), m_settingsRegistry.end(), [](const settings::SettingEntry& e) {
+    auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
       return e.section == settings::SettingsSection::Services
           && e.group == "calendar"
           && e.path == std::vector<std::string>{"calendar", "refresh_minutes"};
@@ -1067,7 +1138,7 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
 
   const auto sections = sectionKeys(m_settingsRegistry);
   const auto containsSection = [&sections](settings::SettingsSection section) {
-    return std::find(sections.begin(), sections.end(), section) != sections.end();
+    return std::ranges::contains(sections, section);
   };
   if (m_selectedSection == "bar" && selectedBar == nullptr) {
     m_selectedSection.clear();
@@ -1161,6 +1232,9 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
       }
       TooltipManager::instance().onHoverChange(next, m_surface->xdgSurface(), output);
     }
+  });
+  m_inputDispatcher.setFocusChangeCallback([this](InputArea* /*old*/, InputArea* next) {
+    scrollFocusedAreaIntoView(next);
   });
   m_inputDispatcher.setSceneRoot(m_sceneRoot.get());
   m_surface->setSceneRoot(m_sceneRoot.get());

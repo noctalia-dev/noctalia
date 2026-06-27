@@ -21,13 +21,12 @@ namespace {
   constexpr Logger kLog("custom-button");
 }
 
-CustomButtonWidget::CustomButtonWidget(
-    std::string glyph, std::string label, std::string tooltip, std::string command, std::string rightCommand,
-    std::string middleCommand, std::string scrollUpCommand, std::string scrollDownCommand
-)
-    : m_glyphName(std::move(glyph)), m_labelText(std::move(label)), m_tooltip(std::move(tooltip)),
-      m_command(std::move(command)), m_rightCommand(std::move(rightCommand)), m_middleCommand(std::move(middleCommand)),
-      m_scrollUpCommand(std::move(scrollUpCommand)), m_scrollDownCommand(std::move(scrollDownCommand)) {}
+CustomButtonWidget::CustomButtonWidget(Options options)
+    : m_glyphName(std::move(options.glyph)), m_labelText(std::move(options.label)),
+      m_tooltip(std::move(options.tooltip)), m_command(std::move(options.command)),
+      m_rightCommand(std::move(options.rightCommand)), m_middleCommand(std::move(options.middleCommand)),
+      m_scrollUpCommand(std::move(options.scrollUpCommand)), m_scrollDownCommand(std::move(options.scrollDownCommand)) {
+}
 
 void CustomButtonWidget::create() {
   auto area = std::make_unique<InputArea>();
@@ -104,6 +103,7 @@ void CustomButtonWidget::create() {
           .out = &m_label,
           .text = m_labelText,
           .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontFamily = labelFontFamily(),
           .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
           .maxLines = 1,
           .fontWeight = labelFontWeight(),

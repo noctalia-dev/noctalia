@@ -12,11 +12,21 @@ class Renderer;
 
 class DesktopFancyAudioVisualizerWidget : public DesktopWidget {
 public:
-  DesktopFancyAudioVisualizerWidget(
-      PipeWireSpectrum* spectrum, FancyAudioVisualizerMode mode, float sensitivity, float rotationSpeed, float barWidth,
-      float ringOpacity, float bloomIntensity, float waveThickness, float innerDiameter, bool fadeWhenIdle,
-      ColorSpec primaryColor, ColorSpec secondaryColor
-  );
+  struct Options {
+    FancyAudioVisualizerMode mode = FancyAudioVisualizerMode::BarsRings;
+    float sensitivity = 1.5f;
+    float rotationSpeed = 0.5f;
+    float barWidth = 0.6f;
+    float ringOpacity = 0.8f;
+    float bloomIntensity = 0.5f;
+    float waveThickness = 1.0f;
+    float innerDiameter = 0.7f;
+    bool fadeWhenIdle = true;
+    ColorSpec primaryColor = colorSpecFromRole(ColorRole::Primary);
+    ColorSpec secondaryColor = colorSpecFromRole(ColorRole::Secondary);
+  };
+
+  DesktopFancyAudioVisualizerWidget(PipeWireSpectrum* spectrum, Options options);
   ~DesktopFancyAudioVisualizerWidget() override;
 
   void create() override;

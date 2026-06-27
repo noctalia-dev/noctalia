@@ -40,6 +40,18 @@ namespace {
   constexpr auto kFilterDebounceInterval = std::chrono::milliseconds(120);
   constexpr Logger kLog("clipboard");
 
+  [[nodiscard]] bool isDescendantOf(const Node* node, const Node* ancestor) {
+    if (node == nullptr || ancestor == nullptr) {
+      return false;
+    }
+    for (const Node* current = node; current != nullptr; current = current->parent()) {
+      if (current == ancestor) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   void replaceAll(std::string& text, std::string_view needle, std::string_view replacement) {
     if (needle.empty()) {
       return;
@@ -96,7 +108,7 @@ namespace {
 
   std::string formatBytes(std::size_t bytes) {
     const char* units[] = {"B", "KB", "MB", "GB"};
-    double value = static_cast<double>(bytes);
+    auto value = static_cast<double>(bytes);
     std::size_t unitIndex = 0;
     while (value >= 1024.0 && unitIndex + 1 < std::size(units)) {
       value /= 1024.0;
@@ -242,12 +254,14 @@ namespace {
                   .fontSize = Style::fontSizeBody * scale,
                   .maxLines = 1,
                   .fontWeight = FontWeight::SemiBold,
+                  .baselineMode = LabelBaselineMode::StableFont,
                   .configure = [](Label& label) { label.setHitTestVisible(false); },
               }),
               ui::label({
                   .out = &m_meta,
                   .fontSize = Style::fontSizeCaption * scale,
                   .maxLines = 1,
+                  .baselineMode = LabelBaselineMode::StableFont,
                   .configure = [](Label& label) { label.setHitTestVisible(false); },
               })
           )
@@ -500,7 +514,7 @@ ClipboardPanel::ClipboardPanel(
 ClipboardPanel::~ClipboardPanel() = default;
 
 PanelPlacement ClipboardPanel::panelPlacement() const noexcept {
-  return m_config != nullptr ? m_config->config().shell.panel.clipboardPlacement : PanelPlacement::Centered;
+  return m_config != nullptr ? m_config->config().shell.panel.clipboardPlacement : PanelPlacement::Floating;
 }
 
 void ClipboardPanel::setActivateCallback(std::function<void(const ClipboardEntry&)> callback) {
@@ -522,6 +536,7 @@ void ClipboardPanel::create() {
 
   auto focusArea = std::make_unique<InputArea>();
   focusArea->setFocusable(true);
+  focusArea->setTabStop(false);
   focusArea->setVisible(false);
   focusArea->setOnKeyDown([this](const InputArea::KeyData& key) {
     if (key.pressed) {
@@ -945,6 +960,20 @@ void ClipboardPanel::onClose() {
 
 InputArea* ClipboardPanel::initialFocusArea() const {
   return m_filterInput != nullptr ? m_filterInput->inputArea() : m_focusArea;
+}
+
+bool ClipboardPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+  if (!pressed || preedit) {
+    return false;
+  }
+
+  auto& dispatcher = PanelManager::instance().inputDispatcher();
+  InputArea* focused = dispatcher.focusedArea();
+  if (focused != nullptr && !isDescendantOf(focused, m_listGrid)) {
+    return false;
+  }
+
+  return handleKeyEvent(sym, modifiers);
 }
 
 void ClipboardPanel::onPanelCardOpacityChanged(float opacity) {

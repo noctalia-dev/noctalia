@@ -272,9 +272,7 @@ namespace noctalia::theme {
       }
       // STABLE sort: matches Rust sort_by, preserves cluster insertion order
       // when scores tie.
-      std::stable_sort(scored.begin(), scored.end(), [](const Scored& a, const Scored& b) {
-        return a.score > b.score;
-      });
+      std::ranges::stable_sort(scored, std::ranges::greater{}, &Scored::score);
 
       std::vector<mcu::Hct> chosen;
       for (int diff = 90; diff >= 15; diff--) {
@@ -290,11 +288,11 @@ namespace noctalia::theme {
           }
           if (!dup) {
             chosen.push_back(hct);
-            if ((int)chosen.size() >= desired)
+            if (static_cast<int>(chosen.size()) >= desired)
               break;
           }
         }
-        if ((int)chosen.size() >= desired)
+        if (static_cast<int>(chosen.size()) >= desired)
           break;
       }
 
@@ -333,13 +331,7 @@ namespace noctalia::theme {
       // get_source_color_from_image, which calls IndexMap::retain on the
       // quantizer output). This DOES skew the proportions in score, but
       // matugen ships it that way and we need bug-for-bug parity.
-      clusters.erase(
-          std::remove_if(
-              clusters.begin(), clusters.end(),
-              [](const ClusterEntry& c) { return mcu::CamFromInt(c.argb).chroma < 5.0; }
-          ),
-          clusters.end()
-      );
+      std::erase_if(clusters, [](const ClusterEntry& c) { return mcu::CamFromInt(c.argb).chroma < 5.0; });
 
       auto ranked = scoreMatugen(clusters, 4, true);
       return ranked.empty() ? 0xff4285f4u : ranked.front();

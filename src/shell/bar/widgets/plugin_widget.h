@@ -4,6 +4,7 @@
 #include "core/file_watcher.h"
 #include "core/timer_manager.h"
 #include "scripting/plugin_ipc.h"
+#include "scripting/plugin_runtime_context.h"
 #include "scripting/script_runtime.h"
 #include "shell/bar/widget.h"
 #include "ui/palette.h"
@@ -37,13 +38,7 @@ namespace scripting {
 // defaults + the instance's configured values.
 class PluginWidget : public Widget, public scripting::PluginIpcEndpoint {
 public:
-  PluginWidget(
-      std::string entryId, std::filesystem::path sourcePath,
-      std::unordered_map<std::string, WidgetSettingValue> settings, std::string barName, std::string outputName,
-      scripting::ScriptApiContext& scriptApi, FileWatcher* fileWatcher = nullptr,
-      CompositorPlatform* platform = nullptr, ClipboardService* clipboard = nullptr, HttpClient* httpClient = nullptr,
-      PipeWireSpectrum* audioSpectrum = nullptr, MprisService* mpris = nullptr
-  );
+  PluginWidget(scripting::PluginRuntimeContext context, std::string barName, std::string outputName);
   ~PluginWidget() override;
 
   void create() override;
@@ -64,7 +59,8 @@ public:
   [[nodiscard]] std::string_view ipcEntryId() const override { return m_entryId; }
   [[nodiscard]] std::string_view ipcOutputName() const override { return m_outputName; }
   [[nodiscard]] std::string_view ipcBarName() const override { return m_barName; }
-  [[nodiscard]] DispatchResult dispatchIpc(std::string_view event, std::string_view payload) override;
+  [[nodiscard]] DispatchResult
+  dispatchIpc(std::string_view event, std::string_view payload, const scripting::ScriptSnapshot& snapshot) override;
 
 private:
   enum class ScriptColorMode {

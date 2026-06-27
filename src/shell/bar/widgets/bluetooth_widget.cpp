@@ -1,6 +1,6 @@
 #include "shell/bar/widgets/bluetooth_widget.h"
 
-#include "render/core/renderer.h"
+#include "i18n/i18n.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "ui/builders.h"
@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <linux/input-event-codes.h>
 #include <memory>
 
 namespace {
@@ -51,8 +52,17 @@ BluetoothWidget::BluetoothWidget(
 
 void BluetoothWidget::create() {
   auto area = std::make_unique<InputArea>();
-  area->setOnClick([this](const InputArea::PointerData& /*data*/) {
-    requestPanelToggle("control-center", "bluetooth");
+  area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
+  area->setOnClick([this](const InputArea::PointerData& data) {
+    if (data.button == BTN_RIGHT) {
+      if (m_bluetooth != nullptr && m_bluetooth->state().adapterPresent) {
+        m_bluetooth->setPowered(!m_bluetooth->state().powered);
+      }
+      return;
+    }
+    if (data.button == BTN_LEFT) {
+      requestPanelToggle("control-center", "bluetooth");
+    }
   });
 
   area->addChild(
@@ -69,6 +79,7 @@ void BluetoothWidget::create() {
         ui::label({
             .out = &m_label,
             .fontSize = Style::fontSizeBody * m_contentScale,
+            .fontFamily = labelFontFamily(),
             .fontWeight = labelFontWeight(),
         })
     );
@@ -146,23 +157,17 @@ void BluetoothWidget::syncState(Renderer& renderer) {
   auto* rootNode = root();
 
   if (rootNode != nullptr) {
-    rootNode->setOpacity(s.powered ? 1.0f : 0.55f);
+    rootNode->setOpacity(1.0f);
   }
 
   m_glyph->setGlyph(glyphForState(s, numConnected));
   m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
-  m_glyph->setColor(
-      s.powered ? widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface))
-                : colorSpecFromRole(ColorRole::OnSurfaceVariant)
-  );
+  m_glyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
   m_glyph->measure(renderer);
 
   if (m_label != nullptr) {
     m_label->setText(alias);
-    m_label->setColor(
-        s.powered ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
-                  : colorSpecFromRole(ColorRole::OnSurfaceVariant)
-    );
+    m_label->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
     m_label->measure(renderer);
   }
 
@@ -171,7 +176,8 @@ void BluetoothWidget::syncState(Renderer& renderer) {
       std::vector<TooltipRow> rows;
       for (const auto& d : devices) {
         if (d.connected) {
-          std::string value = d.hasBattery ? std::to_string(d.batteryPercent) + "%" : "Connected";
+          std::string value =
+              d.hasBattery ? std::to_string(d.batteryPercent) + "%" : i18n::tr("bar.widgets.bluetooth.connected");
           rows.push_back({d.alias, std::move(value)});
         }
       }

@@ -1,39 +1,29 @@
 #include "shell/desktop/widgets/desktop_audio_visualizer_widget.h"
 
+#include "core/ui_phase.h"
 #include "pipewire/pipewire_spectrum.h"
 #include "render/animation/animation_manager.h"
-#include "render/core/renderer.h"
 #include "render/scene/node.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "ui/visuals/audio_visualizer.h"
 
 #include <algorithm>
-#include <cmath>
 #include <memory>
 
 namespace {
 
-  constexpr float kDefaultVisualizerArea = 240.0f * 96.0f;
-
-  float clampAspectRatio(float aspectRatio) { return std::max(0.05f, aspectRatio); }
-
-  float visualizerBaseWidth(float aspectRatio) {
-    return std::sqrt(kDefaultVisualizerArea * clampAspectRatio(aspectRatio));
-  }
-
-  float visualizerBaseHeight(float aspectRatio) {
-    return std::sqrt(kDefaultVisualizerArea / clampAspectRatio(aspectRatio));
-  }
+  // Footprint used only when the widget has no box yet (freshly dropped). Once boxed, the
+  // visualizer fills the box inner rect on both axes.
+  constexpr float kDefaultVisualizerWidth = 240.0f;
+  constexpr float kDefaultVisualizerHeight = 96.0f;
 
 } // namespace
 
-DesktopAudioVisualizerWidget::DesktopAudioVisualizerWidget(
-    PipeWireSpectrum* spectrum, float aspectRatio, int bands, bool mirrored, ColorSpec color1, ColorSpec color2,
-    bool centered, bool showWhenIdle
-)
-    : m_spectrum(spectrum), m_aspectRatio(clampAspectRatio(aspectRatio)), m_bands(std::max(1, bands)),
-      m_mirrored(mirrored), m_centered(centered), m_showWhenIdle(showWhenIdle), m_color1(color1), m_color2(color2) {}
+DesktopAudioVisualizerWidget::DesktopAudioVisualizerWidget(PipeWireSpectrum* spectrum, Options options)
+    : m_spectrum(spectrum), m_bands(std::max(1, options.bands)), m_mirrored(options.mirrored),
+      m_centered(options.centered), m_showWhenIdle(options.showWhenIdle), m_color1(options.color1),
+      m_color2(options.color2) {}
 
 DesktopAudioVisualizerWidget::~DesktopAudioVisualizerWidget() {
   cancelVisibilityAnimation();
@@ -150,9 +140,23 @@ void DesktopAudioVisualizerWidget::onFrameTick(float deltaMs, Renderer& renderer
   m_visualizer->tick(deltaMs);
 }
 
+void DesktopAudioVisualizerWidget::layout(Renderer& renderer) {
+  // Fill the box on both axes instead of aspect-fitting like the base class. Skipping the base
+  // box-fit also avoids its natural-size high-water mark, which would under-scale the visualizer
+  // when the box shrinks.
+  UiPhaseScope layoutPhase(UiPhase::Layout);
+  m_contentScale = m_baseScale;
+  doLayout(renderer);
+  applyBackground();
+}
+
 void DesktopAudioVisualizerWidget::layoutContentSize(Renderer& renderer) {
-  const float width = visualizerBaseWidth(m_aspectRatio) * m_contentScale;
-  const float height = visualizerBaseHeight(m_aspectRatio) * m_contentScale;
+  float width = boxInnerWidth();
+  float height = boxInnerHeight();
+  if (width <= 0.0f || height <= 0.0f) {
+    width = kDefaultVisualizerWidth * m_contentScale;
+    height = kDefaultVisualizerHeight * m_contentScale;
+  }
   if (m_visualizer != nullptr) {
     if (m_visible) {
       syncSpectrum(&renderer);

@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Noctalia
+Comment=Wayland desktop shell
+Exec=noctalia --daemon
+Icon=noctalia
+Terminal=false
+Categories=Settings;DesktopSettings;
+StartupNotify=false
+Actions=Settings;
+
+[Desktop Action Settings]
+Name=Open Settings
+Exec=sh -c "noctalia msg settings-open || { noctalia --daemon && noctalia msg settings-open; }"

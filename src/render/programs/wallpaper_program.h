@@ -22,13 +22,7 @@ public:
   void ensureInitialized();
   void destroy();
 
-  void draw(
-      WallpaperTransition type, WallpaperSourceKind sourceKind1, TextureId texture1, const Color& sourceColor1,
-      WallpaperSourceKind sourceKind2, TextureId texture2, const Color& sourceColor2, float surfaceWidth,
-      float surfaceHeight, float quadWidth, float quadHeight, float imageWidth1, float imageHeight1, float imageWidth2,
-      float imageHeight2, float progress, float fillMode, const TransitionParams& params,
-      const Color& fillColor = rgba(0.0f, 0.0f, 0.0f, 1.0f), const Mat3& transform = Mat3::identity()
-  ) const;
+  void draw(const WallpaperDrawParams& params) const;
 
 private:
   static constexpr std::size_t kTransitionCount = 6;
@@ -56,6 +50,9 @@ private:
     GLint screenWidthLoc = -1;
     GLint screenHeightLoc = -1;
     GLint fillColorLoc = -1;
+    GLint spanOffsetLoc = -1;
+    GLint spanMonitorSizeLoc = -1;
+    GLint spanTotalSizeLoc = -1;
     // Per-transition uniforms
     GLint directionLoc = -1;
     GLint smoothnessLoc = -1;

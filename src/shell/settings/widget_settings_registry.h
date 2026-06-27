@@ -1,8 +1,7 @@
 #pragma once
 
-#include "config/config_service.h"
+#include "config/config_types.h"
 #include "config/schema/widget_schema.h"
-#include "scripting/plugin_manifest.h"
 
 #include <cstdint>
 #include <initializer_list>
@@ -11,6 +10,12 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+
+namespace scripting {
+  struct ManifestField;
+  struct PluginEntry;
+  class PluginTranslationCatalog;
+} // namespace scripting
 
 namespace settings {
 
@@ -126,15 +131,21 @@ namespace settings {
   widgetReferenceInfo(const Config& cfg, std::string_view name, bool includeManifestVersion = true);
   [[nodiscard]] std::vector<WidgetPickerEntry> widgetPickerEntries(const Config& cfg);
   [[nodiscard]] std::vector<WidgetSettingSpec> commonWidgetSettingSpecs(std::string_view shellFontFamily);
-  [[nodiscard]] std::vector<WidgetSettingSpec>
-  widgetSettingSpecs(std::string_view type, std::string_view shellFontFamily);
+  [[nodiscard]] std::vector<WidgetSettingSpec> widgetSettingSpecs(
+      std::string_view type, std::string_view shellFontFamily, bool supportsTaskbarWorkspaceGrouping = true
+  );
   // Config-aware variant: for a plugin [[widget]] type, returns the manifest-driven
   // settings. Falls back to the type-only specs otherwise.
-  [[nodiscard]] std::vector<WidgetSettingSpec>
-  widgetSettingSpecs(std::string_view type, const WidgetConfig* config, std::string_view shellFontFamily);
+  [[nodiscard]] std::vector<WidgetSettingSpec> widgetSettingSpecs(
+      std::string_view type, const WidgetConfig* config, std::string_view shellFontFamily,
+      bool supportsTaskbarWorkspaceGrouping = true
+  );
   // Build settings specs from a plugin entry's declared setting schema.
-  [[nodiscard]] std::vector<WidgetSettingSpec>
-  manifestSettingSpecs(const std::vector<scripting::ManifestField>& fields);
+  [[nodiscard]] std::vector<WidgetSettingSpec> manifestSettingSpecs(
+      const std::vector<scripting::ManifestField>& fields,
+      const scripting::PluginTranslationCatalog* translations = nullptr
+  );
+  [[nodiscard]] std::vector<WidgetSettingSpec> pluginPanelShellSettingSpecs(const scripting::PluginEntry& entry);
 
   // Schema projection (the validity half of the specs), consumed by the config
   // layer (e.g. `config validate`). For plugin widgets the type alone resolves the

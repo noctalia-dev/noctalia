@@ -1,6 +1,9 @@
 #include "launcher/plugin_launcher_provider.h"
 
 #include "core/log.h"
+#include "i18n/i18n.h"
+#include "notification/notifications.h"
+#include "scripting/plugin_runtime_context.h"
 
 #include <chrono>
 #include <fstream>
@@ -22,20 +25,20 @@ namespace {
 } // namespace
 
 PluginLauncherProvider::PluginLauncherProvider(
-    std::string entryId, std::string displayName, std::filesystem::path sourcePath, std::string prefix,
-    std::string glyph, bool globalSearch, int debounceMs, std::vector<LauncherCategory> categories,
-    std::unordered_map<std::string, WidgetSettingValue> settings, scripting::ScriptApiContext& scriptApi,
-    HttpClient* httpClient, ClipboardService* clipboard
+    scripting::PluginRuntimeContext context, PluginLauncherProviderOptions options
 )
-    : m_entryId(std::move(entryId)), m_displayName(std::move(displayName)), m_sourcePath(std::move(sourcePath)),
-      m_pluginDir(m_sourcePath.parent_path()), m_prefix(std::move(prefix)), m_glyph(std::move(glyph)),
-      m_globalSearch(globalSearch), m_debounceMs(debounceMs), m_categories(std::move(categories)),
-      m_settings(std::move(settings)), m_scriptApi(scriptApi), m_httpClient(httpClient), m_clipboard(clipboard) {}
+    : m_entryId(std::move(context.entryId)), m_displayName(std::move(options.displayName)),
+      m_sourcePath(std::move(context.sourcePath)), m_pluginDir(m_sourcePath.parent_path()),
+      m_prefix(std::move(options.prefix)), m_glyph(std::move(options.glyph)), m_globalSearch(options.globalSearch),
+      m_debounceMs(options.debounceMs), m_categories(std::move(options.categories)),
+      m_settings(std::move(context.settings)), m_scriptApi(context.scriptApi), m_fileWatcher(context.fileWatcher),
+      m_httpClient(context.httpClient), m_clipboard(context.clipboard) {}
 
 PluginLauncherProvider::~PluginLauncherProvider() {
   if (m_alive) {
     *m_alive = false;
   }
+  teardownScriptWatch();
   if (m_runtime != nullptr) {
     if (m_subscription != 0) {
       m_runtime->unsubscribe(m_subscription);
@@ -64,6 +67,7 @@ void PluginLauncherProvider::initialize() {
   });
 
   m_runtime->start(m_sourcePath.string(), std::move(code), {});
+  setupScriptWatch();
 }
 
 void PluginLauncherProvider::reset() {
@@ -73,6 +77,8 @@ void PluginLauncherProvider::reset() {
   m_lastSentQuery.clear();
   m_pendingQuery.clear();
   m_hasSentInitial = false;
+  m_pendingActivate = false;
+  m_pendingActivateId.clear();
 }
 
 std::vector<LauncherResult> PluginLauncherProvider::query(std::string_view text) const {
@@ -118,14 +124,78 @@ void PluginLauncherProvider::armQueryTimer() const {
   });
 }
 
-bool PluginLauncherProvider::activate(const LauncherResult& result) {
-  if (m_runtime != nullptr) {
-    (void)m_runtime->enqueueCallStrings("onActivate", result.id, std::string(), {}, /*coalesce=*/false);
+void PluginLauncherProvider::setupScriptWatch() {
+  if (m_sourcePath.empty() || m_fileWatcher == nullptr) {
+    return;
   }
-  return true; // Close the launcher; the plugin handles the action off-thread.
+  m_watchId = m_fileWatcher->watch(m_sourcePath, [this] { reloadScript(); }, FileWatcher::WatchTrigger::WriteCompleted);
+}
+
+void PluginLauncherProvider::teardownScriptWatch() {
+  if (m_watchId == 0 || m_fileWatcher == nullptr) {
+    return;
+  }
+  m_fileWatcher->unwatch(m_watchId);
+  m_watchId = 0;
+}
+
+void PluginLauncherProvider::reloadScript() {
+  std::string code = readFile(m_sourcePath);
+  auto name = m_sourcePath.filename().string();
+  if (code.empty()) {
+    kLog.warn("launcher provider '{}': failed to reload '{}'", m_entryId, m_sourcePath.string());
+    notify::error("Noctalia", i18n::tr("bar.widgets.scripted.reload-failed"), name);
+    return;
+  }
+  if (m_runtime == nullptr) {
+    kLog.warn("launcher provider '{}': runtime unavailable for reload", m_entryId);
+    notify::error("Noctalia", i18n::tr("bar.widgets.scripted.reload-failed"), name);
+    return;
+  }
+
+  m_queryTimer.stop();
+  reset();
+  m_runtime->reload(m_sourcePath.string(), std::move(code), {});
+  if (m_onResultsChanged) {
+    m_onResultsChanged();
+  }
+  kLog.info("hot reload: reloaded launcher provider '{}'", m_entryId);
+  notify::info("Noctalia", i18n::tr("bar.widgets.scripted.reloaded"), name);
+}
+
+bool PluginLauncherProvider::activate(const LauncherResult& result) {
+  if (result.query.has_value()) {
+    if (m_onQueryRequested) {
+      m_onQueryRequested(*result.query);
+    }
+    return false;
+  }
+  // Defer the close until onActivate resolves: the handler may call
+  // launcher.setQuery() to rewrite the input and keep the panel open. Only defer
+  // when the plugin actually defines onActivate, otherwise no result comes back
+  // and the panel would hang open.
+  if (m_runtime != nullptr && m_runtime->hasOnActivate()) {
+    m_pendingActivate = true;
+    m_pendingActivateId = result.id;
+    (void)m_runtime->enqueueCallStrings("onActivate", result.id, std::string(), {}, /*coalesce=*/false);
+    return false;
+  }
+  return true; // No onActivate handler — nothing to run, close immediately.
 }
 
 void PluginLauncherProvider::handleResult(const scripting::ScriptResult& result) {
+  if (result.patch.launcherQuery.has_value() && m_onQueryRequested) {
+    m_onQueryRequested(*result.patch.launcherQuery);
+  }
+  if (m_pendingActivate && result.callbackName == "onActivate") {
+    m_pendingActivate = false;
+    // The handler rewrote the query → stay open (already applied above). Otherwise
+    // the activation is terminal, so close the launcher and record the usage.
+    if (!result.patch.launcherQuery.has_value() && m_onActivationDone) {
+      m_onActivationDone(m_pendingActivateId);
+    }
+    m_pendingActivateId.clear();
+  }
   if (!result.patch.launcherResults.has_value()) {
     return;
   }
@@ -140,6 +210,9 @@ void PluginLauncherProvider::handleResult(const scripting::ScriptResult& result)
     lr.glyphName = r.glyph;
     lr.iconName = r.icon;
     lr.badge = r.badge;
+    lr.category = r.category;
+    lr.presentation = r.presentation;
+    lr.query = r.query;
     lr.score = r.score;
     m_cache.push_back(std::move(lr));
   }

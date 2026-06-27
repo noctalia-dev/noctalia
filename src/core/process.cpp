@@ -100,9 +100,7 @@ namespace {
     return argv;
   }
 
-  [[nodiscard]] bool validEnvName(std::string_view name) {
-    return !name.empty() && name.find('=') == std::string_view::npos;
-  }
+  [[nodiscard]] bool validEnvName(std::string_view name) { return !name.empty() && !name.contains('='); }
 
   void applyEnvOverrides(const std::vector<process::EnvOverride>& env) {
     for (const auto& item : env) {
@@ -150,7 +148,7 @@ namespace {
     if (name.empty()) {
       return false;
     }
-    return std::all_of(name.begin(), name.end(), [](char ch) { return ch >= '0' && ch <= '9'; });
+    return std::ranges::all_of(name, [](char ch) { return ch >= '0' && ch <= '9'; });
   }
 
   [[nodiscard]] std::string readProcCmdline(const std::filesystem::path& path) {
@@ -219,7 +217,7 @@ namespace {
   }
 
   [[nodiscard]] std::vector<std::string> cachedProcessCommandLines() {
-    std::lock_guard lock(processCommandLineCacheMutex());
+    std::scoped_lock lock(processCommandLineCacheMutex());
     auto& cache = processCommandLineCache();
     const auto now = std::chrono::steady_clock::now();
     if (cache.capturedAt.time_since_epoch().count() == 0 || now - cache.capturedAt >= kProcessCommandLineCacheTtl) {
@@ -231,8 +229,8 @@ namespace {
 
   [[nodiscard]] bool cachedProcessMatchesAny(std::initializer_list<std::string_view> needles) {
     const auto& commandLines = cachedProcessCommandLines();
-    return std::any_of(commandLines.begin(), commandLines.end(), [needles](const auto& commandLine) {
-      return std::any_of(needles.begin(), needles.end(), [&commandLine](std::string_view needle) {
+    return std::ranges::any_of(commandLines, [needles](const auto& commandLine) {
+      return std::ranges::any_of(needles, [&commandLine](std::string_view needle) {
         return commandLine.find(needle) != std::string::npos;
       });
     });
@@ -629,13 +627,13 @@ namespace {
       const std::string& appName
   ) {
     std::vector<std::string> systemdArgs;
-    systemdArgs.push_back("systemd-run");
-    systemdArgs.push_back("--user");
-    systemdArgs.push_back("--slice=app.slice");
+    systemdArgs.emplace_back("systemd-run");
+    systemdArgs.emplace_back("--user");
+    systemdArgs.emplace_back("--slice=app.slice");
     // Only end the service when all subprocesses have exited. Otherwise, apps using a launcher
     // script, e.g. vscode, would end prematurely when the script exits, and the actual app process
     // is still running.
-    systemdArgs.push_back("--property=ExitType=cgroup");
+    systemdArgs.emplace_back("--property=ExitType=cgroup");
 
     // We launch the app as a systemd service instead of a scope so the user can:
     // 1. Place drop-in files in ~/.config/systemd/user/app-<desktop-id>@.service.d/ to set properties like resource
@@ -654,10 +652,10 @@ namespace {
     process::RunOptions runOptions;
 
     if (!activationToken.empty()) {
-      systemdArgs.push_back("-E");
-      systemdArgs.push_back("XDG_ACTIVATION_TOKEN");
-      systemdArgs.push_back("-E");
-      systemdArgs.push_back("DESKTOP_STARTUP_ID");
+      systemdArgs.emplace_back("-E");
+      systemdArgs.emplace_back("XDG_ACTIVATION_TOKEN");
+      systemdArgs.emplace_back("-E");
+      systemdArgs.emplace_back("DESKTOP_STARTUP_ID");
       runOptions.env.push_back({"XDG_ACTIVATION_TOKEN", activationToken});
       runOptions.env.push_back({"DESKTOP_STARTUP_ID", activationToken});
     }
@@ -670,11 +668,11 @@ namespace {
         continue;
       }
       std::string name{*s, std::string_view(*s).find('=')};
-      systemdArgs.push_back("-E");
+      systemdArgs.emplace_back("-E");
       systemdArgs.push_back(name);
     }
 
-    systemdArgs.push_back("--");
+    systemdArgs.emplace_back("--");
     systemdArgs.insert(systemdArgs.end(), args.begin(), args.end());
     return process::runAsync(
         systemdArgs,
@@ -698,6 +696,16 @@ namespace {
 } // namespace
 
 namespace process {
+
+  std::optional<std::string> resolvePrivilegeEscalator() {
+    if (commandExists("run0")) {
+      return "run0";
+    }
+    if (commandExists("pkexec")) {
+      return "pkexec";
+    }
+    return std::nullopt;
+  }
 
   bool commandExists(const char* name) {
     if (name == nullptr || name[0] == '\0') {
@@ -812,7 +820,7 @@ namespace process {
     if (pid <= 0) {
       return;
     }
-    const pid_t p = static_cast<pid_t>(pid);
+    const auto p = static_cast<pid_t>(pid);
     ::kill(p, SIGTERM);
     int status = 0;
     if (::waitpid(p, &status, WNOHANG) != p) {
@@ -854,13 +862,13 @@ namespace process {
     if (needles.empty()) {
       return false;
     }
-    if (std::any_of(needles.begin(), needles.end(), [](const auto& needle) { return needle.empty(); })) {
+    if (std::ranges::any_of(needles, [](const auto& needle) { return needle.empty(); })) {
       return false;
     }
 
     const auto& commandLines = cachedProcessCommandLines();
-    return std::any_of(commandLines.begin(), commandLines.end(), [&needles](const auto& commandLine) {
-      return std::all_of(needles.begin(), needles.end(), [&commandLine](const auto& needle) {
+    return std::ranges::any_of(commandLines, [&needles](const auto& commandLine) {
+      return std::ranges::all_of(needles, [&commandLine](const auto& needle) {
         return commandLine.find(needle) != std::string::npos;
       });
     });

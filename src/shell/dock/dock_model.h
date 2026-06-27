@@ -1,6 +1,5 @@
 #pragma once
 
-#include "config/config_types.h"
 #include "system/desktop_entry.h"
 
 #include <cstddef>
@@ -9,6 +8,8 @@
 #include <vector>
 
 class CompositorPlatform;
+struct DockConfig;
+struct ToplevelInfo;
 struct wl_output;
 
 namespace shell::dock {
@@ -17,6 +18,9 @@ namespace shell::dock {
     DesktopEntry entry;
     std::string idLower;
     std::string startupWmClassLower;
+    // Compositor app id + WM class used to find windows (matches taskbar policy).
+    std::string windowLookupIdLower;
+    std::string windowLookupWmClassLower;
     bool running = false;
     bool active = false;
     std::size_t instanceCount = 0;
@@ -47,5 +51,10 @@ namespace shell::dock {
   );
   [[nodiscard]] DockSnapshot buildDockSnapshot(DockModelDependencies deps);
   [[nodiscard]] bool sameDockItemSet(const DockSnapshot& a, const DockSnapshot& b);
+  [[nodiscard]] std::vector<ToplevelInfo>
+  windowsForDockItem(CompositorPlatform& platform, const DockItemModel& item, wl_output* outputFilter);
+  [[nodiscard]] std::vector<ToplevelInfo> windowsForDockItem(
+      CompositorPlatform& platform, std::string_view idLower, std::string_view wmClassLower, wl_output* outputFilter
+  );
 
 } // namespace shell::dock

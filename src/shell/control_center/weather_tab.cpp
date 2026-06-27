@@ -154,6 +154,42 @@ std::unique_ptr<Flex> WeatherTab::create() {
   );
 
   currentCard->addChild(std::move(currentText));
+
+  auto locationPrompt = ui::row(
+      {.out = &m_locationPrompt,
+       .align = FlexAlign::Center,
+       .justify = FlexJustify::Center,
+       .gap = Style::spaceMd * scale,
+       .fillWidth = true,
+       .fillHeight = true,
+       .flexGrow = 1.0f,
+       .visible = false},
+      ui::glyph({
+          .out = &m_locationPromptGlyph,
+          .glyph = "map-pin-off",
+          .glyphSize = Style::controlHeightLg * scale,
+          .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+      }),
+      ui::column(
+          {.align = FlexAlign::Stretch, .justify = FlexJustify::Center, .gap = Style::spaceXs * scale},
+          ui::label({
+              .text = i18n::tr("control-center.weather.no-location-title"),
+              .fontSize = Style::fontSizeBody * 1.1f * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .maxLines = 1,
+              .fontWeight = FontWeight::Bold,
+          }),
+          ui::label({
+              .out = &m_locationPromptBody,
+              .text = i18n::tr("control-center.weather.no-location-body"),
+              .fontSize = Style::fontSizeBody * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .maxLines = 2,
+          })
+      )
+  );
+  currentCard->addChild(std::move(locationPrompt));
+
   leftColumn->addChild(std::move(currentCard));
 
   auto detailsCard = ui::column({
@@ -427,6 +463,15 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     }
   }
 
+  if (m_locationPrompt != nullptr && m_locationPrompt->visible() && m_locationPromptBody != nullptr) {
+    const float cardPadding =
+        m_currentCard != nullptr ? m_currentCard->paddingLeft() + m_currentCard->paddingRight() : 0.0f;
+    const float glyphWidth = m_locationPromptGlyph != nullptr ? m_locationPromptGlyph->width() : 0.0f;
+    const float promptGap = Style::spaceMd * scale;
+    const float textWidth = std::max(1.0f, leftColumnWidth - cardPadding - glyphWidth - promptGap);
+    m_locationPromptBody->setMaxWidth(textWidth);
+  }
+
   if (m_effectNode != nullptr && m_currentCard != nullptr) {
     m_effectNode->setPosition(0.0f, 0.0f);
     m_effectNode->setFrameSize(m_currentCard->width(), m_currentCard->height());
@@ -456,6 +501,18 @@ void WeatherTab::setForecastVisibleDayCount(std::size_t count) {
   }
 }
 
+void WeatherTab::showLocationPrompt(bool show) {
+  if (m_locationPrompt != nullptr) {
+    m_locationPrompt->setVisible(show);
+  }
+  if (m_glyphColumn != nullptr) {
+    m_glyphColumn->setVisible(!show);
+  }
+  if (m_currentText != nullptr) {
+    m_currentText->setVisible(!show);
+  }
+}
+
 void WeatherTab::onClose() {
   m_rootLayout = nullptr;
   m_leftColumn = nullptr;
@@ -463,6 +520,9 @@ void WeatherTab::onClose() {
   m_glyphColumn = nullptr;
   m_detailsCard = nullptr;
   m_currentText = nullptr;
+  m_locationPrompt = nullptr;
+  m_locationPromptGlyph = nullptr;
+  m_locationPromptBody = nullptr;
   m_forecastColumn = nullptr;
   m_statusLabel = nullptr;
   m_currentGlyph = nullptr;
@@ -498,6 +558,8 @@ void WeatherTab::sync(Renderer& renderer) {
       || m_updatedLabel == nullptr) {
     return;
   }
+
+  showLocationPrompt(false);
 
   const bool showLocation = m_config == nullptr || m_config->config().shell.showLocation;
   if (m_updatedLabel != nullptr) {
@@ -542,16 +604,7 @@ void WeatherTab::sync(Renderer& renderer) {
   }
 
   if (!m_weather->locationConfigured()) {
-    m_currentGlyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-    m_currentTempLabel->setText(std::format("--{}", m_weather->displayTemperatureUnit()));
-    if (m_currentHiLoLabel != nullptr) {
-      m_currentHiLoLabel->setText("-- / --");
-    }
-    m_currentDescLabel->setText(i18n::tr("control-center.weather.configure-location"));
-    m_updatedLabel->setText(i18n::tr("control-center.weather.location-unavailable"));
-    m_updatedLabel->setVisible(false);
-    m_statusLabel->setText("");
-    m_statusLabel->setVisible(false);
+    showLocationPrompt(true);
     if (m_windLabel != nullptr) {
       m_windLabel->setText("--");
     }

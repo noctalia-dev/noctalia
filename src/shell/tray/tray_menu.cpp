@@ -13,7 +13,6 @@
 #include "ui/controls/scroll_view.h"
 #include "ui/popup_chrome.h"
 #include "ui/style.h"
-#include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
 #include "xdg-shell-client-protocol.h"
@@ -36,9 +35,7 @@ namespace {
       | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_X
       | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y;
 
-  bool containsTrayWidget(const std::vector<std::string>& widgets) {
-    return std::find(widgets.begin(), widgets.end(), "tray") != widgets.end();
-  }
+  bool containsTrayWidget(const std::vector<std::string>& widgets) { return std::ranges::contains(widgets, "tray"); }
 
   void closeTrayDrawerPanelIfOpen() {
     auto& panelManager = PanelManager::instance();
@@ -922,8 +919,7 @@ std::optional<TrayItemInfo> TrayMenu::activeTrayItem() const {
     return std::nullopt;
   }
   const auto allItems = m_tray->items();
-  const auto it =
-      std::ranges::find_if(allItems, [this](const TrayItemInfo& item) { return item.id == m_activeItemId; });
+  const auto it = std::ranges::find(allItems, m_activeItemId, &TrayItemInfo::id);
   if (it == allItems.end()) {
     return std::nullopt;
   }
@@ -1081,8 +1077,8 @@ void TrayMenu::openSubmenuAtLevel(std::size_t levelIndex, std::int32_t parentEnt
   );
 
   const auto* wlOutput = m_wayland->findOutputByWl(parentMenu->output);
-  const std::int32_t outputWidth = (wlOutput != nullptr && wlOutput->logicalWidth > 0)
-      ? wlOutput->logicalWidth
+  const std::int32_t outputWidth = (wlOutput != nullptr && wlOutput->effectiveLogicalWidth() > 0)
+      ? wlOutput->effectiveLogicalWidth()
       : static_cast<std::int32_t>(chrome.surfaceWidth);
 
   bool isRight = (parentMenu->submenuDirection == ContextSubmenuDirection::Right);

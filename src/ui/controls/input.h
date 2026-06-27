@@ -20,7 +20,6 @@ class GlyphNode;
 class InputArea;
 class Label;
 class RectNode;
-class Renderer;
 
 class Input : public Node, public TextInputClient {
 public:
@@ -138,33 +137,14 @@ private:
   [[nodiscard]] float stopXForByte(std::size_t bytePos) const;
   void syncPasswordGlyphNodes(std::size_t count);
 
-  struct TextMetricsEdit {
-    enum class Kind : std::uint8_t { Full, Insert, Delete } kind = Kind::Full;
-    std::size_t startByte = 0;
-    std::string fragment;
-
-    [[nodiscard]] static TextMetricsEdit full() { return {}; }
-
-    [[nodiscard]] static TextMetricsEdit insert(std::size_t at, std::string text) {
-      return TextMetricsEdit{.kind = Kind::Insert, .startByte = at, .fragment = std::move(text)};
-    }
-
-    [[nodiscard]] static TextMetricsEdit deleteRange(std::size_t at, std::string text) {
-      return TextMetricsEdit{.kind = Kind::Delete, .startByte = at, .fragment = std::move(text)};
-    }
-  };
-
-  void markTextContentChanged(TextMetricsEdit edit);
+  void markTextContentChanged();
   void rebuildCursorStops(Renderer& renderer);
   void rebuildCursorStopsFull(Renderer& renderer);
-  bool tryApplyIncrementalCursorStops(Renderer& renderer, const TextMetricsEdit& edit);
   void recomputeContentLeadSlack(Renderer& renderer, float width, bool showClearButton);
   void updateLabelVisibleSlice(Renderer& renderer);
   void syncLabelScrollPosition();
   [[nodiscard]] std::size_t visibleLabelStartByte() const;
   [[nodiscard]] std::size_t visibleLabelEndByte(float contentWidth, std::size_t startByte) const;
-  [[nodiscard]] std::size_t stopIndexForByte(std::size_t bytePos) const;
-  [[nodiscard]] float measureTextWidth(Renderer& renderer, std::string_view text) const;
 
   static std::size_t nextCharPos(const std::string& s, std::size_t pos);
   static std::size_t prevCharPos(const std::string& s, std::size_t pos);
@@ -193,7 +173,6 @@ private:
 
   std::vector<float> m_stopX;
   std::vector<std::size_t> m_stopByte;
-  TextMetricsEdit m_pendingMetricsEdit{};
   bool m_textMetricsDirty = true;
   float m_cachedLabelY = 0.0f;
   std::string m_labelVisibleSlice;

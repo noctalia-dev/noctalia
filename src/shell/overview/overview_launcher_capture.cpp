@@ -136,7 +136,7 @@ void OverviewLauncherCapture::ensureSurfaces() {
   }
 
   for (const auto& output : m_wayland->outputs()) {
-    if (output.output == nullptr) {
+    if (!output.done || output.output == nullptr || !output.hasUsableGeometry()) {
       continue;
     }
 

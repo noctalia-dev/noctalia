@@ -3,7 +3,6 @@
 #include "cursor-shape-v1-client-protocol.h"
 
 #include <algorithm>
-#include <cmath>
 
 namespace {
 
@@ -135,16 +134,21 @@ TooltipContent InputArea::tooltipContent() const {
 }
 
 void InputArea::notifyTooltipChanged() {
+  onTooltipChanged();
   if (m_hovered && m_tooltipChangedCallback) {
     m_tooltipChangedCallback(this);
   }
 }
 void InputArea::setFocusable(bool focusable) { m_focusable = focusable; }
+
+void InputArea::setTabStop(bool tabStop) { m_tabStop = tabStop; }
+void InputArea::setTabFocusKey(std::string key) { m_tabFocusKey = std::move(key); }
 void InputArea::setOnKeyDown(KeyCallback callback) { m_onKeyDown = std::move(callback); }
 void InputArea::setOnKeyUp(KeyCallback callback) { m_onKeyUp = std::move(callback); }
 void InputArea::setOnFocusGain(VoidCallback callback) { m_onFocusGain = std::move(callback); }
 void InputArea::setOnFocusLoss(VoidCallback callback) { m_onFocusLoss = std::move(callback); }
 void InputArea::setTextInputClient(TextInputClient* client) { m_textInputClient = client; }
+void InputArea::setRetainsFocusOnPointerRelease(bool retain) { m_retainsFocusOnPointerRelease = retain; }
 
 void InputArea::dispatchEnter(float localX, float localY) {
   m_hovered = true;
@@ -176,7 +180,8 @@ void InputArea::dispatchPress(float localX, float localY, std::uint32_t button, 
       m_onPress({.localX = localX, .localY = localY, .button = button, .pressed = true});
     }
   } else {
-    const bool shouldClick = m_pressed && m_pressedButton == button && m_onClick;
+    const bool releasedInside = containsLocalPoint(localX, localY, true);
+    const bool shouldClick = m_pressed && m_pressedButton == button && releasedInside && m_onClick;
     m_pressed = false;
     m_pressedButton = 0;
 
@@ -184,7 +189,7 @@ void InputArea::dispatchPress(float localX, float localY, std::uint32_t button, 
       m_onPress({.localX = localX, .localY = localY, .button = button, .pressed = false});
     }
 
-    // Click: release at the same InputArea that received the press
+    // Click: release inside the same InputArea that received the press.
     if (shouldClick) {
       m_onClick({.localX = localX, .localY = localY, .button = button, .pressed = false});
     }

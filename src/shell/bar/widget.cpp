@@ -2,7 +2,6 @@
 
 #include "render/animation/animation_manager.h"
 #include "render/scene/node.h"
-#include "ui/controls/box.h"
 #include "ui/palette.h"
 
 #include <algorithm>

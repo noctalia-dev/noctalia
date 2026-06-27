@@ -1,8 +1,6 @@
 #pragma once
 
-#include "config/config_types.h"
 #include "render/animation/animation_manager.h"
-#include "shell/dock/dock_model.h"
 #include "system/desktop_entry.h"
 
 #include <array>
@@ -20,10 +18,12 @@ class Image;
 class InputArea;
 class Label;
 class RenderContext;
+struct DockConfig;
 
 namespace shell::dock {
 
   struct DockInstance;
+  struct DockSnapshot;
 
   struct DockItemView {
     InputArea* area = nullptr;
@@ -45,6 +45,8 @@ namespace shell::dock {
     DesktopEntry entry;
     std::string idLower;
     std::string startupWmClassLower;
+    std::string windowLookupIdLower;
+    std::string windowLookupWmClassLower;
   };
 
   struct DockItemModelDependencies {

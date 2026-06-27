@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <limits>
 #include <utility>
 
 namespace {
@@ -16,6 +17,7 @@ namespace {
   constexpr Logger kLog("idle");
 
   constexpr std::uint32_t kHeartbeatTimeoutMs = 1000;
+  constexpr double kMaxIdleTimeoutMs = static_cast<double>(std::numeric_limits<std::uint32_t>::max());
 
   const ext_idle_notification_v1_listener kIdleNotificationListener = {
       .idled = &IdleManager::handleIdled,
@@ -26,6 +28,11 @@ namespace {
       .idled = &IdleManager::handleHeartbeatIdled,
       .resumed = &IdleManager::handleHeartbeatResumed,
   };
+
+  std::uint32_t timeoutSecondsToMilliseconds(double timeoutSeconds) {
+    const double timeoutMs = std::clamp(std::ceil(timeoutSeconds * 1000.0), 1.0, kMaxIdleTimeoutMs);
+    return static_cast<std::uint32_t>(timeoutMs);
+  }
 
 } // namespace
 
@@ -156,11 +163,13 @@ void IdleManager::recreateBehaviorNotification(BehaviorState& behavior) {
   }
   behavior.phase = BehaviorPhase::Waiting;
 
-  if (!behavior.config.enabled || behavior.config.timeoutSeconds <= 0) {
+  if (!behavior.config.enabled
+      || !std::isfinite(behavior.config.timeoutSeconds)
+      || behavior.config.timeoutSeconds <= 0.0) {
     return;
   }
 
-  const auto timeoutMs = static_cast<std::uint32_t>(behavior.config.timeoutSeconds) * 1000u;
+  const auto timeoutMs = timeoutSecondsToMilliseconds(behavior.config.timeoutSeconds);
   behavior.notification = m_wayland->createIdleNotification(timeoutMs);
   if (behavior.notification == nullptr) {
     kLog.warn("failed to re-register idle behavior '{}'", behavior.config.name);
@@ -185,11 +194,11 @@ void IdleManager::createBehavior(const IdleBehaviorConfig& config) {
   if (!config.enabled) {
     return;
   }
-  if (config.timeoutSeconds < 0) {
+  if (!std::isfinite(config.timeoutSeconds) || config.timeoutSeconds < 0.0) {
     kLog.warn("idle behavior '{}' ignored: timeout must be >= 0 seconds", config.name);
     return;
   }
-  if (config.timeoutSeconds == 0) {
+  if (config.timeoutSeconds == 0.0) {
     kLog.debug("idle behavior '{}' disabled by zero timeout", config.name);
     return;
   }
@@ -202,7 +211,7 @@ void IdleManager::createBehavior(const IdleBehaviorConfig& config) {
   auto behavior = std::make_unique<BehaviorState>();
   behavior->owner = this;
   behavior->config = config;
-  const auto timeoutMs = static_cast<std::uint32_t>(config.timeoutSeconds) * 1000u;
+  const auto timeoutMs = timeoutSecondsToMilliseconds(config.timeoutSeconds);
   behavior->notification = m_wayland->createIdleNotification(timeoutMs);
   if (behavior->notification == nullptr) {
     kLog.warn("failed to register idle behavior '{}'", config.name);
@@ -280,7 +289,7 @@ void IdleManager::graceFadeComplete() {
 }
 
 void IdleManager::joinActiveGrace(BehaviorState& behavior) {
-  if (std::find(m_graceBehaviors.begin(), m_graceBehaviors.end(), &behavior) != m_graceBehaviors.end()) {
+  if (std::ranges::contains(m_graceBehaviors, &behavior)) {
     return;
   }
   behavior.phase = BehaviorPhase::Fading;

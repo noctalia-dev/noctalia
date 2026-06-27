@@ -11,6 +11,7 @@
 #include "cpp/scheme/scheme_rainbow.h"
 #include "cpp/scheme/scheme_tonal_spot.h"
 #include "theme/color.h"
+#include "theme/palette.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 
@@ -21,12 +22,14 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <ranges>
 #include <regex>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -94,9 +97,9 @@ namespace noctalia::theme {
         m_scopes.back()[std::move(name)] = std::move(value);
       }
       const ScopeValue* get(std::string_view name) const {
-        for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it) {
-          auto found = it->find(std::string(name));
-          if (found != it->end())
+        for (const auto& scope : std::views::reverse(m_scopes)) {
+          auto found = scope.find(std::string(name));
+          if (found != scope.end())
             return &found->second;
         }
         return nullptr;
@@ -122,7 +125,7 @@ namespace noctalia::theme {
     const std::unordered_map<std::string, int> kSupportedFilters = {
         {"grayscale", 0},      {"invert", 0},   {"set_alpha", 1},  {"set_lightness", 1},  {"set_hue", 1},
         {"set_saturation", 1}, {"set_red", 1},  {"set_green", 1},  {"set_blue", 1},       {"lighten", 1},
-        {"darken", 1},         {"saturate", 1}, {"desaturate", 1}, {"auto_lightness", 1},
+        {"darken", 1},         {"saturate", 1}, {"desaturate", 1}, {"auto_lightness", 1}, {"rotate_hue", 1},
     };
 
     const std::unordered_set<std::string> kColorArgFilters = {"blend", "harmonize"};
@@ -566,6 +569,8 @@ namespace noctalia::theme {
         color.color = Color::fromHsl(h, s, std::clamp(numArg / 100.0, 0.0, 1.0));
       } else if (name == "set_hue") {
         color.color = Color::fromHsl(std::fmod(numArg + 360.0, 360.0), s, l);
+      } else if (name == "rotate_hue") {
+        color.color = Color::fromHsl(std::fmod(h + numArg + 360.0, 360.0), s, l);
       } else if (name == "set_saturation") {
         color.color = Color::fromHsl(h, std::clamp(numArg / 100.0, 0.0, 1.0), l);
       } else if (name == "lighten") {
@@ -591,8 +596,8 @@ namespace noctalia::theme {
 
     class EngineImpl {
     public:
-      explicit EngineImpl(const TemplateEngine::ThemeData& themeData, const TemplateEngine::Options& options)
-          : m_themeData(themeData), m_options(options) {}
+      explicit EngineImpl(TemplateEngine::ThemeData themeData, TemplateEngine::Options options)
+          : m_themeData(std::move(themeData)), m_options(std::move(options)) {}
 
       RenderResult render(std::string_view templateText) {
         m_errorCount = 0;
@@ -667,7 +672,7 @@ namespace noctalia::theme {
         size_t lastEnd = 0;
         for (auto it = std::sregex_iterator(input.begin(), input.end(), kBlockRegex); it != std::sregex_iterator();
              ++it) {
-          size_t start = static_cast<size_t>(it->position());
+          auto start = static_cast<size_t>(it->position());
           size_t end = start + static_cast<size_t>(it->length());
           size_t lineStart = input.rfind('\n', start);
           lineStart = (lineStart == std::string::npos) ? 0 : (lineStart + 1);
@@ -698,7 +703,7 @@ namespace noctalia::theme {
         while (pos < tokens.size()) {
           if (const auto* text = std::get_if<std::string>(&tokens[pos])) {
             if (!text->empty())
-              nodes.push_back(TextNode{*text});
+              nodes.emplace_back(TextNode{*text});
             ++pos;
             continue;
           }
@@ -713,9 +718,9 @@ namespace noctalia::theme {
           if (shouldStop)
             return nodes;
           if (cmd.starts_with("for ")) {
-            nodes.push_back(parseFor(tokens, pos));
+            nodes.emplace_back(parseFor(tokens, pos));
           } else if (cmd.starts_with("if ")) {
-            nodes.push_back(parseIf(tokens, pos));
+            nodes.emplace_back(parseIf(tokens, pos));
           } else {
             ++pos;
           }
@@ -782,7 +787,7 @@ namespace noctalia::theme {
               names.insert(name);
         }
         std::vector<std::string> sorted(names.begin(), names.end());
-        std::sort(sorted.begin(), sorted.end());
+        std::ranges::sort(sorted);
         for (const auto& name : sorted) {
           ScopeMap modeMap;
           for (const auto& [mode, modeData] : m_themeData) {
@@ -1015,7 +1020,7 @@ namespace noctalia::theme {
           keys.reserve(colors.size());
           for (const auto& [name, _value] : colors)
             keys.push_back(name);
-          std::sort(keys.begin(), keys.end());
+          std::ranges::sort(keys);
           for (const auto& key : keys) {
             ScopeMap pair;
             pair["key"] = ScopeValue(key);
@@ -1225,7 +1230,7 @@ namespace noctalia::theme {
           {"$XDG_CACHE_HOME", "XDG_CACHE_HOME", ".cache"},
       }};
       for (const XdgBase& b : kBases) {
-        if (path.rfind(b.token, 0) != 0)
+        if (!path.starts_with(b.token))
           continue;
         if (path.size() != b.token.size() && path[b.token.size()] != '/')
           continue;
@@ -1422,10 +1427,7 @@ namespace noctalia::theme {
       if (auto entry = parseTemplateEntry(configPath, templateName.str(), *tpl, m_options.defaultMode))
         entries.push_back(std::move(*entry));
     }
-    std::stable_sort(
-        entries.begin(), entries.end(),
-        [](const ParsedTemplateEntry& lhs, const ParsedTemplateEntry& rhs) { return lhs.index < rhs.index; }
-    );
+    std::ranges::stable_sort(entries, {}, &ParsedTemplateEntry::index);
     markMultiClientGatedEntries(entries);
 
     bool ok = true;

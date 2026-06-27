@@ -32,6 +32,7 @@ enum class NetworkConnectivity {
 struct NetworkState {
   NetworkConnectivity kind = NetworkConnectivity::Unknown;
   bool connected = false;
+  bool resolving = false; // active connection is activating, not yet connected
   bool wirelessEnabled = false;
   bool scanning = false;
   bool vpnActive = false;          // true if a VPN is the active connection

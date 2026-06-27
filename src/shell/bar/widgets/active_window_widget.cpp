@@ -1,8 +1,8 @@
 #include "shell/bar/widgets/active_window_widget.h"
 
+#include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "i18n/i18n.h"
-#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "system/app_identity.h"
@@ -53,6 +53,7 @@ void ActiveWindowWidget::create() {
       ui::label({
           .out = &m_title,
           .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontFamily = labelFontFamily(),
           .color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)),
           .maxWidth = m_maxWidth * m_contentScale,
           .maxLines = 1,

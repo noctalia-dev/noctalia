@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <numbers>
 
 Collapsible::Collapsible() {
   setDirection(FlexDirection::Vertical);
@@ -121,7 +122,7 @@ void Collapsible::applyExpandedProgress(float t) {
   m_expandProgress = t;
 
   if (m_chevron != nullptr) {
-    m_chevron->setRotation(t * static_cast<float>(M_PI));
+    m_chevron->setRotation(t * std::numbers::pi_v<float>);
   }
 
   m_clipHeight = t * m_bodyNaturalHeight;

@@ -5,6 +5,7 @@
 #include "render/core/mat3.h"
 
 #include <algorithm>
+#include <ranges>
 #include <utility>
 
 namespace {
@@ -15,7 +16,7 @@ namespace {
     return Mat3::translation(node->x(), node->y())
         * Mat3::translation(cx, cy)
         * Mat3::rotation(node->rotation())
-        * Mat3::scale(node->scale(), node->scale())
+        * Mat3::scale(node->scaleX(), node->scaleY())
         * Mat3::translation(-cx, -cy);
   }
 
@@ -222,11 +223,14 @@ void Node::setRotation(float radians) {
   markPaintDirty();
 }
 
-void Node::setScale(float scale) {
-  if (m_scale == scale) {
+void Node::setScale(float scale) { setScale(scale, scale); }
+
+void Node::setScale(float scaleX, float scaleY) {
+  if (m_scaleX == scaleX && m_scaleY == scaleY) {
     return;
   }
-  m_scale = scale;
+  m_scaleX = scaleX;
+  m_scaleY = scaleY;
   markPaintDirty();
 }
 
@@ -297,6 +301,8 @@ void Node::setZIndex(std::int32_t zIndex) {
   markPaintDirty();
 }
 
+void Node::setExcludeSubtreeFromTabOrder(bool exclude) noexcept { m_excludeSubtreeFromTabOrder = exclude; }
+
 void Node::setAnimationManager(AnimationManager* mgr) {
   m_animationManager = mgr;
   for (auto& child : m_children) {
@@ -351,7 +357,7 @@ Node* Node::insertChildAt(std::size_t index, std::unique_ptr<Node> child) {
 
 std::unique_ptr<Node> Node::removeChild(Node* child) {
   uiAssertSceneMutationAllowed("Node::removeChild");
-  auto it = std::find_if(m_children.begin(), m_children.end(), [child](const auto& ptr) { return ptr.get() == child; });
+  auto it = std::ranges::find_if(m_children, [child](const auto& ptr) { return ptr.get() == child; });
 
   if (it == m_children.end()) {
     return nullptr;
@@ -442,8 +448,8 @@ Node* Node::hitTestImpl(Node* node, float px, float py) {
   // Traverse children in reverse (topmost first).
   // Children are allowed to overflow parent bounds (needed for menus/popovers).
   if (childrenSorted) {
-    for (auto it = children.rbegin(); it != children.rend(); ++it) {
-      auto* hit = hitTestImpl(it->get(), px, py);
+    for (const auto& child : std::views::reverse(children)) {
+      auto* hit = hitTestImpl(child.get(), px, py);
       if (hit != nullptr) {
         return hit;
       }
@@ -454,11 +460,9 @@ Node* Node::hitTestImpl(Node* node, float px, float py) {
     for (auto& child : children) {
       orderedChildren.push_back(child.get());
     }
-    std::stable_sort(orderedChildren.begin(), orderedChildren.end(), [](const Node* a, const Node* b) {
-      return a->zIndex() < b->zIndex();
-    });
-    for (auto it = orderedChildren.rbegin(); it != orderedChildren.rend(); ++it) {
-      auto* hit = hitTestImpl(*it, px, py);
+    std::ranges::stable_sort(orderedChildren, [](const Node* a, const Node* b) { return a->zIndex() < b->zIndex(); });
+    for (Node* child : std::views::reverse(orderedChildren)) {
+      auto* hit = hitTestImpl(child, px, py);
       if (hit != nullptr) {
         return hit;
       }

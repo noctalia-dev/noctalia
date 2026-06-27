@@ -145,6 +145,7 @@ void HttpClient::download(std::string_view url, const std::filesystem::path& des
   curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1L);
   curl_easy_setopt(easy, CURLOPT_FAILONERROR, 1L);
   curl_easy_setopt(easy, CURLOPT_TIMEOUT, 30L);
+  curl_easy_setopt(easy, CURLOPT_CONNECTTIMEOUT, 10L);
   curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L);
 
   Transfer transfer{};
@@ -228,6 +229,7 @@ void HttpClient::post(std::string_view url, std::string body, std::string_view c
   curl_easy_setopt(easy, CURLOPT_POSTFIELDS, post.body.c_str());
   curl_easy_setopt(easy, CURLOPT_HTTPHEADER, post.headers);
   curl_easy_setopt(easy, CURLOPT_TIMEOUT, 10L);
+  curl_easy_setopt(easy, CURLOPT_CONNECTTIMEOUT, 5L);
   curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L);
   curl_easy_setopt(easy, CURLOPT_FAILONERROR, 1L);
 
@@ -280,6 +282,7 @@ void HttpClient::request(HttpRequest req, ResponseCallback cb) {
   curl_easy_setopt(easy, CURLOPT_URL, stored.url.c_str());
   curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L);
   curl_easy_setopt(easy, CURLOPT_TIMEOUT, 30L);
+  curl_easy_setopt(easy, CURLOPT_CONNECTTIMEOUT, 10L);
   if (req.followRedirects) {
     curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1L);
     if (req.allowRedirectAuth) {
@@ -529,6 +532,11 @@ void HttpClient::finishRequestTransfer(CURL* easy, CURLcode result) {
   response.transportOk = result == CURLE_OK;
   response.status = responseCode;
   response.body = std::move(transfer.response);
+  if (char* effectiveUrl = nullptr; curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &effectiveUrl) == CURLE_OK
+      && effectiveUrl != nullptr
+      && effectiveUrl[0] != '\0') {
+    response.effectiveUrl = effectiveUrl;
+  }
   if (!response.transportOk) {
     const char* detail = transfer.errorBuffer[0] != '\0' ? transfer.errorBuffer.data() : curl_easy_strerror(result);
     kLog.warn(

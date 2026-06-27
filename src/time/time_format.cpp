@@ -11,6 +11,7 @@
 #include <langinfo.h>
 #include <locale>
 #include <optional>
+#include <string>
 #include <string_view>
 
 namespace {
@@ -46,6 +47,18 @@ namespace {
     return i18n::trp("time.relative.days-ago", days);
   }
 
+  std::string formatDurationUnit(std::string_view key, std::uint64_t count) {
+    return i18n::trp(key, static_cast<long>(count));
+  }
+
+  std::string formatDurationParts(const std::string& first, const std::string& second) {
+    return i18n::tr("time.duration.two-parts", "first", first, "second", second);
+  }
+
+  std::string formatDurationParts(const std::string& first, const std::string& second, const std::string& third) {
+    return i18n::tr("time.duration.three-parts", "first", first, "second", second, "third", third);
+  }
+
 } // namespace
 
 namespace {
@@ -68,12 +81,68 @@ namespace {
     return fmt.contains("%-") || (fmt.contains('%') && (!fmt.contains('{') || fmt.contains("{:")));
   }
 
-  std::optional<std::string> formatStrftimeCompat(std::string_view fmt, const std::tm& local) {
+  std::string formatStrftimeRaw(std::string_view fmt, const std::tm& tm) {
+    std::string spec(fmt);
+    std::size_t size = std::max<std::size_t>(64, spec.size() * 4 + 16);
+    for (int attempt = 0; attempt < 6; ++attempt) {
+      std::string buffer(size, '\0');
+      std::tm copy = tm;
+      const std::size_t written = std::strftime(buffer.data(), buffer.size(), spec.c_str(), &copy);
+      if (written > 0 || spec.empty()) {
+        buffer.resize(written);
+        return buffer;
+      }
+      size *= 2;
+    }
+    return {};
+  }
+
+  std::string
+  formatStrftimeWithUnixSeconds(std::string_view fmt, const std::tm& tm, std::optional<std::int64_t> unixSeconds) {
+    if (!unixSeconds.has_value() || !fmt.contains("%s")) {
+      return formatStrftimeRaw(fmt, tm);
+    }
+
+    std::string out;
+    out.reserve(fmt.size() + 16);
+    std::string chunk;
+    chunk.reserve(fmt.size());
+
+    for (std::size_t i = 0; i < fmt.size();) {
+      if (fmt[i] != '%' || i + 1 >= fmt.size()) {
+        chunk.push_back(fmt[i++]);
+        continue;
+      }
+
+      if (fmt[i + 1] == '%') {
+        chunk.append("%%");
+        i += 2;
+        continue;
+      }
+
+      if (fmt[i + 1] == 's') {
+        out += formatStrftimeRaw(chunk, tm);
+        chunk.clear();
+        out += std::to_string(*unixSeconds);
+        i += 2;
+        continue;
+      }
+
+      chunk.push_back(fmt[i++]);
+    }
+
+    out += formatStrftimeRaw(chunk, tm);
+    return out;
+  }
+
+  std::optional<std::string> formatStrftimeCompat(
+      std::string_view fmt, const std::tm& local, std::optional<std::int64_t> unixSeconds = std::nullopt
+  ) {
     if (!shouldUseStrftimeCompat(fmt)) {
       return std::nullopt;
     }
     if (!fmt.contains('{')) {
-      return formatStrftime(fmt, local);
+      return formatStrftimeWithUnixSeconds(fmt, local, unixSeconds);
     }
 
     std::string out;
@@ -110,7 +179,7 @@ namespace {
         return std::nullopt;
       }
       spec.remove_prefix(firstPercent);
-      out += formatStrftime(spec, local);
+      out += formatStrftimeWithUnixSeconds(spec, local, unixSeconds);
       formattedField = true;
       i = end + 1;
     }
@@ -127,14 +196,34 @@ std::string formatLocalTime(const char* fmt) {
   using namespace std::chrono;
   const std::string normalizedFmt = normalizeFormatEscapes(fmt);
   const auto now = floor<seconds>(system_clock::now());
+  const auto unixSeconds = duration_cast<seconds>(now.time_since_epoch()).count();
   const std::time_t raw = system_clock::to_time_t(now);
   std::tm localTm{};
   localtime_r(&raw, &localTm);
-  if (auto compat = formatStrftimeCompat(normalizedFmt, localTm)) {
+  if (auto compat = formatStrftimeCompat(normalizedFmt, localTm, unixSeconds)) {
     return *compat;
   }
 
   const auto local = current_zone()->to_local(now);
+  try {
+    return std::vformat(std::locale(""), normalizedFmt, std::make_format_args(local));
+  } catch (...) {
+    return normalizedFmt;
+  }
+}
+
+std::string formatLocalUnixTime(std::int64_t unixSeconds, std::string_view fmt) {
+  using namespace std::chrono;
+  const std::string normalizedFmt = normalizeFormatEscapes(fmt);
+  const auto tp = sys_seconds{seconds{unixSeconds}};
+  const std::time_t raw = system_clock::to_time_t(tp);
+  std::tm localTm{};
+  localtime_r(&raw, &localTm);
+  if (auto compat = formatStrftimeCompat(normalizedFmt, localTm, unixSeconds)) {
+    return *compat;
+  }
+
+  const auto local = current_zone()->to_local(tp);
   try {
     return std::vformat(std::locale(""), normalizedFmt, std::make_format_args(local));
   } catch (...) {
@@ -158,10 +247,13 @@ std::string formatIsoTime(std::string_view isoTime, const char* fmt) {
   tm.tm_hour = hour;
   tm.tm_min = minute;
   tm.tm_isdst = -1;
-  mktime(&tm);
+  const std::time_t unixSeconds = mktime(&tm);
 
   const std::string normalizedFmt = normalizeFormatEscapes(fmt);
-  if (auto compat = formatStrftimeCompat(normalizedFmt, tm)) {
+  if (auto compat = formatStrftimeCompat(
+          normalizedFmt, tm,
+          unixSeconds == static_cast<std::time_t>(-1) ? std::nullopt : std::make_optional<std::int64_t>(unixSeconds)
+      )) {
     return *compat;
   }
 
@@ -182,27 +274,13 @@ std::string formatIsoTime(std::string_view isoTime, const char* fmt) {
   }
 }
 
-std::string formatStrftime(std::string_view fmt, const std::tm& tm) {
-  std::string spec(fmt);
-  std::size_t size = std::max<std::size_t>(64, spec.size() * 4 + 16);
-  for (int attempt = 0; attempt < 6; ++attempt) {
-    std::string buffer(size, '\0');
-    std::tm copy = tm;
-    const std::size_t written = std::strftime(buffer.data(), buffer.size(), spec.c_str(), &copy);
-    if (written > 0 || spec.empty()) {
-      buffer.resize(written);
-      return buffer;
-    }
-    size *= 2;
-  }
-  return {};
-}
+std::string formatStrftime(std::string_view fmt, const std::tm& tm) { return formatStrftimeRaw(fmt, tm); }
 
 std::string formatUtcTime(std::chrono::system_clock::time_point tp, std::string_view fmt) {
   const std::time_t raw = std::chrono::system_clock::to_time_t(tp);
   std::tm tm{};
   gmtime_r(&raw, &tm);
-  return formatStrftime(fmt, tm);
+  return formatStrftimeWithUnixSeconds(fmt, tm, static_cast<std::int64_t>(raw));
 }
 
 int localeFirstDayOfWeek() {
@@ -289,20 +367,36 @@ std::string formatElapsedSince(std::chrono::steady_clock::time_point since) {
 }
 
 std::string formatDuration(std::chrono::seconds duration) {
-  const std::uint64_t totalSeconds = static_cast<std::uint64_t>(duration.count());
+  const auto totalSeconds = static_cast<std::uint64_t>(duration.count());
   const std::uint64_t days = totalSeconds / 86400;
   std::uint64_t rem = totalSeconds % 86400;
   const std::uint64_t hours = rem / 3600;
   rem %= 3600;
   const std::uint64_t minutes = rem / 60;
   if (days > 0) {
-    return i18n::tr("time.duration.days-hours-minutes", "days", days, "hours", hours, "minutes", minutes);
+    const std::string dayText = formatDurationUnit("time.units.day", days);
+    if (hours > 0 && minutes > 0) {
+      return formatDurationParts(
+          dayText, formatDurationUnit("time.units.hour", hours), formatDurationUnit("time.units.minute", minutes)
+      );
+    }
+    if (hours > 0) {
+      return formatDurationParts(dayText, formatDurationUnit("time.units.hour", hours));
+    }
+    if (minutes > 0) {
+      return formatDurationParts(dayText, formatDurationUnit("time.units.minute", minutes));
+    }
+    return dayText;
   }
   if (hours > 0) {
-    return i18n::tr("time.duration.hours-minutes", "hours", hours, "minutes", minutes);
+    const std::string hourText = formatDurationUnit("time.units.hour", hours);
+    if (minutes > 0) {
+      return formatDurationParts(hourText, formatDurationUnit("time.units.minute", minutes));
+    }
+    return hourText;
   }
   if (minutes > 0) {
-    return i18n::tr("time.duration.minutes", "minutes", minutes);
+    return formatDurationUnit("time.units.minute", minutes);
   }
   return i18n::tr("time.duration.less-than-minute");
 }

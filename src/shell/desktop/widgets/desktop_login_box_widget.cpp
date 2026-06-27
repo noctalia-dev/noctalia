@@ -7,7 +7,6 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 
-#include <algorithm>
 #include <memory>
 
 namespace {
@@ -74,18 +73,11 @@ bool DesktopLoginBoxWidget::applySetting(
 
 void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
   const float screenWidth = m_screenWidth > 0.0f ? m_screenWidth : 1920.0f;
-  const float panelWidth = lockscreen_login_box::panelWidth(screenWidth);
-  const float panelHeight = lockscreen_login_box::panelHeight();
-  const float contentLeft = Style::spaceLg;
-  const float contentTop = 22.0f;
-  const float rightInset = Style::spaceLg + Style::spaceSm;
-  const float contentWidth = panelWidth - Style::spaceLg - rightInset;
-  const float buttonWidth = Style::controlHeight;
-  const float gap = Style::spaceSm;
+  const float panelWidth = lockscreen_login_box::resolvePanelWidth(screenWidth, m_boxWidth);
+  const float panelHeight = lockscreen_login_box::resolvePanelHeight(m_boxHeight);
   const lockscreen_login_box::LoginBoxStyle style = lockscreen_login_box::resolveStyle(m_settings);
-  const float inputWidth =
-      style.showLoginButton ? std::max(120.0f, contentWidth - buttonWidth - gap) : std::max(120.0f, contentWidth);
-  const float buttonX = contentLeft + inputWidth + gap;
+  const lockscreen_login_box::PanelContentLayout layout =
+      lockscreen_login_box::panelContentLayout(panelWidth, panelHeight, style.showLoginButton);
 
   if (m_panel != nullptr) {
     m_panel->setPosition(0.0f, 0.0f);
@@ -93,7 +85,7 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
     m_panel->setStyle(
         RoundedRectStyle{
             .fill = resolveColorSpec(style.panelFill),
-            .border = colorForRole(ColorRole::Outline, 0.95f),
+            .border = colorForRole(ColorRole::Outline),
             .fillMode = FillMode::Solid,
             .radius = Style::scaledRadius(style.panelRadius),
             .softness = 1.0f,
@@ -103,12 +95,12 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
   }
 
   if (m_passwordGhost != nullptr) {
-    m_passwordGhost->setPosition(contentLeft, contentTop);
-    m_passwordGhost->setSize(inputWidth, Style::controlHeight);
+    m_passwordGhost->setPosition(layout.contentLeft, layout.contentTop);
+    m_passwordGhost->setSize(layout.inputWidth, layout.controlHeight);
     m_passwordGhost->setStyle(
         RoundedRectStyle{
             .fill = colorForRole(ColorRole::Surface, style.inputOpacity),
-            .border = colorForRole(ColorRole::Outline, 0.85f),
+            .border = colorForRole(ColorRole::Outline),
             .fillMode = FillMode::Solid,
             .radius = Style::scaledRadius(style.inputRadius),
             .borderWidth = Style::borderWidth,
@@ -119,8 +111,8 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
   if (m_loginButtonGhost != nullptr) {
     m_loginButtonGhost->setVisible(style.showLoginButton);
     if (style.showLoginButton) {
-      m_loginButtonGhost->setPosition(buttonX, contentTop);
-      m_loginButtonGhost->setSize(buttonWidth, Style::controlHeight);
+      m_loginButtonGhost->setPosition(layout.buttonX, layout.contentTop);
+      m_loginButtonGhost->setSize(layout.controlHeight, layout.controlHeight);
       m_loginButtonGhost->setStyle(
           RoundedRectStyle{
               .fill = colorForRole(ColorRole::Primary, 0.9f),
@@ -135,7 +127,8 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
     m_loginGlyph->setVisible(style.showLoginButton);
     if (style.showLoginButton) {
       m_loginGlyph->setPosition(
-          buttonX + (buttonWidth - kLoginGlyphSize) * 0.5f, contentTop + (Style::controlHeight - kLoginGlyphSize) * 0.5f
+          layout.buttonX + (layout.controlHeight - kLoginGlyphSize) * 0.5f,
+          layout.contentTop + (layout.controlHeight - kLoginGlyphSize) * 0.5f
       );
       m_loginGlyph->measure(renderer);
     }

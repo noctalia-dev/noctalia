@@ -322,12 +322,7 @@ struct BluetoothService::Impl {
         dropObjectProxy(path);
       } else if (iface == kDeviceInterface) {
         auto& vec = self.m_devices;
-        vec.erase(
-            std::remove_if(
-                vec.begin(), vec.end(), [&](const BluetoothDeviceInfo& d) { return d.path == std::string(path); }
-            ),
-            vec.end()
-        );
+        std::erase_if(vec, [&](const BluetoothDeviceInfo& d) { return d.path == std::string(path); });
         devicesDirty = true;
         dropObjectProxy(path);
       } else if (iface == kBatteryInterface) {
@@ -790,8 +785,7 @@ void BluetoothService::forget(const std::string& devicePath) {
 }
 
 BluetoothDeviceInfo* BluetoothService::findDevice(const std::string& path) {
-  auto it =
-      std::find_if(m_devices.begin(), m_devices.end(), [&](const BluetoothDeviceInfo& d) { return d.path == path; });
+  auto it = std::ranges::find(m_devices, path, &BluetoothDeviceInfo::path);
   return it == m_devices.end() ? nullptr : &*it;
 }
 

@@ -2,7 +2,6 @@
 
 #include "config/config_service.h"
 #include "core/log.h"
-#include "pipewire/pipewire_spectrum.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
 #include "shell/desktop/desktop_widget_layout.h"
@@ -14,6 +13,7 @@
 
 #include <algorithm>
 #include <string>
+#include <wayland-client-protocol.h>
 
 namespace {
 
@@ -30,15 +30,11 @@ namespace {
 
 } // namespace
 
-void LockscreenWidgetsHost::initialize(
-    WaylandConnection& wayland, ConfigService* config, PipeWireSpectrum* pipewireSpectrum,
-    const WeatherService* weather, RenderContext* renderContext, MprisService* mpris, HttpClient* httpClient,
-    SystemMonitorService* sysmon, DesktopWidgetScriptDeps scriptDeps
-) {
-  m_wayland = &wayland;
-  m_config = config;
-  m_renderContext = renderContext;
-  m_factory = std::make_unique<DesktopWidgetFactory>(pipewireSpectrum, weather, mpris, httpClient, sysmon, scriptDeps);
+void LockscreenWidgetsHost::initialize(const DesktopWidgetServices& services) {
+  m_wayland = &services.wayland;
+  m_config = services.config;
+  m_renderContext = services.renderContext;
+  m_factory = std::make_unique<DesktopWidgetFactory>(services.runtime);
 }
 
 void LockscreenWidgetsHost::show(const LockscreenWidgetsSnapshot& snapshot, LockScreen& lockScreen) {
@@ -86,7 +82,9 @@ void LockscreenWidgetsHost::onSecondTick() {
     if (instance->surface == nullptr || instance->widget == nullptr) {
       continue;
     }
-    if (instance->widget->wantsSecondTicks() || minuteBoundary) {
+    if (instance->widget->wantsSecondTicks()) {
+      instance->surface->requestUpdateOnly();
+    } else if (minuteBoundary) {
       instance->surface->requestUpdate();
     }
   }
@@ -201,15 +199,19 @@ void LockscreenWidgetsHost::createInstance(
   }
 
   const float baseUiScale = m_config != nullptr ? m_config->config().shell.uiScale : 1.0f;
-  auto widget = m_factory->create(state.type, state.settings, desktop_widgets::widgetContentScale(baseUiScale, state));
+  auto widget = m_factory->create(state.type, state.settings, desktop_widgets::widgetContentScale(baseUiScale));
   if (widget == nullptr) {
     return;
   }
 
   widget->create();
   widget->setBox(state.boxWidth, state.boxHeight);
-  widget->update(*m_renderContext);
-  widget->layout(*m_renderContext);
+
+  if (surface.renderTarget().isReady()) {
+    m_renderContext->makeCurrent(surface.renderTarget());
+    widget->update(*m_renderContext);
+    widget->layout(*m_renderContext);
+  }
 
   const float intrinsicWidth = std::max(1.0f, widget->intrinsicWidth());
   const float intrinsicHeight = std::max(1.0f, widget->intrinsicHeight());
@@ -241,8 +243,9 @@ void LockscreenWidgetsHost::createInstance(
       rawInstance->surface->requestRedraw();
     }
   });
-  instance->widget->setFrameTickRequestCallback([rawInstance]() {
+  instance->widget->setFrameTickRequestCallback([this, rawInstance]() {
     if (rawInstance->surface != nullptr) {
+      syncSurfaceFrameTick(rawInstance->surface);
       rawInstance->surface->requestFrameTick();
     }
   });
@@ -267,22 +270,52 @@ void LockscreenWidgetsHost::attachToSurface(WidgetInstance& instance) {
   instance.transformNode = layer->addChild(std::move(transformNode));
   instance.transformNode->addChild(instance.widget->releaseRoot());
 
-  auto* surfacePtr = instance.surface;
+  syncSurfaceFrameTick(instance.surface);
+  instance.surface->requestLayout();
+}
+
+void LockscreenWidgetsHost::syncSurfaceFrameTick(LockSurface* surfacePtr) {
+  if (surfacePtr == nullptr) {
+    return;
+  }
+
+  const bool hasWidgets = std::ranges::any_of(m_instances, [&](const auto& instance) {
+    return instance->surface == surfacePtr && instance->widget != nullptr;
+  });
+  if (!hasWidgets) {
+    surfacePtr->setFrameTickCallback(nullptr);
+    return;
+  }
+
   auto* host = this;
   surfacePtr->setFrameTickCallback([host, surfacePtr](float deltaMs) {
     if (host->m_renderContext == nullptr) {
       return;
     }
     host->m_renderContext->makeCurrent(surfacePtr->renderTarget());
-    for (auto& inst : host->m_instances) {
-      if (inst->surface != surfacePtr || inst->widget == nullptr || !inst->widget->needsFrameTick()) {
+
+    bool needsRedraw = false;
+    for (auto& instance : host->m_instances) {
+      if (instance->surface != surfacePtr) {
         continue;
       }
-      inst->widget->onFrameTick(deltaMs, *host->m_renderContext);
+      instance->animations.tick(deltaMs);
+      needsRedraw = needsRedraw || instance->animations.hasActive();
+    }
+
+    bool needsContinuousRedraw = needsRedraw;
+    for (auto& instance : host->m_instances) {
+      if (instance->surface != surfacePtr || instance->widget == nullptr || !instance->widget->needsFrameTick()) {
+        continue;
+      }
+      instance->widget->onFrameTick(deltaMs, *host->m_renderContext);
+      needsContinuousRedraw = true;
+    }
+
+    if (needsContinuousRedraw) {
+      surfacePtr->requestRedraw();
     }
   });
-
-  surfacePtr->requestLayout();
 }
 
 void LockscreenWidgetsHost::detachFromSurface(WidgetInstance& instance) {
@@ -297,12 +330,7 @@ void LockscreenWidgetsHost::detachFromSurface(WidgetInstance& instance) {
   instance.surface = nullptr;
 
   if (surface != nullptr) {
-    const bool surfaceInUse = std::any_of(m_instances.begin(), m_instances.end(), [&](const auto& other) {
-      return other.get() != &instance && other->surface == surface;
-    });
-    if (!surfaceInUse) {
-      surface->setFrameTickCallback(nullptr);
-    }
+    syncSurfaceFrameTick(surface);
   }
 }
 
@@ -314,8 +342,8 @@ void LockscreenWidgetsHost::prepareFrame(LockSurface& surface, bool needsUpdate,
   m_renderContext->makeCurrent(surface.renderTarget());
 
   const float baseUiScale = m_config != nullptr ? m_config->config().shell.uiScale : 1.0f;
-  const float surfaceW = static_cast<float>(surface.width());
-  const float surfaceH = static_cast<float>(surface.height());
+  const auto surfaceW = static_cast<float>(surface.width());
+  const auto surfaceH = static_cast<float>(surface.height());
 
   Node* layer = surface.widgetLayer();
   if (layer != nullptr) {
@@ -328,7 +356,7 @@ void LockscreenWidgetsHost::prepareFrame(LockSurface& surface, bool needsUpdate,
       continue;
     }
 
-    instance->widget->setContentScale(desktop_widgets::widgetContentScale(baseUiScale, instance->state));
+    instance->widget->setContentScale(desktop_widgets::widgetContentScale(baseUiScale));
     instance->widget->setBox(instance->state.boxWidth, instance->state.boxHeight);
 
     if (needsUpdate) {
@@ -341,9 +369,30 @@ void LockscreenWidgetsHost::prepareFrame(LockSurface& surface, bool needsUpdate,
     }
 
     if (m_wayland != nullptr) {
+      DesktopWidgetState currentState = instance->state;
+      if (const DesktopWidgetState* origState = findStateById(m_snapshot, instance->state.id); origState != nullptr) {
+        currentState = *origState;
+      }
+      if (const WaylandOutput* output = desktop_widgets::resolveStateOutput(*m_wayland, currentState);
+          output != nullptr) {
+        float curW = surfaceW;
+        float curH = surfaceH;
+        bool isRotated90or270 =
+            (output->transform == WL_OUTPUT_TRANSFORM_90
+             || output->transform == WL_OUTPUT_TRANSFORM_270
+             || output->transform == WL_OUTPUT_TRANSFORM_FLIPPED_90
+             || output->transform == WL_OUTPUT_TRANSFORM_FLIPPED_270);
+        float refW = isRotated90or270 ? curH : curW;
+        float refH = isRotated90or270 ? curW : curH;
+        if (refW > 0.0f && refH > 0.0f) {
+          currentState.cx = currentState.cx * (curW / refW);
+          currentState.cy = currentState.cy * (curH / refH);
+        }
+      }
       desktop_widgets::clampStateToOutput(
-          *m_wayland, instance->state, instance->intrinsicWidth, instance->intrinsicHeight
+          *m_wayland, currentState, instance->intrinsicWidth, instance->intrinsicHeight
       );
+      instance->state = currentState;
     }
 
     if (instance->transformNode == nullptr) {
@@ -355,6 +404,9 @@ void LockscreenWidgetsHost::prepareFrame(LockSurface& surface, bool needsUpdate,
         instance->state.cx - instance->intrinsicWidth * 0.5f, instance->state.cy - instance->intrinsicHeight * 0.5f
     );
     instance->transformNode->setRotation(instance->state.rotationRad);
-    instance->transformNode->setScale(1.0f);
+    float flipScaleX = 1.0f;
+    float flipScaleY = 1.0f;
+    desktop_widgets::widgetNodeScale(instance->state, flipScaleX, flipScaleY);
+    instance->transformNode->setScale(flipScaleX, flipScaleY);
   }
 }

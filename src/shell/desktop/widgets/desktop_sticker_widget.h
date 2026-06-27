@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/timer_manager.h"
-#include "render/core/texture_manager.h"
+#include "render/core/texture_handle.h"
 #include "shell/desktop/desktop_widget.h"
 
 #include <chrono>

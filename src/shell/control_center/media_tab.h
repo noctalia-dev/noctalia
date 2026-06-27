@@ -37,6 +37,7 @@ public:
   void onFrameTick(float deltaMs) override;
   void setActive(bool active) override;
   void onClose() override;
+  bool dismissTransientUi() override;
 
 private:
   void doLayout(Renderer& renderer, float contentWidth, float bodyHeight) override;

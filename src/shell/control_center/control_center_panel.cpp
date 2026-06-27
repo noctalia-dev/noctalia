@@ -3,82 +3,90 @@
 #include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "core/deferred_call.h"
-#include "dbus/accounts/accounts_service.h"
 #include "dbus/mpris/mpris_service.h"
-#include "dbus/network/inetwork_service.h"
 #include "i18n/i18n.h"
 #include "notification/notification_manager.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "render/scene/node.h"
 #include "shell/control_center/screen_time_tab.h"
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
 #include "system/dependency_service.h"
+#include "system/easyeffects_service.h"
 #include "system/screen_time_service.h"
 #include "ui/builders.h"
+#include "ui/controls/roving_list_nav.h"
+#include "ui/controls/scroll_view.h"
+#include "ui/scroll_into_view.h"
+#include "ui/split_pane_focus.h"
 
 #include <chrono>
 #include <memory>
 #include <optional>
+#include <wayland-client-protocol.h>
 
 using namespace control_center;
 
 namespace {
+
   constexpr auto kMprisRefreshMinInterval = std::chrono::milliseconds(750);
 
-  [[nodiscard]] float preferredWidthForSidebarMode(ControlCenterSidebarMode mode, float scale) {
-    switch (mode) {
-    case ControlCenterSidebarMode::Full:
-      return 780.0f * scale;
-    case ControlCenterSidebarMode::Compact:
-      return 660.0f * scale;
-    case ControlCenterSidebarMode::None:
-      return 600.0f * scale;
+  [[nodiscard]] float normalizedScrollDelta(const InputArea::PointerData& data) {
+    float delta = data.scrollDelta(1.0f);
+    if (delta == 0.0f && data.axisValue120 != 0) {
+      delta = static_cast<float>(data.axisValue120) / 120.0f;
     }
-    return 660.0f * scale;
+    if (delta == 0.0f && data.axisDiscrete != 0) {
+      delta = static_cast<float>(data.axisDiscrete);
+    }
+    return delta;
   }
+
 } // namespace
 
-ControlCenterPanel::ControlCenterPanel(
-    NotificationManager* notifications, PipeWireService* audio, MprisService* mpris, ConfigService* config,
-    HttpClient* httpClient, WeatherService* weather, PipeWireSpectrum* spectrum, UPowerService* upower,
-    PowerProfilesService* powerProfiles, INetworkService* network, NetworkSecretAgent* networkSecrets,
-    BluetoothService* bluetooth, BluetoothAgent* bluetoothAgent, BrightnessService* brightness,
-    SystemMonitorService* sysmon, ScreenTimeService* screenTime, GammaService* nightLight,
-    noctalia::theme::ThemeService* theme, IdleInhibitor* idleInhibitor, DependencyService* dependencies,
-    CompositorPlatform* platform, IpcService* ipc, Wallpaper* wallpaper, CalendarService* calendar,
-    scripting::ScriptApiContext* scriptApi, ClipboardService* clipboard, AccountsService* accounts
-) {
-  (void)upower;
-  WaylandConnection* wayland = platform != nullptr ? &platform->wayland() : nullptr;
-  m_config = config;
-  m_mpris = mpris;
-  m_notificationManager = notifications;
-  m_dependencies = dependencies;
-  m_tabs[tabIndex(TabId::Home)] = std::make_unique<HomeTab>(
-      mpris, httpClient, weather, audio, powerProfiles, config, network, bluetooth, nightLight, theme, notifications,
-      idleInhibitor, dependencies, platform, ipc, wallpaper, scriptApi, clipboard, accounts
-  );
+ControlCenterPanel::ControlCenterPanel(const ControlCenterServices& services) {
+  m_hasPowerServices = services.upower != nullptr || services.powerProfiles != nullptr;
+  WaylandConnection* wayland = services.platform != nullptr ? &services.platform->wayland() : nullptr;
+  m_config = services.config;
+  m_mpris = services.mpris;
+  m_notificationManager = services.notifications;
+  m_dependencies = services.dependencies;
+  m_tabs[tabIndex(TabId::Home)] = std::make_unique<HomeTab>(services);
   m_tabs[tabIndex(TabId::Media)] = std::make_unique<MediaTab>(
-      mpris, httpClient, spectrum, config, wayland, PanelManager::instance().renderContext()
+      services.mpris, services.httpClient, services.spectrum, services.config, wayland,
+      PanelManager::instance().renderContext()
   );
-  m_tabs[tabIndex(TabId::Audio)] =
-      std::make_unique<AudioTab>(audio, mpris, config, wayland, PanelManager::instance().renderContext());
-  m_tabs[tabIndex(TabId::Weather)] = std::make_unique<WeatherTab>(weather, config);
-  m_tabs[tabIndex(TabId::Calendar)] = std::make_unique<CalendarTab>(config, calendar);
-  m_tabs[tabIndex(TabId::Notifications)] = std::make_unique<NotificationsTab>(notifications);
-  m_tabs[tabIndex(TabId::Network)] = std::make_unique<NetworkTab>(network, networkSecrets);
-  m_tabs[tabIndex(TabId::Bluetooth)] = std::make_unique<BluetoothTab>(bluetooth, bluetoothAgent);
-  m_tabs[tabIndex(TabId::Display)] = std::make_unique<DisplayTab>(brightness, config);
-  m_tabs[tabIndex(TabId::System)] = std::make_unique<SystemTab>(sysmon);
-  m_tabs[tabIndex(TabId::ScreenTime)] = std::make_unique<ScreenTimeTab>(screenTime);
+  m_tabs[tabIndex(TabId::Audio)] = std::make_unique<AudioTab>(
+      services.audio, services.easyEffects, services.mpris, services.config, wayland,
+      PanelManager::instance().renderContext()
+  );
+  m_tabs[tabIndex(TabId::Weather)] = std::make_unique<WeatherTab>(services.weather, services.config);
+  m_tabs[tabIndex(TabId::Calendar)] = std::make_unique<CalendarTab>(services.config, services.calendar);
+  m_tabs[tabIndex(TabId::Notifications)] = std::make_unique<NotificationsTab>(services.notifications);
+  m_tabs[tabIndex(TabId::Network)] = std::make_unique<NetworkTab>(services.network, services.networkSecrets);
+  m_tabs[tabIndex(TabId::Bluetooth)] = std::make_unique<BluetoothTab>(services.bluetooth, services.bluetoothAgent);
+  m_tabs[tabIndex(TabId::Display)] = std::make_unique<DisplayTab>(services.brightness, services.config);
+  m_tabs[tabIndex(TabId::System)] = std::make_unique<SystemTab>(services.sysmon);
+  m_tabs[tabIndex(TabId::ScreenTime)] = std::make_unique<ScreenTimeTab>(services.screenTime);
+  m_tabs[tabIndex(TabId::Power)] = std::make_unique<PowerTab>(services.upower, services.powerProfiles);
   m_tabButtons.fill(nullptr);
   m_tabContainers.fill(nullptr);
   m_tabHeaderActions.fill(nullptr);
 }
 
 float ControlCenterPanel::preferredWidth() const {
-  return preferredWidthForSidebarMode(sidebarModeForOpen(pendingOpenContext()), m_contentScale);
+  const float fullSize = m_config != nullptr ? static_cast<float>(m_config->config().controlCenter.width)
+                                             : static_cast<float>(ControlCenterConfig::kDefaultWidth);
+  switch (sidebarModeForOpen(pendingOpenContext())) {
+  case ControlCenterSidebarMode::Full:
+    return fullSize * m_contentScale;
+  case ControlCenterSidebarMode::None:
+    return fullSize * 0.75f * m_contentScale;
+  default:
+  case ControlCenterSidebarMode::Compact:
+    return fullSize * 0.85f * m_contentScale;
+  }
 }
 
 PanelPlacement ControlCenterPanel::panelPlacement() const noexcept {
@@ -112,9 +120,10 @@ void ControlCenterPanel::create() {
   if (m_showSidebar) {
     auto sidebar = ui::column({
         .out = &m_sidebar,
-        .align = FlexAlign::Stretch,
-        .gap = Style::spaceXs * scale,
+        .align = FlexAlign::Start,
+        .gap = 0.0f,
         .padding = Style::spaceSm * scale,
+        .fillWidth = false,
         .fillHeight = true,
         .configure = [this, scale](Flex& column) {
           column.setFill(colorSpecFromRole(ColorRole::SurfaceVariant, panelCardOpacity()));
@@ -122,36 +131,89 @@ void ControlCenterPanel::create() {
         },
     });
 
+    auto sidebarScrollArea = std::make_unique<InputArea>();
+    sidebarScrollArea->setParticipatesInLayout(false);
+    sidebarScrollArea->setZIndex(-1);
+    m_sidebarScrollArea = sidebarScrollArea.get();
+    wireSidebarScroll(m_sidebarScrollArea);
+    sidebar->addChild(std::move(sidebarScrollArea));
+
+    const std::optional<float> sidebarScrollWidth =
+        m_compact ? std::optional<float>{Style::controlHeightSm * scale} : std::nullopt;
+
+    auto sidebarScroll = ui::scrollView({
+        .out = &m_sidebarScrollView,
+        .state = &m_sidebarScrollState,
+        .scrollbarVisible = true,
+        .viewportPaddingH = 0.0f,
+        .viewportPaddingV = 0.0f,
+        .fillWidth = false,
+        .fillHeight = true,
+        .width = sidebarScrollWidth,
+        .configure = [](ScrollView& scrollView) {
+          scrollView.clearFill();
+          scrollView.clearBorder();
+        },
+    });
+
+    auto sidebarNav = std::make_unique<RovingListNavHost>(RovingListNavController::Options{
+        .axis = RovingListNavAxis::Vertical,
+        .mode = RovingListNavMode::FollowFocus,
+        .keepItemsInTabOrder = false,
+        .wrap = true,
+        .scrollIntoView = [this](const Node* node) { scrollSidebarNodeIntoView(node); },
+        .syncIndexFromSelection = {},
+    });
+    sidebarNav->setTabFocusKey("control-center.sidebar");
+    if (!m_compact) {
+      sidebarNav->setAlign(FlexAlign::Stretch);
+      sidebarNav->setFillWidth(true);
+    } else {
+      sidebarNav->setAlign(FlexAlign::Start);
+    }
+    sidebarNav->setGap(Style::spaceXs * scale);
+    m_sidebarNav = sidebarNav.get();
+
     for (const auto& tab : kTabs) {
-      sidebar->addChild(
+      const std::size_t idx = tabIndex(tab.id);
+      const auto onClick = [this, id = tab.id]() {
+        selectTab(id, true);
+        PanelManager::instance().refresh();
+      };
+      sidebarNav->addChild(
           ui::button({
-              .out = &m_tabButtons[tabIndex(tab.id)],
+              .out = &m_tabButtons[idx],
               .text = m_compact ? std::optional<std::string>{} : std::optional<std::string>{i18n::tr(tab.titleKey)},
               .glyph = tab.glyph,
               .glyphSize = 21.0f * scale,
               .contentAlign = m_compact ? ButtonContentAlign::Center : ButtonContentAlign::Start,
               .variant = ButtonVariant::Tab,
-              .minWidth = m_compact ? std::optional<float>{Style::controlHeight * scale} : std::optional<float>{},
-              .minHeight = Style::controlHeight * scale,
-              .paddingV = Style::spaceSm * scale,
-              .paddingH = (m_compact ? Style::spaceSm : Style::spaceMd) * scale,
+              .minWidth = m_compact ? std::optional<float>{Style::controlHeightSm * scale} : std::optional<float>{},
+              .minHeight = Style::controlHeightSm * scale,
+              .paddingV = Style::spaceXs * scale,
+              .paddingH = (m_compact ? Style::spaceXs : Style::spaceSm) * scale,
               .gap = Style::spaceSm * scale,
               .radius = Style::scaledRadiusLg(scale),
-              .onClick =
-                  [this, id = tab.id]() {
-                    selectTab(id, true);
-                    PanelManager::instance().refresh();
-                  },
-              .configure =
-                  [scale](Button& button) {
-                    if (button.label() != nullptr) {
-                      button.label()->setFontWeight(FontWeight::Bold);
-                      button.label()->setFontSize(Style::fontSizeBody * scale);
-                    }
-                  },
+              .onClick = onClick,
+              .configure = [this, scale](Button& button) {
+                if (button.label() != nullptr) {
+                  button.label()->setFontWeight(FontWeight::Bold);
+                  button.label()->setFontSize(Style::fontSizeBody * scale);
+                }
+                wireSidebarScroll(button.inputArea());
+              },
           })
       );
+      sidebarNav->registerItem(m_tabButtons[idx], onClick);
     }
+
+    if (sidebarScroll->content() != nullptr) {
+      if (!m_compact) {
+        sidebarScroll->content()->setAlign(FlexAlign::Stretch);
+      }
+      sidebarScroll->content()->addChild(std::move(sidebarNav));
+    }
+    sidebar->addChild(std::move(sidebarScroll));
     rootLayout->addChild(std::move(sidebar));
   }
 
@@ -166,6 +228,8 @@ void ControlCenterPanel::create() {
   auto dismissArea = std::make_unique<InputArea>();
   dismissArea->setParticipatesInLayout(false);
   dismissArea->setZIndex(-1);
+  dismissArea->setFocusable(false);
+  dismissArea->setTabStop(false);
   dismissArea->setOnPress([this](const InputArea::PointerData&) {
     const std::size_t activeIdx = tabIndex(m_activeTab);
     if (m_tabs[activeIdx] != nullptr && m_tabs[activeIdx]->dismissTransientUi()) {
@@ -273,6 +337,10 @@ void ControlCenterPanel::doLayout(Renderer& renderer, float width, float height)
     return;
   }
 
+  if (!m_compact && m_showSidebar) {
+    layoutFullSidebarWidth(renderer);
+  }
+
   m_rootLayout->setSize(width, height);
   m_rootLayout->layout(renderer);
 
@@ -280,6 +348,11 @@ void ControlCenterPanel::doLayout(Renderer& renderer, float width, float height)
       std::max(0.0f, m_content->width() - (m_content->paddingLeft() + m_content->paddingRight()));
   const float bodyWidth = m_tabBodies->width();
   const float bodyHeight = m_tabBodies->height();
+
+  if (m_sidebarScrollArea != nullptr && m_sidebar != nullptr) {
+    m_sidebarScrollArea->setPosition(0.0f, 0.0f);
+    m_sidebarScrollArea->setSize(m_sidebar->width(), m_sidebar->height());
+  }
 
   if (m_contentDismissArea != nullptr) {
     m_contentDismissArea->setPosition(0.0f, 0.0f);
@@ -351,6 +424,23 @@ bool ControlCenterPanel::isContextActive(std::string_view context) const {
   return m_activeTab == tabFromContext(context);
 }
 
+bool ControlCenterPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+  if (!m_showSidebar || m_sidebarNav == nullptr || m_sidebarScrollView == nullptr || m_content == nullptr) {
+    return false;
+  }
+
+  const SplitPaneFocusConfig panes{
+      .sidebarFocus = m_sidebarNav->focusArea(),
+      .sidebarRoot = m_sidebarScrollView,
+      .contentRoot = m_content,
+      .headerFocus = nullptr,
+  };
+  auto& dispatcher = PanelManager::instance().inputDispatcher();
+  const SplitPaneFocusResult splitResult =
+      handleSplitPaneFocusNavigation(dispatcher, panes, sym, modifiers, pressed, preedit);
+  return splitResult == SplitPaneFocusResult::Consumed;
+}
+
 void ControlCenterPanel::onClose() {
   if (m_tabTransitionAnimId != 0 && m_animations != nullptr) {
     m_animations->cancel(m_tabTransitionAnimId);
@@ -364,6 +454,10 @@ void ControlCenterPanel::onClose() {
   }
   m_rootLayout = nullptr;
   m_sidebar = nullptr;
+  m_sidebarScrollView = nullptr;
+  m_sidebarScrollState = {};
+  m_sidebarNav = nullptr;
+  m_sidebarScrollArea = nullptr;
   m_content = nullptr;
   m_contentDismissArea = nullptr;
   m_contentHeader = nullptr;
@@ -392,6 +486,8 @@ bool ControlCenterPanel::isTabVisible(TabId tab) const {
     switch (tab) {
     case TabId::ScreenTime:
       return false;
+    case TabId::Power:
+      return m_hasPowerServices;
     default:
       return true;
     }
@@ -404,6 +500,8 @@ bool ControlCenterPanel::isTabVisible(TabId tab) const {
     return cfg.shell.screenTimeEnabled;
   case TabId::System:
     return cfg.system.monitor.enabled;
+  case TabId::Power:
+    return m_hasPowerServices;
   default:
     return true;
   }
@@ -461,6 +559,9 @@ void ControlCenterPanel::updateTabChrome(TabId tab) {
   if (m_contentHeaderActions != nullptr) {
     m_contentHeaderActions->setVisible(true);
   }
+  if (m_sidebarNav != nullptr) {
+    m_sidebarNav->notifyExternalSelectionChanged();
+  }
 }
 
 void ControlCenterPanel::applyTabContainerVisibility(TabId activeTab) {
@@ -485,9 +586,9 @@ void ControlCenterPanel::layoutTabContainers(float bodyWidth, float bodyHeight) 
 
     float offsetY = 0.0f;
     float opacity = 1.0f;
-    const TabId tabId = static_cast<TabId>(i);
+    const auto tabId = static_cast<TabId>(i);
     if (m_tabTransitionActive && travel > 0.0f) {
-      const float direction = static_cast<float>(m_tabTransitionDirection);
+      const auto direction = static_cast<float>(m_tabTransitionDirection);
       if (tabId == m_tabTransitionOutgoing) {
         offsetY = -direction * travel * m_tabTransitionProgress;
         opacity = 1.0f - 0.3f * m_tabTransitionProgress;
@@ -591,6 +692,46 @@ void ControlCenterPanel::finishTabTransition() {
   applyTabContainerVisibility(m_activeTab);
 }
 
+void ControlCenterPanel::wireSidebarScroll(InputArea* area) {
+  if (area == nullptr) {
+    return;
+  }
+  area->setOnAxis([this](const InputArea::PointerData& data) {
+    if (data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
+      return;
+    }
+    const float delta = normalizedScrollDelta(data);
+    if (delta == 0.0f) {
+      return;
+    }
+    selectAdjacentVisibleTab(delta > 0.0f ? 1 : -1);
+  });
+}
+
+void ControlCenterPanel::selectAdjacentVisibleTab(int direction) {
+  if (direction == 0) {
+    return;
+  }
+
+  const int activeOrdinal = visibleTabOrdinal(m_activeTab);
+  const int targetOrdinal = activeOrdinal + direction;
+
+  int ordinal = 0;
+  for (const auto& meta : kTabs) {
+    if (!isTabVisible(meta.id)) {
+      continue;
+    }
+    if (ordinal == targetOrdinal) {
+      if (meta.id != m_activeTab) {
+        selectTab(meta.id, true);
+        PanelManager::instance().refresh();
+      }
+      return;
+    }
+    ++ordinal;
+  }
+}
+
 void ControlCenterPanel::selectTab(TabId tab, bool animated) {
   if (!isTabVisible(tab)) {
     tab = firstVisibleTab();
@@ -676,3 +817,72 @@ ControlCenterPanel::TabId ControlCenterPanel::tabFromContext(std::string_view co
 }
 
 std::size_t ControlCenterPanel::tabIndex(TabId id) { return static_cast<std::size_t>(id); }
+
+void ControlCenterPanel::layoutFullSidebarWidth(Renderer& renderer) {
+  if (m_sidebarScrollView == nullptr || m_sidebarNav == nullptr) {
+    return;
+  }
+
+  const float scale = contentScale();
+  const float fontSize = Style::fontSizeBody * scale;
+  const float paddingH = Style::spaceSm * scale * 2.0f;
+  const float gap = Style::spaceSm * scale;
+  const float glyphW = 21.0f * scale;
+
+  float maxTabWidth = 0.0f;
+  for (const auto& meta : kTabs) {
+    if (!isTabVisible(meta.id)) {
+      continue;
+    }
+    const TextMetrics text = renderer.measureText(i18n::tr(meta.titleKey), fontSize, FontWeight::Bold);
+    maxTabWidth = std::max(maxTabWidth, paddingH + glyphW + gap + text.width);
+  }
+
+  const float minWidth = Style::controlHeightSm * scale;
+  const float contentWidth = std::max(minWidth, std::ceil(maxTabWidth));
+
+  // Scrollbar gutter lives inside the scroll viewport; reserve it only when the nav overflows.
+  float targetWidth = contentWidth;
+  const float scrollHeight = m_sidebarScrollView->height();
+  if (scrollHeight > 0.0f) {
+    LayoutConstraints navConstraints;
+    navConstraints.setExactWidth(contentWidth);
+    const float navHeight = m_sidebarNav->measure(renderer, navConstraints).height;
+    if (navHeight > scrollHeight + 0.5f) {
+      targetWidth = contentWidth + Style::scrollbarWidth + Style::scrollbarGap;
+    }
+  }
+
+  if (std::abs(m_sidebarScrollView->width() - targetWidth) > 0.5f) {
+    m_sidebarScrollView->setSize(targetWidth, m_sidebarScrollView->height());
+  }
+}
+
+void ControlCenterPanel::scrollSidebarNodeIntoView(const Node* node) {
+  if (node == nullptr || m_sidebarScrollView == nullptr) {
+    return;
+  }
+  scrollNodeIntoScrollView(*m_sidebarScrollView, &m_sidebarScrollState, *node, Style::spaceXs * contentScale());
+  PanelManager::instance().requestLayout();
+}
+
+void ControlCenterPanel::scrollFocusedInputIntoView(InputArea* area) {
+  if (area == nullptr) {
+    return;
+  }
+
+  if (m_sidebarScrollView != nullptr && m_sidebarScrollView->content() != nullptr) {
+    for (const Node* node = area; node != nullptr; node = node->parent()) {
+      if (node == m_sidebarScrollView->content()) {
+        scrollNodeIntoScrollView(*m_sidebarScrollView, &m_sidebarScrollState, *area, Style::spaceXs * contentScale());
+        PanelManager::instance().requestLayout();
+        return;
+      }
+    }
+  }
+
+  if (ScrollView* scrollView = findEnclosingScrollView(area)) {
+    scrollNodeIntoScrollView(*scrollView, nullptr, *area, Style::spaceMd * contentScale());
+    PanelManager::instance().requestLayout();
+  }
+}

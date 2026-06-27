@@ -2,6 +2,8 @@
 
 #include "config/config_types.h"
 #include "i18n/i18n.h"
+#include "scripting/plugin_i18n.h"
+#include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"
 #include "shell/settings/settings_control_factory.h"
 #include "shell/settings/settings_registry.h"
@@ -10,6 +12,7 @@
 #include "ui/controls/flex.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/string_utils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -39,8 +42,7 @@ namespace settings {
       if (ctx.config == nullptr) {
         return plugin.enabled;
       }
-      return std::find(ctx.config->plugins.enabled.begin(), ctx.config->plugins.enabled.end(), plugin.id)
-          != ctx.config->plugins.enabled.end();
+      return std::ranges::contains(ctx.config->plugins.enabled, plugin.id);
     }
 
     std::string_view pluginDisplayName(const scripting::PluginStatus& plugin) { return plugin.name; }
@@ -132,6 +134,21 @@ namespace settings {
       return row;
     }
 
+    std::unique_ptr<Flex> makeSourceBadge(std::string_view label, float scale) {
+      return ui::row(
+          {.align = FlexAlign::Center,
+           .paddingH = Style::spaceXs * scale,
+           .fill = colorSpecFromRole(ColorRole::Primary, 0.15f),
+           .radius = Style::scaledRadiusSm(scale)},
+          ui::label({
+              .text = std::string(label),
+              .fontSize = Style::fontSizeCaption * scale,
+              .color = colorSpecFromRole(ColorRole::Primary),
+              .fontWeight = FontWeight::Bold,
+          })
+      );
+    }
+
     std::unique_ptr<Flex>
     pluginRow(const scripting::PluginStatus& plugin, const SettingsPluginsContext& ctx, float scale) {
       auto row = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true});
@@ -154,9 +171,13 @@ namespace settings {
       title->addChild(
           makeLabel(pluginDisplayName(plugin), Style::fontSizeBody * scale, ColorRole::OnSurface, FontWeight::Medium)
       );
-      title->addChild(
-          makeLabel(pluginSourceDisplayName(plugin.source), Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant)
-      );
+      if (plugin.source == "official") {
+        title->addChild(makeSourceBadge(i18n::tr("settings.badges.official"), scale));
+      } else if (!plugin.source.empty()) {
+        title->addChild(makeLabel(
+            pluginSourceDisplayName(plugin.source), Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant
+        ));
+      }
       title->addChild(makeLabel("v" + version, Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant));
       if (!plugin.compatible) {
         title->addChild(makeLabel(
@@ -174,10 +195,27 @@ namespace settings {
       if (!plugin.description.empty()) {
         info->addChild(makeLabel(plugin.description, Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant));
       }
+      if (!plugin.dependencies.empty()) {
+        info->addChild(makeLabel(
+            i18n::tr("settings.plugins.plugins.requires", "dependencies", StringUtils::join(plugin.dependencies, ", ")),
+            Style::fontSizeCaption * scale, ColorRole::Secondary
+        ));
+      }
       r->addChild(std::move(info));
 
       const auto* manifest = scripting::PluginRegistry::instance().findManifest(plugin.id);
-      if (enabled && manifest != nullptr && !manifest->settings.empty() && ctx.onConfigure) {
+      const bool hasSettings = [&]() {
+        if (manifest == nullptr) {
+          return false;
+        }
+        if (!manifest->settings.empty()) {
+          return true;
+        }
+        return std::ranges::any_of(manifest->entries, [](const scripting::PluginEntry& entry) {
+          return entry.kind == scripting::PluginEntryKind::Panel && !entry.settings.empty();
+        });
+      }();
+      if (enabled && manifest != nullptr && hasSettings && ctx.onConfigure) {
         r->addChild(
             ui::button({
                 .glyph = "settings",
@@ -193,18 +231,28 @@ namespace settings {
         );
       }
 
-      r->addChild(
-          ui::toggle({
-              .checked = enabled,
-              .enabled = enabled || plugin.compatible,
-              .scale = scale,
-              .onChange = [cb = ctx.setEnabled, id = plugin.id](bool on) {
-                if (cb) {
-                  cb(id, on);
-                }
-              },
-          })
-      );
+      const bool busy = ctx.isEnabling && ctx.isEnabling(plugin.id);
+      if (busy) {
+        r->addChild(
+            ui::spinner({
+                .spinnerSize = Style::controlHeightSm * scale * 0.7f,
+                .spinning = true,
+            })
+        );
+      } else {
+        r->addChild(
+            ui::toggle({
+                .checked = enabled,
+                .enabled = enabled || plugin.compatible,
+                .scale = scale,
+                .onChange = [cb = ctx.setEnabled, id = plugin.id](bool on) {
+                  if (cb) {
+                    cb(id, on);
+                  }
+                },
+            })
+        );
+      }
       return row;
     }
 
@@ -222,6 +270,13 @@ namespace settings {
       }
       if (const auto* d = std::get_if<double>(&value)) {
         return std::to_string(*d);
+      }
+      return {};
+    }
+
+    std::vector<std::string> valueAsStringList(const WidgetSettingValue& value) {
+      if (const auto* v = std::get_if<std::vector<std::string>>(&value)) {
+        return *v;
       }
       return {};
     }
@@ -277,9 +332,8 @@ namespace settings {
         return true;
       }
       const auto currentString = [&](const std::string& key) -> std::string {
-        const auto depIt = std::find_if(allSpecs.begin(), allSpecs.end(), [&](const WidgetSettingSpec& s) {
-          return s.schema.key == key;
-        });
+        const auto depIt =
+            std::ranges::find_if(allSpecs, [&](const WidgetSettingSpec& s) { return s.schema.key == key; });
         if (depIt == allSpecs.end()) {
           return {};
         }
@@ -287,12 +341,12 @@ namespace settings {
       };
       const auto matches = [&](const WidgetSettingVisibilityCondition& cond) {
         const std::string value = currentString(cond.key);
-        return std::find(cond.values.begin(), cond.values.end(), value) != cond.values.end();
+        return std::ranges::contains(cond.values, value);
       };
       // Visible when any `any` alternative matches (or none declared) AND every `all` condition matches.
       const auto& vis = *spec.visibleWhen;
-      const bool anyOk = vis.any.empty() || std::any_of(vis.any.begin(), vis.any.end(), matches);
-      const bool allOk = std::all_of(vis.all.begin(), vis.all.end(), matches);
+      const bool anyOk = vis.any.empty() || std::ranges::any_of(vis.any, matches);
+      const bool allOk = std::ranges::all_of(vis.all, matches);
       return anyOk && allOk;
     }
 
@@ -332,6 +386,7 @@ namespace settings {
           );
         }
         SelectSetting selectSetting{std::move(options), valueAsString(value)};
+        selectSetting.segmented = spec.segmented;
         if (const auto* defaultString = std::get_if<std::string>(&spec.schema.defaultValue)) {
           selectSetting.clearOnEmpty = defaultString->empty();
         }
@@ -344,6 +399,8 @@ namespace settings {
         pickerSetting.allowCustomColor = spec.allowCustomColor;
         return factory.makeColorSpecPicker(pickerSetting, path);
       }
+      case WidgetControlKind::StringList:
+        return nullptr;
       case WidgetControlKind::String:
       case WidgetControlKind::File:
       case WidgetControlKind::Folder:
@@ -359,7 +416,35 @@ namespace settings {
       Flex& body, const Config& cfg, SettingsControlFactory& factory, const std::string& pluginId,
       const scripting::PluginManifest& manifest, bool showAdvanced, float scale
   ) {
-    const auto specs = settings::manifestSettingSpecs(manifest.settings);
+    scripting::PluginTranslationCatalog translations;
+    if (const auto pluginDir = scripting::PluginRegistry::instance().findPluginDir(pluginId)) {
+      translations.load(*pluginDir);
+    }
+    std::vector<WidgetSettingSpec> specs = settings::manifestSettingSpecs(manifest.settings, &translations);
+    for (const auto& entry : manifest.entries) {
+      if (entry.kind != scripting::PluginEntryKind::Panel) {
+        continue;
+      }
+      for (const auto& shellSpec : settings::pluginPanelShellSettingSpecs(entry)) {
+        if (std::ranges::any_of(specs, [&](const WidgetSettingSpec& existing) {
+              return existing.schema.key == shellSpec.schema.key;
+            })) {
+          continue;
+        }
+        specs.push_back(shellSpec);
+      }
+      for (const auto& panelSpec : settings::manifestSettingSpecs(entry.settings, &translations)) {
+        if (scripting::isPanelShellSettingKey(entry.id, panelSpec.schema.key)) {
+          continue;
+        }
+        if (std::ranges::any_of(specs, [&](const WidgetSettingSpec& existing) {
+              return existing.schema.key == panelSpec.schema.key;
+            })) {
+          continue;
+        }
+        specs.push_back(panelSpec);
+      }
+    }
     bool rendered = false;
     for (const auto& spec : specs) {
       if (spec.advanced && !showAdvanced) {
@@ -381,7 +466,11 @@ namespace settings {
           .searchText = {},
           .visibleWhen = std::nullopt,
       };
-      factory.makeRow(body, entry, pluginSettingControl(factory, spec, value, path));
+      if (spec.control == WidgetControlKind::StringList) {
+        factory.makeListBlock(body, entry, ListSetting{.items = valueAsStringList(value)});
+      } else {
+        factory.makeRow(body, entry, pluginSettingControl(factory, spec, value, path));
+      }
       rendered = true;
     }
     if (!rendered) {
@@ -447,12 +536,16 @@ namespace settings {
       section->addChild(makeLabel(
           i18n::tr("settings.plugins.sources.empty"), Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant
       ));
+    } else if (ctx.sources.size() > 1) {
+      section->addChild(makeLabel(
+          i18n::tr("settings.plugins.sources.precedence-hint"), Style::fontSizeCaption * scale,
+          ColorRole::OnSurfaceVariant
+      ));
     }
-    std::vector<PluginSourceConfig> sources = ctx.sources;
-    std::stable_sort(sources.begin(), sources.end(), [](const auto& a, const auto& b) {
-      return pluginSourceLess(a.name, b.name);
-    });
-    for (const auto& source : sources) {
+    // Render in config order so the list mirrors the file. Precedence is last-wins
+    // (the same cascade as the rest of the config), so a source lower in the list
+    // overrides the ones above it for a shared plugin id.
+    for (const auto& source : ctx.sources) {
       section->addChild(sourceRow(source, ctx, scale));
     }
 
@@ -474,7 +567,7 @@ namespace settings {
       ));
     }
     std::vector<scripting::PluginStatus> plugins = ctx.plugins;
-    std::sort(plugins.begin(), plugins.end(), [&](const auto& a, const auto& b) {
+    std::ranges::sort(plugins, [&](const auto& a, const auto& b) {
       const std::string_view aName = pluginDisplayName(a);
       const std::string_view bName = pluginDisplayName(b);
       if (aName != bName) {

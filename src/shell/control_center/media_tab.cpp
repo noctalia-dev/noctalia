@@ -144,9 +144,22 @@ void MediaTab::openPlayerMenu() {
   });
 
   m_playerMenuPopup->open(
-      std::move(entries), menuWidth, 10, static_cast<std::int32_t>(anchorAbsX), static_cast<std::int32_t>(anchorAbsY),
-      static_cast<std::int32_t>(anchor->width()), static_cast<std::int32_t>(anchor->height()), parentCtx->layerSurface,
-      parentCtx->output
+      ContextMenuPopupRequest{
+          .entries = std::move(entries),
+          .menuWidth = menuWidth,
+          .maxVisible = 10,
+          .anchor =
+              PopupAnchorRect{
+                  .x = static_cast<std::int32_t>(anchorAbsX),
+                  .y = static_cast<std::int32_t>(anchorAbsY),
+                  .width = static_cast<std::int32_t>(anchor->width()),
+                  .height = static_cast<std::int32_t>(anchor->height()),
+              },
+          .parent = PopupSurfaceParent{
+              .layerSurface = parentCtx->layerSurface,
+              .output = parentCtx->output,
+          },
+      }
   );
 
   m_playerMenuOpen = true;
@@ -274,7 +287,7 @@ std::unique_ptr<Flex> MediaTab::create() {
                   return;
                 }
                 const auto active = m_mpris->activePlayer();
-                const std::int64_t targetUs = static_cast<std::int64_t>(std::llround(value * 1000000.0));
+                const auto targetUs = static_cast<std::int64_t>(std::llround(value * 1000000.0));
                 const auto now = std::chrono::steady_clock::now();
                 m_positionUs = targetUs;
                 m_positionSampleAt = now;
@@ -469,7 +482,7 @@ std::unique_ptr<Flex> MediaTab::create() {
         if (entry.id == 0) {
           m_mpris->clearPinnedPlayerPreference();
         } else {
-          const std::size_t idx = static_cast<std::size_t>(entry.id - 1);
+          const auto idx = static_cast<std::size_t>(entry.id - 1);
           if (idx < m_playerBusNames.size()) {
             m_mpris->setPinnedPlayerPreference(m_playerBusNames[idx]);
           }
@@ -695,6 +708,15 @@ void MediaTab::onClose() {
   m_lastRealtimeMprisPollAt = {};
 }
 
+bool MediaTab::dismissTransientUi() {
+  if (m_playerMenuPopup == nullptr || !m_playerMenuPopup->isOpen()) {
+    return false;
+  }
+  m_playerMenuPopup->close();
+  PanelManager::instance().clearActivePopup();
+  return true;
+}
+
 void MediaTab::clearArt(Renderer& renderer) {
   if (m_artwork != nullptr) {
     m_artwork->clear(renderer);
@@ -706,7 +728,7 @@ void MediaTab::commitPendingSeek(double valueSeconds) {
     return;
   }
 
-  const std::int64_t targetUs = static_cast<std::int64_t>(std::llround(valueSeconds * 1000000.0));
+  const auto targetUs = static_cast<std::int64_t>(std::llround(valueSeconds * 1000000.0));
   const auto now = std::chrono::steady_clock::now();
   m_positionUs = targetUs;
   m_positionSampleAt = now;
@@ -881,10 +903,10 @@ void MediaTab::refresh(Renderer& renderer) {
         kLog.debug("artwork unresolved url=\"{}\"", resolvedArtUrl);
         clearArt(renderer);
       } else if (!m_artwork->setSourceFile(renderer, artPath, mediaTabArtDecodeSize(contentScale()), true, true)) {
-        kLog.warn("artwork load failed url=\"{}\" path=\"{}\"", resolvedArtUrl, artPath);
+        kLog.warn(R"(artwork load failed url="{}" path="{}")", resolvedArtUrl, artPath);
         clearArt(renderer);
       } else {
-        kLog.debug("artwork loaded url=\"{}\" path=\"{}\"", resolvedArtUrl, artPath);
+        kLog.debug(R"(artwork loaded url="{}" path="{}")", resolvedArtUrl, artPath);
         loaded = true;
       }
 

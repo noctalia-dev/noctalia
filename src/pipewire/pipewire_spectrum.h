@@ -92,15 +92,15 @@ private:
   std::uint32_t m_boundNodeId = 0;
   std::string m_boundTargetObject;
   int m_analysisBandCount = 32;
-  int m_lowerCutoff = 50;
-  int m_upperCutoff = 12000;
+  int m_lowerCutoff = 20;
+  int m_upperCutoff = 20000;
   float m_noiseReduction = 0.77f;
   bool m_smoothing = true;
   std::vector<float> m_analysisBands;
   bool m_idle = true;
 
   std::unique_ptr<Stream> m_stream;
-  std::chrono::steady_clock::time_point m_nextFrameAt{};
+  std::chrono::steady_clock::time_point m_nextFrameAt;
 
   static constexpr int kFftSize = 4096;
   std::vector<float> m_ringBuffer;
@@ -111,8 +111,7 @@ private:
   bool m_samplesReceived = false;
 
   std::vector<float> m_window;
-  std::vector<int> m_analysisBandBinLow;
-  std::vector<int> m_analysisBandBinHigh;
+  std::vector<float> m_analysisBandBins;
   float m_sensitivity = 1.0f;
   bool m_sensInit = true;
   std::vector<std::complex<float>> m_fftBuf;

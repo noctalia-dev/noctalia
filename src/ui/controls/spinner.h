@@ -21,6 +21,11 @@ public:
   void start();
   void stop();
 
+  // Restart the animation once a manager becomes available: the builder may call
+  // start() before the node is attached to a surface (no manager yet), which would
+  // otherwise leave the spinner static.
+  void setAnimationManager(AnimationManager* mgr) override;
+
   [[nodiscard]] bool spinning() const noexcept { return m_spinning; }
 
 private:

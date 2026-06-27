@@ -373,7 +373,7 @@ std::vector<MprisPlayerInfo> MprisService::listPlayers() const {
     result.push_back(projectedPlayerInfo(player));
   }
 
-  std::ranges::sort(result, [](const MprisPlayerInfo& a, const MprisPlayerInfo& b) { return a.busName < b.busName; });
+  std::ranges::sort(result, {}, &MprisPlayerInfo::busName);
   return result;
 }
 
@@ -494,7 +494,6 @@ void MprisService::applyPositionSample(const std::string& busName, int64_t rawPo
       && offsetUs > 0
       && rawPositionUs + kStaleRebaseClearSlackUs < offsetUs) {
     offsetIt->second = 0;
-    offsetUs = 0;
     normalizedUs = rawPositionUs;
   }
 
@@ -1424,7 +1423,7 @@ void MprisService::registerBusSignals() {
           return;
         }
 
-        kLog.debug("name owner changed name={} old_owner=\"{}\" new_owner=\"{}\"", name, old_owner, new_owner);
+        kLog.debug(R"(name owner changed name={} old_owner="{}" new_owner="{}")", name, old_owner, new_owner);
 
         if (new_owner.empty()) {
           removePlayer(name);
@@ -1541,10 +1540,10 @@ void MprisService::addOrRefreshPlayer(const std::string& busName) {
                   const std::vector<std::string>& invalidated_properties
               ) {
           if (interface_name == kMprisRootInterface || interface_name == kMprisPlayerInterface) {
-            const bool metadataChanged = changed_properties.contains("Metadata")
-                || std::ranges::find(invalidated_properties, std::string{"Metadata"}) != invalidated_properties.end();
-            const bool positionChanged = changed_properties.contains("Position")
-                || std::ranges::find(invalidated_properties, std::string{"Position"}) != invalidated_properties.end();
+            const bool metadataChanged =
+                changed_properties.contains("Metadata") || std::ranges::contains(invalidated_properties, "Metadata");
+            const bool positionChanged =
+                changed_properties.contains("Position") || std::ranges::contains(invalidated_properties, "Position");
             if (positionChanged) {
               m_pendingPositionSignalRefresh[busName] = true;
             }
@@ -2062,7 +2061,7 @@ std::optional<std::string> MprisService::chooseActivePlayer() const {
     const auto it = m_players.find(*m_pinnedPlayerPreference);
     if (it != m_players.end() && !isBlacklisted(it->second) && !isDismissed(*m_pinnedPlayerPreference)) {
       // kLog.debug("choose active player source=pinned name={}", *m_pinnedPlayerPreference);
-      return *m_pinnedPlayerPreference;
+      return m_pinnedPlayerPreference;
     }
   }
 

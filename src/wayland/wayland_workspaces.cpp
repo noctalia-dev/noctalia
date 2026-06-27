@@ -5,6 +5,7 @@
 #include "compositors/dwl/dwl_workspace_backend.h"
 #include "compositors/ext_workspace/ext_workspace_backend.h"
 #include "compositors/hyprland/hyprland_workspace_backend.h"
+#include "compositors/kde/kwin_workspace_backend.h"
 #include "compositors/mango/mango_workspace_backend.h"
 #include "compositors/output_backend.h"
 #include "compositors/sway/sway_workspace_backend.h"
@@ -60,6 +61,12 @@ WaylandWorkspaces::WaylandWorkspaces(compositors::CompositorRuntimeRegistry& run
   m_triadConnector = triadBackend.get();
   m_outputNameResolvers.push_back(triadBackend.get());
   m_backends.push_back(std::move(triadBackend));
+
+  auto kwinBackend = std::make_unique<KwinWorkspaceBackend>();
+  m_kwinBackend = kwinBackend.get();
+  m_kdeVirtualDesktopBinder = kwinBackend.get();
+  m_outputNameResolvers.push_back(kwinBackend.get());
+  m_backends.push_back(std::move(kwinBackend));
 }
 
 WaylandWorkspaces::~WaylandWorkspaces() = default;
@@ -67,6 +74,12 @@ WaylandWorkspaces::~WaylandWorkspaces() = default;
 void WaylandWorkspaces::bindExtWorkspace(ext_workspace_manager_v1* manager) {
   if (m_extWorkspaceBinder != nullptr) {
     m_extWorkspaceBinder->bindExtWorkspace(manager);
+  }
+}
+
+void WaylandWorkspaces::bindKdeVirtualDesktop(org_kde_plasma_virtual_desktop_management* management) {
+  if (m_kdeVirtualDesktopBinder != nullptr) {
+    m_kdeVirtualDesktopBinder->bindKdeVirtualDesktop(management);
   }
 }
 
@@ -170,8 +183,19 @@ void WaylandWorkspaces::initialize() {
       return;
     }
     break;
-  case compositors::CompositorKind::Niri:
+  case compositors::CompositorKind::Kde:
+    if (availableOrConnected(m_kwinBackend)) {
+      setActiveBackend(m_kwinBackend);
+      return;
+    }
+    break;
   case compositors::CompositorKind::Labwc:
+    if (availableOrConnected(m_extBackend)) {
+      setActiveBackend(m_extBackend);
+      return;
+    }
+    break;
+  case compositors::CompositorKind::Niri:
   case compositors::CompositorKind::Unknown:
     break;
   }

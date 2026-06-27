@@ -43,6 +43,10 @@ namespace scripting {
     );
     [[nodiscard]] bool enqueueAsyncCommandResult(std::uint64_t hostId, int callbackRef, process::RunResult result);
     [[nodiscard]] bool hasOnIpc() const;
+    // True once the script has loaded and defines a global onActivate handler. The
+    // launcher uses this to decide whether activating a result must wait for the
+    // handler (which may rewrite the query) before closing the panel.
+    [[nodiscard]] bool hasOnActivate() const;
     [[nodiscard]] bool unhealthy() const;
 
   private:

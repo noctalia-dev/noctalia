@@ -54,7 +54,7 @@ namespace paths {
       if (candidate.empty()) {
         return;
       }
-      if (std::find(candidates.begin(), candidates.end(), candidate) == candidates.end()) {
+      if (!std::ranges::contains(candidates, candidate)) {
         candidates.push_back(candidate);
       }
     }

@@ -19,10 +19,10 @@ class Button;
 class ConfigService;
 class Flex;
 class Input;
-class InputArea;
 class Label;
 class Segmented;
 class Select;
+class Spinner;
 class Toggle;
 class VirtualGridView;
 class WallpaperGridAdapter;
@@ -37,7 +37,9 @@ public:
     DateDesc,
   };
 
-  WallpaperPanel(WaylandConnection* wayland, ConfigService* config, ThumbnailService* thumbnails);
+  WallpaperPanel(
+      WaylandConnection* wayland, ConfigService* config, ThumbnailService* thumbnails, WallpaperScanner* scanner
+  );
   ~WallpaperPanel() override;
 
   void create() override;
@@ -65,6 +67,8 @@ private:
   void populateMonitorChoices();
   void refreshVisibleEntries();
   void refreshScan();
+  void onScanComplete();
+  void syncLoadingState();
   void applyFilter();
   void syncBrowseChrome();
   void syncBackButton();
@@ -111,8 +115,7 @@ private:
   WaylandConnection* m_wayland = nullptr;
   ConfigService* m_config = nullptr;
   ThumbnailService* m_thumbnails = nullptr;
-
-  WallpaperScanner m_scanner;
+  WallpaperScanner* m_scanner = nullptr;
 
   // UI nodes (owned by the root flex tree).
   Flex* m_rootLayout = nullptr;
@@ -132,6 +135,8 @@ private:
   Button* m_colorButton = nullptr;
   Button* m_closeButton = nullptr;
   VirtualGridView* m_grid = nullptr;
+  Flex* m_loadingBox = nullptr;
+  Spinner* m_spinner = nullptr;
   std::unique_ptr<WallpaperGridAdapter> m_adapter;
 
   std::vector<MonitorChoice> m_monitorChoices;
@@ -150,9 +155,12 @@ private:
   Timer m_filterDebounceTimer;
 
   bool m_flatten = false;
+  bool m_scanPending = false;
   SortMode m_sortMode = SortMode::NameAsc;
   std::size_t m_pinnedFavoriteCount = 0;
   bool m_syncingFavoriteControls = false;
+  bool m_syncingGridSelectionVisual = false;
+  bool m_gridKeyboardActive = false;
   std::vector<std::string> m_favoritePaletteDetailValues;
   std::vector<PaletteSource> m_paletteSourceOrder;
   static constexpr std::size_t kNoVisibleSelection = std::numeric_limits<std::size_t>::max();

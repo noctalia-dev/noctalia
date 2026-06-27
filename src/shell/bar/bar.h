@@ -1,8 +1,9 @@
 #pragma once
 
+#include "core/timer_manager.h"
 #include "shell/bar/bar_instance.h"
+#include "shell/bar/bar_services.h"
 #include "shell/bar/widget_factory.h"
-#include "shell/panel/attached_panel_context.h"
 #include "ui/dialogs/layer_popup_host.h"
 #include "wayland/surface.h"
 
@@ -11,6 +12,7 @@
 #include <optional>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 class ConfigService;
@@ -24,6 +26,7 @@ class MprisService;
 class BluetoothService;
 class BrightnessService;
 class ClipboardService;
+class EasyEffectsService;
 class ScreenshotService;
 class INetworkService;
 class NotificationManager;
@@ -33,7 +36,6 @@ class PowerProfilesService;
 class RenderContext;
 class SystemMonitorService;
 class UPowerService;
-class TimeService;
 class TrayService;
 class GammaService;
 class WeatherService;
@@ -50,16 +52,7 @@ class Bar {
 public:
   Bar();
 
-  bool initialize(
-      CompositorPlatform& platform, ConfigService* config, TimeService* timeService, NotificationManager* notifications,
-      TrayService* tray, PipeWireService* audio, UPowerService* upower, SystemMonitorService* sysmon,
-      PowerProfilesService* powerProfiles, INetworkService* network, IdleInhibitor* idleInhibitor, MprisService* mpris,
-      PipeWireSpectrum* audioSpectrum, HttpClient* httpClient, WeatherService* weatherService,
-      RenderContext* renderContext, GammaService* nightLight, noctalia::theme::ThemeService* themeService,
-      BluetoothService* bluetooth, BrightnessService* brightness, LockKeysService* lockKeys,
-      ClipboardService* clipboard, FileWatcher* fileWatcher = nullptr, ScreenshotService* screenshots = nullptr,
-      scripting::ScriptApiContext* scriptApi = nullptr
-  );
+  bool initialize(const BarServices& services);
   void reload();
   void closeAllInstances();
   void show();
@@ -70,6 +63,7 @@ public:
   void unsuppressDisplay();
   [[nodiscard]] bool isVisible() const noexcept;
   void onOutputChange();
+  void onWorkspaceChanged();
   void onSecondTick();
   void refresh();
   void requestLayout();
@@ -92,9 +86,15 @@ public:
   // Returns every bar wl_surface across all outputs. Used as the focus-grab
   // whitelist on Hyprland so bar widgets keep receiving clicks.
   [[nodiscard]] std::vector<wl_surface*> allBarSurfaces() const;
+  // Bar surfaces that are visually shown and can anchor a Wayland idle inhibitor.
+  [[nodiscard]] std::vector<wl_surface*> caffeineAnchorSurfaces() const;
   void
   setAttachedPanelGeometry(wl_output* output, std::string_view barName, std::optional<AttachedPanelGeometry> geometry);
   [[nodiscard]] bool canAttachPanelToBar(wl_output* output, std::string_view barName) const noexcept;
+  [[nodiscard]] std::optional<std::string> layerForBar(wl_output* output, std::string_view barName) const noexcept;
+  // True when an attached panel may start its reveal animation: non-autohide bars, or autohide
+  // bars that have finished sliding into their resting position.
+  [[nodiscard]] bool isAttachedPanelBarSettled(wl_output* output, std::string_view barName) const noexcept;
   void revealAutoHideForAttachedPanel(wl_output* output, std::string_view barName);
   void beginAttachedPopup(wl_surface* surface);
   void endAttachedPopup(wl_surface* surface);
@@ -103,6 +103,7 @@ public:
 
 private:
   void applyIpcVisibility(bool visible);
+  void syncIdleInhibitorAnchors();
   void setInstanceIpcVisible(BarInstance& instance, bool visible);
   [[nodiscard]] bool instanceEffectivelyVisible(const BarInstance& instance) const noexcept;
   static void tickWidgets(std::vector<std::unique_ptr<Widget>>& widgets, float deltaMs);
@@ -114,6 +115,7 @@ private:
   void populateWidgets(BarInstance& instance);
   void attachWidgetsToSections(BarInstance& instance);
   void rebuildInstanceContents(BarInstance& instance, const BarConfig& newConfig);
+  [[nodiscard]] BarServices services() const;
   void buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t height);
   void prepareFrame(BarInstance& instance, bool needsUpdate, bool needsLayout);
   void updateWidgets(BarInstance& instance);
@@ -127,12 +129,14 @@ private:
   [[nodiscard]] bool shouldReserveExclusiveZone(const BarInstance& instance) const noexcept;
   [[nodiscard]] bool barContentVisuallyShown(const BarInstance& instance) const noexcept;
   void revealAutoHideBar(BarInstance& instance);
+  void applyPendingWorkspaceReveal();
   void startHideFadeOut(BarInstance& instance);
   static void applyBackgroundPalette(BarInstance& instance);
   [[nodiscard]] std::string showBarIpc(std::string_view args);
   [[nodiscard]] std::string hideBarIpc(std::string_view args);
   [[nodiscard]] std::string toggleBarIpc(std::string_view args);
   [[nodiscard]] std::string setBarAutoHideIpc(std::string_view args);
+  [[nodiscard]] std::string setBarLayerIpc(std::string_view args);
   [[nodiscard]] std::optional<std::string> collectBarIpcInstances(
       std::optional<std::string_view> barName, std::optional<std::string_view> monitorSelector,
       std::vector<BarInstance*>& instancesOut
@@ -146,6 +150,7 @@ private:
   NotificationManager* m_notifications = nullptr;
   TrayService* m_tray = nullptr;
   PipeWireService* m_audio = nullptr;
+  EasyEffectsService* m_easyEffects = nullptr;
   UPowerService* m_upower = nullptr;
   SystemMonitorService* m_sysmon = nullptr;
   PowerProfilesService* m_powerProfiles = nullptr;
@@ -182,6 +187,10 @@ private:
   BarInstance* m_hoveredInstance = nullptr;
   std::function<bool(const BarInstance&)> m_autoHideSuppressionCallback;
   std::function<void(std::string, std::string)> m_openWidgetSettingsCallback;
+  Timer m_workspaceRevealDebounce;
+  Timer m_workspacePeekHideTimer;
+  std::unordered_set<std::uint32_t> m_pendingWorkspaceRevealOutputs;
+  std::unordered_map<std::uint32_t, std::string> m_lastActiveWorkspaceByOutput;
   bool m_overlayDisplaySuppressed = false;
   bool m_wasVisibleBeforeOverlaySuppress = false;
 };

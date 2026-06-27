@@ -9,6 +9,7 @@
 #include "render/scene/rect_node.h"
 #include "ui/builders.h"
 #include "ui/popup_chrome.h"
+#include "ui/popup_parent.h"
 #include "ui/style.h"
 #include "wayland/popup_surface.h"
 #include "wayland/wayland_connection.h"
@@ -46,7 +47,7 @@ DialogPopupHost::DialogPopupHost() { activeDialogHosts().push_back(this); }
 
 DialogPopupHost::~DialogPopupHost() {
   auto& hosts = activeDialogHosts();
-  hosts.erase(std::remove(hosts.begin(), hosts.end(), this), hosts.end());
+  std::erase(hosts, this);
   // Subclass destructors are responsible for calling destroyPopup() before
   // their own members go away — by the time we reach this destructor the
   // subclass vtable has already been replaced and any virtual hook would
@@ -142,15 +143,16 @@ bool DialogPopupHost::openPopup(std::uint32_t width, std::uint32_t height) {
   return true;
 }
 
-bool DialogPopupHost::openPopupAsChild(
-    PopupSurfaceConfig config, xdg_surface* parentXdgSurface, wl_surface* parentWlSurface, wl_output* output
-) {
-  if (m_wayland == nullptr || m_renderContext == nullptr || parentXdgSurface == nullptr || parentWlSurface == nullptr) {
+bool DialogPopupHost::openPopupAsChild(PopupSurfaceConfig config, const XdgPopupParent& parent) {
+  if (m_wayland == nullptr
+      || m_renderContext == nullptr
+      || parent.xdgSurface == nullptr
+      || parent.wlSurface == nullptr) {
     return false;
   }
 
   destroyPopup();
-  m_parentSurface = parentWlSurface;
+  m_parentSurface = parent.wlSurface;
 
   auto surface = std::make_unique<PopupSurface>(*m_wayland);
   surface->setRenderContext(m_renderContext);
@@ -175,7 +177,7 @@ bool DialogPopupHost::openPopupAsChild(
 
   m_surface = std::move(surface);
   m_openInProgress = true;
-  const bool initialized = m_surface->initializeAsChild(parentXdgSurface, output, config);
+  const bool initialized = m_surface->initializeAsChild(parent.xdgSurface, parent.output, config);
   m_openInProgress = false;
   if (!initialized) {
     destroyPopup();
@@ -425,9 +427,7 @@ void DialogPopupHost::buildScene(std::uint32_t width, std::uint32_t height) {
   m_panelShadow = popup_chrome::addShadow(*m_sceneRoot, m_chrome, popupShadowConfig(m_config), Style::scaledRadiusXl());
 
   auto bg = ui::box({
-      .configure = [this](Box& box) {
-        box.setPanelStyle(m_config != nullptr && m_config->config().shell.panel.borders);
-      },
+      .configure = [](Box& box) { box.setDialogStyle(); },
   });
   m_bgNode = static_cast<Box*>(m_sceneRoot->addChild(std::move(bg)));
 
@@ -478,8 +478,8 @@ void DialogPopupHost::syncSceneGeometryFromSurface() {
     return;
   }
 
-  const float surfW = static_cast<float>(surfaceWidth);
-  const float surfH = static_cast<float>(surfaceHeight);
+  const auto surfW = static_cast<float>(surfaceWidth);
+  const auto surfH = static_cast<float>(surfaceHeight);
   if (surfaceWidth != m_chrome.surfaceWidth || surfaceHeight != m_chrome.surfaceHeight) {
     const auto& bleed = m_chrome.bleed;
     m_chrome.contentWidth = std::max(1.0f, surfW - static_cast<float>(bleed.left + bleed.right));

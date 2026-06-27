@@ -301,8 +301,8 @@ namespace {
       const auto blobPath = assetsDirectoryForJson(jsonFilePath) / fileOnly;
       img.data = FileUtils::readBinaryFile(blobPath.string());
       if (!img.data.empty()) {
-        std::string decErr;
-        if (auto decoded = decodeRasterImage(img.data.data(), img.data.size(), &decErr)) {
+        auto decoded = decodeRasterImage(img.data.data(), img.data.size());
+        if (decoded) {
           img.width = decoded->width;
           img.height = decoded->height;
           img.rowStride = img.width * 4;
@@ -321,7 +321,7 @@ namespace {
             return img;
           }
         }
-        kLog.warn("could not decode notification image blob {} ({})", blobPath.string(), decErr);
+        kLog.warn("could not decode notification image blob {} ({})", blobPath.string(), decoded.error());
       } else if (img.width > 0 && img.height > 0) {
         kLog.warn("missing or empty image blob {}", blobPath.string());
       }

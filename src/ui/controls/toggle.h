@@ -4,6 +4,7 @@
 #include "ui/signal.h"
 
 #include <functional>
+#include <string>
 
 enum class ToggleSize : std::uint8_t {
   Small,
@@ -12,7 +13,6 @@ enum class ToggleSize : std::uint8_t {
 };
 
 class InputArea;
-class Renderer;
 
 class Toggle : public Flex {
 public:
@@ -24,6 +24,7 @@ public:
   void setToggleSize(ToggleSize size);
   void setScale(float scale);
   void setOnChange(std::function<void(bool)> callback);
+  void setTabFocusKey(std::string key);
   [[nodiscard]] bool hovered() const noexcept;
   [[nodiscard]] bool pressed() const noexcept;
   [[nodiscard]] bool checked() const noexcept { return m_checked; }
@@ -31,6 +32,7 @@ public:
   [[nodiscard]] ToggleSize toggleSize() const noexcept { return m_size; }
 
 private:
+  void activateFromInput();
   void applySize();
   void applyState();
   void applyAnimatedState(float t);

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "config/config_service.h"
+#include "config/config_types.h"
 
 #include <chrono>
 #include <cstdint>
@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+class ConfigService;
 class HttpClient;
 
 struct WeatherCurrentUnits {

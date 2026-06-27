@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <expected>
 #include <string>
 #include <vector>
 
@@ -13,6 +14,14 @@ namespace {
       std::fprintf(stderr, "ico_decoder_test: FAIL: %s\n", message);
     }
     return condition;
+  }
+
+  bool checkDecoded(const std::expected<DecodedRasterImage, std::string>& result, const char* message) {
+    if (result) {
+      return true;
+    }
+    const std::string detail = std::string(message) + ": " + result.error();
+    return check(false, detail.c_str());
   }
 
   void writeU16LE(std::vector<std::uint8_t>& out, std::uint16_t v) {
@@ -185,9 +194,8 @@ namespace {
 
   bool testPngSubImage() {
     auto ico = buildIcoWithPng(1, 1);
-    std::string error;
-    auto result = decodeRasterImage(ico.data(), ico.size(), &error);
-    if (!check(result.has_value(), ("PNG sub-image decode failed: " + error).c_str()))
+    auto result = decodeRasterImage(ico.data(), ico.size());
+    if (!checkDecoded(result, "PNG sub-image decode failed"))
       return false;
     bool ok = true;
     ok = check(result->width == 1, "PNG sub-image: width should be 1") && ok;
@@ -198,9 +206,8 @@ namespace {
 
   bool testBmpSubImage() {
     auto ico = buildIcoWithBmp(2, 2, 32);
-    std::string error;
-    auto result = decodeRasterImage(ico.data(), ico.size(), &error);
-    if (!check(result.has_value(), ("BMP sub-image decode failed: " + error).c_str()))
+    auto result = decodeRasterImage(ico.data(), ico.size());
+    if (!checkDecoded(result, "BMP sub-image decode failed"))
       return false;
     bool ok = true;
     ok = check(result->width == 2, "BMP sub-image: width should be 2") && ok;
@@ -226,9 +233,8 @@ namespace {
     // Patch the second pixel to fully transparent.
     ico[firstPixel + 4 + 3] = 0x00; // A
 
-    std::string error;
-    auto result = decodeRasterImage(ico.data(), ico.size(), &error);
-    if (!check(result.has_value(), ("alpha-preserved decode failed: " + error).c_str()))
+    auto result = decodeRasterImage(ico.data(), ico.size());
+    if (!checkDecoded(result, "alpha-preserved decode failed"))
       return false;
     bool ok = true;
     // BMP is bottom-up, so first BMP row = last output row.
@@ -250,9 +256,8 @@ namespace {
     // Bit 7 = pixel 0 (opaque), bit 6 = pixel 1 (transparent)
     ico[andMaskOffset] = 0x40;
 
-    std::string error;
-    auto result = decodeRasterImage(ico.data(), ico.size(), &error);
-    if (!check(result.has_value(), ("AND mask decode failed: " + error).c_str()))
+    auto result = decodeRasterImage(ico.data(), ico.size());
+    if (!checkDecoded(result, "AND mask decode failed"))
       return false;
     bool ok = true;
     ok = check(result->width == 2, "AND mask: width should be 2") && ok;
@@ -265,9 +270,8 @@ namespace {
 
   bool testMultiEntryPicksBest() {
     auto ico = buildIcoMultiEntry();
-    std::string error;
-    auto result = decodeRasterImage(ico.data(), ico.size(), &error);
-    if (!check(result.has_value(), ("multi-entry decode failed: " + error).c_str()))
+    auto result = decodeRasterImage(ico.data(), ico.size());
+    if (!checkDecoded(result, "multi-entry decode failed"))
       return false;
     bool ok = true;
     ok = check(result->width == 1, "multi-entry: should pick 1x1 image") && ok;
@@ -278,22 +282,26 @@ namespace {
   bool testEmptyIco() {
     // Valid header but count = 0
     std::vector<std::uint8_t> ico = {0x00, 0x00, 0x01, 0x00, 0x00, 0x00};
-    std::string error;
-    auto result = decodeRasterImage(ico.data(), ico.size(), &error);
+    auto result = decodeRasterImage(ico.data(), ico.size());
     bool ok = true;
-    ok = check(!result.has_value(), "empty ICO should fail") && ok;
-    ok = check(error.find("no images") != std::string::npos, "empty ICO error should mention 'no images'") && ok;
+    ok = check(!result, "empty ICO should fail") && ok;
+    if (!result) {
+      const bool mentionsNoImages = result.error().find("no images") != std::string::npos;
+      ok = check(mentionsNoImages, "empty ICO error should mention 'no images'") && ok;
+    }
     return ok;
   }
 
   bool testTruncatedDirectory() {
     // Claims 1 entry but file is too short to contain it
     std::vector<std::uint8_t> ico = {0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00};
-    std::string error;
-    auto result = decodeRasterImage(ico.data(), ico.size(), &error);
+    auto result = decodeRasterImage(ico.data(), ico.size());
     bool ok = true;
-    ok = check(!result.has_value(), "truncated directory should fail") && ok;
-    ok = check(error.find("past end") != std::string::npos, "truncated error should mention 'past end'") && ok;
+    ok = check(!result, "truncated directory should fail") && ok;
+    if (!result) {
+      const bool mentionsPastEnd = result.error().find("past end") != std::string::npos;
+      ok = check(mentionsPastEnd, "truncated error should mention 'past end'") && ok;
+    }
     return ok;
   }
 
@@ -304,20 +312,21 @@ namespace {
     ico[19] = 0xFF;
     ico[20] = 0x00;
     ico[21] = 0x00;
-    std::string error;
-    auto result = decodeRasterImage(ico.data(), ico.size(), &error);
+    auto result = decodeRasterImage(ico.data(), ico.size());
     bool ok = true;
-    ok = check(!result.has_value(), "out-of-bounds entry should fail") && ok;
-    ok = check(error.find("outside") != std::string::npos, "out-of-bounds error should mention 'outside'") && ok;
+    ok = check(!result, "out-of-bounds entry should fail") && ok;
+    if (!result) {
+      const bool mentionsOutside = result.error().find("outside") != std::string::npos;
+      ok = check(mentionsOutside, "out-of-bounds error should mention 'outside'") && ok;
+    }
     return ok;
   }
 
   bool test256x256Entry() {
     // Width/height 0 in the directory means 256
     auto ico = buildIcoWithPng(256, 256);
-    std::string error;
-    auto result = decodeRasterImage(ico.data(), ico.size(), &error);
-    if (!check(result.has_value(), ("256x256 entry decode failed: " + error).c_str()))
+    auto result = decodeRasterImage(ico.data(), ico.size());
+    if (!checkDecoded(result, "256x256 entry decode failed"))
       return false;
     // The actual decoded size comes from the embedded PNG (1x1), not the directory
     bool ok = true;

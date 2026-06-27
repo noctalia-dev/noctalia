@@ -1,5 +1,6 @@
 #include "scripting/plugin_catalog.h"
 
+#include "config/config_types.h"
 #include "core/build_info.h"
 #include "core/log.h"
 #include "core/toml.h" // IWYU pragma: keep
@@ -26,6 +27,20 @@ namespace scripting {
       return tbl[key].value<std::string>().value_or(std::move(fallback));
     }
 
+    std::vector<std::string> tableStringArray(const toml::table& tbl, std::string_view key) {
+      std::vector<std::string> out;
+      const auto* values = tbl[key].as_array();
+      if (values == nullptr) {
+        return out;
+      }
+      for (const auto& node : *values) {
+        if (auto value = node.value<std::string>()) {
+          out.push_back(*value);
+        }
+      }
+      return out;
+    }
+
     bool readFileToString(const std::filesystem::path& path, std::string& out) {
       std::ifstream file(path, std::ios::binary);
       if (!file) {
@@ -48,6 +63,7 @@ namespace scripting {
           .id = m.id,
           .name = m.name,
           .tags = m.tags,
+          .dependencies = m.dependencies,
           .version = m.version,
           .author = m.author,
           .icon = m.icon,
@@ -105,7 +121,8 @@ namespace scripting {
       CatalogEntry e{
           .id = tableString(*tbl, "id"),
           .name = tableString(*tbl, "name"),
-          .tags = {},
+          .tags = tableStringArray(*tbl, "tags"),
+          .dependencies = tableStringArray(*tbl, "dependencies"),
           .version = tableString(*tbl, "version"),
           .author = tableString(*tbl, "author"),
           .icon = tableString(*tbl, "icon"),
@@ -125,13 +142,6 @@ namespace scripting {
       if (e.name.empty()) {
         kLog.warn("catalog row '{}' missing mandatory key 'name'", e.id);
         continue;
-      }
-      if (const auto* tags = (*tbl)["tags"].as_array()) {
-        for (const auto& tag : *tags) {
-          if (auto value = tag.value<std::string>()) {
-            e.tags.push_back(*value);
-          }
-        }
       }
       fillCompat(e);
       out.push_back(std::move(e));

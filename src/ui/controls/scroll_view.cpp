@@ -1,5 +1,6 @@
 #include "ui/controls/scroll_view.h"
 
+#include "render/animation/animation_manager.h"
 #include "render/core/render_styles.h"
 #include "render/scene/input_area.h"
 #include "render/scene/rect_node.h"
@@ -8,6 +9,7 @@
 #include "ui/style.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <linux/input-event-codes.h>
 #include <memory>
@@ -16,6 +18,12 @@
 namespace {
 
   constexpr float kDefaultWidth = 260.0f;
+  constexpr float kMinFlingVelocity = 0.12f;
+  constexpr float kFlingDeceleration = 0.003f;
+  constexpr float kMinScrollAnimDurationMs = 50.0f;
+  constexpr float kMaxScrollAnimDurationMs = 900.0f;
+  constexpr float kScrollAnimMsPerPx = 0.45f;
+  constexpr float kFlingAnimMsPerPx = 0.55f;
 
 } // namespace
 
@@ -38,18 +46,45 @@ ScrollView::ScrollView() {
 
   auto viewportArea = std::make_unique<InputArea>();
   viewportArea->setOnPress([this](const InputArea::PointerData& data) {
-    if (data.button != BTN_LEFT || !data.pressed || !scrollable()) {
+    if (data.button != BTN_LEFT || !scrollable()) {
       return;
     }
-    m_dragStartLocalY = data.localY;
-    m_dragStartOffset = m_scrollOffset;
+    if (data.pressed) {
+      stopScrollAnimation();
+      m_dragging = true;
+      m_dragStartLocalY = data.localY;
+      m_dragStartOffset = m_scrollOffset;
+      m_lastDragLocalY = data.localY;
+      m_lastDragSampleAt = std::chrono::steady_clock::now();
+      m_dragVelocity = 0.0f;
+      return;
+    }
+    if (m_dragging) {
+      m_dragging = false;
+      startFling();
+    }
+  });
+  viewportArea->setOnLeave([this]() {
+    if (!m_dragging) {
+      return;
+    }
+    m_dragging = false;
+    startFling();
   });
   viewportArea->setOnMotion([this](const InputArea::PointerData& data) {
     if (m_viewportArea == nullptr || !m_viewportArea->pressed() || !scrollable()) {
       return;
     }
+    const auto now = std::chrono::steady_clock::now();
+    const float dtMs = std::chrono::duration<float, std::milli>(now - m_lastDragSampleAt).count();
+    if (dtMs > 0.0f && dtMs < 80.0f) {
+      m_dragVelocity = (data.localY - m_lastDragLocalY) / dtMs;
+    }
+    m_lastDragLocalY = data.localY;
+    m_lastDragSampleAt = now;
+
     const float delta = data.localY - m_dragStartLocalY;
-    setScrollOffset(m_dragStartOffset - delta);
+    applyScrollOffsetValue(clampOffset(m_dragStartOffset - delta));
   });
   viewportArea->setOnAxis([this](const InputArea::PointerData& data) {
     if (!scrollable()) {
@@ -77,6 +112,76 @@ ScrollView::ScrollView() {
 }
 
 void ScrollView::setScrollOffset(float offset) {
+  stopScrollAnimation();
+  applyScrollOffsetValue(clampOffset(offset));
+}
+
+void ScrollView::scrollBy(float delta) {
+  if (delta == 0.0f) {
+    return;
+  }
+  const float base = m_scrollAnimId != 0 ? m_targetScrollOffset : m_scrollOffset;
+  animateScrollTo(clampOffset(base + delta));
+}
+
+void ScrollView::stopScrollAnimation() {
+  if (m_scrollAnimId != 0 && animationManager() != nullptr) {
+    animationManager()->cancel(m_scrollAnimId);
+    m_scrollAnimId = 0;
+  }
+  m_targetScrollOffset = m_scrollOffset;
+}
+
+void ScrollView::animateScrollTo(float target, float durationMs) {
+  const float clampedTarget = clampOffset(target);
+
+  if (animationManager() == nullptr) {
+    applyScrollOffsetValue(clampedTarget);
+    return;
+  }
+
+  stopScrollAnimation();
+  m_targetScrollOffset = clampedTarget;
+
+  if (std::abs(clampedTarget - m_scrollOffset) < 0.5f) {
+    applyScrollOffsetValue(clampedTarget);
+    return;
+  }
+
+  const float distance = std::abs(clampedTarget - m_scrollOffset);
+  const float resolvedDuration = durationMs > 0.0f
+      ? durationMs
+      : std::clamp(distance * kScrollAnimMsPerPx, kMinScrollAnimDurationMs, static_cast<float>(Style::animNormal));
+
+  m_scrollAnimId = animationManager()->animate(
+      m_scrollOffset, clampedTarget, resolvedDuration, Easing::EaseOutCubic,
+      [this](float value) { applyScrollOffsetValue(value); }, [this]() { m_scrollAnimId = 0; }, this
+  );
+  markPaintDirty();
+}
+
+void ScrollView::startFling() {
+  if (animationManager() == nullptr) {
+    return;
+  }
+
+  const float offsetVelocity = -m_dragVelocity;
+  if (std::abs(offsetVelocity) < kMinFlingVelocity) {
+    return;
+  }
+
+  const float flingDistance = (offsetVelocity * std::abs(offsetVelocity)) / (2.0f * kFlingDeceleration);
+  const float target = clampOffset(m_scrollOffset + flingDistance);
+  if (std::abs(target - m_scrollOffset) < 1.0f) {
+    return;
+  }
+
+  const float duration =
+      std::clamp(std::abs(flingDistance) * kFlingAnimMsPerPx, kMinScrollAnimDurationMs, kMaxScrollAnimDurationMs);
+  animateScrollTo(target, duration);
+}
+
+void ScrollView::applyScrollOffsetValue(float offset) {
   const float clamped = clampOffset(offset);
   if (std::abs(clamped - m_scrollOffset) < 0.001f) {
     return;
@@ -91,8 +196,6 @@ void ScrollView::setScrollOffset(float offset) {
     m_onScrollChanged(m_scrollOffset);
   }
 }
-
-void ScrollView::scrollBy(float delta) { setScrollOffset(m_scrollOffset + delta); }
 
 void ScrollView::setScrollbarVisible(bool visible) {
   if (m_showScrollbar == visible) {
@@ -141,7 +244,7 @@ void ScrollView::setSoftness(float softness) {
 void ScrollView::setCardStyle(float scale, float fillOpacity, bool showBorder) {
   setFill(colorSpecFromRole(ColorRole::SurfaceVariant, fillOpacity));
   if (showBorder) {
-    setBorder(colorSpecFromRole(ColorRole::Outline, 0.5f), Style::borderWidth);
+    setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
   } else {
     clearBorder();
   }
@@ -154,6 +257,7 @@ void ScrollView::bindState(ScrollViewState* state) {
   m_boundState = state;
   if (m_boundState != nullptr) {
     m_scrollOffset = m_boundState->offset;
+    m_targetScrollOffset = m_scrollOffset;
   }
   markLayoutDirty();
 }
@@ -239,6 +343,11 @@ void ScrollView::doLayout(Renderer& renderer) {
     m_boundState->offset = m_scrollOffset;
   } else {
     m_scrollOffset = clampOffset(m_scrollOffset);
+  }
+  if (m_scrollAnimId != 0) {
+    m_targetScrollOffset = clampOffset(m_targetScrollOffset);
+  } else {
+    m_targetScrollOffset = m_scrollOffset;
   }
 
   const float scrollbarX = m_viewportPaddingH + m_viewportWidth - Style::scrollbarWidth;

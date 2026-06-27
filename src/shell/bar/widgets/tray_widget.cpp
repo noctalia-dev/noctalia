@@ -6,12 +6,13 @@
 #include "dbus/tray/tray_service.h"
 #include "render/core/image_file_loader.h"
 #include "render/core/image_source_log.h"
-#include "render/core/renderer.h"
+#include "render/core/texture_manager.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
 #include "render/text/glyph_registry.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tray/tray_identifier.h"
+#include "system/desktop_entry.h"
 #include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
@@ -84,12 +85,23 @@ namespace {
 
   bool isSvgPath(std::string_view path) { return path.ends_with(".svg") || path.ends_with(".SVG"); }
 
+  std::pair<std::int32_t, std::int32_t> trayPointerCoords(const InputArea& area, const InputArea::PointerData& data) {
+    float absX = 0.0f;
+    float absY = 0.0f;
+    Node::absolutePosition(&area, absX, absY);
+    return {
+        static_cast<std::int32_t>(std::lround(absX + data.localX)),
+        static_cast<std::int32_t>(std::lround(absY + data.localY)),
+    };
+  }
+
   std::optional<LoadedImageFile>
   loadSymbolicTrayIcon(const std::string& path, int targetSize, const Color& symbolicColor) {
-    std::string loadError;
-    auto loaded = loadImageFile(path, targetSize, &loadError);
+    auto loaded = loadImageFile(path, targetSize);
     if (!loaded) {
-      kLog.debug("tray widget symbolic icon decode failed path={} error={}", ImageSourceLog::describe(path), loadError);
+      kLog.debug(
+          "tray widget symbolic icon decode failed path={} error={}", ImageSourceLog::describe(path), loaded.error()
+      );
       return std::nullopt;
     }
 
@@ -145,28 +157,26 @@ namespace {
       loaded->rgba[i + 3] = static_cast<std::uint8_t>(std::lround(a * std::clamp(mask, 0.0f, 1.0f)));
     }
 
-    return loaded;
+    return std::move(*loaded);
   }
 
   bool isUniqueBusName(std::string_view value) { return !value.empty() && value.front() == ':'; }
 
 } // namespace
 
-TrayWidget::TrayWidget(
-    ConfigService& config, TrayService* tray, std::vector<std::string> hiddenItems,
-    std::vector<std::string> pinnedItems, bool drawerMode, std::function<void()> itemActivated, std::string barPosition,
-    bool panelGridMode, std::size_t panelGridColumns, float inlineEntryGap, bool matchAdjacentSpacing
-)
-    : m_config(config), m_tray(tray), m_hiddenItems(std::move(hiddenItems)), m_pinnedItems(std::move(pinnedItems)),
-      m_drawerMode(drawerMode), m_itemActivated(std::move(itemActivated)), m_barPosition(std::move(barPosition)),
-      m_panelGridMode(panelGridMode), m_panelGridColumns(std::clamp<std::size_t>(panelGridColumns, 1U, 5U)),
-      m_inlineEntryGap(std::max(0.0f, inlineEntryGap)), m_matchAdjacentSpacing(matchAdjacentSpacing) {
+TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, TrayWidgetOptions options)
+    : m_config(config), m_tray(tray), m_hiddenItems(std::move(options.hiddenItems)),
+      m_pinnedItems(std::move(options.pinnedItems)), m_drawerMode(options.drawerMode),
+      m_itemActivated(std::move(options.itemActivated)), m_barPosition(std::move(options.barPosition)),
+      m_panelGridMode(options.panelGridMode),
+      m_panelGridColumns(std::clamp<std::size_t>(options.panelGridColumns, 1U, 5U)),
+      m_inlineEntryGap(std::max(0.0f, options.inlineEntryGap)), m_matchAdjacentSpacing(options.matchAdjacentSpacing) {
   auto normalizeTokens = [](std::vector<std::string>& tokens) {
     std::vector<std::string> normalized;
     normalized.reserve(tokens.size());
     for (const auto& token : tokens) {
       for (const auto& variant : identifierVariants(token)) {
-        if (std::ranges::find(normalized, variant) == normalized.end()) {
+        if (!std::ranges::contains(normalized, variant)) {
           normalized.push_back(variant);
         }
       }
@@ -687,17 +697,23 @@ void TrayWidget::rebuild(Renderer& renderer) {
     iconNode->setPosition(std::round((itemSize - iconW) * 0.5f), std::round((itemSize - iconH) * 0.5f));
     auto itemId = item.id;
     area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
-    area->setOnClick([this, itemId](const InputArea::PointerData& data) {
+    InputArea* areaPtr = area.get();
+    area->setOnClick([this, itemId, areaPtr](const InputArea::PointerData& data) {
       if (m_tray == nullptr) {
         return;
       }
+      const auto [x, y] = trayPointerCoords(*areaPtr, data);
       if (data.button == BTN_LEFT) {
-        (void)m_tray->activateItem(itemId);
+        (void)m_tray->activateItem(itemId, x, y);
         if (m_itemActivated) {
           m_itemActivated();
         }
       } else if (data.button == BTN_RIGHT) {
-        m_tray->requestMenuToggle(itemId, m_contentScale);
+        if (m_tray->itemUsesDBusMenu(itemId)) {
+          m_tray->requestMenuToggle(itemId, m_contentScale);
+        } else {
+          (void)m_tray->openContextMenu(itemId, x, y);
+        }
       }
     });
     area->addChild(std::move(iconNode));
@@ -747,7 +763,7 @@ bool TrayWidget::isHiddenItem(const TrayItemInfo& item) const {
   std::vector<std::string> candidates;
   auto appendVariants = [&candidates](std::string_view text) {
     for (const auto& variant : identifierVariants(text)) {
-      if (std::ranges::find(candidates, variant) == candidates.end()) {
+      if (!std::ranges::contains(candidates, variant)) {
         candidates.push_back(variant);
       }
     }
@@ -763,7 +779,7 @@ bool TrayWidget::isHiddenItem(const TrayItemInfo& item) const {
   appendVariants(item.attentionIconName);
 
   for (const auto& needle : m_hiddenItems) {
-    if (std::ranges::find(candidates, needle) != candidates.end()) {
+    if (std::ranges::contains(candidates, needle)) {
       return true;
     }
   }
@@ -827,13 +843,13 @@ std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
   } else {
     preferred = item.iconName;
   }
-  if (tray::looksGenericStatusItemName(preferred)) {
-    preferred.clear();
-  }
-
   if (const auto themed = resolveFromTrayThemePath(item.iconThemePath, preferred); !themed.empty()) {
     m_preferredIconPaths[item.id] = themed;
     return themed;
+  }
+
+  if (tray::looksGenericStatusItemName(preferred)) {
+    preferred.clear();
   }
 
   // Match the on-screen request size used when the icon is loaded (see rebuild).

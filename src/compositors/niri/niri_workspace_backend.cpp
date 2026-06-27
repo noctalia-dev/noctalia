@@ -173,8 +173,8 @@ void NiriWorkspaceBackend::apply(std::vector<Workspace>& workspaces, const std::
 
   if (!outputName.empty()) {
     std::size_t nextCandidate = 0;
-    for (std::size_t i = 0; i < matches.size(); ++i) {
-      if (matches[i] != nullptr) {
+    for (auto& match : matches) {
+      if (match != nullptr) {
         continue;
       }
       while (nextCandidate < candidates.size() && used.contains(candidates[nextCandidate]->id)) {
@@ -183,7 +183,7 @@ void NiriWorkspaceBackend::apply(std::vector<Workspace>& workspaces, const std::
       if (nextCandidate >= candidates.size()) {
         break;
       }
-      matches[i] = candidates[nextCandidate];
+      match = candidates[nextCandidate];
       used.emplace(candidates[nextCandidate]->id, true);
       ++nextCandidate;
     }
@@ -214,7 +214,7 @@ NiriWorkspaceBackend::sortedWorkspaceCandidatesForOutput(const std::string& outp
     candidates.push_back(&workspace);
   }
 
-  std::sort(candidates.begin(), candidates.end(), [](const WorkspaceState* lhs, const WorkspaceState* rhs) {
+  std::ranges::sort(candidates, [](const WorkspaceState* lhs, const WorkspaceState* rhs) {
     if (lhs->idx != rhs->idx) {
       return lhs->idx < rhs->idx;
     }
@@ -292,6 +292,7 @@ std::vector<WorkspaceWindow> NiriWorkspaceBackend::workspaceWindows(const std::s
             .title = window.title,
             .x = window.x,
             .y = window.y,
+            .outputName = {},
         }
     );
   }

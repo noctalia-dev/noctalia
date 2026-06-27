@@ -1,6 +1,5 @@
 #pragma once
 
-#include "core/files/directory_scanner.h"
 #include "render/scene/input_area.h"
 
 #include <cstddef>
@@ -8,6 +7,7 @@
 #include <string>
 
 class Box;
+struct FileEntry;
 class Glyph;
 class Image;
 class Label;

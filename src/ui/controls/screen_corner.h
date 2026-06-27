@@ -1,9 +1,11 @@
 #pragma once
 
-#include "render/core/color.h"
-#include "render/core/render_styles.h"
 #include "render/scene/node.h"
 
+#include <cstdint>
+
+struct Color;
+enum class ScreenCornerPosition : std::uint8_t;
 class ScreenCornerNode;
 
 class ScreenCorner : public Node {

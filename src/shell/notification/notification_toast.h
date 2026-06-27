@@ -1,6 +1,6 @@
 #pragma once
 
-#include "notification/notification_manager.h"
+#include "notification/notification.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
 #include "system/icon_resolver.h"
@@ -11,15 +11,16 @@
 #include <vector>
 
 class ConfigService;
-class Glyph;
 class HttpClient;
 class Input;
 class InputArea;
 class LayerSurface;
+class NotificationManager;
 class Node;
 class ProgressBar;
 class RenderContext;
 class WaylandConnection;
+enum class NotificationEvent;
 struct KeyboardEvent;
 struct PointerEvent;
 struct WaylandOutput;
@@ -113,6 +114,8 @@ private:
   };
 
   void onNotificationEvent(const Notification& n, NotificationEvent event);
+  void schedulePendingAdds();
+  void flushPendingAdds();
   void addPopup(const Notification& n);
   void dismissPopup(std::size_t index);
   void requestClose(uint32_t notificationId, CloseReason reason);
@@ -188,6 +191,8 @@ private:
   HttpClient* m_httpClient = nullptr;
 
   std::vector<PopupEntry> m_entries;
+  std::vector<Notification> m_pendingAdds;
+  bool m_pendingAddsScheduled = false;
   std::vector<std::unique_ptr<Instance>> m_instances;
   int m_callbackToken = -1;
   IconResolver m_iconResolver;

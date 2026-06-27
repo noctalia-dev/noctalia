@@ -2,7 +2,6 @@
 
 #include "config/config_types.h"
 #include "render/animation/animation_manager.h"
-#include "render/scene/node.h"
 #include "shell/desktop/desktop_widget_factory.h"
 
 #include <memory>
@@ -10,15 +9,10 @@
 #include <vector>
 
 class ConfigService;
-class HttpClient;
 class LockScreen;
 class LockSurface;
-class MprisService;
-class PipeWireSpectrum;
 class RenderContext;
-class SystemMonitorService;
 class WaylandConnection;
-class WeatherService;
 
 using LockscreenWidgetsSnapshot = LockscreenWidgetsConfig;
 
@@ -26,11 +20,7 @@ class LockscreenWidgetsHost {
 public:
   LockscreenWidgetsHost() = default;
 
-  void initialize(
-      WaylandConnection& wayland, ConfigService* config, PipeWireSpectrum* pipewireSpectrum,
-      const WeatherService* weather, RenderContext* renderContext, MprisService* mpris, HttpClient* httpClient,
-      SystemMonitorService* sysmon, DesktopWidgetScriptDeps scriptDeps = {}
-  );
+  void initialize(const DesktopWidgetServices& services);
   void show(const LockscreenWidgetsSnapshot& snapshot, LockScreen& lockScreen);
   void hide();
   void rebuild(const LockscreenWidgetsSnapshot& snapshot, LockScreen& lockScreen);
@@ -53,6 +43,7 @@ private:
   void createInstance(const DesktopWidgetState& state, LockSurface& surface, const WaylandOutput& output);
   void attachToSurface(WidgetInstance& instance);
   void detachFromSurface(WidgetInstance& instance);
+  void syncSurfaceFrameTick(LockSurface* surface);
   [[nodiscard]] WidgetInstance* findInstance(const std::string& id);
   [[nodiscard]] LockSurface* findSurfaceForOutput(LockScreen& lockScreen, const std::string& outputKey) const;
 

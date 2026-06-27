@@ -22,6 +22,7 @@
 #include <cmath>
 #include <linux/input-event-codes.h>
 #include <memory>
+#include <numbers>
 #include <utility>
 #include <vector>
 
@@ -54,20 +55,7 @@ namespace {
     const float shift = scale > 1.0f ? iconSize * (1.0f - scale) * 0.5f : 0.0f;
     float x = baseX;
     float y = baseY;
-    switch (edge) {
-    case DockEdge::Bottom:
-      y += shift;
-      break;
-    case DockEdge::Top:
-      y -= shift;
-      break;
-    case DockEdge::Left:
-      x -= shift;
-      break;
-    case DockEdge::Right:
-      x += shift;
-      break;
-    }
+    shell::dock::shiftAlongEdge(edge, x, y, shift);
     iconNode->setPosition(x, y);
   }
 
@@ -81,20 +69,7 @@ namespace {
     const float shift = iconScale > 1.0f ? iconSize * (1.0f - iconScale) * 0.5f : 0.0f;
     float iconX = iconBaseX;
     float iconY = iconBaseY;
-    switch (edge) {
-    case DockEdge::Bottom:
-      iconY += shift;
-      break;
-    case DockEdge::Top:
-      iconY -= shift;
-      break;
-    case DockEdge::Left:
-      iconX -= shift;
-      break;
-    case DockEdge::Right:
-      iconX += shift;
-      break;
-    }
+    shell::dock::shiftAlongEdge(edge, iconX, iconY, shift);
     const float iconRight = iconX + iconSize * (1.0f + iconScale) * 0.5f;
     const float iconTop = iconY + iconSize * (1.0f - iconScale) * 0.5f;
     const float badgeCenterAdjust = badgeSize * (1.0f - iconScale) * 0.5f;
@@ -226,20 +201,7 @@ namespace {
     float iconX = iconBase;
     float iconY = iconBase;
     const float shift = iconSize * (1.0f - scale) * 0.5f;
-    switch (edge) {
-    case DockEdge::Bottom:
-      iconY += shift;
-      break;
-    case DockEdge::Top:
-      iconY -= shift;
-      break;
-    case DockEdge::Left:
-      iconX -= shift;
-      break;
-    case DockEdge::Right:
-      iconX += shift;
-      break;
-    }
+    shell::dock::shiftAlongEdge(edge, iconX, iconY, shift);
     const float left = iconX + centerAdjust;
     const float top = iconY + centerAdjust;
     const float visualSize = iconSize * scale;
@@ -271,7 +233,7 @@ namespace {
       return 1.0f;
     }
     const float t = distance / influence;
-    const float cosine = std::cos(t * static_cast<float>(M_PI) * 0.5f);
+    const float cosine = std::cos(t * std::numbers::pi_v<float> * 0.5f);
     // Squared cosine keeps the center pop but drops neighbors toward rest scale faster.
     const float falloff = cosine * cosine;
     return 1.0f + (maxMultiplier - 1.0f) * falloff;
@@ -385,8 +347,8 @@ namespace shell::dock {
   }
 
   std::unique_ptr<Flex> makeDockItemRow(const DockConfig& cfg, bool vertical) {
-    const float mainPad = static_cast<float>(cfg.mainAxisPadding);
-    const float crossPad = static_cast<float>(cfg.crossAxisPadding);
+    const auto mainPad = static_cast<float>(cfg.mainAxisPadding);
+    const auto crossPad = static_cast<float>(cfg.crossAxisPadding);
     return ui::flex(
         vertical ? FlexDirection::Vertical : FlexDirection::Horizontal,
         {
@@ -405,7 +367,7 @@ namespace shell::dock {
   ) {
     const DockEdge edge = cfg.position;
     const bool vert = shell::dock::isVerticalEdge(edge);
-    const float iSize = static_cast<float>(cfg.iconSize);
+    const auto iSize = static_cast<float>(cfg.iconSize);
     const float cellMain = iSize + 2.0f * kCellPad;
     const float cellCross = iSize + 2.0f * kCellPad;
     const float glyphSize = iSize * kLauncherGlyphSizeRatio;
@@ -430,7 +392,7 @@ namespace shell::dock {
           glyph.setPosition(kCellPad, glyphOffsetY);
         },
     });
-    Glyph* glyphPtr = static_cast<Glyph*>(launcherGlyph.get());
+    auto* glyphPtr = static_cast<Glyph*>(launcherGlyph.get());
     areaNode->addChild(std::move(launcherGlyph));
     instance.launcherArea = areaNode.get();
     instance.launcherIconNode = glyphPtr;
@@ -466,7 +428,7 @@ namespace shell::dock {
     const DockEdge edge = cfg.position;
     const DockLauncherPosition launcherPosition = cfg.launcherPosition;
     const bool vert = shell::dock::isVerticalEdge(edge);
-    const float iSize = static_cast<float>(cfg.iconSize);
+    const auto iSize = static_cast<float>(cfg.iconSize);
     auto clickContext = std::make_shared<DockItemClickContext>(DockItemClickContext{
         .config = deps.model.config,
         .callbacks = callbacks,
@@ -516,6 +478,8 @@ namespace shell::dock {
           .entry = model.entry,
           .idLower = model.idLower,
           .startupWmClassLower = model.startupWmClassLower,
+          .windowLookupIdLower = model.windowLookupIdLower,
+          .windowLookupWmClassLower = model.windowLookupWmClassLower,
       };
 
       const float cellMain = iSize + 2.0f * kCellPad;
@@ -571,8 +535,8 @@ namespace shell::dock {
         const float dot = std::max(kDotMinSize, std::round(iSize * kDotSizeRatio));
         const bool verticalDots = shell::dock::isVerticalEdge(edge);
 
-        for (std::size_t dotIndex = 0; dotIndex < item.dotIndicators.size(); ++dotIndex) {
-          item.dotIndicators[dotIndex] = static_cast<Box*>(areaNode->addChild(
+        for (auto& dotIndicator : item.dotIndicators) {
+          dotIndicator = static_cast<Box*>(areaNode->addChild(
               ui::box({
                   .fill = colorSpecFromRole(ColorRole::Secondary),
                   .radius = dot * 0.5f,
@@ -732,7 +696,7 @@ namespace shell::dock {
 
       if (cfg.showDots) {
         const std::size_t dotCount = std::min<std::size_t>(count, 3);
-        const float iSize = static_cast<float>(cfg.iconSize);
+        const auto iSize = static_cast<float>(cfg.iconSize);
         const float cellMain = iSize + 2.0f * kCellPad;
         const float dot = std::max(kDotMinSize, std::round(iSize * kDotSizeRatio));
         const float groupLength =
@@ -781,7 +745,7 @@ namespace shell::dock {
 
     if (!cfg.magnification && instance.launcherIconNode != nullptr) {
       const float iconScale = cfg.inactiveScale;
-      const float iSize = static_cast<float>(cfg.iconSize);
+      const auto iSize = static_cast<float>(cfg.iconSize);
       const float glyphSize = iSize * kLauncherGlyphSizeRatio;
       const float glyphOffsetY = kCellPad + (iSize - glyphSize) * 0.5f;
       instance.launcherIconNode->setPosition(kCellPad, glyphOffsetY);
@@ -856,7 +820,7 @@ namespace shell::dock {
     const float lerpFactor = hoverZoomFrameLerp(deltaMs);
     const DockEdge edge = cfg.position;
     const bool vertical = shell::dock::isVerticalEdge(edge);
-    const float iSize = static_cast<float>(cfg.iconSize);
+    const auto iSize = static_cast<float>(cfg.iconSize);
     const float cellMain = iSize + 2.0f * kCellPad;
     const float launcherIconBaseY = kCellPad + (iSize - iSize * kLauncherGlyphSizeRatio) * 0.5f;
     const float itemPitch = cellMain + static_cast<float>(cfg.itemSpacing);
@@ -961,7 +925,7 @@ namespace shell::dock {
         restMainPos.push_back(slot.restMainPos);
       }
       const float rowMainSize = vertical ? instance.row->height() : instance.row->width();
-      const float mainPad = static_cast<float>(cfg.mainAxisPadding);
+      const auto mainPad = static_cast<float>(cfg.mainAxisPadding);
       clampSpreadOffsetsToBounds(
           restMainPos, slotScales, cellMain, iSize, mainPad, rowMainSize - mainPad, targetOffsets
       );

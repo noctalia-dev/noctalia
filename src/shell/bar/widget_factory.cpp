@@ -3,14 +3,6 @@
 #include "compositors/compositor_platform.h"
 #include "config/config_service.h"
 #include "core/log.h"
-#include "dbus/mpris/mpris_service.h"
-#include "dbus/power/power_profiles_service.h"
-#include "dbus/tray/tray_service.h"
-#include "idle/idle_inhibitor.h"
-#include "net/http_client.h"
-#include "notification/notification_manager.h"
-#include "pipewire/pipewire_spectrum.h"
-#include "scripting/script_api_context.h"
 #include "shell/bar/widgets/active_window_widget.h"
 #include "shell/bar/widgets/audio_visualizer_widget.h"
 #include "shell/bar/widgets/battery_widget.h"
@@ -21,7 +13,6 @@
 #include "shell/bar/widgets/control_center_widget.h"
 #include "shell/bar/widgets/custom_button_widget.h"
 #include "system/battery_warning_monitor.h"
-#include "ui/app_icon_colorization.h"
 #ifndef NDEBUG
 #include "shell/bar/widgets/debug_indicator_widget.h"
 #endif
@@ -38,6 +29,7 @@
 #include "shell/bar/widgets/notification_widget.h"
 #include "shell/bar/widgets/plugin_widget.h"
 #include "shell/bar/widgets/power_profile_widget.h"
+#include "shell/bar/widgets/privacy_widget.h"
 #include "shell/bar/widgets/screenshot_widget.h"
 #include "shell/bar/widgets/session_widget.h"
 #include "shell/bar/widgets/settings_widget.h"
@@ -51,20 +43,16 @@
 #include "shell/bar/widgets/wallpaper_widget.h"
 #include "shell/bar/widgets/weather_widget.h"
 #include "shell/bar/widgets/workspaces_widget.h"
-#include "system/lock_keys_service.h"
-#include "system/system_monitor_service.h"
-#include "system/weather_service.h"
-#include "theme/theme_service.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 namespace {
   constexpr Logger kLog("shell");
@@ -101,21 +89,16 @@ namespace {
 
 } // namespace
 
-WidgetFactory::WidgetFactory(
-    CompositorPlatform& platform, ConfigService& config, NotificationManager* notifications, TrayService* tray,
-    PipeWireService* audio, UPowerService* upower, SystemMonitorService* sysmon, PowerProfilesService* powerProfiles,
-    INetworkService* network, IdleInhibitor* idleInhibitor, MprisService* mpris, PipeWireSpectrum* audioSpectrum,
-    HttpClient* httpClient, WeatherService* weather, GammaService* nightLight,
-    noctalia::theme::ThemeService* themeService, BluetoothService* bluetooth, BrightnessService* brightness,
-    LockKeysService* lockKeys, ClipboardService* clipboard, FileWatcher* fileWatcher, ScreenshotService* screenshots,
-    RenderContext* renderContext, scripting::ScriptApiContext* scriptApi
-)
-    : m_platform(platform), m_configService(config), m_config(config.config()), m_notifications(notifications),
-      m_tray(tray), m_audio(audio), m_upower(upower), m_sysmon(sysmon), m_powerProfiles(powerProfiles),
-      m_network(network), m_idleInhibitor(idleInhibitor), m_mpris(mpris), m_audioSpectrum(audioSpectrum),
-      m_httpClient(httpClient), m_weather(weather), m_nightLight(nightLight), m_themeService(themeService),
-      m_bluetooth(bluetooth), m_brightness(brightness), m_lockKeys(lockKeys), m_clipboard(clipboard),
-      m_fileWatcher(fileWatcher), m_screenshots(screenshots), m_renderContext(renderContext), m_scriptApi(scriptApi) {
+WidgetFactory::WidgetFactory(const BarServices& services)
+    : m_platform(services.platform), m_configService(services.config), m_config(services.config.config()),
+      m_notifications(services.notifications), m_tray(services.tray), m_audio(services.audio),
+      m_easyEffects(services.easyEffects), m_upower(services.upower), m_sysmon(services.sysmon),
+      m_powerProfiles(services.powerProfiles), m_network(services.network), m_idleInhibitor(services.idleInhibitor),
+      m_mpris(services.mpris), m_audioSpectrum(services.audioSpectrum), m_httpClient(services.httpClient),
+      m_weather(services.weather), m_nightLight(services.nightLight), m_themeService(services.theme),
+      m_bluetooth(services.bluetooth), m_brightness(services.brightness), m_lockKeys(services.lockKeys),
+      m_clipboard(services.clipboard), m_fileWatcher(services.fileWatcher), m_screenshots(services.screenshots),
+      m_renderContext(services.renderContext), m_scriptApi(services.scriptApi) {
   scripting::PluginRegistry::instance().ensureScanned();
 }
 
@@ -166,7 +149,16 @@ std::unique_ptr<Widget> WidgetFactory::create(
         ? wc->getColorSpec("color_2", colorSpecFromRole(ColorRole::Primary), "widget." + name + ".color_2")
         : colorSpecFromRole(ColorRole::Primary);
     auto widget = std::make_unique<AudioVisualizerWidget>(
-        m_audioSpectrum, width, bands, mirrored, color1, color2, centered, showWhenIdle
+        m_audioSpectrum,
+        AudioVisualizerWidget::Options{
+            .width = width,
+            .bands = bands,
+            .mirrored = mirrored,
+            .centered = centered,
+            .showWhenIdle = showWhenIdle,
+            .color1 = color1,
+            .color2 = color2,
+        }
     );
     widget->setContentScale(contentScale);
     return widget;
@@ -254,11 +246,16 @@ std::unique_ptr<Widget> WidgetFactory::create(
     auto trimSetting = [wc](const char* key, const char* fallback = "") {
       return wc != nullptr ? StringUtils::trim(wc->getString(key, fallback)) : std::string(fallback);
     };
-    auto widget = std::make_unique<CustomButtonWidget>(
-        trimSetting("glyph", "heart"), trimSetting("label"), trimSetting("tooltip"), trimSetting("command"),
-        trimSetting("right_command"), trimSetting("middle_command"), trimSetting("scroll_up_command"),
-        trimSetting("scroll_down_command")
-    );
+    auto widget = std::make_unique<CustomButtonWidget>(CustomButtonWidget::Options{
+        .glyph = trimSetting("glyph", "heart"),
+        .label = trimSetting("label"),
+        .tooltip = trimSetting("tooltip"),
+        .command = trimSetting("command"),
+        .rightCommand = trimSetting("right_command"),
+        .middleCommand = trimSetting("middle_command"),
+        .scrollUpCommand = trimSetting("scroll_up_command"),
+        .scrollDownCommand = trimSetting("scroll_down_command"),
+    });
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -277,9 +274,13 @@ std::unique_ptr<Widget> WidgetFactory::create(
     const bool hideWhenSingleLayout = wc != nullptr ? wc->getBool("hide_when_single_layout", false) : false;
     auto customLabels =
         wc != nullptr ? wc->getStringMap("custom_labels") : std::unordered_map<std::string, std::string>{};
+    std::string glyph = wc != nullptr ? wc->getString("glyph", "keyboard") : std::string{"keyboard"};
+    if (glyph.empty()) {
+      glyph = "keyboard";
+    }
     auto widget = std::make_unique<KeyboardLayoutWidget>(
         m_platform, cycleCommand, KeyboardLayoutWidget::parseDisplayMode(display), showIcon, showLabel,
-        hideWhenSingleLayout, std::move(customLabels)
+        hideWhenSingleLayout, std::move(customLabels), std::move(glyph)
     );
     widget->setContentScale(contentScale);
     return widget;
@@ -358,6 +359,23 @@ std::unique_ptr<Widget> WidgetFactory::create(
     return widget;
   }
 
+  if (type == "privacy") {
+    PrivacyWidgetConfig config;
+
+    if (wc != nullptr) {
+      config.hideInactive = wc->getBool("hide_inactive", config.hideInactive);
+      config.iconSpacing =
+          static_cast<int>(std::clamp<std::int64_t>(wc->getInt("icon_spacing", config.iconSpacing), 0, 48));
+      config.activeColor = wc->getColorSpec("active_color", config.activeColor, "widget." + name + ".active_color");
+      config.inactiveColor =
+          wc->getColorSpec("inactive_color", config.inactiveColor, "widget." + name + ".inactive_color");
+    }
+
+    auto widget = std::make_unique<PrivacyWidget>(m_audio, &m_configService, config);
+    widget->setContentScale(contentScale);
+    return widget;
+  }
+
   if (auto pluginEntry = scripting::PluginRegistry::instance().resolve(type);
       pluginEntry.has_value() && pluginEntry->entry->kind == scripting::PluginEntryKind::Widget) {
     if (m_scriptApi == nullptr) {
@@ -377,8 +395,19 @@ std::unique_ptr<Widget> WidgetFactory::create(
         *pluginEntry->manifest, psIt != pluginSettings.end() ? psIt->second : kNoPluginOverrides, seeded
     );
     auto widget = std::make_unique<PluginWidget>(
-        pluginEntry->fullId(), pluginEntry->sourcePath, std::move(seeded), barName, outputName, *m_scriptApi,
-        m_fileWatcher, &m_platform, m_clipboard, m_httpClient, m_audioSpectrum, m_mpris
+        scripting::PluginRuntimeContext{
+            .entryId = pluginEntry->fullId(),
+            .sourcePath = pluginEntry->sourcePath,
+            .settings = std::move(seeded),
+            .scriptApi = *m_scriptApi,
+            .fileWatcher = m_fileWatcher,
+            .httpClient = m_httpClient,
+            .clipboard = m_clipboard,
+            .platform = &m_platform,
+            .audioSpectrum = m_audioSpectrum,
+            .mpris = m_mpris,
+        },
+        barName, outputName
     );
     widget->setContentScale(contentScale);
     return widget;
@@ -456,21 +485,27 @@ std::unique_ptr<Widget> WidgetFactory::create(
       stat = SysmonStat::NetTx;
     }
     const std::string display = wc != nullptr ? wc->getString("display", "gauge") : std::string("gauge");
+    const std::string networkInterface = wc != nullptr ? wc->getString("interface", "") : std::string();
     SysmonDisplayMode displayMode = SysmonDisplayMode::Gauge;
     if (display == "text")
       displayMode = SysmonDisplayMode::Text;
     else if (display == "graph")
       displayMode = SysmonDisplayMode::Graph;
-    const bool showLabel = wc != nullptr ? wc->getBool("show_label", true) : true;
-    const auto labelMinWidth = static_cast<float>(wc != nullptr ? wc->getDouble("label_min_width", 0.0) : 0.0);
-    const ColorSpec highlightColor = wc != nullptr
-        ? wc->getColorSpec(
-              "highlight_color", colorSpecFromRole(ColorRole::Error), "widget." + name + ".highlight_color"
-          )
-        : colorSpecFromRole(ColorRole::Error);
-    auto widget = std::make_unique<SysmonWidget>(
-        m_sysmon, output, stat, std::move(path), displayMode, highlightColor, m_configService, showLabel, labelMinWidth
-    );
+    SysmonWidgetOptions options{
+        .stat = stat,
+        .diskPath = std::move(path),
+        .displayMode = displayMode,
+        .highlightColor = wc != nullptr
+            ? wc->getColorSpec(
+                  "highlight_color", colorSpecFromRole(ColorRole::Error), "widget." + name + ".highlight_color"
+              )
+            : colorSpecFromRole(ColorRole::Error),
+        .networkInterface = networkInterface,
+        .showLabel = wc != nullptr ? wc->getBool("show_label", true) : true,
+        .labelMinWidth = static_cast<float>(wc != nullptr ? wc->getDouble("label_min_width", 0.0) : 0.0),
+        .glyph = wc != nullptr ? wc->getString("glyph", "") : std::string{},
+    };
+    auto widget = std::make_unique<SysmonWidget>(m_sysmon, m_configService, std::move(options));
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -482,47 +517,49 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "taskbar") {
-    const bool groupByWorkspace = wc != nullptr ? wc->getBool("group_by_workspace", false) : false;
-    const bool showAllOutputs = wc != nullptr ? wc->getBool("show_all_outputs", false) : false;
-    const bool onlyActiveWorkspace = wc != nullptr ? wc->getBool("only_active_workspace", false) : false;
-    const bool showWorkspaceLabel = wc != nullptr ? wc->getBool("show_workspace_label", true) : true;
-    WorkspaceLabelPlacement workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
+    TaskbarWidgetOptions options{
+        .groupByWorkspace = wc != nullptr ? wc->getBool("group_by_workspace", false) : false,
+        .showAllOutputs = wc != nullptr ? wc->getBool("show_all_outputs", false) : false,
+        .onlyActiveWorkspace = wc != nullptr ? wc->getBool("only_active_workspace", false) : false,
+        .showWorkspaceLabel = wc != nullptr ? wc->getBool("show_workspace_label", true) : true,
+        .workspaceLabelPlacement = WorkspaceLabelPlacement::Corner,
+        .hideEmptyWorkspaces = wc != nullptr ? wc->getBool("hide_empty_workspaces", false) : false,
+        .workspaceGroupCapsule = wc != nullptr ? wc->getBool("workspace_group_capsule", true) : true,
+        .groupSingleIconPerApp = wc != nullptr ? wc->getBool("group_single_icon_per_app", false) : false,
+        .showActiveIndicator = wc != nullptr ? wc->getBool("show_active_indicator", true) : true,
+        .activeOpacity = wc != nullptr ? static_cast<float>(wc->getDouble("active_opacity", 1.0)) : 1.0f,
+        .inactiveOpacity = wc != nullptr ? static_cast<float>(wc->getDouble("inactive_opacity", 1.0)) : 1.0f,
+        .focusedColor = wc != nullptr
+            ? wc->getColorSpec(
+                  "focused_color", colorSpecFromRole(ColorRole::Primary), "widget." + name + ".focused_color"
+              )
+            : colorSpecFromRole(ColorRole::Primary),
+        .occupiedColor = wc != nullptr
+            ? wc->getColorSpec(
+                  "occupied_color", colorSpecFromRole(ColorRole::Secondary), "widget." + name + ".occupied_color"
+              )
+            : colorSpecFromRole(ColorRole::Secondary),
+        .emptyColor = wc != nullptr
+            ? wc->getColorSpec(
+                  "empty_color", colorSpecFromRole(ColorRole::Secondary), "widget." + name + ".empty_color"
+              )
+            : colorSpecFromRole(ColorRole::Secondary),
+        .showWindowTitle = wc != nullptr ? wc->getBool("show_window_title", false) : false,
+        .windowTitleMaxWidth =
+            static_cast<float>(wc != nullptr ? wc->getDouble("window_title_max_width", 100.0) : 100.0),
+        .taskbarMaxWidth = static_cast<float>(wc != nullptr ? wc->getDouble("taskbar_max_width", 8192.0) : 8192.0),
+        .barPosition = barPosition,
+        .shadowConfig = m_config.shell.shadow,
+    };
     if (wc != nullptr) {
       const std::string placement = wc->getString("workspace_label_placement", "corner");
       if (placement == "centered") {
-        workspaceLabelPlacement = WorkspaceLabelPlacement::Centered;
+        options.workspaceLabelPlacement = WorkspaceLabelPlacement::Centered;
       } else if (placement == "inside") {
-        workspaceLabelPlacement = WorkspaceLabelPlacement::Inside;
+        options.workspaceLabelPlacement = WorkspaceLabelPlacement::Inside;
       }
     }
-    const bool hideEmptyWorkspaces = wc != nullptr ? wc->getBool("hide_empty_workspaces", false) : false;
-    const bool workspaceGroupCapsule = wc != nullptr ? wc->getBool("workspace_group_capsule", true) : true;
-    const bool groupSingleIconPerApp = wc != nullptr ? wc->getBool("group_single_icon_per_app", false) : false;
-    const bool showActiveIndicator = wc != nullptr ? wc->getBool("show_active_indicator", true) : true;
-    const float activeOpacity = wc != nullptr ? static_cast<float>(wc->getDouble("active_opacity", 1.0)) : 1.0f;
-    const float inactiveOpacity = wc != nullptr ? static_cast<float>(wc->getDouble("inactive_opacity", 1.0)) : 1.0f;
-    const ColorSpec focusedColor = wc != nullptr
-        ? wc->getColorSpec("focused_color", colorSpecFromRole(ColorRole::Primary), "widget." + name + ".focused_color")
-        : colorSpecFromRole(ColorRole::Primary);
-    const ColorSpec occupiedColor = wc != nullptr
-        ? wc->getColorSpec(
-              "occupied_color", colorSpecFromRole(ColorRole::Secondary), "widget." + name + ".occupied_color"
-          )
-        : colorSpecFromRole(ColorRole::Secondary);
-    const ColorSpec emptyColor = wc != nullptr
-        ? wc->getColorSpec("empty_color", colorSpecFromRole(ColorRole::Secondary), "widget." + name + ".empty_color")
-        : colorSpecFromRole(ColorRole::Secondary);
-    const bool showWindowTitle = wc != nullptr ? wc->getBool("show_window_title", false) : false;
-    const float windowTitleMaxWidth =
-        static_cast<float>(wc != nullptr ? wc->getDouble("window_title_max_width", 100.0) : 100.0);
-    const float taskbarMaxWidth =
-        static_cast<float>(wc != nullptr ? wc->getDouble("taskbar_max_width", 8192.0) : 8192.0);
-    auto widget = std::make_unique<TaskbarWidget>(
-        m_platform, m_configService, output, groupByWorkspace, showAllOutputs, onlyActiveWorkspace, showWorkspaceLabel,
-        workspaceLabelPlacement, hideEmptyWorkspaces, workspaceGroupCapsule, groupSingleIconPerApp, showActiveIndicator,
-        activeOpacity, inactiveOpacity, focusedColor, occupiedColor, emptyColor, showWindowTitle, windowTitleMaxWidth,
-        taskbarMaxWidth, barPosition, m_config.shell.shadow
-    );
+    auto widget = std::make_unique<TaskbarWidget>(m_platform, m_configService, output, std::move(options));
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -534,16 +571,20 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "tray") {
-    const auto hiddenItems = wc != nullptr ? wc->getStringList("hidden") : std::vector<std::string>{};
-    const auto pinnedItems = wc != nullptr ? wc->getStringList("pinned") : std::vector<std::string>{};
-    const bool drawer = wc != nullptr ? wc->getBool("drawer", false) : false;
-    const std::size_t drawerColumns =
-        static_cast<std::size_t>(std::clamp<std::int64_t>(wc != nullptr ? wc->getInt("drawer_columns", 3) : 3, 1, 5));
-    const bool matchAdjacentSpacing = wc != nullptr ? wc->getBool("match_adjacent_spacing", false) : false;
-    auto widget = std::make_unique<TrayWidget>(
-        m_configService, m_tray, hiddenItems, pinnedItems, drawer, std::function<void()>{}, barPosition, false,
-        drawerColumns, widgetSpacing, matchAdjacentSpacing
-    );
+    TrayWidgetOptions options{
+        .hiddenItems = wc != nullptr ? wc->getStringList("hidden") : std::vector<std::string>{},
+        .pinnedItems = wc != nullptr ? wc->getStringList("pinned") : std::vector<std::string>{},
+        .drawerMode = wc != nullptr ? wc->getBool("drawer", false) : false,
+        .itemActivated = {},
+        .barPosition = barPosition,
+        .panelGridMode = false,
+        .panelGridColumns = static_cast<std::size_t>(
+            std::clamp<std::int64_t>(wc != nullptr ? wc->getInt("drawer_columns", 3) : 3, 1, 5)
+        ),
+        .inlineEntryGap = widgetSpacing,
+        .matchAdjacentSpacing = wc != nullptr ? wc->getBool("match_adjacent_spacing", false) : false,
+    };
+    auto widget = std::make_unique<TrayWidget>(m_configService, m_tray, std::move(options));
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -554,7 +595,12 @@ std::unique_ptr<Widget> WidgetFactory::create(
         static_cast<int>(std::clamp<std::int64_t>(wc != nullptr ? wc->getInt("scroll_step", 5) : 5, 1, 25));
     const std::string target = wc != nullptr ? wc->getString("device", "output") : std::string("output");
     const auto volumeTarget = target == "input" ? VolumeWidgetTarget::Input : VolumeWidgetTarget::Output;
-    auto widget = std::make_unique<VolumeWidget>(m_audio, &m_config, output, showLabel, volumeTarget, scrollStep);
+    const ColorSpec muteColor = wc != nullptr
+        ? wc->getColorSpec("mute_color", colorSpecFromRole(ColorRole::Error), "widget." + name + ".mute_color")
+        : colorSpecFromRole(ColorRole::Error);
+    auto widget = std::make_unique<VolumeWidget>(
+        m_audio, m_easyEffects, &m_config, output, showLabel, volumeTarget, scrollStep, muteColor
+    );
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -602,14 +648,20 @@ std::unique_ptr<Widget> WidgetFactory::create(
     if (wc != nullptr && wc->hasSetting("max_label_chars")) {
       maxLabelChars = static_cast<std::size_t>(wc->getInt("max_label_chars", 1));
     }
-    const bool labelsOnlyWhenOccupied = wc != nullptr ? wc->getBool("labels_only_when_occupied", false) : false;
-    const bool hideWhenEmpty = wc != nullptr ? wc->getBool("hide_when_empty", false) : false;
-    const double pillScale = wc != nullptr ? wc->getDouble("pill_scale", 1.0) : 1.0;
-    const bool minimal = wc != nullptr ? wc->getBool("minimal", false) : false;
-    auto widget = std::make_unique<WorkspacesWidget>(
-        m_platform, output, displayMode, focusedColor, occupiedColor, emptyColor, maxLabelChars, labelsOnlyWhenOccupied,
-        hideWhenEmpty, pillScale, minimal
-    );
+    WorkspacesWidget::Options options{
+        .displayMode = displayMode,
+        .focusedColor = focusedColor,
+        .occupiedColor = occupiedColor,
+        .emptyColor = emptyColor,
+        .maxLabelChars = maxLabelChars,
+        .labelsOnlyWhenOccupied = wc != nullptr ? wc->getBool("labels_only_when_occupied", false) : false,
+        .hideWhenEmpty = wc != nullptr ? wc->getBool("hide_when_empty", false) : false,
+        .pillScale = static_cast<float>(wc != nullptr ? wc->getDouble("pill_scale", 1.0) : 1.0),
+        .activePillSize = static_cast<float>(wc != nullptr ? wc->getDouble("active_pill_size", 2.2) : 2.2),
+        .inactivePillSize = static_cast<float>(wc != nullptr ? wc->getDouble("inactive_pill_size", 1.0) : 1.0),
+        .minimal = wc != nullptr ? wc->getBool("minimal", false) : false,
+    };
+    auto widget = std::make_unique<WorkspacesWidget>(m_platform, output, options);
     widget->setContentScale(contentScale);
     return widget;
   }

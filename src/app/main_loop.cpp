@@ -176,7 +176,7 @@ namespace {
       (void)name;
       sources.push_back(entry);
     }
-    std::sort(sources.begin(), sources.end(), [](const auto& lhs, const auto& rhs) {
+    std::ranges::sort(sources, [](const auto& lhs, const auto& rhs) {
       if (lhs.wakeDispatches != rhs.wakeDispatches) {
         return lhs.wakeDispatches > rhs.wakeDispatches;
       }
@@ -215,7 +215,7 @@ namespace {
     );
 
     auto surfaces = surfaceSnapshot.surfaces;
-    std::sort(surfaces.begin(), surfaces.end(), [](const auto& lhs, const auto& rhs) {
+    std::ranges::sort(surfaces, [](const auto& lhs, const auto& rhs) {
       if (lhs.renderMs != rhs.renderMs) {
         return lhs.renderMs > rhs.renderMs;
       }
@@ -322,8 +322,6 @@ void MainLoop::run() {
       const float ms = elapsedSince(opStart);
       logSlowMainLoopOperation(ms, "wl_display_dispatch_pending took {:.1f}ms before poll", ms);
     }
-    bool waylandReadPrepared = true;
-
     // Try to flush queued requests. If the kernel send buffer is full we get
     // EAGAIN; that is the standard Wayland backpressure signal, not a fatal
     // error. In that case ask poll() to also wake us when the fd is writable
@@ -349,7 +347,6 @@ void MainLoop::run() {
       const int flushErrno = errno;
       if (flushErrno != EAGAIN) {
         wl_display_cancel_read(m_wayland.display());
-        waylandReadPrepared = false;
         throwWaylandFailure(m_wayland, "failed to flush Wayland display before poll", flushErrno);
       }
       waylandPollEvents |= POLLOUT;
@@ -495,10 +492,7 @@ void MainLoop::run() {
       }
     }
     if (pollResult < 0) {
-      if (waylandReadPrepared) {
-        wl_display_cancel_read(m_wayland.display());
-        waylandReadPrepared = false;
-      }
+      wl_display_cancel_read(m_wayland.display());
       if (errno == EINTR) {
         continue;
       }
@@ -521,10 +515,7 @@ void MainLoop::run() {
       logSlowMainLoopOperation(ms, "wl_display_flush took {:.1f}ms after POLLOUT", ms);
       const int flushErrno = errno;
       if (flushRet < 0 && flushErrno != EAGAIN) {
-        if (waylandReadPrepared) {
-          wl_display_cancel_read(m_wayland.display());
-          waylandReadPrepared = false;
-        }
+        wl_display_cancel_read(m_wayland.display());
         throwWaylandFailure(m_wayland, "failed to flush Wayland display after POLLOUT", flushErrno);
       }
     }
@@ -536,7 +527,6 @@ void MainLoop::run() {
       opStart = std::chrono::steady_clock::now();
       if (wl_display_read_events(m_wayland.display()) < 0) {
         const int readErrno = errno;
-        waylandReadPrepared = false;
         throwWaylandFailure(m_wayland, "failed to read Wayland events", readErrno);
       }
       ms = elapsedSince(opStart);
@@ -546,10 +536,8 @@ void MainLoop::run() {
         profile.waylandReadMs += ms;
       }
       logSlowMainLoopOperation(ms, "wl_display_read_events took {:.1f}ms", ms);
-      waylandReadPrepared = false;
     } else {
       wl_display_cancel_read(m_wayland.display());
-      waylandReadPrepared = false;
     }
 
     opStart = std::chrono::steady_clock::now();
@@ -587,7 +575,7 @@ void MainLoop::run() {
       auto* source = sources[i];
       const std::vector<PollSource*> latestSources =
           m_sourcesProvider ? m_sourcesProvider() : std::vector<PollSource*>{};
-      if (std::find(latestSources.begin(), latestSources.end(), source) == latestSources.end()) {
+      if (!std::ranges::contains(latestSources, source)) {
         continue;
       }
       // Serviced now — restart its clock so the next timeout is measured fresh.

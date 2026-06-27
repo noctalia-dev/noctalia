@@ -88,9 +88,9 @@ compositor, dedicated desktop applications, or system services. Display/login gr
 [Noctalia Greeter](https://github.com/noctalia-dev/noctalia-greeter) project. Noctalia may integrate with those pieces
 when useful, but it does not replace them.
 
-A v5 plugin system is planned and under active development. Features that are useful to some users but not essential to
-the core shell are intended to live there once that system is available: extra bar widgets, launcher providers, desktop
-widgets, compositor-specific extras, hardware-specific controls, and third-party service integrations.
+The plugin system is available for user-installed extensions. Features that are useful to some users but not essential
+to the core shell can live there: extra bar widgets, launcher providers, desktop widgets, panels, shortcuts, background
+services, compositor-specific extras, hardware-specific controls, and third-party service integrations.
 
 ## Dependencies
 
@@ -118,6 +118,20 @@ sudo dnf install meson gcc-c++ just \
   libxkbcommon-devel glib2-devel \
   sdbus-cpp-devel pipewire-devel \
   pam-devel polkit-devel libcurl-devel libwebp-devel librsvg2-devel \
+  libqalculate-devel libxml2-devel \
+  jemalloc-devel
+```
+
+### openSUSE (Tumbleweed & Slowroll)
+```sh
+sudo zypper install meson gcc-c++ just \
+  wayland-devel wayland-protocols-devel \
+  Mesa-libEGL-devel Mesa-libGLESv2-devel \
+  freetype2-devel fontconfig-devel \
+  cairo-devel pango-devel harfbuzz-devel \
+  libxkbcommon-devel glib2-devel \
+  sdbus-cpp-devel pipewire-devel \
+  pam-devel polkit-devel libcurl-devel libwebp-devel librsvg-devel \
   libqalculate-devel libxml2-devel \
   jemalloc-devel
 ```
@@ -152,7 +166,7 @@ sudo moss it meson build-essential \
   extra-cmake-modules jemalloc-devel
 ```
 
-### VoidLinux
+### Void Linux
 ```sh
 sudo xbps-install meson ninja pkg-config git \
   wayland-devel wayland-protocols libepoxy-devel \
@@ -219,6 +233,10 @@ just build
 # Test your local debug build with
 just run
 ```
+
+Unit tests are built automatically for debug builds and skipped for release builds. Build and run them with
+`just test` (use `just test release` to force them on for a release build). Override the default with the meson
+`-Dtests=enabled|disabled|auto` option.
 
 Meson installs the binary and shipped assets using the normal prefix layout:
 

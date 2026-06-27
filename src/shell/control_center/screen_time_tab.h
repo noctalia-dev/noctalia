@@ -33,6 +33,7 @@ private:
   void layoutChart(Renderer& renderer);
   void layoutAppRows(Renderer& renderer);
   void syncEnabledUi();
+  void syncDayLabelHover();
   [[nodiscard]] std::string resolveIconPath(const std::string& appKey) const;
 
   ScreenTimeService* m_screenTime = nullptr;

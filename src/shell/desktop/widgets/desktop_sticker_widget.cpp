@@ -3,6 +3,7 @@
 #include "core/log.h"
 #include "render/core/image_decoder.h"
 #include "render/core/renderer.h"
+#include "render/core/texture_manager.h"
 #include "render/scene/node.h"
 #include "ui/builders.h"
 #include "util/file_utils.h"
@@ -114,10 +115,9 @@ bool DesktopStickerWidget::tryLoadAnimated(Renderer& renderer) {
     return false;
   }
 
-  std::string err;
-  auto decoded = decodeAnimatedGif(bytes.data(), bytes.size(), kMaxStickerGifFrames, kMaxStickerGifBytes, &err);
+  auto decoded = decodeAnimatedGif(bytes.data(), bytes.size(), kMaxStickerGifFrames, kMaxStickerGifBytes);
   if (!decoded) {
-    kLog.warn("sticker: failed to decode GIF \"{}\": {}", m_imagePath, err);
+    kLog.warn("sticker: failed to decode GIF \"{}\": {}", m_imagePath, decoded.error());
     return false;
   }
   if (decoded->frames.size() <= 1) {

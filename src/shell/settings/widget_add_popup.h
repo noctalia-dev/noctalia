@@ -2,6 +2,7 @@
 
 #include "ui/controls/search_picker.h"
 #include "ui/dialogs/dialog_popup_host.h"
+#include "ui/popup_parent.h"
 
 #include <functional>
 #include <memory>
@@ -27,6 +28,13 @@ struct xdg_surface;
 
 namespace settings {
 
+  struct WidgetAddPopupRequest {
+    XdgPopupParent parent;
+    std::vector<std::string> lanePath;
+    const Config& config;
+    float scale = 1.0f;
+  };
+
   class WidgetAddPopup final : public DialogPopupHost {
   public:
     using SelectCallback = std::function<void(
@@ -42,11 +50,7 @@ namespace settings {
     void setOnSelect(SelectCallback callback);
     void setOnDismissed(std::function<void()> callback);
 
-    void open(
-        xdg_surface* parentXdgSurface, wl_output* output, std::uint32_t serial, wl_surface* parentWlSurface,
-        std::uint32_t parentWidth, std::uint32_t parentHeight, const std::vector<std::string>& lanePath,
-        const Config& config, float scale
-    );
+    void open(WidgetAddPopupRequest request);
     void close();
 
     [[nodiscard]] bool isOpen() const noexcept;
@@ -90,12 +94,7 @@ namespace settings {
     [[nodiscard]] std::string suggestedInstanceId(std::string_view type) const;
     [[nodiscard]] bool canCreateInstanceId(std::string_view id) const;
 
-    xdg_surface* m_parentXdgSurface = nullptr;
-    wl_surface* m_parentWlSurface = nullptr;
-    wl_output* m_output = nullptr;
-    std::uint32_t m_serial = 0;
-    std::uint32_t m_parentWidth = 0;
-    std::uint32_t m_parentHeight = 0;
+    XdgPopupParent m_parent;
     bool m_internalReopen = false;
     SelectCallback m_onSelect;
     std::function<void()> m_onDismissed;

@@ -1,18 +1,16 @@
 #include "shell/lockscreen/lockscreen_widgets_controller.h"
 
 #include "ipc/ipc_service.h"
-#include "pipewire/pipewire_spectrum.h"
 #include "shell/bar/bar.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/desktop_widgets_controller.h"
+#include "shell/desktop/editor/desktop_widgets_editor.h"
+#include "shell/desktop/editor/desktop_widgets_editor_types.h"
 #include "shell/dock/dock.h"
 #include "shell/lockscreen/lock_screen.h"
 #include "shell/lockscreen/lock_surface.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
 #include "shell/lockscreen/lockscreen_widgets_host.h"
-#include "shell/widgets_editor/background_widgets_editor.h"
-#include "shell/widgets_editor/background_widgets_editor_config.h"
-#include "wayland/wayland_connection.h"
 
 #include <algorithm>
 #include <charconv>
@@ -22,7 +20,6 @@
 namespace {
 
   constexpr std::string_view kLockscreenWidgetIdPrefix = "lockscreen-widget-";
-  constexpr float kDefaultDesktopAudioVisualizerAspectRatio = 240.0f / 96.0f;
 
   void clampOpacitySetting(DesktopWidgetState& widget, const std::string& key, double fallback) {
     const auto it = widget.settings.find(key);
@@ -66,20 +63,7 @@ namespace {
       return;
     }
 
-    bool hasValidAspectRatio = false;
-    const auto it = widget.settings.find("aspect_ratio");
-    if (it != widget.settings.end()) {
-      if (const auto* doubleValue = std::get_if<double>(&it->second); doubleValue != nullptr && *doubleValue > 0.0) {
-        hasValidAspectRatio = true;
-      }
-      if (const auto* intValue = std::get_if<std::int64_t>(&it->second); intValue != nullptr && *intValue > 0) {
-        hasValidAspectRatio = true;
-      }
-    }
-
-    if (!hasValidAspectRatio) {
-      widget.settings.insert_or_assign("aspect_ratio", static_cast<double>(kDefaultDesktopAudioVisualizerAspectRatio));
-    }
+    widget.settings.erase("aspect_ratio"); // setting removed; drop stale key
     widget.settings.erase("min_value");
   }
 
@@ -110,25 +94,18 @@ LockscreenWidgetsController::LockscreenWidgetsController() = default;
 
 LockscreenWidgetsController::~LockscreenWidgetsController() = default;
 
-void LockscreenWidgetsController::initialize(
-    WaylandConnection& wayland, ConfigService* config, LockScreen& lockScreen, Bar& bar, Dock& dock,
-    DesktopWidgetsController* desktopWidgets, PipeWireSpectrum* pipewireSpectrum, const WeatherService* weather,
-    RenderContext* renderContext, MprisService* mpris, HttpClient* httpClient, SystemMonitorService* sysmon,
-    SharedTextureCache* textureCache, DesktopWidgetScriptDeps scriptDeps
-) {
-  m_wayland = &wayland;
-  m_config = config;
-  m_lockScreen = &lockScreen;
-  m_bar = &bar;
-  m_dock = &dock;
-  m_desktopWidgets = desktopWidgets;
-  m_renderContext = renderContext;
+void LockscreenWidgetsController::initialize(const LockscreenWidgetsControllerServices& services) {
+  m_wayland = &services.widgets.wayland;
+  m_config = services.widgets.config;
+  m_lockScreen = &services.lockScreen;
+  m_bar = &services.bar;
+  m_dock = &services.dock;
+  m_desktopWidgets = services.desktopWidgets;
+  m_renderContext = services.widgets.renderContext;
   m_host = std::make_unique<LockscreenWidgetsHost>();
-  m_host->initialize(wayland, config, pipewireSpectrum, weather, renderContext, mpris, httpClient, sysmon, scriptDeps);
-  m_editor = std::make_unique<BackgroundWidgetsEditor>(BackgroundWidgetsEditorProfile::lockscreen());
-  m_editor->initialize(
-      wayland, config, pipewireSpectrum, weather, renderContext, mpris, httpClient, sysmon, textureCache, scriptDeps
-  );
+  m_host->initialize(services.widgets);
+  m_editor = std::make_unique<DesktopWidgetsEditor>(DesktopWidgetsEditorProfile::lockscreen());
+  m_editor->initialize(services.widgets);
   m_editor->setExitRequestedCallback([this]() { exitEdit(); });
   loadSnapshotFromConfig();
   m_initialized = true;
@@ -251,7 +228,7 @@ void LockscreenWidgetsController::enterEdit() {
   if (m_dock != nullptr) {
     m_dock->suppressDisplay();
   }
-  m_editor->open(toWidgetsEditorSnapshot(m_snapshot));
+  m_editor->open(toDesktopWidgetsEditorSnapshot(m_snapshot));
   m_host->hide();
 }
 
@@ -260,7 +237,7 @@ void LockscreenWidgetsController::exitEdit() {
     return;
   }
 
-  m_snapshot = fromWidgetsEditorSnapshot(m_editor->snapshot());
+  m_snapshot = fromDesktopWidgetsEditorSnapshot(m_editor->snapshot());
   normalizeSnapshot();
   applyVisibility();
   (void)m_editor->close();
@@ -342,7 +319,7 @@ void LockscreenWidgetsController::applyVisibility() {
 
   if (!m_config->isLockScreenEnabled()) {
     if (isEditing() && m_editor != nullptr) {
-      m_snapshot = fromWidgetsEditorSnapshot(m_editor->close());
+      m_snapshot = fromDesktopWidgetsEditorSnapshot(m_editor->close());
       saveSnapshotToConfig();
     }
     m_host->hide();
@@ -352,7 +329,7 @@ void LockscreenWidgetsController::applyVisibility() {
   const bool enabled = m_config->config().lockscreenWidgets.enabled;
   if (!enabled) {
     if (isEditing() && m_editor != nullptr) {
-      m_snapshot = fromWidgetsEditorSnapshot(m_editor->close());
+      m_snapshot = fromDesktopWidgetsEditorSnapshot(m_editor->close());
       saveSnapshotToConfig();
     }
     m_host->hide();

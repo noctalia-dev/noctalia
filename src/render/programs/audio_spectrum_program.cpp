@@ -1,5 +1,7 @@
 #include "render/programs/audio_spectrum_program.h"
 
+#include "render/core/render_styles.h"
+
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
@@ -140,11 +142,15 @@ void AudioSpectrumProgram::draw(
   const int gapCount = std::max(0, barCount - 1);
   const float weightedSlots = static_cast<float>(barCount) + static_cast<float>(gapCount) * kGapToBarRatio;
   const float devicePixel = 1.0f / mainPixelScale;
-  const float barThickness =
-      std::max(devicePixel, std::floor(mainAxisLen / std::max(1.0f, weightedSlots) * mainPixelScale) / mainPixelScale);
-  const float gapThickness = gapCount > 0
-      ? std::max(devicePixel, std::floor(barThickness * kGapToBarRatio * mainPixelScale) / mainPixelScale)
-      : 0.0f;
+  const bool compactBars = mainAxisLen * mainPixelScale < static_cast<float>(barCount + gapCount);
+  const float barThickness = compactBars
+      ? mainAxisLen / static_cast<float>(barCount)
+      : std::max(
+            devicePixel, std::floor(mainAxisLen / std::max(1.0f, weightedSlots) * mainPixelScale) / mainPixelScale
+        );
+  const float gapThickness = compactBars || gapCount == 0
+      ? 0.0f
+      : std::max(devicePixel, std::floor(barThickness * kGapToBarRatio * mainPixelScale) / mainPixelScale);
   const float stride = barThickness + gapThickness;
   const float used = barThickness * static_cast<float>(barCount) + gapThickness * static_cast<float>(gapCount);
   const float startOffset = std::floor(std::max(0.0f, (mainAxisLen - used) * 0.5f) * mainPixelScale) / mainPixelScale;
@@ -163,7 +169,8 @@ void AudioSpectrumProgram::draw(
     }
     const float crossSize = crossPixels / crossPixelScale;
 
-    float mainStart = snapToPixel(startOffset + static_cast<float>(i) * stride, mainPixelScale);
+    float mainStart = compactBars ? startOffset + static_cast<float>(i) * stride
+                                  : snapToPixel(startOffset + static_cast<float>(i) * stride, mainPixelScale);
     float mainEnd = mainStart + barThickness;
     if (mainStart < 0.0f) {
       mainEnd -= mainStart;
@@ -201,11 +208,11 @@ void AudioSpectrumProgram::draw(
   glUseProgram(m_program.id());
   glUniform2f(m_surfaceSizeLocation, surfaceWidth, surfaceHeight);
   glUniform2f(m_pixelScaleLocation, safePixelScaleX, safePixelScaleY);
-  const bool canSnapToDevice = std::abs(transform.m[1]) < 0.0001f && std::abs(transform.m[3]) < 0.0001f;
+  const bool canSnapToDevice = !compactBars && std::abs(transform.m[1]) < 0.0001f && std::abs(transform.m[3]) < 0.0001f;
   glUniform1f(m_snapToDeviceLocation, canSnapToDevice ? 1.0f : 0.0f);
   glUniformMatrix3fv(m_transformLocation, 1, GL_FALSE, transform.m.data());
 
-  constexpr GLsizei kStride = static_cast<GLsizei>(sizeof(GLfloat) * 6U);
+  constexpr auto kStride = static_cast<GLsizei>(sizeof(GLfloat) * 6U);
   const auto posAttr = static_cast<GLuint>(m_positionLocation);
   const auto colorAttr = static_cast<GLuint>(m_colorLocation);
   glVertexAttribPointer(posAttr, 2, GL_FLOAT, GL_FALSE, kStride, m_vertices.data());

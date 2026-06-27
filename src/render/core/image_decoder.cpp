@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <expected>
 #include <utility>
 #include <vector>
 #include <webp/decode.h>
@@ -63,19 +64,15 @@ namespace {
   // largest one and decode it through the normal raster pipeline. For BMP
   // sub-images we prepend a synthetic BITMAPFILEHEADER so wuffs sees a
   // complete BMP.
-  std::optional<DecodedRasterImage> decodeIco(const std::uint8_t* data, std::size_t size, std::string* errorMessage) {
+  std::expected<DecodedRasterImage, std::string> decodeIco(const std::uint8_t* data, std::size_t size) {
     const std::uint16_t count = readU16LE(data + 4);
     if (count == 0) {
-      if (errorMessage != nullptr)
-        *errorMessage = "ICO file has no images";
-      return std::nullopt;
+      return std::unexpected("ICO file has no images");
     }
 
     const std::size_t dirEnd = 6 + static_cast<std::size_t>(count) * 16;
     if (dirEnd > size) {
-      if (errorMessage != nullptr)
-        *errorMessage = "ICO directory extends past end of file";
-      return std::nullopt;
+      return std::unexpected("ICO directory extends past end of file");
     }
 
     int bestIdx = -1;
@@ -99,37 +96,31 @@ namespace {
     const std::uint32_t imgOffset = readU32LE(entry + 12);
 
     if (static_cast<std::size_t>(imgOffset) + imgSize > size || imgSize == 0) {
-      if (errorMessage != nullptr)
-        *errorMessage = "ICO entry points outside file";
-      return std::nullopt;
+      return std::unexpected("ICO entry points outside file");
     }
 
     const std::uint8_t* imgData = data + imgOffset;
 
     if (isPng(imgData, imgSize)) {
-      return decodeRasterImage(imgData, imgSize, errorMessage);
+      return decodeRasterImage(imgData, imgSize);
     }
 
     // BMP DIB sub-image. Standard BMP decoders (wuffs) treat 32bpp as BGRX
     // (alpha forced to 0xFF), but ICO uses that byte as real alpha. Decode
     // 32bpp manually; for other depths fall back to wuffs + AND mask.
     if (imgSize < 40) {
-      if (errorMessage != nullptr)
-        *errorMessage = "ICO BMP sub-image too small for BITMAPINFOHEADER";
-      return std::nullopt;
+      return std::unexpected("ICO BMP sub-image too small for BITMAPINFOHEADER");
     }
 
     const std::uint32_t dibHeaderSize = readU32LE(imgData);
-    const std::int32_t dibWidth = static_cast<std::int32_t>(readU32LE(imgData + 4));
-    const std::int32_t dibHeight = static_cast<std::int32_t>(readU32LE(imgData + 8));
+    const auto dibWidth = static_cast<std::int32_t>(readU32LE(imgData + 4));
+    const auto dibHeight = static_cast<std::int32_t>(readU32LE(imgData + 8));
     const std::uint16_t bpp = readU16LE(imgData + 14);
     const int width = dibWidth > 0 ? dibWidth : -dibWidth;
     const int height = (dibHeight > 0 ? dibHeight : -dibHeight) / 2;
 
     if (width <= 0 || height <= 0 || width > 1024 || height > 1024) {
-      if (errorMessage != nullptr)
-        *errorMessage = "ICO BMP sub-image has invalid dimensions";
-      return std::nullopt;
+      return std::unexpected("ICO BMP sub-image has invalid dimensions");
     }
 
     const std::size_t rowStride = static_cast<std::size_t>(((width * bpp + 31) / 32)) * 4;
@@ -137,9 +128,7 @@ namespace {
     const std::size_t pixelDataOffset = dibHeaderSize;
 
     if (pixelDataOffset + pixelDataSize > imgSize) {
-      if (errorMessage != nullptr)
-        *errorMessage = "ICO BMP pixel data extends past sub-image";
-      return std::nullopt;
+      return std::unexpected("ICO BMP pixel data extends past sub-image");
     }
 
     if (bpp == 32) {
@@ -180,7 +169,7 @@ namespace {
       bmp[kBmpHeaderSize + 11] = static_cast<std::uint8_t>((rh >> 24) & 0xFF);
     }
 
-    const std::uint32_t pixelOffset = static_cast<std::uint32_t>(kBmpHeaderSize + dibHeaderSize);
+    const auto pixelOffset = static_cast<std::uint32_t>(kBmpHeaderSize + dibHeaderSize);
     const auto totalSize = static_cast<std::uint32_t>(bmp.size());
 
     bmp[0] = 'B';
@@ -198,9 +187,9 @@ namespace {
     bmp[12] = static_cast<std::uint8_t>((pixelOffset >> 16) & 0xFF);
     bmp[13] = static_cast<std::uint8_t>((pixelOffset >> 24) & 0xFF);
 
-    auto decoded = decodeRasterImage(bmp.data(), bmp.size(), errorMessage);
-    if (!decoded.has_value())
-      return std::nullopt;
+    auto decoded = decodeRasterImage(bmp.data(), bmp.size());
+    if (!decoded)
+      return decoded;
 
     // Apply the 1bpp AND mask that follows the pixel data.
     const std::size_t andRowStride = static_cast<std::size_t>(((width + 31) / 32)) * 4;
@@ -223,13 +212,11 @@ namespace {
     return decoded;
   }
 
-  std::optional<DecodedRasterImage> decodeWebP(const std::uint8_t* data, std::size_t size, std::string* errorMessage) {
+  std::expected<DecodedRasterImage, std::string> decodeWebP(const std::uint8_t* data, std::size_t size) {
     int width = 0, height = 0;
     std::uint8_t* rgba = WebPDecodeRGBA(data, size, &width, &height);
     if (rgba == nullptr) {
-      if (errorMessage != nullptr)
-        *errorMessage = "libwebp: failed to decode WebP image";
-      return std::nullopt;
+      return std::unexpected("libwebp: failed to decode WebP image");
     }
 
     DecodedRasterImage decoded;
@@ -244,37 +231,27 @@ namespace {
 
 } // namespace
 
-std::optional<DecodedRasterImage>
-decodeRasterImage(const std::uint8_t* data, std::size_t size, std::string* errorMessage) {
+std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint8_t* data, std::size_t size) {
   if ((data == nullptr) || (size == 0)) {
-    if (errorMessage != nullptr) {
-      *errorMessage = "empty image buffer";
-    }
-    return std::nullopt;
+    return std::unexpected("empty image buffer");
   }
 
   if (isWebP(data, size))
-    return decodeWebP(data, size, errorMessage);
+    return decodeWebP(data, size);
 
   if (isIco(data, size))
-    return decodeIco(data, size, errorMessage);
+    return decodeIco(data, size);
 
   auto input = wuffs_aux::sync_io::MemoryInput(data, size);
   auto callbacks = RgbaDecodeCallbacks();
   auto result = wuffs_aux::DecodeImage(callbacks, input);
   if (!result.error_message.empty()) {
-    if (errorMessage != nullptr) {
-      *errorMessage = result.error_message;
-    }
-    return std::nullopt;
+    return std::unexpected(result.error_message);
   }
 
   auto plane = result.pixbuf.plane(0);
   if ((plane.ptr == nullptr) || (plane.width == 0) || (plane.height == 0)) {
-    if (errorMessage != nullptr) {
-      *errorMessage = "decoded image has no pixel data";
-    }
-    return std::nullopt;
+    return std::unexpected("decoded image has no pixel data");
   }
 
   DecodedRasterImage decoded;
@@ -337,14 +314,10 @@ namespace {
 
 } // namespace
 
-std::optional<DecodedRasterAnimation> decodeAnimatedGif(
-    const std::uint8_t* data, std::size_t size, int maxFrames, std::size_t maxRgbaBytes, std::string* errorMessage
-) {
-  auto fail = [&](const char* msg) -> std::optional<DecodedRasterAnimation> {
-    if (errorMessage != nullptr) {
-      *errorMessage = msg;
-    }
-    return std::nullopt;
+std::expected<DecodedRasterAnimation, std::string>
+decodeAnimatedGif(const std::uint8_t* data, std::size_t size, int maxFrames, std::size_t maxRgbaBytes) {
+  auto fail = [](const char* msg) -> std::expected<DecodedRasterAnimation, std::string> {
+    return std::unexpected(msg);
   };
 
   if (data == nullptr || size == 0) {
@@ -378,7 +351,7 @@ std::optional<DecodedRasterAnimation> decodeAnimatedGif(
   if (canvasBytes64 > maxRgbaBytes) {
     return fail("GIF canvas exceeds size cap");
   }
-  const std::size_t canvasBytes = static_cast<std::size_t>(canvasBytes64);
+  const auto canvasBytes = static_cast<std::size_t>(canvasBytes64);
 
   wuffs_base__pixel_config pixcfg{};
   wuffs_base__pixel_config__set(

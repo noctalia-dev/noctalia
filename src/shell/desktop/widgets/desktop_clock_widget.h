@@ -17,7 +17,16 @@ public:
     Analog,
   };
 
-  DesktopClockWidget(Style style, std::string format, ColorSpec color, bool shadow, bool circle);
+  struct Options {
+    Style style = Style::Digital;
+    std::string format;
+    ColorSpec color = colorSpecFromRole(ColorRole::OnSurface);
+    bool shadow = true;
+    bool showCircle = true;
+    bool centerText = false;
+  };
+
+  explicit DesktopClockWidget(Options options);
 
   void create() override;
   [[nodiscard]] bool wantsSecondTicks() const override;
@@ -34,9 +43,13 @@ private:
   void applyShadow();
   void syncStyleVisibility();
   void syncCircleVisibility();
+  void syncDigitalTextAlign();
   void syncAnalogColors();
   void layoutAnalog(Renderer& renderer, float size);
   void layoutDigital(Renderer& renderer);
+  // Pin the digital label to the width of its widest-digit rendering so the box
+  // stops reflowing every second as proportional digits change advance width.
+  void updateStableDigitalWidth(Renderer& renderer, const std::string& text);
   void updateAnalogHands();
   [[nodiscard]] static Style styleFromSetting(std::string_view value);
 
@@ -45,6 +58,7 @@ private:
   ColorSpec m_color;
   bool m_shadow;
   bool m_showCircle;
+  bool m_centerText = false;
   bool m_showsSeconds = false;
   Label* m_label = nullptr;
   Node* m_digitalRoot = nullptr;
@@ -59,4 +73,20 @@ private:
   int m_lastHour = -1;
   int m_lastMinute = -1;
   int m_lastSecond = -1;
+
+  // Stable-width state for the digital label. m_stableSample is the current text
+  // with every digit replaced by the widest digit glyph; its measured width is
+  // constant across seconds, so we only re-measure when it actually changes.
+  float m_stableWidth = 0.0f;
+  std::string m_stableSample;
+  char m_widestDigit = '0';
+  float m_metricsFontSize = -1.0f;
+  std::string m_metricsFontFamily;
+  // Horizontal centering for proportional digits: the label is start-aligned (leading glyph
+  // anchored) but shifted right by m_digitOffsetX so the *mean*-width rendering sits centered in
+  // the reserved box, instead of all the widest-digit slack piling up on the trailing side.
+  // m_digitOffsetX = digitCount * (widestAdvance - meanDigitAdvance); 0 for equal-width digits.
+  float m_maxDigitAdvance = 0.0f;
+  float m_meanDigitAdvance = 0.0f;
+  float m_digitOffsetX = 0.0f;
 };

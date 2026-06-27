@@ -1,8 +1,11 @@
 #include "ui/controls/keybind_recorder.h"
 
+#include "config/config_types.h"
 #include "core/key_chord.h"
 #include "core/key_modifiers.h"
 #include "core/key_symbols.h"
+#include "core/keybind_matcher.h"
+#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "notification/notifications.h"
 #include "render/core/renderer.h"
@@ -33,6 +36,9 @@ KeybindRecorder::KeybindRecorder() {
   auto label = std::make_unique<Label>();
   label->setFontSize(Style::fontSizeCaption);
   label->setColor(colorSpecFromRole(ColorRole::OnSurface));
+  label->setMaxLines(1);
+  label->setEllipsize(TextEllipsize::End);
+  label->setFlexGrow(1.0f);
   m_label = static_cast<Label*>(addChild(std::move(label)));
 
   auto glyph = std::make_unique<Glyph>();
@@ -43,16 +49,31 @@ KeybindRecorder::KeybindRecorder() {
 
   auto area = std::make_unique<InputArea>();
   area->setFocusable(true);
-  area->setOnFocusGain([this]() { enterRecording(); });
-  area->setOnFocusLoss([this]() { exitRecording(false); });
+  area->setOnFocusGain([this]() {
+    if (!m_recording) {
+      applyVisualState(VisualState::Focused);
+      markPaintDirty();
+    }
+  });
+  area->setOnFocusLoss([this]() {
+    if (m_recording) {
+      exitRecording(false);
+    } else {
+      applyVisualState(VisualState::Idle);
+      markPaintDirty();
+    }
+  });
   area->setOnPress([this](const InputArea::PointerData& data) {
-    // Re-clicking when already focused does not refire focus gain.
     if (data.pressed && m_enabled && !m_recording) {
       enterRecording();
     }
   });
   area->setOnKeyDown([this](const InputArea::KeyData& data) {
     if (data.preedit) {
+      return;
+    }
+    if (!m_recording && data.pressed && KeybindMatcher::matches(KeybindAction::Validate, data.sym, data.modifiers)) {
+      enterRecording();
       return;
     }
     handleKeyDown(data.sym, data.modifiers);
@@ -64,6 +85,8 @@ KeybindRecorder::KeybindRecorder() {
     handleKeyUp(data.sym, data.modifiers);
   });
   m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
+  m_inputArea->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
+  m_inputArea->setRetainsFocusOnPointerRelease(true);
   m_inputArea->setParticipatesInLayout(false);
   m_inputArea->setZIndex(1);
   m_inputArea->setPosition(0.0f, 0.0f);
@@ -78,6 +101,7 @@ KeybindRecorder::~KeybindRecorder() = default;
 void KeybindRecorder::setChord(std::optional<KeyChord> chord) {
   m_chord = chord;
   refreshLabel();
+  applyVisualState(m_visualState);
 }
 
 void KeybindRecorder::setScale(float scale) {
@@ -122,6 +146,12 @@ void KeybindRecorder::setRecordingPlaceholder(std::string_view text) {
 void KeybindRecorder::setOnCommit(std::function<void(KeyChord)> callback) { m_onCommit = std::move(callback); }
 
 void KeybindRecorder::setModifierPolicy(ModifierPolicy policy) { m_modifierPolicy = policy; }
+
+void KeybindRecorder::setTabFocusKey(std::string key) {
+  if (m_inputArea != nullptr) {
+    m_inputArea->setTabFocusKey(std::move(key));
+  }
+}
 
 void KeybindRecorder::doLayout(Renderer& renderer) {
   if (m_label != nullptr) {
@@ -275,7 +305,7 @@ void KeybindRecorder::applyVisualState(VisualState state) {
   m_visualState = state;
   if (!m_enabled) {
     setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.4f));
-    setBorder(colorSpecFromRole(ColorRole::Outline, 0.4f), Style::borderWidth);
+    setBorder(colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha), Style::borderWidth);
     if (m_label != nullptr) {
       m_label->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.55f));
     }
@@ -289,6 +319,19 @@ void KeybindRecorder::applyVisualState(VisualState state) {
   case VisualState::Idle:
     setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
     setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
+    if (m_label != nullptr) {
+      const bool placeholder = !m_chord.has_value() || m_chord->sym == 0;
+      m_label->setColor(
+          placeholder ? colorSpecFromRole(ColorRole::OnSurfaceVariant) : colorSpecFromRole(ColorRole::OnSurface)
+      );
+    }
+    if (m_glyph != nullptr) {
+      m_glyph->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+    }
+    break;
+  case VisualState::Focused:
+    setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
+    setBorder(focusRingColorSpec(), Style::focusRingWidth);
     if (m_label != nullptr) {
       const bool placeholder = !m_chord.has_value() || m_chord->sym == 0;
       m_label->setColor(

@@ -1,12 +1,11 @@
 #pragma once
 
-#include "notification/notification_manager.h"
-
 #include <memory>
 #include <sdbus-c++/sdbus-c++.h>
 #include <string>
 
 class SessionBus;
+class NotificationManager;
 
 class DebugService {
 public:

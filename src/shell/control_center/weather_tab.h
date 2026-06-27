@@ -27,6 +27,7 @@ private:
   void doUpdate(Renderer& renderer) override;
   void sync(Renderer& renderer);
   void setForecastVisibleDayCount(std::size_t count);
+  void showLocationPrompt(bool show);
   void hideEffect();
   [[nodiscard]] static std::string todayIso(std::int32_t utcOffsetSeconds);
   [[nodiscard]] static std::string weekdayLabel(const std::string& isoDate);
@@ -43,6 +44,9 @@ private:
   Flex* m_glyphColumn = nullptr;
   Flex* m_detailsCard = nullptr;
   Flex* m_currentText = nullptr;
+  Flex* m_locationPrompt = nullptr;
+  Glyph* m_locationPromptGlyph = nullptr;
+  Label* m_locationPromptBody = nullptr;
   Flex* m_forecastColumn = nullptr;
   Label* m_statusLabel = nullptr;
   Glyph* m_currentGlyph = nullptr;

@@ -42,7 +42,7 @@ namespace {
       candidates.push_back(std::move(candidate));
     }
 
-    std::sort(candidates.begin(), candidates.end(), [](const WindowCandidate& a, const WindowCandidate& b) {
+    std::ranges::sort(candidates, [](const WindowCandidate& a, const WindowCandidate& b) {
       return StringUtils::toLower(a.title) < StringUtils::toLower(b.title);
     });
     return candidates;

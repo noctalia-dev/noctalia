@@ -109,6 +109,89 @@ namespace ui {
     return control;
   }
 
+  std::unique_ptr<InputArea> inputArea(InputAreaProps props) {
+    auto control = std::make_unique<InputArea>();
+    if (props.acceptedButtons.has_value()) {
+      control->setAcceptedButtons(*props.acceptedButtons);
+    }
+    if (props.cursorShape.has_value()) {
+      control->setCursorShape(*props.cursorShape);
+    }
+    if (props.propagateEvents.has_value()) {
+      control->setPropagateEvents(*props.propagateEvents);
+    }
+    if (props.enabled.has_value()) {
+      control->setEnabled(*props.enabled);
+    }
+    if (props.hitShape.has_value()) {
+      control->setHitShape(*props.hitShape);
+    }
+    if (props.focusable.has_value()) {
+      control->setFocusable(*props.focusable);
+    }
+    if (props.tooltip.has_value()) {
+      control->setTooltip(std::move(*props.tooltip));
+    }
+    if (props.tooltipRows.has_value()) {
+      control->setTooltip(std::move(*props.tooltipRows));
+    }
+    if (props.tooltipProvider) {
+      control->setTooltipProvider(
+          std::move(props.tooltipProvider), props.tooltipRefreshInterval.value_or(std::chrono::milliseconds{})
+      );
+    }
+    if (props.tooltipPlacement.has_value()) {
+      control->setTooltipPlacement(*props.tooltipPlacement);
+    }
+    if (props.tooltipAnchorInsets.has_value()) {
+      control->setTooltipAnchorInsets(*props.tooltipAnchorInsets);
+    }
+    if (props.onEnter) {
+      control->setOnEnter(std::move(props.onEnter));
+    }
+    if (props.onLeave) {
+      control->setOnLeave(std::move(props.onLeave));
+    }
+    if (props.onMotion) {
+      control->setOnMotion(std::move(props.onMotion));
+    }
+    if (props.onPress) {
+      control->setOnPress(std::move(props.onPress));
+    }
+    if (props.onClick) {
+      control->setOnClick(std::move(props.onClick));
+    }
+    if (props.onAxis) {
+      control->setOnAxis(std::move(props.onAxis));
+    }
+    if (props.onAxisHandler) {
+      control->setOnAxisHandler(std::move(props.onAxisHandler));
+    }
+    if (props.onKeyDown) {
+      control->setOnKeyDown(std::move(props.onKeyDown));
+    }
+    if (props.onKeyUp) {
+      control->setOnKeyUp(std::move(props.onKeyUp));
+    }
+    if (props.onFocusGain) {
+      control->setOnFocusGain(std::move(props.onFocusGain));
+    }
+    if (props.onFocusLoss) {
+      control->setOnFocusLoss(std::move(props.onFocusLoss));
+    }
+    if (props.clipChildren.has_value()) {
+      control->setClipChildren(*props.clipChildren);
+    }
+    applyNodeProps(*control, props);
+    if (props.configure) {
+      props.configure(*control);
+    }
+    if (props.out != nullptr) {
+      *props.out = control.get();
+    }
+    return control;
+  }
+
   std::unique_ptr<Input> input(InputProps props) {
     auto control = std::make_unique<Input>();
     if (props.value.has_value()) {
@@ -194,6 +277,9 @@ namespace ui {
     }
     if (props.glyphSize.has_value()) {
       control->setGlyphSize(*props.glyphSize);
+    }
+    if (props.controlHeight.has_value()) {
+      control->setControlHeight(*props.controlHeight);
     }
     if (props.enabled.has_value()) {
       control->setEnabled(*props.enabled);
@@ -593,6 +679,9 @@ namespace ui {
     if (props.surfaceOpacity.has_value()) {
       control->setSurfaceOpacity(*props.surfaceOpacity);
     }
+    if (props.surfaceRole.has_value()) {
+      control->setSurfaceRole(*props.surfaceRole);
+    }
     if (props.equalSegmentWidths.has_value()) {
       control->setEqualSegmentWidths(*props.equalSegmentWidths);
     }
@@ -894,7 +983,7 @@ namespace ui {
       control->setScale(*props.scale);
     }
     if (props.chord.has_value()) {
-      control->setChord(*props.chord);
+      control->setChord(props.chord);
     }
     if (props.unsetPlaceholder.has_value()) {
       control->setUnsetPlaceholder(*props.unsetPlaceholder);

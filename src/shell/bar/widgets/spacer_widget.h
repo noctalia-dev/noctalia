@@ -9,6 +9,7 @@ public:
   void create() override;
 
   bool noGapAroundMe() const noexcept override { return true; }
+  bool isBarClickThrough() const noexcept override { return true; }
 
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;

@@ -1,6 +1,5 @@
 #include "shell/bar/widgets/nightlight_widget.h"
 
-#include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "system/gamma_service.h"
 #include "ui/builders.h"

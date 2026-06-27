@@ -23,7 +23,7 @@ namespace noctalia::theme {
     std::filesystem::path builtinTemplateConfigPath() { return paths::assetPath("templates/builtin.toml"); }
 
     std::string schemeTypeFromConfig(const ThemeConfig& theme) {
-      if (theme.wallpaperScheme.rfind("m3-", 0) == 0)
+      if (theme.wallpaperScheme.starts_with("m3-"))
         return theme.wallpaperScheme.substr(3);
       return theme.wallpaperScheme;
     }
@@ -130,7 +130,7 @@ namespace noctalia::theme {
 
   TemplateApplyService::~TemplateApplyService() {
     {
-      std::lock_guard lock(m_mutex);
+      std::scoped_lock lock(m_mutex);
       m_shutdown = true;
       m_pendingRequest.reset();
     }
@@ -143,7 +143,7 @@ namespace noctalia::theme {
   void TemplateApplyService::apply(const GeneratedPalette& palette, std::string_view defaultMode, bool force) const {
     ApplyRequest request = makeRequest(palette, defaultMode);
     {
-      std::lock_guard lock(m_mutex);
+      std::scoped_lock lock(m_mutex);
       // Config reloads fire on every settings change, not just theme changes.
       // Skip redundant reprocessing (and its synchronous template hooks) when
       // nothing the templates depend on has changed. Explicit re-application
@@ -162,7 +162,7 @@ namespace noctalia::theme {
     GeneratedPalette palette;
     std::string defaultMode;
     {
-      std::lock_guard lock(m_mutex);
+      std::scoped_lock lock(m_mutex);
       if (!m_lastAppliedRequest.has_value()) {
         return false;
       }
@@ -283,7 +283,7 @@ namespace noctalia::theme {
   }
 
   bool TemplateApplyService::requestSuperseded(std::uint64_t generation) const {
-    std::lock_guard lock(m_mutex);
+    std::scoped_lock lock(m_mutex);
     return m_shutdown || generation != m_nextGeneration;
   }
 

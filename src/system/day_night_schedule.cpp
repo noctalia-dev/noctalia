@@ -1,5 +1,7 @@
 #include "system/day_night_schedule.h"
 
+#include "config/config_types.h"
+
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -30,6 +32,14 @@ namespace day_night_schedule {
       return local.tm_sec;
     }
 
+    std::chrono::milliseconds sinceBoundaryMs(int nowMin, int nowSec, int lastBoundaryMin) {
+      int sinceMin = nowMin - lastBoundaryMin;
+      if (sinceMin < 0) {
+        sinceMin += 1440;
+      }
+      return std::chrono::milliseconds(sinceMin * 60 * 1000 + nowSec * 1000);
+    }
+
     bool hasResolvedCoordinates(std::optional<double> latitude, std::optional<double> longitude) {
       return latitude.has_value() && longitude.has_value();
     }
@@ -46,7 +56,7 @@ namespace day_night_schedule {
       ::localtime_r(&t, &local);
 
       constexpr double kPi = std::numbers::pi;
-      const double dayOfYear = static_cast<double>(local.tm_yday + 1);
+      const auto dayOfYear = static_cast<double>(local.tm_yday + 1);
       const double fractionalYear = 2.0 * kPi / 365.0 * (dayOfYear - 1.0);
 
       const double equationOfTime = 229.18
@@ -153,7 +163,11 @@ namespace day_night_schedule {
         diffMin += 1440;
       }
       const auto ms = std::chrono::milliseconds(diffMin * 60 * 1000 - nowSec * 1000);
-      return Evaluation{.night = night, .untilBoundary = std::max(ms, std::chrono::milliseconds(1000))};
+      return Evaluation{
+          .night = night,
+          .untilBoundary = std::max(ms, std::chrono::milliseconds(1000)),
+          .sinceBoundary = sinceBoundaryMs(nowMin, nowSec, night ? sunsetMin : sunriseMin),
+      };
     }
 
     const auto coords = resolveCoordinates(config, resolvedLatitude, resolvedLongitude);
@@ -179,7 +193,11 @@ namespace day_night_schedule {
       diffMin += 1440;
     }
     const auto ms = std::chrono::milliseconds(diffMin * 60 * 1000 - nowSec * 1000);
-    return Evaluation{.night = night, .untilBoundary = std::max(ms, std::chrono::milliseconds(1000))};
+    return Evaluation{
+        .night = night,
+        .untilBoundary = std::max(ms, std::chrono::milliseconds(1000)),
+        .sinceBoundary = sinceBoundaryMs(nowMin, nowSec, night ? sunset : sunrise),
+    };
   }
 
 } // namespace day_night_schedule

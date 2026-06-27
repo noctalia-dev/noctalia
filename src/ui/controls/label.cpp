@@ -172,7 +172,8 @@ void Label::syncHoverInteraction() {
   if (!m_autoScroll || !m_autoScrollHoverOnly) {
     setOnEnter(nullptr);
     setOnLeave(nullptr);
-    setHitTestVisible(false);
+    // A tooltip needs hits to reach the label, so keep hit testing on for it.
+    setHitTestVisible(hasTooltip());
     return;
   }
   setHitTestVisible(true);
@@ -286,7 +287,10 @@ void Label::startMarqueeLoop() {
 
   const float period = m_marqueeLoopPeriod;
   const float durationMs = (period / m_scrollSpeedPxPerSec) * 1000.0f;
-  m_marqueeAnimId = animationManager()->animate(
+  // Marquee scroll is content motion at a fixed px/sec rate, not a UI transition:
+  // it must keep scrolling (and at its own speed) regardless of the global motion
+  // enable/speed settings, so drive it off real elapsed time.
+  m_marqueeAnimId = animationManager()->animateTimer(
       0.0f, period, durationMs, Easing::Linear,
       [this](float v) {
         m_scrollOffset = v;
@@ -468,6 +472,11 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
       // Unrounded — the renderer snaps the glyph quad to the pixel grid.
       height = std::round(std::max(actualHeight, inkHeight));
       m_baselineOffset = -metrics.inkTop + (height - inkHeight) * 0.5f;
+    } else if (m_baselineMode == LabelBaselineMode::StableFont) {
+      const auto fontMetrics = renderer.measureFont(m_textNode->fontSize(), fontWeight);
+      height = std::round(fontMetrics.bottom - fontMetrics.top);
+      const float capHeight = fontMetrics.capHeight;
+      m_baselineOffset = capHeight > 0.0f ? height * 0.5f + capHeight * 0.5f : -fontMetrics.top;
     } else {
       height = std::round(actualHeight);
       // Center the cap band (baseline → cap-top) in the box, so a container that
@@ -501,7 +510,8 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
     setSize(std::round(finalWidth), height);
   } else {
     m_baselineOffset = -metrics.top;
-    const float height = actualHeight;
+    const float inkSpan = inkHeight > 0.0f ? (metrics.inkBottom - metrics.inkTop) : actualHeight;
+    const float height = std::max(actualHeight, inkSpan);
     float finalWidth = 0.0f;
     if (m_autoScroll) {
       float boxW = m_fullTextWidth;

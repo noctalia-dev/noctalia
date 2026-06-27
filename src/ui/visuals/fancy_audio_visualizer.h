@@ -6,7 +6,6 @@
 #include <span>
 #include <vector>
 
-class Renderer;
 class TextureManager;
 
 class FancyAudioVisualizer : public FancyAudioVisualizerNode {

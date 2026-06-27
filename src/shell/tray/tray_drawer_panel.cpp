@@ -1,6 +1,7 @@
 #include "shell/tray/tray_drawer_panel.h"
 
 #include "config/config_service.h"
+#include "dbus/tray/tray_service.h"
 #include "shell/bar/widgets/tray_widget.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tray/tray_identifier.h"
@@ -55,8 +56,18 @@ void TrayDrawerPanel::create() {
     return;
   }
   m_drawerWidget = std::make_unique<TrayWidget>(
-      *m_config, m_tray, hiddenItems, pinnedItems, false, []() { PanelManager::instance().close(); }, "top", true,
-      drawerColumns, Style::spaceXs, false
+      *m_config, m_tray,
+      TrayWidgetOptions{
+          .hiddenItems = hiddenItems,
+          .pinnedItems = pinnedItems,
+          .drawerMode = false,
+          .itemActivated = []() { PanelManager::instance().close(); },
+          .barPosition = "top",
+          .panelGridMode = true,
+          .panelGridColumns = drawerColumns,
+          .inlineEntryGap = Style::spaceXs,
+          .matchAdjacentSpacing = false,
+      }
   );
   m_drawerWidget->setContentScale(contentScale());
   m_drawerWidget->create();
@@ -120,7 +131,7 @@ std::size_t TrayDrawerPanel::visibleItemCount() const {
       variants.push_back(raw.substr(slash + 1));
       variants.push_back(StringUtils::toLower(raw.substr(slash + 1)));
     }
-    return std::ranges::find(variants, std::string(token)) != variants.end();
+    return std::ranges::contains(variants, token);
   };
   auto tokenMatches = [&](std::string_view token, const TrayItemInfo& item) {
     if (token.empty()) {

@@ -28,6 +28,7 @@ public:
     bool copyToClipboard = false;
     bool pipeToCommand = false;
     bool freezeScreen = false;
+    bool confirmRegion = false;
     std::string pipeCommand;
     std::string directory;
     std::string filenamePattern;

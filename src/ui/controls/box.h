@@ -35,6 +35,10 @@ public:
   void setFlatStyle();
   void setCardStyle(float scale = 1.0f, float fillOpacity = 1.0f, bool showBorder = true);
   void setPanelStyle(bool showBorder = true);
+  // Dialog/popup background. Like the panel style but always carries a subtle
+  // outline so the dialog separates from the parent surface it floats over,
+  // independent of the [shell.panel].borders toggle.
+  void setDialogStyle();
 
   void setSize(float width, float height) override;
   void setFrameSize(float width, float height);

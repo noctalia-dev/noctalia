@@ -20,6 +20,7 @@
 #include <cmath>
 #include <linux/input-event-codes.h>
 #include <memory>
+#include <numbers>
 
 namespace {
 
@@ -83,7 +84,9 @@ Select::Select() {
     applyVisualState();
     markPaintDirty();
   });
-  triggerArea->setOnKeyDown([this](const InputArea::KeyData& key) { handleKey(key.sym, key.utf32, key.pressed); });
+  triggerArea->setOnKeyDown([this](const InputArea::KeyData& key) {
+    handleKey(key.sym, key.utf32, key.modifiers, key.pressed);
+  });
   m_triggerArea = static_cast<InputArea*>(addChild(std::move(triggerArea)));
 
   applyVisualState();
@@ -114,12 +117,16 @@ void Select::setOptions(std::vector<std::string> options) {
   markLayoutDirty();
 }
 
-void Select::setSelectedIndex(std::size_t index) {
+void Select::setSelectedIndex(std::size_t index) { setSelectedIndexInternal(index, true); }
+
+void Select::setSelectedIndexSilently(std::size_t index) { setSelectedIndexInternal(index, false); }
+
+void Select::setSelectedIndexInternal(std::size_t index, bool notify) {
   if (index >= m_options.size()) {
     return;
   }
   if (m_selectedIndex == index) {
-    if (m_notifyOnReselect && m_onSelectionChanged) {
+    if (notify && m_notifyOnReselect && m_onSelectionChanged) {
       m_onSelectionChanged(m_selectedIndex, selectedText());
     }
     return;
@@ -128,7 +135,7 @@ void Select::setSelectedIndex(std::size_t index) {
   syncTriggerText();
   applyVisualState();
   markLayoutDirty();
-  if (m_onSelectionChanged) {
+  if (notify && m_onSelectionChanged) {
     m_onSelectionChanged(m_selectedIndex, selectedText());
   }
 }
@@ -304,14 +311,12 @@ LayoutSize Select::doMeasure(Renderer& renderer, const LayoutConstraints& constr
 
 void Select::doArrange(Renderer& renderer, const LayoutRect& rect) { arrangeByLayout(renderer, rect); }
 
-void Select::handleKey(std::uint32_t sym, std::uint32_t /*utf32*/, bool pressed) {
+void Select::handleKey(std::uint32_t sym, std::uint32_t /*utf32*/, std::uint32_t modifiers, bool pressed) {
   if (!m_enabled || !pressed) {
     return;
   }
 
-  if (KeybindMatcher::matches(KeybindAction::Down, sym, 0)
-      || KeybindMatcher::matches(KeybindAction::Up, sym, 0)
-      || KeybindMatcher::matches(KeybindAction::Validate, sym, 0)) {
+  if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
     if (!m_open) {
       toggleOpen();
     }
@@ -334,18 +339,18 @@ void Select::applyVisualState() {
 
   if (!m_enabled) {
     triggerBg = resolved(ColorRole::SurfaceVariant, m_surfaceOpacity * 0.75f);
-    triggerBorder = resolved(ColorRole::Outline, 0.6f);
+    triggerBorder = resolved(ColorRole::Outline, Style::disabledOutlineAlpha);
     triggerText = colorSpecFromRole(ColorRole::OnSurface, 0.55f);
   } else if (triggerHovered || triggerPressed) {
     triggerBg = resolved(ColorRole::SurfaceVariant, m_surfaceOpacity);
     triggerBorder = resolved(ColorRole::Hover);
   } else if (triggerFocused) {
-    triggerBorder = resolved(ColorRole::Primary);
+    triggerBorder = resolveColorSpec(focusRingColorSpec());
   }
 
   m_triggerLabel->setColor(triggerText);
   m_triggerGlyph->setColor(triggerText);
-  m_triggerGlyph->setRotation(m_caretProgress * static_cast<float>(M_PI));
+  m_triggerGlyph->setRotation(m_caretProgress * std::numbers::pi_v<float>);
 
   m_triggerBackground->setStyle(
       RoundedRectStyle{
@@ -354,7 +359,7 @@ void Select::applyVisualState() {
           .fillMode = FillMode::Solid,
           .radius = Style::scaledRadiusMd(),
           .softness = 1.0f,
-          .borderWidth = Style::borderWidth,
+          .borderWidth = triggerFocused ? Style::focusRingWidth : Style::borderWidth,
       }
   );
 }

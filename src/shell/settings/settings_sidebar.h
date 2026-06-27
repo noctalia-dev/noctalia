@@ -1,17 +1,19 @@
 #pragma once
 
-#include "config/config_service.h"
-#include "shell/settings/settings_registry.h"
-#include "ui/controls/scroll_view.h"
-
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
+struct Config;
+struct ScrollViewState;
 class Flex;
+class Node;
+class RovingListNavHost;
 
 namespace settings {
+  enum class SettingsSection : std::uint8_t;
 
   struct SettingsSidebarContext {
     const Config& config;
@@ -34,6 +36,8 @@ namespace settings {
     std::function<void()> requestRebuild;
     std::function<void(std::string)> createBar;
     std::function<void(std::string, std::string)> createMonitorOverride;
+    std::function<void(const Node*)> scrollSidebarNodeIntoView;
+    RovingListNavHost** outNav = nullptr;
   };
 
   [[nodiscard]] std::unique_ptr<Flex> buildSettingsSidebar(SettingsSidebarContext ctx);

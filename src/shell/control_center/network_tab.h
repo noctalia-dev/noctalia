@@ -1,7 +1,7 @@
 #pragma once
 
-#include "dbus/network/inetwork_service.h"
 #include "dbus/network/network_secret_agent.h"
+#include "dbus/network/network_types.h"
 #include "shell/control_center/tab.h"
 
 #include <optional>
@@ -15,6 +15,7 @@ class Label;
 class ScrollView;
 class Spinner;
 class Toggle;
+class INetworkService;
 
 class NetworkTab : public Tab {
 public:

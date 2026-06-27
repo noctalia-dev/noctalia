@@ -1,6 +1,7 @@
 #pragma once
 
-#include "config/config_service.h"
+#include "config/config_types.h"
+#include "core/key_chord.h"
 #include "ui/controls/color_swatch_preview.h"
 #include "ui/palette.h"
 
@@ -28,9 +29,11 @@ namespace settings {
     Desktop,
     Dock,
     Panels,
+    ControlCenter,
     Notifications,
     Osd,
     Shell,
+    Keybinds,
     Security,
     System,
     Services,
@@ -196,6 +199,10 @@ namespace settings {
     std::vector<IdleBehaviorConfig> items;
   };
 
+  struct NotificationFiltersSetting {
+    std::vector<NotificationFilterConfig> items;
+  };
+
   struct MultiSelectSetting {
     std::vector<SelectOption> options;
     std::vector<std::string> selectedValues;
@@ -225,8 +232,8 @@ namespace settings {
   using SettingControl = std::variant<
       ToggleSetting, SelectSetting, SliderSetting, RangeSliderSetting, TextSetting, OptionalNumberSetting,
       OptionalStepperSetting, StepperSetting, ListSetting, ShortcutListSetting, KeybindListSetting,
-      SessionPanelActionsSetting, IdleBehaviorsSetting, MultiSelectSetting, TemplateGridSetting, ButtonSetting,
-      ColorSpecPickerSetting, SearchPickerSetting>;
+      SessionPanelActionsSetting, IdleBehaviorsSetting, NotificationFiltersSetting, MultiSelectSetting,
+      TemplateGridSetting, ButtonSetting, ColorSpecPickerSetting, SearchPickerSetting>;
 
   struct SettingVisibilityCondition {
     std::vector<std::string> path;

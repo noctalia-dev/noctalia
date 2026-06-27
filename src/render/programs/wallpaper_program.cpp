@@ -44,6 +44,9 @@ uniform float u_imageHeight2;
 uniform float u_screenWidth;
 uniform float u_screenHeight;
 uniform vec4 u_fillColor;
+uniform vec2 u_spanOffset;
+uniform vec2 u_spanMonitorSize;
+uniform vec2 u_spanTotalSize;
 
 varying vec2 v_texcoord;
 
@@ -76,10 +79,28 @@ vec2 calculateUV(vec2 uv, float imgWidth, float imgHeight) {
     else if (u_fillMode < 3.5) {
         // Stretch - no transform
     }
-    else {
+    else if (u_fillMode < 4.5) {
         // Repeat (tile)
         vec2 screenPixel = uv * vec2(u_screenWidth, u_screenHeight);
         transformedUV = screenPixel / vec2(imgWidth, imgHeight);
+    }
+    else {
+        // Span: cover-fit the image across the whole multi-monitor desktop and
+        // sample the slice that belongs to this output.
+        if (u_spanTotalSize.x <= 0.0 || u_spanTotalSize.y <= 0.0) {
+            // Span geometry unavailable: behave like Crop.
+            float scale = max(u_screenWidth / imgWidth, u_screenHeight / imgHeight);
+            vec2 scaledImageSize = vec2(imgWidth, imgHeight) * scale;
+            vec2 offset = (scaledImageSize - vec2(u_screenWidth, u_screenHeight)) / scaledImageSize;
+            transformedUV = uv * (vec2(1.0) - offset) + offset * 0.5;
+        } else {
+            vec2 imageSize = vec2(imgWidth, imgHeight);
+            float scale = max(u_spanTotalSize.x / imageSize.x, u_spanTotalSize.y / imageSize.y);
+            vec2 scaledImageSize = imageSize * scale;
+            vec2 desktopPixel = u_spanOffset + uv * u_spanMonitorSize;
+            vec2 imagePixel = desktopPixel + (scaledImageSize - u_spanTotalSize) * 0.5;
+            transformedUV = imagePixel / scaledImageSize;
+        }
     }
 
     return transformedUV;
@@ -88,7 +109,7 @@ vec2 calculateUV(vec2 uv, float imgWidth, float imgHeight) {
 vec4 sampleWithFillMode(sampler2D tex, vec2 uv, float imgWidth, float imgHeight) {
     vec2 transformedUV = calculateUV(uv, imgWidth, imgHeight);
 
-    if (u_fillMode > 3.5) {
+    if (u_fillMode > 3.5 && u_fillMode < 4.5) {
         return texture2D(tex, fract(transformedUV));
     }
 
@@ -369,6 +390,9 @@ void WallpaperProgram::initProgram(std::size_t index, const char* fragSource) {
   pd.screenWidthLoc = glGetUniformLocation(id, "u_screenWidth");
   pd.screenHeightLoc = glGetUniformLocation(id, "u_screenHeight");
   pd.fillColorLoc = glGetUniformLocation(id, "u_fillColor");
+  pd.spanOffsetLoc = glGetUniformLocation(id, "u_spanOffset");
+  pd.spanMonitorSizeLoc = glGetUniformLocation(id, "u_spanMonitorSize");
+  pd.spanTotalSizeLoc = glGetUniformLocation(id, "u_spanTotalSize");
 
   // Per-transition (may be -1 if not used by this shader)
   pd.directionLoc = glGetUniformLocation(id, "u_direction");
@@ -391,89 +415,90 @@ void WallpaperProgram::initProgram(std::size_t index, const char* fragSource) {
   }
 }
 
-void WallpaperProgram::draw(
-    WallpaperTransition type, WallpaperSourceKind sourceKind1, TextureId texture1, const Color& sourceColor1,
-    WallpaperSourceKind sourceKind2, TextureId texture2, const Color& sourceColor2, float surfaceWidth,
-    float surfaceHeight, float quadWidth, float quadHeight, float imageWidth1, float imageHeight1, float imageWidth2,
-    float imageHeight2, float progress, float fillMode, const TransitionParams& params, const Color& fillColor,
-    const Mat3& transform
-) const {
-  auto idx = static_cast<std::size_t>(type);
-  if (idx >= kTransitionCount || !m_programs[idx].program.isValid() || quadWidth <= 0.0f || quadHeight <= 0.0f) {
+void WallpaperProgram::draw(const WallpaperDrawParams& p) const {
+  auto idx = static_cast<std::size_t>(p.transition);
+  if (idx >= kTransitionCount || !m_programs[idx].program.isValid() || p.quadWidth <= 0.0f || p.quadHeight <= 0.0f) {
     return;
   }
-  if (sourceKind1 == WallpaperSourceKind::Image && texture1 == 0) {
+  if (p.from.kind == WallpaperSourceKind::Image && p.from.texture == 0) {
     return;
   }
 
   const auto& pd = m_programs[idx];
+  const TransitionParams& tp = p.params;
 
   static constexpr float kQuad[] = {
       0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
   };
 
   glUseProgram(pd.program.id());
-  glUniform2f(pd.surfaceSizeLoc, surfaceWidth, surfaceHeight);
-  glUniform2f(pd.quadSizeLoc, quadWidth, quadHeight);
-  glUniformMatrix3fv(pd.transformLoc, 1, GL_FALSE, transform.m.data());
+  glUniform2f(pd.surfaceSizeLoc, p.surfaceWidth, p.surfaceHeight);
+  glUniform2f(pd.quadSizeLoc, p.quadWidth, p.quadHeight);
+  glUniformMatrix3fv(pd.transformLoc, 1, GL_FALSE, p.transform.m.data());
 
   // Textures
   glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(texture1.value()));
+  glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(p.from.texture.value()));
   glUniform1i(pd.source1Loc, 0);
 
   glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(texture2.value()));
+  glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(p.to.texture.value()));
   if (pd.source2Loc >= 0) {
     glUniform1i(pd.source2Loc, 1);
   }
 
   // Common uniforms
   if (pd.sourceKind1Loc >= 0)
-    glUniform1f(pd.sourceKind1Loc, sourceKind1 == WallpaperSourceKind::Color ? 1.0f : 0.0f);
+    glUniform1f(pd.sourceKind1Loc, p.from.kind == WallpaperSourceKind::Color ? 1.0f : 0.0f);
   if (pd.sourceKind2Loc >= 0)
-    glUniform1f(pd.sourceKind2Loc, sourceKind2 == WallpaperSourceKind::Color ? 1.0f : 0.0f);
+    glUniform1f(pd.sourceKind2Loc, p.to.kind == WallpaperSourceKind::Color ? 1.0f : 0.0f);
   if (pd.sourceColor1Loc >= 0)
-    glUniform4f(pd.sourceColor1Loc, sourceColor1.r, sourceColor1.g, sourceColor1.b, sourceColor1.a);
+    glUniform4f(pd.sourceColor1Loc, p.from.color.r, p.from.color.g, p.from.color.b, p.from.color.a);
   if (pd.sourceColor2Loc >= 0)
-    glUniform4f(pd.sourceColor2Loc, sourceColor2.r, sourceColor2.g, sourceColor2.b, sourceColor2.a);
-  glUniform1f(pd.progressLoc, progress);
+    glUniform4f(pd.sourceColor2Loc, p.to.color.r, p.to.color.g, p.to.color.b, p.to.color.a);
+  glUniform1f(pd.progressLoc, p.progress);
   if (pd.fillModeLoc >= 0)
-    glUniform1f(pd.fillModeLoc, fillMode);
+    glUniform1f(pd.fillModeLoc, p.fillMode);
   if (pd.imageWidth1Loc >= 0)
-    glUniform1f(pd.imageWidth1Loc, imageWidth1);
+    glUniform1f(pd.imageWidth1Loc, p.from.imageWidth);
   if (pd.imageHeight1Loc >= 0)
-    glUniform1f(pd.imageHeight1Loc, imageHeight1);
+    glUniform1f(pd.imageHeight1Loc, p.from.imageHeight);
   if (pd.imageWidth2Loc >= 0)
-    glUniform1f(pd.imageWidth2Loc, imageWidth2);
+    glUniform1f(pd.imageWidth2Loc, p.to.imageWidth);
   if (pd.imageHeight2Loc >= 0)
-    glUniform1f(pd.imageHeight2Loc, imageHeight2);
+    glUniform1f(pd.imageHeight2Loc, p.to.imageHeight);
   if (pd.screenWidthLoc >= 0)
-    glUniform1f(pd.screenWidthLoc, quadWidth);
+    glUniform1f(pd.screenWidthLoc, p.quadWidth);
   if (pd.screenHeightLoc >= 0)
-    glUniform1f(pd.screenHeightLoc, quadHeight);
+    glUniform1f(pd.screenHeightLoc, p.quadHeight);
   if (pd.fillColorLoc >= 0)
-    glUniform4f(pd.fillColorLoc, fillColor.r, fillColor.g, fillColor.b, fillColor.a);
+    glUniform4f(pd.fillColorLoc, p.fillColor.r, p.fillColor.g, p.fillColor.b, p.fillColor.a);
+  if (pd.spanOffsetLoc >= 0)
+    glUniform2f(pd.spanOffsetLoc, p.span.offsetX, p.span.offsetY);
+  if (pd.spanMonitorSizeLoc >= 0)
+    glUniform2f(pd.spanMonitorSizeLoc, p.span.monitorWidth, p.span.monitorHeight);
+  if (pd.spanTotalSizeLoc >= 0)
+    glUniform2f(pd.spanTotalSizeLoc, p.span.totalWidth, p.span.totalHeight);
 
   // Per-transition uniforms
   if (pd.directionLoc >= 0)
-    glUniform1f(pd.directionLoc, params.direction);
+    glUniform1f(pd.directionLoc, tp.direction);
   if (pd.smoothnessLoc >= 0)
-    glUniform1f(pd.smoothnessLoc, params.smoothness);
+    glUniform1f(pd.smoothnessLoc, tp.smoothness);
   if (pd.centerXLoc >= 0)
-    glUniform1f(pd.centerXLoc, params.centerX);
+    glUniform1f(pd.centerXLoc, tp.centerX);
   if (pd.centerYLoc >= 0)
-    glUniform1f(pd.centerYLoc, params.centerY);
+    glUniform1f(pd.centerYLoc, tp.centerY);
   if (pd.aspectRatioLoc >= 0)
-    glUniform1f(pd.aspectRatioLoc, params.aspectRatio);
+    glUniform1f(pd.aspectRatioLoc, tp.aspectRatio);
   if (pd.stripeCountLoc >= 0)
-    glUniform1f(pd.stripeCountLoc, params.stripeCount);
+    glUniform1f(pd.stripeCountLoc, tp.stripeCount);
   if (pd.angleLoc >= 0)
-    glUniform1f(pd.angleLoc, params.angle);
+    glUniform1f(pd.angleLoc, tp.angle);
   if (pd.maxBlockSizeLoc >= 0)
-    glUniform1f(pd.maxBlockSizeLoc, params.maxBlockSize);
+    glUniform1f(pd.maxBlockSizeLoc, tp.maxBlockSize);
   if (pd.cellSizeLoc >= 0)
-    glUniform1f(pd.cellSizeLoc, params.cellSize);
+    glUniform1f(pd.cellSizeLoc, tp.cellSize);
 
   // Draw fullscreen quad
   auto posAttr = static_cast<GLuint>(pd.positionLoc);

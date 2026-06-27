@@ -29,7 +29,7 @@ namespace capture {
     void setCompleteCallback(CompleteCallback callback);
     void setFrozenScreenshots(std::vector<FrozenScreenshot> screenshots);
     [[nodiscard]] std::vector<FrozenScreenshot> takeFrozenScreenshots();
-    void begin(bool freezeScreen, bool fullscreenPick = false);
+    void begin(bool freezeScreen, bool fullscreenPick = false, bool confirmRegion = false);
     void cancel();
     void cancelSelection();
     void onOutputChange();
@@ -47,6 +47,7 @@ namespace capture {
     void prepareFrame(Instance& instance, bool needsUpdate, bool needsLayout);
     void updateSelectionVisuals();
     void completeSelection();
+    void confirmPendingSelection();
     void completeFullscreenPick(wl_output* output);
 
     WaylandConnection* m_wayland = nullptr;
@@ -57,6 +58,8 @@ namespace capture {
     bool m_active = false;
     bool m_freezeScreen = false;
     bool m_fullscreenPick = false;
+    bool m_confirmRegion = false;
+    bool m_confirming = false;
     bool m_dragging = false;
     double m_startGlobalX = 0.0;
     double m_startGlobalY = 0.0;

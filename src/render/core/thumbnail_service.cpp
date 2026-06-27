@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "render/core/image_decoder.h"
+#include "render/core/texture_manager.h"
 #include "util/file_utils.h"
 
 #include <algorithm>
@@ -23,7 +24,6 @@
 namespace {
 
   constexpr Logger kLog("thumbnail");
-  constexpr int kThumbnailTargetPx = 192;
   constexpr float kThumbnailWebPQuality = 82.0f;
   constexpr std::size_t kMinWorkers = 2;
   constexpr std::size_t kMaxWorkers = 4;
@@ -58,7 +58,7 @@ namespace {
     return out;
   }
 
-  std::optional<std::filesystem::path> cachePathForSource(const std::string& sourcePath) {
+  std::optional<std::filesystem::path> cachePathForSource(const std::string& sourcePath, int targetPx) {
     namespace fs = std::filesystem;
     std::error_code ec;
     const auto size = fs::file_size(sourcePath, ec);
@@ -78,7 +78,7 @@ namespace {
         + '\n'
         + std::to_string(static_cast<long long>(ticks))
         + '\n'
-        + std::to_string(kThumbnailTargetPx)
+        + std::to_string(targetPx)
         + '\n'
         + std::string(kThumbnailCacheVersion);
     return thumbnailCacheDir() / (hex64(fnv1a64(key)) + ".webp");
@@ -122,13 +122,13 @@ namespace {
     return rgba;
   }
 
-  bool resizeThumbnail(std::vector<std::uint8_t>& pixels, int& width, int& height) {
+  bool resizeThumbnail(std::vector<std::uint8_t>& pixels, int& width, int& height, int targetPx) {
     const int maxDim = std::max(width, height);
-    if (maxDim <= kThumbnailTargetPx || width <= 0 || height <= 0) {
+    if (maxDim <= targetPx || width <= 0 || height <= 0) {
       return true;
     }
 
-    const float scale = static_cast<float>(kThumbnailTargetPx) / static_cast<float>(maxDim);
+    const float scale = static_cast<float>(targetPx) / static_cast<float>(maxDim);
     const int resizedW = std::max(1, static_cast<int>(std::lround(static_cast<float>(width) * scale)));
     const int resizedH = std::max(1, static_cast<int>(std::lround(static_cast<float>(height) * scale)));
 
@@ -146,6 +146,12 @@ namespace {
   }
 
 } // namespace
+
+std::size_t ThumbnailService::RequestKeyHash::operator()(const RequestKey& key) const noexcept {
+  const std::size_t pathHash = std::hash<std::string>{}(key.path);
+  const std::size_t sizeHash = std::hash<int>{}(key.targetPx);
+  return pathHash ^ (sizeHash + 0x9e3779b97f4a7c15ull + (pathHash << 6U) + (pathHash >> 2U));
+}
 
 ThumbnailService::Subscription::Subscription(std::function<void()> disconnect) : m_disconnect(std::move(disconnect)) {}
 
@@ -196,7 +202,7 @@ ThumbnailService::~ThumbnailService() {
   m_readyListeners.clear();
 
   {
-    std::lock_guard<std::mutex> lock(m_queueMutex);
+    std::scoped_lock lock(m_queueMutex);
     m_shutdown.store(true);
   }
   m_queueCv.notify_all();
@@ -223,7 +229,7 @@ ThumbnailService::Subscription ThumbnailService::subscribePendingUpload(PendingU
   m_pendingListeners.emplace(id, PendingListener{.callback = std::move(callback)});
   bool hasPendingResults = false;
   {
-    std::lock_guard<std::mutex> lock(m_resultMutex);
+    std::scoped_lock lock(m_resultMutex);
     hasPendingResults = !m_results.empty();
   }
   if (hasPendingResults && m_pendingListeners.contains(id) && m_pendingListeners[id].callback) {
@@ -240,19 +246,22 @@ ThumbnailService::Subscription ThumbnailService::subscribePendingUpload(PendingU
   });
 }
 
-ThumbnailService::Subscription ThumbnailService::subscribeReady(const std::string& path, ReadyCallback callback) {
+ThumbnailService::Subscription
+ThumbnailService::subscribeReady(const std::string& path, ReadyCallback callback, int targetPx) {
   if (path.empty() || !callback) {
     return {};
   }
 
-  const TextureHandle current = peek(path);
+  const TextureHandle current = peek(path, targetPx);
   if (current.id != 0) {
     callback(path, current);
     return {};
   }
 
   const std::uint64_t id = m_nextListenerId++;
-  m_readyListeners.emplace(id, ReadyListener{.path = path, .callback = std::move(callback)});
+  m_readyListeners.emplace(
+      id, ReadyListener{.key = RequestKey{.path = path, .targetPx = targetPx}, .callback = std::move(callback)}
+  );
 
   std::weak_ptr<bool> token = m_lifetimeToken;
   return Subscription([this, token, id]() {
@@ -264,31 +273,33 @@ ThumbnailService::Subscription ThumbnailService::subscribeReady(const std::strin
   });
 }
 
-TextureHandle ThumbnailService::acquire(const std::string& path) {
+TextureHandle ThumbnailService::acquire(const std::string& path, int targetPx) {
   if (path.empty()) {
     return {};
   }
 
-  CacheEntry& entry = m_entries[path];
+  const RequestKey key{.path = path, .targetPx = targetPx};
+  CacheEntry& entry = m_entries[key];
   ++entry.refCount;
   if (entry.handle.id != 0 || entry.failed) {
     return entry.handle;
   }
 
-  enqueueDecodeIfNeeded(path);
+  enqueueDecodeIfNeeded(key);
   return {};
 }
 
-TextureHandle ThumbnailService::peek(const std::string& path) const {
-  const auto it = m_entries.find(path);
+TextureHandle ThumbnailService::peek(const std::string& path, int targetPx) const {
+  const auto it = m_entries.find(RequestKey{.path = path, .targetPx = targetPx});
   if (it == m_entries.end()) {
     return {};
   }
   return it->second.handle;
 }
 
-void ThumbnailService::release(const std::string& path) {
-  const auto it = m_entries.find(path);
+void ThumbnailService::release(const std::string& path, int targetPx) {
+  const RequestKey key{.path = path, .targetPx = targetPx};
+  const auto it = m_entries.find(key);
   if (it == m_entries.end()) {
     return;
   }
@@ -307,20 +318,20 @@ void ThumbnailService::release(const std::string& path) {
   }
   m_entries.erase(it);
 
-  std::lock_guard<std::mutex> lock(m_queueMutex);
-  if (m_inFlight.contains(path)) {
-    m_canceled.insert(path);
+  std::scoped_lock lock(m_queueMutex);
+  if (m_inFlight.contains(key)) {
+    m_canceled.insert(key);
   }
 }
 
-void ThumbnailService::enqueueDecodeIfNeeded(const std::string& path) {
-  std::lock_guard<std::mutex> lock(m_queueMutex);
-  m_canceled.erase(path);
-  if (m_inFlight.contains(path)) {
+void ThumbnailService::enqueueDecodeIfNeeded(const RequestKey& key) {
+  std::scoped_lock lock(m_queueMutex);
+  m_canceled.erase(key);
+  if (m_inFlight.contains(key)) {
     return;
   }
-  m_inFlight.insert(path);
-  m_jobQueue.push_back(path);
+  m_inFlight.insert(key);
+  m_jobQueue.push_back(key);
   m_queueCv.notify_one();
 }
 
@@ -329,7 +340,7 @@ bool ThumbnailService::uploadPending(TextureManager& textures) {
 
   std::deque<DecodedJob> jobs;
   {
-    std::lock_guard<std::mutex> lock(m_resultMutex);
+    std::scoped_lock lock(m_resultMutex);
     jobs = std::move(m_results);
     m_results.clear();
   }
@@ -341,9 +352,9 @@ bool ThumbnailService::uploadPending(TextureManager& textures) {
   for (auto& job : jobs) {
     bool dropped = false;
     {
-      std::lock_guard<std::mutex> lock(m_queueMutex);
-      m_inFlight.erase(job.path);
-      if (auto c = m_canceled.find(job.path); c != m_canceled.end()) {
+      std::scoped_lock lock(m_queueMutex);
+      m_inFlight.erase(job.key);
+      if (auto c = m_canceled.find(job.key); c != m_canceled.end()) {
         m_canceled.erase(c);
         dropped = true;
       }
@@ -352,7 +363,7 @@ bool ThumbnailService::uploadPending(TextureManager& textures) {
       continue;
     }
 
-    auto entryIt = m_entries.find(job.path);
+    auto entryIt = m_entries.find(job.key);
     if (entryIt == m_entries.end() || entryIt->second.refCount == 0) {
       continue;
     }
@@ -364,7 +375,7 @@ bool ThumbnailService::uploadPending(TextureManager& textures) {
 
     TextureHandle handle = textures.loadFromRgba(job.rgba.data(), job.width, job.height);
     if (handle.id == 0) {
-      kLog.warn("failed to upload thumbnail texture for {}", job.path);
+      kLog.warn("failed to upload thumbnail texture for {}", job.key.path);
       entryIt->second.failed = true;
       changed = true;
       continue;
@@ -376,7 +387,7 @@ bool ThumbnailService::uploadPending(TextureManager& textures) {
     entryIt->second.handle = handle;
     entryIt->second.failed = false;
     changed = true;
-    notifyReady(job.path, handle);
+    notifyReady(job.key, handle);
   }
   return changed;
 }
@@ -384,21 +395,21 @@ bool ThumbnailService::uploadPending(TextureManager& textures) {
 void ThumbnailService::invalidateGpuResources(TextureManager& textures) {
   m_textureManager = &textures;
 
-  std::vector<std::string> livePaths;
-  livePaths.reserve(m_entries.size());
-  for (auto& [path, entry] : m_entries) {
+  std::vector<RequestKey> liveKeys;
+  liveKeys.reserve(m_entries.size());
+  for (auto& [key, entry] : m_entries) {
     if (entry.handle.id != 0) {
       m_textureManager->unload(entry.handle);
     }
     entry.handle = {};
     entry.failed = false;
     if (entry.refCount > 0) {
-      livePaths.push_back(path);
+      liveKeys.push_back(key);
     }
   }
 
-  for (const std::string& path : livePaths) {
-    enqueueDecodeIfNeeded(path);
+  for (const RequestKey& key : liveKeys) {
+    enqueueDecodeIfNeeded(key);
   }
 }
 
@@ -437,15 +448,15 @@ void ThumbnailService::signalMain() {
 
 void ThumbnailService::pushResult(DecodedJob job) {
   {
-    std::lock_guard<std::mutex> lock(m_resultMutex);
+    std::scoped_lock lock(m_resultMutex);
     m_results.push_back(std::move(job));
   }
   signalMain();
 }
 
 void ThumbnailService::deleteAllTextures() {
-  for (auto& [path, entry] : m_entries) {
-    (void)path;
+  for (auto& [key, entry] : m_entries) {
+    (void)key;
     if (entry.handle.id != 0 && m_textureManager != nullptr) {
       m_textureManager->unload(entry.handle);
     }
@@ -468,10 +479,10 @@ void ThumbnailService::notifyPendingUpload() {
   }
 }
 
-void ThumbnailService::notifyReady(const std::string& path, TextureHandle handle) {
+void ThumbnailService::notifyReady(const RequestKey& key, TextureHandle handle) {
   std::vector<std::pair<std::uint64_t, ReadyCallback>> callbacks;
   for (const auto& [id, listener] : m_readyListeners) {
-    if (listener.path == path && listener.callback) {
+    if (listener.key == key && listener.callback) {
       callbacks.emplace_back(id, listener.callback);
     }
   }
@@ -482,27 +493,28 @@ void ThumbnailService::notifyReady(const std::string& path, TextureHandle handle
       continue;
     }
     m_readyListeners.erase(it);
-    callback(path, handle);
+    callback(key.path, handle);
   }
 }
 
 void ThumbnailService::workerLoop() {
   while (true) {
-    std::string path;
+    RequestKey key;
     {
       std::unique_lock<std::mutex> lock(m_queueMutex);
       m_queueCv.wait(lock, [this]() { return m_shutdown.load() || !m_jobQueue.empty(); });
       if (m_shutdown.load()) {
         return;
       }
-      path = std::move(m_jobQueue.front());
+      key = std::move(m_jobQueue.front());
       m_jobQueue.pop_front();
     }
 
+    const std::string& path = key.path;
     DecodedJob result;
-    result.path = path;
+    result.key = key;
 
-    if (const auto cachePath = cachePathForSource(path); cachePath.has_value()) {
+    if (const auto cachePath = cachePathForSource(path, key.targetPx); cachePath.has_value()) {
       auto cachedBytes = FileUtils::readBinaryFile(cachePath->string());
       if (!cachedBytes.empty()) {
         if (auto cached = decodeRasterImage(cachedBytes.data(), cachedBytes.size())) {
@@ -536,13 +548,13 @@ void ThumbnailService::workerLoop() {
     int h = decoded->height;
     auto pixels = rgbaToRgb(decoded->pixels);
 
-    if (!resizeThumbnail(pixels, w, h)) {
+    if (!resizeThumbnail(pixels, w, h, key.targetPx)) {
       result.failed = true;
       pushResult(std::move(result));
       continue;
     }
 
-    if (const auto cachePath = cachePathForSource(path); cachePath.has_value()) {
+    if (const auto cachePath = cachePathForSource(path, key.targetPx); cachePath.has_value()) {
       std::uint8_t* encoded = nullptr;
       const std::size_t encodedSize = WebPEncodeRGB(pixels.data(), w, h, w * 3, kThumbnailWebPQuality, &encoded);
       if (encoded != nullptr && encodedSize > 0) {

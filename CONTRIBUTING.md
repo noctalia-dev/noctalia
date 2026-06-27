@@ -36,7 +36,7 @@ For dependencies and normal build commands, start with [README.md](README.md).
 | HTTP | `libcurl` |
 | Config | `tomlplusplus` (vendored) |
 | JSON | `nlohmann/json` (vendored) |
-| Math expressions | `tinyexpr` (vendored) |
+| Math expressions | `libqalculate` |
 | Scripting | `Luau` (vendored) |
 | Theme generation | Material Color Utilities (vendored) |
 
@@ -96,7 +96,7 @@ before commits and refreshes the git index for tracked formatting changes.
 | | Convention | Example |
 |---|---|---|
 | Files | snake_case | `widget_factory.cpp` |
-| Directories | snake_case | `shell/widgets/` |
+| Directories | snake_case | `shell/bar/widgets/` |
 | Types / Classes | PascalCase | `WidgetFactory` |
 | Functions / Methods | camelCase | `createWidget()` |
 | Variables / Parameters | camelCase | `busName` |
@@ -130,55 +130,98 @@ python3 tools/i18n-check.py
 
 ```text
 src/
-  main.cpp        Entry point
-  app/            Application bootstrap, main loop
-  auth/           PAM authentication (lockscreen)
-  config/         Configuration and state persistence (TOML)
-  core/           Logger, timer manager, shared utilities
-  dbus/           DBus service implementations
-  debug/          Debug service (runtime log toggling)
-  idle/           Idle manager and inhibitor
-  ipc/            IPC client/service (dev.noctalia.* commands)
-  launcher/       Launcher providers (apps, emoji, math, usage)
-  net/            HTTP client (libcurl)
-  notification/   Notification manager
-  pipewire/       PipeWire audio service and spectrum analyzer
+  main.cpp          Entry point
+  app/              Application bootstrap, main loop, poll sources
+  auth/             PAM and fingerprint authentication
+  calendar/         CalDAV, Google Calendar, iCalendar parsing, polling
+  capture/          Screenshots, screencopy capture, region overlay
+  compositors/      Compositor detection, runtime adapters, workspace/output/keyboard backends
+  config/           Configuration schema, validation, hot reload, state store, overrides
+    schema/         Typed config schema engine
+  core/             Logging, timers, process helpers, resource paths, shared utilities
+  dbus/             Session/system bus wrappers and service integrations
+    accounts/       AccountsService user metadata
+    bluetooth/      BlueZ service and pairing agent
+    idle/           Screensaver D-Bus service
+    logind/         logind integration
+    mpris/          Media player integration and artwork cache
+    network/        NetworkManager, wpa_supplicant, and secret agent integration
+    notification/   Desktop notification D-Bus service
+    polkit/         Polkit authentication agent
+    power/          power-profiles-daemon integration
+    tray/           StatusNotifierItem watcher/host
+    upower/         Battery and power device integration
+  debug/            Debug D-Bus service
+  hooks/            User hook state and hook manager
+  i18n/             Translation catalog and language tag handling
+  idle/             Idle manager, inhibitor, grace overlay
+  ipc/              IPC client/service and CLI command parsing
+  launcher/         Launcher providers (apps, emoji, calculator, sessions, windows, plugins)
+  net/              HTTP client, URI parsing, URL opening
+  notification/     Notification model, manager, filtering, history
+  pipewire/         PipeWire audio service, sound playback, spectrum analyzer
   render/
-    animation/    Animation manager and easing
-    core/         EGL/GLES renderer, image decoders
-    programs/     Shader programs per NodeType
-    scene/        Scene graph nodes (Rect, Text, Image, Icon, InputArea, ...)
-    text/         Cairo/Pango text rendering
+    animation/      Animation manager, easing, motion settings
+    backend/        GLES render backend, framebuffers, texture manager
+    core/           Render data types, image decoders/encoders, texture caches
+    programs/       GLES shader programs
+    scene/          Scene graph nodes and pointer input dispatch
+    text/           Cairo/Pango text and glyph rendering
+  scripting/        Luau plugin runtime, manifests, registry, source management, bindings
   shell/
-    bar/          Bar surface and instance
-    clipboard/    Clipboard history panel
-    control_center/ Control center panel and tabs
-    launcher/     Application launcher panel
-    lockscreen/   Session lockscreen surface
-    notification/ Notification popup
-    osd/          On-screen display (volume, brightness, ...)
-    overview/     Workspace overview
-    panel/        Panel base and manager
-    session/      Session panel (logout, reboot, ...)
-    tray/         System tray (StatusNotifierItem)
-    wallpaper/    Wallpaper surface and instance
-    widget/       Widget base and factory
-    widgets/      Widget implementations
-  system/         System monitor (CPU, RAM, temperature)
-  time/           Time service and polling
+    backdrop/       Backdrop layer surfaces
+    bar/            Bar surface, instance, widget base/factory
+      widgets/      Bar widget implementations
+    clipboard/      Clipboard history panel and paste helpers
+    control_center/ Control center panel, tabs, shortcut registry
+    desktop/        Desktop widget host, factory, layout, editor support
+      widgets/      Desktop widget implementations
+    dock/           Dock surface, model, pinned apps, context menu
+    greeter/        Greeter appearance sync
+    launcher/       Launcher panel
+    lockscreen/     Session lock surfaces and lockscreen widgets
+    notification/   Notification toasts
+    osd/            On-screen display overlays
+    overview/       Overview capture helpers
+    panel/          Panel base, manager, attached-panel context
+    polkit/         Polkit prompt panel
+    screen_corners/ Screen corner overlays
+    session/        Session panel and action runners
+    settings/       Settings window, setting controls, registries, popups
+    setup_wizard/   First-run setup wizard
+    surface/        Shared shell surface geometry and shadow helpers
+    switcher/       Window switcher UI
+    tooltip/        Tooltip manager
+    tray/           Tray drawer and D-Bus menu UI
+    wallpaper/      Wallpaper surfaces, paths, picker panel
+    widgets_editor/ Background widget editor
+  system/           Desktop entries, brightness, weather, location, system monitor, hardware services
+  theme/            Palette generation, templates, theme service, template application
+  time/             Time service and polling
   ui/
-    controls/     Low-level UI building blocks (Button, Input, Label, Flex, ...)
-  util/           Generic helpers (fuzzy matching, ...)
-  wayland/        Wayland connection, seat, toplevels, clipboard, ...
-    compositors/  Compositor-specific workspace backends (ext-workspace, sway, mango, dwl, ...)
+    controls/       Reusable controls (Button, Input, Label, Select, Slider, Box, ...)
+    dialogs/        File, color, and glyph picker dialogs
+    visuals/        Shared visualizer controls
+  util/             Generic helpers
+  wayland/          Wayland connection, seats, surfaces, clipboard, toplevels, text input
+    hyprland/       Hyprland-specific Wayland protocol helpers
+assets/
+  fonts/            Bundled Tabler and UI fonts
+  sounds/           Notification and UI sounds
+  templates/        Built-in theme templates
+  translations/     Exported translation catalogs
+protocols/          Vendored Wayland protocol XML files
+tests/              Unit tests and config validation fixtures
+tools/              Developer and translation helper scripts
+nix/                Nix package, module, and dev shell definitions
 third_party/
   tomlplusplus/   TOML parser (vendored)
   wuffs/          Raster image decoding (vendored)
   stb/            Image resizing (vendored)
-  tinyexpr/       Math expression evaluator (vendored)
   nlohmann/       JSON parser (vendored, header-only)
   dr_wav/         WAV decoder (vendored)
-  luau/           Scripted widget runtime (vendored)
+  fzy/            Fuzzy matching (vendored)
+  luau/           Plugin scripting runtime (vendored)
   material_color_utilities/ Material Design color generation (vendored)
 ```
 

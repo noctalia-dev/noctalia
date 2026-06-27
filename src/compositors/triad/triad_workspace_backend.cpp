@@ -276,6 +276,7 @@ std::vector<WorkspaceWindow> TriadWorkspaceBackend::workspaceWindows(const std::
             .title = window.title,
             .x = window.x,
             .y = window.y,
+            .outputName = {},
         }
     );
   }
@@ -346,7 +347,7 @@ void TriadWorkspaceBackend::apply(std::vector<Workspace>& workspaces, const std:
   const auto candidates = sortedWorkspaces(outputName);
   for (auto& workspace : workspaces) {
     const auto parsed = parseWorkspaceIndex(workspace.id);
-    const auto found = std::find_if(candidates.begin(), candidates.end(), [&](const WorkspaceState* candidate) {
+    const auto found = std::ranges::find_if(candidates, [&](const WorkspaceState* candidate) {
       if (parsed.has_value() && candidate->index == *parsed) {
         return true;
       }
@@ -710,7 +711,7 @@ std::string TriadWorkspaceBackend::workspaceKey(const WorkspaceState& workspace)
 }
 
 bool TriadWorkspaceBackend::isSyntheticPlaceholder(const WorkspaceState& workspace) {
-  return workspace.output.rfind("triad-", 0) == 0 && !workspace.active && !workspace.occupied && !workspace.urgent;
+  return workspace.output.starts_with("triad-") && !workspace.active && !workspace.occupied && !workspace.urgent;
 }
 
 std::optional<std::uint64_t> TriadWorkspaceBackend::jsonUnsigned(const nlohmann::json& json) {
@@ -775,7 +776,7 @@ TriadWorkspaceBackend::sortedWorkspaces(const std::string& outputName) const {
     }
     result.push_back(&workspace);
   }
-  std::sort(result.begin(), result.end(), [](const WorkspaceState* lhs, const WorkspaceState* rhs) {
+  std::ranges::sort(result, [](const WorkspaceState* lhs, const WorkspaceState* rhs) {
     if (lhs->index != rhs->index) {
       return lhs->index < rhs->index;
     }

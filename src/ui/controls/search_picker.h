@@ -14,8 +14,6 @@
 class Input;
 class InputArea;
 class Label;
-class Renderer;
-class VirtualListView;
 
 struct SearchPickerOption {
   std::string value;

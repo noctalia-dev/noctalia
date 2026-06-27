@@ -7,14 +7,20 @@
 
 class AudioVisualizer;
 class PipeWireSpectrum;
-class Renderer;
 
 class AudioVisualizerWidget : public Widget {
 public:
-  AudioVisualizerWidget(
-      PipeWireSpectrum* spectrum, float width, int bands, bool mirrored, ColorSpec color1, ColorSpec color2,
-      bool centered, bool showWhenIdle
-  );
+  struct Options {
+    float width = 56.0f;
+    int bands = 16;
+    bool mirrored = true;
+    bool centered = true;
+    bool showWhenIdle = false;
+    ColorSpec color1 = colorSpecFromRole(ColorRole::Primary);
+    ColorSpec color2 = colorSpecFromRole(ColorRole::Primary);
+  };
+
+  AudioVisualizerWidget(PipeWireSpectrum* spectrum, Options options);
   ~AudioVisualizerWidget() override;
 
   void create() override;

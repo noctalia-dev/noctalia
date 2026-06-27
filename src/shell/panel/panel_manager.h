@@ -3,16 +3,10 @@
 #include "core/timer_manager.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
-#include "render/scene/node.h"
 #include "shell/panel/attached_panel_context.h"
-#include "shell/panel/panel.h"
 #include "shell/panel/panel_click_shield.h"
 #include "ui/dialogs/layer_popup_host.h"
-#include "wayland/hyprland/focus_grab_service.h"
 #include "wayland/hyprland/popup_grab_host.h"
-#include "wayland/layer_surface.h"
-#include "wayland/surface.h"
-#include "wayland/wayland_seat.h"
 
 #include <cstdint>
 #include <functional>
@@ -28,9 +22,15 @@ class ContextMenuPopup;
 class SelectDropdownPopup;
 class Box;
 class IpcService;
-class Renderer;
+class FocusGrab;
+class LayerSurface;
+class Node;
+class Panel;
 class RenderContext;
+class Surface;
 class WaylandConnection;
+enum class LayerShellLayer : std::uint32_t;
+struct KeyboardEvent;
 struct PointerEvent;
 struct wl_output;
 struct wl_surface;
@@ -62,6 +62,7 @@ public:
   void setOpenSettingsWindowCallback(std::function<void()> callback);
   void setCloseSettingsWindowCallback(std::function<void()> callback);
   void setToggleSettingsWindowCallback(std::function<void()> callback);
+  void setCloseDesktopWidgetsEditorCallback(std::function<void()> callback);
   void openSettingsWindow();
   void closeSettingsWindow();
   void toggleSettingsWindow();
@@ -78,8 +79,15 @@ public:
   void setPanelClosedCallback(std::function<void()> callback);
   void setPanelOpenedCallback(std::function<void()> callback);
   void setAttachedPanelAvailabilityCallback(std::function<bool(wl_output*, std::string_view)> callback);
+  void setAttachedPanelLayerProvider(std::function<std::optional<std::string>(wl_output*, std::string_view)> provider);
+  void setAttachedPanelBarSettledCallback(std::function<bool(wl_output*, std::string_view)> callback);
+  // Called when an auto-hide bar finishes revealing for an attached panel open.
+  void onAttachedBarRevealSettled(wl_output* output, std::string_view barName);
 
   void registerPanel(const std::string& id, std::unique_ptr<Panel> content);
+  // Drops a previously registered panel, closing it first if it is open. Used to
+  // retire plugin-backed panels on a plugin enable/disable/reload.
+  void unregisterPanel(const std::string& id);
 
   void openPanel(const std::string& panelId, PanelOpenRequest request = {});
   void closePanel(bool animateClose = true);
@@ -118,6 +126,8 @@ public:
   void onConfigReloaded();
   void onIconThemeChanged();
   void focusArea(InputArea* area);
+  [[nodiscard]] InputDispatcher& inputDispatcher() noexcept { return m_inputDispatcher; }
+  [[nodiscard]] const InputDispatcher& inputDispatcher() const noexcept { return m_inputDispatcher; }
   void requestUpdateOnly();
   void requestLayout();
   // Requests a redraw on the active panel surface without re-running panel
@@ -157,10 +167,8 @@ private:
   // using the cached attached background opacity and bar position. Geometry/positions are not touched.
   // Safe to call any time after buildScene has run.
   void applyAttachedDecorationStyle();
-  // Submit a wl_region matching the visible panel body to the compositor for blur.
-  // Clips by m_attachedRevealProgress so the blur grows in lock-step with the
-  // open/close animation.
-  void applyPanelCompositorBlur();
+  // Submit a wl_region matching the panel body after applying the current reveal clip.
+  void applyPanelCompositorBlur(int bodyX, int bodyY, int bodyW, int bodyH, int clipX, int clipY, int clipW, int clipH);
 
   CompositorPlatform* m_platform = nullptr;
   ConfigService* m_config = nullptr;
@@ -168,6 +176,7 @@ private:
   std::function<void()> m_openSettingsWindow;
   std::function<void()> m_closeSettingsWindow;
   std::function<void()> m_toggleSettingsWindow;
+  std::function<void()> m_closeDesktopWidgetsEditor;
   std::function<void(wl_output*, std::string_view, std::optional<AttachedPanelGeometry>)>
       m_attachedPanelGeometryCallback;
   std::function<std::vector<InputRect>(wl_output*)> m_clickShieldExcludeRectsProvider;
@@ -175,6 +184,8 @@ private:
   std::function<void()> m_panelClosedCallback;
   std::function<void()> m_panelOpenedCallback;
   std::function<bool(wl_output*, std::string_view)> m_attachedPanelAvailabilityCallback;
+  std::function<std::optional<std::string>(wl_output*, std::string_view)> m_attachedPanelLayerProvider;
+  std::function<bool(wl_output*, std::string_view)> m_attachedPanelBarSettledCallback;
   PanelClickShield m_clickShield;
   std::unique_ptr<FocusGrab> m_focusGrab;
 
@@ -187,6 +198,8 @@ private:
   std::unique_ptr<Node> m_sceneRoot;
   Node* m_bgNode = nullptr;
   Node* m_contentNode = nullptr;
+  Node* m_detachedRevealClipNode = nullptr;
+  Node* m_detachedRevealContentNode = nullptr;
   Node* m_attachedRevealClipNode = nullptr;
   Node* m_attachedRevealContentNode = nullptr;
   Box* m_panelShadowNode = nullptr;
@@ -211,6 +224,7 @@ private:
   float m_attachedRevealProgress = 1.0f;
   float m_detachedRevealProgress = 1.0f;
   AttachedRevealDirection m_attachedRevealDirection = AttachedRevealDirection::Down;
+  AttachedRevealDirection m_detachedRevealDirection = AttachedRevealDirection::Down;
   Timer m_keyboardRelaxTimer;
   std::string m_attachedBarPosition; // "top" / "bottom" / "left" / "right" while attached, empty otherwise
   std::string m_sourceBarName;       // name of the bar that opened the current panel

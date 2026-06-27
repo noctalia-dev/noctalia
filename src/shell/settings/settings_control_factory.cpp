@@ -1,7 +1,9 @@
 #include "shell/settings/settings_control_factory.h"
 
+#include "config/config_service.h"
 #include "config/config_types.h"
 #include "i18n/i18n.h"
+#include "render/scene/input_area.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/settings_content_common.h"
 #include "ui/builders.h"
@@ -43,6 +45,51 @@ namespace settings {
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           })
       );
+    }
+
+    std::string joinSettingPath(const std::vector<std::string>& path) {
+      std::string joined;
+      joined.reserve(64);
+      for (std::size_t i = 0; i < path.size(); ++i) {
+        if (i > 0) {
+          joined += '.';
+        }
+        joined += path[i];
+      }
+      return joined;
+    }
+
+    bool tagTabFocusKey(Node& root, const std::string& key) {
+      if (auto* segmented = dynamic_cast<Segmented*>(&root)) {
+        if (InputArea* area = segmented->focusArea(); area != nullptr) {
+          area->setTabFocusKey(key);
+          return true;
+        }
+      }
+      if (auto* area = dynamic_cast<InputArea*>(&root)) {
+        if (area->focusable() && area->tabStop()) {
+          area->setTabFocusKey(key);
+          return true;
+        }
+      }
+      for (const auto& child : root.children()) {
+        if (tagTabFocusKey(*child, key)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    bool isDeadZoneCommandPath(const std::vector<std::string>& path) {
+      if (path.size() < 4 || path[0] != "bar" || path[path.size() - 2] != "dead_zone") {
+        return false;
+      }
+      const std::string& key = path.back();
+      return key == "command"
+          || key == "right_command"
+          || key == "middle_command"
+          || key == "scroll_up_command"
+          || key == "scroll_down_command";
     }
   } // namespace
 
@@ -184,6 +231,7 @@ namespace settings {
         actions->addChild(makeResetButton(entry.path));
       }
     }
+    tagTabFocusKey(*control, joinSettingPath(entry.path));
     actions->addChild(std::move(control));
 
     auto row = ui::row(
@@ -245,17 +293,18 @@ namespace settings {
           .options = std::move(segmentedOptions),
           .selectedIndex = optionIndex(setting.options, setting.selectedValue),
           .scale = scale,
-          .onChange = [setOverride = ctx.setOverride, clearOverride = ctx.clearOverride, path, options,
-                       integerValue](std::size_t index) {
+          .onChange = [setOverride = ctx.setOverride, clearOverride = ctx.clearOverride,
+                       requestRebuild = ctx.requestRebuild, path, options, integerValue](std::size_t index) {
             if (index < options.size()) {
               if (options[index].value.empty() && integerValue) {
                 clearOverride(path);
-                return;
-              }
-              if (integerValue) {
+              } else if (integerValue) {
                 setOverride(path, static_cast<std::int64_t>(std::stoll(options[index].value)));
               } else {
                 setOverride(path, options[index].value);
+              }
+              if (requestRebuild) {
+                requestRebuild();
               }
             }
           },
@@ -294,6 +343,42 @@ namespace settings {
             } else {
               setOverride(path, options[index].value);
             }
+          }
+        },
+    });
+  }
+
+  std::unique_ptr<Node> SettingsControlFactory::makeSearchPicker(
+      const SearchPickerSetting& setting, std::string title, std::vector<std::string> path
+  ) {
+    auto& ctx = m_ctx;
+    const float scale = m_scale;
+    return ui::button({
+        .text = optionLabel(setting.options, setting.selectedValue),
+        .glyph = "search",
+        .fontSize = Style::fontSizeBody * scale,
+        .glyphSize = Style::fontSizeBody * scale,
+        .contentAlign = ButtonContentAlign::Start,
+        .variant = ButtonVariant::Outline,
+        .minWidth = 190.0f * scale,
+        .minHeight = Style::controlHeight * scale,
+        .paddingV = Style::spaceSm * scale,
+        .paddingH = Style::spaceMd * scale,
+        .radius = Style::scaledRadiusMd(scale),
+        .onClick = [openPopup = ctx.openSearchPickerPopup, title = std::move(title), options = setting.options,
+                    selectedValue = setting.selectedValue, placeholder = setting.placeholder,
+                    emptyText = setting.emptyText, path = std::move(path)]() {
+          if (openPopup) {
+            openPopup(
+                SearchPickerOpenRequest{
+                    .title = title,
+                    .options = options,
+                    .selectedValue = selectedValue,
+                    .placeholder = placeholder,
+                    .emptyText = emptyText,
+                    .settingPath = path,
+                }
+            );
           }
         },
     });
@@ -509,7 +594,7 @@ namespace settings {
     const float inputWidth = (width > 0.0f ? width : 190.0f) * scale;
     auto input = ui::input({
         .value = value,
-        .placeholder = placeholder.empty() ? i18n::tr("settings.controls.list.add-entry-placeholder") : placeholder,
+        .placeholder = placeholder,
         .fontSize = Style::fontSizeBody * scale,
         .controlHeight = Style::controlHeight * scale,
         .horizontalPadding = Style::spaceSm * scale,
@@ -518,6 +603,12 @@ namespace settings {
         .onSubmit = [setOverride = ctx.setOverride, path](const std::string& v) { setOverride(path, v); },
         .submitOnFocusLoss = true,
     });
+    if (isDeadZoneCommandPath(path)) {
+      input->setOnChange([setOverride = ctx.setOverride, path](const std::string& v) { setOverride(path, v); });
+      // Live-commit dead-zone command edits so async rebuilds do not snap the field
+      // back to the last submitted value while the user is typing.
+      input->setSubmitOnFocusLoss(false);
+    }
     return input;
   }
 
@@ -670,10 +761,13 @@ namespace settings {
     }
     auto block = ui::column(std::move(blockProps));
 
-    auto titleRow = ui::row(
-        {.align = FlexAlign::Center,
-         .gap = Style::spaceSm * scale,
-         .minHeight = reserveTitleHeight ? std::optional<float>{Style::controlHeightSm * scale} : std::nullopt},
+    auto titleRow = ui::row({
+        .align = FlexAlign::Center,
+        .gap = Style::spaceSm * scale,
+        .minHeight = reserveTitleHeight ? std::optional<float>{Style::controlHeightSm * scale} : std::nullopt,
+        .fillWidth = compactTitleDescription ? std::optional<bool>{true} : std::nullopt,
+    });
+    titleRow->addChild(
         ui::label({
             .text = entry.title,
             .fontSize = Style::fontSizeBody * scale,
@@ -682,22 +776,35 @@ namespace settings {
             .fontWeight = FontWeight::Bold,
         })
     );
-    ui::FlexProps copyProps{.align = FlexAlign::Start, .flexGrow = 1.0f};
+
+    std::unique_ptr<Flex> overrideActions;
+    if (overridden && !compactTitleDescription) {
+      overrideActions = makeOverrideResetActions(entry.path);
+    }
+
+    ui::FlexProps copyProps{.align = FlexAlign::Start, .fillWidth = true};
     if (!compactTitleDescription) {
       copyProps.gap = Style::spaceXs * scale;
+      copyProps.flexGrow = 1.0f;
     }
     auto copy = ui::column(std::move(copyProps));
     copy->addChild(std::move(titleRow));
     if (!entry.subtitle.empty()) {
-      copy->addChild(makeSettingSubtitleLabel(entry.subtitle, scale));
+      auto subtitle = makeSettingSubtitleLabel(entry.subtitle, scale);
+      if (compactTitleDescription) {
+        subtitle->setFlexGrow(1.0f);
+      }
+      copy->addChild(std::move(subtitle));
     }
 
-    auto header = ui::row({.align = FlexAlign::Start, .gap = Style::spaceSm * scale, .fillWidth = true});
-    header->addChild(std::move(copy));
-    if (overridden) {
-      header->addChild(makeOverrideResetActions(entry.path));
+    if (!compactTitleDescription && overrideActions != nullptr) {
+      auto header = ui::row({.align = FlexAlign::Start, .gap = Style::spaceSm * scale, .fillWidth = true});
+      header->addChild(std::move(copy));
+      header->addChild(std::move(overrideActions));
+      block->addChild(std::move(header));
+    } else {
+      block->addChild(std::move(copy));
     }
-    block->addChild(std::move(header));
     return block;
   }
 
@@ -782,7 +889,7 @@ namespace settings {
 
     std::unordered_set<std::string> suggestedSet(map.suggestedKeys.begin(), map.suggestedKeys.end());
     std::vector<std::string> suggested = map.suggestedKeys;
-    std::sort(suggested.begin(), suggested.end());
+    std::ranges::sort(suggested);
 
     std::vector<std::string> customKeys;
     for (const auto& [key, value] : map.entries) {
@@ -791,7 +898,7 @@ namespace settings {
         customKeys.push_back(key);
       }
     }
-    std::sort(customKeys.begin(), customKeys.end());
+    std::ranges::sort(customKeys);
 
     const auto addSuggestedRow = [&](const std::string& key) {
       const auto valueIt = map.entries.find(key);

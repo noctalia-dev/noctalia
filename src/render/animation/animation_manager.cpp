@@ -19,13 +19,6 @@ AnimationManager::Id AnimationManager::animate(
   return animateInternal(from, to, durationMs, easing, std::move(setter), std::move(onComplete), owner, true, true);
 }
 
-AnimationManager::Id AnimationManager::animateUnscaled(
-    float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
-    std::function<void()> onComplete, const void* owner
-) {
-  return animateInternal(from, to, durationMs, easing, std::move(setter), std::move(onComplete), owner, false, true);
-}
-
 AnimationManager::Id AnimationManager::animateTimer(
     float from, float to, float durationMs, Easing easing, std::function<void(float)> setter,
     std::function<void()> onComplete, const void* owner

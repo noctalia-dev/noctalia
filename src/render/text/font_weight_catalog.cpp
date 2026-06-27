@@ -4,8 +4,6 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
-#include <climits>
-#include <cstdint>
 #include <fontconfig/fontconfig.h>
 #include <optional>
 #include <string>

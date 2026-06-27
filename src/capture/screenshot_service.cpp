@@ -14,6 +14,7 @@
 #include "render/core/image_encoder.h"
 #include "render/render_context.h"
 #include "shell/panel/panel_manager.h"
+#include "time/time_format.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 #include "wayland/clipboard_service.h"
@@ -27,16 +28,14 @@
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
-#include <ctime>
+#include <expected>
 #include <fcntl.h>
 #include <filesystem>
 #include <fstream>
-#include <pthread.h>
 #include <stb_image_resize2.h>
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
-#include <wayland-client.h>
 
 namespace {
 
@@ -46,24 +45,11 @@ namespace {
 
   [[nodiscard]] std::string formatFilenameStem(std::string_view pattern, const std::string& labelBase, int suffix) {
     const auto now = std::chrono::system_clock::now();
-    const std::time_t t = std::chrono::system_clock::to_time_t(now);
-    std::tm local{};
-    localtime_r(&t, &local);
-
+    const auto unixSeconds = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
     const std::string resolvedPattern = pattern.empty() ? defaultFilenamePattern() : std::string(pattern);
-    std::string stem(64, '\0');
-    std::size_t written = 0;
-    while (written == 0) {
-      written = std::strftime(stem.data(), stem.size(), resolvedPattern.c_str(), &local);
-      if (written == 0) {
-        if (stem.size() >= 4096) {
-          stem = "screenshot";
-          break;
-        }
-        stem.resize(stem.size() * 2);
-      } else {
-        stem.resize(written);
-      }
+    std::string stem = formatLocalUnixTime(unixSeconds, resolvedPattern);
+    if (stem.empty()) {
+      stem = "screenshot";
     }
 
     if (suffix > 0) {
@@ -266,11 +252,11 @@ namespace {
     return outputs;
   }
 
-  [[nodiscard]] wl_output*
-  resolveOutputSelector(const WaylandConnection& wayland, std::string_view selector, std::string& error) {
+  [[nodiscard]] std::expected<wl_output*, std::string>
+  resolveOutputSelector(const WaylandConnection& wayland, std::string_view selector) {
     const std::string token = StringUtils::trim(selector);
     if (token.empty()) {
-      return nullptr;
+      return std::unexpected("error: empty monitor selector\n");
     }
 
     std::vector<wl_output*> matches;
@@ -287,20 +273,20 @@ namespace {
       }
     }
 
-    std::sort(knownOutputs.begin(), knownOutputs.end());
-    knownOutputs.erase(std::unique(knownOutputs.begin(), knownOutputs.end()), knownOutputs.end());
-    std::sort(matches.begin(), matches.end(), [](wl_output* a, wl_output* b) {
+    std::ranges::sort(knownOutputs);
+    knownOutputs.erase(std::ranges::unique(knownOutputs).begin(), knownOutputs.end());
+    std::ranges::sort(matches, [](wl_output* a, wl_output* b) {
       return reinterpret_cast<std::uintptr_t>(a) < reinterpret_cast<std::uintptr_t>(b);
     });
-    matches.erase(std::unique(matches.begin(), matches.end()), matches.end());
+    matches.erase(std::ranges::unique(matches).begin(), matches.end());
 
     if (matches.empty()) {
-      error = "error: unknown monitor selector \"" + token + "\"";
+      std::string error = "error: unknown monitor selector \"" + token + "\"";
       if (!knownOutputs.empty()) {
         error += " (available: " + StringUtils::join(knownOutputs, ", ") + ")";
       }
       error += "\n";
-      return nullptr;
+      return std::unexpected(std::move(error));
     }
     if (matches.size() > 1) {
       std::vector<std::string> matchNames;
@@ -310,12 +296,13 @@ namespace {
           matchNames.push_back(entry->connectorName);
         }
       }
-      error = "error: monitor selector \""
+      return std::unexpected(
+          "error: monitor selector \""
           + token
           + "\" matched multiple outputs: "
           + StringUtils::join(matchNames, ", ")
-          + "\n";
-      return nullptr;
+          + "\n"
+      );
     }
 
     return matches.front();
@@ -558,6 +545,7 @@ ScreenshotService::OutputOptions ScreenshotService::outputOptionsFromConfig(cons
   options.copyToClipboard = screenshot.copyToClipboard;
   options.pipeToCommand = screenshot.pipeToCommand;
   options.freezeScreen = screenshot.freezeScreen;
+  options.confirmRegion = screenshot.confirmRegion;
   options.pipeCommand = screenshot.pipeCommand;
   options.directory = screenshot.directory;
   options.filenamePattern = screenshot.filenamePattern;
@@ -607,12 +595,11 @@ void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& config
           return "ok\n";
         }
         if (!token.empty() && token != "pick") {
-          std::string error;
-          wl_output* output = resolveOutputSelector(m_wayland, token, error);
-          if (!error.empty()) {
-            return error;
+          auto output = resolveOutputSelector(m_wayland, token);
+          if (!output) {
+            return output.error();
           }
-          captureFullscreen(options, output);
+          captureFullscreen(options, *output);
           return "ok\n";
         }
 
@@ -772,7 +759,7 @@ void ScreenshotService::startRegionOverlay(RenderContext& renderContext) {
   m_regionFullscreenPick = false;
   ensureRegionOverlay();
   m_regionOverlay->setFrozenScreenshots({});
-  m_regionOverlay->begin(false, false);
+  m_regionOverlay->begin(false, false, m_regionOutputOptions.confirmRegion);
 }
 
 void ScreenshotService::startFullscreenOverlay(RenderContext& renderContext) {
@@ -780,7 +767,7 @@ void ScreenshotService::startFullscreenOverlay(RenderContext& renderContext) {
   m_regionFullscreenPick = true;
   ensureRegionOverlay();
   m_regionOverlay->setFrozenScreenshots({});
-  m_regionOverlay->begin(false, true);
+  m_regionOverlay->begin(false, true, false);
 }
 
 void ScreenshotService::beginFreezeCapture() {
@@ -854,7 +841,7 @@ void ScreenshotService::finishFreezeCapture() {
 
   ensureRegionOverlay();
   m_regionOverlay->setFrozenScreenshots(std::move(m_frozenScreenshots));
-  m_regionOverlay->begin(true, m_regionFullscreenPick);
+  m_regionOverlay->begin(true, m_regionFullscreenPick, !m_regionFullscreenPick && m_regionOutputOptions.confirmRegion);
 }
 
 void ScreenshotService::abortFreezeCapture(const std::string& message) {

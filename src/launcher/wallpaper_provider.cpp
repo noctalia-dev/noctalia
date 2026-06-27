@@ -58,7 +58,7 @@ namespace {
       candidates.push_back(std::move(candidate));
     }
 
-    std::sort(candidates.begin(), candidates.end(), [](const auto& a, const auto& b) {
+    std::ranges::sort(candidates, [](const auto& a, const auto& b) {
       return StringUtils::toLower(a.name) < StringUtils::toLower(b.name);
     });
     return candidates;

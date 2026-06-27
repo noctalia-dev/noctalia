@@ -3,9 +3,10 @@
 #include "render/core/color.h"
 #include "render/core/mat3.h"
 #include "render/core/shader_program.h"
-#include "render/core/texture_handle.h"
 
 #include <GLES2/gl2.h>
+
+class TextureId;
 
 class ImageProgram {
 public:

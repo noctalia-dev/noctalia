@@ -1,5 +1,6 @@
 #include "config/config_types.h"
 
+#include "core/key_modifiers.h"
 #include "render/core/color.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
@@ -70,9 +71,7 @@ std::vector<PluginSourceConfig> defaultPluginSources() {
 
 bool isDefaultPluginSourceName(std::string_view name) {
   const auto sources = defaultPluginSources();
-  return std::any_of(sources.begin(), sources.end(), [name](const PluginSourceConfig& source) {
-    return source.name == name;
-  });
+  return std::ranges::contains(sources, name, &PluginSourceConfig::name);
 }
 
 bool isValidPluginSourceName(std::string_view name) {
@@ -96,24 +95,25 @@ bool isValidPluginSourceName(std::string_view name) {
 std::vector<SessionPanelActionConfig> defaultSessionPanelActions() {
   return {
       SessionPanelActionConfig{
-          "lock", true, std::nullopt, std::nullopt, std::nullopt, SessionActionButtonVariant::Default,
-          KeyChord{XKB_KEY_1, 0}
+          .action = "lock",
+          .shortcut = KeyChord{.sym = XKB_KEY_1},
       },
       SessionPanelActionConfig{
-          "logout", true, std::nullopt, std::nullopt, std::nullopt, SessionActionButtonVariant::Default,
-          KeyChord{XKB_KEY_2, 0}
+          .action = "logout",
+          .shortcut = KeyChord{.sym = XKB_KEY_2},
       },
       SessionPanelActionConfig{
-          "lock_and_suspend", true, std::nullopt, std::nullopt, std::nullopt, SessionActionButtonVariant::Default,
-          KeyChord{XKB_KEY_3, 0}
+          .action = "lock_and_suspend",
+          .shortcut = KeyChord{.sym = XKB_KEY_3},
       },
       SessionPanelActionConfig{
-          "reboot", true, std::nullopt, std::nullopt, std::nullopt, SessionActionButtonVariant::Default,
-          KeyChord{XKB_KEY_4, 0}
+          .action = "reboot",
+          .shortcut = KeyChord{.sym = XKB_KEY_4},
       },
       SessionPanelActionConfig{
-          "shutdown", true, std::nullopt, std::nullopt, std::nullopt, SessionActionButtonVariant::Destructive,
-          KeyChord{XKB_KEY_5, 0}
+          .action = "shutdown",
+          .variant = SessionActionButtonVariant::Destructive,
+          .shortcut = KeyChord{.sym = XKB_KEY_5},
       },
   };
 }
@@ -150,7 +150,11 @@ std::vector<IdleBehaviorConfig> defaultIdleBehaviors() {
 std::vector<KeyChord> defaultKeybindSet(KeybindAction action) {
   switch (action) {
   case KeybindAction::Validate:
-    return {{.sym = XKB_KEY_Return, .modifiers = 0}, {.sym = XKB_KEY_KP_Enter, .modifiers = 0}};
+    return {
+        {.sym = XKB_KEY_Return, .modifiers = 0},
+        {.sym = XKB_KEY_KP_Enter, .modifiers = 0},
+        {.sym = XKB_KEY_space, .modifiers = 0},
+    };
   case KeybindAction::Cancel:
     return {{.sym = XKB_KEY_Escape, .modifiers = 0}};
   case KeybindAction::Left:
@@ -161,6 +165,10 @@ std::vector<KeyChord> defaultKeybindSet(KeybindAction action) {
     return {{.sym = XKB_KEY_Up, .modifiers = 0}};
   case KeybindAction::Down:
     return {{.sym = XKB_KEY_Down, .modifiers = 0}};
+  case KeybindAction::TabNext:
+    return {{.sym = XKB_KEY_Tab, .modifiers = 0}};
+  case KeybindAction::TabPrevious:
+    return {{.sym = XKB_KEY_ISO_Left_Tab, .modifiers = KeyMod::Shift}};
   }
   return {};
 }
@@ -190,31 +198,7 @@ float detachedPanelBackgroundOpacityForTransparencyMode(PanelTransparencyMode mo
   return 1.0f;
 }
 
-void inferIdleBehaviorActionFromLegacyFields(IdleBehaviorConfig& behavior) {
-  if (!behavior.action.empty()) {
-    return;
-  }
-  if (behavior.command == "noctalia:session lock") {
-    behavior.action = "lock";
-    return;
-  }
-  if (behavior.command == "noctalia:dpms-off") {
-    behavior.action = "screen_off";
-    return;
-  }
-  if (behavior.command == "noctalia:session suspend") {
-    behavior.action = "suspend";
-    return;
-  }
-  if (behavior.command == "noctalia:session lock-and-suspend") {
-    behavior.action = "lock_and_suspend";
-    return;
-  }
-  behavior.action = "command";
-}
-
 void normalizeIdleBehaviorAction(IdleBehaviorConfig& behavior) {
-  inferIdleBehaviorActionFromLegacyFields(behavior);
   if (behavior.action == "suspend" && behavior.lockBeforeSuspend) {
     behavior.action = "lock_and_suspend";
   }

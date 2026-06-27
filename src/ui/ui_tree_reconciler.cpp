@@ -3,20 +3,29 @@
 #include "core/log.h"
 #include "render/core/color.h"
 #include "render/core/renderer.h"
+#include "render/scene/input_area.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/glyph.h"
 #include "ui/controls/graph.h"
 #include "ui/controls/image.h"
+#include "ui/controls/input.h"
 #include "ui/controls/label.h"
 #include "ui/controls/progress_bar.h"
+#include "ui/controls/scroll_view.h"
+#include "ui/controls/select.h"
 #include "ui/controls/separator.h"
+#include "ui/controls/slider.h"
 #include "ui/controls/spacer.h"
+#include "ui/controls/toggle.h"
 #include "ui/palette.h"
+#include "ui/style.h"
+#include "ui/ui_tree.h"
 
-#include <algorithm>
 #include <cmath>
+#include <format>
+#include <linux/input-event-codes.h>
 #include <optional>
 #include <unordered_set>
 #include <utility>
@@ -44,6 +53,11 @@ namespace ui {
     const std::vector<double>* arrayProp(const UiTreeNode& node, const char* key) {
       const auto it = node.props.find(key);
       return it != node.props.end() ? std::get_if<std::vector<double>>(&it->second) : nullptr;
+    }
+
+    const std::vector<std::string>* strArrayProp(const UiTreeNode& node, const char* key) {
+      const auto it = node.props.find(key);
+      return it != node.props.end() ? std::get_if<std::vector<std::string>>(&it->second) : nullptr;
     }
 
     // Role token ("primary", "on_surface", …) or hex ("#rrggbb[aa]").
@@ -156,6 +170,22 @@ namespace ui {
       return std::nullopt;
     }
 
+    // The Node that a control's children reconcile into. Flex containers host
+    // their children directly; a ScrollView hosts them in its inner content
+    // Flex. Any other control returns nullptr — it cannot have children.
+    Node* childContainer(const std::string& type, Node* node) {
+      if (node == nullptr) {
+        return nullptr;
+      }
+      if (type == "column" || type == "row") {
+        return node;
+      }
+      if (type == "scroll") {
+        return static_cast<ScrollView*>(node)->content();
+      }
+      return nullptr;
+    }
+
     std::vector<float> toFloatSeries(const std::vector<double>& values) {
       std::vector<float> out;
       out.reserve(values.size());
@@ -163,6 +193,43 @@ namespace ui {
         out.push_back(std::clamp(static_cast<float>(v), 0.0f, 1.0f));
       }
       return out;
+    }
+
+    template <typename Control> Control* controlFromSlot(Node* node) {
+      if (node == nullptr) {
+        return nullptr;
+      }
+      if (auto* control = dynamic_cast<Control*>(node)) {
+        return control;
+      }
+      if (auto* inputArea = dynamic_cast<InputArea*>(node)) {
+        const auto& kids = inputArea->children();
+        if (!kids.empty()) {
+          return dynamic_cast<Control*>(kids.front().get());
+        }
+      }
+      return nullptr;
+    }
+
+    InputArea* inputAreaFromSlot(Node* node) { return dynamic_cast<InputArea*>(node); }
+
+    // box/image get an InputArea wrapper only when clickable (see createControl).
+    // If a reconcile flips that need, the existing node can't be reused — its
+    // structure no longer matches — so it must be rebuilt like a type change.
+    bool clickableWrapMismatch(const UiTreeNode& want, Node* node) {
+      if (want.type != "box" && want.type != "image") {
+        return false;
+      }
+      const bool wantsWrapper = strProp(want, "onClick") != nullptr;
+      const bool hasWrapper = inputAreaFromSlot(node) != nullptr;
+      return wantsWrapper != hasWrapper;
+    }
+
+    std::unique_ptr<Node> wrapClickable(std::unique_ptr<Node> control) {
+      auto inputArea = std::make_unique<InputArea>();
+      inputArea->setAcceptedButtons(InputArea::buttonMask(BTN_LEFT));
+      inputArea->addChild(std::move(control));
+      return inputArea;
     }
 
     // Known prop keys per control type — an unknown prop is a loud skip, not a
@@ -173,27 +240,44 @@ namespace ui {
           "width", "height",  "flexGrow", "opacity", "visible", "gap",         "padding",  "paddingH", "paddingV",
           "align", "justify", "fill",     "radius",  "border",  "borderWidth", "minWidth", "minHeight"
       };
-      static const std::unordered_set<std::string> kBox = {"width", "height", "flexGrow", "opacity",     "visible",
-                                                           "fill",  "radius", "border",   "borderWidth", "softness"};
+      static const std::unordered_set<std::string> kBox = {"width",       "height",   "flexGrow", "opacity",
+                                                           "visible",     "fill",     "radius",   "border",
+                                                           "borderWidth", "softness", "onClick"};
       static const std::unordered_set<std::string> kLabel = {"width",      "height",   "flexGrow", "opacity",
                                                              "visible",    "text",     "fontSize", "color",
                                                              "fontWeight", "maxWidth", "maxLines", "textAlign"};
       static const std::unordered_set<std::string> kGlyph = {"width",   "height", "flexGrow", "opacity",
                                                              "visible", "name",   "size",     "color"};
-      static const std::unordered_set<std::string> kImage = {"width",   "height", "flexGrow", "opacity",
-                                                             "visible", "path",   "radius",   "fit"};
+      static const std::unordered_set<std::string> kImage = {"width",   "height",      "flexGrow", "opacity",
+                                                             "visible", "path",        "radius",   "fit",
+                                                             "border",  "borderWidth", "onClick"};
       static const std::unordered_set<std::string> kSeparator = {"width",   "height",  "flexGrow",
                                                                  "opacity", "visible", "thickness",
                                                                  "color",   "spacing", "orientation"};
       static const std::unordered_set<std::string> kProgress = {"width",    "height", "flexGrow", "opacity", "visible",
                                                                 "progress", "fill",   "track",    "radius"};
-      static const std::unordered_set<std::string> kButton = {"width",       "height",  "flexGrow", "opacity",
-                                                              "visible",     "text",    "glyph",    "fontSize",
-                                                              "glyphSize",   "variant", "enabled",  "onClick",
-                                                              "onRightClick"};
+      static const std::unordered_set<std::string> kButton = {"width",     "height",      "flexGrow", "opacity",
+                                                              "visible",   "text",        "glyph",    "fontSize",
+                                                              "glyphSize", "variant",     "enabled",  "selected",
+                                                              "onClick",   "onRightClick"};
       static const std::unordered_set<std::string> kGraph = {"width",   "height",    "flexGrow",   "opacity",
                                                              "visible", "values",    "values2",    "color",
                                                              "color2",  "lineWidth", "fillOpacity"};
+      static const std::unordered_set<std::string> kInput = {"width",   "height",   "flexGrow",    "opacity",
+                                                             "visible", "value",    "placeholder", "fontSize",
+                                                             "enabled", "password", "onChange",    "onSubmit"};
+      static const std::unordered_set<std::string> kSelect = {"width",       "height",  "flexGrow",      "opacity",
+                                                              "visible",     "options", "selectedIndex", "enabled",
+                                                              "placeholder", "onChange"};
+      static const std::unordered_set<std::string> kSlider = {"width",   "height",  "flexGrow", "opacity",
+                                                              "visible", "min",     "max",      "step",
+                                                              "value",   "enabled", "onChange", "onDragEnd"};
+      static const std::unordered_set<std::string> kToggle = {"width",   "height",  "flexGrow", "opacity",
+                                                              "visible", "checked", "enabled",  "onChange"};
+      static const std::unordered_set<std::string> kScroll = {"width",       "height", "flexGrow", "opacity",
+                                                              "visible",     "fill",   "radius",   "border",
+                                                              "borderWidth", "gap",    "padding",  "paddingH",
+                                                              "paddingV",    "align",  "justify"};
 
       if (type == "column" || type == "row") {
         return kFlex;
@@ -222,6 +306,21 @@ namespace ui {
       if (type == "graph") {
         return kGraph;
       }
+      if (type == "input") {
+        return kInput;
+      }
+      if (type == "select") {
+        return kSelect;
+      }
+      if (type == "slider") {
+        return kSlider;
+      }
+      if (type == "toggle") {
+        return kToggle;
+      }
+      if (type == "scroll") {
+        return kScroll;
+      }
       return kCommon;
     }
 
@@ -231,10 +330,17 @@ namespace ui {
     std::string type;
     std::string key;
     Node* node = nullptr;
-    std::string callbackName;      // last-wired button onClick target
-    std::string rightCallbackName; // last-wired button onRightClick target
-    std::string imagePath;         // last-applied resolved image source
+    std::string callbackName;        // last-wired button onClick / control onChange target
+    std::string rightCallbackName;   // last-wired button onRightClick target
+    std::string submitCallbackName;  // last-wired input onSubmit target
+    std::string dragEndCallbackName; // last-wired slider onDragEnd target
+    std::string imagePath;           // last-applied resolved image source
     float imageTargetSize = 0.0f;
+    // Controlled-with-change-detection: a value-driven control (toggle/slider/
+    // select) only re-applies its declared value when it differs from the last
+    // applied one, so an async re-render never fights an optimistic local change.
+    std::optional<double> lastScalar;
+    bool seeded = false; // an uncontrolled input has had its initial value applied
     std::vector<Slot> children;
   };
 
@@ -247,18 +353,29 @@ namespace ui {
     return syncChildren(host, m_rootSlots, desired, renderer);
   }
 
+  void UiTreeReconciler::reset() { m_rootSlots.clear(); }
+
   std::unique_ptr<Node> UiTreeReconciler::createControl(const UiTreeNode& desired) {
+    // ui.* flex containers default to stretching children across the cross axis
+    // (like CSS flexbox), so a column fills its width without every plugin having
+    // to say so. Override per node with `align`. (Flex's own C++ default is
+    // Center, which the native shell relies on — only the ui.* layer changes.)
     if (desired.type == "column") {
       auto flex = std::make_unique<Flex>();
       flex->setDirection(FlexDirection::Vertical);
+      flex->setAlign(FlexAlign::Stretch);
       return flex;
     }
     if (desired.type == "row") {
       auto flex = std::make_unique<Flex>();
       flex->setDirection(FlexDirection::Horizontal);
+      flex->setAlign(FlexAlign::Stretch);
       return flex;
     }
     if (desired.type == "box") {
+      if (strProp(desired, "onClick") != nullptr) {
+        return wrapClickable(std::make_unique<Box>());
+      }
       return std::make_unique<Box>();
     }
     if (desired.type == "label") {
@@ -268,6 +385,9 @@ namespace ui {
       return std::make_unique<Glyph>();
     }
     if (desired.type == "image") {
+      if (strProp(desired, "onClick") != nullptr) {
+        return wrapClickable(std::make_unique<Image>());
+      }
       return std::make_unique<Image>();
     }
     if (desired.type == "separator") {
@@ -285,6 +405,23 @@ namespace ui {
     if (desired.type == "graph") {
       return std::make_unique<Graph>();
     }
+    if (desired.type == "input") {
+      return std::make_unique<Input>();
+    }
+    if (desired.type == "select") {
+      return std::make_unique<Select>();
+    }
+    if (desired.type == "slider") {
+      return std::make_unique<Slider>();
+    }
+    if (desired.type == "toggle") {
+      return std::make_unique<Toggle>();
+    }
+    if (desired.type == "scroll") {
+      auto scroll = std::make_unique<ScrollView>();
+      scroll->content()->setAlign(FlexAlign::Stretch); // match the ui.* column/row default
+      return scroll;
+    }
     kLog.warn("ui tree: unknown control type '{}', node skipped", desired.type);
     return nullptr;
   }
@@ -296,7 +433,9 @@ namespace ui {
     bool sequenceMatches = slots.size() == desired.size();
     if (sequenceMatches) {
       for (std::size_t i = 0; i < slots.size(); ++i) {
-        if (slots[i].type != desired[i].type || slots[i].key != desired[i].key) {
+        if (slots[i].type != desired[i].type
+            || slots[i].key != desired[i].key
+            || clickableWrapMismatch(desired[i], slots[i].node)) {
           sequenceMatches = false;
           break;
         }
@@ -328,7 +467,10 @@ namespace ui {
       for (const auto& want : desired) {
         Detached* match = nullptr;
         for (auto& candidate : detached) {
-          if (candidate.used || candidate.slot.type != want.type || candidate.slot.key != want.key) {
+          if (candidate.used
+              || candidate.slot.type != want.type
+              || candidate.slot.key != want.key
+              || clickableWrapMismatch(want, candidate.node.get())) {
             continue;
           }
           match = &candidate;
@@ -367,14 +509,15 @@ namespace ui {
       }
       ++slotIndex;
       applyProps(slot, want, renderer);
+      Node* container = childContainer(want.type, slot.node);
       if (slot.node != nullptr && !want.children.empty()) {
-        if (want.type != "column" && want.type != "row") {
+        if (container == nullptr) {
           kLog.warn("ui tree: '{}' cannot have children, {} dropped", want.type, want.children.size());
         } else {
-          structureChanged |= syncChildren(*slot.node, slot.children, want.children, renderer);
+          structureChanged |= syncChildren(*container, slot.children, want.children, renderer);
         }
-      } else if (slot.node != nullptr && want.children.empty() && !slot.children.empty()) {
-        structureChanged |= syncChildren(*slot.node, slot.children, {}, renderer);
+      } else if (container != nullptr && want.children.empty() && !slot.children.empty()) {
+        structureChanged |= syncChildren(*container, slot.children, {}, renderer);
       }
     }
     return structureChanged;
@@ -458,7 +601,10 @@ namespace ui {
     }
 
     if (desired.type == "box") {
-      auto* box = static_cast<Box*>(node);
+      auto* box = controlFromSlot<Box>(node);
+      if (box == nullptr) {
+        return;
+      }
       if (auto fill = parseColor(desired, "fill")) {
         box->setFill(*fill);
       }
@@ -472,9 +618,23 @@ namespace ui {
       if (const double* softness = numProp(desired, "softness")) {
         box->setSoftness(static_cast<float>(*softness));
       }
-      box->setSize(
-          width != nullptr ? scaled(*width) : node->width(), height != nullptr ? scaled(*height) : node->height()
-      );
+      const float boxWidth = width != nullptr ? scaled(*width) : node->width();
+      const float boxHeight = height != nullptr ? scaled(*height) : node->height();
+      box->setSize(boxWidth, boxHeight);
+      if (auto* inputArea = inputAreaFromSlot(node)) {
+        inputArea->setSize(boxWidth, boxHeight);
+      }
+      if (const std::string* onClick = strProp(desired, "onClick");
+          onClick != nullptr && *onClick != slot.callbackName) {
+        slot.callbackName = *onClick;
+        if (auto* inputArea = inputAreaFromSlot(node)) {
+          inputArea->setOnClick([this, name = slot.callbackName](const InputArea::PointerData&) {
+            if (m_sink) {
+              m_sink(ControlCallback{name});
+            }
+          });
+        }
+      }
       return;
     }
 
@@ -519,7 +679,10 @@ namespace ui {
     }
 
     if (desired.type == "image") {
-      auto* image = static_cast<Image*>(node);
+      auto* image = controlFromSlot<Image>(node);
+      if (image == nullptr) {
+        return;
+      }
       if (const double* radius = numProp(desired, "radius")) {
         image->setRadius(scaled(*radius));
       }
@@ -534,9 +697,18 @@ namespace ui {
           kLog.warn("ui tree: image has unknown fit '{}'", *fit);
         }
       }
+      if (auto border = parseColor(desired, "border")) {
+        const double* borderWidth = numProp(desired, "borderWidth");
+        image->setBorder(*border, borderWidth != nullptr ? scaled(*borderWidth) : Style::borderWidth);
+      } else {
+        image->setBorder(clearColorSpec(), 0.0f);
+      }
       const float imageWidth = width != nullptr ? scaled(*width) : node->width();
       const float imageHeight = height != nullptr ? scaled(*height) : imageWidth;
       image->setSize(imageWidth, imageHeight);
+      if (auto* inputArea = inputAreaFromSlot(node)) {
+        inputArea->setSize(imageWidth, imageHeight);
+      }
       if (const std::string* path = strProp(desired, "path")) {
         const std::string resolved = m_resolver ? m_resolver(*path) : *path;
         const float targetSize = std::max(1.0f, std::max(imageWidth, imageHeight) * 3.0f);
@@ -546,6 +718,17 @@ namespace ui {
           if (!image->setSourceFile(renderer, resolved, static_cast<int>(std::round(targetSize)), true)) {
             kLog.warn("ui tree: image failed to load '{}'", resolved);
           }
+        }
+      }
+      if (const std::string* onClick = strProp(desired, "onClick");
+          onClick != nullptr && *onClick != slot.callbackName) {
+        slot.callbackName = *onClick;
+        if (auto* inputArea = inputAreaFromSlot(node)) {
+          inputArea->setOnClick([this, name = slot.callbackName](const InputArea::PointerData&) {
+            if (m_sink) {
+              m_sink(ControlCallback{name});
+            }
+          });
         }
       }
       return;
@@ -598,11 +781,15 @@ namespace ui {
 
     if (desired.type == "button") {
       auto* button = static_cast<Button*>(node);
-      if (const std::string* text = strProp(desired, "text")) {
-        button->setText(*text);
-      }
-      if (const std::string* glyph = strProp(desired, "glyph")) {
+      const std::string* text = strProp(desired, "text");
+      const std::string* glyph = strProp(desired, "glyph");
+      if (glyph != nullptr) {
         button->setGlyph(*glyph);
+      }
+      if (text != nullptr) {
+        button->setText(*text);
+      } else if (glyph != nullptr) {
+        button->setText("");
       }
       if (const double* fontSize = numProp(desired, "fontSize")) {
         button->setFontSize(scaled(*fontSize));
@@ -616,12 +803,15 @@ namespace ui {
       if (const bool* enabled = boolProp(desired, "enabled")) {
         button->setEnabled(*enabled);
       }
+      if (const bool* selected = boolProp(desired, "selected")) {
+        button->setSelected(*selected);
+      }
       if (const std::string* onClick = strProp(desired, "onClick");
           onClick != nullptr && *onClick != slot.callbackName) {
         slot.callbackName = *onClick;
         button->setOnClick([this, name = slot.callbackName]() {
           if (m_sink) {
-            m_sink(name);
+            m_sink(ControlCallback{name});
           }
         });
       }
@@ -630,7 +820,7 @@ namespace ui {
         slot.rightCallbackName = *onRightClick;
         button->setOnRightClick([this, name = slot.rightCallbackName]() {
           if (m_sink) {
-            m_sink(name);
+            m_sink(ControlCallback{name});
           }
         });
       }
@@ -668,6 +858,205 @@ namespace ui {
       graph->setSize(
           width != nullptr ? scaled(*width) : node->width(), height != nullptr ? scaled(*height) : node->height()
       );
+      return;
+    }
+
+    if (desired.type == "toggle") {
+      auto* toggle = static_cast<Toggle*>(node);
+      if (const bool* checked = boolProp(desired, "checked")) {
+        const double v = *checked ? 1.0 : 0.0;
+        if (!slot.lastScalar.has_value() || *slot.lastScalar != v) {
+          slot.lastScalar = v;
+          toggle->setChecked(*checked);
+        }
+      }
+      if (const bool* enabled = boolProp(desired, "enabled")) {
+        toggle->setEnabled(*enabled);
+      }
+      if (const std::string* onChange = strProp(desired, "onChange");
+          onChange != nullptr && *onChange != slot.callbackName) {
+        slot.callbackName = *onChange;
+        toggle->setOnChange([this, name = slot.callbackName](bool value) {
+          if (m_sink) {
+            m_sink(ControlCallback{name, value ? "true" : "false"});
+          }
+        });
+      }
+      return;
+    }
+
+    if (desired.type == "slider") {
+      auto* slider = static_cast<Slider*>(node);
+      const double* minV = numProp(desired, "min");
+      const double* maxV = numProp(desired, "max");
+      if (minV != nullptr || maxV != nullptr) {
+        slider->setRange(minV != nullptr ? *minV : slider->minValue(), maxV != nullptr ? *maxV : slider->maxValue());
+      }
+      if (const double* step = numProp(desired, "step")) {
+        slider->setStep(*step);
+      }
+      if (const double* value = numProp(desired, "value")) {
+        // Don't fight an in-progress drag, and only re-apply a changed value.
+        if (!slider->dragging() && (!slot.lastScalar.has_value() || *slot.lastScalar != *value)) {
+          slot.lastScalar = *value;
+          slider->setValue(*value);
+        }
+      }
+      if (const bool* enabled = boolProp(desired, "enabled")) {
+        slider->setEnabled(*enabled);
+      }
+      if (const std::string* onChange = strProp(desired, "onChange");
+          onChange != nullptr && *onChange != slot.callbackName) {
+        slot.callbackName = *onChange;
+        slider->setOnValueChanged([this, name = slot.callbackName](double value) {
+          if (m_sink) {
+            m_sink(ControlCallback{name, std::format("{}", value), "", true});
+          }
+        });
+      }
+      if (const std::string* onDragEnd = strProp(desired, "onDragEnd");
+          onDragEnd != nullptr && *onDragEnd != slot.dragEndCallbackName) {
+        slot.dragEndCallbackName = *onDragEnd;
+        slider->setOnDragEnd([this, name = slot.dragEndCallbackName]() {
+          if (m_sink) {
+            m_sink(ControlCallback{name});
+          }
+        });
+      }
+      return;
+    }
+
+    if (desired.type == "select") {
+      auto* select = static_cast<Select*>(node);
+      const std::string* onChangeProp = strProp(desired, "onChange");
+      if (const std::vector<std::string>* options = strArrayProp(desired, "options")) {
+        select->setOptions(*options);
+        slot.lastScalar.reset(); // re-apply the selection against the new option set
+      }
+      if (const double* index = numProp(desired, "selectedIndex")) {
+        if (!slot.lastScalar.has_value() || *slot.lastScalar != *index) {
+          slot.lastScalar = *index;
+          select->setSelectedIndexSilently(static_cast<std::size_t>(std::max(0.0, *index)));
+        }
+      }
+      if (const bool* enabled = boolProp(desired, "enabled")) {
+        select->setEnabled(*enabled);
+      }
+      if (const std::string* placeholder = strProp(desired, "placeholder")) {
+        select->setPlaceholder(*placeholder);
+      }
+      if (onChangeProp != nullptr && *onChangeProp != slot.callbackName) {
+        slot.callbackName = *onChangeProp;
+        select->setOnSelectionChanged([this, name = slot.callbackName](std::size_t idx, std::string_view text) {
+          if (m_sink) {
+            m_sink(ControlCallback{name, std::format("{}", idx), std::string(text)});
+          }
+        });
+      }
+      if (width != nullptr) {
+        const float w = scaled(*width);
+        select->setMinWidth(w);
+        if (const double* grow = numProp(desired, "flexGrow"); grow == nullptr || *grow <= 0.0) {
+          select->setMaxWidth(w);
+        }
+      }
+      if (height != nullptr) {
+        select->setControlHeight(scaled(*height));
+      }
+      return;
+    }
+
+    if (desired.type == "input") {
+      auto* input = static_cast<Input*>(node);
+      // Uncontrolled: the host owns the text buffer/cursor. `value` seeds the
+      // field once at creation; later reconciles never overwrite what the user
+      // typed (the node key keeps the same Input instance alive across renders).
+      if (!slot.seeded) {
+        if (const std::string* value = strProp(desired, "value")) {
+          input->setValue(*value);
+        }
+        slot.seeded = true;
+      }
+      if (const std::string* placeholder = strProp(desired, "placeholder")) {
+        input->setPlaceholder(*placeholder);
+      }
+      if (const double* fontSize = numProp(desired, "fontSize")) {
+        input->setFontSize(scaled(*fontSize));
+      }
+      if (const bool* password = boolProp(desired, "password")) {
+        input->setPasswordMode(*password);
+      }
+      if (const bool* enabled = boolProp(desired, "enabled")) {
+        input->setEnabled(*enabled);
+      }
+      if (const std::string* onChange = strProp(desired, "onChange");
+          onChange != nullptr && *onChange != slot.callbackName) {
+        slot.callbackName = *onChange;
+        input->setOnChange([this, name = slot.callbackName](const std::string& value) {
+          if (m_sink) {
+            m_sink(ControlCallback{name, value, "", true});
+          }
+        });
+      }
+      if (const std::string* onSubmit = strProp(desired, "onSubmit");
+          onSubmit != nullptr && *onSubmit != slot.submitCallbackName) {
+        slot.submitCallbackName = *onSubmit;
+        input->setOnSubmit([this, name = slot.submitCallbackName](const std::string& value) {
+          if (m_sink) {
+            m_sink(ControlCallback{name, value});
+          }
+        });
+      }
+      if (width != nullptr) {
+        input->setMinLayoutWidth(scaled(*width));
+      }
+      if (height != nullptr) {
+        input->setControlHeight(scaled(*height));
+      }
+      return;
+    }
+
+    if (desired.type == "scroll") {
+      auto* scroll = static_cast<ScrollView*>(node);
+      if (auto fill = parseColor(desired, "fill")) {
+        scroll->setFill(*fill);
+      }
+      if (const double* radius = numProp(desired, "radius")) {
+        scroll->setRadius(scaled(*radius));
+      }
+      if (auto border = parseColor(desired, "border")) {
+        const double* borderWidth = numProp(desired, "borderWidth");
+        scroll->setBorder(*border, borderWidth != nullptr ? scaled(*borderWidth) : 1.0f);
+      }
+      // gap / padding / align / justify configure the inner content Flex that
+      // hosts the children.
+      Flex* content = scroll->content();
+      if (const double* gap = numProp(desired, "gap")) {
+        content->setGap(scaled(*gap));
+      }
+      if (auto align = parseAlign(desired)) {
+        content->setAlign(*align);
+      }
+      if (auto justify = parseJustify(desired)) {
+        content->setJustify(*justify);
+      }
+      const double* padding = numProp(desired, "padding");
+      const double* paddingV = numProp(desired, "paddingV");
+      const double* paddingH = numProp(desired, "paddingH");
+      if (padding != nullptr || paddingV != nullptr || paddingH != nullptr) {
+        const float fallback = padding != nullptr ? scaled(*padding) : 0.0f;
+        content->setPadding(
+            paddingV != nullptr ? scaled(*paddingV) : fallback, paddingH != nullptr ? scaled(*paddingH) : fallback
+        );
+      }
+      if (width != nullptr) {
+        scroll->setMinWidth(scaled(*width));
+        scroll->setMaxWidth(scaled(*width));
+      }
+      if (height != nullptr) {
+        scroll->setMinHeight(scaled(*height));
+        scroll->setMaxHeight(scaled(*height));
+      }
       return;
     }
 

@@ -1,5 +1,7 @@
 #include "render/programs/screen_corner_program.h"
 
+#include "render/core/render_styles.h"
+
 #include <algorithm>
 #include <array>
 #include <stdexcept>

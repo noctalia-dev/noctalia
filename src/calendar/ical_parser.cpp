@@ -118,8 +118,8 @@ namespace calendar {
         return std::nullopt;
       }
       const int year = toInt(v.substr(0, 4));
-      const unsigned month = static_cast<unsigned>(toInt(v.substr(4, 2)));
-      const unsigned day = static_cast<unsigned>(toInt(v.substr(6, 2)));
+      const auto month = static_cast<unsigned>(toInt(v.substr(4, 2)));
+      const auto day = static_cast<unsigned>(toInt(v.substr(6, 2)));
       const year_month_day ymd{std::chrono::year{year} / std::chrono::month{month} / std::chrono::day{day}};
       if (!ymd.ok()) {
         return std::nullopt;

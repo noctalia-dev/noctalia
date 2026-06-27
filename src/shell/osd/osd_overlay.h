@@ -1,7 +1,6 @@
 #pragma once
 
 #include "render/animation/animation_manager.h"
-#include "ui/controls/progress_bar.h"
 #include "wayland/layer_surface.h"
 
 #include <cstdint>
@@ -14,7 +13,7 @@ class Box;
 class Flex;
 class Glyph;
 class Label;
-class Node;
+class ProgressBar;
 class RenderContext;
 class WaylandConnection;
 struct WaylandOutput;
@@ -28,9 +27,12 @@ enum class OsdKind : std::uint8_t {
   Bluetooth,
   PowerProfile,
   Caffeine,
+  NightLight,
   Dnd,
   LockKeys,
   KeyboardLayout,
+  Media,
+  Privacy
 };
 
 struct OsdContent {
@@ -40,6 +42,7 @@ struct OsdContent {
   float progress = 0.0f;
   bool showProgress = true;
   bool overLimit = false;
+  bool inactive = false;
 };
 
 class OsdOverlay {

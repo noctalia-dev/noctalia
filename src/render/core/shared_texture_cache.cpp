@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "render/backend/render_backend.h"
+#include "render/core/texture_manager.h"
 #include "render/gl_shared_context.h"
 
 namespace {

@@ -20,8 +20,6 @@
 #include <string_view>
 #include <unistd.h>
 #include <unordered_set>
-#include <wayland-client-core.h>
-#include <wayland-client.h>
 
 namespace {
 
@@ -422,7 +420,7 @@ const DataControlOps* extDataControlOps() { return &kExtDataControlOps; }
 const DataControlOps* wlrDataControlOps() { return &kWlrDataControlOps; }
 
 bool ClipboardEntry::isImage() const {
-  return std::ranges::any_of(mimeTypes, [](const std::string& mimeType) { return mimeType.rfind("image/", 0) == 0; });
+  return std::ranges::any_of(mimeTypes, [](const std::string& mimeType) { return mimeType.starts_with("image/"); });
 }
 
 bool ClipboardService::bind(void* manager, const DataControlOps* ops, wl_seat* seat) {
@@ -611,11 +609,11 @@ bool ClipboardService::copyEntry(const ClipboardEntry& entry) {
   std::vector<std::string> mimeTypes;
   mimeTypes.push_back(entry.dataMimeType);
   if (isTextMimeType(entry.dataMimeType)) {
-    if (std::ranges::find(mimeTypes, std::string("text/plain;charset=utf-8")) == mimeTypes.end()) {
-      mimeTypes.push_back("text/plain;charset=utf-8");
+    if (!std::ranges::contains(mimeTypes, "text/plain;charset=utf-8")) {
+      mimeTypes.emplace_back("text/plain;charset=utf-8");
     }
-    if (std::ranges::find(mimeTypes, std::string("text/plain")) == mimeTypes.end()) {
-      mimeTypes.push_back("text/plain");
+    if (!std::ranges::contains(mimeTypes, "text/plain")) {
+      mimeTypes.emplace_back("text/plain");
     }
   }
   return copyData(std::move(mimeTypes), entry.data);
@@ -1014,7 +1012,7 @@ void ClipboardService::finishRead(bool discard) {
   ClipboardEntry entry;
   entry.storageId = generateStorageId();
   entry.mimeTypes = std::move(mimeTypes);
-  if (std::ranges::find(entry.mimeTypes, mimeType) == entry.mimeTypes.end()) {
+  if (!std::ranges::contains(entry.mimeTypes, mimeType)) {
     entry.mimeTypes.push_back(mimeType);
   }
   entry.dataMimeType = mimeType;
@@ -1173,7 +1171,7 @@ void ClipboardService::loadPersistedHistory() {
 
     // Enforce the storage invariant: pinned block first (relative order
     // preserved = most-recently-pinned first), then the unpinned region.
-    std::stable_partition(m_history.begin(), m_history.end(), [](const ClipboardEntry& entry) { return entry.pinned; });
+    std::ranges::stable_partition(m_history, [](const ClipboardEntry& entry) { return entry.pinned; });
 
     trimHistoryToBudget();
     kLog.info("loaded {} persisted clipboard entries", m_history.size());
@@ -1237,7 +1235,7 @@ bool ClipboardService::persistHistory() {
 
     const fs::path manifest(manifestPath());
     fs::create_directories(manifest.parent_path());
-    const fs::path tmp = manifest;
+    const fs::path& tmp = manifest;
     const fs::path tmpPath = tmp.string() + ".tmp";
     {
       std::ofstream out(tmpPath);
@@ -1382,7 +1380,7 @@ std::string ClipboardService::chooseMimeType(const OfferState& offer) const {
 }
 
 bool ClipboardService::isTextMimeType(std::string_view mimeType) {
-  return std::ranges::find(kTextMimeTypes, mimeType) != kTextMimeTypes.end();
+  return std::ranges::contains(kTextMimeTypes, mimeType);
 }
 
 bool ClipboardService::isEmptyTextPayload(const std::vector<std::uint8_t>& data) {

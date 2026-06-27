@@ -6,8 +6,6 @@
 #include <algorithm>
 #include <vector>
 
-class Renderer;
-
 class AudioVisualizer : public AudioSpectrumNode {
 public:
   AudioVisualizer();

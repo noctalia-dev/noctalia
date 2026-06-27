@@ -1,6 +1,5 @@
 #pragma once
 
-#include "dbus/tray/tray_service.h"
 #include "shell/panel/panel.h"
 
 #include <memory>
@@ -8,7 +7,7 @@
 #include <vector>
 
 class ConfigService;
-class Renderer;
+class TrayService;
 class TrayWidget;
 
 class TrayDrawerPanel : public Panel {

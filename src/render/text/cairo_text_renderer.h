@@ -1,7 +1,5 @@
 #pragma once
 
-#include "render/core/color.h"
-#include "render/core/mat3.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_handle.h"
 
@@ -20,6 +18,8 @@ typedef struct _PangoLayout PangoLayout;
 
 class RenderBackend;
 class TextureManager;
+struct Color;
+struct Mat3;
 
 // Pango/Cairo-backed text renderer.
 //

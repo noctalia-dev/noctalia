@@ -1,9 +1,9 @@
 #include "notification/notification_display_name.h"
 
+#include "notification/notification.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/internal_app_metadata.h"
-#include "util/string_utils.h"
 
 #include <cctype>
 #include <optional>

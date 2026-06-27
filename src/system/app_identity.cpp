@@ -29,6 +29,61 @@ namespace app_identity {
       return valueKey == identityKey(candidate);
     }
 
+    std::string_view appIdTail(std::string_view appKey) {
+      std::string_view tail = appKey;
+      if (const auto slash = tail.find_last_of('/'); slash != std::string_view::npos && slash + 1 < tail.size()) {
+        tail = tail.substr(slash + 1);
+      }
+      if (const auto dot = tail.find_last_of('.'); dot != std::string_view::npos && dot + 1 < tail.size()) {
+        tail = tail.substr(dot + 1);
+      }
+      return tail;
+    }
+
+    std::optional<DesktopEntry> findDesktopEntryByIdTail(
+        std::string_view appKey, const std::vector<DesktopEntry>& allEntries, DesktopEntryLookupOptions options
+    ) {
+      const std::string appLower = StringUtils::toLower(std::string(appKey));
+      const std::string tailLower = StringUtils::toLower(std::string(appIdTail(appKey)));
+      if (tailLower.empty() || tailLower == appLower) {
+        return std::nullopt;
+      }
+
+      std::vector<const DesktopEntry*> candidates;
+      candidates.reserve(2);
+      for (const auto& entry : allEntries) {
+        if (!options.includeHidden && entry.hidden) {
+          continue;
+        }
+        if (!options.includeNoDisplay && entry.noDisplay) {
+          continue;
+        }
+        if (StringUtils::toLower(std::string(appIdTail(entry.id))) == tailLower) {
+          candidates.push_back(&entry);
+        }
+      }
+      if (candidates.empty()) {
+        return std::nullopt;
+      }
+      if (candidates.size() == 1) {
+        return *candidates.front();
+      }
+
+      const DesktopEntry* best = nullptr;
+      for (const DesktopEntry* entry : candidates) {
+        if (desktopEntryMatchesLower(*entry, appLower)) {
+          if (best != nullptr) {
+            return std::nullopt;
+          }
+          best = entry;
+        }
+      }
+      if (best != nullptr) {
+        return *best;
+      }
+      return std::nullopt;
+    }
+
     struct DesktopEntryResolution {
       DesktopEntry entry;
       bool matchedDesktopEntry = false;
@@ -118,6 +173,10 @@ namespace app_identity {
       if (desktopEntryMatchesLower(entry, appLower)) {
         return entry;
       }
+    }
+
+    if (auto matched = findDesktopEntryByIdTail(appKey, allEntries, options)) {
+      return matched;
     }
 
     if (!appKey.starts_with("steam_app_")) {

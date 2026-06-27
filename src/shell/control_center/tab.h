@@ -1,8 +1,6 @@
 #pragma once
 
 #include "core/ui_phase.h"
-#include "ui/palette.h"
-#include "ui/style.h"
 
 #include <algorithm>
 #include <memory>
