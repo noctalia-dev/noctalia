@@ -776,7 +776,6 @@ bool MprisService::playPause(const std::string& busName) {
   if (!canInvoke(it->second, "PlayPause")) {
     return false;
   }
-  m_stoppedPlayers.erase(busName);
   return callPlayerMethod(busName, "PlayPause");
 }
 
@@ -788,7 +787,6 @@ bool MprisService::play(const std::string& busName) {
   if (!canInvoke(it->second, "Play")) {
     return false;
   }
-  m_stoppedPlayers.erase(busName);
   return callPlayerMethod(busName, "Play");
 }
 
@@ -1804,7 +1802,6 @@ void MprisService::applyPlayerSnapshot(
         clearedPinnedPlayerPreference = true;
       }
     }
-    m_stoppedPlayers.erase(busName);
     if (becamePlaying) {
       m_lastActivePlayer = busName;
       m_lastPlayingUpdate[busName] = now;
@@ -2099,7 +2096,6 @@ void MprisService::clearPlayerState(const std::string& busName) {
   if (m_lastActivePlayer == busName) {
     m_lastActivePlayer.clear();
   }
-  m_stoppedPlayers.erase(busName);
 }
 
 void MprisService::removePlayer(const std::string& busName) {
@@ -2123,11 +2119,9 @@ void MprisService::removePlayer(const std::string& busName) {
 }
 
 std::optional<std::string> MprisService::chooseActivePlayer() const {
-  const auto isDismissed = [this](const std::string& busName) { return m_stoppedPlayers.contains(busName); };
-
   if (m_pinnedPlayerPreference.has_value()) {
     const auto it = m_players.find(*m_pinnedPlayerPreference);
-    if (it != m_players.end() && !isBlacklisted(it->second) && !isDismissed(*m_pinnedPlayerPreference)) {
+    if (it != m_players.end() && !isBlacklisted(it->second)) {
       // kLog.debug("choose active player source=pinned name={}", *m_pinnedPlayerPreference);
       return m_pinnedPlayerPreference;
     }
@@ -2136,7 +2130,7 @@ std::optional<std::string> MprisService::chooseActivePlayer() const {
   std::optional<std::string> mostRecentPlaying;
   std::chrono::steady_clock::time_point mostRecentPlayingAt{};
   for (const auto& [busName, player] : m_players) {
-    if (isBlacklisted(player) || isDismissed(busName) || player.playbackStatus != "Playing") {
+    if (isBlacklisted(player) || player.playbackStatus != "Playing") {
       continue;
     }
     const auto playingIt = m_lastPlayingUpdate.find(busName);
@@ -2154,10 +2148,7 @@ std::optional<std::string> MprisService::chooseActivePlayer() const {
 
   for (const auto& busName : m_preferredPlayers) {
     const auto it = m_players.find(busName);
-    if (it != m_players.end()
-        && !isBlacklisted(it->second)
-        && !isDismissed(busName)
-        && it->second.playbackStatus == "Playing") {
+    if (it != m_players.end() && !isBlacklisted(it->second) && it->second.playbackStatus == "Playing") {
       // kLog.debug("choose active player source=preferred_playing name={}", busName);
       return busName;
     }
@@ -2165,7 +2156,7 @@ std::optional<std::string> MprisService::chooseActivePlayer() const {
 
   for (const auto& busName : m_preferredPlayers) {
     const auto it = m_players.find(busName);
-    if (it != m_players.end() && !isBlacklisted(it->second) && !isDismissed(busName)) {
+    if (it != m_players.end() && !isBlacklisted(it->second)) {
       // kLog.debug("choose active player source=preferred_any name={}", busName);
       return busName;
     }
@@ -2173,14 +2164,14 @@ std::optional<std::string> MprisService::chooseActivePlayer() const {
 
   if (!m_lastActivePlayer.empty()) {
     const auto it = m_players.find(m_lastActivePlayer);
-    if (it != m_players.end() && !isBlacklisted(it->second) && !isDismissed(m_lastActivePlayer)) {
+    if (it != m_players.end() && !isBlacklisted(it->second)) {
       // kLog.debug("choose active player source=last_active name={}", m_lastActivePlayer);
       return m_lastActivePlayer;
     }
   }
 
   for (const auto& [busName, player] : m_players) {
-    if (!isBlacklisted(player) && !isDismissed(busName)) {
+    if (!isBlacklisted(player)) {
       // kLog.debug("choose active player source=first_cached name={}", busName);
       return busName;
     }
@@ -2266,27 +2257,6 @@ bool MprisService::canInvoke(const MprisPlayerInfo& player, const char* methodNa
     return player.canGoPrevious;
   }
   return false;
-}
-
-void MprisService::dismissPlayer(const std::string& busName) {
-  if (busName.empty()) {
-    return;
-  }
-
-  const auto previousActive = chooseActivePlayer();
-  m_stoppedPlayers.insert(busName);
-  if (m_lastActivePlayer == busName) {
-    m_lastActivePlayer.clear();
-  }
-
-  if (!previousActive.has_value() || *previousActive != busName) {
-    return;
-  }
-
-  emitActivePlayerChanged();
-  if (m_changeCallback) {
-    m_changeCallback();
-  }
 }
 
 bool MprisService::onPlayPausePlayer(const std::string& busName) {
