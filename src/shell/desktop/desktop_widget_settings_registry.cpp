@@ -367,6 +367,12 @@ namespace desktop_settings {
         unit.visibleWhen = WidgetSettingVisibility{{{"stat", {"net_rx", "net_tx"}}, {"stat2", {"net_rx", "net_tx"}}}};
         add(std::move(unit));
       }
+      {
+        auto compact = boolSpec("network_speed_compact", false);
+        compact.visibleWhen =
+            WidgetSettingVisibility{{{"stat", {"net_rx", "net_tx"}}, {"stat2", {"net_rx", "net_tx"}}}};
+        add(std::move(compact));
+      }
       add(segmentedSpec("display", "graph", sysmonDisplay));
       {
         auto gaugeLayout = segmentedSpec(

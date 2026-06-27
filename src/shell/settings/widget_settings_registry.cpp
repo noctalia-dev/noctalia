@@ -789,6 +789,11 @@ namespace settings {
         unit.visibleWhen = WidgetSettingVisibility{"stat", {"net_rx", "net_tx"}};
         add(std::move(unit));
       }
+      {
+        auto compact = boolSpec("network_speed_compact", false);
+        compact.visibleWhen = WidgetSettingVisibility{"stat", {"net_rx", "net_tx"}};
+        add(std::move(compact));
+      }
       add(segmentedSpec("display", "gauge", sysmonDisplay));
       add(colorSpec("highlight_color", "error"));
       add(boolSpec("show_label", true));

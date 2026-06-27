@@ -83,7 +83,8 @@ DesktopSysmonWidget::DesktopSysmonWidget(SystemMonitorService* monitor, Options 
       m_displayMode(options.displayMode), m_gaugeLayout(options.gaugeLayout), m_lineColor(options.lineColor),
       m_lineColor2(options.lineColor2), m_highlightColor(options.highlightColor),
       m_networkInterface(std::move(options.networkInterface)), m_networkSpeedUnit(options.networkSpeedUnit),
-      m_showLabel(options.showLabel), m_labelMinWidth(options.labelMinWidth), m_shadow(options.shadow) {
+      m_networkSpeedLabelStyle(options.networkSpeedLabelStyle), m_showLabel(options.showLabel),
+      m_labelMinWidth(options.labelMinWidth), m_shadow(options.shadow) {
   if (m_monitor != nullptr) {
     if (needsCpuTemp(m_stat))
       m_monitor->retainCpuTemp();
@@ -270,6 +271,15 @@ bool DesktopSysmonWidget::applySetting(
   if (key == "network_speed_unit") {
     if (const auto* v = std::get_if<std::string>(&value)) {
       m_networkSpeedUnit = FormatUnits::decimalByteRateUnitFromString(*v);
+      syncLabel();
+      requestRedraw();
+      return true;
+    }
+    return false;
+  }
+  if (key == "network_speed_compact") {
+    if (const auto* v = std::get_if<bool>(&value)) {
+      m_networkSpeedLabelStyle = *v ? FormatUnits::ByteRateLabelStyle::Compact : FormatUnits::ByteRateLabelStyle::Full;
       syncLabel();
       requestRedraw();
       return true;
@@ -781,12 +791,12 @@ std::string DesktopSysmonWidget::formatValueFor(DesktopSysmonStat stat) const {
 
   case DesktopSysmonStat::NetRx:
     return FormatUnits::formatDecimalBytesPerSecond(
-        m_monitor->netRxBytesPerSec(m_networkInterface), m_networkSpeedUnit
+        m_monitor->netRxBytesPerSec(m_networkInterface), m_networkSpeedUnit, m_networkSpeedLabelStyle
     );
 
   case DesktopSysmonStat::NetTx:
     return FormatUnits::formatDecimalBytesPerSecond(
-        m_monitor->netTxBytesPerSec(m_networkInterface), m_networkSpeedUnit
+        m_monitor->netTxBytesPerSec(m_networkInterface), m_networkSpeedUnit, m_networkSpeedLabelStyle
     );
   }
 

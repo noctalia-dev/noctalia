@@ -12,6 +12,22 @@ namespace FormatUnits {
     constexpr double kBytesPerGb = 1000.0 * 1000.0 * 1000.0;
     constexpr double kBytesPerTb = 1000.0 * 1000.0 * 1000.0 * 1000.0;
 
+    [[nodiscard]] std::string formatByteRateValue(
+        double value, std::string_view fullSuffix, std::string_view compactSuffix, ByteRateLabelStyle labelStyle
+    ) {
+      if (labelStyle == ByteRateLabelStyle::Compact) {
+        return std::format("{:.1f}{}", value, compactSuffix);
+      }
+      return std::format("{:.1f} {}", value, fullSuffix);
+    }
+
+    [[nodiscard]] std::string formatByteRateBytes(double bytesPerSec, ByteRateLabelStyle labelStyle) {
+      if (labelStyle == ByteRateLabelStyle::Compact) {
+        return std::format("{:.0f}B", bytesPerSec);
+      }
+      return std::format("{:.0f} B/s", bytesPerSec);
+    }
+
   } // namespace
 
   std::string formatBinaryMib(std::uint64_t mib) {
@@ -56,26 +72,26 @@ namespace FormatUnits {
     return DecimalByteRateUnit::Auto;
   }
 
-  std::string formatDecimalBytesPerSecond(double bytesPerSec, DecimalByteRateUnit unit) {
+  std::string formatDecimalBytesPerSecond(double bytesPerSec, DecimalByteRateUnit unit, ByteRateLabelStyle labelStyle) {
     switch (unit) {
     case DecimalByteRateUnit::Kilobytes:
-      return std::format("{:.1f} kB/s", bytesPerSec / kBytesPerKb);
+      return formatByteRateValue(bytesPerSec / kBytesPerKb, "kB/s", "k", labelStyle);
     case DecimalByteRateUnit::Megabytes:
-      return std::format("{:.1f} MB/s", bytesPerSec / kBytesPerMb);
+      return formatByteRateValue(bytesPerSec / kBytesPerMb, "MB/s", "M", labelStyle);
     case DecimalByteRateUnit::Auto:
       break;
     }
 
     if (bytesPerSec >= kBytesPerGb) {
-      return std::format("{:.1f} GB/s", bytesPerSec / kBytesPerGb);
+      return formatByteRateValue(bytesPerSec / kBytesPerGb, "GB/s", "G", labelStyle);
     }
     if (bytesPerSec >= kBytesPerMb) {
-      return std::format("{:.1f} MB/s", bytesPerSec / kBytesPerMb);
+      return formatByteRateValue(bytesPerSec / kBytesPerMb, "MB/s", "M", labelStyle);
     }
     if (bytesPerSec >= kBytesPerKb) {
-      return std::format("{:.1f} kB/s", bytesPerSec / kBytesPerKb);
+      return formatByteRateValue(bytesPerSec / kBytesPerKb, "kB/s", "k", labelStyle);
     }
-    return std::format("{:.0f} B/s", bytesPerSec);
+    return formatByteRateBytes(bytesPerSec, labelStyle);
   }
 
 } // namespace FormatUnits

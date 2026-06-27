@@ -381,6 +381,9 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
             .networkInterface = getStringSetting(settings, "interface"),
             .networkSpeedUnit =
                 FormatUnits::decimalByteRateUnitFromString(getStringSetting(settings, "network_speed_unit", "auto")),
+            .networkSpeedLabelStyle = getBoolSetting(settings, "network_speed_compact", false)
+                ? FormatUnits::ByteRateLabelStyle::Compact
+                : FormatUnits::ByteRateLabelStyle::Full,
             .showLabel = getBoolSetting(settings, "show_label", true),
             .labelMinWidth = getFloatSetting(settings, "label_min_width", 0.0f),
             .shadow = getBoolSetting(settings, "shadow", true),

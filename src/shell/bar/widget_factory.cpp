@@ -488,6 +488,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
     const std::string display = wc != nullptr ? wc->getString("display", "gauge") : std::string("gauge");
     const std::string networkInterface = wc != nullptr ? wc->getString("interface", "") : std::string();
     const std::string networkSpeedUnit = wc != nullptr ? wc->getString("network_speed_unit", "auto") : "auto";
+    const bool networkSpeedCompact = wc != nullptr ? wc->getBool("network_speed_compact", false) : false;
     SysmonDisplayMode displayMode = SysmonDisplayMode::Gauge;
     if (display == "text")
       displayMode = SysmonDisplayMode::Text;
@@ -504,6 +505,8 @@ std::unique_ptr<Widget> WidgetFactory::create(
             : colorSpecFromRole(ColorRole::Error),
         .networkInterface = networkInterface,
         .networkSpeedUnit = FormatUnits::decimalByteRateUnitFromString(networkSpeedUnit),
+        .networkSpeedLabelStyle =
+            networkSpeedCompact ? FormatUnits::ByteRateLabelStyle::Compact : FormatUnits::ByteRateLabelStyle::Full,
         .showLabel = wc != nullptr ? wc->getBool("show_label", true) : true,
         .labelMinWidth = static_cast<float>(wc != nullptr ? wc->getDouble("label_min_width", 0.0) : 0.0),
         .glyph = wc != nullptr ? wc->getString("glyph", "") : std::string{},

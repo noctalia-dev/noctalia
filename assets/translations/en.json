@@ -459,6 +459,7 @@
         "label-min-width": "Label Min Width",
         "layout": "Layout",
         "mirrored": "Mirrored",
+        "network-speed-compact": "Compact Network Speed",
         "network-speed-unit": "Network Speed Unit",
         "network-speed-unit-auto": "Auto",
         "network-speed-unit-kilobytes": "kB/s",
@@ -2960,6 +2961,10 @@
         "mirrored": {
           "description": "Mirror the visualizer around its center",
           "label": "Mirrored"
+        },
+        "network-speed-compact": {
+          "description": "Use short unit suffixes such as 1.2M instead of 1.2 MB/s",
+          "label": "Compact Network Speed"
         },
         "network-speed-unit": {
           "description": "Unit used for network receive and transmit speeds; Auto switches between B/s, kB/s, MB/s, and GB/s",

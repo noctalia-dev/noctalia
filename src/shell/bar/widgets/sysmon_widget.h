@@ -46,6 +46,7 @@ struct SysmonWidgetOptions {
   ColorSpec highlightColor = colorSpecFromRole(ColorRole::Error);
   std::string networkInterface;
   FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
+  FormatUnits::ByteRateLabelStyle networkSpeedLabelStyle = FormatUnits::ByteRateLabelStyle::Full;
   bool showLabel = true;
   float labelMinWidth = 0.0f;
   std::string glyph;
@@ -94,6 +95,7 @@ private:
   std::string m_diskPath;
   std::string m_networkInterface;
   FormatUnits::DecimalByteRateUnit m_networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
+  FormatUnits::ByteRateLabelStyle m_networkSpeedLabelStyle = FormatUnits::ByteRateLabelStyle::Full;
   std::string m_glyphOverride;
   std::string m_lastRawValue;
   bool m_isVerticalBar = false;
