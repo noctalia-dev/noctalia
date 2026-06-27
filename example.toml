@@ -43,14 +43,22 @@ direction = "down"                  # center, up, down, left, right, up_left, up
 alpha     = 0.55                    # multiplied by each component's background opacity
 
 [shell.panel]
-transparency_mode     = "solid"     # solid | soft | glass; controls floating/centered opacity and card translucency
+transparency_mode     = "solid"     # solid | soft | glass; controls floating opacity and card translucency
 borders               = true        # panel shell outline and in-panel section cards
 shadow                = true        # cast the global [shell.shadow] from panel surfaces
-launcher_placement       = "centered" # attached | floating | centered
-clipboard_placement      = "centered" # attached | floating | centered
-control_center_placement = "attached" # attached | floating | centered
-wallpaper_placement      = "attached" # attached | floating | centered
-session_placement        = "attached" # attached | floating | centered
+launcher_placement       = "floating" # attached | floating
+clipboard_placement      = "floating" # attached | floating
+control_center_placement = "attached" # attached | floating
+wallpaper_placement      = "attached" # attached | floating
+session_placement        = "attached" # attached | floating
+# Floating-panel screen anchor, used when the matching *_placement = "floating".
+# "auto" keeps the panel bar-relative; the old "centered" placement is now floating + "center".
+# auto | center | top_left | top_center | top_right | center_left | center_right | bottom_left | bottom_center | bottom_right
+launcher_position        = "center"   # default for launcher and clipboard
+clipboard_position       = "center"
+control_center_position  = "auto"     # default for control center, wallpaper, session
+wallpaper_position       = "auto"
+session_position         = "auto"
 open_near_click_control_center = false # for attached/floating placement, follow the bar click instead of bar-center
 open_near_click_launcher       = false # for attached/floating placement, follow the bar click instead of bar-center
 open_near_click_clipboard      = false # for attached/floating placement, follow the bar click instead of bar-center
