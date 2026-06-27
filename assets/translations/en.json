@@ -2807,7 +2807,8 @@
         "glyph": {
           "description": "Icon glyph name",
           "label": "Glyph",
-          "sysmon-description": "Custom icon glyph. Leave empty to use the icon for the selected stat."
+          "sysmon-description": "Custom icon glyph. Leave empty to use the icon for the selected stat.",
+          "volume-description": "Custom icon glyph. Leave empty to use the built-in dynamic icons."
         },
         "group-by-workspace": {
           "description": "Group taskbar icons into workspace capsules when compositor data is available",
@@ -2957,6 +2958,10 @@
         "mute-color": {
           "description": "Color role used for the icon and label when muted; fixed hex colors are also supported",
           "label": "Mute Color"
+        },
+        "mute-glyph": {
+          "description": "Icon glyph used when muted or at 0% volume. Leave empty to use the built-in mute icon.",
+          "label": "Mute Glyph"
         },
         "occupied-color": {
           "description": "Color role used for occupied workspaces; fixed hex colors are also supported",

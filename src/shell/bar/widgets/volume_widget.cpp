@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <utility>
 
 namespace {
 
@@ -34,10 +35,12 @@ namespace {
 
 VolumeWidget::VolumeWidget(
     PipeWireService* audio, EasyEffectsService* easyEffects, const Config* config, wl_output* /*output*/,
-    bool showLabel, VolumeWidgetTarget target, int scrollStepPercent, ColorSpec muteColor
+    bool showLabel, VolumeWidgetTarget target, int scrollStepPercent, ColorSpec muteColor, std::string glyphOverride,
+    std::string muteGlyphOverride
 )
     : m_audio(audio), m_easyEffects(easyEffects), m_config(config), m_showLabel(showLabel),
-      m_scrollStep(static_cast<float>(scrollStepPercent) / 100.0f), m_target(target), m_muteColor(muteColor) {}
+      m_scrollStep(static_cast<float>(scrollStepPercent) / 100.0f), m_target(target), m_muteColor(muteColor),
+      m_glyphOverride(std::move(glyphOverride)), m_muteGlyphOverride(std::move(muteGlyphOverride)) {}
 
 void VolumeWidget::create() {
   auto area = std::make_unique<InputArea>();
@@ -81,7 +84,7 @@ void VolumeWidget::create() {
   area->addChild(
       ui::glyph({
           .out = &m_glyph,
-          .glyph = "volume-high",
+          .glyph = glyphName(1.0f, false),
           .glyphSize = Style::baseGlyphSize * m_contentScale,
           .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
       })
@@ -158,7 +161,7 @@ void VolumeWidget::syncState(Renderer& renderer) {
   m_lastVertical = m_isVertical;
   m_lastEffectsProfile = effectsProfile;
 
-  m_glyph->setGlyph(volumeGlyphName(volume, muted, m_target));
+  m_glyph->setGlyph(glyphName(volume, muted));
   m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
   m_glyph->setColor(muted ? m_muteColor : widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
   m_glyph->measure(renderer);
@@ -194,4 +197,16 @@ void VolumeWidget::syncState(Renderer& renderer) {
   }
 
   requestRedraw();
+}
+
+std::string VolumeWidget::glyphName(float volume, bool muted) const {
+  if (muted || volume <= 0.0f) {
+    if (!m_muteGlyphOverride.empty()) {
+      return m_muteGlyphOverride;
+    }
+  } else if (!m_glyphOverride.empty()) {
+    return m_glyphOverride;
+  }
+
+  return volumeGlyphName(volume, muted, m_target);
 }

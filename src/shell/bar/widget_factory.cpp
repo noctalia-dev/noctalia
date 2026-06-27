@@ -598,8 +598,11 @@ std::unique_ptr<Widget> WidgetFactory::create(
     const ColorSpec muteColor = wc != nullptr
         ? wc->getColorSpec("mute_color", colorSpecFromRole(ColorRole::Error), "widget." + name + ".mute_color")
         : colorSpecFromRole(ColorRole::Error);
+    std::string glyphOverride = wc != nullptr ? wc->getString("glyph", "") : std::string{};
+    std::string muteGlyphOverride = wc != nullptr ? wc->getString("mute_glyph", "") : std::string{};
     auto widget = std::make_unique<VolumeWidget>(
-        m_audio, m_easyEffects, &m_config, output, showLabel, volumeTarget, scrollStep, muteColor
+        m_audio, m_easyEffects, &m_config, output, showLabel, volumeTarget, scrollStep, muteColor,
+        std::move(glyphOverride), std::move(muteGlyphOverride)
     );
     widget->setContentScale(contentScale);
     return widget;

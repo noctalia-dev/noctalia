@@ -167,8 +167,13 @@ namespace settings {
           return "upload";
         }
       }
-      if (type == "volume" && config->getString("device", "output") == "input") {
-        return "microphone";
+      if (type == "volume") {
+        if (const std::string custom = config->getString("glyph", ""); !custom.empty()) {
+          return custom;
+        }
+        if (config->getString("device", "output") == "input") {
+          return "microphone";
+        }
       }
       return defaultWidgetGlyph(type);
     }
@@ -905,6 +910,12 @@ namespace settings {
       }
     } else if (type == "volume") {
       add(segmentedSpec("device", "output", volumeDeviceOptions));
+      {
+        auto glyph = glyphSpec("glyph", "");
+        glyph.descriptionKey = "settings.widgets.settings.glyph.volume-description";
+        add(std::move(glyph));
+      }
+      add(glyphSpec("mute_glyph", ""));
       add(stepperIntSpec("scroll_step", 5, 1.0, 25.0, 1.0, "%"));
       add(boolSpec("show_label", true));
       add(colorSpec("mute_color", "error"));
