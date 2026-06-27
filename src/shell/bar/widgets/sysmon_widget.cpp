@@ -136,7 +136,8 @@ SysmonWidget::SysmonWidget(SystemMonitorService* monitor, ConfigService& configS
     : m_monitor(monitor), m_stat(options.stat), m_displayMode(options.displayMode),
       m_highlightColor(options.highlightColor), m_configService(configService), m_showLabel(options.showLabel),
       m_labelMinWidth(options.labelMinWidth), m_diskPath(std::move(options.diskPath)),
-      m_networkInterface(std::move(options.networkInterface)), m_glyphOverride(std::move(options.glyph)) {
+      m_networkInterface(std::move(options.networkInterface)), m_networkSpeedUnit(options.networkSpeedUnit),
+      m_glyphOverride(std::move(options.glyph)) {
   if (m_monitor != nullptr) {
     if (needsCpuTemp(m_stat)) {
       m_monitor->retainCpuTemp();
@@ -808,10 +809,10 @@ std::optional<std::string> SysmonWidget::formatValueFor(SysmonStat stat, const S
     return std::nullopt;
 
   case SysmonStat::NetRx:
-    return FormatUnits::formatDecimalBytesPerSecond(netRxFromStats(stats, m_networkInterface));
+    return FormatUnits::formatDecimalBytesPerSecond(netRxFromStats(stats, m_networkInterface), m_networkSpeedUnit);
 
   case SysmonStat::NetTx:
-    return FormatUnits::formatDecimalBytesPerSecond(netTxFromStats(stats, m_networkInterface));
+    return FormatUnits::formatDecimalBytesPerSecond(netTxFromStats(stats, m_networkInterface), m_networkSpeedUnit);
 
   case SysmonStat::DiskPct:
     break; // handled above

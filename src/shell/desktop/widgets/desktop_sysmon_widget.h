@@ -2,6 +2,7 @@
 
 #include "core/frame_rate_limiter.h"
 #include "shell/desktop/desktop_widget.h"
+#include "system/format_units.h"
 #include "ui/palette.h"
 
 #include <chrono>
@@ -46,6 +47,7 @@ public:
     ColorSpec lineColor2 = colorSpecFromRole(ColorRole::Secondary);
     ColorSpec highlightColor = colorSpecFromRole(ColorRole::Error);
     std::string networkInterface;
+    FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
     bool showLabel = true;
     float labelMinWidth = 0.0f;
     bool shadow = true;
@@ -97,6 +99,7 @@ private:
   ColorSpec m_lineColor2;
   ColorSpec m_highlightColor;
   std::string m_networkInterface;
+  FormatUnits::DecimalByteRateUnit m_networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
   bool m_showLabel;
   float m_labelMinWidth;
   bool m_shadow;

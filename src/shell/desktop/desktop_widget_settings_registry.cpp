@@ -228,6 +228,12 @@ namespace desktop_settings {
     };
     sysmonStatsWithNone.insert(sysmonStatsWithNone.end(), sysmonStats.begin(), sysmonStats.end());
 
+    const std::vector<WidgetSettingSelectOption> networkSpeedUnits = {
+        {"auto", "desktop-widgets.editor.settings.network-speed-unit-auto"},
+        {"kb", "desktop-widgets.editor.settings.network-speed-unit-kilobytes"},
+        {"mb", "desktop-widgets.editor.settings.network-speed-unit-megabytes"},
+    };
+
     std::vector<WidgetSettingSpec> specs;
     auto add = [&](WidgetSettingSpec spec) { specs.push_back(std::move(spec)); };
 
@@ -355,6 +361,11 @@ namespace desktop_settings {
         interface.visibleWhen =
             WidgetSettingVisibility{{{"stat", {"net_rx", "net_tx"}}, {"stat2", {"net_rx", "net_tx"}}}};
         add(std::move(interface));
+      }
+      {
+        auto unit = selectSpec("network_speed_unit", "auto", networkSpeedUnits);
+        unit.visibleWhen = WidgetSettingVisibility{{{"stat", {"net_rx", "net_tx"}}, {"stat2", {"net_rx", "net_tx"}}}};
+        add(std::move(unit));
       }
       add(segmentedSpec("display", "graph", sysmonDisplay));
       {

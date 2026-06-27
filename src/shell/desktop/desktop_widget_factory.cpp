@@ -15,6 +15,7 @@
 #include "shell/desktop/widgets/desktop_sysmon_widget.h"
 #include "shell/desktop/widgets/desktop_weather_widget.h"
 #include "shell/desktop/widgets/plugin_desktop_widget.h"
+#include "system/format_units.h"
 #include "ui/controls/button.h"
 
 #include <algorithm>
@@ -378,6 +379,8 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
             .lineColor2 = getColorSpecSetting(settings, "color2", colorSpecFromRole(ColorRole::Secondary)),
             .highlightColor = getColorSpecSetting(settings, "highlight_color", colorSpecFromRole(ColorRole::Error)),
             .networkInterface = getStringSetting(settings, "interface"),
+            .networkSpeedUnit =
+                FormatUnits::decimalByteRateUnitFromString(getStringSetting(settings, "network_speed_unit", "auto")),
             .showLabel = getBoolSetting(settings, "show_label", true),
             .labelMinWidth = getFloatSetting(settings, "label_min_width", 0.0f),
             .shadow = getBoolSetting(settings, "shadow", true),

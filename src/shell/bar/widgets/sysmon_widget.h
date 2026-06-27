@@ -4,6 +4,7 @@
 #include "core/timer_manager.h"
 #include "shell/bar/widget.h"
 #include "shell/tooltip/tooltip_content.h"
+#include "system/format_units.h"
 #include "ui/palette.h"
 #include "ui/signal.h"
 
@@ -44,6 +45,7 @@ struct SysmonWidgetOptions {
   SysmonDisplayMode displayMode = SysmonDisplayMode::Gauge;
   ColorSpec highlightColor = colorSpecFromRole(ColorRole::Error);
   std::string networkInterface;
+  FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
   bool showLabel = true;
   float labelMinWidth = 0.0f;
   std::string glyph;
@@ -91,6 +93,7 @@ private:
   float m_labelMinWidth = 0.0f;
   std::string m_diskPath;
   std::string m_networkInterface;
+  FormatUnits::DecimalByteRateUnit m_networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
   std::string m_glyphOverride;
   std::string m_lastRawValue;
   bool m_isVerticalBar = false;

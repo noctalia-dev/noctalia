@@ -82,8 +82,8 @@ DesktopSysmonWidget::DesktopSysmonWidget(SystemMonitorService* monitor, Options 
     : m_monitor(monitor), m_config(options.config), m_stat(options.stat), m_stat2(options.stat2),
       m_displayMode(options.displayMode), m_gaugeLayout(options.gaugeLayout), m_lineColor(options.lineColor),
       m_lineColor2(options.lineColor2), m_highlightColor(options.highlightColor),
-      m_networkInterface(std::move(options.networkInterface)), m_showLabel(options.showLabel),
-      m_labelMinWidth(options.labelMinWidth), m_shadow(options.shadow) {
+      m_networkInterface(std::move(options.networkInterface)), m_networkSpeedUnit(options.networkSpeedUnit),
+      m_showLabel(options.showLabel), m_labelMinWidth(options.labelMinWidth), m_shadow(options.shadow) {
   if (m_monitor != nullptr) {
     if (needsCpuTemp(m_stat))
       m_monitor->retainCpuTemp();
@@ -263,6 +263,15 @@ bool DesktopSysmonWidget::applySetting(
         m_label->setMinWidth(m_labelMinWidth > 0.0f ? m_labelMinWidth * m_contentScale : 0.0f);
       }
       requestLayout();
+      return true;
+    }
+    return false;
+  }
+  if (key == "network_speed_unit") {
+    if (const auto* v = std::get_if<std::string>(&value)) {
+      m_networkSpeedUnit = FormatUnits::decimalByteRateUnitFromString(*v);
+      syncLabel();
+      requestRedraw();
       return true;
     }
     return false;
@@ -771,10 +780,14 @@ std::string DesktopSysmonWidget::formatValueFor(DesktopSysmonStat stat) const {
     return "--";
 
   case DesktopSysmonStat::NetRx:
-    return FormatUnits::formatDecimalBytesPerSecond(m_monitor->netRxBytesPerSec(m_networkInterface));
+    return FormatUnits::formatDecimalBytesPerSecond(
+        m_monitor->netRxBytesPerSec(m_networkInterface), m_networkSpeedUnit
+    );
 
   case DesktopSysmonStat::NetTx:
-    return FormatUnits::formatDecimalBytesPerSecond(m_monitor->netTxBytesPerSec(m_networkInterface));
+    return FormatUnits::formatDecimalBytesPerSecond(
+        m_monitor->netTxBytesPerSec(m_networkInterface), m_networkSpeedUnit
+    );
   }
 
   return "--";

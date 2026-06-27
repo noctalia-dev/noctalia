@@ -432,6 +432,12 @@ battery_low_percent_threshold = 0   # set to e.g. 15 to enable battery_under_thr
 # [widget.notifications]
 # hide_when_no_unread = true
 
+# [widget.network_rx]
+# network_speed_unit = "mb"          # auto | kb | mb
+#
+# [widget.network_tx]
+# network_speed_unit = "mb"          # auto | kb | mb
+
 # [widget.keyboard_layout]
 # display                 = "short"    # "short" (e.g. "DE") or "full" (full layout name)
 # show_icon               = true

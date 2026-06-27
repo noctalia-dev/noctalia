@@ -2,8 +2,15 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 namespace FormatUnits {
+
+  enum class DecimalByteRateUnit {
+    Auto,
+    Kilobytes,
+    Megabytes,
+  };
 
   [[nodiscard]] std::string formatBinaryMib(std::uint64_t mib);
   [[nodiscard]] std::string formatBinaryMibAsGib(std::uint64_t mib);
@@ -11,6 +18,8 @@ namespace FormatUnits {
   [[nodiscard]] std::string formatBinaryBytesAsGib(std::uint64_t bytes);
   [[nodiscard]] std::string formatDecimalBytesUsage(double usedBytes, double totalBytes);
   [[nodiscard]] std::string formatDecimalBytesAsGb(double bytes);
-  [[nodiscard]] std::string formatDecimalBytesPerSecond(double bytesPerSec);
+  [[nodiscard]] DecimalByteRateUnit decimalByteRateUnitFromString(std::string_view value);
+  [[nodiscard]] std::string
+  formatDecimalBytesPerSecond(double bytesPerSec, DecimalByteRateUnit unit = DecimalByteRateUnit::Auto);
 
 } // namespace FormatUnits

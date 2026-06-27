@@ -43,6 +43,7 @@
 #include "shell/bar/widgets/wallpaper_widget.h"
 #include "shell/bar/widgets/weather_widget.h"
 #include "shell/bar/widgets/workspaces_widget.h"
+#include "system/format_units.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
@@ -486,6 +487,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
     }
     const std::string display = wc != nullptr ? wc->getString("display", "gauge") : std::string("gauge");
     const std::string networkInterface = wc != nullptr ? wc->getString("interface", "") : std::string();
+    const std::string networkSpeedUnit = wc != nullptr ? wc->getString("network_speed_unit", "auto") : "auto";
     SysmonDisplayMode displayMode = SysmonDisplayMode::Gauge;
     if (display == "text")
       displayMode = SysmonDisplayMode::Text;
@@ -501,6 +503,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
               )
             : colorSpecFromRole(ColorRole::Error),
         .networkInterface = networkInterface,
+        .networkSpeedUnit = FormatUnits::decimalByteRateUnitFromString(networkSpeedUnit),
         .showLabel = wc != nullptr ? wc->getBool("show_label", true) : true,
         .labelMinWidth = static_cast<float>(wc != nullptr ? wc->getDouble("label_min_width", 0.0) : 0.0),
         .glyph = wc != nullptr ? wc->getString("glyph", "") : std::string{},

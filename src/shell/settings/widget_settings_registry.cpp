@@ -597,6 +597,11 @@ namespace settings {
         {"graph", "settings.widgets.options.graph"},
         {"text", "settings.widgets.options.text"},
     };
+    const std::vector<WidgetSettingSelectOption> networkSpeedUnits = {
+        {"auto", "settings.widgets.options.auto"},
+        {"kb", "settings.widgets.options.kilobytes"},
+        {"mb", "settings.widgets.options.megabytes"},
+    };
     const std::vector<WidgetSettingSelectOption> workspaceDisplay = {
         {"id", "settings.widgets.options.id"},
         {"name", "settings.widgets.options.name"},
@@ -778,6 +783,11 @@ namespace settings {
         auto interface = stringSpec("interface");
         interface.visibleWhen = WidgetSettingVisibility{"stat", {"net_rx", "net_tx"}};
         add(std::move(interface));
+      }
+      {
+        auto unit = selectSpec("network_speed_unit", "auto", networkSpeedUnits);
+        unit.visibleWhen = WidgetSettingVisibility{"stat", {"net_rx", "net_tx"}};
+        add(std::move(unit));
       }
       add(segmentedSpec("display", "gauge", sysmonDisplay));
       add(colorSpec("highlight_color", "error"));
