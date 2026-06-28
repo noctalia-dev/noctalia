@@ -122,6 +122,18 @@ namespace {
     return ok;
   }
 
+  bool commandExistsRejectsDirectories() {
+    bool ok = true;
+    ok =
+        expect(!process::commandExists("/usr/bin"), "commandExists should return false for /usr/bin (directory)") && ok;
+    ok = expect(!process::commandExists("/"), "commandExists should return false for / (directory)") && ok;
+    ok = expect(process::commandExists("true"), "commandExists should return true for 'true' on PATH") && ok;
+    ok = expect(!process::commandExists(""), "commandExists should return false for empty string") && ok;
+    ok =
+        expect(!process::commandExists("/nonexistent"), "commandExists should return false for nonexistent path") && ok;
+    return ok;
+  }
+
 } // namespace
 
 int main() {
@@ -130,5 +142,6 @@ int main() {
   ok = capturedAsyncDeliversCallbacksAndResult() && ok;
   ok = capturedAsyncDeliversCompletionOnly() && ok;
   ok = syncAppliesEnvOverrides() && ok;
+  ok = commandExistsRejectsDirectories() && ok;
   return ok ? 0 : 1;
 }
