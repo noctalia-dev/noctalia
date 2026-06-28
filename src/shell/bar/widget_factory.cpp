@@ -619,7 +619,8 @@ std::unique_ptr<Widget> WidgetFactory::create(
   if (type == "weather") {
     const float maxWidth = static_cast<float>(wc != nullptr ? wc->getDouble("max_length", 160.0) : 160.0);
     const bool showCondition = wc != nullptr ? wc->getBool("show_condition", true) : true;
-    auto widget = std::make_unique<WeatherWidget>(m_weather, output, maxWidth, showCondition);
+    const bool showTemperature = wc != nullptr ? wc->getBool("show_temperature", true) : true;
+    auto widget = std::make_unique<WeatherWidget>(m_weather, output, maxWidth, showCondition, showTemperature);
     widget->setContentScale(contentScale);
     return widget;
   }

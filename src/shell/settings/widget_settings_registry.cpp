@@ -921,6 +921,7 @@ namespace settings {
     } else if (type == "weather") {
       add(intSpec("max_length", 160, 40.0, 800.0, 1.0));
       add(boolSpec("show_condition", true));
+      add(boolSpec("show_temperature", true));
     } else if (type == "workspaces") {
       const WidgetSettingVisibility pillStyleOnly{{"minimal", {"false"}}};
       for (auto& spec : commonSpecs) {

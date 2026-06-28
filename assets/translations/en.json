@@ -3109,6 +3109,10 @@
           "description": "Show Scroll Lock state",
           "label": "Show Scroll Lock"
         },
+        "show-temperature": {
+          "description": "Show current temperature text",
+          "label": "Show Temperature"
+        },
         "show-when-idle": {
           "description": "Keep the visualizer visible even when no media is playing",
           "label": "Show When Idle"

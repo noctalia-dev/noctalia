@@ -13,8 +13,10 @@
 #include <format>
 #include <memory>
 
-WeatherWidget::WeatherWidget(WeatherService* weather, wl_output* /*output*/, float maxWidth, bool showCondition)
-    : m_weather(weather), m_maxWidth(maxWidth), m_showCondition(showCondition) {}
+WeatherWidget::WeatherWidget(
+    WeatherService* weather, wl_output* /*output*/, float maxWidth, bool showCondition, bool showTemperature
+)
+    : m_weather(weather), m_maxWidth(maxWidth), m_showCondition(showCondition), m_showTemperature(showTemperature) {}
 
 void WeatherWidget::create() {
   auto area = std::make_unique<InputArea>();
@@ -99,13 +101,17 @@ void WeatherWidget::sync(Renderer& renderer) {
     glyph = WeatherService::glyphForCode(snapshot.current.weatherCode, snapshot.current.isDay);
     const int temp = static_cast<int>(std::lround(m_weather->displayTemperature(snapshot.current.temperatureC)));
     const std::string unit = m_weather->displayTemperatureUnit();
-    if (m_isVertical) {
-      text = verticalTemperature(temp);
+    if (m_showTemperature) {
+      if (m_isVertical) {
+        text = verticalTemperature(temp);
+      } else {
+        text = std::format("{}{}", temp, unit);
+      }
     } else {
-      text = std::format("{}{}", temp, unit);
+      text.clear();
     }
     if (m_showCondition && !m_isVertical) {
-      text += " ";
+      text += text.empty() ? "" : " ";
       text += WeatherService::shortDescriptionForCode(snapshot.current.weatherCode);
     }
   } else if (m_weather->loading()) {
