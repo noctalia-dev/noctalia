@@ -759,18 +759,31 @@ ColorSpec WorkspacesWidget::workspaceTextColor(const Workspace& workspace) const
   if (workspace.urgent) {
     return m_minimal ? colorSpecFromRole(ColorRole::Error) : colorSpecFromRole(ColorRole::OnError);
   }
+
   if (!m_minimal) {
     return readableColorForFill(workspaceFillColor(workspace));
   }
+
   if (workspace.active) {
+    if (m_colorMode == ColorMode::Cycle && !m_cycleColors.empty()) {
+      return workspaceCycleColor(workspace);
+    }
+
     if (m_activeUsesFocusedColor) {
       return m_focusedColor;
     }
+
     return m_occupiedColor;
   }
+
   if (workspace.occupied) {
+    if (m_colorMode == ColorMode::Cycle && !m_cycleColors.empty()) {
+      return workspaceCycleColor(workspace);
+    }
+
     return m_occupiedColor;
   }
+
   ColorSpec color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurfaceVariant));
   color.alpha *= 0.55f;
   return color;
