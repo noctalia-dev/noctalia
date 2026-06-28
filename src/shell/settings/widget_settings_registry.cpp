@@ -949,6 +949,14 @@ namespace settings {
       }
       add(segmentedSpec("display", "id", workspaceDisplay));
       {
+        auto colorMode = stringSpec("color_mode", "state", true);
+        add(std::move(colorMode));
+      }
+      {
+        auto cycleColors = stringListSpec("cycle_colors", {}, true);
+        add(std::move(cycleColors));
+      }
+      {
         auto labelsOnlyWhenOccupied = boolSpec("labels_only_when_occupied", false);
         labelsOnlyWhenOccupied.descriptionKey =
             "settings.widgets.settings.labels-only-when-occupied.workspaces-description";
