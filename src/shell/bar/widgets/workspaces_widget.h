@@ -1,10 +1,12 @@
 #pragma once
 
 #include "compositors/compositor_platform.h"
+#include "compositors/workspace_backend.h"
 #include "render/animation/animation_manager.h"
 #include "shell/bar/widget.h"
 #include "ui/palette.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -36,6 +38,10 @@ public:
     float inactivePillSize = 1.0f;
     bool minimal = false;
     bool focusedOutputOnly = false;
+    bool niriStack = false;
+    std::size_t visibleWorkspaceCount = 3;
+    float dotSize = 6.0f;
+    bool showWindowChips = true;
   };
 
   WorkspacesWidget(CompositorPlatform& platform, wl_output* output, Options options);
@@ -47,6 +53,7 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void rebuild(Renderer& renderer);
+  void rebuildNiriStack(Renderer& renderer);
   void computeTargets();
   void retarget(Renderer& renderer);
   void updateContainerSize();
@@ -67,6 +74,8 @@ private:
   void recalculateItemMetrics(Renderer& renderer, std::size_t index);
   void updateAllItemMetrics(Renderer& renderer);
   void ensureItemLabel(Renderer& renderer, std::size_t index);
+  void clearNiriStackItems();
+  void updateNiriChipFocusVisuals();
 
   struct Item {
     InputArea* area = nullptr;
@@ -85,11 +94,19 @@ private:
     float currentWidth = 0.0f;
   };
 
+  struct NiriChipItem {
+    InputArea* area = nullptr;
+    Box* background = nullptr;
+    Label* label = nullptr;
+    std::string windowId;
+  };
+
   [[nodiscard]] ColorSpec workspaceFillColor(const Workspace& workspace) const;
   [[nodiscard]] ColorSpec workspaceTextColor(const Workspace& workspace) const;
   [[nodiscard]] static ColorRole onRoleForFill(ColorRole fill);
   [[nodiscard]] static ColorSpec readableColorForFill(const ColorSpec& fill);
   [[nodiscard]] bool isFocusedOutput() const;
+  [[nodiscard]] ColorSpec activeWorkspaceChipFillColor() const;
 
   CompositorPlatform& m_platform;
   wl_output* m_output = nullptr;
@@ -118,4 +135,14 @@ private:
   ColorSpec m_focusedColor = colorSpecFromRole(ColorRole::Primary);
   ColorSpec m_occupiedColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec m_emptyColor = colorSpecFromRole(ColorRole::Secondary);
+
+  bool m_niriStack = false;
+  std::size_t m_visibleWorkspaceCount = 3;
+  float m_dotSize = 6.0f;
+  bool m_showWindowChips = true;
+  float m_containerHeight = 0.0f;
+  std::size_t m_niriVisibleStart = 0;
+  std::vector<WorkspaceWindowAssignment> m_niriCachedWindows;
+  std::string m_niriLastFocusedWindowId;
+  std::vector<NiriChipItem> m_niriChipItems;
 };

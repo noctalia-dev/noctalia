@@ -650,6 +650,11 @@ std::unique_ptr<Widget> WidgetFactory::create(
     if (wc != nullptr && wc->hasSetting("max_label_chars")) {
       maxLabelChars = static_cast<std::size_t>(wc->getInt("max_label_chars", 1));
     }
+    const bool niriStack = wc != nullptr ? wc->getBool("niri_stack", false) : false;
+    const std::size_t visibleWorkspaceCount =
+        wc != nullptr ? static_cast<std::size_t>(wc->getInt("visible_workspace_count", 3)) : 3;
+    const float dotSize = wc != nullptr ? static_cast<float>(wc->getDouble("dot_size", 6.0)) : 6.0f;
+    const bool showWindowChips = wc != nullptr ? wc->getBool("show_window_chips", true) : true;
     WorkspacesWidget::Options options{
         .displayMode = displayMode,
         .focusedColor = focusedColor,
@@ -663,6 +668,10 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .inactivePillSize = static_cast<float>(wc != nullptr ? wc->getDouble("inactive_pill_size", 1.0) : 1.0),
         .minimal = wc != nullptr ? wc->getBool("minimal", false) : false,
         .focusedOutputOnly = wc != nullptr ? wc->getBool("focused_output_only", false) : false,
+        .niriStack = niriStack,
+        .visibleWorkspaceCount = visibleWorkspaceCount,
+        .dotSize = dotSize,
+        .showWindowChips = showWindowChips,
     };
     auto widget = std::make_unique<WorkspacesWidget>(m_platform, output, options);
     widget->setContentScale(contentScale);

@@ -6,6 +6,8 @@
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "system/app_identity.h"
+#include "system/desktop_entry.h"
 #include "ui/builders.h"
 #include "ui/style.h"
 #include "util/string_utils.h"
@@ -14,6 +16,7 @@
 #include <cctype>
 #include <cmath>
 #include <linux/input-event-codes.h>
+#include <numeric>
 #include <utility>
 #include <wayland-client-protocol.h>
 
@@ -38,6 +41,60 @@ namespace {
     return !label.empty()
         && std::ranges::all_of(label, [](char c) { return std::isdigit(static_cast<unsigned char>(c)); });
   }
+
+  [[nodiscard]] std::string resolveWindowChipLabel(const std::string& appId) {
+    if (appId.empty()) {
+      return {};
+    }
+
+    const DesktopEntry desktopEntry = app_identity::resolveRunningDesktopEntry(appId, desktopEntries());
+    if (!desktopEntry.name.empty()) {
+      return desktopEntry.name;
+    }
+
+    if (const auto slash = appId.find_last_of('/'); slash != std::string::npos && slash + 1 < appId.size()) {
+      return appId.substr(slash + 1);
+    }
+
+    return appId;
+  }
+
+  [[nodiscard]] std::optional<std::string>
+  inferFocusedWindowId(const CompositorPlatform& platform, const std::vector<WorkspaceWindowAssignment>& assignments) {
+    if (const auto direct = platform.focusedCompositorWindowId(); direct.has_value() && !direct->empty()) {
+      return direct;
+    }
+
+    const auto active = platform.activeToplevel();
+    if (active.has_value()) {
+      if (active->handle != nullptr) {
+        if (const auto mapped = platform.compositorWindowIdForToplevel(active->handle);
+            mapped.has_value() && !mapped->empty()) {
+          return mapped;
+        }
+      }
+
+      std::optional<std::string> uniqueMatch;
+      for (const auto& assignment : assignments) {
+        const bool appMatch = !active->appId.empty() && assignment.appId == active->appId;
+        const bool titleMatch = !active->title.empty() && assignment.title == active->title;
+        if (!appMatch && !titleMatch) {
+          continue;
+        }
+        if (uniqueMatch.has_value()) {
+          uniqueMatch.reset();
+          break;
+        }
+        uniqueMatch = assignment.windowId;
+      }
+      if (uniqueMatch.has_value()) {
+        return uniqueMatch;
+      }
+    }
+
+    return std::nullopt;
+  }
+
 } // namespace
 
 WorkspacesWidget::WorkspacesWidget(CompositorPlatform& platform, wl_output* output, Options options)
@@ -47,7 +104,9 @@ WorkspacesWidget::WorkspacesWidget(CompositorPlatform& platform, wl_output* outp
       m_activePillSize(std::clamp(options.activePillSize, 0.25f, 8.0f)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25f, 8.0f)), m_minimal(options.minimal),
       m_focusedOutputOnly(options.focusedOutputOnly), m_focusedColor(options.focusedColor),
-      m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor) {}
+      m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor), m_niriStack(options.niriStack),
+      m_visibleWorkspaceCount(options.visibleWorkspaceCount), m_dotSize(options.dotSize),
+      m_showWindowChips(options.showWindowChips) {}
 
 WorkspacesWidget::DisplayMode WorkspacesWidget::effectiveDisplayMode() const noexcept {
   if (m_minimal && m_displayMode == DisplayMode::None) {
@@ -94,6 +153,9 @@ void WorkspacesWidget::doLayout(Renderer& renderer, float containerWidth, float 
   if (wasVertical != m_isVertical) {
     m_rebuildPending = true;
   }
+  if (m_niriStack) {
+    m_containerHeight = containerHeight;
+  }
   const std::uint64_t textMetricsGeneration = renderer.textMetricsGeneration();
   if (m_textMetricsGeneration != textMetricsGeneration) {
     m_textMetricsGeneration = textMetricsGeneration;
@@ -112,8 +174,59 @@ void WorkspacesWidget::syncWidgetVisibility(bool showWidget) {
   }
 }
 
+void WorkspacesWidget::clearNiriStackItems() { m_niriChipItems.clear(); }
+
+ColorSpec WorkspacesWidget::activeWorkspaceChipFillColor() const {
+  const auto active = std::ranges::find_if(m_cachedState, [](const Workspace& ws) { return ws.active; });
+  if (active != m_cachedState.end()) {
+    return workspaceFillColor(*active);
+  }
+  return colorSpecFromRole(ColorRole::Primary);
+}
+
+void WorkspacesWidget::updateNiriChipFocusVisuals() {
+  const ColorSpec focusedFill = activeWorkspaceChipFillColor();
+  const ColorSpec unfocusedFill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.30f);
+  const ColorSpec focusedText = readableColorForFill(focusedFill);
+  const ColorSpec unfocusedText = colorSpecFromRole(ColorRole::OnSurfaceVariant);
+
+  for (auto& chip : m_niriChipItems) {
+    const bool isFocused = !m_niriLastFocusedWindowId.empty() && chip.windowId == m_niriLastFocusedWindowId;
+    if (chip.background != nullptr) {
+      chip.background->setFill(isFocused ? focusedFill : unfocusedFill);
+      if (isFocused) {
+        chip.background->setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth * m_contentScale);
+      } else {
+        chip.background->clearBorder();
+      }
+    }
+    if (chip.label != nullptr) {
+      chip.label->setColor(isFocused ? focusedText : unfocusedText);
+      chip.label->setFontWeight(isFocused ? FontWeight::SemiBold : FontWeight::Normal);
+    }
+  }
+
+  if (root() != nullptr) {
+    root()->markPaintDirty();
+  }
+  if (Node* shell = barCapsuleShell(); shell != nullptr) {
+    shell->markPaintDirty();
+  }
+  requestFrameTick();
+  requestRedraw();
+}
+
 void WorkspacesWidget::doUpdate(Renderer& renderer) {
   auto current = m_platform.workspaces(m_output);
+
+  if (m_niriStack && !m_niriChipItems.empty()) {
+    const auto liveAssignments = m_platform.workspaceWindowAssignments(m_output);
+    const std::string liveFocusId = inferFocusedWindowId(m_platform, liveAssignments).value_or("");
+    if (liveFocusId != m_niriLastFocusedWindowId) {
+      m_niriLastFocusedWindowId = liveFocusId;
+      updateNiriChipFocusVisuals();
+    }
+  }
 
   if (!m_cachedState.empty() && !current.empty() && !std::ranges::any_of(current, [](const Workspace& ws) {
         return ws.active;
@@ -127,6 +240,7 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
   if (!showWidget) {
     if (!m_cachedState.empty() || !m_items.empty()) {
       m_cachedState.clear();
+      clearNiriStackItems();
       m_rebuildPending = true;
       if (root() != nullptr) {
         root()->markLayoutDirty();
@@ -166,6 +280,34 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
         retarget(renderer);
       }
     }
+    if (m_niriStack) {
+      const auto liveAssignments = m_platform.workspaceWindowAssignments(m_output);
+      auto newWindows = liveAssignments;
+      const bool windowsChanged = [&]() {
+        if (newWindows.size() != m_niriCachedWindows.size()) {
+          return true;
+        }
+        for (std::size_t i = 0; i < newWindows.size(); ++i) {
+          const auto& a = newWindows[i];
+          const auto& b = m_niriCachedWindows[i];
+          if (a.windowId != b.windowId
+              || a.workspaceKey != b.workspaceKey
+              || a.appId != b.appId
+              || a.title != b.title
+              || a.x != b.x
+              || a.y != b.y) {
+            return true;
+          }
+        }
+        return false;
+      }();
+      if (windowsChanged) {
+        m_niriCachedWindows = std::move(newWindows);
+        m_rebuildPending = true;
+        if (root() != nullptr)
+          root()->markLayoutDirty();
+      }
+    }
     return;
   }
 
@@ -185,13 +327,45 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
     );
   }
 
-  if (structuralChange) {
+  if (structuralChange || (m_niriStack && activeChange)) {
+    if (m_niriStack && activeChange) {
+      m_niriLastFocusedWindowId =
+          inferFocusedWindowId(m_platform, m_platform.workspaceWindowAssignments(m_output)).value_or("");
+    }
     m_rebuildPending = true;
     if (root() != nullptr) {
       root()->markLayoutDirty();
     }
   } else {
     retarget(renderer);
+  }
+
+  if (m_niriStack) {
+    auto newWindows = m_platform.workspaceWindowAssignments(m_output);
+    const bool windowsChanged = [&]() {
+      if (newWindows.size() != m_niriCachedWindows.size()) {
+        return true;
+      }
+      for (std::size_t i = 0; i < newWindows.size(); ++i) {
+        const auto& a = newWindows[i];
+        const auto& b = m_niriCachedWindows[i];
+        if (a.windowId != b.windowId
+            || a.workspaceKey != b.workspaceKey
+            || a.appId != b.appId
+            || a.title != b.title
+            || a.x != b.x
+            || a.y != b.y) {
+          return true;
+        }
+      }
+      return false;
+    }();
+    if (windowsChanged) {
+      m_niriCachedWindows = std::move(newWindows);
+      m_rebuildPending = true;
+      if (root() != nullptr)
+        root()->markLayoutDirty();
+    }
   }
 }
 
@@ -203,6 +377,12 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
     m_container->removeChild(m_container->children().back().get());
   }
   m_items.clear();
+  clearNiriStackItems();
+
+  if (m_niriStack) {
+    rebuildNiriStack(renderer);
+    return;
+  }
 
   const auto& workspaces = m_cachedState;
   const float gap = kWorkspaceGap * m_contentScale;
@@ -356,6 +536,231 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
     m_container->setFrameSize(m_indicatorHeight, total);
   } else {
     m_container->setFrameSize(total, m_indicatorHeight);
+  }
+}
+
+void WorkspacesWidget::rebuildNiriStack(Renderer& renderer) {
+  const auto& workspaces = m_cachedState;
+  if (workspaces.empty()) {
+    m_container->setFrameSize(0.0f, m_containerHeight);
+    m_niriVisibleStart = 0;
+    return;
+  }
+
+  const float hPad = std::round(Style::spaceXs * m_contentScale);
+  const float midY = m_containerHeight * 0.5f;
+  const float barH = std::max(4.0f, std::round(m_dotSize * 0.62f * m_contentScale));
+  const float barInactiveW = std::max(8.0f, std::round(m_dotSize * 1.7f * m_contentScale));
+  const float barActiveW = std::max(barInactiveW + 4.0f, std::round(barInactiveW * 1.65f));
+  const float barSpacing = std::max(4.0f, std::round(barH * 1.15f));
+  const float slotW = barActiveW;
+
+  std::vector<std::size_t> ordered(workspaces.size());
+  std::iota(ordered.begin(), ordered.end(), 0);
+  std::ranges::stable_sort(ordered, [&](std::size_t lhs, std::size_t rhs) {
+    const auto sortKey = [&](const Workspace& ws, std::size_t originalIndex) {
+      if (ws.index > 0) {
+        return std::pair<int, std::size_t>{0, ws.index};
+      }
+      if (const auto numericId = numericWorkspaceId(ws); numericId.has_value()) {
+        return std::pair<int, std::size_t>{1, *numericId};
+      }
+      return std::pair<int, std::size_t>{2, originalIndex};
+    };
+    return sortKey(workspaces[lhs], lhs) < sortKey(workspaces[rhs], rhs);
+  });
+
+  std::size_t activeOrderedIdx = 0;
+  for (std::size_t i = 0; i < ordered.size(); ++i) {
+    if (workspaces[ordered[i]].active) {
+      activeOrderedIdx = i;
+      break;
+    }
+  }
+
+  const std::size_t nAll = ordered.size();
+  const std::size_t nVisible = std::min(m_visibleWorkspaceCount, nAll);
+  const std::size_t centerSlot = nVisible / 2;
+  std::size_t visibleStart = 0;
+  if (activeOrderedIdx > centerSlot) {
+    visibleStart = activeOrderedIdx - centerSlot;
+  }
+  if (visibleStart + nVisible > nAll) {
+    visibleStart = nAll - nVisible;
+  }
+  m_niriVisibleStart = visibleStart;
+  const float barColTotalH =
+      static_cast<float>(nVisible) * barH + static_cast<float>(nVisible > 1 ? nVisible - 1 : 0) * barSpacing;
+
+  float x = hPad;
+
+  // --- Workspace bars ---
+  for (std::size_t i = 0; i < nVisible; ++i) {
+    const float centerY = midY - barColTotalH * 0.5f + static_cast<float>(i) * (barH + barSpacing) + barH * 0.5f;
+    const std::size_t wsIdx = ordered[m_niriVisibleStart + i];
+    const auto& ws = workspaces[wsIdx];
+    const float thisBarW = ws.active ? barActiveW : barInactiveW;
+
+    // Make the click area larger than the visible bar so narrow indicators stay easy to hit.
+    const float slotH = barH + barSpacing;
+    auto hitArea = std::make_unique<InputArea>();
+    hitArea->setFrameSize(slotW, slotH);
+    hitArea->setPosition(x, std::round(centerY - slotH * 0.5f));
+
+    auto bar = ui::box({
+        .fill = workspaceFillColor(ws),
+        .radius = barH * 0.5f,
+        .width = thisBarW,
+        .height = barH,
+    });
+    bar->setOpacity(ws.active ? 1.0f : (ws.occupied || ws.urgent ? 0.82f : 0.32f));
+    bar->setPosition(0.0f, std::round((slotH - barH) * 0.5f));
+    hitArea->addChild(std::move(bar));
+
+    auto wsCopy = ws;
+    hitArea->setOnClick([this, wsCopy](const InputArea::PointerData& data) {
+      if (data.button == BTN_LEFT) {
+        m_platform.activateWorkspace(m_output, wsCopy);
+      }
+    });
+
+    m_container->addChild(std::move(hitArea));
+  }
+
+  x += slotW + hPad;
+
+  // --- Get active workspace windows ---
+  // Compute the key that niri assigns to this workspace: idx if available, else id.
+  std::string activeKey;
+  const std::size_t activeWsIdx = ordered[activeOrderedIdx];
+  if (activeWsIdx < workspaces.size()) {
+    const auto& activeWs = workspaces[activeWsIdx];
+    if (activeWs.index > 0) {
+      activeKey = std::to_string(activeWs.index);
+    } else if (!activeWs.id.empty()) {
+      activeKey = activeWs.id;
+    }
+  }
+
+  // Fetch fresh window assignments so the rebuild always reflects current state.
+  const auto allWindows = m_platform.workspaceWindowAssignments(m_output);
+  std::vector<WorkspaceWindowAssignment> filteredWindows;
+  for (const auto& win : allWindows) {
+    if (!activeKey.empty() && win.workspaceKey == activeKey) {
+      filteredWindows.push_back(win);
+    }
+  }
+  std::sort(
+      filteredWindows.begin(), filteredWindows.end(),
+      [](const WorkspaceWindowAssignment& a, const WorkspaceWindowAssignment& b) { return a.x < b.x; }
+  );
+  std::string focusedWindowId;
+  if (const auto inferred = inferFocusedWindowId(m_platform, allWindows); inferred.has_value()) {
+    const auto it =
+        std::find_if(filteredWindows.begin(), filteredWindows.end(), [&](const WorkspaceWindowAssignment& assignment) {
+          return assignment.windowId == *inferred;
+        });
+    if (it != filteredWindows.end()) {
+      focusedWindowId = *inferred;
+    }
+  }
+  m_niriLastFocusedWindowId = focusedWindowId;
+
+  // --- Separator ---
+  if (m_showWindowChips && !filteredWindows.empty()) {
+    const float sepH = std::round(barColTotalH * 0.85f);
+    auto sep = ui::box({
+        .fill = colorSpecFromRole(ColorRole::Outline),
+        .width = 1.0f,
+        .height = sepH,
+    });
+    sep->setOpacity(0.4f);
+    sep->setPosition(x, std::round(midY - sepH * 0.5f));
+    m_container->addChild(std::move(sep));
+    x += 1.0f + hPad;
+  }
+
+  // --- Window chips ---
+  if (m_showWindowChips) {
+    const float chipFontSize = Style::fontSizeMini * 0.92f * m_contentScale;
+    const float chipH = std::round(m_containerHeight * 0.65f);
+    const float chipPadH = std::round(Style::spaceXs * 0.85f * m_contentScale);
+    const float chipGap = std::round(Style::spaceXs * m_contentScale);
+    bool hadChips = false;
+
+    for (const auto& win : filteredWindows) {
+      std::string t = resolveWindowChipLabel(win.appId);
+      t = StringUtils::truncateUtf8CodePoints(t, 14);
+
+      const bool isFocused = !focusedWindowId.empty() && win.windowId == focusedWindowId;
+      const ColorSpec chipFill =
+          isFocused ? workspaceFillColor(workspaces[activeWsIdx]) : colorSpecFromRole(ColorRole::SurfaceVariant, 0.30f);
+      const ColorSpec chipTextColor =
+          isFocused ? readableColorForFill(chipFill) : colorSpecFromRole(ColorRole::OnSurfaceVariant);
+
+      auto chipArea = std::make_unique<InputArea>();
+      auto chipBg = ui::box({
+          .fill = chipFill,
+          .radius = chipH * 0.5f,
+      });
+      chipBg->setFrameSize(0.0f, chipH);
+      if (isFocused) {
+        chipBg->setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth * m_contentScale);
+      } else {
+        chipBg->clearBorder();
+      }
+
+      auto chipLabel = ui::label({
+          .text = t,
+          .fontSize = chipFontSize,
+          .fontFamily = labelFontFamily(),
+          .color = chipTextColor,
+          .fontWeight = isFocused ? FontWeight::SemiBold : FontWeight::Normal,
+      });
+      chipLabel->measure(renderer);
+      const float chipW = std::round(chipLabel->width() + chipPadH * 2.0f);
+
+      chipArea->setFrameSize(chipW, chipH);
+      chipArea->setPosition(x, std::round(midY - chipH * 0.5f));
+      chipBg->setFrameSize(chipW, chipH);
+      auto* chipBgPtr = chipBg.get();
+      chipArea->addChild(std::move(chipBg));
+      chipLabel->setPosition(chipPadH, std::round((chipH - chipLabel->height()) * 0.5f));
+      auto* chipLabelPtr = chipLabel.get();
+      chipArea->addChild(std::move(chipLabel));
+
+      const std::string windowId = win.windowId;
+      chipArea->setOnClick([this, windowId](const InputArea::PointerData& data) {
+        if (data.button == BTN_LEFT) {
+          m_niriLastFocusedWindowId = windowId;
+          m_platform.focusCompositorWindow(windowId);
+          updateNiriChipFocusVisuals();
+        }
+      });
+
+      auto* chipAreaPtr = static_cast<InputArea*>(m_container->addChild(std::move(chipArea)));
+      m_niriChipItems.push_back(
+          NiriChipItem{
+              .area = chipAreaPtr,
+              .background = chipBgPtr,
+              .label = chipLabelPtr,
+              .windowId = windowId,
+          }
+      );
+      x += chipW + chipGap;
+      hadChips = true;
+    }
+
+    if (hadChips) {
+      x -= chipGap;
+    }
+  }
+
+  // --- Finalize ---
+  x += hPad;
+  m_container->setFrameSize(x, m_containerHeight);
+  if (barCapsuleShell() != nullptr) {
+    barCapsuleShell()->markLayoutDirty();
   }
 }
 

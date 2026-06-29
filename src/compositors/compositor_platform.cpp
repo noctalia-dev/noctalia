@@ -61,6 +61,19 @@ namespace {
 
   constexpr Logger kLog("compositor_platform");
 
+  [[nodiscard]] const char* metadataBackendName(const compositors::WorkspaceMetadataBackend* backend) {
+    if (backend == nullptr) {
+      return "none";
+    }
+    if (dynamic_cast<const NiriWorkspaceBackend*>(backend) != nullptr) {
+      return "niri";
+    }
+    if (dynamic_cast<const TriadWorkspaceBackend*>(backend) != nullptr) {
+      return "triad";
+    }
+    return "unknown";
+  }
+
   [[nodiscard]] const char* valueOrUnset(const char* value) {
     return value != nullptr && value[0] != '\0' ? value : "<unset>";
   }
@@ -572,6 +585,12 @@ void CompositorPlatform::initialize() {
   m_initialized = true;
 
   m_workspaces->initialize();
+  kLog.info(
+      "workspace stack: compositor={} base_backend={} metadata_backend={} niri_runtime_available={}",
+      compositors::name(compositors::detect()), m_workspaces != nullptr ? m_workspaces->backendName() : "none",
+      metadataBackendName(m_workspaceMetadataBackend.get()),
+      m_runtimeRegistry != nullptr ? m_runtimeRegistry->niri().available() : false
+  );
   for (const auto& output : m_wayland.outputs()) {
     if (output.output != nullptr) {
       m_workspaces->onOutputAdded(output.output);
@@ -968,10 +987,27 @@ bool CompositorPlatform::isCompositorWindowIdKnown(const std::string_view window
 }
 
 std::optional<std::string> CompositorPlatform::focusedCompositorWindowId() const {
-  if (m_workspaces == nullptr) {
-    return std::nullopt;
+  if (compositors::detect() == compositors::CompositorKind::Niri && m_workspaceMetadataBackend != nullptr) {
+    if (const auto focused = m_workspaceMetadataBackend->focusedWindowId(); focused.has_value()) {
+      return focused;
+    }
   }
-  return m_workspaces->focusedWindowId();
+  if (m_workspaces != nullptr) {
+    if (const auto focused = m_workspaces->focusedWindowId(); focused.has_value()) {
+      return focused;
+    }
+  }
+  if (m_workspaceMetadataBackend != nullptr) {
+    if (const auto focused = m_workspaceMetadataBackend->focusedWindowId(); focused.has_value()) {
+      return focused;
+    }
+  }
+  if (const auto active = activeToplevel(); active.has_value() && active->handle != nullptr) {
+    if (const auto mapped = compositorWindowIdForToplevel(active->handle); mapped.has_value() && !mapped->empty()) {
+      return mapped;
+    }
+  }
+  return std::nullopt;
 }
 
 void CompositorPlatform::setWorkspaceChangeCallback(ChangeCallback callback) {

@@ -12,7 +12,6 @@
 #include <utility>
 
 namespace {
-
   [[nodiscard]] std::optional<std::uint64_t> jsonUnsigned(const nlohmann::json& json) {
     if (json.is_number_unsigned()) {
       return json.get<std::uint64_t>();
@@ -311,12 +310,20 @@ bool NiriWorkspaceBackend::focusWindowById(const std::string& windowId) {
   );
 }
 
+std::optional<std::string> NiriWorkspaceBackend::focusedWindowId() const {
+  if (!m_focusedWindowId.has_value()) {
+    return std::nullopt;
+  }
+  return std::to_string(*m_focusedWindowId);
+}
+
 void NiriWorkspaceBackend::cleanup() { m_runtime.cleanup(); }
 
 void NiriWorkspaceBackend::handleStreamReset() {
   const bool overviewWasOpen = m_overviewKnown && m_overviewOpen;
   m_windows.clear();
   m_workspaces.clear();
+  m_focusedWindowId.reset();
   m_overviewKnown = false;
   m_overviewOpen = false;
   if (overviewWasOpen) {
@@ -347,6 +354,10 @@ void NiriWorkspaceBackend::handleEvent(std::string_view key, const nlohmann::jso
     return;
   } else if (key == "WindowOpenedOrChanged") {
     changed = handleWindowOpenedOrChanged(value);
+  } else if (key == "WindowFocusChanged") {
+    changed = handleWindowFocusChanged(value);
+  } else if (key == "WorkspaceActiveWindowChanged") {
+    changed = handleWorkspaceActiveWindowChanged(value);
   } else if (key == "WindowLayoutsChanged") {
     changed = handleWindowLayoutsChanged(value);
   } else if (key == "WindowClosed") {
@@ -396,12 +407,30 @@ bool NiriWorkspaceBackend::handleWindowsChanged(const nlohmann::json& payload) {
     return false;
   }
 
+  std::optional<std::uint64_t> nextFocusedWindowId;
+  for (const auto& [windowId, window] : next) {
+    if (!window.focused) {
+      continue;
+    }
+    if (nextFocusedWindowId.has_value()) {
+      nextFocusedWindowId.reset();
+      break;
+    }
+    nextFocusedWindowId = windowId;
+  }
+
   const bool membershipChanged = !sameWindowMembership(next, m_windows);
   m_windows = std::move(next);
+  if (nextFocusedWindowId.has_value()) {
+    clearFocusedFlagsExcept(nextFocusedWindowId);
+    m_focusedWindowId = nextFocusedWindowId;
+  } else {
+    recomputeFocusedWindow();
+  }
   if (membershipChanged) {
     recomputeOccupancy();
   }
-  return membershipChanged;
+  return true;
 }
 
 bool NiriWorkspaceBackend::handleOverviewChanged(const nlohmann::json& payload) {
@@ -458,10 +487,70 @@ bool NiriWorkspaceBackend::handleWindowOpenedOrChanged(const nlohmann::json& pay
   const bool membershipChanged = existing == m_windows.end() ? (state.workspaceId.has_value() || !state.appId.empty())
                                                              : !sameWindowMembership(existing->second, state);
   m_windows[*id] = state;
+  if (state.focused) {
+    clearFocusedFlagsExcept(*id);
+    m_focusedWindowId = *id;
+  } else if (m_focusedWindowId == *id) {
+    recomputeFocusedWindow();
+  }
   if (membershipChanged) {
     recomputeOccupancy();
   }
-  return membershipChanged;
+  return true;
+}
+
+bool NiriWorkspaceBackend::handleWindowFocusChanged(const nlohmann::json& payload) {
+  std::optional<std::uint64_t> windowId = jsonUnsigned(payload);
+  if (!windowId.has_value() && payload.is_object()) {
+    windowId = jsonOptionalUnsigned(payload, "id");
+  }
+  if (!windowId.has_value()) {
+    return false;
+  }
+
+  if (m_focusedWindowId == *windowId) {
+    const auto it = m_windows.find(*windowId);
+    if (it != m_windows.end() && it->second.focused) {
+      return false;
+    }
+  }
+
+  clearFocusedFlagsExcept(*windowId);
+  m_focusedWindowId = *windowId;
+  if (auto it = m_windows.find(*windowId); it != m_windows.end()) {
+    it->second.focused = true;
+  }
+  return true;
+}
+
+bool NiriWorkspaceBackend::handleWorkspaceActiveWindowChanged(const nlohmann::json& payload) {
+  if (!payload.is_object()) {
+    return false;
+  }
+
+  const auto windowId = jsonOptionalUnsigned(payload, "active_window_id");
+  if (!windowId.has_value()) {
+    if (!m_focusedWindowId.has_value()) {
+      return false;
+    }
+    clearFocusedFlagsExcept(std::nullopt);
+    m_focusedWindowId.reset();
+    return true;
+  }
+
+  if (m_focusedWindowId == *windowId) {
+    const auto it = m_windows.find(*windowId);
+    if (it != m_windows.end() && it->second.focused) {
+      return false;
+    }
+  }
+
+  clearFocusedFlagsExcept(*windowId);
+  m_focusedWindowId = *windowId;
+  if (auto it = m_windows.find(*windowId); it != m_windows.end()) {
+    it->second.focused = true;
+  }
+  return true;
 }
 
 bool NiriWorkspaceBackend::handleWindowLayoutsChanged(const nlohmann::json& payload) {
@@ -526,6 +615,9 @@ bool NiriWorkspaceBackend::handleWindowClosed(const nlohmann::json& payload) {
 
   if (m_windows.erase(*windowId) == 0) {
     return false;
+  }
+  if (m_focusedWindowId == *windowId) {
+    recomputeFocusedWindow();
   }
   recomputeOccupancy();
   return true;
@@ -595,6 +687,20 @@ bool NiriWorkspaceBackend::applyWindowFields(const nlohmann::json& json, WindowS
     changed = true;
   }
 
+  const auto focusedFlagSnake = jsonOptionalBool(json, "is_focused");
+  const auto focusedFlagCamel = jsonOptionalBool(json, "isFocused");
+  const auto focusedFlagPlain = jsonOptionalBool(json, "focused");
+  if (focusedFlagSnake.has_value()) {
+    state.focused = *focusedFlagSnake;
+    changed = true;
+  } else if (focusedFlagCamel.has_value()) {
+    state.focused = *focusedFlagCamel;
+    changed = true;
+  } else if (focusedFlagPlain.has_value()) {
+    state.focused = *focusedFlagPlain;
+    changed = true;
+  }
+
   if (json.contains("layout")) {
     const auto& layout = json["layout"];
     if (layout.contains("pos_in_scrolling_layout")) {
@@ -627,6 +733,28 @@ bool NiriWorkspaceBackend::sameWindowMembership(
     }
   }
   return true;
+}
+
+void NiriWorkspaceBackend::clearFocusedFlagsExcept(std::optional<std::uint64_t> focusedId) {
+  for (auto& [windowId, window] : m_windows) {
+    window.focused = focusedId.has_value() && windowId == *focusedId;
+  }
+}
+
+void NiriWorkspaceBackend::recomputeFocusedWindow() {
+  std::optional<std::uint64_t> focusedId;
+  for (const auto& [windowId, window] : m_windows) {
+    if (!window.focused) {
+      continue;
+    }
+    if (focusedId.has_value()) {
+      focusedId.reset();
+      break;
+    }
+    focusedId = windowId;
+  }
+  clearFocusedFlagsExcept(focusedId);
+  m_focusedWindowId = focusedId;
 }
 
 std::optional<std::uint64_t> NiriWorkspaceBackend::parseUnsigned(const std::string& value) {

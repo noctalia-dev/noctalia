@@ -994,6 +994,23 @@ namespace settings {
         auto emptyColor = colorSpec("empty_color", "secondary");
         add(std::move(emptyColor));
       }
+      add(boolSpec("niri_stack", false));
+      const WidgetSettingVisibility niriOnly{{"niri_stack", {"true"}}};
+      {
+        auto v = intSpec("visible_workspace_count", 3, 1.0, 10.0, 1.0);
+        v.visibleWhen = niriOnly;
+        add(std::move(v));
+      }
+      {
+        auto v = doubleSpec("dot_size", 6.0, 3.0, 16.0, 0.5);
+        v.visibleWhen = niriOnly;
+        add(std::move(v));
+      }
+      {
+        auto v = boolSpec("show_window_chips", true);
+        v.visibleWhen = niriOnly;
+        add(std::move(v));
+      }
     }
 
     specs.insert(specs.end(), std::make_move_iterator(commonSpecs.begin()), std::make_move_iterator(commonSpecs.end()));
