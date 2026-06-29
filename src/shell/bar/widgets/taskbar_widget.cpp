@@ -165,7 +165,7 @@ TaskbarWidget::TaskbarWidget(
     CompositorPlatform& platform, ConfigService& config, wl_output* output, TaskbarWidgetOptions options
 )
     : m_platform(platform), m_configService(config), m_output(output), m_configOptions(std::move(options)),
-      m_showAllOutputs(m_configOptions.showAllOutputs), m_focusedOnly(m_configOptions.focusedOnly),
+      m_showAllOutputs(m_configOptions.showAllOutputs), m_focusedOutputOnly(m_configOptions.focusedOutputOnly),
       m_showActiveIndicator(m_configOptions.showActiveIndicator), m_activeOpacity(m_configOptions.activeOpacity),
       m_inactiveOpacity(m_configOptions.inactiveOpacity), m_focusedColor(m_configOptions.focusedColor),
       m_occupiedColor(m_configOptions.occupiedColor), m_emptyColor(m_configOptions.emptyColor),
@@ -334,7 +334,7 @@ void TaskbarWidget::doLayout(Renderer& renderer, float containerWidth, float con
 
 void TaskbarWidget::doUpdate(Renderer& /*renderer*/) {
   updateModels();
-  if (m_focusedOnly) {
+  if (m_focusedOutputOnly) {
     const bool isFocused = isFocusedOutput();
     if (isFocused != m_wasFocusedOutput) {
       m_wasFocusedOutput = isFocused;
@@ -2329,7 +2329,7 @@ wl_output* TaskbarWidget::workspaceHostOutput(const WorkspaceModel& model) const
 
 ColorSpec TaskbarWidget::workspaceFillColor(const Workspace& workspace) const {
   if (workspace.active) {
-    if (!m_focusedOnly || isFocusedOutput()) {
+    if (!m_focusedOutputOnly || isFocusedOutput()) {
       return m_focusedColor;
     }
     return m_occupiedColor;

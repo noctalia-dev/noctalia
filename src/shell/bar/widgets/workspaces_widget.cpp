@@ -46,8 +46,8 @@ WorkspacesWidget::WorkspacesWidget(CompositorPlatform& platform, wl_output* outp
       m_hideWhenEmpty(options.hideWhenEmpty), m_pillScale(options.pillScale),
       m_activePillSize(std::clamp(options.activePillSize, 0.25f, 8.0f)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25f, 8.0f)), m_minimal(options.minimal),
-      m_focusedOnly(options.focusedOnly), m_focusedColor(options.focusedColor), m_occupiedColor(options.occupiedColor),
-      m_emptyColor(options.emptyColor) {}
+      m_focusedOutputOnly(options.focusedOutputOnly), m_focusedColor(options.focusedColor),
+      m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor) {}
 
 WorkspacesWidget::DisplayMode WorkspacesWidget::effectiveDisplayMode() const noexcept {
   if (m_minimal && m_displayMode == DisplayMode::None) {
@@ -159,7 +159,7 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
   }
 
   if (!structuralChange && !activeChange) {
-    if (m_focusedOnly) {
+    if (m_focusedOutputOnly) {
       const bool isFocused = isFocusedOutput();
       if (isFocused != m_wasFocusedOutput) {
         m_wasFocusedOutput = isFocused;
@@ -710,7 +710,7 @@ bool WorkspacesWidget::isFocusedOutput() const { return m_platform.preferredInte
 
 ColorSpec WorkspacesWidget::workspaceFillColor(const Workspace& workspace) const {
   if (workspace.active) {
-    if (!m_focusedOnly || isFocusedOutput()) {
+    if (!m_focusedOutputOnly || isFocusedOutput()) {
       return m_focusedColor;
     }
     return m_occupiedColor;
@@ -734,7 +734,7 @@ ColorSpec WorkspacesWidget::workspaceTextColor(const Workspace& workspace) const
     return readableColorForFill(workspaceFillColor(workspace));
   }
   if (workspace.active) {
-    if (!m_focusedOnly || isFocusedOutput()) {
+    if (!m_focusedOutputOnly || isFocusedOutput()) {
       return m_focusedColor;
     }
     return m_occupiedColor;

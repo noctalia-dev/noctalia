@@ -3013,9 +3013,9 @@
           "label": "Minimal Style",
           "workspaces-description": "Text-only workspace labels without pill backgrounds or slide animation"
         },
-        "focused-only": {
+        "focused-output-only": {
           "description": "Only highlight the active workspace on the focused monitor",
-          "label": "Focused Highlight Only",
+          "label": "Highlight Focused Output Only",
           "workspaces-description": "Only highlight the active workspace on the monitor that has keyboard or pointer focus; other monitors show their active workspace as occupied instead",
           "taskbar-description": "Only use the focused color for the active workspace on the monitor that has keyboard or pointer focus; other monitors use the occupied color"
         },

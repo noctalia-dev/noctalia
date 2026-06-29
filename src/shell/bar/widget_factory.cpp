@@ -526,7 +526,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .workspaceLabelPlacement = WorkspaceLabelPlacement::Corner,
         .hideEmptyWorkspaces = wc != nullptr ? wc->getBool("hide_empty_workspaces", false) : false,
         .workspaceGroupCapsule = wc != nullptr ? wc->getBool("workspace_group_capsule", true) : true,
-        .focusedOnly = wc != nullptr ? wc->getBool("focused_only", false) : false,
+        .focusedOutputOnly = wc != nullptr ? wc->getBool("focused_output_only", false) : false,
         .groupSingleIconPerApp = wc != nullptr ? wc->getBool("group_single_icon_per_app", false) : false,
         .showActiveIndicator = wc != nullptr ? wc->getBool("show_active_indicator", true) : true,
         .activeOpacity = wc != nullptr ? static_cast<float>(wc->getDouble("active_opacity", 1.0)) : 1.0f,
@@ -662,7 +662,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .activePillSize = static_cast<float>(wc != nullptr ? wc->getDouble("active_pill_size", 2.2) : 2.2),
         .inactivePillSize = static_cast<float>(wc != nullptr ? wc->getDouble("inactive_pill_size", 1.0) : 1.0),
         .minimal = wc != nullptr ? wc->getBool("minimal", false) : false,
-        .focusedOnly = wc != nullptr ? wc->getBool("focused_only", false) : false,
+        .focusedOutputOnly = wc != nullptr ? wc->getBool("focused_output_only", false) : false,
     };
     auto widget = std::make_unique<WorkspacesWidget>(m_platform, output, options);
     widget->setContentScale(contentScale);

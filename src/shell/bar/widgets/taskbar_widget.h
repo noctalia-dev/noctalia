@@ -34,7 +34,7 @@ struct TaskbarWidgetOptions {
   WorkspaceLabelPlacement workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
   bool hideEmptyWorkspaces = false;
   bool workspaceGroupCapsule = true;
-  bool focusedOnly = false;
+  bool focusedOutputOnly = false;
   bool groupSingleIconPerApp = false;
   bool showActiveIndicator = true;
   float activeOpacity = 1.0f;
@@ -128,7 +128,7 @@ private:
   WorkspaceLabelPlacement m_workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
   bool m_hideEmptyWorkspaces = false;
   bool m_workspaceGroupCapsule = true;
-  bool m_focusedOnly = false;
+  bool m_focusedOutputOnly = false;
   bool m_wasFocusedOutput = true;
   bool m_groupSingleIconPerApp = false;
   bool m_showActiveIndicator = true;

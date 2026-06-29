@@ -35,7 +35,7 @@ public:
     float activePillSize = 2.2f;
     float inactivePillSize = 1.0f;
     bool minimal = false;
-    bool focusedOnly = false;
+    bool focusedOutputOnly = false;
   };
 
   WorkspacesWidget(CompositorPlatform& platform, wl_output* output, Options options);
@@ -101,7 +101,7 @@ private:
   float m_activePillSize = 2.2f;
   float m_inactivePillSize = 1.0f;
   bool m_minimal = false;
-  bool m_focusedOnly = false;
+  bool m_focusedOutputOnly = false;
   bool m_wasFocusedOutput = true;
   Node* m_container = nullptr;
   std::vector<Workspace> m_cachedState;
