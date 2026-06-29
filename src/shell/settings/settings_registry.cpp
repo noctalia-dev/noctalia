@@ -1410,23 +1410,29 @@ namespace settings {
         "bar widget settings middle click configure"
     ));
     if (process::systemdAvailable()) {
-      entries.push_back(makeEntry(
+      auto e = makeEntry(
           SettingsSection::Shell, "general", tr("settings.schema.shell.launch-apps-as-systemd-services.label"),
           tr("settings.schema.shell.launch-apps-as-systemd-services.description"),
           {"shell", "launch_apps_as_systemd_services"}, ToggleSetting{cfg.shell.launchAppsAsSystemdServices}
-      ));
+      );
+      e.visibleWhen = SettingVisibility{{"shell", "launch_apps_custom_command"}, {""}};
+      entries.push_back(std::move(e));
     }
-    entries.push_back(makeEntry(
-        SettingsSection::Shell, "general", tr("settings.schema.shell.launch-apps-custom-command.label"),
-        tr("settings.schema.shell.launch-apps-custom-command.description"), {"shell", "launch_apps_custom_command"},
-        TextSetting{
-            .value = cfg.shell.launchAppsCustomCommand,
-            .placeholder = tr("settings.schema.shell.launch-apps-custom-command.placeholder"),
-            .width = 320.0f,
-            .browseFileExtensions = {},
-        },
-        "app command custom launcher"
-    ));
+    {
+      auto e = makeEntry(
+          SettingsSection::Shell, "general", tr("settings.schema.shell.launch-apps-custom-command.label"),
+          tr("settings.schema.shell.launch-apps-custom-command.description"), {"shell", "launch_apps_custom_command"},
+          TextSetting{
+              .value = cfg.shell.launchAppsCustomCommand,
+              .placeholder = tr("settings.schema.shell.launch-apps-custom-command.placeholder"),
+              .width = 320.0f,
+              .browseFileExtensions = {},
+          },
+          "app command custom launcher"
+      );
+      e.visibleWhen = SettingVisibility{{"shell", "launch_apps_as_systemd_services"}, {"false"}};
+      entries.push_back(std::move(e));
+    }
     const SettingVisibility clipboardOn{{"shell", "clipboard_enabled"}, {"true"}};
     entries.push_back(makeEntry(
         SettingsSection::Shell, "clipboard", tr("settings.schema.shell.clipboard-enabled.label"),

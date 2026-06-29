@@ -1290,6 +1290,8 @@ namespace settings {
             currentValue = toggle->checked ? "true" : "false";
           } else if (const auto* select = std::get_if<SelectSetting>(&other.control)) {
             currentValue = select->selectedValue;
+          } else if (const auto* text = std::get_if<TextSetting>(&other.control)) {
+            currentValue = text->value;
           }
           for (const auto& v : cond.values) {
             if (v == currentValue) {
