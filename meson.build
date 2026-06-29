@@ -189,6 +189,7 @@ md4c_dep = declare_dependency(
 
 # ── System: libwebp (WebP decode and thumbnail encode) ───────────────────────
 libwebp_dep = dependency('libwebp', required: true)
+libjxl_dep = dependency('libjxl', required: true)
 
 # ── Vendored: Luau (Roblox's Lua fork) ────────────────────────────────────────
 # Built as a quiet static library; only VM + Compiler + Bytecode + Ast + Common are vendored.
@@ -919,6 +920,7 @@ noctalia_exe = executable('noctalia',
     stb_dep,
     md4c_dep,
     libwebp_dep,
+    libjxl_dep,
     luau_dep,
   ] + jemalloc_deps + (dl_dep.found() ? [dl_dep] : []),
   include_directories: _noctalia_inc,
@@ -958,6 +960,7 @@ notification_history_utf8_test = executable('notification_history_utf8_test',
   ),
   dependencies: [
     libwebp_dep,
+    libjxl_dep,
   ],
   include_directories: _noctalia_inc,
 )
@@ -1248,6 +1251,7 @@ ui_tree_reconciler_test = executable('ui_tree_reconciler_test',
     egl_dep,
     librsvg_dep,
     libwebp_dep,
+    libjxl_dep,
     stb_dep,
     xkbcommon_dep,
   ],
@@ -1397,6 +1401,7 @@ image_file_loader_data_uri_test = executable('image_file_loader_data_uri_test',
     cairo_dep,
     librsvg_dep,
     libwebp_dep,
+    libjxl_dep,
     stb_dep,
   ],
   include_directories: _noctalia_inc,
@@ -1411,6 +1416,7 @@ ico_decoder_test = executable('ico_decoder_test',
   ),
   dependencies: [
     libwebp_dep,
+    libjxl_dep,
   ],
   include_directories: _noctalia_inc,
 )

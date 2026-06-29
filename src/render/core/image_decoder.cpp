@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <expected>
+#include <jxl/decode.h>
+#include <jxl/decode_cxx.h>
 #include <utility>
 #include <vector>
 #include <webp/decode.h>
@@ -229,6 +231,92 @@ namespace {
     return decoded;
   }
 
+  bool isJxl(const std::uint8_t* data, std::size_t size) {
+    if (!data || size == 0) {
+      return false;
+    }
+    if (size >= 2 && data[0] == 0xFF && data[1] == 0x0A) {
+      return true;
+    }
+    if (size >= 12
+        && data[0] == 0x00
+        && data[1] == 0x00
+        && data[2] == 0x00
+        && data[3] == 0x0C
+        && data[4] == 0x4A // 'J'
+        && data[5] == 0x58 // 'X'
+        && data[6] == 0x4C // 'L'
+        && data[7] == 0x20 // ' '
+        && data[8] == 0x0D // '\r'
+        && data[9] == 0x0A // '\n'
+        && data[10] == 0x87
+        && data[11] == 0x0A) {
+      return true;
+    }
+    return false;
+  }
+
+  std::expected<DecodedRasterImage, std::string> decodeJxl(const std::uint8_t* data, std::size_t size) {
+    JxlDecoderPtr dec = JxlDecoderMake(nullptr);
+    if (!dec) {
+      return std::unexpected("libjxl: failed to create decoder");
+    }
+
+    if (JXL_DEC_SUCCESS != JxlDecoderSubscribeEvents(dec.get(), JXL_DEC_BASIC_INFO | JXL_DEC_FULL_IMAGE)) {
+      return std::unexpected("libjxl: JxlDecoderSubscribeEvents failed");
+    }
+
+    if (JXL_DEC_SUCCESS != JxlDecoderSetInput(dec.get(), data, size)) {
+      return std::unexpected("libjxl: JxlDecoderSetInput failed");
+    }
+    JxlDecoderCloseInput(dec.get());
+
+    DecodedRasterImage decoded;
+    const JxlPixelFormat format = {4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
+
+    for (;;) {
+      JxlDecoderStatus status = JxlDecoderProcessInput(dec.get());
+
+      if (status == JXL_DEC_ERROR) {
+        return std::unexpected("libjxl: decoder error (status=" + std::to_string(status) + ")");
+      } else if (status == JXL_DEC_NEED_MORE_INPUT) {
+        return std::unexpected("libjxl: unexpected need for more input (status=" + std::to_string(status) + ")");
+      } else if (status == JXL_DEC_BASIC_INFO) {
+        JxlBasicInfo info;
+        if (JXL_DEC_SUCCESS != JxlDecoderGetBasicInfo(dec.get(), &info)) {
+          return std::unexpected("libjxl: JxlDecoderGetBasicInfo failed");
+        }
+        decoded.width = static_cast<int>(info.xsize);
+        decoded.height = static_cast<int>(info.ysize);
+      } else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
+        if (decoded.width <= 0 || decoded.height <= 0) {
+          return std::unexpected("libjxl: basic info was not processed before out buffer request");
+        }
+        size_t bufferSize = 0;
+        if (JXL_DEC_SUCCESS != JxlDecoderImageOutBufferSize(dec.get(), &format, &bufferSize)) {
+          return std::unexpected("libjxl: JxlDecoderImageOutBufferSize failed");
+        }
+        decoded.pixels.resize(bufferSize);
+        if (JXL_DEC_SUCCESS
+            != JxlDecoderSetImageOutBuffer(dec.get(), &format, decoded.pixels.data(), decoded.pixels.size())) {
+          return std::unexpected("libjxl: JxlDecoderSetImageOutBuffer failed");
+        }
+      } else if (status == JXL_DEC_FULL_IMAGE) {
+        // Frame finished decoding
+      } else if (status == JXL_DEC_SUCCESS) {
+        break;
+      } else {
+        return std::unexpected("libjxl: unexpected decoder status (status=" + std::to_string(status) + ")");
+      }
+    }
+
+    if (decoded.pixels.empty() || decoded.width <= 0 || decoded.height <= 0) {
+      return std::unexpected("libjxl: decoding did not produce valid pixels");
+    }
+
+    return decoded;
+  }
+
 } // namespace
 
 std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint8_t* data, std::size_t size) {
@@ -241,6 +329,9 @@ std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint
 
   if (isIco(data, size))
     return decodeIco(data, size);
+
+  if (isJxl(data, size))
+    return decodeJxl(data, size);
 
   auto input = wuffs_aux::sync_io::MemoryInput(data, size);
   auto callbacks = RgbaDecodeCallbacks();
