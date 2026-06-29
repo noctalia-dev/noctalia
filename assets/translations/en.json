@@ -3015,7 +3015,7 @@
         },
         "focused-output-only": {
           "description": "Only highlight the active workspace on the focused monitor",
-          "label": "Highlight Focused Output Only",
+          "label": "Highlight Focused Monitor Only",
           "workspaces-description": "Only highlight the active workspace on the monitor that has keyboard or pointer focus; other monitors show their active workspace as occupied instead",
           "taskbar-description": "Only use the focused color for the active workspace on the monitor that has keyboard or pointer focus; other monitors use the occupied color"
         },
