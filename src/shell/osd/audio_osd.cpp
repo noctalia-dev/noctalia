@@ -15,11 +15,11 @@ namespace {
 
   [[nodiscard]] bool volumeChanged(float a, float b) { return std::abs(a - b) > kVolumeChangeEpsilon; }
 
-  const char* volumeIconName(float volume, bool muted) {
-    if (muted || volume <= 0.0f) {
+  const char* volumeIconName(int percent, bool muted) {
+    if (muted || percent <= 0) {
       return "volume-mute";
     }
-    if (volume < 0.4f) {
+    if (percent < 40) {
       return "volume-low";
     }
     return "volume-high";
@@ -29,7 +29,7 @@ namespace {
     const int percent = static_cast<int>(std::round(std::max(0.0f, volume) * 100.0f));
     return OsdContent{
         .kind = OsdKind::Volume,
-        .icon = volumeIconName(volume, muted),
+        .icon = volumeIconName(percent, muted),
         .value = std::to_string(percent) + "%",
         .progress = std::clamp(volume, 0.0f, 1.0f),
         .overLimit = percent > 100,
