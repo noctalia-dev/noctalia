@@ -130,6 +130,7 @@ private:
   bool m_workspaceGroupCapsule = true;
   bool m_focusedOutputOnly = false;
   bool m_wasFocusedOutput = true;
+  bool m_activeUsesFocusedColor = true;
   bool m_groupSingleIconPerApp = false;
   bool m_showActiveIndicator = true;
   float m_activeOpacity = 1.0f;

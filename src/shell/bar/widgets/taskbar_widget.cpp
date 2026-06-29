@@ -350,6 +350,7 @@ void TaskbarWidget::rebuild(Renderer& renderer) {
   if (m_taskStrip == nullptr) {
     return;
   }
+  m_activeUsesFocusedColor = !m_focusedOutputOnly || isFocusedOutput();
   clearChildren(m_taskStrip);
   buildTaskButtons(renderer);
 }
@@ -2329,7 +2330,7 @@ wl_output* TaskbarWidget::workspaceHostOutput(const WorkspaceModel& model) const
 
 ColorSpec TaskbarWidget::workspaceFillColor(const Workspace& workspace) const {
   if (workspace.active) {
-    if (!m_focusedOutputOnly || isFocusedOutput()) {
+    if (m_activeUsesFocusedColor) {
       return m_focusedColor;
     }
     return m_occupiedColor;

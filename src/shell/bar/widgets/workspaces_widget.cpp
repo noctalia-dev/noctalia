@@ -197,6 +197,7 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
 
 void WorkspacesWidget::rebuild(Renderer& renderer) {
   uiAssertNotRendering("WorkspacesWidget::rebuild");
+  m_activeUsesFocusedColor = !m_focusedOutputOnly || isFocusedOutput();
   cancelAnimation();
   while (!m_container->children().empty()) {
     m_container->removeChild(m_container->children().back().get());
@@ -494,6 +495,7 @@ void WorkspacesWidget::updateAllItemMetrics(Renderer& renderer) {
 }
 
 void WorkspacesWidget::retarget(Renderer& renderer) {
+  m_activeUsesFocusedColor = !m_focusedOutputOnly || isFocusedOutput();
   for (std::size_t i = 0; i < m_items.size(); ++i) {
     auto& it = m_items[i];
     const auto& ws = m_cachedState[i];
@@ -710,7 +712,7 @@ bool WorkspacesWidget::isFocusedOutput() const { return m_platform.preferredInte
 
 ColorSpec WorkspacesWidget::workspaceFillColor(const Workspace& workspace) const {
   if (workspace.active) {
-    if (!m_focusedOutputOnly || isFocusedOutput()) {
+    if (m_activeUsesFocusedColor) {
       return m_focusedColor;
     }
     return m_occupiedColor;
@@ -734,7 +736,7 @@ ColorSpec WorkspacesWidget::workspaceTextColor(const Workspace& workspace) const
     return readableColorForFill(workspaceFillColor(workspace));
   }
   if (workspace.active) {
-    if (!m_focusedOutputOnly || isFocusedOutput()) {
+    if (m_activeUsesFocusedColor) {
       return m_focusedColor;
     }
     return m_occupiedColor;

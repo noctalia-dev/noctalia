@@ -103,6 +103,7 @@ private:
   bool m_minimal = false;
   bool m_focusedOutputOnly = false;
   bool m_wasFocusedOutput = true;
+  bool m_activeUsesFocusedColor = true;
   Node* m_container = nullptr;
   std::vector<Workspace> m_cachedState;
   std::vector<Item> m_items;
