@@ -20,7 +20,9 @@ TextureHandle BlurCache::get(
     m_layer.invalidate();
   }
 
-  backend.makeCurrentNoSurface();
+  if (!backend.makeCurrentNoSurface()) {
+    return {};
+  }
   m_layer.resize(backend, width, height);
 
   m_layer.ensure([&](RenderFramebuffer& target) {

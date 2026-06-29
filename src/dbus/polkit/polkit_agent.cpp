@@ -8,6 +8,7 @@
 #include <array>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <gio/gio.h>
 #include <glib-object.h>
 #include <glib.h>
@@ -31,6 +32,20 @@ namespace {
 
   constexpr Logger kLog("polkit");
   constexpr auto kAgentObjectPath = "/org/noctalia/PolkitAuthenticationAgent";
+
+  // GObject dispatches these signal/vfunc callbacks through libffi (g_cclosure_marshal_generic),
+  // so a C++ exception escaping one would unwind across the C ABI and call std::terminate. Run the
+  // body inside this guard so nothing can cross the boundary; these are UI/state notifications, so
+  // logging and swallowing is the correct degradation.
+  template <typename F> void guardPolkitCallback(const char* name, F&& body) noexcept {
+    try {
+      std::forward<F>(body)();
+    } catch (const std::exception& e) {
+      kLog.warn("exception in polkit callback {} ({}); ignoring", name, e.what());
+    } catch (...) {
+      kLog.warn("unknown exception in polkit callback {}; ignoring", name);
+    }
+  }
 
   std::optional<std::string> usernameFromUid(uid_t uid) {
     passwd pwd{};
@@ -175,11 +190,11 @@ static void noctalia_polkit_listener_initiate_authentication(
     PolkitAgentListener* listener, const gchar* action_id, const gchar* message, const gchar* icon_name,
     PolkitDetails* /*details*/, const gchar* cookie, GList* identities, GCancellable* cancellable,
     GAsyncReadyCallback callback, gpointer user_data
-);
+) noexcept;
 static gboolean noctalia_polkit_listener_initiate_authentication_finish(
     PolkitAgentListener* listener, GAsyncResult* result, GError** error
 );
-static void noctalia_polkit_request_cancelled(GCancellable* cancellable, gpointer user_data);
+static void noctalia_polkit_request_cancelled(GCancellable* cancellable, gpointer user_data) noexcept;
 
 G_DEFINE_TYPE(NoctaliaPolkitListener, noctalia_polkit_listener, POLKIT_AGENT_TYPE_LISTENER)
 
@@ -200,39 +215,41 @@ static void noctalia_polkit_listener_initiate_authentication(
     PolkitAgentListener* listener, const gchar* action_id, const gchar* message, const gchar* icon_name,
     PolkitDetails* /*details*/, const gchar* cookie, GList* identities, GCancellable* cancellable,
     GAsyncReadyCallback callback, gpointer user_data
-) {
-  auto* self = reinterpret_cast<NoctaliaPolkitListener*>(listener);
-  auto request = std::make_unique<InternalAuthRequest>();
-  request->actionId = action_id != nullptr ? action_id : "";
-  request->message = message != nullptr ? message : "";
-  request->iconName = icon_name != nullptr ? icon_name : "";
-  request->cookie = cookie != nullptr ? cookie : "";
-  request->task = g_task_new(G_OBJECT(listener), nullptr, callback, user_data);
-  request->cancellable = cancellable != nullptr ? static_cast<GCancellable*>(g_object_ref(cancellable)) : nullptr;
+) noexcept {
+  guardPolkitCallback("initiate_authentication", [&]() {
+    auto* self = reinterpret_cast<NoctaliaPolkitListener*>(listener);
+    auto request = std::make_unique<InternalAuthRequest>();
+    request->actionId = action_id != nullptr ? action_id : "";
+    request->message = message != nullptr ? message : "";
+    request->iconName = icon_name != nullptr ? icon_name : "";
+    request->cookie = cookie != nullptr ? cookie : "";
+    request->task = g_task_new(G_OBJECT(listener), nullptr, callback, user_data);
+    request->cancellable = cancellable != nullptr ? static_cast<GCancellable*>(g_object_ref(cancellable)) : nullptr;
 
-  for (GList* item = g_list_first(identities); item != nullptr; item = g_list_next(item)) {
-    auto* identity = static_cast<PolkitIdentity*>(item->data);
-    if (identity == nullptr) {
-      continue;
+    for (GList* item = g_list_first(identities); item != nullptr; item = g_list_next(item)) {
+      auto* identity = static_cast<PolkitIdentity*>(item->data);
+      if (identity == nullptr) {
+        continue;
+      }
+      const auto duplicate = std::ranges::find_if(request->identities, [identity](const IdentityRef& existing) {
+        return polkit_identity_equal(existing.get(), identity);
+      });
+      if (duplicate == request->identities.end()) {
+        request->identities.emplace_back(identity);
+      }
     }
-    const auto duplicate = std::ranges::find_if(request->identities, [identity](const IdentityRef& existing) {
-      return polkit_identity_equal(existing.get(), identity);
-    });
-    if (duplicate == request->identities.end()) {
-      request->identities.emplace_back(identity);
+
+    if (cancellable != nullptr) {
+      request->cancelHandlerId =
+          g_cancellable_connect(cancellable, G_CALLBACK(noctalia_polkit_request_cancelled), request.get(), nullptr);
     }
-  }
 
-  if (cancellable != nullptr) {
-    request->cancelHandlerId =
-        g_cancellable_connect(cancellable, G_CALLBACK(noctalia_polkit_request_cancelled), request.get(), nullptr);
-  }
-
-  if (self->initiate == nullptr || self->owner == nullptr) {
-    request->cancel("Polkit listener is not attached");
-    return;
-  }
-  self->initiate(self->owner, std::move(request));
+    if (self->initiate == nullptr || self->owner == nullptr) {
+      request->cancel("Polkit listener is not attached");
+      return;
+    }
+    self->initiate(self->owner, std::move(request));
+  });
 }
 
 static gboolean noctalia_polkit_listener_initiate_authentication_finish(
@@ -241,14 +258,16 @@ static gboolean noctalia_polkit_listener_initiate_authentication_finish(
   return g_task_propagate_boolean(G_TASK(result), error);
 }
 
-static void noctalia_polkit_request_cancelled(GCancellable* /*cancellable*/, gpointer user_data) {
-  auto* request = static_cast<InternalAuthRequest*>(user_data);
-  request->cancelHandlerId = 0;
-  auto* source = G_IS_TASK(request->task) ? g_task_get_source_object(request->task) : nullptr;
-  auto* listener = source != nullptr ? reinterpret_cast<NoctaliaPolkitListener*>(source) : nullptr;
-  if (listener != nullptr && listener->cancel != nullptr && listener->owner != nullptr) {
-    listener->cancel(listener->owner, request);
-  }
+static void noctalia_polkit_request_cancelled(GCancellable* /*cancellable*/, gpointer user_data) noexcept {
+  guardPolkitCallback("request_cancelled", [&]() {
+    auto* request = static_cast<InternalAuthRequest*>(user_data);
+    request->cancelHandlerId = 0;
+    auto* source = G_IS_TASK(request->task) ? g_task_get_source_object(request->task) : nullptr;
+    auto* listener = source != nullptr ? reinterpret_cast<NoctaliaPolkitListener*>(source) : nullptr;
+    if (listener != nullptr && listener->cancel != nullptr && listener->owner != nullptr) {
+      listener->cancel(listener->owner, request);
+    }
+  });
 }
 
 // NOLINTEND(readability-identifier-naming)
@@ -323,9 +342,11 @@ struct PolkitAgent::Impl {
     }
   }
 
-  static void sessionReadyTrampoline(GObject* source, GAsyncResult* result, gpointer userData) {
-    auto* self = static_cast<Impl*>(userData);
-    self->onSessionReady(source, result);
+  static void sessionReadyTrampoline(GObject* source, GAsyncResult* result, gpointer userData) noexcept {
+    guardPolkitCallback("sessionReady", [&]() {
+      auto* self = static_cast<Impl*>(userData);
+      self->onSessionReady(source, result);
+    });
   }
 
   void start() {
@@ -498,20 +519,30 @@ struct PolkitAgent::Impl {
     static_cast<Impl*>(owner)->cancelFromAuthority(request);
   }
 
-  static void completedCallback(PolkitAgentSession* /*session*/, gboolean gainedAuthorization, gpointer userData) {
-    static_cast<Impl*>(userData)->handleCompleted(gainedAuthorization != FALSE);
+  static void
+  completedCallback(PolkitAgentSession* /*session*/, gboolean gainedAuthorization, gpointer userData) noexcept {
+    guardPolkitCallback("completed", [&]() {
+      static_cast<Impl*>(userData)->handleCompleted(gainedAuthorization != FALSE);
+    });
   }
 
-  static void requestCallback(PolkitAgentSession* /*session*/, gchar* request, gboolean echoOn, gpointer userData) {
-    static_cast<Impl*>(userData)->handleRequest(request != nullptr ? request : "", echoOn != FALSE);
+  static void
+  requestCallback(PolkitAgentSession* /*session*/, gchar* request, gboolean echoOn, gpointer userData) noexcept {
+    guardPolkitCallback("request", [&]() {
+      static_cast<Impl*>(userData)->handleRequest(request != nullptr ? request : "", echoOn != FALSE);
+    });
   }
 
-  static void showErrorCallback(PolkitAgentSession* /*session*/, gchar* text, gpointer userData) {
-    static_cast<Impl*>(userData)->setSupplementary(text != nullptr ? text : "", true);
+  static void showErrorCallback(PolkitAgentSession* /*session*/, gchar* text, gpointer userData) noexcept {
+    guardPolkitCallback("showError", [&]() {
+      static_cast<Impl*>(userData)->setSupplementary(text != nullptr ? text : "", true);
+    });
   }
 
-  static void showInfoCallback(PolkitAgentSession* /*session*/, gchar* text, gpointer userData) {
-    static_cast<Impl*>(userData)->setSupplementary(text != nullptr ? text : "", false);
+  static void showInfoCallback(PolkitAgentSession* /*session*/, gchar* text, gpointer userData) noexcept {
+    guardPolkitCallback("showInfo", [&]() {
+      static_cast<Impl*>(userData)->setSupplementary(text != nullptr ? text : "", false);
+    });
   }
 
   void emitStateChanged() {

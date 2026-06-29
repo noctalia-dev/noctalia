@@ -687,6 +687,12 @@
       "scroll-off": "Scroll Lock: выкл.",
       "scroll-on": "Scroll Lock: вкл."
     },
+    "nightlight": {
+      "forced": "Всегда активен",
+      "off": "Ночной свет выключен",
+      "running": "Активен",
+      "scheduled": "По расписанию"
+    },
     "privacy": {
       "camera-off": "Камера выключена",
       "camera-on": "Камера включена",
@@ -981,6 +987,7 @@
         "clipboard": "Буфер обмена",
         "community": "Сообщество",
         "control-center": "Центр управления",
+        "dead-zone": "Незанятая область",
         "directories": "Каталоги",
         "effects": "Эффекты",
         "filtering": "Фильтрация",
@@ -989,6 +996,7 @@
         "general": "Основное",
         "grouping": "Группировка",
         "home": "Главная",
+        "hot-corners": "Активные углы",
         "idle": "Простой",
         "interface": "Интерфейс",
         "keybinds": "Сочетания клавиш",
@@ -1100,6 +1108,11 @@
         "ultra-bold": "Ультражирный",
         "ultra-heavy": "Ультражирный",
         "ultra-light": "Ультралёгкий"
+      },
+      "hot-corners": {
+        "command": "Выполнить команду",
+        "control-center": "Центр управления",
+        "launcher": "Лаунчер"
       },
       "layer": {
         "overlay": "Оверлей",

@@ -62,7 +62,7 @@ namespace settings {
   struct SelectOption {
     std::string value;
     std::string label;
-    std::string description = {};
+    std::string description;
     ColorSwatchPreview preview = {};
   };
 
@@ -101,7 +101,7 @@ namespace settings {
     double maxValue = 1.0;
     double step = 0.01;
     bool integerValue = false;
-    std::string valueSuffix = {};
+    std::string valueSuffix;
     // Optional: when set, called with the user's just-committed value and returns extra overrides
     // to commit atomically alongside it. Use for cross-field constraints (e.g. linked sliders).
     std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double committedValue)>
@@ -117,7 +117,7 @@ namespace settings {
     double maxValue = 1.0;
     double step = 0.01;
     bool integerValue = false;
-    std::string valueSuffix = {};
+    std::string valueSuffix;
     std::vector<std::string> highPath;
   };
 
@@ -135,7 +135,7 @@ namespace settings {
     /// When browseMode == OpenFile, optional filter (e.g. `{".wav", ".ogg"}`); empty allows any file.
     std::vector<std::string> browseFileExtensions;
     /// When the current value is empty, open the file picker here if the path exists.
-    std::string browseFallbackDirectory = {};
+    std::string browseFallbackDirectory;
   };
 
   struct OptionalNumberSetting {
@@ -162,7 +162,7 @@ namespace settings {
     int maxValue = 100;
     int step = 1;
     /// Appended to the value display (e.g. `"s"` → `5s`). Empty = plain number.
-    std::string valueSuffix = {};
+    std::string valueSuffix;
   };
 
   struct ListSetting {
@@ -170,7 +170,7 @@ namespace settings {
     // When non-empty, the add UI presents a Select limited to these options (minus already-added values)
     // instead of a free-form text input, and row labels resolve to the option's friendly label.
     // Useful when the catalog of valid values is known.
-    std::vector<SelectOption> suggestedOptions = {};
+    std::vector<SelectOption> suggestedOptions;
   };
 
   struct StringMapSetting {
@@ -182,7 +182,7 @@ namespace settings {
 
   struct ShortcutListSetting {
     std::vector<ShortcutConfig> items;
-    std::vector<SelectOption> suggestedOptions = {};
+    std::vector<SelectOption> suggestedOptions;
     std::size_t maxItems = 0;
   };
 
@@ -322,7 +322,7 @@ namespace settings {
       rankOf[i] = it->second;
     }
     std::vector<std::size_t> order(count);
-    std::iota(order.begin(), order.end(), std::size_t{0});
+    std::ranges::iota(order, std::size_t{0});
     std::stable_sort(order.begin(), order.end(), [&](std::size_t a, std::size_t b) { return rankOf[a] < rankOf[b]; });
     return order;
   }

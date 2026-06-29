@@ -3,7 +3,6 @@
 #include "shell/desktop/desktop_widget.h"
 #include "ui/palette.h"
 
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -29,8 +28,6 @@ public:
 
   void create() override;
   [[nodiscard]] bool wantsSecondTicks() const override { return true; }
-  [[nodiscard]] bool needsFrameTick() const override;
-  void onFrameTick(float deltaMs, Renderer& renderer) override;
   void setEditorPreview(bool enabled) noexcept override;
   bool applySetting(
       const std::string& key, const WidgetSettingValue& value,
@@ -49,9 +46,7 @@ private:
   [[nodiscard]] bool hasActiveMedia() const;
   [[nodiscard]] bool shouldBeVisible() const;
   bool applyVisibility();
-  void cancelVisibilityAnimation();
   void setVisibilityCollapsed(bool collapsed);
-  void startOpacityAnimation(float targetOpacity, bool collapseOnComplete);
 
   MprisService* m_mpris;
   HttpClient* m_httpClient;
@@ -62,8 +57,6 @@ private:
   bool m_editorPreview = false;
   bool m_visible = true;
   bool m_visibilityInitialized = false;
-  bool m_fadingOut = false;
-  std::uint32_t m_visibilityAnimId = 0;
 
   Image* m_artwork = nullptr;
   Label* m_title = nullptr;

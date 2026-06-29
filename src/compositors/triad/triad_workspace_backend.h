@@ -117,7 +117,7 @@ private:
   std::unordered_map<std::uint64_t, WindowState> m_windows;
   bool m_overviewKnown = false;
   bool m_overviewOpen = false;
-  std::chrono::steady_clock::time_point m_nextReconnectAt{};
+  std::chrono::steady_clock::time_point m_nextReconnectAt;
   std::chrono::seconds m_reconnectBackoff{2};
   WorkspaceBackend::ChangeCallback m_changeCallback;
   compositors::WorkspaceMetadataBackend::ChangeCallback m_overviewChangeCallback;

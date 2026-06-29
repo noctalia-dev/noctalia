@@ -1174,6 +1174,61 @@ namespace settings {
         "screen corners radius"
     ));
 
+    entries.push_back(makeEntry(
+        SettingsSection::Desktop, "hot-corners", tr("settings.schema.desktop.hot-corners-enabled.label"),
+        tr("settings.schema.desktop.hot-corners-enabled.description"), {"hot_corners", "enabled"},
+        ToggleSetting{cfg.hotCorners.enabled}, "hot corners trigger mouse edge screen"
+    ));
+
+    auto hotCornerActionSelect = [](const std::string& current) {
+      return plainSelect(
+          {{"none", "settings.options.hot-corners.none"},
+           {"launcher", "settings.options.hot-corners.launcher"},
+           {"control_center", "settings.options.hot-corners.control-center"},
+           {"window_switcher", "settings.options.hot-corners.window-switcher"},
+           {"command", "settings.options.hot-corners.command"}},
+          current
+      );
+    };
+
+    auto addCornerEntry = [&](const std::string& key, const std::string& labelKey, const std::string& currentAction,
+                              const std::string& currentCommand) {
+      SettingEntry e = makeEntry(
+          SettingsSection::Desktop, "hot-corners", tr(labelKey + ".label"), tr(labelKey + ".description"),
+          {"hot_corners", key, "action"}, hotCornerActionSelect(currentAction), "hot corners " + key
+      );
+      e.visibleWhen = SettingVisibility{{"hot_corners", "enabled"}, {"true"}};
+      entries.push_back(std::move(e));
+
+      SettingEntry c = makeEntry(
+          SettingsSection::Desktop, "hot-corners", tr(labelKey + "-command.label"),
+          tr(labelKey + "-command.description"), {"hot_corners", key, "command"},
+          TextSetting{.value = currentCommand, .placeholder = "Run command..."}, "hot corners command execute " + key
+      );
+      c.visibleWhen = SettingVisibility{std::vector<SettingVisibilityCondition>{
+          {{"hot_corners", "enabled"}, {"true"}},
+          {{"hot_corners", key, "action"}, {"command"}},
+      }};
+      entries.push_back(std::move(c));
+    };
+
+    addCornerEntry(
+        "top_left", "settings.schema.desktop.hot-corners-top-left", cfg.hotCorners.topLeft.action,
+        cfg.hotCorners.topLeft.command
+    );
+    addCornerEntry(
+        "top_right", "settings.schema.desktop.hot-corners-top-right", cfg.hotCorners.topRight.action,
+        cfg.hotCorners.topRight.command
+    );
+    addCornerEntry(
+        "bottom_left", "settings.schema.desktop.hot-corners-bottom-left", cfg.hotCorners.bottomLeft.action,
+        cfg.hotCorners.bottomLeft.command
+    );
+    addCornerEntry(
+        "bottom_right", "settings.schema.desktop.hot-corners-bottom-right", cfg.hotCorners.bottomRight.action,
+        cfg.hotCorners.bottomRight.command
+    );
+
     // Shell
     entries.push_back(makeEntry(
         SettingsSection::Shell, "general", tr("settings.schema.shell.avatar-path.label"),

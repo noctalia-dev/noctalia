@@ -23,7 +23,7 @@ namespace noctalia::theme {
     };
 
     std::string name;
-    std::string md5 = {};
+    std::string md5;
     Preview preview = {};
   };
 

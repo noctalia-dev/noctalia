@@ -292,7 +292,7 @@ private:
   std::unordered_map<wl_surface*, std::vector<wl_output*>> m_surfaceOutputs;
   std::unordered_map<wl_surface*, zwlr_layer_surface_v1*> m_layerSurfaceMap;
   wl_output* m_lastPointerOutput = nullptr;
-  std::chrono::steady_clock::time_point m_lastPointerOutputAt{};
+  std::chrono::steady_clock::time_point m_lastPointerOutputAt;
   WaylandSeat::PointerEventCallback m_pointerEventCallback;
 
   WaylandSeat m_seatHandler;

@@ -29,6 +29,7 @@
   "bar": {
     "screenshot": {
       "choose-display": "Choisir un écran",
+      "confirm-region": "Appuie sur Entrée ou Espace pour capturer · Échap pour annuler · fais glisser pour resélectionner",
       "fullscreen": "Plein écran",
       "region": "Choisir une région"
     },
@@ -385,6 +386,8 @@
         "temperature": "10 / 4 °C"
       },
       "location-unavailable": "Localisation indisponible",
+      "no-location-body": "Ajoute ton adresse ou active la localisation automatique dans les paramètres de localisation.",
+      "no-location-title": "Aucune localisation définie",
       "refreshing": "Actualisation de la météo...",
       "waiting": "En attente de données météo"
     }
@@ -432,13 +435,18 @@
         "command": "Commande",
         "custom-color": "Personnalisé...",
         "description": "Description",
+        "display": "Ecran",
+        "display-gauge": "Gauge",
+        "display-graph": "Graphique",
         "fade-when-idle": "Masquer en inactivité",
         "font-family": "Police",
         "font-family-default": "Valeur système",
         "forecast-days": "Jours de prévision",
         "format": "Format",
+        "gauge-layout": "Disposition du gauge",
         "glyph": "Glyphe",
         "hide-when-no-media": "Masquer en l’absence de média",
+        "highlight-color": "Couleur de surlignage",
         "horizontal": "Horizontal",
         "hover-background": "Arrière-plan au survo",
         "hover-foreground": "Premier plan au survol",
@@ -448,6 +456,7 @@
         "input-radius": "Arrondi du champ de saisie",
         "interface": "Interface",
         "label": "Label",
+        "label-min-width": "Largeur minimale du label",
         "layout": "Disposition",
         "mirrored": "Miroir",
         "opacity": "Opacité",
@@ -647,7 +656,12 @@
       "desktop-widgets-editor": "Éditeur de widgets",
       "desktop-widgets-editor-enabled": "L’éditeur de widgets de bureau est activé. Passez à un espace de travail vide pour afficher la superposition de l’éditeur.",
       "greeter-sync": "Noctalia Greeter",
+      "greeter-sync-pending": "En attente de l'approbation de l'administrateur pour écrire dans le greeter.",
+      "greeter-sync-pending-console": "En attente de l'autorisation de l'administrateur. Accepte la demande polkit dans Noctalia, sur un TTY ou une console, ou exécute pkexec manuellement.",
+      "greeter-sync-pending-manual": "Les fichiers sont prêts. Exécute cette commande dans un terminal : pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". Tu peux aussi définir shell.greeter_sync.privilege_command (par exemple ghostty -e pkexec), puis relancer la synchronisation.",
       "greeter-sync-success": "Apparence synchronisée. Les modifications s’appliqueront au prochain écran de connexion.",
+      "greeter-sync-timeout": "La synchronisation du greeter est toujours en attente de l'autorisation de l'administrateur. Vérifie si une demande polkit est affichée sur un TTY ou une console, active le polkit agent dans les paramètres de sécurité, ou exécute pkexec manuellement.",
+      "greeter-sync-timeout-manual": "La synchronisation du greeter nécessite toujours l'autorisation de l'administrateur. Exécute cette commande dans un terminal : pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Ce raccourci accepte une seule touche sans modificateur.",
       "keybind-invalid-printable": "Les touches imprimables (lettres, chiffres, symboles) nécessitent un modificateur tel que Ctrl ou Alt.",
@@ -659,6 +673,8 @@
       "lockscreen-widgets-editor-blocked-locked": "Déverrouillez la session avant de modifier les widgets de l’écran de verrouillage.",
       "lockscreen-widgets-editor-enabled": "L’éditeur de widgets de l’écran de verrouillage est activé. Disposez les widgets sur l'écran d'aperçu, puis verrouillez la session pour vérifier la disposition.",
       "mpris-disabled": "MPRIS désactivé",
+      "polkit-agent": "Polkit Agent",
+      "polkit-no-session": "Le polkit agent nécessite logind, elogind ou XDG_SESSION_ID. Sur les configurations utilisant uniquement seatd, il ne peut pas s'enregistrer pour les demandes d'authentification graphiques. Utilise pkexec depuis un terminal pour synchroniser le greeter, ou installe elogind pour l'authentification dans la session.",
       "screen-time-reset": "Temps d'écran",
       "screen-time-reset-success": "Historique d'utilisation effacé.",
       "session-bus-unavailable": "Bus de session indisponible",
@@ -938,6 +954,8 @@
       "reset-page": "Échec de la réinitialisation de certains paramètres.",
       "support-report": "Échec de l’enregistrement du rapport de support.",
       "sync-greeter": "Impossible de synchroniser l’apparence avec Noctalia Greeter.",
+      "sync-greeter-timeout": "La synchronisation du greeter est toujours en attente de l'autorisation de l'administrateur. Vérifie si une demande polkit est affichée sur un TTY ou une console, active le polkit agent dans les paramètres de sécurité, ou exécute pkexec manuellement.",
+      "sync-greeter-timeout-manual": "La synchronisation du greeter nécessite toujours l'autorisation de l'administrateur. Exécute cette commande dans un terminal : pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
       "widget": {
         "rename": "Impossible de renommer le widget nommé."
       },
@@ -1026,6 +1044,7 @@
         "osd": "OSD",
         "overview": "Aperçu",
         "pinned-apps": "Applications épinglées",
+        "polkit": "Pokit",
         "power": "Alimentation",
         "privacy-security": "Confidentialité et Sécurité",
         "profile": "Profil",
@@ -1049,9 +1068,11 @@
         "appearance": "Apparence",
         "backdrop": "Fond d'écran",
         "bar": "Barre",
+        "control-center": "Centre de controler",
         "desktop": "Bureau",
         "dock": "Dock",
         "hooks": "Hooks",
+        "keybinds": "Raccourcis",
         "location": "Localisation",
         "niri": "Niri",
         "notifications": "Notifications",
@@ -1072,9 +1093,11 @@
       "filter": {
         "add": "Ajouter un filtre",
         "add-title": "Ajouter un filtre de notifications",
+        "allow-permanent": "Autoriser les notifications permanentes",
         "allowed-urgencies-label": "Niveaux d’urgence autorisés",
         "flag": {
           "history": "Historique",
+          "permanent": "permanentes",
           "sound": "Son",
           "toast": "Notification éphémère"
         },
@@ -1144,10 +1167,14 @@
         "horizontal": "Horizontal",
         "vertical": "Vertical"
       },
+      "panel-position": {
+        "auto": "Suivre la Bar"
+      },
       "screen-position": {
         "bottom-center": "Centre bas",
         "bottom-left": "Centre gauche",
         "bottom-right": "Centre droit",
+        "center": "Centre",
         "center-left": "Centre gauche",
         "center-right": "Centre droit",
         "top-center": "Haut centre",
@@ -1226,12 +1253,27 @@
       }
     },
     "plugins": {
+      "panels": {
+        "open-near-click": {
+          "description": "Ouvrir le panel près du widget de la Bar qui l'a ouvert",
+          "label": "Ouverture près du clic"
+        },
+        "placement": {
+          "description": "Attacher le panel à la Bar ou le faire flotter près de son bord",
+          "label": "Placement"
+        },
+        "position": {
+          "description": "Position à l'écran lorsque le panel est flottant",
+          "label": "Position"
+        }
+      },
       "plugins": {
         "configure": "Configurer",
         "deprecated": "Déprécié",
         "empty": "Aucun plugin trouvé. Ajoutez une source ou vérifiez votre connexion.",
         "loading": "Chargement des plugins…",
         "refreshing": "Actualisation des plugins…",
+        "requires": "A besoins de : {dependencies}",
         "requires-newer-noctalia": "Nécessite une version plus récente de Noctalia",
         "title": "Plugins"
       },
@@ -1259,6 +1301,7 @@
         "location-placeholder-path": "~/dev/noctalia-plugins",
         "name-label": "Identifiant de la source",
         "name-placeholder": "my-plugins",
+        "precedence-hint": "Les sources de priorité inférieure remplacent les sources de priorité supérieure lorsqu'elles proposent le même plugin.",
         "remove": "Retirer la source",
         "save": "Sauvegarder",
         "title": "Sources",
@@ -1294,7 +1337,7 @@
           "search-placeholder": "Chercher des palettes..."
         },
         "corner-roundness": {
-          "description": "Applique une mise à l’échelle du rayon des coins sur les conteneurs et contrôles de l’interface",
+          "description": "Ajuste le rayon des coins de tous les conteneurs et contrôles de l'interface",
           "label": "Arrondi des coins"
         },
         "custom-palette": {
@@ -1304,11 +1347,11 @@
         },
         "export-wallpaper-palette": {
           "button": "Enregistrer comme palette personnalisée",
-          "description": "Enregistre la palette générée à partir du fond d’écran comme fichier de palette réutilisable",
+          "description": "Enregistre la palette générée à partir du fond d'écran dans un fichier de palette réutilisable",
           "label": "Exporter la palette du fond d’écran"
         },
         "font-family": {
-          "description": "Famille de police pour l’interface",
+          "description": "Police utilisée par l'interface",
           "label": "Famille de police"
         },
         "global-shadow-alpha": {
@@ -1334,7 +1377,7 @@
           "label": "Échelle de l’interface"
         },
         "wallpaper-generation-scheme": {
-          "description": "Choisit comment les couleurs du fond d’écran sont converties en palette",
+          "description": "Définit comment les couleurs du fond d'écran sont converties en palette",
           "label": "Schéma de génération du fond d’écran"
         }
       },
@@ -1469,6 +1512,9 @@
           "description": "Utilise le mode de superposition pour afficher la barre au-dessus des applications en plein écran. Les panneaux attachés suivent la barre.",
           "label": "Couche Wayland"
         },
+        "opposite-edge-margin": {
+          "description": "Espace réservé supplémentaire du côté intérieur de la Bar, à l'opposé du bord de l'écran ; utile lorsque les fenêtres maximisées ignorent les struts"
+        },
         "panel-overlap": {
           "description": "Nombre de pixels de chevauchement d’un panneau attaché sur le bord de la barre pour masquer la jonction (à ajuster si une ligne ou un espace apparaît)",
           "label": "Chevauchement du panneau"
@@ -1481,6 +1527,10 @@
         },
         "shadow": {
           "description": "Projete l’ombre globale des surfaces depuis la barre"
+        },
+        "show-on-workspace-switch": {
+          "description": "Afficher lors du changement de Workspace",
+          "label": "Affiche la Bar lorsque le workspace actif change"
         },
         "start-widgets": {
           "description": "Widgets en début (gauche/haut) de la barre",
@@ -1741,6 +1791,14 @@
           "description": "Déplace le focus ou la sélection vers la droite",
           "label": "Naviguer vers la droite"
         },
+        "tab-next": {
+          "description": "Déplace le focus sur le contrôle suivant",
+          "label": "Focus suivant"
+        },
+        "tab-previous": {
+          "description": "Déplace le focus sur le précédent contrôle",
+          "label": "Focus précédent"
+        },
         "up": {
           "description": "Déplace le focus ou la sélection d’une ligne vers le haut",
           "label": "Naviguer vers le haut"
@@ -1880,6 +1938,10 @@
           "description": "Définit jusqu’à six boutons de raccourci pour l’onglet d'accueil",
           "label": "Raccourcis de l’accueil"
         },
+        "launcher-app-grid": {
+          "description": "Afficher une grille d'icônes d'applications avec les labels dessous lorsque les résultats sont uniquement des apps",
+          "label": "Vue en grille des applications"
+        },
         "launcher-categories": {
           "description": "Affiche les filtres de catégories dans le lanceur ; affichez-les avec F6, puis parcourez-les avec F6 et Maj+F6",
           "label": "Afficher les catégories"
@@ -1937,6 +1999,10 @@
           "description": "Définit si le lanceur s’attache à la barre, flotte à proximité ou s’ouvre centré",
           "label": "Positionnement"
         },
+        "placement-polkit": {
+          "description": "Choisir si la demande polkit s'attache à la Bar ou flotte à une position choisie à l'écran",
+          "label": "Placement"
+        },
         "placement-session": {
           "description": "Définit si le menu de session s’attache à la barre, flotte à proximité ou s’ouvre centré",
           "label": "Positionnement"
@@ -1944,6 +2010,30 @@
         "placement-wallpaper": {
           "description": "Définit si le sélecteur de fond d’écran s’attache à la barre, flotte à proximité ou s’ouvre centré",
           "label": "Positionnement"
+        },
+        "position-clipboard": {
+          "description": "Position du clipboard à l'écran lorsqu'il flotte — Suivre la Bar le garde près de la Bar",
+          "label": "Position"
+        },
+        "position-control-center": {
+          "description": "Position du Control Center à l'écran lorsqu'il flotte — Suivre la Bar le garde près de la Bar",
+          "label": "Position"
+        },
+        "position-launcher": {
+          "description": "Position du Launcher à l'écran lorsqu'il flotte — Suivre la Bar le garde près de la Bar",
+          "label": "Position"
+        },
+        "position-polkit": {
+          "description": "Position de la demande polkit à l'écran lorsqu'elle flotte — Suivre la Bar la garde près de la Bar",
+          "label": "Position"
+        },
+        "position-session": {
+          "description": "Position du menu de session à l'écran lorsqu'il flotte — Suivre la Bar le garde près de la Bar",
+          "label": "Position"
+        },
+        "position-wallpaper": {
+          "description": "Position du sélecteur de fond d'écran à l'écran lorsqu'il flotte — Suivre la Bar le garde près de la Bar",
+          "label": "Position"
         },
         "shadow": {
           "description": "Projette l’ombre globale des surfaces depuis les panneaux"
@@ -2201,6 +2291,10 @@
           "description": "Format de date par défaut pour les éléments de l’interface qui ne disposent pas de leur propre réglage",
           "label": "Format de date"
         },
+        "greeter-sync-privilege-command": {
+          "description": "Remplace pkexec/run0 pour « Synchroniser le greeter maintenant ». Le chemin du helper d'application et le dossier de staging sont ajoutés automatiquement. Exemple : ghostty -e pkexec",
+          "label": "Commande avec privilèges pour la synchronisation du greeter"
+        },
         "launch-apps-as-systemd-services": {
           "description": "Lance les applications dans des services systemd distincts afin qu’elles ne partagent pas le même cgroup que Noctalia",
           "label": "Lancer les applications comme services systemd"
@@ -2313,6 +2407,14 @@
           "description": "Active l’agent d’authentification intégré",
           "label": "Agent Polkit"
         },
+        "privacy-cam-filter-regex": {
+          "description": "Expression régulière des applications de caméra à ignorer dans les indicateurs de confidentialité et les OSD",
+          "label": "Expression régulière (regex) du filtre des caméras"
+        },
+        "privacy-mic-filter-regex": {
+          "description": "Expression régulière (regex) des applications de microphone à ignorer dans les indicateurs de confidentialité et les OSD",
+          "label": "Expression régulière (regex) du filtre des micros"
+        },
         "screen-time-enabled": {
           "description": "Suit le temps d’utilisation de chaque application et l’affiche dans le centre de contrôle",
           "label": "Temps d’écran"
@@ -2321,6 +2423,10 @@
           "button": "Réinitialiser",
           "description": "Efface l’historique enregistré du temps d’utilisation au premier plan pour chaque application",
           "label": "Réinitialiser les données de temps d’écran"
+        },
+        "screenshot-confirm-region": {
+          "description": "Après avoir dessiné une région, garde l'Overlay ouvert jusqu'à confirmation avec Entrée ou Espace",
+          "label": "Confirmer la région"
         },
         "screenshot-copy-to-clipboard": {
           "description": "Place l’image PNG capturée dans le presse-papiers",
@@ -2486,6 +2592,8 @@
       "command-label": "Commande shell",
       "command-placeholder": "Commande bash optionnelle, laisser vide pour utiliser le comportement par défaut",
       "command-required-placeholder": "Commande shell à exécuter",
+      "countdown-seconds-description": "Attendre ce nombre de secondes avant l'exécution. Active à nouveau pour confirmer immédiatement. 0 exécute tout de suite.",
+      "countdown-seconds-label": "Compte à rebours (secondes)",
       "glyph-label": "Glyphe",
       "glyph-picker-title": "Glyphe de l’action",
       "kind-section-label": "Comportement",
@@ -2561,7 +2669,58 @@
         },
         "active-pill-size": {
           "description": "Longueur minimale de la pastille de l'espace de travail actif le long de la barre, en multiple de la taille de la pastille.",
-          "label": "Taille de la pastille active"
+          "label": "Taille de la pastille active",
+          "workspaces-description": "Longueur minimale de la pastille du Workspace actif le long de la Bar, en multiple de l'épaisseur de la pastille ; les labels peuvent dépasser cette taille"
+        },
+        "album-art-only": {
+          "description": "Afficher uniquement la pochette d'album circulaire, sans le titre de la piste",
+          "label": "Pochette d'album uniquement"
+        },
+        "anchor": {
+          "description": "Épingler ce widget comme point d'ancrage de l'alignement central",
+          "label": "Point d'ancrage"
+        },
+        "art-size": {
+          "description": "Taille de la pochette en pixels",
+          "label": "Taille de la pochette"
+        },
+        "bands": {
+          "description": "Nombre de bandes du visualiseur",
+          "label": "Bandes"
+        },
+        "cam-filter-regex": {
+          "description": "Expression régulière (regex) des noms de processus de caméra à ignorer",
+          "label": "Expression régulière (regex) du filtre des caméras"
+        },
+        "capsule": {
+          "description": "Dessiner une Capsule derrière ce widget",
+          "label": "Capsule"
+        },
+        "capsule-border": {
+          "description": "Rôle de couleur pour le contour de la Capsule ; les couleurs hexadécimales fixes sont également prises en charge",
+          "label": "Contour de la Capsule"
+        },
+        "capsule-fill": {
+          "description": "Rôle de couleur pour l'arrière-plan de la Capsule ; les couleurs hexadécimales fixes sont également prises en charge",
+          "label": "Remplissage de la Capsule"
+        },
+        "capsule-foreground": {
+          "description": "Rôle de couleur pour le contenu de la Capsule ; les couleurs hexadécimales fixes sont également prises en charge",
+          "label": "Contenu de la Capsule"
+        },
+        "capsule-opacity": {
+          "description": "Opacité de l'arrière-plan de la Capsule",
+          "label": "Opacité de la Capsule"
+        },
+        "capsule-padding": {
+          "description": "Marge intérieure de la Capsule",
+          "label": "Marge intérieure de la Capsule"
+        },
+        "capsule-radius": {
+          "description": "Rayon des coins de la Capsule de ce widget ; laisse vide pour une forme de pastille automatique, ou définis 0 pour des coins carrés",
+          "label": "Rayon de la Capsule",
+          "taskbar-description": "Rayon des coins de la Capsule du widget, des indicateurs de Workspace en disque et des Capsules de groupe de Workspace ; laisse vide pour une forme de pastille automatique, ou définis 0 pour des coins carrés",
+          "workspaces-description": "Rayon des coins de la Capsule de ce widget et des pastilles de Workspace ; laisse vide pour une forme de pastille automatique, ou définis 0 pour des coins carrés"
         },
         "hide-when-plugged": {
           "description": "Masquer le widget de batterie lorsqu'il est branché au secteur"

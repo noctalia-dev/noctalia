@@ -22,7 +22,7 @@ struct SystemStats {
     double txBytesPerSec{0.0};
   };
 
-  std::chrono::steady_clock::time_point sampledAt{};
+  std::chrono::steady_clock::time_point sampledAt;
   double cpuUsagePercent{0.0};
   double ramUsagePercent{0.0};
   std::uint64_t ramUsedMb{0};

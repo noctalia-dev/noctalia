@@ -41,7 +41,7 @@ namespace noctalia::config::schema {
       if (!std::isfinite(*v)) {
         return std::nullopt;
       }
-      return *v;
+      return v;
     }
     if (auto v = node.value<std::int64_t>()) {
       return static_cast<double>(*v);
@@ -118,7 +118,7 @@ namespace noctalia::config::schema {
         key,
         [member, key, range](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
           if (auto v = finiteDouble(tbl[key])) {
-            float value = static_cast<float>(*v);
+            auto value = static_cast<float>(*v);
             if (range) {
               value = applyRange(value, *range);
             }
@@ -156,7 +156,7 @@ namespace noctalia::config::schema {
         key,
         [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
           if (auto v = finiteDouble(tbl[key])) {
-            out.*member = *v;
+            out.*member = v;
           }
         },
         [member, key](toml::table& tbl, const Struct& in) {
@@ -249,7 +249,7 @@ namespace noctalia::config::schema {
           if (auto v = tbl[key].value<std::string>()) {
             const std::string trimmed = StringUtils::trim(*v);
             if (auto parsed = enumLookup(opts, N, trimmed)) {
-              out.*member = *parsed;
+              out.*member = parsed;
             } else {
               diag.warn(joinPath(parentPath, key), "unknown value \"" + *v + "\"");
             }

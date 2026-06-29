@@ -23,7 +23,12 @@ namespace noctalia::theme {
 
     std::string toHex() const;                        // "#rrggbb"
     std::tuple<double, double, double> toHsl() const; // (h°, s, l) — h in [0,360)
-    uint32_t toArgb() const { return 0xff000000u | (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b); }
+    uint32_t toArgb() const {
+      return 0xff000000u
+          | (static_cast<uint32_t>(r) << 16)
+          | (static_cast<uint32_t>(g) << 8)
+          | static_cast<uint32_t>(b);
+    }
   };
 
   // Shortest circular hue distance in degrees (result in [0, 180]).

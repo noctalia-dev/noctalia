@@ -238,6 +238,35 @@ int main() {
     }
   }
 
+  // Entry-level settings on a launcher provider (a singleton with no settings UI)
+  // are rejected — authors must use a plugin-level [[setting]] instead.
+  const auto launcherSettingManifestPath = root / "launcher-setting/plugin.toml";
+  ok = writeText(
+           launcherSettingManifestPath,
+           "id = \"me/launcher-setting\"\n"
+           "name = \"Launcher Setting\"\n"
+           "min_noctalia = \"5.0.0\"\n"
+           "[[launcher_provider]]\n"
+           "id = \"translate\"\n"
+           "entry = \"translate.luau\"\n"
+           "[[launcher_provider.setting]]\n"
+           "key = \"target_lang\"\n"
+           "type = \"string\"\n"
+           "default = \"en\"\n"
+       )
+      && ok;
+  error.clear();
+  const auto launcherSettingManifest = scripting::parsePluginManifest(launcherSettingManifestPath, &error);
+  ok = expect(!launcherSettingManifest.has_value(), "launcher-provider entry setting should be rejected") && ok;
+  ok = expectEq(
+           error,
+           "entry 'translate' of kind 'launcher_provider' declares [[launcher_provider.setting]], but entry-level "
+           "settings are only supported for widget, desktop_widget, and panel entries; move it to a plugin-level "
+           "[[setting]]",
+           "launcher-provider entry setting error message"
+       )
+      && ok;
+
   const auto listManifestPath = root / "string-list/plugin.toml";
   ok = writeText(
            listManifestPath,

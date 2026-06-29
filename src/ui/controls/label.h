@@ -6,6 +6,7 @@
 #include "ui/palette.h"
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -20,6 +21,12 @@ enum class LabelBaselineMode : std::uint8_t {
   // Prevents fallback fonts for unusual Unicode characters from inflating the
   // label height — useful in lists with unpredictable content.
   StableFont,
+  // Centers a cap-height band anchored at the glyph's ink top instead of the
+  // baseline. For pictographic script fonts (e.g. bongocat poses) the ink top is
+  // the fixed part of the art and lower ink moves per glyph: this keeps the art
+  // vertically put (no bob, unlike InkCentered) and centered (cap-band-from-baseline
+  // sits it too high). Degrades to cap-band centering for normal text.
+  StableFontBox,
 };
 
 class Label : public InputArea {
@@ -39,6 +46,7 @@ public:
   void setTextAlign(TextAlign align);
   // Which end of an overflowing single line gets the ellipsis (Start keeps the tail, e.g. file paths).
   void setEllipsize(TextEllipsize ellipsize);
+  void setUseMarkup(bool markup);
   // StableLogical uses the resolved font line box; InkCentered centers the current glyph ink.
   void setBaselineMode(LabelBaselineMode mode);
   void setShadow(const Color& color, float offsetX, float offsetY);
@@ -83,6 +91,11 @@ private:
   void startSnapToZero();
   void applyScrollPosition();
   void syncHoverInteraction();
+
+  // Guard token for deferred callbacks that run on the next main-loop tick.
+  // Callbacks capture a weak_ptr so they can detect destruction without
+  // relying on a raw this pointer staying valid.
+  std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
 
   TextNode* m_textNode = nullptr;
   float m_minWidth = 0.0f;

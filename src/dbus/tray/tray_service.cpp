@@ -1775,6 +1775,24 @@ void TrayService::requestProcessNameForItem(const std::string& itemId, const std
   }
 }
 
+std::uint32_t TrayService::connectionPidForBusName(const std::string& busName) const {
+  if (busName.empty() || m_dbusProxy == nullptr || !looks_like_dbus_name(busName)) {
+    return 0;
+  }
+
+  try {
+    std::uint32_t pid = 0;
+    m_dbusProxy->callMethod("GetConnectionUnixProcessID")
+        .onInterface(kDbusInterface)
+        .withArguments(busName)
+        .storeResultsTo(pid);
+    return pid;
+  } catch (const sdbus::Error& e) {
+    kLog.debug("pid lookup failed bus={} err={}", busName, e.what());
+    return 0;
+  }
+}
+
 std::string TrayService::busNameFromItemId(const std::string& itemId) {
   if (itemId.empty()) {
     return {};
@@ -1805,6 +1823,19 @@ void TrayService::registerOrRefreshItem(const std::string& busName, const std::s
   }
 
   if (!m_items.contains(itemId)) {
+    const auto pid = connectionPidForBusName(busName);
+    if (pid != 0) {
+      for (const auto& [existingId, existingItem] : m_items) {
+        if (existingItem.objectPath == objectPath && connectionPidForBusName(existingItem.busName) == pid) {
+          kLog.debug(
+              "tray item duplicate ignored id={} existing={} bus='{}' path='{}'", itemId, existingId, busName,
+              objectPath
+          );
+          return;
+        }
+      }
+    }
+
     kLog.debug("tray item registered id={} bus='{}' path='{}'", itemId, busName, objectPath);
     m_items.emplace(
         itemId,

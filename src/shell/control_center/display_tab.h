@@ -55,8 +55,8 @@ private:
   std::string m_pendingDisplayId;
   float m_pendingBrightness = -1.0f;
   float m_lastSentBrightness = -1.0f;
-  std::chrono::steady_clock::time_point m_lastCommitAt{};
-  std::chrono::steady_clock::time_point m_ignoreStateUntil{};
+  std::chrono::steady_clock::time_point m_lastCommitAt;
+  std::chrono::steady_clock::time_point m_ignoreStateUntil;
   Timer m_debounceTimer;
   bool m_syncingSlider = false;
   bool m_active = false;

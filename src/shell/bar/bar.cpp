@@ -8,6 +8,7 @@
 #include "core/timer_manager.h"
 #include "core/ui_phase.h"
 #include "idle/idle_inhibitor.h"
+#include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
@@ -1586,6 +1587,20 @@ std::optional<std::string> Bar::layerForBar(wl_output* output, std::string_view 
   return instance->barConfig.layer;
 }
 
+LayerShellLayer Bar::highestLayerForOutput(wl_output* output) const noexcept {
+  LayerShellLayer highest = LayerShellLayer::Top;
+  for (const auto& instance : m_instances) {
+    if (instance->output != output || !instance->barConfig.enabled) {
+      continue;
+    }
+    const LayerShellLayer layer = layerShellLayerFromConfig(instance->barConfig.layer);
+    if (static_cast<std::uint32_t>(layer) > static_cast<std::uint32_t>(highest)) {
+      highest = layer;
+    }
+  }
+  return highest;
+}
+
 bool Bar::isAttachedPanelBarSettled(wl_output* output, std::string_view barName) const noexcept {
   const BarInstance* instance = instanceForBar(output, barName);
   if (instance == nullptr || !instance->barConfig.autoHide) {
@@ -2818,7 +2833,7 @@ BarInstance* Bar::instanceForBar(wl_output* output, std::string_view barName) co
 }
 
 std::optional<std::string> Bar::collectBarIpcInstances(
-    std::optional<std::string_view> barName, std::optional<std::string_view> monitorSelector,
+    std::optional<std::string> barName, std::optional<std::string> monitorSelector,
     std::vector<BarInstance*>& instancesOut
 ) {
   instancesOut.clear();
@@ -2830,14 +2845,19 @@ std::optional<std::string> Bar::collectBarIpcInstances(
   if (barName.has_value()) {
     const bool knownBar = std::ranges::contains(m_config->config().bars, *barName, &BarConfig::name);
     if (!knownBar) {
-      std::vector<std::string> knownBars;
-      knownBars.reserve(m_config->config().bars.size());
-      for (const auto& bar : m_config->config().bars) {
-        knownBars.push_back(bar.name);
+      if (!monitorSelector.has_value()) {
+        monitorSelector = std::move(barName);
+        barName = std::nullopt;
+      } else {
+        std::vector<std::string> knownBars;
+        knownBars.reserve(m_config->config().bars.size());
+        for (const auto& bar : m_config->config().bars) {
+          knownBars.push_back(bar.name);
+        }
+        const std::string suffix =
+            knownBars.empty() ? std::string() : std::string("; known: ") + StringUtils::join(knownBars, ", ");
+        return "error: unknown bar \"" + std::string(*barName) + "\"" + suffix + "\n";
       }
-      const std::string suffix =
-          knownBars.empty() ? std::string() : std::string("; known: ") + StringUtils::join(knownBars, ", ");
-      return "error: unknown bar \"" + std::string(*barName) + "\"" + suffix + "\n";
     }
   }
 
@@ -2926,19 +2946,19 @@ std::optional<std::string> Bar::collectBarIpcInstances(
 namespace {
 
   [[nodiscard]] std::optional<std::string> parseBarVisibilityIpcArgs(
-      std::string_view command, std::string_view args, std::optional<std::string_view>& barName,
-      std::optional<std::string_view>& monitorSelector
+      std::string_view command, std::string_view args, std::optional<std::string>& barName,
+      std::optional<std::string>& monitorSelector
   ) {
-    const auto parts = StringUtils::splitWhitespace(StringUtils::trim(args));
+    const auto parts = noctalia::ipc::splitWords(args);
     if (parts.size() > 2) {
       return "error: usage: " + std::string(command) + " [bar-name] [monitor-selector]\n";
     }
     barName = std::nullopt;
     monitorSelector = std::nullopt;
-    if (!parts.empty()) {
+    if (!parts.empty() && !parts[0].empty()) {
       barName = parts[0];
     }
-    if (parts.size() >= 2) {
+    if (parts.size() >= 2 && !parts[1].empty()) {
       monitorSelector = parts[1];
     }
     return std::nullopt;
@@ -2947,8 +2967,8 @@ namespace {
 } // namespace
 
 std::string Bar::showBarIpc(std::string_view args) {
-  std::optional<std::string_view> barName;
-  std::optional<std::string_view> monitorSelector;
+  std::optional<std::string> barName;
+  std::optional<std::string> monitorSelector;
   if (const auto parseError = parseBarVisibilityIpcArgs("bar-show", args, barName, monitorSelector)) {
     return *parseError;
   }
@@ -2967,8 +2987,8 @@ std::string Bar::showBarIpc(std::string_view args) {
 }
 
 std::string Bar::hideBarIpc(std::string_view args) {
-  std::optional<std::string_view> barName;
-  std::optional<std::string_view> monitorSelector;
+  std::optional<std::string> barName;
+  std::optional<std::string> monitorSelector;
   if (const auto parseError = parseBarVisibilityIpcArgs("bar-hide", args, barName, monitorSelector)) {
     return *parseError;
   }
@@ -2989,8 +3009,8 @@ std::string Bar::hideBarIpc(std::string_view args) {
 }
 
 std::string Bar::toggleBarIpc(std::string_view args) {
-  std::optional<std::string_view> barName;
-  std::optional<std::string_view> monitorSelector;
+  std::optional<std::string> barName;
+  std::optional<std::string> monitorSelector;
   if (const auto parseError = parseBarVisibilityIpcArgs("bar-toggle", args, barName, monitorSelector)) {
     return *parseError;
   }
@@ -3028,7 +3048,7 @@ std::string Bar::setBarAutoHideIpc(std::string_view args) {
     return "error: config service not initialized\n";
   }
 
-  const auto parts = StringUtils::splitWhitespace(StringUtils::trim(args));
+  const auto parts = noctalia::ipc::splitWords(args);
   if (parts.empty() || parts.size() > 3) {
     return "error: usage: bar-auto-hide-set <on|off|true|false|1|0> [bar-name] [monitor-selector]\n";
   }
@@ -3043,12 +3063,12 @@ std::string Bar::setBarAutoHideIpc(std::string_view args) {
     return "error: invalid value (use on/off, true/false, 1/0)\n";
   }
 
-  std::optional<std::string_view> barName;
-  std::optional<std::string_view> monitorSelector;
-  if (parts.size() >= 2) {
+  std::optional<std::string> barName;
+  std::optional<std::string> monitorSelector;
+  if (parts.size() >= 2 && !parts[1].empty()) {
     barName = parts[1];
   }
-  if (parts.size() >= 3) {
+  if (parts.size() >= 3 && !parts[2].empty()) {
     monitorSelector = parts[2];
   }
 
@@ -3138,7 +3158,7 @@ std::string Bar::setBarAutoHideIpc(std::string_view args) {
 }
 
 std::string Bar::setBarLayerIpc(std::string_view args) {
-  const auto parts = StringUtils::splitWhitespace(StringUtils::trim(args));
+  const auto parts = noctalia::ipc::splitWords(args);
   if (parts.empty() || parts.size() > 3) {
     return "error: usage: bar-layer-set <top|overlay> [bar-name] [monitor-selector]\n";
   }
@@ -3148,12 +3168,12 @@ std::string Bar::setBarLayerIpc(std::string_view args) {
     return "error: invalid layer (use top or overlay)\n";
   }
 
-  std::optional<std::string_view> barName;
-  std::optional<std::string_view> monitorSelector;
-  if (parts.size() >= 2) {
+  std::optional<std::string> barName;
+  std::optional<std::string> monitorSelector;
+  if (parts.size() >= 2 && !parts[1].empty()) {
     barName = parts[1];
   }
-  if (parts.size() >= 3) {
+  if (parts.size() >= 3 && !parts[2].empty()) {
     monitorSelector = parts[2];
   }
 

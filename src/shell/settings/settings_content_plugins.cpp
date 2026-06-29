@@ -231,6 +231,27 @@ namespace settings {
         );
       }
 
+      const bool removable = ctx.onRemove
+          && plugin.source != "local"
+          && !std::ranges::any_of(ctx.sources, [&](const PluginSourceConfig& s) {
+                               return s.name == plugin.source && s.kind == PluginSourceKind::Path;
+                             });
+      if (removable) {
+        r->addChild(
+            ui::button({
+                .glyph = "trash",
+                .glyphSize = Style::fontSizeBody * scale,
+                .variant = ButtonVariant::Ghost,
+                .tooltip = i18n::tr("settings.plugins.plugins.remove"),
+                .onClick = [cb = ctx.onRemove, id = plugin.id]() {
+                  if (cb) {
+                    cb(id);
+                  }
+                },
+            })
+        );
+      }
+
       const bool busy = ctx.isEnabling && ctx.isEnabling(plugin.id);
       if (busy) {
         r->addChild(
@@ -552,9 +573,28 @@ namespace settings {
     section->addChild(ui::separator({.spacing = Style::spaceSm * scale}));
 
     // ── Plugins ──────────────────────────────────────────────────────────
-    section->addChild(makeLabel(
+    auto pluginsHeader = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true});
+    pluginsHeader->addChild(makeLabel(
         i18n::tr("settings.plugins.plugins.title"), Style::fontSizeBody * scale, ColorRole::Secondary, FontWeight::Bold
     ));
+    pluginsHeader->addChild(ui::spacer());
+    if (ctx.openStore) {
+      pluginsHeader->addChild(
+          ui::button({
+              .text = i18n::tr("settings.plugins.browse-store"),
+              .glyph = "search",
+              .fontSize = Style::fontSizeCaption * scale,
+              .glyphSize = Style::fontSizeBody * scale,
+              .variant = ButtonVariant::Primary,
+              .onClick = [cb = ctx.openStore]() {
+                if (cb) {
+                  cb();
+                }
+              },
+          })
+      );
+    }
+    section->addChild(std::move(pluginsHeader));
     if (ctx.pluginsLoading) {
       section->addChild(makeLabel(
           ctx.plugins.empty() ? i18n::tr("settings.plugins.plugins.loading")
@@ -566,7 +606,13 @@ namespace settings {
           i18n::tr("settings.plugins.plugins.empty"), Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant
       ));
     }
-    std::vector<scripting::PluginStatus> plugins = ctx.plugins;
+    std::vector<scripting::PluginStatus> plugins;
+    plugins.reserve(ctx.plugins.size());
+    for (const auto& plugin : ctx.plugins) {
+      if (plugin.materialized || plugin.enabled) {
+        plugins.push_back(plugin);
+      }
+    }
     std::ranges::sort(plugins, [&](const auto& a, const auto& b) {
       const std::string_view aName = pluginDisplayName(a);
       const std::string_view bName = pluginDisplayName(b);

@@ -75,7 +75,20 @@ _clang_tidy m=mode *args:
     #!/usr/bin/env bash
     set -euo pipefail
     src_root="$(realpath src)"
-    run-clang-tidy -quiet -p build-{{m}} -j "$(nproc)" -header-filter="^${src_root}/.*" {{args}} "^${src_root}/.*"
+    # meson emits one compile_commands.json entry per (file, target); sources shared with
+    # unit-test executables appear many times (core/log.cpp 14x), so clang-tidy re-lints
+    # them once per entry. Dedupe to one entry per file (preferring the main app target)
+    # so each file is linted once — faster, and clang-tidy's per-file progress spam
+    # disappears (it only prints that when a file has multiple compile commands).
+    cdb_dir="$(mktemp -d)"
+    trap 'rm -rf "$cdb_dir"' EXIT
+    # sort main-app (noctalia.p) entries first, then keep the first entry per file
+    python3 -c "import json, sys; e = sorted(json.load(open(sys.argv[1])), key=lambda x: not x.get('output', '').startswith('noctalia.p/')); b = {}; [b.setdefault(x['file'], x) for x in e]; json.dump(list(b.values()), open(sys.argv[2], 'w'))" "build-{{m}}/compile_commands.json" "$cdb_dir/compile_commands.json"
+    # compile_commands.json stores build-relative paths, so clang-tidy emits header
+    # diagnostics as ../src/...; the header-filter must match that form (an absolute
+    # ^${src_root} anchor never matches, silently dropping every header diagnostic).
+    # ../src/ also excludes vendored third_party/*/src/* headers.
+    run-clang-tidy -quiet -use-color -p "$cdb_dir" -j "$(nproc)" -header-filter='\.\./src/.*' {{args}} "^${src_root}/.*"
 
 lint m=mode: (configure m)
     just _clang_tidy {{m}} '-warnings-as-errors=*'

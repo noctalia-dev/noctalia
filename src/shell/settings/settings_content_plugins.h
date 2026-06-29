@@ -40,6 +40,8 @@ namespace settings {
     // Used to derive current toggle state while async discovery refreshes.
     const Config* config = nullptr;
     std::function<void(std::string id)> onConfigure;
+    std::function<void(std::string id)> onRemove;
+    std::function<void()> openStore;
   };
 
   // Render the Plugins section into `content` when ctx.selectedSection == "plugins".

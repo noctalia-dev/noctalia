@@ -34,6 +34,7 @@ struct TaskbarWidgetOptions {
   WorkspaceLabelPlacement workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
   bool hideEmptyWorkspaces = false;
   bool workspaceGroupCapsule = true;
+  bool focusedOutputOnly = false;
   bool groupSingleIconPerApp = false;
   bool showActiveIndicator = true;
   float activeOpacity = 1.0f;
@@ -110,6 +111,7 @@ private:
   [[nodiscard]] wl_output* workspaceHostOutput(const WorkspaceModel& model) const noexcept;
   [[nodiscard]] ColorSpec workspaceFillColor(const Workspace& workspace) const;
   [[nodiscard]] ColorSpec workspaceTextColor(const Workspace& workspace) const;
+  [[nodiscard]] bool isFocusedOutput() const;
   [[nodiscard]] static ColorSpec readableColorForFill(const ColorSpec& fill);
   [[nodiscard]] static ColorRole onRoleForFill(ColorRole fill);
   [[nodiscard]] static bool taskInWorkspaceGroup(const TaskModel& task, const WorkspaceModel& ws);
@@ -126,6 +128,9 @@ private:
   WorkspaceLabelPlacement m_workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
   bool m_hideEmptyWorkspaces = false;
   bool m_workspaceGroupCapsule = true;
+  bool m_focusedOutputOnly = false;
+  bool m_wasFocusedOutput = true;
+  bool m_activeUsesFocusedColor = true;
   bool m_groupSingleIconPerApp = false;
   bool m_showActiveIndicator = true;
   float m_activeOpacity = 1.0f;

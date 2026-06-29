@@ -119,19 +119,19 @@ namespace {
 namespace shell {
 
   std::string resolvedAvatarPath(const AccountsService* accounts, const Config& config) {
+    if (!config.shell.avatarPath.empty()) {
+      return config.shell.avatarPath;
+    }
     if (accounts != nullptr) {
       const std::string& iconFile = accounts->iconFile();
       if (!iconFile.empty()) {
         return iconFile;
       }
     }
-    return config.shell.avatarPath;
+    return {};
   }
 
   std::string avatarDisplayPath(const AccountsService* accounts, const Config& config) {
-    if (!config.shell.avatarPath.empty()) {
-      return config.shell.avatarPath;
-    }
     return resolvedAvatarPath(accounts, config);
   }
 
@@ -164,8 +164,7 @@ namespace shell {
       }
       accountsPath = prepared->string();
       if (!accounts->setIconFile(accountsPath)) {
-        kLog.warn("AccountsService SetIconFile failed for '{}'", accountsPath);
-        return {.error = AvatarApplyError::AccountsFailed};
+        kLog.warn("AccountsService SetIconFile failed for '{}', falling back to config override", accountsPath);
       }
     }
 

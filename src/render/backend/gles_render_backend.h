@@ -31,7 +31,7 @@ public:
   void cleanup() override;
 
   bool makeCurrent(RenderTarget& target) override;
-  void makeCurrentNoSurface() override;
+  bool makeCurrentNoSurface() override;
   bool beginFrame(RenderTarget& target) override;
   void endFrame(RenderTarget& target) override;
   [[nodiscard]] RenderGraphicsResetStatus graphicsResetStatus() override;

@@ -241,3 +241,10 @@ bool isPrintableKey(std::uint32_t sym) {
     return false;
   }
 }
+
+bool isPlainPrintableKey(std::uint32_t utf32, std::uint32_t modifiers, bool preedit) noexcept {
+  return !preedit
+      && utf32 >= 0x20U
+      && utf32 != 0x7FU
+      && (modifiers & (KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super)) == 0;
+}

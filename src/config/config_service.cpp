@@ -526,6 +526,7 @@ void ConfigService::fireReloadCallbacks() {
     add(m_lastChange.bars, "bars");
     add(m_lastChange.widgets, "widgets");
     add(m_lastChange.desktopWidgets, "desktopWidgets");
+    add(m_lastChange.hotCorners, "hotCorners");
     add(m_lastChange.lockscreenWidgets, "lockscreenWidgets");
     add(m_lastChange.wallpaper, "wallpaper");
     add(m_lastChange.backdrop, "backdrop");
@@ -1429,6 +1430,11 @@ void ConfigService::parseConfigTable(
     parseWidgetsPlacementSection(
         *lockscreenWidgetsTbl, lockscreenWidgets.grid, lockscreenWidgets.widgets, "lockscreen_widgets"
     );
+  }
+
+  // Parse [hot_corners]
+  if (auto* hotCornersTbl = tbl["hot_corners"].as_table()) {
+    schema::readInto(*hotCornersTbl, config.hotCorners, schema::hotCornersSchema(), "hot_corners", schemaDiag);
   }
 
   // Parse [weather]

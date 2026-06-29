@@ -2,13 +2,15 @@
   "auth": {
     "fingerprint": {
       "disconnected": "Fingerabdruckleser getrennt.",
+      "error": "Fehlerhafte Fingerabdruckanmeldung",
       "no-match": "Fingerabdruck stimmt nicht überein",
       "not-centered": "Finger neu ausrichten und wiederholen.",
       "present": "Lese Fingerabdruck",
       "ready": "Finger auf den Leser legen.",
       "remove-and-retry": "Finger anheben und neu probieren.",
       "retry": "Bitte den Fingerabdruck neu einlesen.",
-      "swipe-too-short": "Zu schnell gestrichen, bitte wiederholen."
+      "swipe-too-short": "Zu schnell gestrichen, bitte wiederholen.",
+      "too-many-attempts": "Fingerabdruckanmeldung gesperrt (zu viele Versuche)"
     },
     "pam": {
       "authentication-failed": "Authentifizierung fehlgeschlagen",
@@ -160,7 +162,7 @@
       },
       "unavailable": "Bluetooth-Dienst nicht verfügbar",
       "unknown-device": "Unbekanntes Gerät",
-      "visible": "Sichtbar für Geräte in der Nähe"
+      "visible": "Für Geräte in der Nähe sichtbar."
     },
     "calendar": {
       "all-day": "Ganztägig",
@@ -306,6 +308,7 @@
       "media": "Medien",
       "network": "Netzwerk",
       "notifications": "Benachrichtigungen",
+      "power": "Energie",
       "screen-time": "Bildschirmzeit",
       "system": "System",
       "weather": "Wetter"
@@ -557,13 +560,13 @@
       "battery-low-body": "{device}: noch {percent}% übrig",
       "battery-low-title": "Akku schwach",
       "calendar": "Kalender",
-      "calendar-google-connect-browser-failed": "Es konnte kein Browser für die Google-Autorisierung gestartet werden. Überprüfe deinen Standardbrowser oder die xdg-open-Einrichtung.",
+      "calendar-google-connect-browser-failed": "Es konnte kein Browser für die Google-Autorisierung gestartet werden. Überprüfe den Standardbrowser oder die xdg-open-Einrichtung.",
       "calendar-google-connect-expired": "Die Google-Autorisierung ist abgelaufen, bevor die Anmeldung abgeschlossen wurde. Starte die Verbindung erneut.",
       "calendar-google-connect-failed-title": "Google Calendar Verbindung fehlgeschlagen",
       "calendar-google-connect-missing-account": "Kein konfiguriertes Google Kalender-Konto entsprach „{account}“.",
       "calendar-google-connect-rate-limited": "Die Google-Autorisierung ist vorübergehend ratenbegrenzt. Warte einen Moment und versuche es dann erneut.",
       "calendar-google-connect-result-failed": "Google-Autorisierung konnte nicht abgeschlossen werden. Starte die Verbindung erneut.",
-      "calendar-google-connect-start-failed": "Google-Autorisierung konnte nicht gestartet werden. Überprüfe deine Netzwerkverbindung und versuche es erneut.",
+      "calendar-google-connect-start-failed": "Google-Autorisierung konnte nicht gestartet werden. Überprüfe die Netzwerkverbindung und versuche es erneut.",
       "calendar-google-connect-start-http": "Google-Autorisierung konnte nicht gestartet werden. Der OAuth-Broker gab HTTP {status} zurück.",
       "calendar-google-connect-timeout": "Die Google-Autorisierung hat ein Zeitlimit überschritten. Starte die Verbindung erneut, wenn du bereit bist, dich anzumelden.",
       "dbus-disabled": "DBus Benachrichtigungen deaktiviert",
@@ -632,7 +635,8 @@
         "rate": "Bewerten",
         "status": "Status",
         "time-left": "Restzeit",
-        "time-to-full": "Zeit bis voll"
+        "time-to-full": "Zeit bis voll",
+        "unknown-device": "Unbekanntes Gerät"
       }
     },
     "profiles": {
@@ -665,7 +669,7 @@
       "inherited": "Geerbt",
       "monitor": "Monitor",
       "official": "Offiziell",
-      "override": "Überschreibung"
+      "override": "Überschreiben"
     },
     "calendar-accounts": {
       "add-title": "Kalenderkonto hinzufügen",
@@ -1115,12 +1119,20 @@
       }
     },
     "plugins": {
+      "browse-store": "Plugins durchsuchen",
+      "panels": {
+        "position": {
+          "label": "Position"
+        }
+      },
       "plugins": {
         "configure": "Konfigurieren",
         "deprecated": "veraltet",
-        "empty": "Es wurden keine Plugins gefunden. Füge eine Quelle hinzu oder überprüfe deine Netzwerkverbindung.",
+        "empty": "Es wurden keine Plugins gefunden. Füge eine Quelle hinzu oder überprüfe die Netzwerkverbindung.",
         "loading": "Plugins werden geladen...",
         "refreshing": "Plugins werden aktualisiert...",
+        "remove": "Plugin entfernen",
+        "requires": "Erfordert: {dependencies}",
         "requires-newer-noctalia": "erfordert eine neuere Version von Noctalia",
         "title": "Plugins"
       },
@@ -1153,6 +1165,17 @@
         "title": "Quellen",
         "update": "Aktualisieren",
         "update-on-startup": "Beim Start aktualisieren"
+      },
+      "store": {
+        "add": "Zu Noctalia hinzufügen.",
+        "category-all": "Alle",
+        "empty": "Keine Plugins gefunden.",
+        "incompatible": "Inkompatibel",
+        "loading": "Lade den Katalog ...",
+        "no-readme": "Keine Beschreibung vorhanden.",
+        "results-count": "{count} Plugins",
+        "search-placeholder": "Suche Plugins ...",
+        "title": "Plugin Store"
       }
     },
     "schema": {
@@ -1804,7 +1827,7 @@
           "label": "Audio-Boost"
         },
         "calendar": {
-          "description": "Termine aus deinen Online-Kalenderkonten anzeigen",
+          "description": "Termine aus dem Online-Kalenderkonten anzeigen",
           "label": "Kalender"
         },
         "calendar-add": {
@@ -1843,7 +1866,7 @@
           "placeholder": "Stadt, Land"
         },
         "location-auto-locate": {
-          "description": "Standort automatisch anhand deiner IP-Adresse erkennen",
+          "description": "Standort automatisch anhand der IP-Adresse erkennen",
           "label": "Automatische Standortbestimmung (IP)"
         },
         "longitude": {
@@ -2947,6 +2970,7 @@
       "color-title": "Hintergrundbildfarbe",
       "filter-placeholder": "Filtern...",
       "flatten": "Angleichen",
+      "loading": "Lade Hintergrundbilder ...",
       "sort-date-asc": "Nach Datum sortieren (älteste zuerst)",
       "sort-date-desc": "Nach Datum sortieren (neueste zuerst)",
       "sort-name-asc": "Nach Name sortieren (A-Z)",

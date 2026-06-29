@@ -178,17 +178,20 @@ void GlSharedContext::usePlainContextAttributes() noexcept {
   m_videoMemoryPurgeNotificationEnabled = false;
 }
 
-void GlSharedContext::makeCurrentSurfaceless() const {
+bool GlSharedContext::makeCurrentSurfaceless() const {
   if (m_display == EGL_NO_DISPLAY || m_rootContext == EGL_NO_CONTEXT) {
-    return;
+    return true;
   }
   if (eglMakeCurrent(m_display, EGL_NO_SURFACE, EGL_NO_SURFACE, m_rootContext) != EGL_TRUE) {
-    throw std::runtime_error(
-        std::format(
-            "eglMakeCurrent (root, surfaceless) failed (EGL error 0x{:04x})", static_cast<unsigned>(eglGetError())
-        )
+    // Genuine context loss (e.g. NVIDIA video-memory purge on resume) makes this fail. Skip the
+    // GPU work rather than throwing across the C ABI; graphicsResetStatus() drives the rebuild.
+    kLog.warn(
+        "eglMakeCurrent (root, surfaceless) failed (EGL error 0x{:04x}); skipping GPU work",
+        static_cast<unsigned>(eglGetError())
     );
+    return false;
   }
+  return true;
 }
 
 void GlSharedContext::cleanup() {

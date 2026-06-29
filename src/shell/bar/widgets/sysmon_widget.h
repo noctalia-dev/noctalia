@@ -101,7 +101,7 @@ private:
 
   static constexpr int kHistorySamples = 30;
   bool m_graphInitialized = false;
-  std::chrono::steady_clock::time_point m_lastSampleAt{};
+  std::chrono::steady_clock::time_point m_lastSampleAt;
   double m_tempMin = 30.0;
   double m_tempMax = 80.0;
   Box* m_chartBg = nullptr;

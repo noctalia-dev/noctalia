@@ -22,7 +22,7 @@ struct FileEntry {
   std::filesystem::path absPath;
   bool isDir = false;
   std::uintmax_t size = 0;
-  std::filesystem::file_time_type mtime{};
+  std::filesystem::file_time_type mtime;
 };
 
 class DirectoryScanner {

@@ -264,6 +264,23 @@ namespace {
     throw std::runtime_error(std::format("{}: {}", operation, wayland.describeDisplayError(operationErrno)));
   }
 
+  // libwayland-client dispatches every event listener through libffi (wl_closure_invoke). A C++
+  // exception escaping a listener would unwind across that C ABI boundary and call std::terminate.
+  // Contain it here so one misbehaving handler can't abort the shell; remaining queued events are
+  // re-dispatched on the next iteration. Returns the wl_display_dispatch_pending result unchanged
+  // (negative = genuine protocol error, still surfaced by the caller); a caught exception yields 0.
+  int dispatchPendingGuarded(wl_display* display) {
+    try {
+      return wl_display_dispatch_pending(display);
+    } catch (const std::exception& e) {
+      kLog.error("exception in Wayland event handler ({}); continuing", e.what());
+      return 0;
+    } catch (...) {
+      kLog.error("unknown exception in Wayland event handler; continuing");
+      return 0;
+    }
+  }
+
   bool sourceHasReadyFd(const std::vector<pollfd>& fds, std::size_t startIdx, std::size_t count) {
     const std::size_t endIdx = std::min(fds.size(), startIdx + count);
     for (std::size_t fdIdx = startIdx; fdIdx < endIdx; ++fdIdx) {
@@ -315,7 +332,7 @@ void MainLoop::run() {
     opStart = std::chrono::steady_clock::now();
     while (wl_display_prepare_read(m_wayland.display()) != 0) {
       opStart = std::chrono::steady_clock::now();
-      if (wl_display_dispatch_pending(m_wayland.display()) < 0) {
+      if (dispatchPendingGuarded(m_wayland.display()) < 0) {
         const int dispatchErrno = errno;
         throwWaylandFailure(m_wayland, "failed to dispatch pending Wayland events before poll", dispatchErrno);
       }
@@ -541,7 +558,7 @@ void MainLoop::run() {
     }
 
     opStart = std::chrono::steady_clock::now();
-    if (wl_display_dispatch_pending(m_wayland.display()) < 0) {
+    if (dispatchPendingGuarded(m_wayland.display()) < 0) {
       const int dispatchErrno = errno;
       throwWaylandFailure(m_wayland, "failed to dispatch pending Wayland events after poll", dispatchErrno);
     }
@@ -631,7 +648,7 @@ void MainLoop::run() {
   kLog.debug("closing bar surfaces for clean shutdown");
   m_bar.closeAllInstances();
 
-  if (wl_display_dispatch_pending(m_wayland.display()) < 0) {
+  if (dispatchPendingGuarded(m_wayland.display()) < 0) {
     const int dispatchErrno = errno;
     kLog.warn(
         "failed to dispatch pending Wayland events during shutdown: {}", m_wayland.describeDisplayError(dispatchErrno)

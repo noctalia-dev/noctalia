@@ -301,6 +301,7 @@ void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
     auto label = std::make_unique<Label>();
     label->setText(m_options[i]);
     label->setFontSize(request.fontSize);
+    label->setMaxLines(1);
     const float labelLeft = request.horizontalPadding + leadingInset;
     label->setMaxWidth(
         std::max(0.0f, rowWidth - labelLeft - request.horizontalPadding - request.glyphSize - Style::spaceXs)
@@ -363,7 +364,11 @@ void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
 void SelectDropdownPopup::selectAndClose(std::size_t index) {
   auto onSelect = m_callbacks.onSelect;
   m_callbacks.onDismiss = nullptr;
-  DeferredCall::callLater([this, onSelect, index]() {
+  const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+  DeferredCall::callLater([this, aliveGuard, onSelect, index]() {
+    if (aliveGuard.expired()) {
+      return;
+    }
     const bool hadSurface = m_surface != nullptr;
     closeSelectDropdown();
     // xdg_popup children must attach to the compositor's topmost popup. Flush and roundtrip so
@@ -565,7 +570,11 @@ void SelectDropdownPopup::handleKey(std::uint32_t sym, std::uint32_t /*utf32*/, 
 
   if (KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
     auto onDismiss = m_callbacks.onDismiss;
-    DeferredCall::callLater([this, onDismiss]() {
+    const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+    DeferredCall::callLater([this, aliveGuard, onDismiss]() {
+      if (aliveGuard.expired()) {
+        return;
+      }
       closeSelectDropdown();
       if (onDismiss) {
         onDismiss();

@@ -152,7 +152,7 @@ public:
     // Effective mute for UI (includes device-route mute and short-lived local writes).
     bool muted = false;
     std::optional<bool> pendingMute;
-    std::chrono::steady_clock::time_point muteWriteGuardUntil{};
+    std::chrono::steady_clock::time_point muteWriteGuardUntil;
     std::uint32_t channelCount = 0;
     std::uint32_t deviceId = 0;
     bool hasRoute = false;
@@ -161,7 +161,7 @@ public:
     std::uint32_t routeDirection = 0;
     std::vector<DeviceRouteData> routes;
     float lastWrittenVolume = -1.0f;
-    std::chrono::steady_clock::time_point volumeWriteGuardUntil{};
+    std::chrono::steady_clock::time_point volumeWriteGuardUntil;
     struct pw_node* proxy = nullptr;
     spa_hook* listener = nullptr;
   };
@@ -222,7 +222,7 @@ private:
   Timer m_volumeThrottleTimer;
   Timer m_muteWriteGuardTimer;
   std::unordered_map<std::uint32_t, float> m_pendingNodeVolumes;
-  std::chrono::steady_clock::time_point m_lastVolumeFlushAt{};
+  std::chrono::steady_clock::time_point m_lastVolumeFlushAt;
   bool m_lastVolumeFlushValid = false;
 
   pw_loop* m_loop = nullptr;

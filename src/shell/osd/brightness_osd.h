@@ -23,5 +23,5 @@ private:
 
   OsdOverlay* m_overlay = nullptr;
   std::vector<DisplaySnapshot> m_snapshots;
-  std::chrono::steady_clock::time_point m_suppressUntil{};
+  std::chrono::steady_clock::time_point m_suppressUntil;
 };

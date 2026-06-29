@@ -30,7 +30,7 @@ namespace {
   class StubRenderer : public Renderer {
   public:
     TextMetrics measureText(
-        std::string_view text, float fontSize, FontWeight, float, int, TextAlign, std::string_view, TextEllipsize
+        std::string_view text, float fontSize, FontWeight, float, int, TextAlign, std::string_view, TextEllipsize, bool
     ) override {
       return TextMetrics{.width = static_cast<float>(text.size()) * fontSize * 0.5f, .bottom = fontSize};
     }

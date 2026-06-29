@@ -386,6 +386,8 @@
         "temperature": "10 / 4C"
       },
       "location-unavailable": "Posizione non disponibile",
+      "no-location-body": "Aggiungi il tuo indirizzo o attiva la localizzazione automatica nelle impostazioni di posizione.",
+      "no-location-title": "Location non configurata",
       "refreshing": "Aggiornamento meteo...",
       "waiting": "In attesa dei dati meteo"
     }
@@ -439,7 +441,7 @@
         "fade-when-idle": "Dissolvi quando inattivo",
         "font-family": "Carattere",
         "font-family-default": "Predefinito di sistema",
-        "forecast-days": "N. Giorni",
+        "forecast-days": "Numero di giorni",
         "format": "Formato",
         "gauge-layout": "Layout Gauge",
         "glyph": "Glifo",
@@ -654,7 +656,12 @@
       "desktop-widgets-editor": "Editor widget",
       "desktop-widgets-editor-enabled": "L'editor dei widget desktop è attivo. Passa a uno spazio di lavoro vuoto per visualizzarlo.",
       "greeter-sync": "Noctalia Greeter",
+      "greeter-sync-pending": "Attesa dell'approvazione dell'amministratore per salvare sul greeter.",
+      "greeter-sync-pending-console": "Attesa dell'approvazione dell'amministratore. Approva il prompt polkit in Noctalia, su un TTY o una console, oppure esegui pkexec manualmente.",
+      "greeter-sync-pending-manual": "I file vengono messi in ambiente stage. Esegui in un terminale: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". Oppure imposta shell.greeter_sync.privilege_command (ad esempio ghostty -e pkexec) e sincronizza di nuovo.",
       "greeter-sync-success": "Aspetto sincronizzato. Le modifiche si applicano alla prossima schermata di accesso.",
+      "greeter-sync-timeout": "La sincronizzazione del greeter è ancora in attesa dell'approvazione dell'amministratore. Controlla un TTY o una console per un prompt polkit, abilita l'agente polkit nelle impostazioni di sicurezza o esegui pkexec manualmente.",
+      "greeter-sync-timeout-manual": "La sincronizzazione del greeter necessita ancora dell'approvazione dell'amministratore. Esegui in un terminale: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Questa scorciatoia accetta un singolo tasto senza modificatori.",
       "keybind-invalid-printable": "I tasti stampabili (lettere, numeri, simboli) richiedono un modificatore come Ctrl o Alt.",
@@ -666,6 +673,8 @@
       "lockscreen-widgets-editor-blocked-locked": "Sblocca la sessione prima di modificare i widget del blocco schermo.",
       "lockscreen-widgets-editor-enabled": "L'editor dei widget del blocco schermo è attivo. Disponi i widget nell'anteprima, poi blocca la sessione per verificare il layout.",
       "mpris-disabled": "MPRIS disabilitato",
+      "polkit-agent": "Polkit Agent",
+      "polkit-no-session": "L'agente Polkit necessita di logind, elogind o XDG_SESSION_ID. Nelle configurazioni seatd-only non è possibile registrarsi per i prompt grafici. Utilizza il terminale pkexec per la sincronizzazione del greeter o installa elogind per l'autenticazione in sessione.",
       "screen-time-reset": "Tempo schermo",
       "screen-time-reset-success": "Cronologia utilizzo cancellata.",
       "session-bus-unavailable": "Bus di sessione non disponibile",
@@ -765,6 +774,7 @@
     },
     "badges": {
       "advanced": "Avanzato",
+      "community": "Community",
       "inherited": "Ereditato",
       "monitor": "Monitor",
       "official": "Ufficiale",
@@ -945,6 +955,8 @@
       "reset-page": "Ripristino di alcune impostazioni non riuscito.",
       "support-report": "Salvataggio report di supporto non riuscito.",
       "sync-greeter": "Impossibile sincronizzare l'aspetto con Noctalia Greeter.",
+      "sync-greeter-timeout": "La sincronizzazione del greeter è ancora in attesa dell'approvazione dell'amministratore. Controlla un TTY o una console per un prompt polkit, abilita l'agente polkit nelle impostazioni di sicurezza o esegui pkexec manualmente.",
+      "sync-greeter-timeout-manual": "La sincronizzazione del greeter necessita ancora dell'approvazione dell'amministratore. Esegui in un terminale: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
       "widget": {
         "rename": "Impossibile rinominare il widget con nome."
       },
@@ -1012,6 +1024,7 @@
         "general": "Generale",
         "grouping": "Raggruppamento",
         "home": "Home",
+        "hot-corners": "Angoli attivi",
         "idle": "Inattività",
         "interface": "Interfaccia",
         "keybinds": "Scorciatoie",
@@ -1033,6 +1046,7 @@
         "osd": "OSD",
         "overview": "Panoramica",
         "pinned-apps": "App fissate",
+        "polkit": "Polkit",
         "power": "Energia",
         "privacy-security": "Privacy e sicurezza",
         "profile": "Profilo",
@@ -1060,6 +1074,7 @@
         "desktop": "Desktop",
         "dock": "Dock",
         "hooks": "Hook",
+        "keybinds": "Scorciatoie",
         "location": "Posizione",
         "niri": "Niri",
         "notifications": "Notifiche",
@@ -1140,6 +1155,13 @@
         "ultra-bold": "Ultragrassetto",
         "ultra-heavy": "Ultrapesante",
         "ultra-light": "Ultraleggero"
+      },
+      "hot-corners": {
+        "command": "Esegui comando",
+        "control-center": "Control Center",
+        "launcher": "Launcher",
+        "none": "Nessuno",
+        "window-switcher": "Switcher finestre"
       },
       "layer": {
         "overlay": "Sovrapposto",
@@ -1240,6 +1262,7 @@
       }
     },
     "plugins": {
+      "browse-store": "Sfoglia plugin",
       "panels": {
         "open-near-click": {
           "description": "Apri il pannello vicino al widget della barra che lo ha attivato",
@@ -1260,6 +1283,7 @@
         "empty": "Nessun plugin trovato. Aggiungi una sorgente o controlla la rete",
         "loading": "Caricamento plugin...",
         "refreshing": "Aggiornamento plugin...",
+        "remove": "Rimuovi plugin",
         "requires": "Richiede: {dependencies}",
         "requires-newer-noctalia": "Richiede Noctalia aggiornato",
         "title": "Elenco plugin"
@@ -1294,6 +1318,17 @@
         "title": "Sorgenti",
         "update": "Aggiorna",
         "update-on-startup": "Aggiorna all'avvio"
+      },
+      "store": {
+        "add": "Aggiungi a Noctalia",
+        "category-all": "Tutti",
+        "empty": "Nessun plugin trovato",
+        "incompatible": "Incompatibile",
+        "loading": "Caricamento catalogo...",
+        "no-readme": "Nessuna descrizione disponibile.",
+        "results-count": "{count} plugin",
+        "search-placeholder": "Ricerca plugin...",
+        "title": "Plugin Store"
       }
     },
     "schema": {
@@ -1545,6 +1580,42 @@
         }
       },
       "desktop": {
+        "hot-corners-bottom-left": {
+          "description": "Azione quando il puntatore tocca l'angolo inferiore sinistro",
+          "label": "Angolo inferiore sinistro"
+        },
+        "hot-corners-bottom-left-command": {
+          "description": "Comando shell da eseguire quando si tocca l'angolo inferiore sinistro",
+          "label": "Comando"
+        },
+        "hot-corners-bottom-right": {
+          "description": "Azione quando il puntatore tocca l'angolo inferiore destro",
+          "label": "Angolo inferiore destro"
+        },
+        "hot-corners-bottom-right-command": {
+          "description": "Comando shell da eseguire quando si tocca l'angolo superiore sinistro",
+          "label": "Comando"
+        },
+        "hot-corners-enabled": {
+          "description": "Attiva azioni portando il puntatore del mouse agli angoli dello schermo",
+          "label": "Angoli attivi"
+        },
+        "hot-corners-top-left": {
+          "description": "Azione quando il puntatore tocca l'angolo superiore sinistro",
+          "label": "Angolo superiore sinistro"
+        },
+        "hot-corners-top-left-command": {
+          "description": "Comando shell da eseguire quando si tocca l'angolo superiore sinistro",
+          "label": "Comando"
+        },
+        "hot-corners-top-right": {
+          "description": "Azione quando il puntatore tocca l'angolo superiore destro",
+          "label": "Angolo superiore destro"
+        },
+        "hot-corners-top-right-command": {
+          "description": "Comando shell da eseguire quando si tocca l'angolo superiore destro",
+          "label": "Comando"
+        },
         "screen-corners-enabled": {
           "description": "Arrotonda gli angoli dello schermo con un overlay nero",
           "label": "Angoli schermo"
@@ -1986,6 +2057,10 @@
           "description": "Scegli se il launcher si attacca alla barra, fluttua vicino ad essa o si apre centrato",
           "label": "Posizionamento"
         },
+        "placement-polkit": {
+          "description": "Scegli se il prompt di polkit è attaccato alla barra o fluttua nella posizione prescelta dello schermo",
+          "label": "Posizionamento"
+        },
         "placement-session": {
           "description": "Scegli se il menu sessione si attacca alla barra, fluttua vicino ad essa o si apre centrato",
           "label": "Posizionamento"
@@ -2004,6 +2079,10 @@
         },
         "position-launcher": {
           "description": "Dove il launcher appare sullo schermo — Segui la barra lo mantiene vicino ad essa",
+          "label": "Posizione"
+        },
+        "position-polkit": {
+          "description": "Dove il prompt di polkit fluttua sullo schermo — Segui la barra lo mantiene vicino ad essa",
           "label": "Posizione"
         },
         "position-session": {
@@ -2270,6 +2349,10 @@
           "description": "Formato data predefinito per la shell UI senza impostazione propria",
           "label": "Formato data"
         },
+        "greeter-sync-privilege-command": {
+          "description": "Sostituisci pkexec/run0 per la sincronizzazione del greeter. Il percorso dell'helper e la directory di staging vengono aggiunti automaticamente. Esempio: ghostty -e pkexec",
+          "label": "Comando privilegiato per il sync del greeter"
+        },
         "launch-apps-as-systemd-services": {
           "description": "Avvia le applicazioni in servizi systemd separati così non condividono il cgroup di Noctalia",
           "label": "Avvia app come servizi systemd"
@@ -2391,7 +2474,7 @@
           "label": "Filtro Regex microfono"
         },
         "screen-time-enabled": {
-          "description": "Monitora l'uso per app e mostralo nel Centro di controllo",
+          "description": "Monitora l'uso per app e lo mostra nel centro di controllo",
           "label": "Tempo schermo"
         },
         "screen-time-reset": {

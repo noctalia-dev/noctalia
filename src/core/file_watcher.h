@@ -38,7 +38,7 @@ private:
     Callback callback;
     int dirWd;
     WatchTrigger trigger = WatchTrigger::Modified;
-    std::chrono::steady_clock::time_point lastFired{};
+    std::chrono::steady_clock::time_point lastFired;
   };
 
   int m_inotifyFd = -1;

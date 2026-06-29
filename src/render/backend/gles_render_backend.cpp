@@ -247,14 +247,18 @@ void GlesRenderBackend::initialize(GlSharedContext& shared) {
   resolveGraphicsResetStatusProc();
 }
 
-void GlesRenderBackend::makeCurrentNoSurface() {
+bool GlesRenderBackend::makeCurrentNoSurface() {
   if (m_display == EGL_NO_DISPLAY || m_context == EGL_NO_CONTEXT) {
-    return;
+    return false;
   }
 
   if (eglMakeCurrent(m_display, EGL_NO_SURFACE, EGL_NO_SURFACE, m_context) != EGL_TRUE) {
-    throw std::runtime_error(std::format("eglMakeCurrent(EGL_NO_SURFACE) failed ({})", eglErrorDetail(eglGetError())));
+    // Genuine context loss (e.g. NVIDIA video-memory purge on resume) makes this fail. Skip the
+    // GPU work rather than throwing across the C ABI; graphicsResetStatus() drives the rebuild.
+    kLog.warn("eglMakeCurrent(EGL_NO_SURFACE) failed ({}); skipping GPU work", eglErrorDetail(eglGetError()));
+    return false;
   }
+  return true;
 }
 
 bool GlesRenderBackend::makeCurrent(RenderTarget& target) {
@@ -338,10 +342,8 @@ void GlesRenderBackend::invalidateGpuResources() {
     return;
   }
   if (eglGetCurrentDisplay() != m_display || eglGetCurrentContext() != m_context) {
-    try {
-      makeCurrentNoSurface();
-    } catch (const std::exception& e) {
-      kLog.warn("skipping GPU resource invalidation: {}", e.what());
+    if (!makeCurrentNoSurface()) {
+      kLog.warn("skipping GPU resource invalidation: could not make context current");
       return;
     }
   }

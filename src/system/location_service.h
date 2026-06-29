@@ -86,5 +86,5 @@ private:
   RequestKind m_requestKind = RequestKind::None;
   std::uint64_t m_requestSerial = 0;
   bool m_refreshQueued = false;
-  std::chrono::system_clock::time_point m_nextRefreshAt{};
+  std::chrono::system_clock::time_point m_nextRefreshAt;
 };

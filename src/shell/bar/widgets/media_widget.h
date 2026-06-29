@@ -26,7 +26,8 @@ class MediaWidget : public Widget {
 public:
   MediaWidget(
       MprisService* mpris, HttpClient* httpClient, wl_output* output, float maxWidth, float minWidth, float artSize,
-      MediaTitleScrollMode titleScrollMode, bool hideWhenNoMedia = false, bool albumArtOnly = false
+      MediaTitleScrollMode titleScrollMode, bool hideWhenNoMedia = false, bool albumArtOnly = false,
+      bool hideAlbumArt = false
   );
 
   void create() override;
@@ -47,6 +48,7 @@ private:
   MediaTitleScrollMode m_titleScrollMode = MediaTitleScrollMode::None;
   bool m_hideWhenNoMedia = false;
   bool m_albumArtOnly = false;
+  bool m_hideAlbumArt = false;
   InputArea* m_area = nullptr;
   Image* m_art = nullptr;
   Glyph* m_emptyGlyph = nullptr;

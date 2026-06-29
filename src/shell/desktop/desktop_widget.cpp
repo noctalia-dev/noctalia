@@ -94,6 +94,14 @@ Node* DesktopWidget::presentationRoot() const noexcept {
   return m_contentRoot;
 }
 
+bool DesktopWidget::hasVisibleBackground() const noexcept {
+  if (!m_bgEnabled) {
+    return false;
+  }
+  const Node* node = presentationRoot();
+  return node != nullptr && node->visible() && node->opacity() > 0.001f;
+}
+
 float DesktopWidget::intrinsicWidth() const noexcept {
   if (m_boxWidth > 0.0f) {
     return m_boxWidth;
@@ -178,6 +186,8 @@ bool DesktopWidget::applySetting(
     if (it == allSettings.end())
       return fb;
     if (const auto* v = std::get_if<double>(&it->second))
+      return static_cast<float>(*v);
+    if (const auto* v = std::get_if<std::int64_t>(&it->second))
       return static_cast<float>(*v);
     return fb;
   };

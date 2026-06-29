@@ -424,6 +424,7 @@ namespace {
                   .fontSize = metaFontSize(scale),
                   .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
                   .maxWidth = textMaxWidth,
+                  .maxLines = 1,
                   .textAlign = TextAlign::End,
               })
           )
@@ -2509,6 +2510,7 @@ InputArea* NotificationToast::buildCard(
             .fontSize = metaFontSize(scale),
             .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
             .maxWidth = textMaxWidth,
+            .maxLines = 1,
             .textAlign = TextAlign::End,
         })
     );

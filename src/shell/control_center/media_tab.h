@@ -91,8 +91,8 @@ private:
   bool m_syncingProgress = false;
   std::int64_t m_pendingSeekUs = -1;
   std::string m_pendingSeekBusName;
-  std::chrono::steady_clock::time_point m_pendingSeekUntil{};
-  std::chrono::steady_clock::time_point m_progressSettleUntil{};
+  std::chrono::steady_clock::time_point m_pendingSeekUntil;
+  std::chrono::steady_clock::time_point m_progressSettleUntil;
   bool m_playerMenuOpen = false;
   std::vector<std::string> m_playerBusNames;
   std::unordered_set<std::string> m_pendingArtDownloads;
@@ -101,10 +101,10 @@ private:
   std::string m_positionTrackSignature;
   std::int64_t m_positionUs = 0;
   std::int64_t m_lastTrackLengthUs = 0;
-  std::chrono::steady_clock::time_point m_positionSampleAt{};
+  std::chrono::steady_clock::time_point m_positionSampleAt;
   std::optional<MprisPlayerInfo> m_lastActiveSnapshot;
-  std::chrono::steady_clock::time_point m_lastActiveSeenAt{};
-  std::chrono::steady_clock::time_point m_nextRealtimeUpdateAt{};
-  std::chrono::steady_clock::time_point m_lastRealtimeMprisPollAt{};
+  std::chrono::steady_clock::time_point m_lastActiveSeenAt;
+  std::chrono::steady_clock::time_point m_nextRealtimeUpdateAt;
+  std::chrono::steady_clock::time_point m_lastRealtimeMprisPollAt;
   Timer m_progressTimer;
 };

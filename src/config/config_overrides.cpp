@@ -344,6 +344,7 @@ namespace {
     return vectorEqual(a.bars, b.bars, barConfigEqual)
         && widgetMapEqual(a.widgets, b.widgets)
         && desktopWidgetsConfigEqual(a.desktopWidgets, b.desktopWidgets)
+        && a.hotCorners == b.hotCorners
         && lockscreenWidgetsConfigEqual(a.lockscreenWidgets, b.lockscreenWidgets)
         && a.wallpaper == b.wallpaper
         && a.backdrop == b.backdrop
@@ -701,6 +702,7 @@ ConfigChangeSet computeConfigChangeSet(const Config& prev, const Config& next) {
       .theme = !(prev.theme == next.theme),
       .controlCenter = !(prev.controlCenter == next.controlCenter),
       .plugins = !pluginsConfigEqual(prev.plugins, next.plugins),
+      .hotCorners = !(prev.hotCorners == next.hotCorners),
   };
 }
 

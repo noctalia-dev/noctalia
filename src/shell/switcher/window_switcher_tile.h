@@ -34,7 +34,7 @@ public:
   hitTestCloseRegion(float cellWidth, float cellHeight, float contentScale, float localX, float localY) noexcept;
 
   void setCellSize(float cellWidth, float cellHeight);
-  void setAppIconColorizeTint(std::optional<ColorSpec> tint) { m_appIconColorizeTint = std::move(tint); }
+  void setAppIconColorizeTint(std::optional<ColorSpec> tint) { m_appIconColorizeTint = tint; }
   void setOnInvalidate(std::function<void()> callback) { m_onInvalidate = std::move(callback); }
   void setCloseHovered(bool hovered);
   void bind(Renderer& renderer, const WindowSwitcherEntry& entry, bool selected, bool hovered);

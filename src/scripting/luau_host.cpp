@@ -52,6 +52,9 @@ namespace {
   // A single stream line can't exceed this; protects against a process spewing one
   // unbounded line with no newline.
   constexpr std::size_t kMaxStreamLineBytes = 64 * 1024;
+  // Per-plugin VM heap ceiling. Far above any legitimate plugin's working set, so
+  // it only ever trips on a runaway allocation (an unbounded table/string loop).
+  constexpr std::size_t kMemoryCeilingBytes = 128 * 1024 * 1024;
 
   std::uint64_t& nextHostId() {
     static std::uint64_t id = 1;
@@ -1028,10 +1031,33 @@ namespace {
   }
 } // namespace
 
+void* LuauHost::allocate(void* ud, void* ptr, std::size_t osize, std::size_t nsize) {
+  auto* host = static_cast<LuauHost*>(ud);
+  if (nsize == 0) {
+    std::free(ptr);
+    if (host != nullptr) {
+      host->m_memUsed -= osize;
+    }
+    return nullptr;
+  }
+  if (host != nullptr && nsize > osize && host->m_memUsed + (nsize - osize) > kMemoryCeilingBytes) {
+    return nullptr; // refuse growth past the ceiling -> catchable LUA_ERRMEM
+  }
+  void* result = std::realloc(ptr, nsize);
+  if (result == nullptr) {
+    return nullptr; // realloc failed; old block intact, accounting unchanged
+  }
+  if (host != nullptr) {
+    host->m_memUsed += nsize;
+    host->m_memUsed -= osize; // osize == 0 for a fresh allocation
+  }
+  return result;
+}
+
 LuauHost::LuauHost(scripting::ScriptApiContext& api, CompositorPlatform* platform) : m_api(api), m_platform(platform) {
   m_hostId = nextHostId()++;
 
-  m_L = luaL_newstate();
+  m_L = lua_newstate(&LuauHost::allocate, this);
   lua_callbacks(m_L)->userdata = this;
   lua_callbacks(m_L)->interrupt = budgetInterrupt;
   luaL_openlibs(m_L);

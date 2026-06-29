@@ -133,6 +133,14 @@ void Label::setEllipsize(TextEllipsize ellipsize) {
   m_measureCached = false;
 }
 
+void Label::setUseMarkup(bool markup) {
+  if (m_textNode->useMarkup() == markup) {
+    return;
+  }
+  m_textNode->setUseMarkup(markup);
+  m_measureCached = false;
+}
+
 void Label::setBaselineMode(LabelBaselineMode mode) {
   if (m_baselineMode == mode) {
     return;
@@ -302,7 +310,13 @@ void Label::startMarqueeLoop() {
         m_scrollOffset = 0.0f;
         applyScrollPosition();
         markPaintDirty();
-        DeferredCall::callLater([this]() { startMarqueeLoop(); });
+        const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+        DeferredCall::callLater([this, aliveGuard]() {
+          if (aliveGuard.expired()) {
+            return;
+          }
+          startMarqueeLoop();
+        });
       },
       this
   );
@@ -406,9 +420,6 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
     measureMaxWidth = 0.0f;
   }
   const int effectiveMaxLines = m_autoScroll ? 1 : m_userMaxLines;
-  const bool singleLine = m_autoScroll
-      || (effectiveMaxLines == 1)
-      || (effectiveMaxLines == 0 && configuredMaxWidth <= 0.0f && !m_plainText.contains('\n'));
   const TextAlign align = m_textNode->textAlign();
   const FontWeight fontWeight = m_textNode->fontWeight();
   const float renderScale = renderer.renderScale();
@@ -450,8 +461,13 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
 
   auto metrics = renderer.measureText(
       m_plainText, m_textNode->fontSize(), fontWeight, measureMaxWidth, effectiveMaxLines, align,
-      m_textNode->fontFamily(), m_textNode->ellipsize()
+      m_textNode->fontFamily(), m_textNode->ellipsize(), m_textNode->useMarkup()
   );
+  // Single- vs multi-line is decided by the measured layout, not by the requested
+  // width/line budget: a label with no explicit budget wraps freely, so only the
+  // measured line count tells us whether to apply single-line cap-band centering
+  // or lay out a multi-line block. Auto-scroll always renders a single marquee line.
+  const bool singleLine = m_autoScroll || metrics.lineCount <= 1;
   const float measuredWidth = measureMaxWidth > 0.0f ? std::min(metrics.width, measureMaxWidth) : metrics.width;
   m_fullTextWidth = m_autoScroll ? measuredWidth : 0.0f;
   const bool hasAssignedWidth = constraints.hasExactWidth();
@@ -477,6 +493,18 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
       height = std::round(fontMetrics.bottom - fontMetrics.top);
       const float capHeight = fontMetrics.capHeight;
       m_baselineOffset = capHeight > 0.0f ? height * 0.5f + capHeight * 0.5f : -fontMetrics.top;
+    } else if (m_baselineMode == LabelBaselineMode::StableFontBox) {
+      // Center the cap-height band measured from the *ink top* rather than the
+      // baseline. For pictographic script fonts (e.g. bongocat poses) the ink top
+      // is the fixed part of the art while lower ink moves per glyph; anchoring the
+      // band there keeps the art vertically put (no bob) and centres it, where
+      // cap-band-from-baseline sits it too high. Degrades to cap-band centering for
+      // normal text, whose ink top coincides with the cap top. Unrounded baseline —
+      // the renderer snaps the glyph quad to the pixel grid.
+      height = std::round(actualHeight);
+      const float capHeight = renderer.measureFont(m_textNode->fontSize(), fontWeight).capHeight;
+      m_baselineOffset = capHeight > 0.0f ? height * 0.5f - (metrics.inkTop + capHeight * 0.5f)
+                                          : -metrics.inkTop + (height - inkHeight) * 0.5f;
     } else {
       height = std::round(actualHeight);
       // Center the cap band (baseline → cap-top) in the box, so a container that

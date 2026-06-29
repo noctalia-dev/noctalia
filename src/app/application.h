@@ -6,6 +6,7 @@
 #include "calendar/calendar_service.h"
 #include "capture/screenshot_service.h"
 #include "compositors/compositor_platform.h"
+#include "compositors/workspace_alert_service.h"
 #include "config/config_poll_source.h"
 #include "config/config_service.h"
 #include "core/file_watcher.h"
@@ -34,6 +35,7 @@
 #include "shell/bar/bar.h"
 #include "shell/desktop/desktop_widgets_controller.h"
 #include "shell/dock/dock.h"
+#include "shell/hot_corners/hot_corners.h"
 #include "shell/lockscreen/lock_screen.h"
 #include "shell/lockscreen/lockscreen_widgets_controller.h"
 #include "shell/notification/notification_toast.h"
@@ -144,6 +146,12 @@ public:
   // Public for signal handler
   static std::atomic<bool> s_shutdownRequested;
 
+  bool runUserCommand(const std::string& command);
+  void triggerShellAction(const std::string& action, wl_output* output = nullptr);
+  // Highest layer-shell layer occupied by any bar on the given output. Hot
+  // corners place their trigger surfaces on this layer.
+  [[nodiscard]] LayerShellLayer hotCornerLayerForOutput(wl_output* output) const noexcept;
+
 private:
   void initServices();
   // Sub-phases of initServices(), called in order.
@@ -169,6 +177,9 @@ private:
   void reloadDmenuProviders();
   // (Re)register plugin-backed panels from the enabled plugin set.
   void reloadPluginPanels();
+  // Pull every git source flagged auto_update. Run once at startup and on a 6h
+  // repeating timer so long-lived sessions pick up new plugin versions.
+  void runPluginAutoUpdate();
   void startTrayService();
   void syncNotificationDaemon();
   void installNotificationBusNameWatch();
@@ -177,7 +188,6 @@ private:
   [[nodiscard]] bool likelySupportsInSessionPolkit() const noexcept;
   void syncClipboardService();
   void syncScreenTimeService();
-  bool runUserCommand(const std::string& command);
   bool runUserCommandBlocking(const std::string& command);
   bool runIdleAction(const IdleActionRequest& action);
   void onIconThemeChanged();
@@ -191,6 +201,7 @@ private:
   [[nodiscard]] std::vector<PollSource*> buildPollSources();
 
   WaylandConnection m_wayland;
+  WorkspaceAlertService m_workspaceAlertService;
   CompositorPlatform m_compositorPlatform{m_wayland};
   ClipboardService m_clipboardService;
   TextInputService m_textInputService;
@@ -281,6 +292,7 @@ private:
   KeyboardLayoutOsd m_keyboardLayoutOsd;
   PrivacyOsd m_privacyOsd;
   OsdOverlay m_osdOverlay;
+  HotCorners m_hotCorners{this};
   ScreenCorners m_screenCorners;
   TrayMenu m_trayMenu;
   Wallpaper m_wallpaper;
@@ -326,6 +338,7 @@ private:
   Timer m_polkitInitTimer;
   Timer m_greeterSyncTimeoutTimer;
   Timer m_clipboardAutoPasteTimer;
+  Timer m_pluginAutoUpdateTimer;
   std::uint64_t m_greeterSyncGeneration = 0;
 
   std::unique_ptr<MainLoop> m_mainLoop;

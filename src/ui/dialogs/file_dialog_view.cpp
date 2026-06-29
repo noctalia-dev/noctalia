@@ -160,7 +160,15 @@ void FileDialogView::create() {
               .minHeight = Style::controlHeightSm * scale,
               .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this]() { DeferredCall::callLater([this]() { cancelDialog(); }); },
+              .onClick = [this]() {
+                const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                DeferredCall::callLater([this, aliveGuard]() {
+                  if (aliveGuard.expired()) {
+                    return;
+                  }
+                  cancelDialog();
+                });
+              },
           })
       )
   );
@@ -207,7 +215,16 @@ void FileDialogView::create() {
               .minHeight = Style::controlHeightSm * scale,
               .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this]() { DeferredCall::callLater([this]() { setShowHiddenFiles(!m_showHiddenFiles); }); },
+              .onClick =
+                  [this]() {
+                    const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                    DeferredCall::callLater([this, aliveGuard]() {
+                      if (aliveGuard.expired()) {
+                        return;
+                      }
+                      setShowHiddenFiles(!m_showHiddenFiles);
+                    });
+                  },
           }),
           ui::button({
               .out = &m_viewToggle,
@@ -218,7 +235,11 @@ void FileDialogView::create() {
               .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusMd(scale),
               .onClick = [this]() {
-                DeferredCall::callLater([this]() {
+                const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                DeferredCall::callLater([this, aliveGuard]() {
+                  if (aliveGuard.expired()) {
+                    return;
+                  }
                   setViewMode(m_viewMode == ViewMode::List ? ViewMode::Grid : ViewMode::List);
                 });
               },
@@ -261,7 +282,16 @@ void FileDialogView::create() {
               .paddingV = Style::spaceXs * scale,
               .paddingH = Style::spaceSm * scale,
               .flexGrow = 1.0f,
-              .onClick = [this]() { DeferredCall::callLater([this]() { setSort(FileDialogSortField::Name); }); },
+              .onClick =
+                  [this]() {
+                    const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                    DeferredCall::callLater([this, aliveGuard]() {
+                      if (aliveGuard.expired()) {
+                        return;
+                      }
+                      setSort(FileDialogSortField::Name);
+                    });
+                  },
           }),
           ui::button({
               .out = &m_sizeSortButton,
@@ -272,7 +302,16 @@ void FileDialogView::create() {
               .minHeight = Style::controlHeightSm * scale,
               .paddingV = Style::spaceXs * scale,
               .paddingH = Style::spaceSm * scale,
-              .onClick = [this]() { DeferredCall::callLater([this]() { setSort(FileDialogSortField::Size); }); },
+              .onClick =
+                  [this]() {
+                    const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                    DeferredCall::callLater([this, aliveGuard]() {
+                      if (aliveGuard.expired()) {
+                        return;
+                      }
+                      setSort(FileDialogSortField::Size);
+                    });
+                  },
           }),
           ui::button({
               .out = &m_dateSortButton,
@@ -283,7 +322,15 @@ void FileDialogView::create() {
               .minHeight = Style::controlHeightSm * scale,
               .paddingV = Style::spaceXs * scale,
               .paddingH = Style::spaceSm * scale,
-              .onClick = [this]() { DeferredCall::callLater([this]() { setSort(FileDialogSortField::Modified); }); },
+              .onClick = [this]() {
+                const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                DeferredCall::callLater([this, aliveGuard]() {
+                  if (aliveGuard.expired()) {
+                    return;
+                  }
+                  setSort(FileDialogSortField::Modified);
+                });
+              },
           })
       )
   );
@@ -294,7 +341,13 @@ void FileDialogView::create() {
   m_listAdapter->setEntries(&m_visibleEntries);
   m_listAdapter->setSelectableFn([this](std::size_t idx) { return isSelectableIndex(idx); });
   m_listAdapter->setOnActivate([this](std::size_t idx) {
-    DeferredCall::callLater([this, idx]() { handleEntryClick(idx); });
+    const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+    DeferredCall::callLater([this, aliveGuard, idx]() {
+      if (aliveGuard.expired()) {
+        return;
+      }
+      handleEntryClick(idx);
+    });
   });
 
   listCard->addChild(
@@ -337,7 +390,13 @@ void FileDialogView::create() {
   m_gridAdapter->setEntries(&m_visibleEntries);
   m_gridAdapter->setSelectableFn([this](std::size_t idx) { return isSelectableIndex(idx); });
   m_gridAdapter->setOnActivate([this](std::size_t idx) {
-    DeferredCall::callLater([this, idx]() { handleEntryClick(idx); });
+    const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+    DeferredCall::callLater([this, aliveGuard, idx]() {
+      if (aliveGuard.expired()) {
+        return;
+      }
+      handleEntryClick(idx);
+    });
   });
 
   gridContainer->addChild(
@@ -395,7 +454,16 @@ void FileDialogView::create() {
               .paddingV = Style::spaceSm * scale,
               .paddingH = Style::spaceMd * scale,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this]() { DeferredCall::callLater([this]() { cancelDialog(); }); },
+              .onClick =
+                  [this]() {
+                    const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                    DeferredCall::callLater([this, aliveGuard]() {
+                      if (aliveGuard.expired()) {
+                        return;
+                      }
+                      cancelDialog();
+                    });
+                  },
           }),
           ui::button({
               .out = &m_okButton,
@@ -406,7 +474,15 @@ void FileDialogView::create() {
               .paddingV = Style::spaceSm * scale,
               .paddingH = Style::spaceMd * scale,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this]() { DeferredCall::callLater([this]() { submitDialog(); }); },
+              .onClick = [this]() {
+                const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                DeferredCall::callLater([this, aliveGuard]() {
+                  if (aliveGuard.expired()) {
+                    return;
+                  }
+                  submitDialog();
+                });
+              },
           })
       )
   );
@@ -717,7 +793,15 @@ void FileDialogView::rebuildBreadcrumb() {
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() { DeferredCall::callLater([this]() { navigateUp(); }); },
+          .onClick = [this]() {
+            const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+            DeferredCall::callLater([this, aliveGuard]() {
+              if (aliveGuard.expired()) {
+                return;
+              }
+              navigateUp();
+            });
+          },
       })
   );
 
@@ -731,7 +815,15 @@ void FileDialogView::rebuildBreadcrumb() {
           .minHeight = Style::controlHeightSm * scale,
           .padding = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
-          .onClick = [this]() { DeferredCall::callLater([this]() { navigateHome(); }); },
+          .onClick = [this]() {
+            const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+            DeferredCall::callLater([this, aliveGuard]() {
+              if (aliveGuard.expired()) {
+                return;
+              }
+              navigateHome();
+            });
+          },
       })
   );
 
@@ -751,7 +843,15 @@ void FileDialogView::rebuildBreadcrumb() {
             .text = component.string(),
             .variant = ButtonVariant::Ghost,
             .padding = Style::spaceXs * scale,
-            .onClick = [this, target]() { DeferredCall::callLater([this, target]() { navigateInto(target); }); },
+            .onClick = [this, target]() {
+              const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+              DeferredCall::callLater([this, aliveGuard, target]() {
+                if (aliveGuard.expired()) {
+                  return;
+                }
+                navigateInto(target);
+              });
+            },
         })
     );
   }

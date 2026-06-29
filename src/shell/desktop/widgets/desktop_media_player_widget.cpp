@@ -4,7 +4,6 @@
 #include "dbus/mpris/mpris_service.h"
 #include "i18n/i18n.h"
 #include "net/http_client.h"
-#include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
 #include "ui/builders.h"
@@ -35,10 +34,7 @@ DesktopMediaPlayerWidget::DesktopMediaPlayerWidget(MprisService* mpris, HttpClie
     : m_mpris(mpris), m_httpClient(httpClient), m_vertical(options.vertical), m_color(options.color),
       m_shadow(options.shadow), m_hideWhenNoMedia(options.hideWhenNoMedia) {}
 
-DesktopMediaPlayerWidget::~DesktopMediaPlayerWidget() {
-  m_aliveGuard.reset();
-  cancelVisibilityAnimation();
-}
+DesktopMediaPlayerWidget::~DesktopMediaPlayerWidget() { m_aliveGuard.reset(); }
 
 void DesktopMediaPlayerWidget::create() {
   auto rootNode = std::make_unique<Node>();
@@ -172,12 +168,6 @@ void DesktopMediaPlayerWidget::setEditorPreview(bool enabled) noexcept {
     requestRedraw();
   }
 }
-
-bool DesktopMediaPlayerWidget::needsFrameTick() const {
-  return m_visibilityAnimId != 0 || m_fadingOut || shouldBeVisible() != m_visible;
-}
-
-void DesktopMediaPlayerWidget::onFrameTick(float /*deltaMs*/, Renderer& /*renderer*/) { applyVisibility(); }
 
 void DesktopMediaPlayerWidget::doLayout(Renderer& renderer) {
   if (root() == nullptr || m_artwork == nullptr || m_title == nullptr || m_artist == nullptr || m_controls == nullptr)
@@ -420,91 +410,24 @@ bool DesktopMediaPlayerWidget::applyVisibility() {
   const bool nextVisible = shouldBeVisible();
   if (!m_visibilityInitialized) {
     m_visibilityInitialized = true;
-    m_fadingOut = false;
     m_visible = nextVisible;
-    setVisibilityCollapsed(!m_visible);
     presentationRoot()->setOpacity(m_visible ? 1.0f : 0.0f);
+    setVisibilityCollapsed(!m_visible);
     return !m_visible;
   }
 
-  if (!nextVisible) {
-    if (!m_visible || m_fadingOut) {
-      return false;
-    }
-    m_fadingOut = true;
-    startOpacityAnimation(0.0f, true);
+  if (m_visible == nextVisible) {
     return false;
   }
 
-  if (m_visible && !m_fadingOut) {
-    return false;
-  }
-
-  const bool wasCollapsed = !m_visible;
-  cancelVisibilityAnimation();
-  m_fadingOut = false;
-  m_visible = true;
-  setVisibilityCollapsed(false);
-  startOpacityAnimation(1.0f, false);
-  return wasCollapsed;
-}
-
-void DesktopMediaPlayerWidget::cancelVisibilityAnimation() {
-  if (m_visibilityAnimId != 0 && m_animations != nullptr) {
-    m_animations->cancel(m_visibilityAnimId);
-  }
-  m_visibilityAnimId = 0;
+  m_visible = nextVisible;
+  presentationRoot()->setOpacity(m_visible ? 1.0f : 0.0f);
+  setVisibilityCollapsed(!m_visible);
+  return true;
 }
 
 void DesktopMediaPlayerWidget::setVisibilityCollapsed(bool collapsed) {
   if (Node* node = presentationRoot(); node != nullptr) {
     node->setVisible(!collapsed);
   }
-}
-
-void DesktopMediaPlayerWidget::startOpacityAnimation(float targetOpacity, bool collapseOnComplete) {
-  Node* node = presentationRoot();
-  if (node == nullptr) {
-    return;
-  }
-  cancelVisibilityAnimation();
-
-  if (m_animations == nullptr) {
-    node->setOpacity(targetOpacity);
-    if (collapseOnComplete) {
-      m_fadingOut = false;
-      m_visible = false;
-      setVisibilityCollapsed(true);
-    }
-    return;
-  }
-
-  m_visibilityAnimId = m_animations->animate(
-      node->opacity(), targetOpacity, Style::animNormal, Easing::EaseOutCubic,
-      [this](float opacity) {
-        if (Node* presentation = presentationRoot(); presentation != nullptr) {
-          presentation->setOpacity(opacity);
-        }
-      },
-      [this, collapseOnComplete]() {
-        m_visibilityAnimId = 0;
-        if (!collapseOnComplete) {
-          return;
-        }
-        if (shouldBeVisible()) {
-          m_fadingOut = false;
-          applyVisibility();
-          return;
-        }
-        m_fadingOut = false;
-        m_visible = false;
-        setVisibilityCollapsed(true);
-        if (presentationRoot() != nullptr) {
-          presentationRoot()->markLayoutDirty();
-        }
-        requestLayout();
-      },
-      this
-  );
-  requestFrameTick();
 }

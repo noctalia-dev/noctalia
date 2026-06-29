@@ -117,7 +117,7 @@ private:
 
   CURLM* m_multi = nullptr;
   int m_running = 0;
-  std::chrono::steady_clock::time_point m_lastServiceAt{};
+  std::chrono::steady_clock::time_point m_lastServiceAt;
   bool m_offlineMode = false;
   std::unordered_map<CURL*, Transfer> m_transfers;
   std::unordered_map<CURL*, PostTransfer> m_postTransfers;

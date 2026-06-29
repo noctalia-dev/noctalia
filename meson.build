@@ -177,6 +177,16 @@ stb_dep = declare_dependency(
   include_directories: include_directories('third_party/stb', is_system: true),
 )
 
+# ── Vendored: md4c (CommonMark parser) ───────────────────────────────────────
+_md4c_lib = static_library('md4c',
+  'third_party/md4c/md4c.c',
+  override_options: ['warning_level=0'],
+)
+md4c_dep = declare_dependency(
+  link_whole: _md4c_lib,
+  include_directories: include_directories('third_party/md4c', is_system: true),
+)
+
 # ── System: libwebp (WebP decode and thumbnail encode) ───────────────────────
 libwebp_dep = dependency('libwebp', required: true)
 
@@ -512,9 +522,11 @@ _noctalia_sources = files(
   'src/render/wallpaper_renderer.cpp',
   'src/scripting/luau_host.cpp',
   'src/scripting/plugin_catalog.cpp',
+  'src/scripting/plugin_file_cache.cpp',
   'src/scripting/plugin_git.cpp',
   'src/scripting/plugin_i18n.cpp',
   'src/scripting/plugin_ipc.cpp',
+  'src/scripting/plugin_lint.cpp',
   'src/scripting/plugin_manager.cpp',
   'src/scripting/plugin_manifest.cpp',
   'src/scripting/plugin_panel_shell.cpp',
@@ -603,6 +615,7 @@ _noctalia_sources = files(
   'src/shell/osd/privacy_osd.cpp',
   'src/shell/osd/osd_overlay.cpp',
   'src/shell/tooltip/tooltip_manager.cpp',
+  'src/shell/hot_corners/hot_corners.cpp',
   'src/shell/screen_corners/screen_corners.cpp',
   'src/shell/panel/panel_click_shield.cpp',
   'src/wayland/hyprland/focus_grab_service.cpp',
@@ -622,6 +635,8 @@ _noctalia_sources = files(
   'src/shell/settings/settings_content.cpp',
   'src/shell/settings/settings_content_common.cpp',
   'src/shell/settings/settings_content_plugins.cpp',
+  'src/shell/settings/plugin_store_content.cpp',
+  'src/shell/settings/plugin_store_tile.cpp',
   'src/shell/settings/settings_control_factory.cpp',
   'src/shell/settings/settings_content_idle_behavior.cpp',
   'src/shell/settings/settings_content_notification_filter.cpp',
@@ -634,7 +649,7 @@ _noctalia_sources = files(
   'src/shell/settings/widget_settings_registry.cpp',
   'src/shell/settings/widget_add_popup.cpp',
   'src/shell/settings/search_picker_popup.cpp',
-  'src/shell/settings/settings_editor_sheet_popup.cpp',
+  'src/shell/settings/settings_sheet_popup.cpp',
   'src/shell/settings/settings_window_mutations.cpp',
   'src/shell/settings/settings_window_popups.cpp',
   'src/shell/settings/settings_window_scene.cpp',
@@ -735,6 +750,7 @@ _noctalia_sources = files(
   'src/core/keybind_matcher.cpp',
   'src/ui/controls/keybind_recorder.cpp',
   'src/ui/controls/label.cpp',
+  'src/ui/controls/markdown_view.cpp',
   'src/ui/controls/list_editor.cpp',
   'src/ui/controls/color_swatch_preview.cpp',
   'src/ui/controls/progress_bar.cpp',
@@ -770,6 +786,7 @@ _noctalia_sources = files(
   'src/wayland/text_input_service.cpp',
   'src/wayland/virtual_keyboard_service.cpp',
   'src/compositors/compositor_platform.cpp',
+  'src/compositors/workspace_alert_service.cpp',
   'src/compositors/compositor_detect.cpp',
   'src/compositors/compositor_runtime.cpp',
   'src/compositors/dwl/dwl_workspace_backend.cpp',
@@ -900,12 +917,13 @@ noctalia_exe = executable('noctalia',
     mcu_dep,
     libxml2_dep,
     stb_dep,
+    md4c_dep,
     libwebp_dep,
     luau_dep,
   ] + jemalloc_deps + (dl_dep.found() ? [dl_dep] : []),
   include_directories: _noctalia_inc,
   cpp_args: [
-    '-Wall', '-Wextra', '-Wpedantic', '-Wconversion', '-Wshadow',
+    '-Wall', '-Wextra', '-Wno-missing-field-initializers', '-Wpedantic', '-Wconversion', '-Wshadow',
     '-DNOCTALIA_SOURCE_ASSETS_DIR="' + meson.project_source_root() / 'assets' + '"',
     '-DNOCTALIA_INSTALL_PREFIX="' + get_option('prefix') + '"',
     '-DNOCTALIA_INSTALL_DATADIR="' + get_option('datadir') + '"',
@@ -955,6 +973,16 @@ notification_filter_test = executable('notification_filter_test',
 )
 
 test('notification_filter', notification_filter_test)
+
+workspace_alert_service_test = executable('workspace_alert_service_test',
+  sources: files(
+    'tests/workspace_alert_service_test.cpp',
+    'src/compositors/workspace_alert_service.cpp',
+  ),
+  include_directories: _noctalia_inc,
+)
+
+test('workspace_alert_service', workspace_alert_service_test)
 
 animation_manager_test = executable('animation_manager_test',
   sources: files(

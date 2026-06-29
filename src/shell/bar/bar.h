@@ -92,6 +92,9 @@ public:
   setAttachedPanelGeometry(wl_output* output, std::string_view barName, std::optional<AttachedPanelGeometry> geometry);
   [[nodiscard]] bool canAttachPanelToBar(wl_output* output, std::string_view barName) const noexcept;
   [[nodiscard]] std::optional<std::string> layerForBar(wl_output* output, std::string_view barName) const noexcept;
+  // Highest layer-shell layer occupied by any enabled bar on the given output (defaults to Top when no bar is present).
+  // Hot corners use this to sit on the highest bar's layer so they are always activable.
+  [[nodiscard]] LayerShellLayer highestLayerForOutput(wl_output* output) const noexcept;
   // True when an attached panel may start its reveal animation: non-autohide bars, or autohide
   // bars that have finished sliding into their resting position.
   [[nodiscard]] bool isAttachedPanelBarSettled(wl_output* output, std::string_view barName) const noexcept;
@@ -138,7 +141,7 @@ private:
   [[nodiscard]] std::string setBarAutoHideIpc(std::string_view args);
   [[nodiscard]] std::string setBarLayerIpc(std::string_view args);
   [[nodiscard]] std::optional<std::string> collectBarIpcInstances(
-      std::optional<std::string_view> barName, std::optional<std::string_view> monitorSelector,
+      std::optional<std::string> barName, std::optional<std::string> monitorSelector,
       std::vector<BarInstance*>& instancesOut
   );
   [[nodiscard]] BarInstance* instanceForSurface(wl_surface* surface) const noexcept;

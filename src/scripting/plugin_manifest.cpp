@@ -249,6 +249,21 @@ namespace scripting {
       return out;
     }
 
+    // Entry-level [[<entry>.setting]] is only honored for kinds that have a
+    // settings editor: bar widgets and desktop widgets edit per-instance, panels
+    // edit from the plugin page. Launcher providers, shortcuts, and services are
+    // singletons with no settings surface; use a plugin-level [[setting]] instead.
+    constexpr bool entryKindSupportsSettings(PluginEntryKind kind) {
+      switch (kind) {
+      case PluginEntryKind::Widget:
+      case PluginEntryKind::DesktopWidget:
+      case PluginEntryKind::Panel:
+        return true;
+      default:
+        return false;
+      }
+    }
+
     bool parseEntries(
         const toml::table& root, PluginEntryKind kind, std::string_view tableName, PluginManifest& manifest,
         std::string& error
@@ -270,6 +285,17 @@ namespace scripting {
           continue;
         }
         if (const auto* settings = (*entryTable)["setting"].as_array()) {
+          if (!entryKindSupportsSettings(kind)) {
+            error = "entry '"
+                + entry.id
+                + "' of kind '"
+                + std::string(tableName)
+                + "' declares [["
+                + std::string(tableName)
+                + ".setting]], but entry-level settings are only supported for widget, desktop_widget, and panel "
+                  "entries; move it to a plugin-level [[setting]]";
+            return false;
+          }
           for (const auto& settingNode : *settings) {
             if (const auto* settingTable = settingNode.as_table()) {
               auto field = parseField(*settingTable, error);

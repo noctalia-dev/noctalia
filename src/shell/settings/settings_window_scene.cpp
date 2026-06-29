@@ -553,6 +553,15 @@ void SettingsWindow::rebuildSettingsContent() {
                 },
             .config = &cfg,
             .onConfigure = [this](std::string id) { openPluginSettingsEditor(std::move(id)); },
+            .onRemove =
+                [this](std::string id) {
+                  if (m_pluginManager != nullptr) {
+                    m_pluginManager->remove(id);
+                    markPluginListDirty();
+                    requestSceneRebuild();
+                  }
+                },
+            .openStore = [this]() { openPluginStore(); },
         }
     );
   }

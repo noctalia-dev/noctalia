@@ -447,8 +447,13 @@ void PluginWidget::luaSetFont(std::string_view familyOrPath) {
     if (!alreadyRegistered) {
       m_fontConfigDirty = true;
     }
+    // A bundled font file is treated as pictographic art (e.g. bongocat poses):
+    // center the font's glyph box so the art holds a stable vertical position
+    // instead of cap-band centering (too high) or per-string ink (bobs).
+    m_label->setBaselineMode(LabelBaselineMode::StableFontBox);
   } else {
     family = std::string(familyOrPath);
+    m_label->setBaselineMode(LabelBaselineMode::StableLogical);
   }
   m_label->setFontFamily(std::move(family));
   m_dirty = true;

@@ -21,7 +21,7 @@ struct Animation {
   float endValue = 0.0f;
   float durationMs = 0.0f;
   float elapsedMs = 0.0f;
-  std::chrono::steady_clock::time_point startedAt{};
+  std::chrono::steady_clock::time_point startedAt;
   Easing easing = Easing::EaseOutQuad;
   std::function<void(float)> setter;
   std::function<void()> onComplete;

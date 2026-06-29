@@ -430,6 +430,7 @@
         "command": "Commando",
         "custom-color": "Aangepast…",
         "description": "Beschrijving",
+        "display-graph": "Grafiek",
         "fade-when-idle": "Vervagen bij inactiviteit",
         "font-family": "Lettertype",
         "font-family-default": "Systeemstandaard",

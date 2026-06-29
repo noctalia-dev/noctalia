@@ -12,7 +12,6 @@
 #include <string>
 #include <tuple>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 class SessionBus;
@@ -64,10 +63,12 @@ public:
   void registerIpc(IpcService& ipc);
 
   bool playPause(const std::string& busName);
+  bool play(const std::string& busName);
   bool stop(const std::string& busName);
   bool next(const std::string& busName);
   bool previous(const std::string& busName);
   bool playPauseActive();
+  bool playActive();
   bool stopActive();
   bool nextActive();
   bool previousActive();
@@ -133,13 +134,13 @@ private:
   [[nodiscard]] MprisPlayerInfo projectedPlayerInfo(const MprisPlayerInfo& player) const;
   [[nodiscard]] std::int64_t projectedPositionUs(const MprisPlayerInfo& player) const;
   [[nodiscard]] std::optional<std::string> chooseActivePlayer() const;
+  bool cycleActivePlayer(int direction);
   [[nodiscard]] bool isBlacklisted(const MprisPlayerInfo& player) const;
   std::function<void(std::optional<sdbus::Error>)> makeAsyncReplyHandler(std::string op, std::string busName);
   std::function<void(std::optional<sdbus::Error>)>
   makeAsyncReplyHandler(std::string op, std::string busName, std::string_view method);
   [[nodiscard]] bool callPlayerMethod(const std::string& busName, const char* methodName);
   [[nodiscard]] bool canInvoke(const MprisPlayerInfo& player, const char* methodName) const;
-  void dismissPlayer(const std::string& busName);
 
   bool onPlayPausePlayer(const std::string& busName);
   bool onStopPlayer(const std::string& busName);
@@ -197,7 +198,6 @@ private:
   std::unordered_map<std::string, int> m_playerPropertiesFailures;
   std::unordered_map<std::string, std::chrono::milliseconds> m_playerPropertiesRefreshBackoffMs;
   std::deque<std::string> m_pendingDiscoveryBusNames;
-  std::unordered_set<std::string> m_stoppedPlayers;
   std::string m_lastActivePlayer;
   std::string m_lastEmittedActivePlayer;
   std::optional<std::string> m_pinnedPlayerPreference;

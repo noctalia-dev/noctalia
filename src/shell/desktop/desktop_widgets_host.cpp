@@ -357,7 +357,7 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
     instance.surface->requestFrameTick();
   }
 
-  if (instance.widget->hasBackground()) {
+  if (instance.widget->hasVisibleBackground()) {
     const float radius = instance.widget->backgroundRadius();
     auto blurStrips = Surface::tessellateRotatedRoundedRect(
         geometry.contentOffsetX, geometry.contentOffsetY, instance.intrinsicWidth, instance.intrinsicHeight, radius,

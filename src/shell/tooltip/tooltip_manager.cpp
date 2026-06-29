@@ -647,6 +647,7 @@ void TooltipManager::buildScene(const TooltipContent& content, float w, float h,
           .text = row.key,
           .fontSize = Style::fontSizeCaption,
           .color = colorSpecFromRole(ColorRole::Secondary),
+          .maxLines = 1,
       });
       const auto km = m_renderContext->measureText(row.key, Style::fontSizeCaption);
       if (km.width > columns.key + 0.5f) {
@@ -658,6 +659,7 @@ void TooltipManager::buildScene(const TooltipContent& content, float w, float h,
           .text = row.value,
           .fontSize = Style::fontSizeCaption,
           .color = colorSpecFromRole(ColorRole::OnSurface),
+          .maxLines = 1,
           .textAlign = TextAlign::End,
       });
       const auto vm = m_renderContext->measureText(row.value, Style::fontSizeCaption);

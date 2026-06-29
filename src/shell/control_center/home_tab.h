@@ -141,9 +141,9 @@ private:
   std::string m_mediaPositionTrackSignature;
   std::string m_mediaLastPlaybackStatus;
   std::int64_t m_mediaPositionUs = 0;
-  std::chrono::steady_clock::time_point m_mediaPositionSampleAt{};
-  std::chrono::steady_clock::time_point m_nextRealtimeUpdateAt{};
-  std::chrono::steady_clock::time_point m_lastRealtimeMprisPollAt{};
+  std::chrono::steady_clock::time_point m_mediaPositionSampleAt;
+  std::chrono::steady_clock::time_point m_nextRealtimeUpdateAt;
+  std::chrono::steady_clock::time_point m_lastRealtimeMprisPollAt;
   Timer m_progressTimer;
 
   GridView* m_shortcutsGrid = nullptr;

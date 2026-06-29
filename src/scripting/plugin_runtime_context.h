@@ -18,9 +18,9 @@ namespace scripting {
   class ScriptApiContext;
 
   struct PluginRuntimeContext {
-    std::string entryId = {};
+    std::string entryId;
     std::filesystem::path sourcePath = {};
-    std::unordered_map<std::string, WidgetSettingValue> settings = {};
+    std::unordered_map<std::string, WidgetSettingValue> settings;
     ScriptApiContext& scriptApi;
     FileWatcher* fileWatcher = nullptr;
     HttpClient* httpClient = nullptr;

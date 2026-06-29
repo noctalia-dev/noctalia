@@ -354,9 +354,9 @@ namespace ui {
   };
 
   struct SegmentedOption {
-    std::string label = {};
-    std::string glyph = {};
-    std::string tooltip = {};
+    std::string label;
+    std::string glyph;
+    std::string tooltip;
   };
 
   struct SegmentedProps {

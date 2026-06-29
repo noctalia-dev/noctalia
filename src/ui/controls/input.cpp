@@ -1,5 +1,6 @@
 #include "ui/controls/input.h"
 
+#include "core/key_chord.h"
 #include "core/key_modifiers.h"
 #include "core/key_symbols.h"
 #include "core/text_clipboard.h"
@@ -921,8 +922,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
   const bool validateMatch = g_validateKeyMatcher && g_validateKeyMatcher(sym, modifiers);
   const bool shift = (modifiers & KeyMod::Shift) != 0;
   const bool ctrl = (modifiers & KeyMod::Ctrl) != 0;
-  const bool plainPrintableText =
-      !preedit && utf32 >= 0x20U && utf32 != 0x7FU && (modifiers & (KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super)) == 0;
+  const bool plainPrintableText = isPlainPrintableKey(utf32, modifiers, preedit);
 
   // A printable key that doubles as a keybind chord (Space is bound to Validate)
   // is text while the field is focused, not an activation to hand to the panel.

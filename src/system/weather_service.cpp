@@ -23,6 +23,7 @@ namespace {
 
   constexpr Logger kLog("weather");
   constexpr std::size_t kForecastDays = 7;
+  constexpr std::size_t kForecastHours = kForecastDays * 24;
 
   using Clock = std::chrono::system_clock;
 
@@ -48,6 +49,17 @@ namespace {
         && std::isdigit(static_cast<unsigned char>(text[9])) != 0;
   }
 
+  bool isIsoHour(std::string_view text) {
+    return text.size() == 16
+        && isIsoDate(text.substr(0, 10))
+        && text[10] == 'T'
+        && std::isdigit(static_cast<unsigned char>(text[11])) != 0
+        && std::isdigit(static_cast<unsigned char>(text[12])) != 0
+        && text[13] == ':'
+        && std::isdigit(static_cast<unsigned char>(text[14])) != 0
+        && std::isdigit(static_cast<unsigned char>(text[15])) != 0;
+  }
+
   std::string todayIsoForOffset(std::int32_t utcOffsetSeconds) {
     const auto shiftedNow = Clock::now() + std::chrono::seconds{utcOffsetSeconds};
     const std::time_t time = Clock::to_time_t(shiftedNow);
@@ -55,6 +67,15 @@ namespace {
     gmtime_r(&time, &tm);
 
     return formatStrftime("%Y-%m-%d", tm);
+  }
+
+  std::string currentHourIsoForOffset(std::int32_t utcOffsetSeconds) {
+    const auto shiftedNow = Clock::now() + std::chrono::seconds{utcOffsetSeconds};
+    const std::time_t time = Clock::to_time_t(shiftedNow);
+    std::tm tm{};
+    gmtime_r(&time, &tm);
+
+    return formatStrftime("%Y-%m-%dT%H:00", tm);
   }
 
   bool dropPastForecastDays(WeatherSnapshot& snapshot) {
@@ -72,6 +93,23 @@ namespace {
       return isIsoDate(day.dateIso) && day.dateIso < todayIso;
     });
     return snapshot.forecastDays.size() != oldSize;
+  }
+
+  bool dropPastForecastHours(WeatherSnapshot& snapshot) {
+    if (!snapshot.valid || snapshot.forecastHours.empty()) {
+      return false;
+    }
+
+    const std::string currentHourIso = currentHourIsoForOffset(snapshot.utcOffsetSeconds);
+    if (!isIsoHour(currentHourIso)) {
+      return false;
+    }
+
+    const auto oldSize = snapshot.forecastHours.size();
+    std::erase_if(snapshot.forecastHours, [&currentHourIso](const WeatherForecastHour& hour) {
+      return isIsoHour(hour.timeIso) && hour.timeIso < currentHourIso;
+    });
+    return snapshot.forecastHours.size() != oldSize;
   }
 
   double readNumber(const nlohmann::json& json, const char* key) {
@@ -128,6 +166,16 @@ namespace {
     return fallback;
   }
 
+  bool readBoolValue(const nlohmann::json& value, bool fallback = false) {
+    if (value.is_boolean()) {
+      return value.get<bool>();
+    }
+    if (value.is_number_integer()) {
+      return value.get<int>() != 0;
+    }
+    return fallback;
+  }
+
   nlohmann::json currentUnitsToJson(const WeatherCurrentUnits& units) {
     return nlohmann::json{
         {"time", units.time},
@@ -137,6 +185,7 @@ namespace {
         {"wind_direction", units.windDirection},
         {"is_day", units.isDay},
         {"weather_code", units.weatherCode},
+        {"uv_index", units.uvIndex},
     };
   }
 
@@ -151,6 +200,18 @@ namespace {
     };
   }
 
+  nlohmann::json hourlyUnitsToJson(const WeatherHourlyUnits& units) {
+    return nlohmann::json{
+        {"time", units.time},
+        {"temperature", units.temperature},
+        {"relative_humidity", units.relativeHumidity},
+        {"precipitation_probability", units.precipitationProbability},
+        {"weather_code", units.weatherCode},
+        {"is_day", units.isDay},
+        {"wind_speed", units.windSpeed},
+    };
+  }
+
   WeatherCurrentUnits currentUnitsFromJson(const nlohmann::json& json) {
     WeatherCurrentUnits units;
     units.time = readString(json, "time");
@@ -160,6 +221,7 @@ namespace {
     units.windDirection = readString(json, "wind_direction");
     units.isDay = readString(json, "is_day");
     units.weatherCode = readString(json, "weather_code");
+    units.uvIndex = readString(json, "uv_index");
     return units;
   }
 
@@ -171,6 +233,18 @@ namespace {
     units.weatherCode = readString(json, "weather_code");
     units.sunrise = readString(json, "sunrise");
     units.sunset = readString(json, "sunset");
+    return units;
+  }
+
+  WeatherHourlyUnits hourlyUnitsFromJson(const nlohmann::json& json) {
+    WeatherHourlyUnits units;
+    units.time = readString(json, "time");
+    units.temperature = readString(json, "temperature");
+    units.relativeHumidity = readString(json, "relative_humidity");
+    units.precipitationProbability = readString(json, "precipitation_probability");
+    units.weatherCode = readString(json, "weather_code");
+    units.isDay = readString(json, "is_day");
+    units.windSpeed = readString(json, "wind_speed");
     return units;
   }
 
@@ -422,10 +496,11 @@ void WeatherService::startWeatherFetch() {
   const auto path = transportCacheDir() / "forecast.json";
   const std::string url = std::format(
       "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}"
-      "&current_weather=true"
-      "&daily=temperature_2m_max,temperature_2m_min,weathercode,sunrise,sunset"
-      "&forecast_days={}&timezone=auto",
-      formatCoordinate(m_resolvedLatitude), formatCoordinate(m_resolvedLongitude), kForecastDays
+      "&current=temperature_2m,wind_speed_10m,wind_direction_10m,weather_code,is_day,uv_index"
+      "&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,is_day,wind_speed_10m"
+      "&daily=temperature_2m_max,temperature_2m_min,weather_code,sunrise,sunset"
+      "&forecast_days={}&forecast_hours={}&timezone=auto",
+      formatCoordinate(m_resolvedLatitude), formatCoordinate(m_resolvedLongitude), kForecastDays, kForecastHours
   );
   const std::uint64_t serial = ++m_requestSerial;
   m_loading = true;
@@ -446,6 +521,7 @@ void WeatherService::handleWeatherResponse(const std::filesystem::path& path, bo
   if (!success) {
     m_error = i18n::tr("weather.errors.fetch-failed");
     scheduleRetryAfterFailure();
+    dropPastForecastHours(m_snapshot);
     dropPastForecastDays(m_snapshot);
     notifyChanged();
     return;
@@ -454,12 +530,20 @@ void WeatherService::handleWeatherResponse(const std::filesystem::path& path, bo
   try {
     std::ifstream file(path);
     const auto json = nlohmann::json::parse(file);
-    const auto& current = json.at("current_weather");
+    const auto& current = json.at("current");
+    const auto& hourly = json.at("hourly");
     const auto& daily = json.at("daily");
+    const auto& hourTimes = hourly.at("time");
+    const auto& hourTemps = hourly.at("temperature_2m");
+    const auto& hourHumidity = hourly.at("relative_humidity_2m");
+    const auto& hourPrecipitationProbability = hourly.at("precipitation_probability");
+    const auto& hourCodes = hourly.at("weather_code");
+    const auto& hourIsDay = hourly.at("is_day");
+    const auto& hourWindSpeeds = hourly.at("wind_speed_10m");
     const auto& dates = daily.at("time");
     const auto& tempsMax = daily.at("temperature_2m_max");
     const auto& tempsMin = daily.at("temperature_2m_min");
-    const auto& codes = daily.at("weathercode");
+    const auto& codes = daily.at("weather_code");
     const auto& sunrises = daily.at("sunrise");
     const auto& sunsets = daily.at("sunset");
 
@@ -474,31 +558,71 @@ void WeatherService::handleWeatherResponse(const std::filesystem::path& path, bo
     next.timezone = readString(json, "timezone");
     next.timezoneAbbreviation = readString(json, "timezone_abbreviation");
     next.elevationM = readOptionalNumber(json, "elevation");
-    if (const auto it = json.find("current_weather_units"); it != json.end() && it->is_object()) {
+    if (const auto it = json.find("current_units"); it != json.end() && it->is_object()) {
       next.currentUnits.time = readString(*it, "time");
       next.currentUnits.interval = readString(*it, "interval");
-      next.currentUnits.temperature = readString(*it, "temperature");
-      next.currentUnits.windSpeed = readString(*it, "windspeed");
-      next.currentUnits.windDirection = readString(*it, "winddirection");
+      next.currentUnits.temperature = readString(*it, "temperature_2m");
+      next.currentUnits.windSpeed = readString(*it, "wind_speed_10m");
+      next.currentUnits.windDirection = readString(*it, "wind_direction_10m");
       next.currentUnits.isDay = readString(*it, "is_day");
-      next.currentUnits.weatherCode = readString(*it, "weathercode");
+      next.currentUnits.weatherCode = readString(*it, "weather_code");
+      next.currentUnits.uvIndex = readString(*it, "uv_index");
     }
     if (const auto it = json.find("daily_units"); it != json.end() && it->is_object()) {
       next.dailyUnits.time = readString(*it, "time");
       next.dailyUnits.temperatureMax = readString(*it, "temperature_2m_max");
       next.dailyUnits.temperatureMin = readString(*it, "temperature_2m_min");
-      next.dailyUnits.weatherCode = readString(*it, "weathercode");
+      next.dailyUnits.weatherCode = readString(*it, "weather_code");
       next.dailyUnits.sunrise = readString(*it, "sunrise");
       next.dailyUnits.sunset = readString(*it, "sunset");
     }
+    if (const auto it = json.find("hourly_units"); it != json.end() && it->is_object()) {
+      next.hourlyUnits.time = readString(*it, "time");
+      next.hourlyUnits.temperature = readString(*it, "temperature_2m");
+      next.hourlyUnits.relativeHumidity = readString(*it, "relative_humidity_2m");
+      next.hourlyUnits.precipitationProbability = readString(*it, "precipitation_probability");
+      next.hourlyUnits.weatherCode = readString(*it, "weather_code");
+      next.hourlyUnits.isDay = readString(*it, "is_day");
+      next.hourlyUnits.windSpeed = readString(*it, "wind_speed_10m");
+    }
     next.current.timeIso = readString(current, "time");
     next.current.intervalSeconds = readOptionalInt(current, "interval");
-    next.current.temperatureC = readNumber(current, "temperature");
-    next.current.windSpeedKmh = readOptionalNumber(current, "windspeed");
-    next.current.windDirectionDeg = readOptionalInt(current, "winddirection");
+    next.current.temperatureC = readNumber(current, "temperature_2m");
+    next.current.windSpeedKmh = readOptionalNumber(current, "wind_speed_10m");
+    next.current.windDirectionDeg = readOptionalInt(current, "wind_direction_10m");
     next.current.isDay = readBool(current, "is_day", true);
-    next.current.weatherCode = readInt(current, "weathercode");
+    next.current.weatherCode = readInt(current, "weather_code");
+    next.current.uvIndex = readOptionalNumber(current, "uv_index");
     next.fetchedAt = Clock::now();
+
+    const std::size_t hourCount = std::min(
+        {hourTimes.size(), hourTemps.size(), hourHumidity.size(), hourPrecipitationProbability.size(), hourCodes.size(),
+         hourIsDay.size(), hourWindSpeeds.size(), kForecastHours}
+    );
+    next.forecastHours.reserve(hourCount);
+    for (std::size_t i = 0; i < hourCount; ++i) {
+      if (!hourTimes[i].is_string()
+          || !hourTemps[i].is_number()
+          || !hourHumidity[i].is_number_integer()
+          || !hourPrecipitationProbability[i].is_number_integer()
+          || !hourCodes[i].is_number_integer()
+          || (!hourIsDay[i].is_boolean() && !hourIsDay[i].is_number_integer())
+          || !hourWindSpeeds[i].is_number()) {
+        continue;
+      }
+      next.forecastHours.push_back(
+          WeatherForecastHour{
+              .timeIso = hourTimes[i].get<std::string>(),
+              .weatherCode = hourCodes[i].get<std::int32_t>(),
+              .temperatureC = hourTemps[i].get<double>(),
+              .relativeHumidityPercent = hourHumidity[i].get<std::int32_t>(),
+              .precipitationProbabilityPercent = hourPrecipitationProbability[i].get<std::int32_t>(),
+              .isDay = readBoolValue(hourIsDay[i], true),
+              .windSpeedKmh = hourWindSpeeds[i].get<double>(),
+          }
+      );
+    }
+    dropPastForecastHours(next);
 
     const std::size_t count = std::min(
         {dates.size(), tempsMax.size(), tempsMin.size(), codes.size(), sunrises.size(), sunsets.size(), kForecastDays}
@@ -595,6 +719,9 @@ void WeatherService::loadCache() {
     if (const auto it = snapshot.find("daily_units"); it != snapshot.end() && it->is_object()) {
       m_snapshot.dailyUnits = dailyUnitsFromJson(*it);
     }
+    if (const auto it = snapshot.find("hourly_units"); it != snapshot.end() && it->is_object()) {
+      m_snapshot.hourlyUnits = hourlyUnitsFromJson(*it);
+    }
     if (const auto it = snapshot.find("current"); it != snapshot.end() && it->is_object()) {
       m_snapshot.current.timeIso = readString(*it, "time_iso");
       m_snapshot.current.intervalSeconds = readOptionalInt(*it, "interval_seconds");
@@ -603,6 +730,26 @@ void WeatherService::loadCache() {
       m_snapshot.current.windDirectionDeg = readOptionalInt(*it, "wind_direction_deg");
       m_snapshot.current.isDay = readBool(*it, "is_day", true);
       m_snapshot.current.weatherCode = readOptionalInt(*it, "weather_code");
+      m_snapshot.current.uvIndex = readOptionalNumber(*it, "uv_index");
+    }
+    if (const auto it = snapshot.find("forecast_hours"); it != snapshot.end() && it->is_array()) {
+      m_snapshot.forecastHours.clear();
+      for (const auto& item : *it) {
+        if (!item.is_object()) {
+          continue;
+        }
+        m_snapshot.forecastHours.push_back(
+            WeatherForecastHour{
+                .timeIso = readString(item, "time_iso"),
+                .weatherCode = readOptionalInt(item, "weather_code"),
+                .temperatureC = readOptionalNumber(item, "temperature_c"),
+                .relativeHumidityPercent = readOptionalInt(item, "relative_humidity_percent"),
+                .precipitationProbabilityPercent = readOptionalInt(item, "precipitation_probability_percent"),
+                .isDay = readBool(item, "is_day", true),
+                .windSpeedKmh = readOptionalNumber(item, "wind_speed_kmh"),
+            }
+        );
+      }
     }
     if (const auto it = snapshot.find("forecast_days"); it != snapshot.end() && it->is_array()) {
       m_snapshot.forecastDays.clear();
@@ -623,6 +770,7 @@ void WeatherService::loadCache() {
       }
     }
     m_snapshot.fetchedAt = fromUnixSeconds(readOptionalInt(snapshot, "fetched_at"));
+    dropPastForecastHours(m_snapshot);
     dropPastForecastDays(m_snapshot);
 
     m_resolvedLatitude = m_snapshot.latitude;
@@ -662,6 +810,7 @@ void WeatherService::saveCache() const {
            {"elevation_m", m_snapshot.elevationM},
            {"current_units", currentUnitsToJson(m_snapshot.currentUnits)},
            {"daily_units", dailyUnitsToJson(m_snapshot.dailyUnits)},
+           {"hourly_units", hourlyUnitsToJson(m_snapshot.hourlyUnits)},
            {"current",
             {
                 {"time_iso", m_snapshot.current.timeIso},
@@ -671,11 +820,25 @@ void WeatherService::saveCache() const {
                 {"wind_direction_deg", m_snapshot.current.windDirectionDeg},
                 {"is_day", m_snapshot.current.isDay},
                 {"weather_code", m_snapshot.current.weatherCode},
+                {"uv_index", m_snapshot.current.uvIndex},
             }},
+           {"forecast_hours", nlohmann::json::array()},
            {"forecast_days", nlohmann::json::array()},
            {"fetched_at", toUnixSeconds(m_snapshot.fetchedAt)},
        }}
   };
+
+  for (const auto& hour : m_snapshot.forecastHours) {
+    json["snapshot"]["forecast_hours"].push_back({
+        {"time_iso", hour.timeIso},
+        {"weather_code", hour.weatherCode},
+        {"temperature_c", hour.temperatureC},
+        {"relative_humidity_percent", hour.relativeHumidityPercent},
+        {"precipitation_probability_percent", hour.precipitationProbabilityPercent},
+        {"is_day", hour.isDay},
+        {"wind_speed_kmh", hour.windSpeedKmh},
+    });
+  }
 
   for (const auto& day : m_snapshot.forecastDays) {
     json["snapshot"]["forecast_days"].push_back({

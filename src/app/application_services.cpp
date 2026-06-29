@@ -563,6 +563,7 @@ void Application::initWaylandCallbacks() {
     m_desktopWidgetsController.onOutputChange();
     m_lockscreenWidgetsController.onOutputChange();
     m_screenCorners.onOutputChange();
+    m_hotCorners.onOutputChange();
     m_lockScreen.onOutputChange();
     m_idleGraceOverlay.onOutputChange();
     m_idleInhibitor.onOutputChange();
@@ -577,7 +578,16 @@ void Application::initWaylandCallbacks() {
       m_panelManager.refresh();
     }
   });
+  m_compositorPlatform.setWorkspaceAlertService(&m_workspaceAlertService);
   m_compositorPlatform.setWorkspaceChangeCallback([this]() {
+    // Clear alerts for the workspace the user just switched to. Limit to the
+    // focused output so activity on one monitor doesn't dismiss alerts on
+    // another; fall back to all outputs when no focused output is known.
+    if (wl_output* output = m_compositorPlatform.preferredInteractiveOutput(); output != nullptr) {
+      (void)m_compositorPlatform.clearActiveWorkspaceAlerts(output);
+    } else {
+      (void)m_compositorPlatform.clearActiveWorkspaceAlerts();
+    }
     m_bar.onWorkspaceChanged();
     m_bar.refresh();
     m_windowSwitcher.onToplevelChange();
@@ -1156,5 +1166,23 @@ void Application::startTrayService() {
     m_trayService->start();
   } catch (const std::exception& e) {
     kLog.warn("tray watcher disabled: {}", e.what());
+  }
+}
+
+LayerShellLayer Application::hotCornerLayerForOutput(wl_output* output) const noexcept {
+  return m_bar.highestLayerForOutput(output);
+}
+
+void Application::triggerShellAction(const std::string& action, wl_output* output) {
+  if (action == "launcher") {
+    m_panelManager.togglePanel("launcher", PanelOpenRequest{.output = output});
+  } else if (action == "control_center") {
+    m_panelManager.togglePanel("control-center", PanelOpenRequest{.output = output});
+  } else if (action == "overview") {
+    // There is no public toggle for overview in OverviewLauncherCapture.
+    // Try to execute a generic compositor action, or use niri directly if using niri.
+    runUserCommand("niri msg action toggle-overview");
+  } else if (action == "window_switcher") {
+    runUserCommand("noctalia:window-switcher");
   }
 }

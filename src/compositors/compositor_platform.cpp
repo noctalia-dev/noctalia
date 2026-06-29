@@ -22,6 +22,7 @@
 #include "compositors/triad/triad_output_backend.h"
 #include "compositors/triad/triad_runtime.h"
 #include "compositors/triad/triad_workspace_backend.h"
+#include "compositors/workspace_alert_service.h"
 #include "core/log.h"
 #include "core/process.h"
 #include "wayland/wayland_connection.h"
@@ -1073,6 +1074,9 @@ std::vector<Workspace> CompositorPlatform::workspaces() const {
   if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable()) {
     applyKdeWorkspaceOccupancy(current, m_kwinActiveWindow->trackedWorkspaceWindows(), {});
   }
+  if (m_workspaceAlertService != nullptr) {
+    m_workspaceAlertService->applyOverlay(current);
+  }
   return current;
 }
 
@@ -1084,7 +1088,79 @@ std::vector<Workspace> CompositorPlatform::workspaces(wl_output* output) const {
   if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable()) {
     applyKdeWorkspaceOccupancy(current, m_kwinActiveWindow->trackedWorkspaceWindows(), connectorNameForOutput(output));
   }
+  if (m_workspaceAlertService != nullptr) {
+    m_workspaceAlertService->applyOverlay(current);
+  }
   return current;
+}
+
+void CompositorPlatform::setWorkspaceAlertService(WorkspaceAlertService* service) noexcept {
+  m_workspaceAlertService = service;
+}
+
+bool CompositorPlatform::isKnownWorkspaceAlertKey(std::string_view workspaceId) const {
+  if (workspaceId.empty()) {
+    return false;
+  }
+  const auto& outputs = m_wayland.outputs();
+  if (outputs.empty()) {
+    return WorkspaceAlertService::isKnownWorkspaceToken(workspaceId, workspaces());
+  }
+  for (const auto& output : outputs) {
+    if (WorkspaceAlertService::isKnownWorkspaceToken(workspaceId, workspaces(output.output))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::optional<std::string> CompositorPlatform::workspaceAlertKeyForWindow(std::string_view windowId) const {
+  if (windowId.empty()) {
+    return std::nullopt;
+  }
+  // The assignment key is the backend's own workspace handle; the alert overlay
+  // matches it against a workspace's id/name/index, so store it directly once
+  // it resolves to a current workspace.
+  const auto resolveForOutput = [this, windowId](wl_output* output) -> std::optional<std::string> {
+    const auto token = WorkspaceAlertService::workspaceTokenForWindow(windowId, workspaceWindowAssignments(output));
+    if (token.has_value() && WorkspaceAlertService::isKnownWorkspaceToken(*token, workspaces(output))) {
+      return token;
+    }
+    return std::nullopt;
+  };
+
+  const auto& outputs = m_wayland.outputs();
+  if (outputs.empty()) {
+    return resolveForOutput(nullptr);
+  }
+  for (const auto& output : outputs) {
+    if (auto token = resolveForOutput(output.output); token.has_value()) {
+      return token;
+    }
+  }
+  return std::nullopt;
+}
+
+std::size_t CompositorPlatform::clearActiveWorkspaceAlerts(wl_output* output) {
+  if (m_workspaceAlertService == nullptr || m_workspaceAlertService->empty()) {
+    return 0;
+  }
+  return m_workspaceAlertService->clearActive(workspaces(output));
+}
+
+std::size_t CompositorPlatform::clearActiveWorkspaceAlerts() {
+  if (m_workspaceAlertService == nullptr || m_workspaceAlertService->empty()) {
+    return 0;
+  }
+  std::size_t cleared = 0;
+  const auto& outputs = m_wayland.outputs();
+  if (outputs.empty()) {
+    return m_workspaceAlertService->clearActive(workspaces());
+  }
+  for (const auto& output : outputs) {
+    cleared += m_workspaceAlertService->clearActive(workspaces(output.output));
+  }
+  return cleared;
 }
 
 std::unordered_map<std::string, std::vector<std::string>>

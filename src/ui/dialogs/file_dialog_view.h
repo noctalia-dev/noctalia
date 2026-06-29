@@ -111,6 +111,11 @@ private:
   void acceptDialog(std::optional<std::filesystem::path> result);
   void cancelDialog();
 
+  // Guard token for deferred callbacks that run on the next main-loop tick.
+  // Callbacks capture a weak_ptr so they can detect destruction without
+  // relying on a raw this pointer staying valid.
+  std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
+
   ThumbnailService* m_thumbnails = nullptr;
   FileDialogHost* m_host = nullptr;
   DirectoryScanner m_scanner;

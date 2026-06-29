@@ -34,7 +34,7 @@ private:
   bool m_hasState = false;
   bool m_sysfsDiscovered = false;
   int m_sysfsReadFailures = 0;
-  std::chrono::steady_clock::time_point m_nextRefreshAt{};
+  std::chrono::steady_clock::time_point m_nextRefreshAt;
   ChangeCallback m_changeCallback;
   std::vector<std::filesystem::path> m_capsLockPaths;
   std::vector<std::filesystem::path> m_numLockPaths;

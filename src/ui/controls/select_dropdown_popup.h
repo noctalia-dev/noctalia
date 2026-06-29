@@ -70,6 +70,11 @@ private:
   [[nodiscard]] bool ownsSurface(wl_surface* surface) const noexcept;
   [[nodiscard]] bool containsPopupContent(float localX, float localY) const noexcept;
 
+  // Guard token for deferred callbacks that run on the next main-loop tick.
+  // Callbacks capture a weak_ptr so they can detect destruction without
+  // relying on a raw this pointer staying valid.
+  std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
+
   WaylandConnection& m_wayland;
   RenderContext& m_renderContext;
   zwlr_layer_surface_v1* m_parentLayerSurface = nullptr;

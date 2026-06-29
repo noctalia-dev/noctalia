@@ -87,7 +87,7 @@ private:
   DayRecord m_currentDay;
   std::unordered_map<std::string, DayRecord> m_days;
   std::string m_activeAppKey;
-  std::chrono::steady_clock::time_point m_activeSince{};
+  std::chrono::steady_clock::time_point m_activeSince;
   bool m_dirty = false;
   bool m_enabled = false;
 };

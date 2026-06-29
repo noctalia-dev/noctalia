@@ -78,6 +78,7 @@ public:
   void setBackgroundStyle(const ColorSpec& color, float radius, float padding);
 
   [[nodiscard]] bool hasBackground() const noexcept { return m_bgEnabled; }
+  [[nodiscard]] bool hasVisibleBackground() const noexcept;
   [[nodiscard]] float backgroundRadius() const noexcept {
     return m_bgEnabled ? std::round(m_bgRadius * m_baseScale) : 0.0f;
   }

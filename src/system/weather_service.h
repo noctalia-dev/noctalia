@@ -21,6 +21,7 @@ struct WeatherCurrentUnits {
   std::string windDirection;
   std::string isDay;
   std::string weatherCode;
+  std::string uvIndex;
 };
 
 struct WeatherDailyUnits {
@@ -32,6 +33,16 @@ struct WeatherDailyUnits {
   std::string sunset;
 };
 
+struct WeatherHourlyUnits {
+  std::string time;
+  std::string temperature;
+  std::string relativeHumidity;
+  std::string precipitationProbability;
+  std::string weatherCode;
+  std::string isDay;
+  std::string windSpeed;
+};
+
 struct WeatherCurrentConditions {
   std::string timeIso;
   std::int32_t intervalSeconds = 0;
@@ -40,6 +51,7 @@ struct WeatherCurrentConditions {
   std::int32_t windDirectionDeg = 0;
   bool isDay = true;
   std::int32_t weatherCode = 0;
+  double uvIndex = 0.0;
 };
 
 struct WeatherForecastDay {
@@ -49,6 +61,16 @@ struct WeatherForecastDay {
   double temperatureMinC = 0.0;
   std::string sunriseIso;
   std::string sunsetIso;
+};
+
+struct WeatherForecastHour {
+  std::string timeIso;
+  std::int32_t weatherCode = 0;
+  double temperatureC = 0.0;
+  std::int32_t relativeHumidityPercent = 0;
+  std::int32_t precipitationProbabilityPercent = 0;
+  bool isDay = true;
+  double windSpeedKmh = 0.0;
 };
 
 struct WeatherSnapshot {
@@ -64,9 +86,11 @@ struct WeatherSnapshot {
   double elevationM = 0.0;
   WeatherCurrentUnits currentUnits;
   WeatherDailyUnits dailyUnits;
+  WeatherHourlyUnits hourlyUnits;
   WeatherCurrentConditions current;
+  std::vector<WeatherForecastHour> forecastHours;
   std::vector<WeatherForecastDay> forecastDays;
-  std::chrono::system_clock::time_point fetchedAt{};
+  std::chrono::system_clock::time_point fetchedAt;
 };
 
 struct WeatherCoordinates {
@@ -131,7 +155,7 @@ private:
   WeatherConfig m_activeConfig;
   std::vector<ChangeCallback> m_callbacks;
   WeatherSnapshot m_snapshot;
-  std::chrono::system_clock::time_point m_nextRefreshAt{};
+  std::chrono::system_clock::time_point m_nextRefreshAt;
   bool m_loading = false;
   bool m_refreshQueued = false;
   bool m_hasLocation = false;

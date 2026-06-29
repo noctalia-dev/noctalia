@@ -147,7 +147,16 @@ public:
   [[nodiscard]] bool scriptCopyToClipboard(std::string text, std::string mimeType);
   [[nodiscard]] std::optional<std::string> scriptFocusedOutputName() const;
 
+  // Bytes currently allocated by this VM (tracked by the custom allocator).
+  [[nodiscard]] std::size_t memoryUsedBytes() const noexcept { return m_memUsed; }
+
 private:
+  // lua_Alloc for this VM: realloc-based, but tracks total bytes and refuses any
+  // growth past the per-plugin ceiling. A refused growth returns null, which Luau
+  // turns into a catchable out-of-memory error — so a runaway allocation fails the
+  // offending call instead of OOM-killing the whole process. `ud` is the owning host.
+  static void* allocate(void* ud, void* ptr, std::size_t osize, std::size_t nsize);
+
   void stopAllStreams() noexcept;
   bool callGlobalInternal(const char* name, int args, std::chrono::milliseconds budget);
   bool callWithBudget(const char* name, int args, int results, std::chrono::milliseconds budget);
@@ -176,7 +185,8 @@ private:
   AsyncCommandResultHandler m_asyncCommandResultHandler;
   AsyncProcessMatchResultHandler m_asyncProcessMatchResultHandler;
   AsyncHttpResultHandler m_asyncHttpResultHandler;
-  std::chrono::steady_clock::time_point m_callDeadline{};
+  std::size_t m_memUsed = 0; // bytes tracked by allocate(); guarded by the worker-thread serialization
+  std::chrono::steady_clock::time_point m_callDeadline;
   std::string m_currentCallName;
   bool m_budgetActive = false;
   bool m_lastCallTimedOut = false;

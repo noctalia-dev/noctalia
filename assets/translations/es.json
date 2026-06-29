@@ -36,6 +36,9 @@
       "active-window": {
         "no-active-window": "No hay ventanas activas"
       },
+      "bluetooth": {
+        "connected": "Conectado"
+      },
       "lock-keys": {
         "caps": "Mayús",
         "caps-short": "M",

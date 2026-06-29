@@ -36,7 +36,7 @@ private:
   SystemBus& m_bus;
   std::unique_ptr<sdbus::IProxy> m_managerProxy;
   std::unique_ptr<sdbus::IProxy> m_sessionProxy;
-  bool m_sessionLockIntegrationEnabled = true;
+  bool m_sessionLockIntegrationEnabled = false;
   PrepareForSleepCallback m_prepareForSleepCallback;
   SessionLockCallback m_lockCallback;
   SessionLockCallback m_unlockCallback;

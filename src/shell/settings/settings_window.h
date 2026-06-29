@@ -4,12 +4,13 @@
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
+#include "scripting/plugin_file_cache.h"
 #include "scripting/plugin_manager.h"
 #include "shell/settings/config_export_dialog_popup.h"
 #include "shell/settings/search_picker_popup.h"
 #include "shell/settings/settings_control_factory.h"
-#include "shell/settings/settings_editor_sheet_popup.h"
 #include "shell/settings/settings_registry.h"
+#include "shell/settings/settings_sheet_popup.h"
 #include "shell/settings/widget_add_popup.h"
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/roving_list_nav.h"
@@ -143,6 +144,7 @@ private:
   void openCapsuleGroupEditor(std::vector<std::string> laneListPath, std::string groupId);
   void openPluginSourceCreateEditor(std::optional<PluginSourceConfig> existing = std::nullopt);
   void openPluginSettingsEditor(std::string pluginId);
+  void openPluginStore();
   void openBarWidgetEditorSheet(
       std::string title, std::function<void(Flex&)> populate, std::function<void()> removeAction = nullptr
   );
@@ -181,6 +183,7 @@ private:
   bool m_pluginListDirty = true;
   bool m_pluginListRefreshInFlight = false;
   std::uint64_t m_pluginListRefreshGeneration = 0;
+  scripting::PluginFileCache m_pluginFileCache;
   RenderContext* m_renderContext = nullptr;
   DependencyService* m_dependencies = nullptr;
   UPowerService* m_upower = nullptr;
@@ -205,7 +208,7 @@ private:
   std::unique_ptr<settings::WidgetAddPopup> m_widgetAddPopup;
   std::unique_ptr<settings::ConfigExportDialogPopup> m_configExportDialogPopup;
   std::unique_ptr<settings::SearchPickerPopup> m_searchPickerPopup;
-  std::unique_ptr<settings::SettingsEditorSheetPopup> m_editorSheetPopup;
+  std::unique_ptr<settings::SettingsSheetPopup> m_editorSheetPopup;
   std::unique_ptr<settings::SettingsControlFactory> m_editorSheetFactory;
   std::vector<std::string> m_editorSheetListPath;
   InputDispatcher m_inputDispatcher;

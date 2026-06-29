@@ -200,7 +200,15 @@ namespace settings {
                 .minHeight = Style::controlHeightSm * m_scale,
                 .padding = Style::spaceXs * m_scale,
                 .radius = Style::scaledRadiusMd(m_scale),
-                .onClick = [this]() { DeferredCall::callLater([this]() { close(); }); },
+                .onClick = [this]() {
+                  const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                  DeferredCall::callLater([this, aliveGuard]() {
+                    if (aliveGuard.expired()) {
+                      return;
+                    }
+                    close();
+                  });
+                },
             })
         )
     );
@@ -238,7 +246,16 @@ namespace settings {
                 .paddingV = Style::spaceXs * m_scale,
                 .paddingH = Style::spaceMd * m_scale,
                 .radius = Style::scaledRadiusMd(m_scale),
-                .onClick = [this]() { DeferredCall::callLater([this]() { close(); }); },
+                .onClick =
+                    [this]() {
+                      const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                      DeferredCall::callLater([this, aliveGuard]() {
+                        if (aliveGuard.expired()) {
+                          return;
+                        }
+                        close();
+                      });
+                    },
             }),
             ui::button({
                 .text = i18n::tr("settings.export-config.export"),
@@ -249,7 +266,15 @@ namespace settings {
                 .paddingV = Style::spaceXs * m_scale,
                 .paddingH = Style::spaceMd * m_scale,
                 .radius = Style::scaledRadiusMd(m_scale),
-                .onClick = [this]() { DeferredCall::callLater([this]() { accept(); }); },
+                .onClick = [this]() {
+                  const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                  DeferredCall::callLater([this, aliveGuard]() {
+                    if (aliveGuard.expired()) {
+                      return;
+                    }
+                    accept();
+                  });
+                },
             })
         )
     );

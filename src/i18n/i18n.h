@@ -52,7 +52,7 @@ namespace i18n {
   // in translation keys (e.g. "art_size" -> "art-size").
   inline std::string keySegment(std::string_view id) {
     std::string out(id);
-    std::replace(out.begin(), out.end(), '_', '-');
+    std::ranges::replace(out, '_', '-');
     return out;
   }
 

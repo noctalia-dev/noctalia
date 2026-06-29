@@ -386,7 +386,7 @@
         "temperature": "10 / 4 °C"
       },
       "location-unavailable": "Poloha není k dispozici",
-      "no-location-body": "Claude responded: Přidej svou adresu nebo povol automatické určení polohy v nastavení Polohy.Přidej svou adresu nebo povol automatické určení polohy v nastavení Polohy.",
+      "no-location-body": "Přidej svou adresu nebo povol automatické určení polohy v nastavení Polohy.",
       "no-location-title": "Žádná poloha nenastavena",
       "refreshing": "Obnovování počasí…",
       "waiting": "Čekání na údaje o počasí"

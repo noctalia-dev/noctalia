@@ -4,9 +4,12 @@
 #include "core/deferred_call.h"
 #include "i18n/i18n.h"
 #include "notification/notification_filter.h"
+#include "render/render_context.h"
+#include "scripting/plugin_catalog.h"
 #include "scripting/plugin_registry.h"
 #include "shell/settings/bar_widget_editor.h"
 #include "shell/settings/color_spec_picker.h"
+#include "shell/settings/plugin_store_content.h"
 #include "shell/settings/settings_content.h"
 #include "shell/settings/settings_content_common.h"
 #include "shell/settings/settings_content_plugins.h"
@@ -515,7 +518,7 @@ void SettingsWindow::openSessionActionEntryEditor(std::size_t index) {
   }
 
   if (m_editorSheetPopup == nullptr) {
-    m_editorSheetPopup = std::make_unique<settings::SettingsEditorSheetPopup>();
+    m_editorSheetPopup = std::make_unique<settings::SettingsSheetPopup>();
     m_editorSheetPopup->initialize(*m_wayland, *m_config, *m_renderContext);
   }
   const float scale = uiScale();
@@ -580,7 +583,7 @@ void SettingsWindow::openSessionActionEntryEditor(std::size_t index) {
   }
 
   m_editorSheetPopup->open(
-      settings::SettingsEditorSheetPopupRequest{
+      settings::SettingsSheetPopupRequest{
           .parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial()),
           .sheetTitle = sheetTitle,
           .removeAction = removeRow,
@@ -621,7 +624,7 @@ void SettingsWindow::openIdleBehaviorEntryEditor(std::size_t index) {
   }
 
   if (m_editorSheetPopup == nullptr) {
-    m_editorSheetPopup = std::make_unique<settings::SettingsEditorSheetPopup>();
+    m_editorSheetPopup = std::make_unique<settings::SettingsSheetPopup>();
     m_editorSheetPopup->initialize(*m_wayland, *m_config, *m_renderContext);
   }
   const float scale = uiScale();
@@ -692,7 +695,7 @@ void SettingsWindow::openIdleBehaviorEntryEditor(std::size_t index) {
   }
 
   m_editorSheetPopup->open(
-      settings::SettingsEditorSheetPopupRequest{
+      settings::SettingsSheetPopupRequest{
           .parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial()),
           .sheetTitle = idleBehaviorTitle(*rowState),
           .removeAction = removeRow,
@@ -725,7 +728,7 @@ void SettingsWindow::openIdleBehaviorCreateEditor() {
   }
 
   if (m_editorSheetPopup == nullptr) {
-    m_editorSheetPopup = std::make_unique<settings::SettingsEditorSheetPopup>();
+    m_editorSheetPopup = std::make_unique<settings::SettingsSheetPopup>();
     m_editorSheetPopup->initialize(*m_wayland, *m_config, *m_renderContext);
   }
 
@@ -778,7 +781,7 @@ void SettingsWindow::openIdleBehaviorCreateEditor() {
   }
 
   m_editorSheetPopup->open(
-      settings::SettingsEditorSheetPopupRequest{
+      settings::SettingsSheetPopupRequest{
           .parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial()),
           .sheetTitle = idleBehaviorTitle(*rowState),
           .removeAction = nullptr,
@@ -817,7 +820,7 @@ void SettingsWindow::openNotificationFilterEntryEditor(std::size_t index) {
   }
 
   if (m_editorSheetPopup == nullptr) {
-    m_editorSheetPopup = std::make_unique<settings::SettingsEditorSheetPopup>();
+    m_editorSheetPopup = std::make_unique<settings::SettingsSheetPopup>();
     m_editorSheetPopup->initialize(*m_wayland, *m_config, *m_renderContext);
   }
   const float scale = uiScale();
@@ -886,7 +889,7 @@ void SettingsWindow::openNotificationFilterEntryEditor(std::size_t index) {
   }
 
   m_editorSheetPopup->open(
-      settings::SettingsEditorSheetPopupRequest{
+      settings::SettingsSheetPopupRequest{
           .parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial()),
           .sheetTitle = notificationFilterTitle(*rowState),
           .removeAction = removeRow,
@@ -919,7 +922,7 @@ void SettingsWindow::openNotificationFilterCreateEditor() {
   }
 
   if (m_editorSheetPopup == nullptr) {
-    m_editorSheetPopup = std::make_unique<settings::SettingsEditorSheetPopup>();
+    m_editorSheetPopup = std::make_unique<settings::SettingsSheetPopup>();
     m_editorSheetPopup->initialize(*m_wayland, *m_config, *m_renderContext);
   }
 
@@ -972,7 +975,7 @@ void SettingsWindow::openNotificationFilterCreateEditor() {
   }
 
   m_editorSheetPopup->open(
-      settings::SettingsEditorSheetPopupRequest{
+      settings::SettingsSheetPopupRequest{
           .parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial()),
           .sheetTitle = i18n::tr("settings.notifications.filter.add-title"),
           .removeAction = nullptr,
@@ -1026,7 +1029,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
   }
 
   if (m_editorSheetPopup == nullptr) {
-    m_editorSheetPopup = std::make_unique<settings::SettingsEditorSheetPopup>();
+    m_editorSheetPopup = std::make_unique<settings::SettingsSheetPopup>();
     m_editorSheetPopup->initialize(*m_wayland, *m_config, *m_renderContext);
   }
 
@@ -1368,7 +1371,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
   };
 
   m_editorSheetPopup->open(
-      settings::SettingsEditorSheetPopupRequest{
+      settings::SettingsSheetPopupRequest{
           .parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial()),
           .sheetTitle = title,
           .removeAction = removeAccount,
@@ -1400,7 +1403,7 @@ void SettingsWindow::openBarWidgetEditorSheet(
   }
 
   if (m_editorSheetPopup == nullptr) {
-    m_editorSheetPopup = std::make_unique<settings::SettingsEditorSheetPopup>();
+    m_editorSheetPopup = std::make_unique<settings::SettingsSheetPopup>();
     m_editorSheetPopup->initialize(*m_wayland, *m_config, *m_renderContext);
   }
 
@@ -1450,7 +1453,7 @@ void SettingsWindow::openBarWidgetEditorSheet(
   const std::uint32_t grabSerial = m_pendingEditorSheetNoGrab ? 0u : m_wayland->lastInputSerial();
   m_pendingEditorSheetNoGrab = false;
   m_editorSheetPopup->open(
-      settings::SettingsEditorSheetPopupRequest{
+      settings::SettingsSheetPopupRequest{
           .parent = popupParentFor(*m_surface, output, grabSerial),
           .sheetTitle = std::move(title),
           .removeAction = std::move(removeAction),
@@ -1774,6 +1777,147 @@ void SettingsWindow::openPluginSettingsEditor(std::string pluginId) {
           body, m_config->config(), *m_editorSheetFactory, pluginId, *currentManifest, m_showAdvanced, uiScale()
       );
     });
+  });
+}
+
+void SettingsWindow::openPluginStore() {
+  DeferredCall::callLater([this]() {
+    if (m_wayland == nullptr
+        || m_renderContext == nullptr
+        || m_surface == nullptr
+        || m_surface->xdgSurface() == nullptr
+        || m_config == nullptr
+        || m_pluginManager == nullptr) {
+      return;
+    }
+
+    if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
+      m_editorSheetPopup->close();
+    }
+
+    const Config& cfg = m_config->config();
+    const float scale = uiScale();
+
+    std::vector<settings::StoreCatalogEntry> catalog;
+    for (const auto& source : cfg.plugins.sources) {
+      if (!source.enabled) {
+        continue;
+      }
+      auto result = scripting::discoverCatalog(source);
+      if (!result.ok) {
+        continue;
+      }
+      for (auto& entry : result.entries) {
+        catalog.push_back(
+            settings::StoreCatalogEntry{
+                .entry = std::move(entry),
+                .source = source.name,
+                .sourceConfig = source,
+            }
+        );
+      }
+    }
+
+    std::unordered_set<std::string> onDiskIds;
+    for (const auto& p : m_pluginList) {
+      if (p.materialized) {
+        onDiskIds.insert(p.id);
+      }
+    }
+
+    auto catalogLookup = std::make_shared<std::unordered_map<std::string, scripting::CatalogEntry>>();
+    for (const auto& entry : catalog) {
+      catalogLookup->emplace(entry.entry.id, entry.entry);
+    }
+
+    auto storeContent = std::make_shared<settings::PluginStoreContent>(
+        std::move(catalog), std::move(onDiskIds),
+        settings::PluginStoreCallbacks{
+            .setEnabled =
+                [this, catalogLookup](const std::string& id, bool enable) {
+                  if (m_pluginManager == nullptr) {
+                    return;
+                  }
+                  if (enable) {
+                    (void)m_pluginManager->enable(id);
+                    if (m_editorSheetPopup != nullptr) {
+                      m_editorSheetPopup->close();
+                    }
+                    ++m_pluginListRefreshGeneration;
+                    m_pluginListDirty = false;
+                    auto existing = std::ranges::find_if(m_pluginList, [&](const auto& p) { return p.id == id; });
+                    if (existing != m_pluginList.end()) {
+                      existing->enabled = true;
+                    } else {
+                      scripting::PluginStatus placeholder{.id = id, .name = id, .enabled = true};
+                      if (auto it = catalogLookup->find(id); it != catalogLookup->end()) {
+                        placeholder.name = it->second.name;
+                        placeholder.version = it->second.version;
+                        placeholder.icon = it->second.icon;
+                        placeholder.description = it->second.description;
+                      }
+                      m_pluginList.push_back(std::move(placeholder));
+                    }
+                  } else {
+                    m_pluginManager->disable(id);
+                    m_pluginListDirty = true;
+                  }
+                  requestContentRebuild();
+                },
+            .isEnabling =
+                [this](const std::string& id) { return m_pluginManager != nullptr && m_pluginManager->isEnabling(id); },
+            .scale = scale,
+        },
+        &m_pluginFileCache
+    );
+
+    m_pluginFileCache.setOnReady([storeContent](
+                                     const std::string& pluginId, const std::string& filename, const std::string& path
+                                 ) { storeContent->onFileReady(pluginId, filename, path); });
+
+    if (m_editorSheetPopup == nullptr) {
+      m_editorSheetPopup = std::make_unique<settings::SettingsSheetPopup>();
+      m_editorSheetPopup->initialize(*m_wayland, *m_config, *m_renderContext);
+    }
+
+    storeContent->setOnRebuildNeeded([this]() {
+      if (m_editorSheetPopup != nullptr) {
+        m_editorSheetPopup->rebuildBody();
+      }
+    });
+
+    wl_output* output = m_wayland->lastPointerOutput();
+    if (output == nullptr) {
+      output = m_output;
+    }
+
+    m_editorSheetPopup->open(
+        settings::SettingsSheetPopupRequest{
+            .parent = popupParentFor(*m_surface, output, m_wayland->lastInputSerial()),
+            .sheetTitle = i18n::tr("settings.plugins.store.title"),
+            .removeAction = nullptr,
+            .populateSheetBody =
+                [storeContent, this](Flex& body) {
+                  if (m_renderContext == nullptr) {
+                    return;
+                  }
+                  storeContent->populateBody(body, *m_renderContext, nullptr);
+                },
+            .scale = scale,
+            .minWidth = 800.0f,
+            .maxWidth = 1100.0f,
+            .parentFraction = 0.85f,
+            .fillParentHeight = true,
+            .scrollableBody = false,
+            .onCloseRequested = [storeContent]() -> bool {
+              if (storeContent->isDetailView()) {
+                storeContent->closeDetail();
+                return true;
+              }
+              return false;
+            },
+        }
+    );
   });
 }
 

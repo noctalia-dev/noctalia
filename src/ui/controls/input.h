@@ -168,7 +168,7 @@ private:
   std::vector<EditSnapshot> m_undoStack;
   std::vector<EditSnapshot> m_redoStack;
   EditCoalesceKind m_lastEditCoalesceKind = EditCoalesceKind::None;
-  std::chrono::steady_clock::time_point m_lastUndoRecordTime{};
+  std::chrono::steady_clock::time_point m_lastUndoRecordTime;
   std::size_t m_typingCoalesceCursorPos = 0;
 
   std::vector<float> m_stopX;
@@ -204,7 +204,7 @@ private:
   float m_minLayoutWidth = 0.0f;
   float m_contentLeadSlack = 0.0f;
   TextAlign m_textAlign = TextAlign::Start;
-  std::chrono::steady_clock::time_point m_lastPrimaryPressTime{};
+  std::chrono::steady_clock::time_point m_lastPrimaryPressTime;
   float m_lastPrimaryPressX = 0.0f;
   float m_lastPrimaryPressY = 0.0f;
   bool m_hasLastPrimaryPress = false;

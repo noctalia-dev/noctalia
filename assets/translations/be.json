@@ -1187,7 +1187,37 @@
           "glass": "Шкло",
           "soft": "Мяккасць",
           "solid": "Цвёрдасць"
+        },
+        "password-style": {
+          "filled-circles": "Запоўненыя кругі",
+          "random-icons": "Выпадковыя значкі"
+        },
+        "shadow-direction": {
+          "center": "Па цэнтры",
+          "down": "Уніз",
+          "down-left": "Уніз налева",
+          "down-right": "Уніз направа",
+          "left": "Налева",
+          "right": "Направа",
+          "up": "Уверх",
+          "up-left": "Уверх налева",
+          "up-right": "Уверх направа"
         }
+      },
+      "theme": {
+        "mode": {
+          "dark": "Цёмная ",
+          "light": "Светлая "
+        },
+        "source": {
+          "built-in": "Убудаваныя",
+          "community": "Супольныя",
+          "custom": "Карыстацкiя"
+        }
+      },
+      "theme-role": {
+        "custom": "Карыстацкiя...",
+        "default": "Па змаўчанні"
       }
     },
     "schema": {

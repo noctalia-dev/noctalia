@@ -2,6 +2,7 @@
 
 #include "auth/pam_authenticator.h"
 #include "capture/screencopy_capture.h"
+#include "core/timer_manager.h"
 
 #include <cstdint>
 #include <functional>
@@ -81,6 +82,9 @@ private:
   void syncInstances();
   void captureDesktopSnapshots();
   [[nodiscard]] bool shouldUseBlurredDesktop() const;
+  [[nodiscard]] bool allSurfacesReady() const;
+  bool tryFlushPendingAfterLocked();
+  void dispatchPendingAfterLocked();
   void applyLockscreenStyle(LockSurface& surface) const;
   void applyOutputRestriction();
   void applyWallpaperStyleToSurfaces();
@@ -124,4 +128,5 @@ private:
   std::function<void()> m_onSessionLocked;
   std::function<void()> m_onSessionUnlocked;
   std::function<void()> m_onLockEngaged;
+  Timer m_suspendTimeoutTimer;
 };

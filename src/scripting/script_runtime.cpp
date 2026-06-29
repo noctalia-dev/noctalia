@@ -2,6 +2,7 @@
 
 #include "core/deferred_call.h"
 #include "core/log.h"
+#include "i18n/i18n.h"
 #include "notification/notifications.h"
 #include "scripting/luau_host.h"
 #include "scripting/plugin_bindings.h"
@@ -32,7 +33,13 @@ namespace scripting {
     constexpr auto kLoadBudget = std::chrono::milliseconds(100);
     constexpr auto kUpdateBudget = std::chrono::milliseconds(12);
     constexpr auto kCallbackBudget = std::chrono::milliseconds(25);
+    // Error/crash budget: too many timeouts or hard errors in a window marks the
+    // runtime unhealthy, which stops feeding it events until the next reload.
     constexpr auto kTimeoutWindow = std::chrono::seconds(60);
+    constexpr int kMaxConsecutiveTimeouts = 3;
+    constexpr std::size_t kMaxTimeoutsPerWindow = 5;
+    constexpr auto kCrashWindow = std::chrono::seconds(60);
+    constexpr std::size_t kMaxHardErrorsPerWindow = 5;
 
     void mergePatch(ScriptPatch& dest, const ScriptPatch& src) {
       if (src.text.has_value()) {
@@ -165,6 +172,7 @@ namespace scripting {
     std::chrono::milliseconds updateInterval{250};
     std::chrono::steady_clock::time_point lastUpdateAccepted;
     std::vector<std::chrono::steady_clock::time_point> timeoutHistory;
+    std::vector<std::chrono::steady_clock::time_point> errorHistory;
     ScriptResult replayState;
     bool replayStateReady = false;
     bool scheduled = false;
@@ -313,6 +321,7 @@ namespace scripting {
           unhealthy = false;
           consecutiveTimeouts = 0;
           timeoutHistory.clear();
+          errorHistory.clear();
         } else {
           event.generation = generation;
         }
@@ -613,23 +622,56 @@ namespace scripting {
       return result;
     }
 
+    // Health verdict for a finished call. Two independent budgets feed `unhealthy`:
+    // repeated timeouts (a script that won't return) and repeated hard errors (a
+    // script that keeps throwing — including hitting the VM memory ceiling). When
+    // either trips, the runtime is auto-disabled (enqueue() drops further events
+    // until reload) and the user is notified once.
     void updateHealth(ScriptResult& result) {
-      std::scoped_lock lock(mutex);
-      if (!result.timedOut) {
-        consecutiveTimeouts = 0;
+      const char* reason = nullptr;
+      {
+        std::scoped_lock lock(mutex);
+        const bool wasUnhealthy = unhealthy;
+        const auto now = std::chrono::steady_clock::now();
+
+        if (result.timedOut) {
+          ++consecutiveTimeouts;
+          timeoutHistory.push_back(now);
+          std::erase_if(timeoutHistory, [now](const auto& ts) { return now - ts > kTimeoutWindow; });
+          if (consecutiveTimeouts >= kMaxConsecutiveTimeouts || timeoutHistory.size() >= kMaxTimeoutsPerWindow) {
+            unhealthy = true;
+          }
+        } else {
+          consecutiveTimeouts = 0;
+          if (!result.ok) {
+            errorHistory.push_back(now);
+            std::erase_if(errorHistory, [now](const auto& ts) { return now - ts > kCrashWindow; });
+            if (errorHistory.size() >= kMaxHardErrorsPerWindow) {
+              unhealthy = true;
+            }
+          }
+        }
+
         result.unhealthy = unhealthy;
-        return;
+        if (unhealthy && !wasUnhealthy) {
+          reason = result.timedOut ? "timeouts" : "errors";
+        }
       }
 
-      ++consecutiveTimeouts;
-      const auto now = std::chrono::steady_clock::now();
-      timeoutHistory.push_back(now);
-      std::erase_if(timeoutHistory, [now](const auto& ts) { return now - ts > kTimeoutWindow; });
-
-      if (consecutiveTimeouts >= 3 || timeoutHistory.size() >= 5) {
-        unhealthy = true;
-        result.unhealthy = true;
+      if (reason != nullptr) {
+        notifyUnhealthy(reason);
       }
+    }
+
+    // Surface the auto-disable to the user. Runs on the main thread (notify is not
+    // worker-thread safe); fired once per unhealthy episode.
+    void notifyUnhealthy(std::string reason) {
+      const std::string name = runtimeName;
+      DeferredCall::callLater([name, reason = std::move(reason)] {
+        const std::string bodyKey =
+            reason == "timeouts" ? "plugins.auto-disabled.body-timeouts" : "plugins.auto-disabled.body-errors";
+        notify::error("Noctalia", i18n::tr("plugins.auto-disabled.title"), i18n::tr(bodyKey, "plugin", name));
+      });
     }
 
     void postResult(ScriptResult result) {

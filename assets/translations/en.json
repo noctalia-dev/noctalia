@@ -368,6 +368,15 @@
       "weather": "Weather"
     },
     "weather": {
+      "daily": {
+        "tooltip": {
+          "condition": "Condition",
+          "high": "High",
+          "low": "Low",
+          "sunrise": "Sunrise",
+          "sunset": "Sunset"
+        }
+      },
       "data-unavailable": "Weather data unavailable",
       "details": {
         "elevation": "Elevation",
@@ -376,6 +385,7 @@
         "temp-max": "Temperature Max",
         "temp-min": "Temperature Min",
         "timezone": "Timezone",
+        "uv-index": "UV Index",
         "wind": "Wind"
       },
       "disabled": "Enable [weather] in config.toml",
@@ -384,6 +394,19 @@
         "day": "Sunday",
         "description": "Weather",
         "temperature": "10 / 4C"
+      },
+      "forecast-view": {
+        "daily": "Daily",
+        "hourly": "Hourly"
+      },
+      "hourly": {
+        "summary": "{condition} / Rain {precip}%",
+        "tooltip": {
+          "condition": "Condition",
+          "humidity": "Humidity",
+          "rain": "Rain",
+          "wind": "Wind"
+        }
       },
       "location-unavailable": "Location unavailable",
       "no-location-body": "Add your address or enable auto-locate in Location settings.",
@@ -726,6 +749,13 @@
       "on": "Wi-Fi On"
     }
   },
+  "plugins": {
+    "auto-disabled": {
+      "body-errors": "{plugin} hit too many errors and was disabled. Reload it after fixing the issue.",
+      "body-timeouts": "{plugin} stopped responding and was disabled. Reload it after fixing the issue.",
+      "title": "Plugin disabled"
+    }
+  },
   "power": {
     "battery": {
       "states": {
@@ -774,6 +804,7 @@
     },
     "badges": {
       "advanced": "Advanced",
+      "community": "Community",
       "inherited": "Inherited",
       "monitor": "Monitor",
       "official": "Official",
@@ -1023,6 +1054,7 @@
         "general": "General",
         "grouping": "Grouping",
         "home": "Home",
+        "hot-corners": "Hot Corners",
         "idle": "Idle",
         "interface": "Interface",
         "keybinds": "Keybinds",
@@ -1154,6 +1186,13 @@
         "ultra-heavy": "Ultra Heavy",
         "ultra-light": "Ultra Light"
       },
+      "hot-corners": {
+        "command": "Run Command",
+        "control-center": "Control Center",
+        "launcher": "Launcher",
+        "none": "None",
+        "window-switcher": "Window Switcher"
+      },
       "layer": {
         "overlay": "Overlay",
         "top": "Top"
@@ -1253,6 +1292,7 @@
       }
     },
     "plugins": {
+      "browse-store": "Browse Plugins",
       "panels": {
         "open-near-click": {
           "description": "Open the panel near the bar widget that toggled it",
@@ -1270,9 +1310,10 @@
       "plugins": {
         "configure": "Configure",
         "deprecated": "deprecated",
-        "empty": "No plugins found. Add a source, or check your network.",
+        "empty": "No enabled plugins.",
         "loading": "Loading plugins...",
         "refreshing": "Refreshing plugins...",
+        "remove": "Remove plugin",
         "requires": "Requires: {dependencies}",
         "requires-newer-noctalia": "requires newer Noctalia",
         "title": "Plugins"
@@ -1307,6 +1348,17 @@
         "title": "Sources",
         "update": "Update",
         "update-on-startup": "Update on startup"
+      },
+      "store": {
+        "add": "Add to Noctalia",
+        "category-all": "All",
+        "empty": "No plugins found",
+        "incompatible": "Incompatible",
+        "loading": "Loading catalog...",
+        "no-readme": "No description available.",
+        "results-count": "{count} plugins",
+        "search-placeholder": "Search plugins...",
+        "title": "Plugin Store"
       }
     },
     "schema": {
@@ -1558,6 +1610,42 @@
         }
       },
       "desktop": {
+        "hot-corners-bottom-left": {
+          "description": "Action when the pointer hits the bottom left corner",
+          "label": "Bottom Left Corner"
+        },
+        "hot-corners-bottom-left-command": {
+          "description": "Shell command to run when hitting the bottom left corner",
+          "label": "Command"
+        },
+        "hot-corners-bottom-right": {
+          "description": "Action when the pointer hits the bottom right corner",
+          "label": "Bottom Right Corner"
+        },
+        "hot-corners-bottom-right-command": {
+          "description": "Shell command to run when hitting the bottom right corner",
+          "label": "Command"
+        },
+        "hot-corners-enabled": {
+          "description": "Trigger actions by pushing the mouse pointer into screen corners",
+          "label": "Hot Corners"
+        },
+        "hot-corners-top-left": {
+          "description": "Action when the pointer hits the top left corner",
+          "label": "Top Left Corner"
+        },
+        "hot-corners-top-left-command": {
+          "description": "Shell command to run when hitting the top left corner",
+          "label": "Command"
+        },
+        "hot-corners-top-right": {
+          "description": "Action when the pointer hits the top right corner",
+          "label": "Top Right Corner"
+        },
+        "hot-corners-top-right-command": {
+          "description": "Shell command to run when hitting the top right corner",
+          "label": "Command"
+        },
         "screen-corners-enabled": {
           "description": "Round the screen corners with a black overlay",
           "label": "Screen Corners"
@@ -2094,7 +2182,7 @@
           "placeholder": "City, Country"
         },
         "location-auto-locate": {
-          "description": "Detect your location automatically from your IP address",
+          "description": "Detect your location automatically from your IP address via noctalia.dev",
           "label": "Auto-Locate (IP)"
         },
         "longitude": {
@@ -2185,7 +2273,7 @@
           "placeholder": "/path/to/sound.wav"
         },
         "weather": {
-          "description": "Enable the weather service",
+          "description": "Enable the weather service via open-meteo.com",
           "label": "Weather"
         },
         "weather-effects": {
@@ -2797,6 +2885,12 @@
           "description": "Color role used for the focused workspace; fixed hex colors are also supported",
           "label": "Focused Color"
         },
+        "focused-output-only": {
+          "description": "Only highlight the active workspace on the focused monitor",
+          "label": "Highlight Focused Monitor Only",
+          "taskbar-description": "Only use the focused color for the active workspace on the monitor that has keyboard or pointer focus; other monitors use the occupied color",
+          "workspaces-description": "Only highlight the active workspace on the monitor that has keyboard or pointer focus; other monitors show their active workspace as occupied instead"
+        },
         "font-family": {
           "description": "Typeface for this widget; leave empty to inherit the bar font",
           "label": "Font Family"
@@ -2829,6 +2923,10 @@
         "hidden": {
           "description": "Tray item ids to hide",
           "label": "Hidden Items"
+        },
+        "hide-album-art": {
+          "description": "Hide the album artwork",
+          "label": "Hide Album Art"
         },
         "hide-empty-workspaces": {
           "description": "When grouping by workspace, omit capsules that have no running windows in the taskbar list.",

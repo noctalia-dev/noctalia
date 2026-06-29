@@ -112,6 +112,14 @@ namespace scripting {
     }
 
     if (candidates.empty()) {
+      // A singleton entry (service, panel) is bound to no output, so an output
+      // selector never names it; it is addressed with 'all'.
+      const bool isSingleton = std::ranges::any_of(m_endpoints, [&](const PluginIpcEndpoint* e) {
+        return matchesEntry(e) && e->ipcOutputName().empty();
+      });
+      if (isSingleton) {
+        return "error: '" + entryId + "' is a service-style entry with no output; use target 'all'\n";
+      }
       return "error: no plugin entry matched '" + entryId + "' on target '" + target + "'\n";
     }
     if (!allOutputs && candidates.size() > 1) {

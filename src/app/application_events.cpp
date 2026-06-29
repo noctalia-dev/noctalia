@@ -5,6 +5,8 @@
 #include "dbus/network/inetwork_service.h"
 #include "render/backend/render_backend.h"
 
+#include <exception>
+
 namespace {
   constexpr Logger kLog("app");
 
@@ -29,16 +31,24 @@ void Application::onIconThemeChanged() {
 
 void Application::onGraphicsReset(RenderGraphicsResetStatus status) {
   (void)status;
-  m_sharedTextureCache.reloadResidentTextures();
-  m_asyncTextureCache.reloadResidentTextures();
-  m_thumbnailService.invalidateGpuResources(m_renderContext.backend().textureManager());
-  m_wallpaper.onGpuResourcesInvalidated();
-  m_backdrop.onGpuResourcesInvalidated();
-  m_lockScreen.onGpuResourcesInvalidated();
-  m_trayMenu.requestLayout();
-  m_settingsWindow.requestRedraw();
-  m_screenCorners.requestRedraw();
-  requestAllSurfacesRedraw();
+  // Backstop: a GPU-resource rebuild right after a context loss can still hit a not-yet-ready
+  // context. Never let an exception escape — this runs inside renderScene, itself reached from a
+  // libffi-dispatched Wayland listener, where a throw would abort. The dirty-flag/generation
+  // machinery retries the rebuild on the next frame.
+  try {
+    m_sharedTextureCache.reloadResidentTextures();
+    m_asyncTextureCache.reloadResidentTextures();
+    m_thumbnailService.invalidateGpuResources(m_renderContext.backend().textureManager());
+    m_wallpaper.onGpuResourcesInvalidated();
+    m_backdrop.onGpuResourcesInvalidated();
+    m_lockScreen.onGpuResourcesInvalidated();
+    m_trayMenu.requestLayout();
+    m_settingsWindow.requestRedraw();
+    m_screenCorners.requestRedraw();
+    requestAllSurfacesRedraw();
+  } catch (const std::exception& e) {
+    kLog.warn("graphics-reset recovery deferred: {}", e.what());
+  }
 }
 
 void Application::requestAllSurfacesRedraw() {

@@ -126,11 +126,11 @@ void RenderContext::initialize(GlSharedContext& shared) {
   ++m_textMetricsGeneration;
 }
 
-void RenderContext::makeCurrentNoSurface() {
+bool RenderContext::makeCurrentNoSurface() {
   if (m_backend == nullptr) {
-    return;
+    return false;
   }
-  m_backend->makeCurrentNoSurface();
+  return m_backend->makeCurrentNoSurface();
 }
 
 bool RenderContext::makeCurrent(RenderTarget& target) {
@@ -223,9 +223,10 @@ void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot) {
 
 TextMetrics RenderContext::measureText(
     std::string_view text, float fontSize, FontWeight fontWeight, float maxWidth, int maxLines, TextAlign align,
-    std::string_view fontFamily, TextEllipsize ellipsize
+    std::string_view fontFamily, TextEllipsize ellipsize, bool useMarkup
 ) {
-  auto m = m_textRenderer.measure(text, fontSize, fontWeight, maxWidth, maxLines, align, fontFamily, ellipsize);
+  auto m =
+      m_textRenderer.measure(text, fontSize, fontWeight, maxWidth, maxLines, align, fontFamily, ellipsize, useMarkup);
   return TextMetrics{
       .width = m.width,
       .left = m.left,
@@ -235,7 +236,8 @@ TextMetrics RenderContext::measureText(
       .inkTop = m.inkTop,
       .inkBottom = m.inkBottom,
       .inkLeft = m.inkLeft,
-      .inkRight = m.inkRight
+      .inkRight = m.inkRight,
+      .lineCount = m.lineCount
   };
 }
 
@@ -345,14 +347,14 @@ void RenderContext::renderNode(
         const Mat3 shadowTransform = worldTransform * Mat3::translation(text->shadowOffsetX(), text->shadowOffsetY());
         m_textRenderer.draw(
             sw, sh, 0.0f, 0.0f, text->text(), text->fontSize(), shadowColor, shadowTransform, text->fontWeight(),
-            text->maxWidth(), text->maxLines(), text->textAlign(), font, text->ellipsize()
+            text->maxWidth(), text->maxLines(), text->textAlign(), font, text->ellipsize(), text->useMarkup()
         );
       }
       auto color = text->color();
       color.a *= effectiveOpacity;
       m_textRenderer.draw(
           sw, sh, 0.0f, 0.0f, text->text(), text->fontSize(), color, worldTransform, text->fontWeight(),
-          text->maxWidth(), text->maxLines(), text->textAlign(), font, text->ellipsize()
+          text->maxWidth(), text->maxLines(), text->textAlign(), font, text->ellipsize(), text->useMarkup()
       );
     }
     break;

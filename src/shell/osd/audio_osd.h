@@ -26,8 +26,8 @@ private:
   float m_lastSourceVolume = -1.0f;
   int m_lastSourcePercent = -1;
   bool m_lastSourceMuted = false;
-  std::chrono::steady_clock::time_point m_suppressUntil{};
-  std::chrono::steady_clock::time_point m_suppressAutoInputOsdUntil{};
-  std::chrono::steady_clock::time_point m_lastSoundAt{};
+  std::chrono::steady_clock::time_point m_suppressUntil;
+  std::chrono::steady_clock::time_point m_suppressAutoInputOsdUntil;
+  std::chrono::steady_clock::time_point m_lastSoundAt;
   class SoundPlayer* m_soundPlayer = nullptr;
 };

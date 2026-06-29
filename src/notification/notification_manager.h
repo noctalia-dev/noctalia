@@ -53,7 +53,7 @@ struct NotificationRequest {
   int32_t timeout = kDefaultNotificationTimeout;
   NotificationOrigin origin = NotificationOrigin::External;
   bool transient = false;
-  std::vector<std::string> actions = {};
+  std::vector<std::string> actions;
   std::optional<std::string> icon = std::nullopt;
   std::optional<NotificationImageData> imageData = std::nullopt;
   std::optional<std::string> category = std::nullopt;

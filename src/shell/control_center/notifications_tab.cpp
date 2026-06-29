@@ -849,7 +849,7 @@ void NotificationsTab::applyFilterSlide(float progress, bool slidingIn) {
     return;
   }
 
-  const float direction = static_cast<float>(m_filterSlideDirection);
+  const auto direction = static_cast<float>(m_filterSlideDirection);
   if (slidingIn) {
     m_list->setPosition(m_filterSlideBaseX + direction * travel * (1.0f - progress), m_filterSlideBaseY);
     m_list->setOpacity(0.7f + 0.3f * progress);

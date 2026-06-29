@@ -167,7 +167,7 @@ namespace desktop_settings {
   std::vector<WidgetSettingSpec> commonDesktopWidgetSettingSpecs(std::string_view type) {
     if (type == "login_box") {
       auto bgColor = colorSpec("background_color", "surface_variant");
-      auto bgRadius = doubleSpec("background_radius", 12.0, 0.0, 32.0, 1.0);
+      auto bgRadius = intSpec("background_radius", 12.0, 0.0, 32.0, 1.0);
       auto bgOpacity = doubleSpec("background_opacity", 0.88, 0.0, 1.0, 0.01);
       return {
           std::move(bgColor),
@@ -186,10 +186,10 @@ namespace desktop_settings {
     auto bgColor = colorSpec("background_color", "surface");
     bgColor.visibleWhen = backgroundOn;
 
-    auto bgRadius = doubleSpec("background_radius", 12.0, 0.0, 32.0, 1.0);
+    auto bgRadius = intSpec("background_radius", 12.0, 0.0, 32.0, 1.0);
     bgRadius.visibleWhen = backgroundOn;
 
-    auto bgPadding = doubleSpec("background_padding", 10.0, 0.0, 32.0, 1.0);
+    auto bgPadding = intSpec("background_padding", 10.0, 0.0, 32.0, 1.0);
     bgPadding.visibleWhen = backgroundOn;
 
     auto bgOpacity = doubleSpec("background_opacity", 0.8, 0.0, 1.0, 0.01);
@@ -395,7 +395,7 @@ namespace desktop_settings {
     } else if (type == "login_box") {
       add(boolSpec("show_login_button", true));
       add(doubleSpec("input_opacity", 1.0, 0.0, 1.0, 0.01));
-      add(doubleSpec("input_radius", 6.0, 0.0, 32.0, 1.0));
+      add(intSpec("input_radius", 6.0, 0.0, 32.0, 1.0));
     }
 
     return specs;

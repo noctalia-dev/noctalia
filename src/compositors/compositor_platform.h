@@ -11,6 +11,7 @@
 #include <optional>
 #include <poll.h>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -42,14 +43,7 @@ namespace compositors {
   }
 } // namespace compositors
 
-struct WorkspaceWindowAssignment {
-  std::string windowId;
-  std::string workspaceKey;
-  std::string appId;
-  std::string title;
-  std::int32_t x = 0;
-  std::int32_t y = 0;
-};
+class WorkspaceAlertService;
 
 class CompositorPlatform {
 public:
@@ -128,6 +122,14 @@ public:
   [[nodiscard]] std::vector<std::string> workspaceDisplayKeys(wl_output* outputFilter = nullptr) const;
   [[nodiscard]] std::vector<WorkspaceWindowAssignment>
   workspaceWindowAssignments(wl_output* outputFilter = nullptr) const;
+
+  // Workspace alerts: user-requested "attention" markers overlaid onto the
+  // workspace model by reusing Workspace::id (no new per-backend identifier).
+  void setWorkspaceAlertService(WorkspaceAlertService* service) noexcept;
+  [[nodiscard]] bool isKnownWorkspaceAlertKey(std::string_view workspaceId) const;
+  [[nodiscard]] std::optional<std::string> workspaceAlertKeyForWindow(std::string_view windowId) const;
+  [[nodiscard]] std::size_t clearActiveWorkspaceAlerts(wl_output* output);
+  [[nodiscard]] std::size_t clearActiveWorkspaceAlerts();
   [[nodiscard]] TaskbarAssignmentMode taskbarAssignmentMode() const noexcept;
   [[nodiscard]] bool supportsTaskbarWorkspaceGrouping() const noexcept;
   [[nodiscard]] std::unordered_map<std::uintptr_t, WorkspaceWindow>
@@ -175,6 +177,7 @@ private:
   );
 
   WaylandConnection& m_wayland;
+  WorkspaceAlertService* m_workspaceAlertService = nullptr;
   std::unique_ptr<compositors::CompositorRuntimeRegistry> m_runtimeRegistry;
   std::unique_ptr<WaylandWorkspaces> m_workspaces;
   std::unique_ptr<compositors::WorkspaceMetadataBackend> m_workspaceMetadataBackend;

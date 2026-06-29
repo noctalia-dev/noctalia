@@ -98,6 +98,8 @@ namespace settings {
     bool m_internalReopen = false;
     SelectCallback m_onSelect;
     std::function<void()> m_onDismissed;
+
+    std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
   };
 
 } // namespace settings

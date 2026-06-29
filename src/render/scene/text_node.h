@@ -95,6 +95,16 @@ public:
     markLayoutDirty();
   }
 
+  [[nodiscard]] bool useMarkup() const noexcept { return m_useMarkup; }
+
+  void setUseMarkup(bool markup) {
+    if (m_useMarkup == markup) {
+      return;
+    }
+    m_useMarkup = markup;
+    markLayoutDirty();
+  }
+
   [[nodiscard]] bool hasShadow() const noexcept { return m_hasShadow; }
   [[nodiscard]] const Color& shadowColor() const noexcept { return m_shadowColor; }
   [[nodiscard]] float shadowOffsetX() const noexcept { return m_shadowOffsetX; }
@@ -126,6 +136,7 @@ private:
   TextAlign m_textAlign = TextAlign::Start;
   TextEllipsize m_ellipsize = TextEllipsize::End;
   int m_fontWeight = static_cast<int>(FontWeight::Normal);
+  bool m_useMarkup = false;
   bool m_hasShadow = false;
   Color m_shadowColor;
   float m_shadowOffsetX = 0.0f;

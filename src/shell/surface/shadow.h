@@ -19,7 +19,7 @@ namespace shell::surface_shadow {
   struct Shape {
     CornerShapes corners{};
     RectInsets logicalInset{};
-    Radii radius{};
+    Radii radius;
   };
 
   [[nodiscard]] bool enabled(bool componentShadow, const ShellConfig::ShadowConfig& shadow) noexcept;

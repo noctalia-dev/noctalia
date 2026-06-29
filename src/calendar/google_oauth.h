@@ -11,7 +11,7 @@ namespace calendar {
   struct OAuthTokens {
     std::string refreshToken;
     std::string accessToken;
-    std::chrono::system_clock::time_point expiry{};
+    std::chrono::system_clock::time_point expiry;
   };
 
   // Client for the api.noctalia.dev Google OAuth broker. The broker holds the OAuth client_secret

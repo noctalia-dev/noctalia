@@ -28,7 +28,7 @@ namespace noctalia::ipc {
     }
     const float amount = *parsed;
 
-    if (isPercent || value.find('.') == std::string::npos) {
+    if (isPercent || !value.contains('.')) {
       if (amount < 0.0f || amount > maxPercent) {
         return std::nullopt;
       }

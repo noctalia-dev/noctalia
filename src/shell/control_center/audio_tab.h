@@ -128,8 +128,8 @@ private:
   float m_pendingSourceVolume = -1.0f;
   float m_lastSentSinkVolume = -1.0f;
   float m_lastSentSourceVolume = -1.0f;
-  std::chrono::steady_clock::time_point m_lastSinkCommitAt{};
-  std::chrono::steady_clock::time_point m_lastSourceCommitAt{};
+  std::chrono::steady_clock::time_point m_lastSinkCommitAt;
+  std::chrono::steady_clock::time_point m_lastSourceCommitAt;
   Timer m_programSinkDebounceTimer;
   std::uint32_t m_pendingProgramSinkId = 0;
   float m_pendingProgramSinkVolume = -1.0f;

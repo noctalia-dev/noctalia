@@ -226,7 +226,7 @@ void IdleGraceOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint
   // Fullscreen tint: fade this layer only so the Wayland buffer stays a proper overlay (transparent
   // clear + premultiplied tint).
   auto dim = std::make_unique<Box>();
-  dim->setFill(colorSpecFromRole(ColorRole::Surface));
+  dim->setFill(fixedColorSpec(rgba(0.0f, 0.0f, 0.0f, 1.0f)));
   dim->setOpacity(0.0f);
   dim->setPosition(0.0f, 0.0f);
   dim->setSize(w, h);

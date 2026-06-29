@@ -3,6 +3,9 @@
 #include "config/config_service.h"
 #include "i18n/i18n.h"
 #include "render/scene/effect_node.h"
+#include "render/scene/input_area.h"
+#include "shell/panel/panel_manager.h"
+#include "shell/tooltip/tooltip_content.h"
 #include "system/weather_service.h"
 #include "time/time_format.h"
 #include "ui/builders.h"
@@ -34,13 +37,14 @@ namespace {
 
 WeatherTab::WeatherTab(WeatherService* weather, ConfigService* config) : m_weather(weather), m_config(config) {
   m_detailRows.fill(nullptr);
-  m_dayRows.fill(nullptr);
-  m_daySeparators.fill(nullptr);
-  m_dayIconSlots.fill(nullptr);
-  m_dayGlyphs.fill(nullptr);
-  m_dayMetas.fill(nullptr);
-  m_dayDescs.fill(nullptr);
-  m_dayTemps.fill(nullptr);
+  m_forecastRows.fill(nullptr);
+  m_forecastSeparators.fill(nullptr);
+  m_forecastIconSlots.fill(nullptr);
+  m_forecastGlyphs.fill(nullptr);
+  m_forecastMetas.fill(nullptr);
+  m_forecastDescs.fill(nullptr);
+  m_forecastTemps.fill(nullptr);
+  m_forecastHitAreas.fill(nullptr);
 }
 
 std::unique_ptr<Flex> WeatherTab::create() {
@@ -252,6 +256,7 @@ std::unique_ptr<Flex> WeatherTab::create() {
   addDetailRow("weather-sunrise", i18n::tr("control-center.weather.details.sunrise"), m_sunriseLabel);
   addDetailRow("weather-sunset", i18n::tr("control-center.weather.details.sunset"), m_sunsetLabel);
   addDetailRow("mountain", i18n::tr("control-center.weather.details.elevation"), m_elevationLabel);
+  addDetailRow("sun", i18n::tr("control-center.weather.details.uv-index"), m_uvIndexLabel);
   addDetailRow("clock", i18n::tr("control-center.weather.details.timezone"), m_timeZoneLabel);
 
   leftColumn->addChild(std::move(detailsCard));
@@ -260,19 +265,45 @@ std::unique_ptr<Flex> WeatherTab::create() {
 
   auto forecastColumn = ui::column({
       .out = &m_forecastColumn,
-      .gap = 0.0f,
+      .gap = Style::spaceXs * scale,
       .fillHeight = true,
       .flexGrow = 2.0f,
       .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& column) {
         applySectionCardStyle(column, scale, opacity, borders);
-        column.setGap(0.0f);
-        column.setPadding(0.0f, Style::spaceMd * scale);
+        column.setGap(Style::spaceXs * scale);
+        column.setPadding(Style::spaceMd * scale, Style::spaceMd * scale);
       },
   });
 
-  for (std::size_t i = 0; i < kDayCount; ++i) {
+  forecastColumn->addChild(
+      ui::segmented({
+          .out = &m_forecastViewPicker,
+          .options =
+              std::vector<ui::SegmentedOption>{
+                  {.label = i18n::tr("control-center.weather.forecast-view.daily")},
+                  {.label = i18n::tr("control-center.weather.forecast-view.hourly")},
+              },
+          .selectedIndex = static_cast<std::size_t>(m_forecastView),
+          .fontSize = Style::fontSizeCaption * scale,
+          .scale = scale,
+          .compact = true,
+          .surfaceOpacity = panelCardOpacity(),
+          .surfaceRole = ColorRole::Surface,
+          .equalSegmentWidths = true,
+          .onChange = [this](std::size_t idx) {
+            const ForecastView nextView = idx == 1 ? ForecastView::Hourly : ForecastView::Daily;
+            if (m_forecastView == nextView) {
+              return;
+            }
+            m_forecastView = nextView;
+            PanelManager::instance().refresh();
+          },
+      })
+  );
+
+  for (std::size_t i = 0; i < kForecastRowCount; ++i) {
     auto row = ui::column(
-        {.out = &m_dayRows[i],
+        {.out = &m_forecastRows[i],
          .align = FlexAlign::Stretch,
          .justify = FlexJustify::Center,
          .gap = Style::spaceXs * 0.5f * scale,
@@ -281,18 +312,19 @@ std::unique_ptr<Flex> WeatherTab::create() {
     );
 
     auto daySlot = ui::row(
-        {.out = &m_dayIconSlots[i], .align = FlexAlign::Center, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
+        {.out = &m_forecastIconSlots[i], .align = FlexAlign::Center, .gap = Style::spaceXs * scale, .flexGrow = 1.0f},
         ui::glyph({
-            .out = &m_dayGlyphs[i],
+            .out = &m_forecastGlyphs[i],
             .glyph = "weather-cloud",
             .glyphSize = Style::fontSizeBody * 1.2f * scale,
             .color = colorSpecFromRole(ColorRole::OnSurface),
         }),
         ui::label({
-            .out = &m_dayMetas[i],
+            .out = &m_forecastMetas[i],
             .text = i18n::tr("control-center.weather.forecast-placeholder.day"),
             .fontSize = Style::fontSizeBody * scale,
             .color = colorSpecFromRole(ColorRole::OnSurface),
+            .maxLines = 1,
             .fontWeight = FontWeight::Bold,
         })
     );
@@ -305,7 +337,7 @@ std::unique_ptr<Flex> WeatherTab::create() {
 
     topRow->addChild(
         ui::label({
-            .out = &m_dayTemps[i],
+            .out = &m_forecastTemps[i],
             .text = i18n::tr("control-center.weather.forecast-placeholder.temperature"),
             .fontSize = Style::fontSizeBody * scale,
             .color = colorSpecFromRole(ColorRole::OnSurface),
@@ -316,18 +348,26 @@ std::unique_ptr<Flex> WeatherTab::create() {
     row->addChild(std::move(topRow));
     row->addChild(
         ui::label({
-            .out = &m_dayDescs[i],
+            .out = &m_forecastDescs[i],
             .text = i18n::tr("control-center.weather.forecast-placeholder.description"),
             .fontSize = Style::fontSizeCaption * scale,
             .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .maxLines = 1,
         })
     );
+
+    auto hitArea = std::make_unique<InputArea>();
+    hitArea->setAcceptedButtons(0);
+    hitArea->setParticipatesInLayout(false);
+    hitArea->setZIndex(2);
+    m_forecastHitAreas[i] = static_cast<InputArea*>(row->addChild(std::move(hitArea)));
+
     forecastColumn->addChild(std::move(row));
 
-    if (i + 1 < kDayCount) {
+    if (i + 1 < kForecastRowCount) {
       forecastColumn->addChild(
           ui::separator({
-              .out = &m_daySeparators[i],
+              .out = &m_forecastSeparators[i],
               .thickness = std::max(1.0f, scale),
           })
       );
@@ -343,7 +383,7 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     return;
   }
 
-  for (auto* label : m_dayTemps) {
+  for (auto* label : m_forecastTemps) {
     if (label != nullptr) {
       label->setMaxWidth(0.0f);
       label->setMinWidth(0.0f);
@@ -366,7 +406,7 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     m_statusLabel->setMaxWidth(leftColumnWidth);
   }
   for (auto* label :
-       {m_windLabel, m_sunriseLabel, m_sunsetLabel, m_tempMaxLabel, m_tempMinLabel, m_elevationLabel,
+       {m_windLabel, m_sunriseLabel, m_sunsetLabel, m_tempMaxLabel, m_tempMinLabel, m_elevationLabel, m_uvIndexLabel,
         m_timeZoneLabel}) {
     if (label != nullptr) {
       label->setMaxWidth(leftColumnWidth);
@@ -402,8 +442,8 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
   }
 
   std::size_t visibleForecastDays = 0;
-  for (std::size_t i = 0; i < kDayCount; ++i) {
-    if (m_dayRows[i] != nullptr && m_dayRows[i]->visible()) {
+  for (std::size_t i = 0; i < kForecastRowCount; ++i) {
+    if (m_forecastRows[i] != nullptr && m_forecastRows[i]->visible()) {
       ++visibleForecastDays;
     }
   }
@@ -411,7 +451,7 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
   if (m_forecastColumn != nullptr && visibleForecastDays > 0) {
     const float separatorThickness = std::max(1.0f, scale);
     std::size_t visibleSeparators = 0;
-    for (auto* separator : m_daySeparators) {
+    for (auto* separator : m_forecastSeparators) {
       if (separator != nullptr) {
         separator->setThickness(separatorThickness);
         if (separator->visible()) {
@@ -422,44 +462,50 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     const float forecastInnerHeight = std::max(
         0.0f, m_forecastColumn->height() - (m_forecastColumn->paddingTop() + m_forecastColumn->paddingBottom())
     );
+    const float pickerHeight =
+        m_forecastViewPicker != nullptr && m_forecastViewPicker->visible() ? m_forecastViewPicker->height() : 0.0f;
     const float separatorsTotal = separatorThickness * static_cast<float>(visibleSeparators);
+    const float gapsTotal = m_forecastColumn->gap() * static_cast<float>(visibleForecastDays + visibleSeparators);
     const float rowHeight = std::max(
         Style::controlHeightLg * scale,
-        (forecastInnerHeight - separatorsTotal) / static_cast<float>(visibleForecastDays)
+        (forecastInnerHeight - pickerHeight - separatorsTotal - gapsTotal) / static_cast<float>(visibleForecastDays)
     );
 
-    for (std::size_t i = 0; i < kDayCount; ++i) {
-      if (m_dayRows[i] == nullptr) {
+    for (std::size_t i = 0; i < kForecastRowCount; ++i) {
+      if (m_forecastRows[i] == nullptr) {
         continue;
       }
-      m_dayRows[i]->setMinHeight(m_dayRows[i]->visible() ? rowHeight : 0.0f);
+      m_forecastRows[i]->setMinHeight(m_forecastRows[i]->visible() ? rowHeight : 0.0f);
     }
   }
 
   float forecastTempColumnWidth = 0.0f;
-  for (std::size_t i = 0; i < kDayCount; ++i) {
-    if (m_dayRows[i] != nullptr && m_dayRows[i]->visible() && m_dayTemps[i] != nullptr) {
-      m_dayTemps[i]->measure(renderer);
-      forecastTempColumnWidth = std::max(forecastTempColumnWidth, m_dayTemps[i]->width());
+  for (std::size_t i = 0; i < kForecastRowCount; ++i) {
+    if (m_forecastRows[i] != nullptr && m_forecastRows[i]->visible() && m_forecastTemps[i] != nullptr) {
+      m_forecastTemps[i]->measure(renderer);
+      forecastTempColumnWidth = std::max(forecastTempColumnWidth, m_forecastTemps[i]->width());
     }
   }
 
   const float forecastInnerWidth = m_forecastColumn != nullptr
       ? std::max(0.0f, m_forecastColumn->width() - m_forecastColumn->paddingLeft() - m_forecastColumn->paddingRight())
       : 0.0f;
-  for (std::size_t i = 0; i < kDayCount; ++i) {
-    if (m_dayRows[i] == nullptr || !m_dayRows[i]->visible()) {
+  for (std::size_t i = 0; i < kForecastRowCount; ++i) {
+    if (m_forecastRows[i] == nullptr || !m_forecastRows[i]->visible()) {
       continue;
     }
-    if (m_dayTemps[i] != nullptr) {
-      m_dayTemps[i]->setMinWidth(forecastTempColumnWidth);
+    if (m_forecastTemps[i] != nullptr) {
+      m_forecastTemps[i]->setMinWidth(forecastTempColumnWidth);
     }
-    if (m_dayMetas[i] != nullptr) {
-      const float glyphWidth = m_dayGlyphs[i] != nullptr ? m_dayGlyphs[i]->width() : 0.0f;
-      const float daySlotGap = m_dayIconSlots[i] != nullptr ? m_dayIconSlots[i]->gap() : 0.0f;
+    if (m_forecastMetas[i] != nullptr) {
+      const float glyphWidth = m_forecastGlyphs[i] != nullptr ? m_forecastGlyphs[i]->width() : 0.0f;
+      const float daySlotGap = m_forecastIconSlots[i] != nullptr ? m_forecastIconSlots[i]->gap() : 0.0f;
       const float topRowGap = Style::spaceSm * scale;
       const float metaMaxWidth = forecastInnerWidth - forecastTempColumnWidth - topRowGap - glyphWidth - daySlotGap;
-      m_dayMetas[i]->setMaxWidth(std::max(1.0f, metaMaxWidth));
+      m_forecastMetas[i]->setMaxWidth(std::max(1.0f, metaMaxWidth));
+    }
+    if (m_forecastDescs[i] != nullptr) {
+      m_forecastDescs[i]->setMaxWidth(std::max(1.0f, forecastInnerWidth));
     }
   }
 
@@ -485,18 +531,36 @@ void WeatherTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
   if (m_effectNode != nullptr && m_currentCard != nullptr) {
     m_effectNode->setFrameSize(m_currentCard->width(), m_currentCard->height());
   }
+
+  for (std::size_t i = 0; i < kForecastRowCount; ++i) {
+    if (m_forecastRows[i] == nullptr || m_forecastHitAreas[i] == nullptr) {
+      continue;
+    }
+    const bool visible = m_forecastRows[i]->visible();
+    m_forecastHitAreas[i]->setVisible(visible);
+    m_forecastHitAreas[i]->setPosition(0.0f, 0.0f);
+    m_forecastHitAreas[i]->setSize(
+        visible ? m_forecastRows[i]->width() : 0.0f, visible ? m_forecastRows[i]->height() : 0.0f
+    );
+  }
 }
 
 void WeatherTab::doUpdate(Renderer& renderer) { sync(renderer); }
 
-void WeatherTab::setForecastVisibleDayCount(std::size_t count) {
-  const std::size_t visibleCount = std::min(count, kDayCount);
-  for (std::size_t i = 0; i < kDayCount; ++i) {
-    if (m_dayRows[i] != nullptr) {
-      m_dayRows[i]->setVisible(i < visibleCount);
+void WeatherTab::setForecastVisibleRowCount(std::size_t count) {
+  const std::size_t visibleCount = std::min(count, kForecastRowCount);
+  for (std::size_t i = 0; i < kForecastRowCount; ++i) {
+    if (m_forecastRows[i] != nullptr) {
+      m_forecastRows[i]->setVisible(i < visibleCount);
     }
-    if (i + 1 < kDayCount && m_daySeparators[i] != nullptr) {
-      m_daySeparators[i]->setVisible(i + 1 < visibleCount);
+    if (m_forecastHitAreas[i] != nullptr) {
+      m_forecastHitAreas[i]->setVisible(i < visibleCount);
+      if (i >= visibleCount) {
+        m_forecastHitAreas[i]->clearTooltip();
+      }
+    }
+    if (i + 1 < kForecastRowCount && m_forecastSeparators[i] != nullptr) {
+      m_forecastSeparators[i]->setVisible(i + 1 < visibleCount);
     }
   }
 }
@@ -524,6 +588,7 @@ void WeatherTab::onClose() {
   m_locationPromptGlyph = nullptr;
   m_locationPromptBody = nullptr;
   m_forecastColumn = nullptr;
+  m_forecastViewPicker = nullptr;
   m_statusLabel = nullptr;
   m_currentGlyph = nullptr;
   m_currentTempLabel = nullptr;
@@ -536,15 +601,17 @@ void WeatherTab::onClose() {
   m_tempMaxLabel = nullptr;
   m_tempMinLabel = nullptr;
   m_elevationLabel = nullptr;
+  m_uvIndexLabel = nullptr;
   m_timeZoneLabel = nullptr;
   m_detailRows.fill(nullptr);
-  m_dayRows.fill(nullptr);
-  m_daySeparators.fill(nullptr);
-  m_dayIconSlots.fill(nullptr);
-  m_dayGlyphs.fill(nullptr);
-  m_dayMetas.fill(nullptr);
-  m_dayDescs.fill(nullptr);
-  m_dayTemps.fill(nullptr);
+  m_forecastRows.fill(nullptr);
+  m_forecastSeparators.fill(nullptr);
+  m_forecastIconSlots.fill(nullptr);
+  m_forecastGlyphs.fill(nullptr);
+  m_forecastMetas.fill(nullptr);
+  m_forecastDescs.fill(nullptr);
+  m_forecastTemps.fill(nullptr);
+  m_forecastHitAreas.fill(nullptr);
   m_effectNode = nullptr;
   m_activeEffect = EffectType::None;
   m_shaderTime = 0.0f;
@@ -595,10 +662,13 @@ void WeatherTab::sync(Renderer& renderer) {
     if (m_elevationLabel != nullptr) {
       m_elevationLabel->setText("--");
     }
+    if (m_uvIndexLabel != nullptr) {
+      m_uvIndexLabel->setText("--");
+    }
     if (m_timeZoneLabel != nullptr) {
       m_timeZoneLabel->setText("--");
     }
-    setForecastVisibleDayCount(0);
+    setForecastVisibleRowCount(0);
     hideEffect();
     return;
   }
@@ -623,10 +693,13 @@ void WeatherTab::sync(Renderer& renderer) {
     if (m_elevationLabel != nullptr) {
       m_elevationLabel->setText("--");
     }
+    if (m_uvIndexLabel != nullptr) {
+      m_uvIndexLabel->setText("--");
+    }
     if (m_timeZoneLabel != nullptr) {
       m_timeZoneLabel->setText("--");
     }
-    setForecastVisibleDayCount(0);
+    setForecastVisibleRowCount(0);
     hideEffect();
     return;
   }
@@ -666,10 +739,13 @@ void WeatherTab::sync(Renderer& renderer) {
     if (m_elevationLabel != nullptr) {
       m_elevationLabel->setText("--");
     }
+    if (m_uvIndexLabel != nullptr) {
+      m_uvIndexLabel->setText("--");
+    }
     if (m_timeZoneLabel != nullptr) {
       m_timeZoneLabel->setText("--");
     }
-    setForecastVisibleDayCount(0);
+    setForecastVisibleRowCount(0);
     hideEffect();
     return;
   }
@@ -762,6 +838,9 @@ void WeatherTab::sync(Renderer& renderer) {
     const int elevation = static_cast<int>(imperial ? snapshot.elevationM * 3.28084 : snapshot.elevationM);
     m_elevationLabel->setText(std::format("{}{}", elevation, imperial ? "ft" : "m"));
   }
+  if (m_uvIndexLabel != nullptr) {
+    m_uvIndexLabel->setText(std::format("{:.1f}", snapshot.current.uvIndex));
+  }
   if (m_timeZoneLabel != nullptr) {
     // Use the last component of the IANA path ("America/Toronto" → "Toronto") to keep
     // the label short enough to remain right-aligned without elision in most cases.
@@ -775,44 +854,13 @@ void WeatherTab::sync(Renderer& renderer) {
     );
   }
 
-  const bool firstForecastIsToday =
-      !snapshot.forecastDays.empty() && snapshot.forecastDays.front().dateIso == todayIso(snapshot.utcOffsetSeconds);
-  const std::size_t forecastStart = firstForecastIsToday ? 1 : 0;
-  const std::size_t visibleForecastCount = forecastStart < snapshot.forecastDays.size()
-      ? std::min(kDayCount, snapshot.forecastDays.size() - forecastStart)
-      : 0;
-
-  setForecastVisibleDayCount(visibleForecastCount);
-  for (std::size_t i = 0; i < kDayCount; ++i) {
-    const bool visible = i < visibleForecastCount;
-    if (!visible) {
-      continue;
-    }
-
-    const auto& day = snapshot.forecastDays[i + forecastStart];
-    if (m_dayGlyphs[i] != nullptr) {
-      m_dayGlyphs[i]->setGlyph(WeatherService::glyphForCode(day.weatherCode, true));
-      m_dayGlyphs[i]->setColor(colorSpecFromRole(ColorRole::OnSurface));
-      m_dayGlyphs[i]->measure(renderer);
-    }
-    if (m_dayMetas[i] != nullptr) {
-      m_dayMetas[i]->setText(weekdayLabel(day.dateIso));
-      m_dayMetas[i]->measure(renderer);
-    }
-    if (m_dayTemps[i] != nullptr) {
-      m_dayTemps[i]->setText(
-          std::format(
-              "{} / {}{}", static_cast<int>(std::lround(m_weather->displayTemperature(day.temperatureMaxC))),
-              static_cast<int>(std::lround(m_weather->displayTemperature(day.temperatureMinC))),
-              m_weather->displayTemperatureUnit()
-          )
-      );
-      m_dayTemps[i]->measure(renderer);
-    }
-    if (m_dayDescs[i] != nullptr) {
-      m_dayDescs[i]->setText(WeatherService::shortDescriptionForCode(day.weatherCode));
-      m_dayDescs[i]->measure(renderer);
-    }
+  if (m_forecastViewPicker != nullptr) {
+    m_forecastViewPicker->setSelectedIndex(static_cast<std::size_t>(m_forecastView));
+  }
+  if (m_forecastView == ForecastView::Hourly) {
+    syncHourlyForecast(renderer, snapshot);
+  } else {
+    syncDailyForecast(renderer, snapshot);
   }
 
   if (m_effectNode != nullptr) {
@@ -831,6 +879,128 @@ void WeatherTab::sync(Renderer& renderer) {
   }
 }
 
+void WeatherTab::syncDailyForecast(Renderer& renderer, const WeatherSnapshot& snapshot) {
+  const bool firstForecastIsToday =
+      !snapshot.forecastDays.empty() && snapshot.forecastDays.front().dateIso == todayIso(snapshot.utcOffsetSeconds);
+  const std::size_t forecastStart = firstForecastIsToday ? 1 : 0;
+  const std::size_t visibleForecastCount = forecastStart < snapshot.forecastDays.size()
+      ? std::min(kForecastRowCount, snapshot.forecastDays.size() - forecastStart)
+      : 0;
+
+  setForecastVisibleRowCount(visibleForecastCount);
+  const std::string timeFormat = m_config != nullptr && !m_config->config().shell.timeFormat.empty()
+      ? m_config->config().shell.timeFormat
+      : std::string("%H:%M");
+  for (std::size_t i = 0; i < kForecastRowCount; ++i) {
+    if (i >= visibleForecastCount) {
+      continue;
+    }
+
+    const auto& day = snapshot.forecastDays[i + forecastStart];
+    const std::string condition = WeatherService::shortDescriptionForCode(day.weatherCode);
+    const std::string tempHigh = std::format(
+        "{}{}", static_cast<int>(std::lround(m_weather->displayTemperature(day.temperatureMaxC))),
+        m_weather->displayTemperatureUnit()
+    );
+    const std::string tempLow = std::format(
+        "{}{}", static_cast<int>(std::lround(m_weather->displayTemperature(day.temperatureMinC))),
+        m_weather->displayTemperatureUnit()
+    );
+    const std::string sunrise =
+        day.sunriseIso.empty() ? std::string("--") : formatIsoTime(day.sunriseIso, timeFormat.c_str());
+    const std::string sunset =
+        day.sunsetIso.empty() ? std::string("--") : formatIsoTime(day.sunsetIso, timeFormat.c_str());
+    const std::vector<TooltipRow> tooltipRows{
+        {i18n::tr("control-center.weather.daily.tooltip.condition"), condition},
+        {i18n::tr("control-center.weather.daily.tooltip.high"), tempHigh},
+        {i18n::tr("control-center.weather.daily.tooltip.low"), tempLow},
+        {i18n::tr("control-center.weather.daily.tooltip.sunrise"), sunrise},
+        {i18n::tr("control-center.weather.daily.tooltip.sunset"), sunset},
+    };
+    if (m_forecastHitAreas[i] != nullptr) {
+      m_forecastHitAreas[i]->setTooltip(tooltipRows);
+    }
+    if (m_forecastGlyphs[i] != nullptr) {
+      m_forecastGlyphs[i]->setGlyph(WeatherService::glyphForCode(day.weatherCode, true));
+      m_forecastGlyphs[i]->setColor(colorSpecFromRole(ColorRole::Primary));
+      m_forecastGlyphs[i]->measure(renderer);
+    }
+    if (m_forecastMetas[i] != nullptr) {
+      m_forecastMetas[i]->setText(weekdayLabel(day.dateIso));
+      m_forecastMetas[i]->clearTooltip();
+      m_forecastMetas[i]->measure(renderer);
+    }
+    if (m_forecastTemps[i] != nullptr) {
+      m_forecastTemps[i]->setText(std::format("{} / {}", tempHigh, tempLow));
+      m_forecastTemps[i]->clearTooltip();
+      m_forecastTemps[i]->measure(renderer);
+    }
+    if (m_forecastDescs[i] != nullptr) {
+      m_forecastDescs[i]->setText(condition);
+      m_forecastDescs[i]->clearTooltip();
+      m_forecastDescs[i]->measure(renderer);
+    }
+  }
+}
+
+void WeatherTab::syncHourlyForecast(Renderer& renderer, const WeatherSnapshot& snapshot) {
+  const std::size_t visibleForecastCount = std::min(kForecastRowCount, snapshot.forecastHours.size());
+  const bool imperial = m_weather != nullptr && m_weather->useImperial();
+  const char* windUnit =
+      imperial ? "mph" : (snapshot.hourlyUnits.windSpeed.empty() ? "km/h" : snapshot.hourlyUnits.windSpeed.c_str());
+  const std::string timeFormat = m_config != nullptr && !m_config->config().shell.timeFormat.empty()
+      ? m_config->config().shell.timeFormat
+      : std::string("%H:%M");
+
+  setForecastVisibleRowCount(visibleForecastCount);
+  for (std::size_t i = 0; i < kForecastRowCount; ++i) {
+    if (i >= visibleForecastCount) {
+      continue;
+    }
+
+    const auto& hour = snapshot.forecastHours[i];
+    const int displayTemp = static_cast<int>(std::lround(m_weather->displayTemperature(hour.temperatureC)));
+    const double displayWind = imperial ? hour.windSpeedKmh * 0.621371 : hour.windSpeedKmh;
+    const std::string displayWindText = std::format("{} {}", static_cast<int>(std::lround(displayWind)), windUnit);
+    const std::string condition = WeatherService::shortDescriptionForCode(hour.weatherCode);
+    const std::vector<TooltipRow> tooltipRows{
+        {i18n::tr("control-center.weather.hourly.tooltip.condition"), condition},
+        {i18n::tr("control-center.weather.hourly.tooltip.rain"),
+         std::format("{}%", hour.precipitationProbabilityPercent)},
+        {i18n::tr("control-center.weather.hourly.tooltip.humidity"), std::format("{}%", hour.relativeHumidityPercent)},
+        {i18n::tr("control-center.weather.hourly.tooltip.wind"), displayWindText},
+    };
+    if (m_forecastHitAreas[i] != nullptr) {
+      m_forecastHitAreas[i]->setTooltip(tooltipRows);
+    }
+    if (m_forecastGlyphs[i] != nullptr) {
+      m_forecastGlyphs[i]->setGlyph(WeatherService::glyphForCode(hour.weatherCode, hour.isDay));
+      m_forecastGlyphs[i]->setColor(colorSpecFromRole(hour.isDay ? ColorRole::Primary : ColorRole::Secondary));
+      m_forecastGlyphs[i]->measure(renderer);
+    }
+    if (m_forecastMetas[i] != nullptr) {
+      m_forecastMetas[i]->setText(hourLabel(hour.timeIso, timeFormat));
+      m_forecastMetas[i]->clearTooltip();
+      m_forecastMetas[i]->measure(renderer);
+    }
+    if (m_forecastTemps[i] != nullptr) {
+      m_forecastTemps[i]->setText(std::format("{}{}", displayTemp, m_weather->displayTemperatureUnit()));
+      m_forecastTemps[i]->clearTooltip();
+      m_forecastTemps[i]->measure(renderer);
+    }
+    if (m_forecastDescs[i] != nullptr) {
+      m_forecastDescs[i]->setText(
+          i18n::tr(
+              "control-center.weather.hourly.summary", "condition", condition, "precip",
+              hour.precipitationProbabilityPercent
+          )
+      );
+      m_forecastDescs[i]->clearTooltip();
+      m_forecastDescs[i]->measure(renderer);
+    }
+  }
+}
+
 std::string WeatherTab::todayIso(std::int32_t utcOffsetSeconds) {
   const auto now = std::chrono::system_clock::now() + std::chrono::seconds{utcOffsetSeconds};
   const std::time_t time = std::chrono::system_clock::to_time_t(now);
@@ -838,6 +1008,14 @@ std::string WeatherTab::todayIso(std::int32_t utcOffsetSeconds) {
   gmtime_r(&time, &tm);
 
   return formatStrftime("%Y-%m-%d", tm);
+}
+
+std::string WeatherTab::hourLabel(const std::string& isoTime, const std::string& timeFormat) {
+  if (isoTime.size() < 16) {
+    return isoTime;
+  }
+  const std::string formatted = formatIsoTime(isoTime, timeFormat.empty() ? "%H:%M" : timeFormat.c_str());
+  return formatted.empty() ? isoTime : formatted;
 }
 
 std::string WeatherTab::weekdayLabel(const std::string& isoDate) {

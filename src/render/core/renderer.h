@@ -43,6 +43,10 @@ struct TextMetrics {
   // A stable font property (not per-string ink), used to optically center text
   // by its cap band so caps/digits sit dead-centre. measureFont() populates it.
   float capHeight = 0.0f;
+  // Number of laid-out lines for the measured text (0 for empty text). Lets a
+  // consumer tell single-line from wrapped text from the measured result rather
+  // than re-deriving it from the requested width/line budget.
+  int lineCount = 0;
 };
 
 class Renderer {
@@ -52,7 +56,7 @@ public:
   [[nodiscard]] virtual TextMetrics measureText(
       std::string_view text, float fontSize, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0f,
       int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {},
-      TextEllipsize ellipsize = TextEllipsize::End
+      TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   ) = 0;
   [[nodiscard]] virtual TextMetrics measureFont(float fontSize, FontWeight fontWeight = FontWeight::Normal) = 0;
 

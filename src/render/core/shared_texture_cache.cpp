@@ -10,8 +10,8 @@ namespace {
 } // namespace
 
 SharedTextureCache::~SharedTextureCache() {
-  makeCurrent();
-  if (m_textureManager != nullptr) {
+  // Best-effort: if the context can't be bound (lost on resume), the GL textures are already gone.
+  if (makeCurrent() && m_textureManager != nullptr) {
     m_textureManager->cleanup();
   }
 }
@@ -33,7 +33,9 @@ TextureHandle SharedTextureCache::acquire(const std::string& path) {
     ++it->second.refCount;
     kLog.info("hit {} (refCount={})", path, it->second.refCount);
     if (it->second.handle.id == 0) {
-      makeCurrent();
+      if (!makeCurrent()) {
+        return {};
+      }
       it->second.handle = m_textureManager->loadFromFile(path, 0, true);
       if (it->second.handle.id == 0) {
         return {};
@@ -42,7 +44,9 @@ TextureHandle SharedTextureCache::acquire(const std::string& path) {
     return it->second.handle;
   }
 
-  makeCurrent();
+  if (!makeCurrent()) {
+    return {};
+  }
   auto handle = m_textureManager->loadFromFile(path, 0, true);
   if (handle.id == 0) {
     return handle;
@@ -72,8 +76,11 @@ void SharedTextureCache::release(TextureHandle& handle, const std::string& path)
 
   --it->second.refCount;
   if (it->second.refCount <= 0) {
-    makeCurrent();
-    m_textureManager->unload(it->second.handle);
+    // If the context can't be bound (lost on resume) the GPU object is already gone; skip the
+    // unload but still drop the tracking entry so it gets re-uploaded fresh when next acquired.
+    if (makeCurrent()) {
+      m_textureManager->unload(it->second.handle);
+    }
     m_entries.erase(it);
     kLog.info("evicted {}", path);
   }
@@ -86,7 +93,10 @@ void SharedTextureCache::reloadResidentTextures() {
     return;
   }
 
-  makeCurrent();
+  if (!makeCurrent()) {
+    // Context not ready yet (still recovering from loss); the graphics-reset path retries next frame.
+    return;
+  }
 
   for (auto& [path, entry] : m_entries) {
     if (entry.handle.id != 0) {
@@ -101,15 +111,15 @@ void SharedTextureCache::reloadResidentTextures() {
   }
 }
 
-void SharedTextureCache::makeCurrent() {
+bool SharedTextureCache::makeCurrent() {
   if (m_sharedGl == nullptr) {
-    return;
+    return false;
   }
   // Backend contexts share the root context's share-list, so uploads/deletes work on whichever context is bound. If
   // a backend already owns the thread's context (mid-frame), switching away would drop its draw surface and break its
   // trailing eglSwapBuffers.
   if (eglGetCurrentContext() != EGL_NO_CONTEXT) {
-    return;
+    return true;
   }
-  m_sharedGl->makeCurrentSurfaceless();
+  return m_sharedGl->makeCurrentSurfaceless();
 }

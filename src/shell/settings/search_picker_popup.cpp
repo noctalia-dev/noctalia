@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -127,7 +128,16 @@ namespace settings {
                     .minHeight = Style::controlHeightSm * m_scale,
                     .padding = Style::spaceXs * m_scale,
                     .radius = Style::scaledRadiusMd(m_scale),
-                    .onClick = [this]() { DeferredCall::callLater([this]() { close(); }); },
+                    .onClick =
+                        [this]() {
+                          const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                          DeferredCall::callLater([this, aliveGuard]() {
+                            if (aliveGuard.expired()) {
+                              return;
+                            }
+                            close();
+                          });
+                        },
                 })
             ),
             ui::searchPicker({
@@ -142,9 +152,24 @@ namespace settings {
                       if (m_onSelect) {
                         m_onSelect(option.value);
                       }
-                      DeferredCall::callLater([this]() { close(); });
+                      const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                      DeferredCall::callLater([this, aliveGuard]() {
+                        if (aliveGuard.expired()) {
+                          return;
+                        }
+                        close();
+                      });
                     },
-                .onCancel = [this]() { DeferredCall::callLater([this]() { close(); }); },
+                .onCancel =
+                    [this]() {
+                      const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+                      DeferredCall::callLater([this, aliveGuard]() {
+                        if (aliveGuard.expired()) {
+                          return;
+                        }
+                        close();
+                      });
+                    },
                 .configure =
                     [](SearchPicker& picker) {
                       picker.clearFill();

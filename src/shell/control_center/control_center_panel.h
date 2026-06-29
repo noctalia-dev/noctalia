@@ -180,7 +180,7 @@ private:
   bool m_showSidebar = true;
   bool m_hasPowerServices = false;
   bool m_mprisRefreshScheduled = false;
-  std::chrono::steady_clock::time_point m_lastMprisRefreshAt{};
+  std::chrono::steady_clock::time_point m_lastMprisRefreshAt;
   AnimationManager::Id m_tabTransitionAnimId = 0;
   TabId m_tabTransitionOutgoing = TabId::Home;
   float m_tabTransitionProgress = 1.0f;

@@ -180,12 +180,10 @@ void Application::run(std::function<void()> startupReadyCallback) {
     // control-center rebuilds when a plugin is enabled or disabled.
     m_pluginManager.refresh();
     m_configService.addReloadCallback([this]() { m_pluginManager.refresh(); });
-    // Opt-in auto-update: pull each flagged git source in the background.
-    for (const auto& source : m_configService.config().plugins.sources) {
-      if (source.kind == PluginSourceKind::Git && source.autoUpdate) {
-        m_pluginManager.update(source.name);
-      }
-    }
+    // Opt-in auto-update: pull each flagged git source in the background, once now
+    // and then every 6h so a long-running session isn't stuck on the startup snapshot.
+    runPluginAutoUpdate();
+    m_pluginAutoUpdateTimer.startRepeating(std::chrono::hours(6), [this]() { runPluginAutoUpdate(); });
   });
   runStartupPhase("initUi", [this]() { initUi(); });
   runStartupPhase("initPluginServices", [this]() {

@@ -39,6 +39,7 @@ namespace scripting {
     bool compatible = true;
     bool deprecated = false;
     bool enabled = false;
+    bool materialized = false;
   };
 
   // Owns the plugin distribution lifecycle: resolves the configured sources into
@@ -79,6 +80,9 @@ namespace scripting {
 
     // Disable a plugin by id and persist. Code stays on disk; settings are retained.
     void disable(std::string_view pluginId);
+
+    // Disable and remove a plugin's materialized files from disk.
+    void remove(std::string_view pluginId);
 
     // Every plugin offered by the local dev source + each configured source, with
     // its compatibility and active state. For the management CLI / settings browser.

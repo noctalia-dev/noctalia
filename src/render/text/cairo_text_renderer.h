@@ -42,6 +42,7 @@ public:
     float inkLeft = 0.0f;   // visible ink left edge relative to layout origin
     float inkRight = 0.0f;  // visible ink right edge relative to layout origin
     float capHeight = 0.0f; // measured baseline-to-cap-top of 'H' (0 if unavailable)
+    int lineCount = 0;      // laid-out line count (0 for empty text)
   };
 
   CairoTextRenderer();
@@ -67,7 +68,7 @@ public:
   [[nodiscard]] TextMetrics measure(
       std::string_view text, float fontSize, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0f,
       int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {},
-      TextEllipsize ellipsize = TextEllipsize::End
+      TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   );
   [[nodiscard]] TextMetrics measureFont(float fontSize, FontWeight fontWeight) const;
   void measureCursorStops(
@@ -79,7 +80,7 @@ public:
       float surfaceWidth, float surfaceHeight, float x, float baselineY, std::string_view text, float fontSize,
       const Color& color, const Mat3& transform, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0f,
       int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {},
-      TextEllipsize ellipsize = TextEllipsize::End
+      TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   );
 
 private:
@@ -94,6 +95,7 @@ private:
     TextAlign align = TextAlign::Start;
     TextEllipsize ellipsize = TextEllipsize::End;
     FontWeight fontWeight = FontWeight::Normal;
+    bool useMarkup = false;
 
     bool operator==(const CacheKey& other) const noexcept;
   };
@@ -114,6 +116,7 @@ private:
     TextAlign align = TextAlign::Start;
     TextEllipsize ellipsize = TextEllipsize::End;
     FontWeight fontWeight = FontWeight::Normal;
+    bool useMarkup = false;
 
     bool operator==(const MetricsKey& other) const noexcept;
   };
@@ -173,7 +176,8 @@ private:
   // Build a PangoLayout at the given scaled size. Caller owns the layout (g_object_unref).
   PangoLayout* buildLayout(
       std::string_view text, float fontSize, FontWeight fontWeight, float maxWidthPxScaled, int maxLines,
-      TextAlign align, std::string_view fontFamily = {}, TextEllipsize ellipsize = TextEllipsize::End
+      TextAlign align, std::string_view fontFamily = {}, TextEllipsize ellipsize = TextEllipsize::End,
+      bool useMarkup = false
   ) const;
   // Render a layout into a new GL texture; fills out fields of `entry`.
   // When `tinted` is true, rasterizes as CAIRO_FORMAT_A8 and uploads alpha
@@ -186,7 +190,8 @@ private:
 
   CacheEntry* lookupOrRasterize(
       std::string_view text, float fontSize, FontWeight fontWeight, float maxWidth, int maxLines, TextAlign align,
-      const Color& color, std::string_view fontFamily = {}, TextEllipsize ellipsize = TextEllipsize::End
+      const Color& color, std::string_view fontFamily = {}, TextEllipsize ellipsize = TextEllipsize::End,
+      bool useMarkup = false
   );
   void touch(CacheMap::iterator it);
   void evict(CacheMap::iterator it);

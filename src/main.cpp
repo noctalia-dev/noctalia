@@ -6,6 +6,7 @@
 #include "core/process_fds.h"
 #include "ipc/cli.h"
 #include "launcher/dmenu_cli.h"
+#include "scripting/plugin_lint.h"
 #include "theme/cli.h"
 
 #include <array>
@@ -145,6 +146,8 @@ namespace {
           "                   Run 'noctalia theme --help' for options\n"
           "  config <command> Validate config and support/replay helpers\n"
           "                   Run 'noctalia config --help' for options\n"
+          "  plugins <cmd>    Offline plugin author tools (lint)\n"
+          "                   Run 'noctalia plugins --help' for options\n"
           "\n"
           "For more information and documentation, visit:\n"
           "  https://noctalia.dev"
@@ -239,7 +242,7 @@ namespace {
     if (!instanceLock.tryAcquire()) {
       std::println(stderr, "error: noctalia is already running");
       completeDaemonStartup(1);
-      return 1;
+      _exit(1);
     }
     try {
       Application app;
@@ -293,6 +296,8 @@ int main(int argc, char* argv[]) {
       return noctalia::config::runCli(argc, argv);
     if (std::strcmp(argv[1], "dmenu") == 0)
       return noctalia::launcher::runDmenuCli(argc, argv);
+    if (std::strcmp(argv[1], "plugins") == 0)
+      return noctalia::plugins::runCli(argc, argv);
   }
 
   for (int i = 1; i < argc; ++i) {

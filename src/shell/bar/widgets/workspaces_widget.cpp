@@ -46,7 +46,8 @@ WorkspacesWidget::WorkspacesWidget(CompositorPlatform& platform, wl_output* outp
       m_hideWhenEmpty(options.hideWhenEmpty), m_pillScale(options.pillScale),
       m_activePillSize(std::clamp(options.activePillSize, 0.25f, 8.0f)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25f, 8.0f)), m_minimal(options.minimal),
-      m_focusedColor(options.focusedColor), m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor) {}
+      m_focusedOutputOnly(options.focusedOutputOnly), m_focusedColor(options.focusedColor),
+      m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor) {}
 
 WorkspacesWidget::DisplayMode WorkspacesWidget::effectiveDisplayMode() const noexcept {
   if (m_minimal && m_displayMode == DisplayMode::None) {
@@ -158,6 +159,13 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
   }
 
   if (!structuralChange && !activeChange) {
+    if (m_focusedOutputOnly) {
+      const bool isFocused = isFocusedOutput();
+      if (isFocused != m_wasFocusedOutput) {
+        m_wasFocusedOutput = isFocused;
+        retarget(renderer);
+      }
+    }
     return;
   }
 
@@ -189,6 +197,7 @@ void WorkspacesWidget::doUpdate(Renderer& renderer) {
 
 void WorkspacesWidget::rebuild(Renderer& renderer) {
   uiAssertNotRendering("WorkspacesWidget::rebuild");
+  m_activeUsesFocusedColor = !m_focusedOutputOnly || isFocusedOutput();
   cancelAnimation();
   while (!m_container->children().empty()) {
     m_container->removeChild(m_container->children().back().get());
@@ -486,6 +495,7 @@ void WorkspacesWidget::updateAllItemMetrics(Renderer& renderer) {
 }
 
 void WorkspacesWidget::retarget(Renderer& renderer) {
+  m_activeUsesFocusedColor = !m_focusedOutputOnly || isFocusedOutput();
   for (std::size_t i = 0; i < m_items.size(); ++i) {
     auto& it = m_items[i];
     const auto& ws = m_cachedState[i];
@@ -698,9 +708,14 @@ std::optional<std::size_t> WorkspacesWidget::numericWorkspaceId(const Workspace&
   return std::nullopt;
 }
 
+bool WorkspacesWidget::isFocusedOutput() const { return m_platform.preferredInteractiveOutput() == m_output; }
+
 ColorSpec WorkspacesWidget::workspaceFillColor(const Workspace& workspace) const {
   if (workspace.active) {
-    return m_focusedColor;
+    if (m_activeUsesFocusedColor) {
+      return m_focusedColor;
+    }
+    return m_occupiedColor;
   }
   if (workspace.urgent) {
     return colorSpecFromRole(ColorRole::Error);
@@ -721,7 +736,10 @@ ColorSpec WorkspacesWidget::workspaceTextColor(const Workspace& workspace) const
     return readableColorForFill(workspaceFillColor(workspace));
   }
   if (workspace.active) {
-    return m_focusedColor;
+    if (m_activeUsesFocusedColor) {
+      return m_focusedColor;
+    }
+    return m_occupiedColor;
   }
   if (workspace.occupied) {
     return m_occupiedColor;

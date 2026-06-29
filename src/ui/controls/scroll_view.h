@@ -82,7 +82,7 @@ private:
   float m_dragStartOffset = 0.0f;
   float m_lastDragLocalY = 0.0f;
   float m_dragVelocity = 0.0f;
-  std::chrono::steady_clock::time_point m_lastDragSampleAt{};
+  std::chrono::steady_clock::time_point m_lastDragSampleAt;
   std::uint32_t m_scrollAnimId = 0;
   float m_viewportHeight = 0.0f;
   float m_viewportWidth = 0.0f;

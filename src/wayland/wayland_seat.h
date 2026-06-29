@@ -186,7 +186,7 @@ private:
   KeyboardFocusCallback m_keyboardFocusCallback;
 
   // Key repeat
-  SteadyClock::time_point m_lastUserActivitySteady{};
+  SteadyClock::time_point m_lastUserActivitySteady;
   std::int32_t m_repeatRate = 0;    // chars/sec; 0 = no repeat
   std::int32_t m_repeatDelayMs = 0; // initial delay in ms
   KeyboardEvent m_repeatKey;

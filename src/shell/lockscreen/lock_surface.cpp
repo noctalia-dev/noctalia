@@ -405,6 +405,9 @@ void LockSurface::handleConfigure(
     std::uint32_t height
 ) {
   auto* self = static_cast<LockSurface*>(data);
+  if (self->width() != width || self->height() != height) {
+    self->m_firstFrameRendered = false;
+  }
   ext_session_lock_surface_v1_ack_configure(lockSurface, serial);
   self->Surface::onConfigure(width, height);
 }
@@ -828,4 +831,14 @@ void LockSurface::onGpuResourcesInvalidated() {
   m_captureDirty = true;
   m_wallpaperDirty = true;
   requestLayout();
+}
+
+void LockSurface::render() {
+  Surface::render();
+  if (!m_firstFrameRendered) {
+    m_firstFrameRendered = true;
+    if (m_renderCallback) {
+      m_renderCallback();
+    }
+  }
 }

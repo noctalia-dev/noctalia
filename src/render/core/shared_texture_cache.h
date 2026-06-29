@@ -31,7 +31,9 @@ public:
   void reloadResidentTextures();
 
 private:
-  void makeCurrent();
+  // Returns false if no usable GL context could be bound (e.g. context lost on resume);
+  // callers skip the upload/unload and retry on the next graphics-reset rebuild.
+  [[nodiscard]] bool makeCurrent();
 
   struct Entry {
     TextureHandle handle;

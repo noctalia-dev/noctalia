@@ -14,7 +14,7 @@ namespace tray {
   inline bool isUniqueBusName(std::string_view value) { return !value.empty() && value.front() == ':'; }
 
   inline bool isTransientUniqueIdentifier(std::string_view value) {
-    return isUniqueBusName(value) || value.find("/:") != std::string_view::npos;
+    return isUniqueBusName(value) || value.contains("/:");
   }
 
   inline std::string lastPathSegment(std::string_view value) {
@@ -33,11 +33,11 @@ namespace tray {
       return true;
     }
     const auto lower = StringUtils::toLower(value);
-    return lower.find("status_icon") != std::string::npos
-        || lower.find("statusnotifieritem") != std::string::npos
-        || lower.find("statusnotifier") != std::string::npos
-        || lower.find("status-notifier") != std::string::npos
-        || lower.find("status notifier") != std::string::npos
+    return lower.contains("status_icon")
+        || lower.contains("statusnotifieritem")
+        || lower.contains("statusnotifier")
+        || lower.contains("status-notifier")
+        || lower.contains("status notifier")
         || lower == "electron"
         || lower == "xdg-dbus-proxy";
   }
@@ -68,12 +68,12 @@ namespace tray {
     }
 
     std::string dashed = base;
-    std::replace(dashed.begin(), dashed.end(), '_', '-');
+    std::ranges::replace(dashed, '_', '-');
     pushUnique(dashed);
     pushUnique(StringUtils::toLower(dashed));
 
     std::string underscored = base;
-    std::replace(underscored.begin(), underscored.end(), '-', '_');
+    std::ranges::replace(underscored, '-', '_');
     pushUnique(underscored);
     pushUnique(StringUtils::toLower(underscored));
 
@@ -184,7 +184,7 @@ namespace tray {
 
   [[nodiscard]] inline std::string normalizedTooltipMatchKey(std::string text) {
     text = StringUtils::toLower(std::move(text));
-    text.erase(std::remove(text.begin(), text.end(), ' '), text.end());
+    std::erase(text, ' ');
     return text;
   }
 
@@ -207,7 +207,7 @@ namespace tray {
 
     const std::string lowerTitle = StringUtils::toLower(item.title);
     const std::string lowerTooltipTitle = normalizedTooltipMatchKey(tooltipTitle);
-    if (lowerTooltipTitle.find(lowerTitle) != std::string::npos) {
+    if (lowerTooltipTitle.contains(lowerTitle)) {
       return tooltipTitle;
     }
 

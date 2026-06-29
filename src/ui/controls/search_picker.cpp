@@ -60,6 +60,7 @@ namespace {
           ui::label({
               .out = &m_detail,
               .fontSize = Style::fontSizeCaption,
+              .maxLines = 1,
               .visible = false,
           })
       );

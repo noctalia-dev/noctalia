@@ -22,6 +22,6 @@ public:
 
 private:
   TickCallback m_secondCallback;
-  TimePoint m_now{};
-  SecondPoint m_nowSeconds{};
+  TimePoint m_now;
+  SecondPoint m_nowSeconds;
 };
