@@ -54,6 +54,7 @@ private:
   PrivacyWidgetConfig m_config;
   mutable PrivacyFilter m_micFilter;
   mutable PrivacyFilter m_camFilter;
+  mutable PrivacyFilter m_screenFilter;
 
   InputArea* m_area = nullptr;
   Glyph* m_micGlyph = nullptr;

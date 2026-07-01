@@ -1284,6 +1284,13 @@ namespace settings {
         "privacy camera webcam app process regex filter ignore"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Security, "privacy-security", tr("settings.schema.shell.privacy-screen-filter-regex.label"),
+        tr("settings.schema.shell.privacy-screen-filter-regex.description"),
+        {"shell", "privacy", "screen_filter_regex"},
+        TextSetting{.value = cfg.shell.privacy.screenFilterRegex, .placeholder = "", .browseFileExtensions = {}},
+        "privacy screen share screenshare app process regex filter ignore"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Security, "privacy-security", tr("settings.schema.shell.offline-mode.label"),
         tr("settings.schema.shell.offline-mode.description"), {"shell", "offline_mode"},
         ToggleSetting{cfg.shell.offlineMode}, "network http fetch download"

@@ -1256,6 +1256,7 @@ namespace noctalia::config::schema {
       static const Schema<ShellConfig::PrivacyConfig> s = {
           field(&ShellConfig::PrivacyConfig::micFilterRegex, "mic_filter_regex"),
           field(&ShellConfig::PrivacyConfig::camFilterRegex, "cam_filter_regex"),
+          field(&ShellConfig::PrivacyConfig::screenFilterRegex, "screen_filter_regex"),
       };
       return s;
     }

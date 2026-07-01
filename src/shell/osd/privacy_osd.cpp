@@ -58,7 +58,9 @@ PrivacyOsd::State PrivacyOsd::fromPipewireState(const PrivacyState& privacyState
       }
       break;
     case PrivacyCaptureKind::Screen:
-      out.screen = true;
+      if (!m_screenFilter.matches(capture.appName)) {
+        out.screen = true;
+      }
       break;
     }
   }
@@ -70,6 +72,7 @@ void PrivacyOsd::bindOverlay(OsdOverlay& overlay) { m_overlay = &overlay; }
 void PrivacyOsd::configure(const Config& config) {
   m_micFilter.update("shell.privacy.mic_filter_regex", config.shell.privacy.micFilterRegex);
   m_camFilter.update("shell.privacy.cam_filter_regex", config.shell.privacy.camFilterRegex);
+  m_screenFilter.update("shell.privacy.screen_filter_regex", config.shell.privacy.screenFilterRegex);
 }
 
 void PrivacyOsd::onConfigReload(const Config& config, const PipeWireService* service) {

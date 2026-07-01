@@ -2530,6 +2530,10 @@
           "description": "Regex for microphone apps to ignore in privacy indicators and OSDs",
           "label": "Microphone Filter Regex"
         },
+        "privacy-screen-filter-regex": {
+          "description": "Regex for screen-sharing apps to ignore in privacy indicators and OSDs",
+          "label": "Screen Sharing Filter Regex"
+        },
         "screen-time-enabled": {
           "description": "Track per-app usage and show it in Control Center",
           "label": "Screen Time"

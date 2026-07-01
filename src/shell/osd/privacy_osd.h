@@ -28,6 +28,7 @@ private:
   OsdOverlay* m_overlay = nullptr;
   PrivacyFilter m_micFilter;
   PrivacyFilter m_camFilter;
+  PrivacyFilter m_screenFilter;
   // Baseline starts empty by contract: the first PipeWire enumeration announces
   // any capture already active at launch as an on-transition. Do not prime from
   // live state or these startup notifications are lost.

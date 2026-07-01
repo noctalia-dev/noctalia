@@ -33,6 +33,7 @@ shared_gl_context     = true         # startup-only; false isolates GPU contexts
 [shell.privacy]
 mic_filter_regex = ""                # microphone app names to ignore in privacy indicators and OSD
 cam_filter_regex = ""                # camera app names to ignore in privacy indicators and OSD
+screen_filter_regex = ""             # screen-sharing app names to ignore in privacy indicators and OSD
 
 [shell.animation]
 enabled = true

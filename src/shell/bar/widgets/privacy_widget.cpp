@@ -186,6 +186,7 @@ void PrivacyWidget::refreshFilters() const {
   const ShellConfig::PrivacyConfig& privacy = m_configService->config().shell.privacy;
   m_micFilter.update("shell.privacy.mic_filter_regex", privacy.micFilterRegex);
   m_camFilter.update("shell.privacy.cam_filter_regex", privacy.camFilterRegex);
+  m_screenFilter.update("shell.privacy.screen_filter_regex", privacy.screenFilterRegex);
 }
 
 PrivacyWidget::Snapshot PrivacyWidget::snapshot() const {
@@ -204,7 +205,9 @@ PrivacyWidget::Snapshot PrivacyWidget::snapshot() const {
           addNonEmpty(out.cameraApps, capture.appName);
         }
       } else if (capture.kind == PrivacyCaptureKind::Screen) {
-        addNonEmpty(out.screenApps, capture.appName);
+        if (!m_screenFilter.matches(capture.appName)) {
+          addNonEmpty(out.screenApps, capture.appName);
+        }
       }
     }
   }
