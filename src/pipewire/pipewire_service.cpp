@@ -1235,8 +1235,8 @@ void PipeWireService::onNodeParam(
 
   auto& nd = *it->second;
   // Device nodes get their volume/mute authoritatively from mixer-api (onMixerVolumeChanged); their
-  // SPA_PARAM_Props volume/mute echoes are ignored. Route metadata (availability, description, route
-  // mute) is still tracked for device selection and effective mute.
+  // SPA_PARAM_Props volume/mute echoes are ignored. Route availability and mute are still tracked
+  // for device selection and effective mute.
   const bool isDeviceNode = nd.mediaClass == "Audio/Sink" || nd.mediaClass == "Audio/Source";
   if (paramId == SPA_PARAM_Route) {
     std::int32_t routeIndex = -1;
@@ -1256,19 +1256,12 @@ void PipeWireService::onNodeParam(
         spa_pod_get_id(&availProp->value, &routeAvailable);
       }
 
-      const spa_pod_prop* descProp = spa_pod_find_prop(param, nullptr, SPA_PARAM_ROUTE_description);
-      const char* routeDesc = nullptr;
-      if (descProp != nullptr) {
-        spa_pod_get_string(&descProp->value, &routeDesc);
-      }
-
       DeviceRouteData route;
       route.index = routeIndex >= 0 ? routeIndex : -1;
       route.device = routeDevice;
       route.direction = routeDirection;
       route.priority = routePriority;
       route.available = routeAvailable;
-      route.description = routeDesc != nullptr ? routeDesc : "";
       if (routeProps != nullptr) {
         spa_pod_prop* prop = nullptr;
         auto* propsObj = reinterpret_cast<spa_pod_object*>(const_cast<spa_pod*>(routeProps));
@@ -1377,12 +1370,6 @@ void PipeWireService::onDeviceInfo(std::uint32_t id, const pw_device_info* info)
     return;
   }
 
-  if (info->props != nullptr) {
-    if (const char* desc = spa_dict_lookup(info->props, PW_KEY_DEVICE_DESCRIPTION); desc != nullptr) {
-      it->second.description = desc;
-    }
-  }
-
   if ((info->change_mask & PW_DEVICE_CHANGE_MASK_PARAMS) != 0) {
     for (std::uint32_t i = 0; i < info->n_params; ++i) {
       if (info->params[i].id == SPA_PARAM_Route) {
@@ -1424,12 +1411,6 @@ void PipeWireService::onDeviceParam(
     spa_pod_get_id(&availProp->value, &routeAvailable);
   }
 
-  const spa_pod_prop* descProp = spa_pod_find_prop(param, nullptr, SPA_PARAM_ROUTE_description);
-  const char* routeDesc = nullptr;
-  if (descProp != nullptr) {
-    spa_pod_get_string(&descProp->value, &routeDesc);
-  }
-
   bool muted = false;
   if (routeProps != nullptr) {
     spa_pod_prop* prop = nullptr;
@@ -1451,7 +1432,6 @@ void PipeWireService::onDeviceParam(
   route.priority = routePriority;
   route.available = routeAvailable;
   route.muted = muted;
-  route.description = routeDesc != nullptr ? routeDesc : "";
   upsertRoute(it->second.routes, route);
 
   // Device volume is authoritative through mixer-api; only route mute feeds effective mute here.
@@ -1604,21 +1584,6 @@ void PipeWireService::rebuildState() {
     return addCapture(PrivacyCaptureKind::Microphone, node->id, privacyAppName(*node));
   };
 
-  // Count sinks/sources per device: a device exposing several (e.g. an HDA card with HDMI + Speaker)
-  // is labelled by its distinguishing port name; a single-output device by its own name.
-  std::unordered_map<std::uint32_t, int> sinkCountByDevice;
-  std::unordered_map<std::uint32_t, int> sourceCountByDevice;
-  for (const auto& [id, nd] : m_nodes) {
-    if (nd == nullptr || nd->deviceId == 0) {
-      continue;
-    }
-    if (nd->mediaClass == "Audio/Sink") {
-      ++sinkCountByDevice[nd->deviceId];
-    } else if (nd->mediaClass == "Audio/Source") {
-      ++sourceCountByDevice[nd->deviceId];
-    }
-  }
-
   for (const auto& [id, nd] : m_nodes) {
     AudioNode node;
     node.id = id;
@@ -1652,25 +1617,6 @@ void PipeWireService::rebuildState() {
     const bool hasDirRoutes = std::ranges::any_of(nd->routes, matchesDir)
         || (device != nullptr && std::ranges::any_of(device->routes, matchesDir));
     node.available = activeRoute != nullptr || !hasDirRoutes;
-
-    // Concise label. A device with several sinks/sources gets its distinguishing port suffix (the
-    // node description after the shared card name), since routes can't tell HiFi HDA sinks apart; a
-    // single-output device gets its own name (the bare port like "Analog Stereo" is useless there).
-    // Empty -> UI falls back to the full description.
-    if (device != nullptr && !device->description.empty()) {
-      const auto& countByDevice = nd->mediaClass == "Audio/Source" ? sourceCountByDevice : sinkCountByDevice;
-      const auto countIt = countByDevice.find(nd->deviceId);
-      const int deviceOutputs = countIt != countByDevice.end() ? countIt->second : 0;
-      if (deviceOutputs > 1 && nd->description.starts_with(device->description)) {
-        std::string_view suffix = std::string_view(nd->description).substr(device->description.size());
-        while (!suffix.empty() && (suffix.front() == ' ' || suffix.front() == '-')) {
-          suffix.remove_prefix(1);
-        }
-        node.portName = std::string(suffix);
-      } else {
-        node.portName = device->description;
-      }
-    }
 
     if (nd->mediaClass == "Audio/Sink") {
       node.isDefault = (nd->name == m_defaultSinkName);

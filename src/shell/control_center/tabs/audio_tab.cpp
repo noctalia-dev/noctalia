@@ -726,12 +726,8 @@ namespace {
     }
   }
 
-  // Prefer the short port/profile name ("Speaker", "HDMI / DisplayPort 3") over the long full
-  // description, which shares a common prefix across a card's ports and truncates to look identical.
+  // Prefer PipeWire's human-readable sink/source node description over the generic node name.
   [[nodiscard]] std::string audioDeviceLabel(const AudioNode& node) {
-    if (!node.portName.empty()) {
-      return node.portName;
-    }
     return !node.description.empty() ? node.description : node.name;
   }
 
@@ -1299,8 +1295,6 @@ namespace {
       key += device.available ? '1' : '0';
       key.push_back(':');
       key += device.name;
-      key.push_back(':');
-      key += device.portName;
       key.push_back(':');
       key += device.description;
       key.push_back('\n');
