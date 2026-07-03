@@ -1108,6 +1108,16 @@ string_utils_test = executable('string_utils_test',
 
 test('string_utils', string_utils_test)
 
+ical_recurrence_test = executable('ical_recurrence_test',
+  sources: files(
+    'tests/ical_recurrence_test.cpp',
+    'src/calendar/ical_parser.cpp',
+  ),
+  include_directories: _noctalia_inc,
+)
+
+test('ical_recurrence', ical_recurrence_test)
+
 time_format_test = executable('time_format_test',
   sources: files(
     'tests/time_format_test.cpp',

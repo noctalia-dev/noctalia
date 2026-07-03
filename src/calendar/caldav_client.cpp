@@ -73,7 +73,7 @@ namespace calendar {
 
     const std::string calendarName = account.calendarName;
     const std::string color = account.color;
-    http.request(std::move(req), [cb = std::move(cb), calendarName, color](HttpResponse resp) {
+    http.request(std::move(req), [cb = std::move(cb), calendarName, color, start, end](HttpResponse resp) {
       if (!resp.transportOk || (resp.status != 207 && resp.status != 200)) {
         kLog.warn("caldav REPORT failed http={}", resp.status);
         cb(false, {});
@@ -98,7 +98,7 @@ namespace calendar {
 
       std::vector<CalendarEvent> events;
       for (const std::string& ics : calendarDataBlocks) {
-        for (CalendarEvent& event : parseICalEvents(ics)) {
+        for (CalendarEvent& event : parseICalEvents(ics, start, end)) {
           event.calendarName = calendarName;
           event.colorHex = color;
           events.push_back(std::move(event));
