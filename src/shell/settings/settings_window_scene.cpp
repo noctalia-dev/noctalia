@@ -1029,11 +1029,23 @@ void SettingsWindow::rebuildSettingsContent() {
                 [this](std::string id) {
                   if (m_pluginManager != nullptr) {
                     m_pluginManager->remove(id);
+                    m_pendingDeletePluginId.clear();
                     markPluginListDirty();
                     requestSceneRebuild();
                   }
                 },
             .openStore = [this]() { openPluginStore(); },
+            .pendingDeletePluginId = m_pendingDeletePluginId,
+            .requestDeleteConfirm =
+                [this](std::string id) {
+                  m_pendingDeletePluginId = std::move(id);
+                  requestSceneRebuild();
+                },
+            .cancelDelete =
+                [this]() {
+                  m_pendingDeletePluginId.clear();
+                  requestSceneRebuild();
+                },
         }
     );
   }

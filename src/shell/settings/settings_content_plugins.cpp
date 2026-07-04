@@ -38,6 +38,70 @@ namespace settings {
       });
     }
 
+    std::unique_ptr<Button> makeConfirmButton(
+        std::string text, ButtonVariant variant, float scale, std::function<void()> onClick, std::string glyph = {}
+    ) {
+      ui::ButtonProps props;
+      props.text = std::move(text);
+      if (!glyph.empty()) {
+        props.glyph = std::move(glyph);
+        props.glyphSize = Style::fontSizeBody * scale;
+      }
+      props.fontSize = Style::fontSizeCaption * scale;
+      props.variant = variant;
+      props.minHeight = Style::controlHeightSm * scale;
+      props.paddingV = Style::spaceXs * scale;
+      props.paddingH = Style::spaceSm * scale;
+      props.radius = Style::scaledRadiusSm(scale);
+      props.onClick = std::move(onClick);
+      return ui::button(std::move(props));
+    }
+
+    std::unique_ptr<Flex>
+    pluginDeleteConfirmPanel(const scripting::PluginStatus& plugin, const SettingsPluginsContext& ctx, float scale) {
+      auto panel = ui::column({
+          .align = FlexAlign::Stretch,
+          .gap = Style::spaceXs * scale,
+          .padding = Style::spaceSm * scale,
+          .configure = [scale](Flex& p) {
+            p.setRadius(Style::scaledRadiusSm(scale));
+            p.setFill(colorSpecFromRole(ColorRole::Error, 0.10f));
+            p.setBorder(colorSpecFromRole(ColorRole::Error, 0.5f), Style::borderWidth);
+          },
+      });
+      panel->addChild(makeLabel(
+          i18n::tr("settings.plugins.plugins.delete-confirm-title", "name", plugin.name), Style::fontSizeBody * scale,
+          ColorRole::Error, FontWeight::Bold
+      ));
+      panel->addChild(makeLabel(
+          i18n::tr("settings.plugins.plugins.delete-confirm-desc"), Style::fontSizeCaption * scale,
+          ColorRole::OnSurfaceVariant
+      ));
+      panel->addChild(
+          ui::row(
+              {.align = FlexAlign::Center, .gap = Style::spaceSm * scale}, ui::spacer(),
+              makeConfirmButton(
+                  i18n::tr("common.actions.cancel"), ButtonVariant::Ghost, scale,
+                  [cb = ctx.cancelDelete]() {
+                    if (cb) {
+                      cb();
+                    }
+                  }
+              ),
+              makeConfirmButton(
+                  i18n::tr("settings.plugins.plugins.delete"), ButtonVariant::Destructive, scale,
+                  [cb = ctx.onRemove, id = plugin.id]() {
+                    if (cb) {
+                      cb(id);
+                    }
+                  },
+                  "trash"
+              )
+          )
+      );
+      return panel;
+    }
+
     bool pluginEnabled(const scripting::PluginStatus& plugin, const SettingsPluginsContext& ctx) {
       if (ctx.config == nullptr) {
         return plugin.enabled;
@@ -243,7 +307,7 @@ namespace settings {
                 .glyphSize = Style::fontSizeBody * scale,
                 .variant = ButtonVariant::Ghost,
                 .tooltip = i18n::tr("settings.plugins.plugins.remove"),
-                .onClick = [cb = ctx.onRemove, id = plugin.id]() {
+                .onClick = [cb = ctx.requestDeleteConfirm, id = plugin.id]() {
                   if (cb) {
                     cb(id);
                   }
@@ -626,6 +690,9 @@ namespace settings {
     });
     for (const auto& plugin : plugins) {
       section->addChild(pluginRow(plugin, ctx, scale));
+      if (!ctx.pendingDeletePluginId.empty() && ctx.pendingDeletePluginId == plugin.id) {
+        section->addChild(pluginDeleteConfirmPanel(plugin, ctx, scale));
+      }
     }
   }
 

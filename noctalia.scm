@@ -70,13 +70,6 @@
     (build-system meson-build-system)
     (arguments
      (list #:build-type "release"
-           ;; FIXME: process_test fails with:
-           ;; --8<---------------cut here---------------start------------->8---
-           ;; stderr:
-           ;; process_test: completion-only async command exit code was wrong
-           ;; process_test: completion-only async command stdout was wrong
-           ;; --8<---------------cut here---------------end--------------->8---
-           #:tests? #f
            #:phases
            #~(modify-phases %standard-phases
                (add-after 'unpack 'prepare-for-build
@@ -112,7 +105,8 @@
            polkit
            sdbus-c++
            wayland
-           wayland-protocols-1.48))
+           wayland-protocols-1.48
+           wireplumber))
     (home-page "https://noctalia.dev/")
     (synopsis "Wayland shell and bar")
     (description

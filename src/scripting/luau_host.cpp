@@ -673,7 +673,8 @@ namespace {
     }
     double mtime = 0.0;
     if (const auto writeTime = std::filesystem::last_write_time(target, ec); !ec) {
-      const auto sysTime = std::chrono::clock_cast<std::chrono::system_clock>(writeTime);
+      const auto sysTime = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+          writeTime - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now());
       mtime = std::chrono::duration<double>(sysTime.time_since_epoch()).count();
     }
     lua_createtable(L, 0, 3);

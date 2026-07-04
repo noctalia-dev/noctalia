@@ -1321,6 +1321,9 @@
       },
       "plugins": {
         "configure": "Configure",
+        "delete": "Delete",
+        "delete-confirm-desc": "This plugin will be uninstalled and removed from disk.",
+        "delete-confirm-title": "Delete \"{name}\"?",
         "deprecated": "deprecated",
         "empty": "No enabled plugins.",
         "loading": "Loading plugins...",
