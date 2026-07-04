@@ -4,7 +4,7 @@
 #include "core/process/process.h"
 
 #include <chrono>
-#include <json.hpp>
+#include <nlohmann/json.hpp>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>

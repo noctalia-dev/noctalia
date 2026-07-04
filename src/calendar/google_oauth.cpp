@@ -1,7 +1,7 @@
 #include "calendar/google_oauth.h"
 
 #include "core/log.h"
-#include "json.hpp"
+#include "nlohmann/json.hpp"
 #include "net/http_client.h"
 
 namespace calendar {

@@ -2,7 +2,7 @@
 
 #include "compositors/triad/triad_runtime.h"
 
-#include <json.hpp>
+#include <nlohmann/json.hpp>
 
 namespace {
 

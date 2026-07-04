@@ -3,7 +3,7 @@
 #include "compositors/triad/triad_runtime.h"
 #include "core/log.h"
 
-#include <json.hpp>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 

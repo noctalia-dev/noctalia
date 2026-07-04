@@ -2,7 +2,7 @@
 
 #include "config/config_service.h"
 #include "core/log.h"
-#include "json.hpp"
+#include "nlohmann/json.hpp"
 #include "net/http_client.h"
 #include "system/distro_info.h"
 #include "system/hardware_info.h"

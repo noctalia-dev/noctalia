@@ -3,7 +3,7 @@
 #include "config/config_service.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
-#include "json.hpp"
+#include "nlohmann/json.hpp"
 #include "net/http_client.h"
 #include "util/string_utils.h"
 

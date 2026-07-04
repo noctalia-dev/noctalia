@@ -4,7 +4,7 @@
 #include "compositors/workspace_backend.h"
 
 #include <cstddef>
-#include <json.hpp>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <unordered_map>

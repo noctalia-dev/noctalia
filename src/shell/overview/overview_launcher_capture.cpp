@@ -10,7 +10,7 @@
 #include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 
-#include <json.hpp>
+#include <nlohmann/json.hpp>
 #include <string>
 
 namespace {

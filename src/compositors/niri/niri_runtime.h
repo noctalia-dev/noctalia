@@ -1,7 +1,7 @@
 #pragma once
 
 #include <chrono>
-#include <json.hpp>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <poll.h>
 #include <string>

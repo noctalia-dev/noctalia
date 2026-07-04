@@ -4,7 +4,7 @@
 #include "compositors/niri/niri_event_handler.h"
 
 #include <functional>
-#include <json.hpp>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <string_view>

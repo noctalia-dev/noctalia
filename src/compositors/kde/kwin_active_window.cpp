@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
-#include <json.hpp>
+#include <nlohmann/json.hpp>
 #include <sdbus-c++/sdbus-c++.h>
 #include <unordered_set>
 
