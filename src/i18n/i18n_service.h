@@ -39,6 +39,7 @@ namespace i18n {
       {"en", "English"},
       {"es", "Español"},
       {"fr", "Français"},
+      {"gl-ES", "Galego"}
       {"hu", "Magyar"},
       {"it", "Italiano"},
       {"ku", "Kurdî"},
