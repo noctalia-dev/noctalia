@@ -1771,10 +1771,10 @@ bool PipeWireService::applyNodeVolume(std::uint32_t id, float volume) {
   // committed value back through onMixerVolumeChanged.
   const bool isDeviceNode = nd.mediaClass == "Audio/Sink" || nd.mediaClass == "Audio/Source";
   if (isDeviceNode) {
-    if (m_wpMixer != nullptr) {
-      m_wpMixer->setVolume(id, volume);
-    }
     if (std::abs(nd.volume - volume) >= 0.0001f) {
+      if (m_wpMixer != nullptr) {
+        m_wpMixer->setVolume(id, volume);
+      }
       nd.volume = volume;
       return true;
     }
@@ -1816,6 +1816,13 @@ float PipeWireService::relativeAdjustTarget(
 ) {
   const auto now = std::chrono::steady_clock::now();
   const bool held = m_relativeAdjust.gesture == gesture && (now - m_relativeAdjust.lastAt) <= kVolumeHoldWindow;
+
+  // Rate-limit: return the last target if repeat events arrive faster than once every 80ms
+  constexpr auto kMinIpcInterval = std::chrono::milliseconds(80);
+  if (held && (now - m_relativeAdjust.lastAt) < kMinIpcInterval) {
+    return m_relativeAdjust.target;
+  }
+
   m_relativeAdjust.gesture = gesture;
   m_relativeAdjust.lastAt = now;
 
