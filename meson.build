@@ -188,7 +188,7 @@ else
 endif
 
 # ── Vendored: nlohmann (header-only) ─────────────────────────────────
-if get_option('system_nlohmann')
+if get_option('system_nlohmann_json')
   nlohmann_dep = dependency('nlohmann_json')
 else
   nlohmann_dep = declare_dependency(
