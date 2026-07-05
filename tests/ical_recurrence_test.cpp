@@ -75,5 +75,16 @@ int main() {
     ok = expectCount(ics, start, end, 31, "old unbounded daily reaches window") && ok;
   }
 
+  // All-day (VALUE=DATE) MONTHLY on the 1st, over a one-year window, is exactly 12 - one per month.
+  // The old code derived the day-of-month from floor<days> of the UTC instant, which for a zone east
+  // of UTC rolls back to the previous civil day (the 31st of Dec), so months without a 31st were
+  // dropped. Correct behaviour is zone-independent. Window is padded ±half-month so each local-midnight
+  // occurrence lands inside regardless of the running zone's UTC offset.
+  {
+    const std::string ics = "BEGIN:VEVENT\r\nUID:ad\r\nSUMMARY:s\r\nDTSTART;VALUE=DATE:20240101\r\n"
+                            "DTEND;VALUE=DATE:20240102\r\nRRULE:FREQ=MONTHLY\r\nEND:VEVENT\r\n";
+    ok = expectCount(ics, utc(2023, 12, 15), utc(2024, 12, 15), 12, "all-day monthly civil date") && ok;
+  }
+
   return ok ? 0 : 1;
 }

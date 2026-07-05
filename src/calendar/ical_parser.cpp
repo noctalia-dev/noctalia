@@ -254,8 +254,34 @@ namespace calendar {
       }
 
       const auto duration = base.end - base.start;
-      const sys_days startDay = floor<days>(base.start);
-      const auto tod = base.start - startDay;
+
+      // For all-day (VALUE=DATE) events, base.start is local midnight stored as UTC, so flooring the
+      // UTC instant to a day lands on the previous civil day for zones east of UTC. Recover the civil
+      // date from the local zone and rebuild each occurrence's instant through it (also fixes DST drift).
+      sys_days startDay;
+      system_clock::duration tod{0};
+      if (base.allDay) {
+        try {
+          startDay = sys_days{year_month_day{floor<days>(current_zone()->to_local(base.start))}};
+        } catch (...) {
+          startDay = floor<days>(base.start);
+        }
+      } else {
+        startDay = floor<days>(base.start);
+        tod = base.start - startDay;
+      }
+
+      const auto occInstant = [&](sys_days civilDay) -> system_clock::time_point {
+        if (base.allDay) {
+          const local_days ld{year_month_day{civilDay}};
+          try {
+            return toSystem(time_point_cast<seconds>(current_zone()->to_sys(ld)));
+          } catch (...) {
+            return toSystem(sys_days{year_month_day{civilDay}});
+          }
+        }
+        return civilDay + tod;
+      };
 
       const auto excluded = [&](system_clock::time_point t) { return std::ranges::find(exdates, t) != exdates.end(); };
       int occurrenceNo = 0; // counts every occurrence (in or out of window) toward COUNT
@@ -287,7 +313,7 @@ namespace calendar {
           i0 = static_cast<int>(duration_cast<days>(windowStart - base.start).count() / rule.interval);
         }
         for (int i = i0; i < i0 + kMaxIterations; ++i) {
-          if (!step(base.start + days{i * rule.interval}))
+          if (!step(occInstant(startDay + days{i * rule.interval})))
             break;
         }
         break;
@@ -305,7 +331,7 @@ namespace calendar {
           const sys_days weekMonday = baseMonday + weeks{k * rule.interval};
           for (const weekday wd : byDay) {
             const sys_days occDay = weekMonday + days{wd.iso_encoding() - 1};
-            const system_clock::time_point occ = occDay + tod;
+            const system_clock::time_point occ = occInstant(occDay);
             if (occ < base.start)
               continue; // days earlier in the first week than DTSTART
             if (!step(occ)) {
@@ -324,7 +350,7 @@ namespace calendar {
           const year_month_day occYmd{ym.year(), ym.month(), ymd0.day()};
           if (!occYmd.ok())
             continue; // e.g. day 31 in a short month: RFC skips it
-          if (!step(sys_days{occYmd} + tod))
+          if (!step(occInstant(sys_days{occYmd})))
             break;
         }
         break;
@@ -335,7 +361,7 @@ namespace calendar {
           const year_month_day occYmd{ymd0.year() + years{y}, ymd0.month(), ymd0.day()};
           if (!occYmd.ok())
             continue; // Feb 29 in a non-leap year
-          if (!step(sys_days{occYmd} + tod))
+          if (!step(occInstant(sys_days{occYmd})))
             break;
         }
         break;
