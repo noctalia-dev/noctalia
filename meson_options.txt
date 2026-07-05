@@ -2,4 +2,4 @@ option('jemalloc', type: 'feature', value: 'auto', description: 'Use jemalloc on
 option('tests', type: 'feature', value: 'auto', description: 'Build unit tests (auto: on for unsanitized debug builds)')
 option('system_md4c', type: 'boolean', value: false, description: 'Use system md4c instead of vendored')
 option('system_tomlplusplus', type: 'boolean', value: false, description: 'Use system tomlplusplus instead of vendored')
-option('system_nlohmann_json', type: 'boolean', value: false, description: 'Use system nlohmann instead of vendored')
+option('system_nlohmann_json', type: 'boolean', value: false, description: 'Use system nlohmann json instead of vendored')
