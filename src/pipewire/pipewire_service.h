@@ -229,7 +229,6 @@ private:
   relativeAdjustTarget(int gesture, float baseStep, float direction, float current, float maxVolume);
   struct RelativeAdjust {
     std::chrono::steady_clock::time_point lastAt;
-    float heldSeconds = 0.0f;
     float target = 0.0f;
     int gesture = 0;
   };

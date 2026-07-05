@@ -1816,29 +1816,18 @@ float PipeWireService::relativeAdjustTarget(
 ) {
   const auto now = std::chrono::steady_clock::now();
   const bool held = m_relativeAdjust.gesture == gesture && (now - m_relativeAdjust.lastAt) <= kVolumeHoldWindow;
-  const float dt =
-      held ? std::min(std::chrono::duration<float>(now - m_relativeAdjust.lastAt).count(), kVolumeHoldMaxDt) : 0.0f;
   m_relativeAdjust.gesture = gesture;
   m_relativeAdjust.lastAt = now;
 
   if (!held) {
     // Isolated tap or new gesture: a fixed, granular step from the live volume.
-    m_relativeAdjust.heldSeconds = 0.0f;
     m_relativeAdjust.target = std::clamp(current + direction * baseStep, 0.0f, maxVolume);
     return m_relativeAdjust.target;
   }
 
-  // Held: advance the gesture-local target by velocity * capped event-time credit. Accumulating the
-  // target across the gesture keeps stale daemon echoes in the read-back volume from rubber-banding
-  // the ramp, and capping dt makes an arrival gap (keyboard repeat delay, IPC spawn jitter) worth
-  // about one base step instead of a jump. The velocity ramp advances by the same capped credit, so
-  // acceleration follows the event flow rather than the wall clock. The per-event cap of one base
-  // step keeps burst sources (rotary knobs) proportional to their tick count.
-  const float baseVel = baseStep / kVolumeHoldMaxDt;
-  const float velocity = std::min(kVolumeHoldMaxVel, baseVel + kVolumeHoldAccel * m_relativeAdjust.heldSeconds);
-  m_relativeAdjust.heldSeconds += dt;
-  const float delta = std::min(velocity * dt, baseStep);
-  m_relativeAdjust.target = std::clamp(m_relativeAdjust.target + direction * delta, 0.0f, maxVolume);
+  // Held: advance the gesture-local target by a flat baseStep on every event, relying on
+  // the gesture-local target accumulator to bypass asynchronous read-back echoes.
+  m_relativeAdjust.target = std::clamp(m_relativeAdjust.target + direction * baseStep, 0.0f, maxVolume);
   return m_relativeAdjust.target;
 }
 

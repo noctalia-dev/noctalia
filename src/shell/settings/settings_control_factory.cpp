@@ -52,8 +52,11 @@ namespace settings {
     // Horizontal space the leading invert slot occupies: corner glyph + gap + a Small toggle.
     // Invertible sliders give this much (plus the row gap) back from their track so the toggle tucks
     // in on the left without widening the control cluster.
-    constexpr float kInvertSlotContentWidth = Style::fontSizeBody + Style::spaceXs + Style::toggleThumbSizeSm
-        + (2.0f * Style::toggleInsetSm) + Style::toggleTravelSm;
+    constexpr float kInvertSlotContentWidth = Style::fontSizeBody
+        + Style::spaceXs
+        + Style::toggleThumbSizeSm
+        + (2.0f * Style::toggleInsetSm)
+        + Style::toggleTravelSm;
 
     // Leading slot carrying the concave-corner invert toggle: a corner glyph (labelling the toggle
     // in lieu of a text caption) plus a Small toggle. The slot sizes to its content. Reserve builds
