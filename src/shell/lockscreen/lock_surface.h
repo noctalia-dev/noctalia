@@ -22,6 +22,7 @@ struct wl_output;
 
 class Button;
 class Box;
+class Flex;
 class Input;
 class Label;
 class SharedTextureCache;
@@ -99,7 +100,8 @@ private:
   WallpaperNode* m_wallpaper = nullptr;
   Box* m_tintOverlay = nullptr;
   Box* m_backdrop = nullptr;
-  Box* m_loginPanel = nullptr;
+  Flex* m_loginPanel = nullptr;
+  Flex* m_loginContentRow = nullptr;
   Input* m_passwordField = nullptr;
   Button* m_loginButton = nullptr;
   Button* m_layoutChip = nullptr;
