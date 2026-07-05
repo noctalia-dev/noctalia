@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -26,8 +27,9 @@ namespace {
     std::ranges::sort(actual);
     std::ranges::sort(expected);
     if (actual != expected) {
-      std::fprintf(stderr, "ical_recurrence_test: %s: expected %zu starts, got %zu\n", message, expected.size(),
-          actual.size());
+      std::fprintf(
+          stderr, "ical_recurrence_test: %s: expected %zu starts, got %zu\n", message, expected.size(), actual.size()
+      );
       for (const auto& t : actual) {
         std::fprintf(stderr, "  got %lld\n", static_cast<long long>(t.time_since_epoch().count()));
       }
@@ -55,9 +57,36 @@ namespace {
     return true;
   }
 
+  bool expectRanges(
+      const std::string& ics, system_clock::time_point start, system_clock::time_point end,
+      std::vector<std::pair<system_clock::time_point, system_clock::time_point>> expected, const char* message
+  ) {
+    std::vector<std::pair<system_clock::time_point, system_clock::time_point>> actual;
+    for (const auto& ev : calendar::parseICalEvents(ics, start, end)) {
+      actual.emplace_back(ev.start, ev.end);
+    }
+    std::ranges::sort(actual);
+    std::ranges::sort(expected);
+    if (actual != expected) {
+      std::fprintf(
+          stderr, "ical_recurrence_test: %s: expected %zu ranges, got %zu\n", message, expected.size(), actual.size()
+      );
+      for (const auto& [s, e] : actual) {
+        std::fprintf(
+            stderr, "  got %lld..%lld\n", static_cast<long long>(s.time_since_epoch().count()),
+            static_cast<long long>(e.time_since_epoch().count())
+        );
+      }
+      return false;
+    }
+    return true;
+  }
+
 } // namespace
 
 int main() {
+  setenv("TZ", "Europe/Kyiv", 1);
+
   const auto start = utc(2024, 1, 1);
   const auto end = utc(2024, 2, 1);
   bool ok = true;
@@ -110,17 +139,31 @@ int main() {
     ok = expectCount(ics, utc(2023, 12, 15), utc(2024, 12, 15), 12, "all-day monthly civil date") && ok;
   }
 
+  // Multi-day all-day recurrences must preserve their civil-day span, not a fixed UTC duration.
+  // 2024-03-30..2024-04-01 in Europe/Kyiv is 47 UTC hours because DST starts on Mar 31; applying
+  // that duration to the May occurrence would end it at 23:00 local on May 31 instead of midnight Jun 1.
+  {
+    const std::string ics = "BEGIN:VEVENT\r\nUID:dst\r\nSUMMARY:s\r\nDTSTART;VALUE=DATE:20240330\r\n"
+                            "DTEND;VALUE=DATE:20240401\r\nRRULE:FREQ=MONTHLY;COUNT=3\r\nEND:VEVENT\r\n";
+    ok = expectRanges(
+             ics, utc(2024, 5, 1), utc(2024, 6, 15), {{utc(2024, 5, 29, 21), utc(2024, 5, 31, 21)}},
+             "all-day monthly preserves civil end across dst"
+         )
+        && ok;
+  }
+
   // RECURRENCE-ID override: a modified instance replaces the master's occurrence at that instant,
   // it does not add a duplicate. Master DAILY COUNT=3 (Jan 1/2/3 @09:00); the override moves Jan 3
   // to 14:00. Expect Jan 1 @09, Jan 2 @09, Jan 3 @14 - not four events, and no leftover Jan 3 @09.
   {
-    const std::string ics =
-        "BEGIN:VEVENT\r\nUID:x\r\nDTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\n"
-        "RRULE:FREQ=DAILY;COUNT=3\r\nEND:VEVENT\r\n"
-        "BEGIN:VEVENT\r\nUID:x\r\nRECURRENCE-ID:20240103T090000Z\r\n"
-        "DTSTART:20240103T140000Z\r\nDTEND:20240103T150000Z\r\nEND:VEVENT\r\n";
-    ok = expectStarts(ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 2, 9), utc(2024, 1, 3, 14)},
-             "recurrence-id override replaces occurrence")
+    const std::string ics = "BEGIN:VEVENT\r\nUID:x\r\nDTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\n"
+                            "RRULE:FREQ=DAILY;COUNT=3\r\nEND:VEVENT\r\n"
+                            "BEGIN:VEVENT\r\nUID:x\r\nRECURRENCE-ID:20240103T090000Z\r\n"
+                            "DTSTART:20240103T140000Z\r\nDTEND:20240103T150000Z\r\nEND:VEVENT\r\n";
+    ok = expectStarts(
+             ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 2, 9), utc(2024, 1, 3, 14)},
+             "recurrence-id override replaces occurrence"
+         )
         && ok;
   }
 

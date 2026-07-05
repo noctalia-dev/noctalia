@@ -258,15 +258,21 @@ namespace calendar {
 
       // For all-day (VALUE=DATE) events, base.start is local midnight stored as UTC, so flooring the
       // UTC instant to a day lands on the previous civil day for zones east of UTC. Recover the civil
-      // date from the local zone and rebuild each occurrence's instant through it (also fixes DST drift).
+      // date from the local zone and rebuild each occurrence's instant through it.
+      const auto localDay = [](system_clock::time_point t) -> sys_days {
+        try {
+          return sys_days{year_month_day{floor<days>(current_zone()->to_local(t))}};
+        } catch (...) {
+          return floor<days>(t);
+        }
+      };
       sys_days startDay;
+      days allDaySpan{0};
       system_clock::duration tod{0};
       if (base.allDay) {
-        try {
-          startDay = sys_days{year_month_day{floor<days>(current_zone()->to_local(base.start))}};
-        } catch (...) {
-          startDay = floor<days>(base.start);
-        }
+        startDay = localDay(base.start);
+        const sys_days endDay = localDay(base.end);
+        allDaySpan = std::max(days{0}, endDay - startDay);
       } else {
         startDay = floor<days>(base.start);
         tod = base.start - startDay;
@@ -286,7 +292,8 @@ namespace calendar {
 
       const auto excluded = [&](system_clock::time_point t) { return std::ranges::find(exdates, t) != exdates.end(); };
       int occurrenceNo = 0; // counts every occurrence (in or out of window) toward COUNT
-      const auto step = [&](system_clock::time_point occ) -> bool {
+      const auto step = [&](sys_days occDay) -> bool {
+        const system_clock::time_point occ = occInstant(occDay);
         if (rule.until && occ > *rule.until)
           return false;
         if (occ > windowEnd)
@@ -297,7 +304,7 @@ namespace calendar {
         if (occ >= windowStart && !excluded(occ)) {
           CalendarEvent ev = base;
           ev.start = occ;
-          ev.end = occ + duration;
+          ev.end = base.allDay ? occInstant(occDay + allDaySpan) : occ + duration;
           out.push_back(std::move(ev));
         }
         return true;
@@ -314,7 +321,7 @@ namespace calendar {
           i0 = static_cast<int>(duration_cast<days>(windowStart - base.start).count() / rule.interval);
         }
         for (int i = i0; i < i0 + kMaxIterations; ++i) {
-          if (!step(occInstant(startDay + days{i * rule.interval})))
+          if (!step(startDay + days{i * rule.interval}))
             break;
         }
         break;
@@ -335,7 +342,7 @@ namespace calendar {
             const system_clock::time_point occ = occInstant(occDay);
             if (occ < base.start)
               continue; // days earlier in the first week than DTSTART
-            if (!step(occ)) {
+            if (!step(occDay)) {
               stop = true;
               break;
             }
@@ -351,7 +358,7 @@ namespace calendar {
           const year_month_day occYmd{ym.year(), ym.month(), ymd0.day()};
           if (!occYmd.ok())
             continue; // e.g. day 31 in a short month: RFC skips it
-          if (!step(occInstant(sys_days{occYmd})))
+          if (!step(sys_days{occYmd}))
             break;
         }
         break;
@@ -362,7 +369,7 @@ namespace calendar {
           const year_month_day occYmd{ymd0.year() + years{y}, ymd0.month(), ymd0.day()};
           if (!occYmd.ok())
             continue; // Feb 29 in a non-leap year
-          if (!step(occInstant(sys_days{occYmd})))
+          if (!step(sys_days{occYmd}))
             break;
         }
         break;
