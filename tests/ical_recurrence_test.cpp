@@ -1,8 +1,10 @@
 #include "calendar/ical_parser.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -10,6 +12,28 @@ namespace {
 
   system_clock::time_point utc(int y, int mo, int d, int h = 0) {
     return sys_days{year{y} / month{static_cast<unsigned>(mo)} / day{static_cast<unsigned>(d)}} + hours{h};
+  }
+
+  // Assert the parsed occurrences' start instants exactly match `expected` (order-independent).
+  bool expectStarts(
+      const std::string& ics, system_clock::time_point start, system_clock::time_point end,
+      std::vector<system_clock::time_point> expected, const char* message
+  ) {
+    std::vector<system_clock::time_point> actual;
+    for (const auto& ev : calendar::parseICalEvents(ics, start, end)) {
+      actual.push_back(ev.start);
+    }
+    std::ranges::sort(actual);
+    std::ranges::sort(expected);
+    if (actual != expected) {
+      std::fprintf(stderr, "ical_recurrence_test: %s: expected %zu starts, got %zu\n", message, expected.size(),
+          actual.size());
+      for (const auto& t : actual) {
+        std::fprintf(stderr, "  got %lld\n", static_cast<long long>(t.time_since_epoch().count()));
+      }
+      return false;
+    }
+    return true;
   }
 
   // A VEVENT starting Mon 2024-01-01 09:00 UTC (1h long), with the given extra property lines appended.
@@ -84,6 +108,20 @@ int main() {
     const std::string ics = "BEGIN:VEVENT\r\nUID:ad\r\nSUMMARY:s\r\nDTSTART;VALUE=DATE:20240101\r\n"
                             "DTEND;VALUE=DATE:20240102\r\nRRULE:FREQ=MONTHLY\r\nEND:VEVENT\r\n";
     ok = expectCount(ics, utc(2023, 12, 15), utc(2024, 12, 15), 12, "all-day monthly civil date") && ok;
+  }
+
+  // RECURRENCE-ID override: a modified instance replaces the master's occurrence at that instant,
+  // it does not add a duplicate. Master DAILY COUNT=3 (Jan 1/2/3 @09:00); the override moves Jan 3
+  // to 14:00. Expect Jan 1 @09, Jan 2 @09, Jan 3 @14 - not four events, and no leftover Jan 3 @09.
+  {
+    const std::string ics =
+        "BEGIN:VEVENT\r\nUID:x\r\nDTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\n"
+        "RRULE:FREQ=DAILY;COUNT=3\r\nEND:VEVENT\r\n"
+        "BEGIN:VEVENT\r\nUID:x\r\nRECURRENCE-ID:20240103T090000Z\r\n"
+        "DTSTART:20240103T140000Z\r\nDTEND:20240103T150000Z\r\nEND:VEVENT\r\n";
+    ok = expectStarts(ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 2, 9), utc(2024, 1, 3, 14)},
+             "recurrence-id override replaces occurrence")
+        && ok;
   }
 
   return ok ? 0 : 1;

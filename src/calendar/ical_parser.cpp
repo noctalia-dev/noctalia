@@ -4,6 +4,7 @@
 #include <charconv>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace calendar {
@@ -377,8 +378,17 @@ namespace calendar {
       std::string_view ics, std::chrono::system_clock::time_point windowStart,
       std::chrono::system_clock::time_point windowEnd
   ) {
-    std::vector<CalendarEvent> events;
     const std::vector<std::string> lines = unfold(ics);
+
+    // A parsed VEVENT held until every event is seen: RECURRENCE-ID overrides may appear before or
+    // after their master, so masters can't be expanded until the full set of overridden instants is known.
+    struct Parsed {
+      CalendarEvent event;
+      std::string_view rrule;
+      std::vector<std::chrono::system_clock::time_point> exdates;
+      std::optional<std::chrono::system_clock::time_point> recurrenceId;
+    };
+    std::vector<Parsed> parsed;
 
     bool inEvent = false;
     CalendarEvent event;
@@ -388,6 +398,7 @@ namespace calendar {
     bool endAllDay = false;
     std::string_view rrule;
     std::vector<std::chrono::system_clock::time_point> exdates;
+    std::optional<std::chrono::system_clock::time_point> recurrenceId;
 
     for (const std::string& line : lines) {
       if (line == "BEGIN:VEVENT") {
@@ -396,6 +407,7 @@ namespace calendar {
         haveStart = haveEnd = startAllDay = endAllDay = false;
         rrule = {};
         exdates.clear();
+        recurrenceId.reset();
         continue;
       }
       if (line == "END:VEVENT") {
@@ -404,12 +416,7 @@ namespace calendar {
             event.end = event.start;
           }
           event.allDay = startAllDay;
-          if (rrule.empty()) {
-            events.push_back(std::move(event));
-          } else {
-            // Server didn't honor <C:expand>; expand the RRULE ourselves.
-            expandRecurrence(event, parseRRule(rrule), exdates, windowStart, windowEnd, events);
-          }
+          parsed.push_back({std::move(event), rrule, std::move(exdates), recurrenceId});
         }
         inEvent = false;
         continue;
@@ -437,6 +444,9 @@ namespace calendar {
         }
       } else if (prop.name == "RRULE") {
         rrule = prop.value;
+      } else if (prop.name == "RECURRENCE-ID") {
+        bool ignored = false;
+        recurrenceId = parseDateTime(prop, ignored);
       } else if (prop.name == "EXDATE") {
         // May be a comma-separated list; each shares the line's TZID/VALUE params.
         std::string_view v = prop.value;
@@ -452,6 +462,29 @@ namespace calendar {
           p = comma == std::string_view::npos ? v.size() : comma + 1;
         }
       }
+    }
+
+    // A RECURRENCE-ID VEVENT is a modified instance: it replaces the master's occurrence at that
+    // instant. Collect those instants per UID and exclude them from the master's expansion, so the
+    // standalone override VEVENT is the only copy of that occurrence.
+    std::unordered_map<std::string, std::vector<std::chrono::system_clock::time_point>> overrides;
+    for (const Parsed& p : parsed) {
+      if (p.recurrenceId) {
+        overrides[p.event.id].push_back(*p.recurrenceId);
+      }
+    }
+
+    std::vector<CalendarEvent> events;
+    for (Parsed& p : parsed) {
+      if (p.rrule.empty()) {
+        events.push_back(std::move(p.event));
+        continue;
+      }
+      // Server didn't honor <C:expand>; expand the RRULE ourselves.
+      if (auto it = overrides.find(p.event.id); it != overrides.end()) {
+        p.exdates.insert(p.exdates.end(), it->second.begin(), it->second.end());
+      }
+      expandRecurrence(p.event, parseRRule(p.rrule), p.exdates, windowStart, windowEnd, events);
     }
 
     return events;
