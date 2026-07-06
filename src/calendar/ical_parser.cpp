@@ -113,8 +113,15 @@ namespace calendar {
       return std::chrono::time_point_cast<std::chrono::system_clock::duration>(t);
     }
 
-    // Parse an iCal DATE or DATE-TIME value into a UTC time_point. Sets allDay for DATE values.
-    std::optional<std::chrono::system_clock::time_point> parseDateTime(const PropertyLine& prop, bool& allDay) {
+    struct ParsedDateTime {
+      std::chrono::system_clock::time_point instant;
+      std::chrono::sys_days civilDay;
+      std::chrono::seconds timeOfDay{0};
+      const std::chrono::time_zone* zone = nullptr;
+      bool allDay = false;
+    };
+
+    std::optional<ParsedDateTime> parseDateTime(const PropertyLine& prop) {
       using namespace std::chrono;
       std::string_view v = prop.value;
       if (v.size() < 8) {
@@ -127,40 +134,46 @@ namespace calendar {
       if (!ymd.ok()) {
         return std::nullopt;
       }
+      const sys_days civilDay{ymd};
 
       if (prop.valueIsDate || v.size() < 15 || (v[8] != 'T')) {
-        allDay = true;
         // Local midnight of the date.
         const local_days ld{ymd};
         try {
-          return toSystem(time_point_cast<seconds>(current_zone()->to_sys(ld)));
+          return ParsedDateTime{
+              toSystem(time_point_cast<seconds>(current_zone()->to_sys(ld))), civilDay, {}, nullptr, true
+          };
         } catch (...) {
-          return toSystem(sys_days{ymd});
+          return ParsedDateTime{toSystem(civilDay), civilDay, {}, nullptr, true};
         }
       }
 
-      allDay = false;
       const int hour = toInt(v.substr(9, 2));
       const int minute = toInt(v.substr(11, 2));
       const int second = toInt(v.substr(13, 2));
       const auto timeOfDay = hours{hour} + minutes{minute} + seconds{second};
 
       if (v.back() == 'Z') {
-        return toSystem(sys_days{ymd} + timeOfDay);
+        return ParsedDateTime{toSystem(civilDay + timeOfDay), civilDay, timeOfDay, nullptr, false};
       }
 
       const local_seconds local = local_days{ymd} + timeOfDay;
       if (!prop.tzid.empty()) {
         try {
-          return toSystem(time_point_cast<seconds>(locate_zone(std::string(prop.tzid))->to_sys(local)));
+          const time_zone* zone = locate_zone(std::string(prop.tzid));
+          return ParsedDateTime{
+              toSystem(time_point_cast<seconds>(zone->to_sys(local))), civilDay, timeOfDay, zone, false
+          };
         } catch (...) {
           // Fall through to the local zone when the TZID is unknown.
         }
       }
       try {
-        return toSystem(time_point_cast<seconds>(current_zone()->to_sys(local)));
+        return ParsedDateTime{
+            toSystem(time_point_cast<seconds>(current_zone()->to_sys(local))), civilDay, timeOfDay, nullptr, false
+        };
       } catch (...) {
-        return toSystem(sys_days{ymd} + timeOfDay);
+        return ParsedDateTime{toSystem(civilDay + timeOfDay), civilDay, timeOfDay, nullptr, false};
       }
     }
 
@@ -194,6 +207,12 @@ namespace calendar {
       std::vector<std::chrono::weekday> byDay; // WEEKLY only
     };
 
+    struct RecurrenceZone {
+      const std::chrono::time_zone* zone = nullptr;
+      std::chrono::sys_days startDay;
+      std::chrono::seconds timeOfDay{0};
+    };
+
     RRule parseRRule(std::string_view value) {
       RRule rule;
       std::size_t pos = 0;
@@ -224,8 +243,9 @@ namespace calendar {
         } else if (key == "UNTIL") {
           PropertyLine p;
           p.value = val;
-          bool ignored = false;
-          rule.until = parseDateTime(p, ignored);
+          if (auto parsed = parseDateTime(p)) {
+            rule.until = parsed->instant;
+          }
         } else if (key == "BYDAY") {
           std::size_t p = 0;
           while (p < val.size()) {
@@ -241,12 +261,12 @@ namespace calendar {
       return rule;
     }
 
-    // Occurrences repeat at the same UTC instant shifted by whole days/weeks/months/years, so they can
-    // drift by an hour across a DST boundary — acceptable for display.
+    // Timed DTSTART values with TZID repeat at the same local wall time in that zone; UTC/floating
+    // values keep the previous UTC-based expansion.
     void expandRecurrence(
         const CalendarEvent& base, const RRule& rule, const std::vector<std::chrono::system_clock::time_point>& exdates,
-        std::chrono::system_clock::time_point windowStart, std::chrono::system_clock::time_point windowEnd,
-        std::vector<CalendarEvent>& out
+        const std::optional<RecurrenceZone>& recurrenceZone, std::chrono::system_clock::time_point windowStart,
+        std::chrono::system_clock::time_point windowEnd, std::vector<CalendarEvent>& out
     ) {
       using namespace std::chrono;
       if (rule.freq == RRule::Freq::None) {
@@ -273,6 +293,9 @@ namespace calendar {
         startDay = localDay(base.start);
         const sys_days endDay = localDay(base.end);
         allDaySpan = std::max(days{0}, endDay - startDay);
+      } else if (recurrenceZone) {
+        startDay = recurrenceZone->startDay;
+        tod = recurrenceZone->timeOfDay;
       } else {
         startDay = floor<days>(base.start);
         tod = base.start - startDay;
@@ -287,12 +310,20 @@ namespace calendar {
             return toSystem(sys_days{year_month_day{civilDay}});
           }
         }
+        if (recurrenceZone) {
+          const local_seconds local = time_point_cast<seconds>(local_days{year_month_day{civilDay}} + tod);
+          try {
+            return toSystem(time_point_cast<seconds>(recurrenceZone->zone->to_sys(local)));
+          } catch (...) {
+            return civilDay + tod;
+          }
+        }
         return civilDay + tod;
       };
 
-      // Our occurrences hold a constant UTC instant, but the server's EXDATE/RECURRENCE-ID carries the
-      // true local wall time, so the two drift by up to the DST offset. Occurrences are always >= 1 day
-      // apart, so a 12h tolerance matches the intended one across that drift without catching a neighbour.
+      // Legacy UTC-based occurrences can drift from the server's local-wall EXDATE/RECURRENCE-ID by a
+      // DST offset. Occurrences are always >= 1 day apart, so a 12h tolerance matches the intended one
+      // across that drift without catching a neighbour.
       const auto excluded = [&](system_clock::time_point t) {
         return std::ranges::any_of(exdates, [&](system_clock::time_point ex) {
           return std::chrono::abs(t - ex) < hours{12};
@@ -404,6 +435,7 @@ namespace calendar {
       std::string_view rrule;
       std::vector<std::chrono::system_clock::time_point> exdates;
       std::optional<std::chrono::system_clock::time_point> recurrenceId;
+      std::optional<RecurrenceZone> recurrenceZone;
     };
     std::vector<Parsed> parsed;
 
@@ -412,19 +444,20 @@ namespace calendar {
     bool haveStart = false;
     bool haveEnd = false;
     bool startAllDay = false;
-    bool endAllDay = false;
     std::string_view rrule;
     std::vector<std::chrono::system_clock::time_point> exdates;
     std::optional<std::chrono::system_clock::time_point> recurrenceId;
+    std::optional<RecurrenceZone> recurrenceZone;
 
     for (const std::string& line : lines) {
       if (line == "BEGIN:VEVENT") {
         inEvent = true;
         event = CalendarEvent{};
-        haveStart = haveEnd = startAllDay = endAllDay = false;
+        haveStart = haveEnd = startAllDay = false;
         rrule = {};
         exdates.clear();
         recurrenceId.reset();
+        recurrenceZone.reset();
         continue;
       }
       if (line == "END:VEVENT") {
@@ -433,7 +466,7 @@ namespace calendar {
             event.end = event.start;
           }
           event.allDay = startAllDay;
-          parsed.push_back({std::move(event), rrule, std::move(exdates), recurrenceId});
+          parsed.push_back({std::move(event), rrule, std::move(exdates), recurrenceId, recurrenceZone});
         }
         inEvent = false;
         continue;
@@ -450,20 +483,25 @@ namespace calendar {
       } else if (prop.name == "LOCATION") {
         event.location = unescapeText(prop.value);
       } else if (prop.name == "DTSTART") {
-        if (auto tp = parseDateTime(prop, startAllDay)) {
-          event.start = *tp;
+        if (auto parsed = parseDateTime(prop)) {
+          event.start = parsed->instant;
+          startAllDay = parsed->allDay;
           haveStart = true;
+          if (!parsed->allDay && parsed->zone != nullptr) {
+            recurrenceZone = RecurrenceZone{parsed->zone, parsed->civilDay, parsed->timeOfDay};
+          }
         }
       } else if (prop.name == "DTEND") {
-        if (auto tp = parseDateTime(prop, endAllDay)) {
-          event.end = *tp;
+        if (auto parsed = parseDateTime(prop)) {
+          event.end = parsed->instant;
           haveEnd = true;
         }
       } else if (prop.name == "RRULE") {
         rrule = prop.value;
       } else if (prop.name == "RECURRENCE-ID") {
-        bool ignored = false;
-        recurrenceId = parseDateTime(prop, ignored);
+        if (auto parsed = parseDateTime(prop)) {
+          recurrenceId = parsed->instant;
+        }
       } else if (prop.name == "EXDATE") {
         // May be a comma-separated list; each shares the line's TZID/VALUE params.
         std::string_view v = prop.value;
@@ -472,9 +510,8 @@ namespace calendar {
           const std::size_t comma = v.find(',', p);
           PropertyLine ex = prop;
           ex.value = comma == std::string_view::npos ? v.substr(p) : v.substr(p, comma - p);
-          bool ignored = false;
-          if (auto tp = parseDateTime(ex, ignored)) {
-            exdates.push_back(*tp);
+          if (auto parsed = parseDateTime(ex)) {
+            exdates.push_back(parsed->instant);
           }
           p = comma == std::string_view::npos ? v.size() : comma + 1;
         }
@@ -501,7 +538,7 @@ namespace calendar {
       if (auto it = overrides.find(p.event.id); it != overrides.end()) {
         p.exdates.insert(p.exdates.end(), it->second.begin(), it->second.end());
       }
-      expandRecurrence(p.event, parseRRule(p.rrule), p.exdates, windowStart, windowEnd, events);
+      expandRecurrence(p.event, parseRRule(p.rrule), p.exdates, p.recurrenceZone, windowStart, windowEnd, events);
     }
 
     return events;
