@@ -361,6 +361,9 @@ void WaylandToplevels::closeHandle(zwlr_foreign_toplevel_handle_v1* handle) {
 void WaylandToplevels::onHandleOutputEnter(zwlr_foreign_toplevel_handle_v1* handle, wl_output* output) {
   auto it = m_handles.find(handle);
   if (it != m_handles.end()) {
+    if (!std::ranges::contains(it->second.activeOutputs, output)) {
+      it->second.activeOutputs.push_back(output);
+    }
     if (it->second.output != output) {
       it->second.output = output;
       it->second.dirty = true;
@@ -371,10 +374,16 @@ void WaylandToplevels::onHandleOutputEnter(zwlr_foreign_toplevel_handle_v1* hand
 
 void WaylandToplevels::onHandleOutputLeave(zwlr_foreign_toplevel_handle_v1* handle, wl_output* output) {
   auto it = m_handles.find(handle);
-  if (it != m_handles.end() && it->second.output == output) {
-    it->second.output = nullptr;
-    it->second.dirty = true;
-    it->second.generation = ++m_generation;
+  if (it != m_handles.end()) {
+    const auto pos = std::ranges::find(it->second.activeOutputs, output);
+    if (pos != it->second.activeOutputs.end()) {
+      it->second.activeOutputs.erase(pos);
+    }
+    if (it->second.output == output) {
+      it->second.output = it->second.activeOutputs.empty() ? nullptr : it->second.activeOutputs.back();
+      it->second.dirty = true;
+      it->second.generation = ++m_generation;
+    }
   }
 }
 

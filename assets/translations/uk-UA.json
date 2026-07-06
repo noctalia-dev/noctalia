@@ -29,6 +29,7 @@
   "bar": {
     "screenshot": {
       "choose-display": "Виберіть екран",
+      "confirm-region": "Enter або пробіл: зробити знімок · Esc: скасувати · Натисніть ЛКМ і протягніть курсор, щоб вибрати область.",
       "fullscreen": "Весь екран",
       "region": "Вибрати регіон"
     },
@@ -36,19 +37,33 @@
       "active-window": {
         "no-active-window": "Немає активного вікна"
       },
+      "bluetooth": {
+        "connected": "З'єднані"
+      },
+      "brightness": {
+        "brightness": "Яскравість",
+        "display": "Дисплей"
+      },
       "lock-keys": {
         "caps": "Caps",
         "caps-short": "C",
         "num": "Num",
-        "num-short": "Н",
-        "scroll": "Прокрутка",
-        "scroll-short": "С"
+        "num-short": "N",
+        "scroll": "Scroll",
+        "scroll-short": "S"
       },
       "media": {
         "nothing-playing": "Нічого не грає",
         "playing": "Відтворення"
       },
       "network": {
+        "active": "Активна",
+        "connecting": "Триває з'єднання…",
+        "ip": "IP-адреса",
+        "no": "Ні",
+        "not-connected": "Не під'єднано",
+        "off": "Вимк.",
+        "on": "Увімк.",
         "wired": "Дротове"
       },
       "scripted": {
@@ -422,7 +437,7 @@
   },
   "internal-apps": {
     "settings": {
-      "display-name": "Налаштування"
+      "display-name": "Параметри"
     }
   },
   "launcher": {
@@ -581,10 +596,10 @@
   "power": {
     "battery": {
       "states": {
-        "battery": "Батарея",
+        "battery": "Акумулятор",
         "charging": "Заряджається",
         "discharging": "Розряджається",
-        "empty": "Порожньо",
+        "empty": "Розряджений",
         "pending-discharge": "Очікується розрядка",
         "plugged-in": "Підключено"
       },
@@ -886,7 +901,6 @@
         "overview": "Огляд",
         "pinned-apps": "Закріплені застосунки",
         "power": "Живлення",
-        "privacy-security": "Приватність та Безпека",
         "profile": "Профіль",
         "screen-corners": "Кути екрана",
         "screen-time": "Екранний час",

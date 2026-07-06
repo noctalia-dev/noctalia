@@ -1,7 +1,6 @@
 #include "system/internal_app_metadata.h"
 
 #include "core/files/resource_paths.h"
-#include "i18n/i18n.h"
 #include "system/desktop_entry.h"
 #include "util/string_utils.h"
 
@@ -11,9 +10,9 @@ namespace internal_apps {
 
     constexpr InternalAppDefinition kInternalApps[] = {
         {
-            .appId = "dev.noctalia.Noctalia.Settings",
+            .appId = "dev.noctalia.Noctalia",
             .windowTitle = "Noctalia Settings",
-            .displayName = "Settings",
+            .displayName = "Noctalia",
             .iconAssetPath = "noctalia.svg",
         },
     };
@@ -52,9 +51,7 @@ namespace internal_apps {
 
   [[nodiscard]] AppMetadata metadataFromDefinition(const InternalAppDefinition& app) {
     return AppMetadata{
-        .displayName = app.appId == std::string_view("dev.noctalia.Noctalia.Settings")
-            ? i18n::tr("internal-apps.settings.display-name")
-            : std::string(app.displayName),
+        .displayName = std::string(app.displayName),
         .iconPath = paths::assetPath(app.iconAssetPath).string(),
     };
   }

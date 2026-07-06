@@ -1050,6 +1050,7 @@
     "navigation": {
       "groups": {
         "audio": "Audio",
+        "authentication": "Authentication",
         "automation": "Automation",
         "backdrop": "Backdrop",
         "background": "Background",
@@ -1069,6 +1070,7 @@
         "focus-styling": "Focus Styling",
         "formats": "Formats",
         "general": "General",
+        "greeter": "Greeter",
         "grouping": "Grouping",
         "home": "Home",
         "hot-corners": "Hot Corners",
@@ -1095,7 +1097,7 @@
         "pinned-apps": "Pinned Apps",
         "polkit": "Polkit",
         "power": "Power",
-        "privacy-security": "Privacy & Security",
+        "privacy": "Privacy",
         "profile": "Profile",
         "screen-corners": "Screen Corners",
         "screen-time": "Screen Time",
@@ -1525,19 +1527,19 @@
           "label": "Content Scale"
         },
         "corner-bottom-left": {
-          "description": "Bottom left corner radius for the bar; negative values carve a concave corner when this corner faces away from the screen edge"
+          "description": "Bottom left corner radius for the bar. Enable invert to carve a concave corner, available only when this corner faces away from the screen edge"
         },
         "corner-bottom-right": {
-          "description": "Bottom right corner radius for the bar; negative values carve a concave corner when this corner faces away from the screen edge"
+          "description": "Bottom right corner radius for the bar. Enable invert to carve a concave corner, available only when this corner faces away from the screen edge"
         },
         "corner-radius": {
           "description": "Corner radius of the bar"
         },
         "corner-top-left": {
-          "description": "Top left corner radius for the bar; negative values carve a concave corner when this corner faces away from the screen edge"
+          "description": "Top left corner radius for the bar. Enable invert to carve a concave corner, available only when this corner faces away from the screen edge"
         },
         "corner-top-right": {
-          "description": "Top right corner radius for the bar; negative values carve a concave corner when this corner faces away from the screen edge"
+          "description": "Top right corner radius for the bar. Enable invert to carve a concave corner, available only when this corner faces away from the screen edge"
         },
         "dead-zone-command": {
           "description": "Shell command to run on left-click in the bar margin outside widget sections",
@@ -1579,6 +1581,10 @@
         "font-weight": {
           "description": "Default weight for widget labels on this bar.",
           "label": "Font Weight"
+        },
+        "hover-highlight": {
+          "description": "Softly tint the widget under the mouse pointer with its own foreground color",
+          "label": "Hover Highlight"
         },
         "layer": {
           "description": "Use Overlay to show the bar above fullscreen apps. Attached panels follow the bar.",
@@ -1702,6 +1708,10 @@
         },
         "background-opacity": {
           "description": "Background opacity of the dock"
+        },
+        "concave-edge-corners": {
+          "description": "Carve inward corners on the side that touches the screen edge; requires the margin to the screen edge to be 0",
+          "label": "Concave Edge Corners"
         },
         "corner-bottom-left": {
           "description": "Bottom left corner radius for the dock"
@@ -2168,6 +2178,14 @@
         "session-actions": {
           "description": "Power menu entries, order, custom commands, and icons",
           "label": "Entries"
+        },
+        "session-grid": {
+          "description": "Display session panel actions in a grid layout",
+          "label": "Grid Layout"
+        },
+        "session-grid-columns": {
+          "description": "Number of columns for the grid layout",
+          "label": "Columns"
         }
       },
       "services": {
@@ -2415,6 +2433,10 @@
         "date-format": {
           "description": "Default date format for shell UI without its own setting",
           "label": "Date Format"
+        },
+        "external-ip": {
+          "description": "Resolve the connection's public WAN IP (via api.noctalia.dev) and show it in the Control Center network tab",
+          "label": "Show WAN IP"
         },
         "greeter-sync-auto": {
           "description": "Automatically sync the greeter whenever wallpaper, colors, or theme mode change",

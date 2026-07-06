@@ -32,7 +32,6 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
-#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -201,10 +200,12 @@ namespace settings {
         [&](double value, double minValue, double maxValue, double step, std::vector<std::string> path,
             bool integerValue = false, std::string valueSuffix = {},
             std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)> linkedCommit =
-                {}) -> std::unique_ptr<Node> {
+                {},
+            SliderSetting::InvertSlot invertSlot = SliderSetting::InvertSlot::None,
+            bool invertEnabled = true) -> std::unique_ptr<Node> {
       return factory.makeSlider(
           value, minValue, maxValue, step, std::move(path), integerValue, std::move(linkedCommit),
-          std::move(valueSuffix)
+          std::move(valueSuffix), invertSlot, invertEnabled
       );
     };
 
@@ -1211,7 +1212,7 @@ namespace settings {
             } else if constexpr (std::is_same_v<T, SliderSetting>) {
               return makeSlider(
                   control.value, control.minValue, control.maxValue, control.step, entry.path, control.integerValue,
-                  control.valueSuffix, control.linkedCommit
+                  control.valueSuffix, control.linkedCommit, control.invertSlot, control.invertEnabled
               );
             } else if constexpr (std::is_same_v<T, RangeSliderSetting>) {
               return makeRangeSlider(control, entry.path);
@@ -1295,36 +1296,7 @@ namespace settings {
 
     BarWidgetEditorContext barWidgetEditorCtx = makeBarWidgetEditorContext(factory);
 
-    // Visibility conditions reference other settings by path. Build an index once so each
-    // visibility check is an O(1) lookup instead of full registry scan.
-    const auto joinPath = [](const std::vector<std::string>& path) {
-      return path | std::views::join_with('\x1f') | std::ranges::to<std::string>();
-    };
-    std::unordered_map<std::string, std::string> visibilityValues;
-    for (const auto& other : registry) {
-      if (const auto* toggle = std::get_if<ToggleSetting>(&other.control)) {
-        visibilityValues.emplace(joinPath(other.path), toggle->checked ? "true" : "false");
-      } else if (const auto* select = std::get_if<SelectSetting>(&other.control)) {
-        visibilityValues.emplace(joinPath(other.path), select->selectedValue);
-      } else if (const auto* text = std::get_if<TextSetting>(&other.control)) {
-        visibilityValues.emplace(joinPath(other.path), text->value);
-      }
-    }
-
-    auto visibilityConditionMatches = [&](const SettingVisibilityCondition& cond) -> bool {
-      const auto it = visibilityValues.find(joinPath(cond.path));
-      if (it == visibilityValues.end()) {
-        return true;
-      }
-      return std::ranges::contains(cond.values, it->second);
-    };
-
-    auto isEntryVisible = [&](const SettingEntry& e) -> bool {
-      if (!e.visibleWhen.has_value()) {
-        return true;
-      }
-      return std::ranges::all_of(e.visibleWhen->all, visibilityConditionMatches);
-    };
+    auto isEntryVisible = [&](const SettingEntry& e) -> bool { return !e.visibleWhen || e.visibleWhen(ctx.config); };
 
     const std::string_view selectedBarName =
         ctx.selectedBar != nullptr ? std::string_view{ctx.selectedBar->name} : std::string_view{};

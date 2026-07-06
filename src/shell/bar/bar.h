@@ -117,6 +117,8 @@ private:
   void destroyInstance(std::uint32_t outputName);
   void populateWidgets(BarInstance& instance);
   void attachWidgetsToSections(BarInstance& instance);
+  void updateWidgetHoverHighlight(BarInstance& instance, InputArea* hoveredArea);
+  void animateWidgetHoverHighlight(BarInstance& instance, Widget& widget, bool hovered);
   void rebuildInstanceContents(BarInstance& instance, const BarConfig& newConfig);
   [[nodiscard]] BarServices services() const;
   void buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t height);
@@ -138,6 +140,7 @@ private:
   [[nodiscard]] std::string showBarIpc(std::string_view args);
   [[nodiscard]] std::string hideBarIpc(std::string_view args);
   [[nodiscard]] std::string toggleBarIpc(std::string_view args);
+  [[nodiscard]] std::string toggleBarReserveSpaceIpc(std::string_view args);
   [[nodiscard]] std::string setBarAutoHideIpc(std::string_view args);
   [[nodiscard]] std::string setBarLayerIpc(std::string_view args);
   [[nodiscard]] std::optional<std::string> collectBarIpcInstances(

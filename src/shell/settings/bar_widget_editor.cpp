@@ -1375,7 +1375,6 @@ namespace settings {
             .control = TextSetting{},
             .advanced = spec.advanced,
             .searchText = {},
-            .visibleWhen = std::nullopt,
         };
 
         const auto makeGlyphTextControl = [&ctx, path](std::string currentValue) -> std::unique_ptr<Node> {
@@ -2117,7 +2116,6 @@ namespace settings {
             .path = std::move(fieldPath),
             .control = {},
             .searchText = {},
-            .visibleWhen = std::nullopt,
         };
       };
 

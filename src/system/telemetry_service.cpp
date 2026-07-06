@@ -2,7 +2,6 @@
 
 #include "config/config_service.h"
 #include "core/log.h"
-#include "json.hpp"
 #include "net/http_client.h"
 #include "system/distro_info.h"
 #include "system/hardware_info.h"
@@ -14,6 +13,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <nlohmann/json.hpp>
 #include <string>
 
 namespace {

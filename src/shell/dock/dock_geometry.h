@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "render/core/render_styles.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -28,6 +29,14 @@ namespace shell::dock {
     std::int32_t marginLeft = 0;
     std::int32_t exclusiveZone = 0;
   };
+
+  struct DockConcaveShape {
+    CornerShapes corners{};
+    Radii radii;
+    RectInsets logicalInset{};
+  };
+
+  [[nodiscard]] DockConcaveShape dockConcaveShape(const DockConfig& cfg);
 
   [[nodiscard]] std::uint32_t positionToAnchor(DockEdge edge);
   [[nodiscard]] bool isVerticalEdge(DockEdge edge);

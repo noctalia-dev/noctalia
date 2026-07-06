@@ -1,6 +1,6 @@
 #pragma once
 
-#include <json.hpp>
+#include <nlohmann/json.hpp>
 #include <string_view>
 
 namespace compositors::niri {

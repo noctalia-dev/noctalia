@@ -111,6 +111,11 @@ namespace {
       return std::nullopt;
     }
 
+    std::filesystem::permissions(
+        destination, std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+        std::filesystem::perm_options::replace, ec
+    );
+
     return destination;
   }
 

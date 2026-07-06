@@ -251,6 +251,7 @@
     "network": {
       "connect": "Connetti",
       "current-connection": "Connessione corrente",
+      "external-ip": "WAN {ip}",
       "no-networks": "Nessuna rete nel raggio d'azione",
       "not-connected": "Non connesso",
       "password": "Password",
@@ -916,6 +917,8 @@
           "fill-description": "Ruolo colore dello sfondo capsula; sono supportati anche codici colore in formato esadecimale",
           "foreground": "Primo piano",
           "foreground-description": "Ruolo colore di icone ed etichette per i widget in questo gruppo",
+          "hide": "Nascondi gruppo",
+          "hide-widget": "Nascondi widget",
           "hint": "Parte di un gruppo capsula",
           "members": "{count} widget",
           "opacity": "Opacità",
@@ -926,6 +929,8 @@
           "radius": "Raggio",
           "radius-description": "Raggio degli angoli capsula in pixel; Auto eredita il raggio capsula della barra",
           "selected": "{count} selezionati",
+          "show": "Mostra gruppo",
+          "show-widget": "Mostra widget",
           "style": "Stile",
           "title": "Gruppo capsula",
           "ungroup": "Separa gruppo"
@@ -1045,6 +1050,7 @@
     "navigation": {
       "groups": {
         "audio": "Audio",
+        "authentication": "Autenticazione",
         "automation": "Automazione",
         "backdrop": "Sfondo pannelli",
         "background": "Sfondo",
@@ -1064,6 +1070,7 @@
         "focus-styling": "Stile focus",
         "formats": "Formati",
         "general": "Generale",
+        "greeter": "Greeter",
         "grouping": "Raggruppamento",
         "home": "Home",
         "hot-corners": "Angoli attivi",
@@ -1090,7 +1097,7 @@
         "pinned-apps": "App fissate",
         "polkit": "Polkit",
         "power": "Energia",
-        "privacy-security": "Privacy e sicurezza",
+        "privacy": "Privacy",
         "profile": "Profilo",
         "screen-corners": "Angoli schermo",
         "screen-time": "Tempo schermo",
@@ -1321,6 +1328,9 @@
       },
       "plugins": {
         "configure": "Configura",
+        "delete": "Cancella",
+        "delete-confirm-desc": "Questo plugin verrà disinstallato e rimosso dal disco.",
+        "delete-confirm-title": "Cancellare \"{name}\"?",
         "deprecated": "deprecato",
         "empty": "Nessun plugin trovato. Aggiungi una sorgente o controlla la rete",
         "loading": "Caricamento plugin...",
@@ -2407,6 +2417,10 @@
         "date-format": {
           "description": "Formato data predefinito per la shell UI senza impostazione propria",
           "label": "Formato data"
+        },
+        "external-ip": {
+          "description": "Risolvi l'IP WAN pubblico della connessione (tramite api.noctalia.dev) e mostralo nella scheda rete del Control Center",
+          "label": "Mostra IP WAN"
         },
         "greeter-sync-auto": {
           "description": "Sincronizza automaticamente il Greeter ogni volta che cambiano lo sfondo, i colori o la modalità del tema",

@@ -211,7 +211,8 @@
       "all-day": "O dia todo",
       "events": "Eventos",
       "no-events": "nenhum evento.",
-      "today": "Hoje"
+      "today": "Hoje",
+      "toggle-events-card": "Ligar card de eventos"
     },
     "display": {
       "disabled": "Desabilitado",
@@ -249,6 +250,7 @@
     "network": {
       "connect": "Conectar",
       "current-connection": "Conexão atual",
+      "external-ip": "WAN {ip}",
       "no-networks": "Nenhuma conexão ao alcance",
       "not-connected": "Não conectado",
       "password": "Senha",
@@ -904,6 +906,8 @@
           "fill-description": "Função de cor de fundo da cápsula; cores hexadecimais fixas também são suportadas",
           "foreground": "Primeiro plano",
           "foreground-description": "Função da cor do ícone e do rótulo para widgets neste grupo",
+          "hide": "Esconder esse grupo",
+          "hide-widget": "Esconder esse widget",
           "hint": "Parte de um grupo de cápsula",
           "members": "{count} widgets",
           "opacity": "Opacidade",
@@ -914,6 +918,8 @@
           "radius": "Raio",
           "radius-description": "Raio do canto da cápsula em pixels; Automático herda o raio da cápsula da barra.",
           "selected": "{count} selecionado",
+          "show": "Exibir este grupo",
+          "show-widget": "Exibir este widget",
           "style": "Estilo",
           "title": "Grupo de cápsula",
           "ungroup": "Desagrupar"
@@ -1074,7 +1080,7 @@
         "pinned-apps": "Apps fixados",
         "polkit": "polkit",
         "power": "Energia",
-        "privacy-security": "Privacidade & Segurança",
+        "privacy": "Privacidade",
         "profile": "Perfil",
         "screen-corners": "Cantos da Tela",
         "screen-time": "Tempo de Tela",

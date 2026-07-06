@@ -714,6 +714,26 @@ void Application::initAuxServicesAndHooks() {
         fireWallpaperChangedHook(change.path, change.connector);
       }
     }
+    if (compositors::isKde()) {
+      const auto applyKdeWallpaper = [](const std::string& path, const std::string& connector) {
+        if (path.empty()) {
+          return;
+        }
+        std::string cmd = "plasma-apply-wallpaperimage";
+        if (!connector.empty()) {
+          cmd += " --screen " + connector;
+        }
+        cmd += " \"" + path + "\"";
+        (void)process::runAsync(cmd);
+      };
+      if (wallpaperChanges.empty()) {
+        applyKdeWallpaper(m_configService.getPaletteWallpaperPath(), {});
+      } else {
+        for (const auto& change : wallpaperChanges) {
+          applyKdeWallpaper(change.path, change.connector);
+        }
+      }
+    }
   });
 
   m_themeService.setChangeCallback([this]() {

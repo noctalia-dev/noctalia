@@ -1036,7 +1036,6 @@
         "overview": "Áttekintés",
         "pinned-apps": "Rögzített alkalmazások",
         "power": "Energiagazdálkodás",
-        "privacy-security": "Adatvédelem és biztonság",
         "profile": "Profil",
         "screen-corners": "Képernyősarkok",
         "screen-time": "Képernyőidő",
@@ -1523,8 +1522,8 @@
           "label": "Vastagság"
         },
         "widget-capsules": {
-          "description": "Widgetek kapszula hátterekbe burkolása",
-          "label": "Widget-kapszulák"
+          "description": "Widgetek kapszulahátterekbe burkolása",
+          "label": "Widgetkapszulák"
         },
         "widget-color": {
           "description": "Alapértelmezett ikon és címke szín szerepe a sávon lévő widgetekhez; rögzített hexadecimális színek is támogatottak",
@@ -1532,14 +1531,38 @@
         },
         "widget-icon-color": {
           "description": "Felülírja a sávon található ikonok widget-színét.",
-          "label": "Widget ikon szín"
+          "label": "Widgetikonszín"
         },
         "widget-spacing": {
           "description": "Távolság a sáv widgetjei között",
-          "label": "Widget térköz"
+          "label": "Widgettérköz"
         }
       },
       "desktop": {
+        "hot-corners-bottom-left": {
+          "label": "Alsó bal sarok"
+        },
+        "hot-corners-bottom-left-command": {
+          "label": "Parancs"
+        },
+        "hot-corners-bottom-right": {
+          "label": "Alsó jobb sarok"
+        },
+        "hot-corners-bottom-right-command": {
+          "label": "Parancs"
+        },
+        "hot-corners-top-left": {
+          "label": "Felső bal sarok"
+        },
+        "hot-corners-top-left-command": {
+          "label": "Parancs"
+        },
+        "hot-corners-top-right": {
+          "label": "Felső jobb sarok"
+        },
+        "hot-corners-top-right-command": {
+          "label": "Parancs"
+        },
         "screen-corners-enabled": {
           "description": "Lekerekíti a képernyő sarkait egy fekete átfedéssel",
           "label": "Képernyősarkok"

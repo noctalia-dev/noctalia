@@ -1088,7 +1088,6 @@
         "pinned-apps": "Замацаваныя праграмы",
         "polkit": "Polkit",
         "power": "Сілкаванне",
-        "privacy-security": "Прыватнасць і беспека",
         "profile": "Профіль",
         "screen-corners": "Куты экрану",
         "screen-time": "Экранны час",
@@ -1236,9 +1235,9 @@
           "floating": "Нефіксаваная"
         },
         "panel-transparency": {
-          "glass": "Шкло",
-          "soft": "Мяккасць",
-          "solid": "Цвёрдасць"
+          "glass": "Шкляная",
+          "soft": "Мяккая",
+          "solid": "Цвёрдая"
         },
         "password-style": {
           "filled-circles": "Запоўненыя кругі",
@@ -1270,7 +1269,7 @@
       },
       "theme-role": {
         "custom": "Карыстацкiя...",
-        "default": "Па змаўчанні"
+        "default": "Прадвызначана"
       },
       "wallpaper": {
         "fill": {

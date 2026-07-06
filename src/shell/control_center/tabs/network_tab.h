@@ -12,6 +12,7 @@
 #include <vector>
 
 class Button;
+class ConfigService;
 class Flex;
 class HttpClient;
 class Input;
@@ -23,7 +24,7 @@ class INetworkService;
 
 class NetworkTab : public Tab {
 public:
-  NetworkTab(INetworkService* network, NetworkSecretAgent* secrets, HttpClient* http);
+  NetworkTab(INetworkService* network, NetworkSecretAgent* secrets, HttpClient* http, ConfigService* config);
   ~NetworkTab() override;
 
   std::unique_ptr<Flex> create() override;
@@ -38,6 +39,7 @@ private:
 
   void syncCurrentCard();
   void beginPendingAction(bool wasConnected);
+  [[nodiscard]] bool externalIpEnabled() const;
   void maybeScheduleExternalIpProbe();
   void probeExternalIpNow();
   void rebuildApList(Renderer& renderer);
@@ -53,6 +55,7 @@ private:
   INetworkService* m_network = nullptr;
   NetworkSecretAgent* m_secrets = nullptr;
   HttpClient* m_http = nullptr;
+  ConfigService* m_config = nullptr;
 
   Flex* m_rootLayout = nullptr;
   Flex* m_currentCard = nullptr;

@@ -4,7 +4,7 @@
 #include "i18n/i18n_service.h"
 
 #include <fstream>
-#include <json.hpp>
+#include <nlohmann/json.hpp>
 
 namespace scripting {
 

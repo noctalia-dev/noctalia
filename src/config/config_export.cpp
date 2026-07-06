@@ -170,6 +170,8 @@ namespace config_export {
       }
       if (ovr.widgetCapsuleOpacity)
         resolved.widgetCapsuleOpacity = static_cast<float>(*ovr.widgetCapsuleOpacity);
+      if (ovr.hoverHighlight)
+        resolved.hoverHighlight = *ovr.hoverHighlight;
       if (ovr.deadZone.command)
         resolved.deadZone.command = *ovr.deadZone.command;
       if (ovr.deadZone.rightCommand)

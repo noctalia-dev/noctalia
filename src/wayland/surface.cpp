@@ -743,6 +743,21 @@ std::vector<InputRect> Surface::tessellateShape(
   }
   stripPx = std::max(stripPx, 1);
 
+  // All-convex with no inset reduces to a plain rounded rect; take the cheap path
+  // (corner bands + one middle rect) instead of walking every row. This is the
+  // common case on per-frame blur updates.
+  const bool anyConcave = corners.tl == CornerShape::Concave
+      || corners.tr == CornerShape::Concave
+      || corners.br == CornerShape::Concave
+      || corners.bl == CornerShape::Concave;
+  if (!anyConcave
+      && logicalInset.left <= 0.0f
+      && logicalInset.top <= 0.0f
+      && logicalInset.right <= 0.0f
+      && logicalInset.bottom <= 0.0f) {
+    return tessellateRoundedRect(x, y, w, h, radii.tl, radii.tr, radii.br, radii.bl, stripPx);
+  }
+
   // (x, y, w, h) is the body rect. Expand outward by logicalInset to obtain the
   // visual rect that hosts concave-corner bulges; the body sits inside it offset
   // by logicalInset.left / .top.

@@ -841,11 +841,6 @@ struct BrightnessService::Impl {
         continue;
       }
 
-      if (sessionProxy == nullptr) {
-        kLog.debug("skipping backlight '{}' because logind brightness control is unavailable", name);
-        continue;
-      }
-
       DisplayInternal display;
       display.backend = RuntimeBackend::Backlight;
       display.maxRaw = maxBrightness;
@@ -1010,19 +1005,45 @@ struct BrightnessService::Impl {
   }
 
   void setBacklightBrightness(DisplayInternal& display, float value) {
-    if (sessionProxy == nullptr) {
-      return;
-    }
-
     const auto rawValue = static_cast<std::uint32_t>(std::round(value * static_cast<float>(display.maxRaw)));
     const std::string& backlightName = display.backlightName.empty() ? display.pub.id : display.backlightName;
-    try {
-      sessionProxy->callMethod("SetBrightness")
-          .onInterface(kLogindSessionInterface)
-          .withArguments(std::string("backlight"), backlightName, rawValue);
-    } catch (const sdbus::Error& e) {
-      kLog.warn("SetBrightness failed for '{}' via '{}': {}", display.pub.id, backlightName, e.what());
+    if (sessionProxy != nullptr) {
+      try {
+        sessionProxy->callMethod("SetBrightness")
+            .onInterface(kLogindSessionInterface)
+            .withArguments(std::string("backlight"), backlightName, rawValue);
+        display.pub.brightness = value;
+        syncPublicDisplay(display);
+        if (changeCallback) {
+          changeCallback();
+        }
+        return;
+      } catch (const sdbus::Error& e) {
+        kLog.warn("SetBrightness failed for '{}' via '{}': {}", display.pub.id, backlightName, e.what());
+      }
     }
+    writeSysfsBacklight(display, rawValue);
+  }
+
+  bool writeSysfsBacklight(DisplayInternal& display, std::uint32_t rawValue) {
+    const std::string brightnessPath = display.sysfsPath + "/brightness";
+    std::ofstream file(brightnessPath);
+    if (!file.is_open()) {
+      kLog.warn("cannot open sysfs brightness file '{}'", brightnessPath);
+      return false;
+    }
+    file << rawValue;
+    file.close();
+    if (file.fail()) {
+      kLog.warn("failed to write brightness to '{}'", brightnessPath);
+      return false;
+    }
+    display.pub.brightness = static_cast<float>(rawValue) / static_cast<float>(display.maxRaw);
+    syncPublicDisplay(display);
+    if (changeCallback) {
+      changeCallback();
+    }
+    return true;
   }
 
   void setDdcBrightness(DisplayInternal& display, float value) {

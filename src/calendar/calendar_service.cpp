@@ -5,7 +5,6 @@
 #include "config/config_service.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
-#include "json.hpp"
 #include "net/url_open.h"
 #include "notification/notification_manager.h"
 
@@ -15,6 +14,7 @@
 #include <fstream>
 #include <iterator>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <unordered_set>
 
 namespace {

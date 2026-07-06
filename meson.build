@@ -187,6 +187,15 @@ else
   )
 endif
 
+# ── Vendored: nlohmann (header-only) ─────────────────────────────────
+if get_option('system_nlohmann_json')
+  nlohmann_dep = dependency('nlohmann_json')
+else
+  nlohmann_dep = declare_dependency(
+    include_directories: include_directories('third_party/nlohmann', is_system: true),
+  )
+endif
+
 # ── Vendored: md4c (CommonMark parser) ───────────────────────────────────────
 if get_option('system_md4c')
   md4c_dep = dependency('md4c')
@@ -893,8 +902,6 @@ endif
 _noctalia_inc = [
   include_directories('src'),
   include_directories('third_party/wuffs', is_system: true),
-  # nlohmann is header-only and uses GCC extensions in some paths; treat as system.
-  include_directories('third_party/nlohmann', is_system: true),
   # '.' adds both the source root and the corresponding build-dir root, so
   # generated protocol headers (written to the build root) are found by #include.
   include_directories('.'),
@@ -932,6 +939,7 @@ noctalia_exe = executable('noctalia',
     drwav_dep,
     fzy_dep,
     mcu_dep,
+    nlohmann_dep,
     libxml2_dep,
     stb_dep,
     tomlplusplus_dep,
@@ -976,6 +984,7 @@ notification_history_utf8_test = executable('notification_history_utf8_test',
   ),
   dependencies: [
     libwebp_dep,
+    nlohmann_dep,
   ],
   include_directories: _noctalia_inc,
 )
@@ -1118,6 +1127,9 @@ time_format_test = executable('time_format_test',
     'src/core/files/resource_paths.cpp',
     'src/core/log.cpp',
   ),
+  dependencies: [
+    nlohmann_dep,
+  ],
   include_directories: _noctalia_inc,
   cpp_args: [
     '-DNOCTALIA_SOURCE_ASSETS_DIR="' + meson.project_source_root() / 'assets' + '"',
@@ -1277,6 +1289,7 @@ ui_tree_reconciler_test = executable('ui_tree_reconciler_test',
     egl_dep,
     librsvg_dep,
     libwebp_dep,
+    nlohmann_dep,
     stb_dep,
     xkbcommon_dep,
   ],
@@ -1315,6 +1328,9 @@ plugin_i18n_test = executable('plugin_i18n_test',
     'src/core/log.cpp',
   ),
   include_directories: _noctalia_inc,
+  dependencies: [
+    nlohmann_dep,
+  ],
   cpp_args: [
     '-DNOCTALIA_SOURCE_ASSETS_DIR="' + meson.project_source_root() / 'assets' + '"',
     '-DNOCTALIA_INSTALL_PREFIX="' + get_option('prefix') + '"',

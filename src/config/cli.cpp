@@ -103,55 +103,22 @@ namespace noctalia::config {
       std::size_t visibleAdvanced = 0;
     };
 
-    std::string currentValueForVisibility(const settings::SettingEntry& entry) {
-      if (const auto* toggle = std::get_if<settings::ToggleSetting>(&entry.control)) {
-        return toggle->checked ? "true" : "false";
-      }
-      if (const auto* select = std::get_if<settings::SelectSetting>(&entry.control)) {
-        return select->selectedValue;
-      }
-      return {};
+    bool passesVisibility(const Config& cfg, const settings::SettingEntry& entry) {
+      return !entry.visibleWhen || entry.visibleWhen(cfg);
     }
 
-    bool visibilityConditionMatches(
-        const std::vector<settings::SettingEntry>& entries, const settings::SettingVisibilityCondition& condition
-    ) {
-      for (const auto& other : entries) {
-        if (other.path != condition.path) {
-          continue;
-        }
-        const std::string currentValue = currentValueForVisibility(other);
-        return std::ranges::contains(condition.values, currentValue);
-      }
-      return true;
+    bool visibleWithAdvanced(const Config& cfg, const settings::SettingEntry& entry, bool showAdvanced) {
+      return (showAdvanced || !entry.advanced) && passesVisibility(cfg, entry);
     }
 
-    bool passesVisibility(const std::vector<settings::SettingEntry>& entries, const settings::SettingEntry& entry) {
-      if (!entry.visibleWhen.has_value()) {
-        return true;
-      }
-      for (const auto& condition : entry.visibleWhen->all) {
-        if (!visibilityConditionMatches(entries, condition)) {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    bool visibleWithAdvanced(
-        const std::vector<settings::SettingEntry>& entries, const settings::SettingEntry& entry, bool showAdvanced
-    ) {
-      return (showAdvanced || !entry.advanced) && passesVisibility(entries, entry);
-    }
-
-    SettingsCountSet countSettingsEntries(const std::vector<settings::SettingEntry>& entries) {
+    SettingsCountSet countSettingsEntries(const std::vector<settings::SettingEntry>& entries, const Config& cfg) {
       SettingsCountSet out;
       out.total = entries.size();
       for (const auto& entry : entries) {
-        if (visibleWithAdvanced(entries, entry, false)) {
+        if (visibleWithAdvanced(cfg, entry, false)) {
           ++out.visibleNormal;
         }
-        if (visibleWithAdvanced(entries, entry, true)) {
+        if (visibleWithAdvanced(cfg, entry, true)) {
           ++out.visibleAdvanced;
         }
       }
@@ -162,9 +129,9 @@ namespace noctalia::config {
       return static_cast<std::size_t>(std::ranges::count(entries, true, &settings::SettingEntry::advanced));
     }
 
-    std::size_t countConditionallyHidden(const std::vector<settings::SettingEntry>& entries) {
+    std::size_t countConditionallyHidden(const std::vector<settings::SettingEntry>& entries, const Config& cfg) {
       return static_cast<std::size_t>(std::ranges::count_if(entries, [&](const settings::SettingEntry& entry) {
-        return !passesVisibility(entries, entry);
+        return !passesVisibility(cfg, entry);
       }));
     }
 
@@ -184,7 +151,7 @@ namespace noctalia::config {
       const Config& cfg = configService.config();
       settings::RegistryEnvironment env;
       std::vector<settings::SettingEntry> registry = settings::buildSettingsRegistry(cfg, nullptr, nullptr, env);
-      const SettingsCountSet registryCounts = countSettingsEntries(registry);
+      const SettingsCountSet registryCounts = countSettingsEntries(registry, cfg);
 
       std::println("Settings controls");
       std::println("Unit: one SettingEntry row/control. Dropdown options are not counted.");
@@ -196,7 +163,7 @@ namespace noctalia::config {
       std::println("  visible with Advanced off:     {}", registryCounts.visibleNormal);
       std::println("  visible with Advanced on:      {}", registryCounts.visibleAdvanced);
       std::println("  advanced-marked controls:      {}", countAdvancedMarked(registry));
-      std::println("  conditionally hidden controls: {}", countConditionallyHidden(registry));
+      std::println("  conditionally hidden controls: {}", countConditionallyHidden(registry, cfg));
       std::println(
           "  visible only with Advanced on: {}", registryCounts.visibleAdvanced - registryCounts.visibleNormal
       );
@@ -208,10 +175,10 @@ namespace noctalia::config {
       for (const auto& entry : registry) {
         auto& counts = sectionCounts[std::string(settings::settingsSectionId(entry.section))];
         ++counts.total;
-        if (visibleWithAdvanced(registry, entry, false)) {
+        if (visibleWithAdvanced(cfg, entry, false)) {
           ++counts.visibleNormal;
         }
-        if (visibleWithAdvanced(registry, entry, true)) {
+        if (visibleWithAdvanced(cfg, entry, true)) {
           ++counts.visibleAdvanced;
         }
       }

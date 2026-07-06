@@ -1,5 +1,6 @@
 #include "shell/control_center/tabs/network_tab.h"
 
+#include "config/config_service.h"
 #include "core/ui_phase.h"
 #include "dbus/network/inetwork_service.h"
 #include "dbus/network/network_glyphs.h"
@@ -350,8 +351,8 @@ namespace {
 
 } // namespace
 
-NetworkTab::NetworkTab(INetworkService* network, NetworkSecretAgent* secrets, HttpClient* http)
-    : m_network(network), m_secrets(secrets), m_http(http) {
+NetworkTab::NetworkTab(INetworkService* network, NetworkSecretAgent* secrets, HttpClient* http, ConfigService* config)
+    : m_network(network), m_secrets(secrets), m_http(http), m_config(config) {
   if (m_secrets != nullptr) {
     m_secrets->setRequestCallback([this](const NetworkSecretAgent::SecretRequest& request) {
       showPasswordPrompt(request);
@@ -665,7 +666,10 @@ void NetworkTab::syncCurrentCard() {
       m_actionPending = false;
     }
   }
-  if (s.connected) {
+  if (!externalIpEnabled()) {
+    m_externalIp.clear();
+    m_externalIpTimer.stop();
+  } else if (s.connected) {
     // A network or VPN change invalidates the shown WAN IP right away — it
     // disappears from the card and reappears once re-resolved.
     if (wanProbeKey(s) != m_externalIpKey && !m_externalIp.empty()) {
@@ -699,8 +703,10 @@ void NetworkTab::syncCurrentCard() {
   }
 }
 
+bool NetworkTab::externalIpEnabled() const { return m_config != nullptr && m_config->config().shell.externalIpEnabled; }
+
 void NetworkTab::maybeScheduleExternalIpProbe() {
-  if (m_http == nullptr || m_network == nullptr || !m_active) {
+  if (m_http == nullptr || m_network == nullptr || !m_active || !externalIpEnabled()) {
     return;
   }
   const NetworkState& s = m_network->state();
@@ -723,7 +729,7 @@ void NetworkTab::maybeScheduleExternalIpProbe() {
 }
 
 void NetworkTab::probeExternalIpNow() {
-  if (m_http == nullptr || m_network == nullptr || !m_active || m_externalIpFetchInFlight) {
+  if (m_http == nullptr || m_network == nullptr || !m_active || !externalIpEnabled() || m_externalIpFetchInFlight) {
     return;
   }
   const NetworkState& s = m_network->state();

@@ -49,7 +49,8 @@ namespace settings {
         double value, double minValue, double maxValue, double step, std::vector<std::string> path,
         bool integerValue = false,
         std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)> linkedCommit = {},
-        std::string valueSuffix = {}
+        std::string valueSuffix = {}, SliderSetting::InvertSlot invertSlot = SliderSetting::InvertSlot::None,
+        bool invertEnabled = true
     );
 
     [[nodiscard]] std::unique_ptr<Flex>

@@ -23,6 +23,8 @@
 #include <cmath>
 #include <cstdint>
 #include <format>
+#include <functional>
+#include <memory>
 #include <unordered_set>
 #include <utility>
 
@@ -45,6 +47,55 @@ namespace settings {
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           })
       );
+    }
+
+    // Horizontal space the leading invert slot occupies: corner glyph + gap + a Small toggle.
+    // Invertible sliders give this much (plus the row gap) back from their track so the toggle tucks
+    // in on the left without widening the control cluster.
+    constexpr float kInvertSlotContentWidth = Style::fontSizeBody
+        + Style::spaceXs
+        + Style::toggleThumbSizeSm
+        + (2.0f * Style::toggleInsetSm)
+        + Style::toggleTravelSm;
+
+    // Leading slot carrying the concave-corner invert toggle: a corner glyph (labelling the toggle
+    // in lieu of a text caption) plus a Small toggle. The slot sizes to its content. Reserve builds
+    // the same glyph+toggle but invisible, so a slider without a toggle keeps its slider and value
+    // box column-aligned with sibling sliders while showing no controls.
+    std::unique_ptr<Node> makeInvertSlot(
+        SliderSetting::InvertSlot slot, bool enabled, std::shared_ptr<bool> inverted,
+        std::function<void(double)> commitValue, Slider* sliderPtr, float scale
+    ) {
+      if (slot == SliderSetting::InvertSlot::None) {
+        return nullptr;
+      }
+      const bool placeholder = slot == SliderSetting::InvertSlot::Reserve;
+      const std::optional<bool> hidden = placeholder ? std::optional<bool>{false} : std::nullopt;
+      auto row = ui::row({.align = FlexAlign::Center, .gap = Style::spaceXs * scale});
+
+      row->addChild(
+          ui::glyph({
+              .glyph = "border-corner-pill",
+              .glyphSize = Style::fontSizeBody * scale,
+              .color = colorSpecFromRole(enabled ? ColorRole::OnSurfaceVariant : ColorRole::Outline),
+              .visible = hidden,
+          })
+      );
+      ui::ToggleProps toggleProps{
+          .checked = *inverted,
+          .enabled = enabled,
+          .toggleSize = ToggleSize::Small,
+          .scale = scale,
+          .visible = hidden,
+      };
+      if (!placeholder && enabled) {
+        toggleProps.onChange = [inverted, commitValue = std::move(commitValue), sliderPtr](bool on) {
+          *inverted = on;
+          commitValue(sliderPtr->value());
+        };
+      }
+      row->addChild(ui::toggle(std::move(toggleProps)));
+      return row;
     }
 
     std::string joinSettingPath(const std::vector<std::string>& path) {
@@ -387,16 +438,28 @@ namespace settings {
   std::unique_ptr<Flex> SettingsControlFactory::makeSlider(
       double value, double minValue, double maxValue, double step, std::vector<std::string> path, bool integerValue,
       std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(double)> linkedCommit,
-      std::string valueSuffix
+      std::string valueSuffix, SliderSetting::InvertSlot invertSlot, bool invertEnabled
   ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
     auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
 
+    // Signed radius sliders show the magnitude; a leading toggle carries the sign.
+    const bool invertible = invertSlot == SliderSetting::InvertSlot::Toggle;
+    auto inverted = std::make_shared<bool>(value < 0.0);
+    const double magnitude = std::abs(value);
+    const double sliderValue = invertible ? magnitude : value;
+
+    // Narrow the track by the leading slot so the cluster keeps its normal total width.
+    const float sliderWidth = (invertSlot == SliderSetting::InvertSlot::None
+                                   ? Style::sliderDefaultWidth
+                                   : Style::sliderDefaultWidth - kInvertSlotContentWidth - Style::spaceSm)
+        * scale;
+
     Input* valueInputPtr = nullptr;
     auto valueInput = ui::input({
         .out = &valueInputPtr,
-        .value = formatSliderValue(value, integerValue),
+        .value = formatSliderValue(sliderValue, integerValue),
         .fontSize = Style::fontSizeCaption * scale,
         .controlHeight = Style::controlHeightSm * scale,
         .horizontalPadding = Style::spaceXs * scale,
@@ -410,11 +473,11 @@ namespace settings {
         .minValue = minValue,
         .maxValue = maxValue,
         .step = step,
-        .value = value,
+        .value = sliderValue,
         .trackHeight = Style::sliderTrackHeight * scale,
         .thumbSize = Style::sliderThumbSize * scale,
         .controlHeight = Style::controlHeight * scale,
-        .width = Style::sliderDefaultWidth * scale,
+        .width = sliderWidth,
         .height = Style::controlHeight * scale,
         .onValueChanged = [valueInputPtr, integerValue](double next) {
           valueInputPtr->setInvalid(false);
@@ -445,9 +508,15 @@ namespace settings {
       setOverride(path, std::move(primary));
     };
 
-    slider->setOnDragEnd([commit, sliderPtr]() { commit(sliderPtr->value()); });
+    // For invertible sliders the slider value is the magnitude; fold in the sign the toggle holds.
+    std::function<void(double)> commitValue = commit;
+    if (invertible) {
+      commitValue = [commit, inverted](double magValue) { commit(*inverted ? -magValue : magValue); };
+    }
 
-    const auto commitInputText = [commit, sliderPtr, valueInputPtr, minValue, maxValue,
+    slider->setOnDragEnd([commitValue, sliderPtr]() { commitValue(sliderPtr->value()); });
+
+    const auto commitInputText = [commitValue, sliderPtr, valueInputPtr, minValue, maxValue,
                                   integerValue](const std::string& text) {
       const auto parsed = parseDoubleInput(text);
       if (!parsed.has_value() || *parsed < minValue || *parsed > maxValue) {
@@ -459,7 +528,7 @@ namespace settings {
       sliderPtr->setValue(v);
       const double snapped = sliderPtr->value();
       valueInputPtr->setValue(formatSliderValue(snapped, integerValue));
-      commit(snapped);
+      commitValue(snapped);
       return true;
     };
 
@@ -467,7 +536,11 @@ namespace settings {
     valueInput->setOnSubmit([commitInputText](const std::string& text) { (void)commitInputText(text); });
     valueInput->setOnFocusLoss([commitInputText, valueInputPtr]() { (void)commitInputText(valueInputPtr->value()); });
 
-    // Slider first, numeric value field on the right (reset from makeRow stays left of this cluster).
+    // Invert toggle leads, then slider, then the numeric value field on the right (reset from makeRow
+    // stays left of this cluster).
+    if (auto invert = makeInvertSlot(invertSlot, invertEnabled, inverted, commitValue, sliderPtr, scale)) {
+      wrap->addChild(std::move(invert));
+    }
     wrap->addChild(std::move(slider));
     wrap->addChild(std::move(valueInput));
     if (auto suffix = makeSuffixSlot(std::move(valueSuffix), scale)) {

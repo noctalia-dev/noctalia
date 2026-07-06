@@ -3,7 +3,6 @@
 #include "config/config_service.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
-#include "json.hpp"
 #include "net/http_client.h"
 #include "time/time_format.h"
 
@@ -15,6 +14,7 @@
 #include <ctime>
 #include <format>
 #include <fstream>
+#include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <string_view>
 #include <system_error>

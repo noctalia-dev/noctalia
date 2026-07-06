@@ -109,7 +109,7 @@
       },
       "weather": {
         "default": "Clima",
-        "error": "Error de Clima",
+        "error": "Error del Clima",
         "loading": "Clima...",
         "no-location": "Sin ubicación",
         "off": "Clima apagado"
@@ -238,7 +238,7 @@
       "uptime": "Tiempo de actividad  - {uptime}",
       "weather": {
         "data-unavailable": "Datos meteorológicos no disponibles",
-        "disabled": "Pronóstico desabilitado en la configuracion.",
+        "disabled": "Clima deshabilitado en la configuracion.",
         "fetching": "Cargando previsión..."
       }
     },
@@ -251,6 +251,7 @@
     "network": {
       "connect": "Conectar",
       "current-connection": "Conexión actual",
+      "external-ip": "WAN {ip}",
       "no-networks": "No hay redes disponibles cerca",
       "not-connected": "No conectado",
       "password": "Contraseña",
@@ -332,7 +333,7 @@
       "session": "Sesión",
       "system": "Sistema",
       "wallpaper": "Fondo de Pantalla",
-      "weather": "Pronóstico",
+      "weather": "Clima",
       "wifi": "Wi-Fi"
     },
     "system": {
@@ -394,7 +395,7 @@
       "fetching": "Obteniendo pronóstico",
       "forecast-placeholder": {
         "day": "Domingo",
-        "description": "Pronóstico",
+        "description": "Clima",
         "temperature": "10 / 4C"
       },
       "forecast-view": {
@@ -413,8 +414,8 @@
       "location-unavailable": "Ubicación no disponible",
       "no-location-body": "Añade tu dirección o activa la localización automática en la configuración de ubicación.",
       "no-location-title": "Ubicación no establecida",
-      "refreshing": "Actualizando el tiempo",
-      "waiting": "Esperando por la información del pronóstico"
+      "refreshing": "Actualizando Clima...",
+      "waiting": "Esperando por la información del Clima"
     }
   },
   "desktop-widgets": {
@@ -550,7 +551,7 @@
         "media-player": "Reproductor Multimedia",
         "sticker": "Pegatina",
         "system-monitor": "Monitor de sistema",
-        "weather": "Pronóstico"
+        "weather": "Clima"
       }
     },
     "media": {
@@ -560,7 +561,7 @@
       "error": "Error",
       "loading": "Cargando",
       "no-location": "Sin ubicación",
-      "off": "Pronóstico apagado"
+      "off": "Clima apagado"
     }
   },
   "dock": {
@@ -916,6 +917,8 @@
           "fill-description": "Rol de color de fondo de la cápsula; también se admiten colores hexadecimales fijos",
           "foreground": "Primer plano",
           "foreground-description": "Rol de color de icono y etiqueta para los widgets de este grupo",
+          "hide": "Ocultar este grupo",
+          "hide-widget": "Ocultar este widget",
           "hint": "Parte de un grupo de cápsulas",
           "members": "{count} widgets",
           "opacity": "Opacidad",
@@ -926,6 +929,8 @@
           "radius": "Radio",
           "radius-description": "Radio de esquina de la cápsula en píxeles; Auto hereda el radio de cápsula de la barra",
           "selected": "{count} seleccionados",
+          "show": "Mostrar este grupo",
+          "show-widget": "Mostrar este widget",
           "style": "Estilo",
           "title": "Grupo de cápsulas",
           "ungroup": "Desagrupar"
@@ -1045,6 +1050,7 @@
     "navigation": {
       "groups": {
         "audio": "Sonido",
+        "authentication": "Autenticacion",
         "automation": "Automatizacion",
         "backdrop": "Fondo",
         "background": "Fondo",
@@ -1064,6 +1070,7 @@
         "focus-styling": "Estilo de enfoque",
         "formats": "Formatos",
         "general": "General",
+        "greeter": "Greeter",
         "grouping": "Agrupación",
         "home": "Inicio",
         "hot-corners": "Esquinas activas",
@@ -1090,7 +1097,7 @@
         "pinned-apps": "Aplicaciones fijadas",
         "polkit": "Polkit",
         "power": "Energía",
-        "privacy-security": "Privacidad & Seguridad",
+        "privacy": "Privacidad",
         "profile": "Perfil",
         "screen-corners": "Esquinas de pantalla",
         "screen-time": "Tiempo de pantalla",
@@ -1104,7 +1111,7 @@
         "transition": "Transición",
         "user": "Usuario",
         "wallpaper": "Fondo de Pantalla",
-        "weather": "Pronóstico",
+        "weather": "Clima",
         "widget-list": "Lista de widgets",
         "widgets": "Widgets"
       },
@@ -1574,6 +1581,10 @@
         "font-weight": {
           "description": "Grosor predeterminado para las etiquetas de widgets en esta barra.",
           "label": "Grosor de fuente"
+        },
+        "hover-highlight": {
+          "description": "Suave decoloracion del widget bajo el puntero del raton con su  propio color de fondo",
+          "label": "Destacar al pasar el cursor"
         },
         "layer": {
           "description": "Usar superposición para mostrar la barra por encima de aplicaciones a pantalla completa. Los paneles anclados siguen a la barra.",
@@ -2163,6 +2174,14 @@
         "session-actions": {
           "description": "Entradas del menú de energía, orden, comandos personalizados e iconos",
           "label": "Entradas"
+        },
+        "session-grid": {
+          "description": "Mostrar acciones del panel de sesion en una rejilla",
+          "label": "Plantilla de la rejilla"
+        },
+        "session-grid-columns": {
+          "description": "Numero de columnas para la disposicion de la rejilla",
+          "label": "Columnas"
         }
       },
       "services": {
@@ -2305,19 +2324,19 @@
           "placeholder": "/path/to/sound.wav"
         },
         "weather": {
-          "description": "Habilitar el servicio de pronóstico",
-          "label": "Pronóstico"
+          "description": "Habilitar el servicio de clima via open-meteo.com",
+          "label": "Clima"
         },
         "weather-effects": {
-          "description": "Mostrar efectos visuales del pronóstico",
-          "label": "Efectos del pronóstico"
+          "description": "Mostrar efectos visuales del clima",
+          "label": "Efectos del Clima"
         },
         "weather-refresh-interval": {
           "description": "Con qué frecuencia actualizar los datos meteorológicos (minutos)",
           "label": "Intervalo de actualizacion"
         },
         "weather-unit": {
-          "description": "Sistema de unidades utilizado en el pronóstico",
+          "description": "Sistema de unidades usado en la pantalla del clima",
           "label": "Unidades"
         }
       },
@@ -2410,6 +2429,10 @@
         "date-format": {
           "description": "Formato de fecha predeterminado para la interfaz del shell sin configuración propia",
           "label": "Formato de fecha"
+        },
+        "external-ip": {
+          "description": "Resuelve IP publica WAN (via api.noctalia.dev) y se muestra en el panel de Red del Panel de Control",
+          "label": "Mostrar IP WAN"
         },
         "greeter-sync-auto": {
           "description": "Sincronizar automáticamente la pantalla de inicio cuando cambien el fondo de pantalla, los colores o el modo de tema",
@@ -3308,7 +3331,7 @@
         "tray": "Tray",
         "volume": "Volumen",
         "wallpaper": "Fondo de pantalla",
-        "weather": "Pronóstico",
+        "weather": "Clima",
         "workspaces": "Espacios de trabajo"
       }
     },
@@ -3490,7 +3513,7 @@
         "snow": "Nieve",
         "snow-showers": "Chubascos de nieve",
         "storm": "Tormenta",
-        "weather": "Pronóstico"
+        "weather": "Clima"
       }
     },
     "errors": {

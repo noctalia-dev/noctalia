@@ -549,7 +549,6 @@ namespace settings {
           .control = TextSetting{},
           .advanced = spec.advanced,
           .searchText = {},
-          .visibleWhen = std::nullopt,
       };
       if (spec.control == WidgetControlKind::StringList) {
         factory.makeListBlock(body, entry, ListSetting{.items = valueAsStringList(value)});

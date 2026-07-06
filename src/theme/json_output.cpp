@@ -4,7 +4,7 @@
 #include "theme/tokens.h"
 
 #include <cstdio>
-#include <json.hpp>
+#include <nlohmann/json.hpp>
 
 namespace noctalia::theme {
 

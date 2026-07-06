@@ -816,6 +816,7 @@
     "badges": {
       "advanced": "Nâng cao",
       "community": "Cộng đồng",
+      "deprecated": "Lỗi thời",
       "inherited": "Kế thừa",
       "monitor": "Màn hình",
       "official": "Chính thức",
@@ -915,6 +916,8 @@
           "fill-description": "Vai trò màu nền của khung chứa; cũng hỗ trợ các mã màu hex cố định",
           "foreground": "Nền trước",
           "foreground-description": "Vai trò màu sắc của biểu tượng và nhãn cho các widget trong nhóm này",
+          "hide": "Ẩn nhóm này",
+          "hide-widget": "Ẩn widget này",
           "hint": "Một phần của nhóm Capsule",
           "members": "{count} tiện ích",
           "opacity": "Độ mờ đục",
@@ -925,6 +928,8 @@
           "radius": "Bán kính",
           "radius-description": "Bán kính góc của Capsule theo pixel; Tự động kế thừa bán kính capsule của Bar",
           "selected": "{count} đã chọn",
+          "show": "Hiện nhóm này",
+          "show-widget": "Hiện widget này",
           "style": "Phong cách",
           "title": "Nhóm khung",
           "ungroup": "Tách nhóm"
@@ -1089,7 +1094,6 @@
         "pinned-apps": "Ứng dụng đã ghim",
         "polkit": "Polkit",
         "power": "Nguồn",
-        "privacy-security": "Quyền riêng tư & Bảo mật",
         "profile": "Hồ sơ",
         "screen-corners": "Các góc màn hình",
         "screen-time": "Thời gian sử dụng màn hình",
@@ -1320,6 +1324,9 @@
       },
       "plugins": {
         "configure": "Cấu hình",
+        "delete": "Xóa",
+        "delete-confirm-desc": "Plugin này sẽ được gỡ bỏ và xóa khỏi ổ đĩa.",
+        "delete-confirm-title": "Xóa \"{name}\"?",
         "deprecated": "đã lỗi thời",
         "empty": "Không tìm thấy plugin nào. Hãy thêm nguồn hoặc kiểm tra mạng của bạn.",
         "loading": "Đang tải các plugin...",
@@ -2112,6 +2119,7 @@
           "label": "Vị trí"
         },
         "placement-polkit": {
+          "description": "Chọn việc hộp thoại polkit sẽ gắn vào thanh hay hiển thị nổi tại vị trí màn hình đã chọn",
           "label": "Vị trí"
         },
         "placement-session": {
@@ -2123,21 +2131,27 @@
           "label": "Vị trí"
         },
         "position-clipboard": {
+          "description": "Vị trí nổi của bảng nhớ tạm trên màn hình — Chế độ Theo thanh sẽ đặt nó gần thanh",
           "label": "Vị trí"
         },
         "position-control-center": {
+          "description": "Vị trí nổi của Trung tâm điều khiển trên màn hình — Chế độ Theo thanh sẽ đặt nó gần thanh",
           "label": "Vị trí"
         },
         "position-launcher": {
+          "description": "Vị trí nổi của trình khởi chạy trên màn hình — Chế độ Theo thanh sẽ đặt nó gần thanh",
           "label": "Vị trí"
         },
         "position-polkit": {
+          "description": "Vị trí nổi của hộp thoại polkit trên màn hình — Chế độ Theo thanh sẽ đặt nó gần thanh",
           "label": "Vị trí"
         },
         "position-session": {
+          "description": "Vị trí nổi của session menu trên màn hình — Tùy chọn Theo thanh sẽ giữ nó gần thanh",
           "label": "Vị trí"
         },
         "position-wallpaper": {
+          "description": "Vị trí nổi của trình chọn hình nền trên màn hình — Tùy chọn Theo thanh sẽ giữ nó gần thanh",
           "label": "Vị trí"
         },
         "shadow": {
@@ -2243,6 +2257,10 @@
         "sunset": {
           "description": "Thời gian hoàng hôn thủ công theo định dạng HH:MM, được sử dụng khi chưa đặt vị trí",
           "label": "Hoàng hôn"
+        },
+        "sync-monitor-brightness": {
+          "description": "Đồng bộ độ sáng của tất cả màn hình",
+          "label": "Đồng bộ độ sáng màn hình"
         },
         "system-monitor": {
           "cpu-poll": {
@@ -2396,9 +2414,21 @@
           "description": "Định dạng ngày mặc định cho giao diện người dùng shell khi không có cài đặt riêng",
           "label": "Định dạng ngày"
         },
+        "greeter-sync-auto": {
+          "description": "Tự động đồng bộ màn hình chào mỗi khi hình nền, màu sắc hoặc chế độ giao diện thay đổi",
+          "label": "Tự động đồng bộ màn hình chào"
+        },
+        "greeter-sync-privilege-command": {
+          "description": "Thay thế pkexec/run0 cho tính năng Đồng bộ ngay của màn hình chào. Đường dẫn trình hỗ trợ áp dụng và thư mục tạm sẽ được tự động thêm vào. Ví dụ: ghostty -e pkexec",
+          "label": "Lệnh cấp quyền cho đồng bộ màn hình chào"
+        },
         "launch-apps-as-systemd-services": {
           "description": "Khởi chạy ứng dụng trong các dịch vụ systemd riêng biệt để chúng không chia sẻ cgroup của Noctalia",
           "label": "Khởi chạy ứng dụng dưới dạng dịch vụ systemd"
+        },
+        "launch-apps-custom-command": {
+          "description": "Lệnh tùy chỉnh được dùng bởi trình khởi chạy ứng dụng, biến $CMD sẽ được thay thế bằng lệnh gốc.",
+          "label": "Lệnh trình khởi chạy tùy chỉnh"
         },
         "middle-click-opens-widget-settings": {
           "description": "Mở cài đặt của một Widget trên Thanh bằng cách nhấp chuột giữa",

@@ -101,6 +101,7 @@ private:
     std::string title;
     std::string appId;
     wl_output* output = nullptr;
+    std::vector<wl_output*> activeOutputs;
     bool activated = false;
     bool minimized = false;
     bool dirty = false;

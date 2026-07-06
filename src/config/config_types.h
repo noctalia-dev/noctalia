@@ -96,6 +96,7 @@ struct BarMonitorOverride {
   std::optional<double> widgetCapsulePadding;
   std::optional<double> widgetCapsuleRadius;
   std::optional<double> widgetCapsuleOpacity;
+  std::optional<bool> hoverHighlight;
   BarDeadZoneOverride deadZone;
 
   bool operator==(const BarMonitorOverride&) const = default;
@@ -171,6 +172,8 @@ struct BarConfig {
   // True when `capsule_border` appears under `[bar.*]` (empty value = no outline for widgets that inherit border).
   bool widgetCapsuleBorderSpecified = false;
   std::optional<ColorSpec> widgetCapsuleBorder;
+  // Soft tint of a widget's foreground color over the widget under the pointer (per member in capsule groups).
+  bool hoverHighlight = true;
   BarDeadZoneConfig deadZone;
   std::vector<BarMonitorOverride> monitorOverrides;
 
@@ -541,6 +544,7 @@ struct DockConfig {
   std::int32_t radiusTopRight = 16;    // dock background top-right corner radius
   std::int32_t radiusBottomLeft = 16;  // dock background bottom-left corner radius
   std::int32_t radiusBottomRight = 16; // dock background bottom-right corner radius
+  bool concaveEdgeCorners = false;     // carve concave corners on the side that touches the screen edge
   std::int32_t marginEnds = 0;         // inset from each end of the dock along its main axis
   std::int32_t marginEdge = 8;         // distance from the nearest screen edge (floats the dock when > 0)
   bool shadow = true;                  // use the global shell shadow
@@ -930,6 +934,8 @@ struct ShellConfig {
   std::string timeFormat = "{:%H:%M}";
   std::string dateFormat = "%A, %x";
   bool offlineMode = false;
+  /// Resolve and show the connection's external (WAN) IP in the Control Center network tab.
+  bool externalIpEnabled = false;
   bool telemetryEnabled = false;
   bool setupWizardEnabled = true;
   bool niriOverviewTypeToLaunchEnabled = false;

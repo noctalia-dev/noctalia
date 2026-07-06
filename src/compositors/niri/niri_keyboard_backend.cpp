@@ -2,7 +2,7 @@
 
 #include "compositors/niri/niri_runtime.h"
 
-#include <json.hpp>
+#include <nlohmann/json.hpp>
 #include <utility>
 
 namespace {

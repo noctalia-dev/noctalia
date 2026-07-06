@@ -79,6 +79,10 @@ public:
   void setBarCapsuleScene(Node* shell, Box* box) noexcept;
   [[nodiscard]] Node* barCapsuleShell() const noexcept { return m_capsuleShell; }
   [[nodiscard]] Box* barCapsuleBox() const noexcept { return m_capsuleBox; }
+  void setBarHoverBox(Box* box) noexcept { m_hoverBox = box; }
+  [[nodiscard]] Box* barHoverBox() const noexcept { return m_hoverBox; }
+  void setBarHoverProgress(float progress) noexcept { m_hoverProgress = progress; }
+  [[nodiscard]] float barHoverProgress() const noexcept { return m_hoverProgress; }
   // Outermost node for flex layout / anchor alignment (capsule shell when enabled).
   [[nodiscard]] Node* layoutBoundsNode() const noexcept { return m_capsuleShell != nullptr ? m_capsuleShell : root(); }
   [[nodiscard]] float resolvedBarCapsuleRadius(float width, float height) const noexcept;
@@ -121,6 +125,8 @@ protected:
   std::optional<ColorSpec> m_widgetIconColor;
   Node* m_capsuleShell = nullptr;
   Box* m_capsuleBox = nullptr;
+  Box* m_hoverBox = nullptr;
+  float m_hoverProgress = 0.0f;
 
 private:
   std::unique_ptr<Node> m_root;

@@ -193,6 +193,7 @@ location = "https://example.invalid/bad"
     bar.widgetCapsuleOpacity = 0.9f;
     bar.widgetCapsuleBorderSpecified = true;
     bar.widgetCapsuleBorder = colorSpecFromConfigString("#111213");
+    bar.hoverHighlight = false;
     BarCapsuleGroupStyle group;
     group.id = "grp1";
     group.members = {"clock", "weather"};
@@ -248,6 +249,7 @@ location = "https://example.invalid/bad"
     ovr.widgetCapsuleForeground = colorSpecFromConfigString("#d1d2d3");
     ovr.widgetColor = colorSpecFromConfigString("#e1e2e3");
     ovr.widgetIconColor = colorSpecFromConfigString("#e3e2e1");
+    ovr.hoverHighlight = true;
     BarCapsuleGroupStyle ogroup;
     ogroup.id = "ogrp";
     ogroup.members = {"volume"};
@@ -519,6 +521,7 @@ enabled = false
 end = [ "battery" ]
 font_family = "Inter"
 font_weight = 600
+hover_highlight = false
 icon_color = "#0C0B0A"
 layer = "overlay"
 margin_edge = 5
@@ -567,6 +570,7 @@ widget_spacing = 8
     end = [ "volume" ]
     font_family = "Fira Sans"
     font_weight = 600
+    hover_highlight = true
     icon_color = "#E3E2E1"
     layer = "top"
     margin_edge = 9
@@ -598,6 +602,7 @@ widget_spacing = 8
 
         [[default.monitor.DP-1.capsule_group]]
         border = "#0F0E0D"
+        enabled = true
         fill = "#F1F2F3"
         foreground = "#0C0B0A"
         id = "ogrp"
@@ -608,6 +613,7 @@ widget_spacing = 8
 
     [[default.capsule_group]]
     border = "#333435"
+    enabled = true
     fill = "#222324"
     foreground = "#444546"
     id = "grp1"
