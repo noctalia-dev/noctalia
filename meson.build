@@ -174,13 +174,9 @@ mcu_dep = declare_dependency(
 )
 
 # ── Vendored: stb_image_resize2 (header-only) ─────────────────────────────────
-if get_option('system_stb')
-  stb_dep = dependency('stb', include_type: 'system')
-else
-  stb_dep = declare_dependency(
-    include_directories: include_directories('third_party/stb', is_system: true),
-  )
-endif
+stb_dep = declare_dependency(
+  include_directories: include_directories(get_option('stb_headers'), is_system: true),
+)
 
 # ── Vendored: tomlplusplus (header-only) ─────────────────────────────────
 if get_option('system_tomlplusplus')
