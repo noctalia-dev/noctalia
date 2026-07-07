@@ -122,7 +122,7 @@ sudo dnf install meson gcc-c++ just \
   jemalloc-devel
 ```
 
-### openSUSE (Tumbleweed & Slowroll)
+### openSUSE Tumbleweed / Slowroll
 ```sh
 sudo zypper install meson gcc-c++ just \
   wayland-devel wayland-protocols-devel \
