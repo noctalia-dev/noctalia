@@ -224,7 +224,9 @@ namespace {
     return a.size() < b.size();
   }
 
-  std::string pickAlphabeticalWallpaperPath(std::vector<std::string> candidates, const std::string& currentPath) {
+  std::string pickAlphabeticalWallpaperPath(
+      std::vector<std::string> candidates, const std::string& currentPath, int direction = 1
+  ) {
     if (candidates.empty()) {
       return {};
     }
@@ -237,8 +239,10 @@ namespace {
     if (it == candidates.end()) {
       return candidates.front();
     }
+    const auto n = candidates.size();
     const auto idx = static_cast<std::size_t>(std::distance(candidates.begin(), it));
-    return candidates[(idx + 1) % candidates.size()];
+    const std::size_t step = (direction < 0) ? n - 1 : 1;
+    return candidates[(idx + step) % n];
   }
 
   std::string pickAutomationWallpaperPath(
@@ -748,13 +752,46 @@ void Wallpaper::registerIpc(IpcService& ipc) {
         if (!trimmed.empty()) {
           connector = trimmed;
         }
-        if (!switchToRandomWallpaper(connector)) {
+        if (!switchWallpaperTo(PickWallpaper::Random, connector)) {
           return "error: failed to pick a random wallpaper\n";
         }
         return "ok\n";
       },
       "wallpaper-random [<connector>]", "Switch to a random wallpaper immediately"
   );
+
+  ipc.registerHandler(
+      "wallpaper-next",
+      [this](const std::string& args) -> std::string {
+        const auto trimmed = StringUtils::trim(args);
+        std::optional<std::string_view> connector;
+        if (!trimmed.empty()) {
+          connector = trimmed;
+        }
+        if (!switchWallpaperTo(PickWallpaper::Next, connector)) {
+          return "error: failed to pick next wallpaper\n";
+        }
+        return "ok\n";
+      },
+      "wallpaper-next [<connector>]", "Switch to the next wallpaper immediately"
+  );
+
+  ipc.registerHandler(
+      "wallpaper-previous",
+      [this](const std::string& args) -> std::string {
+        const auto trimmed = StringUtils::trim(args);
+        std::optional<std::string_view> connector;
+        if (!trimmed.empty()) {
+          connector = trimmed;
+        }
+        if (!switchWallpaperTo(PickWallpaper::Previous, connector)) {
+          return "error: failed to pick previous wallpaper\n";
+        }
+        return "ok\n";
+      },
+      "wallpaper-previous [<connector>]", "Switch to the previous wallpaper immediately"
+  );
+
   ipc.registerHandler(
       "wallpaper-get",
       [this, validateOutputConnector](const std::string& args) -> std::string {
@@ -1060,7 +1097,7 @@ void Wallpaper::runAutomation(std::int64_t secondStamp) {
   m_lastAutomationSwitchSecond = secondStamp;
 }
 
-bool Wallpaper::switchToRandomWallpaper(std::optional<std::string_view> connector) {
+bool Wallpaper::switchWallpaperTo(PickWallpaper action, std::optional<std::string_view> connector) {
   if (m_config == nullptr || !m_config->config().wallpaper.enabled || m_instances.empty()) {
     return false;
   }
@@ -1069,6 +1106,18 @@ bool Wallpaper::switchToRandomWallpaper(std::optional<std::string_view> connecto
   const ThemeMode mode = wallpaper.perMonitorDirectories
       ? (m_config->config().theme.mode == ThemeMode::Light ? ThemeMode::Light : ThemeMode::Dark)
       : ThemeMode::Dark;
+
+  const auto pick = [action](std::vector<std::string> candidates, const std::string& currentPath) -> std::string {
+    switch (action) {
+    case PickWallpaper::Random:
+      return pickRandomWallpaperPath(candidates, currentPath);
+    case PickWallpaper::Next:
+      return pickAlphabeticalWallpaperPath(std::move(candidates), currentPath, 1);
+    case PickWallpaper::Previous:
+      return pickAlphabeticalWallpaperPath(std::move(candidates), currentPath, -1);
+    }
+    return {};
+  };
 
   if (connector.has_value()) {
     if (m_wayland != nullptr) {
@@ -1109,7 +1158,7 @@ bool Wallpaper::switchToRandomWallpaper(std::optional<std::string_view> connecto
       return false;
     }
     const std::string currentPath = m_config->getWallpaperPath(std::string(*connector));
-    const std::string picked = pickRandomWallpaperPath(candidates, currentPath);
+    const std::string picked = pick(std::move(candidates), currentPath);
     if (picked.empty() || picked == currentPath) {
       return false;
     }
@@ -1143,7 +1192,7 @@ bool Wallpaper::switchToRandomWallpaper(std::optional<std::string_view> connecto
         continue;
       }
       const std::string currentPath = m_config->getWallpaperPath(inst->connectorName);
-      const std::string picked = pickRandomWallpaperPath(candidates, currentPath);
+      const std::string picked = pick(std::move(candidates), currentPath);
       if (picked.empty() || picked == currentPath) {
         continue;
       }
@@ -1157,7 +1206,7 @@ bool Wallpaper::switchToRandomWallpaper(std::optional<std::string_view> connecto
     collectWallpaperCandidates(dir, wallpaper.automation.recursive, candidates);
     if (!candidates.empty()) {
       const std::string currentDefault = m_config->getDefaultWallpaperPath();
-      const std::string picked = pickRandomWallpaperPath(candidates, currentDefault);
+      const std::string picked = pick(std::move(candidates), currentDefault);
       if (!picked.empty()) {
         for (const auto& inst : m_instances) {
           if (!inst->connectorName.empty()) {

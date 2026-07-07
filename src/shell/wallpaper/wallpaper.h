@@ -67,6 +67,12 @@ private:
     Redirected,
   };
 
+  enum class PickWallpaper {
+    Random,
+    Previous,
+    Next,
+  };
+
   [[nodiscard]] bool isConnectorKnown(std::string_view connector) const;
   // Persist a resolved image path to a single connector, or to every connected
   // output plus the default when no connector is given.
@@ -77,7 +83,7 @@ private:
   void resetAutomationState();
   void runAutomation(std::int64_t secondStamp);
   [[nodiscard]] bool automationAllowed() const noexcept;
-  [[nodiscard]] bool switchToRandomWallpaper(std::optional<std::string_view> connector = std::nullopt);
+  [[nodiscard]] bool switchWallpaperTo(PickWallpaper action, std::optional<std::string_view> connector = std::nullopt);
   void createInstance(const WaylandOutput& output);
   [[nodiscard]] TextureHandle acquireTexture(const std::string& path);
   void releaseTexture(TextureHandle& handle, const std::string& path);
