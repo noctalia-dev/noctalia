@@ -1,7 +1,7 @@
 #include "render/core/image_encoder.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb_image_write.h"
+#include "stb/stb_image_write.h"
 
 #include <cstring>
 

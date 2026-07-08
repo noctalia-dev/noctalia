@@ -105,6 +105,8 @@ sudo pacman -S meson gcc just \
   sdbus-cpp libpipewire wireplumber polkit \
   pam curl libwebp librsvg \
   libqalculate libxml2 \
+  md4c tomlplusplus \
+  nlohmann-json stb \
   jemalloc
 ```
 
@@ -119,6 +121,8 @@ sudo dnf install meson gcc-c++ just \
   sdbus-cpp-devel pipewire-devel wireplumber-devel \
   pam-devel polkit-devel libcurl-devel libwebp-devel librsvg2-devel \
   libqalculate-devel libxml2-devel \
+  md4c-devel tomlplusplus-devel \
+  json-devel stb_image_resize2-devel stb_image_write-devel \
   jemalloc-devel
 ```
 
@@ -133,6 +137,8 @@ sudo zypper install meson gcc-c++ just \
   sdbus-cpp-devel pipewire-devel wireplumber-devel \
   pam-devel polkit-devel libcurl-devel libwebp-devel librsvg-devel \
   libqalculate-devel libxml2-devel \
+  md4c-devel tomlplusplus-devel \
+  nlohmann_json-devel stb-devel \
   jemalloc-devel
 ```
 
@@ -148,6 +154,8 @@ sudo apt install meson g++ just \
   libpam0g-dev libpolkit-agent-1-dev libpolkit-gobject-1-dev \
   libcurl4-openssl-dev libwebp-dev librsvg2-dev \
   libqalculate-dev libxml2-dev \
+  libmd4c-dev libtomlplusplus-dev \
+  nlohmann-json3-dev libstb-dev \
   libjemalloc-dev
 ```
 
@@ -160,15 +168,13 @@ sudo xbps-install meson ninja pkg-config git \
   harfbuzz-devel libxkbcommon-devel pipewire-devel wireplumber-devel \
   libcurl-devel pam-devel libwebp-devel \
   basu-devel sdbus-c++-devel \
+  libmd4c-devel tomlplusplus-devel \
+  nlohmann-json-devel stb \
   polkit-devel librsvg-devel libqalculate-devel libxml2-devel jemalloc-devel
 ```
 
 Vendored dependencies, with no system package needed: `Wuffs`,
 `Luau`, `dr_wav`, `fzy`, and Material Color Utilities.
-
-Dependencies that are vendored by default, with a meson boolean to instead use the system package: `md4c`,
-`tomlplusplus`, `nlohmann/json`. `stb` is also vendored by default, but since it ships no pkg-config file it is switched by pointing
-`-Dstb_headers=<path>` at system headers (e.g. `-Dstb_headers=/usr/include/stb`) rather than a boolean toggle.
 
 System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and thumbnail encoding. Wuffs
 handles the other supported raster image formats. `libqalculate` powers the launcher calculator (arithmetic, unit and

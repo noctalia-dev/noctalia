@@ -72,6 +72,9 @@ wireplumber_dep     = dependency('wireplumber-0.5', include_type: 'system')
 curl_dep            = dependency('libcurl')
 libqalculate_dep    = dependency('libqalculate')
 libxml2_dep         = dependency('libxml-2.0')
+md4c_dep            = dependency('md4c')
+nlohmann_dep        = dependency('nlohmann_json')
+tomlplusplus_dep    = dependency('tomlplusplus')
 pam_dep             = cc.find_library('pam')
 dl_dep              = cpp.find_library('dl', required: false)
 
@@ -173,41 +176,12 @@ mcu_dep = declare_dependency(
   include_directories: include_directories('third_party/material_color_utilities', is_system: true),
 )
 
-# ── Vendored: stb_image_resize2 (header-only) ─────────────────────────────────
-stb_dep = declare_dependency(
-  include_directories: include_directories(get_option('stb_headers'), is_system: true),
-)
-
-# ── Vendored: tomlplusplus (header-only) ─────────────────────────────────
-if get_option('system_tomlplusplus')
-  tomlplusplus_dep = dependency('tomlplusplus')
-else
-  tomlplusplus_dep = declare_dependency(
-    include_directories: include_directories('third_party/tomlplusplus', is_system: true),
-  )
+# ── System: stb_image_resize2 and stb_image_write (header-only) ─────────────────────────────────
+if not cc.has_header('stb/stb_image_resize2.h')
+  error('stb/stb_image_resize2.h not found')
 endif
-
-# ── Vendored: nlohmann (header-only) ─────────────────────────────────
-if get_option('system_nlohmann_json')
-  nlohmann_dep = dependency('nlohmann_json')
-else
-  nlohmann_dep = declare_dependency(
-    include_directories: include_directories('third_party/nlohmann', is_system: true),
-  )
-endif
-
-# ── Vendored: md4c (CommonMark parser) ───────────────────────────────────────
-if get_option('system_md4c')
-  md4c_dep = dependency('md4c')
-else
-  _md4c_lib = static_library('md4c',
-    'third_party/md4c/md4c.c',
-    override_options: ['warning_level=0'],
-  )
-  md4c_dep = declare_dependency(
-    link_whole: _md4c_lib,
-    include_directories: include_directories('third_party/md4c', is_system: true),
-  )
+if not cc.has_header('stb/stb_image_write.h')
+  error('stb/stb_image_write.h not found')
 endif
 
 # ── System: libwebp (WebP decode and thumbnail encode) ───────────────────────
@@ -941,7 +915,6 @@ noctalia_exe = executable('noctalia',
     mcu_dep,
     nlohmann_dep,
     libxml2_dep,
-    stb_dep,
     tomlplusplus_dep,
     md4c_dep,
     libwebp_dep,
@@ -1300,7 +1273,6 @@ ui_tree_reconciler_test = executable('ui_tree_reconciler_test',
     librsvg_dep,
     libwebp_dep,
     nlohmann_dep,
-    stb_dep,
     xkbcommon_dep,
   ],
   include_directories: _noctalia_inc,
@@ -1467,7 +1439,6 @@ image_file_loader_data_uri_test = executable('image_file_loader_data_uri_test',
     cairo_dep,
     librsvg_dep,
     libwebp_dep,
-    stb_dep,
   ],
   include_directories: _noctalia_inc,
 )

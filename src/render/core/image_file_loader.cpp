@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <cstring>
 #include <expected>
-#include <stb_image_resize2.h>
+#include <stb/stb_image_resize2.h>
 #include <string_view>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wexpansion-to-defined"

@@ -13,7 +13,7 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
-#include <stb_image_resize2.h>
+#include <stb/stb_image_resize2.h>
 #include <sys/eventfd.h>
 #include <system_error>
 #include <unistd.h>
