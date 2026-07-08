@@ -488,10 +488,11 @@ namespace ui {
                                                               "controlSize"};
       static const std::unordered_set<std::string> kToggle = {"width",   "height",  "flexGrow", "opacity",
                                                               "visible", "checked", "enabled",  "onChange"};
-      static const std::unordered_set<std::string> kScroll = {"width",       "height", "flexGrow", "opacity",
-                                                              "visible",     "fill",   "radius",   "border",
-                                                              "borderWidth", "gap",    "padding",  "paddingH",
-                                                              "paddingV",    "align",  "justify"};
+      static const std::unordered_set<std::string> kScroll = {
+          "width",    "height", "flexGrow",    "opacity",       "visible",  "fill",
+          "radius",   "border", "borderWidth", "gap",           "padding",  "paddingH",
+          "paddingV", "align",  "justify",     "stickToBottom", "onScroll", "scrollToBottomRev"
+      };
       static const std::unordered_set<std::string> kDragSource = {
           "width",   "height",   "flexGrow",    "opacity",         "visible",       "gap",
           "padding", "paddingH", "paddingV",    "align",           "justify",       "fill",
@@ -1603,6 +1604,26 @@ namespace ui {
       if (auto border = parseColor(desired, "border")) {
         const double* borderWidth = numProp(desired, "borderWidth");
         scroll->setBorder(*border, borderWidth != nullptr ? scaled(*borderWidth) : 1.0f);
+      }
+      if (const bool* stickToBottom = boolProp(desired, "stickToBottom")) {
+        scroll->setStickToBottom(*stickToBottom);
+      }
+      if (const std::string* onScroll = strProp(desired, "onScroll");
+          onScroll != nullptr && *onScroll != slot.callbackName) {
+        slot.callbackName = *onScroll;
+        scroll->setOnScrollChanged([this, name = slot.callbackName, scroll](float offset) {
+          if (m_sink) {
+            m_sink(ControlCallback{name, std::format("{}", offset), std::format("{}", scroll->maxScrollOffset())});
+          }
+        });
+      }
+      if (const double* scrollToBottomRev = numProp(desired, "scrollToBottomRev")) {
+        if (!slot.lastScalar.has_value() || *slot.lastScalar != *scrollToBottomRev) {
+          slot.lastScalar = *scrollToBottomRev;
+          // Deferred: children reconcile after applyProps, so an immediate
+          // setScrollOffset would clamp against the previous scroll extent.
+          scroll->requestScrollToBottom();
+        }
       }
       // gap / padding / align / justify configure the inner content Flex that
       // hosts the children.

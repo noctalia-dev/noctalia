@@ -26,6 +26,13 @@ public:
   [[nodiscard]] const Flex* content() const noexcept { return m_content; }
 
   void setScrollOffset(float offset);
+  // Keep the view pinned to the bottom while content grows, as long as the user has not scrolled away from the bottom.
+  void setStickToBottom(bool enabled);
+  // One-shot jump to the bottom, deferred to the next layout pass: callers
+  // that mutate content in the same frame (e.g. the plugin reconciler) need
+  // the jump to target the new extent, while an immediate setScrollOffset
+  // would clamp against the previous pass's maxScrollOffset().
+  void requestScrollToBottom();
   void scrollBy(float delta);
   void setScrollbarVisible(bool visible);
   // Vertical clearance at both track ends (e.g. the host card's corner radius).
@@ -74,6 +81,8 @@ private:
   Scrollbar* m_scrollbar = nullptr;
 
   ScrollViewState* m_boundState = nullptr;
+  bool m_stickToBottom = false;
+  bool m_pendingScrollToBottom = false;
   std::function<void(float)> m_onScrollChanged;
   ColorSpec m_backgroundFill = clearColorSpec();
   ColorSpec m_backgroundBorder = clearColorSpec();
