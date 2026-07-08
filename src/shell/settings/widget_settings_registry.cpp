@@ -551,6 +551,7 @@ namespace settings {
     const WidgetSettingVisibility capsuleOn{"capsule", {"true"}};
 
     auto anchor = withGroup(boolSpec("anchor", false, true), WidgetSettingGroup::Presentation);
+    auto interactive = withGroup(boolSpec("interactive", true), WidgetSettingGroup::Presentation);
     auto scale = withGroup(doubleSpec("scale", 1.0, 0.2, 2.5, 0.05), WidgetSettingGroup::Presentation);
     auto widgetColor = withGroup(colorSpec("color", {}, true), WidgetSettingGroup::Presentation);
     auto widgetIconColor = withGroup(colorSpec("icon_color", {}, true), WidgetSettingGroup::Presentation);
@@ -590,10 +591,10 @@ namespace settings {
     capsuleOpacity.visibleWhen = capsuleOn;
 
     return {
-        std::move(anchor),         std::move(scale),         std::move(widgetColor),       std::move(widgetIconColor),
-        std::move(fontFamily),     std::move(fontWeight),    std::move(capsuleToggle),     std::move(capsuleRadius),
-        std::move(capsuleFill),    std::move(capsuleBorder), std::move(capsuleForeground), std::move(capsulePadding),
-        std::move(capsuleOpacity),
+        std::move(anchor),          std::move(interactive),    std::move(scale),         std::move(widgetColor),
+        std::move(widgetIconColor), std::move(fontFamily),     std::move(fontWeight),    std::move(capsuleToggle),
+        std::move(capsuleRadius),   std::move(capsuleFill),    std::move(capsuleBorder), std::move(capsuleForeground),
+        std::move(capsulePadding),  std::move(capsuleOpacity),
     };
   }
 

@@ -2040,6 +2040,7 @@ void Bar::populateWidgets(BarInstance& instance) {
     widget->setConfigName(name);
     if (wcPtr != nullptr) {
       widget->setAnchor(wcPtr->getBool("anchor", false));
+      widget->setNonInteractive(!wcPtr->getBool("interactive", true));
       if (!wcPtr->getBool("enabled", true)) {
         return;
       }

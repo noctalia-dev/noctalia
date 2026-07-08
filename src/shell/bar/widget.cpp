@@ -71,6 +71,13 @@ void Widget::setBarCapsuleScene(Node* shell, Box* box) noexcept {
   m_capsuleBox = box;
 }
 
+void Widget::setNonInteractive(bool nonInteractive) noexcept {
+  m_nonInteractive = nonInteractive;
+  if (Node* r = root(); r != nullptr) {
+    r->setHitTestVisible(!m_nonInteractive);
+  }
+}
+
 float Widget::width() const noexcept { return root() ? root()->width() : 0.0f; }
 
 float Widget::height() const noexcept { return root() ? root()->height() : 0.0f; }
@@ -78,6 +85,13 @@ float Widget::height() const noexcept { return root() ? root()->height() : 0.0f;
 std::unique_ptr<Node> Widget::releaseRoot() {
   m_rootPtr = m_root.get();
   return std::move(m_root);
+}
+
+void Widget::setRoot(std::unique_ptr<Node> root) {
+  m_root = std::move(root);
+  if (m_root != nullptr) {
+    m_root->setHitTestVisible(!m_nonInteractive);
+  }
 }
 
 void Widget::setAnimationManager(AnimationManager* mgr) noexcept { m_animations = mgr; }

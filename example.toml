@@ -468,3 +468,4 @@ battery_low_percent_threshold = 0   # set to e.g. 15 to enable battery_under_thr
 # tooltip_format = "{:%A, %B %d, %Y}"
 # scale = 1.0                         # multiplies the bar scale for this widget only
 # font_weight = 700
+# interactive = false                 # pass clicks/scrolls through to the bar and disable hover/tooltips
