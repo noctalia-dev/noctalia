@@ -57,6 +57,9 @@ public:
   void setOnFocusLoss(std::function<void()> callback);
   void setOnFocusGain(std::function<void()> callback);
   void setSubmitOnFocusLoss(bool enabled);
+  /// Multiline chat-style submit: Enter submits and Shift+Enter inserts a
+  /// newline. Off (default), Enter inserts a newline and Ctrl+Enter submits.
+  void setSubmitOnEnter(bool enabled);
   void setEnabled(bool enabled);
   void setSurfaceOpacity(float opacity);
   void setFrameRadius(float radius);
@@ -220,6 +223,7 @@ private:
   std::function<void()> m_onFocusLoss;
   std::function<void()> m_onFocusGain;
   bool m_submitOnFocusLoss = false;
+  bool m_submitOnEnter = false;
   float m_fontSize = Style::fontSizeBody;
   float m_controlHeight = Style::controlHeight;
   float m_horizontalPadding = Style::spaceMd;

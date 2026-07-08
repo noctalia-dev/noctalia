@@ -478,7 +478,7 @@ namespace ui {
       static const std::unordered_set<std::string> kInput = {"width",    "height",   "flexGrow",    "opacity",
                                                              "visible",  "value",    "placeholder", "fontSize",
                                                              "enabled",  "password", "multiline",   "focus",
-                                                             "onChange", "onSubmit", "controlSize"};
+                                                             "onChange", "onSubmit", "controlSize", "submitOnEnter"};
       static const std::unordered_set<std::string> kSelect = {"width",       "height",   "flexGrow",      "opacity",
                                                               "visible",     "options",  "selectedIndex", "enabled",
                                                               "placeholder", "onChange", "controlSize"};
@@ -1552,6 +1552,9 @@ namespace ui {
       // Multiline before password: they are mutually exclusive and multiline wins.
       if (const bool* multiline = boolProp(desired, "multiline")) {
         input->setMultiline(*multiline);
+      }
+      if (const bool* submitOnEnter = boolProp(desired, "submitOnEnter")) {
+        input->setSubmitOnEnter(*submitOnEnter);
       }
       if (const bool* password = boolProp(desired, "password")) {
         input->setPasswordMode(*password);
