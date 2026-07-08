@@ -15,6 +15,7 @@
 #include "ui/controls/image.h"
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
+#include "ui/controls/markdown_view.h"
 #include "ui/controls/progress_bar.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/select.h"
@@ -479,6 +480,8 @@ namespace ui {
                                                              "visible",  "value",    "placeholder", "fontSize",
                                                              "enabled",  "password", "multiline",   "focus",
                                                              "onChange", "onSubmit", "controlSize", "submitOnEnter"};
+      static const std::unordered_set<std::string> kMarkdown = {"width",   "height",  "flexGrow",
+                                                                "opacity", "visible", "text"};
       static const std::unordered_set<std::string> kSelect = {"width",       "height",   "flexGrow",      "opacity",
                                                               "visible",     "options",  "selectedIndex", "enabled",
                                                               "placeholder", "onChange", "controlSize"};
@@ -535,6 +538,9 @@ namespace ui {
       if (type == "input") {
         return kInput;
       }
+      if (type == "markdown") {
+        return kMarkdown;
+      }
       if (type == "select") {
         return kSelect;
       }
@@ -568,6 +574,8 @@ namespace ui {
     std::string submitCallbackName;  // last-wired input onSubmit target
     std::string dragEndCallbackName; // last-wired slider onDragEnd target
     std::string imagePath;           // last-applied resolved image source
+    std::string lastText;            // markdown source cache - setMarkdown re-parses, only call on change
+    float lastMarkdownScale = 0.0f;  // scale baked into the parsed markdown; a rescale must re-call setMarkdown
     float imageTargetSize = 0.0f;
     // Controlled-with-change-detection: a value-driven control (toggle/slider/
     // select) only re-applies its declared value when it differs from the last
@@ -693,6 +701,9 @@ namespace ui {
     }
     if (desired.type == "input") {
       return std::make_unique<Input>();
+    }
+    if (desired.type == "markdown") {
+      return std::make_unique<MarkdownView>();
     }
     if (desired.type == "select") {
       return std::make_unique<Select>();
@@ -1589,6 +1600,29 @@ namespace ui {
       }
       if (height != nullptr) {
         input->setControlHeight(scaled(*height));
+      }
+      return;
+    }
+
+    if (desired.type == "markdown") {
+      auto* md = static_cast<MarkdownView*>(node);
+      // The scale check sits outside the text-presence gate: a render that
+      // omits text (retained-prop convention) must still pick up a rescale.
+      const std::string* text = strProp(desired, "text");
+      if ((text != nullptr && *text != slot.lastText) || m_scale != slot.lastMarkdownScale) {
+        if (text != nullptr) {
+          slot.lastText = *text;
+        }
+        slot.lastMarkdownScale = m_scale;
+        md->setMarkdown(slot.lastText, m_scale);
+      }
+      if (width != nullptr) {
+        md->setMinWidth(scaled(*width));
+        md->setMaxWidth(scaled(*width));
+      }
+      if (height != nullptr) {
+        md->setMinHeight(scaled(*height));
+        md->setMaxHeight(scaled(*height));
       }
       return;
     }
