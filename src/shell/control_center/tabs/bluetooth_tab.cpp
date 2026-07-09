@@ -582,7 +582,11 @@ std::string BluetoothTab::listKey() const {
     key.push_back(':');
     key += std::to_string(static_cast<int>(d.batteryPercent));
     key.push_back(':');
-    key += std::to_string(static_cast<int>(d.rssi));
+    // Only the rendered signal percent (Available rows) belongs in the key; raw
+    // RSSI churn would otherwise rebuild the whole list, including connected rows.
+    if (d.hasRssi && bucketFor(d) == DeviceBucket::Available) {
+      key += std::to_string(signalPercentFromRssi(d.rssi));
+    }
     key.push_back('\n');
   }
   return key;
