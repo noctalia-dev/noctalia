@@ -27,6 +27,11 @@
   librsvg,
   libqalculate,
   libxml2,
+  md4c,
+  nlohmann_json,
+  tomlplusplus,
+  stb,
+  fetchFromGitHub,
   wireplumber,
   jemalloc,
   autoAddDriverRunpath,
@@ -35,6 +40,17 @@
 let
   inherit (builtins) head match readFile;
   version = head (match ".*version: '([^']+)'.*" (readFile ../meson.build));
+  # nixpkgs stb is pinned to 2023-01-29, which predates stb_image_resize2.h
+  # (added upstream 2023-10-10). Override to latest until NixOS/nixpkgs#491159 merges.
+  stb' = stb.overrideAttrs (_: {
+    version = "0-unstable-2025-10-26";
+    src = fetchFromGitHub {
+      owner = "nothings";
+      repo = "stb";
+      rev = "f1c79c02822848a9bed4315b12c8c8f3761e1296";
+      hash = "sha256-BlyXJtAI7WqXCTT3ylww8zoG0hBxaojJnQDvdQOXJPE=";
+    };
+  });
 in
 stdenv.mkDerivation {
   pname = "noctalia";
@@ -79,6 +95,10 @@ stdenv.mkDerivation {
     librsvg
     libqalculate
     libxml2
+    md4c
+    nlohmann_json
+    tomlplusplus
+    stb'
   ];
 
   mesonBuildType = "release";
