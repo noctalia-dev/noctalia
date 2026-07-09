@@ -29,12 +29,29 @@
   libxml2,
   wireplumber,
   jemalloc,
+  md4c,
+  nlohmann_json,
+  tomlplusplus,
+  stb,
+  fetchFromGitHub,
   autoAddDriverRunpath,
   cudaSupport ? config.cudaSupport,
 }:
 let
   inherit (builtins) head match readFile;
   version = head (match ".*version: '([^']+)'.*" (readFile ../meson.build));
+
+  # nixpkgs pins stb to 2023-01-29, which predates stb_image_resize2.h
+  # (the v2 resize API that meson.build requires via cc.has_header).
+  stb' = stb.overrideAttrs {
+    version = "0-unstable-2026-04-15";
+    src = fetchFromGitHub {
+      owner = "nothings";
+      repo = "stb";
+      rev = "31c1ad37456438565541f4919958214b6e762fb4";
+      hash = "sha256-m2yNUlA37hDkKQVrQ+R8nufHfW/cXLnMo+n1X1Cyun0=";
+    };
+  };
 in
 stdenv.mkDerivation {
   pname = "noctalia";
@@ -79,6 +96,10 @@ stdenv.mkDerivation {
     librsvg
     libqalculate
     libxml2
+    md4c
+    nlohmann_json
+    tomlplusplus
+    stb'
   ];
 
   mesonBuildType = "release";
