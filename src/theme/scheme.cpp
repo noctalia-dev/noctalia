@@ -7,6 +7,8 @@ namespace noctalia::theme {
       return Scheme::TonalSpot;
     if (s == "m3-content")
       return Scheme::Content;
+    if (s == "m3-oled")
+      return Scheme::Oled;
     if (s == "m3-fruit-salad")
       return Scheme::FruitSalad;
     if (s == "m3-rainbow")
@@ -32,6 +34,8 @@ namespace noctalia::theme {
       return "m3-tonal-spot";
     case Scheme::Content:
       return "m3-content";
+    case Scheme::Oled:
+      return "m3-oled";
     case Scheme::FruitSalad:
       return "m3-fruit-salad";
     case Scheme::Rainbow:

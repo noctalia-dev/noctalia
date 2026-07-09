@@ -42,6 +42,7 @@ namespace noctalia::theme {
         "  --scheme <name>   Material You (Material Design 3):\n"
         "                      m3-tonal-spot  (default)\n"
         "                      m3-content\n"
+        "                      m3-oled\n"
         "                      m3-fruit-salad\n"
         "                      m3-rainbow\n"
         "                      m3-monochrome\n"

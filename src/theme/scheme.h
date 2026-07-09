@@ -13,6 +13,7 @@ namespace noctalia::theme {
   enum class Scheme {
     TonalSpot,
     Content,
+    Oled,
     FruitSalad,
     Rainbow,
     Monochrome,
@@ -27,6 +28,7 @@ namespace noctalia::theme {
   constexpr bool isMaterialScheme(Scheme s) {
     return s == Scheme::TonalSpot
         || s == Scheme::Content
+        || s == Scheme::Oled
         || s == Scheme::FruitSalad
         || s == Scheme::Rainbow
         || s == Scheme::Monochrome;

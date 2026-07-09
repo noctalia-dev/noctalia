@@ -78,18 +78,19 @@ namespace {
 
   [[nodiscard]] std::vector<std::string> wallpaperSchemeOptions() {
     return {
-        i18n::tr("theme.scheme.m3-content"),     i18n::tr("theme.scheme.m3-tonal-spot"),
-        i18n::tr("theme.scheme.m3-fruit-salad"), i18n::tr("theme.scheme.m3-rainbow"),
-        i18n::tr("theme.scheme.m3-monochrome"),  i18n::tr("theme.scheme.vibrant"),
-        i18n::tr("theme.scheme.faithful"),       i18n::tr("theme.scheme.soft"),
-        i18n::tr("theme.scheme.dysfunctional"),  i18n::tr("theme.scheme.muted"),
+        i18n::tr("theme.scheme.m3-content"),    i18n::tr("theme.scheme.m3-oled"),
+        i18n::tr("theme.scheme.m3-tonal-spot"), i18n::tr("theme.scheme.m3-fruit-salad"),
+        i18n::tr("theme.scheme.m3-rainbow"),    i18n::tr("theme.scheme.m3-monochrome"),
+        i18n::tr("theme.scheme.vibrant"),       i18n::tr("theme.scheme.faithful"),
+        i18n::tr("theme.scheme.soft"),          i18n::tr("theme.scheme.dysfunctional"),
+        i18n::tr("theme.scheme.muted"),
     };
   }
 
   [[nodiscard]] std::vector<std::string> wallpaperSchemeValues() {
     return {
-        "m3-content", "m3-tonal-spot", "m3-fruit-salad", "m3-rainbow",    "m3-monochrome",
-        "vibrant",    "faithful",      "soft",           "dysfunctional", "muted",
+        "m3-content", "m3-oled",  "m3-tonal-spot", "m3-fruit-salad", "m3-rainbow", "m3-monochrome",
+        "vibrant",    "faithful", "soft",          "dysfunctional",  "muted",
     };
   }
 

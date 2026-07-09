@@ -196,9 +196,9 @@ namespace noctalia::theme {
 
     std::string shortSchemeTag(std::string_view scheme) {
       static constexpr std::pair<std::string_view, std::string_view> kTags[] = {
-          {"m3-tonal-spot", "ts"},  {"m3-content", "mc"}, {"m3-fruit-salad", "fs"}, {"m3-rainbow", "rb"},
-          {"m3-monochrome", "mo"},  {"vibrant", "vib"},   {"faithful", "fth"},      {"soft", "sft"},
-          {"dysfunctional", "dys"}, {"muted", "mut"},
+          {"m3-tonal-spot", "ts"}, {"m3-content", "mc"},     {"m3-oled", "ol"},  {"m3-fruit-salad", "fs"},
+          {"m3-rainbow", "rb"},    {"m3-monochrome", "mo"},  {"vibrant", "vib"}, {"faithful", "fth"},
+          {"soft", "sft"},         {"dysfunctional", "dys"}, {"muted", "mut"},
       };
       for (const auto& [full, tag] : kTags) {
         if (scheme == full) {

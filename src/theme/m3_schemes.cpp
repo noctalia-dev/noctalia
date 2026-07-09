@@ -342,6 +342,7 @@ namespace noctalia::theme {
       case Scheme::TonalSpot:
         return std::make_unique<mcu::SchemeTonalSpot>(source, isDark, 0.0);
       case Scheme::Content:
+      case Scheme::Oled:
         return std::make_unique<mcu::SchemeContent>(source, isDark, 0.0);
       case Scheme::FruitSalad:
         return std::make_unique<mcu::SchemeFruitSalad>(source, isDark, 0.0);
@@ -445,6 +446,14 @@ namespace noctalia::theme {
     out.light = buildTokenMap(*lightScheme);
     out.dark["source_color"] = seed;
     out.light["source_color"] = seed;
+
+    if (scheme == Scheme::Oled) {
+      out.dark["background"] = 0xff000000u;
+      out.dark["surface"] = 0xff000000u;
+      out.dark["surface_dim"] = 0xff000000u;
+      out.dark["surface_container_lowest"] = 0xff000000u;
+    }
+
     synthesizeTerminalPaletteTokens(out);
     return out;
   }
