@@ -43,13 +43,15 @@ let
 
   # nixpkgs pins stb to 2023-01-29, which predates stb_image_resize2.h
   # (the v2 resize API that meson.build requires via cc.has_header).
+  # Pin to the snapshot targeted by NixOS/nixpkgs#491159 so this matches
+  # upstream nixpkgs once that bump lands and the override can be dropped.
   stb' = stb.overrideAttrs (_: {
-    version = "0-unstable-2026-04-15";
+    version = "0-unstable-2025-10-26";
     src = fetchFromGitHub {
       owner = "nothings";
       repo = "stb";
-      rev = "31c1ad37456438565541f4919958214b6e762fb4";
-      hash = "sha256-m2yNUlA37hDkKQVrQ+R8nufHfW/cXLnMo+n1X1Cyun0=";
+      rev = "f1c79c02822848a9bed4315b12c8c8f3761e1296";
+      hash = "sha256-BlyXJtAI7WqXCTT3ylww8zoG0hBxaojJnQDvdQOXJPE=";
     };
   });
 in
