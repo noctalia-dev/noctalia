@@ -43,7 +43,7 @@ let
 
   # nixpkgs pins stb to 2023-01-29, which predates stb_image_resize2.h
   # (the v2 resize API that meson.build requires via cc.has_header).
-  stb' = stb.overrideAttrs {
+  stb' = stb.overrideAttrs (_: {
     version = "0-unstable-2026-04-15";
     src = fetchFromGitHub {
       owner = "nothings";
@@ -51,7 +51,7 @@ let
       rev = "31c1ad37456438565541f4919958214b6e762fb4";
       hash = "sha256-m2yNUlA37hDkKQVrQ+R8nufHfW/cXLnMo+n1X1Cyun0=";
     };
-  };
+  });
 in
 stdenv.mkDerivation {
   pname = "noctalia";
