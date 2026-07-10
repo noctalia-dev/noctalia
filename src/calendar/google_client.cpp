@@ -1,5 +1,6 @@
 #include "calendar/google_client.h"
 
+#include "calendar/google_calendar_list.h"
 #include "core/log.h"
 #include "net/http_client.h"
 #include "net/uri.h"
@@ -174,7 +175,7 @@ namespace calendar {
         const auto j = nlohmann::json::parse(resp.body);
         if (auto items = j.find("items"); items != j.end() && items->is_array()) {
           for (const auto& item : *items) {
-            if (item.value("selected", true) == false) {
+            if (!detail::googleCalendarListItemSelected(item)) {
               continue;
             }
             CalendarMeta meta;

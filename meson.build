@@ -1129,6 +1129,18 @@ ical_recurrence_test = executable('ical_recurrence_test',
 
 test('ical_recurrence', ical_recurrence_test)
 
+google_client_calendar_list_test = executable('google_client_calendar_list_test',
+  sources: files(
+    'tests/google_client_calendar_list_test.cpp',
+  ),
+  dependencies: [
+    nlohmann_dep,
+  ],
+  include_directories: _noctalia_inc,
+)
+
+test('google_client_calendar_list', google_client_calendar_list_test)
+
 time_format_test = executable('time_format_test',
   sources: files(
     'tests/time_format_test.cpp',
