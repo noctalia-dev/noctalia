@@ -207,6 +207,16 @@ namespace {
     return 1;
   }
 
+  int luau_outputName(lua_State* L) {
+    auto* context = getContext(L);
+    if (context == nullptr || context->snapshot.outputName.empty()) {
+      lua_pushnil(L);
+      return 1;
+    }
+    lua_pushlstring(L, context->snapshot.outputName.data(), context->snapshot.outputName.size());
+    return 1;
+  }
+
   int luau_setVisible(lua_State* L) {
     bool visible = lua_toboolean(L, 1) != 0;
     if (auto* context = getContext(L)) {
@@ -229,6 +239,7 @@ namespace {
       {"setColor", luau_setColor},
       {"setGlyphColor", luau_setGlyphColor},
       {"isVertical", luau_isVertical},
+      {"outputName", luau_outputName},
       {"setVisible", luau_setVisible},
       {"render", luau_ui_render},
       {"getConfig", scripting::luau_getConfig},
