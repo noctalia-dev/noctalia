@@ -1401,7 +1401,7 @@
           "label": "Animationsgeschwindigkeit"
         },
         "animations": {
-          "description": "Aktivieren oder deaktiviere UI-Animationen",
+          "description": "Aktiviere oder deaktiviere UI-Animationen",
           "label": "Animationen"
         },
         "app-icon-color": {
@@ -1912,7 +1912,7 @@
           "label": "Verhalten"
         },
         "pre-action-fade": {
-          "description": "Sekunden der Vollbildimmung vor dem Inaktivitätsbefehl; verwende 0 zum Deaktivieren",
+          "description": "Sekunden der Vollbilddimmung vor dem Inaktivitätsbefehl; verwende 0 zum Deaktivieren",
           "label": "Inaktivitätsdimmung"
         }
       },
@@ -2102,7 +2102,7 @@
           "label": "Nutzungsdaten zurücksetzen"
         },
         "launcher-session-search": {
-          "description": "Schließe Sitzungsaktionen (Sperren, Anhalten, Neustart, Herunterfahren, Abmelden) in allgemeine Launcher-Suchen ein, nicht nur über das /session-Präfix",
+          "description": "Schließe Sitzungsaktionen (Sperren, Energie sparen, Neustart, Herunterfahren, Abmelden) in allgemeine Launcher-Suchen ein, nicht nur über das /session-Präfix",
           "label": "Sitzungssuche aktivieren"
         },
         "launcher-show-icons": {
@@ -2135,15 +2135,15 @@
         },
         "placement-clipboard": {
           "description": "Wähle, ob die Zwischenablage an der Leiste angedockt wird oder an einer gewählten Bildschirmposition schwebt",
-          "label": "Positionierung"
+          "label": "Platzierung"
         },
         "placement-control-center": {
           "description": "Wähle, ob das Kontrollzentrum an der Leiste angedockt wird oder an einer gewählten Bildschirmposition schwebt",
-          "label": "Positionierung"
+          "label": "Platzierung"
         },
         "placement-launcher": {
           "description": "Wähle, ob der Launcher an der Leiste angedockt wird oder an einer gewählten Bildschirmposition schwebt",
-          "label": "Positionierung"
+          "label": "Platzierung"
         },
         "placement-polkit": {
           "description": "Wähle, ob die Polkit-Anfrage an der Leiste angedockt wird oder an einer gewählten Bildschirmposition schwebt",
@@ -2151,11 +2151,11 @@
         },
         "placement-session": {
           "description": "Wähle, ob das Sitzungsmenü an der Leiste angedockt wird oder an einer gewählten Bildschirmposition schwebt",
-          "label": "Positionierung"
+          "label": "Platzierung"
         },
         "placement-wallpaper": {
           "description": "Wähle, ob die Hintergrundbild-Auswahl an der Leiste angedockt wird oder an einer gewählten Bildschirmposition schwebt",
-          "label": "Positionierung"
+          "label": "Platzierung"
         },
         "position-clipboard": {
           "description": "Wo die Zwischenablage auf dem Bildschirm schwebt; „Leiste folgen“ hält die Position in der Nähe der Leiste",
@@ -2617,7 +2617,7 @@
           "label": "Dateinamenmuster"
         },
         "screenshot-freeze-screen": {
-          "description": "Erfasse den Desktop vor der Bereichsauswahl, damit sich bewegtende Inhalte stillstehen",
+          "description": "Erfasse den Desktop vor der Bereichsauswahl, damit sich bewegende Inhalte stillstehen",
           "label": "Bildschirm einfrieren"
         },
         "screenshot-pipe-command": {
@@ -2898,7 +2898,7 @@
         "capsule-radius": {
           "description": "Eckenradius für diese Widget-Kapsel; leer lassen für automatische Pill-Form oder 0 für keine Abrundung festlegen",
           "label": "Kapselradius",
-          "taskbar-description": "Eckenradius für die Widget-Kapsel, Arbeitsbereichs-Disc-indikatoren und Arbeitsbereichsgruppen-Kapseln; leer lassen für automatische Pill-Form oder 0 für keine Abrundung festlegen",
+          "taskbar-description": "Eckenradius für die Widget-Kapsel, Arbeitsbereichs-Disc-Indikatoren und Arbeitsbereichsgruppen-Kapseln; leer lassen für automatische Pill-Form oder 0 für keine Abrundung festlegen",
           "workspaces-description": "Eckenradius für diese Widget-Kapsel und Arbeitsbereichs-Pills; leer lassen für automatische Pill-Form oder 0 für keine Abrundung festlegen"
         },
         "centered": {
@@ -3288,6 +3288,10 @@
         "title-scroll": {
           "description": "Wann der Widget-Titel scrollen soll",
           "label": "Titel-Scroll"
+        },
+        "timezone": {
+          "description": "Zeitzonenkennung (z. B. Europe/Berlin) für diese Uhr; leer lassen, um die lokale Systemzeit zu verwenden",
+          "label": "Zeitzone"
         },
         "tooltip": {
           "description": "Tooltip, der beim Hovern über diesen Button angezeigt wird",
