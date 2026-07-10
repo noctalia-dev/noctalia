@@ -279,10 +279,11 @@ namespace ui {
                                                                  "color",   "spacing", "orientation"};
       static const std::unordered_set<std::string> kProgress = {"width",    "height", "flexGrow", "opacity", "visible",
                                                                 "progress", "fill",   "track",    "radius"};
-      static const std::unordered_set<std::string> kButton = {"width",     "height",  "flexGrow",     "opacity",
-                                                              "visible",   "text",    "glyph",        "fontSize",
-                                                              "glyphSize", "variant", "contentAlign", "enabled",
-                                                              "selected",  "onClick", "onRightClick"};
+      static const std::unordered_set<std::string> kButton = {"width",     "height",   "flexGrow",     "opacity",
+                                                              "visible",   "text",     "glyph",        "fontSize",
+                                                              "glyphSize", "variant",  "contentAlign", "enabled",
+                                                              "selected",  "onClick",  "onRightClick", "radius",
+                                                              "padding",   "paddingH", "paddingV"};
       static const std::unordered_set<std::string> kGraph = {"width",   "height",    "flexGrow",   "opacity",
                                                              "visible", "values",    "values2",    "color",
                                                              "color2",  "lineWidth", "fillOpacity"};
@@ -893,6 +894,21 @@ namespace ui {
       if (m_compactControls) {
         button->setMinHeight(0.0f);
         button->setPadding(Style::spaceXs * m_scale);
+      }
+      // Button is a Flex, so shape/inset setters are inherited; expose them
+      // the same way the row/column branch does. Applied after the compact
+      // block so explicit props always win over host chrome defaults.
+      if (const double* radius = numProp(desired, "radius")) {
+        button->setRadius(scaled(*radius));
+      }
+      const double* padding = numProp(desired, "padding");
+      const double* paddingV = numProp(desired, "paddingV");
+      const double* paddingH = numProp(desired, "paddingH");
+      if (padding != nullptr || paddingV != nullptr || paddingH != nullptr) {
+        const float fallback = padding != nullptr ? scaled(*padding) : 0.0f;
+        button->setPadding(
+            paddingV != nullptr ? scaled(*paddingV) : fallback, paddingH != nullptr ? scaled(*paddingH) : fallback
+        );
       }
       if (width != nullptr) {
         button->setMinWidth(scaled(*width));
