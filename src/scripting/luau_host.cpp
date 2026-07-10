@@ -13,6 +13,9 @@
 #include "scripting/plugin_bindings.h"
 #include "scripting/plugin_state_store.h"
 #include "scripting/script_api_context.h"
+#include "system/app_identity.h"
+#include "system/desktop_entry.h"
+#include "system/icon_resolver.h"
 #include "system/terminal_launch.h"
 #include "time/time_format.h"
 #include "util/file_utils.h"
@@ -318,6 +321,36 @@ namespace {
       setTableBool(L, "focused", out.focused);
       lua_rawseti(L, -2, index++);
     }
+    return 1;
+  }
+
+  // appIconPath(appIdOrIconName, sizePx?) -> absolute icon file path or nil.
+  // Same resolution the native taskbar uses: desktop-entry lookup (id /
+  // StartupWMClass) for the icon name, then the XDG icon-theme resolver.
+  // Unmatched inputs are treated as raw icon names so plugins can also
+  // resolve themed icons directly.
+  int luau_appIconPath(lua_State* L) {
+    size_t len = 0;
+    const char* appId = luaL_checklstring(L, 1, &len);
+    const int targetSize = static_cast<int>(luaL_optinteger(L, 2, 0));
+
+    std::string iconName;
+    if (const auto entry = app_identity::findDesktopEntry(std::string_view(appId, len), desktopEntriesSnapshot());
+        entry.has_value() && !entry->icon.empty()) {
+      iconName = entry->icon;
+    } else {
+      iconName.assign(appId, len);
+    }
+
+    // IconResolver only reads the filesystem and caches internally; one per
+    // script worker thread keeps it race-free without locking.
+    static thread_local IconResolver resolver;
+    const std::string& path = resolver.resolve(iconName, targetSize);
+    if (path.empty()) {
+      lua_pushnil(L);
+      return 1;
+    }
+    lua_pushlstring(L, path.data(), path.size());
     return 1;
   }
 
@@ -1137,6 +1170,7 @@ namespace {
       {"portalAvailable", luau_portalAvailable},
       {"focusedOutputName", luau_focusedOutputName},
       {"outputs", luau_outputs},
+      {"appIconPath", luau_appIconPath},
       {"setWallpaperEnabled", luau_setWallpaperEnabled},
       {"setWallpaper", luau_setWallpaper},
       {"togglePanel", luau_togglePanel},

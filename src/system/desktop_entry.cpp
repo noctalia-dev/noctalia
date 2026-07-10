@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <mutex>
 #include <ranges>
 #include <string_view>
 #include <sys/inotify.h>
@@ -392,6 +393,14 @@ namespace {
       return m_entries;
     }
 
+    // Worker-thread-safe copy. Deliberately non-refreshing: freshness stays
+    // driven by the main thread's poll/reload path; this only synchronizes
+    // against the reload swap.
+    std::vector<DesktopEntry> entriesSnapshot() const {
+      std::scoped_lock lock(m_entriesMutex);
+      return m_entries;
+    }
+
     std::uint64_t version() {
       refreshIfNeeded();
       return m_version;
@@ -448,7 +457,11 @@ namespace {
         return;
       }
 
-      m_entries = scanDesktopEntries();
+      auto scanned = scanDesktopEntries();
+      {
+        std::scoped_lock lock(m_entriesMutex);
+        m_entries = std::move(scanned);
+      }
       rebuildWatches();
       m_sourceSignature = computeSourceSignature();
       m_dirty = false;
@@ -555,6 +568,7 @@ namespace {
     }
 
     std::vector<DesktopEntry> m_entries;
+    mutable std::mutex m_entriesMutex; // guards m_entries against entriesSnapshot() readers
     std::uint64_t m_version = 0;
     int m_inotifyFd = -1;
     bool m_dirty = true;
@@ -609,6 +623,8 @@ std::vector<DesktopEntry> scanDesktopEntries() {
 }
 
 const std::vector<DesktopEntry>& desktopEntries() { return cache().entries(); }
+
+std::vector<DesktopEntry> desktopEntriesSnapshot() { return cache().entriesSnapshot(); }
 
 std::uint64_t desktopEntriesVersion() { return cache().version(); }
 
