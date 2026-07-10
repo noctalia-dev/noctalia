@@ -350,14 +350,15 @@ namespace ui {
       if (want.type != "box" && want.type != "image") {
         return false;
       }
-      const bool wantsWrapper = strProp(want, "onClick") != nullptr;
+      const bool wantsWrapper = strProp(want, "onClick") != nullptr || strProp(want, "onHover") != nullptr;
       const bool hasWrapper = inputAreaFromSlot(node) != nullptr;
       return wantsWrapper != hasWrapper;
     }
 
-    std::unique_ptr<Node> wrapClickable(std::unique_ptr<Node> control) {
+    std::unique_ptr<Node> wrapClickable(std::unique_ptr<Node> control, bool acceptClicks) {
       auto inputArea = std::make_unique<InputArea>();
-      inputArea->setAcceptedButtons(InputArea::buttonMask(BTN_LEFT));
+      // A hover-only wrapper must not swallow clicks meant for ancestors.
+      inputArea->setAcceptedButtons(acceptClicks ? InputArea::buttonMask(BTN_LEFT) : 0);
       inputArea->addChild(std::move(control));
       return inputArea;
     }
@@ -372,7 +373,7 @@ namespace ui {
       };
       static const std::unordered_set<std::string> kBox = {"width",       "height",   "flexGrow", "opacity",
                                                            "visible",     "fill",     "radius",   "border",
-                                                           "borderWidth", "softness", "onClick"};
+                                                           "borderWidth", "softness", "onClick",  "onHover"};
       static const std::unordered_set<std::string> kLabel = {"width",      "height",   "flexGrow", "opacity",
                                                              "visible",    "text",     "fontSize", "color",
                                                              "fontWeight", "maxWidth", "maxLines", "textAlign",
@@ -381,17 +382,17 @@ namespace ui {
                                                              "visible", "name",   "size",     "color"};
       static const std::unordered_set<std::string> kImage = {"width",   "height",      "flexGrow", "opacity",
                                                              "visible", "path",        "radius",   "fit",
-                                                             "border",  "borderWidth", "onClick"};
+                                                             "border",  "borderWidth", "onClick",  "onHover"};
       static const std::unordered_set<std::string> kSeparator = {"width",   "height",  "flexGrow",
                                                                  "opacity", "visible", "thickness",
                                                                  "color",   "spacing", "orientation"};
       static const std::unordered_set<std::string> kProgress = {"width",    "height", "flexGrow", "opacity", "visible",
                                                                 "progress", "fill",   "track",    "radius"};
-      static const std::unordered_set<std::string> kButton = {"width",      "height",  "flexGrow",     "opacity",
-                                                              "visible",    "text",    "glyph",        "fontSize",
-                                                              "glyphSize",  "variant", "contentAlign", "enabled",
-                                                              "selected",   "onClick", "onRightClick", "tooltip",
-                                                              "controlSize"};
+      static const std::unordered_set<std::string> kButton = {"width",       "height",  "flexGrow",     "opacity",
+                                                              "visible",     "text",    "glyph",        "fontSize",
+                                                              "glyphSize",   "variant", "contentAlign", "enabled",
+                                                              "selected",    "onClick", "onRightClick", "tooltip",
+                                                              "controlSize", "onHover"};
       static const std::unordered_set<std::string> kGraph = {"width",   "height",    "flexGrow",   "opacity",
                                                              "visible", "values",    "values2",    "color",
                                                              "color2",  "lineWidth", "fillOpacity"};
@@ -483,6 +484,7 @@ namespace ui {
     Node* node = nullptr;
     std::string callbackName;        // last-wired button onClick / control onChange target
     std::string rightCallbackName;   // last-wired button onRightClick target
+    std::string hoverCallbackName;   // last-wired onHover target (button/box/image)
     std::string submitCallbackName;  // last-wired input onSubmit target
     std::string dragEndCallbackName; // last-wired slider onDragEnd target
     std::string imagePath;           // last-applied resolved image source
@@ -568,8 +570,8 @@ namespace ui {
       return zone;
     }
     if (desired.type == "box") {
-      if (strProp(desired, "onClick") != nullptr) {
-        return wrapClickable(std::make_unique<Box>());
+      if (strProp(desired, "onClick") != nullptr || strProp(desired, "onHover") != nullptr) {
+        return wrapClickable(std::make_unique<Box>(), strProp(desired, "onClick") != nullptr);
       }
       return std::make_unique<Box>();
     }
@@ -580,8 +582,8 @@ namespace ui {
       return std::make_unique<Glyph>();
     }
     if (desired.type == "image") {
-      if (strProp(desired, "onClick") != nullptr) {
-        return wrapClickable(std::make_unique<Image>());
+      if (strProp(desired, "onClick") != nullptr || strProp(desired, "onHover") != nullptr) {
+        return wrapClickable(std::make_unique<Image>(), strProp(desired, "onClick") != nullptr);
       }
       return std::make_unique<Image>();
     }
@@ -940,9 +942,27 @@ namespace ui {
           onClick != nullptr && *onClick != slot.callbackName) {
         slot.callbackName = *onClick;
         if (auto* inputArea = inputAreaFromSlot(node)) {
+          // A wrapper created hover-only starts with an empty button mask.
+          inputArea->setAcceptedButtons(InputArea::buttonMask(BTN_LEFT));
           inputArea->setOnClick([this, name = slot.callbackName](const InputArea::PointerData&) {
             if (m_sink) {
               m_sink(ControlCallback{name});
+            }
+          });
+        }
+      }
+      if (const std::string* onHover = strProp(desired, "onHover");
+          onHover != nullptr && *onHover != slot.hoverCallbackName) {
+        slot.hoverCallbackName = *onHover;
+        if (auto* inputArea = inputAreaFromSlot(node)) {
+          inputArea->setOnEnter([this, name = slot.hoverCallbackName](const InputArea::PointerData&) {
+            if (m_sink) {
+              m_sink(ControlCallback{name, "true"});
+            }
+          });
+          inputArea->setOnLeave([this, name = slot.hoverCallbackName]() {
+            if (m_sink) {
+              m_sink(ControlCallback{name, "false"});
             }
           });
         }
@@ -1056,9 +1076,27 @@ namespace ui {
           onClick != nullptr && *onClick != slot.callbackName) {
         slot.callbackName = *onClick;
         if (auto* inputArea = inputAreaFromSlot(node)) {
+          // A wrapper created hover-only starts with an empty button mask.
+          inputArea->setAcceptedButtons(InputArea::buttonMask(BTN_LEFT));
           inputArea->setOnClick([this, name = slot.callbackName](const InputArea::PointerData&) {
             if (m_sink) {
               m_sink(ControlCallback{name});
+            }
+          });
+        }
+      }
+      if (const std::string* onHover = strProp(desired, "onHover");
+          onHover != nullptr && *onHover != slot.hoverCallbackName) {
+        slot.hoverCallbackName = *onHover;
+        if (auto* inputArea = inputAreaFromSlot(node)) {
+          inputArea->setOnEnter([this, name = slot.hoverCallbackName](const InputArea::PointerData&) {
+            if (m_sink) {
+              m_sink(ControlCallback{name, "true"});
+            }
+          });
+          inputArea->setOnLeave([this, name = slot.hoverCallbackName]() {
+            if (m_sink) {
+              m_sink(ControlCallback{name, "false"});
             }
           });
         }
@@ -1159,6 +1197,20 @@ namespace ui {
       // retained Button. An empty text routes to InputArea::clearTooltip().
       const std::string* tooltip = strProp(desired, "tooltip");
       button->setTooltip(tooltip != nullptr ? *tooltip : "");
+      if (const std::string* onHover = strProp(desired, "onHover");
+          onHover != nullptr && *onHover != slot.hoverCallbackName) {
+        slot.hoverCallbackName = *onHover;
+        button->setOnEnter([this, name = slot.hoverCallbackName]() {
+          if (m_sink) {
+            m_sink(ControlCallback{name, "true"});
+          }
+        });
+        button->setOnLeave([this, name = slot.hoverCallbackName]() {
+          if (m_sink) {
+            m_sink(ControlCallback{name, "false"});
+          }
+        });
+      }
       if (const std::string* onClick = strProp(desired, "onClick");
           onClick != nullptr && *onClick != slot.callbackName) {
         slot.callbackName = *onClick;
