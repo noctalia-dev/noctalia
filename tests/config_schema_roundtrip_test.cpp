@@ -383,7 +383,7 @@ location = "https://example.invalid/bad"
     c.wallpaper.monitorOverrides = {
         {"DP-1", true, colorSpecFromConfigString("#00ff00"), std::string("/srv/wp1"), std::nullopt, std::nullopt},
     };
-    c.shell.uiScale = 1.25f;
+    c.accessibility.uiScale = 1.25f;
     c.shell.fontFamily = "Inter";
     c.shell.lang = "en_US";
     c.shell.timeFormat = "{:%H:%M:%S}";
