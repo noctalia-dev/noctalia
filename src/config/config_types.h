@@ -1071,8 +1071,6 @@ struct CalendarConfig {
 
   bool enabled = false;
   std::int32_t refreshMinutes = 15;
-  std::string eventDateFormat = "%A %e %B";
-  std::string eventTimeFormat = "%H:%M";
   std::vector<Account> accounts;
 
   bool operator==(const CalendarConfig&) const = default;
@@ -1430,6 +1428,9 @@ struct ControlCenterConfig {
 
   struct CalendarTabConfig {
     bool showEventsCard = true;
+    bool showWeekNumbers = false;
+    std::string eventDateFormat = "%A %e %B";
+    std::string eventTimeFormat = "%H:%M";
     bool operator==(const CalendarTabConfig&) const = default;
   };
 

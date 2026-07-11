@@ -2445,6 +2445,10 @@
           "description-unavailable": "No Secret Service provider is available. Calendar events remain available for this session only.",
           "label": "Calendar Event Storage"
         },
+        "calendar-week-numbers": {
+          "description": "Show ISO 8601 week numbers alongside the calendar grid",
+          "label": "Week Numbers"
+        },
         "custom-schedule": {
           "description": "Use manual sunrise/sunset times instead of computing from coordinates",
           "label": "Custom Schedule"

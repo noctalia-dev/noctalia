@@ -477,6 +477,9 @@ namespace noctalia::config::schema {
     const Schema<ControlCenterConfig::CalendarTabConfig>& calendarTabSchema() {
       static const Schema<ControlCenterConfig::CalendarTabConfig> s = {
           field(&ControlCenterConfig::CalendarTabConfig::showEventsCard, "show_events_card"),
+          field(&ControlCenterConfig::CalendarTabConfig::showWeekNumbers, "show_week_numbers"),
+          field(&ControlCenterConfig::CalendarTabConfig::eventDateFormat, "event_date_format"),
+          field(&ControlCenterConfig::CalendarTabConfig::eventTimeFormat, "event_time_format"),
       };
       return s;
     }
@@ -1562,8 +1565,6 @@ namespace noctalia::config::schema {
     static const Schema<CalendarConfig> s = {
         field(&CalendarConfig::enabled, "enabled"),
         field(&CalendarConfig::refreshMinutes, "refresh_minutes", kRefreshMinutesRange),
-        field(&CalendarConfig::eventDateFormat, "event_date_format"),
-        field(&CalendarConfig::eventTimeFormat, "event_time_format"),
         namedMap<CalendarConfig, CalendarConfig::Account>(
             &CalendarConfig::accounts, "account", calendarAccountSchema(),
             [](CalendarConfig::Account& a, std::string_view id) { a.id = std::string(id); },

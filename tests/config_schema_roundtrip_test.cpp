@@ -378,11 +378,12 @@ location = "https://example.invalid/bad"
     c.controlCenter.sidebarMode = ControlCenterSidebarMode::Full;
     c.controlCenter.sidebarSectionMode = ControlCenterSidebarMode::None;
     c.controlCenter.calendarTab.showEventsCard = false;
+    c.controlCenter.calendarTab.showWeekNumbers = true;
+    c.controlCenter.calendarTab.eventDateFormat = "%Y-%m-%d";
+    c.controlCenter.calendarTab.eventTimeFormat = "%I:%M %p";
     c.controlCenter.shortcuts = {{"wifi"}, {"bluetooth"}};
     c.calendar.enabled = true;
     c.calendar.refreshMinutes = 30;
-    c.calendar.eventDateFormat = "%Y-%m-%d";
-    c.calendar.eventTimeFormat = "%I:%M %p";
     c.calendar.accounts = {
         {"acc1", "google", "Work", "#ff0000", "", "", "", {}},
         {"acc2",

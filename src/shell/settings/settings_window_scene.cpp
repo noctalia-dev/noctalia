@@ -1801,7 +1801,7 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
     auto it = std::ranges::find_if(m_settingsRegistry, [](const settings::SettingEntry& e) {
       return e.section == settings::SettingsSection::Services
           && e.group == "calendar"
-          && e.path == std::vector<std::string>{"calendar", "event_time_format"};
+          && e.path == std::vector<std::string>{"calendar", "refresh_minutes"};
     });
     if (it != m_settingsRegistry.end()) {
       ++it;

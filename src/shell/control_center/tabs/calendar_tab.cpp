@@ -26,6 +26,7 @@
 #include <cmath>
 #include <cstddef>
 #include <ctime>
+#include <format>
 #include <memory>
 #include <string>
 #include <vector>
@@ -41,6 +42,10 @@ namespace {
   constexpr float kCalendarCellSizeMax = Style::controlHeightLg + Style::spaceXs;
   constexpr float kCalendarDayButtonSizeMax = Style::controlHeightLg;
   constexpr float kCalendarLayoutEpsilon = 0.5f;
+  // Week-number column: a fraction of a day column so it stays visually subordinate, floored at the
+  // width of the two digits it holds (as a multiple of the caption font size) so it can never clip.
+  constexpr float kCalendarWeekColumnRatio = 0.55f;
+  constexpr float kCalendarWeekColumnMinFontScale = 1.45f;
 
   std::string monthName(int month) {
     if (month < 0 || month > 11) {
@@ -149,6 +154,7 @@ std::unique_ptr<Flex> CalendarTab::create() {
 
   if (m_config != nullptr) {
     m_showEventsCard = m_config->config().controlCenter.calendarTab.showEventsCard;
+    m_showWeekNumbers = m_config->config().controlCenter.calendarTab.showWeekNumbers;
   }
 
   auto tab = ui::row({
@@ -573,7 +579,28 @@ void CalendarTab::rebuild() {
       (gridHeightAvailable - weekdayHeight - kCalendarGridGap * scale * 6.0f) / 6.0f, kCalendarCellSizeMin * scale,
       kCalendarCellSizeMax * scale
   );
-  const float dayColumnWidth = std::max(0.0f, (innerWidth - kCalendarGridGap * scale * 6.0f) / 7.0f);
+
+  // The week-number column takes its share of the row before the day columns split the rest. It is
+  // inset from the divider by one grid gap, which reads as balanced against the card padding on its
+  // other side without spending a full card padding's worth of width on a two-digit number.
+  const float weekLaneInset = m_showWeekNumbers ? kCalendarGridGap * scale : 0.0f;
+  const float weekDividerWidth = m_showWeekNumbers ? std::round(1.0f * scale) : 0.0f;
+  const float weekLaneOverhead = m_showWeekNumbers ? weekLaneInset + weekDividerWidth + kCalendarGridGap * scale : 0.0f;
+  // Solve for a day column that leaves the week column its fraction, then floor the week column at the
+  // width of its text and give the day grid whatever is actually left.
+  const float provisionalDayColumn = std::max(
+      0.0f,
+      (innerWidth - kCalendarGridGap * scale * 6.0f - weekLaneOverhead)
+          / (m_showWeekNumbers ? 7.0f + kCalendarWeekColumnRatio : 7.0f)
+  );
+  const float weekColumnWidth = m_showWeekNumbers
+      ? std::max(
+            std::round(provisionalDayColumn * kCalendarWeekColumnRatio),
+            std::round(Style::fontSizeCaption * scale * kCalendarWeekColumnMinFontScale)
+        )
+      : 0.0f;
+  const float dayGridWidth = std::max(0.0f, innerWidth - weekColumnWidth - weekLaneOverhead);
+  const float dayColumnWidth = std::max(0.0f, (dayGridWidth - kCalendarGridGap * scale * 6.0f) / 7.0f);
   // Reserve a fixed strip under each day number for event indicator dots so all cells stay aligned.
   const float dotDiameter = std::round(5.0f * scale);
   const float dotGap = std::round(2.0f * scale);
@@ -634,7 +661,7 @@ void CalendarTab::rebuild() {
   weekdayRow->setColumns(weekdays.size());
   weekdayRow->setColumnGap(kCalendarGridGap * scale);
   weekdayRow->setStretchItems(true);
-  weekdayRow->setSize(innerWidth, weekdayHeight);
+  weekdayRow->setSize(dayGridWidth, weekdayHeight);
   weekdayRow->setMinCellHeight(weekdayHeight);
   for (std::size_t i = 0; i < weekdays.size(); ++i) {
     auto dayCell = std::make_unique<GridTile>();
@@ -655,8 +682,6 @@ void CalendarTab::rebuild() {
 
     weekdayRow->addChild(std::move(dayCell));
   }
-  m_grid->addChild(std::move(weekdayRow));
-
   const int firstWeekdayOffset = (state.displayWeekday - firstDayOfWeek + 7) % 7;
   const int previousMonth = month == 0 ? 11 : month - 1;
   const int previousMonthYear = month == 0 ? year - 1 : year;
@@ -693,7 +718,7 @@ void CalendarTab::rebuild() {
   dayGrid->setColumns(7);
   dayGrid->setColumnGap(kCalendarGridGap * scale);
   dayGrid->setStretchItems(true);
-  dayGrid->setSize(innerWidth, 0.0f);
+  dayGrid->setSize(dayGridWidth, 0.0f);
   dayGrid->setMinCellHeight(dayCellHeight);
 
   int day = 1;
@@ -805,10 +830,69 @@ void CalendarTab::rebuild() {
     dayGrid->addChild(std::move(dayTile));
   }
 
-  m_grid->addChild(std::move(dayGrid));
-
   const float gridContentHeight =
       weekdayHeight + kCalendarGridGap * scale + 6.0f * dayCellHeight + 5.0f * kCalendarGridGap * scale;
+
+  auto daysColumn = ui::column({.gap = kCalendarGridGap * scale});
+  daysColumn->addChild(std::move(weekdayRow));
+  daysColumn->addChild(std::move(dayGrid));
+  daysColumn->setSize(dayGridWidth, gridContentHeight);
+
+  if (m_showWeekNumbers) {
+    const auto spacer = [](float w, float h) {
+      auto s = ui::column({});
+      s->setSize(w, h);
+      return s;
+    };
+    // Each row is labelled by the ISO week its Thursday falls in.
+    const int thursdayColumn = (4 - firstDayOfWeek + 7) % 7;
+    const auto firstThursday =
+        std::chrono::sys_days(std::chrono::year{year} / std::chrono::month{static_cast<unsigned>(month + 1)} / 1)
+        - std::chrono::days{firstWeekdayOffset}
+        + std::chrono::days{thursdayColumn};
+
+    auto weekNumberColumn = ui::column({.gap = kCalendarGridGap * scale});
+    weekNumberColumn->addChild(spacer(weekColumnWidth, weekdayHeight));
+    for (int i = 0; i < 6; ++i) {
+      auto label = ui::column({.align = FlexAlign::Center, .justify = FlexJustify::Center});
+      label->setSize(weekColumnWidth, dayButtonSize);
+      label->addChild(
+          ui::label({
+              .text = std::format("{:%V}", firstThursday + std::chrono::days{i * 7}),
+              .fontSize = Style::fontSizeCaption * scale,
+              .fontWeight = FontWeight::Normal,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.7f),
+              .maxLines = 1,
+          })
+      );
+      auto weekCell = ui::column({.align = FlexAlign::Center, .justify = FlexJustify::Center, .gap = dotGap});
+      weekCell->setSize(weekColumnWidth, dayCellHeight);
+      weekCell->addChild(std::move(label));
+      weekCell->addChild(spacer(weekColumnWidth, dotStripHeight));
+      weekNumberColumn->addChild(std::move(weekCell));
+    }
+    weekNumberColumn->setSize(weekColumnWidth, gridContentHeight);
+
+    // A hairline rule keeps the week column from reading as an eighth day column.
+    auto divider = ui::separator({
+        .thickness = weekDividerWidth,
+        .orientation = SeparatorOrientation::VerticalRule,
+        .width = weekDividerWidth,
+        .height = gridContentHeight,
+    });
+
+    auto gridRow = ui::row({.gap = 0.0f});
+    gridRow->addChild(std::move(weekNumberColumn));
+    gridRow->addChild(spacer(weekLaneInset, gridContentHeight));
+    gridRow->addChild(std::move(divider));
+    gridRow->addChild(spacer(kCalendarGridGap * scale, gridContentHeight));
+    gridRow->addChild(std::move(daysColumn));
+    gridRow->setSize(innerWidth, gridContentHeight);
+    m_grid->addChild(std::move(gridRow));
+  } else {
+    m_grid->addChild(std::move(daysColumn));
+  }
+
   if (m_gridViewport != nullptr) {
     m_gridViewport->setSize(innerWidth, gridContentHeight);
   }
@@ -846,7 +930,8 @@ void CalendarTab::rebuildEventList(float scale) {
   selectedTm.tm_isdst = -1;
   const std::time_t selectedRaw = std::mktime(&selectedTm); // normalize tm_wday
   if (m_eventsTitle != nullptr) {
-    const char* format = m_config != nullptr ? m_config->config().calendar.eventDateFormat.c_str() : "%A %e %B";
+    const char* format =
+        m_config != nullptr ? m_config->config().controlCenter.calendarTab.eventDateFormat.c_str() : "%A %e %B";
     m_eventsTitle->setText(formatLocalUnixTime(static_cast<std::int64_t>(selectedRaw), format));
   }
 
@@ -886,7 +971,8 @@ void CalendarTab::rebuildEventList(float scale) {
       timeText = i18n::tr("control-center.calendar.all-day");
     } else {
       const std::time_t raw = std::chrono::system_clock::to_time_t(event->start);
-      const char* format = m_config != nullptr ? m_config->config().calendar.eventTimeFormat.c_str() : "%H:%M";
+      const char* format =
+          m_config != nullptr ? m_config->config().controlCenter.calendarTab.eventTimeFormat.c_str() : "%H:%M";
       timeText = formatLocalUnixTime(static_cast<std::int64_t>(raw), format);
     }
 
