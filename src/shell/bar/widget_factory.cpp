@@ -46,6 +46,7 @@
 #include "shell/bar/widgets/workspaces_widget.h"
 #include "system/format_units.h"
 #include "ui/style.h"
+#include "util/file_utils.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 
@@ -90,8 +91,9 @@ namespace {
   }
 
   WidgetCustomImage customImageFor(const WidgetConfig* wc) {
+    const std::string path = wc != nullptr ? wc->getString("custom_image", "") : std::string{};
     return WidgetCustomImage{
-        .path = wc != nullptr ? wc->getString("custom_image", "") : std::string{},
+        .path = FileUtils::expandUserPath(path).string(),
         .colorize = wc != nullptr ? wc->getBool("custom_image_colorize", false) : false,
     };
   }
