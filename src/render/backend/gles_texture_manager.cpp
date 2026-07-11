@@ -40,6 +40,13 @@ namespace {
     return filter == TextureFilter::Nearest ? GL_NEAREST_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR;
   }
 
+  // Drains any pending GL errors so a subsequent glGetError() check reflects
+  // only the call we care about, not stale errors from earlier GL calls.
+  void clearGlErrors() {
+    while (glGetError() != GL_NO_ERROR) {
+    }
+  }
+
 } // namespace
 
 TextureHandle GlesTextureManager::decodeEncodedRaster(
@@ -268,7 +275,15 @@ TextureHandle GlesTextureManager::uploadBgra(const std::uint8_t* data, int width
   }
   glBindTexture(GL_TEXTURE_2D, tex);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+  clearGlErrors();
   glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA_EXT, width, height, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, data);
+  if (const GLenum err = glGetError(); err != GL_NO_ERROR) {
+    kLog.warn("glTexImage2D failed for {}x{} BGRA texture: 0x{:x}", width, height, err);
+    glDeleteTextures(1, &tex);
+    return {};
+  }
+
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   if (mipmap) {
@@ -301,7 +316,15 @@ TextureHandle GlesTextureManager::uploadPixels(
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
   const GLenum glFormat = toGlesFormat(format);
+
+  clearGlErrors();
   glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(glFormat), width, height, 0, glFormat, GL_UNSIGNED_BYTE, data);
+  if (const GLenum err = glGetError(); err != GL_NO_ERROR) {
+    kLog.warn("glTexImage2D failed for {}x{} texture (format=0x{:x}): 0x{:x}", width, height, glFormat, err);
+    glDeleteTextures(1, &tex);
+    return {};
+  }
+
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   if (mipmap) {
