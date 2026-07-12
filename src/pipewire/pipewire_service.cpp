@@ -1604,12 +1604,15 @@ void PipeWireService::rebuildState() {
     // explicitly unavailable and no available alternative is hidden. Cards that report "unknown"
     // (many HDA/HiFi setups) stay visible.
     const std::uint32_t wantDir = routeDirectionForMediaClass(nd->mediaClass);
-    const DeviceRouteData* activeRoute = wantDir != 0 ? activeRouteForDirection(nd->routes, wantDir) : nullptr;
+    // SPA_DIRECTION_INPUT == 0, so `wantDir != 0` would wrongly exclude every Audio/Source; guard on the
+    // media class being a device node instead (matches the isDeviceNode check used during route parsing).
+    const bool isDeviceNode = nd->mediaClass == "Audio/Sink" || nd->mediaClass == "Audio/Source";
+    const DeviceRouteData* activeRoute = isDeviceNode ? activeRouteForDirection(nd->routes, wantDir) : nullptr;
     const DeviceData* device = nullptr;
     if (nd->deviceId != 0) {
       if (const auto devIt = m_devices.find(nd->deviceId); devIt != m_devices.end()) {
         device = &devIt->second;
-        if (activeRoute == nullptr && wantDir != 0) {
+        if (activeRoute == nullptr && isDeviceNode) {
           activeRoute = activeRouteForDirection(device->routes, wantDir);
         }
       }
@@ -1674,9 +1677,11 @@ void PipeWireService::rebuildState() {
 
 void PipeWireService::recomputeEffectiveMute(NodeData& nd) {
   const std::uint32_t wantDir = routeDirectionForMediaClass(nd.mediaClass);
-  const DeviceRouteData* nodeRoute = wantDir != 0 ? activeRouteForDirection(nd.routes, wantDir) : nullptr;
+  // SPA_DIRECTION_INPUT == 0, so guard on the media class rather than `wantDir != 0` (which would skip sources).
+  const bool isDeviceNode = nd.mediaClass == "Audio/Sink" || nd.mediaClass == "Audio/Source";
+  const DeviceRouteData* nodeRoute = isDeviceNode ? activeRouteForDirection(nd.routes, wantDir) : nullptr;
   const DeviceRouteData* deviceRoute = nullptr;
-  if (nd.deviceId != 0 && wantDir != 0) {
+  if (nd.deviceId != 0 && isDeviceNode) {
     const auto it = m_devices.find(nd.deviceId);
     if (it != m_devices.end()) {
       deviceRoute = activeRouteForDirection(it->second.routes, wantDir);
