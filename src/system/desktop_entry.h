@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -43,10 +44,10 @@ std::vector<DesktopEntry> scanDesktopEntries();
 
 const std::vector<DesktopEntry>& desktopEntries();
 
-// Copy of the current entry list, safe to call from non-main threads (e.g.
-// plugin script workers). Does not trigger a refresh — freshness is owned by
-// the main thread's reload path.
-std::vector<DesktopEntry> desktopEntriesSnapshot();
+// Shared snapshot of the current entry list, safe to call from non-main
+// threads (e.g. plugin script workers). Does not trigger a refresh —
+// freshness is owned by the main thread's reload path.
+std::shared_ptr<const std::vector<DesktopEntry>> desktopEntriesSnapshot();
 
 std::uint64_t desktopEntriesVersion();
 int desktopEntryWatchFd() noexcept;

@@ -8,6 +8,7 @@
 #include <fstream>
 #include <gio/gio.h>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <string_view>
@@ -50,7 +51,10 @@ namespace {
     return size;
   }
 
+  // Shared across all IconResolver instances, including thread_local ones on
+  // script worker threads; every access goes through `mutex`.
   struct IconThemeState {
+    std::mutex mutex;
     bool initialized = false;
     std::uint64_t generation = 1;
     IconThemePlan plan;
@@ -409,8 +413,8 @@ namespace {
     return plan;
   }
 
-  void ensureThemeState() {
-    auto& state = iconThemeState();
+  // Requires state.mutex to be held.
+  void ensureThemeStateLocked(IconThemeState& state) {
     if (!state.initialized) {
       state.plan = buildThemePlan();
       state.initialized = true;
@@ -423,6 +427,7 @@ IconResolver::IconResolver() { rebuild(); }
 
 bool IconResolver::checkThemeChanged() {
   auto& state = iconThemeState();
+  std::scoped_lock lock(state.mutex);
   IconThemePlan next = buildThemePlan();
   if (!state.initialized) {
     state.plan = std::move(next);
@@ -439,13 +444,16 @@ bool IconResolver::checkThemeChanged() {
 }
 
 std::uint64_t IconResolver::themeGeneration() {
-  ensureThemeState();
-  return iconThemeState().generation;
+  auto& state = iconThemeState();
+  std::scoped_lock lock(state.mutex);
+  ensureThemeStateLocked(state);
+  return state.generation;
 }
 
 void IconResolver::rebuild() {
-  ensureThemeState();
-  const auto& state = iconThemeState();
+  auto& state = iconThemeState();
+  std::scoped_lock lock(state.mutex);
+  ensureThemeStateLocked(state);
   m_baseDirs = state.plan.baseDirs;
   m_searchDirs = state.plan.searchDirs;
   m_pixmapDirs = state.plan.pixmapDirs;

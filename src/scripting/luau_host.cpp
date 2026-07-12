@@ -332,18 +332,19 @@ namespace {
   int luau_appIconPath(lua_State* L) {
     size_t len = 0;
     const char* appId = luaL_checklstring(L, 1, &len);
-    const int targetSize = static_cast<int>(luaL_optinteger(L, 2, 0));
+    const int targetSize = luaL_optinteger(L, 2, 0);
 
     std::string iconName;
-    if (const auto entry = app_identity::findDesktopEntry(std::string_view(appId, len), desktopEntriesSnapshot());
+    const auto entries = desktopEntriesSnapshot();
+    if (const auto entry = app_identity::findDesktopEntry(std::string_view(appId, len), *entries);
         entry.has_value() && !entry->icon.empty()) {
       iconName = entry->icon;
     } else {
       iconName.assign(appId, len);
     }
 
-    // IconResolver only reads the filesystem and caches internally; one per
-    // script worker thread keeps it race-free without locking.
+    // One resolver (and icon-path cache) per script worker thread; the theme
+    // plan it reads is shared across threads and mutex-guarded in IconResolver.
     static thread_local IconResolver resolver;
     const std::string& path = resolver.resolve(iconName, targetSize);
     if (path.empty()) {
