@@ -648,7 +648,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
           .fontSize = badgeFontSize,
           .fontWeight = fontWeight,
           .fontFamily = fontFamily,
-          .color = m_minimal ? workspaceFillColor(ws.workspace) : workspaceTextColor(ws.workspace),
+          .color = workspaceTextColor(ws.workspace),
       });
       badgeText->measure(renderer);
       badgeText->setPosition(
@@ -694,7 +694,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
           .fontSize = badgeFontSize,
           .fontWeight = fontWeight,
           .fontFamily = fontFamily,
-          .color = m_minimal ? workspaceFillColor(ws.workspace) : workspaceTextColor(ws.workspace),
+          .color = workspaceTextColor(ws.workspace),
       });
       badgeText->measure(renderer);
       badgeText->setPosition(
@@ -2357,9 +2357,23 @@ bool TaskbarWidget::isFocusedOutput() const { return m_platform.preferredInterac
 
 ColorSpec TaskbarWidget::workspaceTextColor(const Workspace& workspace) const {
   if (workspace.urgent) {
-    return colorSpecFromRole(ColorRole::OnError);
+    return m_minimal ? colorSpecFromRole(ColorRole::Error) : colorSpecFromRole(ColorRole::OnError);
   }
-  return readableColorForFill(workspaceFillColor(workspace));
+  if (!m_minimal) {
+    return readableColorForFill(workspaceFillColor(workspace));
+  }
+  if (workspace.active) {
+    if (m_activeUsesFocusedColor) {
+      return m_focusedColor;
+    }
+    return m_occupiedColor;
+  }
+  if (workspace.occupied) {
+    return m_occupiedColor;
+  }
+  ColorSpec color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurfaceVariant));
+  color.alpha *= 0.55f;
+  return color;
 }
 
 ColorRole TaskbarWidget::onRoleForFill(ColorRole fill) {
