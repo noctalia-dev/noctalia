@@ -2225,7 +2225,7 @@ InputArea* NotificationToast::buildCard(
   );
 
   auto contentRow = ui::row({
-      .align = FlexAlign::Center,
+      .align = FlexAlign::Start,
       .gap = iconTextGap(scale),
       .padding = cardInnerPad(scale),
       .width = cardW,
