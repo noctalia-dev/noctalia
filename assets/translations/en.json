@@ -835,6 +835,7 @@
     },
     "calendar-accounts": {
       "add-title": "Add Calendar Account",
+      "calendars-label": "Calendars",
       "color-label": "Color",
       "delete-error": "Could not delete calendar account.",
       "edit-title": "Edit Calendar Account",

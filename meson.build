@@ -409,6 +409,7 @@ _noctalia_sources = files(
   'src/auth/pam_authenticator.cpp',
   'src/calendar/caldav_client.cpp',
   'src/calendar/caldav_discovery.cpp',
+  'src/calendar/calendar_discovery_state.cpp',
   'src/calendar/calendar_service.cpp',
   'src/calendar/google_client.cpp',
   'src/calendar/google_oauth.cpp',
@@ -1187,6 +1188,20 @@ google_client_calendar_list_test = executable('google_client_calendar_list_test'
 )
 
 test('google_client_calendar_list', google_client_calendar_list_test)
+
+calendar_discovery_state_test = executable('calendar_discovery_state_test',
+  sources: files(
+    'tests/calendar_discovery_state_test.cpp',
+    'src/calendar/calendar_discovery_state.cpp',
+    'src/core/log.cpp',
+  ),
+  dependencies: [
+    nlohmann_dep,
+  ],
+  include_directories: _noctalia_inc,
+)
+
+test('calendar_discovery_state', calendar_discovery_state_test)
 
 time_format_test = executable('time_format_test',
   sources: files(
