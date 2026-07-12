@@ -3,14 +3,18 @@
 set -eu
 
 noctalia_bin=$1
+empty_fontconfig=$PWD/tests/config_validate/empty-fontconfig.conf
 
 fail() {
   printf '%s\n' "config_validate_cli_test: FAIL: $*" >&2
   exit 1
 }
 
-valid_output=$("$noctalia_bin" config validate tests/config_validate/generated-config 2>&1) \
-  || fail "generated single-file config should validate"
+valid_output=$(FONTCONFIG_FILE="$empty_fontconfig" \
+  "$noctalia_bin" config validate tests/config_validate/generated-config 2>&1) || {
+  printf '%s\n' "$valid_output" >&2
+  fail "generated single-file config should validate"
+}
 case "$valid_output" in
   *"Config is valid"*) ;;
   *) fail "generated single-file config did not print success" ;;

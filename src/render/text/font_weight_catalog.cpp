@@ -91,6 +91,7 @@ namespace text {
       }
       if (fonts != nullptr) {
         FcFontSetDestroy(fonts);
+        fonts = nullptr;
       }
 
       // Generic aliases such as sans-serif need pattern substitution, but FcMatchFont
