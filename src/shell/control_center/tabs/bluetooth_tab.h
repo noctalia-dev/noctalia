@@ -5,8 +5,10 @@
 #include "shell/control_center/tab.h"
 
 #include <string>
+#include <unordered_map>
 #include <vector>
 
+class BluetoothDeviceRow;
 class Button;
 class Flex;
 class Input;
@@ -33,7 +35,9 @@ private:
   void syncHeader();
   void syncPairingCard();
   void rebuildDeviceList(Renderer& renderer);
-  [[nodiscard]] std::string listKey() const;
+  // Pushes live metric values into the existing rows. Returns true if any changed.
+  bool syncDeviceRows();
+  [[nodiscard]] std::string structureKey(const std::vector<BluetoothDeviceInfo>& devices) const;
 
   BluetoothService* m_service = nullptr;
   BluetoothAgent* m_agent = nullptr;
@@ -58,6 +62,8 @@ private:
   Button* m_rescanButton = nullptr;
   Spinner* m_scanSpinner = nullptr;
 
-  std::string m_lastListKey;
+  std::unordered_map<std::string, BluetoothDeviceRow*> m_deviceRows;
+
+  std::string m_lastStructureKey;
   float m_lastListWidth = -1.0f;
 };

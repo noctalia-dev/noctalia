@@ -77,7 +77,43 @@ namespace {
     return ((clamped - kWeakRssi) * 100 + kRange / 2) / kRange;
   }
 
-  std::unique_ptr<Flex> makeMetricPill(const char* glyphName, std::string text, float scale) {
+  // Coarse signal band (0 weakest .. 4 strongest). Available devices order by band,
+  // not by raw RSSI: every advertisement moves the RSSI a little, and ordering on it
+  // reshuffles rows under the pointer mid-scan.
+  int signalBandFromRssi(std::int16_t rssi) { return std::min(signalPercentFromRssi(rssi) / 20, 4); }
+
+  std::string percentText(int percent) { return std::to_string(percent) + "%"; }
+
+  // Bucket first, then strongest band, then a stable alias/path tiebreak so equally
+  // named devices keep their order across rebuilds.
+  std::vector<BluetoothDeviceInfo> sortedDevices(std::vector<BluetoothDeviceInfo> devices) {
+    std::ranges::sort(devices, [](const BluetoothDeviceInfo& a, const BluetoothDeviceInfo& b) {
+      const auto ba = bucketFor(a);
+      const auto bb = bucketFor(b);
+      if (ba != bb) {
+        return static_cast<int>(ba) < static_cast<int>(bb);
+      }
+      if (ba == DeviceBucket::Available) {
+        if (a.hasRssi != b.hasRssi) {
+          return a.hasRssi;
+        }
+        if (a.hasRssi) {
+          const int bandA = signalBandFromRssi(a.rssi);
+          const int bandB = signalBandFromRssi(b.rssi);
+          if (bandA != bandB) {
+            return bandA > bandB;
+          }
+        }
+      }
+      if (a.alias != b.alias) {
+        return a.alias < b.alias;
+      }
+      return a.path < b.path;
+    });
+    return devices;
+  }
+
+  std::unique_ptr<Flex> makeMetricPill(const char* glyphName, std::string text, float scale, Label** valueOut) {
     return ui::row(
         {.align = FlexAlign::Center, .gap = Style::spaceXs * 0.5f * scale},
         ui::glyph({
@@ -86,6 +122,7 @@ namespace {
             .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
         }),
         ui::label({
+            .out = valueOut,
             .text = std::move(text),
             .fontSize = Style::fontSizeCaption * scale,
             .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
@@ -93,172 +130,191 @@ namespace {
     );
   }
 
-  class BluetoothDeviceRow : public Collapsible {
-  public:
-    BluetoothDeviceRow(BluetoothDeviceInfo device, BluetoothService* service, float scale)
-        : m_device(std::move(device)), m_service(service) {
-      setScale(scale);
-      setRadius(Style::scaledRadiusMd(scale));
-      setFill(colorSpecFromRole(ColorRole::Surface));
-      clearBorder();
+} // namespace
 
-      auto header = ui::row(
-          {.align = FlexAlign::Center,
-           .gap = Style::spaceSm * scale,
-           .padding = Style::spaceSm * scale,
-           .minHeight = kRowMinHeight * scale},
-          ui::glyph({
-              .glyph = glyphFor(m_device.kind),
-              .glyphSize = Style::fontSizeBody * scale,
-              .color = colorSpecFromRole(ColorRole::OnSurface),
-          }),
-          ui::label({
-              .text = m_device.alias,
-              .fontSize = Style::fontSizeBody * scale,
-              .fontWeight = m_device.connected ? FontWeight::Bold : FontWeight::Normal,
-              .color = colorSpecFromRole(ColorRole::OnSurface),
-              .flexGrow = 1.0f,
+class BluetoothDeviceRow : public Collapsible {
+public:
+  BluetoothDeviceRow(BluetoothDeviceInfo device, BluetoothService* service, float scale)
+      : m_device(std::move(device)), m_service(service) {
+    setScale(scale);
+    setRadius(Style::scaledRadiusMd(scale));
+    setFill(colorSpecFromRole(ColorRole::Surface));
+    clearBorder();
+
+    auto header = ui::row(
+        {.align = FlexAlign::Center,
+         .gap = Style::spaceSm * scale,
+         .padding = Style::spaceSm * scale,
+         .minHeight = kRowMinHeight * scale},
+        ui::glyph({
+            .glyph = glyphFor(m_device.kind),
+            .glyphSize = Style::fontSizeBody * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurface),
+        }),
+        ui::label({
+            .text = m_device.alias,
+            .fontSize = Style::fontSizeBody * scale,
+            .fontWeight = m_device.connected ? FontWeight::Bold : FontWeight::Normal,
+            .color = colorSpecFromRole(ColorRole::OnSurface),
+            .flexGrow = 1.0f,
+        })
+    );
+    header->setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
+
+    auto metrics = ui::row({
+        .align = FlexAlign::Center,
+        .gap = Style::spaceSm * scale,
+    });
+
+    if (m_device.hasBattery) {
+      metrics->addChild(
+          makeMetricPill("battery", percentText(static_cast<int>(m_device.batteryPercent)), scale, &m_batteryValue)
+      );
+    }
+    if (m_device.hasRssi && bucketFor(m_device) == DeviceBucket::Available) {
+      metrics->addChild(
+          makeMetricPill("antenna-bars-5", percentText(signalPercentFromRssi(m_device.rssi)), scale, &m_signalValue)
+      );
+    }
+    if (!metrics->children().empty()) {
+      header->addChild(std::move(metrics));
+    }
+
+    const auto bucket = bucketFor(m_device);
+
+    if (m_device.connecting) {
+      header->addChild(
+          ui::spinner({
+              .out = &m_connectingSpinner,
+              .color = colorSpecFromRole(ColorRole::Primary),
+              .spinnerSize = Style::baseGlyphSize * scale,
           })
       );
-      header->setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
-
-      auto metrics = ui::row({
-          .align = FlexAlign::Center,
-          .gap = Style::spaceSm * scale,
+    } else {
+      ButtonVariant primaryVariant = ButtonVariant::Default;
+      std::string primaryGlyph;
+      switch (bucket) {
+      case DeviceBucket::Connected:
+        primaryVariant = ButtonVariant::Destructive;
+        primaryGlyph = "plug-off";
+        break;
+      case DeviceBucket::Paired:
+        primaryGlyph = "plug";
+        break;
+      case DeviceBucket::Available:
+        primaryGlyph = "bluetooth";
+        break;
+      }
+      auto primary = ui::button({
+          .glyph = std::move(primaryGlyph),
+          .glyphSize = Style::fontSizeBody * scale,
+          .variant = primaryVariant,
+          .padding = Style::spaceXs * scale,
+          .radius = Style::scaledRadiusSm(scale),
+          .onClick = [this]() {
+            if (m_service == nullptr) {
+              return;
+            }
+            switch (bucketFor(m_device)) {
+            case DeviceBucket::Connected:
+              m_service->disconnectDevice(m_device.path);
+              break;
+            case DeviceBucket::Paired:
+              m_service->connect(m_device.path);
+              break;
+            case DeviceBucket::Available:
+              m_service->pair(m_device.path);
+              break;
+            }
+            PanelManager::instance().refresh();
+          },
       });
-
-      if (m_device.hasBattery) {
-        metrics->addChild(
-            makeMetricPill("battery", std::to_string(static_cast<int>(m_device.batteryPercent)) + "%", scale)
-        );
-      }
-      if (m_device.hasRssi && bucketFor(m_device) == DeviceBucket::Available) {
-        metrics->addChild(
-            makeMetricPill("antenna-bars-5", std::to_string(signalPercentFromRssi(m_device.rssi)) + "%", scale)
-        );
-      }
-      if (!metrics->children().empty()) {
-        header->addChild(std::move(metrics));
-      }
-
-      const auto bucket = bucketFor(m_device);
-
-      if (m_device.connecting) {
-        header->addChild(
-            ui::spinner({
-                .out = &m_connectingSpinner,
-                .color = colorSpecFromRole(ColorRole::Primary),
-                .spinnerSize = Style::baseGlyphSize * scale,
-            })
-        );
-      } else {
-        ButtonVariant primaryVariant = ButtonVariant::Default;
-        std::string primaryGlyph;
-        switch (bucket) {
-        case DeviceBucket::Connected:
-          primaryVariant = ButtonVariant::Destructive;
-          primaryGlyph = "plug-off";
-          break;
-        case DeviceBucket::Paired:
-          primaryGlyph = "plug";
-          break;
-        case DeviceBucket::Available:
-          primaryGlyph = "bluetooth";
-          break;
-        }
-        auto primary = ui::button({
-            .glyph = std::move(primaryGlyph),
-            .glyphSize = Style::fontSizeBody * scale,
-            .variant = primaryVariant,
-            .padding = Style::spaceXs * scale,
-            .radius = Style::scaledRadiusSm(scale),
-            .onClick = [this]() {
-              if (m_service == nullptr) {
-                return;
-              }
-              switch (bucketFor(m_device)) {
-              case DeviceBucket::Connected:
-                m_service->disconnectDevice(m_device.path);
-                break;
-              case DeviceBucket::Paired:
-                m_service->connect(m_device.path);
-                break;
-              case DeviceBucket::Available:
-                m_service->pair(m_device.path);
-                break;
-              }
-              PanelManager::instance().refresh();
-            },
-        });
-        header->addChild(std::move(primary));
-      }
-
-      if (m_device.paired) {
-        header->addChild(
-            ui::button({
-                .glyph = "trash",
-                .glyphSize = Style::fontSizeBody * scale,
-                .variant = ButtonVariant::Ghost,
-                .padding = Style::spaceXs * scale,
-                .radius = Style::scaledRadiusSm(scale),
-                .onClick = [this]() {
-                  if (m_service != nullptr) {
-                    m_service->forget(m_device.path);
-                  }
-                  PanelManager::instance().refresh();
-                },
-            })
-        );
-      }
-
-      setHeader(std::move(header));
-
-      if (m_device.paired) {
-        setBody(
-            ui::row(
-                {.align = FlexAlign::Center,
-                 .gap = Style::spaceSm * scale,
-                 .configure =
-                     [scale](Flex& body) {
-                       body.setPadding(
-                           Style::spaceXs * scale, Style::spaceMd * scale, Style::spaceSm * scale,
-                           Style::spaceMd * scale
-                       );
-                     }},
-                ui::label({
-                    .text = i18n::tr("control-center.bluetooth.auto-reconnect"),
-                    .fontSize = Style::fontSizeCaption * scale,
-                    .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                    .flexGrow = 1.0f,
-                }),
-                ui::toggle({
-                    .checkedImmediate = m_device.trusted,
-                    .toggleSize = ToggleSize::Medium,
-                    .scale = scale,
-                    .onChange = [this](bool checked) {
-                      if (m_service != nullptr) {
-                        m_service->setTrusted(m_device.path, checked);
-                      }
-                    },
-                })
-            )
-        );
-      }
+      header->addChild(std::move(primary));
     }
 
-    void startConnectingSpinner() {
-      if (m_connectingSpinner != nullptr) {
-        m_connectingSpinner->start();
-      }
+    if (m_device.paired) {
+      header->addChild(
+          ui::button({
+              .glyph = "trash",
+              .glyphSize = Style::fontSizeBody * scale,
+              .variant = ButtonVariant::Ghost,
+              .padding = Style::spaceXs * scale,
+              .radius = Style::scaledRadiusSm(scale),
+              .onClick = [this]() {
+                if (m_service != nullptr) {
+                  m_service->forget(m_device.path);
+                }
+                PanelManager::instance().refresh();
+              },
+          })
+      );
     }
 
-  private:
-    BluetoothDeviceInfo m_device;
-    BluetoothService* m_service = nullptr;
-    Spinner* m_connectingSpinner = nullptr;
-  };
+    setHeader(std::move(header));
 
-} // namespace
+    if (m_device.paired) {
+      setBody(
+          ui::row(
+              {.align = FlexAlign::Center,
+               .gap = Style::spaceSm * scale,
+               .configure =
+                   [scale](Flex& body) {
+                     body.setPadding(
+                         Style::spaceXs * scale, Style::spaceMd * scale, Style::spaceSm * scale, Style::spaceMd * scale
+                     );
+                   }},
+              ui::label({
+                  .text = i18n::tr("control-center.bluetooth.auto-reconnect"),
+                  .fontSize = Style::fontSizeCaption * scale,
+                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  .flexGrow = 1.0f,
+              }),
+              ui::toggle({
+                  .checkedImmediate = m_device.trusted,
+                  .toggleSize = ToggleSize::Medium,
+                  .scale = scale,
+                  .onChange = [this](bool checked) {
+                    if (m_service != nullptr) {
+                      m_service->setTrusted(m_device.path, checked);
+                    }
+                  },
+              })
+          )
+      );
+    }
+  }
+
+  void startConnectingSpinner() {
+    if (m_connectingSpinner != nullptr) {
+      m_connectingSpinner->start();
+    }
+  }
+
+  [[nodiscard]] const std::string& devicePath() const noexcept { return m_device.path; }
+
+  // Refresh the values that move while a scan runs. Which pills exist is fixed at
+  // construction (it belongs to the list structure key); only their text is live.
+  // Returns true when a value actually changed, i.e. the row needs relayout.
+  bool syncLiveMetrics(const BluetoothDeviceInfo& device) {
+    bool changed = false;
+    if (m_batteryValue != nullptr && m_batteryValue->setText(percentText(static_cast<int>(device.batteryPercent)))) {
+      changed = true;
+    }
+    if (m_signalValue != nullptr && m_signalValue->setText(percentText(signalPercentFromRssi(device.rssi)))) {
+      changed = true;
+    }
+    m_device.batteryPercent = device.batteryPercent;
+    m_device.rssi = device.rssi;
+    return changed;
+  }
+
+private:
+  BluetoothDeviceInfo m_device;
+  BluetoothService* m_service = nullptr;
+  Spinner* m_connectingSpinner = nullptr;
+  Label* m_batteryValue = nullptr;
+  Label* m_signalValue = nullptr;
+};
 
 BluetoothTab::BluetoothTab(BluetoothService* service, BluetoothAgent* agent) : m_service(service), m_agent(agent) {}
 
@@ -420,6 +476,7 @@ void BluetoothTab::doLayout(Renderer& renderer, float contentWidth, float bodyHe
   m_rootLayout->layout(renderer);
   syncPairingCard();
   rebuildDeviceList(renderer);
+  syncDeviceRows();
   syncHeader();
   m_rootLayout->layout(renderer);
 }
@@ -427,6 +484,10 @@ void BluetoothTab::doLayout(Renderer& renderer, float contentWidth, float bodyHe
 void BluetoothTab::doUpdate(Renderer& renderer) {
   syncPairingCard();
   rebuildDeviceList(renderer);
+  // A metric pill's text changes its width, so the list has to be laid out again.
+  if (syncDeviceRows() && m_list != nullptr) {
+    m_list->layout(renderer);
+  }
   syncHeader();
 }
 
@@ -453,7 +514,8 @@ void BluetoothTab::onClose() {
   m_discoverableToggle = nullptr;
   m_rescanButton = nullptr;
   m_scanSpinner = nullptr;
-  m_lastListKey.clear();
+  m_deviceRows.clear();
+  m_lastStructureKey.clear();
   m_lastListWidth = -1.0f;
 }
 
@@ -556,7 +618,11 @@ void BluetoothTab::syncPairingCard() {
   }
 }
 
-std::string BluetoothTab::listKey() const {
+// Identity of the built list: which rows exist, in which order, and which controls
+// each carries. Live metric values (battery percent, RSSI) are absent by design —
+// they refresh in place through syncDeviceRows(), so an advertisement no longer tears
+// down the list. Devices arrive sorted, so a change in row order changes the key.
+std::string BluetoothTab::structureKey(const std::vector<BluetoothDeviceInfo>& devices) const {
   if (m_service == nullptr) {
     return "empty";
   }
@@ -567,7 +633,7 @@ std::string BluetoothTab::listKey() const {
   key += s.rfkillSoftBlocked ? '1' : '0';
   key += s.discovering ? '1' : '0';
   key.push_back('|');
-  for (const auto& d : m_service->devices()) {
+  for (const auto& d : devices) {
     key += d.path;
     key.push_back(':');
     key += d.alias;
@@ -579,17 +645,24 @@ std::string BluetoothTab::listKey() const {
     key += d.connected ? '1' : '0';
     key += d.connecting ? '1' : '0';
     key += d.hasBattery ? '1' : '0';
-    key.push_back(':');
-    key += std::to_string(static_cast<int>(d.batteryPercent));
-    key.push_back(':');
-    // Only the rendered signal percent (Available rows) belongs in the key; raw
-    // RSSI churn would otherwise rebuild the whole list, including connected rows.
-    if (d.hasRssi && bucketFor(d) == DeviceBucket::Available) {
-      key += std::to_string(signalPercentFromRssi(d.rssi));
-    }
+    key += d.hasRssi ? '1' : '0';
     key.push_back('\n');
   }
   return key;
+}
+
+bool BluetoothTab::syncDeviceRows() {
+  if (m_service == nullptr || m_deviceRows.empty()) {
+    return false;
+  }
+  bool changed = false;
+  for (const auto& d : m_service->devices()) {
+    const auto it = m_deviceRows.find(d.path);
+    if (it != m_deviceRows.end() && it->second->syncLiveMetrics(d)) {
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
@@ -601,18 +674,23 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
   if (listWidth <= 0.0f) {
     return;
   }
-  const std::string nextKey = listKey();
-  if (listWidth == m_lastListWidth && nextKey == m_lastListKey) {
+  std::vector<BluetoothDeviceInfo> devices;
+  if (m_service != nullptr) {
+    devices = sortedDevices(m_service->devices());
+  }
+  const std::string nextKey = structureKey(devices);
+  if (listWidth == m_lastListWidth && nextKey == m_lastStructureKey) {
     return;
   }
   m_lastListWidth = listWidth;
-  m_lastListKey = nextKey;
+  m_lastStructureKey = nextKey;
   const float scale = contentScale();
 
   m_powerToggle = nullptr;
   m_discoverableToggle = nullptr;
   m_scanSpinner = nullptr;
   m_rescanButton = nullptr;
+  m_deviceRows.clear();
 
   while (!m_list->children().empty()) {
     m_list->removeChild(m_list->children().front().get());
@@ -742,22 +820,6 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
     return;
   }
 
-  auto devices = m_service->devices();
-  std::ranges::sort(devices, [](const BluetoothDeviceInfo& a, const BluetoothDeviceInfo& b) {
-    const auto ba = bucketFor(a);
-    const auto bb = bucketFor(b);
-    if (ba != bb) {
-      return static_cast<int>(ba) < static_cast<int>(bb);
-    }
-    if (ba == DeviceBucket::Available) {
-      if (a.hasRssi != b.hasRssi) {
-        return a.hasRssi;
-      }
-      return a.rssi > b.rssi;
-    }
-    return a.alias < b.alias;
-  });
-
   if (devices.empty()) {
     m_list->addChild(
         ui::label({
@@ -803,6 +865,7 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
     auto* rowPtr = row.get();
     bucketCard->addChild(std::move(row));
     rowPtr->startConnectingSpinner();
+    m_deviceRows.emplace(rowPtr->devicePath(), rowPtr);
   }
   m_list->layout(renderer);
 }
