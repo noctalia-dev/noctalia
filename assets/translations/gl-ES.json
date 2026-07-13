@@ -29,9 +29,9 @@
   "bar": {
     "screenshot": {
       "choose-display": "Escolle a pantalla",
-      "confirm-region": "Enter ou Space para capturar · Esc para cancelar · drag para volver seleccionar",
+      "confirm-region": "Intro ou Espazo para capturar · Esc para cancelar · arrastra para seleccionar de novo",
       "fullscreen": "Pantalla completa",
-      "overlay-alloc-failed": "Non se puido mostrar o overlay de captura de pantalla (GPU ca memoria de vídeo chea?)",
+      "overlay-alloc-failed": "Non se puido mostrar a superposición de captura de pantalla (GPU coa memoria de vídeo chea?)",
       "region": "Seleccionar rexión"
     },
     "widgets": {
@@ -67,7 +67,7 @@
         "network": "Rede",
         "networks": "Redes",
         "networks-count": "{count} rede",
-        "networks-count-plural": "{count} networks",
+        "networks-count-plural": "{count} redes",
         "no": "Non",
         "not-connected": "Non conectada",
         "off": "Desactivado",
@@ -87,14 +87,14 @@
       },
       "scripted": {
         "reload-failed": "Fallou a recarga do script",
-        "reloaded": "Recargar script"
+        "reloaded": "Script recargado"
       },
       "sysmon": {
         "cpu": "CPU",
         "cpu-temp": "Temperatura da CPU",
         "disk": "Disco",
         "download": "Descarga",
-        "gpu-temp": "Teperatura da GPU",
+        "gpu-temp": "Temperatura da GPU",
         "gpu-usage": "Uso da GPU",
         "gpu-vram": "VRAM da GPU",
         "ram": "RAM",
@@ -109,9 +109,9 @@
       },
       "weather": {
         "default": "Tempo",
-        "error": "Error co tempo",
+        "error": "Erro co tempo",
         "loading": "Tempo...",
-        "no-location": "Sin ubicación",
+        "no-location": "Sen localización",
         "off": "Tempo desactivado"
       }
     }
@@ -123,7 +123,7 @@
       "keep-pinned": "Manter fixados"
     },
     "confirm": {
-      "clear-desc": "Escolle si os elementos fixados deben manterse ou non.",
+      "clear-desc": "Escolle se os elementos fixados deben manterse ou non.",
       "clear-desc-all-pinned": "Todas as entradas están fixadas. Usa Limpar todo para eliminalas todas.",
       "clear-desc-no-pinned": "Isto elimina todas as entradas do historial do portapapeis.",
       "clear-title": "Limpar historial do portapapeis?",
@@ -206,7 +206,7 @@
       },
       "unavailable": "O servizo de Bluetooth non está dispoñible",
       "unknown-device": "Dispositivo descoñecido",
-      "visible": "Descubrible por dispositivos cercanos"
+      "visible": "Descubrible por dispositivos próximos"
     },
     "calendar": {
       "all-day": "Todo o día",
@@ -238,7 +238,7 @@
       "uptime": "Activo - {uptime}",
       "weather": {
         "data-unavailable": "Os datos meteorolóxicos non están dispoñibles.",
-        "disabled": "Tempo está desactivado na configuración.",
+        "disabled": "O tempo está desactivado na configuración.",
         "fetching": "Obtendo a previsión..."
       }
     },
@@ -251,18 +251,19 @@
     "network": {
       "connect": "Conectar",
       "current-connection": "Conexión actual",
+      "external-ip": "WAN {ip}",
       "no-networks": "Non hai redes ao alcance",
       "not-connected": "Non conectado",
       "password": "Contrasinal",
       "password-prompt": "Introduce o contrasinal",
-      "password-prompt-for": "Intriduce o contrasinal para {ssid}",
+      "password-prompt-for": "Introduce o contrasinal para {ssid}",
       "unavailable-detail": "Instala e activa NetworkManager, wpa_supplicant, ou iwd para xestionar redes dende aquí.",
       "unavailable-title": "Servizo de rede non dispoñible",
       "vpns": "VPNs",
       "wi-fi": "Wi-Fi",
       "wifi": "Wi-Fi",
       "wifi-off": "A Wi-Fi está apagada",
-      "wifi-on": "A Wi-Fi está encendida",
+      "wifi-on": "A Wi-Fi está acesa",
       "wired-connection": "Conexión por cable"
     },
     "notifications": {
@@ -279,7 +280,7 @@
       },
       "filter-empty-body": "Ningunha notificación coincide con este filtro.",
       "filter-empty-title": "Nada por aquí",
-      "untitled": "Notificación sin título"
+      "untitled": "Notificación sen título"
     },
     "power": {
       "battery": "Batería",
@@ -307,7 +308,7 @@
       }
     },
     "shortcuts": {
-      "audio": "Sonido",
+      "audio": "Son",
       "bluetooth": "Bluetooth",
       "caffeine": "Cafeína",
       "clipboard": "Portapapeis",
@@ -326,10 +327,10 @@
         "scheduled-day": "Programada",
         "scheduled-night": "Activa"
       },
-      "notification": "DND",
+      "notification": "Non molestar",
       "power-profile": "Enerxía",
       "screen-time": "Tempo de pantalla",
-      "session": "Session",
+      "session": "Sesión",
       "system": "Sistema",
       "wallpaper": "Fondo de pantalla",
       "weather": "Tempo",
@@ -356,7 +357,7 @@
       "uptime-prefix": "Activo {uptime} · {osAge}"
     },
     "tabs": {
-      "audio": "Sonido",
+      "audio": "Son",
       "bluetooth": "Bluetooth",
       "calendar": "Calendario",
       "home": "Inicio",
@@ -385,8 +386,8 @@
         "sunrise": "Orto",
         "sunset": "Ocaso",
         "temp-max": "Temperatura máxima",
-        "temp-min": "emperatura mínima",
-        "timezone": "Franza horaria",
+        "temp-min": "Temperatura mínima",
+        "timezone": "Fuso horario",
         "uv-index": "Índice UV",
         "wind": "Vento"
       },
@@ -410,9 +411,9 @@
           "wind": "Vento"
         }
       },
-      "location-unavailable": "Ubicación non dispoñible",
-      "no-location-body": "Engade o teu enderezo ou activa a ubicación automática nos axustes de Ubicación.",
-      "no-location-title": "Non hai ningunha ubicación configurada",
+      "location-unavailable": "Localización non dispoñible",
+      "no-location-body": "Engade o teu enderezo ou activa a localización automática nos axustes de Localización.",
+      "no-location-title": "Non hai ningunha localización configurada",
       "refreshing": "Actualizando o tempo...",
       "waiting": "Agardando polos datos meteorolóxicos"
     }
@@ -433,7 +434,7 @@
         "trash": "Eliminar"
       },
       "dialogs": {
-        "select-sticker-image": "Seleccionar sticker"
+        "select-sticker-image": "Seleccionar adhesivo"
       },
       "settings": {
         "aspect-ratio": "Ratio de aspecto",
@@ -447,6 +448,7 @@
         "bar-width": "Ancho da barra",
         "bloom-intensity": "Bloom",
         "center-text": "Centrar texto",
+        "center-password-text": "Centrar texto do contrasinal",
         "centered": "Centrado",
         "change-image": "Cambiar…",
         "circle": "Círculo",
@@ -461,20 +463,20 @@
         "custom-color": "Personalizado…",
         "description": "Descrición",
         "display": "Monitor",
-        "display-gauge": "Gauge",
+        "display-gauge": "Medidor",
         "display-graph": "Gráfico",
         "fade-when-idle": "Esvaecer cando estea inactivo",
         "font-family": "Tipo de letra",
         "font-family-default": "Predeterminado do sistema",
         "forecast-days": "Días de previsión",
         "format": "Formato",
-        "gauge-layout": "Disposición do gauge",
+        "gauge-layout": "Disposición do medidor",
         "glyph": "Glifo",
         "hide-when-no-media": "Ocultar cando non haxa multimedia",
         "highlight-color": "Cor de resaltado",
         "horizontal": "Horizontal",
-        "hover-background": "Fondo ao facer hover",
-        "hover-foreground": "Texto ao facer hover",
+        "hover-background": "Fondo ao pasar por riba",
+        "hover-foreground": "Texto ao pasar por riba",
         "image-path": "Imaxe",
         "inner-diameter": "Diámetro interior",
         "input-opacity": "Opacidade do campo",
@@ -486,7 +488,7 @@
         "mirrored": "Espellado",
         "network-speed-compact": "Velocidade de rede compacta",
         "network-speed-unit": "Unidade da velocidade de rede",
-        "network-speed-unit-auto": "Auto",
+        "network-speed-unit-auto": "Automático",
         "network-speed-unit-kilobytes": "kB/s",
         "network-speed-unit-megabytes": "MB/s",
         "opacity": "Opacidade",
@@ -520,8 +522,8 @@
         "variant": "Estilo",
         "variant-default": "Predeterminado",
         "variant-destructive": "Destrutivo",
-        "variant-ghost": "Ghost",
-        "variant-outline": "Outline",
+        "variant-ghost": "Fantasma",
+        "variant-outline": "Contorno",
         "variant-primary": "Primario",
         "variant-secondary": "Secundario",
         "vertical": "Vertical",
@@ -559,7 +561,7 @@
     "weather": {
       "error": "Erro",
       "loading": "Cargando",
-      "no-location": "Sen ubicación",
+      "no-location": "Sen localización",
       "off": "Tempo desactivado"
     }
   },
@@ -643,7 +645,7 @@
       "parse-ip-geolocation": "Non se puido interpretar a resposta de xeolocalización por IP"
     },
     "locations": {
-      "current": "Ubicación actual"
+      "current": "Localización actual"
     },
     "source": {
       "address": "Enderezo",
@@ -654,7 +656,7 @@
     "authenticating": "Autenticando...",
     "authentication-failed": "Fallou a autenticación",
     "caps-lock-on": "Bloq Maiús está on",
-    "password-cleared": "Limpado o contrasinal",
+    "password-cleared": "Limpouse o contrasinal",
     "password-placeholder": "Contrasinal",
     "ready": "Escribe o teu contrasinal e preme Intro.",
     "unlocked": "Desbloqueado",
@@ -686,6 +688,8 @@
       "calendar-google-connect-start-failed": "Non se puido iniciar a autorización de Google. Revisa a conexión de rede e téntao de novo.",
       "calendar-google-connect-start-http": "Non se puido iniciar a autorización de Google. O broker OAuth devolveu HTTP {status}.",
       "calendar-google-connect-timeout": "A autorización de Google esgotou o tempo de espera. Inicia a conexión de novo cando esteas listo para iniciar sesión.",
+      "config-migration-body": "A configuración antiga estase migrando na memoria, incluído {path}. Actualiza a configuración de orixe; Configuración e noctalia config validate mostran a substitución requirida.",
+      "config-migration-title": "Cómpre actualizar a configuración",
       "dbus-disabled": "Notificacións DBus desactivadas",
       "desktop-widgets-editor": "Editor de widgets do escritorio",
       "desktop-widgets-editor-enabled": "O editor de widgets do escritorio está activado. Cambia a un espazo de traballo baleiro para ver a capa do editor.",
@@ -765,6 +769,12 @@
       "body-errors": "{plugin} tivo demasiados erros e desactivouse. Recárgao despois de solucionar o problema.",
       "body-timeouts": "{plugin} deixou de responder e desactivouse. Recárgao despois de solucionar o problema.",
       "title": "Plugin desactivado"
+    },
+    "enable-failed": {
+      "body-error": "{plugin}: {error}",
+      "body-incompatible": "{plugin} require Noctalia {version} ou unha versión máis recente.",
+      "body-timeout": "{plugin} tardou demasiado en instalarse.",
+      "title": "Plugin non activado"
     }
   },
   "power": {
@@ -834,7 +844,7 @@
       "password-keep-placeholder": "Déixao en branco para manter o contrasinal actual",
       "password-label": "Contrasinal da aplicación",
       "password-placeholder": "Contrasinal específico por aplicación",
-      "password-save-error": "Non se puido gardar calendar conta contrasinal.",
+      "password-save-error": "Non se puido gardar o contrasinal da conta de calendario.",
       "provider": {
         "custom": "CalDAV",
         "google": "Google",
@@ -911,11 +921,23 @@
           "border": "Bordo",
           "border-description": "Rol de cor do contorno da cápsula; deixa en Predeterminado para non mostrar contorno",
           "clear": "Limpar",
+          "drawer-columns": "Columnas do caixón",
+          "drawer-columns-description": "Número de widgets por fila no panel do caixón",
+          "drawer-detached": "Panel separado",
+          "drawer-detached-description": "Abrir o caixón como un panel flotante co seu propio fondo en vez de fusionalo coa barra",
+          "drawer-enabled": "Caixón",
+          "drawer-enabled-description": "Mover os widgets do grupo a un panel de caixón alternado por un botón",
+          "drawer-glyph-closed": "Icona pechada",
+          "drawer-glyph-closed-description": "Glifo mostrado no botón do caixón cando o panel está pechado",
+          "drawer-glyph-opened": "Icona aberta",
+          "drawer-glyph-opened-description": "Glifo mostrado no botón do caixón cando o panel está aberto",
           "edit": "Editar estilo",
           "fill": "Fondo",
           "fill-description": "Rol de cor do fondo da cápsula; tamén se admiten cores hexadecimais fixas",
           "foreground": "Primeiro plano",
           "foreground-description": "Rol de cor da icona e da etiqueta dos widgets deste grupo",
+          "hide": "Ocultar este grupo",
+          "hide-widget": "Ocultar este widget",
           "hint": "Parte dun grupo de cápsula",
           "members": "{count} widgets",
           "opacity": "Opacidade",
@@ -926,6 +948,8 @@
           "radius": "Radio",
           "radius-description": "Radio dos cantos da cápsula en píxeles; Auto herda o radio da cápsula da barra",
           "selected": "{count} seleccionados",
+          "show": "Mostrar este grupo",
+          "show-widget": "Mostrar este widget",
           "style": "Estilo",
           "title": "Grupo de cápsula",
           "ungroup": "Desagrupar"
@@ -970,7 +994,17 @@
             "grouping": "Agrupación",
             "presentation": "Presentación",
             "runtime": "Execución",
-            "widget": "Widget"
+            "taskbar": {
+              "grouping": "Agrupación",
+              "windows": "Xanelas",
+              "workspace-labels": "Etiquetas dos espazos de traballo"
+            },
+            "widget": "Widget",
+            "workspaces": {
+              "colors": "Cores",
+              "list": "Espazos de traballo",
+              "pills": "Estilo das cápsulas"
+            }
           }
         }
       }
@@ -987,6 +1021,7 @@
         "rename": "Non se puido renomear a barra."
       },
       "batch-write": "Non se puideron gardar algúns axustes.",
+      "custom-schedule-times": "Unha programación personalizada precisa tanto unha hora de amencer coma unha de solpor no formato HH:MM.",
       "export-config": "Non se puido gardar a exportación da configuración.",
       "export-wallpaper-palette": "Non se puido gardar a paleta do fondo de pantalla como paleta personalizada.",
       "monitor-override": {
@@ -1044,7 +1079,9 @@
     },
     "navigation": {
       "groups": {
-        "audio": "Audio",
+        "accessibility": "Accesibilidade",
+        "audio": "Son",
+        "authentication": "Autenticación",
         "automation": "Automatización",
         "backdrop": "Capa de fondo",
         "background": "Fondo",
@@ -1059,11 +1096,13 @@
         "control-center": "Centro de control",
         "dead-zone": "Zona morta",
         "directories": "Directorios",
+        "display": "Pantalla",
         "effects": "Efectos",
         "filtering": "Filtrado",
         "focus-styling": "Estilo do foco",
         "formats": "Formatos",
         "general": "Xeral",
+        "greeter": "Greeter",
         "grouping": "Agrupación",
         "home": "Inicio",
         "hot-corners": "Cantos activos",
@@ -1090,6 +1129,7 @@
         "pinned-apps": "Aplicacións fixadas",
         "polkit": "Polkit",
         "power": "Enerxía",
+        "privacy": "Privacidade",
         "profile": "Perfil",
         "screen-corners": "Cantos da pantalla",
         "screen-time": "Tempo de pantalla",
@@ -1108,6 +1148,7 @@
         "widgets": "Widgets"
       },
       "sections": {
+        "accessibility": "Accesibilidade",
         "appearance": "Aparencia",
         "backdrop": "Capa de fondo",
         "bar": "Barra",
@@ -1116,6 +1157,7 @@
         "dock": "Dock",
         "hooks": "Hooks",
         "keybinds": "Atallos",
+        "launcher": "Launcher",
         "location": "Localización",
         "niri": "Niri",
         "notifications": "Notificacións",
@@ -1145,8 +1187,11 @@
           "toast": "toast"
         },
         "flags-label": "Cando coincida",
+        "match-content-label": "Regex de contido",
+        "match-content-placeholder": "Patrón regex para coincidir co resumo ou o corpo…",
         "match-label": "Aplicación",
         "match-placeholder": "Nome da aplicación, entrada de escritorio ou categoría…",
+        "override-duration": "Sobrescribir duración",
         "play-sound": "Reproducir son",
         "save-history": "Gardar no historial",
         "show-toast": "Mostrar toast",
@@ -1157,6 +1202,13 @@
       }
     },
     "options": {
+      "bar": {
+        "auto-hide": {
+          "off": "Desactivado",
+          "on": "Activado",
+          "smart": "Intelixente"
+        }
+      },
       "clipboard": {
         "auto-paste": {
           "ctrl-shift-v": "Ctrl+Shift+V",
@@ -1216,6 +1268,10 @@
       "orientation": {
         "horizontal": "Horizontal",
         "vertical": "Vertical"
+      },
+      "panel-bar-alignment": {
+        "centered": "Centrado",
+        "near-trigger": "Preto do disparador"
       },
       "panel-position": {
         "auto": "Seguir a barra"
@@ -1320,6 +1376,9 @@
       },
       "plugins": {
         "configure": "Configurar",
+        "delete": "Eliminar",
+        "delete-confirm-desc": "Este plugin desinstalarase e eliminarase do disco.",
+        "delete-confirm-title": "Eliminar \"{name}\"?",
         "deprecated": "obsoleto",
         "empty": "Non hai complementos activados.",
         "loading": "Cargando complementos...",
@@ -1362,6 +1421,7 @@
       },
       "store": {
         "add": "Engadir a Noctalia",
+        "categories": "Categorías",
         "category-all": "Todos",
         "empty": "Non se atoparon complementos",
         "incompatible": "Incompatible",
@@ -1373,6 +1433,12 @@
       }
     },
     "schema": {
+      "accessibility": {
+        "high-contrast": {
+          "description": "Aumenta o contraste levando as cores da superficie e do fondo cara a valores extremos",
+          "label": "Alto contraste"
+        }
+      },
       "appearance": {
         "animation-speed": {
           "description": "Multiplicador de velocidade para todas as animacións",
@@ -1393,6 +1459,10 @@
         "builtin-palette": {
           "description": "Escolle unha paleta do catálogo incluído",
           "label": "Paleta integrada"
+        },
+        "button-borders": {
+          "description": "Debuxa contornos arredor dos botóns en toda a shell",
+          "label": "Bordos dos botóns"
         },
         "community-palette": {
           "description": "Escolle unha paleta do catálogo da comunidade",
@@ -1430,6 +1500,10 @@
         "palette-source": {
           "description": "De onde obter a paleta de cores",
           "label": "Orixe da paleta"
+        },
+        "pure-black-dark": {
+          "description": "Ancora as superficies escuras ao negro puro, evitando bandas nos paneis OLED (só no modo escuro)",
+          "label": "Negro puro"
         },
         "theme-mode": {
           "description": "Escolle escuro, claro ou automático segundo a hora do día",
@@ -1504,6 +1578,10 @@
           "description": "Widgets no centro da barra",
           "label": "Widgets centrais"
         },
+        "concave-edge-corners": {
+          "description": "Esculpe entallas cóncavas en dous cantos da barra (require que a marxe do bordo sexa 0); coa marxe dos extremos en 0, escúlpense os cantos do bordo interior da barra; noutro caso, escúlpense os cantos que tocan o bordo da pantalla",
+          "label": "Cantos cóncavos no bordo"
+        },
         "contact-shadow": {
           "description": "Gradiente escuro entre un panel anexado e a barra para suxerir profundidade na unión"
         },
@@ -1570,6 +1648,10 @@
         "font-weight": {
           "description": "Peso predeterminado das etiquetas dos widgets nesta barra.",
           "label": "Peso da fonte"
+        },
+        "hover-highlight": {
+          "description": "Tingue suavemente o widget baixo o punteiro do rato coa súa propia cor de primeiro plano",
+          "label": "Resaltado ao pasar por riba"
         },
         "layer": {
           "description": "Usa Overlay para mostrar a barra por enriba das aplicacións a pantalla completa. Os paneis anexados seguen a barra.",
@@ -1693,6 +1775,10 @@
         },
         "background-opacity": {
           "description": "Opacidade do fondo do Dock"
+        },
+        "concave-edge-corners": {
+          "description": "Esculpe cantos cara a dentro no lado que toca o bordo da pantalla; require que a marxe ao bordo da pantalla sexa 0",
+          "label": "Cantos cóncavos no bordo"
         },
         "corner-bottom-left": {
           "description": "Radio do canto inferior esquerdo do Dock"
@@ -2159,6 +2245,14 @@
         "session-actions": {
           "description": "Entradas do menú de enerxía, orde, comandos personalizados e iconas",
           "label": "Entradas"
+        },
+        "session-grid": {
+          "description": "Mostra as accións do panel de sesión nunha disposición en grade",
+          "label": "Disposición en grade"
+        },
+        "session-grid-columns": {
+          "description": "Número de columnas para a disposición en grade",
+          "label": "Columnas"
         }
       },
       "services": {
@@ -2182,6 +2276,10 @@
         "calendar-refresh-interval": {
           "description": "Cada canto sincronizar os eventos do calendario (minutos)",
           "label": "Intervalo de actualización"
+        },
+        "custom-schedule": {
+          "description": "Usar horas manuais de amencer/solpor en vez de calculalas a partir das coordenadas",
+          "label": "Programación personalizada"
         },
         "day-temperature": {
           "description": "Temperatura de cor durante o día (Kelvin)",
@@ -2279,10 +2377,10 @@
             "label": "Intervalo de consulta da rede"
           },
           "stats": {
-            "cpu-temp": "Temperatura CPU",
+            "cpu-temp": "Temperatura da CPU",
             "cpu-usage": "Uso de CPU",
             "disk-usage": "Uso do disco",
-            "gpu-temp": "Temperatura GPU",
+            "gpu-temp": "Temperatura da GPU",
             "gpu-usage": "Uso de GPU",
             "gpu-vram": "VRAM GPU",
             "network-rx": "Descarga",
@@ -2407,12 +2505,16 @@
           "description": "Formato de data predeterminado para a interface da shell sen axuste propio",
           "label": "Formato de data"
         },
+        "external-ip": {
+          "description": "Resolver o IP WAN público da conexión (mediante api.noctalia.dev) e mostralo na pestana de rede do Centro de control",
+          "label": "Mostrar IP WAN"
+        },
         "greeter-sync-auto": {
           "description": "Sincroniza automaticamente o Greeter cando cambien o fondo de pantalla, as cores ou o modo do tema",
           "label": "Sincronización automática do Greeter"
         },
         "greeter-sync-privilege-command": {
-          "description": "Substitúe pkexec/run0 para Sincronizar agora o Greeter. A ruta do asistente de aplicación e o directorio temporal engádense automaticamente. Exemplo: ghostty -e pkexec",
+          "description": "Substitúe pkexec/run0 para sincronizar agora o Greeter. A ruta do asistente de aplicación e o directorio temporal engádense automaticamente. Exemplo: ghostty -e pkexec",
           "label": "Comando privilexiado de sincronización do Greeter"
         },
         "launch-apps-as-systemd-services": {
@@ -2733,8 +2835,8 @@
       "variant": {
         "default": "Predeterminado",
         "destructive": "Destrutivo",
-        "ghost": "Ghost",
-        "outline": "Outline",
+        "ghost": "Fantasma",
+        "outline": "Contorno",
         "primary": "Primario",
         "secondary": "Secundario"
       },
@@ -2753,14 +2855,14 @@
       },
       "options": {
         "always": "Sempre",
-        "auto": "Auto",
-        "cpu-temp": "Temperatura CPU",
+        "auto": "Automático",
+        "cpu-temp": "Temperatura da CPU",
         "cpu-usage": "Uso de CPU",
         "disk-percent": "Porcentaxe de disco",
         "full": "Completo",
-        "gauge": "Gauge",
+        "gauge": "Medidor",
         "glyph": "Glifo",
-        "gpu-temp": "Temperatura GPU",
+        "gpu-temp": "Temperatura da GPU",
         "gpu-usage": "Uso de GPU",
         "gpu-vram": "VRAM GPU",
         "graph": "Gráfico",
@@ -2973,6 +3075,10 @@
           "description": "Oculta a portada do álbum",
           "label": "Ocultar portada do álbum"
         },
+        "hide-artist": {
+          "description": "Oculta o nome do artista e mostra só o título da pista",
+          "label": "Ocultar artista"
+        },
         "hide-empty-workspaces": {
           "description": "Ao agrupar por espazo de traballo, omite na lista da barra de tarefas as cápsulas que non teñan xanelas en execución.",
           "label": "Ocultar espazos baleiros"
@@ -3047,6 +3153,10 @@
           "label": "Tamaño da pílula inactiva",
           "workspaces-description": "Lonxitude mínima da pílula do espazo de traballo inactivo ao longo da barra, como múltiplo do grosor da pílula; as etiquetas poden expandirse máis alá disto"
         },
+        "interactive": {
+          "description": "Permitir pasar o punteiro por riba, clics, desprazamentos e tooltips neste widget",
+          "label": "Interactivo"
+        },
         "interface": {
           "description": "Interface de rede que se vai monitorizar; déixao baleiro para usar o total de todas as interfaces",
           "label": "Interface"
@@ -3096,6 +3206,7 @@
         "minimal": {
           "description": "Mostra só etiquetas de ID ou nome dos espazos de traballo, sen pílulas animadas",
           "label": "Estilo mínimo",
+          "taskbar-description": "Etiquetas de espazo de traballo só con texto, sen fondos de disco de cor",
           "workspaces-description": "Etiquetas de espazos de traballo só con texto, sen fondos de pílula nin animación de desprazamento"
         },
         "mirrored": {
@@ -3231,6 +3342,10 @@
           "description": "Largura total dispoñible en píxeles; os títulos das xanelas redúcense para caber e ocúltanse cando non hai espazo suficiente",
           "label": "Largura máxima da barra de tarefas"
         },
+        "timezone": {
+          "description": "Identificador de fuso horario (p. ex. Europe/Berlin) que se usará neste reloxo; déixao baleiro para usar a hora local do sistema",
+          "label": "Fuso horario"
+        },
         "title-scroll": {
           "description": "Cando debe desprazarse o título do widget",
           "label": "Desprazamento do título"
@@ -3312,6 +3427,7 @@
       "export-config": "Exportar configuración…",
       "export-config-saved": "Exportación da configuración gardada.",
       "filter-modified": "Modificado",
+      "legacy-config-warning": "A configuración antiga estase migrando na memoria: {issue}. Executa noctalia config validate para ver todos os cambios requiridos.",
       "native-title": "Axustes de Noctalia",
       "no-results": "Non se atoparon axustes",
       "no-results-hint": "Proba cun nome de axuste ou key de configuración diferente.",
