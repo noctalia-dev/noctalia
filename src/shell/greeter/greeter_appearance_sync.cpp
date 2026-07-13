@@ -96,14 +96,19 @@ namespace {
   }
 
   [[nodiscard]] std::string resolveSyncWallpaperPath(const ConfigService& configService) {
-    const Config& config = configService.config();
-    if (config.theme.source != PaletteSource::Wallpaper) {
-      if (const auto output = readGreeterConfiguredOutput(); output.has_value() && !output->empty()) {
-        const std::string path = configService.getWallpaperPath(*output);
-        if (!path.empty()) {
-          return path;
-        }
+    // Prefer the wallpaper for the greeter's pinned connector ([output].name in
+    // greeter.toml). Multi-monitor setups often have different images per screen
+    // (e.g. portrait vs ultrawide); using the last palette wallpaper or a sorted
+    // map entry can copy the wrong screen's image onto the login UI.
+    if (const auto output = readGreeterConfiguredOutput(); output.has_value() && !output->empty()) {
+      const std::string path = configService.getWallpaperPath(*output);
+      if (!path.empty()) {
+        kLog.info("greeter sync: using wallpaper for greeter output '{}'", *output);
+        return path;
       }
+      kLog.info(
+          "greeter sync: no wallpaper path for greeter output '{}'; falling back", *output
+      );
     }
     return configService.getGreeterSyncWallpaperPath();
   }
