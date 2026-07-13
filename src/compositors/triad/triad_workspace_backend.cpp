@@ -283,12 +283,35 @@ std::vector<WorkspaceWindow> TriadWorkspaceBackend::workspaceWindows(const std::
   return result;
 }
 
-void TriadWorkspaceBackend::focusWindow(const std::string& windowId) {
-  const auto parsed = parseUnsignedId(windowId);
+void TriadWorkspaceBackend::focusWindow(const std::string& windowId) { (void)focusWindowById(windowId); }
+
+bool TriadWorkspaceBackend::focusWindowById(const std::string& windowId) {
+  const auto parsed = resolveFocusWindowId(windowId);
   if (!parsed.has_value()) {
-    return;
+    return false;
   }
-  (void)m_runtime.requestAction("focus-window", nlohmann::json{{"id", *parsed}});
+  return m_runtime.requestAction("focus-window", nlohmann::json{{"id", *parsed}});
+}
+
+std::optional<std::uint64_t> TriadWorkspaceBackend::resolveFocusWindowId(const std::string& windowId) const {
+  if (const auto numericId = parseUnsignedId(windowId); numericId.has_value()) {
+    return numericId;
+  }
+
+  // ext-foreign-toplevel-list identifies windows as app-id:title. Triad's
+  // focus action needs the numeric id carried by the Triad state stream.
+  std::optional<std::uint64_t> matchedId;
+  for (const auto& [id, window] : m_windows) {
+    (void)id;
+    if (windowId != window.appId + ":" + window.title) {
+      continue;
+    }
+    if (matchedId.has_value()) {
+      return std::nullopt;
+    }
+    matchedId = window.id;
+  }
+  return matchedId;
 }
 
 void TriadWorkspaceBackend::cleanup() {

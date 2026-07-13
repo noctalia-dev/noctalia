@@ -839,6 +839,14 @@ void CompositorPlatform::activateToplevel(zwlr_foreign_toplevel_handle_v1* handl
 }
 
 void CompositorPlatform::activateToplevelInfo(const ToplevelInfo& window) {
+  // Triad's toplevel protocol is observational. Its backend resolves the
+  // selected toplevel identity to a Triad window id and performs the action.
+  if (compositors::isTriad()
+      && !window.identifier.empty()
+      && m_workspaceMetadataBackend != nullptr
+      && m_workspaceMetadataBackend->focusWindowById(window.identifier)) {
+    return;
+  }
   if (window.handle != nullptr) {
     activateToplevel(window.handle);
     return;

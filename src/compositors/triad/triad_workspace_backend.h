@@ -47,6 +47,7 @@ public:
   [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(wl_output* output) const override;
   [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(const std::string& outputName = {}) const override;
   void focusWindow(const std::string& windowId) override;
+  bool focusWindowById(const std::string& windowId) override;
   void cleanup() override;
 
   [[nodiscard]] int pollFd() const noexcept override { return m_socketFd; }
@@ -105,6 +106,7 @@ private:
   [[nodiscard]] std::vector<const WorkspaceState*> sortedWorkspaces(const std::string& outputName = {}) const;
   [[nodiscard]] std::optional<std::uint32_t> parseWorkspaceIndex(const std::string& id) const;
   [[nodiscard]] static std::optional<std::uint64_t> parseUnsignedId(const std::string& id);
+  [[nodiscard]] std::optional<std::uint64_t> resolveFocusWindowId(const std::string& windowId) const;
   void refreshSnapshot();
   void notifyChanged() const;
   void notifyOverviewChanged() const;
