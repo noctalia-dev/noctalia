@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 
+#include <algorithm>
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
@@ -23,6 +24,16 @@ namespace {
       return "bluetooth";
     case RfkillDeviceType::Wlan:
       return "wlan";
+    }
+    return std::nullopt;
+  }
+
+  [[nodiscard]] std::optional<std::uint8_t> rfkillTypeIdFor(RfkillDeviceType type) {
+    switch (type) {
+    case RfkillDeviceType::Bluetooth:
+      return RFKILL_TYPE_BLUETOOTH;
+    case RfkillDeviceType::Wlan:
+      return RFKILL_TYPE_WLAN;
     }
     return std::nullopt;
   }
@@ -143,7 +154,7 @@ namespace {
     return index;
   }
 
-  [[nodiscard]] RfkillSwitchResult setRfkillSoftBlockedByIndex(std::uint32_t index, bool softBlocked) {
+  [[nodiscard]] RfkillSwitchResult writeRfkillEvent(const rfkill_event& ev) {
     const int fd = open("/dev/rfkill", O_WRONLY | O_CLOEXEC);
     if (fd < 0) {
       return {
@@ -152,13 +163,6 @@ namespace {
           .detail = std::string("cannot open /dev/rfkill: ") + std::strerror(errno)
       };
     }
-
-    rfkill_event ev{};
-    ev.idx = index;
-    ev.type = 0;
-    ev.op = RFKILL_OP_CHANGE;
-    ev.soft = softBlocked ? 1 : 0;
-    ev.hard = 0;
 
     ssize_t written = 0;
     do {
@@ -177,28 +181,48 @@ namespace {
     return {.success = true, .detail = {}};
   }
 
+  [[nodiscard]] RfkillSwitchResult setRfkillSoftBlockedByIndex(std::uint32_t index, bool softBlocked) {
+    rfkill_event ev{};
+    ev.idx = index;
+    ev.type = 0;
+    ev.op = RFKILL_OP_CHANGE;
+    ev.soft = softBlocked ? 1 : 0;
+    ev.hard = 0;
+    return writeRfkillEvent(ev);
+  }
+
+  // RFKILL_OP_CHANGE_ALL applies the soft block to every switch of the type, and to switches of that
+  // type that appear later. Radios commonly sit behind several switches (driver plus vendor platform
+  // module), and all of them must be unblocked for the radio to come up.
+  [[nodiscard]] RfkillSwitchResult setRfkillSoftBlockedByType(std::uint8_t typeId, bool softBlocked) {
+    rfkill_event ev{};
+    ev.idx = 0;
+    ev.type = typeId;
+    ev.op = RFKILL_OP_CHANGE_ALL;
+    ev.soft = softBlocked ? 1 : 0;
+    ev.hard = 0;
+    return writeRfkillEvent(ev);
+  }
+
 } // namespace
 
 RfkillSwitchResult setRfkillSoftBlocked(RfkillDeviceType type, bool softBlocked) {
+  const std::optional<std::uint8_t> typeId = rfkillTypeIdFor(type);
   const std::vector<RfkillEntry> entries = findEntries(type);
-  if (entries.empty()) {
+  if (!typeId.has_value() || entries.empty()) {
     kLog.debug("setRfkillSoftBlocked: no rfkill entry for type {}", static_cast<unsigned>(type));
     return {.success = false, .detail = "no rfkill switch found"};
   }
+  if (std::ranges::any_of(entries, &RfkillEntry::hard)) {
+    return {.success = false, .hardBlocked = true, .detail = "rfkill hard block is active"};
+  }
+  if (std::ranges::all_of(entries, [softBlocked](const RfkillEntry& entry) { return entry.soft == softBlocked; })) {
+    return {.success = true, .detail = {}};
+  }
 
-  RfkillSwitchResult result{.success = true, .detail = {}};
-  for (const RfkillEntry& entry : entries) {
-    if (entry.hard) {
-      result = {.success = false, .hardBlocked = true, .detail = "rfkill hard block is active"};
-      continue;
-    }
-    if (entry.soft == softBlocked) {
-      continue;
-    }
-    result = setRfkillSoftBlockedByIndex(entry.index, softBlocked);
-    if (!result.success) {
-      kLog.warn("setRfkillSoftBlocked: index {} failed: {}", entry.index, result.detail);
-    }
+  RfkillSwitchResult result = setRfkillSoftBlockedByType(*typeId, softBlocked);
+  if (!result.success) {
+    kLog.warn("setRfkillSoftBlocked: type {} failed: {}", static_cast<unsigned>(type), result.detail);
   }
   return result;
 }
@@ -232,12 +256,7 @@ RfkillSwitchResult setRfkillSoftBlockedForNetInterface(std::string_view ifname, 
   return setRfkillSoftBlockedByIndex(*index, softBlocked);
 }
 
-bool isRfkillSoftBlocked(RfkillDeviceType type) {
-  const std::vector<RfkillEntry> entries = findEntries(type);
-  return !entries.empty() && entries.front().soft;
-}
+// A radio is blocked when any of its switches blocks it.
+bool isRfkillSoftBlocked(RfkillDeviceType type) { return std::ranges::any_of(findEntries(type), &RfkillEntry::soft); }
 
-bool isRfkillHardBlocked(RfkillDeviceType type) {
-  const std::vector<RfkillEntry> entries = findEntries(type);
-  return !entries.empty() && entries.front().hard;
-}
+bool isRfkillHardBlocked(RfkillDeviceType type) { return std::ranges::any_of(findEntries(type), &RfkillEntry::hard); }
