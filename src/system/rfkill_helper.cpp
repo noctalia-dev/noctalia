@@ -101,17 +101,18 @@ namespace {
     return entries;
   }
 
-  [[nodiscard]] std::optional<RfkillEntry> findEntry(RfkillDeviceType type) {
+  [[nodiscard]] std::vector<RfkillEntry> findEntries(RfkillDeviceType type) {
     const std::optional<std::string_view> wantedType = rfkillTypeStringFor(type);
+    std::vector<RfkillEntry> matches;
     if (!wantedType.has_value()) {
-      return std::nullopt;
+      return matches;
     }
     for (const RfkillEntry& entry : listRfkillEntries()) {
       if (entry.type == *wantedType) {
-        return entry;
+        matches.push_back(entry);
       }
     }
-    return std::nullopt;
+    return matches;
   }
 
   [[nodiscard]] std::optional<std::uint32_t> rfkillIndexForNetInterface(std::string_view ifname) {
@@ -179,20 +180,25 @@ namespace {
 } // namespace
 
 RfkillSwitchResult setRfkillSoftBlocked(RfkillDeviceType type, bool softBlocked) {
-  const std::optional<RfkillEntry> entry = findEntry(type);
-  if (!entry.has_value()) {
+  const std::vector<RfkillEntry> entries = findEntries(type);
+  if (entries.empty()) {
     kLog.debug("setRfkillSoftBlocked: no rfkill entry for type {}", static_cast<unsigned>(type));
     return {.success = false, .detail = "no rfkill switch found"};
   }
-  if (entry->hard) {
-    return {.success = false, .hardBlocked = true, .detail = "rfkill hard block is active"};
-  }
-  if (entry->soft == softBlocked) {
-    return {.success = true, .detail = {}};
-  }
-  RfkillSwitchResult result = setRfkillSoftBlockedByIndex(entry->index, softBlocked);
-  if (!result.success) {
-    kLog.warn("setRfkillSoftBlocked: index {} failed: {}", entry->index, result.detail);
+
+  RfkillSwitchResult result{.success = true, .detail = {}};
+  for (const RfkillEntry& entry : entries) {
+    if (entry.hard) {
+      result = {.success = false, .hardBlocked = true, .detail = "rfkill hard block is active"};
+      continue;
+    }
+    if (entry.soft == softBlocked) {
+      continue;
+    }
+    result = setRfkillSoftBlockedByIndex(entry.index, softBlocked);
+    if (!result.success) {
+      kLog.warn("setRfkillSoftBlocked: index {} failed: {}", entry.index, result.detail);
+    }
   }
   return result;
 }
@@ -227,11 +233,11 @@ RfkillSwitchResult setRfkillSoftBlockedForNetInterface(std::string_view ifname, 
 }
 
 bool isRfkillSoftBlocked(RfkillDeviceType type) {
-  const std::optional<RfkillEntry> entry = findEntry(type);
-  return entry.has_value() && entry->soft;
+  const std::vector<RfkillEntry> entries = findEntries(type);
+  return !entries.empty() && entries.front().soft;
 }
 
 bool isRfkillHardBlocked(RfkillDeviceType type) {
-  const std::optional<RfkillEntry> entry = findEntry(type);
-  return entry.has_value() && entry->hard;
+  const std::vector<RfkillEntry> entries = findEntries(type);
+  return !entries.empty() && entries.front().hard;
 }
