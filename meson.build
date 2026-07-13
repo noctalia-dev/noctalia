@@ -1525,4 +1525,17 @@ wayland_toplevels_identity_test = executable('wayland_toplevels_identity_test',
 
 test('wayland_toplevels_identity', wayland_toplevels_identity_test)
 
+triad_workspace_backend_toplevels_test = executable('triad_workspace_backend_toplevels_test',
+  sources: files(
+    'tests/triad_workspace_backend_toplevels_test.cpp',
+    'src/compositors/triad/triad_runtime.cpp',
+    'src/compositors/triad/triad_workspace_backend.cpp',
+    'src/core/log.cpp',
+    'src/system/app_identity.cpp',
+  ),
+  include_directories: _noctalia_inc,
+)
+
+test('triad_workspace_backend_toplevels', triad_workspace_backend_toplevels_test)
+
 endif # build_tests

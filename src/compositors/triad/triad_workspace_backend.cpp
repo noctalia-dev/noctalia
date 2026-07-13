@@ -2,6 +2,7 @@
 
 #include "compositors/triad/triad_runtime.h"
 #include "core/log.h"
+#include "system/app_identity.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -283,6 +284,44 @@ std::vector<WorkspaceWindow> TriadWorkspaceBackend::workspaceWindows(const std::
   return result;
 }
 
+std::vector<ToplevelInfo> TriadWorkspaceBackend::toplevelsForApp(
+    const std::string& idLower, const std::string& wmClassLower, const std::string& outputName
+) const {
+  std::unordered_set<std::uint32_t> workspaceIndices;
+  for (const auto* workspace : sortedWorkspaces(outputName)) {
+    workspaceIndices.insert(workspace->index);
+  }
+
+  std::vector<const WindowState*> matched;
+  matched.reserve(m_windows.size());
+  for (const auto& [windowId, window] : m_windows) {
+    (void)windowId;
+    if (!workspaceIndices.contains(window.workspaceIndex)
+        || !app_identity::matchesLower(StringUtils::toLower(window.appId), idLower, wmClassLower, {})) {
+      continue;
+    }
+    matched.push_back(&window);
+  }
+
+  std::ranges::sort(matched, [](const WindowState* lhs, const WindowState* rhs) { return lhs->id < rhs->id; });
+
+  std::vector<ToplevelInfo> result;
+  result.reserve(matched.size());
+  for (const auto* window : matched) {
+    result.push_back(
+        ToplevelInfo{
+            .title = window->title,
+            .appId = window->appId,
+            .identifier = std::to_string(window->id),
+            .order = static_cast<std::uint64_t>(result.size()),
+            .handle = nullptr,
+            .extHandle = nullptr,
+        }
+    );
+  }
+  return result;
+}
+
 void TriadWorkspaceBackend::focusWindow(const std::string& windowId) { (void)focusWindowById(windowId); }
 
 bool TriadWorkspaceBackend::focusWindowById(const std::string& windowId) {
@@ -291,6 +330,14 @@ bool TriadWorkspaceBackend::focusWindowById(const std::string& windowId) {
     return false;
   }
   return m_runtime.requestAction("focus-window", nlohmann::json{{"id", *parsed}});
+}
+
+bool TriadWorkspaceBackend::closeWindowById(const std::string& windowId) {
+  const auto parsed = resolveFocusWindowId(windowId);
+  if (!parsed.has_value()) {
+    return false;
+  }
+  return m_runtime.requestAction("close-window", nlohmann::json{{"id", *parsed}});
 }
 
 std::optional<std::uint64_t> TriadWorkspaceBackend::resolveFocusWindowId(const std::string& windowId) const {
@@ -634,7 +681,8 @@ bool TriadWorkspaceBackend::applyWindows(const nlohmann::json& windows) {
           || oldIt->second.appId != window.appId
           || oldIt->second.title != window.title
           || oldIt->second.x != window.x
-          || oldIt->second.y != window.y) {
+          || oldIt->second.y != window.y
+          || oldIt->second.minimized != window.minimized) {
         same = false;
         break;
       }
@@ -660,7 +708,8 @@ bool TriadWorkspaceBackend::applyWindow(const nlohmann::json& window) {
       && oldIt->second.appId == parsed->appId
       && oldIt->second.title == parsed->title
       && oldIt->second.x == parsed->x
-      && oldIt->second.y == parsed->y) {
+      && oldIt->second.y == parsed->y
+      && oldIt->second.minimized == parsed->minimized) {
     return false;
   }
   m_windows[parsed->id] = *parsed;
@@ -718,6 +767,7 @@ std::optional<TriadWorkspaceBackend::WindowState> TriadWorkspaceBackend::parseWi
   window.output = jsonString(json, "output");
   window.appId = jsonString(json, "app_id");
   window.title = StringUtils::windowTitleSingleLine(jsonString(json, "title"));
+  window.minimized = jsonBool(json, "is_minimized");
   if (const auto* position = objectField(json, "position"); position != nullptr) {
     if (const auto column = position->find("column_idx"); column != position->end()) {
       window.x = jsonInt32(*column).value_or(0);

@@ -782,7 +782,13 @@ std::optional<ActiveToplevel> CompositorPlatform::activeToplevel() const {
       }
     }
   }
-  return m_wayland.activeToplevel();
+  auto active = m_wayland.activeToplevel();
+  if (compositors::isTriad() && active.has_value() && m_workspaces != nullptr) {
+    if (const auto focusedWindowId = m_workspaces->focusedWindowId(); focusedWindowId.has_value()) {
+      active->identifier = *focusedWindowId;
+    }
+  }
+  return active;
 }
 
 wl_output* CompositorPlatform::activeToplevelOutput() const { return m_wayland.activeToplevelOutput(); }
@@ -806,6 +812,17 @@ std::vector<ToplevelInfo> CompositorPlatform::windowsForApp(
     if (!kdeWindows.empty()) {
       (void)outputFilter;
       return kdeWindows;
+    }
+  }
+
+  if (compositors::isTriad() && m_workspaceMetadataBackend != nullptr) {
+    if (const auto* triadBackend = dynamic_cast<const TriadWorkspaceBackend*>(m_workspaceMetadataBackend.get());
+        triadBackend != nullptr) {
+      const auto triadWindows =
+          triadBackend->toplevelsForApp(idLower, wmClassLower, connectorNameForOutput(outputFilter));
+      if (!triadWindows.empty()) {
+        return triadWindows;
+      }
     }
   }
 
@@ -863,6 +880,12 @@ void CompositorPlatform::activateToplevelInfo(const ToplevelInfo& window) {
 void CompositorPlatform::closeToplevel(zwlr_foreign_toplevel_handle_v1* handle) { m_wayland.closeToplevel(handle); }
 
 void CompositorPlatform::closeToplevelInfo(const ToplevelInfo& window) {
+  if (compositors::isTriad() && !window.identifier.empty() && m_workspaceMetadataBackend != nullptr) {
+    if (auto* triadBackend = dynamic_cast<TriadWorkspaceBackend*>(m_workspaceMetadataBackend.get());
+        triadBackend != nullptr && triadBackend->closeWindowById(window.identifier)) {
+      return;
+    }
+  }
   if (window.handle != nullptr) {
     closeToplevel(window.handle);
     return;

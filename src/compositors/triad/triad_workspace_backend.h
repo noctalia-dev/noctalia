@@ -1,6 +1,7 @@
 #pragma once
 
 #include "compositors/workspace_backend.h"
+#include "wayland/wayland_toplevels.h"
 
 #include <chrono>
 #include <cstdint>
@@ -46,8 +47,12 @@ public:
   appIdsByWorkspace(const std::string& outputName = {}) const override;
   [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(wl_output* output) const override;
   [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(const std::string& outputName = {}) const override;
+  [[nodiscard]] std::vector<ToplevelInfo> toplevelsForApp(
+      const std::string& idLower, const std::string& wmClassLower, const std::string& outputName = {}
+  ) const;
   void focusWindow(const std::string& windowId) override;
   bool focusWindowById(const std::string& windowId) override;
+  bool closeWindowById(const std::string& windowId);
   void cleanup() override;
 
   [[nodiscard]] int pollFd() const noexcept override { return m_socketFd; }
@@ -82,6 +87,7 @@ private:
     std::string title;
     std::int32_t x = 0;
     std::int32_t y = 0;
+    bool minimized = false;
   };
 
   void closeSocket(bool scheduleReconnect);
