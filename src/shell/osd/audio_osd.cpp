@@ -27,6 +27,15 @@ namespace {
     };
   }
 
+  OsdContent makeOutputNameContent(std::string name, bool muted) {
+    return OsdContent{
+        .kind = OsdKind::Volume,
+        .icon = audioVolumeGlyph(1.0f, muted, false),
+        .value = name,
+        .showProgress = false,
+    };
+  }
+
   OsdContent makeInputContent(float volume, bool muted) {
     const int percent = static_cast<int>(std::round(std::max(0.0f, volume) * 100.0f));
     return OsdContent{
@@ -36,6 +45,15 @@ namespace {
         .progress = std::clamp(volume, 0.0f, 1.0f),
         .overLimit = percent > 100,
         .inactive = muted,
+    };
+  }
+
+  OsdContent makeInputNameContent(std::string name, bool muted) {
+    return OsdContent{
+        .kind = OsdKind::Microphone,
+        .icon = audioVolumeGlyph(1.0f, muted, true),
+        .value = name,
+        .showProgress = false,
     };
   }
 
@@ -84,6 +102,18 @@ void AudioOsd::showOutput(std::uint32_t sinkId, float volume, bool muted, bool p
   m_lastSinkMuted = muted;
 }
 
+void AudioOsd::showOutputName(std::string name, bool muted) {
+  const auto now = std::chrono::steady_clock::now();
+  if (now < m_suppressUntil) {
+    return;
+  }
+  m_suppressAutoInputOsdUntil = now + kSuppressInputOsdAfterOutput;
+  if (m_overlay != nullptr) {
+    m_overlay->show(makeOutputNameContent(name, muted));
+    m_currentKind = OsdKind::Volume;
+  }
+}
+
 void AudioOsd::showInput(std::uint32_t sourceId, float volume, bool muted, bool playFeedback) {
   const auto now = std::chrono::steady_clock::now();
   if (now < m_suppressUntil) {
@@ -103,16 +133,29 @@ void AudioOsd::showInput(std::uint32_t sourceId, float volume, bool muted, bool 
   m_lastSourceMuted = muted;
 }
 
+void AudioOsd::showInputName(std::string name, bool muted) {
+  const auto now = std::chrono::steady_clock::now();
+  if (now < m_suppressUntil) {
+    return;
+  }
+  if (m_overlay != nullptr) {
+    m_overlay->show(makeInputNameContent(name, muted));
+    m_currentKind = OsdKind::Microphone;
+  }
+}
+
 void AudioOsd::onAudioStateChanged(const PipeWireService& service) {
   const auto* sink = service.defaultSink();
   const auto* source = service.defaultSource();
 
   const std::uint32_t sinkId = sink != nullptr ? sink->id : 0;
+  const std::string sinkName = sink != nullptr ? sink->description : "";
   const float sinkVolume = sink != nullptr ? sink->volume : 0.0f;
   const int sinkPercent = sink != nullptr ? static_cast<int>(std::round(std::max(0.0f, sinkVolume) * 100.0f)) : 0;
   const bool sinkMuted = sink != nullptr ? sink->muted : false;
 
   const std::uint32_t sourceId = source != nullptr ? source->id : 0;
+  const std::string sourceName = source != nullptr ? source->description : "";
   const float sourceVolume = source != nullptr ? source->volume : 0.0f;
   const int sourcePercent = source != nullptr ? static_cast<int>(std::round(std::max(0.0f, sourceVolume) * 100.0f)) : 0;
   const bool sourceMuted = source != nullptr ? source->muted : false;
@@ -146,23 +189,25 @@ void AudioOsd::onAudioStateChanged(const PipeWireService& service) {
 
   const bool sinkVolumeChanged = sink != nullptr && volumeChanged(sinkVolume, m_lastSinkVolume);
   const bool sinkMuteChanged = sink != nullptr && sinkMuted != m_lastSinkMuted;
-  const bool sinkChanged = sink != nullptr && (sinkId != m_lastSinkId || sinkVolumeChanged || sinkMuteChanged);
   const bool sinkRouteChanged = sink != nullptr && sinkId != m_lastSinkId;
   const bool sinkDisappeared = sink == nullptr && m_lastSinkId != 0;
   const bool sourceVolumeChanged = source != nullptr && volumeChanged(sourceVolume, m_lastSourceVolume);
   const bool sourceMuteChanged = source != nullptr && sourceMuted != m_lastSourceMuted;
-  const bool sourceChanged =
-      source != nullptr && (sourceId != m_lastSourceId || sourceVolumeChanged || sourceMuteChanged);
+  const bool sourceRouteChanged = source != nullptr && sourceId != m_lastSourceId;
 
   if (sinkRouteChanged || sinkDisappeared) {
     m_suppressAutoInputOsdUntil = now + std::chrono::milliseconds(400);
   }
 
   if (m_overlay != nullptr) {
-    if (sinkChanged) {
+    if (sinkRouteChanged) {
+      showOutputName(sinkName, sinkMuted);
+    } else if (sinkVolumeChanged || sinkMuteChanged) {
       // Passive PipeWire updates: click only on real volume changes while unmuted.
       showOutput(sink->id, sink->volume, sinkMuted, sinkVolumeChanged && !sinkMuted);
-    } else if (sourceChanged && now >= m_suppressAutoInputOsdUntil) {
+    } else if (sourceRouteChanged) {
+      showInputName(sourceName, sourceMuted);
+    } else if ((sourceVolumeChanged || sourceMuteChanged) && now >= m_suppressAutoInputOsdUntil) {
       showInput(source->id, source->volume, sourceMuted, sourceVolumeChanged && !sourceMuted);
     }
   }

@@ -14,7 +14,9 @@ public:
   void primeFromService(const PipeWireService& service);
   void suppressFor(std::chrono::milliseconds duration);
   void showOutput(std::uint32_t sinkId, float volume, bool muted, bool playFeedback = true);
+  void showOutputName(std::string name, bool muted);
   void showInput(std::uint32_t sourceId, float volume, bool muted, bool playFeedback = true);
+  void showInputName(std::string name, bool muted);
   void onAudioStateChanged(const PipeWireService& service);
 
 private:
