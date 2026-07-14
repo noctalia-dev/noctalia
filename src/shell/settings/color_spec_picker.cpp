@@ -1,13 +1,12 @@
 #include "shell/settings/color_spec_picker.h"
 
+#include "config/color_spec.h"
 #include "i18n/i18n.h"
 #include "ui/builders.h"
 #include "ui/dialogs/color_picker_dialog.h"
 #include "ui/style.h"
 
 #include <algorithm>
-#include <cmath>
-#include <cstdio>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -41,23 +40,6 @@ namespace settings {
       return std::nullopt;
     }
 
-    int colorByteForConfig(float value) {
-      return static_cast<int>(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f));
-    }
-
-    std::string formatFixedColorConfigValue(const Color& color) {
-      if (color.a >= 0.999f) {
-        return formatRgbHex(color);
-      }
-
-      char buffer[16];
-      std::snprintf(
-          buffer, sizeof(buffer), "#%02X%02X%02X%02X", colorByteForConfig(color.r), colorByteForConfig(color.g),
-          colorByteForConfig(color.b), colorByteForConfig(color.a)
-      );
-      return std::string(buffer);
-    }
-
   } // namespace
 
   std::vector<ColorRole> allColorSpecRoles() {
@@ -69,14 +51,7 @@ namespace settings {
     return roles;
   }
 
-  std::string colorSpecConfigValue(const ColorSpec& color) {
-    if (color.role.has_value()) {
-      return std::string(colorRoleToken(*color.role));
-    }
-    Color fixed = color.fixed;
-    fixed.a *= color.alpha;
-    return formatFixedColorConfigValue(fixed);
-  }
+  std::string colorSpecConfigValue(const ColorSpec& color) { return colorSpecToConfigString(color); }
 
   std::string optionalColorSpecConfigValue(const std::optional<ColorSpec>& color) {
     return color.has_value() ? colorSpecConfigValue(*color) : std::string{};
@@ -114,7 +89,7 @@ namespace settings {
       choices.push_back(
           Choice{
               .value = std::string(kCustomColorValue),
-              .label = selectedIsFixedColor ? formatFixedColorConfigValue(selectedFixedColor)
+              .label = selectedIsFixedColor ? colorSpecToConfigString(fixedColorSpec(selectedFixedColor))
                                             : i18n::tr("settings.options.theme-role.custom"),
           }
       );
@@ -173,7 +148,7 @@ namespace settings {
                   Color rgb = *result;
                   rgb.a = 1.0f;
                   *customInitialColor = rgb;
-                  setValue(formatFixedColorConfigValue(rgb));
+                  setValue(colorSpecToConfigString(fixedColorSpec(rgb)));
                 }
             );
             return;
