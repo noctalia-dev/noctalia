@@ -1215,14 +1215,40 @@ namespace settings {
       return selectSetting;
     }
 
-    SelectSetting batteryDeviceSelectSetting(const BarWidgetEditorContext& ctx, std::string selectedValue) {
-      if (selectedValue.empty()) {
-        selectedValue = "auto";
+    SelectSetting
+    sourcedSelectSetting(const BarWidgetEditorContext& ctx, const WidgetSettingSpec& spec, std::string selectedValue) {
+      std::vector<SelectOption> options;
+      const auto appendUnique = [&](SelectOption option) {
+        if (!std::ranges::contains(options, option.value, &SelectOption::value)) {
+          options.push_back(std::move(option));
+        }
+      };
+      options.reserve(spec.options.size());
+      for (const auto& option : spec.options) {
+        appendUnique(
+            SelectOption{
+                .value = option.value,
+                .label = spec.literalLabels ? option.labelKey : i18n::tr(option.labelKey),
+            }
+        );
       }
 
-      std::vector<SelectOption> options = ctx.batteryDeviceOptions;
-      if (options.empty()) {
-        options.push_back(SelectOption{.value = "auto", .label = i18n::tr("common.states.auto")});
+      std::vector<SelectOption> sourcedOptions;
+      switch (spec.optionSource) {
+      case WidgetSettingOptionSource::BatteryDevices:
+        sourcedOptions = ctx.batteryDeviceOptions;
+        break;
+      case WidgetSettingOptionSource::Static:
+        break;
+      }
+      options.reserve(options.size() + sourcedOptions.size());
+      for (auto& option : sourcedOptions) {
+        appendUnique(std::move(option));
+      }
+
+      const auto hasEmptyOption = std::ranges::contains(options, std::string_view{}, &SelectOption::value);
+      if (selectedValue.empty() && !hasEmptyOption) {
+        selectedValue = settingValueAsString(spec.schema.defaultValue);
       }
 
       const auto hasSelected = std::ranges::contains(options, selectedValue, &SelectOption::value);
@@ -1644,8 +1670,8 @@ namespace settings {
             ctx.makeRow(*panel, entry, ctx.makeSearchPicker(picker, entry.title, path));
             break;
           }
-          if (widgetType == "battery" && spec.schema.key == "device") {
-            selectSetting = batteryDeviceSelectSetting(ctx, selectedValue);
+          if (spec.optionSource != WidgetSettingOptionSource::Static) {
+            selectSetting = sourcedSelectSetting(ctx, spec, selectedValue);
           } else if (spec.schema.key == "font_weight") {
             selectSetting = labelFontWeightSelectSetting(
                 spec, widgetLabelFontWeightSelectedValue(ctx.config, widgetName),

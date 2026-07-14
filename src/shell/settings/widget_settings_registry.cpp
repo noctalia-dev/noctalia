@@ -4,6 +4,7 @@
 #include "scripting/plugin_i18n.h"
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"
+#include "shell/bar/widgets/battery_widget_definition.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/font_weight_catalog.h"
 #include "shell/settings/font_weight_i18n.h"
@@ -691,17 +692,8 @@ namespace settings {
         add(std::move(color2));
       }
     } else if (type == "battery") {
-      add(selectSpec(
-          "display_mode", "glyph",
-          {{"glyph", "settings.widgets.options.glyph"}, {"graphic", "settings.widgets.options.graphic"}}
-      ));
-      add(boolSpec("show_label", true));
-      add(boolSpec("hide_when_plugged", false));
-      add(boolSpec("hide_when_full", false));
-      add(selectSpec("device", "auto", {{"auto", "common.states.auto"}}));
-      {
-        auto warn = colorSpec("warning_color", "error");
-        add(std::move(warn));
+      for (auto& spec : batteryWidgetDefinition().presentedSettingSpecs()) {
+        add(std::move(spec));
       }
     } else if (type == "bluetooth") {
       add(boolSpec("show_label", false));
@@ -1350,7 +1342,27 @@ namespace settings {
     return std::nullopt;
   }
 
+  namespace {
+
+    std::optional<schema::WidgetSettingSchema> typedWidgetSettingSchema(std::string_view type) {
+      if (type != "battery") {
+        return std::nullopt;
+      }
+
+      auto fields = batteryWidgetDefinition().schemaFields();
+      const auto common = commonWidgetSettingSpecs("sans-serif", false);
+      std::ranges::transform(common, std::back_inserter(fields), [](const WidgetSettingSpec& spec) {
+        return spec.schema;
+      });
+      return fields;
+    }
+
+  } // namespace
+
   noctalia::config::schema::WidgetSettingSchema widgetSettingSchema(std::string_view type) {
+    if (auto fields = typedWidgetSettingSchema(type)) {
+      return std::move(*fields);
+    }
     noctalia::config::schema::WidgetSettingSchema out;
     for (const auto& spec : widgetSettingSpecs(type, "sans-serif", true, false)) {
       out.push_back(spec.schema);
@@ -1367,6 +1379,9 @@ namespace settings {
       }
       return out;
     }
+    if (auto fields = typedWidgetSettingSchema(type)) {
+      return std::move(*fields);
+    }
     for (const auto& spec : widgetSettingSpecs(type, config, "sans-serif", true, false)) {
       out.push_back(spec.schema);
     }
@@ -1375,6 +1390,10 @@ namespace settings {
 
   std::optional<noctalia::config::schema::WidgetSettingField>
   findWidgetSettingField(std::string_view widgetType, std::string_view settingKey) {
+    if (auto fields = typedWidgetSettingSchema(widgetType)) {
+      const auto field = std::ranges::find(*fields, settingKey, &schema::WidgetSettingField::key);
+      return field != fields->end() ? std::optional<schema::WidgetSettingField>(*field) : std::nullopt;
+    }
     if (const auto spec = findWidgetSettingSpec(widgetType, settingKey)) {
       return spec->schema;
     }
@@ -1444,15 +1463,15 @@ namespace settings {
   bool widgetOverrideValueMatchesRegistryDefault(
       std::string_view widgetType, std::string_view settingKey, const ConfigOverrideValue& overrideValue
   ) {
-    const auto spec = findWidgetSettingSpec(widgetType, settingKey);
-    if (!spec.has_value()) {
+    const auto field = findWidgetSettingField(widgetType, settingKey);
+    if (!field.has_value()) {
       return false;
     }
     // OptionalDouble unset means inherit/auto, 0 is a valid explicit radius and must persist.
-    if (spec->schema.type == schema::WidgetSettingType::OptionalDouble) {
+    if (field->type == schema::WidgetSettingType::OptionalDouble) {
       return false;
     }
-    return configOverrideValueMatchesWidgetSetting(overrideValue, spec->schema.defaultValue);
+    return configOverrideValueMatchesWidgetSetting(overrideValue, field->defaultValue);
   }
 
   bool widgetSettingOverrideIsEffective(
@@ -1499,13 +1518,8 @@ namespace settings {
       widgetType = withoutWidget->type;
     }
 
-    const WidgetConfig* defaultConfig = widgetInConfig(withoutOverride, widgetName);
-    if (defaultConfig == nullptr) {
-      defaultConfig = widgetInConfig(withOverride, widgetName);
-    }
-
-    const auto spec = findWidgetSettingSpec(widgetType, settingKey, defaultConfig);
-    if (spec.has_value() && spec->schema.type == schema::WidgetSettingType::StringMap) {
+    const auto field = findWidgetSettingField(widgetType, settingKey);
+    if (field.has_value() && field->type == schema::WidgetSettingType::StringMap) {
       const auto withTable = tableInConfig(withOverride, widgetName, settingKey);
       const auto withoutTable = tableInConfig(withoutOverride, widgetName, settingKey);
       if (!withTable.has_value() && !withoutTable.has_value()) {
@@ -1519,20 +1533,20 @@ namespace settings {
     if (!withValue.has_value() && !withoutValue.has_value()) {
       return false;
     }
-    if (!spec.has_value()) {
+    if (!field.has_value()) {
       if (!withValue.has_value() || !withoutValue.has_value()) {
         return true;
       }
       return !widgetSettingValuesEqual(*withValue, *withoutValue);
     }
-    if (spec->schema.type == schema::WidgetSettingType::OptionalDouble) {
+    if (field->type == schema::WidgetSettingType::OptionalDouble) {
       if (!withValue.has_value() || !withoutValue.has_value()) {
         return true;
       }
       return !widgetSettingValuesEqual(*withValue, *withoutValue);
     }
 
-    const WidgetSettingValue defaultValue = spec->schema.defaultValue;
+    const WidgetSettingValue defaultValue = field->defaultValue;
     const auto resolvedValue = [&](const Config& cfg) -> WidgetSettingValue {
       if (const auto value = valueInConfig(cfg, widgetName, settingKey); value.has_value()) {
         return *value;

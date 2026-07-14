@@ -690,6 +690,7 @@ _noctalia_sources = files(
   'src/shell/bar/widgets/active_window_widget.cpp',
   'src/shell/bar/widgets/audio_visualizer_widget.cpp',
   'src/shell/bar/widgets/battery_widget.cpp',
+  'src/shell/bar/widgets/battery_widget_definition.cpp',
   'src/shell/bar/widgets/bluetooth_widget.cpp',
   'src/shell/bar/widgets/control_center_widget.cpp',
   'src/shell/bar/widgets/custom_button_widget.cpp',

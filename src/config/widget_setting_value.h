@@ -4,10 +4,13 @@
 
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -26,13 +29,27 @@ namespace noctalia::config {
       }
     } else if constexpr (std::is_integral_v<T>) {
       if (const auto* concrete = std::get_if<std::int64_t>(&value)) {
-        return static_cast<T>(*concrete);
+        if (std::in_range<T>(*concrete)) {
+          return static_cast<T>(*concrete);
+        }
       }
       if (const auto* concrete = std::get_if<double>(&value)) {
-        return static_cast<T>(std::llround(*concrete));
+        if (!std::isfinite(*concrete)) {
+          return std::nullopt;
+        }
+        const long double rounded = std::round(static_cast<long double>(*concrete));
+        if (rounded >= static_cast<long double>(std::numeric_limits<T>::lowest())
+            && rounded <= static_cast<long double>(std::numeric_limits<T>::max())) {
+          return static_cast<T>(rounded);
+        }
       }
     } else if constexpr (std::is_floating_point_v<T>) {
       if (const auto* concrete = std::get_if<double>(&value)) {
+        if (!std::isfinite(*concrete)
+            || static_cast<long double>(*concrete) < static_cast<long double>(std::numeric_limits<T>::lowest())
+            || static_cast<long double>(*concrete) > static_cast<long double>(std::numeric_limits<T>::max())) {
+          return std::nullopt;
+        }
         return static_cast<T>(*concrete);
       }
       if (const auto* concrete = std::get_if<std::int64_t>(&value)) {
@@ -64,9 +81,16 @@ namespace noctalia::config {
     if constexpr (std::is_same_v<T, bool>) {
       return value;
     } else if constexpr (std::is_integral_v<T>) {
+      if (!std::in_range<std::int64_t>(value)) {
+        throw std::overflow_error("widget setting integer is outside the supported range");
+      }
       return static_cast<std::int64_t>(value);
     } else if constexpr (std::is_floating_point_v<T>) {
-      return static_cast<double>(value);
+      const auto converted = static_cast<double>(value);
+      if (!std::isfinite(converted)) {
+        throw std::overflow_error("widget setting number is not finite or is outside the supported range");
+      }
+      return converted;
     } else if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, std::vector<std::string>>) {
       return value;
     } else if constexpr (std::is_same_v<T, ColorSpec>) {

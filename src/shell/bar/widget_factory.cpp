@@ -6,13 +6,13 @@
 #include "shell/bar/widgets/active_window_widget.h"
 #include "shell/bar/widgets/audio_visualizer_widget.h"
 #include "shell/bar/widgets/battery_widget.h"
+#include "shell/bar/widgets/battery_widget_definition.h"
 #include "shell/bar/widgets/bluetooth_widget.h"
 #include "shell/bar/widgets/brightness_widget.h"
 #include "shell/bar/widgets/clipboard_widget.h"
 #include "shell/bar/widgets/clock_widget.h"
 #include "shell/bar/widgets/control_center_widget.h"
 #include "shell/bar/widgets/custom_button_widget.h"
-#include "system/battery_warning_monitor.h"
 #ifndef NDEBUG
 #include "shell/bar/widgets/debug_indicator_widget.h"
 #endif
@@ -85,16 +85,6 @@ namespace {
       return ActiveWindowDisplayMode::TextOnly;
     }
     return ActiveWindowDisplayMode::IconAndText;
-  }
-
-  BatteryDisplayMode parseBatteryDisplayMode(std::string_view value, std::string_view widgetName) {
-    if (value == "graphic") {
-      return BatteryDisplayMode::Graphic;
-    }
-    if (value != "glyph") {
-      kLog.warn("invalid widget.{}.display_mode '{}'; expected glyph or graphic", widgetName, value);
-    }
-    return BatteryDisplayMode::Glyph;
   }
 
   MediaTitleScrollMode parseMediaTitleScrollMode(std::string_view value) {
@@ -195,24 +185,12 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "battery") {
-    const std::string deviceSelector = wc != nullptr ? wc->getString("device", "auto") : std::string("auto");
     return createWidget<BatteryWidget>(
         contentScale, m_upower,
-        BatteryWidget::Options{
-            .deviceSelector = deviceSelector,
-            .warningThreshold = batteryWarningThresholdForSelector(m_config.battery, m_upower, deviceSelector),
-            .warningColor = wc != nullptr
-                ? wc->getColorSpec(
-                      "warning_color", colorSpecFromRole(ColorRole::Error), std::format("widget.{}.warning_color", name)
-                  )
-                : colorSpecFromRole(ColorRole::Error),
-            .displayMode = parseBatteryDisplayMode(
-                wc != nullptr ? wc->getString("display_mode", "glyph") : std::string("glyph"), name
-            ),
-            .showLabel = wc != nullptr ? wc->getBool("show_label", true) : true,
-            .hideWhenPlugged = wc != nullptr ? wc->getBool("hide_when_plugged", false) : false,
-            .hideWhenFull = wc != nullptr ? wc->getBool("hide_when_full", false) : false,
-        }
+        batteryWidgetDefinition().resolve(
+            wc, std::format("widget.{}", name),
+            BatteryWidgetDefinitionContext{.batteryConfig = &m_config.battery, .upower = m_upower}
+        )
     );
   }
 

@@ -19,7 +19,7 @@ public:
   struct Options {
     std::string deviceSelector = "auto";
     int warningThreshold = 0;
-    ColorSpec warningColor = {};
+    ColorSpec warningColor = colorSpecFromRole(ColorRole::Error);
     BatteryDisplayMode displayMode = BatteryDisplayMode::Glyph;
     bool showLabel = true;
     bool hideWhenPlugged = false;
