@@ -52,6 +52,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <format>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -59,6 +60,12 @@
 
 namespace {
   constexpr Logger kLog("shell");
+
+  template <typename T, typename... Args> std::unique_ptr<Widget> createWidget(float contentScale, Args&&... args) {
+    auto widget = std::make_unique<T>(std::forward<Args>(args)...);
+    widget->setContentScale(contentScale);
+    return widget;
+  }
 
   ActiveWindowTitleScrollMode parseActiveWindowTitleScrollMode(std::string_view value) {
     if (value == "always") {
@@ -78,6 +85,16 @@ namespace {
       return ActiveWindowDisplayMode::TextOnly;
     }
     return ActiveWindowDisplayMode::IconAndText;
+  }
+
+  BatteryDisplayMode parseBatteryDisplayMode(std::string_view value, std::string_view widgetName) {
+    if (value == "graphic") {
+      return BatteryDisplayMode::Graphic;
+    }
+    if (value != "glyph") {
+      kLog.warn("invalid widget.{}.display_mode '{}'; expected glyph or graphic", widgetName, value);
+    }
+    return BatteryDisplayMode::Glyph;
   }
 
   MediaTitleScrollMode parseMediaTitleScrollMode(std::string_view value) {
@@ -179,25 +196,24 @@ std::unique_ptr<Widget> WidgetFactory::create(
 
   if (type == "battery") {
     const std::string deviceSelector = wc != nullptr ? wc->getString("device", "auto") : std::string("auto");
-    const int warningThreshold = batteryWarningThresholdForSelector(m_config.battery, m_upower, deviceSelector);
-    const ColorSpec warningColor = wc != nullptr
-        ? wc->getColorSpec("warning_color", colorSpecFromRole(ColorRole::Error), "widget." + name + ".warning_color")
-        : colorSpecFromRole(ColorRole::Error);
-    const std::string displayModeStr = wc != nullptr ? wc->getString("display_mode", "glyph") : std::string("glyph");
-    const bool showLabel = wc != nullptr ? wc->getBool("show_label", true) : true;
-    const bool hideWhenPlugged = wc != nullptr ? wc->getBool("hide_when_plugged", false) : false;
-    const bool hideWhenFull = wc != nullptr ? wc->getBool("hide_when_full", false) : false;
-    BatteryDisplayMode displayMode = BatteryDisplayMode::Glyph;
-    if (displayModeStr == "graphic") {
-      displayMode = BatteryDisplayMode::Graphic;
-    } else if (displayModeStr != "glyph") {
-      kLog.warn("invalid widget.{}.display_mode '{}'; expected glyph or graphic", name, displayModeStr);
-    }
-    auto widget = std::make_unique<BatteryWidget>(
-        m_upower, deviceSelector, warningThreshold, warningColor, displayMode, showLabel, hideWhenPlugged, hideWhenFull
+    return createWidget<BatteryWidget>(
+        contentScale, m_upower,
+        BatteryWidget::Options{
+            .deviceSelector = deviceSelector,
+            .warningThreshold = batteryWarningThresholdForSelector(m_config.battery, m_upower, deviceSelector),
+            .warningColor = wc != nullptr
+                ? wc->getColorSpec(
+                      "warning_color", colorSpecFromRole(ColorRole::Error), std::format("widget.{}.warning_color", name)
+                  )
+                : colorSpecFromRole(ColorRole::Error),
+            .displayMode = parseBatteryDisplayMode(
+                wc != nullptr ? wc->getString("display_mode", "glyph") : std::string("glyph"), name
+            ),
+            .showLabel = wc != nullptr ? wc->getBool("show_label", true) : true,
+            .hideWhenPlugged = wc != nullptr ? wc->getBool("hide_when_plugged", false) : false,
+            .hideWhenFull = wc != nullptr ? wc->getBool("hide_when_full", false) : false,
+        }
     );
-    widget->setContentScale(contentScale);
-    return widget;
   }
 
   if (type == "bluetooth") {
