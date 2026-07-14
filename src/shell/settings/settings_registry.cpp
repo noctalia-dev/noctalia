@@ -1371,6 +1371,11 @@ namespace settings {
         tr("settings.schema.shell.password-style.description"), {"shell", "password_style"},
         asSegmented(enumSelect(kPasswordMaskStyles, cfg.shell.passwordMaskStyle)), "polkit lock mask"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Security, "authentication", tr("settings.schema.shell.polkit-close-on-outside-click.label"),
+        tr("settings.schema.shell.polkit-close-on-outside-click.description"),
+        {"shell", "polkit_close_on_outside_click"}, ToggleSetting{cfg.shell.polkitCloseOnOutsideClick}, "polkit close"
+    ));
     const SettingVisibility lockscreenOn = [](const Config& c) { return c.lockscreen.enabled; };
     {
       auto e = makeEntry(

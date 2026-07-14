@@ -250,6 +250,10 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
     m_iconResolved = true;
     resolveIcon(renderer, request);
   }
+
+  if (!m_config->config().shell.polkitCloseOnOutsideClick) {
+    PanelManager::instance().deactivateOutsideClickHandlers();
+  }
 }
 
 void PolkitPanel::resolveIcon(Renderer& renderer, const PolkitRequest& request) {
