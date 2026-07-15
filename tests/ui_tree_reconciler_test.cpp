@@ -324,6 +324,224 @@ int main() {
     ok = expect(dynamic_cast<Box*>(unwrapped) != nullptr, "box unwrapped after onClick removed") && ok;
   }
 
+  // Clickable row and column containers preserve the Flex as the wrapped child,
+  // forward its content measurement, and route pointer callbacks.
+  for (const char* type : {"row", "column"}) {
+    {
+      ui::UiTreeReconciler reconciler;
+      Flex host;
+
+      ui::UiTreeNode tree = makeNode(type);
+      tree.props.emplace("onClick", std::string("activate"));
+      tree.children.push_back(makeLabel("First"));
+      tree.children.push_back(makeLabel("Second"));
+      (void)reconciler.reconcile(host, tree, renderer);
+
+      Node* root = host.children().empty() ? nullptr : host.children().front().get();
+      auto* area = dynamic_cast<InputArea*>(root);
+      auto* inner =
+          area != nullptr && !area->children().empty() ? dynamic_cast<Flex*>(area->children().front().get()) : nullptr;
+      ok = expect(dynamic_cast<Flex*>(root) == nullptr, "clickable container is not a bare Flex") && ok;
+      ok = expect(area != nullptr, "clickable container is an InputArea") && ok;
+      ok = expect(inner != nullptr && inner->children().size() == 2, "labels reconcile into inner Flex") && ok;
+
+      LayoutSize innerSize{};
+      LayoutSize wrappedSize{};
+      if (area != nullptr && inner != nullptr) {
+        innerSize = inner->measure(renderer, LayoutConstraints::unconstrained());
+        wrappedSize = area->measure(renderer, LayoutConstraints::unconstrained());
+      }
+      ok = expect(
+               innerSize.width == wrappedSize.width
+                   && innerSize.height == wrappedSize.height
+                   && innerSize.width > 0.0f
+                   && innerSize.height > 0.0f,
+               "clickable container forwards content measurement"
+           )
+          && ok;
+    }
+
+    {
+      ui::UiTreeReconciler reconciler;
+      Flex host;
+
+      ui::UiTreeNode tree = makeNode(type);
+      tree.props.emplace("onClick", std::string("activate"));
+      tree.props.emplace("width", 120.0);
+      tree.props.emplace("height", 36.0);
+      tree.children.push_back(makeLabel("Sized"));
+      (void)reconciler.reconcile(host, tree, renderer);
+
+      auto* area = dynamic_cast<InputArea*>(host.children().front().get());
+      auto* inner =
+          area != nullptr && !area->children().empty() ? dynamic_cast<Flex*>(area->children().front().get()) : nullptr;
+      LayoutSize measured{};
+      if (area != nullptr) {
+        measured = area->measure(renderer, LayoutConstraints::unconstrained());
+      }
+      ok = expect(
+               inner != nullptr
+                   && inner->minWidth() == 120.0f
+                   && inner->maxWidth() == 120.0f
+                   && inner->minHeight() == 36.0f
+                   && inner->maxHeight() == 36.0f
+                   && measured.width == 120.0f
+                   && measured.height == 36.0f,
+               "clickable container preserves explicit size"
+           )
+          && ok;
+    }
+
+    {
+      ui::UiTreeReconciler reconciler;
+      Flex host;
+
+      ui::UiTreeNode tree = makeNode(type);
+      tree.props.emplace("onClick", std::string("activate"));
+      (void)reconciler.reconcile(host, tree, renderer);
+      auto* clickable = dynamic_cast<InputArea*>(host.children().front().get());
+      ok = expect(
+               clickable != nullptr
+                   && clickable->acceptedButtons() == InputArea::buttonMask(BTN_LEFT)
+                   && clickable->focusable(),
+               "clickable container accepts left clicks and is focusable"
+           )
+          && ok;
+
+      // Validate matching uses the application's global keybind matcher, which this test does not configure.
+    }
+
+    // Hover-only wrappers start with an empty button mask and never take
+    // focus. (The retained-node route to the same state — onClick removed
+    // while onHover stays — is covered by the clearing test above.)
+    {
+      ui::UiTreeReconciler reconciler;
+      Flex host;
+
+      ui::UiTreeNode tree = makeNode(type);
+      tree.props.emplace("onHover", std::string("hover"));
+      (void)reconciler.reconcile(host, tree, renderer);
+      auto* hoverOnly = dynamic_cast<InputArea*>(host.children().front().get());
+      ok = expect(
+               hoverOnly != nullptr && hoverOnly->acceptedButtons() == 0 && !hoverOnly->focusable(),
+               "hover-only container does not accept clicks or take focus"
+           )
+          && ok;
+    }
+
+    {
+      ui::UiTreeReconciler reconciler;
+      std::string fired;
+      reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) { fired = cb.fn; });
+      Flex host;
+
+      // Explicit size: dispatchPress hit-tests the point against the wrapper's
+      // bounds, and an empty content-sized container measures 0x0.
+      ui::UiTreeNode tree = makeNode(type);
+      tree.props.emplace("onClick", std::string("first"));
+      tree.props.emplace("width", 40.0);
+      tree.props.emplace("height", 20.0);
+      (void)reconciler.reconcile(host, tree, renderer);
+      auto* area = dynamic_cast<InputArea*>(host.children().front().get());
+      if (area != nullptr) {
+        (void)area->measure(renderer, LayoutConstraints::unconstrained());
+        area->dispatchPress(5.0f, 5.0f, BTN_LEFT, true);
+        area->dispatchPress(5.0f, 5.0f, BTN_LEFT, false);
+      }
+      ok = expect(fired == "first", "click dispatch reaches the first container callback") && ok;
+
+      tree.props["onClick"] = std::string("second");
+      (void)reconciler.reconcile(host, tree, renderer);
+      fired.clear();
+      if (area != nullptr) {
+        area->dispatchPress(5.0f, 5.0f, BTN_LEFT, true);
+        area->dispatchPress(5.0f, 5.0f, BTN_LEFT, false);
+      }
+      ok = expect(fired == "second", "reconciled container callback replaces the old click callback") && ok;
+
+      // onClick emptied while onHover keeps the wrapper alive: wrapper input
+      // handlers clear on removal (deviating from the retain-absent-props
+      // default) — a retained one would leave an invisible click-swallowing,
+      // keyboard-activatable node. The wrapper drops mask, focus, and handler.
+      tree.props["onClick"] = std::string();
+      tree.props.emplace("onHover", std::string("h"));
+      (void)reconciler.reconcile(host, tree, renderer);
+      fired.clear();
+      if (area != nullptr) {
+        area->dispatchPress(5.0f, 5.0f, BTN_LEFT, true);
+        area->dispatchPress(5.0f, 5.0f, BTN_LEFT, false);
+      }
+      ok = expect(
+               fired.empty() && area != nullptr && area->acceptedButtons() == 0 && !area->focusable()
+                   && area->cursorShape() == 0,
+               "emptied onClick clears the wrapper's activation"
+           )
+          && ok;
+    }
+
+    // An empty callback name is "unset": wiring is change-detected against the
+    // slot's empty default, so it could never fire — wrapping anyway would
+    // swallow ancestor clicks/hover and add a dead tab stop.
+    {
+      ui::UiTreeReconciler reconciler;
+      Flex host;
+
+      ui::UiTreeNode tree = makeNode(type);
+      tree.props.emplace("onClick", std::string());
+      tree.props.emplace("onHover", std::string());
+      (void)reconciler.reconcile(host, tree, renderer);
+      Node* node = host.children().empty() ? nullptr : host.children().front().get();
+      ok = expect(dynamic_cast<Flex*>(node) != nullptr, "empty callback names leave the container unwrapped") && ok;
+    }
+
+    {
+      ui::UiTreeReconciler reconciler;
+      std::string callbackName;
+      std::string callbackArg;
+      reconciler.setCallbackSink([&](const ui::UiTreeReconciler::ControlCallback& cb) {
+        callbackName = cb.fn;
+        callbackArg = cb.arg1;
+      });
+      Flex host;
+
+      ui::UiTreeNode tree = makeNode(type);
+      tree.props.emplace("onHover", std::string("hover"));
+      (void)reconciler.reconcile(host, tree, renderer);
+      auto* area = dynamic_cast<InputArea*>(host.children().front().get());
+      if (area != nullptr) {
+        area->dispatchEnter(0.0f, 0.0f);
+        ok = expect(callbackName == "hover" && callbackArg == "true", "container hover enter reaches the sink") && ok;
+        area->dispatchLeave();
+      }
+      ok = expect(callbackName == "hover" && callbackArg == "false", "container hover leave reaches the sink") && ok;
+    }
+
+    {
+      ui::UiTreeReconciler reconciler;
+      Flex host;
+
+      ui::UiTreeNode tree = makeNode(type);
+      (void)reconciler.reconcile(host, tree, renderer);
+      Node* bare = host.children().empty() ? nullptr : host.children().front().get();
+      ok = expect(dynamic_cast<Flex*>(bare) != nullptr, "bare row/column remains a plain Flex") && ok;
+
+      tree.props.emplace("onClick", std::string("activate"));
+      (void)reconciler.reconcile(host, tree, renderer);
+      Node* wrapped = host.children().empty() ? nullptr : host.children().front().get();
+      ok =
+          expect(wrapped != bare && dynamic_cast<InputArea*>(wrapped) != nullptr, "adding onClick rebuilds flex") && ok;
+
+      tree.props.erase("onClick");
+      (void)reconciler.reconcile(host, tree, renderer);
+      Node* unwrapped = host.children().empty() ? nullptr : host.children().front().get();
+      ok = expect(
+               unwrapped != wrapped && dynamic_cast<Flex*>(unwrapped) != nullptr,
+               "removing onClick rebuilds flex without wrapper"
+           )
+          && ok;
+    }
+  }
+
   // Interactive controls build and apply their value props.
   {
     ui::UiTreeReconciler reconciler;
