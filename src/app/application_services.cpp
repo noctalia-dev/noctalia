@@ -945,6 +945,9 @@ void Application::initSystemBusServices() {
       m_upowerService->setChangeCallback([this, shouldRefreshControlCenter]() {
         onUpowerStateChangedForHooks();
         m_batteryWarningMonitor.evaluate(m_configService.config().battery, *m_upowerService, m_notificationManager);
+        if (m_bluetoothService != nullptr) {
+          m_bluetoothService->refreshBatteryFromUPower();
+        }
         m_bar.refresh();
         m_settingsWindow.onExternalOptionsChanged();
         if (shouldRefreshControlCenter()) {
@@ -1069,7 +1072,7 @@ void Application::initSystemBusServices() {
     }
 
     try {
-      m_bluetoothService = std::make_unique<BluetoothService>(*m_systemBus);
+      m_bluetoothService = std::make_unique<BluetoothService>(*m_systemBus, m_upowerService.get());
       auto refreshBluetoothUi = [this, shouldRefreshControlCenter]() {
         m_bar.refresh();
         if (shouldRefreshControlCenter()) {

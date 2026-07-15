@@ -396,6 +396,15 @@ const UPowerDeviceInfo* UPowerService::deviceForSelector(std::string_view select
   return nullptr;
 }
 
+const UPowerDeviceInfo* UPowerService::deviceForSerial(std::string_view serial) const {
+  for (const auto& device : m_devices) {
+    if (device.info.serial == serial) {
+      return &device.info;
+    }
+  }
+  return nullptr;
+}
+
 void UPowerService::refreshDisplayDeviceProxy() {
   sdbus::ObjectPath path;
   try {

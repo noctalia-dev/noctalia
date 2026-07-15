@@ -91,6 +91,7 @@ public:
   [[nodiscard]] std::vector<UPowerDeviceInfo> batteryDevices() const;
   [[nodiscard]] const UPowerDeviceInfo* defaultSystemBattery() const noexcept;
   [[nodiscard]] const UPowerDeviceInfo* deviceForSelector(std::string_view selector) const;
+  [[nodiscard]] const UPowerDeviceInfo* deviceForSerial(std::string_view serial) const;
 
 private:
   struct TrackedDevice {

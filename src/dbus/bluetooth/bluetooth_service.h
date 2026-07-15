@@ -12,6 +12,7 @@
 
 class SystemBus;
 class IpcService;
+class UPowerService;
 
 namespace sdbus {
   class IProxy;
@@ -46,6 +47,7 @@ struct BluetoothDeviceInfo {
   std::int16_t rssi = 0;
   bool hasBattery = false;
   std::uint8_t batteryPercent = 0;
+  std::string batteryUPowerSerial;
 
   bool operator==(const BluetoothDeviceInfo&) const = default;
 };
@@ -75,7 +77,7 @@ public:
   using DevicesCallback = std::function<void(const std::vector<BluetoothDeviceInfo>&)>;
   using StateFeedbackCallback = std::function<void(bool enabled)>;
 
-  explicit BluetoothService(SystemBus& bus);
+  explicit BluetoothService(SystemBus& bus, UPowerService* upowerService = nullptr);
   ~BluetoothService();
 
   BluetoothService(const BluetoothService&) = delete;
@@ -103,6 +105,8 @@ public:
   void setTrusted(const std::string& devicePath, bool trusted);
   void forget(const std::string& devicePath);
 
+  void refreshBatteryFromUPower();
+
 private:
   struct Impl;
   friend struct Impl;
@@ -120,6 +124,8 @@ private:
   void armAutoReconnect();
   void runAutoReconnectPass();
 
+  bool applyUPowerBattery();
+
   std::unique_ptr<Impl> m_impl;
 
   BluetoothState m_state;
@@ -130,4 +136,6 @@ private:
   bool m_hasStateSnapshot = false;
   StateCallback m_stateCallback;
   DevicesCallback m_devicesCallback;
+
+  UPowerService* m_upowerService = nullptr;
 };

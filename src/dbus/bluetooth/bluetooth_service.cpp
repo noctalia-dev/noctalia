@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "dbus/system_bus.h"
+#include "dbus/upower/upower_service.h"
 #include "i18n/i18n.h"
 #include "ipc/ipc_service.h"
 #include "system/rfkill_helper.h"
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <map>
 #include <optional>
 #include <sdbus-c++/IConnection.h>
@@ -210,6 +212,7 @@ namespace {
         } else {
           out.hasBattery = false;
           out.batteryPercent = 0;
+          out.batteryUPowerSerial.clear();
         }
       }
     }
@@ -244,12 +247,15 @@ namespace {
     if (!out.connected) {
       out.hasBattery = false;
       out.batteryPercent = 0;
+      out.batteryUPowerSerial.clear();
       return;
     }
     if (auto it = props.find("Percentage"); it != props.end()) {
       if (auto v = variantGet<std::uint8_t>(it->second)) {
         out.hasBattery = true;
+        // Prefer the battery percentage from the Bluez service over UPower.
         out.batteryPercent = *v;
+        out.batteryUPowerSerial.clear();
       }
     }
   }
@@ -339,6 +345,7 @@ struct BluetoothService::Impl {
         if (auto* dev = self.findDevice(path)) {
           dev->hasBattery = false;
           dev->batteryPercent = 0;
+          dev->batteryUPowerSerial.clear();
           devicesDirty = true;
         }
       }
@@ -451,7 +458,8 @@ struct BluetoothService::Impl {
   }
 };
 
-BluetoothService::BluetoothService(SystemBus& bus) : m_impl(std::make_unique<Impl>(*this, bus)) {
+BluetoothService::BluetoothService(SystemBus& bus, UPowerService* upowerService)
+    : m_impl(std::make_unique<Impl>(*this, bus)), m_upowerService(upowerService) {
   m_impl->root = sdbus::createProxy(bus.connection(), kBluezBusName, kRootPath);
 
   m_impl->root->uponSignal("InterfacesAdded")
@@ -868,7 +876,78 @@ void BluetoothService::emitState(BluetoothStateChangeOrigin origin) {
 }
 
 void BluetoothService::emitDevices() {
+  applyUPowerBattery();
   if (m_devicesCallback) {
     m_devicesCallback(m_devices);
   }
+}
+
+void BluetoothService::refreshBatteryFromUPower() {
+  if (applyUPowerBattery() && m_devicesCallback) {
+    m_devicesCallback(m_devices);
+  }
+}
+
+bool BluetoothService::applyUPowerBattery() {
+  if (!m_upowerService) {
+    return false;
+  }
+
+  const auto getBatteryPercent = [](const auto& deviceInfo) {
+    return static_cast<std::uint8_t>(std::clamp(std::lround(deviceInfo->state.percentage), 0L, 100L));
+  };
+
+  bool hasChange = false;
+  for (auto& bluetoothDevice : m_devices) {
+    if (!bluetoothDevice.connected || (bluetoothDevice.hasBattery && bluetoothDevice.batteryUPowerSerial.empty())) {
+      continue;
+    }
+
+    if (!bluetoothDevice.hasBattery) {
+      auto serial = bluetoothDevice.address;
+      auto* deviceInfo = m_upowerService->deviceForSerial(serial);
+      if (!deviceInfo) {
+        serial = StringUtils::toLower(serial);
+        deviceInfo = m_upowerService->deviceForSerial(serial);
+      }
+      if (deviceInfo && deviceInfo->isPresent) {
+        switch (deviceInfo->type) {
+        case UPowerDeviceType::Unknown:
+        case UPowerDeviceType::LinePower:
+        case UPowerDeviceType::Battery:
+        case UPowerDeviceType::Ups:
+          break;
+        default:
+          bluetoothDevice.hasBattery = true;
+          bluetoothDevice.batteryPercent = getBatteryPercent(deviceInfo);
+          bluetoothDevice.batteryUPowerSerial = serial;
+          hasChange = true;
+          kLog.debug(
+              "battery added from UPower : {} {}", bluetoothDevice.batteryUPowerSerial, bluetoothDevice.batteryPercent
+          );
+          break;
+        }
+      }
+    } else {
+      const auto* deviceInfo = m_upowerService->deviceForSerial(bluetoothDevice.batteryUPowerSerial);
+      if (deviceInfo && deviceInfo->isPresent) {
+        const auto batteryPercent = getBatteryPercent(deviceInfo);
+        if (bluetoothDevice.batteryPercent != batteryPercent) {
+          bluetoothDevice.batteryPercent = batteryPercent;
+          hasChange = true;
+          kLog.debug(
+              "battery updated from UPower : {} {}", bluetoothDevice.batteryUPowerSerial, bluetoothDevice.batteryPercent
+          );
+        }
+      } else {
+        kLog.debug("battery removed from UPower : {}", bluetoothDevice.batteryUPowerSerial);
+        bluetoothDevice.hasBattery = false;
+        bluetoothDevice.batteryPercent = 0;
+        bluetoothDevice.batteryUPowerSerial.clear();
+        hasChange = true;
+      }
+    }
+  }
+
+  return hasChange;
 }
