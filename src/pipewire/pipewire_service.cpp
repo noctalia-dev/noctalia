@@ -696,7 +696,7 @@ namespace {
     if (!nd.linkGroup.empty() || nd.nodePassive) {
       return false;
     }
-    if (!nd.targetObject.empty() && !isQemuStreamNode(nd)) {
+    if (!nd.targetObject.empty() && nd.applicationName.empty() && !isQemuStreamNode(nd)) {
       return false;
     }
     return true;
