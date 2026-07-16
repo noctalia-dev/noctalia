@@ -1245,6 +1245,17 @@ void Application::initSessionBusServices() {
       m_panelManager.refresh();
     }
   });
+
+  m_eyeCareService.initialize(&m_notificationManager, m_soundPlayer.get(), &m_idleManager);
+  m_eyeCareService.reload(m_configService.config().eyecare);
+  m_configService.addReloadCallback(
+      [this]() {
+        if (m_configService.lastChange().eyecare) {
+          m_eyeCareService.reload(m_configService.config().eyecare);
+        }
+      },
+      "eyecare"
+  );
 }
 
 void Application::startTrayService() {

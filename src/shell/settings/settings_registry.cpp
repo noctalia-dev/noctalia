@@ -2370,6 +2370,46 @@ namespace settings {
       entries.push_back(std::move(e));
     }
 
+    const SettingVisibility eyecareOn = [](const Config& c) { return c.eyecare.enabled; };
+    entries.push_back(makeEntry(
+        SettingsSection::Services, "eyecare", tr("settings.schema.services.eyecare.label"),
+        tr("settings.schema.services.eyecare.description"), {"eyecare", "enabled"}, ToggleSetting{cfg.eyecare.enabled},
+        "eyecare 20-20-20 break timer protection"
+    ));
+    {
+      auto e = makeEntry(
+          SettingsSection::Services, "eyecare", tr("settings.schema.services.eyecare-active-duration.label"),
+          tr("settings.schema.services.eyecare-active-duration.description"), {"eyecare", "active_duration_minutes"},
+          sliderFor(
+              cfg.eyecare.activeDurationMinutes, noctalia::config::schema::kEyeCareActiveDurationMinutesRange, true
+          ),
+          "eyecare active duration screen time minutes"
+      );
+      e.visibleWhen = eyecareOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::Services, "eyecare", tr("settings.schema.services.eyecare-break-duration.label"),
+          tr("settings.schema.services.eyecare-break-duration.description"), {"eyecare", "break_duration_seconds"},
+          sliderFor(
+              cfg.eyecare.breakDurationSeconds, noctalia::config::schema::kEyeCareBreakDurationSecondsRange, true
+          ),
+          "eyecare break duration rest seconds"
+      );
+      e.visibleWhen = eyecareOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::Services, "eyecare", tr("settings.schema.services.eyecare-sound.label"),
+          tr("settings.schema.services.eyecare-sound.description"), {"eyecare", "enable_sound"},
+          ToggleSetting{cfg.eyecare.enableSound}, "eyecare sound audio chime notification"
+      );
+      e.visibleWhen = eyecareOn;
+      entries.push_back(std::move(e));
+    }
+
     entries.push_back(makeEntry(
         SettingsSection::Services, "audio", tr("settings.schema.services.audio-overdrive.label"),
         tr("settings.schema.services.audio-overdrive.description"), {"audio", "enable_overdrive"},

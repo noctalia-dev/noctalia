@@ -735,6 +735,7 @@ _noctalia_sources = files(
   'src/system/day_night_schedule.cpp',
   'src/system/gamma_service.cpp',
   'src/system/location_service.cpp',
+  'src/system/eyecare_service.cpp',
   'src/capture/screencopy_capture.cpp',
   'src/capture/screencopy_util.cpp',
   'src/capture/screenshot_service.cpp',

@@ -171,6 +171,16 @@ namespace noctalia::config::schema {
     return s;
   }
 
+  const Schema<EyeCareConfig>& eyecareSchema() {
+    static const Schema<EyeCareConfig> s = {
+        field(&EyeCareConfig::enabled, "enabled"),
+        field(&EyeCareConfig::activeDurationMinutes, "active_duration_minutes", kEyeCareActiveDurationMinutesRange),
+        field(&EyeCareConfig::breakDurationSeconds, "break_duration_seconds", kEyeCareBreakDurationSecondsRange),
+        field(&EyeCareConfig::enableSound, "enable_sound"),
+    };
+    return s;
+  }
+
   const Schema<LocationConfig>& locationSchema() {
     static const Schema<LocationConfig> s = {
         field(&LocationConfig::autoLocate, "auto_locate"),

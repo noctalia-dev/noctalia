@@ -375,6 +375,7 @@ namespace {
         && a.battery == b.battery
         && a.keybinds == b.keybinds
         && a.nightlight == b.nightlight
+        && a.eyecare == b.eyecare
         && a.location == b.location
         && a.idle == b.idle
         && a.hooks == b.hooks
@@ -718,6 +719,7 @@ ConfigChangeSet computeConfigChangeSet(const Config& prev, const Config& next) {
       .battery = !(prev.battery == next.battery),
       .keybinds = !(prev.keybinds == next.keybinds),
       .nightlight = !(prev.nightlight == next.nightlight),
+      .eyecare = !(prev.eyecare == next.eyecare),
       .location = !(prev.location == next.location),
       .idle = !(prev.idle == next.idle),
       .hooks = !(prev.hooks == next.hooks),

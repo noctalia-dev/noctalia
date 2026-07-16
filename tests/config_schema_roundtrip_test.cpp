@@ -397,6 +397,12 @@ location = "https://example.invalid/bad"
         {"dim", true, 60, "lock", "", "", true},
         {"off", false, 300, "screen_off", "", "", true},
     };
+    c.eyecare = EyeCareConfig{
+        .enabled = true,
+        .activeDurationMinutes = 25,
+        .breakDurationSeconds = 30,
+        .enableSound = false,
+    };
     c.wallpaper.enabled = false;
     c.wallpaper.fillColor = colorSpecFromConfigString("#ff8800");
     c.wallpaper.transitions = {WallpaperTransition::Wipe, WallpaperTransition::Zoom};

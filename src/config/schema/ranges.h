@@ -42,4 +42,8 @@ namespace noctalia::config::schema {
   inline constexpr Range<float> kDockInactiveScaleRange{0.1f, 1.0f, 0.05f};
   inline constexpr Range<float> kDockMagnificationScaleRange{1.0f, 2.0f, 0.05f};
 
+  // Eye Care
+  inline constexpr Range<std::int64_t> kEyeCareActiveDurationMinutesRange{1, 120, 1};
+  inline constexpr Range<std::int64_t> kEyeCareBreakDurationSecondsRange{5, 300, 5};
+
 } // namespace noctalia::config::schema

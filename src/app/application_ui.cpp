@@ -971,6 +971,7 @@ void Application::initWidgetControllersAndCallbacks() {
       }
     }
     m_idleManager.onSecondTick();
+    m_eyeCareService.onSecondTick(m_lockScreen.isActive());
   });
 
   if (m_pipewireService != nullptr) {

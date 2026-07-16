@@ -694,6 +694,10 @@
       "dbus-disabled": "DBus notifications disabled",
       "desktop-widgets-editor": "Widget editor",
       "desktop-widgets-editor-enabled": "Desktop widget editor is on. Switch to an empty workspace to see the editor overlay.",
+      "eyecare-break-body": "Focus on an object 20 feet away for 20 seconds.",
+      "eyecare-break-finished-body": "Your eyes are rested. You can return to your screen.",
+      "eyecare-break-finished-title": "Break finished",
+      "eyecare-break-title": "Time for a break",
       "greeter-sync": "Noctalia Greeter",
       "greeter-sync-pending": "Waiting for administrator approval to write to the greeter.",
       "greeter-sync-pending-console": "Waiting for administrator approval. Approve the polkit prompt in Noctalia, on a TTY or console, or run pkexec manually.",
@@ -1099,6 +1103,7 @@
         "directories": "Directories",
         "display": "Display",
         "effects": "Effects",
+        "eyecare": "Eye Care",
         "filtering": "Filtering",
         "focus-styling": "Focus Styling",
         "formats": "Formats",
@@ -2465,6 +2470,22 @@
         "weather-unit": {
           "description": "Unit system for weather display",
           "label": "Units"
+        },
+        "eyecare": {
+          "description": "Periodically remind you to take breaks to protect your eyes (20-20-20 rule)",
+          "label": "Eye-Care Reminders"
+        },
+        "eyecare-active-duration": {
+          "description": "Active screen time before triggering a break (minutes)",
+          "label": "Active Duration"
+        },
+        "eyecare-break-duration": {
+          "description": "Required duration for eye-care breaks (seconds)",
+          "label": "Break Duration"
+        },
+        "eyecare-sound": {
+          "description": "Play notification sound when breaks start or finish",
+          "label": "Enable Audio Feedback"
         }
       },
       "shared": {

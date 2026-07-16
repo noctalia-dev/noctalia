@@ -58,6 +58,7 @@
 #include "system/battery_warning_monitor.h"
 #include "system/dependency_service.h"
 #include "system/desktop_entry_poll_source.h"
+#include "system/eyecare_service.h"
 #include "system/gamma_service.h"
 #include "system/icon_theme_poll_source.h"
 #include "system/location_poll_source.h"
@@ -243,6 +244,7 @@ private:
   HookManager m_hookManager;
   DependencyService m_dependencyService;
   GammaService m_gammaService;
+  EyeCareService m_eyeCareService;
   ScreenshotService m_screenshotService{m_wayland, m_compositorPlatform, m_notificationManager, &m_clipboardService};
   std::unique_ptr<MprisService> m_mprisService;
   std::unique_ptr<PowerProfilesService> m_powerProfilesService;

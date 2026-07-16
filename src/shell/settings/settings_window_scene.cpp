@@ -438,6 +438,9 @@ namespace {
     if (section == "nightlight") {
       return schema::writeTable(cfg.nightlight, schema::nightlightSchema());
     }
+    if (section == "eyecare") {
+      return schema::writeTable(cfg.eyecare, schema::eyecareSchema());
+    }
     if (section == "notification") {
       return schema::writeTable(cfg.notification, schema::notificationSchema());
     }

@@ -60,6 +60,7 @@ namespace noctalia::config::schema {
         t.push_back(makeSection("brightness", &Config::brightness, brightnessSchema()));
         t.push_back(makeSection("battery", &Config::battery, batterySchema()));
         t.push_back(makeSection("nightlight", &Config::nightlight, nightlightSchema()));
+        t.push_back(makeSection("eyecare", &Config::eyecare, eyecareSchema()));
         t.push_back(makeSection("location", &Config::location, locationSchema()));
         t.push_back(makeSection("idle", &Config::idle, idleSchema()));
         t.push_back(makeSection("keybinds", &Config::keybinds, keybindsSchema()));

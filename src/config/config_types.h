@@ -1177,6 +1177,15 @@ struct NightLightConfig {
   bool operator==(const NightLightConfig&) const = default;
 };
 
+struct EyeCareConfig {
+  bool enabled = false;
+  std::int32_t activeDurationMinutes = 20;
+  std::int32_t breakDurationSeconds = 20;
+  bool enableSound = true;
+
+  bool operator==(const EyeCareConfig&) const = default;
+};
+
 struct LocationConfig {
   // Single source of truth for "where am I". Resolution priority:
   //   auto_locate (IP) -> address (geocoded) -> manual latitude/longitude.
@@ -1466,6 +1475,7 @@ struct Config {
   BatteryConfig battery;
   KeybindsConfig keybinds;
   NightLightConfig nightlight;
+  EyeCareConfig eyecare;
   LocationConfig location;
   IdleConfig idle;
   HooksConfig hooks;
@@ -1497,6 +1507,7 @@ struct ConfigChangeSet {
   bool battery = true;
   bool keybinds = true;
   bool nightlight = true;
+  bool eyecare = true;
   bool location = true;
   bool idle = true;
   bool hooks = true;
@@ -1526,6 +1537,7 @@ struct ConfigChangeSet {
         || battery
         || keybinds
         || nightlight
+        || eyecare
         || location
         || idle
         || hooks
