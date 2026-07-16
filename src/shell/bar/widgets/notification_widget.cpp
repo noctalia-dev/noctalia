@@ -3,6 +3,7 @@
 #include "notification/notification_manager.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/panel/panel_manager.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -32,6 +33,11 @@ void NotificationWidget::create() {
     if (data.button != BTN_LEFT) {
       return;
     }
+    // If the user clicked the widget to open the panel, keep the widget visible so it can be clicked again to close the
+    // panel.
+    auto& panelManager = PanelManager::instance();
+    m_meClickedToOpenThePanel =
+        !(panelManager.isOpenPanel("control-center") && panelManager.isActivePanelContext("notifications"));
     requestPanelToggle("control-center", "notifications");
   });
 
@@ -87,7 +93,15 @@ void NotificationWidget::refreshIndicatorState() {
   const bool dndEnabled = (m_manager != nullptr) && m_manager->doNotDisturb();
 
   if (Node* rootNode = root(); rootNode != nullptr) {
-    const bool showWidget = !m_hideWhenNoUnread || hasNotifications;
+    bool panelStillOpen = false;
+    if (m_meClickedToOpenThePanel) {
+      auto& panelManager = PanelManager::instance();
+      panelStillOpen = panelManager.isOpenPanel("control-center") && panelManager.isActivePanelContext("notifications");
+      if (!panelStillOpen) {
+        m_meClickedToOpenThePanel = false;
+      }
+    }
+    const bool showWidget = panelStillOpen || !m_hideWhenNoUnread || hasNotifications;
     rootNode->setVisible(showWidget);
     rootNode->setParticipatesInLayout(showWidget);
   }
