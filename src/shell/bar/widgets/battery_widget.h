@@ -24,6 +24,7 @@ public:
     bool showLabel = true;
     bool hideWhenPlugged = false;
     bool hideWhenFull = false;
+    bool showTimeRemaining = false;
   };
 
   BatteryWidget(UPowerService* upower, Options options);
@@ -51,6 +52,8 @@ private:
   bool m_showLabel = true;
   bool m_hideWhenPlugged = false;
   bool m_hideWhenFull = false;
+  bool m_showTimeRemaining = false;
+  [[nodiscard]] std::string buildLabelText(int pct, const UPowerState& s) const;
 
   // Glyph mode nodes
   Glyph* m_glyph = nullptr;

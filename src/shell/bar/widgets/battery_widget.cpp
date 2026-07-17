@@ -37,14 +37,39 @@ namespace {
     }
     return nullptr;
   }
-
+  std::string formatShortDuration(std::int64_t seconds) {
+    if (seconds <= 0)
+      return {};
+    const auto hrs = seconds / 3600;
+    const auto mins = (seconds % 3600) / 60;
+    if (hrs > 0 && mins > 0)
+      return std::to_string(hrs) + "h " + std::to_string(mins) + "m";
+    if (hrs > 0)
+      return std::to_string(hrs) + "h";
+    if (mins > 0)
+      return std::to_string(mins) + "m";
+    return "< 1m";
+  }
 } // namespace
 
 BatteryWidget::BatteryWidget(UPowerService* upower, Options options)
     : m_upower(upower), m_deviceSelector(std::move(options.deviceSelector)),
       m_warningThreshold(options.warningThreshold), m_warningColor(options.warningColor),
       m_displayMode(options.displayMode), m_showLabel(options.showLabel), m_hideWhenPlugged(options.hideWhenPlugged),
-      m_hideWhenFull(options.hideWhenFull) {}
+      m_hideWhenFull(options.hideWhenFull), m_showTimeRemaining(options.showTimeRemaining) {}
+
+std::string BatteryWidget::buildLabelText(int pct, const UPowerState& s) const {
+  std::string base = m_isVertical ? std::to_string(pct) : std::to_string(pct) + "%";
+  if (!m_showTimeRemaining) {
+    return base;
+  }
+  std::string timeText;
+  if (s.state == BatteryState::Discharging && s.timeToEmpty > 0)
+    timeText = formatShortDuration(s.timeToEmpty);
+  else if (s.state == BatteryState::Charging && s.timeToFull > 0)
+    timeText = formatShortDuration(s.timeToFull);
+  return timeText.empty() ? base : base + " " + timeText;
+}
 
 void BatteryWidget::create() {
   auto container = std::make_unique<InputArea>();
@@ -386,7 +411,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
 
     // Graphic mode label
     if (m_overlayLabel != nullptr && m_showLabel) {
-      m_overlayLabel->setText(m_isVertical ? std::to_string(pct) : std::to_string(pct) + "%");
+      m_overlayLabel->setText(buildLabelText(pct, s));
       m_overlayLabel->setColor(fgColor);
       m_overlayLabel->measure(renderer);
     }
@@ -420,7 +445,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
 
     if (m_label != nullptr && m_showLabel) {
       m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
-      m_label->setText(m_isVertical ? std::to_string(pct) : std::to_string(pct) + "%");
+      m_label->setText(buildLabelText(pct, s));
       m_label->setColor(fgColor);
       m_label->measure(renderer);
     }

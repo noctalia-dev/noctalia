@@ -36,6 +36,9 @@ batteryWidgetDefinition() {
               field<&Options::hideWhenFull>({
                   .key = "hide_when_full",
               }),
+              field<&Options::showTimeRemaining>({
+                  .key = "show_time_remaining",
+              }),
               field<&Options::deviceSelector>({
                   .key = "device",
                   .presentation =

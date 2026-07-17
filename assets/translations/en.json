@@ -3425,6 +3425,10 @@
           "description": "Show text next to the icon",
           "label": "Show Label"
         },
+        "show-time-remaining": {
+          "description": "Show the estimated time remaining until the battery is empty or full",
+          "label": "Show Time Remaining"
+        },
         "show-num-lock": {
           "description": "Show Num Lock state",
           "label": "Show Num Lock"

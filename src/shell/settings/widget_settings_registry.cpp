@@ -697,6 +697,7 @@ namespace settings {
         add(std::move(color2));
       }
     } else if (type == "battery") {
+
       for (auto& spec : batteryWidgetDefinition().presentedSettingSpecs()) {
         add(std::move(spec));
       }
