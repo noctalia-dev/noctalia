@@ -580,6 +580,48 @@ void Application::initIpc() {
       },
       "brightness-osd <value>", "Show brightness OSD without changing brightness"
   );
+  m_ipcService.registerHandler(
+      "volume-osd",
+      [this](const std::string& args) -> std::string {
+        const auto parts = noctalia::ipc::splitWords(args);
+        if (parts.size() != 1) {
+          return "error: volume-osd requires <value>\n";
+        }
+        const auto value = noctalia::ipc::parseNormalizedOrPercent(parts[0]);
+        if (!value.has_value()) {
+          return "error: invalid volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
+        }
+        const auto* sink = m_pipewireService->defaultSink();
+        if (!sink) {
+          return "error: no default sink available\n";
+        }
+        m_audioOsd.showOutput(sink->id, std::clamp(*value, 0.0f, 1.0f), false, false);
+        m_audioOsd.suppressFor(std::chrono::milliseconds(500));
+        return "ok\n";
+      },
+      "volume-osd <value>", "Show volume OSD without changing volume"
+  );
+  m_ipcService.registerHandler(
+      "mic-volume-osd",
+      [this](const std::string& args) -> std::string {
+        const auto parts = noctalia::ipc::splitWords(args);
+        if (parts.size() != 1) {
+          return "error: mic-volume-osd requires <value>\n";
+        }
+        const auto value = noctalia::ipc::parseNormalizedOrPercent(parts[0]);
+        if (!value.has_value()) {
+          return "error: invalid mic volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
+        }
+        const auto* source = m_pipewireService->defaultSource();
+        if (!source) {
+          return "error: no default source available\n";
+        }
+        m_audioOsd.showInput(source->id, std::clamp(*value, 0.0f, 1.0f), false, false);
+        m_audioOsd.suppressFor(std::chrono::milliseconds(500));
+        return "ok\n";
+      },
+      "mic-volume-osd <value>", "Show microphone volume OSD without changing volume"
+  );
   m_configService.registerIpc(m_ipcService);
   scripting::PluginIpcRouter::instance().setPlatform(&m_compositorPlatform);
   m_ipcService.registerHandler(

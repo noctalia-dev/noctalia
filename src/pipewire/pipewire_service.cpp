@@ -2063,6 +2063,19 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
   );
 
   ipc.registerHandler(
+      "volume-show",
+      [this](const std::string&) -> std::string {
+        const auto* sink = defaultSink();
+        if (!sink)
+          return "error: no default output\n";
+
+        emitVolumePreview(false, sink->id, sink->volume);
+        return "ok\n";
+      },
+      "volume-show", "Show current volume OSD without changing volume"
+  );
+
+  ipc.registerHandler(
       "volume-up",
       [this, maxVolume, parseVolumeStepError](const std::string& args) -> std::string {
         const auto parts = noctalia::ipc::splitWords(args);
@@ -2140,6 +2153,18 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         return "ok\n";
       },
       "mic-volume-set <value>", "Set microphone volume"
+  );
+
+  ipc.registerHandler(
+      "mic-volume-show",
+      [this](const std::string&) -> std::string {
+        const auto* source = defaultSource();
+        if (!source)
+          return "error: no default input\n";
+        emitVolumePreview(true, source->id, source->volume);
+        return "ok\n";
+      },
+      "mic-volume-show", "Show current microphone volume OSD without changing volume"
   );
 
   ipc.registerHandler(
