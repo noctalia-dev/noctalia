@@ -119,7 +119,7 @@ WidgetFactory::~WidgetFactory() = default;
 
 std::unique_ptr<Widget> WidgetFactory::create(
     const std::string& name, wl_output* output, float contentScale, const std::string& barPosition,
-    const std::string& barName, float widgetSpacing
+    const std::string& barName, float widgetSpacing, bool shadowEnabled
 ) const {
   // Resolve: if name matches a [widget.<name>] entry, use its type + settings.
   // Otherwise treat the name itself as the widget type with default settings.
@@ -268,6 +268,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .scrollDownCommand = trimSetting("scroll_down_command"),
         .customImage = customImageFor(wc),
     });
+    if (wc != nullptr && wc->hasSetting("icon_spacing")) {
+      widget->setLocalIconSpacing(static_cast<float>(wc->getInt("icon_spacing", 6)));
+    }
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -346,7 +349,32 @@ std::unique_ptr<Widget> WidgetFactory::create(
   if (type == "network") {
     const bool showLabel = wc != nullptr ? wc->getBool("show_label", true) : true;
     const bool showVpnLabel = wc != nullptr ? wc->getBool("show_vpn_label", false) : false;
-    auto widget = std::make_unique<NetworkWidget>(m_network, m_sysmon, output, showLabel, showVpnLabel);
+    const bool wifiShowStrength = wc != nullptr ? wc->getBool("wifi_show_strength", false) : false;
+
+    WidgetCustomImage wifiImg;
+    std::string wifiGlyph;
+    if (wc != nullptr) {
+      wifiImg.path = wc->getString("wifi_custom_image");
+      wifiImg.colorize = wc->getBool("wifi_custom_image_colorize", false);
+      wifiGlyph = wc->getString("wifi_glyph");
+    }
+    
+    WidgetCustomImage ethImg;
+    std::string ethGlyph;
+    if (wc != nullptr) {
+      ethImg.path = wc->getString("ethernet_custom_image");
+      ethImg.colorize = wc->getBool("ethernet_custom_image_colorize", false);
+      ethGlyph = wc->getString("ethernet_glyph");
+    }
+
+    const float labelSpacing = static_cast<float>(wc != nullptr ? wc->getInt("label_spacing", 4) : 4);
+    auto widget = std::make_unique<NetworkWidget>(
+        m_network, m_sysmon, output, showLabel, showVpnLabel, wifiShowStrength, labelSpacing,
+        wifiGlyph, wifiImg, ethGlyph, ethImg
+    );
+    if (wc != nullptr && wc->hasSetting("icon_spacing")) {
+      widget->setLocalIconSpacing(static_cast<float>(wc->getInt("icon_spacing", 6)));
+    }
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -434,7 +462,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
     }
     auto widget = std::make_unique<ScreenshotWidget>(
         output, std::move(barGlyph), *m_screenshots, m_configService, m_platform, *m_renderContext,
-        m_configService.config().shell.shadow, barPosition, customImageFor(wc)
+        m_configService.config().shell.shadow, shadowEnabled, barPosition, customImageFor(wc)
     );
     widget->setContentScale(contentScale);
     return widget;
@@ -528,6 +556,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .customImage = customImageFor(wc),
     };
     auto widget = std::make_unique<SysmonWidget>(m_sysmon, m_configService, std::move(options));
+    if (wc != nullptr && wc->hasSetting("icon_spacing")) {
+      widget->setLocalIconSpacing(static_cast<float>(wc->getInt("icon_spacing", 6)));
+    }
     widget->setContentScale(contentScale);
     return widget;
   }
@@ -608,6 +639,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
         ),
         .inlineEntryGap = widgetSpacing,
         .matchAdjacentSpacing = wc != nullptr ? wc->getBool("match_adjacent_spacing", false) : false,
+        .widgetSpacing = static_cast<float>(wc != nullptr ? wc->getDouble("spacing", 4.0) : 4.0),
     };
     auto widget = std::make_unique<TrayWidget>(m_configService, m_tray, std::move(options));
     widget->setContentScale(contentScale);
@@ -690,6 +722,8 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .activePillSize = static_cast<float>(wc != nullptr ? wc->getDouble("active_pill_size", 2.2) : 2.2),
         .inactivePillSize = static_cast<float>(wc != nullptr ? wc->getDouble("inactive_pill_size", 1.0) : 1.0),
         .minimal = workspaceStyle == "minimal",
+        .minimalSpacing = static_cast<float>(wc != nullptr ? wc->getDouble("minimal_spacing", 4.0) : 4.0),
+        .minimalHoverHighlight = wc != nullptr ? wc->getBool("minimal_hover_highlight", true) : true,
         .focusedPill = workspaceStyle == "focus_hint",
         .focusedOutputOnly = wc != nullptr ? wc->getBool("focused_output_only", false) : false,
     };

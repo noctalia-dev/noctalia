@@ -98,7 +98,7 @@ void BrightnessWidget::doLayout(Renderer& renderer, float containerWidth, float 
     m_glyph->setPosition(0.0f, std::round((h - m_glyph->height()) * 0.5f));
     float totalWidth = m_glyph->width();
     if (labelVisible) {
-      m_label->setPosition(m_glyph->width() + Style::spaceXs, std::round((h - m_label->height()) * 0.5f));
+      m_label->setPosition(m_glyph->width() + iconTextSpacing(), std::round((h - m_label->height()) * 0.5f));
       totalWidth = m_label->x() + m_label->width();
     }
     rootNode->setSize(totalWidth, h);

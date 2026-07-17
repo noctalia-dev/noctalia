@@ -424,10 +424,10 @@ void DialogPopupHost::buildScene(std::uint32_t width, std::uint32_t height) {
   (void)height;
   m_sceneRoot = std::make_unique<Node>();
   m_sceneRoot->setAnimationManager(&m_animations);
-  m_panelShadow = popup_chrome::addShadow(*m_sceneRoot, m_chrome, popupShadowConfig(m_config), Style::scaledRadiusXl());
+  m_panelShadow = popup_chrome::addShadow(*m_sceneRoot, m_chrome, popupShadowConfig(m_config), Style::scaledRadiusXl(), 1.0f, Style::popupShadowsEnabled());
 
   auto bg = ui::box({
-      .configure = [](Box& box) { box.setDialogStyle(); },
+      .configure = [](Box& box) { box.setPanelStyle(Style::popupBordersEnabled()); },
   });
   m_bgNode = static_cast<Box*>(m_sceneRoot->addChild(std::move(bg)));
 

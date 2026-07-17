@@ -1395,7 +1395,7 @@ void Input::applyVisualState() {
             .fillMode = FillMode::Solid,
             .radius = Style::scaledRadius(m_frameRadius, chromeScale),
             .softness = 1.0f,
-            .borderWidth = focused ? Style::focusRingWidth : Style::borderWidth,
+            .borderWidth = focused ? Style::focusRingWidth : (Style::inputBordersEnabled() ? Style::borderWidth : 0.0f),
         }
     );
   } else if (m_background != nullptr) {

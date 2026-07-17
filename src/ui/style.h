@@ -71,6 +71,22 @@ namespace Style {
   void setButtonBordersEnabled(bool enabled);
   Signal<>& buttonBordersChanged();
 
+  [[nodiscard]] bool inputBordersEnabled() noexcept;
+  void setInputBordersEnabled(bool enabled);
+  Signal<>& inputBordersChanged();
+
+  [[nodiscard]] bool popupBordersEnabled() noexcept;
+  void setPopupBordersEnabled(bool enabled);
+  Signal<>& popupBordersChanged();
+
+  [[nodiscard]] bool popupShadowsEnabled() noexcept;
+  void setPopupShadowsEnabled(bool enabled);
+  Signal<>& popupShadowsChanged();
+
+  [[nodiscard]] bool pureBlackContextMenusEnabled() noexcept;
+  void setPureBlackContextMenusEnabled(bool enabled);
+  Signal<>& pureBlackContextMenusChanged();
+
   [[nodiscard]] float scaledRadius(float radius, float localScale = 1.0f) noexcept;
   [[nodiscard]] float scaledRadiusSm(float localScale = 1.0f) noexcept;
   [[nodiscard]] float scaledRadiusMd(float localScale = 1.0f) noexcept;

@@ -40,6 +40,8 @@ public:
     float activePillSize = 2.2f;
     float inactivePillSize = 1.0f;
     bool minimal = false;
+    float minimalSpacing = 4.0f;
+    bool minimalHoverHighlight = true;
     bool focusedPill = false;
     bool focusedOutputOnly = false;
   };
@@ -150,6 +152,8 @@ private:
   float m_activePillSize = 2.2f;
   float m_inactivePillSize = 1.0f;
   bool m_minimal = false;
+  float m_minimalSpacing = 4.0f;
+  bool m_minimalHoverHighlight = true;
   bool m_focusedPill = false;
   bool m_focusedOutputOnly = false;
   bool m_wasFocusedOutput = true;

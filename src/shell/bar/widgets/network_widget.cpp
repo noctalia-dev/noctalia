@@ -9,6 +9,8 @@
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "ui/controls/image.h"
+#include "shell/bar/widget_custom_image.h"
 
 #include <chrono>
 #include <linux/input-event-codes.h>
@@ -58,9 +60,13 @@ namespace {
 } // namespace
 
 NetworkWidget::NetworkWidget(
-    INetworkService* network, SystemMonitorService* monitor, wl_output* /*output*/, bool showLabel, bool showVpnLabel
+    INetworkService* network, SystemMonitorService* monitor, wl_output* /*output*/, bool showLabel, bool showVpnLabel,
+    bool wifiShowStrength, float labelSpacing, std::string wifiGlyphId, WidgetCustomImage wifiCustomImage,
+    std::string ethernetGlyphId, WidgetCustomImage ethernetCustomImage
 )
-    : m_network(network), m_monitor(monitor), m_showLabel(showLabel), m_showVpnLabel(showVpnLabel) {}
+    : m_network(network), m_monitor(monitor), m_showLabel(showLabel), m_showVpnLabel(showVpnLabel),
+      m_wifiShowStrength(wifiShowStrength), m_labelSpacing(labelSpacing), m_wifiGlyphId(std::move(wifiGlyphId)), m_wifiCustomImage(std::move(wifiCustomImage)),
+      m_ethernetGlyphId(std::move(ethernetGlyphId)), m_ethernetCustomImage(std::move(ethernetCustomImage)) {}
 
 void NetworkWidget::create() {
   auto area = std::make_unique<InputArea>();
@@ -105,6 +111,9 @@ void NetworkWidget::create() {
       kTooltipRefreshInterval
   );
 
+  if (m_wifiCustomImage.enabled() || m_ethernetCustomImage.enabled()) {
+    area->addChild(ui::image({.out = &m_image, .fit = ImageFit::Contain}));
+  }
   area->addChild(
       ui::glyph({
           .out = &m_glyph,
@@ -135,49 +144,93 @@ void NetworkWidget::create() {
           .fontFamily = labelFontFamily(),
       })
   );
+  
+  area->addChild(
+      ui::label({
+          .out = &m_strengthLabel,
+          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontWeight = labelFontWeight(),
+          .fontFamily = labelFontFamily(),
+          .visible = false,
+      })
+  );
 
   setRoot(std::move(area));
 }
 
 void NetworkWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   auto* rootNode = root();
-  if (m_glyph == nullptr || rootNode == nullptr) {
+  if ((m_glyph == nullptr && m_image == nullptr) || rootNode == nullptr) {
     return;
   }
   m_isVertical = containerHeight > containerWidth;
   syncState(renderer);
 
-  m_glyph->measure(renderer);
+  if (m_glyph != nullptr && m_glyph->visible()) {
+    m_glyph->measure(renderer);
+  } else if (m_image != nullptr && m_image->visible()) {
+    // Image sizing is handled by sync
+  }
+
   if (m_label != nullptr) {
     m_label->measure(renderer);
   }
+  if (m_strengthLabel != nullptr) {
+    m_strengthLabel->measure(renderer);
+  }
 
   // Glyph and spinner share one slot; only one is visible.
-  Node* icon =
-      (m_spinner != nullptr && m_spinner->visible()) ? static_cast<Node*>(m_spinner) : static_cast<Node*>(m_glyph);
+  Node* icon = nullptr;
+  if (m_spinner != nullptr && m_spinner->visible()) {
+    icon = static_cast<Node*>(m_spinner);
+  } else if (m_glyph != nullptr && m_glyph->visible()) {
+    icon = static_cast<Node*>(m_glyph);
+  } else if (m_image != nullptr && m_image->visible()) {
+    icon = static_cast<Node*>(m_image);
+  }
+
+  if (icon == nullptr) {
+    return;
+  }
 
   const bool labelVisible = m_label != nullptr && m_label->width() > 0.0f && m_label->visible();
-  if (m_isVertical && labelVisible) {
-    const float w = std::max(icon->width(), m_label->width());
+  const bool strengthVisible = m_strengthLabel != nullptr && m_strengthLabel->width() > 0.0f && m_strengthLabel->visible();
+
+  if (m_isVertical && (labelVisible || strengthVisible)) {
+    // In vertical layout we only show the main label. If strength is the only thing, we show it.
+    Label* visibleLabel = labelVisible ? m_label : m_strengthLabel;
+    const float w = std::max(icon->width(), visibleLabel->width());
     icon->setPosition(std::round((w - icon->width()) * 0.5f), 0.0f);
-    m_label->setPosition(std::round((w - m_label->width()) * 0.5f), icon->height());
-    rootNode->setSize(w, icon->height() + m_label->height());
+    visibleLabel->setPosition(std::round((w - visibleLabel->width()) * 0.5f), icon->height());
+    rootNode->setSize(w, icon->height() + visibleLabel->height());
   } else {
-    const float h = labelVisible ? std::max(icon->height(), m_label->height()) : icon->height();
-    icon->setPosition(0.0f, std::round((h - icon->height()) * 0.5f));
-    float totalWidth = icon->width();
+    float maxH = icon->height();
+    if (labelVisible) maxH = std::max(maxH, m_label->height());
+    if (strengthVisible) maxH = std::max(maxH, m_strengthLabel->height());
+    
+    icon->setPosition(0.0f, std::round((maxH - icon->height()) * 0.5f));
+    float currentX = icon->width();
+    
     if (labelVisible) {
-      m_label->setPosition(icon->width() + Style::spaceXs, std::round((h - m_label->height()) * 0.5f));
-      totalWidth = m_label->x() + m_label->width();
+      currentX += iconTextSpacing() * m_contentScale;
+      m_label->setPosition(currentX, std::round((maxH - m_label->height()) * 0.5f));
+      currentX += m_label->width();
     }
-    rootNode->setSize(totalWidth, h);
+    
+    if (strengthVisible) {
+      currentX += (labelVisible ? m_labelSpacing : iconTextSpacing()) * m_contentScale;
+      m_strengthLabel->setPosition(currentX, std::round((maxH - m_strengthLabel->height()) * 0.5f));
+      currentX += m_strengthLabel->width();
+    }
+    
+    rootNode->setSize(currentX, maxH);
   }
 }
 
 void NetworkWidget::doUpdate(Renderer& renderer) { syncState(renderer); }
 
 void NetworkWidget::syncState(Renderer& renderer) {
-  if (m_glyph == nullptr || m_network == nullptr) {
+  if ((m_glyph == nullptr && m_image == nullptr) || m_network == nullptr) {
     return;
   }
 
@@ -190,12 +243,39 @@ void NetworkWidget::syncState(Renderer& renderer) {
   m_lastVertical = m_isVertical;
 
   const bool showSpinner = s.kind == NetworkConnectivity::Wired && s.resolving;
+  const bool isWifi = s.kind == NetworkConnectivity::Wireless;
+  const bool isEth = s.kind == NetworkConnectivity::Wired;
+  
+  WidgetCustomImage currentCustomImage;
+  std::string currentGlyphId;
+  if (isWifi) {
+    currentCustomImage = m_wifiCustomImage;
+    currentGlyphId = m_wifiGlyphId;
+  } else if (isEth) {
+    currentCustomImage = m_ethernetCustomImage;
+    currentGlyphId = m_ethernetGlyphId;
+  }
 
-  m_glyph->setVisible(!showSpinner);
-  m_glyph->setGlyph(network_glyphs::glyphForState(s));
-  m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
-  m_glyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
-  m_glyph->measure(renderer);
+  if (currentCustomImage.enabled()) {
+    if (m_glyph != nullptr) {
+      m_glyph->setVisible(false);
+    }
+    if (m_image != nullptr) {
+      m_image->setVisible(!showSpinner);
+      widget_custom_image::sync(*m_image, renderer, currentCustomImage, m_contentScale, widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
+    }
+  } else {
+    if (m_image != nullptr) {
+      m_image->setVisible(false);
+    }
+    if (m_glyph != nullptr) {
+      m_glyph->setVisible(!showSpinner);
+      m_glyph->setGlyph(!currentGlyphId.empty() ? currentGlyphId : network_glyphs::glyphForState(s));
+      m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
+      m_glyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
+      m_glyph->measure(renderer);
+    }
+  }
 
   if (m_spinner != nullptr) {
     m_spinner->setVisible(showSpinner);
@@ -207,10 +287,13 @@ void NetworkWidget::syncState(Renderer& renderer) {
     }
   }
 
-  if (m_label != nullptr) {
-    const bool showLabel = m_showLabel;
-    m_label->setVisible(showLabel);
-    if (showLabel) {
+  if (m_label != nullptr && m_strengthLabel != nullptr) {
+    const bool showStrengthText = m_wifiShowStrength && s.kind == NetworkConnectivity::Wireless && s.connected;
+    
+    m_label->setVisible(m_showLabel);
+    m_strengthLabel->setVisible(showStrengthText);
+    
+    if (m_showLabel) {
       std::string text = labelForState(s);
       if (m_showVpnLabel && s.vpnActive) {
         if (std::string vpnName = firstActiveVpnName(m_network->vpnConnections()); !vpnName.empty()) {
@@ -224,6 +307,17 @@ void NetworkWidget::syncState(Renderer& renderer) {
       m_label->setText(text);
       m_label->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
       m_label->measure(renderer);
+    }
+    
+    if (showStrengthText) {
+      std::string text = std::to_string(s.signalStrength) + "%";
+      if (m_isVertical && text.size() > 3) {
+        text = text.substr(0, 3);
+      }
+      m_strengthLabel->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+      m_strengthLabel->setText(text);
+      m_strengthLabel->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
+      m_strengthLabel->measure(renderer);
     }
   }
 

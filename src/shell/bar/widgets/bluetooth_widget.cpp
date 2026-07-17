@@ -103,7 +103,7 @@ void BluetoothWidget::doLayout(Renderer& renderer, float /*containerWidth*/, flo
     m_label->measure(renderer);
     if (m_label->width() > 0.0f) {
       contentHeight = std::max(contentHeight, m_label->height());
-      m_label->setPosition(m_glyph->width() + Style::spaceXs, std::round((contentHeight - m_label->height()) * 0.5f));
+      m_label->setPosition(m_glyph->width() + iconTextSpacing(), std::round((contentHeight - m_label->height()) * 0.5f));
       totalWidth = m_label->x() + m_label->width();
     }
   }

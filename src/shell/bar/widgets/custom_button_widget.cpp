@@ -131,7 +131,8 @@ void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, floa
   const bool showGlyph = !showImage && m_glyph != nullptr && !m_glyphName.empty();
   const bool showIcon = showImage || showGlyph;
   const bool showLabel = !m_labelText.empty();
-  const float spacing = (showIcon && showLabel) ? Style::spaceXs * m_contentScale : 0.0f;
+  const float spacing = (showIcon && showLabel) ? iconTextSpacing() : 0.0f;
+  const float padding = (showIcon && !showLabel) ? std::round(iconTextSpacing() / 2.0f) : 0.0f;
 
   if (m_glyph != nullptr) {
     m_glyph->setVisible(showGlyph);
@@ -173,9 +174,11 @@ void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, floa
       }
       width = std::max(width, m_label->width());
       height += m_label->height();
+    } else {
+      height += padding * 2.0f;
     }
 
-    float y = 0.0f;
+    float y = padding;
     if (showImage) {
       m_image->setPosition(std::round((width - m_image->width()) * 0.5f), y);
       y += m_image->height() + spacing;
@@ -205,9 +208,11 @@ void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, floa
     }
     width += m_label->width();
     height = std::max(height, m_label->height());
+  } else {
+    width += padding * 2.0f;
   }
 
-  float x = 0.0f;
+  float x = padding;
   if (showImage) {
     m_image->setPosition(x, std::round((height - m_image->height()) * 0.5f));
     x += m_image->width() + spacing;

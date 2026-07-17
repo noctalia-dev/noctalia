@@ -56,7 +56,7 @@ namespace popup_chrome {
   void setContentInputRegion(PopupSurface& surface, const Geometry& geometry);
   [[nodiscard]] RectNode* addShadow(
       Node& parent, const Geometry& geometry, const ShellConfig::ShadowConfig& shadow, float radius,
-      float backgroundOpacity = 1.0f
+      float backgroundOpacity = 1.0f, bool componentShadow = true
   );
 
 } // namespace popup_chrome

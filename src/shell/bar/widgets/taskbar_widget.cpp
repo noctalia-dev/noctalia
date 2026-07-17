@@ -422,7 +422,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
   // If the title text is too narrow, all it shows is "..." which isn't useful, so we hide it instead.
   const auto metric = renderer.measureText("...", Style::fontSizeCaption * m_contentScale, fontWeight);
   const float minWindowTitleWidth = (metric.right - metric.left) * 2;
-  const float windowTitleGap = Style::spaceXs * m_contentScale;
+  const float windowTitleGap = iconTextSpacing();
   const float windowTitleWidth =
       std::min(m_windowTitleMaxWidth * m_contentScale, std::max(0.0f, maxTileWidth - tileSize - windowTitleGap));
   const bool showWindowTitle = m_showWindowTitle && windowTitleWidth > minWindowTitleWidth;
@@ -1955,7 +1955,7 @@ void TaskbarWidget::openTaskContextMenu(const TaskModel& task, InputArea& area) 
   if (m_contextMenuPopup == nullptr) {
     m_contextMenuPopup = std::make_unique<ContextMenuPopup>(m_platform.wayland(), *renderContext);
   }
-  m_contextMenuPopup->setShadowConfig(m_shadowConfig);
+  m_contextMenuPopup->setShadowConfig(m_shadowConfig, m_configOptions.shadowEnabled);
   m_contextMenuPopup->setOnActivate([this, entryActions, entryAppName, entryWorkingDir,
                                      entryTerminal](const ContextMenuControlEntry& entry) {
     if (entry.id >= 0) {

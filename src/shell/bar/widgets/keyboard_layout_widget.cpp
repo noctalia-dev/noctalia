@@ -419,7 +419,7 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
     }
     root()->setSize(w, y);
   } else {
-    const float spacing = Style::spaceXs;
+    const float spacing = iconTextSpacing() * m_contentScale;
     float x = 0.0f;
     const float iconH = showIcon ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0f;
     const float labelH = m_showLabel ? m_label->height() : 0.0f;

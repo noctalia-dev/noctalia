@@ -100,6 +100,16 @@ void Widget::setUpdateCallback(UpdateCallback callback) { m_updateCallback = std
 
 void Widget::setRedrawCallback(RedrawCallback callback) { m_redrawCallback = std::move(callback); }
 
+float Widget::iconTextSpacing() const noexcept {
+  if (m_localIconSpacing.has_value()) {
+    return *m_localIconSpacing * m_contentScale;
+  }
+  if (m_widgetIconSpacing.has_value()) {
+    return *m_widgetIconSpacing * m_contentScale;
+  }
+  return Style::spaceXs * m_contentScale;
+}
+
 void Widget::setFrameTickRequestCallback(FrameTickRequestCallback callback) {
   m_frameTickRequestCallback = std::move(callback);
 }

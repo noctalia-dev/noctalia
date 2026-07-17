@@ -52,7 +52,7 @@ public:
 
   void setOnActivate(std::function<void(const ContextMenuControlEntry&)> callback);
   void setOnDismissed(std::function<void()> callback);
-  void setShadowConfig(const ShellConfig::ShadowConfig& shadow);
+  void setShadowConfig(const ShellConfig::ShadowConfig& shadow, bool shadowEnabled = true);
 
   bool onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
@@ -82,6 +82,7 @@ private:
   std::function<void(const ContextMenuControlEntry&)> m_onActivate;
   std::function<void()> m_onDismissed;
   ShellConfig::ShadowConfig m_shadowConfig;
+  bool m_shadowEnabled = true;
 
   // Parent layer surface (e.g. a bar) whose keyboard interactivity is flipped to
   // OnDemand while the menu is open so the grabbing popup inherits keyboard

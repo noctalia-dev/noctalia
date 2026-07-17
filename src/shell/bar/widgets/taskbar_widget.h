@@ -49,6 +49,7 @@ struct TaskbarWidgetOptions {
   std::string barPosition;
   std::string barName;
   ShellConfig::ShadowConfig shadowConfig;
+  bool shadowEnabled = true;
 };
 
 class TaskbarWidget : public Widget {

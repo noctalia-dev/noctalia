@@ -78,6 +78,7 @@ struct BarMonitorOverride {
   std::optional<std::int32_t> marginOppositeEdge; // extra reserved space on the inward side of the bar
   std::optional<std::int32_t> padding;            // main-axis padding from bar edges to start/end sections
   std::optional<std::int32_t> widgetSpacing;      // gap between widgets within a section
+  std::optional<float> widgetIconSpacing;         // gap between icon and label within a widget
   std::optional<bool> shadow;                     // use the global shell shadow on this bar
   std::optional<bool> contactShadow;              // dark gradient between attached panel and bar
   std::optional<std::int32_t> panelOverlap;       // logical px the attached panel overlaps the bar edge (seam tuning)
@@ -139,6 +140,9 @@ struct BarConfig {
   std::int32_t marginOppositeEdge = 0; // extra reserved space on the inward side of the bar
   std::int32_t padding = 14;           // main-axis padding from bar edges to start/end sections
   std::int32_t widgetSpacing = 6;      // gap between widgets within a section
+  // Gap between icon and label in widgets that show both (logical px, before content scale).
+  // Unset inherits the default Style::spaceXs (4px).
+  std::optional<float> widgetIconSpacing;
   bool shadow = true;                  // use the global shell shadow
   bool contactShadow = false;          // dark gradient between attached panel and bar
   // Logical px the attached panel overlaps the bar edge so their seam is hidden. The ideal value depends on the
@@ -960,6 +964,9 @@ struct ShellConfig {
 
   float cornerRadiusScale = 1.0f;
   bool buttonBorders = true;
+  bool inputBorders = true;             // border on input entry boxes and dropdown option boxes
+  bool popupBorders = true;             // border on context menus and inner windows
+  bool popupShadows = true;             // shadows for context menus and inner windows
   std::string fontFamily = "sans-serif";
   std::string lang; // empty = auto-detect from $LC_ALL/$LC_MESSAGES/$LANG
   std::string timeFormat = "{:%H:%M}";
@@ -1361,6 +1368,7 @@ struct ThemeConfig {
   std::string wallpaperScheme = "m3-content";
   ThemeMode mode = ThemeMode::Dark;
   bool pureBlackDark = false;
+  bool pureBlackContextMenus = false; // extend pure black to context menu backgrounds
   TemplatesConfig templates;
 
   bool operator==(const ThemeConfig&) const = default;

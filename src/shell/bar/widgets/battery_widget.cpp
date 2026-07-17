@@ -155,7 +155,7 @@ void BatteryWidget::layoutGraphicMode(Renderer& renderer) {
   const float termW = std::round(kGraphicTerminalWidth * scale);
   const float termH = std::round(kGraphicTerminalHeight * scale);
   const float cornerR = std::round(kGraphicCornerRadius * scale);
-  const float labelGap = Style::spaceXs * m_contentScale;
+  const float labelGap = iconTextSpacing();
   const float stateGap = std::round(Style::spaceXs * 0.5f * m_contentScale);
   const bool showLabel = m_overlayLabel != nullptr && m_showLabel;
   const bool showStateGlyph = m_overlayGlyph != nullptr && m_overlayGlyph->visible();
@@ -266,7 +266,7 @@ void BatteryWidget::layoutGlyphMode(Renderer& renderer, float /*containerWidth*/
     } else {
       const float h = std::max(m_glyph->height(), m_label->height());
       m_glyph->setPosition(0.0f, std::round((h - m_glyph->height()) * 0.5f));
-      m_label->setPosition(m_glyph->width() + Style::spaceXs, std::round((h - m_label->height()) * 0.5f));
+      m_label->setPosition(m_glyph->width() + iconTextSpacing(), std::round((h - m_label->height()) * 0.5f));
       rootNode->setSize(m_label->x() + m_label->width(), h);
     }
   } else {

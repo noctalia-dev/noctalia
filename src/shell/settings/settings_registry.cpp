@@ -492,6 +492,11 @@ namespace settings {
         ToggleSetting{cfg.theme.pureBlackDark}, "oled amoled true black background contrast"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Appearance, "theme", tr("settings.schema.appearance.pure-black-context-menus.label"),
+        tr("settings.schema.appearance.pure-black-context-menus.description"), {"theme", "pure_black_context_menus"},
+        ToggleSetting{cfg.theme.pureBlackContextMenus}, "oled amoled true black background context menu popup"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Appearance, "interface", tr("settings.schema.appearance.corner-roundness.label"),
         tr("settings.schema.appearance.corner-roundness.description"), {"shell", "corner_radius_scale"},
         sliderFor(cfg.shell.cornerRadiusScale, noctalia::config::schema::kCornerRadiusScaleRange, false),
@@ -501,6 +506,21 @@ namespace settings {
         SettingsSection::Appearance, "interface", tr("settings.schema.appearance.button-borders.label"),
         tr("settings.schema.appearance.button-borders.description"), {"shell", "button_borders"},
         ToggleSetting{cfg.shell.buttonBorders}, "button outline border flat minimal"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.input-borders.label"),
+        tr("settings.schema.appearance.input-borders.description"), {"shell", "input_borders"},
+        ToggleSetting{cfg.shell.inputBorders}, "input outline border flat minimal textbox inputbox"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.popup-borders.label"),
+        tr("settings.schema.appearance.popup-borders.description"), {"shell", "popup_borders"},
+        ToggleSetting{cfg.shell.popupBorders}, "popup outline border flat minimal context menu"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.popup-shadows.label"),
+        tr("settings.schema.appearance.popup-shadows.description"), {"shell", "popup_shadows"},
+        ToggleSetting{cfg.shell.popupShadows}, "popup shadow depth context menu window"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Appearance, "interface", tr("settings.schema.appearance.app-icon-colorize.label"),
@@ -2862,6 +2882,11 @@ namespace settings {
           SliderSetting{bar.widgetSpacing, 0.0f, 32.0f, 1.0f, true}, "gap"
       ));
       entries.push_back(makeEntry(
+          section, "widgets", tr("settings.schema.bar.widget-icon-spacing.label"),
+          tr("settings.schema.bar.widget-icon-spacing.description"), path("widget_icon_spacing"),
+          SliderSetting{bar.widgetIconSpacing.value_or(6.0f), 0.0f, 32.0f, 1.0f, true}, "icon text gap"
+      ));
+      entries.push_back(makeEntry(
           section, "widgets", tr("settings.schema.bar.widget-color.label"),
           tr("settings.schema.bar.widget-color.description"), path("color"), colorSpecPicker(bar.widgetColor, true),
           "color foreground", true
@@ -3197,6 +3222,11 @@ namespace settings {
             section, "widgets", tr("settings.schema.bar.widget-spacing.label"),
             tr("settings.schema.bar.widget-spacing.description"), monitorPath("widget_spacing"),
             SliderSetting{ovr.widgetSpacing.value_or(bar.widgetSpacing), 0.0f, 32.0f, 1.0f, true}, "gap"
+        ));
+        entries.push_back(makeEntry(
+            section, "widgets", tr("settings.schema.bar.widget-icon-spacing.label"),
+            tr("settings.schema.bar.widget-icon-spacing.description"), monitorPath("widget_icon_spacing"),
+            SliderSetting{ovr.widgetIconSpacing.value_or(bar.widgetIconSpacing.value_or(6.0f)), 0.0f, 32.0f, 1.0f, true}, "icon text gap"
         ));
         entries.push_back(makeEntry(
             section, "widgets", tr("settings.schema.bar.widget-color.label"),

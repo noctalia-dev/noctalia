@@ -2149,12 +2149,13 @@ void Bar::populateWidgets(BarInstance& instance) {
     const float contentScale = resolveWidgetContentScale(instance.barConfig.scale, wcPtr, "widget." + name + ".scale");
     auto widget = m_widgetFactory->create(
         name, instance.output, contentScale, instance.barConfig.position, instance.barConfig.name,
-        static_cast<float>(instance.barConfig.widgetSpacing)
+        static_cast<float>(instance.barConfig.widgetSpacing), instance.barConfig.shadow
     );
     if (widget == nullptr) {
       return;
     }
     widget->setConfigName(name);
+    widget->setWidgetIconSpacing(instance.barConfig.widgetIconSpacing);
     if (wcPtr != nullptr) {
       widget->setAnchor(wcPtr->getBool("anchor", false));
       widget->setNonInteractive(!wcPtr->getBool("interactive", true));
@@ -2212,10 +2213,11 @@ void Bar::populateWidgets(BarInstance& instance) {
   // Prepend a red "debug" pill to the end section if running a debug build
   auto debugWidget = m_widgetFactory->create(
       "debug_indicator", instance.output, instance.barConfig.scale, instance.barConfig.position,
-      instance.barConfig.name, static_cast<float>(instance.barConfig.widgetSpacing)
+      instance.barConfig.name, static_cast<float>(instance.barConfig.widgetSpacing), instance.barConfig.shadow
   );
   if (debugWidget != nullptr) {
     debugWidget->setConfigName("debug_indicator");
+    debugWidget->setWidgetIconSpacing(instance.barConfig.widgetIconSpacing);
     debugWidget->setLabelFontWeight(labelFontWeight);
     debugWidget->setLabelFontFamily(barFontFamily);
     debugWidget->create();

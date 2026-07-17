@@ -193,7 +193,7 @@ void PluginWidget::create() {
   auto flex = ui::row({
       .out = &m_flex,
       .align = FlexAlign::Center,
-      .gap = Style::spaceXs,
+      .gap = iconTextSpacing() * m_contentScale,
   });
 
   flex->addChild(

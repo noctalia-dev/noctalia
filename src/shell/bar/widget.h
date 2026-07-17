@@ -66,6 +66,8 @@ public:
   void setPanelToggleCallback(PanelToggleCallback callback);
   void setContentScale(float scale) noexcept { m_contentScale = scale; }
   [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
+  void setWidgetIconSpacing(std::optional<float> spacing) noexcept { m_widgetIconSpacing = spacing; }
+  [[nodiscard]] float iconTextSpacing() const noexcept;
   void setLabelFontWeight(FontWeight fontWeight) noexcept { m_labelFontWeight = fontWeight; }
   [[nodiscard]] FontWeight labelFontWeight() const noexcept { return m_labelFontWeight; }
   void setLabelFontFamily(std::string family) noexcept { m_labelFontFamily = std::move(family); }
@@ -91,6 +93,8 @@ public:
   // Outermost node for flex layout / anchor alignment (capsule shell when enabled).
   [[nodiscard]] Node* layoutBoundsNode() const noexcept { return m_capsuleShell != nullptr ? m_capsuleShell : root(); }
   [[nodiscard]] float resolvedBarCapsuleRadius(float width, float height) const noexcept;
+  
+  void setLocalIconSpacing(std::optional<float> spacing) noexcept { m_localIconSpacing = spacing; }
 
   // Whether the bar should paint the decorative capsule for this frame (spec enabled + visible ink).
   [[nodiscard]] virtual bool shouldShowBarCapsule() const;
@@ -128,6 +132,8 @@ protected:
   WidgetBarCapsuleSpec m_barCapsuleSpec{};
   std::optional<ColorSpec> m_widgetForeground;
   std::optional<ColorSpec> m_widgetIconColor;
+  std::optional<float> m_localIconSpacing;
+  std::optional<float> m_widgetIconSpacing;
   bool m_nonInteractive = false;
   Node* m_capsuleShell = nullptr;
   Box* m_capsuleBox = nullptr;

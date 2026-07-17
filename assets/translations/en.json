@@ -993,6 +993,10 @@
           "empty": "No settings match the current filters.",
           "groups": {
             "grouping": "Grouping",
+            "network": {
+              "ethernet": "Ethernet",
+              "wifi": "Wi-Fi"
+            },
             "presentation": "Presentation",
             "runtime": "Runtime",
             "taskbar": {
@@ -1501,6 +1505,18 @@
         "global-shadow-direction": {
           "description": "Direction the shadow is cast from surfaces"
         },
+        "input-borders": {
+          "description": "Draw outlines around text inputs and dropdowns",
+          "label": "Input Borders"
+        },
+        "popup-borders": {
+          "description": "Draw outlines around floating menus, dialogs, and tooltips",
+          "label": "Popup Borders"
+        },
+        "popup-shadows": {
+          "description": "Cast shadows from floating menus, dialogs, and tooltips",
+          "label": "Popup Shadows"
+        },
         "language": {
           "description": "Override automatic locale detection",
           "label": "Language"
@@ -1508,6 +1524,10 @@
         "palette-source": {
           "description": "Where to derive the color palette from",
           "label": "Palette Source"
+        },
+        "pure-black-context-menus": {
+          "description": "Force context menus to have a pure black background",
+          "label": "Pure Black Context Menus"
         },
         "pure-black-dark": {
           "description": "Anchor dark surfaces to true black, preventing banding on OLED panels (dark mode only)",
@@ -1704,6 +1724,10 @@
         "widget-icon-color": {
           "description": "Overrides the widget color for icons on this bar; fixed hex colors are also supported",
           "label": "Widget Icon Color"
+        },
+        "widget-icon-spacing": {
+          "description": "Space between icons and text within bar widgets",
+          "label": "Widget Icon Spacing"
         },
         "widget-spacing": {
           "description": "Space between bar widgets",
@@ -3098,6 +3122,15 @@
           "description": "Color role used for empty workspaces; fixed hex colors are also supported",
           "label": "Empty Color"
         },
+        "ethernet-custom-image": {
+          "description": "Path to a custom image for ethernet; leave empty to use the icon glyph",
+          "dialog-title": "Select custom image",
+          "label": "Custom image"
+        },
+        "ethernet-custom-image-colorize": {
+          "description": "Tint the custom image with the widget Icon Color setting",
+          "label": "Colorize custom image"
+        },
         "focused-color": {
           "description": "Color role used for the focused workspace; fixed hex colors are also supported",
           "label": "Focused Color"
@@ -3125,6 +3158,14 @@
           "label": "Glyph",
           "sysmon-description": "Custom icon glyph; leave empty to use the icon for the selected stat",
           "volume-description": "Custom icon glyph; leave empty to use the built-in dynamic icons"
+        },
+        "wifi-glyph": {
+          "description": "Custom icon glyph for Wi-Fi",
+          "label": "Wi-Fi Glyph"
+        },
+        "ethernet-glyph": {
+          "description": "Custom icon glyph for Ethernet",
+          "label": "Ethernet Glyph"
         },
         "group-by-workspace": {
           "description": "Group taskbar icons into workspace capsules when compositor data is available",
@@ -3208,8 +3249,16 @@
           "label": "Icon Size"
         },
         "icon-spacing": {
-          "description": "Spacing between privacy indicator icons in pixels",
-          "label": "Icon Spacing"
+          "description": "Spacing between the icon and text in pixels",
+          "label": "Icon Spacing",
+          "privacy-description": "Spacing between privacy indicator icons in pixels",
+          "network-description": "Spacing between the network icon and its label",
+          "sysmon-description": "Spacing between the system monitor icon and its label",
+          "custom-button-description": "Spacing between the custom button's icon and label (or padding when there is no text)"
+        },
+        "label-spacing": {
+          "description": "Spacing between the main label and the strength percentage in pixels",
+          "label": "Label Spacing"
         },
         "inactive-color": {
           "description": "Color used for inactive privacy indicators; fixed hex colors are also supported",
@@ -3269,6 +3318,15 @@
         "middle-command": {
           "description": "Shell command run when middle-clicking this button. When set, middle-click opens this command instead of widget settings.",
           "label": "Middle Click Command"
+        },
+        "minimal-hover-highlight": {
+          "description": "Show a hover background on minimal workspace labels",
+          "label": "Hover Highlight"
+        },
+        "minimal-spacing": {
+          "description": "Spacing between minimal workspace labels",
+          "label": "Minimal Spacing",
+          "workspaces-description": "Padding around workspace labels in the minimal style"
         },
         "min-length": {
           "description": "Minimum widget length in pixels",
@@ -3392,6 +3450,10 @@
           "description": "Show current temperature text",
           "label": "Show Temperature"
         },
+        "show-signal-strength": {
+          "description": "Show Wi-Fi signal strength percentage",
+          "label": "Show Signal Strength"
+        },
         "show-vpn-label": {
           "description": "Show VPN label instead of interface label next to the icon",
           "label": "Show VPN Label"
@@ -3407,6 +3469,10 @@
         "show-workspace-label": {
           "description": "Show the small workspace tag on grouped taskbar capsules; turn off for icon-only groups",
           "label": "Workspace Capsule Label"
+        },
+        "spacing": {
+          "description": "Space between elements within this widget",
+          "label": "Widget Spacing"
         },
         "stat": {
           "description": "System statistic to display",
@@ -3452,6 +3518,19 @@
         "width": {
           "description": "Widget width in pixels",
           "label": "Width"
+        },
+        "wifi-custom-image": {
+          "description": "Path to a custom image for Wi-Fi; leave empty to use the icon glyph",
+          "dialog-title": "Select custom image",
+          "label": "Custom image"
+        },
+        "wifi-custom-image-colorize": {
+          "description": "Tint the custom image with the widget Icon Color setting",
+          "label": "Colorize custom image"
+        },
+        "wifi-show-strength": {
+          "description": "Show the current strength of the Wi-Fi in percentage",
+          "label": "Show Strength"
         },
         "window-title-max-width": {
           "description": "Maximum width in pixels for window titles",

@@ -136,7 +136,7 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
   applyTitleScrollMode(showLabel);
 
   const float leadingWidth = showArtSlot ? artSize : (showEmptyGlyph ? m_emptyGlyph->width() : 0.0f);
-  const float spacing = showLabel && leadingWidth > 0.0f ? Style::spaceXs : 0.0f;
+  const float spacing = showLabel && leadingWidth > 0.0f ? iconTextSpacing() : 0.0f;
   const float labelMaxWidth = showLabel ? std::max(0.0f, maxLength - leadingWidth - spacing) : 0.0f;
   m_label->setMaxWidth(labelMaxWidth);
   m_label->measure(renderer);

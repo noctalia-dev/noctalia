@@ -461,7 +461,7 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
   syncIcon(renderer);
   const float iconW = iconWidth();
   const float iconH = iconHeight();
-  const float gap = Style::spaceXs * m_contentScale;
+  const float gap = iconTextSpacing() * m_contentScale;
   const bool verticalBar = m_isVerticalBar;
 
   if (m_label != nullptr) {

@@ -217,10 +217,18 @@ void ContextMenuControl::rebuild(Renderer& renderer) {
   addChild(
       ui::box({
           .configure = [this](Box& bg) {
-            bg.setCardStyle(m_contentScale);
+            bg.setCardStyle(m_contentScale, 1.0f, Style::popupBordersEnabled());
             bg.setRadius(Style::scaledRadiusLg(m_contentScale));
-            bg.setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
-            bg.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * m_contentScale);
+            if (Style::pureBlackContextMenusEnabled() && !isResolvedLightTheme()) {
+              bg.setFill(ColorSpec{.role = std::nullopt, .fixed = rgba(0.0f, 0.0f, 0.0f, 1.0f)});
+            } else {
+              bg.setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
+            }
+            if (Style::popupBordersEnabled()) {
+              bg.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * m_contentScale);
+            } else {
+              bg.clearBorder();
+            }
             bg.setFrameSize(width(), height());
           },
       })

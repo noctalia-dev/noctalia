@@ -77,6 +77,7 @@ WorkspacesWidget::WorkspacesWidget(
       m_hideWhenEmpty(options.hideWhenEmpty), m_pillScale(options.pillScale),
       m_activePillSize(std::clamp(options.activePillSize, 0.25f, 8.0f)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25f, 8.0f)), m_minimal(options.minimal),
+      m_minimalSpacing(options.minimalSpacing), m_minimalHoverHighlight(options.minimalHoverHighlight),
       m_focusedPill(options.focusedPill), m_focusedOutputOnly(options.focusedOutputOnly),
       m_focusedColor(options.focusedColor), m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor) {
   buildDesktopIconIndex();
@@ -427,7 +428,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
   }
 
   const float gap = kWorkspaceGap * m_contentScale;
-  const float labelFontSize = Style::fontSizeMini * m_contentScale;
+  const float labelFontSize = m_minimal ? (Style::fontSizeBody * m_contentScale) : Style::fontSizeMini * m_contentScale;
   const float pillHeight = std::round(kWorkspacePillDefaultHeight * m_contentScale * m_pillScale);
   const FontWeight configuredFontWeight = labelFontWeight();
 
@@ -454,7 +455,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
   }
 
   const float baseSize = std::round(pillHeight);
-  const float padding = m_minimal ? (Style::spaceXs * m_contentScale) : (baseSize * 0.6f);
+  const float padding = m_minimal ? (m_minimalSpacing * m_contentScale) : (baseSize * 0.6f);
   float maxLabelHeight = labelFontSize;
 
   for (std::size_t i = 0; i < entries.size(); ++i) {
@@ -591,6 +592,10 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
       setWorkspaceClickHandler(*area, ws);
 
       area->setOnEnter([this, areaPtr](const InputArea::PointerData&) {
+        if (m_minimal && !m_minimalHoverHighlight) {
+          return;
+        }
+
         const auto itemIt = std::ranges::find(m_items, areaPtr, &Item::area);
         if (itemIt == m_items.end() || itemIt->exiting) {
           return;
@@ -625,6 +630,10 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
       });
 
       area->setOnLeave([this, areaPtr]() {
+        if (m_minimal && !m_minimalHoverHighlight) {
+          return;
+        }
+
         if (m_hoveredArea != areaPtr) {
           return;
         }
@@ -792,7 +801,7 @@ void WorkspacesWidget::ensureItemLabel(Renderer& renderer, Item& item, const Wor
     return;
   }
 
-  const float labelFontSize = Style::fontSizeMini * m_contentScale;
+  const float labelFontSize = m_minimal ? (Style::fontSizeBody * m_contentScale) : Style::fontSizeMini * m_contentScale;
   item.text = static_cast<Label*>(item.area->addChild(
       ui::label({
           .text = item.label,
@@ -810,10 +819,10 @@ void WorkspacesWidget::recalculateItemMetrics(
     Renderer& renderer, Item& item, const Workspace& workspace, std::size_t displayIndex
 ) {
   const std::string label = workspaceLabel(workspace, displayIndex);
-  const float labelFontSize = Style::fontSizeMini * m_contentScale;
+  const float labelFontSize = m_minimal ? (Style::fontSizeBody * m_contentScale) : Style::fontSizeMini * m_contentScale;
   const float pillHeight = std::round(kWorkspacePillDefaultHeight * m_contentScale * m_pillScale);
   const float baseSize = std::round(pillHeight);
-  const float padding = m_minimal ? (Style::spaceXs * m_contentScale) : (baseSize * 0.6f);
+  const float padding = m_minimal ? (m_minimalSpacing * m_contentScale) : (baseSize * 0.6f);
   const FontWeight configuredFontWeight = labelFontWeight();
 
   item.label = label;
@@ -1123,7 +1132,7 @@ void WorkspacesWidget::applyItemLayout(Item& it) {
   }
 
   const float iconSize = focusedPillIconSize();
-  const float iconGap = Style::spaceXs * m_contentScale;
+  const float iconGap = iconTextSpacing();
 
   if (m_isVertical) {
     const float textHeight = showText ? it.text->height() : 0.0f;
@@ -1283,7 +1292,7 @@ float WorkspacesWidget::focusedPillDotSize() const noexcept {
 float WorkspacesWidget::focusedPillActiveMainAxisSize(
     float textWidth, float textHeight, bool showLabel, bool hasIcon, float baseSize, float padding
 ) const noexcept {
-  const float iconGap = Style::spaceXs * m_contentScale;
+  const float iconGap = iconTextSpacing();
   const float iconReserve = hasIcon ? focusedPillIconSize() + iconGap : 0.0f;
   const float minActive = workspaceMainAxisMinWidth(baseSize, true);
   if (!showLabel && iconReserve <= 0.0f) {

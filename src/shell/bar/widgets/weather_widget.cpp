@@ -61,7 +61,7 @@ void WeatherWidget::doLayout(Renderer& renderer, float containerWidth, float con
   m_label->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
   m_label->measure(renderer);
 
-  const float spacing = m_label->text().empty() ? 0.0f : (Style::spaceXs * m_contentScale);
+  const float spacing = m_label->text().empty() ? 0.0f : iconTextSpacing();
   if (m_isVertical) {
     const float contentWidth = std::max(m_glyph->width(), m_label->width());
     m_glyph->setPosition(std::round((contentWidth - m_glyph->width()) * 0.5f), 0.0f);

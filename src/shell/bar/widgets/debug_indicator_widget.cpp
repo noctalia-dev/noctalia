@@ -15,7 +15,7 @@ void DebugIndicatorWidget::create() {
       {
           .out = &m_container,
           .align = FlexAlign::Center,
-          .gap = Style::spaceXs * m_contentScale,
+          .gap = iconTextSpacing() * m_contentScale,
       },
       ui::glyph({
           .out = &m_glyph,
@@ -42,7 +42,7 @@ void DebugIndicatorWidget::doLayout(Renderer& renderer, float containerWidth, fl
   }
 
   const bool isVertical = containerHeight > containerWidth;
-  m_container->setGap(Style::spaceXs * m_contentScale);
+  m_container->setGap(iconTextSpacing() * m_contentScale);
   m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
   m_glyph->setColor(colorSpecFromRole(ColorRole::Error));
   m_label->setVisible(!isVertical);

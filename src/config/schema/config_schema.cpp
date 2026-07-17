@@ -1096,6 +1096,7 @@ namespace noctalia::config::schema {
         field(&ThemeConfig::wallpaperScheme, "wallpaper_scheme"),
         enumField(&ThemeConfig::mode, "mode", kThemeModes),
         field(&ThemeConfig::pureBlackDark, "pure_black_dark"),
+        field(&ThemeConfig::pureBlackContextMenus, "pure_black_context_menus"),
         subTable(&ThemeConfig::templates, "templates", templatesSchema()),
     };
     return s;
@@ -1365,6 +1366,9 @@ namespace noctalia::config::schema {
     static const Schema<ShellConfig> s = {
         field(&ShellConfig::cornerRadiusScale, "corner_radius_scale", kCornerRadiusScaleRange),
         field(&ShellConfig::buttonBorders, "button_borders"),
+        field(&ShellConfig::inputBorders, "input_borders"),
+        field(&ShellConfig::popupBorders, "popup_borders"),
+        field(&ShellConfig::popupShadows, "popup_shadows"),
         // font_family is trimmed; empty falls back to sans-serif.
         custom<ShellConfig>(
             "font_family",
@@ -2014,6 +2018,7 @@ namespace noctalia::config::schema {
         field(&BarConfig::marginOppositeEdge, "margin_opposite_edge"),
         field(&BarConfig::padding, "padding"),
         field(&BarConfig::widgetSpacing, "widget_spacing"),
+        optionalFloatField(&BarConfig::widgetIconSpacing, "widget_icon_spacing"),
         field(&BarConfig::shadow, "shadow"),
         field(&BarConfig::contactShadow, "contact_shadow"),
         field(&BarConfig::panelOverlap, "panel_overlap", kBarPanelOverlapRange),
@@ -2085,6 +2090,7 @@ namespace noctalia::config::schema {
         optionalIntField(&BarMonitorOverride::marginOppositeEdge, "margin_opposite_edge"),
         optionalIntField(&BarMonitorOverride::padding, "padding"),
         optionalIntField(&BarMonitorOverride::widgetSpacing, "widget_spacing"),
+        optionalFloatField(&BarMonitorOverride::widgetIconSpacing, "widget_icon_spacing"),
         optionalFloatField(&BarMonitorOverride::scale, "scale", kBarScaleRange),
         optionalBoolField(&BarMonitorOverride::shadow, "shadow"),
         optionalBoolField(&BarMonitorOverride::contactShadow, "contact_shadow"),

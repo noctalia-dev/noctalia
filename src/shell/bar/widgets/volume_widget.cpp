@@ -132,7 +132,7 @@ void VolumeWidget::doLayout(Renderer& renderer, float containerWidth, float cont
     }
     float totalWidth = iconW;
     if (labelVisible) {
-      m_label->setPosition(iconW + Style::spaceXs, std::round((h - m_label->height()) * 0.5f));
+      m_label->setPosition(iconW + iconTextSpacing(), std::round((h - m_label->height()) * 0.5f));
       totalWidth = m_label->x() + m_label->width();
     }
     rootNode->setSize(totalWidth, h);

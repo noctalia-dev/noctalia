@@ -171,6 +171,7 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, TrayWidgetOptio
       m_panelGridMode(options.panelGridMode),
       m_panelGridColumns(std::clamp<std::size_t>(options.panelGridColumns, 1U, 5U)),
       m_inlineEntryGap(std::max(0.0f, options.inlineEntryGap)), m_matchAdjacentSpacing(options.matchAdjacentSpacing),
+      m_widgetSpacing(std::max(0.0f, options.widgetSpacing)),
       m_customItemSize(options.customItemSize) {
   auto normalizeTokens = [](std::vector<std::string>& tokens) {
     std::vector<std::string> normalized;
@@ -234,7 +235,7 @@ std::string TrayWidget::resolveFromTrayThemePath(std::string_view themePath, std
 
 float TrayWidget::resolvedInlineEntryGap() const {
   if (!m_matchAdjacentSpacing) {
-    return m_inlineEntryGap;
+    return m_widgetSpacing * m_contentScale;
   }
   const auto& cap = barCapsuleSpec();
   const float pad = cap.enabled ? cap.padding * m_contentScale : 0.0f;

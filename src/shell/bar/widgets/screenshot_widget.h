@@ -22,7 +22,7 @@ public:
   ScreenshotWidget(
       wl_output* output, std::string barGlyphId, ScreenshotService& screenshots, ConfigService& configService,
       CompositorPlatform& platform, RenderContext& renderContext, const ShellConfig::ShadowConfig& shadow,
-      std::string barPosition = "top", WidgetCustomImage customImage = {}
+      bool shadowEnabled, std::string barPosition = "top", WidgetCustomImage customImage = {}
   );
   ~ScreenshotWidget() override;
 
@@ -43,6 +43,7 @@ private:
   CompositorPlatform& m_platform;
   RenderContext& m_renderContext;
   ShellConfig::ShadowConfig m_shadowConfig;
+  bool m_shadowEnabled = true;
   std::string m_barPosition;
   WidgetCustomImage m_customImage;
   Glyph* m_glyph = nullptr;

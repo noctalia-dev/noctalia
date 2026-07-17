@@ -95,9 +95,9 @@ namespace popup_chrome {
 
   RectNode* addShadow(
       Node& parent, const Geometry& geometry, const ShellConfig::ShadowConfig& shadow, float radius,
-      float backgroundOpacity
+      float backgroundOpacity, bool componentShadow
   ) {
-    if (!shell::surface_shadow::enabled(true, shadow)) {
+    if (!shell::surface_shadow::enabled(componentShadow, shadow)) {
       return nullptr;
     }
 

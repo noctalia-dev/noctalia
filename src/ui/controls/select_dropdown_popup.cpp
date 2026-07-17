@@ -232,7 +232,7 @@ void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
   const float menuY = chrome.contentY();
   const float radius = Style::scaledRadiusMd();
 
-  (void)popup_chrome::addShadow(*m_sceneRoot, chrome, m_shadowConfig, radius);
+  (void)popup_chrome::addShadow(*m_sceneRoot, chrome, m_shadowConfig, radius, 1.0f, Style::popupShadowsEnabled());
 
   auto bg = std::make_unique<RectNode>();
   bg->setStyle(
@@ -242,7 +242,7 @@ void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
           .fillMode = FillMode::Solid,
           .radius = radius,
           .softness = 1.0f,
-          .borderWidth = Style::borderWidth,
+          .borderWidth = Style::popupBordersEnabled() ? Style::borderWidth : 0.0f,
       }
   );
   auto* bgNode = static_cast<RectNode*>(m_sceneRoot->addChild(std::move(bg)));
@@ -267,7 +267,7 @@ void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
 
   const bool hasIndicators = !request.indicatorColors.empty();
   const float indicatorSize = hasIndicators ? std::round(request.fontSize) : 0.0f;
-  const float indicatorBorder = hasIndicators ? 1.5f : 0.0f;
+  const float indicatorBorder = hasIndicators && Style::inputBordersEnabled() ? 1.5f : 0.0f;
 
   for (std::size_t i = 0; i < m_options.size(); ++i) {
     const float rowY = static_cast<float>(i) * m_optionHeight;
@@ -353,7 +353,7 @@ void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
 
   auto scrollbar = std::make_unique<Scrollbar>();
   scrollbar->setOnScrollChanged([this](float offset) { setScrollOffset(offset); });
-  const float scrollbarX = menuX + m_menuWidth - Style::scrollbarWidth - Style::borderWidth;
+  const float scrollbarX = menuX + m_menuWidth - Style::scrollbarWidth - (Style::inputBordersEnabled() ? Style::borderWidth : 0.0f);
   scrollbar->setPosition(scrollbarX, menuY + kMenuPadding);
   scrollbar->update(contentViewport, m_totalHeight, m_scrollOffset);
   m_scrollbar = static_cast<Scrollbar*>(m_sceneRoot->addChild(std::move(scrollbar)));

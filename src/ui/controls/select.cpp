@@ -360,7 +360,7 @@ void Select::applyVisualState() {
           .fillMode = FillMode::Solid,
           .radius = Style::scaledRadiusMd(),
           .softness = 1.0f,
-          .borderWidth = triggerFocused ? Style::focusRingWidth : Style::borderWidth,
+          .borderWidth = (triggerFocused || Style::inputBordersEnabled()) ? (triggerFocused ? Style::focusRingWidth : Style::borderWidth) : 0.0f,
       }
   );
 }

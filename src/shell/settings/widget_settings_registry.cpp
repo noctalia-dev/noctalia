@@ -773,6 +773,7 @@ namespace settings {
       add(stringSpec("custom_image", ""));
       add(boolSpec("custom_image_colorize", false));
     } else if (type == "custom_button") {
+      add(intSpec("icon_spacing", 6, 0.0, 48.0, 1.0));
       add(glyphSpec("glyph", "heart"));
       add(stringSpec("custom_image", ""));
       add(boolSpec("custom_image_colorize", false));
@@ -829,11 +830,28 @@ namespace settings {
       add(boolSpec("hide_when_no_media", false));
     } else if (type == "network") {
       add(boolSpec("show_label", true));
+      add(intSpec("icon_spacing", 6, 0.0, 48.0, 1.0));
+      {
+        auto labelSpacing = intSpec("label_spacing", 4, 0.0, 48.0, 1.0);
+        labelSpacing.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
+        add(std::move(labelSpacing));
+      }
       {
         auto vpnName = boolSpec("show_vpn_label", false);
         vpnName.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
         add(std::move(vpnName));
       }
+
+      auto wifiGroup = "network.wifi";
+      add(withGroup(boolSpec("wifi_show_strength", false), wifiGroup));
+      add(withGroup(glyphSpec("wifi_glyph", ""), wifiGroup));
+      add(withGroup(stringSpec("wifi_custom_image", ""), wifiGroup));
+      add(withGroup(boolSpec("wifi_custom_image_colorize", false), wifiGroup));
+
+      auto ethGroup = "network.ethernet";
+      add(withGroup(glyphSpec("ethernet_glyph", ""), ethGroup));
+      add(withGroup(stringSpec("ethernet_custom_image", ""), ethGroup));
+      add(withGroup(boolSpec("ethernet_custom_image_colorize", false), ethGroup));
     } else if (type == "notifications") {
       add(boolSpec("hide_when_no_unread", false));
     } else if (type == "privacy") {
@@ -853,6 +871,7 @@ namespace settings {
       add(intSpec("length", 20, 0.0, 400.0, 1.0));
     } else if (type == "sysmon") {
       add(selectSpec("stat", "cpu_usage", sysmonStats));
+      add(intSpec("icon_spacing", 6, 0.0, 48.0, 1.0));
       {
         auto glyph = glyphSpec("glyph", "");
         glyph.descriptionKey = "settings.widgets.settings.glyph.sysmon-description";
@@ -1004,6 +1023,13 @@ namespace settings {
       add(stringListSpec("hidden"));
       add(stringListSpec("pinned"));
       add(boolSpec("match_adjacent_spacing", false));
+      {
+        auto traySpacing = doubleSpec("spacing", 4.0, 0.0, 32.0, 1.0);
+        WidgetSettingVisibility customSpacingOnly;
+        customSpacingOnly.all = {WidgetSettingVisibilityCondition{"match_adjacent_spacing", {"false"}}};
+        traySpacing.visibleWhen = customSpacingOnly;
+        add(std::move(traySpacing));
+      }
       add(boolSpec("drawer", false));
       {
         const WidgetSettingVisibility drawerOn{"drawer", {"true"}};
@@ -1041,6 +1067,8 @@ namespace settings {
     } else if (type == "workspaces") {
       WidgetSettingVisibility pillStyleOnly;
       pillStyleOnly.all = {WidgetSettingVisibilityCondition{"style", {"regular"}}};
+      WidgetSettingVisibility minimalStyleOnly;
+      minimalStyleOnly.all = {WidgetSettingVisibilityCondition{"style", {"minimal"}}};
       for (auto& spec : commonSpecs) {
         if (spec.schema.key == "capsule_radius") {
           spec.descriptionKey = "settings.widgets.settings.capsule-radius.workspaces-description";
@@ -1091,6 +1119,17 @@ namespace settings {
         inactivePillSize.descriptionKey = "settings.widgets.settings.inactive-pill-size.workspaces-description";
         inactivePillSize.visibleWhen = pillStyleOnly;
         add(std::move(inactivePillSize));
+      }
+      {
+        auto minimalSpacing = withGroup(doubleSpec("minimal_spacing", 4.0, 0.0, 64.0, 1.0), "workspaces.pills");
+        minimalSpacing.descriptionKey = "settings.widgets.settings.minimal-spacing.workspaces-description";
+        minimalSpacing.visibleWhen = minimalStyleOnly;
+        add(std::move(minimalSpacing));
+      }
+      {
+        auto hoverHighlight = withGroup(boolSpec("minimal_hover_highlight", true), "workspaces.pills");
+        hoverHighlight.visibleWhen = minimalStyleOnly;
+        add(std::move(hoverHighlight));
       }
 
       // Colors: the focused/occupied/empty palette and which monitor gets the focused treatment.

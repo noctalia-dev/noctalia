@@ -111,10 +111,10 @@ namespace {
 ScreenshotWidget::ScreenshotWidget(
     wl_output* output, std::string barGlyphId, ScreenshotService& screenshots, ConfigService& configService,
     CompositorPlatform& platform, RenderContext& renderContext, const ShellConfig::ShadowConfig& shadow,
-    std::string barPosition, WidgetCustomImage customImage
+    bool shadowEnabled, std::string barPosition, WidgetCustomImage customImage
 )
     : m_barGlyphId(std::move(barGlyphId)), m_output(output), m_screenshots(screenshots), m_configService(configService),
-      m_platform(platform), m_renderContext(renderContext), m_shadowConfig(shadow),
+      m_platform(platform), m_renderContext(renderContext), m_shadowConfig(shadow), m_shadowEnabled(shadowEnabled),
       m_barPosition(std::move(barPosition)), m_customImage(std::move(customImage)) {}
 
 ScreenshotWidget::~ScreenshotWidget() = default;
@@ -242,7 +242,7 @@ void ScreenshotWidget::openCaptureMenu() {
   if (m_menuPopup == nullptr) {
     m_menuPopup = std::make_unique<ContextMenuPopup>(m_platform.wayland(), m_renderContext);
   }
-  m_menuPopup->setShadowConfig(m_shadowConfig);
+  m_menuPopup->setShadowConfig(m_shadowConfig, m_shadowEnabled);
   const auto options = outputOptions();
   m_menuPopup->setOnActivate([this, options](const ContextMenuControlEntry& entry) {
     if (entry.id == 1) {

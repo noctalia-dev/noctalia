@@ -103,7 +103,7 @@ void ActiveWindowWidget::doLayout(Renderer& renderer, float containerWidth, floa
     m_icon->setVisible(showIcon);
     m_title->setVisible(showTitle);
     applyTitleScrollMode(showTitle);
-    const float spacing = showIcon && showTitle ? Style::spaceXs : 0.0f;
+    const float spacing = showIcon && showTitle ? iconTextSpacing() : 0.0f;
     const float iconWidth = showIcon ? m_icon->width() : 0.0f;
     const float labelMaxWidth = showTitle ? std::max(0.0f, maxLength - iconWidth - spacing) : 0.0f;
     m_title->setMaxWidth(labelMaxWidth);
