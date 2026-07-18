@@ -1046,12 +1046,12 @@ void SystemMonitorService::retainCpuCores() {
 }
 
 void SystemMonitorService::releaseCpuCores() {
-  if (m_cpuCoreRefs.fetch_sub(1, std::memory_order_relaxed) == 1) {
-    // Last consumer went away: drop the samples so latest() cannot serve stale per-core data
-    // if someone retains again later.
-    std::scoped_lock lock{m_statsMutex};
-    m_latest.cpuCoreUsagePercent.clear();
-  }
+  // The samples are deliberately left in place. Recreating a widget releases the old
+  // reference before the new one retains, so the count dips to zero for a few ms on every
+  // bar reload; clearing here would blank the data and force each consumer to redraw from
+  // nothing. Slightly stale values for one sampling tick beat a visible gap, and the
+  // sampler reseeds on the next retain so nothing is averaged across the pause.
+  m_cpuCoreRefs.fetch_sub(1, std::memory_order_relaxed);
 }
 
 void SystemMonitorService::retainGpuTemp() { m_gpuTempRefs.fetch_add(1, std::memory_order_relaxed); }
@@ -1185,6 +1185,7 @@ void SystemMonitorService::samplingLoop() {
 
   auto prevCpu = readCpuTotals();
   std::optional<std::vector<CpuTotals>> prevCpuCores;
+  bool cpuCoresWasEnabled = false;
   auto nextCpu = Clock::now();
   auto nextCpuCores = Clock::now();
   auto nextGpu = Clock::now();
@@ -1208,6 +1209,13 @@ void SystemMonitorService::samplingLoop() {
     // cpu_poll_seconds (default 2s): consumers of it want per-second resolution, and pinning
     // it here keeps existing aggregate-CPU behaviour untouched whatever the user configures.
     const bool cpuCoresEnabled = m_cpuCoreRefs.load(std::memory_order_relaxed) > 0;
+    // Resuming after a pause: the previous sample is from before the gap, so a delta against
+    // it would cover the whole pause rather than one second. Drop it and seed afresh — a
+    // widget reload leaves only a few ms of jiffies, which would otherwise read as noise.
+    if (cpuCoresEnabled && !cpuCoresWasEnabled) {
+      prevCpuCores.reset();
+    }
+    cpuCoresWasEnabled = cpuCoresEnabled;
 
     const auto cpuInterval = pollDuration(pollCfg.cpuPollSeconds);
     const auto gpuInterval = pollDuration(pollCfg.gpuPollSeconds);
