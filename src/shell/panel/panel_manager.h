@@ -146,8 +146,6 @@ public:
 
   void registerIpc(IpcService& ipc);
 
-  void deactivateOutsideClickHandlers();
-
 private:
   static PanelManager* s_instance;
 
@@ -161,6 +159,7 @@ private:
   // Called AFTER the panel surface is mapped so the panel wl_surface is
   // available for the whitelist. No-op when focus-grab is unavailable.
   void activateFocusGrab();
+  void deactivateOutsideClickHandlers();
   void applyAttachedReveal(float progress);
   void applyDetachedReveal(float progress);
   void startAttachedOpenAnimation();

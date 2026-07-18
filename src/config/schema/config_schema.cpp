@@ -1369,7 +1369,6 @@ namespace noctalia::config::schema {
         field(&ShellConfig::niriOverviewTypeToLaunchEnabled, "niri_overview_type_to_launch_enabled"),
         field(&ShellConfig::polkitAgent, "polkit_agent"),
         enumField(&ShellConfig::passwordMaskStyle, "password_style", kPasswordMaskStyles),
-        field(&ShellConfig::polkitCloseOnOutsideClick, "polkit_close_on_outside_click"),
         field(&ShellConfig::settingsShowAdvanced, "settings_show_advanced"),
         field(&ShellConfig::middleClickOpensWidgetSettings, "middle_click_opens_widget_settings"),
         field(&ShellConfig::showLocation, "show_location"),

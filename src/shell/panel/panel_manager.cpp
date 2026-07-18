@@ -730,7 +730,9 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
 
   // Map shields BEFORE the panel surface is created or committed.
   // Within a single layer, wlroots stacks surfaces by mapping order.
-  activateClickShield(panelLayer);
+  if (m_activePanel->dismissOnOutsideClick()) {
+    activateClickShield(panelLayer);
+  }
 
   auto surfaceConfig = LayerSurfaceConfig{
       .nameSpace = "noctalia-panel",
@@ -1022,7 +1024,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
           && m_platform->focusGrabService() != nullptr
           && m_platform->focusGrabService()->available();
       const std::uint64_t gen = m_destroyGeneration;
-      if (hasFocusGrab) {
+      if (hasFocusGrab && m_activePanel->dismissOnOutsideClick()) {
         activateFocusGrab();
         m_keyboardRelaxTimer.start(std::chrono::milliseconds(100), [this, gen]() {
           if (m_destroyGeneration != gen || !isAttachedOpen() || m_layerSurface == nullptr || m_closing) {
@@ -1110,7 +1112,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   const bool hasFocusGrab =
       m_platform != nullptr && m_platform->focusGrabService() != nullptr && m_platform->focusGrabService()->available();
   const std::uint64_t gen = m_destroyGeneration;
-  if (hasFocusGrab) {
+  if (hasFocusGrab && m_activePanel->dismissOnOutsideClick()) {
     activateFocusGrab();
     m_keyboardRelaxTimer.start(std::chrono::milliseconds(100), [this, gen]() {
       if (m_destroyGeneration != gen || m_layerSurface == nullptr || m_closing) {

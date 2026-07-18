@@ -2634,10 +2634,6 @@
           "description": "Enable the built-in authentication agent",
           "label": "Polkit Agent"
         },
-        "polkit-close-on-outside-click": {
-	      "description": "Close the polkit dialog when clicking outside of the panel",
-	      "label": "Close when clicking outside"
-        },
         "privacy-cam-filter-regex": {
           "description": "Regex for camera apps to ignore in privacy indicators and OSDs",
           "label": "Camera Filter Regex"
