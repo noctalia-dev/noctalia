@@ -34,7 +34,19 @@ namespace Style {
   }
 
   bool inputBordersEnabled() noexcept { return g_inputBordersEnabled; }
-  void setInputBordersEnabled(bool enabled) { g_inputBordersEnabled = enabled; }
+
+  void setInputBordersEnabled(bool enabled) {
+    if (g_inputBordersEnabled == enabled) {
+      return;
+    }
+    g_inputBordersEnabled = enabled;
+    inputBordersChanged().emit();
+  }
+
+  Signal<>& inputBordersChanged() {
+    static Signal<> signal;
+    return signal;
+  }
 
   bool popupBordersEnabled() noexcept { return g_popupBordersEnabled; }
   void setPopupBordersEnabled(bool enabled) { g_popupBordersEnabled = enabled; }

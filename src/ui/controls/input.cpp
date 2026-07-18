@@ -362,6 +362,7 @@ Input::Input() {
     updateDisplayText();
     applyVisualState();
   });
+  m_inputBordersConn = Style::inputBordersChanged().connect([this] { applyVisualState(); });
 }
 
 Input::~Input() {

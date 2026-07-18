@@ -241,7 +241,7 @@ void ScreenshotWidget::openCaptureMenu() {
   if (m_menuPopup == nullptr) {
     m_menuPopup = std::make_unique<ContextMenuPopup>(m_platform.wayland(), m_renderContext);
   }
-  // Popups now read shadow config globally via Style::popupShadowsEnabled() + ConfigService
+  m_menuPopup->setShadowConfig(m_configService.config().shell.shadow);
   const auto options = outputOptions();
   m_menuPopup->setOnActivate([this, options](const ContextMenuControlEntry& entry) {
     if (entry.id == 1) {

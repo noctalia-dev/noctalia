@@ -364,7 +364,7 @@ void Application::initStyleThemeAndWayland() {
     const float corner = m_configService.config().shell.cornerRadiusScale;
     const bool cornerChanged =
         std::isfinite(lastCornerRadiusScale) && std::abs(corner - lastCornerRadiusScale) > 1.0e-4f;
-    Style::setCornerRadiusScale(m_configService.config().shell.cornerRadiusScale);
+    Style::setCornerRadiusScale(corner);
     Style::setButtonBordersEnabled(m_configService.config().shell.buttonBorders);
     Style::setInputBordersEnabled(m_configService.config().shell.inputBorders);
     Style::setPopupBordersEnabled(m_configService.config().shell.popupBorders);

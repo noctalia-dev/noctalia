@@ -92,6 +92,7 @@ Select::Select() {
 
   applyVisualState();
   m_paletteConn = paletteChanged().connect([this] { applyVisualState(); });
+  m_inputBordersConn = Style::inputBordersChanged().connect([this] { applyVisualState(); });
 }
 
 Select::~Select() {

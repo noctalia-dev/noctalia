@@ -73,6 +73,7 @@ namespace Style {
 
   [[nodiscard]] bool inputBordersEnabled() noexcept;
   void setInputBordersEnabled(bool enabled);
+  Signal<>& inputBordersChanged();
 
   [[nodiscard]] bool popupBordersEnabled() noexcept;
   void setPopupBordersEnabled(bool enabled);

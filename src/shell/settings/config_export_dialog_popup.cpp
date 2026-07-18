@@ -298,7 +298,7 @@ namespace settings {
     const float panelH = std::ceil(pref.height + pad * 2.0f);
     const ShellConfig::ShadowConfig shadow =
         config() != nullptr ? config()->config().shell.shadow : ShellConfig::ShadowConfig{};
-    const auto geo = popup_chrome::computeGeometry(panelW, panelH, shadow);
+    const auto geo = popup_chrome::computeGeometry(panelW, panelH, shadow, Style::popupShadowsEnabled());
     const float maxOuterHeight =
         m_parentHeight > 0 ? std::max(1.0f, static_cast<float>(m_parentHeight) - (kParentMargin * m_scale)) : 1.0e6f;
     const std::uint32_t nextHeight =

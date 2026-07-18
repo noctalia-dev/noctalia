@@ -1959,7 +1959,7 @@ void TaskbarWidget::openTaskContextMenu(const TaskModel& task, InputArea& area) 
   if (m_contextMenuPopup == nullptr) {
     m_contextMenuPopup = std::make_unique<ContextMenuPopup>(m_platform.wayland(), *renderContext);
   }
-  // Popups now read shadow config globally via Style::popupShadowsEnabled() + ConfigService
+  m_contextMenuPopup->setShadowConfig(m_configService.config().shell.shadow);
   m_contextMenuPopup->setOnActivate([this, entryActions, entryAppName, entryWorkingDir,
                                      entryTerminal](const ContextMenuControlEntry& entry) {
     if (entry.id >= 0) {

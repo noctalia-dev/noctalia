@@ -490,51 +490,6 @@ namespace settings {
         tr("settings.schema.appearance.pure-black-dark.description"), {"theme", "pure_black_dark"},
         ToggleSetting{cfg.theme.pureBlackDark}, "oled amoled true black background contrast"
     ));
-    entries.push_back(makeEntry(
-        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.corner-roundness.label"),
-        tr("settings.schema.appearance.corner-roundness.description"), {"shell", "corner_radius_scale"},
-        sliderFor(cfg.shell.cornerRadiusScale, noctalia::config::schema::kCornerRadiusScaleRange, false),
-        "rounded corners radius"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.button-borders.label"),
-        tr("settings.schema.appearance.button-borders.description"), {"shell", "button_borders"},
-        ToggleSetting{cfg.shell.buttonBorders}, "button outline border flat minimal"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.input-borders.label"),
-        tr("settings.schema.appearance.input-borders.description"), {"shell", "input_borders"},
-        ToggleSetting{cfg.shell.inputBorders}, "input text box field outline border flat minimal"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.popup-borders.label"),
-        tr("settings.schema.appearance.popup-borders.description"), {"shell", "popup_borders"},
-        ToggleSetting{cfg.shell.popupBorders}, "popup menu dropdown outline border flat minimal"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.popup-shadows.label"),
-        tr("settings.schema.appearance.popup-shadows.description"), {"shell", "popup_shadows"},
-        ToggleSetting{cfg.shell.popupShadows}, "popup menu dropdown drop shadow depth"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.app-icon-colorize.label"),
-        tr("settings.schema.appearance.app-icon-colorize.description"), {"shell", "app_icon_colorize"},
-        ToggleSetting{cfg.shell.appIconColorize}, "tint all application icons"
-    ));
-    {
-      const SettingVisibility colorizeOn = [](const Config& c) { return c.shell.appIconColorize; };
-      ShellConfig colorizeShell = cfg.shell;
-      colorizeShell.appIconColorize = true;
-      const ColorSpec pickerColor =
-          cfg.shell.appIconColor.value_or(*effectiveShellAppIconColorizationTint(colorizeShell));
-      auto e = makeEntry(
-          SettingsSection::Appearance, "interface", tr("settings.schema.appearance.app-icon-color.label"),
-          tr("settings.schema.appearance.app-icon-color.description"), {"shell", "app_icon_color"},
-          colorSpecPicker(pickerColor), "color role dock tray application icons"
-      );
-      e.visibleWhen = colorizeOn;
-      entries.push_back(std::move(e));
-    }
     {
       SettingControl fontFamilyControl =
           TextSetting{.value = cfg.shell.fontFamily, .placeholder = "sans-serif", .browseFileExtensions = {}};
@@ -559,6 +514,31 @@ namespace settings {
         "locale translation", true
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.corner-roundness.label"),
+        tr("settings.schema.appearance.corner-roundness.description"), {"shell", "corner_radius_scale"},
+        sliderFor(cfg.shell.cornerRadiusScale, noctalia::config::schema::kCornerRadiusScaleRange, false),
+        "rounded corners radius"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.app-icon-colorize.label"),
+        tr("settings.schema.appearance.app-icon-colorize.description"), {"shell", "app_icon_colorize"},
+        ToggleSetting{cfg.shell.appIconColorize}, "tint all application icons"
+    ));
+    {
+      const SettingVisibility colorizeOn = [](const Config& c) { return c.shell.appIconColorize; };
+      ShellConfig colorizeShell = cfg.shell;
+      colorizeShell.appIconColorize = true;
+      const ColorSpec pickerColor =
+          cfg.shell.appIconColor.value_or(*effectiveShellAppIconColorizationTint(colorizeShell));
+      auto e = makeEntry(
+          SettingsSection::Appearance, "interface", tr("settings.schema.appearance.app-icon-color.label"),
+          tr("settings.schema.appearance.app-icon-color.description"), {"shell", "app_icon_color"},
+          colorSpecPicker(pickerColor), "color role dock tray application icons"
+      );
+      e.visibleWhen = colorizeOn;
+      entries.push_back(std::move(e));
+    }
+    entries.push_back(makeEntry(
         SettingsSection::Appearance, "accessibility", tr("settings.schema.appearance.ui-scale.label"),
         tr("settings.schema.appearance.ui-scale.description"), {"accessibility", "ui_scale"},
         sliderFor(cfg.accessibility.uiScale, noctalia::config::schema::kScaleRange, false), "size scale text panels"
@@ -579,6 +559,21 @@ namespace settings {
         sliderFor(cfg.shell.animation.speed, noctalia::config::schema::kAnimationSpeedRange, false), "motion"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Appearance, "borders", tr("settings.schema.appearance.button-borders.label"),
+        tr("settings.schema.appearance.button-borders.description"), {"shell", "button_borders"},
+        ToggleSetting{cfg.shell.buttonBorders}, "button outline border flat minimal"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Appearance, "borders", tr("settings.schema.appearance.input-borders.label"),
+        tr("settings.schema.appearance.input-borders.description"), {"shell", "input_borders"},
+        ToggleSetting{cfg.shell.inputBorders}, "input text box field outline border flat minimal"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Appearance, "borders", tr("settings.schema.appearance.popup-borders.label"),
+        tr("settings.schema.appearance.popup-borders.description"), {"shell", "popup_borders"},
+        ToggleSetting{cfg.shell.popupBorders}, "popup menu dropdown outline border flat minimal"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Appearance, "effects", tr("settings.schema.shared.shadow-direction.label"),
         tr("settings.schema.appearance.global-shadow-direction.description"), {"shell", "shadow", "direction"},
         enumSelect(kShadowDirections, cfg.shell.shadow.direction), "shadow direction"
@@ -587,6 +582,11 @@ namespace settings {
         SettingsSection::Appearance, "effects", tr("settings.schema.shared.shadow-alpha.label"),
         tr("settings.schema.appearance.global-shadow-alpha.description"), {"shell", "shadow", "alpha"},
         sliderFor(cfg.shell.shadow.alpha, noctalia::config::schema::kUnitRange, false), "shadow opacity", true
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Appearance, "effects", tr("settings.schema.appearance.popup-shadows.label"),
+        tr("settings.schema.appearance.popup-shadows.description"), {"shell", "popup_shadows"},
+        ToggleSetting{cfg.shell.popupShadows}, "popup menu dropdown drop shadow depth"
     ));
 
     // Wallpaper
