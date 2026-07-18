@@ -1463,8 +1463,9 @@ std::optional<double> SystemMonitorService::cpuUsageBetween(const CpuTotals& pre
   return std::clamp(100.0 * busy, 0.0, 100.0);
 }
 
-std::optional<SystemMonitorService::CpuTotals> SystemMonitorService::readCpuTotals() {
-  std::ifstream file{"/proc/stat"};
+std::optional<SystemMonitorService::CpuTotals>
+SystemMonitorService::readCpuTotals(const std::filesystem::path& statPath) {
+  std::ifstream file{statPath};
   if (!file.is_open()) {
     return std::nullopt;
   }
@@ -1477,8 +1478,9 @@ std::optional<SystemMonitorService::CpuTotals> SystemMonitorService::readCpuTota
   return parseCpuStatLine(line, "cpu");
 }
 
-std::optional<std::vector<SystemMonitorService::CpuTotals>> SystemMonitorService::readCpuCoreTotals() {
-  std::ifstream file{"/proc/stat"};
+std::optional<std::vector<SystemMonitorService::CpuTotals>>
+SystemMonitorService::readCpuCoreTotals(const std::filesystem::path& statPath) {
+  std::ifstream file{statPath};
   if (!file.is_open()) {
     return std::nullopt;
   }

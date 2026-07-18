@@ -1221,6 +1221,21 @@ cpu_temp_sensor_test = executable('cpu_temp_sensor_test',
 
 test('cpu_temp_sensor', cpu_temp_sensor_test)
 
+cpu_stat_parse_test = executable('cpu_stat_parse_test',
+  sources: files(
+    'tests/cpu_stat_parse_test.cpp',
+    'src/system/system_monitor_service.cpp',
+    'src/system/cpu_temp_sensor.cpp',
+    'src/system/intel_gpu.cpp',
+    'src/system/format_units.cpp',
+    'src/core/log.cpp',
+  ),
+  include_directories: _noctalia_inc,
+  dependencies: [dl_dep],
+)
+
+test('cpu_stat_parse', cpu_stat_parse_test)
+
 i18n_language_tag_test = executable('i18n_language_tag_test',
   sources: files(
     'tests/i18n_language_tag_test.cpp',

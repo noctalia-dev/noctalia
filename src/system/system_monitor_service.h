@@ -7,6 +7,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -47,6 +48,9 @@ struct SystemStats {
 };
 
 class SystemMonitorService {
+  // Reaches the private static /proc/stat parsers, which have no public surface.
+  friend class SystemMonitorServiceTestAccess;
+
 public:
   explicit SystemMonitorService(const SystemConfig::MonitorConfig& config = {});
   ~SystemMonitorService();
@@ -128,9 +132,12 @@ private:
   parseCpuStatLine(const std::string& line, std::string_view expectedLabel);
   // Busy percentage between two samples, or nullopt when the window contains no jiffies.
   [[nodiscard]] static std::optional<double> cpuUsageBetween(const CpuTotals& prev, const CpuTotals& current);
-  [[nodiscard]] static std::optional<CpuTotals> readCpuTotals();
+  // The stat path is a parameter so tests can feed fixtures instead of the live /proc,
+  // matching cpu_temp::read()'s hwmonRoot/thermalRoot seam.
+  [[nodiscard]] static std::optional<CpuTotals> readCpuTotals(const std::filesystem::path& statPath = "/proc/stat");
   // Per-core totals in /proc/stat order, skipping the leading aggregate "cpu" row.
-  [[nodiscard]] static std::optional<std::vector<CpuTotals>> readCpuCoreTotals();
+  [[nodiscard]] static std::optional<std::vector<CpuTotals>>
+  readCpuCoreTotals(const std::filesystem::path& statPath = "/proc/stat");
   struct MemData {
     std::uint64_t totalKb{0};
     std::uint64_t usedKb{0};
