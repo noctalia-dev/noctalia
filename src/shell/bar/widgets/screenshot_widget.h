@@ -21,8 +21,8 @@ class ScreenshotWidget : public Widget {
 public:
   ScreenshotWidget(
       wl_output* output, std::string barGlyphId, ScreenshotService& screenshots, ConfigService& configService,
-      CompositorPlatform& platform, RenderContext& renderContext, const ShellConfig::ShadowConfig& shadow,
-      std::string barPosition = "top", WidgetCustomImage customImage = {}
+      CompositorPlatform& platform, RenderContext& renderContext, std::string barPosition = "top",
+      WidgetCustomImage customImage = {}
   );
   ~ScreenshotWidget() override;
 

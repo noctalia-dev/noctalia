@@ -71,6 +71,15 @@ namespace Style {
   void setButtonBordersEnabled(bool enabled);
   Signal<>& buttonBordersChanged();
 
+  [[nodiscard]] bool inputBordersEnabled() noexcept;
+  void setInputBordersEnabled(bool enabled);
+
+  [[nodiscard]] bool popupBordersEnabled() noexcept;
+  void setPopupBordersEnabled(bool enabled);
+
+  [[nodiscard]] bool popupShadowsEnabled() noexcept;
+  void setPopupShadowsEnabled(bool enabled);
+
   [[nodiscard]] float scaledRadius(float radius, float localScale = 1.0f) noexcept;
   [[nodiscard]] float scaledRadiusSm(float localScale = 1.0f) noexcept;
   [[nodiscard]] float scaledRadiusMd(float localScale = 1.0f) noexcept;

@@ -29,7 +29,10 @@ namespace {
       | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_X
       | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y;
 
-  ShellConfig::ShadowConfig popupShadowConfig(ConfigService* config) {
+  std::optional<ShellConfig::ShadowConfig> popupShadowConfig(ConfigService* config) {
+    if (!Style::popupShadowsEnabled()) {
+      return std::nullopt;
+    }
     return config != nullptr ? config->config().shell.shadow : ShellConfig::ShadowConfig{};
   }
 
@@ -495,10 +498,12 @@ void DialogPopupHost::syncSceneGeometryFromSurface() {
   const float panelW = m_chrome.contentWidth;
   const float panelH = m_chrome.contentHeight;
   if (m_panelShadow != nullptr) {
-    const ShellConfig::ShadowConfig shadow = popupShadowConfig(m_config);
-    const auto offset = shadowDirectionOffset(shadow.direction);
-    m_panelShadow->setPosition(panelX + static_cast<float>(offset.x), panelY + static_cast<float>(offset.y));
-    m_panelShadow->setFrameSize(panelW, panelH);
+    const auto shadow = popupShadowConfig(m_config);
+    if (shadow) {
+      const auto offset = shadowDirectionOffset(shadow->direction);
+      m_panelShadow->setPosition(panelX + static_cast<float>(offset.x), panelY + static_cast<float>(offset.y));
+      m_panelShadow->setFrameSize(panelW, panelH);
+    }
   }
   if (m_bgNode != nullptr) {
     m_bgNode->setPosition(panelX, panelY);

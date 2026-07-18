@@ -1388,6 +1388,13 @@ void Input::applyVisualState() {
         : (focused ? resolveColorSpec(focusRingColorSpec())
                    : (inputHovered ? resolved(ColorRole::Hover) : resolved(ColorRole::Outline)));
 
+    float resolvedBorderWidth = 0.0f;
+    if (focused) {
+      resolvedBorderWidth = Style::focusRingWidth;
+    } else if (Style::inputBordersEnabled()) {
+      resolvedBorderWidth = Style::borderWidth;
+    }
+
     m_background->setStyle(
         RoundedRectStyle{
             .fill = fill,
@@ -1395,7 +1402,7 @@ void Input::applyVisualState() {
             .fillMode = FillMode::Solid,
             .radius = Style::scaledRadius(m_frameRadius, chromeScale),
             .softness = 1.0f,
-            .borderWidth = focused ? Style::focusRingWidth : Style::borderWidth,
+            .borderWidth = resolvedBorderWidth,
         }
     );
   } else if (m_background != nullptr) {

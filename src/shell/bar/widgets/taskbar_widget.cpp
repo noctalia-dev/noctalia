@@ -185,7 +185,7 @@ TaskbarWidget::TaskbarWidget(
       m_occupiedColor(m_configOptions.occupiedColor), m_emptyColor(m_configOptions.emptyColor),
       m_urgentColor(m_configOptions.urgentColor), m_windowTitleMaxWidth(m_configOptions.windowTitleMaxWidth),
       m_taskbarMaxWidth(m_configOptions.taskbarMaxWidth), m_barPosition(std::move(m_configOptions.barPosition)),
-      m_barName(std::move(m_configOptions.barName)), m_shadowConfig(m_configOptions.shadowConfig) {
+      m_barName(std::move(m_configOptions.barName)) {
   syncWorkspaceGroupingCapability();
   buildDesktopIconIndex();
 }
@@ -1959,7 +1959,7 @@ void TaskbarWidget::openTaskContextMenu(const TaskModel& task, InputArea& area) 
   if (m_contextMenuPopup == nullptr) {
     m_contextMenuPopup = std::make_unique<ContextMenuPopup>(m_platform.wayland(), *renderContext);
   }
-  m_contextMenuPopup->setShadowConfig(m_shadowConfig);
+  // Popups now read shadow config globally via Style::popupShadowsEnabled() + ConfigService
   m_contextMenuPopup->setOnActivate([this, entryActions, entryAppName, entryWorkingDir,
                                      entryTerminal](const ContextMenuControlEntry& entry) {
     if (entry.id >= 0) {

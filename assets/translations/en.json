@@ -1473,6 +1473,18 @@
           "description": "Draw outlines around buttons throughout the shell",
           "label": "Button Borders"
         },
+        "input-borders": {
+          "description": "Draw outlines around text fields and other inputs throughout the shell",
+          "label": "Input Borders"
+        },
+        "popup-borders": {
+          "description": "Draw outlines around popups and dropdowns",
+          "label": "Popup Borders"
+        },
+        "popup-shadows": {
+          "description": "Draw drop shadows behind popups and dropdowns",
+          "label": "Popup Shadows"
+        },
         "community-palette": {
           "description": "Choose a palette from the community catalog",
           "label": "Community Palette",

@@ -353,6 +353,13 @@ void Select::applyVisualState() {
   m_triggerGlyph->setColor(triggerText);
   m_triggerGlyph->setRotation(m_caretProgress * std::numbers::pi_v<float>);
 
+  float resolvedBorderWidth = 0.0f;
+  if (triggerFocused) {
+    resolvedBorderWidth = Style::focusRingWidth;
+  } else if (Style::inputBordersEnabled()) {
+    resolvedBorderWidth = Style::borderWidth;
+  }
+
   m_triggerBackground->setStyle(
       RoundedRectStyle{
           .fill = triggerBg,
@@ -360,7 +367,7 @@ void Select::applyVisualState() {
           .fillMode = FillMode::Solid,
           .radius = Style::scaledRadiusMd(),
           .softness = 1.0f,
-          .borderWidth = triggerFocused ? Style::focusRingWidth : Style::borderWidth,
+          .borderWidth = resolvedBorderWidth,
       }
   );
 }

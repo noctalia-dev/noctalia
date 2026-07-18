@@ -502,6 +502,21 @@ namespace settings {
         ToggleSetting{cfg.shell.buttonBorders}, "button outline border flat minimal"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.input-borders.label"),
+        tr("settings.schema.appearance.input-borders.description"), {"shell", "input_borders"},
+        ToggleSetting{cfg.shell.inputBorders}, "input text box field outline border flat minimal"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.popup-borders.label"),
+        tr("settings.schema.appearance.popup-borders.description"), {"shell", "popup_borders"},
+        ToggleSetting{cfg.shell.popupBorders}, "popup menu dropdown outline border flat minimal"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Appearance, "interface", tr("settings.schema.appearance.popup-shadows.label"),
+        tr("settings.schema.appearance.popup-shadows.description"), {"shell", "popup_shadows"},
+        ToggleSetting{cfg.shell.popupShadows}, "popup menu dropdown drop shadow depth"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Appearance, "interface", tr("settings.schema.appearance.app-icon-colorize.label"),
         tr("settings.schema.appearance.app-icon-colorize.description"), {"shell", "app_icon_colorize"},
         ToggleSetting{cfg.shell.appIconColorize}, "tint all application icons"

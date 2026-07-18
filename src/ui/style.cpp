@@ -6,6 +6,9 @@ namespace {
 
   float g_cornerRadiusScale = 1.0f;
   bool g_buttonBordersEnabled = true;
+  bool g_inputBordersEnabled = true;
+  bool g_popupBordersEnabled = true;
+  bool g_popupShadowsEnabled = true;
 
 } // namespace
 
@@ -29,6 +32,15 @@ namespace Style {
     static Signal<> signal;
     return signal;
   }
+
+  bool inputBordersEnabled() noexcept { return g_inputBordersEnabled; }
+  void setInputBordersEnabled(bool enabled) { g_inputBordersEnabled = enabled; }
+
+  bool popupBordersEnabled() noexcept { return g_popupBordersEnabled; }
+  void setPopupBordersEnabled(bool enabled) { g_popupBordersEnabled = enabled; }
+
+  bool popupShadowsEnabled() noexcept { return g_popupShadowsEnabled; }
+  void setPopupShadowsEnabled(bool enabled) { g_popupShadowsEnabled = enabled; }
 
   float scaledRadius(float radius, float localScale) noexcept { return radius * localScale * g_cornerRadiusScale; }
 

@@ -437,7 +437,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
     }
     auto widget = std::make_unique<ScreenshotWidget>(
         output, std::move(barGlyph), *m_screenshots, m_configService, m_platform, *m_renderContext,
-        m_configService.config().shell.shadow, barPosition, customImageFor(wc)
+        barPosition, customImageFor(wc)
     );
     widget->setContentScale(contentScale);
     return widget;
@@ -581,7 +581,6 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .taskbarMaxWidth = static_cast<float>(wc != nullptr ? wc->getDouble("taskbar_max_width", 8192.0) : 8192.0),
         .barPosition = barPosition,
         .barName = barName,
-        .shadowConfig = m_config.shell.shadow,
     };
     if (wc != nullptr) {
       const std::string placement = wc->getString("workspace_label_placement", "corner");
