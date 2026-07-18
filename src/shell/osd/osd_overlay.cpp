@@ -676,12 +676,14 @@ void OsdOverlay::updateInstanceContent(Instance& inst) {
                                                   : ColorRole::OnSurface;
   inst.value->setColor(colorSpecFromRole(valueRole));
   inst.value->setTextAlign((vertical || !m_content.showProgress) ? TextAlign::Center : TextAlign::End);
-  // Media titles are arbitrary length; cap them to the card so they ellipsize instead of overflowing.
+  // Text OSDs (media title, device name, ...) carry arbitrary-length values; cap them to the card
+  // interior so they ellipsize within the padding instead of overflowing. Progress OSDs keep the
+  // uncapped "100%" value so it can reserve minWidth beside the bar.
   const float horizontalValueMax = cw - cardPadding(s) * 2.0f - glyphSize(s) - innerGap(s);
   inst.value->setMaxWidth(
-      vertical                               ? cw - cardPadding(s) * 2.0f
-          : m_content.kind == OsdKind::Media ? std::max(0.0f, horizontalValueMax)
-                                             : 0.0f
+      vertical                      ? cw - cardPadding(s) * 2.0f
+          : !m_content.showProgress ? std::max(0.0f, horizontalValueMax)
+                                    : 0.0f
   );
   inst.value->setMinWidth((!vertical && m_content.showProgress) ? inst.progressValueMinWidth : 0.0f);
   inst.value->setText(m_content.value);
