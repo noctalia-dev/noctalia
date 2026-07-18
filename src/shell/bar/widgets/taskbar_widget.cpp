@@ -8,6 +8,7 @@
 #include "render/core/color.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "shell/bar/widgets/taskbar_workspace_label.h"
 #include "shell/panel/panel_manager.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
@@ -79,10 +80,13 @@ namespace {
   }
 
   [[nodiscard]] float fitBadgeFontSize(
-      Renderer& renderer, std::string_view label, float maxWidth, float maxHeight, float scale, FontWeight fontWeight
+      Renderer& renderer, std::string_view label, float maxWidth, float maxHeight, float baseFontSize, float scale,
+      FontWeight fontWeight
   ) {
-    float fontSize = std::round(Style::fontSizeMini * scale);
-    const float minFontSize = std::round(8.0f * scale);
+    float fontSize = baseFontSize;
+    // Never floor above the requested base: a custom size below 8px must still render at that
+    // size, otherwise the text comes out larger than the disc measured for it and overflows.
+    const float minFontSize = std::min(baseFontSize, std::round(8.0f * scale));
     const float maxTextWidth = maxWidth * 0.82f;
     const float maxTextHeight = maxHeight * 0.82f;
     while (fontSize >= minFontSize) {
@@ -111,6 +115,27 @@ namespace {
     WorkspaceDiscSize size{};
     size.height = minHeight;
     size.width = std::round(std::max(minHeight, textW + pad * 2.0f));
+    return size;
+  }
+
+  // Sizes a workspace badge disc for an explicit font size: the disc grows with the text so the
+  // label actually renders at (close to) that size instead of being shrunk back to a fixed height.
+  // Height is floored at minHeight and capped at capHeight (the space the bar can give the badge);
+  // when the request exceeds the cap, fitBadgeFontSize later trims the text to what fits. The 1/0.82
+  // factors mirror that fit margin so the full size is returned whenever it fits.
+  [[nodiscard]] WorkspaceDiscSize customBadgeDiscSize(
+      Renderer& renderer, std::string_view label, float fontSize, float minHeight, float capHeight, float scale,
+      FontWeight fontWeight
+  ) {
+    const auto metrics = renderer.measureText(label, fontSize, fontWeight);
+    const float textW = std::max(0.0f, metrics.right - metrics.left);
+    const float textH = std::max(0.0f, metrics.bottom - metrics.top);
+    const float pad = Style::spaceXs * scale;
+    const float wantedHeight = textH / 0.82f + pad;
+    const float cap = capHeight > 0.0f ? capHeight : wantedHeight;
+    WorkspaceDiscSize size{};
+    size.height = std::round(std::min(cap, std::max(minHeight, wantedHeight)));
+    size.width = std::round(std::max(size.height, textW / 0.82f + pad));
     return size;
   }
 
@@ -178,14 +203,17 @@ TaskbarWidget::TaskbarWidget(
     CompositorPlatform& platform, ConfigService& config, wl_output* output, TaskbarWidgetOptions options
 )
     : m_platform(platform), m_configService(config), m_output(output), m_configOptions(std::move(options)),
-      m_showAllOutputs(m_configOptions.showAllOutputs), m_focusedOutputOnly(m_configOptions.focusedOutputOnly),
-      m_minimal(m_configOptions.minimal), m_enableScroll(m_configOptions.enableScroll),
-      m_showActiveIndicator(m_configOptions.showActiveIndicator), m_activeOpacity(m_configOptions.activeOpacity),
-      m_inactiveOpacity(m_configOptions.inactiveOpacity), m_focusedColor(m_configOptions.focusedColor),
-      m_occupiedColor(m_configOptions.occupiedColor), m_emptyColor(m_configOptions.emptyColor),
-      m_urgentColor(m_configOptions.urgentColor), m_windowTitleMaxWidth(m_configOptions.windowTitleMaxWidth),
-      m_taskbarMaxWidth(m_configOptions.taskbarMaxWidth), m_barPosition(std::move(m_configOptions.barPosition)),
-      m_barName(std::move(m_configOptions.barName)), m_shadowConfig(m_configOptions.shadowConfig) {
+      m_showAllOutputs(m_configOptions.showAllOutputs), m_showWorkspaceName(m_configOptions.showWorkspaceName),
+      m_workspaceLabelSize(m_configOptions.workspaceLabelSize),
+      m_workspaceLabelOpacity(m_configOptions.workspaceLabelOpacity),
+      m_focusedOutputOnly(m_configOptions.focusedOutputOnly), m_minimal(m_configOptions.minimal),
+      m_enableScroll(m_configOptions.enableScroll), m_showActiveIndicator(m_configOptions.showActiveIndicator),
+      m_activeOpacity(m_configOptions.activeOpacity), m_inactiveOpacity(m_configOptions.inactiveOpacity),
+      m_focusedColor(m_configOptions.focusedColor), m_occupiedColor(m_configOptions.occupiedColor),
+      m_emptyColor(m_configOptions.emptyColor), m_urgentColor(m_configOptions.urgentColor),
+      m_windowTitleMaxWidth(m_configOptions.windowTitleMaxWidth), m_taskbarMaxWidth(m_configOptions.taskbarMaxWidth),
+      m_barPosition(std::move(m_configOptions.barPosition)), m_barName(std::move(m_configOptions.barName)),
+      m_shadowConfig(m_configOptions.shadowConfig) {
   syncWorkspaceGroupingCapability();
   buildDesktopIconIndex();
 }
@@ -683,7 +711,9 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     const bool inlineBadge = m_showWorkspaceLabel && m_workspaceLabelPlacement == WorkspaceLabelPlacement::Inside;
     const bool externalBadge = m_showWorkspaceLabel && !inlineBadge;
     const float badgeBase = std::round(std::max(11.0f, Style::baseGlyphSize * 0.72f) * m_contentScale);
-    const float externalBadgeFontSize = std::round(Style::fontSizeCaption * 0.72f * m_contentScale);
+    const float externalBadgeFontSize = m_workspaceLabelSize > 0.0f
+        ? std::round(m_workspaceLabelSize * m_contentScale)
+        : std::round(Style::fontSizeCaption * 0.72f * m_contentScale);
 
     const float externalBadgeCrossLimit = m_vertical && crossExtent > 0.0f
         ? std::max(0.0f, (m_workspaceGroupCapsule ? groupedCrossInner : crossExtent) - 2.0f * groupOutlineInset)
@@ -730,8 +760,12 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       badgePalette.disabled = badgePalette.normal;
       badgePalette.borderWidth = 0.0f;
 
+      // A custom label size overrides the default fit start (fontSizeMini); otherwise the text
+      // shrinks from fontSizeMini to fit the disc as before.
+      const float fitBase = m_workspaceLabelSize > 0.0f ? std::round(m_workspaceLabelSize * m_contentScale)
+                                                        : std::round(Style::fontSizeMini * m_contentScale);
       const float badgeFontSize =
-          fitBadgeFontSize(renderer, ws.label, disc.width, disc.height, m_contentScale, fontWeight);
+          fitBadgeFontSize(renderer, ws.label, disc.width, disc.height, fitBase, m_contentScale, fontWeight);
 
       auto badge = ui::button({
           .text = ws.label,
@@ -762,6 +796,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       if (hover) {
         attachHover(*badge->inputArea(), disc.width, disc.height);
       }
+      badge->setOpacity(m_workspaceLabelOpacity);
       return badge;
     };
 
@@ -852,18 +887,30 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       float groupPadLeft = groupPad;
       std::optional<WorkspaceDiscSize> externalBadgeDisc;
       if (externalBadge) {
-        externalBadgeDisc =
-            measureWorkspaceDiscSize(renderer, ws.label, externalBadgeFontSize, badgeBase, m_contentScale, fontWeight);
-        if (m_vertical) {
-          *externalBadgeDisc = clampWorkspaceDiscToCrossLimit(*externalBadgeDisc, externalBadgeCrossLimit);
+        if (m_workspaceLabelSize > 0.0f && !m_vertical) {
+          // Custom size on a horizontal bar: grow the disc so the text renders at the requested
+          // size, capped at the group height so the badge stays inside the bar.
+          externalBadgeDisc = customBadgeDiscSize(
+              renderer, ws.label, externalBadgeFontSize, badgeBase, crossSize, m_contentScale, fontWeight
+          );
+        } else {
+          externalBadgeDisc = measureWorkspaceDiscSize(
+              renderer, ws.label, externalBadgeFontSize, badgeBase, m_contentScale, fontWeight
+          );
+          if (m_vertical) {
+            *externalBadgeDisc = clampWorkspaceDiscToCrossLimit(*externalBadgeDisc, externalBadgeCrossLimit);
+          }
         }
         if (!tasks.empty() || m_vertical) {
-          const float half =
-              std::round(m_vertical ? externalBadgeDisc->height * 0.6f : externalBadgeDisc->width * 0.6f);
+          // The external badge floats over the group's leading edge. Reserve exactly how far it
+          // reaches *into* the group so it never covers the first icon. Horizontally it sticks
+          // out to the left by mainStartInset and reaches (badgeWidth - mainStartInset) inward;
+          // vertically it starts at the outline inset and reaches its full height down.
           if (m_vertical) {
-            groupPadTop += half;
+            groupPadTop += std::round(externalBadgeDisc->height + groupOutlineInset);
           } else {
-            groupPadLeft += half;
+            const float stickOut = externalBadgeMainStartInset(m_workspaceLabelPlacement, externalBadgeDisc->width);
+            groupPadLeft += std::round(std::max(0.0f, externalBadgeDisc->width - stickOut));
           }
         }
       }
@@ -894,13 +941,24 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       group->setPadding(groupPadTop, groupPadRight, groupPadBottom, groupPadLeft);
 
       if (inlineBadge && m_showWorkspaceLabel) {
-        const float inlineBadgeFontSize = std::round(Style::fontSizeCaption * 0.85f * m_contentScale);
+        const float inlineBadgeFontSize = m_workspaceLabelSize > 0.0f
+            ? std::round(m_workspaceLabelSize * m_contentScale)
+            : std::round(Style::fontSizeCaption * 0.85f * m_contentScale);
         const float inlineBadgeHeight = std::round(std::max(10.0f, iconSize - (Style::spaceXs * m_contentScale)));
-        WorkspaceDiscSize disc = measureWorkspaceDiscSize(
-            renderer, ws.label, inlineBadgeFontSize, inlineBadgeHeight, m_contentScale, fontWeight
-        );
-        disc.height = inlineBadgeHeight;
-        disc.width = std::round(std::max(inlineBadgeHeight, disc.width));
+        WorkspaceDiscSize disc;
+        if (m_workspaceLabelSize > 0.0f) {
+          // Custom size: grow the inline badge with the text, capped at the tile cross budget so it
+          // still fits the capsule alongside the icons.
+          disc = customBadgeDiscSize(
+              renderer, ws.label, inlineBadgeFontSize, inlineBadgeHeight, tileCrossLimit, m_contentScale, fontWeight
+          );
+        } else {
+          disc = measureWorkspaceDiscSize(
+              renderer, ws.label, inlineBadgeFontSize, inlineBadgeHeight, m_contentScale, fontWeight
+          );
+          disc.height = inlineBadgeHeight;
+          disc.width = std::round(std::max(inlineBadgeHeight, disc.width));
+        }
         if (m_vertical) {
           disc = clampWorkspaceDiscToCrossLimit(disc, externalBadgeCrossLimit);
         }
@@ -952,8 +1010,13 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
             m_workspaceLabelPlacement, m_vertical, groupSize.width, groupSize.height, disc.width, disc.height,
             groupOutlineInset
         );
-        auto badge = createWorkspaceBadge(ws, disc, !emptyWorkspace);
+        // The external badge floats over the group as an overlay. Make it click-through
+        // (hit-test invisible, no hover) so pointer events reach the app icons beneath it;
+        // hence hover=false. Workspace switching is still available via scroll and the
+        // Workspaces widget. The inline (Inside) placement keeps its own clickable badge.
+        auto badge = createWorkspaceBadge(ws, disc, false);
         badge->setParticipatesInLayout(false);
+        badge->setHitTestVisible(false);
         badge->setPosition(badgePos.left, badgePos.top);
         badge->layout(renderer);
         group->addChild(std::move(badge));
@@ -1021,9 +1084,14 @@ void TaskbarWidget::updateModels() {
         item.workspace = workspaces[i];
         item.hostOutput = wo.output;
         const std::string fallbackLabel = workspaceLabel(item.workspace, i);
-        const std::string label = compositors::isKde() && item.workspace.index > 0
-            ? std::to_string(item.workspace.index)
-            : (i < displayKeys.size() && !displayKeys[i].empty() ? displayKeys[i] : fallbackLabel);
+        const std::string indexLabel =
+            i < displayKeys.size() && !displayKeys[i].empty() ? displayKeys[i] : fallbackLabel;
+        // A named workspace (e.g. niri "workspace n") shows its name; unnamed ones keep the
+        // number. m_showWorkspaceName can force the numeric index even for named workspaces.
+        // The matching key (baseKey) below stays numeric, so grouping is unaffected.
+        const std::string label = taskbarWorkspaceLabel(
+            compositors::isKde(), item.workspace.index, item.workspace.name, indexLabel, m_showWorkspaceName
+        );
         const std::string baseKey = compositors::isKde() && !item.workspace.id.empty()
             ? item.workspace.id
             : (i < displayKeys.size() && !displayKeys[i].empty() ? displayKeys[i] : fallbackLabel);

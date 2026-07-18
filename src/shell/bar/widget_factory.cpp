@@ -547,6 +547,10 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .showAllOutputs = wc != nullptr ? wc->getBool("show_all_outputs", false) : false,
         .onlyActiveWorkspace = wc != nullptr ? wc->getBool("only_active_workspace", false) : false,
         .showWorkspaceLabel = wc != nullptr ? wc->getBool("show_workspace_label", true) : true,
+        .showWorkspaceName = wc != nullptr ? wc->getBool("show_workspace_name", true) : true,
+        .workspaceLabelSize = static_cast<float>(wc != nullptr ? wc->getDouble("workspace_label_size", 0.0) : 0.0),
+        .workspaceLabelOpacity =
+            static_cast<float>(wc != nullptr ? wc->getDouble("workspace_label_opacity", 1.0) : 1.0),
         .workspaceLabelPlacement = WorkspaceLabelPlacement::Corner,
         .hideEmptyWorkspaces = wc != nullptr ? wc->getBool("hide_empty_workspaces", false) : false,
         .workspaceGroupCapsule = wc != nullptr ? wc->getBool("workspace_group_capsule", true) : true,

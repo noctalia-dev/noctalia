@@ -979,6 +979,24 @@ namespace settings {
             WidgetSettingVisibilityCondition{"show_workspace_label", {"true"}},
         };
         {
+          // Show the compositor workspace name (e.g. a niri "workspace n") on the disc; off falls
+          // back to the short numeric index so long names do not overlap the icons.
+          auto showWorkspaceName = withGroup(boolSpec("show_workspace_name", true), "taskbar.workspace-labels");
+          showWorkspaceName.visibleWhen = labelStyleSettings;
+          add(std::move(showWorkspaceName));
+        }
+        {
+          auto labelSize = withGroup(intSpec("workspace_label_size", 0.0, 0.0, 32.0, 1.0), "taskbar.workspace-labels");
+          labelSize.visibleWhen = labelStyleSettings;
+          add(std::move(labelSize));
+        }
+        {
+          auto labelOpacity =
+              withGroup(doubleSpec("workspace_label_opacity", 1.0, 0.1, 1.0, 0.01), "taskbar.workspace-labels");
+          labelOpacity.visibleWhen = labelStyleSettings;
+          add(std::move(labelOpacity));
+        }
+        {
           auto minimal = withGroup(boolSpec("minimal", false), "taskbar.workspace-labels");
           minimal.descriptionKey = "settings.widgets.settings.minimal.taskbar-description";
           minimal.visibleWhen = labelStyleSettings;

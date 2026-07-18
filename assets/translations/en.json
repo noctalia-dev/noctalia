@@ -3412,6 +3412,10 @@
           "description": "Show the small workspace tag on grouped taskbar capsules; turn off for icon-only groups",
           "label": "Workspace Capsule Label"
         },
+        "show-workspace-name": {
+          "description": "Show the compositor workspace name (e.g. a niri named workspace) on the capsule tag; off uses the short numeric index so long names don't overlap the icons",
+          "label": "Show Workspace Name"
+        },
         "stat": {
           "description": "System statistic to display",
           "label": "Stat"
@@ -3469,9 +3473,17 @@
           "description": "Draw the background and border around each grouped workspace. Turn off to keep icon grouping and workspace disc labels only.",
           "label": "Workspace Group Capsule"
         },
+        "workspace-label-opacity": {
+          "description": "Opacity of the workspace capsule tag, from faint to fully opaque",
+          "label": "Workspace Label Opacity"
+        },
         "workspace-label-placement": {
           "description": "Corner, centered on the edge, or inside the pill",
           "label": "Workspace Label Placement"
+        },
+        "workspace-label-size": {
+          "description": "Font size in pixels for the workspace capsule tag; 0 fits the text to the capsule automatically",
+          "label": "Workspace Label Size"
         }
       },
       "types": {

@@ -31,6 +31,9 @@ struct TaskbarWidgetOptions {
   bool showAllOutputs = false;
   bool onlyActiveWorkspace = false;
   bool showWorkspaceLabel = true;
+  bool showWorkspaceName = true;
+  float workspaceLabelSize = 0.0f; // 0 = auto (fit to disc); >0 overrides the badge text size in px
+  float workspaceLabelOpacity = 1.0f;
   WorkspaceLabelPlacement workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
   bool hideEmptyWorkspaces = false;
   bool workspaceGroupCapsule = true;
@@ -130,6 +133,9 @@ private:
   bool m_showAllOutputs = false;
   bool m_onlyActiveWorkspace = false;
   bool m_showWorkspaceLabel = true;
+  bool m_showWorkspaceName = true;
+  float m_workspaceLabelSize = 0.0f;
+  float m_workspaceLabelOpacity = 1.0f;
   WorkspaceLabelPlacement m_workspaceLabelPlacement = WorkspaceLabelPlacement::Corner;
   bool m_hideEmptyWorkspaces = false;
   bool m_workspaceGroupCapsule = true;

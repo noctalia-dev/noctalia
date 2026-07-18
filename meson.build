@@ -1598,6 +1598,31 @@ triad_workspace_backend_test = executable('triad_workspace_backend_test',
 
 test('triad_workspace_backend', triad_workspace_backend_test)
 
+niri_workspace_backend_test = executable('niri_workspace_backend_test',
+  sources: files(
+    'tests/niri_workspace_backend_test.cpp',
+    'src/compositors/niri/niri_runtime.cpp',
+    'src/compositors/niri/niri_event_handler.cpp',
+    'src/compositors/niri/niri_workspace_backend.cpp',
+    'src/core/log.cpp',
+  ),
+  dependencies: [
+    nlohmann_dep,
+  ],
+  include_directories: _noctalia_inc,
+)
+
+test('niri_workspace_backend', niri_workspace_backend_test)
+
+taskbar_workspace_label_test = executable('taskbar_workspace_label_test',
+  sources: files(
+    'tests/taskbar_workspace_label_test.cpp',
+  ),
+  include_directories: _noctalia_inc,
+)
+
+test('taskbar_workspace_label', taskbar_workspace_label_test)
+
 wayland_toplevels_identity_test = executable('wayland_toplevels_identity_test',
   sources: files(
     'tests/wayland_toplevels_identity_test.cpp',
