@@ -17,6 +17,7 @@
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
 #include "system/icon_resolver.h"
+#include "system/system_monitor_service.h"
 #include "system/terminal_launch.h"
 #include "time/time_format.h"
 #include "ui/dialogs/color_picker_dialog.h"
@@ -175,6 +176,20 @@ namespace {
     lua_setfield(L, -2, key);
   }
 
+  void setTableNumber(lua_State* L, const char* key, double value) {
+    lua_pushnumber(L, value);
+    lua_setfield(L, -2, key);
+  }
+
+  // Pushes an optional as a number, or leaves the key absent (nil) when it has no value —
+  // the Luau-idiomatic way to say "this machine has no such sensor".
+  template <typename T> void setTableOptionalNumber(lua_State* L, const char* key, const std::optional<T>& value) {
+    if (!value.has_value()) {
+      return;
+    }
+    setTableNumber(L, key, static_cast<double>(*value));
+  }
+
   void setTableString(lua_State* L, const char* key, const std::string& value) {
     lua_pushlstring(L, value.data(), value.size());
     lua_setfield(L, -2, key);
@@ -326,6 +341,95 @@ namespace {
       setTableBool(L, "focused", out.focused);
       lua_rawseti(L, -2, index++);
     }
+    return 1;
+  }
+
+  // systemStats() -> a snapshot of the host's system monitor, or nil when it is disabled.
+  //
+  //   { cpu = { total = 23.4, cores = { 10.2, 55.1, ... } },
+  //     ram = { percent, usedMb, totalMb }, swap = { usedMb, totalMb },
+  //     cpuTempC = number?, gpu = { tempC?, usagePercent?, vramUsedBytes?, vramTotalBytes? },
+  //     net = { rxBytesPerSec, txBytesPerSec }, loadAvg = { 1.2, 0.9, 0.7 } }
+  //
+  // Percentages are 0-100. Absent sensors are nil rather than 0, so a plugin can tell
+  // "no GPU probe" from "GPU idle". `cpu.cores` is indexed in /proc/stat order; the first
+  // call opts this host into per-core sampling, which costs one extra /proc/stat read per
+  // second for as long as the plugin is loaded.
+  int luau_systemStats(lua_State* L) {
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      lua_pushnil(L);
+      return 1;
+    }
+    auto* monitor = host->api().systemMonitor();
+    if (monitor == nullptr) {
+      lua_pushnil(L);
+      return 1;
+    }
+
+    host->ensureCpuCoresRetained();
+    const SystemStats stats = monitor->latest();
+
+    lua_createtable(L, 0, 7);
+
+    lua_createtable(L, 0, 2);
+    setTableNumber(L, "total", stats.cpuUsagePercent);
+    lua_createtable(L, static_cast<int>(stats.cpuCoreUsagePercent.size()), 0);
+    int coreIndex = 1;
+    for (const double core : stats.cpuCoreUsagePercent) {
+      lua_pushnumber(L, core);
+      lua_rawseti(L, -2, coreIndex++);
+    }
+    lua_setfield(L, -2, "cores");
+    lua_setfield(L, -2, "cpu");
+
+    lua_createtable(L, 0, 3);
+    setTableNumber(L, "percent", stats.ramUsagePercent);
+    setTableNumber(L, "usedMb", static_cast<double>(stats.ramUsedMb));
+    setTableNumber(L, "totalMb", static_cast<double>(stats.ramTotalMb));
+    lua_setfield(L, -2, "ram");
+
+    lua_createtable(L, 0, 2);
+    setTableNumber(L, "usedMb", static_cast<double>(stats.swapUsedMb));
+    setTableNumber(L, "totalMb", static_cast<double>(stats.swapTotalMb));
+    lua_setfield(L, -2, "swap");
+
+    // cpuTempAvailable false means the service is serving its 40C placeholder, not a reading.
+    if (stats.cpuTempAvailable) {
+      setTableOptionalNumber(L, "cpuTempC", stats.cpuTempC);
+    }
+
+    lua_createtable(L, 0, 4);
+    setTableOptionalNumber(L, "tempC", stats.gpuTempC);
+    setTableOptionalNumber(L, "usagePercent", stats.gpuUsagePercent);
+    setTableOptionalNumber(L, "vramUsedBytes", stats.gpuVramUsedBytes);
+    setTableOptionalNumber(L, "vramTotalBytes", stats.gpuVramTotalBytes);
+    lua_setfield(L, -2, "gpu");
+
+    lua_createtable(L, 0, 2);
+    setTableNumber(L, "rxBytesPerSec", stats.netRxBytesPerSec);
+    setTableNumber(L, "txBytesPerSec", stats.netTxBytesPerSec);
+    lua_setfield(L, -2, "net");
+
+    lua_createtable(L, 3, 0);
+    lua_pushnumber(L, stats.loadAvg1);
+    lua_rawseti(L, -2, 1);
+    lua_pushnumber(L, stats.loadAvg5);
+    lua_rawseti(L, -2, 2);
+    lua_pushnumber(L, stats.loadAvg15);
+    lua_rawseti(L, -2, 3);
+    lua_setfield(L, -2, "loadAvg");
+
+    return 1;
+  }
+
+  // nowMs() -> wall-clock milliseconds since the Unix epoch.
+  // os.time() and noctalia.formatTime() are both whole-second, so this is the only way a
+  // plugin can see sub-second time — e.g. to phase its own updates onto a second boundary.
+  int luau_nowMs(lua_State* L) {
+    const auto since = std::chrono::system_clock::now().time_since_epoch();
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(since).count();
+    lua_pushnumber(L, static_cast<double>(ms));
     return 1;
   }
 
@@ -1278,6 +1382,8 @@ namespace {
       {"portalAvailable", luau_portalAvailable},
       {"focusedOutputName", luau_focusedOutputName},
       {"outputs", luau_outputs},
+      {"systemStats", luau_systemStats},
+      {"nowMs", luau_nowMs},
       {"appIconPath", luau_appIconPath},
       {"setWallpaperEnabled", luau_setWallpaperEnabled},
       {"setWallpaper", luau_setWallpaper},
@@ -1378,11 +1484,29 @@ LuauHost::LuauHost(scripting::ScriptApiContext& api, CompositorPlatform* platfor
   lua_pop(m_L, 1);
 }
 
+void LuauHost::ensureCpuCoresRetained() {
+  if (m_cpuCoresRetained) {
+    return;
+  }
+  auto* monitor = m_api.systemMonitor();
+  if (monitor == nullptr) {
+    return;
+  }
+  monitor->retainCpuCores();
+  m_cpuCoresRetained = true;
+}
+
 LuauHost::~LuauHost() {
   // Terminate any long-lived stream subprocesses and HTTP streams before tearing
   // down the state.
   stopAllStreams();
   stopAllHttpStreams();
+  if (m_cpuCoresRetained) {
+    if (auto* monitor = m_api.systemMonitor(); monitor != nullptr) {
+      monitor->releaseCpuCores();
+    }
+    m_cpuCoresRetained = false;
+  }
   if (m_L) {
     if (m_T != nullptr) {
       for (int callbackRef : m_asyncCommandCallbackRefs) {

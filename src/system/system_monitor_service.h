@@ -24,6 +24,9 @@ struct SystemStats {
 
   std::chrono::steady_clock::time_point sampledAt;
   double cpuUsagePercent{0.0};
+  // Per-core usage, indexed by the /proc/stat "cpuN" order. Empty unless a consumer
+  // has called retainCpuCores(); sampled on its own fixed 1s cadence.
+  std::vector<double> cpuCoreUsagePercent;
   double ramUsagePercent{0.0};
   std::uint64_t ramUsedMb{0};
   std::uint64_t ramTotalMb{0};
@@ -64,6 +67,8 @@ public:
 
   void retainCpuTemp();
   void releaseCpuTemp();
+  void retainCpuCores();
+  void releaseCpuCores();
   void retainGpuTemp();
   void releaseGpuTemp();
   void retainGpuUsage();
@@ -115,7 +120,17 @@ private:
   void samplingLoop();
   void logDetectedSources();
 
+  // Parses one "/proc/stat" cpu row into idle/total jiffies. `expectedLabel` pins which row is
+  // accepted ("cpu" for the aggregate, "cpuN" for a core), so a caller cannot mistake the
+  // aggregate for core 0. guest/guest_nice are deliberately not read: the kernel already folds
+  // them into user/nice.
+  [[nodiscard]] static std::optional<CpuTotals>
+  parseCpuStatLine(const std::string& line, std::string_view expectedLabel);
+  // Busy percentage between two samples, or nullopt when the window contains no jiffies.
+  [[nodiscard]] static std::optional<double> cpuUsageBetween(const CpuTotals& prev, const CpuTotals& current);
   [[nodiscard]] static std::optional<CpuTotals> readCpuTotals();
+  // Per-core totals in /proc/stat order, skipping the leading aggregate "cpu" row.
+  [[nodiscard]] static std::optional<std::vector<CpuTotals>> readCpuCoreTotals();
   struct MemData {
     std::uint64_t totalKb{0};
     std::uint64_t usedKb{0};
@@ -149,6 +164,7 @@ private:
 
   std::atomic<bool> m_running{false};
   std::atomic<int> m_cpuTempRefs{0};
+  std::atomic<int> m_cpuCoreRefs{0};
   std::atomic<int> m_gpuTempRefs{0};
   std::atomic<int> m_gpuUsageRefs{0};
   std::atomic<int> m_gpuVramRefs{0};

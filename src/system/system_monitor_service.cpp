@@ -111,6 +111,10 @@ namespace {
     return reading.totalBytes > 0 && reading.usedBytes <= reading.totalBytes;
   }
 
+  // Per-core CPU sampling cadence. Fixed rather than configurable: it is opt-in via
+  // retainCpuCores(), and its only consumers want per-second resolution.
+  constexpr std::chrono::steady_clock::duration kCpuCoreInterval = std::chrono::seconds(1);
+
   // 0 disables a metric; any other value is clamped to the supported poll range.
   [[nodiscard]] float clampPollSeconds(float seconds) noexcept {
     if (seconds <= 0.0f) {
@@ -1033,6 +1037,23 @@ void SystemMonitorService::retainCpuTemp() { m_cpuTempRefs.fetch_add(1, std::mem
 
 void SystemMonitorService::releaseCpuTemp() { m_cpuTempRefs.fetch_sub(1, std::memory_order_relaxed); }
 
+void SystemMonitorService::retainCpuCores() {
+  if (m_cpuCoreRefs.fetch_add(1, std::memory_order_relaxed) == 0) {
+    // Wake the sampler now: it may otherwise be parked on a long deadline (disk is 10s),
+    // which would delay the first per-core sample well past the caller's first tick.
+    m_wakeCv.notify_all();
+  }
+}
+
+void SystemMonitorService::releaseCpuCores() {
+  if (m_cpuCoreRefs.fetch_sub(1, std::memory_order_relaxed) == 1) {
+    // Last consumer went away: drop the samples so latest() cannot serve stale per-core data
+    // if someone retains again later.
+    std::scoped_lock lock{m_statsMutex};
+    m_latest.cpuCoreUsagePercent.clear();
+  }
+}
+
 void SystemMonitorService::retainGpuTemp() { m_gpuTempRefs.fetch_add(1, std::memory_order_relaxed); }
 
 void SystemMonitorService::releaseGpuTemp() { m_gpuTempRefs.fetch_sub(1, std::memory_order_relaxed); }
@@ -1163,7 +1184,9 @@ void SystemMonitorService::samplingLoop() {
   using Clock = std::chrono::steady_clock;
 
   auto prevCpu = readCpuTotals();
+  std::optional<std::vector<CpuTotals>> prevCpuCores;
   auto nextCpu = Clock::now();
+  auto nextCpuCores = Clock::now();
   auto nextGpu = Clock::now();
   auto nextMemory = Clock::now();
   auto nextNetwork = Clock::now();
@@ -1181,6 +1204,10 @@ void SystemMonitorService::samplingLoop() {
     const bool networkEnabled = pollCfg.networkPollSeconds > 0.0f;
     const bool diskEnabled = pollCfg.diskPollSeconds > 0.0f;
     const bool historyEnabled = historyPollSeconds > 0.0f;
+    // Per-core is opt-in and runs on a fixed 1s cadence, deliberately independent of
+    // cpu_poll_seconds (default 2s): consumers of it want per-second resolution, and pinning
+    // it here keeps existing aggregate-CPU behaviour untouched whatever the user configures.
+    const bool cpuCoresEnabled = m_cpuCoreRefs.load(std::memory_order_relaxed) > 0;
 
     const auto cpuInterval = pollDuration(pollCfg.cpuPollSeconds);
     const auto gpuInterval = pollDuration(pollCfg.gpuPollSeconds);
@@ -1195,11 +1222,9 @@ void SystemMonitorService::samplingLoop() {
     if (cpuEnabled && now >= nextCpu) {
       const auto currentCpu = readCpuTotals();
       if (prevCpu.has_value() && currentCpu.has_value()) {
-        const std::uint64_t totalDelta = currentCpu->total - prevCpu->total;
-        const std::uint64_t idleDelta = currentCpu->idle - prevCpu->idle;
-        if (totalDelta > 0) {
+        if (const auto usage = cpuUsageBetween(*prevCpu, *currentCpu); usage.has_value()) {
           std::scoped_lock lock{m_statsMutex};
-          m_latest.cpuUsagePercent = 100.0 * (1.0 - static_cast<double>(idleDelta) / static_cast<double>(totalDelta));
+          m_latest.cpuUsagePercent = *usage;
         }
       }
       if (currentCpu.has_value()) {
@@ -1226,6 +1251,26 @@ void SystemMonitorService::samplingLoop() {
       }
 
       nextCpu = now + cpuInterval;
+      statsTouched = true;
+    }
+
+    if (cpuCoresEnabled && now >= nextCpuCores) {
+      auto currentCores = readCpuCoreTotals();
+      if (currentCores.has_value()) {
+        // A core count change (hotplug / offlining) makes the previous sample unusable:
+        // reseed and emit nothing this tick rather than indexing across mismatched vectors.
+        if (prevCpuCores.has_value() && prevCpuCores->size() == currentCores->size()) {
+          std::vector<double> usage(currentCores->size(), 0.0);
+          for (std::size_t i = 0; i < currentCores->size(); ++i) {
+            usage[i] = cpuUsageBetween((*prevCpuCores)[i], (*currentCores)[i]).value_or(0.0);
+          }
+          std::scoped_lock lock{m_statsMutex};
+          m_latest.cpuCoreUsagePercent = std::move(usage);
+        }
+        prevCpuCores = std::move(currentCores);
+      }
+
+      nextCpuCores = now + kCpuCoreInterval;
       statsTouched = true;
     }
 
@@ -1347,6 +1392,11 @@ void SystemMonitorService::samplingLoop() {
       std::scoped_lock lock{m_statsMutex};
       const auto writeIndex = static_cast<std::size_t>(m_historyHead);
       m_history[writeIndex] = m_latest;
+      // Per-core usage is live-only: the graphs plot the aggregate, and history() consumers
+      // would otherwise see a series that is populated only while someone holds a per-core
+      // reference. Dropping it here also keeps the 120-deep ring from carrying a vector per
+      // sample. clear() keeps the slot's capacity, so this costs no allocation churn.
+      m_history[writeIndex].cpuCoreUsagePercent.clear();
       for (auto& [path, disk] : m_diskHistories) {
         if (disk.refs <= 0) {
           continue;
@@ -1367,6 +1417,7 @@ void SystemMonitorService::samplingLoop() {
       }
     };
     considerWake(cpuEnabled, nextCpu);
+    considerWake(cpuCoresEnabled, nextCpuCores);
     considerWake(gpuEnabled, nextGpu);
     considerWake(memoryEnabled, nextMemory);
     considerWake(networkEnabled, nextNetwork);
@@ -1376,6 +1427,40 @@ void SystemMonitorService::samplingLoop() {
     std::unique_lock wakeLock{m_wakeMutex};
     m_wakeCv.wait_until(wakeLock, nextWake, [this]() { return !m_running.load(); });
   }
+}
+
+std::optional<SystemMonitorService::CpuTotals>
+SystemMonitorService::parseCpuStatLine(const std::string& line, std::string_view expectedLabel) {
+  std::istringstream iss{line};
+  std::string cpuLabel;
+  std::uint64_t user = 0;
+  std::uint64_t nice = 0;
+  std::uint64_t system = 0;
+  std::uint64_t idle = 0;
+  std::uint64_t iowait = 0;
+  std::uint64_t irq = 0;
+  std::uint64_t softirq = 0;
+  std::uint64_t steal = 0;
+
+  iss >> cpuLabel >> user >> nice >> system >> idle >> iowait >> irq >> softirq >> steal;
+  if (cpuLabel != expectedLabel) {
+    return std::nullopt;
+  }
+
+  CpuTotals totals{};
+  totals.idle = idle + iowait;
+  totals.total = user + nice + system + idle + iowait + irq + softirq + steal;
+  return totals;
+}
+
+std::optional<double> SystemMonitorService::cpuUsageBetween(const CpuTotals& prev, const CpuTotals& current) {
+  if (current.total <= prev.total) {
+    return std::nullopt; // no elapsed jiffies, or the counters were reset
+  }
+  const std::uint64_t totalDelta = current.total - prev.total;
+  const std::uint64_t idleDelta = current.idle >= prev.idle ? current.idle - prev.idle : 0;
+  const double busy = 1.0 - static_cast<double>(idleDelta) / static_cast<double>(totalDelta);
+  return std::clamp(100.0 * busy, 0.0, 100.0);
 }
 
 std::optional<SystemMonitorService::CpuTotals> SystemMonitorService::readCpuTotals() {
@@ -1389,26 +1474,35 @@ std::optional<SystemMonitorService::CpuTotals> SystemMonitorService::readCpuTota
     return std::nullopt;
   }
 
-  std::istringstream iss{line};
-  std::string cpuLabel;
-  std::uint64_t user = 0;
-  std::uint64_t nice = 0;
-  std::uint64_t system = 0;
-  std::uint64_t idle = 0;
-  std::uint64_t iowait = 0;
-  std::uint64_t irq = 0;
-  std::uint64_t softirq = 0;
-  std::uint64_t steal = 0;
+  return parseCpuStatLine(line, "cpu");
+}
 
-  iss >> cpuLabel >> user >> nice >> system >> idle >> iowait >> irq >> softirq >> steal;
-  if (cpuLabel != "cpu") {
+std::optional<std::vector<SystemMonitorService::CpuTotals>> SystemMonitorService::readCpuCoreTotals() {
+  std::ifstream file{"/proc/stat"};
+  if (!file.is_open()) {
     return std::nullopt;
   }
 
-  CpuTotals totals{};
-  totals.idle = idle + iowait;
-  totals.total = user + nice + system + idle + iowait + irq + softirq + steal;
-  return totals;
+  std::vector<CpuTotals> cores;
+  std::string line;
+  // The "cpuN" rows are contiguous and lead the file, so stop at the first non-cpu row
+  // rather than scanning the whole of /proc/stat.
+  while (std::getline(file, line)) {
+    if (!line.starts_with("cpu")) {
+      break;
+    }
+    const auto label = std::string("cpu") + std::to_string(cores.size());
+    auto totals = parseCpuStatLine(line, label);
+    if (!totals.has_value()) {
+      continue; // the leading aggregate "cpu" row
+    }
+    cores.push_back(*totals);
+  }
+
+  if (cores.empty()) {
+    return std::nullopt;
+  }
+  return cores;
 }
 
 std::optional<SystemMonitorService::MemData> SystemMonitorService::readMemoryKb() {
