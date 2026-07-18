@@ -6,6 +6,7 @@ namespace {
 
   float g_cornerRadiusScale = 1.0f;
   bool g_buttonBordersEnabled = true;
+  bool g_pureBlackDarkEnabled = false;
 
 } // namespace
 
@@ -29,6 +30,10 @@ namespace Style {
     static Signal<> signal;
     return signal;
   }
+
+  bool pureBlackDarkEnabled() noexcept { return g_pureBlackDarkEnabled; }
+
+  void setPureBlackDarkEnabled(bool enabled) { g_pureBlackDarkEnabled = enabled; }
 
   float scaledRadius(float radius, float localScale) noexcept { return radius * localScale * g_cornerRadiusScale; }
 

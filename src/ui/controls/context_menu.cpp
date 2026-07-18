@@ -219,7 +219,11 @@ void ContextMenuControl::rebuild(Renderer& renderer) {
           .configure = [this](Box& bg) {
             bg.setCardStyle(m_contentScale);
             bg.setRadius(Style::scaledRadiusLg(m_contentScale));
-            bg.setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
+            if (Style::pureBlackDarkEnabled() && !isResolvedLightTheme()) {
+              bg.setFill(fixedColorSpec(rgba(0.0f, 0.0f, 0.0f, 1.0f)));
+            } else {
+              bg.setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
+            }
             bg.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * m_contentScale);
             bg.setFrameSize(width(), height());
           },

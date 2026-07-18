@@ -71,6 +71,11 @@ namespace Style {
   void setButtonBordersEnabled(bool enabled);
   Signal<>& buttonBordersChanged();
 
+  [[nodiscard]] bool pureBlackDarkEnabled() noexcept;
+  void setPureBlackDarkEnabled(bool enabled);
+  // No Signal needed since context menus rebuild on open and don't dynamically listen
+
+
   [[nodiscard]] float scaledRadius(float radius, float localScale = 1.0f) noexcept;
   [[nodiscard]] float scaledRadiusSm(float localScale = 1.0f) noexcept;
   [[nodiscard]] float scaledRadiusMd(float localScale = 1.0f) noexcept;

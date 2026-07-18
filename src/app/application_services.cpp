@@ -366,6 +366,7 @@ void Application::initStyleThemeAndWayland() {
         std::isfinite(lastCornerRadiusScale) && std::abs(corner - lastCornerRadiusScale) > 1.0e-4f;
     Style::setCornerRadiusScale(corner);
     Style::setButtonBordersEnabled(m_configService.config().shell.buttonBorders);
+    Style::setPureBlackDarkEnabled(m_configService.config().theme.pureBlackDark);
     lastCornerRadiusScale = corner;
     if (cornerChanged) {
       m_notificationToast.requestLayout();
