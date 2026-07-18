@@ -374,6 +374,10 @@ void Application::initInputDispatch() {
       m_lockScreen.onPointerEvent(event);
       return;
     }
+    if (m_windowSwitcher.isActive()) {
+      (void)m_windowSwitcher.onPointerEvent(event);
+      return;
+    }
     if (m_colorPickerDialogPopup.onPointerEvent(event)) {
       return;
     }
@@ -403,8 +407,6 @@ void Application::initInputDispatch() {
     if (m_bar.onPointerEvent(event))
       return;
     if (m_dock.onPointerEvent(event))
-      return;
-    if (m_windowSwitcher.onPointerEvent(event))
       return;
     if (m_panelManager.onPointerEvent(event))
       return;

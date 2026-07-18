@@ -911,9 +911,19 @@ bool WindowSwitcher::onPointerEvent(const PointerEvent& event) {
       target->pointerInside = true;
     }
     if (!onTarget && !target->pointerInside) {
+      if (event.state == 1) {
+        hide();
+      }
       return false;
     }
     const bool pressed = (event.state == 1);
+    if (pressed
+        && event.surface == target->surface->wlSurface()
+        && (target->inputDispatcher.hoveredArea() == nullptr
+            || target->inputDispatcher.hoveredArea() == target->input)) {
+      hide();
+      return true;
+    }
     return target->inputDispatcher.pointerButton(
         static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
     );
