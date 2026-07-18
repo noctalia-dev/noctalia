@@ -633,9 +633,12 @@ std::unique_ptr<Widget> WidgetFactory::create(
         : colorSpecFromRole(ColorRole::Error);
     std::string glyphOverride = wc != nullptr ? wc->getString("glyph", "") : std::string{};
     std::string muteGlyphOverride = wc != nullptr ? wc->getString("mute_glyph", "") : std::string{};
+    auto effectsProfileGlyphs =
+        wc != nullptr ? wc->getStringMap("effects_profile_glyphs") : std::unordered_map<std::string, std::string>{};
     auto widget = std::make_unique<VolumeWidget>(
         m_audio, m_easyEffects, &m_config, output, showLabel, volumeTarget, scrollStep, muteColor,
-        std::move(glyphOverride), std::move(muteGlyphOverride), customImageFor(wc), enableScroll
+        std::move(glyphOverride), std::move(muteGlyphOverride), std::move(effectsProfileGlyphs), customImageFor(wc),
+        enableScroll
     );
     widget->setContentScale(contentScale);
     return widget;

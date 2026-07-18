@@ -1047,6 +1047,7 @@ namespace settings {
         add(std::move(glyph));
       }
       add(glyphSpec("mute_glyph", ""));
+      add(stringMapSpec("effects_profile_glyphs"));
       add(stringSpec("custom_image", ""));
       add(boolSpec("custom_image_colorize", false));
       add(boolSpec("enable_scroll", true));

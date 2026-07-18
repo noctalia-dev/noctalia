@@ -1611,18 +1611,26 @@ namespace settings {
         case WidgetControlKind::StringList:
           ctx.makeListBlock(*panel, entry, ListSetting{.items = settingValueAsStringList(value)});
           break;
-        case WidgetControlKind::StringMap:
+        case WidgetControlKind::StringMap: {
+          const bool customLabels = spec.schema.key == "custom_labels";
           ctx.makeStringMapBlock(
               *panel, entry,
               StringMapSetting{
                   .entries = widgetConfig != nullptr ? widgetConfig->getStringMap(spec.schema.key)
                                                      : std::unordered_map<std::string, std::string>{},
-                  .suggestedKeys = ctx.keyboardLayoutNames,
-                  .keyPlaceholder = "Layout name",
-                  .valuePlaceholder = "Label",
+                  .suggestedKeys = customLabels ? ctx.keyboardLayoutNames : std::vector<std::string>{},
+                  .keyPlaceholder = i18n::tr(
+                      customLabels ? "settings.widgets.map-placeholders.layout-name"
+                                   : "settings.widgets.map-placeholders.effects-profile-name"
+                  ),
+                  .valuePlaceholder = i18n::tr(
+                      customLabels ? "settings.widgets.map-placeholders.label"
+                                   : "settings.widgets.map-placeholders.glyph-name"
+                  ),
               }
           );
           break;
+        }
         case WidgetControlKind::Select: {
           SelectSetting selectSetting;
           const std::string selectedValue = settingValueAsString(value);

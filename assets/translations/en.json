@@ -2930,6 +2930,12 @@
         "ram": "RAM",
         "temp": "Temperature"
       },
+      "map-placeholders": {
+        "effects-profile-name": "Profile name",
+        "glyph-name": "Glyph name",
+        "label": "Label",
+        "layout-name": "Layout name"
+      },
       "options": {
         "always": "Always",
         "auto": "Auto",
@@ -3110,6 +3116,10 @@
         "enable-scroll": {
           "description": "Allow mouse wheel and trackpad scroll actions on this widget",
           "label": "Enable Scroll"
+        },
+        "effects-profile-glyphs": {
+          "description": "Map EasyEffects profile names to icon glyphs",
+          "label": "Effects Profile Glyphs"
         },
         "focused-color": {
           "description": "Color role used for the focused workspace; fixed hex colors are also supported",
