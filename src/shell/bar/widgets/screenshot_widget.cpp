@@ -113,8 +113,8 @@ ScreenshotWidget::ScreenshotWidget(
     CompositorPlatform& platform, RenderContext& renderContext, std::string barPosition, WidgetCustomImage customImage
 )
     : m_barGlyphId(std::move(barGlyphId)), m_output(output), m_screenshots(screenshots), m_configService(configService),
-      m_platform(platform), m_renderContext(renderContext),
-      m_barPosition(std::move(barPosition)), m_customImage(std::move(customImage)) {}
+      m_platform(platform), m_renderContext(renderContext), m_barPosition(std::move(barPosition)),
+      m_customImage(std::move(customImage)) {}
 
 ScreenshotWidget::~ScreenshotWidget() = default;
 

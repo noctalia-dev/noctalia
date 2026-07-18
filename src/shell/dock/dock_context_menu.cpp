@@ -316,7 +316,9 @@ namespace shell::dock {
       aH = halfCell * 2;
     }
 
-    const auto menuChrome = popup_chrome::computeGeometry(kMenuWidth, menuHeight, config.config().shell.shadow, Style::popupShadowsEnabled());
+    const auto menuChrome = popup_chrome::computeGeometry(
+        kMenuWidth, menuHeight, config.config().shell.shadow, Style::popupShadowsEnabled()
+    );
     PopupSurfaceConfig popupCfg{
         .anchorX = aX,
         .anchorY = aY,

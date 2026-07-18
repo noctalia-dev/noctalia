@@ -110,8 +110,9 @@ bool DialogPopupHost::openPopup(std::uint32_t width, std::uint32_t height) {
   // grab serial it rejects). Running cancel() there would destroy this popup mid-initialization.
   surface->setDismissedCallback([this]() { DeferredCall::callLater([this]() { cancel(); }); });
 
-  m_chrome =
-      popup_chrome::computeGeometry(static_cast<float>(width), static_cast<float>(height), popupShadowConfig(m_config), Style::popupShadowsEnabled());
+  m_chrome = popup_chrome::computeGeometry(
+      static_cast<float>(width), static_cast<float>(height), popupShadowConfig(m_config), Style::popupShadowsEnabled()
+  );
   PopupSurfaceConfig popupConfig = defaultPopupConfig(*parentContext, width, height);
   popup_chrome::applyToConfig(
       popupConfig, m_chrome,
@@ -166,7 +167,8 @@ bool DialogPopupHost::openPopupAsChild(PopupSurfaceConfig config, const XdgPopup
   surface->setDismissedCallback([this]() { DeferredCall::callLater([this]() { cancel(); }); });
 
   m_chrome = popup_chrome::computeGeometry(
-      static_cast<float>(config.width), static_cast<float>(config.height), popupShadowConfig(m_config), Style::popupShadowsEnabled()
+      static_cast<float>(config.width), static_cast<float>(config.height), popupShadowConfig(m_config),
+      Style::popupShadowsEnabled()
   );
   popup_chrome::applyToConfig(
       config, m_chrome,
@@ -425,7 +427,8 @@ void DialogPopupHost::buildScene(std::uint32_t width, std::uint32_t height) {
   m_sceneRoot = std::make_unique<Node>();
   m_sceneRoot->setAnimationManager(&m_animations);
   if (Style::popupShadowsEnabled()) {
-    m_panelShadow = popup_chrome::addShadow(*m_sceneRoot, m_chrome, popupShadowConfig(m_config), Style::scaledRadiusXl());
+    m_panelShadow =
+        popup_chrome::addShadow(*m_sceneRoot, m_chrome, popupShadowConfig(m_config), Style::scaledRadiusXl());
   }
 
   auto bg = ui::box({

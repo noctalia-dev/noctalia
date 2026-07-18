@@ -436,8 +436,8 @@ std::unique_ptr<Widget> WidgetFactory::create(
       barGlyph = "screenshot";
     }
     auto widget = std::make_unique<ScreenshotWidget>(
-        output, std::move(barGlyph), *m_screenshots, m_configService, m_platform, *m_renderContext,
-        barPosition, customImageFor(wc)
+        output, std::move(barGlyph), *m_screenshots, m_configService, m_platform, *m_renderContext, barPosition,
+        customImageFor(wc)
     );
     widget->setContentScale(contentScale);
     return widget;
