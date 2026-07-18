@@ -31,8 +31,9 @@ namespace {
     return OsdContent{
         .kind = OsdKind::Volume,
         .icon = audioVolumeGlyph(1.0f, muted, false),
-        .value = name,
+        .value = std::move(name),
         .showProgress = false,
+        .inactive = muted,
     };
   }
 
@@ -52,8 +53,9 @@ namespace {
     return OsdContent{
         .kind = OsdKind::Microphone,
         .icon = audioVolumeGlyph(1.0f, muted, true),
-        .value = name,
+        .value = std::move(name),
         .showProgress = false,
+        .inactive = muted,
     };
   }
 
@@ -109,7 +111,7 @@ void AudioOsd::showOutputName(std::string name, bool muted) {
   }
   m_suppressAutoInputOsdUntil = now + kSuppressInputOsdAfterOutput;
   if (m_overlay != nullptr) {
-    m_overlay->show(makeOutputNameContent(name, muted));
+    m_overlay->show(makeOutputNameContent(std::move(name), muted));
     m_currentKind = OsdKind::Volume;
   }
 }
@@ -139,7 +141,7 @@ void AudioOsd::showInputName(std::string name, bool muted) {
     return;
   }
   if (m_overlay != nullptr) {
-    m_overlay->show(makeInputNameContent(name, muted));
+    m_overlay->show(makeInputNameContent(std::move(name), muted));
     m_currentKind = OsdKind::Microphone;
   }
 }
@@ -149,13 +151,13 @@ void AudioOsd::onAudioStateChanged(const PipeWireService& service) {
   const auto* source = service.defaultSource();
 
   const std::uint32_t sinkId = sink != nullptr ? sink->id : 0;
-  const std::string sinkName = sink != nullptr ? sink->description : "";
+  const std::string sinkName = sink != nullptr ? audioDeviceLabel(*sink) : "";
   const float sinkVolume = sink != nullptr ? sink->volume : 0.0f;
   const int sinkPercent = sink != nullptr ? static_cast<int>(std::round(std::max(0.0f, sinkVolume) * 100.0f)) : 0;
   const bool sinkMuted = sink != nullptr ? sink->muted : false;
 
   const std::uint32_t sourceId = source != nullptr ? source->id : 0;
-  const std::string sourceName = source != nullptr ? source->description : "";
+  const std::string sourceName = source != nullptr ? audioDeviceLabel(*source) : "";
   const float sourceVolume = source != nullptr ? source->volume : 0.0f;
   const int sourcePercent = source != nullptr ? static_cast<int>(std::round(std::max(0.0f, sourceVolume) * 100.0f)) : 0;
   const bool sourceMuted = source != nullptr ? source->muted : false;
@@ -205,7 +207,7 @@ void AudioOsd::onAudioStateChanged(const PipeWireService& service) {
     } else if (sinkVolumeChanged || sinkMuteChanged) {
       // Passive PipeWire updates: click only on real volume changes while unmuted.
       showOutput(sink->id, sink->volume, sinkMuted, sinkVolumeChanged && !sinkMuted);
-    } else if (sourceRouteChanged) {
+    } else if (sourceRouteChanged && now >= m_suppressAutoInputOsdUntil) {
       showInputName(sourceName, sourceMuted);
     } else if ((sourceVolumeChanged || sourceMuteChanged) && now >= m_suppressAutoInputOsdUntil) {
       showInput(source->id, source->volume, sourceMuted, sourceVolumeChanged && !sourceMuted);
