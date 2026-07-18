@@ -469,10 +469,16 @@ namespace noctalia::bar {
     };
   }
 
-  template <typename Options, typename Context> struct WidgetDefinition {
+  template <typename Options, typename Context = std::monostate> struct WidgetDefinition {
     std::string_view type;
     std::vector<WidgetDefinitionField<Options>> fields;
     std::function<void(Options&, const Context&)> finalize;
+
+    [[nodiscard]] Options resolve(const WidgetConfig* config, std::string_view settingContext) const
+      requires std::is_same_v<Context, std::monostate>
+    {
+      return resolve(config, settingContext, std::monostate{});
+    }
 
     [[nodiscard]] Options
     resolve(const WidgetConfig* config, std::string_view settingContext, const Context& context) const {

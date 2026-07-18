@@ -9,6 +9,7 @@
 #include "shell/bar/widgets/battery_widget_definition.h"
 #include "shell/bar/widgets/bluetooth_widget.h"
 #include "shell/bar/widgets/brightness_widget.h"
+#include "shell/bar/widgets/brightness_widget_definition.h"
 #include "shell/bar/widgets/clipboard_widget.h"
 #include "shell/bar/widgets/clock_widget.h"
 #include "shell/bar/widgets/control_center_widget.h"
@@ -203,13 +204,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "brightness") {
-    const bool showLabel = wc != nullptr ? wc->getBool("show_label", true) : true;
-    const bool enableScroll = wc != nullptr ? wc->getBool("enable_scroll", true) : true;
-    const int scrollStep =
-        static_cast<int>(std::clamp<std::int64_t>(wc != nullptr ? wc->getInt("scroll_step", 5) : 5, 1, 25));
-    auto widget = std::make_unique<BrightnessWidget>(m_brightness, output, showLabel, scrollStep, enableScroll);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<BrightnessWidget>(
+        contentScale, m_brightness, output, brightnessWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+    );
   }
 
   if (type == "clock") {

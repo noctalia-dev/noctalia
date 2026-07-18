@@ -5,6 +5,7 @@
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"
 #include "shell/bar/widgets/battery_widget_definition.h"
+#include "shell/bar/widgets/brightness_widget_definition.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/font_weight_catalog.h"
 #include "shell/settings/font_weight_i18n.h"
@@ -704,13 +705,9 @@ namespace settings {
       add(boolSpec("show_label", false));
       add(boolSpec("hide_when_no_connected_device", false));
     } else if (type == "brightness") {
-      add(boolSpec("enable_scroll", true));
-      {
-        auto scrollStep = stepperIntSpec("scroll_step", 5, 1.0, 25.0, 1.0, "%");
-        scrollStep.visibleWhen = WidgetSettingVisibility{"enable_scroll", {"true"}};
-        add(std::move(scrollStep));
+      for (auto& spec : brightnessWidgetDefinition().presentedSettingSpecs()) {
+        add(std::move(spec));
       }
-      add(boolSpec("show_label", true));
     } else if (type == "clock") {
       add(stringSpec("format", "{:%H:%M}"));
       add(stringSpec("vertical_format"));
@@ -1388,11 +1385,15 @@ namespace settings {
   namespace {
 
     std::optional<schema::WidgetSettingSchema> typedWidgetSettingSchema(std::string_view type) {
-      if (type != "battery") {
+      schema::WidgetSettingSchema fields;
+      if (type == "battery") {
+        fields = batteryWidgetDefinition().schemaFields();
+      } else if (type == "brightness") {
+        fields = brightnessWidgetDefinition().schemaFields();
+      } else {
         return std::nullopt;
       }
 
-      auto fields = batteryWidgetDefinition().schemaFields();
       const auto common = commonWidgetSettingSpecs("sans-serif", false);
       std::ranges::transform(common, std::back_inserter(fields), [](const WidgetSettingSpec& spec) {
         return spec.schema;

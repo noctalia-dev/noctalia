@@ -722,6 +722,7 @@ _noctalia_sources = files(
   'src/shell/bar/widgets/tray_widget.cpp',
   'src/shell/bar/widgets/volume_widget.cpp',
   'src/shell/bar/widgets/brightness_widget.cpp',
+  'src/shell/bar/widgets/brightness_widget_definition.cpp',
   'src/shell/bar/widgets/wallpaper_widget.cpp',
   'src/shell/bar/widgets/weather_widget.cpp',
   'src/shell/bar/widgets/workspaces_widget.cpp',
