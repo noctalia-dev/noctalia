@@ -27,7 +27,8 @@ public:
   bool activate(const LauncherResult& result) override;
 
 private:
-  // Download fresh exchange rates over the async HTTP client, gated on offline mode.
+  // Download fresh exchange rates over the async HTTP client, gated on
+  // shell.launcher.fetch_exchange_rates and shell.offline_mode.
   void refreshExchangeRates();
 
   ClipboardService* m_clipboard = nullptr;

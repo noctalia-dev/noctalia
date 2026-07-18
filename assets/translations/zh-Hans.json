@@ -3098,6 +3098,10 @@
           "description": "空工作区的颜色；也支持固定的十六进制颜色值",
           "label": "空工作区颜色"
         },
+        "enable-scroll": {
+          "description": "允许在小组件上使用鼠标滚轮和触控板滚动操作",
+          "label": "启用滚动"
+        },
         "focused-color": {
           "description": "焦点工作区的颜色；也支持固定的十六进制颜色值",
           "label": "焦点工作区颜色"
@@ -3440,6 +3444,10 @@
         "type": {
           "description": "具名小组件的内置类型",
           "label": "类型"
+        },
+        "urgent-color": {
+          "description": "紧急工作区的颜色；也支持固定的十六进制颜色值",
+          "label": "紧急工作区颜色"
         },
         "vertical-format": {
           "description": "可选的垂直状态栏格式",

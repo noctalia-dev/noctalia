@@ -54,12 +54,14 @@ namespace noctalia::config::schema {
         field(&OsdKindsConfig::keyboardLayout, "keyboard_layout"),
         field(&OsdKindsConfig::media, "media"),
         field(&OsdKindsConfig::privacy, "privacy"),
+        field(&OsdKindsConfig::keyboardBacklight, "keyboard_backlight"),
     };
     return s;
   }
 
   const Schema<OsdConfig>& osdSchema() {
     static const Schema<OsdConfig> s = {
+        field(&OsdConfig::enabled, "enabled"),
         field(&OsdConfig::position, "position"),
         field(&OsdConfig::positionVertical, "position_vertical"),
         field(&OsdConfig::orientation, "orientation"),
@@ -1040,6 +1042,7 @@ namespace noctalia::config::schema {
           ),
           field(&UserTemplate::preHook, "pre_hook"),
           field(&UserTemplate::postHook, "post_hook"),
+          field(&UserTemplate::postAction, "post_action"),
           field(&UserTemplate::index, "index"),
       };
       return s;
@@ -1218,6 +1221,7 @@ namespace noctalia::config::schema {
           field(&ShellConfig::LauncherConfig::compact, "compact"),
           field(&ShellConfig::LauncherConfig::appGrid, "app_grid"),
           field(&ShellConfig::LauncherConfig::sortByUsage, "sort_by_usage"),
+          field(&ShellConfig::LauncherConfig::fetchExchangeRates, "fetch_exchange_rates"),
           field(&ShellConfig::LauncherConfig::providerPrefix, "provider_prefix"),
           subTable(&ShellConfig::LauncherConfig::dmenu, "dmenu", shellLauncherDmenuSchema()),
           namedMap<ShellConfig::LauncherConfig, LauncherProviderConfig>(
@@ -1365,6 +1369,9 @@ namespace noctalia::config::schema {
     static const Schema<ShellConfig> s = {
         field(&ShellConfig::cornerRadiusScale, "corner_radius_scale", kCornerRadiusScaleRange),
         field(&ShellConfig::buttonBorders, "button_borders"),
+        field(&ShellConfig::inputBorders, "input_borders"),
+        field(&ShellConfig::popupBorders, "popup_borders"),
+        field(&ShellConfig::popupShadows, "popup_shadows"),
         // font_family is trimmed; empty falls back to sans-serif.
         custom<ShellConfig>(
             "font_family",

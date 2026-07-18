@@ -1,3 +1,4 @@
+#include "calendar/calendar_discovery_state.h"
 #include "config/atomic_file.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
@@ -48,6 +49,7 @@ namespace {
   constexpr std::int32_t kActionSupportReport = 1;
   constexpr std::int32_t kActionExportConfig = 2;
   constexpr std::string_view kCalendarCredentialOwner = "calendar_credentials";
+  constexpr std::string_view kCalendarDiscoveryOwner = "calendar_discovery";
 
   XdgPopupParent popupParentFor(ToplevelSurface& surface, wl_output* output, std::uint32_t serial) {
     return XdgPopupParent{
@@ -86,6 +88,8 @@ namespace {
     std::string password;
     std::string serverUrl;
     std::string color;
+    std::vector<std::string> calendars;
+    std::vector<CalendarSource> discoveredCalendars;
     bool idInvalid = false;
     bool usernameInvalid = false;
     bool passwordInvalid = false;
@@ -138,6 +142,10 @@ namespace {
       return i18n::tr("settings.calendar-accounts.provider.google");
     }
     return i18n::tr("settings.calendar-accounts.provider.icloud");
+  }
+
+  bool calendarSourceChecked(const CalendarAccountDraft& draft, const CalendarSource& source) {
+    return draft.calendars.empty() || std::ranges::contains(draft.calendars, source.id);
   }
 
   std::string trimInput(Input* input) { return input != nullptr ? StringUtils::trim(input->value()) : std::string{}; }
@@ -1024,11 +1032,15 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     draft->username = account->username;
     draft->serverUrl = account->serverUrl;
     draft->color = account->color;
+    draft->calendars = account->calendars;
     if (account->type == "google") {
       draft->provider = CalendarAccountProvider::Google;
     } else {
       draft->provider =
           account->provider == "custom" ? CalendarAccountProvider::CustomCalDav : CalendarAccountProvider::ICloud;
+      const std::string rawDiscovery =
+          m_config->stateString(kCalendarDiscoveryOwner, account->id + "_calendars").value_or(std::string{});
+      draft->discoveredCalendars = calendar::parseCalendarSources(rawDiscovery);
     }
   }
 
@@ -1060,6 +1072,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       (void)m_config->setStateString(kCalendarCredentialOwner, accountId + "_refresh_token", "");
       (void)m_config->setStateString(kCalendarCredentialOwner, accountId + "_access_token", "");
       (void)m_config->setStateString(kCalendarCredentialOwner, accountId + "_access_expiry", "");
+      (void)m_config->setStateString(kCalendarDiscoveryOwner, accountId + "_calendars", "");
       markSettingsWriteSuccess(true);
       if (m_editorSheetPopup != nullptr) {
         m_editorSheetPopup->close();
@@ -1228,6 +1241,80 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
         )
     );
 
+    if (!draft->creating && draft->provider != CalendarAccountProvider::Google && !draft->discoveredCalendars.empty()) {
+      auto calendars = ui::column({
+          .align = FlexAlign::Stretch,
+          .gap = Style::spaceXs * scale,
+      });
+      calendars->addChild(
+          ui::label({
+              .text = i18n::tr("settings.calendar-accounts.calendars-label"),
+              .fontSize = Style::fontSizeCaption * scale,
+              .fontWeight = FontWeight::Medium,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+          })
+      );
+
+      auto list = ui::column({
+          .align = FlexAlign::Stretch,
+          .gap = Style::spaceXs * scale,
+          .padding = Style::spaceSm * scale,
+          .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.35f),
+          .radius = Style::scaledRadiusMd(scale),
+      });
+      for (const CalendarSource& source : draft->discoveredCalendars) {
+        const bool checked = calendarSourceChecked(*draft, source);
+        auto row = ui::row({
+            .align = FlexAlign::Center,
+            .gap = Style::spaceSm * scale,
+            .fillWidth = true,
+        });
+        auto info = ui::column({
+            .align = FlexAlign::Start,
+            .gap = 2.0f * scale,
+            .flexGrow = 1.0f,
+        });
+        info->addChild(
+            ui::label({
+                .text = source.name.empty() ? source.id : source.name,
+                .fontSize = Style::fontSizeBody * scale,
+                .fontWeight = FontWeight::Medium,
+                .color = colorSpecFromRole(ColorRole::OnSurface),
+                .maxLines = 1,
+                .ellipsize = TextEllipsize::End,
+            })
+        );
+        if (!source.name.empty()) {
+          info->addChild(
+              ui::label({
+                  .text = source.id,
+                  .fontSize = Style::fontSizeCaption * scale,
+                  .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+                  .maxLines = 1,
+                  .ellipsize = TextEllipsize::End,
+              })
+          );
+        }
+        row->addChild(std::move(info));
+        row->addChild(
+            ui::toggle({
+                .checked = checked,
+                .scale = scale,
+                .onChange = [this, draft, sourceId = source.id](bool on) {
+                  draft->calendars =
+                      calendar::setCalendarSourceChecked(draft->discoveredCalendars, draft->calendars, sourceId, on);
+                  if (m_editorSheetPopup != nullptr) {
+                    m_editorSheetPopup->rebuildBody();
+                  }
+                },
+            })
+        );
+        list->addChild(std::move(row));
+      }
+      calendars->addChild(std::move(list));
+      body.addChild(std::move(calendars));
+    }
+
     const auto persistAccount = [this, draft, idInput, nameInput, usernameInput, passwordInput,
                                  serverInput](bool closeAfter, bool connectAfter) {
       if (m_config == nullptr) {
@@ -1282,6 +1369,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       );
       overrides.push_back({{base[0], base[1], base[2], "name"}, draft->name});
       overrides.push_back({{base[0], base[1], base[2], "color"}, draft->color});
+      // Manual calendar selection is currently populated by CalDAV discovery; Google uses CalendarList selected.
+      overrides.push_back({{base[0], base[1], base[2], "calendars"}, draft->calendars});
       if (caldav) {
         overrides.push_back({{base[0], base[1], base[2], "provider"}, calendarProviderKey(draft->provider)});
         overrides.push_back({{base[0], base[1], base[2], "username"}, draft->username});

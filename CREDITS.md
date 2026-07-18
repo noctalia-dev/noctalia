@@ -8,8 +8,6 @@ Noctalia is made possible by the incredible work of many open-source projects an
 - **[SaberJ2X](https://www.reddit.com/user/SaberJ64/)** — Creator of Talia, the Noctalia mascot
 - **[Tabler Icons](https://tabler.io/icons)** — Icon set used throughout the shell
 - **[Riyan Resdian on Noun Project](https://thenounproject.com/creator/yaicon/)** — Plug icon
-- **[Wikimedia Commons](https://commons.wikimedia.org/wiki/Category:SVG_logos_of_Linux_distributions)** — Linux distribution logos
-- **KaOS** — Distribution logo provided directly by the distribution's creator and maintainer
 
 ## Audio Assets
 

@@ -483,6 +483,11 @@ namespace {
       if (root == nullptr || box == nullptr) {
         continue;
       }
+      // Skip hidden members — Flex leaves them at stale (0,0) geometry.
+      if (!root->visible() || !root->participatesInLayout()) {
+        box->setSize(0.0f, 0.0f);
+        continue;
+      }
       const float rootStart = contentMain + (isVertical ? root->y() : root->x());
       const float rootExtent = isVertical ? root->height() : root->width();
       const float mainStart = std::max(0.0f, rootStart - mainPad);
@@ -513,7 +518,7 @@ namespace {
         Widget* widget = !run.widgets.empty() ? run.widgets.front() : nullptr;
         Box* box = run.hoverBoxes.front();
         auto* area = widget != nullptr ? dynamic_cast<InputArea*>(widget->root()) : nullptr;
-        if (area == nullptr || box == nullptr) {
+        if (area == nullptr || box == nullptr || !area->visible() || !area->participatesInLayout()) {
           continue;
         }
         const float areaStart = isVertical ? area->y() : area->x();
@@ -532,7 +537,18 @@ namespace {
         continue;
       }
 
-      // Group runs: tile the capsule between members (midpoint of gaps).
+      // Tile only laid-out members; hidden ones keep stale geometry.
+      std::vector<std::size_t> laidOut;
+      laidOut.reserve(run.widgets.size());
+      for (std::size_t i = 0; i < run.widgets.size(); ++i) {
+        Widget* widget = run.widgets[i];
+        auto* area = widget != nullptr ? dynamic_cast<InputArea*>(widget->root()) : nullptr;
+        if (area == nullptr || !area->visible() || !area->participatesInLayout()) {
+          continue;
+        }
+        laidOut.push_back(i);
+      }
+
       const float shellMain = isVertical ? run.shell->height() : run.shell->width();
       const float containerMain = isVertical ? run.container->y() : run.container->x();
       auto memberStart = [&](std::size_t i) {
@@ -543,14 +559,15 @@ namespace {
         const Node* root = run.widgets[i]->root();
         return memberStart(i) + (isVertical ? root->height() : root->width());
       };
-      for (std::size_t i = 0; i < run.widgets.size(); ++i) {
-        Widget* widget = run.widgets[i];
-        auto* area = widget != nullptr ? dynamic_cast<InputArea*>(widget->root()) : nullptr;
+      for (std::size_t vi = 0; vi < laidOut.size(); ++vi) {
+        const std::size_t i = laidOut[vi];
+        auto* area = dynamic_cast<InputArea*>(run.widgets[i]->root());
         if (area == nullptr) {
           continue;
         }
-        const float sliceStart = i > 0 ? (memberEnd(i - 1) + memberStart(i)) * 0.5f : 0.0f;
-        const float sliceEnd = i + 1 < run.widgets.size() ? (memberEnd(i) + memberStart(i + 1)) * 0.5f : shellMain;
+        const float sliceStart = vi > 0 ? (memberEnd(laidOut[vi - 1]) + memberStart(i)) * 0.5f : 0.0f;
+        const float sliceEnd =
+            vi + 1 < laidOut.size() ? (memberEnd(i) + memberStart(laidOut[vi + 1])) * 0.5f : shellMain;
         auto outset = area->hitTestOutset();
         const float before = std::max(0.0f, memberStart(i) - sliceStart);
         const float after = std::max(0.0f, sliceEnd - memberEnd(i));
@@ -1103,6 +1120,10 @@ namespace {
           Box* box = widget->barHoverBox();
           Node* root = widget->root();
           if (box == nullptr || root == nullptr || widget->barCapsuleShell() != nullptr) {
+            continue;
+          }
+          if (!root->visible() || !root->participatesInLayout()) {
+            box->setSize(0.0f, 0.0f);
             continue;
           }
           float rootX = 0.0f;
@@ -2882,6 +2903,9 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
       m_platform->setCursorShape(serial, shape);
     });
     instance.inputDispatcher.setHoverChangeCallback([this, inst = &instance](InputArea* /*old*/, InputArea* next) {
+      if (next != nullptr) {
+        next->setTooltipPlacement(tooltipPlacementAwayFromEdge(inst->barConfig.position));
+      }
       TooltipManager::instance().onHoverChange(next, inst->surface->layerSurface(), inst->output);
       updateWidgetHoverHighlight(*inst, next);
     });

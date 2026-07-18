@@ -127,7 +127,7 @@ output_path = "$XDG_CONFIG_HOME/helix/themes/noctalia.toml"
 [templates.kcolorscheme]
 input_path = "./kde/kcolorscheme.colors"
 output_path = "$XDG_DATA_HOME/color-schemes/noctalia.colors"
-post_hook = "python3 '{{ config_dir }}/kde/apply.py' noctalia"
+post_action = "kde-color-scheme"
 
 [templates.kitty]
 input_path = "./kitty/kitty.conf"

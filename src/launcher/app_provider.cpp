@@ -239,6 +239,17 @@ bool AppProvider::activate(const LauncherResult& result) {
         .customCommand = m_config->config().shell.launchAppsCustomCommand,
     };
 
+    if (m_platform != nullptr) {
+      wl_output* launchOutput = nullptr;
+      if (wl_surface* pointerSurface = m_platform->lastPointerSurface(); pointerSurface != nullptr) {
+        launchOutput = m_platform->outputForSurface(pointerSurface);
+      }
+      if (launchOutput == nullptr) {
+        launchOutput = m_platform->preferredInteractiveOutput();
+      }
+      m_platform->prepareAppLaunchOnOutput(launchOutput);
+    }
+
     if (chosen != nullptr) {
       return desktop_entry_launch::launchAction(*chosen, entry.id, entry.workingDir, entry.terminal, launchOptions);
     }

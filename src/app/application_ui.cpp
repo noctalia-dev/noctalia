@@ -195,6 +195,10 @@ void Application::initUiRenderSurfacesAndSettings() {
 }
 
 void Application::performGreeterSync(bool quiet) {
+  if (!greeter::appearanceSyncAvailable(m_configService.config().shell.greeterSync)) {
+    return;
+  }
+
   const std::uint64_t generation = ++m_greeterSyncGeneration;
   m_greeterSyncTimeoutTimer.stop();
 
@@ -294,7 +298,8 @@ void Application::performGreeterSync(bool quiet) {
 }
 
 void Application::scheduleGreeterAutoSync() {
-  if (!m_configService.config().shell.greeterSync.autoSync) {
+  if (!m_configService.config().shell.greeterSync.autoSync
+      || !greeter::appearanceSyncAvailable(m_configService.config().shell.greeterSync)) {
     return;
   }
   m_greeterAutoSyncTimer.stop();
@@ -743,6 +748,7 @@ void Application::initNotificationAndOsd() {
   if (m_brightnessService != nullptr) {
     m_brightnessOsd.primeFromService(*m_brightnessService);
   }
+  m_keyboardBacklightOsd.bindOverlay(m_osdOverlay);
   if constexpr (kLockKeysEnabled) {
     m_lockKeysOsd.bindOverlay(m_osdOverlay);
     m_lockKeysOsd.primeFromService(m_lockKeysService);

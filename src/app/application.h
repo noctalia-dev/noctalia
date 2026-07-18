@@ -41,6 +41,7 @@
 #include "shell/notification/notification_toast.h"
 #include "shell/osd/audio_osd.h"
 #include "shell/osd/brightness_osd.h"
+#include "shell/osd/keyboard_backlight_osd.h"
 #include "shell/osd/keyboard_layout_osd.h"
 #include "shell/osd/lock_keys_osd.h"
 #include "shell/osd/media_osd.h"
@@ -104,6 +105,7 @@ class BluetoothAgent;
 class BluetoothService;
 class BrightnessPollSource;
 class BrightnessService;
+class KeyboardBacklightService;
 class DebugService;
 class EasyEffectsService;
 class INetworkService;
@@ -263,6 +265,7 @@ private:
   std::optional<bool> m_prevBluetoothPoweredForEvents;
   std::optional<std::string> m_prevPowerProfileActiveForEvents;
   std::unique_ptr<BrightnessService> m_brightnessService;
+  std::unique_ptr<KeyboardBacklightService> m_keyboardBacklightService;
   std::unique_ptr<TrayService> m_trayService;
   std::unique_ptr<NotificationDBusHost> m_notificationDbus;
   std::unique_ptr<sdbus::IProxy> m_notificationBusNameWatchProxy;
@@ -298,6 +301,7 @@ private:
   NotificationToast m_notificationToast;
   AudioOsd m_audioOsd;
   BrightnessOsd m_brightnessOsd;
+  KeyboardBacklightOsd m_keyboardBacklightOsd;
   MediaOsd m_mediaOsd;
   LockKeysOsd m_lockKeysOsd;
   KeyboardLayoutOsd m_keyboardLayoutOsd;

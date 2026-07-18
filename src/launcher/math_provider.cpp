@@ -64,7 +64,9 @@ void MathProvider::refreshExchangeRates() {
   if (m_httpClient == nullptr || m_config == nullptr || !m_calc) {
     return;
   }
-  if (m_config->config().shell.offlineMode || !m_calc->canFetch()) {
+  if (m_config->config().shell.offlineMode
+      || !m_config->config().shell.launcher.fetchExchangeRates
+      || !m_calc->canFetch()) {
     return;
   }
 

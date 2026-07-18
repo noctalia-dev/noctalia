@@ -117,6 +117,9 @@ namespace noctalia::theme {
         if (!userTemplate.postHook.empty()) {
           templateTable.insert_or_assign("post_hook", userTemplate.postHook);
         }
+        if (!userTemplate.postAction.empty()) {
+          templateTable.insert_or_assign("post_action", userTemplate.postAction);
+        }
         if (userTemplate.index != 0) {
           templateTable.insert_or_assign("index", static_cast<std::int64_t>(userTemplate.index));
         }

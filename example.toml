@@ -67,6 +67,7 @@ show_icons    = true                    # show application icons in launcher res
 compact       = false                   # use smaller icons and tighter result rows
 app_grid      = false                   # show app icon grid view when results are apps only
 sort_by_usage = true                    # sort apps by usage frequency
+fetch_exchange_rates = true             # refresh currency rates from third-party sources
 provider_prefix = "/"                     # common prefix character for provider trigger words (e.g. "/" or ".")
 
 # For each provider: prefix = trigger word (empty falls back to its built-in default; triggers on
@@ -475,6 +476,9 @@ battery_low_percent_threshold = 0   # set to e.g. 15 to enable battery_under_thr
 # [widget.network_tx]
 # network_speed_unit = "mb"          # auto | kb | mb
 # network_speed_compact = true       # show "1.2M" instead of "1.2 MB/s"
+
+# [widget.volume.effects_profile_glyphs]
+# eq_desktop = "device-speaker"
 
 # [widget.keyboard_layout]
 # display                 = "short"    # "short" (e.g. "DE") or "full" (full layout name)

@@ -288,6 +288,7 @@ void WaylandSeat::handlePointerMotion(
   self->m_pendingPointerEvents.push_back(
       PointerEvent{
           .type = PointerEvent::Type::Motion,
+          .surface = self->m_lastPointerSurface,
           .sx = self->m_lastPointerX,
           .sy = self->m_lastPointerY,
           .time = time,

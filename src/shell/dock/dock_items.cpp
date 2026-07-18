@@ -272,23 +272,23 @@ namespace {
     return 1.0f + (maxMultiplier - 1.0f) * falloff;
   }
 
-  [[nodiscard]] TooltipPlacement dockTooltipPlacement(DockEdge edge) {
+  [[nodiscard]] std::string_view dockEdgeKey(DockEdge edge) {
     switch (edge) {
     case DockEdge::Top:
-      return TooltipPlacement::Below;
+      return "top";
     case DockEdge::Bottom:
-      return TooltipPlacement::Above;
+      return "bottom";
     case DockEdge::Left:
-      return TooltipPlacement::Right;
+      return "left";
     case DockEdge::Right:
-      return TooltipPlacement::Left;
+      return "right";
     }
-    return TooltipPlacement::Above;
+    return "bottom";
   }
 
   void configureDockTooltip(InputArea& area, const DockConfig& cfg, std::string text) {
     area.setTooltip(std::move(text));
-    area.setTooltipPlacement(dockTooltipPlacement(cfg.position));
+    area.setTooltipPlacement(tooltipPlacementAwayFromEdge(dockEdgeKey(cfg.position)));
     area.setTooltipAnchorInsets(
         TooltipAnchorInsets{
             .top = kCellPad,

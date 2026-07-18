@@ -505,6 +505,7 @@
         "show-label": "Mostrar Etiqueta",
         "show-login-button": "Botón de login",
         "show-password-hint": "Sugerencia de contraseña",
+        "show-vpn-label": "Mostrar etiqueta VPN",
         "show-when-idle": "Mostrar cuando este inactivo",
         "stat": "Estadistica",
         "stat-cpu-temp": "Temp. de CPU",
@@ -921,6 +922,9 @@
           "border": "Borde",
           "border-description": "Rol de color del contorno de la cápsula; deja en Predeterminado para no tener contorno",
           "clear": "Eliminar",
+          "drawer-detached": "Panel Desacoplado",
+          "drawer-glyph-closed": "Icono cuando Cerrado",
+          "drawer-glyph-opened": "Icono cuando Abierto",
           "edit": "Eliminar estilo",
           "fill": "Fondo",
           "fill-description": "Rol de color de fondo de la cápsula; también se admiten colores hexadecimales fijos",
@@ -984,9 +988,14 @@
             "grouping": "Agrupación",
             "presentation": "Presentación",
             "runtime": "Runtime",
+            "taskbar": {
+              "grouping": "Agrupado",
+              "workspace-labels": "Etiquetas Espacios de Trabajo"
+            },
             "widget": "Widget",
             "workspaces": {
-              "colors": "Colores"
+              "colors": "Colores",
+              "list": "Espacios de trabajo"
             }
           }
         }
@@ -1047,7 +1056,7 @@
         "name-label": "Nombre",
         "name-placeholder": "idle-behavior",
         "resume-command-label": "Comando de reanudación",
-        "resume-command-placeholder": "",
+        "resume-command-placeholder": "notify-send 'Back from idle'",
         "summary": "{name} · {seconds}s",
         "summary-disabled-timeout": "{name} · tiempo de espera desactivado",
         "timeout-label": "Segundos de tiempo de espera",
@@ -1069,6 +1078,7 @@
         "background": "Fondo",
         "battery": "Batería",
         "behavior": "Comportamiento",
+        "borders": "Bordes",
         "brightness": "Brillo",
         "built-in": "Integrado",
         "calendar": "Calendario",
@@ -1112,6 +1122,7 @@
         "power": "Energía",
         "privacy": "Privacidad",
         "profile": "Perfil",
+        "providers": "Proveedores",
         "screen-corners": "Esquinas de pantalla",
         "screen-time": "Tiempo de pantalla",
         "screenshot": "Captura de pantalla",
@@ -1361,7 +1372,9 @@
         "refreshing": "Actualizando plugins...",
         "remove": "Eliminar plugin",
         "requires": "Requiere: {dependencies}",
-        "title": "Plugins"
+        "title": "Plugins",
+        "update-all": "Actualizar los ({count})",
+        "update-available": "actualizacion disponible"
       },
       "settings": {
         "empty": "No hay configuraciones disponibles."
@@ -1432,6 +1445,9 @@
         "builtin-palette": {
           "description": "Elige una paleta del catálogo incluido",
           "label": "Paleta integrada"
+        },
+        "button-borders": {
+          "label": "Bordes de Botones"
         },
         "community-palette": {
           "description": "Elige una paleta del catálogo de la comunidad",
@@ -1740,6 +1756,12 @@
         "background-opacity": {
           "description": "Opacidad de fondo del dock"
         },
+        "border": {
+          "label": "Borde"
+        },
+        "border-width": {
+          "label": "Ancho del borde"
+        },
         "concave-edge-corners": {
           "description": "Interior concavo en el lado que toca el limite de pantalla; requiere que el margen del borde de pantalla sea 0",
           "label": "Esquinas concavas"
@@ -2021,6 +2043,9 @@
         },
         "blacklist-allow-critical": {
           "description": "Seguir mostrando notificaciones críticas de remitentes en la lista negra"
+        },
+        "border": {
+          "label": "Borde"
         },
         "collapse-on-dismiss": {
           "description": "Deslizar las notificaciones emergentes restantes para cerrar huecos cuando se descarta una",

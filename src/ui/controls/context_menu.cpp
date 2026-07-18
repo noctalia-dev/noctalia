@@ -217,10 +217,8 @@ void ContextMenuControl::rebuild(Renderer& renderer) {
   addChild(
       ui::box({
           .configure = [this](Box& bg) {
-            bg.setCardStyle(m_contentScale);
+            bg.setCardStyle(m_contentScale, 1.0f, Style::popupBordersEnabled());
             bg.setRadius(Style::scaledRadiusLg(m_contentScale));
-            bg.setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
-            bg.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * m_contentScale);
             bg.setFrameSize(width(), height());
           },
       })

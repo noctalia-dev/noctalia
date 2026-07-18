@@ -91,6 +91,8 @@ private:
     std::string idLower;
     std::string wmClassLower;
     wl_output* outputFilter = nullptr;
+    // Launch target output (always set); outputFilter is only for active_monitor_only.
+    wl_output* targetOutput = nullptr;
     std::chrono::steady_clock::time_point deadline;
   };
 

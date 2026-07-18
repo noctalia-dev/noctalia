@@ -485,6 +485,7 @@ location = "https://example.invalid/bad"
             {{"c1", "#aabbcc"}},
             "pre",
             "post",
+            "kde-color-scheme",
             3,
         },
     };

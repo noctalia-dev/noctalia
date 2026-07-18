@@ -261,6 +261,19 @@ void PolkitPanel::onClose() {
   }
   m_lastResponseRequired = false;
   clearReleasedRoot();
+
+  m_rootLayout = nullptr;
+  m_focusArea = nullptr;
+  m_titleLabel = nullptr;
+  m_messageLabel = nullptr;
+  m_promptLabel = nullptr;
+  m_supplementaryLabel = nullptr;
+  m_input = nullptr;
+  m_submitButton = nullptr;
+  m_cancelButton = nullptr;
+  m_iconContainer = nullptr;
+  m_icon = nullptr;
+  m_fallbackIcon = nullptr;
 }
 
 InputArea* PolkitPanel::initialFocusArea() const {

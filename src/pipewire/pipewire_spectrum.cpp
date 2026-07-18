@@ -167,9 +167,9 @@ bool PipeWireSpectrum::Stream::start() {
   }
 
   auto* props = pw_properties_new(
-      PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Monitor", PW_KEY_MEDIA_NAME, "Noctalia Spectrum",
+      PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_MEDIA_NAME, "Noctalia Spectrum",
       PW_KEY_APP_NAME, "Noctalia Spectrum", PW_KEY_STREAM_MONITOR, "true", PW_KEY_STREAM_CAPTURE_SINK, "true",
-      PW_KEY_TARGET_OBJECT, m_targetObject.c_str(), PW_KEY_NODE_PASSIVE, "true", nullptr
+      PW_KEY_MEDIA_ROLE, "Music", PW_KEY_TARGET_OBJECT, m_targetObject.c_str(), PW_KEY_NODE_PASSIVE, "true", nullptr
   );
   if (props == nullptr) {
     kLog.warn("failed to create spectrum stream properties");

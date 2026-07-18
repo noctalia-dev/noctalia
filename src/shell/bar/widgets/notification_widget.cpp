@@ -66,6 +66,10 @@ void NotificationWidget::doLayout(Renderer& renderer, float /*containerWidth*/, 
   }
 
   refreshIndicatorState();
+  if (!rootNode->visible()) {
+    rootNode->setSize(0.0f, 0.0f);
+    return;
+  }
 
   m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
   m_glyph->setGlyph(m_dndEnabled ? "bell-off" : "bell");
@@ -90,6 +94,9 @@ void NotificationWidget::refreshIndicatorState() {
     const bool showWidget = !m_hideWhenNoUnread || hasNotifications;
     rootNode->setVisible(showWidget);
     rootNode->setParticipatesInLayout(showWidget);
+    if (!showWidget) {
+      rootNode->setSize(0.0f, 0.0f);
+    }
   }
 
   if (hasNotifications == m_hasNotifications && dndEnabled == m_dndEnabled) {

@@ -2,6 +2,7 @@
 
 #include "calendar/caldav_client.h"
 #include "calendar/caldav_discovery.h"
+#include "calendar/calendar_discovery_state.h"
 #include "config/config_service.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
@@ -15,11 +16,11 @@
 #include <iterator>
 #include <memory>
 #include <nlohmann/json.hpp>
-#include <unordered_set>
 
 namespace {
   constexpr Logger kLog("calendar");
   constexpr const char* kCredentialOwner = "calendar_credentials";
+  constexpr const char* kCalendarDiscoveryOwner = "calendar_discovery";
   constexpr const char* kICloudCalDavServerUrl = "https://caldav.icloud.com/";
   constexpr auto kConnectPollInterval = std::chrono::seconds{2};
   // Wide enough for month navigation in the control-center calendar (~1 year each way).
@@ -42,6 +43,21 @@ namespace {
       return account.serverUrl;
     }
     return {};
+  }
+
+  std::vector<CalendarSource> sourcesFromCollections(const std::vector<calendar::CalDavCollection>& collections) {
+    std::vector<CalendarSource> sources;
+    sources.reserve(collections.size());
+    for (const calendar::CalDavCollection& collection : collections) {
+      if (collection.id.empty()) {
+        continue;
+      }
+      sources.push_back({
+          .id = collection.id,
+          .name = collection.name,
+      });
+    }
+    return sources;
   }
 } // namespace
 
@@ -231,12 +247,16 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
           return;
         }
 
-        if (!selectedCalendars.empty()) {
-          const std::unordered_set<std::string> selected(selectedCalendars.begin(), selectedCalendars.end());
-          std::erase_if(collections, [&](const calendar::CalDavCollection& collection) {
-            return !selected.contains(collection.id);
-          });
-        }
+        const std::vector<CalendarSource> discoveredSources = sourcesFromCollections(collections);
+        (void)m_configService.setStateString(
+            kCalendarDiscoveryOwner, accountId + "_calendars", calendar::serializeCalendarSources(discoveredSources)
+        );
+
+        const std::vector<std::string> selectedIds =
+            calendar::selectedCalendarSourceIds(discoveredSources, selectedCalendars);
+        std::erase_if(collections, [&](const calendar::CalDavCollection& collection) {
+          return !std::ranges::contains(selectedIds, collection.id);
+        });
 
         if (collections.empty()) {
           kLog.warn("caldav account {} has no selected calendars after discovery", accountId);

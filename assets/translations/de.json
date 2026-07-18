@@ -182,6 +182,7 @@
     },
     "bluetooth": {
       "accept": "Annehmen",
+      "address": "Adresse",
       "auto-reconnect": "Automatisch wiederverbinden",
       "bluetooth": "Bluetooth",
       "enter-code": "Code eingeben",
@@ -2168,6 +2169,10 @@
           "description": "Verwende kleinere Icons und engere Ergebniszeilen",
           "label": "Kompakte Zeilen"
         },
+        "launcher-currency-exchange": {
+          "description": "Kurse aus Online-Quellen von Drittanbietern abrufen",
+          "label": "Währungsumrechnung"
+        },
         "launcher-global-calculator": {
           "description": "Zeige Rechner-Ergebnisse auch in der unpräfixierten Suche",
           "label": "Rechner in globaler Suche"
@@ -2625,6 +2630,10 @@
         "osd-kinds-dnd": {
           "description": "Zeige ein OSD-Popup, wenn „Nicht stören“ umgeschaltet wird",
           "label": "Nicht stören"
+        },
+        "osd-kinds-keyboard-backlight": {
+          "description": "OSD-Popup anzeigen, wenn sich die Stufe der Tastaturbeleuchtung ändert",
+          "label": "Tastatur Beleuchtung"
         },
         "osd-kinds-keyboard-layout": {
           "description": "Zeige ein OSD-Popup, wenn sich das Tastaturlayout ändert",
@@ -3098,6 +3107,10 @@
           "description": "Farbe für leere Arbeitsbereiche; feste Hex-Farben werden ebenfalls unterstützt",
           "label": "Leer-Farbe"
         },
+        "enable-scroll": {
+          "description": "Erlaube Mausrad- und Trackpad-Scrollaktionen auf diesem Widget",
+          "label": "Scrollen aktivieren"
+        },
         "focused-color": {
           "description": "Farbe für den fokussierten Arbeitsbereich; feste Hex-Farben werden ebenfalls unterstützt",
           "label": "Fokus-Farbe"
@@ -3440,6 +3453,10 @@
         "type": {
           "description": "Integrierter Widget-Typ für dieses benannte Widget",
           "label": "Typ"
+        },
+        "urgent-color": {
+          "description": "Farbe für dringende Arbeitsbereiche; feste Hex-Farben werden ebenfalls unterstützt",
+          "label": "Dringend-Farbe"
         },
         "vertical-format": {
           "description": "Optionales Format für vertikale Leisten",

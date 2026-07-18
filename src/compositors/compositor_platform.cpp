@@ -1301,6 +1301,39 @@ void CompositorPlatform::focusCompositorWindow(const std::string& windowId) cons
   }
 }
 
+void CompositorPlatform::prepareAppLaunchOnOutput(wl_output* output) {
+  if (output == nullptr || m_runtimeRegistry == nullptr || !compositors::isHyprland()) {
+    return;
+  }
+  const std::string connector = connectorNameForOutput(output);
+  if (connector.empty()) {
+    return;
+  }
+  (void)compositors::hyprland::focusOutput(m_runtimeRegistry->hyprland(), connector);
+}
+
+void CompositorPlatform::moveToplevelToOutput(const ToplevelInfo& window, wl_output* output) {
+  if (output == nullptr || m_runtimeRegistry == nullptr || !compositors::isHyprland()) {
+    return;
+  }
+  const std::string connector = connectorNameForOutput(output);
+  if (connector.empty()) {
+    return;
+  }
+
+  syncHyprlandToplevelMappings();
+  const auto windowId = compositorWindowIdForToplevelInfo(window);
+  if (!windowId.has_value() || windowId->empty()) {
+    return;
+  }
+  const auto normalized = compositors::hyprland::normalizeWindowId(*windowId);
+  if (normalized.empty()) {
+    return;
+  }
+  const std::string selector = "address:0x" + normalized;
+  (void)compositors::hyprland::moveWindowToOutput(m_runtimeRegistry->hyprland(), selector, connector);
+}
+
 void CompositorPlatform::activateKdeWindow(
     const std::string& title, const std::string& appId, const std::string& uuid
 ) {

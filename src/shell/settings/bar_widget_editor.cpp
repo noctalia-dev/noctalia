@@ -2,7 +2,6 @@
 
 #include "config/config_service.h"
 #include "config/config_types.h"
-#include "core/files/resource_paths.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/scene/node.h"
@@ -1239,14 +1238,40 @@ namespace settings {
       return selectSetting;
     }
 
-    SelectSetting batteryDeviceSelectSetting(const BarWidgetEditorContext& ctx, std::string selectedValue) {
-      if (selectedValue.empty()) {
-        selectedValue = "auto";
+    SelectSetting
+    sourcedSelectSetting(const BarWidgetEditorContext& ctx, const WidgetSettingSpec& spec, std::string selectedValue) {
+      std::vector<SelectOption> options;
+      const auto appendUnique = [&](SelectOption option) {
+        if (!std::ranges::contains(options, option.value, &SelectOption::value)) {
+          options.push_back(std::move(option));
+        }
+      };
+      options.reserve(spec.options.size());
+      for (const auto& option : spec.options) {
+        appendUnique(
+            SelectOption{
+                .value = option.value,
+                .label = spec.literalLabels ? option.labelKey : i18n::tr(option.labelKey),
+            }
+        );
       }
 
-      std::vector<SelectOption> options = ctx.batteryDeviceOptions;
-      if (options.empty()) {
-        options.push_back(SelectOption{.value = "auto", .label = i18n::tr("common.states.auto")});
+      std::vector<SelectOption> sourcedOptions;
+      switch (spec.optionSource) {
+      case WidgetSettingOptionSource::BatteryDevices:
+        sourcedOptions = ctx.batteryDeviceOptions;
+        break;
+      case WidgetSettingOptionSource::Static:
+        break;
+      }
+      options.reserve(options.size() + sourcedOptions.size());
+      for (auto& option : sourcedOptions) {
+        appendUnique(std::move(option));
+      }
+
+      const auto hasEmptyOption = std::ranges::contains(options, std::string_view{}, &SelectOption::value);
+      if (selectedValue.empty() && !hasEmptyOption) {
+        selectedValue = settingValueAsString(spec.schema.defaultValue);
       }
 
       const auto hasSelected = std::ranges::contains(options, selectedValue, &SelectOption::value);
@@ -1567,7 +1592,7 @@ namespace settings {
             options.defaultViewMode = FileDialogViewMode::Grid;
             options.title = i18n::tr("settings.widgets.settings.custom-image.dialog-title");
             options.extensions = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".bmp", ".gif"};
-            options.startDirectory = paths::assetPath("images");
+            options.startDirectory = "/usr/share/icons";
             ctx.makeRow(
                 *panel, entry,
                 makePathBrowseControl(
@@ -1612,18 +1637,26 @@ namespace settings {
         case WidgetControlKind::StringList:
           ctx.makeListBlock(*panel, entry, ListSetting{.items = settingValueAsStringList(value)});
           break;
-        case WidgetControlKind::StringMap:
+        case WidgetControlKind::StringMap: {
+          const bool customLabels = spec.schema.key == "custom_labels";
           ctx.makeStringMapBlock(
               *panel, entry,
               StringMapSetting{
                   .entries = widgetConfig != nullptr ? widgetConfig->getStringMap(spec.schema.key)
                                                      : std::unordered_map<std::string, std::string>{},
-                  .suggestedKeys = ctx.keyboardLayoutNames,
-                  .keyPlaceholder = "Layout name",
-                  .valuePlaceholder = "Label",
+                  .suggestedKeys = customLabels ? ctx.keyboardLayoutNames : std::vector<std::string>{},
+                  .keyPlaceholder = i18n::tr(
+                      customLabels ? "settings.widgets.map-placeholders.layout-name"
+                                   : "settings.widgets.map-placeholders.effects-profile-name"
+                  ),
+                  .valuePlaceholder = i18n::tr(
+                      customLabels ? "settings.widgets.map-placeholders.label"
+                                   : "settings.widgets.map-placeholders.glyph-name"
+                  ),
               }
           );
           break;
+        }
         case WidgetControlKind::Select: {
           SelectSetting selectSetting;
           const std::string selectedValue = settingValueAsString(value);
@@ -1644,8 +1677,8 @@ namespace settings {
             ctx.makeRow(*panel, entry, ctx.makeSearchPicker(picker, entry.title, path));
             break;
           }
-          if (widgetType == "battery" && spec.schema.key == "device") {
-            selectSetting = batteryDeviceSelectSetting(ctx, selectedValue);
+          if (spec.optionSource != WidgetSettingOptionSource::Static) {
+            selectSetting = sourcedSelectSetting(ctx, spec, selectedValue);
           } else if (spec.schema.key == "font_weight") {
             selectSetting = labelFontWeightSelectSetting(
                 spec, widgetLabelFontWeightSelectedValue(ctx.config, widgetName),

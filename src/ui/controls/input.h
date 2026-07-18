@@ -238,6 +238,7 @@ private:
   float m_lastPrimaryPressY = 0.0f;
   bool m_hasLastPrimaryPress = false;
   Signal<>::ScopedConnection m_paletteConn;
+  Signal<>::ScopedConnection m_inputBordersConn;
 
   // Detects synchronous self-destruction from user callbacks (onSubmit/onKeyEvent
   // can close a dialog that owns this Input). handleKey takes a weak_ptr to it and

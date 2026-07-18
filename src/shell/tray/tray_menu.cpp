@@ -693,8 +693,9 @@ void TrayMenu::ensureSurface() {
   });
   inst->surface->setDismissedCallback([this]() { close(); });
 
-  const auto chrome =
-      popup_chrome::computeGeometry(menuWidth(), static_cast<float>(surfaceHeightPx()), popupShadowConfig(m_config));
+  const auto chrome = popup_chrome::computeGeometry(
+      menuWidth(), static_cast<float>(surfaceHeightPx()), popupShadowConfig(m_config), Style::popupShadowsEnabled()
+  );
   PopupPlacement placement{};
   if (const auto bar = resolveTrayBarConfig(m_config, m_wayland, output); bar.has_value()) {
     placement = popupPlacementForBar(*bar, anchorX, anchorY, contentScale());
@@ -795,8 +796,9 @@ void TrayMenu::resizeMainSurfaceToEntries() {
     return;
   }
 
-  const auto chrome =
-      popup_chrome::computeGeometry(menuWidth(), static_cast<float>(surfaceHeightPx()), popupShadowConfig(m_config));
+  const auto chrome = popup_chrome::computeGeometry(
+      menuWidth(), static_cast<float>(surfaceHeightPx()), popupShadowConfig(m_config), Style::popupShadowsEnabled()
+  );
   const auto desiredWidth = chrome.surfaceWidth;
   const auto desiredHeight = chrome.surfaceHeight;
   if (m_instance->surface->width() == desiredWidth && m_instance->surface->height() == desiredHeight) {
@@ -878,9 +880,11 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
 
   inst.sceneRoot = std::make_unique<Node>();
   inst.sceneRoot->setSize(w, h);
-  (void)popup_chrome::addShadow(
-      *inst.sceneRoot, inst.chrome, popupShadowConfig(m_config), Style::scaledRadiusLg(contentScale())
-  );
+  if (Style::popupShadowsEnabled()) {
+    (void)popup_chrome::addShadow(
+        *inst.sceneRoot, inst.chrome, popupShadowConfig(m_config), Style::scaledRadiusLg(contentScale())
+    );
+  }
 
   std::vector<ContextMenuControlEntry> entries;
   entries.reserve(m_entries.size());
@@ -1116,7 +1120,8 @@ void TrayMenu::openSubmenuAtLevel(std::size_t levelIndex, std::int32_t parentEnt
   const auto subGap = std::max(1, static_cast<std::int32_t>(std::lround(4.0f * scale)));
 
   const auto chrome = popup_chrome::computeGeometry(
-      menuWidth(), static_cast<float>(submenuHeightPx(level.entries)), popupShadowConfig(m_config)
+      menuWidth(), static_cast<float>(submenuHeightPx(level.entries)), popupShadowConfig(m_config),
+      Style::popupShadowsEnabled()
   );
 
   const auto* wlOutput = m_wayland->findOutputByWl(parentMenu->output);
@@ -1230,9 +1235,11 @@ void TrayMenu::buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uin
 
   inst.sceneRoot = std::make_unique<Node>();
   inst.sceneRoot->setSize(w, h);
-  (void)popup_chrome::addShadow(
-      *inst.sceneRoot, inst.chrome, popupShadowConfig(m_config), Style::scaledRadiusLg(contentScale())
-  );
+  if (Style::popupShadowsEnabled()) {
+    (void)popup_chrome::addShadow(
+        *inst.sceneRoot, inst.chrome, popupShadowConfig(m_config), Style::scaledRadiusLg(contentScale())
+    );
+  }
 
   if (levelIndex >= m_submenuLevels.size()) {
     return;

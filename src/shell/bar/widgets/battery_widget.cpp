@@ -40,13 +40,11 @@ namespace {
 
 } // namespace
 
-BatteryWidget::BatteryWidget(
-    UPowerService* upower, std::string deviceSelector, int warningThreshold, ColorSpec warningColor,
-    BatteryDisplayMode displayMode, bool showLabel, bool hideWhenPlugged, bool hideWhenFull
-)
-    : m_upower(upower), m_deviceSelector(std::move(deviceSelector)), m_warningThreshold(warningThreshold),
-      m_warningColor(warningColor), m_displayMode(displayMode), m_showLabel(showLabel),
-      m_hideWhenPlugged(hideWhenPlugged), m_hideWhenFull(hideWhenFull) {}
+BatteryWidget::BatteryWidget(UPowerService* upower, Options options)
+    : m_upower(upower), m_deviceSelector(std::move(options.deviceSelector)),
+      m_warningThreshold(options.warningThreshold), m_warningColor(options.warningColor),
+      m_displayMode(options.displayMode), m_showLabel(options.showLabel), m_hideWhenPlugged(options.hideWhenPlugged),
+      m_hideWhenFull(options.hideWhenFull) {}
 
 void BatteryWidget::create() {
   auto container = std::make_unique<InputArea>();

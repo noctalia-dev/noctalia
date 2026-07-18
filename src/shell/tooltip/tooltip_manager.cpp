@@ -179,10 +179,14 @@ void TooltipManager::initialize(WaylandConnection& wayland, ConfigService* confi
   m_renderContext = renderContext;
 }
 
-void TooltipManager::shutdown() {
+void TooltipManager::forceDestroy() {
   m_showTimer.stop();
   m_refreshTimer.stop();
   m_pendingArea = nullptr;
+  m_pendingContent = {};
+  m_pendingLayerParent = nullptr;
+  m_pendingXdgParent = nullptr;
+  m_pendingOutput = nullptr;
   m_reshowQueued = false;
   m_retargetQueued = false;
   m_destroyScheduled = false;
@@ -192,6 +196,13 @@ void TooltipManager::shutdown() {
     m_surface->setSceneRoot(nullptr);
   }
   destroyPopup();
+}
+
+void TooltipManager::shutdown() {
+  forceDestroy();
+  m_wayland = nullptr;
+  m_config = nullptr;
+  m_renderContext = nullptr;
 }
 
 void TooltipManager::onHoverChange(InputArea* area, zwlr_layer_surface_v1* parentLayerSurface, wl_output* output) {

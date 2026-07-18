@@ -30,6 +30,7 @@ namespace greeter {
       const CompositorPlatform* platform = nullptr, bool logindOnSystemBus = false
   );
 
+  // No-op when appearanceSyncAvailable() is false (handler is not registered).
   void registerIpc(
       IpcService& ipc, const ConfigService& config, std::function<std::string_view()> resolvedThemeMode,
       const CompositorPlatform* platform, std::function<bool()> logindOnSystemBus = {}

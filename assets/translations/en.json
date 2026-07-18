@@ -182,6 +182,7 @@
     },
     "bluetooth": {
       "accept": "Accept",
+      "address": "Address",
       "auto-reconnect": "Auto-reconnect",
       "bluetooth": "Bluetooth",
       "enter-code": "Enter code",
@@ -835,6 +836,7 @@
     },
     "calendar-accounts": {
       "add-title": "Add Calendar Account",
+      "calendars-label": "Calendars",
       "color-label": "Color",
       "delete-error": "Could not delete calendar account.",
       "edit-title": "Edit Calendar Account",
@@ -1088,6 +1090,7 @@
         "background": "Background",
         "battery": "Battery",
         "behavior": "Behavior",
+        "borders": "Borders",
         "brightness": "Brightness",
         "built-in": "Built-In",
         "calendar": "Calendar",
@@ -1501,6 +1504,10 @@
         "global-shadow-direction": {
           "description": "Direction the shadow is cast from surfaces"
         },
+        "input-borders": {
+          "description": "Draw outlines around text fields and other inputs throughout the shell",
+          "label": "Input Borders"
+        },
         "language": {
           "description": "Override automatic locale detection",
           "label": "Language"
@@ -1508,6 +1515,14 @@
         "palette-source": {
           "description": "Where to derive the color palette from",
           "label": "Palette Source"
+        },
+        "popup-borders": {
+          "description": "Draw outlines around popups and dropdowns",
+          "label": "Popup Borders"
+        },
+        "popup-shadows": {
+          "description": "Draw drop shadows behind popups and dropdowns",
+          "label": "Popup Shadows"
         },
         "pure-black-dark": {
           "description": "Anchor dark surfaces to true black, preventing banding on OLED panels (dark mode only)",
@@ -2168,6 +2183,10 @@
           "description": "Use smaller icons and tighter result rows",
           "label": "Compact Rows"
         },
+        "launcher-currency-exchange": {
+          "description": "Fetch rates from third party online sources",
+          "label": "Currency Exchange Conversion"
+        },
         "launcher-global-calculator": {
           "description": "Also show calculator results in unprefixed search",
           "label": "Calculator in Global Search"
@@ -2610,6 +2629,10 @@
           "description": "Draw an outline around OSD popups",
           "label": "Border"
         },
+        "osd-enabled": {
+          "description": "Master switch for all OSD popups; when off no OSD is shown",
+          "label": "Enable OSD"
+        },
         "osd-kinds-bluetooth": {
           "description": "Show an OSD popup when Bluetooth is toggled",
           "label": "Bluetooth"
@@ -2625,6 +2648,10 @@
         "osd-kinds-dnd": {
           "description": "Show an OSD popup when Do Not Disturb is toggled",
           "label": "Do Not Disturb"
+        },
+        "osd-kinds-keyboard-backlight": {
+          "description": "Show an OSD popup when the keyboard backlight level changes",
+          "label": "Keyboard Backlight"
         },
         "osd-kinds-keyboard-layout": {
           "description": "Show an OSD popup when the input keyboard layout changes",
@@ -2921,6 +2948,12 @@
         "ram": "RAM",
         "temp": "Temperature"
       },
+      "map-placeholders": {
+        "effects-profile-name": "Profile name",
+        "glyph-name": "Glyph name",
+        "label": "Label",
+        "layout-name": "Layout name"
+      },
       "options": {
         "always": "Always",
         "auto": "Auto",
@@ -3093,6 +3126,10 @@
         "drawer-item-size": {
           "description": "Size of tray icons inside the drawer panel in pixels",
           "label": "Drawer Icon Size"
+        },
+        "effects-profile-glyphs": {
+          "description": "Map EasyEffects profile names to icon glyphs",
+          "label": "Effects Profile Glyphs"
         },
         "empty-color": {
           "description": "Color role used for empty workspaces; fixed hex colors are also supported",

@@ -98,7 +98,8 @@ void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, Dro
   m_viewportHeight = static_cast<float>(visibleCount) * m_optionHeight + kMenuPadding * 2.0f;
   m_totalHeight = static_cast<float>(m_options.size()) * m_optionHeight;
   m_scrollOffset = 0.0f;
-  const auto chrome = popup_chrome::computeGeometry(m_menuWidth, m_viewportHeight, m_shadowConfig);
+  const auto chrome =
+      popup_chrome::computeGeometry(m_menuWidth, m_viewportHeight, m_shadowConfig, Style::popupShadowsEnabled());
 
   ensureHoveredIndexVisible();
 
@@ -227,12 +228,15 @@ bool SelectDropdownPopup::isSelectDropdownOpen() const { return m_surface != nul
 void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
   m_sceneRoot = std::make_unique<Node>();
   m_optionViews.clear();
-  const auto chrome = popup_chrome::computeGeometry(m_menuWidth, m_viewportHeight, m_shadowConfig);
+  const auto chrome =
+      popup_chrome::computeGeometry(m_menuWidth, m_viewportHeight, m_shadowConfig, Style::popupShadowsEnabled());
   const float menuX = chrome.contentX();
   const float menuY = chrome.contentY();
   const float radius = Style::scaledRadiusMd();
 
-  (void)popup_chrome::addShadow(*m_sceneRoot, chrome, m_shadowConfig, radius);
+  if (Style::popupShadowsEnabled()) {
+    (void)popup_chrome::addShadow(*m_sceneRoot, chrome, m_shadowConfig, radius);
+  }
 
   auto bg = std::make_unique<RectNode>();
   bg->setStyle(
@@ -242,7 +246,7 @@ void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
           .fillMode = FillMode::Solid,
           .radius = radius,
           .softness = 1.0f,
-          .borderWidth = Style::borderWidth,
+          .borderWidth = Style::popupBordersEnabled() ? Style::borderWidth : 0.0f,
       }
   );
   auto* bgNode = static_cast<RectNode*>(m_sceneRoot->addChild(std::move(bg)));
@@ -353,7 +357,8 @@ void SelectDropdownPopup::buildScene(const DropdownRequest& request) {
 
   auto scrollbar = std::make_unique<Scrollbar>();
   scrollbar->setOnScrollChanged([this](float offset) { setScrollOffset(offset); });
-  const float scrollbarX = menuX + m_menuWidth - Style::scrollbarWidth - Style::borderWidth;
+  const float scrollbarX =
+      menuX + m_menuWidth - Style::scrollbarWidth - (Style::popupBordersEnabled() ? Style::borderWidth : 0.0f);
   scrollbar->setPosition(scrollbarX, menuY + kMenuPadding);
   scrollbar->update(contentViewport, m_totalHeight, m_scrollOffset);
   m_scrollbar = static_cast<Scrollbar*>(m_sceneRoot->addChild(std::move(scrollbar)));
@@ -721,7 +726,8 @@ bool SelectDropdownPopup::ownsSurface(wl_surface* surface) const noexcept {
 }
 
 bool SelectDropdownPopup::containsPopupContent(float localX, float localY) const noexcept {
-  const auto chrome = popup_chrome::computeGeometry(m_menuWidth, m_viewportHeight, m_shadowConfig);
+  const auto chrome =
+      popup_chrome::computeGeometry(m_menuWidth, m_viewportHeight, m_shadowConfig, Style::popupShadowsEnabled());
   return localX >= chrome.contentX()
       && localY >= chrome.contentY()
       && localX < chrome.contentRight()

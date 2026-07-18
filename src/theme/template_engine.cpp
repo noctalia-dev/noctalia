@@ -11,6 +11,7 @@
 #include "cpp/scheme/scheme_rainbow.h"
 #include "cpp/scheme/scheme_tonal_spot.h"
 #include "theme/color.h"
+#include "theme/kde_color_scheme.h"
 #include "theme/palette.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
@@ -161,6 +162,7 @@ namespace noctalia::theme {
       std::vector<CompareColorEntry> colorsToCompare;
       std::string preHook;
       std::string postHook;
+      std::string postAction;
       // When set, skip outputs if this path does not exist (explicit install check).
       std::string requiresPath;
       // When true, skip each output whose inferred client config root is missing.
@@ -1308,6 +1310,8 @@ namespace noctalia::theme {
         entry.preHook = preHook->get();
       if (const auto postHook = tpl.get_as<std::string>("post_hook"))
         entry.postHook = postHook->get();
+      if (const auto postAction = tpl.get_as<std::string>("post_action"))
+        entry.postAction = postAction->get();
       if (const auto opd = tpl.get_as<std::string>("output_path_dynamic"))
         entry.outputPathDynamic = opd->get();
       if (const auto requiresPath = tpl.get_as<std::string>("requires_path"))
@@ -1503,6 +1507,33 @@ namespace noctalia::theme {
         }
       };
 
+      auto runPostAction = [&]() {
+        if (entry.postAction.empty()) {
+          return true;
+        }
+        if (entry.postAction != "kde-color-scheme") {
+          kLog.warn("unknown post action '{}' for template {}", entry.postAction, entry.name);
+          return false;
+        }
+        if (effectiveOutputs.size() != 1) {
+          kLog.warn(
+              "post action '{}' for template {} requires exactly one output, got {}", entry.postAction, entry.name,
+              effectiveOutputs.size()
+          );
+          return false;
+        }
+
+        const KdeColorSchemeApplyResult result = applyKdeColorScheme(effectiveOutputs.front());
+        if (!result.success) {
+          kLog.warn("post action '{}' for template {} failed: {}", entry.postAction, entry.name, result.error);
+          return false;
+        }
+        if (!result.notificationError.empty()) {
+          kLog.warn("applied KDE color scheme but failed to notify applications: {}", result.notificationError);
+        }
+        return true;
+      };
+
       const bool hasOutputs = !effectiveOutputs.empty();
       if (hasOutputs)
         runHook(entry.preHook);
@@ -1538,8 +1569,12 @@ namespace noctalia::theme {
         return ok;
       }
 
-      if ((hasOutputs && outputsOk) || (!hasOutputs && !entry.postHook.empty()))
+      if ((hasOutputs && outputsOk) || (!hasOutputs && (!entry.postHook.empty() || !entry.postAction.empty()))) {
+        if (!runPostAction()) {
+          ok = false;
+        }
         runHook(entry.postHook);
+      }
     }
 
     return ok;
