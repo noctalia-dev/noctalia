@@ -737,6 +737,9 @@ void WorkspacesWidget::computeTargets() {
 }
 
 void WorkspacesWidget::updateItemFlowPositions() {
+  // A gap precedes an item only in proportion to how visible both it and the items before it are, so
+  // gaps grow and collapse with the pills they separate. precedingProgress is the accumulated (clamped)
+  // visibility of earlier items: it keeps the first visible pill from getting a leading gap.
   float cursor = 0.0f;
   float precedingProgress = 0.0f;
   for (auto& item : m_items) {
@@ -760,6 +763,9 @@ void WorkspacesWidget::updateContainerSize() {
   }
 
   if (m_animId != 0) {
+    // The container is not clipped: it must always enclose the pills, so reserve the larger of the
+    // current and target bounds. Taking the max keeps a shrinking transition from clipping pills that
+    // are still wide, and a growing one from snapping the bar wider than the pills have reached.
     float targetTotal = 0.0f;
     for (const auto& item : m_items) {
       if (item.targetWidth > 0.0f) {
