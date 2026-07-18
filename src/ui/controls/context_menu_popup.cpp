@@ -42,8 +42,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
   const std::size_t maxVisible =
       request.maxVisible > 0 ? request.maxVisible : std::max<std::size_t>(1, request.entries.size());
   const float menuHeight = ContextMenuControl::preferredHeight(request.entries, maxVisible);
-  const auto effectiveShadow = Style::popupShadowsEnabled() ? m_shadowConfig : std::nullopt;
-  const auto chrome = popup_chrome::computeGeometry(request.menuWidth, menuHeight, effectiveShadow);
+  const auto chrome = popup_chrome::computeGeometry(request.menuWidth, menuHeight, m_shadowConfig, Style::popupShadowsEnabled());
   m_scrollState = {};
   m_scrollView = nullptr;
   m_menu = nullptr;
@@ -121,8 +120,9 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
 
     self->m_sceneRoot = std::make_unique<Node>();
     self->m_sceneRoot->setSize(fw, fh);
-    const auto effectiveShadow2 = Style::popupShadowsEnabled() ? self->m_shadowConfig : std::nullopt;
-    (void)popup_chrome::addShadow(*self->m_sceneRoot, chrome, effectiveShadow2, Style::scaledRadiusLg());
+    if (Style::popupShadowsEnabled()) {
+      (void)popup_chrome::addShadow(*self->m_sceneRoot, chrome, self->m_shadowConfig, Style::scaledRadiusLg());
+    }
 
     auto scrollView = std::make_unique<ScrollView>();
     scrollView->setPosition(chrome.contentX(), chrome.contentY());

@@ -29,10 +29,7 @@ namespace {
       | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_X
       | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y;
 
-  std::optional<ShellConfig::ShadowConfig> popupShadowConfig(ConfigService* config) {
-    if (!Style::popupShadowsEnabled()) {
-      return std::nullopt;
-    }
+  ShellConfig::ShadowConfig popupShadowConfig(ConfigService* config) {
     return config != nullptr ? config->config().shell.shadow : ShellConfig::ShadowConfig{};
   }
 
@@ -114,7 +111,7 @@ bool DialogPopupHost::openPopup(std::uint32_t width, std::uint32_t height) {
   surface->setDismissedCallback([this]() { DeferredCall::callLater([this]() { cancel(); }); });
 
   m_chrome =
-      popup_chrome::computeGeometry(static_cast<float>(width), static_cast<float>(height), popupShadowConfig(m_config));
+      popup_chrome::computeGeometry(static_cast<float>(width), static_cast<float>(height), popupShadowConfig(m_config), Style::popupShadowsEnabled());
   PopupSurfaceConfig popupConfig = defaultPopupConfig(*parentContext, width, height);
   popup_chrome::applyToConfig(
       popupConfig, m_chrome,
@@ -169,7 +166,7 @@ bool DialogPopupHost::openPopupAsChild(PopupSurfaceConfig config, const XdgPopup
   surface->setDismissedCallback([this]() { DeferredCall::callLater([this]() { cancel(); }); });
 
   m_chrome = popup_chrome::computeGeometry(
-      static_cast<float>(config.width), static_cast<float>(config.height), popupShadowConfig(m_config)
+      static_cast<float>(config.width), static_cast<float>(config.height), popupShadowConfig(m_config), Style::popupShadowsEnabled()
   );
   popup_chrome::applyToConfig(
       config, m_chrome,
@@ -427,7 +424,9 @@ void DialogPopupHost::buildScene(std::uint32_t width, std::uint32_t height) {
   (void)height;
   m_sceneRoot = std::make_unique<Node>();
   m_sceneRoot->setAnimationManager(&m_animations);
-  m_panelShadow = popup_chrome::addShadow(*m_sceneRoot, m_chrome, popupShadowConfig(m_config), Style::scaledRadiusXl());
+  if (Style::popupShadowsEnabled()) {
+    m_panelShadow = popup_chrome::addShadow(*m_sceneRoot, m_chrome, popupShadowConfig(m_config), Style::scaledRadiusXl());
+  }
 
   auto bg = ui::box({
       .configure = [](Box& box) { box.setDialogStyle(); },
@@ -497,13 +496,11 @@ void DialogPopupHost::syncSceneGeometryFromSurface() {
   const float panelY = m_chrome.contentY();
   const float panelW = m_chrome.contentWidth;
   const float panelH = m_chrome.contentHeight;
-  if (m_panelShadow != nullptr) {
+  if (m_panelShadow != nullptr && Style::popupShadowsEnabled()) {
     const auto shadow = popupShadowConfig(m_config);
-    if (shadow) {
-      const auto offset = shadowDirectionOffset(shadow->direction);
-      m_panelShadow->setPosition(panelX + static_cast<float>(offset.x), panelY + static_cast<float>(offset.y));
-      m_panelShadow->setFrameSize(panelW, panelH);
-    }
+    const auto offset = shadowDirectionOffset(shadow.direction);
+    m_panelShadow->setPosition(panelX + static_cast<float>(offset.x), panelY + static_cast<float>(offset.y));
+    m_panelShadow->setFrameSize(panelW, panelH);
   }
   if (m_bgNode != nullptr) {
     m_bgNode->setPosition(panelX, panelY);
