@@ -316,7 +316,7 @@ namespace shell::dock {
       aH = halfCell * 2;
     }
 
-    const auto menuChrome = popup_chrome::computeGeometry(kMenuWidth, menuHeight, config.config().shell.shadow);
+    const auto menuChrome = popup_chrome::computeGeometry(kMenuWidth, menuHeight, config.config().shell.shadow, Style::popupShadowsEnabled());
     PopupSurfaceConfig popupCfg{
         .anchorX = aX,
         .anchorY = aY,
@@ -378,9 +378,11 @@ namespace shell::dock {
 
       menuPtr->sceneRoot = std::make_unique<Node>();
       menuPtr->sceneRoot->setSize(fw, fh);
-      (void)popup_chrome::addShadow(
-          *menuPtr->sceneRoot, menuPtr->chrome, config.config().shell.shadow, Style::scaledRadiusLg()
-      );
+      if (Style::popupShadowsEnabled()) {
+        (void)popup_chrome::addShadow(
+            *menuPtr->sceneRoot, menuPtr->chrome, config.config().shell.shadow, Style::scaledRadiusLg()
+        );
+      }
 
       auto ctrl = std::make_unique<ContextMenuControl>();
       ctrl->setMenuWidth(menuPtr->chrome.contentWidth);
