@@ -375,8 +375,13 @@ void Application::initInputDispatch() {
       return;
     }
     if (m_windowSwitcher.isActive()) {
-      (void)m_windowSwitcher.onPointerEvent(event);
-      return;
+      if (m_windowSwitcher.onPointerEvent(event)) {
+        return;
+      }
+      if (event.type == PointerEvent::Type::Button || event.type == PointerEvent::Type::Axis) {
+        return;
+      }
+      // Enter/Leave/Motion fall through so other surfaces' hover state stays in sync.
     }
     if (m_colorPickerDialogPopup.onPointerEvent(event)) {
       return;
