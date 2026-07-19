@@ -907,18 +907,19 @@ bool WindowSwitcher::onPointerEvent(const PointerEvent& event) {
     }
     return false;
   case PointerEvent::Type::Button: {
+    const bool pressed = (event.state == 1);
     if (onTarget) {
       target->pointerInside = true;
     }
     if (!onTarget && !target->pointerInside) {
-      if (event.state == 1) {
+      if (pressed) {
         hide();
+        return true;
       }
       return false;
     }
-    const bool pressed = (event.state == 1);
     if (pressed
-        && event.surface == target->surface->wlSurface()
+        && onTarget
         && (target->inputDispatcher.hoveredArea() == nullptr
             || target->inputDispatcher.hoveredArea() == target->input)) {
       hide();
