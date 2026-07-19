@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+class ExternalIpService;
 class Glyph;
 class Label;
 class Spinner;
@@ -16,7 +17,8 @@ struct wl_output;
 class NetworkWidget : public Widget {
 public:
   NetworkWidget(
-      INetworkService* network, SystemMonitorService* monitor, wl_output* output, bool showLabel, bool showVpnLabel
+      INetworkService* network, ExternalIpService* externalIp, SystemMonitorService* monitor, wl_output* output,
+      bool showLabel, bool showVpnLabel
   );
 
   void create() override;
@@ -28,6 +30,7 @@ private:
   [[nodiscard]] std::vector<TooltipRow> buildTooltipRows() const;
 
   INetworkService* m_network = nullptr;
+  ExternalIpService* m_externalIp = nullptr;
   SystemMonitorService* m_monitor = nullptr;
   bool m_showLabel = true;
   bool m_showVpnLabel = false;

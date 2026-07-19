@@ -939,6 +939,7 @@ void Application::initSystemBusServices() {
       m_networkService->setChangeCallback(
           [this, shouldRefreshControlCenter](const NetworkState& state, NetworkChangeOrigin origin) {
             onNetworkStateChangedForEvents(state, origin);
+            m_externalIpService.onNetworkChanged();
             m_bar.refresh();
             if (shouldRefreshControlCenter()) {
               m_panelManager.refresh();
@@ -956,6 +957,7 @@ void Application::initSystemBusServices() {
         m_networkService->setChangeCallback(
             [this, shouldRefreshControlCenter](const NetworkState& state, NetworkChangeOrigin origin) {
               onNetworkStateChangedForEvents(state, origin);
+              m_externalIpService.onNetworkChanged();
               m_bar.refresh();
               if (shouldRefreshControlCenter()) {
                 m_panelManager.refresh();
@@ -973,6 +975,7 @@ void Application::initSystemBusServices() {
           m_networkService->setChangeCallback(
               [this, shouldRefreshControlCenter](const NetworkState& state, NetworkChangeOrigin origin) {
                 onNetworkStateChangedForEvents(state, origin);
+                m_externalIpService.onNetworkChanged();
                 m_bar.refresh();
                 if (shouldRefreshControlCenter()) {
                   m_panelManager.refresh();
@@ -989,6 +992,18 @@ void Application::initSystemBusServices() {
         }
       }
     }
+
+    if (m_networkService != nullptr) {
+      m_externalIpService.setNetworkService(m_networkService.get());
+      m_externalIpService.setChangeCallback([this, shouldRefreshControlCenter]() {
+        m_bar.refresh();
+        if (shouldRefreshControlCenter()) {
+          m_panelManager.refresh();
+        }
+      });
+      m_externalIpService.onNetworkChanged();
+    }
+    m_configService.addReloadCallback([this]() { m_externalIpService.onConfigReload(); });
 
     if (m_networkService != nullptr && m_networkService->supportsSecretAgent()) {
       try {

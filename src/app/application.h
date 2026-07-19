@@ -11,6 +11,7 @@
 #include "config/config_service.h"
 #include "core/files/file_watcher.h"
 #include "core/timer_manager.h"
+#include "dbus/network/external_ip_service.h"
 #include "dbus/notification/notification_poll_source.h"
 #include "hooks/battery_hook_state.h"
 #include "hooks/hook_manager.h"
@@ -250,6 +251,7 @@ private:
   std::unique_ptr<PowerProfilesService> m_powerProfilesService;
   std::unique_ptr<INetworkService> m_networkService;
   std::unique_ptr<NetworkSecretAgent> m_networkSecretAgent;
+  ExternalIpService m_externalIpService{&m_httpClient, &m_configService};
   std::unique_ptr<IwdSecretAgent> m_iwdSecretAgent;
   std::unique_ptr<BluetoothService> m_bluetoothService;
   std::unique_ptr<BluetoothAgent> m_bluetoothAgent;

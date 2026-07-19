@@ -76,6 +76,7 @@
         "signal": "Signal",
         "upload": "Upload",
         "vpn": "VPN",
+        "wan-ip": "WAN IP",
         "wifi": "Wi-Fi",
         "wired": "Wired",
         "yes": "Yes"

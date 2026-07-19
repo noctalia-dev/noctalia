@@ -1,24 +1,21 @@
 #include "shell/control_center/tabs/network_tab.h"
 
-#include "config/config_service.h"
 #include "core/ui_phase.h"
+#include "dbus/network/external_ip_service.h"
 #include "dbus/network/inetwork_service.h"
 #include "dbus/network/network_glyphs.h"
 #include "i18n/i18n.h"
-#include "net/http_client.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "shell/panel/panel_manager.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "util/string_utils.h"
 
 #include <algorithm>
 #include <chrono>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <utility>
 
 using namespace control_center;
@@ -59,20 +56,6 @@ namespace {
       out += i18n::tr("control-center.network.external-ip", "ip", externalIp);
     }
     return out;
-  }
-
-  // Identity of the route the WAN IP was resolved through.
-  std::string wanProbeKey(const NetworkState& s) { return s.ipv4 + (s.vpnConnected ? "|vpn" : "|"); }
-
-  // The fetch endpoint returns the address as plain text; accept only strings
-  // that look like an IPv4/IPv6 literal before displaying them.
-  bool isPlausibleIpLiteral(std::string_view s) {
-    if (s.empty() || s.size() > 45) {
-      return false;
-    }
-    return std::ranges::all_of(s, [](char c) {
-      return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || c == '.' || c == ':';
-    });
   }
 
   std::string percentText(std::uint8_t percent) { return std::to_string(static_cast<int>(percent)) + "%"; }
@@ -396,8 +379,8 @@ namespace {
 
 } // namespace
 
-NetworkTab::NetworkTab(INetworkService* network, NetworkSecretAgent* secrets, HttpClient* http, ConfigService* config)
-    : m_network(network), m_secrets(secrets), m_http(http), m_config(config) {
+NetworkTab::NetworkTab(INetworkService* network, NetworkSecretAgent* secrets, ExternalIpService* externalIp)
+    : m_network(network), m_secrets(secrets), m_externalIpService(externalIp) {
   if (m_secrets != nullptr) {
     m_secrets->setRequestCallback([this](const NetworkSecretAgent::SecretRequest& request) {
       showPasswordPrompt(request);
@@ -563,10 +546,6 @@ void NetworkTab::setActive(bool active) {
   m_active = active;
   if (m_active && m_network != nullptr) {
     m_network->requestScan();
-    maybeScheduleExternalIpProbe();
-  }
-  if (!m_active) {
-    m_externalIpTimer.stop();
   }
 }
 
@@ -616,7 +595,6 @@ void NetworkTab::onClose() {
   m_pendingAccessPoint.reset();
   m_active = false;
   m_actionPending = false;
-  m_externalIpTimer.stop();
 }
 
 void NetworkTab::syncPasswordCard() {
@@ -717,23 +695,10 @@ void NetworkTab::syncCurrentCard() {
       m_actionPending = false;
     }
   }
-  if (!externalIpEnabled()) {
-    m_externalIp.clear();
-    m_externalIpTimer.stop();
-  } else if (s.connected) {
-    // A network or VPN change invalidates the shown WAN IP right away — it
-    // disappears from the card and reappears once re-resolved.
-    if (wanProbeKey(s) != m_externalIpKey && !m_externalIp.empty()) {
-      m_externalIp.clear();
-    }
-    maybeScheduleExternalIpProbe();
-  } else {
-    m_externalIp.clear();
-    // Drop the backoff so a reconnect probes promptly.
-    m_externalIpFetchedAt = std::chrono::steady_clock::time_point{};
-  }
+  static const std::string kNoExternalIp;
+  const std::string& externalIp = m_externalIpService != nullptr ? m_externalIpService->externalIp() : kNoExternalIp;
   m_currentTitle->setText(currentTitle(s));
-  m_currentDetail->setText(currentDetail(s, m_externalIp));
+  m_currentDetail->setText(currentDetail(s, externalIp));
   if (m_disconnectButton != nullptr) {
     const bool canReconnectWired = !s.connected && m_network->canActivateWiredConnection();
     m_disconnectButton->setVisible(s.connected || canReconnectWired || m_actionPending);
@@ -752,72 +717,6 @@ void NetworkTab::syncCurrentCard() {
       m_scanSpinner->stop();
     }
   }
-}
-
-bool NetworkTab::externalIpEnabled() const { return m_config != nullptr && m_config->config().shell.externalIpEnabled; }
-
-void NetworkTab::maybeScheduleExternalIpProbe() {
-  if (m_http == nullptr || m_network == nullptr || !m_active || !externalIpEnabled()) {
-    return;
-  }
-  const NetworkState& s = m_network->state();
-  if (!s.connected || m_externalIpFetchInFlight || m_externalIpTimer.active()) {
-    return;
-  }
-  const auto now = std::chrono::steady_clock::now();
-  if (wanProbeKey(s) == m_externalIpKey) {
-    if (!m_externalIp.empty() && now - m_externalIpFetchedAt < std::chrono::minutes(5)) {
-      return;
-    }
-    // Failure backoff: don't hammer the endpoint from every update pass.
-    if (now - m_externalIpFetchedAt < std::chrono::seconds(30)) {
-      return;
-    }
-  }
-  // Wait out the route/DNS settle window after a connection or VPN change —
-  // probing the instant NM reports the change can still egress the old path.
-  m_externalIpTimer.start(std::chrono::milliseconds(2000), [this] { probeExternalIpNow(); });
-}
-
-void NetworkTab::probeExternalIpNow() {
-  if (m_http == nullptr || m_network == nullptr || !m_active || !externalIpEnabled() || m_externalIpFetchInFlight) {
-    return;
-  }
-  const NetworkState& s = m_network->state();
-  if (!s.connected) {
-    return;
-  }
-
-  m_externalIpFetchInFlight = true;
-  const std::string key = wanProbeKey(s);
-  const std::weak_ptr<int> alive = m_lifetime;
-  HttpRequest req;
-  req.url = "https://api.noctalia.dev/ip";
-  // A pooled keep-alive connection predating a VPN/route change would answer
-  // via the old path and report the stale address.
-  req.freshConnection = true;
-  m_http->request(std::move(req), [this, alive, key](HttpResponse response) {
-    if (alive.expired()) {
-      return;
-    }
-    m_externalIpFetchInFlight = false;
-    m_externalIpFetchedAt = std::chrono::steady_clock::now();
-    m_externalIpKey = key;
-    m_externalIp.clear();
-    if (response.transportOk && response.status == 200) {
-      const std::string ip = StringUtils::trim(response.body);
-      if (isPlausibleIpLiteral(ip)) {
-        m_externalIp = ip;
-      }
-    }
-    if (!m_externalIp.empty() && m_externalIpConfirmedKey != key) {
-      // One confirmation probe per network/VPN state: the first probe after a
-      // transition can race a still-settling route and return the old address.
-      m_externalIpConfirmedKey = key;
-      m_externalIpTimer.start(std::chrono::milliseconds(4000), [this] { probeExternalIpNow(); });
-    }
-    PanelManager::instance().refresh();
-  });
 }
 
 void NetworkTab::beginPendingAction(bool wasConnected) {

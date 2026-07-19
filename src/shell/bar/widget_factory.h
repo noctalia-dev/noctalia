@@ -19,6 +19,7 @@ class BluetoothService;
 class BrightnessService;
 class ClipboardService;
 class EasyEffectsService;
+class ExternalIpService;
 class RenderContext;
 class ScreenshotService;
 class INetworkService;
@@ -60,6 +61,7 @@ private:
   SystemMonitorService* m_sysmon;
   PowerProfilesService* m_powerProfiles;
   INetworkService* m_network;
+  ExternalIpService* m_externalIp;
   IdleInhibitor* m_idleInhibitor;
   MprisService* m_mpris;
   PipeWireSpectrum* m_audioSpectrum;
