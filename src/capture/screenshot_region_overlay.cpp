@@ -2,6 +2,7 @@
 
 #include "config/config_types.h"
 #include "core/deferred_call.h"
+#include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
@@ -224,7 +225,7 @@ namespace capture {
       }
       cancel();
       if (m_onComplete) {
-        m_onComplete(std::nullopt, nullptr);
+        m_onComplete(std::nullopt, nullptr, ConfirmAction::None);
       }
     });
   }
@@ -330,9 +331,6 @@ namespace capture {
     }
 
     if (!m_renderContext->makeCurrent(inst.surface->renderTarget())) {
-      // The overlay's EGL surface could not be made current (e.g. EGL_BAD_ALLOC when the
-      // driver is out of video memory). Painting would be a no-op, leaving an invisible
-      // fullscreen surface that eats input, so tear down and report instead of spinning.
       abortWithError(i18n::tr("bar.screenshot.overlay-alloc-failed"));
       return;
     }
@@ -384,7 +382,6 @@ namespace capture {
             return;
           }
           m_dragging = false;
-          // completeSelection() tears down surfaces; defer past InputDispatcher::pointerButton.
           DeferredCall::callLater([this]() { completeSelection(); });
           return;
         }
@@ -431,9 +428,21 @@ namespace capture {
       if (!key.pressed) {
         return;
       }
-      if (m_confirming && KeySymbol::isEnterOrSpace(key.sym)) {
-        DeferredCall::callLater([this]() { confirmPendingSelection(); });
-        return;
+      if (m_confirming) {
+        if ((key.modifiers & KeyMod::Ctrl) != 0) {
+          if (key.sym == XKB_KEY_c || key.sym == XKB_KEY_C) {
+            DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::ForceClipboard); });
+            return;
+          }
+          if (key.sym == XKB_KEY_s || key.sym == XKB_KEY_S) {
+            DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::ForceSave); });
+            return;
+          }
+        }
+        if (KeySymbol::isEnterOrSpace(key.sym)) {
+          DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::None); });
+          return;
+        }
       }
       if (KeybindMatcher::matches(KeybindAction::Cancel, key.sym, key.modifiers)) {
         cancelSelection();
@@ -456,12 +465,8 @@ namespace capture {
       inst.backdrop = static_cast<Image*>(input->addChild(std::move(backdrop)));
     }
 
-    // Dim the screen with four strips that frame the selected region. The
-    // region itself stays fully transparent so it shows real colors and never
-    // tints the captured pixels.
     auto makeDimStrip = [&]() {
       auto strip = std::make_unique<Box>();
-      // Fixed black scrim so it darkens under every theme.
       strip->setFill(fixedColorSpec(rgba(0.0f, 0.0f, 0.0f, 1.0f)));
       strip->setOpacity(kDimOpacity);
       strip->setPosition(0.0f, 0.0f);
@@ -625,9 +630,21 @@ namespace capture {
     }
 
     if (!KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
-      if (m_confirming && KeySymbol::isEnterOrSpace(event.sym)) {
-        confirmPendingSelection();
-        return true;
+      if (m_confirming) {
+        if ((event.modifiers & KeyMod::Ctrl) != 0) {
+          if (event.sym == XKB_KEY_c || event.sym == XKB_KEY_C) {
+            confirmPendingSelection(ConfirmAction::ForceClipboard);
+            return true;
+          }
+          if (event.sym == XKB_KEY_s || event.sym == XKB_KEY_S) {
+            confirmPendingSelection(ConfirmAction::ForceSave);
+            return true;
+          }
+        }
+        if (KeySymbol::isEnterOrSpace(event.sym)) {
+          confirmPendingSelection(ConfirmAction::None);
+          return true;
+        }
       }
       return false;
     }
@@ -639,10 +656,8 @@ namespace capture {
     if (!m_active) {
       return;
     }
-    // Stop further frames from re-triggering the abort while teardown is pending.
     m_active = false;
     kLog.warn("aborting screenshot region overlay: {}", message);
-    // Defer past the surface's prepareFrame callback before destroying its surfaces.
     FailureCallback onFailure = m_onFailure;
     DeferredCall::callLater([this, onFailure, message]() {
       cancel();
@@ -653,8 +668,6 @@ namespace capture {
   }
 
   void ScreenshotRegionOverlay::updateSelectionVisuals() {
-    // Lay out the four dim strips so they cover the surface except for the hole
-    // rect (surface-local). An empty hole dims the whole surface.
     const auto layoutDimFrame = [](Instance& inst, float surfaceW, float surfaceH, float hx0, float hy0, float hx1,
                                    float hy1) {
       hx0 = std::clamp(hx0, 0.0f, surfaceW);
@@ -755,8 +768,6 @@ namespace capture {
       const auto holeY1 = static_cast<float>(iy1 - outTop);
       layoutDimFrame(*inst, surfaceW, surfaceH, holeX0, holeY0, holeX1, holeY1);
 
-      // The outline is inset, so expand it outward to keep the border out of the
-      // captured (undimmed) region.
       inst->selection->setVisible(true);
       inst->selection->setPosition(holeX0 - kSelectionBorderWidth, holeY0 - kSelectionBorderWidth);
       inst->selection->setSize(
@@ -828,7 +839,7 @@ namespace capture {
       m_active = false;
       destroySurfaces();
       if (m_onComplete) {
-        m_onComplete(std::nullopt, nullptr);
+        m_onComplete(std::nullopt, nullptr, ConfirmAction::None);
       }
       return;
     }
@@ -858,11 +869,11 @@ namespace capture {
         .height = height,
     };
     if (m_onComplete) {
-      m_onComplete(region, nullptr);
+      m_onComplete(region, nullptr, ConfirmAction::None);
     }
   }
 
-  void ScreenshotRegionOverlay::confirmPendingSelection() {
+  void ScreenshotRegionOverlay::confirmPendingSelection(ConfirmAction action) {
     if (!m_active || !m_confirming) {
       return;
     }
@@ -880,7 +891,7 @@ namespace capture {
 
     if (width < 2 || height < 2) {
       if (m_onComplete) {
-        m_onComplete(std::nullopt, nullptr);
+        m_onComplete(std::nullopt, nullptr, ConfirmAction::None);
       }
       return;
     }
@@ -892,14 +903,14 @@ namespace capture {
         .height = height,
     };
     if (m_onComplete) {
-      m_onComplete(region, nullptr);
+      m_onComplete(region, nullptr, action);
     }
   }
 
   void ScreenshotRegionOverlay::completeFullscreenPick(wl_output* output) {
     if (!m_active || output == nullptr || m_wayland == nullptr) {
       if (m_onComplete) {
-        m_onComplete(std::nullopt, nullptr);
+        m_onComplete(std::nullopt, nullptr, ConfirmAction::None);
       }
       return;
     }
@@ -909,7 +920,7 @@ namespace capture {
       m_active = false;
       destroySurfaces();
       if (m_onComplete) {
-        m_onComplete(std::nullopt, nullptr);
+        m_onComplete(std::nullopt, nullptr, ConfirmAction::None);
       }
       return;
     }
@@ -924,7 +935,7 @@ namespace capture {
         .height = out->logicalHeight,
     };
     if (m_onComplete) {
-      m_onComplete(region, output);
+      m_onComplete(region, output, ConfirmAction::None);
     }
   }
 
