@@ -6,6 +6,9 @@ runtime asset behavior, and debugging helpers.
 
 For dependencies and normal build commands, start with [README.md](README.md).
 
+Before contributing, read our [ethos](https://noctalia.dev/ethos) to understand the values and philosophy guiding the
+project.
+
 ## Design Principles
 
 - Direct Wayland + OpenGL ES only -- no toolkit overhead

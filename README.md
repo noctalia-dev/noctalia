@@ -54,6 +54,8 @@ Noctalia solves that by providing one configurable shell layer that owns the com
 still fitting into compositor-driven Wayland workflows. It is meant for users who want the control of a custom desktop
 environment with fewer moving parts and a consistent UI.
 
+To understand the values and philosophy guiding the project, read our [ethos](https://noctalia.dev/ethos).
+
 ## What It Includes
 
 - Multi-monitor bars with configurable widgets, taskbar, workspaces, system tray, media, network, battery, brightness,
