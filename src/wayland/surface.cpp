@@ -1,5 +1,6 @@
 #include "wayland/surface.h"
 
+#include "compositors/compositor_detect.h"
 #include "core/log.h"
 #include "core/ui_phase.h"
 #include "ext-background-effect-v1-client-protocol.h"
@@ -798,7 +799,7 @@ std::vector<InputRect> Surface::tessellateShape(
   // strips (yf outside the body's vertical span) are covered only where a concave
   // corner bulge crosses the row; two concave corners on the same edge (e.g. a bar
   // with both inner corners concave) produce two disjoint segments with an empty
-  // middle — so this returns a list, not a single span.
+  // middle - so this returns a list, not a single span.
   const auto rowSegments = [&](float yf) -> std::vector<std::pair<float, float>> {
     std::vector<std::pair<float, float>> segs;
     const auto pushSeg = [&](float l, float r) {
@@ -1080,9 +1081,26 @@ void Surface::clearBlurRegion() {
     traceSurfaceEvent(*this, "blur-clear-no-effect");
     return;
   }
+
+  // KDE (esp. Better Blur) can leave a halo if we only destroy the effect object.
+  // Protocol: NULL region removes the effect
+  if (compositors::isKde()) {
+    traceSurfaceEvent(*this, "blur-clear-null-region");
+    ext_background_effect_surface_v1_set_blur_region(m_backgroundEffect, nullptr);
+  }
+
   traceSurfaceEvent(*this, "blur-clear-destroy");
   ext_background_effect_surface_v1_destroy(m_backgroundEffect);
   m_backgroundEffect = nullptr;
+
+  if (compositors::isKde() && m_surface != nullptr && m_running && m_configured) {
+    // Retain the current buffer; commit so pending blur-clear state is applied.
+    if (m_frameCallback == nullptr) {
+      requestFrame();
+    }
+    wl_surface_commit(m_surface);
+    traceSurfaceEvent(*this, "blur-clear-commit");
+  }
 }
 
 void Surface::requestUpdate() {
