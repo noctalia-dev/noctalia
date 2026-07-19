@@ -444,6 +444,12 @@ location = "https://example.invalid/bad"
     };
     c.shell.screenCorners.enabled = true;
     c.shell.screenCorners.size = 24;
+    c.shell.frame.enabled = true;
+    c.shell.frame.thickness = 10;
+    c.shell.frame.radius = 18;
+    c.shell.frame.opacity = 0.4f;
+    c.shell.frame.matchBar = false;
+    c.shell.frame.bleed = 6;
     c.shell.mpris.blacklist = {"firefox"};
     c.shell.screenshot.directory = "/shots";
     c.shell.screenshot.pipeToCommand = true;

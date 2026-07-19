@@ -571,6 +571,9 @@ void Application::reconcileOutputSurfaces() {
   // output set, so re-running it is safe. initialize() only wires dependencies.
   m_backdrop.onOutputChange();
   m_wallpaper.onOutputChange();
+  // Below the bar: the frame paints a rail across the bar's edge too, so the bar and its
+  // widgets must stack above it.
+  m_frame.onOutputChange();
   m_bar.onOutputChange();
   m_dock.onOutputChange();
   m_desktopWidgetsController.onOutputChange();

@@ -1713,9 +1713,31 @@ void Bar::syncBarExclusiveZone(BarInstance& instance) {
   instance.surface->setExclusiveZone(zone);
 }
 
+bool Bar::reservesLayoutSpace() const noexcept {
+  return std::ranges::any_of(m_instances, [this](const auto& inst) { return shouldReserveExclusiveZone(*inst); });
+}
+
+void Bar::setVisibilityChangedCallback(std::function<void()> callback) {
+  m_visibilityChangedCallback = std::move(callback);
+}
+
+void Bar::notifyVisibilityChanged() {
+  const bool visible = isVisible();
+  if (visible == m_lastReportedVisible) {
+    return;
+  }
+  m_lastReportedVisible = visible;
+  if (m_visibilityChangedCallback != nullptr) {
+    m_visibilityChangedCallback();
+  }
+}
+
 void Bar::syncBarSurfaceChrome(BarInstance& instance) {
   syncBarExclusiveZone(instance);
   applyBarCompositorBlur(instance);
+  // Every visibility-affecting path funnels through here; gated on an actual transition so an
+  // auto-hide animation does not rebuild dependents on every frame.
+  notifyVisibilityChanged();
 }
 
 std::optional<LayerPopupParentContext> Bar::popupParentContextForSurface(wl_surface* surface) const noexcept {

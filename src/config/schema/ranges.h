@@ -19,6 +19,9 @@ namespace noctalia::config::schema {
   inline constexpr Range<float> kCornerRadiusScaleRange{0.0f, 2.0f, 0.05f};
   inline constexpr Range<std::int64_t> kControlCenterWidthRange{600, 1200, 10};
   inline constexpr Range<std::int64_t> kScreenCornersSizeRange{1, 100, 1};
+  inline constexpr Range<std::int64_t> kFrameThicknessRange{1, 64, 1};
+  inline constexpr Range<std::int64_t> kFrameRadiusRange{0, 64, 1};
+  inline constexpr Range<std::int64_t> kFrameBleedRange{0, 64, 1};
   inline constexpr Range<std::int64_t> kClipboardHistoryMaxEntriesRange{
       noctalia::config::kClipboardHistoryMinEntries,
       noctalia::config::kClipboardHistoryMaxEntries,

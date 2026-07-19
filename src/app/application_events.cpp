@@ -74,6 +74,7 @@ void Application::recoverGraphicsAfterReset() {
     m_trayMenu.requestLayout();
     m_settingsWindow.requestRedraw();
     m_screenCorners.requestRedraw();
+    m_frame.requestRedraw();
     requestAllSurfacesRedraw();
     m_graphicsRecoveryAttempts = 0;
     kLog.info("graphics context recovery completed");

@@ -35,6 +35,7 @@
 #include "shell/bar/bar.h"
 #include "shell/desktop/desktop_widgets_controller.h"
 #include "shell/dock/dock.h"
+#include "shell/frame/frame.h"
 #include "shell/hot_corners/hot_corners.h"
 #include "shell/lockscreen/lock_screen.h"
 #include "shell/lockscreen/lockscreen_widgets_controller.h"
@@ -309,6 +310,7 @@ private:
   OsdOverlay m_osdOverlay;
   HotCorners m_hotCorners{this};
   ScreenCorners m_screenCorners;
+  Frame m_frame;
   TrayMenu m_trayMenu;
   Wallpaper m_wallpaper;
   Backdrop m_backdrop;

@@ -779,6 +779,13 @@ void Application::initNotificationAndOsd() {
 void Application::initBarDockAndLayout() {
   m_trayMenu.initialize(m_wayland, &m_configService, m_trayService.get(), &m_renderContext);
 
+  // Registered before Bar::initialize, which registers the bar's own reload callback.
+  // Reload callbacks run in registration order and each rebuild puts that module's surfaces
+  // back on top of its same-layer siblings, so the frame must rebuild BEFORE the bar — the
+  // bar has to end up above the frame's rails. Enabling a bar changes `bars`, which rebuilds
+  // both; registering the other way round left the newly enabled bar behind the frame.
+  m_configService.addReloadCallback([this]() { m_frame.onConfigReload(); });
+
   m_bar.initialize({
       .platform = m_compositorPlatform,
       .config = m_configService,
@@ -845,6 +852,12 @@ void Application::initBarDockAndLayout() {
       reloadDmenuProviders();
     }
   });
+  // Order matters: these run in registration order, and each rebuild puts that module's
+  // surfaces back on top of its Top-layer siblings. The frame must rebuild after the bar
+  // (registered in Bar::initialize) but before the screen corners — the corner masks are
+  // opaque black, so a translucent frame stacked above them shows the black through and
+  // muddies the corner instead of being cleanly clipped by it. This mirrors the
+  // bottom-to-top order in reconcileOutputSurfaces().
   m_configService.addReloadCallback([this]() { m_screenCorners.onConfigReload(); });
   m_configService.addReloadCallback([this]() { m_hotCorners.onConfigReload(); });
 
@@ -1025,5 +1038,10 @@ void Application::initWidgetControllersAndCallbacks() {
   // the hot-corner trigger zones are built after the bar and dock so they are
   // never occluded by shell chrome on their shared layer.
   m_screenCorners.initialize(m_wayland, &m_configService, &m_renderContext);
+  m_frame.initialize(m_wayland, &m_configService, &m_renderContext);
+  m_frame.setBarStateProviders(
+      [this]() { return m_bar.isVisible(); }, [this]() { return m_bar.reservesLayoutSpace(); }
+  );
+  m_bar.setVisibilityChangedCallback([this]() { m_frame.onBarVisibilityChanged(); });
   m_hotCorners.initialize(m_wayland, &m_configService, &m_renderContext);
 }

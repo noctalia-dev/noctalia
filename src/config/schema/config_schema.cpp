@@ -1244,6 +1244,18 @@ namespace noctalia::config::schema {
       return s;
     }
 
+    const Schema<ShellConfig::FrameConfig>& shellFrameSchema() {
+      static const Schema<ShellConfig::FrameConfig> s = {
+          field(&ShellConfig::FrameConfig::enabled, "enabled"),
+          field(&ShellConfig::FrameConfig::thickness, "thickness", kFrameThicknessRange),
+          field(&ShellConfig::FrameConfig::radius, "radius", kFrameRadiusRange),
+          field(&ShellConfig::FrameConfig::matchBar, "match_bar"),
+          field(&ShellConfig::FrameConfig::opacity, "opacity", kUnitRange),
+          field(&ShellConfig::FrameConfig::bleed, "bleed", kFrameBleedRange),
+      };
+      return s;
+    }
+
     const Schema<ShellConfig::MprisConfig>& shellMprisSchema() {
       static const Schema<ShellConfig::MprisConfig> s = {
           field(&ShellConfig::MprisConfig::blacklist, "blacklist"),
@@ -1419,6 +1431,7 @@ namespace noctalia::config::schema {
         subTable(&ShellConfig::panel, "panel", shellPanelSchema()),
         subTable(&ShellConfig::launcher, "launcher", shellLauncherSchema()),
         subTable(&ShellConfig::screenCorners, "screen_corners", shellScreenCornersSchema()),
+        subTable(&ShellConfig::frame, "frame", shellFrameSchema()),
         subTable(&ShellConfig::mpris, "mpris", shellMprisSchema()),
         subTable(&ShellConfig::screenshot, "screenshot", shellScreenshotSchema()),
         subTable(&ShellConfig::privacy, "privacy", shellPrivacySchema()),

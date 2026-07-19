@@ -62,6 +62,9 @@ public:
   void suppressDisplay();
   void unsuppressDisplay();
   [[nodiscard]] bool isVisible() const noexcept;
+  // True while any bar still holds an exclusive zone. Auto-hide keeps the zone and slides out
+  // of it; an IPC hide releases it, and windows expand into the band instead.
+  [[nodiscard]] bool reservesLayoutSpace() const noexcept;
   void onOutputChange();
   void onWorkspaceChanged();
   void scheduleSmartAutoHideReevaluation();
@@ -69,6 +72,10 @@ public:
   void refresh();
   void requestLayout();
   void setAutoHideSuppressionCallback(std::function<bool(const BarInstance&)> callback);
+  // Fired when the bars stop or start being effectively visible. Auto-hide slides the bar out
+  // of an exclusive zone it still holds, so the reserved band empties without any config
+  // change; anything painting around the bar needs to know.
+  void setVisibilityChangedCallback(std::function<void()> callback);
   // Re-run auto-hide after a panel closes so unrelated bars are not left visible.
   void reevaluateAutoHide();
   void setOpenWidgetSettingsCallback(std::function<void(std::string, std::string)> callback);
@@ -130,6 +137,7 @@ private:
   void syncBarAutoHideInputRegion(BarInstance& instance) const;
   void syncBarExclusiveZone(BarInstance& instance);
   void syncBarSurfaceChrome(BarInstance& instance);
+  void notifyVisibilityChanged();
   void clearInstancePointerState(BarInstance& instance);
   [[nodiscard]] bool instanceAcceptsPointerInput(const BarInstance& instance) const noexcept;
   [[nodiscard]] bool shouldReserveExclusiveZone(const BarInstance& instance) const noexcept;
@@ -194,6 +202,8 @@ private:
   std::unordered_map<wl_surface*, BarInstance*> m_surfaceMap;
   BarInstance* m_hoveredInstance = nullptr;
   std::function<bool(const BarInstance&)> m_autoHideSuppressionCallback;
+  std::function<void()> m_visibilityChangedCallback;
+  bool m_lastReportedVisible = true;
   std::function<void(std::string, std::string)> m_openWidgetSettingsCallback;
   Timer m_workspaceRevealDebounce;
   Timer m_workspacePeekHideTimer;

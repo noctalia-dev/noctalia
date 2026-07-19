@@ -45,6 +45,12 @@ int main() {
   expectKnown({"shell", "panel", "control_center_placement"});
   expectKnown({"shell", "shadow", "alpha"});
   expectKnown({"shell", "screen_corners", "size"});
+  expectKnown({"shell", "frame", "enabled"});
+  expectKnown({"shell", "frame", "thickness"});
+  expectKnown({"shell", "frame", "radius"});
+  expectKnown({"shell", "frame", "opacity"});
+  expectKnown({"shell", "frame", "match_bar"});
+  expectKnown({"shell", "frame", "bleed"});
   expectKnown({"shell", "screenshot", "directory"});
   expectKnown({"system", "monitor", "cpu_poll_seconds"});
   expectKnown({"theme", "mode"});

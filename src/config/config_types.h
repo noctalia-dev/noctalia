@@ -931,6 +931,30 @@ struct ShellConfig {
     bool operator==(const ScreenCornersConfig&) const = default;
   };
 
+  // Solid inset border around the whole output, with a rounded hole in the middle that the
+  // desktop shows through. Edges that already carry a space-reserving bar reuse the bar's
+  // thickness instead of `thickness`, so the frame reads as one continuous shape with it.
+  // The fill colour is the theme surface role, matching the bar. Opacity is deliberately
+  // opaque by default rather than inherited from the bar: the frame sits against the
+  // wallpaper on three edges, and letting it through reads as a smudge rather than a border.
+  struct FrameConfig {
+    bool enabled = false;
+    std::int32_t thickness = 8; // depth of the border on edges without a bar
+    std::int32_t radius = 12;   // corner radius of the inner hole
+    // Follow the bar's background opacity so the two read as one surface. When set, `opacity`
+    // is ignored; clear it to drive the frame independently.
+    bool matchBar = true;
+    float opacity = 1.0f;
+    // Extra px painted inward past the reserved thickness. Compositors apply their own gap
+    // inside the space we reserve (niri's `layout.gaps`, Hyprland's `general:gaps_out`), which
+    // leaves wallpaper between the frame and the nearest window. We cannot stop that — window
+    // placement belongs to the compositor — but the frame is above the windows, so it can
+    // cover the gap. Set this to the compositor's outer gap.
+    std::int32_t bleed = 0;
+
+    bool operator==(const FrameConfig&) const = default;
+  };
+
   struct MprisConfig {
     std::vector<std::string> blacklist;
 
@@ -1000,6 +1024,7 @@ struct ShellConfig {
   PanelConfig panel;
   LauncherConfig launcher;
   ScreenCornersConfig screenCorners;
+  FrameConfig frame;
   MprisConfig mpris;
   ScreenshotConfig screenshot;
   PrivacyConfig privacy;

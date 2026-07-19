@@ -1105,6 +1105,7 @@
         "filtering": "Filtering",
         "focus-styling": "Focus Styling",
         "formats": "Formats",
+        "frame": "Screen Frame",
         "general": "General",
         "greeter": "Greeter",
         "grouping": "Grouping",
@@ -1726,6 +1727,30 @@
         }
       },
       "desktop": {
+        "frame-bleed": {
+          "description": "Extra pixels the frame paints inward, to cover the gap your compositor leaves around windows (niri layout.gaps, Hyprland general:gaps_out)",
+          "label": "Gap Coverage"
+        },
+        "frame-enabled": {
+          "description": "Draw a solid border around the screen with a rounded hole for the desktop; the edge holding a bar uses the bar's own thickness",
+          "label": "Screen Frame"
+        },
+        "frame-match-bar": {
+          "description": "Use the bar's background opacity for the frame so the two read as one surface; turn off to set the frame's opacity separately",
+          "label": "Match Bar"
+        },
+        "frame-opacity": {
+          "description": "Opacity of the frame border",
+          "label": "Frame Opacity"
+        },
+        "frame-radius": {
+          "description": "Corner radius of the frame's inner opening in pixels",
+          "label": "Inner Radius"
+        },
+        "frame-thickness": {
+          "description": "Width of the frame border in pixels, on the edges that do not hold a bar",
+          "label": "Frame Thickness"
+        },
         "hot-corners-bottom-left": {
           "description": "Action when the pointer hits the bottom left corner",
           "label": "Bottom Left Corner"

@@ -1395,6 +1395,46 @@ namespace settings {
     ));
 
     entries.push_back(makeEntry(
+        SettingsSection::Desktop, "frame", tr("settings.schema.desktop.frame-enabled.label"),
+        tr("settings.schema.desktop.frame-enabled.description"), {"shell", "frame", "enabled"},
+        ToggleSetting{cfg.shell.frame.enabled}, "frame border matte inset framed"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Desktop, "frame", tr("settings.schema.desktop.frame-thickness.label"),
+        tr("settings.schema.desktop.frame-thickness.description"), {"shell", "frame", "thickness"},
+        sliderFor(cfg.shell.frame.thickness, noctalia::config::schema::kFrameThicknessRange, true),
+        "frame border width thickness"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Desktop, "frame", tr("settings.schema.desktop.frame-radius.label"),
+        tr("settings.schema.desktop.frame-radius.description"), {"shell", "frame", "radius"},
+        sliderFor(cfg.shell.frame.radius, noctalia::config::schema::kFrameRadiusRange, true),
+        "frame border inner radius rounded"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Desktop, "frame", tr("settings.schema.desktop.frame-match-bar.label"),
+        tr("settings.schema.desktop.frame-match-bar.description"), {"shell", "frame", "match_bar"},
+        ToggleSetting{cfg.shell.frame.matchBar}, "frame match bar opacity same colour"
+    ));
+    {
+      // Match Bar drives the fill from the bar's opacity, which leaves this slider inert.
+      auto e = makeEntry(
+          SettingsSection::Desktop, "frame", tr("settings.schema.desktop.frame-opacity.label"),
+          tr("settings.schema.desktop.frame-opacity.description"), {"shell", "frame", "opacity"},
+          sliderFor(cfg.shell.frame.opacity, noctalia::config::schema::kUnitRange, false),
+          "frame border opacity transparency"
+      );
+      e.visibleWhen = [](const Config& c) { return !c.shell.frame.matchBar; };
+      entries.push_back(std::move(e));
+    }
+    entries.push_back(makeEntry(
+        SettingsSection::Desktop, "frame", tr("settings.schema.desktop.frame-bleed.label"),
+        tr("settings.schema.desktop.frame-bleed.description"), {"shell", "frame", "bleed"},
+        sliderFor(cfg.shell.frame.bleed, noctalia::config::schema::kFrameBleedRange, true),
+        "frame bleed gap compositor gaps overscan"
+    ));
+
+    entries.push_back(makeEntry(
         SettingsSection::Desktop, "hot-corners", tr("settings.schema.desktop.hot-corners-enabled.label"),
         tr("settings.schema.desktop.hot-corners-enabled.description"), {"hot_corners", "enabled"},
         ToggleSetting{cfg.hotCorners.enabled}, "hot corners trigger mouse edge screen"

@@ -118,7 +118,11 @@ void ScreenCorners::ensureSurfaces() {
     for (int i = 0; i < 4; ++i) {
       auto surfaceConfig = LayerSurfaceConfig{
           .nameSpace = "noctalia-screen-corner",
-          .layer = LayerShellLayer::Top,
+          // Overlay, not Top: these masks model the physical shape of the display, so nothing
+          // the shell draws should ever sit on top of them. On Top they compete with the bar,
+          // dock and frame by creation order, and any partial rebuild silently reorders them —
+          // the frame's end caps end up filling the very corner the mask is carving.
+          .layer = LayerShellLayer::Overlay,
           .anchor = kCornerAnchors[i],
           .width = size,
           .height = size,

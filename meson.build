@@ -641,6 +641,7 @@ _noctalia_sources = files(
   'src/shell/tooltip/tooltip_manager.cpp',
   'src/shell/hot_corners/hot_corners.cpp',
   'src/shell/screen_corners/screen_corners.cpp',
+  'src/shell/frame/frame.cpp',
   'src/shell/panel/panel_click_shield.cpp',
   'src/wayland/hyprland/focus_grab_service.cpp',
   'src/shell/panel/panel_manager.cpp',
@@ -1527,6 +1528,27 @@ config_path_resolution_test = executable('config_path_resolution_test',
 )
 
 test('config_path_resolution', config_path_resolution_test)
+
+frame_geometry_test = executable('frame_geometry_test',
+  sources: files(
+    'tests/frame_geometry_test.cpp',
+    'src/config/config_types.cpp',
+    'src/render/core/color.cpp',
+    'src/ui/palette.cpp',
+    'src/theme/builtin_palettes.cpp',
+    'src/theme/fixed_palette.cpp',
+    'src/theme/color.cpp',
+    'src/theme/contrast.cpp',
+    'src/core/input/key_chord.cpp',
+  ),
+  include_directories: _noctalia_inc,
+  dependencies: [
+    xkbcommon_dep,
+    tomlplusplus_dep,
+  ],
+)
+
+test('frame_geometry', frame_geometry_test)
 
 config_validate_env = environment()
 config_validate_env.set('NOCTALIA_CONFIG_HOME', meson.current_source_dir() / 'tests/config_validate/config-home')
