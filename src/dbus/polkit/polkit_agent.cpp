@@ -634,6 +634,14 @@ struct PolkitAgent::Impl {
   }
 
   void handleRequest(const std::string& prompt, bool echoOn) {
+    if (prompt == "GAZE_CONFIRMATION_REQUEST" && session != nullptr) {
+      kLog.info("auto-confirming Gaze face authentication");
+      polkit_agent_session_response(session, "CONFIRM");
+      supplementaryMessage = i18n::tr("auth.face.recognized");
+      supplementaryError = false;
+      emitStateChanged();
+      return;
+    }
     inputPrompt = prompt.empty() ? i18n::tr("auth.polkit.default-message") : prompt;
     responseVisible = echoOn;
     responseRequired = true;

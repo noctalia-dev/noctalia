@@ -1,5 +1,6 @@
 #include "shell/lockscreen/lock_screen.h"
 
+#include "auth/face_authenticator.h"
 #include "auth/fingerprint_authenticator.h"
 #include "capture/screencopy_util.h"
 #include "compositors/compositor_platform.h"
@@ -76,6 +77,17 @@ bool LockScreen::initialize(
     });
     m_fingerprint->setStatusCallback([this](const std::string& message, bool isError) {
       handleFingerprintStatus(message, isError);
+    });
+
+    m_faceAuth = std::make_unique<FaceAuthenticator>(*m_systemBus);
+    m_faceAuth->setAuthenticatedCallback([this]() {
+      m_status = i18n::tr("lockscreen.unlocked");
+      m_statusIsError = false;
+      updatePromptOnSurfaces();
+      unlock();
+    });
+    m_faceAuth->setStatusCallback([this](const std::string& message, bool isError) {
+      handleFaceAuthStatus(message, isError);
     });
   }
   return true;
@@ -162,6 +174,7 @@ void LockScreen::unlock() {
   m_suspendTimeoutTimer.stop();
   invalidatePendingAuthentication();
   stopFingerprint();
+  stopFaceAuth();
 
   const bool wasLockedInteractive = m_locked;
 
@@ -435,6 +448,7 @@ void LockScreen::handleLocked(void* data, ext_session_lock_v1* /*lock*/) {
   self->updatePromptOnSurfaces();
   self->updateIndicatorsOnSurfaces();
   self->startFingerprint();
+  self->startFaceAuth();
   kLog.info("session is locked");
   if (self->m_onSessionLocked) {
     self->m_onSessionLocked();
@@ -448,6 +462,7 @@ void LockScreen::handleFinished(void* data, ext_session_lock_v1* /*lock*/) {
   self->m_pendingAfterLocked = {};
   self->invalidatePendingAuthentication();
   self->stopFingerprint();
+  self->stopFaceAuth();
 
   if (self->m_lock != nullptr) {
     if (self->m_locked) {
@@ -807,6 +822,7 @@ void LockScreen::tryAuthenticate() {
   }
 
   stopFingerprint();
+  stopFaceAuth();
   if (m_wayland != nullptr) {
     m_wayland->stopKeyRepeat();
   }
@@ -851,6 +867,7 @@ void LockScreen::handleAuthResult(std::uint64_t generation, PamAuthenticator::Re
   m_statusIsError = true;
   updatePromptOnSurfaces();
   startFingerprint();
+  startFaceAuth();
 }
 
 void LockScreen::startFingerprint() {
@@ -878,6 +895,34 @@ void LockScreen::handleFingerprintStatus(const std::string& message, bool isErro
     return;
   }
   // Empty message means verification disarmed; fall back to the idle prompt (rendered by the surface).
+  m_status = message.empty() ? std::string{} : message;
+  m_statusIsError = isError;
+  updatePromptOnSurfaces();
+}
+
+void LockScreen::startFaceAuth() {
+  if (m_faceAuth == nullptr) {
+    return;
+  }
+  if (m_configService != nullptr && !m_configService->config().lockscreen.faceAuth) {
+    return;
+  }
+  m_faceAuth->start();
+}
+
+void LockScreen::stopFaceAuth() {
+  if (m_faceAuth != nullptr) {
+    m_faceAuth->stop();
+  }
+}
+
+void LockScreen::handleFaceAuthStatus(const std::string& message, bool isError) {
+  if (!isActive()) {
+    return;
+  }
+  if (!m_password.empty()) {
+    return;
+  }
   m_status = message.empty() ? std::string{} : message;
   m_statusIsError = isError;
   updatePromptOnSurfaces();

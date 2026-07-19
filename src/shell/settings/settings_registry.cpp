@@ -1520,6 +1520,15 @@ namespace settings {
     }
     {
       auto e = makeEntry(
+          SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.face-auth.label"),
+          tr("settings.schema.lockscreen.face-auth.description"), {"lockscreen", "face_auth"},
+          ToggleSetting{cfg.lockscreen.faceAuth}, "lock screen face unlock gaze biometric"
+      );
+      e.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
           SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.allow-empty-password.label"),
           tr("settings.schema.lockscreen.allow-empty-password.description"), {"lockscreen", "allow_empty_password"},
           ToggleSetting{cfg.lockscreen.allowEmptyPassword}, "lock screen empty password security key pam"
