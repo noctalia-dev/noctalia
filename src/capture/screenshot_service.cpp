@@ -199,8 +199,6 @@ namespace {
 
     std::thread([command = std::move(command), png = std::move(png),
                  screenshotPathString = std::move(screenshotPathString)]() {
-      // Block SIGPIPE on this thread so a command that stops reading stdin makes
-      // write() fail with EPIPE instead of terminating the whole process.
       sigset_t pipeMask;
       sigemptyset(&pipeMask);
       sigaddset(&pipeMask, SIGPIPE);
@@ -232,7 +230,6 @@ namespace {
         } else if (::setenv(kScreenshotPathEnv, screenshotPathString.c_str(), 1) != 0) {
           ::_exit(126);
         }
-        // Restore default SIGPIPE handling for the spawned command.
         ::signal(SIGPIPE, SIG_DFL);
         pthread_sigmask(SIG_UNBLOCK, &pipeMask, nullptr);
         const char* argv[] = {"/bin/sh", "-lc", command.c_str(), nullptr};
@@ -459,9 +456,6 @@ namespace {
       return std::move(frames.front().image);
     }
 
-    // Stitch in physical pixels: pick a uniform canvas density equal to the highest captured
-    // scale so the sharpest monitor keeps its full resolution. Each logical layout coordinate is
-    // multiplied by this density; lower-density outputs are upscaled to keep the layout aligned.
     double canvasScale = 1.0;
     for (const auto& frame : frames) {
       const double scaleX = static_cast<double>(frame.image.width) / static_cast<double>(frame.output->logicalWidth);
@@ -738,40 +732,56 @@ void ScreenshotService::ensureRegionOverlay() {
     m_regionFullscreenPick = false;
     notifyError(message);
   });
-  m_regionOverlay->setCompleteCallback([this](std::optional<LogicalRect> region, wl_output* output) {
-    if (!region.has_value()) {
-      m_frozenScreenshots.clear();
-      if (m_regionOverlay != nullptr) {
-        m_regionOverlay->setFrozenScreenshots({});
-      }
-      m_regionFullscreenPick = false;
-      return;
-    }
-    if (m_regionFullscreenPick) {
-      if (output == nullptr) {
-        m_frozenScreenshots.clear();
-        if (m_regionOverlay != nullptr) {
-          m_regionOverlay->setFrozenScreenshots({});
+
+  m_regionOverlay->setCompleteCallback(
+      [this](std::optional<LogicalRect> region, wl_output* output, capture::ConfirmAction action) {
+        if (!region.has_value()) {
+          m_frozenScreenshots.clear();
+          if (m_regionOverlay != nullptr) {
+            m_regionOverlay->setFrozenScreenshots({});
+          }
+          m_regionFullscreenPick = false;
+          return;
         }
-        m_regionFullscreenPick = false;
-        return;
+
+        if (m_regionFullscreenPick) {
+          if (output == nullptr) {
+            m_frozenScreenshots.clear();
+            if (m_regionOverlay != nullptr) {
+              m_regionOverlay->setFrozenScreenshots({});
+            }
+            m_regionFullscreenPick = false;
+            return;
+          }
+          if (m_regionOutputOptions.freezeScreen && m_regionOverlay != nullptr) {
+            m_frozenScreenshots = m_regionOverlay->takeFrozenScreenshots();
+          }
+          completeFullscreenSelection(output, m_regionOutputOptions);
+          m_regionFullscreenPick = false;
+          return;
+        }
+
+        OutputOptions options = m_regionOutputOptions;
+        if (action == capture::ConfirmAction::ForceClipboard) {
+          options.copyToClipboard = true;
+          options.saveToFile = false;
+          options.pipeToCommand = false;
+        } else if (action == capture::ConfirmAction::ForceSave) {
+          options.copyToClipboard = false;
+          options.saveToFile = true;
+          options.pipeToCommand = false;
+        }
+
+        if (options.freezeScreen && m_regionOverlay != nullptr) {
+          m_frozenScreenshots = m_regionOverlay->takeFrozenScreenshots();
+        }
+        if (options.freezeScreen && !m_frozenScreenshots.empty()) {
+          deliverFrozenGlobalRegion(*region, options);
+          return;
+        }
+        captureGlobalRegion(*region, options);
       }
-      if (m_regionOutputOptions.freezeScreen && m_regionOverlay != nullptr) {
-        m_frozenScreenshots = m_regionOverlay->takeFrozenScreenshots();
-      }
-      completeFullscreenSelection(output, m_regionOutputOptions);
-      m_regionFullscreenPick = false;
-      return;
-    }
-    if (m_regionOutputOptions.freezeScreen && m_regionOverlay != nullptr) {
-      m_frozenScreenshots = m_regionOverlay->takeFrozenScreenshots();
-    }
-    if (m_regionOutputOptions.freezeScreen && !m_frozenScreenshots.empty()) {
-      deliverFrozenGlobalRegion(*region, m_regionOutputOptions);
-      return;
-    }
-    captureGlobalRegion(*region, m_regionOutputOptions);
-  });
+  );
 }
 
 void ScreenshotService::startRegionOverlay(RenderContext& renderContext) {

@@ -29,7 +29,7 @@
   "bar": {
     "screenshot": {
       "choose-display": "Choose display",
-      "confirm-region": "Enter or Space to capture · Esc to cancel · Drag to reselect",
+      "confirm-region": "Enter or Space to capture · Ctrl+C to save capture to clipboard  · Ctrl+S to save capture to file · Esc to cancel · Drag to reselect",
       "fullscreen": "Full screen",
       "overlay-alloc-failed": "Could not display the screenshot overlay (GPU out of video memory?)",
       "region": "Select region"

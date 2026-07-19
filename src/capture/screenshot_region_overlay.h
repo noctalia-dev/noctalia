@@ -13,6 +13,8 @@ struct PointerEvent;
 
 namespace capture {
 
+  enum class ConfirmAction { None, ForceClipboard, ForceSave };
+
   struct FrozenScreenshot {
     wl_output* output = nullptr;
     ScreencopyImage image;
@@ -20,7 +22,7 @@ namespace capture {
 
   class ScreenshotRegionOverlay {
   public:
-    using CompleteCallback = std::function<void(std::optional<LogicalRect>, wl_output* output)>;
+    using CompleteCallback = std::function<void(std::optional<LogicalRect>, wl_output* output, ConfirmAction action)>;
     using FailureCallback = std::function<void(const std::string& message)>;
 
     ScreenshotRegionOverlay();
@@ -50,7 +52,7 @@ namespace capture {
     void abortWithError(const std::string& message);
     void updateSelectionVisuals();
     void completeSelection();
-    void confirmPendingSelection();
+    void confirmPendingSelection(ConfirmAction action = ConfirmAction::None);
     void completeFullscreenPick(wl_output* output);
 
     WaylandConnection* m_wayland = nullptr;
