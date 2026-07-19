@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <format>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -43,11 +44,11 @@ namespace {
     const auto hrs = seconds / 3600;
     const auto mins = (seconds % 3600) / 60;
     if (hrs > 0 && mins > 0)
-      return std::to_string(hrs) + "h " + std::to_string(mins) + "m";
+      return std::format("{}h {}m", hrs, mins);
     if (hrs > 0)
-      return std::to_string(hrs) + "h";
+      return std::format("{}h", hrs);
     if (mins > 0)
-      return std::to_string(mins) + "m";
+      return std::format("{}m", mins);
     return "< 1m";
   }
 } // namespace
@@ -59,7 +60,7 @@ BatteryWidget::BatteryWidget(UPowerService* upower, Options options)
       m_hideWhenFull(options.hideWhenFull), m_showTimeRemaining(options.showTimeRemaining) {}
 
 std::string BatteryWidget::buildLabelText(int pct, const UPowerState& s) const {
-  std::string base = m_isVertical ? std::to_string(pct) : std::to_string(pct) + "%";
+  std::string base = m_isVertical ? std::format("{}", pct) : std::format("{}%", pct);
   if (!m_showTimeRemaining) {
     return base;
   }
@@ -68,7 +69,7 @@ std::string BatteryWidget::buildLabelText(int pct, const UPowerState& s) const {
     timeText = formatShortDuration(s.timeToEmpty);
   else if (s.state == BatteryState::Charging && s.timeToFull > 0)
     timeText = formatShortDuration(s.timeToFull);
-  return timeText.empty() ? base : base + " " + timeText;
+  return timeText.empty() ? base : std::format("{} ({})", base, timeText);
 }
 
 void BatteryWidget::create() {
