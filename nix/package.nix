@@ -58,11 +58,6 @@ stdenv.mkDerivation {
 
   src = lib.cleanSource ./..;
 
-  postPatch = ''
-    # Remove -march=native and -mtune=native for reproducible builds
-    sed -i "s/'-march=native', '-mtune=native',//" meson.build
-  '';
-
   postFixup = ''
     wrapProgram $out/bin/noctalia \
       --prefix PATH : ${lib.makeBinPath [ git ]}
