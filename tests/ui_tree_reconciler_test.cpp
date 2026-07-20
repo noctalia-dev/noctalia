@@ -891,6 +891,7 @@ int main() {
     tree.props.emplace("gap", 20.0);
     tree.props.emplace("align", std::string("start"));
     tree.children.push_back(makeDragSource("source", "keybind", "bind:42"));
+    tree.children.back().props.emplace("tooltip", std::string("Move keybind"));
     tree.children.push_back(makeDropZone("accepted", {"keybind"}, "category:media", "onDropKeybind"));
     tree.children.push_back(makeDropZone("rejected", {"todo"}, "category:todo", "onDropTodo"));
     (void)reconciler.reconcile(host, tree, renderer);
@@ -936,8 +937,10 @@ int main() {
       ok = expect(controller->state() == DragDropController::State::Dragging, "threshold crossing starts dragging")
           && ok;
       ok = expect(source->dragging(), "active drag reduces source visual") && ok;
+      ok = expect(!area->hasTooltip(), "active drag suppresses the source tooltip") && ok;
       ok = expect(controller->currentTarget() == accepted && accepted->dragOver(), "accepted target highlighted") && ok;
       area->dispatchPress(acceptedX, acceptedY, BTN_LEFT, false);
+      ok = expect(area->hasTooltip(), "drag end restores the source tooltip") && ok;
       ok = expect(callbacks.size() == 1, "accepted release fires exactly one callback") && ok;
       if (callbacks.size() == 1) {
         ok = expect(callbacks[0].fn == "onDropKeybind", "drop callback name preserved") && ok;

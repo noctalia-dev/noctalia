@@ -42,12 +42,14 @@ protected:
 
 private:
   void applyVisualState();
+  void applyTooltip();
   void updateInputArea();
 
   DragDropController* m_controller = nullptr;
   InputArea* m_inputArea = nullptr;
   std::string m_dragType;
   std::string m_payload;
+  std::string m_tooltip;
   float m_sourceOpacity = 1.0f;
   std::size_t m_previewAncestor = 0;
   bool m_enabled = true;

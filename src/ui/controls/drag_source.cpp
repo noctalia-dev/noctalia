@@ -92,13 +92,20 @@ void DragSource::setEnabled(bool enabled) {
 }
 
 void DragSource::setTooltip(std::string_view text) {
+  m_tooltip = text;
+  applyTooltip();
+}
+
+void DragSource::applyTooltip() {
   if (m_inputArea == nullptr) {
     return;
   }
-  if (text.empty()) {
+  // No tooltip while dragging: hover stays on the captured grip for the whole
+  // drag, so an applied tooltip would sit next to the moving ghost.
+  if (m_tooltip.empty() || m_dragging) {
     m_inputArea->clearTooltip();
   } else {
-    m_inputArea->setTooltip(std::string(text));
+    m_inputArea->setTooltip(m_tooltip);
   }
 }
 
@@ -142,6 +149,7 @@ void DragSource::setDragging(bool dragging) {
   }
   m_dragging = dragging;
   applyVisualState();
+  applyTooltip();
   if (m_inputArea != nullptr) {
     m_inputArea->setCursorShape(
         dragging ? WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_GRABBING : WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_GRAB
