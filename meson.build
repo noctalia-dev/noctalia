@@ -760,6 +760,8 @@ _noctalia_sources = files(
   'src/ui/visuals/fancy_audio_visualizer.cpp',
   'src/ui/controls/box.cpp',
   'src/ui/controls/button.cpp',
+  'src/ui/controls/drag_source.cpp',
+  'src/ui/controls/drop_zone.cpp',
   'src/ui/controls/checkbox.cpp',
   'src/ui/controls/color_picker.cpp',
   'src/ui/controls/collapsible.cpp',
@@ -808,6 +810,7 @@ _noctalia_sources = files(
   'src/ui/scroll_into_view.cpp',
   'src/ui/split_pane_focus.cpp',
   'src/ui/style.cpp',
+  'src/ui/drag_drop_controller.cpp',
   'src/util/checksum.cpp',
   'src/util/clamp.cpp',
   'src/util/fuzzy_match.cpp',
@@ -1050,6 +1053,30 @@ input_area_test = executable('input_area_test',
 )
 
 test('input_area', input_area_test)
+
+input_dispatcher_test = executable('input_dispatcher_test',
+  sources: files(
+    'tests/input_dispatcher_test.cpp',
+    'src/render/scene/input_dispatcher.cpp',
+    'src/render/scene/input_area.cpp',
+    'src/render/scene/node.cpp',
+    'src/render/animation/animation.cpp',
+    'src/render/animation/animation_manager.cpp',
+    'src/render/animation/motion_service.cpp',
+    'src/core/input/keybind_matcher.cpp',
+    'src/core/input/key_chord.cpp',
+    'src/core/ui_phase.cpp',
+    'src/core/log.cpp',
+    'src/wayland/text_input_service.cpp',
+  ) + _protocol_headers + _protocol_sources,
+  dependencies: [
+    wayland_client_dep,
+    xkbcommon_dep,
+  ],
+  include_directories: _noctalia_inc,
+)
+
+test('input_dispatcher', input_dispatcher_test)
 
 input_password_mode_test = executable('input_password_mode_test',
   sources: files(
@@ -1345,6 +1372,8 @@ ui_tree_reconciler_test = executable('ui_tree_reconciler_test',
     'src/ui/ui_tree_reconciler.cpp',
     'src/ui/controls/box.cpp',
     'src/ui/controls/button.cpp',
+    'src/ui/controls/drag_source.cpp',
+    'src/ui/controls/drop_zone.cpp',
     'src/ui/controls/flex.cpp',
     'src/ui/controls/glyph.cpp',
     'src/ui/controls/graph.cpp',
@@ -1363,6 +1392,7 @@ ui_tree_reconciler_test = executable('ui_tree_reconciler_test',
     'src/ui/app_icon_colorization.cpp',
     'src/ui/palette.cpp',
     'src/ui/style.cpp',
+    'src/ui/drag_drop_controller.cpp',
     'src/util/clamp.cpp',
     'src/core/timer_manager.cpp',
     'src/core/input/keybind_matcher.cpp',
@@ -1426,6 +1456,18 @@ plugin_manifest_test = executable('plugin_manifest_test',
 )
 
 test('plugin_manifest', plugin_manifest_test)
+
+plugin_bindings_test = executable('plugin_bindings_test',
+  sources: files(
+    'tests/plugin_bindings_test.cpp',
+    'src/scripting/plugin_bindings.cpp',
+    'src/core/log.cpp',
+  ),
+  dependencies: [luau_dep],
+  include_directories: _noctalia_inc,
+)
+
+test('plugin_bindings', plugin_bindings_test)
 
 plugin_i18n_test = executable('plugin_i18n_test',
   sources: files(

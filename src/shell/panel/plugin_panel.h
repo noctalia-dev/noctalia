@@ -20,6 +20,7 @@
 class ClipboardService;
 class Flex;
 class HttpClient;
+class Node;
 namespace scripting {
   struct PluginRuntimeContext;
   class ScriptApiContext;
@@ -94,6 +95,8 @@ private:
   Timer m_tickTimer;
 
   Flex* m_flex = nullptr;
+  Flex* m_contentFlex = nullptr;
+  Node* m_dragOverlay = nullptr;
   InputArea* m_pendingFocusArea = nullptr;
   ui::UiTreeReconciler m_reconciler;
   std::optional<ui::UiTreeNode> m_tree;

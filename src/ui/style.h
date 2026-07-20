@@ -42,6 +42,8 @@ namespace Style {
   inline constexpr float controlHeight = 38.0f;
   inline constexpr float controlHeightLg = 44.0f;
   inline constexpr float scrollWheelStep = 56.0f;
+  // Pointer distance in logical px before an armed drag becomes active.
+  inline constexpr float dragStartThreshold = 6.0f;
 
   inline constexpr float scrollbarWidth = 6.0f;
   inline constexpr float scrollbarGap = spaceSm;

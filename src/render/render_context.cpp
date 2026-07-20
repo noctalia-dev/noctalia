@@ -329,14 +329,14 @@ void RenderContext::handleGraphicsReset(RenderGraphicsResetStatus status) {
 
 void RenderContext::renderNode(
     const Node* node, const Mat3& parentTransform, float parentOpacity, float sw, float sh, float bw, float bh,
-    float clipLeft, float clipTop, float clipRight, float clipBottom, bool hasClip
+    float clipLeft, float clipTop, float clipRight, float clipBottom, bool hasClip, bool ignoreNodeOpacity
 ) {
   if (!node->visible()) {
     return;
   }
 
   const Mat3 worldTransform = parentTransform * nodeLocalTransform(node);
-  const float effectiveOpacity = parentOpacity * node->opacity();
+  const float effectiveOpacity = ignoreNodeOpacity ? parentOpacity : parentOpacity * node->opacity();
   float boundsLeft = 0.0f;
   float boundsTop = 0.0f;
   float boundsRight = 0.0f;
@@ -537,6 +537,25 @@ void RenderContext::renderNode(
       );
     }
     break;
+  }
+  case NodeType::RenderProxy: {
+    const auto* proxy = static_cast<const RenderProxyNode*>(node);
+    const Node* source = proxy->source();
+    bool sourceContainsProxy = false;
+    for (const Node* current = node; current != nullptr; current = current->parent()) {
+      if (current == source) {
+        sourceContainsProxy = true;
+        break;
+      }
+    }
+    if (source != nullptr && !sourceContainsProxy) {
+      const Mat3 sourceParent = worldTransform * Mat3::translation(-source->x(), -source->y());
+      renderNode(
+          source, sourceParent, effectiveOpacity, sw, sh, bw, bh, clipLeft, clipTop, clipRight, clipBottom, hasClip,
+          true
+      );
+    }
+    return;
   }
   case NodeType::Base:
     break;

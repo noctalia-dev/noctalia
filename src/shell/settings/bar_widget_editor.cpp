@@ -41,8 +41,6 @@ namespace settings {
 
   namespace {
 
-    constexpr float kDragStartThresholdPx = 6.0f;
-
     struct LaneWidgetDragState {
       bool active = false;
       bool moved = false;
@@ -2584,7 +2582,7 @@ namespace settings {
         dragState->lastLocalX = localX;
         dragState->lastLocalY = localY;
         if (std::hypot(localX - dragState->startLocalX, localY - dragState->startLocalY)
-            >= kDragStartThresholdPx * scale) {
+            >= Style::dragStartThreshold * scale) {
           dragState->moved = true;
         }
         if (!dragState->moved) {

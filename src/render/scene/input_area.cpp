@@ -53,6 +53,7 @@ void InputArea::setOnEnter(PointerCallback callback) { m_onEnter = std::move(cal
 void InputArea::setOnLeave(VoidCallback callback) { m_onLeave = std::move(callback); }
 void InputArea::setOnMotion(PointerCallback callback) { m_onMotion = std::move(callback); }
 void InputArea::setOnPress(PointerCallback callback) { m_onPress = std::move(callback); }
+void InputArea::setOnCancel(VoidCallback callback) { m_onCancel = std::move(callback); }
 void InputArea::setOnAxis(PointerCallback callback) {
   m_onAxis = [callback = std::move(callback)](const PointerData& data) {
     callback(data);
@@ -206,6 +207,14 @@ void InputArea::dispatchPress(float localX, float localY, std::uint32_t button, 
     if (shouldClick) {
       m_onClick({.localX = localX, .localY = localY, .button = button, .pressed = false});
     }
+  }
+}
+
+void InputArea::dispatchCancel() {
+  m_pressed = false;
+  m_pressedButton = 0;
+  if (m_onCancel) {
+    m_onCancel();
   }
 }
 

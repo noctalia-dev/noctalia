@@ -24,6 +24,7 @@ enum class NodeType : std::uint8_t {
   Effect,
   Graph,
   Wallpaper,
+  RenderProxy,
 };
 
 enum class NodeInvalidation : std::uint8_t {
@@ -145,6 +146,10 @@ public:
   [[nodiscard]] void* userData() const noexcept { return m_userData; }
 
   static Node* hitTest(Node* root, float x, float y);
+  // Hit-test layout content only. Unlike hitTest(), descendants cannot receive
+  // hits outside any ancestor's bounds; overlays/popovers should keep using
+  // the overflow-aware default path.
+  static Node* hitTestStrict(Node* root, float x, float y);
   static void absolutePosition(const Node* node, float& outX, float& outY);
   static void mapToScene(const Node* node, float localX, float localY, float& outSceneX, float& outSceneY);
   static bool mapFromScene(const Node* node, float sceneX, float sceneY, float& outLocalX, float& outLocalY);
@@ -167,7 +172,7 @@ protected:
 private:
   static bool
   pointInsideNode(const Node* node, float sceneX, float sceneY, float& localX, float& localY, bool includeHitOutset);
-  static Node* hitTestImpl(Node* node, float px, float py);
+  static Node* hitTestImpl(Node* node, float px, float py, bool allowOverflow);
   NodeType m_type;
   float m_x = 0.0f;
   float m_y = 0.0f;
@@ -200,4 +205,21 @@ private:
   void propagatePaintDirty();
   void propagateLayoutDirty();
   void notifyInvalidated(NodeInvalidation invalidation);
+};
+
+// Paints an existing retained subtree a second time at this node's transform.
+// Used for transient overlays such as drag previews without cloning controls or
+// moving the live input/layout subtree.
+class RenderProxyNode final : public Node {
+public:
+  explicit RenderProxyNode(const Node* source = nullptr) : Node(NodeType::RenderProxy), m_source(source) {
+    setParticipatesInLayout(false);
+    setHitTestVisible(false);
+  }
+
+  void setSource(const Node* source) noexcept { m_source = source; }
+  [[nodiscard]] const Node* source() const noexcept { return m_source; }
+
+private:
+  const Node* m_source = nullptr;
 };

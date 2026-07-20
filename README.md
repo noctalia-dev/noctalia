@@ -92,6 +92,9 @@ The plugin system is available for user-installed extensions. Features that are 
 to the core shell can live there: extra bar widgets, launcher providers, desktop widgets, panels, shortcuts, background
 services, compositor-specific extras, hardware-specific controls, and third-party service integrations.
 
+Plugin authors can use the declarative panel drag-and-drop API for reorderable lists and cross-container moves. See the
+[drag-and-drop guide](docs/plugin-panel-drag-and-drop.md) for the complete API reference and examples.
+
 ## Dependencies
 
 ### Arch

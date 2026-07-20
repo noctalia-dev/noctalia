@@ -82,7 +82,7 @@ private:
   void handleGraphicsReset(RenderGraphicsResetStatus status);
   void renderNode(
       const Node* node, const Mat3& parentTransform, float parentOpacity, float sw, float sh, float bw, float bh,
-      float clipLeft, float clipTop, float clipRight, float clipBottom, bool hasClip
+      float clipLeft, float clipTop, float clipRight, float clipBottom, bool hasClip, bool ignoreNodeOpacity = false
   );
 
   std::unique_ptr<RenderBackend> m_backend;

@@ -10,6 +10,7 @@ class Flex;
 class InputArea;
 class Node;
 class Renderer;
+class DragDropController;
 enum class FontWeight : int;
 
 namespace ui {
@@ -58,7 +59,7 @@ namespace ui {
     void setPathResolver(PathResolver resolver) { m_resolver = std::move(resolver); }
     void setFocusRequestSink(FocusRequestSink sink) { m_focusSink = std::move(sink); }
     // Content scale multiplied into size-like props (fonts, gaps, sizes, radii).
-    void setScale(float scale) { m_scale = scale; }
+    void setScale(float scale);
     // Host text defaults for label/glyph props the tree leaves unset, so
     // declarative text matches the host's imperative text (e.g. the bar's
     // per-widget font family/weight). Empty family = renderer-global font.
@@ -69,6 +70,8 @@ namespace ui {
     // Compact control chrome for space-tight hosts (bar widgets): buttons drop
     // the settings-tier min-height/padding and hug their content instead.
     void setCompactControls(bool compact) { m_compactControls = compact; }
+    void setDragDropEnabled(bool enabled);
+    void setDragDropOverlayRoot(Node* root);
 
     // Reconciles `tree` as the single child of `host`. Props are (re)applied on
     // every call — setters are change-checked, and the scale may differ between
@@ -96,6 +99,8 @@ namespace ui {
     std::string m_defaultFontFamily;
     FontWeight m_defaultFontWeight; // initialized in the ctor (opaque enum here)
     bool m_compactControls = false;
+    bool m_dragDropEnabled = false;
+    std::unique_ptr<DragDropController> m_dragDropController;
     std::vector<Slot> m_rootSlots;
   };
 
