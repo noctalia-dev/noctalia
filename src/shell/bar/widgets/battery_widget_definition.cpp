@@ -16,6 +16,11 @@ batteryWidgetDefinition() {
                   .choices =
                       {
                           {
+                              .value = BatteryDisplayMode::None,
+                              .configValue = "none",
+                              .labelKey = "settings.widgets.options.none",
+                          },
+                          {
                               .value = BatteryDisplayMode::Glyph,
                               .configValue = "glyph",
                               .labelKey = "settings.widgets.options.glyph",
@@ -36,8 +41,26 @@ batteryWidgetDefinition() {
               field<&Options::hideWhenFull>({
                   .key = "hide_when_full",
               }),
-              field<&Options::showTimeRemaining>({
-                  .key = "show_time_remaining",
+              field<&Options::displayContent>({
+                  .key = "display_content",
+                  .choices =
+                      {
+                          {
+                              .value = BatteryDisplayContent::Percent,
+                              .configValue = "percent",
+                              .labelKey = "settings.widgets.options.percent",
+                          },
+                          {
+                              .value = BatteryDisplayContent::Time,
+                              .configValue = "time",
+                              .labelKey = "settings.widgets.options.time",
+                          },
+                          {
+                              .value = BatteryDisplayContent::Rate,
+                              .configValue = "rate",
+                              .labelKey = "settings.widgets.options.rate",
+                          },
+                      },
               }),
               field<&Options::deviceSelector>({
                   .key = "device",

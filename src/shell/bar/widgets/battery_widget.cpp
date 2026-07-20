@@ -57,19 +57,31 @@ BatteryWidget::BatteryWidget(UPowerService* upower, Options options)
     : m_upower(upower), m_deviceSelector(std::move(options.deviceSelector)),
       m_warningThreshold(options.warningThreshold), m_warningColor(options.warningColor),
       m_displayMode(options.displayMode), m_showLabel(options.showLabel), m_hideWhenPlugged(options.hideWhenPlugged),
-      m_hideWhenFull(options.hideWhenFull), m_showTimeRemaining(options.showTimeRemaining) {}
+      m_hideWhenFull(options.hideWhenFull), m_displayContent(options.displayContent) {}
 
 std::string BatteryWidget::buildLabelText(int pct, const UPowerState& s) const {
-  std::string base = m_isVertical ? std::format("{}", pct) : std::format("{}%", pct);
-  if (!m_showTimeRemaining) {
-    return base;
+  switch (m_displayContent) {
+  case BatteryDisplayContent::Time: {
+    std::string timeText;
+    if (s.state == BatteryState::Discharging && s.timeToEmpty > 0)
+      timeText = formatShortDuration(s.timeToEmpty);
+    else if (s.state == BatteryState::Charging && s.timeToFull > 0)
+      timeText = formatShortDuration(s.timeToFull);
+    if (!timeText.empty()) {
+      return timeText;
+    }
+    break;
   }
-  std::string timeText;
-  if (s.state == BatteryState::Discharging && s.timeToEmpty > 0)
-    timeText = formatShortDuration(s.timeToEmpty);
-  else if (s.state == BatteryState::Charging && s.timeToFull > 0)
-    timeText = formatShortDuration(s.timeToFull);
-  return timeText.empty() ? base : std::format("{} ({})", base, timeText);
+  case BatteryDisplayContent::Rate: {
+    if (s.energyRate > 0.0) {
+      return std::format("{:.1f} W", s.energyRate);
+    }
+    break;
+  }
+  case BatteryDisplayContent::Percent:
+    break;
+  }
+  return m_isVertical ? std::format("{}", pct) : std::format("{}%", pct);
 }
 
 void BatteryWidget::create() {
@@ -81,8 +93,10 @@ void BatteryWidget::create() {
 
   if (m_displayMode == BatteryDisplayMode::Graphic) {
     createGraphicMode();
-  } else {
+  } else if (m_displayMode == BatteryDisplayMode::Glyph) {
     createGlyphMode();
+  } else {
+    createLabelOnlyMode();
   }
 }
 
@@ -152,6 +166,20 @@ void BatteryWidget::createGlyphMode() {
   );
 }
 
+void BatteryWidget::createLabelOnlyMode() {
+  auto* container = static_cast<InputArea*>(root());
+
+  container->addChild(
+      ui::label({
+          .out = &m_label,
+          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontWeight = labelFontWeight(),
+          .fontFamily = labelFontFamily(),
+          .visible = m_showLabel,
+      })
+  );
+}
+
 void BatteryWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   auto* rootNode = root();
   if (rootNode == nullptr) {
@@ -162,8 +190,10 @@ void BatteryWidget::doLayout(Renderer& renderer, float containerWidth, float con
 
   if (m_displayMode == BatteryDisplayMode::Graphic) {
     layoutGraphicMode(renderer);
-  } else {
+  } else if (m_displayMode == BatteryDisplayMode::Glyph) {
     layoutGlyphMode(renderer, containerWidth, containerHeight);
+  } else {
+    layoutLabelOnlyMode(renderer, containerWidth, containerHeight);
   }
 }
 
@@ -296,6 +326,17 @@ void BatteryWidget::layoutGlyphMode(Renderer& renderer, float /*containerWidth*/
   } else {
     rootNode->setSize(m_glyph->width(), m_glyph->height());
   }
+}
+
+void BatteryWidget::layoutLabelOnlyMode(Renderer& renderer, float /*containerWidth*/, float /*containerHeight*/) {
+  auto* rootNode = root();
+  if (m_label == nullptr || rootNode == nullptr) {
+    return;
+  }
+
+  m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+  m_label->measure(renderer);
+  rootNode->setSize(m_label->width(), m_label->height());
 }
 
 void BatteryWidget::updateFillGeometry() {
@@ -433,7 +474,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
     if (m_overlayGlyph != nullptr) {
       m_overlayGlyph->setVisible(stateGlyph != nullptr);
     }
-  } else {
+  } else if (m_displayMode == BatteryDisplayMode::Glyph) {
     const ColorSpec normalFgColor = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface));
     const ColorSpec fgColor = isWarning ? m_warningColor : normalFgColor;
 
@@ -448,6 +489,18 @@ void BatteryWidget::syncState(Renderer& renderer) {
       m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
       m_label->setText(buildLabelText(pct, s));
       m_label->setColor(fgColor);
+      m_label->measure(renderer);
+    }
+
+  } else if (m_displayMode == BatteryDisplayMode::None) {
+    const ColorSpec normalFgColor = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
+    const ColorSpec fgColor = isWarning ? m_warningColor : normalFgColor;
+
+    if (m_label != nullptr && m_showLabel) {
+      m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+      m_label->setText(buildLabelText(pct, s));
+      m_label->setColor(fgColor);
+      m_label->setVisible(true);
       m_label->measure(renderer);
     }
   }

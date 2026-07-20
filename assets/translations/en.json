@@ -2986,6 +2986,9 @@
         "net-tx": "Network TX",
         "none": "None",
         "on-hover": "On Hover",
+        "percent": "Percent",
+        "time": "Time",
+        "rate": "Rate",
         "output": "Output",
         "ram-percent": "RAM Percent",
         "ram-used": "RAM Used",
@@ -3116,8 +3119,12 @@
           "label": "Display"
         },
         "display-mode": {
-          "description": "Render the battery as a graphical shape or a Tabler glyph",
+          "description": "Choose None for label-obly, or a graphical shape or Tabler glyph",
           "label": "Display Mode"
+        },
+        "display-content": {
+          "description": "Choose what information to display in the battery label",
+          "label": "Display Content"
         },
         "drawer": {
           "description": "Show a tray button in the bar and open items in a panel",
@@ -3424,10 +3431,6 @@
         "show-label": {
           "description": "Show text next to the icon",
           "label": "Show Label"
-        },
-        "show-time-remaining": {
-          "description": "Show the estimated time remaining until the battery is empty or full",
-          "label": "Show Time Remaining"
         },
         "show-num-lock": {
           "description": "Show Num Lock state",
