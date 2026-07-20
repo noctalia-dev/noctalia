@@ -145,6 +145,10 @@ void PluginPanel::onOpen(std::string_view context) {
 void PluginPanel::onClose() {
   m_open = false;
   m_tickTimer.stop();
+  // The scene (including the overlay node) is torn down after close; cancel any
+  // active drag and detach the overlay while the tree is still alive so the
+  // controller never holds a dangling overlay root between close and reopen.
+  m_reconciler.setDragDropOverlayRoot(nullptr);
   if (m_runtime != nullptr) {
     (void)m_runtime->enqueueCall("onClose", makeScriptSnapshot());
   }

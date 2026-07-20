@@ -170,6 +170,12 @@ void DragDropController::unregisterSource(DragSource* source) {
   if (source == nullptr || source != m_source) {
     return;
   }
+  // Destructor context: the preview target is the source or one of its
+  // ancestors, i.e. inside the chain being torn down right now, so restoring
+  // its opacity/layout state here is unsafe. Every surviving-tree path cancels
+  // through the reconciler or host before the node is destroyed; only detach
+  // the proxy and drop the pointers.
+  m_previewTarget = nullptr;
   clearTarget();
   clearPreview();
   m_source = nullptr;

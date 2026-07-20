@@ -135,6 +135,17 @@ namespace ui {
       return std::nullopt;
     }
 
+    // Optional-prop counterpart to validateDragDropProps: a present-but-mistyped
+    // optional prop falls back to its default, but never silently.
+    void warnMistypedOptionalProp(const UiTreeNode& node, const char* key, const char* expected) {
+      if (node.props.contains(key)) {
+        kLog.warn(
+            "ui tree: '{}' key '{}': prop '{}' expects {}; default used", node.type,
+            node.key.empty() ? "<unkeyed>" : node.key, key, expected
+        );
+      }
+    }
+
     // Role token ("primary", "on_surface", …) with an optional alpha suffix
     // ("primary/0.6" → the role at 60% alpha, resolved live against the palette),
     // or hex ("#rrggbb[aa]"). Alpha is 0.0–1.0; hex carries its own alpha byte.
@@ -764,12 +775,13 @@ namespace ui {
         source->setEnabled(boolProp(desired, "enabled") == nullptr || *boolProp(desired, "enabled"));
       }
       const std::string* tooltip = strProp(desired, "tooltip");
+      if (tooltip == nullptr) {
+        warnMistypedOptionalProp(desired, "tooltip", "a string");
+      }
       source->setTooltip(tooltip != nullptr ? *tooltip : "");
       const double* previewAncestor = numProp(desired, "previewAncestor");
       if (previewAncestor == nullptr) {
-        if (desired.props.contains("previewAncestor")) {
-          kLog.warn("ui tree: 'drag_source' key '{}': previewAncestor expects an integer from 0 to 8", desired.key);
-        }
+        warnMistypedOptionalProp(desired, "previewAncestor", "an integer from 0 to 8");
         source->setPreviewAncestor(0);
       } else if (*previewAncestor < 0.0 || *previewAncestor > 8.0 || std::floor(*previewAncestor) != *previewAncestor) {
         kLog.warn("ui tree: 'drag_source' key '{}': previewAncestor expects an integer from 0 to 8", desired.key);
@@ -777,7 +789,11 @@ namespace ui {
       } else {
         source->setPreviewAncestor(static_cast<std::size_t>(*previewAncestor));
       }
-      source->setLiftFromLayout(boolProp(desired, "liftFromLayout") != nullptr && *boolProp(desired, "liftFromLayout"));
+      const bool* liftFromLayout = boolProp(desired, "liftFromLayout");
+      if (liftFromLayout == nullptr) {
+        warnMistypedOptionalProp(desired, "liftFromLayout", "a boolean");
+      }
+      source->setLiftFromLayout(liftFromLayout != nullptr && *liftFromLayout);
     } else if (desired.type == "drop_zone") {
       auto* zone = static_cast<DropZone*>(node);
       if (auto error = validateDragDropProps(desired)) {
@@ -795,8 +811,15 @@ namespace ui {
         zone->setOnDrop(*strProp(desired, "onDrop"));
         zone->setEnabled(boolProp(desired, "enabled") == nullptr || *boolProp(desired, "enabled"));
       }
-      zone->setExpandOnDrag(boolProp(desired, "expandOnDrag") != nullptr && *boolProp(desired, "expandOnDrag"));
+      const bool* expandOnDrag = boolProp(desired, "expandOnDrag");
+      if (expandOnDrag == nullptr) {
+        warnMistypedOptionalProp(desired, "expandOnDrag", "a boolean");
+      }
+      zone->setExpandOnDrag(expandOnDrag != nullptr && *expandOnDrag);
       const double* hitSlop = numProp(desired, "hitSlop");
+      if (hitSlop == nullptr) {
+        warnMistypedOptionalProp(desired, "hitSlop", "a number");
+      }
       zone->setHitSlop(hitSlop != nullptr ? scaled(std::max(0.0, *hitSlop)) : 0.0f);
     }
 
@@ -808,7 +831,10 @@ namespace ui {
       if (desired.type == "drop_zone") {
         auto* zone = static_cast<DropZone*>(node);
         const std::string* direction = strProp(desired, "direction");
-        if (direction == nullptr || *direction == "column") {
+        if (direction == nullptr) {
+          warnMistypedOptionalProp(desired, "direction", R"("column" or "row")");
+          zone->setDirection(FlexDirection::Vertical);
+        } else if (*direction == "column") {
           zone->setDirection(FlexDirection::Vertical);
         } else if (*direction == "row") {
           zone->setDirection(FlexDirection::Horizontal);

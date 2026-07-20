@@ -392,8 +392,11 @@ namespace {
     }
     case LUA_TTABLE: {
       const int count = lua_objlen(L, index);
-      // Empty tables default to graph data, except `accepts`, whose contract is
-      // explicitly a string array and where an empty list accepts nothing.
+      // An empty Luau table is shapeless while UiTreeValue holds exactly one
+      // array type, so the element type must be decided here at read time:
+      // empty tables default to graph data (numbers), except the drop-zone
+      // `accepts` prop, whose contract is a string array (empty = accepts
+      // nothing) and which would otherwise fail its type validation.
       lua_rawgeti(L, index, 1);
       const bool stringArray = (count == 0 && propName == "accepts") || (count > 0 && lua_type(L, -1) == LUA_TSTRING);
       lua_pop(L, 1);
