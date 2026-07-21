@@ -345,7 +345,10 @@ std::unique_ptr<Widget> WidgetFactory::create(
   if (type == "network") {
     const bool showLabel = wc != nullptr ? wc->getBool("show_label", true) : true;
     const bool showVpnLabel = wc != nullptr ? wc->getBool("show_vpn_label", false) : false;
-    auto widget = std::make_unique<NetworkWidget>(m_network, m_externalIp, m_sysmon, output, showLabel, showVpnLabel);
+    const std::string vpnIconMode = wc != nullptr ? wc->getString("vpn_icon", "separate") : std::string("separate");
+    auto widget = std::make_unique<NetworkWidget>(
+        m_network, m_externalIp, m_sysmon, output, showLabel, showVpnLabel, vpnIconMode
+    );
     widget->setContentScale(contentScale);
     return widget;
   }

@@ -643,6 +643,11 @@ namespace settings {
         {"kb", "settings.widgets.options.kilobytes"},
         {"mb", "settings.widgets.options.megabytes"},
     };
+    const std::vector<WidgetSettingSelectOption> vpnIconMode = {
+        {"separate", "settings.widgets.options.separate"},
+        {"integrated", "settings.widgets.options.integrated"},
+        {"none", "settings.widgets.options.none"},
+    };
     const std::vector<WidgetSettingSelectOption> workspaceDisplay = {
         {"id", "settings.widgets.options.id"},
         {"name", "settings.widgets.options.name"},
@@ -848,6 +853,7 @@ namespace settings {
         vpnName.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
         add(std::move(vpnName));
       }
+      add(selectSpec("vpn_icon", "separate", vpnIconMode));
     } else if (type == "notifications") {
       add(boolSpec("hide_when_no_unread", false));
     } else if (type == "privacy") {

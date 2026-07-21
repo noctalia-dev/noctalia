@@ -2989,6 +2989,7 @@
         "id": "ID",
         "input": "Input",
         "instance": "Per Placement",
+        "integrated": "Integrated",
         "kilobytes": "kB/s",
         "megabytes": "MB/s",
         "minimal": "Minimal",
@@ -3003,6 +3004,7 @@
         "regular": "Regular",
         "screenshot-primary-fullscreen": "Fullscreen",
         "screenshot-primary-region": "Region",
+        "separate": "Separate Icon",
         "shared": "Shared",
         "short": "Short",
         "swap-percent": "Swap Percent",
@@ -3455,6 +3457,10 @@
         "show-vpn-label": {
           "description": "Show VPN label instead of interface label next to the icon",
           "label": "Show VPN Label"
+        },
+        "vpn-icon": {
+          "description": "How to display VPN status: separate adds a VPN icon next to the network icon, integrated replaces the network icon, none hides VPN status",
+          "label": "VPN Icon"
         },
         "show-when-idle": {
           "description": "Keep the visualizer visible even when no media is playing",

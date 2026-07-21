@@ -60,10 +60,18 @@ namespace {
 
 NetworkWidget::NetworkWidget(
     INetworkService* network, ExternalIpService* externalIp, SystemMonitorService* monitor, wl_output* /*output*/,
-    bool showLabel, bool showVpnLabel
+    bool showLabel, bool showVpnLabel, std::string vpnIconMode
 )
     : m_network(network), m_externalIp(externalIp), m_monitor(monitor), m_showLabel(showLabel),
-      m_showVpnLabel(showVpnLabel) {}
+      m_showVpnLabel(showVpnLabel) {
+  if (vpnIconMode == "integrated") {
+    m_vpnIconMode = VpnIconMode::Integrated;
+  } else if (vpnIconMode == "none") {
+    m_vpnIconMode = VpnIconMode::None;
+  } else {
+    m_vpnIconMode = VpnIconMode::Separate;
+  }
+}
 
 void NetworkWidget::create() {
   auto area = std::make_unique<InputArea>();
@@ -110,6 +118,16 @@ void NetworkWidget::create() {
 
   area->addChild(
       ui::glyph({
+          .out = &m_vpnGlyph,
+          .glyph = "shield-check",
+          .glyphSize = Style::baseGlyphSize * m_contentScale,
+          .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
+          .visible = false,
+      })
+  );
+
+  area->addChild(
+      ui::glyph({
           .out = &m_glyph,
           .glyph = "wifi-off",
           .glyphSize = Style::baseGlyphSize * m_contentScale,
@@ -150,6 +168,10 @@ void NetworkWidget::doLayout(Renderer& renderer, float containerWidth, float con
   m_isVertical = containerHeight > containerWidth;
   syncState(renderer);
 
+  if (m_vpnGlyph != nullptr && m_vpnGlyph->visible()) {
+    m_vpnGlyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
+    m_vpnGlyph->measure(renderer);
+  }
   m_glyph->measure(renderer);
   if (m_label != nullptr) {
     m_label->measure(renderer);
@@ -159,18 +181,38 @@ void NetworkWidget::doLayout(Renderer& renderer, float containerWidth, float con
   Node* icon =
       (m_spinner != nullptr && m_spinner->visible()) ? static_cast<Node*>(m_spinner) : static_cast<Node*>(m_glyph);
 
+  const bool vpnVisible = m_vpnGlyph != nullptr && m_vpnGlyph->visible();
+  const float vpnWidth = vpnVisible ? m_vpnGlyph->width() + Style::spaceXs : 0.0f;
   const bool labelVisible = m_label != nullptr && m_label->width() > 0.0f && m_label->visible();
   if (m_isVertical && labelVisible) {
-    const float w = std::max(icon->width(), m_label->width());
-    icon->setPosition(std::round((w - icon->width()) * 0.5f), 0.0f);
-    m_label->setPosition(std::round((w - m_label->width()) * 0.5f), icon->height());
-    rootNode->setSize(w, icon->height() + m_label->height());
+    const float w = vpnVisible ? std::max({m_vpnGlyph->width(), icon->width(), m_label->width()})
+                               : std::max(icon->width(), m_label->width());
+    if (vpnVisible) {
+      m_vpnGlyph->setPosition(std::round((w - m_vpnGlyph->width()) * 0.5f), 0.0f);
+    }
+    icon->setPosition(std::round((w - icon->width()) * 0.5f), vpnVisible ? m_vpnGlyph->height() : 0.0f);
+    m_label->setPosition(
+        std::round((w - m_label->width()) * 0.5f), (vpnVisible ? m_vpnGlyph->height() : 0.0f) + icon->height()
+    );
+    rootNode->setSize(w, (vpnVisible ? m_vpnGlyph->height() : 0.0f) + icon->height() + m_label->height());
+  } else if (m_isVertical) {
+    const float w = vpnVisible ? std::max(m_vpnGlyph->width(), icon->width()) : icon->width();
+    if (vpnVisible) {
+      m_vpnGlyph->setPosition(std::round((w - m_vpnGlyph->width()) * 0.5f), 0.0f);
+    }
+    icon->setPosition(std::round((w - icon->width()) * 0.5f), vpnVisible ? m_vpnGlyph->height() : 0.0f);
+    rootNode->setSize(w, (vpnVisible ? m_vpnGlyph->height() : 0.0f) + icon->height());
   } else {
-    const float h = labelVisible ? std::max(icon->height(), m_label->height()) : icon->height();
-    icon->setPosition(0.0f, std::round((h - icon->height()) * 0.5f));
-    float totalWidth = icon->width();
+    const float h = labelVisible
+        ? std::max({(vpnVisible ? m_vpnGlyph->height() : 0.0f), icon->height(), m_label->height()})
+        : std::max((vpnVisible ? m_vpnGlyph->height() : 0.0f), icon->height());
+    if (vpnVisible) {
+      m_vpnGlyph->setPosition(0.0f, std::round((h - m_vpnGlyph->height()) * 0.5f));
+    }
+    icon->setPosition(vpnWidth, std::round((h - icon->height()) * 0.5f));
+    float totalWidth = vpnWidth + icon->width();
     if (labelVisible) {
-      m_label->setPosition(icon->width() + Style::spaceXs, std::round((h - m_label->height()) * 0.5f));
+      m_label->setPosition(totalWidth + Style::spaceXs, std::round((h - m_label->height()) * 0.5f));
       totalWidth = m_label->x() + m_label->width();
     }
     rootNode->setSize(totalWidth, h);
@@ -194,8 +236,25 @@ void NetworkWidget::syncState(Renderer& renderer) {
 
   const bool showSpinner = s.kind == NetworkConnectivity::Wired && s.resolving;
 
+  // VPN glyph (separate mode): show shield icon next to network icon
+  if (m_vpnGlyph != nullptr) {
+    const bool showVpn = m_vpnIconMode == VpnIconMode::Separate && s.vpnActive;
+    m_vpnGlyph->setVisible(showVpn);
+    if (showVpn) {
+      m_vpnGlyph->setGlyph(network_glyphs::vpnGlyph());
+      m_vpnGlyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
+      m_vpnGlyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
+      m_vpnGlyph->measure(renderer);
+    }
+  }
+
+  // Main network glyph: integrated mode replaces with VPN icon when active
   m_glyph->setVisible(!showSpinner);
-  m_glyph->setGlyph(network_glyphs::glyphForState(s));
+  if (m_vpnIconMode == VpnIconMode::Integrated && s.vpnActive) {
+    m_glyph->setGlyph(network_glyphs::vpnGlyph());
+  } else {
+    m_glyph->setGlyph(network_glyphs::glyphForState(s));
+  }
   m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
   m_glyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
   m_glyph->measure(renderer);
