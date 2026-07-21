@@ -27,6 +27,8 @@ public:
   void setScrollOffset(float offset);
   void scrollBy(float delta);
   void setScrollbarVisible(bool visible);
+  // Vertical clearance at both track ends (e.g. the host card's corner radius).
+  void setScrollbarInsetV(float inset);
   void setViewportPaddingH(float padding);
   void setViewportPaddingV(float padding);
   void setFill(const ColorSpec& fill);

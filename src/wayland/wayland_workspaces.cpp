@@ -228,11 +228,24 @@ void WaylandWorkspaces::onOutputRemoved(wl_output* output) {
 
 void WaylandWorkspaces::setChangeCallback(ChangeCallback callback) {
   m_changeCallback = std::move(callback);
-  auto wrapper = [this]() { notifyChanged(); };
   for (const auto& backend : m_backends) {
-    if (backend != nullptr) {
-      backend->setChangeCallback(wrapper);
+    if (backend == nullptr) {
+      continue;
     }
+    if (backend.get() == m_extBackend) {
+      // FIXME: after Hyprland posts change_id on socket2
+      // (https://github.com/hyprwm/Hyprland/discussions/15527), drop this
+      // reconcile path and rely on changeworkspaceid in HyprlandWorkspaceBackend.
+      backend->setChangeCallback([this]() {
+        if (m_activeBackend == m_hyprlandBackend && m_hyprlandBackend != nullptr) {
+          static_cast<HyprlandWorkspaceBackend*>(m_hyprlandBackend)->reconcileFromCompositor();
+          return;
+        }
+        notifyChanged();
+      });
+      continue;
+    }
+    backend->setChangeCallback([this]() { notifyChanged(); });
   }
 }
 

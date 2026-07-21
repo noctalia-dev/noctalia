@@ -242,96 +242,63 @@ ResolvedIdleBehavior resolveIdleBehaviorActions(const IdleBehaviorConfig& behavi
   };
 }
 
+const WidgetSettingValue* WidgetConfig::findSetting(const std::string& key) const {
+  const auto it = settings.find(key);
+  return it != settings.end() ? &it->second : nullptr;
+}
+
 std::string WidgetConfig::getString(const std::string& key, const std::string& fallback) const {
-  auto it = settings.find(key);
-  if (it == settings.end()) {
-    return fallback;
-  }
-  if (const auto* v = std::get_if<std::string>(&it->second)) {
-    return *v;
-  }
-  return fallback;
+  const auto* value = findSetting(key);
+  const auto decoded = value != nullptr ? noctalia::config::widgetSettingValueAs<std::string>(*value) : std::nullopt;
+  return decoded.value_or(fallback);
 }
 
 std::vector<std::string>
 WidgetConfig::getStringList(const std::string& key, const std::vector<std::string>& fallback) const {
-  auto it = settings.find(key);
-  if (it == settings.end()) {
-    return fallback;
-  }
-  if (const auto* v = std::get_if<std::vector<std::string>>(&it->second)) {
-    return *v;
-  }
-  if (const auto* v = std::get_if<std::string>(&it->second)) {
-    return {*v};
-  }
-  return fallback;
+  const auto* value = findSetting(key);
+  const auto decoded =
+      value != nullptr ? noctalia::config::widgetSettingValueAs<std::vector<std::string>>(*value) : std::nullopt;
+  return decoded.value_or(fallback);
 }
 
 std::int64_t WidgetConfig::getInt(const std::string& key, std::int64_t fallback) const {
-  auto it = settings.find(key);
-  if (it == settings.end()) {
-    return fallback;
-  }
-  if (const auto* v = std::get_if<std::int64_t>(&it->second)) {
-    return *v;
-  }
-  if (const auto* v = std::get_if<double>(&it->second)) {
-    return static_cast<std::int64_t>(std::llround(*v));
-  }
-  return fallback;
+  const auto* value = findSetting(key);
+  const auto decoded = value != nullptr ? noctalia::config::widgetSettingValueAs<std::int64_t>(*value) : std::nullopt;
+  return decoded.value_or(fallback);
 }
 
 double WidgetConfig::getDouble(const std::string& key, double fallback) const {
-  auto it = settings.find(key);
-  if (it == settings.end()) {
-    return fallback;
-  }
-  if (const auto* v = std::get_if<double>(&it->second)) {
-    return *v;
-  }
-  // Allow int -> double promotion.
-  if (const auto* v = std::get_if<std::int64_t>(&it->second)) {
-    return static_cast<double>(*v);
-  }
-  return fallback;
+  const auto* value = findSetting(key);
+  const auto decoded = value != nullptr ? noctalia::config::widgetSettingValueAs<double>(*value) : std::nullopt;
+  return decoded.value_or(fallback);
 }
 
 bool WidgetConfig::getBool(const std::string& key, bool fallback) const {
-  auto it = settings.find(key);
-  if (it == settings.end()) {
-    return fallback;
-  }
-  if (const auto* v = std::get_if<bool>(&it->second)) {
-    return *v;
-  }
-  return fallback;
+  const auto* value = findSetting(key);
+  const auto decoded = value != nullptr ? noctalia::config::widgetSettingValueAs<bool>(*value) : std::nullopt;
+  return decoded.value_or(fallback);
 }
 
 ColorSpec
 WidgetConfig::getColorSpec(const std::string& key, const ColorSpec& fallback, std::string_view context) const {
-  auto it = settings.find(key);
-  if (it == settings.end()) {
-    return fallback;
-  }
-  if (const auto* v = std::get_if<std::string>(&it->second)) {
-    return colorSpecFromConfigString(*v, context.empty() ? std::string_view(key) : context);
-  }
-  return fallback;
+  const auto* value = findSetting(key);
+  const auto decoded = value != nullptr
+      ? noctalia::config::widgetSettingValueAs<ColorSpec>(*value, context.empty() ? std::string_view(key) : context)
+      : std::nullopt;
+  return decoded.value_or(fallback);
 }
 
 std::optional<ColorSpec> WidgetConfig::getOptionalColorSpec(const std::string& key, std::string_view context) const {
-  auto it = settings.find(key);
-  if (it == settings.end()) {
+  const auto* value = findSetting(key);
+  if (value == nullptr) {
     return std::nullopt;
   }
-  if (const auto* v = std::get_if<std::string>(&it->second)) {
+  if (const auto* v = std::get_if<std::string>(value)) {
     if (StringUtils::trim(*v).empty()) {
       return std::nullopt;
     }
-    return colorSpecFromConfigString(*v, context.empty() ? std::string_view(key) : context);
   }
-  return std::nullopt;
+  return noctalia::config::widgetSettingValueAs<ColorSpec>(*value, context.empty() ? std::string_view(key) : context);
 }
 
 std::unordered_map<std::string, std::string>
@@ -343,7 +310,7 @@ WidgetConfig::getStringMap(const std::string& key, const std::unordered_map<std:
   return it->second;
 }
 
-bool WidgetConfig::hasSetting(const std::string& key) const { return settings.contains(key); }
+bool WidgetConfig::hasSetting(const std::string& key) const { return findSetting(key) != nullptr; }
 
 WidgetBarCapsuleSpec resolveWidgetBarCapsuleSpec(const BarConfig& bar, const WidgetConfig* widget) {
   WidgetBarCapsuleSpec spec{};

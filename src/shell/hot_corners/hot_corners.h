@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/timer_manager.h"
 #include "render/scene/input_area.h"
 #include "render/scene/input_dispatcher.h"
 #include "wayland/layer_surface.h"
@@ -33,6 +34,7 @@ private:
     std::unique_ptr<LayerSurface> surface;
     std::unique_ptr<Node> sceneRoot;
     InputDispatcher inputDispatcher;
+    Timer triggerTimer;
   };
 
   struct OutputInstance {
@@ -46,6 +48,8 @@ private:
   void ensureSurfaces();
   void destroySurfaces();
   void buildCorner(Corner& corner, int position, wl_output* output);
+  void armCorner(Corner& corner, int position, wl_output* output);
+  void disarmCorner(Corner& corner);
   void triggerAction(const std::string& action, const std::string& command, wl_output* output);
 
   Application* m_app = nullptr;

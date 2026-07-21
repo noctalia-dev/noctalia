@@ -29,6 +29,8 @@ ui.select = ctor("select")
 ui.slider = ctor("slider")
 ui.toggle = ctor("toggle")
 ui.scroll = ctor("scroll")
+ui.dragSource = ctor("drag_source")
+ui.dropZone = ctor("drop_zone")
 )luau";
 
 } // namespace scripting

@@ -1,5 +1,9 @@
 {
   "auth": {
+    "fingerprint": {
+      "disconnected": "Czytnik odcisków palców rozłączony",
+      "error": "Błąd czytnika odcisków palców"
+    },
     "pam": {
       "authentication-failed": "Uwierzytelnianie nie powiodło się",
       "start-failed": "Nie udało się uruchomić PAM",

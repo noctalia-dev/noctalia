@@ -1,5 +1,6 @@
 #include "shell/bar/widgets/network_widget.h"
 
+#include "dbus/network/external_ip_service.h"
 #include "dbus/network/network_glyphs.h"
 #include "i18n/i18n.h"
 #include "render/scene/input_area.h"
@@ -58,9 +59,11 @@ namespace {
 } // namespace
 
 NetworkWidget::NetworkWidget(
-    INetworkService* network, SystemMonitorService* monitor, wl_output* /*output*/, bool showLabel, bool showVpnLabel
+    INetworkService* network, ExternalIpService* externalIp, SystemMonitorService* monitor, wl_output* /*output*/,
+    bool showLabel, bool showVpnLabel
 )
-    : m_network(network), m_monitor(monitor), m_showLabel(showLabel), m_showVpnLabel(showVpnLabel) {}
+    : m_network(network), m_externalIp(externalIp), m_monitor(monitor), m_showLabel(showLabel),
+      m_showVpnLabel(showVpnLabel) {}
 
 void NetworkWidget::create() {
   auto area = std::make_unique<InputArea>();
@@ -260,6 +263,10 @@ std::vector<TooltipRow> NetworkWidget::buildTooltipRows() const {
 
     if (!s.ipv4.empty()) {
       rows.push_back({i18n::tr("bar.widgets.network.ip"), s.ipv4});
+    }
+
+    if (m_externalIp != nullptr && !m_externalIp->externalIp().empty()) {
+      rows.push_back({i18n::tr("bar.widgets.network.wan-ip"), m_externalIp->externalIp()});
     }
 
     if (m_monitor != nullptr && m_monitor->isRunning()) {

@@ -177,6 +177,8 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
   });
 
   setSceneRoot(&m_root);
+  setAnimationManager(&m_animations);
+  m_root.setAnimationManager(&m_animations);
   setConfigureCallback([this](std::uint32_t /*width*/, std::uint32_t /*height*/) { requestLayout(); });
   setPrepareFrameCallback([this](bool needsUpdate, bool needsLayout) { prepareFrame(needsUpdate, needsLayout); });
   requestUpdate();
@@ -406,7 +408,7 @@ void LockSurface::onPointerEvent(const PointerEvent& event) {
     m_inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial);
     break;
   case PointerEvent::Type::Button: {
-    const bool pressed = event.state == WL_POINTER_BUTTON_STATE_PRESSED;
+    const bool pressed = event.pressed;
     const auto x = static_cast<float>(event.sx);
     const auto y = static_cast<float>(event.sy);
     if (m_locked && pressed && passwordFieldContainsPoint(x, y)) {

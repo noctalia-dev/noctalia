@@ -26,7 +26,10 @@
 #include <format>
 #include <memory>
 #include <ranges>
+#include <span>
 #include <string>
+#include <string_view>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -739,6 +742,115 @@ namespace {
     return out;
   }
 
+  std::vector<std::string_view> deviceLabelTokens(std::string_view label) {
+    std::vector<std::string_view> tokens;
+    std::size_t pos = 0;
+    while (pos < label.size()) {
+      while (pos < label.size() && label[pos] == ' ') {
+        ++pos;
+      }
+      const std::size_t start = pos;
+      while (pos < label.size() && label[pos] != ' ') {
+        ++pos;
+      }
+      if (pos > start) {
+        tokens.push_back(label.substr(start, pos - start));
+      }
+    }
+    return tokens;
+  }
+
+  std::size_t commonTokenCount(std::span<const std::string_view> a, std::span<const std::string_view> b) {
+    const std::size_t limit = std::min(a.size(), b.size());
+    std::size_t count = 0;
+    while (count < limit && a[count] == b[count]) {
+      ++count;
+    }
+    return count;
+  }
+
+  std::string joinTokens(std::span<const std::string_view> tokens) {
+    std::string out;
+    for (const std::string_view token : tokens) {
+      if (!out.empty()) {
+        out.push_back(' ');
+      }
+      out.append(token);
+    }
+    return out;
+  }
+
+  struct DeviceMenuItem {
+    std::uint32_t id = 0;
+    std::string label;
+    bool selected = false;
+  };
+
+  // PipeWire sink/source descriptions are "card + profile/port" concatenations, so a multi-port card
+  // yields several near-identical labels. Fold labels sharing a substantial token prefix under one
+  // non-interactive header so each entry carries only its distinguishing tail.
+  std::vector<ContextMenuControlEntry> buildDeviceMenuEntries(std::vector<DeviceMenuItem> items) {
+    constexpr std::size_t kMinSharedTokens = 2;
+
+    std::ranges::sort(items, [](const DeviceMenuItem& a, const DeviceMenuItem& b) {
+      return std::tie(a.label, a.id) < std::tie(b.label, b.id);
+    });
+
+    std::vector<std::vector<std::string_view>> tokens;
+    tokens.reserve(items.size());
+    for (const DeviceMenuItem& item : items) {
+      tokens.push_back(deviceLabelTokens(item.label));
+    }
+
+    auto deviceEntry = [](const DeviceMenuItem& item, std::string label) {
+      return ContextMenuControlEntry{
+          .id = static_cast<std::int32_t>(item.id),
+          .label = std::move(label),
+          .checkmark = true,
+          .toggleState = item.selected ? 1 : 0,
+          .ellipsize = TextEllipsize::Middle,
+      };
+    };
+
+    std::vector<ContextMenuControlEntry> entries;
+    entries.reserve(items.size());
+    std::size_t i = 0;
+    while (i < items.size()) {
+      // Grow the run while the shared token prefix stays substantial.
+      std::size_t shared = tokens[i].size();
+      std::size_t j = i + 1;
+      while (j < items.size()) {
+        const std::size_t common = commonTokenCount(std::span(tokens[i]).first(shared), tokens[j]);
+        if (common < kMinSharedTokens) {
+          break;
+        }
+        shared = common;
+        ++j;
+      }
+      // A member whose whole label is the shared prefix would fold to an empty entry; keep such
+      // runs unfolded (the first item is emitted alone and grouping restarts at the next one).
+      bool foldable = j - i >= 2;
+      for (std::size_t k = i; foldable && k < j; ++k) {
+        foldable = tokens[k].size() > shared;
+      }
+      if (foldable) {
+        entries.push_back({
+            .label = joinTokens(std::span(tokens[i]).first(shared)),
+            .header = true,
+            .ellipsize = TextEllipsize::Middle,
+        });
+        for (std::size_t k = i; k < j; ++k) {
+          entries.push_back(deviceEntry(items[k], joinTokens(std::span(tokens[k]).subspan(shared))));
+        }
+        i = j;
+      } else {
+        entries.push_back(deviceEntry(items[i], items[i].label));
+        ++i;
+      }
+    }
+    return entries;
+  }
+
   class AudioDeviceRow : public Flex {
   public:
     explicit AudioDeviceRow(float scale, std::function<void()> onSelect) : m_onSelect(std::move(onSelect)) {
@@ -1323,19 +1435,16 @@ void AudioTab::openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel
   const AudioState& state = m_audio->state();
 
   const std::uint32_t defaultDeviceId = menu.defaultDeviceId(state);
-  auto entries = availableDevices(menu.devices(state), defaultDeviceId)
+  auto items = availableDevices(menu.devices(state), defaultDeviceId)
       | std::views::transform([&](const AudioNode& node) {
-                   const std::string_view selectedPrefix = node.id == defaultDeviceId ? "• " : "";
-                   return ContextMenuControlEntry{
-                       .id = static_cast<std::int32_t>(node.id),
-                       .label = std::format("{}{}", selectedPrefix, audioDeviceLabel(node)),
-                       .enabled = true,
-                       .separator = false,
-                       .hasSubmenu = false,
-                       .ellipsize = TextEllipsize::Middle,
-                   };
-                 })
+                 return DeviceMenuItem{
+                     .id = node.id,
+                     .label = audioDeviceLabel(node),
+                     .selected = node.id == defaultDeviceId,
+                 };
+               })
       | std::ranges::to<std::vector>();
+  auto entries = buildDeviceMenuEntries(std::move(items));
 
   if (card.menuAnchor == nullptr) {
     return;
@@ -1350,8 +1459,11 @@ void AudioTab::openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel
   float anchorAbsY = 0.0f;
   Node::absolutePosition(card.menuAnchor, anchorAbsX, anchorAbsY);
 
+  // Size the popup to its entries: at least the old card-bound width, but free to grow past the
+  // half-width card so long device names stay readable.
   const float scale = contentScale();
-  const float menuWidth = std::min(280.0f * scale, card.menuAnchor->width());
+  const float minMenuWidth = std::min(280.0f * scale, card.menuAnchor->width());
+  const float maxMenuWidth = 420.0f * scale;
 
   if (m_config != nullptr) {
     m_deviceMenuPopup->setShadowConfig(m_config->config().shell.shadow);
@@ -1376,7 +1488,8 @@ void AudioTab::openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel
   m_deviceMenuPopup->open(
       ContextMenuPopupRequest{
           .entries = std::move(entries),
-          .menuWidth = menuWidth,
+          .minMenuWidth = minMenuWidth,
+          .maxMenuWidth = maxMenuWidth,
           .maxVisible = 10,
           .anchor =
               PopupAnchorRect{
@@ -1385,10 +1498,12 @@ void AudioTab::openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel
                   .width = static_cast<std::int32_t>(card.menuAnchor->width()),
                   .height = static_cast<std::int32_t>(card.menuAnchor->height()),
               },
-          .parent = PopupSurfaceParent{
-              .layerSurface = parentCtx->layerSurface,
-              .output = parentCtx->output,
-          },
+          .parent =
+              PopupSurfaceParent{
+                  .layerSurface = parentCtx->layerSurface,
+                  .output = parentCtx->output,
+              },
+          .pointerParentSurface = parentCtx->surface,
       }
   );
   if (m_deviceMenuPopup->isOpen()) {
@@ -1753,11 +1868,22 @@ void AudioTab::doUpdate(Renderer& renderer) {
     m_outputDeviceVolume.deviceLabel->setText(
         sink != nullptr ? audioDeviceLabel(*sink) : i18n::tr("control-center.audio.no-output-selected")
     );
+    // The caption ellipsizes long device names; the tooltip exposes the full name.
+    if (sink != nullptr) {
+      m_outputDeviceVolume.deviceLabel->setTooltip(audioDeviceLabel(*sink));
+    } else {
+      m_outputDeviceVolume.deviceLabel->clearTooltip();
+    }
   }
   if (m_inputDeviceVolume.deviceLabel != nullptr) {
     m_inputDeviceVolume.deviceLabel->setText(
         source != nullptr ? audioDeviceLabel(*source) : i18n::tr("control-center.audio.no-input-selected")
     );
+    if (source != nullptr) {
+      m_inputDeviceVolume.deviceLabel->setTooltip(audioDeviceLabel(*source));
+    } else {
+      m_inputDeviceVolume.deviceLabel->clearTooltip();
+    }
   }
 
   const float sinkVolume = sink != nullptr ? sink->volume : 0.0f;

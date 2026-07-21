@@ -50,7 +50,6 @@ struct TaskbarWidgetOptions {
   float taskbarMaxWidth = 8192.0f;
   std::string barPosition;
   std::string barName;
-  ShellConfig::ShadowConfig shadowConfig;
 };
 
 class TaskbarWidget : public Widget {
@@ -61,6 +60,7 @@ public:
   void create() override;
   [[nodiscard]] bool onPointerEvent(const PointerEvent& event) override;
   [[nodiscard]] bool wantsBarHoverHighlight() const noexcept override { return false; }
+  [[nodiscard]] bool reservesMiddleClick(float sceneX, float sceneY) const noexcept override;
 
 private:
   struct TaskModel {
@@ -110,6 +110,7 @@ private:
   void activateAdjacentWorkspace(int direction);
   void activateAdjacentTask(int direction);
   [[nodiscard]] bool activeWorkspaceIndex(std::size_t& index) const;
+  [[nodiscard]] const std::vector<WorkspaceModel>& navigationWorkspaces() const noexcept;
   [[nodiscard]] wl_output* toplevelOutputFilter() const noexcept;
   [[nodiscard]] bool useMultiOutputWorkspaceKeys() const noexcept;
   [[nodiscard]] std::string workspaceKeyPrefixForOutput(wl_output* out) const;
@@ -121,6 +122,7 @@ private:
   [[nodiscard]] static ColorRole onRoleForFill(ColorRole fill);
   [[nodiscard]] static bool taskInWorkspaceGroup(const TaskModel& task, const WorkspaceModel& ws);
   void activateTaskModel(const TaskModel& task);
+  void closeTaskModel(const TaskModel& task);
 
   CompositorPlatform& m_platform;
   ConfigService& m_configService;
@@ -151,7 +153,6 @@ private:
   float m_taskbarMaxWidth = 8192.0;
   std::string m_barPosition;
   std::string m_barName;
-  ShellConfig::ShadowConfig m_shadowConfig;
   bool m_rebuildPending = true;
   bool m_vertical = false;
   float m_containerWidth = 0.0f;
@@ -163,12 +164,17 @@ private:
 
   std::vector<TaskModel> m_tasks;
   std::vector<WorkspaceModel> m_workspaces;
+  // Full workspace list before "hide empty" filtering; used for scroll navigation.
+  std::vector<WorkspaceModel> m_allWorkspaces;
   std::unordered_map<std::uintptr_t, PendingWorkspaceTransition> m_pendingWorkspaceTransitions;
   std::unordered_map<std::string, std::size_t> m_groupedAppCycleCursor;
   std::unordered_map<std::string, std::string> m_appIconsByLower;
   std::unique_ptr<ContextMenuPopup> m_contextMenuPopup;
   std::vector<zwlr_foreign_toplevel_handle_v1*> m_contextMenuHandles;
   zwlr_foreign_toplevel_handle_v1* m_contextMenuPrimaryHandle = nullptr;
+  // KDE has no wlr foreign-toplevel handles; close targets use title/appId/uuid instead.
+  std::vector<ToplevelInfo> m_contextMenuKdeWindows;
+  ToplevelInfo m_contextMenuKdePrimary;
   std::uint64_t m_desktopEntriesVersion = 0;
   IconResolver m_iconResolver;
   Signal<>::ScopedConnection m_appIconColorizeConn;

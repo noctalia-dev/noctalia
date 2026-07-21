@@ -5,6 +5,8 @@
 #include "core/input/key_symbols.h"
 #include "core/text_clipboard.h"
 #include "cursor-shape-v1-client-protocol.h"
+#include "render/animation/animation.h"
+#include "render/animation/animation_manager.h"
 #include "render/core/color.h"
 #include "render/core/render_styles.h"
 #include "render/core/renderer.h"
@@ -24,6 +26,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <string>
 #include <wayland-client-protocol.h>
@@ -109,6 +112,8 @@ namespace {
     const float inkCenterY = (metrics.top + metrics.bottom) * 0.5f;
     const float rowCenterY = inputHeight * 0.5f;
     glyph.setPosition(cellCenterX - emCenterX, rowCenterY - inkCenterY);
+    // The node origin is the glyph baseline, so the ink center is the pivot animated scale/rotation must use.
+    glyph.setTransformOrigin((metrics.left + metrics.right) * 0.5f, inkCenterY);
   }
 
   Color resolved(ColorRole role, float alpha = 1.0f) { return colorForRole(role, alpha); }
@@ -362,6 +367,7 @@ Input::Input() {
     updateDisplayText();
     applyVisualState();
   });
+  m_inputBordersConn = Style::inputBordersChanged().connect([this] { applyVisualState(); });
 }
 
 Input::~Input() {
@@ -1067,8 +1073,8 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     m_goalCaretX = -1.0f;
   }
 
-  // Ignore keys that produce no text and aren't action keys we handle below
-  if (utf32 == 0 && !preedit) {
+  // Ignore non-text keys that aren't handled below. Ctrl chords may still have utf32 == 0.
+  if (utf32 == 0 && !preedit && !ctrl) {
     const bool navigationOrEdit = KeySymbol::isBackspace(sym)
         || KeySymbol::isDelete(sym)
         || KeySymbol::isLeft(sym)
@@ -1388,6 +1394,13 @@ void Input::applyVisualState() {
         : (focused ? resolveColorSpec(focusRingColorSpec())
                    : (inputHovered ? resolved(ColorRole::Hover) : resolved(ColorRole::Outline)));
 
+    float resolvedBorderWidth = 0.0f;
+    if (focused) {
+      resolvedBorderWidth = Style::focusRingWidth;
+    } else if (Style::inputBordersEnabled()) {
+      resolvedBorderWidth = Style::borderWidth;
+    }
+
     m_background->setStyle(
         RoundedRectStyle{
             .fill = fill,
@@ -1395,7 +1408,7 @@ void Input::applyVisualState() {
             .fillMode = FillMode::Solid,
             .radius = Style::scaledRadius(m_frameRadius, chromeScale),
             .softness = 1.0f,
-            .borderWidth = focused ? Style::focusRingWidth : Style::borderWidth,
+            .borderWidth = resolvedBorderWidth,
         }
     );
   } else if (m_background != nullptr) {
@@ -1897,7 +1910,51 @@ void Input::syncPasswordGlyphNodes(std::size_t count) {
     auto glyph = std::make_unique<GlyphNode>();
     auto* glyphPtr = static_cast<GlyphNode*>(m_textViewport->insertChildAt(2, std::move(glyph)));
     m_passwordGlyphs.push_back(glyphPtr);
+    // Animate the glyph entrance
+    animatePasswordGlyphIn(*glyphPtr);
   }
+}
+
+void Input::animatePasswordGlyphIn(GlyphNode& glyph) {
+  auto* animations = animationManager();
+  if (animations == nullptr) {
+    return;
+  }
+
+  constexpr float kStartScale = 0.15f;
+  // Fraction of the animation over which the glyph fades in.
+  constexpr float kFadeInFraction = 0.35f;
+  // Three alternating swings (right, left, right), starting and ending at zero rotation.
+  constexpr float kWobbleSwings = 3.0f;
+  constexpr float kWobbleAmplitude = 0.45f; // radians, ~26 degrees
+
+  glyph.setOpacity(0.0f);
+  glyph.setScale(kStartScale);
+  glyph.setRotation(0.0f);
+
+  auto* glyphPtr = &glyph;
+  // Driven linearly so each animated property carries its own curve. The owner is the glyph node, so a
+  // backspace that destroys it cancels this animation.
+  animations->animate(
+      0.0f, 1.0f, static_cast<float>(Style::animNormal), Easing::Linear,
+      [glyphPtr](float t) {
+        const float scaleEase = applyEasing(Easing::EaseOutCubic, t);
+        glyphPtr->setScale(kStartScale + (1.0f - kStartScale) * scaleEase);
+        glyphPtr->setOpacity(applyEasing(Easing::EaseOutCubic, std::min(1.0f, t / kFadeInFraction)));
+
+        // Rotation stays on even for the rotationally symmetric circle mask: a non-zero rotation is what makes
+        // the glyph renderer skip pixel snapping, which would otherwise jump the glyph a whole pixel per frame.
+        const float wobbleDecay = applyEasing(Easing::EaseOutCubic, 1.0f - t);
+        const float wobble = kWobbleAmplitude * std::sin(t * kWobbleSwings * std::numbers::pi_v<float>) * wobbleDecay;
+        glyphPtr->setRotation(wobble);
+      },
+      [glyphPtr]() {
+        glyphPtr->setOpacity(1.0f);
+        glyphPtr->setScale(1.0f);
+        glyphPtr->setRotation(0.0f);
+      },
+      glyphPtr
+  );
 }
 
 float Input::textViewportWidth() const noexcept {

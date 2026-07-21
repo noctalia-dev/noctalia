@@ -1,6 +1,7 @@
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
 
 #include "core/log.h"
+#include "util/string_utils.h"
 
 #include <algorithm>
 #include <cctype>
@@ -98,21 +99,12 @@ namespace {
   }
 
   void sortEntries(std::vector<WallpaperEntry>& entries) {
-    // Directories first, then files; both sorted case-insensitively by name.
+    // Directories first, then files; natural case-insensitive name order.
     std::ranges::sort(entries, [](const WallpaperEntry& a, const WallpaperEntry& b) {
       if (a.isDir != b.isDir) {
         return a.isDir;
       }
-      const auto& as = a.name;
-      const auto& bs = b.name;
-      for (std::size_t i = 0; i < as.size() && i < bs.size(); ++i) {
-        const auto ac = std::tolower(static_cast<unsigned char>(as[i]));
-        const auto bc = std::tolower(static_cast<unsigned char>(bs[i]));
-        if (ac != bc) {
-          return ac < bc;
-        }
-      }
-      return as.size() < bs.size();
+      return StringUtils::naturalCaseInsensitiveLess(a.name, b.name);
     });
   }
 

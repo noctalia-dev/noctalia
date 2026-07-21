@@ -166,7 +166,7 @@ namespace settings {
       if (m_selectPopup->onPointerEvent(event)) {
         return true;
       }
-      if (event.type == PointerEvent::Type::Button && event.state == 1) {
+      if (event.type == PointerEvent::Type::Button && event.pressed) {
         m_selectPopup->closeSelectDropdown();
         return true;
       }
@@ -373,7 +373,7 @@ namespace settings {
 
     float panelW = m_minWidth * m_scale;
     if (m_parentWidth > 0) {
-      const auto probe = popup_chrome::computeGeometry(panelW, panelW, shadow);
+      const auto probe = popup_chrome::computeGeometry(panelW, panelW, shadow, Style::popupShadowsEnabled());
       const float chromeW = static_cast<float>(probe.surfaceWidth) - panelW;
       const float fitPanelW = std::max(1.0f, static_cast<float>(m_parentWidth) - (kParentMargin * m_scale) - chromeW);
       const float maxPanelW = std::min(fitPanelW, m_maxWidth * m_scale);
@@ -410,7 +410,7 @@ namespace settings {
       rootH = std::max(rootH, fillH);
     }
     const float panelH = std::ceil(rootH + pad * 2.0f);
-    const auto geo = popup_chrome::computeGeometry(panelW, panelH, shadow);
+    const auto geo = popup_chrome::computeGeometry(panelW, panelH, shadow, Style::popupShadowsEnabled());
     const float maxOuterHeight =
         m_parentHeight > 0 ? std::max(1.0f, static_cast<float>(m_parentHeight) - (kParentMargin * m_scale)) : 1.0e6f;
     const std::uint32_t nextHeight =

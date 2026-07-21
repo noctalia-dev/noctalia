@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <string>
 #include <thread>
+#include <unordered_map>
 
 namespace {
 
@@ -728,8 +729,17 @@ void LockScreen::applyIndicatorsToSurface(LockSurface& surface) const {
   if (m_compositorPlatform != nullptr) {
     hasMultipleLayouts = m_compositorPlatform->keyboardLayoutNames().size() > 1;
     switchable = m_compositorPlatform->hasKeyboardLayoutBackend();
-    layoutLabel = KeyboardLayoutWidget::formatLayoutLabel(
-        m_compositorPlatform->currentKeyboardLayoutName(), KeyboardLayoutWidget::DisplayMode::Short
+    std::string display = "short";
+    std::unordered_map<std::string, std::string> customLabels;
+    if (m_configService != nullptr) {
+      if (const auto widgetIt = m_configService->config().widgets.find("keyboard_layout");
+          widgetIt != m_configService->config().widgets.end()) {
+        display = widgetIt->second.getString("display", display);
+        customLabels = widgetIt->second.getStringMap("custom_labels");
+      }
+    }
+    layoutLabel = KeyboardLayoutWidget::resolveLayoutLabel(
+        m_compositorPlatform->currentKeyboardLayoutName(), KeyboardLayoutWidget::parseDisplayMode(display), customLabels
     );
   }
   surface.setKeyboardIndicators(capsLock, hasMultipleLayouts, switchable, std::move(layoutLabel));

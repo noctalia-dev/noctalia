@@ -477,6 +477,9 @@ battery_low_percent_threshold = 0   # set to e.g. 15 to enable battery_under_thr
 # network_speed_unit = "mb"          # auto | kb | mb
 # network_speed_compact = true       # show "1.2M" instead of "1.2 MB/s"
 
+# [widget.volume.effects_profile_glyphs]
+# eq_desktop = "device-speaker"
+
 # [widget.keyboard_layout]
 # display                 = "short"    # "short" (e.g. "DE") or "full" (full layout name)
 # show_icon               = true

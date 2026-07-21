@@ -38,6 +38,7 @@ public:
       float x, float y, std::uint32_t axis, std::uint32_t axisSource, double value, std::int32_t discrete,
       std::int32_t value120, float lines
   );
+  void cancelPointerCapture();
 
   // Dispatch keyboard events to the focused area
   void keyEvent(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modifiers, bool pressed, bool preedit = false);
@@ -82,4 +83,5 @@ private:
   float m_lastPointerX = 0.0f;
   float m_lastPointerY = 0.0f;
   bool m_hasPointerPosition = false;
+  bool m_cancelingPointerCapture = false;
 };

@@ -4,11 +4,15 @@
 #include "core/log.h"
 #include "dbus/session_bus.h"
 #include "i18n/i18n.h"
+#include "net/uri.h"
 #include "notification/notification_manager.h"
+#include "render/core/image_decoder.h"
+#include "util/file_utils.h"
 #include "util/string_utils.h"
 
 #include <cstdint>
 #include <tuple>
+#include <unistd.h>
 
 namespace {
   constexpr Logger kLog("notification");
@@ -320,6 +324,39 @@ namespace notification_dbus {
       return std::nullopt;
     }
 
+    std::optional<NotificationImageData> decodeImageDataFromImagePath(std::string_view imagePath) {
+      // Many screenshot tools (e.g. HyprCap) provide a single temp file via "image-path" which gets
+      // overwritten on every new capture. Snapshot it into `imageData` so history thumbnails stay
+      // immutable.
+      const std::string normalizedPath = uri::normalizeFileUrl(std::string(imagePath));
+      if (normalizedPath.empty() || normalizedPath.front() != '/') {
+        return std::nullopt;
+      }
+      if (access(normalizedPath.c_str(), R_OK) != 0) {
+        return std::nullopt;
+      }
+
+      const auto bytes = FileUtils::readBinaryFile(normalizedPath);
+      if (bytes.empty()) {
+        return std::nullopt;
+      }
+
+      const auto decoded = decodeRasterImage(bytes.data(), bytes.size());
+      if (!decoded) {
+        return std::nullopt;
+      }
+
+      NotificationImageData out;
+      out.width = decoded->width;
+      out.height = decoded->height;
+      out.rowStride = decoded->width * 4;
+      out.hasAlpha = true;
+      out.bitsPerSample = 8;
+      out.channels = 4;
+      out.data = decoded->pixels;
+      return out;
+    }
+
   } // namespace
 
   std::optional<NotificationImageData> notifyImageDataFromHints(const std::map<std::string, sdbus::Variant>& hints) {
@@ -332,6 +369,30 @@ namespace notification_dbus {
       auto decoded = decodeImageDataVariant(it->second);
       if (decoded.has_value()) {
         return decoded;
+      }
+    }
+
+    // Fallback: some notifiers only provide a path to a changing screenshot file (e.g. HyprCap).
+    // If we can decode it immediately, persist pixels via `imageData`.
+    for (const char* key : {"image-path", "image_path"}) {
+      const auto it = hints.find(key);
+      if (it == hints.end()) {
+        continue;
+      }
+      try {
+        const auto path = it->second.get<std::string>();
+        if (path.empty()) {
+          continue;
+        }
+        const std::string truncated = StringUtils::truncateUtf8(path, kMaxStringLen);
+        if (truncated.empty()) {
+          continue;
+        }
+        if (std::optional<NotificationImageData> decoded = decodeImageDataFromImagePath(truncated);
+            decoded.has_value()) {
+          return decoded;
+        }
+      } catch (...) {
       }
     }
 

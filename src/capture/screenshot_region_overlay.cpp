@@ -589,7 +589,7 @@ namespace capture {
       if (!onTarget && !target->pointerInside) {
         return false;
       }
-      const bool pressed = (event.state == 1);
+      const bool pressed = event.pressed;
       return target->inputDispatcher.pointerButton(
           static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
       );

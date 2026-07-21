@@ -1,9 +1,10 @@
 #pragma once
 
+#include "config/color_spec.h"
 #include "config/config_limits.h"
+#include "config/widget_setting_value.h"
 #include "core/input/key_chord.h"
 #include "system/sysmon_threshold_profile.h"
-#include "ui/palette.h"
 #include "ui/style.h"
 
 #include <array>
@@ -101,6 +102,10 @@ struct BarMonitorOverride {
   std::optional<bool> hoverHighlight;
   BarDeadZoneOverride deadZone;
 
+  [[nodiscard]] bool isAutoHideEnabled(bool baseAutoHide, bool baseSmartAutoHide) const noexcept {
+    return autoHide.value_or(baseAutoHide) || smartAutoHide.value_or(baseSmartAutoHide);
+  }
+
   bool operator==(const BarMonitorOverride&) const = default;
 };
 
@@ -121,8 +126,10 @@ struct BarConfig {
   bool autoHide = false;             // slide out when the pointer leaves; reveal on edge approach
   bool smartAutoHide = false;        // hide while the active workspace has windows; show when it is empty
   bool showOnWorkspaceSwitch = true; // with auto_hide: briefly reveal when the active workspace changes
-  bool reserveSpace = true;          // reserve compositor exclusive zone; applies with or without auto_hide
-  std::string layer = "top";         // top | overlay — attached panels use the same layer
+
+  [[nodiscard]] constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
+  bool reserveSpace = true;  // reserve compositor exclusive zone; applies with or without auto_hide
+  std::string layer = "top"; // top | overlay — attached panels use the same layer
   std::int32_t thickness = Style::barThicknessDefault;
   float backgroundOpacity = 1.0f;
   // Inside outline for the bar background; attached panels inherit the resolved values.
@@ -331,7 +338,6 @@ enum class KeybindAction : std::uint8_t {
 
 [[nodiscard]] std::vector<KeyChord> defaultKeybindSet(KeybindAction action);
 
-using WidgetSettingValue = std::variant<bool, std::int64_t, double, std::string, std::vector<std::string>>;
 using ConfigOverrideValue = std::variant<
     bool, std::int64_t, double, std::string, std::vector<std::string>, std::vector<ShortcutConfig>,
     std::vector<SessionPanelActionConfig>, std::vector<IdleBehaviorConfig>, std::vector<NotificationFilterConfig>,
@@ -365,6 +371,7 @@ struct WidgetConfig {
   std::unordered_map<std::string, WidgetSettingValue> settings;
   std::unordered_map<std::string, std::unordered_map<std::string, std::string>> tables;
 
+  [[nodiscard]] const WidgetSettingValue* findSetting(const std::string& key) const;
   [[nodiscard]] std::string getString(const std::string& key, const std::string& fallback = {}) const;
   [[nodiscard]] std::vector<std::string>
   getStringList(const std::string& key, const std::vector<std::string>& fallback = {}) const;
@@ -393,12 +400,6 @@ struct WidgetConfig {
 [[nodiscard]] WidgetBarCapsuleSpec capsuleSpecFromGroup(const BarConfig& bar, const BarCapsuleGroupStyle& group);
 [[nodiscard]] float
 resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std::string_view context = "widget.scale");
-
-// Color spec for user color strings: either a palette color role token or a hex color.
-[[nodiscard]] ColorSpec colorSpecFromConfigString(const std::string& raw, std::string_view context = {});
-
-// Serializes a color spec back to its config string form (palette role token or hex).
-[[nodiscard]] std::string colorSpecToConfigString(const ColorSpec& spec);
 
 // Shared output selector matching used by monitor-scoped config and IPC selectors.
 // Matches connector name exactly, or a word-boundary token within output description.
@@ -567,15 +568,17 @@ struct DockConfig {
   bool showRunning = true;             // also show running apps not in pinned list
   bool autoHide = false;               // slide out when not hovered (overlay mode)
   bool smartAutoHide = false;          // hide while the active workspace has windows; show when it is empty
-  bool reserveSpace = true;            // reserve compositor exclusive zone; applies with or without auto_hide
-  float activeScale = 1.0f;            // focused app icon scale
-  float inactiveScale = 0.85f;         // non-focused app icon scale
-  bool magnification = true;           // magnify icons near the pointer (macOS-style)
-  float magnificationScale = 1.45f;    // max icon scale multiplier at the pointer center
-  float activeOpacity = 1.0f;          // focused app icon opacity
-  float inactiveOpacity = 0.85f;       // non-focused app icon opacity
-  bool showDots = false;               // show optional running window dots below app icons
-  bool showInstanceCount = true;       // show a badge with count when app has >1 window
+
+  [[nodiscard]] constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
+  bool reserveSpace = true;         // reserve compositor exclusive zone; applies with or without auto_hide
+  float activeScale = 1.0f;         // focused app icon scale
+  float inactiveScale = 0.85f;      // non-focused app icon scale
+  bool magnification = true;        // magnify icons near the pointer (macOS-style)
+  float magnificationScale = 1.45f; // max icon scale multiplier at the pointer center
+  float activeOpacity = 1.0f;       // focused app icon opacity
+  float inactiveOpacity = 0.85f;    // non-focused app icon opacity
+  bool showDots = false;            // show optional running window dots below app icons
+  bool showInstanceCount = true;    // show a badge with count when app has >1 window
   DockLauncherPosition launcherPosition = DockLauncherPosition::None;
   std::string launcherIcon = "grid-dots";   // Tabler glyph name
   std::string launcherCustomImage = "";     // image path; overrides launcherIcon glyph when set
@@ -650,6 +653,7 @@ struct OsdKindsConfig {
 };
 
 struct OsdConfig {
+  bool enabled = true; // master gate for all OSD popups
   std::string position = "top_center";
   std::string positionVertical = "top_center";
   std::string orientation = "horizontal";
@@ -877,8 +881,9 @@ struct ShellConfig {
 
   struct PanelConfig {
     PanelTransparencyMode transparencyMode = PanelTransparencyMode::Solid;
-    bool borders = true; // panel shell outline and in-panel section cards
-    bool shadow = true;  // cast the global [shell.shadow] from panel surfaces
+    bool borders = true;             // panel shell outline and in-panel section cards
+    bool shadow = true;              // cast the global [shell.shadow] from panel surfaces
+    bool listItemBackground = false; // filled rounded background behind launcher/clipboard list items
     PanelPlacement launcherPlacement = PanelPlacement::Floating;
     PanelPlacement clipboardPlacement = PanelPlacement::Floating;
     PanelPlacement controlCenterPlacement = PanelPlacement::Attached;
@@ -945,6 +950,7 @@ struct ShellConfig {
     bool copyToClipboard = true;
     bool freezeScreen = true;
     bool confirmRegion = false;
+    bool showCursor = false;
     bool pipeToCommand = false;
     std::string pipeCommand;
     std::string directory;       // empty = ~/Pictures
@@ -963,6 +969,9 @@ struct ShellConfig {
 
   float cornerRadiusScale = 1.0f;
   bool buttonBorders = true;
+  bool inputBorders = true;
+  bool popupBorders = true;
+  bool popupShadows = true;
   std::string fontFamily = "sans-serif";
   std::string lang; // empty = auto-detect from $LC_ALL/$LC_MESSAGES/$LANG
   std::string timeFormat = "{:%H:%M}";
@@ -1444,6 +1453,8 @@ struct AccessibilityConfig {
 
 struct HotCornersConfig {
   bool enabled = false;
+  // Hold time in the corner before the action runs. 0 = trigger immediately on enter.
+  std::int32_t delayMs = 0;
 
   struct Corner {
     std::string action = "none";

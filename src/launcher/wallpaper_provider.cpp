@@ -3,6 +3,7 @@
 #include "config/config_service.h"
 #include "i18n/i18n.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "theme/theme_service.h"
 #include "util/fuzzy_match.h"
 #include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
@@ -66,8 +67,10 @@ namespace {
 
 } // namespace
 
-WallpaperProvider::WallpaperProvider(ConfigService* config, WaylandConnection* wayland)
-    : m_config(config), m_wayland(wayland) {}
+WallpaperProvider::WallpaperProvider(
+    ConfigService* config, WaylandConnection* wayland, noctalia::theme::ThemeService* themeService
+)
+    : m_config(config), m_wayland(wayland), m_themeService(themeService) {}
 
 std::string WallpaperProvider::displayName() const { return i18n::tr("launcher.providers.wallpaper.title"); }
 
@@ -77,8 +80,12 @@ std::vector<LauncherResult> WallpaperProvider::query(std::string_view text) cons
   }
 
   const std::string query = StringUtils::toLower(StringUtils::trim(text));
+  const ThemeMode configured = m_config->config().theme.mode;
+  const bool isLight = m_themeService != nullptr ? m_themeService->isLightMode() : configured == ThemeMode::Light;
   auto candidates = collectWallpapers(
-      wallpaper::resolveGlobalWallpaperDirectory(m_config->config().wallpaper, m_config->config().theme.mode)
+      wallpaper::resolveGlobalWallpaperDirectory(
+          m_config->config().wallpaper, wallpaper::effectiveThemeMode(configured, isLight)
+      )
   );
   if (candidates.empty()) {
     return {};

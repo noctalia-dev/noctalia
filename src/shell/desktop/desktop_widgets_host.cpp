@@ -411,7 +411,7 @@ bool DesktopWidgetsHost::onPointerEvent(const PointerEvent& event) {
     break;
   case PointerEvent::Type::Button:
     target->inputDispatcher.pointerButton(
-        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, event.state == 1
+        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, event.pressed
     );
     break;
   case PointerEvent::Type::Axis:

@@ -836,6 +836,10 @@ std::vector<ToplevelInfo> CompositorPlatform::windowsForApp(
   return windows;
 }
 
+std::vector<ToplevelInfo> CompositorPlatform::windowsWithoutAppId(wl_output* outputFilter) const {
+  return m_wayland.windowsWithoutAppId(outputFilter);
+}
+
 void CompositorPlatform::activateToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
   m_wayland.activateToplevel(handle);
 }

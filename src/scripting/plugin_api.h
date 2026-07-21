@@ -5,7 +5,8 @@
 namespace scripting {
 
   inline constexpr std::uint32_t kOldestSupportedPluginApiVersion = 3;
-  inline constexpr std::uint32_t kCurrentPluginApiVersion = 4;
+  inline constexpr std::uint32_t kStringMapSettingPluginApiVersion = 6;
+  inline constexpr std::uint32_t kCurrentPluginApiVersion = kStringMapSettingPluginApiVersion;
 
   static_assert(kOldestSupportedPluginApiVersion <= kCurrentPluginApiVersion);
 

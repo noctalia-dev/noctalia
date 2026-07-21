@@ -37,6 +37,29 @@ namespace settings {
     constexpr float kSourceBadgeMaxWidth = 120.0f;
     constexpr float kTagBadgeMaxWidth = 120.0f;
 
+    // Display label for a source filter value: official/community are localized badge names,
+    // custom source names show verbatim.
+    std::string sourceDisplayName(const std::string& source) {
+      if (source == "official") {
+        return i18n::tr("settings.badges.official");
+      }
+      if (source == "community") {
+        return i18n::tr("settings.badges.community");
+      }
+      return source;
+    }
+
+    // Ordering for the source filter chips: official first, community second, custom sorted after.
+    int sourceRank(const std::string& source) {
+      if (source == "official") {
+        return 0;
+      }
+      if (source == "community") {
+        return 1;
+      }
+      return 2;
+    }
+
     bool containsIgnoreCase(std::string_view haystack, std::string_view needle) {
       if (needle.empty()) {
         return true;
@@ -106,7 +129,8 @@ namespace settings {
   )
       : m_catalog(std::move(catalog)), m_onDiskIds(std::move(onDiskIds)), m_callbacks(std::move(callbacks)),
         m_fileCache(fileCache) {
-    collectTags();
+    collectThumbnails();
+    collectSources();
     applyFilter();
   }
 
@@ -121,13 +145,7 @@ namespace settings {
       return std::nullopt;
     }
     const auto& storeEntry = m_catalog[m_filteredIndices[*m_detailIndex]];
-    if (storeEntry.source != "official" && storeEntry.source != "community") {
-      return std::nullopt;
-    }
-    return "https://noctalia.dev/plugins/"
-        + storeEntry.source
-        + "/"
-        + scripting::pluginSubdirFromId(storeEntry.entry.id).value();
+    return scripting::pluginWebsitePageUrl(storeEntry.source, storeEntry.entry.id);
   }
 
   std::optional<std::string> PluginStoreContent::detailSourceUrl() const {
@@ -146,26 +164,53 @@ namespace settings {
     return storeEntry.sourceConfig.location;
   }
 
-  void PluginStoreContent::collectTags() {
+  void PluginStoreContent::collectThumbnails() {
+    if (m_fileCache == nullptr) {
+      return;
+    }
+    for (const auto& entry : m_catalog) {
+      std::string path = m_fileCache->resolve(entry.entry.id, entry.sourceConfig, "thumbnail.webp");
+      if (!path.empty()) {
+        m_thumbnailPaths[entry.entry.id] = path;
+      }
+    }
+  }
+
+  std::vector<std::string> PluginStoreContent::availableTags() const {
     std::set<std::string> tagSet;
     for (const auto& entry : m_catalog) {
+      if (!m_selectedSource.empty() && entry.source != m_selectedSource) {
+        continue;
+      }
       for (const auto& tag : entry.entry.tags) {
         tagSet.insert(tag);
       }
-      if (m_fileCache != nullptr) {
-        std::string path = m_fileCache->resolve(entry.entry.id, entry.sourceConfig, "thumbnail.webp");
-        if (!path.empty()) {
-          m_thumbnailPaths[entry.entry.id] = path;
-        }
+    }
+    return {tagSet.begin(), tagSet.end()};
+  }
+
+  void PluginStoreContent::collectSources() {
+    std::set<std::string> sourceSet;
+    for (const auto& entry : m_catalog) {
+      if (!entry.source.empty()) {
+        sourceSet.insert(entry.source);
       }
     }
-    m_tags.assign(tagSet.begin(), tagSet.end());
+    m_sources.assign(sourceSet.begin(), sourceSet.end());
+    std::ranges::sort(m_sources, [](const std::string& a, const std::string& b) {
+      const int ra = sourceRank(a);
+      const int rb = sourceRank(b);
+      return ra != rb ? ra < rb : a < b;
+    });
   }
 
   void PluginStoreContent::applyFilter() {
     m_filteredIndices.clear();
     for (std::size_t i = 0; i < m_catalog.size(); ++i) {
       const auto& e = m_catalog[i];
+      if (!m_selectedSource.empty() && e.source != m_selectedSource) {
+        continue;
+      }
       if (!m_selectedTag.empty()) {
         if (!std::ranges::contains(e.entry.tags, m_selectedTag)) {
           continue;
@@ -222,7 +267,60 @@ namespace settings {
         })
     );
 
-    if (!m_tags.empty()) {
+    if (m_sources.size() > 1) {
+      body.addChild(
+          ui::label({
+              .text = i18n::tr("settings.plugins.store.sources"),
+              .fontSize = Style::fontSizeCaption * scale,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+          })
+      );
+
+      std::vector<std::string> allSources;
+      allSources.push_back(i18n::tr("settings.plugins.store.source-all"));
+      allSources.insert(allSources.end(), m_sources.begin(), m_sources.end());
+      std::vector<std::unique_ptr<Button>> sourceButtons;
+      for (std::size_t i = 0; i < allSources.size(); ++i) {
+        const bool selected = (i == 0 && m_selectedSource.empty()) || (i > 0 && m_sources[i - 1] == m_selectedSource);
+        const std::string text = i == 0 ? allSources[i] : sourceDisplayName(m_sources[i - 1]);
+        sourceButtons.push_back(
+            ui::button({
+                .text = text,
+                .fontSize = Style::fontSizeCaption * scale,
+                .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
+                .radius = Style::scaledRadiusMd(scale),
+                .onClick = [this, i]() {
+                  m_selectedSource = i == 0 ? std::string{} : m_sources[i - 1];
+                  if (!m_selectedTag.empty() && !std::ranges::contains(availableTags(), m_selectedTag)) {
+                    m_selectedTag.clear();
+                  }
+                  applyFilter();
+                  if (m_onRebuildNeeded) {
+                    m_onRebuildNeeded();
+                  }
+                },
+            })
+        );
+      }
+      auto sourceRows = wrapButtonsIntoRows(
+          renderer, sourceButtons, body.width() > 0 ? body.width() : 700.0f * scale, Style::spaceXs * scale
+      );
+      for (auto& row : sourceRows) {
+        auto rowFlex = ui::row(
+            {.align = FlexAlign::Center,
+             .justify = FlexJustify::Center,
+             .gap = Style::spaceXs * scale,
+             .fillWidth = true}
+        );
+        for (auto& btn : row) {
+          rowFlex->addChild(std::move(btn));
+        }
+        body.addChild(std::move(rowFlex));
+      }
+    }
+
+    const std::vector<std::string> tags = availableTags();
+    if (!tags.empty()) {
       auto tagsHeader = ui::row({.align = FlexAlign::Center, .justify = FlexJustify::SpaceBetween, .fillWidth = true});
       tagsHeader->addChild(
           ui::button({
@@ -255,17 +353,18 @@ namespace settings {
       if (!m_tagFiltersCollapsed) {
         std::vector<std::string> allTags;
         allTags.push_back(i18n::tr("settings.plugins.store.category-all"));
-        allTags.insert(allTags.end(), m_tags.begin(), m_tags.end());
+        allTags.insert(allTags.end(), tags.begin(), tags.end());
         std::vector<std::unique_ptr<Button>> tagButtons;
         for (std::size_t i = 0; i < allTags.size(); ++i) {
-          const bool selected = (i == 0 && m_selectedTag.empty()) || (i > 0 && m_tags[i - 1] == m_selectedTag);
+          const std::string tag = i == 0 ? std::string{} : tags[i - 1];
+          const bool selected = tag == m_selectedTag;
           auto btn = ui::button({
               .text = allTags[i],
               .fontSize = Style::fontSizeCaption * scale,
               .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this, i]() {
-                m_selectedTag = i == 0 ? std::string{} : m_tags[i - 1];
+              .onClick = [this, tag]() {
+                m_selectedTag = tag;
                 applyFilter();
                 if (m_onRebuildNeeded) {
                   m_onRebuildNeeded();

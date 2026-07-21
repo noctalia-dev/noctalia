@@ -99,6 +99,71 @@ namespace StringUtils {
     return out;
   }
 
+  // Case-insensitive natural (alphanumeric) order: "image(2)" < "image(10)".
+  // Returns <0, 0, or >0 like strcmp.
+  [[nodiscard]] inline int naturalCaseInsensitiveCompare(std::string_view a, std::string_view b) {
+    std::size_t i = 0;
+    std::size_t j = 0;
+    while (i < a.size() && j < b.size()) {
+      const auto ac = static_cast<unsigned char>(a[i]);
+      const auto bc = static_cast<unsigned char>(b[j]);
+      const bool aDigit = std::isdigit(ac) != 0;
+      const bool bDigit = std::isdigit(bc) != 0;
+      if (aDigit && bDigit) {
+        std::size_t aZero = i;
+        while (aZero < a.size() && a[aZero] == '0') {
+          ++aZero;
+        }
+        std::size_t bZero = j;
+        while (bZero < b.size() && b[bZero] == '0') {
+          ++bZero;
+        }
+        std::size_t aEnd = aZero;
+        while (aEnd < a.size() && std::isdigit(static_cast<unsigned char>(a[aEnd])) != 0) {
+          ++aEnd;
+        }
+        std::size_t bEnd = bZero;
+        while (bEnd < b.size() && std::isdigit(static_cast<unsigned char>(b[bEnd])) != 0) {
+          ++bEnd;
+        }
+        const std::size_t aLen = aEnd - aZero;
+        const std::size_t bLen = bEnd - bZero;
+        if (aLen != bLen) {
+          return aLen < bLen ? -1 : 1;
+        }
+        for (std::size_t k = 0; k < aLen; ++k) {
+          if (a[aZero + k] != b[bZero + k]) {
+            return static_cast<unsigned char>(a[aZero + k]) < static_cast<unsigned char>(b[bZero + k]) ? -1 : 1;
+          }
+        }
+        const std::size_t aDigits = aEnd - i;
+        const std::size_t bDigits = bEnd - j;
+        if (aDigits != bDigits) {
+          return aDigits < bDigits ? -1 : 1;
+        }
+        i = aEnd;
+        j = bEnd;
+        continue;
+      }
+
+      const auto alc = static_cast<unsigned char>(std::tolower(ac));
+      const auto blc = static_cast<unsigned char>(std::tolower(bc));
+      if (alc != blc) {
+        return alc < blc ? -1 : 1;
+      }
+      ++i;
+      ++j;
+    }
+    if (i == a.size() && j == b.size()) {
+      return 0;
+    }
+    return i == a.size() ? -1 : 1;
+  }
+
+  [[nodiscard]] inline bool naturalCaseInsensitiveLess(std::string_view a, std::string_view b) {
+    return naturalCaseInsensitiveCompare(a, b) < 0;
+  }
+
   [[nodiscard]] inline std::string pathTail(std::string_view path) {
     const auto slash = path.find_last_of('/');
     if (slash == std::string_view::npos || slash + 1 >= path.size()) {

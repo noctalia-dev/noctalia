@@ -1,0 +1,138 @@
+{
+  "auth": {
+    "fingerprint": {
+      "disconnected": "Parmak izi okuyucusu bağlantısı kesildi",
+      "error": "Parmak izi doğrulama hatası",
+      "no-match": "Parmak izi eşleşmedi",
+      "not-centered": "Parmağınızı ortalayıp tekrar deneyin",
+      "present": "Parmak izi okunuyıor",
+      "ready": "Parmağınızı okuyucuya yerleştirin",
+      "remove-and-retry": "Parmağınızı kaldırıp tekrar deneyin",
+      "retry": "Lütfen parmak izinizi tekrar tarayın",
+      "swipe-too-short": "Kaydırma çok kısaydı, tekrar deneyin",
+      "too-many-attempts": "Parmak izi devre dışı bırakıldı (çok fazla deneme)"
+    },
+    "pam": {
+      "authentication-failed": "Doğrulama başarısız",
+      "start-failed": "PAM başlatma başarısız",
+      "user-unavailable": "Mevcut kullanıcı alınamadı"
+    },
+    "polkit": {
+      "authenticate": "Doğrula",
+      "authenticating": "Doğrulanıyor...",
+      "default-message": "Doğrulama gerekli",
+      "invalid-password": "Geçersiz şifre",
+      "password-placeholder": "Şifre",
+      "title": "Doğrulama gerekli"
+    }
+  },
+  "bar": {
+    "screenshot": {
+      "choose-display": "Ekran seçin",
+      "confirm-region": "Yakalamak için Enter veya Boşluk · İptal etmek için Esc · Seçmek için sürükle",
+      "fullscreen": "Tam ekran",
+      "region": "Bölge seç"
+    },
+    "widgets": {
+      "active-window": {
+        "no-active-window": "Aktif pencere yok"
+      },
+      "bluetooth": {
+        "connected": "Bağlandı"
+      },
+      "brightness": {
+        "brightness": "Parlaklık",
+        "display": "Ekran"
+      },
+      "lock-keys": {
+        "caps": "Büyük Harf",
+        "caps-short": "C",
+        "num": "Num",
+        "num-short": "N",
+        "scroll": "Kaydır",
+        "scroll-short": "S"
+      },
+      "media": {
+        "nothing-playing": "Hiçbir şey çalmıyor",
+        "playing": "Oynuyor"
+      },
+      "network": {
+        "active": "Aktif",
+        "connected": "Bağlandı",
+        "connecting": "Bağlanıyor",
+        "download": "İndirme",
+        "interface": "Arayüz",
+        "ip": "IP",
+        "network": "Ağ",
+        "networks": "Ağlar",
+        "networks-count": "{count} ağ",
+        "no": "Hayır",
+        "not-connected": "Bağlı değil",
+        "off": "Kapalı",
+        "on": "Açık",
+        "scanning": "Taranıyor",
+        "signal": "Sinyal",
+        "upload": "Yükleme",
+        "vpn": "VPN",
+        "wifi": "Wi-Fi",
+        "wired": "Kablolu",
+        "yes": "Evet"
+      },
+      "privacy": {
+        "camera": "Kamera",
+        "microphone": "Mikrofon",
+        "screen-sharing": "Ekran Paylaşımı"
+      },
+      "scripted": {
+        "reload-failed": "Betik yenileme başarısız",
+        "reloaded": "Yenilenen betik"
+      },
+      "sysmon": {
+        "cpu": "CPU",
+        "cpu-temp": "CPU Isısı",
+        "disk": "Disk",
+        "download": "İndirme",
+        "gpu-temp": "GPU Isısı",
+        "gpu-usage": "GPU Kullanımı",
+        "gpu-vram": "GPU VRAM",
+        "ram": "RAM",
+        "swap": "Takas",
+        "system": "Sistem",
+        "upload": "Yükleme"
+      },
+      "volume": {
+        "device": "Cihaz",
+        "mic": "Mik",
+        "volume": "Ses"
+      },
+      "weather": {
+        "default": "Hava duruömu",
+        "error": "Hava durumu hata",
+        "loading": "Hava durumu...",
+        "no-location": "Konum yok",
+        "off": "Hava durumu kapalı"
+      }
+    }
+  },
+  "clipboard": {
+    "actions": {
+      "clear-all": "Her şeyi temizle",
+      "delete-item": "Öğeyi sil",
+      "keep-pinned": "Sabit tut"
+    },
+    "confirm": {
+      "clear-desc": "Sabitlenmiş öğelerin saklanıp saklanmayacağını seçin.",
+      "clear-desc-no-pinned": "Bu her öğeyi pano geçmişinden silecektir.",
+      "clear-title": "Pano geçmişi silinsin mi?",
+      "delete-desc": "Bu seçilmiş öğeyi pano geçmişinden kaldıracaktır.",
+      "delete-title": "Pano öğesi silinsin mi?"
+    },
+    "empty": {
+      "history-message": "Pano geçmişinde öğe yok.",
+      "history-title": "Pao geçmişi boş"
+    },
+    "preview": {
+      "loading": "Önizleme yükleniyor..."
+    }
+  }
+}

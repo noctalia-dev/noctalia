@@ -3,12 +3,14 @@
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "notification/notifications.h"
+#include "render/scene/node.h"
 #include "scripting/plugin_runtime_context.h"
 #include "shell/panel/panel_manager.h"
 #include "ui/controls/flex.h"
 
 #include <cstdlib>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <utility>
 
@@ -60,12 +62,28 @@ void PluginPanel::create() {
   // scene, which is torn down on close — so the root Flex is rebuilt each open.
   // The reconciler's retained slots point into the previous (now-freed) tree, so
   // reset it to rebuild the retained m_tree from scratch into the fresh Flex.
+  m_reconciler.reset();
+  m_reconciler.setDragDropOverlayRoot(nullptr);
+
   auto flex = std::make_unique<Flex>();
   flex->setDirection(FlexDirection::Vertical);
-  flex->setAlign(FlexAlign::Stretch); // stretch the plugin's root to fill the panel width
+  flex->setAlign(FlexAlign::Stretch);
   m_flex = flex.get();
+
+  auto content = std::make_unique<Flex>();
+  content->setDirection(FlexDirection::Vertical);
+  content->setAlign(FlexAlign::Stretch);
+  content->setFlexGrow(1.0f);
+  m_contentFlex = static_cast<Flex*>(flex->addChild(std::move(content)));
+
+  auto overlay = std::make_unique<Node>();
+  overlay->setParticipatesInLayout(false);
+  overlay->setHitTestVisible(false);
+  overlay->setZIndex(std::numeric_limits<std::int32_t>::max());
+  m_dragOverlay = flex->addChild(std::move(overlay));
+  flex->setAnimationManager(m_animations);
+
   setRoot(std::move(flex));
-  m_reconciler.reset();
   m_treeDirty = true;
 
   m_reconciler.setCallbackSink([this](const ui::UiTreeReconciler::ControlCallback& callback) {
@@ -75,6 +93,8 @@ void PluginPanel::create() {
       );
     }
   });
+  m_reconciler.setDragDropEnabled(true);
+  m_reconciler.setDragDropOverlayRoot(m_dragOverlay);
   m_reconciler.setPathResolver([this](const std::string& path) { return resolvePluginPath(path); });
   m_pendingFocusArea = nullptr;
   m_reconciler.setFocusRequestSink([this](InputArea* area) { m_pendingFocusArea = area; });
@@ -125,22 +145,30 @@ void PluginPanel::onOpen(std::string_view context) {
 void PluginPanel::onClose() {
   m_open = false;
   m_tickTimer.stop();
+  // The scene (including the overlay node) is torn down after close; cancel any
+  // active drag and detach the overlay while the tree is still alive so the
+  // controller never holds a dangling overlay root between close and reopen.
+  m_reconciler.setDragDropOverlayRoot(nullptr);
   if (m_runtime != nullptr) {
     (void)m_runtime->enqueueCall("onClose", makeScriptSnapshot());
   }
 }
 
 void PluginPanel::doLayout(Renderer& renderer, float width, float height) {
-  if (m_flex == nullptr) {
+  if (m_flex == nullptr || m_contentFlex == nullptr) {
     return;
   }
   if (m_tree.has_value()) {
     m_reconciler.setScale(contentScale());
-    (void)m_reconciler.reconcile(*m_flex, *m_tree, renderer);
+    (void)m_reconciler.reconcile(*m_contentFlex, *m_tree, renderer);
     m_treeDirty = false;
   }
   m_flex->setSize(width, height);
   m_flex->layout(renderer);
+  if (m_dragOverlay != nullptr) {
+    m_dragOverlay->setPosition(0.0f, 0.0f);
+    m_dragOverlay->setFrameSize(width, height);
+  }
 }
 
 void PluginPanel::doUpdate(Renderer& renderer) { (void)renderer; }

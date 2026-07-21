@@ -685,18 +685,25 @@ namespace {
     return isProgramStreamClass(nd.mediaClass) && nd.name.starts_with("qemu-system-");
   }
 
+  [[nodiscard]] bool hasProgramStreamIdentity(const PipeWireService::NodeData& nd) {
+    if (isQemuStreamNode(nd)) {
+      return true;
+    }
+    return !nd.applicationName.empty() || !nd.applicationId.empty() || !nd.applicationBinary.empty();
+  }
+
   [[nodiscard]] bool isProgramOutputNode(const PipeWireService::NodeData& nd) {
-    // Match the "Streams" pavucontrol shows: Stream/Output/Audio without node.link-group. Loopback/
-    // filter endpoints also expose target.object or node.passive and must not appear as application
-    // volumes. QEMU streams are the exception: they set target.object to name the VM target but are
-    // still user-controllable application volumes.
+    // Match the "Streams" pavucontrol shows: Stream/Output/Audio without node.link-group /
+    // node.passive (loopback and filter endpoints). Streams that pin a sink via target.object
+    // (Telegram/OpenAL, etc.) stay visible when they have client/app identity; anonymous
+    // target.object nodes are still treated as filter plumbing.
     if (!isProgramStreamClass(nd.mediaClass) || !nd.streamClassificationReady) {
       return false;
     }
     if (!nd.linkGroup.empty() || nd.nodePassive) {
       return false;
     }
-    if (!nd.targetObject.empty() && !isQemuStreamNode(nd)) {
+    if (!nd.targetObject.empty() && !hasProgramStreamIdentity(nd)) {
       return false;
     }
     return true;
@@ -1465,9 +1472,6 @@ void PipeWireService::onMixerVolumeChanged(std::uint32_t id, float volume, bool 
   }
 
   const float clamped = std::clamp(volume, 0.0f, 1.5f);
-  kLog.debug(
-      "mixer echo node {} vol {:.6f} muted {} (local vol {:.6f} swMute {})", id, clamped, muted, nd.volume, nd.swMute
-  );
   bool changed = false;
   if (std::abs(nd.volume - clamped) >= kVolumeChangeEpsilon) {
     nd.volume = clamped;
@@ -1755,14 +1759,12 @@ bool PipeWireService::applyNodeVolume(std::uint32_t id, float volume) {
   const bool isDeviceNode = nd.mediaClass == "Audio/Sink" || nd.mediaClass == "Audio/Source";
   if (isDeviceNode) {
     if (std::abs(nd.volume - volume) >= kVolumeChangeEpsilon) {
-      kLog.debug("volume write node {} {:.6f} (was {:.6f})", id, volume, nd.volume);
       if (m_wpMixer != nullptr) {
         m_wpMixer->setVolume(id, volume);
       }
       nd.volume = volume;
       return true;
     }
-    kLog.debug("volume write node {} {:.6f} skipped, optimistic already {:.6f}", id, volume, nd.volume);
     return false;
   }
 
@@ -2024,7 +2026,6 @@ void PipeWireService::emitVolumePreview(bool isInput, std::uint32_t id, float vo
   }
   const auto it = m_nodes.find(id);
   const bool muted = (it != m_nodes.end()) ? it->second->muted : false;
-  kLog.debug("osd preview node {} vol {:.6f} muted {}", id, std::clamp(volume, 0.0f, 1.5f), muted);
   m_volumePreviewCallback(isInput, id, std::clamp(volume, 0.0f, 1.5f), muted);
 }
 

@@ -50,6 +50,7 @@ namespace {
 PopupSurface::PopupSurface(WaylandConnection& connection) : Surface(connection) {}
 
 PopupSurface::~PopupSurface() {
+  *m_alive = false;
   unenrollFromGrabHost();
   m_connection.unregisterSurface(m_surface);
   destroyRoleObjects();
@@ -143,7 +144,15 @@ bool PopupSurface::initialize(zwlr_layer_surface_v1* parentLayerSurface, wl_outp
   // Flush before the roundtrip to ensure any pending destroy messages from a previous
   // popup are delivered to the compositor before we ask it to configure the new one.
   wl_display_flush(m_connection.display());
-  if (wl_display_roundtrip(m_connection.display()) < 0) {
+  // The roundtrip pumps the event queue, which can re-enter input dispatch and destroy
+  // this popup mid-init (e.g. the owning menu closes on the same press that opened it).
+  // Hold a liveness token so we never touch freed `this` once the roundtrip returns.
+  auto alive = m_alive;
+  const int roundtripResult = wl_display_roundtrip(m_connection.display());
+  if (!*alive) {
+    return false;
+  }
+  if (roundtripResult < 0) {
     kLog.warn("popup: initial roundtrip failed (compositor protocol error)");
     unenrollFromGrabHost();
     destroyRoleObjects();
@@ -318,7 +327,15 @@ bool PopupSurface::initializeAsChild(xdg_surface* parentXdgSurface, wl_output* o
 
   wl_surface_commit(m_surface);
   wl_display_flush(m_connection.display());
-  if (wl_display_roundtrip(m_connection.display()) < 0) {
+  // The roundtrip pumps the event queue, which can re-enter input dispatch and destroy
+  // this popup mid-init (e.g. the owning menu closes on the same press that opened it).
+  // Hold a liveness token so we never touch freed `this` once the roundtrip returns.
+  auto alive = m_alive;
+  const int roundtripResult = wl_display_roundtrip(m_connection.display());
+  if (!*alive) {
+    return false;
+  }
+  if (roundtripResult < 0) {
     kLog.warn("submenu popup: initial roundtrip failed (compositor protocol error)");
     unenrollFromGrabHost();
     destroyRoleObjects();

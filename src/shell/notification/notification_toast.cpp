@@ -2264,22 +2264,7 @@ InputArea* NotificationToast::buildCard(
     }
   }
   if (!iconAssigned) {
-    const std::string iconPath = resolveNotificationIconPath(entry);
-    if (!iconPath.empty()) {
-      auto appIcon = ui::image({
-          .fit = ImageFit::Cover,
-          .radius = notificationIconRadius(iconSize, scale),
-          .width = iconSize,
-          .height = iconSize,
-          .configure = [](Image& image) { image.setPosition(0.0f, 0.0f); },
-      });
-      if (appIcon->setSourceFile(*m_renderContext, iconPath, static_cast<int>(std::round(iconSize)))) {
-        iconSlot->addChild(std::move(appIcon));
-        iconAssigned = true;
-      } else {
-        kLog.warn("notification toast: failed to load icon image for #{} from '{}'", entry.notificationId, iconPath);
-      }
-    } else if (entry.imageData.has_value()) {
+    if (entry.imageData.has_value()) {
       const auto& image = *entry.imageData;
       if (image.width > 0 && image.height > 0 && !image.data.empty()) {
         auto appIcon = ui::image({
@@ -2315,6 +2300,25 @@ InputArea* NotificationToast::buildCard(
             "notification toast: invalid image-data avatar for #{} ({}x{}, bytes={})", entry.notificationId,
             image.width, image.height, image.data.size()
         );
+      }
+    }
+
+    if (!iconAssigned) {
+      const std::string iconPath = resolveNotificationIconPath(entry);
+      if (!iconPath.empty()) {
+        auto appIcon = ui::image({
+            .fit = ImageFit::Cover,
+            .radius = notificationIconRadius(iconSize, scale),
+            .width = iconSize,
+            .height = iconSize,
+            .configure = [](Image& image) { image.setPosition(0.0f, 0.0f); },
+        });
+        if (appIcon->setSourceFile(*m_renderContext, iconPath, static_cast<int>(std::round(iconSize)))) {
+          iconSlot->addChild(std::move(appIcon));
+          iconAssigned = true;
+        } else {
+          kLog.warn("notification toast: failed to load icon image for #{} from '{}'", entry.notificationId, iconPath);
+        }
       }
     }
   }
@@ -2752,7 +2756,7 @@ bool NotificationToast::onKeyboardEvent(const KeyboardEvent& event) {
 // --- Pointer events ---
 
 bool NotificationToast::onPointerEvent(const PointerEvent& event) {
-  if (event.type == PointerEvent::Type::Button && event.state == 1) {
+  if (event.type == PointerEvent::Type::Button && event.pressed) {
     for (auto& inst : m_instances) {
       if (inst->surface == nullptr) {
         continue;
@@ -2802,7 +2806,7 @@ bool NotificationToast::onPointerEvent(const PointerEvent& event) {
       if (inst->pointerInside) {
         inst->lastPointerX = static_cast<float>(event.sx);
         inst->lastPointerY = static_cast<float>(event.sy);
-        const bool pressed = (event.state == 1);
+        const bool pressed = event.pressed;
         inst->inputDispatcher.pointerMotion(static_cast<float>(event.sx), static_cast<float>(event.sy), event.serial);
         inst->inputDispatcher.pointerButton(
             static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed

@@ -13,6 +13,29 @@ namespace {
 
   constexpr Logger kLog("desktop_entry_launch");
 
+  std::string decodeDesktopStringValue(std::string_view value) {
+    std::string result;
+    result.reserve(value.size());
+    for (std::size_t i = 0; i < value.size(); ++i) {
+      if (value[i] == '\\' && i + 1 < value.size()) {
+        const char next = value[i + 1];
+        if (next == '\\' || next == 's' || next == 'n' || next == 't' || next == 'r') {
+          // https://specifications.freedesktop.org/desktop-entry/latest/value-types.html
+          // https://specifications.freedesktop.org/desktop-entry-spec/latest/exec-variables.html
+          result += (next == 's') ? ' ' : (next == 'n') ? '\n' : (next == 't') ? '\t' : (next == 'r') ? '\r' : '\\';
+          ++i;
+          continue;
+        }
+        // Any other \X: remove the backslash, keep X
+        result += next;
+        ++i;
+        continue;
+      }
+      result += value[i];
+    }
+    return result;
+  }
+
   std::string stripFieldCodes(std::string_view exec) {
     std::string result;
     result.reserve(exec.size());
@@ -80,7 +103,16 @@ namespace {
     bool inSingle = false;
     bool inDouble = false;
 
-    for (const char c : cmd) {
+    for (std::size_t i = 0; i < cmd.size(); ++i) {
+      const char c = cmd[i];
+      if (c == '\\' && inDouble && i + 1 < cmd.size()) {
+        const char next = cmd[i + 1];
+        if (next == '"' || next == '`' || next == '$' || next == '\\') {
+          current += next;
+          ++i;
+          continue;
+        }
+      }
       if (c == '\'' && !inDouble) {
         inSingle = !inSingle;
         continue;
@@ -135,7 +167,8 @@ namespace {
 namespace desktop_entry_launch {
 
   std::optional<PreparedCommand> prepareCommand(std::string_view exec, bool terminal, const PrepareOptions& options) {
-    std::string cleanExec = stripFieldCodes(exec);
+    const std::string decodedExec = decodeDesktopStringValue(exec);
+    const std::string cleanExec = stripFieldCodes(decodedExec);
     std::vector<std::string> args;
     if (terminal) {
       auto prepared = terminal_launch::prepareCommand(

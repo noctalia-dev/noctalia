@@ -277,7 +277,7 @@ std::vector<WorkspaceWindow> NiriWorkspaceBackend::workspaceWindows(const std::s
   result.reserve(m_windows.size());
   for (const auto& [windowId, window] : m_windows) {
     (void)windowId;
-    if (!window.workspaceId.has_value() || window.appId.empty()) {
+    if (!window.workspaceId.has_value()) {
       continue;
     }
     const auto workspaceIt = workspacesById.find(*window.workspaceId);

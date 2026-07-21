@@ -366,6 +366,9 @@ void Application::initStyleThemeAndWayland() {
         std::isfinite(lastCornerRadiusScale) && std::abs(corner - lastCornerRadiusScale) > 1.0e-4f;
     Style::setCornerRadiusScale(corner);
     Style::setButtonBordersEnabled(m_configService.config().shell.buttonBorders);
+    Style::setInputBordersEnabled(m_configService.config().shell.inputBorders);
+    Style::setPopupBordersEnabled(m_configService.config().shell.popupBorders);
+    Style::setPopupShadowsEnabled(m_configService.config().shell.popupShadows);
     lastCornerRadiusScale = corner;
     if (cornerChanged) {
       m_notificationToast.requestLayout();
@@ -936,6 +939,7 @@ void Application::initSystemBusServices() {
       m_networkService->setChangeCallback(
           [this, shouldRefreshControlCenter](const NetworkState& state, NetworkChangeOrigin origin) {
             onNetworkStateChangedForEvents(state, origin);
+            m_externalIpService.onNetworkChanged();
             m_bar.refresh();
             if (shouldRefreshControlCenter()) {
               m_panelManager.refresh();
@@ -953,6 +957,7 @@ void Application::initSystemBusServices() {
         m_networkService->setChangeCallback(
             [this, shouldRefreshControlCenter](const NetworkState& state, NetworkChangeOrigin origin) {
               onNetworkStateChangedForEvents(state, origin);
+              m_externalIpService.onNetworkChanged();
               m_bar.refresh();
               if (shouldRefreshControlCenter()) {
                 m_panelManager.refresh();
@@ -970,6 +975,7 @@ void Application::initSystemBusServices() {
           m_networkService->setChangeCallback(
               [this, shouldRefreshControlCenter](const NetworkState& state, NetworkChangeOrigin origin) {
                 onNetworkStateChangedForEvents(state, origin);
+                m_externalIpService.onNetworkChanged();
                 m_bar.refresh();
                 if (shouldRefreshControlCenter()) {
                   m_panelManager.refresh();
@@ -986,6 +992,18 @@ void Application::initSystemBusServices() {
         }
       }
     }
+
+    if (m_networkService != nullptr) {
+      m_externalIpService.setNetworkService(m_networkService.get());
+      m_externalIpService.setChangeCallback([this, shouldRefreshControlCenter]() {
+        m_bar.refresh();
+        if (shouldRefreshControlCenter()) {
+          m_panelManager.refresh();
+        }
+      });
+      m_externalIpService.onNetworkChanged();
+    }
+    m_configService.addReloadCallback([this]() { m_externalIpService.onConfigReload(); });
 
     if (m_networkService != nullptr && m_networkService->supportsSecretAgent()) {
       try {

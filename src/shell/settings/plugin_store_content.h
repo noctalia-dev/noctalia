@@ -69,7 +69,11 @@ namespace settings {
     void buildGridView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
     void buildDetailView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
     void applyFilter();
-    void collectTags();
+    void collectThumbnails();
+    void collectSources();
+    // Tags present in the catalog under the active source filter (so category chips never offer a
+    // category with zero results for the selected source).
+    [[nodiscard]] std::vector<std::string> availableTags() const;
     void selectIndex(std::size_t index);
     void moveSelection(int delta);
     [[nodiscard]] bool activateSelection();
@@ -78,10 +82,11 @@ namespace settings {
     std::vector<StoreCatalogEntry> m_catalog;
     std::vector<std::size_t> m_filteredIndices;
     std::unordered_set<std::string> m_onDiskIds;
-    std::vector<std::string> m_tags;
+    std::vector<std::string> m_sources;
     bool m_tagFiltersCollapsed = true;
     std::string m_searchQuery;
     std::string m_selectedTag;
+    std::string m_selectedSource;
     PluginStoreCallbacks m_callbacks;
     scripting::PluginFileCache* m_fileCache = nullptr;
 

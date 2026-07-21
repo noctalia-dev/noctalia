@@ -33,7 +33,7 @@ struct PointerEvent {
   double sy = 0.0;
   std::uint32_t time = 0;
   std::uint32_t button = 0;
-  std::uint32_t state = 0;
+  bool pressed = false;
   std::uint32_t axis = 0;
   std::uint32_t axisSource = 0;
   double axisValue = 0.0;

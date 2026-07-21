@@ -61,6 +61,7 @@ namespace noctalia::config::schema {
 
   const Schema<OsdConfig>& osdSchema() {
     static const Schema<OsdConfig> s = {
+        field(&OsdConfig::enabled, "enabled"),
         field(&OsdConfig::position, "position"),
         field(&OsdConfig::positionVertical, "position_vertical"),
         field(&OsdConfig::orientation, "orientation"),
@@ -392,6 +393,7 @@ namespace noctalia::config::schema {
     };
     static const Schema<HotCornersConfig> s = {
         field(&HotCornersConfig::enabled, "enabled"),
+        field(&HotCornersConfig::delayMs, "delay_ms", kHotCornersDelayMsRange),
         subTable(&HotCornersConfig::topLeft, "top_left", cornerSchema),
         subTable(&HotCornersConfig::topRight, "top_right", cornerSchema),
         subTable(&HotCornersConfig::bottomLeft, "bottom_left", cornerSchema),
@@ -1183,6 +1185,7 @@ namespace noctalia::config::schema {
           enumField(&ShellConfig::PanelConfig::transparencyMode, "transparency_mode", kPanelTransparencyModes),
           field(&ShellConfig::PanelConfig::borders, "borders"),
           field(&ShellConfig::PanelConfig::shadow, "shadow"),
+          field(&ShellConfig::PanelConfig::listItemBackground, "list_item_background"),
           enumField(&ShellConfig::PanelConfig::launcherPlacement, "launcher_placement", kPanelPlacements),
           enumField(&ShellConfig::PanelConfig::clipboardPlacement, "clipboard_placement", kPanelPlacements),
           enumField(&ShellConfig::PanelConfig::controlCenterPlacement, "control_center_placement", kPanelPlacements),
@@ -1257,6 +1260,7 @@ namespace noctalia::config::schema {
           field(&ShellConfig::ScreenshotConfig::copyToClipboard, "copy_to_clipboard"),
           field(&ShellConfig::ScreenshotConfig::freezeScreen, "freeze_screen"),
           field(&ShellConfig::ScreenshotConfig::confirmRegion, "confirm_region"),
+          field(&ShellConfig::ScreenshotConfig::showCursor, "show_cursor"),
           field(&ShellConfig::ScreenshotConfig::pipeToCommand, "pipe_to_command"),
           field(&ShellConfig::ScreenshotConfig::pipeCommand, "pipe_command"),
           field(&ShellConfig::ScreenshotConfig::directory, "directory"),
@@ -1368,6 +1372,9 @@ namespace noctalia::config::schema {
     static const Schema<ShellConfig> s = {
         field(&ShellConfig::cornerRadiusScale, "corner_radius_scale", kCornerRadiusScaleRange),
         field(&ShellConfig::buttonBorders, "button_borders"),
+        field(&ShellConfig::inputBorders, "input_borders"),
+        field(&ShellConfig::popupBorders, "popup_borders"),
+        field(&ShellConfig::popupShadows, "popup_shadows"),
         // font_family is trimmed; empty falls back to sans-serif.
         custom<ShellConfig>(
             "font_family",

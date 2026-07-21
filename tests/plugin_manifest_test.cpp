@@ -57,7 +57,9 @@ int main() {
   ok = expect(!scripting::supportsPluginApiVersion(2), "plugin API 2 should be too old") && ok;
   ok = expect(scripting::supportsPluginApiVersion(3), "plugin API 3 should be supported") && ok;
   ok = expect(scripting::supportsPluginApiVersion(4), "plugin API 4 should be supported") && ok;
-  ok = expect(!scripting::supportsPluginApiVersion(5), "plugin API 5 should be too new") && ok;
+  ok = expect(scripting::supportsPluginApiVersion(5), "plugin API 5 should be supported") && ok;
+  ok = expect(scripting::supportsPluginApiVersion(6), "plugin API 6 should be supported") && ok;
+  ok = expect(!scripting::supportsPluginApiVersion(7), "plugin API 7 should be too new") && ok;
   const auto defaultManifestPath = root / "defaults/plugin.toml";
   ok = writeText(defaultManifestPath, "id = \"me/defaults\"\nname = \"Defaults\"\nplugin_api = 3\n") && ok;
 
@@ -354,6 +356,81 @@ int main() {
       }
     }
   }
+
+  const auto mapManifestPath = root / "string-map/plugin.toml";
+  ok = writeText(
+           mapManifestPath,
+           "id = \"me/string-map\"\n"
+           "name = \"String Map\"\n"
+           "plugin_api = 6\n"
+           "[[widget]]\n"
+           "id = \"outputs\"\n"
+           "entry = \"outputs.luau\"\n"
+           "[[widget.setting]]\n"
+           "key = \"output_glyphs\"\n"
+           "type = \"string_map\"\n"
+           "label_key = \"settings.output_glyphs.label\"\n"
+           "default = { \"eDP-1\" = \"laptop\", \"DP-1\" = \"monitor\" }\n"
+       )
+      && ok;
+  error.clear();
+  const auto mapManifest = scripting::parsePluginManifest(mapManifestPath, &error);
+  ok = expect(mapManifest.has_value(), error.empty() ? "failed to parse string-map manifest" : error.c_str()) && ok;
+  if (mapManifest.has_value() && expect(mapManifest->entries.size() == 1, "one string-map entry expected")) {
+    const auto& settings = mapManifest->entries.front().settings;
+    ok = expect(settings.size() == 1, "one string-map setting expected") && ok;
+    if (!settings.empty()) {
+      ok =
+          expect(settings.front().type == scripting::ManifestFieldType::StringMap, "setting should be StringMap") && ok;
+      const auto defaultValue = settings.front().defaultValue();
+      const auto* values = std::get_if<WidgetSettingStringMap>(&defaultValue);
+      ok = expect(values != nullptr, "string-map default should be a map") && ok;
+      if (values != nullptr) {
+        ok = expect(values->size() == 2, "string-map default size") && ok;
+        ok = expect(values->at("eDP-1") == "laptop", "first string-map default") && ok;
+        ok = expect(values->at("DP-1") == "monitor", "second string-map default") && ok;
+      }
+    }
+  }
+
+  const auto invalidMapManifestPath = root / "invalid-string-map/plugin.toml";
+  ok = writeText(
+           invalidMapManifestPath,
+           "id = \"me/invalid-string-map\"\n"
+           "name = \"Invalid String Map\"\n"
+           "plugin_api = 6\n"
+           "[[setting]]\n"
+           "key = \"output_glyphs\"\n"
+           "type = \"string_map\"\n"
+           "label_key = \"settings.output_glyphs.label\"\n"
+           "default = { \"eDP-1\" = 1 }\n"
+       )
+      && ok;
+  error.clear();
+  const auto invalidMapManifest = scripting::parsePluginManifest(invalidMapManifestPath, &error);
+  ok = expect(!invalidMapManifest.has_value(), "string-map default with a non-string value should fail") && ok;
+  ok = expectEq(error, "setting 'output_glyphs' string_map default values must be strings", "invalid string-map error")
+      && ok;
+
+  const auto oldApiMapManifestPath = root / "old-api-string-map/plugin.toml";
+  ok = writeText(
+           oldApiMapManifestPath,
+           "id = \"me/old-api-string-map\"\n"
+           "name = \"Old API String Map\"\n"
+           "plugin_api = 5\n"
+           "[[setting]]\n"
+           "key = \"output_glyphs\"\n"
+           "type = \"string_map\"\n"
+           "label_key = \"settings.output_glyphs.label\"\n"
+           "default = {}\n"
+       )
+      && ok;
+  error.clear();
+  const auto oldApiMapManifest = scripting::parsePluginManifest(oldApiMapManifestPath, &error);
+  ok = expect(!oldApiMapManifest.has_value(), "string-map setting should require plugin API 6") && ok;
+  ok =
+      expectEq(error, "setting 'output_glyphs' type 'string_map' requires plugin_api >= 6", "string-map API gate error")
+      && ok;
 
   // Panel width/height: number, "fill", or a loud error — never a silent default.
   const auto fillPanelManifestPath = root / "fill-panel/plugin.toml";

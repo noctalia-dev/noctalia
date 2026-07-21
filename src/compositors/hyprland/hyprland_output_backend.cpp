@@ -95,7 +95,7 @@ namespace compositors::hyprland {
     if (runtime.configIsLua()) {
       response = runtime.request(
           std::format(
-              "dispatch hl.dsp.window.move({{ monitor = \"{}\", window = \"{}\", follow = false }})", connectorName,
+              R"(dispatch hl.dsp.window.move({{ monitor = "{}", window = "{}", follow = false }}))", connectorName,
               windowSelector
           )
       );

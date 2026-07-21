@@ -19,6 +19,7 @@
 #include "core/toml.h"
 #include "scripting/plugin_id.h"
 
+#include <optional>
 #include <print>
 #include <set>
 #include <sstream>
@@ -762,6 +763,19 @@ widget_spacing = 8
 
   const Config probe = makeProbe();
   const toml::table serialized = config_export::serialize(probe);
+
+  {
+    Config pluginMapProbe;
+    pluginMapProbe.plugins.pluginSettings["me/display-output"]["output_glyphs"] =
+        WidgetSettingStringMap{{"eDP-1", "laptop"}, {"DP-1", "monitor"}};
+    const toml::table pluginMapSerialized = config_export::serialize(pluginMapProbe);
+    const auto* outputGlyphs = pluginMapSerialized["plugin_settings"]["me/display-output"]["output_glyphs"].as_table();
+    if (outputGlyphs == nullptr
+        || (*outputGlyphs)["eDP-1"].value<std::string>() != std::optional<std::string>{"laptop"}
+        || (*outputGlyphs)["DP-1"].value<std::string>() != std::optional<std::string>{"monitor"}) {
+      fail("plugin string-map setting did not serialize as a TOML table");
+    }
+  }
 
   // Bar: write parity against the captured golden, plus read-inverse via the
   // schemas (reconstructing the bar exactly as config_service does).

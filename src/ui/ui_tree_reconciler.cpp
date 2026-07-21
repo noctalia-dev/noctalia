@@ -6,6 +6,8 @@
 #include "render/scene/input_area.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
+#include "ui/controls/drag_source.h"
+#include "ui/controls/drop_zone.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/glyph.h"
 #include "ui/controls/graph.h"
@@ -19,6 +21,7 @@
 #include "ui/controls/slider.h"
 #include "ui/controls/spacer.h"
 #include "ui/controls/toggle.h"
+#include "ui/drag_drop_controller.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "ui/ui_tree.h"
@@ -59,6 +62,88 @@ namespace ui {
     const std::vector<std::string>* strArrayProp(const UiTreeNode& node, const char* key) {
       const auto it = node.props.find(key);
       return it != node.props.end() ? std::get_if<std::vector<std::string>>(&it->second) : nullptr;
+    }
+
+    constexpr std::size_t kDragPayloadMaxBytes = 16 * 1024;
+    constexpr std::size_t kDragIdentifierMaxBytes = 256;
+    constexpr std::size_t kDropAcceptsMaxEntries = 16;
+
+    bool isDragDropType(std::string_view type) { return type == "drag_source" || type == "drop_zone"; }
+
+    struct DragDropPropError {
+      std::string prop;
+      std::string reason;
+    };
+
+    std::optional<DragDropPropError>
+    validateRequiredString(const UiTreeNode& node, const char* key, std::size_t maxBytes) {
+      const auto it = node.props.find(key);
+      if (it == node.props.end()) {
+        return DragDropPropError{.prop = key, .reason = "missing"};
+      }
+      const auto* value = std::get_if<std::string>(&it->second);
+      if (value == nullptr) {
+        return DragDropPropError{.prop = key, .reason = "must be a string"};
+      }
+      if (value->empty()) {
+        return DragDropPropError{.prop = key, .reason = "must not be empty"};
+      }
+      if (value->size() > maxBytes) {
+        return DragDropPropError{.prop = key, .reason = "exceeds the size limit"};
+      }
+      return std::nullopt;
+    }
+
+    std::optional<DragDropPropError> validateDragDropProps(const UiTreeNode& node) {
+      if (node.type == "drag_source") {
+        if (auto error = validateRequiredString(node, "dragType", kDragIdentifierMaxBytes)) {
+          return error;
+        }
+        if (auto error = validateRequiredString(node, "payload", kDragPayloadMaxBytes)) {
+          return error;
+        }
+      } else if (node.type == "drop_zone") {
+        if (auto error = validateRequiredString(node, "value", kDragIdentifierMaxBytes)) {
+          return error;
+        }
+        if (auto error = validateRequiredString(node, "onDrop", kDragIdentifierMaxBytes)) {
+          return error;
+        }
+        const auto acceptsIt = node.props.find("accepts");
+        if (acceptsIt == node.props.end()) {
+          return DragDropPropError{.prop = "accepts", .reason = "missing"};
+        }
+        const auto* accepts = std::get_if<std::vector<std::string>>(&acceptsIt->second);
+        if (accepts == nullptr) {
+          return DragDropPropError{.prop = "accepts", .reason = "must be a string array"};
+        }
+        if (accepts->size() > kDropAcceptsMaxEntries) {
+          return DragDropPropError{.prop = "accepts", .reason = "has too many entries"};
+        }
+        for (const auto& accepted : *accepts) {
+          if (accepted.empty()) {
+            return DragDropPropError{.prop = "accepts", .reason = "contains an empty entry"};
+          }
+          if (accepted.size() > kDragIdentifierMaxBytes) {
+            return DragDropPropError{.prop = "accepts", .reason = "contains an over-limit entry"};
+          }
+        }
+      }
+      if (node.props.contains("enabled") && boolProp(node, "enabled") == nullptr) {
+        return DragDropPropError{.prop = "enabled", .reason = "must be a boolean"};
+      }
+      return std::nullopt;
+    }
+
+    // Optional-prop counterpart to validateDragDropProps: a present-but-mistyped
+    // optional prop falls back to its default, but never silently.
+    void warnMistypedOptionalProp(const UiTreeNode& node, const char* key, const char* expected) {
+      if (node.props.contains(key)) {
+        kLog.warn(
+            "ui tree: '{}' key '{}': prop '{}' expects {}; default used", node.type,
+            node.key.empty() ? "<unkeyed>" : node.key, key, expected
+        );
+      }
     }
 
     // Role token ("primary", "on_surface", …) with an optional alpha suffix
@@ -222,7 +307,7 @@ namespace ui {
       if (node == nullptr) {
         return nullptr;
       }
-      if (type == "column" || type == "row") {
+      if (type == "column" || type == "row" || type == "drag_source" || type == "drop_zone") {
         return node;
       }
       if (type == "scroll") {
@@ -327,6 +412,17 @@ namespace ui {
                                                               "visible",     "fill",   "radius",   "border",
                                                               "borderWidth", "gap",    "padding",  "paddingH",
                                                               "paddingV",    "align",  "justify"};
+      static const std::unordered_set<std::string> kDragSource = {
+          "width",   "height",   "flexGrow",    "opacity",         "visible",       "gap",
+          "padding", "paddingH", "paddingV",    "align",           "justify",       "fill",
+          "radius",  "border",   "borderWidth", "minWidth",        "minHeight",     "dragType",
+          "payload", "enabled",  "tooltip",     "previewAncestor", "liftFromLayout"
+      };
+      static const std::unordered_set<std::string> kDropZone = {
+          "width",     "height",  "flexGrow", "opacity", "visible",   "gap",     "padding",      "paddingH",
+          "paddingV",  "align",   "justify",  "fill",    "radius",    "border",  "borderWidth",  "minWidth",
+          "minHeight", "accepts", "value",    "onDrop",  "direction", "enabled", "expandOnDrag", "hitSlop"
+      };
 
       if (type == "column" || type == "row") {
         return kFlex;
@@ -370,6 +466,12 @@ namespace ui {
       if (type == "scroll") {
         return kScroll;
       }
+      if (type == "drag_source") {
+        return kDragSource;
+      }
+      if (type == "drop_zone") {
+        return kDropZone;
+      }
       return kCommon;
     }
 
@@ -393,8 +495,33 @@ namespace ui {
     std::vector<Slot> children;
   };
 
-  UiTreeReconciler::UiTreeReconciler() : m_defaultFontWeight(FontWeight::Normal) {}
-  UiTreeReconciler::~UiTreeReconciler() = default;
+  UiTreeReconciler::UiTreeReconciler()
+      : m_defaultFontWeight(FontWeight::Normal), m_dragDropController(std::make_unique<DragDropController>()) {
+    m_dragDropController->setDropCallback([this](std::string callback, std::string payload, std::string target) {
+      if (m_sink) {
+        m_sink(ControlCallback{std::move(callback), std::move(payload), std::move(target), false});
+      }
+    });
+  }
+
+  UiTreeReconciler::~UiTreeReconciler() { reset(); }
+
+  void UiTreeReconciler::setScale(float scale) {
+    m_scale = scale;
+    m_dragDropController->setScale(scale);
+  }
+
+  void UiTreeReconciler::setDragDropEnabled(bool enabled) {
+    if (m_dragDropEnabled == enabled) {
+      return;
+    }
+    if (!enabled) {
+      m_dragDropController->cancel();
+    }
+    m_dragDropEnabled = enabled;
+  }
+
+  void UiTreeReconciler::setDragDropOverlayRoot(Node* root) { m_dragDropController->setOverlayRoot(root); }
 
   bool UiTreeReconciler::reconcile(Flex& host, const UiTreeNode& tree, Renderer& renderer) {
     std::vector<UiTreeNode> desired;
@@ -402,9 +529,16 @@ namespace ui {
     return syncChildren(host, m_rootSlots, desired, renderer);
   }
 
-  void UiTreeReconciler::reset() { m_rootSlots.clear(); }
+  void UiTreeReconciler::reset() {
+    m_dragDropController->cancel();
+    m_rootSlots.clear();
+  }
 
   std::unique_ptr<Node> UiTreeReconciler::createControl(const UiTreeNode& desired) {
+    if (isDragDropType(desired.type) && !m_dragDropEnabled) {
+      kLog.error("ui tree: '{}' is only supported in plugin panels; node skipped", desired.type);
+      return nullptr;
+    }
     // ui.* flex containers default to stretching children across the cross axis
     // (like CSS flexbox), so a column fills its width without every plugin having
     // to say so. Override per node with `align`. (Flex's own C++ default is
@@ -420,6 +554,18 @@ namespace ui {
       flex->setDirection(FlexDirection::Horizontal);
       flex->setAlign(FlexAlign::Stretch);
       return flex;
+    }
+    if (desired.type == "drag_source") {
+      auto source = std::make_unique<DragSource>(m_dragDropController.get());
+      source->setDirection(FlexDirection::Horizontal);
+      source->setAlign(FlexAlign::Stretch);
+      return source;
+    }
+    if (desired.type == "drop_zone") {
+      auto zone = std::make_unique<DropZone>(m_dragDropController.get());
+      zone->setDirection(FlexDirection::Vertical);
+      zone->setAlign(FlexAlign::Stretch);
+      return zone;
     }
     if (desired.type == "box") {
       if (strProp(desired, "onClick") != nullptr) {
@@ -484,7 +630,8 @@ namespace ui {
       for (std::size_t i = 0; i < slots.size(); ++i) {
         if (slots[i].type != desired[i].type
             || slots[i].key != desired[i].key
-            || clickableWrapMismatch(desired[i], slots[i].node)) {
+            || clickableWrapMismatch(desired[i], slots[i].node)
+            || (isDragDropType(desired[i].type) && !m_dragDropEnabled)) {
           sequenceMatches = false;
           break;
         }
@@ -506,6 +653,7 @@ namespace ui {
       detached.reserve(slots.size());
       for (auto& slot : slots) {
         if (slot.node != nullptr) {
+          m_dragDropController->cancelIfParticipantIn(slot.node);
           auto owned = parent.removeChild(slot.node);
           detached.push_back(Detached{.slot = std::move(slot), .node = std::move(owned)});
         }
@@ -517,6 +665,7 @@ namespace ui {
         Detached* match = nullptr;
         for (auto& candidate : detached) {
           if (candidate.used
+              || (isDragDropType(want.type) && !m_dragDropEnabled)
               || candidate.slot.type != want.type
               || candidate.slot.key != want.key
               || clickableWrapMismatch(want, candidate.node.get())) {
@@ -590,10 +739,18 @@ namespace ui {
 
     // Common node props.
     if (const bool* visible = boolProp(desired, "visible")) {
+      if (!*visible) {
+        m_dragDropController->cancelIfParticipantIn(node);
+      }
       node->setVisible(*visible);
     }
     if (const double* opacity = numProp(desired, "opacity")) {
-      node->setOpacity(std::clamp(static_cast<float>(*opacity), 0.0f, 1.0f));
+      const float clamped = std::clamp(static_cast<float>(*opacity), 0.0f, 1.0f);
+      if (desired.type == "drag_source") {
+        static_cast<DragSource*>(node)->setSourceOpacity(clamped);
+      } else {
+        node->setOpacity(clamped);
+      }
     }
     if (const double* grow = numProp(desired, "flexGrow")) {
       node->setFlexGrow(static_cast<float>(*grow));
@@ -602,8 +759,90 @@ namespace ui {
     const double* width = numProp(desired, "width");
     const double* height = numProp(desired, "height");
 
-    if (desired.type == "column" || desired.type == "row") {
+    if (desired.type == "drag_source") {
+      auto* source = static_cast<DragSource*>(node);
+      if (auto error = validateDragDropProps(desired)) {
+        kLog.warn(
+            "ui tree: '{}' key '{}': prop '{}' {}; control disabled", desired.type,
+            desired.key.empty() ? "<unkeyed>" : desired.key, error->prop, error->reason
+        );
+        source->setDragType({});
+        source->setPayload({});
+        source->setEnabled(false);
+      } else {
+        source->setDragType(*strProp(desired, "dragType"));
+        source->setPayload(*strProp(desired, "payload"));
+        source->setEnabled(boolProp(desired, "enabled") == nullptr || *boolProp(desired, "enabled"));
+      }
+      const std::string* tooltip = strProp(desired, "tooltip");
+      if (tooltip == nullptr) {
+        warnMistypedOptionalProp(desired, "tooltip", "a string");
+      }
+      source->setTooltip(tooltip != nullptr ? *tooltip : "");
+      const double* previewAncestor = numProp(desired, "previewAncestor");
+      if (previewAncestor == nullptr) {
+        warnMistypedOptionalProp(desired, "previewAncestor", "an integer from 0 to 8");
+        source->setPreviewAncestor(0);
+      } else if (*previewAncestor < 0.0 || *previewAncestor > 8.0 || std::floor(*previewAncestor) != *previewAncestor) {
+        kLog.warn("ui tree: 'drag_source' key '{}': previewAncestor expects an integer from 0 to 8", desired.key);
+        source->setPreviewAncestor(0);
+      } else {
+        source->setPreviewAncestor(static_cast<std::size_t>(*previewAncestor));
+      }
+      const bool* liftFromLayout = boolProp(desired, "liftFromLayout");
+      if (liftFromLayout == nullptr) {
+        warnMistypedOptionalProp(desired, "liftFromLayout", "a boolean");
+      }
+      source->setLiftFromLayout(liftFromLayout != nullptr && *liftFromLayout);
+    } else if (desired.type == "drop_zone") {
+      auto* zone = static_cast<DropZone*>(node);
+      if (auto error = validateDragDropProps(desired)) {
+        kLog.warn(
+            "ui tree: '{}' key '{}': prop '{}' {}; control disabled", desired.type,
+            desired.key.empty() ? "<unkeyed>" : desired.key, error->prop, error->reason
+        );
+        zone->setAccepts({});
+        zone->setValue({});
+        zone->setOnDrop({});
+        zone->setEnabled(false);
+      } else {
+        zone->setAccepts(*strArrayProp(desired, "accepts"));
+        zone->setValue(*strProp(desired, "value"));
+        zone->setOnDrop(*strProp(desired, "onDrop"));
+        zone->setEnabled(boolProp(desired, "enabled") == nullptr || *boolProp(desired, "enabled"));
+      }
+      const bool* expandOnDrag = boolProp(desired, "expandOnDrag");
+      if (expandOnDrag == nullptr) {
+        warnMistypedOptionalProp(desired, "expandOnDrag", "a boolean");
+      }
+      zone->setExpandOnDrag(expandOnDrag != nullptr && *expandOnDrag);
+      const double* hitSlop = numProp(desired, "hitSlop");
+      if (hitSlop == nullptr) {
+        warnMistypedOptionalProp(desired, "hitSlop", "a number");
+      }
+      zone->setHitSlop(hitSlop != nullptr ? scaled(std::max(0.0, *hitSlop)) : 0.0f);
+    }
+
+    if (desired.type == "column"
+        || desired.type == "row"
+        || desired.type == "drag_source"
+        || desired.type == "drop_zone") {
       auto* flex = static_cast<Flex*>(node);
+      if (desired.type == "drop_zone") {
+        auto* zone = static_cast<DropZone*>(node);
+        const std::string* direction = strProp(desired, "direction");
+        if (direction == nullptr) {
+          warnMistypedOptionalProp(desired, "direction", R"("column" or "row")");
+          zone->setDirection(FlexDirection::Vertical);
+        } else if (*direction == "column") {
+          zone->setDirection(FlexDirection::Vertical);
+        } else if (*direction == "row") {
+          zone->setDirection(FlexDirection::Horizontal);
+        } else {
+          kLog.warn("ui tree: 'drop_zone' key '{}': unknown direction '{}'", desired.key, *direction);
+          zone->setDirection(FlexDirection::Vertical);
+        }
+      }
       if (const double* gap = numProp(desired, "gap")) {
         flex->setGap(scaled(*gap));
       }
@@ -623,14 +862,34 @@ namespace ui {
         flex->setJustify(*justify);
       }
       if (auto fill = parseColor(desired, "fill")) {
-        flex->setFill(*fill);
+        if (desired.type == "drop_zone") {
+          static_cast<DropZone*>(node)->setZoneFill(*fill);
+        } else {
+          flex->setFill(*fill);
+        }
+      } else if (desired.type == "drop_zone") {
+        static_cast<DropZone*>(node)->clearZoneFill();
       }
       if (const double* radius = numProp(desired, "radius")) {
-        flex->setRadius(scaled(*radius));
+        if (desired.type == "drop_zone") {
+          static_cast<DropZone*>(node)->setZoneRadius(Style::scaledRadius(static_cast<float>(*radius), m_scale));
+        } else {
+          flex->setRadius(scaled(*radius));
+        }
+      } else if (desired.type == "drop_zone") {
+        static_cast<DropZone*>(node)->clearZoneRadius(Style::scaledRadiusSm(m_scale));
       }
       if (auto border = parseColor(desired, "border")) {
         const double* borderWidth = numProp(desired, "borderWidth");
-        flex->setBorder(*border, borderWidth != nullptr ? scaled(*borderWidth) : 1.0f);
+        if (desired.type == "drop_zone") {
+          static_cast<DropZone*>(node)->setZoneBorder(
+              *border, borderWidth != nullptr ? scaled(*borderWidth) : Style::borderWidth
+          );
+        } else {
+          flex->setBorder(*border, borderWidth != nullptr ? scaled(*borderWidth) : Style::borderWidth);
+        }
+      } else if (desired.type == "drop_zone") {
+        static_cast<DropZone*>(node)->clearZoneBorder();
       }
       if (const double* minWidth = numProp(desired, "minWidth")) {
         flex->setMinWidth(scaled(*minWidth));
@@ -643,8 +902,12 @@ namespace ui {
         flex->setMaxWidth(scaled(*width));
       }
       if (height != nullptr) {
-        flex->setMinHeight(scaled(*height));
-        flex->setMaxHeight(scaled(*height));
+        if (desired.type == "drop_zone") {
+          static_cast<DropZone*>(node)->setCollapsedHeight(scaled(*height));
+        } else {
+          flex->setMinHeight(scaled(*height));
+          flex->setMaxHeight(scaled(*height));
+        }
       }
       return;
     }

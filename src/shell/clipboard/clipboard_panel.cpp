@@ -210,7 +210,8 @@ namespace {
 
   class ClipboardListRow final : public InputArea {
   public:
-    ClipboardListRow(float scale, ThumbnailService* thumbnails) : m_scale(scale), m_thumbnails(thumbnails) {
+    ClipboardListRow(float scale, ThumbnailService* thumbnails, std::optional<ColorSpec> listItemBackground)
+        : m_scale(scale), m_thumbnails(thumbnails), m_listItemBackground(listItemBackground) {
       setVisible(false);
 
       addChild(
@@ -445,7 +446,7 @@ namespace {
       } else if (m_hovered) {
         m_background->setFill(colorSpecFromRole(ColorRole::Hover));
       } else {
-        m_background->setFill(clearColorSpec());
+        m_background->setFill(m_listItemBackground.value_or(clearColorSpec()));
       }
 
       const auto activeRole = m_selected ? ColorRole::OnPrimary : ColorRole::OnHover;
@@ -465,6 +466,7 @@ namespace {
 
     float m_scale = 1.0f;
     ThumbnailService* m_thumbnails = nullptr;
+    std::optional<ColorSpec> m_listItemBackground;
     Box* m_background = nullptr;
     Flex* m_row = nullptr;
     Flex* m_lead = nullptr;
@@ -487,8 +489,11 @@ namespace {
 
 class ClipboardListAdapter final : public VirtualGridAdapter {
 public:
-  ClipboardListAdapter(float scale, ClipboardService* clipboard, ThumbnailService* thumbnails)
-      : m_scale(scale), m_clipboard(clipboard), m_thumbnails(thumbnails) {}
+  ClipboardListAdapter(
+      float scale, ClipboardService* clipboard, ThumbnailService* thumbnails,
+      std::optional<ColorSpec> listItemBackground
+  )
+      : m_scale(scale), m_clipboard(clipboard), m_thumbnails(thumbnails), m_listItemBackground(listItemBackground) {}
 
   void setRenderer(Renderer* renderer) { m_renderer = renderer; }
   void setFilteredIndices(const std::vector<std::size_t>* indices) { m_filteredIndices = indices; }
@@ -515,7 +520,7 @@ public:
   }
 
   [[nodiscard]] std::unique_ptr<Node> createTile() override {
-    auto row = std::make_unique<ClipboardListRow>(m_scale, m_thumbnails);
+    auto row = std::make_unique<ClipboardListRow>(m_scale, m_thumbnails, m_listItemBackground);
     m_pool.push_back(row.get());
     return row;
   }
@@ -548,6 +553,7 @@ private:
   float m_scale = 1.0f;
   ClipboardService* m_clipboard = nullptr;
   ThumbnailService* m_thumbnails = nullptr;
+  std::optional<ColorSpec> m_listItemBackground;
   Renderer* m_renderer = nullptr;
   const std::vector<std::size_t>* m_filteredIndices = nullptr;
   std::vector<ClipboardListRow*> m_pool;
@@ -677,7 +683,12 @@ void ClipboardPanel::create() {
       })
   );
 
-  m_listAdapter = std::make_unique<ClipboardListAdapter>(scale, m_clipboard, m_thumbnails);
+  const bool listItemBackground = m_config != nullptr && m_config->config().shell.panel.listItemBackground;
+  m_listAdapter = std::make_unique<ClipboardListAdapter>(
+      scale, m_clipboard, m_thumbnails,
+      listItemBackground ? std::optional(colorSpecFromRole(ColorRole::SurfaceVariant, panelCardOpacity()))
+                         : std::nullopt
+  );
   m_listAdapter->setFilteredIndices(&m_filteredIndices);
   m_listAdapter->setOnActivate([this](std::size_t index) {
     if (m_selectedIndex == index) {

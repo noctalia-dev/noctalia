@@ -560,6 +560,7 @@ ScreenshotService::OutputOptions ScreenshotService::outputOptionsFromConfig(cons
   options.pipeToCommand = screenshot.pipeToCommand;
   options.freezeScreen = screenshot.freezeScreen;
   options.confirmRegion = screenshot.confirmRegion;
+  options.showCursor = screenshot.showCursor;
   options.pipeCommand = screenshot.pipeCommand;
   options.directory = screenshot.directory;
   options.filenamePattern = screenshot.filenamePattern;
@@ -824,7 +825,9 @@ void ScreenshotService::beginFreezeCapture() {
 
     ScreencopyImage image;
     std::string error;
-    if (!screencopy::captureOutputBlocking(m_capture, m_wayland, output, image, error)) {
+    if (!screencopy::captureOutputBlocking(
+            m_capture, m_wayland, output, image, error, m_regionOutputOptions.showCursor
+        )) {
       if (!m_freezeCaptureActive) {
         m_frozenScreenshots.clear();
         return;
@@ -990,7 +993,7 @@ void ScreenshotService::startNextGlobalRegionCapture() {
   }
 
   m_capture.capture(
-      target.output, target.localRegion, false,
+      target.output, target.localRegion, batch.options.showCursor,
       [this, output = target.output,
        localRegion = target.localRegion](std::optional<ScreencopyImage> image, const std::string& error) {
         onGlobalRegionFrameCaptured(output, localRegion, std::move(image), error);
@@ -1138,7 +1141,7 @@ void ScreenshotService::captureOutput(
   }
 
   m_capture.capture(
-      pending.output, pending.region, false,
+      pending.output, pending.region, pending.outputOptions.showCursor,
       [this, options = pending.outputOptions, destPath = pending.destPath,
        output = pending.output](std::optional<ScreencopyImage> image, const std::string& error) {
         onCaptureComplete(std::move(image), error, options, destPath, output);
@@ -1157,7 +1160,7 @@ void ScreenshotService::startNextQueuedCapture() {
     PendingCapture pending = std::move(m_captureQueue.front());
     m_captureQueue.erase(m_captureQueue.begin());
     m_capture.capture(
-        pending.output, pending.region, false,
+        pending.output, pending.region, pending.outputOptions.showCursor,
         [this, options = pending.outputOptions, destPath = pending.destPath,
          output = pending.output](std::optional<ScreencopyImage> image, const std::string& error) {
           onCaptureComplete(std::move(image), error, options, destPath, output);
@@ -1226,7 +1229,7 @@ void ScreenshotService::startNextAllOutputsCapture() {
   }
 
   m_capture.capture(
-      target.output, std::nullopt, false,
+      target.output, std::nullopt, batch.options.showCursor,
       [this, output = target.output,
        label = target.label](std::optional<ScreencopyImage> image, const std::string& error) {
         onAllOutputsFrameCaptured(output, label, std::move(image), error);

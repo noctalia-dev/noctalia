@@ -111,6 +111,7 @@ namespace {
     bool showIcons = true;
     bool compact = false;
     std::optional<ColorSpec> appIconColorizeTint;
+    std::optional<ColorSpec> listItemBackground;
   };
 
   [[nodiscard]] float launcherIconSize(const LauncherListStyle& style) {
@@ -175,13 +176,16 @@ namespace {
     return std::ceil(paddingY * 2.0f + iconSize + gap + labelHeight);
   }
 
-  [[nodiscard]] LauncherListStyle launcherListStyleFrom(const ConfigService* config, float scale) {
-    LauncherListStyle style{.scale = scale, .appIconColorizeTint = std::nullopt};
+  [[nodiscard]] LauncherListStyle launcherListStyleFrom(const ConfigService* config, float scale, float cardOpacity) {
+    LauncherListStyle style{.scale = scale, .appIconColorizeTint = std::nullopt, .listItemBackground = std::nullopt};
     if (config != nullptr) {
       const auto& launcher = config->config().shell.launcher;
       style.showIcons = launcher.showIcons;
       style.compact = launcher.compact;
       style.appIconColorizeTint = effectiveShellAppIconColorizationTint(config->config().shell);
+      if (config->config().shell.panel.listItemBackground) {
+        style.listItemBackground = colorSpecFromRole(ColorRole::SurfaceVariant, cardOpacity);
+      }
     }
     return style;
   }
@@ -376,7 +380,7 @@ namespace {
       } else if (m_hovered) {
         m_row->setFill(colorSpecFromRole(ColorRole::Hover));
       } else {
-        m_row->setFill(rgba(0, 0, 0, 0));
+        m_row->setFill(m_style.listItemBackground.value_or(clearColorSpec()));
       }
 
       const auto activeRole = m_selected ? ColorRole::OnPrimary : ColorRole::OnHover;
@@ -552,7 +556,7 @@ namespace {
       } else if (m_hovered) {
         m_col->setFill(colorSpecFromRole(ColorRole::Hover));
       } else {
-        m_col->setFill(rgba(0, 0, 0, 0));
+        m_col->setFill(m_style.listItemBackground.value_or(clearColorSpec()));
       }
 
       const auto activeRole = m_selected ? ColorRole::OnPrimary : ColorRole::OnHover;
@@ -798,7 +802,7 @@ void LauncherPanel::create() {
       .flexGrow = 1.0f,
   });
 
-  const LauncherListStyle initialStyle = launcherListStyleFrom(m_config, scale);
+  const LauncherListStyle initialStyle = launcherListStyleFrom(m_config, scale, panelCardOpacity());
   m_listAdapter = std::make_unique<LauncherResultAdapter>(initialStyle, m_asyncTextures);
   m_gridAdapter = std::make_unique<LauncherAppGridAdapter>(initialStyle, m_asyncTextures);
   m_listAdapter->setResults(&m_results);
@@ -896,7 +900,7 @@ void LauncherPanel::refreshLauncherAppIconColorization() {
   if (m_listAdapter == nullptr || m_gridAdapter == nullptr || m_grid == nullptr) {
     return;
   }
-  const LauncherListStyle style = launcherListStyleFrom(m_config, contentScale());
+  const LauncherListStyle style = launcherListStyleFrom(m_config, contentScale(), panelCardOpacity());
   m_listAdapter->setListStyle(style);
   m_gridAdapter->setListStyle(style);
   m_grid->notifyDataChanged();
@@ -921,7 +925,7 @@ void LauncherPanel::syncLauncherViewLayout(Renderer* renderer) {
 
   const bool useGrid = shouldUseAppGrid();
   const float scale = contentScale();
-  const LauncherListStyle style = launcherListStyleFrom(m_config, scale);
+  const LauncherListStyle style = launcherListStyleFrom(m_config, scale, panelCardOpacity());
   m_listAdapter->setListStyle(style);
   m_gridAdapter->setListStyle(style);
   if (renderer != nullptr) {
@@ -992,7 +996,7 @@ void LauncherPanel::updateLauncherGridMetrics(Renderer& renderer) {
     return;
   }
 
-  const LauncherListStyle style = launcherListStyleFrom(m_config, contentScale());
+  const LauncherListStyle style = launcherListStyleFrom(m_config, contentScale(), panelCardOpacity());
   float cellHeight = launcherRowHeight(renderer, style);
   if (m_usingAppGrid) {
     float wrapWidth = 0.0f;
@@ -1308,8 +1312,9 @@ void LauncherPanel::onInputChanged(const std::string& text) {
     }
   }
 
-  const int iconTargetSize =
-      static_cast<int>(std::round(launcherIconSize(launcherListStyleFrom(m_config, contentScale()))));
+  const int iconTargetSize = static_cast<int>(
+      std::round(launcherIconSize(launcherListStyleFrom(m_config, contentScale(), panelCardOpacity())))
+  );
   for (auto& result : m_allResults) {
     if (result.iconPath.empty() && !result.iconName.empty()) {
       const std::string& resolved = m_iconResolver.resolve(result.iconName, iconTargetSize);
@@ -1642,7 +1647,7 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
 
   const float scale = contentScale();
   constexpr float kMenuWidth = 240.0f;
-  const float menuWidth = kMenuWidth * scale;
+  const float minMenuWidth = kMenuWidth * scale;
 
   if (m_config != nullptr) {
     m_actionsMenu->setShadowConfig(m_config->config().shell.shadow);
@@ -1710,7 +1715,8 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
   m_actionsMenu->open(
       ContextMenuPopupRequest{
           .entries = std::move(entries),
-          .menuWidth = menuWidth,
+          .minMenuWidth = minMenuWidth,
+          .maxMenuWidth = Style::menuAutoMaxWidth * scale,
           .maxVisible = 12,
           .anchor =
               PopupAnchorRect{

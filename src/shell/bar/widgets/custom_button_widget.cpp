@@ -119,7 +119,9 @@ void CustomButtonWidget::create() {
   setRoot(std::move(area));
 }
 
-bool CustomButtonWidget::reservesMiddleClick() const noexcept { return !m_middleCommand.empty(); }
+bool CustomButtonWidget::reservesMiddleClick(float /*sceneX*/, float /*sceneY*/) const noexcept {
+  return !m_middleCommand.empty();
+}
 
 void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   if (m_area == nullptr || m_label == nullptr) {

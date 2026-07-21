@@ -182,6 +182,7 @@
     },
     "bluetooth": {
       "accept": "Accetta",
+      "address": "Indirizzo",
       "auto-reconnect": "Riconnessione automatica",
       "bluetooth": "Bluetooth",
       "enter-code": "Inserisci codice",
@@ -835,6 +836,7 @@
     },
     "calendar-accounts": {
       "add-title": "Aggiungi account calendario",
+      "calendars-label": "Calendari",
       "color-label": "Colore",
       "delete-error": "Impossibile eliminare l'account calendario.",
       "edit-title": "Modifica account calendario",
@@ -1088,6 +1090,7 @@
         "background": "Sfondo",
         "battery": "Batteria",
         "behavior": "Comportamento",
+        "borders": "Bordi",
         "brightness": "Luminosità",
         "built-in": "Integrato",
         "calendar": "Calendario",
@@ -1501,6 +1504,10 @@
         "global-shadow-direction": {
           "description": "Direzione da cui viene proiettata l'ombra sulle superfici"
         },
+        "input-borders": {
+          "description": "Disegna i contorni attorno ai campi di testo e ad altri input in tutta la shell",
+          "label": "Bordi input"
+        },
         "language": {
           "description": "Sovrascrivi il rilevamento automatico della lingua",
           "label": "Lingua"
@@ -1508,6 +1515,14 @@
         "palette-source": {
           "description": "Da dove ricavare la palette colori",
           "label": "Sorgente palette"
+        },
+        "popup-borders": {
+          "description": "Disegna i contorni attorno ai popup e ai menu a discesa",
+          "label": "Bordi popup"
+        },
+        "popup-shadows": {
+          "description": "Disegna ombre esterne dietro i popup e i menu a discesa",
+          "label": "Ombre popup"
         },
         "pure-black-dark": {
           "description": "Ancora le superfici scure al nero assoluto, prevenendo il banding sui pannelli OLED (solo modalità scura)",
@@ -2168,6 +2183,10 @@
           "description": "Usa icone più piccole e righe risultato più compatte",
           "label": "Righe compatte"
         },
+        "launcher-currency-exchange": {
+          "description": "Recupera cambi da fonti online di terze parti",
+          "label": "Conversione del cambio valuta"
+        },
         "launcher-global-calculator": {
           "description": "Mostra anche la calcolatrice nei risultati senza prefisso",
           "label": "Calcolatrice nella ricerca globale"
@@ -2228,6 +2247,10 @@
         "launcher-sort-by-usage": {
           "description": "Metti in evidenza le app utilizzate di frequente in cima e mostra un filtro di categoria Utilizzate di recente",
           "label": "Ordina per utilizzo"
+        },
+        "list-item-background": {
+          "description": "Disegna uno sfondo arrotondato e pieno dietro ogni elemento dell'elenco di avvio e appunti",
+          "label": "Sfondo elenco item"
         },
         "open-near-click-clipboard": {
           "description": "Posiziona il pannello appunti vicino al click sulla barra invece di centrarlo lungo la barra",
@@ -2610,6 +2633,10 @@
           "description": "Disegna un contorno attorno ai popup OSD",
           "label": "Bordo"
         },
+        "osd-enabled": {
+          "description": "Interruttore principale per tutti i popup OSD; quando è spento non viene mostrato alcun OSD",
+          "label": "Abilita OSD"
+        },
         "osd-kinds-bluetooth": {
           "description": "Mostra un popup OSD quando il Bluetooth viene attivato/disattivato",
           "label": "Bluetooth"
@@ -2625,6 +2652,10 @@
         "osd-kinds-dnd": {
           "description": "Mostra un popup OSD quando la modalità DND viene attivata/disattivata",
           "label": "DND"
+        },
+        "osd-kinds-keyboard-backlight": {
+          "description": "Mostra un popup OSD quando cambia il livello di retroilluminazione della tastiera",
+          "label": "Retroilluminazione della tastiera"
         },
         "osd-kinds-keyboard-layout": {
           "description": "Mostra un popup OSD quando cambia il layout della tastiera",
@@ -2921,6 +2952,12 @@
         "ram": "RAM",
         "temp": "Temperatura"
       },
+      "map-placeholders": {
+        "effects-profile-name": "Nome profilo",
+        "glyph-name": "Nome glifo",
+        "label": "Etichetta",
+        "layout-name": "Nome layout"
+      },
       "options": {
         "always": "Sempre",
         "auto": "Auto",
@@ -3094,9 +3131,17 @@
           "description": "Dimensioni in pixel delle icone nella tray all'interno del drawer",
           "label": "Dimensioni icona drawer"
         },
+        "effects-profile-glyphs": {
+          "description": "Mappa i nomi dei profili EasyEffects sui glifi icone",
+          "label": "Glifi del profilo effetti"
+        },
         "empty-color": {
           "description": "Ruolo colore usato per workspace vuoti; sono supportati anche codici colore in formato esadecimale",
           "label": "Colore vuoto"
+        },
+        "enable-scroll": {
+          "description": "Consenti azioni di scorrimento con la rotellina del mouse e il trackpad su questo widget",
+          "label": "Abilita scroll"
         },
         "focused-color": {
           "description": "Ruolo colore usato per il workspace con focus; sono supportati anche codici colore in formato esadecimale",
@@ -3440,6 +3485,10 @@
         "type": {
           "description": "Tipo widget integrato per questo widget con nome",
           "label": "Tipo"
+        },
+        "urgent-color": {
+          "description": "Ruolo del colore utilizzato per gli spazi di lavoro urgenti; sono supportati anche codici colore in formato esadecimale",
+          "label": "Colore urgente"
         },
         "vertical-format": {
           "description": "Formato opzionale usato sulle barre verticali",

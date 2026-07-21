@@ -90,6 +90,13 @@ int main() {
        )
       && ok;
 
+  ok = expectArgs(
+           desktop_entry_launch::prepareCommand(R"(/bin/sh -c "\\$SHELL -i -c scrcpy")", false),
+           {"/bin/sh", "-c", "$SHELL -i -c scrcpy"},
+           "desktop-entry escaping should preserve a shell variable in a quoted argument"
+       )
+      && ok;
+
   desktop_entry_launch::PrepareOptions terminalOptions;
   const std::string fakeTerminal = makeExecutableFixture();
   terminalOptions.terminalCandidates = {"missing-terminal-candidate", fakeTerminal};

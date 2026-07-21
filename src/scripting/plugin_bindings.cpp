@@ -376,7 +376,7 @@ namespace {
   // Reads the value at `index` into a UiTreeValue. A table is read as a number
   // array (graph data) or a string array (select options) — its element type is
   // decided by the first element and must be uniform; any other shape is rejected.
-  bool readUiTreeValue(lua_State* L, int index, ui::UiTreeValue& out) {
+  bool readUiTreeValue(lua_State* L, int index, std::string_view propName, ui::UiTreeValue& out) {
     switch (lua_type(L, index)) {
     case LUA_TBOOLEAN:
       out = lua_toboolean(L, index) != 0;
@@ -392,9 +392,13 @@ namespace {
     }
     case LUA_TTABLE: {
       const int count = lua_objlen(L, index);
-      // An empty table is an empty number array (the common graph-data case).
+      // An empty Luau table is shapeless while UiTreeValue holds exactly one
+      // array type, so the element type must be decided here at read time:
+      // empty tables default to graph data (numbers), except the drop-zone
+      // `accepts` prop, whose contract is a string array (empty = accepts
+      // nothing) and which would otherwise fail its type validation.
       lua_rawgeti(L, index, 1);
-      const bool stringArray = count > 0 && lua_type(L, -1) == LUA_TSTRING;
+      const bool stringArray = (count == 0 && propName == "accepts") || (count > 0 && lua_type(L, -1) == LUA_TSTRING);
       lua_pop(L, 1);
       if (stringArray) {
         std::vector<std::string> strings;
@@ -460,7 +464,8 @@ namespace {
           size_t keyLen = 0;
           const char* key = lua_tolstring(L, -2, &keyLen);
           ui::UiTreeValue value;
-          if (readUiTreeValue(L, -1, value)) {
+          const std::string_view propName(key, keyLen);
+          if (readUiTreeValue(L, -1, propName, value)) {
             out.props.emplace(std::string(key, keyLen), std::move(value));
           } else {
             kLog.warn("plugin {}: ui node '{}' prop '{}' has an unsupported value type", ownerId, out.type, key);
@@ -600,6 +605,12 @@ namespace scripting {
             for (size_t i = 0; i < val.size(); ++i) {
               lua_pushlstring(L, val[i].data(), val[i].size());
               lua_rawseti(L, -2, static_cast<int>(i + 1));
+            }
+          } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
+            lua_createtable(L, 0, static_cast<int>(val.size()));
+            for (const auto& [mapKey, value] : val) {
+              lua_pushlstring(L, value.data(), value.size());
+              lua_setfield(L, -2, mapKey.c_str());
             }
           } else {
             lua_pushnil(L);

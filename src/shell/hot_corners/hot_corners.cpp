@@ -2,9 +2,12 @@
 
 #include "app/application.h"
 #include "config/config_service.h"
+#include "config/config_types.h"
 #include "render/scene/input_area.h"
 #include "wayland/wayland_connection.h"
 
+#include <algorithm>
+#include <chrono>
 #include <cstdint>
 
 namespace {
@@ -12,6 +15,22 @@ namespace {
   // exact corner pixel on a flick, so a tiny zone suffices; keep it minimal to
   // barely intercept pointer input over surfaces beneath it.
   constexpr std::int32_t kTriggerZoneSize = 2;
+
+  void cornerAction(const HotCornersConfig& config, int position, std::string& action, std::string& command) {
+    if (position == 0) {
+      action = config.topLeft.action;
+      command = config.topLeft.command;
+    } else if (position == 1) {
+      action = config.topRight.action;
+      command = config.topRight.command;
+    } else if (position == 2) {
+      action = config.bottomLeft.action;
+      command = config.bottomLeft.command;
+    } else {
+      action = config.bottomRight.action;
+      command = config.bottomRight.command;
+    }
+  }
 } // namespace
 
 HotCorners::HotCorners(Application* app) : m_app(app) {}
@@ -93,6 +112,32 @@ void HotCorners::triggerAction(const std::string& action, const std::string& com
   }
 }
 
+void HotCorners::disarmCorner(Corner& corner) { corner.triggerTimer.stop(); }
+
+void HotCorners::armCorner(Corner& corner, int position, wl_output* output) {
+  if (m_config == nullptr) {
+    return;
+  }
+
+  const auto& config = m_config->config().hotCorners;
+  std::string action;
+  std::string command;
+  cornerAction(config, position, action, command);
+
+  const std::int32_t delayMs = std::max(0, config.delayMs);
+  if (delayMs <= 0) {
+    corner.triggerTimer.stop();
+    triggerAction(action, command, output);
+    return;
+  }
+
+  corner.triggerTimer.start(
+      std::chrono::milliseconds(delayMs), [this, action = std::move(action), command = std::move(command), output]() {
+        triggerAction(action, command, output);
+      }
+  );
+}
+
 void HotCorners::buildCorner(Corner& corner, int position, wl_output* output) {
   // Sit on the highest layer any bar occupies on this output (Top or Overlay),
   // and create after the bar/dock so the trigger zone is never occluded by shell
@@ -136,25 +181,10 @@ void HotCorners::buildCorner(Corner& corner, int position, wl_output* output) {
   auto inputArea = std::make_unique<InputArea>();
   inputArea->setPosition(0, 0);
   inputArea->setSize(static_cast<float>(size), static_cast<float>(size));
-  inputArea->setOnEnter([this, position, output](const InputArea::PointerData&) {
-    const auto& config = m_config->config().hotCorners;
-    std::string action;
-    std::string command;
-    if (position == 0) {
-      action = config.topLeft.action;
-      command = config.topLeft.command;
-    } else if (position == 1) {
-      action = config.topRight.action;
-      command = config.topRight.command;
-    } else if (position == 2) {
-      action = config.bottomLeft.action;
-      command = config.bottomLeft.command;
-    } else {
-      action = config.bottomRight.action;
-      command = config.bottomRight.command;
-    }
-    triggerAction(action, command, output);
+  inputArea->setOnEnter([this, &corner, position, output](const InputArea::PointerData&) {
+    armCorner(corner, position, output);
   });
+  inputArea->setOnLeave([this, &corner]() { disarmCorner(corner); });
 
   corner.sceneRoot = std::move(inputArea);
   corner.inputDispatcher.setSceneRoot(corner.sceneRoot.get());
@@ -189,7 +219,7 @@ bool HotCorners::onPointerEvent(const PointerEvent& event) {
           return true;
         case PointerEvent::Type::Button:
           return corner->inputDispatcher.pointerButton(
-              static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, event.state == 1
+              static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, event.pressed
           );
         case PointerEvent::Type::Axis:
           return corner->inputDispatcher.pointerAxis(

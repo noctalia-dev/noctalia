@@ -182,6 +182,7 @@
     },
     "bluetooth": {
       "accept": "Elfogadás",
+      "address": "Cím",
       "auto-reconnect": "Automatikus újracsatlakozás",
       "bluetooth": "Bluetooth",
       "enter-code": "Kód megadása",
@@ -505,6 +506,7 @@
         "show-label": "Címke megjelenítése",
         "show-login-button": "Bejelentkezés gomb",
         "show-password-hint": "Jelszótipp",
+        "show-vpn-label": "VPN-címke megjelenítése",
         "show-when-idle": "Megjelenítés tétlenség esetén",
         "stat": "Statisztika",
         "stat-cpu-temp": "CPU-hőmérséklet",
@@ -1271,7 +1273,8 @@
         "vertical": "Függőleges"
       },
       "panel-bar-alignment": {
-        "centered": "Középre igazítva"
+        "centered": "Középre igazítva",
+        "near-trigger": "Kattintásnál"
       },
       "panel-position": {
         "auto": "Sáv követése"
@@ -1381,11 +1384,15 @@
         "delete-confirm-title": "{name} törlése?",
         "deprecated": "elavult",
         "empty": "Nem találhatók bővítmények. Adj meg egy forrást vagy ellenőrizd a hálózatot.",
+        "incompatible-plugin-api": "Összeférhetetlen bővítmény-API",
         "loading": "Bővítmények betöltése…",
         "refreshing": "Bővítmények frissítése…",
         "remove": "Bővítmény eltávolítása",
         "requires": "Szükséges: {dependencies}",
-        "title": "Bővítmények"
+        "title": "Bővítmények",
+        "update-all": "Összes frissítése ({count})",
+        "update-available": "Frissítés elérhető",
+        "update-to": "Frissítés a {version} verzióra"
       },
       "settings": {
         "empty": "Nincsenek elérhető beállítások."
@@ -1393,6 +1400,8 @@
       "sources": {
         "add": "Forrás hozzáadása",
         "add-title": "Bővítményforrás hozzáadása",
+        "auto-update": "A bővítmények automatikus frissítése",
+        "auto-update-desc": "A háttérben ellenőrizze az engedélyezett forrásokat és gondoskodjon arról, hogy a telepített bővítmények frissítve legyenek",
         "edit": "Forrás szerkesztése",
         "edit-title": "Bővítményforrás szerkesztése",
         "empty": "Nincsenek beállítva források.",
@@ -1776,6 +1785,14 @@
         "background-opacity": {
           "description": "A dokk háttér átlátszósága"
         },
+        "border": {
+          "description": "A dokkoló keretének színe. A fix hexadecimális színek is támogatottak",
+          "label": "Szegély"
+        },
+        "border-width": {
+          "description": "A dokk belső keretének szélessége",
+          "label": "A keret szélessége"
+        },
         "concave-edge-corners": {
           "description": "A képernyő széléhez érintkező oldalon vágja be a belső sarkokat. Ehhez a képernyő széléhez viszonyított margónak 0-nak kell lennie",
           "label": "Konkáv élű sarkok"
@@ -2058,6 +2075,10 @@
         "blacklist-allow-critical": {
           "description": "Mégis mutassa a kritikus értesítéseket a feketelistára tett küldőktől"
         },
+        "border": {
+          "description": "Rajzoljon keretet az értesítési felugró ablakok köré",
+          "label": "Szegély"
+        },
         "collapse-on-dismiss": {
           "description": "A megmaradt felugró értesítések elcsúsztatása, hogy kitöltsék a helyet, ha egyet bezárnak",
           "label": "Összecsukás elvetéskor"
@@ -2147,6 +2168,10 @@
         "launcher-compact": {
           "description": "Kisebb ikonokat és kompaktabb eredménysorokat használj",
           "label": "Kompakt sorok"
+        },
+        "launcher-currency-exchange": {
+          "description": "Árfolyam lekérése külső online forrásokból",
+          "label": "Devizaváltás"
         },
         "launcher-global-calculator": {
           "description": "A számológép eredményeit előtag nélküli keresés esetén is mutassa",
@@ -2585,6 +2610,10 @@
           "description": "OSD felugró ablakok háttér opacitása",
           "label": "Háttér átlátszatlansága"
         },
+        "osd-border": {
+          "description": "Rajzoljon keretet az OSD-felugró ablakok köré",
+          "label": "Szegély"
+        },
         "osd-kinds-bluetooth": {
           "description": "OSD felugró ablak megjelenítése a Bluetooth kapcsolásakor",
           "label": "Bluetooth"
@@ -2600,6 +2629,10 @@
         "osd-kinds-dnd": {
           "description": "OSD felugró megjelenítése a \"Ne zavarjanak\" átváltásakor",
           "label": "Ne zavarjanak"
+        },
+        "osd-kinds-keyboard-backlight": {
+          "description": "OSD-felugró ablak megjelenítése a billentyűzet háttérvilágítás-erősségének változásakor",
+          "label": "Billentyűzet háttérvilágítás"
         },
         "osd-kinds-keyboard-layout": {
           "description": "OSD felugró ablak megjelenítése, amikor a billentyűzetkiosztás megváltozik",
@@ -2863,7 +2896,7 @@
     },
     "session-actions": {
       "add": "Művelet hozzáadása",
-      "clear-glyph": "Törlés",
+      "clear-glyph": "Tiszta",
       "command-label": "Shell parancs",
       "command-placeholder": "Opcionális bash parancs, hagyd üresen a beépített viselkedéshez",
       "command-required-placeholder": "Futtatandó shell-parancs",
@@ -3072,6 +3105,10 @@
         "empty-color": {
           "description": "Színszerep üres munkaterületekhez; rögzített hex színek is támogatottak",
           "label": "Üres szín"
+        },
+        "enable-scroll": {
+          "description": "Engedélyezze az egérgörgővel és az érintőpaddal történő görgetést ezen a widgeten",
+          "label": "Görgetés engedélyezése"
         },
         "focused-color": {
           "description": "Színszerep a fókuszált munkaterülethez; rögzített hexadecimális színek is támogatottak",
@@ -3367,6 +3404,10 @@
           "description": "Az aktuális hőmérséklet szöveges megjelenítése",
           "label": "Hőmérséklet megjelenítése"
         },
+        "show-vpn-label": {
+          "description": "Az ikon mellett az interfészcímke helyett a VPN-címkét jelenítse meg",
+          "label": "VPN-címke megjelenítése"
+        },
         "show-when-idle": {
           "description": "Legyen látható a vizualizáló akkor is, ha nincs média lejátszás",
           "label": "Mutatás tétlen állapotban"
@@ -3411,6 +3452,10 @@
         "type": {
           "description": "Beépített vezérlőelem típus ehhez a megnevezett vezérlőelemhez",
           "label": "Típus"
+        },
+        "urgent-color": {
+          "description": "Színkód a sürgős munkaterületekhez. A fix hexadecimális színek is támogatottak",
+          "label": "Sürgős szín"
         },
         "vertical-format": {
           "description": "Opcionális formátum függőleges sávokon",
@@ -3642,7 +3687,7 @@
         "unknown": "Ismeretlen"
       },
       "short": {
-        "clear": "Törlés",
+        "clear": "Tiszta",
         "cloudy": "Felhős",
         "drizzle": "Szitálás",
         "fog": "Köd",

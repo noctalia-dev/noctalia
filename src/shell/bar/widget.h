@@ -44,7 +44,13 @@ public:
     (void)event;
     return false;
   }
-  [[nodiscard]] virtual bool reservesMiddleClick() const noexcept { return false; }
+  // When true, bar middle-click-to-settings is skipped so the widget can handle MMB.
+  // Coordinates are surface/scene space (same as PointerEvent sx/sy).
+  [[nodiscard]] virtual bool reservesMiddleClick(float sceneX, float sceneY) const noexcept {
+    (void)sceneX;
+    (void)sceneY;
+    return false;
+  }
 
   [[nodiscard]] virtual bool noGapAroundMe() const noexcept { return false; }
   // Layout-only or non-interactive bar widgets: clicks pass through to bar dead-zone handlers.

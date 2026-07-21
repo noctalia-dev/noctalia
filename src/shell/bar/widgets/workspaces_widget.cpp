@@ -124,7 +124,6 @@ void WorkspacesWidget::create() {
     // as moving to the next workspace and negative as previous.
     activateAdjacentWorkspace(steps > 0.0f ? 1 : -1);
   });
-  container->setClipChildren(true);
   m_container = container.get();
   setRoot(std::move(container));
 
@@ -738,23 +737,17 @@ void WorkspacesWidget::computeTargets() {
 }
 
 void WorkspacesWidget::updateItemFlowPositions() {
-  const auto gapProgress = [](const Item& item) {
-    if (item.currentWidth <= 0.0f) {
-      return 0.0f;
-    }
-    if (item.fromWidth <= 0.0f && item.targetWidth > 0.0f) {
-      return std::clamp(item.currentWidth / item.targetWidth, 0.0f, 1.0f);
-    }
-    if (item.targetWidth <= 0.0f && item.fromWidth > 0.0f) {
-      return std::clamp(item.currentWidth / item.fromWidth, 0.0f, 1.0f);
-    }
-    return 1.0f;
-  };
-
+  // A gap precedes an item only in proportion to how visible both it and the items before it are, so
+  // gaps grow and collapse with the pills they separate. precedingProgress is the accumulated (clamped)
+  // visibility of earlier items: it keeps the first visible pill from getting a leading gap.
   float cursor = 0.0f;
+  float precedingProgress = 0.0f;
   for (auto& item : m_items) {
+    const float itemProgress = std::clamp(item.currentOpacity, 0.0f, 1.0f);
+    cursor += m_gap * std::min(precedingProgress, itemProgress);
     item.currentX = cursor;
-    cursor += item.currentWidth + m_gap * gapProgress(item);
+    cursor += item.currentWidth;
+    precedingProgress = std::min(1.0f, precedingProgress + itemProgress);
   }
 }
 
@@ -770,13 +763,16 @@ void WorkspacesWidget::updateContainerSize() {
   }
 
   if (m_animId != 0) {
+    // The container is not clipped: it must always enclose the pills, so reserve the larger of the
+    // current and target bounds. Taking the max keeps a shrinking transition from clipping pills that
+    // are still wide, and a growing one from snapping the bar wider than the pills have reached.
     float targetTotal = 0.0f;
     for (const auto& item : m_items) {
       if (item.targetWidth > 0.0f) {
         targetTotal = std::max(targetTotal, item.targetX + item.targetWidth);
       }
     }
-    total = targetTotal;
+    total = std::max(total, targetTotal);
   }
   const float nextWidth = m_isVertical ? m_indicatorHeight : total;
   const float nextHeight = m_isVertical ? total : m_indicatorHeight;

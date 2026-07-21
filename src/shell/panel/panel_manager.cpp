@@ -730,7 +730,9 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
 
   // Map shields BEFORE the panel surface is created or committed.
   // Within a single layer, wlroots stacks surfaces by mapping order.
-  activateClickShield(panelLayer);
+  if (m_activePanel->dismissOnOutsideClick()) {
+    activateClickShield(panelLayer);
+  }
 
   auto surfaceConfig = LayerSurfaceConfig{
       .nameSpace = "noctalia-panel",
@@ -1022,7 +1024,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
           && m_platform->focusGrabService() != nullptr
           && m_platform->focusGrabService()->available();
       const std::uint64_t gen = m_destroyGeneration;
-      if (hasFocusGrab) {
+      if (hasFocusGrab && m_activePanel->dismissOnOutsideClick()) {
         activateFocusGrab();
         m_keyboardRelaxTimer.start(std::chrono::milliseconds(100), [this, gen]() {
           if (m_destroyGeneration != gen || !isAttachedOpen() || m_layerSurface == nullptr || m_closing) {
@@ -1110,7 +1112,7 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
   const bool hasFocusGrab =
       m_platform != nullptr && m_platform->focusGrabService() != nullptr && m_platform->focusGrabService()->available();
   const std::uint64_t gen = m_destroyGeneration;
-  if (hasFocusGrab) {
+  if (hasFocusGrab && m_activePanel->dismissOnOutsideClick()) {
     activateFocusGrab();
     m_keyboardRelaxTimer.start(std::chrono::milliseconds(100), [this, gen]() {
       if (m_destroyGeneration != gen || m_layerSurface == nullptr || m_closing) {
@@ -1250,6 +1252,13 @@ void PanelManager::destroyPanel() {
   m_pointerInside = false;
   m_attachedPopupCount = 0;
   m_inputDispatcher.setSceneRoot(nullptr);
+  // Hover leave only fades tooltips asynchronously. Destroy them (and any
+  // open context menu) before the layer surface — xdg_popup must die first.
+  TooltipManager::instance().forceDestroy();
+  if (m_activePopup != nullptr) {
+    m_activePopup->close();
+    m_activePopup = nullptr;
+  }
   if (m_activePanel != nullptr) {
     m_activePanel->onClose();
   }
@@ -1350,7 +1359,7 @@ bool PanelManager::onPointerEvent(const PointerEvent& event) {
     if (m_selectPopup->onPointerEvent(event)) {
       return true;
     }
-    if (event.type == PointerEvent::Type::Button && event.state == 1) {
+    if (event.type == PointerEvent::Type::Button && event.pressed) {
       m_selectPopup->closeSelectDropdown();
       return true;
     }
@@ -1360,7 +1369,7 @@ bool PanelManager::onPointerEvent(const PointerEvent& event) {
     if (m_activePopup->onPointerEvent(event)) {
       return true;
     }
-    if (event.type == PointerEvent::Type::Button && event.state == 1) {
+    if (event.type == PointerEvent::Type::Button && event.pressed) {
       m_activePopup->close();
       return true;
     }
@@ -1400,7 +1409,7 @@ bool PanelManager::onPointerEvent(const PointerEvent& event) {
     break;
   }
   case PointerEvent::Type::Button: {
-    bool pressed = (event.state == 1);
+    bool pressed = event.pressed;
 
     // Click outside panel closes it.
     if (pressed && !m_pointerInside) {

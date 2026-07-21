@@ -131,6 +131,35 @@ namespace shell::dock {
     }
   }
 
+  // Match the bar: while slid away use the edge strip (or full surface when pinned/hovered).
+  // Never hit-test the slide-translated panel — that goes off-surface when smart_auto_hide
+  // flips to pinned before hideOpacity recovers (dock rebuild on a new window).
+  void
+  syncDockAutoHideInputRegion(DockInstance& instance, const DockConfig& cfg, const DockPanelGeometry& panelGeometry) {
+    if (instance.surface == nullptr) {
+      return;
+    }
+    const int surfW = static_cast<int>(instance.surface->width());
+    const int surfH = static_cast<int>(instance.surface->height());
+    if (surfW <= 0 || surfH <= 0) {
+      return;
+    }
+
+    if (!dockUsesAnyAutoHide(cfg)) {
+      instance.surface->setInputRegion(shell::dock::computeInputRegion(cfg, panelGeometry, surfW, surfH, false));
+      return;
+    }
+
+    const bool fullSurface = instance.pointerInside
+        || instance.hideOpacity > 0.5f
+        || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible);
+    if (fullSurface) {
+      instance.surface->setInputRegion({InputRect{0, 0, surfW, surfH}});
+      return;
+    }
+    instance.surface->setInputRegion(shell::dock::computeInputRegion(cfg, DockPanelGeometry{}, surfW, surfH, true));
+  }
+
   void applyDockCompositorBlur(DockInstance& instance, const DockConfig& cfg) {
     if (instance.surface == nullptr) {
       return;
@@ -302,19 +331,7 @@ namespace shell::dock {
       instance.slideHiddenDy = 0.0f;
     }
     syncDockSlideLayerTransform(instance, cfg);
-
-    // Input region: trigger strip when hidden (autoHide), full panel otherwise.
-    const bool hiddenInputRegion = dockUsesSlideAutoHide(cfg, instance) && instance.hideOpacity < 0.5f;
-    auto inputPanelGeometry = panelGeometry;
-    if (!hiddenInputRegion && instance.slideRoot != nullptr) {
-      inputPanelGeometry.panelX += instance.slideRoot->x();
-      inputPanelGeometry.panelY += instance.slideRoot->y();
-    }
-    instance.surface->setInputRegion(
-        shell::dock::computeInputRegion(
-            cfg, inputPanelGeometry, static_cast<int>(w), static_cast<int>(h), hiddenInputRegion
-        )
-    );
+    syncDockAutoHideInputRegion(instance, cfg, panelGeometry);
 
     applyDockCompositorBlur(instance, cfg);
 
@@ -367,11 +384,7 @@ namespace shell::dock {
     constexpr float kSettledThreshold = 0.999f;
     const float current = inst.hideOpacity;
     if (current >= kSettledThreshold) {
-      const int sw = static_cast<int>(inst.surface->width());
-      const int sh = static_cast<int>(inst.surface->height());
-      if (sw > 0 && sh > 0) {
-        inst.surface->setInputRegion({InputRect{0, 0, sw, sh}});
-      }
+      syncDockAutoHideInputRegion(inst, cfg, DockPanelGeometry{});
       inst.surface->requestRedraw();
       return;
     }
@@ -386,11 +399,7 @@ namespace shell::dock {
         },
         [&inst]() { inst.hideAnimId = 0; }
     );
-    const int sw = static_cast<int>(inst.surface->width());
-    const int sh = static_cast<int>(inst.surface->height());
-    if (sw > 0 && sh > 0) {
-      inst.surface->setInputRegion({InputRect{0, 0, sw, sh}});
-    }
+    syncDockAutoHideInputRegion(inst, cfg, DockPanelGeometry{});
     inst.surface->requestRedraw();
   }
 
@@ -410,25 +419,15 @@ namespace shell::dock {
         },
         [&inst, &config]() {
           inst.hideAnimId = 0;
-          if (inst.surface == nullptr)
+          if (inst.surface == nullptr) {
             return;
-          const auto& cfg = config.config().dock;
-          int surfW = static_cast<int>(inst.surface->width());
-          int surfH = static_cast<int>(inst.surface->height());
-          if (surfW <= 0 || surfH <= 0) {
-            const auto surfaceGeometry = shell::dock::computeSurfaceGeometry(
-                cfg, config.config().shell.shadow, inst.items.size() + shell::dock::dockLauncherButtonCount(cfg)
-            );
-            surfW = static_cast<int>(surfaceGeometry.surfaceW);
-            surfH = static_cast<int>(surfaceGeometry.surfaceH);
           }
-          inst.surface->setInputRegion(
-              shell::dock::computeInputRegion(cfg, shell::dock::DockPanelGeometry{}, surfW, surfH, true)
-          );
+          syncDockAutoHideInputRegion(inst, config.config().dock, DockPanelGeometry{});
         }
     );
-    if (inst.surface)
+    if (inst.surface) {
       inst.surface->requestRedraw();
+    }
   }
 
 } // namespace shell::dock

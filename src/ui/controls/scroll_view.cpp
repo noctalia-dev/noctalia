@@ -205,6 +205,13 @@ void ScrollView::setScrollbarVisible(bool visible) {
   markLayoutDirty();
 }
 
+void ScrollView::setScrollbarInsetV(float inset) {
+  if (m_scrollbar != nullptr) {
+    m_scrollbar->setTrackInset(inset);
+  }
+  markLayoutDirty();
+}
+
 void ScrollView::setFill(const ColorSpec& fill) {
   m_backgroundFill = fill;
   applyPalette();

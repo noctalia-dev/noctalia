@@ -2,6 +2,7 @@
 
 #include "config/atomic_file.h"
 #include "core/log.h"
+#include "util/file_utils.h"
 
 #include <format>
 #include <sstream>
@@ -9,8 +10,6 @@
 
 namespace {
   constexpr Logger kLog("state");
-  constexpr std::filesystem::perms kStateFileMode =
-      std::filesystem::perms::owner_read | std::filesystem::perms::owner_write;
 
   bool validStateIdentifier(std::string_view value) {
     if (value.empty()) {
@@ -46,8 +45,7 @@ namespace {
 
   void secureStateFile(const std::filesystem::path& path) {
     std::error_code ec;
-    std::filesystem::permissions(path, kStateFileMode, std::filesystem::perm_options::replace, ec);
-    if (ec) {
+    if (!FileUtils::setPrivateFilePermissions(path, ec)) {
       kLog.warn("failed to secure {}: {}", path.string(), ec.message());
     }
   }
@@ -218,5 +216,5 @@ bool StateStore::write() {
     return false;
   }
 
-  return writeTextFileAtomic(m_path, formatToml(m_state), kStateFileMode);
+  return writeTextFileAtomic(m_path, formatToml(m_state), FileUtils::privateFileMode());
 }

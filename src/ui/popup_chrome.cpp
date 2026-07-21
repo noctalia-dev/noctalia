@@ -2,6 +2,8 @@
 
 #include "render/scene/node.h"
 #include "render/scene/rect_node.h"
+#include "ui/controls/box.h"
+#include "ui/style.h"
 #include "wayland/popup_surface.h"
 
 #include <algorithm>
@@ -114,6 +116,15 @@ namespace popup_chrome {
     shadowNode->setFrameSize(geometry.contentWidth, geometry.contentHeight);
     shadowNode->setZIndex(-1);
     return static_cast<RectNode*>(parent.addChild(std::move(shadowNode)));
+  }
+
+  Box* addCardBackground(Node& parent, const Geometry& geometry, float contentScale) {
+    auto box = std::make_unique<Box>();
+    box->setCardStyle(contentScale, 1.0f, Style::popupBordersEnabled());
+    box->setRadius(Style::scaledRadiusLg(contentScale));
+    box->setPosition(geometry.contentX(), geometry.contentY());
+    box->setFrameSize(geometry.contentWidth, geometry.contentHeight);
+    return static_cast<Box*>(parent.addChild(std::move(box)));
   }
 
 } // namespace popup_chrome

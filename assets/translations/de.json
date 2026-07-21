@@ -76,6 +76,7 @@
         "signal": "Signal",
         "upload": "Upload",
         "vpn": "VPN",
+        "wan-ip": "WAN-IP",
         "wifi": "WLAN",
         "wired": "Kabelgebunden",
         "yes": "Ja"
@@ -182,6 +183,7 @@
     },
     "bluetooth": {
       "accept": "Annehmen",
+      "address": "Adresse",
       "auto-reconnect": "Automatisch wiederverbinden",
       "bluetooth": "Bluetooth",
       "enter-code": "Code eingeben",
@@ -235,7 +237,7 @@
       },
       "select-avatar": "Avatar auswählen",
       "unknown": "unbekannt",
-      "uptime": "Betriebszeit - {uptime}",
+      "uptime": "Betriebszeit – {uptime}",
       "weather": {
         "data-unavailable": "Wetterdaten nicht verfügbar.",
         "disabled": "Wetter ist in der Konfiguration deaktiviert.",
@@ -674,7 +676,7 @@
     },
     "internal": {
       "battery": "Akku",
-      "battery-critical-body": "{device}: {percent}% - dein Computer fährt bald herunter",
+      "battery-critical-body": "{device}: {percent}% – dein Computer fährt bald herunter",
       "battery-critical-title": "Akkustand kritisch",
       "battery-device": "Akkugerät",
       "battery-low-body": "{device}: {percent}% verbleibend",
@@ -773,7 +775,7 @@
     },
     "enable-failed": {
       "body-error": "{plugin}: {error}",
-      "body-incompatible": "{plugin} erfordert Noctalia {version} oder neuer.",
+      "body-incompatible": "{plugin} erfordert Plugin-API {version}; diese Noctalia-Version unterstützt API {oldest}–{current}.",
       "body-timeout": "{plugin} hat zu lange zum Installieren benötigt.",
       "title": "Plugin nicht aktiviert"
     }
@@ -835,6 +837,7 @@
     },
     "calendar-accounts": {
       "add-title": "Kalenderkonto hinzufügen",
+      "calendars-label": "Kalender",
       "color-label": "Farbe",
       "delete-error": "Kalenderkonto konnte nicht gelöscht werden.",
       "edit-title": "Kalenderkonto bearbeiten",
@@ -1088,6 +1091,7 @@
         "background": "Hintergrund",
         "battery": "Akku",
         "behavior": "Verhalten",
+        "borders": "Rahmen",
         "brightness": "Helligkeit",
         "built-in": "Integriert",
         "calendar": "Kalender",
@@ -1437,6 +1441,8 @@
         "open-source": "Quell-Repository des Plugins öffnen",
         "results-count": "{count} Plugins",
         "search-placeholder": "Suche Plugins…",
+        "source-all": "Alle",
+        "sources": "Quellen",
         "title": "Plugin Store"
       }
     },
@@ -1501,6 +1507,10 @@
         "global-shadow-direction": {
           "description": "Richtung, aus der der Schatten von Oberflächen geworfen wird"
         },
+        "input-borders": {
+          "description": "Zeichne Umrisse um Textfelder und andere Eingabeelemente in der gesamten Shell",
+          "label": "Eingaberahmen"
+        },
         "language": {
           "description": "Überschreibe die automatische Spracherkennung",
           "label": "Sprache"
@@ -1508,6 +1518,14 @@
         "palette-source": {
           "description": "Herkunft der Farbpalette",
           "label": "Palettenquelle"
+        },
+        "popup-borders": {
+          "description": "Zeichne Umrisse um Popups und Dropdowns",
+          "label": "Popup-Rahmen"
+        },
+        "popup-shadows": {
+          "description": "Zeichne Schlagschatten hinter Popups und Dropdowns",
+          "label": "Popup-Schatten"
         },
         "pure-black-dark": {
           "description": "Setze dunkle Oberflächen auf reines Schwarz, um Banding auf OLED-Panels zu verhindern (nur im dunklen Modus)",
@@ -2168,6 +2186,10 @@
           "description": "Verwende kleinere Icons und engere Ergebniszeilen",
           "label": "Kompakte Zeilen"
         },
+        "launcher-currency-exchange": {
+          "description": "Kurse aus Online-Quellen von Drittanbietern abrufen",
+          "label": "Währungsumrechnung"
+        },
         "launcher-global-calculator": {
           "description": "Zeige Rechner-Ergebnisse auch in der unpräfixierten Suche",
           "label": "Rechner in globaler Suche"
@@ -2228,6 +2250,10 @@
         "launcher-sort-by-usage": {
           "description": "Schiebe häufig verwendete Apps weiter nach oben und zeige einen Filter für die Kategorie „Zuletzt verwendet“",
           "label": "Nach Nutzung sortieren"
+        },
+        "list-item-background": {
+          "description": "Zeichne einen abgerundeten Hintergrund hinter jedem Launcher- und Zwischenablage-Listeneintrag",
+          "label": "Listeneintrag-Hintergrund"
         },
         "open-near-click-clipboard": {
           "description": "Platziere das Zwischenablage-Panel in der Nähe des Leisten-Widgets, das es geöffnet hat; andernfalls wird es zentriert",
@@ -2610,6 +2636,10 @@
           "description": "Zeichne einen Umriss um OSD-Popups",
           "label": "Rahmen"
         },
+        "osd-enabled": {
+          "description": "Hauptschalter für alle OSD-Popups; wenn deaktiviert, wird kein OSD angezeigt",
+          "label": "OSD aktivieren"
+        },
         "osd-kinds-bluetooth": {
           "description": "Zeige ein OSD-Popup, wenn Bluetooth umgeschaltet wird",
           "label": "Bluetooth"
@@ -2625,6 +2655,10 @@
         "osd-kinds-dnd": {
           "description": "Zeige ein OSD-Popup, wenn „Nicht stören“ umgeschaltet wird",
           "label": "Nicht stören"
+        },
+        "osd-kinds-keyboard-backlight": {
+          "description": "OSD-Popup anzeigen, wenn sich die Stufe der Tastaturbeleuchtung ändert",
+          "label": "Tastatur Beleuchtung"
         },
         "osd-kinds-keyboard-layout": {
           "description": "Zeige ein OSD-Popup, wenn sich das Tastaturlayout ändert",
@@ -2921,6 +2955,12 @@
         "ram": "RAM",
         "temp": "Temperatur"
       },
+      "map-placeholders": {
+        "effects-profile-name": "Profilname",
+        "glyph-name": "Symbolname",
+        "label": "Beschriftung",
+        "layout-name": "Layoutname"
+      },
       "options": {
         "always": "Immer",
         "auto": "Auto",
@@ -3094,9 +3134,17 @@
           "description": "Größe der Tray-Icons im Drawer-Panel in Pixeln",
           "label": "Drawer-Icongröße"
         },
+        "effects-profile-glyphs": {
+          "description": "Weise EasyEffects-Profilnamen Symbol-Glyphen zu",
+          "label": "Effektprofil-Symbole"
+        },
         "empty-color": {
           "description": "Farbe für leere Arbeitsbereiche; feste Hex-Farben werden ebenfalls unterstützt",
           "label": "Leer-Farbe"
+        },
+        "enable-scroll": {
+          "description": "Erlaube Mausrad- und Trackpad-Scrollaktionen auf diesem Widget",
+          "label": "Scrollen aktivieren"
         },
         "focused-color": {
           "description": "Farbe für den fokussierten Arbeitsbereich; feste Hex-Farben werden ebenfalls unterstützt",
@@ -3440,6 +3488,10 @@
         "type": {
           "description": "Integrierter Widget-Typ für dieses benannte Widget",
           "label": "Typ"
+        },
+        "urgent-color": {
+          "description": "Farbe für dringende Arbeitsbereiche; feste Hex-Farben werden ebenfalls unterstützt",
+          "label": "Dringend-Farbe"
         },
         "vertical-format": {
           "description": "Optionales Format für vertikale Leisten",

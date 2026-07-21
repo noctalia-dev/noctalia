@@ -2,9 +2,11 @@
 
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
+#include "ui/controls/color_swatch_preview.h"
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -20,10 +22,15 @@ struct ContextMenuControlEntry {
   std::string label;
   bool enabled = true;
   bool separator = false;
+  // Non-interactive group heading; entries below it read as members of the group.
+  bool header = false;
   bool hasSubmenu = false;
   bool checkmark = false;
   bool radio = false;
   std::int32_t toggleState = -1;
+  // Optional leading visual (dropdown-style rows): a small color dot, or a palette swatch strip.
+  std::optional<ColorSpec> indicatorColor;
+  ColorSwatchPreview swatchPreview;
   TextEllipsize ellipsize = TextEllipsize::End;
 };
 
@@ -51,6 +58,9 @@ public:
   [[nodiscard]] float preferredHeight() const;
   [[nodiscard]] static float
   preferredHeight(const std::vector<ContextMenuControlEntry>& entries, std::size_t maxVisible, float scale = 1.0f);
+  // Width that fits the widest entry without elision (label + toggle/submenu slots + padding).
+  [[nodiscard]] static float
+  preferredWidth(Renderer& renderer, const std::vector<ContextMenuControlEntry>& entries, float scale = 1.0f);
 
 private:
   struct RowVisual {

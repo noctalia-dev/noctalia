@@ -466,6 +466,9 @@ namespace greeter {
       IpcService& ipc, const ConfigService& config, std::function<std::string_view()> resolvedThemeMode,
       const CompositorPlatform* platform, std::function<bool()> logindOnSystemBus
   ) {
+    if (!appearanceSyncAvailable(config.config().shell.greeterSync)) {
+      return;
+    }
     ipc.registerHandler(
         "greeter-sync",
         [&config, resolvedThemeMode = std::move(resolvedThemeMode), platform,

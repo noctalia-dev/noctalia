@@ -72,7 +72,7 @@ bool LabwcWorkspaceBackend::sync() {
 
   std::unordered_map<std::uintptr_t, TrackedWindow> next;
   m_toplevelsProvider([&](const WlrToplevelSnapshot& toplevel) {
-    if (toplevel.handle == nullptr || toplevel.appId.empty()) {
+    if (toplevel.handle == nullptr) {
       return;
     }
 
@@ -151,7 +151,7 @@ std::vector<WorkspaceWindow> LabwcWorkspaceBackend::workspaceWindows(const std::
   result.reserve(m_windows.size());
   for (const auto& [handleKey, window] : m_windows) {
     (void)handleKey;
-    if (window.workspaceKey.empty() || window.appId.empty()) {
+    if (window.workspaceKey.empty()) {
       continue;
     }
     result.push_back(

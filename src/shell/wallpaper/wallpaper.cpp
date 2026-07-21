@@ -14,6 +14,7 @@
 #include "render/render_context.h"
 #include "shell/wallpaper/wallpaper_instance.h"
 #include "shell/wallpaper/wallpaper_paths.h"
+#include "theme/theme_service.h"
 #include "ui/controls/box.h"
 #include "ui/palette.h"
 #include "util/file_utils.h"
@@ -211,17 +212,7 @@ namespace {
   }
 
   bool lessCaseInsensitive(std::string_view a, std::string_view b) {
-    const std::size_t minLen = std::min(a.size(), b.size());
-    for (std::size_t i = 0; i < minLen; ++i) {
-      const auto ac = static_cast<unsigned char>(a[i]);
-      const auto bc = static_cast<unsigned char>(b[i]);
-      const auto alc = static_cast<unsigned char>(std::tolower(ac));
-      const auto blc = static_cast<unsigned char>(std::tolower(bc));
-      if (alc != blc) {
-        return alc < blc;
-      }
-    }
-    return a.size() < b.size();
+    return StringUtils::naturalCaseInsensitiveLess(a, b);
   }
 
   std::string pickAlphabeticalWallpaperPath(
@@ -481,12 +472,14 @@ void Wallpaper::onGpuResourcesInvalidated() {
 }
 
 bool Wallpaper::initialize(
-    WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext, SharedTextureCache* textureCache
+    WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext, SharedTextureCache* textureCache,
+    noctalia::theme::ThemeService* themeService
 ) {
   m_wayland = &wayland;
   m_config = config;
   m_renderContext = renderContext;
   m_textureCache = textureCache;
+  m_themeService = themeService;
 
   // Register reload callback unconditionally so toggling enabled in config works.
   m_config->addReloadCallback([this]() { reload(); }, "wallpaper");
@@ -692,6 +685,24 @@ void Wallpaper::applyResolvedWallpaper(const std::optional<std::string>& connect
     }
   }
   notifyKdePlasmaWallpaper(resolvedPath, connector.value_or(""), output);
+
+  if (const WallpaperFavorite* favorite = m_config->wallpaperFavorite(resolvedPath); favorite != nullptr) {
+    if (connector.has_value()) {
+      m_config->applyWallpaperSelection(connector, resolvedPath, favorite, {});
+      return;
+    }
+
+    std::vector<std::string> connectors;
+    if (m_wayland != nullptr) {
+      for (const auto& out : m_wayland->outputs()) {
+        if (!out.connectorName.empty()) {
+          connectors.push_back(out.connectorName);
+        }
+      }
+    }
+    m_config->applyWallpaperSelection(std::nullopt, resolvedPath, favorite, connectors);
+    return;
+  }
 
   if (connector.has_value()) {
     m_config->setWallpaperPath(connector, resolvedPath);
@@ -953,6 +964,12 @@ void Wallpaper::setAutomationGate(std::function<bool()> gate) { m_automationGate
 
 bool Wallpaper::automationAllowed() const noexcept { return !m_automationGate || m_automationGate(); }
 
+ThemeMode Wallpaper::directoryThemeMode() const noexcept {
+  const ThemeMode configured = m_config != nullptr ? m_config->config().theme.mode : ThemeMode::Dark;
+  const bool isLight = m_themeService != nullptr ? m_themeService->isLightMode() : configured == ThemeMode::Light;
+  return wallpaper::effectiveThemeMode(configured, isLight);
+}
+
 void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
   const auto& wallpaper = m_config->config().wallpaper;
   const auto& automation = wallpaper.automation;
@@ -961,7 +978,7 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
   }
 
   const auto& outputs = m_wayland->outputs();
-  const ThemeMode mode = m_config->config().theme.mode;
+  const ThemeMode mode = directoryThemeMode();
   bool attempted = false;
 
   ConfigService::WallpaperBatch batch(*m_config);
@@ -990,7 +1007,11 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
         continue;
       }
 
-      m_config->setWallpaperPath(output.connectorName, picked);
+      if (const WallpaperFavorite* favorite = m_config->wallpaperFavorite(picked); favorite != nullptr) {
+        m_config->applyWallpaperSelection(output.connectorName, picked, favorite, {});
+      } else {
+        m_config->setWallpaperPath(output.connectorName, picked);
+      }
       kLog.info("startup automation set {} → {}", output.connectorName, picked);
     }
   } else {
@@ -1013,15 +1034,28 @@ void Wallpaper::applyStartupAutomation(std::int64_t secondStamp) {
         const std::string currentDefault = m_config->getDefaultWallpaperPath();
         const std::string picked = pickAutomationWallpaperPath(automation, std::move(candidates), currentDefault);
         if (!picked.empty()) {
-          for (const auto& output : outputs) {
-            if (output.done
-                && !output.connectorName.empty()
-                && output.hasUsableGeometry()
-                && wallpaperOutputEnabled(wallpaper, output)) {
-              m_config->setWallpaperPath(output.connectorName, picked);
+          if (const WallpaperFavorite* favorite = m_config->wallpaperFavorite(picked); favorite != nullptr) {
+            std::vector<std::string> connectors;
+            for (const auto& output : outputs) {
+              if (output.done
+                  && !output.connectorName.empty()
+                  && output.hasUsableGeometry()
+                  && wallpaperOutputEnabled(wallpaper, output)) {
+                connectors.push_back(output.connectorName);
+              }
             }
+            m_config->applyWallpaperSelection(std::nullopt, picked, favorite, connectors);
+          } else {
+            for (const auto& output : outputs) {
+              if (output.done
+                  && !output.connectorName.empty()
+                  && output.hasUsableGeometry()
+                  && wallpaperOutputEnabled(wallpaper, output)) {
+                m_config->setWallpaperPath(output.connectorName, picked);
+              }
+            }
+            m_config->setWallpaperPath(std::nullopt, picked);
           }
-          m_config->setWallpaperPath(std::nullopt, picked);
           kLog.info("startup automation set all outputs → {}", picked);
         }
       }
@@ -1046,7 +1080,7 @@ void Wallpaper::runAutomation(std::int64_t secondStamp) {
     return;
   }
 
-  const ThemeMode mode = m_config->config().theme.mode;
+  const ThemeMode mode = directoryThemeMode();
 
   ConfigService::WallpaperBatch batch(*m_config);
 
@@ -1076,7 +1110,11 @@ void Wallpaper::runAutomation(std::int64_t secondStamp) {
       if (picked.empty() || picked == currentPath) {
         continue;
       }
-      m_config->setWallpaperPath(inst->connectorName, picked);
+      if (const WallpaperFavorite* favorite = m_config->wallpaperFavorite(picked); favorite != nullptr) {
+        m_config->applyWallpaperSelection(inst->connectorName, picked, favorite, {});
+      } else {
+        m_config->setWallpaperPath(inst->connectorName, picked);
+      }
       kLog.info("automation set {} → {}", inst->connectorName, picked);
     }
   } else {
@@ -1087,12 +1125,23 @@ void Wallpaper::runAutomation(std::int64_t secondStamp) {
       const std::string currentDefault = m_config->getDefaultWallpaperPath();
       const std::string picked = pickAutomationWallpaperPath(automation, std::move(candidates), currentDefault);
       if (!picked.empty()) {
-        for (const auto& inst : m_instances) {
-          if (!inst->connectorName.empty()) {
-            m_config->setWallpaperPath(inst->connectorName, picked);
+        if (const WallpaperFavorite* favorite = m_config->wallpaperFavorite(picked); favorite != nullptr) {
+          std::vector<std::string> connectors;
+          connectors.reserve(m_instances.size());
+          for (const auto& inst : m_instances) {
+            if (!inst->connectorName.empty()) {
+              connectors.push_back(inst->connectorName);
+            }
           }
+          m_config->applyWallpaperSelection(std::nullopt, picked, favorite, connectors);
+        } else {
+          for (const auto& inst : m_instances) {
+            if (!inst->connectorName.empty()) {
+              m_config->setWallpaperPath(inst->connectorName, picked);
+            }
+          }
+          m_config->setWallpaperPath(std::nullopt, picked);
         }
-        m_config->setWallpaperPath(std::nullopt, picked);
         kLog.info("automation set all outputs → {}", picked);
       }
     }
@@ -1106,9 +1155,7 @@ Wallpaper::SwitchOutcome Wallpaper::switchWallpaperTo(PickWallpaper action, std:
   }
 
   const auto& wallpaper = m_config->config().wallpaper;
-  const ThemeMode mode = wallpaper.perMonitorDirectories
-      ? (m_config->config().theme.mode == ThemeMode::Light ? ThemeMode::Light : ThemeMode::Dark)
-      : ThemeMode::Dark;
+  const ThemeMode mode = directoryThemeMode();
 
   const auto pick = [action](std::vector<std::string> candidates, const std::string& currentPath) -> std::string {
     switch (action) {

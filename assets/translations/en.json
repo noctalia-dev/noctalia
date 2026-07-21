@@ -76,6 +76,7 @@
         "signal": "Signal",
         "upload": "Upload",
         "vpn": "VPN",
+        "wan-ip": "WAN IP",
         "wifi": "Wi-Fi",
         "wired": "Wired",
         "yes": "Yes"
@@ -236,7 +237,7 @@
       },
       "select-avatar": "Select Avatar",
       "unknown": "unknown",
-      "uptime": "Uptime - {uptime}",
+      "uptime": "Uptime – {uptime}",
       "weather": {
         "data-unavailable": "Weather data unavailable.",
         "disabled": "Weather is disabled in config.",
@@ -323,7 +324,7 @@
       "mic-mute": "Microphone",
       "nightlight": "Night Light",
       "nightlight-states": {
-        "forced": "Always on",
+        "forced": "Always On",
         "off": "Night Light",
         "scheduled-day": "Scheduled",
         "scheduled-night": "Running"
@@ -675,7 +676,7 @@
     },
     "internal": {
       "battery": "Battery",
-      "battery-critical-body": "{device}: {percent}% - your computer will shut down soon",
+      "battery-critical-body": "{device}: {percent}% – your computer will shut down soon",
       "battery-critical-title": "Battery critically low",
       "battery-device": "Battery device",
       "battery-low-body": "{device}: {percent}% remaining",
@@ -795,8 +796,8 @@
         "health": "Health",
         "rate": "Rate",
         "status": "Status",
-        "time-left": "Time left",
-        "time-to-full": "Time to full",
+        "time-left": "Time Left",
+        "time-to-full": "Time to Full",
         "unknown-device": "Unknown Device"
       }
     },
@@ -836,6 +837,7 @@
     },
     "calendar-accounts": {
       "add-title": "Add Calendar Account",
+      "calendars-label": "Calendars",
       "color-label": "Color",
       "delete-error": "Could not delete calendar account.",
       "edit-title": "Edit Calendar Account",
@@ -1089,6 +1091,7 @@
         "background": "Background",
         "battery": "Battery",
         "behavior": "Behavior",
+        "borders": "Borders",
         "brightness": "Brightness",
         "built-in": "Built-In",
         "calendar": "Calendar",
@@ -1438,6 +1441,8 @@
         "open-source": "Open plugin source repository",
         "results-count": "{count} plugins",
         "search-placeholder": "Search plugins…",
+        "source-all": "All",
+        "sources": "Sources",
         "title": "Plugin Store"
       }
     },
@@ -1502,6 +1507,10 @@
         "global-shadow-direction": {
           "description": "Direction the shadow is cast from surfaces"
         },
+        "input-borders": {
+          "description": "Draw outlines around text fields and other inputs throughout the shell",
+          "label": "Input Borders"
+        },
         "language": {
           "description": "Override automatic locale detection",
           "label": "Language"
@@ -1509,6 +1518,14 @@
         "palette-source": {
           "description": "Where to derive the color palette from",
           "label": "Palette Source"
+        },
+        "popup-borders": {
+          "description": "Draw outlines around popups and dropdowns",
+          "label": "Popup Borders"
+        },
+        "popup-shadows": {
+          "description": "Draw drop shadows behind popups and dropdowns",
+          "label": "Popup Shadows"
         },
         "pure-black-dark": {
           "description": "Anchor dark surfaces to true black, preventing banding on OLED panels (dark mode only)",
@@ -1731,6 +1748,10 @@
         "hot-corners-enabled": {
           "description": "Trigger actions by pushing the mouse pointer into screen corners",
           "label": "Hot Corners"
+        },
+        "hot-corners-delay-ms": {
+          "description": "How long the pointer must stay in a corner before the action runs (0 = immediate)",
+          "label": "Activation Delay"
         },
         "hot-corners-top-left": {
           "description": "Action when the pointer hits the top left corner",
@@ -2234,6 +2255,10 @@
           "description": "Boost frequently used apps toward the top and show a Recently Used category filter",
           "label": "Sort by Usage"
         },
+        "list-item-background": {
+          "description": "Draw a rounded background behind each launcher and clipboard list item",
+          "label": "List Item Background"
+        },
         "open-near-click-clipboard": {
           "description": "Position the clipboard panel near the bar widget that opened it; openings without a bar trigger are centered",
           "label": "Along Bar"
@@ -2615,6 +2640,10 @@
           "description": "Draw an outline around OSD popups",
           "label": "Border"
         },
+        "osd-enabled": {
+          "description": "Master switch for all OSD popups; when off no OSD is shown",
+          "label": "Enable OSD"
+        },
         "osd-kinds-bluetooth": {
           "description": "Show an OSD popup when Bluetooth is toggled",
           "label": "Bluetooth"
@@ -2630,6 +2659,10 @@
         "osd-kinds-dnd": {
           "description": "Show an OSD popup when Do Not Disturb is toggled",
           "label": "Do Not Disturb"
+        },
+        "osd-kinds-keyboard-backlight": {
+          "description": "Show an OSD popup when the keyboard backlight level changes",
+          "label": "Keyboard Backlight"
         },
         "osd-kinds-keyboard-layout": {
           "description": "Show an OSD popup when the input keyboard layout changes",
@@ -2650,10 +2683,6 @@
         "osd-kinds-power-profile": {
           "description": "Show an OSD popup when the power profile changes",
           "label": "Power Profile"
-        },
-        "osd-kinds-keyboard-backlight": {
-          "description": "Show an OSD popup when the keyboard backlight level changes",
-          "label": "Keyboard Backlight"
         },
         "osd-kinds-privacy": {
           "description": "Show an OSD popup when microphone, camera, or screen-share capture starts or stops",
@@ -2752,6 +2781,10 @@
         "screenshot-freeze-screen": {
           "description": "Capture the desktop before region selection so moving content stays still",
           "label": "Freeze Screen"
+        },
+        "screenshot-show-cursor": {
+          "description": "Include the mouse pointer in screenshots",
+          "label": "Show Cursor"
         },
         "screenshot-pipe-command": {
           "description": "Command run as /bin/sh -lc with the PNG on stdin; for annotators or uploaders (for example: swappy -f - or satty -f -)",
@@ -2930,6 +2963,14 @@
         "ram": "RAM",
         "temp": "Temperature"
       },
+      "map-placeholders": {
+        "effects-profile-name": "Profile name",
+        "glyph-name": "Glyph name",
+        "key": "Key",
+        "label": "Label",
+        "layout-name": "Layout name",
+        "value": "Value"
+      },
       "options": {
         "always": "Always",
         "auto": "Auto",
@@ -2998,6 +3039,10 @@
         "art-size": {
           "description": "Media artwork size in pixels",
           "label": "Art Size"
+        },
+        "artist-first": {
+          "description": "Show the artist before the track title (Artist - Title)",
+          "label": "Artist First"
         },
         "bands": {
           "description": "Number of visualizer bands",
@@ -3102,6 +3147,10 @@
         "drawer-item-size": {
           "description": "Size of tray icons inside the drawer panel in pixels",
           "label": "Drawer Icon Size"
+        },
+        "effects-profile-glyphs": {
+          "description": "Map EasyEffects profile names to icon glyphs",
+          "label": "Effects Profile Glyphs"
         },
         "empty-color": {
           "description": "Color role used for empty workspaces; fixed hex colors are also supported",
@@ -3434,6 +3483,10 @@
           "description": "Total width budget in pixels; window titles shrink to fit and hide when too narrow",
           "label": "Taskbar Max Width"
         },
+        "text": {
+          "description": "Text shown on the bar",
+          "label": "Text"
+        },
         "timezone": {
           "description": "Timezone identifier (e.g. Europe/Berlin) to use for this clock; leave empty to use system local time",
           "label": "Timezone"
@@ -3511,6 +3564,7 @@
         "sysmon": "System Monitor",
         "taskbar": "Taskbar",
         "test": "Test",
+        "text": "Text",
         "theme-mode": "Theme Mode",
         "tray": "Tray",
         "volume": "Volume",

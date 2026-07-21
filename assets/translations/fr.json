@@ -182,6 +182,7 @@
     },
     "bluetooth": {
       "accept": "Accepter",
+      "address": "Adresse",
       "auto-reconnect": "Reconnexion auto",
       "bluetooth": "Bluetooth",
       "enter-code": "Entrer le code",
@@ -445,6 +446,7 @@
         "bands": "Bandes",
         "bar-width": "Épaisseur de la barre",
         "bloom-intensity": "Halo lumineux",
+        "center-password-text": "Centrer le texte du mot de passe",
         "center-text": "Centrer le texte",
         "centered": "Centré",
         "change-image": "Changer...",
@@ -496,9 +498,12 @@
         "secondary-color": "Couleur secondaire",
         "sensitivity": "Sensibilité",
         "shadow": "Ombre",
+        "show-caps-lock": "Avertissement de verrouillage des majuscules",
         "show-forecast": "Afficher la prévision",
+        "show-keyboard-layout": "Disposition du clavier",
         "show-label": "Afficher l’étiquette",
         "show-login-button": "Bouton de connexion",
+        "show-password-hint": "Indice du mot de passe",
         "show-when-idle": "Afficher si inactif",
         "stat": "Stat",
         "stat-cpu-temp": "Temp CPU",
@@ -920,6 +925,7 @@
           "fill-description": "Rôle de couleur d’arrière-plan de capsule ; les couleurs hex fixes sont également prises en charge",
           "foreground": "Premier plan",
           "foreground-description": "Rôle de couleur des icônes et des libellés pour les widgets de ce groupe",
+          "hide": "Cacher ce groupe",
           "hide-widget": "Cacher ce widget",
           "hint": "Fait partie d’un groupe de capsules",
           "members": "{count} widgets",
@@ -931,6 +937,8 @@
           "radius": "Rayon",
           "radius-description": "Rayon des coins de la capsule en pixels ; Auto hérite du rayon de capsule de la barre",
           "selected": "{count} sélectionné(s)",
+          "show": "Montrer ce groupe",
+          "show-widget": "Montrer ce widget",
           "style": "Style",
           "title": "Groupe de capsules",
           "ungroup": "Dégrouper"
@@ -976,6 +984,7 @@
             "presentation": "Présentation",
             "runtime": "Exécution",
             "taskbar": {
+              "grouping": "Grouper",
               "windows": "Fenêtres"
             },
             "widget": "Widget",
@@ -1064,6 +1073,7 @@
         "background": "Arrière-plan",
         "battery": "Batterie",
         "behavior": "Comportement",
+        "borders": "Bordures",
         "brightness": "Luminosité",
         "built-in": "Intégré",
         "calendar": "Calendrier",
@@ -1133,6 +1143,7 @@
         "dock": "Dock",
         "hooks": "Hooks",
         "keybinds": "Raccourcis",
+        "launcher": "Lanceur",
         "location": "Localisation",
         "niri": "Niri",
         "notifications": "Notifications",
@@ -1174,6 +1185,13 @@
       }
     },
     "options": {
+      "bar": {
+        "auto-hide": {
+          "off": "Désactivé",
+          "on": "Activé",
+          "smart": "Intelligent"
+        }
+      },
       "clipboard": {
         "auto-paste": {
           "ctrl-shift-v": "Ctrl+Shift+V",
@@ -1215,8 +1233,10 @@
         "ultra-light": "Ultra-léger"
       },
       "hot-corners": {
+        "command": "Executer la commande",
         "control-center": "Centre de contrôle ",
         "launcher": "Lanceur",
+        "none": "Aucune",
         "window-switcher": "Changeur de fenêtres"
       },
       "layer": {
@@ -1338,13 +1358,20 @@
       },
       "plugins": {
         "configure": "Configurer",
+        "delete": "Supprimer",
+        "delete-confirm-desc": "Ce plugin va etre désinstallé et supprimé du disque.",
         "delete-confirm-title": "Supprimer \"{name}\"?",
         "deprecated": "Déprécié",
         "empty": "Aucun plugin trouvé. Ajoutez une source ou vérifiez votre connexion.",
+        "incompatible-plugin-api": "API du plugin incompatible",
         "loading": "Chargement des plugins…",
         "refreshing": "Actualisation des plugins…",
+        "remove": "Enlever le plugin",
         "requires": "A besoins de : {dependencies}",
-        "title": "Plugins"
+        "title": "Plugins",
+        "update-all": "Tout mettre à jour ({count})",
+        "update-available": "mise à jour disponible",
+        "update-to": "mettre à jour à {version}"
       },
       "settings": {
         "empty": "Aucun paramètre disponible."
@@ -1352,6 +1379,8 @@
       "sources": {
         "add": "Ajouter une source",
         "add-title": "Ajouter une source de plugins",
+        "auto-update": "Mise à jour automatique des plugins",
+        "auto-update-desc": "Vérifier en arrière-plan les sources activées pour les nouvelles versions et maintenir à jour les plugins installés.",
         "edit": "Éditer la source",
         "edit-title": "Éditer la source du plugin",
         "empty": "Aucune source configurée.",
@@ -1384,8 +1413,12 @@
         "incompatible": "Incompatible",
         "loading": "Chargement du catalogue...",
         "no-readme": "Pas de description disponible...",
+        "open-page": "Ouvrir la page du plugin sur noctalia.dev",
+        "open-source": "Ouvrir le dépôt source du plugin",
         "results-count": "{count} plugins",
         "search-placeholder": "Recherche plugins...",
+        "source-all": "Tout",
+        "sources": "Sources",
         "title": "Plugin Store"
       }
     },
@@ -1456,6 +1489,9 @@
         "palette-source": {
           "description": "Source de génération de la palette de couleurs",
           "label": "Source de la palette"
+        },
+        "pure-black-dark": {
+          "label": "Noir Pur"
         },
         "theme-mode": {
           "description": "Choisir sombre, clair ou automatique selon l’heure de la journée",
@@ -2091,6 +2127,9 @@
           "description": "Utilise des icônes plus petites et des lignes de résultats plus compactes",
           "label": "Lignes compactes"
         },
+        "launcher-prefix-session": {
+          "description": "Préfixe déclencheur pour les actions du menu d'alimentation"
+        },
         "launcher-reset-usage": {
           "button": "Réinitialiser",
           "description": "Efface les compteurs de lancement et l’historique des éléments récemment utilisés utilisés pour le tri du lanceur",
@@ -2107,6 +2146,9 @@
         "launcher-sort-by-usage": {
           "description": "Remonte les applications fréquemment utilisées en haut de la liste et affiche un filtre “Récemment utilisés”",
           "label": "Trier par utilisation"
+        },
+        "list-item-background": {
+          "description": "Dessiner un fond arrondi derrière chaque élément du lanceur et du presse-papiers"
         },
         "open-near-click-clipboard": {
           "description": "Positionne le panneau du presse-papiers près du point de clic sur la barre au lieu de le centrer sur celle-ci",
@@ -2188,6 +2230,14 @@
         "session-actions": {
           "description": "Définit les entrées du menu d’alimentation, leur ordre, les commandes personnalisées et les icônes",
           "label": "Entrées"
+        },
+        "session-grid": {
+          "description": "Affiche les actions du menu d'alimentation dans la disposition en grille",
+          "label": "Disposition en grille"
+        },
+        "session-grid-columns": {
+          "description": "Nombre de colonnes de la disposition en grille",
+          "label": "Colonnes"
         }
       },
       "services": {
@@ -2469,6 +2519,13 @@
           "description": "Opacité de l’arrière-plan des notifications OSD",
           "label": "Opacité de l'arrière-plan"
         },
+        "osd-border": {
+          "label": "Bordure"
+        },
+        "osd-enabled": {
+          "description": "Interrupteur global pour toutes les notifications OSD, aucun OSD n'est affiché lorsqu'il est désactivé",
+          "label": "Activer l'OSD"
+        },
         "osd-kinds-bluetooth": {
           "description": "Affiche une notification OSD lors de l’activation ou de la désactivation du Bluetooth",
           "label": "Bluetooth"
@@ -2484,6 +2541,10 @@
         "osd-kinds-dnd": {
           "description": "Affiche une notification OSD lors de l’activation ou de la désactivation du mode Ne Pas Déranger",
           "label": "Ne Pas Déranger"
+        },
+        "osd-kinds-keyboard-backlight": {
+          "description": "Affiche une notification OSD lorsque le niveau de rétroéclairage du clavier change",
+          "label": "Rétroéclairage du clavier"
         },
         "osd-kinds-keyboard-layout": {
           "description": "Affiche une notification OSD lors d’un changement de disposition du clavier",

@@ -1,0 +1,86 @@
+/******************** BEGIN PYWALFOX CUSTOM CSS ********************/
+#main-window {
+  --pywalfox-font-size: 13px;
+  --pywalfox-font-size-sm: calc(var(--pywalfox-font-size) * 0.9);
+  --pywalfox-background: var(--lwt-accent-color);
+  --pywalfox-background-light: var(--arrowpanel-background);
+  --pywalfox-text: var(--arrowpanel-color);
+  --pywalfox-text-focus: var(--toolbar-color);
+  --pywalfox-unselected-tab-opacity: 0.8;
+  --pywalfox-darker-background: rgba(0, 0, 0, 0.4);
+  --pywalfox-padding: 4px 8px;
+  font-size: var(--pywalfox-font-size) !important;
+}
+
+/* Disable default appearance of certain elements to be able to override shadow DOM attributes */
+menupopup, menuseparator, button, search-textbox {
+  -moz-appearance: none !important;
+}
+
+/* Override the default appearance of buttons and textboxes to match the pywalfox theme */
+button, search-textbox, menuseparator {
+  background-color: var(--pywalfox-darker-background) !important;
+}
+
+/* Background color on hover in right-click context menus */
+menu[_moz-menuactive="true"], menuitem[_moz-menuactive="true"] {
+  -moz-appearance: none !important;
+  background-color: var(--pywalfox-background) !important;
+  color: var(--pywalfox-text-focus) !important;
+  padding: 4px 4px !important;
+}
+
+/* Separators in dropwdown menus */
+menuseparator {
+  height: 1px;
+}
+
+/* Elements where we set appearance to none, we need to set padding manually */
+notification, button, search-textbox {
+  padding: var(--pywalfox-padding) !important;
+}
+
+/* Fix background color of elements that can not be targeted via the Theme API */
+notification, menupopup {
+  background: var(--pywalfox-background-light) !important;
+  color: var(--pywalfox-text) !important;
+}
+
+/* Apply bold text to elements */
+textbox, panelview, .tabbrowser-tab, #sidebar-header,
+.findbar-container, toolbar[overflowable] > .customization-target {
+  font-weight: bold !important;
+}
+
+/* Decrease opacity of unselected tabs to match the default Firefox theme */
+.tabbrowser-tab:not([visuallyselected="true"]) {
+  opacity: var(--pywalfox-unselected-tab-opacity) !important;
+}
+
+/* Hide unnecessary borders */
+.sidebar-splitter, notification {
+  border: 0px !important;
+}
+
+/* Change the background color of the resize splitter on the right side of the sidebar */
+.sidebar-splitter {
+  background-color: transparent !important;
+}
+
+/* Smaller font size in panel dropdown menus */
+panelmultiview {
+  font-size: var(--pywalfox-font-size-sm) !important;
+}
+
+/* Change the grey background color seen e.g. when opening a bookmark in a newtab */
+#tabbrowser-tabpanels {
+  background-color: var(--pywalfox-background) !important;
+}
+
+/* Theme the status panel at the bottom */
+#statuspanel-label {
+  background: var(--pywalfox-background-light) !important;
+  border-color: var(--pywalfox-background) !important;
+  color: var(--pywalfox-text) !important;
+}
+/********************* END PYWALFOX CUSTOM CSS *********************/

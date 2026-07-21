@@ -2212,7 +2212,7 @@ bool DesktopWidgetsEditor::onPointerEvent(const PointerEvent& event) {
       if (s->selectPopup->onPointerEvent(event)) {
         return true;
       }
-      if (event.type == PointerEvent::Type::Button && event.state == 1) {
+      if (event.type == PointerEvent::Type::Button && event.pressed) {
         s->selectPopup->closeSelectDropdown();
         return true;
       }
@@ -2248,9 +2248,9 @@ bool DesktopWidgetsEditor::onPointerEvent(const PointerEvent& event) {
     break;
   case PointerEvent::Type::Button:
     surface->inputDispatcher.pointerButton(
-        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, event.state == 1
+        static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, event.pressed
     );
-    if (event.state == 0 && m_drag.mode != DragMode::None && event.button == BTN_LEFT) {
+    if (!event.pressed && m_drag.mode != DragMode::None && event.button == BTN_LEFT) {
       finishDrag();
     }
     break;

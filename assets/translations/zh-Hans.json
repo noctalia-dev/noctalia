@@ -182,6 +182,7 @@
     },
     "bluetooth": {
       "accept": "接受",
+      "address": "地址",
       "auto-reconnect": "自动重连",
       "bluetooth": "蓝牙",
       "enter-code": "输入配对码",
@@ -835,6 +836,7 @@
     },
     "calendar-accounts": {
       "add-title": "添加日历账户",
+      "calendars-label": "日历",
       "color-label": "颜色",
       "delete-error": "无法删除日历账户。",
       "edit-title": "编辑日历账户",
@@ -920,7 +922,7 @@
         "group": {
           "action": "组合",
           "border": "边框",
-          "border-description": "将颜色应用于胶囊轮廓；保持“默认”则不显示轮廓",
+          "border-description": "将颜色应用于胶囊轮廓；保持“默认”时不显示轮廓",
           "clear": "清除",
           "drawer-columns": "抽屉列数",
           "drawer-columns-description": "抽屉面板中每行显示的小组件数量",
@@ -934,7 +936,7 @@
           "drawer-glyph-opened-description": "面板打开时显示在抽屉切换按钮上的图标",
           "edit": "编辑样式",
           "fill": "背景",
-          "fill-description": "胶囊背景的颜色；也支持固定的十六进制颜色值",
+          "fill-description": "胶囊背景的颜色；支持固定的十六进制颜色值",
           "foreground": "前景",
           "foreground-description": "将颜色应用于组内小组件图标和标签",
           "hide": "隐藏此组合",
@@ -1088,6 +1090,7 @@
         "background": "背景",
         "battery": "电池",
         "behavior": "行为",
+        "borders": "边框",
         "brightness": "亮度",
         "built-in": "内置",
         "calendar": "日历",
@@ -1469,7 +1472,7 @@
           "label": "内置配色方案"
         },
         "button-borders": {
-          "description": "为 Shell 中的所有按钮绘制轮廓",
+          "description": "为 Shell 的所有按钮绘制轮廓",
           "label": "按钮边框"
         },
         "community-palette": {
@@ -1501,6 +1504,10 @@
         "global-shadow-direction": {
           "description": "表面投射阴影的方向"
         },
+        "input-borders": {
+          "description": "为 Shell 的文本输入框及其他输入控件绘制轮廓",
+          "label": "输入框边框"
+        },
         "language": {
           "description": "覆盖自动检测的语言设置",
           "label": "语言"
@@ -1508,6 +1515,14 @@
         "palette-source": {
           "description": "选择配色方案的来源",
           "label": "配色方案来源"
+        },
+        "popup-borders": {
+          "description": "为弹窗和下拉菜单绘制轮廓",
+          "label": "弹出层边框"
+        },
+        "popup-shadows": {
+          "description": "为弹窗和下拉菜单绘制阴影",
+          "label": "弹出层阴影"
         },
         "pure-black-dark": {
           "description": "将深色界面固定为纯黑色，避免 OLED 屏幕出现色带（仅限深色模式）",
@@ -1547,7 +1562,7 @@
           "description": "状态栏的背景不透明度"
         },
         "border": {
-          "description": "状态栏轮廓的颜色；也支持固定的十六进制颜色值",
+          "description": "状态栏轮廓的颜色；支持固定的十六进制颜色值",
           "label": "边框"
         },
         "border-width": {
@@ -1555,15 +1570,15 @@
           "label": "边框宽度"
         },
         "capsule-border": {
-          "description": "胶囊轮廓的默认颜色；也支持固定的十六进制颜色值",
+          "description": "胶囊轮廓的默认颜色；支持固定的十六进制颜色值",
           "label": "胶囊边框"
         },
         "capsule-fill": {
-          "description": "胶囊背景的默认颜色；也支持固定的十六进制颜色值",
+          "description": "胶囊背景的默认颜色；支持固定的十六进制颜色值",
           "label": "胶囊填充"
         },
         "capsule-foreground": {
-          "description": "胶囊内部图标和标签的默认颜色；也支持固定的十六进制颜色值",
+          "description": "胶囊内部图标和标签的默认颜色；支持固定的十六进制颜色值",
           "label": "胶囊前景"
         },
         "capsule-opacity": {
@@ -1575,7 +1590,7 @@
           "label": "胶囊内边距"
         },
         "capsule-radius": {
-          "description": "小组件胶囊、工作区胶囊和任务栏工作区组的默认圆角半径。留空将自动应用胶囊形状，设为 0 时显示为直角",
+          "description": "小组件胶囊、工作区胶囊和任务栏工作区组的默认圆角半径；设为 0 时显示为直角",
           "label": "胶囊圆角半径"
         },
         "capsule-thickness": {
@@ -1698,11 +1713,11 @@
           "label": "小组件胶囊"
         },
         "widget-color": {
-          "description": "状态栏上小组件图标和标签的默认颜色；也支持固定的十六进制颜色值",
+          "description": "状态栏上小组件图标和标签的默认颜色；支持固定的十六进制颜色值",
           "label": "小组件颜色"
         },
         "widget-icon-color": {
-          "description": "覆盖状态栏上小组件图标的颜色；也支持固定的十六进制颜色值",
+          "description": "覆盖状态栏上小组件图标的颜色；支持固定的十六进制颜色值",
           "label": "小组件图标颜色"
         },
         "widget-spacing": {
@@ -1785,7 +1800,7 @@
           "description": "Dock 的背景不透明度"
         },
         "border": {
-          "description": "Dock 轮廓的颜色；也支持固定的十六进制颜色值",
+          "description": "Dock 轮廓的颜色；支持固定的十六进制颜色值",
           "label": "边框"
         },
         "border-width": {
@@ -2020,7 +2035,7 @@
       },
       "lockscreen": {
         "allow-empty-password": {
-          "description": "允许按下 Enter 键提交空密码；适用于安全密钥或无密码 PAM 验证；保持关闭可避免误操作导致锁屏问题",
+          "description": "允许按下 Enter 键提交空密码（适用于安全密钥或无密码 PAM 验证；保持关闭可避免误操作导致锁屏问题）",
           "label": "允许空密码提交"
         },
         "blur-intensity": {
@@ -2075,7 +2090,7 @@
           "description": "仍显示来自黑名单发送方的重要通知"
         },
         "border": {
-          "description": "在 Toast 通知周围绘制轮廓",
+          "description": "为 Toast 通知绘制轮廓",
           "label": "边框"
         },
         "collapse-on-dismiss": {
@@ -2168,6 +2183,10 @@
           "description": "使用更小的图标和更紧凑的结果行",
           "label": "紧凑行"
         },
+        "launcher-currency-exchange": {
+          "description": "从第三方在线来源获取汇率",
+          "label": "货币汇率换算"
+        },
         "launcher-global-calculator": {
           "description": "在无前缀搜索中显示计算器",
           "label": "全局搜索中的计算器"
@@ -2228,6 +2247,10 @@
         "launcher-sort-by-usage": {
           "description": "优先显示常用应用，并显示“最近使用”类别筛选器",
           "label": "按使用情况排序"
+        },
+        "list-item-background": {
+          "description": "为每个启动器和剪贴板列表项绘制填充圆角背景",
+          "label": "列表项背景"
         },
         "open-near-click-clipboard": {
           "description": "从状态栏打开剪贴板面板时，将其显示在小组件附近；其他方式打开时居中显示",
@@ -2586,7 +2609,7 @@
           "label": "作为 systemd 服务启动应用"
         },
         "launch-apps-custom-command": {
-          "description": "应用启动器使用的自定义命令，其中 $CMD 会被替换为原命令",
+          "description": "应用启动器使用的自定义命令；$CMD 会被替换为原命令",
           "label": "自定义启动器命令",
           "placeholder": "$CMD"
         },
@@ -2607,8 +2630,12 @@
           "label": "背景不透明度"
         },
         "osd-border": {
-          "description": "在 OSD 弹窗周围绘制轮廓",
+          "description": "为 OSD 弹窗绘制轮廓",
           "label": "边框"
+        },
+        "osd-enabled": {
+          "description": "所有 OSD 弹窗的总开关；关闭后不显示任何 OSD",
+          "label": "启用 OSD"
         },
         "osd-kinds-bluetooth": {
           "description": "切换蓝牙时显示 OSD 弹窗",
@@ -2625,6 +2652,10 @@
         "osd-kinds-dnd": {
           "description": "切换勿扰模式时显示 OSD 弹窗",
           "label": "勿扰模式"
+        },
+        "osd-kinds-keyboard-backlight": {
+          "description": "键盘背光亮度变化时显示 OSD 弹窗",
+          "label": "键盘背光"
         },
         "osd-kinds-keyboard-layout": {
           "description": "输入键盘布局变化时显示 OSD 弹窗",
@@ -2921,6 +2952,12 @@
         "ram": "内存",
         "temp": "温度"
       },
+      "map-placeholders": {
+        "effects-profile-name": "配置名称",
+        "glyph-name": "图标名称",
+        "label": "标签",
+        "layout-name": "布局名称"
+      },
       "options": {
         "always": "始终",
         "auto": "自动",
@@ -2966,7 +3003,7 @@
       },
       "settings": {
         "active-color": {
-          "description": "隐私指示器活动时的颜色；也支持固定的十六进制颜色值",
+          "description": "隐私指示器活动时的颜色；支持固定的十六进制颜色值",
           "label": "活动颜色"
         },
         "active-opacity": {
@@ -3003,15 +3040,15 @@
           "label": "胶囊"
         },
         "capsule-border": {
-          "description": "胶囊轮廓的颜色；也支持固定的十六进制颜色值",
+          "description": "胶囊轮廓的颜色；支持固定的十六进制颜色值",
           "label": "胶囊边框"
         },
         "capsule-fill": {
-          "description": "胶囊背景的颜色；也支持固定的十六进制颜色值",
+          "description": "胶囊背景的颜色；支持固定的十六进制颜色值",
           "label": "胶囊填充"
         },
         "capsule-foreground": {
-          "description": "胶囊内容的颜色；也支持固定的十六进制颜色值",
+          "description": "胶囊内容的颜色；支持固定的十六进制颜色值",
           "label": "胶囊前景"
         },
         "capsule-opacity": {
@@ -3023,17 +3060,17 @@
           "label": "胶囊内边距"
         },
         "capsule-radius": {
-          "description": "小组件胶囊的圆角半径；留空自动，0 为直角",
+          "description": "小组件胶囊的圆角半径；设为 0 时显示为直角",
           "label": "胶囊圆角半径",
-          "taskbar-description": "小组件胶囊、工作区圆点指示器和工作区分组胶囊的圆角半径；留空自动，0 为直角",
-          "workspaces-description": "小组件胶囊和工作区胶囊的圆角半径；留空自动，0 为直角"
+          "taskbar-description": "小组件胶囊、工作区圆点指示器和工作区分组胶囊的圆角半径；设为 0 时显示为直角",
+          "workspaces-description": "小组件胶囊和工作区胶囊的圆角半径；设为 0 时显示为直角"
         },
         "centered": {
           "description": "居中显示可视化条，而非边缘对齐",
           "label": "居中"
         },
         "color": {
-          "description": "小组件图标和标签的颜色；也支持固定的十六进制颜色值",
+          "description": "小组件图标和标签的颜色；支持固定的十六进制颜色值",
           "label": "颜色"
         },
         "color-1": {
@@ -3094,12 +3131,20 @@
           "description": "抽屉面板中托盘图标的大小（像素）",
           "label": "抽屉图标大小"
         },
+        "effects-profile-glyphs": {
+          "description": "将 EasyEffects 配置名称映射到图标",
+          "label": "音效配置图标"
+        },
         "empty-color": {
-          "description": "空工作区的颜色；也支持固定的十六进制颜色值",
+          "description": "空工作区的颜色；支持固定的十六进制颜色值",
           "label": "空工作区颜色"
         },
+        "enable-scroll": {
+          "description": "允许在小组件上使用鼠标滚轮和触控板滚动操作",
+          "label": "启用滚动"
+        },
         "focused-color": {
-          "description": "焦点工作区的颜色；也支持固定的十六进制颜色值",
+          "description": "焦点工作区的颜色；支持固定的十六进制颜色值",
           "label": "焦点工作区颜色"
         },
         "focused-output-only": {
@@ -3200,7 +3245,7 @@
           "label": "热重载"
         },
         "icon-color": {
-          "description": "仅覆盖小组件图标的颜色；也支持固定的十六进制颜色值",
+          "description": "仅覆盖小组件图标的颜色；支持固定的十六进制颜色值",
           "label": "图标颜色"
         },
         "icon-size": {
@@ -3212,7 +3257,7 @@
           "label": "图标间距"
         },
         "inactive-color": {
-          "description": "隐私指示器未活动时的颜色；也支持固定的十六进制颜色值",
+          "description": "隐私指示器未活动时的颜色；支持固定的十六进制颜色值",
           "label": "未活动颜色"
         },
         "inactive-opacity": {
@@ -3284,7 +3329,7 @@
           "label": "镜像"
         },
         "mute-color": {
-          "description": "静音时图标和标签的颜色；也支持固定的十六进制颜色值",
+          "description": "静音时图标和标签的颜色；支持固定的十六进制颜色值",
           "label": "静音颜色"
         },
         "mute-glyph": {
@@ -3300,7 +3345,7 @@
           "label": "网速单位"
         },
         "occupied-color": {
-          "description": "非空工作区的颜色；也支持固定的十六进制颜色值",
+          "description": "非空工作区的颜色；支持固定的十六进制颜色值",
           "label": "非空工作区颜色"
         },
         "only-active-workspace": {
@@ -3440,6 +3485,10 @@
         "type": {
           "description": "具名小组件的内置类型",
           "label": "类型"
+        },
+        "urgent-color": {
+          "description": "紧急工作区的颜色；支持固定的十六进制颜色值",
+          "label": "紧急工作区颜色"
         },
         "vertical-format": {
           "description": "可选的垂直状态栏格式",

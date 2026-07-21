@@ -6,6 +6,7 @@ class ClipboardService;
 class CompositorPlatform;
 class ConfigService;
 class EasyEffectsService;
+class ExternalIpService;
 class FileWatcher;
 class HttpClient;
 class IdleInhibitor;
@@ -42,6 +43,7 @@ struct BarServices {
   SystemMonitorService* sysmon = nullptr;
   PowerProfilesService* powerProfiles = nullptr;
   INetworkService* network = nullptr;
+  ExternalIpService* externalIp = nullptr;
   IdleInhibitor* idleInhibitor = nullptr;
   MprisService* mpris = nullptr;
   PipeWireSpectrum* audioSpectrum = nullptr;

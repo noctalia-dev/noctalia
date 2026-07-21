@@ -43,6 +43,7 @@ namespace noctalia::theme {
       std::vector<std::string> outputPaths;
       std::string preHook;
       std::string postHook;
+      std::string postAction;
       std::optional<int> index;
     };
 
@@ -167,6 +168,7 @@ namespace noctalia::theme {
         entry.outputPaths = readJsonStringArrayOrString(obj, "outputPath");
       entry.preHook = stringField(obj, "pre_hook", "preHook");
       entry.postHook = stringField(obj, "post_hook", "postHook");
+      entry.postAction = stringField(obj, "post_action", "postAction");
       if (auto index = obj.find("index"); index != obj.end() && index->is_number_integer())
         entry.index = index->get<int>();
 
@@ -538,6 +540,8 @@ namespace noctalia::theme {
           writeTomlString(out, "pre_hook", entry.preHook);
         if (!entry.postHook.empty())
           writeTomlString(out, "post_hook", entry.postHook);
+        if (!entry.postAction.empty())
+          writeTomlString(out, "post_action", entry.postAction);
         if (entry.index.has_value())
           out << "index = " << *entry.index << "\n";
       }

@@ -23,6 +23,9 @@ public:
 
   void initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext);
   void shutdown();
+  // Destroy any live tooltip immediately. Required before destroying a parent
+  // layer surface — xdg_popup must die before its parent (Jay enforces this).
+  void forceDestroy();
 
   void onHoverChange(InputArea* area, zwlr_layer_surface_v1* parentLayerSurface, wl_output* output);
   void onHoverChange(InputArea* area, xdg_surface* parentXdgSurface, wl_output* output);

@@ -142,6 +142,7 @@ private:
   [[nodiscard]] std::size_t xToByteOffset(float localX) const;
   [[nodiscard]] float stopXForByte(std::size_t bytePos) const;
   void syncPasswordGlyphNodes(std::size_t count);
+  void animatePasswordGlyphIn(GlyphNode& glyph);
 
   // Multiline mode: geometry comes from the wrapped cursor-stop rects
   // (m_stopRect, parallel to m_stopByte) instead of the 1-D x array.
@@ -238,6 +239,7 @@ private:
   float m_lastPrimaryPressY = 0.0f;
   bool m_hasLastPrimaryPress = false;
   Signal<>::ScopedConnection m_paletteConn;
+  Signal<>::ScopedConnection m_inputBordersConn;
 
   // Detects synchronous self-destruction from user callbacks (onSubmit/onKeyEvent
   // can close a dialog that owns this Input). handleKey takes a weak_ptr to it and

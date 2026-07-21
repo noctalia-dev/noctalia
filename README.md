@@ -54,6 +54,8 @@ Noctalia solves that by providing one configurable shell layer that owns the com
 still fitting into compositor-driven Wayland workflows. It is meant for users who want the control of a custom desktop
 environment with fewer moving parts and a consistent UI.
 
+To understand the values and philosophy guiding the project, read our [ethos](https://noctalia.dev/ethos).
+
 ## What It Includes
 
 - Multi-monitor bars with configurable widgets, taskbar, workspaces, system tray, media, network, battery, brightness,
@@ -262,6 +264,10 @@ Meson installs the binary and shipped assets using the normal prefix layout:
 ```
 
 Noctalia needs the shipped `assets/` tree at runtime. Copying only the `noctalia` binary is not enough.
+
+Firefox theming uses the built-in template `post_action = "firefox-theme"` (same pattern as
+`kde-color-scheme`) plus the [Pywalfox](https://addons.mozilla.org/en-US/firefox/addon/pywalfox/)
+browser extension. Manual host helpers: `noctalia firefox-theme --help`.
 
 Portable bundle layouts are also supported:
 

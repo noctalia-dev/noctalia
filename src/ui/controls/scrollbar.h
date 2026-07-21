@@ -14,12 +14,17 @@ public:
 
   void setOnScrollChanged(std::function<void(float)> callback);
 
+  // Insets the track from both viewport ends (e.g. rounded-corner clearance in popup cards).
+  // Scroll semantics keep using the full viewport height; only track geometry shrinks.
+  void setTrackInset(float inset);
+
   void update(float viewportHeight, float contentHeight, float scrollOffset);
 
   [[nodiscard]] float thumbTravel() const noexcept { return m_thumbTravel; }
   [[nodiscard]] bool visible() const noexcept { return m_shown; }
 
 private:
+  [[nodiscard]] float currentOffset() const noexcept;
   void applyPalette();
   void applyThumbPosition(float scrollOffset, float maxScroll);
 
@@ -33,6 +38,7 @@ private:
 
   float m_viewportHeight = 0.0f;
   float m_contentHeight = 0.0f;
+  float m_trackInset = 0.0f;
   float m_maxScroll = 0.0f;
   float m_thumbTravel = 0.0f;
   float m_dragStartY = 0.0f;

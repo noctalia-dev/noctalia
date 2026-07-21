@@ -577,9 +577,8 @@ void CalendarTab::rebuild() {
   const float dotDiameter = std::round(5.0f * scale);
   const float dotGap = std::round(2.0f * scale);
   const float dotStripHeight = dotDiameter;
-  const float dayButtonSize = std::round(
-      std::min({dayCellHeight - dotStripHeight - dotGap, dayColumnWidth, kCalendarDayButtonSizeMax * scale})
-  );
+  const float buttonBudget = std::max(0.0f, dayCellHeight - dotStripHeight - dotGap);
+  const float dayButtonSize = std::floor(std::min({buttonBudget, dayColumnWidth, kCalendarDayButtonSizeMax * scale}));
 
   if (m_header != nullptr) {
     m_header->setSize(innerWidth, kCalendarHeaderHeight * scale);
@@ -633,6 +632,7 @@ void CalendarTab::rebuild() {
   auto weekdayRow = std::make_unique<GridView>();
   weekdayRow->setColumns(weekdays.size());
   weekdayRow->setColumnGap(kCalendarGridGap * scale);
+  weekdayRow->setStretchItems(true);
   weekdayRow->setSize(innerWidth, weekdayHeight);
   weekdayRow->setMinCellHeight(weekdayHeight);
   for (std::size_t i = 0; i < weekdays.size(); ++i) {
@@ -691,6 +691,7 @@ void CalendarTab::rebuild() {
   auto dayGrid = std::make_unique<GridView>();
   dayGrid->setColumns(7);
   dayGrid->setColumnGap(kCalendarGridGap * scale);
+  dayGrid->setStretchItems(true);
   dayGrid->setSize(innerWidth, 0.0f);
   dayGrid->setMinCellHeight(dayCellHeight);
 

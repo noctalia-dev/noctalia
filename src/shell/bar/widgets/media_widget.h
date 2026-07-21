@@ -27,7 +27,7 @@ public:
   MediaWidget(
       MprisService* mpris, HttpClient* httpClient, wl_output* output, float maxWidth, float minWidth, float artSize,
       MediaTitleScrollMode titleScrollMode, bool hideWhenNoMedia = false, bool albumArtOnly = false,
-      bool hideAlbumArt = false, bool hideArtist = false
+      bool hideAlbumArt = false, bool hideArtist = false, bool artistFirst = false, bool enableScroll = true
   );
 
   void create() override;
@@ -38,7 +38,7 @@ private:
   void applyTitleScrollMode(bool titleVisible);
   void syncState(Renderer& renderer);
   void syncWidgetVisibility(bool hasMedia);
-  [[nodiscard]] static std::string buildDisplayText(const MprisPlayerInfo& player, bool hideArtist);
+  [[nodiscard]] static std::string buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst);
 
   MprisService* m_mpris = nullptr;
   HttpClient* m_httpClient = nullptr;
@@ -50,6 +50,8 @@ private:
   bool m_albumArtOnly = false;
   bool m_hideAlbumArt = false;
   bool m_hideArtist = false;
+  bool m_artistFirst = false;
+  bool m_enableScroll = true;
   InputArea* m_area = nullptr;
   Image* m_art = nullptr;
   Glyph* m_emptyGlyph = nullptr;

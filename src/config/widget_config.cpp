@@ -32,6 +32,17 @@ namespace noctalia::config {
       }
       return WidgetSettingValue{std::move(strings)};
     }
+    if (const auto* tableValue = node.as_table()) {
+      WidgetSettingStringMap strings;
+      for (const auto& [key, valueNode] : *tableValue) {
+        const auto value = valueNode.value<std::string>();
+        if (!value.has_value()) {
+          return std::nullopt;
+        }
+        strings.emplace(std::string(key.str()), *value);
+      }
+      return WidgetSettingValue{std::move(strings)};
+    }
     return std::nullopt;
   }
 

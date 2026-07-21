@@ -9,6 +9,7 @@
 #include <cstring>
 #include <format>
 #include <string_view>
+#include <tuple>
 #include <unordered_set>
 
 HyprlandWorkspaceBackend::HyprlandWorkspaceBackend(
@@ -155,7 +156,7 @@ std::vector<WorkspaceWindow> HyprlandWorkspaceBackend::workspaceWindows(wl_outpu
   std::vector<WorkspaceWindow> result;
   result.reserve(m_toplevels.size());
   for (const auto& [address, toplevel] : m_toplevels) {
-    if (toplevel.appId.empty() || toplevel.workspaceId == -1) {
+    if (toplevel.workspaceId == -1) {
       continue;
     }
     if (filterByOutput && !m_workspaces.empty()) {
@@ -229,7 +230,19 @@ int HyprlandWorkspaceBackend::pollFd() const noexcept { return m_runtime.pollFd(
 void HyprlandWorkspaceBackend::dispatchPoll(short revents) { m_runtime.dispatchPoll(revents); }
 
 void HyprlandWorkspaceBackend::refreshSnapshot() {
-  refreshWorkspaces();
+  (void)refreshWorkspaces();
+  refreshMonitors();
+  refreshClients();
+  recomputeWorkspaceFlags();
+  notifyChanged();
+}
+
+void HyprlandWorkspaceBackend::syncFromCompositor() { refreshSnapshot(); }
+
+void HyprlandWorkspaceBackend::reconcileFromCompositor() {
+  if (!refreshWorkspaces()) {
+    return;
+  }
   refreshMonitors();
   refreshClients();
   recomputeWorkspaceFlags();
@@ -250,7 +263,7 @@ void HyprlandWorkspaceBackend::ensureSnapshotFresh() const {
     changed = true;
   }
   if (m_workspaces.empty()) {
-    self->refreshWorkspaces();
+    (void)self->refreshWorkspaces();
     self->refreshMonitors();
     changed = true;
   }
@@ -259,10 +272,10 @@ void HyprlandWorkspaceBackend::ensureSnapshotFresh() const {
   }
 }
 
-void HyprlandWorkspaceBackend::refreshWorkspaces() {
+bool HyprlandWorkspaceBackend::refreshWorkspaces() {
   const auto json = m_runtime.requestJson("j/workspaces");
   if (!json || !json->is_array()) {
-    return;
+    return false;
   }
 
   std::unordered_map<int, std::size_t> ordinalsById;
@@ -365,7 +378,27 @@ void HyprlandWorkspaceBackend::refreshWorkspaces() {
     }
   }
 
+  const bool changed = [&] {
+    if (next.size() != m_workspaces.size()) {
+      return true;
+    }
+    std::vector<std::tuple<int, std::string, std::string>> before;
+    std::vector<std::tuple<int, std::string, std::string>> after;
+    before.reserve(m_workspaces.size());
+    after.reserve(next.size());
+    for (const auto& workspace : m_workspaces) {
+      before.emplace_back(workspace.id, workspace.name, workspace.monitor);
+    }
+    for (const auto& workspace : next) {
+      after.emplace_back(workspace.id, workspace.name, workspace.monitor);
+    }
+    std::ranges::sort(before);
+    std::ranges::sort(after);
+    return before != after;
+  }();
+
   m_workspaces = std::move(next);
+  return changed;
 }
 
 void HyprlandWorkspaceBackend::refreshMonitors() {
@@ -496,7 +529,43 @@ void HyprlandWorkspaceBackend::notifyChanged() {
   }
 }
 
-void HyprlandWorkspaceBackend::syncFromCompositor() { refreshSnapshot(); }
+void HyprlandWorkspaceBackend::applyWorkspaceIdChange(int oldId, int newId, std::string_view newName) {
+  if (oldId == newId || oldId <= 0 || newId <= 0) {
+    return;
+  }
+  if (findWorkspaceById(newId) != nullptr) {
+    refreshSnapshot();
+    return;
+  }
+
+  auto* workspace = findWorkspaceById(oldId);
+  if (workspace == nullptr) {
+    refreshSnapshot();
+    return;
+  }
+
+  workspace->id = newId;
+  if (!newName.empty()) {
+    workspace->name = std::string(newName);
+  } else if (workspace->name.empty() || workspace->name == std::to_string(oldId)) {
+    workspace->name = std::to_string(newId);
+  }
+
+  for (auto& [monitor, activeId] : m_activeWorkspaceByMonitor) {
+    if (activeId == oldId) {
+      activeId = newId;
+    }
+  }
+  for (auto& [address, toplevel] : m_toplevels) {
+    (void)address;
+    if (toplevel.workspaceId == oldId) {
+      toplevel.workspaceId = newId;
+    }
+  }
+
+  recomputeWorkspaceFlags();
+  notifyChanged();
+}
 
 void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_view data) {
 
@@ -561,7 +630,7 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
     } else {
       workspace->name = name;
     }
-    refreshWorkspaces();
+    (void)refreshWorkspaces();
     recomputeWorkspaceFlags();
     notifyChanged();
     return;
@@ -598,16 +667,30 @@ void HyprlandWorkspaceBackend::handleEvent(std::string_view event, std::string_v
     }
     auto* workspace = findWorkspaceById(*id);
     if (workspace == nullptr) {
-      refreshWorkspaces();
+      (void)refreshWorkspaces();
       recomputeWorkspaceFlags();
       notifyChanged();
       return;
     }
-    const std::string oldName = workspace->name;
     workspace->name = newName;
 
     recomputeWorkspaceFlags();
     notifyChanged();
+    return;
+  }
+
+  if (event == "changeworkspaceid") {
+    // FIXME: confirm payload once Hyprland lands socket2 for change_id
+    // (https://github.com/hyprwm/Hyprland/discussions/15527); then remove the
+    // ext-workspace reconcile workaround in WaylandWorkspaces::setChangeCallback.
+    // Expected: OLDID,NEWID or OLDID,NEWID,NAME.
+    const auto args = parseEventArgs(data, 3);
+    const auto oldId = parseInt(args[0]);
+    const auto newId = parseInt(args[1]);
+    if (!oldId.has_value() || !newId.has_value()) {
+      return;
+    }
+    applyWorkspaceIdChange(*oldId, *newId, args[2]);
     return;
   }
 

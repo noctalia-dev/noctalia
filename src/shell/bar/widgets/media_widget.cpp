@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cmath>
 #include <linux/input-event-codes.h>
+#include <wayland-client-protocol.h>
 
 using namespace mpris;
 
@@ -25,15 +26,17 @@ namespace {
 
 MediaWidget::MediaWidget(
     MprisService* mpris, HttpClient* httpClient, wl_output* /*output*/, float maxWidth, float minWidth, float artSize,
-    MediaTitleScrollMode titleScrollMode, bool hideWhenNoMedia, bool albumArtOnly, bool hideAlbumArt, bool hideArtist
+    MediaTitleScrollMode titleScrollMode, bool hideWhenNoMedia, bool albumArtOnly, bool hideAlbumArt, bool hideArtist,
+    bool artistFirst, bool enableScroll
 )
     : m_mpris(mpris), m_httpClient(httpClient), m_maxWidth(maxWidth), m_minWidth(minWidth), m_artSize(artSize),
       m_titleScrollMode(titleScrollMode), m_hideWhenNoMedia(hideWhenNoMedia), m_albumArtOnly(albumArtOnly),
-      m_hideAlbumArt(hideAlbumArt), m_hideArtist(hideArtist) {}
+      m_hideAlbumArt(hideAlbumArt), m_hideArtist(hideArtist), m_artistFirst(artistFirst), m_enableScroll(enableScroll) {
+}
 
 void MediaWidget::create() {
   auto area = std::make_unique<InputArea>();
-  area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
+  area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT, BTN_SIDE, BTN_EXTRA, BTN_BACK, BTN_FORWARD}));
   area->setOnEnter([this](const InputArea::PointerData&) {
     applyTitleScrollMode(m_label != nullptr && m_label->visible());
     this->requestUpdate();
@@ -47,8 +50,39 @@ void MediaWidget::create() {
       requestPanelToggle("control-center", "media");
       return;
     }
-    if (data.button == BTN_RIGHT && m_mpris != nullptr) {
+    if (m_mpris == nullptr) {
+      return;
+    }
+    // Mice report the thumb buttons as either SIDE/EXTRA or BACK/FORWARD.
+    switch (data.button) {
+    case BTN_RIGHT:
       m_mpris->playPauseActive();
+      break;
+    case BTN_SIDE:
+    case BTN_BACK:
+      m_mpris->previousActive();
+      break;
+    case BTN_EXTRA:
+    case BTN_FORWARD:
+      m_mpris->nextActive();
+      break;
+    default:
+      break;
+    }
+  });
+  area->setOnAxis([this](const InputArea::PointerData& data) {
+    if (!m_enableScroll || m_mpris == nullptr || data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
+      return;
+    }
+    const float steps = data.scrollSteps();
+    if (steps == 0.0f) {
+      return;
+    }
+    // Scroll up → next; Wayland reports up as a negative delta.
+    if (steps < 0.0f) {
+      m_mpris->nextActive();
+    } else {
+      m_mpris->previousActive();
     }
   });
   m_area = area.get();
@@ -224,7 +258,7 @@ void MediaWidget::syncState(Renderer& renderer) {
 
   if (active.has_value()) {
     playbackStatus = active->playbackStatus;
-    displayText = buildDisplayText(*active, m_hideArtist);
+    displayText = buildDisplayText(*active, m_hideArtist, m_artistFirst);
     artUrl = effectiveArtUrl(*active);
   }
 
@@ -296,9 +330,12 @@ void MediaWidget::syncState(Renderer& renderer) {
   }
 }
 
-std::string MediaWidget::buildDisplayText(const MprisPlayerInfo& player, bool hideArtist) {
+std::string MediaWidget::buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst) {
   const std::string artists = hideArtist ? std::string() : joinArtists(player.artists);
   if (!player.title.empty() && !artists.empty()) {
+    if (artistFirst) {
+      return artists + " - " + player.title;
+    }
     return player.title + " - " + artists;
   }
   if (!player.title.empty()) {

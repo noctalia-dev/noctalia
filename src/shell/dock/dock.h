@@ -91,8 +91,7 @@ private:
     std::string idLower;
     std::string wmClassLower;
     wl_output* outputFilter = nullptr;
-    // Dock instance output used to focus/move the new window (distinct from
-    // outputFilter, which is only set when active_monitor_only is enabled).
+    // Launch target output (always set); outputFilter is only for active_monitor_only.
     wl_output* targetOutput = nullptr;
     std::chrono::steady_clock::time_point deadline;
   };

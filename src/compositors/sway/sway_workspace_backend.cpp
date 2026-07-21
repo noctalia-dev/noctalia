@@ -185,7 +185,7 @@ namespace {
       y = rectIt->value("y", 0);
     }
 
-    if (isLeaf && !workspaceName.empty() && !workspaceKey.empty() && !appId.empty()) {
+    if (isLeaf && !workspaceName.empty() && !workspaceKey.empty() && (!appId.empty() || !windowId.empty())) {
       windows.push_back(
           WorkspaceWindow{
               .windowId = windowId,
