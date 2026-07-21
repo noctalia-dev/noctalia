@@ -1110,6 +1110,11 @@ struct AudioConfig {
   bool operator==(const AudioConfig&) const = default;
 };
 
+// Normalized volume ceiling: overdrive raises it to 150%.
+[[nodiscard]] inline float maxAudioVolume(const AudioConfig& audio) noexcept {
+  return audio.enableOverdrive ? 1.5f : 1.0f;
+}
+
 enum class BrightnessBackendPreference : std::uint8_t {
   Auto = 0,
   None = 1,

@@ -2035,7 +2035,7 @@ void PipeWireService::emitChanged() {
 }
 
 void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) {
-  const auto maxVolume = [&config] { return config.config().audio.enableOverdrive ? 1.5f : 1.0f; };
+  const auto maxVolume = [&config] { return maxAudioVolume(config.config().audio); };
   const auto parseVolumeValueError =
       "error: invalid volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
   const auto parseVolumeStepError = "error: invalid volume step (use percent like 5 or 5%, or normalized like 0.05)\n";
@@ -2060,19 +2060,6 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         return "ok\n";
       },
       "volume-set <value>", "Set speaker volume"
-  );
-
-  ipc.registerHandler(
-      "volume-show",
-      [this](const std::string&) -> std::string {
-        const auto* sink = defaultSink();
-        if (!sink)
-          return "error: no default output\n";
-
-        emitVolumePreview(false, sink->id, sink->volume);
-        return "ok\n";
-      },
-      "volume-show", "Show current volume OSD without changing volume"
   );
 
   ipc.registerHandler(
@@ -2153,18 +2140,6 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         return "ok\n";
       },
       "mic-volume-set <value>", "Set microphone volume"
-  );
-
-  ipc.registerHandler(
-      "mic-volume-show",
-      [this](const std::string&) -> std::string {
-        const auto* source = defaultSource();
-        if (!source)
-          return "error: no default input\n";
-        emitVolumePreview(true, source->id, source->volume);
-        return "ok\n";
-      },
-      "mic-volume-show", "Show current microphone volume OSD without changing volume"
   );
 
   ipc.registerHandler(
