@@ -64,21 +64,11 @@ namespace settings {
       std::vector<WidgetSettingSpec> (*presentedSettingSpecs)();
     };
 
-    template <auto DefinitionAccessor> std::string_view projectedWidgetType() { return DefinitionAccessor().type; }
-
-    template <auto DefinitionAccessor> schema::WidgetSettingSchema projectedSchemaFields() {
-      return DefinitionAccessor().schemaFields();
-    }
-
-    template <auto DefinitionAccessor> std::vector<WidgetSettingSpec> projectedSettingSpecs() {
-      return DefinitionAccessor().presentedSettingSpecs();
-    }
-
     template <auto DefinitionAccessor> constexpr TypedWidgetDefinitionProjection projectWidgetDefinition() {
       return TypedWidgetDefinitionProjection{
-          .type = projectedWidgetType<DefinitionAccessor>,
-          .schemaFields = projectedSchemaFields<DefinitionAccessor>,
-          .presentedSettingSpecs = projectedSettingSpecs<DefinitionAccessor>,
+          .type = [] { return DefinitionAccessor().type; },
+          .schemaFields = [] { return DefinitionAccessor().schemaFields(); },
+          .presentedSettingSpecs = [] { return DefinitionAccessor().presentedSettingSpecs(); },
       };
     }
 
@@ -657,11 +647,6 @@ namespace settings {
   ) {
     std::vector<WidgetSettingSpec> specs;
     auto commonSpecs = commonWidgetSettingSpecs(shellFontFamily, populateFontCatalogs);
-    if (const auto* projection = findTypedWidgetDefinitionProjection(type)) {
-      specs = projection->presentedSettingSpecs();
-      std::ranges::move(commonSpecs, std::back_inserter(specs));
-      return specs;
-    }
 
     auto add = [&](WidgetSettingSpec spec) { specs.push_back(std::move(spec)); };
     const std::vector<WidgetSettingSelectOption> shortFull = {
@@ -715,7 +700,9 @@ namespace settings {
         {"output", "settings.widgets.options.output"},
         {"input", "settings.widgets.options.input"},
     };
-    if (type == "active_window") {
+    if (const auto* projection = findTypedWidgetDefinitionProjection(type)) {
+      specs = projection->presentedSettingSpecs();
+    } else if (type == "active_window") {
       add(intSpec("min_length", 80, 0.0, 800.0, 1.0));
       add(intSpec("max_length", 260, 40.0, 800.0, 1.0));
       add(intSpec("icon_size", static_cast<double>(Style::fontSizeBody), 8.0, 64.0, 1.0));
