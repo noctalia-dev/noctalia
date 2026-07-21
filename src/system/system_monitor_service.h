@@ -74,6 +74,10 @@ public:
   void releaseDiskPath(const std::string& path);
   [[nodiscard]] float diskUsagePercent(const std::string& path) const;
   [[nodiscard]] std::vector<float> diskHistory(const std::string& path, int windowSize = kHistorySize) const;
+  [[nodiscard]] std::uint64_t diskTotalBytes(const std::string& path) const;
+  [[nodiscard]] std::uint64_t diskFreeBytes(const std::string& path) const;
+  [[nodiscard]] std::uint64_t diskAvailBytes(const std::string& path) const;
+  [[nodiscard]] std::optional<std::uint64_t> gpuVramTotalBytes() const;
 
 private:
   struct NvidiaNvmlReader;
@@ -83,6 +87,9 @@ private:
   struct DiskHistory {
     int refs = 0;
     float latestPercent = 0.0f;
+    std::uint64_t latestTotalBytes = 0;
+    std::uint64_t latestFreeBytes = 0;
+    std::uint64_t latestAvailBytes = 0;
     std::array<float, kHistorySize> history{};
   };
 
@@ -136,7 +143,6 @@ private:
   [[nodiscard]] std::optional<double> readGpuTempCelsius();
   [[nodiscard]] std::optional<double> readGpuUsagePercent();
   [[nodiscard]] std::optional<GpuVramData> readGpuVram();
-  [[nodiscard]] static float readDiskUsagePercent(const std::string& path);
 
   struct NetIfaceBytes {
     std::uint64_t rx{0};

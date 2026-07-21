@@ -489,8 +489,14 @@ std::unique_ptr<Widget> WidgetFactory::create(
       stat = SysmonStat::RamPct;
     } else if (statStr == "swap_pct") {
       stat = SysmonStat::SwapPct;
-    } else if (statStr == "disk_pct") {
-      stat = SysmonStat::DiskPct;
+    } else if (statStr == "disk_used_pct") {
+      stat = SysmonStat::DiskUsedPct;
+    } else if (statStr == "disk_used") {
+      stat = SysmonStat::DiskUsed;
+    } else if (statStr == "disk_free_pct") {
+      stat = SysmonStat::DiskFreePct;
+    } else if (statStr == "disk_free") {
+      stat = SysmonStat::DiskFree;
     } else if (statStr == "net_rx") {
       stat = SysmonStat::NetRx;
     } else if (statStr == "net_tx") {

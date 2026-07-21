@@ -1045,13 +1045,45 @@ void SystemMonitorService::retainGpuVram() { m_gpuVramRefs.fetch_add(1, std::mem
 
 void SystemMonitorService::releaseGpuVram() { m_gpuVramRefs.fetch_sub(1, std::memory_order_relaxed); }
 
+namespace {
+  struct DiskStatvfsData {
+    float percent = 0.0f;
+    std::uint64_t totalBytes = 0;
+    std::uint64_t freeBytes = 0;
+    std::uint64_t availBytes = 0;
+    bool valid = false;
+  };
+
+  [[nodiscard]] DiskStatvfsData readDiskStatvfs(const std::string& path) {
+
+    struct statvfs sv{};
+    if (::statvfs(path.c_str(), &sv) != 0 || sv.f_blocks == 0) {
+      return {};
+    }
+    const auto total = static_cast<double>(sv.f_blocks);
+    const auto freeBlks = static_cast<double>(sv.f_bfree);
+    const double used = total - freeBlks;
+    const auto frSize = static_cast<std::uint64_t>(sv.f_frsize);
+    return DiskStatvfsData{
+        .percent = static_cast<float>(100.0 * used / total),
+        .totalBytes = static_cast<std::uint64_t>(sv.f_blocks) * frSize,
+        .freeBytes = static_cast<std::uint64_t>(sv.f_bfree) * frSize,
+        .availBytes = static_cast<std::uint64_t>(sv.f_bavail) * frSize,
+        .valid = true,
+    };
+  }
+} // namespace
+
 void SystemMonitorService::retainDiskPath(const std::string& path) {
-  const float initialPercent = isRunning() ? readDiskUsagePercent(path) : 0.0f;
+  const auto initial = readDiskStatvfs(path);
   std::scoped_lock lock{m_statsMutex};
   auto& disk = m_diskHistories[path];
   if (disk.refs == 0) {
-    disk.latestPercent = initialPercent;
-    disk.history.fill(initialPercent);
+    disk.latestPercent = initial.percent;
+    disk.latestTotalBytes = initial.totalBytes;
+    disk.latestFreeBytes = initial.freeBytes;
+    disk.latestAvailBytes = initial.availBytes;
+    disk.history.fill(initial.percent);
   }
   ++disk.refs;
 }
@@ -1072,6 +1104,24 @@ float SystemMonitorService::diskUsagePercent(const std::string& path) const {
   std::scoped_lock lock{m_statsMutex};
   const auto it = m_diskHistories.find(path);
   return it != m_diskHistories.end() ? it->second.latestPercent : 0.0f;
+}
+
+std::uint64_t SystemMonitorService::diskTotalBytes(const std::string& path) const {
+  std::scoped_lock lock{m_statsMutex};
+  const auto it = m_diskHistories.find(path);
+  return it != m_diskHistories.end() ? it->second.latestTotalBytes : 0;
+}
+
+std::uint64_t SystemMonitorService::diskFreeBytes(const std::string& path) const {
+  std::scoped_lock lock{m_statsMutex};
+  const auto it = m_diskHistories.find(path);
+  return it != m_diskHistories.end() ? it->second.latestFreeBytes : 0;
+}
+
+std::uint64_t SystemMonitorService::diskAvailBytes(const std::string& path) const {
+  std::scoped_lock lock{m_statsMutex};
+  const auto it = m_diskHistories.find(path);
+  return it != m_diskHistories.end() ? it->second.latestAvailBytes : 0;
 }
 
 std::vector<float> SystemMonitorService::diskHistory(const std::string& path, int windowSize) const {
@@ -1328,11 +1378,14 @@ void SystemMonitorService::samplingLoop() {
         }
       }
       for (const auto& path : diskPaths) {
-        const float percent = readDiskUsagePercent(path);
+        const auto data = readDiskStatvfs(path);
         std::scoped_lock lock{m_statsMutex};
         const auto it = m_diskHistories.find(path);
         if (it != m_diskHistories.end() && it->second.refs > 0) {
-          it->second.latestPercent = percent;
+          it->second.latestPercent = data.percent;
+          it->second.latestTotalBytes = data.totalBytes;
+          it->second.latestFreeBytes = data.freeBytes;
+          it->second.latestAvailBytes = data.availBytes;
         }
       }
       nextDisk = now + diskInterval;
@@ -1734,16 +1787,6 @@ std::optional<double> SystemMonitorService::readGpuUsagePercent() {
 
 std::optional<SystemMonitorService::GpuVramData> SystemMonitorService::readGpuVram() {
   return readGpuVramData(detectNvidiaPciDisplayDeviceState());
-}
-
-float SystemMonitorService::readDiskUsagePercent(const std::string& path) {
-  struct statvfs sv{};
-  if (::statvfs(path.c_str(), &sv) == 0 && sv.f_blocks > 0) {
-    const auto used = static_cast<double>(sv.f_blocks - sv.f_bfree);
-    const auto total = static_cast<double>(sv.f_blocks);
-    return static_cast<float>(100.0 * used / total);
-  }
-  return 0.0f;
 }
 
 std::optional<std::unordered_map<std::string, SystemMonitorService::NetIfaceBytes>>

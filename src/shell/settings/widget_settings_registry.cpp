@@ -160,7 +160,11 @@ namespace settings {
         if (stat == "gpu_vram" || stat == "ram_used" || stat == "ram_pct") {
           return "memory";
         }
-        if (stat == "swap_pct" || stat == "disk_pct") {
+        if (stat == "swap_pct"
+            || stat == "disk_used_pct"
+            || stat == "disk_used"
+            || stat == "disk_free_pct"
+            || stat == "disk_free") {
           return "storage";
         }
         if (stat == "net_rx") {
@@ -625,11 +629,19 @@ namespace settings {
         {"full", "settings.widgets.options.full"},
     };
     const std::vector<WidgetSettingSelectOption> sysmonStats = {
-        {"cpu_usage", "settings.widgets.options.cpu-usage"},   {"cpu_temp", "settings.widgets.options.cpu-temp"},
-        {"gpu_temp", "settings.widgets.options.gpu-temp"},     {"gpu_usage", "settings.widgets.options.gpu-usage"},
-        {"gpu_vram", "settings.widgets.options.gpu-vram"},     {"ram_used", "settings.widgets.options.ram-used"},
-        {"ram_pct", "settings.widgets.options.ram-percent"},   {"swap_pct", "settings.widgets.options.swap-percent"},
-        {"disk_pct", "settings.widgets.options.disk-percent"}, {"net_rx", "settings.widgets.options.net-rx"},
+        {"cpu_usage", "settings.widgets.options.cpu-usage"},
+        {"cpu_temp", "settings.widgets.options.cpu-temp"},
+        {"gpu_temp", "settings.widgets.options.gpu-temp"},
+        {"gpu_usage", "settings.widgets.options.gpu-usage"},
+        {"gpu_vram", "settings.widgets.options.gpu-vram"},
+        {"ram_used", "settings.widgets.options.ram-used"},
+        {"ram_pct", "settings.widgets.options.ram-percent"},
+        {"swap_pct", "settings.widgets.options.swap-percent"},
+        {"disk_used_pct", "settings.widgets.options.disk-used-percent"},
+        {"disk_used", "settings.widgets.options.disk-used"},
+        {"disk_free_pct", "settings.widgets.options.disk-free-percent"},
+        {"disk_free", "settings.widgets.options.disk-free"},
+        {"net_rx", "settings.widgets.options.net-rx"},
         {"net_tx", "settings.widgets.options.net-tx"},
     };
     const std::vector<WidgetSettingSelectOption> sysmonDisplay = {
@@ -875,7 +887,8 @@ namespace settings {
       add(boolSpec("custom_image_colorize", false));
       {
         auto path = stringSpec("path", "/");
-        path.visibleWhen = WidgetSettingVisibility{"stat", {"disk_pct"}};
+        path.visibleWhen =
+            WidgetSettingVisibility{"stat", {"disk_used_pct", "disk_used", "disk_free_pct", "disk_free"}};
         add(std::move(path));
       }
       {
