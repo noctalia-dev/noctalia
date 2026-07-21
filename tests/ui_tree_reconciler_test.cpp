@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <print>
 #include <string>
+#include <utility>
 #include <vector>
 
 // Satisfies the AsyncTextureCache link dependency pulled in by the Image
@@ -472,7 +473,10 @@ int main() {
         area->dispatchPress(5.0f, 5.0f, BTN_LEFT, false);
       }
       ok = expect(
-               fired.empty() && area != nullptr && area->acceptedButtons() == 0 && !area->focusable()
+               fired.empty()
+                   && area != nullptr
+                   && area->acceptedButtons() == 0
+                   && !area->focusable()
                    && area->cursorShape() == 0,
                "emptied onClick clears the wrapper's activation"
            )
@@ -539,6 +543,142 @@ int main() {
                "removing onClick rebuilds flex without wrapper"
            )
           && ok;
+    }
+  }
+
+  // Hover state a plugin mirrors must stay balanced: a hovered node dropped by a
+  // reconcile is destroyed without the dispatcher ever sending leave, so the
+  // reconciler emits the closing "false" itself.
+  {
+    ui::UiTreeReconciler reconciler;
+    std::vector<std::pair<std::string, std::string>> fired;
+    reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) {
+      fired.emplace_back(cb.fn, cb.arg1);
+    });
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("column");
+    ui::UiTreeNode chip = makeNode("box");
+    chip.key = "a";
+    chip.props.emplace("onHover", std::string("chipHover"));
+    tree.children.push_back(chip);
+    (void)reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* chipArea = column != nullptr && !column->children().empty()
+        ? dynamic_cast<InputArea*>(column->children()[0].get())
+        : nullptr;
+    ok = expect(chipArea != nullptr, "hovered-drop fixture built a wrapped box") && ok;
+    if (chipArea != nullptr) {
+      chipArea->dispatchEnter(0.0f, 0.0f);
+    }
+    ok = expect(fired.size() == 1 && fired.front().second == "true", "hover enter reported before the drop") && ok;
+
+    // A retained hovered node is not a drop — nothing more fires.
+    fired.clear();
+    (void)reconciler.reconcile(host, tree, renderer);
+    ok = expect(fired.empty(), "retaining a hovered node emits no hover callback") && ok;
+
+    tree.children.clear();
+    (void)reconciler.reconcile(host, tree, renderer);
+    ok = expect(
+             fired.size() == 1 && fired.front().first == "chipHover" && fired.front().second == "false",
+             "dropping a hovered node emits the closing onHover false"
+         )
+        && ok;
+  }
+
+  // The same balance holds for the other two ways a hover ends without the
+  // dispatcher: the callback is rewired or dropped, and the whole host tree is
+  // torn down and reset out from under the reconciler.
+  {
+    ui::UiTreeReconciler reconciler;
+    std::vector<std::pair<std::string, std::string>> fired;
+    reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) {
+      fired.emplace_back(cb.fn, cb.arg1);
+    });
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("box");
+    tree.props.emplace("onHover", std::string("first"));
+    (void)reconciler.reconcile(host, tree, renderer);
+    auto* area = dynamic_cast<InputArea*>(host.children().front().get());
+    ok = expect(area != nullptr, "rewire fixture built a wrapped box") && ok;
+    if (area != nullptr) {
+      area->dispatchEnter(0.0f, 0.0f);
+    }
+    fired.clear();
+
+    // Rewiring while hovered closes the old callback; the new one opens on the
+    // next enter, which the dispatcher will deliver against the retained node.
+    tree.props["onHover"] = std::string("second");
+    (void)reconciler.reconcile(host, tree, renderer);
+    ok = expect(
+             fired.size() == 1 && fired.front().first == "first" && fired.front().second == "false",
+             "rewiring onHover while hovered closes the old callback"
+         )
+        && ok;
+
+    fired.clear();
+    if (area != nullptr) {
+      area->dispatchEnter(0.0f, 0.0f);
+    }
+    ok = expect(fired.size() == 1 && fired.front().first == "second", "the rewired callback opens on re-enter") && ok;
+
+    // A host tree torn down and reset away leaves slots naming a hover whose
+    // Nodes are already freed — reset() must still close it.
+    fired.clear();
+    reconciler.reset();
+    ok = expect(
+             fired.size() == 1 && fired.front().first == "second" && fired.front().second == "false",
+             "reset closes a hover left open by a torn-down tree"
+         )
+        && ok;
+
+    fired.clear();
+    reconciler.reset();
+    ok = expect(fired.empty(), "a second reset has no hover left to close") && ok;
+  }
+
+  // Button hover callbacks clear on removal rather than being retained, and an
+  // empty callback name counts as unset.
+  {
+    ui::UiTreeReconciler reconciler;
+    std::string fired;
+    reconciler.setCallbackSink([&fired](const ui::UiTreeReconciler::ControlCallback& cb) {
+      fired = cb.fn + "/" + cb.arg1;
+    });
+    Flex host;
+
+    ui::UiTreeNode tree = makeNode("column");
+    ui::UiTreeNode button = makeNode("button");
+    button.props.emplace("text", std::string("Go"));
+    button.props.emplace("onHover", std::string("hover"));
+    tree.children.push_back(button);
+    (void)reconciler.reconcile(host, tree, renderer);
+
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* control = column != nullptr ? dynamic_cast<Button*>(column->children()[0].get()) : nullptr;
+    auto* area = control != nullptr ? control->inputArea() : nullptr;
+    ok = expect(area != nullptr, "hover button built") && ok;
+    if (area != nullptr) {
+      area->dispatchEnter(0.0f, 0.0f);
+      ok = expect(fired == "hover/true", "button onHover enter reaches the sink") && ok;
+      area->dispatchLeave();
+      ok = expect(fired == "hover/false", "button onHover leave reaches the sink") && ok;
+
+      tree.children[0].props.erase("onHover");
+      (void)reconciler.reconcile(host, tree, renderer);
+      fired.clear();
+      area->dispatchEnter(0.0f, 0.0f);
+      area->dispatchLeave();
+      ok = expect(fired.empty(), "dropped button onHover stops firing") && ok;
+
+      tree.children[0].props.emplace("onHover", std::string());
+      (void)reconciler.reconcile(host, tree, renderer);
+      area->dispatchEnter(0.0f, 0.0f);
+      area->dispatchLeave();
+      ok = expect(fired.empty(), "an empty button onHover name wires nothing") && ok;
     }
   }
 

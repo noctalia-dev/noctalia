@@ -612,6 +612,9 @@ namespace ui {
 
   void UiTreeReconciler::reset() {
     m_dragDropController->cancel();
+    // The host tree is gone, so any hover it was reporting has ended. The slots
+    // still name it; the Nodes they point at are already freed.
+    closeHover();
     m_rootSlots.clear();
   }
 
@@ -779,6 +782,13 @@ namespace ui {
         slot.node = parent.addChild(std::move(control));
         slots.push_back(std::move(slot));
       }
+
+      for (const auto& leftover : detached) {
+        if (!leftover.used && subtreeOwnsHover(leftover.slot)) {
+          closeHover();
+          break;
+        }
+      }
     }
 
     // Apply props and recurse. With a sequence mismatch slots were rebuilt above
@@ -806,6 +816,93 @@ namespace ui {
       }
     }
     return structureChanged;
+  }
+
+  void UiTreeReconciler::syncWrapperCallbacks(Slot& slot, const UiTreeNode& desired, Node* node) {
+    InputArea* inputArea = inputAreaFromSlot(node);
+    if (const std::string* onClick = callbackProp(desired, "onClick"); onClick != nullptr) {
+      if (*onClick != slot.callbackName) {
+        slot.callbackName = *onClick;
+        if (inputArea != nullptr) {
+          wireWrapperActivation(inputArea, [this, name = slot.callbackName]() {
+            if (m_sink) {
+              m_sink(ControlCallback{name});
+            }
+          });
+        }
+      }
+    } else if (!slot.callbackName.empty()) {
+      slot.callbackName.clear();
+      if (inputArea != nullptr) {
+        clearWrapperActivation(inputArea);
+      }
+    }
+    if (const std::string* onHover = callbackProp(desired, "onHover"); onHover != nullptr) {
+      if (*onHover != slot.hoverCallbackName) {
+        releaseHover(slot.hoverCallbackName);
+        slot.hoverCallbackName = *onHover;
+        if (inputArea != nullptr) {
+          inputArea->setOnEnter([this, name = slot.hoverCallbackName](const InputArea::PointerData&) {
+            openHover(name);
+          });
+          inputArea->setOnLeave([this, name = slot.hoverCallbackName]() { releaseHover(name); });
+        }
+      }
+    } else if (!slot.hoverCallbackName.empty()) {
+      releaseHover(slot.hoverCallbackName);
+      slot.hoverCallbackName.clear();
+      if (inputArea != nullptr) {
+        clearWrapperHover(inputArea);
+      }
+    }
+  }
+
+  // Hover is state the plugin mirrors, so every "true" owes a "false". Exactly
+  // one InputArea is hovered at a time, so one live callback name is enough to
+  // close the hover when its node is dropped, rewired, or reset away — none of
+  // which reach the dispatcher's leave path, because that only tracks areas
+  // still in the scene.
+  void UiTreeReconciler::openHover(const std::string& name) {
+    if (m_hoveredCallback == name) {
+      return;
+    }
+    closeHover();
+    m_hoveredCallback = name;
+    if (m_sink) {
+      m_sink(ControlCallback{name, "true"});
+    }
+  }
+
+  void UiTreeReconciler::closeHover() {
+    if (m_hoveredCallback.empty()) {
+      return;
+    }
+    const std::string name = std::exchange(m_hoveredCallback, std::string{});
+    if (m_sink) {
+      m_sink(ControlCallback{name, "false"});
+    }
+  }
+
+  // Closes the hover only if `name` is the one currently reporting it.
+  void UiTreeReconciler::releaseHover(const std::string& name) {
+    if (!name.empty() && name == m_hoveredCallback) {
+      closeHover();
+    }
+  }
+
+  bool UiTreeReconciler::subtreeOwnsHover(const Slot& slot) const {
+    if (m_hoveredCallback.empty()) {
+      return false;
+    }
+    if (slot.hoverCallbackName == m_hoveredCallback) {
+      return true;
+    }
+    for (const Slot& child : slot.children) {
+      if (subtreeOwnsHover(child)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   void UiTreeReconciler::applyProps(Slot& slot, const UiTreeNode& desired, Renderer& renderer) {
@@ -999,45 +1096,7 @@ namespace ui {
           flex->setMaxHeight(scaled(*height));
         }
       }
-      if (const std::string* onClick = callbackProp(desired, "onClick"); onClick != nullptr) {
-        if (*onClick != slot.callbackName) {
-          slot.callbackName = *onClick;
-          if (auto* inputArea = inputAreaFromSlot(node)) {
-            wireWrapperActivation(inputArea, [this, name = slot.callbackName]() {
-              if (m_sink) {
-                m_sink(ControlCallback{name});
-              }
-            });
-          }
-        }
-      } else if (!slot.callbackName.empty()) {
-        slot.callbackName.clear();
-        if (auto* inputArea = inputAreaFromSlot(node)) {
-          clearWrapperActivation(inputArea);
-        }
-      }
-      if (const std::string* onHover = callbackProp(desired, "onHover"); onHover != nullptr) {
-        if (*onHover != slot.hoverCallbackName) {
-          slot.hoverCallbackName = *onHover;
-          if (auto* inputArea = inputAreaFromSlot(node)) {
-            inputArea->setOnEnter([this, name = slot.hoverCallbackName](const InputArea::PointerData&) {
-              if (m_sink) {
-                m_sink(ControlCallback{name, "true"});
-              }
-            });
-            inputArea->setOnLeave([this, name = slot.hoverCallbackName]() {
-              if (m_sink) {
-                m_sink(ControlCallback{name, "false"});
-              }
-            });
-          }
-        }
-      } else if (!slot.hoverCallbackName.empty()) {
-        slot.hoverCallbackName.clear();
-        if (auto* inputArea = inputAreaFromSlot(node)) {
-          clearWrapperHover(inputArea);
-        }
-      }
+      syncWrapperCallbacks(slot, desired, node);
       return;
     }
 
@@ -1065,45 +1124,7 @@ namespace ui {
       if (auto* inputArea = inputAreaFromSlot(node)) {
         inputArea->setSize(boxWidth, boxHeight);
       }
-      if (const std::string* onClick = callbackProp(desired, "onClick"); onClick != nullptr) {
-        if (*onClick != slot.callbackName) {
-          slot.callbackName = *onClick;
-          if (auto* inputArea = inputAreaFromSlot(node)) {
-            wireWrapperActivation(inputArea, [this, name = slot.callbackName]() {
-              if (m_sink) {
-                m_sink(ControlCallback{name});
-              }
-            });
-          }
-        }
-      } else if (!slot.callbackName.empty()) {
-        slot.callbackName.clear();
-        if (auto* inputArea = inputAreaFromSlot(node)) {
-          clearWrapperActivation(inputArea);
-        }
-      }
-      if (const std::string* onHover = callbackProp(desired, "onHover"); onHover != nullptr) {
-        if (*onHover != slot.hoverCallbackName) {
-          slot.hoverCallbackName = *onHover;
-          if (auto* inputArea = inputAreaFromSlot(node)) {
-            inputArea->setOnEnter([this, name = slot.hoverCallbackName](const InputArea::PointerData&) {
-              if (m_sink) {
-                m_sink(ControlCallback{name, "true"});
-              }
-            });
-            inputArea->setOnLeave([this, name = slot.hoverCallbackName]() {
-              if (m_sink) {
-                m_sink(ControlCallback{name, "false"});
-              }
-            });
-          }
-        }
-      } else if (!slot.hoverCallbackName.empty()) {
-        slot.hoverCallbackName.clear();
-        if (auto* inputArea = inputAreaFromSlot(node)) {
-          clearWrapperHover(inputArea);
-        }
-      }
+      syncWrapperCallbacks(slot, desired, node);
       return;
     }
 
@@ -1209,45 +1230,7 @@ namespace ui {
           }
         }
       }
-      if (const std::string* onClick = callbackProp(desired, "onClick"); onClick != nullptr) {
-        if (*onClick != slot.callbackName) {
-          slot.callbackName = *onClick;
-          if (auto* inputArea = inputAreaFromSlot(node)) {
-            wireWrapperActivation(inputArea, [this, name = slot.callbackName]() {
-              if (m_sink) {
-                m_sink(ControlCallback{name});
-              }
-            });
-          }
-        }
-      } else if (!slot.callbackName.empty()) {
-        slot.callbackName.clear();
-        if (auto* inputArea = inputAreaFromSlot(node)) {
-          clearWrapperActivation(inputArea);
-        }
-      }
-      if (const std::string* onHover = callbackProp(desired, "onHover"); onHover != nullptr) {
-        if (*onHover != slot.hoverCallbackName) {
-          slot.hoverCallbackName = *onHover;
-          if (auto* inputArea = inputAreaFromSlot(node)) {
-            inputArea->setOnEnter([this, name = slot.hoverCallbackName](const InputArea::PointerData&) {
-              if (m_sink) {
-                m_sink(ControlCallback{name, "true"});
-              }
-            });
-            inputArea->setOnLeave([this, name = slot.hoverCallbackName]() {
-              if (m_sink) {
-                m_sink(ControlCallback{name, "false"});
-              }
-            });
-          }
-        }
-      } else if (!slot.hoverCallbackName.empty()) {
-        slot.hoverCallbackName.clear();
-        if (auto* inputArea = inputAreaFromSlot(node)) {
-          clearWrapperHover(inputArea);
-        }
-      }
+      syncWrapperCallbacks(slot, desired, node);
       return;
     }
 
@@ -1344,19 +1327,21 @@ namespace ui {
       // retained Button. An empty text routes to InputArea::clearTooltip().
       const std::string* tooltip = strProp(desired, "tooltip");
       button->setTooltip(tooltip != nullptr ? *tooltip : "");
-      if (const std::string* onHover = strProp(desired, "onHover");
-          onHover != nullptr && *onHover != slot.hoverCallbackName) {
-        slot.hoverCallbackName = *onHover;
-        button->setOnEnter([this, name = slot.hoverCallbackName]() {
-          if (m_sink) {
-            m_sink(ControlCallback{name, "true"});
-          }
-        });
-        button->setOnLeave([this, name = slot.hoverCallbackName]() {
-          if (m_sink) {
-            m_sink(ControlCallback{name, "false"});
-          }
-        });
+      // Like the wrapper controls, hover handlers clear on removal instead of
+      // being retained: a stale one keeps firing and keeps the Button's
+      // InputArea enabled for a callback the tree no longer declares.
+      if (const std::string* onHover = callbackProp(desired, "onHover"); onHover != nullptr) {
+        if (*onHover != slot.hoverCallbackName) {
+          releaseHover(slot.hoverCallbackName);
+          slot.hoverCallbackName = *onHover;
+          button->setOnEnter([this, name = slot.hoverCallbackName]() { openHover(name); });
+          button->setOnLeave([this, name = slot.hoverCallbackName]() { releaseHover(name); });
+        }
+      } else if (!slot.hoverCallbackName.empty()) {
+        releaseHover(slot.hoverCallbackName);
+        slot.hoverCallbackName.clear();
+        button->setOnEnter(nullptr);
+        button->setOnLeave(nullptr);
       }
       if (const std::string* onClick = strProp(desired, "onClick");
           onClick != nullptr && *onClick != slot.callbackName) {

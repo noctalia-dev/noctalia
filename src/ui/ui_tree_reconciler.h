@@ -90,6 +90,17 @@ namespace ui {
     bool
     syncChildren(Node& parent, std::vector<Slot>& slots, const std::vector<UiTreeNode>& desired, Renderer& renderer);
     void applyProps(Slot& slot, const UiTreeNode& desired, Renderer& renderer);
+    // onClick/onHover wiring shared by the InputArea-wrapped controls
+    // (row/column/box/image).
+    void syncWrapperCallbacks(Slot& slot, const UiTreeNode& desired, Node* node);
+    // Hover is state the plugin mirrors, so every "true" owes a "false". The
+    // dispatcher only delivers leave to areas still in the scene, so the
+    // reconciler tracks the callback currently reporting hover and closes it
+    // itself when that node is dropped, rewired, or reset away.
+    void openHover(const std::string& name);
+    void closeHover();
+    void releaseHover(const std::string& name);
+    [[nodiscard]] bool subtreeOwnsHover(const Slot& slot) const;
     [[nodiscard]] std::unique_ptr<Node> createControl(const UiTreeNode& desired);
 
     CallbackSink m_sink;
@@ -100,6 +111,8 @@ namespace ui {
     FontWeight m_defaultFontWeight; // initialized in the ctor (opaque enum here)
     bool m_compactControls = false;
     bool m_dragDropEnabled = false;
+    // Callback name currently reporting hover; empty when nothing is hovered.
+    std::string m_hoveredCallback;
     std::unique_ptr<DragDropController> m_dragDropController;
     std::vector<Slot> m_rootSlots;
   };
