@@ -995,7 +995,12 @@ void SystemMonitorService::applyConfig(const SystemConfig::MonitorConfig& config
     m_pollConfig = sanitized;
     m_historyInterval = pollDuration(effectiveHistoryPollSeconds(sanitized));
   }
-  m_configGeneration.fetch_add(1);
+  {
+    // The generation must be published under the wake mutex, or the increment can land after the
+    // sampling thread evaluated its predicate but before it blocks, losing the wakeup.
+    std::scoped_lock wakeLock{m_wakeMutex};
+    m_configGeneration.fetch_add(1, std::memory_order_relaxed);
+  }
   m_wakeCv.notify_all();
   setEnabled(sanitized.enabled);
 }
@@ -1101,7 +1106,10 @@ void SystemMonitorService::start() {
 }
 
 void SystemMonitorService::stop() {
-  m_running = false;
+  {
+    std::scoped_lock wakeLock{m_wakeMutex};
+    m_running = false;
+  }
   m_wakeCv.notify_all();
   if (m_thread.joinable()) {
     m_thread.join();
