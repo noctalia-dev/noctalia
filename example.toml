@@ -478,9 +478,9 @@ battery_low_percent_threshold = 0   # set to e.g. 15 to enable battery_under_thr
 # network_speed_compact = true       # show "1.2M" instead of "1.2 MB/s"
 
 # [widget.network]
-# show_label    = true
-# show_vpn_label = false             # show VPN name instead of SSID/interface
-# vpn_icon      = "separate"         # separate | integrated | none
+# vpn_status     = "replace"         # replace | both | hidden
+# show_label     = true
+# show_vpn_label = false             # replace: replaces network label; both: adds VPN label
 
 # [widget.volume.effects_profile_glyphs]
 # eq_desktop = "device-speaker"

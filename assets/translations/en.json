@@ -2972,6 +2972,7 @@
       "options": {
         "always": "Always",
         "auto": "Auto",
+        "both": "Both",
         "cpu-temp": "CPU Temperature",
         "cpu-usage": "CPU Usage",
         "disk-percent": "Disk Percent",
@@ -2984,12 +2985,12 @@
         "gpu-vram": "GPU VRAM",
         "graph": "Graph",
         "graphic": "Graphic",
+        "hidden": "Hidden",
         "icon-and-text": "Icon and Text",
         "icon-only": "Icon Only",
         "id": "ID",
         "input": "Input",
         "instance": "Per Placement",
-        "integrated": "Integrated",
         "kilobytes": "kB/s",
         "megabytes": "MB/s",
         "minimal": "Minimal",
@@ -3002,9 +3003,9 @@
         "ram-percent": "RAM Percent",
         "ram-used": "RAM Used",
         "regular": "Regular",
+        "replace": "Replace",
         "screenshot-primary-fullscreen": "Fullscreen",
         "screenshot-primary-region": "Region",
-        "separate": "Separate Icon",
         "shared": "Shared",
         "short": "Short",
         "swap-percent": "Swap Percent",
@@ -3455,12 +3456,12 @@
           "label": "Show Temperature"
         },
         "show-vpn-label": {
-          "description": "Show VPN label instead of interface label next to the icon",
+          "description": "Show VPN name: replaces network label in replace mode, adds label next to VPN icon in both mode",
           "label": "Show VPN Label"
         },
-        "vpn-icon": {
-          "description": "How to display VPN status: separate adds a VPN icon next to the network icon, integrated replaces the network icon, none hides VPN status",
-          "label": "VPN Icon"
+        "vpn-status": {
+          "description": "How to display VPN status: replace swaps the network icon for a VPN shield, both shows them side by side, hidden disables the VPN indicator",
+          "label": "VPN Status"
         },
         "show-when-idle": {
           "description": "Keep the visualizer visible even when no media is playing",
