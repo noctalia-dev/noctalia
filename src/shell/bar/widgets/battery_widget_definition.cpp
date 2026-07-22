@@ -35,32 +35,37 @@ batteryWidgetDefinition() {
               field<&Options::showLabel>({
                   .key = "show_label",
               }),
+              field<&Options::labelContent>({
+                  .key = "label_content",
+                  .choices =
+                      {
+                          {
+                              .value = BatteryLabelContent::Percent,
+                              .configValue = "percent",
+                              .labelKey = "settings.widgets.options.percent",
+                          },
+                          {
+                              .value = BatteryLabelContent::Time,
+                              .configValue = "time",
+                              .labelKey = "settings.widgets.options.time",
+                          },
+                          {
+                              .value = BatteryLabelContent::Rate,
+                              .configValue = "rate",
+                              .labelKey = "settings.widgets.options.rate",
+                          },
+                      },
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .visibleWhen = settings::WidgetSettingVisibility{"show_label", {"true"}},
+                          .horizontalBarOnly = true,
+                      },
+              }),
               field<&Options::hideWhenPlugged>({
                   .key = "hide_when_plugged",
               }),
               field<&Options::hideWhenFull>({
                   .key = "hide_when_full",
-              }),
-              field<&Options::displayContent>({
-                  .key = "display_content",
-                  .choices =
-                      {
-                          {
-                              .value = BatteryDisplayContent::Percent,
-                              .configValue = "percent",
-                              .labelKey = "settings.widgets.options.percent",
-                          },
-                          {
-                              .value = BatteryDisplayContent::Time,
-                              .configValue = "time",
-                              .labelKey = "settings.widgets.options.time",
-                          },
-                          {
-                              .value = BatteryDisplayContent::Rate,
-                              .configValue = "rate",
-                              .labelKey = "settings.widgets.options.rate",
-                          },
-                      },
               }),
               field<&Options::deviceSelector>({
                   .key = "device",

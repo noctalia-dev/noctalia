@@ -38,50 +38,58 @@ namespace {
     }
     return nullptr;
   }
-  std::string formatShortDuration(std::int64_t seconds) {
-    if (seconds <= 0)
-      return {};
-    const auto hrs = seconds / 3600;
-    const auto mins = (seconds % 3600) / 60;
-    if (hrs > 0 && mins > 0)
-      return std::format("{}h {}m", hrs, mins);
-    if (hrs > 0)
-      return std::format("{}h", hrs);
-    if (mins > 0)
-      return std::format("{}m", mins);
-    return "< 1m";
+
+  std::string formatCompactDuration(std::int64_t seconds) {
+    const auto hours = seconds / 3600;
+    const auto minutes = (seconds % 3600) / 60;
+    const std::string hourText = i18n::tr("time.units.hour-compact", "count", hours);
+    const std::string minuteText = i18n::tr("time.units.minute-compact", "count", minutes);
+    if (hours > 0 && minutes > 0) {
+      return i18n::tr("time.duration.two-parts", "first", hourText, "second", minuteText);
+    }
+    if (hours > 0) {
+      return hourText;
+    }
+    if (minutes > 0) {
+      return minuteText;
+    }
+    return i18n::tr("time.duration.less-than-minute");
   }
+
 } // namespace
 
 BatteryWidget::BatteryWidget(UPowerService* upower, Options options)
     : m_upower(upower), m_deviceSelector(std::move(options.deviceSelector)),
       m_warningThreshold(options.warningThreshold), m_warningColor(options.warningColor),
-      m_displayMode(options.displayMode), m_showLabel(options.showLabel), m_hideWhenPlugged(options.hideWhenPlugged),
-      m_hideWhenFull(options.hideWhenFull), m_displayContent(options.displayContent) {}
+      m_displayMode(options.displayMode), m_labelContent(options.labelContent), m_showLabel(options.showLabel),
+      m_hideWhenPlugged(options.hideWhenPlugged), m_hideWhenFull(options.hideWhenFull) {}
 
-std::string BatteryWidget::buildLabelText(int pct, const UPowerState& s) const {
-  switch (m_displayContent) {
-  case BatteryDisplayContent::Time: {
-    std::string timeText;
-    if (s.state == BatteryState::Discharging && s.timeToEmpty > 0)
-      timeText = formatShortDuration(s.timeToEmpty);
-    else if (s.state == BatteryState::Charging && s.timeToFull > 0)
-      timeText = formatShortDuration(s.timeToFull);
-    if (!timeText.empty()) {
-      return timeText;
+// Vertical bars are too narrow for time or rate text, so they always show the bare percentage; the
+// tooltip carries the full detail. Time and rate are only known while the battery is actively charging
+// or discharging, and the percentage stands in whenever the selected content has no value to show.
+std::string BatteryWidget::buildLabelText(int pct, const UPowerState& state) const {
+  if (m_isVertical) {
+    return std::to_string(pct);
+  }
+
+  switch (m_labelContent) {
+  case BatteryLabelContent::Time:
+    if (state.state == BatteryState::Discharging && state.timeToEmpty > 0) {
+      return formatCompactDuration(state.timeToEmpty);
+    }
+    if (state.state == BatteryState::Charging && state.timeToFull > 0) {
+      return formatCompactDuration(state.timeToFull);
     }
     break;
-  }
-  case BatteryDisplayContent::Rate: {
-    if (s.energyRate > 0.0) {
-      return std::format("{:.1f} W", s.energyRate);
+  case BatteryLabelContent::Rate:
+    if (state.energyRate > 0.0) {
+      return std::format("{:.1f} W", state.energyRate);
     }
     break;
-  }
-  case BatteryDisplayContent::Percent:
+  case BatteryLabelContent::Percent:
     break;
   }
-  return m_isVertical ? std::format("{}", pct) : std::format("{}%", pct);
+  return std::format("{}%", pct);
 }
 
 void BatteryWidget::create() {
@@ -400,7 +408,10 @@ void BatteryWidget::syncState(Renderer& renderer) {
       || s.state == BatteryState::FullyCharged
       || s.state == BatteryState::PendingCharge;
 
+  const bool hasVisibleContent = m_displayMode != BatteryDisplayMode::None || m_showLabel;
+
   const bool showWidget = s.isPresent
+      && hasVisibleContent
       && !(m_hideWhenPlugged && isPluggedIn)
       && !(m_hideWhenFull && (s.state == BatteryState::FullyCharged || s.state == BatteryState::PendingCharge));
 
@@ -491,7 +502,6 @@ void BatteryWidget::syncState(Renderer& renderer) {
       m_label->setColor(fgColor);
       m_label->measure(renderer);
     }
-
   } else if (m_displayMode == BatteryDisplayMode::None) {
     const ColorSpec normalFgColor = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
     const ColorSpec fgColor = isWarning ? m_warningColor : normalFgColor;
@@ -500,7 +510,6 @@ void BatteryWidget::syncState(Renderer& renderer) {
       m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
       m_label->setText(buildLabelText(pct, s));
       m_label->setColor(fgColor);
-      m_label->setVisible(true);
       m_label->measure(renderer);
     }
   }

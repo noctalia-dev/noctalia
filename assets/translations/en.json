@@ -2986,12 +2986,11 @@
         "net-tx": "Network TX",
         "none": "None",
         "on-hover": "On Hover",
-        "percent": "Percent",
-        "time": "Time",
-        "rate": "Rate",
         "output": "Output",
+        "percent": "Percent",
         "ram-percent": "RAM Percent",
         "ram-used": "RAM Used",
+        "rate": "Rate",
         "regular": "Regular",
         "screenshot-primary-fullscreen": "Fullscreen",
         "screenshot-primary-region": "Region",
@@ -3000,6 +2999,7 @@
         "swap-percent": "Swap Percent",
         "text": "Text",
         "text-only": "Text Only",
+        "time": "Time",
         "workspace-label-centered": "Centered",
         "workspace-label-corner": "Corner",
         "workspace-label-inside": "Inside Pill"
@@ -3119,12 +3119,8 @@
           "label": "Display"
         },
         "display-mode": {
-          "description": "Choose None for label-obly, or a graphical shape or Tabler glyph",
+          "description": "Render the battery as a graphical shape, a Tabler glyph, or label only",
           "label": "Display Mode"
-        },
-        "display-content": {
-          "description": "Choose what information to display in the battery label",
-          "label": "Display Content"
         },
         "drawer": {
           "description": "Show a tray button in the bar and open items in a panel",
@@ -3287,6 +3283,10 @@
         "label": {
           "description": "Optional static text shown on this button",
           "label": "Label"
+        },
+        "label-content": {
+          "description": "What the battery label shows: charge percentage, time remaining, or power draw",
+          "label": "Label Content"
         },
         "label-min-width": {
           "description": "Minimum label width in pixels to prevent resizing",
@@ -3634,8 +3634,10 @@
       "day": "{count} day",
       "day-plural": "{count} days",
       "hour": "{count} hour",
+      "hour-compact": "{count}h",
       "hour-plural": "{count} hours",
       "minute": "{count} minute",
+      "minute-compact": "{count}m",
       "minute-plural": "{count} minutes",
       "month": "{count} month",
       "month-plural": "{count} months",
