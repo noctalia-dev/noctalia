@@ -375,7 +375,7 @@ namespace settings {
         continue;
       }
       if (m_selectedTag != 0) {
-        if (!std::ranges::contains(e.entry.tags, m_allTags[m_selectedTag])) {
+        if (!std::ranges::contains(e.entry.tags, m_allTags[m_selectedTag - 1])) {
           continue;
         }
       }
@@ -450,6 +450,7 @@ namespace settings {
             .onSelectionChanged =
                 [this](size_t i, std::string_view) {
                   m_selectedSource = i;
+                  m_selectedTag = 0;
                   applyFilter();
                   collectTags();
                   if (m_onRebuildNeeded) {
