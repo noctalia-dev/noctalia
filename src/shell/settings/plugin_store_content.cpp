@@ -125,11 +125,11 @@ namespace settings {
   } // namespace
 
   PluginStoreContent::PluginStoreContent(
-      std::vector<StoreCatalogEntry> catalog, ConfigService* config, std::unordered_set<std::string> onDiskIds, PluginStoreCallbacks callbacks,
-      scripting::PluginFileCache* fileCache
+      std::vector<StoreCatalogEntry> catalog, ConfigService* config, std::unordered_set<std::string> onDiskIds,
+      PluginStoreCallbacks callbacks, scripting::PluginFileCache* fileCache
   )
-      : m_catalog(std::move(catalog)), m_config(config), m_onDiskIds(std::move(onDiskIds)), m_callbacks(std::move(callbacks)),
-        m_fileCache(fileCache) {
+      : m_catalog(std::move(catalog)), m_config(config), m_onDiskIds(std::move(onDiskIds)),
+        m_callbacks(std::move(callbacks)), m_fileCache(fileCache) {
     if (m_config != nullptr) {
       if (const std::optional<std::string> sort = m_config->stateString("plugin_store", "sort")) {
         m_sortMode = sortModeFromState(*sort);
@@ -186,7 +186,7 @@ namespace settings {
 
     if (m_grid != nullptr) {
       m_grid->notifyDataChanged();
-      //m_grid->setSelectedIndex(m_selectedIndex);
+      // m_grid->setSelectedIndex(m_selectedIndex);
     }
   }
 
@@ -349,11 +349,11 @@ namespace settings {
       case SortMode::NameAsc:
       case SortMode::NameDesc:
         return std::lexicographical_compare(
-          m_catalog[a].entry.name.begin(), m_catalog[a].entry.name.end(),
-          m_catalog[b].entry.name.begin(), m_catalog[b].entry.name.end(),
-          [&](unsigned char ac, unsigned char bc) {
+            m_catalog[a].entry.name.begin(), m_catalog[a].entry.name.end(), m_catalog[b].entry.name.begin(),
+            m_catalog[b].entry.name.end(), [&](unsigned char ac, unsigned char bc) {
               return (m_sortMode == SortMode::NameAsc) != (std::tolower(ac) > std::tolower(bc));
-          });
+            }
+        );
       case SortMode::LastModifiedAsc:
         return m_catalog[a].entry.last_modified < m_catalog[b].entry.last_modified;
       case SortMode::LastModifiedDesc:
@@ -444,19 +444,20 @@ namespace settings {
     }
 
     toolbar->addChild(
-      ui::select({
-        .options = allSources,
-        .selectedIndex = m_selectedSource,
-        .onSelectionChanged = [this](size_t i, std::string_view) {
-          m_selectedSource = i;
-          applyFilter();
-          collectTags();
-          if (m_onRebuildNeeded) {
-            m_onRebuildNeeded();
-          }
-        },
-        .configure = [](Select& select) { select.setFillWidth(true); },
-      })
+        ui::select({
+            .options = allSources,
+            .selectedIndex = m_selectedSource,
+            .onSelectionChanged =
+                [this](size_t i, std::string_view) {
+                  m_selectedSource = i;
+                  applyFilter();
+                  collectTags();
+                  if (m_onRebuildNeeded) {
+                    m_onRebuildNeeded();
+                  }
+                },
+            .configure = [](Select& select) { select.setFillWidth(true); },
+        })
     );
 
     std::vector<std::string> allCategories;
@@ -464,17 +465,17 @@ namespace settings {
     allCategories.insert(allCategories.end(), m_allTags.begin(), m_allTags.end());
 
     toolbar->addChild(
-      ui::select({
-        .options = allCategories,
-        .selectedIndex = m_selectedTag,
-        .onSelectionChanged = [this](size_t i, std::string_view) {
-          m_selectedTag = i;
-          applyFilter();
-          if (m_onRebuildNeeded) {
-            m_onRebuildNeeded();
-          }
-        },
-      })
+        ui::select({
+            .options = allCategories,
+            .selectedIndex = m_selectedTag,
+            .onSelectionChanged = [this](size_t i, std::string_view) {
+              m_selectedTag = i;
+              applyFilter();
+              if (m_onRebuildNeeded) {
+                m_onRebuildNeeded();
+              }
+            },
+        })
     );
 
     toolbar->addChild(ui::spacer());
