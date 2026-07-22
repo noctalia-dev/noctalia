@@ -33,11 +33,8 @@ void NotificationWidget::create() {
     if (data.button != BTN_LEFT) {
       return;
     }
-    // If the user clicked the widget to open the panel, keep the widget visible so it can be clicked again to close the
-    // panel.
-    auto& panelManager = PanelManager::instance();
-    m_meClickedToOpenThePanel =
-        !(panelManager.isOpenPanel("control-center") && panelManager.isActivePanelContext("notifications"));
+    // Latch so the widget stays clickable while the panel this click opened is up.
+    m_openedPanelByClick = true;
     requestPanelToggle("control-center", "notifications");
   });
 
@@ -93,15 +90,10 @@ void NotificationWidget::refreshIndicatorState() {
   const bool dndEnabled = (m_manager != nullptr) && m_manager->doNotDisturb();
 
   if (Node* rootNode = root(); rootNode != nullptr) {
-    bool panelStillOpen = false;
-    if (m_meClickedToOpenThePanel) {
-      auto& panelManager = PanelManager::instance();
-      panelStillOpen = panelManager.isOpenPanel("control-center") && panelManager.isActivePanelContext("notifications");
-      if (!panelStillOpen) {
-        m_meClickedToOpenThePanel = false;
-      }
+    if (m_openedPanelByClick) {
+      m_openedPanelByClick = PanelManager::instance().isOpenPanel("control-center");
     }
-    const bool showWidget = panelStillOpen || !m_hideWhenNoUnread || hasNotifications;
+    const bool showWidget = m_openedPanelByClick || !m_hideWhenNoUnread || hasNotifications;
     rootNode->setVisible(showWidget);
     rootNode->setParticipatesInLayout(showWidget);
   }

@@ -24,5 +24,5 @@ private:
   bool m_hideWhenNoUnread = false;
   bool m_hasNotifications = false;
   bool m_dndEnabled = false;
-  bool m_meClickedToOpenThePanel = false;
+  bool m_openedPanelByClick = false;
 };
