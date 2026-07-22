@@ -111,7 +111,7 @@ stdenv.mkDerivation {
   ninjaFlags = [ "-v" ];
 
   meta = with lib; {
-    description = "A lightweight Wayland shell and bar built directly on Wayland + OpenGL ES";
+    description = "A sleek, customizable desktop shell crafted for Wayland.";
     homepage = "https://github.com/noctalia-dev/noctalia";
     license = licenses.mit;
     platforms = platforms.linux;
