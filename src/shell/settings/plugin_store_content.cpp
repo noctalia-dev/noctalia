@@ -1,5 +1,6 @@
 #include "shell/settings/plugin_store_content.h"
 
+#include "config/config_service.h"
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
@@ -124,13 +125,19 @@ namespace settings {
   } // namespace
 
   PluginStoreContent::PluginStoreContent(
-      std::vector<StoreCatalogEntry> catalog, std::unordered_set<std::string> onDiskIds, PluginStoreCallbacks callbacks,
+      std::vector<StoreCatalogEntry> catalog, ConfigService* config, std::unordered_set<std::string> onDiskIds, PluginStoreCallbacks callbacks,
       scripting::PluginFileCache* fileCache
   )
-      : m_catalog(std::move(catalog)), m_onDiskIds(std::move(onDiskIds)), m_callbacks(std::move(callbacks)),
+      : m_catalog(std::move(catalog)), m_config(config), m_onDiskIds(std::move(onDiskIds)), m_callbacks(std::move(callbacks)),
         m_fileCache(fileCache) {
+    if (m_config != nullptr) {
+      if (const std::optional<std::string> sort = m_config->stateString("plugin_store", "sort")) {
+        m_sortMode = sortModeFromState(*sort);
+      }
+    }
     collectThumbnails();
     collectSources();
+    collectTags();
     applyFilter();
   }
 
@@ -139,6 +146,138 @@ namespace settings {
   void PluginStoreContent::setOnRebuildNeeded(std::function<void()> cb) { m_onRebuildNeeded = std::move(cb); }
 
   bool PluginStoreContent::isDetailView() const noexcept { return m_detailIndex.has_value(); }
+
+  void PluginStoreContent::cycleSortMode() {
+    SortMode next = SortMode::NameAsc;
+    switch (m_sortMode) {
+    case SortMode::NameAsc:
+      next = SortMode::NameDesc;
+      break;
+    case SortMode::NameDesc:
+      next = SortMode::LastModifiedDesc;
+      break;
+    case SortMode::LastModifiedDesc:
+      next = SortMode::LastModifiedAsc;
+      break;
+    case SortMode::LastModifiedAsc:
+      next = SortMode::DateAddedDesc;
+      break;
+    case SortMode::DateAddedDesc:
+      next = SortMode::DateAddedAsc;
+      break;
+    case SortMode::DateAddedAsc:
+      next = SortMode::NameAsc;
+      break;
+    }
+    setSortMode(next);
+  }
+
+  void PluginStoreContent::setSortMode(SortMode mode) {
+    if (m_sortMode == mode) {
+      return;
+    }
+    m_sortMode = mode;
+    if (m_config != nullptr) {
+      (void)m_config->setStateString("plugin_store", "sort", std::string(sortModeStateValue(mode)));
+    }
+
+    syncSortButtonGlyph();
+    sortEntries();
+
+    if (m_grid != nullptr) {
+      m_grid->notifyDataChanged();
+      //m_grid->setSelectedIndex(m_selectedIndex);
+    }
+  }
+
+  SortMode PluginStoreContent::sortModeFromState(std::string_view value) {
+    if (value == "name_desc") {
+      return SortMode::NameDesc;
+    }
+    if (value == "last_modified_asc") {
+      return SortMode::LastModifiedAsc;
+    }
+    if (value == "last_modified_desc") {
+      return SortMode::LastModifiedDesc;
+    }
+    if (value == "date_added_asc") {
+      return SortMode::DateAddedAsc;
+    }
+    if (value == "date_added_desc") {
+      return SortMode::DateAddedDesc;
+    }
+    return SortMode::NameAsc;
+  }
+
+  std::string_view PluginStoreContent::sortModeStateValue(SortMode mode) {
+    switch (mode) {
+    case SortMode::NameDesc:
+      return "name_desc";
+    case SortMode::LastModifiedAsc:
+      return "last_modified_asc";
+    case SortMode::LastModifiedDesc:
+      return "last_modified_desc";
+    case SortMode::DateAddedAsc:
+      return "date_added_asc";
+    case SortMode::DateAddedDesc:
+      return "date_added_desc";
+    case SortMode::NameAsc:
+    default:
+      return "name_asc";
+    }
+  }
+
+  std::string_view PluginStoreContent::sortModeGlyph(SortMode mode) {
+    switch (mode) {
+    case SortMode::NameDesc:
+      return "sort-z-a";
+    case SortMode::LastModifiedAsc:
+      return "sort-ascending-2";
+    case SortMode::LastModifiedDesc:
+      return "sort-descending-2";
+    case SortMode::DateAddedAsc:
+      return "sort-ascending-2-filled";
+    case SortMode::DateAddedDesc:
+      return "sort-descending-2-filled";
+    case SortMode::NameAsc:
+    default:
+      return "sort-a-z";
+    }
+  }
+
+  const char* PluginStoreContent::sortModeTooltipKey(SortMode mode) {
+    switch (mode) {
+    case SortMode::NameDesc:
+      return "settings.plugins.store.sort-name-desc";
+    case SortMode::LastModifiedAsc:
+      return "settings.plugins.store.sort-last-modified-asc";
+    case SortMode::LastModifiedDesc:
+      return "settings.plugins.store.sort-last-modified-desc";
+    case SortMode::DateAddedAsc:
+      return "settings.plugins.store.sort-date-added-asc";
+    case SortMode::DateAddedDesc:
+      return "settings.plugins.store.sort-date-added-desc";
+    case SortMode::NameAsc:
+    default:
+      return "settings.plugins.store.sort-name-asc";
+    }
+  }
+
+  void PluginStoreContent::syncSortButtonGlyph() {
+    if (m_sortButton == nullptr) {
+      return;
+    }
+    m_sortButton->setGlyph(sortModeGlyph(m_sortMode));
+    m_sortButton->setTooltip(i18n::tr(sortModeTooltipKey(m_sortMode)));
+
+    if (!m_sortButton->hovered()) {
+      return;
+    }
+    InputArea* area = m_sortButton->inputArea();
+    if (area == nullptr || !area->hasTooltip()) {
+      return;
+    }
+  }
 
   std::optional<std::string> PluginStoreContent::detailPageUrl() const {
     if (!m_detailIndex.has_value() || *m_detailIndex >= m_filteredIndices.size()) {
@@ -176,17 +315,17 @@ namespace settings {
     }
   }
 
-  std::vector<std::string> PluginStoreContent::availableTags() const {
+  void PluginStoreContent::collectTags() {
     std::set<std::string> tagSet;
     for (const auto& entry : m_catalog) {
-      if (!m_selectedSource.empty() && entry.source != m_selectedSource) {
+      if (m_selectedSource != 0 && entry.source != m_sources[m_selectedSource - 1]) {
         continue;
       }
       for (const auto& tag : entry.entry.tags) {
         tagSet.insert(tag);
       }
     }
-    return {tagSet.begin(), tagSet.end()};
+    m_allTags = {tagSet.begin(), tagSet.end()};
   }
 
   void PluginStoreContent::collectSources() {
@@ -204,15 +343,39 @@ namespace settings {
     });
   }
 
+  void PluginStoreContent::sortEntries() {
+    std::ranges::sort(m_filteredIndices, [this](std::size_t a, std::size_t b) {
+      switch (m_sortMode) {
+      case SortMode::NameAsc:
+      case SortMode::NameDesc:
+        return std::lexicographical_compare(
+          m_catalog[a].entry.name.begin(), m_catalog[a].entry.name.end(),
+          m_catalog[b].entry.name.begin(), m_catalog[b].entry.name.end(),
+          [&](unsigned char ac, unsigned char bc) {
+              return (m_sortMode == SortMode::NameAsc) != (std::tolower(ac) > std::tolower(bc));
+          });
+      case SortMode::LastModifiedAsc:
+        return m_catalog[a].entry.last_modified < m_catalog[b].entry.last_modified;
+      case SortMode::LastModifiedDesc:
+        return m_catalog[a].entry.last_modified > m_catalog[b].entry.last_modified;
+      case SortMode::DateAddedAsc:
+        return m_catalog[a].entry.date_added < m_catalog[b].entry.date_added;
+      case SortMode::DateAddedDesc:
+        return m_catalog[a].entry.date_added > m_catalog[b].entry.date_added;
+      }
+      return false;
+    });
+  }
+
   void PluginStoreContent::applyFilter() {
     m_filteredIndices.clear();
     for (std::size_t i = 0; i < m_catalog.size(); ++i) {
       const auto& e = m_catalog[i];
-      if (!m_selectedSource.empty() && e.source != m_selectedSource) {
+      if (m_selectedSource != 0 && e.source != m_sources[m_selectedSource - 1]) {
         continue;
       }
-      if (!m_selectedTag.empty()) {
-        if (!std::ranges::contains(e.entry.tags, m_selectedTag)) {
+      if (m_selectedTag != 0) {
+        if (!std::ranges::contains(e.entry.tags, m_allTags[m_selectedTag])) {
           continue;
         }
       }
@@ -224,9 +387,9 @@ namespace settings {
       }
       m_filteredIndices.push_back(i);
     }
-    std::ranges::sort(m_filteredIndices, [this](std::size_t a, std::size_t b) {
-      return m_catalog[a].entry.name < m_catalog[b].entry.name;
-    });
+
+    sortEntries();
+
     if (m_filteredIndices.empty()) {
       m_selectedIndex.reset();
     } else if (m_selectedIndex.has_value() && *m_selectedIndex >= m_filteredIndices.size()) {
@@ -267,131 +430,56 @@ namespace settings {
         })
     );
 
-    if (m_sources.size() > 1) {
-      body.addChild(
-          ui::label({
-              .text = i18n::tr("settings.plugins.store.sources"),
-              .fontSize = Style::fontSizeCaption * scale,
-              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-          })
-      );
+    auto toolbar = ui::row({
+        .out = &m_toolbar,
+        .align = FlexAlign::Center,
+        .gap = Style::spaceSm * scale,
+        .fillWidth = true,
+    });
 
-      std::vector<std::string> allSources;
-      allSources.push_back(i18n::tr("settings.plugins.store.source-all"));
-      allSources.insert(allSources.end(), m_sources.begin(), m_sources.end());
-      std::vector<std::unique_ptr<Button>> sourceButtons;
-      for (std::size_t i = 0; i < allSources.size(); ++i) {
-        const bool selected = (i == 0 && m_selectedSource.empty()) || (i > 0 && m_sources[i - 1] == m_selectedSource);
-        const std::string text = i == 0 ? allSources[i] : sourceDisplayName(m_sources[i - 1]);
-        sourceButtons.push_back(
-            ui::button({
-                .text = text,
-                .fontSize = Style::fontSizeCaption * scale,
-                .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
-                .radius = Style::scaledRadiusMd(scale),
-                .onClick = [this, i]() {
-                  m_selectedSource = i == 0 ? std::string{} : m_sources[i - 1];
-                  if (!m_selectedTag.empty() && !std::ranges::contains(availableTags(), m_selectedTag)) {
-                    m_selectedTag.clear();
-                  }
-                  applyFilter();
-                  if (m_onRebuildNeeded) {
-                    m_onRebuildNeeded();
-                  }
-                },
-            })
-        );
-      }
-      auto sourceRows = wrapButtonsIntoRows(
-          renderer, sourceButtons, body.width() > 0 ? body.width() : 700.0f * scale, Style::spaceXs * scale
-      );
-      for (auto& row : sourceRows) {
-        auto rowFlex = ui::row(
-            {.align = FlexAlign::Center,
-             .justify = FlexJustify::Center,
-             .gap = Style::spaceXs * scale,
-             .fillWidth = true}
-        );
-        for (auto& btn : row) {
-          rowFlex->addChild(std::move(btn));
-        }
-        body.addChild(std::move(rowFlex));
-      }
+    std::vector<std::string> allSources;
+    allSources.push_back(i18n::tr("settings.plugins.store.source-all"));
+    for (const auto& source : m_sources) {
+      allSources.push_back(sourceDisplayName(source));
     }
 
-    const std::vector<std::string> tags = availableTags();
-    if (!tags.empty()) {
-      auto tagsHeader = ui::row({.align = FlexAlign::Center, .justify = FlexJustify::SpaceBetween, .fillWidth = true});
-      tagsHeader->addChild(
-          ui::button({
-              .text = i18n::tr("settings.plugins.store.categories"),
-              .glyph = m_tagFiltersCollapsed ? std::string("chevron-right") : std::string("chevron-down"),
-              .fontSize = Style::fontSizeCaption * scale,
-              .glyphSize = Style::fontSizeCaption * scale,
-              .contentAlign = ButtonContentAlign::Start,
-              .variant = ButtonVariant::Ghost,
-              .onClick = [this]() {
-                m_tagFiltersCollapsed = !m_tagFiltersCollapsed;
-                if (m_onRebuildNeeded) {
-                  m_onRebuildNeeded();
-                }
-              },
-          })
-      );
-
-      const std::string selectedTag =
-          m_selectedTag.empty() ? i18n::tr("settings.plugins.store.category-all") : m_selectedTag;
-      tagsHeader->addChild(
-          ui::label({
-              .text = selectedTag,
-              .fontSize = Style::fontSizeCaption * scale,
-              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-          })
-      );
-      body.addChild(std::move(tagsHeader));
-
-      if (!m_tagFiltersCollapsed) {
-        std::vector<std::string> allTags;
-        allTags.push_back(i18n::tr("settings.plugins.store.category-all"));
-        allTags.insert(allTags.end(), tags.begin(), tags.end());
-        std::vector<std::unique_ptr<Button>> tagButtons;
-        for (std::size_t i = 0; i < allTags.size(); ++i) {
-          const std::string tag = i == 0 ? std::string{} : tags[i - 1];
-          const bool selected = tag == m_selectedTag;
-          auto btn = ui::button({
-              .text = allTags[i],
-              .fontSize = Style::fontSizeCaption * scale,
-              .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
-              .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this, tag]() {
-                m_selectedTag = tag;
-                applyFilter();
-                if (m_onRebuildNeeded) {
-                  m_onRebuildNeeded();
-                }
-              },
-          });
-          tagButtons.push_back(std::move(btn));
-        }
-        auto rows = wrapButtonsIntoRows(
-            renderer, tagButtons, body.width() > 0 ? body.width() : 700.0f * scale, Style::spaceXs * scale
-        );
-        for (auto& row : rows) {
-          auto rowFlex = ui::row(
-              {.align = FlexAlign::Center,
-               .justify = FlexJustify::Center,
-               .gap = Style::spaceXs * scale,
-               .fillWidth = true}
-          );
-          for (auto& btn : row) {
-            rowFlex->addChild(std::move(btn));
+    toolbar->addChild(
+      ui::select({
+        .options = allSources,
+        .selectedIndex = m_selectedSource,
+        .onSelectionChanged = [this](size_t i, std::string_view) {
+          m_selectedSource = i;
+          applyFilter();
+          collectTags();
+          if (m_onRebuildNeeded) {
+            m_onRebuildNeeded();
           }
-          body.addChild(std::move(rowFlex));
-        }
-      }
-    }
+        },
+        .configure = [](Select& select) { select.setFillWidth(true); },
+      })
+    );
 
-    body.addChild(
+    std::vector<std::string> allCategories;
+    allCategories.push_back(i18n::tr("settings.plugins.store.category-all"));
+    allCategories.insert(allCategories.end(), m_allTags.begin(), m_allTags.end());
+
+    toolbar->addChild(
+      ui::select({
+        .options = allCategories,
+        .selectedIndex = m_selectedTag,
+        .onSelectionChanged = [this](size_t i, std::string_view) {
+          m_selectedTag = i;
+          applyFilter();
+          if (m_onRebuildNeeded) {
+            m_onRebuildNeeded();
+          }
+        },
+      })
+    );
+
+    toolbar->addChild(ui::spacer());
+
+    toolbar->addChild(
         ui::label({
             .out = &m_countLabel,
             .text = i18n::tr("settings.plugins.store.results-count", "count", std::to_string(m_filteredIndices.size())),
@@ -399,6 +487,23 @@ namespace settings {
             .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
         })
     );
+
+    toolbar->addChild(
+        ui::button({
+            .out = &m_sortButton,
+            .glyph = std::string(sortModeGlyph(m_sortMode)),
+            .glyphSize = Style::fontSizeTitle * scale,
+            .variant = ButtonVariant::Default,
+            .tooltip = i18n::tr(sortModeTooltipKey(m_sortMode)),
+            .minWidth = Style::controlHeight * scale,
+            .minHeight = Style::controlHeight * scale,
+            .padding = Style::spaceXs * scale,
+            .radius = Style::scaledRadiusMd(scale),
+            .onClick = [this]() { cycleSortMode(); },
+        })
+    );
+
+    body.addChild(std::move(toolbar));
 
     auto adapter = std::make_unique<PluginStoreAdapter>(scale);
     auto* adapterPtr = adapter.get();

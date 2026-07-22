@@ -1442,8 +1442,7 @@
       },
       "store": {
         "add": "Add to Noctalia",
-        "categories": "Categories",
-        "category-all": "All",
+        "category-all": "All categories",
         "empty": "No plugins found",
         "incompatible": "Incompatible",
         "loading": "Loading catalog…",
@@ -1452,9 +1451,14 @@
         "open-source": "Open plugin source repository",
         "results-count": "{count} plugins",
         "search-placeholder": "Search plugins…",
-        "source-all": "All",
-        "sources": "Sources",
-        "title": "Plugin Store"
+        "source-all": "All sources",
+        "title": "Plugin Store",
+        "sort-name-asc": "Sort by name (A-Z)",
+        "sort-name-desc": "Sort by name (Z-A)",
+        "sort-last-modified-asc": "Sort by date updated (oldest first)",
+        "sort-last-modified-desc": "Sort by date updated (newest first)",
+        "sort-date-added-asc": "Sort by date added (oldest first)",
+        "sort-date-added-desc": "Sort by date added (newest first)"
       }
     },
     "schema": {

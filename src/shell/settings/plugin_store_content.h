@@ -12,10 +12,12 @@
 #include <unordered_set>
 #include <vector>
 
+class ConfigService;
 class AsyncTextureCache;
 class Flex;
 class InputArea;
 class Label;
+class Button;
 class Renderer;
 class VirtualGridAdapter;
 class VirtualGridView;
@@ -25,6 +27,15 @@ namespace scripting {
 }
 
 namespace settings {
+
+  enum class SortMode : std::uint8_t {
+    NameAsc,
+    NameDesc,
+    LastModifiedAsc,
+    LastModifiedDesc,
+    DateAddedAsc,
+    DateAddedDesc,
+  };
 
   struct StoreCatalogEntry {
     scripting::CatalogEntry entry;
@@ -41,7 +52,7 @@ namespace settings {
   class PluginStoreContent {
   public:
     PluginStoreContent(
-        std::vector<StoreCatalogEntry> catalog, std::unordered_set<std::string> onDiskIds,
+        std::vector<StoreCatalogEntry> catalog, ConfigService* config, std::unordered_set<std::string> onDiskIds,
         PluginStoreCallbacks callbacks, scripting::PluginFileCache* fileCache
     );
     ~PluginStoreContent();
@@ -68,25 +79,35 @@ namespace settings {
   private:
     void buildGridView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
     void buildDetailView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
+    void syncSortButtonGlyph();
+    void cycleSortMode();
+    void setSortMode(SortMode mode);
+    [[nodiscard]] static SortMode sortModeFromState(std::string_view value);
+    [[nodiscard]] static std::string_view sortModeStateValue(SortMode mode);
+    [[nodiscard]] static std::string_view sortModeGlyph(SortMode mode);
+    [[nodiscard]] static const char* sortModeTooltipKey(SortMode mode);
+    void sortEntries();
     void applyFilter();
     void collectThumbnails();
     void collectSources();
     // Tags present in the catalog under the active source filter (so category chips never offer a
     // category with zero results for the selected source).
-    [[nodiscard]] std::vector<std::string> availableTags() const;
+    void collectTags();
     void selectIndex(std::size_t index);
     void moveSelection(int delta);
     [[nodiscard]] bool activateSelection();
     [[nodiscard]] bool installDetailIfAvailable();
 
     std::vector<StoreCatalogEntry> m_catalog;
+    ConfigService* m_config = nullptr;
     std::vector<std::size_t> m_filteredIndices;
     std::unordered_set<std::string> m_onDiskIds;
     std::vector<std::string> m_sources;
-    bool m_tagFiltersCollapsed = true;
+    std::vector<std::string> m_allTags;
+    SortMode m_sortMode;
     std::string m_searchQuery;
-    std::string m_selectedTag;
-    std::string m_selectedSource;
+    std::size_t m_selectedTag = 0;
+    std::size_t m_selectedSource = 0;
     PluginStoreCallbacks m_callbacks;
     scripting::PluginFileCache* m_fileCache = nullptr;
 
@@ -94,8 +115,10 @@ namespace settings {
     std::string m_detailReadme;
     bool m_detailReadmeLoading = false;
 
+    Flex* m_toolbar = nullptr;
     VirtualGridView* m_grid = nullptr;
     Label* m_countLabel = nullptr;
+    Button* m_sortButton = nullptr;
     std::optional<std::size_t> m_selectedIndex;
     std::function<void()> m_onRebuildNeeded;
 

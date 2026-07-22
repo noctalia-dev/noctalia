@@ -1917,7 +1917,7 @@ void SettingsWindow::openPluginStore() {
       }
 
       auto storeContent = std::make_shared<settings::PluginStoreContent>(
-          std::move(catalog), std::move(onDiskIds),
+          std::move(catalog), m_config, std::move(onDiskIds),
           settings::PluginStoreCallbacks{
               .setEnabled =
                   [this, catalogLookup](std::string id, bool enable) {

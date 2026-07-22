@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -16,6 +17,8 @@ namespace scripting {
     std::vector<std::string> tags;
     std::vector<std::string> dependencies;
     std::string version; // latest available in the source
+    std::chrono::system_clock::time_point last_modified;
+    std::chrono::system_clock::time_point date_added;
     std::string author;
     std::string icon;
     std::string description;
