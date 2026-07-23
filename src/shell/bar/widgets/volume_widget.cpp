@@ -1,6 +1,8 @@
 #include "shell/bar/widgets/volume_widget.h"
 
 #include "config/config_types.h"
+#include "core/log.h"
+#include "core/process/process.h"
 #include "i18n/i18n.h"
 #include "pipewire/pipewire_service.h"
 #include "render/scene/input_area.h"
@@ -16,24 +18,40 @@
 #include <string_view>
 #include <utility>
 
+namespace {
+  constexpr Logger kLog("volume-widget");
+}
+
 VolumeWidget::VolumeWidget(
     PipeWireService* audio, EasyEffectsService* easyEffects, const Config* config, wl_output* /*output*/,
     bool showLabel, VolumeWidgetTarget target, int scrollStepPercent, ColorSpec muteColor, std::string glyphOverride,
     std::string muteGlyphOverride, std::unordered_map<std::string, std::string> effectsProfileGlyphs,
-    WidgetCustomImage customImage, bool enableScroll
+    std::string middleCommand, WidgetCustomImage customImage, bool enableScroll
 )
     : m_audio(audio), m_easyEffects(easyEffects), m_config(config), m_showLabel(showLabel),
       m_enableScroll(enableScroll), m_scrollStep(static_cast<float>(scrollStepPercent) / 100.0f), m_target(target),
       m_muteColor(muteColor), m_glyphOverride(std::move(glyphOverride)),
       m_muteGlyphOverride(std::move(muteGlyphOverride)), m_effectsProfileGlyphs(std::move(effectsProfileGlyphs)),
-      m_customImage(std::move(customImage)) {}
+      m_middleCommand(std::move(middleCommand)), m_customImage(std::move(customImage)) {}
 
 void VolumeWidget::create() {
   auto area = std::make_unique<InputArea>();
-  area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
+
+  std::uint32_t acceptedButtons = InputArea::buttonMask({BTN_LEFT, BTN_RIGHT});
+  if (!m_middleCommand.empty()) {
+    acceptedButtons |= InputArea::buttonMask(BTN_MIDDLE);
+  }
+  area->setAcceptedButtons(acceptedButtons);
+
   area->setOnClick([this](const InputArea::PointerData& data) {
     if (data.button == BTN_LEFT) {
       requestPanelToggle("control-center", "audio");
+      return;
+    }
+    if (data.button == BTN_MIDDLE && !m_middleCommand.empty()) {
+      if (!process::runAsync(m_middleCommand)) {
+        kLog.warn("failed to launch command for '{}'", configName());
+      }
       return;
     }
     if (data.button != BTN_RIGHT || m_audio == nullptr) {
@@ -94,6 +112,10 @@ void VolumeWidget::create() {
   );
 
   setRoot(std::move(area));
+}
+
+bool VolumeWidget::reservesMiddleClick(float /*sceneX*/, float /*sceneY*/) const noexcept {
+  return !m_middleCommand.empty();
 }
 
 void VolumeWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {

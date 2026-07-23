@@ -26,10 +26,11 @@ public:
       PipeWireService* audio, EasyEffectsService* easyEffects, const Config* config, wl_output* output, bool showLabel,
       VolumeWidgetTarget target, int scrollStepPercent, ColorSpec muteColor, std::string glyphOverride,
       std::string muteGlyphOverride, std::unordered_map<std::string, std::string> effectsProfileGlyphs,
-      WidgetCustomImage customImage = {}, bool enableScroll = true
+      std::string middleCommand, WidgetCustomImage customImage = {}, bool enableScroll = true
   );
 
   void create() override;
+  [[nodiscard]] bool reservesMiddleClick(float sceneX, float sceneY) const noexcept override;
 
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
@@ -48,6 +49,7 @@ private:
   std::string m_glyphOverride;
   std::string m_muteGlyphOverride;
   std::unordered_map<std::string, std::string> m_effectsProfileGlyphs;
+  std::string m_middleCommand;
   WidgetCustomImage m_customImage;
   Glyph* m_glyph = nullptr;
   Image* m_image = nullptr;

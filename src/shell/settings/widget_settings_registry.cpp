@@ -1152,6 +1152,7 @@ namespace settings {
       add(stringMapSpec("effects_profile_glyphs"));
       add(stringSpec("custom_image", ""));
       add(boolSpec("custom_image_colorize", false));
+      add(stringSpec("middle_command"));
       add(boolSpec("enable_scroll", true));
       {
         auto scrollStep = stepperIntSpec("scroll_step", 5, 1.0, 25.0, 1.0, "%");
