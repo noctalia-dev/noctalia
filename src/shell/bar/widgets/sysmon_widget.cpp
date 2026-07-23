@@ -103,6 +103,13 @@ namespace {
   bool needsGpuUsage(SysmonStat stat) { return stat == SysmonStat::GpuUsage; }
   bool needsGpuVram(SysmonStat stat) { return stat == SysmonStat::GpuVram; }
 
+  bool isDiskStat(SysmonStat stat) {
+    return stat == SysmonStat::DiskUsedPct
+        || stat == SysmonStat::DiskUsed
+        || stat == SysmonStat::DiskFreePct
+        || stat == SysmonStat::DiskFree;
+  }
+
   constexpr std::array<SysmonStat, 14> kTooltipStats{
       SysmonStat::CpuUsage,    SysmonStat::CpuTemp,  SysmonStat::GpuTemp, SysmonStat::GpuUsage,    SysmonStat::GpuVram,
       SysmonStat::RamUsed,     SysmonStat::RamPct,   SysmonStat::SwapPct, SysmonStat::DiskUsedPct, SysmonStat::DiskUsed,
@@ -186,11 +193,7 @@ SysmonWidget::SysmonWidget(SystemMonitorService* monitor, ConfigService& configS
     if (needsGpuVram(m_stat)) {
       m_monitor->retainGpuVram();
     }
-    if ((m_stat == SysmonStat::DiskUsedPct
-         || m_stat == SysmonStat::DiskUsed
-         || m_stat == SysmonStat::DiskFreePct
-         || m_stat == SysmonStat::DiskFree)
-        && !m_diskPath.empty()) {
+    if (isDiskStat(m_stat) && !m_diskPath.empty()) {
       m_monitor->retainDiskPath(m_diskPath);
     }
   }
@@ -210,11 +213,7 @@ SysmonWidget::~SysmonWidget() {
     if (needsGpuVram(m_stat)) {
       m_monitor->releaseGpuVram();
     }
-    if ((m_stat == SysmonStat::DiskUsedPct
-         || m_stat == SysmonStat::DiskUsed
-         || m_stat == SysmonStat::DiskFreePct
-         || m_stat == SysmonStat::DiskFree)
-        && !m_diskPath.empty()) {
+    if (isDiskStat(m_stat) && !m_diskPath.empty()) {
       m_monitor->releaseDiskPath(m_diskPath);
     }
   }
@@ -440,7 +439,6 @@ double SysmonWidget::currentGradientValue() {
     return std::max(m_monitor->netTxBytesPerSec(m_networkInterface) / kBytesPerMb, 0.0);
   case SysmonStat::DiskUsedPct:
   case SysmonStat::DiskUsed:
-    return 0.0;
   case SysmonStat::DiskFreePct:
   case SysmonStat::DiskFree:
     return 0.0;
@@ -699,10 +697,7 @@ void SysmonWidget::updateGraph(Renderer& renderer) {
   }
 
   std::vector<float> data;
-  if (m_stat == SysmonStat::DiskUsedPct
-      || m_stat == SysmonStat::DiskUsed
-      || m_stat == SysmonStat::DiskFreePct
-      || m_stat == SysmonStat::DiskFree) {
+  if (isDiskStat(m_stat)) {
     data = m_monitor->diskHistory(m_diskPath, kHistorySamples);
     if (data.size() < 4) {
       return;
@@ -836,7 +831,6 @@ double SysmonWidget::normalizedFromStats(
 
   case SysmonStat::DiskUsedPct:
   case SysmonStat::DiskUsed:
-    return 0.0;
   case SysmonStat::DiskFreePct:
   case SysmonStat::DiskFree:
     return 0.0;
@@ -853,7 +847,7 @@ double SysmonWidget::currentNormalized() {
     return std::clamp(static_cast<double>(m_monitor->diskUsagePercent(m_diskPath)) / 100.0, 0.0, 1.0);
   }
   if (m_stat == SysmonStat::DiskFreePct || m_stat == SysmonStat::DiskFree) {
-    return std::clamp(100.0 - static_cast<double>(m_monitor->diskUsagePercent(m_diskPath)) / 100.0, 0.0, 1.0);
+    return std::clamp((100.0 - static_cast<double>(m_monitor->diskUsagePercent(m_diskPath))) / 100.0, 0.0, 1.0);
   }
 
   return std::clamp(

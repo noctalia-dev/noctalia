@@ -1055,7 +1055,6 @@ namespace {
   };
 
   [[nodiscard]] DiskStatvfsData readDiskStatvfs(const std::string& path) {
-
     struct statvfs sv{};
     if (::statvfs(path.c_str(), &sv) != 0 || sv.f_blocks == 0) {
       return {};

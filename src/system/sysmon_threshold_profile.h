@@ -44,7 +44,6 @@ namespace noctalia::sysmon {
     case Stat::SwapPct:
       return ThresholdProfile{.activityDefault = 20.0, .criticalDefault = 80.0};
     case Stat::DiskUsedPct:
-      return ThresholdProfile{.activityDefault = 80.0, .criticalDefault = 95.0};
     case Stat::DiskUsed:
     case Stat::DiskFreePct:
     case Stat::DiskFree:

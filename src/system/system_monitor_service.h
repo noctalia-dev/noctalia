@@ -77,7 +77,6 @@ public:
   [[nodiscard]] std::uint64_t diskTotalBytes(const std::string& path) const;
   [[nodiscard]] std::uint64_t diskFreeBytes(const std::string& path) const;
   [[nodiscard]] std::uint64_t diskAvailBytes(const std::string& path) const;
-  [[nodiscard]] std::optional<std::uint64_t> gpuVramTotalBytes() const;
 
 private:
   struct NvidiaNvmlReader;
