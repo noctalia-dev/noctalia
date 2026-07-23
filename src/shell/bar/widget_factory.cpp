@@ -5,6 +5,7 @@
 #include "core/log.h"
 #include "shell/bar/widgets/active_window_widget.h"
 #include "shell/bar/widgets/audio_visualizer_widget.h"
+#include "shell/bar/widgets/audio_visualizer_widget_definition.h"
 #include "shell/bar/widgets/battery_widget.h"
 #include "shell/bar/widgets/battery_widget_definition.h"
 #include "shell/bar/widgets/bluetooth_widget.h"
@@ -159,31 +160,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "audio_visualizer") {
-    const float width = static_cast<float>(wc != nullptr ? wc->getDouble("width", 56.0) : 56.0);
-    const int bands = static_cast<int>(wc != nullptr ? wc->getInt("bands", 16) : 16);
-    const bool mirrored = wc != nullptr ? wc->getBool("mirrored", true) : true;
-    const bool centered = wc != nullptr ? wc->getBool("centered", true) : true;
-    const bool showWhenIdle = wc != nullptr ? wc->getBool("show_when_idle", false) : false;
-    const ColorSpec color1 = wc != nullptr
-        ? wc->getColorSpec("color_1", colorSpecFromRole(ColorRole::Primary), "widget." + name + ".color_1")
-        : colorSpecFromRole(ColorRole::Primary);
-    const ColorSpec color2 = wc != nullptr
-        ? wc->getColorSpec("color_2", colorSpecFromRole(ColorRole::Primary), "widget." + name + ".color_2")
-        : colorSpecFromRole(ColorRole::Primary);
-    auto widget = std::make_unique<AudioVisualizerWidget>(
-        m_audioSpectrum,
-        AudioVisualizerWidget::Options{
-            .width = width,
-            .bands = bands,
-            .mirrored = mirrored,
-            .centered = centered,
-            .showWhenIdle = showWhenIdle,
-            .color1 = color1,
-            .color2 = color2,
-        }
+    return createWidget<AudioVisualizerWidget>(
+        contentScale, m_audioSpectrum, audioVisualizerWidgetDefinition().resolve(wc, std::format("widget.{}", name))
     );
-    widget->setContentScale(contentScale);
-    return widget;
   }
 
   if (type == "battery") {

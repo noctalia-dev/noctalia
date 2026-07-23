@@ -4,6 +4,7 @@
 #include "scripting/plugin_i18n.h"
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"
+#include "shell/bar/widgets/audio_visualizer_widget_definition.h"
 #include "shell/bar/widgets/battery_widget_definition.h"
 #include "shell/bar/widgets/brightness_widget_definition.h"
 #include "shell/settings/font_family_catalog.h"
@@ -73,6 +74,7 @@ namespace settings {
     }
 
     constexpr std::array kTypedWidgetDefinitions{
+        projectWidgetDefinition<audioVisualizerWidgetDefinition>(),
         projectWidgetDefinition<batteryWidgetDefinition>(),
         projectWidgetDefinition<brightnessWidgetDefinition>(),
     };
@@ -741,20 +743,6 @@ namespace settings {
         add(std::move(display));
       }
       add(boolSpec("show_empty_label", false));
-    } else if (type == "audio_visualizer") {
-      add(intSpec("width", 56.0, 8.0, 400.0, 1.0));
-      add(intSpec("bands", 16, 2.0, 128.0, 1.0));
-      add(boolSpec("mirrored", true));
-      add(boolSpec("centered", true));
-      add(boolSpec("show_when_idle", false));
-      {
-        auto color1 = colorSpec("color_1", "primary");
-        add(std::move(color1));
-      }
-      {
-        auto color2 = colorSpec("color_2", "primary");
-        add(std::move(color2));
-      }
     } else if (type == "bluetooth") {
       add(boolSpec("show_label", false));
       add(boolSpec("hide_when_no_connected_device", false));
