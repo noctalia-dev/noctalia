@@ -3547,10 +3547,6 @@
           "description": "Show VPN name: replaces network label in replace mode, adds label next to VPN icon in both mode",
           "label": "Show VPN Label"
         },
-        "vpn-status": {
-          "description": "How to display VPN status: replace swaps the network icon for a VPN shield, both shows them side by side, hidden disables the VPN indicator",
-          "label": "VPN Status"
-        },
         "show-when-idle": {
           "description": "Keep the visualizer visible even when no media is playing",
           "label": "Show When Idle"
@@ -3607,6 +3603,10 @@
         "vertical-format": {
           "description": "Optional format used on vertical bars",
           "label": "Vertical Format"
+        },
+        "vpn-status": {
+          "description": "How to display VPN status: replace swaps the network icon for a VPN shield, both shows them side by side, hidden disables the VPN indicator",
+          "label": "VPN Status"
         },
         "warning-color": {
           "description": "Color applied when charge is at or below the System battery warning threshold",

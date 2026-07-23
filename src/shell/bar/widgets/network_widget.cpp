@@ -241,7 +241,7 @@ void NetworkWidget::doLayout(Renderer& renderer, float containerWidth, float con
     const float vpnGroupWidth =
         vpnVisible ? m_vpnGlyph->width() + (vpnLabelVisible ? Style::spaceXs + m_vpnLabel->width() : 0.0f) : 0.0f;
     const float networkGroupWidth = icon->width() + (networkLabelVisible ? Style::spaceXs + m_label->width() : 0.0f);
-    const float gap = vpnVisible ? Style::spaceSm : 0.0f;
+    const float gap = vpnVisible ? Style::spaceXs : 0.0f;
     const float totalWidth = vpnGroupWidth + gap + networkGroupWidth;
     const float h = [&]() {
       float maxH = icon->height();
