@@ -177,6 +177,8 @@ LockSurface::LockSurface(WaylandConnection& connection, ConfigService* config) :
   });
 
   setSceneRoot(&m_root);
+  setAnimationManager(&m_animations);
+  m_root.setAnimationManager(&m_animations);
   setConfigureCallback([this](std::uint32_t /*width*/, std::uint32_t /*height*/) { requestLayout(); });
   setPrepareFrameCallback([this](bool needsUpdate, bool needsLayout) { prepareFrame(needsUpdate, needsLayout); });
   requestUpdate();

@@ -63,6 +63,10 @@ public:
   // record each activation and surface frequently used entries higher.
   [[nodiscard]] virtual bool trackUsage() const { return false; }
 
+  // Return true when activate() copies text and should honor shell.launcher.auto_paste
+  // after the launcher closes (calculator, emoji, copy-mode dmenu, …).
+  [[nodiscard]] virtual bool supportsAutoPaste() const { return false; }
+
   // Prefixed providers (non-empty prefix()) normally only respond when their prefix is typed.
   // Return true to also contribute results to the general (non-prefixed) search.
   [[nodiscard]] virtual bool includeInGlobalSearch() const {
@@ -88,9 +92,9 @@ public:
 
   // Async (plugin-backed) providers defer the launcher close until their activation
   // handler resolves: if it rewrote the query the panel stays open, otherwise the
-  // provider invokes this to close it (and record usage). The argument is the
-  // activated result id. Synchronous providers close directly via activate().
-  virtual void setActivationDoneCallback(std::function<void(std::string)> /*callback*/) {}
+  // provider invokes this to close it (and record usage). Arguments are the
+  // activated result id and whether onActivate copied to the clipboard.
+  virtual void setActivationDoneCallback(std::function<void(std::string, bool)> /*callback*/) {}
 
   virtual void initialize() {}
 

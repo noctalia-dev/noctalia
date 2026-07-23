@@ -539,10 +539,6 @@
         "wave-thickness": "Hullámvastagság",
         "widget-section": "Widget"
       },
-      "state": {
-        "grid-off": "Rács kikapcsolva",
-        "grid-on": "Rács bekapcsolva"
-      },
       "title": "Asztali vezérlők",
       "types": {
         "audio-visualizer": "Hangvizualizáló",
@@ -3521,7 +3517,6 @@
     "window": {
       "export-config": "Konfiguráció exportálása…",
       "export-config-saved": "Konfiguráció exportálása mentve.",
-      "filter-modified": "Módosítva",
       "legacy-config-warning": "A régi konfiguráció átvitel alatt áll a memóriában: {issue}. Futtasd a noctalia beállítások érvényesítése parancsot a szükséges változtatásokhoz.",
       "native-title": "Noctalia Beállítások",
       "no-results": "Nincsenek beállítások",

@@ -431,10 +431,6 @@
         "wave-thickness": "Gruix de l'ona",
         "widget-section": "Widget"
       },
-      "state": {
-        "grid-off": "Graella desactivada",
-        "grid-on": "Graella activada"
-      },
       "title": "Widgets d'escriptori",
       "types": {
         "audio-visualizer": "Visualitzador d'àudio",
@@ -2899,7 +2895,6 @@
     "window": {
       "export-config": "Exporta la configuració…",
       "export-config-saved": "Exportació de la configuració desada.",
-      "filter-modified": "Modificat",
       "native-title": "Configuració del Noctalia",
       "no-results": "No s'han trobat paràmetres",
       "no-results-hint": "Prova amb un nom de paràmetre o una clau de configuració diferent.",

@@ -536,10 +536,6 @@
         "wave-thickness": "Độ dày sóng",
         "widget-section": "Tiện ích"
       },
-      "state": {
-        "grid-off": "Tắt lưới",
-        "grid-on": "Bật lưới"
-      },
       "title": "Tiện ích màn hình nền",
       "types": {
         "audio-visualizer": "Trực quan hóa âm thanh",
@@ -3321,7 +3317,6 @@
     "window": {
       "export-config": "Xuất cấu hình…",
       "export-config-saved": "Xuất cấu hình đã lưu.",
-      "filter-modified": "Đã sửa đổi",
       "native-title": "Cài đặt Noctalia",
       "no-results": "Không tìm thấy cài đặt nào",
       "no-results-hint": "Thử một tên cài đặt hoặc khóa cấu hình khác.",

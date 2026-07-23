@@ -698,7 +698,7 @@ void LauncherPanel::applyProviderConfig(LauncherProvider& provider) const {
     const auto& launcherCfg = m_config->config().shell.launcher;
     prefix = launcherCfg.providerPrefix;
     if (provider.allowCustomPrefix()) {
-      std::string key = StringUtils::toLower(std::string(provider.id()));
+      const std::string key = StringUtils::toLower(std::string(provider.id()));
       auto it = std::ranges::find(launcherCfg.providers, key, &LauncherProviderConfig::name);
       if (it != launcherCfg.providers.end()) {
         if (!it->prefix.empty()) {
@@ -709,8 +709,20 @@ void LauncherPanel::applyProviderConfig(LauncherProvider& provider) const {
     }
   }
 
-  provider.setCustomPrefix(triggerWord.empty() ? std::string() : prefix + triggerWord);
-  provider.setCustomIncludeInGlobalSearch(global);
+  if (provider.allowCustomPrefix()) {
+    provider.setCustomPrefix(triggerWord.empty() ? std::string() : prefix + triggerWord);
+    provider.setCustomIncludeInGlobalSearch(global);
+  }
+}
+
+void LauncherPanel::finishActivation(LauncherProvider& provider, const std::string& resultId, bool copied) {
+  if (shouldTrackUsage() && provider.trackUsage()) {
+    m_usageTracker.record(provider.id(), resultId);
+  }
+  PanelManager::instance().closePanel(false);
+  if (copied && provider.supportsAutoPaste() && m_onCopiedActivation) {
+    m_onCopiedActivation();
+  }
 }
 
 void LauncherPanel::addProvider(std::unique_ptr<LauncherProvider> provider) {
@@ -719,11 +731,8 @@ void LauncherPanel::addProvider(std::unique_ptr<LauncherProvider> provider) {
   provider->setResultsChangedCallback([this]() { onProviderResultsChanged(); });
   provider->setQueryRequestedCallback([this](std::string query) { setQuery(std::move(query)); });
   LauncherProvider* providerPtr = provider.get();
-  provider->setActivationDoneCallback([this, providerPtr](const std::string& resultId) {
-    if (shouldTrackUsage() && providerPtr->trackUsage()) {
-      m_usageTracker.record(providerPtr->id(), resultId);
-    }
-    PanelManager::instance().closePanel(false);
+  provider->setActivationDoneCallback([this, providerPtr](const std::string& resultId, bool copied) {
+    finishActivation(*providerPtr, resultId, copied);
   });
   m_providers.push_back(std::move(provider));
 }
@@ -1697,10 +1706,7 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
       if (!provider->activate(result)) {
         return;
       }
-      if (shouldTrackUsage() && provider->trackUsage()) {
-        m_usageTracker.record(provider->id(), result.id);
-      }
-      PanelManager::instance().closePanel(false);
+      finishActivation(*provider, result.id, provider->supportsAutoPaste());
       return;
     }
     return;
@@ -1773,10 +1779,7 @@ void LauncherPanel::activateSelected() {
       return;
     }
 
-    if (shouldTrackUsage() && provider->trackUsage()) {
-      m_usageTracker.record(provider->id(), result.id);
-    }
-    PanelManager::instance().closePanel(false);
+    finishActivation(*provider, result.id, provider->supportsAutoPaste());
     return;
   }
 }

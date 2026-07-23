@@ -104,6 +104,12 @@ public:
   [[nodiscard]] HitTestOutset hitTestOutset() const noexcept { return m_hitTestOutset; }
   [[nodiscard]] bool sizeAssignedByLayout() const noexcept { return m_sizeAssignedByLayout; }
   [[nodiscard]] bool arrangingByLayout() const noexcept { return m_arranging; }
+  [[nodiscard]] float transformOriginX() const noexcept {
+    return m_hasTransformOrigin ? m_transformOriginX : m_width * 0.5f;
+  }
+  [[nodiscard]] float transformOriginY() const noexcept {
+    return m_hasTransformOrigin ? m_transformOriginY : m_height * 0.5f;
+  }
   [[nodiscard]] std::int32_t zIndex() const noexcept { return m_zIndex; }
   [[nodiscard]] Node* parent() const noexcept { return m_parent; }
   [[nodiscard]] const std::vector<std::unique_ptr<Node>>& children() const noexcept { return m_children; }
@@ -114,6 +120,7 @@ public:
   void setRotation(float radians);
   void setScale(float scale);
   void setScale(float scaleX, float scaleY);
+  void setTransformOrigin(float x, float y);
   void setOpacity(float opacity);
   void setFlexGrow(float grow);
   void setVisible(bool visible);
@@ -181,6 +188,9 @@ private:
   float m_rotation = 0.0f;
   float m_scaleX = 1.0f;
   float m_scaleY = 1.0f;
+  float m_transformOriginX = 0.0f;
+  float m_transformOriginY = 0.0f;
+  bool m_hasTransformOrigin = false;
   float m_opacity = 1.0f;
   float m_flexGrow = 0.0f;
   bool m_visible = true;

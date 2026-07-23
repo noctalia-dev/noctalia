@@ -606,6 +606,12 @@ namespace scripting {
               lua_pushlstring(L, val[i].data(), val[i].size());
               lua_rawseti(L, -2, static_cast<int>(i + 1));
             }
+          } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
+            lua_createtable(L, 0, static_cast<int>(val.size()));
+            for (const auto& [mapKey, value] : val) {
+              lua_pushlstring(L, value.data(), value.size());
+              lua_setfield(L, -2, mapKey.c_str());
+            }
           } else {
             lua_pushnil(L);
           }

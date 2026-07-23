@@ -30,6 +30,7 @@
 class Box;
 class Button;
 class AccountsService;
+class CalendarService;
 class ConfigService;
 class CompositorPlatform;
 class DependencyService;
@@ -91,9 +92,7 @@ public:
   void setSaveWallpaperPaletteAsCustom(std::function<void()> callback) {
     m_saveWallpaperPaletteAsCustom = std::move(callback);
   }
-  void setConnectCalendarAccount(std::function<void(std::string, std::string)> callback) {
-    m_connectCalendarAccount = std::move(callback);
-  }
+  void setCalendarService(CalendarService* service) { m_calendarService = service; }
 
   void onSecondTick();
   void onIdleLiveStatusChanged();
@@ -205,6 +204,7 @@ private:
   DependencyService* m_dependencies = nullptr;
   UPowerService* m_upower = nullptr;
   AccountsService* m_accounts = nullptr;
+  CalendarService* m_calendarService = nullptr;
   Label* m_idleLiveStatusLabel = nullptr;
   std::vector<Label*> m_sessionActionSummaryLabels;
   std::shared_ptr<std::vector<SessionPanelActionConfig>> m_sessionActionsEditState;
@@ -280,6 +280,7 @@ private:
   std::string m_selectedSection;
   std::string m_statusMessage;
   std::string m_pendingResetPageScope;
+  std::vector<std::vector<std::string>> m_pendingResetSettingPaths;
   bool m_forceEnTranslation = false;
   bool m_showAdvanced = false;
   bool m_showOverriddenOnly = false;
@@ -291,5 +292,4 @@ private:
   std::function<void()> m_resetLauncherUsage;
   std::function<void()> m_resetScreenTime;
   std::function<void()> m_saveWallpaperPaletteAsCustom;
-  std::function<void(std::string, std::string)> m_connectCalendarAccount;
 };

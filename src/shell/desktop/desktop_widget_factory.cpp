@@ -13,6 +13,7 @@
 #include "shell/desktop/widgets/desktop_media_player_widget.h"
 #include "shell/desktop/widgets/desktop_sticker_widget.h"
 #include "shell/desktop/widgets/desktop_sysmon_widget.h"
+#include "shell/desktop/widgets/desktop_volume_widget.h"
 #include "shell/desktop/widgets/desktop_weather_widget.h"
 #include "shell/desktop/widgets/plugin_desktop_widget.h"
 #include "system/format_units.h"
@@ -181,8 +182,9 @@ namespace {
 } // namespace
 
 DesktopWidgetFactory::DesktopWidgetFactory(DesktopWidgetRuntimeServices services)
-    : m_pipewireSpectrum(services.pipewireSpectrum), m_weather(services.weather), m_mpris(services.mpris),
-      m_httpClient(services.httpClient), m_sysmon(services.sysmon), m_scriptDeps(services.scriptDeps) {}
+    : m_pipewire(services.pipewire), m_pipewireSpectrum(services.pipewireSpectrum), m_weather(services.weather),
+      m_mpris(services.mpris), m_httpClient(services.httpClient), m_sysmon(services.sysmon),
+      m_scriptDeps(services.scriptDeps) {}
 
 std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
     const std::string& type, const std::unordered_map<std::string, WidgetSettingValue>& settings, float contentScale
@@ -388,6 +390,29 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
             .showLabel = getBoolSetting(settings, "show_label", true),
             .labelMinWidth = getFloatSetting(settings, "label_min_width", 0.0f),
             .shadow = getBoolSetting(settings, "shadow", true),
+            .config = m_scriptDeps.configService,
+        }
+    );
+    applyCommonSettings(*widget, settings);
+    widget->setContentScale(contentScale);
+    return widget;
+  }
+
+  if (type == "volume") {
+    if (m_pipewire == nullptr) {
+      kLog.warn("desktop widget factory: volume requires PipeWireService");
+      return nullptr;
+    }
+    auto widget = std::make_unique<DesktopVolumeWidget>(
+        m_pipewire,
+        DesktopVolumeWidget::Options{
+            .glyph = getStringSetting(settings, "glyph"),
+            .fillColor = getColorSpecSetting(settings, "fill_color", colorSpecFromRole(ColorRole::Primary)),
+            .trackColor = getColorSpecSetting(settings, "track_color", colorSpecFromRole(ColorRole::OnSurfaceVariant)),
+            .input = getStringSetting(settings, "device", "output") == "input",
+            .showDevice = getBoolSetting(settings, "show_device", true),
+            .shadow = getBoolSetting(settings, "shadow", true),
+            .scrollStepPercent = getIntSetting(settings, "scroll_step", 5),
             .config = m_scriptDeps.configService,
         }
     );

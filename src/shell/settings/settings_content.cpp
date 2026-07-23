@@ -1333,7 +1333,7 @@ namespace settings {
       }
       if (ctx.showOverriddenOnly
           && ctx.configService != nullptr
-          && !ctx.configService->hasEffectiveOverride(entry.path)) {
+          && !settingEntryHasEffectiveOverride(entry, *ctx.configService)) {
         continue;
       }
       if (!matchesNormalizedSettingQuery(entry, normalizedSearchQuery)) {

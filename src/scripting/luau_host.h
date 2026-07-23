@@ -234,7 +234,7 @@ private:
   AsyncHttpResultHandler m_asyncHttpResultHandler;
   ColorPickerResultHandler m_colorPickerResultHandler;
   std::size_t m_memUsed = 0; // bytes tracked by allocate(); guarded by the worker-thread serialization
-  std::chrono::steady_clock::time_point m_callDeadline;
+  std::chrono::nanoseconds m_callCpuDeadline{};
   std::string m_currentCallName;
   bool m_budgetActive = false;
   bool m_lastCallTimedOut = false;

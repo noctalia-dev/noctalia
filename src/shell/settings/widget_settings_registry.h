@@ -75,6 +75,8 @@ namespace settings {
   struct WidgetSettingVisibilityCondition {
     std::string key;
     std::vector<std::string> values;
+    // When true, matches a non-empty string or string list (values are ignored).
+    bool nonEmpty = false;
   };
 
   struct WidgetSettingVisibility {

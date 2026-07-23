@@ -6,12 +6,36 @@
 #include "system/terminal_launch.h"
 #include "util/file_utils.h"
 
+#include <mutex>
 #include <string>
 #include <utility>
 
 namespace {
 
   constexpr Logger kLog("desktop_entry_launch");
+
+  std::string decodeDesktopStringValue(std::string_view value) {
+    std::string result;
+    result.reserve(value.size());
+    for (std::size_t i = 0; i < value.size(); ++i) {
+      if (value[i] == '\\' && i + 1 < value.size()) {
+        const char next = value[i + 1];
+        if (next == '\\' || next == 's' || next == 'n' || next == 't' || next == 'r') {
+          // https://specifications.freedesktop.org/desktop-entry/latest/value-types.html
+          // https://specifications.freedesktop.org/desktop-entry-spec/latest/exec-variables.html
+          result += (next == 's') ? ' ' : (next == 'n') ? '\n' : (next == 't') ? '\t' : (next == 'r') ? '\r' : '\\';
+          ++i;
+          continue;
+        }
+        // Any other \X: remove the backslash, keep X
+        result += next;
+        ++i;
+        continue;
+      }
+      result += value[i];
+    }
+    return result;
+  }
 
   std::string stripFieldCodes(std::string_view exec) {
     std::string result;
@@ -80,7 +104,16 @@ namespace {
     bool inSingle = false;
     bool inDouble = false;
 
-    for (const char c : cmd) {
+    for (std::size_t i = 0; i < cmd.size(); ++i) {
+      const char c = cmd[i];
+      if (c == '\\' && inDouble && i + 1 < cmd.size()) {
+        const char next = cmd[i + 1];
+        if (next == '"' || next == '`' || next == '$' || next == '\\') {
+          current += next;
+          ++i;
+          continue;
+        }
+      }
       if (c == '\'' && !inDouble) {
         inSingle = !inSingle;
         continue;
@@ -130,12 +163,33 @@ namespace {
     return command;
   }
 
+  // Resolves whether this launch really goes through systemd, warning once when the option is set
+  // but the shell is not itself a systemd user unit: apps would then be moved out of the login
+  // session the shell lives in.
+  bool effectiveRunAsSystemdService(const desktop_entry_launch::LaunchOptions& options) {
+    if (!options.runAsSystemdService) {
+      return false;
+    }
+    if (process::runningUnderSystemdUserManager()) {
+      return true;
+    }
+    static std::once_flag warnOnce;
+    std::call_once(warnOnce, [] {
+      kLog.warn(
+          "launch_apps_as_systemd_services is enabled but Noctalia is not running under the systemd user "
+          "manager (no uwsm or systemd user service); launching apps directly"
+      );
+    });
+    return false;
+  }
+
 } // namespace
 
 namespace desktop_entry_launch {
 
   std::optional<PreparedCommand> prepareCommand(std::string_view exec, bool terminal, const PrepareOptions& options) {
-    std::string cleanExec = stripFieldCodes(exec);
+    const std::string decodedExec = decodeDesktopStringValue(exec);
+    const std::string cleanExec = stripFieldCodes(decodedExec);
     std::vector<std::string> args;
     if (terminal) {
       auto prepared = terminal_launch::prepareCommand(
@@ -164,13 +218,14 @@ namespace desktop_entry_launch {
   }
 
   bool launchEntry(const DesktopEntry& entry, const LaunchOptions& options) {
-    if (options.runAsSystemdService && !options.customCommand.empty()) {
+    const bool runAsSystemdService = effectiveRunAsSystemdService(options);
+    if (runAsSystemdService && !options.customCommand.empty()) {
       kLog.warn(
           "launch_apps_as_systemd_services and launch_apps_custom_command are mutually exclusive; ignoring custom "
           "command"
       );
     }
-    const std::string customCommand = options.runAsSystemdService ? "" : options.customCommand;
+    const std::string customCommand = runAsSystemdService ? "" : options.customCommand;
     const std::string command = parseCustomCommand(entry.exec, customCommand);
     auto prepared = prepareCommand(command, entry.terminal);
 
@@ -180,7 +235,7 @@ namespace desktop_entry_launch {
     }
 
     const std::string appName = !entry.id.empty() ? entry.id : appNameOrDefault(entry.name);
-    if (options.runAsSystemdService) {
+    if (runAsSystemdService) {
       return process::runAsyncAsSystemdService(prepared->args, appName, options.activationToken, entry.workingDir);
     }
     return process::runAsync(prepared->args, options.activationToken, entry.workingDir);
@@ -190,13 +245,14 @@ namespace desktop_entry_launch {
       const DesktopAction& action, std::string_view appName, std::string_view workingDir, bool terminal,
       const LaunchOptions& options
   ) {
-    if (options.runAsSystemdService && !options.customCommand.empty()) {
+    const bool runAsSystemdService = effectiveRunAsSystemdService(options);
+    if (runAsSystemdService && !options.customCommand.empty()) {
       kLog.warn(
           "launch_apps_as_systemd_services and launch_apps_custom_command are mutually exclusive; ignoring custom "
           "command"
       );
     }
-    const std::string customCommand = options.runAsSystemdService ? "" : options.customCommand;
+    const std::string customCommand = runAsSystemdService ? "" : options.customCommand;
     const std::string command = parseCustomCommand(action.exec, customCommand);
     auto prepared = prepareCommand(command, terminal);
     if (!prepared.has_value()) {
@@ -206,7 +262,7 @@ namespace desktop_entry_launch {
       return false;
     }
 
-    if (options.runAsSystemdService) {
+    if (runAsSystemdService) {
       return process::runAsyncAsSystemdService(
           prepared->args, appNameOrDefault(appName), options.activationToken, std::string(workingDir)
       );

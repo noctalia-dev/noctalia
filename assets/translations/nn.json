@@ -76,6 +76,7 @@
         "signal": "Dekning",
         "upload": "Opplasting",
         "vpn": "VPN",
+        "wan-ip": "WAN IP",
         "wifi": "Wi-Fi",
         "wired": "Trådbunden",
         "yes": "Ja"
@@ -182,6 +183,7 @@
     },
     "bluetooth": {
       "accept": "Godtak",
+      "address": "Adresse",
       "auto-reconnect": "Kopla til att automatisk",
       "bluetooth": "Bluetooth",
       "enter-code": "Skriv inn kode",
@@ -257,8 +259,8 @@
       "password": "Lykelord",
       "password-prompt": "Skriv inn lykelord",
       "password-prompt-for": "Skriv inn lykelord for {ssid}",
-      "unavailable-detail": "Installer og slå på NetworkManager for å handsama nettverk herfrå.",
-      "unavailable-title": "NetworkManager utilgjengeleg",
+      "unavailable-detail": "Installer og slå på NetworkManager, wpa_supplicant eller iwd for å handsama nettverk herfrå.",
+      "unavailable-title": "Nettverktenesta utilgjengeleg",
       "vpns": "VPN",
       "wi-fi": "Wi-Fi",
       "wifi": "Wi-Fi",
@@ -447,6 +449,7 @@
         "bands": "Band",
         "bar-width": "Stongbreidde",
         "bloom-intensity": "Bloom",
+        "center-password-text": "Set lykelordtekst i midten",
         "center-text": "Set tekst i midten",
         "centered": "I midten",
         "change-image": "Brigda ...",
@@ -455,11 +458,11 @@
         "clock-style-analog": "Analog",
         "clock-style-digital": "Digital",
         "color": "Let",
-        "color-1": "Let ein",
-        "color-2": "Let to",
+        "color-1": "Let 1",
+        "color-2": "Let 2",
         "color2": "Let 2",
         "command": "Kommando",
-        "custom-color": "Sjølvvald ...",
+        "custom-color": "Sjølvvald",
         "description": "Skildring",
         "display": "Skjerm",
         "display-gauge": "Målar",
@@ -504,6 +507,7 @@
         "show-label": "Vis namn",
         "show-login-button": "Innskrivingsknapp",
         "show-password-hint": "Lykelordhjelp",
+        "show-vpn-label": "Vis VPN-merkelapp",
         "show-when-idle": "Vis når inaktiv",
         "stat": "Info",
         "stat-cpu-temp": "Prosessortemp",
@@ -535,10 +539,6 @@
         "visualization-mode-wave-rings": "Bylgja og ringar",
         "wave-thickness": "Bylgjetjukn",
         "widget-section": "Nøytel"
-      },
-      "state": {
-        "grid-off": "Rutenett av",
-        "grid-on": "Rutenett på"
       },
       "title": "Skrivebordsnøytlar",
       "types": {
@@ -771,7 +771,7 @@
     },
     "enable-failed": {
       "body-error": "{plugin}: {error}",
-      "body-incompatible": "{plugin} krev Noctalia {version} eller nyare.",
+      "body-incompatible": "{plugin} vil ha plugin API {version}; denne Noctalia stør API {oldest} – {current}",
       "body-timeout": "{plugin} tok for lang tid til å installera.",
       "title": "Utviding ikkje påslegen"
     }
@@ -833,6 +833,7 @@
     },
     "calendar-accounts": {
       "add-title": "Legg til kalenderkonto",
+      "calendars-label": "Kalendrar",
       "color-label": "Let",
       "delete-error": "Kunne ikkje sletta kalenderkonto",
       "edit-title": "Brigda på kalenderkonto",
@@ -1020,6 +1021,7 @@
         "rename": "Kunne ikkje gjeva stonga eit nytt namn."
       },
       "batch-write": "Kunne ikkje lagra sume innstillingar.",
+      "custom-schedule-times": "Sjølvvalt oppsett krev både solrennings- og solegladtid i HH:MM-format",
       "export-config": "Utførsla av tilmåtinga gjekk gale.",
       "export-wallpaper-palette": "Kunne ikkje lagra paletten frå bakgrunnabiletet som sjølvvald palett.",
       "monitor-override": {
@@ -1085,6 +1087,7 @@
         "background": "Bakgrunn",
         "battery": "Batteri",
         "behavior": "Åtburd",
+        "borders": "Omrit",
         "brightness": "Ljosstyrke",
         "built-in": "Innebygd",
         "calendar": "Kalender",
@@ -1129,11 +1132,12 @@
         "power": "Straum",
         "privacy": "Personvern",
         "profile": "Profil",
+        "providers": "Tenestegjevarar",
         "screen-corners": "Skjermhyrno",
         "screen-time": "Skjermtid",
         "screenshot": "Skjermbilete",
         "security": "Tryggleik",
-        "session-panel": "Øykt",
+        "session-panel": "Øyktefjøl",
         "shape": "Form",
         "system": "System",
         "theme": "Ham",
@@ -1200,6 +1204,13 @@
       }
     },
     "options": {
+      "bar": {
+        "auto-hide": {
+          "off": "Av",
+          "on": "På",
+          "smart": "Sløg"
+        }
+      },
       "clipboard": {
         "auto-paste": {
           "ctrl-shift-v": "Ctrl+Shift+V",
@@ -1317,7 +1328,7 @@
         }
       },
       "theme-role": {
-        "custom": "Sjølvvald ...",
+        "custom": "Sjølvvald",
         "default": "Vanleg"
       },
       "wallpaper": {
@@ -1353,8 +1364,8 @@
       "browse-store": "Leita i Utvidingar",
       "panels": {
         "open-near-click": {
-          "description": "Opna fjøla nær stongnøytelen som slo henne på / av",
-          "label": "Opna nær trykk"
+          "description": "Opna fjøla nær stongnøytelen som opna henne; når det ikkje var ein nøytel sit ho i midten",
+          "label": "Langs med stonga"
         },
         "placement": {
           "description": "Bind fjøla til stonga eller flyt henne nær stongranda",
@@ -1372,11 +1383,15 @@
         "delete-confirm-title": "Sletta \"{name}\"?",
         "deprecated": "utgått",
         "empty": "Fann ingen utvidingar. Legg til brunn, eller sjå etter nettverket.",
+        "incompatible-plugin-api": "usemjande utvidings-API",
         "loading": "Lastar inn utvidingar ...",
         "refreshing": "Lastar inn utvidingar å nyo ...",
         "remove": "Sletta utviding",
         "requires": "Krev: {dependencies}",
-        "title": "Utvidingar"
+        "title": "Utvidingar",
+        "update-all": "Oppdater alle ({count})",
+        "update-available": "ny utgåve tilgjengeleg",
+        "update-to": "oppdater til {version}"
       },
       "settings": {
         "empty": "Ingen innstillingar tilgjengelege"
@@ -1384,6 +1399,8 @@
       "sources": {
         "add": "Legg til brunn",
         "add-title": "Legg til utvidingsbrunn",
+        "auto-update": "Oppdater utvidingar automatisk",
+        "auto-update-desc": "Sjå i påslegne brunnar etter nye utgåver i bakgrunnen og haldt installerte utvidingar à jour",
         "edit": "Brigda brunn",
         "edit-title": "Brigda utvidingsbrunn",
         "empty": "Ingen brunnar tilmåta.",
@@ -1406,7 +1423,7 @@
         "remove": "Sletta brunn",
         "save": "Lagra",
         "title": "Brunnar",
-        "update": "Oppdater"
+        "update": "Oppdater brunn"
       },
       "store": {
         "add": "Legg til i Noctalia",
@@ -1416,8 +1433,12 @@
         "incompatible": "Usemjande",
         "loading": "Lastar inn katalog ...",
         "no-readme": "Ingen skildring tilgjengeleg.",
+        "open-page": "Opna utvidingssida på noctalia.dev",
+        "open-source": "Opna kodelageret for utvidinga",
         "results-count": "{count} utvidingar",
         "search-placeholder": "Leita i utvidingar ...",
+        "source-all": "Alle",
+        "sources": "Brunnar",
         "title": "Utvidingsbua"
       }
     },
@@ -1522,7 +1543,7 @@
       },
       "bar": {
         "auto-hide": {
-          "description": "Gøymer stonga automatisk når ho ikkje er i bruk"
+          "description": "Av held stonga synleg; På gøymer henne fram til du rører peikaren til skjermranda; Sløg syner stonga på tome arbeidsrom og gøymer henne når ruter er opne"
         },
         "background-opacity": {
           "description": "Bakgrunnsuklårleik til stonga"
@@ -1618,7 +1639,7 @@
           "label": "Blad oppover"
         },
         "edge-margin": {
-          "description": "Avstand frå nærmaste skjermrand; positive tal flyttar stonga bort frå henne"
+          "description": "Avstand mellom stonga og nærmaste skjermrand; set til 0 px for å sitja på den randa"
         },
         "enabled": {
           "description": "Vis eller gøym denne stonga"
@@ -1628,10 +1649,10 @@
           "label": "Endenøytlar"
         },
         "ends-margin": {
-          "description": "Innsett frå kvar ende av stonga langs med midtlina."
+          "description": "Styttar stonga frå kvar ende; set til 0 px for full-breidde eller full-høgd"
         },
         "font-family": {
-          "description": "Skrifttype for nøytlane på denne stonga; haldt dette tomt for å erva standardskrifttypen.",
+          "description": "Skrifttype for nøytlane på denne stonga; haldt dette tomt for å erva standardskrifttypen (skriftætt per-nøytel overstyrer dette)",
           "label": "Skrifttype"
         },
         "font-weight": {
@@ -1643,7 +1664,7 @@
           "label": "Framheving ved sviv"
         },
         "layer": {
-          "description": "Bruk Overlag for å visa stonga over appar i fullskjerm. Bundne fjøler fylgjer stonga.",
+          "description": "Bruk Overlag for å visa stonga over appar i fullskjerm; bundne fjøler fylgjer stonga.",
           "label": "Wayland-lag"
         },
         "opposite-edge-margin": {
@@ -1760,7 +1781,7 @@
           "label": "Berre den aktive skjermen"
         },
         "auto-hide": {
-          "description": "Gøym festepunktet automatisk når det ikkje er i bruk"
+          "description": "Av held festepunktet synleg; På gøymer det fram til du rører peikaren til skjermranda; Sløg syner festepunktet på tome arbeidsrom og gøymer det når ruter er opne"
         },
         "background-opacity": {
           "description": "Bakgrunnsuklårleik til festepunktet"
@@ -1838,7 +1859,7 @@
           "label": "Aukeskala"
         },
         "main-axis-padding": {
-          "description": "Indre utfylling på festepunktet langs med midtlina (mellom merke og dei korte endane på festepunktet)"
+          "description": "Indre utfylling på festepunktet på endane langs med midtlina (før det fyrste og etter det siste merket)"
         },
         "monitors": {
           "description": "Vel kva for skjermar viser festepunktet (haldt dette tomt for alle); aktivskjerm søkjevilkår vert bruka for desse skjermane",
@@ -1934,7 +1955,7 @@
             "label": "Ved brigda hammodus"
           },
           "wallpaper-changed": {
-            "description": "Kommandoen som køyrer når bakgrunnsbiletet brigdar",
+            "description": "Kommandoen som køyrer når bakgrunnsbiletet brigdar; gjev NOCTALIA_WALLPAPER_PATH og NOCTALIA_WALLPAPER_CONNECTOR",
             "label": "Ved nytt bakgrunnsbilete"
           },
           "wifi-disabled": {
@@ -1975,12 +1996,12 @@
           "label": "Flytta til høgre"
         },
         "tab-next": {
-          "description": "Flytta åtgaum til neste fane eller styregruppe",
-          "label": "Åtgaum til neste fane"
+          "description": "Flytta åtgaum til neste styregruppe",
+          "label": "Åtgaum til neste"
         },
         "tab-previous": {
-          "description": "Flytta åtgaum til førre fane eller styregruppe",
-          "label": "Åtgaum til førre fane"
+          "description": "Flytta åtgaum til førre styregruppe",
+          "label": "Åtgaum til førre"
         },
         "up": {
           "description": "Flytta på åtgaum eller vel opp ei rad",
@@ -1993,7 +2014,7 @@
       },
       "lockscreen": {
         "allow-empty-password": {
-          "description": "Lat Retur senda tomt lykelord. Slå på for security-key eller andre PAM-stack utan lykelord, haldt av for å sleppa undan at vekkjingstastar vert låste ved uhell",
+          "description": "Lat Retur senda tomt lykelord (slå på for security-key eller andre PAM-stack utan lykelord; haldt av for å sleppa undan at vekkjingstastar vert låste ved uhell)",
           "label": "Send tome lykelord"
         },
         "blur-intensity": {
@@ -2021,7 +2042,7 @@
           "label": "Letingsstyrke"
         },
         "wallpaper": {
-          "description": "Sjølvvalt bilete for låseskjermsbakgrunnen. Haldt dette tomt for å bruka bakgrunnsbiletet på skrivebordet.",
+          "description": "Sjølvvalt bilete for låseskjermsbakgrunnen; haldt dette tomt for å bruka bakgrunnsbiletet på skrivebordet.",
           "label": "Bakgrunnsbilete",
           "placeholder": "Bruk bakgrunnsbiletet på skrivebordet"
         },
@@ -2155,84 +2176,84 @@
           "label": "Sorter med bruk"
         },
         "open-near-click-clipboard": {
-          "description": "Set tavlefjøla nær staden du trykkjer på stonga heller enn i midten langs med stonga",
-          "label": "Opna nær trykk"
+          "description": "Set tavlefjøla nær stongnøytelen som opna henne; når det ikkje var ein nøytel sit ho i midten",
+          "label": "Langs med stonga"
         },
         "open-near-click-control-center": {
-          "description": "Set Styreromsfjøla nær staden du trykkjer på stonga heller enn i midten langs med stonga",
-          "label": "Opna nær trykk"
+          "description": "Set Styreromsfjøla nær stongnøytelen som opna henne; når det ikkje var ein nøytel sit ho i midten",
+          "label": "Langs med stonga"
         },
         "open-near-click-launcher": {
-          "description": "Set veljarfjøla nær staden du trykkjer på stonga heller enn i midten langs med stonga",
-          "label": "Opna nær trykk"
+          "description": "Set veljarfjøla nær stongnøytelen som opna henne; når det ikkje var ein nøytel sit ho i midten",
+          "label": "Langs med stonga"
         },
         "open-near-click-session": {
-          "description": "Set øyktefjøla nær staden du trykkjer på stonga heller enn i midten langs med stonga",
-          "label": "Opna nær trykk"
+          "description": "Set øyktefjøla nær stongnøytelen som opna henne; når det ikkje var ein nøytel sit ho i midten",
+          "label": "Langs med stonga"
         },
         "open-near-click-wallpaper": {
-          "description": "Set fjøla for bakgrunnsbileteval nær staden du trykkjer på stonga heller enn i midten langs med stonga",
-          "label": "Opna nær trykk"
+          "description": "Set fjøla for bakgrunnsbileteval nær stongnøytelen som opna henne; når det ikkje var ein nøytel sit ho i midten",
+          "label": "Langs med stonga"
         },
         "placement-clipboard": {
-          "description": "Vel om tavla er bunden til stonga, flyter i nærleiken, eller opnar i midten",
+          "description": "Vel om tavla er bunden til stonga eller flyter i ein stad du vel",
           "label": "Stad"
         },
         "placement-control-center": {
-          "description": "Vel om Styreromet er bunden til stonga, flyter i nærleiken, eller opnar i midten",
+          "description": "Vel om Styreromet er bunden til stonga eller flyter i ein stad du vel",
           "label": "Stad"
         },
         "placement-launcher": {
-          "description": "Vel om programveljaren er bunden til stonga, flyter i nærleiken, eller opnar i midten",
+          "description": "Vel om programveljaren er bunden til stongaeller flyter i ein stad du vel",
           "label": "Stad"
         },
         "placement-polkit": {
-          "description": "Vel om polkitleieteksten er bunden til stonga eller flyt i ein stad du vel",
+          "description": "Vel om polkitleieteksten er bunden til stonga eller flyter i ein stad du vel",
           "label": "Stadsetjing"
         },
         "placement-session": {
-          "description": "Vel om øyktefjøla er bunden til stonga, flyter i nærleiken, eller opnar i midten",
+          "description": "Vel om øyktefjøla er bunden til stonga eller flyter i ein stad du vel",
           "label": "Stad"
         },
         "placement-wallpaper": {
-          "description": "Vel om fjøla for bakgrunnsbileteval er bunden til stonga, flyter i nærleiken, eller opnar i midten",
+          "description": "Vel om fjøla for bakgrunnsbileteval er bunden til stonga eller flyter i ein stad du vel",
           "label": "Stad"
         },
         "position-clipboard": {
-          "description": "Det utklippstavla flyt på skjermen - Fylg stonga held henne nær stonga",
+          "description": "Det utklippstavla flyt på skjermen; Fylg stonga held henne nær stonga",
           "label": "Stad"
         },
         "position-control-center": {
-          "description": "Der Styreromet flyt på skjermen - Fylg stonga held det nært stonga",
+          "description": "Der Styreromet flyt på skjermen; Fylg stonga held det nært stonga",
           "label": "Stad"
         },
         "position-launcher": {
-          "description": "Der programveljaren flyt på skjermen - Fylg stonga held han nær stonga",
+          "description": "Der programveljaren flyt på skjermen; Fylg stonga held han nær stonga",
           "label": "Stad"
         },
         "position-polkit": {
-          "description": "Der polkitleietekst flyt på skjermen - Fylg stonga held han nær stonga",
+          "description": "Der polkitleietekst flyt på skjermen; Fylg stonga held han nær stonga",
           "label": "Stad"
         },
         "position-session": {
-          "description": "Der øyktefjøla flyt på skjermen - Fylg stonga held henne nær stonga",
+          "description": "Der øyktefjøla flyt på skjermen; Fylg stonga held henne nær stonga",
           "label": "Stad"
         },
         "position-wallpaper": {
-          "description": "Der veljaren for bakgrunnsbilete flyt på skjermen - Fylg stonga held han nær stonga",
+          "description": "Der veljaren for bakgrunnsbilete flyt på skjermen; Fylg stonga held han nær stonga",
           "label": "Stad"
         },
         "shadow": {
           "description": "Kasta den ålmenne flateskuggen frå fjøleflater"
         },
         "transparency-mode": {
-          "description": "Glasstil på fjøler, medrekna uklårleik for flytande fjøler og dei i midten og kortklårleik",
+          "description": "Glasstil på fjøler, medrekna uklårleik for flytande fjøler og kortklårleik",
           "label": "Klårleik"
         }
       },
       "power": {
         "session-actions": {
-          "description": "Straummenyval, rekkjefylgje, sjølvvalde kommandoar og merke",
+          "description": "Øykteval, rekkjefylgje, sjølvvalde kommandoar og merke",
           "label": "Val"
         },
         "session-grid": {
@@ -2289,7 +2310,7 @@
           "placeholder": "By, Land"
         },
         "location-auto-locate": {
-          "description": "Finn staden din automatisk ut frå IP-adressa di",
+          "description": "Finn staden din automatisk ut frå IP-adressa di med noctalia.dev",
           "label": "Finn-stad (IP)"
         },
         "longitude": {
@@ -2349,7 +2370,7 @@
             "label": "Disk-spørjingsmellomrom"
           },
           "gpu-poll": {
-            "description": "Sekund mellom skjermkorttemp- og VRAM-prøve. 0 slår dette av (standard) for å sleppa å vekkja diskret skjermkort; 5 er godt dersom du vil slår dette på.",
+            "description": "Sekund mellom skjermkorttemp- og VRAM-prøve. 0 slår dette av (standard) for å sleppa å vekkja diskret skjermkort; 5 er godt dersom du vil slå dette på.",
             "label": "Skjermkort-spørjingsmellomrom"
           },
           "label": "Systemvakt",
@@ -2384,7 +2405,7 @@
           "placeholder": "/bane/til/ljod.wav"
         },
         "weather": {
-          "description": "Slå på vêrtenesta",
+          "description": "Slå på vêrtenesta med open-meteo.com",
           "label": "Vêr"
         },
         "weather-effects": {
@@ -2461,7 +2482,7 @@
       },
       "shell": {
         "avatar-path": {
-          "description": "Bane til sjølvvalt brukarbilete. Store bilete er automatisk avskorne og minska.",
+          "description": "Bane til sjølvvalt brukarbilete; store bilete er automatisk avskorne og minska.",
           "label": "Biletebane",
           "placeholder": "/bane/til/bilete.png"
         },
@@ -2499,7 +2520,7 @@
           "label": "Synkroniser Helsaren automatisk"
         },
         "greeter-sync-privilege-command": {
-          "description": "Byt ut pkexec/run0 med Synkro no i helsaren. Banen for godkjenningshjelparen og ventemappa vert lagt til automatisk. Døme: ghostty -e pkexec",
+          "description": "Byt ut pkexec/run0 med Synkro no i helsaren; banen for godkjenningshjelparen og ventemappa vert lagt til automatisk. (døme: ghostty -e pkexec)",
           "label": "Helsarsynkro rettskommando"
         },
         "launch-apps-as-systemd-services": {
@@ -2507,7 +2528,7 @@
           "label": "Køyr appaar som systemd-tenester"
         },
         "launch-apps-custom-command": {
-          "description": "Sjølvvald kommando brukt av programveljaren, byter ut $CMD med den opphavlege kommandoen.",
+          "description": "Sjølvvald kommando brukt av programveljaren; byter ut $CMD med den opphavlege kommandoen.",
           "label": "Sjølvvald veljarkommando",
           "placeholder": "$CMD"
         },
@@ -2952,11 +2973,11 @@
         },
         "color-1": {
           "description": "Fyrste gradientlet i framsyninga",
-          "label": "Let ein"
+          "label": "Let 1"
         },
         "color-2": {
           "description": "Andre gradientlet i framsyninga",
-          "label": "Let to"
+          "label": "Let 2"
         },
         "command": {
           "description": "Skalkommando som køyrer når du venstretrykkjer denne knappen",
@@ -2988,7 +3009,7 @@
           "label": "Eining"
         },
         "display": {
-          "active-window-description": "Merke, namn eller båe to på vassrette stenger. Loddrette stenger kan berre ha merke.",
+          "active-window-description": "Merke, namn eller båe to på vassrette stenger; loddrette stenger kan berre ha merke.",
           "description": "Visingsmodus for denne nøytelen",
           "label": "Vising"
         },
@@ -3157,7 +3178,7 @@
         "labels-only-when-occupied": {
           "description": "Gøym arbeidsrommerkelappar på tome arbeidsrom utan åtgaum",
           "label": "Merkelappar berre med innhald",
-          "workspaces-description": "Vis arbeidsrom-id eller namnemerkelappar på arbeidsrom med opne ruter og på arbeidsromet med åtgaum endå det er tomt; andre tome taggar held seg utan merkelapp"
+          "workspaces-description": "Vis arbeidsrom-ID eller namnemerkelappar på arbeidsrom med opne ruter og på arbeidsromet med åtgaum endå det er tomt; andre tome taggar held seg utan merkelapp"
         },
         "length": {
           "description": "Lengd på mellomrom i piksel",
@@ -3231,7 +3252,7 @@
           "workspaces-description": "Måta til skalaen åt arbeidsrompiller"
         },
         "pinned": {
-          "description": "Korgting-id som held seg synleg på stonga når ilåtsmodus er på",
+          "description": "Korgting-ID som held seg synleg på stonga når ilåtsmodus er på",
           "label": "Feste ting"
         },
         "primary-click": {
@@ -3315,7 +3336,7 @@
           "label": "Vis rutenamn"
         },
         "show-workspace-label": {
-          "description": "Vis arbeidsromtaggen på oppgåvelinepiller i grupper. Slå av for grupper med berre merke.",
+          "description": "Vis arbeidsromtaggen på oppgåvelinepiller i grupper; slå av for grupper med berre merke.",
           "label": "Merkelapp for arbeidsrompiller"
         },
         "stat": {
@@ -3410,7 +3431,6 @@
     "window": {
       "export-config": "Før ut tilmåting ...",
       "export-config-saved": "Tilmåtingsutførsle lagra.",
-      "filter-modified": "Brigda",
       "legacy-config-warning": "Utdatert tilmåting flyttar i minnet: {issue}. Køyr noctalia config validate for å sjå kva du må brigda.",
       "native-title": "Noctalia-innstillingar",
       "no-results": "Ingen innstillingar funne",

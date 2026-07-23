@@ -5,6 +5,7 @@ class ConfigService;
 class FileWatcher;
 class HttpClient;
 class MprisService;
+class PipeWireService;
 class PipeWireSpectrum;
 class RenderContext;
 class SharedTextureCache;
@@ -26,6 +27,7 @@ struct DesktopWidgetScriptDeps {
 };
 
 struct DesktopWidgetRuntimeServices {
+  PipeWireService* pipewire = nullptr;
   PipeWireSpectrum* pipewireSpectrum = nullptr;
   const WeatherService* weather = nullptr;
   MprisService* mpris = nullptr;

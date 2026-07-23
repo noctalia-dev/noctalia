@@ -233,6 +233,8 @@ namespace scripting {
     bool hasOnIpc = false;
     bool hasOnIpcKnown = false;
     bool unhealthy = false;
+    // True when this result included a CopyToClipboard side effect (before dispatch).
+    bool copiedToClipboard = false;
     std::string callbackName;
     std::string error;
   };

@@ -3,6 +3,7 @@
 #include "notification/notification_manager.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/panel/panel_manager.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -32,6 +33,8 @@ void NotificationWidget::create() {
     if (data.button != BTN_LEFT) {
       return;
     }
+    // Latch so the widget stays clickable while the panel this click opened is up.
+    m_openedPanelByClick = true;
     requestPanelToggle("control-center", "notifications");
   });
 
@@ -91,7 +94,10 @@ void NotificationWidget::refreshIndicatorState() {
   const bool dndEnabled = (m_manager != nullptr) && m_manager->doNotDisturb();
 
   if (Node* rootNode = root(); rootNode != nullptr) {
-    const bool showWidget = !m_hideWhenNoUnread || hasNotifications;
+    if (m_openedPanelByClick) {
+      m_openedPanelByClick = PanelManager::instance().isOpenPanel("control-center");
+    }
+    const bool showWidget = m_openedPanelByClick || !m_hideWhenNoUnread || hasNotifications;
     rootNode->setVisible(showWidget);
     rootNode->setParticipatesInLayout(showWidget);
     if (!showWidget) {

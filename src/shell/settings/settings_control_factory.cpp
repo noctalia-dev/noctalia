@@ -153,35 +153,29 @@ namespace settings {
   }
 
   std::unique_ptr<Button> SettingsControlFactory::makeResetButton(const std::vector<std::string>& path) {
-    auto& ctx = m_ctx;
-    const float scale = m_scale;
-    return ui::button({
-        .text = i18n::tr("settings.actions.reset"),
-        .fontSize = Style::fontSizeCaption * scale,
-        .variant = ButtonVariant::Ghost,
-        .minHeight = Style::controlHeightSm * scale,
-        .paddingV = Style::spaceXs * scale,
-        .paddingH = Style::spaceSm * scale,
-        .radius = Style::scaledRadiusMd(scale),
-        .onClick = [clearOverride = ctx.clearOverride, path]() { clearOverride(path); },
-    });
+    return makeGroupedResetButton(std::vector<std::vector<std::string>>{path});
   }
 
-  std::unique_ptr<Button> SettingsControlFactory::makeResetButton(std::vector<std::vector<std::string>> paths) {
+  std::unique_ptr<Button> SettingsControlFactory::makeGroupedResetButton(std::vector<std::vector<std::string>> paths) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
+    const bool pendingConfirmation = ctx.isResetConfirmationPending && ctx.isResetConfirmationPending(paths);
     return ui::button({
-        .text = i18n::tr("settings.actions.reset"),
+        .text = i18n::tr(pendingConfirmation ? "settings.actions.confirm-reset" : "settings.actions.reset"),
         .fontSize = Style::fontSizeCaption * scale,
-        .variant = ButtonVariant::Ghost,
+        .variant = pendingConfirmation ? ButtonVariant::Destructive : ButtonVariant::Ghost,
         .minHeight = Style::controlHeightSm * scale,
         .paddingV = Style::spaceXs * scale,
         .paddingH = Style::spaceSm * scale,
         .radius = Style::scaledRadiusMd(scale),
-        .onClick = [clearOverride = ctx.clearOverride, paths = std::move(paths)]() {
-          for (const auto& path : paths) {
-            clearOverride(path);
+        .onClick = [clearOverrides = ctx.clearOverrides, requestConfirmation = ctx.requestResetConfirmation,
+                    requestRebuild = ctx.requestRebuild, paths = std::move(paths), pendingConfirmation]() mutable {
+          if (!pendingConfirmation) {
+            requestConfirmation(paths);
+            requestRebuild();
+            return;
           }
+          clearOverrides(std::move(paths));
         },
     });
   }
@@ -229,12 +223,7 @@ namespace settings {
     // Range sliders own a second config path (high/critical); both reset and report "override" together.
     const auto* rangeSlider = std::get_if<RangeSliderSetting>(&entry.control);
     const auto* selectSetting = std::get_if<SelectSetting>(&entry.control);
-    const auto isOverridden = [&](const std::vector<std::string>& p) {
-      return ctx.configService != nullptr && ctx.configService->hasEffectiveOverride(p);
-    };
-    const bool overridden = isOverridden(entry.path)
-        || (rangeSlider != nullptr && isOverridden(rangeSlider->highPath))
-        || (selectSetting != nullptr && !selectSetting->linkedPath.empty() && isOverridden(selectSetting->linkedPath));
+    const bool overridden = ctx.configService != nullptr && settingEntryHasEffectiveOverride(entry, *ctx.configService);
     const bool redundantGuiOverride =
         ctx.configService != nullptr && ctx.configService->hasOverride(entry.path) && !overridden;
     const bool monitorSetting = isMonitorOverrideSettingPath(entry.path);
@@ -280,10 +269,12 @@ namespace settings {
     if (overridden) {
       actions->addChild(makeOverrideBadge());
       if (rangeSlider != nullptr) {
-        actions->addChild(makeResetButton(std::vector<std::vector<std::string>>{entry.path, rangeSlider->highPath}));
+        actions->addChild(
+            makeGroupedResetButton(std::vector<std::vector<std::string>>{entry.path, rangeSlider->highPath})
+        );
       } else if (selectSetting != nullptr && !selectSetting->linkedPath.empty()) {
         actions->addChild(
-            makeResetButton(std::vector<std::vector<std::string>>{entry.path, selectSetting->linkedPath})
+            makeGroupedResetButton(std::vector<std::vector<std::string>>{entry.path, selectSetting->linkedPath})
         );
       } else {
         actions->addChild(makeResetButton(entry.path));

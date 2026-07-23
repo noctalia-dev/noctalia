@@ -533,10 +533,6 @@
         "wave-thickness": "Tloušťka vlny",
         "widget-section": "Widget"
       },
-      "state": {
-        "grid-off": "Mřížka vypnuta",
-        "grid-on": "Mřížka zapnuta"
-      },
       "title": "Desktopové widgety",
       "types": {
         "audio-visualizer": "Zvukový vizualizér",
@@ -3287,7 +3283,6 @@
     "window": {
       "export-config": "Exportovat konfiguraci…",
       "export-config-saved": "Export konfigurace uložen.",
-      "filter-modified": "Změněné",
       "native-title": "Nastavení Noctalia",
       "no-results": "Nebyla nalezena žádná nastavení",
       "no-results-hint": "Zkuste jiný název nastavení nebo klíč konfigurace.",

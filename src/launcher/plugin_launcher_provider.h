@@ -54,7 +54,7 @@ public:
   void setQueryRequestedCallback(std::function<void(std::string)> callback) override {
     m_onQueryRequested = std::move(callback);
   }
-  void setActivationDoneCallback(std::function<void(std::string)> callback) override {
+  void setActivationDoneCallback(std::function<void(std::string, bool)> callback) override {
     m_onActivationDone = std::move(callback);
   }
 
@@ -96,7 +96,7 @@ private:
   FileWatcher::WatchId m_watchId = 0;
   std::function<void()> m_onResultsChanged;
   std::function<void(std::string)> m_onQueryRequested;
-  std::function<void(std::string)> m_onActivationDone;
+  std::function<void(std::string, bool)> m_onActivationDone;
 
   // An onActivate call is in flight; the panel close waits for its result so the
   // handler can rewrite the query (keeping the panel open) instead of closing.

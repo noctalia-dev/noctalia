@@ -12,7 +12,8 @@ class Box;
 class Glyph;
 class Label;
 
-enum class BatteryDisplayMode : std::uint8_t { Graphic, Glyph };
+enum class BatteryDisplayMode : std::uint8_t { None, Graphic, Glyph };
+enum class BatteryLabelContent : std::uint8_t { Percent, Time, Rate };
 
 class BatteryWidget : public Widget {
 public:
@@ -21,6 +22,7 @@ public:
     int warningThreshold = 0;
     ColorSpec warningColor = colorSpecFromRole(ColorRole::Error);
     BatteryDisplayMode displayMode = BatteryDisplayMode::Glyph;
+    BatteryLabelContent labelContent = BatteryLabelContent::Percent;
     bool showLabel = true;
     bool hideWhenPlugged = false;
     bool hideWhenFull = false;
@@ -37,17 +39,21 @@ private:
   [[nodiscard]] bool needsFrameTick() const override;
   void syncState(Renderer& renderer);
   void updateFillGeometry();
+  [[nodiscard]] std::string buildLabelText(int pct, const UPowerState& state) const;
 
   void createGraphicMode();
   void createGlyphMode();
+  void createLabelOnlyMode();
   void layoutGraphicMode(Renderer& renderer);
   void layoutGlyphMode(Renderer& renderer, float containerWidth, float containerHeight);
+  void layoutLabelOnlyMode(Renderer& renderer, float containerWidth, float containerHeight);
 
   UPowerService* m_upower = nullptr;
   std::string m_deviceSelector = "auto";
   int m_warningThreshold = 0;
   ColorSpec m_warningColor;
   BatteryDisplayMode m_displayMode = BatteryDisplayMode::Glyph;
+  BatteryLabelContent m_labelContent = BatteryLabelContent::Percent;
   bool m_showLabel = true;
   bool m_hideWhenPlugged = false;
   bool m_hideWhenFull = false;

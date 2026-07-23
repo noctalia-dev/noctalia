@@ -192,6 +192,47 @@ namespace {
     return ok;
   }
 
+  bool cgroupDetectsSystemdUserManager() {
+    bool ok = true;
+    ok = expect(
+             process::cgroupIndicatesSystemdUserManager(
+                 "0::/user.slice/user-1000.slice/user@1000.service/session.slice/wayland-wm@niri.service\n", 1000
+             ),
+             "uwsm compositor unit should be detected as user-manager managed"
+         )
+        && ok;
+    ok = expect(
+             process::cgroupIndicatesSystemdUserManager(
+                 "0::/user.slice/user-1000.slice/user@1000.service/app.slice/noctalia.service\n", 1000
+             ),
+             "noctalia user service should be detected as user-manager managed"
+         )
+        && ok;
+    ok = expect(
+             !process::cgroupIndicatesSystemdUserManager(
+                 "0::/user.slice/user-1000.slice/session-2.scope/noctalia\n", 1000
+             ),
+             "login session scope should not be detected as user-manager managed"
+         )
+        && ok;
+    ok = expect(
+             !process::cgroupIndicatesSystemdUserManager(
+                 "0::/user.slice/user-1001.slice/user@1001.service/app.slice/noctalia.service\n", 1000
+             ),
+             "another user's manager should not be detected as ours"
+         )
+        && ok;
+    ok = expect(
+             process::cgroupIndicatesSystemdUserManager(
+                 "1:name=systemd:/user.slice/user-1000.slice/user@1000.service/app.slice/noctalia.service\n", 1000
+             ),
+             "legacy cgroup v1 dump should be detected as user-manager managed"
+         )
+        && ok;
+    ok = expect(!process::cgroupIndicatesSystemdUserManager("", 1000), "empty cgroup dump should not be managed") && ok;
+    return ok;
+  }
+
 } // namespace
 
 int main() {
@@ -203,5 +244,6 @@ int main() {
   ok = stringCommandsSupportShellComposition() && ok;
   ok = detachedAsyncInheritsLaunchEnvironment() && ok;
   ok = commandExistsRejectsDirectories() && ok;
+  ok = cgroupDetectsSystemdUserManager() && ok;
   return ok ? 0 : 1;
 }

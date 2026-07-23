@@ -36,7 +36,7 @@ MediaWidget::MediaWidget(
 
 void MediaWidget::create() {
   auto area = std::make_unique<InputArea>();
-  area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
+  area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT, BTN_SIDE, BTN_EXTRA, BTN_BACK, BTN_FORWARD}));
   area->setOnEnter([this](const InputArea::PointerData&) {
     applyTitleScrollMode(m_label != nullptr && m_label->visible());
     this->requestUpdate();
@@ -50,8 +50,24 @@ void MediaWidget::create() {
       requestPanelToggle("control-center", "media");
       return;
     }
-    if (data.button == BTN_RIGHT && m_mpris != nullptr) {
+    if (m_mpris == nullptr) {
+      return;
+    }
+    // Mice report the thumb buttons as either SIDE/EXTRA or BACK/FORWARD.
+    switch (data.button) {
+    case BTN_RIGHT:
       m_mpris->playPauseActive();
+      break;
+    case BTN_SIDE:
+    case BTN_BACK:
+      m_mpris->previousActive();
+      break;
+    case BTN_EXTRA:
+    case BTN_FORWARD:
+      m_mpris->nextActive();
+      break;
+    default:
+      break;
     }
   });
   area->setOnAxis([this](const InputArea::PointerData& data) {

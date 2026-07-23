@@ -28,6 +28,7 @@ namespace desktop_settings {
         {.type = "media_player", .labelKey = "desktop-widgets.editor.types.media-player"},
         {.type = "sticker", .labelKey = "desktop-widgets.editor.types.sticker"},
         {.type = "sysmon", .labelKey = "desktop-widgets.editor.types.system-monitor"},
+        {.type = "volume", .labelKey = "desktop-widgets.editor.types.volume"},
         {.type = "weather", .labelKey = "desktop-widgets.editor.types.weather"},
     };
 
@@ -414,6 +415,18 @@ namespace desktop_settings {
         minW.visibleWhen = showLabelGauge;
         add(std::move(minW));
       }
+      add(boolSpec("shadow", true));
+    } else if (type == "volume") {
+      add(segmentedSpec(
+          "device", "output",
+          {{"output", "settings.widgets.options.output"}, {"input", "settings.widgets.options.input"}}
+      ));
+      add(glyphSpec("glyph", ""));
+      add(colorSpec("fill_color", "primary"));
+      add(colorSpec("track_color", "on_surface_variant"));
+      add(boolSpec("show_device", true));
+      add(stepperIntSpec("scroll_step", 5, 1.0, 25.0, 1.0));
+      add(fontFamilySpec());
       add(boolSpec("shadow", true));
     } else if (type == "login_box") {
       add(boolSpec("show_login_button", true));

@@ -29,6 +29,7 @@ public:
     bool pipeToCommand = false;
     bool freezeScreen = false;
     bool confirmRegion = false;
+    bool showCursor = false;
     std::string pipeCommand;
     std::string directory;
     std::string filenamePattern;

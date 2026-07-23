@@ -102,6 +102,7 @@ sudo pacman -S meson gcc just \
   libglvnd freetype2 fontconfig \
   cairo pango harfbuzz \
   libxkbcommon glib2 \
+  libsecret libsodium \
   sdbus-cpp libpipewire wireplumber polkit \
   pam curl libwebp librsvg \
   libqalculate libxml2 \
@@ -119,6 +120,7 @@ sudo dnf install meson gcc-c++ just \
   freetype-devel fontconfig-devel \
   cairo-devel pango-devel harfbuzz-devel \
   libxkbcommon-devel glib2-devel \
+  libsecret-devel libsodium-devel \
   sdbus-cpp-devel pipewire-devel wireplumber-devel \
   pam-devel polkit-devel libcurl-devel libwebp-devel librsvg2-devel \
   libqalculate-devel libxml2-devel \
@@ -136,6 +138,7 @@ sudo zypper install meson gcc-c++ just \
   freetype2-devel fontconfig-devel \
   cairo-devel pango-devel harfbuzz-devel \
   libxkbcommon-devel glib2-devel \
+  libsecret-devel libsodium-devel \
   sdbus-cpp-devel pipewire-devel wireplumber-devel \
   pam-devel polkit-devel libcurl-devel libwebp-devel librsvg-devel \
   libqalculate-devel libxml2-devel \
@@ -153,6 +156,7 @@ sudo apt install meson g++ just \
   libfreetype-dev libfontconfig-dev \
   libcairo2-dev libpango1.0-dev libharfbuzz-dev \
   libxkbcommon-dev libglib2.0-dev \
+  libsecret-1-dev libsodium-dev \
   libsdbus-c++-dev libpipewire-0.3-dev libwireplumber-0.5-dev \
   libpam0g-dev libpolkit-agent-1-dev libpolkit-gobject-1-dev \
   libcurl4-openssl-dev libwebp-dev librsvg2-dev \
@@ -170,6 +174,7 @@ sudo xbps-install meson ninja pkg-config git \
   MesaLib-devel libglvnd-devel cairo-devel \
   pango-devel fontconfig-devel freetype-devel \
   harfbuzz-devel libxkbcommon-devel pipewire-devel wireplumber-devel \
+  libsecret-devel libsodium-devel \
   libcurl-devel pam-devel libwebp-devel \
   basu-devel sdbus-c++-devel \
   libmd4c-devel tomlplusplus-devel \
@@ -196,7 +201,12 @@ and daemon into separate packages, make sure you have both installed.
 
 `ddcutil` is an optional dependency used for controlling monitor brightness.
 
-`wtype` is an optional dependency used for clipboard auto-paste.
+Credential and encrypted-state persistence requires a Secret Service provider at runtime, such as GNOME Keyring,
+KWallet, or KeePassXC. `libsecret` is the client library and does not provide the session service by itself. Noctalia
+continues to run when no provider is available, but features requiring durable secrets cannot persist them.
+CalDAV accounts may instead read their password from one explicitly configured regular file, which supports secret
+provisioners such as agenix and sops-nix without installing a Secret Service provider. Google refresh tokens and
+Noctalia-managed encrypted state still require Secret Service.
 
 `jemalloc` is recommended but optional. It reduces memory fragmentation in long-running sessions, and on glibc systems
 it is used automatically when detected. Use Meson's `-Djemalloc=enabled` or `-Djemalloc=disabled` option to require or
@@ -319,6 +329,11 @@ Donations are appreciated but completely optional.
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
+## Packaging
+
+Distro packaging notes (description, deps, install layout, Meson options) live in
+[PACKAGING.md](PACKAGING.md).
 
 ## Star History
 

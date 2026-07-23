@@ -1,5 +1,6 @@
 #include "shell/settings/settings_content_common.h"
 
+#include "config/config_service.h"
 #include "config/config_types.h"
 #include "i18n/i18n.h"
 #include "shell/settings/settings_content.h"
@@ -156,6 +157,19 @@ namespace settings {
       if (key == "scroll_down_command") {
         return override->deadZone.scrollDownCommand.has_value();
       }
+    }
+    return false;
+  }
+
+  bool settingEntryHasEffectiveOverride(const SettingEntry& entry, const ConfigService& configService) {
+    if (configService.hasEffectiveOverride(entry.path)) {
+      return true;
+    }
+    if (const auto* range = std::get_if<RangeSliderSetting>(&entry.control)) {
+      return configService.hasEffectiveOverride(range->highPath);
+    }
+    if (const auto* select = std::get_if<SelectSetting>(&entry.control)) {
+      return !select->linkedPath.empty() && configService.hasEffectiveOverride(select->linkedPath);
     }
     return false;
   }

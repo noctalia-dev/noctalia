@@ -15,6 +15,7 @@
 #include "theme/builtin_palettes.h"
 #include "theme/community_palettes.h"
 #include "theme/custom_palettes.h"
+#include "theme/theme_service.h"
 #include "ui/builders.h"
 #include "ui/dialogs/color_picker_dialog.h"
 #include "ui/palette.h"
@@ -350,9 +351,10 @@ private:
 };
 
 WallpaperPanel::WallpaperPanel(
-    WaylandConnection* wayland, ConfigService* config, ThumbnailService* thumbnails, WallpaperScanner* scanner
+    WaylandConnection* wayland, ConfigService* config, ThumbnailService* thumbnails, WallpaperScanner* scanner,
+    noctalia::theme::ThemeService* themeService
 )
-    : m_wayland(wayland), m_config(config), m_thumbnails(thumbnails), m_scanner(scanner) {
+    : m_wayland(wayland), m_config(config), m_thumbnails(thumbnails), m_scanner(scanner), m_themeService(themeService) {
   if (m_config != nullptr) {
     m_flatten = m_config->stateBool("wallpaper_panel", "flatten").value_or(false);
     if (const std::optional<std::string> sort = m_config->stateString("wallpaper_panel", "sort")) {
@@ -979,7 +981,9 @@ std::filesystem::path WallpaperPanel::rootDirectoryForSelection() const {
     return {};
   }
   const auto& wp = m_config->config().wallpaper;
-  const ThemeMode mode = m_config->config().theme.mode;
+  const ThemeMode configured = m_config->config().theme.mode;
+  const bool isLight = m_themeService != nullptr ? m_themeService->isLightMode() : configured == ThemeMode::Light;
+  const ThemeMode mode = wallpaper::effectiveThemeMode(configured, isLight);
 
   const auto& choice = m_monitorChoices[m_selectedMonitorIndex];
   if (choice.connector.empty() || !wp.perMonitorDirectories) {

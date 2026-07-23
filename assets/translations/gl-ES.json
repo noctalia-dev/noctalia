@@ -537,10 +537,6 @@
         "wave-thickness": "Grosor da onda",
         "widget-section": "Widget"
       },
-      "state": {
-        "grid-off": "Cadrícula desactivada",
-        "grid-on": "Cadrícula activada"
-      },
       "title": "Widgets do escritorio",
       "types": {
         "audio-visualizer": "Visualizador de audio",
@@ -3423,7 +3419,6 @@
     "window": {
       "export-config": "Exportar configuración…",
       "export-config-saved": "Exportación da configuración gardada.",
-      "filter-modified": "Modificado",
       "legacy-config-warning": "A configuración antiga estase migrando na memoria: {issue}. Executa noctalia config validate para ver todos os cambios requiridos.",
       "native-title": "Axustes de Noctalia",
       "no-results": "Non se atoparon axustes",

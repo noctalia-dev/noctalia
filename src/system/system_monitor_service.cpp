@@ -995,6 +995,12 @@ void SystemMonitorService::applyConfig(const SystemConfig::MonitorConfig& config
     m_pollConfig = sanitized;
     m_historyInterval = pollDuration(effectiveHistoryPollSeconds(sanitized));
   }
+  {
+    // The generation must be published under the wake mutex, or the increment can land after the
+    // sampling thread evaluated its predicate but before it blocks, losing the wakeup.
+    std::scoped_lock wakeLock{m_wakeMutex};
+    m_configGeneration.fetch_add(1, std::memory_order_relaxed);
+  }
   m_wakeCv.notify_all();
   setEnabled(sanitized.enabled);
 }
@@ -1149,16 +1155,19 @@ void SystemMonitorService::start() {
 }
 
 void SystemMonitorService::stop() {
-  m_running = false;
+  {
+    std::scoped_lock wakeLock{m_wakeMutex};
+    m_running = false;
+  }
   m_wakeCv.notify_all();
   if (m_thread.joinable()) {
     m_thread.join();
   }
+  releaseGpuReaders();
 }
 
 void SystemMonitorService::logDetectedSources() {
   const SystemConfig::MonitorConfig pollCfg = pollConfig();
-  const NvidiaDisplayDeviceState nvidiaDisplayState = detectNvidiaPciDisplayDeviceState();
   const auto cpu = readCpuTotals();
   const auto mem = readMemoryKb();
   const auto net = readNetBytes();
@@ -1180,31 +1189,10 @@ void SystemMonitorService::logDetectedSources() {
     kLog.info("detected CPU temperature source: unavailable");
   }
 
-  const auto gpuTemp = readGpuTempData(nvidiaDisplayState);
-  if (gpuTemp.tempC.has_value()) {
-    kLog.info("detected GPU temperature source: {} ({:.0f}C); {}", gpuTemp.source, *gpuTemp.tempC, gpuTemp.detail);
-  } else {
-    kLog.info("detected GPU temperature source: unavailable; {}", gpuTemp.detail);
-  }
-
-  const auto gpuUsage = readGpuUsageData(nvidiaDisplayState);
-  if (gpuUsage.percent.has_value()) {
-    kLog.info("detected GPU usage source: {} ({:.0f}%)", gpuUsage.source, *gpuUsage.percent);
-  } else if (!gpuUsage.source.empty()) {
-    // Counter-delta sources have nothing to report until their second sample.
-    kLog.info("detected GPU usage source: {} (awaiting first sample)", gpuUsage.source);
-  } else {
-    kLog.info("detected GPU usage source: unavailable");
-  }
-
-  if (const auto gpuVram = readGpuVramData(nvidiaDisplayState); gpuVram.has_value()) {
-    kLog.info(
-        "detected GPU VRAM source: {} ({} / {})", gpuVram->source,
-        FormatUnits::formatBinaryBytesAsGib(gpuVram->usedBytes),
-        FormatUnits::formatBinaryBytesAsGib(gpuVram->totalBytes)
-    );
-  } else {
-    kLog.info("detected GPU VRAM source: unavailable");
+  // GPU sources are reported from the sampling thread on the first probe: detecting them here would
+  // wake a discrete GPU at startup even when nothing displays a GPU stat.
+  if (pollCfg.gpuPollSeconds <= 0.0f) {
+    kLog.info("GPU monitoring disabled");
   }
 }
 
@@ -1220,6 +1208,7 @@ void SystemMonitorService::samplingLoop() {
   auto nextHistory = Clock::now();
 
   while (m_running.load()) {
+    const std::uint64_t configGeneration = m_configGeneration.load();
     const SystemConfig::MonitorConfig pollCfg = pollConfig();
     const float historyPollSeconds = effectiveHistoryPollSeconds(pollCfg);
 
@@ -1230,6 +1219,11 @@ void SystemMonitorService::samplingLoop() {
     const bool networkEnabled = pollCfg.networkPollSeconds > 0.0f;
     const bool diskEnabled = pollCfg.diskPollSeconds > 0.0f;
     const bool historyEnabled = historyPollSeconds > 0.0f;
+
+    if (!gpuEnabled) {
+      releaseGpuReaders();
+      m_gpuSourcesLogged = false;
+    }
 
     const auto cpuInterval = pollDuration(pollCfg.cpuPollSeconds);
     const auto gpuInterval = pollDuration(pollCfg.gpuPollSeconds);
@@ -1333,23 +1327,57 @@ void SystemMonitorService::samplingLoop() {
 
       if (pollGpuTemp || pollGpuUsage || pollGpuVram) {
         const NvidiaDisplayDeviceState nvidiaDisplayState = detectNvidiaPciDisplayDeviceState();
+        // The first probe doubles as source detection: it reports what each retained stat resolved to.
+        const bool logSources = !m_gpuSourcesLogged;
+        m_gpuSourcesLogged = true;
 
         if (pollGpuTemp) {
-          const auto gpuTemp = readGpuTempData(nvidiaDisplayState).tempC;
+          const auto gpuTemp = readGpuTempData(nvidiaDisplayState);
+          if (logSources) {
+            if (gpuTemp.tempC.has_value()) {
+              kLog.info(
+                  "detected GPU temperature source: {} ({:.0f}C); {}", gpuTemp.source, *gpuTemp.tempC, gpuTemp.detail
+              );
+            } else {
+              kLog.info("detected GPU temperature source: unavailable; {}", gpuTemp.detail);
+            }
+          }
           std::scoped_lock lock{m_statsMutex};
-          if (gpuTemp.has_value()) {
-            m_latest.gpuTempC = gpuTemp;
+          if (gpuTemp.tempC.has_value()) {
+            m_latest.gpuTempC = gpuTemp.tempC;
           }
         }
         if (pollGpuUsage) {
-          const auto gpuUsage = readGpuUsageData(nvidiaDisplayState).percent;
+          const auto gpuUsage = readGpuUsageData(nvidiaDisplayState);
+          if (logSources) {
+            if (gpuUsage.percent.has_value()) {
+              kLog.info("detected GPU usage source: {} ({:.0f}%)", gpuUsage.source, *gpuUsage.percent);
+            } else if (!gpuUsage.source.empty()) {
+              // Counter-delta sources have nothing to report until their second sample.
+              kLog.info("detected GPU usage source: {} (awaiting first sample)", gpuUsage.source);
+            } else {
+              kLog.info("detected GPU usage source: unavailable");
+            }
+          }
           std::scoped_lock lock{m_statsMutex};
-          if (gpuUsage.has_value()) {
-            m_latest.gpuUsagePercent = gpuUsage;
+          if (gpuUsage.percent.has_value()) {
+            m_latest.gpuUsagePercent = gpuUsage.percent;
           }
         }
         if (pollGpuVram) {
-          if (const auto gpuVram = readGpuVramData(nvidiaDisplayState); gpuVram.has_value()) {
+          const auto gpuVram = readGpuVramData(nvidiaDisplayState);
+          if (logSources) {
+            if (gpuVram.has_value()) {
+              kLog.info(
+                  "detected GPU VRAM source: {} ({} / {})", gpuVram->source,
+                  FormatUnits::formatBinaryBytesAsGib(gpuVram->usedBytes),
+                  FormatUnits::formatBinaryBytesAsGib(gpuVram->totalBytes)
+              );
+            } else {
+              kLog.info("detected GPU VRAM source: unavailable");
+            }
+          }
+          if (gpuVram.has_value()) {
             std::scoped_lock lock{m_statsMutex};
             m_latest.gpuVramUsedBytes = gpuVram->usedBytes;
             m_latest.gpuVramTotalBytes = gpuVram->totalBytes;
@@ -1426,8 +1454,16 @@ void SystemMonitorService::samplingLoop() {
     considerWake(historyEnabled, nextHistory);
 
     std::unique_lock wakeLock{m_wakeMutex};
-    m_wakeCv.wait_until(wakeLock, nextWake, [this]() { return !m_running.load(); });
+    m_wakeCv.wait_until(wakeLock, nextWake, [this, configGeneration]() {
+      return !m_running.load() || m_configGeneration.load() != configGeneration;
+    });
   }
+}
+
+void SystemMonitorService::releaseGpuReaders() {
+  m_nvidiaNvmlReader.reset();
+  m_amdRsmiReader.reset();
+  m_intelGpuReader.reset();
 }
 
 std::optional<SystemMonitorService::CpuTotals> SystemMonitorService::readCpuTotals() {

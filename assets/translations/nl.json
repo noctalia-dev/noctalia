@@ -506,10 +506,6 @@
         "wave-thickness": "Golfdikte",
         "widget-section": "Widget"
       },
-      "state": {
-        "grid-off": "Raster uit",
-        "grid-on": "Raster aan"
-      },
       "title": "Bureaubladwidgets",
       "types": {
         "audio-visualizer": "Audiovisualisatie",
@@ -2898,7 +2894,6 @@
     "window": {
       "export-config": "Configuratie exporteren…",
       "export-config-saved": "Configuratie-export opgeslagen.",
-      "filter-modified": "Gewijzigd",
       "native-title": "Noctalia Instellingen",
       "no-results": "Geen instellingen gevonden",
       "no-results-hint": "Probeer een andere instellingsnaam of configuratiesleutel.",

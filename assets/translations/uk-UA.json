@@ -500,10 +500,6 @@
         "wave-thickness": "Товщина хвилі",
         "widget-section": "Віджет"
       },
-      "state": {
-        "grid-off": "Сітка вимкнена",
-        "grid-on": "Сітка увімкнена"
-      },
       "title": "Віджети робочого столу",
       "types": {
         "audio-visualizer": "Аудіовізуалізатор",
@@ -2847,7 +2843,6 @@
     "window": {
       "export-config": "Експортувати конфігурацію…",
       "export-config-saved": "Конфігурацію експортовано.",
-      "filter-modified": "Змінено",
       "native-title": "Налаштування Noctalia",
       "no-results": "Налаштування не знайдено",
       "no-results-hint": "Спробуйте іншу назву налаштування або config key.",

@@ -1229,8 +1229,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                   ),
                   ui::button(
                       {
-                          .text = m_snapshot.grid.visible ? i18n::tr("desktop-widgets.editor.state.grid-on")
-                                                          : i18n::tr("desktop-widgets.editor.state.grid-off"),
+                          .text = i18n::tr("desktop-widgets.editor.state.grid"),
                           .controlHeight = Style::controlHeightSm,
                           .selected = m_snapshot.grid.visible,
                           .variant = ButtonVariant::Default,

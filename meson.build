@@ -81,6 +81,8 @@ xkbcommon_dep       = dependency('xkbcommon')
 glib_dep            = dependency('glib-2.0')
 gobject_dep         = dependency('gobject-2.0')
 gio_dep             = dependency('gio-2.0')
+libsecret_dep       = dependency('libsecret-1', version: '>=0.20')
+libsodium_dep       = dependency('libsodium', version: '>=1.0.18')
 polkit_agent_dep    = dependency('polkit-agent-1')
 polkit_gobject_dep  = dependency('polkit-gobject-1')
 # PipeWire/SPA headers use GCC extensions that trigger -Wpedantic/-Wconversion;
@@ -410,6 +412,7 @@ _noctalia_sources = files(
   'src/calendar/caldav_client.cpp',
   'src/calendar/caldav_discovery.cpp',
   'src/calendar/calendar_cache.cpp',
+  'src/calendar/calendar_credential_store.cpp',
   'src/calendar/calendar_discovery_state.cpp',
   'src/calendar/calendar_service.cpp',
   'src/calendar/google_client.cpp',
@@ -563,6 +566,9 @@ _noctalia_sources = files(
   'src/scripting/script_runtime.cpp',
   'src/scripting/script_worker_pool.cpp',
   'src/scripting/plugin_bindings.cpp',
+  'src/security/encrypted_file_store.cpp',
+  'src/security/secret_store.cpp',
+  'src/security/secure_buffer.cpp',
   'src/system/battery_warning_monitor.cpp',
   'src/shell/bar/bar.cpp',
   'src/shell/clipboard/clipboard_paste.cpp',
@@ -593,6 +599,7 @@ _noctalia_sources = files(
   'src/shell/desktop/widgets/desktop_media_player_widget.cpp',
   'src/shell/desktop/widgets/desktop_sticker_widget.cpp',
   'src/shell/desktop/widgets/desktop_sysmon_widget.cpp',
+  'src/shell/desktop/widgets/desktop_volume_widget.cpp',
   'src/shell/desktop/widgets/plugin_desktop_widget.cpp',
   'src/shell/desktop/widgets/desktop_weather_widget.cpp',
   'src/shell/clipboard/clipboard_panel.cpp',
@@ -718,6 +725,7 @@ _noctalia_sources = files(
   'src/shell/bar/widgets/session_widget.cpp',
   'src/shell/bar/widgets/settings_widget.cpp',
   'src/shell/bar/widgets/spacer_widget.cpp',
+  'src/shell/bar/widgets/text_widget.cpp',
   'src/shell/bar/widgets/sysmon_widget.cpp',
   'src/shell/bar/widgets/taskbar_widget.cpp',
   'src/shell/bar/widgets/test_widget.cpp',
@@ -725,6 +733,7 @@ _noctalia_sources = files(
   'src/shell/bar/widgets/tray_widget.cpp',
   'src/shell/bar/widgets/volume_widget.cpp',
   'src/shell/bar/widgets/brightness_widget.cpp',
+  'src/shell/bar/widgets/brightness_widget_definition.cpp',
   'src/shell/bar/widgets/wallpaper_widget.cpp',
   'src/shell/bar/widgets/weather_widget.cpp',
   'src/shell/bar/widgets/workspaces_widget.cpp',
@@ -943,6 +952,8 @@ noctalia_exe = executable('noctalia',
     glib_dep,
     gobject_dep,
     gio_dep,
+    libsecret_dep,
+    libsodium_dep,
     polkit_agent_dep,
     polkit_gobject_dep,
     pipewire_dep,
@@ -1604,6 +1615,54 @@ state_store_test = executable('state_store_test',
 )
 
 test('state_store', state_store_test)
+
+security_primitives_test = executable('security_primitives_test',
+  sources: files(
+    'tests/security_primitives_test.cpp',
+    'src/config/atomic_file.cpp',
+    'src/security/encrypted_file_store.cpp',
+    'src/security/secure_buffer.cpp',
+  ),
+  include_directories: _noctalia_inc,
+  dependencies: [
+    libsodium_dep,
+  ],
+)
+
+test('security_primitives', security_primitives_test)
+
+secret_store_test = executable('secret_store_test',
+  sources: files(
+    'tests/secret_store_test.cpp',
+    'src/core/log.cpp',
+    'src/security/secret_store.cpp',
+    'src/security/secure_buffer.cpp',
+  ),
+  include_directories: _noctalia_inc,
+  dependencies: [
+    libsecret_dep,
+    libsodium_dep,
+  ],
+)
+
+test('secret_store', secret_store_test)
+
+calendar_credential_store_test = executable('calendar_credential_store_test',
+  sources: files(
+    'tests/calendar_credential_store_test.cpp',
+    'src/calendar/calendar_credential_store.cpp',
+    'src/core/log.cpp',
+    'src/security/secret_store.cpp',
+    'src/security/secure_buffer.cpp',
+  ),
+  include_directories: _noctalia_inc,
+  dependencies: [
+    libsecret_dep,
+    libsodium_dep,
+  ],
+)
+
+test('calendar_credential_store', calendar_credential_store_test)
 
 calendar_cache_permissions_test = executable('calendar_cache_permissions_test',
   sources: files(

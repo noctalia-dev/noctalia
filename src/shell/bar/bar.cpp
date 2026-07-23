@@ -59,13 +59,9 @@ namespace {
     return {};
   }
 
-  [[nodiscard]] bool barConfigUsesSlideSurface(const BarConfig& cfg) noexcept {
-    return cfg.autoHide || cfg.smartAutoHide;
-  }
+  [[nodiscard]] bool barConfigUsesSlideSurface(const BarConfig& cfg) noexcept { return cfg.isAutoHideEnabled(); }
 
-  [[nodiscard]] bool barSupportsSlideBehavior(const BarConfig& cfg) noexcept {
-    return cfg.autoHide || cfg.smartAutoHide;
-  }
+  [[nodiscard]] bool barSupportsSlideBehavior(const BarConfig& cfg) noexcept { return cfg.isAutoHideEnabled(); }
 
   [[nodiscard]] bool barPointerHideAllowed(const BarInstance& instance) noexcept {
     if (instance.barConfig.smartAutoHide) {
@@ -1484,7 +1480,7 @@ void Bar::reevaluateSmartAutoHide() {
         needsRedraw = true;
       }
     } else if (!instance->pointerInside && instance->attachedPopupCount == 0 && !suppressAutoHide) {
-      if (instance->hideOpacity > 0.0f || pinnedChanged) {
+      if ((instance->hideOpacity > 0.0f || pinnedChanged) && !isWorkspacePeekActive()) {
         startHideFadeOut(*instance);
         needsRedraw = true;
       }
@@ -1494,6 +1490,10 @@ void Bar::reevaluateSmartAutoHide() {
       instance->surface->requestRedraw();
     }
   }
+}
+
+bool Bar::isWorkspacePeekActive() const noexcept {
+  return m_workspaceRevealDebounce.active() || m_workspacePeekHideTimer.active();
 }
 
 void Bar::applyPendingWorkspaceReveal() {
@@ -1512,8 +1512,7 @@ void Bar::applyPendingWorkspaceReveal() {
       if (instance == nullptr
           || instance->outputName != outputName
           || !instance->barConfig.enabled
-          || !instance->barConfig.autoHide
-          || instance->barConfig.smartAutoHide
+          || !instance->barConfig.isAutoHideEnabled()
           || !instance->barConfig.showOnWorkspaceSwitch
           || instance->surface == nullptr) {
         continue;
@@ -1537,7 +1536,10 @@ void Bar::applyPendingWorkspaceReveal() {
 
   m_workspacePeekHideTimer.start(kWorkspacePeekHold, [this, peeked = std::move(peeked)]() {
     for (BarInstance* instance : peeked) {
-      if (instance == nullptr || !instance->barConfig.autoHide || instance->pointerInside) {
+      if (instance == nullptr || !instance->barConfig.isAutoHideEnabled() || instance->pointerInside) {
+        continue;
+      }
+      if (instance->barConfig.smartAutoHide && instance->smartAutoHidePinnedVisible) {
         continue;
       }
       const bool suppressAutoHide =

@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <format>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -38,13 +39,58 @@ namespace {
     return nullptr;
   }
 
+  std::string formatCompactDuration(std::int64_t seconds) {
+    const auto hours = seconds / 3600;
+    const auto minutes = (seconds % 3600) / 60;
+    const std::string hourText = i18n::tr("time.units.hour-compact", "count", hours);
+    const std::string minuteText = i18n::tr("time.units.minute-compact", "count", minutes);
+    if (hours > 0 && minutes > 0) {
+      return i18n::tr("time.duration.two-parts", "first", hourText, "second", minuteText);
+    }
+    if (hours > 0) {
+      return hourText;
+    }
+    if (minutes > 0) {
+      return minuteText;
+    }
+    return i18n::tr("time.duration.less-than-minute");
+  }
+
 } // namespace
 
 BatteryWidget::BatteryWidget(UPowerService* upower, Options options)
     : m_upower(upower), m_deviceSelector(std::move(options.deviceSelector)),
       m_warningThreshold(options.warningThreshold), m_warningColor(options.warningColor),
-      m_displayMode(options.displayMode), m_showLabel(options.showLabel), m_hideWhenPlugged(options.hideWhenPlugged),
-      m_hideWhenFull(options.hideWhenFull) {}
+      m_displayMode(options.displayMode), m_labelContent(options.labelContent), m_showLabel(options.showLabel),
+      m_hideWhenPlugged(options.hideWhenPlugged), m_hideWhenFull(options.hideWhenFull) {}
+
+// Vertical bars are too narrow for time or rate text, so they always show the bare percentage; the
+// tooltip carries the full detail. Time and rate are only known while the battery is actively charging
+// or discharging, and the percentage stands in whenever the selected content has no value to show.
+std::string BatteryWidget::buildLabelText(int pct, const UPowerState& state) const {
+  if (m_isVertical) {
+    return std::to_string(pct);
+  }
+
+  switch (m_labelContent) {
+  case BatteryLabelContent::Time:
+    if (state.state == BatteryState::Discharging && state.timeToEmpty > 0) {
+      return formatCompactDuration(state.timeToEmpty);
+    }
+    if (state.state == BatteryState::Charging && state.timeToFull > 0) {
+      return formatCompactDuration(state.timeToFull);
+    }
+    break;
+  case BatteryLabelContent::Rate:
+    if (state.energyRate > 0.0) {
+      return std::format("{:.1f} W", state.energyRate);
+    }
+    break;
+  case BatteryLabelContent::Percent:
+    break;
+  }
+  return std::format("{}%", pct);
+}
 
 void BatteryWidget::create() {
   auto container = std::make_unique<InputArea>();
@@ -55,8 +101,10 @@ void BatteryWidget::create() {
 
   if (m_displayMode == BatteryDisplayMode::Graphic) {
     createGraphicMode();
-  } else {
+  } else if (m_displayMode == BatteryDisplayMode::Glyph) {
     createGlyphMode();
+  } else {
+    createLabelOnlyMode();
   }
 }
 
@@ -126,6 +174,20 @@ void BatteryWidget::createGlyphMode() {
   );
 }
 
+void BatteryWidget::createLabelOnlyMode() {
+  auto* container = static_cast<InputArea*>(root());
+
+  container->addChild(
+      ui::label({
+          .out = &m_label,
+          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontWeight = labelFontWeight(),
+          .fontFamily = labelFontFamily(),
+          .visible = m_showLabel,
+      })
+  );
+}
+
 void BatteryWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   auto* rootNode = root();
   if (rootNode == nullptr) {
@@ -136,8 +198,10 @@ void BatteryWidget::doLayout(Renderer& renderer, float containerWidth, float con
 
   if (m_displayMode == BatteryDisplayMode::Graphic) {
     layoutGraphicMode(renderer);
-  } else {
+  } else if (m_displayMode == BatteryDisplayMode::Glyph) {
     layoutGlyphMode(renderer, containerWidth, containerHeight);
+  } else {
+    layoutLabelOnlyMode(renderer, containerWidth, containerHeight);
   }
 }
 
@@ -272,6 +336,17 @@ void BatteryWidget::layoutGlyphMode(Renderer& renderer, float /*containerWidth*/
   }
 }
 
+void BatteryWidget::layoutLabelOnlyMode(Renderer& renderer, float /*containerWidth*/, float /*containerHeight*/) {
+  auto* rootNode = root();
+  if (m_label == nullptr || rootNode == nullptr) {
+    return;
+  }
+
+  m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+  m_label->measure(renderer);
+  rootNode->setSize(m_label->width(), m_label->height());
+}
+
 void BatteryWidget::updateFillGeometry() {
   if (m_fillRect == nullptr || m_bodyBg == nullptr) {
     return;
@@ -333,7 +408,10 @@ void BatteryWidget::syncState(Renderer& renderer) {
       || s.state == BatteryState::FullyCharged
       || s.state == BatteryState::PendingCharge;
 
+  const bool hasVisibleContent = m_displayMode != BatteryDisplayMode::None || m_showLabel;
+
   const bool showWidget = s.isPresent
+      && hasVisibleContent
       && !(m_hideWhenPlugged && isPluggedIn)
       && !(m_hideWhenFull && (s.state == BatteryState::FullyCharged || s.state == BatteryState::PendingCharge));
 
@@ -386,7 +464,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
 
     // Graphic mode label
     if (m_overlayLabel != nullptr && m_showLabel) {
-      m_overlayLabel->setText(m_isVertical ? std::to_string(pct) : std::to_string(pct) + "%");
+      m_overlayLabel->setText(buildLabelText(pct, s));
       m_overlayLabel->setColor(fgColor);
       m_overlayLabel->measure(renderer);
     }
@@ -407,7 +485,7 @@ void BatteryWidget::syncState(Renderer& renderer) {
     if (m_overlayGlyph != nullptr) {
       m_overlayGlyph->setVisible(stateGlyph != nullptr);
     }
-  } else {
+  } else if (m_displayMode == BatteryDisplayMode::Glyph) {
     const ColorSpec normalFgColor = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface));
     const ColorSpec fgColor = isWarning ? m_warningColor : normalFgColor;
 
@@ -420,7 +498,17 @@ void BatteryWidget::syncState(Renderer& renderer) {
 
     if (m_label != nullptr && m_showLabel) {
       m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
-      m_label->setText(m_isVertical ? std::to_string(pct) : std::to_string(pct) + "%");
+      m_label->setText(buildLabelText(pct, s));
+      m_label->setColor(fgColor);
+      m_label->measure(renderer);
+    }
+  } else if (m_displayMode == BatteryDisplayMode::None) {
+    const ColorSpec normalFgColor = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
+    const ColorSpec fgColor = isWarning ? m_warningColor : normalFgColor;
+
+    if (m_label != nullptr && m_showLabel) {
+      m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+      m_label->setText(buildLabelText(pct, s));
       m_label->setColor(fgColor);
       m_label->measure(renderer);
     }

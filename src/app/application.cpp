@@ -139,7 +139,7 @@ namespace {
 Application::Application()
     : m_lockKeysService(m_wayland), m_gammaService(m_wayland), m_locationService(m_configService, m_httpClient),
       m_weatherService(m_configService, m_httpClient),
-      m_calendarService(m_configService, m_httpClient, &m_notificationManager) {
+      m_calendarService(m_configService, m_httpClient, m_secretStore, &m_notificationManager) {
   m_notificationManager.loadPersistedHistory();
   notify::setInstance(&m_notificationManager);
 

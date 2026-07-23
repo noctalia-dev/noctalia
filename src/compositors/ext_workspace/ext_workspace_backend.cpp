@@ -395,9 +395,9 @@ void ExtWorkspaceBackend::onWorkspaceStateChanged(ext_workspace_handle_v1* works
 
   it->second.active = isActive;
   it->second.urgent = isUrgent;
-  if (isActive) {
-    kLog.debug("active: {}", it->second.name.empty() ? "(unnamed)" : it->second.name);
-  }
+  // if (isActive) {
+  //   kLog.debug("active: {}", it->second.name.empty() ? "(unnamed)" : it->second.name);
+  // }
   if (m_changeCallback) {
     m_changeCallback();
   }

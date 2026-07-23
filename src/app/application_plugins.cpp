@@ -123,6 +123,7 @@ void Application::reloadPluginPanels() {
                 .height = resolved.entry->panelHeight,
                 .widthFill = resolved.entry->panelWidthFill,
                 .heightFill = resolved.entry->panelHeightFill,
+                .dismissOnOutsideClick = resolved.entry->panelDismissOnOutsideClick,
                 .shellConfig = shellConfig,
             }
         )

@@ -7,6 +7,7 @@
 #include "system/format_units.h"
 #include "system/system_monitor_service.h"
 #include "ui/builders.h"
+#include "ui/controls/flex.h"
 #include "ui/controls/graph.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -21,8 +22,8 @@
 
 namespace {
 
-  [[nodiscard]] std::string displaySysmonLabel(const std::string& raw, bool verticalBar) {
-    if (!verticalBar) {
+  [[nodiscard]] std::string displaySysmonLabel(const std::string& raw, bool showUnits) {
+    if (showUnits) {
       return raw;
     }
 
@@ -175,11 +176,13 @@ namespace {
 
 SysmonWidget::SysmonWidget(SystemMonitorService* monitor, ConfigService& configService, SysmonWidgetOptions options)
     : m_monitor(monitor), m_stat(options.stat), m_displayMode(options.displayMode),
-      m_highlightColor(options.highlightColor), m_configService(configService), m_showLabel(options.showLabel),
+      m_highlightColor(options.highlightColor), m_configService(configService),
+      m_showLabel(options.showLabel && options.displayMode != SysmonDisplayMode::None),
       m_labelMinWidth(options.labelMinWidth), m_diskPath(std::move(options.diskPath)),
       m_networkInterface(std::move(options.networkInterface)), m_networkSpeedUnit(options.networkSpeedUnit),
       m_networkSpeedLabelStyle(options.networkSpeedLabelStyle), m_glyphOverride(std::move(options.glyph)),
-      m_customImage(std::move(options.customImage)) {
+      m_customImage(std::move(options.customImage)), m_showUnits(options.showUnits),
+      m_glyphPosition(options.glyphPosition) {
   if (m_monitor != nullptr) {
     if (needsCpuTemp(m_stat)) {
       m_monitor->retainCpuTemp();
@@ -225,21 +228,22 @@ void SysmonWidget::create() {
     requestPanelToggle("control-center", "system");
   });
 
+  std::unique_ptr<Node> glyphNode;
   if (m_customImage.enabled()) {
-    container->addChild(ui::image({.out = &m_image, .fit = ImageFit::Contain}));
+    glyphNode = ui::image({.out = &m_image, .fit = ImageFit::Contain});
   } else {
-    container->addChild(
-        ui::glyph({
-            .out = &m_glyph,
-            .glyph = m_glyphOverride.empty() ? glyphName(m_stat) : m_glyphOverride,
-            .glyphSize = Style::baseGlyphSize * m_contentScale,
-            .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
-        })
-    );
+    glyphNode = ui::glyph({
+        .out = &m_glyph,
+        .glyph = m_glyphOverride.empty() ? glyphName(m_stat) : m_glyphOverride,
+        .glyphSize = Style::baseGlyphSize * m_contentScale,
+        .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
+    });
   }
 
+  std::unique_ptr<Node> graphOrGaugeNode;
   if (m_displayMode == SysmonDisplayMode::Graph) {
-    m_chartBg = static_cast<Box*>(container->addChild(ui::box()));
+    graphOrGaugeNode = ui::box();
+    m_chartBg = static_cast<Box*>(graphOrGaugeNode.get());
 
     auto graph = std::make_unique<Graph>();
     graph->setLineWidth(kGraphLineWidth * m_contentScale);
@@ -249,26 +253,43 @@ void SysmonWidget::create() {
 
   if (m_displayMode == SysmonDisplayMode::Gauge) {
     const ColorSpec base = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
-    m_gauge = static_cast<ProgressBar*>(container->addChild(
-        ui::progressBar({
-            .fill = base,
-            .track = gaugeTrackColor(base),
-            .progress = 0.0f,
-        })
-    ));
+    graphOrGaugeNode = ui::progressBar({
+        .fill = base,
+        .track = gaugeTrackColor(base),
+        .progress = 0.0f,
+    });
+    m_gauge = static_cast<ProgressBar*>(graphOrGaugeNode.get());
   }
 
+  std::unique_ptr<Node> textNode;
   if (m_displayMode == SysmonDisplayMode::Text || m_showLabel) {
-    container->addChild(
-        ui::label({
-            .out = &m_label,
-            .fontSize = Style::fontSizeBody * m_contentScale,
-            .fontWeight = labelFontWeight(),
-            .fontFamily = labelFontFamily(),
-            .minWidth = m_labelMinWidth > 0.0f ? std::optional<float>{m_labelMinWidth * m_contentScale}
-                                               : std::optional<float>{},
-        })
-    );
+    textNode = ui::label({
+        .out = &m_label,
+        .fontSize = Style::fontSizeBody * m_contentScale,
+        .fontWeight = labelFontWeight(),
+        .fontFamily = labelFontFamily(),
+        .minWidth =
+            m_labelMinWidth > 0.0f ? std::optional<float>{m_labelMinWidth * m_contentScale} : std::optional<float>{},
+    });
+  }
+
+  m_containerRow = static_cast<Flex*>(container->addChild(ui::row({.gap = Style::spaceXs * m_contentScale})));
+  if (m_glyphPosition == SysmonGlyphPosition::Before) {
+    m_containerRow->addChild(std::move(glyphNode));
+    if (graphOrGaugeNode != nullptr) {
+      m_containerRow->addChild(std::move(graphOrGaugeNode));
+    }
+    if (textNode != nullptr) {
+      m_containerRow->addChild(std::move(textNode));
+    }
+  } else if (m_glyphPosition == SysmonGlyphPosition::After) {
+    if (textNode != nullptr) {
+      m_containerRow->addChild(std::move(textNode));
+    }
+    if (graphOrGaugeNode != nullptr) {
+      m_containerRow->addChild(std::move(graphOrGaugeNode));
+    }
+    m_containerRow->addChild(std::move(glyphNode));
   }
 
   setRoot(std::move(container));
@@ -457,7 +478,7 @@ bool SysmonWidget::syncLabelText(const std::string& raw) {
 
   m_lastRawValue = raw;
   m_lastLabelVertical = m_isVerticalBar;
-  m_label->setText(displaySysmonLabel(raw, m_isVerticalBar));
+  m_label->setText(displaySysmonLabel(raw, m_showUnits));
   requestRedraw();
   return true;
 }
@@ -481,6 +502,8 @@ void SysmonWidget::doLayout(Renderer& renderer, float containerWidth, float cont
   const bool isVerticalBar = containerHeight > containerWidth;
   const bool orientationChanged = m_isVerticalBar != isVerticalBar;
   m_isVerticalBar = isVerticalBar;
+
+  m_containerRow->setDirection(isVerticalBar ? FlexDirection::Vertical : FlexDirection::Horizontal);
 
   syncVisualPalette();
   syncIcon(renderer);

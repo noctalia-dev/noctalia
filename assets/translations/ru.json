@@ -182,6 +182,7 @@
     },
     "bluetooth": {
       "accept": "Принять",
+      "address": "Адресс",
       "auto-reconnect": "Автоподключение",
       "bluetooth": "Bluetooth",
       "enter-code": "Введите код",
@@ -373,6 +374,7 @@
     "weather": {
       "daily": {
         "tooltip": {
+          "condition": "Состояние",
           "high": "Максимальная",
           "low": "Минимальная",
           "sunrise": "Восход",
@@ -404,6 +406,7 @@
       "hourly": {
         "summary": "{condition} / Дождь {precip}%",
         "tooltip": {
+          "condition": "Состояние",
           "humidity": "Влажность",
           "rain": "Дождь",
           "wind": "Ветер"
@@ -469,11 +472,14 @@
         "hide-when-no-media": "Скрыть, когда нет медиа",
         "highlight-color": "Цвет выделения",
         "horizontal": "Горизонтальный",
+        "hover-background": "Фон При Наведении",
+        "hover-foreground": "Передний План При Наведении",
         "image-path": "Изображение",
         "inner-diameter": "Внутренний диаметр",
         "input-opacity": "Непрозрачность ввода",
         "input-radius": "Радиус ввода",
         "interface": "Интерфейс",
+        "label": "Надпись",
         "layout": "Макет",
         "mirrored": "Зеркальный",
         "network-speed-unit": "Единица измерения скорости сети",
@@ -491,6 +497,7 @@
         "show-forecast": "Показать прогноз",
         "show-label": "Показать метку",
         "show-login-button": "Кнопка входа",
+        "show-password-hint": "Подсказка Пароля",
         "show-when-idle": "Показывать в режиме ожидания",
         "stat": "Показатель",
         "stat-cpu-temp": "Температура ЦП",
@@ -507,6 +514,7 @@
         "title": "Заголовок",
         "variant": "Стиль",
         "variant-default": "По умолчанию",
+        "variant-outline": "Контур",
         "variant-primary": "Основной",
         "variant-secondary": "Вторичный",
         "vertical": "Вертикальный",
@@ -519,10 +527,6 @@
         "visualization-mode-wave-rings": "Волна + кольца",
         "wave-thickness": "Толщина волны",
         "widget-section": "Виджет"
-      },
-      "state": {
-        "grid-off": "Сетка выключена",
-        "grid-on": "Сетка включена"
       },
       "title": "Виджеты рабочего стола",
       "types": {
@@ -671,10 +675,12 @@
       "calendar-google-connect-start-failed": "Не удалось запустить авторизацию Google. Проверьте подключение к сети и повторите попытку.",
       "calendar-google-connect-start-http": "Не удалось запустить авторизацию Google. Брокер OAuth вернул HTTP {status}.",
       "calendar-google-connect-timeout": "Истекло время ожидания авторизации Google. Запустите подключение снова, когда будете готовы войти.",
+      "config-migration-title": "Требуется обновление конфигурации",
       "dbus-disabled": "DBus-уведомления отключены",
       "desktop-widgets-editor": "Редактор виджетов",
       "desktop-widgets-editor-enabled": "Редактор виджетов рабочего стола включён. Переключитесь на пустое рабочее пространство, чтобы увидеть оверлей редактора.",
       "greeter-sync": "Noctalia Greeter",
+      "greeter-sync-pending-manual": "Файлы подготовлены. Запустите в терминале: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". Или задайте shell.greeter_sync.privilege_command (например, ghostty -e pkexec) и повторите синхронизацию.",
       "greeter-sync-success": "Внешний вид синхронизирован. Изменения вступят в силу на следующем экране входа.",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Это сочетание клавиш принимает одну клавишу без модификаторов.",
@@ -742,6 +748,10 @@
   "plugins": {
     "auto-disabled": {
       "title": "Плагин отключен"
+    },
+    "enable-failed": {
+      "body-timeout": "Установка {plugin} заняла слишком много времени.",
+      "title": "Плагин не включен"
     }
   },
   "power": {
@@ -801,6 +811,7 @@
     },
     "calendar-accounts": {
       "add-title": "Добавить учётную запись календаря",
+      "calendars-label": "Календари",
       "color-label": "Цвет",
       "delete-error": "Не удалось удалить учётную запись календаря.",
       "edit-title": "Редактировать учётную запись календаря",
@@ -951,7 +962,10 @@
             "grouping": "Группировка",
             "presentation": "Отображение",
             "runtime": "Выполнение",
-            "widget": "Виджет"
+            "widget": "Виджет",
+            "workspaces": {
+              "colors": "Цвета"
+            }
           }
         }
       }
@@ -974,6 +988,7 @@
       "reset-page": "Не удалось сбросить некоторые настройки.",
       "support-report": "Не удалось сохранить отчёт поддержки.",
       "sync-greeter": "Не удалось синхронизировать внешний вид с Noctalia Greeter.",
+      "sync-greeter-timeout-manual": "Для синхронизации Greeter всё ещё требуется подтверждение администратора. Запустите в терминале: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
       "widget": {
         "rename": "Не удалось переименовать виджет."
       },
@@ -1040,6 +1055,7 @@
         "focus-styling": "Стиль фокуса",
         "formats": "Форматы",
         "general": "Основное",
+        "greeter": "Greeter",
         "grouping": "Группировка",
         "home": "Главная",
         "hot-corners": "Активные углы",
@@ -1092,6 +1108,7 @@
         "desktop": "Рабочий стол",
         "dock": "Док",
         "hooks": "Хуки",
+        "launcher": "Лаунчер",
         "location": "Местоположение",
         "niri": "Niri",
         "notifications": "Уведомления",
@@ -1111,11 +1128,20 @@
     "notifications": {
       "filter": {
         "add": "Добавить фильтр",
+        "add-title": "Добавить фильтр уведомлений",
         "match-label": "Приложение",
-        "play-sound": "Воспроизвести звук"
+        "play-sound": "Воспроизвести звук",
+        "save-history": "Сохранить в историю",
+        "unnamed": "Безымянный фильтр"
       }
     },
     "options": {
+      "bar": {
+        "auto-hide": {
+          "off": "Выкл",
+          "on": "Вкл"
+        }
+      },
       "clipboard": {
         "auto-paste": {
           "ctrl-shift-v": "Ctrl+Shift+V",
@@ -1173,6 +1199,9 @@
       "orientation": {
         "horizontal": "Горизонтальная",
         "vertical": "Вертикальная"
+      },
+      "panel-bar-alignment": {
+        "centered": "По центру"
       },
       "panel-position": {
         "auto": "Следовать за панелью"
@@ -1259,9 +1288,13 @@
       }
     },
     "plugins": {
+      "browse-store": "Просмотр плагинов",
       "panels": {
         "open-near-click": {
           "label": "Открывать возле клика"
+        },
+        "placement": {
+          "label": "Расположение"
         },
         "position": {
           "label": "Позиция"
@@ -1269,13 +1302,19 @@
       },
       "plugins": {
         "configure": "Настроить",
+        "delete": "Удалить",
+        "delete-confirm-desc": "Этот плагин будет удален и убран с диска.",
+        "delete-confirm-title": "Удалить \"{name}\"?",
         "deprecated": "Устаревший",
-        "empty": "Плагины не найдены. Добавьте источник или проверьте соединение с интернетом",
+        "empty": "Нет включенных плагинов.",
         "loading": "Загрузка плагинов...",
         "refreshing": "Обновление плагинов...",
         "remove": "Удалить плагин",
         "requires": "Требуются: {dependencies}",
-        "title": "Плагины"
+        "title": "Плагины",
+        "update-all": "Обновить все ({count})",
+        "update-available": "Доступно обновление",
+        "update-to": "Обновить до {version}"
       },
       "settings": {
         "empty": "Настройки недоступны"
@@ -1283,6 +1322,8 @@
       "sources": {
         "add": "Добавить источник",
         "add-title": "Добавить источник плагинов",
+        "auto-update": "Автообоновление плагинов",
+        "auto-update-desc": "Проверять обновления из включенных источников в фоновом режиме и поддерживать плагины в актуальном состоянии",
         "edit": "Настроить источник",
         "edit-title": "Настроить источник плагинов",
         "empty": "Источники не настроены",
@@ -1301,17 +1342,35 @@
         "location-placeholder-path": "~/dev/noctalia-plugins",
         "name-label": "ID источника",
         "name-placeholder": "my-plugins",
+        "precedence-hint": "Источники, расположенные ниже, имеют приоритет над высшими при совпадении плагинов.",
         "remove": "Удалить источник",
         "save": "Сохранить",
         "title": "Источники",
         "update": "Обновить"
       },
       "store": {
+        "add": "Добавить в Noctalia",
+        "categories": "Категории",
+        "category-all": "Все",
         "empty": "Плагины не найдены",
-        "incompatible": "Несовместим"
+        "incompatible": "Несовместим",
+        "loading": "Загрузка каталога...",
+        "no-readme": "Описание недоступно",
+        "open-page": "Открыть страницу плагина на noctalia.dev",
+        "open-source": "Открыть репозиторий исходного кода плагина",
+        "results-count": "{count} плагинов",
+        "search-placeholder": "Поиск плагинов...",
+        "source-all": "Все",
+        "sources": "Источники",
+        "title": "Магазин плагинов"
       }
     },
     "schema": {
+      "accessibility": {
+        "high-contrast": {
+          "label": "Высокий контраст"
+        }
+      },
       "appearance": {
         "animation-speed": {
           "description": "Множитель скорости для всех анимаций",
@@ -1622,6 +1681,15 @@
         "item-spacing": {
           "description": "Расстояние между элементами дока",
           "label": "Расстояние между элементами"
+        },
+        "launcher-custom-image": {
+          "description": "Использовать изображение на кнопке лаунчера в доке вместо иконки",
+          "label": "Пользовательское изображение лаунчера",
+          "placeholder": "Путь к изображению"
+        },
+        "launcher-custom-image-colorize": {
+          "description": "Покрасить пользовательское изображение в цвет иконки",
+          "label": "Раскрасить пользовательское изображение"
         },
         "launcher-icon": {
           "description": "Значок Tabler для кнопки лаунчера в доке",
@@ -2239,6 +2307,10 @@
           "description": "Формат даты по умолчанию для интерфейса оболочки, если нет отдельной настройки",
           "label": "Формат даты"
         },
+        "greeter-sync-auto": {
+          "description": "Автоматическая синхронизировать Greeter при каждом изменении обоев, цветов или режима темы.",
+          "label": "Авто-Синхронизация Greeter"
+        },
         "launch-apps-as-systemd-services": {
           "description": "Запускать приложения в отдельных службах systemd, чтобы они не использовали cgroup Noctalia",
           "label": "Запускать приложения как службы systemd"
@@ -2390,7 +2462,7 @@
           "label": "Показать местоположение"
         },
         "sync-greeter": {
-          "button": "Синхронизировать сейчас",
+          "button": "Синхронизировать Cейчас",
           "description": "Скопировать текущие обои и цвета в Noctalia Greeter (требуется одобрение администратора)",
           "label": "Noctalia Greeter"
         },
@@ -3036,7 +3108,6 @@
     "window": {
       "export-config": "Экспортировать конфигурацию…",
       "export-config-saved": "Экспорт конфигурации сохранён.",
-      "filter-modified": "Изменённые",
       "native-title": "Настройки Noctalia",
       "no-results": "Настройки не найдены",
       "no-results-hint": "Попробуйте другое имя параметра или ключ конфигурации.",

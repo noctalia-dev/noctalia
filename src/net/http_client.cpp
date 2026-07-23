@@ -310,6 +310,10 @@ void HttpClient::request(HttpRequest req, ResponseCallback cb) {
   curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L);
   curl_easy_setopt(easy, CURLOPT_TIMEOUT, 30L);
   curl_easy_setopt(easy, CURLOPT_CONNECTTIMEOUT, 10L);
+  if (req.allowInsecureTls) {
+    curl_easy_setopt(easy, CURLOPT_SSL_VERIFYPEER, 0L);
+    curl_easy_setopt(easy, CURLOPT_SSL_VERIFYHOST, 0L);
+  }
   if (req.followRedirects) {
     curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1L);
     if (req.allowRedirectAuth) {
@@ -393,6 +397,10 @@ HttpClient::StreamId HttpClient::startStream(HttpRequest req, StreamDataCallback
   curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L);
   // No CURLOPT_TIMEOUT: the transfer is expected to stay open indefinitely.
   curl_easy_setopt(easy, CURLOPT_CONNECTTIMEOUT, 10L);
+  if (req.allowInsecureTls) {
+    curl_easy_setopt(easy, CURLOPT_SSL_VERIFYPEER, 0L);
+    curl_easy_setopt(easy, CURLOPT_SSL_VERIFYHOST, 0L);
+  }
   if (req.followRedirects) {
     curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1L);
     if (req.allowRedirectAuth) {

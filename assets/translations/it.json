@@ -76,6 +76,7 @@
         "signal": "Segnale",
         "upload": "Upload",
         "vpn": "VPN",
+        "wan-ip": "IP WAN",
         "wifi": "Wi-Fi",
         "wired": "Rete cablata",
         "yes": "Si"
@@ -236,7 +237,7 @@
       },
       "select-avatar": "Seleziona avatar",
       "unknown": "sconosciuto",
-      "uptime": "Tempo di attività - {uptime}",
+      "uptime": "Tempo di attività – {uptime}",
       "weather": {
         "data-unavailable": "Dati meteo non disponibili.",
         "disabled": "Il meteo è disabilitato nella configurazione.",
@@ -258,8 +259,8 @@
       "password": "Password",
       "password-prompt": "Inserisci password",
       "password-prompt-for": "Inserisci password per {ssid}",
-      "unavailable-detail": "Installa e abilita NetworkManager per gestire le reti da qui.",
-      "unavailable-title": "NetworkManager non disponibile",
+      "unavailable-detail": "Installa e abilita NetworkManager, wpa_supplicant o iwd per gestire le reti da qui.",
+      "unavailable-title": "Servizio di rete non disponibile",
       "vpns": "VPN",
       "wi-fi": "Wi-Fi",
       "wifi": "Wi-Fi",
@@ -397,7 +398,7 @@
       "forecast-placeholder": {
         "day": "Domenica",
         "description": "Meteo",
-        "temperature": "10 / 4C"
+        "temperature": "10 / 4°C"
       },
       "forecast-view": {
         "daily": "Giornaliero",
@@ -461,7 +462,7 @@
         "color-2": "Colore 2",
         "color2": "Colore 2",
         "command": "Comando",
-        "custom-color": "Personalizzato...",
+        "custom-color": "Personalizzato",
         "description": "Descrizione",
         "display": "Schermo",
         "display-gauge": "Gauge",
@@ -539,10 +540,6 @@
         "wave-thickness": "Spessore onda",
         "widget-section": "Widget"
       },
-      "state": {
-        "grid-off": "Griglia disattivata",
-        "grid-on": "Griglia attivata"
-      },
       "title": "Widget desktop",
       "types": {
         "audio-visualizer": "Visualizzatore audio",
@@ -562,7 +559,7 @@
     },
     "weather": {
       "error": "Errore",
-      "loading": "Caricamento",
+      "loading": "Caricamento...",
       "no-location": "Nessuna posizione",
       "off": "Meteo disattivato"
     }
@@ -662,7 +659,7 @@
     "password-placeholder": "Password",
     "ready": "Digita la password e premi Invio.",
     "unlocked": "Sbloccato",
-    "waiting": "In attesa della conferma di blocco..."
+    "waiting": "In attesa della conferma blocco..."
   },
   "notifications": {
     "actions": {
@@ -675,7 +672,7 @@
     },
     "internal": {
       "battery": "Batteria",
-      "battery-critical-body": "{device}: {percent}% - il tuo sistema presto si spegnerà",
+      "battery-critical-body": "{device}: {percent}% – il tuo sistema presto si spegnerà",
       "battery-critical-title": "Batteria quasi scarica",
       "battery-device": "Dispositivo batteria",
       "battery-low-body": "{device}: {percent}% rimanente",
@@ -774,7 +771,7 @@
     },
     "enable-failed": {
       "body-error": "{plugin}: {error}",
-      "body-incompatible": "{plugin} richiede Noctalia {versione} o successiva.",
+      "body-incompatible": "{plugin} richiede API plugin {versione}; questo Noctalia supporta API {oldest}–{current}.",
       "body-timeout": "L'installazione di {plugin} ha richiesto troppo tempo.",
       "title": "Plugin non abilitato"
     }
@@ -1262,7 +1259,7 @@
         "window-switcher": "Switcher finestre"
       },
       "layer": {
-        "overlay": "Sovrapposto",
+        "overlay": "Overlay",
         "top": "In alto"
       },
       "notification-urgency": {
@@ -1331,7 +1328,7 @@
         }
       },
       "theme-role": {
-        "custom": "Personalizzato...",
+        "custom": "Personalizzato",
         "default": "Predefinito"
       },
       "wallpaper": {
@@ -1367,8 +1364,8 @@
       "browse-store": "Sfoglia plugin",
       "panels": {
         "open-near-click": {
-          "description": "Apri il pannello vicino al widget della barra che lo ha attivato",
-          "label": "Apri vicino al click"
+          "description": "Posiziona il pannello vicino al widget della barra che lo ha aperto; le aperture senza barra di attivazione sono centrate",
+          "label": "Lungo la barra"
         },
         "placement": {
           "description": "Attacca il pannello alla barra o posizionalo vicino al bordo della barra",
@@ -1385,7 +1382,7 @@
         "delete-confirm-desc": "Questo plugin verrà disinstallato e rimosso dal disco.",
         "delete-confirm-title": "Cancellare \"{name}\"?",
         "deprecated": "deprecato",
-        "empty": "Nessun plugin trovato. Aggiungi una sorgente o controlla la rete",
+        "empty": "Nessun plugin abilitato.",
         "incompatible-plugin-api": "API plugin incompatibile",
         "loading": "Caricamento plugin...",
         "refreshing": "Aggiornamento plugin...",
@@ -1440,6 +1437,8 @@
         "open-source": "Apri il repository dei sorgenti dei plugin",
         "results-count": "{count} plugin",
         "search-placeholder": "Ricerca plugin...",
+        "source-all": "Tutti",
+        "sources": "Sorgenti",
         "title": "Plugin Store"
       }
     },
@@ -1602,7 +1601,7 @@
           "label": "Widget centrali"
         },
         "concave-edge-corners": {
-          "description": "Intagliare delle tacche concave in due degli angoli della barra. È necessario che il margine del bordo sia impostato su 0. Se il margine delle estremità è impostato su 0, vengono intagliati gli angoli sul bordo interno della barra; in caso contrario, vengono intagliati gli angoli che toccano il bordo dello schermo.",
+          "description": "Intaglia delle tacche concave in due degli angoli della barra (è necessario che il margine del bordo sia impostato a 0); Se il margine delle estremità è impostato su 0, vengono intagliati gli angoli sul bordo interno della barra, in caso contrario, vengono intagliati gli angoli che toccano il bordo dello schermo",
           "label": "Angoli del bordo concavi"
         },
         "contact-shadow": {
@@ -1652,7 +1651,7 @@
           "label": "Scroll in alto"
         },
         "edge-margin": {
-          "description": "Distanza dal bordo schermo più vicino; valori positivi staccano la barra dal bordo"
+          "description": "Spazio tra la barra e il bordo dello schermo su cui si trova; imposta a 0 px per posizinarlo a filo con quel bordo"
         },
         "enabled": {
           "description": "Mostra o nasconde questa barra"
@@ -1662,10 +1661,10 @@
           "label": "Widget finali"
         },
         "ends-margin": {
-          "description": "Rientro da ciascuna estremità della barra lungo l'asse principale"
+          "description": "Accorcia la barra da entrambe le estremità lungo la sua lunghezza; imposta a 0 px per una barra a larghezza intera o a tutta altezza"
         },
         "font-family": {
-          "description": "Font per questo widget nella barra; lascia vuoto per ereditare quello globale.",
+          "description": "Font per questo widget nella barra; lascia vuoto per ereditare quello globale (Famiglia font per-widget lo sovrascrive)",
           "label": "Famiglia font"
         },
         "font-weight": {
@@ -1677,7 +1676,7 @@
           "label": "Evidenzia al passaggio del mouse"
         },
         "layer": {
-          "description": "Usa Sovrapposto per mostrare la barra sopra le app a schermo intero. I pannelli attaccati seguono la barra.",
+          "description": "Usa Overlay per mostrare la barra sopra le app a schermo intero; i pannelli attaccati seguono la barra",
           "label": "Layer Wayland"
         },
         "opposite-edge-margin": {
@@ -1741,6 +1740,10 @@
         "hot-corners-bottom-right-command": {
           "description": "Comando shell da eseguire quando si tocca l'angolo superiore sinistro",
           "label": "Comando"
+        },
+        "hot-corners-delay-ms": {
+          "description": "Per quanto tempo il puntatore deve rimanere in un angolo prima che l'azione venga eseguita (0 = immediato)",
+          "label": "Ritardo di attivazione"
         },
         "hot-corners-enabled": {
           "description": "Attiva azioni portando il puntatore del mouse agli angoli dello schermo",
@@ -1880,7 +1883,7 @@
           "label": "Scala ingrandimento"
         },
         "main-axis-padding": {
-          "description": "Spaziatura interna lungo l'asse principale della dock (tra icone ed estremità corte della capsula)"
+          "description": "Spaziatura interna alle estremità della riga di icone (prima della prima icona e dopo l'ultima)"
         },
         "monitors": {
           "description": "Scegli quali monitor mostrano la dock (lascia vuoto per tutti); il filtro monitor attivo si applica dentro questi monitor",
@@ -1894,13 +1897,13 @@
           "description": "Su quale bordo dello schermo si trova la dock"
         },
         "reserve-space": {
-          "description": "Riserva spazio sullo schermo per la dock"
+          "description": "Allontana le finestre dal bordo del dock"
         },
         "shadow": {
           "description": "Proietta l'ombra globale della superficie dalla dock"
         },
         "show-dots": {
-          "description": "Mostra punti delle finestre in esecuzione accanto alle icone del dock",
+          "description": "Mostra i punti della finestra in esecuzione sotto le icone del dock",
           "label": "Mostra punti"
         },
         "show-instance-count": {
@@ -1976,7 +1979,7 @@
             "label": "Al cambio modalità tema"
           },
           "wallpaper-changed": {
-            "description": "Comando da eseguire quando cambia lo sfondo",
+            "description": "Comando da eseguire quando cambia lo sfondo; fornisce NOCTALIA_WALLPAPER_PATH e NOCTALIA_WALLPAPER_CONNECTOR",
             "label": "Al cambio sfondo"
           },
           "wifi-disabled": {
@@ -1995,7 +1998,7 @@
           "label": "Comportamenti"
         },
         "pre-action-fade": {
-          "description": "Secondi di oscuramento a schermo intero prima del comando di inattività; usa 0 per disabilitare",
+          "description": "Secondi di oscuramento a schermo intero prima del comando di inattività (0 disabilita)",
           "label": "Oscuramento per inattività"
         }
       },
@@ -2017,12 +2020,12 @@
           "label": "Naviga a destra"
         },
         "tab-next": {
-          "description": "Sposta il focus sul riquadro o control group successivo",
-          "label": "Focus sul pannello successivo"
+          "description": "Sposta il focus sul controllo successivo",
+          "label": "Focus successivo"
         },
         "tab-previous": {
-          "description": "Sposta il focus sul riquadro o control group precedente",
-          "label": "Focus sul pannello precedente"
+          "description": "Sposta il focus sul controllo precedente",
+          "label": "Focus precedente"
         },
         "up": {
           "description": "Sposta focus o selezione su di una riga",
@@ -2035,7 +2038,7 @@
       },
       "lockscreen": {
         "allow-empty-password": {
-          "description": "Permetti inserimento di una password vuota. Abilita per usare chiavi di sicurezza o altri stack PAM senza password; tenere disattivato per evitare blocchi accidentali del tasto di riattivazione.",
+          "description": "Permetti inserimento di una password vuota (abilita per usare chiavi di sicurezza o altri stack PAM senza password; tenere disattivato per evitare blocchi accidentali del tasto di riattivazione)",
           "label": "Abilita password vuota"
         },
         "blur-intensity": {
@@ -2063,7 +2066,7 @@
           "label": "Intensità tinta"
         },
         "wallpaper": {
-          "description": "Immagine personalizzata per lo sfondo del blocco schermo. Lascia vuoto per usare lo sfondo del desktop",
+          "description": "Immagine personalizzata per lo sfondo del blocco schermo; lascia vuoto per usare lo sfondo del desktop",
           "label": "Sfondo",
           "placeholder": "Usa sfondo desktop"
         },
@@ -2106,7 +2109,7 @@
           "label": "Filtri notifiche"
         },
         "layer": {
-          "description": "Usa Sovrapposto per mostrare le notifiche toast sopra le app a schermo intero.",
+          "description": "Usa Overlay per mostrare le notifiche toast sopra le app a schermo intero",
           "label": "Layer Wayland"
         },
         "monitors": {
@@ -2249,39 +2252,39 @@
           "label": "Ordina per utilizzo"
         },
         "list-item-background": {
-          "description": "Disegna uno sfondo arrotondato e pieno dietro ogni elemento dell'elenco di avvio e appunti",
+          "description": "Disegna uno sfondo arrotondato dietro ogni elemento dell'elenco di avvio e appunti",
           "label": "Sfondo elenco item"
         },
         "open-near-click-clipboard": {
-          "description": "Posiziona il pannello appunti vicino al click sulla barra invece di centrarlo lungo la barra",
-          "label": "Apri vicino al click"
+          "description": "Posiziona il pannello degli appunti vicino al widget della barra che lo ha aperto; le aperture senza barra di attivazione sono centrate",
+          "label": "Lungo la barra"
         },
         "open-near-click-control-center": {
-          "description": "Posiziona il pannello Centro di controllo vicino al click sulla barra invece di centrarlo lungo la barra",
-          "label": "Apri vicino al click"
+          "description": "Posiziona il Centro di Controllo vicino al widget della barra che lo ha aperto; le aperture senza barra di attivazione sono centrate",
+          "label": "Lungo la barra"
         },
         "open-near-click-launcher": {
-          "description": "Posiziona il pannello launcher vicino al click sulla barra invece di centrarlo lungo la barra",
-          "label": "Apri vicino al click"
+          "description": "Posiziona il launcher vicino al widget della barra che lo ha aperto; le aperture senza barra di attivazione sono centrate",
+          "label": "Lungo la barra"
         },
         "open-near-click-session": {
-          "description": "Posiziona il pannello menu sessione vicino al click sulla barra invece di centrarlo lungo la barra",
-          "label": "Apri vicino al click"
+          "description": "Posiziona il pannello della sessione vicino al widget della barra che lo ha aperto; le aperture senza barra di attivazione sono centrate",
+          "label": "Lungo la barra"
         },
         "open-near-click-wallpaper": {
-          "description": "Posiziona il pannello di scelta sfondo vicino al click sulla barra invece di centrarlo lungo la barra",
-          "label": "Apri vicino al click"
+          "description": "Posiziona il selettore di sfondi vicino al widget della barra che lo ha aperto; le aperture senza barra di attivazione sono centrate",
+          "label": "Lungo la barra"
         },
         "placement-clipboard": {
           "description": "Scegli se il pannello appunti si attacca alla barra, fluttua vicino a essa o si apre centrato",
           "label": "Posizionamento"
         },
         "placement-control-center": {
-          "description": "Scegli se il Centro di controllo si attacca alla barra, fluttua vicino ad essa o si apre centrato",
+          "description": "Scegli se il Centro di controllo si attacca alla barra o fluttua in una posizione scelta",
           "label": "Posizionamento"
         },
         "placement-launcher": {
-          "description": "Scegli se il launcher si attacca alla barra, fluttua vicino ad essa o si apre centrato",
+          "description": "Scegli se il launcher si attacca alla barra o fluttua in una posizione scelta",
           "label": "Posizionamento"
         },
         "placement-polkit": {
@@ -2289,35 +2292,35 @@
           "label": "Posizionamento"
         },
         "placement-session": {
-          "description": "Scegli se il menu sessione si attacca alla barra, fluttua vicino ad essa o si apre centrato",
+          "description": "Scegli se il pannello di sessione si attacca alla barra, fluttua vicino ad essa o si apre centrato",
           "label": "Posizionamento"
         },
         "placement-wallpaper": {
-          "description": "Scegli se il selettore sfondo si attacca alla barra, fluttua vicino ad essa o si apre centrato",
+          "description": "Scegli se il selettore sfondo si attacca alla barra o fluttua in una posizione scelta",
           "label": "Posizionamento"
         },
         "position-clipboard": {
-          "description": "Dove il pannello appunti appare sullo schermo — Segui la barra lo mantiene vicino ad essa",
+          "description": "Dove il pannello appunti appare sullo schermo; Segui la barra lo mantiene vicino ad essa",
           "label": "Posizione"
         },
         "position-control-center": {
-          "description": "Dove il centro di controllo appare sullo schermo — Segui la barra lo mantiene vicino ad essa",
+          "description": "Dove il centro di controllo appare sullo schermo; Segui la barra lo mantiene vicino ad essa",
           "label": "Posizione"
         },
         "position-launcher": {
-          "description": "Dove il launcher appare sullo schermo — Segui la barra lo mantiene vicino ad essa",
+          "description": "Dove il launcher appare sullo schermo; Segui la barra lo mantiene vicino ad essa",
           "label": "Posizione"
         },
         "position-polkit": {
-          "description": "Dove il prompt di polkit fluttua sullo schermo — Segui la barra lo mantiene vicino ad essa",
+          "description": "Dove il prompt di polkit fluttua sullo schermo; Segui la barra lo mantiene vicino ad essa",
           "label": "Posizione"
         },
         "position-session": {
-          "description": "Dove il menu di sessione appare sullo schermo — Segui la barra lo mantiene vicino ad essa",
+          "description": "Dove il menu di sessione appare sullo schermo; Segui la barra lo mantiene vicino ad essa",
           "label": "Posizione"
         },
         "position-wallpaper": {
-          "description": "Dove il selettore dello sfondo appare sullo schermo — Segui la barra lo mantiene vicino ad essa",
+          "description": "Dove il selettore dello sfondo appare sullo schermo; Segui la barra lo mantiene vicino ad essa",
           "label": "Posizione"
         },
         "shadow": {
@@ -2330,7 +2333,7 @@
       },
       "power": {
         "session-actions": {
-          "description": "Voci del menu energia, ordine, comandi personalizzati e icone",
+          "description": "Voci del pannello Sessione, ordine, comandi personalizzati e icone",
           "label": "Voci"
         },
         "session-grid": {
@@ -2340,6 +2343,10 @@
         "session-grid-columns": {
           "description": "Numero di colonne per il layout a griglia",
           "label": "Colonne"
+        },
+        "session-show-shortcuts": {
+          "description": "Mostra o nascondi i suggerimenti di scelta rapida",
+          "label": "Mostra scorciatoie"
         }
       },
       "services": {
@@ -2391,7 +2398,7 @@
           "placeholder": "Città, Paese"
         },
         "location-auto-locate": {
-          "description": "Rileva automaticamente la tua posizione in base al tuo indirizzo IP",
+          "description": "Rileva automaticamente la tua posizione in base al tuo indirizzo IP via noctalia.dev",
           "label": "Localizzazione automatica (IP)"
         },
         "longitude": {
@@ -2451,7 +2458,7 @@
             "label": "Intervallo disco"
           },
           "gpu-poll": {
-            "description": "Secondi tra campioni di temperatura GPU e VRAM. 0 lo disabilita (predefinito), evitando di risvegliare una GPU dedicata; 5 è un buon intervallo se lo abiliti",
+            "description": "Secondi tra campioni di temperatura GPU e VRAM (0 disabilita, evitando di risvegliare una GPU dedicata; 5 è un buon intervallo se viene abilitato)",
             "label": "Intervallo GPU"
           },
           "label": "Monitor di sistema",
@@ -2486,7 +2493,7 @@
           "placeholder": "/percorso/al/suono.wav"
         },
         "weather": {
-          "description": "Abilita il servizio meteo",
+          "description": "Abilita il servizio meteo via open-meteo.com",
           "label": "Meteo"
         },
         "weather-effects": {
@@ -2563,7 +2570,7 @@
       },
       "shell": {
         "avatar-path": {
-          "description": "Percorso a un'immagine avatar personalizzata",
+          "description": "Percorso a un'immagine avatar personalizzata; le immagini di grandi dimensioni vengono ritagliate e ridimensionate automaticamente",
           "label": "Percorso avatar",
           "placeholder": "/percorso/all/avatar.png"
         },
@@ -2601,16 +2608,17 @@
           "label": "Sincronizza Greeter in automatico"
         },
         "greeter-sync-privilege-command": {
-          "description": "Sostituisci pkexec/run0 per la sincronizzazione del greeter. Il percorso dell'helper e la directory di staging vengono aggiunti automaticamente. Esempio: ghostty -e pkexec",
+          "description": "Sostituisci pkexec/run0 per la sincronizzazione del greeter; il percorso dell'helper e la directory di staging vengono aggiunti automaticamente (esempio: ghostty -e pkexec)",
           "label": "Comando privilegiato per il sync del greeter"
         },
         "launch-apps-as-systemd-services": {
           "description": "Avvia le applicazioni in servizi systemd separati così non condividono il cgroup di Noctalia",
-          "label": "Avvia app come servizi systemd"
+          "label": "Avvia app come servizi systemd",
+          "requires-systemd-session": "Richiede che Noctalia venga eseguito come servizio utente systemd (uwsm o unità utente systemd)"
         },
         "launch-apps-custom-command": {
-          "description": "Comando personalizzato utilizzato dal Launcher, sostituisce $CMD con il comando originale.",
-          "label": "Comando Launcher personalizzato",
+          "description": "Comprende le app avviate dal launcher, dal dock e dalla barra delle applicazioni; sostituisce $CMD con il comando originale",
+          "label": "Comando di avvio app personalizzato",
           "placeholder": "$CMD"
         },
         "middle-click-opens-widget-settings": {
@@ -2788,6 +2796,10 @@
           "description": "Salva le schermate come file PNG nella directory di output",
           "label": "Salva su file"
         },
+        "screenshot-show-cursor": {
+          "description": "Includi il puntatore del mouse negli screenshot",
+          "label": "Mostra cursore"
+        },
         "show-location": {
           "description": "Mostra il nome della posizione nei widget meteo",
           "label": "Mostra posizione"
@@ -2808,11 +2820,11 @@
       },
       "system": {
         "battery-device-warning-threshold": {
-          "description": "Sovrascrive la soglia di avviso batteria per questo dispositivo. Imposta 0 per disabilitare gli avvisi per questo dispositivo.",
+          "description": "Sovrascrive la soglia di avviso batteria per questo dispositivo. (0 disabilita gli avvisi per questo dispositivo)",
           "label": "Soglia avviso {device}"
         },
         "battery-warning-threshold": {
-          "description": "Percentuale batteria di sistema pari o inferiore alla quale la shell invia una notifica di batteria scarica e i widget batteria usano il colore di avviso. Imposta 0 per disabilitare.",
+          "description": "Percentuale batteria di sistema pari o inferiore alla quale la shell invia una notifica di batteria scarica e i widget batteria usano il colore di avviso (0 disabilita)",
           "label": "Soglia avviso batteria"
         }
       },
@@ -2955,8 +2967,10 @@
       "map-placeholders": {
         "effects-profile-name": "Nome profilo",
         "glyph-name": "Nome glifo",
+        "key": "Chiave",
         "label": "Etichetta",
-        "layout-name": "Nome layout"
+        "layout-name": "Nome layout",
+        "value": "Valore"
       },
       "options": {
         "always": "Sempre",
@@ -2987,8 +3001,10 @@
         "none": "Nessuno",
         "on-hover": "Al passaggio",
         "output": "Uscita",
+        "percent": "Percentuale",
         "ram-percent": "Percentuale RAM",
         "ram-used": "RAM usata",
+        "rate": "Livello",
         "regular": "Normale",
         "screenshot-primary-fullscreen": "Schermo intero",
         "screenshot-primary-region": "Area",
@@ -2997,6 +3013,7 @@
         "swap-percent": "Percentuale swap",
         "text": "Testo",
         "text-only": "Solo testo",
+        "time": "Tempo",
         "workspace-label-centered": "Centrata",
         "workspace-label-corner": "Angolo",
         "workspace-label-inside": "Dentro pillola"
@@ -3007,7 +3024,7 @@
           "label": "Colore attivo"
         },
         "active-opacity": {
-          "description": "Opacità dell'icona per la finestra attiva (con focus).",
+          "description": "Opacità dell'icona per la finestra attiva (con focus)",
           "label": "Opacità icona attiva"
         },
         "active-pill-size": {
@@ -3026,6 +3043,10 @@
         "art-size": {
           "description": "Dimensione copertina media in pixel",
           "label": "Dimensione copertina"
+        },
+        "artist-first": {
+          "description": "Mostra l'artista prima del titolo del brano (Artista - Titolo)",
+          "label": "Prima l'artista"
         },
         "bands": {
           "description": "Numero di bande del visualizzatore",
@@ -3086,7 +3107,7 @@
           "label": "Comando click sinistro"
         },
         "custom-image": {
-          "description": "Percorso a un'immagine personalizzata. Lascia vuoto per usare il glifo icona.",
+          "description": "Percorso a un'immagine personalizzata; lascia vuoto per usare il glifo icona",
           "dialog-title": "Seleziona immagine personalizzata",
           "label": "Immagine personalizzata"
         },
@@ -3111,12 +3132,12 @@
           "label": "Dispositivo"
         },
         "display": {
-          "active-window-description": "Icona, titolo o entrambi sulle barre orizzontali. Le barre verticali restano solo icona.",
+          "active-window-description": "Icona, titolo o entrambi sulle barre orizzontali; le barre verticali mantengono solo icona",
           "description": "Modalità di visualizzazione del widget",
           "label": "Visualizzazione"
         },
         "display-mode": {
-          "description": "Renderizza la batteria come forma grafica o glifo",
+          "description": "Visualizza la batteria solo in forma grafica, glifo tab o etichetta",
           "label": "Modalità visualizzazione"
         },
         "drawer": {
@@ -3168,8 +3189,8 @@
         "glyph": {
           "description": "Nome glifo icona",
           "label": "Glifo",
-          "sysmon-description": "Glifo icona personalizzata. Lasciare vuoto per usare l'icona della metrica selezionata.",
-          "volume-description": "Glifo personalizzato. Lascia vuoto per utilizzare le icone dinamiche integrate."
+          "sysmon-description": "Glifo icona personalizzato; lasciare vuoto per usare l'icona della metrica selezionata",
+          "volume-description": "Glifo personalizzato; lascia vuoto per utilizzare le icone dinamiche integrate"
         },
         "group-by-workspace": {
           "description": "Raggruppa le icone della taskbar in capsule workspace quando i dati del compositor sono disponibili",
@@ -3281,6 +3302,10 @@
           "description": "Testo statico opzionale mostrato su questo pulsante",
           "label": "Etichetta"
         },
+        "label-content": {
+          "description": "Cosa mostra l'etichetta della batteria: percentuale di carica, tempo rimanente o barra di carica",
+          "label": "Contenuto dell'etichetta"
+        },
         "label-min-width": {
           "description": "Larghezza minima etichetta in pixel per evitare ridimensionamenti",
           "label": "Larghezza min etichetta"
@@ -3333,7 +3358,7 @@
           "label": "Colore muto"
         },
         "mute-glyph": {
-          "description": "Glifo utilizzato quando l'audio è disattivato o allo 0% del volume. Lascia vuoto per utilizzare l'icona di disattivazione dell'audio incorporata.",
+          "description": "Glifo utilizzato quando l'audio è disattivato o allo 0% del volume; lascia vuoto per utilizzare l'icona di muto incorporata.",
           "label": "Glifo per muto"
         },
         "network-speed-compact": {
@@ -3398,11 +3423,11 @@
           "label": "Comando scroll su"
         },
         "show-active-indicator": {
-          "description": "Mostra un piccolo punto sotto l'icona della finestra attiva nella taskbar.",
+          "description": "Mostra un piccolo punto sotto l'icona della finestra attiva nella taskbar",
           "label": "Indicatore finestra attiva"
         },
         "show-all-outputs": {
-          "description": "Include finestre da ogni display su questo widget.",
+          "description": "Include finestre da ogni display su questo widget",
           "label": "Mostra tutti i monitor"
         },
         "show-caps-lock": {
@@ -3450,7 +3475,7 @@
           "label": "Mostra titolo finestra"
         },
         "show-workspace-label": {
-          "description": "Mostra il piccolo tag workspace sulle capsule taskbar raggruppate. Disattiva per gruppi solo icona.",
+          "description": "Mostra il piccolo tag workspace sulle capsule taskbar raggruppate; disattiva per gruppi solo icone",
           "label": "Etichetta capsula workspace"
         },
         "stat": {
@@ -3465,6 +3490,10 @@
         "taskbar-max-width": {
           "description": "Budget larghezza totale in pixel; i titoli finestra si riducono per adattarsi e si nascondono quando troppo stretti",
           "label": "Larghezza max taskbar"
+        },
+        "text": {
+          "description": "Testo mostrato sulla barra",
+          "label": "Testo"
         },
         "timezone": {
           "description": "Identificatore fuso orario (ad esempio Europe/Berlin) da utilizzare per questo orologio; lasciare vuoto per utilizzare l'ora locale del sistema",
@@ -3511,7 +3540,7 @@
           "label": "Capsula gruppo workspace"
         },
         "workspace-label-placement": {
-          "description": "Angolo, centrata sul bordo o dentro la pillola.",
+          "description": "Angolo, centrata sul bordo o dentro la pillola",
           "label": "Posizione etichetta workspace"
         }
       },
@@ -3543,6 +3572,7 @@
         "sysmon": "Monitor di sistema",
         "taskbar": "Taskbar",
         "test": "Test",
+        "text": "Testo",
         "theme-mode": "Modalità tema",
         "tray": "Vassoio",
         "volume": "Volume",
@@ -3554,7 +3584,6 @@
     "window": {
       "export-config": "Esporta configurazione...",
       "export-config-saved": "Esportazione configurazione salvata.",
-      "filter-modified": "Modificate",
       "legacy-config-warning": "È in corso la migrazione della configurazione legacy in memoria: {issue}. Esegui la convalida della configurazione di noctalia per tutte le modifiche richieste.",
       "native-title": "Impostazioni Noctalia",
       "no-results": "Nessuna impostazione trovata",
@@ -3627,8 +3656,10 @@
       "day": "{count} giorno",
       "day-plural": "{count} giorni",
       "hour": "{count} ora",
+      "hour-compact": "{count}h",
       "hour-plural": "{count} ore",
       "minute": "{count} minuto",
+      "minute-compact": "{count}m",
       "minute-plural": "{count} minuti",
       "month": "{count} mese",
       "month-plural": "{count} mesi",
