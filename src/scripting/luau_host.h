@@ -168,8 +168,8 @@ public:
   // Apply and persist a wallpaper image. Empty connector targets all outputs.
   // Queued as a side effect and applied on the main thread.
   void scriptSetWallpaper(std::string connector, std::string path);
-  // Toggle a host panel by id ("author/plugin:panel"). Queued, applied on the main thread.
-  void scriptTogglePanel(std::string panelId);
+  // Toggle a host panel by id, optionally with an open context. Queued, applied on the main thread.
+  void scriptTogglePanel(std::string panelId, std::string context);
   [[nodiscard]] bool scriptCopyToClipboard(std::string text, std::string mimeType);
   [[nodiscard]] std::optional<std::string> scriptFocusedOutputName() const;
 

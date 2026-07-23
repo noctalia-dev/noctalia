@@ -84,12 +84,15 @@ namespace scripting {
       }
     }
 
-    // Toggles a host panel by id. Wired to PanelManager in Application; main thread only.
-    void setTogglePanelHook(std::function<void(const std::string&)> hook) { m_togglePanelHook = std::move(hook); }
+    // Toggles a host panel by id, optionally with an open context. Wired to PanelManager in Application;
+    // main thread only.
+    void setTogglePanelHook(std::function<void(const std::string&, const std::string&)> hook) {
+      m_togglePanelHook = std::move(hook);
+    }
 
-    void invokeTogglePanel(const std::string& panelId) const {
+    void invokeTogglePanel(const std::string& panelId, const std::string& context) const {
       if (m_togglePanelHook) {
-        m_togglePanelHook(panelId);
+        m_togglePanelHook(panelId, context);
       }
     }
 
@@ -101,7 +104,7 @@ namespace scripting {
     std::optional<std::string> m_clipboardText;
     std::function<void(const std::string&, bool)> m_wallpaperEnabledHook;
     std::function<void(const std::string&, const std::string&)> m_wallpaperHook;
-    std::function<void(const std::string&)> m_togglePanelHook;
+    std::function<void(const std::string&, const std::string&)> m_togglePanelHook;
   };
 
 } // namespace scripting

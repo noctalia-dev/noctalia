@@ -407,12 +407,14 @@ namespace {
     return 0;
   }
 
-  // togglePanel("author/plugin:panel") — toggle a host panel by id.
+  // togglePanel(panelId, context?) — toggle a host panel by id.
   int luau_togglePanel(lua_State* L) {
-    size_t len = 0;
-    const char* panelId = luaL_checklstring(L, 1, &len);
+    size_t panelIdLen = 0;
+    const char* panelId = luaL_checklstring(L, 1, &panelIdLen);
+    size_t contextLen = 0;
+    const char* context = luaL_optlstring(L, 2, "", &contextLen);
     if (auto* host = hostForState(L)) {
-      host->scriptTogglePanel(std::string(panelId, len));
+      host->scriptTogglePanel(std::string(panelId, panelIdLen), std::string(context, contextLen));
     }
     return 0;
   }
@@ -2057,11 +2059,13 @@ void LuauHost::scriptSetWallpaper(std::string connector, std::string path) {
   }
 }
 
-void LuauHost::scriptTogglePanel(std::string panelId) {
+void LuauHost::scriptTogglePanel(std::string panelId, std::string context) {
   if (m_scriptContext != nullptr) {
-    m_scriptContext->sideEffects.push_back(
-        {.kind = scripting::ScriptSideEffectKind::TogglePanel, .title = std::move(panelId), .body = {}}
-    );
+    m_scriptContext->sideEffects.push_back({
+        .kind = scripting::ScriptSideEffectKind::TogglePanel,
+        .title = std::move(panelId),
+        .body = std::move(context),
+    });
   }
 }
 

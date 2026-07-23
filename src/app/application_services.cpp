@@ -480,8 +480,14 @@ void Application::initStyleThemeAndWayland() {
     }
   });
 
-  // Let a plugin toggle one of its own panels.
-  m_scriptApi.setTogglePanelHook([this](const std::string& panelId) { m_panelManager.togglePanel(panelId); });
+  // Let plugins toggle host panels.
+  m_scriptApi.setTogglePanelHook([this](const std::string& panelId, const std::string& context) {
+    if (context.empty()) {
+      m_panelManager.togglePanel(panelId);
+    } else {
+      m_panelManager.togglePanel(panelId, PanelOpenRequest{.context = context});
+    }
+  });
 
   m_themeService.setResolvedCallback([this, lastResolvedThemeMode = std::optional<std::string>{},
                                       syncScriptApiWallpaperDirectory](

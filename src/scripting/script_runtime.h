@@ -20,7 +20,7 @@ namespace scripting {
   class ScriptRuntime {
   public:
     using SubscriberId = std::uint64_t;
-    using TogglePanelCallback = std::function<void(std::string_view)>;
+    using TogglePanelCallback = std::function<void(std::string_view, std::string_view)>;
 
     explicit ScriptRuntime(
         std::string runtimeName, ScriptSettings settings, ScriptApiContext& api, std::filesystem::path pluginDir,
