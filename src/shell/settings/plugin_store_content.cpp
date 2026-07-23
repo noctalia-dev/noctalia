@@ -431,53 +431,91 @@ namespace settings {
     );
 
     auto toolbar = ui::row({
-        .out = &m_toolbar,
+        .align = FlexAlign::Center,
+        .gap = Style::spaceSm * scale,
+        .fillWidth = true,
+    });
+    // toolbar_bottom is used for the sort button only when the tags are expanded
+    auto toolbar_bottom = ui::row({
         .align = FlexAlign::Center,
         .gap = Style::spaceSm * scale,
         .fillWidth = true,
     });
 
-    std::vector<std::string> allSources;
-    allSources.push_back(i18n::tr("settings.plugins.store.source-all"));
+    std::vector<ui::SegmentedOption> allSources;
+    allSources.push_back({ i18n::tr("settings.plugins.store.source-all"), "", "" });
     for (const auto& source : m_sources) {
-      allSources.push_back(sourceDisplayName(source));
+      allSources.push_back({ sourceDisplayName(source), "", "" });
     }
 
-    toolbar->addChild(
-        ui::select({
-            .options = allSources,
-            .selectedIndex = m_selectedSource,
-            .onSelectionChanged =
-                [this](size_t i, std::string_view) {
-                  m_selectedSource = i;
-                  m_selectedTag = 0;
-                  applyFilter();
-                  collectTags();
-                  if (m_onRebuildNeeded) {
-                    m_onRebuildNeeded();
-                  }
-                },
-            .configure = [](Select& select) { select.setFillWidth(true); },
-        })
-    );
+    toolbar->addChild(ui::segmented({
+      .options = allSources,
+      .selectedIndex = m_selectedSource,
+      .onChange = [this](std::size_t i) {
+        m_selectedSource = i;
 
-    std::vector<std::string> allCategories;
-    allCategories.push_back(i18n::tr("settings.plugins.store.category-all"));
-    allCategories.insert(allCategories.end(), m_allTags.begin(), m_allTags.end());
+        std::optional<std::string> prev_selectedTag = m_selectedTag != 0 ? std::optional{m_allTags[m_selectedTag - 1]} : std::nullopt;
+        collectTags();
+        if (prev_selectedTag.has_value()) {
+          auto it = std::ranges::find(m_allTags, prev_selectedTag.value());
+          m_selectedTag = it != m_allTags.end() ? static_cast<std::size_t>(it - m_allTags.begin()) + 1 : 0;
+        }
 
-    toolbar->addChild(
-        ui::select({
-            .options = allCategories,
-            .selectedIndex = m_selectedTag,
-            .onSelectionChanged = [this](size_t i, std::string_view) {
-              m_selectedTag = i;
-              applyFilter();
-              if (m_onRebuildNeeded) {
-                m_onRebuildNeeded();
-              }
-            },
-        })
-    );
+        applyFilter();
+        if (m_onRebuildNeeded) {
+          m_onRebuildNeeded();
+        }
+      }
+    }));
+
+    std::vector<std::string> allTags;
+    allTags.push_back(i18n::tr("settings.plugins.store.category-all"));
+    allTags.insert(allTags.end(), m_allTags.begin(), m_allTags.end());
+    std::vector<std::unique_ptr<Button>> tagButtons;
+
+    if (allTags.size() > 1) {
+      auto tagsHeader = ui::row({.align = FlexAlign::Center, .justify = FlexJustify::SpaceBetween, .fillWidth = true});
+      toolbar->addChild(
+          ui::button({
+              .text = i18n::tr("settings.plugins.store.categories"),
+              .glyph = m_tagFiltersCollapsed ? std::string("chevron-right") : std::string("chevron-up"),
+              .fontSize = Style::fontSizeCaption * scale,
+              .glyphSize = Style::fontSizeCaption * scale,
+              .contentAlign = ButtonContentAlign::Start,
+              .variant = ButtonVariant::Ghost,
+              .onClick = [this]() {
+                m_tagFiltersCollapsed = !m_tagFiltersCollapsed;
+                if (m_onRebuildNeeded) {
+                  m_onRebuildNeeded();
+                }
+              },
+          })
+      );
+
+      if (!m_tagFiltersCollapsed) {
+        for (std::size_t i = 0; i < allTags.size(); ++i) {
+          const bool selected = i == m_selectedTag;
+          auto btn = ui::button({
+              .text = allTags[i],
+              .fontSize = Style::fontSizeCaption * scale,
+              .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
+              .radius = Style::scaledRadiusMd(scale),
+              .onClick = [this, i]() {
+                m_selectedTag = i;
+                applyFilter();
+                if (m_onRebuildNeeded) {
+                  m_onRebuildNeeded();
+                }
+              },
+          });
+          tagButtons.push_back(std::move(btn));
+        }
+      }
+    }
+
+    if (!m_tagFiltersCollapsed) {
+      std::swap(toolbar, toolbar_bottom);
+    }
 
     toolbar->addChild(ui::spacer());
 
@@ -505,7 +543,31 @@ namespace settings {
         })
     );
 
+    if (!m_tagFiltersCollapsed) {
+      std::swap(toolbar, toolbar_bottom);
+    }
+
     body.addChild(std::move(toolbar));
+
+    if (!m_tagFiltersCollapsed) {
+      auto rows = wrapButtonsIntoRows(
+          renderer, tagButtons, body.width() > 0 ? body.width() : 700.0f * scale, Style::spaceXs * scale
+      );
+      for (auto& row : rows) {
+        auto rowFlex = ui::row(
+            {.align = FlexAlign::Center,
+              .justify = FlexJustify::Center,
+              .gap = Style::spaceXs * scale,
+              .fillWidth = true}
+        );
+        for (auto& btn : row) {
+          rowFlex->addChild(std::move(btn));
+        }
+        body.addChild(std::move(rowFlex));
+      }
+
+      body.addChild(std::move(toolbar_bottom));
+    }
 
     auto adapter = std::make_unique<PluginStoreAdapter>(scale);
     auto* adapterPtr = adapter.get();

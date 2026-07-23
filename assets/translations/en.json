@@ -1442,7 +1442,8 @@
       },
       "store": {
         "add": "Add to Noctalia",
-        "category-all": "All categories",
+        "categories": "Categories",
+        "category-all": "All",
         "empty": "No plugins found",
         "incompatible": "Incompatible",
         "loading": "Loading catalog…",

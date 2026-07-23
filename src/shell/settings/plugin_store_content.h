@@ -103,6 +103,7 @@ namespace settings {
     std::vector<std::size_t> m_filteredIndices;
     std::unordered_set<std::string> m_onDiskIds;
     std::vector<std::string> m_sources;
+    bool m_tagFiltersCollapsed = true;
     std::vector<std::string> m_allTags;
     SortMode m_sortMode;
     std::string m_searchQuery;
@@ -115,7 +116,6 @@ namespace settings {
     std::string m_detailReadme;
     bool m_detailReadmeLoading = false;
 
-    Flex* m_toolbar = nullptr;
     VirtualGridView* m_grid = nullptr;
     Label* m_countLabel = nullptr;
     Button* m_sortButton = nullptr;
