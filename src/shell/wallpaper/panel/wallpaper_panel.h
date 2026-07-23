@@ -39,6 +39,7 @@ public:
     NameDesc,
     DateAsc,
     DateDesc,
+    Random,
   };
 
   WallpaperPanel(

@@ -3,6 +3,7 @@
 #include "config/config_service.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
+#include "core/random.h"
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
@@ -1573,6 +1574,9 @@ WallpaperPanel::SortMode WallpaperPanel::sortModeFromState(std::string_view valu
   if (value == "date_desc") {
     return SortMode::DateDesc;
   }
+  if (value == "random") {
+    return SortMode::Random;
+  }
   return SortMode::NameAsc;
 }
 
@@ -1584,6 +1588,8 @@ std::string_view WallpaperPanel::sortModeStateValue(SortMode mode) {
     return "date_asc";
   case SortMode::DateDesc:
     return "date_desc";
+  case SortMode::Random:
+    return "random";
   case SortMode::NameAsc:
   default:
     return "name_asc";
@@ -1598,6 +1604,8 @@ std::string_view WallpaperPanel::sortModeGlyph(SortMode mode) {
     return "sort-ascending-2";
   case SortMode::DateDesc:
     return "sort-descending-2";
+  case SortMode::Random:
+    return "arrows-random";
   case SortMode::NameAsc:
   default:
     return "sort-a-z";
@@ -1612,6 +1620,8 @@ const char* WallpaperPanel::sortModeTooltipKey(SortMode mode) {
     return "wallpaper.panel.sort-date-asc";
   case SortMode::DateDesc:
     return "wallpaper.panel.sort-date-desc";
+  case SortMode::Random:
+    return "wallpaper.panel.sort-random";
   case SortMode::NameAsc:
   default:
     return "wallpaper.panel.sort-name-asc";
@@ -1652,6 +1662,9 @@ void WallpaperPanel::cycleSortMode() {
     next = SortMode::DateDesc;
     break;
   case SortMode::DateDesc:
+    next = SortMode::Random;
+    break;
+  case SortMode::Random:
     next = SortMode::NameAsc;
     break;
   }
@@ -1723,12 +1736,19 @@ void WallpaperPanel::sortVisibleEntries() {
     const std::size_t end = std::min(endIndex, m_visibleEntries.size());
     const auto begin = m_visibleEntries.begin() + static_cast<std::ptrdiff_t>(beginIndex);
     const auto endIt = m_visibleEntries.begin() + static_cast<std::ptrdiff_t>(end);
+    const auto sortSubrange = [&](const auto subBegin, const auto subEnd) {
+      if (m_sortMode == SortMode::Random) {
+        std::shuffle(subBegin, subEnd, Random::rng());
+      } else {
+        std::sort(subBegin, subEnd, compareEntries);
+      }
+    };
     if (foldersFirst) {
       const auto folderEnd = std::partition(begin, endIt, [](const WallpaperEntry& entry) { return entry.isDir; });
-      std::sort(begin, folderEnd, compareEntries);
-      std::sort(folderEnd, endIt, compareEntries);
+      sortSubrange(begin, folderEnd);
+      sortSubrange(folderEnd, endIt);
     } else {
-      std::sort(begin, endIt, compareEntries);
+      sortSubrange(begin, endIt);
     }
   };
 
