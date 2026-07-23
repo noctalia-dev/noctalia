@@ -386,6 +386,13 @@ namespace settings {
       return {};
     }
 
+    WidgetSettingStringMap valueAsStringMap(const WidgetSettingValue& value) {
+      if (const auto* map = std::get_if<WidgetSettingStringMap>(&value)) {
+        return *map;
+      }
+      return {};
+    }
+
     bool valueAsBool(const WidgetSettingValue& value) {
       if (const auto* b = std::get_if<bool>(&value)) {
         return *b;
@@ -445,6 +452,21 @@ namespace settings {
         return valueAsString(pluginSettingValue(cfg, pluginId, *depIt));
       };
       const auto matches = [&](const WidgetSettingVisibilityCondition& cond) {
+        if (cond.nonEmpty) {
+          const auto depIt =
+              std::ranges::find_if(allSpecs, [&](const WidgetSettingSpec& s) { return s.schema.key == cond.key; });
+          if (depIt == allSpecs.end()) {
+            return false;
+          }
+          const WidgetSettingValue value = pluginSettingValue(cfg, pluginId, *depIt);
+          if (const auto* list = std::get_if<std::vector<std::string>>(&value)) {
+            return !list->empty();
+          }
+          if (const auto* str = std::get_if<std::string>(&value)) {
+            return !str->empty();
+          }
+          return false;
+        }
         const std::string value = currentString(cond.key);
         return std::ranges::contains(cond.values, value);
       };
@@ -508,6 +530,7 @@ namespace settings {
         return factory.makeColorSpecPicker(pickerSetting, path);
       }
       case WidgetControlKind::StringList:
+      case WidgetControlKind::StringMap:
         return nullptr;
       case WidgetControlKind::String:
       case WidgetControlKind::File:
@@ -575,6 +598,15 @@ namespace settings {
       };
       if (spec.control == WidgetControlKind::StringList) {
         factory.makeListBlock(body, entry, ListSetting{.items = valueAsStringList(value)});
+      } else if (spec.control == WidgetControlKind::StringMap) {
+        factory.makeStringMapBlock(
+            body, entry,
+            StringMapSetting{
+                .entries = valueAsStringMap(value),
+                .keyPlaceholder = i18n::tr("settings.widgets.map-placeholders.key"),
+                .valuePlaceholder = i18n::tr("settings.widgets.map-placeholders.value"),
+            }
+        );
       } else {
         factory.makeRow(body, entry, pluginSettingControl(factory, spec, value, path));
       }

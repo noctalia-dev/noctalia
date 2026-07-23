@@ -1,18 +1,26 @@
 {
   "auth": {
     "fingerprint": {
-      "disconnected": "Czytnik odcisków palców rozłączony",
-      "error": "Błąd czytnika odcisków palców"
+      "disconnected": "Czytnik linii papilarnych został odłączony",
+      "error": "Błąd uwierzytelniania odciskiem palca",
+      "no-match": "Niepasujący odcisk palca",
+      "not-centered": "Umieść palec na środku i spróbuj ponownie",
+      "present": "Odczytywanie odcisku palca…",
+      "ready": "Przyłóż palec do czytnika",
+      "remove-and-retry": "Odsuń palec i spróbuj ponownie.",
+      "retry": "Proszę zeskanować odcisk palca ponownie",
+      "swipe-too-short": "Przyłożenie palca zbyt krótkie ",
+      "too-many-attempts": "Czytnik linii papilarnych wyłączony (zbyt wiele prób)"
     },
     "pam": {
       "authentication-failed": "Uwierzytelnianie nie powiodło się",
       "start-failed": "Nie udało się uruchomić PAM",
-      "user-unavailable": "Nie można ustalić bieżącego użytkownika"
+      "user-unavailable": "Nie można ustalić aktualnego użytkownika"
     },
     "polkit": {
-      "authenticate": "Uwierzytelniaj",
+      "authenticate": "Uwierzytelnij",
       "authenticating": "Uwierzytelnianie...",
-      "default-message": "wymagane uwierzytelnianie",
+      "default-message": "Wymagane uwierzytelnianie",
       "invalid-password": "Nieprawidłowe hasło",
       "password-placeholder": "Hasło",
       "title": "Wymagane uwierzytelnianie"
@@ -21,10 +29,21 @@
   "bar": {
     "screenshot": {
       "choose-display": "Wybierz ekran",
+      "confirm-region": "Enter lub Spacja aby wykonać zrzut · Esc aby anulować · Przeciągnij, aby wybrać ponownie",
       "fullscreen": "Pełny ekran",
       "region": "Wybierz obszar"
     },
     "widgets": {
+      "active-window": {
+        "no-active-window": "Brak aktywnego okna"
+      },
+      "bluetooth": {
+        "connected": "Połączono"
+      },
+      "brightness": {
+        "brightness": "Jasność",
+        "display": "Ekran"
+      },
       "lock-keys": {
         "caps": "Caps",
         "caps-short": "C",
@@ -34,10 +53,18 @@
         "scroll-short": "S"
       },
       "media": {
-        "nothing-playing": "Nic nie odtwarza",
+        "nothing-playing": "Nic nie jest odtwarzane",
         "playing": "Odtwarzanie"
       },
       "network": {
+        "active": "Aktywna",
+        "connected": "Połączono",
+        "connecting": "Łączenie",
+        "download": "Pobieranie",
+        "interface": "Interfejs",
+        "ip": "IP",
+        "network": "Sieć",
+        "networks": "Sieci",
         "wired": "Przewodowa"
       },
       "scripted": {
@@ -374,10 +401,6 @@
         "visualization-mode-wave-rings": "Fala + pierścienie",
         "wave-thickness": "Grubość fali",
         "widget-section": "Widget"
-      },
-      "state": {
-        "grid-off": "Siatka wyłączona",
-        "grid-on": "Siatka włączona"
       },
       "title": "Widgety pulpitu",
       "types": {
@@ -1080,7 +1103,7 @@
         "name-placeholder": "moje-wtyczki",
         "remove": "Usuń źródło",
         "title": "Źródła",
-        "update": "Aktualizacja"
+        "update": "Aktualizacja źródła"
       }
     },
     "schema": {
@@ -2237,7 +2260,6 @@
         "always": "Zawsze",
         "cpu-temp": "Temperatura CPU",
         "cpu-usage": "Użycie CPU",
-        "disk-percent": "Procent dysku",
         "full": "Pełny",
         "gauge": "Gauge",
         "glyph": "Symbol",
@@ -2690,7 +2712,6 @@
     "window": {
       "export-config": "Eksportuj konfigurację…",
       "export-config-saved": "Konfiguracja wyeksportowana.",
-      "filter-modified": "Zmodyfikowane",
       "native-title": "Ustawienia Noctalia",
       "no-results": "Nie znaleziono ustawień",
       "no-results-hint": "Spróbuj innej nazwy ustawienia lub klucza konfiguracji.",

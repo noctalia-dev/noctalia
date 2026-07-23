@@ -30,18 +30,18 @@ namespace i18n {
     std::string_view displayName;
   };
 
-  inline constexpr std::array<LanguageOption, 21> kSupportedLanguages = {{
-      {"be", "Беларуская"},    {"be-Latn", "Biełaruskaja (Łacinka)"},
-      {"ca", "Català"},        {"cs", "Čeština"},
-      {"de", "Deutsch"},       {"en", "English"},
-      {"es", "Español"},       {"fr", "Français"},
-      {"gl-ES", "Galego"},     {"hu", "Magyar"},
-      {"it", "Italiano"},      {"ku", "Kurdî"},
-      {"nl", "Nederlands"},    {"nn", "Norsk nynorsk"},
-      {"pl", "Polski"},        {"pt-BR", "Português (Brasil)"},
-      {"ru", "Русский"},       {"tr", "Türkçe"},
-      {"uk-UA", "Українська"}, {"vi", "Tiếng Việt"},
-      {"zh-Hans", "简体中文"},
+  inline constexpr std::array<LanguageOption, 22> kSupportedLanguages = {{
+      {"be", "Беларуская"}, {"be-Latn", "Biełaruskaja (Łacinka)"},
+      {"ca", "Català"},     {"cs", "Čeština"},
+      {"de", "Deutsch"},    {"en", "English"},
+      {"es", "Español"},    {"fr", "Français"},
+      {"gl-ES", "Galego"},  {"hu", "Magyar"},
+      {"it", "Italiano"},   {"ku", "Kurdî"},
+      {"nl", "Nederlands"}, {"nn", "Norsk nynorsk"},
+      {"pl", "Polski"},     {"pt-BR", "Português (Brasil)"},
+      {"ru", "Русский"},    {"sv", "Svenska"},
+      {"tr", "Türkçe"},     {"uk-UA", "Українська"},
+      {"vi", "Tiếng Việt"}, {"zh-Hans", "简体中文"},
   }};
 
   // Loads translation catalogs and resolves dotted keys against them.

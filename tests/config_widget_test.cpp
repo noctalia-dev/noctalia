@@ -107,6 +107,34 @@ int main() {
   ok = expectBoolSetting(layout, "hide_when_single_layout", false) && ok;
   ok = expectStringMapEntry(layout, "custom_labels", "English (US)", "EN") && ok;
 
+  const auto mapValueParsed = toml::parse("[output_glyphs]\n\"eDP-1\" = \"laptop\"\n\"DP-1\" = \"monitor\"\n");
+  const auto* mapValueNode = mapValueParsed.get("output_glyphs");
+  if (!expect(mapValueNode != nullptr, "parsed string-map widget setting")) {
+    return 1;
+  }
+  const auto mapValue = noctalia::config::readWidgetSettingValue(*mapValueNode);
+  ok = expect(mapValue.has_value(), "string-map widget setting parses") && ok;
+  if (mapValue.has_value()) {
+    const auto* values = std::get_if<WidgetSettingStringMap>(&*mapValue);
+    ok = expect(values != nullptr, "string-map widget setting has map type") && ok;
+    if (values != nullptr) {
+      ok = expect(values->size() == 2, "string-map widget setting size") && ok;
+      ok = expect(values->at("eDP-1") == "laptop", "string-map widget setting first value") && ok;
+      ok = expect(values->at("DP-1") == "monitor", "string-map widget setting second value") && ok;
+    }
+  }
+
+  const auto invalidMapValueParsed = toml::parse("[output_glyphs]\n\"eDP-1\" = 1\n");
+  const auto* invalidMapValueNode = invalidMapValueParsed.get("output_glyphs");
+  if (!expect(invalidMapValueNode != nullptr, "parsed invalid string-map widget setting")) {
+    return 1;
+  }
+  ok = expect(
+           !noctalia::config::readWidgetSettingValue(*invalidMapValueNode).has_value(),
+           "string-map widget setting rejects non-string values"
+       )
+      && ok;
+
   BarConfig bar;
   bar.widgetCapsuleRadius = 12.0;
   WidgetConfig launcher;

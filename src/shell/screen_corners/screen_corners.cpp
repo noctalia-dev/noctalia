@@ -61,7 +61,20 @@ void ScreenCorners::onConfigReload() {
     return;
   }
 
-  if (cfg.enabled != m_lastEnabled || cfg.size != m_lastSize || m_instances.size() != eligibleOutputCount(*m_wayland)) {
+  // The bar and dock share the Top layer with the corners, and wlr-layer-shell stacks
+  // same-layer surfaces by creation order with no way to restack afterwards. A config
+  // change that makes either recreate its surfaces (a bar corner radius resizes the
+  // surface, or a shadow change alters bar/dock surface metrics, for instance) puts
+  // them above the corners, which then get clipped away wherever the bar sits.
+  // Recreate ours too so they climb back on top; this callback is registered after
+  // the bar's, so the rebuild lands last.
+  const auto& changed = m_config->lastChange();
+  const bool stackingMayHaveChanged = changed.bars || changed.widgets || changed.dock || changed.shell;
+
+  if (cfg.enabled != m_lastEnabled
+      || cfg.size != m_lastSize
+      || m_instances.size() != eligibleOutputCount(*m_wayland)
+      || stackingMayHaveChanged) {
     destroySurfaces();
     m_lastEnabled = cfg.enabled;
     m_lastSize = cfg.size;

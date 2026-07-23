@@ -93,7 +93,12 @@ namespace process {
 
   [[nodiscard]] bool launchFirstAvailable(std::initializer_list<std::initializer_list<const char*>> commandVariants);
 
-  [[nodiscard]] bool systemdAvailable();
+  // True when a /proc/<pid>/cgroup dump places the process inside the systemd user manager
+  // (user@<uid>.service) rather than a login session scope. Exposed for testing.
+  [[nodiscard]] bool cgroupIndicatesSystemdUserManager(std::string_view cgroupFileContents, unsigned int uid);
+  // Whether this process itself is managed by the systemd user manager, i.e. started as a user
+  // unit (uwsm, a home-manager/NixOS service) rather than as a child of a login session scope.
+  [[nodiscard]] bool runningUnderSystemdUserManager();
   [[nodiscard]] bool runAsyncAsSystemdService(
       const std::vector<std::string>& args, const std::string& appName, const std::string& activationToken = {},
       const std::string& workingDir = {}

@@ -929,11 +929,23 @@ namespace process {
     return false;
   }
 
-  bool systemdAvailable() {
+  bool cgroupIndicatesSystemdUserManager(std::string_view cgroupFileContents, unsigned int uid) {
+    // Matches both the cgroup v2 "0::<path>" line and legacy v1 "<id>:<controller>:<path>" lines.
+    return cgroupFileContents.contains(std::format("/user@{}.service/", uid));
+  }
+
+  bool runningUnderSystemdUserManager() {
 #ifdef __linux__
-    // Check if we booted with systemd. The same logic as systemd sd_booted()
-    int r = access("/run/systemd/system/", F_OK);
-    return r == 0;
+    // A process cannot migrate between the login session scope and the user manager, so probe once.
+    static const bool managed = [] {
+      std::ifstream file("/proc/self/cgroup");
+      if (!file) {
+        return false;
+      }
+      const std::string contents{std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+      return cgroupIndicatesSystemdUserManager(contents, ::getuid());
+    }();
+    return managed;
 #else
     return false;
 #endif
@@ -947,7 +959,7 @@ namespace process {
     if (args.empty() || args.front().empty()) {
       return false;
     }
-    if (systemdAvailable()) {
+    if (runningUnderSystemdUserManager()) {
       return startSystemdService(args, activationToken, workingDir, appName);
     }
 #endif

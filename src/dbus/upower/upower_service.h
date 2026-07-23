@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -110,6 +111,7 @@ private:
   std::unique_ptr<sdbus::IProxy> m_displayDeviceProxy;
   std::string m_displayDevicePath;
   std::vector<TrackedDevice> m_devices;
+  std::optional<UPowerDeviceInfo> m_dummyDevice;
   UPowerState m_state;
   ChangeCallback m_changeCallback;
 };

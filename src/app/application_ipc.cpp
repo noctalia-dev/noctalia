@@ -580,6 +580,65 @@ void Application::initIpc() {
       },
       "brightness-osd <value>", "Show brightness OSD without changing brightness"
   );
+  m_ipcService.registerHandler(
+      "volume-osd",
+      [this](const std::string& args) -> std::string {
+        const auto parts = noctalia::ipc::splitWords(args);
+        if (parts.size() > 1) {
+          return "error: volume-osd accepts at most one optional [value]\n";
+        }
+        if (m_pipewireService == nullptr) {
+          return "error: audio unavailable\n";
+        }
+        const auto* sink = m_pipewireService->defaultSink();
+        if (sink == nullptr) {
+          return "error: no default output\n";
+        }
+        float volume = sink->volume;
+        if (parts.size() == 1) {
+          const auto value = noctalia::ipc::parseNormalizedOrPercent(
+              parts[0], maxAudioVolume(m_configService.config().audio) * 100.0f
+          );
+          if (!value.has_value()) {
+            return "error: invalid volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
+          }
+          volume = *value;
+        }
+        m_audioOsd.showOutputValue(volume, sink->muted);
+        return "ok\n";
+      },
+      "volume-osd [value]", "Show the volume OSD without changing volume (defaults to the current volume)"
+  );
+  m_ipcService.registerHandler(
+      "mic-volume-osd",
+      [this](const std::string& args) -> std::string {
+        const auto parts = noctalia::ipc::splitWords(args);
+        if (parts.size() > 1) {
+          return "error: mic-volume-osd accepts at most one optional [value]\n";
+        }
+        if (m_pipewireService == nullptr) {
+          return "error: audio unavailable\n";
+        }
+        const auto* source = m_pipewireService->defaultSource();
+        if (source == nullptr) {
+          return "error: no default input\n";
+        }
+        float volume = source->volume;
+        if (parts.size() == 1) {
+          const auto value = noctalia::ipc::parseNormalizedOrPercent(
+              parts[0], maxAudioVolume(m_configService.config().audio) * 100.0f
+          );
+          if (!value.has_value()) {
+            return "error: invalid mic volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
+          }
+          volume = *value;
+        }
+        m_audioOsd.showInputValue(volume, source->muted);
+        return "ok\n";
+      },
+      "mic-volume-osd [value]",
+      "Show the microphone volume OSD without changing volume (defaults to the current volume)"
+  );
   m_configService.registerIpc(m_ipcService);
   scripting::PluginIpcRouter::instance().setPlatform(&m_compositorPlatform);
   m_ipcService.registerHandler(

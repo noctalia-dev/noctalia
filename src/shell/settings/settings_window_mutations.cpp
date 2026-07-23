@@ -59,6 +59,7 @@ void SettingsWindow::markSettingsWriteSuccess(bool requestRebuild) {
   m_statusMessage.clear();
   m_statusIsError = false;
   m_pendingResetPageScope.clear();
+  m_pendingResetSettingPaths.clear();
   if (requestRebuild) {
     requestSceneRebuild();
   }
@@ -79,7 +80,7 @@ void SettingsWindow::finishSettingsWrite(
     bool rebuildWhenUnchanged
 ) {
   const bool hadStatus = !m_statusMessage.empty();
-  const bool hadPendingReset = !m_pendingResetPageScope.empty();
+  const bool hadPendingReset = !m_pendingResetPageScope.empty() || !m_pendingResetSettingPaths.empty();
   markSettingsWriteSuccess(false);
   if (forceSceneRebuild || hadStatus || hadPendingReset) {
     requestSceneRebuild();

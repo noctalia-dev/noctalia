@@ -9,6 +9,7 @@
 #include "shell/bar/widgets/battery_widget_definition.h"
 #include "shell/bar/widgets/bluetooth_widget.h"
 #include "shell/bar/widgets/brightness_widget.h"
+#include "shell/bar/widgets/brightness_widget_definition.h"
 #include "shell/bar/widgets/clipboard_widget.h"
 #include "shell/bar/widgets/clock_widget.h"
 #include "shell/bar/widgets/control_center_widget.h"
@@ -204,13 +205,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "brightness") {
-    const bool showLabel = wc != nullptr ? wc->getBool("show_label", true) : true;
-    const bool enableScroll = wc != nullptr ? wc->getBool("enable_scroll", true) : true;
-    const int scrollStep =
-        static_cast<int>(std::clamp<std::int64_t>(wc != nullptr ? wc->getInt("scroll_step", 5) : 5, 1, 25));
-    auto widget = std::make_unique<BrightnessWidget>(m_brightness, output, showLabel, scrollStep, enableScroll);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<BrightnessWidget>(
+        contentScale, m_brightness, output, brightnessWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+    );
   }
 
   if (type == "clock") {
@@ -400,6 +397,14 @@ std::unique_ptr<Widget> WidgetFactory::create(
     std::unordered_map<std::string, WidgetSettingValue> overrides;
     if (wc != nullptr) {
       overrides = wc->settings;
+      for (const auto& field : pluginEntry->entry->settings) {
+        if (field.type != scripting::ManifestFieldType::StringMap) {
+          continue;
+        }
+        if (const auto tableIt = wc->tables.find(field.key); tableIt != wc->tables.end()) {
+          overrides.insert_or_assign(field.key, tableIt->second);
+        }
+      }
     }
     auto seeded = scripting::seedEntrySettings(*pluginEntry->entry, overrides);
     const auto& pluginSettings = m_config.plugins.pluginSettings;
@@ -500,8 +505,14 @@ std::unique_ptr<Widget> WidgetFactory::create(
       stat = SysmonStat::RamPct;
     } else if (statStr == "swap_pct") {
       stat = SysmonStat::SwapPct;
-    } else if (statStr == "disk_pct") {
-      stat = SysmonStat::DiskPct;
+    } else if (statStr == "disk_used_pct") {
+      stat = SysmonStat::DiskUsedPct;
+    } else if (statStr == "disk_used") {
+      stat = SysmonStat::DiskUsed;
+    } else if (statStr == "disk_free_pct") {
+      stat = SysmonStat::DiskFreePct;
+    } else if (statStr == "disk_free") {
+      stat = SysmonStat::DiskFree;
     } else if (statStr == "net_rx") {
       stat = SysmonStat::NetRx;
     } else if (statStr == "net_tx") {
@@ -516,6 +527,11 @@ std::unique_ptr<Widget> WidgetFactory::create(
       displayMode = SysmonDisplayMode::Text;
     else if (display == "graph")
       displayMode = SysmonDisplayMode::Graph;
+    else if (display == "none")
+      displayMode = SysmonDisplayMode::None;
+    const std::string glyphPositionStr = wc != nullptr ? wc->getString("glyph_position", "before") : "before";
+    SysmonGlyphPosition glyphPosition =
+        glyphPositionStr == "after" ? SysmonGlyphPosition::After : SysmonGlyphPosition::Before;
     if (verticalBar && displayMode == SysmonDisplayMode::Graph) {
       displayMode = SysmonDisplayMode::Gauge;
     }
@@ -536,6 +552,8 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .labelMinWidth = static_cast<float>(wc != nullptr ? wc->getDouble("label_min_width", 0.0) : 0.0),
         .glyph = wc != nullptr ? wc->getString("glyph", "") : std::string{},
         .customImage = customImageFor(wc),
+        .showUnits = wc != nullptr ? wc->getBool("label_show_units", true) : true,
+        .glyphPosition = glyphPosition,
     };
     auto widget = std::make_unique<SysmonWidget>(m_sysmon, m_configService, std::move(options));
     widget->setContentScale(contentScale);
@@ -555,6 +573,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .onlyActiveWorkspace = wc != nullptr ? wc->getBool("only_active_workspace", false) : false,
         .showWorkspaceLabel = wc != nullptr ? wc->getBool("show_workspace_label", true) : true,
         .workspaceLabelPlacement = WorkspaceLabelPlacement::Corner,
+        .workspaceGroupContent = WorkspaceGroupContent::Icons,
         .hideEmptyWorkspaces = wc != nullptr ? wc->getBool("hide_empty_workspaces", false) : false,
         .workspaceGroupCapsule = wc != nullptr ? wc->getBool("workspace_group_capsule", true) : true,
         .focusedOutputOnly = wc != nullptr ? wc->getBool("focused_output_only", false) : false,
@@ -564,6 +583,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .showActiveIndicator = wc != nullptr ? wc->getBool("show_active_indicator", true) : true,
         .activeOpacity = wc != nullptr ? static_cast<float>(wc->getDouble("active_opacity", 1.0)) : 1.0f,
         .inactiveOpacity = wc != nullptr ? static_cast<float>(wc->getDouble("inactive_opacity", 1.0)) : 1.0f,
+        .pinnedOpacity = wc != nullptr ? static_cast<float>(wc->getDouble("pinned_opacity", 0.5)) : 0.5f,
         .focusedColor = wc != nullptr
             ? wc->getColorSpec(
                   "focused_color", colorSpecFromRole(ColorRole::Primary), "widget." + name + ".focused_color"
@@ -588,6 +608,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .taskbarMaxWidth = static_cast<float>(wc != nullptr ? wc->getDouble("taskbar_max_width", 8192.0) : 8192.0),
         .barPosition = barPosition,
         .barName = barName,
+        .widgetName = name,
     };
     if (wc != nullptr) {
       const std::string placement = wc->getString("workspace_label_placement", "corner");
@@ -595,6 +616,12 @@ std::unique_ptr<Widget> WidgetFactory::create(
         options.workspaceLabelPlacement = WorkspaceLabelPlacement::Centered;
       } else if (placement == "inside") {
         options.workspaceLabelPlacement = WorkspaceLabelPlacement::Inside;
+      }
+      const std::string groupContent = wc->getString("workspace_group_content", "icons");
+      if (groupContent == "count") {
+        options.workspaceGroupContent = WorkspaceGroupContent::Count;
+      } else if (groupContent == "dots") {
+        options.workspaceGroupContent = WorkspaceGroupContent::Dots;
       }
     }
     auto widget = std::make_unique<TaskbarWidget>(m_platform, m_configService, output, std::move(options));

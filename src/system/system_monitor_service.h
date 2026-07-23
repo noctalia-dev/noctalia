@@ -74,6 +74,9 @@ public:
   void releaseDiskPath(const std::string& path);
   [[nodiscard]] float diskUsagePercent(const std::string& path) const;
   [[nodiscard]] std::vector<float> diskHistory(const std::string& path, int windowSize = kHistorySize) const;
+  [[nodiscard]] std::uint64_t diskTotalBytes(const std::string& path) const;
+  [[nodiscard]] std::uint64_t diskFreeBytes(const std::string& path) const;
+  [[nodiscard]] std::uint64_t diskAvailBytes(const std::string& path) const;
 
 private:
   struct NvidiaNvmlReader;
@@ -83,6 +86,9 @@ private:
   struct DiskHistory {
     int refs = 0;
     float latestPercent = 0.0f;
+    std::uint64_t latestTotalBytes = 0;
+    std::uint64_t latestFreeBytes = 0;
+    std::uint64_t latestAvailBytes = 0;
     std::array<float, kHistorySize> history{};
   };
 
@@ -114,6 +120,7 @@ private:
   void stop();
   void samplingLoop();
   void logDetectedSources();
+  void releaseGpuReaders();
 
   [[nodiscard]] static std::optional<CpuTotals> readCpuTotals();
   struct MemData {
@@ -136,7 +143,6 @@ private:
   [[nodiscard]] std::optional<double> readGpuTempCelsius();
   [[nodiscard]] std::optional<double> readGpuUsagePercent();
   [[nodiscard]] std::optional<GpuVramData> readGpuVram();
-  [[nodiscard]] static float readDiskUsagePercent(const std::string& path);
 
   struct NetIfaceBytes {
     std::uint64_t rx{0};
@@ -155,6 +161,8 @@ private:
   std::thread m_thread;
   std::mutex m_wakeMutex;
   std::condition_variable m_wakeCv;
+  // Bumped under m_wakeMutex so a config change interrupts the sampling loop's wait.
+  std::atomic<std::uint64_t> m_configGeneration{0};
 
   mutable std::mutex m_configMutex;
   SystemConfig::MonitorConfig m_pollConfig;
@@ -166,6 +174,8 @@ private:
   int m_historyHead = 0;
   std::unordered_map<std::string, DiskHistory> m_diskHistories;
   std::unordered_map<std::string, NetIfaceBytes> m_prevNetBytes;
+  // Sampling thread only.
+  bool m_gpuSourcesLogged = false;
   std::unique_ptr<NvidiaNvmlReader> m_nvidiaNvmlReader;
   std::unique_ptr<AmdRsmiReader> m_amdRsmiReader;
   std::unique_ptr<IntelGpuReader> m_intelGpuReader;

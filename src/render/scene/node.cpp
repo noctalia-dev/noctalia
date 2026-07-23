@@ -234,6 +234,16 @@ void Node::setScale(float scaleX, float scaleY) {
   markPaintDirty();
 }
 
+void Node::setTransformOrigin(float x, float y) {
+  if (m_hasTransformOrigin && m_transformOriginX == x && m_transformOriginY == y) {
+    return;
+  }
+  m_hasTransformOrigin = true;
+  m_transformOriginX = x;
+  m_transformOriginY = y;
+  markPaintDirty();
+}
+
 void Node::setOpacity(float opacity) {
   if (m_opacity == opacity) {
     return;

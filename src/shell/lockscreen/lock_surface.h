@@ -2,6 +2,7 @@
 
 #include "capture/screencopy_capture.h"
 #include "config/config_service.h"
+#include "render/animation/animation_manager.h"
 #include "render/core/blur_cache.h"
 #include "render/core/color.h"
 #include "render/core/texture_manager.h"
@@ -95,6 +96,8 @@ private:
   ext_session_lock_surface_v1* m_lockSurface = nullptr;
   wl_output* m_output = nullptr;
   ConfigService* m_config = nullptr;
+  // Declared before m_root so it outlives the scene: ~Node cancels its animations through this manager.
+  AnimationManager m_animations;
   Node m_root;
   Node* m_backgroundLayer = nullptr;
   Node* m_widgetLayer = nullptr;

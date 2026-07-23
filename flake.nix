@@ -1,5 +1,5 @@
 {
-  description = "Noctalia - A lightweight Wayland shell and bar";
+  description = "A sleek, customizable desktop shell crafted for Wayland.";
 
   inputs = {
     nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz";

@@ -20,7 +20,7 @@ namespace calendar {
       HttpClient& http;
       std::string serverUrl;
       std::string username;
-      std::string password;
+      std::shared_ptr<const security::SecureBuffer> password;
       bool allowRedirectAuth = false;
       std::function<void(bool ok, std::vector<CalDavCollection>)> callback;
     };
@@ -252,8 +252,9 @@ namespace calendar {
     }
 
     HttpRequest propfindRequest(
-        const std::string& url, const std::string& username, const std::string& password, bool allowRedirectAuth,
-        std::string body, int depth
+        const std::string& url, const std::string& username,
+        const std::shared_ptr<const security::SecureBuffer>& password, bool allowRedirectAuth, std::string body,
+        int depth
     ) {
       HttpRequest req;
       req.method = "PROPFIND";
@@ -262,7 +263,10 @@ namespace calendar {
       req.followRedirects = true;
       req.allowRedirectAuth = allowRedirectAuth;
       req.basicUsername = username;
-      req.basicPassword = password;
+      if (password != nullptr) {
+        const auto bytes = password->bytes();
+        req.basicPassword = std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+      }
       req.headers = {
           "Depth: " + std::to_string(depth),
           "Content-Type: application/xml; charset=utf-8",
@@ -364,13 +368,14 @@ namespace calendar {
   } // namespace
 
   void discoverCalDavCollections(
-      HttpClient& http, const std::string& serverUrl, const std::string& username, const std::string& password,
-      bool allowRedirectAuth, std::function<void(bool ok, std::vector<CalDavCollection>)> cb
+      HttpClient& http, const std::string& serverUrl, const std::string& username,
+      std::shared_ptr<const security::SecureBuffer> password, bool allowRedirectAuth,
+      std::function<void(bool ok, std::vector<CalDavCollection>)> cb
   ) {
-    auto ctx = std::make_shared<DiscoveryContext>(
-        DiscoveryContext{http, normalizeBase(serverUrl), username, password, allowRedirectAuth, std::move(cb)}
-    );
-    if (ctx->serverUrl.empty() || ctx->username.empty() || ctx->password.empty()) {
+    auto ctx = std::make_shared<DiscoveryContext>(DiscoveryContext{
+        http, normalizeBase(serverUrl), username, std::move(password), allowRedirectAuth, std::move(cb)
+    });
+    if (ctx->serverUrl.empty() || ctx->username.empty() || ctx->password == nullptr || ctx->password->empty()) {
       kLog.warn("missing server_url/username/password");
       finish(ctx, false);
       return;

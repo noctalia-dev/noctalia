@@ -11,6 +11,8 @@
 #include <string_view>
 #include <vector>
 
+class ConfigService;
+
 namespace settings {
 
   struct SettingsStatusBannerProps {
@@ -35,6 +37,7 @@ namespace settings {
 
   [[nodiscard]] bool isMonitorOverrideSettingPath(const std::vector<std::string>& path);
   [[nodiscard]] bool monitorOverrideHasExplicitValue(const Config& cfg, const std::vector<std::string>& path);
+  [[nodiscard]] bool settingEntryHasEffectiveOverride(const SettingEntry& entry, const ConfigService& configService);
 
   [[nodiscard]] bool isBlankInput(std::string_view text);
   [[nodiscard]] std::string formatSliderValue(double value, bool integerValue);

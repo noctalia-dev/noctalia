@@ -353,7 +353,7 @@ namespace notification_dbus {
       out.hasAlpha = true;
       out.bitsPerSample = 8;
       out.channels = 4;
-      out.data = std::move(decoded->pixels);
+      out.data = decoded->pixels;
       return out;
     }
 
@@ -380,7 +380,7 @@ namespace notification_dbus {
         continue;
       }
       try {
-        const std::string path = it->second.get<std::string>();
+        const auto path = it->second.get<std::string>();
         if (path.empty()) {
           continue;
         }
@@ -390,7 +390,7 @@ namespace notification_dbus {
         }
         if (std::optional<NotificationImageData> decoded = decodeImageDataFromImagePath(truncated);
             decoded.has_value()) {
-          return std::move(*decoded);
+          return decoded;
         }
       } catch (...) {
       }

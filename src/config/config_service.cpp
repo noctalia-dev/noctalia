@@ -712,6 +712,8 @@ bool ConfigService::setStateString(std::string_view owner, std::string_view key,
   return m_stateStore.setString(owner, key, value);
 }
 
+bool ConfigService::clearStateOwner(std::string_view owner) { return m_stateStore.clearOwner(owner); }
+
 std::string ConfigService::buildSupportReport() const {
   toml::table root;
 

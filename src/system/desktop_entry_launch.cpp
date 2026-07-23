@@ -6,6 +6,7 @@
 #include "system/terminal_launch.h"
 #include "util/file_utils.h"
 
+#include <mutex>
 #include <string>
 #include <utility>
 
@@ -162,6 +163,26 @@ namespace {
     return command;
   }
 
+  // Resolves whether this launch really goes through systemd, warning once when the option is set
+  // but the shell is not itself a systemd user unit: apps would then be moved out of the login
+  // session the shell lives in.
+  bool effectiveRunAsSystemdService(const desktop_entry_launch::LaunchOptions& options) {
+    if (!options.runAsSystemdService) {
+      return false;
+    }
+    if (process::runningUnderSystemdUserManager()) {
+      return true;
+    }
+    static std::once_flag warnOnce;
+    std::call_once(warnOnce, [] {
+      kLog.warn(
+          "launch_apps_as_systemd_services is enabled but Noctalia is not running under the systemd user "
+          "manager (no uwsm or systemd user service); launching apps directly"
+      );
+    });
+    return false;
+  }
+
 } // namespace
 
 namespace desktop_entry_launch {
@@ -197,13 +218,14 @@ namespace desktop_entry_launch {
   }
 
   bool launchEntry(const DesktopEntry& entry, const LaunchOptions& options) {
-    if (options.runAsSystemdService && !options.customCommand.empty()) {
+    const bool runAsSystemdService = effectiveRunAsSystemdService(options);
+    if (runAsSystemdService && !options.customCommand.empty()) {
       kLog.warn(
           "launch_apps_as_systemd_services and launch_apps_custom_command are mutually exclusive; ignoring custom "
           "command"
       );
     }
-    const std::string customCommand = options.runAsSystemdService ? "" : options.customCommand;
+    const std::string customCommand = runAsSystemdService ? "" : options.customCommand;
     const std::string command = parseCustomCommand(entry.exec, customCommand);
     auto prepared = prepareCommand(command, entry.terminal);
 
@@ -213,7 +235,7 @@ namespace desktop_entry_launch {
     }
 
     const std::string appName = !entry.id.empty() ? entry.id : appNameOrDefault(entry.name);
-    if (options.runAsSystemdService) {
+    if (runAsSystemdService) {
       return process::runAsyncAsSystemdService(prepared->args, appName, options.activationToken, entry.workingDir);
     }
     return process::runAsync(prepared->args, options.activationToken, entry.workingDir);
@@ -223,13 +245,14 @@ namespace desktop_entry_launch {
       const DesktopAction& action, std::string_view appName, std::string_view workingDir, bool terminal,
       const LaunchOptions& options
   ) {
-    if (options.runAsSystemdService && !options.customCommand.empty()) {
+    const bool runAsSystemdService = effectiveRunAsSystemdService(options);
+    if (runAsSystemdService && !options.customCommand.empty()) {
       kLog.warn(
           "launch_apps_as_systemd_services and launch_apps_custom_command are mutually exclusive; ignoring custom "
           "command"
       );
     }
-    const std::string customCommand = options.runAsSystemdService ? "" : options.customCommand;
+    const std::string customCommand = runAsSystemdService ? "" : options.customCommand;
     const std::string command = parseCustomCommand(action.exec, customCommand);
     auto prepared = prepareCommand(command, terminal);
     if (!prepared.has_value()) {
@@ -239,7 +262,7 @@ namespace desktop_entry_launch {
       return false;
     }
 
-    if (options.runAsSystemdService) {
+    if (runAsSystemdService) {
       return process::runAsyncAsSystemdService(
           prepared->args, appNameOrDefault(appName), options.activationToken, std::string(workingDir)
       );

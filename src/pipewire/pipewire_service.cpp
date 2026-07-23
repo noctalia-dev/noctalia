@@ -2036,7 +2036,7 @@ void PipeWireService::emitChanged() {
 }
 
 void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) {
-  const auto maxVolume = [&config] { return config.config().audio.enableOverdrive ? 1.5f : 1.0f; };
+  const auto maxVolume = [&config] { return maxAudioVolume(config.config().audio); };
   const auto parseVolumeValueError =
       "error: invalid volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
   const auto parseVolumeStepError = "error: invalid volume step (use percent like 5 or 5%, or normalized like 0.05)\n";

@@ -23,11 +23,9 @@ namespace {
 
 } // namespace
 
-BrightnessWidget::BrightnessWidget(
-    BrightnessService* brightness, wl_output* output, bool showLabel, int scrollStepPercent, bool enableScroll
-)
-    : m_brightness(brightness), m_output(output), m_showLabel(showLabel), m_enableScroll(enableScroll),
-      m_scrollStep(static_cast<float>(scrollStepPercent) / 100.0f) {}
+BrightnessWidget::BrightnessWidget(BrightnessService* brightness, wl_output* output, Options options)
+    : m_brightness(brightness), m_output(output), m_showLabel(options.showLabel), m_enableScroll(options.enableScroll),
+      m_scrollStep(static_cast<float>(options.scrollStepPercent) / 100.0f) {}
 
 void BrightnessWidget::create() {
   auto area = std::make_unique<InputArea>();

@@ -20,6 +20,7 @@ namespace scripting {
     Double,
     String,
     StringList,
+    StringMap,
     File,
     Folder,
     Glyph,
@@ -51,6 +52,7 @@ namespace scripting {
     double numberDefault = 0.0;
     std::string stringDefault;
     std::vector<std::string> stringListDefault;
+    WidgetSettingStringMap stringMapDefault;
 
     std::optional<double> minValue;
     std::optional<double> maxValue;
@@ -113,6 +115,8 @@ namespace scripting {
     std::string panelPlacementDefault = "floating";
     std::string panelPositionDefault = "auto";
     bool panelOpenNearClickDefault = false;
+    // false: keep open on outside click (auth prompts)
+    bool panelDismissOnOutsideClick = true;
   };
 
   struct PluginManifest {

@@ -4,6 +4,7 @@
 #include "dbus/system_bus.h"
 #include "i18n/i18n.h"
 #include "util/string_utils.h"
+#include "util/sys_utils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -132,6 +133,26 @@ namespace {
 
   constexpr Logger kLog("upower");
 
+  UPowerDeviceInfo makeDummyBatteryDevice() {
+    UPowerDeviceInfo info;
+    info.path = "/org/freedesktop/UPower/devices/dummy_battery";
+    info.nativePath = "dummy_BAT0";
+    info.model = "Dummy Battery";
+    info.type = UPowerDeviceType::Battery;
+    info.powerSupply = true;
+    info.isPresent = true;
+    info.energyFull = 54.0;
+    info.energyFullDesign = 54.0;
+    info.state.percentage = 67.0;
+    info.state.energyRate = 12.5;
+    info.state.state = BatteryState::Discharging;
+    info.state.timeToEmpty = 3 * 3600 + 15 * 60;
+    info.state.energy = 36.2;
+    info.state.isPresent = true;
+    info.state.onBattery = true;
+    return info;
+  }
+
 } // namespace
 
 bool upowerDeviceMatchesSelector(const UPowerDeviceInfo& info, std::string_view selector) {
@@ -168,6 +189,11 @@ UPowerService::UPowerService(SystemBus& bus) : m_bus(bus) {
     rescanDevices();
   });
 
+  if (SysUtils::isEnvFlagOn("NOCTALIA_DUMMY_BATTERY")) {
+    m_dummyDevice = makeDummyBatteryDevice();
+    kLog.info("dummy battery enabled ({:.0f}% discharging)", m_dummyDevice->state.percentage);
+  }
+
   rescanDevices();
 
   if (m_state.isPresent) {
@@ -186,11 +212,14 @@ void UPowerService::refresh() { refreshDeviceStates(); }
 
 std::vector<UPowerDeviceInfo> UPowerService::batteryDevices() const {
   std::vector<UPowerDeviceInfo> devices;
-  devices.reserve(m_devices.size());
+  devices.reserve(m_devices.size() + (m_dummyDevice ? 1 : 0));
   for (const auto& device : m_devices) {
     if (device.info.isPresent && isBatteryCapableDeviceType(device.info.type)) {
       devices.push_back(device.info);
     }
+  }
+  if (m_dummyDevice && m_dummyDevice->isPresent) {
+    devices.push_back(*m_dummyDevice);
   }
   return devices;
 }
@@ -287,6 +316,9 @@ UPowerState UPowerService::readDefaultState() const {
   }
 
   next = device->state;
+  if (m_dummyDevice && device == &*m_dummyDevice) {
+    return next;
+  }
   next.onBattery = getPropertyOr<bool>(*m_upowerProxy, kUpowerInterface, "OnBattery", false);
   return next;
 }
@@ -339,6 +371,9 @@ const UPowerDeviceInfo* UPowerService::defaultSystemBattery() const noexcept {
       return &device.info;
     }
   }
+  if (m_dummyDevice && m_dummyDevice->isLaptopBattery() && m_dummyDevice->isPresent) {
+    return &*m_dummyDevice;
+  }
   return nullptr;
 }
 
@@ -352,6 +387,11 @@ const UPowerDeviceInfo* UPowerService::deviceForSelector(std::string_view select
     if (isBatteryCapableDeviceType(device.info.type) && upowerDeviceMatchesSelector(device.info, trimmed)) {
       return &device.info;
     }
+  }
+  if (m_dummyDevice
+      && isBatteryCapableDeviceType(m_dummyDevice->type)
+      && upowerDeviceMatchesSelector(*m_dummyDevice, trimmed)) {
+    return &*m_dummyDevice;
   }
   return nullptr;
 }

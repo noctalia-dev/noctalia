@@ -6,6 +6,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <print>
 #include <string>
 #include <string_view>
 #include <variant>
@@ -15,7 +16,7 @@ namespace {
 
   bool expect(bool condition, const char* message) {
     if (!condition) {
-      std::fprintf(stderr, "plugin_bindings_test: %s\n", message);
+      std::println(stderr, "plugin_bindings_test: {}", message);
     }
     return condition;
   }
@@ -52,9 +53,25 @@ int main() {
 
   scripting::PluginBindingContext context;
   context.ownerId = "test/plugin:panel";
+  scripting::ScriptSettings settings;
+  settings.emplace("output_glyphs", WidgetSettingStringMap{{"eDP-1", "laptop"}, {"DP-1", "monitor"}});
+  context.settings = &settings;
   scripting::registerPluginBindings(state, &context);
+  lua_pushcfunction(state, scripting::luau_getConfig, "getConfig");
+  lua_setglobal(state, "getConfig");
 
   bool ok = true;
+  ok = expect(
+           runLuau(
+               state, "=string-map-config",
+               "local glyphs = getConfig('output_glyphs')\n"
+               "assert(type(glyphs) == 'table')\n"
+               "assert(glyphs['eDP-1'] == 'laptop')\n"
+               "assert(glyphs['DP-1'] == 'monitor')\n"
+           ),
+           "getConfig should expose string maps as associative tables"
+       )
+      && ok;
   ok = expect(runLuau(state, "=ui-prelude", scripting::kUiPrelude), "failed to execute production UI prelude") && ok;
   ok = expect(
            runLuau(state, "=empty-accepts", "panel.render(ui.dropZone({ accepts = {} }))"),

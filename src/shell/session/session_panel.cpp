@@ -179,7 +179,9 @@ Button* SessionPanel::createActionButton(const SessionPanelActionConfig& cfg, st
   const std::string labelText =
       cfg.label.has_value() && !cfg.label->empty() ? *cfg.label : i18n::tr(session_action::labelKey(cfg.action));
   button->setText(labelText);
-  if (index < m_entryShortcutBadges.size() && m_entryShortcutBadges[index].has_value()) {
+  if (index < m_entryShortcutBadges.size()
+      && m_entryShortcutBadges[index].has_value()
+      && m_config->config().shell.session.showShortcuts) {
     button->setBadge(*m_entryShortcutBadges[index]);
   }
   button->setGlyph(
@@ -351,7 +353,9 @@ void SessionPanel::restoreEntryBadges() {
     if (button == nullptr) {
       continue;
     }
-    if (i < m_entryShortcutBadges.size() && m_entryShortcutBadges[i].has_value()) {
+    if (i < m_entryShortcutBadges.size()
+        && m_entryShortcutBadges[i].has_value()
+        && m_config->config().shell.session.showShortcuts) {
       button->setBadge(*m_entryShortcutBadges[i]);
     } else {
       button->setBadge("");
