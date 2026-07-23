@@ -3475,6 +3475,10 @@
           "description": "Action performed when left-clicking the bar button",
           "label": "Primary click"
         },
+        "reverse-scroll-direction": {
+          "description": "Mouse scroll up/down binds are swapped for this widget",
+          "label": "Reverse Scrolling Direction"
+        },
         "right-command": {
           "description": "Shell command run when right-clicking this button",
           "label": "Right Click Command"

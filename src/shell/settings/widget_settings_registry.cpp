@@ -887,6 +887,11 @@ namespace settings {
       }
       add(boolSpec("hide_when_no_media", false));
       add(boolSpec("enable_scroll", true));
+      {
+        auto reverseScrollDirection = boolSpec("reverse_scroll_direction", false);
+        reverseScrollDirection.visibleWhen = WidgetSettingVisibility{"enable_scroll", {"true"}};;
+        add(std::move(reverseScrollDirection));
+      }      
     } else if (type == "network") {
       add(selectSpec("vpn_status", "replace", vpnStatusMode));
       add(boolSpec("show_label", true));

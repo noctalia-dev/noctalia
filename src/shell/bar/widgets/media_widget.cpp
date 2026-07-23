@@ -27,11 +27,11 @@ namespace {
 MediaWidget::MediaWidget(
     MprisService* mpris, HttpClient* httpClient, wl_output* /*output*/, float maxWidth, float minWidth, float artSize,
     MediaTitleScrollMode titleScrollMode, bool hideWhenNoMedia, bool albumArtOnly, bool hideAlbumArt, bool hideArtist,
-    bool artistFirst, bool enableScroll
+    bool artistFirst, bool enableScroll, bool reverseScrollDirection
 )
     : m_mpris(mpris), m_httpClient(httpClient), m_maxWidth(maxWidth), m_minWidth(minWidth), m_artSize(artSize),
       m_titleScrollMode(titleScrollMode), m_hideWhenNoMedia(hideWhenNoMedia), m_albumArtOnly(albumArtOnly),
-      m_hideAlbumArt(hideAlbumArt), m_hideArtist(hideArtist), m_artistFirst(artistFirst), m_enableScroll(enableScroll) {
+      m_hideAlbumArt(hideAlbumArt), m_hideArtist(hideArtist), m_artistFirst(artistFirst), m_enableScroll(enableScroll), m_reverseScrollDirection(reverseScrollDirection) {
 }
 
 void MediaWidget::create() {
@@ -78,8 +78,9 @@ void MediaWidget::create() {
     if (steps == 0.0f) {
       return;
     }
-    // Scroll up → next; Wayland reports up as a negative delta.
-    if (steps < 0.0f) {
+    // Wayland reports up as a negative delta. Scroll up → next by default, but flip it if reverse scrolling direction is enabled.
+    const bool scrollNext = (steps < 0.0f) != m_reverseScrollDirection;
+    if (scrollNext) {
       m_mpris->nextActive();
     } else {
       m_mpris->previousActive();
