@@ -13,6 +13,7 @@
 #include "shell/bar/widgets/brightness_widget.h"
 #include "shell/bar/widgets/brightness_widget_definition.h"
 #include "shell/bar/widgets/clipboard_widget.h"
+#include "shell/bar/widgets/clipboard_widget_definition.h"
 #include "shell/bar/widgets/clock_widget.h"
 #include "shell/bar/widgets/clock_widget_definition.h"
 #include "shell/bar/widgets/control_center_widget.h"
@@ -209,13 +210,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
     if (!m_config.shell.clipboardEnabled) {
       return nullptr;
     }
-    auto barGlyph = wc != nullptr ? wc->getString("glyph", "clipboard") : std::string{"clipboard"};
-    if (barGlyph.empty()) {
-      barGlyph = "clipboard";
-    }
-    auto widget = std::make_unique<ClipboardWidget>(output, std::move(barGlyph), customImageFor(wc));
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<ClipboardWidget>(
+        contentScale, output, clipboardWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+    );
   }
 
   if (type == "control-center") {

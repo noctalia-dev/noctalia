@@ -8,6 +8,7 @@
 #include "shell/bar/widgets/battery_widget_definition.h"
 #include "shell/bar/widgets/bluetooth_widget_definition.h"
 #include "shell/bar/widgets/brightness_widget_definition.h"
+#include "shell/bar/widgets/clipboard_widget_definition.h"
 #include "shell/bar/widgets/clock_widget_definition.h"
 #include "shell/bar/widgets/control_center_widget_definition.h"
 #include "shell/bar/widgets/launcher_widget_definition.h"
@@ -90,6 +91,7 @@ namespace settings {
         projectWidgetDefinition<batteryWidgetDefinition>(),
         projectWidgetDefinition<bluetoothWidgetDefinition>(),
         projectWidgetDefinition<brightnessWidgetDefinition>(),
+        projectWidgetDefinition<clipboardWidgetDefinition>(),
         projectWidgetDefinition<clockWidgetDefinition>(),
         projectWidgetDefinition<controlCenterWidgetDefinition>(),
         projectWidgetDefinition<launcherWidgetDefinition>(),
@@ -767,10 +769,6 @@ namespace settings {
         add(std::move(display));
       }
       add(boolSpec("show_empty_label", false));
-    } else if (type == "clipboard") {
-      add(glyphSpec("glyph", "clipboard"));
-      add(stringSpec("custom_image", ""));
-      add(boolSpec("custom_image_colorize", false));
     } else if (type == "screenshot") {
       add(glyphSpec("glyph", "screenshot"));
       add(stringSpec("custom_image", ""));

@@ -11,7 +11,13 @@ struct wl_output;
 
 class ClipboardWidget : public Widget {
 public:
-  ClipboardWidget(wl_output* output, std::string barGlyphId, WidgetCustomImage customImage = {});
+  struct Options {
+    std::string glyph = "clipboard";
+    std::string customImage;
+    bool customImageColorize = false;
+  };
+
+  ClipboardWidget(wl_output* output, Options options);
 
   void create() override;
 
