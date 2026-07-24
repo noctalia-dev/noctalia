@@ -30,6 +30,7 @@
 #include <chrono>
 #include <filesystem>
 #include <memory>
+#include <random>
 #include <string_view>
 #include <system_error>
 #include <unordered_set>
@@ -206,6 +207,18 @@ namespace {
       return std::nullopt;
     }
     return mtime;
+  }
+
+  // Ordering key for SortMode::Random. Hashing the path against a seed keeps the
+  // shuffled order fixed until the seed changes, so filtering or starring a tile
+  // rebuilds the visible entries without reordering the grid.
+  [[nodiscard]] std::uint64_t randomOrderKey(const WallpaperEntry& entry, std::uint64_t seed) {
+    std::uint64_t hash = std::filesystem::hash_value(entry.absPath) ^ seed;
+    hash ^= hash >> 30U;
+    hash *= 0xBF58476D1CE4E5B9ULL;
+    hash ^= hash >> 27U;
+    hash *= 0x94D049BB133111EBULL;
+    return hash ^ (hash >> 31U);
   }
 
   [[nodiscard]] bool favoriteVisibleInBrowseContext(
@@ -858,6 +871,7 @@ void WallpaperPanel::onOpen(std::string_view /*context*/) {
   m_navStack.clear();
   populateMonitorChoices();
   syncSortButtonGlyph();
+  reseedRandomSort();
   refreshVisibleEntries();
   resetSelection();
   rebindGrid();
@@ -1676,6 +1690,9 @@ void WallpaperPanel::setSortMode(SortMode mode) {
     return;
   }
   m_sortMode = mode;
+  if (mode == SortMode::Random) {
+    reseedRandomSort();
+  }
   if (m_config != nullptr) {
     (void)m_config->setStateString("wallpaper_panel", "sort", std::string(sortModeStateValue(mode)));
   }
@@ -1684,6 +1701,10 @@ void WallpaperPanel::setSortMode(SortMode mode) {
   rebindGrid();
   m_dirty = true;
   PanelManager::instance().refresh();
+}
+
+void WallpaperPanel::reseedRandomSort() {
+  m_randomSeed = std::uniform_int_distribution<std::uint64_t>{}(Random::rng());
 }
 
 void WallpaperPanel::sortVisibleEntries() {
@@ -1721,6 +1742,14 @@ void WallpaperPanel::sortVisibleEntries() {
       }
       return caseInsensitiveNameOrder(a.name, b.name) < 0;
     }
+    case SortMode::Random: {
+      const std::uint64_t aKey = randomOrderKey(a, m_randomSeed);
+      const std::uint64_t bKey = randomOrderKey(b, m_randomSeed);
+      if (aKey != bKey) {
+        return aKey < bKey;
+      }
+      return caseInsensitiveNameOrder(a.name, b.name) < 0;
+    }
     case SortMode::NameAsc:
     default: {
       const int order = caseInsensitiveNameOrder(a.name, b.name);
@@ -1736,19 +1765,12 @@ void WallpaperPanel::sortVisibleEntries() {
     const std::size_t end = std::min(endIndex, m_visibleEntries.size());
     const auto begin = m_visibleEntries.begin() + static_cast<std::ptrdiff_t>(beginIndex);
     const auto endIt = m_visibleEntries.begin() + static_cast<std::ptrdiff_t>(end);
-    const auto sortSubrange = [&](const auto subBegin, const auto subEnd) {
-      if (m_sortMode == SortMode::Random) {
-        std::shuffle(subBegin, subEnd, Random::rng());
-      } else {
-        std::sort(subBegin, subEnd, compareEntries);
-      }
-    };
     if (foldersFirst) {
       const auto folderEnd = std::partition(begin, endIt, [](const WallpaperEntry& entry) { return entry.isDir; });
-      sortSubrange(begin, folderEnd);
-      sortSubrange(folderEnd, endIt);
+      std::sort(begin, folderEnd, compareEntries);
+      std::sort(folderEnd, endIt, compareEntries);
     } else {
-      sortSubrange(begin, endIt);
+      std::sort(begin, endIt, compareEntries);
     }
   };
 

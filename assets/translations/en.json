@@ -3822,7 +3822,7 @@
       "sort-date-desc": "Sort by date (newest first)",
       "sort-name-asc": "Sort by name (A-Z)",
       "sort-name-desc": "Sort by name (Z-A)",
-      "sort-random": "Sort by random",
+      "sort-random": "Sort by random (shuffle)",
       "title": "Wallpaper"
     }
   },
