@@ -14,6 +14,7 @@ namespace noctalia::config {
 
     constexpr int kNegativeBarRadiusMigrationVersion = 1;
     constexpr int kCustomScheduleMigrationVersion = 2;
+    constexpr int kShellMaterialMigrationVersion = 3;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
@@ -106,6 +107,89 @@ namespace noctalia::config {
       });
     }
 
+    // Lift legacy panel.transparency_mode / bar.glass into shell.material.
+    void migrateShellMaterial(toml::table& root, schema::Diagnostics& diag) {
+      auto* shell = root["shell"].as_table();
+      if (shell == nullptr) {
+        shell = root.insert("shell", toml::table{}).first->second.as_table();
+      }
+      if (shell == nullptr) {
+        return;
+      }
+
+      auto* material = (*shell)["material"].as_table();
+      const bool hadMaterialMode = material != nullptr && material->contains("mode");
+      if (material == nullptr) {
+        material = shell->insert("material", toml::table{}).first->second.as_table();
+      }
+      if (material == nullptr) {
+        return;
+      }
+
+      if (!hadMaterialMode) {
+        std::string mode = "solid";
+        if (const auto* panel = (*shell)["panel"].as_table()) {
+          if (const auto transparency = (*panel)["transparency_mode"].value<std::string>()) {
+            const auto trimmed = *transparency;
+            if (trimmed == "soft") {
+              mode = "soft";
+            } else if (trimmed == "glass" || trimmed == "liquid_glass") {
+              mode = "liquid_glass";
+            }
+          }
+        }
+        // Any bar with glass = true upgrades the shell material.
+        if (mode == "solid") {
+          if (const auto* bars = root["bar"].as_table()) {
+            for (const auto& [barName, barNode] : *bars) {
+              (void)barName;
+              if (const auto* bar = barNode.as_table()) {
+                if ((*bar)["glass"].value_or(false)) {
+                  mode = "liquid_glass";
+                  break;
+                }
+                if (const auto* monitors = (*bar)["monitor"].as_table()) {
+                  for (const auto& [monName, monNode] : *monitors) {
+                    (void)monName;
+                    if (const auto* mon = monNode.as_table(); mon != nullptr && (*mon)["glass"].value_or(false)) {
+                      mode = "liquid_glass";
+                      break;
+                    }
+                  }
+                }
+              }
+              if (mode == "liquid_glass") {
+                break;
+              }
+            }
+          }
+        }
+        material->insert_or_assign("mode", mode);
+        if (!material->contains("density")) {
+          material->insert_or_assign("density", 1.0);
+        }
+        diag.warn("shell.material", "migrated surface material from panel transparency / bar.glass");
+      }
+
+      // Drop obsolete per-bar glass keys once the global material owns the look.
+      if (auto* bars = root["bar"].as_table()) {
+        for (auto& [barName, barNode] : *bars) {
+          (void)barName;
+          if (auto* bar = barNode.as_table()) {
+            bar->erase("glass");
+            if (auto* monitors = (*bar)["monitor"].as_table()) {
+              for (auto& [monName, monNode] : *monitors) {
+                (void)monName;
+                if (auto* mon = monNode.as_table()) {
+                  mon->erase("glass");
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     std::uint64_t stableIssueHash(int migrationVersion, std::string_view path) {
       constexpr std::uint64_t kOffset = 14695981039346656037ULL;
       constexpr std::uint64_t kPrime = 1099511628211ULL;
@@ -152,6 +236,11 @@ namespace noctalia::config {
             .toVersion = kCustomScheduleMigrationVersion,
             .summary = "location: opt legacy sunset/sunrise schedules into custom_schedule",
             .apply = migrateCustomScheduleSidecar,
+        },
+        {
+            .toVersion = kShellMaterialMigrationVersion,
+            .summary = "shell: lift panel transparency / bar.glass into shell.material",
+            .apply = migrateShellMaterial,
         },
     };
     return migrations;

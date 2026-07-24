@@ -1192,6 +1192,33 @@ namespace noctalia::config::schema {
       return s;
     }
 
+    const Schema<ShellConfig::MaterialConfig>& shellMaterialSchema() {
+      static const Schema<ShellConfig::MaterialConfig> s = {
+          // Accept solid | soft | liquid_glass, plus legacy "glass" as liquid_glass.
+          custom<ShellConfig::MaterialConfig>(
+              "mode",
+              [](const toml::table& tbl, ShellConfig::MaterialConfig& out, std::string_view parentPath,
+                 Diagnostics& diag) {
+                if (auto v = tbl["mode"].value<std::string>()) {
+                  const std::string key = StringUtils::trim(*v);
+                  if (auto parsed = enumFromKey(kSurfaceMaterialModes, key)) {
+                    out.mode = *parsed;
+                  } else if (key == "glass") {
+                    out.mode = SurfaceMaterialMode::LiquidGlass;
+                  } else {
+                    diag.warn(joinPath(parentPath, "mode"), "expected solid, soft, or liquid_glass, got \"" + key + "\"");
+                  }
+                }
+              },
+              [](toml::table& tbl, const ShellConfig::MaterialConfig& in) {
+                tbl.insert_or_assign("mode", std::string(enumToKey(kSurfaceMaterialModes, in.mode)));
+              }
+          ),
+          field(&ShellConfig::MaterialConfig::density, "density", kUnitRange),
+      };
+      return s;
+    }
+
     // Optional strings stored trimmed-or-nullopt, always emitted (value_or("")).
     Field<DmenuEntryConfig>
     dmenuOptionalString(std::optional<std::string> DmenuEntryConfig::* member, std::string_view key) {
@@ -1474,6 +1501,7 @@ namespace noctalia::config::schema {
         pathStringField(&ShellConfig::avatarPath, "avatar_path"),
         subTable(&ShellConfig::animation, "animation", shellAnimationSchema()),
         subTable(&ShellConfig::shadow, "shadow", shellShadowSchema()),
+        subTable(&ShellConfig::material, "material", shellMaterialSchema()),
         subTable(&ShellConfig::panel, "panel", shellPanelSchema()),
         subTable(&ShellConfig::launcher, "launcher", shellLauncherSchema()),
         subTable(&ShellConfig::screenCorners, "screen_corners", shellScreenCornersSchema()),
@@ -2107,7 +2135,6 @@ namespace noctalia::config::schema {
         barLayerField(),
         field(&BarConfig::thickness, "thickness", kBarThicknessRange),
         field(&BarConfig::backgroundOpacity, "background_opacity", kBarOpacityRange),
-        field(&BarConfig::glass, "glass"),
         colorField(&BarConfig::border, "border"),
         field(&BarConfig::borderWidth, "border_width", kBarBorderWidthRange),
         barRadiusField(),
@@ -2179,7 +2206,6 @@ namespace noctalia::config::schema {
         ),
         optionalIntField(&BarMonitorOverride::thickness, "thickness", kBarThicknessRange),
         optionalFloatField(&BarMonitorOverride::backgroundOpacity, "background_opacity", kBarOpacityRange),
-        optionalBoolField(&BarMonitorOverride::glass, "glass"),
         optionalColorField(&BarMonitorOverride::border, "border"),
         optionalFloatField(&BarMonitorOverride::borderWidth, "border_width", kBarBorderWidthRange),
         optionalIntField(&BarMonitorOverride::radius, "radius", kBarRadiusRange),

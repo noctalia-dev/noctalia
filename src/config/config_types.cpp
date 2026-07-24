@@ -178,7 +178,8 @@ float panelCardOpacityForTransparencyMode(PanelTransparencyMode mode, float pane
     return 1.0f;
   case PanelTransparencyMode::Soft:
     return std::clamp(backgroundOpacity + 0.08f, 0.82f, 0.92f);
-  case PanelTransparencyMode::Glass:
+  case PanelTransparencyMode::LiquidGlass:
+    // Cards on liquid-glass shells stay translucent but readable (not clear glass).
     return std::clamp(backgroundOpacity + 0.10f, 0.62f, 0.75f);
   }
   return 1.0f;
@@ -190,26 +191,10 @@ float detachedPanelBackgroundOpacityForTransparencyMode(PanelTransparencyMode mo
     return 1.0f;
   case PanelTransparencyMode::Soft:
     return 0.80f;
-  case PanelTransparencyMode::Glass:
+  case PanelTransparencyMode::LiquidGlass:
     return 0.55f;
   }
   return 1.0f;
-}
-
-float resolveBarBackgroundOpacity(float backgroundOpacity, bool glass, float surfaceRelativeLuminance) noexcept {
-  const float strength = std::clamp(backgroundOpacity, 0.0f, 1.0f);
-  if (!glass) {
-    return strength;
-  }
-
-  // Liquid glass is clear, not milky frost: the fill is a thin refractive wash so the
-  // compositor-blurred backdrop stays readable (iOS Control Center / macOS Tahoe glass).
-  // WCAG relative luminance of Surface: 0 = black, 1 = white. Light surfaces need a bit
-  // more body so glyphs stay legible; dark surfaces stay more open.
-  const float L = std::clamp(surfaceRelativeLuminance, 0.0f, 1.0f);
-  const float clearAlpha = std::lerp(0.05f, 0.09f, L);
-  const float denseAlpha = std::lerp(0.16f, 0.28f, L);
-  return std::lerp(clearAlpha, denseAlpha, strength);
 }
 
 void normalizeIdleBehaviorAction(IdleBehaviorConfig& behavior) {

@@ -47,8 +47,13 @@ speed   = 1.0                       # 0.5 = 2× slower, 2.0 = 2× faster
 direction = "down"                  # center, up, down, left, right, up_left, up_right, down_left, down_right
 alpha     = 0.55                    # multiplied by each component's background opacity
 
+[shell.material]
+mode    = "solid"                   # solid | soft | liquid_glass — shared look for bar, dock, panels
+density = 1.0                       # soft/liquid_glass intensity; bar/dock background_opacity multiplies this
+
 [shell.panel]
-transparency_mode     = "solid"     # solid | soft | glass; controls floating/centered opacity and card translucency
+# transparency_mode is a legacy alias of shell.material.mode (glass -> liquid_glass)
+transparency_mode     = "solid"     # prefer [shell.material]; kept for older configs
 borders               = true        # panel shell outline and in-panel section cards
 shadow                = true        # cast the global [shell.shadow] from panel surfaces
 launcher_placement       = "centered" # attached | floating | centered
@@ -315,8 +320,7 @@ tab_previous = ["shift+iso_left_tab"]
 [bar.main]
 position           = "top"          # top | bottom | left | right
 thickness          = 34
-background_opacity = 1.0
-glass              = false          # clear liquid glass (specular rim + refractive wash); opacity becomes density
+background_opacity = 1.0            # solid: raw alpha; soft/liquid_glass: multiplies shell.material.density
 radius             = 12
 margin_h           = 180
 margin_v           = 10

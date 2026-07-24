@@ -8,6 +8,7 @@
 #include "render/scene/node.h"
 #include "shell/dock/dock_geometry.h"
 #include "shell/dock/dock_items.h"
+#include "shell/surface/material.h"
 #include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "ui/builders.h"
@@ -288,8 +289,11 @@ namespace shell::dock {
       const auto shadowOff = shadowDirectionOffset(shadowConfig.direction);
       const auto shadowOffsetX = static_cast<float>(shadowOff.x);
       const auto shadowOffsetY = static_cast<float>(shadowOff.y);
+      const float bodyAlpha =
+          shell::material::resolve(shell::material::fromShell(deps.config.config().shell, cfg.backgroundOpacity))
+              .bodyAlpha;
       const RoundedRectStyle shadowStyle = shell::surface_shadow::style(
-          shadowConfig, cfg.backgroundOpacity,
+          shadowConfig, bodyAlpha,
           shell::surface_shadow::Shape{
               .corners = concave.corners, .logicalInset = concave.logicalInset, .radius = concave.radii
           }
@@ -307,7 +311,7 @@ namespace shell::dock {
     }
 
     // Panel
-    applyPanelPalette(instance, cfg);
+    applyPanelPalette(instance, deps.config.config().shell, cfg);
     instance.panel->setPosition(
         panelGeometry.panelX - concave.logicalInset.left, panelGeometry.panelY - concave.logicalInset.top
     );
@@ -337,7 +341,7 @@ namespace shell::dock {
 
     // Palette reactivity.
     instance.paletteConn = paletteChanged().connect([inst = &instance, &config = deps.config] {
-      applyPanelPalette(*inst, config.config().dock);
+      applyPanelPalette(*inst, config.config().shell, config.config().dock);
       if (inst->surface)
         inst->surface->requestRedraw();
     });
@@ -347,12 +351,31 @@ namespace shell::dock {
     }
   }
 
-  void applyPanelPalette(DockInstance& instance, const DockConfig& cfg) {
-    if (instance.panel == nullptr)
+  [[nodiscard]] shell::material::LightEdge dockLightEdge(DockEdge edge) noexcept {
+    switch (edge) {
+    case DockEdge::Top:
+      return shell::material::LightEdge::Top;
+    case DockEdge::Bottom:
+      return shell::material::LightEdge::Bottom;
+    case DockEdge::Left:
+      return shell::material::LightEdge::Left;
+    case DockEdge::Right:
+      return shell::material::LightEdge::Right;
+    }
+    return shell::material::LightEdge::Bottom;
+  }
+
+  void applyPanelPalette(DockInstance& instance, const ShellConfig& shell, const DockConfig& cfg) {
+    if (instance.panel == nullptr) {
       return;
-    const float opacity = cfg.backgroundOpacity;
-    instance.panel->setFill(colorSpecFromRole(ColorRole::Surface, opacity));
-    instance.panel->setBorder(cfg.border, cfg.borderWidth);
+    }
+    auto style = instance.panel->style();
+    auto params = shell::material::fromShell(shell, cfg.backgroundOpacity);
+    params.hasExplicitBorder = cfg.borderWidth > 0.0f;
+    params.border = cfg.border;
+    params.borderWidth = cfg.borderWidth;
+    shell::material::applyToStyle(style, params, dockLightEdge(cfg.position));
+    instance.panel->setStyle(style);
   }
 
   void resizeSurface(DockInstance& instance, const DockConfig& cfg, const ShellConfig::ShadowConfig& shadowConfig) {

@@ -574,6 +574,18 @@ namespace settings {
         ToggleSetting{cfg.shell.popupBorders}, "popup menu dropdown outline border flat minimal"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Appearance, "effects", tr("settings.schema.shell.material-mode.label"),
+        tr("settings.schema.shell.material-mode.description"), {"shell", "material", "mode"},
+        asSegmented(enumSelect(kSurfaceMaterialModes, cfg.shell.material.mode)),
+        "glass liquid soft solid material surface blur"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Appearance, "effects", tr("settings.schema.shell.material-density.label"),
+        tr("settings.schema.shell.material-density.description"), {"shell", "material", "density"},
+        sliderFor(cfg.shell.material.density, noctalia::config::schema::kUnitRange, false),
+        "glass density material soft liquid", true
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Appearance, "effects", tr("settings.schema.shared.shadow-direction.label"),
         tr("settings.schema.appearance.global-shadow-direction.description"), {"shell", "shadow", "direction"},
         enumSelect(kShadowDirections, cfg.shell.shadow.direction), "shadow direction"
@@ -1071,12 +1083,7 @@ namespace settings {
           std::move(anchorBarSelect), "anchor attach bar panel wallpaper launcher"
       ));
     }
-    entries.push_back(makeEntry(
-        SettingsSection::Panels, "effects", tr("settings.schema.panels.transparency-mode.label"),
-        tr("settings.schema.panels.transparency-mode.description"), {"shell", "panel", "transparency_mode"},
-        asSegmented(enumSelect(kPanelTransparencyModes, cfg.shell.panel.transparencyMode)),
-        "glass opacity alpha translucent cards blur"
-    ));
+    // Panel transparency is driven by global Appearance → Material (shell.material).
     entries.push_back(makeEntry(
         SettingsSection::Panels, "effects", tr("settings.schema.panels.borders.label"),
         tr("settings.schema.panels.borders.description"), {"shell", "panel", "borders"},
@@ -2940,13 +2947,9 @@ namespace settings {
           barReservedSlider(bar.borderWidth, 20.0f, 0.5f, false), "outline stroke", true
       ));
       entries.push_back(makeEntry(
-          section, "effects", tr("settings.schema.bar.glass.label"), tr("settings.schema.bar.glass.description"),
-          path("glass"), ToggleSetting{bar.glass}, "glass liquid clear specular blur translucent material"
-      ));
-      entries.push_back(makeEntry(
           section, "effects", tr("settings.schema.shared.background-opacity.label"),
           tr("settings.schema.bar.background-opacity.description"), path("background_opacity"),
-          SliderSetting{bar.backgroundOpacity, 0.0f, 1.0f, 0.01f, false}, "alpha glass density"
+          SliderSetting{bar.backgroundOpacity, 0.0f, 1.0f, 0.01f, false}, "alpha material density"
       ));
       entries.push_back(makeEntry(
           section, "effects", tr("settings.schema.shared.shadow.label"), tr("settings.schema.bar.shadow.description"),
@@ -3293,15 +3296,10 @@ namespace settings {
             barReservedSlider(ovr.borderWidth.value_or(bar.borderWidth), 20.0f, 0.5f, false), "outline stroke", true
         ));
         entries.push_back(makeEntry(
-            section, "effects", tr("settings.schema.bar.glass.label"), tr("settings.schema.bar.glass.description"),
-            monitorPath("glass"), ToggleSetting{ovr.glass.value_or(bar.glass)},
-            "glass liquid clear specular blur translucent material"
-        ));
-        entries.push_back(makeEntry(
             section, "effects", tr("settings.schema.shared.background-opacity.label"),
             tr("settings.schema.bar.background-opacity.description"), monitorPath("background_opacity"),
             SliderSetting{ovr.backgroundOpacity.value_or(bar.backgroundOpacity), 0.0f, 1.0f, 0.01f, false},
-            "alpha glass density"
+            "alpha material density"
         ));
         entries.push_back(makeEntry(
             section, "effects", tr("settings.schema.shared.shadow.label"), tr("settings.schema.bar.shadow.description"),

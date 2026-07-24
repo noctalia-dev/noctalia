@@ -15,6 +15,7 @@
 #include "shell/clipboard/clipboard_panel.h"
 #include "shell/panel/panel_surface_style.h"
 #include "shell/screen_position.h"
+#include "shell/surface/material.h"
 #include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "ui/controls/box.h"
@@ -948,9 +949,8 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_panelVisualWidth = panelWidth;
     m_panelVisualHeight = panelHeight;
     m_attachedBackgroundOpacity = m_activePanel->inheritsBarBackgroundOpacity()
-        ? resolveBarBackgroundOpacity(
-              barConfig.backgroundOpacity, barConfig.glass, relativeLuminance(colorForRole(ColorRole::Surface))
-          )
+        ? shell::material::resolve(shell::material::fromShell(m_config->config().shell, barConfig.backgroundOpacity))
+              .bodyAlpha
         : m_activePanel->attachedBackgroundOpacityOverride();
     m_attachedContactShadow = barConfig.contactShadow;
     m_attachedRevealProgress = 0.0f;
@@ -2071,9 +2071,22 @@ void PanelManager::applyAttachedDecorationStyle() {
   const float scale = m_activePanel->contentScale();
   const float radius = Style::scaledRadiusXl(scale);
 
-  if (m_bgNode != nullptr) {
+  if (m_bgNode != nullptr && m_config != nullptr) {
     auto* bg = static_cast<Box*>(m_bgNode);
-    bg->setFill(colorSpecFromRole(ColorRole::Surface, m_attachedBackgroundOpacity));
+    auto style = bg->style();
+    float surfaceOpacity = 1.0f;
+    if (const auto barConfigOpt = resolvePanelBarConfig(m_config, m_platform, m_output, m_sourceBarName)) {
+      surfaceOpacity = barConfigOpt->backgroundOpacity;
+    }
+    auto params = shell::material::fromShell(m_config->config().shell, surfaceOpacity);
+    // Seamless join with the bar: no material rim on the attached panel shell.
+    params.hasExplicitBorder = true;
+    params.borderWidth = 0.0f;
+    shell::material::applyToStyle(
+        style, params, shell::material::lightEdgeFromBarPosition(m_attachedBarPosition)
+    );
+    bg->setStyle(style);
+    m_attachedBackgroundOpacity = shell::material::resolve(params).bodyAlpha;
   }
 
   if (m_panelShadowNode != nullptr && m_config != nullptr) {
@@ -2175,9 +2188,9 @@ void PanelManager::onConfigReloaded() {
   const auto& barConfig = *barConfigOpt;
   bool changed = false;
   if (m_activePanel->inheritsBarBackgroundOpacity()) {
-    const float newOpacity = resolveBarBackgroundOpacity(
-        barConfig.backgroundOpacity, barConfig.glass, relativeLuminance(colorForRole(ColorRole::Surface))
-    );
+    const float newOpacity =
+        shell::material::resolve(shell::material::fromShell(m_config->config().shell, barConfig.backgroundOpacity))
+            .bodyAlpha;
     if (std::abs(newOpacity - m_attachedBackgroundOpacity) >= 0.001f) {
       m_attachedBackgroundOpacity = newOpacity;
       m_activePanel->setPanelCardOpacity(shell::panel_surface::cardOpacity(m_config, m_attachedBackgroundOpacity));

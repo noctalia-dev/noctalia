@@ -18,6 +18,7 @@
 #include "shell/bar/widget.h"
 #include "shell/bar/widgets/plugin_widget.h"
 #include "shell/panel/panel_manager.h"
+#include "shell/surface/material.h"
 #include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "ui/builders.h"
@@ -44,83 +45,22 @@ namespace {
   constexpr std::int32_t kAutoHideTriggerPx = 3;
   constexpr float kAutoHideSlideExtraPx = 4.0f;
 
-  [[nodiscard]] float barBackgroundOpacity(const BarConfig& bar) {
-    return resolveBarBackgroundOpacity(
-        bar.backgroundOpacity, bar.glass, relativeLuminance(colorForRole(ColorRole::Surface))
+  [[nodiscard]] shell::material::Params barMaterialParams(const ShellConfig& shell, const BarConfig& bar) {
+    auto params = shell::material::fromShell(shell, bar.backgroundOpacity);
+    params.hasExplicitBorder = bar.borderWidth > 0.0f;
+    params.border = bar.border;
+    params.borderWidth = bar.borderWidth;
+    return params;
+  }
+
+  [[nodiscard]] float barBackgroundOpacity(const ShellConfig& shell, const BarConfig& bar) {
+    return shell::material::resolve(barMaterialParams(shell, bar)).bodyAlpha;
+  }
+
+  void applyBarBackgroundStyle(RoundedRectStyle& style, const ShellConfig& shell, const BarConfig& bar) {
+    shell::material::applyToStyle(
+        style, barMaterialParams(shell, bar), shell::material::lightEdgeFromBarPosition(bar.position)
     );
-  }
-
-  // Clear liquid glass (Apple Control Center style): low-alpha refractive wash with a
-  // specular outer-edge catch light and a bright rim. Not frosted / milky material.
-  void applyLiquidGlassBackgroundStyle(RoundedRectStyle& style, const BarConfig& bar) {
-    const Color surface = colorForRole(ColorRole::Surface);
-    const float L = relativeLuminance(surface);
-    const float density = std::clamp(bar.backgroundOpacity, 0.0f, 1.0f);
-    const float bodyAlpha = resolveBarBackgroundOpacity(bar.backgroundOpacity, true, L);
-
-    // Glass is mostly clear/white so the backdrop shows through; a light surface mix
-    // keeps the shell palette present without turning the panel into frosted plastic.
-    const Color glassTint = lerpColor(rgba(1.0f, 1.0f, 1.0f, 1.0f), surface, std::lerp(0.08f, 0.22f, L));
-
-    // Outer edge faces the screen edge / light; brighter specular wash there, clearer toward content.
-    const float outerAlpha = std::clamp(bodyAlpha * 1.55f, 0.08f, 0.42f);
-    const float midAlpha = bodyAlpha;
-    const float innerAlpha = std::clamp(bodyAlpha * 0.45f, 0.02f, 0.18f);
-    const Color outer = withAlpha(glassTint, outerAlpha);
-    const Color mid = withAlpha(glassTint, midAlpha);
-    const Color inner = withAlpha(glassTint, innerAlpha);
-
-    style.fill = mid;
-    style.fillMode = FillMode::LinearGradient;
-    style.softness = 0.65f;
-
-    const std::string_view position = bar.position;
-    if (position == "left" || position == "right") {
-      style.gradientDirection = GradientDirection::Horizontal;
-      if (position == "left") {
-        style.gradientStops = {
-            GradientStop{0.0f, outer}, GradientStop{0.28f, mid}, GradientStop{1.0f, inner}, GradientStop{1.0f, inner}
-        };
-      } else {
-        style.gradientStops = {
-            GradientStop{0.0f, inner}, GradientStop{0.72f, mid}, GradientStop{1.0f, outer}, GradientStop{1.0f, outer}
-        };
-      }
-    } else {
-      style.gradientDirection = GradientDirection::Vertical;
-      if (position == "bottom") {
-        style.gradientStops = {
-            GradientStop{0.0f, inner}, GradientStop{0.72f, mid}, GradientStop{1.0f, outer}, GradientStop{1.0f, outer}
-        };
-      } else {
-        // top (default)
-        style.gradientStops = {
-            GradientStop{0.0f, outer}, GradientStop{0.28f, mid}, GradientStop{1.0f, inner}, GradientStop{1.0f, inner}
-        };
-      }
-    }
-
-    if (bar.borderWidth > 0.0f) {
-      style.border = resolveColorSpec(bar.border);
-      style.borderWidth = bar.borderWidth;
-    } else {
-      // Specular glass rim: bright on dark backdrops, slightly softer on light ones.
-      const float rimAlpha = std::clamp(std::lerp(0.42f, 0.62f, density) * std::lerp(1.0f, 0.55f, L), 0.2f, 0.75f);
-      style.border = withAlpha(rgba(1.0f, 1.0f, 1.0f, 1.0f), rimAlpha);
-      style.borderWidth = 1.25f;
-    }
-  }
-
-  void applyBarBackgroundStyle(RoundedRectStyle& style, const BarConfig& bar) {
-    if (bar.glass) {
-      applyLiquidGlassBackgroundStyle(style, bar);
-      return;
-    }
-    style.fill = colorForRole(ColorRole::Surface, barBackgroundOpacity(bar));
-    style.fillMode = FillMode::Solid;
-    style.softness = 0.0f;
-    style.border = resolveColorSpec(bar.border);
-    style.borderWidth = bar.borderWidth;
   }
 
   [[nodiscard]] std::string activeWorkspaceId(const std::vector<Workspace>& workspaces) {
@@ -910,7 +850,8 @@ namespace {
   }
 
   void applyBarShadowStyle(
-      BarInstance& instance, const ShellConfig::ShadowConfig& shadowConfig, float surfaceWidth, float surfaceHeight
+      BarInstance& instance, const ShellConfig& shell, const ShellConfig::ShadowConfig& shadowConfig, float surfaceWidth,
+      float surfaceHeight
   ) {
     if (instance.shadow == nullptr) {
       return;
@@ -925,7 +866,7 @@ namespace {
     // the concave inset into the visual rect, so concave spikes cast a matching shadow.
     const float barAreaW = barVisual.width + concave.logicalInset.left + concave.logicalInset.right;
     const float barAreaH = barVisual.height + concave.logicalInset.top + concave.logicalInset.bottom;
-    const float bgOpacity = barBackgroundOpacity(instance.barConfig);
+    const float bgOpacity = barBackgroundOpacity(shell, instance.barConfig);
     const auto shadowOff = shadowDirectionOffset(shadowConfig.direction);
     const float shadowX = barVisual.x - concave.logicalInset.left + static_cast<float>(shadowOff.x);
     const float shadowY = barVisual.y - concave.logicalInset.top + static_cast<float>(shadowOff.y);
@@ -1988,8 +1929,8 @@ void Bar::setAttachedPanelGeometry(
   instance->attachedPanelGeometry = geometry;
   if (instance->surface != nullptr && instance->surface->width() > 0 && instance->surface->height() > 0) {
     applyBarShadowStyle(
-        *instance, m_config->config().shell.shadow, static_cast<float>(instance->surface->width()),
-        static_cast<float>(instance->surface->height())
+        *instance, m_config->config().shell, m_config->config().shell.shadow,
+        static_cast<float>(instance->surface->width()), static_cast<float>(instance->surface->height())
     );
     instance->surface->requestRedraw();
   }
@@ -2726,11 +2667,11 @@ bool Bar::instanceNeedsFrameTick(const BarInstance& instance) {
 }
 
 void Bar::applyBackgroundPalette(BarInstance& instance) {
-  if (instance.bg == nullptr) {
+  if (instance.bg == nullptr || m_config == nullptr) {
     return;
   }
   auto style = instance.bg->style();
-  applyBarBackgroundStyle(style, instance.barConfig);
+  applyBarBackgroundStyle(style, m_config->config().shell, instance.barConfig);
   instance.bg->setStyle(style);
 }
 
@@ -3024,7 +2965,7 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
         .logicalInset = concave.logicalInset,
         .radius = concave.radii,
     };
-    applyBarBackgroundStyle(bgStyle, instance.barConfig);
+    applyBarBackgroundStyle(bgStyle, m_config->config().shell, instance.barConfig);
     instance.bg->setStyle(bgStyle);
     // (barAreaX/Y/W/H) is the body; the shader expands outward by logicalInset into
     // the visual rect, so the node must be sized to the visual rect.
@@ -3035,7 +2976,7 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
     );
   }
 
-  instance.paletteConn = paletteChanged().connect([inst = &instance] {
+  instance.paletteConn = paletteChanged().connect([this, inst = &instance] {
     applyBackgroundPalette(*inst);
     if (inst->surface != nullptr) {
       inst->surface->requestRedraw();
@@ -3046,7 +2987,7 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
     instance.contentClip->setSize(barAreaW, barAreaH);
   }
 
-  applyBarShadowStyle(instance, shadowConfig, w, h);
+  applyBarShadowStyle(instance, m_config->config().shell, shadowConfig, w, h);
 
   layoutBarSections(instance, *renderer, barAreaW, barAreaH, padding, isVertical);
 

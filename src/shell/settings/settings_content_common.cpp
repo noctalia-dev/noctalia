@@ -90,9 +90,6 @@ namespace settings {
     if (key == "background_opacity") {
       return override->backgroundOpacity.has_value();
     }
-    if (key == "glass") {
-      return override->glass.has_value();
-    }
     if (key == "border") {
       return override->border.has_value();
     }

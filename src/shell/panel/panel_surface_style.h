@@ -41,16 +41,24 @@ namespace shell::panel_surface {
     return std::max(0.1f, configService->config().accessibility.uiScale);
   }
 
+  // Prefer global shell.material; fall back to legacy panel.transparency_mode.
+  [[nodiscard]] inline SurfaceMaterialMode materialMode(const ConfigService* configService) noexcept {
+    if (configService == nullptr) {
+      return SurfaceMaterialMode::Solid;
+    }
+    const auto& shell = configService->config().shell;
+    if (shell.material.mode != SurfaceMaterialMode::Solid) {
+      return shell.material.mode;
+    }
+    return shell.panel.transparencyMode;
+  }
+
   [[nodiscard]] inline float backgroundOpacity(const ConfigService* configService) noexcept {
-    const auto mode =
-        configService != nullptr ? configService->config().shell.panel.transparencyMode : PanelTransparencyMode::Solid;
-    return detachedPanelBackgroundOpacityForTransparencyMode(mode);
+    return detachedPanelBackgroundOpacityForTransparencyMode(materialMode(configService));
   }
 
   [[nodiscard]] inline float cardOpacity(const ConfigService* configService, float panelBackgroundOpacity) noexcept {
-    const auto mode =
-        configService != nullptr ? configService->config().shell.panel.transparencyMode : PanelTransparencyMode::Solid;
-    return panelCardOpacityForTransparencyMode(mode, panelBackgroundOpacity);
+    return panelCardOpacityForTransparencyMode(materialMode(configService), panelBackgroundOpacity);
   }
 
 } // namespace shell::panel_surface

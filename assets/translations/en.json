@@ -1326,6 +1326,11 @@
           "attached": "Attached",
           "floating": "Floating"
         },
+        "material": {
+          "liquid-glass": "Liquid Glass",
+          "soft": "Soft",
+          "solid": "Solid"
+        },
         "panel-transparency": {
           "glass": "Glass",
           "soft": "Soft",
@@ -1590,7 +1595,7 @@
           "description": "Off keeps the bar visible; On hides it until you move the pointer to the screen edge; Smart shows the bar on an empty workspace and hides it when windows are open"
         },
         "background-opacity": {
-          "description": "Solid mode: raw background alpha. Glass mode: liquid-glass density from clearest to densest, mapped for the active theme"
+          "description": "Solid material: raw background alpha. Soft / liquid glass: multiplies the global material density from Appearance"
         },
         "border": {
           "description": "Color role for the bar outline; fixed hex colors are also supported",
@@ -1702,10 +1707,6 @@
         "font-weight": {
           "description": "Default weight for widget labels on this bar.",
           "label": "Font Weight"
-        },
-        "glass": {
-          "description": "Clear liquid-glass bar background (Apple-style): specular rim, refractive wash, and compositor blur — not frosted plastic",
-          "label": "Glass"
         },
         "hover-highlight": {
           "description": "Softly tint the widget under the mouse pointer with its own foreground color",
@@ -2371,7 +2372,7 @@
           "description": "Cast the global surface shadow from panel surfaces"
         },
         "transparency-mode": {
-          "description": "Panel glass style, including floating panel opacity and card translucency",
+          "description": "Legacy panel style; prefer Appearance → Surface Material for the shared shell material",
           "label": "Transparency"
         }
       },
@@ -2710,6 +2711,14 @@
           "description": "Wraps apps launched from the launcher, dock, and taskbar; substitutes $CMD with the original command",
           "label": "Custom App Launch Command",
           "placeholder": "$CMD"
+        },
+        "material-density": {
+          "description": "How dense soft and liquid-glass materials are (0 = clearest, 1 = densest). Solid surfaces ignore this",
+          "label": "Material Density"
+        },
+        "material-mode": {
+          "description": "Shared surface material for the bar, dock, and panels: solid, soft frost, or clear liquid glass",
+          "label": "Surface Material"
         },
         "middle-click-opens-widget-settings": {
           "description": "Open a bar widget's settings from the bar with middle click",

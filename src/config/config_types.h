@@ -66,7 +66,6 @@ struct BarMonitorOverride {
   std::optional<std::string> layer; // top | overlay
   std::optional<std::int32_t> thickness;
   std::optional<float> backgroundOpacity;
-  std::optional<bool> glass; // frosted glass material over compositor blur
   std::optional<ColorSpec> border;
   std::optional<float> borderWidth;
   std::optional<std::int32_t> radius;
@@ -132,10 +131,8 @@ struct BarConfig {
   bool reserveSpace = true;  // reserve compositor exclusive zone; applies with or without auto_hide
   std::string layer = "top"; // top | overlay — attached panels use the same layer
   std::int32_t thickness = Style::barThicknessDefault;
+  // Solid: raw body alpha. Soft / liquid glass: multiplies shell.material.density.
   float backgroundOpacity = 1.0f;
-  // Clear Apple-style liquid glass: low-alpha refractive wash + specular rim over compositor blur.
-  // When true, `backgroundOpacity` is glass density (0 = clearest, 1 = densest), not raw alpha.
-  bool glass = false;
   // Inside outline for the bar background; attached panels inherit the resolved values.
   ColorSpec border = colorSpecFromRole(ColorRole::Outline);
   float borderWidth = 0.0f;
@@ -784,28 +781,33 @@ constexpr ShadowDirectionOffset shadowDirectionOffset(ShadowDirection dir) noexc
   return {0, 2};
 }
 
-enum class PanelTransparencyMode : std::uint8_t {
+// Global shell surface material (bar, dock, panels, chrome). Soft is a light frost;
+// liquid_glass is clear Apple-style glass (specular rim + refractive wash).
+enum class SurfaceMaterialMode : std::uint8_t {
   Solid = 0,
   Soft = 1,
-  Glass = 2,
+  LiquidGlass = 2,
 };
+
+constexpr EnumOption<SurfaceMaterialMode> kSurfaceMaterialModes[] = {
+    {SurfaceMaterialMode::Solid, "solid", "settings.options.shell.material.solid"},
+    {SurfaceMaterialMode::Soft, "soft", "settings.options.shell.material.soft"},
+    {SurfaceMaterialMode::LiquidGlass, "liquid_glass", "settings.options.shell.material.liquid-glass"},
+};
+
+// Legacy panel transparency tokens. Kept as aliases so older configs and UI paths
+// that still say solid/soft/glass continue to resolve (glass -> liquid_glass).
+using PanelTransparencyMode = SurfaceMaterialMode;
 
 constexpr EnumOption<PanelTransparencyMode> kPanelTransparencyModes[] = {
     {PanelTransparencyMode::Solid, "solid", "settings.options.shell.panel-transparency.solid"},
     {PanelTransparencyMode::Soft, "soft", "settings.options.shell.panel-transparency.soft"},
-    {PanelTransparencyMode::Glass, "glass", "settings.options.shell.panel-transparency.glass"},
+    {PanelTransparencyMode::LiquidGlass, "glass", "settings.options.shell.panel-transparency.glass"},
 };
 
 [[nodiscard]] float
 panelCardOpacityForTransparencyMode(PanelTransparencyMode mode, float panelBackgroundOpacity) noexcept;
 [[nodiscard]] float detachedPanelBackgroundOpacityForTransparencyMode(PanelTransparencyMode mode) noexcept;
-
-// Resolves the bar body alpha used for shadow + attached panels that track the bar.
-// - solid (`glass == false`): `backgroundOpacity` is raw alpha
-// - liquid glass: maps density into a clear (not frosted) alpha range; light surfaces stay
-//   slightly denser for contrast, dark surfaces stay more transparent so the backdrop reads
-[[nodiscard]] float
-resolveBarBackgroundOpacity(float backgroundOpacity, bool glass, float surfaceRelativeLuminance) noexcept;
 
 enum class PanelPlacement : std::uint8_t {
   Attached = 0,
@@ -896,7 +898,17 @@ struct ShellConfig {
     bool operator==(const ShadowConfig&) const = default;
   };
 
+  struct MaterialConfig {
+    SurfaceMaterialMode mode = SurfaceMaterialMode::Solid;
+    // 0..1 master density for soft / liquid_glass; solid surfaces ignore this and use
+    // each surface's own background_opacity as raw alpha.
+    float density = 1.0f;
+
+    bool operator==(const MaterialConfig&) const = default;
+  };
+
   struct PanelConfig {
+    // Deprecated alias of shell.material.mode (kept for config BC; prefer shell.material).
     PanelTransparencyMode transparencyMode = PanelTransparencyMode::Solid;
     bool borders = true;             // panel shell outline and in-panel section cards
     bool shadow = true;              // cast the global [shell.shadow] from panel surfaces
@@ -1028,6 +1040,7 @@ struct ShellConfig {
   ClipboardAutoPasteMode clipboardAutoPaste = ClipboardAutoPasteMode::Auto;
   std::string clipboardImageActionCommand;
   ShadowConfig shadow;
+  MaterialConfig material;
   PanelConfig panel;
   LauncherConfig launcher;
   ScreenCornersConfig screenCorners;
