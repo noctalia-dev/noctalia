@@ -8,6 +8,7 @@
 #include "shell/bar/widgets/battery_widget_definition.h"
 #include "shell/bar/widgets/bluetooth_widget_definition.h"
 #include "shell/bar/widgets/brightness_widget_definition.h"
+#include "shell/bar/widgets/clock_widget_definition.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/font_weight_catalog.h"
 #include "shell/settings/font_weight_i18n.h"
@@ -79,6 +80,7 @@ namespace settings {
         projectWidgetDefinition<batteryWidgetDefinition>(),
         projectWidgetDefinition<bluetoothWidgetDefinition>(),
         projectWidgetDefinition<brightnessWidgetDefinition>(),
+        projectWidgetDefinition<clockWidgetDefinition>(),
     };
 
     const TypedWidgetDefinitionProjection* findTypedWidgetDefinitionProjection(std::string_view type) {
@@ -745,11 +747,6 @@ namespace settings {
         add(std::move(display));
       }
       add(boolSpec("show_empty_label", false));
-    } else if (type == "clock") {
-      add(stringSpec("format", "{:%H:%M}"));
-      add(stringSpec("vertical_format"));
-      add(stringSpec("tooltip_format"));
-      add(stringSpec("timezone", ""));
     } else if (type == "clipboard") {
       add(glyphSpec("glyph", "clipboard"));
       add(stringSpec("custom_image", ""));

@@ -14,6 +14,7 @@
 #include "shell/bar/widgets/brightness_widget_definition.h"
 #include "shell/bar/widgets/clipboard_widget.h"
 #include "shell/bar/widgets/clock_widget.h"
+#include "shell/bar/widgets/clock_widget_definition.h"
 #include "shell/bar/widgets/control_center_widget.h"
 #include "shell/bar/widgets/custom_button_widget.h"
 #ifndef NDEBUG
@@ -189,15 +190,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "clock") {
-    std::string format = wc != nullptr ? wc->getString("format", "{:%H:%M}") : std::string("{:%H:%M}");
-    std::string verticalFormat = wc != nullptr ? wc->getString("vertical_format", "") : std::string{};
-    std::string tooltipFormat = wc != nullptr ? wc->getString("tooltip_format", "") : std::string{};
-    auto widget = std::make_unique<ClockWidget>(
-        output, std::move(format), std::move(verticalFormat), std::move(tooltipFormat),
-        wc != nullptr ? wc->getString("timezone", "") : std::string{}
+    return createWidget<ClockWidget>(
+        contentScale, output, clockWidgetDefinition().resolve(wc, std::format("widget.{}", name))
     );
-    widget->setContentScale(contentScale);
-    return widget;
   }
 
   if (type == "clipboard") {

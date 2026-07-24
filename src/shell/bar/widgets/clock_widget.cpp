@@ -26,11 +26,9 @@ namespace {
   }
 } // namespace
 
-ClockWidget::ClockWidget(
-    wl_output* /*output*/, std::string format, std::string verticalFormat, std::string tooltipFormat, std::string tzName
-)
-    : m_format(std::move(format)), m_verticalFormat(std::move(verticalFormat)),
-      m_tooltipFormat(std::move(tooltipFormat)), m_timezone(std::move(tzName)) {}
+ClockWidget::ClockWidget(wl_output* /*output*/, Options options)
+    : m_format(std::move(options.format)), m_verticalFormat(std::move(options.verticalFormat)),
+      m_tooltipFormat(std::move(options.tooltipFormat)), m_timezone(std::move(options.timezone)) {}
 
 std::string ClockWidget::formatTimeText() const {
   if (!m_isVertical) {
