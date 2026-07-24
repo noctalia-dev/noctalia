@@ -9,6 +9,7 @@
 #include "shell/bar/widgets/bluetooth_widget_definition.h"
 #include "shell/bar/widgets/brightness_widget_definition.h"
 #include "shell/bar/widgets/clock_widget_definition.h"
+#include "shell/bar/widgets/notification_widget_definition.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/font_weight_catalog.h"
 #include "shell/settings/font_weight_i18n.h"
@@ -81,6 +82,7 @@ namespace settings {
         projectWidgetDefinition<bluetoothWidgetDefinition>(),
         projectWidgetDefinition<brightnessWidgetDefinition>(),
         projectWidgetDefinition<clockWidgetDefinition>(),
+        projectWidgetDefinition<notificationWidgetDefinition>(),
     };
 
     const TypedWidgetDefinitionProjection* findTypedWidgetDefinitionProjection(std::string_view type) {
@@ -881,8 +883,6 @@ namespace settings {
         vpnName.visibleWhen = std::move(vis);
         add(std::move(vpnName));
       }
-    } else if (type == "notifications") {
-      add(boolSpec("hide_when_no_unread", false));
     } else if (type == "privacy") {
       add(boolSpec("hide_inactive", false));
       add(intSpec("icon_spacing", 4, 0.0, 48.0, 1.0));

@@ -15,8 +15,8 @@ namespace {
   constexpr float kDotBaseSize = 6.0f;
 } // namespace
 
-NotificationWidget::NotificationWidget(NotificationManager* manager, wl_output* /*output*/, bool hideWhenNoUnread)
-    : m_manager(manager), m_hideWhenNoUnread(hideWhenNoUnread) {}
+NotificationWidget::NotificationWidget(NotificationManager* manager, wl_output* /*output*/, Options options)
+    : m_manager(manager), m_hideWhenNoUnread(options.hideWhenNoUnread) {}
 
 void NotificationWidget::create() {
   auto area = std::make_unique<InputArea>();

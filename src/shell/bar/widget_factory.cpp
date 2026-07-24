@@ -32,6 +32,7 @@
 #include "shell/bar/widgets/network_widget.h"
 #include "shell/bar/widgets/nightlight_widget.h"
 #include "shell/bar/widgets/notification_widget.h"
+#include "shell/bar/widgets/notification_widget_definition.h"
 #include "shell/bar/widgets/plugin_widget.h"
 #include "shell/bar/widgets/power_profile_widget.h"
 #include "shell/bar/widgets/privacy_widget.h"
@@ -330,10 +331,10 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "notifications") {
-    const bool hideWhenNoUnread = wc != nullptr ? wc->getBool("hide_when_no_unread", false) : false;
-    auto widget = std::make_unique<NotificationWidget>(m_notifications, output, hideWhenNoUnread);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<NotificationWidget>(
+        contentScale, m_notifications, output,
+        notificationWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+    );
   }
 
   if (type == "power_profile") {
