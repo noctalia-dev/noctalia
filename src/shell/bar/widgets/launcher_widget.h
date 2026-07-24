@@ -12,7 +12,13 @@ struct wl_output;
 
 class LauncherWidget : public Widget {
 public:
-  LauncherWidget(wl_output* output, std::string barGlyphId, WidgetCustomImage customImage = {});
+  struct Options {
+    std::string glyph = "search";
+    std::string customImage;
+    bool customImageColorize = false;
+  };
+
+  LauncherWidget(wl_output* output, Options options);
 
   void create() override;
 

@@ -27,6 +27,7 @@
 #include "shell/bar/widgets/idle_inhibitor_widget.h"
 #include "shell/bar/widgets/keyboard_layout_widget.h"
 #include "shell/bar/widgets/launcher_widget.h"
+#include "shell/bar/widgets/launcher_widget_definition.h"
 #include "shell/bar/widgets/lock_keys_widget.h"
 #include "shell/bar/widgets/lock_keys_widget_definition.h"
 #include "shell/bar/widgets/media_widget.h"
@@ -274,14 +275,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "launcher") {
-    auto barGlyph = wc != nullptr ? wc->getString("glyph", "search") : std::string{"search"};
-    if (barGlyph.empty()) {
-      barGlyph = "search";
-    }
-
-    auto widget = std::make_unique<LauncherWidget>(output, std::move(barGlyph), customImageFor(wc));
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<LauncherWidget>(
+        contentScale, output, launcherWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+    );
   }
 
   if (type == "lock_keys") {
