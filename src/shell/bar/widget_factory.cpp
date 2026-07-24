@@ -61,6 +61,7 @@
 #include "shell/bar/widgets/wallpaper_widget.h"
 #include "shell/bar/widgets/wallpaper_widget_definition.h"
 #include "shell/bar/widgets/weather_widget.h"
+#include "shell/bar/widgets/weather_widget_definition.h"
 #include "shell/bar/widgets/workspaces_widget.h"
 #include "system/format_units.h"
 #include "ui/style.h"
@@ -616,12 +617,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "weather") {
-    const float maxWidth = static_cast<float>(wc != nullptr ? wc->getDouble("max_length", 160.0) : 160.0);
-    const bool showCondition = wc != nullptr ? wc->getBool("show_condition", true) : true;
-    const bool showTemperature = wc != nullptr ? wc->getBool("show_temperature", true) : true;
-    auto widget = std::make_unique<WeatherWidget>(m_weather, output, maxWidth, showCondition, showTemperature);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<WeatherWidget>(
+        contentScale, m_weather, output, weatherWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+    );
   }
 
   if (type == "workspaces") {

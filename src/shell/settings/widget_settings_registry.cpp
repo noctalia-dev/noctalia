@@ -22,6 +22,7 @@
 #include "shell/bar/widgets/spacer_widget_definition.h"
 #include "shell/bar/widgets/text_widget_definition.h"
 #include "shell/bar/widgets/wallpaper_widget_definition.h"
+#include "shell/bar/widgets/weather_widget_definition.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/font_weight_catalog.h"
 #include "shell/settings/font_weight_i18n.h"
@@ -107,6 +108,7 @@ namespace settings {
         projectWidgetDefinition<spacerWidgetDefinition>(),
         projectWidgetDefinition<textWidgetDefinition>(),
         projectWidgetDefinition<wallpaperWidgetDefinition>(),
+        projectWidgetDefinition<weatherWidgetDefinition>(),
     };
 
     const TypedWidgetDefinitionProjection* findTypedWidgetDefinitionProjection(std::string_view type) {
@@ -1120,10 +1122,6 @@ namespace settings {
       }
       add(boolSpec("show_label", true));
       add(colorSpec("mute_color", "error"));
-    } else if (type == "weather") {
-      add(intSpec("max_length", 160, 40.0, 800.0, 1.0));
-      add(boolSpec("show_condition", true));
-      add(boolSpec("show_temperature", true));
     } else if (type == "workspaces") {
       WidgetSettingVisibility pillStyleOnly;
       pillStyleOnly.all = {WidgetSettingVisibilityCondition{"style", {"regular"}}};
