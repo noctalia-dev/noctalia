@@ -41,6 +41,7 @@
 #include "shell/bar/widgets/privacy_widget_definition.h"
 #include "shell/bar/widgets/screenshot_widget.h"
 #include "shell/bar/widgets/session_widget.h"
+#include "shell/bar/widgets/session_widget_definition.h"
 #include "shell/bar/widgets/settings_widget.h"
 #include "shell/bar/widgets/spacer_widget.h"
 #include "shell/bar/widgets/spacer_widget_definition.h"
@@ -408,13 +409,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "session") {
-    auto barGlyph = wc != nullptr ? wc->getString("glyph", "shutdown") : std::string{"shutdown"};
-    if (barGlyph.empty()) {
-      barGlyph = "shutdown";
-    }
-    auto widget = std::make_unique<SessionWidget>(output, std::move(barGlyph), customImageFor(wc));
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<SessionWidget>(
+        contentScale, output, sessionWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+    );
   }
 
   if (type == "settings") {
