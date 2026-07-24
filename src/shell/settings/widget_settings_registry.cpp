@@ -21,6 +21,7 @@
 #include "shell/bar/widgets/settings_widget_definition.h"
 #include "shell/bar/widgets/spacer_widget_definition.h"
 #include "shell/bar/widgets/text_widget_definition.h"
+#include "shell/bar/widgets/wallpaper_widget_definition.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/font_weight_catalog.h"
 #include "shell/settings/font_weight_i18n.h"
@@ -105,6 +106,7 @@ namespace settings {
         projectWidgetDefinition<settingsWidgetDefinition>(),
         projectWidgetDefinition<spacerWidgetDefinition>(),
         projectWidgetDefinition<textWidgetDefinition>(),
+        projectWidgetDefinition<wallpaperWidgetDefinition>(),
     };
 
     const TypedWidgetDefinitionProjection* findTypedWidgetDefinitionProjection(std::string_view type) {
@@ -1118,10 +1120,6 @@ namespace settings {
       }
       add(boolSpec("show_label", true));
       add(colorSpec("mute_color", "error"));
-    } else if (type == "wallpaper") {
-      add(glyphSpec("glyph", "wallpaper-selector"));
-      add(stringSpec("custom_image", ""));
-      add(boolSpec("custom_image_colorize", false));
     } else if (type == "weather") {
       add(intSpec("max_length", 160, 40.0, 800.0, 1.0));
       add(boolSpec("show_condition", true));

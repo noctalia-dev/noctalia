@@ -59,6 +59,7 @@
 #include "shell/bar/widgets/tray_widget.h"
 #include "shell/bar/widgets/volume_widget.h"
 #include "shell/bar/widgets/wallpaper_widget.h"
+#include "shell/bar/widgets/wallpaper_widget_definition.h"
 #include "shell/bar/widgets/weather_widget.h"
 #include "shell/bar/widgets/workspaces_widget.h"
 #include "system/format_units.h"
@@ -609,13 +610,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "wallpaper") {
-    auto barGlyph = wc != nullptr ? wc->getString("glyph", "wallpaper-selector") : std::string{"wallpaper-selector"};
-    if (barGlyph.empty()) {
-      barGlyph = "wallpaper-selector";
-    }
-    auto widget = std::make_unique<WallpaperWidget>(output, std::move(barGlyph), customImageFor(wc));
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<WallpaperWidget>(
+        contentScale, output, wallpaperWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+    );
   }
 
   if (type == "weather") {
