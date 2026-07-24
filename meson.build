@@ -727,6 +727,7 @@ _noctalia_sources = files(
   'src/shell/bar/widgets/launcher_widget_definition.cpp',
   'src/shell/bar/widgets/media_widget.cpp',
   'src/shell/bar/widgets/network_widget.cpp',
+  'src/shell/bar/widgets/network_widget_definition.cpp',
   'src/shell/bar/widgets/notification_widget.cpp',
   'src/shell/bar/widgets/notification_widget_definition.cpp',
   'src/shell/bar/widgets/plugin_widget.cpp',

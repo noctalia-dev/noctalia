@@ -13,6 +13,7 @@
 #include "shell/bar/widgets/control_center_widget_definition.h"
 #include "shell/bar/widgets/launcher_widget_definition.h"
 #include "shell/bar/widgets/lock_keys_widget_definition.h"
+#include "shell/bar/widgets/network_widget_definition.h"
 #include "shell/bar/widgets/notification_widget_definition.h"
 #include "shell/bar/widgets/power_profile_widget_definition.h"
 #include "shell/bar/widgets/privacy_widget_definition.h"
@@ -99,6 +100,7 @@ namespace settings {
         projectWidgetDefinition<controlCenterWidgetDefinition>(),
         projectWidgetDefinition<launcherWidgetDefinition>(),
         projectWidgetDefinition<lockKeysWidgetDefinition>(),
+        projectWidgetDefinition<networkWidgetDefinition>(),
         projectWidgetDefinition<notificationWidgetDefinition>(),
         projectWidgetDefinition<powerProfileWidgetDefinition>(),
         projectWidgetDefinition<privacyWidgetDefinition>(),
@@ -719,11 +721,6 @@ namespace settings {
         {"kb", "settings.widgets.options.kilobytes"},
         {"mb", "settings.widgets.options.megabytes"},
     };
-    const std::vector<WidgetSettingSelectOption> vpnStatusMode = {
-        {"replace", "settings.widgets.options.replace"},
-        {"both", "settings.widgets.options.both"},
-        {"hidden", "settings.widgets.options.hidden"},
-    };
     const std::vector<WidgetSettingSelectOption> glyphPositionOptions = {
         {"before", "settings.widgets.options.before"},
         {"after", "settings.widgets.options.after"},
@@ -870,16 +867,6 @@ namespace settings {
       }
       add(boolSpec("hide_when_no_media", false));
       add(boolSpec("enable_scroll", true));
-    } else if (type == "network") {
-      add(selectSpec("vpn_status", "replace", vpnStatusMode));
-      add(boolSpec("show_label", true));
-      {
-        auto vpnName = boolSpec("show_vpn_label", false);
-        WidgetSettingVisibility vis;
-        vis.all = {{"show_label", {"true"}}, {"vpn_status", {"replace", "both"}}};
-        vpnName.visibleWhen = std::move(vis);
-        add(std::move(vpnName));
-      }
     } else if (type == "sysmon") {
       add(selectSpec("stat", "cpu_usage", sysmonStats));
       {

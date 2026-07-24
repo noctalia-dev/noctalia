@@ -60,18 +60,10 @@ namespace {
 
 NetworkWidget::NetworkWidget(
     INetworkService* network, ExternalIpService* externalIp, SystemMonitorService* monitor, wl_output* /*output*/,
-    bool showLabel, bool showVpnLabel, std::string vpnStatusMode
+    Options options
 )
-    : m_network(network), m_externalIp(externalIp), m_monitor(monitor), m_showLabel(showLabel),
-      m_showVpnLabel(showVpnLabel) {
-  if (vpnStatusMode == "both") {
-    m_vpnStatusMode = VpnStatusMode::Both;
-  } else if (vpnStatusMode == "hidden") {
-    m_vpnStatusMode = VpnStatusMode::Hidden;
-  } else {
-    m_vpnStatusMode = VpnStatusMode::Replace;
-  }
-}
+    : m_network(network), m_externalIp(externalIp), m_monitor(monitor), m_showLabel(options.showLabel),
+      m_showVpnLabel(options.showVpnLabel), m_vpnStatusMode(options.vpnStatusMode) {}
 
 void NetworkWidget::create() {
   auto area = std::make_unique<InputArea>();

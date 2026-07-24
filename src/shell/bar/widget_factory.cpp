@@ -34,6 +34,7 @@
 #include "shell/bar/widgets/lock_keys_widget_definition.h"
 #include "shell/bar/widgets/media_widget.h"
 #include "shell/bar/widgets/network_widget.h"
+#include "shell/bar/widgets/network_widget_definition.h"
 #include "shell/bar/widgets/nightlight_widget.h"
 #include "shell/bar/widgets/notification_widget.h"
 #include "shell/bar/widgets/notification_widget_definition.h"
@@ -305,14 +306,10 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "network") {
-    const bool showLabel = wc != nullptr ? wc->getBool("show_label", true) : true;
-    const bool showVpnLabel = wc != nullptr ? wc->getBool("show_vpn_label", false) : false;
-    const std::string vpnStatusMode = wc != nullptr ? wc->getString("vpn_status", "replace") : std::string("replace");
-    auto widget = std::make_unique<NetworkWidget>(
-        m_network, m_externalIp, m_sysmon, output, showLabel, showVpnLabel, vpnStatusMode
+    return createWidget<NetworkWidget>(
+        contentScale, m_network, m_externalIp, m_sysmon, output,
+        networkWidgetDefinition().resolve(wc, std::format("widget.{}", name))
     );
-    widget->setContentScale(contentScale);
-    return widget;
   }
 
   if (type == "nightlight") {
