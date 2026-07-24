@@ -31,9 +31,11 @@ namespace shell::material {
     bool hasExplicitBorder = false;
     ColorSpec border = colorSpecFromRole(ColorRole::Outline);
     float borderWidth = 0.0f;
-    // From shell.material.experimental_refraction — pure paint still works when sampling is off.
+    // From shell.material.experimental_refraction — enables the client-side lens attempt.
     bool experimentalRefraction = false;
-    // Runtime capability: true only when a desktop/backdrop sample can be bound this frame.
+    // When true with experimentalRefraction + liquid_glass, applyToStyle uses the stronger
+    // lens recipe. fromShell sets this true whenever the experimental flag is on (client-side
+    // lens is always available). Set false to force the plain liquid-glass paint fallback.
     bool refractionSamplingAvailable = false;
   };
 

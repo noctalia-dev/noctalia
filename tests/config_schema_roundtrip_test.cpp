@@ -804,7 +804,7 @@ void checkSurfaceMaterialOpacityResolution() {
     }
   }
 
-  // Experimental refraction flag: default off; on only with liquid glass + sampling.
+  // Experimental refraction flag: default off; on only with liquid glass + sampling available.
   {
     Params p{.mode = SurfaceMaterialMode::LiquidGlass, .density = 1.0f};
     p.experimentalRefraction = false;
@@ -824,6 +824,58 @@ void checkSurfaceMaterialOpacityResolution() {
     p.mode = SurfaceMaterialMode::Solid;
     if (refractionRequested(p) || refractionActive(p)) {
       fail("material: refraction must not request for solid mode");
+    }
+  }
+
+  // applyToStyle must paint a stronger lens when refraction is active (shipped path).
+  {
+    using shell::material::applyToStyle;
+    using shell::material::LightEdge;
+    constexpr float kL = 0.2f;
+    Params base{.mode = SurfaceMaterialMode::LiquidGlass, .density = 1.0f};
+    base.experimentalRefraction = false;
+    base.refractionSamplingAvailable = false;
+    RoundedRectStyle off{};
+    applyToStyle(off, base, LightEdge::Ambient, kL);
+
+    Params on = base;
+    on.experimentalRefraction = true;
+    on.refractionSamplingAvailable = true;
+    RoundedRectStyle lens{};
+    applyToStyle(lens, on, LightEdge::Ambient, kL);
+
+    if (!(lens.softness > off.softness + 0.1f)) {
+      fail("material: applyToStyle refraction must increase softness (lens attempt)");
+    }
+    if (!(lens.borderWidth > off.borderWidth + 0.1f)) {
+      fail("material: applyToStyle refraction must widen specular rim (lens attempt)");
+    }
+    if (std::abs(off.softness - 0.65f) > 1e-5f || std::abs(off.borderWidth - 1.25f) > 1e-5f) {
+      fail("material: default liquid-glass softness/rim drifted from baseline recipe");
+    }
+
+    // Fallback: requested but sampling forced off → same paint as non-refraction glass.
+    Params fallback = on;
+    fallback.refractionSamplingAvailable = false;
+    RoundedRectStyle degraded{};
+    applyToStyle(degraded, fallback, LightEdge::Ambient, kL);
+    if (std::abs(degraded.softness - off.softness) > 1e-5f || std::abs(degraded.borderWidth - off.borderWidth) > 1e-5f) {
+      fail("material: sampling-unavailable fallback must match plain liquid-glass paint");
+    }
+
+    // Production fromShell with experimental_refraction enables the lens attempt.
+    ShellConfig shell{};
+    shell.material.mode = SurfaceMaterialMode::LiquidGlass;
+    shell.material.density = 1.0f;
+    shell.material.experimentalRefraction = true;
+    auto production = fromShell(shell, 1.0f);
+    if (!production.refractionSamplingAvailable || !refractionActive(production)) {
+      fail("material: fromShell must enable client-side lens when experimental_refraction is on");
+    }
+    RoundedRectStyle produced{};
+    applyToStyle(produced, production, LightEdge::Ambient, kL);
+    if (!(produced.softness > off.softness + 0.1f) || !(produced.borderWidth > off.borderWidth + 0.1f)) {
+      fail("material: fromShell+applyToStyle must use lens recipe when experimental_refraction is on");
     }
   }
 

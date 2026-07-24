@@ -40,12 +40,14 @@ namespace shell::material {
 
       const Color glassTint = lerpColor(rgba(1.0f, 1.0f, 1.0f, 1.0f), surface, std::lerp(0.08f, 0.22f, L));
       // Refraction-active: slightly more open mid + stronger outer specular (lens cue).
+      // Default (refraction off) clamp maxima match the pre-refraction liquid-glass recipe.
       const float outerBoost = refractionActive ? 1.75f : 1.55f;
       const float innerScale = refractionActive ? 0.35f : 0.45f;
+      const float outerMax = refractionActive ? 0.48f : 0.42f;
       const float outerAlpha = clamp01(bodyAlpha * outerBoost);
       const float midAlpha = bodyAlpha;
       const float innerAlpha = clamp01(bodyAlpha * innerScale);
-      const Color outer = withAlpha(glassTint, std::clamp(outerAlpha, 0.08f, 0.48f));
+      const Color outer = withAlpha(glassTint, std::clamp(outerAlpha, 0.08f, outerMax));
       const Color mid = withAlpha(glassTint, midAlpha);
       const Color inner = withAlpha(glassTint, std::clamp(innerAlpha, 0.02f, 0.18f));
 
@@ -87,7 +89,8 @@ namespace shell::material {
         style.borderWidth = borderWidth;
       } else {
         const float rimBase = refractionActive ? std::lerp(0.50f, 0.78f, d) : std::lerp(0.42f, 0.62f, d);
-        const float rimAlpha = std::clamp(rimBase * std::lerp(1.0f, 0.55f, L), 0.2f, 0.85f);
+        const float rimMax = refractionActive ? 0.85f : 0.75f;
+        const float rimAlpha = std::clamp(rimBase * std::lerp(1.0f, 0.55f, L), 0.2f, rimMax);
         style.border = withAlpha(rgba(1.0f, 1.0f, 1.0f, 1.0f), rimAlpha);
         style.borderWidth = refractionActive ? 1.5f : 1.25f;
       }
@@ -160,7 +163,10 @@ namespace shell::material {
     Params params;
     params.mode = effectiveMode(shell, modeOverride);
     params.experimentalRefraction = shell.material.experimentalRefraction;
-    params.refractionSamplingAvailable = false;
+    // Client-side lens refraction is paint-only and always available when the experimental
+    // flag is on. Desktop/screencopy sampling can still be forced off by callers for fallback
+    // testing; production fromShell enables the attempt whenever the flag is set.
+    params.refractionSamplingAvailable = shell.material.experimentalRefraction;
     if (params.mode == SurfaceMaterialMode::Solid) {
       params.density = clamp01(surfaceOpacity);
     } else {
