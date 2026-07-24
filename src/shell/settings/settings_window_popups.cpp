@@ -345,6 +345,7 @@ void SettingsWindow::openActionsMenu() {
 
   if (m_config != nullptr) {
     m_actionsMenuPopup->setShadowConfig(m_config->config().shell.shadow);
+    m_actionsMenuPopup->setMaterialConfig(m_config->config().shell.material);
   }
   m_actionsMenuPopup->open(
       ContextMenuPopupRequest{

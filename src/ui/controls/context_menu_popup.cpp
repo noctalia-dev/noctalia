@@ -137,7 +137,9 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
           *self->m_sceneRoot, chrome, self->m_shadowConfig, Style::scaledRadiusLg(contentScale)
       );
     }
-    (void)popup_chrome::addCardBackground(*self->m_sceneRoot, chrome, contentScale);
+    ShellConfig materialShell{};
+    materialShell.material = self->m_materialConfig;
+    (void)popup_chrome::addCardBackground(*self->m_sceneRoot, chrome, contentScale, &materialShell);
 
     auto scrollView = std::make_unique<ScrollView>();
     scrollView->setPosition(chrome.contentX(), chrome.contentY());
@@ -256,6 +258,16 @@ void ContextMenuPopup::setShadowConfig(const ShellConfig::ShadowConfig& shadow) 
     return;
   }
   m_shadowConfig = shadow;
+  if (isOpen()) {
+    close();
+  }
+}
+
+void ContextMenuPopup::setMaterialConfig(const ShellConfig::MaterialConfig& material) {
+  if (m_materialConfig == material) {
+    return;
+  }
+  m_materialConfig = material;
   if (isOpen()) {
     close();
   }

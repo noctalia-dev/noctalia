@@ -1467,6 +1467,7 @@ void AudioTab::openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel
 
   if (m_config != nullptr) {
     m_deviceMenuPopup->setShadowConfig(m_config->config().shell.shadow);
+    m_deviceMenuPopup->setMaterialConfig(m_config->config().shell.material);
   }
   PanelManager::instance().beginAttachedPopup(parentCtx->surface);
   PanelManager::instance().setActivePopup(m_deviceMenuPopup.get());

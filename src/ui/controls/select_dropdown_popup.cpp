@@ -38,6 +38,9 @@ void SelectDropdownPopup::setParent(xdg_surface* xdgSurface, wl_surface* parentW
 }
 
 void SelectDropdownPopup::setShadowConfig(const ShellConfig::ShadowConfig& shadow) { m_popup.setShadowConfig(shadow); }
+void SelectDropdownPopup::setMaterialConfig(const ShellConfig::MaterialConfig& material) {
+  m_popup.setMaterialConfig(material);
+}
 
 void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, DropdownCallbacks callbacks) {
   // Close first so a previously open dropdown delivers its dismiss to its own owner before the

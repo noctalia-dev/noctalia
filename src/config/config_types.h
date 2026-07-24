@@ -19,6 +19,14 @@
 
 struct WaylandOutput;
 
+// Shared shell surface material mode (bar, dock, panels, chrome). Defined early so bar/dock
+// configs can override shell.material.mode. Soft = light frost; liquid_glass = clear glass.
+enum class SurfaceMaterialMode : std::uint8_t {
+  Solid = 0,
+  Soft = 1,
+  LiquidGlass = 2,
+};
+
 // A capsule group: an ordered set of member widgets sharing one capsule + style. `id` is opaque and
 // auto-generated. A group appears in a bar lane as a single token (see makeCapsuleGroupToken); its
 // members live inside the group, not loose in the lane.
@@ -66,6 +74,7 @@ struct BarMonitorOverride {
   std::optional<std::string> layer; // top | overlay
   std::optional<std::int32_t> thickness;
   std::optional<float> backgroundOpacity;
+  std::optional<SurfaceMaterialMode> materialMode;
   std::optional<ColorSpec> border;
   std::optional<float> borderWidth;
   std::optional<std::int32_t> radius;
@@ -133,6 +142,8 @@ struct BarConfig {
   std::int32_t thickness = Style::barThicknessDefault;
   // Solid: raw body alpha. Soft / liquid glass: multiplies shell.material.density.
   float backgroundOpacity = 1.0f;
+  // When set, overrides shell.material.mode for this bar only.
+  std::optional<SurfaceMaterialMode> materialMode;
   // Inside outline for the bar background; attached panels inherit the resolved values.
   ColorSpec border = colorSpecFromRole(ColorRole::Outline);
   float borderWidth = 0.0f;
@@ -555,6 +566,8 @@ struct DockConfig {
   std::int32_t crossAxisPadding = 8; // inner padding perpendicular to the icon row
   std::int32_t itemSpacing = 6;      // gap between items
   float backgroundOpacity = 0.88f;
+  // When set, overrides shell.material.mode for the dock only.
+  std::optional<SurfaceMaterialMode> materialMode;
   // Inside outline for the dock background.
   ColorSpec border = colorSpecFromRole(ColorRole::Outline);
   float borderWidth = 0.0f;
@@ -781,14 +794,7 @@ constexpr ShadowDirectionOffset shadowDirectionOffset(ShadowDirection dir) noexc
   return {0, 2};
 }
 
-// Global shell surface material (bar, dock, panels, chrome). Soft is a light frost;
-// liquid_glass is clear Apple-style glass (specular rim + refractive wash).
-enum class SurfaceMaterialMode : std::uint8_t {
-  Solid = 0,
-  Soft = 1,
-  LiquidGlass = 2,
-};
-
+// Tokens for shell.material.mode (see SurfaceMaterialMode above).
 constexpr EnumOption<SurfaceMaterialMode> kSurfaceMaterialModes[] = {
     {SurfaceMaterialMode::Solid, "solid", "settings.options.shell.material.solid"},
     {SurfaceMaterialMode::Soft, "soft", "settings.options.shell.material.soft"},
@@ -903,6 +909,9 @@ struct ShellConfig {
     // 0..1 master density for soft / liquid_glass; solid surfaces ignore this and use
     // each surface's own background_opacity as raw alpha.
     float density = 1.0f;
+    // Experimental lens/refraction attempt for liquid_glass. Off by default; when on but
+    // desktop sampling is unavailable, paint falls back to the clear glass recipe.
+    bool experimentalRefraction = false;
 
     bool operator==(const MaterialConfig&) const = default;
   };
@@ -910,6 +919,8 @@ struct ShellConfig {
   struct PanelConfig {
     // Deprecated alias of shell.material.mode (kept for config BC; prefer shell.material).
     PanelTransparencyMode transparencyMode = PanelTransparencyMode::Solid;
+    // When set, overrides shell.material.mode for detached/attached panel shells.
+    std::optional<SurfaceMaterialMode> materialMode;
     bool borders = true;             // panel shell outline and in-panel section cards
     bool shadow = true;              // cast the global [shell.shadow] from panel surfaces
     bool listItemBackground = false; // filled rounded background behind launcher/clipboard list items

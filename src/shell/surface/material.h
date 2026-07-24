@@ -4,11 +4,13 @@
 #include "render/core/render_styles.h"
 #include "ui/palette.h"
 
+#include <optional>
 #include <string_view>
 
 // Shared surface material engine: solid / soft / liquid-glass look for any chrome
-// (bar, dock, panels, popups). Compositor blur is still published by each surface;
-// this module owns the painted fill + specular rim recipe.
+// (bar, dock, panels, popups, OSD, toasts). Compositor blur is still published by
+// each surface; this module owns the painted fill + specular rim recipe and the
+// pure resolve path for mode/density/overrides/refraction gating.
 namespace shell::material {
 
   // Which outer edge faces the screen edge / ambient light. Used by liquid glass
@@ -29,6 +31,10 @@ namespace shell::material {
     bool hasExplicitBorder = false;
     ColorSpec border = colorSpecFromRole(ColorRole::Outline);
     float borderWidth = 0.0f;
+    // From shell.material.experimental_refraction — pure paint still works when sampling is off.
+    bool experimentalRefraction = false;
+    // Runtime capability: true only when a desktop/backdrop sample can be bound this frame.
+    bool refractionSamplingAvailable = false;
   };
 
   struct Resolved {
@@ -36,17 +42,35 @@ namespace shell::material {
     float density = 1.0f;
     // Body alpha for shadows, attached-panel tracking, and solid fills.
     float bodyAlpha = 1.0f;
+    // Flag on and mode supports refraction (liquid glass).
+    bool refractionRequested = false;
+    // Requested and sampling available — full lens path may run; otherwise paint fallback.
+    bool refractionActive = false;
   };
 
   [[nodiscard]] LightEdge lightEdgeFromBarPosition(std::string_view position) noexcept;
 
-  // density = global material density * surface opacity (both clamped).
-  [[nodiscard]] Params fromShell(const ShellConfig& shell, float surfaceOpacity = 1.0f) noexcept;
+  // Prefer surface override when set; otherwise global shell.material.mode.
+  [[nodiscard]] SurfaceMaterialMode
+  effectiveMode(const ShellConfig& shell, std::optional<SurfaceMaterialMode> surfaceOverride = std::nullopt) noexcept;
+
+  // Pure refraction gating (no GL/Wayland). Used by unit tests and applyToStyle.
+  [[nodiscard]] bool refractionRequested(const Params& params) noexcept;
+  [[nodiscard]] bool refractionActive(const Params& params) noexcept;
+
+  // density from global material density * surface opacity (solid ignores master density).
+  [[nodiscard]] Params fromShell(
+      const ShellConfig& shell, float surfaceOpacity = 1.0f,
+      std::optional<SurfaceMaterialMode> modeOverride = std::nullopt
+  ) noexcept;
 
   [[nodiscard]] Resolved resolve(const Params& params) noexcept;
   [[nodiscard]] Resolved resolve(const Params& params, float surfaceRelativeLuminance) noexcept;
 
   // Writes fill / gradient / border / softness. Preserves radius, corners, insets.
+  // When experimental refraction is on but sampling is unavailable, still applies the
+  // liquid-glass recipe (safe fallback); when sampling is available, applies a stronger
+  // lens-style rim as the client-side refraction attempt without requiring GL here.
   void applyToStyle(RoundedRectStyle& style, const Params& params, LightEdge lightEdge = LightEdge::Ambient);
   void applyToStyle(
       RoundedRectStyle& style, const Params& params, LightEdge lightEdge, float surfaceRelativeLuminance

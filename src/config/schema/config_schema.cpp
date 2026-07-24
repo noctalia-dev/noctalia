@@ -1215,8 +1215,36 @@ namespace noctalia::config::schema {
               }
           ),
           field(&ShellConfig::MaterialConfig::density, "density", kUnitRange),
+          field(&ShellConfig::MaterialConfig::experimentalRefraction, "experimental_refraction"),
       };
       return s;
+    }
+
+    // Optional surface material mode: solid | soft | liquid_glass | glass.
+    template <typename Struct>
+    Field<Struct> optionalMaterialModeField(std::optional<SurfaceMaterialMode> Struct::* member, std::string_view key) {
+      return custom<Struct>(
+          key,
+          [member, key](const toml::table& tbl, Struct& out, std::string_view parentPath, Diagnostics& diag) {
+            if (auto v = tbl[key].value<std::string>()) {
+              const std::string token = StringUtils::trim(*v);
+              if (token.empty()) {
+                out.*member = std::nullopt;
+              } else if (auto parsed = enumFromKey(kSurfaceMaterialModes, token)) {
+                out.*member = *parsed;
+              } else if (token == "glass") {
+                out.*member = SurfaceMaterialMode::LiquidGlass;
+              } else {
+                diag.warn(joinPath(parentPath, key), "expected solid, soft, liquid_glass, or empty, got \"" + token + "\"");
+              }
+            }
+          },
+          [member, key](toml::table& tbl, const Struct& in) {
+            if ((in.*member).has_value()) {
+              tbl.insert_or_assign(key, std::string(enumToKey(kSurfaceMaterialModes, *(in.*member))));
+            }
+          }
+      );
     }
 
     // Optional strings stored trimmed-or-nullopt, always emitted (value_or("")).
@@ -1263,6 +1291,7 @@ namespace noctalia::config::schema {
     const Schema<ShellConfig::PanelConfig>& shellPanelSchema() {
       static const Schema<ShellConfig::PanelConfig> s = {
           enumField(&ShellConfig::PanelConfig::transparencyMode, "transparency_mode", kPanelTransparencyModes),
+          optionalMaterialModeField(&ShellConfig::PanelConfig::materialMode, "material_mode"),
           field(&ShellConfig::PanelConfig::borders, "borders"),
           field(&ShellConfig::PanelConfig::shadow, "shadow"),
           field(&ShellConfig::PanelConfig::listItemBackground, "list_item_background"),
@@ -1792,6 +1821,7 @@ namespace noctalia::config::schema {
         field(&DockConfig::crossAxisPadding, "cross_axis_padding", kDockPaddingRange),
         field(&DockConfig::itemSpacing, "item_spacing", kDockItemSpacingRange),
         field(&DockConfig::backgroundOpacity, "background_opacity", kUnitRange),
+        optionalMaterialModeField(&DockConfig::materialMode, "material_mode"),
         colorField(&DockConfig::border, "border"),
         field(&DockConfig::borderWidth, "border_width", kDockBorderWidthRange),
         // `radius` seeds all four corners; per-corner keys below override it.
@@ -2135,6 +2165,7 @@ namespace noctalia::config::schema {
         barLayerField(),
         field(&BarConfig::thickness, "thickness", kBarThicknessRange),
         field(&BarConfig::backgroundOpacity, "background_opacity", kBarOpacityRange),
+        optionalMaterialModeField(&BarConfig::materialMode, "material_mode"),
         colorField(&BarConfig::border, "border"),
         field(&BarConfig::borderWidth, "border_width", kBarBorderWidthRange),
         barRadiusField(),
@@ -2206,6 +2237,7 @@ namespace noctalia::config::schema {
         ),
         optionalIntField(&BarMonitorOverride::thickness, "thickness", kBarThicknessRange),
         optionalFloatField(&BarMonitorOverride::backgroundOpacity, "background_opacity", kBarOpacityRange),
+        optionalMaterialModeField(&BarMonitorOverride::materialMode, "material_mode"),
         optionalColorField(&BarMonitorOverride::border, "border"),
         optionalFloatField(&BarMonitorOverride::borderWidth, "border_width", kBarBorderWidthRange),
         optionalIntField(&BarMonitorOverride::radius, "radius", kBarRadiusRange),

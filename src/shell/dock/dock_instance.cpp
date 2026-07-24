@@ -289,9 +289,10 @@ namespace shell::dock {
       const auto shadowOff = shadowDirectionOffset(shadowConfig.direction);
       const auto shadowOffsetX = static_cast<float>(shadowOff.x);
       const auto shadowOffsetY = static_cast<float>(shadowOff.y);
-      const float bodyAlpha =
-          shell::material::resolve(shell::material::fromShell(deps.config.config().shell, cfg.backgroundOpacity))
-              .bodyAlpha;
+      const float bodyAlpha = shell::material::resolve(
+                                  shell::material::fromShell(deps.config.config().shell, cfg.backgroundOpacity, cfg.materialMode)
+      )
+                                  .bodyAlpha;
       const RoundedRectStyle shadowStyle = shell::surface_shadow::style(
           shadowConfig, bodyAlpha,
           shell::surface_shadow::Shape{
@@ -370,7 +371,7 @@ namespace shell::dock {
       return;
     }
     auto style = instance.panel->style();
-    auto params = shell::material::fromShell(shell, cfg.backgroundOpacity);
+    auto params = shell::material::fromShell(shell, cfg.backgroundOpacity, cfg.materialMode);
     params.hasExplicitBorder = cfg.borderWidth > 0.0f;
     params.border = cfg.border;
     params.borderWidth = cfg.borderWidth;

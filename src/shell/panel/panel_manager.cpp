@@ -949,7 +949,9 @@ void PanelManager::openPanel(const std::string& panelId, PanelOpenRequest reques
     m_panelVisualWidth = panelWidth;
     m_panelVisualHeight = panelHeight;
     m_attachedBackgroundOpacity = m_activePanel->inheritsBarBackgroundOpacity()
-        ? shell::material::resolve(shell::material::fromShell(m_config->config().shell, barConfig.backgroundOpacity))
+        ? shell::material::resolve(
+              shell::material::fromShell(m_config->config().shell, barConfig.backgroundOpacity, barConfig.materialMode)
+        )
               .bodyAlpha
         : m_activePanel->attachedBackgroundOpacityOverride();
     m_attachedContactShadow = barConfig.contactShadow;
@@ -2075,10 +2077,15 @@ void PanelManager::applyAttachedDecorationStyle() {
     auto* bg = static_cast<Box*>(m_bgNode);
     auto style = bg->style();
     float surfaceOpacity = 1.0f;
+    std::optional<SurfaceMaterialMode> modeOverride = m_config->config().shell.panel.materialMode;
     if (const auto barConfigOpt = resolvePanelBarConfig(m_config, m_platform, m_output, m_sourceBarName)) {
       surfaceOpacity = barConfigOpt->backgroundOpacity;
+      // Attached panels follow the host bar's material override when the panel has none.
+      if (!modeOverride.has_value()) {
+        modeOverride = barConfigOpt->materialMode;
+      }
     }
-    auto params = shell::material::fromShell(m_config->config().shell, surfaceOpacity);
+    auto params = shell::material::fromShell(m_config->config().shell, surfaceOpacity, modeOverride);
     // Seamless join with the bar: no material rim on the attached panel shell.
     params.hasExplicitBorder = true;
     params.borderWidth = 0.0f;
@@ -2154,8 +2161,17 @@ void PanelManager::onConfigReloaded() {
   m_activePanel->setPanelBordersEnabled(m_config->config().shell.panel.borders);
   if (!m_attachedToBar && m_bgNode != nullptr) {
     auto* bg = static_cast<Box*>(m_bgNode);
-    bg->setPanelStyle(m_config->config().shell.panel.borders);
-    bg->setFill(colorSpecFromRole(ColorRole::Surface, panelBackgroundOpacity));
+    const bool panelBorders = m_config->config().shell.panel.borders;
+    bg->setPanelStyle(panelBorders);
+    auto style = bg->style();
+    auto params = shell::material::fromShell(
+        m_config->config().shell, panelBackgroundOpacity, shell::panel_surface::materialMode(m_config)
+    );
+    params.hasExplicitBorder = true;
+    params.border = colorSpecFromRole(ColorRole::Outline);
+    params.borderWidth = panelBorders ? Style::borderWidth : 0.0f;
+    shell::material::applyToStyle(style, params, shell::material::LightEdge::Ambient);
+    bg->setStyle(style);
   }
   if (m_panelShadowNode != nullptr) {
     const auto& shadowConfig = m_config->config().shell.shadow;
@@ -2188,9 +2204,12 @@ void PanelManager::onConfigReloaded() {
   const auto& barConfig = *barConfigOpt;
   bool changed = false;
   if (m_activePanel->inheritsBarBackgroundOpacity()) {
-    const float newOpacity =
-        shell::material::resolve(shell::material::fromShell(m_config->config().shell, barConfig.backgroundOpacity))
-            .bodyAlpha;
+    const float newOpacity = shell::material::resolve(
+                                 shell::material::fromShell(
+                                     m_config->config().shell, barConfig.backgroundOpacity, barConfig.materialMode
+                                 )
+    )
+                                 .bodyAlpha;
     if (std::abs(newOpacity - m_attachedBackgroundOpacity) >= 0.001f) {
       m_attachedBackgroundOpacity = newOpacity;
       m_activePanel->setPanelCardOpacity(shell::panel_surface::cardOpacity(m_config, m_attachedBackgroundOpacity));
@@ -2225,6 +2244,7 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
       m_selectPopup = std::make_unique<SelectDropdownPopup>(m_platform->wayland(), *m_renderContext);
       if (m_config != nullptr) {
         m_selectPopup->setShadowConfig(m_config->config().shell.shadow);
+        m_selectPopup->setMaterialConfig(m_config->config().shell.material);
       }
       m_selectPopup->setParent(m_layerSurface->layerSurface(), m_wlSurface, m_output);
       m_sceneRoot->setPopupContext(m_selectPopup.get());
@@ -2268,8 +2288,17 @@ void PanelManager::buildScene(std::uint32_t width, std::uint32_t height) {
         bg->setLogicalInset(attached_panel::logicalInset(m_attachedBarPosition, radius));
         bg->setRadii(Radii{radius, radius, radius, radius});
         // Fill (opacity-dependent) is applied via applyAttachedDecorationStyle() below.
-      } else {
-        bg->setFill(colorSpecFromRole(ColorRole::Surface, shell::panel_surface::backgroundOpacity(m_config)));
+      } else if (m_config != nullptr) {
+        auto style = bg->style();
+        const float detachedOpacity = shell::panel_surface::backgroundOpacity(m_config);
+        auto params = shell::material::fromShell(
+            m_config->config().shell, detachedOpacity, shell::panel_surface::materialMode(m_config)
+        );
+        params.hasExplicitBorder = true;
+        params.border = colorSpecFromRole(ColorRole::Outline);
+        params.borderWidth = panelBorders ? Style::borderWidth : 0.0f;
+        shell::material::applyToStyle(style, params, shell::material::LightEdge::Ambient);
+        bg->setStyle(style);
       }
       m_bgNode = sceneParent->addChild(std::move(bg));
     }

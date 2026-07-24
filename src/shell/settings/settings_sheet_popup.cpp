@@ -349,6 +349,7 @@ namespace settings {
       }
       if (config() != nullptr) {
         m_selectPopup->setShadowConfig(config()->config().shell.shadow);
+        m_selectPopup->setMaterialConfig(config()->config().shell.material);
       }
       m_selectPopup->setParent(xdgSurface(), wlSurface(), m_parentOutput);
       contentParent->setPopupContext(m_selectPopup.get());

@@ -586,6 +586,12 @@ namespace settings {
         "glass density material soft liquid", true
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Appearance, "effects", tr("settings.schema.shell.material-experimental-refraction.label"),
+        tr("settings.schema.shell.material-experimental-refraction.description"),
+        {"shell", "material", "experimental_refraction"}, ToggleSetting{cfg.shell.material.experimentalRefraction},
+        "refraction lens experimental liquid glass material", true
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Appearance, "effects", tr("settings.schema.shared.shadow-direction.label"),
         tr("settings.schema.appearance.global-shadow-direction.description"), {"shell", "shadow", "direction"},
         enumSelect(kShadowDirections, cfg.shell.shadow.direction), "shadow direction"
@@ -1028,6 +1034,19 @@ namespace settings {
         tr("settings.schema.dock.background-opacity.description"), {"dock", "background_opacity"},
         sliderFor(cfg.dock.backgroundOpacity, noctalia::config::schema::kUnitRange, false), "alpha"
     ));
+    {
+      SelectSetting materialSelect =
+          enumSelect(kSurfaceMaterialModes, cfg.dock.materialMode.value_or(cfg.shell.material.mode));
+      materialSelect.allowEmptySelection = true;
+      if (!cfg.dock.materialMode.has_value()) {
+        materialSelect.selectedValue = "";
+      }
+      entries.push_back(makeEntry(
+          SettingsSection::Dock, "effects", tr("settings.schema.dock.material-mode.label"),
+          tr("settings.schema.dock.material-mode.description"), {"dock", "material_mode"}, std::move(materialSelect),
+          "material glass soft solid inherit override"
+      ));
+    }
     entries.push_back(makeEntry(
         SettingsSection::Dock, "effects", tr("settings.schema.shared.shadow.label"),
         tr("settings.schema.dock.shadow.description"), {"dock", "shadow"}, ToggleSetting{cfg.dock.shadow}, "shadow"
@@ -2951,6 +2970,21 @@ namespace settings {
           tr("settings.schema.bar.background-opacity.description"), path("background_opacity"),
           SliderSetting{bar.backgroundOpacity, 0.0f, 1.0f, 0.01f, false}, "alpha material density"
       ));
+      {
+        SelectSetting materialSelect = enumSelect(
+            kSurfaceMaterialModes,
+            bar.materialMode.value_or(cfg.shell.material.mode)
+        );
+        materialSelect.allowEmptySelection = true;
+        if (!bar.materialMode.has_value()) {
+          materialSelect.selectedValue = "";
+        }
+        entries.push_back(makeEntry(
+            section, "effects", tr("settings.schema.bar.material-mode.label"),
+            tr("settings.schema.bar.material-mode.description"), path("material_mode"), std::move(materialSelect),
+            "material glass soft solid inherit override"
+        ));
+      }
       entries.push_back(makeEntry(
           section, "effects", tr("settings.schema.shared.shadow.label"), tr("settings.schema.bar.shadow.description"),
           path("shadow"), ToggleSetting{bar.shadow}, "shadow"

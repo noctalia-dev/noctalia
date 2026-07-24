@@ -41,12 +41,15 @@ namespace shell::panel_surface {
     return std::max(0.1f, configService->config().accessibility.uiScale);
   }
 
-  // Prefer global shell.material; fall back to legacy panel.transparency_mode.
+  // Prefer panel.material_mode override, then shell.material; fall back to legacy transparency_mode.
   [[nodiscard]] inline SurfaceMaterialMode materialMode(const ConfigService* configService) noexcept {
     if (configService == nullptr) {
       return SurfaceMaterialMode::Solid;
     }
     const auto& shell = configService->config().shell;
+    if (shell.panel.materialMode.has_value()) {
+      return *shell.panel.materialMode;
+    }
     if (shell.material.mode != SurfaceMaterialMode::Solid) {
       return shell.material.mode;
     }

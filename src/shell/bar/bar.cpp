@@ -46,7 +46,7 @@ namespace {
   constexpr float kAutoHideSlideExtraPx = 4.0f;
 
   [[nodiscard]] shell::material::Params barMaterialParams(const ShellConfig& shell, const BarConfig& bar) {
-    auto params = shell::material::fromShell(shell, bar.backgroundOpacity);
+    auto params = shell::material::fromShell(shell, bar.backgroundOpacity, bar.materialMode);
     params.hasExplicitBorder = bar.borderWidth > 0.0f;
     params.border = bar.border;
     params.borderWidth = bar.borderWidth;

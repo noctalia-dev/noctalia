@@ -15,6 +15,7 @@
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
 #include "shell/surface/edge_inset.h"
+#include "shell/surface/material.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -2210,6 +2211,8 @@ InputArea* NotificationToast::buildCard(
 
   const float bgAlpha = m_config != nullptr ? m_config->config().notification.backgroundOpacity : 0.97f;
   const float borderWidth = (m_config == nullptr || m_config->config().notification.border) ? Style::borderWidth : 0.0f;
+  const ShellConfig emptyShell{};
+  const ShellConfig& materialShell = m_config != nullptr ? m_config->config().shell : emptyShell;
   foreground->addChild(
       ui::progressBar({
           .out = outProgress,
@@ -2554,11 +2557,16 @@ InputArea* NotificationToast::buildCard(
       ui::box({
           .width = cardW,
           .height = cardHeight,
-          .configure = [scale, bgAlpha, borderWidth](Box& box) {
+          .configure = [scale, bgAlpha, borderWidth, materialShell](Box& box) {
             box.setCardStyle();
+            auto style = box.style();
+            auto params = shell::material::fromShell(materialShell, bgAlpha);
+            params.hasExplicitBorder = true;
+            params.border = colorSpecFromRole(ColorRole::Outline);
+            params.borderWidth = borderWidth;
+            shell::material::applyToStyle(style, params, shell::material::LightEdge::Ambient);
+            box.setStyle(style);
             box.setRadius(Style::scaledRadiusXl(scale));
-            box.setFill(colorSpecFromRole(ColorRole::Surface, bgAlpha));
-            box.setBorder(colorSpecFromRole(ColorRole::Outline), borderWidth);
           },
       })
   );

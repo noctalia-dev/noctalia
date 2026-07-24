@@ -181,6 +181,7 @@ location = "https://example.invalid/bad"
     bar.layer = "overlay";
     bar.thickness = 44;
     bar.backgroundOpacity = 0.85f;
+    bar.materialMode = SurfaceMaterialMode::LiquidGlass;
     bar.border = colorSpecFromConfigString("#123456");
     bar.borderWidth = 2.0f;
     bar.radius = 18;
@@ -243,6 +244,7 @@ location = "https://example.invalid/bad"
     ovr.layer = "top";
     ovr.thickness = 50;
     ovr.backgroundOpacity = 0.7f;
+    ovr.materialMode = SurfaceMaterialMode::LiquidGlass;
     ovr.border = colorSpecFromConfigString("#a1a2a3");
     ovr.borderWidth = 3.0f;
     ovr.radius = 22;
@@ -441,7 +443,9 @@ location = "https://example.invalid/bad"
     c.shell.shadow.direction = ShadowDirection::UpLeft;
     c.shell.material.mode = SurfaceMaterialMode::LiquidGlass;
     c.shell.material.density = 0.9f;
+    c.shell.material.experimentalRefraction = true;
     c.shell.panel.transparencyMode = PanelTransparencyMode::LiquidGlass;
+    c.shell.panel.materialMode = SurfaceMaterialMode::Soft;
     c.shell.panel.launcherPlacement = PanelPlacement::Floating;
     c.shell.launcher.compact = true;
     c.shell.launcher.sortByUsage = false;
@@ -754,6 +758,10 @@ blend = false
 void checkSurfaceMaterialOpacityResolution() {
   using shell::material::Params;
   using shell::material::resolve;
+  using shell::material::fromShell;
+  using shell::material::effectiveMode;
+  using shell::material::refractionRequested;
+  using shell::material::refractionActive;
 
   // Solid mode is a passthrough of density.
   {
@@ -777,6 +785,62 @@ void checkSurfaceMaterialOpacityResolution() {
   }
   if (darkClear > 0.12f || lightClear > 0.14f || darkClear < 0.02f) {
     fail("material: clearest liquid-glass alpha left the open range");
+  }
+
+  // Override resolution: surface override wins over shell.material.mode.
+  {
+    ShellConfig shell{};
+    shell.material.mode = SurfaceMaterialMode::Solid;
+    shell.material.density = 1.0f;
+    if (effectiveMode(shell, SurfaceMaterialMode::LiquidGlass) != SurfaceMaterialMode::LiquidGlass) {
+      fail("material: surface override must win over global mode");
+    }
+    if (effectiveMode(shell, std::nullopt) != SurfaceMaterialMode::Solid) {
+      fail("material: unset override must fall back to shell.material.mode");
+    }
+    auto overridden = fromShell(shell, 1.0f, SurfaceMaterialMode::Soft);
+    if (overridden.mode != SurfaceMaterialMode::Soft) {
+      fail("material: fromShell must honor modeOverride");
+    }
+  }
+
+  // Experimental refraction flag: default off; on only with liquid glass + sampling.
+  {
+    Params p{.mode = SurfaceMaterialMode::LiquidGlass, .density = 1.0f};
+    p.experimentalRefraction = false;
+    p.refractionSamplingAvailable = true;
+    if (refractionRequested(p) || refractionActive(p) || resolve(p, 0.2f).refractionActive) {
+      fail("material: refraction must stay off when experimental flag is false");
+    }
+    p.experimentalRefraction = true;
+    p.refractionSamplingAvailable = false;
+    if (!refractionRequested(p) || refractionActive(p) || resolve(p, 0.2f).refractionActive) {
+      fail("material: refraction requested but inactive when sampling unavailable");
+    }
+    p.refractionSamplingAvailable = true;
+    if (!refractionActive(p) || !resolve(p, 0.2f).refractionActive) {
+      fail("material: refraction must activate when flag on + liquid glass + sampling");
+    }
+    p.mode = SurfaceMaterialMode::Solid;
+    if (refractionRequested(p) || refractionActive(p)) {
+      fail("material: refraction must not request for solid mode");
+    }
+  }
+
+  // fromShell solid ignores master density (surface opacity is raw alpha).
+  {
+    ShellConfig shell{};
+    shell.material.mode = SurfaceMaterialMode::Solid;
+    shell.material.density = 0.25f;
+    auto params = fromShell(shell, 0.8f);
+    if (std::abs(params.density - 0.8f) > 1e-5f) {
+      fail("material: solid fromShell must ignore master density");
+    }
+    shell.material.mode = SurfaceMaterialMode::LiquidGlass;
+    params = fromShell(shell, 0.5f);
+    if (std::abs(params.density - 0.125f) > 1e-5f) {
+      fail("material: liquid glass fromShell must multiply density * opacity");
+    }
   }
 }
 
@@ -817,6 +881,7 @@ layer = "overlay"
 margin_edge = 5
 margin_ends = 100
 margin_opposite_edge = 12
+material_mode = "liquid_glass"
 padding = 12
 panel_overlap = 2
 position = "bottom"
@@ -869,6 +934,7 @@ widget_spacing = 8
     margin_ends = 70
     margin_opposite_edge = 4
     match = "DP-1"
+    material_mode = "liquid_glass"
     padding = 11
     panel_overlap = -1
     position = "top"

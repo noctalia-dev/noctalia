@@ -1660,6 +1660,7 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
 
   if (m_config != nullptr) {
     m_actionsMenu->setShadowConfig(m_config->config().shell.shadow);
+    m_actionsMenu->setMaterialConfig(m_config->config().shell.material);
   }
   PanelManager::instance().beginAttachedPopup(parentCtx->surface);
   PanelManager::instance().setActivePopup(m_actionsMenu.get());

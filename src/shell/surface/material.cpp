@@ -17,13 +17,11 @@ namespace shell::material {
       case SurfaceMaterialMode::Solid:
         return d;
       case SurfaceMaterialMode::Soft: {
-        // Light frosted plate: denser than liquid glass, still translucent.
         const float clearAlpha = std::lerp(0.55f, 0.68f, L);
         const float denseAlpha = std::lerp(0.78f, 0.90f, L);
         return std::lerp(clearAlpha, denseAlpha, d);
       }
       case SurfaceMaterialMode::LiquidGlass: {
-        // Clear liquid glass (Control Center style): thin refractive wash, never milky.
         const float clearAlpha = std::lerp(0.05f, 0.09f, L);
         const float denseAlpha = std::lerp(0.16f, 0.28f, L);
         return std::lerp(clearAlpha, denseAlpha, d);
@@ -34,24 +32,26 @@ namespace shell::material {
 
     void applyLiquidGlass(
         RoundedRectStyle& style, float density, float bodyAlpha, float surfaceLuminance, LightEdge lightEdge,
-        bool hasExplicitBorder, const ColorSpec& border, float borderWidth
+        bool hasExplicitBorder, const ColorSpec& border, float borderWidth, bool refractionActive
     ) {
       const Color surface = colorForRole(ColorRole::Surface);
       const float L = clamp01(surfaceLuminance);
       const float d = clamp01(density);
 
-      // Mostly white so the backdrop shows through; slight Surface mix keeps the palette present.
       const Color glassTint = lerpColor(rgba(1.0f, 1.0f, 1.0f, 1.0f), surface, std::lerp(0.08f, 0.22f, L));
-      const float outerAlpha = clamp01(bodyAlpha * 1.55f);
+      // Refraction-active: slightly more open mid + stronger outer specular (lens cue).
+      const float outerBoost = refractionActive ? 1.75f : 1.55f;
+      const float innerScale = refractionActive ? 0.35f : 0.45f;
+      const float outerAlpha = clamp01(bodyAlpha * outerBoost);
       const float midAlpha = bodyAlpha;
-      const float innerAlpha = clamp01(bodyAlpha * 0.45f);
-      const Color outer = withAlpha(glassTint, std::clamp(outerAlpha, 0.08f, 0.42f));
+      const float innerAlpha = clamp01(bodyAlpha * innerScale);
+      const Color outer = withAlpha(glassTint, std::clamp(outerAlpha, 0.08f, 0.48f));
       const Color mid = withAlpha(glassTint, midAlpha);
       const Color inner = withAlpha(glassTint, std::clamp(innerAlpha, 0.02f, 0.18f));
 
       style.fill = mid;
       style.fillMode = FillMode::LinearGradient;
-      style.softness = 0.65f;
+      style.softness = refractionActive ? 1.05f : 0.65f;
 
       switch (lightEdge) {
       case LightEdge::Left:
@@ -86,9 +86,10 @@ namespace shell::material {
         style.border = resolveColorSpec(border);
         style.borderWidth = borderWidth;
       } else {
-        const float rimAlpha = std::clamp(std::lerp(0.42f, 0.62f, d) * std::lerp(1.0f, 0.55f, L), 0.2f, 0.75f);
+        const float rimBase = refractionActive ? std::lerp(0.50f, 0.78f, d) : std::lerp(0.42f, 0.62f, d);
+        const float rimAlpha = std::clamp(rimBase * std::lerp(1.0f, 0.55f, L), 0.2f, 0.85f);
         style.border = withAlpha(rgba(1.0f, 1.0f, 1.0f, 1.0f), rimAlpha);
-        style.borderWidth = 1.25f;
+        style.borderWidth = refractionActive ? 1.5f : 1.25f;
       }
     }
 
@@ -137,11 +138,29 @@ namespace shell::material {
     return LightEdge::Top;
   }
 
-  Params fromShell(const ShellConfig& shell, float surfaceOpacity) noexcept {
+  SurfaceMaterialMode
+  effectiveMode(const ShellConfig& shell, std::optional<SurfaceMaterialMode> surfaceOverride) noexcept {
+    if (surfaceOverride.has_value()) {
+      return *surfaceOverride;
+    }
+    return shell.material.mode;
+  }
+
+  bool refractionRequested(const Params& params) noexcept {
+    return params.experimentalRefraction && params.mode == SurfaceMaterialMode::LiquidGlass;
+  }
+
+  bool refractionActive(const Params& params) noexcept {
+    return refractionRequested(params) && params.refractionSamplingAvailable;
+  }
+
+  Params fromShell(
+      const ShellConfig& shell, float surfaceOpacity, std::optional<SurfaceMaterialMode> modeOverride
+  ) noexcept {
     Params params;
-    params.mode = shell.material.mode;
-    // Solid ignores master density so background_opacity stays a raw alpha.
-    // Soft / liquid glass multiply global density by the surface's opacity slider.
+    params.mode = effectiveMode(shell, modeOverride);
+    params.experimentalRefraction = shell.material.experimentalRefraction;
+    params.refractionSamplingAvailable = false;
     if (params.mode == SurfaceMaterialMode::Solid) {
       params.density = clamp01(surfaceOpacity);
     } else {
@@ -159,6 +178,8 @@ namespace shell::material {
     out.mode = params.mode;
     out.density = clamp01(params.density);
     out.bodyAlpha = bodyAlphaForMode(params.mode, out.density, surfaceRelativeLuminance);
+    out.refractionRequested = refractionRequested(params);
+    out.refractionActive = refractionActive(params);
     return out;
   }
 
@@ -174,7 +195,7 @@ namespace shell::material {
     case SurfaceMaterialMode::LiquidGlass:
       applyLiquidGlass(
           style, resolved.density, resolved.bodyAlpha, surfaceRelativeLuminance, lightEdge, params.hasExplicitBorder,
-          params.border, params.borderWidth
+          params.border, params.borderWidth, resolved.refractionActive
       );
       break;
     case SurfaceMaterialMode::Soft:
@@ -194,8 +215,6 @@ namespace shell::material {
   ColorSpec fillSpec(const Params& params, float surfaceRelativeLuminance) noexcept {
     const Resolved resolved = resolve(params, surfaceRelativeLuminance);
     if (resolved.mode == SurfaceMaterialMode::LiquidGlass) {
-      // Approximate liquid-glass body as a white-tinted Surface for callers that only
-      // accept a ColorSpec (cards, shadows). Full style needs applyToStyle.
       const Color surface = colorForRole(ColorRole::Surface);
       const float L = clamp01(surfaceRelativeLuminance);
       const Color glassTint = lerpColor(rgba(1.0f, 1.0f, 1.0f, 1.0f), surface, std::lerp(0.08f, 0.22f, L));

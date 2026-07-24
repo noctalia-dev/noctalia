@@ -50,6 +50,7 @@ alpha     = 0.55                    # multiplied by each component's background 
 [shell.material]
 mode    = "solid"                   # solid | soft | liquid_glass — shared look for bar, dock, panels
 density = 1.0                       # soft/liquid_glass intensity; bar/dock background_opacity multiplies this
+experimental_refraction = false     # experimental lens path for liquid_glass; falls back if sampling unavailable
 
 [shell.panel]
 # transparency_mode is a legacy alias of shell.material.mode (glass -> liquid_glass)
@@ -321,6 +322,7 @@ tab_previous = ["shift+iso_left_tab"]
 position           = "top"          # top | bottom | left | right
 thickness          = 34
 background_opacity = 1.0            # solid: raw alpha; soft/liquid_glass: multiplies shell.material.density
+# material_mode    = "liquid_glass" # optional per-bar override of shell.material.mode
 radius             = 12
 margin_h           = 180
 margin_v           = 10
@@ -367,6 +369,7 @@ main_axis_padding   = 16
 cross_axis_padding  = 8
 item_spacing        = 6
 background_opacity  = 0.88
+# material_mode     = "soft"        # optional dock override of shell.material.mode
 radius              = 16
 radius_top_left     = 16
 radius_top_right    = 16

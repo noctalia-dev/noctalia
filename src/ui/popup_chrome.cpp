@@ -2,7 +2,9 @@
 
 #include "render/scene/node.h"
 #include "render/scene/rect_node.h"
+#include "shell/surface/material.h"
 #include "ui/controls/box.h"
+#include "ui/palette.h"
 #include "ui/style.h"
 #include "wayland/popup_surface.h"
 
@@ -118,9 +120,21 @@ namespace popup_chrome {
     return static_cast<RectNode*>(parent.addChild(std::move(shadowNode)));
   }
 
-  Box* addCardBackground(Node& parent, const Geometry& geometry, float contentScale) {
+  Box* addCardBackground(
+      Node& parent, const Geometry& geometry, float contentScale, const ShellConfig* shell, float surfaceOpacity
+  ) {
     auto box = std::make_unique<Box>();
-    box->setCardStyle(contentScale, 1.0f, Style::popupBordersEnabled());
+    const bool showBorder = Style::popupBordersEnabled();
+    box->setCardStyle(contentScale, 1.0f, showBorder);
+    if (shell != nullptr) {
+      auto style = box->style();
+      auto params = shell::material::fromShell(*shell, surfaceOpacity);
+      params.hasExplicitBorder = true;
+      params.border = colorSpecFromRole(ColorRole::Outline);
+      params.borderWidth = showBorder ? Style::borderWidth : 0.0f;
+      shell::material::applyToStyle(style, params, shell::material::LightEdge::Ambient);
+      box->setStyle(style);
+    }
     box->setRadius(Style::scaledRadiusLg(contentScale));
     box->setPosition(geometry.contentX(), geometry.contentY());
     box->setFrameSize(geometry.contentWidth, geometry.contentHeight);

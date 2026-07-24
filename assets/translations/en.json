@@ -1597,6 +1597,10 @@
         "background-opacity": {
           "description": "Solid material: raw background alpha. Soft / liquid glass: multiplies the global material density from Appearance"
         },
+        "material-mode": {
+          "description": "Override Appearance surface material for this bar only; leave empty to inherit the global mode",
+          "label": "Material Override"
+        },
         "border": {
           "description": "Color role for the bar outline; fixed hex colors are also supported",
           "label": "Border"
@@ -1838,6 +1842,10 @@
         },
         "background-opacity": {
           "description": "Background opacity of the dock"
+        },
+        "material-mode": {
+          "description": "Override Appearance surface material for the dock only; leave empty to inherit the global mode",
+          "label": "Material Override"
         },
         "border": {
           "description": "Color role for the dock outline; fixed hex colors are also supported",
@@ -2715,6 +2723,10 @@
         "material-density": {
           "description": "How dense soft and liquid-glass materials are (0 = clearest, 1 = densest). Solid surfaces ignore this",
           "label": "Material Density"
+        },
+        "material-experimental-refraction": {
+          "description": "Experimental lens/refraction attempt for liquid glass; falls back to clear glass when desktop sampling is unavailable",
+          "label": "Experimental Refraction"
         },
         "material-mode": {
           "description": "Shared surface material for the bar, dock, and panels: solid, soft frost, or clear liquid glass",

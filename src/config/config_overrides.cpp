@@ -184,6 +184,9 @@ namespace {
     if (ovr.backgroundOpacity) {
       resolved.backgroundOpacity = *ovr.backgroundOpacity;
     }
+    if (ovr.materialMode) {
+      resolved.materialMode = *ovr.materialMode;
+    }
     if (ovr.border) {
       resolved.border = *ovr.border;
     }

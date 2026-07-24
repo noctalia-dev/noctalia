@@ -2568,6 +2568,7 @@ void TaskbarWidget::openTaskContextMenu(const TaskModel& task, InputArea& area) 
     m_contextMenuPopup = std::make_unique<ContextMenuPopup>(m_platform.wayland(), *renderContext);
   }
   m_contextMenuPopup->setShadowConfig(m_configService.config().shell.shadow);
+  m_contextMenuPopup->setMaterialConfig(m_configService.config().shell.material);
   m_contextMenuPopup->setOnActivate([this, entryActions, entryAppName, entryWorkingDir, entryTerminal, menuEntry,
                                      isPinned](const ContextMenuControlEntry& entry) {
     if (entry.id == -4) {

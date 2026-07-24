@@ -79,6 +79,10 @@ int main() {
   expectKnown({"bar", "default", "monitor", "DP-1", "concave_edge_corners"});
   expectKnown({"shell", "material", "mode"});
   expectKnown({"shell", "material", "density"});
+  expectKnown({"shell", "material", "experimental_refraction"});
+  expectKnown({"bar", "default", "material_mode"});
+  expectKnown({"dock", "material_mode"});
+  expectKnown({"shell", "panel", "material_mode"});
 
   // Typos and bogus paths must NOT resolve.
   expectUnknown({"shell", "ui_scl"});                            // leaf typo

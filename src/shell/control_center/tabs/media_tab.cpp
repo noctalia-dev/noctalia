@@ -134,6 +134,7 @@ void MediaTab::openPlayerMenu() {
 
   if (m_config != nullptr) {
     m_playerMenuPopup->setShadowConfig(m_config->config().shell.shadow);
+    m_playerMenuPopup->setMaterialConfig(m_config->config().shell.material);
   }
   PanelManager::instance().beginAttachedPopup(parentCtx->surface);
   PanelManager::instance().setActivePopup(m_playerMenuPopup.get());

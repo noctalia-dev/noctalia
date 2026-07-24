@@ -242,6 +242,7 @@ void ScreenshotWidget::openCaptureMenu() {
     m_menuPopup = std::make_unique<ContextMenuPopup>(m_platform.wayland(), m_renderContext);
   }
   m_menuPopup->setShadowConfig(m_configService.config().shell.shadow);
+  m_menuPopup->setMaterialConfig(m_configService.config().shell.material);
   const auto options = outputOptions();
   m_menuPopup->setOnActivate([this, options](const ContextMenuControlEntry& entry) {
     if (entry.id == 1) {

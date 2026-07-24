@@ -8,6 +8,7 @@
 #include "render/render_context.h"
 #include "render/scene/node.h"
 #include "shell/surface/edge_inset.h"
+#include "shell/surface/material.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -561,16 +562,23 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
   const float backgroundOpacity = osdBackgroundOpacity(m_config);
   const bool drawBorder = m_config == nullptr || m_config->config().osd.border;
   const float border = drawBorder ? Style::borderWidth * s : 0.0f;
+  const ShellConfig emptyShell{};
+  const ShellConfig& shell = m_config != nullptr ? m_config->config().shell : emptyShell;
 
   inst.sceneRoot->addChild(
       ui::box({
           .out = &inst.background,
           .width = cw,
           .height = ch,
-          .configure = [cardX, cardY, cw, ch, s, border, backgroundOpacity](Box& box) {
+          .configure = [cardX, cardY, cw, ch, s, border, backgroundOpacity, shell, drawBorder](Box& box) {
             box.setCardStyle();
-            box.setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
-            box.setBorder(colorSpecFromRole(ColorRole::Outline), border);
+            auto style = box.style();
+            auto params = shell::material::fromShell(shell, backgroundOpacity);
+            params.hasExplicitBorder = true;
+            params.border = colorSpecFromRole(ColorRole::Outline);
+            params.borderWidth = drawBorder ? border : 0.0f;
+            shell::material::applyToStyle(style, params, shell::material::LightEdge::Ambient);
+            box.setStyle(style);
             box.setRadius(osdCardRadius(cw, ch, s));
             box.setPosition(cardX, cardY);
             box.setZIndex(0);
@@ -665,7 +673,18 @@ void OsdOverlay::updateInstanceContent(Instance& inst) {
   // Card frame size is animated during reveal; measure layout against intrinsic size.
   const float cw = cardWidth(s, m_lastOrientation);
   const float ch = cardHeight(s, m_lastOrientation, m_lastShowProgress);
-  inst.background->setFill(colorSpecFromRole(ColorRole::Surface, osdBackgroundOpacity(m_config)));
+  {
+    const ShellConfig emptyShell{};
+    const ShellConfig& shell = m_config != nullptr ? m_config->config().shell : emptyShell;
+    auto params = shell::material::fromShell(shell, osdBackgroundOpacity(m_config));
+    auto style = inst.background->style();
+    const bool drawBorder = m_config == nullptr || m_config->config().osd.border;
+    params.hasExplicitBorder = true;
+    params.border = colorSpecFromRole(ColorRole::Outline);
+    params.borderWidth = drawBorder ? style.borderWidth : 0.0f;
+    shell::material::applyToStyle(style, params, shell::material::LightEdge::Ambient);
+    inst.background->setStyle(style);
+  }
 
   const ColorRole accentRole = m_content.overLimit ? ColorRole::Error
       : m_content.inactive                         ? ColorRole::OnSurfaceVariant

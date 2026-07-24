@@ -69,6 +69,7 @@ void GlyphPickerDialogPopup::populateContent(Node* contentParent, std::uint32_t 
     }
     if (config() != nullptr) {
       m_selectPopup->setShadowConfig(config()->config().shell.shadow);
+      m_selectPopup->setMaterialConfig(config()->config().shell.material);
     }
     m_selectPopup->setParent(xdgSurface(), wlSurface(), nullptr);
     contentParent->setPopupContext(m_selectPopup.get());

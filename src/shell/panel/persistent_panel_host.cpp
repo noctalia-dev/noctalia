@@ -9,6 +9,7 @@
 #include "shell/panel/panel.h"
 #include "shell/panel/panel_surface_style.h"
 #include "shell/screen_position.h"
+#include "shell/surface/material.h"
 #include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "ui/controls/box.h"
@@ -306,8 +307,17 @@ void PersistentPanelHost::buildScene(Instance& instance, std::uint32_t width, st
   const float backgroundOpacity = shell::panel_surface::backgroundOpacity(m_config);
   if (hasDecoration) {
     auto bg = std::make_unique<Box>();
-    bg->setPanelStyle(m_config->config().shell.panel.borders);
-    bg->setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
+    const bool panelBorders = m_config->config().shell.panel.borders;
+    bg->setPanelStyle(panelBorders);
+    auto style = bg->style();
+    auto params = shell::material::fromShell(
+        m_config->config().shell, backgroundOpacity, shell::panel_surface::materialMode(m_config)
+    );
+    params.hasExplicitBorder = true;
+    params.border = colorSpecFromRole(ColorRole::Outline);
+    params.borderWidth = panelBorders ? Style::borderWidth : 0.0f;
+    shell::material::applyToStyle(style, params, shell::material::LightEdge::Ambient);
+    bg->setStyle(style);
     instance.bgNode = static_cast<Box*>(instance.sceneRoot->addChild(std::move(bg)));
   }
 
@@ -575,8 +585,17 @@ void PersistentPanelHost::onConfigReloaded() {
     instance->panel->setPanelCardOpacity(shell::panel_surface::cardOpacity(m_config, backgroundOpacity));
     instance->panel->setPanelBordersEnabled(m_config->config().shell.panel.borders);
     if (instance->bgNode != nullptr) {
-      instance->bgNode->setPanelStyle(m_config->config().shell.panel.borders);
-      instance->bgNode->setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
+      const bool panelBorders = m_config->config().shell.panel.borders;
+      instance->bgNode->setPanelStyle(panelBorders);
+      auto style = instance->bgNode->style();
+      auto params = shell::material::fromShell(
+          m_config->config().shell, backgroundOpacity, shell::panel_surface::materialMode(m_config)
+      );
+      params.hasExplicitBorder = true;
+      params.border = colorSpecFromRole(ColorRole::Outline);
+      params.borderWidth = panelBorders ? Style::borderWidth : 0.0f;
+      shell::material::applyToStyle(style, params, shell::material::LightEdge::Ambient);
+      instance->bgNode->setStyle(style);
     }
     if (instance->surface != nullptr) {
       instance->surface->requestLayout();
