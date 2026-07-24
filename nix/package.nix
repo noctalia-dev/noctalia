@@ -36,6 +36,7 @@
   fetchFromGitHub,
   nlohmann_json,
   tomlplusplus,
+  libical,
   wireplumber,
   jemalloc,
   makeWrapper,
@@ -111,6 +112,7 @@ lib.warnIf cudaSupport
     stb'
     nlohmann_json
     tomlplusplus
+    libical
   ];
 
   mesonBuildType = "release";

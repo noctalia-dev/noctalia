@@ -46,7 +46,7 @@ jobs:
             sdbus-cpp libpipewire wireplumber polkit \
             pam curl libwebp libjxl libsndfile librsvg \
             libqalculate libxml2 \
-            md4c tomlplusplus \
+            md4c tomlplusplus libical \
             nlohmann-json stb \
             jemalloc just clang
 

@@ -23,6 +23,7 @@
   ;; Guix build systems
   #:use-module (guix build-system meson)
   ;; Guix packages
+  #:use-module (gnu packages calendar)
   #:use-module (gnu packages cpp)
   #:use-module (gnu packages curl)
   #:use-module (gnu packages fontutils)
@@ -102,6 +103,7 @@
            mpfr
            (librsvg-for-system)
            libjxl
+           libical
            libqalculate
            libsndfile
            libwebp

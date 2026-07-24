@@ -107,7 +107,7 @@ sudo pacman -S meson gcc just \
   sdbus-cpp libpipewire wireplumber polkit \
   pam curl libwebp libjxl libsndfile librsvg \
   libqalculate libxml2 \
-  md4c tomlplusplus \
+  md4c tomlplusplus libical \
   nlohmann-json stb \
   jemalloc
 ```
@@ -125,7 +125,7 @@ sudo dnf install meson gcc-c++ just \
   sdbus-cpp-devel pipewire-devel wireplumber-devel \
   pam-devel polkit-devel libcurl-devel libwebp-devel libjxl-devel libsndfile-devel librsvg2-devel \
   libqalculate-devel libxml2-devel \
-  md4c-devel tomlplusplus-devel \
+  md4c-devel tomlplusplus-devel libical-devel \
   json-devel stb_image_resize2-devel stb_image_write-devel \
   jemalloc-devel
 ```
@@ -143,7 +143,7 @@ sudo zypper install meson gcc-c++ just \
   sdbus-cpp-devel pipewire-devel wireplumber-devel \
   pam-devel polkit-devel libcurl-devel libwebp-devel libjxl-devel libsndfile-devel librsvg-devel \
   libqalculate-devel libxml2-devel \
-  md4c-devel tomlplusplus-devel \
+  md4c-devel tomlplusplus-devel libical-devel \
   nlohmann_json-devel stb-devel \
   jemalloc-devel
 ```
@@ -162,7 +162,7 @@ sudo apt install meson g++ just \
   libpam0g-dev libpolkit-agent-1-dev libpolkit-gobject-1-dev \
   libcurl4-openssl-dev libwebp-dev libjxl-dev libsndfile1-dev librsvg2-dev \
   libqalculate-dev libxml2-dev \
-  libmd4c-dev libtomlplusplus-dev \
+  libmd4c-dev libtomlplusplus-dev libical-dev \
   nlohmann-json3-dev libstb-dev \
   libjemalloc-dev
 ```
@@ -178,7 +178,7 @@ sudo xbps-install meson ninja pkg-config git \
   libsecret-devel libsodium-devel \
   libcurl-devel pam-devel libwebp-devel libjxl-devel libsndfile-devel \
   basu-devel sdbus-c++-devel \
-  libmd4c-devel tomlplusplus-devel \
+  libmd4c-devel tomlplusplus-devel libical-devel \
   json-c++ stb \
   polkit-devel librsvg-devel libqalculate-devel libxml2-devel jemalloc-devel
 ```

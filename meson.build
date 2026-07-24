@@ -95,6 +95,7 @@ libxml2_dep         = dependency('libxml-2.0')
 md4c_dep            = dependency('md4c')
 nlohmann_dep        = dependency('nlohmann_json')
 tomlplusplus_dep    = dependency('tomlplusplus')
+libical_dep         = dependency('libical')
 pam_dep             = cc.find_library('pam')
 dl_dep              = cpp.find_library('dl', required: false)
 
@@ -1008,6 +1009,7 @@ _noctalia_system_dependencies = [
   pam_dep,
   nlohmann_dep,
   libxml2_dep,
+  libical_dep,
   tomlplusplus_dep,
   md4c_dep,
   libwebp_dep,
@@ -1107,7 +1109,7 @@ if build_tests
     'hook_manager',
     'i18n_language_tag',
     'i18n_supported_languages',
-    'ical_recurrence',
+    'ical_parser',
     'ico_decoder',
     'icon_resolver',
     'image_file_loader_data_uri',
