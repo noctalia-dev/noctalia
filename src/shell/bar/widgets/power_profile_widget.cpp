@@ -10,8 +10,8 @@
 #include <memory>
 #include <wayland-client-protocol.h>
 
-PowerProfileWidget::PowerProfileWidget(PowerProfilesService* powerProfiles, bool enableScroll)
-    : m_powerProfiles(powerProfiles), m_enableScroll(enableScroll) {}
+PowerProfileWidget::PowerProfileWidget(PowerProfilesService* powerProfiles, Options options)
+    : m_powerProfiles(powerProfiles), m_enableScroll(options.enableScroll) {}
 
 void PowerProfileWidget::create() {
   auto area = std::make_unique<InputArea>();

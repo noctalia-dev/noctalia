@@ -35,6 +35,7 @@
 #include "shell/bar/widgets/notification_widget_definition.h"
 #include "shell/bar/widgets/plugin_widget.h"
 #include "shell/bar/widgets/power_profile_widget.h"
+#include "shell/bar/widgets/power_profile_widget_definition.h"
 #include "shell/bar/widgets/privacy_widget.h"
 #include "shell/bar/widgets/screenshot_widget.h"
 #include "shell/bar/widgets/session_widget.h"
@@ -338,10 +339,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "power_profile") {
-    const bool enableScroll = wc != nullptr ? wc->getBool("enable_scroll", true) : true;
-    auto widget = std::make_unique<PowerProfileWidget>(m_powerProfiles, enableScroll);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<PowerProfileWidget>(
+        contentScale, m_powerProfiles, powerProfileWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+    );
   }
 
   if (type == "privacy") {

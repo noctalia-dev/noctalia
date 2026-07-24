@@ -10,6 +10,7 @@
 #include "shell/bar/widgets/brightness_widget_definition.h"
 #include "shell/bar/widgets/clock_widget_definition.h"
 #include "shell/bar/widgets/notification_widget_definition.h"
+#include "shell/bar/widgets/power_profile_widget_definition.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/font_weight_catalog.h"
 #include "shell/settings/font_weight_i18n.h"
@@ -83,6 +84,7 @@ namespace settings {
         projectWidgetDefinition<brightnessWidgetDefinition>(),
         projectWidgetDefinition<clockWidgetDefinition>(),
         projectWidgetDefinition<notificationWidgetDefinition>(),
+        projectWidgetDefinition<powerProfileWidgetDefinition>(),
     };
 
     const TypedWidgetDefinitionProjection* findTypedWidgetDefinitionProjection(std::string_view type) {
@@ -957,8 +959,6 @@ namespace settings {
         glyphPosition.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
         add(std::move(glyphPosition));
       }
-    } else if (type == "power_profile") {
-      add(boolSpec("enable_scroll", true));
     } else if (type == "taskbar") {
       // Windows: what the taskbar lists and how each window tile looks.
       add(withGroup(boolSpec("enable_scroll", true), "taskbar.windows"));
