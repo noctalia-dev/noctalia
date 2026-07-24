@@ -3,6 +3,7 @@
 #include "shell/bar/widget.h"
 #include "system/icon_resolver.h"
 #include "ui/signal.h"
+#include "ui/style.h"
 
 #include <cstdint>
 #include <string>
@@ -30,11 +31,16 @@ class ConfigService;
 
 class ActiveWindowWidget : public Widget {
 public:
-  ActiveWindowWidget(
-      ConfigService& config, CompositorPlatform& platform, float maxWidth, float minWidth, float iconSize,
-      ActiveWindowTitleScrollMode titleScrollMode,
-      ActiveWindowDisplayMode displayMode = ActiveWindowDisplayMode::IconAndText, bool showEmptyLabel = false
-  );
+  struct Options {
+    int minWidth = 80;
+    int maxWidth = 260;
+    int iconSize = static_cast<int>(Style::fontSizeBody);
+    ActiveWindowTitleScrollMode titleScrollMode = ActiveWindowTitleScrollMode::None;
+    ActiveWindowDisplayMode displayMode = ActiveWindowDisplayMode::IconAndText;
+    bool showEmptyLabel = false;
+  };
+
+  ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, Options options);
 
   void create() override;
 

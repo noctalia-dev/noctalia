@@ -4,6 +4,7 @@
 #include "config/config_service.h"
 #include "core/log.h"
 #include "shell/bar/widgets/active_window_widget.h"
+#include "shell/bar/widgets/active_window_widget_definition.h"
 #include "shell/bar/widgets/audio_visualizer_widget.h"
 #include "shell/bar/widgets/audio_visualizer_widget_definition.h"
 #include "shell/bar/widgets/battery_widget.h"
@@ -87,26 +88,6 @@ namespace {
     return widget;
   }
 
-  ActiveWindowTitleScrollMode parseActiveWindowTitleScrollMode(std::string_view value) {
-    if (value == "always") {
-      return ActiveWindowTitleScrollMode::Always;
-    }
-    if (value == "on_hover" || value == "hover") {
-      return ActiveWindowTitleScrollMode::OnHover;
-    }
-    return ActiveWindowTitleScrollMode::None;
-  }
-
-  ActiveWindowDisplayMode parseActiveWindowDisplayMode(std::string_view value) {
-    if (value == "icon_only") {
-      return ActiveWindowDisplayMode::IconOnly;
-    }
-    if (value == "text_only") {
-      return ActiveWindowDisplayMode::TextOnly;
-    }
-    return ActiveWindowDisplayMode::IconAndText;
-  }
-
   MediaTitleScrollMode parseMediaTitleScrollMode(std::string_view value) {
     if (value == "always") {
       return MediaTitleScrollMode::Always;
@@ -160,20 +141,10 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "active_window") {
-    const float maxWidth = static_cast<float>(wc != nullptr ? wc->getDouble("max_length", 260.0) : 260.0);
-    const float minWidth = static_cast<float>(wc != nullptr ? wc->getDouble("min_length", 80.0) : 80.0);
-    const float iconSize =
-        static_cast<float>(wc != nullptr ? wc->getDouble("icon_size", Style::fontSizeBody) : Style::fontSizeBody);
-    const std::string titleScroll = wc != nullptr ? wc->getString("title_scroll", "none") : std::string("none");
-    const std::string displayMode =
-        wc != nullptr ? wc->getString("display", "icon_and_text") : std::string("icon_and_text");
-    const bool showEmptyLabel = wc != nullptr ? wc->getBool("show_empty_label", false) : false;
-    auto widget = std::make_unique<ActiveWindowWidget>(
-        m_configService, m_platform, maxWidth, minWidth, iconSize, parseActiveWindowTitleScrollMode(titleScroll),
-        parseActiveWindowDisplayMode(displayMode), showEmptyLabel
+    return createWidget<ActiveWindowWidget>(
+        contentScale, m_configService, m_platform,
+        activeWindowWidgetDefinition().resolve(wc, std::format("widget.{}", name))
     );
-    widget->setContentScale(contentScale);
-    return widget;
   }
 
   if (type == "audio_visualizer") {
