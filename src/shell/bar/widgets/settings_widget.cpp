@@ -6,11 +6,24 @@
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/file_utils.h"
 
 #include <memory>
 
-SettingsWidget::SettingsWidget(wl_output* /*output*/, std::string barGlyphId, WidgetCustomImage customImage)
-    : m_barGlyphId(std::move(barGlyphId)), m_customImage(std::move(customImage)) {}
+namespace {
+
+  WidgetCustomImage customImageFrom(const SettingsWidget::Options& options) {
+    return {
+        .path = FileUtils::expandUserPath(options.customImage).string(),
+        .colorize = options.customImageColorize,
+    };
+  }
+
+} // namespace
+
+SettingsWidget::SettingsWidget(wl_output* /*output*/, Options options)
+    : m_barGlyphId(options.glyph.empty() ? "search" : std::move(options.glyph)),
+      m_customImage(customImageFrom(options)) {}
 
 void SettingsWidget::create() {
   auto area = std::make_unique<InputArea>();

@@ -14,6 +14,7 @@
 #include "shell/bar/widgets/power_profile_widget_definition.h"
 #include "shell/bar/widgets/privacy_widget_definition.h"
 #include "shell/bar/widgets/session_widget_definition.h"
+#include "shell/bar/widgets/settings_widget_definition.h"
 #include "shell/bar/widgets/spacer_widget_definition.h"
 #include "shell/bar/widgets/text_widget_definition.h"
 #include "shell/settings/font_family_catalog.h"
@@ -93,6 +94,7 @@ namespace settings {
         projectWidgetDefinition<powerProfileWidgetDefinition>(),
         projectWidgetDefinition<privacyWidgetDefinition>(),
         projectWidgetDefinition<sessionWidgetDefinition>(),
+        projectWidgetDefinition<settingsWidgetDefinition>(),
         projectWidgetDefinition<spacerWidgetDefinition>(),
         projectWidgetDefinition<textWidgetDefinition>(),
     };
@@ -889,10 +891,6 @@ namespace settings {
         vpnName.visibleWhen = std::move(vis);
         add(std::move(vpnName));
       }
-    } else if (type == "settings") {
-      add(glyphSpec("glyph", "settings"));
-      add(stringSpec("custom_image", ""));
-      add(boolSpec("custom_image_colorize", false));
     } else if (type == "sysmon") {
       add(selectSpec("stat", "cpu_usage", sysmonStats));
       {

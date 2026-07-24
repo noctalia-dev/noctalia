@@ -43,6 +43,7 @@
 #include "shell/bar/widgets/session_widget.h"
 #include "shell/bar/widgets/session_widget_definition.h"
 #include "shell/bar/widgets/settings_widget.h"
+#include "shell/bar/widgets/settings_widget_definition.h"
 #include "shell/bar/widgets/spacer_widget.h"
 #include "shell/bar/widgets/spacer_widget_definition.h"
 #include "shell/bar/widgets/sysmon_widget.h"
@@ -415,13 +416,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "settings") {
-    auto barGlyph = wc != nullptr ? wc->getString("glyph", "settings") : std::string{"settings"};
-    if (barGlyph.empty()) {
-      barGlyph = "search";
-    }
-    auto widget = std::make_unique<SettingsWidget>(output, std::move(barGlyph), customImageFor(wc));
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<SettingsWidget>(
+        contentScale, output, settingsWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+    );
   }
 
   if (type == "spacer") {
