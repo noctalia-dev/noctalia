@@ -16,6 +16,7 @@
 #include "shell/bar/widgets/clock_widget.h"
 #include "shell/bar/widgets/clock_widget_definition.h"
 #include "shell/bar/widgets/control_center_widget.h"
+#include "shell/bar/widgets/control_center_widget_definition.h"
 #include "shell/bar/widgets/custom_button_widget.h"
 #ifndef NDEBUG
 #include "shell/bar/widgets/debug_indicator_widget.h"
@@ -218,14 +219,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "control-center") {
-    auto barGlyph = wc != nullptr ? wc->getString("glyph", "noctalia") : std::string{"noctalia"};
-    if (barGlyph.empty()) {
-      barGlyph = "search";
-    }
-
-    auto widget = std::make_unique<ControlCenterWidget>(output, std::move(barGlyph), customImageFor(wc));
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<ControlCenterWidget>(
+        contentScale, output, controlCenterWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+    );
   }
 
   if (type == "custom_button") {

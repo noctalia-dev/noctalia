@@ -9,6 +9,7 @@
 #include "shell/bar/widgets/bluetooth_widget_definition.h"
 #include "shell/bar/widgets/brightness_widget_definition.h"
 #include "shell/bar/widgets/clock_widget_definition.h"
+#include "shell/bar/widgets/control_center_widget_definition.h"
 #include "shell/bar/widgets/launcher_widget_definition.h"
 #include "shell/bar/widgets/lock_keys_widget_definition.h"
 #include "shell/bar/widgets/notification_widget_definition.h"
@@ -90,6 +91,7 @@ namespace settings {
         projectWidgetDefinition<bluetoothWidgetDefinition>(),
         projectWidgetDefinition<brightnessWidgetDefinition>(),
         projectWidgetDefinition<clockWidgetDefinition>(),
+        projectWidgetDefinition<controlCenterWidgetDefinition>(),
         projectWidgetDefinition<launcherWidgetDefinition>(),
         projectWidgetDefinition<lockKeysWidgetDefinition>(),
         projectWidgetDefinition<notificationWidgetDefinition>(),
@@ -810,10 +812,6 @@ namespace settings {
         labels.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
         add(std::move(labels));
       }
-    } else if (type == "control-center") {
-      add(glyphSpec("glyph", "noctalia"));
-      add(stringSpec("custom_image", ""));
-      add(boolSpec("custom_image_colorize", false));
     } else if (type == "custom_button") {
       add(glyphSpec("glyph", "heart"));
       add(stringSpec("custom_image", ""));

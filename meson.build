@@ -711,6 +711,7 @@ _noctalia_sources = files(
   'src/shell/bar/widgets/bluetooth_widget.cpp',
   'src/shell/bar/widgets/bluetooth_widget_definition.cpp',
   'src/shell/bar/widgets/control_center_widget.cpp',
+  'src/shell/bar/widgets/control_center_widget_definition.cpp',
   'src/shell/bar/widgets/custom_button_widget.cpp',
   'src/shell/bar/widgets/clipboard_widget.cpp',
   'src/shell/bar/widgets/clock_widget.cpp',
