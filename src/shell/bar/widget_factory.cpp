@@ -9,6 +9,7 @@
 #include "shell/bar/widgets/battery_widget.h"
 #include "shell/bar/widgets/battery_widget_definition.h"
 #include "shell/bar/widgets/bluetooth_widget.h"
+#include "shell/bar/widgets/bluetooth_widget_definition.h"
 #include "shell/bar/widgets/brightness_widget.h"
 #include "shell/bar/widgets/brightness_widget_definition.h"
 #include "shell/bar/widgets/clipboard_widget.h"
@@ -176,11 +177,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "bluetooth") {
-    const bool showLabel = wc != nullptr ? wc->getBool("show_label", false) : false;
-    const bool hideWhenNoConnectedDevice = wc != nullptr ? wc->getBool("hide_when_no_connected_device", false) : false;
-    auto widget = std::make_unique<BluetoothWidget>(m_bluetooth, output, showLabel, hideWhenNoConnectedDevice);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<BluetoothWidget>(
+        contentScale, m_bluetooth, output, bluetoothWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+    );
   }
 
   if (type == "brightness") {

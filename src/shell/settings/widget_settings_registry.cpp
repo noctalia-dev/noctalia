@@ -6,6 +6,7 @@
 #include "scripting/plugin_registry.h"
 #include "shell/bar/widgets/audio_visualizer_widget_definition.h"
 #include "shell/bar/widgets/battery_widget_definition.h"
+#include "shell/bar/widgets/bluetooth_widget_definition.h"
 #include "shell/bar/widgets/brightness_widget_definition.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/font_weight_catalog.h"
@@ -76,6 +77,7 @@ namespace settings {
     constexpr std::array kTypedWidgetDefinitions{
         projectWidgetDefinition<audioVisualizerWidgetDefinition>(),
         projectWidgetDefinition<batteryWidgetDefinition>(),
+        projectWidgetDefinition<bluetoothWidgetDefinition>(),
         projectWidgetDefinition<brightnessWidgetDefinition>(),
     };
 
@@ -743,9 +745,6 @@ namespace settings {
         add(std::move(display));
       }
       add(boolSpec("show_empty_label", false));
-    } else if (type == "bluetooth") {
-      add(boolSpec("show_label", false));
-      add(boolSpec("hide_when_no_connected_device", false));
     } else if (type == "clock") {
       add(stringSpec("format", "{:%H:%M}"));
       add(stringSpec("vertical_format"));
