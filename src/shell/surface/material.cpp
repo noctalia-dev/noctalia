@@ -84,8 +84,9 @@ namespace shell::material {
         break;
       }
 
-      if (hasExplicitBorder && borderWidth > 0.0f) {
-        style.border = resolveColorSpec(border);
+      // hasExplicitBorder alone wins (including width 0 = seamless / borderless chrome).
+      if (hasExplicitBorder) {
+        style.border = borderWidth > 0.0f ? resolveColorSpec(border) : clearColor();
         style.borderWidth = borderWidth;
       } else {
         const float rimBase = refractionActive ? std::lerp(0.50f, 0.78f, d) : std::lerp(0.42f, 0.62f, d);
@@ -102,8 +103,9 @@ namespace shell::material {
       style.fill = colorForRole(ColorRole::Surface, bodyAlpha);
       style.fillMode = FillMode::Solid;
       style.softness = 0.35f;
-      if (hasExplicitBorder && borderWidth > 0.0f) {
-        style.border = resolveColorSpec(border);
+      // Match solid: explicit border (including width 0) overrides the material rim.
+      if (hasExplicitBorder) {
+        style.border = borderWidth > 0.0f ? resolveColorSpec(border) : clearColor();
         style.borderWidth = borderWidth;
       } else {
         style.border = colorForRole(ColorRole::Outline, 0.28f);

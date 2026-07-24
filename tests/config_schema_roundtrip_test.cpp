@@ -894,6 +894,37 @@ void checkSurfaceMaterialOpacityResolution() {
       fail("material: liquid glass fromShell must multiply density * opacity");
     }
   }
+
+  // Production pattern: hasExplicitBorder + borderWidth=0 (attached panel seam, OSD/toast
+  // borders off) must stay borderless for soft and liquid_glass, not paint a material rim.
+  {
+    using shell::material::applyToStyle;
+    using shell::material::LightEdge;
+    for (const SurfaceMaterialMode mode : {SurfaceMaterialMode::Soft, SurfaceMaterialMode::LiquidGlass}) {
+      Params p{.mode = mode, .density = 1.0f};
+      p.hasExplicitBorder = true;
+      p.borderWidth = 0.0f;
+      p.border = colorSpecFromRole(ColorRole::Outline);
+      RoundedRectStyle style{};
+      // Seed a non-zero rim so we prove applyToStyle clears it.
+      style.borderWidth = 9.0f;
+      style.border = rgba(1.0f, 1.0f, 1.0f, 1.0f);
+      applyToStyle(style, p, LightEdge::Ambient, 0.2f);
+      if (std::abs(style.borderWidth) > 1e-5f) {
+        fail("material: hasExplicitBorder+borderWidth=0 must stay borderless for soft/liquid_glass");
+      }
+    }
+    // Solid already had this contract; keep it covered.
+    Params solid{.mode = SurfaceMaterialMode::Solid, .density = 1.0f};
+    solid.hasExplicitBorder = true;
+    solid.borderWidth = 0.0f;
+    RoundedRectStyle solidStyle{};
+    solidStyle.borderWidth = 9.0f;
+    applyToStyle(solidStyle, solid, LightEdge::Ambient, 0.2f);
+    if (std::abs(solidStyle.borderWidth) > 1e-5f) {
+      fail("material: hasExplicitBorder+borderWidth=0 must stay borderless for solid");
+    }
+  }
 }
 
 int main() {
