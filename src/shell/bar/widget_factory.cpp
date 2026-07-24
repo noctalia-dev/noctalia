@@ -37,6 +37,7 @@
 #include "shell/bar/widgets/power_profile_widget.h"
 #include "shell/bar/widgets/power_profile_widget_definition.h"
 #include "shell/bar/widgets/privacy_widget.h"
+#include "shell/bar/widgets/privacy_widget_definition.h"
 #include "shell/bar/widgets/screenshot_widget.h"
 #include "shell/bar/widgets/session_widget.h"
 #include "shell/bar/widgets/settings_widget.h"
@@ -347,20 +348,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "privacy") {
-    PrivacyWidgetConfig config;
-
-    if (wc != nullptr) {
-      config.hideInactive = wc->getBool("hide_inactive", config.hideInactive);
-      config.iconSpacing =
-          static_cast<int>(std::clamp<std::int64_t>(wc->getInt("icon_spacing", config.iconSpacing), 0, 48));
-      config.activeColor = wc->getColorSpec("active_color", config.activeColor, "widget." + name + ".active_color");
-      config.inactiveColor =
-          wc->getColorSpec("inactive_color", config.inactiveColor, "widget." + name + ".inactive_color");
-    }
-
-    auto widget = std::make_unique<PrivacyWidget>(m_audio, &m_configService, config);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<PrivacyWidget>(
+        contentScale, m_audio, &m_configService, privacyWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+    );
   }
 
   if (auto pluginEntry = scripting::PluginRegistry::instance().resolve(type);

@@ -11,6 +11,7 @@
 #include "shell/bar/widgets/clock_widget_definition.h"
 #include "shell/bar/widgets/notification_widget_definition.h"
 #include "shell/bar/widgets/power_profile_widget_definition.h"
+#include "shell/bar/widgets/privacy_widget_definition.h"
 #include "shell/bar/widgets/spacer_widget_definition.h"
 #include "shell/bar/widgets/text_widget_definition.h"
 #include "shell/settings/font_family_catalog.h"
@@ -87,6 +88,7 @@ namespace settings {
         projectWidgetDefinition<clockWidgetDefinition>(),
         projectWidgetDefinition<notificationWidgetDefinition>(),
         projectWidgetDefinition<powerProfileWidgetDefinition>(),
+        projectWidgetDefinition<privacyWidgetDefinition>(),
         projectWidgetDefinition<spacerWidgetDefinition>(),
         projectWidgetDefinition<textWidgetDefinition>(),
     };
@@ -889,11 +891,6 @@ namespace settings {
         vpnName.visibleWhen = std::move(vis);
         add(std::move(vpnName));
       }
-    } else if (type == "privacy") {
-      add(boolSpec("hide_inactive", false));
-      add(intSpec("icon_spacing", 4, 0.0, 48.0, 1.0));
-      add(colorSpec("active_color", "primary"));
-      add(colorSpec("inactive_color", "outline"));
     } else if (type == "session") {
       add(glyphSpec("glyph", "shutdown"));
       add(stringSpec("custom_image", ""));
