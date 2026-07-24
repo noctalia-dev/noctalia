@@ -45,6 +45,13 @@ check, but it only covers repositories it indexes (and may still list v4 as
 | Desktop entry | `dev.noctalia.Noctalia.desktop` |
 | Icon | `noctalia` (`share/icons/hicolor/scalable/apps/noctalia.svg`) |
 
+## Maintenance Policy
+
+Releases strive to follow [semantic versioning](https://semver.org).
+The latest version is the only actively maintained version.
+No attempts are made to achieve overlapping lifecycles of major or minor versions.
+Bug reports are required to be reproducible on the latest version.
+
 ## Architectures / libc
 
 First-class targets:
