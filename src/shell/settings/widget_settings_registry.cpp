@@ -9,6 +9,7 @@
 #include "shell/bar/widgets/bluetooth_widget_definition.h"
 #include "shell/bar/widgets/brightness_widget_definition.h"
 #include "shell/bar/widgets/clock_widget_definition.h"
+#include "shell/bar/widgets/lock_keys_widget_definition.h"
 #include "shell/bar/widgets/notification_widget_definition.h"
 #include "shell/bar/widgets/power_profile_widget_definition.h"
 #include "shell/bar/widgets/privacy_widget_definition.h"
@@ -86,6 +87,7 @@ namespace settings {
         projectWidgetDefinition<bluetoothWidgetDefinition>(),
         projectWidgetDefinition<brightnessWidgetDefinition>(),
         projectWidgetDefinition<clockWidgetDefinition>(),
+        projectWidgetDefinition<lockKeysWidgetDefinition>(),
         projectWidgetDefinition<notificationWidgetDefinition>(),
         projectWidgetDefinition<powerProfileWidgetDefinition>(),
         projectWidgetDefinition<privacyWidgetDefinition>(),
@@ -830,12 +832,6 @@ namespace settings {
         scrollDown.visibleWhen = WidgetSettingVisibility{"enable_scroll", {"true"}};
         add(std::move(scrollDown));
       }
-    } else if (type == "lock_keys") {
-      add(boolSpec("show_caps_lock", true));
-      add(boolSpec("show_num_lock", true));
-      add(boolSpec("show_scroll_lock", false));
-      add(boolSpec("hide_when_off", false));
-      add(segmentedSpec("display", "short", shortFull));
     } else if (type == "media") {
       const WidgetSettingVisibility notAlbumArtOnly{"album_art_only", {"false"}};
       const WidgetSettingVisibility notHideAlbumArt{"hide_album_art", {"false"}};

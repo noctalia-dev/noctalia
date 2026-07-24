@@ -28,6 +28,7 @@
 #include "shell/bar/widgets/keyboard_layout_widget.h"
 #include "shell/bar/widgets/launcher_widget.h"
 #include "shell/bar/widgets/lock_keys_widget.h"
+#include "shell/bar/widgets/lock_keys_widget_definition.h"
 #include "shell/bar/widgets/media_widget.h"
 #include "shell/bar/widgets/network_widget.h"
 #include "shell/bar/widgets/nightlight_widget.h"
@@ -285,17 +286,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
     if (m_lockKeys == nullptr) {
       return nullptr;
     }
-    const bool showCaps = wc != nullptr ? wc->getBool("show_caps_lock", true) : true;
-    const bool showNum = wc != nullptr ? wc->getBool("show_num_lock", true) : true;
-    const bool showScroll = wc != nullptr ? wc->getBool("show_scroll_lock", false) : false;
-    const bool hideWhenOff = wc != nullptr ? wc->getBool("hide_when_off", false) : false;
-    const std::string display = wc != nullptr ? wc->getString("display", "short") : std::string("short");
-
-    auto widget = std::make_unique<LockKeysWidget>(
-        m_lockKeys, showCaps, showNum, showScroll, hideWhenOff, LockKeysWidget::parseDisplayMode(display)
+    return createWidget<LockKeysWidget>(
+        contentScale, m_lockKeys, lockKeysWidgetDefinition().resolve(wc, std::format("widget.{}", name))
     );
-    widget->setContentScale(contentScale);
-    return widget;
   }
 
   if (type == "media") {

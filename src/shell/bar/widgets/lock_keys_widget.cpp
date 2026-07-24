@@ -29,15 +29,9 @@ namespace {
 
 } // namespace
 
-LockKeysWidget::LockKeysWidget(
-    LockKeysService* lockKeys, bool showCapsLock, bool showNumLock, bool showScrollLock, bool hideWhenOff,
-    DisplayMode displayMode
-)
-    : m_lockKeys(lockKeys), m_showCapsLock(showCapsLock), m_showNumLock(showNumLock), m_showScrollLock(showScrollLock),
-      m_hideWhenOff(hideWhenOff), m_displayMode(displayMode) {}
-
-LockKeysWidget::DisplayMode LockKeysWidget::parseDisplayMode(const std::string& value) {
-  return value == "full" ? DisplayMode::Full : DisplayMode::Short;
+LockKeysWidget::LockKeysWidget(LockKeysService* lockKeys, Options options)
+    : m_lockKeys(lockKeys), m_showCapsLock(options.showCapsLock), m_showNumLock(options.showNumLock),
+      m_showScrollLock(options.showScrollLock), m_hideWhenOff(options.hideWhenOff), m_displayMode(options.displayMode) {
 }
 
 void LockKeysWidget::create() {
