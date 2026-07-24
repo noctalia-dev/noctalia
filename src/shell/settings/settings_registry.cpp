@@ -2941,7 +2941,7 @@ namespace settings {
       ));
       entries.push_back(makeEntry(
           section, "effects", tr("settings.schema.bar.glass.label"), tr("settings.schema.bar.glass.description"),
-          path("glass"), ToggleSetting{bar.glass}, "glass frost blur translucent material"
+          path("glass"), ToggleSetting{bar.glass}, "glass liquid clear specular blur translucent material"
       ));
       entries.push_back(makeEntry(
           section, "effects", tr("settings.schema.shared.background-opacity.label"),
@@ -3295,7 +3295,7 @@ namespace settings {
         entries.push_back(makeEntry(
             section, "effects", tr("settings.schema.bar.glass.label"), tr("settings.schema.bar.glass.description"),
             monitorPath("glass"), ToggleSetting{ovr.glass.value_or(bar.glass)},
-            "glass frost blur translucent material"
+            "glass liquid clear specular blur translucent material"
         ));
         entries.push_back(makeEntry(
             section, "effects", tr("settings.schema.shared.background-opacity.label"),

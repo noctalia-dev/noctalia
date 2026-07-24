@@ -133,7 +133,7 @@ struct BarConfig {
   std::string layer = "top"; // top | overlay — attached panels use the same layer
   std::int32_t thickness = Style::barThicknessDefault;
   float backgroundOpacity = 1.0f;
-  // Frosted glass material: compositor blur plus a luminance-aware translucent fill.
+  // Clear Apple-style liquid glass: low-alpha refractive wash + specular rim over compositor blur.
   // When true, `backgroundOpacity` is glass density (0 = clearest, 1 = densest), not raw alpha.
   bool glass = false;
   // Inside outline for the bar background; attached panels inherit the resolved values.
@@ -800,10 +800,10 @@ constexpr EnumOption<PanelTransparencyMode> kPanelTransparencyModes[] = {
 panelCardOpacityForTransparencyMode(PanelTransparencyMode mode, float panelBackgroundOpacity) noexcept;
 [[nodiscard]] float detachedPanelBackgroundOpacityForTransparencyMode(PanelTransparencyMode mode) noexcept;
 
-// Resolves the bar fill alpha used for Surface tint + shadow.
+// Resolves the bar body alpha used for shadow + attached panels that track the bar.
 // - solid (`glass == false`): `backgroundOpacity` is raw alpha
-// - glass: maps density through a WCAG-luminance-aware Apple-style glass range so light
-//   themes stay more opaque for readability and dark themes stay more transparent
+// - liquid glass: maps density into a clear (not frosted) alpha range; light surfaces stay
+//   slightly denser for contrast, dark surfaces stay more transparent so the backdrop reads
 [[nodiscard]] float
 resolveBarBackgroundOpacity(float backgroundOpacity, bool glass, float surfaceRelativeLuminance) noexcept;
 

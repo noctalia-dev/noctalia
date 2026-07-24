@@ -1590,7 +1590,7 @@
           "description": "Off keeps the bar visible; On hides it until you move the pointer to the screen edge; Smart shows the bar on an empty workspace and hides it when windows are open"
         },
         "background-opacity": {
-          "description": "Solid mode: raw background alpha. Glass mode: frost density from clearest to densest, mapped for the active theme"
+          "description": "Solid mode: raw background alpha. Glass mode: liquid-glass density from clearest to densest, mapped for the active theme"
         },
         "border": {
           "description": "Color role for the bar outline; fixed hex colors are also supported",
@@ -1704,7 +1704,7 @@
           "label": "Font Weight"
         },
         "glass": {
-          "description": "Frosted glass bar background: compositor blur with a theme-aware translucent Surface tint and a soft edge when no border is set",
+          "description": "Clear liquid-glass bar background (Apple-style): specular rim, refractive wash, and compositor blur — not frosted plastic",
           "label": "Glass"
         },
         "hover-highlight": {

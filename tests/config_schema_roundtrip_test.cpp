@@ -765,9 +765,12 @@ void checkBarGlassOpacityResolution() {
   if (!(darkDense < lightDense && darkClear < lightClear && darkClear < darkDense && lightClear < lightDense)) {
     fail("bar glass: luminance-aware density range is inverted or collapsed");
   }
-  // Dense glass must remain translucent (blur shows through); clear glass must still frost.
-  if (darkDense >= 0.95f || lightDense >= 0.95f || darkClear <= 0.05f || lightClear <= 0.05f) {
-    fail("bar glass: densest/clearest alphas left the expected frosted range");
+  // Liquid glass stays clear (not milky frost): densest body alpha well below opaque, clear near open.
+  if (darkDense > 0.35f || lightDense > 0.40f || darkDense < 0.10f || lightDense < 0.12f) {
+    fail("bar glass: densest liquid-glass alpha left the clear range");
+  }
+  if (darkClear > 0.12f || lightClear > 0.14f || darkClear < 0.02f) {
+    fail("bar glass: clearest liquid-glass alpha left the open range");
   }
 }
 

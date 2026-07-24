@@ -50,15 +50,77 @@ namespace {
     );
   }
 
-  // Apple-style glass rim: a soft outline when the user has not set a border.
-  // Light themes get a slightly darker edge; dark themes get a brighter specular edge.
-  void applyGlassRimIfNeeded(RoundedRectStyle& style, const BarConfig& bar) {
-    if (!bar.glass || bar.borderWidth > 0.0f) {
+  // Clear liquid glass (Apple Control Center style): low-alpha refractive wash with a
+  // specular outer-edge catch light and a bright rim. Not frosted / milky material.
+  void applyLiquidGlassBackgroundStyle(RoundedRectStyle& style, const BarConfig& bar) {
+    const Color surface = colorForRole(ColorRole::Surface);
+    const float L = relativeLuminance(surface);
+    const float density = std::clamp(bar.backgroundOpacity, 0.0f, 1.0f);
+    const float bodyAlpha = resolveBarBackgroundOpacity(bar.backgroundOpacity, true, L);
+
+    // Glass is mostly clear/white so the backdrop shows through; a light surface mix
+    // keeps the shell palette present without turning the panel into frosted plastic.
+    const Color glassTint = lerpColor(rgba(1.0f, 1.0f, 1.0f, 1.0f), surface, std::lerp(0.08f, 0.22f, L));
+
+    // Outer edge faces the screen edge / light; brighter specular wash there, clearer toward content.
+    const float outerAlpha = std::clamp(bodyAlpha * 1.55f, 0.08f, 0.42f);
+    const float midAlpha = bodyAlpha;
+    const float innerAlpha = std::clamp(bodyAlpha * 0.45f, 0.02f, 0.18f);
+    const Color outer = withAlpha(glassTint, outerAlpha);
+    const Color mid = withAlpha(glassTint, midAlpha);
+    const Color inner = withAlpha(glassTint, innerAlpha);
+
+    style.fill = mid;
+    style.fillMode = FillMode::LinearGradient;
+    style.softness = 0.65f;
+
+    const std::string_view position = bar.position;
+    if (position == "left" || position == "right") {
+      style.gradientDirection = GradientDirection::Horizontal;
+      if (position == "left") {
+        style.gradientStops = {
+            GradientStop{0.0f, outer}, GradientStop{0.28f, mid}, GradientStop{1.0f, inner}, GradientStop{1.0f, inner}
+        };
+      } else {
+        style.gradientStops = {
+            GradientStop{0.0f, inner}, GradientStop{0.72f, mid}, GradientStop{1.0f, outer}, GradientStop{1.0f, outer}
+        };
+      }
+    } else {
+      style.gradientDirection = GradientDirection::Vertical;
+      if (position == "bottom") {
+        style.gradientStops = {
+            GradientStop{0.0f, inner}, GradientStop{0.72f, mid}, GradientStop{1.0f, outer}, GradientStop{1.0f, outer}
+        };
+      } else {
+        // top (default)
+        style.gradientStops = {
+            GradientStop{0.0f, outer}, GradientStop{0.28f, mid}, GradientStop{1.0f, inner}, GradientStop{1.0f, inner}
+        };
+      }
+    }
+
+    if (bar.borderWidth > 0.0f) {
+      style.border = resolveColorSpec(bar.border);
+      style.borderWidth = bar.borderWidth;
+    } else {
+      // Specular glass rim: bright on dark backdrops, slightly softer on light ones.
+      const float rimAlpha = std::clamp(std::lerp(0.42f, 0.62f, density) * std::lerp(1.0f, 0.55f, L), 0.2f, 0.75f);
+      style.border = withAlpha(rgba(1.0f, 1.0f, 1.0f, 1.0f), rimAlpha);
+      style.borderWidth = 1.25f;
+    }
+  }
+
+  void applyBarBackgroundStyle(RoundedRectStyle& style, const BarConfig& bar) {
+    if (bar.glass) {
+      applyLiquidGlassBackgroundStyle(style, bar);
       return;
     }
-    const float rimAlpha = isLightPalette() ? 0.22f : 0.38f;
-    style.border = colorForRole(ColorRole::Outline, rimAlpha);
-    style.borderWidth = 1.0f;
+    style.fill = colorForRole(ColorRole::Surface, barBackgroundOpacity(bar));
+    style.fillMode = FillMode::Solid;
+    style.softness = 0.0f;
+    style.border = resolveColorSpec(bar.border);
+    style.borderWidth = bar.borderWidth;
   }
 
   [[nodiscard]] std::string activeWorkspaceId(const std::vector<Workspace>& workspaces) {
@@ -2668,10 +2730,7 @@ void Bar::applyBackgroundPalette(BarInstance& instance) {
     return;
   }
   auto style = instance.bg->style();
-  style.fill = colorForRole(ColorRole::Surface, barBackgroundOpacity(instance.barConfig));
-  style.border = resolveColorSpec(instance.barConfig.border);
-  style.borderWidth = instance.barConfig.borderWidth;
-  applyGlassRimIfNeeded(style, instance.barConfig);
+  applyBarBackgroundStyle(style, instance.barConfig);
   instance.bg->setStyle(style);
 }
 
@@ -2961,16 +3020,11 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
   // draws only outside the rect, so any size mismatch is visible at corners.
   if (instance.bg != nullptr) {
     RoundedRectStyle bgStyle{
-        .fill = colorForRole(ColorRole::Surface, barBackgroundOpacity(instance.barConfig)),
-        .border = resolveColorSpec(instance.barConfig.border),
-        .fillMode = FillMode::Solid,
         .corners = concave.corners,
         .logicalInset = concave.logicalInset,
         .radius = concave.radii,
-        .softness = 0.0f,
-        .borderWidth = instance.barConfig.borderWidth,
     };
-    applyGlassRimIfNeeded(bgStyle, instance.barConfig);
+    applyBarBackgroundStyle(bgStyle, instance.barConfig);
     instance.bg->setStyle(bgStyle);
     // (barAreaX/Y/W/H) is the body; the shader expands outward by logicalInset into
     // the visual rect, so the node must be sized to the visual rect.
