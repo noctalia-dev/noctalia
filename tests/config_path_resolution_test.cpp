@@ -73,10 +73,12 @@ int main() {
   // Bar: base field, container levels, and a resolved monitor-override field.
   expectKnown({"bar", "default", "thickness"});
   expectKnown({"bar", "default", "concave_edge_corners"});
+  expectKnown({"bar", "default", "glass"});
   expectKnown({"bar", "default", "position"});
   expectKnown({"bar", "default"});
   expectKnown({"bar", "default", "monitor", "DP-1", "thickness"});
   expectKnown({"bar", "default", "monitor", "DP-1", "concave_edge_corners"});
+  expectKnown({"bar", "default", "monitor", "DP-1", "glass"});
 
   // Typos and bogus paths must NOT resolve.
   expectUnknown({"shell", "ui_scl"});                            // leaf typo

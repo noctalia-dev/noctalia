@@ -180,6 +180,7 @@ location = "https://example.invalid/bad"
     bar.layer = "overlay";
     bar.thickness = 44;
     bar.backgroundOpacity = 0.85f;
+    bar.glass = true;
     bar.border = colorSpecFromConfigString("#123456");
     bar.borderWidth = 2.0f;
     bar.radius = 18;
@@ -242,6 +243,7 @@ location = "https://example.invalid/bad"
     ovr.layer = "top";
     ovr.thickness = 50;
     ovr.backgroundOpacity = 0.7f;
+    ovr.glass = false;
     ovr.border = colorSpecFromConfigString("#a1a2a3");
     ovr.borderWidth = 3.0f;
     ovr.radius = 22;
@@ -748,8 +750,30 @@ blend = false
 
 } // namespace
 
+void checkBarGlassOpacityResolution() {
+  // Solid mode is a passthrough of the configured opacity.
+  if (std::abs(resolveBarBackgroundOpacity(0.42f, false, 0.1f) - 0.42f) > 1e-5f
+      || std::abs(resolveBarBackgroundOpacity(1.0f, false, 0.9f) - 1.0f) > 1e-5f) {
+    fail("bar glass: solid mode must pass opacity through unchanged");
+  }
+
+  // Dark surfaces (L≈0) stay more transparent than light surfaces (L≈1) at the same density.
+  const float darkDense = resolveBarBackgroundOpacity(1.0f, true, 0.0f);
+  const float lightDense = resolveBarBackgroundOpacity(1.0f, true, 1.0f);
+  const float darkClear = resolveBarBackgroundOpacity(0.0f, true, 0.0f);
+  const float lightClear = resolveBarBackgroundOpacity(0.0f, true, 1.0f);
+  if (!(darkDense < lightDense && darkClear < lightClear && darkClear < darkDense && lightClear < lightDense)) {
+    fail("bar glass: luminance-aware density range is inverted or collapsed");
+  }
+  // Dense glass must remain translucent (blur shows through); clear glass must still frost.
+  if (darkDense >= 0.95f || lightDense >= 0.95f || darkClear <= 0.05f || lightClear <= 0.05f) {
+    fail("bar glass: densest/clearest alphas left the expected frosted range");
+  }
+}
+
 int main() {
   checkIdleActionResolution();
+  checkBarGlassOpacityResolution();
   // Captured from the pre-refactor config_export::serialize for the fully-specified probe
   // bar. Pins byte-identical bar serialization across the schema migration: the
   // resolve-and-flatten monitor write and the conditional/optional fields must
@@ -778,6 +802,7 @@ enabled = false
 end = [ "battery" ]
 font_family = "Inter"
 font_weight = 600
+glass = true
 hover_highlight = false
 icon_color = "#0C0B0A"
 layer = "overlay"
@@ -829,6 +854,7 @@ widget_spacing = 8
     end = [ "volume" ]
     font_family = "Fira Sans"
     font_weight = 600
+    glass = false
     hover_highlight = true
     icon_color = "#E3E2E1"
     layer = "top"

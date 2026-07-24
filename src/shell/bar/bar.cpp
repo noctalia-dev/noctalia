@@ -44,6 +44,23 @@ namespace {
   constexpr std::int32_t kAutoHideTriggerPx = 3;
   constexpr float kAutoHideSlideExtraPx = 4.0f;
 
+  [[nodiscard]] float barBackgroundOpacity(const BarConfig& bar) {
+    return resolveBarBackgroundOpacity(
+        bar.backgroundOpacity, bar.glass, relativeLuminance(colorForRole(ColorRole::Surface))
+    );
+  }
+
+  // Apple-style glass rim: a soft outline when the user has not set a border.
+  // Light themes get a slightly darker edge; dark themes get a brighter specular edge.
+  void applyGlassRimIfNeeded(RoundedRectStyle& style, const BarConfig& bar) {
+    if (!bar.glass || bar.borderWidth > 0.0f) {
+      return;
+    }
+    const float rimAlpha = isLightPalette() ? 0.22f : 0.38f;
+    style.border = colorForRole(ColorRole::Outline, rimAlpha);
+    style.borderWidth = 1.0f;
+  }
+
   [[nodiscard]] std::string activeWorkspaceId(const std::vector<Workspace>& workspaces) {
     for (const auto& workspace : workspaces) {
       if (workspace.active) {
@@ -846,7 +863,7 @@ namespace {
     // the concave inset into the visual rect, so concave spikes cast a matching shadow.
     const float barAreaW = barVisual.width + concave.logicalInset.left + concave.logicalInset.right;
     const float barAreaH = barVisual.height + concave.logicalInset.top + concave.logicalInset.bottom;
-    const float bgOpacity = std::clamp(instance.barConfig.backgroundOpacity, 0.0f, 1.0f);
+    const float bgOpacity = barBackgroundOpacity(instance.barConfig);
     const auto shadowOff = shadowDirectionOffset(shadowConfig.direction);
     const float shadowX = barVisual.x - concave.logicalInset.left + static_cast<float>(shadowOff.x);
     const float shadowY = barVisual.y - concave.logicalInset.top + static_cast<float>(shadowOff.y);
@@ -2651,9 +2668,10 @@ void Bar::applyBackgroundPalette(BarInstance& instance) {
     return;
   }
   auto style = instance.bg->style();
-  style.fill = colorForRole(ColorRole::Surface, instance.barConfig.backgroundOpacity);
+  style.fill = colorForRole(ColorRole::Surface, barBackgroundOpacity(instance.barConfig));
   style.border = resolveColorSpec(instance.barConfig.border);
   style.borderWidth = instance.barConfig.borderWidth;
+  applyGlassRimIfNeeded(style, instance.barConfig);
   instance.bg->setStyle(style);
 }
 
@@ -2942,8 +2960,8 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
   // Keep it exactly aligned with the shadow shape; the shadow shader now
   // draws only outside the rect, so any size mismatch is visible at corners.
   if (instance.bg != nullptr) {
-    const RoundedRectStyle bgStyle{
-        .fill = colorForRole(ColorRole::Surface, instance.barConfig.backgroundOpacity),
+    RoundedRectStyle bgStyle{
+        .fill = colorForRole(ColorRole::Surface, barBackgroundOpacity(instance.barConfig)),
         .border = resolveColorSpec(instance.barConfig.border),
         .fillMode = FillMode::Solid,
         .corners = concave.corners,
@@ -2952,6 +2970,7 @@ void Bar::buildScene(BarInstance& instance, std::uint32_t width, std::uint32_t h
         .softness = 0.0f,
         .borderWidth = instance.barConfig.borderWidth,
     };
+    applyGlassRimIfNeeded(bgStyle, instance.barConfig);
     instance.bg->setStyle(bgStyle);
     // (barAreaX/Y/W/H) is the body; the shader expands outward by logicalInset into
     // the visual rect, so the node must be sized to the visual rect.

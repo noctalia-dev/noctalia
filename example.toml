@@ -316,6 +316,7 @@ tab_previous = ["shift+iso_left_tab"]
 position           = "top"          # top | bottom | left | right
 thickness          = 34
 background_opacity = 1.0
+glass              = false          # frosted glass fill over compositor blur; opacity becomes density
 radius             = 12
 margin_h           = 180
 margin_v           = 10

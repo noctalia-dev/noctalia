@@ -184,6 +184,9 @@ namespace {
     if (ovr.backgroundOpacity) {
       resolved.backgroundOpacity = *ovr.backgroundOpacity;
     }
+    if (ovr.glass) {
+      resolved.glass = *ovr.glass;
+    }
     if (ovr.border) {
       resolved.border = *ovr.border;
     }

@@ -196,6 +196,22 @@ float detachedPanelBackgroundOpacityForTransparencyMode(PanelTransparencyMode mo
   return 1.0f;
 }
 
+float resolveBarBackgroundOpacity(float backgroundOpacity, bool glass, float surfaceRelativeLuminance) noexcept {
+  const float strength = std::clamp(backgroundOpacity, 0.0f, 1.0f);
+  if (!glass) {
+    return strength;
+  }
+
+  // WCAG relative luminance of the surface tint: 0 = black, 1 = white.
+  // Dark materials need lower fill alpha so the blurred backdrop reads through;
+  // light materials need higher fill so bar content stays readable (Apple menu-bar glass).
+  const float L = std::clamp(surfaceRelativeLuminance, 0.0f, 1.0f);
+  // Clearest frost (density 0) and densest frost (density 1), interpolated by surface lightness.
+  const float clearAlpha = std::lerp(0.18f, 0.30f, L);
+  const float denseAlpha = std::lerp(0.48f, 0.70f, L);
+  return std::lerp(clearAlpha, denseAlpha, strength);
+}
+
 void normalizeIdleBehaviorAction(IdleBehaviorConfig& behavior) {
   if (behavior.action == "suspend" && behavior.lockBeforeSuspend) {
     behavior.action = "lock_and_suspend";
