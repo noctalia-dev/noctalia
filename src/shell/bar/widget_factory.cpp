@@ -20,6 +20,7 @@
 #include "shell/bar/widgets/control_center_widget.h"
 #include "shell/bar/widgets/control_center_widget_definition.h"
 #include "shell/bar/widgets/custom_button_widget.h"
+#include "shell/bar/widgets/custom_button_widget_definition.h"
 #ifndef NDEBUG
 #include "shell/bar/widgets/debug_indicator_widget.h"
 #endif
@@ -68,7 +69,6 @@
 #include "system/format_units.h"
 #include "ui/style.h"
 #include "util/file_utils.h"
-#include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
@@ -197,23 +197,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "custom_button") {
-    auto trimSetting = [wc](const char* key, const char* fallback = "") {
-      return wc != nullptr ? StringUtils::trim(wc->getString(key, fallback)) : std::string(fallback);
-    };
-    auto widget = std::make_unique<CustomButtonWidget>(CustomButtonWidget::Options{
-        .glyph = trimSetting("glyph", "heart"),
-        .label = trimSetting("label"),
-        .tooltip = trimSetting("tooltip"),
-        .command = trimSetting("command"),
-        .rightCommand = trimSetting("right_command"),
-        .middleCommand = trimSetting("middle_command"),
-        .scrollUpCommand = trimSetting("scroll_up_command"),
-        .scrollDownCommand = trimSetting("scroll_down_command"),
-        .enableScroll = wc != nullptr ? wc->getBool("enable_scroll", true) : true,
-        .customImage = customImageFor(wc),
-    });
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<CustomButtonWidget>(
+        contentScale, customButtonWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+    );
   }
 
   if (type == "caffeine") {

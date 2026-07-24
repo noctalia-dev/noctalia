@@ -8,6 +8,8 @@
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/file_utils.h"
+#include "util/string_utils.h"
 
 #include <algorithm>
 #include <cmath>
@@ -19,14 +21,23 @@
 
 namespace {
   constexpr Logger kLog("custom-button");
-}
+
+  WidgetCustomImage customImageFrom(const CustomButtonWidget::Options& options) {
+    return {
+        .path = FileUtils::expandUserPath(options.customImage).string(),
+        .colorize = options.customImageColorize,
+    };
+  }
+} // namespace
 
 CustomButtonWidget::CustomButtonWidget(Options options)
-    : m_glyphName(std::move(options.glyph)), m_labelText(std::move(options.label)),
-      m_tooltip(std::move(options.tooltip)), m_command(std::move(options.command)),
-      m_rightCommand(std::move(options.rightCommand)), m_middleCommand(std::move(options.middleCommand)),
-      m_scrollUpCommand(std::move(options.scrollUpCommand)), m_scrollDownCommand(std::move(options.scrollDownCommand)),
-      m_enableScroll(options.enableScroll), m_customImage(std::move(options.customImage)) {}
+    : m_glyphName(StringUtils::trim(options.glyph)), m_labelText(StringUtils::trim(options.label)),
+      m_tooltip(StringUtils::trim(options.tooltip)), m_command(StringUtils::trim(options.command)),
+      m_rightCommand(StringUtils::trim(options.rightCommand)),
+      m_middleCommand(StringUtils::trim(options.middleCommand)),
+      m_scrollUpCommand(StringUtils::trim(options.scrollUpCommand)),
+      m_scrollDownCommand(StringUtils::trim(options.scrollDownCommand)), m_enableScroll(options.enableScroll),
+      m_customImage(customImageFrom(options)) {}
 
 void CustomButtonWidget::create() {
   auto area = std::make_unique<InputArea>();

@@ -12,6 +12,7 @@
 #include "shell/bar/widgets/clipboard_widget_definition.h"
 #include "shell/bar/widgets/clock_widget_definition.h"
 #include "shell/bar/widgets/control_center_widget_definition.h"
+#include "shell/bar/widgets/custom_button_widget_definition.h"
 #include "shell/bar/widgets/launcher_widget_definition.h"
 #include "shell/bar/widgets/lock_keys_widget_definition.h"
 #include "shell/bar/widgets/network_widget_definition.h"
@@ -100,6 +101,7 @@ namespace settings {
         projectWidgetDefinition<clipboardWidgetDefinition>(),
         projectWidgetDefinition<clockWidgetDefinition>(),
         projectWidgetDefinition<controlCenterWidgetDefinition>(),
+        projectWidgetDefinition<customButtonWidgetDefinition>(),
         projectWidgetDefinition<launcherWidgetDefinition>(),
         projectWidgetDefinition<lockKeysWidgetDefinition>(),
         projectWidgetDefinition<networkWidgetDefinition>(),
@@ -787,26 +789,6 @@ namespace settings {
         auto labels = stringMapSpec("custom_labels");
         labels.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
         add(std::move(labels));
-      }
-    } else if (type == "custom_button") {
-      add(glyphSpec("glyph", "heart"));
-      add(stringSpec("custom_image", ""));
-      add(boolSpec("custom_image_colorize", false));
-      add(stringSpec("label"));
-      add(stringSpec("tooltip"));
-      add(stringSpec("command"));
-      add(stringSpec("right_command"));
-      add(stringSpec("middle_command"));
-      add(boolSpec("enable_scroll", true));
-      {
-        auto scrollUp = stringSpec("scroll_up_command");
-        scrollUp.visibleWhen = WidgetSettingVisibility{"enable_scroll", {"true"}};
-        add(std::move(scrollUp));
-      }
-      {
-        auto scrollDown = stringSpec("scroll_down_command");
-        scrollDown.visibleWhen = WidgetSettingVisibility{"enable_scroll", {"true"}};
-        add(std::move(scrollDown));
       }
     } else if (type == "media") {
       const WidgetSettingVisibility notAlbumArtOnly{"album_art_only", {"false"}};
