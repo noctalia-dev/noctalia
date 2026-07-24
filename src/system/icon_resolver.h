@@ -16,6 +16,7 @@ struct IconSearchDir {
 class IconResolver {
 public:
   IconResolver();
+  IconResolver(bool cacheMissing);
 
   // targetSize is the intended on-screen pixel size. When > 0, a vector (SVG)
   // icon is preferred and, among bitmaps, the smallest theme size that is still
@@ -38,4 +39,5 @@ private:
   std::vector<std::string> m_pixmapDirs;   // XDG pixmap fallback roots
   std::string m_empty;
   std::uint64_t m_generation = 0;
+  bool m_cacheMissing;
 };

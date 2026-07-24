@@ -680,7 +680,7 @@ private:
 };
 
 LauncherPanel::LauncherPanel(ConfigService* config, AsyncTextureCache* asyncTextures)
-    : m_config(config), m_asyncTextures(asyncTextures) {
+    : m_iconResolver(true), m_config(config), m_asyncTextures(asyncTextures) {
   syncUsageTrackingState();
 }
 

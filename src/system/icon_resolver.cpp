@@ -423,7 +423,9 @@ namespace {
 
 } // namespace
 
-IconResolver::IconResolver() { rebuild(); }
+IconResolver::IconResolver(bool cacheMissing) : m_cacheMissing(cacheMissing) { rebuild(); }
+
+IconResolver::IconResolver() : IconResolver(false) {}
 
 bool IconResolver::checkThemeChanged() {
   auto& state = iconThemeState();
@@ -478,7 +480,7 @@ const std::string& IconResolver::resolve(const std::string& iconName, int target
     return it->second;
   }
   auto icon = findIcon(iconName, targetSize);
-  if (icon.empty()) {
+  if (icon.empty() && !m_cacheMissing) {
     return m_empty;
   }
   auto [ins, _] = m_cache.emplace(key, icon);
