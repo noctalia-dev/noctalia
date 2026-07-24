@@ -41,6 +41,7 @@
 #include "shell/bar/widgets/session_widget.h"
 #include "shell/bar/widgets/settings_widget.h"
 #include "shell/bar/widgets/spacer_widget.h"
+#include "shell/bar/widgets/spacer_widget_definition.h"
 #include "shell/bar/widgets/sysmon_widget.h"
 #include "shell/bar/widgets/taskbar_widget.h"
 #include "shell/bar/widgets/test_widget.h"
@@ -444,13 +445,10 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "spacer") {
-    constexpr double kDefaultSpacerLength = 20.0;
-    const auto length =
-        static_cast<float>(wc != nullptr ? wc->getDouble("length", kDefaultSpacerLength) : kDefaultSpacerLength);
     const bool verticalBar = barPosition == "left" || barPosition == "right";
-    auto widget = std::make_unique<SpacerWidget>(length, verticalBar);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<SpacerWidget>(
+        contentScale, verticalBar, spacerWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+    );
   }
 
   if (type == "text") {

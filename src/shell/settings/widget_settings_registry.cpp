@@ -11,6 +11,7 @@
 #include "shell/bar/widgets/clock_widget_definition.h"
 #include "shell/bar/widgets/notification_widget_definition.h"
 #include "shell/bar/widgets/power_profile_widget_definition.h"
+#include "shell/bar/widgets/spacer_widget_definition.h"
 #include "shell/bar/widgets/text_widget_definition.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/font_weight_catalog.h"
@@ -86,6 +87,7 @@ namespace settings {
         projectWidgetDefinition<clockWidgetDefinition>(),
         projectWidgetDefinition<notificationWidgetDefinition>(),
         projectWidgetDefinition<powerProfileWidgetDefinition>(),
+        projectWidgetDefinition<spacerWidgetDefinition>(),
         projectWidgetDefinition<textWidgetDefinition>(),
     };
 
@@ -900,8 +902,6 @@ namespace settings {
       add(glyphSpec("glyph", "settings"));
       add(stringSpec("custom_image", ""));
       add(boolSpec("custom_image_colorize", false));
-    } else if (type == "spacer") {
-      add(intSpec("length", 20, 0.0, 400.0, 1.0));
     } else if (type == "sysmon") {
       add(selectSpec("stat", "cpu_usage", sysmonStats));
       {
