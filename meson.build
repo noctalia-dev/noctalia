@@ -734,6 +734,7 @@ _noctalia_sources = files(
   'src/shell/bar/widgets/power_profile_widget_definition.cpp',
   'src/shell/bar/widgets/privacy_widget.cpp',
   'src/shell/bar/widgets/privacy_widget_definition.cpp',
+  'src/shell/bar/widgets/screenshot_widget_definition.cpp',
   'src/shell/bar/widgets/session_widget.cpp',
   'src/shell/bar/widgets/session_widget_definition.cpp',
   'src/shell/bar/widgets/settings_widget.cpp',

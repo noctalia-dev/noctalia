@@ -11,6 +11,7 @@
 #include "ui/controls/context_menu_popup.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/file_utils.h"
 #include "wayland/wayland_seat.h"
 #include "xdg-shell-client-protocol.h"
 
@@ -106,15 +107,23 @@ namespace {
     return anchor;
   }
 
+  WidgetCustomImage customImageFrom(const ScreenshotWidget::Options& options) {
+    return {
+        .path = FileUtils::expandUserPath(options.customImage).string(),
+        .colorize = options.customImageColorize,
+    };
+  }
+
 } // namespace
 
 ScreenshotWidget::ScreenshotWidget(
-    wl_output* output, std::string barGlyphId, ScreenshotService& screenshots, ConfigService& configService,
-    CompositorPlatform& platform, RenderContext& renderContext, std::string barPosition, WidgetCustomImage customImage
+    wl_output* output, ScreenshotService& screenshots, ConfigService& configService, CompositorPlatform& platform,
+    RenderContext& renderContext, std::string barPosition, Options options
 )
-    : m_barGlyphId(std::move(barGlyphId)), m_output(output), m_screenshots(screenshots), m_configService(configService),
-      m_platform(platform), m_renderContext(renderContext), m_barPosition(std::move(barPosition)),
-      m_customImage(std::move(customImage)) {}
+    : m_barGlyphId(options.glyph.empty() ? "screenshot" : std::move(options.glyph)), m_output(output),
+      m_screenshots(screenshots), m_configService(configService), m_platform(platform), m_renderContext(renderContext),
+      m_barPosition(std::move(barPosition)), m_customImage(customImageFrom(options)),
+      m_primaryClick(options.primaryClick) {}
 
 ScreenshotWidget::~ScreenshotWidget() = default;
 
@@ -188,16 +197,7 @@ ScreenshotService::OutputOptions ScreenshotWidget::outputOptions() const {
   return ScreenshotService::outputOptionsFromConfig(m_configService.config());
 }
 
-bool ScreenshotWidget::primaryClickIsFullscreen() const {
-  if (configName().empty()) {
-    return false;
-  }
-  const auto it = m_configService.config().widgets.find(std::string(configName()));
-  if (it == m_configService.config().widgets.end()) {
-    return false;
-  }
-  return it->second.getString("primary_click", "region") == "fullscreen";
-}
+bool ScreenshotWidget::primaryClickIsFullscreen() const { return m_primaryClick == PrimaryClick::Fullscreen; }
 
 void ScreenshotWidget::runPrimaryClickAction() {
   if (!m_screenshots.available()) {

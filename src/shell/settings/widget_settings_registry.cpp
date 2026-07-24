@@ -16,6 +16,7 @@
 #include "shell/bar/widgets/notification_widget_definition.h"
 #include "shell/bar/widgets/power_profile_widget_definition.h"
 #include "shell/bar/widgets/privacy_widget_definition.h"
+#include "shell/bar/widgets/screenshot_widget_definition.h"
 #include "shell/bar/widgets/session_widget_definition.h"
 #include "shell/bar/widgets/settings_widget_definition.h"
 #include "shell/bar/widgets/spacer_widget_definition.h"
@@ -99,6 +100,7 @@ namespace settings {
         projectWidgetDefinition<notificationWidgetDefinition>(),
         projectWidgetDefinition<powerProfileWidgetDefinition>(),
         projectWidgetDefinition<privacyWidgetDefinition>(),
+        projectWidgetDefinition<screenshotWidgetDefinition>(),
         projectWidgetDefinition<sessionWidgetDefinition>(),
         projectWidgetDefinition<settingsWidgetDefinition>(),
         projectWidgetDefinition<spacerWidgetDefinition>(),
@@ -769,17 +771,6 @@ namespace settings {
         add(std::move(display));
       }
       add(boolSpec("show_empty_label", false));
-    } else if (type == "screenshot") {
-      add(glyphSpec("glyph", "screenshot"));
-      add(stringSpec("custom_image", ""));
-      add(boolSpec("custom_image_colorize", false));
-      add(segmentedSpec(
-          "primary_click", "region",
-          {
-              {"region", "settings.widgets.options.screenshot-primary-region"},
-              {"fullscreen", "settings.widgets.options.screenshot-primary-fullscreen"},
-          }
-      ));
     } else if (type == "keyboard_layout") {
       add(stringSpec("cycle_command"));
       add(boolSpec("hide_when_single_layout", false));

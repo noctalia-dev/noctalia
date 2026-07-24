@@ -43,6 +43,7 @@
 #include "shell/bar/widgets/privacy_widget.h"
 #include "shell/bar/widgets/privacy_widget_definition.h"
 #include "shell/bar/widgets/screenshot_widget.h"
+#include "shell/bar/widgets/screenshot_widget_definition.h"
 #include "shell/bar/widgets/session_widget.h"
 #include "shell/bar/widgets/session_widget_definition.h"
 #include "shell/bar/widgets/settings_widget.h"
@@ -386,16 +387,10 @@ std::unique_ptr<Widget> WidgetFactory::create(
     if (m_screenshots == nullptr || m_renderContext == nullptr || !m_screenshots->available()) {
       return nullptr;
     }
-    auto barGlyph = wc != nullptr ? wc->getString("glyph", "screenshot") : std::string{"screenshot"};
-    if (barGlyph.empty()) {
-      barGlyph = "screenshot";
-    }
-    auto widget = std::make_unique<ScreenshotWidget>(
-        output, std::move(barGlyph), *m_screenshots, m_configService, m_platform, *m_renderContext, barPosition,
-        customImageFor(wc)
+    return createWidget<ScreenshotWidget>(
+        contentScale, output, *m_screenshots, m_configService, m_platform, *m_renderContext, barPosition,
+        screenshotWidgetDefinition().resolve(wc, std::format("widget.{}", name))
     );
-    widget->setContentScale(contentScale);
-    return widget;
   }
 
   if (type == "session") {
