@@ -733,6 +733,7 @@ _noctalia_sources = files(
   'src/shell/bar/widgets/settings_widget.cpp',
   'src/shell/bar/widgets/spacer_widget.cpp',
   'src/shell/bar/widgets/text_widget.cpp',
+  'src/shell/bar/widgets/text_widget_definition.cpp',
   'src/shell/bar/widgets/sysmon_widget.cpp',
   'src/shell/bar/widgets/taskbar_widget.cpp',
   'src/shell/bar/widgets/test_widget.cpp',

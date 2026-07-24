@@ -9,7 +9,7 @@
 #include <memory>
 #include <utility>
 
-TextWidget::TextWidget(std::string text) : m_text(std::move(text)) {}
+TextWidget::TextWidget(Options options) : m_text(std::move(options.text)) {}
 
 void TextWidget::create() {
   auto root = std::make_unique<Node>();
