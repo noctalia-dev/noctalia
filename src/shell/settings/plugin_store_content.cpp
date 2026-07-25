@@ -271,15 +271,8 @@ namespace settings {
       return;
     }
     m_sortButton->setGlyph(sortModeGlyph(m_sortMode));
+    // Retargets a tooltip already on screen: setTooltip notifies TooltipManager.
     m_sortButton->setTooltip(i18n::tr(sortModeTooltipKey(m_sortMode)));
-
-    if (!m_sortButton->hovered()) {
-      return;
-    }
-    InputArea* area = m_sortButton->inputArea();
-    if (area == nullptr || !area->hasTooltip()) {
-      return;
-    }
   }
 
   std::optional<std::string> PluginStoreContent::detailPageUrl() const {
@@ -438,38 +431,51 @@ namespace settings {
         .gap = Style::spaceSm * scale,
         .fillWidth = true,
     });
-    // toolbar_bottom is used for the sort button only when the tags are expanded
-    auto toolbar_bottom = ui::row({
+    // Holds the count and sort button when the category chips are expanded, so the chips
+    // sit between the filters and the row that summarizes them.
+    auto toolbarBottom = ui::row({
         .align = FlexAlign::Center,
         .gap = Style::spaceSm * scale,
         .fillWidth = true,
     });
 
-    std::vector<ui::SegmentedOption> allSources;
-    allSources.push_back({i18n::tr("settings.plugins.store.source-all"), "", ""});
-    for (const auto& source : m_sources) {
-      allSources.push_back({sourceDisplayName(source), "", ""});
+    if (m_sources.size() > 1) {
+      std::vector<ui::SegmentedOption> allSources;
+      allSources.push_back({i18n::tr("settings.plugins.store.source-all"), "", ""});
+      for (const auto& source : m_sources) {
+        allSources.push_back({sourceDisplayName(source), "", ""});
+      }
+
+      toolbar->addChild(
+          ui::segmented({
+              .options = allSources,
+              .selectedIndex = m_selectedSource,
+              .fontSize = Style::fontSizeCaption * scale,
+              .compact = true,
+              .onChange = [this](std::size_t i) {
+                m_selectedSource = i;
+
+                // The tag list is scoped to the selected source, so keep the chosen
+                // category only when the new source still offers it.
+                const std::optional<std::string> previousTag =
+                    m_selectedTag != 0 ? std::optional{m_allTags[m_selectedTag - 1]} : std::nullopt;
+                collectTags();
+                m_selectedTag = 0;
+                if (previousTag.has_value()) {
+                  const auto it = std::ranges::find(m_allTags, *previousTag);
+                  if (it != m_allTags.end()) {
+                    m_selectedTag = static_cast<std::size_t>(it - m_allTags.begin()) + 1;
+                  }
+                }
+
+                applyFilter();
+                if (m_onRebuildNeeded) {
+                  m_onRebuildNeeded();
+                }
+              },
+          })
+      );
     }
-
-    toolbar->addChild(
-        ui::segmented({.options = allSources, .selectedIndex = m_selectedSource, .onChange = [this](std::size_t i) {
-                         m_selectedSource = i;
-
-                         std::optional<std::string> prev_selectedTag =
-                             m_selectedTag != 0 ? std::optional{m_allTags[m_selectedTag - 1]} : std::nullopt;
-                         collectTags();
-                         if (prev_selectedTag.has_value()) {
-                           auto it = std::ranges::find(m_allTags, prev_selectedTag.value());
-                           m_selectedTag =
-                               it != m_allTags.end() ? static_cast<std::size_t>(it - m_allTags.begin()) + 1 : 0;
-                         }
-
-                         applyFilter();
-                         if (m_onRebuildNeeded) {
-                           m_onRebuildNeeded();
-                         }
-                       }})
-    );
 
     std::vector<std::string> allTags;
     allTags.push_back(i18n::tr("settings.plugins.store.category-all"));
@@ -477,7 +483,6 @@ namespace settings {
     std::vector<std::unique_ptr<Button>> tagButtons;
 
     if (allTags.size() > 1) {
-      auto tagsHeader = ui::row({.align = FlexAlign::Center, .justify = FlexJustify::SpaceBetween, .fillWidth = true});
       toolbar->addChild(
           ui::button({
               .text = i18n::tr("settings.plugins.store.categories"),
@@ -516,13 +521,11 @@ namespace settings {
       }
     }
 
-    if (!m_tagFiltersCollapsed) {
-      std::swap(toolbar, toolbar_bottom);
-    }
+    Flex& summaryRow = m_tagFiltersCollapsed ? *toolbar : *toolbarBottom;
 
-    toolbar->addChild(ui::spacer());
+    summaryRow.addChild(ui::spacer());
 
-    toolbar->addChild(
+    summaryRow.addChild(
         ui::label({
             .out = &m_countLabel,
             .text = i18n::tr("settings.plugins.store.results-count", "count", std::to_string(m_filteredIndices.size())),
@@ -531,7 +534,7 @@ namespace settings {
         })
     );
 
-    toolbar->addChild(
+    summaryRow.addChild(
         ui::button({
             .out = &m_sortButton,
             .glyph = std::string(sortModeGlyph(m_sortMode)),
@@ -545,10 +548,6 @@ namespace settings {
             .onClick = [this]() { cycleSortMode(); },
         })
     );
-
-    if (!m_tagFiltersCollapsed) {
-      std::swap(toolbar, toolbar_bottom);
-    }
 
     body.addChild(std::move(toolbar));
 
@@ -569,7 +568,7 @@ namespace settings {
         body.addChild(std::move(rowFlex));
       }
 
-      body.addChild(std::move(toolbar_bottom));
+      body.addChild(std::move(toolbarBottom));
     }
 
     auto adapter = std::make_unique<PluginStoreAdapter>(scale);
@@ -956,12 +955,12 @@ namespace settings {
     if (m_filteredIndices.empty()) {
       return false;
     }
-    const auto& index = getIndexFromID(m_selectedPluginID.value_or(""));
+    std::optional<std::size_t> index = getIndexFromID(m_selectedPluginID.value_or(""));
     if (!index.has_value() || *index >= m_filteredIndices.size()) {
       selectIndex(0);
-    } else {
-      openDetail(*index);
+      index = 0;
     }
+    openDetail(*index);
     return true;
   }
 
