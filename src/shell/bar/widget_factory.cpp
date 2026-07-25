@@ -35,6 +35,7 @@
 #include "shell/bar/widgets/lock_keys_widget.h"
 #include "shell/bar/widgets/lock_keys_widget_definition.h"
 #include "shell/bar/widgets/media_widget.h"
+#include "shell/bar/widgets/media_widget_definition.h"
 #include "shell/bar/widgets/network_widget.h"
 #include "shell/bar/widgets/network_widget_definition.h"
 #include "shell/bar/widgets/nightlight_widget.h"
@@ -85,16 +86,6 @@ namespace {
     auto widget = std::make_unique<T>(std::forward<Args>(args)...);
     widget->setContentScale(contentScale);
     return widget;
-  }
-
-  MediaTitleScrollMode parseMediaTitleScrollMode(std::string_view value) {
-    if (value == "always") {
-      return MediaTitleScrollMode::Always;
-    }
-    if (value == "on_hover" || value == "hover") {
-      return MediaTitleScrollMode::OnHover;
-    }
-    return MediaTitleScrollMode::None;
   }
 
   WidgetCustomImage customImageFor(const WidgetConfig* wc) {
@@ -234,21 +225,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "media") {
-    const float maxWidth = static_cast<float>(wc != nullptr ? wc->getDouble("max_length", 220.0) : 220.0);
-    const float minWidth = static_cast<float>(wc != nullptr ? wc->getDouble("min_length", 80.0) : 80.0);
-    const float artSize = static_cast<float>(wc != nullptr ? wc->getDouble("art_size", 16.0) : 16.0);
-    const std::string titleScroll = wc != nullptr ? wc->getString("title_scroll", "none") : std::string("none");
-    const bool hideWhenNoMedia = wc != nullptr ? wc->getBool("hide_when_no_media", false) : false;
-    const bool albumArtOnly = wc != nullptr ? wc->getBool("album_art_only", false) : false;
-    const bool hideAlbumArt = wc != nullptr ? wc->getBool("hide_album_art", false) : false;
-    const bool hideArtist = wc != nullptr ? wc->getBool("hide_artist", false) : false;
-    const bool artistFirst = wc != nullptr ? wc->getBool("artist_first", false) : false;
-    auto widget = std::make_unique<MediaWidget>(
-        m_mpris, m_httpClient, output, maxWidth, minWidth, artSize, parseMediaTitleScrollMode(titleScroll),
-        hideWhenNoMedia, albumArtOnly, hideAlbumArt, hideArtist, artistFirst
+    return createWidget<MediaWidget>(
+        contentScale, m_mpris, m_httpClient, output, mediaWidgetDefinition().resolve(wc, settingContext)
     );
-    widget->setContentScale(contentScale);
-    return widget;
   }
 
   if (type == "network") {

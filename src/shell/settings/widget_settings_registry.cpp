@@ -16,6 +16,7 @@
 #include "shell/bar/widgets/custom_button_widget_definition.h"
 #include "shell/bar/widgets/launcher_widget_definition.h"
 #include "shell/bar/widgets/lock_keys_widget_definition.h"
+#include "shell/bar/widgets/media_widget_definition.h"
 #include "shell/bar/widgets/network_widget_definition.h"
 #include "shell/bar/widgets/notification_widget_definition.h"
 #include "shell/bar/widgets/privacy_widget_definition.h"
@@ -104,6 +105,7 @@ namespace settings {
         projectWidgetDefinition<customButtonWidgetDefinition>(),
         projectWidgetDefinition<launcherWidgetDefinition>(),
         projectWidgetDefinition<lockKeysWidgetDefinition>(),
+        projectWidgetDefinition<mediaWidgetDefinition>(),
         projectWidgetDefinition<networkWidgetDefinition>(),
         projectWidgetDefinition<notificationWidgetDefinition>(),
         projectWidgetDefinition<privacyWidgetDefinition>(),
@@ -761,11 +763,6 @@ namespace settings {
           {"count", "settings.widgets.options.count"},
           {"dots", "settings.widgets.options.dots"},
       };
-      const std::vector<WidgetSettingSelectOption> mediaTitleScroll = {
-          {"none", "settings.widgets.options.none"},
-          {"always", "settings.widgets.options.always"},
-          {"on_hover", "settings.widgets.options.on-hover"},
-      };
       const std::vector<WidgetSettingSelectOption> volumeDeviceOptions = {
           {"output", "settings.widgets.options.output"},
           {"input", "settings.widgets.options.input"},
@@ -801,50 +798,6 @@ namespace settings {
           labels.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
           add(std::move(labels));
         }
-      } else if (type == "media") {
-        const WidgetSettingVisibility notAlbumArtOnly{"album_art_only", {"false"}};
-        const WidgetSettingVisibility notHideAlbumArt{"hide_album_art", {"false"}};
-        {
-          auto albumArtOnly = boolSpec("album_art_only", false);
-          albumArtOnly.horizontalBarOnly = true;
-          albumArtOnly.visibleWhen = notHideAlbumArt;
-          add(std::move(albumArtOnly));
-        }
-        {
-          auto hideAlbumArt = boolSpec("hide_album_art", false);
-          hideAlbumArt.horizontalBarOnly = true;
-          hideAlbumArt.visibleWhen = notAlbumArtOnly;
-          add(std::move(hideAlbumArt));
-        }
-        {
-          auto hideArtist = boolSpec("hide_artist", false);
-          hideArtist.horizontalBarOnly = true;
-          hideArtist.visibleWhen = notAlbumArtOnly;
-          add(std::move(hideArtist));
-        }
-        {
-          auto artistFirst = boolSpec("artist_first", false);
-          artistFirst.horizontalBarOnly = true;
-          artistFirst.visibleWhen = notAlbumArtOnly;
-          add(std::move(artistFirst));
-        }
-        {
-          auto minLength = intSpec("min_length", 80, 0.0, 800.0, 1.0);
-          minLength.visibleWhen = notAlbumArtOnly;
-          add(std::move(minLength));
-        }
-        {
-          auto maxLength = intSpec("max_length", 220, 40.0, 800.0, 1.0);
-          maxLength.visibleWhen = notAlbumArtOnly;
-          add(std::move(maxLength));
-        }
-        add(intSpec("art_size", 16.0, 8.0, 96.0, 1.0));
-        {
-          auto titleScroll = selectSpec("title_scroll", "none", mediaTitleScroll);
-          titleScroll.visibleWhen = notAlbumArtOnly;
-          add(std::move(titleScroll));
-        }
-        add(boolSpec("hide_when_no_media", false));
       } else if (type == "sysmon") {
         add(selectSpec("stat", "cpu_usage", sysmonStats));
         {
