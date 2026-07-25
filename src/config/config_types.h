@@ -983,6 +983,8 @@ struct ShellConfig {
   bool buttonBorders = true;
   bool inputBorders = true;
   bool popupBorders = true;
+  bool profileBorders = true;
+  bool hoverBorders = true;
   bool popupShadows = true;
   std::string fontFamily = "sans-serif";
   std::string lang; // empty = auto-detect from $LC_ALL/$LC_MESSAGES/$LANG

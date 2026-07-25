@@ -73,6 +73,8 @@ private:
   void warnOnOversizedAvatarSource(const std::string& path);
   void syncScaledFonts();
   void syncShortcuts();
+  void syncBorders();
+  void applyHomeCardHover(Flex& card, bool hovered, bool baseBorders);
   bool resizeMediaArtToCard();
   void onPanelCardOpacityChanged(float opacity) override;
 
@@ -119,6 +121,7 @@ private:
   Image* m_wallpaperPlaceholder = nullptr;
   Image* m_wallpaperBg = nullptr;
   Box* m_wallpaperGradient = nullptr;
+  Box* m_userCardBorder = nullptr;
   std::string m_loadedWallpaperPath;
   int m_loadedWallpaperSize = 0;
   std::string m_crispWorkingPath;
@@ -128,6 +131,9 @@ private:
   std::uint32_t m_wallpaperCrispAnimId = 0;
   ThumbnailService::Subscription m_thumbnailPendingSub;
   Signal<>::ScopedConnection m_wallpaperChangedConn;
+  Signal<>::ScopedConnection m_buttonBordersConn;
+  Signal<>::ScopedConnection m_profileBordersConn;
+  Signal<>::ScopedConnection m_hoverBordersConn;
 
   Label* m_mediaTrack = nullptr;
   Label* m_mediaArtist = nullptr;

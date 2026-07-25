@@ -8,6 +8,8 @@ namespace {
   bool g_buttonBordersEnabled = true;
   bool g_inputBordersEnabled = true;
   bool g_popupBordersEnabled = true;
+  bool g_profileBordersEnabled = true;
+  bool g_hoverBordersEnabled = true;
   bool g_popupShadowsEnabled = true;
 
 } // namespace
@@ -50,6 +52,36 @@ namespace Style {
 
   bool popupBordersEnabled() noexcept { return g_popupBordersEnabled; }
   void setPopupBordersEnabled(bool enabled) { g_popupBordersEnabled = enabled; }
+
+  bool profileBordersEnabled() noexcept { return g_profileBordersEnabled; }
+
+  void setProfileBordersEnabled(bool enabled) {
+    if (g_profileBordersEnabled == enabled) {
+      return;
+    }
+    g_profileBordersEnabled = enabled;
+    profileBordersChanged().emit();
+  }
+
+  Signal<>& profileBordersChanged() {
+    static Signal<> signal;
+    return signal;
+  }
+
+  bool hoverBordersEnabled() noexcept { return g_hoverBordersEnabled; }
+
+  void setHoverBordersEnabled(bool enabled) {
+    if (g_hoverBordersEnabled == enabled) {
+      return;
+    }
+    g_hoverBordersEnabled = enabled;
+    hoverBordersChanged().emit();
+  }
+
+  Signal<>& hoverBordersChanged() {
+    static Signal<> signal;
+    return signal;
+  }
 
   bool popupShadowsEnabled() noexcept { return g_popupShadowsEnabled; }
   void setPopupShadowsEnabled(bool enabled) { g_popupShadowsEnabled = enabled; }

@@ -131,25 +131,16 @@ namespace {
     button.setEnabled(enabled);
   }
 
-  // The whole home cards are clickable; on hover swap the card outline to the hover colour. No fill
-  // change — the user card's fill sits behind the wallpaper, so a thin hover border is the one hover
-  // signal that reads consistently across all three cards.
-  void applyHomeCardHover(Flex& card, bool hovered, bool baseBorders) {
-    if (hovered) {
-      card.setBorder(colorSpecFromRole(ColorRole::Hover), Style::borderWidth);
-    } else if (baseBorders) {
-      card.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
-    } else {
-      card.clearBorder();
-    }
-  }
-
   void applyAvatarChrome(Image* avatar, bool highlighted) {
     if (avatar == nullptr) {
       return;
     }
+    if (!Style::profileBordersEnabled()) {
+      avatar->setBorder(clearColorSpec(), 0.0f);
+      return;
+    }
     const float borderWidth = Style::borderWidth * 3.0f;
-    if (highlighted) {
+    if (highlighted && Style::hoverBordersEnabled()) {
       avatar->setBorder(colorSpecFromRole(ColorRole::Hover), borderWidth);
       return;
     }
@@ -163,6 +154,9 @@ HomeTab::HomeTab(const ControlCenterServices& services)
       m_config(services.config), m_accounts(services.accounts), m_wallpaper(services.wallpaper),
       m_thumbnails(services.thumbnails), m_asyncTextures(services.asyncTextures),
       m_services(services.shortcutServices()) {
+  m_buttonBordersConn = Style::buttonBordersChanged().connect([this] { syncBorders(); });
+  m_profileBordersConn = Style::profileBordersChanged().connect([this] { syncBorders(); });
+  m_hoverBordersConn = Style::hoverBordersChanged().connect([this] { syncBorders(); });
   if (m_thumbnails != nullptr) {
     m_thumbnailPendingSub = m_thumbnails->subscribePendingUpload([this]() {
       if (m_wallpaperBg == nullptr) {
@@ -209,13 +203,13 @@ std::unique_ptr<Flex> HomeTab::create() {
       .justify = FlexJustify::Center,
       .fillHeight = true,
       .flexGrow = 1.0f,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
-        applyHomeCardStyle(card, scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](Flex& card) {
+        applyHomeCardStyle(card, scale, opacity, Style::buttonBordersEnabled());
       },
   });
 
   {
-    const float wallpaperRadius = std::max(0.0f, Style::scaledRadiusXl(scale) - Style::borderWidth);
+    const float wallpaperRadius = Style::scaledRadiusXl(scale);
     userCard->addChild(
         ui::image({
             .out = &m_wallpaperPlaceholder,
@@ -244,6 +238,19 @@ std::unique_ptr<Flex> HomeTab::create() {
             .out = &m_wallpaperGradient,
             .participatesInLayout = false,
             .configure = [](Box& box) { box.setZIndex(-1); },
+        })
+    );
+
+    userCard->addChild(
+        ui::box({
+            .out = &m_userCardBorder,
+            .participatesInLayout = false,
+            .configure = [](Box& box) {
+              box.setZIndex(10);
+              box.setHitTestVisible(false);
+              box.setFill(clearColorSpec());
+              box.clearBorder();
+            },
         })
     );
   }
@@ -301,7 +308,7 @@ std::unique_ptr<Flex> HomeTab::create() {
           .width = avatarSize,
           .height = avatarSize,
           .configure = [](Image& image) {
-            image.setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth * 3.0f);
+            applyAvatarChrome(&image, false);
             image.setHitTestVisible(false);
             image.setAsyncReadyCallback([]() { PanelManager::instance().refresh(); });
           },
@@ -395,8 +402,8 @@ std::unique_ptr<Flex> HomeTab::create() {
       .fillWidth = true,
       .fillHeight = true,
       .flexGrow = kHomeMediaCardFlexGrow,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
-        applyHomeCardStyle(card, scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](Flex& card) {
+        applyHomeCardStyle(card, scale, opacity, Style::buttonBordersEnabled());
       },
   });
 
@@ -469,8 +476,8 @@ std::unique_ptr<Flex> HomeTab::create() {
        .fillHeight = true,
        .flexGrow = kHomeDateTimeCardFlexGrow,
        .configure =
-           [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
-             applyHomeCardStyle(card, scale, opacity, borders);
+           [scale, opacity = panelCardOpacity()](Flex& card) {
+             applyHomeCardStyle(card, scale, opacity, Style::buttonBordersEnabled());
              card.setDirection(FlexDirection::Horizontal);
              card.setAlign(FlexAlign::Center);
              card.setJustify(FlexJustify::Center);
@@ -617,6 +624,7 @@ std::unique_ptr<Flex> HomeTab::create() {
   }
   tab->addChild(std::move(bottomRow));
 
+  syncBorders();
   return tab;
 }
 
@@ -869,12 +877,11 @@ InputArea* HomeTab::addCardOverlay(Flex& card, std::function<void()> onActivate,
   }
 
   Flex* cardPtr = &card;
-  const bool borders = panelBordersEnabled();
   InputArea* areaPtr = area.get();
   std::function<void()> activate = std::move(onActivate);
 
-  const auto setHovered = [cardPtr, borders](bool hovered) {
-    applyHomeCardHover(*cardPtr, hovered, borders);
+  const auto setHovered = [cardPtr, this](bool hovered) {
+    applyHomeCardHover(*cardPtr, hovered, Style::buttonBordersEnabled());
     PanelManager::instance().requestRedraw();
   };
 
@@ -962,19 +969,22 @@ void HomeTab::layoutWallpaperBackground(Renderer& renderer) {
     return;
   }
 
-  const float bw = Style::borderWidth;
-  const float cw = std::max(0.0f, m_userCard->width() - bw * 2.0f);
-  const float ch = std::max(0.0f, m_userCard->height() - bw * 2.0f);
-  m_wallpaperBg->setPosition(bw, bw);
+  const float cw = std::max(0.0f, m_userCard->width());
+  const float ch = std::max(0.0f, m_userCard->height());
+  const float radius = Style::scaledRadiusXl(contentScale());
+
+  m_wallpaperBg->setPosition(0.0f, 0.0f);
   m_wallpaperBg->setSize(cw, ch);
+  m_wallpaperBg->setRadius(radius);
+
   if (m_wallpaperPlaceholder != nullptr) {
-    m_wallpaperPlaceholder->setPosition(bw, bw);
+    m_wallpaperPlaceholder->setPosition(0.0f, 0.0f);
     m_wallpaperPlaceholder->setSize(cw, ch);
+    m_wallpaperPlaceholder->setRadius(radius);
   }
 
   if (m_wallpaperGradient != nullptr) {
-    const float radius = std::max(0.0f, Style::scaledRadiusXl(contentScale()) - bw);
-    m_wallpaperGradient->setPosition(bw, bw);
+    m_wallpaperGradient->setPosition(0.0f, 0.0f);
     m_wallpaperGradient->setFrameSize(cw, ch);
     const Color surface = colorForRole(ColorRole::Surface);
     const Color translucentSurface = rgba(surface.r, surface.g, surface.b, surface.a * 0.9f);
@@ -990,6 +1000,12 @@ void HomeTab::layoutWallpaperBackground(Renderer& renderer) {
             .radius = radius,
         }
     );
+  }
+
+  if (m_userCardBorder != nullptr) {
+    m_userCardBorder->setPosition(0.0f, 0.0f);
+    m_userCardBorder->setFrameSize(cw, ch);
+    m_userCardBorder->setRadius(radius);
   }
 
   syncWallpaperBackground(renderer);
@@ -1514,6 +1530,55 @@ void HomeTab::syncShortcuts() {
       if (pad.label->text() != label) {
         pad.button->setText(label);
       }
+    }
+  }
+}
+
+void HomeTab::syncBorders() {
+  const bool buttonBorders = Style::buttonBordersEnabled();
+
+  if (m_userCard != nullptr) {
+    const bool isUserCardHovered = (m_userCardArea != nullptr && m_userCardArea->hovered())
+        || (m_userCardKeyboardArea != nullptr && m_userCardKeyboardArea->hovered());
+    applyHomeCardHover(*m_userCard, isUserCardHovered, buttonBorders);
+  }
+  if (m_mediaCard != nullptr) {
+    const bool isMediaHovered = m_mediaCardArea != nullptr && m_mediaCardArea->hovered();
+    applyHomeCardHover(*m_mediaCard, isMediaHovered, buttonBorders);
+  }
+  if (m_dateTimeCard != nullptr) {
+    const bool isDateTimeHovered = m_dateTimeCardArea != nullptr && m_dateTimeCardArea->hovered();
+    applyHomeCardHover(*m_dateTimeCard, isDateTimeHovered, buttonBorders);
+  }
+  if (m_userAvatar != nullptr) {
+    const bool highlighted =
+        m_userAvatarArea != nullptr && (m_userAvatarArea->focused() || m_userAvatarArea->hovered());
+    applyAvatarChrome(m_userAvatar, highlighted);
+  }
+  PanelManager::instance().requestRedraw();
+}
+
+void HomeTab::applyHomeCardHover(Flex& card, bool hovered, bool baseBorders) {
+  const ColorSpec hoverColor = colorSpecFromRole(ColorRole::Hover);
+  const ColorSpec outlineColor = colorSpecFromRole(ColorRole::Outline);
+  const float bw = Style::borderWidth;
+
+  if (&card == m_userCard && m_userCardBorder != nullptr) {
+    card.clearBorder();
+    if (hovered && Style::hoverBordersEnabled()) {
+      m_userCardBorder->setBorder(hoverColor, bw);
+    } else if (baseBorders) {
+      m_userCardBorder->setBorder(outlineColor, bw);
+    } else {
+      m_userCardBorder->clearBorder();
+    }
+  } else {
+    if (hovered && Style::hoverBordersEnabled()) {
+      card.setBorder(hoverColor, bw);
+    } else if (baseBorders) {
+      card.setBorder(outlineColor, bw);
+    } else {
+      card.clearBorder();
     }
   }
 }

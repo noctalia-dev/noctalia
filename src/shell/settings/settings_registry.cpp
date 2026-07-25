@@ -574,6 +574,16 @@ namespace settings {
         ToggleSetting{cfg.shell.popupBorders}, "popup menu dropdown outline border flat minimal"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Appearance, "borders", tr("settings.schema.appearance.profile-borders.label"),
+        tr("settings.schema.appearance.profile-borders.description"), {"shell", "profile_borders"},
+        ToggleSetting{cfg.shell.profileBorders}, "profile user avatar outline border flat minimal"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Appearance, "borders", tr("settings.schema.appearance.hover-borders.label"),
+        tr("settings.schema.appearance.hover-borders.description"), {"shell", "hover_borders"},
+        ToggleSetting{cfg.shell.hoverBorders}, "hover focus highlight outline border flat minimal"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Appearance, "effects", tr("settings.schema.shared.shadow-direction.label"),
         tr("settings.schema.appearance.global-shadow-direction.description"), {"shell", "shadow", "direction"},
         enumSelect(kShadowDirections, cfg.shell.shadow.direction), "shadow direction"

@@ -401,6 +401,8 @@ void Application::initStyleThemeAndWayland() {
     Style::setButtonBordersEnabled(m_configService.config().shell.buttonBorders);
     Style::setInputBordersEnabled(m_configService.config().shell.inputBorders);
     Style::setPopupBordersEnabled(m_configService.config().shell.popupBorders);
+    Style::setProfileBordersEnabled(m_configService.config().shell.profileBorders);
+    Style::setHoverBordersEnabled(m_configService.config().shell.hoverBorders);
     Style::setPopupShadowsEnabled(m_configService.config().shell.popupShadows);
     lastCornerRadiusScale = corner;
     if (cornerChanged) {

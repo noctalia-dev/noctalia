@@ -1513,6 +1513,14 @@
           "description": "Draw outlines around buttons throughout the shell",
           "label": "Button Borders"
         },
+        "hover-borders": {
+          "description": "Draw accent outlines when hovering over interactive elements",
+          "label": "Hover Borders"
+        },
+        "profile-borders": {
+          "description": "Draw outlines around the user profile picture in the control center",
+          "label": "Profile Borders"
+        },
         "community-palette": {
           "description": "Choose a palette from the community catalog",
           "label": "Community Palette",

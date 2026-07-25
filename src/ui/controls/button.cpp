@@ -251,6 +251,7 @@ Button::Button() {
   });
   m_buttonBordersConn =
       Style::buttonBordersChanged().connect([this] { setBorder(m_targetBorder, effectiveBorderWidth()); });
+  m_hoverBordersConn = Style::hoverBordersChanged().connect([this] { applyVisualState(); });
 }
 
 Button::~Button() {
@@ -617,7 +618,9 @@ void Button::resolveVisualStateColors(Color& targetBg, Color& targetBorder, Colo
     targetLabel = resolveColorSpec(colorSpecFromRole(ColorRole::OnSecondary));
   } else if (isHovered || isSelected) {
     targetBg = resolveColorSpec(m_palette.hover.bg);
-    targetBorder = resolveColorSpec(m_palette.hover.border);
+    targetBorder = resolveColorSpec(
+        (isHovered && !Style::hoverBordersEnabled()) ? m_palette.normal.border : m_palette.hover.border
+    );
     targetLabel = resolveColorSpec(m_palette.hover.label);
   } else {
     targetBg = resolveColorSpec(m_palette.normal.bg);

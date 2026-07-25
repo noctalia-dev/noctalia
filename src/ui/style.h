@@ -83,6 +83,14 @@ namespace Style {
   [[nodiscard]] bool popupBordersEnabled() noexcept;
   void setPopupBordersEnabled(bool enabled);
 
+  [[nodiscard]] bool profileBordersEnabled() noexcept;
+  void setProfileBordersEnabled(bool enabled);
+  Signal<>& profileBordersChanged();
+
+  [[nodiscard]] bool hoverBordersEnabled() noexcept;
+  void setHoverBordersEnabled(bool enabled);
+  Signal<>& hoverBordersChanged();
+
   [[nodiscard]] bool popupShadowsEnabled() noexcept;
   void setPopupShadowsEnabled(bool enabled);
 
