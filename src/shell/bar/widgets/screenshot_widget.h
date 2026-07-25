@@ -30,6 +30,8 @@ public:
     std::string customImage;
     bool customImageColorize = false;
     PrimaryClick primaryClick = PrimaryClick::Region;
+
+    bool operator==(const Options&) const = default;
   };
 
   ScreenshotWidget(

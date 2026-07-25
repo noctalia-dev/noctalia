@@ -5,24 +5,12 @@
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "util/file_utils.h"
 
 #include <memory>
 
-namespace {
-
-  WidgetCustomImage customImageFrom(const ControlCenterWidget::Options& options) {
-    return {
-        .path = FileUtils::expandUserPath(options.customImage).string(),
-        .colorize = options.customImageColorize,
-    };
-  }
-
-} // namespace
-
 ControlCenterWidget::ControlCenterWidget(wl_output* /*output*/, Options options)
-    : m_barGlyphId(options.glyph.empty() ? "search" : std::move(options.glyph)),
-      m_customImage(customImageFrom(options)) {}
+    : m_barGlyphId(std::move(options.glyph)),
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}
 
 void ControlCenterWidget::create() {
   auto area = std::make_unique<InputArea>();
@@ -34,7 +22,7 @@ void ControlCenterWidget::create() {
     area->addChild(
         ui::glyph({
             .out = &m_glyph,
-            .glyph = m_barGlyphId.empty() ? "search" : m_barGlyphId,
+            .glyph = m_barGlyphId,
             .glyphSize = Style::baseGlyphSize * m_contentScale,
             .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
         })

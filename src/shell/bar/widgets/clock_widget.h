@@ -15,6 +15,8 @@ public:
     std::string verticalFormat;
     std::string tooltipFormat;
     std::string timezone;
+
+    bool operator==(const Options&) const = default;
   };
 
   ClockWidget(wl_output* output, Options options);

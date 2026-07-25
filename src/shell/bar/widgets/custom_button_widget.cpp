@@ -8,7 +8,6 @@
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "util/file_utils.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
@@ -21,13 +20,6 @@
 
 namespace {
   constexpr Logger kLog("custom-button");
-
-  WidgetCustomImage customImageFrom(const CustomButtonWidget::Options& options) {
-    return {
-        .path = FileUtils::expandUserPath(options.customImage).string(),
-        .colorize = options.customImageColorize,
-    };
-  }
 } // namespace
 
 CustomButtonWidget::CustomButtonWidget(Options options)
@@ -37,7 +29,7 @@ CustomButtonWidget::CustomButtonWidget(Options options)
       m_middleCommand(StringUtils::trim(options.middleCommand)),
       m_scrollUpCommand(StringUtils::trim(options.scrollUpCommand)),
       m_scrollDownCommand(StringUtils::trim(options.scrollDownCommand)), m_enableScroll(options.enableScroll),
-      m_customImage(customImageFrom(options)) {}
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}
 
 void CustomButtonWidget::create() {
   auto area = std::make_unique<InputArea>();

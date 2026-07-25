@@ -38,6 +38,8 @@ public:
     ActiveWindowTitleScrollMode titleScrollMode = ActiveWindowTitleScrollMode::None;
     ActiveWindowDisplayMode displayMode = ActiveWindowDisplayMode::IconAndText;
     bool showEmptyLabel = false;
+
+    bool operator==(const Options&) const = default;
   };
 
   ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, Options options);

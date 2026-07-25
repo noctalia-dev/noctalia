@@ -102,10 +102,9 @@ namespace {
     if (wc == nullptr) {
       return {};
     }
-    return WidgetCustomImage{
-        .path = FileUtils::expandUserPath(wc->getString("custom_image", "")).string(),
-        .colorize = wc->getBool("custom_image_colorize", false),
-    };
+    return widget_custom_image::fromConfig(
+        wc->getString("custom_image", ""), wc->getBool("custom_image_colorize", false)
+    );
   }
 
 } // namespace
@@ -140,16 +139,18 @@ std::unique_ptr<Widget> WidgetFactory::create(
     type = it->second.type;
   }
 
+  // Config path prefix used when a widget definition reports a bad setting value.
+  const std::string settingContext = std::format("widget.{}", name);
+
   if (type == "active_window") {
     return createWidget<ActiveWindowWidget>(
-        contentScale, m_configService, m_platform,
-        activeWindowWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+        contentScale, m_configService, m_platform, activeWindowWidgetDefinition().resolve(wc, settingContext)
     );
   }
 
   if (type == "audio_visualizer") {
     return createWidget<AudioVisualizerWidget>(
-        contentScale, m_audioSpectrum, audioVisualizerWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+        contentScale, m_audioSpectrum, audioVisualizerWidgetDefinition().resolve(wc, settingContext)
     );
   }
 
@@ -157,49 +158,42 @@ std::unique_ptr<Widget> WidgetFactory::create(
     return createWidget<BatteryWidget>(
         contentScale, m_upower,
         batteryWidgetDefinition().resolve(
-            wc, std::format("widget.{}", name),
-            BatteryWidgetDefinitionContext{.batteryConfig = &m_config.battery, .upower = m_upower}
+            wc, settingContext, BatteryWidgetDefinitionContext{.batteryConfig = &m_config.battery, .upower = m_upower}
         )
     );
   }
 
   if (type == "bluetooth") {
     return createWidget<BluetoothWidget>(
-        contentScale, m_bluetooth, output, bluetoothWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+        contentScale, m_bluetooth, output, bluetoothWidgetDefinition().resolve(wc, settingContext)
     );
   }
 
   if (type == "brightness") {
     return createWidget<BrightnessWidget>(
-        contentScale, m_brightness, output, brightnessWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+        contentScale, m_brightness, output, brightnessWidgetDefinition().resolve(wc, settingContext)
     );
   }
 
   if (type == "clock") {
-    return createWidget<ClockWidget>(
-        contentScale, output, clockWidgetDefinition().resolve(wc, std::format("widget.{}", name))
-    );
+    return createWidget<ClockWidget>(contentScale, output, clockWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "clipboard") {
     if (!m_config.shell.clipboardEnabled) {
       return nullptr;
     }
-    return createWidget<ClipboardWidget>(
-        contentScale, output, clipboardWidgetDefinition().resolve(wc, std::format("widget.{}", name))
-    );
+    return createWidget<ClipboardWidget>(contentScale, output, clipboardWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "control-center") {
     return createWidget<ControlCenterWidget>(
-        contentScale, output, controlCenterWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+        contentScale, output, controlCenterWidgetDefinition().resolve(wc, settingContext)
     );
   }
 
   if (type == "custom_button") {
-    return createWidget<CustomButtonWidget>(
-        contentScale, customButtonWidgetDefinition().resolve(wc, std::format("widget.{}", name))
-    );
+    return createWidget<CustomButtonWidget>(contentScale, customButtonWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "caffeine") {
@@ -229,9 +223,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "launcher") {
-    return createWidget<LauncherWidget>(
-        contentScale, output, launcherWidgetDefinition().resolve(wc, std::format("widget.{}", name))
-    );
+    return createWidget<LauncherWidget>(contentScale, output, launcherWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "lock_keys") {
@@ -239,7 +231,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
       return nullptr;
     }
     return createWidget<LockKeysWidget>(
-        contentScale, m_lockKeys, lockKeysWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+        contentScale, m_lockKeys, lockKeysWidgetDefinition().resolve(wc, settingContext)
     );
   }
 
@@ -264,8 +256,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
 
   if (type == "network") {
     return createWidget<NetworkWidget>(
-        contentScale, m_network, m_externalIp, m_sysmon, output,
-        networkWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+        contentScale, m_network, m_externalIp, m_sysmon, output, networkWidgetDefinition().resolve(wc, settingContext)
     );
   }
 
@@ -277,20 +268,19 @@ std::unique_ptr<Widget> WidgetFactory::create(
 
   if (type == "notifications") {
     return createWidget<NotificationWidget>(
-        contentScale, m_notifications, output,
-        notificationWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+        contentScale, m_notifications, output, notificationWidgetDefinition().resolve(wc, settingContext)
     );
   }
 
   if (type == "power_profile") {
     return createWidget<PowerProfileWidget>(
-        contentScale, m_powerProfiles, powerProfileWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+        contentScale, m_powerProfiles, powerProfileWidgetDefinition().resolve(wc, settingContext)
     );
   }
 
   if (type == "privacy") {
     return createWidget<PrivacyWidget>(
-        contentScale, m_audio, &m_configService, privacyWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+        contentScale, m_audio, &m_configService, privacyWidgetDefinition().resolve(wc, settingContext)
     );
   }
 
@@ -345,31 +335,25 @@ std::unique_ptr<Widget> WidgetFactory::create(
     }
     return createWidget<ScreenshotWidget>(
         contentScale, output, *m_screenshots, m_configService, m_platform, *m_renderContext, barPosition,
-        screenshotWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+        screenshotWidgetDefinition().resolve(wc, settingContext)
     );
   }
 
   if (type == "session") {
-    return createWidget<SessionWidget>(
-        contentScale, output, sessionWidgetDefinition().resolve(wc, std::format("widget.{}", name))
-    );
+    return createWidget<SessionWidget>(contentScale, output, sessionWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "settings") {
-    return createWidget<SettingsWidget>(
-        contentScale, output, settingsWidgetDefinition().resolve(wc, std::format("widget.{}", name))
-    );
+    return createWidget<SettingsWidget>(contentScale, output, settingsWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "spacer") {
     const bool verticalBar = barPosition == "left" || barPosition == "right";
-    return createWidget<SpacerWidget>(
-        contentScale, verticalBar, spacerWidgetDefinition().resolve(wc, std::format("widget.{}", name))
-    );
+    return createWidget<SpacerWidget>(contentScale, verticalBar, spacerWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "text") {
-    return createWidget<TextWidget>(contentScale, textWidgetDefinition().resolve(wc, std::format("widget.{}", name)));
+    return createWidget<TextWidget>(contentScale, textWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "sysmon") {
@@ -565,14 +549,12 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "wallpaper") {
-    return createWidget<WallpaperWidget>(
-        contentScale, output, wallpaperWidgetDefinition().resolve(wc, std::format("widget.{}", name))
-    );
+    return createWidget<WallpaperWidget>(contentScale, output, wallpaperWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "weather") {
     return createWidget<WeatherWidget>(
-        contentScale, m_weather, output, weatherWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+        contentScale, m_weather, output, weatherWidgetDefinition().resolve(wc, settingContext)
     );
   }
 

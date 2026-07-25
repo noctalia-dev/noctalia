@@ -4,24 +4,12 @@
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "util/file_utils.h"
 
 #include <memory>
 
-namespace {
-
-  WidgetCustomImage customImageFrom(const ClipboardWidget::Options& options) {
-    return {
-        .path = FileUtils::expandUserPath(options.customImage).string(),
-        .colorize = options.customImageColorize,
-    };
-  }
-
-} // namespace
-
 ClipboardWidget::ClipboardWidget(wl_output* /*output*/, Options options)
-    : m_barGlyphId(options.glyph.empty() ? "clipboard" : std::move(options.glyph)),
-      m_customImage(customImageFrom(options)) {}
+    : m_barGlyphId(std::move(options.glyph)),
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}
 
 void ClipboardWidget::create() {
   auto area = std::make_unique<InputArea>();
@@ -33,7 +21,7 @@ void ClipboardWidget::create() {
     area->addChild(
         ui::glyph({
             .out = &m_glyph,
-            .glyph = m_barGlyphId.empty() ? "clipboard" : m_barGlyphId,
+            .glyph = m_barGlyphId,
             .glyphSize = Style::baseGlyphSize * m_contentScale,
             .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
         })

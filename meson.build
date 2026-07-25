@@ -702,6 +702,7 @@ _noctalia_sources = files(
   'src/shell/wallpaper/panel/wallpaper_scanner.cpp',
   'src/shell/wallpaper/panel/wallpaper_tile.cpp',
   'src/shell/bar/widget.cpp',
+  'src/shell/bar/widget_custom_image.cpp',
   'src/shell/bar/widget_factory.cpp',
   'src/shell/bar/widgets/active_window_widget.cpp',
   'src/shell/bar/widgets/active_window_widget_definition.cpp',
@@ -1597,6 +1598,50 @@ config_widget_test = executable('config_widget_test',
 )
 
 test('config_widget', config_widget_test)
+
+widget_definition_test = executable('widget_definition_test',
+  sources: files(
+    'tests/widget_definition_test.cpp',
+    'src/shell/bar/widgets/active_window_widget_definition.cpp',
+    'src/shell/bar/widgets/audio_visualizer_widget_definition.cpp',
+    'src/shell/bar/widgets/battery_widget_definition.cpp',
+    'src/shell/bar/widgets/bluetooth_widget_definition.cpp',
+    'src/shell/bar/widgets/brightness_widget_definition.cpp',
+    'src/shell/bar/widgets/clipboard_widget_definition.cpp',
+    'src/shell/bar/widgets/clock_widget_definition.cpp',
+    'src/shell/bar/widgets/control_center_widget_definition.cpp',
+    'src/shell/bar/widgets/custom_button_widget_definition.cpp',
+    'src/shell/bar/widgets/launcher_widget_definition.cpp',
+    'src/shell/bar/widgets/lock_keys_widget_definition.cpp',
+    'src/shell/bar/widgets/network_widget_definition.cpp',
+    'src/shell/bar/widgets/notification_widget_definition.cpp',
+    'src/shell/bar/widgets/power_profile_widget_definition.cpp',
+    'src/shell/bar/widgets/privacy_widget_definition.cpp',
+    'src/shell/bar/widgets/screenshot_widget_definition.cpp',
+    'src/shell/bar/widgets/session_widget_definition.cpp',
+    'src/shell/bar/widgets/settings_widget_definition.cpp',
+    'src/shell/bar/widgets/spacer_widget_definition.cpp',
+    'src/shell/bar/widgets/text_widget_definition.cpp',
+    'src/shell/bar/widgets/wallpaper_widget_definition.cpp',
+    'src/shell/bar/widgets/weather_widget_definition.cpp',
+    'src/config/widget_config.cpp',
+    'src/config/config_types.cpp',
+    'src/render/core/color.cpp',
+    'src/ui/palette.cpp',
+    'src/theme/builtin_palettes.cpp',
+    'src/theme/fixed_palette.cpp',
+    'src/theme/color.cpp',
+    'src/theme/contrast.cpp',
+    'src/core/input/key_chord.cpp',
+  ),
+  include_directories: _noctalia_inc,
+  dependencies: [
+    xkbcommon_dep,
+    tomlplusplus_dep,
+  ],
+)
+
+test('widget_definition', widget_definition_test)
 
 config_path_resolution_test = executable('config_path_resolution_test',
   sources: files(

@@ -11,7 +11,6 @@
 #include "ui/controls/context_menu_popup.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "util/file_utils.h"
 #include "wayland/wayland_seat.h"
 #include "xdg-shell-client-protocol.h"
 
@@ -107,22 +106,16 @@ namespace {
     return anchor;
   }
 
-  WidgetCustomImage customImageFrom(const ScreenshotWidget::Options& options) {
-    return {
-        .path = FileUtils::expandUserPath(options.customImage).string(),
-        .colorize = options.customImageColorize,
-    };
-  }
-
 } // namespace
 
 ScreenshotWidget::ScreenshotWidget(
     wl_output* output, ScreenshotService& screenshots, ConfigService& configService, CompositorPlatform& platform,
     RenderContext& renderContext, std::string barPosition, Options options
 )
-    : m_barGlyphId(options.glyph.empty() ? "screenshot" : std::move(options.glyph)), m_output(output),
-      m_screenshots(screenshots), m_configService(configService), m_platform(platform), m_renderContext(renderContext),
-      m_barPosition(std::move(barPosition)), m_customImage(customImageFrom(options)),
+    : m_barGlyphId(std::move(options.glyph)), m_output(output), m_screenshots(screenshots),
+      m_configService(configService), m_platform(platform), m_renderContext(renderContext),
+      m_barPosition(std::move(barPosition)),
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
       m_primaryClick(options.primaryClick) {}
 
 ScreenshotWidget::~ScreenshotWidget() = default;
@@ -162,7 +155,7 @@ void ScreenshotWidget::create() {
     area->addChild(
         ui::glyph({
             .out = &m_glyph,
-            .glyph = m_barGlyphId.empty() ? "screenshot" : m_barGlyphId,
+            .glyph = m_barGlyphId,
             .glyphSize = Style::baseGlyphSize * m_contentScale,
             .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
         })

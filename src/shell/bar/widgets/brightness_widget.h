@@ -13,6 +13,8 @@ public:
     bool enableScroll = true;
     int scrollStepPercent = 5;
     bool showLabel = true;
+
+    bool operator==(const Options&) const = default;
   };
 
   BrightnessWidget(BrightnessService* brightness, wl_output* output, Options options);

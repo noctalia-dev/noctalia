@@ -16,6 +16,8 @@ public:
     std::string glyph = "search";
     std::string customImage;
     bool customImageColorize = false;
+
+    bool operator==(const Options&) const = default;
   };
 
   LauncherWidget(wl_output* output, Options options);

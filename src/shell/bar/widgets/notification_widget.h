@@ -11,6 +11,8 @@ class NotificationWidget : public Widget {
 public:
   struct Options {
     bool hideWhenNoUnread = false;
+
+    bool operator==(const Options&) const = default;
   };
 
   NotificationWidget(NotificationManager* manager, wl_output* output, Options options);

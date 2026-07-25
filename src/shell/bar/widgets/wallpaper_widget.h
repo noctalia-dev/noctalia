@@ -15,6 +15,8 @@ public:
     std::string glyph = "wallpaper-selector";
     std::string customImage;
     bool customImageColorize = false;
+
+    bool operator==(const Options&) const = default;
   };
 
   WallpaperWidget(wl_output* output, Options options);

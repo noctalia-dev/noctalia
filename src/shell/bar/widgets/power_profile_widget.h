@@ -12,6 +12,8 @@ class PowerProfileWidget : public Widget {
 public:
   struct Options {
     bool enableScroll = true;
+
+    bool operator==(const Options&) const = default;
   };
 
   explicit PowerProfileWidget(PowerProfilesService* powerProfiles, Options options);

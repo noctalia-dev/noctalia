@@ -24,6 +24,8 @@ public:
     std::string scrollUpCommand;
     std::string scrollDownCommand;
     bool enableScroll = true;
+
+    bool operator==(const Options&) const = default;
   };
 
   explicit CustomButtonWidget(Options options);

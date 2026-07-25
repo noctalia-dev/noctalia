@@ -26,6 +26,8 @@ public:
     VpnStatusMode vpnStatusMode = VpnStatusMode::Replace;
     bool showLabel = true;
     bool showVpnLabel = false;
+
+    bool operator==(const Options&) const = default;
   };
 
   NetworkWidget(

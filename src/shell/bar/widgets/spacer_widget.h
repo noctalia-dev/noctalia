@@ -6,6 +6,8 @@ class SpacerWidget : public Widget {
 public:
   struct Options {
     int length = 20;
+
+    bool operator==(const Options&) const = default;
   };
 
   SpacerWidget(bool verticalBar, Options options);
