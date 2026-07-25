@@ -419,8 +419,8 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
 
         calendar::discoverCalDavCollections(
             m_httpClient, serverUrl, username, password, allowRedirectAuth,
-            [this, accountId, username, password = std::move(password), accountColor, selectedCalendars,
-             allowRedirectAuth, now](bool discovered, std::vector<calendar::CalDavCollection> collections) {
+            [this, accountId, username, password, accountColor, selectedCalendars, allowRedirectAuth,
+             now](bool discovered, std::vector<calendar::CalDavCollection> collections) {
               if (!discovered) {
                 accountDone(accountId, false, {});
                 return;
