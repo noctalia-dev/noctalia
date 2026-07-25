@@ -1,4 +1,5 @@
 #include "calendar/calendar_discovery_state.h"
+#include "calendar/calendar_service.h"
 #include "config/atomic_file.h"
 #include "config/config_service.h"
 #include "config/config_types.h"
@@ -48,8 +49,30 @@ namespace {
 
   constexpr std::int32_t kActionSupportReport = 1;
   constexpr std::int32_t kActionExportConfig = 2;
-  constexpr std::string_view kCalendarCredentialOwner = "calendar_credentials";
   constexpr std::string_view kCalendarDiscoveryOwner = "calendar_discovery";
+
+  std::string calendarCredentialError(CalendarService::CredentialOperationResult result) {
+    switch (result) {
+    case CalendarService::CredentialOperationResult::Unavailable:
+      return i18n::tr("settings.calendar-accounts.secret-service-unavailable");
+    case CalendarService::CredentialOperationResult::Cancelled:
+      return i18n::tr("settings.calendar-accounts.secret-service-cancelled");
+    case CalendarService::CredentialOperationResult::DeniedOrLocked:
+      return i18n::tr("settings.calendar-accounts.secret-service-locked");
+    case CalendarService::CredentialOperationResult::CleanupError:
+      return i18n::tr("settings.calendar-accounts.secret-cleanup-error");
+    case CalendarService::CredentialOperationResult::FileError:
+      return i18n::tr("settings.calendar-accounts.password-file-error");
+    case CalendarService::CredentialOperationResult::ConfigError:
+      return i18n::tr("settings.calendar-accounts.save-error");
+    case CalendarService::CredentialOperationResult::MissingCredential:
+    case CalendarService::CredentialOperationResult::BackendError:
+      return i18n::tr("settings.calendar-accounts.secret-service-error");
+    case CalendarService::CredentialOperationResult::Success:
+      return {};
+    }
+    return i18n::tr("settings.calendar-accounts.secret-service-error");
+  }
 
   XdgPopupParent popupParentFor(ToplevelSurface& surface, wl_output* output, std::uint32_t serial) {
     return XdgPopupParent{
@@ -86,6 +109,8 @@ namespace {
     std::string name;
     std::string username;
     std::string password;
+    CalendarCredentialSource credentialSource = CalendarCredentialSource::SecretService;
+    std::string passwordFile;
     std::string serverUrl;
     std::string color;
     std::vector<std::string> calendars;
@@ -93,7 +118,9 @@ namespace {
     bool idInvalid = false;
     bool usernameInvalid = false;
     bool passwordInvalid = false;
+    bool passwordFileInvalid = false;
     bool serverUrlInvalid = false;
+    bool credentialOperationInFlight = false;
   };
 
   bool validCalendarAccountId(std::string_view id) {
@@ -1032,6 +1059,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     draft->name = account->displayName;
     draft->username = account->username;
     draft->serverUrl = account->serverUrl;
+    draft->credentialSource = account->credentialSource;
+    draft->passwordFile = account->passwordFile;
     draft->color = account->color;
     draft->calendars = account->calendars;
     if (account->type == "google") {
@@ -1061,23 +1090,32 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
 
   std::function<void()> removeAccount;
   if (!draft->creating && m_config->isOverrideOnlyCalendarAccount(draft->id)) {
-    removeAccount = [this, accountId = draft->id]() {
-      if (m_config == nullptr) {
+    removeAccount = [this, draft, accountId = draft->id]() {
+      if (m_config == nullptr || m_calendarService == nullptr) {
         return;
       }
-      if (!m_config->deleteCalendarAccountOverride(accountId)) {
-        markSettingsWriteError(i18n::tr("settings.calendar-accounts.delete-error"));
+      if (draft->credentialOperationInFlight) {
         return;
       }
-      (void)m_config->setStateString(kCalendarCredentialOwner, accountId + "_password", "");
-      (void)m_config->setStateString(kCalendarCredentialOwner, accountId + "_refresh_token", "");
-      (void)m_config->setStateString(kCalendarCredentialOwner, accountId + "_access_token", "");
-      (void)m_config->setStateString(kCalendarCredentialOwner, accountId + "_access_expiry", "");
-      (void)m_config->setStateString(kCalendarDiscoveryOwner, accountId + "_calendars", "");
-      markSettingsWriteSuccess(true);
-      if (m_editorSheetPopup != nullptr) {
-        m_editorSheetPopup->close();
-      }
+      draft->credentialOperationInFlight = true;
+      m_calendarService->deleteAccount(
+          accountId, [this, accountId]() { return m_config->deleteCalendarAccountOverride(accountId); },
+          [this, draft, accountId](CalendarService::CredentialOperationResult result) {
+            draft->credentialOperationInFlight = false;
+            if (result != CalendarService::CredentialOperationResult::Success) {
+              const std::string message = result == CalendarService::CredentialOperationResult::ConfigError
+                  ? i18n::tr("settings.calendar-accounts.delete-error")
+                  : calendarCredentialError(result);
+              markSettingsWriteError(message);
+              return;
+            }
+            (void)m_config->setStateString(kCalendarDiscoveryOwner, accountId + "_calendars", "");
+            markSettingsWriteSuccess(true);
+            if (m_editorSheetPopup != nullptr) {
+              m_editorSheetPopup->close();
+            }
+          }
+      );
     };
   }
 
@@ -1132,6 +1170,10 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
               }
 
               draft->provider = provider;
+              if (provider == CalendarAccountProvider::Google) {
+                draft->credentialSource = CalendarCredentialSource::SecretService;
+                draft->passwordFile.clear();
+              }
               if (provider == CalendarAccountProvider::Google && draft->id == "personal_icloud") {
                 draft->id = "personal_google";
               } else if (provider == CalendarAccountProvider::CustomCalDav && draft->id == "personal_icloud") {
@@ -1177,8 +1219,34 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
 
     Input* usernameInput = nullptr;
     Input* passwordInput = nullptr;
+    Input* passwordFileInput = nullptr;
     Input* serverInput = nullptr;
     if (draft->provider != CalendarAccountProvider::Google) {
+      addField(
+          body, i18n::tr("settings.calendar-accounts.credential-source-label"),
+          ui::segmented({
+              .options =
+                  std::vector<ui::SegmentedOption>{
+                      {.label = i18n::tr("settings.calendar-accounts.credential-source-keyring"), .glyph = "key"},
+                      {.label = i18n::tr("settings.calendar-accounts.credential-source-file"), .glyph = "file-lock"},
+                  },
+              .selectedIndex = draft->credentialSource == CalendarCredentialSource::File ? 1U : 0U,
+              .scale = scale,
+              .enabled = draft->creating,
+              .equalSegmentWidths = true,
+              .onChange = [this, draft](std::size_t index) {
+                draft->credentialSource =
+                    index == 1 ? CalendarCredentialSource::File : CalendarCredentialSource::SecretService;
+                draft->password.clear();
+                draft->passwordFile.clear();
+                draft->passwordInvalid = false;
+                draft->passwordFileInvalid = false;
+                if (m_editorSheetPopup != nullptr) {
+                  m_editorSheetPopup->rebuildBody();
+                }
+              },
+          })
+      );
       addField(
           body, i18n::tr("settings.calendar-accounts.username-label"),
           ui::input({
@@ -1192,21 +1260,38 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
               },
           })
       );
-      addField(
-          body, i18n::tr("settings.calendar-accounts.password-label"),
-          ui::input({
-              .out = &passwordInput,
-              .value = {},
-              .placeholder = draft->creating ? i18n::tr("settings.calendar-accounts.password-placeholder")
-                                             : i18n::tr("settings.calendar-accounts.password-keep-placeholder"),
-              .passwordMode = true,
-              .invalid = draft->passwordInvalid,
-              .onChange = [draft](const std::string& value) {
-                draft->password = value;
-                draft->passwordInvalid = false;
-              },
-          })
-      );
+      if (draft->credentialSource == CalendarCredentialSource::SecretService) {
+        addField(
+            body, i18n::tr("settings.calendar-accounts.password-label"),
+            ui::input({
+                .out = &passwordInput,
+                .value = {},
+                .placeholder = draft->creating ? i18n::tr("settings.calendar-accounts.password-placeholder")
+                                               : i18n::tr("settings.calendar-accounts.password-keep-placeholder"),
+                .passwordMode = true,
+                .invalid = draft->passwordInvalid,
+                .onChange = [draft](const std::string& value) {
+                  draft->password = value;
+                  draft->passwordInvalid = false;
+                },
+            })
+        );
+      } else {
+        addField(
+            body, i18n::tr("settings.calendar-accounts.password-file-label"),
+            ui::input({
+                .out = &passwordFileInput,
+                .value = draft->passwordFile,
+                .placeholder = "/run/agenix/noctalia-caldav",
+                .invalid = draft->passwordFileInvalid,
+                .enabled = draft->creating,
+                .onChange = [draft](const std::string& value) {
+                  draft->passwordFile = value;
+                  draft->passwordFileInvalid = false;
+                },
+            })
+        );
+      }
     }
     if (draft->provider == CalendarAccountProvider::CustomCalDav) {
       addField(
@@ -1316,9 +1401,12 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       body.addChild(std::move(calendars));
     }
 
-    const auto persistAccount = [this, draft, idInput, nameInput, usernameInput, passwordInput,
+    const auto persistAccount = [this, draft, idInput, nameInput, usernameInput, passwordInput, passwordFileInput,
                                  serverInput](bool closeAfter, bool connectAfter) {
       if (m_config == nullptr) {
+        return;
+      }
+      if (draft->credentialOperationInFlight) {
         return;
       }
 
@@ -1327,11 +1415,15 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       draft->color = StringUtils::trim(draft->color);
       draft->username = trimInput(usernameInput);
       draft->password = trimInput(passwordInput);
+      if (passwordFileInput != nullptr) {
+        draft->passwordFile = trimInput(passwordFileInput);
+      }
       draft->serverUrl = trimInput(serverInput);
 
       draft->idInvalid = false;
       draft->usernameInvalid = false;
       draft->passwordInvalid = false;
+      draft->passwordFileInvalid = false;
       draft->serverUrlInvalid = false;
 
       if (!validCalendarAccountId(draft->id)) {
@@ -1348,14 +1440,16 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       if (draft->provider == CalendarAccountProvider::CustomCalDav && draft->serverUrl.empty()) {
         draft->serverUrlInvalid = true;
       }
-      if (caldav && draft->password.empty()) {
-        const std::string existing =
-            m_config->stateString(kCalendarCredentialOwner, draft->id + "_password").value_or(std::string{});
-        if (existing.empty()) {
-          draft->passwordInvalid = true;
-        }
+      if (caldav
+          && draft->credentialSource == CalendarCredentialSource::File
+          && (draft->passwordFile.empty() || !std::filesystem::path(draft->passwordFile).is_absolute())) {
+        draft->passwordFileInvalid = true;
       }
-      if (draft->idInvalid || draft->usernameInvalid || draft->passwordInvalid || draft->serverUrlInvalid) {
+      if (draft->idInvalid
+          || draft->usernameInvalid
+          || draft->passwordInvalid
+          || draft->passwordFileInvalid
+          || draft->serverUrlInvalid) {
         showTransientStatus(i18n::tr("settings.calendar-accounts.invalid"), true);
         return;
       }
@@ -1375,45 +1469,77 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
       if (caldav) {
         overrides.push_back({{base[0], base[1], base[2], "provider"}, calendarProviderKey(draft->provider)});
         overrides.push_back({{base[0], base[1], base[2], "username"}, draft->username});
+        if (draft->creating) {
+          overrides.push_back(
+              {{base[0], base[1], base[2], "credential_source"},
+               draft->credentialSource == CalendarCredentialSource::File ? std::string("file")
+                                                                         : std::string("secret-service")}
+          );
+          overrides.push_back({{base[0], base[1], base[2], "password_file"}, draft->passwordFile});
+        }
         if (draft->provider == CalendarAccountProvider::CustomCalDav) {
           overrides.push_back({{base[0], base[1], base[2], "server_url"}, draft->serverUrl});
         }
       }
 
-      if (caldav && !draft->password.empty()) {
-        if (!m_config->setStateString(kCalendarCredentialOwner, draft->id + "_password", draft->password)) {
-          markSettingsWriteError(i18n::tr("settings.calendar-accounts.password-save-error"));
-          return;
-        }
-      }
-
-      if (!m_config->setOverrides(std::move(overrides))) {
-        markSettingsWriteError(i18n::tr("settings.calendar-accounts.save-error"));
-        return;
-      }
-
-      std::function<void(std::string, std::string)> connectCalendarAccount;
-      std::string connectAccountId;
       std::string connectActivationToken;
-      if (connectAfter && m_connectCalendarAccount) {
-        connectCalendarAccount = m_connectCalendarAccount;
-        connectAccountId = draft->id;
+      if (connectAfter) {
         if (m_wayland != nullptr && m_surface != nullptr) {
           connectActivationToken = m_wayland->requestActivationToken(m_surface->wlSurface());
         }
       }
 
-      markSettingsWriteSuccess(closeAfter);
-      if (connectCalendarAccount) {
-        DeferredCall::callLater([connectCalendarAccount = std::move(connectCalendarAccount),
-                                 connectAccountId = std::move(connectAccountId),
-                                 connectActivationToken = std::move(connectActivationToken)]() mutable {
-          connectCalendarAccount(connectAccountId, connectActivationToken);
-        });
+      if (!caldav) {
+        if (!m_config->setOverrides(std::move(overrides))) {
+          markSettingsWriteError(i18n::tr("settings.calendar-accounts.save-error"));
+          return;
+        }
+        markSettingsWriteSuccess(closeAfter);
+        if (connectAfter && m_calendarService != nullptr) {
+          DeferredCall::callLater([this, accountId = draft->id, activationToken = std::move(connectActivationToken)]() {
+            m_calendarService->connectGoogleAccount(accountId, activationToken);
+          });
+        }
+        if (closeAfter && m_editorSheetPopup != nullptr) {
+          m_editorSheetPopup->close();
+        }
+        return;
       }
-      if (closeAfter && m_editorSheetPopup != nullptr) {
-        m_editorSheetPopup->close();
+
+      if (m_calendarService == nullptr) {
+        markSettingsWriteError(i18n::tr("settings.calendar-accounts.secret-service-error"));
+        return;
       }
+      std::string password = std::move(draft->password);
+      draft->password.clear();
+      if (passwordInput != nullptr) {
+        passwordInput->setValue("");
+      }
+      draft->credentialOperationInFlight = true;
+      m_calendarService->saveCalDavAccount(
+          draft->id, draft->credentialSource, draft->passwordFile, std::move(password),
+          [this, overrides = std::move(overrides)]() mutable { return m_config->setOverrides(std::move(overrides)); },
+          [this, draft, closeAfter](CalendarService::CredentialOperationResult result) {
+            draft->credentialOperationInFlight = false;
+            if (result == CalendarService::CredentialOperationResult::MissingCredential) {
+              draft->passwordInvalid = true;
+              showTransientStatus(i18n::tr("settings.calendar-accounts.invalid"), true);
+              if (m_editorSheetPopup != nullptr) {
+                m_editorSheetPopup->rebuildBody();
+              }
+              return;
+            }
+            if (result != CalendarService::CredentialOperationResult::Success) {
+              markSettingsWriteError(calendarCredentialError(result));
+              return;
+            }
+            m_calendarService->requestRefresh();
+            markSettingsWriteSuccess(closeAfter);
+            if (closeAfter && m_editorSheetPopup != nullptr) {
+              m_editorSheetPopup->close();
+            }
+          }
+      );
     };
 
     auto actions = ui::row({

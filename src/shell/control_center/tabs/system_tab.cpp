@@ -204,23 +204,9 @@ namespace {
 
 } // namespace
 
-SystemTab::SystemTab(SystemMonitorService* monitor) : m_monitor(monitor) {
-  if (m_monitor != nullptr) {
-    m_monitor->retainCpuTemp();
-    m_monitor->retainGpuTemp();
-    m_monitor->retainGpuUsage();
-    m_monitor->retainGpuVram();
-  }
-}
+SystemTab::SystemTab(SystemMonitorService* monitor) : m_monitor(monitor) {}
 
-SystemTab::~SystemTab() {
-  if (m_monitor != nullptr) {
-    m_monitor->releaseCpuTemp();
-    m_monitor->releaseGpuTemp();
-    m_monitor->releaseGpuUsage();
-    m_monitor->releaseGpuVram();
-  }
-}
+SystemTab::~SystemTab() { retainStats(false); }
 
 std::unique_ptr<Flex> SystemTab::create() {
   const float sc = contentScale();
@@ -423,9 +409,32 @@ std::unique_ptr<Flex> SystemTab::create() {
 
 void SystemTab::setActive(bool active) {
   m_active = active;
+  retainStats(active);
   if (!active) {
     m_redrawLimiter.reset();
   }
+}
+
+// The control center is built once at startup and lives for the whole session, so retaining for
+// the tab's lifetime would sample CPU temperature and the GPU forever, for every user, whether or
+// not this tab is ever opened. Polling a GPU keeps a discrete card at D0.
+void SystemTab::retainStats(bool retain) {
+  if (m_monitor == nullptr || retain == m_statsRetained) {
+    return;
+  }
+  m_statsRetained = retain;
+
+  if (retain) {
+    m_monitor->retainCpuTemp();
+    m_monitor->retainGpuTemp();
+    m_monitor->retainGpuUsage();
+    m_monitor->retainGpuVram();
+    return;
+  }
+  m_monitor->releaseCpuTemp();
+  m_monitor->releaseGpuTemp();
+  m_monitor->releaseGpuUsage();
+  m_monitor->releaseGpuVram();
 }
 
 void SystemTab::onClose() {

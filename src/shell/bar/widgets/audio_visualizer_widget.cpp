@@ -11,9 +11,9 @@
 #include <memory>
 
 AudioVisualizerWidget::AudioVisualizerWidget(PipeWireSpectrum* spectrum, Options options)
-    : m_spectrum(spectrum), m_width(options.width), m_bands(std::max(1, options.bands)), m_mirrored(options.mirrored),
-      m_centered(options.centered), m_showWhenIdle(options.showWhenIdle), m_color1(options.color1),
-      m_color2(options.color2) {}
+    : m_spectrum(spectrum), m_width(static_cast<float>(options.width)), m_bands(options.bands),
+      m_mirrored(options.mirrored), m_centered(options.centered), m_showWhenIdle(options.showWhenIdle),
+      m_color1(options.color1), m_color2(options.color2) {}
 
 AudioVisualizerWidget::~AudioVisualizerWidget() {
   cancelVisibilityAnimation();

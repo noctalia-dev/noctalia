@@ -11,13 +11,15 @@ class PipeWireSpectrum;
 class AudioVisualizerWidget : public Widget {
 public:
   struct Options {
-    float width = 56.0f;
+    int width = 56;
     int bands = 16;
     bool mirrored = true;
     bool centered = true;
     bool showWhenIdle = false;
     ColorSpec color1 = colorSpecFromRole(ColorRole::Primary);
     ColorSpec color2 = colorSpecFromRole(ColorRole::Primary);
+
+    bool operator==(const Options&) const = default;
   };
 
   AudioVisualizerWidget(PipeWireSpectrum* spectrum, Options options);

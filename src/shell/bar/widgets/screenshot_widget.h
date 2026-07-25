@@ -5,6 +5,7 @@
 #include "shell/bar/widget.h"
 #include "shell/bar/widget_custom_image.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
@@ -19,10 +20,23 @@ struct wl_output;
 
 class ScreenshotWidget : public Widget {
 public:
+  enum class PrimaryClick : std::uint8_t {
+    Region,
+    Fullscreen,
+  };
+
+  struct Options {
+    std::string glyph = "screenshot";
+    std::string customImage;
+    bool customImageColorize = false;
+    PrimaryClick primaryClick = PrimaryClick::Region;
+
+    bool operator==(const Options&) const = default;
+  };
+
   ScreenshotWidget(
-      wl_output* output, std::string barGlyphId, ScreenshotService& screenshots, ConfigService& configService,
-      CompositorPlatform& platform, RenderContext& renderContext, std::string barPosition = "top",
-      WidgetCustomImage customImage = {}
+      wl_output* output, ScreenshotService& screenshots, ConfigService& configService, CompositorPlatform& platform,
+      RenderContext& renderContext, std::string barPosition, Options options
   );
   ~ScreenshotWidget() override;
 
@@ -45,6 +59,7 @@ private:
   ShellConfig::ShadowConfig m_shadowConfig;
   std::string m_barPosition;
   WidgetCustomImage m_customImage;
+  PrimaryClick m_primaryClick = PrimaryClick::Region;
   Glyph* m_glyph = nullptr;
   Image* m_image = nullptr;
   InputArea* m_hitArea = nullptr;

@@ -1,4 +1,5 @@
 #include "core/process/process.h"
+#include "scripting/plugin_catalog.h"
 #include "scripting/plugin_git.h"
 
 #include <cstdio>
@@ -52,6 +53,20 @@ namespace {
 } // namespace
 
 int main() {
+  std::vector<scripting::CatalogEntry> catalog(1);
+  catalog.front().id = "alexander/game-launcher";
+
+  bool ok = true;
+  ok = expect(
+           scripting::findCatalogEntry(catalog, "alexander/game-launcher") != nullptr, "exact catalog id was not found"
+       )
+      && ok;
+  ok = expect(
+           scripting::findCatalogEntry(catalog, "leo/game-launcher") == nullptr,
+           "catalog lookup matched a different author with the same slug"
+       )
+      && ok;
+
   const auto root = makeTempDir();
   if (!expect(!root.empty(), "failed to create temp dir")) {
     return 1;
@@ -61,7 +76,6 @@ int main() {
   const auto repo = root / "repo";
   const auto exported = root / "exported";
 
-  bool ok = true;
   std::filesystem::create_directories(source);
   ok = runGit({"git", "-C", source.string(), "init", "-q"}) && ok;
   ok = writeText(source / "clock/plugin.toml", "id = \"noctalia/clock\"\nversion = \"1\"\nplugin_api = 3\n") && ok;
@@ -80,6 +94,35 @@ int main() {
   ok = expect(static_cast<bool>(exportResult), "exportSubdir failed") && ok;
   ok = expect(std::filesystem::exists(exported / "clock/plugin.toml"), "exported manifest missing") && ok;
   ok = expect(!std::filesystem::exists(repo / "clock/plugin.toml"), "repo cache was checked out") && ok;
+
+  const auto initialHead = scripting::plugin_git::headRevision(repo);
+  ok = expect(static_cast<bool>(initialHead), "failed to resolve initial HEAD") && ok;
+
+  ok = writeText(source / "cat/plugin.toml", "id = \"dotnetrob/cat\"\nversion = \"1\"\nplugin_api = 3\n") && ok;
+  ok = writeText(source / "cat/main.luau", "barWidget.setText(\"cat\")\n") && ok;
+  ok = runGit({"git", "-C", source.string(), "add", "cat/plugin.toml", "cat/main.luau"}) && ok;
+  ok = runGit(
+           {"git", "-C", source.string(), "-c", "user.name=test", "-c", "user.email=test@example.invalid", "commit",
+            "-q", "-m", "add cat"}
+       )
+      && ok;
+
+  const auto fetchResult = scripting::plugin_git::fetch(repo);
+  ok = expect(static_cast<bool>(fetchResult), "fetch failed") && ok;
+  const auto fetchedHead = scripting::plugin_git::remoteHead(repo);
+  ok = expect(static_cast<bool>(fetchedHead), "failed to resolve FETCH_HEAD") && ok;
+  ok = expect(fetchedHead.out != initialHead.out, "fetch did not advance the remote revision") && ok;
+
+  const auto staleExport = scripting::plugin_git::exportSubdir(repo, "HEAD", "cat", root / "stale-export");
+  ok = expect(!staleExport, "stale HEAD unexpectedly exported a newly fetched plugin") && ok;
+
+  const auto fetchedExport = scripting::plugin_git::exportSubdir(repo, fetchedHead.out, "cat", root / "fetched-export");
+  ok = expect(static_cast<bool>(fetchedExport), "exact fetched revision did not export the new plugin") && ok;
+  ok = expect(
+           std::filesystem::exists(root / "fetched-export/cat/plugin.toml"),
+           "new plugin manifest was not exported from the fetched revision"
+       )
+      && ok;
 
   std::error_code ec;
   std::filesystem::remove_all(root, ec);

@@ -13,16 +13,18 @@ class ConfigService;
 class InputArea;
 class PipeWireService;
 
-struct PrivacyWidgetConfig {
-  bool hideInactive = false;
-  int iconSpacing = 4;
-  ColorSpec activeColor = colorSpecFromRole(ColorRole::Primary);
-  ColorSpec inactiveColor = colorSpecFromRole(ColorRole::Outline);
-};
-
 class PrivacyWidget : public Widget {
 public:
-  PrivacyWidget(PipeWireService* pipewire, ConfigService* configService, PrivacyWidgetConfig config);
+  struct Options {
+    bool hideInactive = false;
+    int iconSpacing = 4;
+    ColorSpec activeColor = colorSpecFromRole(ColorRole::Primary);
+    ColorSpec inactiveColor = colorSpecFromRole(ColorRole::Outline);
+
+    bool operator==(const Options&) const = default;
+  };
+
+  PrivacyWidget(PipeWireService* pipewire, ConfigService* configService, Options options);
 
   void create() override;
 
@@ -51,7 +53,7 @@ private:
 
   PipeWireService* m_pipewire = nullptr;
   ConfigService* m_configService = nullptr;
-  PrivacyWidgetConfig m_config;
+  Options m_config;
   mutable PrivacyFilter m_micFilter;
   mutable PrivacyFilter m_camFilter;
   mutable PrivacyFilter m_screenFilter;

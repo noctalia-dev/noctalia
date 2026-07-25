@@ -10,6 +10,7 @@
 #include "util/file_utils.h"
 
 #include <algorithm>
+#include <filesystem>
 #include <format>
 #include <stdexcept>
 #include <unordered_map>
@@ -125,8 +126,14 @@ namespace noctalia::config::schema {
           field(&SystemConfig::MonitorConfig::ramPctCriticalThreshold, "ram_pct_critical_threshold"),
           field(&SystemConfig::MonitorConfig::swapPctActivityThreshold, "swap_pct_activity_threshold"),
           field(&SystemConfig::MonitorConfig::swapPctCriticalThreshold, "swap_pct_critical_threshold"),
-          field(&SystemConfig::MonitorConfig::diskPctActivityThreshold, "disk_pct_activity_threshold"),
-          field(&SystemConfig::MonitorConfig::diskPctCriticalThreshold, "disk_pct_critical_threshold"),
+          field(&SystemConfig::MonitorConfig::diskUsedPctActivityThreshold, "disk_used_pct_activity_threshold"),
+          field(&SystemConfig::MonitorConfig::diskUsedPctCriticalThreshold, "disk_used_pct_critical_threshold"),
+          field(&SystemConfig::MonitorConfig::diskUsedActivityThreshold, "disk_used_activity_threshold"),
+          field(&SystemConfig::MonitorConfig::diskUsedCriticalThreshold, "disk_used_critical_threshold"),
+          field(&SystemConfig::MonitorConfig::diskFreePctActivityThreshold, "disk_free_pct_activity_threshold"),
+          field(&SystemConfig::MonitorConfig::diskFreePctCriticalThreshold, "disk_free_pct_critical_threshold"),
+          field(&SystemConfig::MonitorConfig::diskFreeActivityThreshold, "disk_free_activity_threshold"),
+          field(&SystemConfig::MonitorConfig::diskFreeCriticalThreshold, "disk_free_critical_threshold"),
           field(&SystemConfig::MonitorConfig::netRxActivityThreshold, "net_rx_activity_threshold"),
           field(&SystemConfig::MonitorConfig::netRxCriticalThreshold, "net_rx_critical_threshold"),
           field(&SystemConfig::MonitorConfig::netTxActivityThreshold, "net_tx_activity_threshold"),
@@ -470,6 +477,9 @@ namespace noctalia::config::schema {
     const Schema<ControlCenterConfig::CalendarTabConfig>& calendarTabSchema() {
       static const Schema<ControlCenterConfig::CalendarTabConfig> s = {
           field(&ControlCenterConfig::CalendarTabConfig::showEventsCard, "show_events_card"),
+          field(&ControlCenterConfig::CalendarTabConfig::showWeekNumbers, "show_week_numbers"),
+          field(&ControlCenterConfig::CalendarTabConfig::eventDateFormat, "event_date_format"),
+          field(&ControlCenterConfig::CalendarTabConfig::eventTimeFormat, "event_time_format"),
       };
       return s;
     }
@@ -543,10 +553,56 @@ namespace noctalia::config::schema {
           field(&CalendarConfig::Account::serverUrl, "server_url"),
           field(&CalendarConfig::Account::username, "username"),
           field(&CalendarConfig::Account::calendars, "calendars"),
+          custom<CalendarConfig::Account>(
+              "credential_source",
+              [](const toml::table& table, CalendarConfig::Account& out, std::string_view parentPath,
+                 Diagnostics& diag) {
+                const auto value = table["credential_source"].value<std::string>();
+                if (!value.has_value()) {
+                  return;
+                }
+                const std::string source = StringUtils::trim(*value);
+                if (source == "secret-service") {
+                  out.credentialSource = CalendarCredentialSource::SecretService;
+                } else if (source == "file") {
+                  out.credentialSource = CalendarCredentialSource::File;
+                } else {
+                  diag.error(
+                      joinPath(parentPath, "credential_source"),
+                      R"(credential_source must be "secret-service" or "file")"
+                  );
+                }
+              },
+              [](toml::table& table, const CalendarConfig::Account& in) {
+                table.insert_or_assign(
+                    "credential_source",
+                    in.credentialSource == CalendarCredentialSource::File ? "file" : "secret-service"
+                );
+              }
+          ),
+          pathStringField(&CalendarConfig::Account::passwordFile, "password_file"),
           finalize<CalendarConfig::Account>([](CalendarConfig::Account& out, std::string_view parentPath,
                                                Diagnostics& diag) {
             if (out.type != "caldav") {
+              if (out.credentialSource != CalendarCredentialSource::SecretService) {
+                diag.error(joinPath(parentPath, "credential_source"), "credential_source is only valid for caldav");
+              }
+              if (!out.passwordFile.empty()) {
+                diag.error(joinPath(parentPath, "password_file"), "password_file is only valid for caldav");
+              }
               return;
+            }
+            if (out.credentialSource == CalendarCredentialSource::File) {
+              if (out.passwordFile.empty()) {
+                diag.error(
+                    joinPath(parentPath, "password_file"),
+                    R"(caldav accounts with credential_source = "file" require password_file)"
+                );
+              } else if (!std::filesystem::path(out.passwordFile).is_absolute()) {
+                diag.error(joinPath(parentPath, "password_file"), "password_file must resolve to an absolute path");
+              }
+            } else if (!out.passwordFile.empty()) {
+              diag.error(joinPath(parentPath, "password_file"), R"(password_file requires credential_source = "file")");
             }
             if (out.provider.empty()) {
               diag.error(
@@ -1225,6 +1281,7 @@ namespace noctalia::config::schema {
           field(&ShellConfig::LauncherConfig::sortByUsage, "sort_by_usage"),
           field(&ShellConfig::LauncherConfig::fetchExchangeRates, "fetch_exchange_rates"),
           field(&ShellConfig::LauncherConfig::providerPrefix, "provider_prefix"),
+          enumField(&ShellConfig::LauncherConfig::autoPaste, "auto_paste", kClipboardAutoPasteModes),
           subTable(&ShellConfig::LauncherConfig::dmenu, "dmenu", shellLauncherDmenuSchema()),
           namedMap<ShellConfig::LauncherConfig, LauncherProviderConfig>(
               &ShellConfig::LauncherConfig::providers, "providers", launcherProviderSchema(),
@@ -1393,6 +1450,7 @@ namespace noctalia::config::schema {
         field(&ShellConfig::timeFormat, "time_format"),
         field(&ShellConfig::dateFormat, "date_format"),
         field(&ShellConfig::offlineMode, "offline_mode"),
+        stringIfNonEmptyField(&ShellConfig::panelAnchorBar, "panel_anchor_bar"),
         field(&ShellConfig::externalIpEnabled, "external_ip_enabled"),
         field(&ShellConfig::telemetryEnabled, "telemetry_enabled"),
         field(&ShellConfig::setupWizardEnabled, "setup_wizard_enabled"),
@@ -1512,6 +1570,44 @@ namespace noctalia::config::schema {
             [](CalendarConfig::Account& a, std::string_view id) { a.id = std::string(id); },
             [](const CalendarConfig::Account& a) { return a.id; }, true
         ),
+    };
+    return s;
+  }
+
+  const Schema<StorageConfig>& storageSchema() {
+    static const Schema<StorageConfig> s = {
+        custom<StorageConfig>(
+            "key_source",
+            [](const toml::table& table, StorageConfig& out, std::string_view parentPath, Diagnostics& diag) {
+              const auto value = table["key_source"].value<std::string>();
+              if (!value.has_value()) {
+                return;
+              }
+              const std::string source = StringUtils::trim(*value);
+              if (source == "secret-service") {
+                out.keySource = StorageKeySource::SecretService;
+              } else if (source == "file") {
+                out.keySource = StorageKeySource::File;
+              } else {
+                diag.error(joinPath(parentPath, "key_source"), R"(key_source must be "secret-service" or "file")");
+              }
+            },
+            [](toml::table& table, const StorageConfig& in) {
+              table.insert_or_assign("key_source", in.keySource == StorageKeySource::File ? "file" : "secret-service");
+            }
+        ),
+        pathStringField(&StorageConfig::keyFile, "key_file"),
+        finalize<StorageConfig>([](StorageConfig& out, std::string_view parentPath, Diagnostics& diag) {
+          if (out.keySource == StorageKeySource::File) {
+            if (out.keyFile.empty()) {
+              diag.error(joinPath(parentPath, "key_file"), R"(storage with key_source = "file" requires key_file)");
+            } else if (!std::filesystem::path(out.keyFile).is_absolute()) {
+              diag.error(joinPath(parentPath, "key_file"), "key_file must resolve to an absolute path");
+            }
+          } else if (!out.keyFile.empty()) {
+            diag.error(joinPath(parentPath, "key_file"), R"(key_file requires key_source = "file")");
+          }
+        }),
     };
     return s;
   }
@@ -1699,6 +1795,20 @@ namespace noctalia::config::schema {
         field(&DockConfig::showRunning, "show_running"),
         field(&DockConfig::autoHide, "auto_hide"),
         field(&DockConfig::smartAutoHide, "smart_auto_hide"),
+        // layer accepts top|overlay; anything else warns and leaves the default.
+        custom<DockConfig>(
+            "layer",
+            [](const toml::table& tbl, DockConfig& out, std::string_view parentPath, Diagnostics& diag) {
+              if (auto v = tbl["layer"].value<std::string>()) {
+                if (*v == "top" || *v == "overlay") {
+                  out.layer = *v;
+                } else {
+                  diag.warn(joinPath(parentPath, "layer"), "expected top or overlay, got \"" + *v + "\"");
+                }
+              }
+            },
+            [](toml::table& tbl, const DockConfig& in) { tbl.insert_or_assign("layer", in.layer); }
+        ),
         field(&DockConfig::reserveSpace, "reserve_space"),
         field(&DockConfig::activeScale, "active_scale", kDockActiveScaleRange),
         field(&DockConfig::inactiveScale, "inactive_scale", kDockInactiveScaleRange),

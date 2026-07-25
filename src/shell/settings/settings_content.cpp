@@ -1253,7 +1253,7 @@ namespace settings {
                 return ui::button({
                     .text = control.label,
                     .fontSize = Style::fontSizeBody * scale,
-                    .variant = ButtonVariant::Default,
+                    .variant = control.destructive ? ButtonVariant::Destructive : ButtonVariant::Default,
                     .minHeight = Style::controlHeight * scale,
                     .paddingV = Style::spaceSm * scale,
                     .paddingH = Style::spaceMd * scale,
@@ -1266,7 +1266,7 @@ namespace settings {
                   .glyph = control.glyph,
                   .fontSize = Style::fontSizeBody * scale,
                   .glyphSize = Style::fontSizeBody * scale,
-                  .variant = ButtonVariant::Default,
+                  .variant = control.destructive ? ButtonVariant::Destructive : ButtonVariant::Default,
                   .minHeight = Style::controlHeight * scale,
                   .paddingV = Style::spaceSm * scale,
                   .paddingH = Style::spaceMd * scale,
@@ -1333,7 +1333,7 @@ namespace settings {
       }
       if (ctx.showOverriddenOnly
           && ctx.configService != nullptr
-          && !ctx.configService->hasEffectiveOverride(entry.path)) {
+          && !settingEntryHasEffectiveOverride(entry, *ctx.configService)) {
         continue;
       }
       if (!matchesNormalizedSettingQuery(entry, normalizedSearchQuery)) {

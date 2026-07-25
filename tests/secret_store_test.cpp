@@ -1,21 +1,20 @@
 #include "security/secret_store.h"
 
-#include <poll.h>
-#include <unistd.h>
-
 #include <array>
 #include <condition_variable>
-#include <cstdio>
 #include <cstdint>
+#include <cstdio>
 #include <deque>
 #include <map>
 #include <mutex>
 #include <optional>
+#include <poll.h>
 #include <print>
 #include <span>
 #include <string>
 #include <string_view>
 #include <thread>
+#include <unistd.h>
 #include <utility>
 #include <vector>
 
@@ -32,8 +31,15 @@ namespace {
   }
 
   std::string keyFor(const security::SecretStoreAttributes& attributes) {
-    return attributes.application + '\x1f' + attributes.scope + '\x1f' + attributes.owner + '\x1f'
-        + attributes.name + '\x1f' + attributes.version;
+    return attributes.application
+        + '\x1f'
+        + attributes.scope
+        + '\x1f'
+        + attributes.owner
+        + '\x1f'
+        + attributes.name
+        + '\x1f'
+        + attributes.version;
   }
 
   class FakeSecretStoreBackend final : public security::SecretStoreBackend {
@@ -84,9 +90,8 @@ namespace {
       return success();
     }
 
-    SecretStoreBackendResult erase(
-        const security::SecretStoreAttributes& attributes, security::SecretStoreCancellation& cancellation
-    ) override {
+    SecretStoreBackendResult
+    erase(const security::SecretStoreAttributes& attributes, security::SecretStoreCancellation& cancellation) override {
       recordAttributes(attributes);
       if (auto forced = prepare(cancellation)) {
         return std::move(*forced);
@@ -213,8 +218,13 @@ namespace {
     ok = expect(attributes.version == "1", "version attribute changed") && ok;
     ok = expect(security::isValidSecretId(id), "valid calendar id was rejected") && ok;
     ok = expect(
-             security::isValidSecretId({.scope = "cache", .owner = "clipboard-cache-v1", .name = "data-key"}),
-             "valid cache id was rejected"
+             security::isValidSecretId({.scope = "storage", .owner = "encrypted-state", .name = "master-key"}),
+             "valid storage master key id was rejected"
+         )
+        && ok;
+    ok = expect(
+             !security::isValidSecretId({.scope = "cache", .owner = "clipboard-cache-v1", .name = "data-key"}),
+             "obsolete clipboard key id was accepted"
          )
         && ok;
     ok = expect(
@@ -223,8 +233,7 @@ namespace {
          )
         && ok;
     ok = expect(
-             !security::isValidSecretId({.scope = "cache", .owner = "", .name = "data-key"}),
-             "empty owner was accepted"
+             !security::isValidSecretId({.scope = "cache", .owner = "", .name = "data-key"}), "empty owner was accepted"
          )
         && ok;
 
@@ -246,7 +255,7 @@ namespace {
     auto backend = std::make_unique<FakeSecretStoreBackend>();
     auto* fake = backend.get();
     security::SecretStore store(std::move(backend));
-    const security::SecretId id{.scope = "cache", .owner = "clipboard-cache-v1", .name = "data-key"};
+    const security::SecretId id{.scope = "storage", .owner = "encrypted-state", .name = "master-key"};
     const std::array<std::uint8_t, 5> first = {1, 0, 2, 0, 3};
     const std::array<std::uint8_t, 4> replacement = {9, 0, 8, 7};
     bool ok = true;
@@ -376,8 +385,8 @@ namespace {
     const std::string labelMarker = "secret-label-marker-108";
     const auto markerBytes = std::span(reinterpret_cast<const std::uint8_t*>(secretMarker.data()), secretMarker.size());
     store.store(
-        {.scope = "calendar", .owner = "logging-test", .name = "password"},
-        security::SecureBuffer(markerBytes), labelMarker, [](SecretStoreStatus) {}
+        {.scope = "calendar", .owner = "logging-test", .name = "password"}, security::SecureBuffer(markerBytes),
+        labelMarker, [](SecretStoreStatus) {}
     );
 
     std::vector<pollfd> fds;

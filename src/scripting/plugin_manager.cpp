@@ -218,21 +218,18 @@ namespace scripting {
       return result;
     }
 
-    std::vector<CatalogEntry> readGitCatalog(const std::filesystem::path& repoRoot, std::string_view rev = "HEAD") {
+    struct ReadGitCatalogResult {
+      bool ok = false;
+      std::string error;
+      std::vector<CatalogEntry> entries;
+    };
+
+    ReadGitCatalogResult readGitCatalog(const std::filesystem::path& repoRoot, std::string_view rev = "HEAD") {
       const auto shown = plugin_git::showFile(repoRoot, "catalog.toml", rev);
       if (!shown) {
-        return {};
+        return {.ok = false, .error = shown.err, .entries = {}};
       }
-      return parseCatalogToml(shown.out);
-    }
-
-    const CatalogEntry* findCatalogEntry(const std::vector<CatalogEntry>& entries, std::string_view id) {
-      for (const auto& entry : entries) {
-        if (entry.id == id) {
-          return &entry;
-        }
-      }
-      return nullptr;
+      return {.ok = true, .error = {}, .entries = parseCatalogToml(shown.out)};
     }
 
     bool materializedPluginMatchesCatalog(
@@ -337,7 +334,12 @@ namespace scripting {
   ) const {
     bool materialized = false;
     std::error_code ec;
-    const auto catalog = readGitCatalog(repoRoot);
+    const auto catalogResult = readGitCatalog(repoRoot);
+    if (!catalogResult.ok) {
+      kLog.warn("plugin source '{}': cannot read applied catalog: {}", source.name, catalogResult.error);
+      return false;
+    }
+    const auto& catalog = catalogResult.entries;
     for (const auto& id : enabled) {
       const auto sub = pluginSubdirFromId(id);
       if (!sub.has_value()) {
@@ -345,8 +347,11 @@ namespace scripting {
         continue;
       }
       const auto* catalogEntry = findCatalogEntry(catalog, id);
+      if (catalogEntry == nullptr) {
+        continue; // this exact canonical id is not owned by this source
+      }
       const bool hasMaterialized = std::filesystem::exists(materializedPluginDir(source, id) / "plugin.toml", ec);
-      if (catalogEntry != nullptr && !catalogEntry->compatible) {
+      if (!catalogEntry->compatible) {
         if (!hasMaterialized) {
           kLog.warn(
               "plugin source '{}': cannot export enabled plugin '{}'; it targets plugin API {} (supported range {}-{})",
@@ -356,11 +361,12 @@ namespace scripting {
         }
         continue;
       }
-      if (hasMaterialized && (catalogEntry == nullptr || materializedPluginMatchesCatalog(source, id, *catalogEntry))) {
+      if (hasMaterialized && materializedPluginMatchesCatalog(source, id, *catalogEntry)) {
         continue; // already materialized at this source revision
       }
       if (!plugin_git::hasPath(repoRoot, *sub + "/plugin.toml")) {
-        continue; // this source doesn't ship it
+        kLog.warn("plugin source '{}': catalog entry '{}' has no {}/plugin.toml", source.name, id, *sub);
+        continue;
       }
       kLog.info("exporting enabled plugin '{}' from source '{}'", id, source.name);
       const auto materializedPlugin = materializeGitPlugin(source, repoRoot, "HEAD", id, true);
@@ -458,14 +464,18 @@ namespace scripting {
     std::thread([this, id, subdir = *subdir, sources = std::move(sources)]() mutable {
       const auto started = std::chrono::steady_clock::now();
       // Highest precedence wins; skip disabled sources — the registry never scans them.
-      std::optional<PluginSourceConfig> offering;
+      struct Offering {
+        PluginSourceConfig source;
+        std::string revision;
+      };
+      std::optional<Offering> offering;
       for (const auto& source : std::views::reverse(sources)) {
         if (!source.enabled) {
           continue;
         }
         const auto catalog = discoverCatalog(source, CatalogAccess::Network);
-        if (std::ranges::any_of(catalog.entries, [&](const CatalogEntry& e) { return e.id == id; })) {
-          offering = source;
+        if (findCatalogEntry(catalog.entries, id) != nullptr) {
+          offering = Offering{.source = source, .revision = catalog.revision};
           break;
         }
       }
@@ -476,16 +486,22 @@ namespace scripting {
       std::uint32_t pluginApiVersion = 0;
       std::string error;
 
-      if (offering.has_value() && offering->kind == PluginSourceKind::Git) {
-        auto sourceLock = plugin_source_locks::acquire(offering->name);
-        auto materialized = materializeGitPlugin(*offering, plugin_paths::gitRepoRoot(*offering), "HEAD", id, true);
-        ok = materialized && materialized.manifest.id == id;
-        incompatible = materialized.incompatible;
-        timedOut = materialized.timedOut;
-        pluginApiVersion = materialized.pluginApiVersion;
-        error = std::move(materialized.error);
+      if (offering.has_value() && offering->source.kind == PluginSourceKind::Git) {
+        if (offering->revision.empty()) {
+          error = "source '" + offering->source.name + "' did not resolve a catalog revision";
+        } else {
+          auto sourceLock = plugin_source_locks::acquire(offering->source.name);
+          auto materialized = materializeGitPlugin(
+              offering->source, plugin_paths::gitRepoRoot(offering->source), offering->revision, id, true
+          );
+          ok = materialized && materialized.manifest.id == id;
+          incompatible = materialized.incompatible;
+          timedOut = materialized.timedOut;
+          pluginApiVersion = materialized.pluginApiVersion;
+          error = std::move(materialized.error);
+        }
       } else if (offering.has_value()) {
-        const auto manifest = parsePluginManifest(sourceRootFor(*offering) / subdir / "plugin.toml", &error);
+        const auto manifest = parsePluginManifest(sourceRootFor(offering->source) / subdir / "plugin.toml", &error);
         if (manifest.has_value() && manifest->id != id) {
           error = "manifest id '" + manifest->id + "' does not match requested id";
         } else if (manifest.has_value() && !supportsPluginApiVersion(manifest->pluginApiVersion)) {
@@ -708,15 +724,32 @@ namespace scripting {
         });
         return;
       }
-      const std::string newRev = plugin_git::remoteHead(repoRoot).out;
-      const std::string curRev = plugin_git::headRevision(repoRoot).out;
-      if (newRev.empty()) {
-        DeferredCall::callLater([sourceName]() { kLog.warn("update '{}': fetched revision is empty", sourceName); });
+      const auto fetchedRevision = plugin_git::remoteHead(repoRoot);
+      if (!fetchedRevision || fetchedRevision.out.empty()) {
+        DeferredCall::callLater([sourceName, err = fetchedRevision.err]() {
+          kLog.warn("update '{}': cannot resolve fetched revision: {}", sourceName, err);
+        });
         return;
       }
+      const auto currentRevision = plugin_git::headRevision(repoRoot);
+      if (!currentRevision || currentRevision.out.empty()) {
+        DeferredCall::callLater([sourceName, err = currentRevision.err]() {
+          kLog.warn("update '{}': cannot resolve applied revision: {}", sourceName, err);
+        });
+        return;
+      }
+      const std::string newRev = fetchedRevision.out;
+      const std::string curRev = currentRevision.out;
       const bool sourceRevisionChanged = newRev != curRev;
 
-      const auto catalog = readGitCatalog(repoRoot, newRev);
+      const auto catalogResult = readGitCatalog(repoRoot, newRev);
+      if (!catalogResult.ok) {
+        DeferredCall::callLater([sourceName, err = catalogResult.error]() {
+          kLog.warn("update '{}': cannot read fetched catalog: {}", sourceName, err);
+        });
+        return;
+      }
+      const auto& catalog = catalogResult.entries;
       std::unordered_set<std::string> withheldIds;
       std::vector<std::pair<std::string, std::uint32_t>> withheldUpdates;
       const auto rememberWithheld = [&](std::string id, std::uint32_t pluginApiVersion) {
@@ -724,6 +757,7 @@ namespace scripting {
           withheldUpdates.emplace_back(std::move(id), pluginApiVersion);
         }
       };
+      std::vector<std::pair<std::string, std::string>> exportFailures;
 
       bool materialized = false;
       for (const auto& id : enabled) {
@@ -732,21 +766,19 @@ namespace scripting {
           continue;
         }
         const auto* catalogEntry = findCatalogEntry(catalog, id);
-        if (catalogEntry != nullptr && !catalogEntry->compatible) {
+        if (catalogEntry == nullptr) {
+          continue; // this exact canonical id is not owned by this source
+        }
+        if (!catalogEntry->compatible) {
           rememberWithheld(id, catalogEntry->pluginApiVersion);
           continue;
         }
         if (!plugin_git::hasPath(repoRoot, *sub + "/plugin.toml", newRev)) {
-          continue; // not shipped by this source
+          exportFailures.emplace_back(id, "catalog entry has no " + *sub + "/plugin.toml");
+          continue;
         }
         if (!sourceRevisionChanged) {
-          std::error_code materializedEc;
-          const bool hasMaterialized =
-              std::filesystem::exists(materializedPluginDir(source, id) / "plugin.toml", materializedEc);
-          if (catalogEntry == nullptr && hasMaterialized) {
-            continue;
-          }
-          if (catalogEntry != nullptr && materializedPluginMatchesCatalog(source, id, *catalogEntry)) {
+          if (materializedPluginMatchesCatalog(source, id, *catalogEntry)) {
             continue; // source already points here and the exported copy matches it
           }
         }
@@ -755,10 +787,8 @@ namespace scripting {
             rememberWithheld(id, m.pluginApiVersion);
             continue;
           }
-          DeferredCall::callLater([sourceName, id, err = m.error]() {
-            kLog.warn("update '{}': export '{}' failed: {}", sourceName, id, err);
-          });
-          return;
+          exportFailures.emplace_back(id, m.error);
+          continue;
         }
         materialized = true;
       }
@@ -769,11 +799,20 @@ namespace scripting {
         applied = static_cast<bool>(result);
         applyError = result.err;
       }
-      DeferredCall::callLater([this, sourceName, ok = applied, err = std::move(applyError), newRev,
-                               sourceRevisionChanged, materialized,
+      DeferredCall::callLater([this, sourceName, ok = applied, err = std::move(applyError), newRev, curRev,
+                               sourceRevisionChanged, materialized, exportFailures = std::move(exportFailures),
                                withheldUpdates = std::move(withheldUpdates)]() mutable {
+        for (const auto& [id, exportError] : exportFailures) {
+          kLog.warn("update '{}': export '{}' failed: {}", sourceName, id, exportError);
+        }
         if (!ok) {
           kLog.warn("update '{}': set HEAD failed: {}", sourceName, err);
+          if (materialized) {
+            PluginRegistry::instance().scan();
+            if (m_onChanged) {
+              m_onChanged();
+            }
+          }
           return;
         }
         for (const auto& [id, pluginApiVersion] : withheldUpdates) {
@@ -782,6 +821,19 @@ namespace scripting {
               sourceName, id, pluginApiVersion, kOldestSupportedPluginApiVersion, kCurrentPluginApiVersion
           );
         }
+        if (!exportFailures.empty()) {
+          if (sourceRevisionChanged) {
+            kLog.warn(
+                "update '{}': advanced from {} to {} while keeping {} previous export(s); retrying on the next update",
+                sourceName, curRev, newRev, exportFailures.size()
+            );
+          } else {
+            kLog.warn(
+                "update '{}': {} export(s) still need reconciliation at {}; retrying on the next update", sourceName,
+                exportFailures.size(), newRev
+            );
+          }
+        }
         if (sourceRevisionChanged) {
           kLog.info("updated source '{}' -> {}", sourceName, newRev);
           if (m_onSourceUpdated) {
@@ -789,7 +841,7 @@ namespace scripting {
           }
         } else if (materialized) {
           kLog.info("reconciled source '{}' at {}", sourceName, newRev);
-        } else {
+        } else if (exportFailures.empty()) {
           kLog.info("source '{}' already up to date", sourceName);
         }
         if (sourceRevisionChanged || materialized) {

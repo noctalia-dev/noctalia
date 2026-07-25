@@ -44,20 +44,12 @@ radius = -7
 
     expect(root["bar"]["main"]["radius"].value<std::int64_t>() == 12, "base radius was not made positive");
     expect(
-        root["bar"]["main"]["radius_top_left"].value<std::int64_t>() == 20,
-        "per-corner radius was not made positive"
+        root["bar"]["main"]["radius_top_left"].value<std::int64_t>() == 20, "per-corner radius was not made positive"
     );
+    expect(root["bar"]["main"]["radius_top_right"].value<std::int64_t>() == 8, "positive radius was changed");
+    expect(root["bar"]["main"]["concave_edge_corners"].value<bool>() == true, "base concave flag was not set");
     expect(
-        root["bar"]["main"]["radius_top_right"].value<std::int64_t>() == 8,
-        "positive radius was changed"
-    );
-    expect(
-        root["bar"]["main"]["concave_edge_corners"].value<bool>() == true,
-        "base concave flag was not set"
-    );
-    expect(
-        root["bar"]["main"]["monitor"]["dp1"]["radius"].value<std::int64_t>() == 16,
-        "monitor radius was not migrated"
+        root["bar"]["main"]["monitor"]["dp1"]["radius"].value<std::int64_t>() == 16, "monitor radius was not migrated"
     );
     expect(
         root["bar"]["main"]["monitor"]["dp1"]["concave_edge_corners"].value<bool>() == true,
@@ -82,8 +74,7 @@ radius = -7
     noctalia::config::LegacyConfigIssues issues;
     noctalia::config::normalizeLegacyConfig(root, issues);
     expect(
-        root["bar"]["main"]["radius"].value<std::int64_t>() == 500,
-        "extreme negative radius did not normalize safely"
+        root["bar"]["main"]["radius"].value<std::int64_t>() == 500, "extreme negative radius did not normalize safely"
     );
   }
 
@@ -106,9 +97,10 @@ sunrise = "07:30"
     expect(secondPassIssues.empty(), "custom scheduling normalization was not idempotent");
 
     // Coordinates won under the old rules, so these configs must keep using them.
-    for (const std::string_view source : {"auto_locate = true", "address = \"Toronto, ON\"",
-                                          "latitude = 52.52\nlongitude = 13.405"}) {
-      toml::table coords = toml::parse(std::format("[location]\nsunset = \"20:30\"\nsunrise = \"07:30\"\n{}\n", source));
+    for (const std::string_view source :
+         {"auto_locate = true", "address = \"Toronto, ON\"", "latitude = 52.52\nlongitude = 13.405"}) {
+      toml::table coords =
+          toml::parse(std::format("[location]\nsunset = \"20:30\"\nsunrise = \"07:30\"\n{}\n", source));
       noctalia::config::LegacyConfigIssues coordIssues;
       noctalia::config::normalizeLegacyConfig(coords, coordIssues);
       expect(
@@ -154,15 +146,13 @@ radius = -10
     expect(currentStored == 1, "current config_version was not read");
     (void)noctalia::config::applyPendingConfigMigrations(current, currentStored.value_or(0), currentDiag);
     expect(
-        current["bar"]["main"]["radius"].value<std::int64_t>() == -10,
-        "current sidecar replayed a historical migration"
+        current["bar"]["main"]["radius"].value<std::int64_t>() == -10, "current sidecar replayed a historical migration"
     );
 
     toml::table invalid = toml::parse("config_version = \"one\"");
     noctalia::config::schema::Diagnostics invalidDiag;
     expect(
-        !noctalia::config::storedConfigVersion(invalid, invalidDiag).has_value(),
-        "invalid config_version was accepted"
+        !noctalia::config::storedConfigVersion(invalid, invalidDiag).has_value(), "invalid config_version was accepted"
     );
     expect(invalidDiag.hasErrors(), "invalid config_version did not produce an error");
     expect(invalidDiag.hasFatalErrors(), "invalid config_version was not document-fatal");
@@ -170,8 +160,7 @@ radius = -10
     toml::table future = toml::parse("config_version = 999");
     noctalia::config::schema::Diagnostics futureDiag;
     expect(
-        !noctalia::config::storedConfigVersion(future, futureDiag).has_value(),
-        "future config_version was accepted"
+        !noctalia::config::storedConfigVersion(future, futureDiag).has_value(), "future config_version was accepted"
     );
     expect(futureDiag.hasErrors(), "future config_version did not produce an error");
     expect(futureDiag.hasFatalErrors(), "future config_version was not document-fatal");
@@ -182,7 +171,9 @@ radius = -10
     candidate.error("accessibility.ui_scale", "expected a number", "config.type.number");
     const auto introduced = candidate.introducedErrorsComparedTo(baseline);
     expect(introduced.entries.size() == 1, "diagnostic comparison did not isolate the new error");
-    expect(introduced.entries.front().path == "accessibility.ui_scale", "diagnostic comparison returned the wrong error");
+    expect(
+        introduced.entries.front().path == "accessibility.ui_scale", "diagnostic comparison returned the wrong error"
+    );
   }
 
   void checkReminderFingerprint() {

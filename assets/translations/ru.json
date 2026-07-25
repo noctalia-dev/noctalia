@@ -528,10 +528,6 @@
         "wave-thickness": "Толщина волны",
         "widget-section": "Виджет"
       },
-      "state": {
-        "grid-off": "Сетка выключена",
-        "grid-on": "Сетка включена"
-      },
       "title": "Виджеты рабочего стола",
       "types": {
         "audio-visualizer": "Аудиовизуализатор",
@@ -754,7 +750,8 @@
       "title": "Плагин отключен"
     },
     "enable-failed": {
-      "body-timeout": "Установка {plugin} заняла слишком много времени."
+      "body-timeout": "Установка {plugin} заняла слишком много времени.",
+      "title": "Плагин не включен"
     }
   },
   "power": {
@@ -974,6 +971,7 @@
       }
     },
     "errors": {
+      "avatar-accounts": "Не удалось обновить аватар системного аккаунта.",
       "bar": {
         "create": "Не удалось создать панель.",
         "delete": "Не удалось удалить панель.",
@@ -1111,6 +1109,7 @@
         "desktop": "Рабочий стол",
         "dock": "Док",
         "hooks": "Хуки",
+        "launcher": "Лаунчер",
         "location": "Местоположение",
         "niri": "Niri",
         "notifications": "Уведомления",
@@ -1130,11 +1129,20 @@
     "notifications": {
       "filter": {
         "add": "Добавить фильтр",
+        "add-title": "Добавить фильтр уведомлений",
         "match-label": "Приложение",
-        "play-sound": "Воспроизвести звук"
+        "play-sound": "Воспроизвести звук",
+        "save-history": "Сохранить в историю",
+        "unnamed": "Безымянный фильтр"
       }
     },
     "options": {
+      "bar": {
+        "auto-hide": {
+          "off": "Выкл",
+          "on": "Вкл"
+        }
+      },
       "clipboard": {
         "auto-paste": {
           "ctrl-shift-v": "Ctrl+Shift+V",
@@ -1192,6 +1200,9 @@
       "orientation": {
         "horizontal": "Горизонтальная",
         "vertical": "Вертикальная"
+      },
+      "panel-bar-alignment": {
+        "centered": "По центру"
       },
       "panel-position": {
         "auto": "Следовать за панелью"
@@ -1278,9 +1289,13 @@
       }
     },
     "plugins": {
+      "browse-store": "Просмотр плагинов",
       "panels": {
         "open-near-click": {
           "label": "Открывать возле клика"
+        },
+        "placement": {
+          "label": "Расположение"
         },
         "position": {
           "label": "Позиция"
@@ -1288,13 +1303,19 @@
       },
       "plugins": {
         "configure": "Настроить",
+        "delete": "Удалить",
+        "delete-confirm-desc": "Этот плагин будет удален и убран с диска.",
+        "delete-confirm-title": "Удалить \"{name}\"?",
         "deprecated": "Устаревший",
-        "empty": "Плагины не найдены. Добавьте источник или проверьте соединение с интернетом",
+        "empty": "Нет включенных плагинов.",
         "loading": "Загрузка плагинов...",
         "refreshing": "Обновление плагинов...",
         "remove": "Удалить плагин",
         "requires": "Требуются: {dependencies}",
-        "title": "Плагины"
+        "title": "Плагины",
+        "update-all": "Обновить все ({count})",
+        "update-available": "Доступно обновление",
+        "update-to": "Обновить до {version}"
       },
       "settings": {
         "empty": "Настройки недоступны"
@@ -1302,6 +1323,8 @@
       "sources": {
         "add": "Добавить источник",
         "add-title": "Добавить источник плагинов",
+        "auto-update": "Авто-обновление плагинов",
+        "auto-update-desc": "Проверять обновления из включенных источников в фоновом режиме и поддерживать плагины в актуальном состоянии",
         "edit": "Настроить источник",
         "edit-title": "Настроить источник плагинов",
         "empty": "Источники не настроены",
@@ -1320,17 +1343,35 @@
         "location-placeholder-path": "~/dev/noctalia-plugins",
         "name-label": "ID источника",
         "name-placeholder": "my-plugins",
+        "precedence-hint": "Источники, расположенные ниже, имеют приоритет над высшими при совпадении плагинов.",
         "remove": "Удалить источник",
         "save": "Сохранить",
         "title": "Источники",
         "update": "Обновить"
       },
       "store": {
+        "add": "Добавить в Noctalia",
+        "categories": "Категории",
+        "category-all": "Все",
         "empty": "Плагины не найдены",
-        "incompatible": "Несовместим"
+        "incompatible": "Несовместим",
+        "loading": "Загрузка каталога...",
+        "no-readme": "Описание недоступно",
+        "open-page": "Открыть страницу плагина на noctalia.dev",
+        "open-source": "Открыть репозиторий исходного кода плагина",
+        "results-count": "{count} плагинов",
+        "search-placeholder": "Поиск плагинов...",
+        "source-all": "Все",
+        "sources": "Источники",
+        "title": "Магазин плагинов"
       }
     },
     "schema": {
+      "accessibility": {
+        "high-contrast": {
+          "label": "Высокий контраст"
+        }
+      },
       "appearance": {
         "animation-speed": {
           "description": "Множитель скорости для всех анимаций",
@@ -1641,6 +1682,15 @@
         "item-spacing": {
           "description": "Расстояние между элементами дока",
           "label": "Расстояние между элементами"
+        },
+        "launcher-custom-image": {
+          "description": "Использовать изображение на кнопке лаунчера в доке вместо иконки",
+          "label": "Пользовательское изображение лаунчера",
+          "placeholder": "Путь к изображению"
+        },
+        "launcher-custom-image-colorize": {
+          "description": "Покрасить пользовательское изображение в цвет иконки",
+          "label": "Раскрасить пользовательское изображение"
         },
         "launcher-icon": {
           "description": "Значок Tabler для кнопки лаунчера в доке",
@@ -2574,7 +2624,6 @@
         "always": "Всегда",
         "cpu-temp": "Температура ЦП",
         "cpu-usage": "Загрузка ЦП",
-        "disk-percent": "Процент диска",
         "full": "Полный",
         "gauge": "Индикатор",
         "glyph": "Глиф",
@@ -3059,7 +3108,6 @@
     "window": {
       "export-config": "Экспортировать конфигурацию…",
       "export-config-saved": "Экспорт конфигурации сохранён.",
-      "filter-modified": "Изменённые",
       "native-title": "Настройки Noctalia",
       "no-results": "Настройки не найдены",
       "no-results-hint": "Попробуйте другое имя параметра или ключ конфигурации.",

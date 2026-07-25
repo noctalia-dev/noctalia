@@ -12,7 +12,15 @@ struct wl_output;
 
 class SettingsWidget : public Widget {
 public:
-  SettingsWidget(wl_output* output, std::string barGlyphId, WidgetCustomImage customImage = {});
+  struct Options {
+    std::string glyph = "settings";
+    std::string customImage;
+    bool customImageColorize = false;
+
+    bool operator==(const Options&) const = default;
+  };
+
+  SettingsWidget(wl_output* output, Options options);
 
   void create() override;
 

@@ -412,6 +412,7 @@ _noctalia_sources = files(
   'src/calendar/caldav_client.cpp',
   'src/calendar/caldav_discovery.cpp',
   'src/calendar/calendar_cache.cpp',
+  'src/calendar/calendar_credential_store.cpp',
   'src/calendar/calendar_discovery_state.cpp',
   'src/calendar/calendar_service.cpp',
   'src/calendar/google_client.cpp',
@@ -568,6 +569,7 @@ _noctalia_sources = files(
   'src/security/encrypted_file_store.cpp',
   'src/security/secret_store.cpp',
   'src/security/secure_buffer.cpp',
+  'src/security/storage_key_provider.cpp',
   'src/system/battery_warning_monitor.cpp',
   'src/shell/bar/bar.cpp',
   'src/shell/clipboard/clipboard_paste.cpp',
@@ -652,6 +654,7 @@ _noctalia_sources = files(
   'src/shell/panel/panel_click_shield.cpp',
   'src/wayland/hyprland/focus_grab_service.cpp',
   'src/shell/panel/panel_manager.cpp',
+  'src/shell/panel/persistent_panel_host.cpp',
   'src/shell/panel/plugin_panel.cpp',
   'src/shell/polkit/polkit_panel.cpp',
   'src/shell/session/session_action_meta.cpp',
@@ -699,32 +702,51 @@ _noctalia_sources = files(
   'src/shell/wallpaper/panel/wallpaper_scanner.cpp',
   'src/shell/wallpaper/panel/wallpaper_tile.cpp',
   'src/shell/bar/widget.cpp',
+  'src/shell/bar/widget_custom_image.cpp',
   'src/shell/bar/widget_factory.cpp',
   'src/shell/bar/widgets/active_window_widget.cpp',
+  'src/shell/bar/widgets/active_window_widget_definition.cpp',
   'src/shell/bar/widgets/audio_visualizer_widget.cpp',
+  'src/shell/bar/widgets/audio_visualizer_widget_definition.cpp',
   'src/shell/bar/widgets/battery_widget.cpp',
   'src/shell/bar/widgets/battery_widget_definition.cpp',
   'src/shell/bar/widgets/bluetooth_widget.cpp',
+  'src/shell/bar/widgets/bluetooth_widget_definition.cpp',
   'src/shell/bar/widgets/control_center_widget.cpp',
+  'src/shell/bar/widgets/control_center_widget_definition.cpp',
   'src/shell/bar/widgets/custom_button_widget.cpp',
+  'src/shell/bar/widgets/custom_button_widget_definition.cpp',
   'src/shell/bar/widgets/clipboard_widget.cpp',
+  'src/shell/bar/widgets/clipboard_widget_definition.cpp',
   'src/shell/bar/widgets/clock_widget.cpp',
+  'src/shell/bar/widgets/clock_widget_definition.cpp',
   'src/shell/bar/widgets/debug_indicator_widget.cpp',
   'src/shell/bar/widgets/idle_inhibitor_widget.cpp',
   'src/shell/bar/widgets/keyboard_layout_widget.cpp',
   'src/shell/bar/widgets/lock_keys_widget.cpp',
+  'src/shell/bar/widgets/lock_keys_widget_definition.cpp',
   'src/shell/bar/widgets/nightlight_widget.cpp',
   'src/shell/bar/widgets/launcher_widget.cpp',
+  'src/shell/bar/widgets/launcher_widget_definition.cpp',
   'src/shell/bar/widgets/media_widget.cpp',
   'src/shell/bar/widgets/network_widget.cpp',
+  'src/shell/bar/widgets/network_widget_definition.cpp',
   'src/shell/bar/widgets/notification_widget.cpp',
+  'src/shell/bar/widgets/notification_widget_definition.cpp',
   'src/shell/bar/widgets/plugin_widget.cpp',
   'src/shell/bar/widgets/power_profile_widget.cpp',
+  'src/shell/bar/widgets/power_profile_widget_definition.cpp',
   'src/shell/bar/widgets/privacy_widget.cpp',
+  'src/shell/bar/widgets/privacy_widget_definition.cpp',
+  'src/shell/bar/widgets/screenshot_widget_definition.cpp',
   'src/shell/bar/widgets/session_widget.cpp',
+  'src/shell/bar/widgets/session_widget_definition.cpp',
   'src/shell/bar/widgets/settings_widget.cpp',
+  'src/shell/bar/widgets/settings_widget_definition.cpp',
   'src/shell/bar/widgets/spacer_widget.cpp',
+  'src/shell/bar/widgets/spacer_widget_definition.cpp',
   'src/shell/bar/widgets/text_widget.cpp',
+  'src/shell/bar/widgets/text_widget_definition.cpp',
   'src/shell/bar/widgets/sysmon_widget.cpp',
   'src/shell/bar/widgets/taskbar_widget.cpp',
   'src/shell/bar/widgets/test_widget.cpp',
@@ -734,7 +756,9 @@ _noctalia_sources = files(
   'src/shell/bar/widgets/brightness_widget.cpp',
   'src/shell/bar/widgets/brightness_widget_definition.cpp',
   'src/shell/bar/widgets/wallpaper_widget.cpp',
+  'src/shell/bar/widgets/wallpaper_widget_definition.cpp',
   'src/shell/bar/widgets/weather_widget.cpp',
+  'src/shell/bar/widgets/weather_widget_definition.cpp',
   'src/shell/bar/widgets/workspaces_widget.cpp',
   'src/system/dependency_service.cpp',
   'src/system/desktop_entry.cpp',
@@ -759,6 +783,7 @@ _noctalia_sources = files(
   'src/shell/bar/widgets/screenshot_widget.cpp',
   'src/system/rfkill_helper.cpp',
   'src/system/screen_time_service.cpp',
+  'src/system/cpu_stat.cpp',
   'src/system/cpu_temp_sensor.cpp',
   'src/system/intel_gpu.cpp',
   'src/system/system_monitor_service.cpp',
@@ -1181,6 +1206,19 @@ audio_glyphs_test = executable('audio_glyphs_test',
 
 test('audio_glyphs', audio_glyphs_test)
 
+math_provider_test = executable('math_provider_test',
+  sources: files(
+    'tests/math_provider_test.cpp',
+    'src/launcher/math_provider.cpp',
+  ),
+  dependencies: [
+    libqalculate_dep,
+  ],
+  include_directories: _noctalia_inc,
+)
+
+test('math_provider', math_provider_test)
+
 hook_manager_test = executable('hook_manager_test',
   sources: files(
     'tests/hook_manager_test.cpp',
@@ -1204,6 +1242,19 @@ desktop_entry_launch_test = executable('desktop_entry_launch_test',
 )
 
 test('desktop_entry_launch', desktop_entry_launch_test)
+
+icon_resolver_test = executable('icon_resolver_test',
+  sources: files(
+    'tests/icon_resolver_test.cpp',
+    'src/system/icon_resolver.cpp',
+  ),
+  dependencies: [
+    gio_dep,
+  ],
+  include_directories: _noctalia_inc,
+)
+
+test('icon_resolver', icon_resolver_test)
 
 string_utils_test = executable('string_utils_test',
   sources: files(
@@ -1282,6 +1333,16 @@ cpu_temp_sensor_test = executable('cpu_temp_sensor_test',
 )
 
 test('cpu_temp_sensor', cpu_temp_sensor_test)
+
+cpu_stat_test = executable('cpu_stat_test',
+  sources: files(
+    'tests/cpu_stat_test.cpp',
+    'src/system/cpu_stat.cpp',
+  ),
+  include_directories: _noctalia_inc,
+)
+
+test('cpu_stat', cpu_stat_test)
 
 i18n_language_tag_test = executable('i18n_language_tag_test',
   sources: files(
@@ -1458,11 +1519,13 @@ plugin_manifest_test = executable('plugin_manifest_test',
     'tests/plugin_manifest_test.cpp',
     'src/scripting/plugin_manifest.cpp',
     'src/scripting/plugin_panel_shell.cpp',
+    'src/core/input/key_chord.cpp',
     'src/core/log.cpp',
   ),
   include_directories: _noctalia_inc,
   dependencies: [
     tomlplusplus_dep,
+    xkbcommon_dep,
   ],
 )
 
@@ -1562,6 +1625,50 @@ config_widget_test = executable('config_widget_test',
 
 test('config_widget', config_widget_test)
 
+widget_definition_test = executable('widget_definition_test',
+  sources: files(
+    'tests/widget_definition_test.cpp',
+    'src/shell/bar/widgets/active_window_widget_definition.cpp',
+    'src/shell/bar/widgets/audio_visualizer_widget_definition.cpp',
+    'src/shell/bar/widgets/battery_widget_definition.cpp',
+    'src/shell/bar/widgets/bluetooth_widget_definition.cpp',
+    'src/shell/bar/widgets/brightness_widget_definition.cpp',
+    'src/shell/bar/widgets/clipboard_widget_definition.cpp',
+    'src/shell/bar/widgets/clock_widget_definition.cpp',
+    'src/shell/bar/widgets/control_center_widget_definition.cpp',
+    'src/shell/bar/widgets/custom_button_widget_definition.cpp',
+    'src/shell/bar/widgets/launcher_widget_definition.cpp',
+    'src/shell/bar/widgets/lock_keys_widget_definition.cpp',
+    'src/shell/bar/widgets/network_widget_definition.cpp',
+    'src/shell/bar/widgets/notification_widget_definition.cpp',
+    'src/shell/bar/widgets/power_profile_widget_definition.cpp',
+    'src/shell/bar/widgets/privacy_widget_definition.cpp',
+    'src/shell/bar/widgets/screenshot_widget_definition.cpp',
+    'src/shell/bar/widgets/session_widget_definition.cpp',
+    'src/shell/bar/widgets/settings_widget_definition.cpp',
+    'src/shell/bar/widgets/spacer_widget_definition.cpp',
+    'src/shell/bar/widgets/text_widget_definition.cpp',
+    'src/shell/bar/widgets/wallpaper_widget_definition.cpp',
+    'src/shell/bar/widgets/weather_widget_definition.cpp',
+    'src/config/widget_config.cpp',
+    'src/config/config_types.cpp',
+    'src/render/core/color.cpp',
+    'src/ui/palette.cpp',
+    'src/theme/builtin_palettes.cpp',
+    'src/theme/fixed_palette.cpp',
+    'src/theme/color.cpp',
+    'src/theme/contrast.cpp',
+    'src/core/input/key_chord.cpp',
+  ),
+  include_directories: _noctalia_inc,
+  dependencies: [
+    xkbcommon_dep,
+    tomlplusplus_dep,
+  ],
+)
+
+test('widget_definition', widget_definition_test)
+
 config_path_resolution_test = executable('config_path_resolution_test',
   sources: files(
     'tests/config_path_resolution_test.cpp',
@@ -1646,13 +1753,35 @@ secret_store_test = executable('secret_store_test',
 
 test('secret_store', secret_store_test)
 
+calendar_credential_store_test = executable('calendar_credential_store_test',
+  sources: files(
+    'tests/calendar_credential_store_test.cpp',
+    'src/calendar/calendar_credential_store.cpp',
+    'src/core/log.cpp',
+    'src/security/secret_store.cpp',
+    'src/security/secure_buffer.cpp',
+  ),
+  include_directories: _noctalia_inc,
+  dependencies: [
+    libsecret_dep,
+    libsodium_dep,
+  ],
+)
+
+test('calendar_credential_store', calendar_credential_store_test)
+
 calendar_cache_permissions_test = executable('calendar_cache_permissions_test',
   sources: files(
     'tests/calendar_cache_permissions_test.cpp',
     'src/calendar/calendar_cache.cpp',
     'src/config/atomic_file.cpp',
+    'src/security/encrypted_file_store.cpp',
+    'src/security/secure_buffer.cpp',
   ),
   include_directories: _noctalia_inc,
+  dependencies: [
+    libsodium_dep,
+  ],
 )
 
 test('calendar_cache_permissions', calendar_cache_permissions_test)
@@ -1662,10 +1791,16 @@ clipboard_storage_permissions_test = executable('clipboard_storage_permissions_t
     'tests/clipboard_storage_permissions_test.cpp',
     'src/config/atomic_file.cpp',
     'src/core/log.cpp',
+    'src/security/encrypted_file_store.cpp',
+    'src/security/secret_store.cpp',
+    'src/security/secure_buffer.cpp',
+    'src/security/storage_key_provider.cpp',
     'src/wayland/clipboard_service.cpp',
   ) + _protocol_headers + _protocol_sources,
   include_directories: _noctalia_inc,
   dependencies: [
+    libsecret_dep,
+    libsodium_dep,
     nlohmann_dep,
     wayland_client_dep,
   ],

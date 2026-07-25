@@ -7,6 +7,9 @@
 #include <string>
 #include <vector>
 
+// Pointer-only use; keeps the scripting layer off the system layer's header.
+class SystemMonitorService;
+
 namespace scripting {
 
   // A connected output as exposed to plugin scripts via noctalia.outputs().
@@ -84,6 +87,18 @@ namespace scripting {
       }
     }
 
+    // The live system monitor, or nullptr when it is unavailable. Unlike the hooks around it this
+    // is read straight from a script worker thread: SystemMonitorService::latest() is mutex-guarded
+    // and returns a copy, so no main-thread marshalling is needed. The pointer itself is atomic
+    // because it is published, and cleared on teardown, from the main thread.
+    void setSystemMonitor(SystemMonitorService* monitor) noexcept {
+      m_systemMonitor.store(monitor, std::memory_order_release);
+    }
+
+    [[nodiscard]] SystemMonitorService* systemMonitor() const noexcept {
+      return m_systemMonitor.load(std::memory_order_acquire);
+    }
+
     // Toggles a host panel by id. Wired to PanelManager in Application; main thread only.
     void setTogglePanelHook(std::function<void(const std::string&)> hook) { m_togglePanelHook = std::move(hook); }
 
@@ -94,6 +109,7 @@ namespace scripting {
     }
 
   private:
+    std::atomic<SystemMonitorService*> m_systemMonitor{nullptr};
     std::atomic<bool> m_darkMode{true};
     mutable std::mutex m_mutex;
     std::string m_wallpaperDirectory;

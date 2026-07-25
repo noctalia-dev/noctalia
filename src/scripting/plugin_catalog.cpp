@@ -164,67 +164,75 @@ namespace scripting {
 
   CatalogResult discoverCatalog(const PluginSourceConfig& source, CatalogAccess access) {
     if (!isValidPluginSourceName(source.name)) {
-      return {.ok = false, .error = "invalid plugin source name: " + source.name, .entries = {}};
+      return {.ok = false, .error = "invalid plugin source name: " + source.name, .entries = {}, .revision = {}};
     }
     if (source.kind == PluginSourceKind::Path) {
       std::error_code ec;
       const std::filesystem::path dir = FileUtils::expandUserPath(source.location);
       if (!std::filesystem::is_directory(dir, ec)) {
-        return {.ok = false, .error = "path source directory not found: " + dir.string(), .entries = {}};
+        return {
+            .ok = false, .error = "path source directory not found: " + dir.string(), .entries = {}, .revision = {}
+        };
       }
       const auto catalogPath = dir / "catalog.toml";
       if (std::filesystem::exists(catalogPath, ec)) {
         std::string body;
         if (readFileToString(catalogPath, body)) {
-          return {.ok = true, .error = {}, .entries = parseCatalogToml(body)};
+          return {.ok = true, .error = {}, .entries = parseCatalogToml(body), .revision = {}};
         }
       }
       // No catalog.toml — path sources are on disk, so scan straight away.
-      return {.ok = true, .error = {}, .entries = scanDir(dir)};
+      return {.ok = true, .error = {}, .entries = scanDir(dir), .revision = {}};
     }
 
     // Git source: clone-if-needed (blobless, no-checkout), then read the catalog
     // via `git show`. Runtime plugin files are exported separately on enable/update.
     if (!plugin_git::available()) {
-      return {.ok = false, .error = "git is not installed", .entries = {}};
+      return {.ok = false, .error = "git is not installed", .entries = {}, .revision = {}};
     }
     const std::filesystem::path dest = plugin_paths::gitRepoRoot(source);
     if (dest.empty()) {
-      return {.ok = false, .error = "empty plugin source repo path", .entries = {}};
+      return {.ok = false, .error = "empty plugin source repo path", .entries = {}, .revision = {}};
     }
     auto sourceLock = plugin_source_locks::acquire(source.name);
     const bool localOnly = access == CatalogAccess::LocalOnly;
     std::error_code ec;
     if (!std::filesystem::exists(dest / ".git", ec)) {
       if (localOnly) {
-        return {.ok = false, .error = "source '" + source.name + "' is not cloned yet", .entries = {}};
+        return {.ok = false, .error = "source '" + source.name + "' is not cloned yet", .entries = {}, .revision = {}};
       }
       std::filesystem::create_directories(dest.parent_path(), ec);
       auto cloned = plugin_git::cloneBlobless(source.location, dest);
       if (!cloned) {
-        return {.ok = false, .error = "clone failed: " + cloned.err, .entries = {}};
+        return {.ok = false, .error = "clone failed: " + cloned.err, .entries = {}, .revision = {}};
       }
     }
     // Browse the freshest catalog: when a prior fetch left FETCH_HEAD ahead of the
-    // applied HEAD, read the catalog there so newly published plugins are listed
-    // before they are exported. HEAD (what actually runs) is untouched. The fetch
-    // itself is throttled and off-thread in PluginManager::fetchStaleCatalogs.
-    std::string rev = "HEAD";
+    // applied HEAD, read the catalog there so newly published plugins are listed.
+    // Return the exact chosen revision so later file reads/exports use the same tree.
+    // The fetch itself is throttled and off-thread in PluginManager::fetchStaleCatalogs.
+    const auto head = plugin_git::headRevision(dest);
+    if (!head || head.out.empty()) {
+      return {
+          .ok = false, .error = "cannot resolve HEAD for source '" + source.name + "'", .entries = {}, .revision = {}
+      };
+    }
+    std::string rev = head.out;
     if (const auto fetched = plugin_git::remoteHead(dest); fetched && !fetched.out.empty()) {
-      const auto head = plugin_git::headRevision(dest);
-      if (!head || head.out != fetched.out) {
+      if (head.out != fetched.out) {
         rev = fetched.out;
       }
     }
     auto shown = plugin_git::showFile(dest, "catalog.toml", rev, localOnly);
-    if (!shown && rev != "HEAD") {
+    if (!shown && rev != head.out) {
       // Fetched blob unreachable (e.g. offline / local-only); fall back to the applied HEAD.
-      shown = plugin_git::showFile(dest, "catalog.toml", "HEAD", localOnly);
+      rev = head.out;
+      shown = plugin_git::showFile(dest, "catalog.toml", rev, localOnly);
     }
     if (!shown) {
-      return {.ok = false, .error = "no catalog.toml in source '" + source.name + "'", .entries = {}};
+      return {.ok = false, .error = "no catalog.toml in source '" + source.name + "'", .entries = {}, .revision = {}};
     }
-    return {.ok = true, .error = {}, .entries = parseCatalogToml(shown.out)};
+    return {.ok = true, .error = {}, .entries = parseCatalogToml(shown.out), .revision = std::move(rev)};
   }
 
 } // namespace scripting

@@ -68,8 +68,8 @@ uninstall m:
     ninja -C build-{{m}} uninstall
 
 format:
-    find src \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format -i
-    find src \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 grep -ZlP '\s+$' | xargs -0 -r sed -i 's/[[:space:]]*$//'
+    find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 clang-format -i
+    find src tests \( -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 grep -ZlP '\s+$' | xargs -0 -r sed -i 's/[[:space:]]*$//'
 
 _clang_tidy m=mode *args:
     #!/usr/bin/env bash

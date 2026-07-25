@@ -3,6 +3,7 @@
 #include "core/log.h"
 #include "lua.h"
 #include "lualib.h"
+#include "scripting/ui_handler_table.h"
 #include "ui/ui_tree.h"
 
 #include <algorithm>
@@ -436,39 +437,97 @@ namespace {
     }
   }
 
+  // One render's read state: who is rendering, and the absolute stack index of
+  // the table its function-valued props are registered into.
+  struct UiTreeRead {
+    std::string_view ownerId;
+    int handlers = 0;
+  };
+
+  // The identity a node's generated handler names are derived from: the chain of
+  // ancestor keys down to this node, using the position for unkeyed nodes. Keyed
+  // nodes keep their handler names across renders, so an unchanged re-render
+  // still compares equal to the retained tree and skips reconciliation.
+  std::string uiNodePath(std::string_view parentPath, std::string_view key, int position) {
+    std::string path(parentPath);
+    path += '/';
+    path += key.empty() ? std::to_string(position) : std::string(key);
+    return path;
+  }
+
+  // Moves the function on the top of the stack into the render's handler table
+  // and returns the name the tree carries in its place.
+  std::string registerUiHandler(lua_State* L, const UiTreeRead& read, std::string_view path, std::string_view prop) {
+    std::string name(scripting::kUiHandlerPrefix);
+    name += path;
+    name += '#';
+    name += prop;
+    lua_pushvalue(L, -1);
+    lua_setfield(L, read.handlers, name.c_str());
+    return name;
+  }
+
   // Recursively reads a ui.* node table { type, props, children } at `index`.
-  // Malformed input is loud: the offending node/prop is logged and skipped.
-  bool readUiTreeNode(lua_State* L, int index, ui::UiTreeNode& out, int depth, const std::string& ownerId) {
+  // `parentPath`/`position` locate the node in the tree, naming the handlers it
+  // registers. Malformed input is loud: the offending node/prop is logged and
+  // skipped.
+  bool readUiTreeNode(
+      lua_State* L, int index, ui::UiTreeNode& out, int depth, const UiTreeRead& read, std::string_view parentPath,
+      int position
+  ) {
     if (depth > kUiTreeMaxDepth) {
-      kLog.warn("plugin {}: ui tree deeper than {} levels, subtree dropped", ownerId, kUiTreeMaxDepth);
+      kLog.warn("plugin {}: ui tree deeper than {} levels, subtree dropped", read.ownerId, kUiTreeMaxDepth);
       return false;
     }
     if (!lua_istable(L, index)) {
-      kLog.warn("plugin {}: ui tree node is not a table", ownerId);
+      kLog.warn("plugin {}: ui tree node is not a table", read.ownerId);
       return false;
     }
     const int node = lua_absindex(L, index);
 
     out.type = tableOptionalStringField(L, node, "type");
     if (out.type.empty()) {
-      kLog.warn("plugin {}: ui tree node without a type, dropped", ownerId);
+      kLog.warn("plugin {}: ui tree node without a type, dropped", read.ownerId);
       return false;
     }
 
     lua_getfield(L, node, "props");
-    if (lua_istable(L, -1)) {
-      const int props = lua_gettop(L);
+    const int props = lua_gettop(L);
+    const bool hasProps = lua_istable(L, props);
+    if (hasProps) {
+      // `key` is read before the rest of the props: it names this node's path,
+      // and every handler registered below is named after that path.
+      lua_getfield(L, props, "key");
+      if (lua_type(L, -1) == LUA_TSTRING) {
+        size_t keyLen = 0;
+        const char* key = lua_tolstring(L, -1, &keyLen);
+        out.key.assign(key, keyLen);
+      }
+      lua_pop(L, 1);
+    }
+    const std::string path = uiNodePath(parentPath, out.key, position);
+    if (hasProps) {
       lua_pushnil(L);
       while (lua_next(L, props) != 0) {
         if (lua_isstring(L, -2)) {
           size_t keyLen = 0;
           const char* key = lua_tolstring(L, -2, &keyLen);
-          ui::UiTreeValue value;
           const std::string_view propName(key, keyLen);
-          if (readUiTreeValue(L, -1, propName, value)) {
-            out.props.emplace(std::string(key, keyLen), std::move(value));
+          if (propName == "key") {
+            lua_pop(L, 1);
+            continue;
+          }
+          if (lua_isfunction(L, -1)) {
+            out.props.emplace(std::string(propName), registerUiHandler(L, read, path, propName));
           } else {
-            kLog.warn("plugin {}: ui node '{}' prop '{}' has an unsupported value type", ownerId, out.type, key);
+            ui::UiTreeValue value;
+            if (readUiTreeValue(L, -1, propName, value)) {
+              out.props.emplace(std::string(propName), std::move(value));
+            } else {
+              kLog.warn(
+                  "plugin {}: ui node '{}' prop '{}' has an unsupported value type", read.ownerId, out.type, propName
+              );
+            }
           }
         }
         lua_pop(L, 1);
@@ -476,27 +535,21 @@ namespace {
     }
     lua_pop(L, 1);
 
-    if (auto it = out.props.find("key"); it != out.props.end()) {
-      if (const auto* key = std::get_if<std::string>(&it->second)) {
-        out.key = *key;
-      }
-      out.props.erase(it);
-    }
-
     lua_getfield(L, node, "children");
     if (lua_istable(L, -1)) {
       const int children = lua_gettop(L);
       const int count = std::min(lua_objlen(L, children), kUiTreeMaxChildren);
       if (lua_objlen(L, children) > kUiTreeMaxChildren) {
         kLog.warn(
-            "plugin {}: ui node '{}' has more than {} children, extra dropped", ownerId, out.type, kUiTreeMaxChildren
+            "plugin {}: ui node '{}' has more than {} children, extra dropped", read.ownerId, out.type,
+            kUiTreeMaxChildren
         );
       }
       out.children.reserve(static_cast<std::size_t>(std::max(0, count)));
       for (int i = 1; i <= count; ++i) {
         lua_rawgeti(L, children, i);
         ui::UiTreeNode child;
-        if (readUiTreeNode(L, lua_gettop(L), child, depth + 1, ownerId)) {
+        if (readUiTreeNode(L, lua_gettop(L), child, depth + 1, read, path, i - 1)) {
           out.children.push_back(std::move(child));
         }
         lua_pop(L, 1);
@@ -515,10 +568,17 @@ namespace {
     if (context == nullptr) {
       return 0;
     }
+    // Function-valued props are registered into a fresh table that becomes the
+    // live one only once the whole tree has read back cleanly.
+    lua_newtable(L);
+    const UiTreeRead read{.ownerId = context->ownerId, .handlers = lua_gettop(L)};
     ui::UiTreeNode tree;
-    if (readUiTreeNode(L, 1, tree, 0, context->ownerId)) {
+    if (readUiTreeNode(L, 1, tree, 0, read, {}, 0)) {
       context->patch.uiTree = std::move(tree);
+      lua_pushvalue(L, read.handlers);
+      lua_setglobal(L, scripting::kUiHandlerTable);
     }
+    lua_pop(L, 1);
     return 0;
   }
 

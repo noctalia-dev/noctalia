@@ -5,7 +5,7 @@
       "error": "Parmak izi doğrulama hatası",
       "no-match": "Parmak izi eşleşmedi",
       "not-centered": "Parmağınızı ortalayıp tekrar deneyin",
-      "present": "Parmak izi okunuyıor",
+      "present": "Parmak izi okunuyor",
       "ready": "Parmağınızı okuyucuya yerleştirin",
       "remove-and-retry": "Parmağınızı kaldırıp tekrar deneyin",
       "retry": "Lütfen parmak izinizi tekrar tarayın",
@@ -31,6 +31,7 @@
       "choose-display": "Ekran seçin",
       "confirm-region": "Yakalamak için Enter veya Boşluk · İptal etmek için Esc · Seçmek için sürükle",
       "fullscreen": "Tam ekran",
+      "overlay-alloc-failed": "Ekran görüntüsü menüsü gösterilemedi (Ekran kartınızın belleği dolmuş olabilir)",
       "region": "Bölge seç"
     },
     "widgets": {
@@ -66,6 +67,7 @@
         "network": "Ağ",
         "networks": "Ağlar",
         "networks-count": "{count} ağ",
+        "networks-count-plural": "{count} ağ",
         "no": "Hayır",
         "not-connected": "Bağlı değil",
         "off": "Kapalı",
@@ -74,6 +76,7 @@
         "signal": "Sinyal",
         "upload": "Yükleme",
         "vpn": "VPN",
+        "wan-ip": "WAN adresi",
         "wifi": "Wi-Fi",
         "wired": "Kablolu",
         "yes": "Evet"
@@ -92,7 +95,7 @@
         "cpu-temp": "CPU Isısı",
         "disk": "Disk",
         "download": "İndirme",
-        "gpu-temp": "GPU Isısı",
+        "gpu-temp": "GPU Sıcaklığı",
         "gpu-usage": "GPU Kullanımı",
         "gpu-vram": "GPU VRAM",
         "ram": "RAM",
@@ -106,7 +109,7 @@
         "volume": "Ses"
       },
       "weather": {
-        "default": "Hava duruömu",
+        "default": "Hava durumu",
         "error": "Hava durumu hata",
         "loading": "Hava durumu...",
         "no-location": "Konum yok",
@@ -122,6 +125,7 @@
     },
     "confirm": {
       "clear-desc": "Sabitlenmiş öğelerin saklanıp saklanmayacağını seçin.",
+      "clear-desc-all-pinned": "Tüm öğeler sabitli. Pano geçmişini silerek hepsini kaldırabilirsiniz.",
       "clear-desc-no-pinned": "Bu her öğeyi pano geçmişinden silecektir.",
       "clear-title": "Pano geçmişi silinsin mi?",
       "delete-desc": "Bu seçilmiş öğeyi pano geçmişinden kaldıracaktır.",
@@ -129,7 +133,7 @@
     },
     "empty": {
       "history-message": "Pano geçmişinde öğe yok.",
-      "history-title": "Pao geçmişi boş"
+      "history-title": "Pano geçmişi boş"
     },
     "preview": {
       "loading": "Önizleme yükleniyor..."

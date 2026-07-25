@@ -4,16 +4,23 @@
 #include "config/config_service.h"
 #include "core/log.h"
 #include "shell/bar/widgets/active_window_widget.h"
+#include "shell/bar/widgets/active_window_widget_definition.h"
 #include "shell/bar/widgets/audio_visualizer_widget.h"
+#include "shell/bar/widgets/audio_visualizer_widget_definition.h"
 #include "shell/bar/widgets/battery_widget.h"
 #include "shell/bar/widgets/battery_widget_definition.h"
 #include "shell/bar/widgets/bluetooth_widget.h"
+#include "shell/bar/widgets/bluetooth_widget_definition.h"
 #include "shell/bar/widgets/brightness_widget.h"
 #include "shell/bar/widgets/brightness_widget_definition.h"
 #include "shell/bar/widgets/clipboard_widget.h"
+#include "shell/bar/widgets/clipboard_widget_definition.h"
 #include "shell/bar/widgets/clock_widget.h"
+#include "shell/bar/widgets/clock_widget_definition.h"
 #include "shell/bar/widgets/control_center_widget.h"
+#include "shell/bar/widgets/control_center_widget_definition.h"
 #include "shell/bar/widgets/custom_button_widget.h"
+#include "shell/bar/widgets/custom_button_widget_definition.h"
 #ifndef NDEBUG
 #include "shell/bar/widgets/debug_indicator_widget.h"
 #endif
@@ -24,32 +31,44 @@
 #include "shell/bar/widgets/idle_inhibitor_widget.h"
 #include "shell/bar/widgets/keyboard_layout_widget.h"
 #include "shell/bar/widgets/launcher_widget.h"
+#include "shell/bar/widgets/launcher_widget_definition.h"
 #include "shell/bar/widgets/lock_keys_widget.h"
+#include "shell/bar/widgets/lock_keys_widget_definition.h"
 #include "shell/bar/widgets/media_widget.h"
 #include "shell/bar/widgets/network_widget.h"
+#include "shell/bar/widgets/network_widget_definition.h"
 #include "shell/bar/widgets/nightlight_widget.h"
 #include "shell/bar/widgets/notification_widget.h"
+#include "shell/bar/widgets/notification_widget_definition.h"
 #include "shell/bar/widgets/plugin_widget.h"
 #include "shell/bar/widgets/power_profile_widget.h"
+#include "shell/bar/widgets/power_profile_widget_definition.h"
 #include "shell/bar/widgets/privacy_widget.h"
+#include "shell/bar/widgets/privacy_widget_definition.h"
 #include "shell/bar/widgets/screenshot_widget.h"
+#include "shell/bar/widgets/screenshot_widget_definition.h"
 #include "shell/bar/widgets/session_widget.h"
+#include "shell/bar/widgets/session_widget_definition.h"
 #include "shell/bar/widgets/settings_widget.h"
+#include "shell/bar/widgets/settings_widget_definition.h"
 #include "shell/bar/widgets/spacer_widget.h"
+#include "shell/bar/widgets/spacer_widget_definition.h"
 #include "shell/bar/widgets/sysmon_widget.h"
 #include "shell/bar/widgets/taskbar_widget.h"
 #include "shell/bar/widgets/test_widget.h"
 #include "shell/bar/widgets/text_widget.h"
+#include "shell/bar/widgets/text_widget_definition.h"
 #include "shell/bar/widgets/theme_mode_widget.h"
 #include "shell/bar/widgets/tray_widget.h"
 #include "shell/bar/widgets/volume_widget.h"
 #include "shell/bar/widgets/wallpaper_widget.h"
+#include "shell/bar/widgets/wallpaper_widget_definition.h"
 #include "shell/bar/widgets/weather_widget.h"
+#include "shell/bar/widgets/weather_widget_definition.h"
 #include "shell/bar/widgets/workspaces_widget.h"
 #include "system/format_units.h"
 #include "ui/style.h"
 #include "util/file_utils.h"
-#include "util/string_utils.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
@@ -69,26 +88,6 @@ namespace {
     return widget;
   }
 
-  ActiveWindowTitleScrollMode parseActiveWindowTitleScrollMode(std::string_view value) {
-    if (value == "always") {
-      return ActiveWindowTitleScrollMode::Always;
-    }
-    if (value == "on_hover" || value == "hover") {
-      return ActiveWindowTitleScrollMode::OnHover;
-    }
-    return ActiveWindowTitleScrollMode::None;
-  }
-
-  ActiveWindowDisplayMode parseActiveWindowDisplayMode(std::string_view value) {
-    if (value == "icon_only") {
-      return ActiveWindowDisplayMode::IconOnly;
-    }
-    if (value == "text_only") {
-      return ActiveWindowDisplayMode::TextOnly;
-    }
-    return ActiveWindowDisplayMode::IconAndText;
-  }
-
   MediaTitleScrollMode parseMediaTitleScrollMode(std::string_view value) {
     if (value == "always") {
       return MediaTitleScrollMode::Always;
@@ -103,10 +102,9 @@ namespace {
     if (wc == nullptr) {
       return {};
     }
-    return WidgetCustomImage{
-        .path = FileUtils::expandUserPath(wc->getString("custom_image", "")).string(),
-        .colorize = wc->getBool("custom_image_colorize", false),
-    };
+    return widget_custom_image::fromConfig(
+        wc->getString("custom_image", ""), wc->getBool("custom_image_colorize", false)
+    );
   }
 
 } // namespace
@@ -141,129 +139,61 @@ std::unique_ptr<Widget> WidgetFactory::create(
     type = it->second.type;
   }
 
+  // Config path prefix used when a widget definition reports a bad setting value.
+  const std::string settingContext = std::format("widget.{}", name);
+
   if (type == "active_window") {
-    const float maxWidth = static_cast<float>(wc != nullptr ? wc->getDouble("max_length", 260.0) : 260.0);
-    const float minWidth = static_cast<float>(wc != nullptr ? wc->getDouble("min_length", 80.0) : 80.0);
-    const float iconSize =
-        static_cast<float>(wc != nullptr ? wc->getDouble("icon_size", Style::fontSizeBody) : Style::fontSizeBody);
-    const std::string titleScroll = wc != nullptr ? wc->getString("title_scroll", "none") : std::string("none");
-    const std::string displayMode =
-        wc != nullptr ? wc->getString("display", "icon_and_text") : std::string("icon_and_text");
-    const bool showEmptyLabel = wc != nullptr ? wc->getBool("show_empty_label", false) : false;
-    auto widget = std::make_unique<ActiveWindowWidget>(
-        m_configService, m_platform, maxWidth, minWidth, iconSize, parseActiveWindowTitleScrollMode(titleScroll),
-        parseActiveWindowDisplayMode(displayMode), showEmptyLabel
+    return createWidget<ActiveWindowWidget>(
+        contentScale, m_configService, m_platform, activeWindowWidgetDefinition().resolve(wc, settingContext)
     );
-    widget->setContentScale(contentScale);
-    return widget;
   }
 
   if (type == "audio_visualizer") {
-    const float width = static_cast<float>(wc != nullptr ? wc->getDouble("width", 56.0) : 56.0);
-    const int bands = static_cast<int>(wc != nullptr ? wc->getInt("bands", 16) : 16);
-    const bool mirrored = wc != nullptr ? wc->getBool("mirrored", true) : true;
-    const bool centered = wc != nullptr ? wc->getBool("centered", true) : true;
-    const bool showWhenIdle = wc != nullptr ? wc->getBool("show_when_idle", false) : false;
-    const ColorSpec color1 = wc != nullptr
-        ? wc->getColorSpec("color_1", colorSpecFromRole(ColorRole::Primary), "widget." + name + ".color_1")
-        : colorSpecFromRole(ColorRole::Primary);
-    const ColorSpec color2 = wc != nullptr
-        ? wc->getColorSpec("color_2", colorSpecFromRole(ColorRole::Primary), "widget." + name + ".color_2")
-        : colorSpecFromRole(ColorRole::Primary);
-    auto widget = std::make_unique<AudioVisualizerWidget>(
-        m_audioSpectrum,
-        AudioVisualizerWidget::Options{
-            .width = width,
-            .bands = bands,
-            .mirrored = mirrored,
-            .centered = centered,
-            .showWhenIdle = showWhenIdle,
-            .color1 = color1,
-            .color2 = color2,
-        }
+    return createWidget<AudioVisualizerWidget>(
+        contentScale, m_audioSpectrum, audioVisualizerWidgetDefinition().resolve(wc, settingContext)
     );
-    widget->setContentScale(contentScale);
-    return widget;
   }
 
   if (type == "battery") {
     return createWidget<BatteryWidget>(
         contentScale, m_upower,
         batteryWidgetDefinition().resolve(
-            wc, std::format("widget.{}", name),
-            BatteryWidgetDefinitionContext{.batteryConfig = &m_config.battery, .upower = m_upower}
+            wc, settingContext, BatteryWidgetDefinitionContext{.batteryConfig = &m_config.battery, .upower = m_upower}
         )
     );
   }
 
   if (type == "bluetooth") {
-    const bool showLabel = wc != nullptr ? wc->getBool("show_label", false) : false;
-    const bool hideWhenNoConnectedDevice = wc != nullptr ? wc->getBool("hide_when_no_connected_device", false) : false;
-    auto widget = std::make_unique<BluetoothWidget>(m_bluetooth, output, showLabel, hideWhenNoConnectedDevice);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<BluetoothWidget>(
+        contentScale, m_bluetooth, output, bluetoothWidgetDefinition().resolve(wc, settingContext)
+    );
   }
 
   if (type == "brightness") {
     return createWidget<BrightnessWidget>(
-        contentScale, m_brightness, output, brightnessWidgetDefinition().resolve(wc, std::format("widget.{}", name))
+        contentScale, m_brightness, output, brightnessWidgetDefinition().resolve(wc, settingContext)
     );
   }
 
   if (type == "clock") {
-    std::string format = wc != nullptr ? wc->getString("format", "{:%H:%M}") : std::string("{:%H:%M}");
-    std::string verticalFormat = wc != nullptr ? wc->getString("vertical_format", "") : std::string{};
-    std::string tooltipFormat = wc != nullptr ? wc->getString("tooltip_format", "") : std::string{};
-    auto widget = std::make_unique<ClockWidget>(
-        output, std::move(format), std::move(verticalFormat), std::move(tooltipFormat),
-        wc != nullptr ? wc->getString("timezone", "") : std::string{}
-    );
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<ClockWidget>(contentScale, output, clockWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "clipboard") {
     if (!m_config.shell.clipboardEnabled) {
       return nullptr;
     }
-    auto barGlyph = wc != nullptr ? wc->getString("glyph", "clipboard") : std::string{"clipboard"};
-    if (barGlyph.empty()) {
-      barGlyph = "clipboard";
-    }
-    auto widget = std::make_unique<ClipboardWidget>(output, std::move(barGlyph), customImageFor(wc));
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<ClipboardWidget>(contentScale, output, clipboardWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "control-center") {
-    auto barGlyph = wc != nullptr ? wc->getString("glyph", "noctalia") : std::string{"noctalia"};
-    if (barGlyph.empty()) {
-      barGlyph = "search";
-    }
-
-    auto widget = std::make_unique<ControlCenterWidget>(output, std::move(barGlyph), customImageFor(wc));
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<ControlCenterWidget>(
+        contentScale, output, controlCenterWidgetDefinition().resolve(wc, settingContext)
+    );
   }
 
   if (type == "custom_button") {
-    auto trimSetting = [wc](const char* key, const char* fallback = "") {
-      return wc != nullptr ? StringUtils::trim(wc->getString(key, fallback)) : std::string(fallback);
-    };
-    auto widget = std::make_unique<CustomButtonWidget>(CustomButtonWidget::Options{
-        .glyph = trimSetting("glyph", "heart"),
-        .label = trimSetting("label"),
-        .tooltip = trimSetting("tooltip"),
-        .command = trimSetting("command"),
-        .rightCommand = trimSetting("right_command"),
-        .middleCommand = trimSetting("middle_command"),
-        .scrollUpCommand = trimSetting("scroll_up_command"),
-        .scrollDownCommand = trimSetting("scroll_down_command"),
-        .enableScroll = wc != nullptr ? wc->getBool("enable_scroll", true) : true,
-        .customImage = customImageFor(wc),
-    });
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<CustomButtonWidget>(contentScale, customButtonWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "caffeine") {
@@ -293,31 +223,16 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "launcher") {
-    auto barGlyph = wc != nullptr ? wc->getString("glyph", "search") : std::string{"search"};
-    if (barGlyph.empty()) {
-      barGlyph = "search";
-    }
-
-    auto widget = std::make_unique<LauncherWidget>(output, std::move(barGlyph), customImageFor(wc));
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<LauncherWidget>(contentScale, output, launcherWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "lock_keys") {
     if (m_lockKeys == nullptr) {
       return nullptr;
     }
-    const bool showCaps = wc != nullptr ? wc->getBool("show_caps_lock", true) : true;
-    const bool showNum = wc != nullptr ? wc->getBool("show_num_lock", true) : true;
-    const bool showScroll = wc != nullptr ? wc->getBool("show_scroll_lock", false) : false;
-    const bool hideWhenOff = wc != nullptr ? wc->getBool("hide_when_off", false) : false;
-    const std::string display = wc != nullptr ? wc->getString("display", "short") : std::string("short");
-
-    auto widget = std::make_unique<LockKeysWidget>(
-        m_lockKeys, showCaps, showNum, showScroll, hideWhenOff, LockKeysWidget::parseDisplayMode(display)
+    return createWidget<LockKeysWidget>(
+        contentScale, m_lockKeys, lockKeysWidgetDefinition().resolve(wc, settingContext)
     );
-    widget->setContentScale(contentScale);
-    return widget;
   }
 
   if (type == "media") {
@@ -340,11 +255,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "network") {
-    const bool showLabel = wc != nullptr ? wc->getBool("show_label", true) : true;
-    const bool showVpnLabel = wc != nullptr ? wc->getBool("show_vpn_label", false) : false;
-    auto widget = std::make_unique<NetworkWidget>(m_network, m_externalIp, m_sysmon, output, showLabel, showVpnLabel);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<NetworkWidget>(
+        contentScale, m_network, m_externalIp, m_sysmon, output, networkWidgetDefinition().resolve(wc, settingContext)
+    );
   }
 
   if (type == "nightlight") {
@@ -354,34 +267,21 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "notifications") {
-    const bool hideWhenNoUnread = wc != nullptr ? wc->getBool("hide_when_no_unread", false) : false;
-    auto widget = std::make_unique<NotificationWidget>(m_notifications, output, hideWhenNoUnread);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<NotificationWidget>(
+        contentScale, m_notifications, output, notificationWidgetDefinition().resolve(wc, settingContext)
+    );
   }
 
   if (type == "power_profile") {
-    const bool enableScroll = wc != nullptr ? wc->getBool("enable_scroll", true) : true;
-    auto widget = std::make_unique<PowerProfileWidget>(m_powerProfiles, enableScroll);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<PowerProfileWidget>(
+        contentScale, m_powerProfiles, powerProfileWidgetDefinition().resolve(wc, settingContext)
+    );
   }
 
   if (type == "privacy") {
-    PrivacyWidgetConfig config;
-
-    if (wc != nullptr) {
-      config.hideInactive = wc->getBool("hide_inactive", config.hideInactive);
-      config.iconSpacing =
-          static_cast<int>(std::clamp<std::int64_t>(wc->getInt("icon_spacing", config.iconSpacing), 0, 48));
-      config.activeColor = wc->getColorSpec("active_color", config.activeColor, "widget." + name + ".active_color");
-      config.inactiveColor =
-          wc->getColorSpec("inactive_color", config.inactiveColor, "widget." + name + ".inactive_color");
-    }
-
-    auto widget = std::make_unique<PrivacyWidget>(m_audio, &m_configService, config);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<PrivacyWidget>(
+        contentScale, m_audio, &m_configService, privacyWidgetDefinition().resolve(wc, settingContext)
+    );
   }
 
   if (auto pluginEntry = scripting::PluginRegistry::instance().resolve(type);
@@ -433,53 +333,27 @@ std::unique_ptr<Widget> WidgetFactory::create(
     if (m_screenshots == nullptr || m_renderContext == nullptr || !m_screenshots->available()) {
       return nullptr;
     }
-    auto barGlyph = wc != nullptr ? wc->getString("glyph", "screenshot") : std::string{"screenshot"};
-    if (barGlyph.empty()) {
-      barGlyph = "screenshot";
-    }
-    auto widget = std::make_unique<ScreenshotWidget>(
-        output, std::move(barGlyph), *m_screenshots, m_configService, m_platform, *m_renderContext, barPosition,
-        customImageFor(wc)
+    return createWidget<ScreenshotWidget>(
+        contentScale, output, *m_screenshots, m_configService, m_platform, *m_renderContext, barPosition,
+        screenshotWidgetDefinition().resolve(wc, settingContext)
     );
-    widget->setContentScale(contentScale);
-    return widget;
   }
 
   if (type == "session") {
-    auto barGlyph = wc != nullptr ? wc->getString("glyph", "shutdown") : std::string{"shutdown"};
-    if (barGlyph.empty()) {
-      barGlyph = "shutdown";
-    }
-    auto widget = std::make_unique<SessionWidget>(output, std::move(barGlyph), customImageFor(wc));
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<SessionWidget>(contentScale, output, sessionWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "settings") {
-    auto barGlyph = wc != nullptr ? wc->getString("glyph", "settings") : std::string{"settings"};
-    if (barGlyph.empty()) {
-      barGlyph = "search";
-    }
-    auto widget = std::make_unique<SettingsWidget>(output, std::move(barGlyph), customImageFor(wc));
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<SettingsWidget>(contentScale, output, settingsWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "spacer") {
-    constexpr double kDefaultSpacerLength = 20.0;
-    const auto length =
-        static_cast<float>(wc != nullptr ? wc->getDouble("length", kDefaultSpacerLength) : kDefaultSpacerLength);
     const bool verticalBar = barPosition == "left" || barPosition == "right";
-    auto widget = std::make_unique<SpacerWidget>(length, verticalBar);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<SpacerWidget>(contentScale, verticalBar, spacerWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "text") {
-    const std::string text = wc != nullptr ? wc->getString("text", "") : std::string{};
-    auto widget = std::make_unique<TextWidget>(text);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<TextWidget>(contentScale, textWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "sysmon") {
@@ -502,8 +376,14 @@ std::unique_ptr<Widget> WidgetFactory::create(
       stat = SysmonStat::RamPct;
     } else if (statStr == "swap_pct") {
       stat = SysmonStat::SwapPct;
-    } else if (statStr == "disk_pct") {
-      stat = SysmonStat::DiskPct;
+    } else if (statStr == "disk_used_pct") {
+      stat = SysmonStat::DiskUsedPct;
+    } else if (statStr == "disk_used") {
+      stat = SysmonStat::DiskUsed;
+    } else if (statStr == "disk_free_pct") {
+      stat = SysmonStat::DiskFreePct;
+    } else if (statStr == "disk_free") {
+      stat = SysmonStat::DiskFree;
     } else if (statStr == "net_rx") {
       stat = SysmonStat::NetRx;
     } else if (statStr == "net_tx") {
@@ -520,6 +400,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
       displayMode = SysmonDisplayMode::Graph;
     else if (display == "none")
       displayMode = SysmonDisplayMode::None;
+    const std::string glyphPositionStr = wc != nullptr ? wc->getString("glyph_position", "before") : "before";
+    SysmonGlyphPosition glyphPosition =
+        glyphPositionStr == "after" ? SysmonGlyphPosition::After : SysmonGlyphPosition::Before;
     if (verticalBar && displayMode == SysmonDisplayMode::Graph) {
       displayMode = SysmonDisplayMode::Gauge;
     }
@@ -540,6 +423,8 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .labelMinWidth = static_cast<float>(wc != nullptr ? wc->getDouble("label_min_width", 0.0) : 0.0),
         .glyph = wc != nullptr ? wc->getString("glyph", "") : std::string{},
         .customImage = customImageFor(wc),
+        .showUnits = wc != nullptr ? wc->getBool("label_show_units", true) : true,
+        .glyphPosition = glyphPosition,
     };
     auto widget = std::make_unique<SysmonWidget>(m_sysmon, m_configService, std::move(options));
     widget->setContentScale(contentScale);
@@ -559,6 +444,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .onlyActiveWorkspace = wc != nullptr ? wc->getBool("only_active_workspace", false) : false,
         .showWorkspaceLabel = wc != nullptr ? wc->getBool("show_workspace_label", true) : true,
         .workspaceLabelPlacement = WorkspaceLabelPlacement::Corner,
+        .workspaceGroupContent = WorkspaceGroupContent::Icons,
         .hideEmptyWorkspaces = wc != nullptr ? wc->getBool("hide_empty_workspaces", false) : false,
         .workspaceGroupCapsule = wc != nullptr ? wc->getBool("workspace_group_capsule", true) : true,
         .focusedOutputOnly = wc != nullptr ? wc->getBool("focused_output_only", false) : false,
@@ -601,6 +487,12 @@ std::unique_ptr<Widget> WidgetFactory::create(
         options.workspaceLabelPlacement = WorkspaceLabelPlacement::Centered;
       } else if (placement == "inside") {
         options.workspaceLabelPlacement = WorkspaceLabelPlacement::Inside;
+      }
+      const std::string groupContent = wc->getString("workspace_group_content", "icons");
+      if (groupContent == "count") {
+        options.workspaceGroupContent = WorkspaceGroupContent::Count;
+      } else if (groupContent == "dots") {
+        options.workspaceGroupContent = WorkspaceGroupContent::Dots;
       }
     }
     auto widget = std::make_unique<TaskbarWidget>(m_platform, m_configService, output, std::move(options));
@@ -657,22 +549,13 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "wallpaper") {
-    auto barGlyph = wc != nullptr ? wc->getString("glyph", "wallpaper-selector") : std::string{"wallpaper-selector"};
-    if (barGlyph.empty()) {
-      barGlyph = "wallpaper-selector";
-    }
-    auto widget = std::make_unique<WallpaperWidget>(output, std::move(barGlyph), customImageFor(wc));
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<WallpaperWidget>(contentScale, output, wallpaperWidgetDefinition().resolve(wc, settingContext));
   }
 
   if (type == "weather") {
-    const float maxWidth = static_cast<float>(wc != nullptr ? wc->getDouble("max_length", 160.0) : 160.0);
-    const bool showCondition = wc != nullptr ? wc->getBool("show_condition", true) : true;
-    const bool showTemperature = wc != nullptr ? wc->getBool("show_temperature", true) : true;
-    auto widget = std::make_unique<WeatherWidget>(m_weather, output, maxWidth, showCondition, showTemperature);
-    widget->setContentScale(contentScale);
-    return widget;
+    return createWidget<WeatherWidget>(
+        contentScale, m_weather, output, weatherWidgetDefinition().resolve(wc, settingContext)
+    );
   }
 
   if (type == "workspaces") {

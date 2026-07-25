@@ -343,17 +343,16 @@ location = "https://example.invalid/bad"
         .offsetY = 6,
         .monitors = {"DP-2"},
         .collapseOnDismiss = false,
-        .filters =
-            {NotificationFilterConfig{
-                .name = "discord",
-                .enabled = true,
-                .match = "discord",
-                .showToast = false,
-                .saveHistory = false,
-                .playSound = false,
-                .allowPermanent = false,
-                .allowedUrgencies = {"normal", "critical"},
-            }},
+        .filters = {NotificationFilterConfig{
+            .name = "discord",
+            .enabled = true,
+            .match = "discord",
+            .showToast = false,
+            .saveHistory = false,
+            .playSound = false,
+            .allowPermanent = false,
+            .allowedUrgencies = {"normal", "critical"},
+        }},
     };
     c.dock.enabled = true;
     c.dock.position = DockEdge::Left;
@@ -379,12 +378,24 @@ location = "https://example.invalid/bad"
     c.controlCenter.sidebarMode = ControlCenterSidebarMode::Full;
     c.controlCenter.sidebarSectionMode = ControlCenterSidebarMode::None;
     c.controlCenter.calendarTab.showEventsCard = false;
+    c.controlCenter.calendarTab.showWeekNumbers = true;
+    c.controlCenter.calendarTab.eventDateFormat = "%Y-%m-%d";
+    c.controlCenter.calendarTab.eventTimeFormat = "%I:%M %p";
     c.controlCenter.shortcuts = {{"wifi"}, {"bluetooth"}};
     c.calendar.enabled = true;
     c.calendar.refreshMinutes = 30;
     c.calendar.accounts = {
         {"acc1", "google", "Work", "#ff0000", "", "", "", {}},
-        {"acc2", "caldav", "Home", "", "custom", "https://dav.example.com/remote.php/dav/", "user", {"personal"}},
+        {"acc2",
+         "caldav",
+         "Home",
+         "",
+         "custom",
+         "https://dav.example.com/remote.php/dav/",
+         "user",
+         {"personal"},
+         CalendarCredentialSource::File,
+         "/run/agenix/noctalia-caldav"},
     };
     // Explicit chords so write→read round-trips (empty would emit defaults instead).
     c.keybinds.validate = {*parseKeyChordSpec("Return")};
@@ -423,6 +434,8 @@ location = "https://example.invalid/bad"
     c.shell.passwordMaskStyle = PasswordMaskStyle::RandomIcons;
     c.shell.clipboardHistoryMaxEntries = 80;
     c.shell.clipboardAutoPaste = ClipboardAutoPasteMode::CtrlV;
+    c.storage.keySource = StorageKeySource::File;
+    c.storage.keyFile = "/run/agenix/noctalia-storage-key";
     c.shell.avatarPath = "/home/u/face.png";
     c.shell.animation.speed = 1.5f;
     c.shell.shadow.direction = ShadowDirection::UpLeft;
@@ -440,8 +453,7 @@ location = "https://example.invalid/bad"
     c.shell.launcher.dmenu.entries = {notifyDmenu};
     c.shell.launcher.providerPrefix = ".";
     c.shell.launcher.providers = {
-        LauncherProviderConfig{"session", "s", true},
-        LauncherProviderConfig{"wallpaper", "w"}
+        LauncherProviderConfig{"session", "s", true}, LauncherProviderConfig{"wallpaper", "w"}
     };
     c.shell.screenCorners.enabled = true;
     c.shell.screenCorners.size = 24;
@@ -553,6 +565,116 @@ location = "https://example.invalid/bad"
       if (s.clipboardHistoryMaxEntries != 10000) {
         fail("shell.clipboard_history_max_entries clamp: expected 10000");
       }
+    }
+  }
+
+  void checkCalendarCredentialSourceValidation() {
+    const auto parse = [](std::string_view accountConfig) {
+      const toml::table table = toml::parse(accountConfig);
+      CalendarConfig calendar;
+      Diagnostics diagnostics;
+      readInto(table, calendar, calendarSchema(), "calendar", diagnostics);
+      return diagnostics;
+    };
+
+    const Diagnostics valid = parse(R"(
+[account.agenix]
+type = "caldav"
+provider = "custom"
+server_url = "https://dav.example.com/"
+username = "user"
+credential_source = "file"
+password_file = "/run/agenix/noctalia-caldav"
+)");
+    if (valid.hasErrors()) {
+      fail("calendar: valid file credential source was rejected");
+    }
+
+    const Diagnostics missingFile = parse(R"(
+[account.agenix]
+type = "caldav"
+provider = "icloud"
+username = "user"
+credential_source = "file"
+)");
+    if (!missingFile.hasErrors()) {
+      fail("calendar: file credential source accepted a missing password_file");
+    }
+
+    const Diagnostics conflictingFile = parse(R"(
+[account.keyring]
+type = "caldav"
+provider = "icloud"
+username = "user"
+credential_source = "secret-service"
+password_file = "/run/agenix/noctalia-caldav"
+)");
+    if (!conflictingFile.hasErrors()) {
+      fail("calendar: secret-service credential source accepted password_file");
+    }
+
+    const Diagnostics unknownSource = parse(R"(
+[account.invalid]
+type = "caldav"
+provider = "icloud"
+username = "user"
+credential_source = "automatic"
+)");
+    if (!unknownSource.hasErrors()) {
+      fail("calendar: unknown credential source was not an error");
+    }
+  }
+
+  void checkStorageKeySourceValidation() {
+    const auto parse = [](std::string_view storageConfig) {
+      const toml::table table = toml::parse(storageConfig);
+      StorageConfig storage;
+      Diagnostics diagnostics;
+      readInto(table, storage, storageSchema(), "storage", diagnostics);
+      return diagnostics;
+    };
+
+    const Diagnostics valid = parse(R"(
+key_source = "file"
+key_file = "/run/agenix/noctalia-storage-key"
+)");
+    if (valid.hasErrors()) {
+      fail("storage: valid file key source was rejected");
+    }
+
+    const Diagnostics missingFile = parse(R"(
+key_source = "file"
+)");
+    if (!missingFile.hasErrors()) {
+      fail("storage: file key source accepted a missing key_file");
+    }
+
+    const Diagnostics conflictingFile = parse(R"(
+key_source = "secret-service"
+key_file = "/run/agenix/noctalia-storage-key"
+)");
+    if (!conflictingFile.hasErrors()) {
+      fail("storage: secret-service key source accepted key_file");
+    }
+
+    const Diagnostics relativeFile = parse(R"(
+key_source = "file"
+key_file = "noctalia-storage-key"
+)");
+    if (!relativeFile.hasErrors()) {
+      fail("storage: file key source accepted a relative key_file");
+    }
+
+    const Diagnostics unknownSource = parse(R"(
+key_source = "automatic"
+)");
+    if (!unknownSource.hasErrors()) {
+      fail("storage: unknown key source was not an error");
+    }
+    if (!isKnownConfigPath({"storage", "key_source"})
+        || !isKnownConfigPath({"storage", "key_file"})
+        || isKnownConfigPath({"shell", "clipboard_storage", "key_source"})) {
+      fail("storage: canonical config paths were not enforced");
     }
   }
 
@@ -858,6 +980,8 @@ widget_spacing = 8
 
   checkPluginIdValidation();
   checkPluginSourceNameValidation();
+  checkCalendarCredentialSourceValidation();
+  checkStorageKeySourceValidation();
   checkClamps();
   checkCustomColorFallback();
   checkTemplateConfigCustomColorsExport();

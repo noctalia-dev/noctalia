@@ -4,7 +4,13 @@
 
 class SpacerWidget : public Widget {
 public:
-  explicit SpacerWidget(float length = 0.0f, bool verticalBar = false);
+  struct Options {
+    int length = 20;
+
+    bool operator==(const Options&) const = default;
+  };
+
+  SpacerWidget(bool verticalBar, Options options);
 
   void create() override;
 

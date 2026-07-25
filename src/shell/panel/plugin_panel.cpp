@@ -1,5 +1,6 @@
 #include "shell/panel/plugin_panel.h"
 
+#include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "notification/notifications.h"
@@ -8,6 +9,7 @@
 #include "shell/panel/panel_manager.h"
 #include "ui/controls/flex.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <limits>
@@ -20,6 +22,22 @@ namespace {
   constexpr int kTickIntervalMs = 1000;
   constexpr float kDefaultPanelWidth = 480.0f;
   constexpr float kDefaultPanelHeight = 400.0f;
+
+  // Manifest vocabulary (scripting::kPanelKeyboardFocusModes) to layer-shell mode.
+  // The manifest parser rejects anything else, so an unknown token here means the
+  // two lists drifted apart.
+  LayerShellKeyboard keyboardModeFromManifest(std::string_view value) {
+    if (value == "none") {
+      return LayerShellKeyboard::None;
+    }
+    if (value == "exclusive") {
+      return LayerShellKeyboard::Exclusive;
+    }
+    if (value != "on_demand") {
+      kLog.warn("unknown keyboard_focus \"{}\", using on_demand", value);
+    }
+    return LayerShellKeyboard::OnDemand;
+  }
 
   std::string readFile(const std::filesystem::path& path) {
     std::ifstream f(path);
@@ -39,8 +57,62 @@ PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, PluginPanelOpt
       m_fileWatcher(context.fileWatcher), m_httpClient(context.httpClient), m_clipboard(context.clipboard),
       m_preferredWidth(options.width > 0.0 ? static_cast<float>(options.width) : kDefaultPanelWidth),
       m_preferredHeight(options.height > 0.0 ? static_cast<float>(options.height) : kDefaultPanelHeight),
-      m_widthFill(options.widthFill), m_heightFill(options.heightFill), m_shellConfig(options.shellConfig) {
+      m_widthFill(options.widthFill), m_heightFill(options.heightFill),
+      m_dismissOnOutsideClick(options.dismissOnOutsideClick),
+      m_keyboardMode(keyboardModeFromManifest(options.keyboardFocus)), m_persistent(options.persistent),
+      m_shellConfig(options.shellConfig) {
+  // The manifest parser already validated every spec, so a parse failure here means the two
+  // drifted apart. Skip the entry rather than capture a chord nobody can describe.
+  m_captureKeys.reserve(options.captureKeys.size());
+  for (const std::string& spec : options.captureKeys) {
+    if (const auto chord = parseKeyChordSpec(spec); chord.has_value()) {
+      m_captureKeys.push_back(CaptureKey{.chord = *chord, .spec = spec});
+    } else {
+      kLog.warn("{}: ignoring unparseable capture_keys entry \"{}\"", m_entryId, spec);
+    }
+  }
   scripting::PluginIpcRouter::instance().registerEndpoint(this);
+}
+
+bool PluginPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+  // Without a handler there is nothing to deliver to, so leave the key to the host rather than
+  // swallow it invisibly. Also false until the script has loaded, which is the right answer:
+  // the panel is not interactive yet either.
+  if (m_captureKeys.empty() || preedit || m_runtime == nullptr || !m_runtime->hasOnKey()) {
+    return false;
+  }
+  // Cancel stays with the host: a panel that captured it could make itself impossible to
+  // dismiss from the keyboard. Checked live because the user can rebind the action.
+  if (KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
+    return false;
+  }
+
+  const auto match = std::ranges::find_if(m_captureKeys, [sym, modifiers](const CaptureKey& candidate) {
+    return keyChordMatches(candidate.chord, sym, modifiers);
+  });
+  if (match == m_captureKeys.end()) {
+    return false;
+  }
+
+  // Still consumed, so the repeat does not leak to the host, but the script sees one press per
+  // physical press.
+  if (pressed && match->held) {
+    return true;
+  }
+  match->held = pressed;
+
+  // The runtime is off-thread, so the script cannot answer "did you consume this?" in time.
+  // Declaring the chord in capture_keys is the consume decision; the call is fire-and-forget.
+  (void)m_runtime->enqueueCallArgs("onKey", scripting::ScriptArgs{match->spec, pressed}, makeScriptSnapshot());
+  return true;
+}
+
+void PluginPanel::releaseCapturedKeys() {
+  // A panel can close with a key still down, in which case no release ever arrives. Clearing
+  // here keeps the next open from treating the first press as a repeat and dropping it.
+  for (CaptureKey& key : m_captureKeys) {
+    key.held = false;
+  }
 }
 
 PluginPanel::~PluginPanel() {
@@ -145,6 +217,7 @@ void PluginPanel::onOpen(std::string_view context) {
 void PluginPanel::onClose() {
   m_open = false;
   m_tickTimer.stop();
+  releaseCapturedKeys();
   // The scene (including the overlay node) is torn down after close; cancel any
   // active drag and detach the overlay while the tree is still alive so the
   // controller never holds a dangling overlay root between close and reopen.
@@ -217,15 +290,13 @@ void PluginPanel::handleScriptResult(scripting::ScriptResult result) {
     startTickTimer();
   }
   if (patch.requestClose.value_or(false)) {
-    PanelManager::instance().closePanel();
+    PanelManager::instance().closePanelById(m_entryId);
     return;
   }
   if (patch.uiTree.has_value() && (!m_tree.has_value() || *patch.uiTree != *m_tree)) {
     m_tree = *patch.uiTree;
     m_treeDirty = true;
-    if (PanelManager::instance().isOpenPanel(m_entryId)) {
-      PanelManager::instance().refresh();
-    }
+    PanelManager::instance().refreshPanel(m_entryId);
   }
 }
 

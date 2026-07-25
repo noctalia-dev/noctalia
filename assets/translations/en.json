@@ -94,6 +94,10 @@
         "cpu": "CPU",
         "cpu-temp": "CPU Temp",
         "disk": "Disk",
+        "disk-free": "Disk Free",
+        "disk-free-pct": "Disk Free %",
+        "disk-used": "Disk Used",
+        "disk-used-pct": "Disk Used %",
         "download": "Download",
         "gpu-temp": "GPU Temp",
         "gpu-usage": "GPU Usage",
@@ -296,6 +300,7 @@
       "unknown-device": "Unknown device"
     },
     "screen-time": {
+      "back": "Back",
       "disabled": "Screen time tracking is off. Enable it in Settings to record per-app usage.",
       "empty": "No app usage recorded yet. Focus a window to start tracking.",
       "hour-0": "12 AM",
@@ -307,7 +312,8 @@
         "14-days": "14 days",
         "3-days": "3 days",
         "today": "Today"
-      }
+      },
+      "view-day": "View day details"
     },
     "shortcuts": {
       "audio": "Audio",
@@ -546,8 +552,7 @@
         "widget-section": "Widget"
       },
       "state": {
-        "grid-off": "Grid Off",
-        "grid-on": "Grid On"
+        "grid": "Grid"
       },
       "title": "Desktop Widgets",
       "types": {
@@ -694,6 +699,7 @@
       "battery-low-title": "Battery low",
       "calendar": "Calendar",
       "calendar-google-connect-browser-failed": "No browser opener could be launched for Google authorization. Check your default browser or xdg-open setup.",
+      "calendar-google-connect-credential-store-failed": "Authorization completed, but the refresh token could not be saved. Unlock or start Secret Service, then connect again.",
       "calendar-google-connect-expired": "Google authorization expired before sign-in finished. Start the connection again.",
       "calendar-google-connect-failed-title": "Google Calendar connection failed",
       "calendar-google-connect-missing-account": "No configured Google calendar account matched \"{account}\".",
@@ -835,6 +841,7 @@
   },
   "settings": {
     "actions": {
+      "confirm-reset": "Confirm Reset",
       "reset": "Reset"
     },
     "badges": {
@@ -850,12 +857,17 @@
       "add-title": "Add Calendar Account",
       "calendars-label": "Calendars",
       "color-label": "Color",
+      "credential-source-file": "Password file",
+      "credential-source-keyring": "Keyring",
+      "credential-source-label": "Credential Storage",
       "delete-error": "Could not delete calendar account.",
       "edit-title": "Edit Calendar Account",
       "id-label": "Account ID",
       "invalid": "Check the highlighted calendar account fields.",
       "name-label": "Display Name",
       "name-placeholder": "Personal Calendar",
+      "password-file-error": "Could not read the configured password file. Check that it exists, is a readable regular file, and contains a password.",
+      "password-file-label": "Password File",
       "password-keep-placeholder": "Leave blank to keep current password",
       "password-label": "App Password",
       "password-placeholder": "App-specific password",
@@ -869,6 +881,11 @@
       "save": "Save",
       "save-connect": "Save and Connect",
       "save-error": "Could not save calendar account.",
+      "secret-cleanup-error": "The account could not be saved, and its keyring credential could not be restored or cleaned up. Retry after unlocking Secret Service.",
+      "secret-service-cancelled": "The Secret Service prompt was cancelled. Retry when you are ready to unlock it.",
+      "secret-service-error": "Could not access calendar credentials in Secret Service. Retry the operation.",
+      "secret-service-locked": "Calendar credentials are locked or access was denied. Unlock Secret Service and retry.",
+      "secret-service-unavailable": "No Secret Service provider is available. Start a compatible provider and retry.",
       "server-url-label": "Server URL",
       "username-label": "Username",
       "username-placeholder": "name@example.com"
@@ -1894,6 +1911,10 @@
           "description": "Show a launcher button at the start or end of the dock",
           "label": "Launcher Button"
         },
+        "layer": {
+          "description": "Use Overlay to show the dock above fullscreen apps",
+          "label": "Wayland Layer"
+        },
         "magnification": {
           "description": "Magnify dock icons near the pointer, macOS-style",
           "label": "Magnification"
@@ -2198,6 +2219,10 @@
           "description": "Show a grid of application icons with labels underneath when results are apps only",
           "label": "App Grid View"
         },
+        "launcher-auto-paste": {
+          "description": "After calculator, emoji, and other copy activations, paste into the focused window (same shortcuts as clipboard auto-paste)",
+          "label": "Auto-Paste"
+        },
         "launcher-categories": {
           "description": "Display category filters in the launcher; reveal with F6, then cycle with F6 and Shift+F6",
           "label": "Show Categories"
@@ -2295,6 +2320,10 @@
           "description": "Position the wallpaper picker near the bar widget that opened it; openings without a bar trigger are centered",
           "label": "Along Bar"
         },
+        "panel-anchor-bar": {
+          "description": "Which bar panels attach to when opened from a shortcut or the dock. Leave empty to follow the widget that opened them",
+          "label": "Anchor Bar"
+        },
         "placement-clipboard": {
           "description": "Choose whether the clipboard attaches to the bar or floats at a chosen screen position",
           "label": "Placement"
@@ -2383,13 +2412,47 @@
           "description": "Add iCloud, CalDAV, or Google accounts",
           "label": "Calendar Accounts"
         },
+        "calendar-credentials": {
+          "button": "Retry",
+          "description-cancelled": "The Secret Service prompt was cancelled. Retry when you are ready.",
+          "description-error": "Calendar credentials could not be accessed through Secret Service.",
+          "description-locked": "Calendar credentials are locked or access was denied. Unlock Secret Service and retry.",
+          "description-migration": "Plaintext calendar credentials are waiting to be moved into Secret Service. They are not used for calendar sync.",
+          "description-opening": "Calendar credentials are being opened through Secret Service.",
+          "description-unavailable": "No Secret Service provider is available in this session.",
+          "label": "Calendar Credential Storage"
+        },
         "calendar-edit": {
           "button": "Edit",
           "description": "Update this calendar account"
         },
+        "calendar-event-date-format": {
+          "description": "The date format shown in the event card for the selected date",
+          "label": "Event Date Format"
+        },
+        "calendar-event-time-format": {
+          "description": "The time format shown for calendar events",
+          "label": "Event Time Format"
+        },
         "calendar-refresh-interval": {
           "description": "How often to sync calendar events (minutes)",
           "label": "Refresh Interval"
+        },
+        "calendar-storage": {
+          "button": "Retry",
+          "description-cancelled": "The encrypted storage prompt was cancelled. Calendar events remain available for this session only.",
+          "description-error": "The encrypted calendar event cache could not be opened or saved.",
+          "description-locked": "Encrypted storage is locked or access was denied. Fix access and retry.",
+          "description-migration": "The plaintext calendar event cache is waiting to be encrypted. It is preserved until migration succeeds.",
+          "description-missing-key": "The configured encrypted storage key is missing. Existing calendar cache files have been preserved.",
+          "description-opening": "The encrypted calendar event cache is being opened.",
+          "description-recovery": "The calendar event cache could not be authenticated or is damaged. Retry after restoring the correct key, or reset private storage.",
+          "description-unavailable": "No Secret Service provider is available. Calendar events remain available for this session only.",
+          "label": "Calendar Event Storage"
+        },
+        "calendar-week-numbers": {
+          "description": "Show ISO 8601 week numbers alongside the calendar grid",
+          "label": "Week Numbers"
         },
         "custom-schedule": {
           "description": "Use manual sunrise/sunset times instead of computing from coordinates",
@@ -2493,7 +2556,11 @@
           "stats": {
             "cpu-temp": "CPU Temp",
             "cpu-usage": "CPU Usage",
+            "disk-free": "Disk Free",
+            "disk-free-pct": "Disk Free %",
             "disk-usage": "Disk Usage",
+            "disk-used": "Disk Used",
+            "disk-used-pct": "Disk Used %",
             "gpu-temp": "GPU Temp",
             "gpu-usage": "GPU Usage",
             "gpu-vram": "GPU VRAM",
@@ -2614,6 +2681,18 @@
           "description": "Command to run from image clipboard entries; use {path} for the file path, {stdin} to mark the stdin position, or omit {path} to pipe automatically",
           "label": "Image Action Command",
           "placeholder": "gimp {path} or satty -f -"
+        },
+        "clipboard-storage": {
+          "button": "Retry",
+          "description-cancelled": "The Secret Service prompt was cancelled. Clipboard history remains available for this session only.",
+          "description-error": "Encrypted clipboard history could not be opened or saved.",
+          "description-locked": "Clipboard key storage is locked or access was denied. Fix access and retry.",
+          "description-migration": "Plaintext clipboard history is waiting to be encrypted. Existing files are preserved until migration succeeds.",
+          "description-missing-key": "The configured encrypted storage key is missing. Existing clipboard history files have been preserved.",
+          "description-opening": "Encrypted clipboard history is being opened.",
+          "description-recovery": "Clipboard history could not be authenticated or is damaged. Retry after restoring the correct key, or reset private storage.",
+          "description-unavailable": "No Secret Service provider is available. Clipboard history remains available for this session only.",
+          "label": "Clipboard History Storage"
         },
         "date-format": {
           "description": "Default date format for shell UI without its own setting",
@@ -2973,6 +3052,15 @@
       },
       "variant-label": "Button style"
     },
+    "storage-recovery": {
+      "button": "Reset Private Storage",
+      "button-confirm": "Confirm Storage Reset",
+      "description": "Permanently delete saved clipboard history and the calendar event cache, then reopen private storage. A configured key file is never modified.",
+      "error-delete": "Some private storage files could not be deleted. The storage key was preserved.",
+      "error-key": "Private storage files were deleted, but secure storage could not be reopened. Fix access and retry.",
+      "label": "Recover Private Storage",
+      "success": "Private storage was reset successfully."
+    },
     "widgets": {
       "instances": {
         "cpu": "CPU",
@@ -2993,11 +3081,19 @@
         "value": "Value"
       },
       "options": {
+        "after": "After",
         "always": "Always",
         "auto": "Auto",
+        "before": "Before",
+        "both": "Both",
+        "count": "Count",
         "cpu-temp": "CPU Temperature",
         "cpu-usage": "CPU Usage",
-        "disk-percent": "Disk Percent",
+        "disk-free": "Disk Free",
+        "disk-free-percent": "Disk Free Percent",
+        "disk-used": "Disk Used",
+        "disk-used-percent": "Disk Used Percent",
+        "dots": "Dots",
         "focus-hint": "Focus Hint",
         "full": "Full",
         "gauge": "Gauge",
@@ -3007,8 +3103,10 @@
         "gpu-vram": "GPU VRAM",
         "graph": "Graph",
         "graphic": "Graphic",
+        "hidden": "Hidden",
         "icon-and-text": "Icon and Text",
         "icon-only": "Icon Only",
+        "icons": "Icons",
         "id": "ID",
         "input": "Input",
         "instance": "Per Placement",
@@ -3026,6 +3124,7 @@
         "ram-used": "RAM Used",
         "rate": "Rate",
         "regular": "Regular",
+        "replace": "Replace",
         "screenshot-primary-fullscreen": "Fullscreen",
         "screenshot-primary-region": "Region",
         "shared": "Shared",
@@ -3212,12 +3311,16 @@
           "sysmon-description": "Custom icon glyph; leave empty to use the icon for the selected stat",
           "volume-description": "Custom icon glyph; leave empty to use the built-in dynamic icons"
         },
+        "glyph-position": {
+          "description": "In which order to display the glyph in relation to the text/graph/gauge",
+          "label": "Glyph Position"
+        },
         "group-by-workspace": {
           "description": "Group taskbar icons into workspace capsules when compositor data is available",
           "label": "Group by Workspace"
         },
         "group-single-icon-per-app": {
-          "description": "When grouping by workspace, collapse multiple windows from the same app into one icon with a count badge.",
+          "description": "When grouping by workspace with icons, collapse multiple windows from the same app into one icon with a count badge.",
           "label": "Single Icon per App"
         },
         "height": {
@@ -3329,6 +3432,10 @@
         "label-min-width": {
           "description": "Minimum label width in pixels to prevent resizing",
           "label": "Label Min Width"
+        },
+        "label-show-units": {
+          "description": "Show units like percent / GiB / °C",
+          "label": "Show Units"
         },
         "labels-only-when-occupied": {
           "description": "Hide workspace labels on empty, inactive workspaces",
@@ -3489,7 +3596,7 @@
           "label": "Show Temperature"
         },
         "show-vpn-label": {
-          "description": "Show VPN label instead of interface label next to the icon",
+          "description": "Show VPN name: replaces network label in replace mode, adds label next to VPN icon in both mode",
           "label": "Show VPN Label"
         },
         "show-when-idle": {
@@ -3549,6 +3656,10 @@
           "description": "Optional format used on vertical bars",
           "label": "Vertical Format"
         },
+        "vpn-status": {
+          "description": "How to display VPN status: replace swaps the network icon for a VPN shield, both shows them side by side, hidden disables the VPN indicator",
+          "label": "VPN Status"
+        },
         "warning-color": {
           "description": "Color applied when charge is at or below the System battery warning threshold",
           "label": "Warning Color"
@@ -3564,6 +3675,10 @@
         "workspace-group-capsule": {
           "description": "Draw the background and border around each grouped workspace. Turn off to keep icon grouping and workspace disc labels only.",
           "label": "Workspace Group Capsule"
+        },
+        "workspace-group-content": {
+          "description": "What each workspace group shows: app icons, a window count, or dots (up to five, then +N for the rest)",
+          "label": "Group Content"
         },
         "workspace-label-placement": {
           "description": "Corner, centered on the edge, or inside the pill",
@@ -3610,7 +3725,7 @@
     "window": {
       "export-config": "Export Config…",
       "export-config-saved": "Config export saved.",
-      "filter-modified": "Modified",
+      "filter-overridden": "Overridden",
       "legacy-config-warning": "Legacy configuration is being migrated in memory: {issue}. Run noctalia config validate for all required changes.",
       "native-title": "Noctalia Settings",
       "no-results": "No settings found",
@@ -3759,6 +3874,7 @@
       "sort-date-desc": "Sort by date (newest first)",
       "sort-name-asc": "Sort by name (A-Z)",
       "sort-name-desc": "Sort by name (Z-A)",
+      "sort-random": "Sort by random (shuffle)",
       "title": "Wallpaper"
     }
   },

@@ -78,7 +78,8 @@ namespace settings {
     std::vector<SelectOption> options;
     std::string selectedValue;
     bool clearOnEmpty = false;
-    bool segmented = false;                              // render as Segmented pill group instead of dropdown Select
+    bool allowEmptySelection = false; // empty selectedValue shows a cleared select (no matching option)
+    bool segmented = false;           // render as Segmented pill group instead of dropdown Select
     SelectValueType valueType = SelectValueType::String; // storage type for option values
     float preferredWidth = 0.0f;                         // 0 = default settings dropdown width
     std::vector<std::string> linkedPath;                 // companion path for groupedCommit / override reset
@@ -240,6 +241,7 @@ namespace settings {
     std::string label;
     std::function<void()> action;
     std::string glyph;
+    bool destructive = false;
   };
 
   struct ColorSpecPickerSetting {

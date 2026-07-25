@@ -61,6 +61,9 @@ public:
   // Convenience: loadString + run.
   bool exec(std::string_view chunkName, std::string_view source) { return loadString(chunkName, source) && run(); }
 
+  // Callback lookup by name, shared by the call helpers below: a name generated
+  // by a ui-tree render (see ui_handler_table.h) resolves in that render's
+  // handler table, any other name is a plugin global.
   bool callGlobal(const char* name);
   bool hasGlobal(const char* name);
   std::optional<std::string> callGlobalReturningString(const char* name);
@@ -118,6 +121,11 @@ public:
   bool callHttpStreamLineCallback(int streamKey, const std::string& line, std::chrono::milliseconds budget);
   bool callHttpStreamCloseCallback(int streamKey, bool ok, int status, std::chrono::milliseconds budget);
   [[nodiscard]] bool hasHttpStream(int streamKey) const;
+
+  // noctalia.cpuCores - opt this host into per-core CPU sampling on first use. Sampling is
+  // refcounted in SystemMonitorService and released in ~LuauHost, so a plugin that never asks for
+  // per-core data costs nothing and a reloaded one does not leak a reference.
+  void ensureCpuCoresRetained();
 
   // Load the plugin's own translations/<lang>.json (over en.json) into a flat dotted-key
   // catalog. Call after setPluginDir().
@@ -197,6 +205,9 @@ private:
 
   void stopAllStreams() noexcept;
   void stopAllHttpStreams() noexcept;
+  // Pushes the callback `name` resolves to and reports whether it is callable.
+  // Exactly one value is left on the stack either way, so callers pop one.
+  bool pushCallback(const char* name);
   bool callGlobalInternal(const char* name, int args, std::chrono::milliseconds budget);
   bool callWithBudget(const char* name, int args, int results, std::chrono::milliseconds budget);
   void beginBudget(std::string_view name, std::chrono::milliseconds budget);
@@ -236,6 +247,7 @@ private:
   std::size_t m_memUsed = 0; // bytes tracked by allocate(); guarded by the worker-thread serialization
   std::chrono::nanoseconds m_callCpuDeadline{};
   std::string m_currentCallName;
+  bool m_cpuCoresRetained = false; // this host holds a SystemMonitorService per-core reference
   bool m_budgetActive = false;
   bool m_lastCallTimedOut = false;
   bool m_muteErrors = false;

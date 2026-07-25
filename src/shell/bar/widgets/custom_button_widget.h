@@ -13,7 +13,9 @@ class Label;
 class CustomButtonWidget : public Widget {
 public:
   struct Options {
-    std::string glyph;
+    std::string glyph = "heart";
+    std::string customImage;
+    bool customImageColorize = false;
     std::string label;
     std::string tooltip;
     std::string command;
@@ -22,7 +24,8 @@ public:
     std::string scrollUpCommand;
     std::string scrollDownCommand;
     bool enableScroll = true;
-    WidgetCustomImage customImage;
+
+    bool operator==(const Options&) const = default;
   };
 
   explicit CustomButtonWidget(Options options);

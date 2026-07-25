@@ -84,13 +84,15 @@ namespace scripting {
     const std::string placementKey = panelShellSettingKey(entry.id, "placement");
     const std::string positionKey = panelShellSettingKey(entry.id, "position");
     const std::string openNearClickKey = panelShellSettingKey(entry.id, "open_near_click");
-    if (!hasSettingKey(entry, placementKey)) {
+    // A persistent panel is always placed floating and is never opened from a bar
+    // widget's anchor, so those two settings would do nothing.
+    if (!entry.panelPersistent && !hasSettingKey(entry, placementKey)) {
       entry.settings.push_back(makePlacementField(entry.id, entry.panelPlacementDefault));
     }
     if (!hasSettingKey(entry, positionKey)) {
       entry.settings.push_back(makePositionField(entry.id, entry.panelPositionDefault));
     }
-    if (!hasSettingKey(entry, openNearClickKey)) {
+    if (!entry.panelPersistent && !hasSettingKey(entry, openNearClickKey)) {
       entry.settings.push_back(makeOpenNearClickField(entry.id, entry.panelOpenNearClickDefault));
     }
   }
@@ -106,6 +108,10 @@ namespace scripting {
   }
 
   bool isValidPanelPosition(std::string_view value) noexcept { return std::ranges::contains(kPanelPositions, value); }
+
+  bool isValidPanelKeyboardFocus(std::string_view value) noexcept {
+    return std::ranges::contains(kPanelKeyboardFocusModes, value);
+  }
 
   bool isPanelShellSettingKey(std::string_view entryId, std::string_view key) noexcept {
     return key == panelShellSettingKey(entryId, "placement")

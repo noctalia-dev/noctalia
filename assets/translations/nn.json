@@ -540,10 +540,6 @@
         "wave-thickness": "Bylgjetjukn",
         "widget-section": "Nøytel"
       },
-      "state": {
-        "grid-off": "Rutenett av",
-        "grid-on": "Rutenett på"
-      },
       "title": "Skrivebordsnøytlar",
       "types": {
         "audio-visualizer": "Ljodframsyning",
@@ -2868,7 +2864,6 @@
         "auto": "Auto",
         "cpu-temp": "Prosessortemperatur",
         "cpu-usage": "Prosessorbruk",
-        "disk-percent": "Disk prosent",
         "full": "Full",
         "gauge": "Målar",
         "glyph": "Symbol",
@@ -3435,7 +3430,6 @@
     "window": {
       "export-config": "Før ut tilmåting ...",
       "export-config-saved": "Tilmåtingsutførsle lagra.",
-      "filter-modified": "Brigda",
       "legacy-config-warning": "Utdatert tilmåting flyttar i minnet: {issue}. Køyr noctalia config validate for å sjå kva du må brigda.",
       "native-title": "Noctalia-innstillingar",
       "no-results": "Ingen innstillingar funne",

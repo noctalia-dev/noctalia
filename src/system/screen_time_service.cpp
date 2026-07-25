@@ -396,60 +396,45 @@ std::string ScreenTimeService::shortDayLabel(const std::string& dayKey) {
   return kWeekdays[tm.tm_wday];
 }
 
-ScreenTimeSnapshot ScreenTimeService::snapshot(int rangeDays) {
-  if (!m_enabled) {
-    return {};
+std::string ScreenTimeService::dayDisplayName(const std::string& dayKey) {
+  int year = 0;
+  int month = 0;
+  int day = 0;
+  if (std::sscanf(dayKey.c_str(), "%d-%d-%d", &year, &month, &day) != 3) {
+    return dayKey;
   }
-  flushActiveSession(std::chrono::steady_clock::now());
+  std::tm tm{};
+  tm.tm_year = year - 1900;
+  tm.tm_mon = month - 1;
+  tm.tm_mday = day;
+  tm.tm_hour = 12;
+  tm.tm_isdst = -1;
+  if (std::mktime(&tm) == -1) {
+    return dayKey;
+  }
+  char buffer[64]{};
+  if (std::strftime(buffer, sizeof(buffer), "%a · %b %d", &tm) == 0) {
+    return dayKey;
+  }
+  return buffer;
+}
 
-  rangeDays = std::clamp(rangeDays, 1, kRetentionDays);
+ScreenTimeSnapshot ScreenTimeService::buildHourlySnapshot(const DayRecord& day) const {
   ScreenTimeSnapshot snapshot;
-  snapshot.rangeDays = rangeDays;
-  snapshot.hourlyBuckets = rangeDays == 1;
+  snapshot.rangeDays = 1;
+  snapshot.hourlyBuckets = true;
+  snapshot.buckets.resize(24);
 
-  const std::vector<std::string> dayKeys = dayKeysForRange(rangeDays);
+  const DayRecord materialized = materializeDayForCharts(day);
   std::unordered_map<std::string, std::chrono::seconds> mergedApps;
 
-  std::optional<DayRecord> materializedToday;
-  const DayRecord* todayForCharts = nullptr;
-  if (snapshot.hourlyBuckets) {
-    snapshot.buckets.resize(24);
-    const DayRecord* today = dayRecordForKey(dayKeys.front());
-    if (today == nullptr && !m_currentDayKey.empty()) {
-      today = dayRecordForKey(m_currentDayKey);
-    }
-    if (today != nullptr) {
-      materializedToday = materializeDayForCharts(*today);
-      todayForCharts = &*materializedToday;
-      for (std::size_t hour = 0; hour < todayForCharts->hourly.size(); ++hour) {
-        snapshot.buckets[hour] = todayForCharts->hourly[hour];
-        snapshot.total += todayForCharts->hourly[hour];
-      }
-      for (const auto& [appKey, seconds] : todayForCharts->apps) {
-        if (seconds.count() > 0 && !isScreenTimeExcludedAppKey(appKey)) {
-          mergedApps[canonicalAppKey(appKey)] += seconds;
-        }
-      }
-    }
-  } else {
-    snapshot.buckets.resize(dayKeys.size());
-    snapshot.bucketLabels.reserve(dayKeys.size());
-    for (std::size_t dayIndex = 0; dayIndex < dayKeys.size(); ++dayIndex) {
-      snapshot.bucketLabels.push_back(shortDayLabel(dayKeys[dayIndex]));
-      const DayRecord* day = dayRecordForKey(dayKeys[dayIndex]);
-      if (day == nullptr) {
-        continue;
-      }
-      std::chrono::seconds dayTotal{0};
-      for (const auto& [appKey, seconds] : day->apps) {
-        if (seconds.count() <= 0 || isScreenTimeExcludedAppKey(appKey)) {
-          continue;
-        }
-        dayTotal += seconds;
-        mergedApps[canonicalAppKey(appKey)] += seconds;
-      }
-      snapshot.buckets[dayIndex] = dayTotal;
-      snapshot.total += dayTotal;
+  for (std::size_t hour = 0; hour < materialized.hourly.size(); ++hour) {
+    snapshot.buckets[hour] = materialized.hourly[hour];
+    snapshot.total += materialized.hourly[hour];
+  }
+  for (const auto& [appKey, seconds] : materialized.apps) {
+    if (seconds.count() > 0 && !isScreenTimeExcludedAppKey(appKey)) {
+      mergedApps[canonicalAppKey(appKey)] += seconds;
     }
   }
 
@@ -476,46 +461,9 @@ ScreenTimeSnapshot ScreenTimeService::snapshot(int rangeDays) {
   });
 
   std::vector<ScreenTimeAppUsage> rankedApps = std::move(snapshot.apps);
-  // Chart: top kMaxChartSeries. List: up to kMaxListedApps.
   snapshot.apps.assign(
       rankedApps.begin(), rankedApps.begin() + static_cast<std::ptrdiff_t>(std::min(rankedApps.size(), kMaxListedApps))
   );
-
-  const auto fillSeriesBuckets = [&](ScreenTimeChartSeries& series, const std::string& appKey) {
-    if (snapshot.hourlyBuckets) {
-      if (todayForCharts == nullptr) {
-        return;
-      }
-      bool matchedHourly = false;
-      for (const auto& [storedKey, hourly] : todayForCharts->appHourly) {
-        if (canonicalAppKey(storedKey) != appKey) {
-          continue;
-        }
-        matchedHourly = true;
-        for (std::size_t hour = 0; hour < hourly.size() && hour < series.buckets.size(); ++hour) {
-          series.buckets[hour] += hourly[hour];
-        }
-      }
-      if (!matchedHourly) {
-        const std::chrono::seconds appTotal = appSecondsForKey(*todayForCharts, appKey);
-        if (appTotal.count() > 0) {
-          distributeSecondsAcrossHourly(appTotal, *todayForCharts, series.buckets);
-        }
-      }
-      return;
-    }
-    for (std::size_t dayIndex = 0; dayIndex < dayKeys.size(); ++dayIndex) {
-      const DayRecord* day = dayRecordForKey(dayKeys[dayIndex]);
-      if (day == nullptr) {
-        continue;
-      }
-      for (const auto& [storedKey, seconds] : day->apps) {
-        if (canonicalAppKey(storedKey) == appKey) {
-          series.buckets[dayIndex] += seconds;
-        }
-      }
-    }
-  };
 
   const std::size_t chartCount = std::min(rankedApps.size(), kMaxChartSeries);
   snapshot.chartSeries.reserve(chartCount);
@@ -528,7 +476,144 @@ ScreenTimeSnapshot ScreenTimeService::snapshot(int rangeDays) {
         .total = app.total,
         .chartColor = app.chartColor,
     };
-    fillSeriesBuckets(series, app.appKey);
+    bool matchedHourly = false;
+    for (const auto& [storedKey, hourly] : materialized.appHourly) {
+      if (canonicalAppKey(storedKey) != app.appKey) {
+        continue;
+      }
+      matchedHourly = true;
+      for (std::size_t hour = 0; hour < hourly.size() && hour < series.buckets.size(); ++hour) {
+        series.buckets[hour] += hourly[hour];
+      }
+    }
+    if (!matchedHourly) {
+      const std::chrono::seconds appTotal = appSecondsForKey(materialized, app.appKey);
+      if (appTotal.count() > 0) {
+        distributeSecondsAcrossHourly(appTotal, materialized, series.buckets);
+      }
+    }
+    snapshot.chartSeries.push_back(std::move(series));
+  }
+
+  return snapshot;
+}
+
+ScreenTimeSnapshot ScreenTimeService::snapshotForDay(const std::string& dayKey) {
+  if (!m_enabled || dayKey.empty()) {
+    return {};
+  }
+  flushActiveSession(std::chrono::steady_clock::now());
+  const DayRecord* day = dayRecordForKey(dayKey);
+  if (day == nullptr) {
+    ScreenTimeSnapshot empty;
+    empty.rangeDays = 1;
+    empty.hourlyBuckets = true;
+    empty.buckets.resize(24);
+    return empty;
+  }
+  return buildHourlySnapshot(*day);
+}
+
+ScreenTimeSnapshot ScreenTimeService::snapshot(int rangeDays) {
+  if (!m_enabled) {
+    return {};
+  }
+  flushActiveSession(std::chrono::steady_clock::now());
+
+  rangeDays = std::clamp(rangeDays, 1, kRetentionDays);
+  if (rangeDays == 1) {
+    const std::vector<std::string> dayKeys = dayKeysForRange(1);
+    const DayRecord* today = dayRecordForKey(dayKeys.front());
+    if (today == nullptr && !m_currentDayKey.empty()) {
+      today = dayRecordForKey(m_currentDayKey);
+    }
+    if (today == nullptr) {
+      ScreenTimeSnapshot empty;
+      empty.rangeDays = 1;
+      empty.hourlyBuckets = true;
+      empty.buckets.resize(24);
+      return empty;
+    }
+    return buildHourlySnapshot(*today);
+  }
+
+  ScreenTimeSnapshot snapshot;
+  snapshot.rangeDays = rangeDays;
+  snapshot.hourlyBuckets = false;
+
+  const std::vector<std::string> dayKeys = dayKeysForRange(rangeDays);
+  snapshot.bucketDayKeys = dayKeys;
+  snapshot.buckets.resize(dayKeys.size());
+  snapshot.bucketLabels.reserve(dayKeys.size());
+
+  std::unordered_map<std::string, std::chrono::seconds> mergedApps;
+  for (std::size_t dayIndex = 0; dayIndex < dayKeys.size(); ++dayIndex) {
+    snapshot.bucketLabels.push_back(shortDayLabel(dayKeys[dayIndex]));
+    const DayRecord* day = dayRecordForKey(dayKeys[dayIndex]);
+    if (day == nullptr) {
+      continue;
+    }
+    std::chrono::seconds dayTotal{0};
+    for (const auto& [appKey, seconds] : day->apps) {
+      if (seconds.count() <= 0 || isScreenTimeExcludedAppKey(appKey)) {
+        continue;
+      }
+      dayTotal += seconds;
+      mergedApps[canonicalAppKey(appKey)] += seconds;
+    }
+    snapshot.buckets[dayIndex] = dayTotal;
+    snapshot.total += dayTotal;
+  }
+
+  snapshot.apps.reserve(mergedApps.size());
+  for (const auto& [appKey, seconds] : mergedApps) {
+    std::string displayName = displayNameForAppKey(appKey);
+    if (displayName.empty()) {
+      displayName = appKey;
+    }
+    snapshot.apps.push_back(
+        ScreenTimeAppUsage{
+            .appKey = appKey,
+            .displayName = std::move(displayName),
+            .total = seconds,
+        }
+    );
+  }
+
+  std::ranges::sort(snapshot.apps, [](const ScreenTimeAppUsage& a, const ScreenTimeAppUsage& b) {
+    if (a.total != b.total) {
+      return a.total > b.total;
+    }
+    return a.displayName < b.displayName;
+  });
+
+  std::vector<ScreenTimeAppUsage> rankedApps = std::move(snapshot.apps);
+  snapshot.apps.assign(
+      rankedApps.begin(), rankedApps.begin() + static_cast<std::ptrdiff_t>(std::min(rankedApps.size(), kMaxListedApps))
+  );
+
+  const std::size_t chartCount = std::min(rankedApps.size(), kMaxChartSeries);
+  snapshot.chartSeries.reserve(chartCount);
+  for (std::size_t i = 0; i < chartCount; ++i) {
+    const auto& app = rankedApps[i];
+    ScreenTimeChartSeries series{
+        .appKey = app.appKey,
+        .displayName = app.displayName,
+        .buckets = std::vector<std::chrono::seconds>(snapshot.buckets.size()),
+        .total = app.total,
+        .chartColor = app.chartColor,
+    };
+    for (std::size_t dayIndex = 0; dayIndex < dayKeys.size(); ++dayIndex) {
+      const DayRecord* day = dayRecordForKey(dayKeys[dayIndex]);
+      if (day == nullptr) {
+        continue;
+      }
+      for (const auto& [storedKey, seconds] : day->apps) {
+        if (canonicalAppKey(storedKey) == app.appKey) {
+          series.buckets[dayIndex] += seconds;
+        }
+      }
+    }
     snapshot.chartSeries.push_back(std::move(series));
   }
 

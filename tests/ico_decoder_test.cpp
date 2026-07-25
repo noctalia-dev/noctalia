@@ -38,31 +38,29 @@ namespace {
 
   // Valid 1x1 red PNG (RGBA), generated with correct CRCs and zlib stream.
   const std::uint8_t kPng1x1[] = {
-      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
-      0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-      0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
-      0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0xF8, 0xCF, 0xC0, 0xF0,
-      0x1F, 0x00, 0x05, 0x00, 0x01, 0xFF, 0x89, 0x99, 0x3D, 0x1D, 0x00, 0x00,
-      0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00,
+      0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00,
+      0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0xF8, 0xCF, 0xC0, 0xF0, 0x1F, 0x00, 0x05, 0x00, 0x01, 0xFF,
+      0x89, 0x99, 0x3D, 0x1D, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
   };
 
   std::vector<std::uint8_t> buildIcoWithPng(int dirWidth, int dirHeight) {
     std::vector<std::uint8_t> ico;
 
     // ICONDIR header
-    writeU16LE(ico, 0);    // reserved
-    writeU16LE(ico, 1);    // type = ICO
-    writeU16LE(ico, 1);    // count = 1
+    writeU16LE(ico, 0); // reserved
+    writeU16LE(ico, 1); // type = ICO
+    writeU16LE(ico, 1); // count = 1
 
     // ICONDIRENTRY
     ico.push_back(static_cast<std::uint8_t>(dirWidth == 256 ? 0 : dirWidth));
     ico.push_back(static_cast<std::uint8_t>(dirHeight == 256 ? 0 : dirHeight));
-    ico.push_back(0);      // color count
-    ico.push_back(0);      // reserved
-    writeU16LE(ico, 1);    // planes
-    writeU16LE(ico, 32);   // bit count
+    ico.push_back(0);                                             // color count
+    ico.push_back(0);                                             // reserved
+    writeU16LE(ico, 1);                                           // planes
+    writeU16LE(ico, 32);                                          // bit count
     writeU32LE(ico, static_cast<std::uint32_t>(sizeof(kPng1x1))); // bytes in res
-    writeU32LE(ico, 22);   // image offset (6 + 16 = 22)
+    writeU32LE(ico, 22);                                          // image offset (6 + 16 = 22)
 
     // PNG sub-image
     ico.insert(ico.end(), kPng1x1, kPng1x1 + sizeof(kPng1x1));
@@ -98,14 +96,14 @@ namespace {
     writeU32LE(ico, 40);
     writeU32LE(ico, static_cast<std::uint32_t>(width));
     writeU32LE(ico, static_cast<std::uint32_t>(height * 2));
-    writeU16LE(ico, 1);    // planes
+    writeU16LE(ico, 1); // planes
     writeU16LE(ico, static_cast<std::uint16_t>(bpp));
-    writeU32LE(ico, 0);    // compression = BI_RGB
-    writeU32LE(ico, 0);    // image size (can be 0 for BI_RGB)
-    writeU32LE(ico, 0);    // x ppm
-    writeU32LE(ico, 0);    // y ppm
-    writeU32LE(ico, 0);    // colors used
-    writeU32LE(ico, 0);    // important colors
+    writeU32LE(ico, 0); // compression = BI_RGB
+    writeU32LE(ico, 0); // image size (can be 0 for BI_RGB)
+    writeU32LE(ico, 0); // x ppm
+    writeU32LE(ico, 0); // y ppm
+    writeU32LE(ico, 0); // colors used
+    writeU32LE(ico, 0); // important colors
 
     // Pixel data (BGRA for 32bpp) — fill with opaque blue
     for (int row = 0; row < height; ++row) {
@@ -183,10 +181,10 @@ namespace {
     ico.resize(dibStart + dibSize, 0);
     // Fill BITMAPINFOHEADER
     auto* dib = ico.data() + dibStart;
-    dib[0] = 40; // biSize
-    dib[4] = 1;  // biWidth = 1
-    dib[8] = 2;  // biHeight = 2 (double-height)
-    dib[12] = 1; // biPlanes
+    dib[0] = 40;  // biSize
+    dib[4] = 1;   // biWidth = 1
+    dib[8] = 2;   // biHeight = 2 (double-height)
+    dib[12] = 1;  // biPlanes
     dib[14] = 16; // biBitCount
 
     return ico;

@@ -3,6 +3,7 @@
 #include <chrono>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 struct PluginSourceConfig;
@@ -32,7 +33,19 @@ namespace scripting {
     bool ok = false;
     std::string error;
     std::vector<CatalogEntry> entries;
+    // Exact commit used for a git catalog. Empty for path sources and failures.
+    std::string revision;
   };
+
+  [[nodiscard]] inline const CatalogEntry*
+  findCatalogEntry(const std::vector<CatalogEntry>& entries, std::string_view id) {
+    for (const auto& entry : entries) {
+      if (entry.id == id) {
+        return &entry;
+      }
+    }
+    return nullptr;
+  }
 
   // How discoverCatalog may obtain a git source's catalog. Path sources are always
   // read straight from disk, so the mode only affects git sources.

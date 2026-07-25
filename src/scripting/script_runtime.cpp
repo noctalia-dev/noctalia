@@ -202,6 +202,8 @@ namespace scripting {
     bool hasOnConfigChangedKnown = false;
     bool hasOnScroll = false;
     bool hasOnScrollKnown = false;
+    bool hasOnKey = false;
+    bool hasOnKeyKnown = false;
     bool unhealthy = false;
     int consecutiveTimeouts = 0;
 
@@ -719,6 +721,7 @@ namespace scripting {
       const bool onActivatePresent = host != nullptr && host->hasGlobal("onActivate");
       const bool onConfigChangedPresent = host != nullptr && host->hasGlobal("onConfigChanged");
       const bool onScrollPresent = host != nullptr && host->hasGlobal("onScroll");
+      const bool onKeyPresent = host != nullptr && host->hasGlobal("onKey");
       {
         std::scoped_lock lock(mutex);
         hasOnIpc = result.hasOnIpc;
@@ -729,6 +732,8 @@ namespace scripting {
         hasOnConfigChangedKnown = true;
         hasOnScroll = onScrollPresent;
         hasOnScrollKnown = true;
+        hasOnKey = onKeyPresent;
+        hasOnKeyKnown = true;
       }
       return result;
     }
@@ -858,6 +863,12 @@ namespace scripting {
       }
 
       dispatchSideEffects(result.sideEffects, clipboard, scriptApi, togglePanelCallback);
+      for (const auto& effect : result.sideEffects) {
+        if (effect.kind == ScriptSideEffectKind::CopyToClipboard) {
+          result.copiedToClipboard = true;
+          break;
+        }
+      }
       result.sideEffects.clear();
 
       for (auto& callback : callbacks) {
@@ -1011,6 +1022,14 @@ namespace scripting {
     }
     std::scoped_lock lock(m_state->mutex);
     return m_state->hasOnScrollKnown && m_state->hasOnScroll;
+  }
+
+  bool ScriptRuntime::hasOnKey() const {
+    if (m_state == nullptr) {
+      return false;
+    }
+    std::scoped_lock lock(m_state->mutex);
+    return m_state->hasOnKeyKnown && m_state->hasOnKey;
   }
 
   bool ScriptRuntime::unhealthy() const {

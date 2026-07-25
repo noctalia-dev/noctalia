@@ -501,21 +501,26 @@ void Application::initPanelManagerAndPanels() {
     wl_output* output = m_compositorPlatform.preferredInteractiveOutput(std::chrono::milliseconds(1200));
     m_panelManager.openPanel("wallpaper", PanelOpenRequest{.output = output});
   });
-  m_settingsWindow.setConnectCalendarAccount([this](std::string accountId, std::string activationToken) {
-    const auto& accounts = m_configService.config().calendar.accounts;
-    const auto it = std::ranges::find(accounts, accountId, &CalendarConfig::Account::id);
-    if (it == accounts.end()) {
+  m_settingsWindow.setCalendarService(&m_calendarService);
+  m_calendarService.setCredentialChangeCallback([this]() { m_settingsWindow.onExternalOptionsChanged(); });
+  m_settingsWindow.setClipboardService(&m_clipboardService);
+  m_clipboardService.setPersistenceChangeCallback([this]() { m_settingsWindow.onExternalOptionsChanged(); });
+  m_settingsWindow.setResetEncryptedStorage([this]() {
+    const bool clipboardCleared = m_clipboardService.clearEncryptedPersistenceForRecovery();
+    const bool calendarCleared = m_calendarService.clearEncryptedCacheForRecovery();
+    if (!clipboardCleared || !calendarCleared) {
+      m_settingsWindow.showTransientStatus(i18n::tr("settings.storage-recovery.error-delete"), true);
+      m_settingsWindow.onExternalOptionsChanged();
       return;
     }
-    if (it->type == "google") {
-      m_calendarService.connectGoogleAccount(accountId, activationToken);
-    } else if (it->type == "caldav") {
-      m_calendarService.requestRefresh();
-    }
+    m_storageKeyProvider.resetAfterEncryptedDataCleared([this](bool success) {
+      m_settingsWindow.showTransientStatus(
+          i18n::tr(success ? "settings.storage-recovery.success" : "settings.storage-recovery.error-key"), !success
+      );
+      m_settingsWindow.onExternalOptionsChanged();
+    });
   });
-  auto clipboardPanel = std::make_unique<ClipboardPanel>(
-      &m_clipboardService, &m_configService, &m_thumbnailService, &m_asyncTextureCache
-  );
+  auto clipboardPanel = std::make_unique<ClipboardPanel>(&m_clipboardService, &m_configService, &m_asyncTextureCache);
   clipboardPanel->setActivateCallback([this](const ClipboardEntry& entry) {
     const ClipboardAutoPasteMode mode = m_configService.config().shell.clipboardAutoPaste;
     if (mode == ClipboardAutoPasteMode::Off) {
@@ -585,6 +590,19 @@ void Application::initPanelManagerAndPanels() {
     launcherPanel->addProvider(std::make_unique<SessionProvider>(&m_configService, &m_sessionActionRunner));
     launcherPanel->addProvider(std::make_unique<MathProvider>(&m_clipboardService, &m_configService, &m_httpClient));
     launcherPanel->addProvider(std::make_unique<EmojiProvider>(&m_clipboardService));
+    launcherPanel->setCopiedActivationCallback([this]() {
+      const ClipboardAutoPasteMode mode = m_configService.config().shell.launcher.autoPaste;
+      if (mode == ClipboardAutoPasteMode::Off) {
+        return;
+      }
+      m_launcherAutoPasteTimer.stop();
+      m_launcherAutoPasteTimer.start(std::chrono::milliseconds(Style::animFast + 30), [this]() {
+        DeferredCall::callLater([this]() {
+          const ClipboardAutoPasteMode activeMode = m_configService.config().shell.launcher.autoPaste;
+          (void)clipboard_paste::pasteEntry(false, activeMode, m_virtualKeyboardService);
+        });
+      });
+    });
     m_launcherPanel = launcherPanel.get();
     m_panelManager.registerPanel("launcher", std::move(launcherPanel));
   }

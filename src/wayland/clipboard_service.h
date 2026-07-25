@@ -2,6 +2,7 @@
 
 #include "config/config_limits.h"
 #include "core/text_clipboard.h"
+#include "security/storage_key_provider.h"
 
 #include <chrono>
 #include <cstddef>
@@ -11,12 +12,24 @@
 #include <memory>
 #include <optional>
 #include <poll.h>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
 struct wl_registry;
 struct wl_seat;
+
+enum class ClipboardPersistenceState {
+  Opening,
+  Ready,
+  Unavailable,
+  Cancelled,
+  DeniedOrLocked,
+  MissingKey,
+  RecoveryRequired,
+  BackendError,
+};
 
 struct ClipboardEntry {
   std::string storageId;
@@ -63,7 +76,7 @@ class ClipboardService : public TextClipboard {
 public:
   using ChangeCallback = std::function<void()>;
 
-  ClipboardService();
+  explicit ClipboardService(security::StorageKeyProvider& storageKeyProvider);
   ~ClipboardService();
 
   ClipboardService(const ClipboardService&) = delete;
@@ -75,9 +88,16 @@ public:
   [[nodiscard]] bool isAvailable() const noexcept;
   [[nodiscard]] const std::deque<ClipboardEntry>& history() const noexcept;
   [[nodiscard]] std::uint64_t changeSerial() const noexcept;
+  [[nodiscard]] ClipboardPersistenceState persistenceState() const noexcept;
+  [[nodiscard]] bool persistenceMigrationPending() const noexcept;
   [[nodiscard]] std::size_t addPollFds(std::vector<pollfd>& fds) const;
 
+  void syncPersistence();
+  void retryPersistence();
+  [[nodiscard]] bool clearEncryptedPersistenceForRecovery();
+  [[nodiscard]] bool hasEncryptedPersistence() const;
   bool ensureEntryLoaded(std::size_t index);
+  [[nodiscard]] std::optional<std::string> imageDataUri(std::size_t index);
   [[nodiscard]] std::optional<std::string> exportEntryForExternalTool(std::size_t index);
   void evictEntryPayload(std::size_t index);
   void evictAllPayloads();
@@ -100,6 +120,7 @@ public:
   void clearUnpinnedHistory();
   void clearHistory();
   void setChangeCallback(ChangeCallback callback);
+  void setPersistenceChangeCallback(ChangeCallback callback);
   void dispatchReadEvents(short revents);
   void dispatchPollEvents(const std::vector<pollfd>& fds, std::size_t startIdx, std::size_t count);
 
@@ -149,15 +170,27 @@ private:
   void finishRead(bool discard);
   void addToHistory(ClipboardEntry entry);
   [[nodiscard]] std::size_t pinnedCount() const noexcept;
-  void loadPersistedHistory();
-  bool persistHistory();
+  void activatePersistenceKey(security::SecureKey key);
+  void setPersistenceState(ClipboardPersistenceState state, bool migrationPending);
+  [[nodiscard]] bool loadPersistedHistory();
+  [[nodiscard]] bool loadEncryptedHistory();
+  [[nodiscard]] bool migrateLegacyHistory();
+  [[nodiscard]] bool
+  parseManifest(std::span<const std::uint8_t> contents, bool legacy, std::deque<ClipboardEntry>& entries) const;
+  void mergePersistedHistory(std::deque<ClipboardEntry> entries);
+  [[nodiscard]] bool removeLegacyStorage();
+  bool persistHistory(bool force = false);
   void trimHistoryToBudget();
   [[nodiscard]] bool loadEntryPayload(ClipboardEntry& entry);
+  [[nodiscard]] static bool loadLegacyEntryPayload(ClipboardEntry& entry);
   static void evictPayloadData(ClipboardEntry& entry);
   [[nodiscard]] static std::string stateDirectory();
   [[nodiscard]] static std::string manifestPath();
+  [[nodiscard]] static std::string legacyManifestPath();
   [[nodiscard]] static std::string entriesDirectory();
   [[nodiscard]] static std::string payloadPathForId(std::string_view storageId);
+  [[nodiscard]] static std::string legacyPayloadPathForId(std::string_view storageId);
+  [[nodiscard]] static bool isValidStorageId(std::string_view storageId);
   [[nodiscard]] static std::string generateStorageId();
   [[nodiscard]] std::string chooseMimeType(const OfferState& offer) const;
   [[nodiscard]] static bool isTextMimeType(std::string_view mimeType);
@@ -186,5 +219,10 @@ private:
   std::uint64_t m_changeSerial = 0;
   bool m_historyRetention = true;
   std::size_t m_maxHistoryEntries = static_cast<std::size_t>(noctalia::config::kClipboardHistoryDefaultEntries);
+  security::StorageKeyProvider& m_storageKeyProvider;
+  std::optional<security::SecureKey> m_dataKey;
+  ClipboardPersistenceState m_persistenceState = ClipboardPersistenceState::Opening;
+  bool m_persistenceMigrationPending = false;
   ChangeCallback m_changeCallback;
+  ChangeCallback m_persistenceChangeCallback;
 };

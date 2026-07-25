@@ -2,8 +2,6 @@
 #include "security/secure_buffer.h"
 #include "util/file_utils.h"
 
-#include <sys/stat.h>
-
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -14,6 +12,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <sys/stat.h>
 #include <vector>
 
 namespace {
@@ -230,9 +229,7 @@ namespace {
 
     auto unsupportedVersion = canonical;
     unsupportedVersion[security::EncryptedFileMagic.size()] = 2;
-    ok = expectMutation(
-             "unsupported version", std::move(unsupportedVersion), EncryptedReadStatus::UnsupportedVersion
-         )
+    ok = expectMutation("unsupported version", std::move(unsupportedVersion), EncryptedReadStatus::UnsupportedVersion)
         && ok;
 
     auto unsupportedAlgorithm = canonical;
@@ -244,10 +241,7 @@ namespace {
 
     auto modifiedNonce = canonical;
     modifiedNonce[security::EncryptedFileMagic.size() + 2] ^= 1;
-    ok = expectMutation(
-             "modified nonce", std::move(modifiedNonce), EncryptedReadStatus::AuthenticationFailed
-         )
-        && ok;
+    ok = expectMutation("modified nonce", std::move(modifiedNonce), EncryptedReadStatus::AuthenticationFailed) && ok;
 
     auto appended = canonical;
     appended.push_back(0);
@@ -291,8 +285,8 @@ namespace {
 
     bool ok = true;
     ok = expect(security::writeEncryptedFile(firstPath, first, *key, firstContext), "first swap write failed") && ok;
-    ok = expect(security::writeEncryptedFile(secondPath, second, *key, secondContext), "second swap write failed")
-        && ok;
+    ok =
+        expect(security::writeEncryptedFile(secondPath, second, *key, secondContext), "second swap write failed") && ok;
     std::filesystem::copy_file(firstPath, secondPath, std::filesystem::copy_options::overwrite_existing);
     ok = expect(
              security::readEncryptedFile(secondPath, *key, secondContext, 64).status
@@ -325,8 +319,11 @@ namespace {
     ok = expect(mode(path) == FileUtils::privateFileMode(), "encrypted file mode was not 0600") && ok;
     ok = expect(!std::filesystem::exists(path.string() + ".tmp"), "atomic temporary file remained") && ok;
     const auto result = security::readEncryptedFile(path, *key, context, 64);
-    ok = expect(result.succeeded() && result.plaintext == std::vector<std::uint8_t>(replacement.begin(), replacement.end()),
-                "atomic replacement did not publish the new plaintext")
+    ok =
+        expect(
+            result.succeeded() && result.plaintext == std::vector<std::uint8_t>(replacement.begin(), replacement.end()),
+            "atomic replacement did not publish the new plaintext"
+        )
         && ok;
     return ok;
   }

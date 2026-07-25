@@ -13,10 +13,9 @@
 #include <format>
 #include <memory>
 
-WeatherWidget::WeatherWidget(
-    WeatherService* weather, wl_output* /*output*/, float maxWidth, bool showCondition, bool showTemperature
-)
-    : m_weather(weather), m_maxWidth(maxWidth), m_showCondition(showCondition), m_showTemperature(showTemperature) {}
+WeatherWidget::WeatherWidget(WeatherService* weather, wl_output* /*output*/, Options options)
+    : m_weather(weather), m_maxWidth(static_cast<float>(options.maxWidth)), m_showCondition(options.showCondition),
+      m_showTemperature(options.showTemperature) {}
 
 void WeatherWidget::create() {
   auto area = std::make_unique<InputArea>();

@@ -7,6 +7,7 @@
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <limits>
 #include <memory>
@@ -39,6 +40,7 @@ public:
     NameDesc,
     DateAsc,
     DateDesc,
+    Random,
   };
 
   WallpaperPanel(
@@ -96,6 +98,7 @@ private:
       const std::filesystem::path& activeDir, const std::filesystem::path& rootDir
   ) const;
   void sortVisibleEntries();
+  void reseedRandomSort();
   void syncSortButtonGlyph();
   void cycleSortMode();
   void setSortMode(SortMode mode);
@@ -163,6 +166,7 @@ private:
   bool m_flatten = false;
   bool m_scanPending = false;
   SortMode m_sortMode = SortMode::NameAsc;
+  std::uint64_t m_randomSeed = 0;
   std::size_t m_pinnedFavoriteCount = 0;
   bool m_syncingFavoriteControls = false;
   bool m_syncingGridSelectionVisual = false;

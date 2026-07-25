@@ -738,6 +738,7 @@ ConfigChangeSet computeConfigChangeSet(const Config& prev, const Config& next) {
       .controlCenter = !(prev.controlCenter == next.controlCenter),
       .plugins = !pluginsConfigEqual(prev.plugins, next.plugins),
       .hotCorners = !(prev.hotCorners == next.hotCorners),
+      .storage = !(prev.storage == next.storage),
       .accessibility = !(prev.accessibility == next.accessibility),
   };
 }

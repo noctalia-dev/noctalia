@@ -4,6 +4,7 @@
 #include "system/icon_resolver.h"
 
 #include <functional>
+#include <string_view>
 
 class Button;
 class Flex;
@@ -33,12 +34,14 @@ public:
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
   [[nodiscard]] bool dismissOnOutsideClick() const override { return false; }
   [[nodiscard]] InputArea* initialFocusArea() const override;
+  [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
 
 private:
   void onPanelCardOpacityChanged(float opacity) override;
   void doLayout(Renderer& renderer, float width, float height) override;
   void doUpdate(Renderer& renderer) override;
-  void submit();
+  void submit(std::string_view response = {});
+  void cancelAuth();
   bool handleInputKeyEvent(std::uint32_t sym, std::uint32_t modifiers);
   void resolveIcon(Renderer& renderer, const PolkitRequest& request);
 

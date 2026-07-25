@@ -873,6 +873,14 @@ namespace settings {
         ToggleSetting{cfg.dock.reserveSpace}, "exclusive zone"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Dock, "behavior", tr("settings.schema.dock.layer.label"),
+        tr("settings.schema.dock.layer.description"), {"dock", "layer"},
+        asSegmented(plainSelect(
+            {{"top", "settings.options.layer.top"}, {"overlay", "settings.options.layer.overlay"}}, cfg.dock.layer
+        )),
+        "layer shell z-order"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Dock, "behavior", tr("settings.schema.dock.show-running.label"),
         tr("settings.schema.dock.show-running.description"), {"dock", "show_running"},
         ToggleSetting{cfg.dock.showRunning}, "windows"
@@ -1058,6 +1066,19 @@ namespace settings {
     ));
 
     // Panels
+    {
+      SelectSetting anchorBarSelect;
+      for (const auto& name : barNames(cfg)) {
+        anchorBarSelect.options.push_back(SelectOption{name, name});
+      }
+      anchorBarSelect.selectedValue = cfg.shell.panelAnchorBar;
+      anchorBarSelect.allowEmptySelection = true;
+      entries.push_back(makeEntry(
+          SettingsSection::Panels, "general", tr("settings.schema.panels.panel-anchor-bar.label"),
+          tr("settings.schema.panels.panel-anchor-bar.description"), {"shell", "panel_anchor_bar"},
+          std::move(anchorBarSelect), "anchor attach bar panel wallpaper launcher"
+      ));
+    }
     entries.push_back(makeEntry(
         SettingsSection::Panels, "effects", tr("settings.schema.panels.transparency-mode.label"),
         tr("settings.schema.panels.transparency-mode.description"), {"shell", "panel", "transparency_mode"},
@@ -1189,6 +1210,11 @@ namespace settings {
         "launcher currency exchange rates fetch online conversion"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Launcher, "launcher", tr("settings.schema.panels.launcher-auto-paste.label"),
+        tr("settings.schema.panels.launcher-auto-paste.description"), {"shell", "launcher", "auto_paste"},
+        enumSelect(kClipboardAutoPasteModes, cfg.shell.launcher.autoPaste), "launcher auto paste"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-prefix-character.label"),
         tr("settings.schema.panels.launcher-prefix-character.description"), {"shell", "launcher", "provider_prefix"},
         TextSetting{.value = cfg.shell.launcher.providerPrefix, .placeholder = "/"}, "launcher common prefix character"
@@ -1206,7 +1232,7 @@ namespace settings {
           SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-prefix-calculator.label"),
           tr("settings.schema.panels.launcher-prefix-calculator.description"),
           {"shell", "launcher", "providers", "calculator", "prefix"},
-          TextSetting{.value = storedPrefix("calculator"), .placeholder = ""}, "launcher calculator prefix trigger"
+          TextSetting{.value = storedPrefix("calculator"), .placeholder = "calc"}, "launcher calculator prefix trigger"
       ));
       entries.push_back(makeEntry(
           SettingsSection::Launcher, "providers", tr("settings.schema.panels.launcher-global-calculator.label"),
@@ -2215,8 +2241,22 @@ namespace settings {
           mon.swapPctCriticalThreshold, noctalia::sysmon::thresholdProfile(Stat::SwapPct), true, "%"
       );
       addThresholdPair(
-          "disk_pct", "settings.schema.services.system-monitor.stats.disk-usage", mon.diskPctActivityThreshold,
-          mon.diskPctCriticalThreshold, noctalia::sysmon::thresholdProfile(Stat::DiskPct), true, "%"
+          "disk_used_pct", "settings.schema.services.system-monitor.stats.disk-used-pct",
+          mon.diskUsedPctActivityThreshold, mon.diskUsedPctCriticalThreshold,
+          noctalia::sysmon::thresholdProfile(Stat::DiskUsedPct), true, "%"
+      );
+      addThresholdPair(
+          "disk_used", "settings.schema.services.system-monitor.stats.disk-used", mon.diskUsedActivityThreshold,
+          mon.diskUsedCriticalThreshold, noctalia::sysmon::thresholdProfile(Stat::DiskUsed), true, "%"
+      );
+      addThresholdPair(
+          "disk_free_pct", "settings.schema.services.system-monitor.stats.disk-free-pct",
+          mon.diskFreePctActivityThreshold, mon.diskFreePctCriticalThreshold,
+          noctalia::sysmon::thresholdProfile(Stat::DiskFreePct), true, "%"
+      );
+      addThresholdPair(
+          "disk_free", "settings.schema.services.system-monitor.stats.disk-free", mon.diskFreeActivityThreshold,
+          mon.diskFreeCriticalThreshold, noctalia::sysmon::thresholdProfile(Stat::DiskFree), true, "%"
       );
       addThresholdPair(
           "net_rx", "settings.schema.services.system-monitor.stats.network-rx", mon.netRxActivityThreshold,
@@ -2456,6 +2496,42 @@ namespace settings {
         tr("settings.schema.services.calendar.description"), {"calendar", "enabled"},
         ToggleSetting{cfg.calendar.enabled}, "calendar events caldav google"
     ));
+    {
+      auto e = makeEntry(
+          SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-event-date-format.label"),
+          tr("settings.schema.services.calendar-event-date-format.description"),
+          {"control_center", "calendar", "event_date_format"},
+          TextSetting{
+              .value = cfg.controlCenter.calendarTab.eventDateFormat,
+              .placeholder = "%A %e %B",
+              .browseFileExtensions = {}
+          },
+          "calendar date format strftime chrono"
+      );
+      e.visibleWhen = calendarOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
+          SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-event-time-format.label"),
+          tr("settings.schema.services.calendar-event-time-format.description"),
+          {"control_center", "calendar", "event_time_format"},
+          TextSetting{
+              .value = cfg.controlCenter.calendarTab.eventTimeFormat, .placeholder = "%H:%M", .browseFileExtensions = {}
+          },
+          "calendar time format strftime chrono"
+      );
+      e.visibleWhen = calendarOn;
+      entries.push_back(std::move(e));
+    }
+    // Week numbers are a grid decoration, so they stay available when event syncing is off.
+    entries.push_back(makeEntry(
+        SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-week-numbers.label"),
+        tr("settings.schema.services.calendar-week-numbers.description"),
+        {"control_center", "calendar", "show_week_numbers"},
+        ToggleSetting{cfg.controlCenter.calendarTab.showWeekNumbers}, "calendar week numbers iso"
+    ));
+    // Sync cadence belongs with the accounts it drives; the account rows are injected right after it.
     {
       auto e = makeEntry(
           SettingsSection::Services, "calendar", tr("settings.schema.services.calendar-refresh-interval.label"),

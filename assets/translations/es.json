@@ -76,6 +76,7 @@
         "signal": "Señal",
         "upload": "Subida",
         "vpn": "VPN",
+        "wan-ip": "IP WAN",
         "wifi": "Wi-Fi",
         "wired": "Cable (Ethernet)",
         "yes": "Sí"
@@ -93,6 +94,10 @@
         "cpu": "CPU",
         "cpu-temp": "Temp. de CPU",
         "disk": "Disco",
+        "disk-free": "Disco disponible",
+        "disk-free-pct": "% Disco Disponible",
+        "disk-used": "Disco Usado",
+        "disk-used-pct": "% Disco Usado",
         "download": "Descarga",
         "gpu-temp": "Temp. de GPU",
         "gpu-usage": "Uso de GPU",
@@ -182,6 +187,7 @@
     },
     "bluetooth": {
       "accept": "Aceptar",
+      "address": "Direccion",
       "auto-reconnect": "Reconectar automáticamente",
       "bluetooth": "Bluetooth",
       "enter-code": "Ingrese el código",
@@ -462,10 +468,12 @@
         "command": "Comando",
         "custom-color": "Personalizado",
         "description": "Descripción",
+        "device": "Dispositivo",
         "display": "Pantalla",
         "display-gauge": "Medidor",
         "display-graph": "Gráfico",
         "fade-when-idle": "Atenuar cuando esté inactivo",
+        "fill-color": "Color de relleno",
         "font-family": "Fuente",
         "font-family-default": "Fuente del sistema por defecto",
         "forecast-days": "Días de previsión",
@@ -496,10 +504,12 @@
         "reset-defaults": "Restablecer valores por defecto",
         "ring-opacity": "Opacidad del anillo",
         "rotation-speed": "Velocidad de rotación",
+        "scroll-step": "Pasos de desplazamiento",
         "secondary-color": "Color Secundario",
         "sensitivity": "Sensibilidad",
         "shadow": "Sombra",
         "show-caps-lock": "Advertencia de Bloq Mayús",
+        "show-device": "Mostrar dispositivo",
         "show-forecast": "Mostrar previsión",
         "show-keyboard-layout": "Distribución de teclado",
         "show-label": "Mostrar Etiqueta",
@@ -538,10 +548,6 @@
         "wave-thickness": "Grosor de la Ola",
         "widget-section": "Widget"
       },
-      "state": {
-        "grid-off": "Rejilla desactivada",
-        "grid-on": "Rejilla activada"
-      },
       "title": "Widgets de Escritorio",
       "types": {
         "audio-visualizer": "Visualizador de Audio",
@@ -553,11 +559,17 @@
         "media-player": "Reproductor Multimedia",
         "sticker": "Pegatina",
         "system-monitor": "Monitor de sistema",
+        "volume": "Volumen",
         "weather": "Clima"
       }
     },
     "media": {
       "nothing-playing": "Nada reproduciéndose"
+    },
+    "volume": {
+      "mic": "Mic",
+      "muted": "Silenciado",
+      "volume": "Volumen"
     },
     "weather": {
       "error": "Error",
@@ -835,13 +847,17 @@
     },
     "calendar-accounts": {
       "add-title": "Agregar Cuenta de Calendario",
+      "calendars-label": "Calendarios",
       "color-label": "Color",
+      "credential-source-file": "Archivo de contraseña",
+      "credential-source-label": "Almacen de credenciales",
       "delete-error": "No se pudo eliminar la cuenta de calendario.",
       "edit-title": "Modificar Cuenta de Calendario",
       "id-label": "ID de la Cuenta",
       "invalid": "Revisa los campos resaltados de la cuenta del calendario.",
       "name-label": "Nombre mostrado",
       "name-placeholder": "Calendario Personal",
+      "password-file-label": "Archivo de contraseña",
       "password-keep-placeholder": "Deje vacío para mantener la contraseña actual",
       "password-label": "Clave de aplicación",
       "password-placeholder": "Contraseña específica de la aplicación",
@@ -1368,13 +1384,15 @@
         "delete-confirm-title": "¿Borrar \"{name}\"?",
         "deprecated": "obsoleto",
         "empty": "No hay plugins activados.",
+        "incompatible-plugin-api": "API de plugin incompatible",
         "loading": "Cargando plugins...",
         "refreshing": "Actualizando plugins...",
         "remove": "Eliminar plugin",
         "requires": "Requiere: {dependencies}",
         "title": "Plugins",
         "update-all": "Actualizar los ({count})",
-        "update-available": "actualizacion disponible"
+        "update-available": "actualizacion disponible",
+        "update-to": "actualizar a {version}"
       },
       "settings": {
         "empty": "No hay configuraciones disponibles."
@@ -1382,6 +1400,7 @@
       "sources": {
         "add": "Añadir fuente",
         "add-title": "Añadir fuente de plugin",
+        "auto-update": "Auto-actualizar plugins",
         "edit": "Editar fuente",
         "edit-title": "Editar fuente del plugin",
         "empty": "No hay fuentes configuradas.",
@@ -1414,8 +1433,12 @@
         "incompatible": "Incompatible",
         "loading": "Cargando catálogo...",
         "no-readme": "No hay descripción disponible.",
+        "open-page": "Abrir la pagina de plugins en noctalia.dev",
+        "open-source": "Abrir repositorio del plugin",
         "results-count": "{count} plugins",
         "search-placeholder": "Buscar plugins...",
+        "source-all": "Todos",
+        "sources": "Fuentes",
         "title": "Tienda de plugins"
       }
     },
@@ -2137,6 +2160,9 @@
           "description": "Usar iconos más pequeños y filas de resultados más compactas",
           "label": "Filas compactas"
         },
+        "launcher-global-calculator": {
+          "label": "Calculadora en la Busqueda Global"
+        },
         "launcher-reset-usage": {
           "button": "Restablecer",
           "description": "Borrar los conteos de lanzamiento y el historial de uso reciente usados para ordenar el lanzador",
@@ -2258,9 +2284,23 @@
           "description": "Añadir cuentas de iCloud, CalDAV o Google",
           "label": "Cuentas del calendario"
         },
+        "calendar-credentials": {
+          "description-locked": "Las credenciales del calendario estan bloqueadas o el acceso ha sido denegado. Desbloquee el Servicio Secreto y renintentelo",
+          "description-migration": "Las credenciales del calendario en texto plano se moverán al Servicio Secreto. No se usaran para sincronizar el calendario.",
+          "description-opening": "Las credenciales del calendario se usan con el Servicio Secreto",
+          "label": "Almacenamiento de las credenciales del Calendario"
+        },
         "calendar-edit": {
           "button": "Editar",
           "description": "Actualizar esta cuenta de calendario"
+        },
+        "calendar-event-date-format": {
+          "description": "El formato de la fecha mostrada en el panel de los eventos para la fecha seleccionada",
+          "label": "Formato fecha Eventos"
+        },
+        "calendar-event-time-format": {
+          "description": "El formato de la hora mostrado para eventos del calendario",
+          "label": "Formato Hora para Eventos"
         },
         "calendar-refresh-interval": {
           "description": "Con qué frecuencia sincronizar los eventos del calendario (minutos)",
@@ -2527,6 +2567,12 @@
           "description": "Opacidad de fondo de las ventanas emergentes OSD",
           "label": "Opacidad del fondo"
         },
+        "osd-border": {
+          "label": "Borde"
+        },
+        "osd-enabled": {
+          "label": "Habilitar OSD"
+        },
         "osd-kinds-bluetooth": {
           "description": "Mostrar una ventana emergente OSD al alternar el Bluetooth",
           "label": "Bluetooth"
@@ -2673,6 +2719,9 @@
         "screenshot-save-to-file": {
           "description": "Escribir las capturas de pantalla como archivos PNG en el directorio de salida",
           "label": "Guardar en archivo"
+        },
+        "screenshot-show-cursor": {
+          "label": "Mostrar Cursor"
         },
         "show-location": {
           "description": "Mostrar el nombre de la ubicacion en el widget del pronóstico",
@@ -2838,12 +2887,16 @@
         "ram": "RAM",
         "temp": "Temperatura"
       },
+      "map-placeholders": {
+        "effects-profile-name": "Nombre de perfil",
+        "label": "Etiqueta",
+        "value": "Valor"
+      },
       "options": {
         "always": "Siempre",
         "auto": "Auto",
         "cpu-temp": "Temperatura de la CPU",
         "cpu-usage": "Uso de la CPU",
-        "disk-percent": "Porcentaje de disco",
         "full": "Lleno",
         "gauge": "Gauge",
         "glyph": "Glifo",
@@ -2866,8 +2919,10 @@
         "none": "Ninguno",
         "on-hover": "Al pasar el cursor",
         "output": "Salida",
+        "percent": "Porcentaje",
         "ram-percent": "Porcentaje de RAM",
         "ram-used": "RAM usada",
+        "rate": "Ratio",
         "regular": "Regular",
         "screenshot-primary-fullscreen": "Pantalla completa",
         "screenshot-primary-region": "Región",
@@ -3013,6 +3068,9 @@
         "empty-color": {
           "description": "Rol de color usado para espacios de trabajo vacíos; también se admiten colores hexadecimales fijos",
           "label": "Color vacío"
+        },
+        "enable-scroll": {
+          "label": "Habilitar scroll"
         },
         "focused-color": {
           "description": "Rol de color usado para el espacio de trabajo enfocado; también se admiten colores hexadecimales fijos",
@@ -3299,6 +3357,9 @@
           "description": "Mostrar el texto de temperatura actual",
           "label": "Mostrar temperatura"
         },
+        "show-vpn-label": {
+          "label": "Mostrar etiqueta VPN"
+        },
         "show-when-idle": {
           "description": "Mantener el visualizador visible incluso cuando no se reproduzca ningún medio",
           "label": "Mostrar en inactividad"
@@ -3322,6 +3383,12 @@
           "description": "Presupuesto de ancho total en píxeles; los títulos de ventana se reducen para ajustarse y se ocultan cuando son demasiado estrechos",
           "label": "Ancho máximo de la barra de tareas"
         },
+        "text": {
+          "label": "Texto"
+        },
+        "timezone": {
+          "label": "Zona horaria"
+        },
         "title-scroll": {
           "description": "Cuándo debe desplazarse el título del widget",
           "label": "Desplazamiento del título"
@@ -3337,6 +3404,9 @@
         "type": {
           "description": "Tipo de widget integrado para este widget con nombre",
           "label": "Tipo"
+        },
+        "urgent-color": {
+          "label": "Color URGENTE"
         },
         "vertical-format": {
           "description": "Formato opcional usado en barras verticales",
@@ -3391,6 +3461,7 @@
         "sysmon": "Monitor de sistema",
         "taskbar": "Barra de tareas",
         "test": "Prueba",
+        "text": "Texto",
         "theme-mode": "Modo de tema",
         "tray": "Tray",
         "volume": "Volumen",
@@ -3402,7 +3473,6 @@
     "window": {
       "export-config": "Exportar configuración...",
       "export-config-saved": "Exportación de configuración guardada.",
-      "filter-modified": "Modificado",
       "native-title": "Ajustes de Noctalia",
       "no-results": "Ajustes no encontrados.",
       "no-results-hint": "Prueba con otro nombre de configuración o clave de config.",
@@ -3474,8 +3544,10 @@
       "day": "{count} día",
       "day-plural": "{count} días",
       "hour": "{count} hora",
+      "hour-compact": "{count}h",
       "hour-plural": "{count} horas",
       "minute": "{count} minuto",
+      "minute-compact": "{count}m",
       "minute-plural": "{count} minutos",
       "month": "{count} mes",
       "month-plural": "{count} meses",

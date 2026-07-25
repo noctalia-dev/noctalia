@@ -12,7 +12,15 @@ struct wl_output;
 
 class ControlCenterWidget : public Widget {
 public:
-  ControlCenterWidget(wl_output* output, std::string barGlyphId, WidgetCustomImage customImage = {});
+  struct Options {
+    std::string glyph = "noctalia";
+    std::string customImage;
+    bool customImageColorize = false;
+
+    bool operator==(const Options&) const = default;
+  };
+
+  ControlCenterWidget(wl_output* output, Options options);
 
   void create() override;
 

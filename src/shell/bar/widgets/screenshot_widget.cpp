@@ -109,12 +109,14 @@ namespace {
 } // namespace
 
 ScreenshotWidget::ScreenshotWidget(
-    wl_output* output, std::string barGlyphId, ScreenshotService& screenshots, ConfigService& configService,
-    CompositorPlatform& platform, RenderContext& renderContext, std::string barPosition, WidgetCustomImage customImage
+    wl_output* output, ScreenshotService& screenshots, ConfigService& configService, CompositorPlatform& platform,
+    RenderContext& renderContext, std::string barPosition, Options options
 )
-    : m_barGlyphId(std::move(barGlyphId)), m_output(output), m_screenshots(screenshots), m_configService(configService),
-      m_platform(platform), m_renderContext(renderContext), m_barPosition(std::move(barPosition)),
-      m_customImage(std::move(customImage)) {}
+    : m_barGlyphId(std::move(options.glyph)), m_output(output), m_screenshots(screenshots),
+      m_configService(configService), m_platform(platform), m_renderContext(renderContext),
+      m_barPosition(std::move(barPosition)),
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
+      m_primaryClick(options.primaryClick) {}
 
 ScreenshotWidget::~ScreenshotWidget() = default;
 
@@ -153,7 +155,7 @@ void ScreenshotWidget::create() {
     area->addChild(
         ui::glyph({
             .out = &m_glyph,
-            .glyph = m_barGlyphId.empty() ? "screenshot" : m_barGlyphId,
+            .glyph = m_barGlyphId,
             .glyphSize = Style::baseGlyphSize * m_contentScale,
             .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
         })
@@ -188,16 +190,7 @@ ScreenshotService::OutputOptions ScreenshotWidget::outputOptions() const {
   return ScreenshotService::outputOptionsFromConfig(m_configService.config());
 }
 
-bool ScreenshotWidget::primaryClickIsFullscreen() const {
-  if (configName().empty()) {
-    return false;
-  }
-  const auto it = m_configService.config().widgets.find(std::string(configName()));
-  if (it == m_configService.config().widgets.end()) {
-    return false;
-  }
-  return it->second.getString("primary_click", "region") == "fullscreen";
-}
+bool ScreenshotWidget::primaryClickIsFullscreen() const { return m_primaryClick == PrimaryClick::Fullscreen; }
 
 void ScreenshotWidget::runPrimaryClickAction() {
   if (!m_screenshots.available()) {

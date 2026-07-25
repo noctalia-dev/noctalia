@@ -13,7 +13,7 @@
 
 namespace {
 
-  // Cheap pre-filter: the provider runs on every keystroke with an empty prefix,
+  // Cheap pre-filter: the provider participates in global search on every keystroke,
   // so reject anything without a digit to avoid evaluating plain search text
   // (e.g. "firefox"). Letters/spaces are kept so unit and currency conversions
   // like "10 cm to in" or "5 USD to EUR" still reach libqalculate.
@@ -100,7 +100,17 @@ void MathProvider::refreshExchangeRates() {
 }
 
 std::vector<LauncherResult> MathProvider::query(std::string_view text) const {
-  if (!m_calc || !looksLikeMath(text)) {
+  if (!looksLikeMath(text)) {
+    return {};
+  }
+  return evaluate(text);
+}
+
+std::vector<LauncherResult> MathProvider::queryPrefixed(std::string_view text) const { return evaluate(text); }
+
+std::vector<LauncherResult> MathProvider::evaluate(std::string_view text) const {
+  std::string input = trimmed(text);
+  if (!m_calc || input.empty()) {
     return {};
   }
 
@@ -113,7 +123,6 @@ std::vector<LauncherResult> MathProvider::query(std::string_view text) const {
   // Collapse interval arithmetic to a single rounded value instead of "interval(a, b)".
   po.interval_display = INTERVAL_DISPLAY_SIGNIFICANT_DIGITS;
 
-  std::string input = trimmed(text);
   std::string output = m_calc->calculateAndPrint(input, /*msecs=*/200, eo, po);
 
   bool hadError = false;

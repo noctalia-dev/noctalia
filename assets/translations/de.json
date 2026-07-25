@@ -540,10 +540,6 @@
         "wave-thickness": "Wellenstärke",
         "widget-section": "Widget"
       },
-      "state": {
-        "grid-off": "Raster aus",
-        "grid-on": "Raster an"
-      },
       "title": "Desktop-Widgets",
       "types": {
         "audio-visualizer": "Audio-Visualizer",
@@ -2175,8 +2171,8 @@
           "label": "Schwebender Abstand"
         },
         "home-shortcuts": {
-          "description": "Wähle bis zu sechs Schnelleinstellungen für den Start-Tab",
-          "label": "Start-Schnelleinstellungen"
+          "description": "Wähle bis zu sechs Shortcuts für den Start-Tab",
+          "label": "Start-Shortcuts"
         },
         "launcher-app-grid": {
           "description": "Zeige ein Raster von App-Icons mit Beschriftungen darunter, wenn die Ergebnisse ausschließlich Apps sind",
@@ -2347,6 +2343,10 @@
         "session-grid-columns": {
           "description": "Anzahl der Spalten für das Rasterlayout",
           "label": "Spalten"
+        },
+        "session-show-shortcuts": {
+          "description": "Zeige Shortcut-Hinweise an oder blende sie aus",
+          "label": "Shortcuts anzeigen"
         }
       },
       "services": {
@@ -2579,7 +2579,7 @@
           "label": "Automatisches Einfügen aus Zwischenablage"
         },
         "clipboard-confirm-clear-history": {
-          "description": "Frage nach, bevor der Zwischenablage-Verlauf gelöscht oder ein nicht angepinnter Eintrag aus dem Panel entfernt wird; wenn deaktiviert, werden diese Aktionen sofort ausgeführt (angeheftete Einträge fragen weiterhin vor dem Löschen)",
+          "description": "Frage nach, bevor der Zwischenablage-Verlauf gelöscht oder ein nicht angehefteter Eintrag aus dem Panel entfernt wird; wenn deaktiviert, werden diese Aktionen sofort ausgeführt (angeheftete Einträge fragen weiterhin vor dem Löschen)",
           "label": "Verlauf löschen bestätigen"
         },
         "clipboard-enabled": {
@@ -2613,11 +2613,12 @@
         },
         "launch-apps-as-systemd-services": {
           "description": "Startet Anwendungen in separaten systemd-Diensten, damit sie sich keine cgroup mit Noctalia teilen",
-          "label": "Apps als systemd-Dienste starten"
+          "label": "Apps als systemd-Dienste starten",
+          "requires-systemd-session": "Erfordert, dass Noctalia als systemd-Benutzerdienst ausgeführt wird (uwsm oder eine systemd-Benutzereinheit)"
         },
         "launch-apps-custom-command": {
-          "description": "Benutzerdefinierter Befehl für den App-Launcher; ersetzt $CMD durch den ursprünglichen Befehl",
-          "label": "Benutzerdefinierter Launcher-Befehl",
+          "description": "Wird für Apps verwendet, die vom Launcher, Dock und der Taskleiste gestartet werden; ersetzt $CMD durch den ursprünglichen Befehl",
+          "label": "Benutzerdefinierter App-Startbefehl",
           "placeholder": "$CMD"
         },
         "middle-click-opens-widget-settings": {
@@ -2966,15 +2967,16 @@
       "map-placeholders": {
         "effects-profile-name": "Profilname",
         "glyph-name": "Symbolname",
+        "key": "Key",
         "label": "Beschriftung",
-        "layout-name": "Layoutname"
+        "layout-name": "Layoutname",
+        "value": "Wert"
       },
       "options": {
         "always": "Immer",
         "auto": "Auto",
         "cpu-temp": "CPU-Temperatur",
         "cpu-usage": "CPU-Auslastung",
-        "disk-percent": "Festplatte (Prozent)",
         "focus-hint": "Fokushinweis",
         "full": "Vollständig",
         "gauge": "Gauge",
@@ -2998,8 +3000,10 @@
         "none": "Keine",
         "on-hover": "Beim Hovern",
         "output": "Ausgabe",
+        "percent": "Prozent",
         "ram-percent": "RAM (Prozent)",
         "ram-used": "RAM verwendet",
+        "rate": "Rate",
         "regular": "Regulär",
         "screenshot-primary-fullscreen": "Vollbild",
         "screenshot-primary-region": "Bereich",
@@ -3008,6 +3012,7 @@
         "swap-percent": "Swap in Prozent",
         "text": "Text",
         "text-only": "Nur Text",
+        "time": "Zeit",
         "workspace-label-centered": "Zentriert",
         "workspace-label-corner": "Ecke",
         "workspace-label-inside": "Innerhalb der Pill"
@@ -3131,7 +3136,7 @@
           "label": "Anzeige"
         },
         "display-mode": {
-          "description": "Stelle den Akku als grafische Form oder als Tabler-Icon dar",
+          "description": "Stelle den Akku als grafische Form, Tabler-Icon oder nur als Beschriftung dar",
           "label": "Anzeigemodus"
         },
         "drawer": {
@@ -3296,6 +3301,10 @@
           "description": "Optionaler statischer Text, der auf diesem Button angezeigt wird",
           "label": "Beschriftung"
         },
+        "label-content": {
+          "description": "Was die Akkubeschriftung anzeigt: Ladestand in Prozent, verbleibende Zeit oder Leistungsaufnahme",
+          "label": "Beschriftungsinhalt"
+        },
         "label-min-width": {
           "description": "Minimale Beschriftungsbreite in Pixeln, um Größenänderungen zu vermeiden",
           "label": "Minimale Beschriftungsbreite"
@@ -3378,7 +3387,13 @@
         },
         "pinned": {
           "description": "Tray-Element-IDs, die in der Leiste sichtbar bleiben, wenn der Drawer-Modus aktiviert ist",
-          "label": "Angeheftete Elemente"
+          "label": "Angeheftete Elemente",
+          "taskbar-description": "Desktop-Apps, die in der Taskleiste bleiben, wenn sie nicht ausgeführt werden; wird ignoriert, solange „Gruppierung nach Arbeitsbereich“ aktiviert ist",
+          "taskbar-label": "Angeheftete Apps"
+        },
+        "pinned-opacity": {
+          "description": "Deckkraft von angehefteten Apps, die derzeit nicht ausgeführt werden",
+          "label": "Deckkraft angehefteter Apps"
         },
         "primary-click": {
           "description": "Aktion, die bei Linksklick auf den Leisten-Button ausgeführt wird",
@@ -3574,7 +3589,6 @@
     "window": {
       "export-config": "Konfiguration exportieren…",
       "export-config-saved": "Konfigurationsexport gespeichert.",
-      "filter-modified": "Geändert",
       "legacy-config-warning": "Veraltete Konfiguration wird im Arbeitsspeicher migriert: {issue}. Führe noctalia config validate aus, um alle erforderlichen Änderungen zu sehen.",
       "native-title": "Noctalia-Einstellungen",
       "no-results": "Keine Einstellungen gefunden",
@@ -3647,8 +3661,10 @@
       "day": "{count} Tag",
       "day-plural": "{count} Tage",
       "hour": "{count} Stunde",
+      "hour-compact": "{count}h",
       "hour-plural": "{count} Stunden",
       "minute": "{count} Minute",
+      "minute-compact": "{count}m",
       "minute-plural": "{count} Minuten",
       "month": "{count} Monat",
       "month-plural": "{count} Monate",

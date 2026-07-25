@@ -10,7 +10,13 @@ class PowerProfilesService;
 
 class PowerProfileWidget : public Widget {
 public:
-  explicit PowerProfileWidget(PowerProfilesService* powerProfiles, bool enableScroll = true);
+  struct Options {
+    bool enableScroll = true;
+
+    bool operator==(const Options&) const = default;
+  };
+
+  explicit PowerProfileWidget(PowerProfilesService* powerProfiles, Options options);
 
   void create() override;
 

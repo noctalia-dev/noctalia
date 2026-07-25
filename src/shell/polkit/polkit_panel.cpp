@@ -20,6 +20,7 @@
 #include <cctype>
 #include <cmath>
 #include <memory>
+#include <string>
 
 namespace {
 
@@ -209,7 +210,13 @@ void PolkitPanel::create() {
           .placeholder = i18n::tr("auth.polkit.password-placeholder"),
           .passwordMode = true,
           .surfaceOpacity = panelCardOpacity(),
-          .onSubmit = [this](const std::string&) { submit(); },
+          .onChange =
+              [this](const std::string& value) {
+                if (m_submitButton != nullptr) {
+                  m_submitButton->setEnabled(m_lastResponseRequired && !value.empty());
+                }
+              },
+          .onSubmit = [this](const std::string& value) { submit(value); },
           .onKeyEvent =
               [this](std::uint32_t sym, std::uint32_t modifiers) { return handleInputKeyEvent(sym, modifiers); },
       }),
@@ -231,7 +238,11 @@ void PolkitPanel::create() {
               .out = &m_cancelButton,
               .text = i18n::tr("common.actions.cancel"),
               .variant = ButtonVariant::Outline,
-              .onClick = []() { PanelManager::instance().close(); },
+              .onClick =
+                  [this]() {
+                    cancelAuth();
+                    PanelManager::instance().close();
+                  },
           }),
           ui::button({
               .out = &m_submitButton,
@@ -254,11 +265,11 @@ void PolkitPanel::onOpen(std::string_view /*context*/) {
 }
 
 void PolkitPanel::onClose() {
-  if (PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr; agent != nullptr) {
-    if (agent->hasPendingRequest()) {
-      agent->cancelRequest();
-    }
-  }
+  // Do not cancelAuth() here. Auto-close after a successful auth races with
+  // chained polkit actions (e.g. pkexec install then systemd enable): a follow-up
+  // BeginAuthentication can land before teardown finishes, and canceling it
+  // produces pam_unix "conversation failed" / empty-password failures.
+  // User dismiss goes through cancelAuth() (Cancel button / Escape).
   m_lastResponseRequired = false;
   clearReleasedRoot();
 
@@ -274,6 +285,22 @@ void PolkitPanel::onClose() {
   m_iconContainer = nullptr;
   m_icon = nullptr;
   m_fallbackIcon = nullptr;
+}
+
+void PolkitPanel::cancelAuth() {
+  PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
+  if (agent != nullptr && agent->hasPendingRequest()) {
+    agent->cancelRequest();
+  }
+}
+
+bool PolkitPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool /*preedit*/) {
+  if (!pressed || !KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
+    return false;
+  }
+  cancelAuth();
+  PanelManager::instance().close();
+  return true;
 }
 
 InputArea* PolkitPanel::initialFocusArea() const {
@@ -341,7 +368,7 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
   m_supplementaryLabel->setVisible(!supplementaryText.empty());
   m_supplementaryLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
   m_input->setVisible(needsInput);
-  m_submitButton->setEnabled(needsInput);
+  m_submitButton->setEnabled(needsInput && !m_input->value().empty());
   if (needsInput && !m_lastResponseRequired) {
     if (auto* manager = PanelManager::current(); manager != nullptr && manager->isOpenPanel("polkit")) {
       manager->focusArea(m_input->inputArea());
@@ -387,12 +414,16 @@ void PolkitPanel::resolveIcon(Renderer& renderer, const PolkitRequest& request) 
   m_fallbackIcon->setVisible(true);
 }
 
-void PolkitPanel::submit() {
+void PolkitPanel::submit(std::string_view response) {
   PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
   if (agent == nullptr || m_input == nullptr) {
     return;
   }
-  agent->submitResponse(m_input->value());
+  const std::string password = response.empty() ? m_input->value() : std::string(response);
+  if (password.empty()) {
+    return;
+  }
+  agent->submitResponse(password);
   m_input->setValue("");
 }
 

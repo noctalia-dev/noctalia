@@ -134,6 +134,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
   });
 
   m_rangeDays = 1;
+  m_detailDayKey.clear();
   tab->addChild(
       ui::segmented({
           .out = &m_rangePicker,
@@ -151,10 +152,37 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
           .onChange = [this](std::size_t idx) {
             static constexpr int kRanges[] = {1, 3, 14};
             const int nextRange = kRanges[std::min(idx, std::size_t{2})];
+            m_detailDayKey.clear();
             m_lastSnapshotKey.clear();
             beginRangeSlideOut(nextRange);
           },
       })
+  );
+
+  tab->addChild(
+      ui::row(
+          {
+              .out = &m_detailBar,
+              .align = FlexAlign::Center,
+              .justify = FlexJustify::Start,
+              .gap = Style::spaceSm * scale,
+              .fillWidth = true,
+              .visible = false,
+          },
+          ui::button({
+              .out = &m_detailBackButton,
+              .text = i18n::tr("control-center.screen-time.back"),
+              .variant = ButtonVariant::Outline,
+              .onClick = [this]() { clearDayDetail(); },
+          }),
+          ui::label({
+              .out = &m_detailTitle,
+              .fontSize = Style::fontSizeBody * scale,
+              .fontWeight = FontWeight::Medium,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+              .flexGrow = 1.0f,
+          })
+      )
   );
 
   auto scroll = ui::scrollView({
@@ -217,7 +245,8 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
       .fillWidth = true,
   });
 
-  for (auto& bucketColumn : m_bucketColumns) {
+  for (std::size_t bucketIndex = 0; bucketIndex < m_bucketColumns.size(); ++bucketIndex) {
+    auto& bucketColumn = m_bucketColumns[bucketIndex];
     auto plotColumn = ui::column({
         .out = &bucketColumn.plotColumn,
         .align = FlexAlign::Stretch,
@@ -247,6 +276,7 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
       auto hitArea = std::make_unique<InputArea>();
       hitArea->setParticipatesInLayout(false);
       hitArea->setVisible(false);
+      hitArea->setOnClick([this, bucketIndex](const InputArea::PointerData&) { openDayDetail(bucketIndex); });
 
       auto segment = ui::box({
           .radius = 0.0f,
@@ -273,11 +303,12 @@ std::unique_ptr<Flex> ScreenTimeTab::create() {
             .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
             .flexGrow = 1.0f,
             .visible = false,
-            .configure = [this](Label& label) {
+            .configure = [this, bucketIndex](Label& label) {
               label.setTextAlign(TextAlign::Center);
               const auto requestHoverRedraw = [this]() { PanelManager::instance().requestRedraw(); };
               label.setOnEnter([requestHoverRedraw](const InputArea::PointerData&) { requestHoverRedraw(); });
               label.setOnLeave(requestHoverRedraw);
+              label.setOnClick([this, bucketIndex](const InputArea::PointerData&) { openDayDetail(bucketIndex); });
             },
         })
     );
@@ -471,10 +502,11 @@ void ScreenTimeTab::applyRangeSlide(float progress, bool slidingIn) {
 }
 
 void ScreenTimeTab::beginRangeSlideOut(int nextRangeDays) {
-  if (nextRangeDays == m_rangeDays) {
+  if (nextRangeDays == m_rangeDays && m_detailDayKey.empty()) {
     return;
   }
 
+  m_detailDayKey.clear();
   cancelRangeSlide();
 
   AnimationManager* animations = m_root != nullptr ? m_root->animationManager() : nullptr;
@@ -532,9 +564,13 @@ void ScreenTimeTab::beginRangeSlideIn() {
 }
 
 void ScreenTimeTab::onClose() {
+  cancelRangeSlide();
   m_root = nullptr;
   m_scroll = nullptr;
   m_usageCard = nullptr;
+  m_detailBar = nullptr;
+  m_detailTitle = nullptr;
+  m_detailBackButton = nullptr;
   m_disabledLabel = nullptr;
   m_rangePicker = nullptr;
   m_chartPlotRow = nullptr;
@@ -546,6 +582,8 @@ void ScreenTimeTab::onClose() {
   m_bucketColumns = {};
   m_appRows = {};
   m_appGridRows = {};
+  m_bucketDayKeys.clear();
+  m_detailDayKey.clear();
   m_lastSnapshotKey.clear();
   m_rangeDays = 1;
   m_paletteConn = {};
@@ -561,12 +599,16 @@ void ScreenTimeTab::setActive(bool active) {
 
 void ScreenTimeTab::syncEnabledUi() {
   const bool enabled = m_screenTime != nullptr && m_screenTime->enabled();
+  const bool inDetail = !m_detailDayKey.empty();
   if (m_disabledLabel != nullptr) {
     m_disabledLabel->setVisible(!enabled);
   }
   const bool showUsage = enabled;
   if (m_rangePicker != nullptr) {
-    m_rangePicker->setVisible(showUsage);
+    m_rangePicker->setVisible(showUsage && !inDetail);
+  }
+  if (m_detailBar != nullptr) {
+    m_detailBar->setVisible(showUsage && inDetail);
   }
   if (m_totalLabel != nullptr) {
     m_totalLabel->setVisible(showUsage);
@@ -682,13 +724,20 @@ void ScreenTimeTab::syncContent(Renderer& renderer) {
     return;
   }
 
-  ScreenTimeSnapshot snapshot = m_screenTime->snapshot(m_rangeDays);
+  ScreenTimeSnapshot snapshot =
+      !m_detailDayKey.empty() ? m_screenTime->snapshotForDay(m_detailDayKey) : m_screenTime->snapshot(m_rangeDays);
   assignSnapshotColors(snapshot);
-  const std::string key = snapshotKey(m_rangeDays, snapshot);
+  m_bucketDayKeys = snapshot.bucketDayKeys;
+  const std::string key = snapshotKey(m_rangeDays, snapshot) + '|' + m_detailDayKey;
   if (key == m_lastSnapshotKey) {
     return;
   }
   m_lastSnapshotKey = key;
+
+  syncEnabledUi();
+  if (m_detailTitle != nullptr) {
+    m_detailTitle->setText(m_detailDayKey.empty() ? std::string{} : ScreenTimeService::dayDisplayName(m_detailDayKey));
+  }
 
   m_totalLabel->setText(formatDuration(snapshot.total));
 
@@ -754,7 +803,9 @@ void ScreenTimeTab::syncContent(Renderer& renderer) {
         columnWidgets.label->setText(snapshot.bucketLabels[bucket]);
         columnWidgets.label->setVisible(true);
         const auto dayTotal = bucket < snapshot.buckets.size() ? snapshot.buckets[bucket] : std::chrono::seconds{0};
-        columnWidgets.label->setTooltip(appUsageTooltip(snapshot.bucketLabels[bucket], dayTotal));
+        auto tip = appUsageTooltip(snapshot.bucketLabels[bucket], dayTotal);
+        tip.push_back({.key = i18n::tr("control-center.screen-time.view-day"), .value = {}});
+        columnWidgets.label->setTooltip(std::move(tip));
       } else {
         columnWidgets.label->setVisible(false);
         columnWidgets.label->clearTooltip();
@@ -984,7 +1035,7 @@ void ScreenTimeTab::layoutChart(Renderer& renderer) {
 }
 
 void ScreenTimeTab::syncDayLabelHover() {
-  if (m_rangeDays <= 1) {
+  if (m_rangeDays <= 1 || !m_detailDayKey.empty()) {
     return;
   }
 
@@ -997,6 +1048,28 @@ void ScreenTimeTab::syncDayLabelHover() {
                                        : colorSpecFromRole(ColorRole::OnSurfaceVariant)
     );
   }
+}
+
+void ScreenTimeTab::openDayDetail(std::size_t bucketIndex) {
+  if (!m_detailDayKey.empty() || bucketIndex >= m_bucketDayKeys.size()) {
+    return;
+  }
+  const std::string& dayKey = m_bucketDayKeys[bucketIndex];
+  if (dayKey.empty()) {
+    return;
+  }
+  m_detailDayKey = dayKey;
+  m_lastSnapshotKey.clear();
+  PanelManager::instance().refresh();
+}
+
+void ScreenTimeTab::clearDayDetail() {
+  if (m_detailDayKey.empty()) {
+    return;
+  }
+  m_detailDayKey.clear();
+  m_lastSnapshotKey.clear();
+  PanelManager::instance().refresh();
 }
 
 void ScreenTimeTab::layoutAppRows(Renderer& renderer) {

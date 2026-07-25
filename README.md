@@ -83,10 +83,11 @@ Noctalia is a desktop shell, not a full desktop environment. It provides the vis
 Wayland compositor: bars, panels, launcher, notifications, dock, lock screen, idle behavior, OSDs, theming, wallpapers,
 desktop widgets, and multi-monitor shell surfaces.
 
-Window management, tiling, file management, removable-drive mounting, and screen mirroring/casting belong to the
-compositor, dedicated desktop applications, or system services. Display/login greeter support lives in the separate
-[Noctalia Greeter](https://github.com/noctalia-dev/noctalia-greeter) project. Noctalia may integrate with those pieces
-when useful, but it does not replace them.
+Window management, tiling, file management, removable-drive mounting, printers management and screen mirroring/casting
+belong to the compositor, dedicated desktop applications, or system services.
+
+Display/login greeter support lives in the separate [Noctalia Greeter](https://github.com/noctalia-dev/noctalia-greeter)
+project. Noctalia may integrate with those pieces when useful, but it does not replace them.
 
 The plugin system is available for user-installed extensions. Features that are useful to some users but not essential
 to the core shell can live there: extra bar widgets, launcher providers, desktop widgets, panels, shortcuts, background
@@ -204,6 +205,10 @@ and daemon into separate packages, make sure you have both installed.
 Credential and encrypted-state persistence requires a Secret Service provider at runtime, such as GNOME Keyring,
 KWallet, or KeePassXC. `libsecret` is the client library and does not provide the session service by itself. Noctalia
 continues to run when no provider is available, but features requiring durable secrets cannot persist them.
+CalDAV accounts may instead read their password from one explicitly configured regular file, which supports secret
+provisioners such as agenix and sops-nix without installing a Secret Service provider. Google refresh tokens and
+other writable credentials still require Secret Service. Encrypted state, including clipboard history and the calendar
+event cache, may instead read one storage master key from an explicitly configured file.
 
 `jemalloc` is recommended but optional. It reduces memory fragmentation in long-running sessions, and on glibc systems
 it is used automatically when detected. Use Meson's `-Djemalloc=enabled` or `-Djemalloc=disabled` option to require or

@@ -10,10 +10,16 @@ struct wl_output;
 
 class ClockWidget : public Widget {
 public:
-  ClockWidget(
-      wl_output* output, std::string format = "{:%H:%M}", std::string verticalFormat = "",
-      std::string tooltipFormat = "", std::string tzName = ""
-  );
+  struct Options {
+    std::string format = "{:%H:%M}";
+    std::string verticalFormat;
+    std::string tooltipFormat;
+    std::string timezone;
+
+    bool operator==(const Options&) const = default;
+  };
+
+  ClockWidget(wl_output* output, Options options);
 
   void create() override;
 

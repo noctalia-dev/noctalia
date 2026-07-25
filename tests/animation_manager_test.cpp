@@ -34,7 +34,8 @@ int main() {
     float value = 0.0f;
     bool completed = false;
     const auto id = manager.animate(
-        0.0f, 10.0f, 200.0f, Easing::Linear, [&value](float v) { value = v; }, [&completed]() { completed = true; });
+        0.0f, 10.0f, 200.0f, Easing::Linear, [&value](float v) { value = v; }, [&completed]() { completed = true; }
+    );
 
     ok &= check(id != 0, "reduced-motion animation with completion should remain cancellable");
     ok &= check(nearlyEqual(value, 10.0f), "reduced-motion animation did not snap to target");
@@ -54,7 +55,8 @@ int main() {
     float value = 0.0f;
     bool completed = false;
     const auto id = manager.animate(
-        0.0f, 10.0f, 1000.0f, Easing::Linear, [&value](float v) { value = v; }, [&completed]() { completed = true; });
+        0.0f, 10.0f, 1000.0f, Easing::Linear, [&value](float v) { value = v; }, [&completed]() { completed = true; }
+    );
 
     ok &= check(id != 0, "normal animation did not start");
 
@@ -78,7 +80,8 @@ int main() {
     float value = -1.0f;
     bool completed = false;
     const auto id = manager.animateTimer(
-        1.0f, 0.0f, 1000.0f, Easing::Linear, [&value](float v) { value = v; }, [&completed]() { completed = true; });
+        1.0f, 0.0f, 1000.0f, Easing::Linear, [&value](float v) { value = v; }, [&completed]() { completed = true; }
+    );
 
     ok &= check(id != 0, "timer animation did not start while motion was disabled");
     ok &= check(nearlyEqual(value, -1.0f), "timer animation snapped when motion was disabled");

@@ -5,6 +5,7 @@
 #include "render/scene/input_dispatcher.h"
 #include "shell/panel/attached_panel_context.h"
 #include "shell/panel/panel_click_shield.h"
+#include "shell/panel/persistent_panel_host.h"
 #include "ui/dialogs/layer_popup_host.h"
 #include "wayland/hyprland/popup_grab_host.h"
 
@@ -120,6 +121,11 @@ public:
   void clearActivePopup();
 
   void refresh();
+  // Refresh a single panel by id, whichever host owns it. Used by content that
+  // knows which panel it belongs to (e.g. a plugin panel's new UI tree).
+  void refreshPanel(std::string_view panelId);
+  // Close a panel by id, whichever host owns it.
+  void closePanelById(std::string_view panelId);
   // Reacts to a ConfigService reload while a panel is open: re-pulls the host bar's
   // per-panel-relevant config (attached background opacity), styling, and compositor
   // blur region. No-op when no panel is open.
@@ -188,6 +194,7 @@ private:
   std::function<std::optional<std::string>(wl_output*, std::string_view)> m_attachedPanelLayerProvider;
   std::function<bool(wl_output*, std::string_view)> m_attachedPanelBarSettledCallback;
   PanelClickShield m_clickShield;
+  PersistentPanelHost m_persistentHost;
   std::unique_ptr<FocusGrab> m_focusGrab;
 
   std::unique_ptr<Surface> m_surface;

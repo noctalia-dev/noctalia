@@ -14,11 +14,25 @@ class Spinner;
 class SystemMonitorService;
 struct wl_output;
 
+enum class VpnStatusMode : std::uint8_t {
+  Both,    // Show VPN icon next to network icon
+  Replace, // Replace network icon with VPN icon when active
+  Hidden,  // Don't show VPN icon
+};
+
 class NetworkWidget : public Widget {
 public:
+  struct Options {
+    VpnStatusMode vpnStatusMode = VpnStatusMode::Replace;
+    bool showLabel = true;
+    bool showVpnLabel = false;
+
+    bool operator==(const Options&) const = default;
+  };
+
   NetworkWidget(
       INetworkService* network, ExternalIpService* externalIp, SystemMonitorService* monitor, wl_output* output,
-      bool showLabel, bool showVpnLabel
+      Options options
   );
 
   void create() override;
@@ -34,9 +48,12 @@ private:
   SystemMonitorService* m_monitor = nullptr;
   bool m_showLabel = true;
   bool m_showVpnLabel = false;
+  VpnStatusMode m_vpnStatusMode = VpnStatusMode::Replace;
   Glyph* m_glyph = nullptr;
+  Glyph* m_vpnGlyph = nullptr;
   Spinner* m_spinner = nullptr;
   Label* m_label = nullptr;
+  Label* m_vpnLabel = nullptr;
   NetworkState m_lastState;
   bool m_haveLastState = false;
   bool m_isVertical = false;

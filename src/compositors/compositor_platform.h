@@ -216,5 +216,6 @@ private:
   std::unique_ptr<compositors::kde::KwinActiveWindow> m_kwinActiveWindow;
   std::unique_ptr<OutputProbe> m_outputProbe;
   std::vector<WorkspaceModelSnapshot> m_lastWorkspaceModelSnapshot;
+  std::optional<std::string> m_lastFocusedCompositorWindowId;
   bool m_initialized = false;
 };

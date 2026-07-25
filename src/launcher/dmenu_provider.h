@@ -18,6 +18,7 @@ public:
   [[nodiscard]] std::string displayName() const override;
   [[nodiscard]] std::string_view defaultGlyphName() const override { return m_glyph; }
   [[nodiscard]] bool trackUsage() const override { return true; }
+  [[nodiscard]] bool supportsAutoPaste() const override { return !m_entry.exec.has_value(); }
   [[nodiscard]] bool defaultIncludeInGlobalSearch() const override { return m_entry.global; }
 
   [[nodiscard]] std::vector<LauncherResult> query(std::string_view text) const override;

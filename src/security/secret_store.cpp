@@ -318,8 +318,8 @@ namespace security {
     if (id.scope == "calendar") {
       return id.name == "password" || id.name == "refresh-token";
     }
-    if (id.scope == "cache") {
-      return id.name == "data-key";
+    if (id.scope == "storage") {
+      return id.owner == "encrypted-state" && id.name == "master-key";
     }
     return false;
   }

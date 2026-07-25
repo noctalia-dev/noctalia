@@ -18,12 +18,11 @@
 #include <cmath>
 #include <string_view>
 
-ActiveWindowWidget::ActiveWindowWidget(
-    ConfigService& config, CompositorPlatform& platform, float maxWidth, float minWidth, float iconSize,
-    ActiveWindowTitleScrollMode titleScrollMode, ActiveWindowDisplayMode displayMode, bool showEmptyLabel
-)
-    : m_config(config), m_platform(platform), m_maxWidth(maxWidth), m_minWidth(minWidth), m_iconSize(iconSize),
-      m_titleScrollMode(titleScrollMode), m_displayMode(displayMode), m_showEmptyLabel(showEmptyLabel) {
+ActiveWindowWidget::ActiveWindowWidget(ConfigService& config, CompositorPlatform& platform, Options options)
+    : m_config(config), m_platform(platform), m_maxWidth(static_cast<float>(options.maxWidth)),
+      m_minWidth(static_cast<float>(options.minWidth)), m_iconSize(static_cast<float>(options.iconSize)),
+      m_titleScrollMode(options.titleScrollMode), m_displayMode(options.displayMode),
+      m_showEmptyLabel(options.showEmptyLabel) {
   buildDesktopIconIndex();
 }
 

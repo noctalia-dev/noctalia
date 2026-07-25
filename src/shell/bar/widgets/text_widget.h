@@ -8,7 +8,13 @@ class Label;
 
 class TextWidget : public Widget {
 public:
-  explicit TextWidget(std::string text);
+  struct Options {
+    std::string text;
+
+    bool operator==(const Options&) const = default;
+  };
+
+  explicit TextWidget(Options options);
 
   void create() override;
 

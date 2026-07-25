@@ -12,7 +12,15 @@ struct wl_output;
 
 class SessionWidget : public Widget {
 public:
-  SessionWidget(wl_output* output, std::string barGlyphId, WidgetCustomImage customImage = {});
+  struct Options {
+    std::string glyph = "shutdown";
+    std::string customImage;
+    bool customImageColorize = false;
+
+    bool operator==(const Options&) const = default;
+  };
+
+  SessionWidget(wl_output* output, Options options);
 
   void create() override;
 
