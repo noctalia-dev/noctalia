@@ -94,6 +94,7 @@ namespace settings {
     // category with zero results for the selected source).
     void collectTags();
     void selectIndex(std::size_t index);
+    [[nodiscard]] std::optional<std::size_t> getIndexFromID(std::string id) const;
     void moveSelection(int delta);
     [[nodiscard]] bool activateSelection();
     [[nodiscard]] bool installDetailIfAvailable();
@@ -119,7 +120,7 @@ namespace settings {
     VirtualGridView* m_grid = nullptr;
     Label* m_countLabel = nullptr;
     Button* m_sortButton = nullptr;
-    std::optional<std::size_t> m_selectedIndex;
+    std::optional<std::string> m_selectedPluginID;
     std::function<void()> m_onRebuildNeeded;
 
     std::unordered_map<std::string, std::string> m_thumbnailPaths;

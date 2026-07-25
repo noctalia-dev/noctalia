@@ -186,7 +186,8 @@ namespace settings {
 
     if (m_grid != nullptr) {
       m_grid->notifyDataChanged();
-      // m_grid->setSelectedIndex(m_selectedIndex);
+      const auto& index = getIndexFromID(m_selectedPluginID.value_or(""));
+      m_grid->setSelectedIndex(index);
     }
   }
 
@@ -387,14 +388,7 @@ namespace settings {
       }
       m_filteredIndices.push_back(i);
     }
-
     sortEntries();
-
-    if (m_filteredIndices.empty()) {
-      m_selectedIndex.reset();
-    } else if (m_selectedIndex.has_value() && *m_selectedIndex >= m_filteredIndices.size()) {
-      m_selectedIndex = m_filteredIndices.size() - 1;
-    }
   }
 
   void PluginStoreContent::populateBody(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache) {
@@ -418,8 +412,9 @@ namespace settings {
               m_searchQuery = text;
               applyFilter();
               if (m_grid != nullptr) {
+                const auto& index = getIndexFromID(m_selectedPluginID.value_or(""));
+                m_grid->setSelectedIndex(index);
                 m_grid->notifyDataChanged();
-                m_grid->setSelectedIndex(m_selectedIndex);
               }
               if (m_countLabel != nullptr) {
                 m_countLabel->setText(
@@ -443,30 +438,30 @@ namespace settings {
     });
 
     std::vector<ui::SegmentedOption> allSources;
-    allSources.push_back({ i18n::tr("settings.plugins.store.source-all"), "", "" });
+    allSources.push_back({i18n::tr("settings.plugins.store.source-all"), "", ""});
     for (const auto& source : m_sources) {
-      allSources.push_back({ sourceDisplayName(source), "", "" });
+      allSources.push_back({sourceDisplayName(source), "", ""});
     }
 
-    toolbar->addChild(ui::segmented({
-      .options = allSources,
-      .selectedIndex = m_selectedSource,
-      .onChange = [this](std::size_t i) {
-        m_selectedSource = i;
+    toolbar->addChild(
+        ui::segmented({.options = allSources, .selectedIndex = m_selectedSource, .onChange = [this](std::size_t i) {
+                         m_selectedSource = i;
 
-        std::optional<std::string> prev_selectedTag = m_selectedTag != 0 ? std::optional{m_allTags[m_selectedTag - 1]} : std::nullopt;
-        collectTags();
-        if (prev_selectedTag.has_value()) {
-          auto it = std::ranges::find(m_allTags, prev_selectedTag.value());
-          m_selectedTag = it != m_allTags.end() ? static_cast<std::size_t>(it - m_allTags.begin()) + 1 : 0;
-        }
+                         std::optional<std::string> prev_selectedTag =
+                             m_selectedTag != 0 ? std::optional{m_allTags[m_selectedTag - 1]} : std::nullopt;
+                         collectTags();
+                         if (prev_selectedTag.has_value()) {
+                           auto it = std::ranges::find(m_allTags, prev_selectedTag.value());
+                           m_selectedTag =
+                               it != m_allTags.end() ? static_cast<std::size_t>(it - m_allTags.begin()) + 1 : 0;
+                         }
 
-        applyFilter();
-        if (m_onRebuildNeeded) {
-          m_onRebuildNeeded();
-        }
-      }
-    }));
+                         applyFilter();
+                         if (m_onRebuildNeeded) {
+                           m_onRebuildNeeded();
+                         }
+                       }})
+    );
 
     std::vector<std::string> allTags;
     allTags.push_back(i18n::tr("settings.plugins.store.category-all"));
@@ -556,9 +551,9 @@ namespace settings {
       for (auto& row : rows) {
         auto rowFlex = ui::row(
             {.align = FlexAlign::Center,
-              .justify = FlexJustify::Center,
-              .gap = Style::spaceXs * scale,
-              .fillWidth = true}
+             .justify = FlexJustify::Center,
+             .gap = Style::spaceXs * scale,
+             .fillWidth = true}
         );
         for (auto& btn : row) {
           rowFlex->addChild(std::move(btn));
@@ -594,9 +589,15 @@ namespace settings {
     grid->setFlexGrow(1.0f);
     grid->setAdapter(adapterPtr);
     m_grid = grid.get();
-    m_grid->setOnSelectionChanged([this](std::optional<std::size_t> index) { m_selectedIndex = index; });
-    if (m_selectedIndex.has_value()) {
-      m_grid->setSelectedIndex(m_selectedIndex);
+    m_grid->setOnSelectionChanged([this](std::optional<std::size_t> index) {
+      m_selectedPluginID =
+          index.has_value() ? std::optional{m_catalog[m_filteredIndices[*index]].entry.id} : std::nullopt;
+    });
+    if (m_selectedPluginID.has_value()) {
+      const auto& index = getIndexFromID(m_selectedPluginID.value());
+      if (index.has_value()) {
+        m_grid->setSelectedIndex(index);
+      }
     }
     body.addChild(std::move(grid));
 
@@ -839,7 +840,7 @@ namespace settings {
 
   void PluginStoreContent::openDetail(std::size_t filteredIndex) {
     m_detailIndex = filteredIndex;
-    m_selectedIndex = filteredIndex;
+    m_selectedPluginID = m_catalog[m_filteredIndices[filteredIndex]].entry.id;
     m_detailReadme.clear();
     m_detailReadmeLoading = false;
 
@@ -874,28 +875,40 @@ namespace settings {
 
   void PluginStoreContent::selectIndex(std::size_t index) {
     if (m_filteredIndices.empty()) {
-      m_selectedIndex.reset();
+      m_selectedPluginID.reset();
       if (m_grid != nullptr) {
         m_grid->setSelectedIndex(std::nullopt);
       }
       return;
     }
-    m_selectedIndex = std::min(index, m_filteredIndices.size() - 1);
+    index = std::min(index, m_filteredIndices.size() - 1);
     if (m_grid != nullptr) {
-      m_grid->setSelectedIndex(m_selectedIndex);
+      m_grid->setSelectedIndex(index);
     }
+    m_selectedPluginID = m_catalog[m_filteredIndices[index]].entry.id;
+  }
+
+  std::optional<std::size_t> PluginStoreContent::getIndexFromID(std::string id) const {
+    for (std::size_t i = 0; i < m_catalog.size(); i++) {
+      const auto& entry = m_catalog[i];
+      if (entry.entry.id == id && std::ranges::contains(m_filteredIndices, i)) {
+        return static_cast<std::size_t>(std::ranges::find(m_filteredIndices, i) - m_filteredIndices.begin());
+      }
+    }
+    return std::nullopt;
   }
 
   void PluginStoreContent::moveSelection(int delta) {
     if (m_filteredIndices.empty()) {
       return;
     }
-    if (!m_selectedIndex.has_value()) {
+    const auto& index = getIndexFromID(m_selectedPluginID.value_or(""));
+    if (!index.has_value()) {
       selectIndex(delta >= 0 ? 0 : m_filteredIndices.size() - 1);
       return;
     }
     const int last = static_cast<int>(m_filteredIndices.size() - 1);
-    const int next = std::clamp(static_cast<int>(*m_selectedIndex) + delta, 0, last);
+    const int next = std::clamp(static_cast<int>(*index) + delta, 0, last);
     selectIndex(static_cast<std::size_t>(next));
   }
 
@@ -903,10 +916,12 @@ namespace settings {
     if (m_filteredIndices.empty()) {
       return false;
     }
-    if (!m_selectedIndex.has_value() || *m_selectedIndex >= m_filteredIndices.size()) {
+    const auto& index = getIndexFromID(m_selectedPluginID.value_or(""));
+    if (!index.has_value() || *index >= m_filteredIndices.size()) {
       selectIndex(0);
+    } else {
+      openDetail(*index);
     }
-    openDetail(*m_selectedIndex);
     return true;
   }
 
