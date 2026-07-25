@@ -27,7 +27,7 @@ public:
   MediaWidget(
       MprisService* mpris, HttpClient* httpClient, wl_output* output, float maxWidth, float minWidth, float artSize,
       MediaTitleScrollMode titleScrollMode, bool hideWhenNoMedia = false, bool albumArtOnly = false,
-      bool hideAlbumArt = false, bool hideArtist = false, bool artistFirst = false, bool enableScroll = true
+      bool hideAlbumArt = false, bool hideArtist = false, bool artistFirst = false
   );
 
   void create() override;
@@ -51,7 +51,6 @@ private:
   bool m_hideAlbumArt = false;
   bool m_hideArtist = false;
   bool m_artistFirst = false;
-  bool m_enableScroll = true;
   InputArea* m_area = nullptr;
   Image* m_art = nullptr;
   Glyph* m_emptyGlyph = nullptr;

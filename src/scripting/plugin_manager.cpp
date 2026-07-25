@@ -229,9 +229,12 @@ namespace scripting {
       if (!shown) {
         return {.ok = false, .error = shown.err, .entries = {}};
       }
-      return {.ok = true, .error = {}, .entries = parseCatalogToml(shown.out)};
+      return {.ok = true, .error = {}, .entries = parseCatalogToml(shown.out, rev)};
     }
 
+    // Whether the exported copy on disk is already the revision this host resolves to.
+    // Compares the resolved row, not the catalog tip: a held-back plugin sits on an older
+    // version on purpose and must not read as a permanently pending update.
     bool materializedPluginMatchesCatalog(
         const PluginSourceConfig& source, std::string_view pluginId, const CatalogEntry& entry
     ) {
@@ -240,7 +243,20 @@ namespace scripting {
       if (!manifest.has_value() || manifest->id != pluginId) {
         return false;
       }
-      return manifest->version == entry.version && manifest->pluginApiVersion == entry.pluginApiVersion;
+      return manifest->version == entry.resolvedVersion && manifest->pluginApiVersion == entry.resolvedPluginApiVersion;
+    }
+
+    // Announce which revision an export will land when it is not the catalog tip, so the
+    // choice is visible in the log and not only in the settings UI.
+    void logHeldBack(const PluginSourceConfig& source, const CatalogEntry& entry) {
+      if (!entry.heldBack) {
+        return;
+      }
+      kLog.info(
+          "plugin source '{}': installing '{}' v{} (plugin API {}); v{} needs plugin API {} (supported range {}-{})",
+          source.name, entry.id, entry.resolvedVersion, entry.resolvedPluginApiVersion, entry.version,
+          entry.pluginApiVersion, kOldestSupportedPluginApiVersion, kCurrentPluginApiVersion
+      );
     }
 
     // Version string of the exported (installed) copy on disk, or empty if absent.
@@ -362,14 +378,15 @@ namespace scripting {
         continue;
       }
       if (hasMaterialized && materializedPluginMatchesCatalog(source, id, *catalogEntry)) {
-        continue; // already materialized at this source revision
+        continue; // already materialized at the revision this host resolves to
       }
-      if (!plugin_git::hasPath(repoRoot, *sub + "/plugin.toml")) {
+      if (!plugin_git::hasPath(repoRoot, *sub + "/plugin.toml", catalogEntry->resolvedRevision)) {
         kLog.warn("plugin source '{}': catalog entry '{}' has no {}/plugin.toml", source.name, id, *sub);
         continue;
       }
       kLog.info("exporting enabled plugin '{}' from source '{}'", id, source.name);
-      const auto materializedPlugin = materializeGitPlugin(source, repoRoot, "HEAD", id, true);
+      logHeldBack(source, *catalogEntry);
+      const auto materializedPlugin = materializeGitPlugin(source, repoRoot, catalogEntry->resolvedRevision, id, true);
       if (materializedPlugin) {
         materialized = true;
       } else if (materializedPlugin.incompatible) {
@@ -466,7 +483,7 @@ namespace scripting {
       // Highest precedence wins; skip disabled sources — the registry never scans them.
       struct Offering {
         PluginSourceConfig source;
-        std::string revision;
+        CatalogEntry entry;
       };
       std::optional<Offering> offering;
       for (const auto& source : std::views::reverse(sources)) {
@@ -474,8 +491,8 @@ namespace scripting {
           continue;
         }
         const auto catalog = discoverCatalog(source, CatalogAccess::Network);
-        if (findCatalogEntry(catalog.entries, id) != nullptr) {
-          offering = Offering{.source = source, .revision = catalog.revision};
+        if (const auto* entry = findCatalogEntry(catalog.entries, id); entry != nullptr) {
+          offering = Offering{.source = source, .entry = *entry};
           break;
         }
       }
@@ -487,12 +504,13 @@ namespace scripting {
       std::string error;
 
       if (offering.has_value() && offering->source.kind == PluginSourceKind::Git) {
-        if (offering->revision.empty()) {
+        if (offering->entry.resolvedRevision.empty()) {
           error = "source '" + offering->source.name + "' did not resolve a catalog revision";
         } else {
           auto sourceLock = plugin_source_locks::acquire(offering->source.name);
+          logHeldBack(offering->source, offering->entry);
           auto materialized = materializeGitPlugin(
-              offering->source, plugin_paths::gitRepoRoot(offering->source), offering->revision, id, true
+              offering->source, plugin_paths::gitRepoRoot(offering->source), offering->entry.resolvedRevision, id, true
           );
           ok = materialized && materialized.manifest.id == id;
           incompatible = materialized.incompatible;
@@ -630,9 +648,9 @@ namespace scripting {
             && onDisk
             && entry.compatible
             && !materializedPluginMatchesCatalog(source, entry.id, entry);
-        // Show the installed version on the row; the catalog version is the target we'd
+        // Show the installed version on the row; the resolved version is the target we'd
         // update to. Not-yet-installed rows have no exported copy, so fall back to the
-        // catalog version.
+        // resolved version.
         std::string installedVersion;
         if (source.kind == PluginSourceKind::Git && onDisk) {
           installedVersion = materializedPluginVersion(source, entry.id);
@@ -641,8 +659,8 @@ namespace scripting {
             PluginStatus{
                 .id = entry.id,
                 .name = entry.name,
-                .version = installedVersion.empty() ? entry.version : installedVersion,
-                .availableVersion = updateAvailable ? entry.version : std::string{},
+                .version = installedVersion.empty() ? entry.resolvedVersion : installedVersion,
+                .availableVersion = updateAvailable ? entry.resolvedVersion : std::string{},
                 .icon = entry.icon,
                 .description = entry.description,
                 .license = entry.license,
@@ -653,6 +671,9 @@ namespace scripting {
                 .enabled = isEnabled,
                 .materialized = onDisk,
                 .updateAvailable = updateAvailable,
+                .heldBack = entry.heldBack,
+                .latestVersion = entry.heldBack ? entry.version : std::string{},
+                .latestPluginApiVersion = entry.heldBack ? entry.pluginApiVersion : 0,
             }
         );
       }
@@ -773,16 +794,20 @@ namespace scripting {
           rememberWithheld(id, catalogEntry->pluginApiVersion);
           continue;
         }
-        if (!plugin_git::hasPath(repoRoot, *sub + "/plugin.toml", newRev)) {
+        if (!plugin_git::hasPath(repoRoot, *sub + "/plugin.toml", catalogEntry->resolvedRevision)) {
           exportFailures.emplace_back(id, "catalog entry has no " + *sub + "/plugin.toml");
           continue;
         }
-        if (!sourceRevisionChanged) {
-          if (materializedPluginMatchesCatalog(source, id, *catalogEntry)) {
-            continue; // source already points here and the exported copy matches it
-          }
+        // A moved source tip re-exports tip-resolved plugins even when the version is
+        // unchanged, so a fix that skipped a version bump still lands. A held-back plugin
+        // resolves to a fixed historical revision that the tip moving does not touch, so
+        // there the exported copy alone decides.
+        if ((catalogEntry->heldBack || !sourceRevisionChanged)
+            && materializedPluginMatchesCatalog(source, id, *catalogEntry)) {
+          continue;
         }
-        if (const auto m = materializeGitPlugin(source, repoRoot, newRev, id, true); !m) {
+        logHeldBack(source, *catalogEntry);
+        if (const auto m = materializeGitPlugin(source, repoRoot, catalogEntry->resolvedRevision, id, true); !m) {
           if (m.incompatible) {
             rememberWithheld(id, m.pluginApiVersion);
             continue;

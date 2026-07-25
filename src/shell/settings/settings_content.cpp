@@ -75,6 +75,14 @@ namespace settings {
         .pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
         .pendingDeleteWidgetSettingPath = ctx.pendingDeleteWidgetSettingPath,
         .renamingWidgetName = ctx.renamingWidgetName,
+        .makeGestureActionRow =
+            [&factory](const GestureActionSetting& setting, const std::string& title, std::vector<std::string> path) {
+              return factory.makeGestureActionRow(setting, title, std::move(path));
+            },
+        .pendingGestureKey = ctx.pendingGestureKey,
+        .pendingGestureVerb = ctx.pendingGestureVerb,
+        .actionsExpandedFor = ctx.actionsExpandedFor,
+        .actionCatalog = ctx.actionCatalog,
         .requestRebuild = ctx.requestRebuild,
         .resetContentScroll = ctx.resetContentScroll,
         .setScrollTarget = ctx.setScrollTarget,
@@ -1275,6 +1283,8 @@ namespace settings {
               });
             } else if constexpr (std::is_same_v<T, ColorSpecPickerSetting>) {
               return makeColorSpecPicker(control, entry.path);
+            } else if constexpr (std::is_same_v<T, GestureActionSetting>) {
+              return factory.makeGestureActionRow(control, entry.title, entry.path);
             }
           },
           entry.control

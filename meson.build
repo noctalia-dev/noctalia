@@ -702,8 +702,12 @@ _noctalia_sources = files(
   'src/shell/wallpaper/panel/wallpaper_scanner.cpp',
   'src/shell/wallpaper/panel/wallpaper_tile.cpp',
   'src/shell/bar/widget.cpp',
+  'src/shell/bar/widget_action.cpp',
+  'src/shell/bar/widget_action_dispatcher.cpp',
   'src/shell/bar/widget_custom_image.cpp',
   'src/shell/bar/widget_factory.cpp',
+  'src/shell/bar/widget_gesture.cpp',
+  'src/shell/bar/widget_gesture_defaults.cpp',
   'src/shell/bar/widgets/active_window_widget.cpp',
   'src/shell/bar/widgets/active_window_widget_definition.cpp',
   'src/shell/bar/widgets/audio_visualizer_widget.cpp',
@@ -735,7 +739,6 @@ _noctalia_sources = files(
   'src/shell/bar/widgets/notification_widget_definition.cpp',
   'src/shell/bar/widgets/plugin_widget.cpp',
   'src/shell/bar/widgets/power_profile_widget.cpp',
-  'src/shell/bar/widgets/power_profile_widget_definition.cpp',
   'src/shell/bar/widgets/privacy_widget.cpp',
   'src/shell/bar/widgets/privacy_widget_definition.cpp',
   'src/shell/bar/widgets/screenshot_widget_definition.cpp',
@@ -1175,6 +1178,22 @@ ipc_service_test = executable('ipc_service_test',
 
 test('ipc_service', ipc_service_test)
 
+widget_action_test = executable('widget_action_test',
+  sources: files(
+    'tests/widget_action_test.cpp',
+    'src/shell/bar/widget_action.cpp',
+    'src/shell/bar/widget_action_dispatcher.cpp',
+    'src/shell/bar/widget_gesture.cpp',
+    'src/ipc/ipc_service.cpp',
+    'src/core/process/process.cpp',
+    'src/core/log.cpp',
+  ),
+  include_directories: _noctalia_inc,
+  dependencies: [wayland_client_dep],
+)
+
+test('widget_action', widget_action_test)
+
 process_test = executable('process_test',
   sources: files(
     'tests/process_test.cpp',
@@ -1416,6 +1435,35 @@ plugin_source_paths_test = executable('plugin_source_paths_test',
 
 test('plugin_source_paths', plugin_source_paths_test)
 
+plugin_catalog_test = executable('plugin_catalog_test',
+  sources: files(
+    'tests/plugin_catalog_test.cpp',
+    'src/scripting/plugin_catalog.cpp',
+    'src/scripting/plugin_git.cpp',
+    'src/scripting/plugin_manifest.cpp',
+    'src/scripting/plugin_panel_shell.cpp',
+    'src/scripting/plugin_source_locks.cpp',
+    'src/scripting/plugin_source_paths.cpp',
+    'src/config/config_types.cpp',
+    'src/core/input/key_chord.cpp',
+    'src/core/log.cpp',
+    'src/core/process/process.cpp',
+    'src/render/core/color.cpp',
+    'src/theme/builtin_palettes.cpp',
+    'src/theme/color.cpp',
+    'src/theme/contrast.cpp',
+    'src/theme/fixed_palette.cpp',
+    'src/ui/palette.cpp',
+  ),
+  include_directories: _noctalia_inc,
+  dependencies: [
+    tomlplusplus_dep,
+    xkbcommon_dep,
+  ],
+)
+
+test('plugin_catalog', plugin_catalog_test)
+
 plugin_source_locks_test = executable('plugin_source_locks_test',
   sources: files(
     'tests/plugin_source_locks_test.cpp',
@@ -1641,8 +1689,7 @@ widget_definition_test = executable('widget_definition_test',
     'src/shell/bar/widgets/lock_keys_widget_definition.cpp',
     'src/shell/bar/widgets/network_widget_definition.cpp',
     'src/shell/bar/widgets/notification_widget_definition.cpp',
-    'src/shell/bar/widgets/power_profile_widget_definition.cpp',
-    'src/shell/bar/widgets/privacy_widget_definition.cpp',
+      'src/shell/bar/widgets/privacy_widget_definition.cpp',
     'src/shell/bar/widgets/screenshot_widget_definition.cpp',
     'src/shell/bar/widgets/session_widget_definition.cpp',
     'src/shell/bar/widgets/settings_widget_definition.cpp',

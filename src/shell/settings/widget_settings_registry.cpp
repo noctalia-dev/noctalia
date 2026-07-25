@@ -4,6 +4,7 @@
 #include "scripting/plugin_i18n.h"
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"
+#include "shell/bar/widget_gesture_defaults.h"
 #include "shell/bar/widgets/active_window_widget_definition.h"
 #include "shell/bar/widgets/audio_visualizer_widget_definition.h"
 #include "shell/bar/widgets/battery_widget_definition.h"
@@ -17,7 +18,6 @@
 #include "shell/bar/widgets/lock_keys_widget_definition.h"
 #include "shell/bar/widgets/network_widget_definition.h"
 #include "shell/bar/widgets/notification_widget_definition.h"
-#include "shell/bar/widgets/power_profile_widget_definition.h"
 #include "shell/bar/widgets/privacy_widget_definition.h"
 #include "shell/bar/widgets/screenshot_widget_definition.h"
 #include "shell/bar/widgets/session_widget_definition.h"
@@ -106,7 +106,6 @@ namespace settings {
         projectWidgetDefinition<lockKeysWidgetDefinition>(),
         projectWidgetDefinition<networkWidgetDefinition>(),
         projectWidgetDefinition<notificationWidgetDefinition>(),
-        projectWidgetDefinition<powerProfileWidgetDefinition>(),
         projectWidgetDefinition<privacyWidgetDefinition>(),
         projectWidgetDefinition<screenshotWidgetDefinition>(),
         projectWidgetDefinition<sessionWidgetDefinition>(),
@@ -327,16 +326,6 @@ namespace settings {
       spec.schema.minValue = minValue;
       spec.schema.maxValue = maxValue;
       spec.schema.step = step;
-      return spec;
-    }
-
-    WidgetSettingSpec stepperIntSpec(
-        std::string_view key, std::int64_t defaultValue, double minValue, double maxValue, double step = 1.0,
-        std::string valueSuffix = {}, bool advanced = false
-    ) {
-      auto spec = intSpec(key, defaultValue, minValue, maxValue, step, advanced);
-      spec.stepper = true;
-      spec.valueSuffix = std::move(valueSuffix);
       return spec;
     }
 
@@ -678,476 +667,495 @@ namespace settings {
     auto capsuleOpacity = withGroup(doubleSpec("capsule_opacity", 1.0, 0.0, 1.0, 0.01), "presentation");
     capsuleOpacity.visibleWhen = capsuleOn;
 
+    // Gesture -> action bindings. Reaches every widget type, including those without a typed
+    // definition and plugin widgets, because this list is merged into all of them.
+    auto actions = withGroup(stringMapSpec("actions"), "actions");
+
     return {
         std::move(enabled),           std::move(anchor),          std::move(interactive),    std::move(scale),
         std::move(widgetColor),       std::move(widgetIconColor), std::move(fontFamily),     std::move(fontWeight),
         std::move(capsuleToggle),     std::move(capsuleRadius),   std::move(capsuleFill),    std::move(capsuleBorder),
-        std::move(capsuleForeground), std::move(capsulePadding),  std::move(capsuleOpacity),
+        std::move(capsuleForeground), std::move(capsulePadding),  std::move(capsuleOpacity), std::move(actions),
     };
   }
 
-  std::vector<WidgetSettingSpec> widgetSettingSpecs(
-      std::string_view type, std::string_view shellFontFamily, bool supportsTaskbarWorkspaceGrouping,
-      bool populateFontCatalogs
-  ) {
-    std::vector<WidgetSettingSpec> specs;
-    auto commonSpecs = commonWidgetSettingSpecs(shellFontFamily, populateFontCatalogs);
+  namespace {
 
-    auto add = [&](WidgetSettingSpec spec) { specs.push_back(std::move(spec)); };
-    const std::vector<WidgetSettingSelectOption> shortFull = {
-        {"short", "settings.widgets.options.short"},
-        {"full", "settings.widgets.options.full"},
-    };
-    const std::vector<WidgetSettingSelectOption> sysmonStats = {
-        {"cpu_usage", "settings.widgets.options.cpu-usage"},
-        {"cpu_temp", "settings.widgets.options.cpu-temp"},
-        {"gpu_temp", "settings.widgets.options.gpu-temp"},
-        {"gpu_usage", "settings.widgets.options.gpu-usage"},
-        {"gpu_vram", "settings.widgets.options.gpu-vram"},
-        {"ram_used", "settings.widgets.options.ram-used"},
-        {"ram_pct", "settings.widgets.options.ram-percent"},
-        {"swap_pct", "settings.widgets.options.swap-percent"},
-        {"disk_used_pct", "settings.widgets.options.disk-used-percent"},
-        {"disk_used", "settings.widgets.options.disk-used"},
-        {"disk_free_pct", "settings.widgets.options.disk-free-percent"},
-        {"disk_free", "settings.widgets.options.disk-free"},
-        {"net_rx", "settings.widgets.options.net-rx"},
-        {"net_tx", "settings.widgets.options.net-tx"},
-    };
-    const std::vector<WidgetSettingSelectOption> sysmonDisplay = {
-        {"gauge", "settings.widgets.options.gauge"},
-        {"graph", "settings.widgets.options.graph"},
-        {"text", "settings.widgets.options.text"},
-        {"none", "settings.widgets.options.none"},
-    };
-    const std::vector<WidgetSettingSelectOption> networkSpeedUnits = {
-        {"auto", "settings.widgets.options.auto"},
-        {"kb", "settings.widgets.options.kilobytes"},
-        {"mb", "settings.widgets.options.megabytes"},
-    };
-    const std::vector<WidgetSettingSelectOption> glyphPositionOptions = {
-        {"before", "settings.widgets.options.before"},
-        {"after", "settings.widgets.options.after"},
-    };
-    const std::vector<WidgetSettingSelectOption> workspaceDisplay = {
-        {"id", "settings.widgets.options.id"},
-        {"name", "settings.widgets.options.name"},
-        {"none", "settings.widgets.options.none"},
-    };
-    const std::vector<WidgetSettingSelectOption> workspaceStyle = {
-        {"regular", "settings.widgets.options.regular"},
-        {"minimal", "settings.widgets.options.minimal"},
-        {"focus_hint", "settings.widgets.options.focus-hint"},
-    };
-    const std::vector<WidgetSettingSelectOption> workspaceLabelPlacement = {
-        {"corner", "settings.widgets.options.workspace-label-corner"},
-        {"centered", "settings.widgets.options.workspace-label-centered"},
-        {"inside", "settings.widgets.options.workspace-label-inside"},
-    };
-    const std::vector<WidgetSettingSelectOption> workspaceGroupContent = {
-        {"icons", "settings.widgets.options.icons"},
-        {"count", "settings.widgets.options.count"},
-        {"dots", "settings.widgets.options.dots"},
-    };
-    const std::vector<WidgetSettingSelectOption> mediaTitleScroll = {
-        {"none", "settings.widgets.options.none"},
-        {"always", "settings.widgets.options.always"},
-        {"on_hover", "settings.widgets.options.on-hover"},
-    };
-    const std::vector<WidgetSettingSelectOption> volumeDeviceOptions = {
-        {"output", "settings.widgets.options.output"},
-        {"input", "settings.widgets.options.input"},
-    };
-    if (const auto* projection = findTypedWidgetDefinitionProjection(type)) {
-      specs = projection->presentedSettingSpecs();
-    } else if (type == "keyboard_layout") {
-      add(stringSpec("cycle_command"));
-      add(boolSpec("hide_when_single_layout", false));
-      add(boolSpec("show_icon", true));
-      {
-        auto glyph = glyphSpec("glyph", "keyboard");
-        glyph.visibleWhen = WidgetSettingVisibility{"show_icon", {"true"}};
-        add(std::move(glyph));
+    // The gesture-actions spec carries this type's resolved defaults so the editor can show what
+    // each gesture already does, rather than a column of blanks.
+    void applyGestureActionDefaults(
+        std::vector<WidgetSettingSpec>& specs, std::string_view type, const WidgetConfig* config
+    ) {
+      const auto it = std::ranges::find(specs, "actions", [](const WidgetSettingSpec& spec) {
+        return std::string_view(spec.schema.key);
+      });
+      if (it != specs.end()) {
+        it->schema.defaultValue = noctalia::bar::defaultActionsForType(type, config);
       }
-      {
-        auto image = stringSpec("custom_image", "");
-        image.visibleWhen = WidgetSettingVisibility{"show_icon", {"true"}};
-        add(std::move(image));
-      }
-      {
-        auto colorize = boolSpec("custom_image_colorize", false);
-        colorize.visibleWhen = WidgetSettingVisibility{"show_icon", {"true"}};
-        add(std::move(colorize));
-      }
-      add(boolSpec("show_label", true));
-      {
-        auto display = segmentedSpec("display", "short", shortFull);
-        display.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
-        add(std::move(display));
-      }
-      {
-        auto labels = stringMapSpec("custom_labels");
-        labels.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
-        add(std::move(labels));
-      }
-    } else if (type == "media") {
-      const WidgetSettingVisibility notAlbumArtOnly{"album_art_only", {"false"}};
-      const WidgetSettingVisibility notHideAlbumArt{"hide_album_art", {"false"}};
-      {
-        auto albumArtOnly = boolSpec("album_art_only", false);
-        albumArtOnly.horizontalBarOnly = true;
-        albumArtOnly.visibleWhen = notHideAlbumArt;
-        add(std::move(albumArtOnly));
-      }
-      {
-        auto hideAlbumArt = boolSpec("hide_album_art", false);
-        hideAlbumArt.horizontalBarOnly = true;
-        hideAlbumArt.visibleWhen = notAlbumArtOnly;
-        add(std::move(hideAlbumArt));
-      }
-      {
-        auto hideArtist = boolSpec("hide_artist", false);
-        hideArtist.horizontalBarOnly = true;
-        hideArtist.visibleWhen = notAlbumArtOnly;
-        add(std::move(hideArtist));
-      }
-      {
-        auto artistFirst = boolSpec("artist_first", false);
-        artistFirst.horizontalBarOnly = true;
-        artistFirst.visibleWhen = notAlbumArtOnly;
-        add(std::move(artistFirst));
-      }
-      {
-        auto minLength = intSpec("min_length", 80, 0.0, 800.0, 1.0);
-        minLength.visibleWhen = notAlbumArtOnly;
-        add(std::move(minLength));
-      }
-      {
-        auto maxLength = intSpec("max_length", 220, 40.0, 800.0, 1.0);
-        maxLength.visibleWhen = notAlbumArtOnly;
-        add(std::move(maxLength));
-      }
-      add(intSpec("art_size", 16.0, 8.0, 96.0, 1.0));
-      {
-        auto titleScroll = selectSpec("title_scroll", "none", mediaTitleScroll);
-        titleScroll.visibleWhen = notAlbumArtOnly;
-        add(std::move(titleScroll));
-      }
-      add(boolSpec("hide_when_no_media", false));
-      add(boolSpec("enable_scroll", true));
-    } else if (type == "sysmon") {
-      add(selectSpec("stat", "cpu_usage", sysmonStats));
-      {
-        auto glyph = glyphSpec("glyph", "");
-        glyph.descriptionKey = "settings.widgets.settings.glyph.sysmon-description";
-        add(std::move(glyph));
-      }
-      add(stringSpec("custom_image", ""));
-      add(boolSpec("custom_image_colorize", false));
-      {
-        auto path = stringSpec("path", "/");
-        path.visibleWhen =
-            WidgetSettingVisibility{"stat", {"disk_used_pct", "disk_used", "disk_free_pct", "disk_free"}};
-        add(std::move(path));
-      }
-      {
-        auto interface = stringSpec("interface");
-        interface.visibleWhen = WidgetSettingVisibility{"stat", {"net_rx", "net_tx"}};
-        add(std::move(interface));
-      }
-      {
-        auto unit = selectSpec("network_speed_unit", "auto", networkSpeedUnits);
-        unit.visibleWhen = WidgetSettingVisibility{"stat", {"net_rx", "net_tx"}};
-        add(std::move(unit));
-      }
-      {
-        auto compact = boolSpec("network_speed_compact", false);
-        compact.visibleWhen = WidgetSettingVisibility{"stat", {"net_rx", "net_tx"}};
-        add(std::move(compact));
-      }
-      add(segmentedSpec("display", "gauge", sysmonDisplay));
-      add(colorSpec("highlight_color", "error"));
-      {
-        auto showLabel = boolSpec("show_label", true);
-        showLabel.visibleWhen = WidgetSettingVisibility{"display", {"gauge", "graph", "text"}};
-        add(std::move(showLabel));
-      }
-      {
-        auto minWidth = intSpec("label_min_width", 0, 0.0, 200.0, 1.0);
-        WidgetSettingVisibility minWidthSettings;
-        minWidthSettings.all = {
-            WidgetSettingVisibilityCondition{"display", {"gauge", "graph", "text"}},
-            WidgetSettingVisibilityCondition{"show_label", {"true"}},
-        };
-        minWidth.visibleWhen = minWidthSettings;
-        add(std::move(minWidth));
-      }
-      {
-        auto showUnits = boolSpec("label_show_units", true);
-        showUnits.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
-        add(std::move(showUnits));
-      }
-      {
-        auto glyphPosition = segmentedSpec("glyph_position", "before", glyphPositionOptions);
-        glyphPosition.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
-        add(std::move(glyphPosition));
-      }
-    } else if (type == "taskbar") {
-      // Windows: what the taskbar lists and how each window tile looks.
-      add(withGroup(boolSpec("enable_scroll", true), "taskbar.windows"));
-      add(withGroup(boolSpec("show_all_outputs", false), "taskbar.windows"));
-      add(withGroup(boolSpec("show_active_indicator", true), "taskbar.windows"));
-      add(withGroup(doubleSpec("active_opacity", 1.0, 0.1, 1.0, 0.01), "taskbar.windows"));
-      add(withGroup(doubleSpec("inactive_opacity", 1.0, 0.1, 1.0, 0.01), "taskbar.windows"));
-      {
-        auto pinned = withGroup(stringListSpec("pinned"), "taskbar.windows");
-        pinned.labelKey = "settings.widgets.settings.pinned.taskbar-label";
-        pinned.descriptionKey = "settings.widgets.settings.pinned.taskbar-description";
-        if (supportsTaskbarWorkspaceGrouping) {
-          pinned.visibleWhen =
-              WidgetSettingVisibility{WidgetSettingVisibilityCondition{"group_by_workspace", {"false"}}};
-        }
-        add(std::move(pinned));
-      }
-      {
-        auto pinnedOpacity = withGroup(doubleSpec("pinned_opacity", 0.5, 0.0, 1.0, 0.01), "taskbar.windows");
-        WidgetSettingVisibility pinnedOpacitySettings;
-        pinnedOpacitySettings.all = {WidgetSettingVisibilityCondition{"pinned", {}, true}};
-        if (supportsTaskbarWorkspaceGrouping) {
-          pinnedOpacitySettings.all.push_back(WidgetSettingVisibilityCondition{"group_by_workspace", {"false"}});
-        }
-        pinnedOpacity.visibleWhen = std::move(pinnedOpacitySettings);
-        add(std::move(pinnedOpacity));
-      }
-      {
-        // Window titles are only laid out when the taskbar is not grouping by workspace.
-        auto showWindowTitle = withGroup(boolSpec("show_window_title", false), "taskbar.windows");
-        WidgetSettingVisibility windowTitleSettings;
-        windowTitleSettings.all = {WidgetSettingVisibilityCondition{"show_window_title", {"true"}}};
-        if (supportsTaskbarWorkspaceGrouping) {
-          showWindowTitle.visibleWhen =
-              WidgetSettingVisibility{WidgetSettingVisibilityCondition{"group_by_workspace", {"false"}}};
-          windowTitleSettings.all.push_back(WidgetSettingVisibilityCondition{"group_by_workspace", {"false"}});
-        }
-        add(std::move(showWindowTitle));
+    }
 
-        auto windowTitleMaxWidth =
-            withGroup(intSpec("window_title_max_width", 100.0, 10.0, 200.0, 1.0), "taskbar.windows");
-        windowTitleMaxWidth.visibleWhen = windowTitleSettings;
-        add(std::move(windowTitleMaxWidth));
+  } // namespace
 
-        auto taskbarMaxWidth = withGroup(intSpec("taskbar_max_width", 8192.0, 10.0, 8192.0, 1.0), "taskbar.windows");
-        taskbarMaxWidth.visibleWhen = windowTitleSettings;
-        add(std::move(taskbarMaxWidth));
-      }
+  namespace {
 
-      if (supportsTaskbarWorkspaceGrouping) {
-        const WidgetSettingVisibility groupedWorkspaceSettings{
-            WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}}
-        };
+    std::vector<WidgetSettingSpec> typeWidgetSettingSpecs(
+        std::string_view type, const WidgetConfig* config, std::string_view shellFontFamily,
+        bool supportsTaskbarWorkspaceGrouping, bool populateFontCatalogs
+    ) {
+      std::vector<WidgetSettingSpec> specs;
+      auto commonSpecs = commonWidgetSettingSpecs(shellFontFamily, populateFontCatalogs);
 
-        // Grouping: how windows are bundled into workspace capsules. only_active_workspace filters the
-        // window list on its own, so it precedes the master toggle the rest of the section hangs off.
-        add(withGroup(boolSpec("only_active_workspace", false), "taskbar.grouping"));
-        add(withGroup(boolSpec("group_by_workspace", false), "taskbar.grouping"));
+      auto add = [&](WidgetSettingSpec spec) { specs.push_back(std::move(spec)); };
+      const std::vector<WidgetSettingSelectOption> shortFull = {
+          {"short", "settings.widgets.options.short"},
+          {"full", "settings.widgets.options.full"},
+      };
+      const std::vector<WidgetSettingSelectOption> sysmonStats = {
+          {"cpu_usage", "settings.widgets.options.cpu-usage"},
+          {"cpu_temp", "settings.widgets.options.cpu-temp"},
+          {"gpu_temp", "settings.widgets.options.gpu-temp"},
+          {"gpu_usage", "settings.widgets.options.gpu-usage"},
+          {"gpu_vram", "settings.widgets.options.gpu-vram"},
+          {"ram_used", "settings.widgets.options.ram-used"},
+          {"ram_pct", "settings.widgets.options.ram-percent"},
+          {"swap_pct", "settings.widgets.options.swap-percent"},
+          {"disk_used_pct", "settings.widgets.options.disk-used-percent"},
+          {"disk_used", "settings.widgets.options.disk-used"},
+          {"disk_free_pct", "settings.widgets.options.disk-free-percent"},
+          {"disk_free", "settings.widgets.options.disk-free"},
+          {"net_rx", "settings.widgets.options.net-rx"},
+          {"net_tx", "settings.widgets.options.net-tx"},
+      };
+      const std::vector<WidgetSettingSelectOption> sysmonDisplay = {
+          {"gauge", "settings.widgets.options.gauge"},
+          {"graph", "settings.widgets.options.graph"},
+          {"text", "settings.widgets.options.text"},
+          {"none", "settings.widgets.options.none"},
+      };
+      const std::vector<WidgetSettingSelectOption> networkSpeedUnits = {
+          {"auto", "settings.widgets.options.auto"},
+          {"kb", "settings.widgets.options.kilobytes"},
+          {"mb", "settings.widgets.options.megabytes"},
+      };
+      const std::vector<WidgetSettingSelectOption> glyphPositionOptions = {
+          {"before", "settings.widgets.options.before"},
+          {"after", "settings.widgets.options.after"},
+      };
+      const std::vector<WidgetSettingSelectOption> workspaceDisplay = {
+          {"id", "settings.widgets.options.id"},
+          {"name", "settings.widgets.options.name"},
+          {"none", "settings.widgets.options.none"},
+      };
+      const std::vector<WidgetSettingSelectOption> workspaceStyle = {
+          {"regular", "settings.widgets.options.regular"},
+          {"minimal", "settings.widgets.options.minimal"},
+          {"focus_hint", "settings.widgets.options.focus-hint"},
+      };
+      const std::vector<WidgetSettingSelectOption> workspaceLabelPlacement = {
+          {"corner", "settings.widgets.options.workspace-label-corner"},
+          {"centered", "settings.widgets.options.workspace-label-centered"},
+          {"inside", "settings.widgets.options.workspace-label-inside"},
+      };
+      const std::vector<WidgetSettingSelectOption> workspaceGroupContent = {
+          {"icons", "settings.widgets.options.icons"},
+          {"count", "settings.widgets.options.count"},
+          {"dots", "settings.widgets.options.dots"},
+      };
+      const std::vector<WidgetSettingSelectOption> mediaTitleScroll = {
+          {"none", "settings.widgets.options.none"},
+          {"always", "settings.widgets.options.always"},
+          {"on_hover", "settings.widgets.options.on-hover"},
+      };
+      const std::vector<WidgetSettingSelectOption> volumeDeviceOptions = {
+          {"output", "settings.widgets.options.output"},
+          {"input", "settings.widgets.options.input"},
+      };
+      if (const auto* projection = findTypedWidgetDefinitionProjection(type)) {
+        specs = projection->presentedSettingSpecs();
+      } else if (type == "keyboard_layout") {
+        add(boolSpec("hide_when_single_layout", false));
+        add(boolSpec("show_icon", true));
         {
-          auto hideEmpty = withGroup(boolSpec("hide_empty_workspaces", false), "taskbar.grouping");
-          hideEmpty.visibleWhen = groupedWorkspaceSettings;
-          add(std::move(hideEmpty));
+          auto glyph = glyphSpec("glyph", "keyboard");
+          glyph.visibleWhen = WidgetSettingVisibility{"show_icon", {"true"}};
+          add(std::move(glyph));
         }
         {
-          auto groupContent =
-              withGroup(segmentedSpec("workspace_group_content", "icons", workspaceGroupContent), "taskbar.grouping");
-          groupContent.visibleWhen = groupedWorkspaceSettings;
-          add(std::move(groupContent));
+          auto image = stringSpec("custom_image", "");
+          image.visibleWhen = WidgetSettingVisibility{"show_icon", {"true"}};
+          add(std::move(image));
         }
         {
-          auto singleIconPerApp = withGroup(boolSpec("group_single_icon_per_app", false), "taskbar.grouping");
-          WidgetSettingVisibility singleIconSettings;
-          singleIconSettings.all = {
-              WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}},
-              WidgetSettingVisibilityCondition{"workspace_group_content", {"icons"}},
+          auto colorize = boolSpec("custom_image_colorize", false);
+          colorize.visibleWhen = WidgetSettingVisibility{"show_icon", {"true"}};
+          add(std::move(colorize));
+        }
+        add(boolSpec("show_label", true));
+        {
+          auto display = segmentedSpec("display", "short", shortFull);
+          display.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
+          add(std::move(display));
+        }
+        {
+          auto labels = stringMapSpec("custom_labels");
+          labels.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
+          add(std::move(labels));
+        }
+      } else if (type == "media") {
+        const WidgetSettingVisibility notAlbumArtOnly{"album_art_only", {"false"}};
+        const WidgetSettingVisibility notHideAlbumArt{"hide_album_art", {"false"}};
+        {
+          auto albumArtOnly = boolSpec("album_art_only", false);
+          albumArtOnly.horizontalBarOnly = true;
+          albumArtOnly.visibleWhen = notHideAlbumArt;
+          add(std::move(albumArtOnly));
+        }
+        {
+          auto hideAlbumArt = boolSpec("hide_album_art", false);
+          hideAlbumArt.horizontalBarOnly = true;
+          hideAlbumArt.visibleWhen = notAlbumArtOnly;
+          add(std::move(hideAlbumArt));
+        }
+        {
+          auto hideArtist = boolSpec("hide_artist", false);
+          hideArtist.horizontalBarOnly = true;
+          hideArtist.visibleWhen = notAlbumArtOnly;
+          add(std::move(hideArtist));
+        }
+        {
+          auto artistFirst = boolSpec("artist_first", false);
+          artistFirst.horizontalBarOnly = true;
+          artistFirst.visibleWhen = notAlbumArtOnly;
+          add(std::move(artistFirst));
+        }
+        {
+          auto minLength = intSpec("min_length", 80, 0.0, 800.0, 1.0);
+          minLength.visibleWhen = notAlbumArtOnly;
+          add(std::move(minLength));
+        }
+        {
+          auto maxLength = intSpec("max_length", 220, 40.0, 800.0, 1.0);
+          maxLength.visibleWhen = notAlbumArtOnly;
+          add(std::move(maxLength));
+        }
+        add(intSpec("art_size", 16.0, 8.0, 96.0, 1.0));
+        {
+          auto titleScroll = selectSpec("title_scroll", "none", mediaTitleScroll);
+          titleScroll.visibleWhen = notAlbumArtOnly;
+          add(std::move(titleScroll));
+        }
+        add(boolSpec("hide_when_no_media", false));
+      } else if (type == "sysmon") {
+        add(selectSpec("stat", "cpu_usage", sysmonStats));
+        {
+          auto glyph = glyphSpec("glyph", "");
+          glyph.descriptionKey = "settings.widgets.settings.glyph.sysmon-description";
+          add(std::move(glyph));
+        }
+        add(stringSpec("custom_image", ""));
+        add(boolSpec("custom_image_colorize", false));
+        {
+          auto path = stringSpec("path", "/");
+          path.visibleWhen =
+              WidgetSettingVisibility{"stat", {"disk_used_pct", "disk_used", "disk_free_pct", "disk_free"}};
+          add(std::move(path));
+        }
+        {
+          auto interface = stringSpec("interface");
+          interface.visibleWhen = WidgetSettingVisibility{"stat", {"net_rx", "net_tx"}};
+          add(std::move(interface));
+        }
+        {
+          auto unit = selectSpec("network_speed_unit", "auto", networkSpeedUnits);
+          unit.visibleWhen = WidgetSettingVisibility{"stat", {"net_rx", "net_tx"}};
+          add(std::move(unit));
+        }
+        {
+          auto compact = boolSpec("network_speed_compact", false);
+          compact.visibleWhen = WidgetSettingVisibility{"stat", {"net_rx", "net_tx"}};
+          add(std::move(compact));
+        }
+        add(segmentedSpec("display", "gauge", sysmonDisplay));
+        add(colorSpec("highlight_color", "error"));
+        {
+          auto showLabel = boolSpec("show_label", true);
+          showLabel.visibleWhen = WidgetSettingVisibility{"display", {"gauge", "graph", "text"}};
+          add(std::move(showLabel));
+        }
+        {
+          auto minWidth = intSpec("label_min_width", 0, 0.0, 200.0, 1.0);
+          WidgetSettingVisibility minWidthSettings;
+          minWidthSettings.all = {
+              WidgetSettingVisibilityCondition{"display", {"gauge", "graph", "text"}},
+              WidgetSettingVisibilityCondition{"show_label", {"true"}},
           };
-          singleIconPerApp.visibleWhen = std::move(singleIconSettings);
-          add(std::move(singleIconPerApp));
+          minWidth.visibleWhen = minWidthSettings;
+          add(std::move(minWidth));
         }
         {
-          auto groupCapsule = withGroup(boolSpec("workspace_group_capsule", true), "taskbar.grouping");
-          groupCapsule.descriptionKey = "settings.widgets.settings.workspace-group-capsule.description";
-          groupCapsule.visibleWhen = groupedWorkspaceSettings;
-          add(std::move(groupCapsule));
+          auto showUnits = boolSpec("label_show_units", true);
+          showUnits.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
+          add(std::move(showUnits));
+        }
+        {
+          auto glyphPosition = segmentedSpec("glyph_position", "before", glyphPositionOptions);
+          glyphPosition.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
+          add(std::move(glyphPosition));
+        }
+      } else if (type == "taskbar") {
+        // Windows: what the taskbar lists and how each window tile looks.
+        add(withGroup(boolSpec("show_all_outputs", false), "taskbar.windows"));
+        add(withGroup(boolSpec("show_active_indicator", true), "taskbar.windows"));
+        add(withGroup(doubleSpec("active_opacity", 1.0, 0.1, 1.0, 0.01), "taskbar.windows"));
+        add(withGroup(doubleSpec("inactive_opacity", 1.0, 0.1, 1.0, 0.01), "taskbar.windows"));
+        {
+          auto pinned = withGroup(stringListSpec("pinned"), "taskbar.windows");
+          pinned.labelKey = "settings.widgets.settings.pinned.taskbar-label";
+          pinned.descriptionKey = "settings.widgets.settings.pinned.taskbar-description";
+          if (supportsTaskbarWorkspaceGrouping) {
+            pinned.visibleWhen =
+                WidgetSettingVisibility{WidgetSettingVisibilityCondition{"group_by_workspace", {"false"}}};
+          }
+          add(std::move(pinned));
+        }
+        {
+          auto pinnedOpacity = withGroup(doubleSpec("pinned_opacity", 0.5, 0.0, 1.0, 0.01), "taskbar.windows");
+          WidgetSettingVisibility pinnedOpacitySettings;
+          pinnedOpacitySettings.all = {WidgetSettingVisibilityCondition{"pinned", {}, true}};
+          if (supportsTaskbarWorkspaceGrouping) {
+            pinnedOpacitySettings.all.push_back(WidgetSettingVisibilityCondition{"group_by_workspace", {"false"}});
+          }
+          pinnedOpacity.visibleWhen = std::move(pinnedOpacitySettings);
+          add(std::move(pinnedOpacity));
+        }
+        {
+          // Window titles are only laid out when the taskbar is not grouping by workspace.
+          auto showWindowTitle = withGroup(boolSpec("show_window_title", false), "taskbar.windows");
+          WidgetSettingVisibility windowTitleSettings;
+          windowTitleSettings.all = {WidgetSettingVisibilityCondition{"show_window_title", {"true"}}};
+          if (supportsTaskbarWorkspaceGrouping) {
+            showWindowTitle.visibleWhen =
+                WidgetSettingVisibility{WidgetSettingVisibilityCondition{"group_by_workspace", {"false"}}};
+            windowTitleSettings.all.push_back(WidgetSettingVisibilityCondition{"group_by_workspace", {"false"}});
+          }
+          add(std::move(showWindowTitle));
+
+          auto windowTitleMaxWidth =
+              withGroup(intSpec("window_title_max_width", 100.0, 10.0, 200.0, 1.0), "taskbar.windows");
+          windowTitleMaxWidth.visibleWhen = windowTitleSettings;
+          add(std::move(windowTitleMaxWidth));
+
+          auto taskbarMaxWidth = withGroup(intSpec("taskbar_max_width", 8192.0, 10.0, 8192.0, 1.0), "taskbar.windows");
+          taskbarMaxWidth.visibleWhen = windowTitleSettings;
+          add(std::move(taskbarMaxWidth));
         }
 
-        // Workspace labels: the disc tag on each grouped capsule, and the colors it uses.
-        {
-          auto showWsLabel = withGroup(boolSpec("show_workspace_label", true), "taskbar.workspace-labels");
-          showWsLabel.visibleWhen = groupedWorkspaceSettings;
-          add(std::move(showWsLabel));
-        }
-        {
-          auto labelPlacement = withGroup(
-              selectSpec("workspace_label_placement", "corner", workspaceLabelPlacement), "taskbar.workspace-labels"
-          );
-          labelPlacement.visibleWhen = groupedWorkspaceSettings;
-          add(std::move(labelPlacement));
-        }
-        // The label styling options only bite on workspace discs, which exist solely when grouping is on.
-        WidgetSettingVisibility labelStyleSettings;
-        labelStyleSettings.all = {
-            WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}},
-            WidgetSettingVisibilityCondition{"show_workspace_label", {"true"}},
-        };
-        {
-          auto minimal = withGroup(boolSpec("minimal", false), "taskbar.workspace-labels");
-          minimal.descriptionKey = "settings.widgets.settings.minimal.taskbar-description";
-          minimal.visibleWhen = labelStyleSettings;
-          add(std::move(minimal));
-        }
-        {
-          auto focusedOutputOnly = withGroup(boolSpec("focused_output_only", false), "taskbar.workspace-labels");
-          focusedOutputOnly.descriptionKey = "settings.widgets.settings.focused-output-only.taskbar-description";
-          focusedOutputOnly.visibleWhen = labelStyleSettings;
-          add(std::move(focusedOutputOnly));
-        }
-        {
-          auto focusedColor = withGroup(colorSpec("focused_color", "primary"), "taskbar.workspace-labels");
-          focusedColor.visibleWhen = groupedWorkspaceSettings;
-          add(std::move(focusedColor));
-        }
-        {
-          auto occupiedColor = withGroup(colorSpec("occupied_color", "secondary"), "taskbar.workspace-labels");
-          occupiedColor.visibleWhen = groupedWorkspaceSettings;
-          add(std::move(occupiedColor));
-        }
-        {
-          auto emptyColor = withGroup(colorSpec("empty_color", "secondary"), "taskbar.workspace-labels");
-          emptyColor.visibleWhen = groupedWorkspaceSettings;
-          add(std::move(emptyColor));
-        }
-        {
-          auto urgentColor = withGroup(colorSpec("urgent_color", "error"), "taskbar.workspace-labels");
-          urgentColor.visibleWhen = groupedWorkspaceSettings;
-          add(std::move(urgentColor));
-        }
+        if (supportsTaskbarWorkspaceGrouping) {
+          const WidgetSettingVisibility groupedWorkspaceSettings{
+              WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}}
+          };
 
+          // Grouping: how windows are bundled into workspace capsules. only_active_workspace filters the
+          // window list on its own, so it precedes the master toggle the rest of the section hangs off.
+          add(withGroup(boolSpec("only_active_workspace", false), "taskbar.grouping"));
+          add(withGroup(boolSpec("group_by_workspace", false), "taskbar.grouping"));
+          {
+            auto hideEmpty = withGroup(boolSpec("hide_empty_workspaces", false), "taskbar.grouping");
+            hideEmpty.visibleWhen = groupedWorkspaceSettings;
+            add(std::move(hideEmpty));
+          }
+          {
+            auto groupContent =
+                withGroup(segmentedSpec("workspace_group_content", "icons", workspaceGroupContent), "taskbar.grouping");
+            groupContent.visibleWhen = groupedWorkspaceSettings;
+            add(std::move(groupContent));
+          }
+          {
+            auto singleIconPerApp = withGroup(boolSpec("group_single_icon_per_app", false), "taskbar.grouping");
+            WidgetSettingVisibility singleIconSettings;
+            singleIconSettings.all = {
+                WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}},
+                WidgetSettingVisibilityCondition{"workspace_group_content", {"icons"}},
+            };
+            singleIconPerApp.visibleWhen = std::move(singleIconSettings);
+            add(std::move(singleIconPerApp));
+          }
+          {
+            auto groupCapsule = withGroup(boolSpec("workspace_group_capsule", true), "taskbar.grouping");
+            groupCapsule.descriptionKey = "settings.widgets.settings.workspace-group-capsule.description";
+            groupCapsule.visibleWhen = groupedWorkspaceSettings;
+            add(std::move(groupCapsule));
+          }
+
+          // Workspace labels: the disc tag on each grouped capsule, and the colors it uses.
+          {
+            auto showWsLabel = withGroup(boolSpec("show_workspace_label", true), "taskbar.workspace-labels");
+            showWsLabel.visibleWhen = groupedWorkspaceSettings;
+            add(std::move(showWsLabel));
+          }
+          {
+            auto labelPlacement = withGroup(
+                selectSpec("workspace_label_placement", "corner", workspaceLabelPlacement), "taskbar.workspace-labels"
+            );
+            labelPlacement.visibleWhen = groupedWorkspaceSettings;
+            add(std::move(labelPlacement));
+          }
+          // The label styling options only bite on workspace discs, which exist solely when grouping is on.
+          WidgetSettingVisibility labelStyleSettings;
+          labelStyleSettings.all = {
+              WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}},
+              WidgetSettingVisibilityCondition{"show_workspace_label", {"true"}},
+          };
+          {
+            auto minimal = withGroup(boolSpec("minimal", false), "taskbar.workspace-labels");
+            minimal.descriptionKey = "settings.widgets.settings.minimal.taskbar-description";
+            minimal.visibleWhen = labelStyleSettings;
+            add(std::move(minimal));
+          }
+          {
+            auto focusedOutputOnly = withGroup(boolSpec("focused_output_only", false), "taskbar.workspace-labels");
+            focusedOutputOnly.descriptionKey = "settings.widgets.settings.focused-output-only.taskbar-description";
+            focusedOutputOnly.visibleWhen = labelStyleSettings;
+            add(std::move(focusedOutputOnly));
+          }
+          {
+            auto focusedColor = withGroup(colorSpec("focused_color", "primary"), "taskbar.workspace-labels");
+            focusedColor.visibleWhen = groupedWorkspaceSettings;
+            add(std::move(focusedColor));
+          }
+          {
+            auto occupiedColor = withGroup(colorSpec("occupied_color", "secondary"), "taskbar.workspace-labels");
+            occupiedColor.visibleWhen = groupedWorkspaceSettings;
+            add(std::move(occupiedColor));
+          }
+          {
+            auto emptyColor = withGroup(colorSpec("empty_color", "secondary"), "taskbar.workspace-labels");
+            emptyColor.visibleWhen = groupedWorkspaceSettings;
+            add(std::move(emptyColor));
+          }
+          {
+            auto urgentColor = withGroup(colorSpec("urgent_color", "error"), "taskbar.workspace-labels");
+            urgentColor.visibleWhen = groupedWorkspaceSettings;
+            add(std::move(urgentColor));
+          }
+
+          for (auto& spec : commonSpecs) {
+            if (spec.schema.key == "capsule_radius") {
+              spec.descriptionKey = "settings.widgets.settings.capsule-radius.taskbar-description";
+              spec.visibleWhen = WidgetSettingVisibility{
+                  WidgetSettingVisibilityCondition{"capsule", {"true"}},
+                  WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}},
+              };
+              break;
+            }
+          }
+        }
+      } else if (type == "tray") {
+        add(stringListSpec("hidden"));
+        add(stringListSpec("pinned"));
+        add(boolSpec("match_adjacent_spacing", false));
+        add(boolSpec("drawer", false));
+        {
+          const WidgetSettingVisibility drawerOn{"drawer", {"true"}};
+          auto cols = intSpec("drawer_columns", 3, 1.0, 5.0, 1.0);
+          cols.visibleWhen = drawerOn;
+          add(std::move(cols));
+          auto drawerItemSize =
+              doubleSpec("drawer_item_size", static_cast<double>(Style::baseGlyphSize), 8.0, 64.0, 1.0);
+          drawerItemSize.visibleWhen = drawerOn;
+          add(std::move(drawerItemSize));
+          auto detachedPanel = boolSpec("detached_panel", false);
+          detachedPanel.visibleWhen = drawerOn;
+          add(std::move(detachedPanel));
+        }
+      } else if (type == "volume") {
+        add(segmentedSpec("device", "output", volumeDeviceOptions));
+        {
+          auto glyph = glyphSpec("glyph", "");
+          glyph.descriptionKey = "settings.widgets.settings.glyph.volume-description";
+          add(std::move(glyph));
+        }
+        add(glyphSpec("mute_glyph", ""));
+        add(stringMapSpec("effects_profile_glyphs"));
+        add(stringSpec("custom_image", ""));
+        add(boolSpec("custom_image_colorize", false));
+        add(boolSpec("show_label", true));
+        add(colorSpec("mute_color", "error"));
+      } else if (type == "workspaces") {
+        WidgetSettingVisibility pillStyleOnly;
+        pillStyleOnly.all = {WidgetSettingVisibilityCondition{"style", {"regular"}}};
         for (auto& spec : commonSpecs) {
           if (spec.schema.key == "capsule_radius") {
-            spec.descriptionKey = "settings.widgets.settings.capsule-radius.taskbar-description";
-            spec.visibleWhen = WidgetSettingVisibility{
-                WidgetSettingVisibilityCondition{"capsule", {"true"}},
-                WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}},
-            };
+            spec.descriptionKey = "settings.widgets.settings.capsule-radius.workspaces-description";
+            spec.visibleWhen = pillStyleOnly;
             break;
           }
         }
-      }
-    } else if (type == "tray") {
-      add(stringListSpec("hidden"));
-      add(stringListSpec("pinned"));
-      add(boolSpec("match_adjacent_spacing", false));
-      add(boolSpec("drawer", false));
-      {
-        const WidgetSettingVisibility drawerOn{"drawer", {"true"}};
-        auto cols = intSpec("drawer_columns", 3, 1.0, 5.0, 1.0);
-        cols.visibleWhen = drawerOn;
-        add(std::move(cols));
-        auto drawerItemSize = doubleSpec("drawer_item_size", static_cast<double>(Style::baseGlyphSize), 8.0, 64.0, 1.0);
-        drawerItemSize.visibleWhen = drawerOn;
-        add(std::move(drawerItemSize));
-        auto detachedPanel = boolSpec("detached_panel", false);
-        detachedPanel.visibleWhen = drawerOn;
-        add(std::move(detachedPanel));
-      }
-    } else if (type == "volume") {
-      add(segmentedSpec("device", "output", volumeDeviceOptions));
-      {
-        auto glyph = glyphSpec("glyph", "");
-        glyph.descriptionKey = "settings.widgets.settings.glyph.volume-description";
-        add(std::move(glyph));
-      }
-      add(glyphSpec("mute_glyph", ""));
-      add(stringMapSpec("effects_profile_glyphs"));
-      add(stringSpec("custom_image", ""));
-      add(boolSpec("custom_image_colorize", false));
-      add(boolSpec("enable_scroll", true));
-      {
-        auto scrollStep = stepperIntSpec("scroll_step", 5, 1.0, 25.0, 1.0, "%");
-        scrollStep.visibleWhen = WidgetSettingVisibility{"enable_scroll", {"true"}};
-        add(std::move(scrollStep));
-      }
-      add(boolSpec("show_label", true));
-      add(colorSpec("mute_color", "error"));
-    } else if (type == "workspaces") {
-      WidgetSettingVisibility pillStyleOnly;
-      pillStyleOnly.all = {WidgetSettingVisibilityCondition{"style", {"regular"}}};
-      for (auto& spec : commonSpecs) {
-        if (spec.schema.key == "capsule_radius") {
-          spec.descriptionKey = "settings.widgets.settings.capsule-radius.workspaces-description";
-          spec.visibleWhen = pillStyleOnly;
-          break;
+
+        // Workspaces: which workspaces appear, and what each one's label shows.
+        {
+          auto hideWhenEmpty = withGroup(boolSpec("hide_when_empty", false), "workspaces.list");
+          hideWhenEmpty.descriptionKey = "settings.widgets.settings.hide-when-empty.workspaces-description";
+          add(std::move(hideWhenEmpty));
         }
+        add(withGroup(segmentedSpec("display", "id", workspaceDisplay), "workspaces.list"));
+        {
+          auto labelsOnlyWhenOccupied = withGroup(boolSpec("labels_only_when_occupied", false), "workspaces.list");
+          labelsOnlyWhenOccupied.descriptionKey =
+              "settings.widgets.settings.labels-only-when-occupied.workspaces-description";
+          add(std::move(labelsOnlyWhenOccupied));
+        }
+        {
+          auto maxLabelChars = withGroup(intSpec("max_label_chars", 1, 1.0, 20.0, 1.0), "workspaces.list");
+          maxLabelChars.descriptionKey = "settings.widgets.settings.max-label-chars.workspaces-description";
+          add(std::move(maxLabelChars));
+        }
+
+        // Pill style: minimal and focus_hint drop regular pill sizing options.
+        {
+          auto style = withGroup(segmentedSpec("style", "regular", workspaceStyle), "workspaces.pills");
+          style.descriptionKey = "settings.widgets.settings.style.workspaces-description";
+          add(std::move(style));
+        }
+        {
+          auto pillScale = withGroup(doubleSpec("pill_scale", 1.0, 0.1, 1.0, 0.05), "workspaces.pills");
+          pillScale.descriptionKey = "settings.widgets.settings.pill-scale.workspaces-description";
+          pillScale.visibleWhen = pillStyleOnly;
+          add(std::move(pillScale));
+        }
+        {
+          auto activePillSize = withGroup(doubleSpec("active_pill_size", 2.2, 0.25, 8.0, 0.05), "workspaces.pills");
+          activePillSize.descriptionKey = "settings.widgets.settings.active-pill-size.workspaces-description";
+          activePillSize.visibleWhen = pillStyleOnly;
+          add(std::move(activePillSize));
+        }
+        {
+          auto inactivePillSize = withGroup(doubleSpec("inactive_pill_size", 1.0, 0.25, 8.0, 0.05), "workspaces.pills");
+          inactivePillSize.descriptionKey = "settings.widgets.settings.inactive-pill-size.workspaces-description";
+          inactivePillSize.visibleWhen = pillStyleOnly;
+          add(std::move(inactivePillSize));
+        }
+
+        // Colors: the focused/occupied/empty palette and which monitor gets the focused treatment.
+        {
+          auto focusedOutputOnly = withGroup(boolSpec("focused_output_only", false), "workspaces.colors");
+          focusedOutputOnly.descriptionKey = "settings.widgets.settings.focused-output-only.workspaces-description";
+          add(std::move(focusedOutputOnly));
+        }
+        add(withGroup(colorSpec("focused_color", "primary"), "workspaces.colors"));
+        add(withGroup(colorSpec("occupied_color", "secondary"), "workspaces.colors"));
+        add(withGroup(colorSpec("empty_color", "secondary"), "workspaces.colors"));
+        add(withGroup(colorSpec("urgent_color", "error"), "workspaces.colors"));
       }
 
-      // Workspaces: which workspaces appear, and what each one's label shows.
-      add(withGroup(boolSpec("enable_scroll", true), "workspaces.list"));
-      {
-        auto hideWhenEmpty = withGroup(boolSpec("hide_when_empty", false), "workspaces.list");
-        hideWhenEmpty.descriptionKey = "settings.widgets.settings.hide-when-empty.workspaces-description";
-        add(std::move(hideWhenEmpty));
-      }
-      add(withGroup(segmentedSpec("display", "id", workspaceDisplay), "workspaces.list"));
-      {
-        auto labelsOnlyWhenOccupied = withGroup(boolSpec("labels_only_when_occupied", false), "workspaces.list");
-        labelsOnlyWhenOccupied.descriptionKey =
-            "settings.widgets.settings.labels-only-when-occupied.workspaces-description";
-        add(std::move(labelsOnlyWhenOccupied));
-      }
-      {
-        auto maxLabelChars = withGroup(intSpec("max_label_chars", 1, 1.0, 20.0, 1.0), "workspaces.list");
-        maxLabelChars.descriptionKey = "settings.widgets.settings.max-label-chars.workspaces-description";
-        add(std::move(maxLabelChars));
-      }
-
-      // Pill style: minimal and focus_hint drop regular pill sizing options.
-      {
-        auto style = withGroup(segmentedSpec("style", "regular", workspaceStyle), "workspaces.pills");
-        style.descriptionKey = "settings.widgets.settings.style.workspaces-description";
-        add(std::move(style));
-      }
-      {
-        auto pillScale = withGroup(doubleSpec("pill_scale", 1.0, 0.1, 1.0, 0.05), "workspaces.pills");
-        pillScale.descriptionKey = "settings.widgets.settings.pill-scale.workspaces-description";
-        pillScale.visibleWhen = pillStyleOnly;
-        add(std::move(pillScale));
-      }
-      {
-        auto activePillSize = withGroup(doubleSpec("active_pill_size", 2.2, 0.25, 8.0, 0.05), "workspaces.pills");
-        activePillSize.descriptionKey = "settings.widgets.settings.active-pill-size.workspaces-description";
-        activePillSize.visibleWhen = pillStyleOnly;
-        add(std::move(activePillSize));
-      }
-      {
-        auto inactivePillSize = withGroup(doubleSpec("inactive_pill_size", 1.0, 0.25, 8.0, 0.05), "workspaces.pills");
-        inactivePillSize.descriptionKey = "settings.widgets.settings.inactive-pill-size.workspaces-description";
-        inactivePillSize.visibleWhen = pillStyleOnly;
-        add(std::move(inactivePillSize));
-      }
-
-      // Colors: the focused/occupied/empty palette and which monitor gets the focused treatment.
-      {
-        auto focusedOutputOnly = withGroup(boolSpec("focused_output_only", false), "workspaces.colors");
-        focusedOutputOnly.descriptionKey = "settings.widgets.settings.focused-output-only.workspaces-description";
-        add(std::move(focusedOutputOnly));
-      }
-      add(withGroup(colorSpec("focused_color", "primary"), "workspaces.colors"));
-      add(withGroup(colorSpec("occupied_color", "secondary"), "workspaces.colors"));
-      add(withGroup(colorSpec("empty_color", "secondary"), "workspaces.colors"));
-      add(withGroup(colorSpec("urgent_color", "error"), "workspaces.colors"));
+      specs.insert(
+          specs.end(), std::make_move_iterator(commonSpecs.begin()), std::make_move_iterator(commonSpecs.end())
+      );
+      applyGestureActionDefaults(specs, type, config);
+      return specs;
     }
 
-    specs.insert(specs.end(), std::make_move_iterator(commonSpecs.begin()), std::make_move_iterator(commonSpecs.end()));
-    return specs;
-  }
+  } // namespace
 
   std::vector<WidgetSettingSpec> manifestSettingSpecs(
       const std::vector<scripting::ManifestField>& fields, const scripting::PluginTranslationCatalog* translations
@@ -1344,7 +1352,6 @@ namespace settings {
       std::string_view type, const WidgetConfig* config, std::string_view shellFontFamily,
       bool supportsTaskbarWorkspaceGrouping, bool populateFontCatalogs
   ) {
-    (void)config;
     if (auto pw = resolvePluginWidget(type)) {
       scripting::PluginTranslationCatalog translations;
       translations.load(pw->sourcePath.parent_path());
@@ -1355,9 +1362,12 @@ namespace settings {
       specs.insert(
           specs.end(), std::make_move_iterator(commonSpecs.begin()), std::make_move_iterator(commonSpecs.end())
       );
+      applyGestureActionDefaults(specs, type, config);
       return specs;
     }
-    return widgetSettingSpecs(type, shellFontFamily, supportsTaskbarWorkspaceGrouping, populateFontCatalogs);
+    return typeWidgetSettingSpecs(
+        type, config, shellFontFamily, supportsTaskbarWorkspaceGrouping, populateFontCatalogs
+    );
   }
 
   namespace {
@@ -1431,7 +1441,7 @@ namespace settings {
       return std::move(*fields);
     }
     noctalia::config::schema::WidgetSettingSchema out;
-    for (const auto& spec : widgetSettingSpecs(type, "sans-serif", true, false)) {
+    for (const auto& spec : widgetSettingSpecs(type, nullptr, "sans-serif", true, false)) {
       out.push_back(spec.schema);
     }
     return out;

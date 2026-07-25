@@ -300,6 +300,7 @@
       "unknown-device": "Dispositivo desconocido"
     },
     "screen-time": {
+      "back": "Atras",
       "disabled": "El seguimiento del monitor está apagado. Habilítalo en configuraciones para registrar el tiempo en pantalla.",
       "empty": "Aún no se ha registrado el uso de ninguna aplicación. Selecciona una ventana para empezar el seguimiento.",
       "hour-0": "12 AM",
@@ -311,7 +312,8 @@
         "14-days": "14 días",
         "3-days": "3 días",
         "today": "Hoy"
-      }
+      },
+      "view-day": "Ver detalles del dia"
     },
     "shortcuts": {
       "audio": "Audio",
@@ -548,6 +550,9 @@
         "wave-thickness": "Grosor de la Ola",
         "widget-section": "Widget"
       },
+      "state": {
+        "grid": "Rejilla"
+      },
       "title": "Widgets de Escritorio",
       "types": {
         "audio-visualizer": "Visualizador de Audio",
@@ -693,6 +698,7 @@
       "battery-low-title": "Batería baja",
       "calendar": "Calendario",
       "calendar-google-connect-browser-failed": "No se pudo iniciar ningún navegador para la autorización de Google. Compruebe su navegador predeterminado o la configuración de xdg-open.",
+      "calendar-google-connect-credential-store-failed": "Autorizacion completada, pero el nuevo token no se puede guardar. Desbloquea o inicia el Almacen de Credenciales, y luego conecta de nuevo.",
       "calendar-google-connect-expired": "La autorización de Google caducó antes de que finalizara el inicio de sesión. Vuelva a iniciar la conexión.",
       "calendar-google-connect-failed-title": "Conexion fallida con Google Calendar",
       "calendar-google-connect-missing-account": "Ninguna cuenta de Google Calendar configurada coincide con «{account}».",
@@ -834,6 +840,7 @@
   },
   "settings": {
     "actions": {
+      "confirm-reset": "Confirma Reset",
       "reset": "Resetear"
     },
     "badges": {
@@ -857,6 +864,7 @@
       "invalid": "Revisa los campos resaltados de la cuenta del calendario.",
       "name-label": "Nombre mostrado",
       "name-placeholder": "Calendario Personal",
+      "password-file-error": "No se puede leer el archivo de contraseñas configurado. Comprueba que existe, que se puede leer el archivo y que contiene una contraseña.",
       "password-file-label": "Archivo de contraseña",
       "password-keep-placeholder": "Deje vacío para mantener la contraseña actual",
       "password-label": "Clave de aplicación",
@@ -871,6 +879,11 @@
       "save": "Guardar",
       "save-connect": "Guardar y Conectar",
       "save-error": "No se pudo guardar la cuenta de calendario.",
+      "secret-cleanup-error": "La cuenta no se puede guardar, y su credencial no se puede restaurar ni borrar. Reintentalo despues de desbloquear el Almacen de Credenciales",
+      "secret-service-cancelled": "El prompt del Almacen de Credenciales se ha cancelado. Reintentalo de nuevo cuando estes preparado para desbloquearlo.",
+      "secret-service-error": "No se puede acceder a las credenciales del Calendario en el Almacen de Credenciales. Reintenta de nuevo.",
+      "secret-service-locked": "Las credenciales del Calendario estan bloqueadas o se denego el acceso. Desbloquea el Almacen de Credenciales y reintentalo.",
+      "secret-service-unavailable": "No hay Almacen de Credenciales disponible. Inicia / instala Gnome-keyring, kwallet o keepassXC para reintentarlo",
       "server-url-label": "URL del Servidor",
       "username-label": "Nombre de Usuario",
       "username-placeholder": "nombre@ejemplo.com"
@@ -1611,26 +1624,6 @@
         "corner-top-right": {
           "description": "Radio de la esquina superior derecha de la barra; los valores negativos crean una esquina cóncava cuando esta esquina no está orientada hacia el borde de la pantalla"
         },
-        "dead-zone-command": {
-          "description": "Comando del shell a ejecutar al hacer clic izquierdo en el margen de la barra fuera de las secciones de widgets",
-          "label": "Clic izquierdo"
-        },
-        "dead-zone-middle-command": {
-          "description": "Comando del shell a ejecutar al hacer clic central en el margen de la barra fuera de las secciones de widgets",
-          "label": "Clic central"
-        },
-        "dead-zone-right-command": {
-          "description": "Comando del shell a ejecutar al hacer clic derecho; deja vacío para abrir el Centro de control",
-          "label": "Clic derecho"
-        },
-        "dead-zone-scroll-down-command": {
-          "description": "Comando del shell a ejecutar al desplazarse hacia abajo",
-          "label": "Desplazar hacia abajo"
-        },
-        "dead-zone-scroll-up-command": {
-          "description": "Comando del shell a ejecutar al desplazarse hacia arriba",
-          "label": "Desplazar hacia arriba"
-        },
         "edge-margin": {
           "description": "Espacio entre la barra y el borde de pantalla en el que se apoya. Pon 0 px para que quede a ras de ese borde."
         },
@@ -1848,6 +1841,9 @@
         "launcher-position": {
           "description": "Mostrar un botón de lanzador al inicio o al final del dock",
           "label": "Botón de lanzador"
+        },
+        "layer": {
+          "label": "Capa Wayland"
         },
         "magnification": {
           "description": "Ampliar los iconos del dock cerca del puntero, al estilo macOS",
@@ -2163,6 +2159,29 @@
         "launcher-global-calculator": {
           "label": "Calculadora en la Busqueda Global"
         },
+        "launcher-prefix-calculator": {
+          "label": "Prefijo para Calculadora"
+        },
+        "launcher-prefix-character": {
+          "description": "Caracter usado para cualquier prefijo (ej: /)",
+          "label": "Caracter usado para todos los prefijos"
+        },
+        "launcher-prefix-emoji": {
+          "description": "Prefijo para activar la busqueda de emoji",
+          "label": "Prefijo para emoji"
+        },
+        "launcher-prefix-session": {
+          "description": "Prefijo para activar las acciones de energia de esta sesion",
+          "label": "Prefijo para la sesion"
+        },
+        "launcher-prefix-wallpaper": {
+          "description": "Prefijo para activar el selector de fondos de pantalla",
+          "label": "Prefijo para fondos de pantalla"
+        },
+        "launcher-prefix-windows": {
+          "description": "Prefijo para activar la busqueda de ventanas",
+          "label": "Prefijo para ventanas"
+        },
         "launcher-reset-usage": {
           "button": "Restablecer",
           "description": "Borrar los conteos de lanzamiento y el historial de uso reciente usados para ordenar el lanzador",
@@ -2179,6 +2198,10 @@
         "launcher-sort-by-usage": {
           "description": "Destacar las aplicaciones usadas con frecuencia en la parte superior y mostrar un filtro de categoría de usados recientemente",
           "label": "Ordenar por uso"
+        },
+        "list-item-background": {
+          "description": "Dibujar un fondo redondeado detras de cada lanzador y elemento del portapapeles",
+          "label": "Fondo para elementos de la lista"
         },
         "open-near-click-clipboard": {
           "description": "Colocar el panel del portapapeles cerca del clic en la barra en lugar de centrarlo a lo largo de la barra",
@@ -2199,6 +2222,9 @@
         "open-near-click-wallpaper": {
           "description": "Colocar el panel selector de fondo de pantalla cerca del clic en la barra en lugar de centrarlo a lo largo de la barra",
           "label": "Abrir cerca del clic"
+        },
+        "panel-anchor-bar": {
+          "label": "Anclaje de la barra"
         },
         "placement-clipboard": {
           "description": "Elige si el portapapeles se ancla a la barra o flota en una posición de pantalla elegida",
@@ -2268,6 +2294,10 @@
         "session-grid-columns": {
           "description": "Numero de columnas para la disposicion de la rejilla",
           "label": "Columnas"
+        },
+        "session-show-shortcuts": {
+          "description": "Mostrar u ocultar ayuda de los accesos directos",
+          "label": "Mostrar accesos directos"
         }
       },
       "services": {
@@ -2285,9 +2315,13 @@
           "label": "Cuentas del calendario"
         },
         "calendar-credentials": {
-          "description-locked": "Las credenciales del calendario estan bloqueadas o el acceso ha sido denegado. Desbloquee el Servicio Secreto y renintentelo",
-          "description-migration": "Las credenciales del calendario en texto plano se moverán al Servicio Secreto. No se usaran para sincronizar el calendario.",
-          "description-opening": "Las credenciales del calendario se usan con el Servicio Secreto",
+          "button": "Reintentar",
+          "description-cancelled": "La consulta al Almacen de Credenciales se ha cancelado. Reintentarlo cuando este disponible.",
+          "description-error": "No se puede acceder a las credenciales del Calendario desde el Almacen de Credenciales",
+          "description-locked": "Las credenciales del calendario estan bloqueadas o el acceso ha sido denegado. Desbloquee el Almacen de Credenciales y reintentelo",
+          "description-migration": "Las credenciales del calendario en texto plano se moverán al Almacen de credenciales. No se usaran para sincronizar el calendario.",
+          "description-opening": "Las credenciales del calendario se usaran desde el Almacen de Credenciales",
+          "description-unavailable": "No hay ningun Almacen de Credenciales en esta sesion.",
           "label": "Almacenamiento de las credenciales del Calendario"
         },
         "calendar-edit": {
@@ -2305,6 +2339,10 @@
         "calendar-refresh-interval": {
           "description": "Con qué frecuencia sincronizar los eventos del calendario (minutos)",
           "label": "Intervalo de actualización"
+        },
+        "calendar-storage": {
+          "button": "Reintentar",
+          "description-unavailable": "No hay ningun Almacen de Credenciales disponible. Los eventos del Calendario permaneceran disponibles para esta sesion unicamente."
         },
         "day-temperature": {
           "description": "Temperatura de color durante el día (Kelvin)",
@@ -2404,7 +2442,11 @@
           "stats": {
             "cpu-temp": "Temp. CPU",
             "cpu-usage": "Uso de CPU",
+            "disk-free": "Disco disponible",
+            "disk-free-pct": "% de disco disponible",
             "disk-usage": "Uso del disco",
+            "disk-used": "Disco usado",
+            "disk-used-pct": "% de disco usado",
             "gpu-temp": "Temp. GPU",
             "gpu-usage": "Uso de GPU",
             "gpu-vram": "VRAM de GPU",
@@ -2526,6 +2568,11 @@
           "label": "Comando de acción de imagen",
           "placeholder": "gimp {path} o satty -f -"
         },
+        "clipboard-storage": {
+          "button": "Reintentar",
+          "description-cancelled": "El Almacen de Credenciales se ha cancelado. El historial del portapapeles permanecera disponible en esta sesion unicamente.",
+          "description-unavailable": "No hay ningun Almacen de Credenciales disponible. El historial del portapapeles permanecera disponible en esta sesion unicamente."
+        },
         "date-format": {
           "description": "Formato de fecha predeterminado para la interfaz del shell sin configuración propia",
           "label": "Formato de fecha"
@@ -2550,10 +2597,6 @@
           "description": "Comando personalizado usado por el lanzador de aplicaciones; sustituye $CMD por el comando original.",
           "label": "Comando de lanzador personalizado",
           "placeholder": "$CMD"
-        },
-        "middle-click-opens-widget-settings": {
-          "description": "Abrir la configuración de un widget de la barra desde la barra con clic central",
-          "label": "El clic central (click en tu rueda de mouse)  abre la configuración del widget"
         },
         "niri-overview-type-to-launch": {
           "description": "Abrir el lanzador al escribir en la vista general de niri; usa una pequeña superficie de foco de teclado mientras la vista general está abierta",
@@ -2924,8 +2967,6 @@
         "ram-used": "RAM usada",
         "rate": "Ratio",
         "regular": "Regular",
-        "screenshot-primary-fullscreen": "Pantalla completa",
-        "screenshot-primary-region": "Región",
         "shared": "Compartido",
         "short": "Corto",
         "swap-percent": "Porcentaje de swap",
@@ -3015,10 +3056,6 @@
           "description": "Segundo color del degradado en el visualizador",
           "label": "Color dos"
         },
-        "command": {
-          "description": "Comando del shell ejecutado al hacer clic izquierdo en este botón",
-          "label": "Comando de clic izquierdo"
-        },
         "custom-image": {
           "description": "Ruta a una imagen personalizada. Déjela en blanco para usar el glifo del icono.",
           "dialog-title": "Seleccionar imagen personalizada",
@@ -3031,10 +3068,6 @@
         "custom-labels": {
           "description": "Asignar nombres de distribución de teclado a etiquetas personalizadas",
           "label": "Etiquetas personalizadas"
-        },
-        "cycle-command": {
-          "description": "Comando ejecutado al alternar las distribuciones de teclado",
-          "label": "Comando de ciclo"
         },
         "detached-panel": {
           "description": "Abrir bandeja desplegable como un panel flotante con fondo propio en lugar de fusionarse con la barra",
@@ -3232,10 +3265,6 @@
           "description": "Patrón para nombres de aplicaciones de micrófono a ignorar",
           "label": "Patrón de filtro de micrófono"
         },
-        "middle-command": {
-          "description": "Comando del shell ejecutado al hacer clic central en este botón. Si se establece, el clic central abre este comando en lugar de la configuración del widget.",
-          "label": "Comando de clic central"
-        },
         "min-length": {
           "description": "Longitud mínima del widget en píxeles",
           "label": "Longitud mínima"
@@ -3285,14 +3314,6 @@
           "description": "IDs de elementos de bandeja que permanecen visibles en la barra cuando el modo bandeja desplegable está activado",
           "label": "Elementos fijados"
         },
-        "primary-click": {
-          "description": "Acción realizada al hacer clic izquierdo en el botón de la barra",
-          "label": "Clic primario"
-        },
-        "right-command": {
-          "description": "Comando del shell ejecutado al hacer clic derecho en este botón",
-          "label": "Comando de clic derecho"
-        },
         "scale": {
           "description": "Escalar este widget en relación con la escala del contenido de la barra",
           "label": "Escala"
@@ -3304,18 +3325,6 @@
         "script": {
           "description": "Ruta al script lua",
           "label": "Script"
-        },
-        "scroll-down-command": {
-          "description": "Comando del shell ejecutado al desplazarse hacia abajo sobre este botón",
-          "label": "Comando de desplazamiento hacia abajo"
-        },
-        "scroll-step": {
-          "description": "Cambio de porcentaje aplicado en cada paso de la rueda del ratón",
-          "label": "Paso de desplazamiento"
-        },
-        "scroll-up-command": {
-          "description": "Comando del shell ejecutado al desplazarse hacia arriba sobre este botón",
-          "label": "Comando de desplazamiento hacia arriba"
         },
         "show-active-indicator": {
           "description": "Mostrar un pequeño punto debajo del icono de la ventana activa en la barra de tareas.",

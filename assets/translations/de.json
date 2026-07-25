@@ -1630,26 +1630,6 @@
         "corner-top-right": {
           "description": "Eckenradius oben rechts für die Leiste"
         },
-        "dead-zone-command": {
-          "description": "Shell-Befehl, der bei Linksklick im leeren Bereich der Leiste außerhalb der Widget-Bereiche ausgeführt wird",
-          "label": "Linksklick"
-        },
-        "dead-zone-middle-command": {
-          "description": "Shell-Befehl, der bei Mittelklick im leeren Bereich der Leiste außerhalb der Widget-Bereiche ausgeführt wird",
-          "label": "Mittelklick"
-        },
-        "dead-zone-right-command": {
-          "description": "Shell-Befehl, der bei Rechtsklick ausgeführt wird; leer lassen, um das Kontrollzentrum zu öffnen",
-          "label": "Rechtsklick"
-        },
-        "dead-zone-scroll-down-command": {
-          "description": "Shell-Befehl, der beim Herunterscrollen ausgeführt wird",
-          "label": "Nach unten scrollen"
-        },
-        "dead-zone-scroll-up-command": {
-          "description": "Shell-Befehl, der beim Hochscrollen ausgeführt wird",
-          "label": "Nach oben scrollen"
-        },
         "edge-margin": {
           "description": "Abstand zwischen der Leiste und dem Bildschirmrand, an dem sie liegt; auf 0 px setzen, um bündig am Rand anzuliegen"
         },
@@ -2621,10 +2601,6 @@
           "label": "Benutzerdefinierter App-Startbefehl",
           "placeholder": "$CMD"
         },
-        "middle-click-opens-widget-settings": {
-          "description": "Öffne die Einstellungen eines Leisten-Widgets per Mittelklick direkt von der Leiste aus",
-          "label": "Mittelklick öffnet Widget-Einstellungen"
-        },
         "niri-overview-type-to-launch": {
           "description": "Öffne den Launcher, wenn du in der niri-Übersicht tippst; nutzt eine kleine Tastaturfokus-Oberfläche, während die Übersicht geöffnet ist",
           "label": "Zum Starten tippen"
@@ -3005,8 +2981,6 @@
         "ram-used": "RAM verwendet",
         "rate": "Rate",
         "regular": "Regulär",
-        "screenshot-primary-fullscreen": "Vollbild",
-        "screenshot-primary-region": "Bereich",
         "shared": "Geteilt",
         "short": "Kurz",
         "swap-percent": "Swap in Prozent",
@@ -3101,10 +3075,6 @@
           "description": "Zweite Farbverlaufsfarbe im Visualizer",
           "label": "Farbe 2"
         },
-        "command": {
-          "description": "Shell-Befehl, der bei Linksklick auf diesen Button ausgeführt wird",
-          "label": "Linksklick-Befehl"
-        },
         "custom-image": {
           "description": "Pfad zu einem benutzerdefinierten Bild; leer lassen, um die Symbol-Glyphe zu verwenden",
           "dialog-title": "Benutzerdefiniertes Bild auswählen",
@@ -3117,10 +3087,6 @@
         "custom-labels": {
           "description": "Weise Tastaturlayout-Namen benutzerdefinierte Beschriftungen zu",
           "label": "Benutzerdefinierte Beschriftungen"
-        },
-        "cycle-command": {
-          "description": "Befehl, der beim Wechseln von Tastaturlayouts ausgeführt wird",
-          "label": "Wechselbefehl"
         },
         "detached-panel": {
           "description": "Öffne den Drawer als schwebendes Panel mit eigenem Hintergrund, statt ihn mit der Leiste zu verbinden",
@@ -3335,10 +3301,6 @@
           "description": "Regulärer Ausdruck für Mikrofon-App-Namen, die ignoriert werden sollen",
           "label": "Mikrofon-Filter-Regex"
         },
-        "middle-command": {
-          "description": "Shell-Befehl, der bei Mittelklick auf diesen Button ausgeführt wird; wenn festgelegt, öffnet ein Mittelklick diesen Befehl statt der Widget-Einstellungen",
-          "label": "Mittelklick-Befehl"
-        },
         "min-length": {
           "description": "Minimale Widget-Länge in Pixeln",
           "label": "Minimale Länge"
@@ -3395,14 +3357,6 @@
           "description": "Deckkraft von angehefteten Apps, die derzeit nicht ausgeführt werden",
           "label": "Deckkraft angehefteter Apps"
         },
-        "primary-click": {
-          "description": "Aktion, die bei Linksklick auf den Leisten-Button ausgeführt wird",
-          "label": "Primärer Klick"
-        },
-        "right-command": {
-          "description": "Shell-Befehl, der bei Rechtsklick auf diesen Button ausgeführt wird",
-          "label": "Rechtsklick-Befehl"
-        },
         "scale": {
           "description": "Skaliere dieses Widget relativ zur Inhaltsskala der Leiste",
           "label": "Skalierung"
@@ -3414,18 +3368,6 @@
         "script": {
           "description": "Pfad zum Lua-Skript",
           "label": "Skript"
-        },
-        "scroll-down-command": {
-          "description": "Shell-Befehl, der beim Herunterscrollen über diesen Button ausgeführt wird",
-          "label": "Befehl beim Herunterscrollen"
-        },
-        "scroll-step": {
-          "description": "Prozentuale Änderung pro Mausradschritt",
-          "label": "Scroll-Schritt"
-        },
-        "scroll-up-command": {
-          "description": "Shell-Befehl, der beim Heraufscrollen über diesen Button ausgeführt wird",
-          "label": "Befehl beim Heraufscrollen"
         },
         "show-active-indicator": {
           "description": "Zeige einen kleinen Punkt unter dem Icon des aktiven Fensters in der Taskleiste",

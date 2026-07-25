@@ -42,7 +42,8 @@ namespace settings {
           .offsetX = 0,
           .offsetY = 0,
           .serial = serial,
-          .grab = true,
+          // Sheet dialogs stay open on outside click / focus loss; Escape and close dismiss.
+          .grab = false,
       };
     }
 

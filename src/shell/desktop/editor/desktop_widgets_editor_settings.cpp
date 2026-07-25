@@ -651,6 +651,27 @@ void DesktopWidgetsEditor::applySettingChange(const std::string& key, WidgetSett
     }
     state->settings[key] = value;
 
+    if (lockscreen_login_box::isLoginBoxWidget(*state)
+        && (key == lockscreen_login_box::kLayoutKey || key == lockscreen_login_box::kShowSessionButtonsKey)) {
+      float screenWidth = 1920.0f;
+      if (OverlaySurface* layoutSurface = findSurfaceForWidget(m_selectedWidgetId);
+          layoutSurface != nullptr && layoutSurface->surface != nullptr) {
+        screenWidth = static_cast<float>(layoutSurface->surface->width());
+      }
+      const lockscreen_login_box::LoginBoxStyle style = lockscreen_login_box::resolveStyle(state->settings);
+      if (key == lockscreen_login_box::kLayoutKey) {
+        lockscreen_login_box::defaultPanelSize(
+            screenWidth, state->boxWidth, state->boxHeight, style.layout, style.showSessionButtons
+        );
+      } else {
+        // Resize height when session buttons are toggled.
+        state->boxHeight = lockscreen_login_box::defaultPanelHeight(style.layout, style.showSessionButtons);
+        lockscreen_login_box::clampPanelSize(
+            screenWidth, state->boxWidth, state->boxHeight, style.layout, style.showSessionButtons
+        );
+      }
+    }
+
     OverlaySurface* surface = findSurfaceForWidget(m_selectedWidgetId);
     if (surface == nullptr) {
       return;
@@ -750,6 +771,15 @@ void DesktopWidgetsEditor::resetSelectedWidgetSettings() {
     desktop_settings::applyAllDesktopWidgetDefaultSettings(state->settings, state->type);
     if (lockscreen_login_box::isLoginBoxWidget(*state)) {
       lockscreen_login_box::normalizeSettings(state->settings);
+      float screenWidth = 1920.0f;
+      if (OverlaySurface* surface = findSurfaceForWidget(m_selectedWidgetId);
+          surface != nullptr && surface->surface != nullptr) {
+        screenWidth = static_cast<float>(surface->surface->width());
+      }
+      lockscreen_login_box::defaultPanelSize(
+          screenWidth, state->boxWidth, state->boxHeight, lockscreen_login_box::resolveLayout(state->settings),
+          lockscreen_login_box::resolveStyle(state->settings).showSessionButtons
+      );
     }
     requestLayout();
   });

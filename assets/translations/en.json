@@ -517,6 +517,7 @@
         "show-label": "Show Label",
         "show-login-button": "Login Button",
         "show-password-hint": "Password Hint",
+        "show-session-buttons": "Session Buttons",
         "show-vpn-label": "Show VPN Label",
         "show-when-idle": "Show When Idle",
         "stat": "Stat",
@@ -1023,6 +1024,7 @@
         "settings": {
           "empty": "No settings match the current filters.",
           "groups": {
+            "actions": "Actions",
             "grouping": "Grouping",
             "presentation": "Presentation",
             "runtime": "Runtime",
@@ -1415,6 +1417,8 @@
         "delete-confirm-title": "Delete \"{name}\"?",
         "deprecated": "deprecated",
         "empty": "No enabled plugins.",
+        "held-back": "older version",
+        "held-back-hint": "v{version} needs plugin API {required}; this Noctalia supports up to {current}. Upgrade Noctalia to get it.",
         "incompatible-plugin-api": "incompatible plugin API",
         "loading": "Loading plugins…",
         "refreshing": "Refreshing plugins…",
@@ -1462,7 +1466,10 @@
         "categories": "Categories",
         "category-all": "All",
         "empty": "No plugins found",
+        "held-back": "Older version",
+        "held-back-hint": "Installs v{version} for plugin API {resolved}. The newest v{latest} needs plugin API {latestRequired}; this Noctalia supports up to {current}.",
         "incompatible": "Incompatible",
+        "incompatible-hint": "Needs plugin API {required}; this Noctalia supports {oldest}–{current}.",
         "loading": "Loading catalog…",
         "no-readme": "No description available.",
         "open-page": "Open plugin page on noctalia.dev",
@@ -1667,25 +1674,8 @@
         "corner-top-right": {
           "description": "Top right corner radius for the bar"
         },
-        "dead-zone-command": {
-          "description": "Shell command to run on left-click in the bar margin outside widget sections",
-          "label": "Left Click"
-        },
-        "dead-zone-middle-command": {
-          "description": "Shell command to run on middle-click in the bar margin outside widget sections",
-          "label": "Middle Click"
-        },
-        "dead-zone-right-command": {
-          "description": "Shell command to run on right-click; leave empty to open Control Center",
-          "label": "Right Click"
-        },
-        "dead-zone-scroll-down-command": {
-          "description": "Shell command to run when scrolling down",
-          "label": "Scroll Down"
-        },
-        "dead-zone-scroll-up-command": {
-          "description": "Shell command to run when scrolling up",
-          "label": "Scroll Up"
+        "dead-zone-action": {
+          "description": "Action run on the parts of the bar no widget covers; leave empty for the default"
         },
         "edge-margin": {
           "description": "Gap between the bar and the screen edge it sits on; set to 0 px to sit flush against that edge"
@@ -2321,7 +2311,7 @@
           "label": "Along Bar"
         },
         "panel-anchor-bar": {
-          "description": "Which bar panels attach to when opened from a shortcut or the dock. Leave empty to follow the widget that opened them",
+          "description": "Bar panels attach to when opened. Leave empty to follow the widget, shortcut, or dock that opened them",
           "label": "Anchor Bar"
         },
         "placement-clipboard": {
@@ -2720,10 +2710,6 @@
           "label": "Custom App Launch Command",
           "placeholder": "$CMD"
         },
-        "middle-click-opens-widget-settings": {
-          "description": "Open a bar widget's settings from the bar with middle click",
-          "label": "Middle Click Opens Widget Settings"
-        },
         "niri-overview-type-to-launch": {
           "description": "Open the launcher when typing in niri overview; uses a tiny keyboard-focus surface while overview is open",
           "label": "Type to Launch"
@@ -3062,6 +3048,24 @@
       "success": "Private storage was reset successfully."
     },
     "widgets": {
+      "actions": {
+        "command-placeholder": "Shell command",
+        "default": "Default",
+        "disabled": "Disabled",
+        "run-command": "Run a command…",
+        "unset": "Not set"
+      },
+      "gestures": {
+        "back": "Back Button",
+        "forward": "Forward Button",
+        "left": "Left Click",
+        "middle": "Middle Click",
+        "right": "Right Click",
+        "scroll-down": "Scroll Down",
+        "scroll-left": "Scroll Left",
+        "scroll-right": "Scroll Right",
+        "scroll-up": "Scroll Up"
+      },
       "instances": {
         "cpu": "CPU",
         "date": "Date",
@@ -3086,6 +3090,7 @@
         "auto": "Auto",
         "before": "Before",
         "both": "Both",
+        "compact": "Compact",
         "count": "Count",
         "cpu-temp": "CPU Temperature",
         "cpu-usage": "CPU Usage",
@@ -3125,8 +3130,6 @@
         "rate": "Rate",
         "regular": "Regular",
         "replace": "Replace",
-        "screenshot-primary-fullscreen": "Fullscreen",
-        "screenshot-primary-region": "Region",
         "shared": "Shared",
         "short": "Short",
         "swap-percent": "Swap Percent",
@@ -3138,6 +3141,10 @@
         "workspace-label-inside": "Inside Pill"
       },
       "settings": {
+        "actions": {
+          "description": "What each mouse gesture does on this widget. Pick a command, run a shell command, or disable it.",
+          "label": "Gesture Actions"
+        },
         "active-color": {
           "description": "Color used for active privacy indicators; fixed hex colors are also supported",
           "label": "Active Color"
@@ -3221,10 +3228,6 @@
           "description": "Second gradient color in the visualizer",
           "label": "Color 2"
         },
-        "command": {
-          "description": "Shell command run when left-clicking this button",
-          "label": "Left Click Command"
-        },
         "custom-image": {
           "description": "Path to a custom image; leave empty to use the icon glyph",
           "dialog-title": "Select custom image",
@@ -3237,10 +3240,6 @@
         "custom-labels": {
           "description": "Map keyboard layout names to custom labels",
           "label": "Custom Labels"
-        },
-        "cycle-command": {
-          "description": "Command run when cycling keyboard layouts",
-          "label": "Cycle Command"
         },
         "detached-panel": {
           "description": "Open the drawer as a floating panel with its own background instead of merging with the bar",
@@ -3463,10 +3462,6 @@
           "description": "Regular expression for microphone app names to ignore",
           "label": "Microphone Filter Regex"
         },
-        "middle-command": {
-          "description": "Shell command run when middle-clicking this button. When set, middle-click opens this command instead of widget settings.",
-          "label": "Middle Click Command"
-        },
         "min-length": {
           "description": "Minimum widget length in pixels",
           "label": "Min Length"
@@ -3523,14 +3518,6 @@
           "description": "Opacity of pinned apps that are not currently running",
           "label": "Pinned App Opacity"
         },
-        "primary-click": {
-          "description": "Action performed when left-clicking the bar button",
-          "label": "Primary click"
-        },
-        "right-command": {
-          "description": "Shell command run when right-clicking this button",
-          "label": "Right Click Command"
-        },
         "scale": {
           "description": "Scale this widget relative to the bar content scale",
           "label": "Scale"
@@ -3542,18 +3529,6 @@
         "script": {
           "description": "Path to the lua script",
           "label": "Script"
-        },
-        "scroll-down-command": {
-          "description": "Shell command run when scrolling down over this button",
-          "label": "Scroll Down Command"
-        },
-        "scroll-step": {
-          "description": "Percentage change applied on each mouse wheel step",
-          "label": "Scroll Step"
-        },
-        "scroll-up-command": {
-          "description": "Shell command run when scrolling up over this button",
-          "label": "Scroll Up Command"
         },
         "show-active-indicator": {
           "description": "Show a small dot below the active window icon in the taskbar",

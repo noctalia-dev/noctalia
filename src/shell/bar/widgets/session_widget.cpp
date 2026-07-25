@@ -14,7 +14,6 @@ SessionWidget::SessionWidget(wl_output* /*output*/, Options options)
 
 void SessionWidget::create() {
   auto area = std::make_unique<InputArea>();
-  area->setOnClick([this](const InputArea::PointerData& /*data*/) { requestPanelToggle("session"); });
 
   if (m_customImage.enabled()) {
     area->addChild(ui::image({.out = &m_image, .fit = ImageFit::Contain}));

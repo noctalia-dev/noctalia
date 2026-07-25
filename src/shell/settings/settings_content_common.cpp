@@ -142,21 +142,7 @@ namespace settings {
       return override->endWidgets.has_value();
     }
     if (path.size() >= 6 && path[4] == "dead_zone") {
-      if (key == "command") {
-        return override->deadZone.command.has_value();
-      }
-      if (key == "right_command") {
-        return override->deadZone.rightCommand.has_value();
-      }
-      if (key == "middle_command") {
-        return override->deadZone.middleCommand.has_value();
-      }
-      if (key == "scroll_up_command") {
-        return override->deadZone.scrollUpCommand.has_value();
-      }
-      if (key == "scroll_down_command") {
-        return override->deadZone.scrollDownCommand.has_value();
-      }
+      return override->deadZone.actions.has_value();
     }
     return false;
   }

@@ -6,7 +6,6 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 
-#include <linux/input-event-codes.h>
 #include <memory>
 
 namespace {
@@ -24,29 +23,6 @@ NightLightWidget::NightLightWidget(GammaService* nightLight) : m_nightLight(nigh
 
 void NightLightWidget::create() {
   auto area = std::make_unique<InputArea>();
-  area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
-  area->setOnClick([this](const InputArea::PointerData& data) {
-    if (m_nightLight == nullptr) {
-      return;
-    }
-    if (data.button == BTN_RIGHT) {
-      // Secondary action: toggle the always-on (force) override.
-      m_nightLight->toggleForceEnabled();
-      return;
-    }
-    if (data.button != BTN_LEFT) {
-      return;
-    }
-    // Primary action: clean on/off toggle. If currently forced, drop force
-    // first and land on scheduled-on rather than off, so the force override
-    // is reachable in both directions.
-    if (m_nightLight->forceEnabled()) {
-      m_nightLight->clearForceOverride();
-      m_nightLight->setEnabled(true);
-    } else {
-      m_nightLight->toggleEnabled();
-    }
-  });
   m_area = area.get();
 
   area->addChild(

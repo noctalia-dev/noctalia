@@ -136,6 +136,7 @@ void Application::initUiRenderSurfacesAndSettings() {
       &m_compositorPlatform, m_accountsService.get()
   );
   m_settingsWindow.setPluginManager(&m_pluginManager);
+  m_settingsWindow.setIpcService(&m_ipcService);
   m_settingsWindow.setOpenDesktopWidgetEditor([this]() {
     if (m_lockscreenWidgetsController.isEditing()) {
       m_lockscreenWidgetsController.exitEdit();
@@ -310,6 +311,7 @@ void Application::initLockScreenAndSession() {
   m_lockScreen.initialize(
       m_wayland, &m_renderContext, &m_configService, &m_sharedTextureCache, m_systemBus.get(), &m_compositorPlatform
   );
+  m_lockScreen.setLoginBoxServices(&m_sessionActionRunner, m_mprisService.get(), &m_weatherService, &m_httpClient);
   m_wallpaper.setAutomationGate([this]() { return !m_lockScreen.isActive(); });
   m_configService.addReloadCallback([this]() {
     if (m_logindService != nullptr) {
@@ -831,10 +833,7 @@ void Application::initBarDockAndLayout() {
       .scriptApi = &m_scriptApi,
   });
   m_idleInhibitor.setAnchorSurfacesProvider([this]() { return m_bar.caffeineAnchorSurfaces(); });
-  m_bar.setOpenWidgetSettingsCallback([this](std::string barName, std::string widgetName) {
-    if (m_panelManager.isOpen()) {
-      m_panelManager.closePanel();
-    }
+  m_panelManager.setOpenWidgetSettingsCallback([this](std::string barName, std::string widgetName) {
     m_settingsWindow.openToBarWidget(std::move(barName), std::move(widgetName));
   });
   m_panelManager.setAttachedPanelGeometryCallback(

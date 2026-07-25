@@ -557,7 +557,7 @@ void WindowSwitcher::registerIpc(IpcService& ipc) {
         show(output);
         return "ok\n";
       },
-      "window-switcher [close]", "Open or close the window switcher overlay"
+      "[close]", "Open or close the window switcher overlay"
   );
 }
 

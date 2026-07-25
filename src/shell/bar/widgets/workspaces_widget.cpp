@@ -82,8 +82,8 @@ WorkspacesWidget::WorkspacesWidget(
       m_activePillSize(std::clamp(options.activePillSize, 0.25f, 8.0f)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25f, 8.0f)), m_minimal(options.minimal),
       m_focusedPill(options.focusedPill), m_focusedOutputOnly(options.focusedOutputOnly),
-      m_enableScroll(options.enableScroll), m_focusedColor(options.focusedColor),
-      m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor), m_urgentColor(options.urgentColor) {
+      m_focusedColor(options.focusedColor), m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor),
+      m_urgentColor(options.urgentColor) {
   buildDesktopIconIndex();
 }
 
@@ -113,21 +113,6 @@ bool WorkspacesWidget::isWorkspaceHidden(const Workspace& workspace) const noexc
 
 void WorkspacesWidget::create() {
   auto container = std::make_unique<InputArea>();
-  container->setOnAxis([this](const InputArea::PointerData& data) {
-    if (!m_enableScroll) {
-      return;
-    }
-    if (data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
-      return;
-    }
-    const float steps = data.scrollSteps();
-    if (steps == 0.0f) {
-      return;
-    }
-    // Wayland reports positive wheel deltas for "scroll down", so treat that
-    // as moving to the next workspace and negative as previous.
-    activateAdjacentWorkspace(steps > 0.0f ? 1 : -1);
-  });
   m_container = container.get();
   setRoot(std::move(container));
 
@@ -1225,42 +1210,11 @@ float WorkspacesWidget::workspaceMainAxisMinWidth(float baseSize, bool active) c
   return baseSize * (active ? m_activePillSize : m_inactivePillSize);
 }
 
-WorkspacesWidget::~WorkspacesWidget() { cancelAnimation(); }
-
-std::optional<std::size_t> WorkspacesWidget::activeWorkspaceIndex() const {
-  for (std::size_t i = 0; i < m_cachedState.size(); ++i) {
-    if (m_cachedState[i].active) {
-      return i;
-    }
+WorkspacesWidget::~WorkspacesWidget() {
+  cancelAnimation();
+  if (m_animations != nullptr) {
+    m_animations->cancelForOwner(&m_hoverProgress);
   }
-  return std::nullopt;
-}
-
-void WorkspacesWidget::activateAdjacentWorkspace(int direction) {
-  if (m_cachedState.empty() || direction == 0) {
-    return;
-  }
-
-  const auto active = activeWorkspaceIndex();
-  std::size_t targetIndex = 0;
-  if (!active.has_value()) {
-    targetIndex = direction > 0 ? 0 : (m_cachedState.size() - 1);
-  } else {
-    const std::size_t current = *active;
-    if (direction > 0) {
-      if (current + 1 >= m_cachedState.size()) {
-        return;
-      }
-      targetIndex = current + 1;
-    } else {
-      if (current == 0) {
-        return;
-      }
-      targetIndex = current - 1;
-    }
-  }
-
-  m_platform.activateWorkspace(m_output, m_cachedState[targetIndex]);
 }
 
 std::string WorkspacesWidget::activeWindowAppId() const {

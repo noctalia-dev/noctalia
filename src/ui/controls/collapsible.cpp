@@ -16,7 +16,12 @@ Collapsible::Collapsible() {
   setAlign(FlexAlign::Stretch);
 
   auto area = std::make_unique<InputArea>();
-  area->setOnClick([this](const InputArea::PointerData&) { setExpanded(!m_expanded); });
+  area->setOnClick([this](const InputArea::PointerData&) {
+    setExpanded(!m_expanded);
+    if (m_onToggle) {
+      m_onToggle(m_expanded);
+    }
+  });
   area->setEnabled(false);
   m_headerInput = static_cast<InputArea*>(addChild(std::move(area)));
 
@@ -24,7 +29,7 @@ Collapsible::Collapsible() {
   headerRow->setDirection(FlexDirection::Horizontal);
   headerRow->setAlign(FlexAlign::Center);
   headerRow->setGap(Style::spaceXs);
-  headerRow->setPadding(0.0f, Style::spaceMd);
+  headerRow->setPadding(m_headerPaddingV, m_headerPaddingH);
   m_headerRow = static_cast<Flex*>(m_headerInput->addChild(std::move(headerRow)));
 
   auto chevron = std::make_unique<Glyph>();
@@ -72,6 +77,8 @@ void Collapsible::setBody(std::unique_ptr<Node> body) {
   markLayoutDirty();
 }
 
+void Collapsible::setOnToggle(std::function<void(bool)> callback) { m_onToggle = std::move(callback); }
+
 void Collapsible::setExpanded(bool expanded) {
   if (m_expanded == expanded) {
     return;
@@ -113,7 +120,16 @@ void Collapsible::setScale(float scale) {
   }
   if (m_headerRow != nullptr) {
     m_headerRow->setGap(Style::spaceXs * m_scale);
-    m_headerRow->setPadding(0.0f, Style::spaceMd * m_scale);
+    m_headerRow->setPadding(m_headerPaddingV * m_scale, m_headerPaddingH * m_scale);
+  }
+  markLayoutDirty();
+}
+
+void Collapsible::setHeaderPadding(float vertical, float horizontal) {
+  m_headerPaddingV = vertical;
+  m_headerPaddingH = horizontal;
+  if (m_headerRow != nullptr) {
+    m_headerRow->setPadding(m_headerPaddingV * m_scale, m_headerPaddingH * m_scale);
   }
   markLayoutDirty();
 }

@@ -4,6 +4,7 @@
 #include "scripting/plugin_catalog.h"
 
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <mutex>
@@ -34,8 +35,8 @@ namespace scripting {
   struct PluginStatus {
     std::string id;
     std::string name;
-    std::string version;          // installed version when materialized, else the catalog version
-    std::string availableVersion; // catalog version offered when updateAvailable (else empty)
+    std::string version;          // installed version when materialized, else the resolved version
+    std::string availableVersion; // resolved version offered when updateAvailable (else empty)
     std::string icon;
     std::string description;
     std::string license = "MIT";
@@ -48,6 +49,12 @@ namespace scripting {
     // An enabled+materialized git-source plugin whose fetched catalog version differs
     // from the exported copy on disk — a newer release is available to apply via update().
     bool updateAvailable = false;
+    // The source's newest version targets an unsupported plugin API, so an older release
+    // is installed instead. `latestVersion` / `latestPluginApiVersion` describe that
+    // newest version, so the UI can name what a Noctalia upgrade would unlock.
+    bool heldBack = false;
+    std::string latestVersion;
+    std::uint32_t latestPluginApiVersion = 0;
   };
 
   // Owns the plugin distribution lifecycle: resolves the configured sources into

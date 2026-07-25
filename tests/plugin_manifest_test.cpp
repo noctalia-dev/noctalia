@@ -1,6 +1,7 @@
 #include "scripting/plugin_api.h"
 #include "scripting/plugin_manifest.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -8,6 +9,7 @@
 #include <print>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -960,6 +962,83 @@ int main() {
   if (noCapture.has_value() && !noCapture->entries.empty()) {
     ok = expect(noCapture->entries.front().panelCaptureKeys.empty(), "capture_keys should default to empty") && ok;
   }
+
+  // A [[widget]] entry can declare bar gesture defaults, kept as raw strings: the gesture
+  // vocabulary and the action grammar belong to the bar, not to the manifest parser.
+  const auto actionsPath = root / "actions" / "plugin.toml";
+  ok = expect(
+           writeText(
+               actionsPath,
+               "id = \"me/actions\"\n"
+               "name = \"Actions\"\n"
+               "plugin_api = 14\n"
+               "[[widget]]\n"
+               "id = \"bar\"\n"
+               "entry = \"bar.luau\"\n"
+               "[widget.actions]\n"
+               "middle = \"exec playerctl pause\"\n"
+               "scroll_up = \"volume-up\"\n"
+           ) && !actionsPath.empty(),
+           "failed to write the actions manifest"
+       )
+      && ok;
+  error.clear();
+  const auto actions = scripting::parsePluginManifest(actionsPath, &error);
+  ok = expect(actions.has_value(), error.empty() ? "a widget with actions should parse" : error.c_str()) && ok;
+  if (actions.has_value() && !actions->entries.empty()) {
+    const auto& declared = actions->entries.front().widgetActions;
+    ok = expect(declared.size() == 2, "both declared actions should survive") && ok;
+    const auto middle = std::ranges::find(declared, "middle", &std::pair<std::string, std::string>::first);
+    ok = expect(middle != declared.end(), "the middle action should be recorded") && ok;
+    if (middle != declared.end()) {
+      ok = expectEq(middle->second, "exec playerctl pause", "the middle action should keep its command verbatim") && ok;
+    }
+  }
+
+  // The capability is gated on its API level, like every other manifest addition.
+  const auto oldApiPath = root / "old-api" / "plugin.toml";
+  ok = expect(
+           writeText(
+               oldApiPath,
+               "id = \"me/old-api\"\n"
+               "name = \"Old Api\"\n"
+               "plugin_api = 13\n"
+               "[[widget]]\n"
+               "id = \"bar\"\n"
+               "entry = \"bar.luau\"\n"
+               "[widget.actions]\n"
+               "middle = \"volume-mute\"\n"
+           ),
+           "failed to write the old api manifest"
+       )
+      && ok;
+  error.clear();
+  ok = expect(
+           !scripting::parsePluginManifest(oldApiPath, &error).has_value(),
+           "actions below its plugin_api level should fail"
+       )
+      && ok;
+
+  // A non-string action is a manifest error rather than something to guess at.
+  const auto badActionPath = root / "bad-action" / "plugin.toml";
+  ok = expect(
+           writeText(
+               badActionPath,
+               "id = \"me/bad-action\"\n"
+               "name = \"Bad Action\"\n"
+               "plugin_api = 14\n"
+               "[[widget]]\n"
+               "id = \"bar\"\n"
+               "entry = \"bar.luau\"\n"
+               "[widget.actions]\n"
+               "middle = 42\n"
+           ),
+           "failed to write the bad action manifest"
+       )
+      && ok;
+  error.clear();
+  ok = expect(!scripting::parsePluginManifest(badActionPath, &error).has_value(), "a non-string action should fail")
+      && ok;
 
   std::error_code ec;
   std::filesystem::remove_all(root, ec);

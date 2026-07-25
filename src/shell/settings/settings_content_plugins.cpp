@@ -3,6 +3,7 @@
 #include "config/config_types.h"
 #include "i18n/i18n.h"
 #include "net/url_open.h"
+#include "scripting/plugin_api.h"
 #include "scripting/plugin_i18n.h"
 #include "scripting/plugin_id.h"
 #include "scripting/plugin_panel_shell.h"
@@ -251,6 +252,9 @@ namespace settings {
             FontWeight::Bold
         ));
       }
+      if (plugin.heldBack) {
+        title->addChild(makeRoleBadge(i18n::tr("settings.plugins.plugins.held-back"), ColorRole::Tertiary, scale));
+      }
       if (plugin.deprecated) {
         title->addChild(makeLabel(
             i18n::tr("settings.plugins.plugins.deprecated"), Style::fontSizeMini * scale, ColorRole::Secondary,
@@ -264,6 +268,15 @@ namespace settings {
         title->addChild(makeRoleBadge(badge, ColorRole::Tertiary, scale));
       }
       info->addChild(std::move(title));
+      if (plugin.heldBack) {
+        info->addChild(makeLabel(
+            i18n::tr(
+                "settings.plugins.plugins.held-back-hint", "version", plugin.latestVersion, "required",
+                plugin.latestPluginApiVersion, "current", scripting::kCurrentPluginApiVersion
+            ),
+            Style::fontSizeMini * scale, ColorRole::Tertiary
+        ));
+      }
       if (!plugin.description.empty()) {
         info->addChild(makeLabel(plugin.description, Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant));
       }

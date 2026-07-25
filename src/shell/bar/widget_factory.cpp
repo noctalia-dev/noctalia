@@ -42,7 +42,6 @@
 #include "shell/bar/widgets/notification_widget_definition.h"
 #include "shell/bar/widgets/plugin_widget.h"
 #include "shell/bar/widgets/power_profile_widget.h"
-#include "shell/bar/widgets/power_profile_widget_definition.h"
 #include "shell/bar/widgets/privacy_widget.h"
 #include "shell/bar/widgets/privacy_widget_definition.h"
 #include "shell/bar/widgets/screenshot_widget.h"
@@ -203,7 +202,6 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "keyboard_layout") {
-    const std::string cycleCommand = wc != nullptr ? wc->getString("cycle_command", "") : std::string{};
     const std::string display = wc != nullptr ? wc->getString("display", "short") : std::string("short");
     const bool showIcon = wc != nullptr ? wc->getBool("show_icon", true) : true;
     const bool showLabel = wc != nullptr ? wc->getBool("show_label", true) : true;
@@ -215,8 +213,8 @@ std::unique_ptr<Widget> WidgetFactory::create(
       glyph = "keyboard";
     }
     auto widget = std::make_unique<KeyboardLayoutWidget>(
-        m_platform, cycleCommand, KeyboardLayoutWidget::parseDisplayMode(display), showIcon, showLabel,
-        hideWhenSingleLayout, std::move(customLabels), std::move(glyph), customImageFor(wc)
+        m_platform, KeyboardLayoutWidget::parseDisplayMode(display), showIcon, showLabel, hideWhenSingleLayout,
+        std::move(customLabels), std::move(glyph), customImageFor(wc)
     );
     widget->setContentScale(contentScale);
     return widget;
@@ -245,10 +243,9 @@ std::unique_ptr<Widget> WidgetFactory::create(
     const bool hideAlbumArt = wc != nullptr ? wc->getBool("hide_album_art", false) : false;
     const bool hideArtist = wc != nullptr ? wc->getBool("hide_artist", false) : false;
     const bool artistFirst = wc != nullptr ? wc->getBool("artist_first", false) : false;
-    const bool enableScroll = wc != nullptr ? wc->getBool("enable_scroll", true) : true;
     auto widget = std::make_unique<MediaWidget>(
         m_mpris, m_httpClient, output, maxWidth, minWidth, artSize, parseMediaTitleScrollMode(titleScroll),
-        hideWhenNoMedia, albumArtOnly, hideAlbumArt, hideArtist, artistFirst, enableScroll
+        hideWhenNoMedia, albumArtOnly, hideAlbumArt, hideArtist, artistFirst
     );
     widget->setContentScale(contentScale);
     return widget;
@@ -273,9 +270,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
   }
 
   if (type == "power_profile") {
-    return createWidget<PowerProfileWidget>(
-        contentScale, m_powerProfiles, powerProfileWidgetDefinition().resolve(wc, settingContext)
-    );
+    return createWidget<PowerProfileWidget>(contentScale, m_powerProfiles);
   }
 
   if (type == "privacy") {
@@ -450,7 +445,6 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .focusedOutputOnly = wc != nullptr ? wc->getBool("focused_output_only", false) : false,
         .minimal = wc != nullptr ? wc->getBool("minimal", false) : false,
         .groupSingleIconPerApp = wc != nullptr ? wc->getBool("group_single_icon_per_app", false) : false,
-        .enableScroll = wc != nullptr ? wc->getBool("enable_scroll", true) : true,
         .showActiveIndicator = wc != nullptr ? wc->getBool("show_active_indicator", true) : true,
         .activeOpacity = wc != nullptr ? static_cast<float>(wc->getDouble("active_opacity", 1.0)) : 1.0f,
         .inactiveOpacity = wc != nullptr ? static_cast<float>(wc->getDouble("inactive_opacity", 1.0)) : 1.0f,
@@ -527,9 +521,6 @@ std::unique_ptr<Widget> WidgetFactory::create(
 
   if (type == "volume") {
     const bool showLabel = wc != nullptr ? wc->getBool("show_label", true) : true;
-    const bool enableScroll = wc != nullptr ? wc->getBool("enable_scroll", true) : true;
-    const int scrollStep =
-        static_cast<int>(std::clamp<std::int64_t>(wc != nullptr ? wc->getInt("scroll_step", 5) : 5, 1, 25));
     const std::string target = wc != nullptr ? wc->getString("device", "output") : std::string("output");
     const auto volumeTarget = target == "input" ? VolumeWidgetTarget::Input : VolumeWidgetTarget::Output;
     const ColorSpec muteColor = wc != nullptr
@@ -540,9 +531,8 @@ std::unique_ptr<Widget> WidgetFactory::create(
     auto effectsProfileGlyphs =
         wc != nullptr ? wc->getStringMap("effects_profile_glyphs") : std::unordered_map<std::string, std::string>{};
     auto widget = std::make_unique<VolumeWidget>(
-        m_audio, m_easyEffects, &m_config, output, showLabel, volumeTarget, scrollStep, muteColor,
-        std::move(glyphOverride), std::move(muteGlyphOverride), std::move(effectsProfileGlyphs), customImageFor(wc),
-        enableScroll
+        m_audio, m_easyEffects, output, showLabel, volumeTarget, muteColor, std::move(glyphOverride),
+        std::move(muteGlyphOverride), std::move(effectsProfileGlyphs), customImageFor(wc)
     );
     widget->setContentScale(contentScale);
     return widget;
@@ -602,7 +592,6 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .minimal = workspaceStyle == "minimal",
         .focusedPill = workspaceStyle == "focus_hint",
         .focusedOutputOnly = wc != nullptr ? wc->getBool("focused_output_only", false) : false,
-        .enableScroll = wc != nullptr ? wc->getBool("enable_scroll", true) : true,
     };
     auto widget = std::make_unique<WorkspacesWidget>(m_platform, m_configService, output, options);
     widget->setContentScale(contentScale);

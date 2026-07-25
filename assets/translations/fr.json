@@ -1373,7 +1373,7 @@
         "delete-confirm-desc": "Ce plugin va etre désinstallé et supprimé du disque.",
         "delete-confirm-title": "Supprimer \"{name}\"?",
         "deprecated": "Déprécié",
-        "empty": "Aucun plugin trouvé. Ajoutez une source ou vérifiez votre connexion.",
+        "empty": "Aucun plugin activé.",
         "incompatible-plugin-api": "API du plugin incompatible",
         "loading": "Chargement des plugins…",
         "refreshing": "Actualisation des plugins…",
@@ -1602,26 +1602,6 @@
         },
         "corner-top-right": {
           "description": "Rayon du coin supérieur droit de la barre"
-        },
-        "dead-zone-command": {
-          "description": "Commande shell à exécuter lors d'un clic gauche sur la marge de la barre, en dehors des widgets",
-          "label": "Clic gauche"
-        },
-        "dead-zone-middle-command": {
-          "description": "Commande shell à exécuter lors d'un clic du milieu sur la marge de la barre, en dehors des widgets",
-          "label": "Clic du milieu"
-        },
-        "dead-zone-right-command": {
-          "description": "Commande shell à exécuter lors d'un clic droit ; laissez vide pour ouvrir le Centre de contrôle",
-          "label": "Clic droit"
-        },
-        "dead-zone-scroll-down-command": {
-          "description": "Commande shell à exécuter lors d'un défilement vers le bas",
-          "label": "Défilement vers le bas"
-        },
-        "dead-zone-scroll-up-command": {
-          "description": "Commande shell à exécuter lors d'un défilement vers le haut",
-          "label": "Défilement vers le haut"
         },
         "edge-margin": {
           "description": "Distance par rapport au bord d’écran le plus proche ; des valeurs positives éloignent la barre du bord"
@@ -2514,10 +2494,6 @@
           "label": "Commande personnalisée du lanceur d'applications ",
           "placeholder": "$CMD"
         },
-        "middle-click-opens-widget-settings": {
-          "description": "Ouvre les paramètres d’un widget de barre à l’aide d’un clic du milieu",
-          "label": "Ouverture des paramètres du widget par clic du milieu"
-        },
         "niri-overview-type-to-launch": {
           "description": "Ouvre le lanceur lors de la saisie dans la vue d’ensemble de niri; utilise une petite surface de focus clavier tant que la vue d’ensemble est ouverte",
           "label": "Saisir pour lancer"
@@ -2875,8 +2851,6 @@
         "output": "Sortie",
         "ram-percent": "RAM (%)",
         "ram-used": "RAM utilisée",
-        "screenshot-primary-fullscreen": "Plein écran",
-        "screenshot-primary-region": "Zone",
         "shared": "Partagé",
         "short": "Partagé",
         "swap-percent": "Swap (%)",
@@ -2959,9 +2933,6 @@
         "color-2": {
           "label": "Seconde couleur"
         },
-        "command": {
-          "label": "Commande clique gauche"
-        },
         "custom-image": {
           "description": "Chemin vers une image personnalisée. Laissez vide pour utiliser l'icon glyph",
           "dialog-title": "Sélectionnez l'image personnalisée ",
@@ -2970,9 +2941,6 @@
         "custom-image-colorize": {
           "description": "Teinte l'image personnalisée avec le paramètre Icon Color du widget",
           "label": "Coloriser l'image personnalisée"
-        },
-        "cycle-command": {
-          "label": "Cycle de commande"
         },
         "display": {
           "description": "Mode d'affichage pour ce widget",
@@ -3031,14 +2999,8 @@
           "description": "Autoriser le survol du pointeur, les clics, les défilements et les info-bulles pour ce widget",
           "label": "Interactif"
         },
-        "middle-command": {
-          "label": "Commande clique du milieu"
-        },
         "network-speed-compact": {
           "description": "Utiliser le suffixe de l’unité, soit 1.2M au lieu de 1.2 MB/s "
-        },
-        "right-command": {
-          "label": "Commande du clique droit"
         },
         "scale": {
           "description": "Met ce widget à l'échelle par rapport à l'échelle du contenu de la barre",

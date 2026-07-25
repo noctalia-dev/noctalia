@@ -97,16 +97,18 @@ void TrayDrawerPanel::create() {
   m_drawerWidget->setRedrawCallback([]() { PanelManager::instance().requestRedraw(); });
   m_drawerWidget->setFrameTickRequestCallback([]() { PanelManager::instance().requestFrameTick(); });
   m_drawerWidget->setPanelToggleCallback([](std::string_view id, std::string_view context, std::optional<float> ax,
-                                            std::optional<float> ay) {
-    PanelManager::instance().togglePanel(
-        std::string(id),
-        PanelOpenRequest{
-            .anchorX = ax.has_value() ? std::round(*ax) : 0.0f,
-            .anchorY = ay.has_value() ? std::round(*ay) : 0.0f,
-            .hasAnchorPosition = ax.has_value() && ay.has_value(),
-            .context = std::string(context),
-        }
-    );
+                                            std::optional<float> ay, Widget::PanelActivation activation) {
+    PanelOpenRequest request{
+        .anchorX = ax.has_value() ? std::round(*ax) : 0.0f,
+        .anchorY = ay.has_value() ? std::round(*ay) : 0.0f,
+        .hasAnchorPosition = ax.has_value() && ay.has_value(),
+        .context = std::string(context),
+    };
+    if (activation == Widget::PanelActivation::Open) {
+      PanelManager::instance().openPanel(std::string(id), request);
+    } else {
+      PanelManager::instance().togglePanel(std::string(id), request);
+    }
   });
   m_drawerWidget->create();
   setRoot(m_drawerWidget->releaseRoot());

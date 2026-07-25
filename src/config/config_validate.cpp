@@ -13,6 +13,8 @@
 #include "scripting/plugin_manager.h"
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"
+#include "shell/bar/widget_action.h"
+#include "shell/bar/widget_gesture.h"
 #include "shell/desktop/desktop_widget_settings_registry.h"
 #include "shell/lockscreen/lockscreen_login_box.h"
 #include "shell/settings/widget_settings_registry.h"
@@ -321,9 +323,26 @@ namespace noctalia::config {
         break;
       case WidgetSettingType::StringMap:
         if (const auto* table = node.as_table()) {
+          // Gesture bindings have a closed key set and a grammar. Verb existence is checked at
+          // bind-resolution time instead: there is no live IpcService here, and a second copy of
+          // the command list would be a duplicate source of truth.
+          const bool gestureActions = f.key == "actions";
           for (const auto& [mapKey, mapValue] : *table) {
-            if (!mapValue.is_string()) {
-              reportError(path + "." + std::string(mapKey.str()), "expected a string");
+            const std::string entryPath = path + "." + std::string(mapKey.str());
+            const auto value = mapValue.value<std::string>();
+            if (!value.has_value()) {
+              reportError(entryPath, "expected a string");
+              continue;
+            }
+            if (!gestureActions) {
+              continue;
+            }
+            if (!noctalia::bar::parseGestureKey(mapKey.str()).has_value()) {
+              reportError(entryPath, "unknown gesture");
+              continue;
+            }
+            if (auto action = noctalia::bar::parseWidgetAction(*value); !action.has_value()) {
+              reportError(entryPath, action.error());
             }
           }
         } else {

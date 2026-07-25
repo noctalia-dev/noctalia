@@ -143,12 +143,9 @@ namespace settings {
   [[nodiscard]] std::vector<WidgetPickerEntry> widgetPickerEntries(const Config& cfg);
   [[nodiscard]] std::vector<WidgetSettingSpec>
   commonWidgetSettingSpecs(std::string_view shellFontFamily, bool populateFontCatalogs = true);
-  [[nodiscard]] std::vector<WidgetSettingSpec> widgetSettingSpecs(
-      std::string_view type, std::string_view shellFontFamily, bool supportsTaskbarWorkspaceGrouping = true,
-      bool populateFontCatalogs = true
-  );
-  // Config-aware variant: for a plugin [[widget]] type, returns the manifest-driven
-  // settings. Falls back to the type-only specs otherwise.
+  // `config` resolves a plugin [[widget]] type to its manifest-driven settings, and supplies the
+  // discriminator for types whose gesture defaults depend on a setting (a volume widget bound to
+  // the microphone). May be null when neither applies.
   [[nodiscard]] std::vector<WidgetSettingSpec> widgetSettingSpecs(
       std::string_view type, const WidgetConfig* config, std::string_view shellFontFamily,
       bool supportsTaskbarWorkspaceGrouping = true, bool populateFontCatalogs = true

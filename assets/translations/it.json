@@ -1662,26 +1662,6 @@
         "corner-top-right": {
           "description": "Raggio angolo in alto a destra della barra"
         },
-        "dead-zone-command": {
-          "description": "Comando della shell da eseguire quando si fa clic con il pulsante sinistro sul margine della barra all'esterno delle sezioni del widget",
-          "label": "Click sinistro"
-        },
-        "dead-zone-middle-command": {
-          "description": "Comando della shell da eseguire quando si fa clic con il pulsante centrale sul margine della barra all'esterno delle sezioni del widget",
-          "label": "Click centrale"
-        },
-        "dead-zone-right-command": {
-          "description": "Comando da eseguire quando si fa clic con il pulsante destro; lasciare vuoto per aprire il centro di controllo",
-          "label": "Click destro"
-        },
-        "dead-zone-scroll-down-command": {
-          "description": "Comando da eseguire quando si scrolla in basso",
-          "label": "Scroll in basso"
-        },
-        "dead-zone-scroll-up-command": {
-          "description": "Comando da eseguire quando si scrolla in alto",
-          "label": "Scroll in alto"
-        },
         "edge-margin": {
           "description": "Spazio tra la barra e il bordo dello schermo su cui si trova; imposta a 0 px per posizinarlo a filo con quel bordo"
         },
@@ -2707,10 +2687,6 @@
           "label": "Comando di avvio app personalizzato",
           "placeholder": "$CMD"
         },
-        "middle-click-opens-widget-settings": {
-          "description": "Apre le impostazioni di un widget barra dalla barra con click centrale",
-          "label": "Click centrale apre impostazioni widget"
-        },
         "niri-overview-type-to-launch": {
           "description": "Apre il launcher quando si digita nella panoramica niri (overiew)",
           "label": "Digita per avviare launcher"
@@ -3112,8 +3088,6 @@
         "rate": "Livello",
         "regular": "Normale",
         "replace": "Sostituisci",
-        "screenshot-primary-fullscreen": "Schermo intero",
-        "screenshot-primary-region": "Area",
         "shared": "Condiviso",
         "short": "Breve",
         "swap-percent": "Percentuale swap",
@@ -3208,10 +3182,6 @@
           "description": "Secondo colore sfumato nel visualizzatore",
           "label": "Colore 2"
         },
-        "command": {
-          "description": "Comando shell eseguito al click sinistro su questo pulsante",
-          "label": "Comando click sinistro"
-        },
         "custom-image": {
           "description": "Percorso a un'immagine personalizzata; lascia vuoto per usare il glifo icona",
           "dialog-title": "Seleziona immagine personalizzata",
@@ -3224,10 +3194,6 @@
         "custom-labels": {
           "description": "Mappa i nomi dei layout tastiera a etichette personalizzate",
           "label": "Etichette personalizzate"
-        },
-        "cycle-command": {
-          "description": "Comando eseguito quando si scorre tra i layout tastiera",
-          "label": "Comando ciclo"
         },
         "detached-panel": {
           "description": "Apri il cassetto come pannello flottante con sfondo proprio invece di unirlo alla barra",
@@ -3450,10 +3416,6 @@
           "description": "Espressione regolare per i nomi dei processi microfono da ignorare",
           "label": "Filtro espressione regolare microfono"
         },
-        "middle-command": {
-          "description": "Comando shell eseguito al click centrale su questo pulsante. Se impostato, il click centrale apre questo comando invece delle impostazioni widget.",
-          "label": "Comando click centrale"
-        },
         "min-length": {
           "description": "Lunghezza minima widget in pixel",
           "label": "Lunghezza min"
@@ -3510,14 +3472,6 @@
           "description": "Opacità delle app fissate che non sono attualmente in esecuzione",
           "label": "Opacità app fissata"
         },
-        "primary-click": {
-          "description": "Azione eseguita al click sinistro sul pulsante barra",
-          "label": "Click primario"
-        },
-        "right-command": {
-          "description": "Comando shell eseguito al click destro su questo pulsante",
-          "label": "Comando click destro"
-        },
         "scale": {
           "description": "Scala questo widget rispetto alla scala contenuto della barra",
           "label": "Scala"
@@ -3529,18 +3483,6 @@
         "script": {
           "description": "Percorso allo script lua",
           "label": "Script"
-        },
-        "scroll-down-command": {
-          "description": "Comando shell eseguito scorrendo verso il basso su questo pulsante",
-          "label": "Comando scroll giù"
-        },
-        "scroll-step": {
-          "description": "Variazione percentuale applicata a ogni passo della rotella del mouse",
-          "label": "Passo scroll"
-        },
-        "scroll-up-command": {
-          "description": "Comando shell eseguito scorrendo verso l'alto su questo pulsante",
-          "label": "Comando scroll su"
         },
         "show-active-indicator": {
           "description": "Mostra un piccolo punto sotto l'icona della finestra attiva nella taskbar",

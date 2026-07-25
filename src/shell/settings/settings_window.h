@@ -32,6 +32,7 @@ class Button;
 class AccountsService;
 class CalendarService;
 class ClipboardService;
+class IpcService;
 class ConfigService;
 class CompositorPlatform;
 class DependencyService;
@@ -95,6 +96,8 @@ public:
     m_saveWallpaperPaletteAsCustom = std::move(callback);
   }
   void setCalendarService(CalendarService* service) { m_calendarService = service; }
+  // Source for the bar widget gesture action picker.
+  void setIpcService(IpcService* service) { m_ipcService = service; }
   void setClipboardService(ClipboardService* service) { m_clipboardService = service; }
 
   void onSecondTick();
@@ -121,6 +124,8 @@ private:
       const std::vector<std::string>& availableBars
   );
   [[nodiscard]] std::vector<settings::SelectOption> batteryDeviceOptions() const;
+  // Bindable IPC commands, for the bar widget gesture action picker.
+  [[nodiscard]] std::vector<settings::GestureActionOption> gestureActionCatalog() const;
   [[nodiscard]] settings::SettingsContentContext makeContentContext(
       const Config& cfg, const BarConfig* selectedBar, const BarMonitorOverride* selectedMonitorOverride
   );
@@ -209,6 +214,7 @@ private:
   AccountsService* m_accounts = nullptr;
   CalendarService* m_calendarService = nullptr;
   ClipboardService* m_clipboardService = nullptr;
+  IpcService* m_ipcService = nullptr;
   Label* m_idleLiveStatusLabel = nullptr;
   std::vector<Label*> m_sessionActionSummaryLabels;
   std::shared_ptr<std::vector<SessionPanelActionConfig>> m_sessionActionsEditState;
@@ -269,6 +275,13 @@ private:
   std::string m_pendingDeleteWidgetName;
   std::string m_pendingDeleteWidgetSettingPath;
   std::string m_renamingWidgetName;
+  // Gesture whose action row has a chosen command that still needs its argument typed.
+  std::string m_pendingGestureKey;
+  std::string m_pendingGestureVerb;
+  // The widget whose actions group is unfolded, empty when none. Keyed by widget rather than a
+  // plain flag so the group survives the rebuild an edit triggers, but starts folded on every
+  // other widget.
+  std::string m_actionsExpandedFor;
   std::string m_creatingBarName;
   std::string m_renamingBarName;
   std::string m_pendingDeleteBarName;

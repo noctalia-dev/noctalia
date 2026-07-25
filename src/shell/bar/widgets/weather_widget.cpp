@@ -19,7 +19,6 @@ WeatherWidget::WeatherWidget(WeatherService* weather, wl_output* /*output*/, Opt
 
 void WeatherWidget::create() {
   auto area = std::make_unique<InputArea>();
-  area->setOnClick([this](const InputArea::PointerData& /*data*/) { requestPanelToggle("control-center", "weather"); });
   m_area = area.get();
 
   area->addChild(

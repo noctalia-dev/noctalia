@@ -221,7 +221,7 @@ namespace noctalia::theme {
           }
           return "ok\n";
         },
-        "templates-apply", "Apply configured theme templates for the current palette"
+        "", "Apply configured theme templates for the current palette"
     );
   }
 

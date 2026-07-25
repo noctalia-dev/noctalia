@@ -254,7 +254,8 @@ PopupSurfaceConfig DialogPopupHost::defaultPopupConfig(
       .offsetX = offsetX,
       .offsetY = offsetY,
       .serial = m_wayland->lastInputSerial(),
-      .grab = true,
+      // Dialogs stay open on outside click / focus loss; Escape and close dismiss.
+      .grab = false,
   };
 }
 

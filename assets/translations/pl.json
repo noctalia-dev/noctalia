@@ -1969,10 +1969,6 @@
           "description": "Uruchamia aplikacje w oddzielnych usługach systemd, aby nie udostępniały cgroup Noctalia",
           "label": "Uruchamiaj aplikacje jako usługi systemd"
         },
-        "middle-click-opens-widget-settings": {
-          "description": "Otwórz ustawienia widżetu paska ze środkowym klikiem",
-          "label": "Środkowy klik otwiera ustawienia widżetu"
-        },
         "niri-overview-type-to-launch": {
           "description": "Otwórz launcher podczas pisania w przeglądzie niri; używa małą powierzchnię fokusu klawiatury podczas otwartego przeglądu",
           "label": "Pisanie aby uruchomić"
@@ -2281,8 +2277,6 @@
         "output": "Wyjście",
         "ram-percent": "Procent RAM",
         "ram-used": "Użyty RAM",
-        "screenshot-primary-fullscreen": "Pełny ekran",
-        "screenshot-primary-region": "Obszar",
         "shared": "Wspólny",
         "short": "Krótki",
         "swap-percent": "Procent zamiany",
@@ -2347,10 +2341,6 @@
           "description": "Rola koloru pierwszego planu widżetu; obsługiwane są również stałe kolory szesnastkowe",
           "label": "Kolor"
         },
-        "command": {
-          "description": "Polecenie powłoki uruchomiane po lewym kliknięciu tego przycisku",
-          "label": "Polecenie lewego kliknięcia"
-        },
         "custom-image": {
           "description": "Ścieżka do niestandardowego obrazu. Pozostaw puste, aby użyć glify ikony",
           "dialog-title": "Wybierz obraz niestandardowy",
@@ -2363,10 +2353,6 @@
         "custom-labels": {
           "description": "Mapuj nazwy układu klawiatury na etykiety niestandardowe",
           "label": "Etykiety niestandardowe"
-        },
-        "cycle-command": {
-          "description": "Polecenie uruchomiane przy zmianie układu klawiatury",
-          "label": "Polecenie zmiany"
         },
         "detached-panel": {
           "description": "Otwórz szufladę jako pływający panel z własnym tłem zamiast łączenia się z paskiem",
@@ -2512,10 +2498,6 @@
           "description": "Maksymalna długość widżetu w pikselach",
           "label": "Maksymalna długość"
         },
-        "middle-command": {
-          "description": "Polecenie powłoki wykonywane po kliknięciu środkowym przycisku. Po ustawieniu, środkowe kliknięcie otwiera to polecenie zamiast ustawień widżetu",
-          "label": "Polecenie środkowego klisku"
-        },
         "min-length": {
           "description": "Minimalna długość widżetu w pikselach",
           "label": "Minimalna długość"
@@ -2549,14 +2531,6 @@
           "description": "Identyfikatory elementów Tray, które pozostają widoczne w pasku, gdy włączony jest tryb szuflady",
           "label": "Przypięte elementy"
         },
-        "primary-click": {
-          "description": "Akcja wykonywana po kliknięciu lewym przyciskiem na przycisk paska",
-          "label": "Lewy klik"
-        },
-        "right-command": {
-          "description": "Polecenie powłoki wykonywane po kliknięciu prawym przyciskiem tego przycisku",
-          "label": "Polecenie prawego klisku"
-        },
         "scale": {
           "description": "Skaluj ten widżet względem skali zawartości paska",
           "label": "Skala"
@@ -2568,18 +2542,6 @@
         "script": {
           "description": "Ścieżka do skryptu lua",
           "label": "Skrypt"
-        },
-        "scroll-down-command": {
-          "description": "Polecenie powłoki wykonane podczas przewijania w dół nad tym przyciskiem",
-          "label": "Polecenie przewijania w dół"
-        },
-        "scroll-step": {
-          "description": "Zmiana procentowa zastosowana na każdy krok kółka myszy",
-          "label": "Krok przewijania"
-        },
-        "scroll-up-command": {
-          "description": "Polecenie powłoki wykonane podczas przewijania w górę nad tym przyciskiem",
-          "label": "Polecenie przewijania w górę"
         },
         "show-active-indicator": {
           "description": "Pokaż małą kropkę poniżej ikony aktywnego okna na pasku zadań",

@@ -506,6 +506,32 @@ namespace scripting {
           }
           injectStandardPanelShellSettings(entry);
         }
+        if (kind == PluginEntryKind::Widget) {
+          if ((*entryTable)["actions"]) {
+            if (manifest.pluginApiVersion < kWidgetGestureActionsPluginApiVersion) {
+              error = "widget entry '"
+                  + entry.id
+                  + "': actions requires plugin_api >= "
+                  + std::to_string(kWidgetGestureActionsPluginApiVersion);
+              return false;
+            }
+            if ((*entryTable)["actions"].as_table() == nullptr) {
+              error = "widget entry '" + entry.id + "': actions must be a table of gesture bindings";
+              return false;
+            }
+          }
+          if (const auto* actionsTable = (*entryTable)["actions"].as_table()) {
+            for (const auto& [gestureKey, actionNode] : *actionsTable) {
+              const auto action = actionNode.value<std::string>();
+              if (!action.has_value()) {
+                error =
+                    "widget entry '" + entry.id + "': actions." + std::string(gestureKey.str()) + " must be a string";
+                return false;
+              }
+              entry.widgetActions.emplace_back(std::string(gestureKey.str()), *action);
+            }
+          }
+        }
         if (kind == PluginEntryKind::LauncherProvider) {
           entry.launcherPrefix = tableString(*entryTable, "prefix");
           entry.launcherGlyph = tableString(*entryTable, "glyph");

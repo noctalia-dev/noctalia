@@ -13,7 +13,6 @@ ClipboardWidget::ClipboardWidget(wl_output* /*output*/, Options options)
 
 void ClipboardWidget::create() {
   auto area = std::make_unique<InputArea>();
-  area->setOnClick([this](const InputArea::PointerData& /*data*/) { requestPanelToggle("clipboard"); });
 
   if (m_customImage.enabled()) {
     area->addChild(ui::image({.out = &m_image, .fit = ImageFit::Contain}));

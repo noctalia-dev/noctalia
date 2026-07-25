@@ -1662,26 +1662,6 @@
         "corner-top-right": {
           "description": "状态栏右上角的圆角半径"
         },
-        "dead-zone-command": {
-          "description": "在小组件区域之外的状态栏空白处，左键点击时执行的 Shell 命令",
-          "label": "左键点击"
-        },
-        "dead-zone-middle-command": {
-          "description": "在小组件区域之外的状态栏空白处，中键点击时执行的 Shell 命令",
-          "label": "中键点击"
-        },
-        "dead-zone-right-command": {
-          "description": "右键点击时执行的 Shell 命令；留空时打开控制中心",
-          "label": "右键点击"
-        },
-        "dead-zone-scroll-down-command": {
-          "description": "向下滚动时执行的 Shell 命令",
-          "label": "向下滚动"
-        },
-        "dead-zone-scroll-up-command": {
-          "description": "向上滚动时执行的 Shell 命令",
-          "label": "向上滚动"
-        },
         "edge-margin": {
           "description": "状态栏与其所在屏幕边缘的间距；设为 0 时紧贴屏幕边缘"
         },
@@ -1708,7 +1688,7 @@
           "label": "悬停高亮"
         },
         "layer": {
-          "description": "使用 Overlay 可让状态栏显示在全屏应用上方，Top 则在全屏时被覆盖；吸附面板会跟随状态栏",
+          "description": "使用 Overlay 可使状态栏显示在全屏应用上方，Top 则在全屏时被覆盖；吸附面板会跟随状态栏",
           "label": "Wayland 层级"
         },
         "opposite-edge-margin": {
@@ -1905,6 +1885,10 @@
         "launcher-position": {
           "description": "在 Dock 起始或末端显示启动器按钮",
           "label": "启动器按钮"
+        },
+        "layer": {
+          "description": "使用 Overlay 可使 Dock 显示在全屏应用上方，Top 则在全屏时被覆盖",
+          "label": "Wayland 层级"
         },
         "magnification": {
           "description": "放大指针附近的 Dock 图标，类似 macOS 风格",
@@ -2141,7 +2125,7 @@
           "label": "通知过滤器"
         },
         "layer": {
-          "description": "使用 Overlay 可让 Toast 通知显示在全屏应用上方，Top 则在全屏时被覆盖",
+          "description": "使用 Overlay 可使 Toast 通知显示在全屏应用上方，Top 则在全屏时被覆盖",
           "label": "Wayland 层级"
         },
         "monitors": {
@@ -2707,10 +2691,6 @@
           "label": "自定义应用启动命令",
           "placeholder": "$CMD"
         },
-        "middle-click-opens-widget-settings": {
-          "description": "在状态栏中键点击小组件时打开其设置",
-          "label": "中键点击打开小组件设置"
-        },
         "niri-overview-type-to-launch": {
           "description": "在 niri 概览界面键入时即可打开启动器；进入概览时，会使用一个极小的键盘焦点窗口来接收输入",
           "label": "键入启动"
@@ -3112,8 +3092,6 @@
         "rate": "功耗",
         "regular": "常规",
         "replace": "替换",
-        "screenshot-primary-fullscreen": "全屏",
-        "screenshot-primary-region": "区域",
         "shared": "共享运行",
         "short": "简短",
         "swap-percent": "Swap 百分比",
@@ -3208,10 +3186,6 @@
           "description": "可视化的第二渐变色",
           "label": "颜色 2"
         },
-        "command": {
-          "description": "左键点击按钮时执行的 Shell 命令",
-          "label": "左键点击命令"
-        },
         "custom-image": {
           "description": "自定义图片的路径；留空时使用图标",
           "dialog-title": "选择自定义图片",
@@ -3224,10 +3198,6 @@
         "custom-labels": {
           "description": "将键盘布局名称映射为自定义标签",
           "label": "自定义标签"
-        },
-        "cycle-command": {
-          "description": "切换键盘布局时执行的命令",
-          "label": "切换命令"
         },
         "detached-panel": {
           "description": "以带有独立背景的悬浮面板打开抽屉，而非吸附状态栏",
@@ -3450,10 +3420,6 @@
           "description": "用于匹配并忽略特定麦克风应用名称的正则表达式",
           "label": "麦克风过滤正则"
         },
-        "middle-command": {
-          "description": "中键点击按钮时执行的 Shell 命令。设置后，中键点击将不再打开小组件设置。",
-          "label": "中键点击命令"
-        },
         "min-length": {
           "description": "小组件最小长度（像素）",
           "label": "最小长度"
@@ -3510,14 +3476,6 @@
           "description": "当前未运行的已固定应用的不透明度",
           "label": "已固定应用不透明度"
         },
-        "primary-click": {
-          "description": "左键点击状态栏按钮时执行的操作",
-          "label": "主键点击"
-        },
-        "right-command": {
-          "description": "右键点击按钮时执行的 Shell 命令",
-          "label": "右键点击命令"
-        },
         "scale": {
           "description": "按状态栏内容缩放比例调整小组件大小",
           "label": "缩放"
@@ -3529,18 +3487,6 @@
         "script": {
           "description": "Lua 脚本的路径",
           "label": "脚本"
-        },
-        "scroll-down-command": {
-          "description": "向下滚动按钮时执行的 Shell 命令",
-          "label": "向下滚动命令"
-        },
-        "scroll-step": {
-          "description": "每格鼠标滚轮对应的变化百分比",
-          "label": "滚动步长"
-        },
-        "scroll-up-command": {
-          "description": "向上滚动按钮时执行的 Shell 命令",
-          "label": "向上滚动命令"
         },
         "show-active-indicator": {
           "description": "在任务栏中活动窗口图标下方显示小圆点",
@@ -3861,6 +3807,7 @@
       "sort-date-desc": "按日期排序（最新优先）",
       "sort-name-asc": "按名称排序（A-Z）",
       "sort-name-desc": "按名称排序（Z-A）",
+      "sort-random": "随机排序",
       "title": "壁纸"
     }
   },

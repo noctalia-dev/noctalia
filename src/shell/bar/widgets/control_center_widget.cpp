@@ -14,7 +14,6 @@ ControlCenterWidget::ControlCenterWidget(wl_output* /*output*/, Options options)
 
 void ControlCenterWidget::create() {
   auto area = std::make_unique<InputArea>();
-  area->setOnClick([this](const InputArea::PointerData& /*data*/) { requestPanelToggle("control-center", "home"); });
 
   if (m_customImage.enabled()) {
     area->addChild(ui::image({.out = &m_image, .fit = ImageFit::Contain}));

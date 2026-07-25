@@ -10,9 +10,11 @@
 #include "core/ui_phase.h"
 #include "dbus/upower/upower_service.h"
 #include "i18n/i18n.h"
+#include "ipc/ipc_service.h"
 #include "render/render_context.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/bar/widget_action.h"
 #include "shell/greeter/greeter_appearance_sync.h"
 #include "shell/profile/avatar_path.h"
 #include "shell/settings/font_family_catalog.h"
@@ -826,6 +828,35 @@ std::vector<settings::SelectOption> SettingsWindow::batteryDeviceOptions() const
   return upowerBatteryDeviceOptions(m_upower);
 }
 
+std::vector<settings::GestureActionOption> SettingsWindow::gestureActionCatalog() const {
+  if (m_ipcService == nullptr) {
+    return {};
+  }
+  std::vector<settings::GestureActionOption> options;
+  for (const auto& handler : m_ipcService->handlers()) {
+    // `exec` and `none` are grammar keywords, not commands, and are offered as their own rows.
+    if (handler.command == noctalia::bar::kExecVerb || handler.command == noctalia::bar::kNoneVerb) {
+      continue;
+    }
+    if (!handler.bindable) {
+      continue;
+    }
+    options.push_back(
+        settings::GestureActionOption{
+            .option =
+                settings::SelectOption{
+                    .value = std::string(handler.command),
+                    // The verb is the label: it is what goes in the config and what errors name.
+                    .label = std::string(handler.command),
+                    .description = std::string(handler.description),
+                },
+            .argsSpec = std::string(handler.args),
+        }
+    );
+  }
+  return options;
+}
+
 settings::SettingsContentContext SettingsWindow::makeContentContext(
     const Config& cfg, const BarConfig* selectedBar, const BarMonitorOverride* selectedMonitorOverride
 ) {
@@ -866,6 +897,10 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .pendingDeleteWidgetName = m_pendingDeleteWidgetName,
       .pendingDeleteWidgetSettingPath = m_pendingDeleteWidgetSettingPath,
       .renamingWidgetName = m_renamingWidgetName,
+      .pendingGestureKey = m_pendingGestureKey,
+      .pendingGestureVerb = m_pendingGestureVerb,
+      .actionsExpandedFor = m_actionsExpandedFor,
+      .actionCatalog = gestureActionCatalog(),
       .requestRebuild = requestRebuild,
       .requestContentRebuild = requestContent,
       .resetContentScroll = [this]() { m_contentScrollState.offset = 0.0f; },

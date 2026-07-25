@@ -43,7 +43,6 @@ public:
     bool minimal = false;
     bool focusedPill = false;
     bool focusedOutputOnly = false;
-    bool enableScroll = true;
   };
 
   WorkspacesWidget(CompositorPlatform& platform, ConfigService& config, wl_output* output, Options options);
@@ -71,8 +70,6 @@ private:
   void scheduleRebuildFromSnapshot();
   [[nodiscard]] float workspacePillRadius(float width, float height) const noexcept;
   [[nodiscard]] float workspaceMainAxisMinWidth(float baseSize, bool active) const noexcept;
-  [[nodiscard]] std::optional<std::size_t> activeWorkspaceIndex() const;
-  void activateAdjacentWorkspace(int direction);
 
   [[nodiscard]] static std::optional<std::size_t> numericWorkspaceId(const Workspace& workspace);
   [[nodiscard]] std::string workspaceLabel(const Workspace& workspace, std::size_t displayIndex) const;
@@ -154,7 +151,6 @@ private:
   bool m_minimal = false;
   bool m_focusedPill = false;
   bool m_focusedOutputOnly = false;
-  bool m_enableScroll = true;
   bool m_wasFocusedOutput = true;
   bool m_activeUsesFocusedColor = true;
   std::string m_cachedActiveWindowAppId;

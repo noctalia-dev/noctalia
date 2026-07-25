@@ -113,8 +113,9 @@ protected:
   [[nodiscard]] RenderContext* renderContext() const noexcept { return m_renderContext; }
 
   // Construct the standard PopupSurfaceConfig with the shared constraint
-  // flags, anchor/gravity NONE, grab=true, and the parent context's
-  // centering offset. Subclasses use this when wiring the surface in
+  // flags, anchor/gravity NONE, grab=false (dialogs dismiss via Escape /
+  // close only — not outside click), and the parent context's centering
+  // offset. Subclasses use this when wiring the surface in
   // `openPopup`-equivalent code if they need a custom config.
   [[nodiscard]] PopupSurfaceConfig
   defaultPopupConfig(const LayerPopupParentContext& parent, std::uint32_t width, std::uint32_t height) const;

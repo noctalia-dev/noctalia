@@ -1,8 +1,11 @@
 #pragma once
 
+#include "ipc/ipc_invocation_context.h"
+
 #include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 class IpcService {
@@ -12,6 +15,43 @@ public:
   enum class HandlerVisibility {
     Public,
     Hidden,
+  };
+
+  // A registered command, for callers that need to present or validate the command set
+  // (--help, the bar widget action picker). The views borrow from the registry, so they are
+  // invalidated by the next registerHandler() call.
+  struct HandlerInfo {
+    std::string_view command;
+    // Argument spec without the verb, e.g. "<id> [context]". Empty when the command takes none.
+    std::string_view args;
+    std::string_view description;
+    // Whether to offer this command where a UI picks an action to run. False for state queries,
+    // whose output a click would discard. Config is not restricted by this.
+    bool bindable = true;
+    // Whether the command moves one position along an ordered set. Bound to a scroll gesture,
+    // one of those runs once per flick: the several notches an eager wheel movement emits are
+    // one intent, not a request to skip that many entries.
+    bool cycles = false;
+
+    // "panel-toggle <id> [context]" — the form shown in --help.
+    [[nodiscard]] std::string signature() const;
+  };
+
+  // Sets the invocation context for its lifetime, restoring the previous value on destruction so
+  // that a handler which re-enters execute() nests correctly.
+  class InvocationScope {
+  public:
+    InvocationScope(const IpcService& ipc, std::optional<IpcInvocationContext> context);
+    ~InvocationScope();
+
+    InvocationScope(const InvocationScope&) = delete;
+    InvocationScope& operator=(const InvocationScope&) = delete;
+    InvocationScope(InvocationScope&&) = delete;
+    InvocationScope& operator=(InvocationScope&&) = delete;
+
+  private:
+    const IpcService& m_ipc;
+    std::optional<IpcInvocationContext> m_previous;
   };
 
   IpcService() = default;
@@ -39,22 +79,51 @@ public:
   // (the caller's cwd) instead of the daemon's cwd. Only populated during execute().
   [[nodiscard]] const std::optional<std::string>& callerCwd() const noexcept { return m_callerCwd; }
 
+  // Where the running command was invoked from, when it did not arrive over the socket.
+  // Empty for socket-originated commands.
+  [[nodiscard]] const std::optional<IpcInvocationContext>& invocationContext() const noexcept {
+    return m_invocationContext;
+  }
+
+  // Registered commands, sorted by name. Hidden handlers are omitted.
+  [[nodiscard]] std::vector<HandlerInfo> handlers() const;
+  [[nodiscard]] bool hasHandler(std::string_view command) const noexcept;
+
   // Register a handler for a command name. The handler receives everything after
   // the first space as `args`. Must return a string ending with '\n'.
-  // `usage` describes the command signature, e.g. "panel-toggle <id>".
+  // `argsSpec` describes the arguments only, without repeating the verb, e.g. "<id> [context]".
   // `description` is a short human-readable explanation shown in --help.
   // Hidden handlers remain executable but are omitted from --help.
   void registerHandler(
-      const std::string& command, Handler handler, std::string usage = {}, std::string description = {},
+      const std::string& command, Handler handler, std::string argsSpec = {}, std::string description = {},
       HandlerVisibility visibility = HandlerVisibility::Public
   );
+
+  // A command that only reports state. Registered and listed in --help exactly like any other, but
+  // reported as unbindable so action pickers leave it out: running it from a click would throw the
+  // answer away. Hand-written config can still bind it.
+  void registerQueryHandler(
+      const std::string& command, Handler handler, std::string argsSpec = {}, std::string description = {}
+  );
+
+  // A command that steps one position along an ordered set (workspaces, tracks, power profiles).
+  // Registered like any other; bound to a scroll gesture it runs once per flick instead of once
+  // per notch, so an eager wheel movement moves one position rather than several.
+  void registerCycleHandler(
+      const std::string& command, Handler handler, std::string argsSpec = {}, std::string description = {}
+  );
+
+  // True when `command` was registered with registerCycleHandler().
+  [[nodiscard]] bool handlerCycles(std::string_view command) const noexcept;
 
 private:
   struct HandlerEntry {
     Handler fn;
-    std::string usage;
+    std::string argsSpec;
     std::string description;
     HandlerVisibility visibility = HandlerVisibility::Public;
+    bool bindable = true;
+    bool cycles = false;
   };
 
   void handleConnection(int connFd);
@@ -65,6 +134,7 @@ private:
   int m_listenFd = -1;
   std::string m_socketPath;
   mutable std::optional<std::string> m_callerCwd;
+  mutable std::optional<IpcInvocationContext> m_invocationContext;
   // Registration order is retained; --help output is sorted for display.
   std::vector<std::pair<std::string, HandlerEntry>> m_handlers;
 };

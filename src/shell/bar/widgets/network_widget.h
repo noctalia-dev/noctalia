@@ -58,5 +58,4 @@ private:
   bool m_haveLastState = false;
   bool m_isVertical = false;
   bool m_lastVertical = false;
-  NetworkConnectivity m_lastRightClickTransport = NetworkConnectivity::Unknown;
 };

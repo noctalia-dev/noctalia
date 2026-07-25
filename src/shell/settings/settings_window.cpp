@@ -13,6 +13,7 @@
 #include "idle/idle_manager.h"
 #include "render/render_context.h"
 #include "render/text/font_weight_catalog.h"
+#include "shell/tooltip/tooltip_manager.h"
 #include "system/dependency_service.h"
 #include "ui/controls/box.h"
 #include "ui/controls/flex.h"
@@ -351,6 +352,8 @@ std::optional<LayerPopupParentContext> SettingsWindow::popupParentContextForSurf
 }
 
 void SettingsWindow::open(std::string context) {
+  TooltipManager::instance().forceDestroy();
+
   if (!context.empty()) {
     m_selectedSection = std::move(context);
   }
@@ -672,7 +675,7 @@ void SettingsWindow::maybeOpenPendingWidgetInspector() {
   m_pendingOpenWidgetInspectorName.clear();
   // A bar middle-click gives us no press serial the settings surface owns, so the compositor rejects
   // an xdg_popup grab. Open the sheet without a grab — the window holds keyboard focus and routes
-  // input to it, and an outside click still dismisses it (handled in onPointerEvent).
+  // input to it. Dialog sheets dismiss via Escape / close only (not outside click).
   m_pendingEditorSheetNoGrab = true;
   // The inspector takes a per-lane path {"bar", name, <lane>} (same shape the lane-card gear passes);
   // resolve which lane this widget lives in so it isn't a 2-element path that mislocates the bar name.
@@ -812,12 +815,10 @@ bool SettingsWindow::onPointerEvent(const PointerEvent& event) {
   if (m_configExportDialogPopup != nullptr && m_configExportDialogPopup->onPointerEvent(event)) {
     return true;
   }
+  // Dialog: block parent input while open; dismiss only via Escape / close.
   if (m_configExportDialogPopup != nullptr
       && m_configExportDialogPopup->isOpen()
-      && !m_configExportDialogPopup->isInitializing()
-      && event.type == PointerEvent::Type::Button
-      && event.pressed) {
-    m_configExportDialogPopup->close();
+      && !m_configExportDialogPopup->isInitializing()) {
     return true;
   }
   if (m_searchPickerPopup != nullptr && m_searchPickerPopup->onPointerEvent(event)) {
@@ -834,12 +835,8 @@ bool SettingsWindow::onPointerEvent(const PointerEvent& event) {
   if (m_editorSheetPopup != nullptr && m_editorSheetPopup->onPointerEvent(event)) {
     return true;
   }
-  if (m_editorSheetPopup != nullptr
-      && m_editorSheetPopup->isOpen()
-      && !m_editorSheetPopup->isInitializing()
-      && event.type == PointerEvent::Type::Button
-      && event.pressed) {
-    m_editorSheetPopup->close();
+  // Dialog sheet: block parent input while open; dismiss only via Escape / close.
+  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen() && !m_editorSheetPopup->isInitializing()) {
     return true;
   }
 

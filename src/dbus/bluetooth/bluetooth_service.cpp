@@ -502,7 +502,7 @@ void BluetoothService::registerIpc(IpcService& ipc, StateFeedbackCallback stateF
         }
         return setBluetooth(true);
       },
-      "bluetooth-enable", "Enable Bluetooth"
+      "", "Enable Bluetooth"
   );
 
   ipc.registerHandler(
@@ -513,7 +513,7 @@ void BluetoothService::registerIpc(IpcService& ipc, StateFeedbackCallback stateF
         }
         return setBluetooth(false);
       },
-      "bluetooth-disable", "Disable Bluetooth"
+      "", "Disable Bluetooth"
   );
 
   ipc.registerHandler(
@@ -527,10 +527,10 @@ void BluetoothService::registerIpc(IpcService& ipc, StateFeedbackCallback stateF
         }
         return setBluetooth(!state().powered);
       },
-      "bluetooth-toggle", "Toggle Bluetooth"
+      "", "Toggle Bluetooth"
   );
 
-  ipc.registerHandler(
+  ipc.registerQueryHandler(
       "bluetooth-status",
       [this](const std::string& args) -> std::string {
         if (auto err = rejectArgs("bluetooth-status", args); err.has_value()) {
@@ -541,7 +541,7 @@ void BluetoothService::registerIpc(IpcService& ipc, StateFeedbackCallback stateF
         }
         return state().powered ? "on\n" : "off\n";
       },
-      "bluetooth-status", "Print Bluetooth state"
+      "", "Print Bluetooth state"
   );
 }
 

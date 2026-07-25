@@ -6,6 +6,8 @@
 #include "core/log.h"
 #include "core/process/process.h"
 #include "i18n/i18n.h"
+#include "shell/bar/widget_gesture.h"
+#include "shell/bar/widget_gesture_defaults.h"
 #include "shell/control_center/control_center_panel.h"
 #include "shell/control_center/shortcut_registry.h"
 #include "shell/settings/color_spec_picker.h"
@@ -36,6 +38,17 @@ namespace settings {
     [[nodiscard]] SliderSetting barCornerSlider(std::int32_t value) {
       SliderSetting s{value, 0.0f, kBarCornerRadiusMax, 1.0f, true};
       return s;
+    }
+
+    // What the dead zone does for a gesture nobody has bound, shown as the row's placeholder so an
+    // empty field never reads as "does nothing".
+    [[nodiscard]] std::string deadZoneDefault(noctalia::bar::Gesture gesture) {
+      for (const auto& binding : noctalia::bar::deadZoneGestureDefaults()) {
+        if (binding.gesture == gesture) {
+          return std::string(binding.action);
+        }
+      }
+      return {};
     }
 
     [[nodiscard]] SliderSetting barReservedSlider(double value, double maxValue, double step, bool integer) {
@@ -1677,12 +1690,6 @@ namespace settings {
         "calendar date format strftime chrono"
     ));
     entries.push_back(makeEntry(
-        SettingsSection::Shell, "general", tr("settings.schema.shell.middle-click-opens-widget-settings.label"),
-        tr("settings.schema.shell.middle-click-opens-widget-settings.description"),
-        {"shell", "middle_click_opens_widget_settings"}, ToggleSetting{cfg.shell.middleClickOpensWidgetSettings},
-        "bar widget settings middle click configure"
-    ));
-    entries.push_back(makeEntry(
         SettingsSection::Shell, "general", tr("settings.schema.shell.launch-apps-as-systemd-services.label"),
         env.systemdUserManaged ? tr("settings.schema.shell.launch-apps-as-systemd-services.description")
                                : tr("settings.schema.shell.launch-apps-as-systemd-services.requires-systemd-session"),
@@ -3126,47 +3133,23 @@ namespace settings {
           section, "widget-list", tr("settings.schema.bar.end-widgets.label"),
           tr("settings.schema.bar.end-widgets.description"), path("end"), ListSetting{.items = bar.endWidgets}, "right"
       ));
-      const auto deadZonePath = [&](std::string_view key) {
-        return std::vector<std::string>{"bar", bar.name, "dead_zone", std::string(key)};
-      };
-      entries.push_back(makeEntry(
-          section, "dead-zone", tr("settings.schema.bar.dead-zone-command.label"),
-          tr("settings.schema.bar.dead-zone-command.description"), deadZonePath("command"),
-          TextSetting{.value = bar.deadZone.command, .placeholder = "", .width = 320.0f, .browseFileExtensions = {}},
-          "bar empty margin click left command shell"
-      ));
-      entries.push_back(makeEntry(
-          section, "dead-zone", tr("settings.schema.bar.dead-zone-right-command.label"),
-          tr("settings.schema.bar.dead-zone-right-command.description"), deadZonePath("right_command"),
-          TextSetting{
-              .value = bar.deadZone.rightCommand, .placeholder = "", .width = 320.0f, .browseFileExtensions = {}
-          },
-          "bar empty margin click right command control center override shell"
-      ));
-      entries.push_back(makeEntry(
-          section, "dead-zone", tr("settings.schema.bar.dead-zone-middle-command.label"),
-          tr("settings.schema.bar.dead-zone-middle-command.description"), deadZonePath("middle_command"),
-          TextSetting{
-              .value = bar.deadZone.middleCommand, .placeholder = "", .width = 320.0f, .browseFileExtensions = {}
-          },
-          "bar empty margin click middle command shell"
-      ));
-      entries.push_back(makeEntry(
-          section, "dead-zone", tr("settings.schema.bar.dead-zone-scroll-up-command.label"),
-          tr("settings.schema.bar.dead-zone-scroll-up-command.description"), deadZonePath("scroll_up_command"),
-          TextSetting{
-              .value = bar.deadZone.scrollUpCommand, .placeholder = "", .width = 320.0f, .browseFileExtensions = {}
-          },
-          "bar empty margin scroll wheel up command shell"
-      ));
-      entries.push_back(makeEntry(
-          section, "dead-zone", tr("settings.schema.bar.dead-zone-scroll-down-command.label"),
-          tr("settings.schema.bar.dead-zone-scroll-down-command.description"), deadZonePath("scroll_down_command"),
-          TextSetting{
-              .value = bar.deadZone.scrollDownCommand, .placeholder = "", .width = 320.0f, .browseFileExtensions = {}
-          },
-          "bar empty margin scroll wheel down command shell"
-      ));
+      // One row per gesture, from the same closed set widget actions use. An unset row shows the
+      // built-in default as its placeholder, so "empty" never reads as "does nothing".
+      for (const auto gesture : noctalia::bar::allGestures()) {
+        const std::string key(noctalia::bar::gestureConfigKey(gesture));
+        const auto configured = bar.deadZone.actions.find(key);
+        entries.push_back(makeEntry(
+            section, "dead-zone", tr(std::string(noctalia::bar::gestureLabelKey(gesture))),
+            tr("settings.schema.bar.dead-zone-action.description"),
+            std::vector<std::string>{"bar", bar.name, "dead_zone", "actions", key},
+            GestureActionSetting{
+                .gestureKey = key,
+                .configured = configured != bar.deadZone.actions.end() ? configured->second : std::string{},
+                .defaultAction = deadZoneDefault(gesture),
+            },
+            "bar empty margin dead zone action command gesture " + key
+        ));
+      }
     }
 
     // Bar monitor overrides (all bars).
@@ -3466,68 +3449,29 @@ namespace settings {
             tr("settings.schema.bar.end-widgets.description"), monitorPath("end"),
             ListSetting{.items = ovr.endWidgets.value_or(bar.endWidgets)}, "right"
         ));
-        const auto monitorDeadZonePath = [&](std::string_view key) {
-          std::vector<std::string> p = root;
-          p.emplace_back("dead_zone");
-          p.emplace_back(key);
-          return p;
-        };
-        entries.push_back(makeEntry(
-            section, "dead-zone", tr("settings.schema.bar.dead-zone-command.label"),
-            tr("settings.schema.bar.dead-zone-command.description"), monitorDeadZonePath("command"),
-            TextSetting{
-                .value = ovr.deadZone.command.value_or(""),
-                .placeholder = bar.deadZone.command,
-                .width = 320.0f,
-                .browseFileExtensions = {},
-            },
-            "bar empty margin click left command shell"
-        ));
-        entries.push_back(makeEntry(
-            section, "dead-zone", tr("settings.schema.bar.dead-zone-right-command.label"),
-            tr("settings.schema.bar.dead-zone-right-command.description"), monitorDeadZonePath("right_command"),
-            TextSetting{
-                .value = ovr.deadZone.rightCommand.value_or(""),
-                .placeholder = bar.deadZone.rightCommand,
-                .width = 320.0f,
-                .browseFileExtensions = {},
-            },
-            "bar empty margin click right command control center override shell"
-        ));
-        entries.push_back(makeEntry(
-            section, "dead-zone", tr("settings.schema.bar.dead-zone-middle-command.label"),
-            tr("settings.schema.bar.dead-zone-middle-command.description"), monitorDeadZonePath("middle_command"),
-            TextSetting{
-                .value = ovr.deadZone.middleCommand.value_or(""),
-                .placeholder = bar.deadZone.middleCommand,
-                .width = 320.0f,
-                .browseFileExtensions = {},
-            },
-            "bar empty margin click middle command shell"
-        ));
-        entries.push_back(makeEntry(
-            section, "dead-zone", tr("settings.schema.bar.dead-zone-scroll-up-command.label"),
-            tr("settings.schema.bar.dead-zone-scroll-up-command.description"), monitorDeadZonePath("scroll_up_command"),
-            TextSetting{
-                .value = ovr.deadZone.scrollUpCommand.value_or(""),
-                .placeholder = bar.deadZone.scrollUpCommand,
-                .width = 320.0f,
-                .browseFileExtensions = {},
-            },
-            "bar empty margin scroll wheel up command shell"
-        ));
-        entries.push_back(makeEntry(
-            section, "dead-zone", tr("settings.schema.bar.dead-zone-scroll-down-command.label"),
-            tr("settings.schema.bar.dead-zone-scroll-down-command.description"),
-            monitorDeadZonePath("scroll_down_command"),
-            TextSetting{
-                .value = ovr.deadZone.scrollDownCommand.value_or(""),
-                .placeholder = bar.deadZone.scrollDownCommand,
-                .width = 320.0f,
-                .browseFileExtensions = {},
-            },
-            "bar empty margin scroll wheel down command shell"
-        ));
+        for (const auto gesture : noctalia::bar::allGestures()) {
+          const std::string key(noctalia::bar::gestureConfigKey(gesture));
+          std::vector<std::string> gesturePath = root;
+          gesturePath.emplace_back("dead_zone");
+          gesturePath.emplace_back("actions");
+          gesturePath.emplace_back(key);
+
+          const auto& overrideActions = ovr.deadZone.actions;
+          const auto overridden = overrideActions.has_value() ? overrideActions->find(key) : overrideActions->end();
+          const auto inherited = bar.deadZone.actions.find(key);
+          entries.push_back(makeEntry(
+              section, "dead-zone", tr(std::string(noctalia::bar::gestureLabelKey(gesture))),
+              tr("settings.schema.bar.dead-zone-action.description"), std::move(gesturePath),
+              GestureActionSetting{
+                  .gestureKey = key,
+                  .configured = overrideActions.has_value() && overridden != overrideActions->end() ? overridden->second
+                                                                                                    : std::string{},
+                  .defaultAction =
+                      inherited != bar.deadZone.actions.end() ? inherited->second : deadZoneDefault(gesture),
+              },
+              "bar empty margin dead zone action command gesture " + key
+          ));
+        }
       }
     }
 

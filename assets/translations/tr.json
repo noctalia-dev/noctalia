@@ -94,6 +94,7 @@
         "cpu": "CPU",
         "cpu-temp": "CPU Isısı",
         "disk": "Disk",
+        "disk-free": "",
         "download": "İndirme",
         "gpu-temp": "GPU Sıcaklığı",
         "gpu-usage": "GPU Kullanımı",
@@ -135,8 +136,115 @@
       "history-message": "Pano geçmişinde öğe yok.",
       "history-title": "Pano geçmişi boş"
     },
+    "entry": {
+      "image": "Görüntü"
+    },
     "preview": {
       "loading": "Önizleme yükleniyor..."
     }
+  },
+  "settings": {
+    "window": {
+      "title": "Ayarlar"
+    }
+  },
+  "time": {
+    "units": {
+      "month": "{count} ay",
+      "month-plural": "{count} ay",
+      "year": "{count} yıl",
+      "year-plural": "{count} yıl"
+    }
+  },
+  "tray": {
+    "menu": {
+      "empty": "Menü öğesi yok",
+      "pin": "Sabitle",
+      "unpin": "Serbest bırak"
+    }
+  },
+  "ui": {
+    "controls": {
+      "search-picker": {
+        "empty": "Sonuç yok",
+        "placeholder": "Ara..."
+      },
+      "select": {
+        "placeholder": "Bir seçenek seçin"
+      }
+    },
+    "dialogs": {
+      "color-picker": {
+        "title": "Renk"
+      },
+      "file": {
+        "actions": {
+          "open": "Aç",
+          "save": "Kaydet",
+          "select-folder": "Dosya Seç"
+        },
+        "empty-filtered": "Mevcut filtreye uyan dosya yok",
+        "filename-placeholder": "Dosya adı",
+        "sort": {
+          "ascending": "↑",
+          "date": "Tarih",
+          "descending": "↓",
+          "name": "Ad",
+          "size": "Boyut"
+        },
+        "title": {
+          "default": "Dosya diyalogu",
+          "open": "Dosya Aç",
+          "save": "Dosyayı Kaydet",
+          "select-folder": "Dosya Seç"
+        }
+      },
+      "glyph-picker": {
+        "all-categories": "Tümü",
+        "search-placeholder": "Glif ara...",
+        "title": "Bir Glif Seç"
+      }
+    }
+  },
+  "wallpaper": {
+    "panel": {
+      "all-monitors": "TÜMÜ",
+      "color-title": "Duvar kağıdı rengi",
+      "filter-placeholder": "Filtre...",
+      "flatten": "Düzleştirilmiş",
+      "loading": "Duvar kağıtları yükleniyor...",
+      "sort-date-asc": "Tarihe göre sırala (önce eskiler)",
+      "sort-random": "Rastgele sırala (karıştır)",
+      "title": "Duvar kağıdı"
+    }
+  },
+  "weather": {
+    "conditions": {
+      "full": {
+        "unknown": "Bİlinmiyor"
+      },
+      "short": {
+        "clear": "Temiz",
+        "cloudy": "Bulutlu",
+        "drizzle": "Çiseli",
+        "fog": "Sisli",
+        "mostly-clear": "Çoğunlukla açık",
+        "overcast": "Kapalı",
+        "showers": "Sağanak",
+        "snow": "Kar",
+        "snow-showers": "Kar sağanağı",
+        "storm": "Fırtına",
+        "weather": "Hava durumu"
+      }
+    },
+    "errors": {
+      "fetch-failed": "Hava durumu çekme başarısız",
+      "parse-weather": "Hava durumu yanıtı çözümlenemedi"
+    }
+  },
+  "window-switcher": {
+    "empty": "Açık pencere yok",
+    "hint": "Tab · Shift+Tab · Yön tuşlar · Değiştirmek için Alt'ı bırak · İptel etmek için Esc",
+    "title": "Penceler"
   }
 }

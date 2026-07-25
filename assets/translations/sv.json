@@ -424,13 +424,20 @@
         "add": "Lägg till",
         "clone": "Duplicera (Ctrl+C, Ctrl+V för att klippa/klistra)",
         "done": "Klar",
+        "flip-horizontal": "Spegla horisontellt",
         "flip-vertical": "Spegla vertikalt",
         "hide": "Dölj",
         "settings": "Inställningar",
         "show": "Visa",
+        "stack-back": "Stapla bakom",
+        "stack-front": "Stapla framför",
         "trash": "Ta bort"
       },
+      "dialogs": {
+        "select-sticker-image": "Välj bild till klistermärke"
+      },
       "settings": {
+        "aspect-ratio": "Bildförhållande",
         "background": "Bakgrund",
         "background-color": "Färg",
         "background-opacity": "Opacitet",
@@ -439,6 +446,7 @@
         "center-password-text": "Centrera lösenordstext",
         "center-text": "Centrera text",
         "centered": "Centrerad",
+        "change-image": "Byt...",
         "circle": "Cirkel",
         "clock-style-analog": "Analog",
         "clock-style-digital": "Digital",
@@ -447,10 +455,18 @@
         "color-2": "Färg 2",
         "color2": "Färg 2",
         "command": "Kommando",
+        "custom-color": "Anpassad",
         "description": "Beskrivning",
+        "device": "Enhet",
         "display-graph": "Graf",
         "font-family": "Typsnitt",
+        "font-family-default": "Systemstandard",
+        "forecast-days": "Prognosdagar",
         "format": "Format",
+        "glyph": "Glyf",
+        "hide-when-no-media": "Göm när media saknas",
+        "highlight-color": "Markeringsfärg",
+        "horizontal": "Horisontal",
         "image-path": "Bild",
         "interface": "Gränssnitt",
         "label": "Etikett",
@@ -459,23 +475,75 @@
         "network-speed-unit-megabytes": "MB/s",
         "opacity": "Opacitet",
         "primary-color": "Primärfärg",
+        "reset-defaults": "Återställ till standardvärden",
+        "rotation-speed": "Rotationshastighet",
+        "scroll-step": "Skrollsteg",
         "secondary-color": "Sekundärfärg",
         "sensitivity": "Känslighet",
         "shadow": "Skugga",
+        "show-caps-lock": "Skiftlåsvarning",
+        "show-device": "Visa enhet",
         "show-forecast": "Visa Prognos",
         "show-keyboard-layout": "Tangentbordslayout",
         "show-label": "Visa Etikett",
         "show-login-button": "Loginknapp",
+        "show-password-hint": "Lösenordsledtråd",
+        "show-vpn-label": "Visa VPN-etikett",
+        "show-when-idle": "Visa när inaktiv",
+        "stat-cpu-temp": "CPU-temperatur",
+        "stat-cpu-usage": "CPU-användning",
+        "stat-gpu-temp": "GPU-temperatur",
+        "stat-gpu-usage": "GPU-användning",
+        "stat-gpu-vram": "GPU VRAM",
+        "stat-net-rx": "Nät Rx",
+        "stat-net-tx": "Nät Tx",
+        "stat-none": "Ingen",
+        "stat-ram-pct": "RAM %",
+        "stat-swap-pct": "Swap %",
+        "stat2": "Mätvärde 2",
         "title": "Rubrik",
+        "variant-default": "Standard",
+        "variant-destructive": "Destruktiv",
+        "variant-ghost": "Spöklig",
+        "variant-outline": "Kontur",
+        "variant-primary": "Primärfärg",
+        "variant-secondary": "Sekundärfärg",
+        "vertical": "Vertikal",
         "visualization-mode": "Läge",
-        "visualization-mode-all": "Alla"
+        "visualization-mode-all": "Alla",
+        "visualization-mode-bars": "Stavar",
+        "visualization-mode-bars-rings": "Stavar + Ringar",
+        "visualization-mode-rings": "Ringar",
+        "visualization-mode-wave": "Våg",
+        "visualization-mode-wave-rings": "Våg + Ringar",
+        "wave-thickness": "Vågtjocklek",
+        "widget-section": "Widget"
       },
+      "state": {
+        "grid": "Rutnät"
+      },
+      "title": "Skrivbordswidgets",
       "types": {
+        "audio-visualizer": "Ljudvisualiserare",
         "button": "Knapp",
         "clock": "Klocka",
+        "fancy-audio-visualizer": "Fancy ljudvisualiserare",
         "label": "Etikett",
+        "login-box": "Loginruta",
+        "media-player": "Mediaspelare",
+        "sticker": "Klistermärke",
+        "system-monitor": "Systemövervakare",
+        "volume": "Volym",
         "weather": "Väder"
       }
+    },
+    "media": {
+      "nothing-playing": "Inget spelas"
+    },
+    "volume": {
+      "mic": "Mick",
+      "muted": "Tystad",
+      "volume": "Volym"
     },
     "weather": {
       "error": "Fel",
@@ -488,7 +556,8 @@
     "actions": {
       "close": "Stäng",
       "close-all": "Stäng Alla"
-    }
+    },
+    "launcher": "Launcher"
   },
   "internal-apps": {
     "settings": {
@@ -541,6 +610,11 @@
       "emoji": {
         "title": "Emoji"
       },
+      "session": {
+        "action-subtitle": "Kör sessionhandling",
+        "command-subtitle": "Kör konfigurerat kommando",
+        "title": "Session"
+      },
       "wallpaper": {
         "title": "Bakgrundsbild"
       },
@@ -551,8 +625,12 @@
     "search-placeholder": "Sök applikationer..."
   },
   "location": {
+    "locations": {
+      "current": "Nuvarande plats"
+    },
     "source": {
-      "address": "Adress"
+      "address": "Adress",
+      "auto": "Automatisk"
     }
   },
   "lockscreen": {
@@ -561,7 +639,9 @@
     "caps-lock-on": "Caps Lock är på",
     "password-cleared": "Lösenord rensat",
     "password-placeholder": "Lösenord",
-    "ready": "Mata in ditt lösenord och tryck Retur."
+    "ready": "Mata in ditt lösenord och tryck Retur.",
+    "unlocked": "Upplåst",
+    "waiting": "Väntar på låsbekräftelse..."
   },
   "notifications": {
     "actions": {
@@ -574,6 +654,7 @@
     },
     "internal": {
       "battery": "Batteri",
+      "battery-critical-body": "{device}: {percent}% – din dator kommer att stängas av snart",
       "battery-critical-title": "Batterinivå kritiskt låg",
       "battery-device": "Batterienhet",
       "battery-low-body": "{device}: {percent}% kvar",
@@ -583,7 +664,11 @@
       "calendar-google-connect-failed-title": "Google Kalender koppling misslyckades",
       "calendar-google-connect-missing-account": "Inget konfigurerat Google Kalender konto matchar \"{account}\".",
       "calendar-google-connect-result-failed": "Kunde inte avsluta Google auktorisering. Påbörja kopplingen på nytt.",
-      "keybind-app": "Noctalia"
+      "greeter-sync": "Noctalia Greeter",
+      "keybind-app": "Noctalia",
+      "launcher-usage-reset": "Launcher",
+      "screen-time-reset": "Skärmtid",
+      "wallpaper-palette-export": "Anpassad färgskala"
     }
   },
   "osd": {
@@ -733,17 +818,6 @@
         },
         "ui-scale": {
           "label": "Gränsnittsskala"
-        }
-      },
-      "bar": {
-        "dead-zone-command": {
-          "label": "Vänsterklick"
-        },
-        "dead-zone-middle-command": {
-          "label": "Mittenklick"
-        },
-        "dead-zone-right-command": {
-          "label": "Högerklick"
         }
       },
       "services": {

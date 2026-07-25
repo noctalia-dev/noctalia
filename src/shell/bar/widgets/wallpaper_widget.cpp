@@ -13,7 +13,6 @@ WallpaperWidget::WallpaperWidget(wl_output* /*output*/, Options options)
 
 void WallpaperWidget::create() {
   auto area = std::make_unique<InputArea>();
-  area->setOnClick([this](const InputArea::PointerData& /*data*/) { requestPanelToggle("wallpaper"); });
 
   if (m_customImage.enabled()) {
     area->addChild(ui::image({.out = &m_image, .fit = ImageFit::Contain}));

@@ -14,7 +14,6 @@
 #include "shell/bar/widgets/lock_keys_widget_definition.h"
 #include "shell/bar/widgets/network_widget_definition.h"
 #include "shell/bar/widgets/notification_widget_definition.h"
-#include "shell/bar/widgets/power_profile_widget_definition.h"
 #include "shell/bar/widgets/privacy_widget_definition.h"
 #include "shell/bar/widgets/screenshot_widget_definition.h"
 #include "shell/bar/widgets/session_widget_definition.h"
@@ -116,7 +115,6 @@ int main() {
   checkDefinition("lock_keys", lockKeysWidgetDefinition);
   checkDefinition("network", networkWidgetDefinition);
   checkDefinition("notifications", notificationWidgetDefinition);
-  checkDefinition("power_profile", powerProfileWidgetDefinition);
   checkDefinition("privacy", privacyWidgetDefinition);
   checkDefinition("screenshot", screenshotWidgetDefinition);
   checkDefinition("session", sessionWidgetDefinition);

@@ -30,6 +30,9 @@ namespace settings {
     std::string placeholder;
     std::string emptyText;
     std::vector<std::string> settingPath;
+    // When set, replaces the default "empty clears, otherwise set" commit for settingPath.
+    // Needed where the chosen option is not itself the stored value.
+    std::function<void(const std::string&)> onSelect;
   };
 
   struct SettingsContentContext {
@@ -51,6 +54,12 @@ namespace settings {
     std::string& pendingDeleteWidgetName;
     std::string& pendingDeleteWidgetSettingPath;
     std::string& renamingWidgetName;
+    std::string& pendingGestureKey;
+    std::string& pendingGestureVerb;
+    std::string& actionsExpandedFor;
+    // Bindable IPC commands for the gesture action picker: value = command, label = usage,
+    // description = the command's --help text.
+    std::vector<GestureActionOption> actionCatalog;
 
     std::function<void()> requestRebuild;
     std::function<void()> requestContentRebuild;

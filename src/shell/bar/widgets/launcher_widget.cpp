@@ -14,7 +14,6 @@ LauncherWidget::LauncherWidget(wl_output* /*output*/, Options options)
 
 void LauncherWidget::create() {
   auto area = std::make_unique<InputArea>();
-  area->setOnClick([this](const InputArea::PointerData& /*data*/) { requestPanelToggle("launcher"); });
 
   if (m_customImage.enabled()) {
     area->addChild(ui::image({.out = &m_image, .fit = ImageFit::Contain}));

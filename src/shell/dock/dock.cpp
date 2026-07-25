@@ -1251,7 +1251,7 @@ void Dock::registerIpc(IpcService& ipc) {
           m_config->setDockEnabled(true);
         return "ok\n";
       },
-      "dock-show", "Show the dock (persists override)"
+      "", "Show the dock (persists override)"
   );
 
   ipc.registerHandler(
@@ -1261,7 +1261,7 @@ void Dock::registerIpc(IpcService& ipc) {
           m_config->setDockEnabled(false);
         return "ok\n";
       },
-      "dock-hide", "Hide the dock (persists override)"
+      "", "Hide the dock (persists override)"
   );
 
   ipc.registerHandler(
@@ -1271,7 +1271,7 @@ void Dock::registerIpc(IpcService& ipc) {
           m_config->setDockEnabled(!m_config->config().dock.enabled);
         return "ok\n";
       },
-      "dock-toggle", "Toggle dock visibility (persists override)"
+      "", "Toggle dock visibility (persists override)"
   );
 
   ipc.registerHandler(
@@ -1280,6 +1280,6 @@ void Dock::registerIpc(IpcService& ipc) {
         reload();
         return "ok\n";
       },
-      "dock-reload", "Reload dock configuration"
+      "", "Reload dock configuration"
   );
 }

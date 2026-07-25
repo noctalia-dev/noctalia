@@ -517,6 +517,7 @@
         "show-label": "Exibir Rótulo",
         "show-login-button": "Botão de Login",
         "show-password-hint": "Dica de Senha",
+        "show-session-buttons": "Botões de Sessão",
         "show-vpn-label": "Mostra Rótulo VPN",
         "show-when-idle": "Mostrar Quando Ocioso",
         "stat": "Estatísticas",
@@ -712,7 +713,7 @@
       "config-migration-title": "Atualiação de configuração necessária",
       "dbus-disabled": "Notificações DBus desabilitadas",
       "desktop-widgets-editor": "Editor de Widget",
-      "desktop-widgets-editor-enabled": "O editor de widgets da área de trabalho está ativado. Alterne para uma área de trabalho vazia para visualizar a sobreposição do editor.",
+      "desktop-widgets-editor-enabled": "O editor de widgets da área de trabalho está ativo. Alterne para uma área de trabalho vazia para visualizar a sobreposição do editor.",
       "greeter-sync": "Noctalia Greeter",
       "greeter-sync-pending": "Aguardando aprovação do administrador para gravar no greeter.",
       "greeter-sync-pending-console": "Aguardando aprovação do administrador. Aprove o prompt do polkit no Noctalia, em um TTY ou console, ou execute o pkexec manualmente.",
@@ -729,7 +730,7 @@
       "launcher-usage-reset-success": "Dados de uso limpos.",
       "lockscreen-widgets-editor": "Editor de widgets da tela de bloqueio",
       "lockscreen-widgets-editor-blocked-locked": "Desbloqueie a sessão antes de editar os widgets da tela de bloqueio.",
-      "lockscreen-widgets-editor-enabled": "O editor de widgets da tela de bloqueio está ativado. Organize os widgets na sobreposição de visualização e, em seguida, bloqueie a sessão para verificar o layout.",
+      "lockscreen-widgets-editor-enabled": "O editor de widgets da tela de bloqueio está ativo. Organize os widgets na sobreposição de visualização e, em seguida, bloqueie a sessão para verificar o layout.",
       "mpris-disabled": "MPRIS desabilitado",
       "polkit-agent": "Agente de Autenticação",
       "polkit-no-session": "Agente Polkit precisa de logind, elogind or XDG_SESSION_ID. Em configurações que utilizam apenas o seatd, ele não consegue se registrar para solicitações gráficas. Use o pkexec no terminal para sincronizar o greeter ou instale o elogind para autenticação durante a sessão.",
@@ -794,7 +795,7 @@
       "body-error": "{plugin}: {error}",
       "body-incompatible": "O plugin {plugin} requer a versão {version} da API de plugins; este Noctalia suporta as APIs {oldest}–{current}",
       "body-timeout": "A instalação do {plugin} demorou muito.",
-      "title": "Plugin não está ativado"
+      "title": "Plugin não ativado"
     }
   },
   "power": {
@@ -1023,6 +1024,7 @@
         "settings": {
           "empty": "Nenhuma configuração corresponde aos filtros atuais.",
           "groups": {
+            "actions": "Ações",
             "grouping": "Agrupamento",
             "presentation": "Apresentação",
             "runtime": "Tempo de Execução",
@@ -1415,6 +1417,8 @@
         "delete-confirm-title": "Apagar \"{name}\"?",
         "deprecated": "Obsoleto",
         "empty": "Nenhum plugin ativado.",
+        "held-back": "versão mais antiga",
+        "held-back-hint": "v{version} requer a API de plugins {required}; este Noctalia suporta até {current}. Atualize o Noctalia para obtê-la.",
         "incompatible-plugin-api": "APi de plugin incoompatível",
         "loading": "Carregando plugins...",
         "refreshing": "Atualizando plugins...",
@@ -1462,7 +1466,10 @@
         "categories": "Categoria",
         "category-all": "Todos",
         "empty": "Não foram encontrados plugins",
+        "held-back": "Versão mais antiga",
+        "held-back-hint": "Instala a v{version} para a API de plugins {resolved}. A versão mais recente v{latest} requer a API de plugins {latestRequired}; este Noctalia suporta até {current}.",
         "incompatible": "Incompatível",
+        "incompatible-hint": "Requer a API de plugins {required}; este Noctalia suporta {oldest}–{current}.",
         "loading": "Carregando catálogo...",
         "no-readme": "Nenhuma descrição disponível.",
         "open-page": "Abrir página de plugin em noctalia.dev",
@@ -1662,25 +1669,8 @@
         "corner-top-right": {
           "description": "Raio do canto superior direito da barra"
         },
-        "dead-zone-command": {
-          "description": "Comando do shell a ser executado ao clicar com o botão esquerdo na margem da barra, fora das seções dos widgets",
-          "label": "Clique Esquerdo"
-        },
-        "dead-zone-middle-command": {
-          "description": "Comando do shell a ser executado ao clicar com o botão do meio na margem da barra fora das seções dos widgets",
-          "label": "Clique do Meio"
-        },
-        "dead-zone-right-command": {
-          "description": "Comando do shell a ser executado ao clicar com o botão direito; deixe em branco para abrir a Central de Controle",
-          "label": "Clique Direito"
-        },
-        "dead-zone-scroll-down-command": {
-          "description": "Comando a executar ao rolar para baixo",
-          "label": "Rolar para Baixo"
-        },
-        "dead-zone-scroll-up-command": {
-          "description": "Comando a executar ao rolar para cima",
-          "label": "Rolar para Cima"
+        "dead-zone-action": {
+          "description": "Ação executada nas partes da barra que nenhum widget cobre; deixe vazio para o padrão"
         },
         "edge-margin": {
           "description": "Espaço entre a barra e a borda da tela em que ela está; defina como 0 px para alinhar exatamente com a borda"
@@ -2316,7 +2306,7 @@
           "label": "Abrir Próximo ao Clique"
         },
         "panel-anchor-bar": {
-          "description": "A quais barras os painéis se anexam quando abertos por um atalho ou pelo dock. Deixe vazio para seguir o widget que os abriu",
+          "description": "Barra à qual os painéis se anexam quando abertos. Deixe vazio para seguir o widget, atalho ou dock que os abriu",
           "label": "Barra Âncora"
         },
         "placement-clipboard": {
@@ -2445,6 +2435,10 @@
           "description-unavailable": "Nenhum provedor do Secret Service está disponível. Os eventos do calendário permanecerão disponíveis apenas nesta sessão.",
           "label": "Armazenamento de Eventos do Calendário"
         },
+        "calendar-week-numbers": {
+          "description": "Exibir os números da semana na norma ISO 8601 ao lado da grade do calendário",
+          "label": "Números da Semana"
+        },
         "custom-schedule": {
           "description": "Usar horários manuais de amanhecer e anoitecer ao invés de computar à partir das coordenadas",
           "label": "Agendamento Personalizado"
@@ -2502,11 +2496,11 @@
           "placeholder": "/path/to/sound.wav"
         },
         "shell-sounds": {
-          "description": "Tocar efeitos de som para eventos da shell",
-          "label": "Sons da Shell"
+          "description": "Tocar efeitos de som para eventos do shell",
+          "label": "Sons do Shell"
         },
         "sound-volume": {
-          "description": "Volume para efeitos de som da shell",
+          "description": "Volume para efeitos de som do shell",
           "label": "Volume do Áudio"
         },
         "sunrise": {
@@ -2710,10 +2704,6 @@
           "description": "Envolve apps iniciados pelo launcher, dock e taskbar; substitui $CMD pelo comando original",
           "label": "Comando de Launcher Personalizado",
           "placeholder": "$CMD"
-        },
-        "middle-click-opens-widget-settings": {
-          "description": "Abra as configurações de um widget da barra clicando com o botão do meio do mouse",
-          "label": "Clique do Meio Abre as Configurações do Widget"
         },
         "niri-overview-type-to-launch": {
           "description": "Abra o launcher ao digitar na visão geral do Niri; utiliza uma pequena superfície de foco do teclado enquanto a visão geral estiver aberta",
@@ -3053,6 +3043,24 @@
       "success": "Redefinição do armazenamento privado bem sucedida"
     },
     "widgets": {
+      "actions": {
+        "command-placeholder": "Comando do shell",
+        "default": "Padrão",
+        "disabled": "Desativado",
+        "run-command": "Executar um comando...",
+        "unset": "Não definido"
+      },
+      "gestures": {
+        "back": "Botão Voltar",
+        "forward": "Botão Avançar",
+        "left": "Clique Esquerdo",
+        "middle": "Clique do Meio",
+        "right": "Clique Direito",
+        "scroll-down": "Rolar para Baixo",
+        "scroll-left": "Rolar para Esquerda",
+        "scroll-right": "Rolar para Direita",
+        "scroll-up": "Rolar para Cima"
+      },
       "instances": {
         "cpu": "CPU",
         "date": "Data",
@@ -3077,6 +3085,7 @@
         "auto": "Auto",
         "before": "Antes",
         "both": "Ambos",
+        "compact": "Compacto",
         "count": "Contar",
         "cpu-temp": "Temperatura da CPU",
         "cpu-usage": "Uso da CPU",
@@ -3116,8 +3125,6 @@
         "rate": "Consumo",
         "regular": "Normal",
         "replace": "Substituir",
-        "screenshot-primary-fullscreen": "Tela Cheia",
-        "screenshot-primary-region": "Região",
         "shared": "Compartilhado",
         "short": "Curto",
         "swap-percent": "Porcentagem de Swap",
@@ -3129,6 +3136,10 @@
         "workspace-label-inside": "Dentro da Pílula"
       },
       "settings": {
+        "actions": {
+          "description": "O que cada gesto do mouse faz neste widget. Escolha um comando, execute um comando do shell ou desative-o.",
+          "label": "Ações de Gesto"
+        },
         "active-color": {
           "description": "Cor usada para indicadores de privacidade ativos; cores hex fixas também são suportadas",
           "label": "Cor Ativa"
@@ -3212,10 +3223,6 @@
           "description": "Segunda cor de gradiente no visualizador",
           "label": "Cor 2"
         },
-        "command": {
-          "description": "O comando do shell é executado ao clicar com o botão esquerdo do mouse neste botão",
-          "label": "Comando de Clique Esquerdo"
-        },
         "custom-image": {
           "description": "Caminho para uma imagem personalizada; deixe em branco para usar o símbolo padrão",
           "dialog-title": "Selecionar imagem personalizada",
@@ -3228,10 +3235,6 @@
         "custom-labels": {
           "description": "Mapeia nomes de layouts de teclado para rótulos personalizados",
           "label": "Rótulos Personalizados"
-        },
-        "cycle-command": {
-          "description": "O comando é executado ao alternar entre os layouts de teclado",
-          "label": "Comando de Ciclo"
         },
         "detached-panel": {
           "description": "Abre o drawer como um painel flutuante com seu próprio fundo, em vez de se mesclar com a barra",
@@ -3454,10 +3457,6 @@
           "description": "Expressões regulares para ignorar nomes dos apps de microfone",
           "label": "Regex de Filtro de Microfone"
         },
-        "middle-command": {
-          "description": "O comando do shell é executado ao clicar com o botão do meio neste botão. Quando configurado, clicar com o botão do meio abre este comando em vez das configurações do widget.",
-          "label": "Clique No Botão do Meio"
-        },
         "min-length": {
           "description": "Comprimento mínimo do widget em pixels",
           "label": "Comprimento Mínimo"
@@ -3514,14 +3513,6 @@
           "description": "Opacidade dos apps fixados que não estão em execução",
           "label": "Opacidade do App Fixado"
         },
-        "primary-click": {
-          "description": "Ação executada ao clicar com o botão esquerdo do mouse no botão da barra",
-          "label": "Clique Primário"
-        },
-        "right-command": {
-          "description": "O comando do shell é executado ao clicar com o botão direito do mouse neste botão",
-          "label": "Comando do Clique no Botão Direito"
-        },
         "scale": {
           "description": "Dimensionar este widget em relação à escala do conteúdo da barra",
           "label": "Escala"
@@ -3533,18 +3524,6 @@
         "script": {
           "description": "Caminho para o script lua",
           "label": "Script"
-        },
-        "scroll-down-command": {
-          "description": "O comando do shell é executado ao rolar a página para baixo sobre este botão",
-          "label": "Comando de Scroll Down"
-        },
-        "scroll-step": {
-          "description": "Variação percentual aplicada a cada passo da rolagem do mouse",
-          "label": "Graduação de Rolagem"
-        },
-        "scroll-up-command": {
-          "description": "O comando do shell é executado ao rolar para cima sobre este botão",
-          "label": "Comando de Scroll Up"
         },
         "show-active-indicator": {
           "description": "Exibir um pequeno ponto abaixo do ícone da janela ativa na barra de tarefas",
@@ -3865,6 +3844,7 @@
       "sort-date-desc": "Ordenar por data (mais recentes primeiro)",
       "sort-name-asc": "Ordenar por nome (A-Z)",
       "sort-name-desc": "Ordenar por nome (Z-A)",
+      "sort-random": "Ordenar aleatoriamente (embaralhar)",
       "title": "Papel de Parede"
     }
   },

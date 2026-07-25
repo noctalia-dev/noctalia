@@ -109,8 +109,8 @@ std::vector<LauncherResult> MathProvider::query(std::string_view text) const {
 std::vector<LauncherResult> MathProvider::queryPrefixed(std::string_view text) const { return evaluate(text); }
 
 std::vector<LauncherResult> MathProvider::evaluate(std::string_view text) const {
-  std::string input = trimmed(text);
-  if (!m_calc || input.empty()) {
+  const std::string localized = trimmed(text);
+  if (!m_calc || localized.empty()) {
     return {};
   }
 
@@ -118,10 +118,17 @@ std::vector<LauncherResult> MathProvider::evaluate(std::string_view text) const 
   m_calc->clearMessages();
 
   EvaluationOptions eo = default_user_evaluation_options;
+  eo.parse_options.dot_as_separator = m_calc->default_dot_as_separator;
   PrintOptions po = default_print_options;
   po.use_unicode_signs = false;
   // Collapse interval arithmetic to a single rounded value instead of "interval(a, b)".
   po.interval_display = INTERVAL_DISPLAY_SIGNIFICANT_DIGITS;
+
+  // libqalculate expects '.' decimals internally; convert locale signs first.
+  const std::string input = m_calc->unlocalizeExpression(localized, eo.parse_options);
+  if (input.empty()) {
+    return {};
+  }
 
   std::string output = m_calc->calculateAndPrint(input, /*msecs=*/200, eo, po);
 
@@ -133,7 +140,7 @@ std::vector<LauncherResult> MathProvider::evaluate(std::string_view text) const 
   }
 
   // Reject errors and no-ops (e.g. the user just typed a bare number).
-  if (hadError || output.empty() || output == input) {
+  if (hadError || output.empty() || output == input || output == localized) {
     return {};
   }
 

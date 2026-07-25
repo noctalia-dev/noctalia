@@ -787,7 +787,7 @@ void Wallpaper::registerIpc(IpcService& ipc) {
       [switchWallpaperHandler](const std::string& args) -> std::string {
         return switchWallpaperHandler(PickWallpaper::Random, args);
       },
-      "wallpaper-random [<connector>]", "Switch to a random wallpaper immediately"
+      "[connector]", "Switch to a random wallpaper immediately"
   );
 
   ipc.registerHandler(
@@ -795,7 +795,7 @@ void Wallpaper::registerIpc(IpcService& ipc) {
       [switchWallpaperHandler](const std::string& args) -> std::string {
         return switchWallpaperHandler(PickWallpaper::Next, args);
       },
-      "wallpaper-next [<connector>]", "Switch to the next wallpaper immediately"
+      "[connector]", "Switch to the next wallpaper immediately"
   );
 
   ipc.registerHandler(
@@ -803,10 +803,10 @@ void Wallpaper::registerIpc(IpcService& ipc) {
       [switchWallpaperHandler](const std::string& args) -> std::string {
         return switchWallpaperHandler(PickWallpaper::Previous, args);
       },
-      "wallpaper-previous [<connector>]", "Switch to the previous wallpaper immediately"
+      "[connector]", "Switch to the previous wallpaper immediately"
   );
 
-  ipc.registerHandler(
+  ipc.registerQueryHandler(
       "wallpaper-get",
       [this, validateOutputConnector](const std::string& args) -> std::string {
         if (m_config == nullptr) {
@@ -828,7 +828,7 @@ void Wallpaper::registerIpc(IpcService& ipc) {
         out.push_back('\n');
         return out;
       },
-      "wallpaper-get [<connector>]", "Print default wallpaper path, or effective path for an output"
+      "[connector]", "Print default wallpaper path, or effective path for an output"
   );
   ipc.registerHandler(
       "wallpaper-set",
@@ -868,7 +868,7 @@ void Wallpaper::registerIpc(IpcService& ipc) {
         applyResolvedWallpaper(outputConnector, resolved);
         return "ok\n";
       },
-      "wallpaper-set [<connector>] <path>", "Set wallpaper for all or a specific output (persisted)"
+      "[connector] <path>", "Set wallpaper for all or a specific output (persisted)"
   );
 }
 

@@ -1,8 +1,10 @@
 #pragma once
 
 #include "core/timer_manager.h"
+#include "ipc/ipc_invocation_context.h"
 #include "shell/bar/bar_instance.h"
 #include "shell/bar/bar_services.h"
+#include "shell/bar/widget_action_dispatcher.h"
 #include "shell/bar/widget_factory.h"
 #include "ui/dialogs/layer_popup_host.h"
 #include "wayland/surface.h"
@@ -14,6 +16,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+
+class TaskbarWidget;
 
 class ConfigService;
 class CompositorPlatform;
@@ -71,7 +75,6 @@ public:
   void setAutoHideSuppressionCallback(std::function<bool(const BarInstance&)> callback);
   // Re-run auto-hide after a panel closes so unrelated bars are not left visible.
   void reevaluateAutoHide();
-  void setOpenWidgetSettingsCallback(std::function<void(std::string, std::string)> callback);
   // Requests a redraw on every bar surface without re-running widget update/layout.
   // Intended for reactive restyling (palette changes) where the scene graph has
   // already been mutated in place and only a repaint is needed.
@@ -116,6 +119,7 @@ private:
   void syncInstances();
   void createInstance(const WaylandOutput& output, std::size_t barIndex, const BarConfig& barConfig);
   void destroyInstance(std::uint32_t outputName);
+  [[nodiscard]] TaskbarWidget* findTaskbarWidget(const IpcInvocationContext& context) const;
   void populateWidgets(BarInstance& instance);
   void attachWidgetsToSections(BarInstance& instance);
   void updateWidgetHoverHighlight(BarInstance& instance, InputArea* hoveredArea);
@@ -195,7 +199,7 @@ private:
   std::unordered_map<wl_surface*, BarInstance*> m_surfaceMap;
   BarInstance* m_hoveredInstance = nullptr;
   std::function<bool(const BarInstance&)> m_autoHideSuppressionCallback;
-  std::function<void(std::string, std::string)> m_openWidgetSettingsCallback;
+  noctalia::bar::WidgetActionDispatcher m_actionDispatcher;
   Timer m_workspaceRevealDebounce;
   Timer m_workspacePeekHideTimer;
   std::unordered_set<std::uint32_t> m_pendingWorkspaceRevealOutputs;

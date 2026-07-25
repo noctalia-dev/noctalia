@@ -61,6 +61,7 @@ public:
 
   // Optional: invoked from shell UI (e.g. control center) to spawn the standalone settings toplevel.
   void setOpenSettingsWindowCallback(std::function<void(std::string)> callback);
+  void setOpenWidgetSettingsCallback(std::function<void(std::string barName, std::string widgetName)> callback);
   void setCloseSettingsWindowCallback(std::function<void()> callback);
   void setToggleSettingsWindowCallback(std::function<void(std::string)> callback);
   void setCloseDesktopWidgetsEditorCallback(std::function<void()> callback);
@@ -181,6 +182,7 @@ private:
   ConfigService* m_config = nullptr;
   RenderContext* m_renderContext = nullptr;
   std::function<void(std::string)> m_openSettingsWindow;
+  std::function<void(std::string, std::string)> m_openWidgetSettings;
   std::function<void()> m_closeSettingsWindow;
   std::function<void(std::string)> m_toggleSettingsWindow;
   std::function<void()> m_closeDesktopWidgetsEditor;
