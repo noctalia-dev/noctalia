@@ -94,7 +94,10 @@ namespace settings {
     // category with zero results for the selected source).
     void collectTags();
     void selectIndex(std::size_t index);
-    [[nodiscard]] std::optional<std::size_t> getIndexFromID(std::string id) const;
+    // Position of a plugin in the current filtered order, or nullopt when the filter hides it.
+    [[nodiscard]] std::optional<std::size_t> indexOfPluginId(std::string_view id) const;
+    // Rebind the grid to the filtered order and restore the selection onto the plugin it names.
+    void syncGridSelection();
     void moveSelection(int delta);
     [[nodiscard]] bool activateSelection();
     [[nodiscard]] bool installDetailIfAvailable();
@@ -108,8 +111,10 @@ namespace settings {
     std::vector<std::string> m_allTags;
     SortMode m_sortMode = SortMode::NameAsc;
     std::string m_searchQuery;
-    std::size_t m_selectedTag = 0;
-    std::size_t m_selectedSource = 0;
+    // Empty means "all"; both are values rather than indices so a shrinking tag or
+    // source list can never leave them pointing at the wrong entry.
+    std::string m_selectedTag;
+    std::string m_selectedSource;
     PluginStoreCallbacks m_callbacks;
     scripting::PluginFileCache* m_fileCache = nullptr;
 
@@ -120,7 +125,7 @@ namespace settings {
     VirtualGridView* m_grid = nullptr;
     Label* m_countLabel = nullptr;
     Button* m_sortButton = nullptr;
-    std::optional<std::string> m_selectedPluginID;
+    std::optional<std::string> m_selectedPluginId;
     std::function<void()> m_onRebuildNeeded;
 
     std::unordered_map<std::string, std::string> m_thumbnailPaths;

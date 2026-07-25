@@ -185,12 +185,7 @@ namespace settings {
 
     syncSortButtonGlyph();
     sortEntries();
-
-    if (m_grid != nullptr) {
-      m_grid->notifyDataChanged();
-      const auto& index = getIndexFromID(m_selectedPluginID.value_or(""));
-      m_grid->setSelectedIndex(index);
-    }
+    syncGridSelection();
   }
 
   SortMode PluginStoreContent::sortModeFromState(std::string_view value) {
@@ -314,7 +309,7 @@ namespace settings {
   void PluginStoreContent::collectTags() {
     std::set<std::string> tagSet;
     for (const auto& entry : m_catalog) {
-      if (m_selectedSource != 0 && entry.source != m_sources[m_selectedSource - 1]) {
+      if (!m_selectedSource.empty() && entry.source != m_selectedSource) {
         continue;
       }
       for (const auto& tag : entry.entry.tags) {
@@ -373,13 +368,11 @@ namespace settings {
     m_filteredIndices.clear();
     for (std::size_t i = 0; i < m_catalog.size(); ++i) {
       const auto& e = m_catalog[i];
-      if (m_selectedSource != 0 && e.source != m_sources[m_selectedSource - 1]) {
+      if (!m_selectedSource.empty() && e.source != m_selectedSource) {
         continue;
       }
-      if (m_selectedTag != 0) {
-        if (!std::ranges::contains(e.entry.tags, m_allTags[m_selectedTag - 1])) {
-          continue;
-        }
+      if (!m_selectedTag.empty() && !std::ranges::contains(e.entry.tags, m_selectedTag)) {
+        continue;
       }
       if (!m_searchQuery.empty()) {
         const std::string haystack = e.entry.name + " " + e.entry.description + " " + e.entry.author;
@@ -412,11 +405,7 @@ namespace settings {
             .onChange = [this](const std::string& text) {
               m_searchQuery = text;
               applyFilter();
-              if (m_grid != nullptr) {
-                const auto& index = getIndexFromID(m_selectedPluginID.value_or(""));
-                m_grid->setSelectedIndex(index);
-                m_grid->notifyDataChanged();
-              }
+              syncGridSelection();
               if (m_countLabel != nullptr) {
                 m_countLabel->setText(
                     i18n::tr("settings.plugins.store.results-count", "count", std::to_string(m_filteredIndices.size()))
@@ -445,27 +434,24 @@ namespace settings {
       for (const auto& source : m_sources) {
         allSources.push_back({sourceDisplayName(source), "", ""});
       }
+      const auto selectedSource = std::ranges::find(m_sources, m_selectedSource);
+      const std::size_t selectedSourceIndex =
+          selectedSource == m_sources.end() ? 0 : static_cast<std::size_t>(selectedSource - m_sources.begin()) + 1;
 
       toolbar->addChild(
           ui::segmented({
               .options = allSources,
-              .selectedIndex = m_selectedSource,
+              .selectedIndex = selectedSourceIndex,
               .fontSize = Style::fontSizeCaption * scale,
               .compact = true,
               .onChange = [this](std::size_t i) {
-                m_selectedSource = i;
+                m_selectedSource = i == 0 ? std::string{} : m_sources[i - 1];
 
                 // The tag list is scoped to the selected source, so keep the chosen
                 // category only when the new source still offers it.
-                const std::optional<std::string> previousTag =
-                    m_selectedTag != 0 ? std::optional{m_allTags[m_selectedTag - 1]} : std::nullopt;
                 collectTags();
-                m_selectedTag = 0;
-                if (previousTag.has_value()) {
-                  const auto it = std::ranges::find(m_allTags, *previousTag);
-                  if (it != m_allTags.end()) {
-                    m_selectedTag = static_cast<std::size_t>(it - m_allTags.begin()) + 1;
-                  }
+                if (!std::ranges::contains(m_allTags, m_selectedTag)) {
+                  m_selectedTag.clear();
                 }
 
                 applyFilter();
@@ -502,14 +488,16 @@ namespace settings {
 
       if (!m_tagFiltersCollapsed) {
         for (std::size_t i = 0; i < allTags.size(); ++i) {
-          const bool selected = i == m_selectedTag;
+          // Index 0 is the "all" chip, which clears the filter rather than naming a tag.
+          std::string tag = i == 0 ? std::string{} : m_allTags[i - 1];
+          const bool selected = tag == m_selectedTag;
           auto btn = ui::button({
               .text = allTags[i],
               .fontSize = Style::fontSizeCaption * scale,
               .variant = selected ? ButtonVariant::Primary : ButtonVariant::Default,
               .radius = Style::scaledRadiusMd(scale),
-              .onClick = [this, i]() {
-                m_selectedTag = i;
+              .onClick = [this, tag = std::move(tag)]() {
+                m_selectedTag = tag;
                 applyFilter();
                 if (m_onRebuildNeeded) {
                   m_onRebuildNeeded();
@@ -552,21 +540,17 @@ namespace settings {
     body.addChild(std::move(toolbar));
 
     if (!m_tagFiltersCollapsed) {
-      auto rows = wrapButtonsIntoRows(
-          renderer, tagButtons, body.width() > 0 ? body.width() : 700.0f * scale, Style::spaceXs * scale
-      );
-      for (auto& row : rows) {
-        auto rowFlex = ui::row(
-            {.align = FlexAlign::Center,
-             .justify = FlexJustify::Center,
-             .gap = Style::spaceXs * scale,
-             .fillWidth = true}
-        );
-        for (auto& btn : row) {
-          rowFlex->addChild(std::move(btn));
-        }
-        body.addChild(std::move(rowFlex));
+      auto tagRows = ui::row({
+          .align = FlexAlign::Center,
+          .justify = FlexJustify::Center,
+          .wrap = true,
+          .gap = Style::spaceXs * scale,
+          .fillWidth = true,
+      });
+      for (auto& btn : tagButtons) {
+        tagRows->addChild(std::move(btn));
       }
+      body.addChild(std::move(tagRows));
 
       body.addChild(std::move(toolbarBottom));
     }
@@ -597,14 +581,12 @@ namespace settings {
     grid->setAdapter(adapterPtr);
     m_grid = grid.get();
     m_grid->setOnSelectionChanged([this](std::optional<std::size_t> index) {
-      m_selectedPluginID =
-          index.has_value() ? std::optional{m_catalog[m_filteredIndices[*index]].entry.id} : std::nullopt;
+      m_selectedPluginId = index.has_value() && *index < m_filteredIndices.size()
+          ? std::optional{m_catalog[m_filteredIndices[*index]].entry.id}
+          : std::nullopt;
     });
-    if (m_selectedPluginID.has_value()) {
-      const auto& index = getIndexFromID(m_selectedPluginID.value());
-      if (index.has_value()) {
-        m_grid->setSelectedIndex(index);
-      }
+    if (const auto index = indexOfPluginId(m_selectedPluginId.value_or("")); index.has_value()) {
+      m_grid->setSelectedIndex(index);
     }
     body.addChild(std::move(grid));
 
@@ -879,7 +861,7 @@ namespace settings {
 
   void PluginStoreContent::openDetail(std::size_t filteredIndex) {
     m_detailIndex = filteredIndex;
-    m_selectedPluginID = m_catalog[m_filteredIndices[filteredIndex]].entry.id;
+    m_selectedPluginId = m_catalog[m_filteredIndices[filteredIndex]].entry.id;
     m_detailReadme.clear();
     m_detailReadmeLoading = false;
 
@@ -914,7 +896,7 @@ namespace settings {
 
   void PluginStoreContent::selectIndex(std::size_t index) {
     if (m_filteredIndices.empty()) {
-      m_selectedPluginID.reset();
+      m_selectedPluginId.reset();
       if (m_grid != nullptr) {
         m_grid->setSelectedIndex(std::nullopt);
       }
@@ -924,24 +906,33 @@ namespace settings {
     if (m_grid != nullptr) {
       m_grid->setSelectedIndex(index);
     }
-    m_selectedPluginID = m_catalog[m_filteredIndices[index]].entry.id;
+    m_selectedPluginId = m_catalog[m_filteredIndices[index]].entry.id;
   }
 
-  std::optional<std::size_t> PluginStoreContent::getIndexFromID(std::string id) const {
-    for (std::size_t i = 0; i < m_catalog.size(); i++) {
-      const auto& entry = m_catalog[i];
-      if (entry.entry.id == id && std::ranges::contains(m_filteredIndices, i)) {
-        return static_cast<std::size_t>(std::ranges::find(m_filteredIndices, i) - m_filteredIndices.begin());
-      }
+  std::optional<std::size_t> PluginStoreContent::indexOfPluginId(std::string_view id) const {
+    if (id.empty()) {
+      return std::nullopt;
     }
-    return std::nullopt;
+    const auto it = std::ranges::find_if(m_filteredIndices, [&](std::size_t i) { return m_catalog[i].entry.id == id; });
+    if (it == m_filteredIndices.end()) {
+      return std::nullopt;
+    }
+    return static_cast<std::size_t>(it - m_filteredIndices.begin());
+  }
+
+  void PluginStoreContent::syncGridSelection() {
+    if (m_grid == nullptr) {
+      return;
+    }
+    m_grid->notifyDataChanged();
+    m_grid->setSelectedIndex(indexOfPluginId(m_selectedPluginId.value_or("")));
   }
 
   void PluginStoreContent::moveSelection(int delta) {
     if (m_filteredIndices.empty()) {
       return;
     }
-    const auto& index = getIndexFromID(m_selectedPluginID.value_or(""));
+    const auto index = indexOfPluginId(m_selectedPluginId.value_or(""));
     if (!index.has_value()) {
       selectIndex(delta >= 0 ? 0 : m_filteredIndices.size() - 1);
       return;
@@ -955,8 +946,8 @@ namespace settings {
     if (m_filteredIndices.empty()) {
       return false;
     }
-    std::optional<std::size_t> index = getIndexFromID(m_selectedPluginID.value_or(""));
-    if (!index.has_value() || *index >= m_filteredIndices.size()) {
+    std::optional<std::size_t> index = indexOfPluginId(m_selectedPluginId.value_or(""));
+    if (!index.has_value()) {
       selectIndex(0);
       index = 0;
     }
