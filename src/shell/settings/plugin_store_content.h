@@ -31,10 +31,10 @@ namespace settings {
   enum class SortMode : std::uint8_t {
     NameAsc,
     NameDesc,
-    LastModifiedAsc,
-    LastModifiedDesc,
-    DateAddedAsc,
-    DateAddedDesc,
+    UpdatedAtAsc,
+    UpdatedAtDesc,
+    AddedAtAsc,
+    AddedAtDesc,
   };
 
   struct StoreCatalogEntry {
@@ -106,7 +106,7 @@ namespace settings {
     std::vector<std::string> m_sources;
     bool m_tagFiltersCollapsed = true;
     std::vector<std::string> m_allTags;
-    SortMode m_sortMode;
+    SortMode m_sortMode = SortMode::NameAsc;
     std::string m_searchQuery;
     std::size_t m_selectedTag = 0;
     std::size_t m_selectedSource = 0;

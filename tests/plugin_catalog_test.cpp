@@ -1,6 +1,7 @@
 #include "scripting/plugin_api.h"
 #include "scripting/plugin_catalog.h"
 
+#include <chrono>
 #include <cstdint>
 #include <format>
 #include <print>
@@ -23,6 +24,10 @@ namespace {
   constexpr std::string_view kHeadRev = "1111111111111111111111111111111111111111";
   constexpr std::string_view kNewestRev = "2222222222222222222222222222222222222222";
   constexpr std::string_view kOldestRev = "3333333333333333333333333333333333333333";
+
+  std::chrono::system_clock::time_point unixSeconds(std::uint64_t seconds) {
+    return std::chrono::system_clock::time_point{std::chrono::seconds{seconds}};
+  }
 
   bool expect(bool condition, const char* message) {
     if (!condition) {
@@ -172,6 +177,30 @@ int main() {
     if (entries.size() == 1) {
       ok = expect(!entries.front().compatible, "a path source ignores releases and judges the tip alone") && ok;
       ok = expect(!entries.front().heldBack, "a path source is never held back") && ok;
+    }
+  }
+
+  {
+    // The store sorts on these two, so they must survive the parse as unix seconds.
+    const std::string dated = row(kNewest, "") + "updated_at = 1750000000\nadded_at = 1700000000\n";
+    const auto entries = scripting::parseCatalogToml(dated, kHeadRev);
+    ok = expect(entries.size() == 1, "a row carrying dates should parse") && ok;
+    if (entries.size() == 1) {
+      const auto& e = entries.front();
+      ok = expect(e.updatedAt == unixSeconds(1750000000), "updated_at is read as unix seconds") && ok;
+      ok = expect(e.addedAt == unixSeconds(1700000000), "added_at is read as unix seconds") && ok;
+    }
+  }
+
+  {
+    // Sources predating the date fields must still parse; the store falls back to a name
+    // tiebreak when every entry lands on the epoch.
+    const auto entries = scripting::parseCatalogToml(row(kNewest, ""), kHeadRev);
+    ok = expect(entries.size() == 1, "a row without dates should parse") && ok;
+    if (entries.size() == 1) {
+      const auto& e = entries.front();
+      ok = expect(e.updatedAt == unixSeconds(0), "a missing updated_at reads as the epoch") && ok;
+      ok = expect(e.addedAt == unixSeconds(0), "a missing added_at reads as the epoch") && ok;
     }
   }
 

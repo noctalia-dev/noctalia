@@ -212,11 +212,11 @@ namespace scripting {
           .tags = tableStringArray(*tbl, "tags"),
           .dependencies = tableStringArray(*tbl, "dependencies"),
           .version = tableString(*tbl, "version"),
-          .last_modified = std::chrono::system_clock::time_point{std::chrono::seconds{
-              (*tbl)["updated_at"].value<uint64_t>().value_or(0)
+          .updatedAt = std::chrono::system_clock::time_point{std::chrono::seconds{
+              (*tbl)["updated_at"].value<std::uint64_t>().value_or(0)
           }},
-          .date_added = std::chrono::system_clock::time_point{std::chrono::seconds{
-              (*tbl)["added_at"].value<uint64_t>().value_or(0)
+          .addedAt = std::chrono::system_clock::time_point{std::chrono::seconds{
+              (*tbl)["added_at"].value<std::uint64_t>().value_or(0)
           }},
           .author = tableString(*tbl, "author"),
           .icon = tableString(*tbl, "icon"),

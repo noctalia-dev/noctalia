@@ -23,6 +23,7 @@
 #include "ui/controls/virtual_grid_view.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/string_utils.h"
 
 #include <algorithm>
 #include <cctype>
@@ -155,18 +156,18 @@ namespace settings {
       next = SortMode::NameDesc;
       break;
     case SortMode::NameDesc:
-      next = SortMode::LastModifiedDesc;
+      next = SortMode::UpdatedAtDesc;
       break;
-    case SortMode::LastModifiedDesc:
-      next = SortMode::LastModifiedAsc;
+    case SortMode::UpdatedAtDesc:
+      next = SortMode::UpdatedAtAsc;
       break;
-    case SortMode::LastModifiedAsc:
-      next = SortMode::DateAddedDesc;
+    case SortMode::UpdatedAtAsc:
+      next = SortMode::AddedAtDesc;
       break;
-    case SortMode::DateAddedDesc:
-      next = SortMode::DateAddedAsc;
+    case SortMode::AddedAtDesc:
+      next = SortMode::AddedAtAsc;
       break;
-    case SortMode::DateAddedAsc:
+    case SortMode::AddedAtAsc:
       next = SortMode::NameAsc;
       break;
     }
@@ -196,17 +197,17 @@ namespace settings {
     if (value == "name_desc") {
       return SortMode::NameDesc;
     }
-    if (value == "last_modified_asc") {
-      return SortMode::LastModifiedAsc;
+    if (value == "updated_at_asc") {
+      return SortMode::UpdatedAtAsc;
     }
-    if (value == "last_modified_desc") {
-      return SortMode::LastModifiedDesc;
+    if (value == "updated_at_desc") {
+      return SortMode::UpdatedAtDesc;
     }
-    if (value == "date_added_asc") {
-      return SortMode::DateAddedAsc;
+    if (value == "added_at_asc") {
+      return SortMode::AddedAtAsc;
     }
-    if (value == "date_added_desc") {
-      return SortMode::DateAddedDesc;
+    if (value == "added_at_desc") {
+      return SortMode::AddedAtDesc;
     }
     return SortMode::NameAsc;
   }
@@ -215,14 +216,14 @@ namespace settings {
     switch (mode) {
     case SortMode::NameDesc:
       return "name_desc";
-    case SortMode::LastModifiedAsc:
-      return "last_modified_asc";
-    case SortMode::LastModifiedDesc:
-      return "last_modified_desc";
-    case SortMode::DateAddedAsc:
-      return "date_added_asc";
-    case SortMode::DateAddedDesc:
-      return "date_added_desc";
+    case SortMode::UpdatedAtAsc:
+      return "updated_at_asc";
+    case SortMode::UpdatedAtDesc:
+      return "updated_at_desc";
+    case SortMode::AddedAtAsc:
+      return "added_at_asc";
+    case SortMode::AddedAtDesc:
+      return "added_at_desc";
     case SortMode::NameAsc:
     default:
       return "name_asc";
@@ -233,13 +234,13 @@ namespace settings {
     switch (mode) {
     case SortMode::NameDesc:
       return "sort-z-a";
-    case SortMode::LastModifiedAsc:
+    case SortMode::UpdatedAtAsc:
       return "sort-ascending-2";
-    case SortMode::LastModifiedDesc:
+    case SortMode::UpdatedAtDesc:
       return "sort-descending-2";
-    case SortMode::DateAddedAsc:
+    case SortMode::AddedAtAsc:
       return "sort-ascending-2-filled";
-    case SortMode::DateAddedDesc:
+    case SortMode::AddedAtDesc:
       return "sort-descending-2-filled";
     case SortMode::NameAsc:
     default:
@@ -251,14 +252,14 @@ namespace settings {
     switch (mode) {
     case SortMode::NameDesc:
       return "settings.plugins.store.sort-name-desc";
-    case SortMode::LastModifiedAsc:
-      return "settings.plugins.store.sort-last-modified-asc";
-    case SortMode::LastModifiedDesc:
-      return "settings.plugins.store.sort-last-modified-desc";
-    case SortMode::DateAddedAsc:
-      return "settings.plugins.store.sort-date-added-asc";
-    case SortMode::DateAddedDesc:
-      return "settings.plugins.store.sort-date-added-desc";
+    case SortMode::UpdatedAtAsc:
+      return "settings.plugins.store.sort-updated-at-asc";
+    case SortMode::UpdatedAtDesc:
+      return "settings.plugins.store.sort-updated-at-desc";
+    case SortMode::AddedAtAsc:
+      return "settings.plugins.store.sort-added-at-asc";
+    case SortMode::AddedAtDesc:
+      return "settings.plugins.store.sort-added-at-desc";
     case SortMode::NameAsc:
     default:
       return "settings.plugins.store.sort-name-asc";
@@ -347,25 +348,31 @@ namespace settings {
 
   void PluginStoreContent::sortEntries() {
     std::ranges::sort(m_filteredIndices, [this](std::size_t a, std::size_t b) {
+      const int nameOrder =
+          StringUtils::naturalCaseInsensitiveCompare(m_catalog[a].entry.name, m_catalog[b].entry.name);
+      // Timestamps tie constantly (whole-day granularity, and every entry when a
+      // source predates the catalog date fields), so name breaks the tie.
+      const auto byDate = [&](auto aTime, auto bTime, bool ascending) {
+        if (aTime != bTime) {
+          return ascending ? aTime < bTime : aTime > bTime;
+        }
+        return nameOrder < 0;
+      };
       switch (m_sortMode) {
-      case SortMode::NameAsc:
       case SortMode::NameDesc:
-        return std::lexicographical_compare(
-            m_catalog[a].entry.name.begin(), m_catalog[a].entry.name.end(), m_catalog[b].entry.name.begin(),
-            m_catalog[b].entry.name.end(), [&](unsigned char ac, unsigned char bc) {
-              return (m_sortMode == SortMode::NameAsc) != (std::tolower(ac) > std::tolower(bc));
-            }
-        );
-      case SortMode::LastModifiedAsc:
-        return m_catalog[a].entry.last_modified < m_catalog[b].entry.last_modified;
-      case SortMode::LastModifiedDesc:
-        return m_catalog[a].entry.last_modified > m_catalog[b].entry.last_modified;
-      case SortMode::DateAddedAsc:
-        return m_catalog[a].entry.date_added < m_catalog[b].entry.date_added;
-      case SortMode::DateAddedDesc:
-        return m_catalog[a].entry.date_added > m_catalog[b].entry.date_added;
+        return nameOrder > 0;
+      case SortMode::UpdatedAtAsc:
+        return byDate(m_catalog[a].entry.updatedAt, m_catalog[b].entry.updatedAt, true);
+      case SortMode::UpdatedAtDesc:
+        return byDate(m_catalog[a].entry.updatedAt, m_catalog[b].entry.updatedAt, false);
+      case SortMode::AddedAtAsc:
+        return byDate(m_catalog[a].entry.addedAt, m_catalog[b].entry.addedAt, true);
+      case SortMode::AddedAtDesc:
+        return byDate(m_catalog[a].entry.addedAt, m_catalog[b].entry.addedAt, false);
+      case SortMode::NameAsc:
+      default:
+        return nameOrder < 0;
       }
-      return false;
     });
   }
 

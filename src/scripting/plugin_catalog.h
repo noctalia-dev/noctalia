@@ -25,9 +25,9 @@ namespace scripting {
     std::string name; // mandatory display name
     std::vector<std::string> tags;
     std::vector<std::string> dependencies;
-    std::string version; // latest available in the source
-    std::chrono::system_clock::time_point last_modified;
-    std::chrono::system_clock::time_point date_added;
+    std::string version;                             // latest available in the source
+    std::chrono::system_clock::time_point updatedAt; // catalog key `updated_at`, epoch when absent
+    std::chrono::system_clock::time_point addedAt;   // catalog key `added_at`, epoch when absent
     std::string author;
     std::string icon;
     std::string description;
