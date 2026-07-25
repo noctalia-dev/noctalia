@@ -1840,7 +1840,8 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
                   .action = [this, id = account.id]() { openCalendarAccountEditor(id); },
                   .glyph = "edit",
               },
-          .searchText = "calendar account edit connect authorize caldav icloud google password ics ical subscription" + account.id,
+          .searchText = "calendar account edit connect authorize caldav icloud google password ics ical subscription"
+              + account.id,
           .visibleWhen = calendarOn,
       };
       it = m_settingsRegistry.insert(it, std::move(btn));

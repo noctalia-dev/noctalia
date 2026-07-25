@@ -1187,10 +1187,10 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
                 draft->passwordFile.clear();
               }
               bool isDefaultId = draft->id.empty()
-                      || draft->id == "personal_icloud"
-                      || draft->id == "home_nextcloud"
-                      || draft->id == "personal_google"
-                      || draft->id == "subscription";
+                  || draft->id == "personal_icloud"
+                  || draft->id == "home_nextcloud"
+                  || draft->id == "personal_google"
+                  || draft->id == "subscription";
               if (provider == CalendarAccountProvider::Google && isDefaultId) {
                 draft->id = "personal_google";
               } else if (provider == CalendarAccountProvider::CustomCalDav && isDefaultId) {
@@ -1330,16 +1330,16 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     if (draft->provider == CalendarAccountProvider::IcsFileURL) {
       addField(
           body, i18n::tr("settings.calendar-accounts.ics-url-label"),
-          ui::input({
-            .out = &serverInput,
-            .value = draft->serverUrl,
-            .placeholder = "https://example.com/calendar.ics",
-            .invalid = draft->serverUrlInvalid,
-            .onChange = [draft](const std::string& value) {
-              draft->serverUrl = value;
-              draft->serverUrlInvalid = false;
-            }
-          })
+          ui::input(
+              {.out = &serverInput,
+               .value = draft->serverUrl,
+               .placeholder = "https://example.com/calendar.ics",
+               .invalid = draft->serverUrlInvalid,
+               .onChange = [draft](const std::string& value) {
+                 draft->serverUrl = value;
+                 draft->serverUrlInvalid = false;
+               }}
+          )
       );
     }
 
@@ -1467,13 +1467,13 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
         draft->idInvalid = true;
       }
 
-      const bool caldav = draft->provider == CalendarAccountProvider::ICloud || draft->provider == CalendarAccountProvider::CustomCalDav;
+      const bool caldav = draft->provider == CalendarAccountProvider::ICloud
+          || draft->provider == CalendarAccountProvider::CustomCalDav;
       const bool ics = draft->provider == CalendarAccountProvider::IcsFileURL;
       if (caldav && draft->username.empty()) {
         draft->usernameInvalid = true;
       }
-      if ((draft->provider == CalendarAccountProvider::CustomCalDav || ics)
-          && draft->serverUrl.empty()) {
+      if ((draft->provider == CalendarAccountProvider::CustomCalDav || ics) && draft->serverUrl.empty()) {
         draft->serverUrlInvalid = true;
       }
       if (caldav
