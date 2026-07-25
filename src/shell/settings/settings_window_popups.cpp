@@ -100,6 +100,7 @@ namespace {
     ICloud,
     CustomCalDav,
     Google,
+    IcsFileURL,
   };
 
   struct CalendarAccountDraft {
@@ -155,6 +156,8 @@ namespace {
       return "custom";
     case CalendarAccountProvider::Google:
       return "google";
+    case CalendarAccountProvider::IcsFileURL:
+      return "ics";
     }
     return "icloud";
   }
@@ -167,6 +170,8 @@ namespace {
       return i18n::tr("settings.calendar-accounts.provider.custom");
     case CalendarAccountProvider::Google:
       return i18n::tr("settings.calendar-accounts.provider.google");
+    case CalendarAccountProvider::IcsFileURL:
+      return i18n::tr("settings.calendar-accounts.provider.ics");
     }
     return i18n::tr("settings.calendar-accounts.provider.icloud");
   }
@@ -1051,7 +1056,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
   auto draft = std::make_shared<CalendarAccountDraft>();
   if (accountId.has_value()) {
     const CalendarConfig::Account* account = findCalendarAccount(cfg, *accountId);
-    if (account == nullptr || (account->type != "caldav" && account->type != "google")) {
+    if (account == nullptr || (account->type != "caldav" && account->type != "google" && account->type != "ics")) {
       return;
     }
     draft->creating = false;
@@ -1065,6 +1070,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     draft->calendars = account->calendars;
     if (account->type == "google") {
       draft->provider = CalendarAccountProvider::Google;
+    } else if (account->type == "ics") {
+      draft->provider = CalendarAccountProvider::IcsFileURL;
     } else {
       draft->provider =
           account->provider == "custom" ? CalendarAccountProvider::CustomCalDav : CalendarAccountProvider::ICloud;
@@ -1145,6 +1152,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
         return 1;
       case CalendarAccountProvider::Google:
         return 2;
+      case CalendarAccountProvider::IcsFileURL:
+        return 3;
       }
       return 0;
     };
@@ -1156,6 +1165,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
                     {.label = calendarProviderTitle(CalendarAccountProvider::ICloud), .glyph = "brand-apple"},
                     {.label = calendarProviderTitle(CalendarAccountProvider::CustomCalDav), .glyph = "calendar-cog"},
                     {.label = calendarProviderTitle(CalendarAccountProvider::Google), .glyph = "brand-google"},
+                    {.label = calendarProviderTitle(CalendarAccountProvider::IcsFileURL), .glyph = "link"}
                 },
             .selectedIndex = providerIndex(draft->provider),
             .scale = scale,
@@ -1167,6 +1177,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
                 provider = CalendarAccountProvider::CustomCalDav;
               } else if (index == 2) {
                 provider = CalendarAccountProvider::Google;
+              } else if (index == 3) {
+                provider = CalendarAccountProvider::IcsFileURL;
               }
 
               draft->provider = provider;
@@ -1174,12 +1186,19 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
                 draft->credentialSource = CalendarCredentialSource::SecretService;
                 draft->passwordFile.clear();
               }
-              if (provider == CalendarAccountProvider::Google && draft->id == "personal_icloud") {
+              bool isDefaultId = draft->id.empty()
+                      || draft->id == "personal_icloud"
+                      || draft->id == "home_nextcloud"
+                      || draft->id == "personal_google"
+                      || draft->id == "subscription";
+              if (provider == CalendarAccountProvider::Google && isDefaultId) {
                 draft->id = "personal_google";
-              } else if (provider == CalendarAccountProvider::CustomCalDav && draft->id == "personal_icloud") {
+              } else if (provider == CalendarAccountProvider::CustomCalDav && isDefaultId) {
                 draft->id = "home_nextcloud";
-              } else if (provider == CalendarAccountProvider::ICloud && draft->id == "personal_google") {
+              } else if (provider == CalendarAccountProvider::ICloud && isDefaultId) {
                 draft->id = "personal_icloud";
+              } else if (provider == CalendarAccountProvider::IcsFileURL && isDefaultId) {
+                draft->id = "subscription";
               }
               if (m_editorSheetPopup != nullptr) {
                 m_editorSheetPopup->rebuildBody();
@@ -1221,7 +1240,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
     Input* passwordInput = nullptr;
     Input* passwordFileInput = nullptr;
     Input* serverInput = nullptr;
-    if (draft->provider != CalendarAccountProvider::Google) {
+    if (draft->provider != CalendarAccountProvider::Google && draft->provider != CalendarAccountProvider::IcsFileURL) {
       addField(
           body, i18n::tr("settings.calendar-accounts.credential-source-label"),
           ui::segmented({
@@ -1305,6 +1324,21 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
                 draft->serverUrl = value;
                 draft->serverUrlInvalid = false;
               },
+          })
+      );
+    }
+    if (draft->provider == CalendarAccountProvider::IcsFileURL) {
+      addField(
+          body, i18n::tr("settings.calendar-accounts.ics-url-label"),
+          ui::input({
+            .out = &serverInput,
+            .value = draft->serverUrl,
+            .placeholder = "https://example.com/calendar.ics",
+            .invalid = draft->serverUrlInvalid,
+            .onChange = [draft](const std::string& value) {
+              draft->serverUrl = value;
+              draft->serverUrlInvalid = false;
+            }
           })
       );
     }
@@ -1433,11 +1467,13 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
         draft->idInvalid = true;
       }
 
-      const bool caldav = draft->provider != CalendarAccountProvider::Google;
+      const bool caldav = draft->provider == CalendarAccountProvider::ICloud || draft->provider == CalendarAccountProvider::CustomCalDav;
+      const bool ics = draft->provider == CalendarAccountProvider::IcsFileURL;
       if (caldav && draft->username.empty()) {
         draft->usernameInvalid = true;
       }
-      if (draft->provider == CalendarAccountProvider::CustomCalDav && draft->serverUrl.empty()) {
+      if ((draft->provider == CalendarAccountProvider::CustomCalDav || ics)
+          && draft->serverUrl.empty()) {
         draft->serverUrlInvalid = true;
       }
       if (caldav
@@ -1459,9 +1495,14 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
         overrides.push_back({{"calendar", "enabled"}, true});
       }
       const std::vector<std::string> base = {"calendar", "account", draft->id};
-      overrides.push_back(
-          {{base[0], base[1], base[2], "type"}, caldav ? std::string("caldav") : std::string("google")}
-      );
+
+      std::string type = "caldav";
+      if (draft->provider == CalendarAccountProvider::Google)
+        type = "google";
+      else if (ics)
+        type = "ics";
+
+      overrides.push_back({{base[0], base[1], base[2], "type"}, type});
       overrides.push_back({{base[0], base[1], base[2], "name"}, draft->name});
       overrides.push_back({{base[0], base[1], base[2], "color"}, draft->color});
       // Manual calendar selection is currently populated by CalDAV discovery; Google uses CalendarList selected.
@@ -1477,9 +1518,9 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
           );
           overrides.push_back({{base[0], base[1], base[2], "password_file"}, draft->passwordFile});
         }
-        if (draft->provider == CalendarAccountProvider::CustomCalDav) {
-          overrides.push_back({{base[0], base[1], base[2], "server_url"}, draft->serverUrl});
-        }
+      }
+      if (draft->provider == CalendarAccountProvider::CustomCalDav || ics) {
+        overrides.push_back({{base[0], base[1], base[2], "server_url"}, draft->serverUrl});
       }
 
       std::string connectActivationToken;

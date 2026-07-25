@@ -2,6 +2,7 @@
 
 #include "config/config_types.h"
 #include "config/schema/config_sections.h"
+#include "config/schema/diagnostics.h"
 #include "config/schema/engine.h"
 #include "config/schema/ranges.h"
 #include "core/input/key_chord.h"
@@ -583,6 +584,12 @@ namespace noctalia::config::schema {
           pathStringField(&CalendarConfig::Account::passwordFile, "password_file"),
           finalize<CalendarConfig::Account>([](CalendarConfig::Account& out, std::string_view parentPath,
                                                Diagnostics& diag) {
+            if (out.type == "ics") {
+              if (out.serverUrl.empty()) {
+                diag.error(joinPath(parentPath, "server_url"), "ics accounts require server_url (.ics file URL)");
+              }
+              return;
+            }
             if (out.type != "caldav") {
               if (out.credentialSource != CalendarCredentialSource::SecretService) {
                 diag.error(joinPath(parentPath, "credential_source"), "credential_source is only valid for caldav");

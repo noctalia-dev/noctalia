@@ -116,6 +116,7 @@ private:
   void lookupCalDavPassword(
       const CalendarConfig::Account& account, calendar::CalendarCredentialStore::LookupCallback callback
   );
+  void fetchIcs(const CalendarConfig::Account& account);
   void fetchGoogle(const CalendarConfig::Account& account);
   void refreshGoogleToken(const std::string& accountId, std::function<void(bool ok, std::string accessToken)> cb);
   void googleFetchWithToken(const std::string& accountId, const std::string& accessToken, bool allowRefreshRetry);

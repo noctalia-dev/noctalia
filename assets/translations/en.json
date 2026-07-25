@@ -875,7 +875,8 @@
       "provider": {
         "custom": "CalDAV",
         "google": "Google",
-        "icloud": "iCloud"
+        "icloud": "iCloud",
+        "ics": "ICS URL"
       },
       "provider-label": "Provider",
       "save": "Save",
@@ -887,6 +888,7 @@
       "secret-service-locked": "Calendar credentials are locked or access was denied. Unlock Secret Service and retry.",
       "secret-service-unavailable": "No Secret Service provider is available. Start a compatible provider and retry.",
       "server-url-label": "Server URL",
+      "ics-url-label": "ICS URL",
       "username-label": "Username",
       "username-placeholder": "name@example.com"
     },
@@ -2404,7 +2406,7 @@
         },
         "calendar-add": {
           "button": "Add Account",
-          "description": "Add iCloud, CalDAV, or Google accounts",
+          "description": "Add iCloud, CalDAV, Google accounts, or an ICS URL",
           "label": "Calendar Accounts"
         },
         "calendar-credentials": {
