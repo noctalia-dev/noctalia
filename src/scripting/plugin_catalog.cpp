@@ -124,10 +124,10 @@ namespace scripting {
           .dependencies = tableStringArray(*tbl, "dependencies"),
           .version = tableString(*tbl, "version"),
           .last_modified = std::chrono::system_clock::time_point{std::chrono::seconds{
-              (*tbl)["last_modified"].value<uint64_t>().value_or(0)
+              (*tbl)["updated_at"].value<uint64_t>().value_or(0)
           }},
           .date_added = std::chrono::system_clock::time_point{std::chrono::seconds{
-              (*tbl)["date_added"].value<uint64_t>().value_or(0)
+              (*tbl)["added_at"].value<uint64_t>().value_or(0)
           }},
           .author = tableString(*tbl, "author"),
           .icon = tableString(*tbl, "icon"),
