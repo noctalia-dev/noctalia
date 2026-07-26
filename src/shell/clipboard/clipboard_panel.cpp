@@ -1481,7 +1481,6 @@ void ClipboardPanel::togglePinSelected() {
   // again via its stable storage id.
   selectByStorageId(storageId);
 
-  schedulePreviewPayloadRefresh(false);
   m_pendingScrollToSelected = true;
   PanelManager::instance().refresh();
 }
