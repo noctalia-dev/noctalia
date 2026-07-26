@@ -152,6 +152,18 @@ int main() {
     ok = expectCount(ics, start, end, 0, "event without dtstart is skipped") && ok;
   }
 
+  // The Unix epoch is a valid event instant and must not be confused with an invalid timestamp.
+  {
+    const std::string ics = "BEGIN:VEVENT\r\nUID:epoch\r\nSUMMARY:s\r\n"
+                            "DTSTART:19700101T000000Z\r\nDTEND:19700101T010000Z\r\n"
+                            "END:VEVENT\r\n";
+    ok = expectRanges(
+             ics, utc(1969, 12, 31), utc(1970, 1, 2),
+             {{system_clock::time_point{}, system_clock::time_point{} + hours{1}}}, "unix epoch event"
+         )
+        && ok;
+  }
+
   // DAILY COUNT=3 -> 3 instances.
   ok = expectCount(wrap("RRULE:FREQ=DAILY;COUNT=3\r\n"), start, end, 3, "daily count") && ok;
 

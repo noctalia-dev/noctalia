@@ -271,10 +271,11 @@ namespace calendar {
       if (!hasProperty(component, ICAL_DTSTART_PROPERTY)) {
         continue;
       }
-      CalendarEvent event = baseEventFromComponent(component);
-      if (event.start == std::chrono::system_clock::time_point{}) {
+      const icaltimetype componentStart = icalcomponent_get_dtstart(component);
+      if (icaltime_is_null_time(componentStart) || !icaltime_is_valid_time(componentStart)) {
         continue;
       }
+      CalendarEvent event = baseEventFromComponent(component);
 
       if (!hasProperty(component, ICAL_RRULE_PROPERTY)) {
         events.push_back(std::move(event));
@@ -285,17 +286,16 @@ namespace calendar {
       if (auto it = overrides.find(event.id); it != overrides.end()) {
         exclusions = it->second;
       }
-      const icaltimetype recurrenceStart = icalcomponent_get_dtstart(component);
       RecurrenceCallbackData data{
           .base = std::move(event),
           .windowStart = windowStart,
           .windowEnd = windowEnd,
-          .floatingDateTime = isFloatingDateTime(recurrenceStart),
+          .floatingDateTime = isFloatingDateTime(componentStart),
           .exclusions = &exclusions,
           .events = &events,
       };
       icalcomponent_foreach_recurrence(
-          component, recurrenceBound(windowStart, recurrenceStart), recurrenceBound(windowEnd, recurrenceStart),
+          component, recurrenceBound(windowStart, componentStart), recurrenceBound(windowEnd, componentStart),
           addRecurrence, &data
       );
     }
