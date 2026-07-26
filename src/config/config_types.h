@@ -1524,6 +1524,12 @@ struct HotCornersConfig {
   bool operator==(const HotCornersConfig&) const = default;
 };
 
+struct WindowSwitcherConfig {
+  bool perWorkspace = false;
+
+  bool operator==(const WindowSwitcherConfig&) const = default;
+};
+
 struct Config {
   std::vector<BarConfig> bars;
   std::unordered_map<std::string, WidgetConfig> widgets;
@@ -1535,6 +1541,7 @@ struct Config {
   DesktopWidgetsConfig desktopWidgets;
   HotCornersConfig hotCorners;
   StorageConfig storage;
+  WindowSwitcherConfig windowSwitcher;
   ShellConfig shell;
   OsdConfig osd;
   NotificationConfig notification;
@@ -1586,6 +1593,7 @@ struct ConfigChangeSet {
   bool hotCorners = true;
   bool storage = true;
   bool accessibility = true;
+  bool windowSwitcher = true;
 
   [[nodiscard]] bool any() const noexcept {
     return bars
@@ -1615,7 +1623,8 @@ struct ConfigChangeSet {
         || plugins
         || hotCorners
         || storage
-        || accessibility;
+        || accessibility
+        || windowSwitcher;
   }
 };
 

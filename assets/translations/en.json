@@ -2071,6 +2071,10 @@
         "validate": {
           "description": "Confirm selections, submit inputs, or activate the focused item",
           "label": "Confirm"
+        },
+        "window-switcher-per-workspace": {
+          "description": "Restrict Alt-Tab window switching to windows on the current workspace only",
+          "label": "Switch Windows: Current Workspace Only"
         }
       },
       "lockscreen": {

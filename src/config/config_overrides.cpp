@@ -348,6 +348,7 @@ namespace {
         && widgetMapEqual(a.widgets, b.widgets)
         && desktopWidgetsConfigEqual(a.desktopWidgets, b.desktopWidgets)
         && a.hotCorners == b.hotCorners
+        && a.windowSwitcher == b.windowSwitcher
         && lockscreenWidgetsConfigEqual(a.lockscreenWidgets, b.lockscreenWidgets)
         && a.wallpaper == b.wallpaper
         && a.backdrop == b.backdrop
@@ -739,6 +740,7 @@ ConfigChangeSet computeConfigChangeSet(const Config& prev, const Config& next) {
       .hotCorners = !(prev.hotCorners == next.hotCorners),
       .storage = !(prev.storage == next.storage),
       .accessibility = !(prev.accessibility == next.accessibility),
+      .windowSwitcher = !(prev.windowSwitcher == next.windowSwitcher),
   };
 }
 

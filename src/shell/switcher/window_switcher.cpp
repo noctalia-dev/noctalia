@@ -322,9 +322,22 @@ namespace {
     }
   }
 
+  // Finds the currently active workspace's key on the given output, using the same
+  // "workspaces() + .active" idiom as WorkspacesWidget::activeWorkspaceIndex().
+  [[nodiscard]] std::optional<std::string>
+  activeWorkspaceKeyFor(const CompositorPlatform& platform, wl_output* output) {
+    for (const auto& workspace : platform.workspaces(output)) {
+      if (workspace.active) {
+        return workspace.id;
+      }
+    }
+    return std::nullopt;
+  }
+
   void buildWindowEntries(
       const CompositorPlatform& platform, IconResolver& iconResolver, int iconSize,
-      std::vector<WindowSwitcherEntry>& out, const std::optional<std::string>& focusedId
+      std::vector<WindowSwitcherEntry>& out, const std::optional<std::string>& focusedId,
+      const std::optional<std::string>& activeWorkspaceKey
   ) {
     std::unordered_map<std::string, WorkspaceWindowAssignment> assignmentById;
     assignmentById.reserve(32);
@@ -384,6 +397,16 @@ namespace {
       }
       candidate.toplevelOrder = info.order;
       addCandidate(std::move(candidate), key);
+    }
+
+    // Windows with no workspace assignment (empty workspaceKey) are always kept: on
+    // compositors whose backend doesn't populate workspace-window assignments, filtering
+    // them out would empty the switcher entirely, so per-workspace restriction degrades
+    // to a no-op there instead of hiding every window.
+    if (activeWorkspaceKey.has_value()) {
+      std::erase_if(candidates, [&](const WindowSwitcherCandidate& candidate) {
+        return !candidate.workspaceKey.empty() && candidate.workspaceKey != *activeWorkspaceKey;
+      });
     }
 
     std::ranges::stable_sort(candidates, [](const WindowSwitcherCandidate& a, const WindowSwitcherCandidate& b) {
@@ -594,9 +617,9 @@ void WindowSwitcher::show(wl_output* output) {
   }
 
   const bool wasActive = m_active;
+  m_output = output;
   refreshWindows();
 
-  m_output = output;
   if (wasActive) {
     cycleSelection(1);
   } else {
@@ -641,7 +664,13 @@ void WindowSwitcher::refreshWindows() {
 
   IconResolver iconResolver;
   const int iconSize = 96;
-  buildWindowEntries(*m_platform, iconResolver, iconSize, m_windows, m_platform->focusedCompositorWindowId());
+  const std::optional<std::string> activeWorkspaceKey =
+      (m_config != nullptr && m_config->config().windowSwitcher.perWorkspace)
+      ? activeWorkspaceKeyFor(*m_platform, m_output)
+      : std::nullopt;
+  buildWindowEntries(
+      *m_platform, iconResolver, iconSize, m_windows, m_platform->focusedCompositorWindowId(), activeWorkspaceKey
+  );
 
   if (selectedKey.has_value()) {
     for (std::size_t i = 0; i < m_windows.size(); ++i) {

@@ -2081,6 +2081,12 @@ namespace settings {
         KeybindListSetting{.items = effectiveKeybindItems(cfg.keybinds.tabNext, KeybindAction::TabNext), .maxItems = 4},
         "keybind shortcut hotkey tab focus pane"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Keybinds, "window-switcher",
+        tr("settings.schema.keybinds.window-switcher-per-workspace.label"),
+        tr("settings.schema.keybinds.window-switcher-per-workspace.description"), {"window_switcher", "per_workspace"},
+        ToggleSetting{cfg.windowSwitcher.perWorkspace}, "window switcher alt tab workspace cycle restrict current"
+    ));
 
     // Niri-specific integrations
     if (env.niriOverviewTypeToLaunchSupported || env.niriBackdropSupported) {

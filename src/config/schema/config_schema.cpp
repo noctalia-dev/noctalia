@@ -409,6 +409,13 @@ namespace noctalia::config::schema {
     return s;
   }
 
+  const Schema<WindowSwitcherConfig>& windowSwitcherSchema() {
+    static const Schema<WindowSwitcherConfig> s = {
+        field(&WindowSwitcherConfig::perWorkspace, "per_workspace"),
+    };
+    return s;
+  }
+
   namespace {
     const Schema<BrightnessMonitorOverride>& brightnessMonitorSchema() {
       static const Schema<BrightnessMonitorOverride> s = {
