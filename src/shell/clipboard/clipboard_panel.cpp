@@ -1437,10 +1437,10 @@ void ClipboardPanel::selectByStorageId(std::string storageId) {
   applyFilter();
 
   std::size_t newSelected = 0;
-  const auto& updated = m_clipboard->history();
+  const auto& history = m_clipboard->history();
   for (std::size_t pos = 0; pos < m_filteredIndices.size(); ++pos) {
     const std::size_t idx = m_filteredIndices[pos];
-    if (idx < updated.size() && updated[idx].storageId == storageId) {
+    if (idx < history.size() && history[idx].storageId == storageId) {
       newSelected = pos;
       break;
     }
