@@ -1821,7 +1821,7 @@ namespace settings {
           },
           "screenshot capture directory folder save location"
       );
-      e.visibleWhen = [](const Config& c) { return c.shell.screenshot.saveToFile; };
+      // e.visibleWhen = [](const Config& c) { return c.shell.screenshot.saveToFile; };
       entries.push_back(std::move(e));
     }
     {
@@ -1836,7 +1836,7 @@ namespace settings {
           },
           "screenshot capture filename pattern strftime"
       );
-      e.visibleWhen = [](const Config& c) { return c.shell.screenshot.saveToFile; };
+      // e.visibleWhen = [](const Config& c) { return c.shell.screenshot.saveToFile; };
       entries.push_back(std::move(e));
     }
     entries.push_back(makeEntry(
