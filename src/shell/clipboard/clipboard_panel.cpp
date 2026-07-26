@@ -1654,10 +1654,6 @@ void ClipboardPanel::activateSelected() {
   const bool promoted = wasPinned ? false : m_clipboard->promoteEntry(historyIndex);
   const bool copied = m_clipboard->copyEntry(entry);
   if (copied || promoted) {
-    if (m_activateCallback) {
-      m_activateCallback(entry);
-      return;
-    }
     if (!wasPinned) {
       m_selectedIndex = 0;
       applyFilter();
@@ -1671,6 +1667,9 @@ void ClipboardPanel::activateSelected() {
       schedulePreviewPayloadRefresh(false);
     }
     PanelManager::instance().refresh();
+    if (m_activateCallback) {
+      m_activateCallback(entry);
+    }
   }
 }
 
