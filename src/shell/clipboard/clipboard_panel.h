@@ -53,6 +53,7 @@ private:
   void updatePreviewActions();
   void rebuildPreview(Renderer& renderer, float width, float height);
   void selectIndex(std::size_t index);
+  void selectByStorageId(std::string storageId);
   void activateSelected();
   void togglePinSelected();
   void runImageAction();
