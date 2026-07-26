@@ -2129,8 +2129,7 @@ namespace settings {
     ));
     entries.push_back(makeEntry(
         SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.screenshot-confirm-save.label"),
-        tr("settings.schema.keybinds.screenshot-confirm-save.description"),
-        {"keybinds", "screenshot_confirm_save"},
+        tr("settings.schema.keybinds.screenshot-confirm-save.description"), {"keybinds", "screenshot_confirm_save"},
         KeybindListSetting{
             .items = effectiveKeybindItems(cfg.keybinds.screenshotConfirmSave, KeybindAction::ScreenshotConfirmSave),
             .maxItems = 4

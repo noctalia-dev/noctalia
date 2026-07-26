@@ -601,9 +601,7 @@ void Application::initStyleThemeAndWayland() {
   KeybindMatcher::setMatcher(
       KeybindAction::ScreenshotConfirmClipboard, bindKeybind(KeybindAction::ScreenshotConfirmClipboard)
   );
-  KeybindMatcher::setMatcher(
-      KeybindAction::ScreenshotConfirmSave, bindKeybind(KeybindAction::ScreenshotConfirmSave)
-  );
+  KeybindMatcher::setMatcher(KeybindAction::ScreenshotConfirmSave, bindKeybind(KeybindAction::ScreenshotConfirmSave));
 
   Input::setValidateKeyMatcher([this](std::uint32_t sym, std::uint32_t modifiers) {
     return m_configService.matchesKeybind(KeybindAction::Validate, sym, modifiers);
