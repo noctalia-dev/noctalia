@@ -167,8 +167,15 @@ std::vector<KeyChord> defaultKeybindSet(KeybindAction action) {
     return {{.sym = XKB_KEY_Tab, .modifiers = 0}};
   case KeybindAction::TabPrevious:
     return {{.sym = XKB_KEY_ISO_Left_Tab, .modifiers = KeyMod::Shift}};
+<<<<<<< HEAD
   case KeybindAction::Delete:
     return {{.sym = XKB_KEY_Delete, .modifiers = 0}};
+=======
+  case KeybindAction::ScreenshotConfirmClipboard:
+    return {{.sym = XKB_KEY_c, .modifiers = KeyMod::Ctrl}};
+  case KeybindAction::ScreenshotConfirmSave:
+    return {{.sym = XKB_KEY_s, .modifiers = KeyMod::Ctrl}};
+>>>>>>> 7c4ecad23 (feat(screenshot): make Copy to Clipboard & Save to File confirm shortcuts configurable)
   }
   return {};
 }

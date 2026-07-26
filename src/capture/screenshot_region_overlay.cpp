@@ -2,7 +2,6 @@
 
 #include "config/config_types.h"
 #include "core/deferred_call.h"
-#include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
@@ -439,15 +438,13 @@ namespace capture {
         return;
       }
       if (m_confirming) {
-        if ((key.modifiers & KeyMod::Ctrl) != 0) {
-          if (key.sym == XKB_KEY_c || key.sym == XKB_KEY_C) {
-            DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::ForceClipboard); });
-            return;
-          }
-          if (key.sym == XKB_KEY_s || key.sym == XKB_KEY_S) {
-            DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::ForceSave); });
-            return;
-          }
+        if (KeybindMatcher::matches(KeybindAction::ScreenshotConfirmClipboard, key.sym, key.modifiers)) {
+          DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::ForceClipboard); });
+          return;
+        }
+        if (KeybindMatcher::matches(KeybindAction::ScreenshotConfirmSave, key.sym, key.modifiers)) {
+          DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::ForceSave); });
+          return;
         }
         if (KeySymbol::isEnterOrSpace(key.sym)) {
           DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::None); });
@@ -648,15 +645,13 @@ namespace capture {
 
     if (!KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
       if (m_confirming) {
-        if ((event.modifiers & KeyMod::Ctrl) != 0) {
-          if (event.sym == XKB_KEY_c || event.sym == XKB_KEY_C) {
-            confirmPendingSelection(ConfirmAction::ForceClipboard);
-            return true;
-          }
-          if (event.sym == XKB_KEY_s || event.sym == XKB_KEY_S) {
-            confirmPendingSelection(ConfirmAction::ForceSave);
-            return true;
-          }
+        if (KeybindMatcher::matches(KeybindAction::ScreenshotConfirmClipboard, event.sym, event.modifiers)) {
+          confirmPendingSelection(ConfirmAction::ForceClipboard);
+          return true;
+        }
+        if (KeybindMatcher::matches(KeybindAction::ScreenshotConfirmSave, event.sym, event.modifiers)) {
+          confirmPendingSelection(ConfirmAction::ForceSave);
+          return true;
         }
         if (KeySymbol::isEnterOrSpace(event.sym)) {
           confirmPendingSelection(ConfirmAction::None);

@@ -598,6 +598,12 @@ void Application::initStyleThemeAndWayland() {
   KeybindMatcher::setMatcher(KeybindAction::TabNext, bindKeybind(KeybindAction::TabNext));
   KeybindMatcher::setMatcher(KeybindAction::TabPrevious, bindKeybind(KeybindAction::TabPrevious));
   KeybindMatcher::setMatcher(KeybindAction::Delete, bindKeybind(KeybindAction::Delete));
+  KeybindMatcher::setMatcher(
+      KeybindAction::ScreenshotConfirmClipboard, bindKeybind(KeybindAction::ScreenshotConfirmClipboard)
+  );
+  KeybindMatcher::setMatcher(
+      KeybindAction::ScreenshotConfirmSave, bindKeybind(KeybindAction::ScreenshotConfirmSave)
+  );
 
   Input::setValidateKeyMatcher([this](std::uint32_t sym, std::uint32_t modifiers) {
     return m_configService.matchesKeybind(KeybindAction::Validate, sym, modifiers);

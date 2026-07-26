@@ -2062,6 +2062,14 @@
           "description": "Move focus or selection to the right",
           "label": "Navigate Right"
         },
+        "screenshot-confirm-clipboard": {
+          "description": "While confirming a screenshot selection, copy it to the clipboard immediately",
+          "label": "Screenshot: Confirm Copy"
+        },
+        "screenshot-confirm-save": {
+          "description": "While confirming a screenshot selection, save it to disk immediately",
+          "label": "Screenshot: Confirm Save"
+        },
         "tab-next": {
           "description": "Move focus to the next control",
           "label": "Focus Next"

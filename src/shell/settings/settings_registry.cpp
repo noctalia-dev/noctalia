@@ -2115,6 +2115,28 @@ namespace settings {
         },
         "keybind shortcut hotkey delete remove clear"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.screenshot-confirm-clipboard.label"),
+        tr("settings.schema.keybinds.screenshot-confirm-clipboard.description"),
+        {"keybinds", "screenshot_confirm_clipboard"},
+        KeybindListSetting{
+            .items = effectiveKeybindItems(
+                cfg.keybinds.screenshotConfirmClipboard, KeybindAction::ScreenshotConfirmClipboard
+            ),
+            .maxItems = 4
+        },
+        "keybind shortcut hotkey screenshot copy clipboard"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.screenshot-confirm-save.label"),
+        tr("settings.schema.keybinds.screenshot-confirm-save.description"),
+        {"keybinds", "screenshot_confirm_save"},
+        KeybindListSetting{
+            .items = effectiveKeybindItems(cfg.keybinds.screenshotConfirmSave, KeybindAction::ScreenshotConfirmSave),
+            .maxItems = 4
+        },
+        "keybind shortcut hotkey screenshot save file"
+    ));
 
     // Niri-specific integrations
     if (env.niriOverviewTypeToLaunchSupported || env.niriBackdropSupported) {

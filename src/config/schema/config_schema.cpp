@@ -828,6 +828,13 @@ namespace noctalia::config::schema {
         keybindActionField(&KeybindsConfig::tabNext, "tab_next", KeybindAction::TabNext),
         keybindActionField(&KeybindsConfig::tabPrevious, "tab_previous", KeybindAction::TabPrevious),
         keybindActionField(&KeybindsConfig::deleteEntry, "delete", KeybindAction::Delete),
+        keybindActionField(
+            &KeybindsConfig::screenshotConfirmClipboard, "screenshot_confirm_clipboard",
+            KeybindAction::ScreenshotConfirmClipboard
+        ),
+        keybindActionField(
+            &KeybindsConfig::screenshotConfirmSave, "screenshot_confirm_save", KeybindAction::ScreenshotConfirmSave
+        ),
     };
     return s;
   }
