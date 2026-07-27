@@ -23,6 +23,13 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
   static const settings::WidgetSettingVisibility networkStat{"stat", {"net_rx", "net_tx"}};
   static const settings::WidgetSettingVisibility hasDisplay{"display", {"gauge", "graph", "text"}};
   static const settings::WidgetSettingVisibility showLabel{"show_label", {"true"}};
+  static const settings::WidgetSettingVisibility showIcon{"show_icon", {"true"}};
+  settings::WidgetSettingVisibility glyphPosition;
+  glyphPosition.all = {
+      hasDisplay.any[0],
+      showLabel.any[0],
+      showIcon.any[0],
+  };
 
   static const noctalia::bar::WidgetDefinition<Options, SysmonWidgetDefinitionContext> definition{
       .type = "sysmon",
@@ -103,19 +110,31 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                       },
                   },
           }),
+          field<&Options::showIcon>({
+              .key = "show_icon",
+          }),
           field<&Options::glyph>({
               .key = "glyph",
               .control = settings::WidgetControlKind::Glyph,
               .presentation =
                   settings::WidgetSettingPresentation{
                       .descriptionKey = "settings.widgets.settings.glyph.sysmon-description",
+                      .visibleWhen = showIcon,
                   },
           }),
           field<&Options::customImage>({
               .key = "custom_image",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .visibleWhen = showIcon,
+                  },
           }),
           field<&Options::customImageColorize>({
               .key = "custom_image_colorize",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .visibleWhen = showIcon,
+                  },
           }),
           field<&Options::diskPath>({
               .key = "path",
@@ -238,7 +257,7 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .presentation =
                   settings::WidgetSettingPresentation{
                       .segmented = true,
-                      .visibleWhen = showLabel,
+                      .visibleWhen = glyphPosition,
                   },
           }),
       },

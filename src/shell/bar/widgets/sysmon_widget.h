@@ -59,6 +59,7 @@ public:
     bool networkSpeedCompact = false;
     SysmonDisplayMode displayMode = SysmonDisplayMode::Gauge;
     ColorSpec highlightColor = colorSpecFromRole(ColorRole::Error);
+    bool showIcon = true;
     bool showLabel = true;
     int labelMinWidth = 0;
     bool showUnits = true;
@@ -105,6 +106,7 @@ private:
   SysmonDisplayMode m_displayMode;
   ColorSpec m_highlightColor = colorSpecFromRole(ColorRole::Error);
   ConfigService& m_configService;
+  bool m_showIcon;
   bool m_showLabel;
   float m_labelMinWidth = 0.0f;
   std::string m_diskPath;
