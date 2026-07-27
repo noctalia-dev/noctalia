@@ -904,6 +904,9 @@ bool BluetoothService::applyUPowerBattery() {
     }
 
     if (!bluetoothDevice.hasBattery) {
+      if (bluetoothDevice.address.empty()) {
+        continue;
+      }
       auto serial = bluetoothDevice.address;
       auto* deviceInfo = m_upowerService->deviceForSerial(serial);
       if (!deviceInfo) {
