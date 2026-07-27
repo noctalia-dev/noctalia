@@ -397,6 +397,9 @@ const UPowerDeviceInfo* UPowerService::deviceForSelector(std::string_view select
 }
 
 const UPowerDeviceInfo* UPowerService::deviceForSerial(std::string_view serial) const {
+  if (serial.empty()) {
+    return nullptr;
+  }
   for (const auto& device : m_devices) {
     if (device.info.serial == serial) {
       return &device.info;
