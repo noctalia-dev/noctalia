@@ -57,7 +57,7 @@ public:
   [[nodiscard]] float preferredWidth() const override { return scaled(980.0f); }
   [[nodiscard]] float preferredHeight() const override { return scaled(700.0f); }
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
-  [[nodiscard]] LayerShellLayer layer() const override { return LayerShellLayer::Overlay; }
+  [[nodiscard]] LayerShellLayer layer() const override { return LayerShellLayer::Top; }
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
   [[nodiscard]] InputArea* initialFocusArea() const override;
 

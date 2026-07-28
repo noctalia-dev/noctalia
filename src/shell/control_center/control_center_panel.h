@@ -87,7 +87,7 @@ public:
   [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
   [[nodiscard]] bool deferExternalRefresh() const override;
   [[nodiscard]] bool deferPointerRelayout() const override;
-  [[nodiscard]] LayerShellLayer layer() const override { return LayerShellLayer::Overlay; }
+  [[nodiscard]] LayerShellLayer layer() const override { return LayerShellLayer::Top; }
   [[nodiscard]] float preferredWidth() const override;
   [[nodiscard]] float preferredHeight() const override { return scaled(520.0f); }
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
