@@ -201,12 +201,13 @@ TaskbarWidget::TaskbarWidget(
     : m_platform(platform), m_configService(config), m_output(output), m_configOptions(std::move(options)),
       m_showAllOutputs(m_configOptions.showAllOutputs), m_focusedOutputOnly(m_configOptions.focusedOutputOnly),
       m_minimal(m_configOptions.minimal), m_showActiveIndicator(m_configOptions.showActiveIndicator),
-      m_activeOpacity(m_configOptions.activeOpacity), m_inactiveOpacity(m_configOptions.inactiveOpacity),
-      m_pinnedOpacity(m_configOptions.pinnedOpacity), m_focusedColor(m_configOptions.focusedColor),
-      m_occupiedColor(m_configOptions.occupiedColor), m_emptyColor(m_configOptions.emptyColor),
-      m_urgentColor(m_configOptions.urgentColor), m_windowTitleMaxWidth(m_configOptions.windowTitleMaxWidth),
-      m_taskbarMaxWidth(m_configOptions.taskbarMaxWidth), m_barPosition(std::move(m_configOptions.barPosition)),
-      m_barName(std::move(m_configOptions.barName)), m_widgetName(std::move(m_configOptions.widgetName)) {
+      m_activeIndicatorColor(m_configOptions.activeIndicatorColor), m_activeOpacity(m_configOptions.activeOpacity),
+      m_inactiveOpacity(m_configOptions.inactiveOpacity), m_pinnedOpacity(m_configOptions.pinnedOpacity),
+      m_focusedColor(m_configOptions.focusedColor), m_occupiedColor(m_configOptions.occupiedColor),
+      m_emptyColor(m_configOptions.emptyColor), m_urgentColor(m_configOptions.urgentColor),
+      m_windowTitleMaxWidth(m_configOptions.windowTitleMaxWidth), m_taskbarMaxWidth(m_configOptions.taskbarMaxWidth),
+      m_barPosition(std::move(m_configOptions.barPosition)), m_barName(std::move(m_configOptions.barName)),
+      m_widgetName(std::move(m_configOptions.widgetName)) {
   syncWorkspaceGroupingCapability();
   buildDesktopIconIndex();
 }
@@ -886,7 +887,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       if (showWindowTitle) {
         const float lineThickness = d * 0.5f;
         auto indicator = ui::box({
-            .fill = colorSpecFromRole(ColorRole::Primary),
+            .fill = m_activeIndicatorColor,
             .radius = lineThickness * 0.5f,
             .width = tileWidthWithTitle - tilePadding * 2,
             .height = lineThickness,
@@ -895,7 +896,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
         area->addChild(std::move(indicator));
       } else {
         auto indicator = ui::box({
-            .fill = colorSpecFromRole(ColorRole::Primary),
+            .fill = m_activeIndicatorColor,
             .radius = resolvedBarCapsuleRadius(d, d),
             .width = d,
             .height = d,

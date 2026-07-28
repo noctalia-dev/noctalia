@@ -358,6 +358,11 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .minimal = wc != nullptr ? wc->getBool("minimal", false) : false,
         .groupSingleIconPerApp = wc != nullptr ? wc->getBool("group_single_icon_per_app", false) : false,
         .showActiveIndicator = wc != nullptr ? wc->getBool("show_active_indicator", true) : true,
+        .activeIndicatorColor = wc != nullptr ? wc->getColorSpec(
+                                                    "active_indicator_color", colorSpecFromRole(ColorRole::Primary),
+                                                    "widget." + name + ".active_indicator_color"
+                                                )
+                                              : colorSpecFromRole(ColorRole::Primary),
         .activeOpacity = wc != nullptr ? static_cast<float>(wc->getDouble("active_opacity", 1.0)) : 1.0f,
         .inactiveOpacity = wc != nullptr ? static_cast<float>(wc->getDouble("inactive_opacity", 1.0)) : 1.0f,
         .pinnedOpacity = wc != nullptr ? static_cast<float>(wc->getDouble("pinned_opacity", 0.5)) : 0.5f,

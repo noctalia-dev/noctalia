@@ -796,6 +796,12 @@ namespace settings {
         // Windows: what the taskbar lists and how each window tile looks.
         add(withGroup(boolSpec("show_all_outputs", false), "taskbar.windows"));
         add(withGroup(boolSpec("show_active_indicator", true), "taskbar.windows"));
+        {
+          auto activeIndicatorColor = withGroup(colorSpec("active_indicator_color", "primary"), "taskbar.windows");
+          activeIndicatorColor.visibleWhen =
+              WidgetSettingVisibility{WidgetSettingVisibilityCondition{"show_active_indicator", {"true"}}};
+          add(std::move(activeIndicatorColor));
+        }
         add(withGroup(doubleSpec("active_opacity", 1.0, 0.1, 1.0, 0.01), "taskbar.windows"));
         add(withGroup(doubleSpec("inactive_opacity", 1.0, 0.1, 1.0, 0.01), "taskbar.windows"));
         {
