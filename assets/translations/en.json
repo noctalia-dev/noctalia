@@ -255,6 +255,7 @@
       "start-playback": "Start playback in an MPRIS app"
     },
     "network": {
+      "available": "Available",
       "connect": "Connect",
       "current-connection": "Current Connection",
       "external-ip": "WAN {ip}",
@@ -263,6 +264,7 @@
       "password": "Password",
       "password-prompt": "Enter password",
       "password-prompt-for": "Enter password for {ssid}",
+      "saved": "Saved",
       "unavailable-detail": "Install and enable NetworkManager, wpa_supplicant, or iwd to manage networks from here.",
       "unavailable-title": "Network service unavailable",
       "vpns": "VPNs",
