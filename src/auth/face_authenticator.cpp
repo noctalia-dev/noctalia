@@ -27,7 +27,7 @@ namespace {
   const sdbus::ObjectPath kLoginPath{"/org/freedesktop/login1"};
   constexpr auto kLoginManagerInterface = "org.freedesktop.login1.Manager";
 
-  constexpr int kMaxRetries = 3;
+  constexpr int kMaxRetries = 1;
   constexpr auto kRetryDelay = std::chrono::milliseconds(500);
 
   struct FaceStatusMessage {
@@ -69,6 +69,11 @@ FaceAuthenticator::FaceAuthenticator(SystemBus& bus) : m_bus(bus) {
       if (sleeping) {
         stopVerify();
       } else if (m_active && !m_abort) {
+        release();
+        m_retries = 0;
+        m_faceDetected = false;
+        m_exhausted = false;
+        m_reclaimAttempted = false;
         startVerify(false);
       }
     });
@@ -95,6 +100,8 @@ void FaceAuthenticator::start() {
   m_abort = false;
   m_retries = 0;
   m_reclaimAttempted = false;
+  m_faceDetected = false;
+  m_exhausted = false;
   if (m_sleeping) {
     return;
   }
@@ -271,6 +278,9 @@ void FaceAuthenticator::handleFaceStatus(const std::string& status) {
   if (!m_active) {
     return;
   }
+  if (status == "ready" || status == "usable") {
+    m_faceDetected = true;
+  }
   const auto msg = captureStatusMessage(status);
   if (msg.has_value()) {
     emitStatus(i18n::tr(msg->key), msg->isError);
@@ -298,10 +308,12 @@ void FaceAuthenticator::handleVerifyStatus(const std::string& result) {
 
   if (result == "verify-no-match") {
     stopVerify();
-    if (m_retries >= kMaxRetries) {
+    if (m_retries >= kMaxRetries || !m_faceDetected) {
+      m_exhausted = true;
       emitStatus(i18n::tr("auth.face.too-many-attempts"), true);
     } else {
       emitStatus(i18n::tr("auth.face.no-match"), true);
+      m_faceDetected = false;
       m_retryTimer.start(kRetryDelay, [this]() { startVerify(true); });
     }
     return;
@@ -309,6 +321,8 @@ void FaceAuthenticator::handleVerifyStatus(const std::string& result) {
 
   kLog.warn("unknown face verify result: {}", result);
 }
+
+bool FaceAuthenticator::isExhausted() const noexcept { return m_exhausted; }
 
 void FaceAuthenticator::emitStatus(const std::string& message, bool isError) {
   if (m_onStatus) {

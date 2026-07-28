@@ -111,6 +111,7 @@ private:
   void handleFingerprintStatus(const std::string& message, bool isError);
   void startFaceAuth();
   void stopFaceAuth();
+  void restartFaceAuthIfExhausted();
   void handleFaceAuthStatus(const std::string& message, bool isError);
   static void clearSensitiveString(std::string& value);
 

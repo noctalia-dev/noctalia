@@ -304,6 +304,10 @@ void LockScreen::onPointerEvent(const PointerEvent& event) {
     return;
   }
 
+  if (event.type == PointerEvent::Type::Button || event.type == PointerEvent::Type::Axis) {
+    restartFaceAuthIfExhausted();
+  }
+
   if (event.type == PointerEvent::Type::Enter && event.surface != nullptr) {
     m_pointerSurface = event.surface;
   } else if (event.type == PointerEvent::Type::Leave && event.surface == m_pointerSurface) {
@@ -337,6 +341,8 @@ void LockScreen::onKeyboardEvent(const KeyboardEvent& event) {
   if (!event.pressed) {
     return;
   }
+
+  restartFaceAuthIfExhausted();
 
   // The password field always owns plain printable keys; Space is a Validate
   // chord but must type a space, not submit (passwords may contain spaces).
@@ -914,6 +920,17 @@ void LockScreen::stopFaceAuth() {
   if (m_faceAuth != nullptr) {
     m_faceAuth->stop();
   }
+}
+
+void LockScreen::restartFaceAuthIfExhausted() {
+  if (m_faceAuth == nullptr || m_authenticating) {
+    return;
+  }
+  if (!m_faceAuth->isExhausted()) {
+    return;
+  }
+  m_faceAuth->stop();
+  startFaceAuth();
 }
 
 void LockScreen::handleFaceAuthStatus(const std::string& message, bool isError) {
