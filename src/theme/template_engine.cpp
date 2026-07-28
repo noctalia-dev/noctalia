@@ -569,7 +569,8 @@ namespace noctalia::theme {
       if (name == "set_alpha") {
         color.alpha = std::clamp(numArg, 0.0, 1.0);
       } else if (name == "set_lightness") {
-        color.color = Color::fromHsl(h, s, std::clamp(numArg / 100.0, 0.0, 1.0));
+        auto [lc, c, hc] = color.color.toOklch();
+        color.color = Color::fromOklch(std::clamp(numArg / 100.0, 0.0, 1.0), c, hc);
       } else if (name == "set_hue") {
         color.color = Color::fromHsl(std::fmod(numArg + 360.0, 360.0), s, l);
       } else if (name == "rotate_hue") {
@@ -577,9 +578,11 @@ namespace noctalia::theme {
       } else if (name == "set_saturation") {
         color.color = Color::fromHsl(h, std::clamp(numArg / 100.0, 0.0, 1.0), l);
       } else if (name == "lighten") {
-        color.color = Color::fromHsl(h, s, std::clamp(l + numArg / 100.0, 0.0, 1.0));
+        auto [lc, c, hc] = color.color.toOklch();
+        color.color = Color::fromOklch(std::clamp(lc + numArg / 100.0, 0.0, 1.0), c, hc);
       } else if (name == "darken") {
-        color.color = Color::fromHsl(h, s, std::clamp(l - numArg / 100.0, 0.0, 1.0));
+        auto [lc, c, hc] = color.color.toOklch();
+        color.color = Color::fromOklch(std::clamp(lc - numArg / 100.0, 0.0, 1.0), c, hc);
       } else if (name == "saturate") {
         color.color = Color::fromHsl(h, std::clamp(s + numArg / 100.0, 0.0, 1.0), l);
       } else if (name == "desaturate") {

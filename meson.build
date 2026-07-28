@@ -1095,6 +1095,7 @@ install_data(
 if build_tests
   _cpp_test_names = [
     'animation_manager',
+    'color',
     'app_identity',
     'audio_glyphs',
     'battery_hook_state',

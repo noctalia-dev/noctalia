@@ -6,8 +6,8 @@
 
 namespace noctalia::theme {
 
-  // Minimal RGB colour (0-255 per channel) with hex/HSL/ARGB conversions. The
-  // custom schemes operate in HSL space via this type; the M3 schemes go
+  // Minimal RGB colour (0-255 per channel) with hex/HSL/ARGB/OkLCH conversions.
+  // The custom schemes operate in HSL space via this type; the M3 schemes go
   // through HCT instead and only use this for final ARGB → hex emission.
   struct Color {
     int r = 0;
@@ -17,12 +17,14 @@ namespace noctalia::theme {
     Color() = default;
     constexpr Color(int red, int green, int blue) : r(red), g(green), b(blue) {}
 
-    static Color fromHex(std::string_view hex); // accepts #RRGGBB or RRGGBB
+    static Color fromHex(std::string_view hex);              // accepts #RRGGBB or RRGGBB
     static Color fromHsl(double h, double s, double l);
+    static Color fromOklch(double l, double c, double h);    // h in degrees
     static Color fromArgb(uint32_t argb);
 
-    std::string toHex() const;                        // "#rrggbb"
-    std::tuple<double, double, double> toHsl() const; // (h°, s, l) — h in [0,360)
+    std::string toHex() const;                               // "#rrggbb"
+    std::tuple<double, double, double> toHsl() const;        // (h°, s, l) — h in [0,360)
+    std::tuple<double, double, double> toOklch() const;      // (L, C, H°) — H in [0,360)
     uint32_t toArgb() const {
       return 0xff000000U
           | (static_cast<uint32_t>(r) << 16)
