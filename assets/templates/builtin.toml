@@ -130,9 +130,12 @@ output_path = "$XDG_DATA_HOME/color-schemes/noctalia.colors"
 post_action = "kde-color-scheme"
 
 [templates.kitty]
-input_path = "./kitty/kitty.conf"
 output_path = "$XDG_CONFIG_HOME/kitty/themes/noctalia.conf"
 post_hook = "bash '{{ config_dir }}/kitty/apply.sh'"
+
+[templates.kitty.input_path_modes]
+dark = "./kitty/kitty.conf"
+light = "./kitty/kitty-light.conf"
 
 [templates.labwc]
 input_path = "./labwc/labwc.conf"
