@@ -179,6 +179,13 @@ namespace scripting {
     Stop,
   };
 
+  enum class ScriptExitReason : std::uint8_t {
+    Reload,
+    Disable,
+    Uninstall,
+    Shutdown,
+  };
+
   // Queue policy for a callback invocation.
   struct ScriptCallOptions {
     // A newer queued call to the same callback replaces this one.
@@ -220,6 +227,8 @@ namespace scripting {
     std::string stateJson;
     // Stop payload: SIGINT/SIGTERM for signal-driven process shutdown, otherwise 0.
     int exitSignal = 0;
+    // Stop payload: identifies why the runtime is being destroyed.
+    ScriptExitReason exitReason = ScriptExitReason::Reload;
     // SettingsChanged payload: the new seeded settings snapshot to swap in.
     ScriptSettings newSettings;
     ScriptSnapshot snapshot;

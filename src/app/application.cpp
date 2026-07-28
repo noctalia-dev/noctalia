@@ -228,6 +228,7 @@ void Application::run(std::function<void()> startupReadyCallback) {
     m_pluginManager.setOnSourceUpdated([this](const std::string& sourceName) {
       m_settingsWindow.invalidatePluginSourceCache(sourceName);
     });
+    m_pluginManager.setOnEnabled([this](std::string_view pluginId) { m_pluginServiceHost.enablePlugin(pluginId); });
   });
   runStartupPhase("initIpc", [this]() { initIpc(); });
   runStartupPhase("buildPollSources", [this]() { (void)buildPollSources(); });

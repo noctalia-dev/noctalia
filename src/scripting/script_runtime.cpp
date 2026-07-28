@@ -17,6 +17,8 @@
 #include <condition_variable>
 #include <deque>
 #include <mutex>
+#include <optional>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -44,6 +46,18 @@ namespace scripting {
     constexpr std::size_t kMaxTimeoutsPerWindow = 5;
     constexpr auto kCrashWindow = std::chrono::seconds(60);
     constexpr std::size_t kMaxHardErrorsPerWindow = 5;
+    std::mutex g_pluginExitReasonsMutex;
+    std::unordered_map<std::string, ScriptExitReason> g_pluginExitReasons;
+
+    std::optional<ScriptExitReason> pluginExitReasonFor(std::string_view runtimeName) {
+      const auto separator = runtimeName.find(':');
+      if (separator == std::string_view::npos) {
+        return std::nullopt;
+      }
+      std::scoped_lock lock(g_pluginExitReasonsMutex);
+      const auto it = g_pluginExitReasons.find(std::string(runtimeName.substr(0, separator)));
+      return it != g_pluginExitReasons.end() ? std::optional(it->second) : std::nullopt;
+    }
 
     void mergePatch(ScriptPatch& dest, const ScriptPatch& src) {
       if (src.text.has_value()) {
@@ -259,7 +273,7 @@ namespace scripting {
       subscribers.erase(id);
     }
 
-    void stop(int exitSignal) {
+    void stop(int exitSignal, ScriptExitReason exitReason) {
       bool shouldSchedule = false;
       {
         std::scoped_lock lock(mutex);
@@ -276,6 +290,7 @@ namespace scripting {
           event.kind = ScriptEventKind::Stop;
           event.generation = generation;
           event.exitSignal = exitSignal;
+          event.exitReason = exitReason;
           queue.push_back(std::move(event));
           if (!scheduled) {
             scheduled = true;
@@ -485,7 +500,7 @@ namespace scripting {
         }
 
         if (event.kind == ScriptEventKind::Stop) {
-          teardownHost(event.exitSignal, event.snapshot);
+          teardownHost(event.exitSignal, event.snapshot, event.exitReason);
           {
             std::scoped_lock lock(mutex);
             queue.clear();
@@ -636,7 +651,7 @@ namespace scripting {
     }
 
     ScriptResult processLoad(const ScriptEvent& event) {
-      teardownHost(0, event.snapshot);
+      teardownHost(0, event.snapshot, ScriptExitReason::Reload);
 
       host = std::make_unique<LuauHost>(scriptApi);
       bindingContext.settings = &settings;
@@ -741,12 +756,27 @@ namespace scripting {
       return result;
     }
 
-    void teardownHost(int signal, const ScriptSnapshot& snapshot) {
+    void
+    teardownHost(int signal, const ScriptSnapshot& snapshot, ScriptExitReason exitReason = ScriptExitReason::Reload) {
       // Prevent old or newly registered watchers from outliving this VM.
       PluginStateStore::instance().removeWatchers(stateToken);
       if (host != nullptr && host->hasGlobal("onExit")) {
         bindingContext.beginCall(snapshot);
-        const ScriptArgs args{static_cast<double>(signal)};
+        const char* reason = "reload";
+        switch (exitReason) {
+        case ScriptExitReason::Reload:
+          break;
+        case ScriptExitReason::Disable:
+          reason = "disable";
+          break;
+        case ScriptExitReason::Uninstall:
+          reason = "uninstall";
+          break;
+        case ScriptExitReason::Shutdown:
+          reason = "shutdown";
+          break;
+        }
+        const ScriptArgs args{static_cast<double>(signal), std::string(reason)};
         (void)host->callGlobalWithArgsAndBudget("onExit", args, kCallbackBudget);
       }
       PluginStateStore::instance().removeWatchers(stateToken);
@@ -882,6 +912,24 @@ namespace scripting {
     }
   };
 
+  PluginExitReasonScope::PluginExitReasonScope(std::string_view pluginId, ScriptExitReason reason)
+      : m_pluginId(pluginId) {
+    std::scoped_lock lock(g_pluginExitReasonsMutex);
+    if (const auto it = g_pluginExitReasons.find(m_pluginId); it != g_pluginExitReasons.end()) {
+      m_previous = it->second;
+    }
+    g_pluginExitReasons[m_pluginId] = reason;
+  }
+
+  PluginExitReasonScope::~PluginExitReasonScope() {
+    std::scoped_lock lock(g_pluginExitReasonsMutex);
+    if (m_previous.has_value()) {
+      g_pluginExitReasons[m_pluginId] = *m_previous;
+    } else {
+      g_pluginExitReasons.erase(m_pluginId);
+    }
+  }
+
   ScriptRuntime::ScriptRuntime(
       std::string runtimeName, ScriptSettings settings, ScriptApiContext& api, std::filesystem::path pluginDir,
       HttpClient* httpClient, ClipboardService* clipboard, TogglePanelCallback togglePanelCallback
@@ -905,9 +953,15 @@ namespace scripting {
     }
   }
 
-  void ScriptRuntime::stop() {
+  void ScriptRuntime::stop(ScriptExitReason exitReason) {
     if (m_state != nullptr) {
-      m_state->stop(g_shutdownSignal.load(std::memory_order_relaxed));
+      const int signal = g_shutdownSignal.load(std::memory_order_relaxed);
+      if (signal != 0) {
+        exitReason = ScriptExitReason::Shutdown;
+      } else if (exitReason == ScriptExitReason::Reload) {
+        exitReason = pluginExitReasonFor(m_state->runtimeName).value_or(ScriptExitReason::Reload);
+      }
+      m_state->stop(signal, exitReason);
     }
   }
 
