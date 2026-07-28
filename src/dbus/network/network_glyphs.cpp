@@ -5,14 +5,13 @@
 namespace network_glyphs {
 
   const char* glyphForState(const NetworkState& state) noexcept {
-    if (state.vpnActive) {
-      return "shield-check";
-    }
     if (state.kind == NetworkConnectivity::Wired) {
       return state.connected ? "ethernet" : "ethernet-off";
     }
     return wifiGlyphForState(state);
   }
+
+  const char* vpnGlyph() noexcept { return "shield-check"; }
 
   const char* wifiGlyphForState(const NetworkState& state) noexcept {
     if (!state.wirelessEnabled) {

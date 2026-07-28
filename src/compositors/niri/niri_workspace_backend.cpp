@@ -311,12 +311,20 @@ bool NiriWorkspaceBackend::focusWindowById(const std::string& windowId) {
   );
 }
 
+std::optional<std::string> NiriWorkspaceBackend::focusedWindowId() const {
+  if (!m_focusedWindowId.has_value()) {
+    return std::nullopt;
+  }
+  return std::to_string(*m_focusedWindowId);
+}
+
 void NiriWorkspaceBackend::cleanup() { m_runtime.cleanup(); }
 
 void NiriWorkspaceBackend::handleStreamReset() {
   const bool overviewWasOpen = m_overviewKnown && m_overviewOpen;
   m_windows.clear();
   m_workspaces.clear();
+  m_focusedWindowId.reset();
   m_overviewKnown = false;
   m_overviewOpen = false;
   if (overviewWasOpen) {
@@ -351,6 +359,8 @@ void NiriWorkspaceBackend::handleEvent(std::string_view key, const nlohmann::jso
     changed = handleWindowLayoutsChanged(value);
   } else if (key == "WindowClosed") {
     changed = handleWindowClosed(value);
+  } else if (key == "WindowFocusChanged") {
+    changed = handleWindowFocusChanged(value);
   }
 
   if (changed) {
@@ -392,8 +402,9 @@ bool NiriWorkspaceBackend::handleWindowsChanged(const nlohmann::json& payload) {
     }
   }
 
+  const bool focusUpdated = updateFocusedWindowIdFromWindowsJson(*windows);
   if (next == m_windows) {
-    return false;
+    return focusUpdated;
   }
 
   const bool membershipChanged = !sameWindowMembership(next, m_windows);
@@ -401,7 +412,7 @@ bool NiriWorkspaceBackend::handleWindowsChanged(const nlohmann::json& payload) {
   if (membershipChanged) {
     recomputeOccupancy();
   }
-  return membershipChanged;
+  return membershipChanged || focusUpdated;
 }
 
 bool NiriWorkspaceBackend::handleOverviewChanged(const nlohmann::json& payload) {
@@ -446,13 +457,26 @@ bool NiriWorkspaceBackend::handleWindowOpenedOrChanged(const nlohmann::json& pay
     return false;
   }
 
+  bool focusUpdated = false;
+  if (const auto focused = jsonOptionalBool(*window, "is_focused"); focused.has_value()) {
+    if (*focused) {
+      if (m_focusedWindowId != *id) {
+        m_focusedWindowId = id;
+        focusUpdated = true;
+      }
+    } else if (m_focusedWindowId == *id) {
+      m_focusedWindowId.reset();
+      focusUpdated = true;
+    }
+  }
+
   const auto existing = m_windows.find(*id);
   WindowState state = existing != m_windows.end() ? existing->second : WindowState{};
   if (!applyWindowFields(*window, state)) {
-    return false;
+    return focusUpdated;
   }
   if (existing != m_windows.end() && existing->second == state) {
-    return false;
+    return focusUpdated;
   }
 
   const bool membershipChanged = existing == m_windows.end() ? (state.workspaceId.has_value() || !state.appId.empty())
@@ -461,7 +485,8 @@ bool NiriWorkspaceBackend::handleWindowOpenedOrChanged(const nlohmann::json& pay
   if (membershipChanged) {
     recomputeOccupancy();
   }
-  return membershipChanged;
+
+  return membershipChanged || focusUpdated;
 }
 
 bool NiriWorkspaceBackend::handleWindowLayoutsChanged(const nlohmann::json& payload) {
@@ -527,7 +552,47 @@ bool NiriWorkspaceBackend::handleWindowClosed(const nlohmann::json& payload) {
   if (m_windows.erase(*windowId) == 0) {
     return false;
   }
+  if (m_focusedWindowId == *windowId) {
+    m_focusedWindowId.reset();
+  }
   recomputeOccupancy();
+  return true;
+}
+
+bool NiriWorkspaceBackend::handleWindowFocusChanged(const nlohmann::json& payload) {
+  std::optional<std::uint64_t> id;
+  if (payload.is_object()) {
+    if (payload.contains("id") && !payload["id"].is_null()) {
+      id = jsonOptionalUnsigned(payload, "id");
+    }
+  } else if (!payload.is_null()) {
+    id = jsonUnsigned(payload);
+  }
+
+  if (id == m_focusedWindowId) {
+    return false;
+  }
+  m_focusedWindowId = id;
+  return true;
+}
+
+bool NiriWorkspaceBackend::updateFocusedWindowIdFromWindowsJson(const nlohmann::json& windows) {
+  std::optional<std::uint64_t> focused;
+  for (const auto& item : windows) {
+    if (!item.is_object()) {
+      continue;
+    }
+    if (!jsonOptionalBool(item, "is_focused").value_or(false)) {
+      continue;
+    }
+    focused = jsonOptionalUnsigned(item, "id");
+    break;
+  }
+
+  if (focused == m_focusedWindowId) {
+    return false;
+  }
+  m_focusedWindowId = focused;
   return true;
 }
 

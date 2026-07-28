@@ -78,7 +78,16 @@ void GammaService::setEnabled(bool enabled) {
   notifyStateFeedback();
 }
 
-void GammaService::toggleEnabled() { setEnabled(!enabled()); }
+void GammaService::toggleEnabled() {
+  // Toggling out of the forced state lands on scheduled-on rather than off, so the force override
+  // stays reachable in both directions.
+  if (effectiveForce()) {
+    m_forceOverride.reset();
+    setEnabled(true);
+    return;
+  }
+  setEnabled(!enabled());
+}
 
 void GammaService::setLocationResolving(bool resolving) {
   if (m_locationResolving == resolving) {
@@ -589,7 +598,7 @@ void GammaService::registerIpc(IpcService& ipc) {
         setEnabled(true);
         return "ok\n";
       },
-      "nightlight-enable", "Enable night light schedule"
+      "", "Enable night light schedule"
   );
 
   ipc.registerHandler(
@@ -598,7 +607,7 @@ void GammaService::registerIpc(IpcService& ipc) {
         setEnabled(false);
         return "ok\n";
       },
-      "nightlight-disable", "Disable night light schedule"
+      "", "Disable night light schedule"
   );
 
   ipc.registerHandler(
@@ -607,7 +616,7 @@ void GammaService::registerIpc(IpcService& ipc) {
         toggleEnabled();
         return "ok\n";
       },
-      "nightlight-toggle", "Toggle night light schedule"
+      "", "Toggle night light schedule"
   );
 
   ipc.registerHandler(
@@ -616,6 +625,6 @@ void GammaService::registerIpc(IpcService& ipc) {
         toggleForceEnabled();
         return "ok\n";
       },
-      "nightlight-force-toggle", "Toggle forced night light mode"
+      "", "Toggle forced night light mode"
   );
 }

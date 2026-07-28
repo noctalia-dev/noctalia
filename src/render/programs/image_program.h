@@ -2,6 +2,7 @@
 
 #include "render/core/color.h"
 #include "render/core/mat3.h"
+#include "render/core/render_styles.h"
 #include "render/core/shader_program.h"
 
 #include <GLES2/gl2.h>
@@ -24,7 +25,8 @@ public:
       TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, const Color& tint,
       bool monochromeTint, bool alphaMaskTint, float opacity, float radius = 0.0f,
       const Color& borderColor = {0.0f, 0.0f, 0.0f, 0.0f}, float borderWidth = 0.0f, int fitMode = 0,
-      float textureWidth = 0.0f, float textureHeight = 0.0f, const Mat3& transform = Mat3::identity()
+      float textureWidth = 0.0f, float textureHeight = 0.0f, const Mat3& transform = Mat3::identity(),
+      const ImageScrim& scrim = {}
   ) const;
 
 private:
@@ -44,4 +46,11 @@ private:
   GLint m_transformLocation = -1;
   GLint m_monochromeLocation = -1;
   GLint m_alphaMaskLocation = -1;
+  GLint m_scrimEnabledLocation = -1;
+  GLint m_scrimDirectionLocation = -1;
+  GLint m_scrimStopsLocation = -1;
+  GLint m_scrimColor0Location = -1;
+  GLint m_scrimColor1Location = -1;
+  GLint m_scrimColor2Location = -1;
+  GLint m_scrimColor3Location = -1;
 };

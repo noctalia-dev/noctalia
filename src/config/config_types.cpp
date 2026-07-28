@@ -391,6 +391,74 @@ const BarCapsuleGroupStyle* findBarCapsuleGroupStyle(const BarConfig& bar, const
   return nullptr;
 }
 
+namespace {
+  void collectCapsuleGroupRefs(const std::vector<std::string>& lane, std::set<std::string>& out) {
+    for (const auto& entry : lane) {
+      if (isCapsuleGroupToken(entry)) {
+        out.insert(capsuleGroupTokenId(entry));
+      }
+    }
+  }
+
+  const std::vector<std::string>&
+  effectiveLane(const std::optional<std::vector<std::string>>& monitorLane, const std::vector<std::string>& barLane) {
+    return monitorLane.has_value() ? *monitorLane : barLane;
+  }
+} // namespace
+
+std::set<std::string> capsuleGroupRefsForBarScope(const BarConfig& bar) {
+  std::set<std::string> refs;
+  collectCapsuleGroupRefs(bar.startWidgets, refs);
+  collectCapsuleGroupRefs(bar.centerWidgets, refs);
+  collectCapsuleGroupRefs(bar.endWidgets, refs);
+  for (const auto& ovr : bar.monitorOverrides) {
+    if (ovr.widgetCapsuleGroups.has_value()) {
+      continue;
+    }
+    collectCapsuleGroupRefs(effectiveLane(ovr.startWidgets, bar.startWidgets), refs);
+    collectCapsuleGroupRefs(effectiveLane(ovr.centerWidgets, bar.centerWidgets), refs);
+    collectCapsuleGroupRefs(effectiveLane(ovr.endWidgets, bar.endWidgets), refs);
+  }
+  return refs;
+}
+
+std::set<std::string> capsuleGroupRefsForMonitorScope(const BarConfig& bar, const BarMonitorOverride& monitorOverride) {
+  std::set<std::string> refs;
+  collectCapsuleGroupRefs(effectiveLane(monitorOverride.startWidgets, bar.startWidgets), refs);
+  collectCapsuleGroupRefs(effectiveLane(monitorOverride.centerWidgets, bar.centerWidgets), refs);
+  collectCapsuleGroupRefs(effectiveLane(monitorOverride.endWidgets, bar.endWidgets), refs);
+  return refs;
+}
+
+std::vector<BarCapsuleGroupStyle> reconcileCapsuleGroups(
+    const std::vector<BarCapsuleGroupStyle>& current, const std::vector<BarCapsuleGroupStyle>& base,
+    const std::set<std::string>& referenced
+) {
+  std::vector<BarCapsuleGroupStyle> out;
+  out.reserve(current.size() + base.size());
+  std::vector<bool> consumed(current.size(), false);
+  for (const auto& baseGroup : base) {
+    bool matched = false;
+    for (std::size_t i = 0; i < current.size(); ++i) {
+      if (!consumed[i] && current[i].id == baseGroup.id) {
+        out.push_back(current[i]);
+        consumed[i] = true;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched && referenced.contains(baseGroup.id)) {
+      out.push_back(baseGroup);
+    }
+  }
+  for (std::size_t i = 0; i < current.size(); ++i) {
+    if (!consumed[i] && referenced.contains(current[i].id)) {
+      out.push_back(current[i]);
+    }
+  }
+  return out;
+}
+
 WidgetBarCapsuleSpec capsuleSpecFromGroup(const BarConfig& bar, const BarCapsuleGroupStyle& group) {
   WidgetBarCapsuleSpec spec;
   spec.enabled = true;

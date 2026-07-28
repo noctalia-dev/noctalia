@@ -3,6 +3,7 @@
 #include "config/config_service.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
+#include "core/random.h"
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
@@ -29,6 +30,7 @@
 #include <chrono>
 #include <filesystem>
 #include <memory>
+#include <random>
 #include <string_view>
 #include <system_error>
 #include <unordered_set>
@@ -205,6 +207,18 @@ namespace {
       return std::nullopt;
     }
     return mtime;
+  }
+
+  // Ordering key for SortMode::Random. Hashing the path against a seed keeps the
+  // shuffled order fixed until the seed changes, so filtering or starring a tile
+  // rebuilds the visible entries without reordering the grid.
+  [[nodiscard]] std::uint64_t randomOrderKey(const WallpaperEntry& entry, std::uint64_t seed) {
+    std::uint64_t hash = std::filesystem::hash_value(entry.absPath) ^ seed;
+    hash ^= hash >> 30U;
+    hash *= 0xBF58476D1CE4E5B9ULL;
+    hash ^= hash >> 27U;
+    hash *= 0x94D049BB133111EBULL;
+    return hash ^ (hash >> 31U);
   }
 
   [[nodiscard]] bool favoriteVisibleInBrowseContext(
@@ -857,6 +871,7 @@ void WallpaperPanel::onOpen(std::string_view /*context*/) {
   m_navStack.clear();
   populateMonitorChoices();
   syncSortButtonGlyph();
+  reseedRandomSort();
   refreshVisibleEntries();
   resetSelection();
   rebindGrid();
@@ -1573,6 +1588,9 @@ WallpaperPanel::SortMode WallpaperPanel::sortModeFromState(std::string_view valu
   if (value == "date_desc") {
     return SortMode::DateDesc;
   }
+  if (value == "random") {
+    return SortMode::Random;
+  }
   return SortMode::NameAsc;
 }
 
@@ -1584,6 +1602,8 @@ std::string_view WallpaperPanel::sortModeStateValue(SortMode mode) {
     return "date_asc";
   case SortMode::DateDesc:
     return "date_desc";
+  case SortMode::Random:
+    return "random";
   case SortMode::NameAsc:
   default:
     return "name_asc";
@@ -1598,6 +1618,8 @@ std::string_view WallpaperPanel::sortModeGlyph(SortMode mode) {
     return "sort-ascending-2";
   case SortMode::DateDesc:
     return "sort-descending-2";
+  case SortMode::Random:
+    return "arrows-random";
   case SortMode::NameAsc:
   default:
     return "sort-a-z";
@@ -1612,6 +1634,8 @@ const char* WallpaperPanel::sortModeTooltipKey(SortMode mode) {
     return "wallpaper.panel.sort-date-asc";
   case SortMode::DateDesc:
     return "wallpaper.panel.sort-date-desc";
+  case SortMode::Random:
+    return "wallpaper.panel.sort-random";
   case SortMode::NameAsc:
   default:
     return "wallpaper.panel.sort-name-asc";
@@ -1652,6 +1676,9 @@ void WallpaperPanel::cycleSortMode() {
     next = SortMode::DateDesc;
     break;
   case SortMode::DateDesc:
+    next = SortMode::Random;
+    break;
+  case SortMode::Random:
     next = SortMode::NameAsc;
     break;
   }
@@ -1663,6 +1690,9 @@ void WallpaperPanel::setSortMode(SortMode mode) {
     return;
   }
   m_sortMode = mode;
+  if (mode == SortMode::Random) {
+    reseedRandomSort();
+  }
   if (m_config != nullptr) {
     (void)m_config->setStateString("wallpaper_panel", "sort", std::string(sortModeStateValue(mode)));
   }
@@ -1671,6 +1701,10 @@ void WallpaperPanel::setSortMode(SortMode mode) {
   rebindGrid();
   m_dirty = true;
   PanelManager::instance().refresh();
+}
+
+void WallpaperPanel::reseedRandomSort() {
+  m_randomSeed = std::uniform_int_distribution<std::uint64_t>{}(Random::rng());
 }
 
 void WallpaperPanel::sortVisibleEntries() {
@@ -1705,6 +1739,14 @@ void WallpaperPanel::sortVisibleEntries() {
         }
       } else if (aTime.has_value() != bTime.has_value()) {
         return aTime.has_value();
+      }
+      return caseInsensitiveNameOrder(a.name, b.name) < 0;
+    }
+    case SortMode::Random: {
+      const std::uint64_t aKey = randomOrderKey(a, m_randomSeed);
+      const std::uint64_t bKey = randomOrderKey(b, m_randomSeed);
+      if (aKey != bKey) {
+        return aKey < bKey;
       }
       return caseInsensitiveNameOrder(a.name, b.name) < 0;
     }

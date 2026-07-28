@@ -126,7 +126,7 @@ void LockscreenWidgetsController::registerIpc(IpcService& ipc) {
         enterEdit();
         return "ok\n";
       },
-      "lockscreen-widgets-edit", "Open the lockscreen widgets editor"
+      "", "Open the lockscreen widgets editor"
   );
 
   ipc.registerHandler(
@@ -135,7 +135,7 @@ void LockscreenWidgetsController::registerIpc(IpcService& ipc) {
         exitEdit();
         return "ok\n";
       },
-      "lockscreen-widgets-exit", "Close the lockscreen widgets editor"
+      "", "Close the lockscreen widgets editor"
   );
 
   ipc.registerHandler(
@@ -147,7 +147,7 @@ void LockscreenWidgetsController::registerIpc(IpcService& ipc) {
         toggleEdit();
         return "ok\n";
       },
-      "lockscreen-widgets-toggle-edit", "Toggle lockscreen widgets edit mode"
+      "", "Toggle lockscreen widgets edit mode"
   );
 }
 

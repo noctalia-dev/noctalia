@@ -137,7 +137,8 @@ void Application::initIpc() {
         json += "\n}\n";
         return json;
       },
-      "status", "Print current state as JSON"
+      "", "Print current state as JSON",
+      IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 
   m_ipcService.registerHandler(
@@ -157,13 +158,15 @@ void Application::initIpc() {
         kLog.info("log level set to {}", logLevelName(*level));
         return "ok\n";
       },
-      "log-level-set <debug|info|warn|error>", "Set the console log level"
+      "<debug|info|warn|error>", "Set the console log level",
+      IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 
   m_ipcService.registerHandler(
       "log-level-status",
-      [](const std::string&) -> std::string { return std::string(logLevelName(currentLogLevel())) + "\n"; },
-      "log-level-status", "Print the current console log level"
+      [](const std::string&) -> std::string { return std::string(logLevelName(currentLogLevel())) + "\n"; }, "",
+      "Print the current console log level",
+      IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 
   auto applyNotificationDnd = [this](bool enabled) {
@@ -199,7 +202,7 @@ void Application::initIpc() {
         m_osdOverlay.show(dndOsdContent(*nextState));
         return "ok\n";
       },
-      "notification-dnd-set <on|off|true|false|1|0>", "Set notification Do Not Disturb state"
+      "<on|off|true|false|1|0>", "Set notification Do Not Disturb state"
   );
 
   m_ipcService.registerHandler(
@@ -210,13 +213,14 @@ void Application::initIpc() {
         m_osdOverlay.show(dndOsdContent(nextState));
         return "ok\n";
       },
-      "notification-dnd-toggle", "Toggle notification Do Not Disturb state"
+      "", "Toggle notification Do Not Disturb state"
   );
 
   m_ipcService.registerHandler(
       "notification-dnd-status",
-      [this](const std::string&) -> std::string { return m_notificationManager.doNotDisturb() ? "on\n" : "off\n"; },
-      "notification-dnd-status", "Print notification Do Not Disturb state"
+      [this](const std::string&) -> std::string { return m_notificationManager.doNotDisturb() ? "on\n" : "off\n"; }, "",
+      "Print notification Do Not Disturb state",
+      IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 
   m_ipcService.registerHandler(
@@ -235,7 +239,7 @@ void Application::initIpc() {
         }
         return "ok\n";
       },
-      "notification-clear-active", "Dismiss all currently active notifications"
+      "", "Dismiss all currently active notifications"
   );
 
   m_ipcService.registerHandler(
@@ -259,7 +263,7 @@ void Application::initIpc() {
         }
         return "ok\n"; // No active notification carries a default action; nothing to do.
       },
-      "notification-invoke-latest", "Invoke the default action of the most recent active notification"
+      "", "Invoke the default action of the most recent active notification"
   );
 
   m_ipcService.registerHandler(
@@ -271,7 +275,7 @@ void Application::initIpc() {
         }
         return "ok\n";
       },
-      "notification-clear-history", "Clear notification history"
+      "", "Clear notification history"
   );
 
   m_ipcService.registerHandler(
@@ -409,7 +413,7 @@ void Application::initIpc() {
         );
         return "ok\n";
       },
-      "notification-show <summary [-- body]|json>", "Show an internal Noctalia notification"
+      "<summary [-- body]|json>", "Show an internal Noctalia notification"
   );
 
   m_ipcService.registerHandler(
@@ -418,7 +422,7 @@ void Application::initIpc() {
         m_panelManager.clearClipboardHistory();
         return "ok\n";
       },
-      "clipboard-clear", "Clear clipboard history"
+      "", "Clear clipboard history"
   );
 
   m_ipcService.registerHandler(
@@ -429,7 +433,7 @@ void Application::initIpc() {
         }
         return "ok\n";
       },
-      "dpms-on", "Turn monitors on"
+      "", "Turn monitors on"
   );
 
   m_ipcService.registerHandler(
@@ -440,7 +444,69 @@ void Application::initIpc() {
         }
         return "ok\n";
       },
-      "dpms-off", "Turn monitors off"
+      "", "Turn monitors off"
+  );
+
+  m_ipcService.registerCycleHandler(
+      "workspace-switch",
+      [this](const std::string& args) -> std::string {
+        const auto parts = noctalia::ipc::splitWords(args);
+        if (parts.size() != 1 || (parts[0] != "next" && parts[0] != "prev")) {
+          return "error: workspace-switch requires <next|prev>\n";
+        }
+        // A bar widget gesture targets its own monitor; a keybind targets the focused one.
+        wl_output* output = nullptr;
+        if (const auto& context = m_ipcService.invocationContext(); context.has_value()) {
+          output = context->output;
+        }
+        if (output == nullptr) {
+          output = m_compositorPlatform.preferredInteractiveOutput();
+        }
+        const auto workspaces = m_compositorPlatform.workspaces(output);
+        if (workspaces.empty()) {
+          return "error: no workspaces on the target monitor\n";
+        }
+
+        const bool forward = parts[0] == "next";
+        const auto active = std::ranges::find(workspaces, true, &Workspace::active);
+        std::size_t target = 0;
+        if (active == workspaces.end()) {
+          target = forward ? 0 : workspaces.size() - 1;
+        } else {
+          const auto current = static_cast<std::size_t>(std::ranges::distance(workspaces.begin(), active));
+          if (forward) {
+            if (current + 1 >= workspaces.size()) {
+              return "ok\n";
+            }
+            target = current + 1;
+          } else {
+            if (current == 0) {
+              return "ok\n";
+            }
+            target = current - 1;
+          }
+        }
+        m_compositorPlatform.activateWorkspace(output, workspaces[target]);
+        return "ok\n";
+      },
+      "<next|prev>", "Switch to the adjacent workspace on the target monitor (stops at both ends)"
+  );
+
+  m_ipcService.registerCycleHandler(
+      "keyboard-layout-cycle",
+      [this](const std::string& args) -> std::string {
+        if (!noctalia::ipc::splitWords(args).empty()) {
+          return "error: keyboard-layout-cycle takes no arguments\n";
+        }
+        if (!m_compositorPlatform.hasKeyboardLayoutBackend()) {
+          return "error: this compositor has no keyboard layout backend\n";
+        }
+        if (!m_compositorPlatform.cycleKeyboardLayout()) {
+          return "error: failed to cycle the keyboard layout\n";
+        }
+        return "ok\n";
+      },
+      "", "Switch to the next keyboard layout"
   );
 
   auto workspaceAlertStatus = [this]() {
@@ -469,7 +535,7 @@ void Application::initIpc() {
         m_bar.refresh();
         return "ok\n";
       },
-      "workspace-alert-add <workspace>", "Add a workspace alert (by number, name, or id)"
+      "<workspace>", "Add a workspace alert (by number, name, or id)"
   );
   m_ipcService.registerHandler(
       "workspace-alert-add-window",
@@ -486,7 +552,7 @@ void Application::initIpc() {
         m_bar.refresh();
         return "ok\n";
       },
-      "workspace-alert-add-window <window-id>", "Add a workspace alert for a window"
+      "<window-id>", "Add a workspace alert for a window"
   );
   m_ipcService.registerHandler(
       "workspace-alert-clear",
@@ -499,7 +565,7 @@ void Application::initIpc() {
         m_bar.refresh();
         return "ok\n";
       },
-      "workspace-alert-clear <workspace>", "Clear a workspace alert"
+      "<workspace>", "Clear a workspace alert"
   );
   m_ipcService.registerHandler(
       "workspace-alert-clear-all",
@@ -511,7 +577,7 @@ void Application::initIpc() {
         m_bar.refresh();
         return "ok\n";
       },
-      "workspace-alert-clear-all", "Clear all workspace alerts"
+      "", "Clear all workspace alerts"
   );
   m_ipcService.registerHandler(
       "workspace-alert-status",
@@ -521,7 +587,8 @@ void Application::initIpc() {
         }
         return workspaceAlertStatus();
       },
-      "workspace-alert-status", "Print workspace alerts"
+      "", "Print workspace alerts",
+      IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 
   registerSessionIpc(m_ipcService, m_sessionActionRunner, m_lockScreen, m_configService);
@@ -562,7 +629,7 @@ void Application::initIpc() {
         m_keyboardBacklightOsd.showValue(*value);
         return "ok\n";
       },
-      "keyboard-backlight-osd <value>", "Show keyboard backlight OSD without changing brightness"
+      "<value>", "Show keyboard backlight OSD without changing brightness"
   );
   m_ipcService.registerHandler(
       "brightness-osd",
@@ -578,7 +645,7 @@ void Application::initIpc() {
         m_brightnessOsd.showValue(*value);
         return "ok\n";
       },
-      "brightness-osd <value>", "Show brightness OSD without changing brightness"
+      "<value>", "Show brightness OSD without changing brightness"
   );
   m_ipcService.registerHandler(
       "volume-osd",
@@ -607,7 +674,7 @@ void Application::initIpc() {
         m_audioOsd.showOutputValue(volume, sink->muted);
         return "ok\n";
       },
-      "volume-osd [value]", "Show the volume OSD without changing volume (defaults to the current volume)"
+      "[value]", "Show the volume OSD without changing volume (defaults to the current volume)"
   );
   m_ipcService.registerHandler(
       "mic-volume-osd",
@@ -636,15 +703,14 @@ void Application::initIpc() {
         m_audioOsd.showInputValue(volume, source->muted);
         return "ok\n";
       },
-      "mic-volume-osd [value]",
-      "Show the microphone volume OSD without changing volume (defaults to the current volume)"
+      "[value]", "Show the microphone volume OSD without changing volume (defaults to the current volume)"
   );
   m_configService.registerIpc(m_ipcService);
   scripting::PluginIpcRouter::instance().setPlatform(&m_compositorPlatform);
   m_ipcService.registerHandler(
       "plugin",
       [](const std::string& args) -> std::string { return scripting::PluginIpcRouter::instance().dispatch(args); },
-      "plugin <author/plugin:entry> <target[:bar-name]> <event> [payload]", "Dispatch an event to a plugin entry"
+      "<author/plugin:entry> <target[:bar-name]> <event> [payload]", "Dispatch an event to a plugin entry"
   );
   m_ipcService.registerHandler(
       "plugins",
@@ -661,10 +727,13 @@ void Application::initIpc() {
           for (const auto& s : m_pluginManager.list(scripting::CatalogAccess::LocalOnly)) {
             const std::string dependencies =
                 s.dependencies.empty() ? std::string{} : " requires " + StringUtils::join(s.dependencies, ", ");
+            const std::string heldBack = s.heldBack
+                ? std::format(" held-back (v{} needs plugin API {})", s.latestVersion, s.latestPluginApiVersion)
+                : std::string{};
             out += std::format(
-                "{} [{}] {}{}{}{}{}\n", s.id, s.source, s.version.empty() ? "-" : s.version,
-                s.enabled ? " enabled" : "", s.compatible ? "" : " incompatible", s.deprecated ? " deprecated" : "",
-                dependencies
+                "{} [{}] {}{}{}{}{}{}\n", s.id, s.source, s.version.empty() ? "-" : s.version,
+                s.enabled ? " enabled" : "", s.compatible ? "" : " incompatible", heldBack,
+                s.deprecated ? " deprecated" : "", dependencies
             );
           }
           return out.empty() ? "(no plugins)\n" : out;
@@ -738,8 +807,9 @@ void Application::initIpc() {
         }
         return "error: unknown plugins subcommand '" + cmd + "'\n";
       },
-      "plugins <list|enable|disable|update|source> ...",
-      "Manage plugins and sources (list/enable/disable/update, source list/add/remove)"
+      "<list|enable|disable|update|source> ...",
+      "Manage plugins and sources (list/enable/disable/update, source list/add/remove)",
+      IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
   m_bar.registerIpc(m_ipcService);
   m_desktopWidgetsController.registerIpc(m_ipcService);

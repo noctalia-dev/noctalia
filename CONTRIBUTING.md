@@ -32,7 +32,7 @@ project.
 | Keyboard | `xkbcommon` |
 | Rendering | `EGL`, `OpenGL ES 2.0+`, `wayland-egl` |
 | Text | `cairo`, `pango`, `pangocairo`, `freetype`, `fontconfig` |
-| Images | `Wuffs` (vendored), `stb_image_resize2`, `libwebp`, `librsvg` |
+| Images | `Wuffs` (vendored), `stb_image_resize2`, `libwebp`, `libjxl`, `librsvg` |
 | IPC | `sdbus-c++` |
 | Audio | `libpipewire`, `dr_wav` (vendored) |
 | Authentication | `PAM`, `polkit-agent-1`, `polkit-gobject-1`, `glib-2.0`, `gobject-2.0` |

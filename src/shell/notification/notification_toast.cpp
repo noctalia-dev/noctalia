@@ -2181,7 +2181,7 @@ InputArea* NotificationToast::buildCard(
   const float topTextMaxWidth = std::max(0.0f, textMaxWidth - closeButtonSize(scale) - Style::spaceSm * scale);
   const bool showAppName = shouldShowNotificationAppName(m_config, entry.appName);
 
-  auto viewport = std::make_unique<InputArea>();
+  auto viewport = ui::inputArea({});
   viewport->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
   viewport->setOnClick([this, id = entry.notificationId,
                         hasDefaultAction = !entry.actions.empty()

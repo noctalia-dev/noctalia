@@ -133,7 +133,7 @@ void FileDialogView::create() {
       .padding = Style::spaceMd * scale,
   });
 
-  auto listFocus = std::make_unique<InputArea>();
+  auto listFocus = ui::inputArea({});
   listFocus->setFocusable(true);
   listFocus->setVisible(false);
   listFocus->setParticipatesInLayout(false);

@@ -2,20 +2,18 @@
 
 #include "compositors/compositor_detect.h"
 #include "i18n/i18n.h"
+#include "system/disk_mounts.h"
 #include "system/format_units.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cstdlib>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <mutex>
-#include <sstream>
 #include <string>
 #include <sys/statvfs.h>
-#include <unordered_map>
 #include <vector>
 
 namespace {
@@ -309,26 +307,6 @@ namespace {
     return i18n::tr("system.hardware.unknown");
   }
 
-  // /proc/mounts escapes space, tab, newline and backslash as octal \NNN sequences.
-  std::string unescapeMountField(const std::string& field) {
-    std::string out;
-    out.reserve(field.size());
-    for (std::size_t i = 0; i < field.size(); ++i) {
-      if (field[i] == '\\'
-          && i + 3 < field.size()
-          && std::isdigit(static_cast<unsigned char>(field[i + 1])) != 0
-          && std::isdigit(static_cast<unsigned char>(field[i + 2])) != 0
-          && std::isdigit(static_cast<unsigned char>(field[i + 3])) != 0) {
-        const int value = (field[i + 1] - '0') * 64 + (field[i + 2] - '0') * 8 + (field[i + 3] - '0');
-        out.push_back(static_cast<char>(value));
-        i += 3;
-      } else {
-        out.push_back(field[i]);
-      }
-    }
-    return out;
-  }
-
   std::string detectCompositor() {
     const auto kind = compositors::detect();
     if (kind != compositors::CompositorKind::Unknown) {
@@ -377,42 +355,12 @@ std::string memoryTotalLabel() {
 }
 
 std::vector<std::string> physicalDiskMountPoints() {
-  std::ifstream file{"/proc/mounts"};
-  if (!file.is_open()) {
-    return {};
-  }
-
-  // Collapse btrfs subvolumes and bind mounts (same backing device, multiple mount points) to a single
-  // entry, preferring the shortest mount point so the root of the device wins.
-  std::unordered_map<std::string, std::string> byDevice;
-  std::string line;
-  while (std::getline(file, line)) {
-    std::istringstream iss{line};
-    std::string device;
-    std::string mount;
-    std::string fstype;
-    if (!(iss >> device >> mount >> fstype)) {
-      continue;
-    }
-    if (!device.starts_with("/dev/") || device.starts_with("/dev/loop") || fstype == "squashfs") {
-      continue;
-    }
-    mount = unescapeMountField(mount);
-    if (mount == "/boot" || mount.starts_with("/boot/")) {
-      continue;
-    }
-    const auto it = byDevice.find(device);
-    if (it == byDevice.end() || mount.size() < it->second.size()) {
-      byDevice[device] = mount;
-    }
-  }
-
+  auto disks = physicalDiskMounts();
   std::vector<std::string> mounts;
-  mounts.reserve(byDevice.size());
-  for (auto& [device, mount] : byDevice) {
-    mounts.push_back(mount);
+  mounts.reserve(disks.size());
+  for (auto& disk : disks) {
+    mounts.push_back(std::move(disk.path));
   }
-  std::ranges::sort(mounts);
   return mounts;
 }
 

@@ -99,7 +99,6 @@ void ControlCenterPanel::create() {
   for (auto& tab : m_tabs) {
     tab->setContentScale(scale);
     tab->setPanelCardOpacity(panelCardOpacity());
-    tab->setPanelBordersEnabled(panelBordersEnabled());
   }
 
   auto rootLayout = ui::row({
@@ -114,7 +113,7 @@ void ControlCenterPanel::create() {
         .out = &m_sidebar,
         .align = FlexAlign::Start,
         .gap = 0.0f,
-        .padding = Style::spaceSm * scale,
+        .padding = Style::spaceMd * scale,
         .fillWidth = false,
         .fillHeight = true,
         .configure = [this, scale](Flex& column) {
@@ -123,7 +122,7 @@ void ControlCenterPanel::create() {
         },
     });
 
-    auto sidebarScrollArea = std::make_unique<InputArea>();
+    auto sidebarScrollArea = ui::inputArea({});
     sidebarScrollArea->setParticipatesInLayout(false);
     sidebarScrollArea->setZIndex(-1);
     m_sidebarScrollArea = sidebarScrollArea.get();
@@ -217,7 +216,7 @@ void ControlCenterPanel::create() {
       .flexGrow = 4.0f,
   });
 
-  auto dismissArea = std::make_unique<InputArea>();
+  auto dismissArea = ui::inputArea({});
   dismissArea->setParticipatesInLayout(false);
   dismissArea->setZIndex(-1);
   dismissArea->setFocusable(false);
@@ -303,14 +302,6 @@ void ControlCenterPanel::create() {
   syncTabVisibility();
   m_firstOpenAfterCreate = true;
   selectTab(m_activeTab);
-}
-
-void ControlCenterPanel::onPanelBordersChanged(bool enabled) {
-  for (auto& tab : m_tabs) {
-    if (tab != nullptr) {
-      tab->setPanelBordersEnabled(enabled);
-    }
-  }
 }
 
 void ControlCenterPanel::onPanelCardOpacityChanged(float opacity) {

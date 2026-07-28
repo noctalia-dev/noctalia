@@ -100,6 +100,20 @@ void LockScreen::setSessionHooks(std::function<void()> onLocked, std::function<v
 
 void LockScreen::setLockEngagedCallback(std::function<void()> callback) { m_onLockEngaged = std::move(callback); }
 
+void LockScreen::setLoginBoxServices(
+    SessionActionRunner* sessionActions, MprisService* mpris, const WeatherService* weather, HttpClient* httpClient
+) {
+  m_sessionActions = sessionActions;
+  m_mpris = mpris;
+  m_weather = weather;
+  m_httpClient = httpClient;
+  for (auto& instance : m_instances) {
+    if (instance.surface != nullptr) {
+      instance.surface->setLoginBoxServices(m_sessionActions, m_mpris, m_weather, m_httpClient);
+    }
+  }
+}
+
 bool LockScreen::lock() {
   if (m_wayland == nullptr || m_renderContext == nullptr) {
     return false;
@@ -219,6 +233,14 @@ void LockScreen::requestLayout() {
   }
 }
 
+void LockScreen::requestUpdate() {
+  for (auto& inst : m_instances) {
+    if (inst.surface != nullptr) {
+      inst.surface->requestUpdate();
+    }
+  }
+}
+
 void LockScreen::onOutputChange() {
   if (m_lockDeferred) {
     if (m_wayland != nullptr && !m_wayland->outputs().empty()) {
@@ -286,6 +308,8 @@ void LockScreen::onConfigChanged() {
   }
   applyOutputRestriction();
   applyWallpaperStyleToSurfaces();
+  requestUpdate();
+  requestLayout();
 }
 
 void LockScreen::onWallpaperChanged() {
@@ -433,7 +457,7 @@ void LockScreen::handleLocked(void* data, ext_session_lock_v1* /*lock*/) {
   }
   self->m_lockPending = false;
   self->m_locked = true;
-  // Idle status is empty; the surface renders the (togglable) password hint itself.
+  // Idle status is empty; the surface renders the password hint itself.
   self->m_status.clear();
   self->m_statusIsError = false;
   for (auto& instance : self->m_instances) {
@@ -697,6 +721,7 @@ void LockScreen::createInstance(const WaylandOutput& output) {
   surface->setOnLogin([this]() { tryAuthenticate(); });
   surface->setOnCycleLayout([this]() { cycleKeyboardLayout(); });
   surface->setOnPasswordChanged([this](const std::string& value) { handlePasswordEdited(value); });
+  surface->setLoginBoxServices(m_sessionActions, m_mpris, m_weather, m_httpClient);
   surface->setPromptState(m_user, m_password, m_status, m_statusIsError, m_authenticating);
   applyIndicatorsToSurface(*surface);
 

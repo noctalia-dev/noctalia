@@ -60,7 +60,7 @@ std::unique_ptr<Flex> WeatherTab::create() {
   auto leftColumn = ui::column({
       .out = &m_leftColumn,
       .align = FlexAlign::Stretch,
-      .gap = Style::spaceSm * scale,
+      .gap = Style::spaceMd * scale,
       .flexGrow = 3.0f,
   });
 
@@ -71,8 +71,8 @@ std::unique_ptr<Flex> WeatherTab::create() {
       .padding = Style::spaceXs * scale,
       .clipChildren = true,
       .flexGrow = 1.0f,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
-        applySectionCardStyle(card, scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](Flex& card) {
+        applySectionCardStyle(card, scale, opacity);
         card.setDirection(FlexDirection::Horizontal);
         card.setPadding(Style::spaceXs * scale, Style::spaceXs * scale);
         card.setGap(Style::spaceSm * scale);
@@ -202,8 +202,8 @@ std::unique_ptr<Flex> WeatherTab::create() {
       .out = &m_detailsCard,
       .align = FlexAlign::Stretch,
       .gap = 0.0f,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
-        applySectionCardStyle(card, scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](Flex& card) {
+        applySectionCardStyle(card, scale, opacity);
         card.setPadding(Style::spaceMd * scale, Style::spaceMd * scale, Style::spaceLg * scale, Style::spaceMd * scale);
         card.setGap(0.0f);
       },
@@ -272,8 +272,8 @@ std::unique_ptr<Flex> WeatherTab::create() {
       .gap = Style::spaceXs * scale,
       .fillHeight = true,
       .flexGrow = 2.0f,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& column) {
-        applySectionCardStyle(column, scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](Flex& column) {
+        applySectionCardStyle(column, scale, opacity);
         column.setGap(Style::spaceXs * scale);
         column.setPadding(Style::spaceMd * scale, Style::spaceMd * scale);
         column.setClipChildren(true);
@@ -369,7 +369,7 @@ std::unique_ptr<Flex> WeatherTab::create() {
         })
     );
 
-    auto hitArea = std::make_unique<InputArea>();
+    auto hitArea = ui::inputArea({});
     hitArea->setAcceptedButtons(0);
     hitArea->setParticipatesInLayout(false);
     hitArea->setZIndex(2);

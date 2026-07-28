@@ -73,7 +73,7 @@ DesktopWeatherWidget::DesktopWeatherWidget(const WeatherService* weather, Option
       m_forecastDays(std::clamp(options.forecastDays, 1, static_cast<int>(kMaxForecastRows))) {}
 
 void DesktopWeatherWidget::create() {
-  auto rootNode = std::make_unique<Node>();
+  auto rootNode = ui::node({});
   rootNode->setClipChildren(true);
 
   auto glyph = ui::glyph({

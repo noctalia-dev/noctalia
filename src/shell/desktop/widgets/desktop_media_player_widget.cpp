@@ -37,7 +37,7 @@ DesktopMediaPlayerWidget::DesktopMediaPlayerWidget(MprisService* mpris, HttpClie
 DesktopMediaPlayerWidget::~DesktopMediaPlayerWidget() { m_aliveGuard.reset(); }
 
 void DesktopMediaPlayerWidget::create() {
-  auto rootNode = std::make_unique<Node>();
+  auto rootNode = ui::node({});
 
   auto artwork = ui::image({
       .out = &m_artwork,
@@ -373,7 +373,7 @@ void DesktopMediaPlayerWidget::sync(Renderer& renderer) {
     }
   }
 
-  if (canGoPreviousChanged || canGoNextChanged) {
+  if (titleChanged || artistChanged || canGoPreviousChanged || canGoNextChanged) {
     requestLayout();
   } else {
     requestRedraw();

@@ -45,12 +45,19 @@ namespace ui {
   // They are valid only while that subtree remains alive.
   struct NodeProps {
     Node** out = nullptr;
+    std::optional<float> x = std::nullopt;
+    std::optional<float> y = std::nullopt;
     std::optional<float> width = std::nullopt;
     std::optional<float> height = std::nullopt;
+    std::optional<float> frameWidth = std::nullopt;
+    std::optional<float> frameHeight = std::nullopt;
+    std::optional<std::int32_t> zIndex = std::nullopt;
     std::optional<float> flexGrow = std::nullopt;
     std::optional<float> opacity = std::nullopt;
     std::optional<bool> visible = std::nullopt;
     std::optional<bool> participatesInLayout = std::nullopt;
+    std::optional<bool> hitTestVisible = std::nullopt;
+    AnimationManager* animationManager = nullptr;
     std::optional<bool> clipChildren = std::nullopt;
     std::function<void(Node&)> configure = nullptr;
   };
@@ -63,19 +70,28 @@ namespace ui {
     std::optional<bool> enabled = std::nullopt;
     std::optional<InputArea::HitShape> hitShape = std::nullopt;
     std::optional<bool> focusable = std::nullopt;
+    std::optional<bool> tabStop = std::nullopt;
+    TextInputClient* textInputClient = nullptr;
     std::optional<std::string> tooltip = std::nullopt;
     std::optional<std::vector<TooltipRow>> tooltipRows = std::nullopt;
     std::function<TooltipContent()> tooltipProvider = nullptr;
     std::optional<std::chrono::milliseconds> tooltipRefreshInterval = std::nullopt;
     std::optional<TooltipPlacement> tooltipPlacement = std::nullopt;
     std::optional<TooltipAnchorInsets> tooltipAnchorInsets = std::nullopt;
+    std::optional<float> x = std::nullopt;
+    std::optional<float> y = std::nullopt;
     std::optional<float> width = std::nullopt;
     std::optional<float> height = std::nullopt;
+    std::optional<float> frameWidth = std::nullopt;
+    std::optional<float> frameHeight = std::nullopt;
+    std::optional<std::int32_t> zIndex = std::nullopt;
     std::optional<float> flexGrow = std::nullopt;
     std::optional<float> opacity = std::nullopt;
     std::optional<bool> visible = std::nullopt;
     std::optional<bool> participatesInLayout = std::nullopt;
     std::optional<bool> clipChildren = std::nullopt;
+    std::optional<bool> hitTestVisible = std::nullopt;
+    AnimationManager* animationManager = nullptr;
     std::function<void(const InputArea::PointerData&)> onEnter = nullptr;
     std::function<void()> onLeave = nullptr;
     std::function<void(const InputArea::PointerData&)> onMotion = nullptr;
@@ -225,11 +241,12 @@ namespace ui {
   struct BoxProps {
     Box** out = nullptr;
     std::optional<ColorSpec> fill = std::nullopt;
+    std::optional<ColorSpec> border = std::nullopt;
+    std::optional<float> borderWidth = std::nullopt;
     std::optional<float> radius = std::nullopt;
     std::optional<float> softness = std::nullopt;
     std::optional<float> cardStyleScale = std::nullopt;
     std::optional<float> cardStyleFillOpacity = std::nullopt;
-    std::optional<bool> cardStyleShowBorder = std::nullopt;
     std::optional<float> width = std::nullopt;
     std::optional<float> height = std::nullopt;
     std::optional<float> flexGrow = std::nullopt;
@@ -384,6 +401,7 @@ namespace ui {
   struct ScrollViewProps {
     ScrollView** out = nullptr;
     ScrollViewState* state = nullptr;
+    std::optional<ScrollOrientation> orientation = std::nullopt;
     std::optional<bool> scrollbarVisible = std::nullopt;
     std::optional<float> viewportPaddingH = std::nullopt;
     std::optional<float> viewportPaddingV = std::nullopt;

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "core/timer_manager.h"
-#include "render/core/thumbnail_service.h"
 #include "shell/panel/panel.h"
 
 #include <cstddef>
@@ -28,9 +27,7 @@ struct ClipboardEntry;
 
 class ClipboardPanel : public Panel {
 public:
-  ClipboardPanel(
-      ClipboardService* clipboard, ConfigService* config, ThumbnailService* thumbnails, AsyncTextureCache* asyncTextures
-  );
+  ClipboardPanel(ClipboardService* clipboard, ConfigService* config, AsyncTextureCache* asyncTextures);
   ~ClipboardPanel() override;
   void setActivateCallback(std::function<void(const ClipboardEntry&)> callback);
   void clearHistoryFromIpc();
@@ -78,7 +75,6 @@ private:
   ClipboardService* m_clipboard = nullptr;
   std::function<void(const ClipboardEntry&)> m_activateCallback;
   ConfigService* m_config = nullptr;
-  ThumbnailService* m_thumbnails = nullptr;
   AsyncTextureCache* m_asyncTextures = nullptr;
 
   InputArea* m_focusArea = nullptr;
@@ -126,6 +122,4 @@ private:
   float m_lastPreviewHeight = -1.0f;
   float m_listRowHeight = 0.0f;
   bool m_pendingScrollToSelected = false;
-  bool m_thumbnailRefreshPending = false;
-  ThumbnailService::Subscription m_thumbnailPendingSub;
 };

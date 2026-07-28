@@ -1,10 +1,10 @@
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
 
+#include "core/files/directory_scanner.h"
 #include "core/log.h"
 #include "util/string_utils.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cerrno>
 #include <sys/eventfd.h>
 #include <system_error>
@@ -14,14 +14,6 @@
 namespace {
 
   constexpr Logger kLog("wp-scan");
-
-  bool hasImageExtension(const std::filesystem::path& p) {
-    auto ext = p.extension().string();
-    for (char& c : ext) {
-      c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    }
-    return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" || ext == ".bmp" || ext == ".gif";
-  }
 
   // Pull the entry's modification time from the cached directory_entry metadata
   // so date sorting later never has to stat again.
@@ -55,7 +47,7 @@ namespace {
       if (!entry.is_regular_file(typeEc) || typeEc) {
         continue;
       }
-      if (!hasImageExtension(entry.path())) {
+      if (!DirectoryScanner::isImagePath(entry.path())) {
         continue;
       }
       WallpaperEntry e;
@@ -87,7 +79,7 @@ namespace {
         out.push_back(std::move(e));
         continue;
       }
-      if (entry.is_regular_file(typeEc) && !typeEc && hasImageExtension(entry.path())) {
+      if (entry.is_regular_file(typeEc) && !typeEc && DirectoryScanner::isImagePath(entry.path())) {
         WallpaperEntry e;
         e.name = entry.path().filename().string();
         e.absPath = entry.path();

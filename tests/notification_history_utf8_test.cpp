@@ -7,13 +7,12 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <unistd.h>
 #include <utility>
-
-#include <nlohmann/json.hpp>
 
 namespace {
 
@@ -44,8 +43,10 @@ namespace {
     std::filesystem::path path;
 
     explicit TempFile(const std::string& suffix)
-        : path(std::filesystem::temp_directory_path() /
-               ("noctalia-test-" + std::to_string(static_cast<long long>(getpid())) + "-" + suffix)) {
+        : path(
+              std::filesystem::temp_directory_path()
+              / ("noctalia-test-" + std::to_string(static_cast<long long>(getpid())) + "-" + suffix)
+          ) {
       std::filesystem::remove(path);
       std::filesystem::remove(path.string() + ".tmp");
     }
@@ -73,8 +74,7 @@ int main() {
     std::string s(1023, 'a');
     s.push_back(static_cast<char>(0xD1));
     s.push_back(static_cast<char>(0x80));
-    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1023,
-                "2-byte split: kept partial code point");
+    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1023, "2-byte split: kept partial code point");
   }
 
   // 2-byte: fits at boundary
@@ -82,8 +82,7 @@ int main() {
     std::string s(1022, 'a');
     s.push_back(static_cast<char>(0xD1));
     s.push_back(static_cast<char>(0x80));
-    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1024,
-                "2-byte exact: removed complete code point");
+    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1024, "2-byte exact: removed complete code point");
   }
 
   // 4-byte: split after 1st byte
@@ -93,8 +92,7 @@ int main() {
     s.push_back(static_cast<char>(0x9F));
     s.push_back(static_cast<char>(0x98));
     s.push_back(static_cast<char>(0x80));
-    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1023,
-                "4-byte split@1: kept partial code point");
+    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1023, "4-byte split@1: kept partial code point");
   }
 
   // 4-byte: split after 2nd byte
@@ -104,8 +102,7 @@ int main() {
     s.push_back(static_cast<char>(0x9F));
     s.push_back(static_cast<char>(0x98));
     s.push_back(static_cast<char>(0x80));
-    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1022,
-                "4-byte split@2: kept partial code point");
+    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1022, "4-byte split@2: kept partial code point");
   }
 
   // 4-byte: split after 3rd byte
@@ -115,8 +112,7 @@ int main() {
     s.push_back(static_cast<char>(0x9F));
     s.push_back(static_cast<char>(0x98));
     s.push_back(static_cast<char>(0x80));
-    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1021,
-                "4-byte split@3: kept partial code point");
+    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1021, "4-byte split@3: kept partial code point");
   }
 
   // 4-byte: fits exactly
@@ -126,8 +122,7 @@ int main() {
     s.push_back(static_cast<char>(0x9F));
     s.push_back(static_cast<char>(0x98));
     s.push_back(static_cast<char>(0x80));
-    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1024,
-                "4-byte exact: removed complete code point");
+    ok &= check(StringUtils::truncateUtf8(s, 1024).size() == 1024, "4-byte exact: removed complete code point");
   }
 
   // Persistence: malformed body serializes without throwing and produces valid JSON
@@ -138,12 +133,14 @@ int main() {
     body.push_back(static_cast<char>(0xD1));
 
     std::deque<NotificationHistoryEntry> entries;
-    entries.push_back(NotificationHistoryEntry{
-        .notification = makeNotification(std::move(body)),
-        .active = true,
-        .closeReason = std::nullopt,
-        .eventSerial = 1,
-    });
+    entries.push_back(
+        NotificationHistoryEntry{
+            .notification = makeNotification(std::move(body)),
+            .active = true,
+            .closeReason = std::nullopt,
+            .eventSerial = 1,
+        }
+    );
 
     try {
       if (!saveNotificationHistoryToFile(tmp.path, entries, 315, 2)) {

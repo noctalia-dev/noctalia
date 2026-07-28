@@ -406,6 +406,7 @@ void RenderContext::renderNode(
               .textureWidth = static_cast<float>(img->textureWidth()),
               .textureHeight = static_cast<float>(img->textureHeight()),
               .transform = worldTransform,
+              .scrim = img->scrim(),
           }
       );
     }

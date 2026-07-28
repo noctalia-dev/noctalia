@@ -38,10 +38,8 @@ namespace {
 
 } // namespace
 
-PrivacyWidget::PrivacyWidget(PipeWireService* pipewire, ConfigService* configService, PrivacyWidgetConfig config)
-    : m_pipewire(pipewire), m_configService(configService), m_config(config) {
-  m_config.iconSpacing = std::clamp(m_config.iconSpacing, 0, 48);
-}
+PrivacyWidget::PrivacyWidget(PipeWireService* pipewire, ConfigService* configService, Options options)
+    : m_pipewire(pipewire), m_configService(configService), m_config(options) {}
 
 void PrivacyWidget::create() {
   setRoot(

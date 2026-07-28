@@ -9,6 +9,7 @@ namespace {
   bool g_inputBordersEnabled = true;
   bool g_popupBordersEnabled = true;
   bool g_popupShadowsEnabled = true;
+  bool g_cardBordersEnabled = true;
 
 } // namespace
 
@@ -50,6 +51,9 @@ namespace Style {
 
   bool popupBordersEnabled() noexcept { return g_popupBordersEnabled; }
   void setPopupBordersEnabled(bool enabled) { g_popupBordersEnabled = enabled; }
+
+  bool cardBordersEnabled() noexcept { return g_cardBordersEnabled; }
+  void setCardBordersEnabled(bool enabled) { g_cardBordersEnabled = enabled; }
 
   bool popupShadowsEnabled() noexcept { return g_popupShadowsEnabled; }
   void setPopupShadowsEnabled(bool enabled) { g_popupShadowsEnabled = enabled; }

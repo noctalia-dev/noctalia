@@ -5,6 +5,7 @@
 #include "render/scene/input_dispatcher.h"
 #include "shell/panel/attached_panel_context.h"
 #include "shell/panel/panel_click_shield.h"
+#include "shell/panel/persistent_panel_host.h"
 #include "ui/dialogs/layer_popup_host.h"
 #include "wayland/hyprland/popup_grab_host.h"
 
@@ -60,10 +61,17 @@ public:
 
   // Optional: invoked from shell UI (e.g. control center) to spawn the standalone settings toplevel.
   void setOpenSettingsWindowCallback(std::function<void(std::string)> callback);
+  void setOpenWidgetSettingsCallback(std::function<void(std::string barName, std::string widgetName)> callback);
+  // Returns false when the plugin is unknown, disabled, or exposes no settings.
+  void setOpenPluginSettingsCallback(std::function<bool(std::string pluginId)> callback);
   void setCloseSettingsWindowCallback(std::function<void()> callback);
   void setToggleSettingsWindowCallback(std::function<void(std::string)> callback);
   void setCloseDesktopWidgetsEditorCallback(std::function<void()> callback);
   void openSettingsWindow(std::string context = "");
+  // Closes any open panel, then opens the settings window at the plugin's settings.
+  // False when the settings window is unavailable, or the plugin is unknown, disabled, or
+  // exposes no settings.
+  [[nodiscard]] bool openPluginSettings(const std::string& pluginId);
   void closeSettingsWindow();
   void toggleSettingsWindow(std::string context = "");
   void setAttachedPanelGeometryCallback(
@@ -120,6 +128,14 @@ public:
   void clearActivePopup();
 
   void refresh();
+  // Re-read preferredWidth/Height on the active detached panel and request a new
+  // layer-shell size (e.g. polkit growing when a password field appears).
+  void relayoutActivePanelPreferredSize();
+  // Refresh a single panel by id, whichever host owns it. Used by content that
+  // knows which panel it belongs to (e.g. a plugin panel's new UI tree).
+  void refreshPanel(std::string_view panelId);
+  // Close a panel by id, whichever host owns it.
+  void closePanelById(std::string_view panelId);
   // Reacts to a ConfigService reload while a panel is open: re-pulls the host bar's
   // per-panel-relevant config (attached background opacity), styling, and compositor
   // blur region. No-op when no panel is open.
@@ -175,6 +191,8 @@ private:
   ConfigService* m_config = nullptr;
   RenderContext* m_renderContext = nullptr;
   std::function<void(std::string)> m_openSettingsWindow;
+  std::function<void(std::string, std::string)> m_openWidgetSettings;
+  std::function<bool(std::string)> m_openPluginSettings;
   std::function<void()> m_closeSettingsWindow;
   std::function<void(std::string)> m_toggleSettingsWindow;
   std::function<void()> m_closeDesktopWidgetsEditor;
@@ -188,6 +206,7 @@ private:
   std::function<std::optional<std::string>(wl_output*, std::string_view)> m_attachedPanelLayerProvider;
   std::function<bool(wl_output*, std::string_view)> m_attachedPanelBarSettledCallback;
   PanelClickShield m_clickShield;
+  PersistentPanelHost m_persistentHost;
   std::unique_ptr<FocusGrab> m_focusGrab;
 
   std::unique_ptr<Surface> m_surface;

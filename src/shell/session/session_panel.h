@@ -52,7 +52,6 @@ private:
 
   static constexpr float kActionButtonMinHeight = 112.0f;
   static constexpr float kButtonMinWidth = 152.0f;
-  static constexpr float kPanelMinWidth = 680.0f;
   static constexpr std::size_t kMaxColumns = 5;
 
   void doLayout(Renderer& renderer, float width, float height) override;

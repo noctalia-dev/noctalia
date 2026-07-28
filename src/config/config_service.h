@@ -127,6 +127,7 @@ public:
   // Persist app-owned UI/runtime state to state.toml. This does not affect Config reloads.
   bool setStateBool(std::string_view owner, std::string_view key, bool value);
   bool setStateString(std::string_view owner, std::string_view key, std::string_view value);
+  bool clearStateOwner(std::string_view owner);
   bool markSetupWizardCompleted();
   [[nodiscard]] bool hasOverride(const std::vector<std::string>& path) const;
   [[nodiscard]] bool hasEffectiveOverride(const std::vector<std::string>& path) const;
@@ -175,6 +176,10 @@ private:
       const std::vector<std::string>& path, const toml::table& overrides, const Config* parsedWith = nullptr
   ) const;
   [[nodiscard]] std::size_t overridePreserveDepthForPath(const std::vector<std::string>& path) const;
+  // A capsule_group override replaces the whole array, so clearing a lane override can restore a
+  // config-file lane whose group token the override no longer defines. Rewrites the affected
+  // arrays in `candidate` so every referenced group resolves again.
+  void reconcileCapsuleGroupOverrides(toml::table& candidate) const;
   void setupWatch();
   // Reconciles inotify watches for [include]d files: watches the parent dir of
   // every loaded file plus every directory named in an [include].files list, and

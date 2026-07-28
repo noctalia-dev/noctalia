@@ -67,6 +67,10 @@ namespace scripting {
     // widgets use this to leave scroll events unconsumed when the plugin has no
     // handler, so they still reach the bar underneath.
     [[nodiscard]] bool hasOnScroll() const;
+    // True once the script has loaded and defines a global onKey. A plugin panel checks this
+    // before consuming a capture_keys chord, so declaring one without a handler does not
+    // silently swallow the key.
+    [[nodiscard]] bool hasOnKey() const;
     [[nodiscard]] bool unhealthy() const;
 
   private:

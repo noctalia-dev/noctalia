@@ -20,6 +20,7 @@
 #include <fstream>
 #include <iterator>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <type_traits>
 #include <utility>
@@ -288,20 +289,8 @@ namespace {
     if (ovr.hoverHighlight) {
       resolved.hoverHighlight = *ovr.hoverHighlight;
     }
-    if (ovr.deadZone.command) {
-      resolved.deadZone.command = *ovr.deadZone.command;
-    }
-    if (ovr.deadZone.rightCommand) {
-      resolved.deadZone.rightCommand = *ovr.deadZone.rightCommand;
-    }
-    if (ovr.deadZone.middleCommand) {
-      resolved.deadZone.middleCommand = *ovr.deadZone.middleCommand;
-    }
-    if (ovr.deadZone.scrollUpCommand) {
-      resolved.deadZone.scrollUpCommand = *ovr.deadZone.scrollUpCommand;
-    }
-    if (ovr.deadZone.scrollDownCommand) {
-      resolved.deadZone.scrollDownCommand = *ovr.deadZone.scrollDownCommand;
+    if (ovr.deadZone.actions) {
+      resolved.deadZone.actions = *ovr.deadZone.actions;
     }
     return resolved;
   }
@@ -697,6 +686,16 @@ namespace {
     return true;
   }
 
+  const BarConfig* findBarConfig(const Config& cfg, std::string_view name) {
+    const auto it = std::ranges::find(cfg.bars, name, &BarConfig::name);
+    return it != cfg.bars.end() ? &*it : nullptr;
+  }
+
+  const BarMonitorOverride* findBarMonitorOverride(const BarConfig& bar, std::string_view match) {
+    const auto it = std::ranges::find(bar.monitorOverrides, match, &BarMonitorOverride::match);
+    return it != bar.monitorOverrides.end() ? &*it : nullptr;
+  }
+
   bool overridePresenceIsSemantic(const std::vector<std::string>& path) {
     if (path.size() == 3 && path[0] == "widget" && path[2] == "type") {
       return true;
@@ -738,6 +737,7 @@ ConfigChangeSet computeConfigChangeSet(const Config& prev, const Config& next) {
       .controlCenter = !(prev.controlCenter == next.controlCenter),
       .plugins = !pluginsConfigEqual(prev.plugins, next.plugins),
       .hotCorners = !(prev.hotCorners == next.hotCorners),
+      .storage = !(prev.storage == next.storage),
       .accessibility = !(prev.accessibility == next.accessibility),
   };
 }
@@ -1157,6 +1157,84 @@ std::size_t ConfigService::overridePreserveDepthForPath(const std::vector<std::s
     return 2;
   }
   return 0;
+}
+
+void ConfigService::reconcileCapsuleGroupOverrides(toml::table& candidate) const {
+  const auto* barRoot = candidate.get_as<toml::table>("bar");
+  if (barRoot == nullptr) {
+    return;
+  }
+
+  // Scope = the table owning a capsule_group array: a bar, or one of its monitor overrides.
+  std::vector<std::vector<std::string>> scopePaths;
+  for (const auto& [barName, barNode] : *barRoot) {
+    const auto* barTable = barNode.as_table();
+    if (barTable == nullptr) {
+      continue;
+    }
+    const std::string name(barName.str());
+    if (barTable->contains("capsule_group")) {
+      scopePaths.push_back({"bar", name, "capsule_group"});
+    }
+    const auto* monitorRoot = barTable->get_as<toml::table>("monitor");
+    if (monitorRoot == nullptr) {
+      continue;
+    }
+    for (const auto& [match, monitorNode] : *monitorRoot) {
+      const auto* monitorTable = monitorNode.as_table();
+      if (monitorTable != nullptr && monitorTable->contains("capsule_group")) {
+        scopePaths.push_back({"bar", name, "monitor", std::string(match.str()), "capsule_group"});
+      }
+    }
+  }
+  if (scopePaths.empty()) {
+    return;
+  }
+
+  const auto resolved = configForOverrides(candidate);
+  const auto fileConfig = configForOverrides(toml::table{});
+  if (!resolved.has_value() || !fileConfig.has_value()) {
+    return;
+  }
+
+  for (const auto& path : scopePaths) {
+    const BarConfig* bar = findBarConfig(*resolved, path[1]);
+    const BarConfig* fileBar = findBarConfig(*fileConfig, path[1]);
+    if (bar == nullptr || fileBar == nullptr) {
+      continue;
+    }
+
+    const bool monitorScope = path.size() == 5;
+    const BarMonitorOverride* ovr = monitorScope ? findBarMonitorOverride(*bar, path[3]) : nullptr;
+    if (monitorScope && (ovr == nullptr || !ovr->widgetCapsuleGroups.has_value())) {
+      continue;
+    }
+    const BarMonitorOverride* fileOvr = monitorScope ? findBarMonitorOverride(*fileBar, path[3]) : nullptr;
+
+    const std::vector<BarCapsuleGroupStyle>& current =
+        monitorScope ? *ovr->widgetCapsuleGroups : bar->widgetCapsuleGroups;
+    const std::vector<BarCapsuleGroupStyle>& base = fileOvr != nullptr && fileOvr->widgetCapsuleGroups.has_value()
+        ? *fileOvr->widgetCapsuleGroups
+        : fileBar->widgetCapsuleGroups;
+    const std::set<std::string> referenced =
+        monitorScope ? capsuleGroupRefsForMonitorScope(*bar, *ovr) : capsuleGroupRefsForBarScope(*bar);
+
+    const std::vector<BarCapsuleGroupStyle> reconciled = reconcileCapsuleGroups(current, base, referenced);
+    if (reconciled == current) {
+      continue;
+    }
+    if (reconciled == base) {
+      eraseOverridePath(candidate, path, overridePreserveDepthForPath(path));
+      continue;
+    }
+    toml::table* scopeTable = &candidate;
+    for (std::size_t i = 0; i + 1 < path.size() && scopeTable != nullptr; ++i) {
+      scopeTable = scopeTable->get_as<toml::table>(path[i]);
+    }
+    if (scopeTable != nullptr) {
+      insertOverrideValue(*scopeTable, "capsule_group", reconciled);
+    }
+  }
 }
 
 std::optional<Config> ConfigService::configForOverrides(const toml::table& overrides) const {
@@ -1713,6 +1791,8 @@ bool ConfigService::clearOverrides(const std::vector<std::vector<std::string>>& 
     m_lastMutationError.clear();
     return true;
   }
+
+  reconcileCapsuleGroupOverrides(next);
 
   if (!validateOverrideMutation(next)) {
     return false;

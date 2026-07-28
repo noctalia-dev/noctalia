@@ -232,24 +232,37 @@ Input::Input() {
           ? pointToByteOffset(data.localX - textStartX, data.localY - kMultilinePadV + m_scrollOffsetY)
           : xToByteOffset(data.localX - textStartX + m_scrollOffset - m_contentLeadSlack);
       const auto now = std::chrono::steady_clock::now();
-      const bool isDoubleClick = data.button == BTN_LEFT
+      const bool inMultiClickWindow = data.button == BTN_LEFT
           && m_hasLastPrimaryPress
           && now - m_lastPrimaryPressTime <= kDoubleClickThreshold
           && std::abs(data.localX - m_lastPrimaryPressX) <= kDoubleClickDistance
           && std::abs(data.localY - m_lastPrimaryPressY) <= kDoubleClickDistance;
 
       if (data.button == BTN_LEFT) {
+        m_primaryClickCount = inMultiClickWindow ? (m_primaryClickCount >= 3 ? 1 : m_primaryClickCount + 1) : 1;
         m_lastPrimaryPressTime = now;
         m_lastPrimaryPressX = data.localX;
         m_lastPrimaryPressY = data.localY;
         m_hasLastPrimaryPress = true;
       } else {
         m_hasLastPrimaryPress = false;
+        m_primaryClickCount = 0;
       }
 
-      if (isDoubleClick) {
+      if (data.button == BTN_LEFT && m_primaryClickCount == 2) {
+        m_pointerSelectGranularity = PointerSelectGranularity::Word;
         selectWordAtByteOffset(offset);
+        m_pointerSelectPivotStart = selectionStart();
+        m_pointerSelectPivotEnd = selectionEnd();
+      } else if (data.button == BTN_LEFT && m_primaryClickCount == 3) {
+        m_pointerSelectGranularity = PointerSelectGranularity::Line;
+        selectLineAtByteOffset(offset);
+        m_pointerSelectPivotStart = selectionStart();
+        m_pointerSelectPivotEnd = selectionEnd();
       } else {
+        m_pointerSelectGranularity = PointerSelectGranularity::Character;
+        m_pointerSelectPivotStart = offset;
+        m_pointerSelectPivotEnd = offset;
         m_cursorPos = offset;
         m_selectionAnchor = offset;
       }
@@ -273,7 +286,9 @@ Input::Input() {
           m_scrollOffsetY += currentLineHeight();
         }
         clampScrollOffsetY();
-        m_cursorPos = pointToByteOffset(data.localX - textStartX, data.localY - kMultilinePadV + m_scrollOffsetY);
+        const std::size_t offset =
+            pointToByteOffset(data.localX - textStartX, data.localY - kMultilinePadV + m_scrollOffsetY);
+        extendPointerSelectionToByteOffset(offset);
         updateInteractiveGeometry();
         updateCursorVisibility();
         markPaintDirty();
@@ -285,19 +300,21 @@ Input::Input() {
       const float edgePx = std::max(12.0f, m_horizontalPadding);
       const float scrollNudge = std::max(4.0f, textViewportWidth() * 0.02f);
       bool handledByEdgeScroll = false;
+      std::size_t offset = m_cursorPos;
       if (data.localX <= edgePx) {
         m_scrollOffset -= scrollNudge;
-        m_cursorPos = prevCharPos(m_value, m_cursorPos);
+        offset = prevCharPos(m_value, m_cursorPos);
         handledByEdgeScroll = true;
       } else if (data.localX >= widthPx - edgePx) {
         m_scrollOffset += scrollNudge;
-        m_cursorPos = nextCharPos(m_value, m_cursorPos);
+        offset = nextCharPos(m_value, m_cursorPos);
         handledByEdgeScroll = true;
       }
       clampScrollOffset();
       if (!handledByEdgeScroll) {
-        m_cursorPos = xToByteOffset(data.localX - textStartX + m_scrollOffset - m_contentLeadSlack);
+        offset = xToByteOffset(data.localX - textStartX + m_scrollOffset - m_contentLeadSlack);
       }
+      extendPointerSelectionToByteOffset(offset);
       requestCaretUpdate();
       revealCursor();
       notifyTextInputStateChanged(TextInputChangeCause::Other);
@@ -1775,6 +1792,61 @@ void Input::selectWordAtByteOffset(std::size_t offset) {
   const std::size_t end = wordEndForByteOffset(offset);
   m_selectionAnchor = start;
   m_cursorPos = end;
+}
+
+void Input::selectLineAtByteOffset(std::size_t offset) {
+  if (m_passwordMode || !m_multiline) {
+    m_selectionAnchor = 0;
+    m_cursorPos = m_value.size();
+    return;
+  }
+
+  std::size_t start = 0;
+  std::size_t end = m_value.size();
+  if (multilineStopsValid()) {
+    start = lineStartForByte(offset);
+    end = lineEndForByte(offset);
+  } else {
+    // Layout stops not ready yet — fall back to hard newline bounds.
+    const std::size_t pos = std::min(offset, m_value.size());
+    const auto left = m_value.rfind('\n', pos == 0 ? 0 : pos - 1);
+    start = left == std::string::npos ? 0 : left + 1;
+    const auto right = m_value.find('\n', pos);
+    end = right == std::string::npos ? m_value.size() : right;
+  }
+  m_selectionAnchor = start;
+  m_cursorPos = end;
+}
+
+void Input::extendPointerSelectionToByteOffset(std::size_t offset) {
+  if (m_pointerSelectGranularity == PointerSelectGranularity::Character) {
+    m_cursorPos = offset;
+    return;
+  }
+
+  std::size_t unitStart = offset;
+  std::size_t unitEnd = offset;
+  if (m_pointerSelectGranularity == PointerSelectGranularity::Word) {
+    unitStart = wordStartForByteOffset(offset);
+    unitEnd = wordEndForByteOffset(offset);
+  } else {
+    if (m_passwordMode || !m_multiline) {
+      unitStart = 0;
+      unitEnd = m_value.size();
+    } else if (multilineStopsValid()) {
+      unitStart = lineStartForByte(offset);
+      unitEnd = lineEndForByte(offset);
+    } else {
+      const std::size_t pos = std::min(offset, m_value.size());
+      const auto left = m_value.rfind('\n', pos == 0 ? 0 : pos - 1);
+      unitStart = left == std::string::npos ? 0 : left + 1;
+      const auto right = m_value.find('\n', pos);
+      unitEnd = right == std::string::npos ? m_value.size() : right;
+    }
+  }
+
+  m_selectionAnchor = std::min(m_pointerSelectPivotStart, unitStart);
+  m_cursorPos = std::max(m_pointerSelectPivotEnd, unitEnd);
 }
 
 std::size_t Input::wordStartForByteOffset(std::size_t offset) const {

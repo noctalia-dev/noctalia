@@ -3,8 +3,8 @@
 #include "util/string_utils.h"
 
 #include <cassert>
-#include <string>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -142,8 +142,7 @@ int main() {
   assert(unknownApps[1].entry.id == "unknown-app");
 
   const DesktopEntry easyEffects = easyEffectsEntry();
-  const DesktopEntry kdeResolved =
-      app_identity::resolveRunningDesktopEntry("org.kde.easyeffects", {easyEffects});
+  const DesktopEntry kdeResolved = app_identity::resolveRunningDesktopEntry("org.kde.easyeffects", {easyEffects});
   assert(kdeResolved.id == "com.github.wwmm.easyeffects");
   assert(kdeResolved.name == "Easy Effects");
   assert(kdeResolved.icon == "easyeffects");
@@ -152,8 +151,7 @@ int main() {
       duplicateTailEntry("com.foo.easyeffects", "foo-easyeffects"),
       duplicateTailEntry("com.bar.easyeffects", "bar-easyeffects"),
   };
-  const DesktopEntry ambiguousResolved =
-      app_identity::resolveRunningDesktopEntry("org.kde.easyeffects", ambiguousTail);
+  const DesktopEntry ambiguousResolved = app_identity::resolveRunningDesktopEntry("org.kde.easyeffects", ambiguousTail);
   assert(ambiguousResolved.id == "org.kde.easyeffects");
 
   return 0;

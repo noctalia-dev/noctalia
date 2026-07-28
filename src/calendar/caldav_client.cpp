@@ -14,6 +14,14 @@ namespace calendar {
   namespace {
     constexpr Logger kLog("calendar-caldav");
 
+    std::string secretString(const std::shared_ptr<const security::SecureBuffer>& value) {
+      if (!value) {
+        return {};
+      }
+      const auto bytes = value->bytes();
+      return std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    }
+
     std::string
     buildReportBody(std::chrono::system_clock::time_point start, std::chrono::system_clock::time_point end) {
       const std::string s = formatUtcTime(start, "%Y%m%dT%H%M%SZ");
@@ -65,7 +73,7 @@ namespace calendar {
     req.followRedirects = true;
     req.allowRedirectAuth = allowRedirectAuth;
     req.basicUsername = account.username;
-    req.basicPassword = account.password;
+    req.basicPassword = secretString(account.password);
     req.headers = {
         "Depth: 1",
         "Content-Type: application/xml; charset=utf-8",

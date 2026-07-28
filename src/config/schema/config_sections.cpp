@@ -37,6 +37,7 @@ namespace noctalia::config::schema {
       static const std::vector<SectionSpec> table = [] {
         std::vector<SectionSpec> t;
 
+        t.push_back(makeSection("storage", &Config::storage, storageSchema()));
         t.push_back(makeSection("shell", &Config::shell, shellSchema()));
         t.push_back(makeSection("accessibility", &Config::accessibility, accessibilitySchema()));
 

@@ -23,7 +23,12 @@ struct SystemStats {
   };
 
   std::chrono::steady_clock::time_point sampledAt;
+  std::chrono::system_clock::time_point sampledAtWall;
   double cpuUsagePercent{0.0};
+  // Per-core usage in /proc/stat order. Empty unless a consumer holds a retainCpuCores()
+  // reference; sampled on its own fixed 1s cadence. Offline cores are absent from /proc/stat,
+  // so the length can change and an entry's position is not its core id.
+  std::vector<double> cpuCoreUsagePercent;
   double ramUsagePercent{0.0};
   std::uint64_t ramUsedMb{0};
   std::uint64_t ramTotalMb{0};
@@ -41,6 +46,13 @@ struct SystemStats {
   double loadAvg1{0.0};
   double loadAvg5{0.0};
   double loadAvg15{0.0};
+};
+
+struct DiskStats {
+  float usagePercent{0.0f};
+  std::uint64_t totalBytes{0};
+  std::uint64_t freeBytes{0};
+  std::uint64_t availableBytes{0};
 };
 
 class SystemMonitorService {
@@ -64,6 +76,8 @@ public:
 
   void retainCpuTemp();
   void releaseCpuTemp();
+  void retainCpuCores();
+  void releaseCpuCores();
   void retainGpuTemp();
   void releaseGpuTemp();
   void retainGpuUsage();
@@ -73,7 +87,11 @@ public:
   void retainDiskPath(const std::string& path);
   void releaseDiskPath(const std::string& path);
   [[nodiscard]] float diskUsagePercent(const std::string& path) const;
+  [[nodiscard]] std::optional<DiskStats> diskStats(const std::string& path) const;
   [[nodiscard]] std::vector<float> diskHistory(const std::string& path, int windowSize = kHistorySize) const;
+  [[nodiscard]] std::uint64_t diskTotalBytes(const std::string& path) const;
+  [[nodiscard]] std::uint64_t diskFreeBytes(const std::string& path) const;
+  [[nodiscard]] std::uint64_t diskAvailBytes(const std::string& path) const;
 
 private:
   struct NvidiaNvmlReader;
@@ -83,12 +101,10 @@ private:
   struct DiskHistory {
     int refs = 0;
     float latestPercent = 0.0f;
+    std::uint64_t latestTotalBytes = 0;
+    std::uint64_t latestFreeBytes = 0;
+    std::uint64_t latestAvailBytes = 0;
     std::array<float, kHistorySize> history{};
-  };
-
-  struct CpuTotals {
-    std::uint64_t total{0};
-    std::uint64_t idle{0};
   };
 
   struct GpuVramData {
@@ -116,7 +132,6 @@ private:
   void logDetectedSources();
   void releaseGpuReaders();
 
-  [[nodiscard]] static std::optional<CpuTotals> readCpuTotals();
   struct MemData {
     std::uint64_t totalKb{0};
     std::uint64_t usedKb{0};
@@ -137,7 +152,6 @@ private:
   [[nodiscard]] std::optional<double> readGpuTempCelsius();
   [[nodiscard]] std::optional<double> readGpuUsagePercent();
   [[nodiscard]] std::optional<GpuVramData> readGpuVram();
-  [[nodiscard]] static float readDiskUsagePercent(const std::string& path);
 
   struct NetIfaceBytes {
     std::uint64_t rx{0};
@@ -150,14 +164,16 @@ private:
 
   std::atomic<bool> m_running{false};
   std::atomic<int> m_cpuTempRefs{0};
+  std::atomic<int> m_cpuCoreRefs{0};
   std::atomic<int> m_gpuTempRefs{0};
   std::atomic<int> m_gpuUsageRefs{0};
   std::atomic<int> m_gpuVramRefs{0};
   std::thread m_thread;
   std::mutex m_wakeMutex;
   std::condition_variable m_wakeCv;
-  // Bumped under m_wakeMutex so a config change interrupts the sampling loop's wait.
-  std::atomic<std::uint64_t> m_configGeneration{0};
+  // Bumped under m_wakeMutex so a config change, or a metric being retained for the first time,
+  // interrupts the sampling loop's wait instead of leaving it parked on a stale deadline.
+  std::atomic<std::uint64_t> m_wakeGeneration{0};
 
   mutable std::mutex m_configMutex;
   SystemConfig::MonitorConfig m_pollConfig;

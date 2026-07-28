@@ -617,7 +617,7 @@ void TooltipManager::buildScene(const TooltipContent& content, float w, float h,
     return;
   }
 
-  m_sceneRoot = std::make_unique<Node>();
+  m_sceneRoot = ui::node({});
   m_sceneRoot->setSize(w, h);
   m_sceneRoot->setOpacity(opacity);
   m_sceneRoot->setHitTestVisible(false);

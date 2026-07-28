@@ -20,6 +20,10 @@ struct WidgetCustomImage {
 
 namespace widget_custom_image {
 
+  // Builds the runtime value from the `custom_image` / `custom_image_colorize` widget settings,
+  // expanding a leading `~` in the configured path.
+  [[nodiscard]] WidgetCustomImage fromConfig(const std::string& path, bool colorize);
+
   [[nodiscard]] inline float logicalSize(float contentScale) noexcept { return Style::baseGlyphSize * contentScale; }
 
   [[nodiscard]] inline int targetSize(float contentScale) noexcept {

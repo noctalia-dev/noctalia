@@ -1,5 +1,6 @@
 #include "shell/settings/settings_content_common.h"
 
+#include "config/config_service.h"
 #include "config/config_types.h"
 #include "i18n/i18n.h"
 #include "shell/settings/settings_content.h"
@@ -141,21 +142,20 @@ namespace settings {
       return override->endWidgets.has_value();
     }
     if (path.size() >= 6 && path[4] == "dead_zone") {
-      if (key == "command") {
-        return override->deadZone.command.has_value();
-      }
-      if (key == "right_command") {
-        return override->deadZone.rightCommand.has_value();
-      }
-      if (key == "middle_command") {
-        return override->deadZone.middleCommand.has_value();
-      }
-      if (key == "scroll_up_command") {
-        return override->deadZone.scrollUpCommand.has_value();
-      }
-      if (key == "scroll_down_command") {
-        return override->deadZone.scrollDownCommand.has_value();
-      }
+      return override->deadZone.actions.has_value();
+    }
+    return false;
+  }
+
+  bool settingEntryHasEffectiveOverride(const SettingEntry& entry, const ConfigService& configService) {
+    if (configService.hasEffectiveOverride(entry.path)) {
+      return true;
+    }
+    if (const auto* range = std::get_if<RangeSliderSetting>(&entry.control)) {
+      return configService.hasEffectiveOverride(range->highPath);
+    }
+    if (const auto* select = std::get_if<SelectSetting>(&entry.control)) {
+      return !select->linkedPath.empty() && configService.hasEffectiveOverride(select->linkedPath);
     }
     return false;
   }

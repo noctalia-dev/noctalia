@@ -191,11 +191,16 @@ location = "https://example.invalid/bad"
     bar.marginEnds = 100;
     bar.marginEdge = 5;
     bar.marginOppositeEdge = 12;
-    bar.deadZone.command = "notify-send bar-left";
-    bar.deadZone.rightCommand = "notify-send bar-right";
-    bar.deadZone.middleCommand = "notify-send bar-middle";
-    bar.deadZone.scrollUpCommand = "notify-send bar-scroll-up";
-    bar.deadZone.scrollDownCommand = "notify-send bar-scroll-down";
+    bar.actions = {{"middle", "none"}, {"right", "media toggle"}};
+    bar.deadZone.actions = {
+        {"left", "exec notify-send bar-left"},
+        {"right", "exec notify-send bar-right"},
+        {"middle", "exec notify-send bar-middle"},
+        {"scroll_up", "exec notify-send bar-scroll-up"},
+        {"scroll_down", "exec notify-send bar-scroll-down"},
+        {"back", "media previous"},
+        {"forward", "media next"},
+    };
     bar.padding = 12;
     bar.widgetSpacing = 8;
     bar.shadow = false;
@@ -253,11 +258,10 @@ location = "https://example.invalid/bad"
     ovr.marginEnds = 70;
     ovr.marginEdge = 9;
     ovr.marginOppositeEdge = 4;
-    ovr.deadZone.command = "notify-send bar-left";
-    ovr.deadZone.rightCommand = "notify-send bar-right";
-    ovr.deadZone.middleCommand = "notify-send monitor-middle";
-    ovr.deadZone.scrollUpCommand = "notify-send monitor-scroll-up";
-    ovr.deadZone.scrollDownCommand = "notify-send bar-scroll-down";
+    ovr.deadZone.actions = std::unordered_map<std::string, std::string>{
+        {"left", "exec notify-send bar-left"},
+        {"right", "exec notify-send bar-right"},
+    };
     ovr.padding = 11;
     ovr.widgetSpacing = 7;
     ovr.shadow = true;
@@ -343,17 +347,17 @@ location = "https://example.invalid/bad"
         .offsetY = 6,
         .monitors = {"DP-2"},
         .collapseOnDismiss = false,
-        .filters =
-            {NotificationFilterConfig{
-                .name = "discord",
-                .enabled = true,
-                .match = "discord",
-                .showToast = false,
-                .saveHistory = false,
-                .playSound = false,
-                .allowPermanent = false,
-                .allowedUrgencies = {"normal", "critical"},
-            }},
+        .historyRetentionHours = 48,
+        .filters = {NotificationFilterConfig{
+            .name = "discord",
+            .enabled = true,
+            .match = "discord",
+            .showToast = false,
+            .saveHistory = false,
+            .playSound = false,
+            .allowPermanent = false,
+            .allowedUrgencies = {"normal", "critical"},
+        }},
     };
     c.dock.enabled = true;
     c.dock.position = DockEdge::Left;
@@ -379,12 +383,24 @@ location = "https://example.invalid/bad"
     c.controlCenter.sidebarMode = ControlCenterSidebarMode::Full;
     c.controlCenter.sidebarSectionMode = ControlCenterSidebarMode::None;
     c.controlCenter.calendarTab.showEventsCard = false;
+    c.controlCenter.calendarTab.showWeekNumbers = true;
+    c.controlCenter.calendarTab.eventDateFormat = "%Y-%m-%d";
+    c.controlCenter.calendarTab.eventTimeFormat = "%I:%M %p";
     c.controlCenter.shortcuts = {{"wifi"}, {"bluetooth"}};
     c.calendar.enabled = true;
     c.calendar.refreshMinutes = 30;
     c.calendar.accounts = {
         {"acc1", "google", "Work", "#ff0000", "", "", "", {}},
-        {"acc2", "caldav", "Home", "", "custom", "https://dav.example.com/remote.php/dav/", "user", {"personal"}},
+        {"acc2",
+         "caldav",
+         "Home",
+         "",
+         "custom",
+         "https://dav.example.com/remote.php/dav/",
+         "user",
+         {"personal"},
+         CalendarCredentialSource::File,
+         "/run/agenix/noctalia-caldav"},
     };
     // Explicit chords so write→read round-trips (empty would emit defaults instead).
     c.keybinds.validate = {*parseKeyChordSpec("Return")};
@@ -423,6 +439,8 @@ location = "https://example.invalid/bad"
     c.shell.passwordMaskStyle = PasswordMaskStyle::RandomIcons;
     c.shell.clipboardHistoryMaxEntries = 80;
     c.shell.clipboardAutoPaste = ClipboardAutoPasteMode::CtrlV;
+    c.storage.keySource = StorageKeySource::File;
+    c.storage.keyFile = "/run/agenix/noctalia-storage-key";
     c.shell.avatarPath = "/home/u/face.png";
     c.shell.animation.speed = 1.5f;
     c.shell.shadow.direction = ShadowDirection::UpLeft;
@@ -440,8 +458,7 @@ location = "https://example.invalid/bad"
     c.shell.launcher.dmenu.entries = {notifyDmenu};
     c.shell.launcher.providerPrefix = ".";
     c.shell.launcher.providers = {
-        LauncherProviderConfig{"session", "s", true},
-        LauncherProviderConfig{"wallpaper", "w"}
+        LauncherProviderConfig{"session", "s", true}, LauncherProviderConfig{"wallpaper", "w"}
     };
     c.shell.screenCorners.enabled = true;
     c.shell.screenCorners.size = 24;
@@ -553,6 +570,116 @@ location = "https://example.invalid/bad"
       if (s.clipboardHistoryMaxEntries != 10000) {
         fail("shell.clipboard_history_max_entries clamp: expected 10000");
       }
+    }
+  }
+
+  void checkCalendarCredentialSourceValidation() {
+    const auto parse = [](std::string_view accountConfig) {
+      const toml::table table = toml::parse(accountConfig);
+      CalendarConfig calendar;
+      Diagnostics diagnostics;
+      readInto(table, calendar, calendarSchema(), "calendar", diagnostics);
+      return diagnostics;
+    };
+
+    const Diagnostics valid = parse(R"(
+[account.agenix]
+type = "caldav"
+provider = "custom"
+server_url = "https://dav.example.com/"
+username = "user"
+credential_source = "file"
+password_file = "/run/agenix/noctalia-caldav"
+)");
+    if (valid.hasErrors()) {
+      fail("calendar: valid file credential source was rejected");
+    }
+
+    const Diagnostics missingFile = parse(R"(
+[account.agenix]
+type = "caldav"
+provider = "icloud"
+username = "user"
+credential_source = "file"
+)");
+    if (!missingFile.hasErrors()) {
+      fail("calendar: file credential source accepted a missing password_file");
+    }
+
+    const Diagnostics conflictingFile = parse(R"(
+[account.keyring]
+type = "caldav"
+provider = "icloud"
+username = "user"
+credential_source = "secret-service"
+password_file = "/run/agenix/noctalia-caldav"
+)");
+    if (!conflictingFile.hasErrors()) {
+      fail("calendar: secret-service credential source accepted password_file");
+    }
+
+    const Diagnostics unknownSource = parse(R"(
+[account.invalid]
+type = "caldav"
+provider = "icloud"
+username = "user"
+credential_source = "automatic"
+)");
+    if (!unknownSource.hasErrors()) {
+      fail("calendar: unknown credential source was not an error");
+    }
+  }
+
+  void checkStorageKeySourceValidation() {
+    const auto parse = [](std::string_view storageConfig) {
+      const toml::table table = toml::parse(storageConfig);
+      StorageConfig storage;
+      Diagnostics diagnostics;
+      readInto(table, storage, storageSchema(), "storage", diagnostics);
+      return diagnostics;
+    };
+
+    const Diagnostics valid = parse(R"(
+key_source = "file"
+key_file = "/run/agenix/noctalia-storage-key"
+)");
+    if (valid.hasErrors()) {
+      fail("storage: valid file key source was rejected");
+    }
+
+    const Diagnostics missingFile = parse(R"(
+key_source = "file"
+)");
+    if (!missingFile.hasErrors()) {
+      fail("storage: file key source accepted a missing key_file");
+    }
+
+    const Diagnostics conflictingFile = parse(R"(
+key_source = "secret-service"
+key_file = "/run/agenix/noctalia-storage-key"
+)");
+    if (!conflictingFile.hasErrors()) {
+      fail("storage: secret-service key source accepted key_file");
+    }
+
+    const Diagnostics relativeFile = parse(R"(
+key_source = "file"
+key_file = "noctalia-storage-key"
+)");
+    if (!relativeFile.hasErrors()) {
+      fail("storage: file key source accepted a relative key_file");
+    }
+
+    const Diagnostics unknownSource = parse(R"(
+key_source = "automatic"
+)");
+    if (!unknownSource.hasErrors()) {
+      fail("storage: unknown key source was not an error");
+    }
+    if (!isKnownConfigPath({"storage", "key_source"})
+        || !isKnownConfigPath({"storage", "key_file"})
+        || isKnownConfigPath({"shell", "clipboard_storage", "key_source"})) {
+      fail("storage: canonical config paths were not enforced");
     }
   }
 
@@ -680,12 +807,18 @@ start = [ "launcher" ]
 thickness = 44
 widget_spacing = 8
 
-    [default.dead_zone]
-    command = "notify-send bar-left"
-    middle_command = "notify-send bar-middle"
-    right_command = "notify-send bar-right"
-    scroll_down_command = "notify-send bar-scroll-down"
-    scroll_up_command = "notify-send bar-scroll-up"
+    [default.actions]
+    middle = "none"
+    right = "media toggle"
+
+    [default.dead_zone.actions]
+    back = "media previous"
+    forward = "media next"
+    left = "exec notify-send bar-left"
+    middle = "exec notify-send bar-middle"
+    right = "exec notify-send bar-right"
+    scroll_down = "exec notify-send bar-scroll-down"
+    scroll_up = "exec notify-send bar-scroll-up"
 
     [default.monitor.DP-1]
     auto_hide = false
@@ -732,12 +865,13 @@ widget_spacing = 8
     thickness = 50
     widget_spacing = 7
 
-        [default.monitor.DP-1.dead_zone]
-        command = "notify-send bar-left"
-        middle_command = "notify-send monitor-middle"
-        right_command = "notify-send bar-right"
-        scroll_down_command = "notify-send bar-scroll-down"
-        scroll_up_command = "notify-send monitor-scroll-up"
+        [default.monitor.DP-1.actions]
+        middle = "none"
+        right = "media toggle"
+
+        [default.monitor.DP-1.dead_zone.actions]
+        left = "exec notify-send bar-left"
+        right = "exec notify-send bar-right"
 
         [[default.monitor.DP-1.capsule_group]]
         border = "#0F0E0D"
@@ -858,6 +992,8 @@ widget_spacing = 8
 
   checkPluginIdValidation();
   checkPluginSourceNameValidation();
+  checkCalendarCredentialSourceValidation();
+  checkStorageKeySourceValidation();
   checkClamps();
   checkCustomColorFallback();
   checkTemplateConfigCustomColorsExport();

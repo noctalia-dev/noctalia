@@ -7,12 +7,12 @@
 
 #include <memory>
 
-WallpaperWidget::WallpaperWidget(wl_output* /*output*/, std::string barGlyphId, WidgetCustomImage customImage)
-    : m_barGlyphId(std::move(barGlyphId)), m_customImage(std::move(customImage)) {}
+WallpaperWidget::WallpaperWidget(wl_output* /*output*/, Options options)
+    : m_barGlyphId(std::move(options.glyph)),
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}
 
 void WallpaperWidget::create() {
-  auto area = std::make_unique<InputArea>();
-  area->setOnClick([this](const InputArea::PointerData& /*data*/) { requestPanelToggle("wallpaper"); });
+  auto area = ui::inputArea({});
 
   if (m_customImage.enabled()) {
     area->addChild(ui::image({.out = &m_image, .fit = ImageFit::Contain}));
@@ -20,7 +20,7 @@ void WallpaperWidget::create() {
     area->addChild(
         ui::glyph({
             .out = &m_glyph,
-            .glyph = m_barGlyphId.empty() ? "wallpaper-selector" : m_barGlyphId,
+            .glyph = m_barGlyphId,
             .glyphSize = Style::baseGlyphSize * m_contentScale,
             .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
         })

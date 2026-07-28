@@ -187,7 +187,7 @@ void IdleInhibitor::registerIpc(IpcService& ipc, StateFeedbackCallback stateFeed
         }
         return "ok\n";
       },
-      "caffeine-enable", "Enable caffeine (idle inhibitor)"
+      "", "Enable caffeine (idle inhibitor)"
   );
 
   ipc.registerHandler(
@@ -204,7 +204,7 @@ void IdleInhibitor::registerIpc(IpcService& ipc, StateFeedbackCallback stateFeed
         }
         return "ok\n";
       },
-      "caffeine-disable", "Disable caffeine (idle inhibitor)"
+      "", "Disable caffeine (idle inhibitor)"
   );
 
   ipc.registerHandler(
@@ -219,6 +219,6 @@ void IdleInhibitor::registerIpc(IpcService& ipc, StateFeedbackCallback stateFeed
         }
         return "ok\n";
       },
-      "caffeine-toggle", "Toggle caffeine (idle inhibitor)"
+      "", "Toggle caffeine (idle inhibitor)"
   );
 }

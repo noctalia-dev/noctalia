@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "core/timer_manager.h"
 #include "notification.h"
 
 #include <cstddef>
@@ -123,6 +124,7 @@ public:
   void clearHistory();
   void setFilters(std::vector<NotificationFilterConfig> filters);
   [[nodiscard]] const std::vector<NotificationFilterConfig>& filters() const noexcept;
+  void setHistoryRetentionHours(int hours);
   void setDoNotDisturb(bool enabled);
   [[nodiscard]] bool doNotDisturb() const noexcept;
   [[nodiscard]] bool toggleDoNotDisturb();
@@ -140,6 +142,7 @@ public:
   void flushPersistedHistory();
 
 private:
+  void cleanupOldHistoryEntries();
   void upsertHistory(const Notification& notification, bool active, std::optional<CloseReason> closeReason);
   void rebuildHistoryIndex();
   void schedulePersistHistory();
@@ -156,12 +159,14 @@ private:
     std::optional<std::int32_t> overrideDuration;
   };
   [[nodiscard]] ExternalNotificationDispatch evaluateExternalDispatch(
-      Urgency urgency, std::string_view appName, const std::optional<std::string>& category,
+      NotificationOrigin origin, Urgency urgency, std::string_view appName, const std::optional<std::string>& category,
       const std::optional<std::string>& desktopEntry, std::string_view summary, std::string_view body, bool transient
   ) const;
   uint32_t suppressExternal(std::string_view appName, Urgency urgency);
 
+  int m_historyRetentionHours = 0;
   bool m_persistScheduled = false;
+  Timer m_historyRetentionTimer;
 
   std::deque<Notification> m_notifications;
   std::unordered_map<uint32_t, size_t> m_idToIndex;

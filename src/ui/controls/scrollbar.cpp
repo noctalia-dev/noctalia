@@ -25,6 +25,15 @@ namespace {
     };
   }
 
+  float primaryPosition(const InputArea::PointerData& data, ScrollOrientation orientation) {
+    return orientation == ScrollOrientation::Horizontal ? data.localX : data.localY;
+  }
+
+  bool acceptsScrollAxis(const InputArea::PointerData& data, ScrollOrientation orientation) {
+    return data.axis == WL_POINTER_AXIS_VERTICAL_SCROLL
+        || (orientation == ScrollOrientation::Horizontal && data.axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL);
+  }
+
 } // namespace
 
 Scrollbar::Scrollbar() {
@@ -38,7 +47,7 @@ Scrollbar::Scrollbar() {
 
   auto trackArea = std::make_unique<InputArea>();
   trackArea->setOnAxisHandler([this](const InputArea::PointerData& data) {
-    if (data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL || !m_onScrollChanged) {
+    if (!acceptsScrollAxis(data, m_orientation) || !m_onScrollChanged) {
       return false;
     }
     m_onScrollChanged(std::clamp(currentOffset() + data.scrollDelta(Style::scrollWheelStep), 0.0f, m_maxScroll));
@@ -53,21 +62,23 @@ Scrollbar::Scrollbar() {
       return;
     }
     if (data.pressed) {
-      m_dragStartY = data.localY + m_thumbArea->y();
-      m_dragStartOffset = currentOffset();
+      const float localPosition = primaryPosition(data, m_orientation);
+      const float thumbPosition = m_orientation == ScrollOrientation::Horizontal ? m_thumbArea->x() : m_thumbArea->y();
+      m_dragStartPosition = localPosition + thumbPosition;
     }
   });
   thumbArea->setOnMotion([this](const InputArea::PointerData& data) {
     if (m_thumbTravel <= 0.0f || !m_onScrollChanged || m_thumbArea == nullptr || !m_thumbArea->pressed()) {
       return;
     }
-    const float pointerY = data.localY + m_thumbArea->y();
-    const float deltaY = pointerY - m_dragStartY;
+    const float localPosition = primaryPosition(data, m_orientation);
+    const float thumbPosition = m_orientation == ScrollOrientation::Horizontal ? m_thumbArea->x() : m_thumbArea->y();
+    const float delta = localPosition + thumbPosition - m_dragStartPosition;
     const float offsetPerPx = m_maxScroll / m_thumbTravel;
-    m_onScrollChanged(std::clamp(m_dragStartOffset + deltaY * offsetPerPx, 0.0f, m_maxScroll));
+    m_onScrollChanged(std::clamp(m_dragStartOffset + delta * offsetPerPx, 0.0f, m_maxScroll));
   });
   thumbArea->setOnAxisHandler([this](const InputArea::PointerData& data) {
-    if (data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL || !m_onScrollChanged) {
+    if (!acceptsScrollAxis(data, m_orientation) || !m_onScrollChanged) {
       return false;
     }
     m_onScrollChanged(std::clamp(currentOffset() + data.scrollDelta(Style::scrollWheelStep), 0.0f, m_maxScroll));
@@ -78,22 +89,31 @@ Scrollbar::Scrollbar() {
   applyPalette();
 }
 
+void Scrollbar::setOrientation(ScrollOrientation orientation) {
+  if (m_orientation == orientation) {
+    return;
+  }
+  m_orientation = orientation;
+  markLayoutDirty();
+}
+
 void Scrollbar::setOnScrollChanged(std::function<void(float)> callback) { m_onScrollChanged = std::move(callback); }
 
 void Scrollbar::setTrackInset(float inset) { m_trackInset = std::max(0.0f, inset); }
 
 float Scrollbar::currentOffset() const noexcept {
+  const float thumbPosition = m_orientation == ScrollOrientation::Horizontal ? m_thumb->x() : m_thumb->y();
   return m_thumbTravel > 0.0f
-      ? std::clamp(((m_thumb->y() - m_trackInset) / m_thumbTravel) * m_maxScroll, 0.0f, m_maxScroll)
+      ? std::clamp(((thumbPosition - m_trackInset) / m_thumbTravel) * m_maxScroll, 0.0f, m_maxScroll)
       : 0.0f;
 }
 
-void Scrollbar::update(float viewportHeight, float contentHeight, float scrollOffset) {
-  m_viewportHeight = viewportHeight;
-  m_contentHeight = contentHeight;
-  m_maxScroll = std::max(0.0f, contentHeight - viewportHeight);
+void Scrollbar::update(float viewportExtent, float contentExtent, float scrollOffset) {
+  m_viewportExtent = viewportExtent;
+  m_contentExtent = contentExtent;
+  m_maxScroll = std::max(0.0f, contentExtent - viewportExtent);
 
-  m_shown = contentHeight > viewportHeight + 0.5f;
+  m_shown = contentExtent > viewportExtent + 0.5f;
   m_track->setVisible(m_shown);
   m_thumb->setVisible(m_shown);
   m_trackArea->setVisible(m_shown);
@@ -103,23 +123,34 @@ void Scrollbar::update(float viewportHeight, float contentHeight, float scrollOf
     return;
   }
 
-  const float trackH = std::max(0.0f, viewportHeight - m_trackInset * 2.0f);
-  m_track->setPosition(0.0f, m_trackInset);
-  m_track->setFrameSize(Style::scrollbarWidth, trackH);
-  m_trackArea->setPosition(0.0f, m_trackInset);
-  m_trackArea->setFrameSize(Style::scrollbarWidth, trackH);
+  const float trackExtent = std::max(0.0f, viewportExtent - m_trackInset * 2.0f);
+  const float thickness = Style::scrollbarWidth;
+  if (m_orientation == ScrollOrientation::Horizontal) {
+    m_track->setPosition(m_trackInset, 0.0f);
+    m_track->setFrameSize(trackExtent, thickness);
+    m_trackArea->setPosition(m_trackInset, 0.0f);
+    m_trackArea->setFrameSize(trackExtent, thickness);
+  } else {
+    m_track->setPosition(0.0f, m_trackInset);
+    m_track->setFrameSize(thickness, trackExtent);
+    m_trackArea->setPosition(0.0f, m_trackInset);
+    m_trackArea->setFrameSize(thickness, trackExtent);
+  }
 
-  // Cap at trackH so a viewport shorter than the min thumb height yields a
-  // track-filling thumb instead of an inverted std::clamp range (hi < lo).
-  const float thumbH = std::min(
-      trackH,
+  const float thumbExtent = std::min(
+      trackExtent,
       std::max(
-          Style::scrollbarMinThumbHeight, (viewportHeight * viewportHeight) / std::max(viewportHeight, contentHeight)
+          Style::scrollbarMinThumbHeight, (viewportExtent * viewportExtent) / std::max(viewportExtent, contentExtent)
       )
   );
-  m_thumbTravel = std::max(0.0f, trackH - thumbH);
-  m_thumb->setFrameSize(Style::scrollbarWidth, thumbH);
-  m_thumbArea->setFrameSize(Style::scrollbarWidth, thumbH);
+  m_thumbTravel = std::max(0.0f, trackExtent - thumbExtent);
+  if (m_orientation == ScrollOrientation::Horizontal) {
+    m_thumb->setFrameSize(thumbExtent, thickness);
+    m_thumbArea->setFrameSize(thumbExtent, thickness);
+  } else {
+    m_thumb->setFrameSize(thickness, thumbExtent);
+    m_thumbArea->setFrameSize(thickness, thumbExtent);
+  }
 
   applyThumbPosition(scrollOffset, m_maxScroll);
 }
@@ -135,7 +166,12 @@ void Scrollbar::applyPalette() {
 
 void Scrollbar::applyThumbPosition(float scrollOffset, float maxScroll) {
   const float t = maxScroll > 0.0f ? std::clamp(scrollOffset / maxScroll, 0.0f, 1.0f) : 0.0f;
-  const float thumbY = m_trackInset + t * m_thumbTravel;
-  m_thumb->setPosition(0.0f, thumbY);
-  m_thumbArea->setPosition(0.0f, thumbY);
+  const float thumbPosition = m_trackInset + t * m_thumbTravel;
+  if (m_orientation == ScrollOrientation::Horizontal) {
+    m_thumb->setPosition(thumbPosition, 0.0f);
+    m_thumbArea->setPosition(thumbPosition, 0.0f);
+  } else {
+    m_thumb->setPosition(0.0f, thumbPosition);
+    m_thumbArea->setPosition(0.0f, thumbPosition);
+  }
 }

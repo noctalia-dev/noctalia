@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -46,11 +47,7 @@ inline constexpr std::string_view kCapsuleGroupTokenPrefix = "group:";
 [[nodiscard]] std::string makeCapsuleGroupToken(std::string_view groupId);
 
 struct BarDeadZoneOverride {
-  std::optional<std::string> command;
-  std::optional<std::string> rightCommand;
-  std::optional<std::string> middleCommand;
-  std::optional<std::string> scrollUpCommand;
-  std::optional<std::string> scrollDownCommand;
+  std::optional<std::unordered_map<std::string, std::string>> actions;
 
   bool operator==(const BarDeadZoneOverride&) const = default;
 };
@@ -110,16 +107,17 @@ struct BarMonitorOverride {
 };
 
 struct BarDeadZoneConfig {
-  std::string command;
-  std::string rightCommand;
-  std::string middleCommand;
-  std::string scrollUpCommand;
-  std::string scrollDownCommand;
+  // Gesture -> action bindings for the parts of the bar no widget covers. Same grammar as widget
+  // actions; see widget_action.h.
+  std::unordered_map<std::string, std::string> actions;
 
   bool operator==(const BarDeadZoneConfig&) const = default;
 };
 
 struct BarConfig {
+  // Gesture -> action bindings applied to every widget on this bar, overriding widget-type
+  // defaults and overridden in turn by `[widget.<name>.actions]`. See widget_action.h.
+  std::unordered_map<std::string, std::string> actions;
   std::string name = "default";
   std::string position = "top";
   bool enabled = true;
@@ -227,6 +225,7 @@ struct ShellSessionConfig {
   // fitting them on a single row.
   bool grid = false;
   std::int32_t gridColumns = 3;
+  bool showShortcuts = true;
   // Optional overrides for built-in session power commands. Empty = auto-detect at runtime.
   struct ShellSessionPowerConfig {
     // Shell strings run with `/bin/sh -lc` (shell=True).
@@ -398,6 +397,20 @@ struct WidgetConfig {
 
 // Builds the capsule spec a group's member widgets render with (style taken from the group).
 [[nodiscard]] WidgetBarCapsuleSpec capsuleSpecFromGroup(const BarConfig& bar, const BarCapsuleGroupStyle& group);
+
+// Group ids the scope's lanes reference. A monitor override with no capsule_group of its own reads
+// the bar's array, so its lanes belong to the bar scope's reference set.
+[[nodiscard]] std::set<std::string> capsuleGroupRefsForBarScope(const BarConfig& bar);
+[[nodiscard]] std::set<std::string>
+capsuleGroupRefsForMonitorScope(const BarConfig& bar, const BarMonitorOverride& monitorOverride);
+
+// Rebuilds an overriding capsule_group array against the config-file array, in file order: an
+// overridden group keeps its edited style, a file group the lanes reference again comes back, and a
+// GUI-created group survives only while a lane still references it (nothing can reach it otherwise).
+[[nodiscard]] std::vector<BarCapsuleGroupStyle> reconcileCapsuleGroups(
+    const std::vector<BarCapsuleGroupStyle>& current, const std::vector<BarCapsuleGroupStyle>& base,
+    const std::set<std::string>& referenced
+);
 [[nodiscard]] float
 resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std::string_view context = "widget.scale");
 
@@ -569,6 +582,7 @@ struct DockConfig {
   bool showRunning = true;             // also show running apps not in pinned list
   bool autoHide = false;               // slide out when not hovered (overlay mode)
   bool smartAutoHide = false;          // hide while the active workspace has windows; show when it is empty
+  std::string layer = "top";           // top | overlay
 
   [[nodiscard]] constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
   bool reserveSpace = true;         // reserve compositor exclusive zone; applies with or without auto_hide
@@ -682,6 +696,8 @@ struct NotificationConfig {
   int offsetY = 8;                 // absolute vertical margin from the screen edge
   std::vector<std::string> monitors;
   bool collapseOnDismiss = true;
+  int historyRetentionHours = 0;
+
   std::vector<NotificationFilterConfig> filters;
 
   bool operator==(const NotificationConfig&) const = default;
@@ -710,6 +726,11 @@ constexpr EnumOption<ClipboardAutoPasteMode> kClipboardAutoPasteModes[] = {
     {ClipboardAutoPasteMode::CtrlV, "ctrl_v", "settings.options.clipboard.auto-paste.ctrl-v"},
     {ClipboardAutoPasteMode::CtrlShiftV, "ctrl_shift_v", "settings.options.clipboard.auto-paste.ctrl-shift-v"},
     {ClipboardAutoPasteMode::ShiftInsert, "shift_insert", "settings.options.clipboard.auto-paste.shift-insert"},
+};
+
+enum class StorageKeySource : std::uint8_t {
+  SecretService = 0,
+  File = 1,
 };
 
 enum class PasswordMaskStyle : std::uint8_t {
@@ -882,7 +903,7 @@ struct ShellConfig {
 
   struct PanelConfig {
     PanelTransparencyMode transparencyMode = PanelTransparencyMode::Solid;
-    bool borders = true;             // panel shell outline and in-panel section cards
+    bool borders = true;             // outline on floating panel surfaces
     bool shadow = true;              // cast the global [shell.shadow] from panel surfaces
     bool listItemBackground = false; // filled rounded background behind launcher/clipboard list items
     PanelPlacement launcherPlacement = PanelPlacement::Floating;
@@ -892,7 +913,7 @@ struct ShellConfig {
     PanelPlacement sessionPlacement = PanelPlacement::Attached;
     PanelPlacement polkitPlacement = PanelPlacement::Floating;
     // Floating screen position per panel (one of kPanelPositions). "auto" = bar-relative.
-    // Launcher/clipboard default to "center" (the historical centered placement).
+    // Launcher/clipboard default to "center" (the historical center-screen behavior).
     std::string launcherPosition = "center";
     std::string clipboardPosition = "center";
     std::string controlCenterPosition = "auto";
@@ -921,6 +942,8 @@ struct ShellConfig {
     /// When true, refresh currency exchange rates from libqalculate's online sources.
     bool fetchExchangeRates = true;
     std::string providerPrefix = "/";
+    /// Paste shortcut after a copy-style launcher activation (calculator, emoji, …).
+    ClipboardAutoPasteMode autoPaste = ClipboardAutoPasteMode::Auto;
 
     struct DmenuConfig {
       std::vector<DmenuEntryConfig> entries;
@@ -973,11 +996,15 @@ struct ShellConfig {
   bool inputBorders = true;
   bool popupBorders = true;
   bool popupShadows = true;
+  bool cardBorders = true;
   std::string fontFamily = "sans-serif";
   std::string lang; // empty = auto-detect from $LC_ALL/$LC_MESSAGES/$LANG
   std::string timeFormat = "{:%H:%M}";
   std::string dateFormat = "%A, %x";
   bool offlineMode = false;
+  /// Bar name panels attach to when opened without a source bar (IPC, shortcuts, dock).
+  /// Empty keeps per-source resolution (widget click bar, else first enabled bar).
+  std::string panelAnchorBar;
   /// Resolve and show the connection's external (WAN) IP in the Control Center network tab.
   bool externalIpEnabled = false;
   bool telemetryEnabled = false;
@@ -988,7 +1015,6 @@ struct ShellConfig {
   AnimationConfig animation;
   std::string avatarPath;
   bool settingsShowAdvanced = true;
-  bool middleClickOpensWidgetSettings = true;
   bool showLocation = true;
   bool appIconColorize = false;
   std::optional<ColorSpec> appIconColor;
@@ -996,6 +1022,9 @@ struct ShellConfig {
   std::string launchAppsCustomCommand;
   /// When false, disables Wayland clipboard integration (history panel, data-control binding, Input paste/copy hooks).
   bool clipboardEnabled = true;
+  /// When true, the shell takes over the selection once the application that copied it exits, so the last copied item
+  /// stays pasteable. Independent of history retention: this keeps the live clipboard, not the stored history.
+  bool clipboardKeepFromClosedApps = true;
   /// Maximum unpinned clipboard history entries retained (pinned entries are exempt).
   int clipboardHistoryMaxEntries = static_cast<int>(noctalia::config::kClipboardHistoryDefaultEntries);
   /// When true, clearing clipboard history or deleting unpinned entries from the panel asks for confirmation first.
@@ -1028,9 +1057,21 @@ struct WeatherConfig {
   bool operator==(const WeatherConfig&) const = default;
 };
 
+struct StorageConfig {
+  StorageKeySource keySource = StorageKeySource::SecretService;
+  std::string keyFile;
+
+  bool operator==(const StorageConfig&) const = default;
+};
+
+enum class CalendarCredentialSource : std::uint8_t {
+  SecretService = 0,
+  File = 1,
+};
+
 struct CalendarConfig {
-  // A single connected account. Credentials (OAuth tokens / CalDAV app-password) are NOT stored
-  // here; they live in state.toml keyed by id. id must be [a-z0-9_] (used as a state key).
+  // A single connected account. Google refresh tokens and Secret Service-backed CalDAV passwords
+  // are not stored here. id must be [a-z0-9_] because it identifies durable credential records.
   struct Account {
     std::string id;
     std::string type; // "google" | "caldav"
@@ -1040,6 +1081,8 @@ struct CalendarConfig {
     std::string serverUrl;              // CalDAV discovery root (custom only; provider presets own theirs)
     std::string username;               // CalDAV login (caldav only)
     std::vector<std::string> calendars; // discovered collection ids; empty = all
+    CalendarCredentialSource credentialSource = CalendarCredentialSource::SecretService; // CalDAV only
+    std::string passwordFile; // required for file-backed CalDAV credentials
 
     bool operator==(const Account&) const = default;
   };
@@ -1094,10 +1137,22 @@ struct SystemConfig {
         noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::SwapPct).activityDefault;
     double swapPctCriticalThreshold =
         noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::SwapPct).criticalDefault;
-    double diskPctActivityThreshold =
-        noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::DiskPct).activityDefault;
-    double diskPctCriticalThreshold =
-        noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::DiskPct).criticalDefault;
+    double diskUsedPctActivityThreshold =
+        noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::DiskUsedPct).activityDefault;
+    double diskUsedPctCriticalThreshold =
+        noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::DiskUsedPct).criticalDefault;
+    double diskUsedActivityThreshold =
+        noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::DiskUsed).activityDefault;
+    double diskUsedCriticalThreshold =
+        noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::DiskUsed).criticalDefault;
+    double diskFreePctActivityThreshold =
+        noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::DiskFreePct).activityDefault;
+    double diskFreePctCriticalThreshold =
+        noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::DiskFreePct).criticalDefault;
+    double diskFreeActivityThreshold =
+        noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::DiskFree).activityDefault;
+    double diskFreeCriticalThreshold =
+        noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::DiskFree).criticalDefault;
     double netRxActivityThreshold = noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::NetRx).activityDefault;
     double netRxCriticalThreshold = noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::NetRx).criticalDefault;
     double netTxActivityThreshold = noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::NetTx).activityDefault;
@@ -1391,6 +1446,9 @@ struct ControlCenterConfig {
 
   struct CalendarTabConfig {
     bool showEventsCard = true;
+    bool showWeekNumbers = false;
+    std::string eventDateFormat = "%A %e %B";
+    std::string eventTimeFormat = "%H:%M";
     bool operator==(const CalendarTabConfig&) const = default;
   };
 
@@ -1399,6 +1457,7 @@ struct ControlCenterConfig {
   ControlCenterSidebarMode sidebarMode = ControlCenterSidebarMode::Compact;
   ControlCenterSidebarMode sidebarSectionMode = ControlCenterSidebarMode::Compact;
   std::int32_t width = kDefaultWidth; // full-sidebar logical width; compact/none modes scale down from this
+  bool showShortcutLabels = true;
   CalendarTabConfig calendarTab;
   bool operator==(const ControlCenterConfig&) const = default;
 };
@@ -1482,6 +1541,7 @@ struct Config {
   DockConfig dock;
   DesktopWidgetsConfig desktopWidgets;
   HotCornersConfig hotCorners;
+  StorageConfig storage;
   ShellConfig shell;
   OsdConfig osd;
   NotificationConfig notification;
@@ -1531,6 +1591,7 @@ struct ConfigChangeSet {
   bool controlCenter = true;
   bool plugins = true;
   bool hotCorners = true;
+  bool storage = true;
   bool accessibility = true;
 
   [[nodiscard]] bool any() const noexcept {
@@ -1560,6 +1621,7 @@ struct ConfigChangeSet {
         || controlCenter
         || plugins
         || hotCorners
+        || storage
         || accessibility;
   }
 };

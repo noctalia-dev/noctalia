@@ -41,7 +41,7 @@ void INetworkService::registerIpc(IpcService& ipc, WirelessFeedbackCallback wire
         }
         return setWifi(true);
       },
-      "wifi-enable", "Enable Wi-Fi"
+      "", "Enable Wi-Fi"
   );
 
   ipc.registerHandler(
@@ -52,7 +52,7 @@ void INetworkService::registerIpc(IpcService& ipc, WirelessFeedbackCallback wire
         }
         return setWifi(false);
       },
-      "wifi-disable", "Disable Wi-Fi"
+      "", "Disable Wi-Fi"
   );
 
   ipc.registerHandler(
@@ -66,7 +66,7 @@ void INetworkService::registerIpc(IpcService& ipc, WirelessFeedbackCallback wire
         }
         return setWifi(!state().wirelessEnabled);
       },
-      "wifi-toggle", "Toggle Wi-Fi"
+      "", "Toggle Wi-Fi"
   );
 
   ipc.registerHandler(
@@ -80,6 +80,39 @@ void INetworkService::registerIpc(IpcService& ipc, WirelessFeedbackCallback wire
         }
         return state().wirelessEnabled ? "on\n" : "off\n";
       },
-      "wifi-status", "Print Wi-Fi state"
+      "", "Print Wi-Fi state",
+      IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
+  );
+
+  ipc.registerHandler(
+      "network-toggle",
+      [this, setWifi](const std::string& args) -> std::string {
+        if (auto err = rejectArgs("network-toggle", args); err.has_value()) {
+          return *err;
+        }
+        if (!hasStateSnapshot()) {
+          return "error: network state unavailable\n";
+        }
+        const NetworkState& s = state();
+        // Drop whatever is up, otherwise bring back whichever transport can come up.
+        if (s.kind == NetworkConnectivity::Wireless && (s.connected || s.resolving)) {
+          return setWifi(false);
+        }
+        if (s.kind == NetworkConnectivity::Wired && (s.connected || s.resolving)) {
+          disconnect();
+          return "ok\n";
+        }
+        if (!s.wirelessEnabled) {
+          return setWifi(true);
+        }
+        if (canActivateWiredConnection()) {
+          if (!activateWiredConnection()) {
+            return "error: failed to activate the wired connection\n";
+          }
+          return "ok\n";
+        }
+        return "error: nothing to toggle (Wi-Fi is on and no wired connection is available)\n";
+      },
+      "", "Disconnect the active network, or reconnect when nothing is connected"
   );
 }

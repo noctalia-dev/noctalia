@@ -1,6 +1,7 @@
 #include "shell/desktop/desktop_widget.h"
 
 #include "core/ui_phase.h"
+#include "ui/builders.h"
 #include "ui/controls/box.h"
 
 #include <algorithm>
@@ -142,9 +143,9 @@ void DesktopWidget::setRoot(std::unique_ptr<Node> root) {
   // Content is always wrapped in an outer node so the box tile can be larger than the
   // content (content is centered inside it), with or without a background.
   m_contentRoot = root.get();
-  m_outerRoot = std::make_unique<Node>();
+  m_outerRoot = ui::node({});
   if (m_bgEnabled) {
-    auto bg = std::make_unique<Box>();
+    auto bg = ui::box({});
     m_bgBox = bg.get();
     m_outerRoot->addChild(std::move(bg));
   }

@@ -83,6 +83,9 @@ namespace Style {
   [[nodiscard]] bool popupBordersEnabled() noexcept;
   void setPopupBordersEnabled(bool enabled);
 
+  [[nodiscard]] bool cardBordersEnabled() noexcept;
+  void setCardBordersEnabled(bool enabled);
+
   [[nodiscard]] bool popupShadowsEnabled() noexcept;
   void setPopupShadowsEnabled(bool enabled);
 

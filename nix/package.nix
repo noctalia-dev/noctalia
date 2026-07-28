@@ -22,12 +22,15 @@
   pam,
   curl,
   libwebp,
+  libjxl,
   glib,
   polkit,
   librsvg,
   libqalculate,
   libxml2,
   md4c,
+  libsecret,
+  libsodium,
   stb,
   fetchFromGitHub,
   nlohmann_json,
@@ -41,7 +44,7 @@
 }:
 let
   inherit (builtins) head match readFile;
-  version = head (match ".*version: '([^']+)'.*" (readFile ../meson.build));
+  version = head (match ".*version: '([0-9][^']+)'.*" (readFile ../meson.build));
   stb' = stb.overrideAttrs (_: {
     version = "unstable-2025-10-26";
     src = fetchFromGitHub {
@@ -91,12 +94,15 @@ stdenv.mkDerivation {
     pam
     curl
     libwebp
+    libjxl
     glib
     polkit
     librsvg
     libqalculate
     libxml2
     md4c
+    libsecret
+    libsodium
     stb'
     nlohmann_json
     tomlplusplus
@@ -107,7 +113,7 @@ stdenv.mkDerivation {
   ninjaFlags = [ "-v" ];
 
   meta = with lib; {
-    description = "A lightweight Wayland shell and bar built directly on Wayland + OpenGL ES";
+    description = "A sleek, customizable desktop shell crafted for Wayland.";
     homepage = "https://github.com/noctalia-dev/noctalia";
     license = licenses.mit;
     platforms = platforms.linux;

@@ -581,7 +581,7 @@ void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& config
         beginRegionCapture(*renderContext, outputOptionsFromConfig(configService.config()));
         return "ok\n";
       },
-      "screenshot-region", "Start an interactive region screenshot"
+      "", "Start an interactive region screenshot"
   );
 
   ipc.registerHandler(
@@ -621,7 +621,7 @@ void ScreenshotService::registerIpc(IpcService& ipc, const ConfigService& config
         captureFullscreen(options);
         return "ok\n";
       },
-      "screenshot-fullscreen [pick|monitor|all]",
+      "[pick|monitor|all]",
       "Capture the focused monitor by default, pick interactively with pick, or all outputs with all"
   );
 }

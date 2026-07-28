@@ -140,6 +140,7 @@ namespace scripting {
     SetWallpaperEnabled,
     SetWallpaper,
     TogglePanel,
+    OpenPluginSettings,
   };
 
   struct ScriptSideEffect {
@@ -149,6 +150,7 @@ namespace scripting {
     // SetWallpaperEnabled: title holds the output connector, flag the enabled state.
     // SetWallpaper: title holds the output connector (empty = all outputs), body the image path.
     // TogglePanel: title holds the panel id ("author/plugin:panel").
+    // OpenPluginSettings: title holds the plugin id ("author/plugin").
     bool flag = false;
   };
 
@@ -233,6 +235,8 @@ namespace scripting {
     bool hasOnIpc = false;
     bool hasOnIpcKnown = false;
     bool unhealthy = false;
+    // True when this result included a CopyToClipboard side effect (before dispatch).
+    bool copiedToClipboard = false;
     std::string callbackName;
     std::string error;
   };

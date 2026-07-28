@@ -6,8 +6,10 @@
 
 #include <array>
 #include <string>
+#include <vector>
 
 class Box;
+class Button;
 class Flex;
 class InputArea;
 class Glyph;
@@ -40,11 +42,15 @@ private:
   void cancelRangeSlide();
   void syncEnabledUi();
   void syncDayLabelHover();
+  void openDayDetail(std::size_t bucketIndex);
+  void clearDayDetail();
   [[nodiscard]] std::string resolveIconPath(const std::string& appKey) const;
 
   ScreenTimeService* m_screenTime = nullptr;
   bool m_active = false;
   int m_rangeDays = 1;
+  std::string m_detailDayKey;
+  std::vector<std::string> m_bucketDayKeys;
   std::string m_lastSnapshotKey;
   int m_rangeSlideDirection = 0;
   int m_pendingRangeDays = 1;
@@ -55,7 +61,10 @@ private:
 
   Flex* m_root = nullptr;
   Flex* m_usageCard = nullptr;
+  Flex* m_detailBar = nullptr;
   Label* m_disabledLabel = nullptr;
+  Label* m_detailTitle = nullptr;
+  Button* m_detailBackButton = nullptr;
   Segmented* m_rangePicker = nullptr;
   ScrollView* m_scroll = nullptr;
   Flex* m_chartPlotRow = nullptr;

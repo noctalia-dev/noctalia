@@ -100,6 +100,7 @@
            jemalloc
            mpfr
            (librsvg-for-system)
+           libjxl
            libqalculate
            libwebp
            libxkbcommon

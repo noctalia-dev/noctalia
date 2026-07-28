@@ -14,9 +14,12 @@
 #include "scripting/plugin_bindings.h"
 #include "scripting/plugin_state_store.h"
 #include "scripting/script_api_context.h"
+#include "scripting/ui_handler_table.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
+#include "system/disk_mounts.h"
 #include "system/icon_resolver.h"
+#include "system/system_monitor_service.h"
 #include "system/terminal_launch.h"
 #include "time/time_format.h"
 #include "ui/dialogs/color_picker_dialog.h"
@@ -188,6 +191,20 @@ namespace {
     lua_setfield(L, -2, key);
   }
 
+  void setTableNumber(lua_State* L, const char* key, double value) {
+    lua_pushnumber(L, value);
+    lua_setfield(L, -2, key);
+  }
+
+  // Pushes an optional as a number, or leaves the key absent (nil) when it has no value, which is
+  // the Luau-idiomatic way to say "this machine has no such sensor".
+  template <typename T> void setTableOptionalNumber(lua_State* L, const char* key, const std::optional<T>& value) {
+    if (!value.has_value()) {
+      return;
+    }
+    setTableNumber(L, key, static_cast<double>(*value));
+  }
+
   void setTableString(lua_State* L, const char* key, const std::string& value) {
     lua_pushlstring(L, value.data(), value.size());
     lua_setfield(L, -2, key);
@@ -342,6 +359,193 @@ namespace {
     return 1;
   }
 
+  // The host's system monitor, or nullptr when it is unavailable: either it failed to construct or
+  // [system.monitor] is disabled, in which case latest() would serve zeros that a plugin could not
+  // tell apart from a real idle reading.
+  [[nodiscard]] SystemMonitorService* runningMonitorForState(lua_State* L) {
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      return nullptr;
+    }
+    auto* monitor = host->api().systemMonitor();
+    if (monitor == nullptr || !monitor->isRunning()) {
+      return nullptr;
+    }
+    return monitor;
+  }
+
+  // systemStats() -> a snapshot of the host's system monitor, or nil when it is unavailable.
+  //
+  //   { sampledAtMs?, cpu = { usagePercent = 23.4, tempC = 47.0? },
+  //     ram = { usagePercent, usedMb, totalMb }, swap = { usedMb, totalMb },
+  //     gpu = { tempC?, usagePercent?, vramUsedBytes?, vramTotalBytes? },
+  //     net = { rxBytesPerSec, txBytesPerSec,
+  //             interfaces = { [name] = { rxBytesPerSec, txBytesPerSec } } },
+  //     loadAvg = { 1.2, 0.9, 0.7 } }
+  //
+  // Percentages are 0-100. Absent sensors are nil rather than 0. The first call opts the host
+  // into the optional CPU/GPU probes represented by this snapshot. Per-core and disk sampling
+  // remain opt-in through cpuCores() and diskStats().
+  int luau_systemStats(lua_State* L) {
+    auto* monitor = runningMonitorForState(L);
+    if (monitor == nullptr) {
+      lua_pushnil(L);
+      return 1;
+    }
+
+    hostForState(L)->ensureSystemStatsRetained();
+    const SystemStats stats = monitor->latest();
+
+    lua_createtable(L, 0, 7);
+    if (stats.sampledAtWall != std::chrono::system_clock::time_point{}) {
+      const double sampledAtMs =
+          std::chrono::duration<double, std::milli>(stats.sampledAtWall.time_since_epoch()).count();
+      setTableNumber(L, "sampledAtMs", sampledAtMs);
+    }
+
+    lua_createtable(L, 0, 2);
+    setTableNumber(L, "usagePercent", stats.cpuUsagePercent);
+    // cpuTempAvailable false means the service is serving its 40C placeholder, not a reading.
+    if (stats.cpuTempAvailable) {
+      setTableOptionalNumber(L, "tempC", stats.cpuTempC);
+    }
+    lua_setfield(L, -2, "cpu");
+
+    lua_createtable(L, 0, 3);
+    setTableNumber(L, "usagePercent", stats.ramUsagePercent);
+    setTableNumber(L, "usedMb", static_cast<double>(stats.ramUsedMb));
+    setTableNumber(L, "totalMb", static_cast<double>(stats.ramTotalMb));
+    lua_setfield(L, -2, "ram");
+
+    lua_createtable(L, 0, 2);
+    setTableNumber(L, "usedMb", static_cast<double>(stats.swapUsedMb));
+    setTableNumber(L, "totalMb", static_cast<double>(stats.swapTotalMb));
+    lua_setfield(L, -2, "swap");
+
+    lua_createtable(L, 0, 4);
+    setTableOptionalNumber(L, "tempC", stats.gpuTempC);
+    setTableOptionalNumber(L, "usagePercent", stats.gpuUsagePercent);
+    setTableOptionalNumber(L, "vramUsedBytes", stats.gpuVramUsedBytes);
+    setTableOptionalNumber(L, "vramTotalBytes", stats.gpuVramTotalBytes);
+    lua_setfield(L, -2, "gpu");
+
+    lua_createtable(L, 0, 3);
+    setTableNumber(L, "rxBytesPerSec", stats.netRxBytesPerSec);
+    setTableNumber(L, "txBytesPerSec", stats.netTxBytesPerSec);
+    lua_createtable(L, 0, static_cast<int>(stats.netThroughputByInterface.size()));
+    for (const auto& [interfaceName, throughput] : stats.netThroughputByInterface) {
+      lua_createtable(L, 0, 2);
+      setTableNumber(L, "rxBytesPerSec", throughput.rxBytesPerSec);
+      setTableNumber(L, "txBytesPerSec", throughput.txBytesPerSec);
+      lua_setfield(L, -2, interfaceName.c_str());
+    }
+    lua_setfield(L, -2, "interfaces");
+    lua_setfield(L, -2, "net");
+
+    lua_createtable(L, 3, 0);
+    lua_pushnumber(L, stats.loadAvg1);
+    lua_rawseti(L, -2, 1);
+    lua_pushnumber(L, stats.loadAvg5);
+    lua_rawseti(L, -2, 2);
+    lua_pushnumber(L, stats.loadAvg15);
+    lua_rawseti(L, -2, 3);
+    lua_setfield(L, -2, "loadAvg");
+
+    return 1;
+  }
+
+  // cpuCores() -> array of per-core CPU usage percentages, or nil when the monitor is unavailable
+  // or has not produced a sample yet.
+  //
+  // The first call opts this host into per-core sampling, which costs one extra /proc/stat read per
+  // second for as long as the plugin is loaded; systemStats() on its own does not. The first sample
+  // needs two reads to diff, so expect nil for up to a second after the first call.
+  //
+  // Cores are in /proc/stat order. Offline cores are absent from that file, so the length can
+  // change across calls and an entry's position is not its core id.
+  int luau_cpuCores(lua_State* L) {
+    auto* host = hostForState(L);
+    auto* monitor = runningMonitorForState(L);
+    if (host == nullptr || monitor == nullptr) {
+      lua_pushnil(L);
+      return 1;
+    }
+
+    host->ensureCpuCoresRetained();
+    const std::vector<double> cores = monitor->latest().cpuCoreUsagePercent;
+    if (cores.empty()) {
+      lua_pushnil(L);
+      return 1;
+    }
+
+    lua_createtable(L, static_cast<int>(cores.size()), 0);
+    int coreIndex = 1;
+    for (const double core : cores) {
+      lua_pushnumber(L, core);
+      lua_rawseti(L, -2, coreIndex++);
+    }
+    return 1;
+  }
+
+  // diskMounts() -> physical block-device-backed filesystems, deduped by source and sorted by
+  // mount path. Pseudo filesystems, loop/squashfs mounts, and boot mounts are excluded.
+  int luau_diskMounts(lua_State* L) {
+    const auto mounts = physicalDiskMounts();
+    lua_createtable(L, static_cast<int>(mounts.size()), 0);
+    int mountIndex = 1;
+    for (const auto& mount : mounts) {
+      lua_createtable(L, 0, 3);
+      setTableString(L, "path", mount.path);
+      setTableString(L, "source", mount.source);
+      setTableString(L, "filesystem", mount.filesystem);
+      lua_rawseti(L, -2, mountIndex++);
+    }
+    return 1;
+  }
+
+  // diskStats(path) -> the latest statvfs snapshot for an absolute path, or nil when the monitor
+  // is unavailable or the path cannot be sampled. Each distinct valid path is retained until the
+  // plugin is unloaded; ~ is expanded before the path is normalized.
+  int luau_diskStats(lua_State* L) {
+    size_t pathLen = 0;
+    const char* rawPath = luaL_checklstring(L, 1, &pathLen);
+    std::filesystem::path path = FileUtils::expandUserPath(std::string(rawPath, pathLen));
+    if (path.empty() || !path.is_absolute()) {
+      luaL_argerror(L, 1, "expected an absolute path or ~/...");
+    }
+    const std::string normalizedPath = path.lexically_normal().string();
+
+    auto* host = hostForState(L);
+    auto* monitor = runningMonitorForState(L);
+    if (host == nullptr || monitor == nullptr || !host->ensureDiskPathRetained(normalizedPath)) {
+      lua_pushnil(L);
+      return 1;
+    }
+
+    const auto stats = monitor->diskStats(normalizedPath);
+    if (!stats.has_value()) {
+      lua_pushnil(L);
+      return 1;
+    }
+
+    lua_createtable(L, 0, 4);
+    setTableNumber(L, "usagePercent", stats->usagePercent);
+    setTableNumber(L, "totalBytes", static_cast<double>(stats->totalBytes));
+    setTableNumber(L, "freeBytes", static_cast<double>(stats->freeBytes));
+    setTableNumber(L, "availableBytes", static_cast<double>(stats->availableBytes));
+    return 1;
+  }
+
+  // nowMs() -> wall-clock milliseconds since the Unix epoch. os.time() and noctalia.formatTime()
+  // are both whole-second, so this is the only way a plugin can see sub-second time, e.g. to phase
+  // its own updates onto a second boundary.
+  int luau_nowMs(lua_State* L) {
+    const auto since = std::chrono::system_clock::now().time_since_epoch();
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(since).count();
+    lua_pushnumber(L, static_cast<double>(ms));
+    return 1;
+  }
+
   // appIconPath(appIdOrIconName, sizePx?) -> absolute icon file path or nil.
   // Same resolution the native taskbar uses: desktop-entry lookup (id /
   // StartupWMClass) for the icon name, then the XDG icon-theme resolver.
@@ -413,6 +617,15 @@ namespace {
     const char* panelId = luaL_checklstring(L, 1, &len);
     if (auto* host = hostForState(L)) {
       host->scriptTogglePanel(std::string(panelId, len));
+    }
+    return 0;
+  }
+
+  // openSettings() — open the settings window at this plugin's own settings. The plugin id comes
+  // from the host, so a plugin can only ever open its own page.
+  int luau_openSettings(lua_State* L) {
+    if (auto* host = hostForState(L)) {
+      host->scriptOpenSettings();
     }
     return 0;
   }
@@ -1292,10 +1505,16 @@ namespace {
       {"portalAvailable", luau_portalAvailable},
       {"focusedOutputName", luau_focusedOutputName},
       {"outputs", luau_outputs},
+      {"systemStats", luau_systemStats},
+      {"cpuCores", luau_cpuCores},
+      {"diskMounts", luau_diskMounts},
+      {"diskStats", luau_diskStats},
+      {"nowMs", luau_nowMs},
       {"appIconPath", luau_appIconPath},
       {"setWallpaperEnabled", luau_setWallpaperEnabled},
       {"setWallpaper", luau_setWallpaper},
       {"togglePanel", luau_togglePanel},
+      {"openSettings", luau_openSettings},
       {"isDarkMode", luau_isDarkMode},
       {"wallpaperDirectory", luau_wallpaperDirectory},
       {"notify", luau_notify},
@@ -1392,11 +1611,80 @@ LuauHost::LuauHost(scripting::ScriptApiContext& api, CompositorPlatform* platfor
   lua_pop(m_L, 1);
 }
 
+void LuauHost::ensureSystemStatsRetained() {
+  if (m_systemStatsRetained) {
+    return;
+  }
+  auto* monitor = m_api.systemMonitor();
+  if (monitor == nullptr) {
+    return;
+  }
+  monitor->retainCpuTemp();
+  monitor->retainGpuTemp();
+  monitor->retainGpuUsage();
+  monitor->retainGpuVram();
+  m_systemStatsRetained = true;
+}
+
+void LuauHost::ensureCpuCoresRetained() {
+  if (m_cpuCoresRetained) {
+    return;
+  }
+  auto* monitor = m_api.systemMonitor();
+  if (monitor == nullptr) {
+    return;
+  }
+  monitor->retainCpuCores();
+  m_cpuCoresRetained = true;
+}
+
+bool LuauHost::ensureDiskPathRetained(const std::string& path) {
+  if (m_diskPathsRetained.contains(path)) {
+    return true;
+  }
+  auto* monitor = m_api.systemMonitor();
+  if (monitor == nullptr) {
+    return false;
+  }
+  monitor->retainDiskPath(path);
+  if (!monitor->diskStats(path).has_value()) {
+    monitor->releaseDiskPath(path);
+    return false;
+  }
+  m_diskPathsRetained.insert(path);
+  return true;
+}
+
 LuauHost::~LuauHost() {
   // Terminate any long-lived stream subprocesses and HTTP streams before tearing
   // down the state.
   stopAllStreams();
   stopAllHttpStreams();
+  if (m_systemStatsRetained) {
+    if (auto* monitor = m_api.systemMonitor(); monitor != nullptr) {
+      monitor->releaseCpuTemp();
+      monitor->releaseGpuTemp();
+      monitor->releaseGpuUsage();
+      monitor->releaseGpuVram();
+    }
+    m_systemStatsRetained = false;
+  }
+  if (!m_diskPathsRetained.empty()) {
+    if (auto* monitor = m_api.systemMonitor(); monitor != nullptr) {
+      for (const auto& path : m_diskPathsRetained) {
+        monitor->releaseDiskPath(path);
+      }
+    }
+    m_diskPathsRetained.clear();
+  }
+  if (m_cpuCoresRetained) {
+    // Null once Application has torn the service down, which it does before the plugin hosts that
+    // outlive it are destroyed.
+    if (auto* monitor = m_api.systemMonitor(); monitor != nullptr) {
+      monitor->releaseCpuCores();
+    }
+    m_cpuCoresRetained = false;
+  }
   if (m_L) {
     if (m_T != nullptr) {
       for (int callbackRef : m_asyncCommandCallbackRefs) {
@@ -2065,6 +2353,14 @@ void LuauHost::scriptTogglePanel(std::string panelId) {
   }
 }
 
+void LuauHost::scriptOpenSettings() {
+  if (m_scriptContext != nullptr) {
+    m_scriptContext->sideEffects.push_back(
+        {.kind = scripting::ScriptSideEffectKind::OpenPluginSettings, .title = m_pluginId, .body = {}}
+    );
+  }
+}
+
 bool LuauHost::scriptCopyToClipboard(std::string text, std::string mimeType) {
   if (m_scriptContext == nullptr || text.empty() || mimeType.empty()) {
     return false;
@@ -2131,9 +2427,24 @@ bool LuauHost::loadString(std::string_view chunkName, std::string_view source) {
 
 bool LuauHost::run() { return callWithBudget("chunk", 0, 0, std::chrono::milliseconds(100)); }
 
+bool LuauHost::pushCallback(const char* name) {
+  if (!std::string_view(name).starts_with(scripting::kUiHandlerPrefix)) {
+    lua_getglobal(m_T, name);
+    return lua_isfunction(m_T, -1);
+  }
+  // A handler of a superseded render is simply absent from the live table, so
+  // the click lands on nil and the caller drops it.
+  lua_getglobal(m_T, scripting::kUiHandlerTable);
+  if (!lua_istable(m_T, -1)) {
+    return false;
+  }
+  lua_getfield(m_T, -1, name);
+  lua_remove(m_T, -2);
+  return lua_isfunction(m_T, -1);
+}
+
 bool LuauHost::hasGlobal(const char* name) {
-  lua_getglobal(m_T, name);
-  bool exists = lua_isfunction(m_T, -1);
+  bool exists = pushCallback(name);
   lua_pop(m_T, 1);
   return exists;
 }
@@ -2141,8 +2452,7 @@ bool LuauHost::hasGlobal(const char* name) {
 bool LuauHost::callGlobal(const char* name) { return callGlobalWithBudget(name, std::chrono::milliseconds(25)); }
 
 bool LuauHost::callGlobalWithBudget(const char* name, std::chrono::milliseconds budget) {
-  lua_getglobal(m_T, name);
-  if (!lua_isfunction(m_T, -1)) {
+  if (!pushCallback(name)) {
     lua_pop(m_T, 1);
     return false;
   }
@@ -2152,8 +2462,7 @@ bool LuauHost::callGlobalWithBudget(const char* name, std::chrono::milliseconds 
 bool LuauHost::callGlobalWithArgsAndBudget(
     const char* name, std::span<const scripting::ScriptArg> args, std::chrono::milliseconds budget
 ) {
-  lua_getglobal(m_T, name);
-  if (!lua_isfunction(m_T, -1)) {
+  if (!pushCallback(name)) {
     lua_pop(m_T, 1);
     return false;
   }

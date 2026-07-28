@@ -8,12 +8,12 @@
 
 #include <memory>
 
-SessionWidget::SessionWidget(wl_output* /*output*/, std::string barGlyphId, WidgetCustomImage customImage)
-    : m_barGlyphId(std::move(barGlyphId)), m_customImage(std::move(customImage)) {}
+SessionWidget::SessionWidget(wl_output* /*output*/, Options options)
+    : m_barGlyphId(std::move(options.glyph)),
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}
 
 void SessionWidget::create() {
-  auto area = std::make_unique<InputArea>();
-  area->setOnClick([this](const InputArea::PointerData& /*data*/) { requestPanelToggle("session"); });
+  auto area = ui::inputArea({});
 
   if (m_customImage.enabled()) {
     area->addChild(ui::image({.out = &m_image, .fit = ImageFit::Contain}));
@@ -21,7 +21,7 @@ void SessionWidget::create() {
     area->addChild(
         ui::glyph({
             .out = &m_glyph,
-            .glyph = m_barGlyphId.empty() ? "shutdown" : m_barGlyphId,
+            .glyph = m_barGlyphId,
             .glyphSize = Style::baseGlyphSize * m_contentScale,
             .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
         })

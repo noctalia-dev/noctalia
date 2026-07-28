@@ -26,7 +26,7 @@ DesktopLabelWidget::DesktopLabelWidget(Options options)
       m_opacity(std::clamp(options.opacity, 0.0f, 1.0f)), m_shadow(options.shadow) {}
 
 void DesktopLabelWidget::create() {
-  auto rootNode = std::make_unique<Node>();
+  auto rootNode = ui::node({});
   rootNode->setClipChildren(true);
 
   auto titleLabel = ui::label({

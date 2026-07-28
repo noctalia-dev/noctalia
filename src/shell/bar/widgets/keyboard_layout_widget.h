@@ -18,9 +18,9 @@ public:
   enum class DisplayMode : std::uint8_t { Short = 0, Full = 1 };
 
   KeyboardLayoutWidget(
-      CompositorPlatform& platform, std::string cycleCommand, DisplayMode displayMode, bool showIcon, bool showLabel,
-      bool hideWhenSingleLayout, std::unordered_map<std::string, std::string> customLabels = {},
-      std::string glyph = "keyboard", WidgetCustomImage customImage = {}
+      CompositorPlatform& platform, DisplayMode displayMode, bool showIcon, bool showLabel, bool hideWhenSingleLayout,
+      std::unordered_map<std::string, std::string> customLabels = {}, std::string glyph = "keyboard",
+      WidgetCustomImage customImage = {}
   );
   static DisplayMode parseDisplayMode(const std::string& value);
   static std::string formatLayoutLabel(const std::string& layoutName, DisplayMode displayMode);
@@ -32,16 +32,15 @@ public:
   void create() override;
 
 private:
+  void onGestureDispatch(noctalia::bar::Gesture gesture, const noctalia::bar::WidgetAction& action) override;
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void sync(Renderer& renderer);
   [[nodiscard]] std::string resolvedLayoutName() const;
   void armRefreshTick();
   void scheduleRefreshBurst();
-  void cycleLayout();
 
   CompositorPlatform& m_platform;
-  std::string m_cycleCommand;
   DisplayMode m_displayMode = DisplayMode::Short;
   bool m_showIcon = true;
   bool m_showLabel = true;
@@ -57,7 +56,6 @@ private:
   std::string m_lastLayoutName;
   std::string m_lastLabel;
   std::string m_pendingLayoutName;
-  bool m_clickArmed = false;
   int m_refreshAttemptsRemaining = 0;
   Timer m_refreshTimer;
   bool m_isVertical = false;

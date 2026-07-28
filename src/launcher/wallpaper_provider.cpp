@@ -1,6 +1,7 @@
 #include "launcher/wallpaper_provider.h"
 
 #include "config/config_service.h"
+#include "core/files/directory_scanner.h"
 #include "i18n/i18n.h"
 #include "shell/wallpaper/wallpaper_paths.h"
 #include "theme/theme_service.h"
@@ -23,11 +24,6 @@ namespace {
     std::string searchable;
   };
 
-  bool hasImageExtension(const std::filesystem::path& path) {
-    const auto ext = StringUtils::toLower(path.extension().string());
-    return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" || ext == ".bmp" || ext == ".gif";
-  }
-
   std::vector<WallpaperCandidate> collectWallpapers(const std::filesystem::path& directory) {
     std::vector<WallpaperCandidate> candidates;
     if (directory.empty()) {
@@ -48,7 +44,7 @@ namespace {
       }
 
       std::error_code typeEc;
-      if (!it->is_regular_file(typeEc) || typeEc || !hasImageExtension(it->path())) {
+      if (!it->is_regular_file(typeEc) || typeEc || !DirectoryScanner::isImagePath(it->path())) {
         continue;
       }
 
@@ -132,7 +128,7 @@ bool WallpaperProvider::activate(const LauncherResult& result) {
 
   const std::filesystem::path path(result.id);
   std::error_code ec;
-  if (!hasImageExtension(path) || !std::filesystem::is_regular_file(path, ec) || ec) {
+  if (!DirectoryScanner::isImagePath(path) || !std::filesystem::is_regular_file(path, ec) || ec) {
     return false;
   }
 

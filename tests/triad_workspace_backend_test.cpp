@@ -106,22 +106,28 @@ int main() {
   assert(dp1Windows[0].windowId == "4294967297");
   assert(dp1Windows[0].title == "Browser Title");
 
-  assert(TriadWorkspaceBackendTestAccess::applyWindow(
-      backend,
-      {{"id", 42},
-       {"workspace_idx", 1},
-       {"output", "DP-1"},
-       {"app_id", "kitty"},
-       {"title", "Moved"},
-       {"position", {{"column_idx", 3}, {"window_idx", 2}}}}
-  ));
+  assert(
+      TriadWorkspaceBackendTestAccess::applyWindow(
+          backend,
+          {{"id", 42},
+           {"workspace_idx", 1},
+           {"output", "DP-1"},
+           {"app_id", "kitty"},
+           {"title", "Moved"},
+           {"position", {{"column_idx", 3}, {"window_idx", 2}}}}
+      )
+  );
   assert(backend.workspaceWindows("DP-1").size() == 2);
   assert(!TriadWorkspaceBackendTestAccess::applyWindow(backend, {{"id", "bad"}}));
 
   auto replacement = initialState();
   replacement["overview"]["is_open"] = true;
   replacement["windows"].erase(1);
-  assert(TriadWorkspaceBackendTestAccess::handleMessage(backend, nlohmann::json{{"triad", {{"state", replacement}}}}.dump()));
+  assert(
+      TriadWorkspaceBackendTestAccess::handleMessage(
+          backend, nlohmann::json{{"triad", {{"state", replacement}}}}.dump()
+      )
+  );
   assert(changes == 1);
   assert(overviewChanges == 1);
   assert(backend.isOverviewOpen());

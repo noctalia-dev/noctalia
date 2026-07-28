@@ -12,7 +12,6 @@
 #include "ui/style.h"
 
 #include <chrono>
-#include <linux/input-event-codes.h>
 #include <memory>
 #include <string>
 #include <vector>
@@ -60,43 +59,13 @@ namespace {
 
 NetworkWidget::NetworkWidget(
     INetworkService* network, ExternalIpService* externalIp, SystemMonitorService* monitor, wl_output* /*output*/,
-    bool showLabel, bool showVpnLabel
+    Options options
 )
-    : m_network(network), m_externalIp(externalIp), m_monitor(monitor), m_showLabel(showLabel),
-      m_showVpnLabel(showVpnLabel) {}
+    : m_network(network), m_externalIp(externalIp), m_monitor(monitor), m_showLabel(options.showLabel),
+      m_showVpnLabel(options.showVpnLabel), m_vpnStatusMode(options.vpnStatusMode) {}
 
 void NetworkWidget::create() {
-  auto area = std::make_unique<InputArea>();
-  area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
-  area->setOnClick([this](const InputArea::PointerData& data) {
-    if (data.button == BTN_RIGHT) {
-      if (m_network == nullptr) {
-        return;
-      }
-      const NetworkState& s = m_network->state();
-      if (s.kind == NetworkConnectivity::Wireless && (s.connected || s.resolving)) {
-        m_lastRightClickTransport = NetworkConnectivity::Wireless;
-        m_network->setWirelessEnabled(false);
-      } else if (s.kind == NetworkConnectivity::Wired && (s.connected || s.resolving)) {
-        m_lastRightClickTransport = NetworkConnectivity::Wired;
-        m_network->disconnect();
-      } else if (m_lastRightClickTransport == NetworkConnectivity::Wireless) {
-        m_lastRightClickTransport = NetworkConnectivity::Unknown;
-        m_network->setWirelessEnabled(true);
-      } else if (m_lastRightClickTransport == NetworkConnectivity::Wired) {
-        m_lastRightClickTransport = NetworkConnectivity::Unknown;
-        m_network->activateWiredConnection();
-      } else if (!s.wirelessEnabled) {
-        m_network->setWirelessEnabled(true);
-      } else if (m_network->canActivateWiredConnection()) {
-        m_network->activateWiredConnection();
-      }
-      return;
-    }
-    if (data.button == BTN_LEFT) {
-      requestPanelToggle("control-center", "network");
-    }
-  });
+  auto area = ui::inputArea({});
   area->setTooltipProvider(
       [this]() -> TooltipContent {
         std::vector<TooltipRow> rows = buildTooltipRows();
@@ -106,6 +75,16 @@ void NetworkWidget::create() {
         return TooltipContent{std::move(rows)};
       },
       kTooltipRefreshInterval
+  );
+
+  area->addChild(
+      ui::glyph({
+          .out = &m_vpnGlyph,
+          .glyph = "shield-check",
+          .glyphSize = Style::baseGlyphSize * m_contentScale,
+          .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
+          .visible = false,
+      })
   );
 
   area->addChild(
@@ -139,6 +118,17 @@ void NetworkWidget::create() {
       })
   );
 
+  // VPN label for separate mode — shows VPN name next to VPN icon.
+  area->addChild(
+      ui::label({
+          .out = &m_vpnLabel,
+          .fontSize = Style::fontSizeBody * m_contentScale,
+          .fontWeight = labelFontWeight(),
+          .fontFamily = labelFontFamily(),
+          .visible = false,
+      })
+  );
+
   setRoot(std::move(area));
 }
 
@@ -150,28 +140,98 @@ void NetworkWidget::doLayout(Renderer& renderer, float containerWidth, float con
   m_isVertical = containerHeight > containerWidth;
   syncState(renderer);
 
+  if (m_vpnGlyph != nullptr && m_vpnGlyph->visible()) {
+    m_vpnGlyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
+    m_vpnGlyph->measure(renderer);
+  }
   m_glyph->measure(renderer);
   if (m_label != nullptr) {
     m_label->measure(renderer);
+  }
+  if (m_vpnLabel != nullptr && m_vpnLabel->visible()) {
+    m_vpnLabel->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+    m_vpnLabel->measure(renderer);
   }
 
   // Glyph and spinner share one slot; only one is visible.
   Node* icon =
       (m_spinner != nullptr && m_spinner->visible()) ? static_cast<Node*>(m_spinner) : static_cast<Node*>(m_glyph);
 
-  const bool labelVisible = m_label != nullptr && m_label->width() > 0.0f && m_label->visible();
-  if (m_isVertical && labelVisible) {
-    const float w = std::max(icon->width(), m_label->width());
-    icon->setPosition(std::round((w - icon->width()) * 0.5f), 0.0f);
-    m_label->setPosition(std::round((w - m_label->width()) * 0.5f), icon->height());
-    rootNode->setSize(w, icon->height() + m_label->height());
+  const bool vpnVisible = m_vpnGlyph != nullptr && m_vpnGlyph->visible();
+  const bool vpnLabelVisible = m_vpnLabel != nullptr && m_vpnLabel->visible();
+  const bool networkLabelVisible = m_label != nullptr && m_label->width() > 0.0f && m_label->visible();
+
+  if (m_isVertical) {
+    // Vertical: stack everything centered, top to bottom
+    // VPN glyph → VPN label → network glyph → network label
+    const float w = [&]() {
+      float maxW = icon->width();
+      if (vpnVisible) {
+        maxW = std::max(maxW, m_vpnGlyph->width());
+      }
+      if (vpnLabelVisible) {
+        maxW = std::max(maxW, m_vpnLabel->width());
+      }
+      if (networkLabelVisible) {
+        maxW = std::max(maxW, m_label->width());
+      }
+      return maxW;
+    }();
+
+    float y = 0.0f;
+    if (vpnVisible) {
+      m_vpnGlyph->setPosition(std::round((w - m_vpnGlyph->width()) * 0.5f), y);
+      y += m_vpnGlyph->height();
+    }
+    if (vpnLabelVisible) {
+      m_vpnLabel->setPosition(std::round((w - m_vpnLabel->width()) * 0.5f), y);
+      y += m_vpnLabel->height();
+    }
+    if (vpnVisible) {
+      y += Style::spaceXs;
+    }
+    icon->setPosition(std::round((w - icon->width()) * 0.5f), y);
+    y += icon->height();
+    if (networkLabelVisible) {
+      m_label->setPosition(std::round((w - m_label->width()) * 0.5f), y);
+      y += m_label->height();
+    }
+    rootNode->setSize(w, y);
   } else {
-    const float h = labelVisible ? std::max(icon->height(), m_label->height()) : icon->height();
-    icon->setPosition(0.0f, std::round((h - icon->height()) * 0.5f));
-    float totalWidth = icon->width();
-    if (labelVisible) {
-      m_label->setPosition(icon->width() + Style::spaceXs, std::round((h - m_label->height()) * 0.5f));
-      totalWidth = m_label->x() + m_label->width();
+    // Horizontal: vpnGlyph + vpnLabel | space | networkGlyph + networkLabel
+    const float vpnGroupWidth =
+        vpnVisible ? m_vpnGlyph->width() + (vpnLabelVisible ? Style::spaceXs + m_vpnLabel->width() : 0.0f) : 0.0f;
+    const float networkGroupWidth = icon->width() + (networkLabelVisible ? Style::spaceXs + m_label->width() : 0.0f);
+    const float gap = vpnVisible ? Style::spaceXs : 0.0f;
+    const float totalWidth = vpnGroupWidth + gap + networkGroupWidth;
+    const float h = [&]() {
+      float maxH = icon->height();
+      if (vpnVisible) {
+        maxH = std::max(maxH, m_vpnGlyph->height());
+      }
+      if (vpnLabelVisible) {
+        maxH = std::max(maxH, m_vpnLabel->height());
+      }
+      if (networkLabelVisible) {
+        maxH = std::max(maxH, m_label->height());
+      }
+      return maxH;
+    }();
+
+    float x = 0.0f;
+    if (vpnVisible) {
+      m_vpnGlyph->setPosition(x, std::round((h - m_vpnGlyph->height()) * 0.5f));
+      x += m_vpnGlyph->width();
+      if (vpnLabelVisible) {
+        m_vpnLabel->setPosition(x + Style::spaceXs, std::round((h - m_vpnLabel->height()) * 0.5f));
+        x += Style::spaceXs + m_vpnLabel->width();
+      }
+    }
+    x += gap;
+    icon->setPosition(x, std::round((h - icon->height()) * 0.5f));
+    x += icon->width();
+    if (networkLabelVisible) {
+      m_label->setPosition(x + Style::spaceXs, std::round((h - m_label->height()) * 0.5f));
     }
     rootNode->setSize(totalWidth, h);
   }
@@ -194,8 +254,25 @@ void NetworkWidget::syncState(Renderer& renderer) {
 
   const bool showSpinner = s.kind == NetworkConnectivity::Wired && s.resolving;
 
+  // VPN glyph (both mode): show shield icon next to network icon
+  if (m_vpnGlyph != nullptr) {
+    const bool showVpn = m_vpnStatusMode == VpnStatusMode::Both && s.vpnActive;
+    m_vpnGlyph->setVisible(showVpn);
+    if (showVpn) {
+      m_vpnGlyph->setGlyph(network_glyphs::vpnGlyph());
+      m_vpnGlyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
+      m_vpnGlyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
+      m_vpnGlyph->measure(renderer);
+    }
+  }
+
+  // Main network glyph: replace mode uses the VPN icon when active.
   m_glyph->setVisible(!showSpinner);
-  m_glyph->setGlyph(network_glyphs::glyphForState(s));
+  if (m_vpnStatusMode == VpnStatusMode::Replace && s.vpnActive) {
+    m_glyph->setGlyph(network_glyphs::vpnGlyph());
+  } else {
+    m_glyph->setGlyph(network_glyphs::glyphForState(s));
+  }
   m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
   m_glyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
   m_glyph->measure(renderer);
@@ -215,7 +292,8 @@ void NetworkWidget::syncState(Renderer& renderer) {
     m_label->setVisible(showLabel);
     if (showLabel) {
       std::string text = labelForState(s);
-      if (m_showVpnLabel && s.vpnActive) {
+      // In replace mode, vpn_label overrides the network label.
+      if (m_vpnStatusMode == VpnStatusMode::Replace && m_showVpnLabel && s.vpnActive) {
         if (std::string vpnName = firstActiveVpnName(m_network->vpnConnections()); !vpnName.empty()) {
           text = std::move(vpnName);
         }
@@ -227,6 +305,22 @@ void NetworkWidget::syncState(Renderer& renderer) {
       m_label->setText(text);
       m_label->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
       m_label->measure(renderer);
+    }
+  }
+
+  // VPN label (both mode): shows VPN name next to VPN icon.
+  if (m_vpnLabel != nullptr) {
+    const bool showVpnLabel = m_vpnStatusMode == VpnStatusMode::Both && m_showVpnLabel && m_showLabel && s.vpnActive;
+    m_vpnLabel->setVisible(showVpnLabel);
+    if (showVpnLabel) {
+      std::string vpnText = firstActiveVpnName(m_network->vpnConnections());
+      if (m_isVertical && vpnText.size() > 3) {
+        vpnText = vpnText.substr(0, 3);
+      }
+      m_vpnLabel->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
+      m_vpnLabel->setText(vpnText);
+      m_vpnLabel->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
+      m_vpnLabel->measure(renderer);
     }
   }
 

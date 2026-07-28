@@ -127,7 +127,7 @@ namespace {
   }
 
   Node* addHandPivot(Node& parent, float center, float width, float length, const Color& color) {
-    auto pivot = std::make_unique<Node>();
+    auto pivot = ui::node({});
     pivot->setPosition(center, center);
     pivot->setSize(0.0f, 0.0f);
     pivot->setParticipatesInLayout(false);
@@ -139,7 +139,7 @@ namespace {
   void addTickMark(
       Node& parent, float center, float angleRad, float width, float length, float dialRadius, const Color& color
   ) {
-    auto pivot = std::make_unique<Node>();
+    auto pivot = ui::node({});
     pivot->setPosition(center, center);
     pivot->setRotation(angleRad);
     pivot->setParticipatesInLayout(false);
@@ -212,9 +212,9 @@ DesktopClockWidget::DesktopClockWidget(Options options)
       m_showsSeconds(m_style == Style::Analog || formatShowsSeconds(m_format)) {}
 
 void DesktopClockWidget::create() {
-  auto rootNode = std::make_unique<Node>();
+  auto rootNode = ui::node({});
 
-  auto digitalRoot = std::make_unique<Node>();
+  auto digitalRoot = ui::node({});
   m_digitalRoot = digitalRoot.get();
   auto label = ui::label({
       .out = &m_label,
@@ -225,7 +225,7 @@ void DesktopClockWidget::create() {
   m_digitalRoot->addChild(std::move(label));
   rootNode->addChild(std::move(digitalRoot));
 
-  auto analogRoot = std::make_unique<Node>();
+  auto analogRoot = ui::node({});
   m_analogRoot = analogRoot.get();
   m_analogRoot->setVisible(m_style == Style::Analog);
 
@@ -245,7 +245,7 @@ void DesktopClockWidget::create() {
   m_face->setStyle(faceStyle);
   m_analogRoot->addChild(std::move(face));
 
-  auto ticksRoot = std::make_unique<Node>();
+  auto ticksRoot = ui::node({});
   m_ticksRoot = ticksRoot.get();
   m_ticksRoot->setParticipatesInLayout(false);
   buildAnalogTicks(*m_ticksRoot, metrics, handColor);

@@ -2,6 +2,7 @@
 
 #include "config/config_service.h"
 #include "core/deferred_call.h"
+#include "core/files/directory_scanner.h"
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
@@ -59,6 +60,7 @@ namespace {
   constexpr float kSnapGuideThresholdMin = 6.0f;
   constexpr float kSnapGuideThresholdMax = 18.0f;
   constexpr float kCenterGuideThickness = 3.0f;
+  constexpr float kLassoClickSlop = 4.0f;
   constexpr std::size_t kScaleCornerCount = 4;
 
   struct CornerSigns {
@@ -594,9 +596,9 @@ void DesktopWidgetsEditor::prepareFrame(OverlaySurface& surface, bool needsUpdat
       if (view.widget == nullptr || view.transformNode == nullptr) {
         continue;
       }
-      // During a scale drag, re-fit only the dragged widget; the others don't change, and skipping
-      // them keeps the per-frame relayout cheap.
-      if (m_drag.mode == DragMode::Scale && id != m_drag.widgetId) {
+      // During a scale drag, re-fit the dragged widget and any group co-members whose
+      // boxes are also changing. Skip unrelated widgets to keep the per-frame cost down.
+      if (m_drag.mode == DragMode::Scale && id != m_drag.widgetId && !m_drag.groupInitialStates.contains(id)) {
         continue;
       }
       view.widget->layout(*m_renderContext);
@@ -640,9 +642,10 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   surface.rotateArea = nullptr;
   surface.scaleHandles.fill(nullptr);
   surface.scaleAreas.fill(nullptr);
+  surface.lassoBox = nullptr;
   surface.toolbar = nullptr;
 
-  auto root = std::make_unique<InputArea>();
+  auto root = ui::inputArea({});
   root->setEnabled(false);
   root->setAnimationManager(&surface.animations);
   if (m_renderContext != nullptr && m_wayland != nullptr) {
@@ -683,20 +686,38 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   dim->setZIndex(0);
   root->addChild(std::move(dim));
 
-  auto backgroundArea = std::make_unique<InputArea>();
+  auto backgroundArea = ui::inputArea({});
   backgroundArea->setPosition(0.0f, 0.0f);
   backgroundArea->setFrameSize(root->width(), root->height());
   backgroundArea->setZIndex(1);
-  backgroundArea->setOnClick([this](const InputArea::PointerData& data) {
-    if (data.button != BTN_LEFT || m_drag.mode != DragMode::None) {
+  backgroundArea->setOnPress([this, outputName = surface.outputName](const InputArea::PointerData& data) {
+    if (data.button != BTN_LEFT) {
       return;
     }
-    if (!m_selectedWidgetIds.empty()) {
-      clearSelection();
-      requestLayout();
+    if (data.pressed) {
+      if (m_drag.mode == DragMode::None) {
+        startLassoDrag(outputName);
+      }
+    } else if (m_drag.mode == DragMode::Lasso && m_drag.surfaceOutputName == outputName) {
+      finishDrag();
+    }
+  });
+  backgroundArea->setOnMotion([this, outputName = surface.outputName](const InputArea::PointerData& /*data*/) {
+    if (m_drag.mode == DragMode::Lasso && m_drag.surfaceOutputName == outputName) {
+      updateDrag();
     }
   });
   root->addChild(std::move(backgroundArea));
+
+  auto lassoBox = ui::box({
+      .fill = colorSpecFromRole(ColorRole::Primary, 0.12f),
+      .configure = [](Box& box) { box.setBorder(colorSpecFromRole(ColorRole::Primary), 1.0f); },
+  });
+  lassoBox->setHitTestVisible(false);
+  lassoBox->setVisible(false);
+  lassoBox->setZIndex(150);
+  surface.lassoBox = lassoBox.get();
+  root->addChild(std::move(lassoBox));
 
   if (m_snapshot.grid.visible && m_snapshot.grid.cellSize > 0) {
     const float width = root->width();
@@ -811,7 +832,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     view.intrinsicWidth = std::max(1.0f, widget->intrinsicWidth());
     view.intrinsicHeight = std::max(1.0f, widget->intrinsicHeight());
 
-    auto bodyArea = std::make_unique<InputArea>();
+    auto bodyArea = ui::inputArea({});
     view.bodyArea = bodyArea.get();
     view.transformNode = view.bodyArea;
     view.transformNode->setFrameSize(view.intrinsicWidth, view.intrinsicHeight);
@@ -867,7 +888,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     SecondarySelectionVisual visual;
     visual.widgetId = selectedId;
 
-    auto borderTransform = std::make_unique<Node>();
+    auto borderTransform = ui::node({});
     borderTransform->setZIndex(102);
     borderTransform->setHitTestVisible(false);
     visual.transform = borderTransform.get();
@@ -899,7 +920,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   if (selectedIt != surface.views.end()) {
     selectedIt->second.bodyArea->setZIndex(101);
 
-    auto selectionFrameTransform = std::make_unique<Node>();
+    auto selectionFrameTransform = ui::node({});
     selectionFrameTransform->setZIndex(100);
     surface.selectionFrameTransform = selectionFrameTransform.get();
 
@@ -921,7 +942,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
       surface.rotationRing = ring.get();
       surface.selectionFrameTransform->addChild(std::move(ring));
 
-      auto rotateArea = std::make_unique<InputArea>();
+      auto rotateArea = ui::inputArea({});
       rotateArea->setZIndex(1);
       rotateArea->setOnPress([this, id = m_selectedWidgetId](const InputArea::PointerData& data) {
         if (data.button != BTN_LEFT) {
@@ -944,7 +965,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
 
     root->addChild(std::move(selectionFrameTransform));
 
-    auto selectionBorderTransform = std::make_unique<Node>();
+    auto selectionBorderTransform = ui::node({});
     selectionBorderTransform->setZIndex(102);
     selectionBorderTransform->setHitTestVisible(false);
     surface.selectionBorderTransform = selectionBorderTransform.get();
@@ -987,7 +1008,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
       surface.scaleHandles[i] = scaleHandle.get();
       root->addChild(std::move(scaleHandle));
 
-      auto scaleArea = std::make_unique<InputArea>();
+      auto scaleArea = ui::inputArea({});
       scaleArea->setZIndex(105);
       scaleArea->setOnPress([this, id = m_selectedWidgetId, corner](const InputArea::PointerData& data) {
         if (data.button != BTN_LEFT) {
@@ -1013,7 +1034,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     updateSelectionVisuals(surface);
   }
 
-  auto toolbarHandleArea = std::make_unique<InputArea>();
+  auto toolbarHandleArea = ui::inputArea({});
   toolbarHandleArea->setParticipatesInLayout(false);
   toolbarHandleArea->setZIndex(1);
   toolbarHandleArea->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_MOVE);
@@ -1229,8 +1250,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                   ),
                   ui::button(
                       {
-                          .text = m_snapshot.grid.visible ? i18n::tr("desktop-widgets.editor.state.grid-on")
-                                                          : i18n::tr("desktop-widgets.editor.state.grid-off"),
+                          .text = i18n::tr("desktop-widgets.editor.state.grid"),
                           .controlHeight = Style::controlHeightSm,
                           .selected = m_snapshot.grid.visible,
                           .variant = ButtonVariant::Default,
@@ -1451,7 +1471,7 @@ void DesktopWidgetsEditor::updateViewTransforms(const std::string* relayoutWidge
 }
 
 void DesktopWidgetsEditor::applyScaleDragPreview(const DesktopWidgetState& state) {
-  EditorWidgetView* view = findView(m_drag.widgetId);
+  EditorWidgetView* view = findView(state.id);
   if (view == nullptr || view->widget == nullptr || view->transformNode == nullptr) {
     return;
   }
@@ -1473,16 +1493,16 @@ void DesktopWidgetsEditor::applyScaleDragPreview(const DesktopWidgetState& state
   view->transformNode->setScale(flipScaleX, flipScaleY);
   view->transformNode->setOpacity(state.enabled ? 1.0f : kDisabledWidgetOpacity);
 
-  OverlaySurface* dragSurface = findSurfaceForWidget(m_drag.widgetId);
+  OverlaySurface* previewSurface = findSurfaceForWidget(state.id);
   for (auto& surface : m_surfaces) {
     updateSelectionVisuals(*surface);
   }
 
-  // Request a plain relayout of the dragged surface (re-fit content) — NOT the editor's
+  // Request a plain relayout of the resized surface (re-fit content) — NOT the editor's
   // requestLayout(), which rebuilds the whole scene every frame and would destroy the captured
   // resize-handle node, dropping the pointer grab mid-drag.
-  if (dragSurface != nullptr && dragSurface->surface != nullptr) {
-    dragSurface->surface->requestLayout();
+  if (previewSurface != nullptr && previewSurface->surface != nullptr) {
+    previewSurface->surface->requestLayout();
   }
 }
 
@@ -1536,7 +1556,7 @@ void DesktopWidgetsEditor::addWidget(const std::string& outputName, const std::s
     FileDialogOptions options;
     options.mode = FileDialogMode::Open;
     options.title = i18n::tr("desktop-widgets.editor.dialogs.select-sticker-image");
-    options.extensions = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif"};
+    options.extensions = DirectoryScanner::imageExtensionFilter(true);
     if (!FileDialog::open(std::move(options), [this, widgetId](std::optional<std::filesystem::path> result) {
           deferEditorMutation([this, widgetId, result = std::move(result)]() {
             auto* state = findWidgetState(widgetId);
@@ -1854,6 +1874,122 @@ void DesktopWidgetsEditor::requestExit() {
   });
 }
 
+void DesktopWidgetsEditor::populateGroupInitialStates(const std::string& anchorWidgetId) {
+  m_drag.groupInitialStates.clear();
+  if (m_selectedWidgetIds.size() <= 1 || !isWidgetSelected(anchorWidgetId)) {
+    return;
+  }
+  const DesktopWidgetState* anchorState = findWidgetState(anchorWidgetId);
+  if (anchorState == nullptr) {
+    return;
+  }
+  const std::string anchorOutput = effectiveOutputName(*anchorState);
+  for (const std::string& selectedId : m_selectedWidgetIds) {
+    if (selectedId == anchorWidgetId) {
+      continue;
+    }
+    const DesktopWidgetState* otherState = findWidgetState(selectedId);
+    if (otherState == nullptr || lockscreen_login_box::isLoginBoxWidget(*otherState)) {
+      continue;
+    }
+    if (effectiveOutputName(*otherState) != anchorOutput) {
+      continue;
+    }
+    EditorWidgetView* otherView = findView(selectedId);
+    m_drag.groupInitialStates.emplace(
+        selectedId,
+        GroupMemberInitial{
+            .state = *otherState,
+            .intrinsicWidth = otherView != nullptr ? otherView->intrinsicWidth : std::max(1.0f, otherState->boxWidth),
+            .intrinsicHeight =
+                otherView != nullptr ? otherView->intrinsicHeight : std::max(1.0f, otherState->boxHeight),
+        }
+    );
+  }
+}
+
+void DesktopWidgetsEditor::startLassoDrag(const std::string& outputName) {
+  m_drag = {};
+  m_drag.mode = DragMode::Lasso;
+  m_drag.surfaceOutputName = outputName;
+  m_drag.startSceneX = m_currentEventSceneX;
+  m_drag.startSceneY = m_currentEventSceneY;
+  m_drag.lassoAdditive = m_ctrlHeld;
+  if (OverlaySurface* surface = findSurface(outputName); surface != nullptr) {
+    updateLassoVisual(*surface);
+    if (surface->surface != nullptr) {
+      surface->surface->requestRedraw();
+    }
+  }
+}
+
+void DesktopWidgetsEditor::updateLassoVisual(OverlaySurface& surface) {
+  if (surface.lassoBox == nullptr || m_drag.mode != DragMode::Lasso) {
+    return;
+  }
+  const float left = std::min(m_drag.startSceneX, m_currentEventSceneX);
+  const float top = std::min(m_drag.startSceneY, m_currentEventSceneY);
+  const float width = std::abs(m_currentEventSceneX - m_drag.startSceneX);
+  const float height = std::abs(m_currentEventSceneY - m_drag.startSceneY);
+  surface.lassoBox->setVisible(width >= 1.0f || height >= 1.0f);
+  surface.lassoBox->setPosition(left, top);
+  surface.lassoBox->setFrameSize(std::max(1.0f, width), std::max(1.0f, height));
+}
+
+void DesktopWidgetsEditor::finishLassoSelection() {
+  OverlaySurface* surface = findSurface(m_drag.surfaceOutputName);
+  if (surface != nullptr && surface->lassoBox != nullptr) {
+    surface->lassoBox->setVisible(false);
+  }
+
+  const float dx = m_currentEventSceneX - m_drag.startSceneX;
+  const float dy = m_currentEventSceneY - m_drag.startSceneY;
+  const bool isClick = std::abs(dx) < kLassoClickSlop && std::abs(dy) < kLassoClickSlop;
+
+  if (isClick) {
+    if (!m_drag.lassoAdditive) {
+      clearSelection();
+      requestLayout();
+    }
+    return;
+  }
+
+  if (surface == nullptr) {
+    return;
+  }
+
+  const float left = std::min(m_drag.startSceneX, m_currentEventSceneX);
+  const float top = std::min(m_drag.startSceneY, m_currentEventSceneY);
+  const float right = std::max(m_drag.startSceneX, m_currentEventSceneX);
+  const float bottom = std::max(m_drag.startSceneY, m_currentEventSceneY);
+
+  if (!m_drag.lassoAdditive) {
+    clearSelection();
+  }
+
+  for (const auto& [id, view] : surface->views) {
+    const DesktopWidgetState* state = findWidgetState(id);
+    if (state == nullptr || lockscreen_login_box::isLoginBoxWidget(*state)) {
+      continue;
+    }
+    if (effectiveOutputName(*state) != m_drag.surfaceOutputName) {
+      continue;
+    }
+    const WidgetTransformBounds bounds = computeWidgetTransformBounds(
+        state->cx, state->cy, view.intrinsicWidth, view.intrinsicHeight, 1.0f, state->rotationRad
+    );
+    const float widgetRight = bounds.left + bounds.aabbWidth;
+    const float widgetBottom = bounds.top + bounds.aabbHeight;
+    if (bounds.left >= right || widgetRight <= left || bounds.top >= bottom || widgetBottom <= top) {
+      continue;
+    }
+    m_selectedWidgetIds.insert(id);
+    m_selectedWidgetId = id;
+  }
+
+  requestLayout();
+}
+
 void DesktopWidgetsEditor::startDrag(
     DragMode mode, const std::string& widgetId, bool rebuildOnFinish, ScaleCorner scaleCorner
 ) {
@@ -1879,6 +2015,7 @@ void DesktopWidgetsEditor::startDrag(
   m_drag.intrinsicHeight = view->intrinsicHeight;
   m_drag.scaleCorner = scaleCorner;
   m_drag.rebuildOnFinish = rebuildOnFinish;
+  m_drag.lassoAdditive = false;
   if (OverlaySurface* surface = findSurfaceForWidget(widgetId); surface != nullptr) {
     m_drag.surfaceOutputName = surface->outputName;
   }
@@ -1888,22 +2025,10 @@ void DesktopWidgetsEditor::startDrag(
     m_drag.movePointerOffsetY = state->cy - m_drag.startSceneY;
   }
 
-  m_drag.groupInitialStates.clear();
-  if (mode == DragMode::Move && m_selectedWidgetIds.size() > 1 && isWidgetSelected(widgetId)) {
-    const std::string anchorOutput = effectiveOutputName(*state);
-    for (const std::string& selectedId : m_selectedWidgetIds) {
-      if (selectedId == widgetId) {
-        continue;
-      }
-      const DesktopWidgetState* otherState = findWidgetState(selectedId);
-      if (otherState == nullptr || lockscreen_login_box::isLoginBoxWidget(*otherState)) {
-        continue;
-      }
-      if (effectiveOutputName(*otherState) != anchorOutput) {
-        continue;
-      }
-      m_drag.groupInitialStates.emplace(selectedId, *otherState);
-    }
+  if (mode == DragMode::Move || mode == DragMode::Rotate || mode == DragMode::Scale) {
+    populateGroupInitialStates(widgetId);
+  } else {
+    m_drag.groupInitialStates.clear();
   }
 
   if (mode == DragMode::Scale && view->widget != nullptr && m_renderContext != nullptr) {
@@ -1946,6 +2071,18 @@ void DesktopWidgetsEditor::updateDrag() {
     clampInspectorPosition(*surface, surface->inspector->width(), surface->inspector->height());
     surface->inspector->setPosition(surface->inspectorX, surface->inspectorY);
     surface->surface->requestRedraw();
+    return;
+  }
+
+  if (m_drag.mode == DragMode::Lasso) {
+    OverlaySurface* surface = findSurface(m_drag.surfaceOutputName);
+    if (surface == nullptr) {
+      return;
+    }
+    updateLassoVisual(*surface);
+    if (surface->surface != nullptr) {
+      surface->surface->requestRedraw();
+    }
     return;
   }
 
@@ -2042,13 +2179,13 @@ void DesktopWidgetsEditor::updateDrag() {
 
     const float deltaX = state->cx - m_drag.initialState.cx;
     const float deltaY = state->cy - m_drag.initialState.cy;
-    for (const auto& [groupId, initialState] : m_drag.groupInitialStates) {
+    for (const auto& [groupId, initial] : m_drag.groupInitialStates) {
       DesktopWidgetState* groupState = findWidgetState(groupId);
       if (groupState == nullptr) {
         continue;
       }
-      groupState->cx = initialState.cx + deltaX;
-      groupState->cy = initialState.cy + deltaY;
+      groupState->cx = initial.state.cx + deltaX;
+      groupState->cy = initial.state.cy + deltaY;
       if (!m_drag.surfaceOutputName.empty()) {
         outputAssignmentChanged = outputAssignmentChanged || (groupState->outputName != m_drag.surfaceOutputName);
         groupState->outputName = m_drag.surfaceOutputName;
@@ -2071,6 +2208,26 @@ void DesktopWidgetsEditor::updateDrag() {
       rotation = std::round(rotation / kRotationSnap) * kRotationSnap;
     }
     state->rotationRad = rotation;
+
+    const float deltaRotation = rotation - m_drag.initialState.rotationRad;
+    const float cosD = std::cos(deltaRotation);
+    const float sinD = std::sin(deltaRotation);
+    const float pivotX = m_drag.initialState.cx;
+    const float pivotY = m_drag.initialState.cy;
+    for (const auto& [groupId, initial] : m_drag.groupInitialStates) {
+      DesktopWidgetState* groupState = findWidgetState(groupId);
+      if (groupState == nullptr) {
+        continue;
+      }
+      groupState->rotationRad = normalizeAngle(initial.state.rotationRad + deltaRotation);
+      const float vx = initial.state.cx - pivotX;
+      const float vy = initial.state.cy - pivotY;
+      groupState->cx = pivotX + vx * cosD - vy * sinD;
+      groupState->cy = pivotY + vx * sinD + vy * cosD;
+      if (m_wayland != nullptr) {
+        desktop_widgets::clampStateToOutput(*m_wayland, *groupState, initial.intrinsicWidth, initial.intrinsicHeight);
+      }
+    }
   } else if (m_drag.mode == DragMode::Scale) {
     // Resize the widget's box tile. The opposite corner stays fixed (Alt anchors the center).
     // Snapping quantizes the box width/height to whole grid cells; content re-fits the box.
@@ -2116,7 +2273,16 @@ void DesktopWidgetsEditor::updateDrag() {
           surface != nullptr && surface->surface != nullptr) {
         screenWidth = static_cast<float>(surface->surface->width());
       }
-      lockscreen_login_box::clampPanelSize(screenWidth, boxW, boxH);
+      const lockscreen_login_box::LoginBoxStyle style = lockscreen_login_box::resolveStyle(state->settings);
+      lockscreen_login_box::clampPanelSize(
+          screenWidth, boxW, boxH, style.layout, style.showSessionButtons,
+          lockscreen_login_box::styleShowsInfoExtras(style), lockscreen_login_box::styleReservesStatus(style)
+      );
+      // Login box height follows chrome; scale is width-oriented.
+      boxH = lockscreen_login_box::defaultPanelHeight(
+          style.layout, style.showSessionButtons, lockscreen_login_box::styleShowsInfoExtras(style),
+          lockscreen_login_box::styleReservesStatus(style)
+      );
     }
 
     if (!m_altHeld) {
@@ -2127,6 +2293,28 @@ void DesktopWidgetsEditor::updateDrag() {
     }
     state->boxWidth = boxW;
     state->boxHeight = boxH;
+
+    const float primaryW0 = std::max(1.0f, m_drag.intrinsicWidth);
+    const float primaryH0 = std::max(1.0f, m_drag.intrinsicHeight);
+    const float scaleX = boxW / primaryW0;
+    const float scaleY = boxH / primaryH0;
+    for (const auto& [groupId, initial] : m_drag.groupInitialStates) {
+      DesktopWidgetState* groupState = findWidgetState(groupId);
+      if (groupState == nullptr) {
+        continue;
+      }
+      const float memberW0 = std::max(1.0f, initial.intrinsicWidth);
+      const float memberH0 = std::max(1.0f, initial.intrinsicHeight);
+      groupState->boxWidth = std::max(cell, memberW0 * scaleX);
+      groupState->boxHeight = std::max(cell, memberH0 * scaleY);
+      groupState->cx = anchorX + (initial.state.cx - anchorX) * scaleX;
+      groupState->cy = anchorY + (initial.state.cy - anchorY) * scaleY;
+      if (m_wayland != nullptr) {
+        desktop_widgets::clampStateToOutput(
+            *m_wayland, *groupState, std::max(1.0f, groupState->boxWidth), std::max(1.0f, groupState->boxHeight)
+        );
+      }
+    }
   }
 
   float clampWidth = m_drag.intrinsicWidth;
@@ -2149,6 +2337,12 @@ void DesktopWidgetsEditor::updateDrag() {
   // re-fitted crisply once, on release, in finishDrag()); otherwise just reposition the views.
   if (m_drag.mode == DragMode::Scale) {
     applyScaleDragPreview(*state);
+    for (const auto& [groupId, initial] : m_drag.groupInitialStates) {
+      (void)initial;
+      if (DesktopWidgetState* groupState = findWidgetState(groupId); groupState != nullptr) {
+        applyScaleDragPreview(*groupState);
+      }
+    }
   } else {
     updateViewTransforms();
   }
@@ -2157,8 +2351,8 @@ void DesktopWidgetsEditor::updateDrag() {
   if (dragSurfaceForRedraw != nullptr && dragSurfaceForRedraw->surface != nullptr) {
     dragSurfaceForRedraw->surface->requestRedraw();
   }
-  for (const auto& [groupId, initialState] : m_drag.groupInitialStates) {
-    (void)initialState;
+  for (const auto& [groupId, initial] : m_drag.groupInitialStates) {
+    (void)initial;
     if (OverlaySurface* groupSurface = findSurfaceForWidget(groupId);
         groupSurface != nullptr && groupSurface->surface != nullptr && groupSurface != dragSurfaceForRedraw) {
       groupSurface->surface->requestRedraw();
@@ -2170,6 +2364,22 @@ void DesktopWidgetsEditor::finishDrag() {
   const DragMode mode = m_drag.mode;
   const std::string widgetId = m_drag.widgetId;
   const bool rebuildOnFinish = m_drag.rebuildOnFinish;
+  const auto groupIds = [&]() {
+    std::vector<std::string> ids;
+    ids.reserve(m_drag.groupInitialStates.size());
+    for (const auto& [id, initial] : m_drag.groupInitialStates) {
+      (void)initial;
+      ids.push_back(id);
+    }
+    return ids;
+  }();
+
+  if (mode == DragMode::Lasso) {
+    finishLassoSelection();
+    m_drag = {};
+    return;
+  }
+
   m_drag = {};
 
   if (mode == DragMode::Scale && !widgetId.empty()) {
@@ -2181,6 +2391,13 @@ void DesktopWidgetsEditor::finishDrag() {
     if (DesktopWidgetState* state = findWidgetState(widgetId); state != nullptr) {
       if (EditorWidgetView* view = findView(widgetId); view != nullptr) {
         applyViewState(*view, *state, true);
+      }
+    }
+    for (const std::string& groupId : groupIds) {
+      if (DesktopWidgetState* groupState = findWidgetState(groupId); groupState != nullptr) {
+        if (EditorWidgetView* groupView = findView(groupId); groupView != nullptr) {
+          applyViewState(*groupView, *groupState, true);
+        }
       }
     }
     updateViewTransforms();

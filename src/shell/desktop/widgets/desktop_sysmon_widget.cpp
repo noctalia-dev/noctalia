@@ -127,7 +127,7 @@ DesktopSysmonWidget::~DesktopSysmonWidget() {
 }
 
 void DesktopSysmonWidget::create() {
-  auto rootNode = std::make_unique<Node>();
+  auto rootNode = ui::node({});
 
   auto glyph = ui::glyph({
       .out = &m_glyph,
@@ -562,7 +562,7 @@ Color DesktopSysmonWidget::currentValueColor(ColorSpec baseColor) const {
   const Color highlight = resolveColorSpec(m_highlightColor);
   const auto [activityThreshold, criticalThreshold] = currentThresholds();
   const auto factor = static_cast<float>(gradientFactor(currentGradientValue(), activityThreshold, criticalThreshold));
-  return lerpColor(base, highlight, factor);
+  return lerpHsv(base, highlight, factor);
 }
 
 std::pair<double, double> DesktopSysmonWidget::currentThresholds() const {

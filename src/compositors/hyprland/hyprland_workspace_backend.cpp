@@ -397,8 +397,12 @@ bool HyprlandWorkspaceBackend::refreshWorkspaces() {
     return before != after;
   }();
 
+  if (!changed) {
+    return false;
+  }
+
   m_workspaces = std::move(next);
-  return changed;
+  return true;
 }
 
 void HyprlandWorkspaceBackend::refreshMonitors() {

@@ -4,6 +4,7 @@
 #include "config/config_service.h"
 #include "config/config_types.h"
 #include "render/scene/input_area.h"
+#include "ui/builders.h"
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
@@ -178,7 +179,7 @@ void HotCorners::buildCorner(Corner& corner, int position, wl_output* output) {
   corner.surface = std::make_unique<LayerSurface>(*m_wayland, surfaceConfig);
   corner.surface->initialize(output);
 
-  auto inputArea = std::make_unique<InputArea>();
+  auto inputArea = ui::inputArea({});
   inputArea->setPosition(0, 0);
   inputArea->setSize(static_cast<float>(size), static_cast<float>(size));
   inputArea->setOnEnter([this, &corner, position, output](const InputArea::PointerData&) {

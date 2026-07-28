@@ -248,7 +248,7 @@ namespace shell::dock {
     const auto geometry = computeSurfaceGeometry(cfg, shadow, itemCount);
     return LayerSurfaceConfig{
         .nameSpace = "noctalia-dock",
-        .layer = LayerShellLayer::Top,
+        .layer = layerShellLayerFromConfig(cfg.layer),
         .anchor = positionToAnchor(cfg.position),
         .width = geometry.surfaceW,
         .height = geometry.surfaceH,

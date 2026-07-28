@@ -17,58 +17,16 @@
 #include <utility>
 
 VolumeWidget::VolumeWidget(
-    PipeWireService* audio, EasyEffectsService* easyEffects, const Config* config, wl_output* /*output*/,
-    bool showLabel, VolumeWidgetTarget target, int scrollStepPercent, ColorSpec muteColor, std::string glyphOverride,
-    std::string muteGlyphOverride, std::unordered_map<std::string, std::string> effectsProfileGlyphs,
-    WidgetCustomImage customImage, bool enableScroll
+    PipeWireService* audio, EasyEffectsService* easyEffects, wl_output* /*output*/, bool showLabel,
+    VolumeWidgetTarget target, ColorSpec muteColor, std::string glyphOverride, std::string muteGlyphOverride,
+    std::unordered_map<std::string, std::string> effectsProfileGlyphs, WidgetCustomImage customImage
 )
-    : m_audio(audio), m_easyEffects(easyEffects), m_config(config), m_showLabel(showLabel),
-      m_enableScroll(enableScroll), m_scrollStep(static_cast<float>(scrollStepPercent) / 100.0f), m_target(target),
-      m_muteColor(muteColor), m_glyphOverride(std::move(glyphOverride)),
-      m_muteGlyphOverride(std::move(muteGlyphOverride)), m_effectsProfileGlyphs(std::move(effectsProfileGlyphs)),
-      m_customImage(std::move(customImage)) {}
+    : m_audio(audio), m_easyEffects(easyEffects), m_showLabel(showLabel), m_target(target), m_muteColor(muteColor),
+      m_glyphOverride(std::move(glyphOverride)), m_muteGlyphOverride(std::move(muteGlyphOverride)),
+      m_effectsProfileGlyphs(std::move(effectsProfileGlyphs)), m_customImage(std::move(customImage)) {}
 
 void VolumeWidget::create() {
-  auto area = std::make_unique<InputArea>();
-  area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
-  area->setOnClick([this](const InputArea::PointerData& data) {
-    if (data.button == BTN_LEFT) {
-      requestPanelToggle("control-center", "audio");
-      return;
-    }
-    if (data.button != BTN_RIGHT || m_audio == nullptr) {
-      return;
-    }
-    const auto* node = m_target == VolumeWidgetTarget::Input ? m_audio->defaultSource() : m_audio->defaultSink();
-    if (node == nullptr) {
-      return;
-    }
-    if (m_target == VolumeWidgetTarget::Input) {
-      m_audio->setSourceMuted(node->id, !node->muted);
-    } else {
-      m_audio->setSinkMuted(node->id, !node->muted);
-    }
-  });
-  area->setOnAxis([this](const InputArea::PointerData& data) {
-    if (!m_enableScroll || m_audio == nullptr) {
-      return;
-    }
-    const auto* node = m_target == VolumeWidgetTarget::Input ? m_audio->defaultSource() : m_audio->defaultSink();
-    if (node == nullptr) {
-      return;
-    }
-    const float steps = data.scrollSteps();
-    if (steps == 0.0f) {
-      return;
-    }
-    const float maxVolume = (m_config != nullptr && m_config->audio.enableOverdrive) ? 1.5f : 1.0f;
-    const float newValue = std::clamp(node->volume - steps * m_scrollStep, 0.0f, maxVolume);
-    if (m_target == VolumeWidgetTarget::Input) {
-      m_audio->setSourceVolume(node->id, newValue);
-    } else {
-      m_audio->setSinkVolume(node->id, newValue);
-    }
-  });
+  auto area = ui::inputArea({});
 
   if (m_customImage.enabled()) {
     area->addChild(ui::image({.out = &m_image, .fit = ImageFit::Contain}));

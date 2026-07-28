@@ -11,7 +11,13 @@ struct wl_output;
 
 class WallpaperWidget : public Widget {
 public:
-  WallpaperWidget(wl_output* output, std::string barGlyphId, WidgetCustomImage customImage = {});
+  struct Options {
+    std::string glyph = "wallpaper-selector";
+    std::string customImage;
+    bool customImageColorize = false;
+  };
+
+  WallpaperWidget(wl_output* output, Options options);
 
   void create() override;
 

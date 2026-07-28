@@ -6,6 +6,8 @@ namespace scripting {
   // entry script loads. Constructors are plain table-taggers — the host reads
   // the resulting tree from render(); no per-control C binding.
   // `key` inside props gives a child a stable identity for keyed reconciliation.
+  // A callback prop may hold a function instead of the name of a plugin global;
+  // the reader registers it and the tree carries the generated name.
   inline constexpr const char* kUiPrelude = R"luau(
 ui = {}
 local function ctor(t)

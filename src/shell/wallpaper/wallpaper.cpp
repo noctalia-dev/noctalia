@@ -2,6 +2,7 @@
 
 #include "compositors/compositor_detect.h"
 #include "config/config_service.h"
+#include "core/files/directory_scanner.h"
 #include "core/log.h"
 #include "core/process/process.h"
 #include "core/random.h"
@@ -15,6 +16,7 @@
 #include "shell/wallpaper/wallpaper_instance.h"
 #include "shell/wallpaper/wallpaper_paths.h"
 #include "theme/theme_service.h"
+#include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/palette.h"
 #include "util/file_utils.h"
@@ -98,11 +100,6 @@ namespace {
     return params;
   }
 
-  bool hasImageExtension(const std::filesystem::path& path) {
-    const std::string ext = StringUtils::toLower(path.extension().string());
-    return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" || ext == ".bmp" || ext == ".gif";
-  }
-
   [[nodiscard]] std::optional<std::string>
   resolveWallpaperPath(std::string_view path, std::optional<std::string_view> callerCwd = std::nullopt) {
     if (path.empty()) {
@@ -167,7 +164,7 @@ namespace {
         if (!it->is_regular_file(typeEc) || typeEc) {
           continue;
         }
-        if (hasImageExtension(it->path())) {
+        if (DirectoryScanner::isImagePath(it->path())) {
           out.push_back(it->path().string());
         }
       }
@@ -184,7 +181,7 @@ namespace {
       if (!entry.is_regular_file(typeEc) || typeEc) {
         continue;
       }
-      if (hasImageExtension(entry.path())) {
+      if (DirectoryScanner::isImagePath(entry.path())) {
         out.push_back(entry.path().string());
       }
     }
@@ -787,7 +784,7 @@ void Wallpaper::registerIpc(IpcService& ipc) {
       [switchWallpaperHandler](const std::string& args) -> std::string {
         return switchWallpaperHandler(PickWallpaper::Random, args);
       },
-      "wallpaper-random [<connector>]", "Switch to a random wallpaper immediately"
+      "[connector]", "Switch to a random wallpaper immediately"
   );
 
   ipc.registerHandler(
@@ -795,7 +792,7 @@ void Wallpaper::registerIpc(IpcService& ipc) {
       [switchWallpaperHandler](const std::string& args) -> std::string {
         return switchWallpaperHandler(PickWallpaper::Next, args);
       },
-      "wallpaper-next [<connector>]", "Switch to the next wallpaper immediately"
+      "[connector]", "Switch to the next wallpaper immediately"
   );
 
   ipc.registerHandler(
@@ -803,7 +800,7 @@ void Wallpaper::registerIpc(IpcService& ipc) {
       [switchWallpaperHandler](const std::string& args) -> std::string {
         return switchWallpaperHandler(PickWallpaper::Previous, args);
       },
-      "wallpaper-previous [<connector>]", "Switch to the previous wallpaper immediately"
+      "[connector]", "Switch to the previous wallpaper immediately"
   );
 
   ipc.registerHandler(
@@ -828,7 +825,8 @@ void Wallpaper::registerIpc(IpcService& ipc) {
         out.push_back('\n');
         return out;
       },
-      "wallpaper-get [<connector>]", "Print default wallpaper path, or effective path for an output"
+      "[connector]", "Print default wallpaper path, or effective path for an output",
+      IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
   ipc.registerHandler(
       "wallpaper-set",
@@ -868,7 +866,7 @@ void Wallpaper::registerIpc(IpcService& ipc) {
         applyResolvedWallpaper(outputConnector, resolved);
         return "ok\n";
       },
-      "wallpaper-set [<connector>] <path>", "Set wallpaper for all or a specific output (persisted)"
+      "[connector] <path>", "Set wallpaper for all or a specific output (persisted)"
   );
 }
 
@@ -1303,9 +1301,9 @@ void Wallpaper::createInstance(const WaylandOutput& output) {
   instance->surface->setRenderContext(m_renderContext);
   instance->surface->setClickThrough(true);
 
-  instance->sceneRoot = std::make_unique<Node>();
+  instance->sceneRoot = ui::node({});
   instance->sceneRoot->setAnimationManager(&instance->animations);
-  auto fillNode = std::make_unique<Box>();
+  auto fillNode = ui::box({});
   instance->fillNode = static_cast<Box*>(instance->sceneRoot->addChild(std::move(fillNode)));
   auto wallpaperNode = std::make_unique<WallpaperNode>();
   instance->wallpaperNode = static_cast<WallpaperNode*>(instance->sceneRoot->addChild(std::move(wallpaperNode)));

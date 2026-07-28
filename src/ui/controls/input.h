@@ -116,6 +116,8 @@ private:
   void clampScrollOffset();
   void clampEditState();
   void selectWordAtByteOffset(std::size_t offset);
+  void selectLineAtByteOffset(std::size_t offset);
+  void extendPointerSelectionToByteOffset(std::size_t offset);
   [[nodiscard]] std::size_t wordStartForByteOffset(std::size_t offset) const;
   [[nodiscard]] std::size_t wordEndForByteOffset(std::size_t offset) const;
   [[nodiscard]] std::size_t previousWordStartForByteOffset(std::size_t offset) const;
@@ -238,6 +240,14 @@ private:
   float m_lastPrimaryPressX = 0.0f;
   float m_lastPrimaryPressY = 0.0f;
   bool m_hasLastPrimaryPress = false;
+  // 1 = caret/char drag, 2 = word, 3 = line (resets outside the multi-click window).
+  int m_primaryClickCount = 0;
+  enum class PointerSelectGranularity : std::uint8_t { Character, Word, Line };
+  PointerSelectGranularity m_pointerSelectGranularity = PointerSelectGranularity::Character;
+  // Bounds of the unit selected on the multi-click that started the drag; motion
+  // expands the selection to include the unit under the pointer.
+  std::size_t m_pointerSelectPivotStart = 0;
+  std::size_t m_pointerSelectPivotEnd = 0;
   Signal<>::ScopedConnection m_paletteConn;
   Signal<>::ScopedConnection m_inputBordersConn;
 

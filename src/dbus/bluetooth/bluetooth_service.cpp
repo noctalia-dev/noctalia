@@ -502,7 +502,7 @@ void BluetoothService::registerIpc(IpcService& ipc, StateFeedbackCallback stateF
         }
         return setBluetooth(true);
       },
-      "bluetooth-enable", "Enable Bluetooth"
+      "", "Enable Bluetooth"
   );
 
   ipc.registerHandler(
@@ -513,7 +513,7 @@ void BluetoothService::registerIpc(IpcService& ipc, StateFeedbackCallback stateF
         }
         return setBluetooth(false);
       },
-      "bluetooth-disable", "Disable Bluetooth"
+      "", "Disable Bluetooth"
   );
 
   ipc.registerHandler(
@@ -527,7 +527,7 @@ void BluetoothService::registerIpc(IpcService& ipc, StateFeedbackCallback stateF
         }
         return setBluetooth(!state().powered);
       },
-      "bluetooth-toggle", "Toggle Bluetooth"
+      "", "Toggle Bluetooth"
   );
 
   ipc.registerHandler(
@@ -541,7 +541,8 @@ void BluetoothService::registerIpc(IpcService& ipc, StateFeedbackCallback stateF
         }
         return state().powered ? "on\n" : "off\n";
       },
-      "bluetooth-status", "Print Bluetooth state"
+      "", "Print Bluetooth state",
+      IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 }
 

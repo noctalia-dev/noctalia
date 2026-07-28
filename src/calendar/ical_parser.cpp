@@ -467,6 +467,10 @@ namespace calendar {
           }
           event.allDay = startAllDay;
           parsed.push_back({std::move(event), rrule, std::move(exdates), recurrenceId, recurrenceZone});
+          // BEGIN:VEVENT resets these too; clearing here keeps the moved-from state from outliving
+          // this event when the stream is malformed.
+          event = CalendarEvent{};
+          exdates.clear();
         }
         inEvent = false;
         continue;

@@ -551,7 +551,7 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
   const float pad = cardPadding(s);
   const float gap = innerGap(s);
 
-  inst.sceneRoot = std::make_unique<Node>();
+  inst.sceneRoot = ui::node({});
   inst.sceneRoot->setSize(w, h);
   inst.sceneRoot->setOpacity(1.0f);
   inst.surface->setSceneRoot(inst.sceneRoot.get());

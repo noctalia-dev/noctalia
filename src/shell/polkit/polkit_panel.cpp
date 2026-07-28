@@ -20,6 +20,7 @@
 #include <cctype>
 #include <cmath>
 #include <memory>
+#include <string>
 
 namespace {
 
@@ -102,9 +103,11 @@ float PolkitPanel::preferredHeight() const {
   int messageLines = 1;
   int promptLines = 1;
   int supplementaryLines = 0;
+  bool needsInput = false;
 
   if (PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
       agent != nullptr && agent->hasPendingRequest()) {
+    needsInput = agent->isResponseRequired();
     const PolkitRequest request = agent->pendingRequest();
     const std::string message = wrapLongRuns(request.message.empty() ? request.actionId : request.message);
     messageLines = std::max(1, wrappedLineCount(message, messageChars, 6));
@@ -113,7 +116,7 @@ float PolkitPanel::preferredHeight() const {
     const bool supplementaryError = agent->supplementaryIsError();
     std::string promptText = wrapLongRuns(agent->inputPrompt());
     std::string supplementaryText = wrapLongRuns(supplementaryRaw);
-    if (!agent->isResponseRequired() && !supplementaryText.empty() && !supplementaryError) {
+    if (!needsInput && !supplementaryText.empty() && !supplementaryError) {
       promptText = supplementaryText;
       supplementaryText.clear();
     } else if (
@@ -123,16 +126,15 @@ float PolkitPanel::preferredHeight() const {
       promptText = supplementaryText;
       supplementaryText.clear();
     }
-    // Preferred height is applied once at open. The password request arrives right after
-    // BeginAuthentication, so always reserve prompt+input chrome even if responseRequired
-    // is still false when the panel is first opened.
     promptLines = std::max(1, wrappedLineCount(promptText, promptChars, 3));
     supplementaryLines = wrappedLineCount(supplementaryText, promptChars, 4);
   }
 
   const float top = std::max(iconSize, titleLine + static_cast<float>(messageLines) * bodyLine);
   float bottom = static_cast<float>(promptLines) * bodyLine + gapSm;
-  bottom += Style::controlHeight * scale + gapSm;
+  if (needsInput) {
+    bottom += Style::controlHeight * scale + gapSm;
+  }
   if (supplementaryLines > 0) {
     bottom += static_cast<float>(supplementaryLines) * captionLine + gapSm;
   }
@@ -151,7 +153,7 @@ void PolkitPanel::create() {
       .padding = Style::spaceLg * scale,
   });
 
-  auto focusArea = std::make_unique<InputArea>();
+  auto focusArea = ui::inputArea({});
   focusArea->setFocusable(true);
   focusArea->setVisible(false);
   m_focusArea = static_cast<InputArea*>(root->addChild(std::move(focusArea)));
@@ -209,7 +211,13 @@ void PolkitPanel::create() {
           .placeholder = i18n::tr("auth.polkit.password-placeholder"),
           .passwordMode = true,
           .surfaceOpacity = panelCardOpacity(),
-          .onSubmit = [this](const std::string&) { submit(); },
+          .onChange =
+              [this](const std::string& value) {
+                if (m_submitButton != nullptr) {
+                  m_submitButton->setEnabled(m_lastResponseRequired && !value.empty());
+                }
+              },
+          .onSubmit = [this](const std::string& value) { submit(value); },
           .onKeyEvent =
               [this](std::uint32_t sym, std::uint32_t modifiers) { return handleInputKeyEvent(sym, modifiers); },
       }),
@@ -231,7 +239,11 @@ void PolkitPanel::create() {
               .out = &m_cancelButton,
               .text = i18n::tr("common.actions.cancel"),
               .variant = ButtonVariant::Outline,
-              .onClick = []() { PanelManager::instance().close(); },
+              .onClick =
+                  [this]() {
+                    cancelAuth();
+                    PanelManager::instance().close();
+                  },
           }),
           ui::button({
               .out = &m_submitButton,
@@ -254,11 +266,11 @@ void PolkitPanel::onOpen(std::string_view /*context*/) {
 }
 
 void PolkitPanel::onClose() {
-  if (PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr; agent != nullptr) {
-    if (agent->hasPendingRequest()) {
-      agent->cancelRequest();
-    }
-  }
+  // Do not cancelAuth() here. Auto-close after a successful auth races with
+  // chained polkit actions (e.g. pkexec install then systemd enable): a follow-up
+  // BeginAuthentication can land before teardown finishes, and canceling it
+  // produces pam_unix "conversation failed" / empty-password failures.
+  // User dismiss goes through cancelAuth() (Cancel button / Escape).
   m_lastResponseRequired = false;
   clearReleasedRoot();
 
@@ -274,6 +286,22 @@ void PolkitPanel::onClose() {
   m_iconContainer = nullptr;
   m_icon = nullptr;
   m_fallbackIcon = nullptr;
+}
+
+void PolkitPanel::cancelAuth() {
+  PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
+  if (agent != nullptr && agent->hasPendingRequest()) {
+    agent->cancelRequest();
+  }
+}
+
+bool PolkitPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool /*preedit*/) {
+  if (!pressed || !KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
+    return false;
+  }
+  cancelAuth();
+  PanelManager::instance().close();
+  return true;
 }
 
 InputArea* PolkitPanel::initialFocusArea() const {
@@ -341,10 +369,14 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
   m_supplementaryLabel->setVisible(!supplementaryText.empty());
   m_supplementaryLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
   m_input->setVisible(needsInput);
-  m_submitButton->setEnabled(needsInput);
-  if (needsInput && !m_lastResponseRequired) {
+  m_submitButton->setVisible(needsInput);
+  m_submitButton->setEnabled(needsInput && !m_input->value().empty());
+  if (needsInput != m_lastResponseRequired) {
     if (auto* manager = PanelManager::current(); manager != nullptr && manager->isOpenPanel("polkit")) {
-      manager->focusArea(m_input->inputArea());
+      manager->relayoutActivePanelPreferredSize();
+      if (needsInput) {
+        manager->focusArea(m_input->inputArea());
+      }
     }
   }
   m_lastResponseRequired = needsInput;
@@ -387,12 +419,16 @@ void PolkitPanel::resolveIcon(Renderer& renderer, const PolkitRequest& request) 
   m_fallbackIcon->setVisible(true);
 }
 
-void PolkitPanel::submit() {
+void PolkitPanel::submit(std::string_view response) {
   PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
   if (agent == nullptr || m_input == nullptr) {
     return;
   }
-  agent->submitResponse(m_input->value());
+  const std::string password = response.empty() ? m_input->value() : std::string(response);
+  if (password.empty()) {
+    return;
+  }
+  agent->submitResponse(password);
   m_input->setValue("");
 }
 

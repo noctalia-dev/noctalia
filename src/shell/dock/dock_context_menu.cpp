@@ -11,6 +11,7 @@
 #include "render/scene/node.h"
 #include "shell/dock/pinned_apps.h"
 #include "system/desktop_entry.h"
+#include "ui/builders.h"
 #include "ui/controls/context_menu.h"
 #include "ui/popup_chrome.h"
 #include "ui/style.h"
@@ -359,7 +360,7 @@ namespace shell::dock {
       const auto fw = static_cast<float>(width);
       const auto fh = static_cast<float>(height);
 
-      menuPtr->sceneRoot = std::make_unique<Node>();
+      menuPtr->sceneRoot = ui::node({});
       menuPtr->sceneRoot->setSize(fw, fh);
       if (Style::popupShadowsEnabled()) {
         (void)popup_chrome::addShadow(
