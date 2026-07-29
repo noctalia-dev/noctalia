@@ -47,7 +47,8 @@ struct BluetoothDeviceInfo {
   std::int16_t rssi = 0;
   bool hasBattery = false;
   std::uint8_t batteryPercent = 0;
-  std::string batteryUPowerSerial;
+  // Set when batteryPercent came from UPower instead of BlueZ's Battery1.
+  bool batteryFromUPower = false;
 
   bool operator==(const BluetoothDeviceInfo&) const = default;
 };
@@ -77,7 +78,8 @@ public:
   using DevicesCallback = std::function<void(const std::vector<BluetoothDeviceInfo>&)>;
   using StateFeedbackCallback = std::function<void(bool enabled)>;
 
-  explicit BluetoothService(SystemBus& bus, UPowerService* upowerService = nullptr);
+  // upowerService may be null when UPower is unavailable; it must outlive this service.
+  explicit BluetoothService(SystemBus& bus, UPowerService* upowerService);
   ~BluetoothService();
 
   BluetoothService(const BluetoothService&) = delete;

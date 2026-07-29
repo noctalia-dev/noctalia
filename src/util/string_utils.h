@@ -236,6 +236,12 @@ namespace StringUtils {
     std::ranges::transform(s, s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
   }
 
+  [[nodiscard]] inline bool equalsInsensitive(std::string_view lhs, std::string_view rhs) {
+    return std::ranges::equal(lhs, rhs, [](unsigned char a, unsigned char b) {
+      return std::tolower(a) == std::tolower(b);
+    });
+  }
+
   [[nodiscard]] inline bool containsInsensitive(std::string_view haystack, std::string_view needle) {
     if (haystack.empty() || needle.empty()) {
       return false;
