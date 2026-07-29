@@ -1344,6 +1344,9 @@ void Application::initSessionBusServices() {
     m_trayService->setChangeCallback([this]() {
       m_bar.refresh();
       m_trayMenu.onTrayChanged();
+      m_keyboardLayoutOsd.onTrayChanged(
+          *m_trayService, m_configService.config(), m_configService.config().osd.kinds.keyboardLayout
+      );
     });
     m_trayService->setMenuToggleCallback([this](const std::string& itemId, float contentScale) {
       m_trayMenu.toggleForItem(itemId, contentScale);
