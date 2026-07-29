@@ -167,6 +167,20 @@ int main() {
   // DAILY COUNT=3 -> 3 instances.
   ok = expectCount(wrap("RRULE:FREQ=DAILY;COUNT=3\r\n"), start, end, 3, "daily count") && ok;
 
+  // RDATE contributes recurrence instances even when the component has no RRULE.
+  ok = expectStarts(
+           wrap("RDATE:20240102T090000Z\r\n"), start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 2, 9)},
+           "rdate-only recurrence set"
+       )
+      && ok;
+
+  // RRULE and RDATE are a set: an RDATE equal to an RRULE occurrence must not create a duplicate.
+  ok = expectStarts(
+           wrap("RRULE:FREQ=DAILY;COUNT=2\r\nRDATE:20240102T090000Z\r\n"), start, end,
+           {utc(2024, 1, 1, 9), utc(2024, 1, 2, 9)}, "overlapping rrule and rdate are deduplicated"
+       )
+      && ok;
+
   // WEEKLY BYDAY=MO,WE, window 2024-01-01..2024-01-15 (excl): Mon 1, Wed 3, Mon 8, Wed 10 = 4.
   ok = expectCount(wrap("RRULE:FREQ=WEEKLY;BYDAY=MO,WE\r\n"), start, utc(2024, 1, 15), 4, "weekly byday") && ok;
 
@@ -476,6 +490,48 @@ int main() {
              ics, utc(2024, 7, 1), utc(2024, 8, 1),
              {localTime(2024, 7, 5, 11), localTime(2024, 7, 6, 15), localTime(2024, 7, 7, 11)},
              "floating recurrence-id override replaces local wall-time occurrence"
+         )
+        && ok;
+  }
+
+  // A cancelled override removes the matching master occurrence and must not be emitted as a
+  // visible replacement, even when the override carries a valid DTSTART.
+  {
+    const std::string ics = "BEGIN:VEVENT\r\nUID:cancelled\r\nDTSTART:20240101T090000Z\r\n"
+                            "DTEND:20240101T100000Z\r\nRRULE:FREQ=DAILY;COUNT=3\r\nEND:VEVENT\r\n"
+                            "BEGIN:VEVENT\r\nUID:cancelled\r\nRECURRENCE-ID:20240102T090000Z\r\n"
+                            "DTSTART:20240102T090000Z\r\nDTEND:20240102T100000Z\r\n"
+                            "STATUS:CANCELLED\r\nEND:VEVENT\r\n";
+    ok = expectStarts(
+             ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 3, 9)}, "cancelled recurrence override is not emitted"
+         )
+        && ok;
+  }
+
+  // A malformed non-cancelled override without DTSTART is not a valid replacement and must not
+  // suppress the corresponding occurrence from the master series.
+  {
+    const std::string ics = "BEGIN:VEVENT\r\nUID:malformed-override\r\nDTSTART:20240101T090000Z\r\n"
+                            "DTEND:20240101T100000Z\r\nRRULE:FREQ=DAILY;COUNT=3\r\nEND:VEVENT\r\n"
+                            "BEGIN:VEVENT\r\nUID:malformed-override\r\n"
+                            "RECURRENCE-ID:20240102T090000Z\r\nEND:VEVENT\r\n";
+    ok = expectStarts(
+             ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 2, 9), utc(2024, 1, 3, 9)},
+             "malformed recurrence override does not suppress master"
+         )
+        && ok;
+  }
+
+  // A cancelled override is a valid exclusion even when it omits DTSTART, as permitted for a
+  // cancellation that identifies the original instance only by RECURRENCE-ID.
+  {
+    const std::string ics = "BEGIN:VEVENT\r\nUID:cancelled-no-start\r\nDTSTART:20240101T090000Z\r\n"
+                            "DTEND:20240101T100000Z\r\nRRULE:FREQ=DAILY;COUNT=3\r\nEND:VEVENT\r\n"
+                            "BEGIN:VEVENT\r\nUID:cancelled-no-start\r\n"
+                            "RECURRENCE-ID:20240102T090000Z\r\nSTATUS:CANCELLED\r\nEND:VEVENT\r\n";
+    ok = expectStarts(
+             ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 3, 9)},
+             "cancelled recurrence override without dtstart excludes master"
          )
         && ok;
   }

@@ -8,6 +8,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace calendar {
@@ -152,6 +153,16 @@ namespace calendar {
       return icalcomponent_get_first_property(component, kind) != nullptr;
     }
 
+    bool isCancelled(icalcomponent* component) { return icalcomponent_get_status(component) == ICAL_STATUS_CANCELLED; }
+
+    bool hasValidStart(icalcomponent* component) {
+      if (!hasProperty(component, ICAL_DTSTART_PROPERTY)) {
+        return false;
+      }
+      const icaltimetype start = icalcomponent_get_dtstart(component);
+      return !icaltime_is_null_time(start) && icaltime_is_valid_time(start);
+    }
+
     bool isExcluded(
         std::chrono::system_clock::time_point occurrence,
         const std::vector<std::chrono::system_clock::time_point>& exclusions
@@ -211,6 +222,7 @@ namespace calendar {
       bool floatingDateTime = false;
       const std::vector<std::chrono::system_clock::time_point>* exclusions = nullptr;
       std::vector<CalendarEvent>* events = nullptr;
+      std::unordered_set<time_t> starts;
     };
 
 #if ICAL_CHECK_VERSION(4, 0, 0)
@@ -240,6 +252,9 @@ namespace calendar {
       if (data->exclusions != nullptr && isExcluded(event.start, *data->exclusions)) {
         return;
       }
+      if (!data->starts.insert(toUnix(event.start)).second) {
+        return;
+      }
       data->events->push_back(std::move(event));
     }
 
@@ -261,23 +276,24 @@ namespace calendar {
     std::unordered_map<std::string, std::vector<std::chrono::system_clock::time_point>> overrides;
     for (icalcomponent* component : components) {
       const CalendarEvent event = baseEventFromComponent(component);
-      if (auto id = recurrenceId(component)) {
+      const bool cancelledWithoutStart = isCancelled(component) && !hasProperty(component, ICAL_DTSTART_PROPERTY);
+      if (auto id = recurrenceId(component); id && (hasValidStart(component) || cancelledWithoutStart)) {
         overrides[event.id].push_back(*id);
       }
     }
 
     std::vector<CalendarEvent> events;
     for (icalcomponent* component : components) {
-      if (!hasProperty(component, ICAL_DTSTART_PROPERTY)) {
+      if (isCancelled(component)) {
+        continue;
+      }
+      if (!hasValidStart(component)) {
         continue;
       }
       const icaltimetype componentStart = icalcomponent_get_dtstart(component);
-      if (icaltime_is_null_time(componentStart) || !icaltime_is_valid_time(componentStart)) {
-        continue;
-      }
       CalendarEvent event = baseEventFromComponent(component);
 
-      if (!hasProperty(component, ICAL_RRULE_PROPERTY)) {
+      if (!hasProperty(component, ICAL_RRULE_PROPERTY) && !hasProperty(component, ICAL_RDATE_PROPERTY)) {
         events.push_back(std::move(event));
         continue;
       }

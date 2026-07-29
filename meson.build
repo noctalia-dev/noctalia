@@ -1090,6 +1090,7 @@ if build_tests
     'audio_glyphs',
     'battery_hook_state',
     'calendar_cache_permissions',
+    'caldav_client',
     'calendar_credential_store',
     'calendar_discovery_state',
     'capsule_group_reconcile',
