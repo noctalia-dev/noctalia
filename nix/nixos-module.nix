@@ -36,6 +36,8 @@ in
   config = lib.mkIf cfg.enable (
     lib.mkMerge [
       {
+        hardware.graphics.enable = lib.mkDefault true;
+
         environment.systemPackages = lib.optional (cfg.package != null) cfg.package;
 
         systemd.user.services.noctalia = lib.mkIf cfg.systemd.enable {

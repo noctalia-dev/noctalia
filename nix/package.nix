@@ -40,6 +40,7 @@
   makeWrapper,
   git,
   autoAddDriverRunpath,
+  # DEPRECATED: no longer affects the build; kept for `.override` compat.
   cudaSupport ? config.cudaSupport,
 }:
 let
@@ -55,7 +56,9 @@ let
     };
   });
 in
-stdenv.mkDerivation {
+lib.warnIf cudaSupport
+  "noctalia: `cudaSupport` no longer has any effect (autoAddDriverRunpath is now always applied); this argument will be removed in the future."
+  stdenv.mkDerivation {
   pname = "noctalia";
   inherit version;
 
@@ -73,8 +76,8 @@ stdenv.mkDerivation {
     wayland-scanner
     jemalloc
     makeWrapper
-  ]
-  ++ lib.optional cudaSupport autoAddDriverRunpath;
+    autoAddDriverRunpath
+  ];
 
   buildInputs = [
     wayland
