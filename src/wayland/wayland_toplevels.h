@@ -107,6 +107,9 @@ private:
     bool activated = false;
     bool minimized = false;
     bool dirty = false;
+    // Set on the first output_enter, never cleared: distinguishes "never announced an output"
+    // from "left every output".
+    bool sawOutputEnter = false;
     std::uint64_t generation = 0;
     std::uint64_t order = 0;
   };

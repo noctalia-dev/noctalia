@@ -170,8 +170,8 @@ namespace {
       const auto windowId = mapping.windowIdForExtHandle(extWindow.extHandle);
       if (windowId.has_value()) {
         const auto normalized = compositors::hyprland::normalizeWindowId(*windowId);
-        // Pre-shell windows are often ext-only: mapping may know a wlr handle Hyprland never
-        // exports via zwlr_foreign_toplevel_management, so dedupe only against live wlr results.
+        // Hyprland announces pre-shell windows over wlr but omits output_enter for them, so an
+        // output-scoped wlr list can miss them; dedupe only against live wlr results.
         if (!normalized.empty() && wlrRepresentedIds.contains(normalized)) {
           continue;
         }

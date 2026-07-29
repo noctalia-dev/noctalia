@@ -76,6 +76,13 @@ namespace {
     return {};
   }
 
+  // Some compositors omit output_enter for toplevels that already existed when the client bound
+  // (observed on Hyprland), leaving state.output null. Treat those as present on every output;
+  // toplevels that announced an output and later left it stay filtered out.
+  [[nodiscard]] bool matchesOutputFilter(wl_output* toplevelOutput, bool sawOutputEnter, wl_output* outputFilter) {
+    return outputFilter == nullptr || toplevelOutput == outputFilter || !sawOutputEnter;
+  }
+
 } // namespace
 
 void WaylandToplevels::bind(zwlr_foreign_toplevel_manager_v1* manager) {
@@ -276,7 +283,7 @@ std::vector<std::string> WaylandToplevels::allAppIds(wl_output* outputFilter) co
   ordered.reserve(m_handles.size());
   for (const auto& [handle, state] : m_handles) {
     (void)handle;
-    if (outputFilter != nullptr && state.output != outputFilter) {
+    if (!matchesOutputFilter(state.output, state.sawOutputEnter, outputFilter)) {
       continue;
     }
     ordered.push_back(&state);
@@ -307,7 +314,7 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsForApp(
   std::vector<MatchedWindow> matched;
   std::vector<ToplevelInfo> out;
   for (const auto& [handle, state] : m_handles) {
-    if (outputFilter != nullptr && state.output != outputFilter) {
+    if (!matchesOutputFilter(state.output, state.sawOutputEnter, outputFilter)) {
       continue;
     }
     const auto appId = effectiveAppId(state.appId, state.title);
@@ -350,7 +357,7 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsWithoutAppId(wl_output* outpu
 
   std::vector<OrphanWindow> orphans;
   for (const auto& [handle, state] : m_handles) {
-    if (outputFilter != nullptr && state.output != outputFilter) {
+    if (!matchesOutputFilter(state.output, state.sawOutputEnter, outputFilter)) {
       continue;
     }
     if (!effectiveAppId(state.appId, state.title).empty()) {
@@ -398,6 +405,7 @@ void WaylandToplevels::closeHandle(zwlr_foreign_toplevel_handle_v1* handle) {
 void WaylandToplevels::onHandleOutputEnter(zwlr_foreign_toplevel_handle_v1* handle, wl_output* output) {
   auto it = m_handles.find(handle);
   if (it != m_handles.end()) {
+    it->second.sawOutputEnter = true;
     if (!std::ranges::contains(it->second.activeOutputs, output)) {
       it->second.activeOutputs.push_back(output);
     }

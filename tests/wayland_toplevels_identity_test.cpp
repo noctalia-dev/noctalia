@@ -39,6 +39,17 @@ int main() {
   assert(windows[0].appId == "Sample.ChatDesktop");
   assert(toplevels.containsWlrHandle(handle));
   assert(!toplevels.containsWlrHandle(reinterpret_cast<zwlr_foreign_toplevel_handle_v1*>(0x2)));
+  // Never announced an output (compositor omitted output_enter): matches any filter.
+  auto* someOutput = reinterpret_cast<wl_output*>(0x10);
+  assert(toplevels.windowsForApp("sample-chat-desktop", "samplechat", someOutput).size() == 1);
 
+  // Announced a different output: excluded.
+  it->second.sawOutputEnter = true;
+  it->second.output = reinterpret_cast<wl_output*>(0x20);
+  assert(toplevels.windowsForApp("sample-chat-desktop", "samplechat", someOutput).empty());
+
+  // Announced an output, then left all of them: still excluded.
+  it->second.output = nullptr;
+  assert(toplevels.windowsForApp("sample-chat-desktop", "samplechat", someOutput).empty());
   return 0;
 }
