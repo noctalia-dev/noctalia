@@ -1446,32 +1446,6 @@ void PanelManager::clearClipboardHistory() {
   }
 }
 
-std::string PanelManager::getFirstUnpinnedClipboardText() {
-  const auto it = m_panels.find("clipboard");
-
-  if (it == m_panels.end()) {
-    return "";
-  }
-
-  if (auto* clipboardPanel = dynamic_cast<ClipboardPanel*>(it->second.get())) {
-    return clipboardPanel->getFirstUnpinnedClipboardTextFromIpc().value_or("");
-  }
-
-  return "";
-}
-
-void PanelManager::copyTextToClipboard(std::string text) {
-  const auto it = m_panels.find("clipboard");
-
-  if (it == m_panels.end()) {
-    return;
-  }
-
-  if (auto* clipboardPanel = dynamic_cast<ClipboardPanel*>(it->second.get())) {
-    clipboardPanel->copyTextToClipboardFromIpc(text);
-  }
-}
-
 bool PanelManager::onPointerEvent(const PointerEvent& event) {
   // Persistent panels own separate surfaces; the host claims only its own.
   if (m_persistentHost.onPointerEvent(event)) {

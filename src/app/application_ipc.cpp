@@ -429,19 +429,22 @@ void Application::initIpc() {
       "clipboard-copy",
       [this](const std::string& args) -> std::string {
         if (args.empty()) {
-          return "error: clipboard-copy requires [text]\n";
+          return "error: clipboard-copy requires <text>\n";
         }
-
-        m_panelManager.copyTextToClipboard(args);
+        if (!m_clipboardService.copyText(args)) {
+          return "error: failed to set the clipboard selection\n";
+        }
         return "ok\n";
       },
-      "clipboard-copy [text]", "Copy text to clipboard"
+      "<text>", "Copy text to the clipboard"
   );
 
   m_ipcService.registerHandler(
-      "clipboard-paste",
-      [this](const std::string&) -> std::string { return m_panelManager.getFirstUnpinnedClipboardText(); },
-      "clipboard-paste", "Print the value of the current clipboard; Empty string on non-text values"
+      "clipboard-text",
+      // The response is the clipboard payload itself, so it carries no trailing newline.
+      [this](const std::string&) -> std::string { return m_clipboardService.clipboardText().value_or(""); }, "",
+      "Print the most recent clipboard text (empty when the selection holds no text)",
+      IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 
   m_ipcService.registerHandler(
