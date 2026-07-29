@@ -4,6 +4,7 @@
 #include "scripting/plugin_catalog.h"
 
 #include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
 #include <mutex>
@@ -34,8 +35,8 @@ namespace scripting {
   struct PluginStatus {
     std::string id;
     std::string name;
-    std::string version;          // installed version when materialized, else the catalog version
-    std::string availableVersion; // catalog version offered when updateAvailable (else empty)
+    std::string version;          // installed version when materialized, else the resolved version
+    std::string availableVersion; // resolved version offered when updateAvailable (else empty)
     std::string icon;
     std::string description;
     std::string license = "MIT";
@@ -48,6 +49,12 @@ namespace scripting {
     // An enabled+materialized git-source plugin whose fetched catalog version differs
     // from the exported copy on disk — a newer release is available to apply via update().
     bool updateAvailable = false;
+    // The source's newest version targets an unsupported plugin API, so an older release
+    // is installed instead. `latestVersion` / `latestPluginApiVersion` describe that
+    // newest version, so the UI can name what a Noctalia upgrade would unlock.
+    bool heldBack = false;
+    std::string latestVersion;
+    std::uint32_t latestPluginApiVersion = 0;
   };
 
   // Owns the plugin distribution lifecycle: resolves the configured sources into
@@ -76,6 +83,9 @@ namespace scripting {
     void setOnSourceUpdated(std::function<void(const std::string& sourceName)> cb) {
       m_onSourceUpdated = std::move(cb);
     }
+
+    // Called after a disabled plugin has been enabled successfully.
+    void setOnEnabled(std::function<void(std::string_view pluginId)> cb) { m_onEnabled = std::move(cb); }
 
     // Resolve source roots + enabled filter from config and (re)scan the registry.
     // No-op when the plugins config is unchanged since the last applied refresh.
@@ -123,11 +133,11 @@ namespace scripting {
     // Add (or replace) a source and refresh.
     void addSource(const PluginSourceConfig& source);
 
-    // Fetch a git source off-thread, export compatible enabled plugins, keep
-    // incompatible enabled plugins on their previous exported copy, then advance
-    // the source catalog. If the fetched revision is already current, reconcile
-    // any held exports that are now compatible. Re-scans on the main thread. No-op
-    // for path / unknown sources.
+    // Fetch a git source off-thread and export compatible enabled plugins that its
+    // catalog owns by exact id. Incompatible or failed plugin exports keep their
+    // previous copy without blocking the source revision or unrelated exports; later
+    // updates reconcile copies that do not match the catalog. Re-scans on the main
+    // thread. No-op for path / unknown sources.
     void update(std::string sourceName);
 
     // Remove a source: delete its git repo cache and exported runtime files, disable
@@ -158,6 +168,7 @@ namespace scripting {
     std::function<void()> m_onChanged;
     std::function<void()> m_onEnablingChanged;
     std::function<void(const std::string& sourceName)> m_onSourceUpdated;
+    std::function<void(std::string_view pluginId)> m_onEnabled;
     // Git-source plugins whose runtime export is running on a worker thread. Touched
     // only on the main thread (enable() inserts, the DeferredCall completion erases).
     std::unordered_set<std::string> m_enabling;

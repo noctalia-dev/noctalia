@@ -76,6 +76,7 @@
         "signal": "Signal",
         "upload": "Upload",
         "vpn": "VPN",
+        "wan-ip": "WAN-IP",
         "wifi": "WLAN",
         "wired": "Kabelgebunden",
         "yes": "Ja"
@@ -236,7 +237,7 @@
       },
       "select-avatar": "Avatar auswählen",
       "unknown": "unbekannt",
-      "uptime": "Betriebszeit - {uptime}",
+      "uptime": "Betriebszeit – {uptime}",
       "weather": {
         "data-unavailable": "Wetterdaten nicht verfügbar.",
         "disabled": "Wetter ist in der Konfiguration deaktiviert.",
@@ -258,8 +259,8 @@
       "password": "Passwort",
       "password-prompt": "Passwort eingeben",
       "password-prompt-for": "Passwort für {ssid} eingeben",
-      "unavailable-detail": "Installiere und aktiviere NetworkManager, um Netzwerke von hier aus zu verwalten.",
-      "unavailable-title": "NetworkManager nicht verfügbar",
+      "unavailable-detail": "Installiere und aktiviere NetworkManager, wpa_supplicant oder iwd, um Netzwerke von hier aus zu verwalten.",
+      "unavailable-title": "Netzwerkdienst nicht verfügbar",
       "vpns": "VPNs",
       "wi-fi": "WLAN",
       "wifi": "WLAN",
@@ -318,7 +319,7 @@
         "dark": "Dunkler Modus",
         "light": "Heller Modus"
       },
-      "keyboard-layout": "Layout",
+      "keyboard-layout": "Tastaturlayout",
       "media": "Medien",
       "mic-mute": "Mikrofon",
       "nightlight": "Nachtlicht",
@@ -505,7 +506,6 @@
         "show-keyboard-layout": "Tastaturlayout",
         "show-label": "Beschriftung anzeigen",
         "show-login-button": "Login-Button",
-        "show-password-hint": "Passworthinweis",
         "show-vpn-label": "VPN-Beschriftung anzeigen",
         "show-when-idle": "Bei Inaktivität anzeigen",
         "stat": "Statistik",
@@ -538,10 +538,6 @@
         "visualization-mode-wave-rings": "Welle + Ringe",
         "wave-thickness": "Wellenstärke",
         "widget-section": "Widget"
-      },
-      "state": {
-        "grid-off": "Raster aus",
-        "grid-on": "Raster an"
       },
       "title": "Desktop-Widgets",
       "types": {
@@ -675,7 +671,7 @@
     },
     "internal": {
       "battery": "Akku",
-      "battery-critical-body": "{device}: {percent}% - dein Computer fährt bald herunter",
+      "battery-critical-body": "{device}: {percent}% – dein Computer fährt bald herunter",
       "battery-critical-title": "Akkustand kritisch",
       "battery-device": "Akkugerät",
       "battery-low-body": "{device}: {percent}% verbleibend",
@@ -774,7 +770,7 @@
     },
     "enable-failed": {
       "body-error": "{plugin}: {error}",
-      "body-incompatible": "{plugin} erfordert Noctalia {version} oder neuer.",
+      "body-incompatible": "{plugin} erfordert Plugin-API {version}; diese Noctalia-Version unterstützt API {oldest}–{current}.",
       "body-timeout": "{plugin} hat zu lange zum Installieren benötigt.",
       "title": "Plugin nicht aktiviert"
     }
@@ -836,6 +832,7 @@
     },
     "calendar-accounts": {
       "add-title": "Kalenderkonto hinzufügen",
+      "calendars-label": "Kalender",
       "color-label": "Farbe",
       "delete-error": "Kalenderkonto konnte nicht gelöscht werden.",
       "edit-title": "Kalenderkonto bearbeiten",
@@ -1089,6 +1086,7 @@
         "background": "Hintergrund",
         "battery": "Akku",
         "behavior": "Verhalten",
+        "borders": "Rahmen",
         "brightness": "Helligkeit",
         "built-in": "Integriert",
         "calendar": "Kalender",
@@ -1138,7 +1136,7 @@
         "screen-time": "Bildschirmzeit",
         "screenshot": "Screenshot",
         "security": "Sicherheit",
-        "session-panel": "Sitzung",
+        "session-panel": "Sitzungsmenü",
         "shape": "Form",
         "system": "System",
         "theme": "Theme",
@@ -1365,8 +1363,8 @@
       "browse-store": "Plugins durchsuchen",
       "panels": {
         "open-near-click": {
-          "description": "Platziere das Panel in der Nähe des Leisten-Widgets, das es geöffnet hat; ohne Trigger wird es zentriert",
-          "label": "In Klicknähe öffnen"
+          "description": "Platziere das Panel in der Nähe des Leisten-Widgets, das es geöffnet hat, wenn es angedockt ist oder als schwebendes Panel mit automatischer Position",
+          "label": "An der Leiste"
         },
         "placement": {
           "description": "Hefte das Panel an die Leiste an oder lasse es in der Nähe des Leistenrands schweben",
@@ -1438,6 +1436,7 @@
         "open-source": "Quell-Repository des Plugins öffnen",
         "results-count": "{count} Plugins",
         "search-placeholder": "Suche Plugins…",
+        "source-all": "Alle Quellen",
         "title": "Plugin Store"
       }
     },
@@ -1502,6 +1501,10 @@
         "global-shadow-direction": {
           "description": "Richtung, aus der der Schatten von Oberflächen geworfen wird"
         },
+        "input-borders": {
+          "description": "Zeichne Umrisse um Textfelder und andere Eingabeelemente in der gesamten Shell",
+          "label": "Eingaberahmen"
+        },
         "language": {
           "description": "Überschreibe die automatische Spracherkennung",
           "label": "Sprache"
@@ -1509,6 +1512,14 @@
         "palette-source": {
           "description": "Herkunft der Farbpalette",
           "label": "Palettenquelle"
+        },
+        "popup-borders": {
+          "description": "Zeichne Umrisse um Popups und Dropdowns",
+          "label": "Popup-Rahmen"
+        },
+        "popup-shadows": {
+          "description": "Zeichne Schlagschatten hinter Popups und Dropdowns",
+          "label": "Popup-Schatten"
         },
         "pure-black-dark": {
           "description": "Setze dunkle Oberflächen auf reines Schwarz, um Banding auf OLED-Panels zu verhindern (nur im dunklen Modus)",
@@ -1617,26 +1628,6 @@
         "corner-top-right": {
           "description": "Eckenradius oben rechts für die Leiste"
         },
-        "dead-zone-command": {
-          "description": "Shell-Befehl, der bei Linksklick im leeren Bereich der Leiste außerhalb der Widget-Bereiche ausgeführt wird",
-          "label": "Linksklick"
-        },
-        "dead-zone-middle-command": {
-          "description": "Shell-Befehl, der bei Mittelklick im leeren Bereich der Leiste außerhalb der Widget-Bereiche ausgeführt wird",
-          "label": "Mittelklick"
-        },
-        "dead-zone-right-command": {
-          "description": "Shell-Befehl, der bei Rechtsklick ausgeführt wird; leer lassen, um das Kontrollzentrum zu öffnen",
-          "label": "Rechtsklick"
-        },
-        "dead-zone-scroll-down-command": {
-          "description": "Shell-Befehl, der beim Herunterscrollen ausgeführt wird",
-          "label": "Nach unten scrollen"
-        },
-        "dead-zone-scroll-up-command": {
-          "description": "Shell-Befehl, der beim Hochscrollen ausgeführt wird",
-          "label": "Nach oben scrollen"
-        },
         "edge-margin": {
           "description": "Abstand zwischen der Leiste und dem Bildschirmrand, an dem sie liegt; auf 0 px setzen, um bündig am Rand anzuliegen"
         },
@@ -1727,6 +1718,10 @@
         "hot-corners-bottom-right-command": {
           "description": "Shell-Befehl, der beim Erreichen der unteren rechten Ecke ausgeführt wird",
           "label": "Befehl"
+        },
+        "hot-corners-delay-ms": {
+          "description": "Wie lange der Zeiger in einer Ecke bleiben muss, bevor die Aktion ausgeführt wird (0 = sofort)",
+          "label": "Aktivierungsverzögerung"
         },
         "hot-corners-enabled": {
           "description": "Löse Aktionen aus, indem du den Mauszeiger in die Bildschirmecken bewegst",
@@ -1886,7 +1881,7 @@
           "description": "Werfe den globalen Oberflächenschatten vom Dock"
         },
         "show-dots": {
-          "description": "Zeige Punkte für laufende Fenster neben Dock-Icons",
+          "description": "Zeige Punkte für laufende Fenster unter Dock-Icons an",
           "label": "Punkte anzeigen"
         },
         "show-instance-count": {
@@ -1962,7 +1957,7 @@
             "label": "Beim Wechsel des Theme-Modus"
           },
           "wallpaper-changed": {
-            "description": "Befehl, der ausgeführt wird, wenn sich das Hintergrundbild ändert",
+            "description": "Befehl, der ausgeführt wird, wenn sich das Hintergrundbild ändert; stellt NOCTALIA_WALLPAPER_PATH und NOCTALIA_WALLPAPER_CONNECTOR bereit",
             "label": "Beim Wechsel des Hintergrundbilds"
           },
           "wifi-disabled": {
@@ -2130,7 +2125,7 @@
       },
       "panels": {
         "borders": {
-          "description": "Zeichne ein Umriss um Panels und Abschnittskarten innerhalb von Panels",
+          "description": "Zeichne einen Umriss um schwebende Panels",
           "label": "Rahmen"
         },
         "control-center-sidebar": {
@@ -2154,8 +2149,8 @@
           "label": "Schwebender Abstand"
         },
         "home-shortcuts": {
-          "description": "Wähle bis zu sechs Schnelleinstellungen für den Start-Tab",
-          "label": "Start-Schnelleinstellungen"
+          "description": "Wähle bis zu sechs Shortcuts für den Start-Tab",
+          "label": "Start-Shortcuts"
         },
         "launcher-app-grid": {
           "description": "Zeige ein Raster von App-Icons mit Beschriftungen darunter, wenn die Ergebnisse ausschließlich Apps sind",
@@ -2170,7 +2165,7 @@
           "label": "Kompakte Zeilen"
         },
         "launcher-currency-exchange": {
-          "description": "Kurse aus Online-Quellen von Drittanbietern abrufen",
+          "description": "Lade Kurse von Drittanbieter-Onlinequellen",
           "label": "Währungsumrechnung"
         },
         "launcher-global-calculator": {
@@ -2234,24 +2229,28 @@
           "description": "Schiebe häufig verwendete Apps weiter nach oben und zeige einen Filter für die Kategorie „Zuletzt verwendet“",
           "label": "Nach Nutzung sortieren"
         },
+        "list-item-background": {
+          "description": "Zeichne einen abgerundeten Hintergrund hinter jedem Launcher- und Zwischenablage-Listeneintrag",
+          "label": "Listeneintrag-Hintergrund"
+        },
         "open-near-click-clipboard": {
-          "description": "Platziere das Zwischenablage-Panel in der Nähe des Leisten-Widgets, das es geöffnet hat; andernfalls wird es zentriert",
+          "description": "Platziere das Zwischenablage-Panel in der Nähe des Leisten-Widgets, das es geöffnet hat, wenn es angedockt ist oder als schwebendes Panel mit automatischer Position",
           "label": "An der Leiste"
         },
         "open-near-click-control-center": {
-          "description": "Platziere das Kontrollzentrum in der Nähe des Leisten-Widgets, das es geöffnet hat; ohne Trigger wird es zentriert",
+          "description": "Platziere das Kontrollzentrum in der Nähe des Leisten-Widgets, das es geöffnet hat, wenn es angedockt ist oder als schwebendes Panel mit automatischer Position",
           "label": "An der Leiste"
         },
         "open-near-click-launcher": {
-          "description": "Platziere den Launcher in der Nähe des Leisten-Widgets, das es geöffnet hat; ohne Trigger wird er zentriert",
+          "description": "Platziere den Launcher in der Nähe des Leisten-Widgets, das es geöffnet hat, wenn es angedockt ist oder als schwebendes Panel mit automatischer Position",
           "label": "An der Leiste"
         },
         "open-near-click-session": {
-          "description": "Platziere das Sitzungsmenü-Panel in der Nähe des Leisten-Widgets, das es geöffnet hat; ohne Trigger wird es zentriert",
+          "description": "Platziere das Sitzungsmenü-Panel in der Nähe des Leisten-Widgets, das es geöffnet hat, wenn es angedockt ist oder als schwebendes Panel mit automatischer Position",
           "label": "An der Leiste"
         },
         "open-near-click-wallpaper": {
-          "description": "Platziere die Hintergrundbild-Auswahl in der Nähe des Leisten-Widgets, das es geöffnet hat; ohne Trigger wird sie zentriert",
+          "description": "Platziere die Hintergrundbild-Auswahl in der Nähe des Leisten-Widgets, das es geöffnet hat, wenn es angedockt ist oder als schwebendes Panel mit automatischer Position",
           "label": "An der Leiste"
         },
         "placement-clipboard": {
@@ -2312,7 +2311,7 @@
       },
       "power": {
         "session-actions": {
-          "description": "Einträge des Energiemenüs, Reihenfolge, benutzerdefinierte Befehle und Icons",
+          "description": "Einträge des Sitzungsmenüs, Reihenfolge, benutzerdefinierte Befehle und Icons",
           "label": "Einträge"
         },
         "session-grid": {
@@ -2322,6 +2321,10 @@
         "session-grid-columns": {
           "description": "Anzahl der Spalten für das Rasterlayout",
           "label": "Spalten"
+        },
+        "session-show-shortcuts": {
+          "description": "Zeige Shortcut-Hinweise an oder blende sie aus",
+          "label": "Shortcuts anzeigen"
         }
       },
       "services": {
@@ -2433,7 +2436,7 @@
             "label": "Festplatten-Abfrageintervall"
           },
           "gpu-poll": {
-            "description": "Sekunden zwischen den Stichproben von GPU-Temperatur und VRAM (0 deaktiviert, was das Aufwecken einer dedizierten GPU vermeidet; 5 ist ein gutes Intervall bei aktivierter Erfassung)",
+            "description": "Sekunden zwischen GPU-Temperatur-, Auslastungs- und VRAM-Messungen; die GPU wird nur abgefragt, wenn etwas eine GPU-Statistik anzeigt, sodass ein inaktiver Rechner nie aufgeweckt wird (0 deaktiviert vollständig)",
             "label": "GPU-Abfrageintervall"
           },
           "label": "Systemmonitor",
@@ -2554,7 +2557,7 @@
           "label": "Automatisches Einfügen aus Zwischenablage"
         },
         "clipboard-confirm-clear-history": {
-          "description": "Frage nach, bevor der Zwischenablage-Verlauf gelöscht oder ein nicht angepinnter Eintrag aus dem Panel entfernt wird; wenn deaktiviert, werden diese Aktionen sofort ausgeführt (angeheftete Einträge fragen weiterhin vor dem Löschen)",
+          "description": "Frage nach, bevor der Zwischenablage-Verlauf gelöscht oder ein nicht angehefteter Eintrag aus dem Panel entfernt wird; wenn deaktiviert, werden diese Aktionen sofort ausgeführt (angeheftete Einträge fragen weiterhin vor dem Löschen)",
           "label": "Verlauf löschen bestätigen"
         },
         "clipboard-enabled": {
@@ -2588,16 +2591,13 @@
         },
         "launch-apps-as-systemd-services": {
           "description": "Startet Anwendungen in separaten systemd-Diensten, damit sie sich keine cgroup mit Noctalia teilen",
-          "label": "Apps als systemd-Dienste starten"
+          "label": "Apps als systemd-Dienste starten",
+          "requires-systemd-session": "Erfordert, dass Noctalia als systemd-Benutzerdienst ausgeführt wird (uwsm oder eine systemd-Benutzereinheit)"
         },
         "launch-apps-custom-command": {
-          "description": "Benutzerdefinierter Befehl für den App-Launcher; ersetzt $CMD durch den ursprünglichen Befehl",
-          "label": "Benutzerdefinierter Launcher-Befehl",
+          "description": "Wird für Apps verwendet, die vom Launcher, Dock und der Taskleiste gestartet werden; ersetzt $CMD durch den ursprünglichen Befehl",
+          "label": "Benutzerdefinierter App-Startbefehl",
           "placeholder": "$CMD"
-        },
-        "middle-click-opens-widget-settings": {
-          "description": "Öffne die Einstellungen eines Leisten-Widgets per Mittelklick direkt von der Leiste aus",
-          "label": "Mittelklick öffnet Widget-Einstellungen"
         },
         "niri-overview-type-to-launch": {
           "description": "Öffne den Launcher, wenn du in der niri-Übersicht tippst; nutzt eine kleine Tastaturfokus-Oberfläche, während die Übersicht geöffnet ist",
@@ -2614,6 +2614,10 @@
         "osd-border": {
           "description": "Zeichne einen Umriss um OSD-Popups",
           "label": "Rahmen"
+        },
+        "osd-enabled": {
+          "description": "Hauptschalter für alle OSD-Popups; wenn deaktiviert, wird kein OSD angezeigt",
+          "label": "OSD aktivieren"
         },
         "osd-kinds-bluetooth": {
           "description": "Zeige ein OSD-Popup, wenn Bluetooth umgeschaltet wird",
@@ -2632,8 +2636,8 @@
           "label": "Nicht stören"
         },
         "osd-kinds-keyboard-backlight": {
-          "description": "OSD-Popup anzeigen, wenn sich die Stufe der Tastaturbeleuchtung ändert",
-          "label": "Tastatur Beleuchtung"
+          "description": "Zeige ein OSD-Popup, wenn sich die Tastaturbeleuchtungsstufe ändert",
+          "label": "Tastaturbeleuchtung"
         },
         "osd-kinds-keyboard-layout": {
           "description": "Zeige ein OSD-Popup, wenn sich das Tastaturlayout ändert",
@@ -2766,6 +2770,10 @@
           "description": "Speichere Screenshots als PNG-Dateien in das Ausgabeverzeichnis",
           "label": "In Datei speichern"
         },
+        "screenshot-show-cursor": {
+          "description": "Zeige den Mauszeiger in Screenshots an",
+          "label": "Cursor anzeigen"
+        },
         "show-location": {
           "description": "Zeige den Standortnamen in Wetter-Widgets an",
           "label": "Standort anzeigen"
@@ -2801,7 +2809,7 @@
           "label": "Integrierte Templates"
         },
         "community-ids": {
-          "description": "Aktiviere oder deaktiviere zwischengespeicherte Community-Templates, die bei jedem Theme-Wechsel gerendert werden",
+          "description": "Durchsuche und aktiviere Community-Templates, die bei jedem Theme-Wechsel angewendet werden",
           "empty": "Noch keine Community-Templates verfügbar. Aktiviere zuerst Community-Templates und aktualisiere den Katalog.",
           "label": "Community-Templates"
         },
@@ -2930,12 +2938,19 @@
         "ram": "RAM",
         "temp": "Temperatur"
       },
+      "map-placeholders": {
+        "effects-profile-name": "Profilname",
+        "glyph-name": "Symbolname",
+        "key": "Key",
+        "label": "Beschriftung",
+        "layout-name": "Layoutname",
+        "value": "Wert"
+      },
       "options": {
         "always": "Immer",
         "auto": "Auto",
         "cpu-temp": "CPU-Temperatur",
         "cpu-usage": "CPU-Auslastung",
-        "disk-percent": "Festplatte (Prozent)",
         "focus-hint": "Fokushinweis",
         "full": "Vollständig",
         "gauge": "Gauge",
@@ -2959,16 +2974,17 @@
         "none": "Keine",
         "on-hover": "Beim Hovern",
         "output": "Ausgabe",
+        "percent": "Prozent",
         "ram-percent": "RAM (Prozent)",
         "ram-used": "RAM verwendet",
+        "rate": "Rate",
         "regular": "Regulär",
-        "screenshot-primary-fullscreen": "Vollbild",
-        "screenshot-primary-region": "Bereich",
         "shared": "Geteilt",
         "short": "Kurz",
         "swap-percent": "Swap in Prozent",
         "text": "Text",
         "text-only": "Nur Text",
+        "time": "Zeit",
         "workspace-label-centered": "Zentriert",
         "workspace-label-corner": "Ecke",
         "workspace-label-inside": "Innerhalb der Pill"
@@ -2998,6 +3014,10 @@
         "art-size": {
           "description": "Größe des Medien-Covers in Pixeln",
           "label": "Cover-Größe"
+        },
+        "artist-first": {
+          "description": "Zeige den Künstler vor dem Titelnamen (Künstler - Titel)",
+          "label": "Künstler zuerst"
         },
         "bands": {
           "description": "Anzahl der Visualizer-Bänder",
@@ -3042,7 +3062,7 @@
           "label": "Zentriert"
         },
         "color": {
-          "description": "Farbe für den Widget-Vordergrund; feste Hex-Farben werden ebenfalls unterstützt",
+          "description": "Farbe für Icon und Beschriftung dieses Widgets; feste Hex-Farben werden ebenfalls unterstützt",
           "label": "Farbe"
         },
         "color-1": {
@@ -3053,29 +3073,21 @@
           "description": "Zweite Farbverlaufsfarbe im Visualizer",
           "label": "Farbe 2"
         },
-        "command": {
-          "description": "Shell-Befehl, der bei Linksklick auf diesen Button ausgeführt wird",
-          "label": "Linksklick-Befehl"
-        },
         "custom-image": {
           "description": "Pfad zu einem benutzerdefinierten Bild; leer lassen, um die Symbol-Glyphe zu verwenden",
           "dialog-title": "Benutzerdefiniertes Bild auswählen",
           "label": "Benutzerdefiniertes Bild"
         },
         "custom-image-colorize": {
-          "description": "Färbe das benutzerdefinierte Bild mit der Farbeinstellung des Widgets ein",
+          "description": "Färbe das benutzerdefinierte Bild mit der Icon-Farbeinstellung des Widgets ein",
           "label": "Benutzerdefiniertes Bild einfärben"
         },
         "custom-labels": {
           "description": "Weise Tastaturlayout-Namen benutzerdefinierte Beschriftungen zu",
           "label": "Benutzerdefinierte Beschriftungen"
         },
-        "cycle-command": {
-          "description": "Befehl, der beim Wechseln von Tastaturlayouts ausgeführt wird",
-          "label": "Wechselbefehl"
-        },
         "detached-panel": {
-          "description": "Öffne den Drawer als schwebendes Panel mit eigenem Hintergrund, statt ihn mit der Leiste zu verbinden",
+          "description": "Öffne den Drawer als schwebendes Panel, statt ihn am Leistenrand zu verankern",
           "label": "Losgelöstes Panel"
         },
         "device": {
@@ -3088,7 +3100,7 @@
           "label": "Anzeige"
         },
         "display-mode": {
-          "description": "Stelle den Akku als grafische Form oder als Tabler-Icon dar",
+          "description": "Stelle den Akku als grafische Form, Tabler-Icon oder nur als Beschriftung dar",
           "label": "Anzeigemodus"
         },
         "drawer": {
@@ -3102,6 +3114,10 @@
         "drawer-item-size": {
           "description": "Größe der Tray-Icons im Drawer-Panel in Pixeln",
           "label": "Drawer-Icongröße"
+        },
+        "effects-profile-glyphs": {
+          "description": "Weise EasyEffects-Profilnamen Symbol-Glyphen zu",
+          "label": "Effektprofil-Symbole"
         },
         "empty-color": {
           "description": "Farbe für leere Arbeitsbereiche; feste Hex-Farben werden ebenfalls unterstützt",
@@ -3144,7 +3160,7 @@
           "label": "Nach Arbeitsbereich gruppieren"
         },
         "group-single-icon-per-app": {
-          "description": "Fasse beim Gruppieren nach Arbeitsbereich mehrere Fenster derselben App zu einem Icon mit Zähler-Badge zusammen",
+          "description": "Fasse beim Gruppieren nach Arbeitsbereich mit Icons mehrere Fenster derselben App zu einem Icon mit Zähler-Badge zusammen",
           "label": "Ein Icon pro App"
         },
         "height": {
@@ -3249,6 +3265,10 @@
           "description": "Optionaler statischer Text, der auf diesem Button angezeigt wird",
           "label": "Beschriftung"
         },
+        "label-content": {
+          "description": "Was die Akkubeschriftung anzeigt: Ladestand in Prozent, verbleibende Zeit oder Leistungsaufnahme",
+          "label": "Beschriftungsinhalt"
+        },
         "label-min-width": {
           "description": "Minimale Beschriftungsbreite in Pixeln, um Größenänderungen zu vermeiden",
           "label": "Minimale Beschriftungsbreite"
@@ -3278,10 +3298,6 @@
         "mic-filter-regex": {
           "description": "Regulärer Ausdruck für Mikrofon-App-Namen, die ignoriert werden sollen",
           "label": "Mikrofon-Filter-Regex"
-        },
-        "middle-command": {
-          "description": "Shell-Befehl, der bei Mittelklick auf diesen Button ausgeführt wird; wenn festgelegt, öffnet ein Mittelklick diesen Befehl statt der Widget-Einstellungen",
-          "label": "Mittelklick-Befehl"
         },
         "min-length": {
           "description": "Minimale Widget-Länge in Pixeln",
@@ -3331,15 +3347,13 @@
         },
         "pinned": {
           "description": "Tray-Element-IDs, die in der Leiste sichtbar bleiben, wenn der Drawer-Modus aktiviert ist",
-          "label": "Angeheftete Elemente"
+          "label": "Angeheftete Elemente",
+          "taskbar-description": "Desktop-Apps, die in der Taskleiste bleiben, wenn sie nicht ausgeführt werden; wird ignoriert, solange „Gruppierung nach Arbeitsbereich“ aktiviert ist",
+          "taskbar-label": "Angeheftete Apps"
         },
-        "primary-click": {
-          "description": "Aktion, die bei Linksklick auf den Leisten-Button ausgeführt wird",
-          "label": "Primärer Klick"
-        },
-        "right-command": {
-          "description": "Shell-Befehl, der bei Rechtsklick auf diesen Button ausgeführt wird",
-          "label": "Rechtsklick-Befehl"
+        "pinned-opacity": {
+          "description": "Deckkraft von angehefteten Apps, die derzeit nicht ausgeführt werden",
+          "label": "Deckkraft angehefteter Apps"
         },
         "scale": {
           "description": "Skaliere dieses Widget relativ zur Inhaltsskala der Leiste",
@@ -3352,18 +3366,6 @@
         "script": {
           "description": "Pfad zum Lua-Skript",
           "label": "Skript"
-        },
-        "scroll-down-command": {
-          "description": "Shell-Befehl, der beim Herunterscrollen über diesen Button ausgeführt wird",
-          "label": "Befehl beim Herunterscrollen"
-        },
-        "scroll-step": {
-          "description": "Prozentuale Änderung pro Mausradschritt",
-          "label": "Scroll-Schritt"
-        },
-        "scroll-up-command": {
-          "description": "Shell-Befehl, der beim Heraufscrollen über diesen Button ausgeführt wird",
-          "label": "Befehl beim Heraufscrollen"
         },
         "show-active-indicator": {
           "description": "Zeige einen kleinen Punkt unter dem Icon des aktiven Fensters in der Taskleiste",
@@ -3406,7 +3408,7 @@
           "label": "Temperatur anzeigen"
         },
         "show-vpn-label": {
-          "description": "Zeige VPN-Beschriftung statt Schnittstellen-Beschriftung neben dem Icon an",
+          "description": "Ersetzt die Netzwerkbeschriftung durch die VPN-Beschriftung im Ersetzungsmodus; fügt die VPN-Beschriftung neben dem VPN-Icon im Beide-Modus hinzu",
           "label": "VPN-Beschriftung anzeigen"
         },
         "show-when-idle": {
@@ -3433,6 +3435,10 @@
         "taskbar-max-width": {
           "description": "Gesamtbreite in Pixeln; Fenstertitel werden verkleinert und ausgeblendet, wenn der Platz zu gering ist",
           "label": "Maximale Taskleistenbreite"
+        },
+        "text": {
+          "description": "Auf der Leiste angezeigter Text",
+          "label": "Text"
         },
         "timezone": {
           "description": "Zeitzonenkennung (z. B. Europe/Berlin) für diese Uhr; leer lassen, um die lokale Systemzeit zu verwenden",
@@ -3511,6 +3517,7 @@
         "sysmon": "Systemmonitor",
         "taskbar": "Taskleiste",
         "test": "Test",
+        "text": "Text",
         "theme-mode": "Theme-Modus",
         "tray": "Tray",
         "volume": "Lautstärke",
@@ -3522,7 +3529,6 @@
     "window": {
       "export-config": "Konfiguration exportieren…",
       "export-config-saved": "Konfigurationsexport gespeichert.",
-      "filter-modified": "Geändert",
       "legacy-config-warning": "Veraltete Konfiguration wird im Arbeitsspeicher migriert: {issue}. Führe noctalia config validate aus, um alle erforderlichen Änderungen zu sehen.",
       "native-title": "Noctalia-Einstellungen",
       "no-results": "Keine Einstellungen gefunden",
@@ -3595,8 +3601,10 @@
       "day": "{count} Tag",
       "day-plural": "{count} Tage",
       "hour": "{count} Stunde",
+      "hour-compact": "{count}h",
       "hour-plural": "{count} Stunden",
       "minute": "{count} Minute",
+      "minute-compact": "{count}m",
       "minute-plural": "{count} Minuten",
       "month": "{count} Monat",
       "month-plural": "{count} Monate",

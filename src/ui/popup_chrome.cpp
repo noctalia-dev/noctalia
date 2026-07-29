@@ -2,6 +2,7 @@
 
 #include "render/scene/node.h"
 #include "render/scene/rect_node.h"
+#include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/style.h"
 #include "wayland/popup_surface.h"
@@ -119,7 +120,7 @@ namespace popup_chrome {
   }
 
   Box* addCardBackground(Node& parent, const Geometry& geometry, float contentScale) {
-    auto box = std::make_unique<Box>();
+    auto box = ui::box({});
     box->setCardStyle(contentScale, 1.0f, Style::popupBordersEnabled());
     box->setRadius(Style::scaledRadiusLg(contentScale));
     box->setPosition(geometry.contentX(), geometry.contentY());

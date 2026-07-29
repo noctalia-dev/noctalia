@@ -58,15 +58,21 @@ public:
   [[nodiscard]] virtual bool fillsHeight() const noexcept { return false; }
   [[nodiscard]] virtual bool hasDecoration() const { return true; }
   [[nodiscard]] virtual LayerShellLayer layer() const { return LayerShellLayer::Top; }
+  // Keyboard focus policy. `None` means the panel never takes keyboard focus, so the
+  // app the user is typing into keeps it — that also rules out outside-click
+  // dismissal, which needs either the click shield (it would swallow the click meant
+  // for the app) or a compositor focus grab (it takes the keyboard). OnDemand vs
+  // Exclusive only decides whether the panel takes focus on open, and only on the
+  // detached path of a compositor without focus-grab support; see
+  // resolvePanelKeyboardPlan in panel_manager.cpp.
   [[nodiscard]] virtual LayerShellKeyboard keyboardMode() const { return LayerShellKeyboard::OnDemand; }
   [[nodiscard]] virtual InputArea* initialFocusArea() const { return nullptr; }
   // Dynamic focus: consumed (returned once, then cleared) by PanelManager after
   // each update/layout pass. Lets content that arrives or changes after the
   // scene build request keyboard focus (e.g. a plugin input with focus = true).
   [[nodiscard]] virtual InputArea* takePendingFocusArea() { return nullptr; }
-  // Panel placement policy. `Attached` merges with the bar when a suitable host
-  // exists, `Floating` opens detached near the bar, and `Centered` opens in the
-  // middle of the target output.
+  // Panel placement policy. `Attached` anchors the panel surface to a suitable
+  // bar edge; `Floating` opens detached and uses panelScreenPosition().
   [[nodiscard]] virtual PanelPlacement panelPlacement() const noexcept { return PanelPlacement::Floating; }
   // Floating screen position (one of kPanelPositions). Plugin panels override; built-in
   // panels resolve through shell.panel.*_position in PanelManager.
@@ -83,22 +89,18 @@ public:
   [[nodiscard]] virtual float attachedBackgroundOpacityOverride() const noexcept { return 1.0f; }
   [[nodiscard]] virtual bool wantsCloseAnimation() const noexcept { return true; }
   [[nodiscard]] virtual bool dismissOnOutsideClick() const { return true; }
+  // True to live in PersistentPanelHost instead of PanelManager's single active
+  // slot: opening another panel leaves it on screen, and only an explicit toggle
+  // or close dismisses it.
+  [[nodiscard]] virtual bool isPersistent() const noexcept { return false; }
 
   [[nodiscard]] Node* root() const noexcept { return m_root ? m_root.get() : m_rootPtr; }
   [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
   [[nodiscard]] float panelCardOpacity() const noexcept { return m_panelCardOpacity; }
-  [[nodiscard]] bool panelBordersEnabled() const noexcept { return m_panelBordersEnabled; }
 
   void setContentScale(float scale) noexcept { m_contentScale = scale; }
   void setPendingOpenContext(std::string_view context) { m_pendingOpenContext = std::string(context); }
   [[nodiscard]] std::string_view pendingOpenContext() const noexcept { return m_pendingOpenContext; }
-  void setPanelBordersEnabled(bool enabled) noexcept {
-    if (m_panelBordersEnabled == enabled) {
-      return;
-    }
-    m_panelBordersEnabled = enabled;
-    onPanelBordersChanged(enabled);
-  }
   void setPanelCardOpacity(float opacity) noexcept {
     const float clamped = std::clamp(opacity, 0.0f, 1.0f);
     if (m_panelCardOpacity == clamped) {
@@ -120,13 +122,11 @@ protected:
   void setRoot(std::unique_ptr<Node> root) { m_root = std::move(root); }
   void clearReleasedRoot() noexcept { m_rootPtr = nullptr; }
   virtual void onPanelCardOpacityChanged(float opacity) { (void)opacity; }
-  virtual void onPanelBordersChanged(bool enabled) { (void)enabled; }
   virtual void doLayout(Renderer& renderer, float width, float height) = 0;
   virtual void doUpdate(Renderer& renderer) { (void)renderer; }
 
   float m_contentScale = 1.0f;
   float m_panelCardOpacity = 1.0f;
-  bool m_panelBordersEnabled = true;
   std::string m_pendingOpenContext;
   AnimationManager* m_animations = nullptr;
 

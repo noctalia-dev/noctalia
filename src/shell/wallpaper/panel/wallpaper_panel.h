@@ -7,6 +7,7 @@
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <limits>
 #include <memory>
@@ -28,6 +29,10 @@ class VirtualGridView;
 class WallpaperGridAdapter;
 class WaylandConnection;
 
+namespace noctalia::theme {
+  class ThemeService;
+}
+
 class WallpaperPanel : public Panel {
 public:
   enum class SortMode : std::uint8_t {
@@ -35,10 +40,12 @@ public:
     NameDesc,
     DateAsc,
     DateDesc,
+    Random,
   };
 
   WallpaperPanel(
-      WaylandConnection* wayland, ConfigService* config, ThumbnailService* thumbnails, WallpaperScanner* scanner
+      WaylandConnection* wayland, ConfigService* config, ThumbnailService* thumbnails, WallpaperScanner* scanner,
+      noctalia::theme::ThemeService* themeService = nullptr
   );
   ~WallpaperPanel() override;
 
@@ -50,7 +57,6 @@ public:
   [[nodiscard]] float preferredWidth() const override { return scaled(980.0f); }
   [[nodiscard]] float preferredHeight() const override { return scaled(700.0f); }
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
-  [[nodiscard]] LayerShellLayer layer() const override { return LayerShellLayer::Overlay; }
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
   [[nodiscard]] InputArea* initialFocusArea() const override;
 
@@ -91,6 +97,7 @@ private:
       const std::filesystem::path& activeDir, const std::filesystem::path& rootDir
   ) const;
   void sortVisibleEntries();
+  void reseedRandomSort();
   void syncSortButtonGlyph();
   void cycleSortMode();
   void setSortMode(SortMode mode);
@@ -116,6 +123,7 @@ private:
   ConfigService* m_config = nullptr;
   ThumbnailService* m_thumbnails = nullptr;
   WallpaperScanner* m_scanner = nullptr;
+  noctalia::theme::ThemeService* m_themeService = nullptr;
 
   // UI nodes (owned by the root flex tree).
   Flex* m_rootLayout = nullptr;
@@ -157,6 +165,7 @@ private:
   bool m_flatten = false;
   bool m_scanPending = false;
   SortMode m_sortMode = SortMode::NameAsc;
+  std::uint64_t m_randomSeed = 0;
   std::size_t m_pinnedFavoriteCount = 0;
   bool m_syncingFavoriteControls = false;
   bool m_syncingGridSelectionVisual = false;

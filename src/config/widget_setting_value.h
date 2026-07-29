@@ -10,11 +10,14 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
 
-using WidgetSettingValue = std::variant<bool, std::int64_t, double, std::string, std::vector<std::string>>;
+using WidgetSettingStringMap = std::unordered_map<std::string, std::string>;
+using WidgetSettingValue =
+    std::variant<bool, std::int64_t, double, std::string, std::vector<std::string>, WidgetSettingStringMap>;
 
 namespace noctalia::config {
 
@@ -66,6 +69,10 @@ namespace noctalia::config {
       if (const auto* concrete = std::get_if<std::string>(&value)) {
         return std::vector<std::string>{*concrete};
       }
+    } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
+      if (const auto* concrete = std::get_if<WidgetSettingStringMap>(&value)) {
+        return *concrete;
+      }
     } else if constexpr (std::is_same_v<T, ColorSpec>) {
       if (const auto* concrete = std::get_if<std::string>(&value)) {
         return colorSpecFromConfigString(*concrete, context);
@@ -91,7 +98,11 @@ namespace noctalia::config {
         throw std::overflow_error("widget setting number is not finite or is outside the supported range");
       }
       return converted;
-    } else if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, std::vector<std::string>>) {
+    } else if constexpr (
+        std::is_same_v<T, std::string>
+        || std::is_same_v<T, std::vector<std::string>>
+        || std::is_same_v<T, WidgetSettingStringMap>
+    ) {
       return value;
     } else if constexpr (std::is_same_v<T, ColorSpec>) {
       return colorSpecToConfigString(value);

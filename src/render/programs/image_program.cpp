@@ -67,12 +67,38 @@ uniform vec2 u_size;
 uniform float u_radius;
 uniform vec4 u_border_color;
 uniform float u_border_width;
+uniform int u_scrim_enabled;
+uniform vec2 u_scrim_direction;
+uniform vec4 u_scrim_stops;
+uniform vec4 u_scrim_color0;
+uniform vec4 u_scrim_color1;
+uniform vec4 u_scrim_color2;
+uniform vec4 u_scrim_color3;
 varying vec2 v_texcoord;
 varying vec2 v_local;
 
 float rounded_rect_distance(vec2 centered, vec2 half_size, float radius) {
     vec2 q = abs(centered) - (half_size - vec2(radius));
     return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+}
+
+float scrim_segment_t(float position, float start, float end) {
+    return clamp((position - start) / max(end - start, 0.0001), 0.0, 1.0);
+}
+
+vec4 scrim_fill(float position) {
+    vec4 stops = clamp(u_scrim_stops, vec4(0.0), vec4(1.0));
+    stops.y = max(stops.y, stops.x);
+    stops.z = max(stops.z, stops.y);
+    stops.w = max(stops.w, stops.z);
+
+    if (position <= stops.y) {
+        return mix(u_scrim_color0, u_scrim_color1, scrim_segment_t(position, stops.x, stops.y));
+    }
+    if (position <= stops.z) {
+        return mix(u_scrim_color1, u_scrim_color2, scrim_segment_t(position, stops.y, stops.z));
+    }
+    return mix(u_scrim_color2, u_scrim_color3, scrim_segment_t(position, stops.z, stops.w));
 }
 
 void main() {
@@ -96,6 +122,11 @@ void main() {
         fill = vec4(u_tint.rgb * coverage, coverage * u_tint.a);
     } else {
         fill = texel * u_tint;
+    }
+    if (u_scrim_enabled == 1) {
+        vec2 scrim_uv = clamp(v_local / max(u_size, vec2(1.0)), vec2(0.0), vec2(1.0));
+        vec4 scrim = scrim_fill(clamp(dot(scrim_uv, u_scrim_direction), 0.0, 1.0));
+        fill.rgb = mix(fill.rgb, scrim.rgb, clamp(scrim.a, 0.0, 1.0));
     }
     fill *= vec4(1.0, 1.0, 1.0, u_opacity);
 
@@ -147,6 +178,13 @@ void ImageProgram::ensureInitialized() {
   m_fitModeLocation = glGetUniformLocation(m_program.id(), "u_fit_mode");
   m_samplerLocation = glGetUniformLocation(m_program.id(), "u_texture");
   m_transformLocation = glGetUniformLocation(m_program.id(), "u_transform");
+  m_scrimEnabledLocation = glGetUniformLocation(m_program.id(), "u_scrim_enabled");
+  m_scrimDirectionLocation = glGetUniformLocation(m_program.id(), "u_scrim_direction");
+  m_scrimStopsLocation = glGetUniformLocation(m_program.id(), "u_scrim_stops");
+  m_scrimColor0Location = glGetUniformLocation(m_program.id(), "u_scrim_color0");
+  m_scrimColor1Location = glGetUniformLocation(m_program.id(), "u_scrim_color1");
+  m_scrimColor2Location = glGetUniformLocation(m_program.id(), "u_scrim_color2");
+  m_scrimColor3Location = glGetUniformLocation(m_program.id(), "u_scrim_color3");
 
   if (m_positionLocation < 0
       || m_texCoordLocation < 0
@@ -162,7 +200,14 @@ void ImageProgram::ensureInitialized() {
       || m_texSizeLocation < 0
       || m_fitModeLocation < 0
       || m_samplerLocation < 0
-      || m_transformLocation < 0) {
+      || m_transformLocation < 0
+      || m_scrimEnabledLocation < 0
+      || m_scrimDirectionLocation < 0
+      || m_scrimStopsLocation < 0
+      || m_scrimColor0Location < 0
+      || m_scrimColor1Location < 0
+      || m_scrimColor2Location < 0
+      || m_scrimColor3Location < 0) {
     throw std::runtime_error("failed to query image shader locations");
   }
 }
@@ -184,6 +229,13 @@ void ImageProgram::destroy() {
   m_fitModeLocation = -1;
   m_samplerLocation = -1;
   m_transformLocation = -1;
+  m_scrimEnabledLocation = -1;
+  m_scrimDirectionLocation = -1;
+  m_scrimStopsLocation = -1;
+  m_scrimColor0Location = -1;
+  m_scrimColor1Location = -1;
+  m_scrimColor2Location = -1;
+  m_scrimColor3Location = -1;
 }
 
 void ImageProgram::abandon() noexcept { m_program.abandon(); }
@@ -191,7 +243,7 @@ void ImageProgram::abandon() noexcept { m_program.abandon(); }
 void ImageProgram::draw(
     TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, const Color& tint,
     bool monochromeTint, bool alphaMaskTint, float opacity, float radius, const Color& borderColor, float borderWidth,
-    int fitMode, float textureWidth, float textureHeight, const Mat3& transform
+    int fitMode, float textureWidth, float textureHeight, const Mat3& transform, const ImageScrim& scrim
 ) const {
   if (!m_program.isValid() || texture == 0 || width <= 0.0f || height <= 0.0f) {
     return;
@@ -218,6 +270,20 @@ void ImageProgram::draw(
   glUniform2f(m_texSizeLocation, textureWidth, textureHeight);
   glUniform1i(m_fitModeLocation, fitMode);
   glUniformMatrix3fv(m_transformLocation, 1, GL_FALSE, transform.m.data());
+  glUniform1i(m_scrimEnabledLocation, scrim.enabled ? 1 : 0);
+  glUniform2f(
+      m_scrimDirectionLocation, scrim.direction == GradientDirection::Horizontal ? 1.0f : 0.0f,
+      scrim.direction == GradientDirection::Vertical ? 1.0f : 0.0f
+  );
+  const auto& scrim0 = scrim.stops[0];
+  const auto& scrim1 = scrim.stops[1];
+  const auto& scrim2 = scrim.stops[2];
+  const auto& scrim3 = scrim.stops[3];
+  glUniform4f(m_scrimStopsLocation, scrim0.position, scrim1.position, scrim2.position, scrim3.position);
+  glUniform4f(m_scrimColor0Location, scrim0.color.r, scrim0.color.g, scrim0.color.b, scrim0.color.a);
+  glUniform4f(m_scrimColor1Location, scrim1.color.r, scrim1.color.g, scrim1.color.b, scrim1.color.a);
+  glUniform4f(m_scrimColor2Location, scrim2.color.r, scrim2.color.g, scrim2.color.b, scrim2.color.a);
+  glUniform4f(m_scrimColor3Location, scrim3.color.r, scrim3.color.g, scrim3.color.b, scrim3.color.a);
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(texture.value()));
   glUniform1i(m_samplerLocation, 0);

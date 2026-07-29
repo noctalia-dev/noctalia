@@ -17,6 +17,8 @@
 #include <condition_variable>
 #include <deque>
 #include <mutex>
+#include <optional>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -32,6 +34,8 @@ namespace scripting {
       return counter.fetch_add(1, std::memory_order_relaxed);
     }
 
+    // Per-call budgets, spent in worker-thread CPU time (see threadCpuTime() in
+    // luau_host.cpp).
     constexpr auto kLoadBudget = std::chrono::milliseconds(100);
     constexpr auto kUpdateBudget = std::chrono::milliseconds(12);
     constexpr auto kCallbackBudget = std::chrono::milliseconds(25);
@@ -42,6 +46,18 @@ namespace scripting {
     constexpr std::size_t kMaxTimeoutsPerWindow = 5;
     constexpr auto kCrashWindow = std::chrono::seconds(60);
     constexpr std::size_t kMaxHardErrorsPerWindow = 5;
+    std::mutex g_pluginExitReasonsMutex;
+    std::unordered_map<std::string, ScriptExitReason> g_pluginExitReasons;
+
+    std::optional<ScriptExitReason> pluginExitReasonFor(std::string_view runtimeName) {
+      const auto separator = runtimeName.find(':');
+      if (separator == std::string_view::npos) {
+        return std::nullopt;
+      }
+      std::scoped_lock lock(g_pluginExitReasonsMutex);
+      const auto it = g_pluginExitReasons.find(std::string(runtimeName.substr(0, separator)));
+      return it != g_pluginExitReasons.end() ? std::optional(it->second) : std::nullopt;
+    }
 
     void mergePatch(ScriptPatch& dest, const ScriptPatch& src) {
       if (src.text.has_value()) {
@@ -151,6 +167,9 @@ namespace scripting {
             api.invokeTogglePanel(effect.title);
           }
           break;
+        case ScriptSideEffectKind::OpenPluginSettings:
+          api.invokeOpenPluginSettings(effect.title);
+          break;
         }
       }
     }
@@ -200,6 +219,8 @@ namespace scripting {
     bool hasOnConfigChangedKnown = false;
     bool hasOnScroll = false;
     bool hasOnScrollKnown = false;
+    bool hasOnKey = false;
+    bool hasOnKeyKnown = false;
     bool unhealthy = false;
     int consecutiveTimeouts = 0;
 
@@ -252,7 +273,7 @@ namespace scripting {
       subscribers.erase(id);
     }
 
-    void stop(int exitSignal) {
+    void stop(int exitSignal, ScriptExitReason exitReason) {
       bool shouldSchedule = false;
       {
         std::scoped_lock lock(mutex);
@@ -269,6 +290,7 @@ namespace scripting {
           event.kind = ScriptEventKind::Stop;
           event.generation = generation;
           event.exitSignal = exitSignal;
+          event.exitReason = exitReason;
           queue.push_back(std::move(event));
           if (!scheduled) {
             scheduled = true;
@@ -478,7 +500,7 @@ namespace scripting {
         }
 
         if (event.kind == ScriptEventKind::Stop) {
-          teardownHost(event.exitSignal, event.snapshot);
+          teardownHost(event.exitSignal, event.snapshot, event.exitReason);
           {
             std::scoped_lock lock(mutex);
             queue.clear();
@@ -629,7 +651,7 @@ namespace scripting {
     }
 
     ScriptResult processLoad(const ScriptEvent& event) {
-      teardownHost(0, event.snapshot);
+      teardownHost(0, event.snapshot, ScriptExitReason::Reload);
 
       host = std::make_unique<LuauHost>(scriptApi);
       bindingContext.settings = &settings;
@@ -717,6 +739,7 @@ namespace scripting {
       const bool onActivatePresent = host != nullptr && host->hasGlobal("onActivate");
       const bool onConfigChangedPresent = host != nullptr && host->hasGlobal("onConfigChanged");
       const bool onScrollPresent = host != nullptr && host->hasGlobal("onScroll");
+      const bool onKeyPresent = host != nullptr && host->hasGlobal("onKey");
       {
         std::scoped_lock lock(mutex);
         hasOnIpc = result.hasOnIpc;
@@ -727,16 +750,33 @@ namespace scripting {
         hasOnConfigChangedKnown = true;
         hasOnScroll = onScrollPresent;
         hasOnScrollKnown = true;
+        hasOnKey = onKeyPresent;
+        hasOnKeyKnown = true;
       }
       return result;
     }
 
-    void teardownHost(int signal, const ScriptSnapshot& snapshot) {
+    void
+    teardownHost(int signal, const ScriptSnapshot& snapshot, ScriptExitReason exitReason = ScriptExitReason::Reload) {
       // Prevent old or newly registered watchers from outliving this VM.
       PluginStateStore::instance().removeWatchers(stateToken);
       if (host != nullptr && host->hasGlobal("onExit")) {
         bindingContext.beginCall(snapshot);
-        const ScriptArgs args{static_cast<double>(signal)};
+        const char* reason = "reload";
+        switch (exitReason) {
+        case ScriptExitReason::Reload:
+          break;
+        case ScriptExitReason::Disable:
+          reason = "disable";
+          break;
+        case ScriptExitReason::Uninstall:
+          reason = "uninstall";
+          break;
+        case ScriptExitReason::Shutdown:
+          reason = "shutdown";
+          break;
+        }
+        const ScriptArgs args{static_cast<double>(signal), std::string(reason)};
         (void)host->callGlobalWithArgsAndBudget("onExit", args, kCallbackBudget);
       }
       PluginStateStore::instance().removeWatchers(stateToken);
@@ -753,7 +793,7 @@ namespace scripting {
       result.sideEffects = bindingContext.sideEffects;
       result.hasOnIpcKnown = false;
       if (!ok) {
-        result.error = result.timedOut ? "script execution timed out" : "script callback failed";
+        result.error = result.timedOut ? "script callback exceeded its CPU budget" : "script callback failed";
       }
 
       if (result.patch.updateIntervalMs.has_value()) {
@@ -766,8 +806,8 @@ namespace scripting {
     }
 
     // Health verdict for a finished call. Two independent budgets feed `unhealthy`:
-    // repeated timeouts (a script that won't return) and repeated hard errors (a
-    // script that keeps throwing — including hitting the VM memory ceiling). When
+    // repeated CPU-budget overruns (a script that won't yield) and repeated hard
+    // errors (a script that keeps throwing, including hitting the VM memory ceiling). When
     // either trips, the runtime is auto-disabled (enqueue() drops further events
     // until reload) and the user is notified once.
     void updateHealth(ScriptResult& result) {
@@ -856,6 +896,12 @@ namespace scripting {
       }
 
       dispatchSideEffects(result.sideEffects, clipboard, scriptApi, togglePanelCallback);
+      for (const auto& effect : result.sideEffects) {
+        if (effect.kind == ScriptSideEffectKind::CopyToClipboard) {
+          result.copiedToClipboard = true;
+          break;
+        }
+      }
       result.sideEffects.clear();
 
       for (auto& callback : callbacks) {
@@ -865,6 +911,24 @@ namespace scripting {
       }
     }
   };
+
+  PluginExitReasonScope::PluginExitReasonScope(std::string_view pluginId, ScriptExitReason reason)
+      : m_pluginId(pluginId) {
+    std::scoped_lock lock(g_pluginExitReasonsMutex);
+    if (const auto it = g_pluginExitReasons.find(m_pluginId); it != g_pluginExitReasons.end()) {
+      m_previous = it->second;
+    }
+    g_pluginExitReasons[m_pluginId] = reason;
+  }
+
+  PluginExitReasonScope::~PluginExitReasonScope() {
+    std::scoped_lock lock(g_pluginExitReasonsMutex);
+    if (m_previous.has_value()) {
+      g_pluginExitReasons[m_pluginId] = *m_previous;
+    } else {
+      g_pluginExitReasons.erase(m_pluginId);
+    }
+  }
 
   ScriptRuntime::ScriptRuntime(
       std::string runtimeName, ScriptSettings settings, ScriptApiContext& api, std::filesystem::path pluginDir,
@@ -889,9 +953,15 @@ namespace scripting {
     }
   }
 
-  void ScriptRuntime::stop() {
+  void ScriptRuntime::stop(ScriptExitReason exitReason) {
     if (m_state != nullptr) {
-      m_state->stop(g_shutdownSignal.load(std::memory_order_relaxed));
+      const int signal = g_shutdownSignal.load(std::memory_order_relaxed);
+      if (signal != 0) {
+        exitReason = ScriptExitReason::Shutdown;
+      } else if (exitReason == ScriptExitReason::Reload) {
+        exitReason = pluginExitReasonFor(m_state->runtimeName).value_or(ScriptExitReason::Reload);
+      }
+      m_state->stop(signal, exitReason);
     }
   }
 
@@ -1009,6 +1079,14 @@ namespace scripting {
     }
     std::scoped_lock lock(m_state->mutex);
     return m_state->hasOnScrollKnown && m_state->hasOnScroll;
+  }
+
+  bool ScriptRuntime::hasOnKey() const {
+    if (m_state == nullptr) {
+      return false;
+    }
+    std::scoped_lock lock(m_state->mutex);
+    return m_state->hasOnKeyKnown && m_state->hasOnKey;
   }
 
   bool ScriptRuntime::unhealthy() const {

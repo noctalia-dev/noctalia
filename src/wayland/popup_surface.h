@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 
 struct wl_output;
 struct xdg_popup;
@@ -72,4 +73,8 @@ private:
   std::int32_t m_configuredX = 0;
   std::int32_t m_configuredY = 0;
   bool m_enrolledInGrabHost = false;
+  // Set false by the destructor. The init roundtrip re-enters event dispatch and can
+  // destroy this popup mid-init; a captured copy of this token lets init detect that
+  // and avoid touching freed `this`.
+  std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
 };

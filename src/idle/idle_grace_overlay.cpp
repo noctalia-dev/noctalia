@@ -5,6 +5,7 @@
 #include "core/ui_phase.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
+#include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/palette.h"
 #include "wayland/wayland_connection.h"
@@ -218,14 +219,14 @@ void IdleGraceOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint
   const auto w = static_cast<float>(width);
   const auto h = static_cast<float>(height);
 
-  inst.sceneRoot = std::make_unique<Node>();
+  inst.sceneRoot = ui::node({});
   inst.sceneRoot->setSize(w, h);
   inst.sceneRoot->setOpacity(1.0f);
   inst.surface->setSceneRoot(inst.sceneRoot.get());
 
   // Fullscreen tint: fade this layer only so the Wayland buffer stays a proper overlay (transparent
   // clear + premultiplied tint).
-  auto dim = std::make_unique<Box>();
+  auto dim = ui::box({});
   dim->setFill(fixedColorSpec(rgba(0.0f, 0.0f, 0.0f, 1.0f)));
   dim->setOpacity(0.0f);
   dim->setPosition(0.0f, 0.0f);

@@ -5,10 +5,12 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 class ConfigService;
+class IpcService;
 class Box;
 class Flex;
 class Glyph;
@@ -48,19 +50,21 @@ struct OsdContent {
 
 class OsdOverlay {
 public:
-  OsdOverlay() = default;
-  ~OsdOverlay() = default;
+  OsdOverlay();
+  ~OsdOverlay();
 
   OsdOverlay(const OsdOverlay&) = delete;
   OsdOverlay& operator=(const OsdOverlay&) = delete;
 
   void initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext);
+  void registerIpc(IpcService& ipc);
   void onOutputChange();
   void onConfigReload();
   void requestLayout();
   void requestRedraw();
 
   void show(const OsdContent& content);
+  [[nodiscard]] bool isEnabled() const noexcept;
 
   // True while any instance is on screen or animating into view. Callers use this to correct
   // already-visible content in place without popping up a fresh OSD.
@@ -105,6 +109,7 @@ private:
   [[nodiscard]] bool shouldRenderOnOutput(const WaylandOutput& output) const;
   void ensureSurfaces();
   void destroySurfaces();
+  void setEnabledOverride(bool enabled);
   void prepareFrame(Instance& inst, bool needsUpdate, bool needsLayout);
   void buildScene(Instance& inst, std::uint32_t width, std::uint32_t height);
   void updateInstanceContent(Instance& inst);
@@ -122,5 +127,7 @@ private:
   float m_lastLayoutScale = 1.0f;
   float m_lastCornerRadiusScale = 1.0f;
   std::vector<std::string> m_lastMonitorSelectors;
+  std::optional<bool> m_runtimeEnabledOverride;
+  bool m_lastConfiguredEnabled = true;
   std::vector<std::unique_ptr<Instance>> m_instances;
 };

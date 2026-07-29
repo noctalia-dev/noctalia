@@ -1,0 +1,742 @@
+{
+  "auth": {
+    "fingerprint": {
+      "disconnected": "지문 인식기 연결 끊김",
+      "error": "지문 인증 오류",
+      "no-match": "지문이 일치하지 않음",
+      "not-centered": "손가락을 중앙에 맞추고 다시 시도하세요",
+      "present": "지문 인식 중...",
+      "ready": "지문 인식기에 손가락을 올려주세요.",
+      "remove-and-retry": "손가락을 떼고 다시 시도하세요.",
+      "retry": "지문을 다시 스캔해 주세요.",
+      "swipe-too-short": "스와이프가 너무 짧습니다. 다시 시도하세요",
+      "too-many-attempts": "지문 인식 비활성화됨 (시도 횟수 초과)"
+    },
+    "pam": {
+      "authentication-failed": "인증 실패",
+      "start-failed": "PAM 시작 실패",
+      "user-unavailable": "현재 사용자를 확인할 수 없음"
+    },
+    "polkit": {
+      "authenticate": "인증",
+      "authenticating": "인증 중...",
+      "default-message": "인증 필요",
+      "invalid-password": "잘못된 비밀번호",
+      "password-placeholder": "비밀번호",
+      "title": "인증 필요"
+    }
+  },
+  "bar": {
+    "screenshot": {
+      "choose-display": "디스플레이 선택",
+      "confirm-region": "Enter 또는 Space로 캡처 · Esc로 취소 · 드래그하여 다시 선택",
+      "fullscreen": "전체 화면",
+      "overlay-alloc-failed": "스크린샷 오버레이를 표시할 수 없습니다 (GPU 비디오 메모리 부족)",
+      "region": "영역 지정"
+    },
+    "widgets": {
+      "active-window": {
+        "no-active-window": "활성 창 없음"
+      },
+      "bluetooth": {
+        "connected": "연결됨"
+      },
+      "brightness": {
+        "brightness": "밝기",
+        "display": "디스플레이"
+      },
+      "lock-keys": {
+        "caps": "Caps",
+        "caps-short": "C",
+        "num": "Num",
+        "num-short": "N",
+        "scroll": "스크롤",
+        "scroll-short": "S"
+      },
+      "media": {
+        "nothing-playing": "재생 중인 항목 없음",
+        "playing": "재생 중"
+      },
+      "network": {
+        "active": "활성",
+        "connected": "연결됨",
+        "connecting": "연결 중",
+        "download": "다운로드",
+        "interface": "인터페이스",
+        "ip": "IP",
+        "network": "네트워크",
+        "networks": "네트워크",
+        "networks-count": "{count}개 네트워크",
+        "networks-count-plural": "{count}개 네트워크",
+        "no": "아니요",
+        "not-connected": "연결되지 않음",
+        "off": "꺼짐",
+        "on": "켜짐",
+        "scanning": "검색 중",
+        "signal": "신호",
+        "upload": "업로드",
+        "vpn": "VPN",
+        "wan-ip": "WAN IP",
+        "wifi": "Wi-Fi",
+        "wired": "유선",
+        "yes": "예"
+      },
+      "privacy": {
+        "camera": "카메라",
+        "microphone": "마이크",
+        "screen-sharing": "화면 공유"
+      },
+      "scripted": {
+        "reload-failed": "스크립트 새로 고침 실패",
+        "reloaded": "스크립트 새로 고침됨"
+      },
+      "sysmon": {
+        "cpu": "CPU",
+        "cpu-temp": "CPU 온도",
+        "disk": "디스크",
+        "disk-free": "디스크 여유 공간",
+        "disk-free-pct": "디스크 여유 %",
+        "disk-used": "디스크 사용량",
+        "disk-used-pct": "디스크 사용 %",
+        "download": "다운로드",
+        "gpu-temp": "GPU 온도",
+        "gpu-usage": "GPU 사용률",
+        "gpu-vram": "GPU VRAM",
+        "ram": "RAM",
+        "swap": "스왑",
+        "system": "시스템",
+        "upload": "업로드"
+      },
+      "volume": {
+        "device": "장치",
+        "mic": "마이크",
+        "volume": "볼륨"
+      },
+      "weather": {
+        "default": "날씨",
+        "error": "날씨 오류",
+        "loading": "날씨 불러오는 중...",
+        "no-location": "위치 없음",
+        "off": "날씨 꺼짐"
+      }
+    }
+  },
+  "clipboard": {
+    "actions": {
+      "clear-all": "모두 지우기",
+      "delete-item": "항목 삭제",
+      "keep-pinned": "고정 유지"
+    },
+    "confirm": {
+      "clear-desc": "고정된 항목을 유지할지 선택하세요.",
+      "clear-desc-all-pinned": "모든 항목이 고정되어 있습니다. 모두 지우기를 사용하여 전부 삭제하세요.",
+      "clear-desc-no-pinned": "클립보드 기록의 모든 항목을 삭제합니다.",
+      "clear-title": "클립보드 기록을 지우시겠습니까?",
+      "delete-desc": "클립보드 기록에서 선택한 항목을 삭제합니다.",
+      "delete-title": "클립보드 항목을 삭제하시겠습니까?"
+    },
+    "empty": {
+      "history-message": "클립보드 기록에 항목이 없습니다.",
+      "history-title": "클립보드 기록이 비어 있음",
+      "no-matches-message": "현재 필터에 해당하는 항목이 없습니다.",
+      "no-matches-title": "일치하는 항목 없음"
+    },
+    "entry": {
+      "image": "이미지",
+      "title": "클립보드 항목"
+    },
+    "filter-placeholder": "클립보드 필터...",
+    "preview": {
+      "empty-text-payload": "(빈 텍스트 데이터)",
+      "image-title": "이미지 클립보드 항목",
+      "loading": "미리보기 불러오는 중...",
+      "text-title": "텍스트 클립보드 항목",
+      "truncated": "... 잘림"
+    },
+    "title": "클립보드"
+  },
+  "common": {
+    "actions": {
+      "apply": "적용",
+      "cancel": "취소"
+    },
+    "states": {
+      "auto": "자동",
+      "custom": "사용자 정의",
+      "inherit": "상속",
+      "off": "꺼짐"
+    }
+  },
+  "control-center": {
+    "audio": {
+      "application-volumes": "앱 볼륨",
+      "choose-effects-profile": "프로필 선택",
+      "effects-profile": "효과",
+      "input-device-prefix": "입력",
+      "no-application-audio": "앱 오디오 없음",
+      "no-application-audio-body": "현재 사용 가능한 앱 재생 스트림이 없습니다.",
+      "no-input-devices": "입력 장치 없음",
+      "no-input-devices-body": "현재 사용 가능한 녹음 소스가 없습니다.",
+      "no-input-selected": "입력 장치가 선택되지 않음",
+      "no-output-devices": "출력 장치 없음",
+      "no-output-devices-body": "현재 사용 가능한 재생 싱크가 없습니다.",
+      "no-output-selected": "출력 장치가 선택되지 않음",
+      "output-device-prefix": "출력",
+      "unavailable-body": "PipeWire가 활성화되어 있지 않습니다.",
+      "unavailable-title": "오디오를 사용할 수 없음"
+    },
+    "bluetooth": {
+      "accept": "수락",
+      "address": "주소",
+      "auto-reconnect": "자동 재연결",
+      "bluetooth": "Bluetooth",
+      "enter-code": "코드 입력",
+      "no-devices": "장치를 찾을 수 없습니다. 검색을 시작하여 근처 Bluetooth 장치를 탐색하세요.",
+      "off": "Bluetooth가 꺼져 있음",
+      "pair-title": "{device} 페어링",
+      "pairing-detail": {
+        "authorize": "들어오는 페어링 요청을 수락하시겠습니까?",
+        "authorize-service": "서비스 {uuid}에 대한 접근을 허용하시겠습니까?",
+        "confirm": "장치에 표시된 코드와 일치하는지 확인하세요:",
+        "display-passkey": "장치에 이 코드를 입력하세요:",
+        "display-pin": "장치에 이 PIN을 입력하세요:",
+        "passkey": "장치에 표시된 패스키를 입력하세요:",
+        "pin-code": "장치에 표시된 PIN을 입력하세요:"
+      },
+      "reject": "거부",
+      "rfkill-blocked": "Bluetooth가 시스템에 의해 차단되어 있습니다. Bluetooth를 켜서 차단을 해제하세요.",
+      "sections": {
+        "available": "사용 가능",
+        "connected": "연결됨",
+        "paired": "페어링됨"
+      },
+      "unavailable": "Bluetooth를 사용할 수 없음",
+      "unknown-device": "알 수 없는 장치",
+      "visible": "주변 장치에서 검색 가능"
+    },
+    "calendar": {
+      "all-day": "하루 종일",
+      "events": "일정",
+      "no-events": "일정 없음",
+      "today": "오늘",
+      "toggle-events-card": "일정 카드 전환"
+    },
+    "display": {
+      "disabled": "비활성화됨",
+      "no-displays": "사용 가능한 모니터 없음",
+      "unknown-resolution": "알 수 없는 해상도"
+    },
+    "home": {
+      "avatar-error-title": "아바타가 업데이트되지 않음",
+      "media": {
+        "idle": "유휴",
+        "no-active-player": "활성 플레이어 없음",
+        "nothing-playing": "재생 중인 항목 없음",
+        "paused": "일시 정지됨",
+        "playback-unavailable": "재생 불가",
+        "playing": "재생 중",
+        "unavailable": "사용 불가",
+        "unknown-artist": "알 수 없는 아티스트",
+        "unknown-track": "알 수 없는 트랙"
+      },
+      "select-avatar": "아바타 선택",
+      "unknown": "알 수 없음",
+      "uptime": "가동 시간 - {uptime}",
+      "weather": {
+        "data-unavailable": "날씨 데이터를 사용할 수 없습니다.",
+        "disabled": "설정에서 날씨가 비활성화되어 있습니다.",
+        "fetching": "일기 예보 불러오는 중..."
+      }
+    },
+    "media": {
+      "active-player": "활성 플레이어",
+      "nothing-playing": "재생 중인 항목 없음",
+      "now-playing": "지금 재생 중",
+      "start-playback": "MRPIS 앱에서 재생 시작"
+    },
+    "network": {
+      "connect": "연결",
+      "current-connection": "현재 연결",
+      "external-ip": "WAN {ip}",
+      "no-networks": "범위 내에 네트워크 없음",
+      "not-connected": "연결되지 않음",
+      "password": "비밀번호",
+      "password-prompt": "비밀번호 입력",
+      "password-prompt-for": "{ssid}의 비밀번호 입력",
+      "unavailable-detail": "여기에서 네트워크를 관리하려면 NetworkManager나 wpa_supplicant 또는 iwd를 설치하고 활성화하세요.",
+      "unavailable-title": "네트워크를 사용할 수 없음",
+      "vpns": "VPN",
+      "wi-fi": "Wi-Fi",
+      "wifi": "Wi-Fi",
+      "wifi-off": "Wi-Fi 꺼짐",
+      "wifi-on": "Wi-Fi 켜짐",
+      "wired-connection": "유선 연결"
+    },
+    "notifications": {
+      "clear-all": "모든 알림 지우기",
+      "dnd-off": "방해 금지 끄기",
+      "dnd-on": "방해 금지 켜기",
+      "empty-body": "최근 알림이 여기에 표시됩니다.",
+      "empty-title": "알림 없음",
+      "filter": {
+        "all": "모두",
+        "older": "이전",
+        "today": "오늘",
+        "yesterday": "어제"
+      },
+      "filter-empty-body": "이 필터와 일치하는 알림이 없습니다.",
+      "filter-empty-title": "항목 없음",
+      "untitled": "제목 없는 알림"
+    },
+    "power": {
+      "battery": "배터리",
+      "design-capacity": "설계 용량 대비",
+      "health": "배터리 성능",
+      "performance-inhibited": "성능 사용 불가",
+      "peripherals": "연결된 장치",
+      "power-profile": "전원 프로필",
+      "time-to-empty": "{time} 남음",
+      "time-to-full": "완충까지 {time}",
+      "unknown-device": "알 수 없는 장치"
+    },
+    "screen-time": {
+      "back": "뒤로",
+      "disabled": "스크린 타임 추적이 꺼져 있습니다. 설정에서 활성화하면 앱별 사용량이 기록됩니다.",
+      "empty": "아직 앱 사용량이 기록되지 않았습니다. 창에 포커스를 맞추면 추적이 시작됩니다.",
+      "hour-0": "오전 12시",
+      "hour-12": "오후 12시",
+      "hour-18": "오후 6시",
+      "hour-6": "오전 6시",
+      "most-used": "가장 많이 사용",
+      "range": {
+        "14-days": "14일",
+        "3-days": "3일",
+        "today": "오늘"
+      },
+      "view-day": "일별 상세 보기"
+    },
+    "shortcuts": {
+      "audio": "오디오",
+      "bluetooth": "Bluetooth",
+      "caffeine": "Caffeine",
+      "clipboard": "클립보드",
+      "dark-mode": {
+        "auto": "자동 모드",
+        "dark": "다크 모드",
+        "light": "라이트 모드"
+      },
+      "keyboard-layout": "키보드 레이아웃",
+      "media": "미디어",
+      "mic-mute": "마이크",
+      "nightlight": "야간 모드",
+      "nightlight-states": {
+        "forced": "항상 켜기",
+        "off": "야간 모드",
+        "scheduled-day": "예약됨",
+        "scheduled-night": "켜짐"
+      },
+      "notification": "방해 금지",
+      "power-profile": "전원",
+      "screen-time": "스크린 타임",
+      "session": "세션",
+      "system": "시스템",
+      "wallpaper": "배경화면",
+      "weather": "날씨",
+      "wifi": "Wi-Fi"
+    },
+    "system": {
+      "labels": {
+        "load": "CPU 부하",
+        "ram": "RAM",
+        "swap": "스왑"
+      },
+      "titles": {
+        "cpu": "CPU",
+        "gpu": "GPU",
+        "memory": "메모리",
+        "network": "네트워크",
+        "resources": "리소스",
+        "system": "시스템"
+      },
+      "tooltips": {
+        "load": "1/5/15분 평균 부하"
+      },
+      "unknown": "알 수 없음",
+      "uptime-prefix": "가동 시간 {uptime} · {osAge}"
+    },
+    "tabs": {
+      "audio": "오디오",
+      "bluetooth": "Bluetooth",
+      "calendar": "캘린더",
+      "home": "홈",
+      "media": "미디어",
+      "monitor": "디스플레이",
+      "network": "네트워크",
+      "notifications": "알림",
+      "power": "전원",
+      "screen-time": "스크린 타임",
+      "system": "시스템",
+      "weather": "날씨"
+    },
+    "weather": {
+      "daily": {
+        "tooltip": {
+          "condition": "상태",
+          "high": "최고",
+          "low": "최저",
+          "sunrise": "일출",
+          "sunset": "일몰"
+        }
+      },
+      "data-unavailable": "날씨 데이터를 사용할 수 없음",
+      "details": {
+        "elevation": "고도",
+        "sunrise": "일출",
+        "sunset": "일몰",
+        "temp-max": "최고 기온",
+        "temp-min": "최저 기온",
+        "timezone": "시간대",
+        "uv-index": "자외선 지수",
+        "wind": "바람"
+      },
+      "disabled": "config.toml에서 [weather]를 활성화하세요",
+      "fetching": "일기 예보 불러오는 중...",
+      "forecast-placeholder": {
+        "day": "일요일",
+        "description": "날씨",
+        "temperature": "10 / 4°C"
+      },
+      "forecast-view": {
+        "daily": "일별",
+        "hourly": "시간별"
+      },
+      "hourly": {
+        "summary": "{condition} / 강수 {precip}%",
+        "tooltip": {
+          "condition": "날씨 상태",
+          "humidity": "습도",
+          "rain": "강수",
+          "wind": "바람"
+        }
+      },
+      "location-unavailable": "위치를 사용할 수 없음",
+      "no-location-body": "위치 설정에서 주소를 추가하거나 자동 위치 추적을 활성화하세요.",
+      "no-location-title": "위치가 설정되지 않음",
+      "refreshing": "날씨 새로 고침중...",
+      "waiting": "날씨 데이터 대기 중"
+    }
+  },
+  "desktop-widgets": {
+    "editor": {
+      "actions": {
+        "add": "추가",
+        "clone": "복제 (Ctrl+C, Ctrl+V로 복사/붙여넣기)",
+        "done": "완료",
+        "flip-horizontal": "가로 뒤집기",
+        "flip-vertical": "세로 뒤집기",
+        "hide": "숨기기",
+        "settings": "설정",
+        "show": "표시",
+        "stack-back": "뒤로 보내기",
+        "stack-front": "앞으로 가져오기",
+        "trash": "삭제"
+      },
+      "dialogs": {
+        "select-sticker-image": "스티커 이미지 선택"
+      },
+      "settings": {
+        "aspect-ratio": "종횡비",
+        "background": "배경",
+        "background-color": "색상",
+        "background-opacity": "불투명도",
+        "background-padding": "여백",
+        "background-radius": "반지름",
+        "background-section": "배경",
+        "bands": "밴드",
+        "bar-width": "바 너비",
+        "bloom-intensity": "블룸",
+        "center-password-text": "비밀번호 텍스트 가운데 정렬",
+        "center-text": "텍스트 가운데 정렬",
+        "centered": "가운데 정렬",
+        "change-image": "변경...",
+        "circle": "원형",
+        "clock-style": "시계 스타일",
+        "clock-style-analog": "아날로그",
+        "clock-style-digital": "디지털",
+        "color": "색상",
+        "color-1": "색상 1",
+        "color-2": "색상 2",
+        "color2": "색상 2",
+        "command": "명령어",
+        "custom-color": "사용자 정의",
+        "description": "설명",
+        "device": "장치",
+        "display": "디스플레이",
+        "display-gauge": "게이지",
+        "display-graph": "그래프",
+        "fade-when-idle": "유휴 시 페이드",
+        "fill-color": "채우기 색상",
+        "font-family": "글꼴",
+        "font-family-default": "시스템 기본값",
+        "forecast-days": "예보 일수",
+        "format": "형식",
+        "gauge-layout": "게이지 레이아웃",
+        "glyph": "아이콘",
+        "hide-when-no-media": "미디어 없을 때 숨기기",
+        "highlight-color": "하이라이트 색상",
+        "horizontal": "가로",
+        "hover-background": "마우스 오버 배경",
+        "hover-foreground": "마우스 오버 전경",
+        "image-path": "이미지",
+        "inner-diameter": "내부 지름",
+        "input-opacity": "입력 불투명도",
+        "input-radius": "입력 반지름",
+        "interface": "인터페이스",
+        "label": "레이블",
+        "label-min-width": "레이블 최소 너비",
+        "layout": "레이아웃",
+        "mirrored": "미러링",
+        "network-speed-compact": "간략한 네트워크 속도",
+        "network-speed-unit": "네트워크 속도 단위",
+        "network-speed-unit-auto": "자동",
+        "network-speed-unit-kilobytes": "KB/s",
+        "opacity": "불투명도",
+        "primary-color": "기본 색상",
+        "reset-defaults": "기본값으로 초기화",
+        "ring-opacity": "링 불투명도",
+        "rotation-speed": "회전 속도",
+        "scroll-step": "스크롤 단계",
+        "secondary-color": "보조 색상",
+        "sensitivity": "감도",
+        "shadow": "그림자",
+        "show-caps-lock": "Caps Lock 경고",
+        "show-device": "장치 표시",
+        "show-forecast": "예보 표시",
+        "show-keyboard-layout": "키보드 레이아웃",
+        "show-label": "레이블 표시",
+        "show-login-button": "로그인 버튼",
+        "show-media": "미디어",
+        "show-password-hint": "비밀번호 힌트",
+        "show-session-buttons": "세션 버튼",
+        "show-vpn-label": "VPN 레이블 표시",
+        "show-weather": "날씨",
+        "show-when-idle": "유휴 시 표시",
+        "stat": "통계",
+        "stat-cpu-temp": "CPU 온도",
+        "stat-cpu-usage": "CPU 사용률",
+        "stat-gpu-temp": "GPU 온도",
+        "stat-gpu-usage": "GPU 사용률",
+        "stat-gpu-vram": "GPU VRAM",
+        "stat-net-rx": "네트워크 수신",
+        "stat-net-tx": "네트워크 송신",
+        "stat-none": "없음",
+        "stat-ram-pct": "RAM %",
+        "stat-swap-pct": "스왑 %",
+        "stat2": "통계 2",
+        "title": "제목",
+        "track-color": "트랙 색상",
+        "variant": "스타일",
+        "variant-default": "기본값",
+        "variant-destructive": "위험",
+        "variant-ghost": "고스트",
+        "variant-outline": "외곽선",
+        "variant-primary": "기본",
+        "variant-secondary": "보조",
+        "vertical": "수직",
+        "visualization-mode": "모드",
+        "visualization-mode-all": "모두",
+        "visualization-mode-bars": "바",
+        "visualization-mode-bars-rings": "바 + 링",
+        "visualization-mode-rings": "링",
+        "visualization-mode-wave": "웨이브",
+        "visualization-mode-wave-rings": "웨이브 + 링",
+        "wave-thickness": "웨이브 두께",
+        "widget-section": "위젯"
+      },
+      "state": {
+        "grid": "그리드"
+      },
+      "title": "데스크톱 위젯",
+      "types": {
+        "audio-visualizer": "오디오 비주얼라이저",
+        "button": "버튼",
+        "clock": "시계",
+        "fancy-audio-visualizer": "고급 오디오 비주얼라이저",
+        "label": "레이블",
+        "login-box": "로그인 박스",
+        "media-player": "미디어 플레이어",
+        "sticker": "스티커",
+        "system-monitor": "시스템 모니터",
+        "volume": "볼륨",
+        "weather": "날씨"
+      }
+    },
+    "media": {
+      "nothing-playing": "재생 중인 항목 없음"
+    },
+    "volume": {
+      "mic": "마이크",
+      "muted": "음소거됨",
+      "volume": "볼륨"
+    },
+    "weather": {
+      "error": "오류",
+      "loading": "불러오는 중...",
+      "no-location": "위치 없음",
+      "off": "날씨 꺼짐"
+    }
+  },
+  "dock": {
+    "actions": {
+      "close": "닫기",
+      "close-all": "모두 닫기"
+    },
+    "launcher": "런처"
+  },
+  "internal-apps": {
+    "settings": {
+      "display-name": "설정"
+    }
+  },
+  "launcher": {
+    "categories": {
+      "all": "모두",
+      "applications": {
+        "development": "개발",
+        "education": "교육",
+        "games": "게임",
+        "graphics": "그래픽",
+        "internet": "인터넷",
+        "multimedia": "멀티미디어",
+        "office": "사무",
+        "system": "시스템",
+        "utilities": "유틸리티"
+      },
+      "emoji": {
+        "activity": "활동",
+        "animals": "동물",
+        "flags": "국기",
+        "food": "음식",
+        "nature": "자연",
+        "objects": "사물",
+        "people": "사람",
+        "symbols": "기호",
+        "travel": "여행"
+      },
+      "recently-used": "최근 사용"
+    },
+    "context-menu": {
+      "open": "열기",
+      "pin-to-dock": "Dock에 고정",
+      "unpin-from-dock": "Dock에서 고정 해제"
+    },
+    "empty": {
+      "no-results": "결과 없음",
+      "type-to-search": "검색..."
+    },
+    "providers": {
+      "applications": {
+        "title": "앱"
+      },
+      "calculator": {
+        "title": "계산기"
+      },
+      "emoji": {
+        "title": "이모지"
+      },
+      "session": {
+        "action-subtitle": "세션 작업 실행",
+        "command-subtitle": "설정된 명령어 실행",
+        "title": "세션"
+      },
+      "wallpaper": {
+        "title": "배경화면"
+      },
+      "window": {
+        "title": "창"
+      }
+    },
+    "search-placeholder": "앱 검색..."
+  },
+  "location": {
+    "errors": {
+      "address-lookup-failed": "주소 확인 실패",
+      "ip-geolocation-failed": "IP 위치 확인 실패",
+      "parse-geocode": "Geocode 응답을 분석할 수 없음",
+      "parse-ip-geolocation": "IP 위치 정보 응답을 분석할 수 없습니다"
+    },
+    "locations": {
+      "current": "현재 위치"
+    },
+    "source": {
+      "address": "주소",
+      "auto": "자동"
+    }
+  },
+  "lockscreen": {
+    "authenticating": "인증 중...",
+    "authentication-failed": "인증 실패",
+    "caps-lock-on": "Caps Lock 켜짐",
+    "password-cleared": "비밀번호 지워짐",
+    "password-placeholder": "비밀번호",
+    "ready": "비밀번호를 입력한 후 Enter를 누르세요.",
+    "unlocked": "잠금 해제됨",
+    "waiting": "잠금 확인 대기 중..."
+  },
+  "notifications": {
+    "actions": {
+      "fallback": "작업",
+      "open": "열기"
+    },
+    "inline-reply": {
+      "button": "답장",
+      "placeholder": "답장 입력..."
+    },
+    "internal": {
+      "battery": "배터리",
+      "battery-critical-body": "{device}: {percent}% – 컴퓨터가 곧 종료됩니다",
+      "battery-critical-title": "배터리 매우 부족",
+      "battery-device": "배터리 장치",
+      "battery-low-title": "배터리 부족",
+      "calendar": "캘린더",
+      "calendar-google-connect-browser-failed": "Google 인증을 위한 브라우저를 실행할 수 없습니다. 기본 브라우저 또는 xdg-open 설정을 확인하세요.",
+      "calendar-google-connect-credential-store-failed": "갱신 토큰을 저장할 수 없습니다. Secret Service를 잠금 해제하거나 시작한 후 다시 시도하세요.",
+      "calendar-google-connect-expired": "로그인을 완료하기 전에 Google 인증이 만료되었습니다. 다시 시도하세요.",
+      "calendar-google-connect-failed-title": "Google 캘린더 연결 실패",
+      "calendar-google-connect-missing-account": "설정된 Google 캘린더 계정 중 \\\"{account}\\\"와 일치하는 항목이 없습니다.",
+      "calendar-google-connect-rate-limited": "Google 인증이 일시적으로 제한 중입니다. 잠시 후 다시 시도하세요.",
+      "calendar-google-connect-result-failed": "Google 인증을 완료할 수 없습니다. 다시 시도하세요.",
+      "calendar-google-connect-start-failed": "Google 인증을 시작할 수 없습니다. 네트워크 연결을 확인하고 다시 시도하세요.",
+      "calendar-google-connect-start-http": "Google 인증을 시작할 수 없습니다. OAuth 브로커가 HTTP {status}를 반환했습니다.",
+      "calendar-google-connect-timeout": "Google 인증 시간이 초과되었습니다. 다시 시도하세요.",
+      "config-migration-body": "{path}을(를) 포함한 레거시 설정이 메모리에서 마이그레이션 중입니다. 소스 설정을 업데이트하세요. 설정 및 noctalia config validate에서 필요한 교체 항목을 확인할 수 있습니다.",
+      "config-migration-title": "설정 업데이트 필요",
+      "dbus-disabled": "DBus 알림 비활성화됨",
+      "desktop-widgets-editor": "위젯 편집기",
+      "desktop-widgets-editor-enabled": "데스크톱 위젯 편집기가 켜져 있습니다. 빈 작업 공간으로 전환하여 편집기 오버레이를 확인하세요.",
+      "greeter-sync": "Noctalia Greeter",
+      "greeter-sync-pending": "Greeter에 쓰기 위한 관리자 승인을 기다리는 중입니다.",
+      "greeter-sync-pending-console": "관리자 승인을 기다리는 중입니다. Noctalia 또는 TTY/콘솔에서 polkit 프롬프트를 승인하거나 pkexec를 수동으로 실행하세요.",
+      "greeter-sync-pending-manual": "파일이 준비되었습니다. 터미널에서 실행하세요: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". 또는 shell.greeter_sync.privilege_command를 설정하고 (예: ghostty -e pkexec) 다시 동기화하세요.",
+      "greeter-sync-success": "모양이 동기화되었습니다. 변경 사항은 다음 로그인 화면에서 적용됩니다.",
+      "greeter-sync-timeout": "Greeter 동기화가 관리자 승인을 기다리고 있습니다. TTY나 콘솔에서 polkit 프롬프트를 확인하거나, 보안 설정에서 polkit 에이전트를 활성화하거나, pkexec를 수동으로 실행하세요.",
+      "greeter-sync-timeout-manual": "Greeter 동기화에 여전히 관리자 승인이 필요합니다. 터미널에서 실행하세요: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
+      "keybind-app": "Noctalia",
+      "keybind-invalid-modifier": "이 단축키는 수정자 키 없이 단일 키만 허용합니다.",
+      "keybind-invalid-printable": "인쇄 가능한 키(문자, 숫자, 기호)는 Ctrl 또는 Alt와 같은 수정자 키가 필요합니다.",
+      "keybind-invalid-super": "Super/Windows 키는 쉘 단축키에 사용할 수 없습니다.",
+      "keybind-invalid-title": "단축키 사용 불가",
+      "launcher-usage-reset": "런처",
+      "launcher-usage-reset-success": "사용 데이터가 지워졌습니다.",
+      "lockscreen-widgets-editor": "잠금 화면 위젯 편집기",
+      "lockscreen-widgets-editor-blocked-locked": "잠금 화면 위젯을 편집하려면 세션을 잠금 해제하세요.",
+      "lockscreen-widgets-editor-enabled": "잠금 화면 위젯 편집기가 켜져 있습니다. 미리보기 오버레이에서 위젯을 배치한 후 세션을 잠가 레이아웃을 확인하세요.",
+      "mpris-disabled": "MPRIS 비활성화됨",
+      "polkit-agent": "Polkit 에이전트",
+      "polkit-no-session": "Polkit 에이전트에는 logind, elogind 또는 XDG_SESSION_ID가 필요합니다. seatd 전용 설정에서는 그래픽 프롬프트를 등록할 수 없습니다. Greeter 동기화에는 터미널 pkexec를 사용하거나, 세션 내 인증을 위해 elogind를 설치하세요.",
+      "screen-time-reset": "화면 사용 시간",
+      "screen-time-reset-success": "사용 기록이 지워졌습니다.",
+      "session-bus-unavailable": "세션 버스를 사용할 수 없음"
+    }
+  }
+}

@@ -836,6 +836,10 @@ std::vector<ToplevelInfo> CompositorPlatform::windowsForApp(
   return windows;
 }
 
+std::vector<ToplevelInfo> CompositorPlatform::windowsWithoutAppId(wl_output* outputFilter) const {
+  return m_wayland.windowsWithoutAppId(outputFilter);
+}
+
 void CompositorPlatform::activateToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
   m_wayland.activateToplevel(handle);
 }
@@ -988,21 +992,32 @@ bool CompositorPlatform::isCompositorWindowIdKnown(const std::string_view window
 }
 
 std::optional<std::string> CompositorPlatform::focusedCompositorWindowId() const {
-  if (m_workspaces == nullptr) {
-    return std::nullopt;
+  if (m_workspaces != nullptr) {
+    if (auto id = m_workspaces->focusedWindowId(); id.has_value() && !id->empty()) {
+      return id;
+    }
   }
-  return m_workspaces->focusedWindowId();
+  if (m_workspaceMetadataBackend != nullptr) {
+    if (auto id = m_workspaceMetadataBackend->focusedWindowId(); id.has_value() && !id->empty()) {
+      return id;
+    }
+  }
+  return std::nullopt;
 }
 
 void CompositorPlatform::setWorkspaceChangeCallback(ChangeCallback callback) {
   m_workspaceChangeCallback = std::move(callback);
   m_lastWorkspaceModelSnapshot = workspaceModelSnapshot();
+  m_lastFocusedCompositorWindowId = focusedCompositorWindowId();
   auto wrapper = [this]() {
     auto nextSnapshot = workspaceModelSnapshot();
-    if (sameWorkspaceModelSnapshot(nextSnapshot, m_lastWorkspaceModelSnapshot)) {
+    auto nextFocused = focusedCompositorWindowId();
+    if (sameWorkspaceModelSnapshot(nextSnapshot, m_lastWorkspaceModelSnapshot)
+        && nextFocused == m_lastFocusedCompositorWindowId) {
       return;
     }
     m_lastWorkspaceModelSnapshot = std::move(nextSnapshot);
+    m_lastFocusedCompositorWindowId = std::move(nextFocused);
     if (m_workspaceChangeCallback) {
       m_workspaceChangeCallback();
     }

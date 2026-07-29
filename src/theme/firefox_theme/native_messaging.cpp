@@ -35,10 +35,10 @@ namespace noctalia::theme::firefox_theme::native_messaging {
     const std::string body = message.dump();
     const auto len = static_cast<std::uint32_t>(body.size());
     std::uint8_t header[4];
-    header[0] = static_cast<std::uint8_t>(len & 0xffu);
-    header[1] = static_cast<std::uint8_t>((len >> 8) & 0xffu);
-    header[2] = static_cast<std::uint8_t>((len >> 16) & 0xffu);
-    header[3] = static_cast<std::uint8_t>((len >> 24) & 0xffu);
+    header[0] = static_cast<std::uint8_t>(len & 0xffU);
+    header[1] = static_cast<std::uint8_t>((len >> 8) & 0xffU);
+    header[2] = static_cast<std::uint8_t>((len >> 16) & 0xffU);
+    header[3] = static_cast<std::uint8_t>((len >> 24) & 0xffU);
     if (!writeAll(header, sizeof(header))) {
       return false;
     }
@@ -73,7 +73,7 @@ namespace noctalia::theme::firefox_theme::native_messaging {
             | (static_cast<std::uint32_t>(m_buf[2]) << 16)
             | (static_cast<std::uint32_t>(m_buf[3]) << 24);
         m_buf.erase(m_buf.begin(), m_buf.begin() + 4);
-        if (m_expected > 1024u * 1024u) {
+        if (m_expected > 1024U * 1024U) {
           m_eof = true;
           return std::nullopt;
         }

@@ -73,21 +73,6 @@ namespace settings {
         .controlHeight = Style::controlHeight * scale,
         .horizontalPadding = Style::spaceSm * scale,
     });
-    const auto commitMatch = [&row, persist, matchPtr]() {
-      row.match = normalizeNotificationMatchToken(matchPtr->value());
-      if (row.match.empty()) {
-        matchPtr->setInvalid(true);
-        return;
-      }
-      matchPtr->setInvalid(false);
-      matchPtr->setValue(row.match);
-      persist();
-    };
-    matchInput->setOnChange([matchPtr](const std::string& /*t*/) { matchPtr->setInvalid(false); });
-    matchInput->setOnSubmit([commitMatch](const std::string& /*text*/) { commitMatch(); });
-    matchInput->setOnFocusLoss(commitMatch);
-    matchBlock->addChild(std::move(matchInput));
-    body->addChild(std::move(matchBlock));
 
     auto matchContentBlock = ui::column(
         {.align = FlexAlign::Stretch, .gap = Style::spaceXs * scale},
@@ -105,13 +90,49 @@ namespace settings {
         .controlHeight = Style::controlHeight * scale,
         .horizontalPadding = Style::spaceSm * scale,
     });
-    const auto commitMatchContent = [&row, persist, matchContentPtr]() {
+
+    const auto flushMatchContentFromInput = [&row, matchContentPtr]() {
       row.matchContent = StringUtils::trim(matchContentPtr->value());
       matchContentPtr->setValue(row.matchContent);
+    };
+    const auto flushMatchFromInput = [&row, matchPtr]() -> bool {
+      row.match = normalizeNotificationMatchToken(matchPtr->value());
+      if (row.match.empty()) {
+        matchPtr->setInvalid(true);
+        return false;
+      }
+      matchPtr->setInvalid(false);
+      matchPtr->setValue(row.match);
+      return true;
+    };
+    const auto persistDraft = [&row, matchPtr, flushMatchContentFromInput, persist]() {
+      flushMatchContentFromInput();
+      const std::string draftMatch = normalizeNotificationMatchToken(matchPtr->value());
+      if (!draftMatch.empty()) {
+        row.match = draftMatch;
+        matchPtr->setInvalid(false);
+        matchPtr->setValue(row.match);
+      }
       persist();
     };
-    matchContentInput->setOnSubmit([commitMatchContent](const std::string& /*text*/) { commitMatchContent(); });
-    matchContentInput->setOnFocusLoss(commitMatchContent);
+    const auto commitMatch = [flushMatchContentFromInput, flushMatchFromInput, persist]() {
+      flushMatchContentFromInput();
+      if (!flushMatchFromInput()) {
+        return;
+      }
+      persist();
+    };
+    const auto commitMatchContent = [flushMatchContentFromInput, persist]() {
+      flushMatchContentFromInput();
+      persist();
+    };
+
+    matchPtr->setOnSubmit([commitMatch](const std::string& /*text*/) { commitMatch(); });
+    matchPtr->setOnFocusLoss(commitMatch);
+    matchContentPtr->setOnSubmit([commitMatchContent](const std::string& /*text*/) { commitMatchContent(); });
+    matchContentPtr->setOnFocusLoss(commitMatchContent);
+    matchBlock->addChild(std::move(matchInput));
+    body->addChild(std::move(matchBlock));
     matchContentBlock->addChild(std::move(matchContentInput));
     body->addChild(std::move(matchContentBlock));
 
@@ -125,7 +146,7 @@ namespace settings {
     const auto urgencyEnabled = [&row](std::string_view level) {
       return row.allowedUrgencies.empty() || std::ranges::contains(row.allowedUrgencies, level);
     };
-    const auto setUrgency = [&row, persist](std::string_view level, bool enabled) {
+    const auto setUrgency = [&row, persistDraft](std::string_view level, bool enabled) {
       std::vector<std::string> selected;
       if (row.allowedUrgencies.empty()) {
         selected = {"low", "normal", "critical"};
@@ -142,7 +163,7 @@ namespace settings {
         std::erase(selected, std::string(level));
       }
       row.allowedUrgencies = normalizeFilterAllowedUrgencyStrings(std::move(selected));
-      persist();
+      persistDraft();
     };
     auto urgenciesBlock = ui::column(
         {.align = FlexAlign::Stretch, .gap = Style::spaceSm * scale},
@@ -166,30 +187,30 @@ namespace settings {
     body->addChild(std::move(urgenciesBlock));
     addToggleRow(
         *flagsBlock, scale, i18n::tr("settings.notifications.filter.show-toast"), row.showToast,
-        [&row, persist](bool value) {
+        [&row, persistDraft](bool value) {
           row.showToast = value;
-          persist();
+          persistDraft();
         }
     );
     addToggleRow(
         *flagsBlock, scale, i18n::tr("settings.notifications.filter.save-history"), row.saveHistory,
-        [&row, persist](bool value) {
+        [&row, persistDraft](bool value) {
           row.saveHistory = value;
-          persist();
+          persistDraft();
         }
     );
     addToggleRow(
         *flagsBlock, scale, i18n::tr("settings.notifications.filter.play-sound"), row.playSound,
-        [&row, persist](bool value) {
+        [&row, persistDraft](bool value) {
           row.playSound = value;
-          persist();
+          persistDraft();
         }
     );
     addToggleRow(
         *flagsBlock, scale, i18n::tr("settings.notifications.filter.allow-permanent"), row.allowPermanent,
-        [&row, persist](bool value) {
+        [&row, persistDraft](bool value) {
           row.allowPermanent = value;
-          persist();
+          persistDraft();
         }
     );
 
@@ -217,9 +238,9 @@ namespace settings {
              .enabled = row.overrideDuration.has_value(),
              .scale = scale,
              .valueSuffix = " ms",
-             .onValueCommitted = [&row, persist](int val) {
+             .onValueCommitted = [&row, persistDraft](int val) {
                row.overrideDuration = val;
-               persist();
+               persistDraft();
              }}
         )
     );
@@ -228,14 +249,14 @@ namespace settings {
         ui::toggle({
             .checked = row.overrideDuration.has_value(),
             .scale = scale,
-            .onChange = [&row, persist, overrideStepper](bool checked) {
+            .onChange = [&row, persistDraft, overrideStepper](bool checked) {
               if (checked) {
                 row.overrideDuration = overrideStepper->value();
               } else {
                 row.overrideDuration = std::nullopt;
               }
               overrideStepper->setEnabled(checked);
-              persist();
+              persistDraft();
             },
         })
     );
@@ -246,13 +267,16 @@ namespace settings {
 
     parent.addChild(std::move(body));
 
+    Button* applyButton = nullptr;
     auto actions = ui::row(
         {.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true},
         ui::button({
+            .out = &applyButton,
             .text = i18n::tr("common.actions.apply"),
             .glyph = "check",
             .fontSize = Style::fontSizeBody * scale,
             .glyphSize = Style::fontSizeBody * scale,
+            .enabled = !normalizeNotificationMatchToken(row.match).empty(),
             .variant = ButtonVariant::Default,
             .minHeight = Style::controlHeight * scale,
             .paddingV = Style::spaceSm * scale,
@@ -271,6 +295,10 @@ namespace settings {
             },
         })
     );
+    matchPtr->setOnChange([matchPtr, applyButton](const std::string& text) {
+      matchPtr->setInvalid(false);
+      applyButton->setEnabled(!normalizeNotificationMatchToken(text).empty());
+    });
     parent.addChild(std::move(actions));
   }
 

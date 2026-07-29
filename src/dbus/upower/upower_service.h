@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -13,6 +14,7 @@ namespace sdbus {
   class IProxy;
 } // namespace sdbus
 
+// Mirrors the org.freedesktop.UPower.Device "Type" wire enum.
 enum class UPowerDeviceType : std::uint32_t {
   Unknown = 0,
   LinePower = 1,
@@ -23,6 +25,26 @@ enum class UPowerDeviceType : std::uint32_t {
   Keyboard = 6,
   Pda = 7,
   Phone = 8,
+  MediaPlayer = 9,
+  Tablet = 10,
+  Computer = 11,
+  GamingInput = 12,
+  Pen = 13,
+  Touchpad = 14,
+  Modem = 15,
+  Network = 16,
+  Headset = 17,
+  Speakers = 18,
+  Headphones = 19,
+  Video = 20,
+  OtherAudio = 21,
+  RemoteControl = 22,
+  Printer = 23,
+  Scanner = 24,
+  Camera = 25,
+  Wearable = 26,
+  Toy = 27,
+  BluetoothGeneric = 28,
 };
 
 enum class BatteryState : std::uint8_t {
@@ -90,6 +112,9 @@ public:
   [[nodiscard]] std::vector<UPowerDeviceInfo> batteryDevices() const;
   [[nodiscard]] const UPowerDeviceInfo* defaultSystemBattery() const noexcept;
   [[nodiscard]] const UPowerDeviceInfo* deviceForSelector(std::string_view selector) const;
+  // Peripheral (non-system) battery whose serial matches, compared case-insensitively because
+  // MAC-style serials differ in case between BlueZ-backed and kernel-backed UPower devices.
+  [[nodiscard]] const UPowerDeviceInfo* peripheralBatteryForSerial(std::string_view serial) const;
 
 private:
   struct TrackedDevice {
@@ -110,6 +135,7 @@ private:
   std::unique_ptr<sdbus::IProxy> m_displayDeviceProxy;
   std::string m_displayDevicePath;
   std::vector<TrackedDevice> m_devices;
+  std::optional<UPowerDeviceInfo> m_dummyDevice;
   UPowerState m_state;
   ChangeCallback m_changeCallback;
 };

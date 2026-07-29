@@ -61,6 +61,9 @@ public:
   // Convenience: loadString + run.
   bool exec(std::string_view chunkName, std::string_view source) { return loadString(chunkName, source) && run(); }
 
+  // Callback lookup by name, shared by the call helpers below: a name generated
+  // by a ui-tree render (see ui_handler_table.h) resolves in that render's
+  // handler table, any other name is a plugin global.
   bool callGlobal(const char* name);
   bool hasGlobal(const char* name);
   std::optional<std::string> callGlobalReturningString(const char* name);
@@ -119,6 +122,12 @@ public:
   bool callHttpStreamCloseCallback(int streamKey, bool ok, int status, std::chrono::milliseconds budget);
   [[nodiscard]] bool hasHttpStream(int streamKey) const;
 
+  // System-monitor probes requested by this host are refcounted and released in ~LuauHost.
+  // Per-core and disk sampling remain opt-in through their dedicated calls.
+  void ensureSystemStatsRetained();
+  void ensureCpuCoresRetained();
+  [[nodiscard]] bool ensureDiskPathRetained(const std::string& path);
+
   // Load the plugin's own translations/<lang>.json (over en.json) into a flat dotted-key
   // catalog. Call after setPluginDir().
   void loadTranslations();
@@ -170,6 +179,8 @@ public:
   void scriptSetWallpaper(std::string connector, std::string path);
   // Toggle a host panel by id ("author/plugin:panel"). Queued, applied on the main thread.
   void scriptTogglePanel(std::string panelId);
+  // Open the settings window at this plugin's own settings. Queued, applied on the main thread.
+  void scriptOpenSettings();
   [[nodiscard]] bool scriptCopyToClipboard(std::string text, std::string mimeType);
   [[nodiscard]] std::optional<std::string> scriptFocusedOutputName() const;
 
@@ -197,6 +208,9 @@ private:
 
   void stopAllStreams() noexcept;
   void stopAllHttpStreams() noexcept;
+  // Pushes the callback `name` resolves to and reports whether it is callable.
+  // Exactly one value is left on the stack either way, so callers pop one.
+  bool pushCallback(const char* name);
   bool callGlobalInternal(const char* name, int args, std::chrono::milliseconds budget);
   bool callWithBudget(const char* name, int args, int results, std::chrono::milliseconds budget);
   void beginBudget(std::string_view name, std::chrono::milliseconds budget);
@@ -212,7 +226,12 @@ private:
   std::unordered_set<int> m_stateWatchCallbackRefs;
   StateWatchHandler m_stateWatchHandler;
   std::unordered_set<int> m_streamCallbackRefs;
-  std::vector<std::shared_ptr<std::atomic<bool>>> m_streamCancels;
+  // Active runStream children; `alive` clears on process exit so the slot can be reused.
+  struct StreamRecord {
+    std::shared_ptr<std::atomic<bool>> cancel;
+    std::shared_ptr<std::atomic<bool>> alive;
+  };
+  std::vector<StreamRecord> m_streams;
   StreamLineHandler m_streamLineHandler;
   std::unordered_map<int, HttpStreamRecord> m_httpStreams; // keyed by stream key (line ref)
   HttpStreamEventHandler m_httpStreamEventHandler;
@@ -229,8 +248,11 @@ private:
   AsyncHttpResultHandler m_asyncHttpResultHandler;
   ColorPickerResultHandler m_colorPickerResultHandler;
   std::size_t m_memUsed = 0; // bytes tracked by allocate(); guarded by the worker-thread serialization
-  std::chrono::steady_clock::time_point m_callDeadline;
+  std::chrono::nanoseconds m_callCpuDeadline{};
   std::string m_currentCallName;
+  bool m_cpuCoresRetained = false; // this host holds a SystemMonitorService per-core reference
+  bool m_systemStatsRetained = false;
+  std::unordered_set<std::string> m_diskPathsRetained;
   bool m_budgetActive = false;
   bool m_lastCallTimedOut = false;
   bool m_muteErrors = false;

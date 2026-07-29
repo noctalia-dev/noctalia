@@ -10,6 +10,7 @@
 class HttpClient;
 class MprisService;
 class SystemMonitorService;
+class PipeWireService;
 class PipeWireSpectrum;
 class WeatherService;
 
@@ -23,6 +24,7 @@ public:
   ) const;
 
 private:
+  PipeWireService* m_pipewire = nullptr;
   PipeWireSpectrum* m_pipewireSpectrum = nullptr;
   const WeatherService* m_weather = nullptr;
   MprisService* m_mpris = nullptr;

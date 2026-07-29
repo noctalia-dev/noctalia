@@ -2,6 +2,7 @@
 
 #include "render/core/color.h"
 #include "render/core/mat3.h"
+#include "render/core/render_styles.h"
 #include "render/core/texture_handle.h"
 
 #include <cstdint>
@@ -12,14 +13,6 @@ class GlSharedContext;
 class RenderTarget;
 class TextureManager;
 struct wl_surface;
-struct AudioSpectrumStyle;
-struct EffectStyle;
-struct FancyAudioVisualizerStyle;
-struct GraphStyle;
-struct RoundedRectStyle;
-struct ScreenCornerStyle;
-struct SpinnerStyle;
-struct CountdownRingStyle;
 struct WallpaperDrawParams;
 
 class RenderFramebuffer {
@@ -71,6 +64,7 @@ struct RenderImageDraw {
   float textureWidth = 0.0f;
   float textureHeight = 0.0f;
   Mat3 transform = Mat3::identity();
+  ImageScrim scrim{};
 };
 
 struct RenderGlyphDraw {

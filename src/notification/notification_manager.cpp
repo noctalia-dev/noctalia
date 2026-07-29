@@ -14,10 +14,8 @@
 #include <string_view>
 
 namespace {
-
   constexpr Logger kLog("notification");
   constexpr auto kImplicitDuplicateWindow = std::chrono::seconds(1);
-
   constexpr std::string_view urgencyStr(Urgency u) noexcept {
     switch (u) {
     case Urgency::Low:
@@ -84,8 +82,8 @@ namespace {
   bool shouldSaveNotificationToHistory(
       const std::vector<NotificationFilterConfig>& filters, const Notification& notification
   ) {
-    if (notification.origin != NotificationOrigin::External) {
-      return shouldTrackHistory(notification.origin, notification.urgency, notification.transient);
+    if (!shouldTrackHistory(notification.origin, notification.urgency, notification.transient)) {
+      return false;
     }
     const auto resolved = resolveNotificationFilter(
         filters,
@@ -96,10 +94,11 @@ namespace {
             .desktopEntry = notification.desktopEntry.has_value()
                 ? std::optional<std::string_view>{*notification.desktopEntry}
                 : std::nullopt,
+            .summary = notification.summary,
+            .body = notification.body,
         }
     );
-    return resolved.saveHistory
-        && shouldTrackHistory(NotificationOrigin::External, notification.urgency, notification.transient);
+    return resolved.saveHistory;
   }
 
   bool shouldRetainHistoryEntry(const NotificationHistoryEntry& entry) noexcept {
@@ -123,6 +122,38 @@ void NotificationManager::rebuildHistoryIndex() {
   for (size_t i = 0; i < m_history.size(); ++i) {
     m_historyIndex[m_history[i].notification.id] = i;
   }
+}
+
+void NotificationManager::cleanupOldHistoryEntries() {
+  if (m_historyRetentionHours <= 0 || m_history.empty()) {
+    return;
+  }
+
+  const auto retention = std::chrono::hours(m_historyRetentionHours);
+  const auto cutoff = WallClock::now() - retention;
+  const bool hadUnreadBefore = computeHasUnreadNotificationHistory();
+
+  std::deque<NotificationHistoryEntry> kept;
+  for (auto& entry : m_history) {
+    const bool eligible = !entry.active
+        && entry.notification.receivedWallClock.has_value()
+        && *entry.notification.receivedWallClock <= cutoff;
+    if (eligible) {
+      emitPendingDBusClose(entry.notification.id, CloseReason::Expired);
+    } else {
+      kept.push_back(std::move(entry));
+    }
+  }
+
+  if (kept.size() == m_history.size()) {
+    return;
+  }
+
+  m_history = std::move(kept);
+  ++m_changeSerial;
+  rebuildHistoryIndex();
+  schedulePersistHistory();
+  notifyUnreadStateChangedIfNeeded(hadUnreadBefore);
 }
 
 void NotificationManager::upsertHistory(
@@ -213,22 +244,21 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
     );
   };
 
-  const ExternalNotificationDispatch externalDispatch = origin == NotificationOrigin::External
-      ? evaluateExternalDispatch(urgency, appName, category, desktopEntry, summary, body, transient)
-      : ExternalNotificationDispatch{};
+  const ExternalNotificationDispatch dispatch =
+      evaluateExternalDispatch(origin, urgency, appName, category, desktopEntry, summary, body, transient);
 
-  if (externalDispatch.overrideDuration.has_value()) {
-    timeout = normalizeNotifyExpireTimeout(*externalDispatch.overrideDuration);
+  if (dispatch.overrideDuration.has_value()) {
+    timeout = normalizeNotifyExpireTimeout(*dispatch.overrideDuration);
   }
 
   // A matching filter with allow_permanent = false expires otherwise-permanent (timeout 0) notifications.
-  if (timeout == 0 && externalDispatch.disallowPermanent) {
+  if (timeout == 0 && dispatch.disallowPermanent) {
     timeout = kDefaultNotificationTimeout;
   }
 
   if (replacesId != 0) {
     if (m_suppressedIds.contains(replacesId)) {
-      if (externalDispatch.fullySuppress) {
+      if (dispatch.fullySuppress) {
         kLog.debug("notification suppressed #{} from=\"{}\" urgency={}", replacesId, appName, urgencyStr(urgency));
         return replacesId;
       }
@@ -271,10 +301,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
       n.expiryWallClock = scheduleExpiryWall(wallNow, timeout);
 
       logNotification(n, "updated");
-      const bool saveHistory = origin == NotificationOrigin::External
-          ? externalDispatch.saveHistory
-          : shouldTrackHistory(n.origin, n.urgency, n.transient);
-      if (saveHistory) {
+      if (dispatch.saveHistory) {
         const bool hadUnreadBefore = computeHasUnreadNotificationHistory();
         upsertHistory(n, true, std::nullopt);
         notifyUnreadStateChangedIfNeeded(hadUnreadBefore);
@@ -282,7 +309,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
         removeHistoryEntry(n.id);
       }
 
-      if (changed && (origin != NotificationOrigin::External || externalDispatch.showToast)) {
+      if (changed && dispatch.showToast) {
         for (auto& [token, cb] : m_eventCallbacks) {
           cb(n, NotificationEvent::Updated);
         }
@@ -292,7 +319,7 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
     }
   }
 
-  if (externalDispatch.fullySuppress) {
+  if (dispatch.fullySuppress) {
     return suppressExternal(appName, urgency);
   }
 
@@ -334,21 +361,18 @@ uint32_t NotificationManager::addOrReplace(NotificationRequest request) {
 
   const auto& n = m_notifications.back();
   logNotification(n, "added");
-  if (origin == NotificationOrigin::External ? externalDispatch.saveHistory
-                                             : shouldTrackHistory(n.origin, n.urgency, n.transient)) {
+  if (dispatch.saveHistory) {
     const bool hadUnreadBefore = computeHasUnreadNotificationHistory();
     upsertHistory(n, true, std::nullopt);
     notifyUnreadStateChangedIfNeeded(hadUnreadBefore);
   }
 
-  if (origin != NotificationOrigin::External || externalDispatch.showToast) {
+  if (dispatch.showToast) {
     for (auto& [token, cb] : m_eventCallbacks) {
       cb(n, NotificationEvent::Added);
     }
   }
-  if (!m_doNotDisturb
-      && m_soundPlayer != nullptr
-      && (origin != NotificationOrigin::External || externalDispatch.playSound)) {
+  if (!m_doNotDisturb && m_soundPlayer != nullptr && dispatch.playSound) {
     m_soundPlayer->play("notification");
   }
 
@@ -621,6 +645,16 @@ void NotificationManager::pauseExpiry(uint32_t id) {
   m_notifications[it->second].expiryWallClock.reset();
 }
 
+void NotificationManager::setHistoryRetentionHours(int hours) {
+  m_historyRetentionHours = hours;
+  if (hours > 0) {
+    m_historyRetentionTimer.startRepeating(std::chrono::seconds(60), [this]() { cleanupOldHistoryEntries(); });
+  } else {
+    m_historyRetentionTimer.stop();
+  }
+  cleanupOldHistoryEntries();
+}
+
 void NotificationManager::resumeExpiry(uint32_t id, int32_t remainingMs) {
   const auto it = m_idToIndex.find(id);
   if (it == m_idToIndex.end()) {
@@ -644,7 +678,7 @@ void NotificationManager::setFilters(std::vector<NotificationFilterConfig> filte
 const std::vector<NotificationFilterConfig>& NotificationManager::filters() const noexcept { return m_filters; }
 
 NotificationManager::ExternalNotificationDispatch NotificationManager::evaluateExternalDispatch(
-    Urgency urgency, std::string_view appName, const std::optional<std::string>& category,
+    NotificationOrigin origin, Urgency urgency, std::string_view appName, const std::optional<std::string>& category,
     const std::optional<std::string>& desktopEntry, std::string_view summary, std::string_view body, bool transient
 ) const {
   ExternalNotificationDispatch dispatch;
@@ -667,7 +701,9 @@ NotificationManager::ExternalNotificationDispatch NotificationManager::evaluateE
     return dispatch;
   }
   dispatch.showToast = resolved.showToast;
-  dispatch.saveHistory = resolved.saveHistory && shouldTrackHistory(NotificationOrigin::External, urgency, transient);
+  // Internal notifications are toast/sound only — filters never put them in history.
+  dispatch.saveHistory =
+      origin == NotificationOrigin::External && resolved.saveHistory && shouldTrackHistory(origin, urgency, transient);
   dispatch.playSound = resolved.playSound && dispatch.showToast;
   dispatch.fullySuppress = !dispatch.showToast && !dispatch.saveHistory;
   dispatch.overrideDuration = resolved.overrideDuration;

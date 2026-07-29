@@ -32,6 +32,7 @@ Linked dynamically at runtime when required or enabled:
 - **[PipeWire](https://pipewire.org/)** — Audio capture and playback
 - **[libcurl](https://curl.se/libcurl/)** — HTTP client
 - **[libwebp](https://developers.google.com/speed/webp)** — WebP decoding and thumbnail/notification image encoding
+- **[libjxl](https://github.com/libjxl/libjxl)** — JPEG XL decoding
 - **[libqalculate](https://qalculate.github.io/)** — Calculator engine for the launcher (arithmetic, unit and currency conversion) (GPL-2.0-or-later)
 - **[libxml2](https://gitlab.gnome.org/GNOME/libxml2)** — XML parser used to read CalDAV responses (MIT)
 - **[polkit](https://gitlab.freedesktop.org/polkit/polkit)** (`polkit-agent`, `polkit-gobject`) — Authentication agent

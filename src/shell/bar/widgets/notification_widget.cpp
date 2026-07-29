@@ -3,37 +3,22 @@
 #include "notification/notification_manager.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
+#include "shell/panel/panel_manager.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
-#include <linux/input-event-codes.h>
 #include <memory>
 
 namespace {
   constexpr float kDotBaseSize = 6.0f;
 } // namespace
 
-NotificationWidget::NotificationWidget(NotificationManager* manager, wl_output* /*output*/, bool hideWhenNoUnread)
-    : m_manager(manager), m_hideWhenNoUnread(hideWhenNoUnread) {}
+NotificationWidget::NotificationWidget(NotificationManager* manager, wl_output* /*output*/, Options options)
+    : m_manager(manager), m_hideWhenNoUnread(options.hideWhenNoUnread) {}
 
 void NotificationWidget::create() {
-  auto area = std::make_unique<InputArea>();
-  area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
-  area->setOnClick([this](const InputArea::PointerData& data) {
-    if (data.button == BTN_RIGHT) {
-      if (m_manager != nullptr) {
-        const bool dndEnabled = m_manager->toggleDoNotDisturb();
-        (void)dndEnabled;
-      }
-      requestRedraw();
-      return;
-    }
-    if (data.button != BTN_LEFT) {
-      return;
-    }
-    requestPanelToggle("control-center", "notifications");
-  });
+  auto area = ui::inputArea({});
 
   area->addChild(
       ui::glyph({
@@ -57,6 +42,14 @@ void NotificationWidget::create() {
 
   setRoot(std::move(area));
   refreshIndicatorState();
+}
+
+// hide_when_no_unread would pull the widget out from under the pointer the moment the panel it
+// just opened marks everything read. The latch clears itself once that panel closes.
+void NotificationWidget::onGestureDispatch(noctalia::bar::Gesture gesture, const noctalia::bar::WidgetAction& action) {
+  (void)gesture;
+  (void)action;
+  m_openedPanelByClick = true;
 }
 
 void NotificationWidget::doLayout(Renderer& renderer, float /*containerWidth*/, float /*containerHeight*/) {
@@ -91,7 +84,10 @@ void NotificationWidget::refreshIndicatorState() {
   const bool dndEnabled = (m_manager != nullptr) && m_manager->doNotDisturb();
 
   if (Node* rootNode = root(); rootNode != nullptr) {
-    const bool showWidget = !m_hideWhenNoUnread || hasNotifications;
+    if (m_openedPanelByClick) {
+      m_openedPanelByClick = PanelManager::instance().isOpenPanel("control-center");
+    }
+    const bool showWidget = m_openedPanelByClick || !m_hideWhenNoUnread || hasNotifications;
     rootNode->setVisible(showWidget);
     rootNode->setParticipatesInLayout(showWidget);
     if (!showWidget) {

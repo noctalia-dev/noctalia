@@ -1,5 +1,6 @@
 #include "wayland/wayland_seat.h"
 
+#include "core/input/shortcut_keysym.h"
 #include "core/log.h"
 #include "cursor-shape-v1-client-protocol.h"
 
@@ -37,7 +38,7 @@ namespace {
       .axis = &WaylandSeat::handlePointerAxis,
       .frame = &WaylandSeat::handlePointerFrame,
       .axis_source = &WaylandSeat::handlePointerAxisSource,
-      .axis_stop = [](void*, wl_pointer*, std::uint32_t, std::uint32_t) {},
+      .axis_stop = &WaylandSeat::handlePointerAxisStop,
       .axis_discrete = &WaylandSeat::handlePointerAxisDiscrete,
       .axis_value120 = &WaylandSeat::handlePointerAxisValue120,
       .axis_relative_direction = [](void*, wl_pointer*, std::uint32_t, std::uint32_t) {},
@@ -330,6 +331,7 @@ void WaylandSeat::handlePointerAxis(
       .axis = axis,
       .axisSource = self->m_pendingAxisSource,
       .axisValue = wl_fixed_to_double(value),
+      .axisGestureSerial = axis < self->m_axisGestureSerial.size() ? self->m_axisGestureSerial[axis] : 0,
   };
 
   // axis_discrete/axis_value120 arrive before the axis event they describe, and
@@ -351,6 +353,15 @@ void WaylandSeat::handlePointerAxis(
 void WaylandSeat::handlePointerAxisSource(void* data, wl_pointer* /*pointer*/, std::uint32_t axisSource) {
   auto* self = static_cast<WaylandSeat*>(data);
   self->m_pendingAxisSource = axisSource;
+}
+
+void WaylandSeat::handlePointerAxisStop(
+    void* data, wl_pointer* /*pointer*/, std::uint32_t /*time*/, std::uint32_t axis
+) {
+  auto* self = static_cast<WaylandSeat*>(data);
+  if (axis < self->m_axisGestureSerial.size()) {
+    ++self->m_axisGestureSerial[axis];
+  }
 }
 
 void WaylandSeat::handlePointerAxisDiscrete(
@@ -725,6 +736,13 @@ void WaylandSeat::handleKeyboardKey(
       xkb_compose_state_reset(self->m_composeState);
     }
     // XKB_COMPOSE_NOTHING → pass through normally
+  }
+
+  // Prefer Latin letter for Ctrl/Alt/Super shortcuts (active layout may be non-Latin).
+  if ((mods & (KeyMod::Ctrl | KeyMod::Alt | KeyMod::Super)) != 0) {
+    if (const auto latin = input::latinShortcutKeysym(self->m_xkbKeymap, xkbKeycode); latin.has_value()) {
+      sym = *latin;
+    }
   }
 
   // Set up repeat state BEFORE dispatching, so the callback can authoritatively

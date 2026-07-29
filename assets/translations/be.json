@@ -503,7 +503,6 @@
         "show-keyboard-layout": "Раскладка клавіятуры",
         "show-label": "Паказваць подпіс",
         "show-login-button": "Кнопка ўваходу",
-        "show-password-hint": "Падказка да пароля",
         "show-when-idle": "Паказваць пры неактыўнасці",
         "stat": "Статыстыка",
         "stat-cpu-temp": "Тэмпература ЦП",
@@ -535,10 +534,6 @@
         "visualization-mode-wave-rings": "Хваля + Колы",
         "wave-thickness": "Таўшчыня хвалі",
         "widget-section": "Віджэт"
-      },
-      "state": {
-        "grid-off": "Сетка выключана",
-        "grid-on": "Сетка ўключана"
       },
       "title": "Віджэты працоўнага стала",
       "types": {
@@ -1580,9 +1575,6 @@
           "description": "Колер занятых прастор; таксама падтрымліваюцца фіксаваныя колеры HEX"
         }
       }
-    },
-    "window": {
-      "filter-modified": "Мадыфікаваныя"
     }
   }
 }

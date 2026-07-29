@@ -9,11 +9,16 @@ class NotificationManager;
 
 class NotificationWidget : public Widget {
 public:
-  NotificationWidget(NotificationManager* manager, wl_output* output, bool hideWhenNoUnread = false);
+  struct Options {
+    bool hideWhenNoUnread = false;
+  };
+
+  NotificationWidget(NotificationManager* manager, wl_output* output, Options options);
 
   void create() override;
 
 private:
+  void onGestureDispatch(noctalia::bar::Gesture gesture, const noctalia::bar::WidgetAction& action) override;
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void refreshIndicatorState();
@@ -24,4 +29,5 @@ private:
   bool m_hideWhenNoUnread = false;
   bool m_hasNotifications = false;
   bool m_dndEnabled = false;
+  bool m_openedPanelByClick = false;
 };

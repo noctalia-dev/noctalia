@@ -11,6 +11,8 @@
 #include <string_view>
 #include <vector>
 
+class ConfigService;
+
 namespace settings {
 
   struct SettingsStatusBannerProps {
@@ -27,6 +29,13 @@ namespace settings {
   [[nodiscard]] std::unique_ptr<Flex> makeSettingsStatusBanner(SettingsStatusBannerProps props);
   void updateSettingsStatusBanner(Flex& banner, Label& message, std::string_view text, bool error);
 
+  // Non-dismissible callout for settings pages/sheets that need HTTP while offline_mode is on.
+  // showDisableHint is false on the Security page (toggle lives there already).
+  [[nodiscard]] std::unique_ptr<Flex>
+  makeOfflineModeNotice(float scale, std::string message, bool showDisableHint = true);
+  [[nodiscard]] bool settingsSectionNeedsOfflineModeNotice(SettingsSection section);
+  [[nodiscard]] std::string offlineModeNoticeMessage(SettingsSection section);
+
   [[nodiscard]] std::optional<std::size_t>
   optionIndex(const std::vector<SelectOption>& options, std::string_view value);
   [[nodiscard]] std::string optionLabel(const std::vector<SelectOption>& options, std::string_view value);
@@ -35,6 +44,7 @@ namespace settings {
 
   [[nodiscard]] bool isMonitorOverrideSettingPath(const std::vector<std::string>& path);
   [[nodiscard]] bool monitorOverrideHasExplicitValue(const Config& cfg, const std::vector<std::string>& path);
+  [[nodiscard]] bool settingEntryHasEffectiveOverride(const SettingEntry& entry, const ConfigService& configService);
 
   [[nodiscard]] bool isBlankInput(std::string_view text);
   [[nodiscard]] std::string formatSliderValue(double value, bool integerValue);

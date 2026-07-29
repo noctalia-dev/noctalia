@@ -83,6 +83,23 @@ namespace ui {
       applyNodeProps(flex, props);
     }
 
+    template <typename Control, typename Props> void applySceneNodeProps(Control& control, const Props& props) {
+      if (props.x.has_value() || props.y.has_value()) {
+        control.setPosition(props.x.value_or(control.x()), props.y.value_or(control.y()));
+      }
+      if (props.frameWidth.has_value() || props.frameHeight.has_value()) {
+        control.setFrameSize(props.frameWidth.value_or(control.width()), props.frameHeight.value_or(control.height()));
+      }
+      if (props.zIndex.has_value()) {
+        control.setZIndex(*props.zIndex);
+      }
+      if (props.hitTestVisible.has_value()) {
+        control.setHitTestVisible(*props.hitTestVisible);
+      }
+      if (props.animationManager != nullptr) {
+        control.setAnimationManager(props.animationManager);
+      }
+    }
   } // namespace
 
   std::unique_ptr<Flex> flex(FlexDirection direction, FlexProps props) {
@@ -103,6 +120,7 @@ namespace ui {
       control->setClipChildren(*props.clipChildren);
     }
     applyNodeProps(*control, props);
+    applySceneNodeProps(*control, props);
     if (props.configure) {
       props.configure(*control);
     }
@@ -131,6 +149,12 @@ namespace ui {
     }
     if (props.focusable.has_value()) {
       control->setFocusable(*props.focusable);
+    }
+    if (props.tabStop.has_value()) {
+      control->setTabStop(*props.tabStop);
+    }
+    if (props.textInputClient != nullptr) {
+      control->setTextInputClient(props.textInputClient);
     }
     if (props.tooltip.has_value()) {
       control->setTooltip(std::move(*props.tooltip));
@@ -186,6 +210,7 @@ namespace ui {
       control->setClipChildren(*props.clipChildren);
     }
     applyNodeProps(*control, props);
+    applySceneNodeProps(*control, props);
     if (props.configure) {
       props.configure(*control);
     }
@@ -432,12 +457,13 @@ namespace ui {
   std::unique_ptr<Box> box(BoxProps props) {
     auto control = std::make_unique<Box>();
     if (props.cardStyleScale.has_value()) {
-      control->setCardStyle(
-          *props.cardStyleScale, props.cardStyleFillOpacity.value_or(1.0f), props.cardStyleShowBorder.value_or(true)
-      );
+      control->setCardStyle(*props.cardStyleScale, props.cardStyleFillOpacity.value_or(1.0f));
     }
     if (props.fill.has_value()) {
       control->setFill(*props.fill);
+    }
+    if (props.border.has_value()) {
+      control->setBorder(*props.border, props.borderWidth.value_or(1.0f));
     }
     if (props.radius.has_value()) {
       control->setRadius(*props.radius);
@@ -716,6 +742,9 @@ namespace ui {
 
   std::unique_ptr<ScrollView> scrollView(ScrollViewProps props) {
     auto control = std::make_unique<ScrollView>();
+    if (props.orientation.has_value()) {
+      control->setOrientation(*props.orientation);
+    }
     if (props.state != nullptr) {
       control->bindState(props.state);
     }

@@ -150,7 +150,7 @@ std::filesystem::path PluginWidget::resolvePluginPath(std::string_view path) con
 }
 
 void PluginWidget::create() {
-  auto area = std::make_unique<InputArea>();
+  auto area = ui::inputArea({});
   area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT, BTN_MIDDLE}));
   area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
   area->setOnClick([this](const InputArea::PointerData& data) {
@@ -189,7 +189,12 @@ void PluginWidget::create() {
     if (steps == 0.0f)
       return false;
     const char* axis = data.axis == WL_POINTER_AXIS_VERTICAL_SCROLL ? "vertical" : "horizontal";
-    (void)m_runtime->enqueueCallArgs("onScroll", {std::string(axis), static_cast<double>(steps)}, makeScriptSnapshot());
+    // The third argument is true only on the first step of a flick in that direction. A script
+    // stepping through a list acts on it alone; one ramping a value ignores it.
+    (void)m_runtime->enqueueCallArgs(
+        "onScroll", {std::string(axis), static_cast<double>(steps), data.scrollStepStartsGesture()},
+        makeScriptSnapshot()
+    );
     return true;
   });
 

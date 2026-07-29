@@ -51,13 +51,28 @@ void Glyph::setColor(const ColorSpec& color) {
 
 void Glyph::setColor(const Color& color) { setColor(fixedColorSpec(color)); }
 
-void Glyph::setShadow(const Color& color, float offsetX, float offsetY) {
-  m_glyphNode->setShadow(color, offsetX, offsetY);
+void Glyph::setShadow(const ColorSpec& color, float offsetX, float offsetY) {
+  m_shadowColor = color;
+  m_shadowOffsetX = offsetX;
+  m_shadowOffsetY = offsetY;
+  applyPalette();
 }
 
-void Glyph::clearShadow() { m_glyphNode->clearShadow(); }
+void Glyph::setShadow(const Color& color, float offsetX, float offsetY) {
+  setShadow(fixedColorSpec(color), offsetX, offsetY);
+}
 
-void Glyph::applyPalette() { m_glyphNode->setColor(resolveColorSpec(m_color)); }
+void Glyph::clearShadow() {
+  m_shadowColor.reset();
+  m_glyphNode->clearShadow();
+}
+
+void Glyph::applyPalette() {
+  m_glyphNode->setColor(resolveColorSpec(m_color));
+  if (m_shadowColor.has_value()) {
+    m_glyphNode->setShadow(resolveColorSpec(*m_shadowColor), m_shadowOffsetX, m_shadowOffsetY);
+  }
+}
 
 void Glyph::doLayout(Renderer& renderer) { measure(renderer); }
 

@@ -103,6 +103,7 @@ public:
   [[nodiscard]] std::vector<std::string> runningAppIds(wl_output* outputFilter = nullptr) const;
   [[nodiscard]] std::vector<ToplevelInfo>
   windowsForApp(const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter = nullptr) const;
+  [[nodiscard]] std::vector<ToplevelInfo> windowsWithoutAppId(wl_output* outputFilter = nullptr) const;
   [[nodiscard]] bool containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
   void activateToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   void activateToplevelInfo(const ToplevelInfo& window);
@@ -215,5 +216,6 @@ private:
   std::unique_ptr<compositors::kde::KwinActiveWindow> m_kwinActiveWindow;
   std::unique_ptr<OutputProbe> m_outputProbe;
   std::vector<WorkspaceModelSnapshot> m_lastWorkspaceModelSnapshot;
+  std::optional<std::string> m_lastFocusedCompositorWindowId;
   bool m_initialized = false;
 };

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <optional>
 #include <poll.h>
 #include <string>
 #include <unordered_map>
@@ -148,6 +149,8 @@ namespace compositors {
     // distinctly from WorkspaceBackend::focusWindow so backends that implement
     // both interfaces don't hit a conflicting-return-type override.
     virtual bool focusWindowById(const std::string& /*windowId*/) { return false; }
+    // Currently focused compositor window id, when the backend tracks focus.
+    [[nodiscard]] virtual std::optional<std::string> focusedWindowId() const { return std::nullopt; }
     [[nodiscard]] virtual bool canTrackOverviewState() const noexcept { return false; }
     [[nodiscard]] virtual bool hasOverviewState() const noexcept { return false; }
     [[nodiscard]] virtual bool isOverviewOpen() const noexcept { return true; }

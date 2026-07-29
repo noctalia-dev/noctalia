@@ -20,6 +20,7 @@ public:
   void setColor(const ColorSpec& color);
   // Explicit fixed color.
   void setColor(const Color& color);
+  void setShadow(const ColorSpec& color, float offsetX, float offsetY);
   void setShadow(const Color& color, float offsetX, float offsetY);
   void clearShadow();
 
@@ -39,6 +40,9 @@ private:
   float m_logicalFontSize = 0.0f;
   ColorSpec m_color = colorSpecFromRole(ColorRole::OnSurface);
   Signal<>::ScopedConnection m_paletteConn;
+  std::optional<ColorSpec> m_shadowColor;
+  float m_shadowOffsetX = 0.0f;
+  float m_shadowOffsetY = 0.0f;
 
   // Memoized measure() inputs — lets repeated layout passes with identical
   // glyph + size skip the Pango/fontconfig path entirely.

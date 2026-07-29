@@ -5,7 +5,7 @@
       "error": "Parmak izi doğrulama hatası",
       "no-match": "Parmak izi eşleşmedi",
       "not-centered": "Parmağınızı ortalayıp tekrar deneyin",
-      "present": "Parmak izi okunuyıor",
+      "present": "Parmak izi okunuyor",
       "ready": "Parmağınızı okuyucuya yerleştirin",
       "remove-and-retry": "Parmağınızı kaldırıp tekrar deneyin",
       "retry": "Lütfen parmak izinizi tekrar tarayın",
@@ -31,6 +31,7 @@
       "choose-display": "Ekran seçin",
       "confirm-region": "Yakalamak için Enter veya Boşluk · İptal etmek için Esc · Seçmek için sürükle",
       "fullscreen": "Tam ekran",
+      "overlay-alloc-failed": "Ekran görüntüsü menüsü gösterilemedi (Ekran kartınızın belleği dolmuş olabilir)",
       "region": "Bölge seç"
     },
     "widgets": {
@@ -66,6 +67,7 @@
         "network": "Ağ",
         "networks": "Ağlar",
         "networks-count": "{count} ağ",
+        "networks-count-plural": "{count} ağ",
         "no": "Hayır",
         "not-connected": "Bağlı değil",
         "off": "Kapalı",
@@ -74,6 +76,7 @@
         "signal": "Sinyal",
         "upload": "Yükleme",
         "vpn": "VPN",
+        "wan-ip": "WAN adresi",
         "wifi": "Wi-Fi",
         "wired": "Kablolu",
         "yes": "Evet"
@@ -91,8 +94,9 @@
         "cpu": "CPU",
         "cpu-temp": "CPU Isısı",
         "disk": "Disk",
+        "disk-free": "",
         "download": "İndirme",
-        "gpu-temp": "GPU Isısı",
+        "gpu-temp": "GPU Sıcaklığı",
         "gpu-usage": "GPU Kullanımı",
         "gpu-vram": "GPU VRAM",
         "ram": "RAM",
@@ -106,7 +110,7 @@
         "volume": "Ses"
       },
       "weather": {
-        "default": "Hava duruömu",
+        "default": "Hava durumu",
         "error": "Hava durumu hata",
         "loading": "Hava durumu...",
         "no-location": "Konum yok",
@@ -122,6 +126,7 @@
     },
     "confirm": {
       "clear-desc": "Sabitlenmiş öğelerin saklanıp saklanmayacağını seçin.",
+      "clear-desc-all-pinned": "Tüm öğeler sabitli. Pano geçmişini silerek hepsini kaldırabilirsiniz.",
       "clear-desc-no-pinned": "Bu her öğeyi pano geçmişinden silecektir.",
       "clear-title": "Pano geçmişi silinsin mi?",
       "delete-desc": "Bu seçilmiş öğeyi pano geçmişinden kaldıracaktır.",
@@ -129,10 +134,259 @@
     },
     "empty": {
       "history-message": "Pano geçmişinde öğe yok.",
-      "history-title": "Pao geçmişi boş"
+      "history-title": "Pano geçmişi boş"
+    },
+    "entry": {
+      "image": "Görüntü"
     },
     "preview": {
       "loading": "Önizleme yükleniyor..."
     }
+  },
+  "settings": {
+    "widgets": {
+      "settings": {
+        "vpn-status": {
+          "label": "VPN Durumu"
+        },
+        "warning-color": {
+          "label": "Uyarı Rengi"
+        },
+        "width": {
+          "description": "Widget genişliği pixel ile",
+          "label": "Genişlik"
+        },
+        "window-title-max-width": {
+          "description": "Pencere başlıkları için maksimum başlkık genişliği"
+        },
+        "workspace-group-content": {
+          "label": "Grup İçeriği"
+        },
+        "workspace-label-placement": {
+          "label": "Çalışma Alanı Yerleşimi"
+        }
+      },
+      "types": {
+        "active-window": "Aktif Pencere",
+        "audio-visualizer": "Ses  göstergesi",
+        "battery": "Batarya",
+        "bluetooth": "Bluetooth",
+        "brightness": "Parlaklık",
+        "caffeine": "Kafein",
+        "clipboard": "Pano",
+        "clock": "Saat",
+        "control-center": "Kontrol Merkezi",
+        "custom-button": "Özel Buton",
+        "keyboard-layout": "Klavye Düzeni",
+        "launcher": "Başlatıcı",
+        "media": "Medya",
+        "network": "Ağ",
+        "nightlight": "Gece Işığı",
+        "notifications": "Bildirimler",
+        "power-profile": "Güç Profili",
+        "privacy": "Gizlilik Göstergesi",
+        "screenshot": "Ekran Görüntüşü",
+        "session": "Oturum",
+        "settings": "Ayarlar",
+        "spacer": "Ara Çubuk",
+        "sysmon": "Sistem Monitorü",
+        "taskbar": "Görev Çubuğu",
+        "test": "Test",
+        "text": "Metin",
+        "theme-mode": "Tema Modu",
+        "tray": "Tepsi",
+        "volume": "Ses",
+        "wallpaper": "Duvar Kağıdı",
+        "weather": "Hava Durumu",
+        "workspaces": "Çalışma Alanları"
+      }
+    },
+    "window": {
+      "export-config": "Konfigi Dışa Aktar...",
+      "filter-overridden": "Üzerine yazıldı",
+      "native-title": "Noctalia Ayarları",
+      "no-results": "Ayar bulunamadı",
+      "no-results-hint": "Farklı bir ayar veya konfig adı girin.",
+      "reset-page": "Sayfayı Sıfırla",
+      "reset-page-confirm": "Sıfırlamayı onayla",
+      "search-placeholder": "Ayarlarda ara...",
+      "search-truncated": "İlk {count} ayar gösteriliyor. Sonuçları daraltmak için araemayı değiştirin.",
+      "support-report": "Destek Raporu",
+      "support-report-saved": "Destek Raporunu Kaydededildi",
+      "support-report-title": "Destek Raporunu Kaydet",
+      "title": "Ayarlar"
+    }
+  },
+  "setup-wizard": {
+    "browse": "Tara",
+    "footer-note": "Bunları daha sonra ayarlarda değiştirebilirsiniz.",
+    "get-started": "Başlayın",
+    "mode": "Mod",
+    "no-wallpaper-selected": "Duvar kağıdı seçilmedi",
+    "select-wallpaper": "Duvar Kağıdı Seçin",
+    "subtitle": "Başlamanız için birkaç hızlı seçenek.",
+    "title": "Noctalia'ya Hoş Geldiniz",
+    "wallpaper": "Duvar Kağıdı",
+    "wallpaper-scheme": "Duvar Kağıdı Şeması"
+  },
+  "system": {
+    "hardware": {
+      "unknown": "Bilinmiyor",
+      "unknown-cpu": "Bilinmeyen CPU",
+      "unknown-distro": "Bilinnmeyen distro",
+      "unknown-gpu": "Bilinmeyen GPU"
+    }
+  },
+  "theme": {
+    "scheme": {
+      "dysfunctional": "İşlevsiz",
+      "faithful": "Doğru",
+      "m3-content": "M3 İçerik",
+      "m3-fruit-salad": "M3 Meyve Salatası",
+      "m3-monochrome": "M3 Tek Renkli",
+      "m3-rainbow": "M3 Gökkuşağı",
+      "muted": "Soluk",
+      "soft": "Yumuşak",
+      "vibrant": "Canlı"
+    }
+  },
+  "time": {
+    "duration": {
+      "less-than-day": "1 günden az",
+      "less-than-minute": "<1dk",
+      "three-parts": "{first} {second} {third}",
+      "two-parts": "{first} {second}"
+    },
+    "file": {
+      "unknown": "Bilinmiyor"
+    },
+    "relative": {
+      "days-ago": "{count} gün önce",
+      "days-ago-plural": "{count} gün önce",
+      "hours-ago": "{count} s önce",
+      "hours-ago-plural": "{count} s önce",
+      "just-now": "şimdi",
+      "minutes-ago": "{count} dk önce",
+      "minutes-ago-plural": "{count} dk önce"
+    },
+    "units": {
+      "day": "{count} gün",
+      "day-plural": "{count} gün",
+      "hour": "{count} saat",
+      "hour-compact": "{count}s",
+      "hour-plural": "{count} saat",
+      "minute": "{count} dakika",
+      "minute-compact": "{count}d",
+      "minute-plural": "{count} dakika",
+      "month": "{count} ay",
+      "month-plural": "{count} ay",
+      "year": "{count} yıl",
+      "year-plural": "{count} yıl"
+    }
+  },
+  "tray": {
+    "menu": {
+      "empty": "Menü öğesi yok",
+      "pin": "Sabitle",
+      "unpin": "Serbest bırak"
+    }
+  },
+  "ui": {
+    "controls": {
+      "search-picker": {
+        "empty": "Sonuç yok",
+        "placeholder": "Ara..."
+      },
+      "select": {
+        "placeholder": "Bir seçenek seçin"
+      }
+    },
+    "dialogs": {
+      "color-picker": {
+        "title": "Renk"
+      },
+      "file": {
+        "actions": {
+          "open": "Aç",
+          "save": "Kaydet",
+          "select-folder": "Klasörü Seç"
+        },
+        "empty-filtered": "Mevcut filtreye uyan dosya yok",
+        "filename-placeholder": "Dosya adı",
+        "filter-placeholder": "Filtre...",
+        "sort": {
+          "ascending": "↑",
+          "date": "Tarih",
+          "descending": "↓",
+          "name": "Ad",
+          "size": "Boyut"
+        },
+        "title": {
+          "default": "Dosya diyalogu",
+          "open": "Dosya Aç",
+          "save": "Dosyayı Kaydet",
+          "select-folder": "Klasör Seç"
+        }
+      },
+      "glyph-picker": {
+        "all-categories": "Tümü",
+        "search-placeholder": "Glif ara...",
+        "title": "Bir Glif Seç"
+      }
+    }
+  },
+  "wallpaper": {
+    "panel": {
+      "all-monitors": "TÜMÜ",
+      "color-title": "Duvar kağıdı rengi",
+      "filter-placeholder": "Filtre...",
+      "flatten": "Düzleştirilmiş",
+      "loading": "Duvar kağıtları yükleniyor...",
+      "sort-date-asc": "Tarihe göre sırala (önce eskiler)",
+      "sort-date-desc": "Tarihe göre sırala (önce yeniler)",
+      "sort-name-asc": "Ada göre sırala (A-Z)",
+      "sort-name-desc": "Ada göre sırala (Z-A)",
+      "sort-random": "Rastgele sırala (karıştır)",
+      "title": "Duvar kağıdı"
+    }
+  },
+  "weather": {
+    "conditions": {
+      "full": {
+        "clear-sky": "Açık hava",
+        "drizzle": "Çiseli",
+        "fog": "Sisli",
+        "mainly-clear": "Çoğunlukla açık",
+        "overcast": "Kapalı",
+        "partly-cloudy": "Hafif bulutlu",
+        "rain-showers": "Yağmur sağanağı",
+        "snow": "Kar",
+        "snow-showers": "Kar sağanağı",
+        "thunderstorm": "Gök gürüntülü fırtına",
+        "unknown": "Bİlinmiyor"
+      },
+      "short": {
+        "clear": "Temiz",
+        "cloudy": "Bulutlu",
+        "drizzle": "Çiseli",
+        "fog": "Sisli",
+        "mostly-clear": "Çoğunlukla açık",
+        "overcast": "Kapalı",
+        "showers": "Sağanak",
+        "snow": "Kar",
+        "snow-showers": "Kar sağanağı",
+        "storm": "Fırtına",
+        "weather": "Hava durumu"
+      }
+    },
+    "errors": {
+      "fetch-failed": "Hava durumu çekme başarısız",
+      "parse-weather": "Hava durumu yanıtı çözümlenemedi"
+    }
+  },
+  "window-switcher": {
+    "empty": "Açık pencere yok",
+    "hint": "Tab · Shift+Tab · Yön tuşlar · Değiştirmek için Alt'ı bırak · İptel etmek için Esc",
+    "title": "Penceler"
   }
 }

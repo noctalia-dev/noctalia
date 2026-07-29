@@ -8,8 +8,8 @@ namespace {
   bool expectEqual(std::string_view actual, std::string_view expected, const char* message) {
     if (actual != expected) {
       std::fprintf(
-          stderr, "string_utils_test: %s: expected '%.*s', got '%.*s'\n", message,
-          static_cast<int>(expected.size()), expected.data(), static_cast<int>(actual.size()), actual.data()
+          stderr, "string_utils_test: %s: expected '%.*s', got '%.*s'\n", message, static_cast<int>(expected.size()),
+          expected.data(), static_cast<int>(actual.size()), actual.data()
       );
       return false;
     }

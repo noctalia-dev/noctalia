@@ -26,7 +26,7 @@ DesktopLabelWidget::DesktopLabelWidget(Options options)
       m_opacity(std::clamp(options.opacity, 0.0f, 1.0f)), m_shadow(options.shadow) {}
 
 void DesktopLabelWidget::create() {
-  auto rootNode = std::make_unique<Node>();
+  auto rootNode = ui::node({});
   rootNode->setClipChildren(true);
 
   auto titleLabel = ui::label({
@@ -172,7 +172,7 @@ void DesktopLabelWidget::applyLabelColors() {
 
 void DesktopLabelWidget::applyShadow() {
   const float offset = kShadowOffset * contentScale();
-  const Color shadowColor(0.0f, 0.0f, 0.0f, kShadowAlpha * m_opacity);
+  const ColorSpec shadowColor = colorSpecFromRole(ColorRole::Shadow, kShadowAlpha * m_opacity);
 
   auto applyTo = [this, offset, shadowColor](Label* label) {
     if (label == nullptr) {

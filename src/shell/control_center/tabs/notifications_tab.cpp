@@ -140,8 +140,8 @@ namespace {
     return resolved.empty() ? std::string() : resolved;
   }
 
-  void applyNotificationCardStyle(Flex& card, float scale, float fillOpacity, bool showBorder) {
-    applySectionCardStyle(card, scale, fillOpacity, showBorder);
+  void applyNotificationCardStyle(Flex& card, float scale, float fillOpacity) {
+    applySectionCardStyle(card, scale, fillOpacity);
   }
 
   std::string relativeMetaLine(const Notification& n) {
@@ -306,8 +306,8 @@ namespace {
 
   class NotificationHistoryRow final : public Flex {
   public:
-    explicit NotificationHistoryRow(float scale, float fillOpacity, bool showBorder) : m_scale(scale) {
-      applyNotificationCardStyle(*this, scale, fillOpacity, showBorder);
+    explicit NotificationHistoryRow(float scale, float fillOpacity) : m_scale(scale) {
+      applyNotificationCardStyle(*this, scale, fillOpacity);
       setFillWidth(true);
 
       m_header = static_cast<Flex*>(addChild(
@@ -515,18 +515,6 @@ namespace {
       m_image->setFit(ImageFit::Cover);
 
       const int targetSize = static_cast<int>(std::round(iconPx));
-      const std::string iconPath = resolveHistoryIconPath(entry.notification, iconResolver, targetSize);
-      if (!iconPath.empty()) {
-        const bool ready = m_image->setSourceFile(renderer, iconPath, targetSize);
-        if (ready) {
-          m_imageKind = ImageKind::File;
-          m_rawImageKey = 0;
-          m_image->setVisible(true);
-          m_fallback->setVisible(false);
-          return;
-        }
-      }
-
       if (entry.notification.imageData.has_value()) {
         const auto& image = *entry.notification.imageData;
         if (image.width > 0 && image.height > 0 && !image.data.empty()) {
@@ -547,6 +535,20 @@ namespace {
             m_fallback->setVisible(false);
             return;
           }
+        }
+      }
+
+      // Fallback: if no snapshot pixels are available, load from the live icon path.
+      // This avoids showing stale HyprCap screenshots when the file gets overwritten later.
+      const std::string iconPath = resolveHistoryIconPath(entry.notification, iconResolver, targetSize);
+      if (!iconPath.empty()) {
+        const bool ready = m_image->setSourceFile(renderer, iconPath, targetSize);
+        if (ready) {
+          m_imageKind = ImageKind::File;
+          m_rawImageKey = 0;
+          m_image->setVisible(true);
+          m_fallback->setVisible(false);
+          return;
         }
       }
 
@@ -574,8 +576,8 @@ namespace {
 
 class NotificationHistoryAdapter final : public VirtualListAdapter {
 public:
-  NotificationHistoryAdapter(NotificationsTab& owner, float scale, float fillOpacity, bool showBorder)
-      : m_owner(owner), m_scale(scale), m_fillOpacity(fillOpacity), m_showBorder(showBorder) {}
+  NotificationHistoryAdapter(NotificationsTab& owner, float scale, float fillOpacity)
+      : m_owner(owner), m_scale(scale), m_fillOpacity(fillOpacity) {}
 
   [[nodiscard]] std::size_t itemCount() const override { return m_owner.m_filtered.size(); }
 
@@ -609,7 +611,7 @@ public:
   }
 
   [[nodiscard]] std::unique_ptr<Node> createItem() override {
-    return std::make_unique<NotificationHistoryRow>(m_scale, m_fillOpacity, m_showBorder);
+    return std::make_unique<NotificationHistoryRow>(m_scale, m_fillOpacity);
   }
 
   void bindItem(Renderer& renderer, Node& item, std::size_t index, float width, bool /*hovered*/) override {
@@ -635,7 +637,6 @@ private:
   NotificationsTab& m_owner;
   float m_scale = 1.0f;
   float m_fillOpacity = 1.0f;
-  bool m_showBorder = false;
 };
 
 NotificationsTab::NotificationsTab(NotificationManager* notifications) : m_notifications(notifications) {}
@@ -647,7 +648,7 @@ std::unique_ptr<Flex> NotificationsTab::create() {
   auto tab = ui::column({
       .out = &m_root,
       .align = FlexAlign::Stretch,
-      .gap = Style::spaceSm * scale,
+      .gap = Style::spaceMd * scale,
   });
 
   tab->addChild(
@@ -687,7 +688,7 @@ std::unique_ptr<Flex> NotificationsTab::create() {
       })
   );
 
-  m_adapter = std::make_unique<NotificationHistoryAdapter>(*this, scale, panelCardOpacity(), panelBordersEnabled());
+  m_adapter = std::make_unique<NotificationHistoryAdapter>(*this, scale, panelCardOpacity());
 
   tab->addChild(
       ui::virtualListView({
@@ -711,8 +712,8 @@ std::unique_ptr<Flex> NotificationsTab::create() {
               .gap = Style::spaceSm * scale,
               .visible = false,
               .configure =
-                  [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& empty) {
-                    applyNotificationCardStyle(empty, scale, opacity, borders);
+                  [scale, opacity = panelCardOpacity()](Flex& empty) {
+                    applyNotificationCardStyle(empty, scale, opacity);
                     empty.setPadding(Style::spaceLg * scale, Style::spaceMd * scale);
                   },
           },

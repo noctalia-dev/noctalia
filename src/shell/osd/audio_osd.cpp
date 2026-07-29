@@ -146,6 +146,22 @@ void AudioOsd::showInputName(std::string name, bool muted) {
   }
 }
 
+void AudioOsd::showOutputValue(float volume, bool muted) {
+  if (m_overlay == nullptr) {
+    return;
+  }
+  m_overlay->show(makeOutputContent(volume, muted));
+  m_currentKind = OsdKind::Volume;
+}
+
+void AudioOsd::showInputValue(float volume, bool muted) {
+  if (m_overlay == nullptr) {
+    return;
+  }
+  m_overlay->show(makeInputContent(volume, muted));
+  m_currentKind = OsdKind::Microphone;
+}
+
 void AudioOsd::onAudioStateChanged(const PipeWireService& service) {
   const auto* sink = service.defaultSink();
   const auto* source = service.defaultSource();

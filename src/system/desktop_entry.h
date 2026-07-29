@@ -26,6 +26,7 @@ struct DesktopEntry {
   bool noDisplay = false;
   bool hidden = false;
   bool terminal = false;
+  bool dbusActivatable = false;
 
   // Pre-lowercased for matching
   std::string nameLower;

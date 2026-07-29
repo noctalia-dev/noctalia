@@ -40,6 +40,7 @@ struct PointerEvent {
   std::int32_t axisDiscrete = 0;
   std::int32_t axisValue120 = 0;
   float axisLines = 0.0f;
+  std::uint32_t axisGestureSerial = 0;
 };
 
 struct KeyboardEvent {
@@ -107,6 +108,7 @@ public:
   static void
   handlePointerAxis(void* data, wl_pointer* pointer, std::uint32_t time, std::uint32_t axis, std::int32_t value);
   static void handlePointerAxisSource(void* data, wl_pointer* pointer, std::uint32_t axisSource);
+  static void handlePointerAxisStop(void* data, wl_pointer* pointer, std::uint32_t time, std::uint32_t axis);
   static void handlePointerAxisDiscrete(void* data, wl_pointer* pointer, std::uint32_t axis, std::int32_t discrete);
   static void handlePointerAxisValue120(void* data, wl_pointer* pointer, std::uint32_t axis, std::int32_t value120);
   static void handlePointerFrame(void* data, wl_pointer* pointer);
@@ -170,6 +172,7 @@ private:
   };
   // Indexed by wl_pointer axis (vertical, horizontal).
   std::array<AxisDetent, 2> m_pendingAxisDetents{};
+  std::array<std::uint32_t, 2> m_axisGestureSerial{};
   wl_surface* m_lastPointerSurface = nullptr;
   std::uint32_t m_pointerEnterSerial = 0;
   double m_lastPointerX = 0.0;

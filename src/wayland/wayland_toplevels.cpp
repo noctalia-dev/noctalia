@@ -342,6 +342,43 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsForApp(
   return out;
 }
 
+std::vector<ToplevelInfo> WaylandToplevels::windowsWithoutAppId(wl_output* outputFilter) const {
+  struct OrphanWindow {
+    std::uint64_t order = 0;
+    ToplevelInfo info;
+  };
+
+  std::vector<OrphanWindow> orphans;
+  for (const auto& [handle, state] : m_handles) {
+    if (outputFilter != nullptr && state.output != outputFilter) {
+      continue;
+    }
+    if (!effectiveAppId(state.appId, state.title).empty()) {
+      continue;
+    }
+    orphans.push_back(
+        OrphanWindow{
+            .order = state.order,
+            .info = ToplevelInfo{
+                .title = state.title,
+                .appId = {},
+                .identifier = state.title,
+                .order = state.order,
+                .handle = handle,
+            },
+        }
+    );
+  }
+  std::ranges::sort(orphans, {}, &OrphanWindow::order);
+
+  std::vector<ToplevelInfo> out;
+  out.reserve(orphans.size());
+  for (auto& window : orphans) {
+    out.push_back(std::move(window.info));
+  }
+  return out;
+}
+
 bool WaylandToplevels::containsWlrHandle(zwlr_foreign_toplevel_handle_v1* handle) const {
   return handle != nullptr && m_handles.contains(handle);
 }

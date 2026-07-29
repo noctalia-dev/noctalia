@@ -1,14 +1,20 @@
 #include "shell/panel/plugin_panel.h"
 
+#include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "notification/notifications.h"
+#include "render/scene/node.h"
 #include "scripting/plugin_runtime_context.h"
 #include "shell/panel/panel_manager.h"
+#include "ui/builders.h"
 #include "ui/controls/flex.h"
 
+#include <algorithm>
 #include <cstdlib>
+#include <format>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <utility>
 
@@ -18,6 +24,22 @@ namespace {
   constexpr int kTickIntervalMs = 1000;
   constexpr float kDefaultPanelWidth = 480.0f;
   constexpr float kDefaultPanelHeight = 400.0f;
+
+  // Manifest vocabulary (scripting::kPanelKeyboardFocusModes) to layer-shell mode.
+  // The manifest parser rejects anything else, so an unknown token here means the
+  // two lists drifted apart.
+  LayerShellKeyboard keyboardModeFromManifest(std::string_view value) {
+    if (value == "none") {
+      return LayerShellKeyboard::None;
+    }
+    if (value == "exclusive") {
+      return LayerShellKeyboard::Exclusive;
+    }
+    if (value != "on_demand") {
+      kLog.warn("unknown keyboard_focus \"{}\", using on_demand", value);
+    }
+    return LayerShellKeyboard::OnDemand;
+  }
 
   std::string readFile(const std::filesystem::path& path) {
     std::ifstream f(path);
@@ -37,8 +59,62 @@ PluginPanel::PluginPanel(scripting::PluginRuntimeContext context, PluginPanelOpt
       m_fileWatcher(context.fileWatcher), m_httpClient(context.httpClient), m_clipboard(context.clipboard),
       m_preferredWidth(options.width > 0.0 ? static_cast<float>(options.width) : kDefaultPanelWidth),
       m_preferredHeight(options.height > 0.0 ? static_cast<float>(options.height) : kDefaultPanelHeight),
-      m_widthFill(options.widthFill), m_heightFill(options.heightFill), m_shellConfig(options.shellConfig) {
+      m_widthFill(options.widthFill), m_heightFill(options.heightFill),
+      m_dismissOnOutsideClick(options.dismissOnOutsideClick),
+      m_keyboardMode(keyboardModeFromManifest(options.keyboardFocus)), m_persistent(options.persistent),
+      m_shellConfig(options.shellConfig) {
+  // The manifest parser already validated every spec, so a parse failure here means the two
+  // drifted apart. Skip the entry rather than capture a chord nobody can describe.
+  m_captureKeys.reserve(options.captureKeys.size());
+  for (const std::string& spec : options.captureKeys) {
+    if (const auto chord = parseKeyChordSpec(spec); chord.has_value()) {
+      m_captureKeys.push_back(CaptureKey{.chord = *chord, .spec = spec});
+    } else {
+      kLog.warn("{}: ignoring unparseable capture_keys entry \"{}\"", m_entryId, spec);
+    }
+  }
   scripting::PluginIpcRouter::instance().registerEndpoint(this);
+}
+
+bool PluginPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) {
+  // Without a handler there is nothing to deliver to, so leave the key to the host rather than
+  // swallow it invisibly. Also false until the script has loaded, which is the right answer:
+  // the panel is not interactive yet either.
+  if (m_captureKeys.empty() || preedit || m_runtime == nullptr || !m_runtime->hasOnKey()) {
+    return false;
+  }
+  // Cancel stays with the host: a panel that captured it could make itself impossible to
+  // dismiss from the keyboard. Checked live because the user can rebind the action.
+  if (KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
+    return false;
+  }
+
+  const auto match = std::ranges::find_if(m_captureKeys, [sym, modifiers](const CaptureKey& candidate) {
+    return keyChordMatches(candidate.chord, sym, modifiers);
+  });
+  if (match == m_captureKeys.end()) {
+    return false;
+  }
+
+  // Still consumed, so the repeat does not leak to the host, but the script sees one press per
+  // physical press.
+  if (pressed && match->held) {
+    return true;
+  }
+  match->held = pressed;
+
+  // The runtime is off-thread, so the script cannot answer "did you consume this?" in time.
+  // Declaring the chord in capture_keys is the consume decision; the call is fire-and-forget.
+  (void)m_runtime->enqueueCallArgs("onKey", scripting::ScriptArgs{match->spec, pressed}, makeScriptSnapshot());
+  return true;
+}
+
+void PluginPanel::releaseCapturedKeys() {
+  // A panel can close with a key still down, in which case no release ever arrives. Clearing
+  // here keeps the next open from treating the first press as a repeat and dropping it.
+  for (CaptureKey& key : m_captureKeys) {
+    key.held = false;
+  }
 }
 
 PluginPanel::~PluginPanel() {
@@ -60,12 +136,31 @@ void PluginPanel::create() {
   // scene, which is torn down on close — so the root Flex is rebuilt each open.
   // The reconciler's retained slots point into the previous (now-freed) tree, so
   // reset it to rebuild the retained m_tree from scratch into the fresh Flex.
-  auto flex = std::make_unique<Flex>();
-  flex->setDirection(FlexDirection::Vertical);
-  flex->setAlign(FlexAlign::Stretch); // stretch the plugin's root to fill the panel width
-  m_flex = flex.get();
-  setRoot(std::move(flex));
   m_reconciler.reset();
+  m_reconciler.setDragDropOverlayRoot(nullptr);
+
+  auto flex = ui::column(
+      {
+          .out = &m_flex,
+          .align = FlexAlign::Stretch,
+          .configure = [this](Flex& root) { root.setAnimationManager(m_animations); },
+      },
+      ui::column({
+          .out = &m_contentFlex,
+          .align = FlexAlign::Stretch,
+          .flexGrow = 1.0f,
+      }),
+      ui::node({
+          .out = &m_dragOverlay,
+          .participatesInLayout = false,
+          .configure = [](Node& overlay) {
+            overlay.setHitTestVisible(false);
+            overlay.setZIndex(std::numeric_limits<std::int32_t>::max());
+          },
+      })
+  );
+
+  setRoot(std::move(flex));
   m_treeDirty = true;
 
   m_reconciler.setCallbackSink([this](const ui::UiTreeReconciler::ControlCallback& callback) {
@@ -75,6 +170,8 @@ void PluginPanel::create() {
       );
     }
   });
+  m_reconciler.setDragDropEnabled(true);
+  m_reconciler.setDragDropOverlayRoot(m_dragOverlay);
   m_reconciler.setPathResolver([this](const std::string& path) { return resolvePluginPath(path); });
   m_pendingFocusArea = nullptr;
   m_reconciler.setFocusRequestSink([this](InputArea* area) { m_pendingFocusArea = area; });
@@ -120,27 +217,51 @@ void PluginPanel::onOpen(std::string_view context) {
     (void)m_runtime->enqueueCallStrings("onOpen", std::string(context), {}, makeScriptSnapshot());
   }
   startTickTimer();
+  if (m_needsFrameTick) {
+    PanelManager::instance().requestAnimationFrameForPanel(m_entryId);
+  }
 }
 
 void PluginPanel::onClose() {
   m_open = false;
   m_tickTimer.stop();
+  releaseCapturedKeys();
+  // The scene (including the overlay node) is torn down after close; cancel any
+  // active drag and detach the overlay while the tree is still alive so the
+  // controller never holds a dangling overlay root between close and reopen.
+  m_reconciler.setDragDropOverlayRoot(nullptr);
   if (m_runtime != nullptr) {
     (void)m_runtime->enqueueCall("onClose", makeScriptSnapshot());
   }
 }
 
+void PluginPanel::onFrameTick(float deltaMs) {
+  if (m_runtime == nullptr || !m_needsFrameTick || !m_open) {
+    return;
+  }
+  // Coalesced like the desktop-widget path: a slow script only ever sees the latest frame.
+  (void)m_runtime->enqueueCallStrings(
+      "onFrameTick", std::format("{:.3f}", deltaMs), {}, makeScriptSnapshot(), /*coalesce=*/true
+  );
+  // Keep the frame loop alive while animating.
+  PanelManager::instance().requestAnimationFrameForPanel(m_entryId);
+}
+
 void PluginPanel::doLayout(Renderer& renderer, float width, float height) {
-  if (m_flex == nullptr) {
+  if (m_flex == nullptr || m_contentFlex == nullptr) {
     return;
   }
   if (m_tree.has_value()) {
     m_reconciler.setScale(contentScale());
-    (void)m_reconciler.reconcile(*m_flex, *m_tree, renderer);
+    (void)m_reconciler.reconcile(*m_contentFlex, *m_tree, renderer);
     m_treeDirty = false;
   }
   m_flex->setSize(width, height);
   m_flex->layout(renderer);
+  if (m_dragOverlay != nullptr) {
+    m_dragOverlay->setPosition(0.0f, 0.0f);
+    m_dragOverlay->setFrameSize(width, height);
+  }
 }
 
 void PluginPanel::doUpdate(Renderer& renderer) { (void)renderer; }
@@ -180,6 +301,7 @@ void PluginPanel::handleScriptResult(scripting::ScriptResult result) {
 
   if (result.unhealthy) {
     m_tickTimer.stop();
+    m_needsFrameTick = false;
     kLog.warn("plugin panel '{}' disabled after repeated timeouts", m_entryId);
   }
 
@@ -188,16 +310,21 @@ void PluginPanel::handleScriptResult(scripting::ScriptResult result) {
     m_wantsSecondTicks = *patch.wantsSecondTicks;
     startTickTimer();
   }
+  if (patch.needsFrameTick.has_value()) {
+    const bool was = m_needsFrameTick;
+    m_needsFrameTick = *patch.needsFrameTick;
+    if (m_needsFrameTick && !was && m_open) {
+      PanelManager::instance().requestAnimationFrameForPanel(m_entryId);
+    }
+  }
   if (patch.requestClose.value_or(false)) {
-    PanelManager::instance().closePanel();
+    PanelManager::instance().closePanelById(m_entryId);
     return;
   }
   if (patch.uiTree.has_value() && (!m_tree.has_value() || *patch.uiTree != *m_tree)) {
     m_tree = *patch.uiTree;
     m_treeDirty = true;
-    if (PanelManager::instance().isOpenPanel(m_entryId)) {
-      PanelManager::instance().refresh();
-    }
+    PanelManager::instance().refreshPanel(m_entryId);
   }
 }
 

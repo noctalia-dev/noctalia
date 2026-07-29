@@ -1,11 +1,14 @@
 #include "ui/ui_tree_reconciler.h"
 
+#include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "render/core/color.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
+#include "ui/controls/drag_source.h"
+#include "ui/controls/drop_zone.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/glyph.h"
 #include "ui/controls/graph.h"
@@ -19,6 +22,7 @@
 #include "ui/controls/slider.h"
 #include "ui/controls/spacer.h"
 #include "ui/controls/toggle.h"
+#include "ui/drag_drop_controller.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "ui/ui_tree.h"
@@ -26,6 +30,7 @@
 #include <charconv>
 #include <cmath>
 #include <format>
+#include <functional>
 #include <linux/input-event-codes.h>
 #include <optional>
 #include <unordered_set>
@@ -59,6 +64,88 @@ namespace ui {
     const std::vector<std::string>* strArrayProp(const UiTreeNode& node, const char* key) {
       const auto it = node.props.find(key);
       return it != node.props.end() ? std::get_if<std::vector<std::string>>(&it->second) : nullptr;
+    }
+
+    constexpr std::size_t kDragPayloadMaxBytes = 16 * 1024;
+    constexpr std::size_t kDragIdentifierMaxBytes = 256;
+    constexpr std::size_t kDropAcceptsMaxEntries = 16;
+
+    bool isDragDropType(std::string_view type) { return type == "drag_source" || type == "drop_zone"; }
+
+    struct DragDropPropError {
+      std::string prop;
+      std::string reason;
+    };
+
+    std::optional<DragDropPropError>
+    validateRequiredString(const UiTreeNode& node, const char* key, std::size_t maxBytes) {
+      const auto it = node.props.find(key);
+      if (it == node.props.end()) {
+        return DragDropPropError{.prop = key, .reason = "missing"};
+      }
+      const auto* value = std::get_if<std::string>(&it->second);
+      if (value == nullptr) {
+        return DragDropPropError{.prop = key, .reason = "must be a string"};
+      }
+      if (value->empty()) {
+        return DragDropPropError{.prop = key, .reason = "must not be empty"};
+      }
+      if (value->size() > maxBytes) {
+        return DragDropPropError{.prop = key, .reason = "exceeds the size limit"};
+      }
+      return std::nullopt;
+    }
+
+    std::optional<DragDropPropError> validateDragDropProps(const UiTreeNode& node) {
+      if (node.type == "drag_source") {
+        if (auto error = validateRequiredString(node, "dragType", kDragIdentifierMaxBytes)) {
+          return error;
+        }
+        if (auto error = validateRequiredString(node, "payload", kDragPayloadMaxBytes)) {
+          return error;
+        }
+      } else if (node.type == "drop_zone") {
+        if (auto error = validateRequiredString(node, "value", kDragIdentifierMaxBytes)) {
+          return error;
+        }
+        if (auto error = validateRequiredString(node, "onDrop", kDragIdentifierMaxBytes)) {
+          return error;
+        }
+        const auto acceptsIt = node.props.find("accepts");
+        if (acceptsIt == node.props.end()) {
+          return DragDropPropError{.prop = "accepts", .reason = "missing"};
+        }
+        const auto* accepts = std::get_if<std::vector<std::string>>(&acceptsIt->second);
+        if (accepts == nullptr) {
+          return DragDropPropError{.prop = "accepts", .reason = "must be a string array"};
+        }
+        if (accepts->size() > kDropAcceptsMaxEntries) {
+          return DragDropPropError{.prop = "accepts", .reason = "has too many entries"};
+        }
+        for (const auto& accepted : *accepts) {
+          if (accepted.empty()) {
+            return DragDropPropError{.prop = "accepts", .reason = "contains an empty entry"};
+          }
+          if (accepted.size() > kDragIdentifierMaxBytes) {
+            return DragDropPropError{.prop = "accepts", .reason = "contains an over-limit entry"};
+          }
+        }
+      }
+      if (node.props.contains("enabled") && boolProp(node, "enabled") == nullptr) {
+        return DragDropPropError{.prop = "enabled", .reason = "must be a boolean"};
+      }
+      return std::nullopt;
+    }
+
+    // Optional-prop counterpart to validateDragDropProps: a present-but-mistyped
+    // optional prop falls back to its default, but never silently.
+    void warnMistypedOptionalProp(const UiTreeNode& node, const char* key, const char* expected) {
+      if (node.props.contains(key)) {
+        kLog.warn(
+            "ui tree: '{}' key '{}': prop '{}' expects {}; default used", node.type,
+            node.key.empty() ? "<unkeyed>" : node.key, key, expected
+        );
+      }
     }
 
     // Role token ("primary", "on_surface", …) with an optional alpha suffix
@@ -215,14 +302,24 @@ namespace ui {
       return std::nullopt;
     }
 
+    InputArea* inputAreaFromSlot(Node* node) { return dynamic_cast<InputArea*>(node); }
+
     // The Node that a control's children reconcile into. Flex containers host
-    // their children directly; a ScrollView hosts them in its inner content
-    // Flex. Any other control returns nullptr — it cannot have children.
+    // their children directly; a wrapped Flex hosts them in its inner Flex; a
+    // ScrollView hosts them in its inner content Flex. Any other control
+    // returns nullptr — it cannot have children.
     Node* childContainer(const std::string& type, Node* node) {
       if (node == nullptr) {
         return nullptr;
       }
       if (type == "column" || type == "row") {
+        if (auto* inputArea = inputAreaFromSlot(node)) {
+          const auto& kids = inputArea->children();
+          return kids.empty() ? nullptr : kids.front().get();
+        }
+        return node;
+      }
+      if (type == "drag_source" || type == "drop_zone") {
         return node;
       }
       if (type == "scroll") {
@@ -256,38 +353,106 @@ namespace ui {
       return nullptr;
     }
 
-    InputArea* inputAreaFromSlot(Node* node) { return dynamic_cast<InputArea*>(node); }
+    // A callback prop with an empty name counts as unset. Callback wiring is
+    // change-detected against the slot's empty-string default, so an empty
+    // name would never wire a handler — but it WOULD create a wrapper that
+    // swallows clicks/hover meant for ancestors and sits in tab order dead.
+    const std::string* callbackProp(const UiTreeNode& node, const char* key) {
+      const std::string* name = strProp(node, key);
+      return name != nullptr && !name->empty() ? name : nullptr;
+    }
 
-    // box/image get an InputArea wrapper only when clickable (see createControl).
-    // If a reconcile flips that need, the existing node can't be reused — its
-    // structure no longer matches — so it must be rebuilt like a type change.
+    // Box/image and row/column get an InputArea wrapper only when clickable (see
+    // createControl). If a reconcile flips that need, the existing node can't
+    // be reused — its structure no longer matches — so it must be rebuilt like
+    // a type change.
     bool clickableWrapMismatch(const UiTreeNode& want, Node* node) {
-      if (want.type != "box" && want.type != "image") {
+      if (want.type != "box" && want.type != "image" && want.type != "row" && want.type != "column") {
         return false;
       }
-      const bool wantsWrapper = strProp(want, "onClick") != nullptr;
+      const bool wantsWrapper = callbackProp(want, "onClick") != nullptr || callbackProp(want, "onHover") != nullptr;
       const bool hasWrapper = inputAreaFromSlot(node) != nullptr;
       return wantsWrapper != hasWrapper;
     }
 
-    std::unique_ptr<Node> wrapClickable(std::unique_ptr<Node> control) {
-      auto inputArea = std::make_unique<InputArea>();
-      inputArea->setAcceptedButtons(InputArea::buttonMask(BTN_LEFT));
+    // InputArea never self-sizes; box/image mirror explicit sizes, but a
+    // content-sized flex needs its child measurement forwarded.
+    class ClickWrap final : public InputArea {
+    protected:
+      LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override {
+        if (!children().empty()) {
+          const LayoutSize measured = children().front()->measure(renderer, constraints);
+          setSize(measured.width, measured.height);
+          return measured;
+        }
+        return InputArea::doMeasure(renderer, constraints);
+      }
+
+      void doArrange(Renderer& renderer, const LayoutRect& rect) override {
+        setPosition(rect.x, rect.y);
+        setSize(rect.width, rect.height);
+        if (!children().empty()) {
+          children().front()->arrange(
+              renderer, LayoutRect{.x = 0.0f, .y = 0.0f, .width = rect.width, .height = rect.height}
+          );
+        }
+      }
+    };
+
+    std::unique_ptr<Node> wrapClickable(std::unique_ptr<Node> control, bool acceptClicks) {
+      auto inputArea = std::make_unique<ClickWrap>();
+      // A hover-only wrapper must not swallow clicks meant for ancestors.
+      inputArea->setAcceptedButtons(acceptClicks ? InputArea::buttonMask(BTN_LEFT) : 0);
+      if (acceptClicks) {
+        inputArea->setFocusable(true);
+      }
       inputArea->addChild(std::move(control));
       return inputArea;
+    }
+
+    void wireWrapperActivation(InputArea* inputArea, const std::function<void()>& sink) {
+      // A wrapper created hover-only starts with an empty button mask.
+      inputArea->setAcceptedButtons(InputArea::buttonMask(BTN_LEFT));
+      inputArea->setOnClick([sink](const InputArea::PointerData&) { sink(); });
+      inputArea->setFocusable(true);
+      inputArea->setOnKeyDown([sink](const InputArea::KeyData& key) {
+        if (key.pressed && KeybindMatcher::matches(KeybindAction::Validate, key.sym, key.modifiers)) {
+          sink();
+        }
+      });
+    }
+
+    // Wrapper input handlers deviate from the retain-absent-props default:
+    // when onClick/onHover disappears while the other callback keeps the
+    // wrapper alive, the stale handler must go with it — a retained one would
+    // leave an invisible node that swallows clicks and sits in tab order as a
+    // keyboard-activatable ghost.
+    void clearWrapperActivation(InputArea* inputArea) {
+      inputArea->setAcceptedButtons(0);
+      inputArea->setFocusable(false);
+      inputArea->setOnClick(nullptr);
+      inputArea->setOnKeyDown(nullptr);
+      // setOnClick(fn) auto-selects the pointer cursor; drop it with the click.
+      inputArea->setCursorShape(0);
+    }
+
+    void clearWrapperHover(InputArea* inputArea) {
+      inputArea->setOnEnter(nullptr);
+      inputArea->setOnLeave(nullptr);
     }
 
     // Known prop keys per control type — an unknown prop is a loud skip, not a
     // silent no-op, so typos in plugin code surface immediately.
     const std::unordered_set<std::string>& knownProps(const std::string& type) {
       static const std::unordered_set<std::string> kCommon = {"width", "height", "flexGrow", "opacity", "visible"};
-      static const std::unordered_set<std::string> kFlex = {
-          "width", "height",  "flexGrow", "opacity", "visible", "gap",         "padding",  "paddingH", "paddingV",
-          "align", "justify", "fill",     "radius",  "border",  "borderWidth", "minWidth", "minHeight"
-      };
+      static const std::unordered_set<std::string> kFlex = {"width",     "height",  "flexGrow",    "opacity",
+                                                            "visible",   "gap",     "padding",     "paddingH",
+                                                            "paddingV",  "align",   "justify",     "fill",
+                                                            "radius",    "border",  "borderWidth", "minWidth",
+                                                            "minHeight", "onClick", "onHover"};
       static const std::unordered_set<std::string> kBox = {"width",       "height",   "flexGrow", "opacity",
                                                            "visible",     "fill",     "radius",   "border",
-                                                           "borderWidth", "softness", "onClick"};
+                                                           "borderWidth", "softness", "onClick",  "onHover"};
       static const std::unordered_set<std::string> kLabel = {"width",      "height",   "flexGrow", "opacity",
                                                              "visible",    "text",     "fontSize", "color",
                                                              "fontWeight", "maxWidth", "maxLines", "textAlign",
@@ -296,17 +461,17 @@ namespace ui {
                                                              "visible", "name",   "size",     "color"};
       static const std::unordered_set<std::string> kImage = {"width",   "height",      "flexGrow", "opacity",
                                                              "visible", "path",        "radius",   "fit",
-                                                             "border",  "borderWidth", "onClick"};
+                                                             "border",  "borderWidth", "onClick",  "onHover"};
       static const std::unordered_set<std::string> kSeparator = {"width",   "height",  "flexGrow",
                                                                  "opacity", "visible", "thickness",
                                                                  "color",   "spacing", "orientation"};
       static const std::unordered_set<std::string> kProgress = {"width",    "height", "flexGrow", "opacity", "visible",
                                                                 "progress", "fill",   "track",    "radius"};
-      static const std::unordered_set<std::string> kButton = {"width",      "height",  "flexGrow",     "opacity",
-                                                              "visible",    "text",    "glyph",        "fontSize",
-                                                              "glyphSize",  "variant", "contentAlign", "enabled",
-                                                              "selected",   "onClick", "onRightClick", "tooltip",
-                                                              "controlSize"};
+      static const std::unordered_set<std::string> kButton = {"width",       "height",  "flexGrow",     "opacity",
+                                                              "visible",     "text",    "glyph",        "fontSize",
+                                                              "glyphSize",   "variant", "contentAlign", "enabled",
+                                                              "selected",    "onClick", "onRightClick", "tooltip",
+                                                              "controlSize", "onHover"};
       static const std::unordered_set<std::string> kGraph = {"width",   "height",    "flexGrow",   "opacity",
                                                              "visible", "values",    "values2",    "color",
                                                              "color2",  "lineWidth", "fillOpacity"};
@@ -327,6 +492,17 @@ namespace ui {
                                                               "visible",     "fill",   "radius",   "border",
                                                               "borderWidth", "gap",    "padding",  "paddingH",
                                                               "paddingV",    "align",  "justify"};
+      static const std::unordered_set<std::string> kDragSource = {
+          "width",   "height",   "flexGrow",    "opacity",         "visible",       "gap",
+          "padding", "paddingH", "paddingV",    "align",           "justify",       "fill",
+          "radius",  "border",   "borderWidth", "minWidth",        "minHeight",     "dragType",
+          "payload", "enabled",  "tooltip",     "previewAncestor", "liftFromLayout"
+      };
+      static const std::unordered_set<std::string> kDropZone = {
+          "width",     "height",  "flexGrow", "opacity", "visible",   "gap",     "padding",      "paddingH",
+          "paddingV",  "align",   "justify",  "fill",    "radius",    "border",  "borderWidth",  "minWidth",
+          "minHeight", "accepts", "value",    "onDrop",  "direction", "enabled", "expandOnDrag", "hitSlop"
+      };
 
       if (type == "column" || type == "row") {
         return kFlex;
@@ -370,6 +546,12 @@ namespace ui {
       if (type == "scroll") {
         return kScroll;
       }
+      if (type == "drag_source") {
+        return kDragSource;
+      }
+      if (type == "drop_zone") {
+        return kDropZone;
+      }
       return kCommon;
     }
 
@@ -381,6 +563,7 @@ namespace ui {
     Node* node = nullptr;
     std::string callbackName;        // last-wired button onClick / control onChange target
     std::string rightCallbackName;   // last-wired button onRightClick target
+    std::string hoverCallbackName;   // last-wired onHover target (button/box/image/row/column)
     std::string submitCallbackName;  // last-wired input onSubmit target
     std::string dragEndCallbackName; // last-wired slider onDragEnd target
     std::string imagePath;           // last-applied resolved image source
@@ -393,8 +576,33 @@ namespace ui {
     std::vector<Slot> children;
   };
 
-  UiTreeReconciler::UiTreeReconciler() : m_defaultFontWeight(FontWeight::Normal) {}
-  UiTreeReconciler::~UiTreeReconciler() = default;
+  UiTreeReconciler::UiTreeReconciler()
+      : m_defaultFontWeight(FontWeight::Normal), m_dragDropController(std::make_unique<DragDropController>()) {
+    m_dragDropController->setDropCallback([this](std::string callback, std::string payload, std::string target) {
+      if (m_sink) {
+        m_sink(ControlCallback{std::move(callback), std::move(payload), std::move(target), false});
+      }
+    });
+  }
+
+  UiTreeReconciler::~UiTreeReconciler() { reset(); }
+
+  void UiTreeReconciler::setScale(float scale) {
+    m_scale = scale;
+    m_dragDropController->setScale(scale);
+  }
+
+  void UiTreeReconciler::setDragDropEnabled(bool enabled) {
+    if (m_dragDropEnabled == enabled) {
+      return;
+    }
+    if (!enabled) {
+      m_dragDropController->cancel();
+    }
+    m_dragDropEnabled = enabled;
+  }
+
+  void UiTreeReconciler::setDragDropOverlayRoot(Node* root) { m_dragDropController->setOverlayRoot(root); }
 
   bool UiTreeReconciler::reconcile(Flex& host, const UiTreeNode& tree, Renderer& renderer) {
     std::vector<UiTreeNode> desired;
@@ -402,9 +610,19 @@ namespace ui {
     return syncChildren(host, m_rootSlots, desired, renderer);
   }
 
-  void UiTreeReconciler::reset() { m_rootSlots.clear(); }
+  void UiTreeReconciler::reset() {
+    m_dragDropController->cancel();
+    // The host tree is gone, so any hover it was reporting has ended. The slots
+    // still name it; the Nodes they point at are already freed.
+    closeHover();
+    m_rootSlots.clear();
+  }
 
   std::unique_ptr<Node> UiTreeReconciler::createControl(const UiTreeNode& desired) {
+    if (isDragDropType(desired.type) && !m_dragDropEnabled) {
+      kLog.error("ui tree: '{}' is only supported in plugin panels; node skipped", desired.type);
+      return nullptr;
+    }
     // ui.* flex containers default to stretching children across the cross axis
     // (like CSS flexbox), so a column fills its width without every plugin having
     // to say so. Override per node with `align`. (Flex's own C++ default is
@@ -413,17 +631,35 @@ namespace ui {
       auto flex = std::make_unique<Flex>();
       flex->setDirection(FlexDirection::Vertical);
       flex->setAlign(FlexAlign::Stretch);
+      if (callbackProp(desired, "onClick") != nullptr || callbackProp(desired, "onHover") != nullptr) {
+        return wrapClickable(std::move(flex), callbackProp(desired, "onClick") != nullptr);
+      }
       return flex;
     }
     if (desired.type == "row") {
       auto flex = std::make_unique<Flex>();
       flex->setDirection(FlexDirection::Horizontal);
       flex->setAlign(FlexAlign::Stretch);
+      if (callbackProp(desired, "onClick") != nullptr || callbackProp(desired, "onHover") != nullptr) {
+        return wrapClickable(std::move(flex), callbackProp(desired, "onClick") != nullptr);
+      }
       return flex;
     }
+    if (desired.type == "drag_source") {
+      auto source = std::make_unique<DragSource>(m_dragDropController.get());
+      source->setDirection(FlexDirection::Horizontal);
+      source->setAlign(FlexAlign::Stretch);
+      return source;
+    }
+    if (desired.type == "drop_zone") {
+      auto zone = std::make_unique<DropZone>(m_dragDropController.get());
+      zone->setDirection(FlexDirection::Vertical);
+      zone->setAlign(FlexAlign::Stretch);
+      return zone;
+    }
     if (desired.type == "box") {
-      if (strProp(desired, "onClick") != nullptr) {
-        return wrapClickable(std::make_unique<Box>());
+      if (callbackProp(desired, "onClick") != nullptr || callbackProp(desired, "onHover") != nullptr) {
+        return wrapClickable(std::make_unique<Box>(), callbackProp(desired, "onClick") != nullptr);
       }
       return std::make_unique<Box>();
     }
@@ -434,8 +670,8 @@ namespace ui {
       return std::make_unique<Glyph>();
     }
     if (desired.type == "image") {
-      if (strProp(desired, "onClick") != nullptr) {
-        return wrapClickable(std::make_unique<Image>());
+      if (callbackProp(desired, "onClick") != nullptr || callbackProp(desired, "onHover") != nullptr) {
+        return wrapClickable(std::make_unique<Image>(), callbackProp(desired, "onClick") != nullptr);
       }
       return std::make_unique<Image>();
     }
@@ -484,7 +720,8 @@ namespace ui {
       for (std::size_t i = 0; i < slots.size(); ++i) {
         if (slots[i].type != desired[i].type
             || slots[i].key != desired[i].key
-            || clickableWrapMismatch(desired[i], slots[i].node)) {
+            || clickableWrapMismatch(desired[i], slots[i].node)
+            || (isDragDropType(desired[i].type) && !m_dragDropEnabled)) {
           sequenceMatches = false;
           break;
         }
@@ -506,6 +743,7 @@ namespace ui {
       detached.reserve(slots.size());
       for (auto& slot : slots) {
         if (slot.node != nullptr) {
+          m_dragDropController->cancelIfParticipantIn(slot.node);
           auto owned = parent.removeChild(slot.node);
           detached.push_back(Detached{.slot = std::move(slot), .node = std::move(owned)});
         }
@@ -517,6 +755,7 @@ namespace ui {
         Detached* match = nullptr;
         for (auto& candidate : detached) {
           if (candidate.used
+              || (isDragDropType(want.type) && !m_dragDropEnabled)
               || candidate.slot.type != want.type
               || candidate.slot.key != want.key
               || clickableWrapMismatch(want, candidate.node.get())) {
@@ -542,6 +781,13 @@ namespace ui {
         slot.key = want.key;
         slot.node = parent.addChild(std::move(control));
         slots.push_back(std::move(slot));
+      }
+
+      for (const auto& leftover : detached) {
+        if (!leftover.used && subtreeOwnsHover(leftover.slot)) {
+          closeHover();
+          break;
+        }
       }
     }
 
@@ -572,6 +818,97 @@ namespace ui {
     return structureChanged;
   }
 
+  void UiTreeReconciler::syncWrapperCallbacks(Slot& slot, const UiTreeNode& desired, Node* node) {
+    InputArea* inputArea = inputAreaFromSlot(node);
+    if (const std::string* onClick = callbackProp(desired, "onClick"); onClick != nullptr) {
+      if (*onClick != slot.callbackName) {
+        slot.callbackName = *onClick;
+        if (inputArea != nullptr) {
+          wireWrapperActivation(inputArea, [this, name = slot.callbackName]() {
+            if (m_sink) {
+              m_sink(ControlCallback{name});
+            }
+          });
+        }
+      }
+    } else if (!slot.callbackName.empty()) {
+      slot.callbackName.clear();
+      if (inputArea != nullptr) {
+        clearWrapperActivation(inputArea);
+      }
+    }
+    if (const std::string* onHover = callbackProp(desired, "onHover"); onHover != nullptr) {
+      if (*onHover != slot.hoverCallbackName) {
+        releaseHover(node);
+        slot.hoverCallbackName = *onHover;
+        if (inputArea != nullptr) {
+          inputArea->setOnEnter([this, name = slot.hoverCallbackName, key = desired.key,
+                                 node](const InputArea::PointerData&) { openHover(name, key, node); });
+          inputArea->setOnLeave([this, node]() { releaseHover(node); });
+        }
+      }
+    } else if (!slot.hoverCallbackName.empty()) {
+      releaseHover(node);
+      slot.hoverCallbackName.clear();
+      if (inputArea != nullptr) {
+        clearWrapperHover(inputArea);
+      }
+    }
+  }
+
+  // Hover is state the plugin mirrors, so every "true" owes a "false". Exactly
+  // one InputArea is hovered at a time, so tracking the one node that opened the
+  // hover is enough to close it when that node is dropped, rewired, or reset
+  // away. None of those reach the dispatcher's leave path, which only tracks
+  // areas still in the scene.
+  void UiTreeReconciler::openHover(const std::string& name, const std::string& key, const Node* owner) {
+    if (m_hoveredOwner == owner) {
+      return;
+    }
+    closeHover();
+    m_hoveredCallback = name;
+    m_hoveredKey = key;
+    m_hoveredOwner = owner;
+    if (m_sink) {
+      m_sink(ControlCallback{name, "true", key});
+    }
+  }
+
+  void UiTreeReconciler::closeHover() {
+    if (m_hoveredOwner == nullptr) {
+      return;
+    }
+    const std::string name = std::exchange(m_hoveredCallback, std::string{});
+    const std::string key = std::exchange(m_hoveredKey, std::string{});
+    m_hoveredOwner = nullptr;
+    if (m_sink) {
+      m_sink(ControlCallback{name, "false", key});
+    }
+  }
+
+  // Closes the hover only if `owner` is the node currently reporting it, so
+  // sibling nodes sharing one callback name do not close each other's hover.
+  void UiTreeReconciler::releaseHover(const Node* owner) {
+    if (owner != nullptr && owner == m_hoveredOwner) {
+      closeHover();
+    }
+  }
+
+  bool UiTreeReconciler::subtreeOwnsHover(const Slot& slot) const {
+    if (m_hoveredOwner == nullptr) {
+      return false;
+    }
+    if (slot.node == m_hoveredOwner) {
+      return true;
+    }
+    for (const Slot& child : slot.children) {
+      if (subtreeOwnsHover(child)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   void UiTreeReconciler::applyProps(Slot& slot, const UiTreeNode& desired, Renderer& renderer) {
     Node* node = slot.node;
     if (node == nullptr) {
@@ -590,10 +927,18 @@ namespace ui {
 
     // Common node props.
     if (const bool* visible = boolProp(desired, "visible")) {
+      if (!*visible) {
+        m_dragDropController->cancelIfParticipantIn(node);
+      }
       node->setVisible(*visible);
     }
     if (const double* opacity = numProp(desired, "opacity")) {
-      node->setOpacity(std::clamp(static_cast<float>(*opacity), 0.0f, 1.0f));
+      const float clamped = std::clamp(static_cast<float>(*opacity), 0.0f, 1.0f);
+      if (desired.type == "drag_source") {
+        static_cast<DragSource*>(node)->setSourceOpacity(clamped);
+      } else {
+        node->setOpacity(clamped);
+      }
     }
     if (const double* grow = numProp(desired, "flexGrow")) {
       node->setFlexGrow(static_cast<float>(*grow));
@@ -602,8 +947,93 @@ namespace ui {
     const double* width = numProp(desired, "width");
     const double* height = numProp(desired, "height");
 
-    if (desired.type == "column" || desired.type == "row") {
-      auto* flex = static_cast<Flex*>(node);
+    if (desired.type == "drag_source") {
+      auto* source = static_cast<DragSource*>(node);
+      if (auto error = validateDragDropProps(desired)) {
+        kLog.warn(
+            "ui tree: '{}' key '{}': prop '{}' {}; control disabled", desired.type,
+            desired.key.empty() ? "<unkeyed>" : desired.key, error->prop, error->reason
+        );
+        source->setDragType({});
+        source->setPayload({});
+        source->setEnabled(false);
+      } else {
+        source->setDragType(*strProp(desired, "dragType"));
+        source->setPayload(*strProp(desired, "payload"));
+        source->setEnabled(boolProp(desired, "enabled") == nullptr || *boolProp(desired, "enabled"));
+      }
+      const std::string* tooltip = strProp(desired, "tooltip");
+      if (tooltip == nullptr) {
+        warnMistypedOptionalProp(desired, "tooltip", "a string");
+      }
+      source->setTooltip(tooltip != nullptr ? *tooltip : "");
+      const double* previewAncestor = numProp(desired, "previewAncestor");
+      if (previewAncestor == nullptr) {
+        warnMistypedOptionalProp(desired, "previewAncestor", "an integer from 0 to 8");
+        source->setPreviewAncestor(0);
+      } else if (*previewAncestor < 0.0 || *previewAncestor > 8.0 || std::floor(*previewAncestor) != *previewAncestor) {
+        kLog.warn("ui tree: 'drag_source' key '{}': previewAncestor expects an integer from 0 to 8", desired.key);
+        source->setPreviewAncestor(0);
+      } else {
+        source->setPreviewAncestor(static_cast<std::size_t>(*previewAncestor));
+      }
+      const bool* liftFromLayout = boolProp(desired, "liftFromLayout");
+      if (liftFromLayout == nullptr) {
+        warnMistypedOptionalProp(desired, "liftFromLayout", "a boolean");
+      }
+      source->setLiftFromLayout(liftFromLayout != nullptr && *liftFromLayout);
+    } else if (desired.type == "drop_zone") {
+      auto* zone = static_cast<DropZone*>(node);
+      if (auto error = validateDragDropProps(desired)) {
+        kLog.warn(
+            "ui tree: '{}' key '{}': prop '{}' {}; control disabled", desired.type,
+            desired.key.empty() ? "<unkeyed>" : desired.key, error->prop, error->reason
+        );
+        zone->setAccepts({});
+        zone->setValue({});
+        zone->setOnDrop({});
+        zone->setEnabled(false);
+      } else {
+        zone->setAccepts(*strArrayProp(desired, "accepts"));
+        zone->setValue(*strProp(desired, "value"));
+        zone->setOnDrop(*strProp(desired, "onDrop"));
+        zone->setEnabled(boolProp(desired, "enabled") == nullptr || *boolProp(desired, "enabled"));
+      }
+      const bool* expandOnDrag = boolProp(desired, "expandOnDrag");
+      if (expandOnDrag == nullptr) {
+        warnMistypedOptionalProp(desired, "expandOnDrag", "a boolean");
+      }
+      zone->setExpandOnDrag(expandOnDrag != nullptr && *expandOnDrag);
+      const double* hitSlop = numProp(desired, "hitSlop");
+      if (hitSlop == nullptr) {
+        warnMistypedOptionalProp(desired, "hitSlop", "a number");
+      }
+      zone->setHitSlop(hitSlop != nullptr ? scaled(std::max(0.0, *hitSlop)) : 0.0f);
+    }
+
+    if (desired.type == "column"
+        || desired.type == "row"
+        || desired.type == "drag_source"
+        || desired.type == "drop_zone") {
+      auto* flex = controlFromSlot<Flex>(node);
+      if (flex == nullptr) {
+        return;
+      }
+      if (desired.type == "drop_zone") {
+        auto* zone = static_cast<DropZone*>(node);
+        const std::string* direction = strProp(desired, "direction");
+        if (direction == nullptr) {
+          warnMistypedOptionalProp(desired, "direction", R"("column" or "row")");
+          zone->setDirection(FlexDirection::Vertical);
+        } else if (*direction == "column") {
+          zone->setDirection(FlexDirection::Vertical);
+        } else if (*direction == "row") {
+          zone->setDirection(FlexDirection::Horizontal);
+        } else {
+          kLog.warn("ui tree: 'drop_zone' key '{}': unknown direction '{}'", desired.key, *direction);
+          zone->setDirection(FlexDirection::Vertical);
+        }
+      }
       if (const double* gap = numProp(desired, "gap")) {
         flex->setGap(scaled(*gap));
       }
@@ -623,14 +1053,34 @@ namespace ui {
         flex->setJustify(*justify);
       }
       if (auto fill = parseColor(desired, "fill")) {
-        flex->setFill(*fill);
+        if (desired.type == "drop_zone") {
+          static_cast<DropZone*>(node)->setZoneFill(*fill);
+        } else {
+          flex->setFill(*fill);
+        }
+      } else if (desired.type == "drop_zone") {
+        static_cast<DropZone*>(node)->clearZoneFill();
       }
       if (const double* radius = numProp(desired, "radius")) {
-        flex->setRadius(scaled(*radius));
+        if (desired.type == "drop_zone") {
+          static_cast<DropZone*>(node)->setZoneRadius(Style::scaledRadius(static_cast<float>(*radius), m_scale));
+        } else {
+          flex->setRadius(scaled(*radius));
+        }
+      } else if (desired.type == "drop_zone") {
+        static_cast<DropZone*>(node)->clearZoneRadius(Style::scaledRadiusSm(m_scale));
       }
       if (auto border = parseColor(desired, "border")) {
         const double* borderWidth = numProp(desired, "borderWidth");
-        flex->setBorder(*border, borderWidth != nullptr ? scaled(*borderWidth) : 1.0f);
+        if (desired.type == "drop_zone") {
+          static_cast<DropZone*>(node)->setZoneBorder(
+              *border, borderWidth != nullptr ? scaled(*borderWidth) : Style::borderWidth
+          );
+        } else {
+          flex->setBorder(*border, borderWidth != nullptr ? scaled(*borderWidth) : Style::borderWidth);
+        }
+      } else if (desired.type == "drop_zone") {
+        static_cast<DropZone*>(node)->clearZoneBorder();
       }
       if (const double* minWidth = numProp(desired, "minWidth")) {
         flex->setMinWidth(scaled(*minWidth));
@@ -643,9 +1093,14 @@ namespace ui {
         flex->setMaxWidth(scaled(*width));
       }
       if (height != nullptr) {
-        flex->setMinHeight(scaled(*height));
-        flex->setMaxHeight(scaled(*height));
+        if (desired.type == "drop_zone") {
+          static_cast<DropZone*>(node)->setCollapsedHeight(scaled(*height));
+        } else {
+          flex->setMinHeight(scaled(*height));
+          flex->setMaxHeight(scaled(*height));
+        }
       }
+      syncWrapperCallbacks(slot, desired, node);
       return;
     }
 
@@ -673,17 +1128,7 @@ namespace ui {
       if (auto* inputArea = inputAreaFromSlot(node)) {
         inputArea->setSize(boxWidth, boxHeight);
       }
-      if (const std::string* onClick = strProp(desired, "onClick");
-          onClick != nullptr && *onClick != slot.callbackName) {
-        slot.callbackName = *onClick;
-        if (auto* inputArea = inputAreaFromSlot(node)) {
-          inputArea->setOnClick([this, name = slot.callbackName](const InputArea::PointerData&) {
-            if (m_sink) {
-              m_sink(ControlCallback{name});
-            }
-          });
-        }
-      }
+      syncWrapperCallbacks(slot, desired, node);
       return;
     }
 
@@ -789,17 +1234,7 @@ namespace ui {
           }
         }
       }
-      if (const std::string* onClick = strProp(desired, "onClick");
-          onClick != nullptr && *onClick != slot.callbackName) {
-        slot.callbackName = *onClick;
-        if (auto* inputArea = inputAreaFromSlot(node)) {
-          inputArea->setOnClick([this, name = slot.callbackName](const InputArea::PointerData&) {
-            if (m_sink) {
-              m_sink(ControlCallback{name});
-            }
-          });
-        }
-      }
+      syncWrapperCallbacks(slot, desired, node);
       return;
     }
 
@@ -896,6 +1331,24 @@ namespace ui {
       // retained Button. An empty text routes to InputArea::clearTooltip().
       const std::string* tooltip = strProp(desired, "tooltip");
       button->setTooltip(tooltip != nullptr ? *tooltip : "");
+      // Like the wrapper controls, hover handlers clear on removal instead of
+      // being retained: a stale one keeps firing and keeps the Button's
+      // InputArea enabled for a callback the tree no longer declares.
+      if (const std::string* onHover = callbackProp(desired, "onHover"); onHover != nullptr) {
+        if (*onHover != slot.hoverCallbackName) {
+          releaseHover(node);
+          slot.hoverCallbackName = *onHover;
+          button->setOnEnter([this, name = slot.hoverCallbackName, key = desired.key, node]() {
+            openHover(name, key, node);
+          });
+          button->setOnLeave([this, node]() { releaseHover(node); });
+        }
+      } else if (!slot.hoverCallbackName.empty()) {
+        releaseHover(node);
+        slot.hoverCallbackName.clear();
+        button->setOnEnter(nullptr);
+        button->setOnLeave(nullptr);
+      }
       if (const std::string* onClick = strProp(desired, "onClick");
           onClick != nullptr && *onClick != slot.callbackName) {
         slot.callbackName = *onClick;

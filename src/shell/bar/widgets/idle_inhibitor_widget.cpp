@@ -17,12 +17,7 @@ namespace {
 IdleInhibitorWidget::IdleInhibitorWidget(IdleInhibitor* inhibitor) : m_inhibitor(inhibitor) {}
 
 void IdleInhibitorWidget::create() {
-  auto area = std::make_unique<InputArea>();
-  area->setOnClick([this](const InputArea::PointerData& /*data*/) {
-    if (m_inhibitor != nullptr && m_inhibitor->available()) {
-      m_inhibitor->toggle();
-    }
-  });
+  auto area = ui::inputArea({});
   m_area = area.get();
 
   area->addChild(

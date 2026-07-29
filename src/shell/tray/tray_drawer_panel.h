@@ -12,7 +12,7 @@ class TrayWidget;
 
 class TrayDrawerPanel : public Panel {
 public:
-  TrayDrawerPanel(TrayService* tray, ConfigService* config, std::size_t drawerColumns = 3);
+  TrayDrawerPanel(TrayService* tray, ConfigService* config);
   ~TrayDrawerPanel() override;
 
   void create() override;
@@ -35,6 +35,5 @@ private:
 
   TrayService* m_tray = nullptr;
   ConfigService* m_config = nullptr;
-  std::size_t m_drawerColumns = 3;
   std::unique_ptr<TrayWidget> m_drawerWidget;
 };

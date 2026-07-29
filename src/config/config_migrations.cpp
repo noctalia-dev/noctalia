@@ -7,6 +7,7 @@
 #include <limits>
 #include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace noctalia::config {
@@ -14,6 +15,12 @@ namespace noctalia::config {
 
     constexpr int kNegativeBarRadiusMigrationVersion = 1;
     constexpr int kCustomScheduleMigrationVersion = 2;
+    constexpr int kWidgetActionsMigrationVersion = 3;
+    constexpr int kWidgetGestureSettingsMigrationVersion = 4;
+    constexpr int kRemainingWidgetGesturesMigrationVersion = 5;
+    constexpr int kCustomButtonCommandsMigrationVersion = 6;
+    constexpr int kDeadZoneActionsMigrationVersion = 7;
+    constexpr int kLockscreenLoginBoxDeprecatedSettingsMigrationVersion = 8;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
@@ -106,6 +113,333 @@ namespace noctalia::config {
       });
     }
 
+    // `shell.middle_click_opens_widget_settings` became a gesture binding. Only the disabled case
+    // needs carrying over: opening widget settings on middle click is now the built-in default.
+    template <typename OnChanged> void migrateWidgetActions(toml::table& root, OnChanged&& onChanged) {
+      auto* shell = root["shell"].as_table();
+      if (shell == nullptr || !shell->contains("middle_click_opens_widget_settings")) {
+        return;
+      }
+
+      const bool wasEnabled = (*shell)["middle_click_opens_widget_settings"].value_or(true);
+      shell->erase("middle_click_opens_widget_settings");
+      onChanged("shell");
+      if (wasEnabled) {
+        return;
+      }
+
+      // Unbind it on every configured bar, since the setting used to be global. A config with no
+      // [bar] table at all uses the built-in default bar, so seed that one.
+      auto* bars = root["bar"].as_table();
+      if (bars == nullptr) {
+        root.insert_or_assign("bar", toml::table{});
+        bars = root["bar"].as_table();
+      }
+      if (bars->empty()) {
+        bars->insert_or_assign("default", toml::table{});
+      }
+
+      for (auto& [barName, barNode] : *bars) {
+        auto* bar = barNode.as_table();
+        if (bar == nullptr) {
+          continue;
+        }
+        auto* actions = (*bar)["actions"].as_table();
+        if (actions == nullptr) {
+          bar->insert_or_assign("actions", toml::table{});
+          actions = (*bar)["actions"].as_table();
+        }
+        if (actions->contains("middle")) {
+          continue;
+        }
+        actions->insert_or_assign("middle", "none");
+        onChanged("bar." + std::string(barName.str()) + ".actions");
+      }
+    }
+
+    // Writes a gesture binding, leaving an existing one alone: an explicit config always wins over
+    // whatever a migrated setting would have implied.
+    void bindAction(toml::table& widget, std::string_view gesture, const std::string& action) {
+      auto* actions = widget["actions"].as_table();
+      if (actions == nullptr) {
+        widget.insert_or_assign("actions", toml::table{});
+        actions = widget["actions"].as_table();
+      }
+      if (!actions->contains(gesture)) {
+        actions->insert_or_assign(gesture, action);
+      }
+    }
+
+    // `enable_scroll` and `cycle_command` were per-widget stand-ins for gestures these widgets now
+    // declare as data. Both become ordinary bindings.
+    template <typename OnChanged> void migrateWidgetGestureSettings(toml::table& root, OnChanged&& onChanged) {
+      static constexpr std::array<std::string_view, 3> kScrollTypes{"workspaces", "taskbar", "power_profile"};
+
+      auto* widgets = root["widget"].as_table();
+      if (widgets == nullptr) {
+        return;
+      }
+
+      for (auto& [widgetName, widgetNode] : *widgets) {
+        auto* widget = widgetNode.as_table();
+        if (widget == nullptr) {
+          continue;
+        }
+        // A widget entry without an explicit `type` is named after its type.
+        const std::string type = (*widget)["type"].value_or(std::string(widgetName.str()));
+        const std::string path = "widget." + std::string(widgetName.str());
+
+        if (std::ranges::contains(kScrollTypes, type) && widget->contains("enable_scroll")) {
+          const bool wasEnabled = (*widget)["enable_scroll"].value_or(true);
+          widget->erase("enable_scroll");
+          if (!wasEnabled) {
+            bindAction(*widget, "scroll_up", "none");
+            bindAction(*widget, "scroll_down", "none");
+          }
+          onChanged(path, "enable_scroll is now the scroll_up/scroll_down gesture bindings");
+        }
+
+        if (type == "keyboard_layout" && widget->contains("cycle_command")) {
+          const auto command = (*widget)["cycle_command"].value_or(std::string{});
+          widget->erase("cycle_command");
+          if (!command.empty()) {
+            bindAction(*widget, "left", "exec " + command);
+          }
+          onChanged(path, "cycle_command is now the left gesture binding");
+        }
+      }
+    }
+
+    // Second wave: the widgets migrated in stage 3. `scroll_step` becomes the step argument of the
+    // scroll binding, and screenshot's `primary_click` picks the left binding's verb.
+    template <typename OnChanged> void migrateRemainingWidgetGestures(toml::table& root, OnChanged&& onChanged) {
+      // Both scroll verbs default to 5%, so only a non-default step has to survive as an argument.
+      constexpr std::int64_t kDefaultScrollStep = 5;
+
+      auto* widgets = root["widget"].as_table();
+      if (widgets == nullptr) {
+        return;
+      }
+
+      for (auto& [widgetName, widgetNode] : *widgets) {
+        auto* widget = widgetNode.as_table();
+        if (widget == nullptr) {
+          continue;
+        }
+        const std::string type = (*widget)["type"].value_or(std::string(widgetName.str()));
+        const std::string path = "widget." + std::string(widgetName.str());
+        const bool scrollType = type == "media" || type == "volume" || type == "brightness";
+
+        if (scrollType && widget->contains("enable_scroll")) {
+          const bool wasEnabled = (*widget)["enable_scroll"].value_or(true);
+          widget->erase("enable_scroll");
+          if (!wasEnabled) {
+            bindAction(*widget, "scroll_up", "none");
+            bindAction(*widget, "scroll_down", "none");
+          }
+          onChanged(path, "enable_scroll is now the scroll_up/scroll_down gesture bindings");
+        }
+
+        if ((type == "volume" || type == "brightness") && widget->contains("scroll_step")) {
+          const auto step = (*widget)["scroll_step"].value_or(kDefaultScrollStep);
+          widget->erase("scroll_step");
+          if (step != kDefaultScrollStep) {
+            const std::string suffix = " " + std::to_string(step) + "%";
+            std::string upVerb = "brightness-up";
+            std::string downVerb = "brightness-down";
+            if (type == "volume") {
+              const bool microphone = (*widget)["device"].value_or(std::string("output")) == "input";
+              upVerb = microphone ? "mic-volume-up" : "volume-up";
+              downVerb = microphone ? "mic-volume-down" : "volume-down";
+            }
+            bindAction(*widget, "scroll_up", upVerb + suffix);
+            bindAction(*widget, "scroll_down", downVerb + suffix);
+          }
+          onChanged(path, "scroll_step is now the step argument of the scroll gesture bindings");
+        }
+
+        if (type == "screenshot" && widget->contains("primary_click")) {
+          const auto primary = (*widget)["primary_click"].value_or(std::string("region"));
+          widget->erase("primary_click");
+          if (primary == "fullscreen") {
+            bindAction(*widget, "left", "screenshot-fullscreen");
+          }
+          onChanged(path, "primary_click is now the left gesture binding");
+        }
+      }
+    }
+
+    // custom_button's per-gesture command keys are exactly what `exec` bindings express, and the
+    // widget ran them through the same process::runAsync the `exec` verb uses.
+    template <typename OnChanged> void migrateCustomButtonCommands(toml::table& root, OnChanged&& onChanged) {
+      static constexpr std::array<std::pair<std::string_view, std::string_view>, 5> kCommandKeys{{
+          {"command", "left"},
+          {"right_command", "right"},
+          {"middle_command", "middle"},
+          {"scroll_up_command", "scroll_up"},
+          {"scroll_down_command", "scroll_down"},
+      }};
+
+      auto* widgets = root["widget"].as_table();
+      if (widgets == nullptr) {
+        return;
+      }
+
+      for (auto& [widgetName, widgetNode] : *widgets) {
+        auto* widget = widgetNode.as_table();
+        if (widget == nullptr) {
+          continue;
+        }
+        if ((*widget)["type"].value_or(std::string(widgetName.str())) != "custom_button") {
+          continue;
+        }
+        const std::string path = "widget." + std::string(widgetName.str());
+
+        // Disabled scroll used to win over the scroll commands, so unbind before they migrate.
+        if (widget->contains("enable_scroll")) {
+          const bool wasEnabled = (*widget)["enable_scroll"].value_or(true);
+          widget->erase("enable_scroll");
+          if (!wasEnabled) {
+            bindAction(*widget, "scroll_up", "none");
+            bindAction(*widget, "scroll_down", "none");
+          }
+          onChanged(path, "enable_scroll is now the scroll_up/scroll_down gesture bindings");
+        }
+
+        for (const auto& [key, gesture] : kCommandKeys) {
+          if (!widget->contains(key)) {
+            continue;
+          }
+          const auto command = (*widget)[key].value_or(std::string{});
+          widget->erase(key);
+          if (!command.empty()) {
+            bindAction(*widget, gesture, "exec " + command);
+          }
+          onChanged(path, std::string(key) + " is now the " + std::string(gesture) + " gesture binding");
+        }
+      }
+    }
+
+    // The bar dead zone had the same five command keys custom_button did, running through the same
+    // process::runAsync the `exec` verb uses.
+    template <typename OnChanged> void migrateDeadZoneActions(toml::table& root, OnChanged&& onChanged) {
+      static constexpr std::array<std::pair<std::string_view, std::string_view>, 5> kCommandKeys{{
+          {"command", "left"},
+          {"right_command", "right"},
+          {"middle_command", "middle"},
+          {"scroll_up_command", "scroll_up"},
+          {"scroll_down_command", "scroll_down"},
+      }};
+
+      const auto migrateTable = [&onChanged](toml::table& owner, const std::string& path) {
+        auto* deadZone = owner["dead_zone"].as_table();
+        if (deadZone == nullptr) {
+          return;
+        }
+        for (const auto& [key, gesture] : kCommandKeys) {
+          if (!deadZone->contains(key)) {
+            continue;
+          }
+          const auto command = (*deadZone)[key].value_or(std::string{});
+          deadZone->erase(key);
+          if (!command.empty()) {
+            bindAction(*deadZone, gesture, "exec " + command);
+          }
+          onChanged(path + ".dead_zone", std::string(key) + " is now the " + std::string(gesture) + " binding");
+        }
+      };
+
+      auto* bars = root["bar"].as_table();
+      if (bars == nullptr) {
+        return;
+      }
+      for (auto& [barName, barNode] : *bars) {
+        auto* bar = barNode.as_table();
+        if (bar == nullptr) {
+          continue;
+        }
+        const std::string barPath = "bar." + std::string(barName.str());
+        migrateTable(*bar, barPath);
+
+        auto* monitors = (*bar)["monitor"].as_table();
+        if (monitors == nullptr) {
+          continue;
+        }
+        for (auto& [monitorName, monitorNode] : *monitors) {
+          if (auto* monitor = monitorNode.as_table(); monitor != nullptr) {
+            migrateTable(*monitor, barPath + ".monitor." + std::string(monitorName.str()));
+          }
+        }
+      }
+    }
+
+    void migrateDeadZoneActionsSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateDeadZoneActions(root, [&diag](const std::string& path, std::string_view message) {
+        diag.warn(path, std::string(message));
+      });
+    }
+
+    template <typename OnChanged>
+    void migrateLockscreenLoginBoxDeprecatedSettings(toml::table& root, OnChanged&& onChanged) {
+      auto* section = root["lockscreen_widgets"].as_table();
+      if (section == nullptr) {
+        return;
+      }
+      auto* widgets = (*section)["widget"].as_table();
+      if (widgets == nullptr) {
+        return;
+      }
+
+      for (auto& [widgetId, widgetNode] : *widgets) {
+        auto* widget = widgetNode.as_table();
+        if (widget == nullptr) {
+          continue;
+        }
+        const std::string type = (*widget)["type"].value_or(std::string{});
+        const std::string id(widgetId.str());
+        if (type != "login_box" && !id.starts_with("lockscreen-login-box@")) {
+          continue;
+        }
+        auto* settings = (*widget)["settings"].as_table();
+        if (settings == nullptr) {
+          continue;
+        }
+        if (settings->erase("show_password_hint") > 0) {
+          onChanged("lockscreen_widgets.widget." + id + ".settings");
+        }
+      }
+    }
+
+    void migrateLockscreenLoginBoxDeprecatedSettingsSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateLockscreenLoginBoxDeprecatedSettings(root, [&diag](const std::string& path) {
+        diag.warn(path, "removed deprecated show_password_hint");
+      });
+    }
+
+    void migrateCustomButtonCommandsSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateCustomButtonCommands(root, [&diag](const std::string& path, std::string_view message) {
+        diag.warn(path, std::string(message));
+      });
+    }
+
+    void migrateRemainingWidgetGesturesSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateRemainingWidgetGestures(root, [&diag](const std::string& path, std::string_view message) {
+        diag.warn(path, std::string(message));
+      });
+    }
+
+    void migrateWidgetGestureSettingsSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateWidgetGestureSettings(root, [&diag](const std::string& path, std::string_view message) {
+        diag.warn(path, std::string(message));
+      });
+    }
+
+    void migrateWidgetActionsSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateWidgetActions(root, [&diag](const std::string& path) {
+        diag.warn(path, "middle_click_opens_widget_settings is now the `middle` widget gesture binding");
+      });
+    }
+
     std::uint64_t stableIssueHash(int migrationVersion, std::string_view path) {
       constexpr std::uint64_t kOffset = 14695981039346656037ULL;
       constexpr std::uint64_t kPrime = 1099511628211ULL;
@@ -152,6 +486,36 @@ namespace noctalia::config {
             .toVersion = kCustomScheduleMigrationVersion,
             .summary = "location: opt legacy sunset/sunrise schedules into custom_schedule",
             .apply = migrateCustomScheduleSidecar,
+        },
+        {
+            .toVersion = kWidgetActionsMigrationVersion,
+            .summary = "bar: move middle_click_opens_widget_settings to widget gesture actions",
+            .apply = migrateWidgetActionsSidecar,
+        },
+        {
+            .toVersion = kWidgetGestureSettingsMigrationVersion,
+            .summary = "widget: move enable_scroll and cycle_command to gesture actions",
+            .apply = migrateWidgetGestureSettingsSidecar,
+        },
+        {
+            .toVersion = kRemainingWidgetGesturesMigrationVersion,
+            .summary = "widget: move scroll_step and primary_click to gesture actions",
+            .apply = migrateRemainingWidgetGesturesSidecar,
+        },
+        {
+            .toVersion = kCustomButtonCommandsMigrationVersion,
+            .summary = "widget: move custom_button commands to gesture actions",
+            .apply = migrateCustomButtonCommandsSidecar,
+        },
+        {
+            .toVersion = kDeadZoneActionsMigrationVersion,
+            .summary = "bar: move dead zone commands to gesture actions",
+            .apply = migrateDeadZoneActionsSidecar,
+        },
+        {
+            .toVersion = kLockscreenLoginBoxDeprecatedSettingsMigrationVersion,
+            .summary = "lockscreen: drop removed login box show_password_hint setting",
+            .apply = migrateLockscreenLoginBoxDeprecatedSettingsSidecar,
         },
     };
     return migrations;
@@ -217,6 +581,48 @@ namespace noctalia::config {
           .migrationVersion = kCustomScheduleMigrationVersion,
           .path = path,
           .message = "sunset/sunrise no longer schedule on their own; set custom_schedule = true",
+      });
+    });
+    migrateWidgetActions(root, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kWidgetActionsMigrationVersion,
+          .path = path,
+          .message = "middle_click_opens_widget_settings is now the `middle` bar widget gesture binding",
+      });
+    });
+    migrateWidgetGestureSettings(root, [&issues](const std::string& path, std::string_view message) {
+      issues.push_back({
+          .migrationVersion = kWidgetGestureSettingsMigrationVersion,
+          .path = path,
+          .message = std::string(message),
+      });
+    });
+    migrateRemainingWidgetGestures(root, [&issues](const std::string& path, std::string_view message) {
+      issues.push_back({
+          .migrationVersion = kRemainingWidgetGesturesMigrationVersion,
+          .path = path,
+          .message = std::string(message),
+      });
+    });
+    migrateCustomButtonCommands(root, [&issues](const std::string& path, std::string_view message) {
+      issues.push_back({
+          .migrationVersion = kCustomButtonCommandsMigrationVersion,
+          .path = path,
+          .message = std::string(message),
+      });
+    });
+    migrateDeadZoneActions(root, [&issues](const std::string& path, std::string_view message) {
+      issues.push_back({
+          .migrationVersion = kDeadZoneActionsMigrationVersion,
+          .path = path,
+          .message = std::string(message),
+      });
+    });
+    migrateLockscreenLoginBoxDeprecatedSettings(root, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kLockscreenLoginBoxDeprecatedSettingsMigrationVersion,
+          .path = path,
+          .message = "removed deprecated show_password_hint",
       });
     });
   }

@@ -564,6 +564,22 @@ namespace noctalia::theme {
       options.verbose = true;
       TemplateEngine engine(TemplateEngine::makeThemeData(palette), std::move(options));
 
+      // Custom colors from -c must be in the theme data before -r templates render.
+      toml::table configRoot;
+      std::filesystem::path templateConfigPath;
+      if (configPath) {
+        templateConfigPath = FileUtils::expandUserPath(configPath);
+        try {
+          configRoot = toml::parse_file(templateConfigPath.string());
+        } catch (const toml::parse_error& e) {
+          std::println(
+              stderr, "error: failed to parse template config {}: {}", templateConfigPath.string(), e.description()
+          );
+          return 1;
+        }
+        engine.applyCustomColors(configRoot);
+      }
+
       for (const auto& spec : renderSpecs) {
         const size_t colon = spec.find(':');
         if (colon == std::string::npos) {
@@ -577,7 +593,7 @@ namespace noctalia::theme {
           return 1;
       }
 
-      if (configPath && !engine.processConfigFile(configPath))
+      if (configPath && !engine.processConfigTemplates(configRoot, templateConfigPath))
         return 1;
     }
 

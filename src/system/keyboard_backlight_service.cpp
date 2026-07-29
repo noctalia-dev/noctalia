@@ -210,7 +210,7 @@ void KeyboardBacklightService::registerIpc(IpcService& ipc) {
         }
         return setPercent(*parsed) ? "ok\n" : "error: failed to set keyboard backlight\n";
       },
-      "keyboard-backlight-set <value>", "Set all keyboard backlights (0-100 percentage)"
+      "<value>", "Set all keyboard backlights (0-100 percentage)"
   );
 
   ipc.registerHandler(
@@ -224,7 +224,7 @@ void KeyboardBacklightService::registerIpc(IpcService& ipc) {
         }
         return adjustBrightness(1) ? "ok\n" : "error: failed to set keyboard backlight\n";
       },
-      "keyboard-backlight-up", "Increase all keyboard backlights by one level"
+      "", "Increase all keyboard backlights by one level"
   );
 
   ipc.registerHandler(
@@ -238,7 +238,7 @@ void KeyboardBacklightService::registerIpc(IpcService& ipc) {
         }
         return adjustBrightness(-1) ? "ok\n" : "error: failed to set keyboard backlight\n";
       },
-      "keyboard-backlight-down", "Decrease all keyboard backlights by one level"
+      "", "Decrease all keyboard backlights by one level"
   );
 
   ipc.registerHandler(
@@ -252,6 +252,6 @@ void KeyboardBacklightService::registerIpc(IpcService& ipc) {
         }
         return toggleBrightness() ? "ok\n" : "error: failed to set keyboard backlight\n";
       },
-      "keyboard-backlight-toggle", "Toggle all keyboard backlights on/off"
+      "", "Toggle all keyboard backlights on/off"
   );
 }

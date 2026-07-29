@@ -4,6 +4,7 @@
 #include "pipewire/pipewire_spectrum.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/node.h"
+#include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 #include "ui/visuals/audio_visualizer.h"
@@ -33,7 +34,7 @@ DesktopAudioVisualizerWidget::~DesktopAudioVisualizerWidget() {
 }
 
 void DesktopAudioVisualizerWidget::create() {
-  auto rootNode = std::make_unique<Node>();
+  auto rootNode = ui::node({});
   rootNode->setClipChildren(true);
 
   auto visualizer = std::make_unique<AudioVisualizer>();

@@ -16,6 +16,11 @@ batteryWidgetDefinition() {
                   .choices =
                       {
                           {
+                              .value = BatteryDisplayMode::None,
+                              .configValue = "none",
+                              .labelKey = "settings.widgets.options.none",
+                          },
+                          {
                               .value = BatteryDisplayMode::Glyph,
                               .configValue = "glyph",
                               .labelKey = "settings.widgets.options.glyph",
@@ -29,6 +34,32 @@ batteryWidgetDefinition() {
               }),
               field<&Options::showLabel>({
                   .key = "show_label",
+              }),
+              field<&Options::labelContent>({
+                  .key = "label_content",
+                  .choices =
+                      {
+                          {
+                              .value = BatteryLabelContent::Percent,
+                              .configValue = "percent",
+                              .labelKey = "settings.widgets.options.percent",
+                          },
+                          {
+                              .value = BatteryLabelContent::Time,
+                              .configValue = "time",
+                              .labelKey = "settings.widgets.options.time",
+                          },
+                          {
+                              .value = BatteryLabelContent::Rate,
+                              .configValue = "rate",
+                              .labelKey = "settings.widgets.options.rate",
+                          },
+                      },
+                  .presentation =
+                      settings::WidgetSettingPresentation{
+                          .visibleWhen = settings::WidgetSettingVisibility{"show_label", {"true"}},
+                          .horizontalBarOnly = true,
+                      },
               }),
               field<&Options::hideWhenPlugged>({
                   .key = "hide_when_plugged",

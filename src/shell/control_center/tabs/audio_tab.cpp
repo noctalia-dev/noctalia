@@ -888,7 +888,7 @@ namespace {
 
       m_detail = nullptr;
 
-      auto area = std::make_unique<InputArea>();
+      auto area = ui::inputArea({});
       area->setPropagateEvents(true);
       area->setOnEnter([this](const InputArea::PointerData&) { applyState(); });
       area->setOnLeave([this]() { applyState(); });
@@ -1543,8 +1543,8 @@ std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card
       {
           .flexGrow = 1.0f,
           .configure =
-              [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& column) {
-                applySectionCardStyle(column, scale, opacity, borders);
+              [scale, opacity = panelCardOpacity()](Flex& column) {
+                applySectionCardStyle(column, scale, opacity);
                 column.setGap(Style::spaceXs * scale);
               },
       },
@@ -1712,7 +1712,7 @@ std::unique_ptr<Flex> AudioTab::create() {
       ui::row(
           {
               .align = FlexAlign::Stretch,
-              .gap = Style::spaceSm * scale,
+              .gap = Style::spaceMd * scale,
               // Keep volume cards at natural content height.
               .flexGrow = 0.0f,
           },
@@ -1778,9 +1778,7 @@ std::unique_ptr<Flex> AudioTab::create() {
   auto programCard = ui::column({
       .out = &m_programCard,
       .flexGrow = 1.0f,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
-        applySectionCardStyle(card, scale, opacity, borders);
-      },
+      .configure = [scale, opacity = panelCardOpacity()](Flex& card) { applySectionCardStyle(card, scale, opacity); },
   });
   addTitle(*programCard, i18n::tr("control-center.audio.application-volumes"), scale);
 

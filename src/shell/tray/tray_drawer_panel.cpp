@@ -3,6 +3,7 @@
 #include "config/config_service.h"
 #include "dbus/tray/tray_service.h"
 #include "shell/bar/widgets/tray_widget.h"
+#include "shell/bar/widgets/tray_widget_definition.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tray/tray_identifier.h"
 #include "util/string_utils.h"
@@ -10,8 +11,7 @@
 #include <algorithm>
 #include <vector>
 
-TrayDrawerPanel::TrayDrawerPanel(TrayService* tray, ConfigService* config, std::size_t drawerColumns)
-    : m_tray(tray), m_config(config), m_drawerColumns(std::clamp<std::size_t>(drawerColumns, 1U, 5U)) {}
+TrayDrawerPanel::TrayDrawerPanel(TrayService* tray, ConfigService* config) : m_tray(tray), m_config(config) {}
 
 TrayDrawerPanel::~TrayDrawerPanel() = default;
 
@@ -20,7 +20,7 @@ PanelPlacement TrayDrawerPanel::panelPlacement() const noexcept {
     return PanelPlacement::Attached;
   }
   if (const auto it = m_config->config().widgets.find("tray"); it != m_config->config().widgets.end()) {
-    if (it->second.getBool("detached_panel", false)) {
+    if (it->second.getBool("detached_panel", TrayWidget::Options{}.detachedPanel)) {
       return PanelPlacement::Floating;
     }
   }
@@ -33,7 +33,7 @@ std::optional<float> TrayDrawerPanel::currentDrawerItemSize() const {
   }
   if (const auto it = m_config->config().widgets.find("tray"); it != m_config->config().widgets.end()) {
     if (it->second.hasSetting("drawer_item_size")) {
-      return static_cast<float>(it->second.getDouble("drawer_item_size", static_cast<double>(Style::baseGlyphSize)));
+      return static_cast<float>(it->second.getDouble("drawer_item_size", TrayWidget::Options{}.drawerItemSize));
     }
   }
   return std::nullopt;
@@ -70,7 +70,7 @@ void TrayDrawerPanel::create() {
   }
   m_drawerWidget = std::make_unique<TrayWidget>(
       *m_config, m_tray,
-      TrayWidgetOptions{
+      TrayWidget::Options{
           .hiddenItems = hiddenItems,
           .pinnedItems = pinnedItems,
           .drawerMode = false,
@@ -97,16 +97,18 @@ void TrayDrawerPanel::create() {
   m_drawerWidget->setRedrawCallback([]() { PanelManager::instance().requestRedraw(); });
   m_drawerWidget->setFrameTickRequestCallback([]() { PanelManager::instance().requestFrameTick(); });
   m_drawerWidget->setPanelToggleCallback([](std::string_view id, std::string_view context, std::optional<float> ax,
-                                            std::optional<float> ay) {
-    PanelManager::instance().togglePanel(
-        std::string(id),
-        PanelOpenRequest{
-            .anchorX = ax.has_value() ? std::round(*ax) : 0.0f,
-            .anchorY = ay.has_value() ? std::round(*ay) : 0.0f,
-            .hasAnchorPosition = ax.has_value() && ay.has_value(),
-            .context = std::string(context),
-        }
-    );
+                                            std::optional<float> ay, Widget::PanelActivation activation) {
+    PanelOpenRequest request{
+        .anchorX = ax.has_value() ? std::round(*ax) : 0.0f,
+        .anchorY = ay.has_value() ? std::round(*ay) : 0.0f,
+        .hasAnchorPosition = ax.has_value() && ay.has_value(),
+        .context = std::string(context),
+    };
+    if (activation == Widget::PanelActivation::Open) {
+      PanelManager::instance().openPanel(std::string(id), request);
+    } else {
+      PanelManager::instance().togglePanel(std::string(id), request);
+    }
   });
   m_drawerWidget->create();
   setRoot(m_drawerWidget->releaseRoot());
@@ -139,13 +141,14 @@ void TrayDrawerPanel::doUpdate(Renderer& renderer) {
 }
 
 std::size_t TrayDrawerPanel::currentDrawerColumns() const {
-  if (m_config == nullptr) {
-    return m_drawerColumns;
+  const WidgetConfig* trayConfig = nullptr;
+  if (m_config != nullptr) {
+    if (const auto it = m_config->config().widgets.find("tray"); it != m_config->config().widgets.end()) {
+      trayConfig = &it->second;
+    }
   }
-  if (const auto it = m_config->config().widgets.find("tray"); it != m_config->config().widgets.end()) {
-    return static_cast<std::size_t>(std::clamp<std::int64_t>(it->second.getInt("drawer_columns", 3), 1, 5));
-  }
-  return m_drawerColumns;
+  // The definition owns the default and the valid range, and resolve() clamps to it.
+  return trayWidgetDefinition().resolve(trayConfig, "tray", TrayWidgetDefinitionContext{}).panelGridColumns;
 }
 
 std::size_t TrayDrawerPanel::visibleItemCount() const {

@@ -77,7 +77,6 @@ void registerSessionIpc(IpcService& ipc, SessionActionRunner& runner, LockScreen
   };
 
   ipc.registerHandler(
-      "session", dispatch, "session <lock|suspend|lock-and-suspend|logout|reboot|shutdown>",
-      "Run a built-in session action"
+      "session", dispatch, "<lock|suspend|lock-and-suspend|logout|reboot|shutdown>", "Run a built-in session action"
   );
 }

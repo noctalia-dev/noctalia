@@ -167,10 +167,14 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     ctrl->setOnActivate([self](const ContextMenuControlEntry& e) {
       auto onActivate = self->m_onActivate;
       DeferredCall::callLater([self, onActivate, e]() {
+        // Close before running the action. The action may open another popup (e.g. the
+        // color picker for a "Custom" entry); that popup must be created against the
+        // now-topmost parent, and this menu cannot be destroyed while it still has a
+        // child popup on top. Activating first violates the xdg_popup topmost rule.
+        self->close();
         if (onActivate) {
           onActivate(e);
         }
-        self->close();
       });
     });
     scrollView->content()->addChild(std::move(ctrl));

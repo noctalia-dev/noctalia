@@ -83,8 +83,8 @@ void PowerTab::buildStatusCard(Flex& root, float scale) {
   }
 
   auto card = ui::column({
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& section) {
-        applySectionCardStyle(section, scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](Flex& section) {
+        applySectionCardStyle(section, scale, opacity);
       },
   });
   m_statusCard = card.get();
@@ -179,8 +179,8 @@ void PowerTab::buildProfilesCard(Flex& root, float scale) {
   }
 
   auto card = ui::column({
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& section) {
-        applySectionCardStyle(section, scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](Flex& section) {
+        applySectionCardStyle(section, scale, opacity);
       },
   });
   m_profilesCard = card.get();
@@ -238,8 +238,8 @@ void PowerTab::buildHealthCard(Flex& root, float scale) {
 
   auto card = ui::column({
       .visible = false,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& section) {
-        applySectionCardStyle(section, scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](Flex& section) {
+        applySectionCardStyle(section, scale, opacity);
       },
   });
   m_healthCard = card.get();
@@ -285,8 +285,8 @@ void PowerTab::buildPeripheralsCard(Flex& root, float scale) {
 
   auto card = ui::column({
       .visible = false,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& section) {
-        applySectionCardStyle(section, scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](Flex& section) {
+        applySectionCardStyle(section, scale, opacity);
       },
   });
   m_peripheralsCard = card.get();

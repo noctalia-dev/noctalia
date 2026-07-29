@@ -71,4 +71,5 @@ private:
   bool m_startMonthSlideIn = false;
   AnimationManager::Id m_monthSlideAnimId = 0;
   bool m_showEventsCard = true;
+  bool m_showWeekNumbers = false;
 };

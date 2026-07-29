@@ -13,7 +13,7 @@ namespace {
 
 const char* audioVolumeGlyph(float volume, bool muted, bool isInput) {
   if (isInput) {
-    return muted ? "microphone-mute" : "microphone";
+    return (muted || displayedVolumePercent(volume) == 0) ? "microphone-mute" : "microphone";
   }
   if (muted || displayedVolumePercent(volume) == 0) {
     return "volume-mute";

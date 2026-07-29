@@ -202,7 +202,7 @@ void PluginLauncherProvider::handleResult(const scripting::ScriptResult& result)
     // The handler rewrote the query → stay open (already applied above). Otherwise
     // the activation is terminal, so close the launcher and record the usage.
     if (!result.patch.launcherQuery.has_value() && m_onActivationDone) {
-      m_onActivationDone(m_pendingActivateId);
+      m_onActivationDone(m_pendingActivateId, result.copiedToClipboard);
     }
     m_pendingActivateId.clear();
   }

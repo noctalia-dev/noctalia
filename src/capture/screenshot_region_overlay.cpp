@@ -15,6 +15,7 @@
 #include "render/scene/input_area.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
+#include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
 #include "ui/controls/flex.h"
@@ -93,49 +94,54 @@ namespace capture {
 
     std::unique_ptr<Flex>
     buildFullscreenPickerBar(const WaylandConnection& wayland, std::function<void(wl_output*)> onPick) {
-      auto bar = std::make_unique<Flex>();
-      bar->setDirection(FlexDirection::Horizontal);
-      bar->setJustify(FlexJustify::Center);
-      bar->setAlign(FlexAlign::Center);
-      bar->setGap(Style::spaceSm);
-      bar->setPadding(Style::spaceSm, Style::spaceMd, Style::spaceSm, Style::spaceMd);
-      bar->setCardStyle(1.0f, 0.94f, true);
-
-      auto hint = std::make_unique<Label>();
-      hint->setText(i18n::tr("bar.screenshot.choose-display"));
-      hint->setFontSize(Style::fontSizeCaption);
-      hint->setColor(colorForRole(ColorRole::OnSurface));
-      bar->addChild(std::move(hint));
+      auto bar = ui::row(
+          {
+              .align = FlexAlign::Center,
+              .justify = FlexJustify::Center,
+              .gap = Style::spaceSm,
+              .paddingV = Style::spaceSm,
+              .paddingH = Style::spaceMd,
+              .configure = [](Flex& control) { control.setCardStyle(1.0f, 0.94f, true); },
+          },
+          ui::label({
+              .text = i18n::tr("bar.screenshot.choose-display"),
+              .fontSize = Style::fontSizeCaption,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+          })
+      );
 
       for (const auto& out : wayland.outputs()) {
         if (out.output == nullptr || out.logicalWidth <= 0 || out.logicalHeight <= 0) {
           continue;
         }
-        auto button = std::make_unique<Button>();
-        button->setText(outputPickerLabel(out));
-        button->setVariant(ButtonVariant::Outline);
-        button->setOnClick([onPick, output = out.output]() { onPick(output); });
-        bar->addChild(std::move(button));
+        bar->addChild(
+            ui::button({
+                .text = outputPickerLabel(out),
+                .variant = ButtonVariant::Outline,
+                .onClick = [onPick, output = out.output]() { onPick(output); },
+            })
+        );
       }
 
       return bar;
     }
 
     std::unique_ptr<Flex> buildConfirmHintBar(Label*& hintOut) {
-      auto bar = std::make_unique<Flex>();
-      bar->setDirection(FlexDirection::Horizontal);
-      bar->setJustify(FlexJustify::Center);
-      bar->setAlign(FlexAlign::Center);
-      bar->setPadding(Style::spaceSm, Style::spaceMd, Style::spaceSm, Style::spaceMd);
-      bar->setCardStyle(1.0f, 0.94f, true);
-      bar->setVisible(false);
-
-      auto hint = std::make_unique<Label>();
-      hint->setFontSize(Style::fontSizeCaption);
-      hint->setColor(colorForRole(ColorRole::OnSurface));
-      hintOut = hint.get();
-      bar->addChild(std::move(hint));
-      return bar;
+      return ui::row(
+          {
+              .align = FlexAlign::Center,
+              .justify = FlexJustify::Center,
+              .paddingV = Style::spaceSm,
+              .paddingH = Style::spaceMd,
+              .visible = false,
+              .configure = [](Flex& control) { control.setCardStyle(1.0f, 0.94f, true); },
+          },
+          ui::label({
+              .out = &hintOut,
+              .fontSize = Style::fontSizeCaption,
+              .color = colorSpecFromRole(ColorRole::OnSurface),
+          })
+      );
     }
 
   } // namespace
@@ -350,12 +356,16 @@ namespace capture {
     const auto w = static_cast<float>(width);
     const auto h = static_cast<float>(height);
 
-    inst.sceneRoot = std::make_unique<Node>();
-    inst.sceneRoot->setSize(w, h);
+    inst.sceneRoot = ui::node({
+        .width = w,
+        .height = h,
+    });
 
-    auto input = std::make_unique<InputArea>();
-    input->setAcceptedButtons(InputArea::buttonMask(BTN_LEFT));
-    input->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_CROSSHAIR);
+    auto input = ui::inputArea({
+        .acceptedButtons = InputArea::buttonMask(BTN_LEFT),
+        .cursorShape = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_CROSSHAIR,
+        .focusable = true,
+    });
 
     if (m_fullscreenPick) {
       input->setOnClick([this, surfaceOutput = inst.output](const InputArea::PointerData& data) {
@@ -439,14 +449,15 @@ namespace capture {
         cancelSelection();
       }
     });
-    input->setFocusable(true);
 
     const auto* frozen = m_freezeScreen ? frozenImageForOutput(m_frozenScreenshots, inst.output) : nullptr;
     if (frozen != nullptr) {
-      auto backdrop = std::make_unique<Image>();
-      backdrop->setFit(ImageFit::Stretch);
-      backdrop->setPosition(0.0f, 0.0f);
-      backdrop->setSize(w, h);
+      auto backdrop = ui::image({
+          .fit = ImageFit::Stretch,
+          .width = w,
+          .height = h,
+          .configure = [](Image& image) { image.setPosition(0.0f, 0.0f); },
+      });
       if (!backdrop->setSourceRaw(
               *m_renderContext, frozen->rgba.data(), frozen->rgba.size(), frozen->width, frozen->height,
               frozen->width * 4, PixmapFormat::RGBA, false
@@ -460,12 +471,14 @@ namespace capture {
     // region itself stays fully transparent so it shows real colors and never
     // tints the captured pixels.
     auto makeDimStrip = [&]() {
-      auto strip = std::make_unique<Box>();
-      // Fixed black scrim so it darkens under every theme.
-      strip->setFill(fixedColorSpec(rgba(0.0f, 0.0f, 0.0f, 1.0f)));
-      strip->setOpacity(kDimOpacity);
-      strip->setPosition(0.0f, 0.0f);
-      strip->setSize(0.0f, 0.0f);
+      auto strip = ui::box({
+          // Fixed black scrim so it darkens under every theme.
+          .fill = fixedColorSpec(rgba(0.0f, 0.0f, 0.0f, 1.0f)),
+          .width = 0.0f,
+          .height = 0.0f,
+          .opacity = kDimOpacity,
+          .configure = [](Box& box) { box.setPosition(0.0f, 0.0f); },
+      });
       return static_cast<Box*>(input->addChild(std::move(strip)));
     };
     inst.dimTop = makeDimStrip();
@@ -476,22 +489,25 @@ namespace capture {
     Color border = colorForRole(ColorRole::Primary);
     border.a = 1.0f;
 
-    auto selection = std::make_unique<Box>();
-    selection->setBorder(fixedColorSpec(border), kSelectionBorderWidth);
-    selection->setVisible(false);
+    auto selection = ui::box({
+        .visible = false,
+        .configure = [border](Box& box) { box.setBorder(fixedColorSpec(border), kSelectionBorderWidth); },
+    });
 
-    auto dimensionsBadge = std::make_unique<Box>();
     Color badgeFill = colorForRole(ColorRole::Surface);
     badgeFill.a = 0.94f;
-    dimensionsBadge->setFill(fixedColorSpec(badgeFill));
-    dimensionsBadge->setBorder(fixedColorSpec(border), 1.0f);
-    dimensionsBadge->setRadius(Style::radiusSm);
-    dimensionsBadge->setVisible(false);
+    auto dimensionsBadge = ui::box({
+        .fill = fixedColorSpec(badgeFill),
+        .radius = Style::radiusSm,
+        .visible = false,
+        .configure = [border](Box& box) { box.setBorder(fixedColorSpec(border), 1.0f); },
+    });
 
-    auto dimensionsLabel = std::make_unique<Label>();
-    dimensionsLabel->setFontSize(kDimensionFontSize);
-    dimensionsLabel->setFontWeight(FontWeight::Bold);
-    dimensionsLabel->setColor(border);
+    auto dimensionsLabel = ui::label({
+        .fontSize = kDimensionFontSize,
+        .fontWeight = FontWeight::Bold,
+        .color = fixedColorSpec(border),
+    });
 
     if (!m_fullscreenPick) {
       inst.dimensionsLabel = static_cast<Label*>(dimensionsBadge->addChild(std::move(dimensionsLabel)));

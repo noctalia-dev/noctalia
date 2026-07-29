@@ -1,5 +1,6 @@
 #include "shell/settings/settings_content_common.h"
 
+#include "config/config_service.h"
 #include "config/config_types.h"
 #include "i18n/i18n.h"
 #include "shell/settings/settings_content.h"
@@ -141,21 +142,20 @@ namespace settings {
       return override->endWidgets.has_value();
     }
     if (path.size() >= 6 && path[4] == "dead_zone") {
-      if (key == "command") {
-        return override->deadZone.command.has_value();
-      }
-      if (key == "right_command") {
-        return override->deadZone.rightCommand.has_value();
-      }
-      if (key == "middle_command") {
-        return override->deadZone.middleCommand.has_value();
-      }
-      if (key == "scroll_up_command") {
-        return override->deadZone.scrollUpCommand.has_value();
-      }
-      if (key == "scroll_down_command") {
-        return override->deadZone.scrollDownCommand.has_value();
-      }
+      return override->deadZone.actions.has_value();
+    }
+    return false;
+  }
+
+  bool settingEntryHasEffectiveOverride(const SettingEntry& entry, const ConfigService& configService) {
+    if (configService.hasEffectiveOverride(entry.path)) {
+      return true;
+    }
+    if (const auto* range = std::get_if<RangeSliderSetting>(&entry.control)) {
+      return configService.hasEffectiveOverride(range->highPath);
+    }
+    if (const auto* select = std::get_if<SelectSetting>(&entry.control)) {
+      return !select->linkedPath.empty() && configService.hasEffectiveOverride(select->linkedPath);
     }
     return false;
   }
@@ -219,6 +219,103 @@ namespace settings {
       );
     }
     return banner;
+  }
+
+  bool settingsSectionNeedsOfflineModeNotice(SettingsSection section) {
+    switch (section) {
+    case SettingsSection::Appearance:
+    case SettingsSection::Templates:
+    case SettingsSection::Launcher:
+    case SettingsSection::Security:
+    case SettingsSection::Services:
+    case SettingsSection::Location:
+      return true;
+    case SettingsSection::Wallpaper:
+    case SettingsSection::Desktop:
+    case SettingsSection::Dock:
+    case SettingsSection::Panels:
+    case SettingsSection::ControlCenter:
+    case SettingsSection::Notifications:
+    case SettingsSection::Osd:
+    case SettingsSection::Shell:
+    case SettingsSection::Keybinds:
+    case SettingsSection::System:
+    case SettingsSection::Power:
+    case SettingsSection::Hooks:
+    case SettingsSection::Niri:
+    case SettingsSection::Bar:
+    case SettingsSection::Plugins:
+      return false;
+    }
+    return false;
+  }
+
+  std::string offlineModeNoticeMessage(SettingsSection section) {
+    switch (section) {
+    case SettingsSection::Appearance:
+      return i18n::tr("settings.window.offline-mode-notice.appearance");
+    case SettingsSection::Templates:
+      return i18n::tr("settings.window.offline-mode-notice.templates");
+    case SettingsSection::Launcher:
+      return i18n::tr("settings.window.offline-mode-notice.launcher");
+    case SettingsSection::Security:
+      return i18n::tr("settings.window.offline-mode-notice.security");
+    case SettingsSection::Services:
+      return i18n::tr("settings.window.offline-mode-notice.services");
+    case SettingsSection::Location:
+      return i18n::tr("settings.window.offline-mode-notice.location");
+    case SettingsSection::Wallpaper:
+    case SettingsSection::Desktop:
+    case SettingsSection::Dock:
+    case SettingsSection::Panels:
+    case SettingsSection::ControlCenter:
+    case SettingsSection::Notifications:
+    case SettingsSection::Osd:
+    case SettingsSection::Shell:
+    case SettingsSection::Keybinds:
+    case SettingsSection::System:
+    case SettingsSection::Power:
+    case SettingsSection::Hooks:
+    case SettingsSection::Niri:
+    case SettingsSection::Bar:
+    case SettingsSection::Plugins:
+      return {};
+    }
+    return {};
+  }
+
+  std::unique_ptr<Flex> makeOfflineModeNotice(float scale, std::string message, bool showDisableHint) {
+    if (showDisableHint) {
+      message += ' ';
+      message += i18n::tr("settings.window.offline-mode-notice.disable-hint");
+    }
+    auto panel = ui::column({
+        .align = FlexAlign::Stretch,
+        .gap = Style::spaceXs * scale,
+        .padding = Style::spaceSm * scale,
+        .configure = [scale](Flex& column) {
+          column.setRadius(Style::scaledRadiusMd(scale));
+          column.setFill(colorSpecFromRole(ColorRole::Error, 0.10f));
+          column.setBorder(colorSpecFromRole(ColorRole::Error, 0.5f), Style::borderWidth);
+        },
+    });
+    panel->addChild(
+        ui::label({
+            .text = i18n::tr("settings.window.offline-mode-notice.title"),
+            .fontSize = Style::fontSizeBody * scale,
+            .fontWeight = FontWeight::Bold,
+            .color = colorSpecFromRole(ColorRole::Error),
+        })
+    );
+    panel->addChild(
+        ui::label({
+            .text = std::move(message),
+            .fontSize = Style::fontSizeCaption * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+            .maxLines = 4,
+        })
+    );
+    return panel;
   }
 
   std::unique_ptr<Label> makeSettingSubtitleLabel(std::string_view text, float scale) {

@@ -14,6 +14,32 @@
 
 namespace FileUtils {
 
+  [[nodiscard]] constexpr std::filesystem::perms privateFileMode() {
+    return std::filesystem::perms::owner_read | std::filesystem::perms::owner_write;
+  }
+
+  [[nodiscard]] constexpr std::filesystem::perms privateDirectoryMode() {
+    return privateFileMode() | std::filesystem::perms::owner_exec;
+  }
+
+  inline bool setPrivateFilePermissions(const std::filesystem::path& path, std::error_code& ec) {
+    std::filesystem::permissions(path, privateFileMode(), std::filesystem::perm_options::replace, ec);
+    return !ec;
+  }
+
+  inline bool setPrivateDirectoryPermissions(const std::filesystem::path& path, std::error_code& ec) {
+    std::filesystem::permissions(path, privateDirectoryMode(), std::filesystem::perm_options::replace, ec);
+    return !ec;
+  }
+
+  inline bool createPrivateDirectories(const std::filesystem::path& path, std::error_code& ec) {
+    std::filesystem::create_directories(path, ec);
+    if (ec) {
+      return false;
+    }
+    return setPrivateDirectoryPermissions(path, ec);
+  }
+
   [[nodiscard]] inline std::filesystem::path expandUserPath(const std::string& path) {
     if (path.empty() || path[0] != '~') {
       return std::filesystem::path(path);

@@ -2,7 +2,22 @@
 
 namespace noctalia::sysmon {
 
-  enum class Stat { CpuUsage, CpuTemp, GpuTemp, GpuUsage, GpuVram, RamUsed, RamPct, SwapPct, DiskPct, NetRx, NetTx };
+  enum class Stat {
+    CpuUsage,
+    CpuTemp,
+    GpuTemp,
+    GpuUsage,
+    GpuVram,
+    RamUsed,
+    RamPct,
+    SwapPct,
+    DiskUsedPct,
+    DiskUsed,
+    DiskFreePct,
+    DiskFree,
+    NetRx,
+    NetTx
+  };
 
   struct ThresholdProfile {
     double activityDefault = 50.0;
@@ -28,7 +43,10 @@ namespace noctalia::sysmon {
       return ThresholdProfile{.activityDefault = 60.0, .criticalDefault = 90.0};
     case Stat::SwapPct:
       return ThresholdProfile{.activityDefault = 20.0, .criticalDefault = 80.0};
-    case Stat::DiskPct:
+    case Stat::DiskUsedPct:
+    case Stat::DiskUsed:
+    case Stat::DiskFreePct:
+    case Stat::DiskFree:
       return ThresholdProfile{.activityDefault = 80.0, .criticalDefault = 95.0};
     case Stat::NetRx:
     case Stat::NetTx:

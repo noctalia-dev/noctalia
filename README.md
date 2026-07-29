@@ -83,10 +83,11 @@ Noctalia is a desktop shell, not a full desktop environment. It provides the vis
 Wayland compositor: bars, panels, launcher, notifications, dock, lock screen, idle behavior, OSDs, theming, wallpapers,
 desktop widgets, and multi-monitor shell surfaces.
 
-Window management, tiling, file management, removable-drive mounting, and screen mirroring/casting belong to the
-compositor, dedicated desktop applications, or system services. Display/login greeter support lives in the separate
-[Noctalia Greeter](https://github.com/noctalia-dev/noctalia-greeter) project. Noctalia may integrate with those pieces
-when useful, but it does not replace them.
+Window management, tiling, file management, removable-drive mounting, printers management and screen mirroring/casting
+belong to the compositor, dedicated desktop applications, or system services.
+
+Display/login greeter support lives in the separate [Noctalia Greeter](https://github.com/noctalia-dev/noctalia-greeter)
+project. Noctalia may integrate with those pieces when useful, but it does not replace them.
 
 The plugin system is available for user-installed extensions. Features that are useful to some users but not essential
 to the core shell can live there: extra bar widgets, launcher providers, desktop widgets, panels, shortcuts, background
@@ -102,8 +103,9 @@ sudo pacman -S meson gcc just \
   libglvnd freetype2 fontconfig \
   cairo pango harfbuzz \
   libxkbcommon glib2 \
+  libsecret libsodium \
   sdbus-cpp libpipewire wireplumber polkit \
-  pam curl libwebp librsvg \
+  pam curl libwebp libjxl librsvg \
   libqalculate libxml2 \
   md4c tomlplusplus \
   nlohmann-json stb \
@@ -119,8 +121,9 @@ sudo dnf install meson gcc-c++ just \
   freetype-devel fontconfig-devel \
   cairo-devel pango-devel harfbuzz-devel \
   libxkbcommon-devel glib2-devel \
+  libsecret-devel libsodium-devel \
   sdbus-cpp-devel pipewire-devel wireplumber-devel \
-  pam-devel polkit-devel libcurl-devel libwebp-devel librsvg2-devel \
+  pam-devel polkit-devel libcurl-devel libwebp-devel libjxl-devel librsvg2-devel \
   libqalculate-devel libxml2-devel \
   md4c-devel tomlplusplus-devel \
   json-devel stb_image_resize2-devel stb_image_write-devel \
@@ -136,8 +139,9 @@ sudo zypper install meson gcc-c++ just \
   freetype2-devel fontconfig-devel \
   cairo-devel pango-devel harfbuzz-devel \
   libxkbcommon-devel glib2-devel \
+  libsecret-devel libsodium-devel \
   sdbus-cpp-devel pipewire-devel wireplumber-devel \
-  pam-devel polkit-devel libcurl-devel libwebp-devel librsvg-devel \
+  pam-devel polkit-devel libcurl-devel libwebp-devel libjxl-devel librsvg-devel \
   libqalculate-devel libxml2-devel \
   md4c-devel tomlplusplus-devel \
   nlohmann_json-devel stb-devel \
@@ -153,9 +157,10 @@ sudo apt install meson g++ just \
   libfreetype-dev libfontconfig-dev \
   libcairo2-dev libpango1.0-dev libharfbuzz-dev \
   libxkbcommon-dev libglib2.0-dev \
+  libsecret-1-dev libsodium-dev \
   libsdbus-c++-dev libpipewire-0.3-dev libwireplumber-0.5-dev \
   libpam0g-dev libpolkit-agent-1-dev libpolkit-gobject-1-dev \
-  libcurl4-openssl-dev libwebp-dev librsvg2-dev \
+  libcurl4-openssl-dev libwebp-dev libjxl-dev librsvg2-dev \
   libqalculate-dev libxml2-dev \
   libmd4c-dev libtomlplusplus-dev \
   nlohmann-json3-dev libstb-dev \
@@ -170,7 +175,8 @@ sudo xbps-install meson ninja pkg-config git \
   MesaLib-devel libglvnd-devel cairo-devel \
   pango-devel fontconfig-devel freetype-devel \
   harfbuzz-devel libxkbcommon-devel pipewire-devel wireplumber-devel \
-  libcurl-devel pam-devel libwebp-devel \
+  libsecret-devel libsodium-devel \
+  libcurl-devel pam-devel libwebp-devel libjxl-devel \
   basu-devel sdbus-c++-devel \
   libmd4c-devel tomlplusplus-devel \
   json-c++ stb \
@@ -180,9 +186,9 @@ sudo xbps-install meson ninja pkg-config git \
 Vendored dependencies, with no system package needed: `Wuffs`,
 `Luau`, `dr_wav`, `fzy`, and Material Color Utilities.
 
-System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and thumbnail encoding. Wuffs
-handles the other supported raster image formats. `libqalculate` powers the launcher calculator (arithmetic, unit and
-currency conversion).
+System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and thumbnail encoding,
+`libjxl` handles JPEG XL decoding, and Wuffs handles the other supported raster image formats. `libqalculate` powers
+the launcher calculator (arithmetic, unit and currency conversion).
 
 Polkit agent support requires development files that provide the `polkit-agent-1` and `polkit-gobject-1` pkg-config
 modules. Some distros ship these in the runtime `polkit` package, while split-package distros use names such as
@@ -196,7 +202,13 @@ and daemon into separate packages, make sure you have both installed.
 
 `ddcutil` is an optional dependency used for controlling monitor brightness.
 
-`wtype` is an optional dependency used for clipboard auto-paste.
+Credential and encrypted-state persistence requires a Secret Service provider at runtime, such as GNOME Keyring,
+KWallet, or KeePassXC. `libsecret` is the client library and does not provide the session service by itself. Noctalia
+continues to run when no provider is available, but features requiring durable secrets cannot persist them.
+CalDAV accounts may instead read their password from one explicitly configured regular file, which supports secret
+provisioners such as agenix and sops-nix without installing a Secret Service provider. Google refresh tokens and
+other writable credentials still require Secret Service. Encrypted state, including clipboard history and the calendar
+event cache, may instead read one storage master key from an explicitly configured file.
 
 `jemalloc` is recommended but optional. It reduces memory fragmentation in long-running sessions, and on glibc systems
 it is used automatically when detected. Use Meson's `-Djemalloc=enabled` or `-Djemalloc=disabled` option to require or
@@ -252,9 +264,10 @@ just build
 just run
 ```
 
-Unit tests are built automatically for debug builds and skipped for release builds. Build and run them with
-`just test` (use `just test release` to force them on for a release build). Override the default with the meson
-`-Dtests=enabled|disabled|auto` option.
+Unit tests are not compiled by `just build`, which targets only the Noctalia executable. Build and run them explicitly
+with `just test` (use `just test release` to force them on for a release build). Direct Meson users can control test
+target generation with the `-Dtests=enabled|disabled|auto` option.
+Production sources compile once into an internal static library shared by the shell and test executables.
 
 Meson installs the binary and shipped assets using the normal prefix layout:
 
@@ -319,6 +332,11 @@ Donations are appreciated but completely optional.
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.
+
+## Packaging
+
+Distro packaging notes (description, deps, install layout, Meson options) live in
+[PACKAGING.md](PACKAGING.md).
 
 ## Star History
 

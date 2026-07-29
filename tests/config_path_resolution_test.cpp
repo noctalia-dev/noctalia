@@ -42,6 +42,7 @@ int main() {
   // enum, named-map, and bar/monitor forms.
   expectKnown({"accessibility", "ui_scale"});
   expectKnown({"shell", "animation", "speed"});
+  expectKnown({"shell", "panel_anchor_bar"});
   expectKnown({"shell", "panel", "control_center_placement"});
   expectKnown({"shell", "shadow", "alpha"});
   expectKnown({"shell", "screen_corners", "size"});

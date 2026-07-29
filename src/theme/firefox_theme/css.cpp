@@ -253,7 +253,7 @@ namespace noctalia::theme::firefox_theme::css {
     std::ostringstream out;
     std::string line;
     while (std::getline(in, line)) {
-      if (line.find("--pywalfox-font-size:") != std::string::npos) {
+      if (line.contains("--pywalfox-font-size:")) {
         out << "  --pywalfox-font-size: " << size << "px;\n";
       } else {
         out << line << '\n';

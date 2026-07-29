@@ -1,6 +1,7 @@
 Checks: >-
   -clang-diagnostic-*,
   bugprone-optional-value-conversion,
+  bugprone-use-after-move,
   modernize-avoid-c-style-cast,
   modernize-loop-convert,
   modernize-make-unique,

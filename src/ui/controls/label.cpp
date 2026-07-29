@@ -82,7 +82,12 @@ void Label::setColor(const ColorSpec& color) {
 
 void Label::setColor(const Color& color) { setColor(fixedColorSpec(color)); }
 
-void Label::applyPalette() { m_textNode->setColor(resolveColorSpec(m_color)); }
+void Label::applyPalette() {
+  m_textNode->setColor(resolveColorSpec(m_color));
+  if (m_shadowColor.has_value()) {
+    m_textNode->setShadow(resolveColorSpec(*m_shadowColor), m_shadowOffsetX, m_shadowOffsetY);
+  }
+}
 
 void Label::setMinWidth(float minWidth) {
   if (m_minWidth == minWidth) {
@@ -168,11 +173,21 @@ void Label::setBaselineMode(LabelBaselineMode mode) {
   m_measureCached = false;
 }
 
-void Label::setShadow(const Color& color, float offsetX, float offsetY) {
-  m_textNode->setShadow(color, offsetX, offsetY);
+void Label::setShadow(const ColorSpec& color, float offsetX, float offsetY) {
+  m_shadowColor = color;
+  m_shadowOffsetX = offsetX;
+  m_shadowOffsetY = offsetY;
+  applyPalette();
 }
 
-void Label::clearShadow() { m_textNode->clearShadow(); }
+void Label::setShadow(const Color& color, float offsetX, float offsetY) {
+  setShadow(fixedColorSpec(color), offsetX, offsetY);
+}
+
+void Label::clearShadow() {
+  m_shadowColor.reset();
+  m_textNode->clearShadow();
+}
 
 void Label::setAutoScroll(bool enabled) {
   if (m_autoScroll == enabled) {

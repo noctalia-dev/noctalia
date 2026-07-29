@@ -3,7 +3,9 @@
 #include "cursor-shape-v1-client-protocol.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <optional>
 
 namespace {
 
@@ -13,6 +15,14 @@ namespace {
   // detent convention is 15 units; we require a bit more so touchpad swipes
   // step deliberately rather than racing the finger.
   constexpr float kScrollUnitsPerStep = 20.0f;
+  // A pause longer than this ends a scroll gesture: the next axis event starts
+  // fresh so a partial detent left over from a free-spin flick can't bank into
+  // the following one and tip it into an extra step.
+  constexpr auto kScrollGestureGap = std::chrono::milliseconds(100);
+  // Shortest interval between steps taken from a detent-less stream. Those
+  // sources emit frames as fast as the finger moves, so the threshold alone
+  // would fire dozens of times a second on a flick.
+  constexpr auto kContinuousStepInterval = std::chrono::milliseconds(80);
 
   bool isWheelSource(std::uint32_t axisSource) noexcept {
     return axisSource == WL_POINTER_AXIS_SOURCE_WHEEL || axisSource == WL_POINTER_AXIS_SOURCE_WHEEL_TILT;
@@ -53,6 +63,7 @@ void InputArea::setOnEnter(PointerCallback callback) { m_onEnter = std::move(cal
 void InputArea::setOnLeave(VoidCallback callback) { m_onLeave = std::move(callback); }
 void InputArea::setOnMotion(PointerCallback callback) { m_onMotion = std::move(callback); }
 void InputArea::setOnPress(PointerCallback callback) { m_onPress = std::move(callback); }
+void InputArea::setOnCancel(VoidCallback callback) { m_onCancel = std::move(callback); }
 void InputArea::setOnAxis(PointerCallback callback) {
   m_onAxis = [callback = std::move(callback)](const PointerData& data) {
     callback(data);
@@ -167,6 +178,12 @@ void InputArea::dispatchEnter(float localX, float localY) {
   }
 }
 
+void InputArea::resetScrollAccumulators() noexcept {
+  m_scrollStepAccum.fill(0.0f);
+  m_lastScrollStepSign.fill(0.0f);
+  m_lastScrollStepTime.fill({});
+}
+
 void InputArea::dispatchLeave() {
   m_hovered = false;
   m_pressed = false;
@@ -176,8 +193,6 @@ void InputArea::dispatchLeave() {
     m_onLeave();
   }
 }
-
-void InputArea::resetScrollAccumulators() noexcept { m_scrollStepAccum.fill(0.0f); }
 
 void InputArea::dispatchMotion(float localX, float localY) {
   if (m_onMotion) {
@@ -209,23 +224,61 @@ void InputArea::dispatchPress(float localX, float localY, std::uint32_t button, 
   }
 }
 
+void InputArea::dispatchCancel() {
+  m_pressed = false;
+  m_pressedButton = 0;
+  if (m_onCancel) {
+    m_onCancel();
+  }
+}
+
 bool InputArea::dispatchAxis(
     float localX, float localY, std::uint32_t axis, std::uint32_t axisSource, double axisValue,
-    std::int32_t axisDiscrete, std::int32_t axisValue120, float axisLines
+    std::int32_t axisDiscrete, std::int32_t axisValue120, float axisLines, std::uint32_t axisGestureSerial
 ) {
   if (!m_onAxis) {
     return false;
   }
 
-  // Quantize scroll into whole detent steps. Wheel sources are capped at one
-  // step per frame: a ratcheted wheel emits one frame per notch, so the notch
-  // the user feels stays one step even when the compositor scales the delta
-  // (niri's scroll-factor), while free-spinning hi-res wheels emit sub-detent
-  // frames that must first accrue to a full detent. Continuous sources
-  // (touchpads) accrue axisValue until a detent-equivalent is reached.
+  // Reject unaccepted directions before they reach the accumulator, so a direction this area has
+  // given up cannot bank fractional detents here on its way to an ancestor.
+  if (m_acceptedScrollDirections != allScrollDirections()) {
+    const float delta = axisLines != 0.0f ? axisLines : static_cast<float>(axisValue);
+    if (delta != 0.0f) {
+      // Wayland reports up/left as a negative delta.
+      std::optional<ScrollDirection> direction;
+      if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) {
+        direction = delta < 0.0f ? ScrollDirection::Up : ScrollDirection::Down;
+      } else if (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
+        direction = delta < 0.0f ? ScrollDirection::Left : ScrollDirection::Right;
+      }
+      if (direction.has_value() && (m_acceptedScrollDirections & scrollDirectionMask(*direction)) == 0) {
+        return false;
+      }
+    }
+  }
+
+  // Quantize scroll into whole detent steps, at most one per frame. A wheel
+  // notch is a hardware detent: the user feels one click, so it is one step
+  // even when the compositor scales the delta (niri's scroll-factor), and a
+  // free-spinning hi-res wheel accrues sub-detent frames until a full detent
+  // has turned. Continuous sources (touchpads) accrue axisValue the same way.
   // Scrolling content stays on scrollDelta() and keeps the scaling.
+  const auto now = std::chrono::steady_clock::now();
+  if (now - m_lastAxisTime > kScrollGestureGap) {
+    resetScrollAccumulators();
+  }
+  m_lastAxisTime = now;
+
   float axisSteps = 0.0f;
+  bool startsGesture = false;
   if (axis < m_scrollStepAccum.size()) {
+    if (m_axisGestureSerial[axis] != axisGestureSerial) {
+      m_scrollStepAccum[axis] = 0.0f;
+      m_lastScrollStepSign[axis] = 0.0f;
+      m_lastScrollStepTime[axis] = {};
+      m_axisGestureSerial[axis] = axisGestureSerial;
+    }
     float& accum = m_scrollStepAccum[axis];
     const float detentDelta = axisLines != 0.0f ? axisLines : static_cast<float>(axisValue) / kScrollUnitsPerStep;
     if ((detentDelta > 0.0f && accum < 0.0f) || (detentDelta < 0.0f && accum > 0.0f)) {
@@ -234,8 +287,25 @@ bool InputArea::dispatchAxis(
     accum += detentDelta;
     axisSteps = std::trunc(accum);
     accum -= axisSteps;
-    if (isWheelSource(axisSource)) {
-      axisSteps = std::clamp(axisSteps, -1.0f, 1.0f);
+
+    if (axisSteps != 0.0f) {
+      const float sign = std::copysign(1.0f, axisSteps);
+      const float previousSign = m_lastScrollStepSign[axis];
+      startsGesture = previousSign == 0.0f || previousSign != sign;
+      // value120/axis_discrete means the compositor counted the notches for us, so every notch
+      // steps: spinning faster stays proportional. Without them the stream is continuous
+      // (touchpads, and wheels on compositors that send neither) and crosses the threshold as
+      // fast as the finger moves, so it is rate-capped instead.
+      const bool detentCounted = isWheelSource(axisSource) && (axisValue120 != 0 || axisDiscrete != 0);
+      if (!detentCounted && !startsGesture && now - m_lastScrollStepTime[axis] < kContinuousStepInterval) {
+        // Drop the surplus rather than banking it, so a capped step cannot fire late.
+        axisSteps = 0.0f;
+        accum = 0.0f;
+      } else {
+        axisSteps = sign;
+        m_lastScrollStepSign[axis] = sign;
+        m_lastScrollStepTime[axis] = now;
+      }
     }
   }
 
@@ -249,7 +319,8 @@ bool InputArea::dispatchAxis(
        .axisDiscrete = axisDiscrete,
        .axisValue120 = axisValue120,
        .axisLines = axisLines,
-       .axisSteps = axisSteps}
+       .axisSteps = axisSteps,
+       .axisStepStartsGesture = startsGesture}
   );
 }
 

@@ -45,6 +45,7 @@ namespace noctalia::bar {
     config::schema::WidgetSettingField schema;
     std::optional<settings::WidgetSettingPresentation> presentation;
     std::function<void(Options&, const WidgetConfig*, std::string_view)> resolve;
+    std::function<bool(const Options&, const Options&)> valuesEqual;
   };
 
   namespace detail {
@@ -450,7 +451,7 @@ namespace noctalia::bar {
       }
     }
 
-    return WidgetDefinitionField<Options>{
+    WidgetDefinitionField<Options> definitionField{
         .schema = std::move(schema),
         .presentation = std::move(spec.presentation),
         .resolve = [key, defaultValue, choices = std::move(spec.choices),
@@ -467,12 +468,22 @@ namespace noctalia::bar {
           options.*Member = std::move(value);
         },
     };
+    definitionField.valuesEqual = [](const Options& left, const Options& right) {
+      return left.*Member == right.*Member;
+    };
+    return definitionField;
   }
 
-  template <typename Options, typename Context> struct WidgetDefinition {
+  template <typename Options, typename Context = std::monostate> struct WidgetDefinition {
     std::string_view type;
     std::vector<WidgetDefinitionField<Options>> fields;
     std::function<void(Options&, const Context&)> finalize;
+
+    [[nodiscard]] Options resolve(const WidgetConfig* config, std::string_view settingContext) const
+      requires std::is_same_v<Context, std::monostate>
+    {
+      return resolve(config, settingContext, std::monostate{});
+    }
 
     [[nodiscard]] Options
     resolve(const WidgetConfig* config, std::string_view settingContext, const Context& context) const {
@@ -488,6 +499,13 @@ namespace noctalia::bar {
         finalize(options, context);
       }
       return options;
+    }
+
+    [[nodiscard]] bool fieldValuesEqual(const Options& left, const Options& right) const {
+      validate();
+      return std::ranges::all_of(fields, [&](const WidgetDefinitionField<Options>& field) {
+        return field.valuesEqual(left, right);
+      });
     }
 
     [[nodiscard]] config::schema::WidgetSettingSchema schemaFields() const {
@@ -522,6 +540,11 @@ namespace noctalia::bar {
         throw std::logic_error("widget definition type cannot be empty");
       }
       for (std::size_t i = 0; i < fields.size(); ++i) {
+        if (!fields[i].resolve || !fields[i].valuesEqual) {
+          throw std::logic_error(
+              std::format("widget definition '{}' field '{}' was not built by field<>()", type, fields[i].schema.key)
+          );
+        }
         for (std::size_t j = i + 1; j < fields.size(); ++j) {
           if (fields[i].schema.key == fields[j].schema.key) {
             throw std::logic_error(

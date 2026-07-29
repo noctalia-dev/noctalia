@@ -89,6 +89,14 @@ void GridView::setMinCellHeight(float height) {
   markLayoutDirty();
 }
 
+void GridView::setSpanLastItem(bool span) {
+  if (m_spanLastItem == span) {
+    return;
+  }
+  m_spanLastItem = span;
+  markLayoutDirty();
+}
+
 LayoutSize GridView::doMeasure(Renderer& renderer, const LayoutConstraints& constraints) {
   float useW = width();
   if (constraints.hasExactWidth()) {
@@ -206,36 +214,80 @@ void GridView::doLayout(Renderer& renderer) {
     std::ranges::fill(columnWidths, uniformWidth);
     std::ranges::fill(rowHeights, uniformHeight);
 
-    for (Node* child : visibleChildren) {
-      layoutWithAssignedSize(child, uniformWidth, uniformHeight);
+    for (std::size_t index = 0; index < visibleChildren.size(); ++index) {
+      Node* child = visibleChildren[index];
+      float itemWidth = uniformWidth;
+      if (m_spanLastItem && index == visibleChildren.size() - 1 && columns > 0) {
+        const std::size_t col = index % columns;
+        const std::size_t colSpan = columns - col;
+        if (colSpan > 1) {
+          itemWidth = static_cast<float>(colSpan) * uniformWidth + static_cast<float>(colSpan - 1) * m_columnGap;
+        }
+      }
+      layoutWithAssignedSize(child, itemWidth, uniformHeight);
     }
   } else {
-    if (hasFixedWidth && m_stretchItems) {
-      std::ranges::fill(columnWidths, stretchedWidth);
+    const std::size_t lastIndex = visibleChildren.size() - 1;
+    const std::size_t lastCol = lastIndex % columns;
+    const bool lastItemSpans = m_spanLastItem && lastCol + 1 < columns;
+    const std::size_t lastColSpan = lastItemSpans ? columns - lastCol : 1;
+    const bool stretchToFixedWidth = hasFixedWidth && m_stretchItems;
+    float lastItemNaturalWidth = 0.0f;
+
+    // Measure first so every column width is final before a spanning child is arranged.
+    for (std::size_t index = 0; index < visibleChildren.size(); ++index) {
+      Node* child = visibleChildren[index];
+      const std::size_t col = index % columns;
+      const std::size_t row = index / columns;
+      child->layout(renderer);
+
+      if (!stretchToFixedWidth) {
+        if (lastItemSpans && index == lastIndex) {
+          lastItemNaturalWidth = child->width();
+        } else {
+          columnWidths[col] = std::max(columnWidths[col], child->width());
+        }
+      }
+      rowHeights[row] = std::max(rowHeights[row], child->height());
+    }
+
+    if (stretchToFixedWidth) {
+      std::ranges::fill(columnWidths, std::max(stretchedWidth, m_minCellWidth));
+    } else {
+      for (auto& columnWidth : columnWidths) {
+        columnWidth = std::max(columnWidth, m_minCellWidth);
+      }
+
+      if (lastItemSpans) {
+        const auto spanBegin = columnWidths.begin() + static_cast<std::ptrdiff_t>(lastCol);
+        const float currentSpanWidth =
+            std::accumulate(spanBegin, columnWidths.end(), 0.0f) + static_cast<float>(lastColSpan - 1) * m_columnGap;
+        if (lastItemNaturalWidth > currentSpanWidth) {
+          const float extraPerColumn = (lastItemNaturalWidth - currentSpanWidth) / static_cast<float>(lastColSpan);
+          for (std::size_t col = lastCol; col < columns; ++col) {
+            columnWidths[col] += extraPerColumn;
+          }
+        }
+      }
+    }
+
+    for (auto& rowHeight : rowHeights) {
+      rowHeight = std::max(rowHeight, m_minCellHeight);
     }
 
     for (std::size_t index = 0; index < visibleChildren.size(); ++index) {
       Node* child = visibleChildren[index];
       const std::size_t col = index % columns;
-      const std::size_t row = index / columns;
-
-      if (hasFixedWidth && m_stretchItems && stretchedWidth > 0.0f) {
-        layoutWithAssignedSize(child, columnWidths[col], child->height());
-      } else {
-        child->layout(renderer);
+      const bool spans = lastItemSpans && index == lastIndex;
+      if (!stretchToFixedWidth && !spans) {
+        continue;
       }
 
-      if (!hasFixedWidth || !m_stretchItems) {
-        columnWidths[col] = std::max(columnWidths[col], child->width());
-      }
-      rowHeights[row] = std::max(rowHeights[row], child->height());
-    }
-
-    for (auto& columnWidth : columnWidths) {
-      columnWidth = std::max(columnWidth, m_minCellWidth);
-    }
-    for (auto& rowHeight : rowHeights) {
-      rowHeight = std::max(rowHeight, m_minCellHeight);
+      const std::size_t colSpan = spans ? lastColSpan : 1;
+      const auto spanBegin = columnWidths.begin() + static_cast<std::ptrdiff_t>(col);
+      const auto spanEnd = spanBegin + static_cast<std::ptrdiff_t>(colSpan);
+      const float itemWidth = std::accumulate(spanBegin, spanEnd, 0.0f) + static_cast<float>(colSpan - 1) * m_columnGap;
+      layoutWithAssignedSize(child, itemWidth, child->height());
     }
   }
 

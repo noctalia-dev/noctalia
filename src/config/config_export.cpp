@@ -26,12 +26,29 @@ namespace config_export {
       return array;
     }
 
+    toml::table stringMapTable(const WidgetSettingStringMap& values) {
+      toml::table table;
+      std::vector<std::string> keys;
+      keys.reserve(values.size());
+      for (const auto& [key, value] : values) {
+        (void)value;
+        keys.push_back(key);
+      }
+      std::ranges::sort(keys);
+      for (const auto& key : keys) {
+        table.insert_or_assign(key, values.at(key));
+      }
+      return table;
+    }
+
     void insertWidgetSettingValue(toml::table& table, std::string_view key, const WidgetSettingValue& value) {
       std::visit(
           [&](const auto& concrete) {
             using T = std::decay_t<decltype(concrete)>;
             if constexpr (std::is_same_v<T, std::vector<std::string>>) {
               table.insert_or_assign(key, stringArray(concrete));
+            } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
+              table.insert_or_assign(key, stringMapTable(concrete));
             } else {
               table.insert_or_assign(key, concrete);
             }
@@ -208,16 +225,8 @@ namespace config_export {
         resolved.widgetCapsuleOpacity = static_cast<float>(*ovr.widgetCapsuleOpacity);
       if (ovr.hoverHighlight)
         resolved.hoverHighlight = *ovr.hoverHighlight;
-      if (ovr.deadZone.command)
-        resolved.deadZone.command = *ovr.deadZone.command;
-      if (ovr.deadZone.rightCommand)
-        resolved.deadZone.rightCommand = *ovr.deadZone.rightCommand;
-      if (ovr.deadZone.middleCommand)
-        resolved.deadZone.middleCommand = *ovr.deadZone.middleCommand;
-      if (ovr.deadZone.scrollUpCommand)
-        resolved.deadZone.scrollUpCommand = *ovr.deadZone.scrollUpCommand;
-      if (ovr.deadZone.scrollDownCommand)
-        resolved.deadZone.scrollDownCommand = *ovr.deadZone.scrollDownCommand;
+      if (ovr.deadZone.actions)
+        resolved.deadZone.actions = *ovr.deadZone.actions;
       return resolved;
     }
 

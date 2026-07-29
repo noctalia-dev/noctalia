@@ -50,6 +50,11 @@ namespace noctalia::theme {
     bool processConfigFile(const std::filesystem::path& configPath);
     bool processConfigTable(const toml::table& root, const std::filesystem::path& configPath);
 
+    // The two halves of processConfigTable(), for callers that must ingest [config.custom_colors]
+    // before rendering templates that are not declared in this config.
+    void applyCustomColors(const toml::table& root);
+    bool processConfigTemplates(const toml::table& root, const std::filesystem::path& configPath);
+
   private:
     ThemeData m_themeData;
     Options m_options;

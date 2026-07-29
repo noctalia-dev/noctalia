@@ -244,8 +244,9 @@ void MonitorTab::rebuildCards(Renderer& /*renderer*/) {
   for (const auto& display : displays) {
     // Card container
     auto card = ui::column({
-        .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& section) {
-          applySectionCardStyle(section, scale, opacity, borders);
+        .configure = [scale, opacity = panelCardOpacity()](Flex& section) {
+          applySectionCardStyle(section, scale, opacity);
+          section.setGap(Style::spaceMd * scale);
         },
     });
 

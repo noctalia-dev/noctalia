@@ -17,22 +17,7 @@ namespace {
 ThemeModeWidget::ThemeModeWidget(noctalia::theme::ThemeService* themeService) : m_themeService(themeService) {}
 
 void ThemeModeWidget::create() {
-  auto area = std::make_unique<InputArea>();
-  area->setOnClick([this](const InputArea::PointerData& /*data*/) {
-    if (m_themeService == nullptr) {
-      return;
-    }
-    m_themeService->toggleLightDark();
-    m_lastIsLight = !m_lastIsLight;
-    if (m_glyph != nullptr) {
-      m_glyph->setGlyph(glyphForMode(m_lastIsLight));
-      m_glyph->setColor(
-          m_lastIsLight ? widgetIconColorOr(colorSpecFromRole(ColorRole::Primary))
-                        : widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface))
-      );
-    }
-    requestRedraw();
-  });
+  auto area = ui::inputArea({});
   m_area = area.get();
 
   area->addChild(

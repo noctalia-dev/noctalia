@@ -140,6 +140,7 @@ namespace scripting {
     SetWallpaperEnabled,
     SetWallpaper,
     TogglePanel,
+    OpenPluginSettings,
   };
 
   struct ScriptSideEffect {
@@ -149,6 +150,7 @@ namespace scripting {
     // SetWallpaperEnabled: title holds the output connector, flag the enabled state.
     // SetWallpaper: title holds the output connector (empty = all outputs), body the image path.
     // TogglePanel: title holds the panel id ("author/plugin:panel").
+    // OpenPluginSettings: title holds the plugin id ("author/plugin").
     bool flag = false;
   };
 
@@ -175,6 +177,13 @@ namespace scripting {
     HttpStreamClosed,
     SettingsChanged,
     Stop,
+  };
+
+  enum class ScriptExitReason : std::uint8_t {
+    Reload,
+    Disable,
+    Uninstall,
+    Shutdown,
   };
 
   // Queue policy for a callback invocation.
@@ -218,6 +227,8 @@ namespace scripting {
     std::string stateJson;
     // Stop payload: SIGINT/SIGTERM for signal-driven process shutdown, otherwise 0.
     int exitSignal = 0;
+    // Stop payload: identifies why the runtime is being destroyed.
+    ScriptExitReason exitReason = ScriptExitReason::Reload;
     // SettingsChanged payload: the new seeded settings snapshot to swap in.
     ScriptSettings newSettings;
     ScriptSnapshot snapshot;
@@ -233,6 +244,8 @@ namespace scripting {
     bool hasOnIpc = false;
     bool hasOnIpcKnown = false;
     bool unhealthy = false;
+    // True when this result included a CopyToClipboard side effect (before dispatch).
+    bool copiedToClipboard = false;
     std::string callbackName;
     std::string error;
   };

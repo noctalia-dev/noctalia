@@ -398,7 +398,7 @@ namespace noctalia::theme {
                         FixedPaletteMode{
                             .palette =
                                 Palette{
-                                    .primary = hex("#38ff9f"),
+                                    .primary = hex("#fb5bb6"),
                                     .onPrimary = hex("#1e2029"),
                                     .secondary = hex("#0ad6ff"),
                                     .onSecondary = hex("#1e2029"),

@@ -59,6 +59,9 @@ namespace settings {
   // Render the Plugins section into `content` when ctx.selectedSection == "plugins".
   void addSettingsPlugins(Flex& content, SettingsPluginsContext ctx);
 
+  // True when the plugin exposes anything the settings editor can show.
+  [[nodiscard]] bool pluginHasSettings(const scripting::PluginManifest& manifest);
+
   void buildPluginSettingsEditor(
       Flex& body, const Config& cfg, SettingsControlFactory& factory, const std::string& pluginId,
       const scripting::PluginManifest& manifest, bool showAdvanced, float scale

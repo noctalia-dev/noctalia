@@ -8,9 +8,9 @@ namespace noctalia::theme {
   double contrastRatio(const Color& a, const Color& b);
   bool isDark(const Color& c);
 
-  // Binary-search the foreground's HSL lightness toward black or white until
-  // the WCAG contrast ratio against `background` meets `minRatio`.
-  // preferLight: -1 = darken, +1 = lighten, 0 = auto (lighten if bg is dark).
+  // Binary-search the foreground's OKLCH lightness toward black or white until
+  // its sRGB WCAG contrast ratio against `background` meets `minRatio`. Chroma
+  // is reduced only when needed to keep the adjusted color inside the sRGB gamut.
   Color ensureContrast(const Color& foreground, const Color& background, double minRatio = 4.5, int preferLight = 0);
 
 } // namespace noctalia::theme

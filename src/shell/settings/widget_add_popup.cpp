@@ -141,6 +141,7 @@ namespace settings {
           .offsetX = 0,
           .offsetY = 0,
           .serial = serial,
+          // One-shot pickers keep tray-like outside-click dismiss via xdg_popup grab.
           .grab = true,
       };
     }

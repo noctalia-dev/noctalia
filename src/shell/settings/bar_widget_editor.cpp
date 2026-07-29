@@ -2,14 +2,19 @@
 
 #include "config/config_service.h"
 #include "config/config_types.h"
+#include "core/files/directory_scanner.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/scene/node.h"
+#include "shell/bar/widget_gesture.h"
+#include "shell/bar/widget_gesture_defaults.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/font_weight_catalog.h"
+#include "shell/settings/path_browse.h"
 #include "shell/settings/settings_content.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "ui/builders.h"
+#include "ui/controls/collapsible.h"
 #include "ui/dialogs/file_dialog.h"
 #include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/palette.h"
@@ -27,7 +32,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <unordered_map>
 #include <utility>
 #include <variant>
@@ -40,8 +44,6 @@ namespace settings {
   [[nodiscard]] std::optional<double> parseDoubleInput(std::string_view text);
 
   namespace {
-
-    constexpr float kDragStartThresholdPx = 6.0f;
 
     struct LaneWidgetDragState {
       bool active = false;
@@ -106,40 +108,77 @@ namespace settings {
       return header;
     }
 
+    // One row per bindable gesture: a picker over Default / Disabled / every command / a free-form
+    // shell command, plus an argument field when the choice takes one.
+    // One row per bindable gesture, built by the shared factory so this matches every other
+    // gesture-binding surface.
+    void addGestureActionRows(
+        Flex& panel, const BarWidgetEditorContext& ctx, const SettingEntry& entry,
+        const WidgetSettingStringMap& defaults, const WidgetSettingStringMap& configured,
+        noctalia::bar::GestureMask reserved
+    ) {
+      for (const auto gesture : noctalia::bar::allGestures()) {
+        if (reserved.contains(gesture)) {
+          continue;
+        }
+        const std::string key(noctalia::bar::gestureConfigKey(gesture));
+        std::vector<std::string> path = entry.path;
+        path.push_back(key);
+
+        const auto configuredIt = configured.find(key);
+        const auto defaultIt = defaults.find(key);
+
+        SettingEntry rowEntry = entry;
+        rowEntry.path = path;
+        rowEntry.title = i18n::tr(std::string(noctalia::bar::gestureLabelKey(gesture)));
+        rowEntry.subtitle.clear();
+
+        GestureActionSetting setting{
+            .gestureKey = key,
+            .configured = configuredIt != configured.end() ? configuredIt->second : std::string{},
+            .defaultAction = defaultIt != defaults.end() ? defaultIt->second : std::string{},
+        };
+        ctx.makeRow(panel, rowEntry, ctx.makeGestureActionRow(setting, rowEntry.title, path));
+      }
+    }
+
     std::string widgetSettingGroupTitle(std::string_view groupKey) {
       return i18n::tr("settings.entities.widget.settings.groups." + std::string(groupKey));
     }
 
-    enum class PathBrowseKind : std::uint8_t {
-      File,
-      Folder,
-    };
+    constexpr std::string_view kGestureActionsGroup = "actions";
 
-    void applyPathDialogStartValue(FileDialogOptions& options, const std::string& currentValue, PathBrowseKind kind) {
-      if (currentValue.empty()) {
-        return;
+    // The actions group is long (one row per bindable gesture) and most widgets never need it, so it
+    // starts folded. The open state lives on the settings window keyed by widget name: editing a
+    // binding rebuilds the scene, and a local flag would fold the group back up on every edit.
+    std::unique_ptr<Node> makeGestureActionsSection(
+        const BarWidgetEditorContext& ctx, const std::string& widgetName, std::unique_ptr<Node> body, bool withSeparator
+    ) {
+      // Same padding and gap as makeMiniSectionHeader, so this section sits like every other one.
+      auto section = ui::column({
+          .align = FlexAlign::Stretch,
+          .gap = Style::spaceXs * ctx.scale,
+          .configure = [scale = ctx.scale](Flex& flex) { flex.setPadding(Style::spaceSm * scale, 0.0f, 0.0f, 0.0f); },
+      });
+      if (withSeparator) {
+        section->addChild(ui::separator());
       }
 
-      const std::filesystem::path current(currentValue);
-      std::error_code ec;
-      if (kind == PathBrowseKind::Folder
-          && std::filesystem::exists(current, ec)
-          && std::filesystem::is_directory(current, ec)) {
-        options.startDirectory = current;
-        return;
-      }
-      if (kind == PathBrowseKind::File
-          && std::filesystem::exists(current, ec)
-          && std::filesystem::is_regular_file(current, ec)) {
-        options.startDirectory = current.parent_path();
-        options.defaultFilename = current.filename().string();
-        return;
-      }
-      if (current.has_parent_path()
-          && std::filesystem::exists(current.parent_path(), ec)
-          && std::filesystem::is_directory(current.parent_path(), ec)) {
-        options.startDirectory = current.parent_path();
-      }
+      auto collapsible = std::make_unique<Collapsible>();
+      collapsible->setScale(ctx.scale);
+      // Flush left, matching the plain group headers above it.
+      collapsible->setHeaderPadding(0.0f, 0.0f);
+      collapsible->setHeader(makeLabel(
+          widgetSettingGroupTitle(kGestureActionsGroup), Style::fontSizeCaption * ctx.scale,
+          colorSpecFromRole(ColorRole::Secondary), FontWeight::Bold
+      ));
+      collapsible->setBody(std::move(body));
+      collapsible->setExpandedImmediate(ctx.actionsExpandedFor == widgetName);
+      collapsible->setOnToggle([expandedFor = &ctx.actionsExpandedFor, widgetName](bool value) {
+        *expandedFor = value ? widgetName : std::string{};
+      });
+      section->addChild(std::move(collapsible));
+      return section;
     }
 
     std::unique_ptr<Node> makePathBrowseControl(
@@ -981,9 +1020,32 @@ namespace settings {
       if (!spec.visibleWhen.has_value()) {
         return true;
       }
-      auto matches = [&](const std::string& key, const std::vector<std::string>& values) {
-        const auto currentValue = settingCurrentString(cfg, widgetName, key, allSpecs);
-        for (const auto& v : values) {
+      auto settingValueForKey = [&](const std::string& key) -> WidgetSettingValue {
+        if (const auto it = cfg.widgets.find(std::string(widgetName)); it != cfg.widgets.end()) {
+          if (const auto settingIt = it->second.settings.find(key); settingIt != it->second.settings.end()) {
+            return settingIt->second;
+          }
+        }
+        for (const auto& s : allSpecs) {
+          if (s.schema.key == key) {
+            return s.schema.defaultValue;
+          }
+        }
+        return {};
+      };
+      auto matches = [&](const WidgetSettingVisibilityCondition& condition) {
+        const WidgetSettingValue value = settingValueForKey(condition.key);
+        if (condition.nonEmpty) {
+          if (const auto* list = std::get_if<std::vector<std::string>>(&value)) {
+            return !list->empty();
+          }
+          if (const auto* str = std::get_if<std::string>(&value)) {
+            return !str->empty();
+          }
+          return false;
+        }
+        const auto currentValue = settingCurrentString(cfg, widgetName, condition.key, allSpecs);
+        for (const auto& v : condition.values) {
           if (v == currentValue) {
             return true;
           }
@@ -991,7 +1053,7 @@ namespace settings {
         return false;
       };
       for (const auto& condition : spec.visibleWhen->all) {
-        if (!matches(condition.key, condition.values)) {
+        if (!matches(condition)) {
           return false;
         }
       }
@@ -999,7 +1061,7 @@ namespace settings {
         return true;
       }
       for (const auto& condition : spec.visibleWhen->any) {
-        if (matches(condition.key, condition.values)) {
+        if (matches(condition)) {
           return true;
         }
       }
@@ -1151,6 +1213,23 @@ namespace settings {
                 out += "\"" + concrete[i] + "\"";
               }
               out += "]";
+              return out;
+            } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
+              std::vector<std::string> keys;
+              keys.reserve(concrete.size());
+              for (const auto& [key, mapValue] : concrete) {
+                (void)mapValue;
+                keys.push_back(key);
+              }
+              std::ranges::sort(keys);
+              std::string out = "{";
+              for (std::size_t i = 0; i < keys.size(); ++i) {
+                if (i > 0) {
+                  out += ", ";
+                }
+                out += "\"" + keys[i] + "\" = \"" + concrete.at(keys[i]) + "\"";
+              }
+              out += "}";
               return out;
             }
           },
@@ -1450,7 +1529,10 @@ namespace settings {
         }
 
         if (spec.group != activeGroupKey) {
-          panel->addChild(makeMiniSectionHeader(widgetSettingGroupTitle(spec.group), ctx.scale, visibleSpecs > 0));
+          // The actions group folds, and carries its title in the collapsible's own header.
+          if (spec.group != kGestureActionsGroup) {
+            panel->addChild(makeMiniSectionHeader(widgetSettingGroupTitle(spec.group), ctx.scale, visibleSpecs > 0));
+          }
           activeGroupKey = spec.group;
         }
 
@@ -1591,7 +1673,7 @@ namespace settings {
             options.mode = FileDialogMode::Open;
             options.defaultViewMode = FileDialogViewMode::Grid;
             options.title = i18n::tr("settings.widgets.settings.custom-image.dialog-title");
-            options.extensions = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".bmp", ".gif"};
+            options.extensions = DirectoryScanner::imageExtensionFilter(true);
             options.startDirectory = "/usr/share/icons";
             ctx.makeRow(
                 *panel, entry,
@@ -1638,20 +1720,54 @@ namespace settings {
           ctx.makeListBlock(*panel, entry, ListSetting{.items = settingValueAsStringList(value)});
           break;
         case WidgetControlKind::StringMap: {
+          // Gesture bindings have a closed key set, so they get one fixed row per gesture rather
+          // than the free-form key/value editor.
+          if (spec.schema.key == "actions") {
+            WidgetSettingStringMap defaults;
+            if (const auto* declared = std::get_if<WidgetSettingStringMap>(&spec.schema.defaultValue)) {
+              defaults = *declared;
+            }
+            WidgetSettingStringMap configured;
+            if (widgetConfig != nullptr) {
+              if (const auto tableIt = widgetConfig->tables.find(spec.schema.key);
+                  tableIt != widgetConfig->tables.end()) {
+                configured = tableIt->second;
+              }
+            }
+            auto body = ui::column({.align = FlexAlign::Stretch});
+            addGestureActionRows(
+                *body, ctx, entry, defaults, configured, noctalia::bar::reservedGesturesForType(widgetType)
+            );
+            panel->addChild(makeGestureActionsSection(ctx, widgetName, std::move(body), visibleSpecs > 0));
+            break;
+          }
           const bool customLabels = spec.schema.key == "custom_labels";
+          const bool effectsProfileGlyphs = spec.schema.key == "effects_profile_glyphs";
+          WidgetSettingStringMap entries;
+          if (widgetConfig != nullptr) {
+            if (const auto tableIt = widgetConfig->tables.find(spec.schema.key);
+                tableIt != widgetConfig->tables.end()) {
+              entries = tableIt->second;
+            } else if (const auto* defaults = std::get_if<WidgetSettingStringMap>(&spec.schema.defaultValue)) {
+              entries = *defaults;
+            }
+          } else if (const auto* defaults = std::get_if<WidgetSettingStringMap>(&spec.schema.defaultValue)) {
+            entries = *defaults;
+          }
           ctx.makeStringMapBlock(
               *panel, entry,
               StringMapSetting{
-                  .entries = widgetConfig != nullptr ? widgetConfig->getStringMap(spec.schema.key)
-                                                     : std::unordered_map<std::string, std::string>{},
+                  .entries = std::move(entries),
                   .suggestedKeys = customLabels ? ctx.keyboardLayoutNames : std::vector<std::string>{},
                   .keyPlaceholder = i18n::tr(
-                      customLabels ? "settings.widgets.map-placeholders.layout-name"
-                                   : "settings.widgets.map-placeholders.effects-profile-name"
+                      customLabels               ? "settings.widgets.map-placeholders.layout-name"
+                          : effectsProfileGlyphs ? "settings.widgets.map-placeholders.effects-profile-name"
+                                                 : "settings.widgets.map-placeholders.key"
                   ),
                   .valuePlaceholder = i18n::tr(
-                      customLabels ? "settings.widgets.map-placeholders.label"
-                                   : "settings.widgets.map-placeholders.glyph-name"
+                      customLabels               ? "settings.widgets.map-placeholders.label"
+                          : effectsProfileGlyphs ? "settings.widgets.map-placeholders.glyph-name"
+                                                 : "settings.widgets.map-placeholders.value"
                   ),
               }
           );
@@ -2584,7 +2700,7 @@ namespace settings {
         dragState->lastLocalX = localX;
         dragState->lastLocalY = localY;
         if (std::hypot(localX - dragState->startLocalX, localY - dragState->startLocalY)
-            >= kDragStartThresholdPx * scale) {
+            >= Style::dragStartThreshold * scale) {
           dragState->moved = true;
         }
         if (!dragState->moved) {

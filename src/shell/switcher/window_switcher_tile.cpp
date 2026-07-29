@@ -46,7 +46,7 @@ namespace {
     }
     glyph->setColor(fill);
     const float offset = std::max(0.5f, 0.85f * contentScale);
-    glyph->setShadow(Color{0.0f, 0.0f, 0.0f, 0.55f}, 0.0f, offset);
+    glyph->setShadow(colorSpecFromRole(ColorRole::Shadow, 0.55f), 0.0f, offset);
   }
 
 } // namespace

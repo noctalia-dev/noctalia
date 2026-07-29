@@ -25,7 +25,7 @@ int main() {
   ok = expectGlyph(audioVolumeGlyph(0.39f, false, false), "volume-low", "low speaker volume") && ok;
   ok = expectGlyph(audioVolumeGlyph(0.4f, false, false), "volume-high", "high speaker volume threshold") && ok;
   ok = expectGlyph(audioVolumeGlyph(0.8f, true, false), "volume-mute", "muted speaker") && ok;
-  ok = expectGlyph(audioVolumeGlyph(0.0f, false, true), "microphone", "zero microphone volume") && ok;
+  ok = expectGlyph(audioVolumeGlyph(0.0f, false, true), "microphone-mute", "zero microphone volume") && ok;
   ok = expectGlyph(audioVolumeGlyph(0.8f, true, true), "microphone-mute", "muted microphone") && ok;
 
   return ok ? 0 : 1;
