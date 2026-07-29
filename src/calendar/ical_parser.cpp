@@ -1,5 +1,7 @@
 #include "calendar/ical_parser.h"
 
+#include "core/log.h"
+
 #include <algorithm>
 #include <chrono>
 #include <ctime>
@@ -8,12 +10,12 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace calendar {
 
   namespace {
+    constexpr Logger kLog("ical-parser");
 
     struct ICalComponentDeleter {
       void operator()(icalcomponent* component) const {
@@ -24,6 +26,16 @@ namespace calendar {
     };
 
     using ICalComponentPtr = std::unique_ptr<icalcomponent, ICalComponentDeleter>;
+
+    struct ICalRecurDeleter {
+      void operator()(icalrecur_iterator* iterator) const {
+        if (iterator != nullptr) {
+          icalrecur_iterator_free(iterator);
+        }
+      }
+    };
+
+    using ICalRecurPtr = std::unique_ptr<icalrecur_iterator, ICalRecurDeleter>;
 
     std::chrono::system_clock::time_point toSystem(std::chrono::sys_time<std::chrono::seconds> t) {
       return std::chrono::time_point_cast<std::chrono::system_clock::duration>(t);
@@ -215,54 +227,153 @@ namespace calendar {
       }
     }
 
-    struct RecurrenceCallbackData {
+    struct RecurrenceData {
       CalendarEvent base;
       std::chrono::system_clock::time_point windowStart;
       std::chrono::system_clock::time_point windowEnd;
       bool floatingDateTime = false;
       const std::vector<std::chrono::system_clock::time_point>* exclusions = nullptr;
       std::vector<CalendarEvent>* events = nullptr;
-      std::unordered_set<time_t> starts;
+      std::unordered_map<time_t, std::size_t> eventIndexByStart;
     };
 
-#if ICAL_CHECK_VERSION(4, 0, 0)
-    void addRecurrence(icalcomponent*, const icaltime_span* span, void* userData) {
-#else
-    void addRecurrence(icalcomponent*, icaltime_span* span, void* userData) {
-#endif
-      auto* data = static_cast<RecurrenceCallbackData*>(userData);
-      if (data == nullptr || span == nullptr || data->events == nullptr) {
+    bool consumeRecurrenceWork(ICalParseControl& control) {
+      if (control.stopToken.stop_requested() || control.remainingRecurrenceWork == 0) {
+        return false;
+      }
+      --control.remainingRecurrenceWork;
+      return true;
+    }
+
+    time_t recurrenceUnixTime(const icaltimetype& time) {
+      const icaltimezone* zone = icaltime_get_timezone(time);
+      return icaltime_as_timet_with_zone(time, zone != nullptr ? zone : icaltimezone_get_utc_timezone());
+    }
+
+    void addRecurrence(const icaltime_span& span, RecurrenceData& data, bool preferExplicitDuration) {
+      CalendarEvent event = data.base;
+      if (event.allDay) {
+        event.start = localMidnightFromUnixDate(span.start);
+        event.end = localMidnightFromUnixDate(span.end);
+      } else if (data.floatingDateTime) {
+        event.start = localDateTimeFromUnixWallTime(span.start);
+        event.end = localDateTimeFromUnixWallTime(span.end);
+      } else {
+        event.start = fromUnix(span.start);
+        event.end = fromUnix(span.end);
+      }
+      if (event.start < data.windowStart || event.start > data.windowEnd) {
+        return;
+      }
+      if (data.exclusions != nullptr && isExcluded(event.start, *data.exclusions)) {
         return;
       }
 
-      CalendarEvent event = data->base;
-      if (event.allDay) {
-        event.start = localMidnightFromUnixDate(span->start);
-        event.end = localMidnightFromUnixDate(span->end);
-      } else if (data->floatingDateTime) {
-        event.start = localDateTimeFromUnixWallTime(span->start);
-        event.end = localDateTimeFromUnixWallTime(span->end);
-      } else {
-        event.start = fromUnix(span->start);
-        event.end = fromUnix(span->end);
-      }
-      if (event.start < data->windowStart || event.start > data->windowEnd) {
+      const time_t start = toUnix(event.start);
+      if (auto it = data.eventIndexByStart.find(start); it != data.eventIndexByStart.end()) {
+        if (preferExplicitDuration) {
+          (*data.events)[it->second] = std::move(event);
+        }
         return;
       }
-      if (data->exclusions != nullptr && isExcluded(event.start, *data->exclusions)) {
-        return;
+      data.eventIndexByStart.emplace(start, data.events->size());
+      data.events->push_back(std::move(event));
+    }
+
+    ICalParseStatus expandRecurrences(
+        icalcomponent* component, const icaltimetype& componentStart, ICalParseControl& control, RecurrenceData& data
+    ) {
+      const icaltimetype componentEnd = icalcomponent_get_dtend(component);
+      const icaltime_span baseSpan = icaltime_span_new(componentStart, componentEnd, 1);
+      const time_t duration = baseSpan.end - baseSpan.start;
+      const icaltimetype endBound = recurrenceBound(data.windowEnd, componentStart);
+
+      icalproperty* ruleProperty = icalcomponent_get_first_property(component, ICAL_RRULE_PROPERTY);
+      if (ruleProperty == nullptr) {
+        icaltimetype start = componentStart;
+        if (icalproperty_recurrence_is_excluded(component, &start, &start) == 0) {
+          addRecurrence(baseSpan, data, false);
+        }
       }
-      if (!data->starts.insert(toUnix(event.start)).second) {
-        return;
+
+      for (; ruleProperty != nullptr; ruleProperty = icalcomponent_get_next_property(component, ICAL_RRULE_PROPERTY)) {
+        const icalrecurrencetype rule = icalproperty_get_rrule(ruleProperty);
+        ICalRecurPtr iterator{icalrecur_iterator_new(rule, componentStart)};
+        if (!iterator) {
+          continue;
+        }
+        if (rule.count == 0) {
+          (void)icalrecur_iterator_set_start(iterator.get(), recurrenceBound(data.windowStart, componentStart));
+        }
+
+        while (!control.stopToken.stop_requested()) {
+          icaltimetype occurrence = icalrecur_iterator_next(iterator.get());
+          if (icaltime_is_null_time(occurrence)) {
+            break;
+          }
+          if (!consumeRecurrenceWork(control)) {
+            return control.stopToken.stop_requested() ? ICalParseStatus::Cancelled
+                                                      : ICalParseStatus::WorkBudgetExceeded;
+          }
+          if (icaltime_compare(occurrence, endBound) > 0) {
+            break;
+          }
+
+          icaltimetype start = componentStart;
+          if (icalproperty_recurrence_is_excluded(component, &start, &occurrence) != 0) {
+            continue;
+          }
+          const time_t occurrenceStart = recurrenceUnixTime(occurrence);
+          addRecurrence(
+              icaltime_span{.start = occurrenceStart, .end = occurrenceStart + duration, .is_busy = 1}, data, false
+          );
+        }
+        if (control.stopToken.stop_requested()) {
+          return ICalParseStatus::Cancelled;
+        }
       }
-      data->events->push_back(std::move(event));
+
+      for (icalproperty* property = icalcomponent_get_first_property(component, ICAL_RDATE_PROPERTY);
+           property != nullptr; property = icalcomponent_get_next_property(component, ICAL_RDATE_PROPERTY)) {
+        if (!consumeRecurrenceWork(control)) {
+          return control.stopToken.stop_requested() ? ICalParseStatus::Cancelled : ICalParseStatus::WorkBudgetExceeded;
+        }
+
+        const icaldatetimeperiodtype rdate = icalproperty_get_rdate(property);
+        const bool explicitPeriod = icaltime_is_null_time(rdate.time);
+        const icaltimetype occurrence = explicitPeriod ? rdate.period.start : rdate.time;
+        if (icaltime_is_null_time(occurrence)) {
+          continue;
+        }
+
+        icaltimetype start = componentStart;
+        icaltimetype recurrence = occurrence;
+        if (icalproperty_recurrence_is_excluded(component, &start, &recurrence) != 0) {
+          continue;
+        }
+
+        const time_t occurrenceStart = recurrenceUnixTime(occurrence);
+        time_t occurrenceEnd = occurrenceStart + duration;
+        if (explicitPeriod) {
+          if (!icaltime_is_null_time(rdate.period.end)) {
+            occurrenceEnd = recurrenceUnixTime(rdate.period.end);
+          } else {
+            occurrenceEnd = occurrenceStart + static_cast<time_t>(icaldurationtype_as_int(rdate.period.duration));
+          }
+        }
+        addRecurrence(
+            icaltime_span{.start = occurrenceStart, .end = occurrenceEnd, .is_busy = 1}, data, explicitPeriod
+        );
+      }
+
+      return control.stopToken.stop_requested() ? ICalParseStatus::Cancelled : ICalParseStatus::Complete;
     }
 
   } // namespace
 
-  std::vector<CalendarEvent> parseICalEvents(
+  ICalParseResult parseICalEvents(
       std::string_view ics, std::chrono::system_clock::time_point windowStart,
-      std::chrono::system_clock::time_point windowEnd
+      std::chrono::system_clock::time_point windowEnd, ICalParseControl& control
   ) {
     std::string text{ics};
     ICalComponentPtr root{icalcomponent_new_from_string(text.c_str())};
@@ -275,6 +386,9 @@ namespace calendar {
 
     std::unordered_map<std::string, std::vector<std::chrono::system_clock::time_point>> overrides;
     for (icalcomponent* component : components) {
+      if (control.stopToken.stop_requested()) {
+        return {.status = ICalParseStatus::Cancelled};
+      }
       const CalendarEvent event = baseEventFromComponent(component);
       const bool cancelledWithoutStart = isCancelled(component) && !hasProperty(component, ICAL_DTSTART_PROPERTY);
       if (auto id = recurrenceId(component); id && (hasValidStart(component) || cancelledWithoutStart)) {
@@ -284,10 +398,10 @@ namespace calendar {
 
     std::vector<CalendarEvent> events;
     for (icalcomponent* component : components) {
-      if (isCancelled(component)) {
-        continue;
+      if (control.stopToken.stop_requested()) {
+        return {.events = std::move(events), .status = ICalParseStatus::Cancelled};
       }
-      if (!hasValidStart(component)) {
+      if (isCancelled(component) || !hasValidStart(component)) {
         continue;
       }
       const icaltimetype componentStart = icalcomponent_get_dtstart(component);
@@ -302,7 +416,7 @@ namespace calendar {
       if (auto it = overrides.find(event.id); it != overrides.end()) {
         exclusions = it->second;
       }
-      RecurrenceCallbackData data{
+      RecurrenceData data{
           .base = std::move(event),
           .windowStart = windowStart,
           .windowEnd = windowEnd,
@@ -310,13 +424,16 @@ namespace calendar {
           .exclusions = &exclusions,
           .events = &events,
       };
-      icalcomponent_foreach_recurrence(
-          component, recurrenceBound(windowStart, componentStart), recurrenceBound(windowEnd, componentStart),
-          addRecurrence, &data
-      );
+      const ICalParseStatus status = expandRecurrences(component, componentStart, control, data);
+      if (status != ICalParseStatus::Complete) {
+        if (status == ICalParseStatus::WorkBudgetExceeded) {
+          kLog.warn("iCalendar recurrence expansion exceeded the work limit");
+        }
+        return {.events = std::move(events), .status = status};
+      }
     }
 
-    return events;
+    return {.events = std::move(events)};
   }
 
 } // namespace calendar

@@ -76,7 +76,7 @@ namespace calendar {
       EventCallback callback;
     };
 
-    State() : worker([this]() { workerLoop(); }) {}
+    State() : worker([this](std::stop_token stopToken) { workerLoop(stopToken); }) {}
 
     ~State() { stop(); }
 
@@ -104,6 +104,7 @@ namespace calendar {
     }
 
     void stop() {
+      worker.request_stop();
       {
         std::scoped_lock lock(mutex);
         stopping = true;
@@ -121,7 +122,7 @@ namespace calendar {
       return !stopping;
     }
 
-    static std::pair<bool, std::vector<CalendarEvent>> parse(const ParseRequest& request) {
+    static std::pair<bool, std::vector<CalendarEvent>> parse(const ParseRequest& request, std::stop_token stopToken) {
       xmlDocPtr doc = xmlReadMemory(
           request.body.data(), static_cast<int>(request.body.size()), "caldav.xml", nullptr,
           XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING | XML_PARSE_RECOVER
@@ -137,9 +138,15 @@ namespace calendar {
       }
       xmlFreeDoc(doc);
 
+      ICalParseControl control{.stopToken = stopToken};
+
       std::vector<CalendarEvent> events;
       for (const std::string& ics : calendarDataBlocks) {
-        for (CalendarEvent& event : parseICalEvents(ics, request.start, request.end)) {
+        ICalParseResult result = parseICalEvents(ics, request.start, request.end, control);
+        if (result.status != ICalParseStatus::Complete) {
+          return {false, {}};
+        }
+        for (CalendarEvent& event : result.events) {
           event.calendarName = request.calendarName;
           event.colorHex = request.color;
           events.push_back(std::move(event));
@@ -148,7 +155,7 @@ namespace calendar {
       return {true, std::move(events)};
     }
 
-    void workerLoop() {
+    void workerLoop(std::stop_token stopToken) {
       while (true) {
         ParseRequest request;
         {
@@ -161,7 +168,10 @@ namespace calendar {
           requests.pop_front();
         }
 
-        auto [ok, events] = parse(request);
+        auto [ok, events] = parse(request, stopToken);
+        if (stopToken.stop_requested()) {
+          return;
+        }
         deliver(std::move(request.callback), ok, std::move(events));
       }
     }
@@ -170,7 +180,7 @@ namespace calendar {
     std::condition_variable cv;
     std::deque<ParseRequest> requests;
     bool stopping = false;
-    std::thread worker;
+    std::jthread worker;
   };
 
   CalDavClient::CalDavClient(HttpClient& http)

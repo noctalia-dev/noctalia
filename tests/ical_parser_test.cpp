@@ -2,16 +2,32 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cstdio>
+#include <print>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
 
   using namespace std::chrono;
+  using calendar::ICalParseControl;
+  using calendar::ICalParseResult;
+  using calendar::ICalParseStatus;
 
   system_clock::time_point utc(int y, int mo, int d, int h = 0) {
     return sys_days{year{y} / month{static_cast<unsigned>(mo)} / day{static_cast<unsigned>(d)}} + hours{h};
+  }
+
+  bool expect(bool condition, const char* message) {
+    if (!condition) {
+      std::println(stderr, "ical_parser_test: {}", message);
+    }
+    return condition;
+  }
+
+  ICalParseResult parseEvents(const std::string& ics, system_clock::time_point start, system_clock::time_point end) {
+    ICalParseControl control;
+    return calendar::parseICalEvents(ics, start, end, control);
   }
 
   // Local midnight of a civil date in the system zone, matching how the parser anchors all-day
@@ -42,18 +58,22 @@ namespace {
       const std::string& ics, system_clock::time_point start, system_clock::time_point end,
       std::vector<system_clock::time_point> expected, const char* message
   ) {
+    ICalParseResult result = parseEvents(ics, start, end);
+    if (result.status != ICalParseStatus::Complete) {
+      std::println(stderr, "ical_parser_test: {}: parser did not complete", message);
+      return false;
+    }
     std::vector<system_clock::time_point> actual;
-    for (const auto& ev : calendar::parseICalEvents(ics, start, end)) {
+    actual.reserve(result.events.size());
+    for (const auto& ev : result.events) {
       actual.push_back(ev.start);
     }
     std::ranges::sort(actual);
     std::ranges::sort(expected);
     if (actual != expected) {
-      std::fprintf(
-          stderr, "ical_parser_test: %s: expected %zu starts, got %zu\n", message, expected.size(), actual.size()
-      );
+      std::println(stderr, "ical_parser_test: {}: expected {} starts, got {}", message, expected.size(), actual.size());
       for (const auto& t : actual) {
-        std::fprintf(stderr, "  got %lld\n", static_cast<long long>(t.time_since_epoch().count()));
+        std::println(stderr, "  got {}", static_cast<long long>(t.time_since_epoch().count()));
       }
       return false;
     }
@@ -71,9 +91,14 @@ namespace {
       const std::string& ics, system_clock::time_point start, system_clock::time_point end, std::size_t expected,
       const char* message
   ) {
-    const std::size_t actual = calendar::parseICalEvents(ics, start, end).size();
+    ICalParseResult result = parseEvents(ics, start, end);
+    if (result.status != ICalParseStatus::Complete) {
+      std::println(stderr, "ical_parser_test: {}: parser did not complete", message);
+      return false;
+    }
+    const std::size_t actual = result.events.size();
     if (actual != expected) {
-      std::fprintf(stderr, "ical_parser_test: %s: expected %zu, got %zu\n", message, expected, actual);
+      std::println(stderr, "ical_parser_test: {}: expected {}, got {}", message, expected, actual);
       return false;
     }
     return true;
@@ -83,19 +108,23 @@ namespace {
       const std::string& ics, system_clock::time_point start, system_clock::time_point end,
       std::vector<std::pair<system_clock::time_point, system_clock::time_point>> expected, const char* message
   ) {
+    ICalParseResult result = parseEvents(ics, start, end);
+    if (result.status != ICalParseStatus::Complete) {
+      std::println(stderr, "ical_parser_test: {}: parser did not complete", message);
+      return false;
+    }
     std::vector<std::pair<system_clock::time_point, system_clock::time_point>> actual;
-    for (const auto& ev : calendar::parseICalEvents(ics, start, end)) {
+    actual.reserve(result.events.size());
+    for (const auto& ev : result.events) {
       actual.emplace_back(ev.start, ev.end);
     }
     std::ranges::sort(actual);
     std::ranges::sort(expected);
     if (actual != expected) {
-      std::fprintf(
-          stderr, "ical_parser_test: %s: expected %zu ranges, got %zu\n", message, expected.size(), actual.size()
-      );
+      std::println(stderr, "ical_parser_test: {}: expected {} ranges, got {}", message, expected.size(), actual.size());
       for (const auto& [s, e] : actual) {
-        std::fprintf(
-            stderr, "  got %lld..%lld\n", static_cast<long long>(s.time_since_epoch().count()),
+        std::println(
+            stderr, "  got {}..{}", static_cast<long long>(s.time_since_epoch().count()),
             static_cast<long long>(e.time_since_epoch().count())
         );
       }
@@ -108,9 +137,14 @@ namespace {
       const std::string& ics, system_clock::time_point start, system_clock::time_point end, const std::string& title,
       const std::string& location, const char* message
   ) {
-    const std::vector<CalendarEvent> events = calendar::parseICalEvents(ics, start, end);
+    ICalParseResult result = parseEvents(ics, start, end);
+    if (result.status != ICalParseStatus::Complete) {
+      std::println(stderr, "ical_parser_test: {}: parser did not complete", message);
+      return false;
+    }
+    const std::vector<CalendarEvent>& events = result.events;
     if (events.size() != 1 || events.front().title != title || events.front().location != location) {
-      std::fprintf(stderr, "ical_parser_test: %s: parsed text did not match\n", message);
+      std::println(stderr, "ical_parser_test: {}: parsed text did not match", message);
       return false;
     }
     return true;
@@ -178,6 +212,17 @@ int main() {
   ok = expectStarts(
            wrap("RRULE:FREQ=DAILY;COUNT=2\r\nRDATE:20240102T090000Z\r\n"), start, end,
            {utc(2024, 1, 1, 9), utc(2024, 1, 2, 9)}, "overlapping rrule and rdate are deduplicated"
+       )
+      && ok;
+
+  // An explicit RDATE period overrides the master's duration when it shares an RRULE occurrence.
+  ok = expectRanges(
+           wrap(
+               "RRULE:FREQ=DAILY;COUNT=2\r\n"
+               "RDATE;VALUE=PERIOD:20240102T090000Z/20240102T120000Z\r\n"
+           ),
+           start, end, {{utc(2024, 1, 1, 9), utc(2024, 1, 1, 10)}, {utc(2024, 1, 2, 9), utc(2024, 1, 2, 12)}},
+           "rdate period duration overrides rrule duration"
        )
       && ok;
 
@@ -547,6 +592,40 @@ int main() {
     ok = expectStarts(
              ics, start, end, {utc(2024, 1, 1, 9), utc(2024, 1, 1, 11), utc(2024, 1, 1, 12), utc(2024, 1, 1, 15)},
              "recurrence-id override only excludes exact occurrence"
+         )
+        && ok;
+  }
+
+  {
+    ICalParseControl control{.remainingRecurrenceWork = 1};
+    const ICalParseResult result = calendar::parseICalEvents(wrap("RRULE:FREQ=DAILY;COUNT=3\r\n"), start, end, control);
+    ok = expect(
+             result.status == ICalParseStatus::WorkBudgetExceeded,
+             "recurrence work exhaustion did not report its explicit status"
+         )
+        && ok;
+  }
+
+  {
+    const std::string ics = "BEGIN:VEVENT\r\nUID:cancel\r\nDTSTART:20200101T000000Z\r\n"
+                            "DTEND:20200101T000001Z\r\n"
+                            "RRULE:FREQ=SECONDLY;COUNT=10000000\r\nEND:VEVENT\r\n";
+    ICalParseResult result;
+    const auto beforeCancellation = steady_clock::now();
+    std::jthread parser([&](std::stop_token stopToken) {
+      ICalParseControl control{
+          .stopToken = stopToken,
+          .remainingRecurrenceWork = 10'000'000,
+      };
+      result = calendar::parseICalEvents(ics, utc(2024, 1, 1), utc(2026, 1, 1), control);
+    });
+    std::this_thread::sleep_for(milliseconds{20});
+    parser.request_stop();
+    parser.join();
+    ok = expect(result.status == ICalParseStatus::Cancelled, "stop request did not cancel recurrence expansion") && ok;
+    ok = expect(
+             steady_clock::now() - beforeCancellation < milliseconds{500},
+             "cancelled recurrence expansion did not stop promptly"
          )
         && ok;
   }
