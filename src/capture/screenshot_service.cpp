@@ -199,6 +199,8 @@ namespace {
 
     std::thread([command = std::move(command), png = std::move(png),
                  screenshotPathString = std::move(screenshotPathString)]() {
+      // Block SIGPIPE on this thread so a command that stops reading stdin makes
+      // write() fail with EPIPE instead of terminating the whole process.
       sigset_t pipeMask;
       sigemptyset(&pipeMask);
       sigaddset(&pipeMask, SIGPIPE);
@@ -230,6 +232,7 @@ namespace {
         } else if (::setenv(kScreenshotPathEnv, screenshotPathString.c_str(), 1) != 0) {
           ::_exit(126);
         }
+        // Restore default SIGPIPE handling for the spawned command.
         ::signal(SIGPIPE, SIG_DFL);
         pthread_sigmask(SIG_UNBLOCK, &pipeMask, nullptr);
         const char* argv[] = {"/bin/sh", "-lc", command.c_str(), nullptr};
@@ -456,6 +459,9 @@ namespace {
       return std::move(frames.front().image);
     }
 
+    // Stitch in physical pixels: pick a uniform canvas density equal to the highest captured
+    // scale so the sharpest monitor keeps its full resolution. Each logical layout coordinate is
+    // multiplied by this density; lower-density outputs are upscaled to keep the layout aligned.
     double canvasScale = 1.0;
     for (const auto& frame : frames) {
       const double scaleX = static_cast<double>(frame.image.width) / static_cast<double>(frame.output->logicalWidth);

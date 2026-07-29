@@ -373,10 +373,10 @@ namespace {
       return keybinds.tabPrevious;
     case KeybindAction::Delete:
       return keybinds.deleteEntry;
-    case KeybindAction::ScreenshotConfirmClipboard:
-      return keybinds.screenshotConfirmClipboard;
-    case KeybindAction::ScreenshotConfirmSave:
-      return keybinds.screenshotConfirmSave;
+    case KeybindAction::Copy:
+      return keybinds.copy;
+    case KeybindAction::Save:
+      return keybinds.save;
     }
     return keybinds.validate;
   }

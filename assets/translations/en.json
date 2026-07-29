@@ -29,7 +29,7 @@
   "bar": {
     "screenshot": {
       "choose-display": "Choose display",
-      "confirm-region": "Enter or Space to capture · Ctrl+C to save capture to clipboard  · Ctrl+S to save capture to file · Esc to cancel · Drag to reselect",
+      "confirm-region": "Enter or Space to capture · Esc to cancel · Drag to reselect",
       "fullscreen": "Full screen",
       "overlay-alloc-failed": "Could not display the screenshot overlay (GPU out of video memory?)",
       "region": "Select region"
@@ -2046,6 +2046,10 @@
           "description": "Close popups, dismiss panels, or abort the current operation",
           "label": "Cancel"
         },
+        "copy": {
+          "description": "Copy the current selection or item",
+          "label": "Copy"
+        },
         "delete": {
           "description": "Delete the selected item",
           "label": "Delete"
@@ -2062,13 +2066,9 @@
           "description": "Move focus or selection to the right",
           "label": "Navigate Right"
         },
-        "screenshot-confirm-clipboard": {
-          "description": "While confirming a screenshot selection, copy it to the clipboard immediately",
-          "label": "Screenshot: Confirm Copy"
-        },
-        "screenshot-confirm-save": {
-          "description": "While confirming a screenshot selection, save it to disk immediately",
-          "label": "Screenshot: Confirm Save"
+        "save": {
+          "description": "Save the current selection or item",
+          "label": "Save"
         },
         "tab-next": {
           "description": "Move focus to the next control",

@@ -1821,7 +1821,6 @@ namespace settings {
           },
           "screenshot capture directory folder save location"
       );
-      // e.visibleWhen = [](const Config& c) { return c.shell.screenshot.saveToFile; };
       entries.push_back(std::move(e));
     }
     {
@@ -1836,7 +1835,6 @@ namespace settings {
           },
           "screenshot capture filename pattern strftime"
       );
-      // e.visibleWhen = [](const Config& c) { return c.shell.screenshot.saveToFile; };
       entries.push_back(std::move(e));
     }
     entries.push_back(makeEntry(
@@ -2108,33 +2106,24 @@ namespace settings {
         "keybind shortcut hotkey tab focus pane"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.copy.label"),
+        tr("settings.schema.keybinds.copy.description"), {"keybinds", "copy"},
+        KeybindListSetting{.items = effectiveKeybindItems(cfg.keybinds.copy, KeybindAction::Copy), .maxItems = 4},
+        "keybind shortcut hotkey copy clipboard"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.save.label"),
+        tr("settings.schema.keybinds.save.description"), {"keybinds", "save"},
+        KeybindListSetting{.items = effectiveKeybindItems(cfg.keybinds.save, KeybindAction::Save), .maxItems = 4},
+        "keybind shortcut hotkey save file"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.delete.label"),
         tr("settings.schema.keybinds.delete.description"), {"keybinds", "delete"},
         KeybindListSetting{
             .items = effectiveKeybindItems(cfg.keybinds.deleteEntry, KeybindAction::Delete), .maxItems = 4
         },
         "keybind shortcut hotkey delete remove clear"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.screenshot-confirm-clipboard.label"),
-        tr("settings.schema.keybinds.screenshot-confirm-clipboard.description"),
-        {"keybinds", "screenshot_confirm_clipboard"},
-        KeybindListSetting{
-            .items = effectiveKeybindItems(
-                cfg.keybinds.screenshotConfirmClipboard, KeybindAction::ScreenshotConfirmClipboard
-            ),
-            .maxItems = 4
-        },
-        "keybind shortcut hotkey screenshot copy clipboard"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.screenshot-confirm-save.label"),
-        tr("settings.schema.keybinds.screenshot-confirm-save.description"), {"keybinds", "screenshot_confirm_save"},
-        KeybindListSetting{
-            .items = effectiveKeybindItems(cfg.keybinds.screenshotConfirmSave, KeybindAction::ScreenshotConfirmSave),
-            .maxItems = 4
-        },
-        "keybind shortcut hotkey screenshot save file"
     ));
 
     // Niri-specific integrations

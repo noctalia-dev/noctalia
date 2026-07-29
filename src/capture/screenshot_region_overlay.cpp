@@ -336,6 +336,9 @@ namespace capture {
     }
 
     if (!m_renderContext->makeCurrent(inst.surface->renderTarget())) {
+      // The overlay's EGL surface could not be made current (e.g. EGL_BAD_ALLOC when the
+      // driver is out of video memory). Painting would be a no-op, leaving an invisible
+      // fullscreen surface that eats input, so tear down and report instead of spinning.
       abortWithError(i18n::tr("bar.screenshot.overlay-alloc-failed"));
       return;
     }
@@ -391,6 +394,7 @@ namespace capture {
             return;
           }
           m_dragging = false;
+          // completeSelection() tears down surfaces; defer past InputDispatcher::pointerButton.
           DeferredCall::callLater([this]() { completeSelection(); });
           return;
         }
@@ -438,11 +442,11 @@ namespace capture {
         return;
       }
       if (m_confirming) {
-        if (KeybindMatcher::matches(KeybindAction::ScreenshotConfirmClipboard, key.sym, key.modifiers)) {
+        if (KeybindMatcher::matches(KeybindAction::Copy, key.sym, key.modifiers)) {
           DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::ForceClipboard); });
           return;
         }
-        if (KeybindMatcher::matches(KeybindAction::ScreenshotConfirmSave, key.sym, key.modifiers)) {
+        if (KeybindMatcher::matches(KeybindAction::Save, key.sym, key.modifiers)) {
           DeferredCall::callLater([this]() { confirmPendingSelection(ConfirmAction::ForceSave); });
           return;
         }
@@ -473,6 +477,9 @@ namespace capture {
       inst.backdrop = static_cast<Image*>(input->addChild(std::move(backdrop)));
     }
 
+    // Dim the screen with four strips that frame the selected region. The
+    // region itself stays fully transparent so it shows real colors and never
+    // tints the captured pixels.
     auto makeDimStrip = [&]() {
       auto strip = ui::box({
           // Fixed black scrim so it darkens under every theme.
@@ -645,11 +652,11 @@ namespace capture {
 
     if (!KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
       if (m_confirming) {
-        if (KeybindMatcher::matches(KeybindAction::ScreenshotConfirmClipboard, event.sym, event.modifiers)) {
+        if (KeybindMatcher::matches(KeybindAction::Copy, event.sym, event.modifiers)) {
           confirmPendingSelection(ConfirmAction::ForceClipboard);
           return true;
         }
-        if (KeybindMatcher::matches(KeybindAction::ScreenshotConfirmSave, event.sym, event.modifiers)) {
+        if (KeybindMatcher::matches(KeybindAction::Save, event.sym, event.modifiers)) {
           confirmPendingSelection(ConfirmAction::ForceSave);
           return true;
         }
@@ -668,8 +675,10 @@ namespace capture {
     if (!m_active) {
       return;
     }
+    // Stop further frames from re-triggering the abort while teardown is pending.
     m_active = false;
     kLog.warn("aborting screenshot region overlay: {}", message);
+    // Defer past the surface's prepareFrame callback before destroying its surfaces.
     FailureCallback onFailure = m_onFailure;
     DeferredCall::callLater([this, onFailure, message]() {
       cancel();
@@ -680,6 +689,8 @@ namespace capture {
   }
 
   void ScreenshotRegionOverlay::updateSelectionVisuals() {
+    // Lay out the four dim strips so they cover the surface except for the hole
+    // rect (surface-local). An empty hole dims the whole surface.
     const auto layoutDimFrame = [](Instance& inst, float surfaceW, float surfaceH, float hx0, float hy0, float hx1,
                                    float hy1) {
       hx0 = std::clamp(hx0, 0.0f, surfaceW);
@@ -780,6 +791,8 @@ namespace capture {
       const auto holeY1 = static_cast<float>(iy1 - outTop);
       layoutDimFrame(*inst, surfaceW, surfaceH, holeX0, holeY0, holeX1, holeY1);
 
+      // The outline is inset, so expand it outward to keep the border out of the
+      // captured (undimmed) region.
       inst->selection->setVisible(true);
       inst->selection->setPosition(holeX0 - kSelectionBorderWidth, holeY0 - kSelectionBorderWidth);
       inst->selection->setSize(
