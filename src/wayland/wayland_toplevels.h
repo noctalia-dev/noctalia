@@ -29,6 +29,8 @@ struct ToplevelInfo {
   std::uint64_t order = 0;
   zwlr_foreign_toplevel_handle_v1* handle = nullptr;
   ext_foreign_toplevel_handle_v1* extHandle = nullptr;
+  // True when the compositor announced the output(s) this toplevel sits on.
+  bool outputAnnounced = false;
 };
 
 struct WlrToplevelSnapshot {
@@ -113,6 +115,10 @@ private:
     std::uint64_t generation = 0;
     std::uint64_t order = 0;
   };
+
+  // A toplevel whose output the compositor never announced matches every filter; one that announced
+  // an output and later left all of them does not.
+  [[nodiscard]] static bool matchesOutputFilter(const ToplevelState& state, wl_output* outputFilter);
 
   [[nodiscard]] bool notifyIfChanged(const std::optional<ActiveToplevel>& before);
   [[nodiscard]] zwlr_foreign_toplevel_handle_v1* latestActivatedHandle() const;

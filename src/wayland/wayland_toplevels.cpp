@@ -76,13 +76,6 @@ namespace {
     return {};
   }
 
-  // Some compositors omit output_enter for toplevels that already existed when the client bound
-  // (observed on Hyprland), leaving state.output null. Treat those as present on every output;
-  // toplevels that announced an output and later left it stay filtered out.
-  [[nodiscard]] bool matchesOutputFilter(wl_output* toplevelOutput, bool sawOutputEnter, wl_output* outputFilter) {
-    return outputFilter == nullptr || toplevelOutput == outputFilter || !sawOutputEnter;
-  }
-
 } // namespace
 
 void WaylandToplevels::bind(zwlr_foreign_toplevel_manager_v1* manager) {
@@ -278,12 +271,21 @@ wl_output* WaylandToplevels::currentOutput() const {
   return it->second.output;
 }
 
+bool WaylandToplevels::matchesOutputFilter(const ToplevelState& state, wl_output* outputFilter) {
+  if (outputFilter == nullptr || state.output == outputFilter) {
+    return true;
+  }
+  // Some compositors omit output_enter for toplevels that predate the bind (observed on Hyprland),
+  // leaving the output unknown.
+  return !state.sawOutputEnter;
+}
+
 std::vector<std::string> WaylandToplevels::allAppIds(wl_output* outputFilter) const {
   std::vector<const ToplevelState*> ordered;
   ordered.reserve(m_handles.size());
   for (const auto& [handle, state] : m_handles) {
     (void)handle;
-    if (!matchesOutputFilter(state.output, state.sawOutputEnter, outputFilter)) {
+    if (!matchesOutputFilter(state, outputFilter)) {
       continue;
     }
     ordered.push_back(&state);
@@ -314,7 +316,7 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsForApp(
   std::vector<MatchedWindow> matched;
   std::vector<ToplevelInfo> out;
   for (const auto& [handle, state] : m_handles) {
-    if (!matchesOutputFilter(state.output, state.sawOutputEnter, outputFilter)) {
+    if (!matchesOutputFilter(state, outputFilter)) {
       continue;
     }
     const auto appId = effectiveAppId(state.appId, state.title);
@@ -336,6 +338,7 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsForApp(
                   .identifier = appId + ":" + state.title,
                   .order = state.order,
                   .handle = handle,
+                  .outputAnnounced = state.sawOutputEnter,
               },
           }
       );
@@ -357,7 +360,7 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsWithoutAppId(wl_output* outpu
 
   std::vector<OrphanWindow> orphans;
   for (const auto& [handle, state] : m_handles) {
-    if (!matchesOutputFilter(state.output, state.sawOutputEnter, outputFilter)) {
+    if (!matchesOutputFilter(state, outputFilter)) {
       continue;
     }
     if (!effectiveAppId(state.appId, state.title).empty()) {
@@ -372,6 +375,7 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsWithoutAppId(wl_output* outpu
                 .identifier = state.title,
                 .order = state.order,
                 .handle = handle,
+                .outputAnnounced = state.sawOutputEnter,
             },
         }
     );
