@@ -29,6 +29,13 @@ std::string formatTimeAgo(std::chrono::system_clock::time_point tp);
 // numeric specifiers such as "%-I".
 [[nodiscard]] std::string formatLocalTime(const char* fmt);
 
+// Empty selects system-local time. Non-empty values must name a zone in the active timezone database.
+[[nodiscard]] bool isValidTimezone(std::string_view tzName);
+
+// Formats current time for a specific timezone with a C++20 chrono format string.
+// Falls back to local time if the timezone is invalid or empty.
+[[nodiscard]] std::string formatTimezoneTime(const char* fmt, std::string_view tzName);
+
 // Formats a Unix timestamp in local time. Accepts the same date-format syntax as formatLocalTime(),
 // and handles strftime "%s" as Unix epoch seconds in Noctalia-owned code.
 [[nodiscard]] std::string formatLocalUnixTime(std::int64_t unixSeconds, std::string_view fmt);

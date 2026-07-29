@@ -18,6 +18,7 @@ public:
 
   void ensureInitialized();
   void destroy();
+  void abandon() noexcept;
 
   void draw(
       float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style,

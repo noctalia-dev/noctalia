@@ -16,7 +16,7 @@ reservedBarExclusiveZone(const BarConfig& barConfig, const ShellConfig::ShadowCo
   // layer margin to 0, so the compositor adds no margin to the exclusive zone.
   // The zone must then cover the full edge gap itself (thickness + edge margin);
   // the edge-side shadow is allowed to bleed beyond, matching the layer-margin path.
-  if (barConfig.autoHide && mEdge > 0) {
+  if ((barConfig.autoHide || barConfig.smartAutoHide) && mEdge > 0) {
     return barConfig.thickness + mEdge + mOpposite;
   }
   const auto sb = shell::surface_shadow::bleed(barConfig.shadow, shadowConfig);
@@ -42,7 +42,7 @@ reservedBarExclusiveZone(const BarConfig& barConfig, const ShellConfig::ShadowCo
 [[nodiscard]] inline std::int32_t
 barEdgeLayerMargin(const BarConfig& barConfig, const ShellConfig::ShadowConfig& shadowConfig) {
   const std::int32_t mEdge = std::max<std::int32_t>(0, barConfig.marginEdge);
-  if (barConfig.autoHide && mEdge > 0) {
+  if ((barConfig.autoHide || barConfig.smartAutoHide) && mEdge > 0) {
     return 0;
   }
   const auto sb = shell::surface_shadow::bleed(barConfig.shadow, shadowConfig);

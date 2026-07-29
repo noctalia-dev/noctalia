@@ -164,6 +164,7 @@ private:
   void cancelQueuedFrameWork();
   void processQueuedFrameWork();
   void queueRenderIfNeeded();
+  void continueAnimationFrameLoop();
   void queueRender();
   void cancelQueuedRender();
   void renderQueuedFrame();

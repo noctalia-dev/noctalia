@@ -19,6 +19,7 @@ public:
 
   void ensureInitialized();
   void destroy();
+  void abandon() noexcept;
 
   void draw(
       float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,

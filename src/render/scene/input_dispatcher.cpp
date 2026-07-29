@@ -63,7 +63,7 @@ namespace {
 
 void InputDispatcher::setSceneRoot(Node* root) {
   if (root != m_sceneRoot) {
-    m_capturedArea = nullptr;
+    cancelPointerCapture();
     if (m_hoveredArea != nullptr) {
       auto* old = m_hoveredArea;
       old->dispatchLeave();
@@ -121,7 +121,7 @@ void InputDispatcher::pointerEnter(float x, float y, std::uint32_t serial) {
 }
 
 void InputDispatcher::pointerLeave() {
-  m_capturedArea = nullptr;
+  cancelPointerCapture();
   m_hasPointerPosition = false;
   if (m_hoveredArea != nullptr) {
     auto* old = m_hoveredArea;
@@ -236,7 +236,7 @@ void InputDispatcher::syncPointerHover() {
 
 bool InputDispatcher::pointerAxis(
     float x, float y, std::uint32_t axis, std::uint32_t axisSource, double value, std::int32_t discrete,
-    std::int32_t value120, float lines
+    std::int32_t value120, float lines, std::uint32_t axisGestureSerial
 ) {
   pruneDetachedAreas();
   InputArea* target = m_capturedArea != nullptr ? m_capturedArea : findInputAreaAt(x, y);
@@ -254,7 +254,8 @@ bool InputDispatcher::pointerAxis(
     float localX = 0.0f;
     float localY = 0.0f;
     (void)Node::mapFromScene(area, x, y, localX, localY);
-    const bool consumed = area->dispatchAxis(localX, localY, axis, axisSource, value, discrete, value120, lines);
+    const bool consumed =
+        area->dispatchAxis(localX, localY, axis, axisSource, value, discrete, value120, lines, axisGestureSerial);
 
     if (!consumed) {
       continue;
@@ -266,6 +267,17 @@ bool InputDispatcher::pointerAxis(
     }
   }
   return consumedAny;
+}
+
+void InputDispatcher::cancelPointerCapture() {
+  if (m_capturedArea == nullptr || m_cancelingPointerCapture) {
+    return;
+  }
+  m_cancelingPointerCapture = true;
+  m_capturedArea->dispatchCancel();
+  m_capturedArea = nullptr;
+  m_cancelingPointerCapture = false;
+  updateCursor(m_lastSerial);
 }
 
 InputArea* InputDispatcher::firstTabFocusUnder(Node* subtree) const {
@@ -521,6 +533,9 @@ void InputDispatcher::updateHover(float x, float y, std::uint32_t serial) {
 bool InputDispatcher::isAttachedToScene(const InputArea* area) const { return nodeAttachedToRoot(area, m_sceneRoot); }
 
 void InputDispatcher::pruneDetachedAreas() {
+  if (!isAttachedToScene(m_capturedArea)) {
+    cancelPointerCapture();
+  }
   if (!isAttachedToScene(m_hoveredArea)) {
     if (m_hoveredArea != nullptr) {
       auto* old = m_hoveredArea;
@@ -531,9 +546,6 @@ void InputDispatcher::pruneDetachedAreas() {
       }
       updateCursor(m_lastSerial);
     }
-  }
-  if (!isAttachedToScene(m_capturedArea)) {
-    m_capturedArea = nullptr;
   }
   if (!isAttachedToScene(m_focusedArea)) {
     if (m_focusedArea != nullptr) {
@@ -546,19 +558,22 @@ void InputDispatcher::pruneDetachedAreas() {
 
 void InputDispatcher::trackArea(InputArea* area) {
   area->setDestroyCallback([this](InputArea* a) {
+    const bool ownedCursor = m_hoveredArea == a || m_capturedArea == a;
+    if (m_capturedArea == a) {
+      m_capturedArea = nullptr;
+    }
     if (m_hoveredArea == a) {
       m_hoveredArea = nullptr;
       if (m_hoverChangeCallback) {
         m_hoverChangeCallback(a, nullptr);
       }
-      updateCursor(m_lastSerial);
     }
     if (m_focusedArea == a) {
       clearTextInputFocus(a);
       m_focusedArea = nullptr;
     }
-    if (m_capturedArea == a) {
-      m_capturedArea = nullptr;
+    if (ownedCursor) {
+      updateCursor(m_lastSerial);
     }
   });
 }
@@ -590,8 +605,9 @@ void InputDispatcher::updateCursor(std::uint32_t serial) {
 
   std::uint32_t shape = 1; // Default arrow
 
-  if (m_hoveredArea != nullptr) {
-    auto areaShape = m_hoveredArea->cursorShape();
+  InputArea* cursorAuthority = m_capturedArea != nullptr ? m_capturedArea : m_hoveredArea;
+  if (cursorAuthority != nullptr) {
+    auto areaShape = cursorAuthority->cursorShape();
     if (areaShape != 0) {
       shape = areaShape;
     }

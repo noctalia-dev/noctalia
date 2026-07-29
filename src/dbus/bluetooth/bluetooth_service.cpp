@@ -8,6 +8,8 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <array>
+#include <chrono>
 #include <map>
 #include <optional>
 #include <sdbus-c++/IConnection.h>
@@ -205,6 +207,9 @@ namespace {
         out.connected = *v;
         if (out.connected) {
           out.connecting = false;
+        } else {
+          out.hasBattery = false;
+          out.batteryPercent = 0;
         }
       }
     }
@@ -236,6 +241,11 @@ namespace {
   }
 
   void mergeBatteryProps(const InterfaceProps& props, BluetoothDeviceInfo& out) {
+    if (!out.connected) {
+      out.hasBattery = false;
+      out.batteryPercent = 0;
+      return;
+    }
     if (auto it = props.find("Percentage"); it != props.end()) {
       if (auto v = variantGet<std::uint8_t>(it->second)) {
         out.hasBattery = true;
@@ -353,9 +363,13 @@ struct BluetoothService::Impl {
         kLog.debug("adapter Powered -> {}", next.powered);
         origin = self.consumePoweredChangeOrigin(next.powered);
       }
+      const bool poweredOn = poweredChanged && next.powered;
       if (next != self.m_state) {
         self.m_state = std::move(next);
         self.emitState(origin);
+      }
+      if (poweredOn) {
+        self.scheduleAutoReconnect();
       }
       return;
     }
@@ -488,7 +502,7 @@ void BluetoothService::registerIpc(IpcService& ipc, StateFeedbackCallback stateF
         }
         return setBluetooth(true);
       },
-      "bluetooth-enable", "Enable Bluetooth"
+      "", "Enable Bluetooth"
   );
 
   ipc.registerHandler(
@@ -499,7 +513,7 @@ void BluetoothService::registerIpc(IpcService& ipc, StateFeedbackCallback stateF
         }
         return setBluetooth(false);
       },
-      "bluetooth-disable", "Disable Bluetooth"
+      "", "Disable Bluetooth"
   );
 
   ipc.registerHandler(
@@ -513,7 +527,7 @@ void BluetoothService::registerIpc(IpcService& ipc, StateFeedbackCallback stateF
         }
         return setBluetooth(!state().powered);
       },
-      "bluetooth-toggle", "Toggle Bluetooth"
+      "", "Toggle Bluetooth"
   );
 
   ipc.registerHandler(
@@ -527,7 +541,8 @@ void BluetoothService::registerIpc(IpcService& ipc, StateFeedbackCallback stateF
         }
         return state().powered ? "on\n" : "off\n";
       },
-      "bluetooth-status", "Print Bluetooth state"
+      "", "Print Bluetooth state",
+      IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 }
 
@@ -554,6 +569,9 @@ void BluetoothService::refresh() {
         m_hasStateSnapshot = true;
         emitState(origin);
         emitDevices();
+        if (m_state.powered) {
+          scheduleAutoReconnect();
+        }
       });
 }
 
@@ -796,6 +814,51 @@ BluetoothStateChangeOrigin BluetoothService::consumePoweredChangeOrigin(bool pow
   const bool matchesLocalRequest = *m_pendingLocalPowered == powered;
   m_pendingLocalPowered.reset();
   return matchesLocalRequest ? BluetoothStateChangeOrigin::Noctalia : BluetoothStateChangeOrigin::External;
+}
+
+void BluetoothService::scheduleAutoReconnect() {
+  if (!m_state.powered || m_state.rfkillHardBlocked) {
+    return;
+  }
+  m_autoReconnectAttempt = 0;
+  armAutoReconnect();
+}
+
+void BluetoothService::armAutoReconnect() {
+  // Settle delay before the first attempt, then back off: the controller is not ready to connect
+  // the instant Powered flips, and a device may still be waking up on the first pass.
+  static constexpr std::array<int, 3> kDelaysMs{2000, 4000, 8000};
+  if (m_autoReconnectAttempt >= static_cast<int>(kDelaysMs.size())) {
+    return;
+  }
+  const auto delay = std::chrono::milliseconds(kDelaysMs[static_cast<std::size_t>(m_autoReconnectAttempt)]);
+  m_autoReconnectTimer.start(delay, [this]() { runAutoReconnectPass(); });
+}
+
+void BluetoothService::runAutoReconnectPass() {
+  if (!m_state.powered || m_state.rfkillHardBlocked) {
+    return;
+  }
+  std::vector<std::string> pending;
+  for (const auto& dev : m_devices) {
+    if (dev.paired && dev.trusted && !dev.connected) {
+      if (!dev.connecting) {
+        pending.push_back(dev.path);
+      }
+    }
+  }
+  ++m_autoReconnectAttempt;
+  for (const auto& path : pending) {
+    connect(path);
+  }
+  // Re-arm only while devices still need reconnecting; connect() marks them connecting so a
+  // slow in-flight attempt is not restarted, and a device that came up drops out of the pass.
+  const bool anyPending = std::ranges::any_of(m_devices, [](const BluetoothDeviceInfo& d) {
+    return d.paired && d.trusted && !d.connected;
+  });
+  if (anyPending) {
+    armAutoReconnect();
+  }
 }
 
 void BluetoothService::emitState(BluetoothStateChangeOrigin origin) {

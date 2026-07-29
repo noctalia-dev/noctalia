@@ -3,6 +3,7 @@
 #include "render/core/render_styles.h"
 #include "render/scene/node.h"
 #include "ui/palette.h"
+#include "ui/style.h"
 
 #include <optional>
 
@@ -33,11 +34,13 @@ public:
 
   // Presets
   void setFlatStyle();
-  void setCardStyle(float scale = 1.0f, float fillOpacity = 1.0f, bool showBorder = true);
+  // Section card background. The outline follows the [shell].card_borders
+  // toggle unless a caller passes an explicit showBorder.
+  void setCardStyle(float scale = 1.0f, float fillOpacity = 1.0f, bool showBorder = Style::cardBordersEnabled());
   void setPanelStyle(bool showBorder = true);
-  // Dialog/popup background. Like the panel style but always carries a subtle
-  // outline so the dialog separates from the parent surface it floats over,
-  // independent of the [shell.panel].borders toggle.
+  // Dialog/popup background. Like the panel style but carries a subtle
+  // outline based on the [shell].popup_borders toggle, so the dialog
+  // separates from the parent surface it floats over.
   void setDialogStyle();
 
   void setSize(float width, float height) override;

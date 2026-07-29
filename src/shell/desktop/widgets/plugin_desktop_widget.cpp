@@ -4,6 +4,7 @@
 #include "i18n/i18n.h"
 #include "notification/notifications.h"
 #include "scripting/plugin_runtime_context.h"
+#include "ui/builders.h"
 #include "ui/controls/flex.h"
 
 #include <cstdlib>
@@ -52,7 +53,7 @@ PluginDesktopWidget::~PluginDesktopWidget() {
 }
 
 void PluginDesktopWidget::create() {
-  auto flex = std::make_unique<Flex>();
+  auto flex = ui::column({});
   flex->setDirection(FlexDirection::Vertical);
   m_flex = flex.get();
   setRoot(std::move(flex));
@@ -151,6 +152,7 @@ void PluginDesktopWidget::handleScriptResult(scripting::ScriptResult result) {
 
   if (result.unhealthy) {
     m_updateTimer.stop();
+    m_needsFrameTick = false;
     kLog.warn("plugin desktop widget '{}' disabled after repeated timeouts", m_entryId);
   }
 

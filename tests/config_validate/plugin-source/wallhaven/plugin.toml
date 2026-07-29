@@ -1,0 +1,11 @@
+id = "noctalia/wallhaven"
+name = "Wallhaven"
+plugin_api = 3
+
+[[panel]]
+id = "browser"
+entry = "panel.luau"
+width = 920
+height = 780
+placement = "attached"
+position = "auto"

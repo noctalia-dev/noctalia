@@ -34,6 +34,8 @@ struct ScreenTimeSnapshot {
   std::chrono::seconds total{0};
   std::vector<std::chrono::seconds> buckets;
   std::vector<std::string> bucketLabels;
+  // Populated for multi-day charts (one ISO day key per bucket). Empty when hourly.
+  std::vector<std::string> bucketDayKeys;
   std::vector<ScreenTimeChartSeries> chartSeries;
   std::vector<ScreenTimeAppUsage> apps;
 };
@@ -49,6 +51,9 @@ public:
   [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
 
   [[nodiscard]] ScreenTimeSnapshot snapshot(int rangeDays = 1);
+  // Hourly + apps view for a single stored day (`YYYY-MM-DD`). Empty if unknown.
+  [[nodiscard]] ScreenTimeSnapshot snapshotForDay(const std::string& dayKey);
+  [[nodiscard]] static std::string dayDisplayName(const std::string& dayKey);
 
   void clearAll();
 
@@ -68,6 +73,7 @@ private:
   [[nodiscard]] const DayRecord* dayRecordForKey(const std::string& dayKey) const;
   [[nodiscard]] std::vector<std::string> dayKeysForRange(int rangeDays) const;
   [[nodiscard]] std::string appKeyForActive() const;
+  [[nodiscard]] ScreenTimeSnapshot buildHourlySnapshot(const DayRecord& day) const;
   [[nodiscard]] static std::string localDayKey(std::chrono::system_clock::time_point tp);
   [[nodiscard]] static std::string shortDayLabel(const std::string& dayKey);
   [[nodiscard]] static int localHour(std::chrono::system_clock::time_point tp);

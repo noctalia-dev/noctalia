@@ -234,6 +234,16 @@ void Node::setScale(float scaleX, float scaleY) {
   markPaintDirty();
 }
 
+void Node::setTransformOrigin(float x, float y) {
+  if (m_hasTransformOrigin && m_transformOriginX == x && m_transformOriginY == y) {
+    return;
+  }
+  m_hasTransformOrigin = true;
+  m_transformOriginX = x;
+  m_transformOriginY = y;
+  markPaintDirty();
+}
+
 void Node::setOpacity(float opacity) {
   if (m_opacity == opacity) {
     return;
@@ -417,9 +427,11 @@ void Node::clearDirty() {
   }
 }
 
-Node* Node::hitTest(Node* root, float x, float y) { return hitTestImpl(root, x, y); }
+Node* Node::hitTest(Node* root, float x, float y) { return hitTestImpl(root, x, y, true); }
 
-Node* Node::hitTestImpl(Node* node, float px, float py) {
+Node* Node::hitTestStrict(Node* root, float x, float y) { return hitTestImpl(root, x, y, false); }
+
+Node* Node::hitTestImpl(Node* node, float px, float py, bool allowOverflow) {
   if (node == nullptr || !node->m_visible || !node->m_hitTestVisible) {
     return nullptr;
   }
@@ -428,7 +440,7 @@ Node* Node::hitTestImpl(Node* node, float px, float py) {
   float localY = 0.0f;
   const bool inside = pointInsideNode(node, px, py, localX, localY, true);
 
-  if (node->m_clipChildren && !inside) {
+  if ((!allowOverflow || node->m_clipChildren) && !inside) {
     return nullptr;
   }
 
@@ -449,7 +461,7 @@ Node* Node::hitTestImpl(Node* node, float px, float py) {
   // Children are allowed to overflow parent bounds (needed for menus/popovers).
   if (childrenSorted) {
     for (const auto& child : std::views::reverse(children)) {
-      auto* hit = hitTestImpl(child.get(), px, py);
+      auto* hit = hitTestImpl(child.get(), px, py, allowOverflow);
       if (hit != nullptr) {
         return hit;
       }
@@ -462,7 +474,7 @@ Node* Node::hitTestImpl(Node* node, float px, float py) {
     }
     std::ranges::stable_sort(orderedChildren, [](const Node* a, const Node* b) { return a->zIndex() < b->zIndex(); });
     for (Node* child : std::views::reverse(orderedChildren)) {
-      auto* hit = hitTestImpl(child, px, py);
+      auto* hit = hitTestImpl(child, px, py, allowOverflow);
       if (hit != nullptr) {
         return hit;
       }
@@ -476,6 +488,12 @@ void Node::absolutePosition(const Node* node, float& outX, float& outY) {
   const Vec2 topLeft = computeWorldTransform(node).transformPoint(0.0f, 0.0f);
   outX = topLeft.x;
   outY = topLeft.y;
+}
+
+void Node::mapToScene(const Node* node, float localX, float localY, float& outSceneX, float& outSceneY) {
+  const Vec2 scenePoint = computeWorldTransform(node).transformPoint(localX, localY);
+  outSceneX = scenePoint.x;
+  outSceneY = scenePoint.y;
 }
 
 bool Node::mapFromScene(const Node* node, float sceneX, float sceneY, float& outLocalX, float& outLocalY) {

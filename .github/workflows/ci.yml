@@ -21,7 +21,7 @@ jobs:
         run: |
           pacman -Syu --noconfirm --needed git clang
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Check formatting
         run: |
@@ -42,12 +42,15 @@ jobs:
             libglvnd freetype2 fontconfig \
             cairo pango harfbuzz \
             libxkbcommon glib2 \
+            libsecret libsodium \
             sdbus-cpp libpipewire wireplumber polkit \
-            pam curl libwebp librsvg \
+            pam curl libwebp libjxl librsvg \
             libqalculate libxml2 \
+            md4c tomlplusplus \
+            nlohmann-json stb \
             jemalloc just clang
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build
         run: just build

@@ -1,6 +1,7 @@
 #include "shell/setup_wizard/setup_wizard_panel.h"
 
 #include "config/config_service.h"
+#include "core/files/directory_scanner.h"
 #include "core/files/resource_paths.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
@@ -96,13 +97,11 @@ namespace {
     return 0;
   }
 
-  std::unique_ptr<Flex> makeCard(float scale, float fillOpacity, bool showBorder) {
+  std::unique_ptr<Flex> makeCard(float scale, float fillOpacity) {
     return ui::column(
-        {.align = FlexAlign::Stretch,
-         .gap = Style::spaceMd * scale,
-         .configure = [scale, fillOpacity, showBorder](Flex& card) {
+        {.align = FlexAlign::Stretch, .gap = Style::spaceMd * scale, .configure = [scale, fillOpacity](Flex& card) {
            card.setPadding(Style::spaceMd * scale, Style::spaceLg * scale);
-           card.setCardStyle(scale, fillOpacity, showBorder);
+           card.setCardStyle(scale, fillOpacity);
          }}
     );
   }
@@ -184,7 +183,7 @@ void SetupWizardPanel::create() {
 
   // Telemetry
   {
-    auto card = makeCard(scale, panelCardOpacity(), panelBordersEnabled());
+    auto card = makeCard(scale, panelCardOpacity());
 
     auto row = makeRow(scale);
     {
@@ -216,7 +215,7 @@ void SetupWizardPanel::create() {
 
   // Wallpaper
   {
-    auto card = makeCard(scale, panelCardOpacity(), panelBordersEnabled());
+    auto card = makeCard(scale, panelCardOpacity());
 
     auto row = makeRow(scale);
     {
@@ -254,7 +253,7 @@ void SetupWizardPanel::create() {
                 options.mode = FileDialogMode::Open;
                 options.defaultViewMode = FileDialogViewMode::Grid;
                 options.title = i18n::tr("setup-wizard.select-wallpaper");
-                options.extensions = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"};
+                options.extensions = DirectoryScanner::imageExtensionFilter(false);
                 std::filesystem::path startDir;
                 if (!m_wallpaperDir.empty()) {
                   startDir = m_wallpaperDir;
@@ -287,7 +286,7 @@ void SetupWizardPanel::create() {
 
   // Theme
   {
-    auto card = makeCard(scale, panelCardOpacity(), panelBordersEnabled());
+    auto card = makeCard(scale, panelCardOpacity());
 
     // Mode row
     {

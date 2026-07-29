@@ -175,6 +175,31 @@ void Backdrop::onGpuResourcesInvalidated() {
   }
 }
 
+void Backdrop::prepareForGraphicsReset() noexcept {
+  for (auto& inst : m_instances) {
+    if (inst->surface != nullptr) {
+      inst->surface->prepareForGraphicsReset();
+    }
+    inst->currentTexture = {};
+  }
+}
+
+void Backdrop::restoreAfterGraphicsReset() {
+  for (auto& inst : m_instances) {
+    if (inst->surface != nullptr) {
+      inst->surface->restoreAfterGraphicsReset();
+    }
+  }
+}
+
+void Backdrop::finishGraphicsResetRecovery() noexcept {
+  for (auto& inst : m_instances) {
+    if (inst->surface != nullptr) {
+      inst->surface->finishGraphicsResetRecovery();
+    }
+  }
+}
+
 void Backdrop::onFontChanged() { requestLayout(); }
 
 void Backdrop::requestLayout() {

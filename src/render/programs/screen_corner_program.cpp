@@ -113,6 +113,8 @@ void ScreenCornerProgram::destroy() {
   m_transformLocation = -1;
 }
 
+void ScreenCornerProgram::abandon() noexcept { m_program.abandon(); }
+
 void ScreenCornerProgram::draw(
     float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
     const ScreenCornerStyle& style, const Mat3& transform

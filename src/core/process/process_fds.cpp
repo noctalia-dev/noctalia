@@ -1,5 +1,7 @@
 #include "core/process/process_fds.h"
 
+#include "core/log.h"
+
 #include <algorithm>
 #include <cerrno>
 #include <cstdlib>
@@ -14,6 +16,8 @@
 #include <vector>
 
 namespace {
+
+  constexpr Logger kLog("fdlimit");
 
   [[nodiscard]] bool isFdName(const char* name) {
     if (name == nullptr || name[0] == '\0') {
@@ -85,26 +89,29 @@ namespace {
 
 } // namespace
 
-std::string ProcessFds::raiseOpenFileLimit() {
+void ProcessFds::raiseOpenFileLimit() {
   rlimit limit{};
   if (getrlimit(RLIMIT_NOFILE, &limit) != 0) {
-    return std::format("RLIMIT_NOFILE getrlimit failed: {}", std::strerror(errno));
+    kLog.error("RLIMIT_NOFILE getrlimit failed: {}", std::strerror(errno));
+    return;
   }
 
   const rlim_t previous = limit.rlim_cur;
   if (limit.rlim_cur >= limit.rlim_max) {
-    return std::format("RLIMIT_NOFILE already at hard limit ({})", rlimitValue(previous));
+    kLog.info("RLIMIT_NOFILE already at hard limit ({})", rlimitValue(previous));
+    return;
   }
 
   limit.rlim_cur = limit.rlim_max;
   if (setrlimit(RLIMIT_NOFILE, &limit) != 0) {
-    return std::format(
+    kLog.error(
         "RLIMIT_NOFILE setrlimit to {} failed: {} (soft limit stays {})", rlimitValue(limit.rlim_max),
         std::strerror(errno), rlimitValue(previous)
     );
+    return;
   }
 
-  return std::format("RLIMIT_NOFILE soft limit raised {} -> {}", rlimitValue(previous), rlimitValue(limit.rlim_max));
+  kLog.info("RLIMIT_NOFILE soft limit raised {} -> {}", rlimitValue(previous), rlimitValue(limit.rlim_max));
 }
 
 std::string ProcessFds::describeOpenFileDescriptors(std::size_t maxTargets) {

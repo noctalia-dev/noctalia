@@ -109,6 +109,8 @@ void SpinnerProgram::destroy() {
   m_transformLocation = -1;
 }
 
+void SpinnerProgram::abandon() noexcept { m_program.abandon(); }
+
 void SpinnerProgram::draw(
     float surfaceWidth, float surfaceHeight, float width, float height, const SpinnerStyle& style, const Mat3& transform
 ) const {

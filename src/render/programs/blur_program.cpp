@@ -67,6 +67,8 @@ void BlurProgram::ensureInitialized() {
 
 void BlurProgram::destroy() { m_program.destroy(); }
 
+void BlurProgram::abandon() noexcept { m_program.abandon(); }
+
 void BlurProgram::draw(
     TextureId srcTex, std::uint32_t width, std::uint32_t height, float dirX, float dirY, float radius
 ) const {

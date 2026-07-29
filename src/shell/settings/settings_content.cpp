@@ -17,14 +17,12 @@
 #include "ui/controls/segmented.h"
 #include "ui/controls/select.h"
 #include "ui/controls/toggle.h"
-#include "ui/dialogs/file_dialog.h"
 #include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
 #include <algorithm>
 #include <cstddef>
-#include <filesystem>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -75,6 +73,14 @@ namespace settings {
         .pendingDeleteWidgetName = ctx.pendingDeleteWidgetName,
         .pendingDeleteWidgetSettingPath = ctx.pendingDeleteWidgetSettingPath,
         .renamingWidgetName = ctx.renamingWidgetName,
+        .makeGestureActionRow =
+            [&factory](const GestureActionSetting& setting, const std::string& title, std::vector<std::string> path) {
+              return factory.makeGestureActionRow(setting, title, std::move(path));
+            },
+        .pendingGestureKey = ctx.pendingGestureKey,
+        .pendingGestureVerb = ctx.pendingGestureVerb,
+        .actionsExpandedFor = ctx.actionsExpandedFor,
+        .actionCatalog = ctx.actionCatalog,
         .requestRebuild = ctx.requestRebuild,
         .resetContentScroll = ctx.resetContentScroll,
         .setScrollTarget = ctx.setScrollTarget,
@@ -220,84 +226,7 @@ namespace settings {
     };
 
     const auto makeTextWithPathBrowse = [&](const TextSetting& setting, const std::vector<std::string>& path) {
-      auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale});
-
-      const float inputWidth = (setting.width > 0.0f ? setting.width : 280.0f) * scale;
-      Input* inputPtr = nullptr;
-      auto input = ui::input({
-          .out = &inputPtr,
-          .value = setting.value,
-          .placeholder = setting.placeholder,
-          .fontSize = Style::fontSizeBody * scale,
-          .controlHeight = Style::controlHeight * scale,
-          .horizontalPadding = Style::spaceSm * scale,
-          .width = inputWidth,
-          .height = Style::controlHeight * scale,
-          .onSubmit = [setOverride = ctx.setOverride, path](const std::string& v) { setOverride(path, v); },
-          .submitOnFocusLoss = true,
-      });
-      wrap->addChild(std::move(input));
-
-      const bool selectFolder = setting.browseMode == TextSettingBrowseMode::SelectFolder;
-      auto browse = ui::button({
-          .glyph = selectFolder ? "folder" : "file-text",
-          .glyphSize = Style::fontSizeBody * scale,
-          .variant = ButtonVariant::Outline,
-          .minWidth = Style::controlHeight * scale,
-          .minHeight = Style::controlHeight * scale,
-          .paddingV = Style::spaceXs * scale,
-          .paddingH = Style::spaceSm * scale,
-          .radius = Style::scaledRadiusMd(scale),
-          .onClick = [setOverride = ctx.setOverride, path, inputPtr, selectFolder, exts = setting.browseFileExtensions,
-                      fallbackDir = setting.browseFallbackDirectory]() {
-            FileDialogOptions options;
-            options.mode = selectFolder ? FileDialogMode::SelectFolder : FileDialogMode::Open;
-            options.defaultViewMode = FileDialogViewMode::List;
-            options.title = selectFolder ? i18n::tr("settings.controls.path-browse.folder-title")
-                                         : i18n::tr("settings.controls.path-browse.file-title");
-            if (!selectFolder) {
-              options.extensions = exts;
-            }
-            const std::string cur = inputPtr->value();
-            if (!cur.empty()) {
-              std::filesystem::path p(cur);
-              std::error_code ec;
-              if (selectFolder) {
-                if (std::filesystem::exists(p, ec) && std::filesystem::is_directory(p, ec)) {
-                  options.startDirectory = p;
-                } else if (p.has_parent_path()) {
-                  const auto parent = p.parent_path();
-                  if (std::filesystem::exists(parent, ec)) {
-                    options.startDirectory = parent;
-                  }
-                }
-              } else {
-                if (std::filesystem::exists(p, ec) && std::filesystem::is_regular_file(p, ec)) {
-                  options.startDirectory = p.parent_path();
-                  options.defaultFilename = p.filename().string();
-                } else if (p.has_parent_path() && std::filesystem::exists(p.parent_path(), ec)) {
-                  options.startDirectory = p.parent_path();
-                }
-              }
-            } else if (!fallbackDir.empty()) {
-              std::error_code ec;
-              const std::filesystem::path fallback(fallbackDir);
-              if (std::filesystem::exists(fallback, ec) && std::filesystem::is_directory(fallback, ec)) {
-                options.startDirectory = fallback;
-              }
-            }
-            (void)FileDialog::open(
-                std::move(options), [setOverride, path](std::optional<std::filesystem::path> picked) {
-                  if (!picked.has_value()) {
-                    return;
-                  }
-                  setOverride(path, picked->string());
-                }
-            );
-          },
-      });
-      wrap->addChild(std::move(browse));
-      return wrap;
+      return factory.makePathBrowse(setting, path);
     };
 
     const auto makeGlyphText = [&](const TextSetting& setting, std::vector<std::string> path) -> std::unique_ptr<Node> {
@@ -307,7 +236,7 @@ namespace settings {
       auto pickerButton = ui::button({
           .glyph = "apps",
           .glyphSize = Style::fontSizeBody * scale,
-          .variant = ButtonVariant::Outline,
+          .variant = ButtonVariant::Default,
           .minWidth = Style::controlHeight * scale,
           .minHeight = Style::controlHeight * scale,
           .paddingV = Style::spaceXs * scale,
@@ -1253,7 +1182,7 @@ namespace settings {
                 return ui::button({
                     .text = control.label,
                     .fontSize = Style::fontSizeBody * scale,
-                    .variant = ButtonVariant::Outline,
+                    .variant = control.destructive ? ButtonVariant::Destructive : ButtonVariant::Default,
                     .minHeight = Style::controlHeight * scale,
                     .paddingV = Style::spaceSm * scale,
                     .paddingH = Style::spaceMd * scale,
@@ -1266,7 +1195,7 @@ namespace settings {
                   .glyph = control.glyph,
                   .fontSize = Style::fontSizeBody * scale,
                   .glyphSize = Style::fontSizeBody * scale,
-                  .variant = ButtonVariant::Outline,
+                  .variant = control.destructive ? ButtonVariant::Destructive : ButtonVariant::Default,
                   .minHeight = Style::controlHeight * scale,
                   .paddingV = Style::spaceSm * scale,
                   .paddingH = Style::spaceMd * scale,
@@ -1275,6 +1204,8 @@ namespace settings {
               });
             } else if constexpr (std::is_same_v<T, ColorSpecPickerSetting>) {
               return makeColorSpecPicker(control, entry.path);
+            } else if constexpr (std::is_same_v<T, GestureActionSetting>) {
+              return factory.makeGestureActionRow(control, entry.title, entry.path);
             }
           },
           entry.control
@@ -1333,7 +1264,7 @@ namespace settings {
       }
       if (ctx.showOverriddenOnly
           && ctx.configService != nullptr
-          && !ctx.configService->hasEffectiveOverride(entry.path)) {
+          && !settingEntryHasEffectiveOverride(entry, *ctx.configService)) {
         continue;
       }
       if (!matchesNormalizedSettingQuery(entry, normalizedSearchQuery)) {
@@ -1362,6 +1293,12 @@ namespace settings {
           displayTitle = sectionLabel(entry.section);
         }
         activeSection = makeSection(displayTitle, entry.section);
+        if (ctx.config.shell.offlineMode && settingsSectionNeedsOfflineModeNotice(entry.section)) {
+          const bool showDisableHint = entry.section != SettingsSection::Security;
+          activeSection->addChild(
+              makeOfflineModeNotice(scale, offlineModeNoticeMessage(entry.section), showDisableHint)
+          );
+        }
       }
       if (activeSection != nullptr) {
         if (entry.group != activeGroupKey) {

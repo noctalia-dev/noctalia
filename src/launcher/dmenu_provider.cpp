@@ -14,18 +14,24 @@
 
 namespace {
 
+  constexpr Logger kLog("dmenu");
+
   constexpr std::chrono::milliseconds kCommandTimeout{2000};
   constexpr std::size_t kMaxOutputBytes = 256 * 1024;
   constexpr std::size_t kMaxResults = 200;
 
-  // Replace every {selection} occurrence in `tmpl` with `selection`. Plain substitution;
-  // the exec template is user-trusted config (like dmenu/rofi run commands).
-  std::string substituteSelection(std::string tmpl, std::string_view selection) {
-    constexpr std::string_view kToken = "{selection}";
-    for (std::size_t pos = tmpl.find(kToken); pos != std::string::npos;
-         pos = tmpl.find(kToken, pos + selection.size())) {
-      tmpl.replace(pos, kToken.size(), selection);
+  constexpr double kFreeformScore = 2048.0;
+
+  void substituteToken(std::string& tmpl, std::string_view token, std::string_view value) {
+    for (std::size_t pos = tmpl.find(token); pos != std::string::npos; pos = tmpl.find(token, pos + value.size())) {
+      tmpl.replace(pos, token.size(), value);
     }
+  }
+
+  // Plain substitution; the exec template is user-trusted config (like dmenu/rofi run commands).
+  std::string substituteExecTokens(std::string tmpl, std::string_view selection, std::string_view query) {
+    substituteToken(tmpl, "{selection}", selection);
+    substituteToken(tmpl, "{query}", query);
     return tmpl;
   }
 
@@ -67,7 +73,7 @@ void DmenuProvider::ensureLoaded() const {
   const auto result =
       process::runSyncWithTimeoutAndOutputLimit({"/bin/sh", "-lc", m_entry.command}, kCommandTimeout, kMaxOutputBytes);
   if (!result) {
-    logWarn("dmenu[{}]: command failed (exit {})", m_entry.id, result.exitCode);
+    kLog.warn("[{}] command failed (exit {})", m_entry.id, result.exitCode);
     return;
   }
 
@@ -94,21 +100,42 @@ void DmenuProvider::reset() {
 
 std::vector<LauncherResult> DmenuProvider::query(std::string_view text) const {
   ensureLoaded();
-  if (m_lines.empty()) {
+  const std::string rawQuery = StringUtils::trim(text);
+  if (m_lines.empty() && (!m_entry.freeform || rawQuery.empty())) {
     return {};
   }
 
-  auto makeResult = [this](const Line& line, double score) {
+  auto makeResult = [this, &rawQuery](const Line& line, double score) {
     LauncherResult r;
     r.id = line.raw;
     r.title = line.title;
     r.subtitle = line.subtitle;
     r.glyphName = m_glyph;
+    r.query = rawQuery;
     r.score = score;
     return r;
   };
+  auto makeFreeformResult = [this, &rawQuery] {
+    LauncherResult r;
+    r.id = rawQuery;
+    r.title = rawQuery;
+    r.glyphName = m_glyph;
+    r.query = rawQuery;
+    r.score = kFreeformScore;
+    return r;
+  };
+  auto appendFreeformResult = [this, &rawQuery, &makeFreeformResult](std::vector<LauncherResult>& results) {
+    if (!m_entry.freeform || rawQuery.empty()) {
+      return;
+    }
+    const auto duplicate =
+        std::ranges::any_of(results, [&rawQuery](const LauncherResult& result) { return result.id == rawQuery; });
+    if (!duplicate) {
+      results.push_back(makeFreeformResult());
+    }
+  };
 
-  const std::string query = StringUtils::toLower(StringUtils::trim(text));
+  const std::string query = StringUtils::toLower(rawQuery);
   if (query.empty()) {
     const auto limit = std::min(m_lines.size(), kMaxResults);
     std::vector<LauncherResult> results;
@@ -127,6 +154,11 @@ std::vector<LauncherResult> DmenuProvider::query(std::string_view text) const {
       scored.emplace_back(s, &line);
     }
   }
+  if (scored.empty()) {
+    std::vector<LauncherResult> results;
+    appendFreeformResult(results);
+    return results;
+  }
 
   const auto limit = std::min(scored.size(), kMaxResults);
   std::partial_sort(
@@ -139,6 +171,7 @@ std::vector<LauncherResult> DmenuProvider::query(std::string_view text) const {
   for (std::size_t i = 0; i < limit; ++i) {
     results.push_back(makeResult(*scored[i].second, scored[i].first));
   }
+  appendFreeformResult(results);
   return results;
 }
 
@@ -152,10 +185,17 @@ bool DmenuProvider::activate(const LauncherResult& result) {
       continue;
     }
     if (m_entry.exec.has_value() && !m_entry.exec->empty()) {
-      const std::string command = substituteSelection(*m_entry.exec, line.raw);
+      const std::string command = substituteExecTokens(*m_entry.exec, line.raw, result.query.value_or(""));
       return process::runAsync(command);
     }
     return m_clipboard != nullptr && m_clipboard->copyText(line.raw);
+  }
+  if (m_entry.freeform && result.query.has_value() && result.id == *result.query && !result.id.empty()) {
+    if (m_entry.exec.has_value() && !m_entry.exec->empty()) {
+      const std::string command = substituteExecTokens(*m_entry.exec, result.id, *result.query);
+      return process::runAsync(command);
+    }
+    return m_clipboard != nullptr && m_clipboard->copyText(result.id);
   }
   return false;
 }

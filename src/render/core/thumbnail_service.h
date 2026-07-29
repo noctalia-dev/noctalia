@@ -82,6 +82,7 @@ public:
   // Uploads decoded pixmaps to textures. Must run on the main thread with the
   // owning render context current.
   [[nodiscard]] bool uploadPending(TextureManager& textures);
+  void abandonGpuResources() noexcept;
   void invalidateGpuResources(TextureManager& textures);
 
   [[nodiscard]] int pollTimeoutMs() const override { return -1; }

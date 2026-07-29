@@ -6,6 +6,7 @@
 #include "shell/bar/widget_custom_image.h"
 #include "shell/tooltip/tooltip_content.h"
 #include "system/format_units.h"
+#include "ui/controls/flex.h"
 #include "ui/palette.h"
 #include "ui/signal.h"
 
@@ -35,29 +36,36 @@ enum class SysmonStat {
   RamUsed,
   RamPct,
   SwapPct,
-  DiskPct,
+  DiskUsedPct,
+  DiskUsed,
+  DiskFreePct,
+  DiskFree,
   NetRx,
   NetTx
 };
-enum class SysmonDisplayMode { Text, Graph, Gauge };
-
-struct SysmonWidgetOptions {
-  SysmonStat stat = SysmonStat::CpuUsage;
-  std::string diskPath = "/";
-  SysmonDisplayMode displayMode = SysmonDisplayMode::Gauge;
-  ColorSpec highlightColor = colorSpecFromRole(ColorRole::Error);
-  std::string networkInterface;
-  FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
-  FormatUnits::ByteRateLabelStyle networkSpeedLabelStyle = FormatUnits::ByteRateLabelStyle::Full;
-  bool showLabel = true;
-  float labelMinWidth = 0.0f;
-  std::string glyph;
-  WidgetCustomImage customImage;
-};
+enum class SysmonDisplayMode { Text, Graph, Gauge, None };
+enum class SysmonGlyphPosition { Before, After };
 
 class SysmonWidget : public Widget {
 public:
-  SysmonWidget(SystemMonitorService* monitor, ConfigService& configService, SysmonWidgetOptions options);
+  struct Options {
+    SysmonStat stat = SysmonStat::CpuUsage;
+    std::string diskPath = "/";
+    std::string glyph;
+    std::string customImage;
+    bool customImageColorize = false;
+    std::string networkInterface;
+    FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
+    bool networkSpeedCompact = false;
+    SysmonDisplayMode displayMode = SysmonDisplayMode::Gauge;
+    ColorSpec highlightColor = colorSpecFromRole(ColorRole::Error);
+    bool showLabel = true;
+    int labelMinWidth = 0;
+    bool showUnits = true;
+    SysmonGlyphPosition glyphPosition = SysmonGlyphPosition::Before;
+  };
+
+  SysmonWidget(SystemMonitorService* monitor, ConfigService& configService, Options options);
   ~SysmonWidget() override;
 
   void create() override;
@@ -105,6 +113,8 @@ private:
   FormatUnits::ByteRateLabelStyle m_networkSpeedLabelStyle = FormatUnits::ByteRateLabelStyle::Full;
   std::string m_glyphOverride;
   WidgetCustomImage m_customImage;
+  bool m_showUnits;
+  SysmonGlyphPosition m_glyphPosition;
   std::string m_lastRawValue;
   bool m_isVerticalBar = false;
   bool m_lastLabelVertical = false;
@@ -112,6 +122,7 @@ private:
   Glyph* m_glyph = nullptr;
   Image* m_image = nullptr;
   Label* m_label = nullptr;
+  Flex* m_containerRow = nullptr;
 
   static constexpr int kHistorySamples = 30;
   bool m_graphInitialized = false;

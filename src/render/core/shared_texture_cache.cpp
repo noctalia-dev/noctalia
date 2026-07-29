@@ -111,6 +111,16 @@ void SharedTextureCache::reloadResidentTextures() {
   }
 }
 
+void SharedTextureCache::abandonGpuResources() noexcept {
+  if (m_textureManager != nullptr) {
+    m_textureManager->abandonGpuResources();
+  }
+  for (auto& [path, entry] : m_entries) {
+    (void)path;
+    entry.handle = {};
+  }
+}
+
 bool SharedTextureCache::makeCurrent() {
   if (m_sharedGl == nullptr) {
     return false;

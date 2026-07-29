@@ -61,6 +61,7 @@ public:
   [[nodiscard]] TextureHandle peek(const std::string& path, int targetSize = 0, bool mipmap = false) const;
   void release(const std::string& path, int targetSize = 0, bool mipmap = false);
   void trimUnused(std::size_t maxUnusedEntries = 0);
+  void abandonGpuResources() noexcept;
   void reloadResidentTextures();
 
   [[nodiscard]] int pollTimeoutMs() const override { return -1; }

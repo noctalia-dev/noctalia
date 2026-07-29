@@ -3,6 +3,7 @@
 #include "config/config_types.h"
 #include "config/schema/diagnostics.h"
 #include "core/toml.h"
+#include "util/file_utils.h"
 #include "util/string_utils.h"
 
 #include <cmath>
@@ -11,6 +12,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace noctalia::config::schema {
@@ -167,6 +169,22 @@ namespace noctalia::config::schema {
     };
   }
 
+  template <typename Struct> Field<Struct> field(std::optional<std::int32_t> Struct::* member, std::string_view key) {
+    return Field<Struct>{
+        key,
+        [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+          if (auto v = tbl[key].value<std::int64_t>()) {
+            out.*member = static_cast<std::int32_t>(*v);
+          }
+        },
+        [member, key](toml::table& tbl, const Struct& in) {
+          if ((in.*member).has_value()) {
+            tbl.insert_or_assign(key, static_cast<std::int64_t>(*(in.*member)));
+          }
+        },
+    };
+  }
+
   template <typename Struct> Field<Struct> field(std::vector<std::string> Struct::* member, std::string_view key) {
     return Field<Struct>{
         key,
@@ -191,6 +209,72 @@ namespace noctalia::config::schema {
     };
   }
 
+  // A sub-table of free-form string keys to string values (e.g. `[bar.<name>.actions]`). Keys are
+  // not part of the schema, so no unknown-key detection applies; the consumer validates them.
+  template <typename Struct>
+  Field<Struct> field(std::unordered_map<std::string, std::string> Struct::* member, std::string_view key) {
+    return Field<Struct>{
+        key,
+        [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+          const auto* sub = tbl[key].as_table();
+          if (sub == nullptr) {
+            return;
+          }
+          std::unordered_map<std::string, std::string> values;
+          for (const auto& [entryKey, node] : *sub) {
+            if (auto value = node.value<std::string>()) {
+              values.emplace(std::string(entryKey.str()), std::move(*value));
+            }
+          }
+          out.*member = std::move(values);
+        },
+        [member, key](toml::table& tbl, const Struct& in) {
+          // Omitted entirely when unset, so an untouched config gains no empty table.
+          if ((in.*member).empty()) {
+            return;
+          }
+          toml::table sub;
+          for (const auto& [entryKey, value] : in.*member) {
+            sub.insert_or_assign(entryKey, value);
+          }
+          tbl.insert_or_assign(key, std::move(sub));
+        },
+    };
+  }
+
+  // The same sub-table as a monitor override: absent means "inherit", present replaces the bar's
+  // whole table rather than merging key by key.
+  template <typename Struct>
+  Field<Struct>
+  field(std::optional<std::unordered_map<std::string, std::string>> Struct::* member, std::string_view key) {
+    return Field<Struct>{
+        key,
+        [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+          const auto* sub = tbl[key].as_table();
+          if (sub == nullptr) {
+            return;
+          }
+          std::unordered_map<std::string, std::string> values;
+          for (const auto& [entryKey, node] : *sub) {
+            if (auto value = node.value<std::string>()) {
+              values.emplace(std::string(entryKey.str()), std::move(*value));
+            }
+          }
+          out.*member = std::move(values);
+        },
+        [member, key](toml::table& tbl, const Struct& in) {
+          if (!(in.*member).has_value()) {
+            return;
+          }
+          toml::table sub;
+          for (const auto& [entryKey, value] : *(in.*member)) {
+            sub.insert_or_assign(entryKey, value);
+          }
+          tbl.insert_or_assign(key, std::move(sub));
+        },
+    };
+  }
+
   // Escape hatch for a single key whose read/write don't fit a stock codec
   // (e.g. a value that cascades to sibling fields, or bespoke validation).
   template <typename Struct>
@@ -200,6 +284,36 @@ namespace noctalia::config::schema {
       std::function<void(toml::table& tbl, const Struct& in)> write
   ) {
     return Field<Struct>{key, std::move(read), std::move(write)};
+  }
+
+  // String holding a filesystem path: ~ and $VARS expand on read, emitted raw.
+  template <typename Struct> Field<Struct> pathStringField(std::string Struct::* member, std::string_view key) {
+    return custom<Struct>(
+        key,
+        [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+          if (auto v = tbl[key].value<std::string>()) {
+            out.*member = v->empty() ? *v : FileUtils::expandUserPath(*v).string();
+          }
+        },
+        [member, key](toml::table& tbl, const Struct& in) { tbl.insert_or_assign(key, in.*member); }
+    );
+  }
+
+  template <typename Struct>
+  Field<Struct> optionalPathStringField(std::optional<std::string> Struct::* member, std::string_view key) {
+    return custom<Struct>(
+        key,
+        [member, key](const toml::table& tbl, Struct& out, std::string_view, Diagnostics&) {
+          if (auto v = tbl[key].value<std::string>()) {
+            out.*member = v->empty() ? *v : FileUtils::expandUserPath(*v).string();
+          }
+        },
+        [member, key](toml::table& tbl, const Struct& in) {
+          if ((in.*member).has_value()) {
+            tbl.insert_or_assign(key, *(in.*member));
+          }
+        }
+    );
   }
 
   // A keyless field that runs cross-field logic after all leaf reads (enforcing

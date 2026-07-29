@@ -7,6 +7,8 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <memory>
+#include <mutex>
 #include <ranges>
 #include <string_view>
 #include <sys/inotify.h>
@@ -274,6 +276,8 @@ namespace {
         entry.workingDir = std::string(value);
       } else if (key == "Terminal") {
         entry.terminal = parseDesktopBool(value);
+      } else if (key == "DBusActivatable") {
+        entry.dbusActivatable = parseDesktopBool(value);
       } else if (key == "OnlyShowIn") {
         splitMultipleDesktopStrings(onlyShowIn, value);
       } else if (key == "NotShowIn") {
@@ -389,6 +393,14 @@ namespace {
 
     const std::vector<DesktopEntry>& entries() {
       refreshIfNeeded();
+      return *m_entries;
+    }
+
+    // Worker-thread-safe shared snapshot. Deliberately non-refreshing:
+    // freshness stays driven by the main thread's poll/reload path; this only
+    // synchronizes against the reload swap.
+    std::shared_ptr<const std::vector<DesktopEntry>> entriesSnapshot() const {
+      std::scoped_lock lock(m_entriesMutex);
       return m_entries;
     }
 
@@ -448,7 +460,11 @@ namespace {
         return;
       }
 
-      m_entries = scanDesktopEntries();
+      auto scanned = std::make_shared<const std::vector<DesktopEntry>>(scanDesktopEntries());
+      {
+        std::scoped_lock lock(m_entriesMutex);
+        m_entries = std::move(scanned);
+      }
       rebuildWatches();
       m_sourceSignature = computeSourceSignature();
       m_dirty = false;
@@ -554,7 +570,8 @@ namespace {
       m_watches[wd] = key;
     }
 
-    std::vector<DesktopEntry> m_entries;
+    std::shared_ptr<const std::vector<DesktopEntry>> m_entries = std::make_shared<std::vector<DesktopEntry>>();
+    mutable std::mutex m_entriesMutex; // guards the m_entries swap against entriesSnapshot() readers
     std::uint64_t m_version = 0;
     int m_inotifyFd = -1;
     bool m_dirty = true;
@@ -609,6 +626,8 @@ std::vector<DesktopEntry> scanDesktopEntries() {
 }
 
 const std::vector<DesktopEntry>& desktopEntries() { return cache().entries(); }
+
+std::shared_ptr<const std::vector<DesktopEntry>> desktopEntriesSnapshot() { return cache().entriesSnapshot(); }
 
 std::uint64_t desktopEntriesVersion() { return cache().version(); }
 

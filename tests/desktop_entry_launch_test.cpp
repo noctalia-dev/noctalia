@@ -79,6 +79,12 @@ int main() {
   bool ok = true;
 
   ok = expectArgs(
+           desktop_entry_launch::prepareCommand("Telegram -- %U", false), {"Telegram", "--"},
+           "Telegram-style Exec with trailing %U should keep the option separator"
+       )
+      && ok;
+
+  ok = expectArgs(
            desktop_entry_launch::prepareCommand("sample --name %% --file %f --url %U --keep", false),
            {"sample", "--name", "%", "--file", "--url", "--keep"}, "field codes should be removed"
        )
@@ -87,6 +93,13 @@ int main() {
   ok = expectArgs(
            desktop_entry_launch::prepareCommand("sample --title \"Hello World\" --single 'Two Words'", false),
            {"sample", "--title", "Hello World", "--single", "Two Words"}, "quoted arguments should stay together"
+       )
+      && ok;
+
+  ok = expectArgs(
+           desktop_entry_launch::prepareCommand(R"(/bin/sh -c "\\$SHELL -i -c scrcpy")", false),
+           {"/bin/sh", "-c", "$SHELL -i -c scrcpy"},
+           "desktop-entry escaping should preserve a shell variable in a quoted argument"
        )
       && ok;
 

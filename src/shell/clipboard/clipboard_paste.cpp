@@ -2,11 +2,9 @@
 
 #include "config/config_types.h"
 #include "core/log.h"
-#include "core/process/process.h"
 #include "wayland/virtual_keyboard_service.h"
 
 #include <optional>
-#include <vector>
 
 namespace clipboard_paste {
 
@@ -30,24 +28,6 @@ namespace clipboard_paste {
       return std::nullopt;
     }
 
-    std::vector<std::string> wtypeArgsFor(ClipboardAutoPasteMode mode, bool isImage) {
-      switch (mode) {
-      case ClipboardAutoPasteMode::Off:
-        return {};
-      case ClipboardAutoPasteMode::Auto:
-        return isImage
-            ? std::vector<std::string>{"wtype", "-M", "ctrl", "-k", "v", "-m", "ctrl"}
-            : std::vector<std::string>{"wtype", "-M", "ctrl", "-M", "shift", "-k", "v", "-m", "shift", "-m", "ctrl"};
-      case ClipboardAutoPasteMode::CtrlV:
-        return {"wtype", "-M", "ctrl", "-k", "v", "-m", "ctrl"};
-      case ClipboardAutoPasteMode::CtrlShiftV:
-        return {"wtype", "-M", "ctrl", "-M", "shift", "-k", "v", "-m", "shift", "-m", "ctrl"};
-      case ClipboardAutoPasteMode::ShiftInsert:
-        return {"wtype", "-M", "shift", "-k", "Insert", "-m", "shift"};
-      }
-      return {};
-    }
-
   } // namespace
 
   bool pasteEntry(bool isImage, ClipboardAutoPasteMode mode, VirtualKeyboardService& virtualKeyboard) {
@@ -59,12 +39,7 @@ namespace clipboard_paste {
       return true;
     }
 
-    const auto args = wtypeArgsFor(mode, isImage);
-    if (!args.empty() && process::runAsync(args)) {
-      return true;
-    }
-
-    kLog.warn("clipboard auto-paste failed: native virtual keyboard unavailable and wtype launch failed");
+    kLog.warn("clipboard auto-paste failed: Wayland virtual keyboard unavailable");
     return false;
   }
 

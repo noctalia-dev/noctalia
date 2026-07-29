@@ -117,7 +117,7 @@ void DesktopWidgetsController::registerIpc(IpcService& ipc) {
         enterEdit();
         return "ok\n";
       },
-      "desktop-widgets-edit", "Open the desktop widgets editor"
+      "", "Open the desktop widgets editor"
   );
 
   ipc.registerHandler(
@@ -126,7 +126,7 @@ void DesktopWidgetsController::registerIpc(IpcService& ipc) {
         exitEdit();
         return "ok\n";
       },
-      "desktop-widgets-exit", "Close the desktop widgets editor"
+      "", "Close the desktop widgets editor"
   );
 
   ipc.registerHandler(
@@ -135,7 +135,7 @@ void DesktopWidgetsController::registerIpc(IpcService& ipc) {
         toggleEdit();
         return "ok\n";
       },
-      "desktop-widgets-toggle-edit", "Toggle desktop widgets edit mode"
+      "", "Toggle desktop widgets edit mode"
   );
 
   // Ephemeral runtime show/hide override layered on top of the saved `desktop_widgets.enabled`
@@ -150,7 +150,7 @@ void DesktopWidgetsController::registerIpc(IpcService& ipc) {
         setRuntimeVisibility(RuntimeVisibility::ForceShown);
         return "ok\n";
       },
-      "desktop-widgets-show", "Show desktop widgets now (runtime only; does not change the saved setting)"
+      "", "Show desktop widgets now (runtime only; does not change the saved setting)"
   );
 
   ipc.registerHandler(
@@ -159,7 +159,7 @@ void DesktopWidgetsController::registerIpc(IpcService& ipc) {
         setRuntimeVisibility(RuntimeVisibility::ForceHidden);
         return "ok\n";
       },
-      "desktop-widgets-hide", "Hide desktop widgets now (runtime only; does not change the saved setting)"
+      "", "Hide desktop widgets now (runtime only; does not change the saved setting)"
   );
 
   ipc.registerHandler(
@@ -168,7 +168,7 @@ void DesktopWidgetsController::registerIpc(IpcService& ipc) {
         toggleRuntimeVisibility();
         return isEffectivelyVisible() ? "shown\n" : "hidden\n";
       },
-      "desktop-widgets-toggle", "Toggle desktop widgets visibility (runtime only; does not change the saved setting)"
+      "", "Toggle desktop widgets visibility (runtime only; does not change the saved setting)"
   );
 }
 

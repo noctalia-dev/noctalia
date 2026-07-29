@@ -111,6 +111,8 @@ void CountdownRingProgram::destroy() {
   m_transformLocation = -1;
 }
 
+void CountdownRingProgram::abandon() noexcept { m_program.abandon(); }
+
 void CountdownRingProgram::draw(
     float surfaceWidth, float surfaceHeight, float width, float height, const CountdownRingStyle& style,
     const Mat3& transform

@@ -9,6 +9,7 @@
 #include "render/scene/rect_node.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/clamp.h"
 
 #include <algorithm>
 #include <cmath>
@@ -287,9 +288,9 @@ void RangeSlider::updateGeometry() {
   m_fill->setFrameSize(std::max(0.0f, highX - lowX), m_trackHeight);
 
   const float maxThumbX = trackX + trackW - m_thumbSizePx;
-  m_lowThumb->setPosition(std::clamp(lowX - m_thumbSizePx * 0.5f, trackX, maxThumbX), thumbY);
+  m_lowThumb->setPosition(util::clampOrdered(lowX - m_thumbSizePx * 0.5f, trackX, maxThumbX), thumbY);
   m_lowThumb->setFrameSize(m_thumbSizePx, m_thumbSizePx);
-  m_highThumb->setPosition(std::clamp(highX - m_thumbSizePx * 0.5f, trackX, maxThumbX), thumbY);
+  m_highThumb->setPosition(util::clampOrdered(highX - m_thumbSizePx * 0.5f, trackX, maxThumbX), thumbY);
   m_highThumb->setFrameSize(m_thumbSizePx, m_thumbSizePx);
 
   m_inputArea->setPosition(0.0f, 0.0f);

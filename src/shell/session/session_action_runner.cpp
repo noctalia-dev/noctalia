@@ -252,7 +252,7 @@ void SessionActionRunner::invoke(const SessionPanelActionConfig& cfg) const {
     return;
   }
   if (cfg.action == "suspend") {
-    runPowerAction({}, [this]() { return suspendBlocking(); }, "suspend");
+    runPowerAction({}, [this]() { return requestSuspendDetached(); }, "suspend");
     return;
   }
   if (cfg.action == "lock_and_suspend") {
@@ -262,11 +262,11 @@ void SessionActionRunner::invoke(const SessionPanelActionConfig& cfg) const {
     return;
   }
   if (cfg.action == "reboot") {
-    runPowerAction(m_hooks.onReboot, [this]() { return rebootBlocking(); }, "reboot");
+    runPowerAction(m_hooks.onReboot, [this]() { return requestRebootDetached(); }, "reboot");
     return;
   }
   if (cfg.action == "shutdown") {
-    runPowerAction(m_hooks.onShutdown, [this]() { return shutdownBlocking(); }, "shutdown");
+    runPowerAction(m_hooks.onShutdown, [this]() { return requestShutdownDetached(); }, "shutdown");
     return;
   }
   if (cfg.action == "lock") {
@@ -297,6 +297,23 @@ bool SessionActionRunner::requestSuspendDetached() const {
   std::scoped_lock lock(m_powerMutex);
   return runPowerActionResolved(
       "suspend", m_suspendCommandOverride, suspendCommandVariants(), m_cachedSuspendAutoStartIdx,
+      PowerLaunchMode::Detached
+  );
+}
+
+bool SessionActionRunner::requestRebootDetached() const {
+  logActionContext("reboot");
+  std::scoped_lock lock(m_powerMutex);
+  return runPowerActionResolved(
+      "reboot", m_rebootCommandOverride, rebootCommandVariants(), m_cachedRebootAutoStartIdx, PowerLaunchMode::Detached
+  );
+}
+
+bool SessionActionRunner::requestShutdownDetached() const {
+  logActionContext("shutdown");
+  std::scoped_lock lock(m_powerMutex);
+  return runPowerActionResolved(
+      "shutdown", m_shutdownCommandOverride, shutdownCommandVariants(), m_cachedShutdownAutoStartIdx,
       PowerLaunchMode::Detached
   );
 }

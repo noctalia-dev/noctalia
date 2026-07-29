@@ -12,12 +12,46 @@ namespace shell::dock {
     constexpr std::int32_t kCellPad = 6;
     constexpr std::int32_t kAutoHideTriggerPx = 2;
     constexpr float kAutoHideSlideExtraPx = 16.0f;
+    // Keep in sync with dock_items instance-count badge geometry.
+    constexpr float kBadgeSizeRatio = 0.30f;
+    constexpr float kBadgeMinSize = 16.0f;
+    // Badge hangs past the icon's top and right by this fraction of badge diameter.
+    constexpr float kBadgeCornerOverhang = 0.45f;
 
     [[nodiscard]] int dockAutoHideEdgeGutter(const DockConfig& cfg) noexcept {
-      if (!cfg.autoHide || cfg.marginEdge <= 0) {
+      if ((!cfg.autoHide && !cfg.smartAutoHide) || cfg.marginEdge <= 0) {
         return 0;
       }
       return cfg.marginEdge;
+    }
+
+    [[nodiscard]] float dockHoverZoomPeakScale(const DockConfig& cfg) noexcept {
+      if (!cfg.magnification || cfg.magnificationScale <= 1.0f) {
+        return 1.0f;
+      }
+      const float baseScale = std::max(cfg.activeScale, cfg.inactiveScale);
+      return std::max(1.0f, baseScale * std::max(1.0f, cfg.magnificationScale));
+    }
+
+    [[nodiscard]] float dockHoverZoomBadgeOverhang(const DockConfig& cfg) noexcept {
+      if (!cfg.showInstanceCount) {
+        return 0.0f;
+      }
+      const float peak = dockHoverZoomPeakScale(cfg);
+      if (peak <= 1.0f) {
+        return 0.0f;
+      }
+      const float badgeSize = std::max(kBadgeMinSize, static_cast<float>(cfg.iconSize) * kBadgeSizeRatio);
+      return badgeSize * kBadgeCornerOverhang * peak;
+    }
+
+    // On top docks the badge's local top points toward the screen edge (opposite
+    // the icon growth pad). Reserve space on that edge so the badge is not clipped.
+    [[nodiscard]] std::int32_t dockHoverZoomEdgeBadgePad(const DockConfig& cfg) noexcept {
+      if (cfg.position != DockEdge::Top) {
+        return 0;
+      }
+      return static_cast<std::int32_t>(std::ceil(dockHoverZoomBadgeOverhang(cfg)));
     }
 
   } // namespace
@@ -114,11 +148,24 @@ namespace shell::dock {
   std::int32_t dockThickness(const DockConfig& cfg) { return cfg.iconSize + kCellPad * 2 + cfg.crossAxisPadding * 2; }
 
   std::int32_t dockHoverZoomCrossPad(const DockConfig& cfg) {
-    if (!cfg.magnification || cfg.magnificationScale <= 1.0f) {
+    const float peak = dockHoverZoomPeakScale(cfg);
+    if (peak <= 1.0f) {
       return 0;
     }
-    const float extra = static_cast<float>(cfg.iconSize) * (cfg.magnificationScale - 1.0f) * 0.5f;
-    return static_cast<std::int32_t>(std::ceil(extra * 1.35f + static_cast<float>(kCellPad)));
+    // Icons grow fully away from the screen edge (shiftAlongEdge), not half-and-half.
+    const float iconGrowth = static_cast<float>(cfg.iconSize) * (peak - 1.0f);
+    const float extra = iconGrowth + dockHoverZoomBadgeOverhang(cfg);
+    return static_cast<std::int32_t>(std::ceil(extra + static_cast<float>(kCellPad)));
+  }
+
+  std::int32_t dockHoverZoomMainPad(const DockConfig& cfg) {
+    const float peak = dockHoverZoomPeakScale(cfg);
+    if (peak <= 1.0f) {
+      return 0;
+    }
+    const float halfIconGrowth = static_cast<float>(cfg.iconSize) * (peak - 1.0f) * 0.5f;
+    const float extra = halfIconGrowth + dockHoverZoomBadgeOverhang(cfg);
+    return static_cast<std::int32_t>(std::ceil(extra));
   }
 
   std::size_t dockLauncherButtonCount(DockLauncherPosition position) {
@@ -140,6 +187,8 @@ namespace shell::dock {
     const auto panelW = dockContentSize(cfg, itemCount);
     const auto panelH = dockThickness(cfg);
     const std::int32_t zoomPad = dockHoverZoomCrossPad(cfg);
+    const std::int32_t mainPad = dockHoverZoomMainPad(cfg);
+    const std::int32_t edgeBadgePad = dockHoverZoomEdgeBadgePad(cfg);
     const bool isBottom = edge == DockEdge::Bottom;
     const bool isRight = edge == DockEdge::Right;
     const std::int32_t mEdge = cfg.marginEdge;
@@ -147,7 +196,7 @@ namespace shell::dock {
 
     DockSurfaceGeometry geometry;
     if (!vertical) {
-      geometry.surfaceW = static_cast<std::uint32_t>(panelW + sb.left + sb.right + insetL + insetR);
+      geometry.surfaceW = static_cast<std::uint32_t>(panelW + sb.left + sb.right + insetL + insetR + mainPad * 2);
       geometry.marginLeft = cfg.marginEnds;
       geometry.marginRight = cfg.marginEnds;
       if (isBottom) {
@@ -160,10 +209,11 @@ namespace shell::dock {
         geometry.exclusiveZone = cfg.reserveSpace ? (panelH + std::min(mEdge, sb.down)) : 0;
       } else {
         if (edgeGutter > 0) {
-          geometry.surfaceH = static_cast<std::uint32_t>(sb.down + panelH + edgeGutter + zoomPad);
+          geometry.surfaceH = static_cast<std::uint32_t>(edgeBadgePad + sb.down + panelH + edgeGutter + zoomPad);
         } else {
           geometry.marginTop = std::max(0, mEdge - sb.up);
-          geometry.surfaceH = static_cast<std::uint32_t>(std::min(mEdge, sb.up) + panelH + sb.down + zoomPad);
+          geometry.surfaceH =
+              static_cast<std::uint32_t>(edgeBadgePad + std::min(mEdge, sb.up) + panelH + sb.down + zoomPad);
         }
         geometry.exclusiveZone = cfg.reserveSpace ? (std::min(mEdge, sb.up) + panelH) : 0;
       }
@@ -172,7 +222,7 @@ namespace shell::dock {
 
     geometry.marginTop = cfg.marginEnds;
     geometry.marginBottom = cfg.marginEnds;
-    geometry.surfaceH = static_cast<std::uint32_t>(panelW + sb.up + sb.down + insetT + insetB);
+    geometry.surfaceH = static_cast<std::uint32_t>(panelW + sb.up + sb.down + insetT + insetB + mainPad * 2);
     if (isRight) {
       if (edgeGutter > 0) {
         geometry.surfaceW = static_cast<std::uint32_t>(sb.left + panelH + edgeGutter + zoomPad);
@@ -198,7 +248,7 @@ namespace shell::dock {
     const auto geometry = computeSurfaceGeometry(cfg, shadow, itemCount);
     return LayerSurfaceConfig{
         .nameSpace = "noctalia-dock",
-        .layer = LayerShellLayer::Top,
+        .layer = layerShellLayerFromConfig(cfg.layer),
         .anchor = positionToAnchor(cfg.position),
         .width = geometry.surfaceW,
         .height = geometry.surfaceH,
@@ -230,20 +280,22 @@ namespace shell::dock {
     const bool isBottom = edge == DockEdge::Bottom;
     const bool isRight = edge == DockEdge::Right;
     const auto panelThickness = static_cast<float>(dockThickness(cfg));
+    const auto mainPad = static_cast<float>(dockHoverZoomMainPad(cfg));
+    const auto edgeBadgePad = static_cast<float>(dockHoverZoomEdgeBadgePad(cfg));
 
     if (!vertical) {
-      float y = isBottom ? surfaceH - std::min(mEdge, bleedD) - panelThickness : std::min(mEdge, bleedU);
+      float y = isBottom ? surfaceH - std::min(mEdge, bleedD) - panelThickness : edgeBadgePad + std::min(mEdge, bleedU);
       if (const int gutter = dockAutoHideEdgeGutter(cfg); gutter > 0) {
         if (isBottom) {
           y = surfaceH - static_cast<float>(gutter) - panelThickness;
         } else {
-          y = static_cast<float>(gutter);
+          y = edgeBadgePad + static_cast<float>(gutter);
         }
       }
       return DockPanelGeometry{
-          .panelX = bleedL + insetL,
+          .panelX = bleedL + insetL + mainPad,
           .panelY = y,
-          .panelW = surfaceW - bleedL - bleedR - insetL - insetR,
+          .panelW = surfaceW - bleedL - bleedR - insetL - insetR - mainPad * 2.0f,
           .panelH = panelThickness,
       };
     }
@@ -258,9 +310,9 @@ namespace shell::dock {
     }
     return DockPanelGeometry{
         .panelX = x,
-        .panelY = bleedU + insetT,
+        .panelY = bleedU + insetT + mainPad,
         .panelW = panelThickness,
-        .panelH = surfaceH - bleedU - bleedD - insetT - insetB,
+        .panelH = surfaceH - bleedU - bleedD - insetT - insetB - mainPad * 2.0f,
     };
   }
 

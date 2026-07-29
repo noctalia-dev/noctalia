@@ -1,6 +1,7 @@
 #include "ui/controls/label.h"
 
 #include "core/deferred_call.h"
+#include "core/log.h"
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
@@ -14,9 +15,27 @@
 
 namespace {
 
+  constexpr Logger kLog("label");
+
   constexpr const char* kMarqueeGap = " ";
 
 } // namespace
+
+std::optional<LabelBaselineMode> labelBaselineModeFromToken(std::string_view token) {
+  if (token == "text") {
+    return LabelBaselineMode::Text;
+  }
+  if (token == "textFixedHeight") {
+    return LabelBaselineMode::TextFixedHeight;
+  }
+  if (token == "inkCentered") {
+    return LabelBaselineMode::InkCentered;
+  }
+  if (token == "pictographic") {
+    return LabelBaselineMode::Pictographic;
+  }
+  return std::nullopt;
+}
 
 Label::Label() {
   auto textNode = std::make_unique<TextNode>();
@@ -63,7 +82,12 @@ void Label::setColor(const ColorSpec& color) {
 
 void Label::setColor(const Color& color) { setColor(fixedColorSpec(color)); }
 
-void Label::applyPalette() { m_textNode->setColor(resolveColorSpec(m_color)); }
+void Label::applyPalette() {
+  m_textNode->setColor(resolveColorSpec(m_color));
+  if (m_shadowColor.has_value()) {
+    m_textNode->setShadow(resolveColorSpec(*m_shadowColor), m_shadowOffsetX, m_shadowOffsetY);
+  }
+}
 
 void Label::setMinWidth(float minWidth) {
   if (m_minWidth == minWidth) {
@@ -149,11 +173,21 @@ void Label::setBaselineMode(LabelBaselineMode mode) {
   m_measureCached = false;
 }
 
-void Label::setShadow(const Color& color, float offsetX, float offsetY) {
-  m_textNode->setShadow(color, offsetX, offsetY);
+void Label::setShadow(const ColorSpec& color, float offsetX, float offsetY) {
+  m_shadowColor = color;
+  m_shadowOffsetX = offsetX;
+  m_shadowOffsetY = offsetY;
+  applyPalette();
 }
 
-void Label::clearShadow() { m_textNode->clearShadow(); }
+void Label::setShadow(const Color& color, float offsetX, float offsetY) {
+  setShadow(fixedColorSpec(color), offsetX, offsetY);
+}
+
+void Label::clearShadow() {
+  m_shadowColor.reset();
+  m_textNode->clearShadow();
+}
 
 void Label::setAutoScroll(bool enabled) {
   if (m_autoScroll == enabled) {
@@ -201,7 +235,6 @@ void Label::setAutoScrollSpeed(float pixelsPerSecond) {
   stopScrollAnimations();
   m_scrollOffset = 0.0f;
   applyScrollPosition();
-  markPaintDirty();
   startMarqueeLoop();
 }
 
@@ -215,7 +248,47 @@ void Label::syncTextNodeConstraints() {
   }
 }
 
-void Label::applyScrollPosition() { m_textNode->setPosition(m_textBaseX - m_scrollOffset, m_baselineOffset); }
+void Label::applyScrollPosition() {
+  const float targetX = m_textBaseX - m_scrollOffset;
+  const float targetY = m_baselineOffset;
+
+  // Text is snapped in the renderer, so keep the raw fractional position but
+  // avoid invalidating the surface while its snapped buffer position is unchanged.
+  if (m_marqueeLoopPeriod > 0.0f) {
+    float originX = 0.0f;
+    float originY = 0.0f;
+    float xAxisX = 0.0f;
+    float xAxisY = 0.0f;
+    float yAxisX = 0.0f;
+    float yAxisY = 0.0f;
+    Node::mapToScene(this, 0.0f, 0.0f, originX, originY);
+    Node::mapToScene(this, 1.0f, 0.0f, xAxisX, xAxisY);
+    Node::mapToScene(this, 0.0f, 1.0f, yAxisX, yAxisY);
+
+    constexpr float kTransformEpsilon = 0.0001f;
+    const bool translationOnly = std::abs((xAxisX - originX) - 1.0f) <= kTransformEpsilon
+        && std::abs(xAxisY - originY) <= kTransformEpsilon
+        && std::abs(yAxisX - originX) <= kTransformEpsilon
+        && std::abs((yAxisY - originY) - 1.0f) <= kTransformEpsilon;
+    if (translationOnly) {
+      float currentSceneX = 0.0f;
+      float currentSceneY = 0.0f;
+      float targetSceneX = 0.0f;
+      float targetSceneY = 0.0f;
+      Node::absolutePosition(m_textNode, currentSceneX, currentSceneY);
+      Node::mapToScene(this, targetX, targetY, targetSceneX, targetSceneY);
+
+      const float scale = std::max(1.0f, m_marqueeRenderScale);
+      const bool sameBufferPosition = std::round(currentSceneX * scale) == std::round(targetSceneX * scale)
+          && std::round(currentSceneY * scale) == std::round(targetSceneY * scale);
+      if (sameBufferPosition) {
+        return;
+      }
+    }
+  }
+
+  m_textNode->setPosition(targetX, targetY);
+}
 
 void Label::stopMarqueeAnimation() {
   if (animationManager() != nullptr && m_marqueeAnimId != 0) {
@@ -241,13 +314,11 @@ void Label::startSnapToZero() {
   if (m_scrollOffset <= 0.5f) {
     m_scrollOffset = 0.0f;
     applyScrollPosition();
-    markPaintDirty();
     return;
   }
   if (animationManager() == nullptr) {
     m_scrollOffset = 0.0f;
     applyScrollPosition();
-    markPaintDirty();
     return;
   }
   if (m_snapAnimId != 0) {
@@ -262,16 +333,15 @@ void Label::startSnapToZero() {
       [this](float v) {
         m_scrollOffset = v;
         applyScrollPosition();
-        markPaintDirty();
       },
       [this]() {
         m_snapAnimId = 0;
         m_scrollOffset = 0.0f;
         applyScrollPosition();
-        markPaintDirty();
       },
       this
   );
+  markPaintDirty();
 }
 
 void Label::startMarqueeLoop() {
@@ -303,13 +373,11 @@ void Label::startMarqueeLoop() {
       [this](float v) {
         m_scrollOffset = v;
         applyScrollPosition();
-        markPaintDirty();
       },
       [this]() {
         m_marqueeAnimId = 0;
         m_scrollOffset = 0.0f;
         applyScrollPosition();
-        markPaintDirty();
         const std::weak_ptr<void> aliveGuard = m_aliveGuard;
         DeferredCall::callLater([this, aliveGuard]() {
           if (aliveGuard.expired()) {
@@ -320,6 +388,7 @@ void Label::startMarqueeLoop() {
       },
       this
   );
+  markPaintDirty();
 }
 
 void Label::restartScrollIfNeeded() {
@@ -363,7 +432,6 @@ void Label::restartScrollIfNeeded() {
     setClipChildren(false);
     m_textNode->setText(m_plainText);
     applyScrollPosition();
-    markPaintDirty();
     return;
   }
 
@@ -375,7 +443,6 @@ void Label::restartScrollIfNeeded() {
     } else {
       m_scrollOffset = 0.0f;
       applyScrollPosition();
-      markPaintDirty();
     }
     return;
   }
@@ -383,7 +450,6 @@ void Label::restartScrollIfNeeded() {
   stopSnapAnimation();
   m_scrollOffset = 0.0f;
   applyScrollPosition();
-  markPaintDirty();
   startMarqueeLoop();
 }
 
@@ -412,7 +478,14 @@ void Label::measure(Renderer& renderer) {
 LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstraints& constraints, bool fromArrange) {
   const float configuredMaxWidth = m_userMaxWidth;
   float measureMaxWidth = configuredMaxWidth;
-  if (constraints.hasMaxWidth) {
+  if (fromArrange) {
+    // Measure with the wrap budget paint will use (the text node's budget from
+    // the measure pass), never the arrange width: the arrange width is a box
+    // size, not a wrap intent. Re-deciding line breaking here with a different
+    // budget can flip the line count — and with it the baseline mode — between
+    // measure and paint, bouncing the rendered baseline by a pixel per string.
+    measureMaxWidth = m_textNode->maxWidth();
+  } else if (constraints.hasMaxWidth) {
     measureMaxWidth =
         configuredMaxWidth > 0.0f ? std::min(configuredMaxWidth, constraints.maxWidth) : constraints.maxWidth;
   }
@@ -423,6 +496,7 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
   const TextAlign align = m_textNode->textAlign();
   const FontWeight fontWeight = m_textNode->fontWeight();
   const float renderScale = renderer.renderScale();
+  m_marqueeRenderScale = renderScale;
   const std::uint64_t textMetricsGeneration = renderer.textMetricsGeneration();
   if (m_measureCached
       && m_cachedText == m_plainText
@@ -463,6 +537,18 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
       m_plainText, m_textNode->fontSize(), fontWeight, measureMaxWidth, effectiveMaxLines, align,
       m_textNode->fontFamily(), m_textNode->ellipsize(), m_textNode->useMarkup()
   );
+  // Line breaking is decided once, on the measure pass. A divergent line count
+  // on arrange means the wrap budget drifted between phases — the baseline mode
+  // would flip between measure and paint (renders as ±1px vertical jitter), so
+  // surface it loudly instead of letting it land as pixel drift.
+  if (!fromArrange) {
+    m_measuredLineCount = metrics.lineCount;
+  } else if (m_measuredLineCount > 0 && metrics.lineCount != m_measuredLineCount) {
+    kLog.warn(
+        "label '{}': line count changed between measure ({}) and arrange ({}) — wrap budgets diverged", m_plainText,
+        m_measuredLineCount, metrics.lineCount
+    );
+  }
   // Single- vs multi-line is decided by the measured layout, not by the requested
   // width/line budget: a label with no explicit budget wraps freely, so only the
   // measured line count tells us whether to apply single-line cap-band centering
@@ -488,12 +574,12 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
       // Unrounded — the renderer snaps the glyph quad to the pixel grid.
       height = std::round(std::max(actualHeight, inkHeight));
       m_baselineOffset = -metrics.inkTop + (height - inkHeight) * 0.5f;
-    } else if (m_baselineMode == LabelBaselineMode::StableFont) {
+    } else if (m_baselineMode == LabelBaselineMode::TextFixedHeight) {
       const auto fontMetrics = renderer.measureFont(m_textNode->fontSize(), fontWeight);
       height = std::round(fontMetrics.bottom - fontMetrics.top);
       const float capHeight = fontMetrics.capHeight;
       m_baselineOffset = capHeight > 0.0f ? height * 0.5f + capHeight * 0.5f : -fontMetrics.top;
-    } else if (m_baselineMode == LabelBaselineMode::StableFontBox) {
+    } else if (m_baselineMode == LabelBaselineMode::Pictographic) {
       // Center the cap-height band measured from the *ink top* rather than the
       // baseline. For pictographic script fonts (e.g. bongocat poses) the ink top
       // is the fixed part of the art while lower ink moves per glyph; anchoring the
@@ -535,7 +621,11 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
     } else {
       finalWidth = hasAssignedWidth ? std::max(assignedWidth, m_minWidth) : std::max(measuredWidth, m_minWidth);
     }
-    setSize(std::round(finalWidth), height);
+    // Ceil, never round: the box width is fed back to us as an exact arrange
+    // constraint, so it must never under-report the text it holds — a box a
+    // fraction of a pixel narrower than its own text turns into a wrap/ellipsis
+    // trigger downstream.
+    setSize(std::ceil(finalWidth), height);
   } else {
     m_baselineOffset = -metrics.top;
     const float inkSpan = inkHeight > 0.0f ? (metrics.inkBottom - metrics.inkTop) : actualHeight;
@@ -557,10 +647,10 @@ LayoutSize Label::measureWithConstraints(Renderer& renderer, const LayoutConstra
     } else {
       finalWidth = hasAssignedWidth ? std::max(assignedWidth, m_minWidth) : std::max(measuredWidth, m_minWidth);
     }
-    setSize(std::round(finalWidth), std::round(height));
+    setSize(std::ceil(finalWidth), std::round(height));
   }
   if (width() < m_minWidth) {
-    setSize(std::round(m_minWidth), height());
+    setSize(std::ceil(m_minWidth), height());
   }
   const float layoutWidth = width();
   const bool overflow = m_autoScroll && m_fullTextWidth > layoutWidth + 0.5f;

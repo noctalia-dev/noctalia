@@ -3,6 +3,7 @@
 #include "core/log.h"
 #include "lua.h"
 #include "lualib.h"
+#include "scripting/ui_handler_table.h"
 #include "ui/ui_tree.h"
 
 #include <algorithm>
@@ -173,6 +174,10 @@ namespace {
     const char* family = luaL_checklstring(L, 1, &len);
     if (auto* context = getContext(L)) {
       context->patch.fontFamily = std::string(family, len);
+      const std::string_view baseline = optionalStringArg(L, 2);
+      if (!baseline.empty()) {
+        context->patch.fontBaseline = std::string(baseline);
+      }
     }
     return 0;
   }
@@ -203,6 +208,16 @@ namespace {
     return 1;
   }
 
+  int luau_outputName(lua_State* L) {
+    auto* context = getContext(L);
+    if (context == nullptr || context->snapshot.outputName.empty()) {
+      lua_pushnil(L);
+      return 1;
+    }
+    lua_pushlstring(L, context->snapshot.outputName.data(), context->snapshot.outputName.size());
+    return 1;
+  }
+
   int luau_setVisible(lua_State* L) {
     bool visible = lua_toboolean(L, 1) != 0;
     if (auto* context = getContext(L)) {
@@ -210,6 +225,10 @@ namespace {
     }
     return 0;
   }
+
+  // Shared render(tree) binding for bar widgets, desktop widgets, and panels
+  // (defined after readUiTreeNode below).
+  int luau_ui_render(lua_State* L);
 
   const luaL_Reg kWidgetLib[] = {
       {"setText", luau_setText},
@@ -221,8 +240,9 @@ namespace {
       {"setColor", luau_setColor},
       {"setGlyphColor", luau_setGlyphColor},
       {"isVertical", luau_isVertical},
+      {"outputName", luau_outputName},
       {"setVisible", luau_setVisible},
-      {"getConfig", scripting::luau_getConfig},
+      {"render", luau_ui_render},
       {nullptr, nullptr},
   };
 
@@ -283,10 +303,12 @@ namespace {
   // launcher.setResults(query, results) — replaces this provider's result set.
   // `query` echoes the text passed to onQuery so late async results map back to the
   // right query. Each result is a table { id, title, subtitle?, glyph?, icon?,
-  // badge?, category?, presentation?, score? }. `category` matches a label
+  // badge?, category?, presentation?, score?, query? }. `category` matches a label
   // declared by a [[launcher_provider.category]] manifest entry, letting the
-  // launcher's category filter bar narrow this provider's results. An empty
-  // array clears the provider's results.
+  // launcher's category filter bar narrow this provider's results. A result's
+  // optional `query` rewrites the input to this provider's prefix + that sub-query
+  // when activated (staying in the provider), the declarative form of setQuery. An
+  // empty array clears the provider's results.
   int luau_launcher_setResults(lua_State* L) {
     size_t queryLen = 0;
     const char* query = luaL_checklstring(L, 1, &queryLen);
@@ -328,7 +350,10 @@ namespace {
     return 0;
   }
 
-  // launcher.setQuery(text) — replaces the open launcher input text.
+  // launcher.setQuery(text) — sets the launcher input to this provider's query.
+  // The host prepends the provider's resolved prefix, so `text` is the sub-query
+  // after the prefix (e.g. setQuery("fruits ")) and the panel stays in this provider
+  // regardless of the configured prefix. setQuery("") returns to the provider root.
   int luau_launcher_setQuery(lua_State* L) {
     size_t queryLen = 0;
     const char* query = luaL_checklstring(L, 1, &queryLen);
@@ -341,7 +366,6 @@ namespace {
   const luaL_Reg kLauncherLib[] = {
       {"setResults", luau_launcher_setResults},
       {"setQuery", luau_launcher_setQuery},
-      {"getConfig", scripting::luau_getConfig},
       {nullptr, nullptr},
   };
 
@@ -353,7 +377,7 @@ namespace {
   // Reads the value at `index` into a UiTreeValue. A table is read as a number
   // array (graph data) or a string array (select options) — its element type is
   // decided by the first element and must be uniform; any other shape is rejected.
-  bool readUiTreeValue(lua_State* L, int index, ui::UiTreeValue& out) {
+  bool readUiTreeValue(lua_State* L, int index, std::string_view propName, ui::UiTreeValue& out) {
     switch (lua_type(L, index)) {
     case LUA_TBOOLEAN:
       out = lua_toboolean(L, index) != 0;
@@ -369,9 +393,13 @@ namespace {
     }
     case LUA_TTABLE: {
       const int count = lua_objlen(L, index);
-      // An empty table is an empty number array (the common graph-data case).
+      // An empty Luau table is shapeless while UiTreeValue holds exactly one
+      // array type, so the element type must be decided here at read time:
+      // empty tables default to graph data (numbers), except the drop-zone
+      // `accepts` prop, whose contract is a string array (empty = accepts
+      // nothing) and which would otherwise fail its type validation.
       lua_rawgeti(L, index, 1);
-      const bool stringArray = count > 0 && lua_type(L, -1) == LUA_TSTRING;
+      const bool stringArray = (count == 0 && propName == "accepts") || (count > 0 && lua_type(L, -1) == LUA_TSTRING);
       lua_pop(L, 1);
       if (stringArray) {
         std::vector<std::string> strings;
@@ -409,38 +437,97 @@ namespace {
     }
   }
 
+  // One render's read state: who is rendering, and the absolute stack index of
+  // the table its function-valued props are registered into.
+  struct UiTreeRead {
+    std::string_view ownerId;
+    int handlers = 0;
+  };
+
+  // The identity a node's generated handler names are derived from: the chain of
+  // ancestor keys down to this node, using the position for unkeyed nodes. Keyed
+  // nodes keep their handler names across renders, so an unchanged re-render
+  // still compares equal to the retained tree and skips reconciliation.
+  std::string uiNodePath(std::string_view parentPath, std::string_view key, int position) {
+    std::string path(parentPath);
+    path += '/';
+    path += key.empty() ? std::to_string(position) : std::string(key);
+    return path;
+  }
+
+  // Moves the function on the top of the stack into the render's handler table
+  // and returns the name the tree carries in its place.
+  std::string registerUiHandler(lua_State* L, const UiTreeRead& read, std::string_view path, std::string_view prop) {
+    std::string name(scripting::kUiHandlerPrefix);
+    name += path;
+    name += '#';
+    name += prop;
+    lua_pushvalue(L, -1);
+    lua_setfield(L, read.handlers, name.c_str());
+    return name;
+  }
+
   // Recursively reads a ui.* node table { type, props, children } at `index`.
-  // Malformed input is loud: the offending node/prop is logged and skipped.
-  bool readUiTreeNode(lua_State* L, int index, ui::UiTreeNode& out, int depth, const std::string& ownerId) {
+  // `parentPath`/`position` locate the node in the tree, naming the handlers it
+  // registers. Malformed input is loud: the offending node/prop is logged and
+  // skipped.
+  bool readUiTreeNode(
+      lua_State* L, int index, ui::UiTreeNode& out, int depth, const UiTreeRead& read, std::string_view parentPath,
+      int position
+  ) {
     if (depth > kUiTreeMaxDepth) {
-      kLog.warn("plugin {}: ui tree deeper than {} levels, subtree dropped", ownerId, kUiTreeMaxDepth);
+      kLog.warn("plugin {}: ui tree deeper than {} levels, subtree dropped", read.ownerId, kUiTreeMaxDepth);
       return false;
     }
     if (!lua_istable(L, index)) {
-      kLog.warn("plugin {}: ui tree node is not a table", ownerId);
+      kLog.warn("plugin {}: ui tree node is not a table", read.ownerId);
       return false;
     }
     const int node = lua_absindex(L, index);
 
     out.type = tableOptionalStringField(L, node, "type");
     if (out.type.empty()) {
-      kLog.warn("plugin {}: ui tree node without a type, dropped", ownerId);
+      kLog.warn("plugin {}: ui tree node without a type, dropped", read.ownerId);
       return false;
     }
 
     lua_getfield(L, node, "props");
-    if (lua_istable(L, -1)) {
-      const int props = lua_gettop(L);
+    const int props = lua_gettop(L);
+    const bool hasProps = lua_istable(L, props);
+    if (hasProps) {
+      // `key` is read before the rest of the props: it names this node's path,
+      // and every handler registered below is named after that path.
+      lua_getfield(L, props, "key");
+      if (lua_type(L, -1) == LUA_TSTRING) {
+        size_t keyLen = 0;
+        const char* key = lua_tolstring(L, -1, &keyLen);
+        out.key.assign(key, keyLen);
+      }
+      lua_pop(L, 1);
+    }
+    const std::string path = uiNodePath(parentPath, out.key, position);
+    if (hasProps) {
       lua_pushnil(L);
       while (lua_next(L, props) != 0) {
         if (lua_isstring(L, -2)) {
           size_t keyLen = 0;
           const char* key = lua_tolstring(L, -2, &keyLen);
-          ui::UiTreeValue value;
-          if (readUiTreeValue(L, -1, value)) {
-            out.props.emplace(std::string(key, keyLen), std::move(value));
+          const std::string_view propName(key, keyLen);
+          if (propName == "key") {
+            lua_pop(L, 1);
+            continue;
+          }
+          if (lua_isfunction(L, -1)) {
+            out.props.emplace(std::string(propName), registerUiHandler(L, read, path, propName));
           } else {
-            kLog.warn("plugin {}: ui node '{}' prop '{}' has an unsupported value type", ownerId, out.type, key);
+            ui::UiTreeValue value;
+            if (readUiTreeValue(L, -1, propName, value)) {
+              out.props.emplace(std::string(propName), std::move(value));
+            } else {
+              kLog.warn(
+                  "plugin {}: ui node '{}' prop '{}' has an unsupported value type", read.ownerId, out.type, propName
+              );
+            }
           }
         }
         lua_pop(L, 1);
@@ -448,27 +535,21 @@ namespace {
     }
     lua_pop(L, 1);
 
-    if (auto it = out.props.find("key"); it != out.props.end()) {
-      if (const auto* key = std::get_if<std::string>(&it->second)) {
-        out.key = *key;
-      }
-      out.props.erase(it);
-    }
-
     lua_getfield(L, node, "children");
     if (lua_istable(L, -1)) {
       const int children = lua_gettop(L);
       const int count = std::min(lua_objlen(L, children), kUiTreeMaxChildren);
       if (lua_objlen(L, children) > kUiTreeMaxChildren) {
         kLog.warn(
-            "plugin {}: ui node '{}' has more than {} children, extra dropped", ownerId, out.type, kUiTreeMaxChildren
+            "plugin {}: ui node '{}' has more than {} children, extra dropped", read.ownerId, out.type,
+            kUiTreeMaxChildren
         );
       }
       out.children.reserve(static_cast<std::size_t>(std::max(0, count)));
       for (int i = 1; i <= count; ++i) {
         lua_rawgeti(L, children, i);
         ui::UiTreeNode child;
-        if (readUiTreeNode(L, lua_gettop(L), child, depth + 1, ownerId)) {
+        if (readUiTreeNode(L, lua_gettop(L), child, depth + 1, read, path, i - 1)) {
           out.children.push_back(std::move(child));
         }
         lua_pop(L, 1);
@@ -479,21 +560,31 @@ namespace {
     return true;
   }
 
-  // desktopWidget.render(tree) — replaces the widget's declarative control tree.
-  int luau_desktop_render(lua_State* L) {
+  // render(tree) — replaces the entry's declarative control tree. Shared by
+  // barWidget.render, desktopWidget.render, and panel.render.
+  int luau_ui_render(lua_State* L) {
     luaL_checktype(L, 1, LUA_TTABLE);
     auto* context = getContext(L);
     if (context == nullptr) {
       return 0;
     }
+    // Function-valued props are registered into a fresh table that becomes the
+    // live one only once the whole tree has read back cleanly.
+    lua_newtable(L);
+    const UiTreeRead read{.ownerId = context->ownerId, .handlers = lua_gettop(L)};
     ui::UiTreeNode tree;
-    if (readUiTreeNode(L, 1, tree, 0, context->ownerId)) {
+    if (readUiTreeNode(L, 1, tree, 0, read, {}, 0)) {
       context->patch.uiTree = std::move(tree);
+      lua_pushvalue(L, read.handlers);
+      lua_setglobal(L, scripting::kUiHandlerTable);
     }
+    lua_pop(L, 1);
     return 0;
   }
 
-  int luau_desktop_setWantsSecondTicks(lua_State* L) {
+  // setWantsSecondTicks(bool) / setNeedsFrameTick(bool) — shared by
+  // desktopWidget.* and panel.*.
+  int luau_ui_setWantsSecondTicks(lua_State* L) {
     const bool wants = lua_toboolean(L, 1) != 0;
     if (auto* context = getContext(L)) {
       context->patch.wantsSecondTicks = wants;
@@ -501,7 +592,7 @@ namespace {
     return 0;
   }
 
-  int luau_desktop_setNeedsFrameTick(lua_State* L) {
+  int luau_ui_setNeedsFrameTick(lua_State* L) {
     const bool needs = lua_toboolean(L, 1) != 0;
     if (auto* context = getContext(L)) {
       context->patch.needsFrameTick = needs;
@@ -510,28 +601,13 @@ namespace {
   }
 
   const luaL_Reg kDesktopWidgetLib[] = {
-      {"render", luau_desktop_render},
-      {"setWantsSecondTicks", luau_desktop_setWantsSecondTicks},
-      {"setNeedsFrameTick", luau_desktop_setNeedsFrameTick},
-      {"getConfig", scripting::luau_getConfig},
+      {"render", luau_ui_render},
+      {"setWantsSecondTicks", luau_ui_setWantsSecondTicks},
+      {"setNeedsFrameTick", luau_ui_setNeedsFrameTick},
       {nullptr, nullptr},
   };
 
   // ── panel.* — declarative UI tree for a [[panel]] entry ──
-
-  // panel.render(tree) — replaces the panel's declarative control tree.
-  int luau_panel_render(lua_State* L) {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    auto* context = getContext(L);
-    if (context == nullptr) {
-      return 0;
-    }
-    ui::UiTreeNode tree;
-    if (readUiTreeNode(L, 1, tree, 0, context->ownerId)) {
-      context->patch.uiTree = std::move(tree);
-    }
-    return 0;
-  }
 
   // panel.close() — request the host close this panel.
   int luau_panel_close(lua_State* L) {
@@ -541,19 +617,11 @@ namespace {
     return 0;
   }
 
-  int luau_panel_setWantsSecondTicks(lua_State* L) {
-    const bool wants = lua_toboolean(L, 1) != 0;
-    if (auto* context = getContext(L)) {
-      context->patch.wantsSecondTicks = wants;
-    }
-    return 0;
-  }
-
   const luaL_Reg kPanelLib[] = {
-      {"render", luau_panel_render},
+      {"render", luau_ui_render},
       {"close", luau_panel_close},
-      {"setWantsSecondTicks", luau_panel_setWantsSecondTicks},
-      {"getConfig", scripting::luau_getConfig},
+      {"setWantsSecondTicks", luau_ui_setWantsSecondTicks},
+      {"setNeedsFrameTick", luau_ui_setNeedsFrameTick},
       {nullptr, nullptr},
   };
 
@@ -592,6 +660,12 @@ namespace scripting {
             for (size_t i = 0; i < val.size(); ++i) {
               lua_pushlstring(L, val[i].data(), val[i].size());
               lua_rawseti(L, -2, static_cast<int>(i + 1));
+            }
+          } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
+            lua_createtable(L, 0, static_cast<int>(val.size()));
+            for (const auto& [mapKey, value] : val) {
+              lua_pushlstring(L, value.data(), value.size());
+              lua_setfield(L, -2, mapKey.c_str());
             }
           } else {
             lua_pushnil(L);

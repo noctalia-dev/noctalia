@@ -109,13 +109,13 @@ namespace {
 } // namespace
 
 ScreenshotWidget::ScreenshotWidget(
-    wl_output* output, std::string barGlyphId, ScreenshotService& screenshots, ConfigService& configService,
-    CompositorPlatform& platform, RenderContext& renderContext, const ShellConfig::ShadowConfig& shadow,
-    std::string barPosition, WidgetCustomImage customImage
+    wl_output* output, ScreenshotService& screenshots, ConfigService& configService, CompositorPlatform& platform,
+    RenderContext& renderContext, std::string barPosition, Options options
 )
-    : m_barGlyphId(std::move(barGlyphId)), m_output(output), m_screenshots(screenshots), m_configService(configService),
-      m_platform(platform), m_renderContext(renderContext), m_shadowConfig(shadow),
-      m_barPosition(std::move(barPosition)), m_customImage(std::move(customImage)) {}
+    : m_barGlyphId(std::move(options.glyph)), m_output(output), m_screenshots(screenshots),
+      m_configService(configService), m_platform(platform), m_renderContext(renderContext),
+      m_barPosition(std::move(barPosition)),
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}
 
 ScreenshotWidget::~ScreenshotWidget() = default;
 
@@ -124,7 +124,7 @@ bool ScreenshotWidget::onPointerEvent(const PointerEvent& event) {
     return false;
   }
   const bool consumed = m_menuPopup->onPointerEvent(event);
-  if (!consumed && event.type == PointerEvent::Type::Button && event.state == 1) {
+  if (!consumed && event.type == PointerEvent::Type::Button && event.pressed) {
     m_menuPopup->close();
     return true;
   }
@@ -132,19 +132,14 @@ bool ScreenshotWidget::onPointerEvent(const PointerEvent& event) {
 }
 
 void ScreenshotWidget::create() {
-  auto area = std::make_unique<InputArea>();
+  auto area = ui::inputArea({});
   m_hitArea = area.get();
-  area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
+  // Left is a declared gesture action; right stays here because the capture menu is a popup
+  // anchored to this widget.
+  area->setAcceptedButtons(InputArea::buttonMask({BTN_RIGHT}));
   area->setOnClick([this](const InputArea::PointerData& data) {
-    if (data.pressed) {
-      return;
-    }
-    if (data.button == BTN_RIGHT) {
+    if (!data.pressed && data.button == BTN_RIGHT) {
       openCaptureMenu();
-      return;
-    }
-    if (data.button == BTN_LEFT) {
-      runPrimaryClickAction();
     }
   });
 
@@ -154,7 +149,7 @@ void ScreenshotWidget::create() {
     area->addChild(
         ui::glyph({
             .out = &m_glyph,
-            .glyph = m_barGlyphId.empty() ? "screenshot" : m_barGlyphId,
+            .glyph = m_barGlyphId,
             .glyphSize = Style::baseGlyphSize * m_contentScale,
             .color = widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)),
         })
@@ -189,29 +184,6 @@ ScreenshotService::OutputOptions ScreenshotWidget::outputOptions() const {
   return ScreenshotService::outputOptionsFromConfig(m_configService.config());
 }
 
-bool ScreenshotWidget::primaryClickIsFullscreen() const {
-  if (configName().empty()) {
-    return false;
-  }
-  const auto it = m_configService.config().widgets.find(std::string(configName()));
-  if (it == m_configService.config().widgets.end()) {
-    return false;
-  }
-  return it->second.getString("primary_click", "region") == "fullscreen";
-}
-
-void ScreenshotWidget::runPrimaryClickAction() {
-  if (!m_screenshots.available()) {
-    return;
-  }
-  const auto options = outputOptions();
-  if (primaryClickIsFullscreen()) {
-    m_screenshots.captureFullscreenInteractive(m_renderContext, options);
-    return;
-  }
-  m_screenshots.beginRegionCapture(m_renderContext, options);
-}
-
 void ScreenshotWidget::openCaptureMenu() {
   if (!m_screenshots.available()) {
     return;
@@ -242,7 +214,7 @@ void ScreenshotWidget::openCaptureMenu() {
   if (m_menuPopup == nullptr) {
     m_menuPopup = std::make_unique<ContextMenuPopup>(m_platform.wayland(), m_renderContext);
   }
-  m_menuPopup->setShadowConfig(m_shadowConfig);
+  m_menuPopup->setShadowConfig(m_configService.config().shell.shadow);
   const auto options = outputOptions();
   m_menuPopup->setOnActivate([this, options](const ContextMenuControlEntry& entry) {
     if (entry.id == 1) {
@@ -263,12 +235,12 @@ void ScreenshotWidget::openCaptureMenu() {
       barWidgetContextMenuAnchor(m_barPosition, absX, absY, area.width(), area.height(), m_contentScale);
 
   constexpr float kMenuWidth = 246.0f;
-  const float menuWidth = kMenuWidth * m_contentScale;
   const std::size_t maxVisible = std::max<std::size_t>(1, entries.size());
   m_menuPopup->open(
       ContextMenuPopupRequest{
           .entries = std::move(entries),
-          .menuWidth = menuWidth,
+          .minMenuWidth = kMenuWidth * m_contentScale,
+          .maxMenuWidth = Style::menuAutoMaxWidth * m_contentScale,
           .maxVisible = maxVisible,
           .anchor =
               PopupAnchorRect{

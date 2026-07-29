@@ -27,6 +27,9 @@ public:
 
   void initialize(GlSharedContext& shared);
   void cleanup();
+  void prepareForGraphicsReset();
+  void restoreAfterGraphicsReset(GlSharedContext& shared);
+  void finishGraphicsResetRecovery() noexcept { m_graphicsResetPending = false; }
 
   void renderScene(RenderTarget& target, Node* sceneRoot);
   void setGraphicsResetCallback(std::function<void(RenderGraphicsResetStatus)> callback) {
@@ -79,7 +82,7 @@ private:
   void handleGraphicsReset(RenderGraphicsResetStatus status);
   void renderNode(
       const Node* node, const Mat3& parentTransform, float parentOpacity, float sw, float sh, float bw, float bh,
-      float clipLeft, float clipTop, float clipRight, float clipBottom, bool hasClip
+      float clipLeft, float clipTop, float clipRight, float clipBottom, bool hasClip, bool ignoreNodeOpacity = false
   );
 
   std::unique_ptr<RenderBackend> m_backend;
@@ -90,5 +93,6 @@ private:
   std::uint64_t m_textMetricsGeneration = 1;
   std::uint64_t m_gpuResourceGeneration = 0;
   bool m_glyphTexturesDirty = false;
+  bool m_graphicsResetPending = false;
   std::function<void(RenderGraphicsResetStatus)> m_graphicsResetCallback;
 };

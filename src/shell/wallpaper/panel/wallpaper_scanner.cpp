@@ -1,9 +1,10 @@
 #include "shell/wallpaper/panel/wallpaper_scanner.h"
 
+#include "core/files/directory_scanner.h"
 #include "core/log.h"
+#include "util/string_utils.h"
 
 #include <algorithm>
-#include <cctype>
 #include <cerrno>
 #include <sys/eventfd.h>
 #include <system_error>
@@ -13,14 +14,6 @@
 namespace {
 
   constexpr Logger kLog("wp-scan");
-
-  bool hasImageExtension(const std::filesystem::path& p) {
-    auto ext = p.extension().string();
-    for (char& c : ext) {
-      c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    }
-    return ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp" || ext == ".bmp" || ext == ".gif";
-  }
 
   // Pull the entry's modification time from the cached directory_entry metadata
   // so date sorting later never has to stat again.
@@ -54,7 +47,7 @@ namespace {
       if (!entry.is_regular_file(typeEc) || typeEc) {
         continue;
       }
-      if (!hasImageExtension(entry.path())) {
+      if (!DirectoryScanner::isImagePath(entry.path())) {
         continue;
       }
       WallpaperEntry e;
@@ -86,7 +79,7 @@ namespace {
         out.push_back(std::move(e));
         continue;
       }
-      if (entry.is_regular_file(typeEc) && !typeEc && hasImageExtension(entry.path())) {
+      if (entry.is_regular_file(typeEc) && !typeEc && DirectoryScanner::isImagePath(entry.path())) {
         WallpaperEntry e;
         e.name = entry.path().filename().string();
         e.absPath = entry.path();
@@ -98,21 +91,12 @@ namespace {
   }
 
   void sortEntries(std::vector<WallpaperEntry>& entries) {
-    // Directories first, then files; both sorted case-insensitively by name.
+    // Directories first, then files; natural case-insensitive name order.
     std::ranges::sort(entries, [](const WallpaperEntry& a, const WallpaperEntry& b) {
       if (a.isDir != b.isDir) {
         return a.isDir;
       }
-      const auto& as = a.name;
-      const auto& bs = b.name;
-      for (std::size_t i = 0; i < as.size() && i < bs.size(); ++i) {
-        const auto ac = std::tolower(static_cast<unsigned char>(as[i]));
-        const auto bc = std::tolower(static_cast<unsigned char>(bs[i]));
-        if (ac != bc) {
-          return ac < bc;
-        }
-      }
-      return as.size() < bs.size();
+      return StringUtils::naturalCaseInsensitiveLess(a.name, b.name);
     });
   }
 

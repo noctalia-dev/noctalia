@@ -1,10 +1,11 @@
 #include "scripting/plugin_manager.h"
 
 #include "config/config_service.h"
-#include "core/build_info.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
-#include "core/version.h"
+#include "i18n/i18n.h"
+#include "notification/notifications.h"
+#include "scripting/plugin_api.h"
 #include "scripting/plugin_catalog.h"
 #include "scripting/plugin_git.h"
 #include "scripting/plugin_id.h"
@@ -12,6 +13,7 @@
 #include "scripting/plugin_registry.h"
 #include "scripting/plugin_source_locks.h"
 #include "scripting/plugin_source_paths.h"
+#include "scripting/script_runtime.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 
@@ -126,7 +128,7 @@ namespace scripting {
       int exitCode = -1;
       bool timedOut = false;
       bool incompatible = false;
-      std::string requiredNoctalia;
+      std::uint32_t pluginApiVersion = 0;
       std::filesystem::path pluginDir;
       PluginManifest manifest;
 
@@ -135,14 +137,14 @@ namespace scripting {
 
     MaterializeResult materializeFailure(
         std::string error, int exitCode = -1, bool timedOut = false, bool incompatible = false,
-        std::string requiredNoctalia = {}
+        std::uint32_t pluginApiVersion = 0
     ) {
       MaterializeResult result;
       result.error = std::move(error);
       result.exitCode = exitCode;
       result.timedOut = timedOut;
       result.incompatible = incompatible;
-      result.requiredNoctalia = std::move(requiredNoctalia);
+      result.pluginApiVersion = pluginApiVersion;
       return result;
     }
 
@@ -188,17 +190,19 @@ namespace scripting {
         cleanupTmp();
         return materializeFailure("manifest id '" + manifest->id + "' does not match requested id");
       }
-      if (requireCompatible && !noctalia::version::atLeast(noctalia::build_info::version(), manifest->minNoctalia)) {
+      if (requireCompatible && !supportsPluginApiVersion(manifest->pluginApiVersion)) {
         std::string error = "plugin '"
             + manifest->id
-            + "' requires noctalia >= "
-            + manifest->minNoctalia
-            + " (running "
-            + std::string(noctalia::build_info::version())
+            + "' targets plugin API "
+            + std::to_string(manifest->pluginApiVersion)
+            + " (supported range "
+            + std::to_string(kOldestSupportedPluginApiVersion)
+            + "-"
+            + std::to_string(kCurrentPluginApiVersion)
             + ")";
-        const std::string required = manifest->minNoctalia;
+        const std::uint32_t pluginApiVersion = manifest->pluginApiVersion;
         cleanupTmp();
-        return materializeFailure(std::move(error), -1, false, true, required);
+        return materializeFailure(std::move(error), -1, false, true, pluginApiVersion);
       }
 
       const auto finalDir = materializedRoot / *subdir;
@@ -215,23 +219,23 @@ namespace scripting {
       return result;
     }
 
-    std::vector<CatalogEntry> readGitCatalog(const std::filesystem::path& repoRoot, std::string_view rev = "HEAD") {
+    struct ReadGitCatalogResult {
+      bool ok = false;
+      std::string error;
+      std::vector<CatalogEntry> entries;
+    };
+
+    ReadGitCatalogResult readGitCatalog(const std::filesystem::path& repoRoot, std::string_view rev = "HEAD") {
       const auto shown = plugin_git::showFile(repoRoot, "catalog.toml", rev);
       if (!shown) {
-        return {};
+        return {.ok = false, .error = shown.err, .entries = {}};
       }
-      return parseCatalogToml(shown.out);
+      return {.ok = true, .error = {}, .entries = parseCatalogToml(shown.out, rev)};
     }
 
-    const CatalogEntry* findCatalogEntry(const std::vector<CatalogEntry>& entries, std::string_view id) {
-      for (const auto& entry : entries) {
-        if (entry.id == id) {
-          return &entry;
-        }
-      }
-      return nullptr;
-    }
-
+    // Whether the exported copy on disk is already the revision this host resolves to.
+    // Compares the resolved row, not the catalog tip: a held-back plugin sits on an older
+    // version on purpose and must not read as a permanently pending update.
     bool materializedPluginMatchesCatalog(
         const PluginSourceConfig& source, std::string_view pluginId, const CatalogEntry& entry
     ) {
@@ -240,7 +244,27 @@ namespace scripting {
       if (!manifest.has_value() || manifest->id != pluginId) {
         return false;
       }
-      return manifest->version == entry.version && manifest->minNoctalia == entry.minNoctalia;
+      return manifest->version == entry.resolvedVersion && manifest->pluginApiVersion == entry.resolvedPluginApiVersion;
+    }
+
+    // Announce which revision an export will land when it is not the catalog tip, so the
+    // choice is visible in the log and not only in the settings UI.
+    void logHeldBack(const PluginSourceConfig& source, const CatalogEntry& entry) {
+      if (!entry.heldBack) {
+        return;
+      }
+      kLog.info(
+          "plugin source '{}': installing '{}' v{} (plugin API {}); v{} needs plugin API {} (supported range {}-{})",
+          source.name, entry.id, entry.resolvedVersion, entry.resolvedPluginApiVersion, entry.version,
+          entry.pluginApiVersion, kOldestSupportedPluginApiVersion, kCurrentPluginApiVersion
+      );
+    }
+
+    // Version string of the exported (installed) copy on disk, or empty if absent.
+    std::string materializedPluginVersion(const PluginSourceConfig& source, std::string_view pluginId) {
+      std::string error;
+      const auto manifest = parsePluginManifest(materializedPluginDir(source, pluginId) / "plugin.toml", &error);
+      return manifest.has_value() ? manifest->version : std::string{};
     }
   } // namespace
 
@@ -294,14 +318,13 @@ namespace scripting {
     PluginSourceConfig localSource{
         .kind = PluginSourceKind::Path, .name = "local", .location = (std::filesystem::path(data) / "plugins").string()
     };
-    for (const auto& entry : discoverCatalog(localSource).entries) {
+    for (const auto& entry : discoverCatalog(localSource, CatalogAccess::LocalOnly).entries) {
       ids.insert(entry.id);
     }
     return ids;
   }
 
-  bool PluginManager::ensureEnabledMaterialized(const PluginsConfig& plugins) const {
-    bool materialized = false;
+  void PluginManager::ensureEnabledMaterialized(const PluginsConfig& plugins) const {
     std::error_code ec;
     for (const auto& source : plugins.sources) {
       if (source.kind != PluginSourceKind::Git || !source.enabled) {
@@ -311,21 +334,16 @@ namespace scripting {
       if (repoRoot.empty()) {
         continue;
       }
-      if (std::filesystem::exists(repoRoot / ".git", ec)) {
-        // Repo already present: materialize from local git data only — no network.
-        auto sourceLock = plugin_source_locks::acquire(source.name);
-        if (materializeEnabledFromRepo(source, repoRoot, plugins.enabled)) {
-          materialized = true;
-        }
-        continue;
+      // Even with the repo present, catalog reads and exports lazy-fetch blobs from the
+      // blobless clone (network-bound), so reconciliation always runs off the main
+      // thread; the registry rescan + bar rebuild marshal back when an export lands.
+      const bool cloneFirst = !std::filesystem::exists(repoRoot / ".git", ec);
+      if (cloneFirst) {
+        // Source repo is gone (state dir wiped) or its first clone never completed.
+        std::filesystem::create_directories(repoRoot.parent_path(), ec);
       }
-      // Source repo is gone (state dir wiped) or its first clone never completed
-      // (DNS/proxy hang). Re-clone + materialize off the main thread so startup never
-      // blocks on the network; the bar rebuilds via m_onChanged when the export lands.
-      std::filesystem::create_directories(repoRoot.parent_path(), ec);
-      spawnCloneAndMaterialize(source, repoRoot, plugins.enabled);
+      spawnMaterializeEnabled(source, repoRoot, plugins.enabled, cloneFirst);
     }
-    return materialized;
   }
 
   bool PluginManager::materializeEnabledFromRepo(
@@ -333,7 +351,12 @@ namespace scripting {
   ) const {
     bool materialized = false;
     std::error_code ec;
-    const auto catalog = readGitCatalog(repoRoot);
+    const auto catalogResult = readGitCatalog(repoRoot);
+    if (!catalogResult.ok) {
+      kLog.warn("plugin source '{}': cannot read applied catalog: {}", source.name, catalogResult.error);
+      return false;
+    }
+    const auto& catalog = catalogResult.entries;
     for (const auto& id : enabled) {
       const auto sub = pluginSubdirFromId(id);
       if (!sub.has_value()) {
@@ -341,30 +364,37 @@ namespace scripting {
         continue;
       }
       const auto* catalogEntry = findCatalogEntry(catalog, id);
+      if (catalogEntry == nullptr) {
+        continue; // this exact canonical id is not owned by this source
+      }
       const bool hasMaterialized = std::filesystem::exists(materializedPluginDir(source, id) / "plugin.toml", ec);
-      if (catalogEntry != nullptr && !catalogEntry->compatible) {
+      if (!catalogEntry->compatible) {
         if (!hasMaterialized) {
           kLog.warn(
-              "plugin source '{}': cannot export enabled plugin '{}'; it requires noctalia >= {} (running {})",
-              source.name, id, catalogEntry->minNoctalia, noctalia::build_info::version()
+              "plugin source '{}': cannot export enabled plugin '{}'; it targets plugin API {} (supported range {}-{})",
+              source.name, id, catalogEntry->pluginApiVersion, kOldestSupportedPluginApiVersion,
+              kCurrentPluginApiVersion
           );
         }
         continue;
       }
-      if (hasMaterialized && (catalogEntry == nullptr || materializedPluginMatchesCatalog(source, id, *catalogEntry))) {
-        continue; // already materialized at this source revision
+      if (hasMaterialized && materializedPluginMatchesCatalog(source, id, *catalogEntry)) {
+        continue; // already materialized at the revision this host resolves to
       }
-      if (!plugin_git::hasPath(repoRoot, *sub + "/plugin.toml")) {
-        continue; // this source doesn't ship it
+      if (!plugin_git::hasPath(repoRoot, *sub + "/plugin.toml", catalogEntry->resolvedRevision)) {
+        kLog.warn("plugin source '{}': catalog entry '{}' has no {}/plugin.toml", source.name, id, *sub);
+        continue;
       }
       kLog.info("exporting enabled plugin '{}' from source '{}'", id, source.name);
-      const auto materializedPlugin = materializeGitPlugin(source, repoRoot, "HEAD", id, true);
+      logHeldBack(source, *catalogEntry);
+      const auto materializedPlugin = materializeGitPlugin(source, repoRoot, catalogEntry->resolvedRevision, id, true);
       if (materializedPlugin) {
         materialized = true;
       } else if (materializedPlugin.incompatible) {
         kLog.warn(
-            "plugin source '{}': cannot export enabled plugin '{}'; it requires noctalia >= {} (running {})",
-            source.name, id, materializedPlugin.requiredNoctalia, noctalia::build_info::version()
+            "plugin source '{}': cannot export enabled plugin '{}'; it targets plugin API {} (supported range {}-{})",
+            source.name, id, materializedPlugin.pluginApiVersion, kOldestSupportedPluginApiVersion,
+            kCurrentPluginApiVersion
         );
       } else if (materializedPlugin.timedOut) {
         kLog.warn("plugin source '{}': exporting '{}' timed out", source.name, id);
@@ -377,28 +407,32 @@ namespace scripting {
     return materialized;
   }
 
-  void PluginManager::spawnCloneAndMaterialize(
-      PluginSourceConfig source, std::filesystem::path repoRoot, std::vector<std::string> enabled
+  void PluginManager::spawnMaterializeEnabled(
+      PluginSourceConfig source, std::filesystem::path repoRoot, std::vector<std::string> enabled, bool cloneFirst
   ) const {
     // `this` is an Application member and outlives the worker; the registry rescan and
     // bar rebuild marshal back to the main thread via DeferredCall.
-    std::thread([this, source = std::move(source), repoRoot = std::move(repoRoot),
-                 enabled = std::move(enabled)]() mutable {
+    std::thread([this, source = std::move(source), repoRoot = std::move(repoRoot), enabled = std::move(enabled),
+                 cloneFirst]() mutable {
       auto sourceLock = plugin_source_locks::acquire(source.name);
-      kLog.info("re-cloning missing plugin source '{}'", source.name);
-      const auto cloned = plugin_git::cloneBlobless(source.location, repoRoot);
-      if (!cloned) {
-        if (cloned.timedOut) {
-          kLog.warn("plugin source '{}': clone timed out", source.name);
-        } else {
-          kLog.warn("plugin source '{}': clone failed with exit code {}", source.name, cloned.exitCode);
+      if (cloneFirst) {
+        kLog.info("re-cloning missing plugin source '{}'", source.name);
+        const auto cloned = plugin_git::cloneBlobless(source.location, repoRoot);
+        if (!cloned) {
+          if (cloned.timedOut) {
+            kLog.warn("plugin source '{}': clone timed out", source.name);
+          } else {
+            kLog.warn("plugin source '{}': clone failed with exit code {}", source.name, cloned.exitCode);
+          }
+          return; // offline / unreachable — list/enable will retry
         }
-        return; // offline / unreachable — list/enable will retry
       }
-      const bool materialized = materializeEnabledFromRepo(source, repoRoot, enabled);
-      DeferredCall::callLater([this, materialized]() {
+      if (!materializeEnabledFromRepo(source, repoRoot, enabled)) {
+        return; // nothing exported; the startup registry scan already reflects disk state
+      }
+      DeferredCall::callLater([this]() {
         PluginRegistry::instance().scan(); // pick up the freshly exported plugins
-        if (materialized && m_onChanged) {
+        if (m_onChanged) {
           m_onChanged(); // rebuild bar + reconcile services
         }
       });
@@ -448,14 +482,18 @@ namespace scripting {
     std::thread([this, id, subdir = *subdir, sources = std::move(sources)]() mutable {
       const auto started = std::chrono::steady_clock::now();
       // Highest precedence wins; skip disabled sources — the registry never scans them.
-      std::optional<PluginSourceConfig> offering;
+      struct Offering {
+        PluginSourceConfig source;
+        CatalogEntry entry;
+      };
+      std::optional<Offering> offering;
       for (const auto& source : std::views::reverse(sources)) {
         if (!source.enabled) {
           continue;
         }
-        const auto catalog = discoverCatalog(source);
-        if (std::ranges::any_of(catalog.entries, [&](const CatalogEntry& e) { return e.id == id; })) {
-          offering = source;
+        const auto catalog = discoverCatalog(source, CatalogAccess::Network);
+        if (const auto* entry = findCatalogEntry(catalog.entries, id); entry != nullptr) {
+          offering = Offering{.source = source, .entry = *entry};
           break;
         }
       }
@@ -463,26 +501,31 @@ namespace scripting {
       bool ok = false;
       bool incompatible = false;
       bool timedOut = false;
-      std::string requiredNoctalia;
+      std::uint32_t pluginApiVersion = 0;
       std::string error;
 
-      if (offering.has_value() && offering->kind == PluginSourceKind::Git) {
-        auto sourceLock = plugin_source_locks::acquire(offering->name);
-        auto materialized = materializeGitPlugin(*offering, plugin_paths::gitRepoRoot(*offering), "HEAD", id, true);
-        ok = materialized && materialized.manifest.id == id;
-        incompatible = materialized.incompatible;
-        timedOut = materialized.timedOut;
-        requiredNoctalia = std::move(materialized.requiredNoctalia);
-        error = std::move(materialized.error);
+      if (offering.has_value() && offering->source.kind == PluginSourceKind::Git) {
+        if (offering->entry.resolvedRevision.empty()) {
+          error = "source '" + offering->source.name + "' did not resolve a catalog revision";
+        } else {
+          auto sourceLock = plugin_source_locks::acquire(offering->source.name);
+          logHeldBack(offering->source, offering->entry);
+          auto materialized = materializeGitPlugin(
+              offering->source, plugin_paths::gitRepoRoot(offering->source), offering->entry.resolvedRevision, id, true
+          );
+          ok = materialized && materialized.manifest.id == id;
+          incompatible = materialized.incompatible;
+          timedOut = materialized.timedOut;
+          pluginApiVersion = materialized.pluginApiVersion;
+          error = std::move(materialized.error);
+        }
       } else if (offering.has_value()) {
-        const auto manifest = parsePluginManifest(sourceRootFor(*offering) / subdir / "plugin.toml", &error);
+        const auto manifest = parsePluginManifest(sourceRootFor(offering->source) / subdir / "plugin.toml", &error);
         if (manifest.has_value() && manifest->id != id) {
           error = "manifest id '" + manifest->id + "' does not match requested id";
-        } else if (
-            manifest.has_value() && !noctalia::version::atLeast(noctalia::build_info::version(), manifest->minNoctalia)
-        ) {
+        } else if (manifest.has_value() && !supportsPluginApiVersion(manifest->pluginApiVersion)) {
           incompatible = true;
-          requiredNoctalia = manifest->minNoctalia;
+          pluginApiVersion = manifest->pluginApiVersion;
         } else {
           ok = manifest.has_value();
         }
@@ -495,22 +538,42 @@ namespace scripting {
       const double elapsedMs =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - started).count();
 
-      DeferredCall::callLater([this, id, ok, incompatible, timedOut, elapsedMs,
-                               requiredNoctalia = std::move(requiredNoctalia), error = std::move(error)]() mutable {
+      DeferredCall::callLater([this, id, ok, incompatible, timedOut, elapsedMs, pluginApiVersion,
+                               error = std::move(error)]() mutable {
         m_enabling.erase(id);
         if (ok) {
           kLog.info("enabling plugin '{}' (resolved + exported in {:.0f}ms)", id, elapsedMs);
+          const bool wasEnabled = std::ranges::contains(m_config.config().plugins.enabled, id);
           m_config.setPluginEnabled(id, true);
+          if (!wasEnabled && std::ranges::contains(m_config.config().plugins.enabled, id) && m_onEnabled) {
+            m_onEnabled(id);
+          }
           refresh();
         } else if (incompatible) {
           kLog.warn(
-              "cannot enable '{}': requires noctalia >= {} (running {})", id, requiredNoctalia,
-              noctalia::build_info::version()
+              "cannot enable '{}': targets plugin API {} (supported range {}-{})", id, pluginApiVersion,
+              kOldestSupportedPluginApiVersion, kCurrentPluginApiVersion
+          );
+          notify::error(
+              "Noctalia", i18n::tr("plugins.enable-failed.title"),
+              i18n::tr(
+                  "plugins.enable-failed.body-incompatible", "plugin", id, "version", pluginApiVersion, "oldest",
+                  kOldestSupportedPluginApiVersion, "current", kCurrentPluginApiVersion
+              )
           );
         } else if (timedOut) {
           kLog.warn("cannot enable '{}': export timed out", id);
+          notify::error(
+              "Noctalia", i18n::tr("plugins.enable-failed.title"),
+              i18n::tr("plugins.enable-failed.body-timeout", "plugin", id)
+          );
         } else {
-          kLog.warn("cannot enable '{}': {}", id, error.empty() ? "export failed" : error);
+          const std::string reason = error.empty() ? "export failed" : error;
+          kLog.warn("cannot enable '{}': {}", id, reason);
+          notify::error(
+              "Noctalia", i18n::tr("plugins.enable-failed.title"),
+              i18n::tr("plugins.enable-failed.body-error", "plugin", id, "error", reason)
+          );
         }
         if (m_onEnablingChanged) {
           m_onEnablingChanged();
@@ -524,6 +587,12 @@ namespace scripting {
 
   void PluginManager::disable(std::string_view pluginId) {
     kLog.info("disabling plugin '{}'", pluginId);
+    const bool wasEnabled = std::ranges::contains(m_config.config().plugins.enabled, pluginId);
+    const auto* manifest = wasEnabled ? PluginRegistry::instance().findManifest(pluginId) : nullptr;
+    std::optional<PluginExitReasonScope> exitScope;
+    if (manifest != nullptr && manifest->pluginApiVersion >= kServiceLifecyclePluginApiVersion) {
+      exitScope.emplace(pluginId, ScriptExitReason::Disable);
+    }
     m_config.setPluginEnabled(pluginId, false);
     refresh();
   }
@@ -534,7 +603,15 @@ namespace scripting {
       return;
     }
     kLog.info("removing plugin '{}'", pluginId);
-    m_config.setPluginEnabled(pluginId, false);
+    const bool wasEnabled = std::ranges::contains(m_config.config().plugins.enabled, pluginId);
+    const auto* manifest = wasEnabled ? PluginRegistry::instance().findManifest(pluginId) : nullptr;
+    std::optional<PluginExitReasonScope> exitScope;
+    if (manifest != nullptr && manifest->pluginApiVersion >= kServiceLifecyclePluginApiVersion) {
+      exitScope.emplace(pluginId, ScriptExitReason::Uninstall);
+    }
+    if (wasEnabled) {
+      m_config.setPluginEnabled(pluginId, false);
+    }
 
     const auto& plugins = m_config.config().plugins;
     for (const auto& source : plugins.sources) {
@@ -554,9 +631,11 @@ namespace scripting {
     refresh();
   }
 
-  std::vector<PluginStatus> PluginManager::list() const { return list(m_config.config().plugins); }
+  std::vector<PluginStatus> PluginManager::list(CatalogAccess access) const {
+    return list(m_config.config().plugins, access);
+  }
 
-  std::vector<PluginStatus> PluginManager::list(const PluginsConfig& plugins) const {
+  std::vector<PluginStatus> PluginManager::list(const PluginsConfig& plugins, CatalogAccess access) const {
     const std::unordered_set<std::string> enabledSet(plugins.enabled.begin(), plugins.enabled.end());
 
     std::vector<PluginStatus> out;
@@ -579,11 +658,28 @@ namespace scripting {
             onDisk = !root.empty() && std::filesystem::exists(root / *subdir);
           }
         }
+        const bool isEnabled = enabledSet.contains(entry.id);
+        // For git sources, `entry` reflects the fetched catalog (FETCH_HEAD); an
+        // enabled+exported plugin whose on-disk manifest no longer matches it has a
+        // newer release waiting to be applied via update().
+        const bool updateAvailable = source.kind == PluginSourceKind::Git
+            && isEnabled
+            && onDisk
+            && entry.compatible
+            && !materializedPluginMatchesCatalog(source, entry.id, entry);
+        // Show the installed version on the row; the resolved version is the target we'd
+        // update to. Not-yet-installed rows have no exported copy, so fall back to the
+        // resolved version.
+        std::string installedVersion;
+        if (source.kind == PluginSourceKind::Git && onDisk) {
+          installedVersion = materializedPluginVersion(source, entry.id);
+        }
         out.push_back(
             PluginStatus{
                 .id = entry.id,
                 .name = entry.name,
-                .version = entry.version,
+                .version = installedVersion.empty() ? entry.resolvedVersion : installedVersion,
+                .availableVersion = updateAvailable ? entry.resolvedVersion : std::string{},
                 .icon = entry.icon,
                 .description = entry.description,
                 .license = entry.license,
@@ -591,8 +687,12 @@ namespace scripting {
                 .source = sourceName,
                 .compatible = entry.compatible,
                 .deprecated = entry.deprecated,
-                .enabled = enabledSet.contains(entry.id),
+                .enabled = isEnabled,
                 .materialized = onDisk,
+                .updateAvailable = updateAvailable,
+                .heldBack = entry.heldBack,
+                .latestVersion = entry.heldBack ? entry.version : std::string{},
+                .latestPluginApiVersion = entry.heldBack ? entry.pluginApiVersion : 0,
             }
         );
       }
@@ -604,14 +704,14 @@ namespace scripting {
           .name = "local",
           .location = (std::filesystem::path(data) / "plugins").string()
       };
-      collect("local", discoverCatalog(localSource), localSource);
+      collect("local", discoverCatalog(localSource, access), localSource);
     }
     // Reverse config order: a later user source outranks earlier ones and the defaults.
     for (const auto& source : std::views::reverse(plugins.sources)) {
       if (!source.enabled) {
         continue;
       }
-      collect(source.name, discoverCatalog(source), source);
+      collect(source.name, discoverCatalog(source, access), source);
     }
     return out;
   }
@@ -664,22 +764,40 @@ namespace scripting {
         });
         return;
       }
-      const std::string newRev = plugin_git::remoteHead(repoRoot).out;
-      const std::string curRev = plugin_git::headRevision(repoRoot).out;
-      if (newRev.empty()) {
-        DeferredCall::callLater([sourceName]() { kLog.warn("update '{}': fetched revision is empty", sourceName); });
+      const auto fetchedRevision = plugin_git::remoteHead(repoRoot);
+      if (!fetchedRevision || fetchedRevision.out.empty()) {
+        DeferredCall::callLater([sourceName, err = fetchedRevision.err]() {
+          kLog.warn("update '{}': cannot resolve fetched revision: {}", sourceName, err);
+        });
         return;
       }
+      const auto currentRevision = plugin_git::headRevision(repoRoot);
+      if (!currentRevision || currentRevision.out.empty()) {
+        DeferredCall::callLater([sourceName, err = currentRevision.err]() {
+          kLog.warn("update '{}': cannot resolve applied revision: {}", sourceName, err);
+        });
+        return;
+      }
+      const std::string newRev = fetchedRevision.out;
+      const std::string curRev = currentRevision.out;
       const bool sourceRevisionChanged = newRev != curRev;
 
-      const auto catalog = readGitCatalog(repoRoot, newRev);
+      const auto catalogResult = readGitCatalog(repoRoot, newRev);
+      if (!catalogResult.ok) {
+        DeferredCall::callLater([sourceName, err = catalogResult.error]() {
+          kLog.warn("update '{}': cannot read fetched catalog: {}", sourceName, err);
+        });
+        return;
+      }
+      const auto& catalog = catalogResult.entries;
       std::unordered_set<std::string> withheldIds;
-      std::vector<std::pair<std::string, std::string>> withheldUpdates;
-      const auto rememberWithheld = [&](std::string id, std::string minNoctalia) {
+      std::vector<std::pair<std::string, std::uint32_t>> withheldUpdates;
+      const auto rememberWithheld = [&](std::string id, std::uint32_t pluginApiVersion) {
         if (withheldIds.insert(id).second) {
-          withheldUpdates.emplace_back(std::move(id), std::move(minNoctalia));
+          withheldUpdates.emplace_back(std::move(id), pluginApiVersion);
         }
       };
+      std::vector<std::pair<std::string, std::string>> exportFailures;
 
       bool materialized = false;
       for (const auto& id : enabled) {
@@ -688,33 +806,33 @@ namespace scripting {
           continue;
         }
         const auto* catalogEntry = findCatalogEntry(catalog, id);
-        if (catalogEntry != nullptr && !catalogEntry->compatible) {
-          rememberWithheld(id, catalogEntry->minNoctalia);
+        if (catalogEntry == nullptr) {
+          continue; // this exact canonical id is not owned by this source
+        }
+        if (!catalogEntry->compatible) {
+          rememberWithheld(id, catalogEntry->pluginApiVersion);
           continue;
         }
-        if (!plugin_git::hasPath(repoRoot, *sub + "/plugin.toml", newRev)) {
-          continue; // not shipped by this source
+        if (!plugin_git::hasPath(repoRoot, *sub + "/plugin.toml", catalogEntry->resolvedRevision)) {
+          exportFailures.emplace_back(id, "catalog entry has no " + *sub + "/plugin.toml");
+          continue;
         }
-        if (!sourceRevisionChanged) {
-          std::error_code materializedEc;
-          const bool hasMaterialized =
-              std::filesystem::exists(materializedPluginDir(source, id) / "plugin.toml", materializedEc);
-          if (catalogEntry == nullptr && hasMaterialized) {
-            continue;
-          }
-          if (catalogEntry != nullptr && materializedPluginMatchesCatalog(source, id, *catalogEntry)) {
-            continue; // source already points here and the exported copy matches it
-          }
+        // A moved source tip re-exports tip-resolved plugins even when the version is
+        // unchanged, so a fix that skipped a version bump still lands. A held-back plugin
+        // resolves to a fixed historical revision that the tip moving does not touch, so
+        // there the exported copy alone decides.
+        if ((catalogEntry->heldBack || !sourceRevisionChanged)
+            && materializedPluginMatchesCatalog(source, id, *catalogEntry)) {
+          continue;
         }
-        if (const auto m = materializeGitPlugin(source, repoRoot, newRev, id, true); !m) {
+        logHeldBack(source, *catalogEntry);
+        if (const auto m = materializeGitPlugin(source, repoRoot, catalogEntry->resolvedRevision, id, true); !m) {
           if (m.incompatible) {
-            rememberWithheld(id, m.requiredNoctalia);
+            rememberWithheld(id, m.pluginApiVersion);
             continue;
           }
-          DeferredCall::callLater([sourceName, id, err = m.error]() {
-            kLog.warn("update '{}': export '{}' failed: {}", sourceName, id, err);
-          });
-          return;
+          exportFailures.emplace_back(id, m.error);
+          continue;
         }
         materialized = true;
       }
@@ -725,24 +843,49 @@ namespace scripting {
         applied = static_cast<bool>(result);
         applyError = result.err;
       }
-      DeferredCall::callLater([this, sourceName, ok = applied, err = std::move(applyError), newRev,
-                               sourceRevisionChanged, materialized,
+      DeferredCall::callLater([this, sourceName, ok = applied, err = std::move(applyError), newRev, curRev,
+                               sourceRevisionChanged, materialized, exportFailures = std::move(exportFailures),
                                withheldUpdates = std::move(withheldUpdates)]() mutable {
+        for (const auto& [id, exportError] : exportFailures) {
+          kLog.warn("update '{}': export '{}' failed: {}", sourceName, id, exportError);
+        }
         if (!ok) {
           kLog.warn("update '{}': set HEAD failed: {}", sourceName, err);
+          if (materialized) {
+            PluginRegistry::instance().scan();
+            if (m_onChanged) {
+              m_onChanged();
+            }
+          }
           return;
         }
-        for (const auto& [id, min] : withheldUpdates) {
+        for (const auto& [id, pluginApiVersion] : withheldUpdates) {
           kLog.warn(
-              "update '{}': kept previous '{}' export; new version requires noctalia >= {} (running {})", sourceName,
-              id, min, noctalia::build_info::version()
+              "update '{}': kept previous '{}' export; new version targets plugin API {} (supported range {}-{})",
+              sourceName, id, pluginApiVersion, kOldestSupportedPluginApiVersion, kCurrentPluginApiVersion
           );
+        }
+        if (!exportFailures.empty()) {
+          if (sourceRevisionChanged) {
+            kLog.warn(
+                "update '{}': advanced from {} to {} while keeping {} previous export(s); retrying on the next update",
+                sourceName, curRev, newRev, exportFailures.size()
+            );
+          } else {
+            kLog.warn(
+                "update '{}': {} export(s) still need reconciliation at {}; retrying on the next update", sourceName,
+                exportFailures.size(), newRev
+            );
+          }
         }
         if (sourceRevisionChanged) {
           kLog.info("updated source '{}' -> {}", sourceName, newRev);
+          if (m_onSourceUpdated) {
+            m_onSourceUpdated(sourceName); // stale store thumbnails/READMEs re-fetch at the new HEAD
+          }
         } else if (materialized) {
           kLog.info("reconciled source '{}' at {}", sourceName, newRev);
-        } else {
+        } else if (exportFailures.empty()) {
           kLog.info("source '{}' already up to date", sourceName);
         }
         if (sourceRevisionChanged || materialized) {
@@ -754,6 +897,45 @@ namespace scripting {
       });
     }).detach();
   }
+
+  void PluginManager::fetchStaleCatalogs(const PluginsConfig& plugins) {
+    // Newly published plugins only become browsable after a fetch advances FETCH_HEAD;
+    // throttle so repeated store opens don't hit the network every time.
+    constexpr auto kThrottle = std::chrono::minutes(15);
+    const auto now = std::chrono::steady_clock::now();
+    std::error_code ec;
+    for (const auto& source : plugins.sources) {
+      if (source.kind != PluginSourceKind::Git || !source.enabled) {
+        continue;
+      }
+      {
+        const std::scoped_lock lock(m_browseFetchMutex);
+        const auto it = m_lastBrowseFetch.find(source.name);
+        if (it != m_lastBrowseFetch.end() && now - it->second < kThrottle) {
+          continue;
+        }
+        m_lastBrowseFetch[source.name] = now;
+      }
+      const std::filesystem::path repoRoot = plugin_paths::gitRepoRoot(source);
+      if (repoRoot.empty() || !std::filesystem::exists(repoRoot / ".git", ec)) {
+        continue; // nothing cloned yet; discoverCatalog clones on first browse
+      }
+      auto sourceLock = plugin_source_locks::acquire(source.name);
+      if (const auto fetched = plugin_git::fetch(repoRoot); !fetched) {
+        kLog.warn("browse fetch '{}' failed: {}", source.name, fetched.err);
+      }
+    }
+  }
+
+  void PluginManager::updateAll() {
+    for (const auto& source : m_config.config().plugins.sources) {
+      if (source.kind == PluginSourceKind::Git && source.enabled) {
+        update(source.name);
+      }
+    }
+  }
+
+  void PluginManager::setAutoUpdateEnabled(bool enabled) { m_config.setPluginsAutoUpdate(enabled); }
 
   void PluginManager::removeSource(std::string sourceName) {
     if (isDefaultPluginSourceName(sourceName)) {
@@ -770,8 +952,11 @@ namespace scripting {
       sourceLock.emplace(plugin_source_locks::acquire(source->name));
     }
 
-    // Disable this source's plugins so no stale enabled ids linger.
-    for (const auto& entry : discoverCatalog(*source).entries) {
+    // Disable this source's plugins so no stale enabled ids linger. Local-only read:
+    // removal runs on the main thread, and enumerating a source just to delete it must
+    // not clone or lazy-fetch. A blob missing locally leaves its id enabled, same as
+    // removing while offline.
+    for (const auto& entry : discoverCatalog(*source, CatalogAccess::LocalOnly).entries) {
       m_config.setPluginEnabled(entry.id, false);
     }
     if (source->kind == PluginSourceKind::Git) {

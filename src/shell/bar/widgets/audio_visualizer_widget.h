@@ -11,7 +11,7 @@ class PipeWireSpectrum;
 class AudioVisualizerWidget : public Widget {
 public:
   struct Options {
-    float width = 56.0f;
+    int width = 56;
     int bands = 16;
     bool mirrored = true;
     bool centered = true;

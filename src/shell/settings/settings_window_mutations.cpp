@@ -4,6 +4,7 @@
 #include "render/text/font_weight_catalog.h"
 #include "shell/profile/avatar_path.h"
 #include "shell/settings/settings_window.h"
+#include "system/day_night_schedule.h"
 
 #include <algorithm>
 #include <string>
@@ -14,27 +15,61 @@
 namespace {
 
   bool settingPathNeedsSceneRebuild(const std::vector<std::string>& path) {
-    return path.size() == 2
-        && path[0] == "shell"
-        && (path[1] == "corner_radius_scale" || path[1] == "font_family" || path[1] == "lang" || path[1] == "ui_scale");
+    if (path.size() == 2 && path[0] == "shell") {
+      return path[1] == "corner_radius_scale" || path[1] == "font_family" || path[1] == "lang";
+    }
+    if (path.size() == 2 && path[0] == "accessibility") {
+      return path[1] == "ui_scale";
+    }
+    return false;
   }
 
   bool settingPathsNeedSceneRebuild(const std::vector<std::vector<std::string>>& paths) {
     return std::ranges::any_of(paths, [](const auto& path) { return settingPathNeedsSceneRebuild(path); });
   }
 
+  std::string settingsMutationError(const ConfigService& config, std::string fallback) {
+    return config.lastMutationError().empty() ? fallback : config.lastMutationError();
+  }
+
+  bool isCustomSchedulePath(const std::vector<std::string>& path) {
+    return path.size() == 2
+        && path[0] == "location"
+        && (path[1] == "custom_schedule" || path[1] == "sunset" || path[1] == "sunrise");
+  }
+
 } // namespace
 
+// Custom scheduling with unusable times schedules nothing. The write itself is valid, so surface it
+// as a banner rather than rejecting it — the user is likely mid-edit between the toggle and the times.
+void SettingsWindow::warnOnUnusableCustomSchedule(const std::vector<std::string>& path) {
+  if (m_config == nullptr || !isCustomSchedulePath(path)) {
+    return;
+  }
+  const LocationConfig& location = m_config->config().location;
+  if (location.customSchedule && !day_night_schedule::hasUsableCustomTimes(location)) {
+    showTransientStatus(i18n::tr("settings.errors.custom-schedule-times"), true);
+  }
+}
+
 void SettingsWindow::markSettingsWriteSuccess(bool requestRebuild) {
+  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
+    m_editorSheetPopup->clearStatusMessage();
+  }
   m_statusMessage.clear();
   m_statusIsError = false;
   m_pendingResetPageScope.clear();
+  m_pendingResetSettingPaths.clear();
   if (requestRebuild) {
     requestSceneRebuild();
   }
 }
 
 void SettingsWindow::markSettingsWriteError(std::string message) {
+  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
+    m_editorSheetPopup->setStatusMessage(std::move(message), true);
+    return;
+  }
   m_statusMessage = std::move(message);
   m_statusIsError = true;
   requestSceneRebuild();
@@ -45,7 +80,7 @@ void SettingsWindow::finishSettingsWrite(
     bool rebuildWhenUnchanged
 ) {
   const bool hadStatus = !m_statusMessage.empty();
-  const bool hadPendingReset = !m_pendingResetPageScope.empty();
+  const bool hadPendingReset = !m_pendingResetPageScope.empty() || !m_pendingResetSettingPaths.empty();
   markSettingsWriteSuccess(false);
   if (forceSceneRebuild || hadStatus || hadPendingReset) {
     requestSceneRebuild();
@@ -92,9 +127,10 @@ void SettingsWindow::setSettingOverride(std::vector<std::string> path, ConfigOve
     if (m_config->setOverride(path, std::move(value), &changed)) {
       const bool registryPatched = changed && !needsSceneRebuild && tryPatchSettingsRegistryValue(path, patchValue);
       finishSettingsWrite(changed, needsSceneRebuild, previousResetPaths != currentPageResetPaths(), registryPatched);
+      warnOnUnusableCustomSchedule(path);
       return;
     }
-    markSettingsWriteError(i18n::tr("settings.errors.write"));
+    markSettingsWriteError(settingsMutationError(*m_config, i18n::tr("settings.errors.write")));
   });
 }
 
@@ -120,7 +156,7 @@ void SettingsWindow::setSettingOverrides(
       finishSettingsWrite(changed, needsSceneRebuild, previousResetPaths != currentPageResetPaths(), registryPatched);
       return;
     }
-    markSettingsWriteError(i18n::tr("settings.errors.batch-write"));
+    markSettingsWriteError(settingsMutationError(*m_config, i18n::tr("settings.errors.batch-write")));
   });
 }
 

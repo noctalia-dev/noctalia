@@ -3,6 +3,13 @@
 #include "config/config_types.h"
 #include "util/file_utils.h"
 
+ThemeMode wallpaper::effectiveThemeMode(ThemeMode mode, bool isLight) noexcept {
+  if (mode == ThemeMode::Auto) {
+    return isLight ? ThemeMode::Light : ThemeMode::Dark;
+  }
+  return mode;
+}
+
 const WallpaperMonitorOverride*
 wallpaper::findWallpaperMonitorOverride(const WallpaperConfig& config, const WaylandOutput& output) {
   for (const auto& ovr : config.monitorOverrides) {

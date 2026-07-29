@@ -37,6 +37,13 @@ namespace settings {
     std::function<void(std::string source)> updateSource;
     std::function<void()> refresh;
 
+    // True when every enabled git source has background auto-update on; drives the
+    // single "auto-update plugins" toggle. setAutoUpdate flips it for all git sources.
+    bool autoUpdateEnabled = false;
+    std::function<void(bool)> setAutoUpdate;
+    // Update every enabled git source at once (the "update all" action).
+    std::function<void()> updateAll;
+
     // Used to derive current toggle state while async discovery refreshes.
     const Config* config = nullptr;
     std::function<void(std::string id)> onConfigure;
@@ -51,6 +58,9 @@ namespace settings {
 
   // Render the Plugins section into `content` when ctx.selectedSection == "plugins".
   void addSettingsPlugins(Flex& content, SettingsPluginsContext ctx);
+
+  // True when the plugin exposes anything the settings editor can show.
+  [[nodiscard]] bool pluginHasSettings(const scripting::PluginManifest& manifest);
 
   void buildPluginSettingsEditor(
       Flex& body, const Config& cfg, SettingsControlFactory& factory, const std::string& pluginId,

@@ -79,6 +79,7 @@ private:
   Label* m_tempMinLabel = nullptr;
   Label* m_elevationLabel = nullptr;
   Label* m_timeZoneLabel = nullptr;
+  Flex* m_timeZoneRow = nullptr;
   Label* m_uvIndexLabel = nullptr;
   std::array<Flex*, kDetailRowCount> m_detailRows{};
   std::array<Flex*, kForecastRowCount> m_forecastRows{};

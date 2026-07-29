@@ -364,6 +364,12 @@ void WallpaperProgram::destroy() {
   }
 }
 
+void WallpaperProgram::abandon() noexcept {
+  for (auto& pd : m_programs) {
+    pd.program.abandon();
+  }
+}
+
 void WallpaperProgram::initProgram(std::size_t index, const char* fragSource) {
   std::string fullFrag = std::string(kCommonFunctions) + fragSource;
 

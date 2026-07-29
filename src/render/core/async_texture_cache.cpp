@@ -281,6 +281,17 @@ void AsyncTextureCache::dispatch(const std::vector<pollfd>& fds, std::size_t sta
 
 void AsyncTextureCache::trimUnused(std::size_t maxUnusedEntries) { pruneUnusedEntries(maxUnusedEntries); }
 
+void AsyncTextureCache::abandonGpuResources() noexcept {
+  if (m_textureManager != nullptr) {
+    m_textureManager->abandonGpuResources();
+  }
+  for (auto& [key, entry] : m_entries) {
+    (void)key;
+    entry.handle = {};
+    entry.failed = false;
+  }
+}
+
 void AsyncTextureCache::reloadResidentTextures() {
   if (m_textureManager == nullptr || m_entries.empty()) {
     return;

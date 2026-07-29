@@ -23,6 +23,7 @@ struct TextureHandle {
   TextureId id;
   int width = 0;
   int height = 0;
+  std::uint64_t generation = 0;
 
   [[nodiscard]] constexpr bool valid() const noexcept { return id.valid(); }
 };

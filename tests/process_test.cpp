@@ -2,24 +2,25 @@
 
 #include <chrono>
 #include <condition_variable>
-#include <cstdio>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <mutex>
 #include <optional>
+#include <print>
 #include <string>
 #include <string_view>
 #include <thread>
 #include <unistd.h>
 #include <utility>
+#include <vector>
 
 namespace {
 
   bool expect(bool condition, const char* message) {
     if (!condition) {
-      std::fprintf(stderr, "process_test: %s\n", message);
+      std::println(stderr, "process_test: {}", message);
     }
     return condition;
   }
@@ -47,15 +48,15 @@ namespace {
 
     process::RunCallbacks callbacks;
     callbacks.stdOut = [&](std::string_view chunk) {
-      std::lock_guard lock(mutex);
+      std::scoped_lock lock(mutex);
       stdOut.append(chunk);
     };
     callbacks.stdErr = [&](std::string_view chunk) {
-      std::lock_guard lock(mutex);
+      std::scoped_lock lock(mutex);
       stdErr.append(chunk);
     };
     callbacks.onExit = [&](process::RunResult value) {
-      std::lock_guard lock(mutex);
+      std::scoped_lock lock(mutex);
       result = std::move(value);
       completed = true;
       cv.notify_one();
@@ -97,7 +98,7 @@ namespace {
 
     process::RunCallbacks callbacks;
     callbacks.onExit = [&](process::RunResult value) {
-      std::lock_guard lock(mutex);
+      std::scoped_lock lock(mutex);
       result = std::move(value);
       completed = true;
       cv.notify_one();
@@ -130,13 +131,20 @@ namespace {
     options.env.push_back({"NOCTALIA_PROCESS_UNSET_TEST", std::nullopt});
 
     const auto result = process::runSync(
-        {"/bin/sh", "-lc", "printf '%s/%s' \"$NOCTALIA_PROCESS_SET_TEST\" \"${NOCTALIA_PROCESS_UNSET_TEST-unset}\""},
+        {"/bin/sh", "-lc", R"(printf '%s/%s' "$NOCTALIA_PROCESS_SET_TEST" "${NOCTALIA_PROCESS_UNSET_TEST-unset}")"},
         options
     );
     ::unsetenv("NOCTALIA_PROCESS_UNSET_TEST");
 
     bool ok = expect(result.exitCode == 0, "sync env override command failed");
     ok = expect(result.out == "child/unset", "sync env overrides were not visible in child") && ok;
+    return ok;
+  }
+
+  bool stringCommandsSupportShellComposition() {
+    const auto result = process::runSync("printf first && printf second");
+    bool ok = expect(result.exitCode == 0, "composed shell command failed");
+    ok = expect(result.out == "firstsecond", "composed shell command did not execute both commands") && ok;
     return ok;
   }
 
@@ -149,7 +157,7 @@ namespace {
     ::setenv("NOCTALIA_WALLPAPER_PATH", "/tmp/noctalia test/wallpaper.png", 1);
     ::setenv("NOCTALIA_WALLPAPER_CONNECTOR", "DP-1", 1);
 
-    const std::string command = "printf '%s\\n%s' \"$NOCTALIA_WALLPAPER_PATH\" \"$NOCTALIA_WALLPAPER_CONNECTOR\" > "
+    const std::string command = R"(printf '%s\n%s' "$NOCTALIA_WALLPAPER_PATH" "$NOCTALIA_WALLPAPER_CONNECTOR" > )"
         + shellQuote(outPath.string());
     const bool launched = process::runAsync(command);
     ::unsetenv("NOCTALIA_WALLPAPER_PATH");
@@ -185,6 +193,54 @@ namespace {
     return ok;
   }
 
+  bool cgroupDetectsSystemdUserManager() {
+    bool ok = true;
+    ok = expect(
+             process::cgroupIndicatesSystemdUserManager(
+                 "0::/user.slice/user-1000.slice/user@1000.service/session.slice/wayland-wm@niri.service\n", 1000
+             ),
+             "uwsm compositor unit should be detected as user-manager managed"
+         )
+        && ok;
+    ok = expect(
+             process::cgroupIndicatesSystemdUserManager(
+                 "0::/user.slice/user-1000.slice/user@1000.service/app.slice/noctalia.service\n", 1000
+             ),
+             "noctalia user service should be detected as user-manager managed"
+         )
+        && ok;
+    ok = expect(
+             !process::cgroupIndicatesSystemdUserManager(
+                 "0::/user.slice/user-1000.slice/session-2.scope/noctalia\n", 1000
+             ),
+             "login session scope should not be detected as user-manager managed"
+         )
+        && ok;
+    ok = expect(
+             !process::cgroupIndicatesSystemdUserManager(
+                 "0::/user.slice/user-1001.slice/user@1001.service/app.slice/noctalia.service\n", 1000
+             ),
+             "another user's manager should not be detected as ours"
+         )
+        && ok;
+    ok = expect(
+             process::cgroupIndicatesSystemdUserManager(
+                 "1:name=systemd:/user.slice/user-1000.slice/user@1000.service/app.slice/noctalia.service\n", 1000
+             ),
+             "legacy cgroup v1 dump should be detected as user-manager managed"
+         )
+        && ok;
+    ok = expect(!process::cgroupIndicatesSystemdUserManager("", 1000), "empty cgroup dump should not be managed") && ok;
+    return ok;
+  }
+
+  bool detachedMissingBinaryReturnsFalse() {
+    return expect(
+        !process::runAsync(std::vector<std::string>{"/nonexistent/noctalia-missing-binary-xyz"}),
+        "detached launch of a missing binary should return false"
+    );
+  }
+
 } // namespace
 
 int main() {
@@ -193,7 +249,10 @@ int main() {
   ok = capturedAsyncDeliversCallbacksAndResult() && ok;
   ok = capturedAsyncDeliversCompletionOnly() && ok;
   ok = syncAppliesEnvOverrides() && ok;
+  ok = stringCommandsSupportShellComposition() && ok;
   ok = detachedAsyncInheritsLaunchEnvironment() && ok;
+  ok = detachedMissingBinaryReturnsFalse() && ok;
   ok = commandExistsRejectsDirectories() && ok;
+  ok = cgroupDetectsSystemdUserManager() && ok;
   return ok ? 0 : 1;
 }

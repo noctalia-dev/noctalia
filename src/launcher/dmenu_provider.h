@@ -7,18 +7,19 @@ class ClipboardService;
 
 // One config-driven dmenu-style launcher entry. Runs `entry.command` once per open
 // session, splits stdout into newline-separated candidates, and fuzzy-filters them.
-// On activate: runs `entry.exec` (with {selection} substituted) or, when no exec is
-// set, copies the selection to the clipboard.
+// On activate: runs `entry.exec` (with {selection}/{query} substituted) or, when no
+// exec is set, copies the selection to the clipboard.
 class DmenuProvider : public LauncherProvider {
 public:
   DmenuProvider(DmenuEntryConfig entry, ClipboardService* clipboard);
 
-  [[nodiscard]] std::string_view prefix() const override { return m_prefix; }
+  [[nodiscard]] std::string_view defaultPrefix() const override { return m_prefix; }
   [[nodiscard]] std::string_view id() const override { return m_id; }
   [[nodiscard]] std::string displayName() const override;
   [[nodiscard]] std::string_view defaultGlyphName() const override { return m_glyph; }
   [[nodiscard]] bool trackUsage() const override { return true; }
-  [[nodiscard]] bool includeInGlobalSearch() const override { return m_entry.global; }
+  [[nodiscard]] bool supportsAutoPaste() const override { return !m_entry.exec.has_value(); }
+  [[nodiscard]] bool defaultIncludeInGlobalSearch() const override { return m_entry.global; }
 
   [[nodiscard]] std::vector<LauncherResult> query(std::string_view text) const override;
 

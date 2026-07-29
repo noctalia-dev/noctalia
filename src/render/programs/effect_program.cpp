@@ -501,6 +501,12 @@ void EffectProgram::destroy() {
   }
 }
 
+void EffectProgram::abandon() noexcept {
+  for (auto& pd : m_programs) {
+    pd.program.abandon();
+  }
+}
+
 void EffectProgram::initProgram(std::size_t index, const char* fragSource) {
   std::string fullFrag = std::string(kCommonFragment) + fragSource;
 

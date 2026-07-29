@@ -146,15 +146,7 @@ namespace {
       if (!enabled() || m_svc == nullptr) {
         return;
       }
-      // Mirror the bar widget: primary toggles on/off; if currently forced,
-      // drop force and land on scheduled-on so force is reversible without
-      // also losing the master enable.
-      if (m_svc->forceEnabled()) {
-        m_svc->clearForceOverride();
-        m_svc->setEnabled(true);
-      } else {
-        m_svc->toggleEnabled();
-      }
+      m_svc->toggleEnabled();
     }
     void onRightClick() override {
       if (enabled() && m_svc != nullptr) {

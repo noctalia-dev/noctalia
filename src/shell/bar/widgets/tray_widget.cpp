@@ -164,7 +164,7 @@ namespace {
 
 } // namespace
 
-TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, TrayWidgetOptions options)
+TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options)
     : m_config(config), m_tray(tray), m_hiddenItems(std::move(options.hiddenItems)),
       m_pinnedItems(std::move(options.pinnedItems)), m_drawerMode(options.drawerMode),
       m_itemActivated(std::move(options.itemActivated)), m_barPosition(std::move(options.barPosition)),
@@ -456,6 +456,71 @@ void TrayWidget::rebuild(Renderer& renderer) {
     m_container->removeChild(m_container->children().back().get());
   }
 
+  auto attachHover = [this](InputArea& area, float size) {
+    if (!barCapsuleSpec().hoverHighlight) {
+      return;
+    }
+    Box* hoverBoxPtr = nullptr;
+    ColorSpec hoverFill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
+    hoverFill.alpha = 0.0f;
+    const float padding = Style::spaceXs * m_contentScale;
+    area.addChild(
+        ui::box({
+            .out = &hoverBoxPtr,
+            .fill = hoverFill,
+            .radius = resolvedBarCapsuleRadius(size + padding * 2.0f, size + padding * 2.0f),
+            .width = size + padding * 2.0f,
+            .height = size + padding * 2.0f,
+            .configure = [padding](Box& box) {
+              box.setZIndex(-1);
+              box.setHitTestVisible(false);
+              box.setPosition(-padding, -padding);
+            },
+        })
+    );
+
+    auto progress = std::make_shared<float>(0.0f);
+    area.setOnEnter([this, hoverBoxPtr, progress](const InputArea::PointerData&) {
+      if (m_animations == nullptr)
+        return;
+      m_animations->cancelForOwner(hoverBoxPtr);
+      const ColorSpec fill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
+      m_animations->animate(
+          *progress, 1.0f, Style::animFast, Easing::EaseOutCubic,
+          [this, hoverBoxPtr, fill, progress](float p) {
+            *progress = p;
+            hoverBoxPtr->setVisible(p > 0.001f);
+            ColorSpec c = fill;
+            c.alpha = 0.1f * p;
+            hoverBoxPtr->setFill(c);
+            requestRedraw();
+          },
+          {}, hoverBoxPtr
+      );
+      requestFrameTick();
+    });
+
+    area.setOnLeave([this, hoverBoxPtr, progress]() {
+      if (m_animations == nullptr)
+        return;
+      m_animations->cancelForOwner(hoverBoxPtr);
+      const ColorSpec fill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
+      m_animations->animate(
+          *progress, 0.0f, Style::animFast, Easing::EaseOutCubic,
+          [this, hoverBoxPtr, fill, progress](float p) {
+            *progress = p;
+            hoverBoxPtr->setVisible(p > 0.001f);
+            ColorSpec c = fill;
+            c.alpha = 0.1f * p;
+            hoverBoxPtr->setFill(c);
+            requestRedraw();
+          },
+          {}, hoverBoxPtr
+      );
+      requestFrameTick();
+    });
+  };
+
   if (m_drawerMode) {
     m_drawerTrigger = nullptr;
     m_drawerChevron = nullptr;
@@ -470,7 +535,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
     }
     if (hasDrawerItems) {
       const float itemSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
-      auto triggerArea = std::make_unique<InputArea>();
+      auto triggerArea = ui::inputArea({});
       auto* triggerPtr = triggerArea.get();
       m_drawerTrigger = triggerPtr;
       triggerArea->setSize(itemSize, itemSize);
@@ -509,6 +574,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
       );
       m_drawerChevron = glyph.get();
       triggerArea->addChild(std::move(glyph));
+      attachHover(*triggerArea, itemSize);
       m_container->addChild(std::move(triggerArea));
     }
   }
@@ -681,7 +747,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
     }
 
     if (overlayNode != nullptr && iconNode != nullptr) {
-      auto stack = std::make_unique<Node>();
+      auto stack = ui::node({});
       stack->setSize(itemSize, itemSize);
       iconNode->setPosition(std::round((itemSize - iconW) * 0.5f), std::round((itemSize - iconH) * 0.5f));
       overlayNode->setPosition(std::round((itemSize - overlayW) * 0.5f), std::round((itemSize - overlayH) * 0.5f));
@@ -693,7 +759,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
     }
 
     // Wrap icon in InputArea for click handling
-    auto area = std::make_unique<InputArea>();
+    auto area = ui::inputArea({});
     area->setSize(itemSize, itemSize);
     iconNode->setPosition(std::round((itemSize - iconW) * 0.5f), std::round((itemSize - iconH) * 0.5f));
     auto itemId = item.id;
@@ -722,6 +788,8 @@ void TrayWidget::rebuild(Renderer& renderer) {
     if (const std::string tooltipText = tray::formatTrayItemTooltip(item); !tooltipText.empty()) {
       area->setTooltip(tooltipText);
     }
+
+    attachHover(*area, itemSize);
 
     if (m_panelGridMode) {
       if (gridRow == nullptr || gridCol >= m_panelGridColumns) {

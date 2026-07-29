@@ -2,6 +2,7 @@
 
 #include "config/atomic_file.h"
 #include "core/log.h"
+#include "util/file_utils.h"
 
 #include <format>
 #include <sstream>
@@ -41,6 +42,13 @@ namespace {
     };
     return out.str();
   }
+
+  void secureStateFile(const std::filesystem::path& path) {
+    std::error_code ec;
+    if (!FileUtils::setPrivateFilePermissions(path, ec)) {
+      kLog.warn("failed to secure {}: {}", path.string(), ec.message());
+    }
+  }
 } // namespace
 
 StateStore::StateStore(std::filesystem::path path) : m_path(std::move(path)) {}
@@ -54,6 +62,8 @@ void StateStore::load() {
   if (m_path.empty() || !std::filesystem::exists(m_path)) {
     return;
   }
+
+  secureStateFile(m_path);
 
   kLog.info("loading {}", m_path.string());
   try {
@@ -179,10 +189,32 @@ bool StateStore::setString(std::string_view owner, std::string_view key, std::st
   return true;
 }
 
+bool StateStore::clearOwner(std::string_view owner) {
+  if (m_path.empty()) {
+    return false;
+  }
+  if (!validStateIdentifier(owner)) {
+    kLog.warn("invalid state owner {}", owner);
+    return false;
+  }
+  if (!m_state.contains(owner)) {
+    return true;
+  }
+
+  m_state.erase(owner);
+  if (!write()) {
+    kLog.warn("failed to write {}", m_path.string());
+    return false;
+  }
+
+  m_parseError.clear();
+  return true;
+}
+
 bool StateStore::write() {
   if (m_path.empty()) {
     return false;
   }
 
-  return writeTextFileAtomic(m_path, formatToml(m_state));
+  return writeTextFileAtomic(m_path, formatToml(m_state), FileUtils::privateFileMode());
 }

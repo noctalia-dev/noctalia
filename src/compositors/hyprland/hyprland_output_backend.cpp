@@ -4,6 +4,7 @@
 #include "core/log.h"
 #include "util/string_utils.h"
 
+#include <format>
 #include <nlohmann/json.hpp>
 #include <string_view>
 
@@ -67,6 +68,46 @@ namespace compositors::hyprland {
       response = runtime.request(std::format("dispatch dpms {}", on ? "on" : "off"));
     }
     return response != std::nullopt;
+  }
+
+  bool focusOutput(HyprlandRuntime& runtime, std::string_view connectorName) {
+    if (!runtime.available() || connectorName.empty()) {
+      return false;
+    }
+    std::optional<std::string> response;
+    if (runtime.configIsLua()) {
+      response = runtime.request(std::format("dispatch hl.dsp.focus({{ monitor = \"{}\" }})", connectorName));
+    } else {
+      response = runtime.request(std::format("dispatch focusmonitor {}", connectorName));
+    }
+    if (!response.has_value()) {
+      kLog.debug("failed to focus monitor {}", connectorName);
+      return false;
+    }
+    return true;
+  }
+
+  bool moveWindowToOutput(HyprlandRuntime& runtime, std::string_view windowSelector, std::string_view connectorName) {
+    if (!runtime.available() || windowSelector.empty() || connectorName.empty()) {
+      return false;
+    }
+    std::optional<std::string> response;
+    if (runtime.configIsLua()) {
+      response = runtime.request(
+          std::format(
+              R"(dispatch hl.dsp.window.move({{ monitor = "{}", window = "{}", follow = false }}))", connectorName,
+              windowSelector
+          )
+      );
+    } else {
+      response =
+          runtime.request(std::format("dispatch movetoworkspacesilent mon:{},{}", connectorName, windowSelector));
+    }
+    if (!response.has_value()) {
+      kLog.debug("failed to move window {} to monitor {}", windowSelector, connectorName);
+      return false;
+    }
+    return true;
   }
 
 } // namespace compositors::hyprland

@@ -7,6 +7,15 @@
 #include <numeric>
 #include <system_error>
 
+namespace {
+
+  // Canonical raster image extensions: lowercase, dot-prefixed.
+  constexpr std::array<std::string_view, 7> kImageExtensions = {
+      ".jpg", ".jpeg", ".png", ".webp", ".jxl", ".bmp", ".gif",
+  };
+
+} // namespace
+
 std::vector<FileEntry> DirectoryScanner::scan(
     const std::filesystem::path& dir, const std::vector<std::string>& extensions, bool showHiddenFiles,
     FileDialogSortField sortField, FileDialogSortOrder sortOrder
@@ -133,12 +142,20 @@ std::vector<FileEntry> DirectoryScanner::scan(
 }
 
 bool DirectoryScanner::isImagePath(const std::filesystem::path& path) {
-  static constexpr std::array<std::string_view, 6> kImageExtensions = {
-      ".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif",
-  };
-
   const std::string ext = normalizeExtension(path.extension().string());
   return std::ranges::contains(kImageExtensions, ext);
+}
+
+std::vector<std::string> DirectoryScanner::imageExtensionFilter(bool includeSvg) {
+  std::vector<std::string> out;
+  out.reserve(kImageExtensions.size() + (includeSvg ? 1U : 0U));
+  for (std::string_view ext : kImageExtensions) {
+    out.emplace_back(ext);
+  }
+  if (includeSvg) {
+    out.emplace_back(".svg");
+  }
+  return out;
 }
 
 bool DirectoryScanner::matchesExtension(const std::filesystem::path& path, const std::vector<std::string>& extensions) {

@@ -5,11 +5,15 @@
 #include "system/icon_resolver.h"
 #include "ui/signal.h"
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+struct wl_output;
 
 class CompositorPlatform;
 class ConfigService;
@@ -37,6 +41,8 @@ public:
   /// Tears down dock surfaces without changing config (e.g. lockscreen widget editor overlay).
   void suppressDisplay();
   void unsuppressDisplay();
+  void onWorkspaceChanged();
+  void scheduleSmartAutoHideReevaluation();
   void closeAllInstances();
   void onOutputChange();
   void refresh();
@@ -62,8 +68,13 @@ private:
   void updateHoverZoomPointer(shell::dock::DockInstance& instance, float sceneX, float sceneY);
   void clearHoverZoomPointer(shell::dock::DockInstance& instance);
   void activateOrLaunchItem(shell::dock::DockInstance& instance, const shell::dock::DockItemAction& action);
+  void tryFulfillPendingLaunchFocus();
   void openItemMenu(shell::dock::DockInstance& instance, const shell::dock::DockItemAction& action);
   void closeItemMenu();
+  void beginDrag(shell::dock::DockInstance& instance, std::size_t index, float mainPos);
+  void updateDrag(shell::dock::DockInstance& instance, float mainPos);
+  void endDrag(shell::dock::DockInstance& instance, bool commit);
+  void reevaluateSmartAutoHide();
 
   CompositorPlatform* m_platform = nullptr;
   ConfigService* m_config = nullptr;
@@ -76,8 +87,18 @@ private:
   std::uint64_t m_modelSerial = 0;
   std::uint64_t m_entriesVersion = 0;
   IconResolver m_iconResolver;
+  struct PendingLaunchFocus {
+    std::string idLower;
+    std::string wmClassLower;
+    wl_output* outputFilter = nullptr;
+    // Launch target output (always set); outputFilter is only for active_monitor_only.
+    wl_output* targetOutput = nullptr;
+    std::chrono::steady_clock::time_point deadline;
+  };
+
   std::unordered_map<std::string, zwlr_foreign_toplevel_handle_v1*> m_lastActiveHandleByAppIdLower;
   std::unordered_map<std::string, std::string> m_lastActiveIdentifierByAppIdLower;
+  std::optional<PendingLaunchFocus> m_pendingLaunchFocus;
   std::vector<std::unique_ptr<shell::dock::DockInstance>> m_instances;
   std::unordered_map<wl_surface*, shell::dock::DockInstance*> m_surfaceMap;
   shell::dock::DockInstance* m_hoveredInstance = nullptr;
@@ -86,4 +107,5 @@ private:
   Signal<>::ScopedConnection m_appIconColorizeConn;
   bool m_overlayDisplaySuppressed = false;
   bool m_hadInstancesBeforeOverlaySuppress = false;
+  bool m_smartAutoHideReevalQueued = false;
 };

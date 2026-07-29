@@ -1,5 +1,4 @@
-Noctalia
-===
+# Noctalia
 
 Noctalia is a native Wayland desktop shell for people who want a polished, configurable Linux desktop without stitching
 together a separate bar, launcher, notification daemon, lock screen, wallpaper tool, and settings UI.
@@ -31,11 +30,11 @@ are designed as one cohesive shell instead of a collection of unrelated panels a
 <p><br/></p>
 
 <p align="center">
-  <a href="https://github.com/noctalia-dev/noctalia-shell/commits">
-    <img src="https://img.shields.io/github/last-commit/noctalia-dev/noctalia-shell?style=for-the-badge&labelColor=FFF59B&color=FFF59B&logo=git&logoColor=070722&label=commit" alt="Last commit" />
+  <a href="https://github.com/noctalia-dev/noctalia/commits">
+    <img src="https://img.shields.io/github/last-commit/noctalia-dev/noctalia?style=for-the-badge&labelColor=FFF59B&color=FFF59B&logo=git&logoColor=070722&label=commit" alt="Last commit" />
   </a>
-  <a href="https://github.com/noctalia-dev/noctalia-shell/stargazers">
-    <img src="https://img.shields.io/github/stars/noctalia-dev/noctalia-shell?style=for-the-badge&labelColor=FFF59B&color=FFF59B&logo=github&logoColor=070722" alt="GitHub stars" />
+  <a href="https://github.com/noctalia-dev/noctalia/stargazers">
+    <img src="https://img.shields.io/github/stars/noctalia-dev/noctalia?style=for-the-badge&labelColor=FFF59B&color=FFF59B&logo=github&logoColor=070722" alt="GitHub stars" />
   </a>
   <a href="https://docs.noctalia.dev">
     <img src="https://img.shields.io/badge/docs-FFF59B?style=for-the-badge&logo=gitbook&logoColor=070722&labelColor=FFF59B" alt="Documentation" />
@@ -44,7 +43,6 @@ are designed as one cohesive shell instead of a collection of unrelated panels a
     <img src="https://img.shields.io/badge/discord-FFF59B?style=for-the-badge&labelColor=FFF59B&logo=discord&logoColor=070722" alt="Discord" />
   </a>
 </p>
-
 
 ## Why Noctalia?
 
@@ -55,6 +53,8 @@ can be flexible, but it also makes a complete desktop feel fragile and hard to k
 Noctalia solves that by providing one configurable shell layer that owns the common desktop surfaces and services while
 still fitting into compositor-driven Wayland workflows. It is meant for users who want the control of a custom desktop
 environment with fewer moving parts and a consistent UI.
+
+To understand the values and philosophy guiding the project, read our [ethos](https://noctalia.dev/ethos).
 
 ## What It Includes
 
@@ -83,10 +83,11 @@ Noctalia is a desktop shell, not a full desktop environment. It provides the vis
 Wayland compositor: bars, panels, launcher, notifications, dock, lock screen, idle behavior, OSDs, theming, wallpapers,
 desktop widgets, and multi-monitor shell surfaces.
 
-Window management, tiling, file management, removable-drive mounting, and screen mirroring/casting belong to the
-compositor, dedicated desktop applications, or system services. Display/login greeter support lives in the separate
-[Noctalia Greeter](https://github.com/noctalia-dev/noctalia-greeter) project. Noctalia may integrate with those pieces
-when useful, but it does not replace them.
+Window management, tiling, file management, removable-drive mounting, printers management and screen mirroring/casting
+belong to the compositor, dedicated desktop applications, or system services.
+
+Display/login greeter support lives in the separate [Noctalia Greeter](https://github.com/noctalia-dev/noctalia-greeter)
+project. Noctalia may integrate with those pieces when useful, but it does not replace them.
 
 The plugin system is available for user-installed extensions. Features that are useful to some users but not essential
 to the core shell can live there: extra bar widgets, launcher providers, desktop widgets, panels, shortcuts, background
@@ -102,13 +103,17 @@ sudo pacman -S meson gcc just \
   libglvnd freetype2 fontconfig \
   cairo pango harfbuzz \
   libxkbcommon glib2 \
+  libsecret libsodium \
   sdbus-cpp libpipewire wireplumber polkit \
-  pam curl libwebp librsvg \
+  pam curl libwebp libjxl librsvg \
   libqalculate libxml2 \
+  md4c tomlplusplus \
+  nlohmann-json stb \
   jemalloc
 ```
 
 ### Fedora
+
 ```sh
 sudo dnf install meson gcc-c++ just \
   wayland-devel wayland-protocols-devel \
@@ -116,13 +121,17 @@ sudo dnf install meson gcc-c++ just \
   freetype-devel fontconfig-devel \
   cairo-devel pango-devel harfbuzz-devel \
   libxkbcommon-devel glib2-devel \
+  libsecret-devel libsodium-devel \
   sdbus-cpp-devel pipewire-devel wireplumber-devel \
-  pam-devel polkit-devel libcurl-devel libwebp-devel librsvg2-devel \
+  pam-devel polkit-devel libcurl-devel libwebp-devel libjxl-devel librsvg2-devel \
   libqalculate-devel libxml2-devel \
+  md4c-devel tomlplusplus-devel \
+  json-devel stb_image_resize2-devel stb_image_write-devel \
   jemalloc-devel
 ```
 
-### openSUSE (Tumbleweed & Slowroll)
+### openSUSE Tumbleweed / Slowroll
+
 ```sh
 sudo zypper install meson gcc-c++ just \
   wayland-devel wayland-protocols-devel \
@@ -130,13 +139,17 @@ sudo zypper install meson gcc-c++ just \
   freetype2-devel fontconfig-devel \
   cairo-devel pango-devel harfbuzz-devel \
   libxkbcommon-devel glib2-devel \
+  libsecret-devel libsodium-devel \
   sdbus-cpp-devel pipewire-devel wireplumber-devel \
-  pam-devel polkit-devel libcurl-devel libwebp-devel librsvg-devel \
+  pam-devel polkit-devel libcurl-devel libwebp-devel libjxl-devel librsvg-devel \
   libqalculate-devel libxml2-devel \
+  md4c-devel tomlplusplus-devel \
+  nlohmann_json-devel stb-devel \
   jemalloc-devel
 ```
 
 ### Debian / Ubuntu
+
 ```sh
 sudo apt install meson g++ just \
   libwayland-dev wayland-protocols \
@@ -144,54 +157,58 @@ sudo apt install meson g++ just \
   libfreetype-dev libfontconfig-dev \
   libcairo2-dev libpango1.0-dev libharfbuzz-dev \
   libxkbcommon-dev libglib2.0-dev \
+  libsecret-1-dev libsodium-dev \
   libsdbus-c++-dev libpipewire-0.3-dev libwireplumber-0.5-dev \
   libpam0g-dev libpolkit-agent-1-dev libpolkit-gobject-1-dev \
-  libcurl4-openssl-dev libwebp-dev librsvg2-dev \
+  libcurl4-openssl-dev libwebp-dev libjxl-dev librsvg2-dev \
   libqalculate-dev libxml2-dev \
+  libmd4c-dev libtomlplusplus-dev \
+  nlohmann-json3-dev libstb-dev \
   libjemalloc-dev
 ```
 
-### AerynOS
-```sh
-sudo moss it meson build-essential \
-  wayland-devel wayland-protocols-devel \
-  mesa-libegl-devel mesa-libgl-devel \
-  freetype-devel fontconfig-devel \
-  cairo-devel pango-devel harfbuzz-devel \
-  libxkbcommon-devel glib2-devel \
-  sdbus-cpp-devel pipewire-devel wireplumber-devel \
-  linux-pam-devel polkit-devel \
-  curl-devel libwebp-devel librsvg-devel \
-  libqalculate-devel libxml2-devel \
-  extra-cmake-modules jemalloc-devel
-```
-
 ### Void Linux
+
 ```sh
 sudo xbps-install meson ninja pkg-config git \
   wayland-devel wayland-protocols libepoxy-devel \
   MesaLib-devel libglvnd-devel cairo-devel \
   pango-devel fontconfig-devel freetype-devel \
   harfbuzz-devel libxkbcommon-devel pipewire-devel wireplumber-devel \
-  libcurl-devel pam-devel libwebp-devel \
+  libsecret-devel libsodium-devel \
+  libcurl-devel pam-devel libwebp-devel libjxl-devel \
   basu-devel sdbus-c++-devel \
+  libmd4c-devel tomlplusplus-devel \
+  json-c++ stb \
   polkit-devel librsvg-devel libqalculate-devel libxml2-devel jemalloc-devel
 ```
 
 Vendored dependencies, with no system package needed: `Wuffs`,
 `Luau`, `dr_wav`, `fzy`, and Material Color Utilities.
 
-Dependencies that are vendored by default, with a meson boolean to instead use the system package: `md4c`,
-`tomlplusplus`, `nlohmann/json`. `stb` is also vendored by default, but since it ships no pkg-config file it is switched by pointing
-`-Dstb_headers=<path>` at system headers (e.g. `-Dstb_headers=/usr/include/stb`) rather than a boolean toggle.
-
-System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and thumbnail encoding. Wuffs
-handles the other supported raster image formats. `libqalculate` powers the launcher calculator (arithmetic, unit and
-currency conversion).
+System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and thumbnail encoding,
+`libjxl` handles JPEG XL decoding, and Wuffs handles the other supported raster image formats. `libqalculate` powers
+the launcher calculator (arithmetic, unit and currency conversion).
 
 Polkit agent support requires development files that provide the `polkit-agent-1` and `polkit-gobject-1` pkg-config
 modules. Some distros ship these in the runtime `polkit` package, while split-package distros use names such as
 `polkit-devel`, `polkit-dev`, or `libpolkit-agent-1-dev` / `libpolkit-gobject-1-dev`.
+
+Pipewire libraries/headers are sufficient to build Noctalia, but there is also a runtime requirement for the pipewire
+daemon. Noctalia will abort startup if it can't connect to the daemon. If your distro splits the pipewire libraries
+and daemon into separate packages, make sure you have both installed.
+
+`upower` is an optional dependency used for battery and power device integration.
+
+`ddcutil` is an optional dependency used for controlling monitor brightness.
+
+Credential and encrypted-state persistence requires a Secret Service provider at runtime, such as GNOME Keyring,
+KWallet, or KeePassXC. `libsecret` is the client library and does not provide the session service by itself. Noctalia
+continues to run when no provider is available, but features requiring durable secrets cannot persist them.
+CalDAV accounts may instead read their password from one explicitly configured regular file, which supports secret
+provisioners such as agenix and sops-nix without installing a Secret Service provider. Google refresh tokens and
+other writable credentials still require Secret Service. Encrypted state, including clipboard history and the calendar
+event cache, may instead read one storage master key from an explicitly configured file.
 
 `jemalloc` is recommended but optional. It reduces memory fragmentation in long-running sessions, and on glibc systems
 it is used automatically when detected. Use Meson's `-Djemalloc=enabled` or `-Djemalloc=disabled` option to require or
@@ -208,6 +225,7 @@ and point Meson at it (e.g. `CXX=g++-13 just configure`).
 Requires [just](https://github.com/casey/just) and [meson](https://mesonbuild.com/).
 
 #### Release build
+
 ```sh
 # Optimized release build in build-release/
 just configure release
@@ -215,6 +233,13 @@ just build release
 
 # Install the selected build mode. This does not build or reconfigure.
 sudo just install release
+```
+
+Release builds are portable by default. For a machine-local build, enable native CPU optimizations after configuring:
+
+```sh
+meson configure build-release -Dnative_optimizations=true
+just build release
 ```
 
 Pass a prefix to `configure` to install somewhere other than `/usr/local`:
@@ -229,6 +254,7 @@ To remove files installed from a build directory, run `just uninstall release`. 
 require an explicit build mode so debug builds are not installed by accident.
 
 #### Debug build
+
 ```sh
 # Debug build in build-debug/ for local development and troubleshooting.
 just configure
@@ -238,9 +264,10 @@ just build
 just run
 ```
 
-Unit tests are built automatically for debug builds and skipped for release builds. Build and run them with
-`just test` (use `just test release` to force them on for a release build). Override the default with the meson
-`-Dtests=enabled|disabled|auto` option.
+Unit tests are not compiled by `just build`, which targets only the Noctalia executable. Build and run them explicitly
+with `just test` (use `just test release` to force them on for a release build). Direct Meson users can control test
+target generation with the `-Dtests=enabled|disabled|auto` option.
+Production sources compile once into an internal static library shared by the shell and test executables.
 
 Meson installs the binary and shipped assets using the normal prefix layout:
 
@@ -250,6 +277,10 @@ Meson installs the binary and shipped assets using the normal prefix layout:
 ```
 
 Noctalia needs the shipped `assets/` tree at runtime. Copying only the `noctalia` binary is not enough.
+
+Firefox theming uses the built-in template `post_action = "firefox-theme"` (same pattern as
+`kde-color-scheme`) plus the [Pywalfox](https://addons.mozilla.org/en-US/firefox/addon/pywalfox/)
+browser extension. Manual host helpers: `noctalia firefox-theme --help`.
 
 Portable bundle layouts are also supported:
 
@@ -282,7 +313,7 @@ discussion, join the community on [Discord](https://discord.noctalia.dev).
 
 ## Credits
 
-Thank you to the [contributors](https://github.com/noctalia-dev/noctalia-shell/graphs/contributors) and community
+Thank you to the [contributors](https://github.com/noctalia-dev/noctalia/graphs/contributors) and community
 members who test Noctalia, report issues, share configurations, and help shape the project.
 
 ## Donations
@@ -302,10 +333,15 @@ Donations are appreciated but completely optional.
 
 MIT License. See [LICENSE](LICENSE) for details.
 
+## Packaging
+
+Distro packaging notes (description, deps, install layout, Meson options) live in
+[PACKAGING.md](PACKAGING.md).
+
 ## Star History
 
 <p align="center">
-  <a href="https://github.com/noctalia-dev/noctalia-shell/stargazers">
+  <a href="https://github.com/noctalia-dev/noctalia/stargazers">
     <img src="https://api.noctalia.dev/stars" alt="Star History" />
   </a>
 </p>

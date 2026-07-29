@@ -11,6 +11,7 @@ class BlurProgram {
 public:
   void ensureInitialized();
   void destroy();
+  void abandon() noexcept;
 
   // Draw srcTex to the currently-bound framebuffer using a separable Gaussian blur.
   // dirX/dirY: blur direction (1,0 = horizontal, 0,1 = vertical).

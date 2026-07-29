@@ -19,7 +19,7 @@ namespace {
   constexpr Logger kLog("desktop");
   constexpr float kDefaultStickerSize = 200.0f;
   constexpr int kMaxStickerGifFrames = 512;
-  constexpr std::size_t kMaxStickerGifBytes = 96ull * 1024 * 1024;
+  constexpr std::size_t kMaxStickerGifBytes = 96ULL * 1024 * 1024;
 
   bool endsWithIgnoreCase(const std::string& s, const char* suffix) {
     const std::size_t n = std::strlen(suffix);
@@ -44,7 +44,7 @@ DesktopStickerWidget::DesktopStickerWidget(std::string imagePath, float opacity)
 DesktopStickerWidget::~DesktopStickerWidget() { unloadFrames(); }
 
 void DesktopStickerWidget::create() {
-  auto rootNode = std::make_unique<Node>();
+  auto rootNode = ui::node({});
   rootNode->setOpacity(m_opacity);
 
   auto image = ui::image({

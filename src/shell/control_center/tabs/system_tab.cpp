@@ -30,8 +30,8 @@ namespace {
   constexpr float kGraphCardPadH = Style::spaceMd;
 
   // Section card style with reduced padding, shared by the four graph cards.
-  void applyGraphCardStyle(Flex& section, float scale, float opacity, bool borders) {
-    control_center::applySectionCardStyle(section, scale, opacity, borders);
+  void applyGraphCardStyle(Flex& section, float scale, float opacity) {
+    control_center::applySectionCardStyle(section, scale, opacity);
     section.setGap(Style::spaceXs * scale);
     section.setPadding(
         kGraphCardPadTop * scale, kGraphCardPadH * scale, kGraphCardPadV * scale, kGraphCardPadH * scale
@@ -164,13 +164,13 @@ namespace {
   }
 
   Flex* makeInfoCard(
-      Flex& parent, const std::string& title, float scale, float grow, float fillOpacity, bool showBorder,
-      Label** outLines, int lineCount, const char* const* glyphs
+      Flex& parent, const std::string& title, float scale, float grow, float fillOpacity, Label** outLines,
+      int lineCount, const char* const* glyphs
   ) {
     auto card = ui::column({
         .flexGrow = grow,
-        .configure = [scale, fillOpacity, showBorder](Flex& section) {
-          applySectionCardStyle(section, scale, fillOpacity, showBorder);
+        .configure = [scale, fillOpacity](Flex& section) {
+          applySectionCardStyle(section, scale, fillOpacity);
           section.setGap(Style::spaceXs * scale);
         },
     });
@@ -204,23 +204,9 @@ namespace {
 
 } // namespace
 
-SystemTab::SystemTab(SystemMonitorService* monitor) : m_monitor(monitor) {
-  if (m_monitor != nullptr) {
-    m_monitor->retainCpuTemp();
-    m_monitor->retainGpuTemp();
-    m_monitor->retainGpuUsage();
-    m_monitor->retainGpuVram();
-  }
-}
+SystemTab::SystemTab(SystemMonitorService* monitor) : m_monitor(monitor) {}
 
-SystemTab::~SystemTab() {
-  if (m_monitor != nullptr) {
-    m_monitor->releaseCpuTemp();
-    m_monitor->releaseGpuTemp();
-    m_monitor->releaseGpuUsage();
-    m_monitor->releaseGpuVram();
-  }
-}
+SystemTab::~SystemTab() { retainStats(false); }
 
 std::unique_ptr<Flex> SystemTab::create() {
   const float sc = contentScale();
@@ -228,7 +214,7 @@ std::unique_ptr<Flex> SystemTab::create() {
   auto tab = ui::column({
       .out = &m_root,
       .align = FlexAlign::Stretch,
-      .gap = Style::spaceSm * sc,
+      .gap = Style::spaceMd * sc,
   });
 
   // --- Graph grid ---
@@ -236,7 +222,7 @@ std::unique_ptr<Flex> SystemTab::create() {
   {
     auto row = ui::row({
         .align = FlexAlign::Stretch,
-        .gap = Style::spaceSm * sc,
+        .gap = Style::spaceMd * sc,
         .flexGrow = 1.0f,
     });
 
@@ -245,9 +231,7 @@ std::unique_ptr<Flex> SystemTab::create() {
       auto card = ui::column({
           .out = &m_cpuCard,
           .flexGrow = 1.0f,
-          .configure = [sc, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& section) {
-            applyGraphCardStyle(section, sc, opacity, borders);
-          },
+          .configure = [sc, opacity = panelCardOpacity()](Flex& section) { applyGraphCardStyle(section, sc, opacity); },
       });
 
       makeHeaderRow(*card, i18n::tr("control-center.system.titles.cpu"), sc);
@@ -267,9 +251,7 @@ std::unique_ptr<Flex> SystemTab::create() {
       auto card = ui::column({
           .out = &m_ramCard,
           .flexGrow = 1.0f,
-          .configure = [sc, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& section) {
-            applyGraphCardStyle(section, sc, opacity, borders);
-          },
+          .configure = [sc, opacity = panelCardOpacity()](Flex& section) { applyGraphCardStyle(section, sc, opacity); },
       });
 
       makeHeaderRow(*card, i18n::tr("control-center.system.titles.memory"), sc);
@@ -289,7 +271,7 @@ std::unique_ptr<Flex> SystemTab::create() {
   {
     auto row = ui::row({
         .align = FlexAlign::Stretch,
-        .gap = Style::spaceSm * sc,
+        .gap = Style::spaceMd * sc,
         .flexGrow = 1.0f,
     });
 
@@ -299,9 +281,7 @@ std::unique_ptr<Flex> SystemTab::create() {
           .out = &m_gpuCard,
           .flexGrow = 1.0f,
           .visible = false,
-          .configure = [sc, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& section) {
-            applyGraphCardStyle(section, sc, opacity, borders);
-          },
+          .configure = [sc, opacity = panelCardOpacity()](Flex& section) { applyGraphCardStyle(section, sc, opacity); },
       });
 
       makeHeaderRow(*card, i18n::tr("control-center.system.titles.gpu"), sc);
@@ -326,9 +306,7 @@ std::unique_ptr<Flex> SystemTab::create() {
       auto card = ui::column({
           .out = &m_netCard,
           .flexGrow = 1.0f,
-          .configure = [sc, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& section) {
-            applyGraphCardStyle(section, sc, opacity, borders);
-          },
+          .configure = [sc, opacity = panelCardOpacity()](Flex& section) { applyGraphCardStyle(section, sc, opacity); },
       });
 
       makeHeaderRow(*card, i18n::tr("control-center.system.titles.network"), sc);
@@ -350,18 +328,17 @@ std::unique_ptr<Flex> SystemTab::create() {
   {
     auto row = ui::row({
         .align = FlexAlign::Stretch,
-        .gap = Style::spaceSm * sc,
+        .gap = Style::spaceMd * sc,
     });
     static constexpr const char* kSystemGlyphs[] = {"cpu-usage",        "video",      "device-desktop",
                                                     "layers-intersect", "app-window", "clock"};
     makeInfoCard(
-        *row, i18n::tr("control-center.system.titles.system"), sc, 1.0f, panelCardOpacity(), panelBordersEnabled(),
-        m_systemLines, kSystemLines, kSystemGlyphs
+        *row, i18n::tr("control-center.system.titles.system"), sc, 1.0f, panelCardOpacity(), m_systemLines,
+        kSystemLines, kSystemGlyphs
     );
 
     auto* resourcesCard = makeInfoCard(
-        *row, i18n::tr("control-center.system.titles.resources"), sc, 1.0f, panelCardOpacity(), panelBordersEnabled(),
-        nullptr, 0, nullptr
+        *row, i18n::tr("control-center.system.titles.resources"), sc, 1.0f, panelCardOpacity(), nullptr, 0, nullptr
     );
 
     // Named rows with right-aligned values: load, RAM, then swap (hidden in doUpdate when absent).
@@ -423,9 +400,32 @@ std::unique_ptr<Flex> SystemTab::create() {
 
 void SystemTab::setActive(bool active) {
   m_active = active;
+  retainStats(active);
   if (!active) {
     m_redrawLimiter.reset();
   }
+}
+
+// The control center is built once at startup and lives for the whole session, so retaining for
+// the tab's lifetime would sample CPU temperature and the GPU forever, for every user, whether or
+// not this tab is ever opened. Polling a GPU keeps a discrete card at D0.
+void SystemTab::retainStats(bool retain) {
+  if (m_monitor == nullptr || retain == m_statsRetained) {
+    return;
+  }
+  m_statsRetained = retain;
+
+  if (retain) {
+    m_monitor->retainCpuTemp();
+    m_monitor->retainGpuTemp();
+    m_monitor->retainGpuUsage();
+    m_monitor->retainGpuVram();
+    return;
+  }
+  m_monitor->releaseCpuTemp();
+  m_monitor->releaseGpuTemp();
+  m_monitor->releaseGpuUsage();
+  m_monitor->releaseGpuVram();
 }
 
 void SystemTab::onClose() {

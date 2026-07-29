@@ -11,7 +11,7 @@ class WindowProvider : public LauncherProvider {
 public:
   explicit WindowProvider(CompositorPlatform* platform);
 
-  [[nodiscard]] std::string_view prefix() const override { return "/win"; }
+  [[nodiscard]] std::string_view defaultPrefix() const override { return "win"; }
   [[nodiscard]] std::string_view id() const override { return "Windows"; }
   [[nodiscard]] std::string displayName() const override;
   [[nodiscard]] std::string_view defaultGlyphName() const override { return "app-window"; }

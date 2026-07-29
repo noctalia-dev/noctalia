@@ -31,6 +31,7 @@
       "choose-display": "Выбрать монитор",
       "confirm-region": "Нажмите Enter или пробел для захвата · Esc для отмены · перетащите для повторного выбора",
       "fullscreen": "Полноэкранный режим",
+      "overlay-alloc-failed": "Невозможно отобразить оверлей скриншота (недостаточно видеопамяти?)",
       "region": "Выбрать область"
     },
     "widgets": {
@@ -181,6 +182,7 @@
     },
     "bluetooth": {
       "accept": "Принять",
+      "address": "Адресс",
       "auto-reconnect": "Автоподключение",
       "bluetooth": "Bluetooth",
       "enter-code": "Введите код",
@@ -211,7 +213,8 @@
       "all-day": "Весь день",
       "events": "События",
       "no-events": "Нет событий.",
-      "today": "Сегодня"
+      "today": "Сегодня",
+      "toggle-events-card": "Переключить карту событий"
     },
     "display": {
       "disabled": "Отключено",
@@ -249,6 +252,7 @@
     "network": {
       "connect": "Подключиться",
       "current-connection": "Текущее подключение",
+      "external-ip": "WAN {ip}",
       "no-networks": "Нет сетей в радиусе действия",
       "not-connected": "Не подключено",
       "password": "Пароль",
@@ -370,6 +374,9 @@
     "weather": {
       "daily": {
         "tooltip": {
+          "condition": "Состояние",
+          "high": "Максимальная",
+          "low": "Минимальная",
           "sunrise": "Восход",
           "sunset": "Закат"
         }
@@ -392,13 +399,21 @@
         "description": "Погода",
         "temperature": "10 / 4C"
       },
+      "forecast-view": {
+        "daily": "Каждый день",
+        "hourly": "Каждый час"
+      },
       "hourly": {
+        "summary": "{condition} / Дождь {precip}%",
         "tooltip": {
+          "condition": "Состояние",
           "humidity": "Влажность",
+          "rain": "Дождь",
           "wind": "Ветер"
         }
       },
       "location-unavailable": "Местоположение недоступно",
+      "no-location-body": "Добавьте свой адрес или включите авто-определение в настройках геолокации",
       "no-location-title": "Местоположение не задано",
       "refreshing": "Обновление погоды...",
       "waiting": "Ожидание данных о погоде"
@@ -455,14 +470,22 @@
         "format": "Формат",
         "glyph": "Глифы",
         "hide-when-no-media": "Скрыть, когда нет медиа",
+        "highlight-color": "Цвет выделения",
         "horizontal": "Горизонтальный",
+        "hover-background": "Фон При Наведении",
+        "hover-foreground": "Передний План При Наведении",
         "image-path": "Изображение",
         "inner-diameter": "Внутренний диаметр",
         "input-opacity": "Непрозрачность ввода",
         "input-radius": "Радиус ввода",
         "interface": "Интерфейс",
+        "label": "Надпись",
         "layout": "Макет",
         "mirrored": "Зеркальный",
+        "network-speed-unit": "Единица измерения скорости сети",
+        "network-speed-unit-auto": "Авто",
+        "network-speed-unit-kilobytes": "кБ/с",
+        "network-speed-unit-megabytes": "МБ/с",
         "opacity": "Непрозрачность",
         "primary-color": "Основной цвет",
         "reset-defaults": "Спросить до значений по умолчанию",
@@ -490,6 +513,7 @@
         "title": "Заголовок",
         "variant": "Стиль",
         "variant-default": "По умолчанию",
+        "variant-outline": "Контур",
         "variant-primary": "Основной",
         "variant-secondary": "Вторичный",
         "vertical": "Вертикальный",
@@ -502,10 +526,6 @@
         "visualization-mode-wave-rings": "Волна + кольца",
         "wave-thickness": "Толщина волны",
         "widget-section": "Виджет"
-      },
-      "state": {
-        "grid-off": "Сетка выключена",
-        "grid-on": "Сетка включена"
       },
       "title": "Виджеты рабочего стола",
       "types": {
@@ -621,6 +641,7 @@
   "lockscreen": {
     "authenticating": "Аутентификация...",
     "authentication-failed": "Не удалось пройти аутентификацию",
+    "caps-lock-on": "Caps lock включён",
     "password-cleared": "Пароль удалён",
     "password-placeholder": "Пароль",
     "ready": "Введите пароль и нажмите Enter.",
@@ -638,6 +659,7 @@
     },
     "internal": {
       "battery": "Батарея",
+      "battery-critical-body": "{device}: {percent}% - компьютер скоро выключиться",
       "battery-critical-title": "Критически низкий заряд",
       "battery-device": "Аккумуляторное устройство",
       "battery-low-body": "{device}: осталось {percent}%",
@@ -652,10 +674,12 @@
       "calendar-google-connect-start-failed": "Не удалось запустить авторизацию Google. Проверьте подключение к сети и повторите попытку.",
       "calendar-google-connect-start-http": "Не удалось запустить авторизацию Google. Брокер OAuth вернул HTTP {status}.",
       "calendar-google-connect-timeout": "Истекло время ожидания авторизации Google. Запустите подключение снова, когда будете готовы войти.",
+      "config-migration-title": "Требуется обновление конфигурации",
       "dbus-disabled": "DBus-уведомления отключены",
       "desktop-widgets-editor": "Редактор виджетов",
       "desktop-widgets-editor-enabled": "Редактор виджетов рабочего стола включён. Переключитесь на пустое рабочее пространство, чтобы увидеть оверлей редактора.",
       "greeter-sync": "Noctalia Greeter",
+      "greeter-sync-pending-manual": "Файлы подготовлены. Запустите в терминале: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\". Или задайте shell.greeter_sync.privilege_command (например, ghostty -e pkexec) и повторите синхронизацию.",
       "greeter-sync-success": "Внешний вид синхронизирован. Изменения вступят в силу на следующем экране входа.",
       "keybind-app": "Noctalia",
       "keybind-invalid-modifier": "Это сочетание клавиш принимает одну клавишу без модификаторов.",
@@ -723,6 +747,10 @@
   "plugins": {
     "auto-disabled": {
       "title": "Плагин отключен"
+    },
+    "enable-failed": {
+      "body-timeout": "Установка {plugin} заняла слишком много времени.",
+      "title": "Плагин не включен"
     }
   },
   "power": {
@@ -774,12 +802,15 @@
     "badges": {
       "advanced": "Расширенное",
       "community": "Сообщество",
+      "deprecated": "Устаревший",
       "inherited": "Унаследовано",
       "monitor": "Монитор",
+      "official": "Официальный",
       "override": "Переопределение"
     },
     "calendar-accounts": {
       "add-title": "Добавить учётную запись календаря",
+      "calendars-label": "Календари",
       "color-label": "Цвет",
       "delete-error": "Не удалось удалить учётную запись календаря.",
       "edit-title": "Редактировать учётную запись календаря",
@@ -872,6 +903,8 @@
           "fill-description": "Цвет фона капсулы; также поддерживаются фиксированные HEX-цвета",
           "foreground": "Передний план",
           "foreground-description": "Цвет значков и меток для виджетов в этой группе",
+          "hide": "Скрыть эту группу",
+          "hide-widget": "Скрыть этот виджет",
           "hint": "Часть капсульной группы",
           "members": "{count} виджетов",
           "opacity": "Непрозрачность",
@@ -882,6 +915,8 @@
           "radius": "Радиус",
           "radius-description": "Радиус углов капсулы в пикселях; Авто наследует радиус капсулы панели",
           "selected": "{count} выбрано",
+          "show": "Показать эту группу",
+          "show-widget": "Показать этот виджет",
           "style": "Стиль",
           "title": "Капсульная группа",
           "ungroup": "Разгруппировать"
@@ -926,12 +961,16 @@
             "grouping": "Группировка",
             "presentation": "Отображение",
             "runtime": "Выполнение",
-            "widget": "Виджет"
+            "widget": "Виджет",
+            "workspaces": {
+              "colors": "Цвета"
+            }
           }
         }
       }
     },
     "errors": {
+      "avatar-accounts": "Не удалось обновить аватар системного аккаунта.",
       "bar": {
         "create": "Не удалось создать панель.",
         "delete": "Не удалось удалить панель.",
@@ -949,6 +988,7 @@
       "reset-page": "Не удалось сбросить некоторые настройки.",
       "support-report": "Не удалось сохранить отчёт поддержки.",
       "sync-greeter": "Не удалось синхронизировать внешний вид с Noctalia Greeter.",
+      "sync-greeter-timeout-manual": "Для синхронизации Greeter всё ещё требуется подтверждение администратора. Запустите в терминале: pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
       "widget": {
         "rename": "Не удалось переименовать виджет."
       },
@@ -980,7 +1020,7 @@
         "name-label": "Имя",
         "name-placeholder": "idle-behavior",
         "resume-command-label": "Команда возобновления",
-        "resume-command-placeholder": "noctalia:dpms-on",
+        "resume-command-placeholder": "",
         "summary": "{name} · {seconds} с",
         "summary-disabled-timeout": "{name} · таймаут отключён",
         "timeout-label": "Тайм-аут в секундах",
@@ -995,6 +1035,7 @@
     "navigation": {
       "groups": {
         "audio": "Аудио",
+        "authentication": "Аутентификация",
         "automation": "Автоматизация",
         "backdrop": "Фон",
         "background": "Фон",
@@ -1014,6 +1055,7 @@
         "focus-styling": "Стиль фокуса",
         "formats": "Форматы",
         "general": "Основное",
+        "greeter": "Greeter",
         "grouping": "Группировка",
         "home": "Главная",
         "hot-corners": "Активные углы",
@@ -1038,7 +1080,9 @@
         "osd": "OSD",
         "overview": "Обзор",
         "pinned-apps": "Закреплённые приложения",
+        "polkit": "Polkit",
         "power": "Питание",
+        "privacy": "Конфиденциальность",
         "profile": "Профиль",
         "screen-corners": "Углы экрана",
         "screen-time": "Экранное время",
@@ -1064,6 +1108,7 @@
         "desktop": "Рабочий стол",
         "dock": "Док",
         "hooks": "Хуки",
+        "launcher": "Лаунчер",
         "location": "Местоположение",
         "niri": "Niri",
         "notifications": "Уведомления",
@@ -1083,11 +1128,20 @@
     "notifications": {
       "filter": {
         "add": "Добавить фильтр",
+        "add-title": "Добавить фильтр уведомлений",
         "match-label": "Приложение",
-        "play-sound": "Воспроизвести звук"
+        "play-sound": "Воспроизвести звук",
+        "save-history": "Сохранить в историю",
+        "unnamed": "Безымянный фильтр"
       }
     },
     "options": {
+      "bar": {
+        "auto-hide": {
+          "off": "Выкл",
+          "on": "Вкл"
+        }
+      },
       "clipboard": {
         "auto-paste": {
           "ctrl-shift-v": "Ctrl+Shift+V",
@@ -1145,6 +1199,9 @@
       "orientation": {
         "horizontal": "Горизонтальная",
         "vertical": "Вертикальная"
+      },
+      "panel-bar-alignment": {
+        "centered": "По центру"
       },
       "panel-position": {
         "auto": "Следовать за панелью"
@@ -1231,9 +1288,13 @@
       }
     },
     "plugins": {
+      "browse-store": "Просмотр плагинов",
       "panels": {
         "open-near-click": {
           "label": "Открывать возле клика"
+        },
+        "placement": {
+          "label": "Расположение"
         },
         "position": {
           "label": "Позиция"
@@ -1241,14 +1302,19 @@
       },
       "plugins": {
         "configure": "Настроить",
+        "delete": "Удалить",
+        "delete-confirm-desc": "Этот плагин будет удален и убран с диска.",
+        "delete-confirm-title": "Удалить \"{name}\"?",
         "deprecated": "Устаревший",
-        "empty": "Плагины не найдены. Добавьте источник или проверьте соединение с интернетом",
+        "empty": "Нет включенных плагинов.",
         "loading": "Загрузка плагинов...",
         "refreshing": "Обновление плагинов...",
         "remove": "Удалить плагин",
         "requires": "Требуются: {dependencies}",
-        "requires-newer-noctalia": "требуется более новая версия Noctalia",
-        "title": "Плагины"
+        "title": "Плагины",
+        "update-all": "Обновить все ({count})",
+        "update-available": "Доступно обновление",
+        "update-to": "Обновить до {version}"
       },
       "settings": {
         "empty": "Настройки недоступны"
@@ -1256,6 +1322,8 @@
       "sources": {
         "add": "Добавить источник",
         "add-title": "Добавить источник плагинов",
+        "auto-update": "Авто-обновление плагинов",
+        "auto-update-desc": "Проверять обновления из включенных источников в фоновом режиме и поддерживать плагины в актуальном состоянии",
         "edit": "Настроить источник",
         "edit-title": "Настроить источник плагинов",
         "empty": "Источники не настроены",
@@ -1274,18 +1342,34 @@
         "location-placeholder-path": "~/dev/noctalia-plugins",
         "name-label": "ID источника",
         "name-placeholder": "my-plugins",
+        "precedence-hint": "Источники, расположенные ниже, имеют приоритет над высшими при совпадении плагинов.",
         "remove": "Удалить источник",
         "save": "Сохранить",
         "title": "Источники",
-        "update": "Обновить",
-        "update-on-startup": "Обновить при запуске"
+        "update": "Обновить"
       },
       "store": {
+        "add": "Добавить в Noctalia",
+        "categories": "Категории",
+        "category-all": "Все",
         "empty": "Плагины не найдены",
-        "incompatible": "Несовместим"
+        "incompatible": "Несовместим",
+        "loading": "Загрузка каталога...",
+        "no-readme": "Описание недоступно",
+        "open-page": "Открыть страницу плагина на noctalia.dev",
+        "open-source": "Открыть репозиторий исходного кода плагина",
+        "results-count": "{count} плагинов",
+        "search-placeholder": "Поиск плагинов...",
+        "source-all": "Все",
+        "title": "Магазин плагинов"
       }
     },
     "schema": {
+      "accessibility": {
+        "high-contrast": {
+          "label": "Высокий контраст"
+        }
+      },
       "appearance": {
         "animation-speed": {
           "description": "Множитель скорости для всех анимаций",
@@ -1439,21 +1523,6 @@
         "corner-top-right": {
           "description": "Радиус верхнего правого угла панели"
         },
-        "dead-zone-command": {
-          "label": "ЛКМ"
-        },
-        "dead-zone-middle-command": {
-          "label": "СКМ"
-        },
-        "dead-zone-right-command": {
-          "label": "ПКМ"
-        },
-        "dead-zone-scroll-down-command": {
-          "label": "Прокрутить вниз"
-        },
-        "dead-zone-scroll-up-command": {
-          "label": "Прокрутить вверх"
-        },
         "edge-margin": {
           "description": "Расстояние от ближайшего края экрана; положительные значения отодвигают панель от него"
         },
@@ -1596,6 +1665,15 @@
         "item-spacing": {
           "description": "Расстояние между элементами дока",
           "label": "Расстояние между элементами"
+        },
+        "launcher-custom-image": {
+          "description": "Использовать изображение на кнопке лаунчера в доке вместо иконки",
+          "label": "Пользовательское изображение лаунчера",
+          "placeholder": "Путь к изображению"
+        },
+        "launcher-custom-image-colorize": {
+          "description": "Покрасить пользовательское изображение в цвет иконки",
+          "label": "Раскрасить пользовательское изображение"
         },
         "launcher-icon": {
           "description": "Значок Tabler для кнопки лаунчера в доке",
@@ -2075,7 +2153,7 @@
             "label": "Интервал опроса диска"
           },
           "gpu-poll": {
-            "description": "Интервал в секундах между замерами температуры GPU и VRAM. 0 отключает их (по умолчанию), чтобы не будить дискретный GPU; 5 — хороший интервал, если включить замеры",
+            "description": "Интервал в секундах между замерами температуры GPU и VRAM. 0 отключает их (по умолчанию), чтобы не нагружать дискретный GPU; 5 — хороший интервал, если хотите включить",
             "label": "Интервал опроса GPU"
           },
           "label": "Системный монитор",
@@ -2213,13 +2291,13 @@
           "description": "Формат даты по умолчанию для интерфейса оболочки, если нет отдельной настройки",
           "label": "Формат даты"
         },
+        "greeter-sync-auto": {
+          "description": "Автоматическая синхронизировать Greeter при каждом изменении обоев, цветов или режима темы.",
+          "label": "Авто-Синхронизация Greeter"
+        },
         "launch-apps-as-systemd-services": {
           "description": "Запускать приложения в отдельных службах systemd, чтобы они не использовали cgroup Noctalia",
           "label": "Запускать приложения как службы systemd"
-        },
-        "middle-click-opens-widget-settings": {
-          "description": "Открывать настройки виджета панели средним кликом по панели",
-          "label": "Средний клик открывает настройки виджета"
         },
         "niri-overview-type-to-launch": {
           "description": "Открывать лаунчер при вводе текста в обзоре Niri; когда обзор открыт, используется небольшая поверхность для фокуса клавиатуры",
@@ -2364,7 +2442,7 @@
           "label": "Показать местоположение"
         },
         "sync-greeter": {
-          "button": "Синхронизировать сейчас",
+          "button": "Синхронизировать Cейчас",
           "description": "Скопировать текущие обои и цвета в Noctalia Greeter (требуется одобрение администратора)",
           "label": "Noctalia Greeter"
         },
@@ -2525,7 +2603,6 @@
         "always": "Всегда",
         "cpu-temp": "Температура ЦП",
         "cpu-usage": "Загрузка ЦП",
-        "disk-percent": "Процент диска",
         "full": "Полный",
         "gauge": "Индикатор",
         "glyph": "Глиф",
@@ -2547,8 +2624,6 @@
         "output": "Выход",
         "ram-percent": "Процент RAM",
         "ram-used": "Использовано RAM",
-        "screenshot-primary-fullscreen": "Весь экран",
-        "screenshot-primary-region": "Область",
         "shared": "Общий",
         "short": "Короткий",
         "swap-percent": "Процент свопа",
@@ -2627,10 +2702,6 @@
           "description": "Второй градиентный цвет в визуализаторе",
           "label": "Цвет №2"
         },
-        "command": {
-          "description": "Shell-команда, запускаемая левым кликом по этой кнопке",
-          "label": "Команда левого клика"
-        },
         "custom-image": {
           "description": "Путь к пользовательскому изображению. Оставьте пустым, чтобы использовать глиф значка.",
           "dialog-title": "Выберите собственное изображение",
@@ -2643,10 +2714,6 @@
         "custom-labels": {
           "description": "Сопоставить названия раскладок клавиатуры с пользовательскими метками",
           "label": "Пользовательские метки"
-        },
-        "cycle-command": {
-          "description": "Команда, выполняемая при смене раскладки клавиатуры",
-          "label": "Команда переключения"
         },
         "detached-panel": {
           "description": "Открывать список приложений как плавающую панель с собственным фоном вместо присоединения к панели",
@@ -2805,18 +2872,13 @@
           "description": "Максимальная длина виджета в пикселях",
           "label": "Максимальная длина"
         },
-        "middle-command": {
-          "description": "Команда оболочки запускается средним кликом по этой кнопке. Если задана, средний клик запускает эту команду вместо настроек виджета.",
-          "label": "Команда среднего клика"
-        },
         "min-length": {
           "description": "Минимальная длина виджета в пикселях",
           "label": "Минимальная длина"
         },
         "minimal": {
           "description": "Показывать только идентификатор или имя рабочего пространства, без анимированных плашек",
-          "label": "Минимальный стиль",
-          "workspaces-description": "Текстовые метки рабочих пространств без фона плашек и анимации сдвига"
+          "label": "Минимальный стиль"
         },
         "mirrored": {
           "description": "Отражать визуализатор относительно центра",
@@ -2843,14 +2905,6 @@
           "description": "Идентификаторы элементов трея, которые остаются видимыми на панели при включённом режиме выдвижной панели",
           "label": "Закреплённые элементы"
         },
-        "primary-click": {
-          "description": "Действие при левом клике по кнопке панели",
-          "label": "Основной клик"
-        },
-        "right-command": {
-          "description": "Shell-команда, запускаемая правым кликом по этой кнопке",
-          "label": "Команда правого клика"
-        },
         "scale": {
           "description": "Масштаб этого виджета относительно масштаба содержимого панели",
           "label": "Масштаб"
@@ -2862,18 +2916,6 @@
         "script": {
           "description": "Путь к lua-скрипту",
           "label": "Скрипт"
-        },
-        "scroll-down-command": {
-          "description": "Shell-команда, запускаемая при прокрутке вниз над этой кнопкой",
-          "label": "Команда прокрутки вниз"
-        },
-        "scroll-step": {
-          "description": "Процентное изменение на один шаг колеса мыши",
-          "label": "Шаг прокрутки"
-        },
-        "scroll-up-command": {
-          "description": "Shell-команда, запускаемая при прокрутке вверх над этой кнопкой",
-          "label": "Команда прокрутки вверх"
         },
         "show-active-indicator": {
           "description": "Показывать небольшую точку под значком активного окна на панели задач",
@@ -3011,7 +3053,6 @@
     "window": {
       "export-config": "Экспортировать конфигурацию…",
       "export-config-saved": "Экспорт конфигурации сохранён.",
-      "filter-modified": "Изменённые",
       "native-title": "Настройки Noctalia",
       "no-results": "Настройки не найдены",
       "no-results-hint": "Попробуйте другое имя параметра или ключ конфигурации.",

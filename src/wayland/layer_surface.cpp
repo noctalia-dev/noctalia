@@ -158,7 +158,7 @@ void LayerSurface::requestSize(std::uint32_t width, std::uint32_t height) {
     } else if (Surface::width() != 0) {
       resolvedWidth = Surface::width();
     } else {
-      resolvedWidth = std::max(m_config.defaultWidth, 1u);
+      resolvedWidth = std::max(m_config.defaultWidth, 1U);
     }
   }
   if (resolvedHeight == 0) {
@@ -171,7 +171,7 @@ void LayerSurface::requestSize(std::uint32_t width, std::uint32_t height) {
     } else if (Surface::height() != 0) {
       resolvedHeight = Surface::height();
     } else {
-      resolvedHeight = std::max(m_config.defaultHeight, 1u);
+      resolvedHeight = std::max(m_config.defaultHeight, 1U);
     }
   }
 

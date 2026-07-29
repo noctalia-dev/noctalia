@@ -2,6 +2,7 @@
 
 #include "shell/bar/widget.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -24,11 +25,19 @@ enum class MediaTitleScrollMode : std::uint8_t {
 
 class MediaWidget : public Widget {
 public:
-  MediaWidget(
-      MprisService* mpris, HttpClient* httpClient, wl_output* output, float maxWidth, float minWidth, float artSize,
-      MediaTitleScrollMode titleScrollMode, bool hideWhenNoMedia = false, bool albumArtOnly = false,
-      bool hideAlbumArt = false
-  );
+  struct Options {
+    int maxWidth = 220;
+    int minWidth = 80;
+    int artSize = 16;
+    MediaTitleScrollMode titleScrollMode = MediaTitleScrollMode::None;
+    bool hideWhenNoMedia = false;
+    bool albumArtOnly = false;
+    bool hideAlbumArt = false;
+    bool hideArtist = false;
+    bool artistFirst = false;
+  };
+
+  MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output* output, Options options);
 
   void create() override;
 
@@ -38,7 +47,7 @@ private:
   void applyTitleScrollMode(bool titleVisible);
   void syncState(Renderer& renderer);
   void syncWidgetVisibility(bool hasMedia);
-  [[nodiscard]] static std::string buildDisplayText(const MprisPlayerInfo& player);
+  [[nodiscard]] static std::string buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst);
 
   MprisService* m_mpris = nullptr;
   HttpClient* m_httpClient = nullptr;
@@ -49,6 +58,8 @@ private:
   bool m_hideWhenNoMedia = false;
   bool m_albumArtOnly = false;
   bool m_hideAlbumArt = false;
+  bool m_hideArtist = false;
+  bool m_artistFirst = false;
   InputArea* m_area = nullptr;
   Image* m_art = nullptr;
   Glyph* m_emptyGlyph = nullptr;

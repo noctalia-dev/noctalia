@@ -1,12 +1,17 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "scripting/plugin_catalog.h"
 
+#include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -30,7 +35,8 @@ namespace scripting {
   struct PluginStatus {
     std::string id;
     std::string name;
-    std::string version;
+    std::string version;          // installed version when materialized, else the resolved version
+    std::string availableVersion; // resolved version offered when updateAvailable (else empty)
     std::string icon;
     std::string description;
     std::string license = "MIT";
@@ -40,6 +46,15 @@ namespace scripting {
     bool deprecated = false;
     bool enabled = false;
     bool materialized = false;
+    // An enabled+materialized git-source plugin whose fetched catalog version differs
+    // from the exported copy on disk — a newer release is available to apply via update().
+    bool updateAvailable = false;
+    // The source's newest version targets an unsupported plugin API, so an older release
+    // is installed instead. `latestVersion` / `latestPluginApiVersion` describe that
+    // newest version, so the UI can name what a Noctalia upgrade would unlock.
+    bool heldBack = false;
+    std::string latestVersion;
+    std::uint32_t latestPluginApiVersion = 0;
   };
 
   // Owns the plugin distribution lifecycle: resolves the configured sources into
@@ -61,6 +76,16 @@ namespace scripting {
     // Called when a plugin starts or finishes its background git export (the in-flight
     // set queried by isEnabling() changed). Lets the settings UI redraw the row spinner.
     void setOnEnablingChanged(std::function<void()> cb) { m_onEnablingChanged = std::move(cb); }
+
+    // Called when update() advances a git source to a new revision. Lets the plugin store
+    // drop its cached thumbnail/README copies for that source so they re-fetch at the new
+    // HEAD instead of showing the previous revision's files.
+    void setOnSourceUpdated(std::function<void(const std::string& sourceName)> cb) {
+      m_onSourceUpdated = std::move(cb);
+    }
+
+    // Called after a disabled plugin has been enabled successfully.
+    void setOnEnabled(std::function<void(std::string_view pluginId)> cb) { m_onEnabled = std::move(cb); }
 
     // Resolve source roots + enabled filter from config and (re)scan the registry.
     // No-op when the plugins config is unchanged since the last applied refresh.
@@ -86,17 +111,33 @@ namespace scripting {
 
     // Every plugin offered by the local dev source + each configured source, with
     // its compatibility and active state. For the management CLI / settings browser.
-    [[nodiscard]] std::vector<PluginStatus> list() const;
-    [[nodiscard]] std::vector<PluginStatus> list(const PluginsConfig& plugins) const;
+    // `access` gates git catalog reads: Network (clone / lazy-fetch, worker threads
+    // only) or LocalOnly (safe on the main thread, e.g. the IPC handler).
+    [[nodiscard]] std::vector<PluginStatus> list(CatalogAccess access) const;
+    [[nodiscard]] std::vector<PluginStatus> list(const PluginsConfig& plugins, CatalogAccess access) const;
+
+    // Throttled `git fetch` of the enabled git sources in `plugins`, so the settings
+    // browser / store show newly published plugins on open without waiting for the
+    // 6h auto-update. A source fetched within the throttle window is skipped. Blocking
+    // git/IO — call off the UI thread with a main-thread config snapshot. Only advances
+    // FETCH_HEAD (browsable catalog); it never advances HEAD or exports files.
+    void fetchStaleCatalogs(const PluginsConfig& plugins);
+
+    // Update every enabled git source (each via update()). Backs the store's "update all".
+    void updateAll();
+
+    // Turn the global background auto-update ([plugins].auto_update) on/off. Backs the
+    // single "auto-update plugins" settings toggle; drives every git source at once.
+    void setAutoUpdateEnabled(bool enabled);
 
     // Add (or replace) a source and refresh.
     void addSource(const PluginSourceConfig& source);
 
-    // Fetch a git source off-thread, export compatible enabled plugins, keep
-    // incompatible enabled plugins on their previous exported copy, then advance
-    // the source catalog. If the fetched revision is already current, reconcile
-    // any held exports that are now compatible. Re-scans on the main thread. No-op
-    // for path / unknown sources.
+    // Fetch a git source off-thread and export compatible enabled plugins that its
+    // catalog owns by exact id. Incompatible or failed plugin exports keep their
+    // previous copy without blocking the source revision or unrelated exports; later
+    // updates reconcile copies that do not match the catalog. Re-scans on the main
+    // thread. No-op for path / unknown sources.
     void update(std::string sourceName);
 
     // Remove a source: delete its git repo cache and exported runtime files, disable
@@ -108,29 +149,36 @@ namespace scripting {
     [[nodiscard]] std::optional<PluginSourceConfig> findSource(std::string_view name) const;
     // Plugin ids offered by the implicit local dev source.
     [[nodiscard]] std::unordered_set<std::string> localPluginIds() const;
-    // Re-derive any enabled git-source plugin missing from disk. Present repos are
-    // materialized synchronously (local git, no network); a wiped repo is re-cloned and
-    // materialized on a worker thread so startup never blocks on the network. Returns
-    // whether anything was exported synchronously. No network when nothing is missing.
-    bool ensureEnabledMaterialized(const PluginsConfig& plugins) const;
-    // Export the enabled plugins a present repo ships, from local git data only.
+    // Re-derive any enabled git-source plugin missing from disk, per source on a worker
+    // thread (catalog reads and exports lazy-fetch blobs from the blobless clone, so
+    // even a present repo can hit the network); startup never blocks on it.
+    void ensureEnabledMaterialized(const PluginsConfig& plugins) const;
+    // Export the enabled plugins a present repo ships. Reads and exports can lazy-fetch
+    // blobs (network-bound); worker threads only.
     bool materializeEnabledFromRepo(
         const PluginSourceConfig& source, const std::filesystem::path& repoRoot, const std::vector<std::string>& enabled
     ) const;
-    // Clone a missing source repo and materialize its enabled plugins off the main
-    // thread, rebuilding the bar via m_onChanged once the export lands.
-    void spawnCloneAndMaterialize(
-        PluginSourceConfig source, std::filesystem::path repoRoot, std::vector<std::string> enabled
+    // Worker thread: optionally re-clone the source repo, then materialize its enabled
+    // plugins, rebuilding the bar via m_onChanged once an export lands.
+    void spawnMaterializeEnabled(
+        PluginSourceConfig source, std::filesystem::path repoRoot, std::vector<std::string> enabled, bool cloneFirst
     ) const;
 
     ConfigService& m_config;
     std::function<void()> m_onChanged;
     std::function<void()> m_onEnablingChanged;
+    std::function<void(const std::string& sourceName)> m_onSourceUpdated;
+    std::function<void(std::string_view pluginId)> m_onEnabled;
     // Git-source plugins whose runtime export is running on a worker thread. Touched
     // only on the main thread (enable() inserts, the DeferredCall completion erases).
     std::unordered_set<std::string> m_enabling;
     PluginsConfig m_lastApplied;
     bool m_applied = false;
+
+    // Wall-clock of the last browse fetch per git source name; throttles store-open
+    // fetches. Touched from worker threads (settings refresh / store open), so guarded.
+    std::mutex m_browseFetchMutex;
+    std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_lastBrowseFetch;
   };
 
 } // namespace scripting

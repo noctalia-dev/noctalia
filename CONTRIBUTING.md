@@ -6,6 +6,9 @@ runtime asset behavior, and debugging helpers.
 
 For dependencies and normal build commands, start with [README.md](README.md).
 
+Before contributing, read our [ethos](https://noctalia.dev/ethos) to understand the values and philosophy guiding the
+project.
+
 ## Design Principles
 
 - Direct Wayland + OpenGL ES only -- no toolkit overhead
@@ -29,13 +32,13 @@ For dependencies and normal build commands, start with [README.md](README.md).
 | Keyboard | `xkbcommon` |
 | Rendering | `EGL`, `OpenGL ES 2.0+`, `wayland-egl` |
 | Text | `cairo`, `pango`, `pangocairo`, `freetype`, `fontconfig` |
-| Images | `Wuffs` (vendored), `stb_image_resize2` (vendored), `libwebp`, `librsvg` |
+| Images | `Wuffs` (vendored), `stb_image_resize2`, `libwebp`, `libjxl`, `librsvg` |
 | IPC | `sdbus-c++` |
 | Audio | `libpipewire`, `dr_wav` (vendored) |
 | Authentication | `PAM`, `polkit-agent-1`, `polkit-gobject-1`, `glib-2.0`, `gobject-2.0` |
 | HTTP | `libcurl` |
-| Config | `tomlplusplus` (vendored) |
-| JSON | `nlohmann/json` (vendored) |
+| Config | `tomlplusplus` |
+| JSON | `nlohmann/json` |
 | Math expressions | `libqalculate` |
 | Scripting | `Luau` (vendored) |
 | Theme generation | Material Color Utilities (vendored) |
@@ -215,10 +218,7 @@ tests/              Unit tests and config validation fixtures
 tools/              Developer and translation helper scripts
 nix/                Nix package, module, and dev shell definitions
 third_party/
-  tomlplusplus/   TOML parser (vendored)
   wuffs/          Raster image decoding (vendored)
-  stb/            Image resizing (vendored)
-  nlohmann/       JSON parser (vendored, header-only)
   dr_wav/         WAV decoder (vendored)
   fzy/            Fuzzy matching (vendored)
   luau/           Plugin scripting runtime (vendored)

@@ -59,7 +59,6 @@ private:
   int m_selectedMonth = -1;
   int m_selectedDay = -1;
   int m_monthOffset = 0;
-  float m_scrollAccum = 0.0f;
   float m_lastInnerWidth = -1.0f;
   float m_lastInnerHeight = -1.0f;
   int m_lastDisplayYear = std::numeric_limits<int>::min();
@@ -72,4 +71,5 @@ private:
   bool m_startMonthSlideIn = false;
   AnimationManager::Id m_monthSlideAnimId = 0;
   bool m_showEventsCard = true;
+  bool m_showWeekNumbers = false;
 };

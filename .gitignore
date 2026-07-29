@@ -6,9 +6,6 @@ compile_commands.json
 # Python cache
 __pycache__
 
-# Compiled binary
-noctalia
-
 # Editor / IDE
 .vscode/
 .idea/

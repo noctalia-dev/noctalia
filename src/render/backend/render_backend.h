@@ -2,6 +2,7 @@
 
 #include "render/core/color.h"
 #include "render/core/mat3.h"
+#include "render/core/render_styles.h"
 #include "render/core/texture_handle.h"
 
 #include <cstdint>
@@ -12,14 +13,6 @@ class GlSharedContext;
 class RenderTarget;
 class TextureManager;
 struct wl_surface;
-struct AudioSpectrumStyle;
-struct EffectStyle;
-struct FancyAudioVisualizerStyle;
-struct GraphStyle;
-struct RoundedRectStyle;
-struct ScreenCornerStyle;
-struct SpinnerStyle;
-struct CountdownRingStyle;
 struct WallpaperDrawParams;
 
 class RenderFramebuffer {
@@ -30,6 +23,7 @@ public:
   [[nodiscard]] virtual TextureId colorTexture() const noexcept = 0;
   [[nodiscard]] virtual std::uint32_t width() const noexcept = 0;
   [[nodiscard]] virtual std::uint32_t height() const noexcept = 0;
+  virtual void abandon() noexcept = 0;
 };
 
 enum class RenderGraphicsResetStatus {
@@ -70,6 +64,7 @@ struct RenderImageDraw {
   float textureWidth = 0.0f;
   float textureHeight = 0.0f;
   Mat3 transform = Mat3::identity();
+  ImageScrim scrim{};
 };
 
 struct RenderGlyphDraw {
@@ -123,6 +118,8 @@ public:
   virtual void endFrame(RenderTarget& target) = 0;
   [[nodiscard]] virtual RenderGraphicsResetStatus graphicsResetStatus() = 0;
   virtual void invalidateGpuResources() = 0;
+  // Tear down a lost context without attempting to preserve its invalid GL objects.
+  virtual void abandonAfterGraphicsReset() noexcept = 0;
 
   [[nodiscard]] virtual std::unique_ptr<RenderSurfaceTarget> createSurfaceTarget(wl_surface* surface) = 0;
   [[nodiscard]] virtual std::unique_ptr<RenderFramebuffer>

@@ -228,7 +228,9 @@ void GlesRenderBackend::initialize(GlSharedContext& shared) {
   }
 
   // Make context current (surfaceless) so GL resources can be created eagerly.
-  makeCurrentNoSurface();
+  if (!makeCurrentNoSurface()) {
+    throw std::runtime_error("new render context could not be made current");
+  }
 
   if (!g_backendInfoLogged) {
     kLog.info(
@@ -245,11 +247,22 @@ void GlesRenderBackend::initialize(GlSharedContext& shared) {
   }
 
   resolveGraphicsResetStatusProc();
+  m_viewportValid = false;
+  m_blendMode.reset();
+  m_scissorEnabled = false;
+  m_scissorValid = false;
 }
 
 bool GlesRenderBackend::makeCurrentNoSurface() {
   if (m_display == EGL_NO_DISPLAY || m_context == EGL_NO_CONTEXT) {
     return false;
+  }
+
+  // Texture work requested while rendering can use the context's current draw
+  // surface. Rebinding it surfacelessly here would detach that surface before
+  // the frame's trailing eglSwapBuffers.
+  if (eglGetCurrentDisplay() == m_display && eglGetCurrentContext() == m_context) {
+    return true;
   }
 
   if (eglMakeCurrent(m_display, EGL_NO_SURFACE, EGL_NO_SURFACE, m_context) != EGL_TRUE) {
@@ -263,6 +276,13 @@ bool GlesRenderBackend::makeCurrentNoSurface() {
 
 bool GlesRenderBackend::makeCurrent(RenderTarget& target) {
   auto& surface = glesSurfaceTarget(target);
+  if (eglGetCurrentDisplay() == m_display
+      && eglGetCurrentContext() == m_context
+      && eglGetCurrentSurface(EGL_DRAW) == surface.eglSurface()
+      && eglGetCurrentSurface(EGL_READ) == surface.eglSurface()) {
+    return true;
+  }
+
   const auto start = std::chrono::steady_clock::now();
   if (eglMakeCurrent(m_display, surface.eglSurface(), surface.eglSurface(), m_context) != EGL_TRUE) {
     // Same teardown hazard as endFrame's swap: the surface can be invalidated by
@@ -350,6 +370,27 @@ void GlesRenderBackend::invalidateGpuResources() {
   destroyGpuObjects();
 }
 
+void GlesRenderBackend::abandonAfterGraphicsReset() noexcept {
+  // Every object in the dead share group is already invalid, and by the time the second
+  // backend gets here the first one has left no context current. Forget the GL names
+  // instead of issuing deletes that would run with no context bound.
+  m_textureManager.abandonGpuResources();
+  abandonGpuObjects();
+
+  if (m_display != EGL_NO_DISPLAY) {
+    eglMakeCurrent(m_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+  }
+  if (m_context != EGL_NO_CONTEXT && m_display != EGL_NO_DISPLAY) {
+    eglDestroyContext(m_display, m_context);
+  }
+
+  m_display = EGL_NO_DISPLAY;
+  m_config = nullptr;
+  m_context = EGL_NO_CONTEXT;
+  m_graphicsResetStatus = nullptr;
+  m_maxTextureSize = 0;
+}
+
 std::unique_ptr<RenderSurfaceTarget> GlesRenderBackend::createSurfaceTarget(wl_surface* surface) {
   return std::make_unique<GlesSurfaceTarget>(m_display, m_config, surface);
 }
@@ -373,7 +414,13 @@ void GlesRenderBackend::bindFramebuffer(const RenderFramebuffer& framebuffer) {
 void GlesRenderBackend::bindDefaultFramebuffer() { GlesFramebuffer::bindDefault(); }
 
 void GlesRenderBackend::setViewport(std::uint32_t width, std::uint32_t height) {
+  if (m_viewportValid && m_viewportWidth == width && m_viewportHeight == height) {
+    return;
+  }
   glViewport(0, 0, static_cast<GLint>(width), static_cast<GLint>(height));
+  m_viewportWidth = width;
+  m_viewportHeight = height;
+  m_viewportValid = true;
 }
 
 void GlesRenderBackend::clear(Color color) {
@@ -382,6 +429,9 @@ void GlesRenderBackend::clear(Color color) {
 }
 
 void GlesRenderBackend::setBlendMode(RenderBlendMode mode) {
+  if (m_blendMode == mode) {
+    return;
+  }
   switch (mode) {
   case RenderBlendMode::Disabled:
     glDisable(GL_BLEND);
@@ -395,6 +445,7 @@ void GlesRenderBackend::setBlendMode(RenderBlendMode mode) {
     glBlendFuncSeparate(GL_ONE, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     break;
   }
+  m_blendMode = mode;
 }
 
 int GlesRenderBackend::maxTextureSize() {
@@ -423,14 +474,31 @@ void GlesRenderBackend::drawFullscreenQuad(const ShaderProgram& program) {
 }
 
 void GlesRenderBackend::setScissor(RenderScissor scissor) {
-  glEnable(GL_SCISSOR_TEST);
-  glScissor(
-      static_cast<GLint>(scissor.x), static_cast<GLint>(scissor.y), static_cast<GLsizei>(scissor.width),
-      static_cast<GLsizei>(scissor.height)
-  );
+  if (!m_scissorEnabled) {
+    glEnable(GL_SCISSOR_TEST);
+    m_scissorEnabled = true;
+  }
+  if (!m_scissorValid
+      || m_scissor.x != scissor.x
+      || m_scissor.y != scissor.y
+      || m_scissor.width != scissor.width
+      || m_scissor.height != scissor.height) {
+    glScissor(
+        static_cast<GLint>(scissor.x), static_cast<GLint>(scissor.y), static_cast<GLsizei>(scissor.width),
+        static_cast<GLsizei>(scissor.height)
+    );
+    m_scissor = scissor;
+    m_scissorValid = true;
+  }
 }
 
-void GlesRenderBackend::disableScissor() { glDisable(GL_SCISSOR_TEST); }
+void GlesRenderBackend::disableScissor() {
+  if (!m_scissorEnabled) {
+    return;
+  }
+  glDisable(GL_SCISSOR_TEST);
+  m_scissorEnabled = false;
+}
 
 void GlesRenderBackend::drawRect(
     float surfaceWidth, float surfaceHeight, float width, float height, const RoundedRectStyle& style,
@@ -445,7 +513,7 @@ void GlesRenderBackend::drawImage(const RenderImageDraw& draw) {
   m_imageProgram.draw(
       draw.texture, draw.surfaceWidth, draw.surfaceHeight, draw.width, draw.height, draw.tint, draw.monochromeTint,
       draw.alphaMaskTint, draw.opacity, draw.radius, draw.borderColor, draw.borderWidth, static_cast<int>(draw.fitMode),
-      draw.textureWidth, draw.textureHeight, draw.transform
+      draw.textureWidth, draw.textureHeight, draw.transform, draw.scrim
   );
 }
 
@@ -615,6 +683,23 @@ void GlesRenderBackend::destroyGpuObjects() {
   m_fullscreenTextureProgram.destroy();
   m_fullscreenTintProgram.destroy();
   m_textureManager.cleanup();
+}
+
+void GlesRenderBackend::abandonGpuObjects() noexcept {
+  m_rectProgram.abandon();
+  m_imageProgram.abandon();
+  m_glyphProgram.abandon();
+  m_spinnerProgram.abandon();
+  m_countdownRingProgram.abandon();
+  m_screenCornerProgram.abandon();
+  m_audioSpectrumProgram.abandon();
+  m_fancyAudioVisualizerProgram.abandon();
+  m_effectProgram.abandon();
+  m_graphProgram.abandon();
+  m_wallpaperProgram.abandon();
+  m_blurProgram.abandon();
+  m_fullscreenTextureProgram.abandon();
+  m_fullscreenTintProgram.abandon();
 }
 
 void GlesRenderBackend::cleanup() {

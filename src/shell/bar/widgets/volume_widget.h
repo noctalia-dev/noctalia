@@ -5,8 +5,8 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 
-struct Config;
 class EasyEffectsService;
 class Glyph;
 class Image;
@@ -22,9 +22,9 @@ enum class VolumeWidgetTarget {
 class VolumeWidget : public Widget {
 public:
   VolumeWidget(
-      PipeWireService* audio, EasyEffectsService* easyEffects, const Config* config, wl_output* output, bool showLabel,
-      VolumeWidgetTarget target, int scrollStepPercent, ColorSpec muteColor, std::string glyphOverride,
-      std::string muteGlyphOverride, WidgetCustomImage customImage = {}
+      PipeWireService* audio, EasyEffectsService* easyEffects, wl_output* output, bool showLabel,
+      VolumeWidgetTarget target, ColorSpec muteColor, std::string glyphOverride, std::string muteGlyphOverride,
+      std::unordered_map<std::string, std::string> effectsProfileGlyphs, WidgetCustomImage customImage = {}
   );
 
   void create() override;
@@ -33,17 +33,16 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void syncState(Renderer& renderer);
-  [[nodiscard]] std::string glyphName(float volume, bool muted) const;
+  [[nodiscard]] std::string glyphName(float volume, bool muted, const std::string& effectsProfile = {}) const;
 
   PipeWireService* m_audio = nullptr;
   EasyEffectsService* m_easyEffects = nullptr;
-  const Config* m_config = nullptr;
   bool m_showLabel = true;
-  float m_scrollStep = 0.05f;
   VolumeWidgetTarget m_target = VolumeWidgetTarget::Output;
   ColorSpec m_muteColor;
   std::string m_glyphOverride;
   std::string m_muteGlyphOverride;
+  std::unordered_map<std::string, std::string> m_effectsProfileGlyphs;
   WidgetCustomImage m_customImage;
   Glyph* m_glyph = nullptr;
   Image* m_image = nullptr;

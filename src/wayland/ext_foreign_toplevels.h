@@ -25,6 +25,7 @@ public:
   [[nodiscard]] std::vector<std::string> allAppIds() const;
   [[nodiscard]] std::vector<ToplevelInfo>
   windowsForApp(const std::string& idLower, const std::string& wmClassLower) const;
+  [[nodiscard]] std::vector<ToplevelInfo> windowsWithoutAppId() const;
 
   template <typename Fn> void visitExtHandles(Fn&& fn) const {
     for (const auto& [handle, _] : m_handles) {

@@ -22,6 +22,7 @@ public:
 
   bool setBool(std::string_view owner, std::string_view key, bool value);
   bool setString(std::string_view owner, std::string_view key, std::string_view value);
+  bool clearOwner(std::string_view owner);
 
 private:
   [[nodiscard]] bool write();

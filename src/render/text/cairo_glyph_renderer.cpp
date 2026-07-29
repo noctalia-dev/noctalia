@@ -122,6 +122,12 @@ void CairoGlyphRenderer::invalidateGlyphTextures() {
   m_cacheBytes = 0;
 }
 
+void CairoGlyphRenderer::abandonGlyphTextures() noexcept {
+  m_cache.clear();
+  m_lru.clear();
+  m_cacheBytes = 0;
+}
+
 void CairoGlyphRenderer::cleanup() {
   for (auto& [key, entry] : m_cache) {
     if (m_textureManager != nullptr) {

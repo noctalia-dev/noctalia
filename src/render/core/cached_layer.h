@@ -33,6 +33,7 @@ public:
   [[nodiscard]] bool valid() const noexcept { return m_framebuffer != nullptr && m_framebuffer->valid(); }
 
   void destroy();
+  void abandon() noexcept;
 
 private:
   RenderBackend* m_backend = nullptr;

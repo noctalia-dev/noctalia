@@ -2,6 +2,7 @@
 
 #include "compositors/compositor_platform.h"
 #include "config/config_service.h"
+#include "core/log.h"
 #include "i18n/i18n.h"
 #include "system/desktop_entry_launch.h"
 #include "util/fuzzy_match.h"
@@ -16,6 +17,7 @@
 
 namespace {
 
+  constexpr Logger kLog("app-provider");
   constexpr std::size_t kMaxSearchResults = 50;
   constexpr std::string_view kDefaultAppIcon = "application-x-executable";
 
@@ -225,6 +227,10 @@ bool AppProvider::activate(const LauncherResult& result) {
         }
       }
       if (chosen == nullptr || chosen->exec.empty()) {
+        kLog.warn(
+            "launcher activate: missing desktop action '{}' for '{}'", result.desktopActionId,
+            entry.id.empty() ? entry.path : entry.id
+        );
         return false;
       }
     }
@@ -237,12 +243,29 @@ bool AppProvider::activate(const LauncherResult& result) {
         .activationToken = std::move(token),
         .runAsSystemdService = m_config->config().shell.launchAppsAsSystemdServices,
         .customCommand = m_config->config().shell.launchAppsCustomCommand,
+        .dbusActivatable = entry.dbusActivatable,
+        .dbusAppId = entry.id,
     };
 
-    if (chosen != nullptr) {
-      return desktop_entry_launch::launchAction(*chosen, entry.id, entry.workingDir, entry.terminal, launchOptions);
+    if (m_platform != nullptr) {
+      wl_output* launchOutput = nullptr;
+      if (wl_surface* pointerSurface = m_platform->lastPointerSurface(); pointerSurface != nullptr) {
+        launchOutput = m_platform->outputForSurface(pointerSurface);
+      }
+      if (launchOutput == nullptr) {
+        launchOutput = m_platform->preferredInteractiveOutput();
+      }
+      m_platform->prepareAppLaunchOnOutput(launchOutput);
     }
-    return desktop_entry_launch::launchEntry(entry, launchOptions);
+
+    const bool launched = chosen != nullptr
+        ? desktop_entry_launch::launchAction(*chosen, entry.id, entry.workingDir, entry.terminal, launchOptions)
+        : desktop_entry_launch::launchEntry(entry, launchOptions);
+    if (!launched) {
+      kLog.warn("launcher activate: failed to launch '{}'", entry.id.empty() ? entry.path : entry.id);
+    }
+    return launched;
   }
+  kLog.warn("launcher activate: no desktop entry for '{}'", result.id);
   return false;
 }

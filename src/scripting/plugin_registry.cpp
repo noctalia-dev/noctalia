@@ -1,8 +1,7 @@
 #include "scripting/plugin_registry.h"
 
-#include "core/build_info.h"
 #include "core/log.h"
-#include "core/version.h"
+#include "scripting/plugin_api.h"
 #include "util/file_utils.h"
 
 #include <algorithm>
@@ -85,10 +84,10 @@ namespace scripting {
       if (m_enabledFilter.has_value() && !m_enabledFilter->contains(manifest->id)) {
         continue; // discovered but not enabled
       }
-      if (!noctalia::version::atLeast(noctalia::build_info::version(), manifest->minNoctalia)) {
+      if (!supportsPluginApiVersion(manifest->pluginApiVersion)) {
         kLog.warn(
-            "ignoring plugin '{}' at {}: requires noctalia >= {} (running {})", manifest->id, sub.path().string(),
-            manifest->minNoctalia, noctalia::build_info::version()
+            "ignoring plugin '{}' at {}: targets plugin API {}; supported range is {}-{}", manifest->id,
+            sub.path().string(), manifest->pluginApiVersion, kOldestSupportedPluginApiVersion, kCurrentPluginApiVersion
         );
         continue;
       }

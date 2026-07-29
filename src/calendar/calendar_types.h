@@ -21,3 +21,10 @@ struct CalendarSnapshot {
   bool valid = false; // true once at least one successful sync has populated events
   std::vector<CalendarEvent> events;
 };
+
+struct CalendarSource {
+  std::string id;
+  std::string name;
+
+  bool operator==(const CalendarSource&) const = default;
+};

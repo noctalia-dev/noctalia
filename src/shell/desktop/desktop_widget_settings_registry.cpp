@@ -28,6 +28,7 @@ namespace desktop_settings {
         {.type = "media_player", .labelKey = "desktop-widgets.editor.types.media-player"},
         {.type = "sticker", .labelKey = "desktop-widgets.editor.types.sticker"},
         {.type = "sysmon", .labelKey = "desktop-widgets.editor.types.system-monitor"},
+        {.type = "volume", .labelKey = "desktop-widgets.editor.types.volume"},
         {.type = "weather", .labelKey = "desktop-widgets.editor.types.weather"},
     };
 
@@ -112,12 +113,14 @@ namespace desktop_settings {
     }
 
     // Resolve "author/plugin:entry" to its [[desktop_widget]] entry, or nullopt.
-    std::optional<scripting::ResolvedPluginEntry> resolvePluginDesktopWidget(std::string_view type) {
+    std::optional<scripting::ResolvedPluginEntry>
+    resolvePluginDesktopWidget(std::string_view type, scripting::PluginRegistry* pluginRegistry = nullptr) {
       if (!type.contains('/')) {
         return std::nullopt;
       }
-      scripting::PluginRegistry::instance().ensureScanned();
-      auto entry = scripting::PluginRegistry::instance().resolve(type);
+      auto& registry = pluginRegistry != nullptr ? *pluginRegistry : scripting::PluginRegistry::instance();
+      registry.ensureScanned();
+      auto entry = registry.resolve(type);
       if (entry.has_value() && entry->entry->kind == scripting::PluginEntryKind::DesktopWidget) {
         return entry;
       }
@@ -251,6 +254,10 @@ namespace desktop_settings {
       auto centerText = boolSpec("center_text", false);
       centerText.visibleWhen = digitalOnly;
       add(std::move(centerText));
+      auto timezone = stringSpec("timezone", "");
+      timezone.labelKey = "settings.widgets.settings.timezone.label";
+      timezone.descriptionKey = "settings.widgets.settings.timezone.description";
+      add(std::move(timezone));
       add(colorSpec("color", "on_surface"));
       add(fontFamilySpec());
       // Shadow is a text shadow on the digital label; analog mode has no shadow.
@@ -409,22 +416,55 @@ namespace desktop_settings {
         add(std::move(minW));
       }
       add(boolSpec("shadow", true));
+    } else if (type == "volume") {
+      add(segmentedSpec(
+          "device", "output",
+          {{"output", "settings.widgets.options.output"}, {"input", "settings.widgets.options.input"}}
+      ));
+      add(glyphSpec("glyph", ""));
+      add(colorSpec("fill_color", "primary"));
+      add(colorSpec("track_color", "on_surface_variant"));
+      add(boolSpec("show_device", true));
+      add(stepperIntSpec("scroll_step", 5, 1.0, 25.0, 1.0));
+      add(fontFamilySpec());
+      add(boolSpec("shadow", true));
     } else if (type == "login_box") {
+      add(segmentedSpec(
+          "layout", "regular",
+          {{"compact", "settings.widgets.options.compact"}, {"regular", "settings.widgets.options.regular"}}
+      ));
+      const WidgetSettingVisibility regularOnly{"layout", {"regular"}};
+      auto showSessionButtons = boolSpec("show_session_buttons", true);
+      showSessionButtons.visibleWhen = regularOnly;
+      add(std::move(showSessionButtons));
+      auto showMedia = boolSpec("show_media", true);
+      showMedia.visibleWhen = regularOnly;
+      add(std::move(showMedia));
+      auto showWeather = boolSpec("show_weather", true);
+      showWeather.visibleWhen = regularOnly;
+      add(std::move(showWeather));
       add(boolSpec("show_login_button", true));
-      add(boolSpec("show_password_hint", true));
       add(boolSpec("show_caps_lock", true));
       add(boolSpec("show_keyboard_layout", true));
       add(doubleSpec("input_opacity", 1.0, 0.0, 1.0, 0.01));
       add(intSpec("input_radius", 6.0, 0.0, 32.0, 1.0));
+      add(boolSpec("center_password_text", false));
     }
 
     return specs;
   }
 
-  noctalia::config::schema::WidgetSettingSchema desktopWidgetSettingSchema(std::string_view type) {
+  noctalia::config::schema::WidgetSettingSchema
+  desktopWidgetSettingSchema(std::string_view type, scripting::PluginRegistry* pluginRegistry) {
     noctalia::config::schema::WidgetSettingSchema out;
-    for (const auto& spec : desktopWidgetSettingSpecs(type)) {
-      out.push_back(spec.schema);
+    if (auto pluginEntry = resolvePluginDesktopWidget(type, pluginRegistry)) {
+      for (const auto& spec : settings::manifestSettingSpecs(pluginEntry->entry->settings)) {
+        out.push_back(spec.schema);
+      }
+    } else {
+      for (const auto& spec : desktopWidgetSettingSpecs(type)) {
+        out.push_back(spec.schema);
+      }
     }
     for (const auto& spec : commonDesktopWidgetSettingSpecs(type)) {
       out.push_back(spec.schema);

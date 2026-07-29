@@ -1345,11 +1345,23 @@ void Surface::processQueuedFrameWork() {
 void Surface::queueRenderIfNeeded() {
   const bool invalidated = m_sceneRoot != nullptr && (m_sceneRoot->paintDirty() || m_sceneRoot->layoutDirty());
   const bool animating = m_animationManager != nullptr && m_animationManager->hasActive();
-  if (animating) {
-    m_nextFrameCallbackShouldTick = true;
-  }
-  if (m_redrawRequested || invalidated || animating) {
+  if (m_redrawRequested || invalidated) {
     queueRender();
+  } else if (animating) {
+    continueAnimationFrameLoop();
+  }
+}
+
+void Surface::continueAnimationFrameLoop() {
+  if (m_surface == nullptr || m_frameCallback != nullptr) {
+    return;
+  }
+
+  // A frame callback becomes active on commit. With no changed pixels, commit
+  // only the callback state and retain the current buffer instead of repainting it.
+  requestFrame();
+  if (m_frameCallback != nullptr) {
+    wl_surface_commit(m_surface);
   }
 }
 
@@ -1380,8 +1392,7 @@ void Surface::renderQueuedFrame() {
 
   preparePendingFrame();
   const bool invalidated = m_sceneRoot != nullptr && (m_sceneRoot->paintDirty() || m_sceneRoot->layoutDirty());
-  const bool animating = m_animationManager != nullptr && m_animationManager->hasActive();
-  if (m_redrawRequested || invalidated || animating) {
+  if (m_redrawRequested || invalidated) {
     render();
   }
 }

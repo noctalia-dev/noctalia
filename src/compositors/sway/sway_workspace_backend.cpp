@@ -23,8 +23,8 @@ namespace {
   constexpr std::uint32_t kIpcGetWorkspaces = 1;
   constexpr std::uint32_t kIpcSubscribe = 2;
   constexpr std::uint32_t kIpcGetTree = 4;
-  constexpr std::uint32_t kIpcWorkspaceEvent = 0x80000000u;
-  constexpr std::uint32_t kIpcWindowEvent = 0x80000003u;
+  constexpr std::uint32_t kIpcWorkspaceEvent = 0x80000000U;
+  constexpr std::uint32_t kIpcWindowEvent = 0x80000003U;
 
   std::string jsonStringValue(const nlohmann::json& object, std::string_view key) {
     const auto it = object.find(key);
@@ -185,7 +185,7 @@ namespace {
       y = rectIt->value("y", 0);
     }
 
-    if (isLeaf && !workspaceName.empty() && !workspaceKey.empty() && !appId.empty()) {
+    if (isLeaf && !workspaceName.empty() && !workspaceKey.empty() && (!appId.empty() || !windowId.empty())) {
       windows.push_back(
           WorkspaceWindow{
               .windowId = windowId,

@@ -18,6 +18,7 @@ public:
 
   void ensureInitialized();
   void destroy();
+  void abandon() noexcept;
 
   void draw(
       TextureId audioTexture, float surfaceWidth, float surfaceHeight, float width, float height,

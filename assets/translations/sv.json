@@ -1,0 +1,871 @@
+{
+  "auth": {
+    "fingerprint": {
+      "disconnected": "Fingeravtrycksläsare bortkopplad",
+      "error": "Fel med fingeravtrycksautentisering",
+      "no-match": "Fingeravtrycket matchar inte",
+      "not-centered": "Centrera ditt finger och försök igen",
+      "present": "Läser fingeravtryck...",
+      "ready": "Placera fingret på läsaren",
+      "remove-and-retry": "Lyft fingret och försök igen",
+      "retry": "Vänligen skanna ditt fingeravtryck igen",
+      "swipe-too-short": "Svep var för kort, försök igen",
+      "too-many-attempts": "Fingeravtryck avstängt (för många försök)"
+    },
+    "pam": {
+      "authentication-failed": "Autentisering misslyckades",
+      "start-failed": "PAM misslyckades att starta",
+      "user-unavailable": "Kunde inte hitta nuvarande användare"
+    },
+    "polkit": {
+      "authenticate": "Autentisera",
+      "authenticating": "Autentiserar...",
+      "default-message": "Autentisering krävs",
+      "invalid-password": "Ogiltigt lösenord",
+      "password-placeholder": "Lösenord",
+      "title": "Autentisering krävs"
+    }
+  },
+  "bar": {
+    "screenshot": {
+      "choose-display": "Välj skärm",
+      "confirm-region": "Ta bild med Retur eller Mellanslag · Avbryt med Esc · Välj nytt område med musen",
+      "fullscreen": "Fullskärm",
+      "overlay-alloc-failed": "Kunde inte visa skärmbildsverktyget (GPU slut på minne?)",
+      "region": "Välj område"
+    },
+    "widgets": {
+      "active-window": {
+        "no-active-window": "Inget aktivt fönster"
+      },
+      "bluetooth": {
+        "connected": "Ansluten"
+      },
+      "brightness": {
+        "brightness": "Ljusstyrka",
+        "display": "Skärm"
+      },
+      "lock-keys": {
+        "caps": "Caps",
+        "caps-short": "C",
+        "num": "Num",
+        "num-short": "N",
+        "scroll": "Skroll",
+        "scroll-short": "S"
+      },
+      "media": {
+        "nothing-playing": "Inget spelas",
+        "playing": "Spelar"
+      },
+      "network": {
+        "active": "Aktiv",
+        "connected": "Ansluten",
+        "connecting": "Ansluter",
+        "download": "Nedladdning",
+        "interface": "Nätverkskort",
+        "ip": "IP",
+        "network": "Nätverk",
+        "networks": "Nätverk",
+        "networks-count": "{count} nätverk",
+        "networks-count-plural": "{count} nätverk",
+        "no": "Nej",
+        "not-connected": "Inte ansluten",
+        "off": "Av",
+        "on": "På",
+        "scanning": "Skannar",
+        "signal": "Signal",
+        "upload": "Uppladdning",
+        "vpn": "VPN",
+        "wan-ip": "WAN IP",
+        "wifi": "Wi-Fi",
+        "wired": "Trådad",
+        "yes": "Ja"
+      },
+      "privacy": {
+        "camera": "Kamera",
+        "microphone": "Mikrofon",
+        "screen-sharing": "Skärmdelning"
+      },
+      "scripted": {
+        "reload-failed": "Misslyckades ladda om skript",
+        "reloaded": "Skript laddades om"
+      },
+      "sysmon": {
+        "cpu": "CPU",
+        "cpu-temp": "CPU temp",
+        "download": "Nedladdning",
+        "gpu-temp": "GPU temp",
+        "gpu-usage": "GPU anv",
+        "gpu-vram": "GPU VRAM",
+        "ram": "RAM",
+        "swap": "Swap",
+        "system": "System",
+        "upload": "Uppladdning"
+      },
+      "volume": {
+        "device": "Enhet",
+        "mic": "Mick",
+        "volume": "Volym"
+      },
+      "weather": {
+        "default": "Väder",
+        "error": "Väder fel",
+        "loading": "Väder...",
+        "no-location": "Ingen plats",
+        "off": "Väder av"
+      }
+    }
+  },
+  "clipboard": {
+    "actions": {
+      "clear-all": "Rensa allt",
+      "delete-item": "Ta bort urklipp",
+      "keep-pinned": "Behåll fästa urklipp"
+    },
+    "confirm": {
+      "clear-desc": "Välj om fästa urklipp borde behållas.",
+      "clear-desc-all-pinned": "Alla urklipp är fästa. Rensa för att ta bort allt.",
+      "clear-desc-no-pinned": "Detta tar bort allt från urklippshistoriken.",
+      "clear-title": "Rensa urklippshistoriken?",
+      "delete-desc": "Detta tar bort det valda urklippet från historiken.",
+      "delete-title": "Ta bort detta urklipp?"
+    },
+    "empty": {
+      "history-message": "Ingenting i urklippshistoriken.",
+      "history-title": "Urklippshistoriken är tom.",
+      "no-matches-message": "Ingenting matchar det valda filtret.",
+      "no-matches-title": "Inga matchande urklipp"
+    },
+    "entry": {
+      "image": "Bild",
+      "title": "Urklipp"
+    },
+    "filter-placeholder": "Filtrera urklipp...",
+    "preview": {
+      "empty-text-payload": "(tomt textinnehåll)",
+      "image-title": "Bildurklipp",
+      "loading": "Laddar förhandsgranskning...",
+      "text-title": "Texturklipp",
+      "truncated": "... avkortad"
+    },
+    "title": "Urklipp"
+  },
+  "common": {
+    "actions": {
+      "apply": "Applicera",
+      "cancel": "Avbryt"
+    },
+    "states": {
+      "auto": "Auto",
+      "custom": "Anpassad",
+      "inherit": "Ärv",
+      "off": "Av"
+    }
+  },
+  "control-center": {
+    "audio": {
+      "application-volumes": "Programvolymer",
+      "choose-effects-profile": "Välj en profil",
+      "effects-profile": "Effekter",
+      "input-device-prefix": "Inspelning",
+      "no-application-audio": "Inget programljud",
+      "no-application-audio-body": "Inga program spelar ljud just nu.",
+      "no-input-devices": "Inga enheter för ljudinspelning",
+      "no-input-devices-body": "Inga inspelningskällor finns tillgängliga just nu.",
+      "no-input-selected": "Ingen enhet för ljudinspelning vald",
+      "no-output-devices": "Inga enheter för ljuduppspelning",
+      "no-output-devices-body": "Inga ljudkällor finns tillgängliga just nu.",
+      "no-output-selected": "Ingen enhet för ljuduppspelning vald",
+      "output-device-prefix": "Uppspelning",
+      "unavailable-body": "PipeWire är inte aktivt.",
+      "unavailable-title": "Ljud otillgängligt"
+    },
+    "bluetooth": {
+      "accept": "Acceptera",
+      "address": "Adress",
+      "auto-reconnect": "Autoanslut",
+      "bluetooth": "Bluetooth",
+      "enter-code": "Mata in kod",
+      "no-devices": "Inga enheter hittades. Börja skanna för att upptäcka Bluetooth-enheter i närheten.",
+      "off": "Bluetooth är avstängt",
+      "pair-title": "Para {device}",
+      "pairing-detail": {
+        "authorize": "Acceptera inkommande parningsförfrågan?",
+        "authorize-service": "Ge tillgång till tjänsten {uuid}?",
+        "confirm": "Bekräfta att denna kod stämmer överens med den som visas på enheten:",
+        "display-passkey": "Mata in denna kod på enheten:",
+        "display-pin": "Mata in denna pinkod på enheten:",
+        "passkey": "Mata in lösenordet som visas på enheten:",
+        "pin-code": "Mata in pinkoden som visas på enheten:"
+      },
+      "reject": "Avvisa",
+      "rfkill-blocked": "Bluetooth är blockerat av systemet. Sätt på det för att ta bort blockeringen.",
+      "sections": {
+        "available": "Tillgänglig",
+        "connected": "Ansluten",
+        "paired": "Parad"
+      },
+      "unavailable": "Bluetoothtjänst otillgänglig",
+      "unknown-device": "Okänd enhet",
+      "visible": "Upptäckbar av enheter i närheten"
+    },
+    "calendar": {
+      "all-day": "Hela dagen",
+      "events": "Händelser",
+      "no-events": "Inga händelser.",
+      "today": "Idag",
+      "toggle-events-card": "Visa/göm händelsekortet"
+    },
+    "display": {
+      "disabled": "Inaktiverad",
+      "no-displays": "Inga skärmar tillgängliga",
+      "unknown-resolution": "Okänd upplösning"
+    },
+    "home": {
+      "avatar-error-title": "Avatar inte uppladdad",
+      "media": {
+        "idle": "Inaktiv",
+        "no-active-player": "Ingen aktiv spelare",
+        "nothing-playing": "Inget spelas",
+        "paused": "Pausad",
+        "playback-unavailable": "Uppspelning otillgängilg",
+        "playing": "Spelar",
+        "unavailable": "Otillgänglig",
+        "unknown-artist": "Okänd artist",
+        "unknown-track": "Okänd låt"
+      },
+      "select-avatar": "Välj avatar",
+      "unknown": "okänd",
+      "uptime": "Drifttid - {uptime}",
+      "weather": {
+        "data-unavailable": "Väderdata otillgängligt.",
+        "disabled": "Väder är avstängt i inställningarna.",
+        "fetching": "Hämtar prognos..."
+      }
+    },
+    "media": {
+      "active-player": "Aktiv spelare",
+      "nothing-playing": "Inget spelas",
+      "now-playing": "Nu spelas",
+      "start-playback": "Starta uppspelning i en MPRIS-app"
+    },
+    "network": {
+      "connect": "Anslut",
+      "current-connection": "Nuvarande anslutning",
+      "external-ip": "WAN {ip}",
+      "no-networks": "Inga nätverk inom räckvidd",
+      "not-connected": "Inte ansluten",
+      "password": "Lösenord",
+      "password-prompt": "Mata in lösenord",
+      "password-prompt-for": "Mata in lösenord för {ssid}",
+      "unavailable-detail": "Installera och aktivera NetworkManager, wpa_supplicant eller iwd för att hantera nätverk här.",
+      "unavailable-title": "Nätverktjänst otillgänglig",
+      "vpns": "VPN:er",
+      "wi-fi": "Wi-Fi",
+      "wifi": "Wi-Fi",
+      "wifi-off": "Wi-Fi är avstängt",
+      "wifi-on": "Wi-Fi är på",
+      "wired-connection": "Trådad anslutning"
+    },
+    "notifications": {
+      "clear-all": "Rensa alla notiser",
+      "dnd-off": "Stäng av Stör Ej läge",
+      "dnd-on": "Sätt på Stör Ej läge",
+      "empty-body": "Nya notiser kommer visas här.",
+      "empty-title": "Inga notiser",
+      "filter": {
+        "all": "Alla",
+        "older": "Äldre",
+        "today": "Idag",
+        "yesterday": "Igår"
+      },
+      "filter-empty-body": "Inga notiser matchar detta filter.",
+      "filter-empty-title": "Ingenting här",
+      "untitled": "Namnlös notis"
+    },
+    "power": {
+      "battery": "Batteri",
+      "health": "Batterihälsa",
+      "performance-inhibited": "Prestanda otillgänglig",
+      "peripherals": "Anslutna Enheter",
+      "power-profile": "Energiprofil",
+      "time-to-empty": "{time} kvar",
+      "time-to-full": "{time} tills fulladdad",
+      "unknown-device": "Okänd enhet"
+    },
+    "screen-time": {
+      "back": "Tillbaka",
+      "disabled": "Skärmtidsspårning är avstängt. Aktivera det i inställningarna för att hämta användning per program.",
+      "empty": "Ingen programanvändning insamlad än. Fokusera ett fönster för att börja spåra.",
+      "hour-0": "00:00",
+      "hour-12": "12:00",
+      "hour-18": "18:00",
+      "hour-6": "06:00",
+      "most-used": "MEST ANVÄNDA",
+      "range": {
+        "14-days": "14 dagar",
+        "3-days": "3 dagar",
+        "today": "Idag"
+      }
+    },
+    "shortcuts": {
+      "audio": "Ljud",
+      "bluetooth": "Bluetooth",
+      "caffeine": "Koffein",
+      "clipboard": "Urklipp",
+      "dark-mode": {
+        "auto": "Autoläge",
+        "dark": "Mörkt Läge",
+        "light": "Ljust Läge"
+      },
+      "keyboard-layout": "Layout",
+      "media": "Media",
+      "mic-mute": "Mikrofon",
+      "nightlight": "Nattläge",
+      "nightlight-states": {
+        "forced": "Alltid På",
+        "off": "Nattläge",
+        "scheduled-day": "Schemalagd",
+        "scheduled-night": "Kör"
+      },
+      "notification": "Stör ej",
+      "power-profile": "Ström",
+      "screen-time": "Skärmtid",
+      "session": "Session",
+      "system": "System",
+      "wallpaper": "Bakgrundsbild",
+      "weather": "Väder",
+      "wifi": "Wi-Fi"
+    },
+    "system": {
+      "labels": {
+        "load": "CPU anv",
+        "ram": "RAM",
+        "swap": "Swap"
+      },
+      "titles": {
+        "cpu": "CPU",
+        "gpu": "GPU",
+        "memory": "Minne",
+        "network": "Nätverk",
+        "resources": "Resurser",
+        "system": "System"
+      },
+      "tooltips": {
+        "load": "Snitt-belastning senaste 1 / 5 / 15 minuterna"
+      },
+      "unknown": "okänd",
+      "uptime-prefix": "Drift {uptime} · {osAge}"
+    },
+    "tabs": {
+      "audio": "Ljud",
+      "bluetooth": "Bluetooth",
+      "calendar": "Kalender",
+      "home": "Hem",
+      "media": "Media",
+      "monitor": "Skärmar",
+      "network": "Nätverk",
+      "notifications": "Notiser",
+      "power": "Ström",
+      "screen-time": "Skärmtid",
+      "system": "System",
+      "weather": "Väder"
+    },
+    "weather": {
+      "daily": {
+        "tooltip": {
+          "condition": "Väder",
+          "high": "Högst",
+          "low": "Lägst",
+          "sunrise": "Soluppgång",
+          "sunset": "Solnedgång"
+        }
+      },
+      "data-unavailable": "Väderdata otillgänglig",
+      "details": {
+        "elevation": "Altitud",
+        "sunrise": "Soluppgång",
+        "sunset": "Solnedgång",
+        "temp-max": "Högst temperatur",
+        "temp-min": "Lägst temperatur",
+        "timezone": "Tidzon",
+        "uv-index": "UV-index",
+        "wind": "Vind"
+      },
+      "disabled": "Aktivera [weather] i config.toml",
+      "fetching": "Hämtar prognos...",
+      "forecast-placeholder": {
+        "day": "Söndag",
+        "description": "Väder",
+        "temperature": "10 / 4°C"
+      },
+      "forecast-view": {
+        "daily": "Dagar",
+        "hourly": "Timvis"
+      },
+      "hourly": {
+        "summary": "{condition} / Regn {precip}%",
+        "tooltip": {
+          "condition": "Väder",
+          "humidity": "Luftfuktighet",
+          "rain": "Regn",
+          "wind": "Vind"
+        }
+      },
+      "location-unavailable": "Plats otillgänglig",
+      "no-location-body": "Lägg till din adress eller sätt på autoplats i platsinställningarna.",
+      "no-location-title": "Ingen plats vald",
+      "refreshing": "Uppdaterar väder...",
+      "waiting": "Väntar på väderdata"
+    }
+  },
+  "desktop-widgets": {
+    "editor": {
+      "actions": {
+        "add": "Lägg till",
+        "clone": "Duplicera (Ctrl+C, Ctrl+V för att klippa/klistra)",
+        "done": "Klar",
+        "flip-horizontal": "Spegla horisontellt",
+        "flip-vertical": "Spegla vertikalt",
+        "hide": "Dölj",
+        "settings": "Inställningar",
+        "show": "Visa",
+        "stack-back": "Stapla bakom",
+        "stack-front": "Stapla framför",
+        "trash": "Ta bort"
+      },
+      "dialogs": {
+        "select-sticker-image": "Välj bild till klistermärke"
+      },
+      "settings": {
+        "aspect-ratio": "Bildförhållande",
+        "background": "Bakgrund",
+        "background-color": "Färg",
+        "background-opacity": "Opacitet",
+        "background-radius": "Radie",
+        "background-section": "Bakgrund",
+        "center-password-text": "Centrera lösenordstext",
+        "center-text": "Centrera text",
+        "centered": "Centrerad",
+        "change-image": "Byt...",
+        "circle": "Cirkel",
+        "clock-style-analog": "Analog",
+        "clock-style-digital": "Digital",
+        "color": "Färg",
+        "color-1": "Färg 1",
+        "color-2": "Färg 2",
+        "color2": "Färg 2",
+        "command": "Kommando",
+        "custom-color": "Anpassad",
+        "description": "Beskrivning",
+        "device": "Enhet",
+        "display-graph": "Graf",
+        "font-family": "Typsnitt",
+        "font-family-default": "Systemstandard",
+        "forecast-days": "Prognosdagar",
+        "format": "Format",
+        "glyph": "Glyf",
+        "hide-when-no-media": "Göm när media saknas",
+        "highlight-color": "Markeringsfärg",
+        "horizontal": "Horisontal",
+        "image-path": "Bild",
+        "interface": "Gränssnitt",
+        "label": "Etikett",
+        "mirrored": "Speglad",
+        "network-speed-unit-auto": "Automatisk",
+        "network-speed-unit-kilobytes": "kB/s",
+        "network-speed-unit-megabytes": "MB/s",
+        "opacity": "Opacitet",
+        "primary-color": "Primärfärg",
+        "reset-defaults": "Återställ till standardvärden",
+        "ring-opacity": "Ringopacitet",
+        "rotation-speed": "Rotationshastighet",
+        "scroll-step": "Skrollsteg",
+        "secondary-color": "Sekundärfärg",
+        "sensitivity": "Känslighet",
+        "shadow": "Skugga",
+        "show-caps-lock": "Skiftlåsvarning",
+        "show-device": "Visa enhet",
+        "show-forecast": "Visa Prognos",
+        "show-keyboard-layout": "Tangentbordslayout",
+        "show-label": "Visa Etikett",
+        "show-login-button": "Loginknapp",
+        "show-vpn-label": "Visa VPN-etikett",
+        "show-when-idle": "Visa när inaktiv",
+        "stat-cpu-temp": "CPU-temperatur",
+        "stat-cpu-usage": "CPU-användning",
+        "stat-gpu-temp": "GPU-temperatur",
+        "stat-gpu-usage": "GPU-användning",
+        "stat-gpu-vram": "GPU VRAM",
+        "stat-net-rx": "Nät Rx",
+        "stat-net-tx": "Nät Tx",
+        "stat-none": "Ingen",
+        "stat-ram-pct": "RAM %",
+        "stat-swap-pct": "Swap %",
+        "stat2": "Mätvärde 2",
+        "title": "Rubrik",
+        "variant-default": "Standard",
+        "variant-destructive": "Destruktiv",
+        "variant-ghost": "Spöklig",
+        "variant-outline": "Kontur",
+        "variant-primary": "Primärfärg",
+        "variant-secondary": "Sekundärfärg",
+        "vertical": "Vertikal",
+        "visualization-mode": "Läge",
+        "visualization-mode-all": "Alla",
+        "visualization-mode-bars": "Stavar",
+        "visualization-mode-bars-rings": "Stavar + Ringar",
+        "visualization-mode-rings": "Ringar",
+        "visualization-mode-wave": "Våg",
+        "visualization-mode-wave-rings": "Våg + Ringar",
+        "wave-thickness": "Vågtjocklek",
+        "widget-section": "Widget"
+      },
+      "state": {
+        "grid": "Rutnät"
+      },
+      "title": "Skrivbordswidgets",
+      "types": {
+        "audio-visualizer": "Ljudvisualiserare",
+        "button": "Knapp",
+        "clock": "Klocka",
+        "fancy-audio-visualizer": "Fancy ljudvisualiserare",
+        "label": "Etikett",
+        "login-box": "Loginruta",
+        "media-player": "Mediaspelare",
+        "sticker": "Klistermärke",
+        "system-monitor": "Systemövervakare",
+        "volume": "Volym",
+        "weather": "Väder"
+      }
+    },
+    "media": {
+      "nothing-playing": "Inget spelas"
+    },
+    "volume": {
+      "mic": "Mick",
+      "muted": "Tystad",
+      "volume": "Volym"
+    },
+    "weather": {
+      "error": "Fel",
+      "loading": "Laddar...",
+      "no-location": "Ingen plats",
+      "off": "Väder av"
+    }
+  },
+  "dock": {
+    "actions": {
+      "close": "Stäng",
+      "close-all": "Stäng Alla"
+    },
+    "launcher": "Launcher"
+  },
+  "internal-apps": {
+    "settings": {
+      "display-name": "Inställningar"
+    }
+  },
+  "launcher": {
+    "categories": {
+      "all": "Alla",
+      "applications": {
+        "development": "Utveckling",
+        "education": "Utbildning",
+        "games": "Spel",
+        "graphics": "Grafik",
+        "internet": "Internet",
+        "multimedia": "Multimedia",
+        "office": "Kontor",
+        "system": "System",
+        "utilities": "Verktyg"
+      },
+      "emoji": {
+        "activity": "Aktivitet",
+        "animals": "Djur",
+        "flags": "Flaggor",
+        "food": "Mat",
+        "nature": "Natur",
+        "objects": "Föremål",
+        "people": "Folk",
+        "symbols": "Symboler",
+        "travel": "Resa"
+      },
+      "recently-used": "Nyligen använda"
+    },
+    "context-menu": {
+      "open": "Öppna",
+      "pin-to-dock": "Fäst till dock",
+      "unpin-from-dock": "Lossa från dock"
+    },
+    "empty": {
+      "no-results": "Inga resultat hittades",
+      "type-to-search": "Skriv för att söka..."
+    },
+    "providers": {
+      "applications": {
+        "title": "Applikationer"
+      },
+      "calculator": {
+        "title": "Miniräknare"
+      },
+      "emoji": {
+        "title": "Emoji"
+      },
+      "session": {
+        "action-subtitle": "Kör sessionhandling",
+        "command-subtitle": "Kör konfigurerat kommando",
+        "title": "Session"
+      },
+      "wallpaper": {
+        "title": "Bakgrundsbild"
+      },
+      "window": {
+        "title": "Fönster"
+      }
+    },
+    "search-placeholder": "Sök applikationer..."
+  },
+  "location": {
+    "locations": {
+      "current": "Nuvarande plats"
+    },
+    "source": {
+      "address": "Adress",
+      "auto": "Automatisk"
+    }
+  },
+  "lockscreen": {
+    "authenticating": "Autentiserar...",
+    "authentication-failed": "Autentisering misslyckades",
+    "caps-lock-on": "Caps Lock är på",
+    "password-cleared": "Lösenord rensat",
+    "password-placeholder": "Lösenord",
+    "ready": "Mata in ditt lösenord och tryck Retur.",
+    "unlocked": "Upplåst",
+    "waiting": "Väntar på låsbekräftelse..."
+  },
+  "notifications": {
+    "actions": {
+      "fallback": "Handling",
+      "open": "Öppna"
+    },
+    "inline-reply": {
+      "button": "Svara",
+      "placeholder": "Skriv ett svar..."
+    },
+    "internal": {
+      "battery": "Batteri",
+      "battery-critical-body": "{device}: {percent}% – din dator kommer att stängas av snart",
+      "battery-critical-title": "Batterinivå kritiskt låg",
+      "battery-device": "Batterienhet",
+      "battery-low-body": "{device}: {percent}% kvar",
+      "battery-low-title": "Batterinivå låg",
+      "calendar": "Kalender",
+      "calendar-google-connect-expired": "Google auktorisering gick ut innan inloggning blev klart. Påbörja kopplingen på nytt.",
+      "calendar-google-connect-failed-title": "Google Kalender koppling misslyckades",
+      "calendar-google-connect-missing-account": "Inget konfigurerat Google Kalender konto matchar \"{account}\".",
+      "calendar-google-connect-result-failed": "Kunde inte avsluta Google auktorisering. Påbörja kopplingen på nytt.",
+      "greeter-sync": "Noctalia Greeter",
+      "keybind-app": "Noctalia",
+      "launcher-usage-reset": "Launcher",
+      "screen-time-reset": "Skärmtid",
+      "wallpaper-palette-export": "Anpassad färgskala"
+    }
+  },
+  "osd": {
+    "bluetooth": {
+      "off": "Bluetooth av",
+      "on": "Bluetooth på"
+    },
+    "caffeine": {
+      "off": "Koffein av",
+      "on": "Koffein på"
+    },
+    "dnd": {
+      "off": "Stör ej av",
+      "on": "Stör ej på"
+    },
+    "nightlight": {
+      "forced": "Alltid på",
+      "scheduled": "Schemalagd"
+    },
+    "wifi": {
+      "off": "Wi-Fi av",
+      "on": "Wi-Fi på"
+    }
+  },
+  "power": {
+    "battery": {
+      "states": {
+        "battery": "Batteri",
+        "charging": "Laddar",
+        "discharging": "Urladdar",
+        "empty": "Tomt",
+        "plugged-in": "Inkopplad"
+      },
+      "tooltip": {
+        "device": "Batteri",
+        "device-numbered": "Batteri {index}",
+        "health": "Hälsa",
+        "status": "Status",
+        "time-left": "Tid kvar",
+        "time-to-full": "Tid tills fulladdad",
+        "unknown-device": "Okänd enhet"
+      }
+    },
+    "profiles": {
+      "balanced": "Balanserat",
+      "performance": "Prestanda",
+      "power-saver": "Batterisparläge"
+    }
+  },
+  "session": {
+    "actions": {
+      "lock": "Lås",
+      "logout": "Logga ut",
+      "reboot": "Starta om",
+      "shutdown": "Stäng av"
+    },
+    "errors": {
+      "lock-title": "Lås otillgängligt"
+    }
+  },
+  "settings": {
+    "actions": {
+      "reset": "Återställ"
+    },
+    "badges": {
+      "advanced": "Avancerat",
+      "community": "Community",
+      "inherited": "Ärvt",
+      "official": "Officiell"
+    },
+    "calendar-accounts": {
+      "add-title": "Lägg till kalenderkonto",
+      "calendars-label": "Kalendrar",
+      "color-label": "Färg",
+      "delete-error": "Kunde inte ta bort kalenderkonto.",
+      "edit-title": "Ändra kalenderkonto",
+      "provider": {
+        "custom": "CalDAV",
+        "google": "Google",
+        "icloud": "iCloud"
+      },
+      "provider-label": "Leverantör",
+      "save": "Spara",
+      "save-connect": "Spara och anslut"
+    },
+    "entities": {
+      "bar": {
+        "create": "Skapa",
+        "delete": "Ta bort",
+        "delete-confirm-title": "Ta bort \"{name}\"?",
+        "move-down": "Flytta ner",
+        "move-up": "Flytta upp",
+        "rename": "Byt namn",
+        "rename-save": "Spara"
+      },
+      "widget": {
+        "settings": {
+          "groups": {
+            "taskbar": {
+              "grouping": "Gruppering",
+              "windows": "Fönster"
+            }
+          }
+        }
+      }
+    },
+    "navigation": {
+      "groups": {
+        "weather": "Väder"
+      }
+    },
+    "options": {
+      "bar": {
+        "auto-hide": {
+          "off": "Av",
+          "on": "På",
+          "smart": "Smart"
+        }
+      },
+      "control-center": {
+        "sidebar": {
+          "compact": "Kompakt"
+        }
+      },
+      "font-weight": {
+        "bold": "Fet",
+        "light": "Tunn",
+        "medium": "Medium",
+        "regular": "Vanlig"
+      },
+      "weather": {
+        "unit": {
+          "imperial": "Imperiska",
+          "metric": "Metriska"
+        }
+      }
+    },
+    "plugins": {
+      "settings": {
+        "empty": "Inga inställningar tillgängliga."
+      }
+    },
+    "schema": {
+      "appearance": {
+        "animations": {
+          "description": "Sätt på eller stäng av animationer i gränsnittet"
+        },
+        "ui-scale": {
+          "label": "Gränsnittsskala"
+        }
+      },
+      "services": {
+        "calendar-credentials": {
+          "button": "Försök igen",
+          "description-cancelled": "Nyckelhanterarens dialog blev avbruten. Försök igen när du är redo.",
+          "description-error": "Misslyckades att hämta inlogg för kalender från nyckelhanteraren.",
+          "description-locked": "Inlogg för kalender är låsta eller nekades av nyckelhanteraren. Lås upp nyckelhanteraren och försök igen.",
+          "description-migration": "Okrypterade inlogg för kalender väntar på att flyttas till nyckelhanteraren. De används inte för att synka kalendrar.",
+          "description-opening": "Inlogg för kalender öppnas genom nyckelhanteraren.",
+          "description-unavailable": "Ingen nyckelhanterare är tillgänglig i denna session.",
+          "label": "Nyckelförvaring för kalender"
+        },
+        "weather": {
+          "description": "Sätt på vädertjänsten via open-meteo.com",
+          "label": "Väder"
+        },
+        "weather-effects": {
+          "description": "Visa visuella vädereffekter",
+          "label": "Vädereffekter"
+        },
+        "weather-refresh-interval": {
+          "description": "Hur ofta väderdatan ska förnyas (minuter)",
+          "label": "Uppdateringsfrekvens"
+        },
+        "weather-unit": {
+          "description": "Enheter för väderdata",
+          "label": "Enheter"
+        }
+      },
+      "shell": {
+        "osd-kinds-caffeine": {
+          "description": "Visa ett OSD-popup när koffein (inaktivitetsspärr) byter läge",
+          "label": "Koffein"
+        }
+      }
+    },
+    "widgets": {
+      "settings": {
+        "interface": {
+          "label": "Gränsnitt"
+        }
+      },
+      "types": {
+        "caffeine": "Koffein"
+      }
+    }
+  }
+}

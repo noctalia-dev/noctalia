@@ -127,10 +127,10 @@ void MediaTab::openPlayerMenu() {
   Node::absolutePosition(anchor, anchorAbsX, anchorAbsY);
 
   const float scale = contentScale();
-  const float menuWidth = std::clamp(
-      kMediaUnit * 6.0f * scale, kMediaUnit * 4.2f * scale,
-      m_nowCard != nullptr ? std::max(1.0f, m_nowCard->width()) : 240.0f * scale
-  );
+  // Floor at the card width so a pre-layout card (width ~0) yields a card-fitting
+  // menu instead of an inverted std::clamp range (hi < lo).
+  const float cardWidth = m_nowCard != nullptr ? std::max(1.0f, m_nowCard->width()) : 240.0f * scale;
+  const float minMenuWidth = std::min(cardWidth, std::max(kMediaUnit * 4.2f * scale, kMediaUnit * 6.0f * scale));
 
   if (m_config != nullptr) {
     m_playerMenuPopup->setShadowConfig(m_config->config().shell.shadow);
@@ -146,7 +146,8 @@ void MediaTab::openPlayerMenu() {
   m_playerMenuPopup->open(
       ContextMenuPopupRequest{
           .entries = std::move(entries),
-          .menuWidth = menuWidth,
+          .minMenuWidth = minMenuWidth,
+          .maxMenuWidth = Style::menuAutoMaxWidth * scale,
           .maxVisible = 10,
           .anchor =
               PopupAnchorRect{
@@ -155,10 +156,12 @@ void MediaTab::openPlayerMenu() {
                   .width = static_cast<std::int32_t>(anchor->width()),
                   .height = static_cast<std::int32_t>(anchor->height()),
               },
-          .parent = PopupSurfaceParent{
-              .layerSurface = parentCtx->layerSurface,
-              .output = parentCtx->output,
-          },
+          .parent =
+              PopupSurfaceParent{
+                  .layerSurface = parentCtx->layerSurface,
+                  .output = parentCtx->output,
+              },
+          .pointerParentSurface = parentCtx->surface,
       }
   );
 
@@ -171,7 +174,7 @@ std::unique_ptr<Flex> MediaTab::create() {
   auto tab = ui::row({
       .out = &m_rootLayout,
       .align = FlexAlign::Stretch,
-      .gap = Style::spaceSm * scale,
+      .gap = Style::spaceMd * scale,
   });
 
   auto mediaColumn = ui::column({
@@ -186,9 +189,7 @@ std::unique_ptr<Flex> MediaTab::create() {
       .gap = Style::spaceMd * scale,
       .minHeight = kMediaNowCardMinHeight * scale,
       .flexGrow = 1.0f,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
-        applySectionCardStyle(card, scale, opacity, borders);
-      },
+      .configure = [scale, opacity = panelCardOpacity()](Flex& card) { applySectionCardStyle(card, scale, opacity); },
   });
 
   auto nowHeader = ui::row(
@@ -441,11 +442,11 @@ std::unique_ptr<Flex> MediaTab::create() {
   auto visualizerColumn = ui::column({
       .out = &m_visualizerColumn,
       .align = FlexAlign::Stretch,
-      .gap = Style::spaceSm * scale,
+      .gap = Style::spaceMd * scale,
       .clipChildren = true,
       .flexGrow = 2.0f,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& column) {
-        applySectionCardStyle(column, scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](Flex& column) {
+        applySectionCardStyle(column, scale, opacity);
       },
   });
 

@@ -27,7 +27,7 @@ DesktopButtonWidget::DesktopButtonWidget(Options options)
       m_showBackground(options.showBackground) {}
 
 void DesktopButtonWidget::create() {
-  auto rootNode = std::make_unique<Node>();
+  auto rootNode = ui::node({});
 
   auto button = ui::button({
       .out = &m_button,

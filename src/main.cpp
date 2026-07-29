@@ -8,6 +8,7 @@
 #include "launcher/dmenu_cli.h"
 #include "scripting/plugin_lint.h"
 #include "theme/cli.h"
+#include "theme/firefox_theme/firefox_theme.h"
 
 #include <array>
 #include <cerrno>
@@ -234,7 +235,7 @@ namespace {
     // driver leaks internal sync_file fences slowly across a session; the default
     // 1024 soft cap can be exhausted in a long-running session, after which the
     // Wayland connection fails fatally.
-    logInfo("{}", ProcessFds::raiseOpenFileLimit());
+    ProcessFds::raiseOpenFileLimit();
 
     // Claim the single-instance lock before any shell/Wayland init so the answer
     // is settled before bars or surfaces are created. Held for the process lifetime.
@@ -288,6 +289,10 @@ int main(int argc, char* argv[]) {
   }
 
   if (argc >= 2) {
+    if (noctalia::theme::isFirefoxNativeMessagingLaunch(argc, argv))
+      return noctalia::theme::runFirefoxNativeMessagingHost();
+    if (std::strcmp(argv[1], "firefox-theme") == 0)
+      return noctalia::theme::runFirefoxThemeCli(argc, argv);
     if (std::strcmp(argv[1], "theme") == 0)
       return noctalia::theme::runCli(argc, argv);
     if (std::strcmp(argv[1], "msg") == 0)

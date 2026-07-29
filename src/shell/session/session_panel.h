@@ -33,7 +33,6 @@ public:
   [[nodiscard]] float preferredWidth() const override;
   [[nodiscard]] float preferredHeight() const override;
   [[nodiscard]] bool hasDecoration() const override { return true; }
-  [[nodiscard]] LayerShellLayer layer() const override { return LayerShellLayer::Overlay; }
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
 
@@ -52,7 +51,6 @@ private:
 
   static constexpr float kActionButtonMinHeight = 112.0f;
   static constexpr float kButtonMinWidth = 152.0f;
-  static constexpr float kPanelMinWidth = 680.0f;
   static constexpr std::size_t kMaxColumns = 5;
 
   void doLayout(Renderer& renderer, float width, float height) override;
@@ -61,8 +59,6 @@ private:
   void armEntry(std::size_t index);
   void executeEntry(std::size_t index);
   void cancelCountdown();
-  void focusButton(std::size_t index);
-  [[nodiscard]] std::optional<std::size_t> focusedButtonIndex() const;
   void updateSelectionVisuals();
   void updateCountdownVisuals();
   void layoutCountdownOverlays(Renderer& renderer);
@@ -74,6 +70,7 @@ private:
   [[nodiscard]] std::vector<SessionPanelActionConfig> effectiveActions() const;
   [[nodiscard]] Button* createActionButton(const SessionPanelActionConfig& cfg, std::size_t index, float scale);
   [[nodiscard]] std::size_t entryCountForLayout() const;
+  [[nodiscard]] bool gridEnabled() const;
   [[nodiscard]] std::size_t visibleColumnCount() const;
   [[nodiscard]] std::size_t visibleRowCount() const;
 
@@ -82,6 +79,7 @@ private:
   std::vector<Button*> m_visibleButtons;
   std::vector<ActionCountdownOverlay> m_countdownOverlays;
   std::vector<std::optional<std::string>> m_entryShortcutBadges;
+  std::optional<std::size_t> m_selectedIndex;
   std::optional<PendingCountdown> m_pendingCountdown;
   ConfigService* m_config = nullptr;
   SessionActionRunner* m_actionRunner = nullptr;

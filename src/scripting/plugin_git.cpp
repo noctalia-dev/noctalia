@@ -21,7 +21,9 @@ namespace scripting::plugin_git {
     constexpr double kSlowGitMs = 1000.0;
 
     // Hard backstop that kills a wedged git subprocess (e.g. a connect/DNS hang behind a
-    // proxy). Network ops also abort early via http.lowSpeed* below; local ops are quick.
+    // proxy). Network ops also abort early via http.lowSpeed* below. Note object reads
+    // from the blobless clone (show / cat-file) lazy-fetch missing blobs, so even
+    // "local" ops can hit the network; run every git op off the main thread.
     constexpr auto kNetworkTimeout = 60s;
     constexpr auto kLocalTimeout = 20s;
     // File bodies we read (catalog.toml / plugin.toml) are small; cap defensively.
@@ -109,9 +111,17 @@ namespace scripting::plugin_git {
     );
   }
 
-  GitResult showFile(const std::filesystem::path& dest, std::string_view repoPath, std::string_view rev) {
+  GitResult
+  showFile(const std::filesystem::path& dest, std::string_view repoPath, std::string_view rev, bool localOnly) {
+    std::vector<process::EnvOverride> env;
+    if (localOnly) {
+      // Error out on a blob missing from the local object store instead of lazy-fetching
+      // it (git >= 2.45; older git ignores the variable and may still fetch).
+      env.push_back({.name = "GIT_NO_LAZY_FETCH", .value = "1"});
+    }
     return run(
-        {"git", "-C", dest.string(), "show", std::string(rev) + ":" + std::string(repoPath)}, kLocalTimeout, kFileCap
+        {"git", "-C", dest.string(), "show", std::string(rev) + ":" + std::string(repoPath)}, kLocalTimeout, kFileCap,
+        std::move(env)
     );
   }
 

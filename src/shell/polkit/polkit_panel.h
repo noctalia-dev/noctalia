@@ -4,6 +4,7 @@
 #include "system/icon_resolver.h"
 
 #include <functional>
+#include <string_view>
 
 class Button;
 class Flex;
@@ -27,17 +28,20 @@ public:
   void onClose() override;
 
   [[nodiscard]] float preferredWidth() const override { return scaled(480.0f); }
-  [[nodiscard]] float preferredHeight() const override { return scaled(240.0f); }
+  [[nodiscard]] float preferredHeight() const override;
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
   [[nodiscard]] LayerShellLayer layer() const override { return LayerShellLayer::Overlay; }
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
+  [[nodiscard]] bool dismissOnOutsideClick() const override { return false; }
   [[nodiscard]] InputArea* initialFocusArea() const override;
+  [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
 
 private:
   void onPanelCardOpacityChanged(float opacity) override;
   void doLayout(Renderer& renderer, float width, float height) override;
   void doUpdate(Renderer& renderer) override;
-  void submit();
+  void submit(std::string_view response = {});
+  void cancelAuth();
   bool handleInputKeyEvent(std::uint32_t sym, std::uint32_t modifiers);
   void resolveIcon(Renderer& renderer, const PolkitRequest& request);
 

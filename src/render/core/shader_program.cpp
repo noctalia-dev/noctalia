@@ -84,6 +84,8 @@ void ShaderProgram::destroy() {
   }
 }
 
+void ShaderProgram::abandon() noexcept { m_program = 0; }
+
 bool ShaderProgram::isValid() const noexcept { return m_program != 0; }
 
 GLuint ShaderProgram::id() const noexcept { return m_program; }

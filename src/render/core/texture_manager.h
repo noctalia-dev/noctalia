@@ -60,6 +60,9 @@ public:
   ) = 0;
   virtual void unload(TextureHandle& handle) = 0;
   virtual void cleanup() = 0;
+  // Forget GL names without deleting them. Used after a robust-context reset,
+  // when every object in the old share group is already invalid.
+  virtual void abandonGpuResources() noexcept = 0;
 
   virtual void probeExtensions() = 0;
 

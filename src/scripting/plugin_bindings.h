@@ -29,9 +29,8 @@ namespace scripting {
 
   void registerPluginBindings(lua_State* L, PluginBindingContext* context);
 
-  // getConfig(key) binding — reads the runtime's seeded settings. Registered under
-  // both barWidget.* and noctalia.* so every entry kind (widget/shortcut/service)
-  // can read settings uniformly.
+  // noctalia.getConfig(key) binding — reads the runtime's seeded settings for every
+  // entry kind (widget/shortcut/service/etc.).
   int luau_getConfig(lua_State* L);
 
 } // namespace scripting

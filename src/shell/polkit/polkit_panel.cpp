@@ -16,10 +16,43 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 
+#include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <memory>
+#include <string>
 
 namespace {
+
+  int wrappedLineCount(std::string_view text, int charsPerLine, int maxLines) {
+    if (text.empty()) {
+      return 0;
+    }
+    int lines = 0;
+    int col = 0;
+    for (char ch : text) {
+      if (ch == '\n') {
+        ++lines;
+        col = 0;
+        if (lines >= maxLines) {
+          return maxLines;
+        }
+        continue;
+      }
+      ++col;
+      if (charsPerLine > 0 && col > charsPerLine) {
+        ++lines;
+        col = 1;
+        if (lines >= maxLines) {
+          return maxLines;
+        }
+      }
+    }
+    if (col > 0 || lines == 0) {
+      ++lines;
+    }
+    return std::min(lines, maxLines);
+  }
 
   std::string wrapLongRuns(std::string text, std::size_t maxRun = 48) {
     std::string out;
@@ -50,17 +83,77 @@ PanelPlacement PolkitPanel::panelPlacement() const noexcept {
   return m_config != nullptr ? m_config->config().shell.panel.polkitPlacement : PanelPlacement::Floating;
 }
 
+float PolkitPanel::preferredHeight() const {
+  const float scale = contentScale();
+  const float bodyLine = Style::fontSizeBody * scale * 1.35f;
+  const float titleLine = Style::fontSizeTitle * scale * 1.35f;
+  const float captionLine = Style::fontSizeCaption * scale * 1.35f;
+  const float iconSize = scaled(48.0f);
+  const float pad = Style::spaceLg * scale;
+  const float gapMd = Style::spaceMd * scale;
+  const float gapSm = Style::spaceSm * scale;
+
+  const float contentW = preferredWidth() - scaled(Style::panelPadding) * 2.0f;
+  const float innerW = std::max(1.0f, contentW - pad * 2.0f);
+  const float messageW = std::max(1.0f, innerW - iconSize - gapMd);
+  const float avgChar = Style::fontSizeBody * scale * 0.55f;
+  const int messageChars = std::max(1, static_cast<int>(messageW / avgChar));
+  const int promptChars = std::max(1, static_cast<int>(innerW / avgChar));
+
+  int messageLines = 1;
+  int promptLines = 1;
+  int supplementaryLines = 0;
+  bool needsInput = false;
+
+  if (PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
+      agent != nullptr && agent->hasPendingRequest()) {
+    needsInput = agent->isResponseRequired();
+    const PolkitRequest request = agent->pendingRequest();
+    const std::string message = wrapLongRuns(request.message.empty() ? request.actionId : request.message);
+    messageLines = std::max(1, wrappedLineCount(message, messageChars, 6));
+
+    const std::string supplementaryRaw = agent->supplementaryMessage();
+    const bool supplementaryError = agent->supplementaryIsError();
+    std::string promptText = wrapLongRuns(agent->inputPrompt());
+    std::string supplementaryText = wrapLongRuns(supplementaryRaw);
+    if (!needsInput && !supplementaryText.empty() && !supplementaryError) {
+      promptText = supplementaryText;
+      supplementaryText.clear();
+    } else if (
+        !supplementaryText.empty()
+        && (supplementaryError || supplementaryText == i18n::tr("auth.polkit.authenticating"))
+    ) {
+      promptText = supplementaryText;
+      supplementaryText.clear();
+    }
+    promptLines = std::max(1, wrappedLineCount(promptText, promptChars, 3));
+    supplementaryLines = wrappedLineCount(supplementaryText, promptChars, 4);
+  }
+
+  const float top = std::max(iconSize, titleLine + static_cast<float>(messageLines) * bodyLine);
+  float bottom = static_cast<float>(promptLines) * bodyLine + gapSm;
+  if (needsInput) {
+    bottom += Style::controlHeight * scale + gapSm;
+  }
+  if (supplementaryLines > 0) {
+    bottom += static_cast<float>(supplementaryLines) * captionLine + gapSm;
+  }
+  bottom += Style::controlHeight * scale;
+
+  return std::ceil(pad * 2.0f + top + gapMd + bottom + scaled(Style::panelPadding) * 2.0f + gapSm);
+}
+
 void PolkitPanel::create() {
   const float scale = contentScale();
   const float iconSize = scaled(48.0f);
   auto root = ui::column({
       .out = &m_rootLayout,
       .align = FlexAlign::Stretch,
-      .justify = FlexJustify::SpaceBetween,
+      .gap = Style::spaceMd * scale,
       .padding = Style::spaceLg * scale,
   });
 
-  auto focusArea = std::make_unique<InputArea>();
+  auto focusArea = ui::inputArea({});
   focusArea->setFocusable(true);
   focusArea->setVisible(false);
   m_focusArea = static_cast<InputArea*>(root->addChild(std::move(focusArea)));
@@ -118,7 +211,13 @@ void PolkitPanel::create() {
           .placeholder = i18n::tr("auth.polkit.password-placeholder"),
           .passwordMode = true,
           .surfaceOpacity = panelCardOpacity(),
-          .onSubmit = [this](const std::string&) { submit(); },
+          .onChange =
+              [this](const std::string& value) {
+                if (m_submitButton != nullptr) {
+                  m_submitButton->setEnabled(m_lastResponseRequired && !value.empty());
+                }
+              },
+          .onSubmit = [this](const std::string& value) { submit(value); },
           .onKeyEvent =
               [this](std::uint32_t sym, std::uint32_t modifiers) { return handleInputKeyEvent(sym, modifiers); },
       }),
@@ -129,12 +228,22 @@ void PolkitPanel::create() {
           .maxLines = 4,
       }),
       ui::row(
-          {.align = FlexAlign::Center, .justify = FlexJustify::End, .gap = Style::spaceSm * scale},
+          {
+              .align = FlexAlign::Center,
+              .justify = FlexJustify::End,
+              .wrap = true,
+              .gap = Style::spaceSm * scale,
+              .fillWidth = true,
+          },
           ui::button({
               .out = &m_cancelButton,
               .text = i18n::tr("common.actions.cancel"),
               .variant = ButtonVariant::Outline,
-              .onClick = []() { PanelManager::instance().close(); },
+              .onClick =
+                  [this]() {
+                    cancelAuth();
+                    PanelManager::instance().close();
+                  },
           }),
           ui::button({
               .out = &m_submitButton,
@@ -157,13 +266,42 @@ void PolkitPanel::onOpen(std::string_view /*context*/) {
 }
 
 void PolkitPanel::onClose() {
-  if (PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr; agent != nullptr) {
-    if (agent->hasPendingRequest()) {
-      agent->cancelRequest();
-    }
-  }
+  // Do not cancelAuth() here. Auto-close after a successful auth races with
+  // chained polkit actions (e.g. pkexec install then systemd enable): a follow-up
+  // BeginAuthentication can land before teardown finishes, and canceling it
+  // produces pam_unix "conversation failed" / empty-password failures.
+  // User dismiss goes through cancelAuth() (Cancel button / Escape).
   m_lastResponseRequired = false;
   clearReleasedRoot();
+
+  m_rootLayout = nullptr;
+  m_focusArea = nullptr;
+  m_titleLabel = nullptr;
+  m_messageLabel = nullptr;
+  m_promptLabel = nullptr;
+  m_supplementaryLabel = nullptr;
+  m_input = nullptr;
+  m_submitButton = nullptr;
+  m_cancelButton = nullptr;
+  m_iconContainer = nullptr;
+  m_icon = nullptr;
+  m_fallbackIcon = nullptr;
+}
+
+void PolkitPanel::cancelAuth() {
+  PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
+  if (agent != nullptr && agent->hasPendingRequest()) {
+    agent->cancelRequest();
+  }
+}
+
+bool PolkitPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool /*preedit*/) {
+  if (!pressed || !KeybindMatcher::matches(KeybindAction::Cancel, sym, modifiers)) {
+    return false;
+  }
+  cancelAuth();
+  PanelManager::instance().close();
+  return true;
 }
 
 InputArea* PolkitPanel::initialFocusArea() const {
@@ -231,10 +369,14 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
   m_supplementaryLabel->setVisible(!supplementaryText.empty());
   m_supplementaryLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
   m_input->setVisible(needsInput);
-  m_submitButton->setEnabled(needsInput);
-  if (needsInput && !m_lastResponseRequired) {
+  m_submitButton->setVisible(needsInput);
+  m_submitButton->setEnabled(needsInput && !m_input->value().empty());
+  if (needsInput != m_lastResponseRequired) {
     if (auto* manager = PanelManager::current(); manager != nullptr && manager->isOpenPanel("polkit")) {
-      manager->focusArea(m_input->inputArea());
+      manager->relayoutActivePanelPreferredSize();
+      if (needsInput) {
+        manager->focusArea(m_input->inputArea());
+      }
     }
   }
   m_lastResponseRequired = needsInput;
@@ -277,12 +419,16 @@ void PolkitPanel::resolveIcon(Renderer& renderer, const PolkitRequest& request) 
   m_fallbackIcon->setVisible(true);
 }
 
-void PolkitPanel::submit() {
+void PolkitPanel::submit(std::string_view response) {
   PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
   if (agent == nullptr || m_input == nullptr) {
     return;
   }
-  agent->submitResponse(m_input->value());
+  const std::string password = response.empty() ? m_input->value() : std::string(response);
+  if (password.empty()) {
+    return;
+  }
+  agent->submitResponse(password);
   m_input->setValue("");
 }
 

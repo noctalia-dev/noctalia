@@ -22,6 +22,7 @@ public:
 
   void ensureInitialized();
   void destroy();
+  void abandon() noexcept;
 
   // RGBA path: sample the texture as premultiplied RGBA, scale by opacity.
   void draw(

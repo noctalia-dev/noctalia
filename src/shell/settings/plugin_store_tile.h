@@ -19,7 +19,7 @@ namespace settings {
     explicit PluginStoreTile(float scale);
 
     void bind(
-        const scripting::CatalogEntry& entry, std::string_view source, bool onDisk, bool hovered,
+        const scripting::CatalogEntry& entry, std::string_view source, bool onDisk, bool selected, bool hovered,
         const std::string& thumbnailPath, Renderer* renderer, AsyncTextureCache* textureCache
     );
 
@@ -32,6 +32,8 @@ namespace settings {
     Label* m_versionLabel = nullptr;
     Flex* m_badge = nullptr;
     Label* m_badgeLabel = nullptr;
+    Flex* m_statusBadge = nullptr;
+    Label* m_statusLabel = nullptr;
     Label* m_descLabel = nullptr;
     Label* m_authorLabel = nullptr;
     Glyph* m_addedGlyph = nullptr;

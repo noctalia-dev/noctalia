@@ -15,8 +15,8 @@
 #include <vector>
 
 class AccountsService;
+class AsyncTextureCache;
 class Button;
-class Box;
 class CompositorPlatform;
 class HttpClient;
 class IpcService;
@@ -35,6 +35,7 @@ namespace scripting {
 }
 
 struct ShortcutPad {
+  // Survives HomeTab::onClose(); button/glyph/label are nulled with the scene.
   std::unique_ptr<Shortcut> shortcut;
   Button* button = nullptr;
   Glyph* glyph = nullptr;
@@ -56,6 +57,13 @@ private:
   void doLayout(Renderer& renderer, float contentWidth, float bodyHeight) override;
   void doUpdate(Renderer& renderer) override;
   void layoutWallpaperBackground(Renderer& renderer);
+  // The card fill is only the backdrop for an absent wallpaper: while one covers the card it is
+  // cleared, so the card's rounded edge is the wallpaper's own and nothing shows around it.
+  void syncUserCardFill();
+  // Only the topmost ready wallpaper layer draws. Two stacked rounded images would each
+  // antialias the same edge, hardening it; the placeholder steps aside once the crisp layer is
+  // fully faded in.
+  void syncWallpaperLayerVisibility();
   // Adds a card overlay for pointer and/or keyboard activation.
   struct CardOverlayOptions {
     bool keyboardFocus = true;
@@ -69,6 +77,7 @@ private:
   void startCrispFade();
   void cancelCrispFade();
   void sync(Renderer& renderer);
+  void warnOnOversizedAvatarSource(const std::string& path);
   void syncScaledFonts();
   void syncShortcuts();
   bool resizeMediaArtToCard();
@@ -81,6 +90,7 @@ private:
   AccountsService* m_accounts = nullptr;
   Wallpaper* m_wallpaper = nullptr;
   ThumbnailService* m_thumbnails = nullptr;
+  AsyncTextureCache* m_asyncTextures = nullptr;
   ShortcutServices m_services;
   bool m_active = false;
 
@@ -107,21 +117,22 @@ private:
   InputArea* m_userCardArea = nullptr;
   InputArea* m_mediaCardArea = nullptr;
   InputArea* m_dateTimeCardArea = nullptr;
-  std::string m_loadedAvatarPath;
-  int m_loadedAvatarSize = 0;
+  // Survives onClose() so the oversized-source warning fires once per session.
+  std::string m_sizeCheckedAvatarPath;
 
   // Two stacked layers: m_wallpaperPlaceholder shows the resident full-screen
   // wallpaper texture immediately (slightly soft), m_wallpaperBg holds the crisp
   // card-sized thumbnail and crossfades in over it once decoded.
   Image* m_wallpaperPlaceholder = nullptr;
   Image* m_wallpaperBg = nullptr;
-  Box* m_wallpaperGradient = nullptr;
   std::string m_loadedWallpaperPath;
   int m_loadedWallpaperSize = 0;
   std::string m_crispWorkingPath;
   int m_crispWorkingSize = 0;
   bool m_crispShown = false;
   bool m_crispNeedsFade = false;
+  bool m_crispOpaque = false;
+  bool m_placeholderReady = false;
   std::uint32_t m_wallpaperCrispAnimId = 0;
   ThumbnailService::Subscription m_thumbnailPendingSub;
   Signal<>::ScopedConnection m_wallpaperChangedConn;

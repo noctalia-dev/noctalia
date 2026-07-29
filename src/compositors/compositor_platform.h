@@ -23,6 +23,7 @@ struct zdwl_ipc_manager_v2;
 struct hyprland_toplevel_mapping_manager_v1;
 struct zwlr_foreign_toplevel_handle_v1;
 struct ext_foreign_toplevel_handle_v1;
+class OutputProbe;
 class SessionBus;
 class WaylandWorkspaces;
 
@@ -70,6 +71,7 @@ public:
   [[nodiscard]] const WaylandOutput* findOutputByWl(wl_output* output) const;
   [[nodiscard]] wl_output* outputForSurface(wl_surface* surface) const noexcept;
   [[nodiscard]] FocusGrabService* focusGrabService() const noexcept;
+  [[nodiscard]] bool hasPointerPosition() const noexcept;
   [[nodiscard]] wl_surface* lastPointerSurface() const noexcept;
   [[nodiscard]] wl_surface* lastKeyboardSurface() const noexcept;
   [[nodiscard]] double lastPointerX() const noexcept;
@@ -79,20 +81,41 @@ public:
   void stopKeyRepeat();
   void setCursorShape(std::uint32_t serial, std::uint32_t shape);
 
+  // Output resolved from a real focus source (compositor IPC, focused-output
+  // backend, active toplevel, keyboard/fresh-pointer surface). Returns nullptr
+  // when no such source is available — callers that need an output regardless
+  // should use preferredInteractiveOutput() or probeFocusedOutput().
+  [[nodiscard]] wl_output*
+  focusedInteractiveOutput(std::chrono::milliseconds pointerMaxAge = std::chrono::milliseconds(1200)) const;
+
   [[nodiscard]] wl_output*
   preferredInteractiveOutput(std::chrono::milliseconds pointerMaxAge = std::chrono::milliseconds(1200)) const;
+
+  // Asks the compositor which output a NULL-output layer surface lands on (the
+  // focused one) by mapping a throwaway 1x1 probe surface, then reports it. For
+  // compositors with no focus source, where focusedInteractiveOutput() is null.
+  // The callback receives the probed output, or nullptr on timeout. Only one
+  // probe runs at a time; a new call cancels any in-flight probe.
+  void probeFocusedOutput(std::function<void(wl_output*)> callback, std::chrono::milliseconds timeout);
 
   [[nodiscard]] std::optional<ActiveToplevel> activeToplevel() const;
   [[nodiscard]] wl_output* activeToplevelOutput() const;
   [[nodiscard]] std::vector<std::string> runningAppIds(wl_output* outputFilter = nullptr) const;
   [[nodiscard]] std::vector<ToplevelInfo>
   windowsForApp(const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter = nullptr) const;
+  [[nodiscard]] std::vector<ToplevelInfo> windowsWithoutAppId(wl_output* outputFilter = nullptr) const;
   [[nodiscard]] bool containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
   void activateToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   void activateToplevelInfo(const ToplevelInfo& window);
   void closeToplevel(zwlr_foreign_toplevel_handle_v1* handle);
   void closeToplevelInfo(const ToplevelInfo& window);
   void focusCompositorWindow(const std::string& windowId) const;
+
+  // Focus `output` before spawning (Hyprland) so clients follow the launch monitor.
+  void prepareAppLaunchOnOutput(wl_output* output);
+
+  // Move a toplevel onto `output` when supported (Hyprland).
+  void moveToplevelToOutput(const ToplevelInfo& window, wl_output* output);
 
   void activateKdeWindow(const std::string& title, const std::string& appId, const std::string& uuid = {});
 
@@ -191,6 +214,8 @@ private:
   ChangeCallback m_toplevelChangeCallback;
   std::unique_ptr<compositors::hyprland::HyprlandToplevelMapping> m_hyprlandToplevelMapping;
   std::unique_ptr<compositors::kde::KwinActiveWindow> m_kwinActiveWindow;
+  std::unique_ptr<OutputProbe> m_outputProbe;
   std::vector<WorkspaceModelSnapshot> m_lastWorkspaceModelSnapshot;
+  std::optional<std::string> m_lastFocusedCompositorWindowId;
   bool m_initialized = false;
 };

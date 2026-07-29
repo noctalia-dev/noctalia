@@ -27,6 +27,7 @@ namespace {
   constexpr std::size_t kMaxLogLineBytes = 8 * 1024;    // 8 KiB
   constexpr std::size_t kBufferedFileLogFlushLines = 64;
   constexpr auto kBufferedFileLogFlushInterval = std::chrono::milliseconds(500);
+  constexpr const char* kLogLevelEnv = "NOCTALIA_LOG_LEVEL";
 
   struct CappedLogMessage {
     std::string storage;
@@ -241,6 +242,36 @@ namespace {
 
 } // namespace
 
+std::string_view logLevelName(LogLevel level) {
+  switch (level) {
+  case LogLevel::Debug:
+    return "debug";
+  case LogLevel::Info:
+    return "info";
+  case LogLevel::Warn:
+    return "warn";
+  case LogLevel::Error:
+    return "error";
+  }
+  return "unknown";
+}
+
+std::optional<LogLevel> parseLogLevel(std::string_view value) {
+  if (value == "debug") {
+    return LogLevel::Debug;
+  }
+  if (value == "info") {
+    return LogLevel::Info;
+  }
+  if (value == "warn") {
+    return LogLevel::Warn;
+  }
+  if (value == "error") {
+    return LogLevel::Error;
+  }
+  return std::nullopt;
+}
+
 void initLogFile() {
   const char* cacheHome = std::getenv("XDG_CACHE_HOME");
   const char* home = std::getenv("HOME");
@@ -316,4 +347,28 @@ namespace detail {
 
 } // namespace detail
 
-void setLogLevel(LogLevel level) { gMinLevel = level; }
+LogLevel currentLogLevel() {
+  std::scoped_lock lock(gLogMutex);
+  return gMinLevel;
+}
+
+void setLogLevel(LogLevel level) {
+  std::scoped_lock lock(gLogMutex);
+  gMinLevel = level;
+}
+
+void initLogLevelFromEnvironment() {
+  const char* value = std::getenv(kLogLevelEnv);
+  if (value == nullptr) {
+    return;
+  }
+
+  const auto level = parseLogLevel(value);
+  if (!level.has_value()) {
+    logWarn("invalid {} '{}'; expected debug, info, warn, or error", kLogLevelEnv, value);
+    return;
+  }
+
+  setLogLevel(*level);
+  logInfo("log level set to {}", logLevelName(*level));
+}

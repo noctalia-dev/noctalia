@@ -49,7 +49,7 @@ gdbus call --session \
           0 \
           "dialog-question" \
           "Notification #9 - Longer Body" \
-          "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin lectus nibh, mollis eget pulvinar eget, aliquet vel enim. Sed quis tortor ut urna tincidunt porta. In non leo nunc. Aliquam vestibulum aliquet risus. Praesent cursus lacus vitae egestas ultrices. Ut eleifend, ligula id vulputate aliquam, lectus lacus lobortis nulla, nec ornare nisl lorem aliquam nulla. Sed fermentum, dolor ullamcorper pharetra condimentum, leo erat ultricies nibh, ac sagittis neque tellus vel lacus. Fusce volutpat sem est, vel vehicula sapien viverra sed. Integer varius justo ut lorem mattis fermentum. Mauris ac purus et turpis accumsan pulvinar. https://github.com/noctalia-dev/noctalia-shell" \
+          "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin lectus nibh, mollis eget pulvinar eget, aliquet vel enim. Sed quis tortor ut urna tincidunt porta. In non leo nunc. Aliquam vestibulum aliquet risus. Praesent cursus lacus vitae egestas ultrices. Ut eleifend, ligula id vulputate aliquam, lectus lacus lobortis nulla, nec ornare nisl lorem aliquam nulla. Sed fermentum, dolor ullamcorper pharetra condimentum, leo erat ultricies nibh, ac sagittis neque tellus vel lacus. Fusce volutpat sem est, vel vehicula sapien viverra sed. Integer varius justo ut lorem mattis fermentum. Mauris ac purus et turpis accumsan pulvinar. https://github.com/noctalia-dev/noctalia" \
           "['default', 'OK', 'cancel', 'Cancel', 'maybe', 'Maybe', 'undecided', 'Undecided', 'another', 'Another', 'bail', 'Bail', 'wontappear', 'Will not appear']" \
           "{}" \
           5000

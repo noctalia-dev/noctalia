@@ -1,24 +1,21 @@
 #include "shell/control_center/tabs/network_tab.h"
 
-#include "config/config_service.h"
 #include "core/ui_phase.h"
+#include "dbus/network/external_ip_service.h"
 #include "dbus/network/inetwork_service.h"
 #include "dbus/network/network_glyphs.h"
 #include "i18n/i18n.h"
-#include "net/http_client.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "shell/panel/panel_manager.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
-#include "util/string_utils.h"
 
 #include <algorithm>
 #include <chrono>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <utility>
 
 using namespace control_center;
@@ -61,163 +58,194 @@ namespace {
     return out;
   }
 
-  // Identity of the route the WAN IP was resolved through.
-  std::string wanProbeKey(const NetworkState& s) { return s.ipv4 + (s.vpnConnected ? "|vpn" : "|"); }
+  std::string percentText(std::uint8_t percent) { return std::to_string(static_cast<int>(percent)) + "%"; }
 
-  // The fetch endpoint returns the address as plain text; accept only strings
-  // that look like an IPv4/IPv6 literal before displaying them.
-  bool isPlausibleIpLiteral(std::string_view s) {
-    if (s.empty() || s.size() > 45) {
-      return false;
-    }
-    return std::ranges::all_of(s, [](char c) {
-      return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || c == '.' || c == ':';
+  // Active first, then by signal band, then by name. Ordering on the raw strength —
+  // as the services do — reshuffles rows on every scan update, moving the row you are
+  // aiming at out from under the pointer.
+  std::vector<AccessPointInfo> sortedAccessPoints(std::vector<AccessPointInfo> aps) {
+    std::ranges::sort(aps, [](const AccessPointInfo& a, const AccessPointInfo& b) {
+      if (a.active != b.active) {
+        return a.active;
+      }
+      const int bandA = network_glyphs::wifiSignalBand(a.strength);
+      const int bandB = network_glyphs::wifiSignalBand(b.strength);
+      if (bandA != bandB) {
+        return bandA > bandB;
+      }
+      return a.ssid < b.ssid;
     });
+    return aps;
   }
 
-  class AccessPointRow : public Flex {
-  public:
-    AccessPointRow(
-        float scale, AccessPointInfo ap, bool saved, std::function<void(const AccessPointInfo&)> onActivate,
-        std::function<void(const AccessPointInfo&)> onForget
-    )
-        : m_ap(std::move(ap)), m_onActivate(std::move(onActivate)), m_onForget(std::move(onForget)) {
-      setDirection(FlexDirection::Horizontal);
-      setAlign(FlexAlign::Center);
-      setGap(Style::spaceSm * scale);
-      setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
-      setMinHeight(kRowMinHeight * scale);
-      setRadius(Style::scaledRadiusMd(scale));
-      setFill(colorSpecFromRole(ColorRole::Surface));
-      clearBorder();
+} // namespace
 
+class AccessPointRow : public Flex {
+public:
+  AccessPointRow(
+      float scale, AccessPointInfo ap, bool saved, std::function<void(const AccessPointInfo&)> onActivate,
+      std::function<void(const AccessPointInfo&)> onForget
+  )
+      : m_ap(std::move(ap)), m_onActivate(std::move(onActivate)), m_onForget(std::move(onForget)) {
+    setDirection(FlexDirection::Horizontal);
+    setAlign(FlexAlign::Center);
+    setGap(Style::spaceSm * scale);
+    setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
+    setMinHeight(kRowMinHeight * scale);
+    setRadius(Style::scaledRadiusMd(scale));
+    setFill(colorSpecFromRole(ColorRole::Surface));
+    clearBorder();
+
+    addChild(
+        ui::glyph({
+            .out = &m_signalGlyph,
+            .glyph = network_glyphs::wifiGlyphForSignal(m_ap.strength),
+            .glyphSize = Style::baseGlyphSize * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurface),
+        })
+    );
+
+    addChild(
+        ui::label({
+            .out = &m_title,
+            .text = m_ap.ssid,
+            .fontSize = Style::fontSizeBody * scale,
+            .fontWeight = m_ap.active ? FontWeight::Bold : FontWeight::Normal,
+            .color = colorSpecFromRole(ColorRole::OnSurface),
+            .flexGrow = 1.0f,
+        })
+    );
+
+    if (m_ap.secured) {
       addChild(
           ui::glyph({
-              .glyph = network_glyphs::wifiGlyphForSignal(m_ap.strength),
+              .glyph = "lock",
               .glyphSize = Style::baseGlyphSize * scale,
-              .color = colorSpecFromRole(ColorRole::OnSurface),
-          })
-      );
-
-      addChild(
-          ui::label({
-              .out = &m_title,
-              .text = m_ap.ssid,
-              .fontSize = Style::fontSizeBody * scale,
-              .fontWeight = m_ap.active ? FontWeight::Bold : FontWeight::Normal,
-              .color = colorSpecFromRole(ColorRole::OnSurface),
-              .flexGrow = 1.0f,
-          })
-      );
-
-      if (m_ap.secured) {
-        addChild(
-            ui::glyph({
-                .glyph = "lock",
-                .glyphSize = Style::baseGlyphSize * scale,
-                .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-            })
-        );
-      }
-
-      addChild(
-          ui::label({
-              .text = std::to_string(static_cast<int>(m_ap.strength)) + "%",
-              .fontSize = Style::fontSizeCaption * scale,
               .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
           })
       );
+    }
 
-      const float actionOpacity = (m_ap.active || saved) ? 1.0f : 0.0f;
-      auto action = ui::button({
-          .out = &m_actionButton,
-          .glyphSize = Style::baseGlyphSize * scale,
-          .variant = ButtonVariant::Ghost,
-          .padding = Style::spaceXs * scale,
-          .radius = Style::scaledRadiusSm(scale),
-          .opacity = actionOpacity,
-      });
-      if (m_ap.active) {
-        action->setGlyph("check");
-      } else if (saved) {
-        action->setGlyph("trash");
-        action->setOnClick([this]() {
-          if (m_onForget) {
-            m_onForget(m_ap);
-          }
-        });
-      }
-      addChild(std::move(action));
+    addChild(
+        ui::label({
+            .out = &m_signalValue,
+            .text = percentText(m_ap.strength),
+            .fontSize = Style::fontSizeCaption * scale,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+        })
+    );
 
-      auto area = std::make_unique<InputArea>();
-      area->setPropagateEvents(true);
-      area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
-      area->setOnLeave([this]() { applyState(); });
-      area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
-      area->setOnClick([this](const InputArea::PointerData& /*data*/) {
-        if (m_onActivate) {
-          m_onActivate(m_ap);
+    const float actionOpacity = (m_ap.active || saved) ? 1.0f : 0.0f;
+    auto action = ui::button({
+        .out = &m_actionButton,
+        .glyphSize = Style::baseGlyphSize * scale,
+        .variant = ButtonVariant::Ghost,
+        .padding = Style::spaceXs * scale,
+        .radius = Style::scaledRadiusSm(scale),
+        .opacity = actionOpacity,
+    });
+    if (m_ap.active) {
+      action->setGlyph("check");
+    } else if (saved) {
+      action->setGlyph("trash");
+      action->setOnClick([this]() {
+        if (m_onForget) {
+          m_onForget(m_ap);
         }
       });
-      m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
-
-      applyState();
-      m_paletteConn = paletteChanged().connect([this] { applyState(); });
     }
+    addChild(std::move(action));
 
-    void doLayout(Renderer& renderer) override {
-      if (m_inputArea == nullptr) {
-        return;
+    auto area = ui::inputArea({});
+    area->setPropagateEvents(true);
+    area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
+    area->setOnLeave([this]() { applyState(); });
+    area->setOnPress([this](const InputArea::PointerData& /*data*/) { applyState(); });
+    area->setOnClick([this](const InputArea::PointerData& /*data*/) {
+      if (m_onActivate) {
+        m_onActivate(m_ap);
       }
-      m_inputArea->setVisible(false);
-      Flex::doLayout(renderer);
-      m_inputArea->setVisible(true);
-      m_inputArea->setPosition(0.0f, 0.0f);
-      m_inputArea->setSize(width(), height());
-      if (m_actionButton != nullptr) {
-        const float areaWidth = std::max(0.0f, m_actionButton->x() - gap());
-        m_inputArea->setSize(areaWidth, height());
+    });
+    m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
+
+    applyState();
+    m_paletteConn = paletteChanged().connect([this] { applyState(); });
+  }
+
+  void doLayout(Renderer& renderer) override {
+    if (m_inputArea == nullptr) {
+      return;
+    }
+    m_inputArea->setVisible(false);
+    Flex::doLayout(renderer);
+    m_inputArea->setVisible(true);
+    m_inputArea->setPosition(0.0f, 0.0f);
+    m_inputArea->setSize(width(), height());
+    if (m_actionButton != nullptr) {
+      const float areaWidth = std::max(0.0f, m_actionButton->x() - gap());
+      m_inputArea->setSize(areaWidth, height());
+    }
+    applyState();
+  }
+
+  LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override {
+    return measureByLayout(renderer, constraints);
+  }
+
+  void doArrange(Renderer& renderer, const LayoutRect& rect) override { arrangeByLayout(renderer, rect); }
+
+  [[nodiscard]] const std::string& ssid() const noexcept { return m_ap.ssid; }
+
+  // Refresh the values that move while a scan runs — the signal glyph and percent.
+  // Everything else about the row is structural and belongs to the list key.
+  // Returns true when a value actually changed, i.e. the row needs relayout.
+  bool syncLiveMetrics(const AccessPointInfo& ap) {
+    bool changed = false;
+    if (m_signalGlyph != nullptr && m_signalGlyph->setGlyph(network_glyphs::wifiGlyphForSignal(ap.strength))) {
+      changed = true;
+    }
+    if (m_signalValue != nullptr && m_signalValue->setText(percentText(ap.strength))) {
+      changed = true;
+    }
+    m_ap.strength = ap.strength;
+    return changed;
+  }
+
+private:
+  void applyState() {
+    const bool hov = m_inputArea != nullptr && m_inputArea->hovered();
+    const bool pressed = m_inputArea != nullptr && m_inputArea->pressed();
+    if (pressed) {
+      setFill(colorSpecFromRole(ColorRole::Primary));
+      setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth);
+      if (m_title != nullptr) {
+        m_title->setColor(colorSpecFromRole(ColorRole::OnPrimary));
       }
-      applyState();
-    }
-
-    LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override {
-      return measureByLayout(renderer, constraints);
-    }
-
-    void doArrange(Renderer& renderer, const LayoutRect& rect) override { arrangeByLayout(renderer, rect); }
-
-  private:
-    void applyState() {
-      const bool hov = m_inputArea != nullptr && m_inputArea->hovered();
-      const bool pressed = m_inputArea != nullptr && m_inputArea->pressed();
-      if (pressed) {
-        setFill(colorSpecFromRole(ColorRole::Primary));
-        setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth);
-        if (m_title != nullptr) {
-          m_title->setColor(colorSpecFromRole(ColorRole::OnPrimary));
-        }
+    } else {
+      setFill(colorSpecFromRole(ColorRole::Surface));
+      if (hov) {
+        setBorder(colorSpecFromRole(ColorRole::Hover), Style::borderWidth);
       } else {
-        setFill(colorSpecFromRole(ColorRole::Surface));
-        if (hov) {
-          setBorder(colorSpecFromRole(ColorRole::Hover), Style::borderWidth);
-        } else {
-          clearBorder();
-        }
-        if (m_title != nullptr) {
-          m_title->setColor(colorSpecFromRole(ColorRole::OnSurface));
-        }
+        clearBorder();
+      }
+      if (m_title != nullptr) {
+        m_title->setColor(colorSpecFromRole(ColorRole::OnSurface));
       }
     }
+  }
 
-    AccessPointInfo m_ap;
-    std::function<void(const AccessPointInfo&)> m_onActivate;
-    std::function<void(const AccessPointInfo&)> m_onForget;
-    Label* m_title = nullptr;
-    Button* m_actionButton = nullptr;
-    InputArea* m_inputArea = nullptr;
-    Signal<>::ScopedConnection m_paletteConn;
-  };
+  AccessPointInfo m_ap;
+  std::function<void(const AccessPointInfo&)> m_onActivate;
+  std::function<void(const AccessPointInfo&)> m_onForget;
+  Label* m_title = nullptr;
+  Button* m_actionButton = nullptr;
+  InputArea* m_inputArea = nullptr;
+  Glyph* m_signalGlyph = nullptr;
+  Label* m_signalValue = nullptr;
+  Signal<>::ScopedConnection m_paletteConn;
+};
+
+namespace {
 
   class VpnConnectionRow : public Flex {
   public:
@@ -270,7 +298,7 @@ namespace {
           })
       );
 
-      auto area = std::make_unique<InputArea>();
+      auto area = ui::inputArea({});
       area->setPropagateEvents(true);
       area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
       area->setOnLeave([this]() { applyState(); });
@@ -351,8 +379,8 @@ namespace {
 
 } // namespace
 
-NetworkTab::NetworkTab(INetworkService* network, NetworkSecretAgent* secrets, HttpClient* http, ConfigService* config)
-    : m_network(network), m_secrets(secrets), m_http(http), m_config(config) {
+NetworkTab::NetworkTab(INetworkService* network, NetworkSecretAgent* secrets, ExternalIpService* externalIp)
+    : m_network(network), m_secrets(secrets), m_externalIpService(externalIp) {
   if (m_secrets != nullptr) {
     m_secrets->setRequestCallback([this](const NetworkSecretAgent::SecretRequest& request) {
       showPasswordPrompt(request);
@@ -379,9 +407,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
 
   auto currentCard = ui::column({
       .out = &m_currentCard,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
-        applySectionCardStyle(card, scale, opacity, borders);
-      },
+      .configure = [scale, opacity = panelCardOpacity()](Flex& card) { applySectionCardStyle(card, scale, opacity); },
   });
   addTitle(*currentCard, i18n::tr("control-center.network.current-connection"), scale);
 
@@ -428,8 +454,9 @@ std::unique_ptr<Flex> NetworkTab::create() {
   auto passwordCard = ui::column({
       .out = &m_passwordCard,
       .visible = false,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
-        applySectionCardStyle(card, scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](Flex& card) {
+        applySectionCardStyle(card, scale, opacity);
+        card.setGap(Style::spaceMd * scale);
       },
   });
 
@@ -518,10 +545,6 @@ void NetworkTab::setActive(bool active) {
   m_active = active;
   if (m_active && m_network != nullptr) {
     m_network->requestScan();
-    maybeScheduleExternalIpProbe();
-  }
-  if (!m_active) {
-    m_externalIpTimer.stop();
   }
 }
 
@@ -533,6 +556,7 @@ void NetworkTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
   m_rootLayout->layout(renderer);
   syncPasswordCard();
   rebuildApList(renderer);
+  syncApRows();
   syncCurrentCard();
   m_rootLayout->layout(renderer);
 }
@@ -540,6 +564,10 @@ void NetworkTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
 void NetworkTab::doUpdate(Renderer& renderer) {
   syncPasswordCard();
   rebuildApList(renderer);
+  // A signal percent's text changes its width, so the list has to be laid out again.
+  if (syncApRows() && m_list != nullptr) {
+    m_list->layout(renderer);
+  }
   syncCurrentCard();
 }
 
@@ -560,12 +588,12 @@ void NetworkTab::onClose() {
   m_scanSpinner = nullptr;
   m_currentRow = nullptr;
   m_disconnectButton = nullptr;
+  m_apRows.clear();
   m_lastStructureKey.clear();
   m_lastListWidth = -1.0f;
   m_pendingAccessPoint.reset();
   m_active = false;
   m_actionPending = false;
-  m_externalIpTimer.stop();
 }
 
 void NetworkTab::syncPasswordCard() {
@@ -666,23 +694,10 @@ void NetworkTab::syncCurrentCard() {
       m_actionPending = false;
     }
   }
-  if (!externalIpEnabled()) {
-    m_externalIp.clear();
-    m_externalIpTimer.stop();
-  } else if (s.connected) {
-    // A network or VPN change invalidates the shown WAN IP right away — it
-    // disappears from the card and reappears once re-resolved.
-    if (wanProbeKey(s) != m_externalIpKey && !m_externalIp.empty()) {
-      m_externalIp.clear();
-    }
-    maybeScheduleExternalIpProbe();
-  } else {
-    m_externalIp.clear();
-    // Drop the backoff so a reconnect probes promptly.
-    m_externalIpFetchedAt = std::chrono::steady_clock::time_point{};
-  }
+  static const std::string kNoExternalIp;
+  const std::string& externalIp = m_externalIpService != nullptr ? m_externalIpService->externalIp() : kNoExternalIp;
   m_currentTitle->setText(currentTitle(s));
-  m_currentDetail->setText(currentDetail(s, m_externalIp));
+  m_currentDetail->setText(currentDetail(s, externalIp));
   if (m_disconnectButton != nullptr) {
     const bool canReconnectWired = !s.connected && m_network->canActivateWiredConnection();
     m_disconnectButton->setVisible(s.connected || canReconnectWired || m_actionPending);
@@ -703,72 +718,6 @@ void NetworkTab::syncCurrentCard() {
   }
 }
 
-bool NetworkTab::externalIpEnabled() const { return m_config != nullptr && m_config->config().shell.externalIpEnabled; }
-
-void NetworkTab::maybeScheduleExternalIpProbe() {
-  if (m_http == nullptr || m_network == nullptr || !m_active || !externalIpEnabled()) {
-    return;
-  }
-  const NetworkState& s = m_network->state();
-  if (!s.connected || m_externalIpFetchInFlight || m_externalIpTimer.active()) {
-    return;
-  }
-  const auto now = std::chrono::steady_clock::now();
-  if (wanProbeKey(s) == m_externalIpKey) {
-    if (!m_externalIp.empty() && now - m_externalIpFetchedAt < std::chrono::minutes(5)) {
-      return;
-    }
-    // Failure backoff: don't hammer the endpoint from every update pass.
-    if (now - m_externalIpFetchedAt < std::chrono::seconds(30)) {
-      return;
-    }
-  }
-  // Wait out the route/DNS settle window after a connection or VPN change —
-  // probing the instant NM reports the change can still egress the old path.
-  m_externalIpTimer.start(std::chrono::milliseconds(2000), [this] { probeExternalIpNow(); });
-}
-
-void NetworkTab::probeExternalIpNow() {
-  if (m_http == nullptr || m_network == nullptr || !m_active || !externalIpEnabled() || m_externalIpFetchInFlight) {
-    return;
-  }
-  const NetworkState& s = m_network->state();
-  if (!s.connected) {
-    return;
-  }
-
-  m_externalIpFetchInFlight = true;
-  const std::string key = wanProbeKey(s);
-  const std::weak_ptr<int> alive = m_lifetime;
-  HttpRequest req;
-  req.url = "https://api.noctalia.dev/ip";
-  // A pooled keep-alive connection predating a VPN/route change would answer
-  // via the old path and report the stale address.
-  req.freshConnection = true;
-  m_http->request(std::move(req), [this, alive, key](HttpResponse response) {
-    if (alive.expired()) {
-      return;
-    }
-    m_externalIpFetchInFlight = false;
-    m_externalIpFetchedAt = std::chrono::steady_clock::now();
-    m_externalIpKey = key;
-    m_externalIp.clear();
-    if (response.transportOk && response.status == 200) {
-      const std::string ip = StringUtils::trim(response.body);
-      if (isPlausibleIpLiteral(ip)) {
-        m_externalIp = ip;
-      }
-    }
-    if (!m_externalIp.empty() && m_externalIpConfirmedKey != key) {
-      // One confirmation probe per network/VPN state: the first probe after a
-      // transition can race a still-settling route and return the old address.
-      m_externalIpConfirmedKey = key;
-      m_externalIpTimer.start(std::chrono::milliseconds(4000), [this] { probeExternalIpNow(); });
-    }
-    PanelManager::instance().refresh();
-  });
-}
-
 void NetworkTab::beginPendingAction(bool wasConnected) {
   m_actionPending = true;
   m_actionPendingConnected = wasConnected;
@@ -778,6 +727,10 @@ void NetworkTab::beginPendingAction(bool wasConnected) {
   }
 }
 
+// Identity of the built list: which rows exist, in which order, and which controls
+// each carries. The signal strength is absent by design — it refreshes in place
+// through syncApRows(), so a scan update no longer tears the list down. Access points
+// arrive sorted, so a change in row order changes the key.
 std::string
 NetworkTab::structureKey(const std::vector<AccessPointInfo>& aps, const std::vector<VpnConnectionInfo>& vpns) const {
   std::string key;
@@ -789,8 +742,6 @@ NetworkTab::structureKey(const std::vector<AccessPointInfo>& aps, const std::vec
     key += ap.active ? '1' : '0';
     key.push_back(':');
     key += (m_network != nullptr && m_network->hasSavedConnection(ap.ssid)) ? '1' : '0';
-    key.push_back(':');
-    key += std::to_string(ap.strength);
     key.push_back('\n');
   }
   key += "---\n";
@@ -823,7 +774,10 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
     return;
   }
 
-  const auto& aps = m_network != nullptr ? m_network->accessPoints() : std::vector<AccessPointInfo>{};
+  std::vector<AccessPointInfo> aps;
+  if (m_network != nullptr) {
+    aps = sortedAccessPoints(m_network->accessPoints());
+  }
   const auto& vpns = m_network != nullptr ? m_network->vpnConnections() : std::vector<VpnConnectionInfo>{};
   const std::string nextStructure = structureKey(aps, vpns);
   if (listWidth == m_lastListWidth && nextStructure == m_lastStructureKey) {
@@ -869,7 +823,9 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
               PanelManager::instance().refresh();
             }
         );
+        auto* rowPtr = row.get();
         container->addChild(std::move(row));
+        m_apRows.emplace(rowPtr->ssid(), rowPtr);
       }
     }
     return container;
@@ -878,6 +834,7 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
   m_wifiToggle = nullptr;
   m_scanSpinner = nullptr;
   m_rescanButton = nullptr;
+  m_apRows.clear();
 
   while (!m_list->children().empty()) {
     m_list->removeChild(m_list->children().front().get());
@@ -893,11 +850,10 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
     );
   } else {
     const float opacity = panelCardOpacity();
-    const bool borders = panelBordersEnabled();
 
     if (!vpns.empty()) {
       auto vpnCard = ui::column({
-          .configure = [scale, opacity, borders](Flex& card) { applySectionCardStyle(card, scale, opacity, borders); },
+          .configure = [scale, opacity](Flex& card) { applySectionCardStyle(card, scale, opacity); },
       });
 
       auto vpnHeader = makeCardHeaderRow(i18n::tr("control-center.network.vpns"), scale);
@@ -940,7 +896,7 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
 
     {
       auto wifiCard = ui::column({
-          .configure = [scale, opacity, borders](Flex& card) { applySectionCardStyle(card, scale, opacity, borders); },
+          .configure = [scale, opacity](Flex& card) { applySectionCardStyle(card, scale, opacity); },
       });
 
       auto wifiHeader = makeCardHeaderRow(i18n::tr("control-center.network.wifi"), scale);
@@ -994,6 +950,20 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
     }
   }
   m_list->layout(renderer);
+}
+
+bool NetworkTab::syncApRows() {
+  if (m_network == nullptr || m_apRows.empty()) {
+    return false;
+  }
+  bool changed = false;
+  for (const auto& ap : m_network->accessPoints()) {
+    const auto it = m_apRows.find(ap.ssid);
+    if (it != m_apRows.end() && it->second->syncLiveMetrics(ap)) {
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 void NetworkTab::onPanelCardOpacityChanged(float opacity) {

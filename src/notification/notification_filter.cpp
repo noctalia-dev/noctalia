@@ -3,6 +3,7 @@
 #include "util/string_utils.h"
 
 #include <cctype>
+#include <regex>
 #include <unordered_set>
 
 namespace {
@@ -127,17 +128,31 @@ ResolvedNotificationFilter resolveNotificationFilter(
     const std::vector<NotificationFilterConfig>& filters, const NotificationFilterFields& fields
 ) {
   for (const auto& filter : filters) {
-    if (!filter.enabled || filter.match.empty()) {
+    if (!filter.enabled || (filter.match.empty() && filter.matchContent.empty())) {
       continue;
     }
-    if (!notificationMatchesToken(filter.match, fields)) {
+    if (!filter.match.empty() && !notificationMatchesToken(filter.match, fields)) {
       continue;
+    }
+    if (!filter.matchContent.empty()) {
+      try {
+        std::regex re(filter.matchContent, std::regex_constants::ECMAScript | std::regex_constants::icase);
+        const std::string summaryStr(fields.summary);
+        const std::string bodyStr(fields.body);
+        if (!std::regex_search(summaryStr, re) && !std::regex_search(bodyStr, re)) {
+          continue;
+        }
+      } catch (const std::regex_error&) {
+        // Skip filter on invalid regex
+        continue;
+      }
     }
     return ResolvedNotificationFilter{
         .showToast = filter.showToast,
         .saveHistory = filter.saveHistory,
         .playSound = filter.playSound,
         .allowPermanent = filter.allowPermanent,
+        .overrideDuration = filter.overrideDuration,
         .allowedUrgencies = normalizeAllowedUrgencies(filter.allowedUrgencies),
         .matched = true,
     };

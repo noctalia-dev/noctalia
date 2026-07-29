@@ -9,7 +9,7 @@
 
 class GlesTextureManager final : public TextureManager {
 public:
-  GlesTextureManager() = default;
+  GlesTextureManager();
   ~GlesTextureManager() override;
 
   GlesTextureManager(const GlesTextureManager&) = delete;
@@ -39,6 +39,7 @@ public:
   ) override;
   void unload(TextureHandle& handle) override;
   void cleanup() override;
+  void abandonGpuResources() noexcept override;
 
   void probeExtensions() override;
 
@@ -54,5 +55,6 @@ private:
   TextureHandle uploadBgra(const std::uint8_t* data, int width, int height, bool mipmap = false);
 
   std::vector<TextureId> m_textures;
+  std::uint64_t m_generation = 0;
   bool m_hasBgraExt = false;
 };

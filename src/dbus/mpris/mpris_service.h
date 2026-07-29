@@ -12,6 +12,7 @@
 #include <string>
 #include <tuple>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 class SessionBus;
@@ -40,6 +41,7 @@ struct MprisPlayerInfo {
   double volume{1.0};
   int64_t positionUs{0};
   int64_t lengthUs{0};
+  bool canControl{false};
   bool canPlay{false};
   bool canPause{false};
   bool canGoNext{false};
@@ -64,11 +66,13 @@ public:
 
   bool playPause(const std::string& busName);
   bool play(const std::string& busName);
+  bool pause(const std::string& busName);
   bool stop(const std::string& busName);
   bool next(const std::string& busName);
   bool previous(const std::string& busName);
   bool playPauseActive();
   bool playActive();
+  bool pauseActive();
   bool stopActive();
   bool nextActive();
   bool previousActive();
@@ -141,12 +145,17 @@ private:
   makeAsyncReplyHandler(std::string op, std::string busName, std::string_view method);
   [[nodiscard]] bool callPlayerMethod(const std::string& busName, const char* methodName);
   [[nodiscard]] bool canInvoke(const MprisPlayerInfo& player, const char* methodName) const;
+  void dismissPlayer(const std::string& busName);
 
   bool onPlayPausePlayer(const std::string& busName);
+  bool onPlayPlayer(const std::string& busName);
+  bool onPausePlayer(const std::string& busName);
   bool onStopPlayer(const std::string& busName);
   bool onNextPlayer(const std::string& busName);
   bool onPreviousPlayer(const std::string& busName);
   bool onPlayPauseActive();
+  bool onPlayActive();
+  bool onPauseActive();
   bool onStopActive();
   bool onNextActive();
   bool onPreviousActive();
@@ -197,6 +206,7 @@ private:
   std::unordered_map<std::string, std::chrono::steady_clock::time_point> m_lastStrongMetadataUpdate;
   std::unordered_map<std::string, int> m_playerPropertiesFailures;
   std::unordered_map<std::string, std::chrono::milliseconds> m_playerPropertiesRefreshBackoffMs;
+  std::unordered_set<std::string> m_stoppedPlayers;
   std::deque<std::string> m_pendingDiscoveryBusNames;
   std::string m_lastActivePlayer;
   std::string m_lastEmittedActivePlayer;

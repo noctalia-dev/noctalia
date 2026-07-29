@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "render/backend/render_backend.h"
+#include "render/core/texture_manager.h"
 #include "render/render_target.h"
 
 #include <chrono>
@@ -50,7 +51,7 @@ void WallpaperRenderer::bind(GlSharedContext& shared, wl_surface* surface) {
 }
 
 void WallpaperRenderer::makeCurrent() {
-  if (m_backend != nullptr && m_target != nullptr && m_target->isReady()) {
+  if (!m_graphicsResetPending && m_backend != nullptr && m_target != nullptr && m_target->isReady()) {
     m_backend->makeCurrent(*m_target);
   }
 }
@@ -83,7 +84,7 @@ void WallpaperRenderer::resize(
 }
 
 void WallpaperRenderer::render() {
-  if (m_backend == nullptr || m_target == nullptr || !m_target->isReady() || m_tex1 == 0) {
+  if (m_graphicsResetPending || m_backend == nullptr || m_target == nullptr || !m_target->isReady() || m_tex1 == 0) {
     return;
   }
 
@@ -138,7 +139,12 @@ void WallpaperRenderer::render() {
 }
 
 void WallpaperRenderer::renderToFramebuffer(const RenderFramebuffer& target) {
-  if (m_backend == nullptr || m_target == nullptr || !m_target->isReady() || m_tex1 == 0 || !target.valid()) {
+  if (m_graphicsResetPending
+      || m_backend == nullptr
+      || m_target == nullptr
+      || !m_target->isReady()
+      || m_tex1 == 0
+      || !target.valid()) {
     return;
   }
 
@@ -215,7 +221,11 @@ void WallpaperRenderer::renderBackdropContent(
 }
 
 void WallpaperRenderer::presentTexture(TextureId texture) {
-  if (m_backend == nullptr || m_target == nullptr || !m_target->isReady() || texture == TextureId{}) {
+  if (m_graphicsResetPending
+      || m_backend == nullptr
+      || m_target == nullptr
+      || !m_target->isReady()
+      || texture == TextureId{}) {
     return;
   }
 
@@ -226,6 +236,27 @@ void WallpaperRenderer::presentTexture(TextureId texture) {
 void WallpaperRenderer::invalidateGpuResources() {
   if (m_backend != nullptr) {
     m_backend->invalidateGpuResources();
+  }
+}
+
+void WallpaperRenderer::prepareForGraphicsReset() noexcept {
+  if (m_backend == nullptr) {
+    return;
+  }
+  m_backend->abandonAfterGraphicsReset();
+  m_graphicsResetPending = true;
+}
+
+void WallpaperRenderer::restoreAfterGraphicsReset(GlSharedContext& shared) {
+  // Mirrors prepareForGraphicsReset: an unbound renderer was never torn down, so it has
+  // nothing to restore and never set m_graphicsResetPending.
+  if (m_backend == nullptr) {
+    return;
+  }
+  m_backend->initialize(shared);
+  m_backend->textureManager().probeExtensions();
+  if (m_bufferWidth != 0 && m_bufferHeight != 0) {
+    m_backend->setViewport(m_bufferWidth, m_bufferHeight);
   }
 }
 
@@ -289,7 +320,7 @@ void WallpaperRenderer::swapBuffers() {
 }
 
 std::unique_ptr<RenderFramebuffer> WallpaperRenderer::createFramebuffer(std::uint32_t width, std::uint32_t height) {
-  if (m_backend == nullptr || width == 0 || height == 0) {
+  if (m_graphicsResetPending || m_backend == nullptr || width == 0 || height == 0) {
     return nullptr;
   }
   makeCurrent();

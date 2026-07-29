@@ -5,6 +5,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <expected>
+#include <jxl/decode.h>
+#include <jxl/decode_cxx.h>
+#include <jxl/resizable_parallel_runner.h>
+#include <jxl/resizable_parallel_runner_cxx.h>
+#include <jxl/types.h>
 #include <utility>
 #include <vector>
 #include <webp/decode.h>
@@ -229,6 +234,73 @@ namespace {
     return decoded;
   }
 
+  bool isJxl(const std::uint8_t* data, std::size_t size) {
+    const JxlSignature signature = JxlSignatureCheck(data, size);
+    return signature == JXL_SIG_CODESTREAM || signature == JXL_SIG_CONTAINER;
+  }
+
+  // Decoder and runner are call-local: worker threads (thumbnails, async textures)
+  // decode concurrently, and libjxl forbids sharing either across threads.
+  std::expected<DecodedRasterImage, std::string> decodeJxl(const std::uint8_t* data, std::size_t size) {
+    auto runner = JxlResizableParallelRunnerMake(nullptr);
+    auto decoder = JxlDecoderMake(nullptr);
+    if (runner == nullptr || decoder == nullptr) {
+      return std::unexpected("libjxl: failed to create decoder");
+    }
+
+    if (JxlDecoderSubscribeEvents(decoder.get(), JXL_DEC_BASIC_INFO | JXL_DEC_FULL_IMAGE) != JXL_DEC_SUCCESS
+        || JxlDecoderSetParallelRunner(decoder.get(), JxlResizableParallelRunner, runner.get()) != JXL_DEC_SUCCESS
+        // Codestreams flagged alpha_premultiplied decode premultiplied; the pipeline wants straight alpha.
+        // No-op for straight-alpha and alpha-less images.
+        || JxlDecoderSetUnpremultiplyAlpha(decoder.get(), JXL_TRUE) != JXL_DEC_SUCCESS
+        || JxlDecoderSetInput(decoder.get(), data, size) != JXL_DEC_SUCCESS) {
+      return std::unexpected("libjxl: failed to configure decoder");
+    }
+    JxlDecoderCloseInput(decoder.get());
+
+    constexpr JxlPixelFormat kFormat{4, JXL_TYPE_UINT8, JXL_NATIVE_ENDIAN, 0};
+    DecodedRasterImage decoded;
+    for (;;) {
+      switch (JxlDecoderProcessInput(decoder.get())) {
+      case JXL_DEC_BASIC_INFO: {
+        JxlBasicInfo info;
+        if (JxlDecoderGetBasicInfo(decoder.get(), &info) != JXL_DEC_SUCCESS) {
+          return std::unexpected("libjxl: failed to read image header");
+        }
+        // Orientation is already applied; xsize/ysize are the display dimensions.
+        decoded.width = static_cast<int>(info.xsize);
+        decoded.height = static_cast<int>(info.ysize);
+        JxlResizableParallelRunnerSetThreads(
+            runner.get(), JxlResizableParallelRunnerSuggestThreads(info.xsize, info.ysize)
+        );
+        break;
+      }
+      case JXL_DEC_NEED_IMAGE_OUT_BUFFER: {
+        std::size_t needed = 0;
+        if (JxlDecoderImageOutBufferSize(decoder.get(), &kFormat, &needed) != JXL_DEC_SUCCESS) {
+          return std::unexpected("libjxl: failed to size output buffer");
+        }
+        decoded.pixels.resize(needed);
+        if (JxlDecoderSetImageOutBuffer(decoder.get(), &kFormat, decoded.pixels.data(), decoded.pixels.size())
+            != JXL_DEC_SUCCESS) {
+          return std::unexpected("libjxl: failed to bind output buffer");
+        }
+        break;
+      }
+      case JXL_DEC_FULL_IMAGE:
+        // Animation: later frames overwrite the buffer, last displayed frame wins.
+        break;
+      case JXL_DEC_SUCCESS:
+        if (decoded.width <= 0 || decoded.height <= 0 || decoded.pixels.empty()) {
+          return std::unexpected("libjxl: decoded image has no pixel data");
+        }
+        return decoded;
+      default:
+        return std::unexpected("libjxl: failed to decode JPEG XL image");
+      }
+    }
+  }
+
 } // namespace
 
 std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint8_t* data, std::size_t size) {
@@ -241,6 +313,9 @@ std::expected<DecodedRasterImage, std::string> decodeRasterImage(const std::uint
 
   if (isIco(data, size))
     return decodeIco(data, size);
+
+  if (isJxl(data, size))
+    return decodeJxl(data, size);
 
   auto input = wuffs_aux::sync_io::MemoryInput(data, size);
   auto callbacks = RgbaDecodeCallbacks();

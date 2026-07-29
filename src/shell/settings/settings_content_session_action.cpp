@@ -94,7 +94,7 @@ namespace settings {
         .glyph = previewGlyph,
         .glyphSize = iconGlyphSize,
         .controlHeight = iconSq,
-        .variant = ButtonVariant::Outline,
+        .variant = ButtonVariant::Default,
         .minWidth = iconSq,
         .maxWidth = iconSq,
         .padding = 0.0f,

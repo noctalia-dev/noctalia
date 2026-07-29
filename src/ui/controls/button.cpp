@@ -249,6 +249,8 @@ Button::Button() {
     // the next applyVisualState() will resync.
     applyVariant();
   });
+  m_buttonBordersConn =
+      Style::buttonBordersChanged().connect([this] { setBorder(m_targetBorder, effectiveBorderWidth()); });
 }
 
 Button::~Button() {
@@ -480,7 +482,7 @@ void Button::applyVariant() {
     m_palette.normal.bg.alpha *= m_surfaceOpacity;
     m_palette.disabled.bg.alpha *= m_surfaceOpacity;
   }
-  setBorder(m_palette.normal.border, m_palette.borderWidth);
+  setBorder(m_palette.normal.border, effectiveBorderWidth());
 
   // Only seed targets before the first visual state application. Once the
   // button has been painted, applyVisualState() must compare against the
@@ -553,7 +555,7 @@ void Button::ensureGlyph() {
 
 void Button::applyColors(const Color& bg, const Color& border, const Color& label) {
   setFill(bg);
-  setBorder(border, m_palette.borderWidth);
+  setBorder(border, effectiveBorderWidth());
   if (m_label != nullptr) {
     m_label->setColor(label);
   }
@@ -577,6 +579,10 @@ void Button::applyColors(const Color& bg, const Color& border, const Color& labe
     }
   }
   m_visualStateInitialized = true;
+}
+
+float Button::effectiveBorderWidth() const noexcept {
+  return Style::buttonBordersEnabled() ? m_palette.borderWidth : 0.0f;
 }
 
 void Button::resolveVisualStateColors(Color& targetBg, Color& targetBorder, Color& targetLabel) const {

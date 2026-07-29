@@ -13,6 +13,12 @@
 
 namespace settings {
 
+  namespace {
+
+    constexpr float kSourceBadgeMaxWidth = 120.0f;
+
+  } // namespace
+
   PluginStoreTile::PluginStoreTile(float scale) : m_scale(scale) {
     setDirection(FlexDirection::Vertical);
     setAlign(FlexAlign::Stretch);
@@ -28,7 +34,7 @@ namespace settings {
             .fit = ImageFit::Cover,
             .radius = Style::scaledRadiusSm(scale),
             .width = -1.0f,
-            .height = 100.0f * scale,
+            .height = 80.0f * scale,
             .visible = false,
         })
     );
@@ -38,7 +44,7 @@ namespace settings {
             {.out = &m_iconContainer,
              .align = FlexAlign::Center,
              .justify = FlexJustify::Center,
-             .height = 100.0f * scale},
+             .height = 80.0f * scale},
             ui::glyph({
                 .out = &m_icon,
                 .glyph = "apps",
@@ -76,12 +82,37 @@ namespace settings {
              .paddingH = Style::spaceXs * scale,
              .fill = colorSpecFromRole(ColorRole::Primary, 0.15f),
              .radius = Style::scaledRadiusSm(scale),
+             .maxWidth = kSourceBadgeMaxWidth * scale,
              .visible = false},
             ui::label({
                 .out = &m_badgeLabel,
                 .fontSize = Style::fontSizeMini * scale,
                 .fontWeight = FontWeight::Bold,
                 .color = colorSpecFromRole(ColorRole::Primary),
+                .maxWidth = (kSourceBadgeMaxWidth - (Style::spaceXs * 2.0f)) * scale,
+                .maxLines = 1,
+                .ellipsize = TextEllipsize::End,
+            })
+        )
+    );
+
+    titleRow->addChild(
+        ui::row(
+            {.out = &m_statusBadge,
+             .align = FlexAlign::Center,
+             .paddingH = Style::spaceXs * scale,
+             .fill = colorSpecFromRole(ColorRole::Error, 0.15f),
+             .radius = Style::scaledRadiusSm(scale),
+             .maxWidth = kSourceBadgeMaxWidth * scale,
+             .visible = false},
+            ui::label({
+                .out = &m_statusLabel,
+                .fontSize = Style::fontSizeMini * scale,
+                .fontWeight = FontWeight::Bold,
+                .color = colorSpecFromRole(ColorRole::Error),
+                .maxWidth = (kSourceBadgeMaxWidth - (Style::spaceXs * 2.0f)) * scale,
+                .maxLines = 1,
+                .ellipsize = TextEllipsize::End,
             })
         )
     );
@@ -123,7 +154,7 @@ namespace settings {
   }
 
   void PluginStoreTile::bind(
-      const scripting::CatalogEntry& entry, std::string_view source, bool onDisk, bool hovered,
+      const scripting::CatalogEntry& entry, std::string_view source, bool onDisk, bool selected, bool hovered,
       const std::string& thumbnailPath, Renderer* renderer, AsyncTextureCache* textureCache
   ) {
     // Thumbnail vs icon fallback.
@@ -148,19 +179,40 @@ namespace settings {
     }
 
     m_nameLabel->setText(entry.name);
-    m_versionLabel->setText(entry.version.empty() ? std::string() : "v" + entry.version);
+    m_versionLabel->setText(entry.resolvedVersion.empty() ? std::string() : "v" + entry.resolvedVersion);
 
     if (source == "official") {
       m_badge->setVisible(true);
       m_badge->setParticipatesInLayout(true);
+      m_badge->setFill(colorSpecFromRole(ColorRole::Primary, 0.15f));
       m_badgeLabel->setText(i18n::tr("settings.badges.official"));
+      m_badgeLabel->setColor(colorSpecFromRole(ColorRole::Primary));
     } else if (source == "community") {
       m_badge->setVisible(true);
       m_badge->setParticipatesInLayout(true);
+      m_badge->setFill(colorSpecFromRole(ColorRole::Secondary, 0.15f));
       m_badgeLabel->setText(i18n::tr("settings.badges.community"));
+      m_badgeLabel->setColor(colorSpecFromRole(ColorRole::Secondary));
     } else {
-      m_badge->setVisible(false);
-      m_badge->setParticipatesInLayout(false);
+      m_badge->setVisible(true);
+      m_badge->setParticipatesInLayout(true);
+      m_badge->setFill(colorSpecFromRole(ColorRole::Tertiary, 0.15f));
+      m_badgeLabel->setText(source);
+      m_badgeLabel->setColor(colorSpecFromRole(ColorRole::Tertiary));
+    }
+
+    // The grid is where a user first meets a plugin, so an unusable or older-than-latest
+    // entry has to say so here rather than only in the detail sheet.
+    const bool hasStatus = !entry.compatible || entry.heldBack;
+    m_statusBadge->setVisible(hasStatus);
+    m_statusBadge->setParticipatesInLayout(hasStatus);
+    if (hasStatus) {
+      const ColorRole role = entry.compatible ? ColorRole::Tertiary : ColorRole::Error;
+      m_statusBadge->setFill(colorSpecFromRole(role, 0.15f));
+      m_statusLabel->setColor(colorSpecFromRole(role));
+      m_statusLabel->setText(
+          i18n::tr(entry.compatible ? "settings.plugins.store.held-back" : "settings.plugins.store.incompatible")
+      );
     }
 
     m_descLabel->setText(entry.description);
@@ -169,7 +221,8 @@ namespace settings {
     m_addedGlyph->setVisible(onDisk);
     m_addedGlyph->setParticipatesInLayout(onDisk);
 
-    setBorder(colorSpecFromRole(hovered ? ColorRole::Hover : ColorRole::Outline), Style::borderWidth);
+    const ColorRole borderRole = selected ? ColorRole::Primary : (hovered ? ColorRole::Hover : ColorRole::Outline);
+    setBorder(colorSpecFromRole(borderRole), selected ? Style::borderWidth * 2.0f : Style::borderWidth);
   }
 
 } // namespace settings

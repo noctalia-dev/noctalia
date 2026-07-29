@@ -78,7 +78,7 @@ private:
   };
   struct CacheKeyHash {
     std::size_t operator()(const CacheKey& k) const noexcept {
-      return std::hash<std::string>{}(k.dir) ^ (k.flatten ? 0x9e3779b9u : 0u);
+      return std::hash<std::string>{}(k.dir) ^ (k.flatten ? 0x9e3779b9U : 0U);
     }
   };
 

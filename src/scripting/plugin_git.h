@@ -34,8 +34,12 @@ namespace scripting {
 
     // `git -C dest show <rev>:<repoPath>` — lazily fetches one blob. out = file body.
     // `rev` defaults to HEAD; pass FETCH_HEAD to inspect a fetched-but-unapplied revision.
-    [[nodiscard]] GitResult
-    showFile(const std::filesystem::path& dest, std::string_view repoPath, std::string_view rev = "HEAD");
+    // `localOnly` fails immediately on a blob missing from the local object store
+    // instead of lazy-fetching it, making the call safe on the main thread.
+    [[nodiscard]] GitResult showFile(
+        const std::filesystem::path& dest, std::string_view repoPath, std::string_view rev = "HEAD",
+        bool localOnly = false
+    );
 
     // Export `subdir` at `rev` into `workTree/subdir` without checking files out
     // inside the source repo. The caller owns temp/final directory replacement.

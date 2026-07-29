@@ -101,6 +101,7 @@ private:
   void ensureGlyph();
   void applyVariant();
   void applyVisualState();
+  [[nodiscard]] float effectiveBorderWidth() const noexcept;
   void resolveVisualStateColors(Color& bg, Color& border, Color& label) const;
   void doLayout(Renderer& renderer) override;
   LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override;
@@ -146,6 +147,7 @@ private:
   bool m_pressedVisual = false;
   bool m_visualStateInitialized = false;
   Signal<>::ScopedConnection m_paletteConn;
+  Signal<>::ScopedConnection m_buttonBordersConn;
 };
 
 class Renderer;

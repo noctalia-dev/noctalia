@@ -42,6 +42,7 @@ public:
   appIdsByWorkspace(const std::string& outputName = {}) const override;
   [[nodiscard]] std::vector<WorkspaceWindow> workspaceWindows(const std::string& outputName = {}) const override;
   bool focusWindowById(const std::string& windowId) override;
+  [[nodiscard]] std::optional<std::string> focusedWindowId() const override;
   void cleanup() override;
 
 private:
@@ -70,6 +71,8 @@ private:
   [[nodiscard]] bool handleWindowOpenedOrChanged(const nlohmann::json& payload);
   [[nodiscard]] bool handleWindowLayoutsChanged(const nlohmann::json& payload);
   [[nodiscard]] bool handleWindowClosed(const nlohmann::json& payload);
+  [[nodiscard]] bool handleWindowFocusChanged(const nlohmann::json& payload);
+  [[nodiscard]] bool updateFocusedWindowIdFromWindowsJson(const nlohmann::json& windows);
   [[nodiscard]] static std::optional<WorkspaceState> parseWorkspace(const nlohmann::json& json);
   [[nodiscard]] static std::optional<std::pair<std::uint64_t, WindowState>> parseWindow(const nlohmann::json& json);
   [[nodiscard]] static bool applyWindowFields(const nlohmann::json& json, WindowState& state);
@@ -90,6 +93,7 @@ private:
   std::unordered_map<std::uint64_t, WindowState> m_windows;
   std::unordered_map<std::uint64_t, std::size_t> m_occupancy;
   std::unordered_map<std::uint64_t, WorkspaceState> m_workspaces;
+  std::optional<std::uint64_t> m_focusedWindowId;
   bool m_overviewKnown = false;
   bool m_overviewOpen = false;
   ChangeCallback m_changeCallback;

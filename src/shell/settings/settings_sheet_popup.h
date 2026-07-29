@@ -10,6 +10,7 @@
 
 class Flex;
 class Label;
+class Node;
 class RenderContext;
 class WaylandConnection;
 struct KeyboardEvent;
@@ -24,6 +25,7 @@ namespace settings {
     XdgPopupParent parent;
     std::string sheetTitle;
     std::function<void()> removeAction;
+    std::function<std::unique_ptr<Node>()> createHeaderAction;
     std::function<void(Flex& sheetBody)> populateSheetBody;
     float scale = 1.0f;
     float minWidth = 640.0f;
@@ -36,6 +38,8 @@ namespace settings {
     bool scrollableBody = true;
     // When set, called instead of close(). Return true to consume (prevent close).
     std::function<bool()> onCloseRequested;
+    // Optional keyboard pre-dispatch (e.g. plugin-store grid navigation). Return true to consume.
+    std::function<bool(const KeyboardEvent&)> preDispatchKeyboard;
   };
 
   class SettingsSheetPopup final : public DialogPopupHost {
@@ -54,8 +58,11 @@ namespace settings {
     [[nodiscard]] wl_surface* wlSurface() const noexcept;
     [[nodiscard]] bool ownsSelectDropdownSurface(wl_surface* surface) const noexcept;
     [[nodiscard]] bool isSelectDropdownOpen() const noexcept;
+    [[nodiscard]] InputArea* focusedArea() noexcept;
 
     void setSheetTitle(std::string title);
+    void setStatusMessage(std::string message, bool error);
+    void clearStatusMessage();
 
     // Re-run the populate callback to rebuild the sheet body in place (e.g. after an edit that
     // changes which controls are shown). Re-measures and resizes the popup. No-op if not open.
@@ -66,6 +73,7 @@ namespace settings {
     void layoutSheet(float contentWidth, float contentHeight) override;
     void cancelToFacade() override;
     [[nodiscard]] InputArea* initialFocusArea() override;
+    [[nodiscard]] bool preDispatchKeyboard(const KeyboardEvent& event) override;
     void onSheetClose() override;
 
   private:
@@ -83,9 +91,15 @@ namespace settings {
     bool m_fillParentHeight = false;
     bool m_scrollableBody = true;
     std::function<bool()> m_onCloseRequested;
+    std::function<bool(const KeyboardEvent&)> m_preDispatchKeyboard;
     std::string m_sheetTitle;
     Label* m_sheetTitleLabel = nullptr;
+    std::string m_statusMessage;
+    bool m_statusIsError = false;
+    Flex* m_statusBanner = nullptr;
+    Label* m_statusLabel = nullptr;
     std::function<void()> m_removeAction;
+    std::function<std::unique_ptr<Node>()> m_createHeaderAction;
     std::function<void(Flex&)> m_populateSheetBody;
 
     Flex* m_root = nullptr;

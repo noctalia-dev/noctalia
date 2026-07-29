@@ -76,6 +76,14 @@ void GlesFramebuffer::destroy() {
   m_height = 0;
 }
 
+void GlesFramebuffer::abandon() noexcept {
+  m_textures = nullptr;
+  m_id = 0;
+  m_color = {};
+  m_width = 0;
+  m_height = 0;
+}
+
 void GlesFramebuffer::bind() const { glBindFramebuffer(GL_FRAMEBUFFER, m_id); }
 
 void GlesFramebuffer::bindDefault() { glBindFramebuffer(GL_FRAMEBUFFER, 0); }

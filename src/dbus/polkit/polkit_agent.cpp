@@ -13,13 +13,11 @@
 #include <glib-object.h>
 #include <glib.h>
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <poll.h>
 #include <pwd.h>
 #include <string>
 #include <sys/types.h>
-#include <thread>
 #include <unistd.h>
 #include <utility>
 #include <vector>
@@ -279,14 +277,7 @@ struct PolkitAgent::Impl {
   PolkitAgentSession* session = nullptr;
   GMainContext* context = nullptr;
   GCancellable* registerCancellable = nullptr;
-  std::thread registerThread;
-  mutable std::mutex registerMutex;
-  gpointer pendingRegistrationHandle = nullptr;
   bool m_nextInternal = false;
-  bool registrationComplete = false;
-  bool registrationOk = false;
-  bool registrationShutdown = false;
-  std::string registrationError;
   bool starting = false;
   bool registered = false;
   std::unique_ptr<InternalAuthRequest> pending;
@@ -314,21 +305,8 @@ struct PolkitAgent::Impl {
     clearPending("PolkitAgent is being destroyed", true);
     if (registerCancellable != nullptr) {
       g_cancellable_cancel(registerCancellable);
-    }
-    {
-      std::scoped_lock lock(registerMutex);
-      registrationShutdown = true;
-    }
-    if (registerThread.joinable()) {
-      registerThread.join();
-    }
-    if (registerCancellable != nullptr) {
       g_object_unref(registerCancellable);
       registerCancellable = nullptr;
-    }
-    if (pendingRegistrationHandle != nullptr) {
-      polkit_agent_listener_unregister(pendingRegistrationHandle);
-      pendingRegistrationHandle = nullptr;
     }
     if (listener != nullptr) {
       listener->owner = nullptr;
@@ -370,7 +348,6 @@ struct PolkitAgent::Impl {
   }
 
   void onSessionReady(GObject* /*source*/, GAsyncResult* result) {
-    starting = false;
     GError* error = nullptr;
 
     PolkitSubject* pidSubject = polkit_unix_session_new_for_process_finish(result, &error);
@@ -404,106 +381,56 @@ struct PolkitAgent::Impl {
   }
 
   void beginRegisterSubject(PolkitSubject* subject, GError* error) {
+    starting = false;
+    if (registerCancellable != nullptr) {
+      g_object_unref(registerCancellable);
+      registerCancellable = nullptr;
+    }
+
     if (subject == nullptr || error != nullptr) {
       std::string message = error != nullptr ? error->message : "failed to create polkit session subject";
       g_clear_error(&error);
       if (subject != nullptr) {
         g_object_unref(subject);
       }
-      setRegistrationResult(nullptr, false, std::move(message));
+      if (readyCallback) {
+        readyCallback(false, message);
+      }
       return;
     }
 
-    registerThread = std::thread([this, subject]() {
-      GError* registerError = nullptr;
-      gpointer handle = polkit_agent_listener_register(
-          POLKIT_AGENT_LISTENER(listener), POLKIT_AGENT_REGISTER_FLAGS_NONE, subject, kAgentObjectPath,
-          registerCancellable, &registerError
-      );
-      g_object_unref(subject);
+    // Register on this thread (the shell poll / GLib default context). A worker
+    // thread would attach the agent D-Bus filters to a context that never runs,
+    // so password responses never reach polkit-agent-helper (PAM "conversation failed").
+    GError* registerError = nullptr;
+    gpointer handle = polkit_agent_listener_register(
+        POLKIT_AGENT_LISTENER(listener), POLKIT_AGENT_REGISTER_FLAGS_NONE, subject, kAgentObjectPath, nullptr,
+        &registerError
+    );
+    g_object_unref(subject);
 
-      std::string message;
-      if (registerError != nullptr) {
-        message = registerError->message;
-        g_clear_error(&registerError);
-      } else if (handle == nullptr) {
-        message = "polkit listener registration returned no handle";
-      }
-
-      setRegistrationResult(handle, handle != nullptr && message.empty(), std::move(message));
-    });
-  }
-
-  void setRegistrationResult(gpointer handle, bool ok, std::string error) {
-    bool shouldUnregister = false;
-    {
-      std::scoped_lock lock(registerMutex);
-      if (registrationShutdown) {
-        shouldUnregister = handle != nullptr;
-      } else {
-        pendingRegistrationHandle = handle;
-        registrationOk = ok;
-        registrationError = std::move(error);
-        registrationComplete = true;
-      }
-    }
-
-    if (shouldUnregister) {
-      polkit_agent_listener_unregister(handle);
-    }
-  }
-
-  bool registrationReady() const {
-    std::scoped_lock lock(registerMutex);
-    return registrationComplete;
-  }
-
-  void finishRegistrationIfReady() {
-    gpointer handle = nullptr;
-    bool ok = false;
-    std::string error;
-    {
-      std::scoped_lock lock(registerMutex);
-      if (!registrationComplete) {
-        return;
-      }
-      handle = pendingRegistrationHandle;
-      pendingRegistrationHandle = nullptr;
-      ok = registrationOk;
-      error = std::move(registrationError);
-      registrationComplete = false;
-      registrationOk = false;
-    }
-
-    if (registerThread.joinable()) {
-      registerThread.join();
-    }
-    if (registerCancellable != nullptr) {
-      g_object_unref(registerCancellable);
-      registerCancellable = nullptr;
-    }
-
-    starting = false;
-    if (!ok) {
+    if (registerError != nullptr) {
+      const std::string message = registerError->message;
+      g_clear_error(&registerError);
       if (handle != nullptr) {
         polkit_agent_listener_unregister(handle);
       }
       if (readyCallback) {
-        readyCallback(false, error.empty() ? "polkit listener registration failed" : error);
+        readyCallback(false, message);
       }
       return;
     }
-    if (listener->registration_handle != nullptr) {
-      polkit_agent_listener_unregister(listener->registration_handle);
-    }
-    listener->registration_handle = handle;
-    if (listener->registration_handle == nullptr) {
+    if (handle == nullptr) {
       if (readyCallback) {
         readyCallback(false, "polkit listener registration returned no handle");
       }
       return;
     }
 
+    if (listener->registration_handle != nullptr) {
+      polkit_agent_listener_unregister(listener->registration_handle);
+    }
+    listener->registration_handle = handle;
     registered = true;
     kLog.info("registered Polkit authentication agent at {}", kAgentObjectPath);
     if (readyCallback) {
@@ -611,14 +538,33 @@ struct PolkitAgent::Impl {
     }
 
     stopSession();
-    const auto identityIt = std::ranges::find_if(pending->identities, [](const IdentityRef& identity) {
-      return POLKIT_IS_UNIX_USER(identity.get()) || POLKIT_IS_UNIX_GROUP(identity.get());
-    });
-    if (identityIt == pending->identities.end()) {
+
+    // Prefer the current user when several wheel members are offered.
+    PolkitIdentity* chosen = nullptr;
+    const auto selfUid = static_cast<gint>(::geteuid());
+    for (const IdentityRef& identity : pending->identities) {
+      if (!POLKIT_IS_UNIX_USER(identity.get())) {
+        continue;
+      }
+      if (polkit_unix_user_get_uid(POLKIT_UNIX_USER(identity.get())) == selfUid) {
+        chosen = identity.get();
+        break;
+      }
+    }
+    if (chosen == nullptr) {
+      for (const IdentityRef& identity : pending->identities) {
+        if (POLKIT_IS_UNIX_USER(identity.get())) {
+          chosen = identity.get();
+          break;
+        }
+      }
+    }
+    if (chosen == nullptr) {
+      kLog.warn("polkit action \"{}\" has no unix-user identity (unix-group alone is unsupported)", pending->actionId);
       return false;
     }
 
-    activeIdentity = identityIt->get();
+    activeIdentity = chosen;
     session = polkit_agent_session_new(activeIdentity, pending->cookie.c_str());
     if (session == nullptr) {
       return false;
@@ -694,12 +640,20 @@ struct PolkitAgent::Impl {
     if (pending == nullptr || session == nullptr || !responseRequired) {
       return;
     }
+    // Empty responses make pam_unix report "conversation failed" / "auth could not identify password".
+    if (response.empty()) {
+      return;
+    }
     polkit_agent_session_response(session, response.c_str());
     responseRequired = false;
     inputPrompt.clear();
     supplementaryMessage = i18n::tr("auth.polkit.authenticating");
     supplementaryError = false;
     emitStateChanged();
+
+    while (g_main_context_pending(context)) {
+      g_main_context_iteration(context, FALSE);
+    }
   }
 
   void cancelRequest() {
@@ -738,9 +692,6 @@ struct PolkitAgent::Impl {
   }
 
   int pollTimeoutMs() const {
-    if (registrationReady()) {
-      return 0;
-    }
     if (starting) {
       return glibPollTimeoutMs < 0 ? 100 : std::min(glibPollTimeoutMs, 100);
     }
@@ -748,7 +699,6 @@ struct PolkitAgent::Impl {
   }
 
   void dispatch(const std::vector<pollfd>& fds, std::size_t startIdx) {
-    finishRegistrationIfReady();
     if (!g_main_context_acquire(context)) {
       return;
     }
@@ -774,7 +724,6 @@ struct PolkitAgent::Impl {
     while (g_main_context_pending(context)) {
       g_main_context_iteration(context, FALSE);
     }
-    finishRegistrationIfReady();
   }
 
   PolkitRequest pendingRequest() const {

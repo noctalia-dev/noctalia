@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace compositors::hyprland {
   class HyprlandRuntime;
@@ -19,5 +20,12 @@ private:
 namespace compositors::hyprland {
 
   [[nodiscard]] bool setOutputPower(HyprlandRuntime& runtime, bool on);
+
+  // Focus `connectorName` so newly spawned clients land on that monitor.
+  [[nodiscard]] bool focusOutput(HyprlandRuntime& runtime, std::string_view connectorName);
+
+  // Move `windowSelector` (e.g. address:0x…) to the active workspace on `connectorName`.
+  [[nodiscard]] bool
+  moveWindowToOutput(HyprlandRuntime& runtime, std::string_view windowSelector, std::string_view connectorName);
 
 } // namespace compositors::hyprland

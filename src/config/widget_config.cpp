@@ -30,7 +30,25 @@ namespace noctalia::config {
           strings.push_back(*value);
         }
       }
+      // GCC 16+: -Wfree-nonheap-object false positive on variant move-return.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfree-nonheap-object"
       return WidgetSettingValue{std::move(strings)};
+#pragma GCC diagnostic pop
+    }
+    if (const auto* tableValue = node.as_table()) {
+      WidgetSettingStringMap strings;
+      for (const auto& [key, valueNode] : *tableValue) {
+        const auto value = valueNode.value<std::string>();
+        if (!value.has_value()) {
+          return std::nullopt;
+        }
+        strings.emplace(std::string(key.str()), *value);
+      }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfree-nonheap-object"
+      return WidgetSettingValue{std::move(strings)};
+#pragma GCC diagnostic pop
     }
     return std::nullopt;
   }
@@ -96,7 +114,6 @@ namespace noctalia::config {
 
     WidgetConfig keyboardLayout;
     keyboardLayout.type = "keyboard_layout";
-    keyboardLayout.settings["cycle_command"] = std::string("");
     keyboardLayout.settings["hide_when_single_layout"] = false;
     seed("keyboard_layout", std::move(keyboardLayout));
 
@@ -111,6 +128,7 @@ namespace noctalia::config {
 
     WidgetConfig spacer;
     spacer.type = "spacer";
+    spacer.settings["interactive"] = false;
     seed("spacer", std::move(spacer));
   }
 

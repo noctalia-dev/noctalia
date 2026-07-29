@@ -32,9 +32,20 @@ namespace scripting {
   void PluginFileCache::setOnReady(ReadyCallback cb) { m_onReady = std::move(cb); }
 
   void PluginFileCache::invalidateSource(const std::string& sourceName) {
-    std::scoped_lock lock(m_mutex);
-    std::erase_if(m_missing, [&](const std::string& key) { return key.starts_with(sourceName + "/"); });
-    std::erase_if(m_inFlight, [&](const std::string& key) { return key.starts_with(sourceName + "/"); });
+    {
+      std::scoped_lock lock(m_mutex);
+      std::erase_if(m_missing, [&](const std::string& key) { return key.starts_with(sourceName + "/"); });
+      std::erase_if(m_inFlight, [&](const std::string& key) { return key.starts_with(sourceName + "/"); });
+    }
+
+    // Drop the git-fetched on-disk copies too: cacheFilePath() is keyed only by source
+    // name and filename, not revision, so a source that advanced HEAD would keep serving
+    // its previous thumbnail/README until the cache file is removed.
+    const std::string base = FileUtils::stateDir();
+    if (!base.empty()) {
+      const std::filesystem::path cacheRoot = std::filesystem::path(base) / "plugin-cache";
+      (void)plugin_paths::removeTreeUnder(cacheRoot / sourceName, cacheRoot);
+    }
   }
 
   std::string
@@ -63,14 +74,14 @@ namespace scripting {
       }
     }
 
-    // Path sources: read directly from the source directory.
+    // Path sources: read directly from the source directory. Don't record misses — the
+    // exists() check is cheap and a file added to the directory later (with no restart)
+    // must resolve on the next lookup.
     if (source.kind == PluginSourceKind::Path) {
       const auto path = std::filesystem::path(source.location) / *subdir / filename;
       if (std::filesystem::exists(path)) {
         return path.string();
       }
-      std::scoped_lock lock(m_mutex);
-      m_missing.insert(key);
       return {};
     }
 

@@ -57,6 +57,13 @@ namespace {
     DeferredCall::callLater([cb = std::move(cb)]() mutable { cb(HttpResponse{}); });
   }
 
+  void deferStreamClose(HttpClient::StreamCloseCallback cb) {
+    if (!cb) {
+      return;
+    }
+    DeferredCall::callLater([cb = std::move(cb)]() mutable { cb(HttpStreamResult{}); });
+  }
+
   std::size_t captureResponse(char* ptr, std::size_t size, std::size_t nmemb, void* userdata) {
     const std::size_t bytes = size * nmemb;
     if (userdata == nullptr || ptr == nullptr || bytes == 0) {
@@ -65,6 +72,19 @@ namespace {
 
     auto* response = static_cast<std::string*>(userdata);
     response->append(ptr, bytes);
+    return bytes;
+  }
+
+  std::size_t forwardStreamChunk(char* ptr, std::size_t size, std::size_t nmemb, void* userdata) {
+    const std::size_t bytes = size * nmemb;
+    if (userdata == nullptr || ptr == nullptr || bytes == 0) {
+      return bytes;
+    }
+
+    auto* onData = static_cast<HttpClient::StreamDataCallback*>(userdata);
+    if (*onData) {
+      (*onData)(std::string_view(ptr, bytes));
+    }
     return bytes;
   }
 } // namespace
@@ -97,12 +117,19 @@ HttpClient::~HttpClient() {
       curl_slist_free_all(req.headers);
     }
   }
+  for (auto& [easy, stream] : m_streamTransfers) {
+    curl_multi_remove_handle(m_multi, easy);
+    curl_easy_cleanup(easy);
+    if (stream.headers != nullptr) {
+      curl_slist_free_all(stream.headers);
+    }
+  }
   curl_multi_cleanup(m_multi);
   curl_global_cleanup();
 }
 
 bool HttpClient::hasActiveTransfers() const {
-  return !m_transfers.empty() || !m_postTransfers.empty() || !m_requestTransfers.empty();
+  return !m_transfers.empty() || !m_postTransfers.empty() || !m_requestTransfers.empty() || !m_streamTransfers.empty();
 }
 
 void HttpClient::download(std::string_view url, const std::filesystem::path& destPath, CompletionCallback cb) {
@@ -283,6 +310,10 @@ void HttpClient::request(HttpRequest req, ResponseCallback cb) {
   curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L);
   curl_easy_setopt(easy, CURLOPT_TIMEOUT, 30L);
   curl_easy_setopt(easy, CURLOPT_CONNECTTIMEOUT, 10L);
+  if (req.allowInsecureTls) {
+    curl_easy_setopt(easy, CURLOPT_SSL_VERIFYPEER, 0L);
+    curl_easy_setopt(easy, CURLOPT_SSL_VERIFYHOST, 0L);
+  }
   if (req.followRedirects) {
     curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1L);
     if (req.allowRedirectAuth) {
@@ -330,6 +361,115 @@ void HttpClient::request(HttpRequest req, ResponseCallback cb) {
     return;
   }
   performMulti("request start");
+}
+
+HttpClient::StreamId HttpClient::startStream(HttpRequest req, StreamDataCallback onData, StreamCloseCallback onClose) {
+  if (m_offlineMode) {
+    kLog.warn("stream skipped in offline mode url={}", urlForLog(req.url));
+    deferStreamClose(std::move(onClose));
+    return 0;
+  }
+
+  CURL* easy = curl_easy_init();
+  if (easy == nullptr) {
+    kLog.warn("stream failed to create curl handle url={}", urlForLog(req.url));
+    deferStreamClose(std::move(onClose));
+    return 0;
+  }
+
+  StreamTransfer transfer{};
+  transfer.id = m_nextStreamId++;
+  transfer.onData = std::move(onData);
+  transfer.onClose = std::move(onClose);
+  transfer.url = req.url;
+  transfer.body = std::move(req.body);
+  transfer.basicUsername = std::move(req.basicUsername);
+  transfer.basicPassword = std::move(req.basicPassword);
+  for (const auto& header : req.headers) {
+    transfer.headers = curl_slist_append(transfer.headers, header.c_str());
+  }
+
+  m_streamTransfers[easy] = std::move(transfer);
+  StreamTransfer& stored = m_streamTransfers[easy];
+  m_streamsById[stored.id] = easy;
+
+  curl_easy_setopt(easy, CURLOPT_URL, stored.url.c_str());
+  curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L);
+  // No CURLOPT_TIMEOUT: the transfer is expected to stay open indefinitely.
+  curl_easy_setopt(easy, CURLOPT_CONNECTTIMEOUT, 10L);
+  if (req.allowInsecureTls) {
+    curl_easy_setopt(easy, CURLOPT_SSL_VERIFYPEER, 0L);
+    curl_easy_setopt(easy, CURLOPT_SSL_VERIFYHOST, 0L);
+  }
+  if (req.followRedirects) {
+    curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1L);
+    if (req.allowRedirectAuth) {
+      curl_easy_setopt(easy, CURLOPT_UNRESTRICTED_AUTH, 1L);
+    }
+  }
+  if (req.freshConnection) {
+    curl_easy_setopt(easy, CURLOPT_FRESH_CONNECT, 1L);
+    curl_easy_setopt(easy, CURLOPT_FORBID_REUSE, 1L);
+  }
+  if (!stored.basicUsername.empty() || !stored.basicPassword.empty()) {
+    curl_easy_setopt(easy, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_easy_setopt(easy, CURLOPT_USERNAME, stored.basicUsername.c_str());
+    curl_easy_setopt(easy, CURLOPT_PASSWORD, stored.basicPassword.c_str());
+  }
+  // No CURLOPT_FAILONERROR: error responses stream their body and report status on close.
+  if (req.method == "POST") {
+    curl_easy_setopt(easy, CURLOPT_POST, 1L);
+  } else if (req.method != "GET") {
+    curl_easy_setopt(easy, CURLOPT_CUSTOMREQUEST, req.method.c_str());
+  }
+  if (stored.headers != nullptr) {
+    curl_easy_setopt(easy, CURLOPT_HTTPHEADER, stored.headers);
+  }
+  if (!stored.body.empty()) {
+    curl_easy_setopt(easy, CURLOPT_POSTFIELDSIZE, static_cast<long>(stored.body.size()));
+    curl_easy_setopt(easy, CURLOPT_POSTFIELDS, stored.body.c_str());
+  }
+  curl_easy_setopt(easy, CURLOPT_ERRORBUFFER, stored.errorBuffer.data());
+  curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, forwardStreamChunk);
+  curl_easy_setopt(easy, CURLOPT_WRITEDATA, &stored.onData);
+
+  const CURLMcode addResult = curl_multi_add_handle(m_multi, easy);
+  if (addResult != CURLM_OK) {
+    StreamTransfer failed = std::move(m_streamTransfers[easy]);
+    m_streamsById.erase(failed.id);
+    m_streamTransfers.erase(easy);
+    curl_easy_cleanup(easy);
+    if (failed.headers != nullptr) {
+      curl_slist_free_all(failed.headers);
+    }
+    kLog.warn(
+        "stream failed to add curl handle url={} error={}", urlForLog(failed.url), curl_multi_strerror(addResult)
+    );
+    deferStreamClose(std::move(failed.onClose));
+    return 0;
+  }
+  const StreamId id = stored.id;
+  performMulti("stream start");
+  return id;
+}
+
+void HttpClient::cancelStream(StreamId id) {
+  const auto byId = m_streamsById.find(id);
+  if (byId == m_streamsById.end()) {
+    return;
+  }
+  CURL* easy = byId->second;
+  m_streamsById.erase(byId);
+
+  const auto it = m_streamTransfers.find(easy);
+  if (it != m_streamTransfers.end()) {
+    if (it->second.headers != nullptr) {
+      curl_slist_free_all(it->second.headers);
+    }
+    m_streamTransfers.erase(it);
+  }
+  curl_multi_remove_handle(m_multi, easy);
+  curl_easy_cleanup(easy);
 }
 
 void HttpClient::addPollFds(std::vector<pollfd>& fds) {
@@ -389,6 +529,8 @@ void HttpClient::dispatch(const std::vector<pollfd>& /*fds*/, std::size_t /*star
         finishPostTransfer(easy, msg->data.result);
       } else if (m_requestTransfers.contains(easy)) {
         finishRequestTransfer(easy, msg->data.result);
+      } else if (m_streamTransfers.contains(easy)) {
+        finishStreamTransfer(easy, msg->data.result);
       } else {
         finishTransfer(easy, msg->data.result);
       }
@@ -551,5 +693,43 @@ void HttpClient::finishRequestTransfer(CURL* easy, CURLcode result) {
 
   if (transfer.callback) {
     transfer.callback(std::move(response));
+  }
+}
+
+void HttpClient::finishStreamTransfer(CURL* easy, CURLcode result) {
+  auto it = m_streamTransfers.find(easy);
+  if (it == m_streamTransfers.end()) {
+    curl_multi_remove_handle(m_multi, easy);
+    curl_easy_cleanup(easy);
+    return;
+  }
+
+  StreamTransfer transfer = std::move(it->second);
+  m_streamTransfers.erase(it);
+  m_streamsById.erase(transfer.id);
+
+  long responseCode = 0;
+  curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &responseCode);
+
+  curl_multi_remove_handle(m_multi, easy);
+  curl_easy_cleanup(easy);
+
+  if (transfer.headers != nullptr) {
+    curl_slist_free_all(transfer.headers);
+  }
+
+  HttpStreamResult streamResult;
+  streamResult.transportOk = result == CURLE_OK;
+  streamResult.status = responseCode;
+  if (!streamResult.transportOk) {
+    const char* detail = transfer.errorBuffer[0] != '\0' ? transfer.errorBuffer.data() : curl_easy_strerror(result);
+    kLog.warn(
+        "stream ended url={} curl={} http={} error={}", urlForLog(transfer.url), static_cast<int>(result), responseCode,
+        detail
+    );
+  }
+
+  if (transfer.onClose) {
+    transfer.onClose(streamResult);
   }
 }

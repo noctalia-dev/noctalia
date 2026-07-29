@@ -93,8 +93,7 @@ private:
   [[nodiscard]] const OutputState* outputStateFor(wl_output* output) const;
   [[nodiscard]] static std::optional<std::size_t> parseTagIndex(const Workspace& workspace);
   [[nodiscard]] static std::optional<std::size_t> parseTagIndex(const std::string& id);
-  [[nodiscard]] std::optional<std::size_t> shellActiveTagIndex(const std::vector<TagInfo>& tags) const;
-  [[nodiscard]] static Workspace makeWorkspace(const TagInfo& tag, bool shellActive);
+  [[nodiscard]] static Workspace makeWorkspace(const TagInfo& tag);
   [[nodiscard]] static std::optional<OutputState> parseMonitor(const nlohmann::json& json);
   [[nodiscard]] static std::optional<ClientState> parseClient(const nlohmann::json& json);
 

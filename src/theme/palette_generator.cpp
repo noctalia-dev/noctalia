@@ -24,7 +24,7 @@ namespace noctalia::theme {
   } // namespace
 
   std::expected<GeneratedPalette, std::string> generate(const std::vector<uint8_t>& rgb112, Scheme scheme) {
-    if (rgb112.size() != 112u * 112u * 3u) {
+    if (rgb112.size() != 112U * 112U * 3U) {
       return std::unexpected("expected 112x112x3 pixel buffer");
     }
 

@@ -11,8 +11,8 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
-#include <cerrno>
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
@@ -20,13 +20,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <dirent.h>
-#include <fcntl.h>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <poll.h>
 #include <queue>
 #include <sdbus-c++/IProxy.h>
 #include <sdbus-c++/Types.h>
@@ -35,7 +33,6 @@
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/inotify.h>
-#include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
 #include <unordered_map>
@@ -87,6 +84,7 @@ namespace {
   struct CommandResult {
     bool launched = false;
     bool timedOut = false;
+    bool cancelled = false;
     int exitCode = -1;
     std::string output;
   };
@@ -187,6 +185,34 @@ namespace {
     }
 
     return BrightnessBackendPreference::Auto;
+  }
+
+  // Returns the explicit backlight device name/path configured for this output, if any.
+  std::optional<std::string> backlightDeviceForOutput(const BrightnessConfig& config, const WaylandOutput* output) {
+    if (output == nullptr) {
+      return std::nullopt;
+    }
+
+    for (const auto& override : config.monitorOverrides) {
+      if (override.match.empty() || !outputMatchesSelector(override.match, *output)) {
+        continue;
+      }
+      if (override.backlightDevice.has_value()) {
+        return override.backlightDevice;
+      }
+      break;
+    }
+
+    return std::nullopt;
+  }
+
+  // Returns the sysfs device name from either a bare name ("intel_backlight") or a path.
+  std::string_view extractBacklightDeviceName(std::string_view deviceSpec) {
+    const auto lastSlash = deviceSpec.rfind('/');
+    if (lastSlash != std::string_view::npos) {
+      return deviceSpec.substr(lastSlash + 1);
+    }
+    return deviceSpec;
   }
 
   void applyOutputMetadata(BrightnessDisplay& display, const WaylandOutput& output) {
@@ -436,103 +462,35 @@ namespace {
     return std::nullopt;
   }
 
-  CommandResult runCommandCapture(const std::vector<std::string>& args, std::chrono::milliseconds timeout) {
-    CommandResult result;
-    if (args.empty() || args.front().empty()) {
-      return result;
+  CommandResult runCommandCapture(
+      const std::vector<std::string>& args, std::chrono::milliseconds timeout,
+      const std::shared_ptr<std::atomic<bool>>& cancel
+  ) {
+    if (cancel->load(std::memory_order_relaxed)) {
+      return {.cancelled = true};
     }
 
-    int pipeFds[2] = {-1, -1};
-    if (::pipe2(pipeFds, O_CLOEXEC | O_NONBLOCK) != 0) {
-      return result;
-    }
+    process::RunOptions options;
+    options.timeout = timeout;
+    options.cancel = cancel;
+    process::RunResult runResult = process::runSync(args, std::move(options));
 
-    const pid_t pid = ::fork();
-    if (pid < 0) {
-      ::close(pipeFds[0]);
-      ::close(pipeFds[1]);
-      return result;
-    }
-
-    if (pid == 0) {
-      ::dup2(pipeFds[1], STDOUT_FILENO);
-      ::dup2(pipeFds[1], STDERR_FILENO);
-      ::close(pipeFds[0]);
-      ::close(pipeFds[1]);
-
-      std::vector<char*> argv;
-      argv.reserve(args.size() + 1);
-      for (const auto& arg : args) {
-        argv.push_back(const_cast<char*>(arg.c_str()));
+    std::string output = std::move(runResult.out);
+    if (!runResult.err.empty()) {
+      if (!output.empty()) {
+        output += '\n';
       }
-      argv.push_back(nullptr);
-
-      ::execvp(argv[0], argv.data());
-      ::_exit(127);
+      output += runResult.err;
     }
 
-    result.launched = true;
-    ::close(pipeFds[1]);
-
-    std::string output;
-    bool childExited = false;
-    bool pipeOpen = true;
-    int status = 0;
-    const auto deadline = std::chrono::steady_clock::now() + timeout;
-
-    while (pipeOpen || !childExited) {
-      char buffer[4096];
-      while (true) {
-        const ssize_t n = ::read(pipeFds[0], buffer, sizeof(buffer));
-        if (n > 0) {
-          output.append(buffer, static_cast<std::size_t>(n));
-          continue;
-        }
-        if (n == 0) {
-          pipeOpen = false;
-        } else if (errno != EAGAIN && errno != EWOULDBLOCK) {
-          pipeOpen = false;
-        }
-        break;
-      }
-
-      if (!childExited) {
-        const pid_t waited = ::waitpid(pid, &status, WNOHANG);
-        if (waited == pid) {
-          childExited = true;
-        }
-      }
-
-      if ((!pipeOpen && childExited) || timeout.count() <= 0) {
-        break;
-      }
-
-      const auto now = std::chrono::steady_clock::now();
-      if (now >= deadline) {
-        result.timedOut = true;
-        ::kill(pid, SIGKILL);
-        ::waitpid(pid, &status, 0);
-        break;
-      }
-
-      const int waitMs = static_cast<int>(std::min<std::chrono::milliseconds>(
-                                              std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now),
-                                              std::chrono::milliseconds(100)
-      )
-                                              .count());
-      pollfd fd{.fd = pipeFds[0], .events = POLLIN, .revents = 0};
-      (void)::poll(&fd, 1, waitMs);
-    }
-
-    ::close(pipeFds[0]);
-
-    if (WIFEXITED(status)) {
-      result.exitCode = WEXITSTATUS(status);
-    } else if (WIFSIGNALED(status)) {
-      result.exitCode = 128 + WTERMSIG(status);
-    }
-    result.output = std::move(output);
-    return result;
+    const bool cancelled = cancel->load(std::memory_order_relaxed);
+    return {
+        .launched = runResult.exitCode >= 0,
+        .timedOut = runResult.timedOut && !cancelled,
+        .cancelled = cancelled,
+        .exitCode = runResult.exitCode,
+        .output = std::move(output),
+    };
   }
 
   std::vector<std::string> ddcDetectArgs(const std::vector<std::string>& ignoreMmids) {
@@ -550,29 +508,35 @@ namespace {
             "0.1",     "--bus",      std::to_string(bus)};
   }
 
-  std::optional<std::pair<int, int>>
-  queryDdcBrightness(int bus, std::chrono::milliseconds timeout, std::string* detailOut) {
+  std::optional<std::pair<int, int>> queryDdcBrightness(
+      int bus, std::chrono::milliseconds timeout, std::string* detailOut,
+      const std::shared_ptr<std::atomic<bool>>& cancel
+  ) {
     auto args = ddcBaseArgs(bus);
     args.emplace_back("getvcp");
     args.emplace_back("10");
 
-    const CommandResult result = runCommandCapture(args, timeout);
+    const CommandResult result = runCommandCapture(args, timeout, cancel);
     if (detailOut != nullptr) {
       *detailOut = result.output;
     }
-    if (!result.launched || result.timedOut || result.exitCode != 0) {
+    if (!result.launched || result.timedOut || result.cancelled || result.exitCode != 0) {
       return std::nullopt;
     }
     return parseDdcVcpBrightness(result.output);
   }
 
   std::vector<DdcCandidate> detectDdcDisplays(
-      std::chrono::milliseconds timeout, const std::vector<std::string>& ignoreMmids, std::string* detailOut
+      std::chrono::milliseconds timeout, const std::vector<std::string>& ignoreMmids, std::string* detailOut,
+      const std::shared_ptr<std::atomic<bool>>& cancel
   ) {
     auto args = ddcDetectArgs(ignoreMmids);
-    const CommandResult detectResult = runCommandCapture(args, timeout);
+    const CommandResult detectResult = runCommandCapture(args, timeout, cancel);
     if (detailOut != nullptr) {
       *detailOut = detectResult.output;
+    }
+    if (detectResult.cancelled) {
+      return {};
     }
     if (!detectResult.launched) {
       kLog.warn("ddcutil detect could not be launched");
@@ -594,13 +558,17 @@ namespace {
     bool inDisplay = false;
 
     auto flushCurrent = [&]() {
+      if (cancel->load(std::memory_order_relaxed)) {
+        current = DdcCandidate{};
+        return;
+      }
       if (inDisplay && current.bus >= 0 && !current.connectorName.empty()) {
         if (std::string getvcpDetail; true) {
-          const auto brightness = queryDdcBrightness(current.bus, kDdcQueryTimeout, &getvcpDetail);
+          const auto brightness = queryDdcBrightness(current.bus, kDdcQueryTimeout, &getvcpDetail, cancel);
           if (brightness.has_value()) {
             current.currentRaw = brightness->first;
             current.maxRaw = brightness->second;
-          } else {
+          } else if (!cancel->load(std::memory_order_relaxed)) {
             kLog.warn(
                 "ddcutil: skipping bus {} because brightness query failed: {}", current.bus,
                 StringUtils::trim(getvcpDetail)
@@ -647,6 +615,9 @@ namespace {
     }
 
     flushCurrent();
+    if (cancel->load(std::memory_order_relaxed)) {
+      return {};
+    }
     kLog.info("ddcutil detect parsed {} candidate display(s)", candidates.size());
     return candidates;
   }
@@ -675,6 +646,7 @@ struct BrightnessService::Impl {
   std::mutex workerMutex;
   std::condition_variable workerCv;
   std::thread workerThread;
+  std::shared_ptr<std::atomic<bool>> workerCancel = std::make_shared<std::atomic<bool>>(false);
   bool workerStop = false;
   bool detectPending = false;
   std::uint64_t detectGeneration = 0;
@@ -690,11 +662,7 @@ struct BrightnessService::Impl {
   }
 
   ~Impl() {
-    {
-      std::scoped_lock lock(workerMutex);
-      workerStop = true;
-      workerCv.notify_all();
-    }
+    requestStop();
     if (workerThread.joinable()) {
       workerThread.join();
     }
@@ -707,6 +675,18 @@ struct BrightnessService::Impl {
     }
     if (inotifyFd >= 0) {
       ::close(inotifyFd);
+    }
+  }
+
+  void requestStop() {
+    workerCancel->store(true, std::memory_order_relaxed);
+    {
+      std::scoped_lock lock(workerMutex);
+      workerStop = true;
+      detectPending = false;
+      pendingWrites.clear();
+      pendingRefreshes.clear();
+      workerCv.notify_all();
     }
   }
 
@@ -839,6 +819,16 @@ struct BrightnessService::Impl {
       const BrightnessBackendPreference preference = backendPreferenceForOutput(activeConfig, output);
       if (preference == BrightnessBackendPreference::None || preference == BrightnessBackendPreference::Ddcutil) {
         continue;
+      }
+
+      if (const auto explicitDevice = backlightDeviceForOutput(activeConfig, output); explicitDevice.has_value()) {
+        if (extractBacklightDeviceName(*explicitDevice) != name) {
+          kLog.debug(
+              "skipping backlight '{}' for connector {} (explicit device '{}' configured)", name, connectorName,
+              *explicitDevice
+          );
+          continue;
+        }
       }
 
       DisplayInternal display;
@@ -1145,7 +1135,7 @@ struct BrightnessService::Impl {
         completion.generation = detectGen;
         completion.success = true;
         std::string detail;
-        completion.candidates = detectDdcDisplays(kDdcDetectTimeout, ignoreMmids, &detail);
+        completion.candidates = detectDdcDisplays(kDdcDetectTimeout, ignoreMmids, &detail, workerCancel);
         completion.detail = std::move(detail);
         enqueueCompletion(std::move(completion));
         continue;
@@ -1164,10 +1154,10 @@ struct BrightnessService::Impl {
         args.emplace_back("10");
         args.push_back(std::to_string(std::clamp(writeJob->targetRaw, 0, std::max(1, writeJob->maxRaw))));
 
-        const CommandResult result = runCommandCapture(args, kDdcSetTimeout);
+        const CommandResult result = runCommandCapture(args, kDdcSetTimeout, workerCancel);
         completion.timedOut = result.timedOut;
         completion.detail = result.output;
-        completion.success = result.launched && !result.timedOut && result.exitCode == 0;
+        completion.success = result.launched && !result.timedOut && !result.cancelled && result.exitCode == 0;
         completion.currentRaw = writeJob->targetRaw;
         completion.maxRaw = writeJob->maxRaw;
 
@@ -1183,7 +1173,7 @@ struct BrightnessService::Impl {
         completion.displayId = refreshJob->displayId;
 
         std::string detail;
-        const auto brightness = queryDdcBrightness(refreshJob->bus, kDdcQueryTimeout, &detail);
+        const auto brightness = queryDdcBrightness(refreshJob->bus, kDdcQueryTimeout, &detail, workerCancel);
         completion.detail = std::move(detail);
         completion.success = brightness.has_value();
         if (brightness.has_value()) {
@@ -1478,7 +1468,8 @@ void BrightnessService::reload(const BrightnessConfig& config) { m_impl->reload(
 void BrightnessService::onOutputsChanged() { m_impl->onOutputsChanged(); }
 
 void BrightnessService::registerIpc(IpcService& ipc, std::function<void()> onBatchChange) {
-  auto resolveTargets = [this](std::string_view token, std::vector<std::string>& ids, std::string& error) -> bool {
+  auto resolveTargets = [this,
+                         &ipc](std::string_view token, std::vector<std::string>& ids, std::string& error) -> bool {
     if (!available()) {
       error = "error: brightness control unavailable\n";
       return false;
@@ -1491,7 +1482,14 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void()> onBat
     };
 
     if (token.empty() || token == "current") {
-      wl_output* output = m_impl->wayland.activeToplevelOutput();
+      // A bar widget gesture means the monitor that widget is on, not wherever focus happens to be.
+      wl_output* output = nullptr;
+      if (const auto& context = ipc.invocationContext(); context.has_value()) {
+        output = context->output;
+      }
+      if (output == nullptr) {
+        output = m_impl->wayland.activeToplevelOutput();
+      }
       if (output == nullptr) {
         output = m_impl->platform.preferredInteractiveOutput();
       }
@@ -1595,13 +1593,12 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void()> onBat
           setBrightness(display.id, *amount);
         });
       },
-      "brightness-set <value> | brightness-set <current|*|all|monitor-selector> <value>",
-      "Set brightness (defaults to current monitor)"
+      "[current|*|all|monitor-selector] <value>", "Set brightness (defaults to current monitor)"
   );
 
   auto registerDeltaHandler =
       [this, &ipc,
-       applyToTargets](const std::string& command, float direction, std::string usage, std::string description) {
+       applyToTargets](const std::string& command, float direction, std::string argsSpec, std::string description) {
         ipc.registerHandler(
             command,
             [this, applyToTargets, command, direction](const std::string& args) -> std::string {
@@ -1632,17 +1629,40 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void()> onBat
                 setBrightness(display.id, display.brightness + direction * *step);
               });
             },
-            std::move(usage), std::move(description)
+            std::move(argsSpec), std::move(description)
         );
       };
 
   registerDeltaHandler(
-      "brightness-up", 1.0f, "brightness-up [current|*|all|monitor-selector] [step]",
+      "brightness-up", 1.0f, "[current|*|all|monitor-selector] [step]",
       "Increase brightness (defaults to current monitor)"
   );
   registerDeltaHandler(
-      "brightness-down", -1.0f, "brightness-down [current|*|all|monitor-selector] [step]",
+      "brightness-down", -1.0f, "[current|*|all|monitor-selector] [step]",
       "Decrease brightness (defaults to current monitor)"
+  );
+
+  ipc.registerHandler(
+      "brightness-list-backlight-devices",
+      [](const std::string& /*args*/) -> std::string {
+        const std::string backlightDir = "/sys/class/backlight";
+        DIR* dir = ::opendir(backlightDir.c_str());
+        if (dir == nullptr) {
+          return "error: no backlight devices available\n";
+        }
+        std::string result;
+        while (auto* entry = ::readdir(dir)) {
+          const std::string name = entry->d_name;
+          if (name == "." || name == "..") {
+            continue;
+          }
+          result += name + "\n";
+        }
+        ::closedir(dir);
+        return result.empty() ? "error: no backlight devices available\n" : result;
+      },
+      "", "List available sysfs backlight device names",
+      IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 }
 

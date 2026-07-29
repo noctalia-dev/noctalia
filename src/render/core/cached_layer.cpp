@@ -60,3 +60,18 @@ void CachedLayer::destroy() {
   m_height = 0;
   m_dirty = true;
 }
+
+void CachedLayer::abandon() noexcept {
+  if (m_framebuffer != nullptr) {
+    m_framebuffer->abandon();
+  }
+  if (m_scratch != nullptr) {
+    m_scratch->abandon();
+  }
+  m_framebuffer.reset();
+  m_scratch.reset();
+  m_backend = nullptr;
+  m_width = 0;
+  m_height = 0;
+  m_dirty = true;
+}

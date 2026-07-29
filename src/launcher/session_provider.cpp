@@ -131,10 +131,6 @@ SessionProvider::SessionProvider(ConfigService* config, SessionActionRunner* act
 
 std::string SessionProvider::displayName() const { return i18n::tr("launcher.providers.session.title"); }
 
-bool SessionProvider::includeInGlobalSearch() const {
-  return m_config != nullptr && m_config->config().shell.launcher.sessionSearch;
-}
-
 std::vector<LauncherResult> SessionProvider::query(std::string_view text) const {
   auto entries = collectActions(m_config);
   if (entries.empty()) {

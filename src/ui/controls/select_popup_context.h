@@ -19,10 +19,10 @@ public:
     std::int32_t anchorWidth = 1;
     std::int32_t anchorHeight = 1;
     float menuWidth = 0.0f;
-    float optionHeight = 0.0f;
+    // When > menuWidth, the dropdown grows past menuWidth to fit its widest option, up to this cap.
+    float maxMenuWidth = 0.0f;
+    // Drives the dropdown's row metrics (font, height, insets); pre-scaled by the caller.
     float fontSize = 0.0f;
-    float glyphSize = 14.0f;
-    float horizontalPadding = 0.0f;
     std::vector<std::string> options;
     std::vector<ColorSpec> indicatorColors;
     std::vector<ColorSwatchPreview> optionSwatchPreviews;
@@ -33,7 +33,6 @@ public:
   struct DropdownCallbacks {
     std::function<void(std::size_t index)> onSelect;
     std::function<void()> onDismiss;
-    std::function<void(std::size_t hoveredIndex)> onHoverChanged;
   };
 
   virtual void openSelectDropdown(const DropdownRequest& request, DropdownCallbacks callbacks) = 0;

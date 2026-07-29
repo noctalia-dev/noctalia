@@ -4,10 +4,10 @@
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
-#include "render/scene/input_area.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/session/session_action_meta.h"
 #include "shell/session/session_action_runner.h"
+#include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
 #include "ui/controls/countdown_ring.h"
@@ -83,16 +83,16 @@ PanelPlacement SessionPanel::panelPlacement() const noexcept {
 
 float SessionPanel::preferredWidth() const {
   const std::size_t n = visibleColumnCount();
-  const float gap = Style::spaceSm;
+  const float gap = Style::spaceMd;
   const float w = kButtonMinWidth * static_cast<float>(n)
       + gap * static_cast<float>(n > 1 ? n - 1 : 0)
       + Style::panelPadding * 2.0f;
-  return scaled(std::max(kPanelMinWidth, w));
+  return scaled(w);
 }
 
 float SessionPanel::preferredHeight() const {
   const std::size_t rows = visibleRowCount();
-  const float gap = Style::spaceSm;
+  const float gap = Style::spaceMd;
   const float h = kActionButtonMinHeight * static_cast<float>(rows)
       + gap * static_cast<float>(rows > 1 ? rows - 1 : 0)
       + Style::panelPadding * 2.0f;
@@ -106,8 +106,14 @@ std::size_t SessionPanel::entryCountForLayout() const {
   return effectiveActions().size();
 }
 
+bool SessionPanel::gridEnabled() const { return m_config != nullptr && m_config->config().shell.session.grid; }
+
 std::size_t SessionPanel::visibleColumnCount() const {
   const std::size_t n = std::max<std::size_t>(1, entryCountForLayout());
+  if (gridEnabled()) {
+    const auto columns = static_cast<std::size_t>(std::max(1, m_config->config().shell.session.gridColumns));
+    return std::min(columns, n);
+  }
   if (n <= kMaxColumns) {
     return n;
   }
@@ -127,8 +133,8 @@ void SessionPanel::create() {
 
   auto rootLayout = std::make_unique<GridView>();
   rootLayout->setColumns(columns);
-  rootLayout->setColumnGap(Style::spaceSm * scale);
-  rootLayout->setRowGap(Style::spaceSm * scale);
+  rootLayout->setColumnGap(Style::spaceMd * scale);
+  rootLayout->setRowGap(Style::spaceMd * scale);
   rootLayout->setStretchItems(true);
   rootLayout->setUniformCellSize(true);
   rootLayout->setMinCellWidth(kButtonMinWidth * scale);
@@ -167,63 +173,75 @@ void SessionPanel::create() {
 }
 
 Button* SessionPanel::createActionButton(const SessionPanelActionConfig& cfg, std::size_t index, float scale) {
-  auto button = std::make_unique<Button>();
   const std::string labelText =
       cfg.label.has_value() && !cfg.label->empty() ? *cfg.label : i18n::tr(session_action::labelKey(cfg.action));
-  button->setText(labelText);
-  if (index < m_entryShortcutBadges.size() && m_entryShortcutBadges[index].has_value()) {
-    button->setBadge(*m_entryShortcutBadges[index]);
-  }
-  button->setGlyph(
-      cfg.glyph.has_value() && !cfg.glyph->empty() ? *cfg.glyph : session_action::defaultGlyph(cfg.action)
-  );
-  button->setVariant(buttonVariantFor(cfg.variant));
-  button->setSurfaceOpacity(panelCardOpacity());
-  button->setDirection(FlexDirection::Vertical);
-  button->setAlign(FlexAlign::Center);
-  button->setJustify(FlexJustify::Center);
-  button->setGap(Style::spaceSm * scale);
-  button->setContentAlign(ButtonContentAlign::Center);
-  button->setFontSize((Style::fontSizeBody + 1.0f) * scale);
-  button->setGlyphSize(28.0f * scale);
-  button->setPadding(Style::spaceMd * scale, Style::spaceLg * scale);
-  button->setRadius(Style::scaledRadiusLg(scale));
-  button->setMinWidth(kButtonMinWidth * scale);
-  button->setMinHeight(kActionButtonMinHeight * scale);
-  button->setFlexGrow(1.0f);
+  const std::string glyph =
+      cfg.glyph.has_value() && !cfg.glyph->empty() ? *cfg.glyph : session_action::defaultGlyph(cfg.action);
+  const std::optional<std::string> badge = index < m_entryShortcutBadges.size()
+          && m_entryShortcutBadges[index].has_value()
+          && m_config->config().shell.session.showShortcuts
+      ? m_entryShortcutBadges[index]
+      : std::nullopt;
 
-  button->setOnClick([this, index]() { armEntry(index); });
-  button->setOnEnter([this, index]() {
-    if (m_pendingCountdown.has_value() && m_pendingCountdown->index != index) {
-      cancelCountdown();
-    }
+  auto button = ui::button({
+      .text = labelText,
+      .glyph = glyph,
+      .fontSize = (Style::fontSizeBody + 1.0f) * scale,
+      .glyphSize = 28.0f * scale,
+      .contentAlign = ButtonContentAlign::Center,
+      .variant = buttonVariantFor(cfg.variant),
+      .surfaceOpacity = panelCardOpacity(),
+      .badge = badge,
+      .minWidth = kButtonMinWidth * scale,
+      .minHeight = kActionButtonMinHeight * scale,
+      .paddingV = Style::spaceMd * scale,
+      .paddingH = Style::spaceMd * scale,
+      .gap = Style::spaceSm * scale,
+      .radius = Style::scaledRadiusLg(scale),
+      .flexGrow = 1.0f,
+      .onClick = [this, index]() { armEntry(index); },
+      .onMotion =
+          [this, index]() {
+            if (m_pendingCountdown.has_value() && m_pendingCountdown->index != index) {
+              cancelCountdown();
+            }
+          },
+      .onEnter =
+          [this, index]() {
+            if (m_pendingCountdown.has_value() && m_pendingCountdown->index != index) {
+              cancelCountdown();
+            }
+          },
+      .configure =
+          [](Button& control) {
+            control.setDirection(FlexDirection::Vertical);
+            control.setAlign(FlexAlign::Center);
+            control.setJustify(FlexJustify::Center);
+            control.setFillHeight(true);
+            control.setTabStop(false);
+          },
   });
-  button->setOnMotion([this, index]() {
-    if (m_pendingCountdown.has_value() && m_pendingCountdown->index != index) {
-      cancelCountdown();
-    }
-  });
-
   return button.release();
 }
 
 void SessionPanel::attachCountdownOverlay(Button& button, ActionCountdownOverlay& overlay, float scale) {
   const float ringSize = 64.0f * scale;
 
-  auto overlayRoot = std::make_unique<Flex>();
-  overlayRoot->setDirection(FlexDirection::Vertical);
-  overlayRoot->setAlign(FlexAlign::Center);
-  overlayRoot->setJustify(FlexJustify::Center);
-  overlayRoot->setParticipatesInLayout(false);
-  overlayRoot->setZIndex(0);
-  overlayRoot->setVisible(false);
-  overlay.root = overlayRoot.get();
+  auto overlayRoot = ui::column({
+      .out = &overlay.root,
+      .align = FlexAlign::Center,
+      .justify = FlexJustify::Center,
+      .visible = false,
+      .participatesInLayout = false,
+      .configure = [](Flex& root) { root.setZIndex(0); },
+  });
 
-  auto scrim = std::make_unique<Box>();
-  scrim->setRadius(Style::scaledRadiusLg(scale));
-  scrim->setParticipatesInLayout(false);
-  scrim->setZIndex(0);
-  overlay.scrim = scrim.get();
+  auto scrim = ui::box({
+      .out = &overlay.scrim,
+      .radius = Style::scaledRadiusLg(scale),
+      .participatesInLayout = false,
+      .configure = [](Box& box) { box.setZIndex(0); },
+  });
   overlayRoot->addChild(std::move(scrim));
 
   auto ring = std::make_unique<CountdownRing>();
@@ -267,6 +285,7 @@ void SessionPanel::onPanelCardOpacityChanged(float opacity) {
 }
 
 void SessionPanel::onOpen(std::string_view /*context*/) {
+  m_selectedIndex.reset();
   m_pendingCountdown.reset();
   hideCountdownOverlays();
   restoreEntryBadges();
@@ -295,7 +314,7 @@ void SessionPanel::armEntry(std::size_t index) {
       .remainingMs = cfg.countdownSeconds * 1000.0,
       .totalMs = cfg.countdownSeconds * 1000.0,
   };
-  focusButton(index);
+  m_selectedIndex = index;
   updateSelectionVisuals();
   updateCountdownVisuals();
   PanelManager::instance().requestLayout();
@@ -341,7 +360,9 @@ void SessionPanel::restoreEntryBadges() {
     if (button == nullptr) {
       continue;
     }
-    if (i < m_entryShortcutBadges.size() && m_entryShortcutBadges[i].has_value()) {
+    if (i < m_entryShortcutBadges.size()
+        && m_entryShortcutBadges[i].has_value()
+        && m_config->config().shell.session.showShortcuts) {
       button->setBadge(*m_entryShortcutBadges[i]);
     } else {
       button->setBadge("");
@@ -459,7 +480,6 @@ bool SessionPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, b
   }
 
   const std::size_t lastIndex = m_visibleButtons.size() - 1;
-  const std::optional<std::size_t> currentIndex = focusedButtonIndex();
 
   const auto cancelCountdownOnSelectionChange = [this](std::optional<std::size_t> nextIndex) {
     if (m_pendingCountdown.has_value() && (!nextIndex.has_value() || *nextIndex != m_pendingCountdown->index)) {
@@ -467,9 +487,9 @@ bool SessionPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, b
     }
   };
 
-  const auto moveFocus = [this, &cancelCountdownOnSelectionChange](std::size_t index) {
+  const auto moveSelection = [this, &cancelCountdownOnSelectionChange](std::size_t index) {
     cancelCountdownOnSelectionChange(index);
-    focusButton(index);
+    m_selectedIndex = index;
     updateSelectionVisuals();
     if (root() != nullptr) {
       root()->markPaintDirty();
@@ -479,80 +499,59 @@ bool SessionPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, b
   };
 
   if (KeybindMatcher::matches(KeybindAction::Left, sym, modifiers)) {
-    if (!currentIndex.has_value()) {
-      return moveFocus(lastIndex);
+    if (!m_selectedIndex.has_value()) {
+      return moveSelection(lastIndex);
     }
-    if (*currentIndex > 0) {
-      return moveFocus(*currentIndex - 1);
+    if (*m_selectedIndex > 0) {
+      return moveSelection(*m_selectedIndex - 1);
     }
     return true;
   }
 
   if (KeybindMatcher::matches(KeybindAction::Right, sym, modifiers)) {
-    if (!currentIndex.has_value()) {
-      return moveFocus(0);
+    if (!m_selectedIndex.has_value()) {
+      return moveSelection(0);
     }
-    if (*currentIndex < lastIndex) {
-      return moveFocus(*currentIndex + 1);
+    if (*m_selectedIndex < lastIndex) {
+      return moveSelection(*m_selectedIndex + 1);
     }
     return true;
   }
 
   if (KeybindMatcher::matches(KeybindAction::Up, sym, modifiers)) {
     const std::size_t columns = visibleColumnCount();
-    if (!currentIndex.has_value()) {
-      return moveFocus(lastIndex);
+    if (!m_selectedIndex.has_value()) {
+      return moveSelection(lastIndex);
     }
-    if (*currentIndex >= columns) {
-      return moveFocus(*currentIndex - columns);
+    if (*m_selectedIndex >= columns) {
+      return moveSelection(*m_selectedIndex - columns);
     }
     return true;
   }
 
   if (KeybindMatcher::matches(KeybindAction::Down, sym, modifiers)) {
     const std::size_t columns = visibleColumnCount();
-    if (!currentIndex.has_value()) {
-      return moveFocus(0);
+    if (!m_selectedIndex.has_value()) {
+      return moveSelection(0);
     }
-    if (*currentIndex + columns <= lastIndex) {
-      return moveFocus(*currentIndex + columns);
+    if (*m_selectedIndex + columns <= lastIndex) {
+      return moveSelection(*m_selectedIndex + columns);
     }
     return true;
   }
 
   if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
-    if (!currentIndex.has_value()) {
+    if (!m_selectedIndex.has_value()) {
       return false;
     }
-    Button* button = m_visibleButtons[*currentIndex];
+    Button* button = m_visibleButtons[*m_selectedIndex];
     if (button != nullptr && button->enabled()) {
-      armEntry(*currentIndex);
+      armEntry(*m_selectedIndex);
       return true;
     }
   }
 
   return false;
-}
-
-void SessionPanel::focusButton(std::size_t index) {
-  if (index >= m_visibleButtons.size()) {
-    return;
-  }
-  Button* button = m_visibleButtons[index];
-  if (button == nullptr || button->inputArea() == nullptr) {
-    return;
-  }
-  PanelManager::instance().focusArea(button->inputArea());
-}
-
-std::optional<std::size_t> SessionPanel::focusedButtonIndex() const {
-  for (std::size_t i = 0; i < m_visibleButtons.size(); ++i) {
-    const Button* button = m_visibleButtons[i];
-    if (button != nullptr && button->inputArea() != nullptr && button->inputArea()->focused()) {
-      return i;
-    }
-  }
-  return std::nullopt;
 }
 
 void SessionPanel::invokeEntry(const SessionPanelActionConfig& cfg) {
@@ -570,7 +569,17 @@ void SessionPanel::updateSelectionVisuals() {
       continue;
     }
     const bool countdownActive = m_pendingCountdown.has_value() && m_pendingCountdown->index == i;
-    button->setPressedVisual(countdownActive);
+    if (countdownActive) {
+      button->setSelected(false);
+      button->setHoveredVisual(false);
+      button->setPressedVisual(true);
+      continue;
+    }
+
+    button->setHoveredVisual(false);
+    button->setPressedVisual(false);
+    const bool keyboardSelected = m_selectedIndex.has_value() && i == *m_selectedIndex;
+    button->setSelected(keyboardSelected);
   }
 }
 
@@ -594,6 +603,7 @@ void SessionPanel::doUpdate(Renderer& /*renderer*/) {}
 
 void SessionPanel::onClose() {
   m_pendingCountdown.reset();
+  m_selectedIndex.reset();
   m_rootLayout = nullptr;
   m_visibleEntries.clear();
   m_visibleButtons.clear();

@@ -22,9 +22,10 @@ namespace scripting {
 
 // A control-center shortcut backed by a plugin's [[shortcut]] entry. The native
 // Shortcut interface is polled, so the latest label/icon/active/enabled patch is
-// cached and a redraw is kicked when it changes. Lives for the panel's open span
-// (created in HomeTab::create, destroyed on close), so its runtime restarts each
-// time the control center is opened.
+// cached and a redraw is kicked when it changes. Instances are reused across
+// Control Center open/close (HomeTab keeps them); timers and the source file
+// watch are suspended while the panel is closed. Reopen reloads the script if
+// the source file changed while closed.
 class PluginShortcut : public Shortcut {
 public:
   explicit PluginShortcut(scripting::PluginRuntimeContext context);
@@ -40,12 +41,16 @@ public:
   [[nodiscard]] bool active() const override { return m_active; }
   void onClick() override;
   void onRightClick() override;
+  void onPanelClose() override;
+  void onPanelOpen() override;
 
 private:
   void start();
   void setupScriptWatch();
   void teardownScriptWatch();
-  void reloadScript();
+  void reloadScript(bool notifyUser = true);
+  void recordLoadedSourceMtime();
+  [[nodiscard]] bool sourceChangedSinceLoad() const;
   void resetPresentation();
   void handleResult(const scripting::ScriptResult& result);
   void armTimer();
@@ -71,5 +76,6 @@ private:
   bool m_enabled = true;
   Timer m_updateTimer;
   int m_updateIntervalMs = 1000;
+  std::filesystem::file_time_type m_loadedSourceMtime;
   std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
 };

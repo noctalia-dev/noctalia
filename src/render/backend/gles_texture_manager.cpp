@@ -7,12 +7,14 @@
 
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include <atomic>
 #include <cstring>
 #include <vector>
 
 namespace {
 
   constexpr Logger kLog("texture");
+  std::atomic<std::uint64_t> g_nextTextureGeneration{1};
 
 #ifndef GL_BGRA_EXT
   constexpr GLenum GL_BGRA_EXT = 0x80E1;
@@ -40,7 +42,30 @@ namespace {
     return filter == TextureFilter::Nearest ? GL_NEAREST_MIPMAP_NEAREST : GL_LINEAR_MIPMAP_LINEAR;
   }
 
+  // Drops errors raised before the call we are about to check. Bounded because a robust context that
+  // has been lost keeps reporting GL_CONTEXT_LOST, which would hang an unbounded drain.
+  void clearGlErrors() {
+    constexpr int kMaxDrain = 32;
+    for (int i = 0; i < kMaxDrain && glGetError() != GL_NO_ERROR; ++i) {
+    }
+  }
+
+  // Uploads level 0 and reports whether the driver accepted it. GLES2 requires internal format and
+  // format to be equal, so both come from `format`.
+  [[nodiscard]] bool
+  texImage2dChecked(GLenum format, int width, int height, const std::uint8_t* data, const char* what) {
+    clearGlErrors();
+    glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(format), width, height, 0, format, GL_UNSIGNED_BYTE, data);
+    if (const GLenum err = glGetError(); err != GL_NO_ERROR) {
+      kLog.warn("glTexImage2D failed for {}x{} {} texture (format=0x{:x}): 0x{:x}", width, height, what, format, err);
+      return false;
+    }
+    return true;
+  }
+
 } // namespace
+
+GlesTextureManager::GlesTextureManager() : m_generation(g_nextTextureGeneration.fetch_add(1)) {}
 
 TextureHandle GlesTextureManager::decodeEncodedRaster(
     const std::uint8_t* data, std::size_t size, const std::string* debugPath, bool mipmap
@@ -198,9 +223,12 @@ TextureHandle GlesTextureManager::loadFromRaw(
 
 void GlesTextureManager::unload(TextureHandle& handle) {
   if (handle.id != 0) {
-    GLuint texture = toGlesTexture(handle.id);
-    glDeleteTextures(1, &texture);
-    std::erase(m_textures, handle.id);
+    const auto it = std::ranges::find(m_textures, handle.id);
+    if (handle.generation == m_generation && it != m_textures.end()) {
+      GLuint texture = toGlesTexture(handle.id);
+      glDeleteTextures(1, &texture);
+      m_textures.erase(it);
+    }
     handle = {};
   }
 }
@@ -222,6 +250,7 @@ bool GlesTextureManager::updateSubImage(
     TextureHandle& handle, const std::uint8_t* data, int x, int y, int width, int height, TextureDataFormat format
 ) {
   if (handle.id == 0
+      || handle.generation != m_generation
       || data == nullptr
       || x < 0
       || y < 0
@@ -251,6 +280,11 @@ void GlesTextureManager::cleanup() {
   }
 }
 
+void GlesTextureManager::abandonGpuResources() noexcept {
+  m_textures.clear();
+  m_generation = g_nextTextureGeneration.fetch_add(1);
+}
+
 void GlesTextureManager::probeExtensions() {
   const char* ext = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
   if (ext != nullptr && std::strstr(ext, "GL_EXT_texture_format_BGRA8888") != nullptr) {
@@ -268,7 +302,10 @@ TextureHandle GlesTextureManager::uploadBgra(const std::uint8_t* data, int width
   }
   glBindTexture(GL_TEXTURE_2D, tex);
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA_EXT, width, height, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, data);
+  if (!texImage2dChecked(GL_BGRA_EXT, width, height, data, "BGRA")) {
+    glDeleteTextures(1, &tex);
+    return {};
+  }
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   if (mipmap) {
@@ -280,7 +317,7 @@ TextureHandle GlesTextureManager::uploadBgra(const std::uint8_t* data, int width
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
   m_textures.emplace_back(tex);
-  return TextureHandle{.id = TextureId{tex}, .width = width, .height = height};
+  return TextureHandle{.id = TextureId{tex}, .width = width, .height = height, .generation = m_generation};
 }
 
 TextureHandle GlesTextureManager::uploadRgba(const std::uint8_t* data, int width, int height, bool mipmap) {
@@ -301,7 +338,10 @@ TextureHandle GlesTextureManager::uploadPixels(
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
   const GLenum glFormat = toGlesFormat(format);
-  glTexImage2D(GL_TEXTURE_2D, 0, static_cast<GLint>(glFormat), width, height, 0, glFormat, GL_UNSIGNED_BYTE, data);
+  if (!texImage2dChecked(glFormat, width, height, data, "pixel")) {
+    glDeleteTextures(1, &tex);
+    return {};
+  }
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   if (mipmap) {
@@ -313,5 +353,5 @@ TextureHandle GlesTextureManager::uploadPixels(
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, toGlesFilter(filter));
 
   m_textures.emplace_back(tex);
-  return TextureHandle{.id = TextureId{tex}, .width = width, .height = height};
+  return TextureHandle{.id = TextureId{tex}, .width = width, .height = height, .generation = m_generation};
 }

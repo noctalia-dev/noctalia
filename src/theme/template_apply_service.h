@@ -5,6 +5,7 @@
 
 #include <condition_variable>
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -25,6 +26,7 @@ namespace noctalia::theme {
     TemplateApplyService& operator=(const TemplateApplyService&) = delete;
 
     void apply(const GeneratedPalette& palette, std::string_view defaultMode, bool force = false) const;
+    void setAfterApplyCallback(std::function<void()> callback) const;
     void registerIpc(IpcService& ipc);
 
   private:
@@ -52,6 +54,8 @@ namespace noctalia::theme {
     mutable std::thread m_worker;
     mutable std::uint64_t m_nextGeneration = 0;
     mutable bool m_shutdown = false;
+    mutable bool m_inFlight = false;
+    mutable std::function<void()> m_afterApplyCallback;
   };
 
 } // namespace noctalia::theme

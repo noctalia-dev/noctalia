@@ -446,6 +446,8 @@ void FancyAudioVisualizerProgram::destroy() {
   m_innerDiameterLoc = -1;
 }
 
+void FancyAudioVisualizerProgram::abandon() noexcept { m_program.abandon(); }
+
 void FancyAudioVisualizerProgram::draw(
     TextureId audioTexture, float surfaceWidth, float surfaceHeight, float width, float height,
     const FancyAudioVisualizerStyle& style, const Mat3& transform

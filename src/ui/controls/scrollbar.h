@@ -8,18 +8,32 @@
 class InputArea;
 class RectNode;
 
+enum class ScrollOrientation {
+  Vertical,
+  Horizontal,
+};
+
 class Scrollbar : public Node {
 public:
   Scrollbar();
 
+  void setOrientation(ScrollOrientation orientation);
+
   void setOnScrollChanged(std::function<void(float)> callback);
 
-  void update(float viewportHeight, float contentHeight, float scrollOffset);
+  // Insets the track from both viewport ends (e.g. rounded-corner clearance in popup cards).
+  // Scroll semantics keep using the full viewport height; only track geometry shrinks.
+  void setTrackInset(float inset);
+
+  void update(float viewportExtent, float contentExtent, float scrollOffset);
 
   [[nodiscard]] float thumbTravel() const noexcept { return m_thumbTravel; }
   [[nodiscard]] bool visible() const noexcept { return m_shown; }
 
+  [[nodiscard]] ScrollOrientation orientation() const noexcept { return m_orientation; }
+
 private:
+  [[nodiscard]] float currentOffset() const noexcept;
   void applyPalette();
   void applyThumbPosition(float scrollOffset, float maxScroll);
 
@@ -31,11 +45,13 @@ private:
   Signal<>::ScopedConnection m_paletteConn;
   std::function<void(float)> m_onScrollChanged;
 
-  float m_viewportHeight = 0.0f;
-  float m_contentHeight = 0.0f;
+  float m_viewportExtent = 0.0f;
+  float m_contentExtent = 0.0f;
+  float m_trackInset = 0.0f;
   float m_maxScroll = 0.0f;
   float m_thumbTravel = 0.0f;
-  float m_dragStartY = 0.0f;
+  float m_dragStartPosition = 0.0f;
   float m_dragStartOffset = 0.0f;
   bool m_shown = false;
+  ScrollOrientation m_orientation = ScrollOrientation::Vertical;
 };

@@ -69,6 +69,7 @@ private:
     Move,
     Scale,
     Rotate,
+    Lasso,
     ToolbarMove,
     InspectorMove,
   };
@@ -86,6 +87,12 @@ private:
     Node* transform = nullptr;
     Box* borderShadow = nullptr;
     Box* border = nullptr;
+  };
+
+  struct GroupMemberInitial {
+    DesktopWidgetState state;
+    float intrinsicWidth = 1.0f;
+    float intrinsicHeight = 1.0f;
   };
 
   struct OverlaySurface {
@@ -108,6 +115,7 @@ private:
     std::array<Box*, 4> scaleHandles{};
     std::array<Box*, 4> scaleHandleShadows{};
     std::array<InputArea*, 4> scaleAreas{};
+    Box* lassoBox = nullptr;
     Node* toolbar = nullptr;
     float toolbarX = 0.0f;
     float toolbarY = 0.0f;
@@ -135,12 +143,16 @@ private:
     float intrinsicHeight = 0.0f;
     ScaleCorner scaleCorner = ScaleCorner::BottomRight;
     std::string surfaceOutputName;
+    std::string moveSourceOutputName;
+    float movePointerOffsetX = 0.0f;
+    float movePointerOffsetY = 0.0f;
     float initialToolbarX = 0.0f;
     float initialToolbarY = 0.0f;
     float initialInspectorX = 0.0f;
     float initialInspectorY = 0.0f;
     bool rebuildOnFinish = false;
-    std::unordered_map<std::string, DesktopWidgetState> groupInitialStates;
+    bool lassoAdditive = false;
+    std::unordered_map<std::string, GroupMemberInitial> groupInitialStates;
   };
 
   void syncSurfaces();
@@ -176,8 +188,12 @@ private:
       DragMode mode, const std::string& widgetId, bool rebuildOnFinish,
       ScaleCorner scaleCorner = ScaleCorner::BottomRight
   );
+  void startLassoDrag(const std::string& outputName);
+  void finishLassoSelection();
+  void populateGroupInitialStates(const std::string& anchorWidgetId);
   void updateDrag();
   void finishDrag();
+  void updateLassoVisual(OverlaySurface& surface);
   [[nodiscard]] OverlaySurface* findSurface(wl_surface* surface);
   [[nodiscard]] const OverlaySurface* findSurface(wl_surface* surface) const;
   [[nodiscard]] std::optional<LayerPopupParentContext> overlayPopupParentContext(const OverlaySurface& surface) const;
@@ -193,8 +209,10 @@ private:
   [[nodiscard]] float duplicateOffset() const;
   [[nodiscard]] std::vector<DesktopWidgetState> selectedWidgetTemplates() const;
   std::vector<std::string> insertWidgetCopies(
-      const std::vector<DesktopWidgetState>& templates, float offsetX, float offsetY, bool selectInserted
+      const std::vector<DesktopWidgetState>& templates, float offsetX, float offsetY, bool selectInserted,
+      const std::string& targetOutputName = {}
   );
+  [[nodiscard]] std::string currentPointerOutputName() const;
   [[nodiscard]] bool isWidgetSelected(const std::string& id) const;
   void clearSelection();
   void setSingleSelection(const std::string& id);
@@ -227,5 +245,6 @@ private:
   bool m_rightAltHeld = false;
   float m_currentEventSceneX = 0.0f;
   float m_currentEventSceneY = 0.0f;
+  std::string m_currentEventOutputName;
   bool m_inspectorOpen = false;
 };

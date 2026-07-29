@@ -129,10 +129,10 @@ std::optional<ActiveToplevel> WaylandToplevels::matchByTitleAndAppId(
     }
     std::uint64_t score = state.generation;
     if (preferredOutput != nullptr && state.output == preferredOutput) {
-      score += (1ull << 62);
+      score += (1ULL << 62);
     }
     if (state.activated) {
-      score += (1ull << 61);
+      score += (1ULL << 61);
     }
     if (!best.has_value() || score > bestScore) {
       best = ActiveToplevel{
@@ -337,6 +337,43 @@ std::vector<ToplevelInfo> WaylandToplevels::windowsForApp(
   std::ranges::sort(matched, {}, &MatchedWindow::order);
   out.reserve(matched.size());
   for (auto& window : matched) {
+    out.push_back(std::move(window.info));
+  }
+  return out;
+}
+
+std::vector<ToplevelInfo> WaylandToplevels::windowsWithoutAppId(wl_output* outputFilter) const {
+  struct OrphanWindow {
+    std::uint64_t order = 0;
+    ToplevelInfo info;
+  };
+
+  std::vector<OrphanWindow> orphans;
+  for (const auto& [handle, state] : m_handles) {
+    if (outputFilter != nullptr && state.output != outputFilter) {
+      continue;
+    }
+    if (!effectiveAppId(state.appId, state.title).empty()) {
+      continue;
+    }
+    orphans.push_back(
+        OrphanWindow{
+            .order = state.order,
+            .info = ToplevelInfo{
+                .title = state.title,
+                .appId = {},
+                .identifier = state.title,
+                .order = state.order,
+                .handle = handle,
+            },
+        }
+    );
+  }
+  std::ranges::sort(orphans, {}, &OrphanWindow::order);
+
+  std::vector<ToplevelInfo> out;
+  out.reserve(orphans.size());
+  for (auto& window : orphans) {
     out.push_back(std::move(window.info));
   }
   return out;

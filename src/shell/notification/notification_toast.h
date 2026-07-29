@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/timer_manager.h"
 #include "notification/notification.h"
 #include "render/animation/animation_manager.h"
 #include "render/scene/input_dispatcher.h"
@@ -74,6 +75,7 @@ private:
     std::uint64_t hoverResetToken = 0;
     bool hoverResetPending = false;
     bool replyInputFocused = false;
+    Timer exitFallbackTimer;
   };
 
   // Per-output instance (each has its own surface, scene, animations)

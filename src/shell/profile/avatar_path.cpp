@@ -8,6 +8,7 @@
 #include "render/core/image_file_loader.h"
 #include "util/file_utils.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -19,6 +20,8 @@ namespace {
 
   constexpr Logger kLog("avatar");
   constexpr int kAccountsAvatarMaxSize = 512;
+  // Sources this much larger than the accounts avatar decode noticeably slowly.
+  constexpr int kAvatarSourceWarnSize = 4 * kAccountsAvatarMaxSize;
 
   [[nodiscard]] std::filesystem::path avatarCacheDirectory() {
     const char* cacheHome = std::getenv("XDG_CACHE_HOME");
@@ -47,6 +50,13 @@ namespace {
         *logDetail = loaded.error();
       }
       return std::nullopt;
+    }
+
+    if (std::max(loaded->sourceWidth, loaded->sourceHeight) > kAvatarSourceWarnSize) {
+      kLog.warn(
+          "avatar source '{}' is {}x{}, much larger than needed; large images decode slowly", sourcePath.string(),
+          loaded->sourceWidth, loaded->sourceHeight
+      );
     }
 
     std::string encodeError;

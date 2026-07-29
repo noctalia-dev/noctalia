@@ -28,6 +28,7 @@ public:
   [[nodiscard]] TextureId colorTexture() const noexcept override { return m_color.id; }
   [[nodiscard]] std::uint32_t width() const noexcept override { return m_width; }
   [[nodiscard]] std::uint32_t height() const noexcept override { return m_height; }
+  void abandon() noexcept override;
 
 private:
   TextureManager* m_textures = nullptr;

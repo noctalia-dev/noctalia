@@ -24,6 +24,8 @@ public:
   void invoke(const SessionPanelActionConfig& cfg) const;
   [[nodiscard]] bool lock() const;
   [[nodiscard]] bool requestSuspendDetached() const;
+  [[nodiscard]] bool requestRebootDetached() const;
+  [[nodiscard]] bool requestShutdownDetached() const;
   [[nodiscard]] bool lockThenSuspendDetached() const;
 
 private:

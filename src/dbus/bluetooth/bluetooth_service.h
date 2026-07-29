@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/timer_manager.h"
+
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -110,11 +112,21 @@ private:
   void emitState(BluetoothStateChangeOrigin origin = BluetoothStateChangeOrigin::External);
   void emitDevices();
 
+  /// Actively reconnect trusted+paired devices after the adapter powers on or at startup: BlueZ
+  /// keeps them Trusted but does not dial out to them, so many devices (audio especially) stay
+  /// disconnected until the host calls Connect(). Retries a few times with backoff to let the
+  /// controller and devices settle.
+  void scheduleAutoReconnect();
+  void armAutoReconnect();
+  void runAutoReconnectPass();
+
   std::unique_ptr<Impl> m_impl;
 
   BluetoothState m_state;
   std::vector<BluetoothDeviceInfo> m_devices;
   std::optional<bool> m_pendingLocalPowered;
+  Timer m_autoReconnectTimer;
+  int m_autoReconnectAttempt = 0;
   bool m_hasStateSnapshot = false;
   StateCallback m_stateCallback;
   DevicesCallback m_devicesCallback;

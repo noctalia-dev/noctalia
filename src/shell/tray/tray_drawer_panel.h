@@ -12,7 +12,7 @@ class TrayWidget;
 
 class TrayDrawerPanel : public Panel {
 public:
-  TrayDrawerPanel(TrayService* tray, ConfigService* config, std::size_t drawerColumns = 3);
+  TrayDrawerPanel(TrayService* tray, ConfigService* config);
   ~TrayDrawerPanel() override;
 
   void create() override;
@@ -22,6 +22,7 @@ public:
   [[nodiscard]] float preferredHeight() const override;
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::OnDemand; }
+  void setAnimationManager(AnimationManager* mgr) noexcept override;
 
 private:
   void doLayout(Renderer& renderer, float width, float height) override;
@@ -34,6 +35,5 @@ private:
 
   TrayService* m_tray = nullptr;
   ConfigService* m_config = nullptr;
-  std::size_t m_drawerColumns = 3;
   std::unique_ptr<TrayWidget> m_drawerWidget;
 };

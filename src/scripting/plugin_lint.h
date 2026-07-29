@@ -9,19 +9,20 @@ namespace scripting {
   // A single lint problem found in a plugin.
   struct PluginLintFinding {
     enum class Kind {
-      ReadUndeclared,   // getConfig("key") where "key" is not declared in plugin.toml (a runtime loud miss)
-      DeclaredUnread,   // a declared setting that no entry ever reads
-      MissingEntryFile, // an [[entry]] points at a .luau file that does not exist
+      ReadUndeclared,         // getConfig("key") where "key" is not declared in plugin.toml (a runtime loud miss)
+      ObsoleteConfigAccessor, // entry-specific getConfig alias removed in favor of noctalia.getConfig
+      DeclaredUnread,         // a declared setting that no entry ever reads
+      MissingEntryFile,       // an [[entry]] points at a .luau file that does not exist
     };
 
     Kind kind;
     std::string scope;      // entry id, or empty for a plugin-level setting
     std::string file;       // entry .luau filename, or empty
-    std::string key;        // the setting key (or the missing filename for MissingEntryFile)
-    int line = 0;           // 1-based source line for ReadUndeclared, else 0
+    std::string key;        // setting key, obsolete accessor, or missing filename
+    int line = 0;           // 1-based source line for source findings, else 0
     std::string suggestion; // nearest declared key for ReadUndeclared, else empty
 
-    // ReadUndeclared/MissingEntryFile are real bugs (fail the lint); DeclaredUnread is advisory.
+    // Every finding except DeclaredUnread is a real bug and fails the lint.
     [[nodiscard]] bool isError() const noexcept { return kind != Kind::DeclaredUnread; }
   };
 

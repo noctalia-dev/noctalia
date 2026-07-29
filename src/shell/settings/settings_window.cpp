@@ -11,8 +11,12 @@
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
 #include "idle/idle_manager.h"
+#include "render/core/async_texture_cache.h"
 #include "render/render_context.h"
 #include "render/text/font_weight_catalog.h"
+#include "scripting/plugin_registry.h"
+#include "shell/settings/settings_content_plugins.h"
+#include "shell/tooltip/tooltip_manager.h"
 #include "system/dependency_service.h"
 #include "ui/controls/box.h"
 #include "ui/controls/flex.h"
@@ -23,6 +27,7 @@
 #include "ui/palette.h"
 #include "ui/split_pane_focus.h"
 #include "ui/style.h"
+#include "util/clamp.h"
 #include "wayland/toplevel_surface.h"
 #include "wayland/wayland_connection.h"
 
@@ -30,6 +35,7 @@
 #include <cmath>
 #include <cstdint>
 #include <linux/input-event-codes.h>
+#include <numbers>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -41,14 +47,18 @@ namespace {
 
   constexpr Logger kLog("settings");
 
+  // Golden rectangle oriented like the output: the constrained dimension takes the fraction,
+  // the other follows phi. The fixed size is only used when output geometry is unknown.
+  constexpr float kWindowOutputFraction = 0.66f;
+  constexpr float kGoldenRatio = std::numbers::phi_v<float>;
   constexpr float kWindowWidth = 1280.0f;
   constexpr float kWindowHeight = 600.0f;
   constexpr float kWindowMinWidth = 1020.0f;
   constexpr float kWindowMinHeight = 500.0f;
 
   // How many frames to wait for the settings window to gain keyboard focus before opening a pending
-  // widget-inspector sheet anyway (bounded so a never-focused window can't spin redraws forever).
-  constexpr int kPendingWidgetInspectorFrameBudget = 240;
+  // editor sheet anyway (bounded so a never-focused window can't spin redraws forever).
+  constexpr int kPendingEditorOpenFrameBudget = 240;
 
   // Build the {"bar", name, <lane>} path the widget inspector expects, resolving which lane the widget
   // currently lives in (the inspector keys off the bar name at index 1 and the lane at the tail).
@@ -162,7 +172,7 @@ float SettingsWindow::uiScale() const {
   if (m_config == nullptr) {
     return 1.0f;
   }
-  return std::max(0.1f, m_config->config().shell.uiScale);
+  return std::max(0.1f, m_config->config().accessibility.uiScale);
 }
 
 bool SettingsWindow::headerDragRegionContains(float sceneX, float sceneY) const {
@@ -345,6 +355,8 @@ std::optional<LayerPopupParentContext> SettingsWindow::popupParentContextForSurf
 }
 
 void SettingsWindow::open(std::string context) {
+  TooltipManager::instance().forceDestroy();
+
   if (!context.empty()) {
     m_selectedSection = std::move(context);
   }
@@ -398,10 +410,25 @@ void SettingsWindow::open(std::string context) {
   m_surface->setUpdateCallback([]() {});
 
   const float scale = uiScale();
-  const auto width = static_cast<std::uint32_t>(std::round(kWindowWidth * scale));
-  const auto height = static_cast<std::uint32_t>(std::round(kWindowHeight * scale));
-  const auto minWidth = static_cast<std::uint32_t>(std::round(kWindowMinWidth * scale));
-  const auto minHeight = static_cast<std::uint32_t>(std::round(kWindowMinHeight * scale));
+  const float minWidthF = kWindowMinWidth * scale;
+  const float minHeightF = kWindowMinHeight * scale;
+  float desiredWidth = kWindowWidth * scale;
+  float desiredHeight = kWindowHeight * scale;
+  if (const WaylandOutput* info = m_wayland->findOutputByWl(output); info != nullptr && info->hasUsableGeometry()) {
+    const auto outputW = static_cast<float>(info->effectiveLogicalWidth());
+    const auto outputH = static_cast<float>(info->effectiveLogicalHeight());
+    if (outputW >= outputH) {
+      desiredHeight = util::clampOrdered(outputH * kWindowOutputFraction, std::min(minHeightF, outputH), outputH);
+      desiredWidth = util::clampOrdered(desiredHeight * kGoldenRatio, std::min(minWidthF, outputW), outputW);
+    } else {
+      desiredWidth = util::clampOrdered(outputW * kWindowOutputFraction, std::min(minWidthF, outputW), outputW);
+      desiredHeight = util::clampOrdered(desiredWidth * kGoldenRatio, std::min(minHeightF, outputH), outputH);
+    }
+  }
+  const auto width = static_cast<std::uint32_t>(std::round(desiredWidth));
+  const auto height = static_cast<std::uint32_t>(std::round(desiredHeight));
+  const auto minWidth = static_cast<std::uint32_t>(std::round(minWidthF));
+  const auto minHeight = static_cast<std::uint32_t>(std::round(minHeightF));
 
   ToplevelSurfaceConfig cfg{
       .width = std::max<std::uint32_t>(1, width),
@@ -430,7 +457,7 @@ void SettingsWindow::openToBarWidget(std::string barName, std::string widgetName
   m_selectedBarName = std::move(barName);
   m_selectedMonitorOverride.clear();
   m_pendingOpenWidgetInspectorName = std::move(widgetName);
-  m_pendingOpenWidgetInspectorFrames = kPendingWidgetInspectorFrameBudget;
+  m_pendingEditorOpenFrames = kPendingEditorOpenFrameBudget;
   m_contentScrollState.offset = 0.0f;
   m_sidebarScrollState.offset = 0.0f;
 
@@ -439,6 +466,29 @@ void SettingsWindow::openToBarWidget(std::string barName, std::string widgetName
   if (wasOpen && isOpen()) {
     requestSceneRebuild();
   }
+}
+
+bool SettingsWindow::openToPlugin(std::string pluginId) {
+  const auto* manifest = scripting::PluginRegistry::instance().findManifest(pluginId);
+  if (manifest == nullptr || !settings::pluginHasSettings(*manifest)) {
+    return false;
+  }
+
+  clearTransientSettingsState();
+  clearStatusMessage();
+  m_searchQuery.clear();
+  m_selectedSection = "plugins";
+  m_pendingOpenPluginSettingsId = std::move(pluginId);
+  m_pendingEditorOpenFrames = kPendingEditorOpenFrameBudget;
+  m_contentScrollState.offset = 0.0f;
+  m_sidebarScrollState.offset = 0.0f;
+
+  const bool wasOpen = isOpen();
+  open();
+  if (wasOpen && isOpen()) {
+    requestSceneRebuild();
+  }
+  return true;
 }
 
 void SettingsWindow::close() {
@@ -456,6 +506,9 @@ void SettingsWindow::dismissOpenSelectDropdown() {
 
 void SettingsWindow::destroyWindow() {
   if (m_surface != nullptr) {
+    // Drop stale pointer coords before tearing down the scene. Otherwise the next open
+    // replays hover at the last click (often the close button) and paints it hovered.
+    m_inputDispatcher.pointerLeave();
     m_inputDispatcher.setSceneRoot(nullptr);
     m_surface->setSceneRoot(nullptr);
   }
@@ -517,11 +570,13 @@ void SettingsWindow::destroyWindow() {
   m_pendingDeleteMonitorOverrideBarName.clear();
   m_pendingDeleteMonitorOverrideMatch.clear();
   m_pendingResetPageScope.clear();
+  m_pendingResetSettingPaths.clear();
   m_searchQuery.clear();
   m_selectedSection.clear();
   m_selectedBarName.clear();
   m_selectedMonitorOverride.clear();
   m_pendingOpenWidgetInspectorName.clear();
+  m_pendingOpenPluginSettingsId.clear();
   m_editingWidgetName.clear();
   m_editingCapsuleGroupId.clear();
   m_selectedLaneWidgets.clear();
@@ -531,6 +586,12 @@ void SettingsWindow::destroyWindow() {
   m_showOverriddenOnly = false;
   m_sidebarScrollState = {};
   m_contentScrollState = {};
+
+  // Plugin-store thumbnails are the only async textures this window holds; drop the
+  // zero-ref residents once the scene (and with it every Image) is gone.
+  if (m_asyncTextures != nullptr) {
+    DeferredCall::callLater([asyncTextures = m_asyncTextures]() { asyncTextures->trimUnused(0); });
+  }
 }
 
 void SettingsWindow::prepareFrame(bool /*needsUpdate*/, bool needsLayout) {
@@ -565,6 +626,12 @@ void SettingsWindow::prepareFrame(bool /*needsUpdate*/, bool needsLayout) {
     m_inputDispatcher.stashTabFocus();
     buildScene(width, height);
     m_inputDispatcher.restoreStashedTabFocus();
+    if (m_focusSearchOnRebuild) {
+      if (m_settingsSearchInput != nullptr && m_settingsSearchInput->inputArea() != nullptr) {
+        m_inputDispatcher.setFocus(m_settingsSearchInput->inputArea());
+      }
+      m_focusSearchOnRebuild = false;
+    }
     logSettingsProfile("prepareFrame buildScene", phaseProfileWatch);
     m_lastSceneWidth = width;
     m_lastSceneHeight = height;
@@ -604,7 +671,9 @@ void SettingsWindow::prepareFrame(bool /*needsUpdate*/, bool needsLayout) {
         m_filterRowRefreshRequested = false;
       }
       rebuildSettingsContent();
+      m_deferFocusScrollToLayout = true;
       m_inputDispatcher.restoreStashedTabFocus();
+      m_deferFocusScrollToLayout = false;
       m_contentRebuildRequested = false;
     }
     logSettingsProfile("prepareFrame rebuildContent", phaseProfileWatch);
@@ -618,34 +687,43 @@ void SettingsWindow::prepareFrame(bool /*needsUpdate*/, bool needsLayout) {
     m_lastSceneHeight = height;
   }
 
-  maybeOpenPendingWidgetInspector();
+  maybeOpenPendingEditor();
   logSettingsProfile("prepareFrame total", totalProfileWatch);
 }
 
-void SettingsWindow::maybeOpenPendingWidgetInspector() {
-  if (m_pendingOpenWidgetInspectorName.empty() || m_surface == nullptr || m_wayland == nullptr || m_config == nullptr) {
+void SettingsWindow::maybeOpenPendingEditor() {
+  const bool pending = !m_pendingOpenWidgetInspectorName.empty() || !m_pendingOpenPluginSettingsId.empty();
+  if (!pending || m_surface == nullptr || m_wayland == nullptr || m_config == nullptr) {
     return;
   }
-  // A grab popup needs an input serial this window owns. Right after a bar middle-click the latest
-  // serial still belongs to the bar surface; wait until this window holds keyboard focus (whose enter
-  // refreshes the serial) so the compositor accepts the sheet's grab instead of dismissing it.
+  // A grab popup needs an input serial this window owns. Right after a bar middle-click (or an IPC
+  // call) the latest serial still belongs to another surface; wait until this window holds keyboard
+  // focus (whose enter refreshes the serial) so the compositor accepts the sheet's grab instead of
+  // dismissing it.
   const bool focused = m_wayland->lastKeyboardSurface() == m_surface->wlSurface();
-  if (!focused && m_pendingOpenWidgetInspectorFrames > 0) {
-    --m_pendingOpenWidgetInspectorFrames;
+  if (!focused && m_pendingEditorOpenFrames > 0) {
+    --m_pendingEditorOpenFrames;
     m_surface->requestRedraw();
     return;
   }
+  // A bar middle-click or IPC call gives us no press serial the settings surface owns, so the
+  // compositor rejects an xdg_popup grab. Open the sheet without a grab — the window holds keyboard
+  // focus and routes input to it. Dialog sheets dismiss via Escape / close only (not outside click).
+  m_pendingEditorSheetNoGrab = true;
+
+  if (!m_pendingOpenPluginSettingsId.empty()) {
+    std::string pluginId = std::move(m_pendingOpenPluginSettingsId);
+    m_pendingOpenPluginSettingsId.clear();
+    openPluginSettingsEditor(std::move(pluginId));
+    return;
+  }
+
   std::string widgetName = std::move(m_pendingOpenWidgetInspectorName);
   m_pendingOpenWidgetInspectorName.clear();
-  // A bar middle-click gives us no press serial the settings surface owns, so the compositor rejects
-  // an xdg_popup grab. Open the sheet without a grab — the window holds keyboard focus and routes
-  // input to it, and an outside click still dismisses it (handled in onPointerEvent).
-  m_pendingEditorSheetNoGrab = true;
   // The inspector takes a per-lane path {"bar", name, <lane>} (same shape the lane-card gear passes);
   // resolve which lane this widget lives in so it isn't a 2-element path that mislocates the bar name.
-  openWidgetInspectorEditor(
-      barWidgetLanePath(m_config->config(), m_selectedBarName, widgetName), std::move(widgetName)
-  );
+  std::vector<std::string> lanePath = barWidgetLanePath(m_config->config(), m_selectedBarName, widgetName);
+  openWidgetInspectorEditor(std::move(lanePath), std::move(widgetName));
 }
 
 void SettingsWindow::requestSceneRebuild() {
@@ -706,7 +784,10 @@ void SettingsWindow::refreshPluginListIfNeeded() {
   auto* manager = m_pluginManager;
   PluginsConfig pluginsSnapshot = m_config->config().plugins;
   std::thread([this, manager, generation, pluginsSnapshot = std::move(pluginsSnapshot)]() {
-    auto plugins = manager->list(pluginsSnapshot);
+    // Refresh the browsable catalog (throttled) so newly published plugins and update
+    // badges appear on open, then list against the fetched revision.
+    manager->fetchStaleCatalogs(pluginsSnapshot);
+    auto plugins = manager->list(pluginsSnapshot, scripting::CatalogAccess::Network);
     DeferredCall::callLater([this, generation, plugins = std::move(plugins)]() mutable {
       m_pluginListRefreshInFlight = false;
       if (generation != m_pluginListRefreshGeneration) {
@@ -729,6 +810,7 @@ void SettingsWindow::clearStatusMessage() {
 
 void SettingsWindow::clearTransientSettingsState() {
   m_pendingOpenWidgetInspectorName.clear();
+  m_pendingOpenPluginSettingsId.clear();
   m_editingWidgetName.clear();
   m_editingCapsuleGroupId.clear();
   m_selectedLaneWidgets.clear();
@@ -745,6 +827,7 @@ void SettingsWindow::clearTransientSettingsState() {
   m_pendingDeleteMonitorOverrideBarName.clear();
   m_pendingDeleteMonitorOverrideMatch.clear();
   m_pendingResetPageScope.clear();
+  m_pendingResetSettingPaths.clear();
   if (m_widgetAddPopup != nullptr && m_widgetAddPopup->isOpen()) {
     m_widgetAddPopup->close();
   }
@@ -768,19 +851,27 @@ bool SettingsWindow::onPointerEvent(const PointerEvent& event) {
       && m_widgetAddPopup->isOpen()
       && !m_widgetAddPopup->isInitializing()
       && event.type == PointerEvent::Type::Button
-      && event.state == 1) {
+      && event.pressed) {
     m_widgetAddPopup->close();
     return true;
   }
   if (m_configExportDialogPopup != nullptr && m_configExportDialogPopup->onPointerEvent(event)) {
     return true;
   }
+  // Dialog: block settings-parent input while open; dismiss only via Escape / close.
+  // Events for other shell surfaces must not be swallowed here — Application still
+  // needs to forward them to the bar, dock, notifications, etc.
   if (m_configExportDialogPopup != nullptr
       && m_configExportDialogPopup->isOpen()
-      && !m_configExportDialogPopup->isInitializing()
-      && event.type == PointerEvent::Type::Button
-      && event.state == 1) {
-    m_configExportDialogPopup->close();
+      && !m_configExportDialogPopup->isInitializing()) {
+    if (!ownsKeyboardSurface(event.surface)) {
+      return false;
+    }
+    // Keep m_pointerInside honest while the parent is inert behind the dialog.
+    if (event.type == PointerEvent::Type::Leave && event.surface == m_surface->wlSurface()) {
+      m_pointerInside = false;
+      m_inputDispatcher.pointerLeave();
+    }
     return true;
   }
   if (m_searchPickerPopup != nullptr && m_searchPickerPopup->onPointerEvent(event)) {
@@ -790,19 +881,24 @@ bool SettingsWindow::onPointerEvent(const PointerEvent& event) {
       && m_searchPickerPopup->isOpen()
       && !m_searchPickerPopup->isInitializing()
       && event.type == PointerEvent::Type::Button
-      && event.state == 1) {
+      && event.pressed) {
     m_searchPickerPopup->close();
     return true;
   }
   if (m_editorSheetPopup != nullptr && m_editorSheetPopup->onPointerEvent(event)) {
     return true;
   }
-  if (m_editorSheetPopup != nullptr
-      && m_editorSheetPopup->isOpen()
-      && !m_editorSheetPopup->isInitializing()
-      && event.type == PointerEvent::Type::Button
-      && event.state == 1) {
-    m_editorSheetPopup->close();
+  // Dialog sheet: block settings-parent input while open; dismiss only via Escape / close.
+  // Events for other shell surfaces must not be swallowed here — Application still
+  // needs to forward them to the bar, dock, notifications, etc.
+  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen() && !m_editorSheetPopup->isInitializing()) {
+    if (!ownsKeyboardSurface(event.surface)) {
+      return false;
+    }
+    if (event.type == PointerEvent::Type::Leave && event.surface == m_surface->wlSurface()) {
+      m_pointerInside = false;
+      m_inputDispatcher.pointerLeave();
+    }
     return true;
   }
 
@@ -810,7 +906,7 @@ bool SettingsWindow::onPointerEvent(const PointerEvent& event) {
     if (m_selectPopup->onPointerEvent(event)) {
       return true;
     }
-    if (event.type == PointerEvent::Type::Button && event.state == 1) {
+    if (event.type == PointerEvent::Type::Button && event.pressed) {
       m_selectPopup->closeSelectDropdown();
       return true;
     }
@@ -822,7 +918,7 @@ bool SettingsWindow::onPointerEvent(const PointerEvent& event) {
   if (m_actionsMenuPopup != nullptr
       && m_actionsMenuPopup->isOpen()
       && event.type == PointerEvent::Type::Button
-      && event.state == 1) {
+      && event.pressed) {
     m_actionsMenuPopup->close();
     return true;
   }
@@ -855,7 +951,7 @@ bool SettingsWindow::onPointerEvent(const PointerEvent& event) {
     }
     break;
   case PointerEvent::Type::Button: {
-    const bool pressed = (event.state == 1);
+    const bool pressed = event.pressed;
     if (onThis || m_pointerInside) {
       if (onThis) {
         m_pointerInside = true;
@@ -1093,6 +1189,10 @@ void SettingsWindow::onPluginsChanged() {
   if (isOpen() && m_selectedSection == "plugins") {
     requestContentRebuild();
   }
+}
+
+void SettingsWindow::invalidatePluginSourceCache(const std::string& sourceName) {
+  m_pluginFileCache.invalidateSource(sourceName);
 }
 
 void SettingsWindow::refreshIdleLiveStatusText() {

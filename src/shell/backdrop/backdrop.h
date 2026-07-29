@@ -26,6 +26,9 @@ public:
   void onStateChange();
   void onThemeChanged();
   void onGpuResourcesInvalidated();
+  void prepareForGraphicsReset() noexcept;
+  void restoreAfterGraphicsReset();
+  void finishGraphicsResetRecovery() noexcept;
   void requestLayout();
 
 private:

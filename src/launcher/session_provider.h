@@ -9,12 +9,10 @@ class SessionProvider : public LauncherProvider {
 public:
   SessionProvider(ConfigService* config, SessionActionRunner* actionRunner);
 
-  [[nodiscard]] std::string_view prefix() const override { return "/session"; }
+  [[nodiscard]] std::string_view defaultPrefix() const override { return "session"; }
   [[nodiscard]] std::string_view id() const override { return "Session"; }
   [[nodiscard]] std::string displayName() const override;
   [[nodiscard]] std::string_view defaultGlyphName() const override { return "power"; }
-
-  [[nodiscard]] bool includeInGlobalSearch() const override;
 
   [[nodiscard]] std::vector<LauncherResult> query(std::string_view text) const override;
 

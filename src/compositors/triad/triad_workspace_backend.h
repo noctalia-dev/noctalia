@@ -18,6 +18,8 @@ namespace compositors::triad {
   class TriadRuntime;
 } // namespace compositors::triad
 
+class TriadWorkspaceBackendTestAccess;
+
 class TriadWorkspaceBackend final : public WorkspaceBackend,
                                     public compositors::WorkspaceMetadataBackend,
                                     public WorkspaceOutputNameResolver,
@@ -61,6 +63,8 @@ public:
   [[nodiscard]] std::optional<std::string> focusedWindowId() const;
 
 private:
+  friend class TriadWorkspaceBackendTestAccess;
+
   struct WorkspaceState {
     std::uint32_t index = 0;
     std::uint64_t tagId = 0;

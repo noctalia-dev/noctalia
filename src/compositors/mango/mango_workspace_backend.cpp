@@ -157,11 +157,10 @@ std::vector<Workspace> MangoWorkspaceBackend::forOutput(wl_output* output) const
     return {};
   }
 
-  const auto shellActive = shellActiveTagIndex(state->tags);
   std::vector<Workspace> result;
   result.reserve(state->tags.size());
-  for (std::size_t i = 0; i < state->tags.size(); ++i) {
-    result.push_back(makeWorkspace(state->tags[i], shellActive.has_value() && i == *shellActive));
+  for (const auto& tag : state->tags) {
+    result.push_back(makeWorkspace(tag));
   }
   return result;
 }
@@ -457,6 +456,31 @@ void MangoWorkspaceBackend::syncFocusedClientTags() {
         }
       }
     }
+
+    // In Mango, the overview mode is equivalent to viewing all tags. If all tags are active, this messes with tag merge
+    // view, so we only show active client when all tags are "active".
+    bool allActive = !state.tags.empty();
+    for (const auto& tag : state.tags) {
+      if (!tag.active) {
+        allActive = false;
+        break;
+      }
+    }
+
+    if (allActive) {
+      bool foundFocused = false;
+      for (auto& tag : state.tags) {
+        if (tag.hasFocusedClient) {
+          tag.active = true;
+          foundFocused = true;
+        } else {
+          tag.active = false;
+        }
+      }
+      if (!foundFocused && !state.tags.empty()) {
+        state.tags.front().active = true;
+      }
+    }
   }
 }
 
@@ -519,35 +543,13 @@ std::optional<std::size_t> MangoWorkspaceBackend::parseTagIndex(const std::strin
   return value - 1;
 }
 
-std::optional<std::size_t> MangoWorkspaceBackend::shellActiveTagIndex(const std::vector<TagInfo>& tags) const {
-  std::vector<std::size_t> activeTags;
-  activeTags.reserve(tags.size());
-  for (std::size_t i = 0; i < tags.size(); ++i) {
-    if (tags[i].active) {
-      activeTags.push_back(i);
-    }
-  }
-  if (activeTags.empty()) {
-    return std::nullopt;
-  }
-  if (activeTags.size() == 1) {
-    return activeTags.front();
-  }
-  for (const std::size_t i : activeTags) {
-    if (tags[i].hasFocusedClient) {
-      return i;
-    }
-  }
-  return activeTags.front();
-}
-
-Workspace MangoWorkspaceBackend::makeWorkspace(const TagInfo& tag, bool shellActive) {
+Workspace MangoWorkspaceBackend::makeWorkspace(const TagInfo& tag) {
   return Workspace{
       .id = std::to_string(tag.index),
       .name = std::to_string(tag.index),
       .coordinates = {tag.index > 0 ? tag.index - 1 : 0},
       .index = tag.index,
-      .active = shellActive,
+      .active = tag.active,
       .urgent = tag.urgent,
       .occupied = tag.occupied,
   };

@@ -1,3 +1,21 @@
-[shell]
+[accessibility]
 ui_scale = 1.0
 ui_scl = 1.25
+
+[shell.launcher]
+provider_prefix = ""
+
+[shell.launcher.providers.applications]
+prefix = "app"
+
+[shell.launcher.providers.nonexistent]
+prefix = "non"
+
+[shell.launcher.providers."author/my-plugin:entry"]
+prefix = "tr"
+
+[shell.launcher.providers.emoji]
+prefix = "dup"
+
+[shell.launcher.providers.wallpaper]
+prefix = "dup"

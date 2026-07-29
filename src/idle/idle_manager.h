@@ -26,7 +26,9 @@ public:
       std::function<void()> onFadeComplete
   )>;
   /// `userCancelled` is true when input resumed during the fade before the idle action ran.
-  using GraceEndCallback = std::function<void(bool userCancelled)>;
+  /// `willLockSession` is true when a pending idle action would lock the session (Lock / LockAndSuspend).
+  /// Invoked before idle actions run so the overlay can be torn down before suspend freezes the process.
+  using GraceEndCallback = std::function<void(bool userCancelled, bool willLockSession)>;
 
   IdleManager();
   ~IdleManager();
@@ -69,7 +71,7 @@ private:
   void createBehavior(const IdleBehaviorConfig& config);
   void recreateBehaviorNotification(BehaviorState& behavior);
   void recreateBehaviorNotifications();
-  void runBehavior(BehaviorState& behavior);
+  bool runBehavior(BehaviorState& behavior);
   void runResumeBehavior(BehaviorState& behavior);
   bool runAction(const IdleBehaviorConfig& behavior, const IdleActionRequest& action) const;
   void cancelActiveGrace(bool userCancelled);
@@ -85,6 +87,7 @@ private:
   IdleConfig m_idleConfig;
   Timer m_graceFallbackTimer;
   std::vector<BehaviorState*> m_graceBehaviors;
+  bool m_activeGraceWillLock = false;
   std::uint64_t m_graceGeneration = 0;
   std::vector<std::unique_ptr<BehaviorState>> m_behaviors;
   ext_idle_notification_v1* m_heartbeatNotification = nullptr;

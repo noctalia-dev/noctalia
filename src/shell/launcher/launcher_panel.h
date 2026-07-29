@@ -7,6 +7,7 @@
 #include "ui/signal.h"
 
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -46,10 +47,15 @@ public:
   void onIconThemeChanged() override;
 
   void clearUsage();
+  // Drops persisted usage data when sort-by-usage is off (including after config reload).
+  void syncUsageTrackingState();
+
+  // Invoked after a terminal close when the activation copied text and the provider
+  // supports auto-paste. The host schedules virtual-keyboard paste (clipboard path).
+  void setCopiedActivationCallback(std::function<void()> callback) { m_onCopiedActivation = std::move(callback); }
 
   [[nodiscard]] float preferredWidth() const override { return scaled(560.0f); }
   [[nodiscard]] float preferredHeight() const override { return scaled(500.0f); }
-  [[nodiscard]] LayerShellLayer layer() const override { return LayerShellLayer::Overlay; }
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
   [[nodiscard]] InputArea* initialFocusArea() const override;
   [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
@@ -78,6 +84,9 @@ private:
   void applyEmptyState();
   void bindDetailResult();
   [[nodiscard]] bool shouldUseDetailPresentation() const;
+  [[nodiscard]] bool startsWithLauncherPrefix(std::string_view text) const;
+  void applyProviderConfig(LauncherProvider& provider) const;
+  void finishActivation(LauncherProvider& provider, const std::string& resultId, bool copied);
   [[nodiscard]] std::vector<LauncherResult> providerOverviewResults(std::string_view text) const;
   void openAppActionsMenu(std::size_t index, float anchorX, float anchorY);
   void rebuildCategoryFilter(const std::vector<LauncherCategory>& categories);
@@ -89,6 +98,7 @@ private:
   [[nodiscard]] bool shouldUseAppGrid() const;
   void refreshLauncherAppIconColorization();
   void updateLauncherGridMetrics(Renderer& renderer);
+  [[nodiscard]] bool shouldTrackUsage() const;
 
   std::vector<std::unique_ptr<LauncherProvider>> m_providers;
   std::vector<LauncherResult> m_results;
@@ -123,8 +133,10 @@ private:
   bool m_launcherAppGrid = false;
   bool m_usingAppGrid = false;
   float m_launcherRowHeight = 0.0f;
+  std::uint64_t m_desktopEntriesVersion = 0;
   ConfigService* m_config = nullptr;
   AsyncTextureCache* m_asyncTextures = nullptr;
   std::unique_ptr<ContextMenuPopup> m_actionsMenu;
   Signal<>::ScopedConnection m_appIconColorizeConn;
+  std::function<void()> m_onCopiedActivation;
 };

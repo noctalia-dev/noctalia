@@ -102,6 +102,8 @@ void GlyphProgram::destroy() {
   m_tintModeLocation = -1;
 }
 
+void GlyphProgram::abandon() noexcept { m_program.abandon(); }
+
 void GlyphProgram::bindCommon(
     TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, float u0, float v0, float u1,
     float v1, float opacity, const Mat3& transform

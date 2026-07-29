@@ -121,7 +121,7 @@ void TelemetryService::maybeSend(
       {"os", distroLabel()},
       {"ramGb", memoryTotalGb()},
       {"monitors", monitors},
-      {"ui", {{"scaleRatio", cfg.uiScale}}},
+      {"ui", {{"scaleRatio", config.config().accessibility.uiScale}}},
   };
 
   kLog.info("sending anonymous ping");

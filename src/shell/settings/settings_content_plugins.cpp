@@ -2,9 +2,13 @@
 
 #include "config/config_types.h"
 #include "i18n/i18n.h"
+#include "net/url_open.h"
+#include "scripting/plugin_api.h"
 #include "scripting/plugin_i18n.h"
+#include "scripting/plugin_id.h"
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"
+#include "shell/settings/settings_content_common.h"
 #include "shell/settings/settings_control_factory.h"
 #include "shell/settings/settings_registry.h"
 #include "shell/settings/widget_settings_registry.h"
@@ -144,7 +148,7 @@ namespace settings {
       auto row = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true});
       Flex* r = row.get();
 
-      auto info = ui::column({.align = FlexAlign::Start, .gap = 2.0F * scale, .flexGrow = 1.0F});
+      auto info = ui::column({.align = FlexAlign::Start, .gap = 2.0f * scale, .flexGrow = 1.0f});
       info->addChild(makeLabel(
           pluginSourceDisplayName(source.name), Style::fontSizeBody * scale,
           source.enabled ? ColorRole::OnSurface : ColorRole::OnSurfaceVariant, FontWeight::Medium
@@ -198,17 +202,17 @@ namespace settings {
       return row;
     }
 
-    std::unique_ptr<Flex> makeSourceBadge(std::string_view label, float scale) {
+    std::unique_ptr<Flex> makeRoleBadge(std::string_view label, ColorRole role, float scale, float fillAlpha = 0.15f) {
       return ui::row(
           {.align = FlexAlign::Center,
            .paddingH = Style::spaceXs * scale,
-           .fill = colorSpecFromRole(ColorRole::Primary, 0.15f),
+           .fill = colorSpecFromRole(role, fillAlpha),
            .radius = Style::scaledRadiusSm(scale)},
           ui::label({
               .text = std::string(label),
               .fontSize = Style::fontSizeCaption * scale,
               .fontWeight = FontWeight::Bold,
-              .color = colorSpecFromRole(ColorRole::Primary),
+              .color = colorSpecFromRole(role),
           })
       );
     }
@@ -229,25 +233,28 @@ namespace settings {
           })
       );
 
-      auto info = ui::column({.align = FlexAlign::Start, .gap = 2.0F * scale, .flexGrow = 1.0F});
+      auto info = ui::column({.align = FlexAlign::Start, .gap = 2.0f * scale, .flexGrow = 1.0f});
       auto title = ui::row({.align = FlexAlign::Center, .gap = Style::spaceXs * scale});
       const std::string version = plugin.version.empty() ? std::string("?") : plugin.version;
       title->addChild(
           makeLabel(pluginDisplayName(plugin), Style::fontSizeBody * scale, ColorRole::OnSurface, FontWeight::Medium)
       );
       if (plugin.source == "official") {
-        title->addChild(makeSourceBadge(i18n::tr("settings.badges.official"), scale));
+        title->addChild(makeRoleBadge(i18n::tr("settings.badges.official"), ColorRole::Primary, scale));
+      } else if (plugin.source == "community") {
+        title->addChild(makeRoleBadge(i18n::tr("settings.badges.community"), ColorRole::Secondary, scale));
       } else if (!plugin.source.empty()) {
-        title->addChild(makeLabel(
-            pluginSourceDisplayName(plugin.source), Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant
-        ));
+        title->addChild(makeRoleBadge(pluginSourceDisplayName(plugin.source), ColorRole::Tertiary, scale));
       }
       title->addChild(makeLabel("v" + version, Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant));
       if (!plugin.compatible) {
         title->addChild(makeLabel(
-            i18n::tr("settings.plugins.plugins.requires-newer-noctalia"), Style::fontSizeMini * scale, ColorRole::Error,
+            i18n::tr("settings.plugins.plugins.incompatible-plugin-api"), Style::fontSizeMini * scale, ColorRole::Error,
             FontWeight::Bold
         ));
+      }
+      if (plugin.heldBack) {
+        title->addChild(makeRoleBadge(i18n::tr("settings.plugins.plugins.held-back"), ColorRole::Tertiary, scale));
       }
       if (plugin.deprecated) {
         title->addChild(makeLabel(
@@ -255,7 +262,22 @@ namespace settings {
             FontWeight::Bold
         ));
       }
+      if (plugin.updateAvailable) {
+        const std::string badge = plugin.availableVersion.empty()
+            ? i18n::tr("settings.plugins.plugins.update-available")
+            : i18n::tr("settings.plugins.plugins.update-to", "version", plugin.availableVersion);
+        title->addChild(makeRoleBadge(badge, ColorRole::Tertiary, scale));
+      }
       info->addChild(std::move(title));
+      if (plugin.heldBack) {
+        info->addChild(makeLabel(
+            i18n::tr(
+                "settings.plugins.plugins.held-back-hint", "version", plugin.latestVersion, "required",
+                plugin.latestPluginApiVersion, "current", scripting::kCurrentPluginApiVersion
+            ),
+            Style::fontSizeMini * scale, ColorRole::Tertiary
+        ));
+      }
       if (!plugin.description.empty()) {
         info->addChild(makeLabel(plugin.description, Style::fontSizeCaption * scale, ColorRole::OnSurfaceVariant));
       }
@@ -267,19 +289,20 @@ namespace settings {
       }
       r->addChild(std::move(info));
 
+      if (const auto pageUrl = scripting::pluginWebsitePageUrl(plugin.source, plugin.id)) {
+        r->addChild(
+            ui::button({
+                .glyph = "external-link",
+                .glyphSize = Style::fontSizeBody * scale,
+                .variant = ButtonVariant::Ghost,
+                .tooltip = i18n::tr("settings.plugins.store.open-page"),
+                .onClick = [url = *pageUrl]() { (void)net::openInBrowser(url); },
+            })
+        );
+      }
+
       const auto* manifest = scripting::PluginRegistry::instance().findManifest(plugin.id);
-      const bool hasSettings = [&]() {
-        if (manifest == nullptr) {
-          return false;
-        }
-        if (!manifest->settings.empty()) {
-          return true;
-        }
-        return std::ranges::any_of(manifest->entries, [](const scripting::PluginEntry& entry) {
-          return entry.kind == scripting::PluginEntryKind::Panel && !entry.settings.empty();
-        });
-      }();
-      if (enabled && manifest != nullptr && hasSettings && ctx.onConfigure) {
+      if (enabled && manifest != nullptr && pluginHasSettings(*manifest) && ctx.onConfigure) {
         r->addChild(
             ui::button({
                 .glyph = "settings",
@@ -366,6 +389,13 @@ namespace settings {
       return {};
     }
 
+    WidgetSettingStringMap valueAsStringMap(const WidgetSettingValue& value) {
+      if (const auto* map = std::get_if<WidgetSettingStringMap>(&value)) {
+        return *map;
+      }
+      return {};
+    }
+
     bool valueAsBool(const WidgetSettingValue& value) {
       if (const auto* b = std::get_if<bool>(&value)) {
         return *b;
@@ -425,6 +455,21 @@ namespace settings {
         return valueAsString(pluginSettingValue(cfg, pluginId, *depIt));
       };
       const auto matches = [&](const WidgetSettingVisibilityCondition& cond) {
+        if (cond.nonEmpty) {
+          const auto depIt =
+              std::ranges::find_if(allSpecs, [&](const WidgetSettingSpec& s) { return s.schema.key == cond.key; });
+          if (depIt == allSpecs.end()) {
+            return false;
+          }
+          const WidgetSettingValue value = pluginSettingValue(cfg, pluginId, *depIt);
+          if (const auto* list = std::get_if<std::vector<std::string>>(&value)) {
+            return !list->empty();
+          }
+          if (const auto* str = std::get_if<std::string>(&value)) {
+            return !str->empty();
+          }
+          return false;
+        }
         const std::string value = currentString(cond.key);
         return std::ranges::contains(cond.values, value);
       };
@@ -472,6 +517,9 @@ namespace settings {
         }
         SelectSetting selectSetting{std::move(options), valueAsString(value)};
         selectSetting.segmented = spec.segmented;
+        if (spec.schema.type == noctalia::config::schema::WidgetSettingType::Bool) {
+          selectSetting.valueType = SelectValueType::Boolean;
+        }
         if (const auto* defaultString = std::get_if<std::string>(&spec.schema.defaultValue)) {
           selectSetting.clearOnEmpty = defaultString->empty();
         }
@@ -485,10 +533,23 @@ namespace settings {
         return factory.makeColorSpecPicker(pickerSetting, path);
       }
       case WidgetControlKind::StringList:
+      case WidgetControlKind::StringMap:
         return nullptr;
-      case WidgetControlKind::String:
       case WidgetControlKind::File:
       case WidgetControlKind::Folder:
+        return factory.makePathBrowse(
+            TextSetting{
+                .value = valueAsString(value),
+                .placeholder = {},
+                .width = 190.0f,
+                .browseMode = spec.control == WidgetControlKind::Folder ? TextSettingBrowseMode::SelectFolder
+                                                                        : TextSettingBrowseMode::OpenFile,
+                .browseFileExtensions = spec.extensions,
+                .browseFallbackDirectory = {},
+            },
+            path
+        );
+      case WidgetControlKind::String:
       case WidgetControlKind::Glyph:
       default:
         return factory.makeText(valueAsString(value), {}, path);
@@ -496,6 +557,15 @@ namespace settings {
     }
 
   } // namespace
+
+  bool pluginHasSettings(const scripting::PluginManifest& manifest) {
+    if (!manifest.settings.empty()) {
+      return true;
+    }
+    return std::ranges::any_of(manifest.entries, [](const scripting::PluginEntry& entry) {
+      return entry.kind == scripting::PluginEntryKind::Panel && !entry.settings.empty();
+    });
+  }
 
   void buildPluginSettingsEditor(
       Flex& body, const Config& cfg, SettingsControlFactory& factory, const std::string& pluginId,
@@ -552,6 +622,15 @@ namespace settings {
       };
       if (spec.control == WidgetControlKind::StringList) {
         factory.makeListBlock(body, entry, ListSetting{.items = valueAsStringList(value)});
+      } else if (spec.control == WidgetControlKind::StringMap) {
+        factory.makeStringMapBlock(
+            body, entry,
+            StringMapSetting{
+                .entries = valueAsStringMap(value),
+                .keyPlaceholder = i18n::tr("settings.widgets.map-placeholders.key"),
+                .valuePlaceholder = i18n::tr("settings.widgets.map-placeholders.value"),
+            }
+        );
       } else {
         factory.makeRow(body, entry, pluginSettingControl(factory, spec, value, path));
       }
@@ -595,6 +674,10 @@ namespace settings {
         )
     );
 
+    if (ctx.config != nullptr && ctx.config->shell.offlineMode) {
+      section->addChild(makeOfflineModeNotice(scale, i18n::tr("settings.window.offline-mode-notice.plugins")));
+    }
+
     // ── Sources ──────────────────────────────────────────────────────────
     auto sourcesHeader = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true});
     sourcesHeader->addChild(makeLabel(
@@ -607,7 +690,7 @@ namespace settings {
             .glyph = "add",
             .fontSize = Style::fontSizeCaption * scale,
             .glyphSize = Style::fontSizeBody * scale,
-            .variant = ButtonVariant::Outline,
+            .variant = ButtonVariant::Default,
             .onClick = [cb = ctx.addSource]() {
               if (cb) {
                 cb();
@@ -633,6 +716,37 @@ namespace settings {
       section->addChild(sourceRow(source, ctx, scale));
     }
 
+    const bool hasGitSource = std::ranges::any_of(ctx.sources, [](const PluginSourceConfig& s) {
+      return s.kind == PluginSourceKind::Git && s.enabled;
+    });
+    if (hasGitSource && ctx.setAutoUpdate) {
+      // Separate from the source list so the toggle doesn't read as another source.
+      section->addChild(ui::separator({.spacing = Style::spaceSm * scale}));
+      auto autoRow = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true});
+      auto autoInfo = ui::column({.align = FlexAlign::Start, .gap = 2.0f * scale, .flexGrow = 1.0f});
+      autoInfo->addChild(makeLabel(
+          i18n::tr("settings.plugins.sources.auto-update"), Style::fontSizeBody * scale, ColorRole::OnSurface,
+          FontWeight::Medium
+      ));
+      autoInfo->addChild(makeLabel(
+          i18n::tr("settings.plugins.sources.auto-update-desc"), Style::fontSizeCaption * scale,
+          ColorRole::OnSurfaceVariant
+      ));
+      autoRow->addChild(std::move(autoInfo));
+      autoRow->addChild(
+          ui::toggle({
+              .checked = ctx.autoUpdateEnabled,
+              .scale = scale,
+              .onChange = [cb = ctx.setAutoUpdate](bool on) {
+                if (cb) {
+                  cb(on);
+                }
+              },
+          })
+      );
+      section->addChild(std::move(autoRow));
+    }
+
     section->addChild(ui::separator({.spacing = Style::spaceSm * scale}));
 
     // ── Plugins ──────────────────────────────────────────────────────────
@@ -641,6 +755,25 @@ namespace settings {
         i18n::tr("settings.plugins.plugins.title"), Style::fontSizeBody * scale, ColorRole::Secondary, FontWeight::Bold
     ));
     pluginsHeader->addChild(ui::spacer());
+    const int updatesAvailable = static_cast<int>(
+        std::ranges::count_if(ctx.plugins, [](const scripting::PluginStatus& p) { return p.updateAvailable; })
+    );
+    if (updatesAvailable > 0 && ctx.updateAll) {
+      pluginsHeader->addChild(
+          ui::button({
+              .text = i18n::tr("settings.plugins.plugins.update-all", "count", std::to_string(updatesAvailable)),
+              .glyph = "download",
+              .fontSize = Style::fontSizeCaption * scale,
+              .glyphSize = Style::fontSizeBody * scale,
+              .variant = ButtonVariant::Primary,
+              .onClick = [cb = ctx.updateAll]() {
+                if (cb) {
+                  cb();
+                }
+              },
+          })
+      );
+    }
     if (ctx.openStore) {
       pluginsHeader->addChild(
           ui::button({

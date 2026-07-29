@@ -264,6 +264,8 @@ void GraphProgram::destroy() {
   m_dataSourceLoc = -1;
 }
 
+void GraphProgram::abandon() noexcept { m_program.abandon(); }
+
 void GraphProgram::draw(
     TextureId dataTexture, int texWidth, float surfaceWidth, float surfaceHeight, float width, float height,
     const GraphStyle& style, const Mat3& transform

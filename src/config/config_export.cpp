@@ -1,6 +1,7 @@
 #include "config/config_export.h"
 
 #include "config/schema/config_schema.h"
+#include "config/schema/config_sections.h"
 #include "config/schema/engine.h"
 
 #include <algorithm>
@@ -25,12 +26,29 @@ namespace config_export {
       return array;
     }
 
+    toml::table stringMapTable(const WidgetSettingStringMap& values) {
+      toml::table table;
+      std::vector<std::string> keys;
+      keys.reserve(values.size());
+      for (const auto& [key, value] : values) {
+        (void)value;
+        keys.push_back(key);
+      }
+      std::ranges::sort(keys);
+      for (const auto& key : keys) {
+        table.insert_or_assign(key, values.at(key));
+      }
+      return table;
+    }
+
     void insertWidgetSettingValue(toml::table& table, std::string_view key, const WidgetSettingValue& value) {
       std::visit(
           [&](const auto& concrete) {
             using T = std::decay_t<decltype(concrete)>;
             if constexpr (std::is_same_v<T, std::vector<std::string>>) {
               table.insert_or_assign(key, stringArray(concrete));
+            } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
+              table.insert_or_assign(key, stringMapTable(concrete));
             } else {
               table.insert_or_assign(key, concrete);
             }
@@ -82,6 +100,37 @@ namespace config_export {
       return table;
     }
 
+    // [plugin_settings."author/plugin"] — the per-plugin override maps, keyed by plugin
+    // id. Open-ended (validated against each plugin's manifest), so it is emitted from
+    // the parsed values rather than a schema.
+    toml::table pluginSettingsTable(const PluginsConfig& plugins) {
+      toml::table table;
+      std::vector<std::string> pluginIds;
+      pluginIds.reserve(plugins.pluginSettings.size());
+      for (const auto& [pluginId, settings] : plugins.pluginSettings) {
+        (void)settings;
+        pluginIds.push_back(pluginId);
+      }
+      std::ranges::sort(pluginIds);
+
+      for (const auto& pluginId : pluginIds) {
+        const auto& settings = plugins.pluginSettings.at(pluginId);
+        toml::table perPlugin;
+        std::vector<std::string> keys;
+        keys.reserve(settings.size());
+        for (const auto& [key, value] : settings) {
+          (void)value;
+          keys.push_back(key);
+        }
+        std::ranges::sort(keys);
+        for (const auto& key : keys) {
+          insertWidgetSettingValue(perPlugin, key, settings.at(key));
+        }
+        table.insert_or_assign(pluginId, std::move(perPlugin));
+      }
+      return table;
+    }
+
     BarConfig applyMonitorOverride(const BarConfig& base, const BarMonitorOverride& ovr) {
       BarConfig resolved = base;
       if (ovr.position)
@@ -90,6 +139,8 @@ namespace config_export {
         resolved.enabled = *ovr.enabled;
       if (ovr.autoHide)
         resolved.autoHide = *ovr.autoHide;
+      if (ovr.smartAutoHide)
+        resolved.smartAutoHide = *ovr.smartAutoHide;
       if (ovr.showOnWorkspaceSwitch)
         resolved.showOnWorkspaceSwitch = *ovr.showOnWorkspaceSwitch;
       if (ovr.reserveSpace)
@@ -119,6 +170,8 @@ namespace config_export {
         resolved.radiusBottomLeft = *ovr.radiusBottomLeft;
       if (ovr.radiusBottomRight)
         resolved.radiusBottomRight = *ovr.radiusBottomRight;
+      if (ovr.concaveEdgeCorners)
+        resolved.concaveEdgeCorners = *ovr.concaveEdgeCorners;
       if (ovr.marginEnds)
         resolved.marginEnds = *ovr.marginEnds;
       if (ovr.marginEdge)
@@ -172,16 +225,8 @@ namespace config_export {
         resolved.widgetCapsuleOpacity = static_cast<float>(*ovr.widgetCapsuleOpacity);
       if (ovr.hoverHighlight)
         resolved.hoverHighlight = *ovr.hoverHighlight;
-      if (ovr.deadZone.command)
-        resolved.deadZone.command = *ovr.deadZone.command;
-      if (ovr.deadZone.rightCommand)
-        resolved.deadZone.rightCommand = *ovr.deadZone.rightCommand;
-      if (ovr.deadZone.middleCommand)
-        resolved.deadZone.middleCommand = *ovr.deadZone.middleCommand;
-      if (ovr.deadZone.scrollUpCommand)
-        resolved.deadZone.scrollUpCommand = *ovr.deadZone.scrollUpCommand;
-      if (ovr.deadZone.scrollDownCommand)
-        resolved.deadZone.scrollDownCommand = *ovr.deadZone.scrollDownCommand;
+      if (ovr.deadZone.actions)
+        resolved.deadZone.actions = *ovr.deadZone.actions;
       return resolved;
     }
 
@@ -280,13 +325,11 @@ namespace config_export {
   toml::table serialize(const Config& config) {
     toml::table root;
 
-    root.insert_or_assign("shell", schema::writeTable(config.shell, schema::shellSchema()));
-    root.insert_or_assign("wallpaper", schema::writeTable(config.wallpaper, schema::wallpaperSchema()));
-    root.insert_or_assign("theme", schema::writeTable(config.theme, schema::themeSchema()));
+    for (const schema::SectionSpec& spec : schema::sections()) {
+      root.insert_or_assign(spec.name, spec.write(config));
+    }
 
-    root.insert_or_assign("backdrop", schema::writeTable(config.backdrop, schema::backdropSchema()));
-
-    root.insert_or_assign("lockscreen", schema::writeTable(config.lockscreen, schema::lockscreenSchema()));
+    // Root keys whose shape is not a plain section schema.
     root.insert_or_assign(
         "lockscreen_widgets",
         widgetsPlacementTable(
@@ -294,26 +337,7 @@ namespace config_export {
             config.lockscreenWidgets.widgets
         )
     );
-
-    root.insert_or_assign("notification", schema::writeTable(config.notification, schema::notificationSchema()));
-
-    root.insert_or_assign("osd", schema::writeTable(config.osd, schema::osdSchema()));
-
-    root.insert_or_assign("system", schema::writeTable(config.system, schema::systemSchema()));
-
-    root.insert_or_assign("weather", schema::writeTable(config.weather, schema::weatherSchema()));
-    root.insert_or_assign("calendar", schema::writeTable(config.calendar, schema::calendarSchema()));
-    root.insert_or_assign("audio", schema::writeTable(config.audio, schema::audioSchema()));
-
-    root.insert_or_assign("brightness", schema::writeTable(config.brightness, schema::brightnessSchema()));
-    root.insert_or_assign("battery", schema::writeTable(config.battery, schema::batterySchema()));
-
-    root.insert_or_assign("nightlight", schema::writeTable(config.nightlight, schema::nightlightSchema()));
-    root.insert_or_assign("location", schema::writeTable(config.location, schema::locationSchema()));
-
-    root.insert_or_assign("idle", schema::writeTable(config.idle, schema::idleSchema()));
-
-    root.insert_or_assign("keybinds", schema::writeTable(config.keybinds, schema::keybindsSchema()));
+    root.insert_or_assign("desktop_widgets", desktopWidgetsTable(config.desktopWidgets));
 
     toml::table barRoot;
     toml::array barOrder;
@@ -327,9 +351,6 @@ namespace config_export {
     barRoot.insert_or_assign("order", std::move(barOrder));
     root.insert_or_assign("bar", std::move(barRoot));
 
-    root.insert_or_assign("dock", schema::writeTable(config.dock, schema::dockSchema()));
-    root.insert_or_assign("desktop_widgets", desktopWidgetsTable(config.desktopWidgets));
-
     toml::table widgetRoot;
     std::vector<std::string> widgetNames;
     widgetNames.reserve(config.widgets.size());
@@ -342,12 +363,8 @@ namespace config_export {
       widgetRoot.insert_or_assign(name, widgetConfigTable(config.widgets.at(name)));
     }
     root.insert_or_assign("widget", std::move(widgetRoot));
+    root.insert_or_assign("plugin_settings", pluginSettingsTable(config.plugins));
 
-    root.insert_or_assign("control_center", schema::writeTable(config.controlCenter, schema::controlCenterSchema()));
-
-    root.insert_or_assign("plugins", schema::writeTable(config.plugins, schema::pluginsSchema()));
-
-    root.insert_or_assign("hooks", schema::writeTable(config.hooks, schema::hooksSchema()));
     return root;
   }
 

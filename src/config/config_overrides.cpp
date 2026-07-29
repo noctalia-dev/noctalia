@@ -1,7 +1,9 @@
 #include "config/atomic_file.h"
 #include "config/config_merge.h"
 #include "config/config_service.h"
+#include "config/config_validate.h"
 #include "config/widget_config.h"
+#include "core/files/resource_paths.h"
 #include "core/input/key_chord.h"
 #include "core/log.h"
 #include "scripting/plugin_id.h"
@@ -18,6 +20,7 @@
 #include <fstream>
 #include <iterator>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <type_traits>
 #include <utility>
@@ -98,7 +101,10 @@ namespace {
   // PluginsConfig equality that compares the open-ended pluginSettings map with int/double coercion
   // (widgetSettingsEqual) instead of the defaulted operator== — same reason as widgets.
   bool pluginsConfigEqual(const PluginsConfig& a, const PluginsConfig& b) {
-    if (a.sources != b.sources || a.enabled != b.enabled || a.pluginSettings.size() != b.pluginSettings.size()) {
+    if (a.sources != b.sources
+        || a.enabled != b.enabled
+        || a.autoUpdate != b.autoUpdate
+        || a.pluginSettings.size() != b.pluginSettings.size()) {
       return false;
     }
     for (const auto& [id, aMap] : a.pluginSettings) {
@@ -164,6 +170,9 @@ namespace {
     if (ovr.autoHide) {
       resolved.autoHide = *ovr.autoHide;
     }
+    if (ovr.smartAutoHide) {
+      resolved.smartAutoHide = *ovr.smartAutoHide;
+    }
     if (ovr.showOnWorkspaceSwitch) {
       resolved.showOnWorkspaceSwitch = *ovr.showOnWorkspaceSwitch;
     }
@@ -200,6 +209,9 @@ namespace {
     }
     if (ovr.radiusBottomRight) {
       resolved.radiusBottomRight = *ovr.radiusBottomRight;
+    }
+    if (ovr.concaveEdgeCorners) {
+      resolved.concaveEdgeCorners = *ovr.concaveEdgeCorners;
     }
     if (ovr.marginEnds) {
       resolved.marginEnds = *ovr.marginEnds;
@@ -277,20 +289,8 @@ namespace {
     if (ovr.hoverHighlight) {
       resolved.hoverHighlight = *ovr.hoverHighlight;
     }
-    if (ovr.deadZone.command) {
-      resolved.deadZone.command = *ovr.deadZone.command;
-    }
-    if (ovr.deadZone.rightCommand) {
-      resolved.deadZone.rightCommand = *ovr.deadZone.rightCommand;
-    }
-    if (ovr.deadZone.middleCommand) {
-      resolved.deadZone.middleCommand = *ovr.deadZone.middleCommand;
-    }
-    if (ovr.deadZone.scrollUpCommand) {
-      resolved.deadZone.scrollUpCommand = *ovr.deadZone.scrollUpCommand;
-    }
-    if (ovr.deadZone.scrollDownCommand) {
-      resolved.deadZone.scrollDownCommand = *ovr.deadZone.scrollDownCommand;
+    if (ovr.deadZone.actions) {
+      resolved.deadZone.actions = *ovr.deadZone.actions;
     }
     return resolved;
   }
@@ -368,6 +368,7 @@ namespace {
         && a.idle == b.idle
         && a.hooks == b.hooks
         && a.theme == b.theme
+        && a.accessibility == b.accessibility
         && a.controlCenter == b.controlCenter
         && pluginsConfigEqual(a.plugins, b.plugins);
   }
@@ -390,6 +391,19 @@ namespace {
               array.push_back(item);
             }
             table.insert_or_assign(key, std::move(array));
+          } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
+            toml::table mapTable;
+            std::vector<std::string> mapKeys;
+            mapKeys.reserve(concrete.size());
+            for (const auto& [mapKey, mapValue] : concrete) {
+              (void)mapValue;
+              mapKeys.push_back(mapKey);
+            }
+            std::ranges::sort(mapKeys);
+            for (const auto& mapKey : mapKeys) {
+              mapTable.insert_or_assign(mapKey, concrete.at(mapKey));
+            }
+            table.insert_or_assign(key, std::move(mapTable));
           } else {
             table.insert_or_assign(key, concrete);
           }
@@ -547,10 +561,16 @@ namespace {
               if (!item.match.empty()) {
                 row.insert_or_assign("match", item.match);
               }
+              if (!item.matchContent.empty()) {
+                row.insert_or_assign("match_content", item.matchContent);
+              }
               row.insert_or_assign("show_toast", item.showToast);
               row.insert_or_assign("save_history", item.saveHistory);
               row.insert_or_assign("play_sound", item.playSound);
               row.insert_or_assign("allow_permanent", item.allowPermanent);
+              if (item.overrideDuration.has_value()) {
+                row.insert_or_assign("override_duration", static_cast<std::int64_t>(*item.overrideDuration));
+              }
               if (!item.allowedUrgencies.empty()) {
                 toml::array urgencies;
                 for (const auto& urgency : item.allowedUrgencies) {
@@ -666,6 +686,16 @@ namespace {
     return true;
   }
 
+  const BarConfig* findBarConfig(const Config& cfg, std::string_view name) {
+    const auto it = std::ranges::find(cfg.bars, name, &BarConfig::name);
+    return it != cfg.bars.end() ? &*it : nullptr;
+  }
+
+  const BarMonitorOverride* findBarMonitorOverride(const BarConfig& bar, std::string_view match) {
+    const auto it = std::ranges::find(bar.monitorOverrides, match, &BarMonitorOverride::match);
+    return it != bar.monitorOverrides.end() ? &*it : nullptr;
+  }
+
   bool overridePresenceIsSemantic(const std::vector<std::string>& path) {
     if (path.size() == 3 && path[0] == "widget" && path[2] == "type") {
       return true;
@@ -707,6 +737,8 @@ ConfigChangeSet computeConfigChangeSet(const Config& prev, const Config& next) {
       .controlCenter = !(prev.controlCenter == next.controlCenter),
       .plugins = !pluginsConfigEqual(prev.plugins, next.plugins),
       .hotCorners = !(prev.hotCorners == next.hotCorners),
+      .storage = !(prev.storage == next.storage),
+      .accessibility = !(prev.accessibility == next.accessibility),
   };
 }
 
@@ -761,9 +793,6 @@ void ConfigService::addPluginSource(const PluginSourceConfig& source) {
     entry.insert_or_assign("name", src.name);
     entry.insert_or_assign("kind", std::string(enumToKey(kPluginSourceKinds, src.kind)));
     entry.insert_or_assign("location", src.location);
-    if (src.autoUpdate) {
-      entry.insert_or_assign("auto_update", true);
-    }
     if (!src.enabled) {
       entry.insert_or_assign("enabled", false);
     }
@@ -954,6 +983,30 @@ void ConfigService::setDockEnabled(bool enabled) {
   fireReloadCallbacks();
 }
 
+void ConfigService::setPluginsAutoUpdate(bool enabled) {
+  if (m_overridesPath.empty()) {
+    return;
+  }
+
+  auto* pluginsTbl = ensureTable(m_overridesTable, "plugins");
+  const auto existing = (*pluginsTbl)["auto_update"].value<bool>();
+  if (existing.has_value() && *existing == enabled && m_config.plugins.autoUpdate == enabled) {
+    return;
+  }
+
+  pluginsTbl->insert_or_assign("auto_update", enabled);
+
+  if (!writeOverridesToFile()) {
+    kLog.warn("failed to write {}", m_overridesPath);
+    return;
+  }
+
+  m_ownOverridesWritePending = true;
+
+  loadAll();
+  fireReloadCallbacks();
+}
+
 namespace {
 
   void writeWidgetsPlacementToTable(
@@ -985,7 +1038,8 @@ bool ConfigService::setDesktopWidgetsState(const DesktopWidgetsConfig& desktopWi
     return false;
   }
 
-  auto* desktopWidgetsTbl = ensureTable(m_overridesTable, "desktop_widgets");
+  toml::table next = m_overridesTable;
+  auto* desktopWidgetsTbl = ensureTable(next, "desktop_widgets");
   if (desktopWidgetsTbl == nullptr) {
     return false;
   }
@@ -993,7 +1047,14 @@ bool ConfigService::setDesktopWidgetsState(const DesktopWidgetsConfig& desktopWi
   desktopWidgetsTbl->insert_or_assign("schema_version", static_cast<std::int64_t>(desktopWidgets.schemaVersion));
   writeWidgetsPlacementToTable(*desktopWidgetsTbl, desktopWidgets.grid, desktopWidgets.widgets);
 
+  if (!validateOverrideMutation(next)) {
+    return false;
+  }
+  toml::table previous = std::move(m_overridesTable);
+  m_overridesTable = std::move(next);
+
   if (!writeOverridesToFile()) {
+    m_overridesTable = std::move(previous);
     kLog.warn("failed to write {}", m_overridesPath);
     return false;
   }
@@ -1009,7 +1070,8 @@ bool ConfigService::setLockscreenWidgetsState(const LockscreenWidgetsConfig& loc
     return false;
   }
 
-  auto* sectionTbl = ensureTable(m_overridesTable, "lockscreen_widgets");
+  toml::table next = m_overridesTable;
+  auto* sectionTbl = ensureTable(next, "lockscreen_widgets");
   if (sectionTbl == nullptr) {
     return false;
   }
@@ -1018,7 +1080,14 @@ bool ConfigService::setLockscreenWidgetsState(const LockscreenWidgetsConfig& loc
   sectionTbl->insert_or_assign("schema_version", static_cast<std::int64_t>(lockscreenWidgets.schemaVersion));
   writeWidgetsPlacementToTable(*sectionTbl, lockscreenWidgets.grid, lockscreenWidgets.widgets);
 
+  if (!validateOverrideMutation(next)) {
+    return false;
+  }
+  toml::table previous = std::move(m_overridesTable);
+  m_overridesTable = std::move(next);
+
   if (!writeOverridesToFile()) {
+    m_overridesTable = std::move(previous);
     kLog.warn("failed to write {}", m_overridesPath);
     return false;
   }
@@ -1035,6 +1104,16 @@ bool ConfigService::markSetupWizardCompleted() {
   }
   if (std::filesystem::exists(m_setupMarkerPath)) {
     return true;
+  }
+
+  // The bundled wallpaper is served via firstRunWallpaperPath() until setup
+  // completes. Persist it so finishing the wizard does not clear the desktop.
+  if (!hasConfiguredWallpaper()) {
+    const auto bundled = paths::assetPath("noctalia-wallpaper.png");
+    std::error_code ec;
+    if (std::filesystem::exists(bundled, ec)) {
+      setWallpaperPath(std::nullopt, bundled.string());
+    }
   }
 
   std::ofstream out(m_setupMarkerPath, std::ios::trunc);
@@ -1080,6 +1159,84 @@ std::size_t ConfigService::overridePreserveDepthForPath(const std::vector<std::s
   return 0;
 }
 
+void ConfigService::reconcileCapsuleGroupOverrides(toml::table& candidate) const {
+  const auto* barRoot = candidate.get_as<toml::table>("bar");
+  if (barRoot == nullptr) {
+    return;
+  }
+
+  // Scope = the table owning a capsule_group array: a bar, or one of its monitor overrides.
+  std::vector<std::vector<std::string>> scopePaths;
+  for (const auto& [barName, barNode] : *barRoot) {
+    const auto* barTable = barNode.as_table();
+    if (barTable == nullptr) {
+      continue;
+    }
+    const std::string name(barName.str());
+    if (barTable->contains("capsule_group")) {
+      scopePaths.push_back({"bar", name, "capsule_group"});
+    }
+    const auto* monitorRoot = barTable->get_as<toml::table>("monitor");
+    if (monitorRoot == nullptr) {
+      continue;
+    }
+    for (const auto& [match, monitorNode] : *monitorRoot) {
+      const auto* monitorTable = monitorNode.as_table();
+      if (monitorTable != nullptr && monitorTable->contains("capsule_group")) {
+        scopePaths.push_back({"bar", name, "monitor", std::string(match.str()), "capsule_group"});
+      }
+    }
+  }
+  if (scopePaths.empty()) {
+    return;
+  }
+
+  const auto resolved = configForOverrides(candidate);
+  const auto fileConfig = configForOverrides(toml::table{});
+  if (!resolved.has_value() || !fileConfig.has_value()) {
+    return;
+  }
+
+  for (const auto& path : scopePaths) {
+    const BarConfig* bar = findBarConfig(*resolved, path[1]);
+    const BarConfig* fileBar = findBarConfig(*fileConfig, path[1]);
+    if (bar == nullptr || fileBar == nullptr) {
+      continue;
+    }
+
+    const bool monitorScope = path.size() == 5;
+    const BarMonitorOverride* ovr = monitorScope ? findBarMonitorOverride(*bar, path[3]) : nullptr;
+    if (monitorScope && (ovr == nullptr || !ovr->widgetCapsuleGroups.has_value())) {
+      continue;
+    }
+    const BarMonitorOverride* fileOvr = monitorScope ? findBarMonitorOverride(*fileBar, path[3]) : nullptr;
+
+    const std::vector<BarCapsuleGroupStyle>& current =
+        monitorScope ? *ovr->widgetCapsuleGroups : bar->widgetCapsuleGroups;
+    const std::vector<BarCapsuleGroupStyle>& base = fileOvr != nullptr && fileOvr->widgetCapsuleGroups.has_value()
+        ? *fileOvr->widgetCapsuleGroups
+        : fileBar->widgetCapsuleGroups;
+    const std::set<std::string> referenced =
+        monitorScope ? capsuleGroupRefsForMonitorScope(*bar, *ovr) : capsuleGroupRefsForBarScope(*bar);
+
+    const std::vector<BarCapsuleGroupStyle> reconciled = reconcileCapsuleGroups(current, base, referenced);
+    if (reconciled == current) {
+      continue;
+    }
+    if (reconciled == base) {
+      eraseOverridePath(candidate, path, overridePreserveDepthForPath(path));
+      continue;
+    }
+    toml::table* scopeTable = &candidate;
+    for (std::size_t i = 0; i + 1 < path.size() && scopeTable != nullptr; ++i) {
+      scopeTable = scopeTable->get_as<toml::table>(path[i]);
+    }
+    if (scopeTable != nullptr) {
+      insertOverrideValue(*scopeTable, "capsule_group", reconciled);
+    }
+  }
+}
+
 std::optional<Config> ConfigService::configForOverrides(const toml::table& overrides) const {
   Config parsed;
   noctalia::config::seedBuiltinWidgets(parsed);
@@ -1090,7 +1247,22 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
     kLog.warn("skipping config error in effective override comparison: {}", mergeResult.firstError);
   }
 
-  deepMerge(merged, overrides);
+  toml::table effectiveOverrides = overrides;
+  noctalia::config::schema::Diagnostics migrationDiag;
+  if (!effectiveOverrides.empty()) {
+    const auto storedVersion = noctalia::config::storedConfigVersion(effectiveOverrides, migrationDiag);
+    if (storedVersion.has_value()) {
+      (void)noctalia::config::applyPendingConfigMigrations(effectiveOverrides, *storedVersion, migrationDiag);
+    }
+  }
+  if (migrationDiag.hasErrors()) {
+    kLog.warn("effective override comparison rejected invalid config_version");
+    return std::nullopt;
+  }
+  deepMerge(merged, effectiveOverrides);
+  merged.erase(noctalia::config::kConfigVersionKey);
+  noctalia::config::LegacyConfigIssues issues;
+  noctalia::config::normalizeLegacyConfig(merged, issues);
   if (mergeResult.loadedFiles.empty() && overrides.empty()) {
     parsed.idle.behaviors = defaultIdleBehaviors();
     parsed.bars.push_back(BarConfig{});
@@ -1106,6 +1278,73 @@ std::optional<Config> ConfigService::configForOverrides(const toml::table& overr
     return std::nullopt;
   }
   return parsed;
+}
+
+noctalia::config::schema::Diagnostics ConfigService::diagnosticsForOverrides(const toml::table& overrides) const {
+  auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir);
+  toml::table merged = std::move(mergeResult.merged);
+  noctalia::config::schema::Diagnostics diagnostics;
+  if (!mergeResult.firstError.empty()) {
+    diagnostics.fatal("syntax", mergeResult.firstError, "config.syntax");
+  }
+
+  toml::table effectiveOverrides = overrides;
+  if (!effectiveOverrides.empty()) {
+    const auto storedVersion = noctalia::config::storedConfigVersion(effectiveOverrides, diagnostics);
+    if (storedVersion.has_value()) {
+      (void)noctalia::config::applyPendingConfigMigrations(effectiveOverrides, *storedVersion, diagnostics);
+    }
+  }
+  deepMerge(merged, effectiveOverrides);
+  merged.erase(noctalia::config::kConfigVersionKey);
+  noctalia::config::LegacyConfigIssues issues;
+  noctalia::config::normalizeLegacyConfig(merged, issues);
+  for (const auto& issue : issues) {
+    diagnostics.warn(issue.path, issue.message, "config.legacy");
+  }
+
+  auto semantic = noctalia::config::validateMergedConfig(merged);
+  diagnostics.entries.insert(
+      diagnostics.entries.end(), std::make_move_iterator(semantic.entries.begin()),
+      std::make_move_iterator(semantic.entries.end())
+  );
+  return diagnostics;
+}
+
+bool ConfigService::validateOverrideMutation(
+    const toml::table& candidateOverrides, const toml::table* baselineOverrides,
+    const noctalia::config::schema::Diagnostics* candidateDiagnostics
+) {
+  m_lastMutationError.clear();
+  if (!m_overridesParseError.empty()) {
+    m_lastMutationError = m_overridesParseError;
+    return false;
+  }
+
+  try {
+    const auto baseline = diagnosticsForOverrides(baselineOverrides != nullptr ? *baselineOverrides : m_overridesTable);
+    const auto computedCandidate = candidateDiagnostics == nullptr ? diagnosticsForOverrides(candidateOverrides)
+                                                                   : noctalia::config::schema::Diagnostics{};
+    const auto& candidate = candidateDiagnostics != nullptr ? *candidateDiagnostics : computedCandidate;
+    const auto fatal = std::ranges::find_if(candidate.entries, [](const auto& entry) {
+      return entry.severity == noctalia::config::schema::Diagnostics::Severity::Error
+          && entry.recoveryScope == noctalia::config::schema::Diagnostics::RecoveryScope::Document;
+    });
+    if (fatal != candidate.entries.end()) {
+      m_lastMutationError = fatal->path + ": " + fatal->message;
+      return false;
+    }
+    const auto introduced = candidate.introducedErrorsComparedTo(baseline);
+    if (!introduced.entries.empty()) {
+      const auto& entry = introduced.entries.front();
+      m_lastMutationError = entry.path + ": " + entry.message;
+      return false;
+    }
+  } catch (const std::exception& e) {
+    m_lastMutationError = e.what();
+    return false;
+  }
+  return true;
 }
 
 bool ConfigService::overridePathEffectiveInTable(
@@ -1136,27 +1375,7 @@ bool ConfigService::overridePathEffectiveInTable(
   }
 
   if (isPluginSettingOverridePath(path)) {
-    const auto pluginSettingValue = [](const Config& cfg, const std::string& pluginId,
-                                       const std::string& key) -> std::optional<WidgetSettingValue> {
-      const auto it = cfg.plugins.pluginSettings.find(pluginId);
-      if (it == cfg.plugins.pluginSettings.end()) {
-        return std::nullopt;
-      }
-      const auto kIt = it->second.find(key);
-      if (kIt == it->second.end()) {
-        return std::nullopt;
-      }
-      return kIt->second;
-    };
-    const auto withVal = pluginSettingValue(*parsedWith, path[1], path[2]);
-    const auto withoutVal = pluginSettingValue(*withoutOverride, path[1], path[2]);
-    if (!withVal.has_value() && !withoutVal.has_value()) {
-      return false;
-    }
-    if (!withVal.has_value() || !withoutVal.has_value()) {
-      return true;
-    }
-    return !widgetSettingEqual(*withVal, *withoutVal);
+    return settings::pluginSettingOverrideIsEffective(path[1], path[2], *parsedWith, *withoutOverride);
   }
 
   return !configEqual(*parsedWith, *withoutOverride);
@@ -1419,6 +1638,48 @@ bool ConfigService::setOverride(const std::vector<std::string>& path, ConfigOver
   return setOverride(path, std::move(value), nullptr);
 }
 
+bool ConfigService::validateOverride(
+    const std::vector<std::string>& path, const ConfigOverrideValue& value, std::string* error
+) {
+  if (path.empty()) {
+    if (error != nullptr) {
+      *error = "invalid empty setting path";
+    }
+    return false;
+  }
+
+  toml::table candidate = m_overridesTable;
+  toml::table* table = &candidate;
+  for (std::size_t i = 0; i + 1 < path.size(); ++i) {
+    table = ensureTable(*table, path[i]);
+    if (table == nullptr) {
+      if (error != nullptr) {
+        *error = "setting path conflicts with a non-table value";
+      }
+      return false;
+    }
+  }
+  insertOverrideValue(*table, path.back(), value);
+  const auto candidateDiagnostics = diagnosticsForOverrides(candidate);
+  const std::string settingPath = overrideCacheKey(path);
+  const auto fieldError = std::ranges::find_if(candidateDiagnostics.entries, [&](const auto& entry) {
+    return entry.severity == noctalia::config::schema::Diagnostics::Severity::Error && entry.path == settingPath;
+  });
+  if (fieldError != candidateDiagnostics.entries.end()) {
+    m_lastMutationError = fieldError->path + ": " + fieldError->message;
+    if (error != nullptr) {
+      *error = m_lastMutationError;
+    }
+    return false;
+  }
+
+  const bool valid = validateOverrideMutation(candidate, nullptr, &candidateDiagnostics);
+  if (!valid && error != nullptr) {
+    *error = m_lastMutationError;
+  }
+  return valid;
+}
+
 bool ConfigService::setOverride(const std::vector<std::string>& path, ConfigOverrideValue value, bool* changed) {
   std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides;
   overrides.emplace_back(path, std::move(value));
@@ -1470,7 +1731,12 @@ bool ConfigService::setOverrides(
   }
 
   if (next == m_overridesTable) {
+    m_lastMutationError.clear();
     return true;
+  }
+
+  if (!validateOverrideMutation(next)) {
+    return false;
   }
 
   toml::table previous = std::move(m_overridesTable);
@@ -1522,7 +1788,14 @@ bool ConfigService::clearOverrides(const std::vector<std::vector<std::string>>& 
   }
 
   if (!anyChanged) {
+    m_lastMutationError.clear();
     return true;
+  }
+
+  reconcileCapsuleGroupOverrides(next);
+
+  if (!validateOverrideMutation(next)) {
+    return false;
   }
 
   toml::table previous = std::move(m_overridesTable);
@@ -1610,7 +1883,32 @@ bool ConfigService::renameOverrideTable(
   return true;
 }
 
+bool ConfigService::hasConfiguredWallpaper() const {
+  if (!m_defaultWallpaperPath.empty() || !m_lastWallpaperPath.empty()) {
+    return true;
+  }
+  return !m_monitorWallpaperPaths.empty();
+}
+
+std::string ConfigService::firstRunWallpaperPath() const {
+  if (m_setupMarkerPath.empty() || std::filesystem::exists(m_setupMarkerPath)) {
+    return {};
+  }
+  if (hasConfiguredWallpaper()) {
+    return {};
+  }
+  const auto path = paths::assetPath("noctalia-wallpaper.png");
+  std::error_code ec;
+  if (!std::filesystem::exists(path, ec)) {
+    return {};
+  }
+  return path.string();
+}
+
 std::string ConfigService::getWallpaperPath(const std::string& connectorName) const {
+  if (const std::string bundled = firstRunWallpaperPath(); !bundled.empty()) {
+    return bundled;
+  }
   auto it = m_monitorWallpaperPaths.find(connectorName);
   if (it != m_monitorWallpaperPaths.end()) {
     return it->second;
@@ -1618,9 +1916,17 @@ std::string ConfigService::getWallpaperPath(const std::string& connectorName) co
   return m_defaultWallpaperPath;
 }
 
-std::string ConfigService::getDefaultWallpaperPath() const { return m_defaultWallpaperPath; }
+std::string ConfigService::getDefaultWallpaperPath() const {
+  if (const std::string bundled = firstRunWallpaperPath(); !bundled.empty()) {
+    return bundled;
+  }
+  return m_defaultWallpaperPath;
+}
 
 std::string ConfigService::getPaletteWallpaperPath() const {
+  if (const std::string bundled = firstRunWallpaperPath(); !bundled.empty()) {
+    return bundled;
+  }
   if (!m_lastWallpaperPath.empty()) {
     return m_lastWallpaperPath;
   }
@@ -2140,12 +2446,22 @@ bool ConfigService::writeOverridesToFile() {
   if (m_overridesPath.empty()) {
     return false;
   }
+  if (!validateOverrideMutation(m_overridesTable, &m_persistedOverridesTable)) {
+    m_overridesTable = m_persistedOverridesTable;
+    return false;
+  }
   toml::table output = m_overridesTable;
 
   std::ostringstream out;
   out << toml::toml_formatter{output, toml::toml_formatter::default_flags & ~toml::format_flags::allow_literal_strings};
   if (!out.good()) {
+    m_overridesTable = m_persistedOverridesTable;
     return false;
   }
-  return writeTextFileAtomic(m_overridesPath, out.str());
+  if (!writeTextFileAtomic(m_overridesPath, out.str())) {
+    m_overridesTable = m_persistedOverridesTable;
+    return false;
+  }
+  m_persistedOverridesTable = m_overridesTable;
+  return true;
 }

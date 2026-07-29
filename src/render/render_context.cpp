@@ -96,8 +96,8 @@ namespace {
   }
 
   Mat3 nodeLocalTransform(const Node* node) {
-    const float cx = node->width() * 0.5f;
-    const float cy = node->height() * 0.5f;
+    const float cx = node->transformOriginX();
+    const float cy = node->transformOriginY();
     return Mat3::translation(node->x(), node->y())
         * Mat3::translation(cx, cy)
         * Mat3::rotation(node->rotation())
@@ -122,19 +122,39 @@ void RenderContext::initialize(GlSharedContext& shared) {
   m_glyphRenderer.initialize(
       paths::assetPath("fonts/tabler.ttf").string(), m_backend.get(), &m_backend->textureManager()
   );
-  m_textFontFamily = "sans-serif";
+  m_textRenderer.setFontFamily(m_textFontFamily);
   ++m_textMetricsGeneration;
+  m_graphicsResetPending = false;
+}
+
+void RenderContext::restoreAfterGraphicsReset(GlSharedContext& shared) {
+  if (m_backend == nullptr) {
+    throw std::runtime_error("cannot restore an uninitialized render context");
+  }
+  m_backend->initialize(shared);
+  m_backend->textureManager().probeExtensions();
+  invalidateGpuResourcesNextFrame();
+}
+
+void RenderContext::prepareForGraphicsReset() {
+  if (m_backend == nullptr) {
+    return;
+  }
+
+  m_textRenderer.abandonGlyphTextures();
+  m_glyphRenderer.abandonGlyphTextures();
+  m_backend->abandonAfterGraphicsReset();
 }
 
 bool RenderContext::makeCurrentNoSurface() {
-  if (m_backend == nullptr) {
+  if (m_backend == nullptr || m_graphicsResetPending) {
     return false;
   }
   return m_backend->makeCurrentNoSurface();
 }
 
 bool RenderContext::makeCurrent(RenderTarget& target) {
-  if (m_backend == nullptr || !m_backend->makeCurrent(target)) {
+  if (m_backend == nullptr || m_graphicsResetPending || !m_backend->makeCurrent(target)) {
     return false;
   }
   // Sync the shared text/glyph renderer to this target's buffer/logical ratio
@@ -174,7 +194,7 @@ void RenderContext::notifyFontConfigChanged() {
 }
 
 void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot) {
-  if (m_backend == nullptr) {
+  if (m_backend == nullptr || m_graphicsResetPending) {
     return;
   }
   const auto totalStart = std::chrono::steady_clock::now();
@@ -297,14 +317,11 @@ void RenderContext::invalidateGpuResourcesNextFrame() noexcept {
 }
 
 void RenderContext::handleGraphicsReset(RenderGraphicsResetStatus status) {
-  kLog.warn("graphics reset detected: {}; rebuilding GPU resources", graphicsResetStatusName(status));
-  invalidateGpuResourcesNextFrame();
-  if (m_backend != nullptr) {
-    m_backend->invalidateGpuResources();
+  if (m_graphicsResetPending) {
+    return;
   }
-  m_textRenderer.invalidateGlyphTextures();
-  m_glyphRenderer.invalidateGlyphTextures();
-  m_glyphTexturesDirty = false;
+  kLog.warn("graphics reset detected: {}; scheduling context recovery", graphicsResetStatusName(status));
+  m_graphicsResetPending = true;
   if (m_graphicsResetCallback) {
     m_graphicsResetCallback(status);
   }
@@ -312,14 +329,14 @@ void RenderContext::handleGraphicsReset(RenderGraphicsResetStatus status) {
 
 void RenderContext::renderNode(
     const Node* node, const Mat3& parentTransform, float parentOpacity, float sw, float sh, float bw, float bh,
-    float clipLeft, float clipTop, float clipRight, float clipBottom, bool hasClip
+    float clipLeft, float clipTop, float clipRight, float clipBottom, bool hasClip, bool ignoreNodeOpacity
 ) {
   if (!node->visible()) {
     return;
   }
 
   const Mat3 worldTransform = parentTransform * nodeLocalTransform(node);
-  const float effectiveOpacity = parentOpacity * node->opacity();
+  const float effectiveOpacity = ignoreNodeOpacity ? parentOpacity : parentOpacity * node->opacity();
   float boundsLeft = 0.0f;
   float boundsTop = 0.0f;
   float boundsRight = 0.0f;
@@ -389,6 +406,7 @@ void RenderContext::renderNode(
               .textureWidth = static_cast<float>(img->textureWidth()),
               .textureHeight = static_cast<float>(img->textureHeight()),
               .transform = worldTransform,
+              .scrim = img->scrim(),
           }
       );
     }
@@ -520,6 +538,25 @@ void RenderContext::renderNode(
       );
     }
     break;
+  }
+  case NodeType::RenderProxy: {
+    const auto* proxy = static_cast<const RenderProxyNode*>(node);
+    const Node* source = proxy->source();
+    bool sourceContainsProxy = false;
+    for (const Node* current = node; current != nullptr; current = current->parent()) {
+      if (current == source) {
+        sourceContainsProxy = true;
+        break;
+      }
+    }
+    if (source != nullptr && !sourceContainsProxy) {
+      const Mat3 sourceParent = worldTransform * Mat3::translation(-source->x(), -source->y());
+      renderNode(
+          source, sourceParent, effectiveOpacity, sw, sh, bw, bh, clipLeft, clipTop, clipRight, clipBottom, hasClip,
+          true
+      );
+    }
+    return;
   }
   case NodeType::Base:
     break;

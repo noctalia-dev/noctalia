@@ -1,6 +1,7 @@
 #pragma once
 
 #include <format>
+#include <optional>
 #include <string_view>
 #include <utility>
 
@@ -54,5 +55,9 @@ private:
   const char* m_section;
 };
 
+[[nodiscard]] std::string_view logLevelName(LogLevel level);
+[[nodiscard]] std::optional<LogLevel> parseLogLevel(std::string_view value);
+[[nodiscard]] LogLevel currentLogLevel();
 void setLogLevel(LogLevel level);
+void initLogLevelFromEnvironment();
 void initLogFile();

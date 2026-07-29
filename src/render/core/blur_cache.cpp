@@ -75,3 +75,11 @@ void BlurCache::destroy() {
   m_lastRadius = 0.0f;
   m_lastRounds = 0;
 }
+
+void BlurCache::abandon() noexcept {
+  m_layer.abandon();
+  m_backend = nullptr;
+  m_lastSourceTex = {};
+  m_lastRadius = 0.0f;
+  m_lastRounds = 0;
+}

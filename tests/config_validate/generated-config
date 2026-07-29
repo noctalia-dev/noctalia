@@ -1,5 +1,24 @@
-[shell]
+[accessibility]
 ui_scale = 1.0
 
 [theme]
 mode = "dark"
+
+[widget.clock]
+enabled = false
+
+[widget.launcher]
+capsule = true
+capsule_radius = "auto"
+
+[plugins]
+enabled = ["noctalia/wallhaven"]
+
+[[plugins.source]]
+name = "test"
+kind = "path"
+location = "tests/config_validate/plugin-source"
+
+[plugin_settings."noctalia/wallhaven"]
+browser_placement = "floating"
+browser_position = "center"

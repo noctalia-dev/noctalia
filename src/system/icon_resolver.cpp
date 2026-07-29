@@ -8,6 +8,7 @@
 #include <fstream>
 #include <gio/gio.h>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <string_view>
@@ -50,7 +51,10 @@ namespace {
     return size;
   }
 
+  // Shared across all IconResolver instances, including thread_local ones on
+  // script worker threads; every access goes through `mutex`.
   struct IconThemeState {
+    std::mutex mutex;
     bool initialized = false;
     std::uint64_t generation = 1;
     IconThemePlan plan;
@@ -138,20 +142,23 @@ namespace {
   std::string signatureFor(const IconThemePlan& plan) {
     std::string signature = plan.activeTheme;
     signature += '\n';
-    for (const auto& root : plan.baseDirs) {
-      signature += "root:";
-      signature += root;
+    auto appendPath = [&](std::string_view kind, const std::string& path) {
+      signature += kind;
+      signature += path;
+      signature += ':';
+      std::error_code ec;
+      const auto modified = fs::last_write_time(path, ec);
+      signature += ec ? "missing" : std::to_string(modified.time_since_epoch().count());
       signature += '\n';
+    };
+    for (const auto& root : plan.baseDirs) {
+      appendPath("root:", root);
     }
     for (const auto& dir : plan.searchDirs) {
-      signature += "theme:";
-      signature += dir.path;
-      signature += '\n';
+      appendPath("theme:", dir.path);
     }
     for (const auto& dir : plan.pixmapDirs) {
-      signature += "pixmap:";
-      signature += dir;
-      signature += '\n';
+      appendPath("pixmap:", dir);
     }
     return signature;
   }
@@ -409,8 +416,8 @@ namespace {
     return plan;
   }
 
-  void ensureThemeState() {
-    auto& state = iconThemeState();
+  // Requires state.mutex to be held.
+  void ensureThemeStateLocked(IconThemeState& state) {
     if (!state.initialized) {
       state.plan = buildThemePlan();
       state.initialized = true;
@@ -419,10 +426,13 @@ namespace {
 
 } // namespace
 
-IconResolver::IconResolver() { rebuild(); }
+IconResolver::IconResolver(bool cacheMissing) : m_cacheMissing(cacheMissing) { rebuild(); }
+
+IconResolver::IconResolver() : IconResolver(false) {}
 
 bool IconResolver::checkThemeChanged() {
   auto& state = iconThemeState();
+  std::scoped_lock lock(state.mutex);
   IconThemePlan next = buildThemePlan();
   if (!state.initialized) {
     state.plan = std::move(next);
@@ -439,17 +449,21 @@ bool IconResolver::checkThemeChanged() {
 }
 
 std::uint64_t IconResolver::themeGeneration() {
-  ensureThemeState();
-  return iconThemeState().generation;
+  auto& state = iconThemeState();
+  std::scoped_lock lock(state.mutex);
+  ensureThemeStateLocked(state);
+  return state.generation;
 }
 
 void IconResolver::rebuild() {
-  ensureThemeState();
-  const auto& state = iconThemeState();
+  auto& state = iconThemeState();
+  std::scoped_lock lock(state.mutex);
+  ensureThemeStateLocked(state);
   m_baseDirs = state.plan.baseDirs;
   m_searchDirs = state.plan.searchDirs;
   m_pixmapDirs = state.plan.pixmapDirs;
   m_cache.clear();
+  m_missingCache.clear();
   m_generation = state.generation;
 }
 
@@ -469,13 +483,22 @@ const std::string& IconResolver::resolve(const std::string& iconName, int target
   if (it != m_cache.end()) {
     return it->second;
   }
+  const bool canCacheMissing = m_cacheMissing && iconName.front() != '/';
+  if (canCacheMissing && m_missingCache.contains(key)) {
+    return m_empty;
+  }
   auto icon = findIcon(iconName, targetSize);
   if (icon.empty()) {
+    if (canCacheMissing) {
+      m_missingCache.emplace(key);
+    }
     return m_empty;
   }
   auto [ins, _] = m_cache.emplace(key, icon);
   return ins->second;
 }
+
+void IconResolver::invalidateMissingCache() { m_missingCache.clear(); }
 
 std::string IconResolver::findIcon(const std::string& name, int targetSize) const {
   // Absolute path — use directly

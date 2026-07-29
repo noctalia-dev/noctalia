@@ -29,6 +29,7 @@ namespace settings {
     Desktop,
     Dock,
     Panels,
+    Launcher,
     ControlCenter,
     Notifications,
     Osd,
@@ -67,13 +68,33 @@ namespace settings {
     std::string tooltip;
   };
 
+  // A bindable IPC command for the gesture action picker. `argsSpec` is the registry's argument
+  // spec ("<id> [context]"), used for the argument field's placeholder and to decide whether the
+  // row needs one at all. It is deliberately not part of the option label.
+  struct GestureActionOption {
+    SelectOption option;
+    std::string argsSpec;
+  };
+
+  enum class SelectValueType : std::uint8_t {
+    String,
+    Integer,
+    Boolean,
+  };
+
   struct SelectSetting {
     std::vector<SelectOption> options;
     std::string selectedValue;
     bool clearOnEmpty = false;
-    bool segmented = false;      // render as Segmented pill group instead of dropdown Select
-    bool integerValue = false;   // option values are numeric strings; write as int64_t to config
-    float preferredWidth = 0.0f; // 0 = default settings dropdown width
+    bool allowEmptySelection = false; // empty selectedValue shows a cleared select (no matching option)
+    bool segmented = false;           // render as Segmented pill group instead of dropdown Select
+    SelectValueType valueType = SelectValueType::String; // storage type for option values
+    float preferredWidth = 0.0f;                         // 0 = default settings dropdown width
+    std::vector<std::string> linkedPath;                 // companion path for groupedCommit / override reset
+    std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(
+        std::string_view selectedValue, const std::vector<std::string>& primaryPath
+    )>
+        groupedCommit;
   };
 
   struct SearchPickerSetting {
@@ -82,6 +103,8 @@ namespace settings {
     std::string placeholder;
     std::string emptyText;
     float preferredHeight = 240.0f;
+    // When set, replaces the default commit for the setting path.
+    std::function<void(const std::string&)> onSelect;
   };
 
   struct SliderSetting {
@@ -228,6 +251,7 @@ namespace settings {
     std::string label;
     std::function<void()> action;
     std::string glyph;
+    bool destructive = false;
   };
 
   struct ColorSpecPickerSetting {
@@ -238,11 +262,19 @@ namespace settings {
     std::string noneLabel;
   };
 
+  // One bindable gesture. `configured` is the stored binding, empty when it inherits; `defaultAction`
+  // is what runs when it does, shown in the picker so "unset" never reads as "does nothing".
+  struct GestureActionSetting {
+    std::string gestureKey;
+    std::string configured;
+    std::string defaultAction;
+  };
+
   using SettingControl = std::variant<
       ToggleSetting, SelectSetting, SliderSetting, RangeSliderSetting, TextSetting, OptionalNumberSetting,
       OptionalStepperSetting, StepperSetting, ListSetting, ShortcutListSetting, KeybindListSetting,
       SessionPanelActionsSetting, IdleBehaviorsSetting, NotificationFiltersSetting, MultiSelectSetting,
-      TemplateGridSetting, ButtonSetting, ColorSpecPickerSetting, SearchPickerSetting>;
+      TemplateGridSetting, ButtonSetting, ColorSpecPickerSetting, SearchPickerSetting, GestureActionSetting>;
 
   // Visibility predicate, evaluated against the same Config the registry was built from
   // (the registry rebuilds on every config change). Capture snapshot values or read the
@@ -267,6 +299,7 @@ namespace settings {
     bool niriOverviewTypeToLaunchSupported = false; // show niri-only type-to-launch integration
     bool screencopySupported = false;               // lockscreen blurred desktop + screenshot features
     bool ddcutilAvailable = false;                  // disable ddcutil toggle when ddcutil is not on PATH
+    bool systemdUserManaged = false;                // disable systemd app launching when the shell is not a user unit
     bool gammaControlAvailable = false;             // hide night-light entries when gamma control is unavailable
     bool greeterSyncAvailable = false;              // hide greeter appearance sync when greeter is not installed
     std::vector<SelectOption> availableOutputs;     // monitor selectors available on this machine

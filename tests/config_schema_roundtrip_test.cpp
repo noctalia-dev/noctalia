@@ -13,12 +13,15 @@
 #include "config/config_export.h"
 #include "config/config_types.h"
 #include "config/schema/config_schema.h"
+#include "config/schema/config_sections.h"
 #include "config/schema/engine.h"
 #include "core/input/key_chord.h"
 #include "core/toml.h"
 #include "scripting/plugin_id.h"
 
+#include <optional>
 #include <print>
+#include <set>
 #include <sstream>
 #include <string>
 
@@ -40,26 +43,6 @@ namespace {
         table, toml::toml_formatter::default_flags & ~toml::format_flags::allow_literal_strings
     };
     return out.str();
-  }
-
-  // readInto(writeTable(x)) must reconstruct x. `serialized` is config_export::serialize(probe),
-  // whose section emit IS writeTable(section), so this exercises the real schema
-  // round-trip via the actual serializer.
-  template <typename T>
-  void checkReadInverse(
-      const std::string& section, const toml::table& serialized, const T& expected, const Schema<T>& schema
-  ) {
-    const auto* sectionTbl = serialized[section].as_table();
-    if (sectionTbl == nullptr) {
-      fail(section + ": config_export::serialize emitted no [" + section + "] table");
-      return;
-    }
-    T roundtrip{};
-    Diagnostics diag;
-    readInto(*sectionTbl, roundtrip, schema, section, diag);
-    if (!(roundtrip == expected)) {
-      fail(section + ": read inverse did not reconstruct the original value");
-    }
   }
 
   void checkPluginSourceNameValidation() {
@@ -118,6 +101,47 @@ location = "https://example.invalid/bad"
     }
   }
 
+  void checkIdleActionResolution() {
+    const IdleBehaviorConfig screenOff{
+        .name = "screen-off",
+        .enabled = true,
+        .timeoutSeconds = 60,
+        .action = "screen_off",
+        .command = {},
+        .resumeCommand = "notify-send resumed",
+    };
+    const ResolvedIdleBehavior resolvedScreenOff = resolveIdleBehaviorActions(screenOff);
+    if (resolvedScreenOff.idleAction.kind != IdleActionKind::ScreenOff) {
+      fail("idle: screen_off did not resolve to native screen-off");
+    }
+    if (resolvedScreenOff.resumeAction.kind != IdleActionKind::ScreenOn) {
+      fail("idle: screen_off did not retain native screen-on with a custom resume command");
+    }
+    if (resolvedScreenOff.resumeCommand != screenOff.resumeCommand) {
+      fail("idle: screen_off did not retain its additional resume command");
+    }
+
+    const IdleBehaviorConfig custom{
+        .name = "custom",
+        .enabled = true,
+        .timeoutSeconds = 60,
+        .action = "command",
+        .command = "notify-send idle",
+        .resumeCommand = "notify-send resumed",
+    };
+    const ResolvedIdleBehavior resolvedCustom = resolveIdleBehaviorActions(custom);
+    if (resolvedCustom.idleAction.kind != IdleActionKind::Command
+        || resolvedCustom.idleAction.command != custom.command) {
+      fail("idle: custom command did not resolve to its configured idle command");
+    }
+    if (resolvedCustom.resumeAction.kind != IdleActionKind::None) {
+      fail("idle: custom command gained an implicit native resume action");
+    }
+    if (resolvedCustom.resumeCommand != custom.resumeCommand) {
+      fail("idle: custom command did not retain its configured resume command");
+    }
+  }
+
   void checkPluginIdValidation() {
     const std::string valid[] = {"noctalia/screen_recorder", "me/hello", "Team/repo_2", "a/b.c-d"};
     for (const auto& id : valid) {
@@ -129,9 +153,8 @@ location = "https://example.invalid/bad"
       }
     }
 
-    const std::string invalid[] = {
-        "", "hello", "me/", "/hello", "me/foo/bar", "me/../hello", "me/foo bar", "../foo", "me/.hidden"
-    };
+    const std::string invalid[] = {"",           "hello",  "me/",       "/hello", "me/foo/bar", "me/../hello",
+                                   "me/foo bar", "../foo", "me/.hidden"};
     for (const auto& id : invalid) {
       if (scripting::isValidPluginId(id)) {
         fail("plugins: accepted invalid plugin id " + id);
@@ -151,6 +174,7 @@ location = "https://example.invalid/bad"
     bar.position = "bottom";
     bar.enabled = false;
     bar.autoHide = true;
+    bar.smartAutoHide = false;
     bar.showOnWorkspaceSwitch = true;
     bar.reserveSpace = false;
     bar.layer = "overlay";
@@ -163,14 +187,20 @@ location = "https://example.invalid/bad"
     bar.radiusTopRight = 6;
     bar.radiusBottomLeft = 8;
     bar.radiusBottomRight = 10;
+    bar.concaveEdgeCorners = true;
     bar.marginEnds = 100;
     bar.marginEdge = 5;
     bar.marginOppositeEdge = 12;
-    bar.deadZone.command = "notify-send bar-left";
-    bar.deadZone.rightCommand = "notify-send bar-right";
-    bar.deadZone.middleCommand = "notify-send bar-middle";
-    bar.deadZone.scrollUpCommand = "notify-send bar-scroll-up";
-    bar.deadZone.scrollDownCommand = "notify-send bar-scroll-down";
+    bar.actions = {{"middle", "none"}, {"right", "media toggle"}};
+    bar.deadZone.actions = {
+        {"left", "exec notify-send bar-left"},
+        {"right", "exec notify-send bar-right"},
+        {"middle", "exec notify-send bar-middle"},
+        {"scroll_up", "exec notify-send bar-scroll-up"},
+        {"scroll_down", "exec notify-send bar-scroll-down"},
+        {"back", "media previous"},
+        {"forward", "media next"},
+    };
     bar.padding = 12;
     bar.widgetSpacing = 8;
     bar.shadow = false;
@@ -211,6 +241,7 @@ location = "https://example.invalid/bad"
     ovr.position = "top";
     ovr.enabled = true;
     ovr.autoHide = false;
+    ovr.smartAutoHide = false;
     ovr.showOnWorkspaceSwitch = true;
     ovr.reserveSpace = true;
     ovr.layer = "top";
@@ -223,14 +254,14 @@ location = "https://example.invalid/bad"
     ovr.radiusTopRight = 2;
     ovr.radiusBottomLeft = 3;
     ovr.radiusBottomRight = 4;
+    ovr.concaveEdgeCorners = false;
     ovr.marginEnds = 70;
     ovr.marginEdge = 9;
     ovr.marginOppositeEdge = 4;
-    ovr.deadZone.command = "notify-send bar-left";
-    ovr.deadZone.rightCommand = "notify-send bar-right";
-    ovr.deadZone.middleCommand = "notify-send monitor-middle";
-    ovr.deadZone.scrollUpCommand = "notify-send monitor-scroll-up";
-    ovr.deadZone.scrollDownCommand = "notify-send bar-scroll-down";
+    ovr.deadZone.actions = std::unordered_map<std::string, std::string>{
+        {"left", "exec notify-send bar-left"},
+        {"right", "exec notify-send bar-right"},
+    };
     ovr.padding = 11;
     ovr.widgetSpacing = 7;
     ovr.shadow = true;
@@ -279,15 +310,15 @@ location = "https://example.invalid/bad"
     c.osd.orientation = "vertical";
     c.osd.scale = 1.4f;
     c.osd.backgroundOpacity = 0.42f;
+    c.osd.border = false;
     c.osd.offsetX = 33;
     c.osd.offsetY = 11;
     c.osd.monitors = {"DP-1", "HDMI-A-1"};
     c.osd.kinds.lockKeys = false;
     c.osd.kinds.keyboardLayout = false;
     c.backdrop = BackdropConfig{true, 0.8f, 0.2f};
-    c.lockscreen = LockscreenConfig{
-        .blurredDesktop = true, .blurIntensity = 0.6f, .tintIntensity = 0.25f, .monitors = {"DP-1"}
-    };
+    c.lockscreen =
+        LockscreenConfig{.blurredDesktop = true, .blurIntensity = 0.6f, .tintIntensity = 0.25f, .monitors = {"DP-1"}};
     c.system.monitor.enabled = false;
     c.system.monitor.cpuTempSensorPath = "/sys/class/hwmon/hwmon3/temp1_input";
     c.system.monitor.cpuPollSeconds = 5.0f;
@@ -298,23 +329,26 @@ location = "https://example.invalid/bad"
     c.nightlight = NightLightConfig{true, true, 6000, 3500}; // gap satisfied
     c.location.autoLocate = true;
     c.location.address = "Berlin";
+    c.location.customSchedule = true;
     c.location.sunset = "20:30";
     c.location.sunrise = "06:15";
     c.location.latitude = 52.52;
     c.location.longitude = 13.405;
     c.notification = NotificationConfig{
-        false,
-        false,
-        false,
-        "bottom_left",
-        "overlay",
-        1.3f,
-        0.5f,
-        12,
-        6,
-        {"DP-2"},
-        false,
-        {NotificationFilterConfig{
+        .enableDaemon = false,
+        .showAppName = false,
+        .showActions = false,
+        .position = "bottom_left",
+        .layer = "overlay",
+        .scale = 1.3f,
+        .backgroundOpacity = 0.5f,
+        .border = false,
+        .offsetX = 12,
+        .offsetY = 6,
+        .monitors = {"DP-2"},
+        .collapseOnDismiss = false,
+        .historyRetentionHours = 48,
+        .filters = {NotificationFilterConfig{
             .name = "discord",
             .enabled = true,
             .match = "discord",
@@ -328,6 +362,8 @@ location = "https://example.invalid/bad"
     c.dock.enabled = true;
     c.dock.position = DockEdge::Left;
     c.dock.iconSize = 40;
+    c.dock.border = colorSpecFromRole(ColorRole::Primary);
+    c.dock.borderWidth = 1.5f;
     c.dock.radius = 20;
     c.dock.radiusTopLeft = 10;
     c.dock.radiusTopRight = 12;
@@ -347,12 +383,24 @@ location = "https://example.invalid/bad"
     c.controlCenter.sidebarMode = ControlCenterSidebarMode::Full;
     c.controlCenter.sidebarSectionMode = ControlCenterSidebarMode::None;
     c.controlCenter.calendarTab.showEventsCard = false;
+    c.controlCenter.calendarTab.showWeekNumbers = true;
+    c.controlCenter.calendarTab.eventDateFormat = "%Y-%m-%d";
+    c.controlCenter.calendarTab.eventTimeFormat = "%I:%M %p";
     c.controlCenter.shortcuts = {{"wifi"}, {"bluetooth"}};
     c.calendar.enabled = true;
     c.calendar.refreshMinutes = 30;
     c.calendar.accounts = {
         {"acc1", "google", "Work", "#ff0000", "", "", "", {}},
-        {"acc2", "caldav", "Home", "", "custom", "https://dav.example.com/remote.php/dav/", "user", {"personal"}},
+        {"acc2",
+         "caldav",
+         "Home",
+         "",
+         "custom",
+         "https://dav.example.com/remote.php/dav/",
+         "user",
+         {"personal"},
+         CalendarCredentialSource::File,
+         "/run/agenix/noctalia-caldav"},
     };
     // Explicit chords so write→read round-trips (empty would emit defaults instead).
     c.keybinds.validate = {*parseKeyChordSpec("Return")};
@@ -384,21 +432,36 @@ location = "https://example.invalid/bad"
     c.wallpaper.monitorOverrides = {
         {"DP-1", true, colorSpecFromConfigString("#00ff00"), std::string("/srv/wp1"), std::nullopt, std::nullopt},
     };
-    c.shell.uiScale = 1.25f;
+    c.accessibility.uiScale = 1.25f;
+    c.shell.buttonBorders = false;
     c.shell.fontFamily = "Inter";
     c.shell.lang = "en_US";
     c.shell.timeFormat = "{:%H:%M:%S}";
     c.shell.passwordMaskStyle = PasswordMaskStyle::RandomIcons;
     c.shell.clipboardHistoryMaxEntries = 80;
     c.shell.clipboardAutoPaste = ClipboardAutoPasteMode::CtrlV;
+    c.storage.keySource = StorageKeySource::File;
+    c.storage.keyFile = "/run/agenix/noctalia-storage-key";
     c.shell.avatarPath = "/home/u/face.png";
     c.shell.animation.speed = 1.5f;
     c.shell.shadow.direction = ShadowDirection::UpLeft;
     c.shell.panel.transparencyMode = PanelTransparencyMode::Glass;
+    c.shell.panel.floatingLayer = "top";
     c.shell.panel.launcherPlacement = PanelPlacement::Floating;
     c.shell.launcher.compact = true;
-    c.shell.launcher.sessionSearch = true;
     c.shell.launcher.sortByUsage = false;
+    DmenuEntryConfig notifyDmenu;
+    notifyDmenu.id = "notify";
+    notifyDmenu.exec = std::string("notify-send \"{query}\"");
+    notifyDmenu.prefix = std::string("/notify");
+    notifyDmenu.label = std::string("Notify");
+    notifyDmenu.glyph = std::string("bell");
+    notifyDmenu.freeform = true;
+    c.shell.launcher.dmenu.entries = {notifyDmenu};
+    c.shell.launcher.providerPrefix = ".";
+    c.shell.launcher.providers = {
+        LauncherProviderConfig{"session", "s", true}, LauncherProviderConfig{"wallpaper", "w"}
+    };
     c.shell.screenCorners.enabled = true;
     c.shell.screenCorners.size = 24;
     c.shell.mpris.blacklist = {"firefox"};
@@ -427,7 +490,9 @@ location = "https://example.invalid/bad"
     c.theme.mode = ThemeMode::Light;
     c.theme.templates.enableBuiltinTemplates = false;
     c.theme.templates.builtinIds = {"a", "b"};
-    c.theme.templates.customColors = {{"accent", "#112233", true}, {"bg", "#000000", false}};
+    c.theme.templates.customColors = {
+        {"accent", "#112233", "#112233", "#332211", true}, {"bg", "#000000", "#000000", "#000000", false}
+    };
     c.theme.templates.userTemplates = {
         ThemeConfig::UserTemplateConfig{
             "tmpl1",
@@ -440,9 +505,27 @@ location = "https://example.invalid/bad"
             {{"c1", "#aabbcc"}},
             "pre",
             "post",
+            "kde-color-scheme",
             3,
         },
     };
+    c.accessibility.uiScale = 1.25f;
+    c.accessibility.highContrast = true;
+
+    c.hotCorners.enabled = true;
+    c.hotCorners.topLeft = {.action = "launcher", .command = ""};
+    c.hotCorners.bottomRight = {.action = "command", .command = "notify-send corner"};
+
+    // pluginSettings is not part of pluginsSchema ([plugin_settings] is its own root
+    // key), so the section round-trip covers sources + enabled + auto_update only.
+    c.plugins.sources = {
+        {.kind = PluginSourceKind::Git,
+         .name = "official",
+         .location = "https://github.com/noctalia-dev/official-plugins"},
+    };
+    c.plugins.enabled = {"noctalia/notes"};
+    c.plugins.autoUpdate = false; // non-default (default is true) so the round-trip exercises it
+
     c.bars = {makeProbeBar()};
     return c;
   }
@@ -492,9 +575,219 @@ location = "https://example.invalid/bad"
     }
   }
 
+  void checkCalendarCredentialSourceValidation() {
+    const auto parse = [](std::string_view accountConfig) {
+      const toml::table table = toml::parse(accountConfig);
+      CalendarConfig calendar;
+      Diagnostics diagnostics;
+      readInto(table, calendar, calendarSchema(), "calendar", diagnostics);
+      return diagnostics;
+    };
+
+    const Diagnostics valid = parse(R"(
+[account.agenix]
+type = "caldav"
+provider = "custom"
+server_url = "https://dav.example.com/"
+username = "user"
+credential_source = "file"
+password_file = "/run/agenix/noctalia-caldav"
+)");
+    if (valid.hasErrors()) {
+      fail("calendar: valid file credential source was rejected");
+    }
+
+    const Diagnostics missingFile = parse(R"(
+[account.agenix]
+type = "caldav"
+provider = "icloud"
+username = "user"
+credential_source = "file"
+)");
+    if (!missingFile.hasErrors()) {
+      fail("calendar: file credential source accepted a missing password_file");
+    }
+
+    const Diagnostics conflictingFile = parse(R"(
+[account.keyring]
+type = "caldav"
+provider = "icloud"
+username = "user"
+credential_source = "secret-service"
+password_file = "/run/agenix/noctalia-caldav"
+)");
+    if (!conflictingFile.hasErrors()) {
+      fail("calendar: secret-service credential source accepted password_file");
+    }
+
+    const Diagnostics unknownSource = parse(R"(
+[account.invalid]
+type = "caldav"
+provider = "icloud"
+username = "user"
+credential_source = "automatic"
+)");
+    if (!unknownSource.hasErrors()) {
+      fail("calendar: unknown credential source was not an error");
+    }
+  }
+
+  void checkPanelFloatingLayerValidation() {
+    const auto parse = [](std::string_view panelConfig, ShellConfig& shell) {
+      const toml::table table = toml::parse(panelConfig);
+      Diagnostics diagnostics;
+      readInto(table, shell, shellSchema(), "shell", diagnostics);
+      return diagnostics;
+    };
+
+    ShellConfig validShell;
+    const Diagnostics valid = parse("[panel]\nfloating_layer = \"top\"", validShell);
+    if (valid.hasErrors() || validShell.panel.floatingLayer != "top") {
+      fail("shell.panel.floating_layer: valid top layer was rejected");
+    }
+
+    ShellConfig invalidShell;
+    const Diagnostics invalid = parse("[panel]\nfloating_layer = \"bottom\"", invalidShell);
+    if (invalidShell.panel.floatingLayer != "overlay") {
+      fail("shell.panel.floating_layer: invalid value replaced the overlay default");
+    }
+    bool sawWarning = false;
+    for (const auto& entry : invalid.entries) {
+      if (entry.severity == Diagnostics::Severity::Warning && entry.path == "shell.panel.floating_layer") {
+        sawWarning = true;
+      }
+    }
+    if (!sawWarning) {
+      fail("shell.panel.floating_layer: invalid value did not produce a warning");
+    }
+  }
+
+  void checkStorageKeySourceValidation() {
+    const auto parse = [](std::string_view storageConfig) {
+      const toml::table table = toml::parse(storageConfig);
+      StorageConfig storage;
+      Diagnostics diagnostics;
+      readInto(table, storage, storageSchema(), "storage", diagnostics);
+      return diagnostics;
+    };
+
+    const Diagnostics valid = parse(R"(
+key_source = "file"
+key_file = "/run/agenix/noctalia-storage-key"
+)");
+    if (valid.hasErrors()) {
+      fail("storage: valid file key source was rejected");
+    }
+
+    const Diagnostics missingFile = parse(R"(
+key_source = "file"
+)");
+    if (!missingFile.hasErrors()) {
+      fail("storage: file key source accepted a missing key_file");
+    }
+
+    const Diagnostics conflictingFile = parse(R"(
+key_source = "secret-service"
+key_file = "/run/agenix/noctalia-storage-key"
+)");
+    if (!conflictingFile.hasErrors()) {
+      fail("storage: secret-service key source accepted key_file");
+    }
+
+    const Diagnostics relativeFile = parse(R"(
+key_source = "file"
+key_file = "noctalia-storage-key"
+)");
+    if (!relativeFile.hasErrors()) {
+      fail("storage: file key source accepted a relative key_file");
+    }
+
+    const Diagnostics unknownSource = parse(R"(
+key_source = "automatic"
+)");
+    if (!unknownSource.hasErrors()) {
+      fail("storage: unknown key source was not an error");
+    }
+    if (!isKnownConfigPath({"storage", "key_source"})
+        || !isKnownConfigPath({"storage", "key_file"})
+        || isKnownConfigPath({"shell", "clipboard_storage", "key_source"})) {
+      fail("storage: canonical config paths were not enforced");
+    }
+  }
+
+  // color falls back to color_dark then color_light so a single-mode entry survives
+  // the name+color keep-predicate and carries a usable comparison color.
+  void checkCustomColorFallback() {
+    auto root = toml::parse(R"(
+[templates.custom_colors]
+onlydark = { color_dark = "#111111" }
+onlylight = { color_light = "#222222" }
+bare = { color = "#333333" }
+both = { color_dark = "#444444", color_light = "#555555" }
+)");
+    ThemeConfig theme{};
+    Diagnostics d;
+    readInto(root, theme, themeSchema(), "theme", d);
+
+    auto find = [&](std::string_view name) -> const ThemeConfig::TemplateColorConfig* {
+      for (const auto& c : theme.templates.customColors)
+        if (c.name == name)
+          return &c;
+      return nullptr;
+    };
+
+    const auto* onlydark = find("onlydark");
+    if (onlydark == nullptr || onlydark->color != "#111111" || onlydark->color_dark != "#111111") {
+      fail("custom_colors onlydark: color should fall back to color_dark");
+    }
+    const auto* onlylight = find("onlylight");
+    if (onlylight == nullptr || onlylight->color != "#222222" || onlylight->color_light != "#222222") {
+      fail("custom_colors onlylight: color should fall back to color_light");
+    }
+    const auto* bare = find("bare");
+    if (bare == nullptr || bare->color != "#333333" || !bare->color_dark.empty() || !bare->color_light.empty()) {
+      fail("custom_colors bare: color set, no dark/light overrides");
+    }
+    const auto* both = find("both");
+    if (both == nullptr
+        || both->color != "#444444"
+        || both->color_dark != "#444444"
+        || both->color_light != "#555555") {
+      fail("custom_colors both: color prefers color_dark, both overrides retained");
+    }
+  }
+
+  // Template palette files use [config.custom_colors]; export must emit the canonical
+  // [theme.templates.custom_colors] table after parse.
+  void checkTemplateConfigCustomColorsExport() {
+    const auto root = toml::parse(R"(
+[config.custom_colors.red]
+color = "#FF0000"
+blend = true
+
+[config.custom_colors.blue]
+color = "#0000FF"
+blend = false
+)");
+    Config config;
+    liftTemplateConfigCustomColors(root, config);
+    if (config.theme.templates.customColors.size() != 2) {
+      fail("config.custom_colors lift: expected two custom colors in config");
+    }
+
+    const toml::table exported = config_export::serialize(config);
+    const auto* theme = exported["theme"].as_table();
+    const auto* templates = theme != nullptr ? (*theme)["templates"].as_table() : nullptr;
+    const auto* customColors = templates != nullptr ? (*templates)["custom_colors"].as_table() : nullptr;
+    if (customColors == nullptr || !customColors->contains("red") || !customColors->contains("blue")) {
+      fail("config.custom_colors lift: export missing theme.templates.custom_colors entries");
+    }
+  }
+
 } // namespace
 
 int main() {
+  checkIdleActionResolution();
   // Captured from the pre-refactor config_export::serialize for the fully-specified probe
   // bar. Pins byte-identical bar serialization across the schema migration: the
   // resolve-and-flatten monitor write and the conditional/optional fields must
@@ -517,6 +810,7 @@ capsule_radius = 12.0
 capsule_thickness = 0.5
 center = [ "clock", "weather" ]
 color = "#0A0B0C"
+concave_edge_corners = true
 contact_shadow = true
 enabled = false
 end = [ "battery" ]
@@ -540,16 +834,23 @@ reserve_space = false
 scale = 2.0
 shadow = false
 show_on_workspace_switch = true
+smart_auto_hide = false
 start = [ "launcher" ]
 thickness = 44
 widget_spacing = 8
 
-    [default.dead_zone]
-    command = "notify-send bar-left"
-    middle_command = "notify-send bar-middle"
-    right_command = "notify-send bar-right"
-    scroll_down_command = "notify-send bar-scroll-down"
-    scroll_up_command = "notify-send bar-scroll-up"
+    [default.actions]
+    middle = "none"
+    right = "media toggle"
+
+    [default.dead_zone.actions]
+    back = "media previous"
+    forward = "media next"
+    left = "exec notify-send bar-left"
+    middle = "exec notify-send bar-middle"
+    right = "exec notify-send bar-right"
+    scroll_down = "exec notify-send bar-scroll-down"
+    scroll_up = "exec notify-send bar-scroll-up"
 
     [default.monitor.DP-1]
     auto_hide = false
@@ -566,6 +867,7 @@ widget_spacing = 8
     capsule_thickness = 0.25
     center = [ "media" ]
     color = "#E1E2E3"
+    concave_edge_corners = false
     contact_shadow = false
     enabled = true
     end = [ "volume" ]
@@ -590,16 +892,18 @@ widget_spacing = 8
     scale = 1.5
     shadow = true
     show_on_workspace_switch = true
+    smart_auto_hide = false
     start = [ "tray" ]
     thickness = 50
     widget_spacing = 7
 
-        [default.monitor.DP-1.dead_zone]
-        command = "notify-send bar-left"
-        middle_command = "notify-send monitor-middle"
-        right_command = "notify-send bar-right"
-        scroll_down_command = "notify-send bar-scroll-down"
-        scroll_up_command = "notify-send monitor-scroll-up"
+        [default.monitor.DP-1.actions]
+        middle = "none"
+        right = "media toggle"
+
+        [default.monitor.DP-1.dead_zone.actions]
+        left = "exec notify-send bar-left"
+        right = "exec notify-send bar-right"
 
         [[default.monitor.DP-1.capsule_group]]
         border = "#0F0E0D"
@@ -625,6 +929,19 @@ widget_spacing = 8
 
   const Config probe = makeProbe();
   const toml::table serialized = config_export::serialize(probe);
+
+  {
+    Config pluginMapProbe;
+    pluginMapProbe.plugins.pluginSettings["me/display-output"]["output_glyphs"] =
+        WidgetSettingStringMap{{"eDP-1", "laptop"}, {"DP-1", "monitor"}};
+    const toml::table pluginMapSerialized = config_export::serialize(pluginMapProbe);
+    const auto* outputGlyphs = pluginMapSerialized["plugin_settings"]["me/display-output"]["output_glyphs"].as_table();
+    if (outputGlyphs == nullptr
+        || (*outputGlyphs)["eDP-1"].value<std::string>() != std::optional<std::string>{"laptop"}
+        || (*outputGlyphs)["DP-1"].value<std::string>() != std::optional<std::string>{"monitor"}) {
+      fail("plugin string-map setting did not serialize as a TOML table");
+    }
+  }
 
   // Bar: write parity against the captured golden, plus read-inverse via the
   // schemas (reconstructing the bar exactly as config_service does).
@@ -663,30 +980,56 @@ widget_spacing = 8
     }
   }
 
-  checkReadInverse("audio", serialized, probe.audio, audioSchema());
-  checkReadInverse("weather", serialized, probe.weather, weatherSchema());
-  checkReadInverse("osd", serialized, probe.osd, osdSchema());
-  checkReadInverse("backdrop", serialized, probe.backdrop, backdropSchema());
-  checkReadInverse("lockscreen", serialized, probe.lockscreen, lockscreenSchema());
-  checkReadInverse("system", serialized, probe.system, systemSchema());
-  checkReadInverse("nightlight", serialized, probe.nightlight, nightlightSchema());
-  checkReadInverse("location", serialized, probe.location, locationSchema());
-  checkReadInverse("notification", serialized, probe.notification, notificationSchema());
-  checkReadInverse("dock", serialized, probe.dock, dockSchema());
-  checkReadInverse("brightness", serialized, probe.brightness, brightnessSchema());
-  checkReadInverse("battery", serialized, probe.battery, batterySchema());
-  checkReadInverse("control_center", serialized, probe.controlCenter, controlCenterSchema());
-  checkReadInverse("calendar", serialized, probe.calendar, calendarSchema());
-  checkReadInverse("keybinds", serialized, probe.keybinds, keybindsSchema());
-  checkReadInverse("hooks", serialized, probe.hooks, hooksSchema());
-  checkReadInverse("idle", serialized, probe.idle, idleSchema());
-  checkReadInverse("wallpaper", serialized, probe.wallpaper, wallpaperSchema());
-  checkReadInverse("theme", serialized, probe.theme, themeSchema());
-  checkReadInverse("shell", serialized, probe.shell, shellSchema());
+  // Every schema-backed section must round-trip, AND the probe must actually populate
+  // it. Iterating the section registry rather than a hand-written list means a new
+  // section is covered the moment it is declared — and fails here until its probe
+  // values are filled in.
+  {
+    const Config defaults;
+    for (const SectionSpec& spec : sections()) {
+      const std::string name(spec.name);
+      if (spec.sectionEqual(probe, defaults)) {
+        fail(name + ": makeProbe leaves this section at its defaults — populate it, or the round-trip is vacuous");
+        continue;
+      }
+      const auto* sectionTbl = serialized[spec.name].as_table();
+      if (sectionTbl == nullptr) {
+        fail(name + ": config_export::serialize emitted no [" + name + "] table");
+        continue;
+      }
+      Config roundtrip;
+      Diagnostics diag;
+      spec.read(*sectionTbl, roundtrip, diag);
+      if (!spec.sectionEqual(roundtrip, probe)) {
+        fail(name + ": read inverse did not reconstruct the original section");
+      }
+    }
+  }
+
+  // Section names must be unique across the registry and the custom root keys, or a
+  // lookup would silently resolve to the wrong handler.
+  {
+    std::set<std::string_view> seen;
+    for (const SectionSpec& spec : sections()) {
+      if (!seen.insert(spec.name).second) {
+        fail(std::string(spec.name) + ": duplicate section name in the registry");
+      }
+    }
+    for (const std::string_view key : customRootKeys()) {
+      if (!seen.insert(key).second) {
+        fail(std::string(key) + ": custom root key collides with a registry section");
+      }
+    }
+  }
 
   checkPluginIdValidation();
   checkPluginSourceNameValidation();
+  checkCalendarCredentialSourceValidation();
+  checkStorageKeySourceValidation();
+  checkPanelFloatingLayerValidation();
   checkClamps();
+  checkCustomColorFallback();
+  checkTemplateConfigCustomColorsExport();
 
   if (g_failures == 0) {
     std::println("config_schema_roundtrip: all checks passed");

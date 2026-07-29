@@ -1,6 +1,7 @@
 #include "theme/template_apply_service.h"
 
 #include "config/config_service.h"
+#include "core/deferred_call.h"
 #include "core/files/resource_paths.h"
 #include "core/log.h"
 #include "ipc/ipc_service.h"
@@ -63,6 +64,12 @@ namespace noctalia::theme {
         for (const auto& color : templatesConfig.customColors) {
           toml::table colorTable;
           colorTable.insert_or_assign("color", color.color);
+          if (!color.color_dark.empty()) {
+            colorTable.insert_or_assign("color_dark", color.color_dark);
+          }
+          if (!color.color_light.empty()) {
+            colorTable.insert_or_assign("color_light", color.color_light);
+          }
           colorTable.insert_or_assign("blend", color.blend);
           customColors.insert_or_assign(color.name, std::move(colorTable));
         }
@@ -110,6 +117,9 @@ namespace noctalia::theme {
         if (!userTemplate.postHook.empty()) {
           templateTable.insert_or_assign("post_hook", userTemplate.postHook);
         }
+        if (!userTemplate.postAction.empty()) {
+          templateTable.insert_or_assign("post_action", userTemplate.postAction);
+        }
         if (userTemplate.index != 0) {
           templateTable.insert_or_assign("index", static_cast<std::int64_t>(userTemplate.index));
         }
@@ -140,8 +150,14 @@ namespace noctalia::theme {
     }
   }
 
+  void TemplateApplyService::setAfterApplyCallback(std::function<void()> callback) const {
+    std::scoped_lock lock(m_mutex);
+    m_afterApplyCallback = std::move(callback);
+  }
+
   void TemplateApplyService::apply(const GeneratedPalette& palette, std::string_view defaultMode, bool force) const {
     ApplyRequest request = makeRequest(palette, defaultMode);
+    std::function<void()> afterApplyCallback;
     {
       std::scoped_lock lock(m_mutex);
       // Config reloads fire on every settings change, not just theme changes.
@@ -149,11 +165,22 @@ namespace noctalia::theme {
       // nothing the templates depend on has changed. Explicit re-application
       // (startup, IPC, template activation) passes force or carries new inputs.
       if (!force && m_lastAppliedRequest.has_value() && sameInputs(request, *m_lastAppliedRequest)) {
-        return;
+        if (m_afterApplyCallback && !m_inFlight) {
+          afterApplyCallback = m_afterApplyCallback;
+        }
+        if (!afterApplyCallback) {
+          return;
+        }
+      } else {
+        request.generation = ++m_nextGeneration;
+        m_lastAppliedRequest = request;
+        m_pendingRequest = std::move(request);
       }
-      request.generation = ++m_nextGeneration;
-      m_lastAppliedRequest = request;
-      m_pendingRequest = std::move(request);
+    }
+
+    if (afterApplyCallback) {
+      DeferredCall::callLater(std::move(afterApplyCallback));
+      return;
     }
     m_cv.notify_one();
   }
@@ -194,7 +221,7 @@ namespace noctalia::theme {
           }
           return "ok\n";
         },
-        "templates-apply", "Apply configured theme templates for the current palette"
+        "", "Apply configured theme templates for the current palette"
     );
   }
 
@@ -255,8 +282,10 @@ namespace noctalia::theme {
       }
     }
 
-    if (request.templates.userTemplates.empty() || requestSuperseded(request.generation))
+    if ((request.templates.userTemplates.empty() && request.templates.customColors.empty())
+        || requestSuperseded(request.generation)) {
       return;
+    }
 
     const toml::table userTemplateRoot = buildUserTemplateRoot(request.templates);
     const std::filesystem::path configPath = userTemplateConfigPath();
@@ -276,9 +305,22 @@ namespace noctalia::theme {
         }
         request = std::move(*m_pendingRequest);
         m_pendingRequest.reset();
+        m_inFlight = true;
       }
 
       applyRequest(request);
+
+      std::function<void()> afterApplyCallback;
+      {
+        std::scoped_lock lock(m_mutex);
+        m_inFlight = false;
+        if (!m_shutdown && request.generation == m_nextGeneration) {
+          afterApplyCallback = m_afterApplyCallback;
+        }
+      }
+      if (afterApplyCallback) {
+        DeferredCall::callLater(std::move(afterApplyCallback));
+      }
     }
   }
 

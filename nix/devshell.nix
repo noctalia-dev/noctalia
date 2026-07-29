@@ -10,12 +10,19 @@ pkgs.mkShell {
     just
     lefthook
 
+    # Build tools invoked directly by just recipes
+    meson
+    ninja
+    pkg-config
+    wayland-scanner
+
     # Formatting (required by justfile)
     llvmPackages_22.clang-tools
     llvmPackages_22.libclang
     gnugrep
     gnused
     findutils
+    python3
 
     # Debugging
     gdb

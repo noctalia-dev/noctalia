@@ -75,19 +75,41 @@ namespace {
     int second = 0;
   };
 
-  [[nodiscard]] LocalTimeParts currentLocalTimeParts() {
-    const auto now = std::chrono::system_clock::now();
-    const std::time_t timestamp = std::chrono::system_clock::to_time_t(now);
-    std::tm localTime{};
+  [[nodiscard]] LocalTimeParts currentLocalTimeParts(const std::string& tzName) {
+    using namespace std::chrono;
+    const auto now = floor<seconds>(system_clock::now());
+    if (tzName.empty()) {
+      const std::time_t timestamp = system_clock::to_time_t(now);
+      std::tm localTime{};
 #if defined(_WIN32)
-    localtime_s(&localTime, &timestamp);
+      localtime_s(&localTime, &timestamp);
 #else
-    localtime_r(&timestamp, &localTime);
+      localtime_r(&timestamp, &localTime);
 #endif
+      return {
+          .hour = localTime.tm_hour,
+          .minute = localTime.tm_min,
+          .second = localTime.tm_sec,
+      };
+    }
+
+    const time_zone* tz = nullptr;
+    try {
+      tz = locate_zone(tzName);
+    } catch (...) {
+    }
+
+    if (tz == nullptr) {
+      return currentLocalTimeParts("");
+    }
+
+    const auto local = tz->to_local(now);
+    const auto localDays = floor<days>(local);
+    hh_mm_ss time{floor<seconds>(local - localDays)};
     return {
-        .hour = localTime.tm_hour,
-        .minute = localTime.tm_min,
-        .second = localTime.tm_sec,
+        .hour = static_cast<int>(time.hours().count()),
+        .minute = static_cast<int>(time.minutes().count()),
+        .second = static_cast<int>(time.seconds().count()),
     };
   }
 
@@ -105,7 +127,7 @@ namespace {
   }
 
   Node* addHandPivot(Node& parent, float center, float width, float length, const Color& color) {
-    auto pivot = std::make_unique<Node>();
+    auto pivot = ui::node({});
     pivot->setPosition(center, center);
     pivot->setSize(0.0f, 0.0f);
     pivot->setParticipatesInLayout(false);
@@ -117,7 +139,7 @@ namespace {
   void addTickMark(
       Node& parent, float center, float angleRad, float width, float length, float dialRadius, const Color& color
   ) {
-    auto pivot = std::make_unique<Node>();
+    auto pivot = ui::node({});
     pivot->setPosition(center, center);
     pivot->setRotation(angleRad);
     pivot->setParticipatesInLayout(false);
@@ -186,13 +208,13 @@ DesktopClockWidget::Style DesktopClockWidget::styleFromSetting(std::string_view 
 
 DesktopClockWidget::DesktopClockWidget(Options options)
     : m_style(options.style), m_format(std::move(options.format)), m_color(options.color), m_shadow(options.shadow),
-      m_showCircle(options.showCircle), m_centerText(options.centerText),
+      m_showCircle(options.showCircle), m_timezone(std::move(options.timezone)), m_centerText(options.centerText),
       m_showsSeconds(m_style == Style::Analog || formatShowsSeconds(m_format)) {}
 
 void DesktopClockWidget::create() {
-  auto rootNode = std::make_unique<Node>();
+  auto rootNode = ui::node({});
 
-  auto digitalRoot = std::make_unique<Node>();
+  auto digitalRoot = ui::node({});
   m_digitalRoot = digitalRoot.get();
   auto label = ui::label({
       .out = &m_label,
@@ -203,7 +225,7 @@ void DesktopClockWidget::create() {
   m_digitalRoot->addChild(std::move(label));
   rootNode->addChild(std::move(digitalRoot));
 
-  auto analogRoot = std::make_unique<Node>();
+  auto analogRoot = ui::node({});
   m_analogRoot = analogRoot.get();
   m_analogRoot->setVisible(m_style == Style::Analog);
 
@@ -223,7 +245,7 @@ void DesktopClockWidget::create() {
   m_face->setStyle(faceStyle);
   m_analogRoot->addChild(std::move(face));
 
-  auto ticksRoot = std::make_unique<Node>();
+  auto ticksRoot = ui::node({});
   m_ticksRoot = ticksRoot.get();
   m_ticksRoot->setParticipatesInLayout(false);
   buildAnalogTicks(*m_ticksRoot, metrics, handColor);
@@ -261,7 +283,12 @@ void DesktopClockWidget::create() {
 
 bool DesktopClockWidget::wantsSecondTicks() const { return m_showsSeconds; }
 
-std::string DesktopClockWidget::formatText() const { return formatLocalTime(m_format.c_str()); }
+std::string DesktopClockWidget::formatText() const {
+  if (!m_timezone.empty()) {
+    return formatTimezoneTime(m_format.c_str(), m_timezone);
+  }
+  return formatLocalTime(m_format.c_str());
+}
 
 void DesktopClockWidget::syncStyleVisibility() {
   if (m_digitalRoot != nullptr) {
@@ -398,7 +425,7 @@ void DesktopClockWidget::layoutDigital(Renderer& renderer) {
 }
 
 void DesktopClockWidget::updateAnalogHands() {
-  const LocalTimeParts time = currentLocalTimeParts();
+  const LocalTimeParts time = currentLocalTimeParts(m_timezone);
   if (time.hour == m_lastHour && time.minute == m_lastMinute && time.second == m_lastSecond) {
     return;
   }
@@ -441,6 +468,16 @@ bool DesktopClockWidget::applySetting(
       requestLayout();
       (void)allSettings;
       (void)renderer;
+      return true;
+    }
+    return false;
+  }
+  if (key == "timezone") {
+    if (const auto* v = std::get_if<std::string>(&value)) {
+      m_timezone = *v;
+      m_lastText.clear();
+      m_lastHour = m_lastMinute = m_lastSecond = -1;
+      requestUpdate();
       return true;
     }
     return false;
@@ -612,7 +649,7 @@ void DesktopClockWidget::applyShadow() {
   }
   if (m_shadow) {
     const float offset = kShadowOffset * contentScale();
-    m_label->setShadow(Color(0.0f, 0.0f, 0.0f, kShadowAlpha), offset, offset);
+    m_label->setShadow(colorSpecFromRole(ColorRole::Shadow, kShadowAlpha), offset, offset);
   } else {
     m_label->clearShadow();
   }

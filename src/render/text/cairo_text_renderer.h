@@ -64,6 +64,7 @@ public:
   // suspend/resume on drivers that do not preserve VRAM. Requires the render
   // context to be current.
   void invalidateGlyphTextures();
+  void abandonGlyphTextures() noexcept;
 
   [[nodiscard]] TextMetrics measure(
       std::string_view text, float fontSize, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0f,
@@ -201,9 +202,13 @@ private:
   void evict(CacheMap::iterator it);
   void evictIfNeeded();
   void clearCaches();
+  // Re-read fontconfig when a font has been registered (by any surface) since the
+  // last measure/draw, so newly loaded plugin fonts become resolvable here.
+  void maybeSyncFontConfig();
 
   float m_contentScale = 1.0f;
   bool m_fontConfigInitialized = false;
+  std::uint64_t m_syncedFontGeneration = 0;
   std::string m_fontFamily = "sans-serif";
 
   PangoFontMap* m_fontMap = nullptr;      // owned

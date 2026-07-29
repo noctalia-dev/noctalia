@@ -163,10 +163,20 @@ void PluginLauncherProvider::reloadScript() {
   notify::info("Noctalia", i18n::tr("bar.widgets.scripted.reloaded"), name);
 }
 
+std::string PluginLauncherProvider::buildProviderInput(std::string_view sub) const {
+  const std::string_view resolved = prefix();
+  std::string input(resolved);
+  if (!resolved.empty() && !sub.empty()) {
+    input += ' ';
+  }
+  input += sub;
+  return input;
+}
+
 bool PluginLauncherProvider::activate(const LauncherResult& result) {
   if (result.query.has_value()) {
     if (m_onQueryRequested) {
-      m_onQueryRequested(*result.query);
+      m_onQueryRequested(buildProviderInput(*result.query));
     }
     return false;
   }
@@ -185,14 +195,14 @@ bool PluginLauncherProvider::activate(const LauncherResult& result) {
 
 void PluginLauncherProvider::handleResult(const scripting::ScriptResult& result) {
   if (result.patch.launcherQuery.has_value() && m_onQueryRequested) {
-    m_onQueryRequested(*result.patch.launcherQuery);
+    m_onQueryRequested(buildProviderInput(*result.patch.launcherQuery));
   }
   if (m_pendingActivate && result.callbackName == "onActivate") {
     m_pendingActivate = false;
     // The handler rewrote the query → stay open (already applied above). Otherwise
     // the activation is terminal, so close the launcher and record the usage.
     if (!result.patch.launcherQuery.has_value() && m_onActivationDone) {
-      m_onActivationDone(m_pendingActivateId);
+      m_onActivationDone(m_pendingActivateId, result.copiedToClipboard);
     }
     m_pendingActivateId.clear();
   }

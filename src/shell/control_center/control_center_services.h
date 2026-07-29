@@ -3,6 +3,7 @@
 #include "shell/control_center/shortcut_services.h"
 
 class AccountsService;
+class AsyncTextureCache;
 class BluetoothAgent;
 class BluetoothService;
 class BrightnessService;
@@ -12,6 +13,7 @@ class CompositorPlatform;
 class ConfigService;
 class DependencyService;
 class EasyEffectsService;
+class ExternalIpService;
 class FileWatcher;
 class HttpClient;
 class IdleInhibitor;
@@ -51,6 +53,7 @@ struct ControlCenterServices {
   PowerProfilesService* powerProfiles = nullptr;
   INetworkService* network = nullptr;
   NetworkSecretAgent* networkSecrets = nullptr;
+  ExternalIpService* externalIp = nullptr;
   BluetoothService* bluetooth = nullptr;
   BluetoothAgent* bluetoothAgent = nullptr;
   BrightnessService* brightness = nullptr;
@@ -69,6 +72,7 @@ struct ControlCenterServices {
   ClipboardService* clipboard = nullptr;
   AccountsService* accounts = nullptr;
   ThumbnailService* thumbnails = nullptr;
+  AsyncTextureCache* asyncTextures = nullptr;
 
   [[nodiscard]] ShortcutServices shortcutServices() const {
     return {

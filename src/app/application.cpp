@@ -82,6 +82,7 @@
 #include "system/brightness_service.h"
 #include "system/distro_info.h"
 #include "system/easyeffects_service.h"
+#include "system/keyboard_backlight_service.h"
 #include "system/system_monitor_service.h"
 #include "ui/app_icon_colorization.h"
 #include "ui/controls/input.h"
@@ -138,7 +139,7 @@ namespace {
 Application::Application()
     : m_lockKeysService(m_wayland), m_gammaService(m_wayland), m_locationService(m_configService, m_httpClient),
       m_weatherService(m_configService, m_httpClient),
-      m_calendarService(m_configService, m_httpClient, &m_notificationManager) {
+      m_calendarService(m_configService, m_httpClient, m_secretStore, m_storageKeyProvider, &m_notificationManager) {
   m_notificationManager.loadPersistedHistory();
   notify::setInstance(&m_notificationManager);
 
@@ -164,6 +165,10 @@ Application::Application()
 }
 
 Application::~Application() {
+  // m_systemMonitor is declared after the plugin hosts, so it is destroyed first; drop the script
+  // API's pointer to it here, while both are still alive, or a plugin that used noctalia.cpuCores
+  // releases its reference through a dangling pointer as its host is torn down.
+  m_scriptApi.setSystemMonitor(nullptr);
   TooltipManager::instance().shutdown();
   m_notificationManager.flushPersistedHistory();
   m_wayland.setClipboardService(nullptr);
@@ -174,6 +179,7 @@ Application::~Application() {
 
 void Application::run(std::function<void()> startupReadyCallback) {
   initLogFile();
+  initLogLevelFromEnvironment();
   kLog.info("noctalia {}", noctalia::build_info::displayVersion());
   runStartupPhase("initServices", [this]() { initServices(); });
   runStartupPhase("initPlugins", [this]() {
@@ -219,6 +225,10 @@ void Application::run(std::function<void()> startupReadyCallback) {
     // A git-source enable exports on a worker thread; redraw the plugins list so the
     // row swaps between its spinner and toggle as the export starts and finishes.
     m_pluginManager.setOnEnablingChanged([this]() { m_settingsWindow.onPluginsChanged(); });
+    m_pluginManager.setOnSourceUpdated([this](const std::string& sourceName) {
+      m_settingsWindow.invalidatePluginSourceCache(sourceName);
+    });
+    m_pluginManager.setOnEnabled([this](std::string_view pluginId) { m_pluginServiceHost.enablePlugin(pluginId); });
   });
   runStartupPhase("initIpc", [this]() { initIpc(); });
   runStartupPhase("buildPollSources", [this]() { (void)buildPollSources(); });

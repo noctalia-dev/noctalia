@@ -125,7 +125,7 @@ void DwlWorkspaceBackend::activateForOutput(wl_output* output, const std::string
   }
 
   const std::size_t protocolIndex = protocolIndexForDisplay(*displayIndex);
-  zdwl_ipc_output_v2_set_tags(it->second.handle, 1u << protocolIndex, 0);
+  zdwl_ipc_output_v2_set_tags(it->second.handle, 1U << protocolIndex, 0);
 }
 
 void DwlWorkspaceBackend::activateForOutput(wl_output* output, const Workspace& workspace) {

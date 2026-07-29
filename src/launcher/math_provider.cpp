@@ -13,7 +13,7 @@
 
 namespace {
 
-  // Cheap pre-filter: the provider runs on every keystroke with an empty prefix,
+  // Cheap pre-filter: the provider participates in global search on every keystroke,
   // so reject anything without a digit to avoid evaluating plain search text
   // (e.g. "firefox"). Letters/spaces are kept so unit and currency conversions
   // like "10 cm to in" or "5 USD to EUR" still reach libqalculate.
@@ -64,7 +64,9 @@ void MathProvider::refreshExchangeRates() {
   if (m_httpClient == nullptr || m_config == nullptr || !m_calc) {
     return;
   }
-  if (m_config->config().shell.offlineMode || !m_calc->canFetch()) {
+  if (m_config->config().shell.offlineMode
+      || !m_config->config().shell.launcher.fetchExchangeRates
+      || !m_calc->canFetch()) {
     return;
   }
 
@@ -98,7 +100,17 @@ void MathProvider::refreshExchangeRates() {
 }
 
 std::vector<LauncherResult> MathProvider::query(std::string_view text) const {
-  if (!m_calc || !looksLikeMath(text)) {
+  if (!looksLikeMath(text)) {
+    return {};
+  }
+  return evaluate(text);
+}
+
+std::vector<LauncherResult> MathProvider::queryPrefixed(std::string_view text) const { return evaluate(text); }
+
+std::vector<LauncherResult> MathProvider::evaluate(std::string_view text) const {
+  const std::string localized = trimmed(text);
+  if (!m_calc || localized.empty()) {
     return {};
   }
 
@@ -106,12 +118,18 @@ std::vector<LauncherResult> MathProvider::query(std::string_view text) const {
   m_calc->clearMessages();
 
   EvaluationOptions eo = default_user_evaluation_options;
+  eo.parse_options.dot_as_separator = m_calc->default_dot_as_separator;
   PrintOptions po = default_print_options;
   po.use_unicode_signs = false;
   // Collapse interval arithmetic to a single rounded value instead of "interval(a, b)".
   po.interval_display = INTERVAL_DISPLAY_SIGNIFICANT_DIGITS;
 
-  std::string input = trimmed(text);
+  // libqalculate expects '.' decimals internally; convert locale signs first.
+  const std::string input = m_calc->unlocalizeExpression(localized, eo.parse_options);
+  if (input.empty()) {
+    return {};
+  }
+
   std::string output = m_calc->calculateAndPrint(input, /*msecs=*/200, eo, po);
 
   bool hadError = false;
@@ -122,7 +140,7 @@ std::vector<LauncherResult> MathProvider::query(std::string_view text) const {
   }
 
   // Reject errors and no-ops (e.g. the user just typed a bare number).
-  if (hadError || output.empty() || output == input) {
+  if (hadError || output.empty() || output == input || output == localized) {
     return {};
   }
 

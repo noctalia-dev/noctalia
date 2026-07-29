@@ -30,6 +30,7 @@ public:
   void registerIpc(IpcService& ipc);
   void onOutputChange();
   void onToplevelChange();
+  void show(wl_output* output);
 
   [[nodiscard]] bool isActive() const noexcept { return m_active; }
   [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
@@ -38,7 +39,6 @@ public:
 private:
   struct Instance;
 
-  void show(wl_output* output);
   void hide();
   void refreshWindows();
   void setSelectedIndex(std::size_t index);
@@ -48,7 +48,7 @@ private:
   void closeWindowAt(std::size_t index);
   void requestSceneUpdate();
   [[nodiscard]] bool matchesTrigger(const KeyboardEvent& event) const noexcept;
-  [[nodiscard]] bool isAltRelease(const KeyboardEvent& event) const noexcept;
+  [[nodiscard]] bool isModifierRelease(const KeyboardEvent& event) const noexcept;
   void ensureSurface();
   void destroySurface();
   void prepareFrame(Instance& instance, bool needsUpdate, bool needsLayout);

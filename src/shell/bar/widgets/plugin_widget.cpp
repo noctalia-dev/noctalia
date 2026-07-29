@@ -19,13 +19,11 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
-#include <fontconfig/fontconfig.h>
 #include <fstream>
 #include <iomanip>
 #include <linux/input-event-codes.h>
 #include <optional>
 #include <sstream>
-#include <unordered_set>
 #include <vector>
 
 namespace {
@@ -57,6 +55,23 @@ namespace {
     return value != nullptr ? *value : def;
   }
 
+  // The bar surface never takes keyboard focus and clips to bar thickness, so
+  // keyboard/scroll controls cannot work in a bar tree. Removes them in place,
+  // recording each dropped type; returns false when `node` itself is dropped.
+  bool filterUnsupportedBarControls(ui::UiTreeNode& node, std::vector<std::string>& dropped) {
+    const bool unsupported = node.type == "input" || node.type == "select" || node.type == "scroll";
+    if (unsupported) {
+      if (std::ranges::find(dropped, node.type) == dropped.end()) {
+        dropped.push_back(node.type);
+      }
+      return false;
+    }
+    std::erase_if(node.children, [&dropped](ui::UiTreeNode& child) {
+      return !filterUnsupportedBarControls(child, dropped);
+    });
+    return true;
+  }
+
   std::string joinSpectrumValues(const std::vector<float>& values) {
     std::ostringstream out;
     out.setf(std::ios::fixed, std::ios::floatfield);
@@ -68,48 +83,6 @@ namespace {
       out << values[i];
     }
     return out.str();
-  }
-
-  std::unordered_set<std::string>& registeredFontFiles() {
-    static std::unordered_set<std::string> s;
-    return s;
-  }
-
-  std::string registerFontFile(const std::filesystem::path& path) {
-    auto pathStr = path.string();
-    const bool firstTime = !registeredFontFiles().contains(pathStr);
-    if (firstTime) {
-      if (!FcConfigAppFontAddFile(nullptr, reinterpret_cast<const FcChar8*>(pathStr.c_str()))) {
-        kLog.warn("failed to register font file: {}", pathStr);
-        return {};
-      }
-      registeredFontFiles().insert(pathStr);
-    }
-    FcFontSet* fontSet = FcFontSetCreate();
-    FcStrSet* dirs = FcStrSetCreate();
-    if (!fontSet || !dirs) {
-      if (dirs)
-        FcStrSetDestroy(dirs);
-      if (fontSet)
-        FcFontSetDestroy(fontSet);
-      kLog.warn("failed to allocate font scan state for: {}", pathStr);
-      return {};
-    }
-
-    if (!FcFileScan(fontSet, dirs, nullptr, nullptr, reinterpret_cast<const FcChar8*>(pathStr.c_str()), FcTrue)
-        || fontSet->nfont <= 0) {
-      kLog.warn("failed to query font family from: {}", pathStr);
-      FcStrSetDestroy(dirs);
-      FcFontSetDestroy(fontSet);
-      return {};
-    }
-
-    FcChar8* family = nullptr;
-    FcPatternGetString(fontSet->fonts[0], FC_FAMILY, 0, &family);
-    std::string result = family ? reinterpret_cast<const char*>(family) : "";
-    FcStrSetDestroy(dirs);
-    FcFontSetDestroy(fontSet);
-    return result;
   }
 
   std::uint32_t nextTimerPhase() {
@@ -128,12 +101,15 @@ namespace {
 
 } // namespace
 
-PluginWidget::PluginWidget(scripting::PluginRuntimeContext context, std::string barName, std::string outputName)
+PluginWidget::PluginWidget(
+    scripting::PluginRuntimeContext context, std::string barName, std::string outputName, bool enableScroll
+)
     : m_entryId(std::move(context.entryId)), m_sourcePath(std::move(context.sourcePath)),
       m_pluginDir(m_sourcePath.parent_path()), m_barName(std::move(barName)), m_outputName(std::move(outputName)),
       m_scriptApi(context.scriptApi), m_settings(std::move(context.settings)), m_fileWatcher(context.fileWatcher),
       m_platform(context.platform), m_clipboard(context.clipboard), m_httpClient(context.httpClient),
-      m_audioSpectrum(context.audioSpectrum), m_mpris(context.mpris), m_timerPhase(nextTimerPhase()) {
+      m_audioSpectrum(context.audioSpectrum), m_mpris(context.mpris), m_timerPhase(nextTimerPhase()),
+      m_enableScroll(enableScroll) {
   m_audioSpectrumEnabled = settingBool(m_settings, "audio_spectrum", false);
   m_audioSpectrumBands =
       static_cast<int>(std::clamp<std::int64_t>(settingInt(m_settings, "audio_spectrum_bands", 16), 1, 128));
@@ -174,7 +150,7 @@ std::filesystem::path PluginWidget::resolvePluginPath(std::string_view path) con
 }
 
 void PluginWidget::create() {
-  auto area = std::make_unique<InputArea>();
+  auto area = ui::inputArea({});
   area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT, BTN_MIDDLE}));
   area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
   area->setOnClick([this](const InputArea::PointerData& data) {
@@ -203,6 +179,23 @@ void PluginWidget::create() {
   area->setOnLeave([this]() {
     if (m_runtime)
       (void)m_runtime->enqueueCallBool("onHover", false, makeScriptSnapshot());
+  });
+  area->setOnAxisHandler([this](const InputArea::PointerData& data) {
+    if (!m_enableScroll || m_runtime == nullptr || !m_runtime->hasOnScroll())
+      return false;
+    // Whole detent steps, so a wheel notch and a touchpad flick mean the same
+    // thing to the script. Continuous sources report 0 until a detent accrues.
+    const float steps = data.scrollSteps();
+    if (steps == 0.0f)
+      return false;
+    const char* axis = data.axis == WL_POINTER_AXIS_VERTICAL_SCROLL ? "vertical" : "horizontal";
+    // The third argument is true only on the first step of a flick in that direction. A script
+    // stepping through a list acts on it alone; one ramping a value ignores it.
+    (void)m_runtime->enqueueCallArgs(
+        "onScroll", {std::string(axis), static_cast<double>(steps), data.scrollStepStartsGesture()},
+        makeScriptSnapshot()
+    );
+    return true;
   });
 
   auto flex = ui::row({
@@ -238,6 +231,27 @@ void PluginWidget::create() {
   );
 
   area->addChild(std::move(flex));
+
+  // Declarative host: barWidget.render(tree) reconciles into this Flex and
+  // hides the imperative row above.
+  area->addChild(
+      ui::row({
+          .out = &m_uiHost,
+          .align = FlexAlign::Center,
+          .visible = false,
+      })
+  );
+
+  m_reconciler.setCallbackSink([this](const ui::UiTreeReconciler::ControlCallback& callback) {
+    if (m_runtime != nullptr) {
+      (void)m_runtime->enqueueCallStrings(
+          callback.fn, callback.arg1, callback.arg2, makeScriptSnapshot(), callback.coalesce
+      );
+    }
+  });
+  m_reconciler.setPathResolver([this](const std::string& path) { return resolvePluginPath(path).string(); });
+  m_reconciler.setCompactControls(true);
+
   m_area = area.get();
   setRoot(std::move(area));
 
@@ -251,11 +265,18 @@ void PluginWidget::create() {
     return;
   }
 
+  auto alive = std::weak_ptr<bool>(m_alive);
   m_runtime = std::make_shared<scripting::ScriptRuntime>(
-      m_entryId, m_settings, m_scriptApi, m_pluginDir, m_httpClient, m_clipboard
+      m_entryId, m_settings, m_scriptApi, m_pluginDir, m_httpClient, m_clipboard,
+      [this, alive](std::string_view panelId) {
+        auto token = alive.lock();
+        if (token == nullptr || !*token) {
+          return;
+        }
+        requestPanelToggle(panelId);
+      }
   );
 
-  auto alive = std::weak_ptr<bool>(m_alive);
   m_runtimeSubscription = m_runtime->subscribe([this, alive](scripting::ScriptResult result) {
     auto token = alive.lock();
     if (token == nullptr || !*token) {
@@ -308,9 +329,15 @@ void PluginWidget::doLayout(Renderer& renderer, float containerWidth, float cont
 
   m_flex->setDirection(m_isVertical ? FlexDirection::Vertical : FlexDirection::Horizontal);
 
-  if (m_fontConfigDirty) {
-    renderer.notifyFontConfigChanged();
-    m_fontConfigDirty = false;
+  if (m_tree.has_value() && m_uiHost != nullptr) {
+    m_uiHost->setDirection(m_isVertical ? FlexDirection::Vertical : FlexDirection::Horizontal);
+    m_reconciler.setScale(contentScale());
+    m_reconciler.setTextDefaults(labelFontFamily(), labelFontWeight());
+    (void)m_reconciler.reconcile(*m_uiHost, *m_tree, renderer);
+    m_uiHost->layout(renderer);
+    if (m_area)
+      m_area->setSize(m_uiHost->width(), m_uiHost->height());
+    return;
   }
 
   m_label->setColor(resolveScriptColor(m_textColor));
@@ -433,29 +460,19 @@ void PluginWidget::luaSetTooltip(const scripting::ScriptTooltipPatch& tooltip) {
   m_area->setTooltip(tooltip.text);
 }
 
-void PluginWidget::luaSetFont(std::string_view familyOrPath) {
+void PluginWidget::luaSetFont(std::string_view family, std::string_view baseline) {
   if (!m_label)
     return;
-  std::string family;
-  // If it looks like a font file path, resolve and register it
-  if (familyOrPath.ends_with(".otf") || familyOrPath.ends_with(".ttf") || familyOrPath.ends_with(".woff2")) {
-    auto resolved = resolvePluginPath(std::string(familyOrPath));
-    bool alreadyRegistered = registeredFontFiles().contains(resolved.string());
-    family = registerFontFile(resolved);
-    if (family.empty())
-      return;
-    if (!alreadyRegistered) {
-      m_fontConfigDirty = true;
+  LabelBaselineMode mode = LabelBaselineMode::Text;
+  if (!baseline.empty()) {
+    if (auto parsed = labelBaselineModeFromToken(baseline)) {
+      mode = *parsed;
+    } else {
+      kLog.warn("plugin widget '{}': unknown font baseline '{}'", m_entryId, baseline);
     }
-    // A bundled font file is treated as pictographic art (e.g. bongocat poses):
-    // center the font's glyph box so the art holds a stable vertical position
-    // instead of cap-band centering (too high) or per-string ink (bobs).
-    m_label->setBaselineMode(LabelBaselineMode::StableFontBox);
-  } else {
-    family = std::string(familyOrPath);
-    m_label->setBaselineMode(LabelBaselineMode::StableLogical);
   }
-  m_label->setFontFamily(std::move(family));
+  m_label->setBaselineMode(mode);
+  m_label->setFontFamily(std::string(family));
   m_dirty = true;
 }
 
@@ -639,8 +656,25 @@ void PluginWidget::handleScriptResult(scripting::ScriptResult result) {
 }
 
 void PluginWidget::applyScriptPatch(const scripting::ScriptPatch& patch) {
+  if (patch.uiTree.has_value()) {
+    applyUiTreePatch(*patch.uiTree);
+  }
+  const bool imperativeContent = patch.text.has_value()
+      || patch.glyph.has_value()
+      || patch.image.has_value()
+      || patch.fontFamily.has_value()
+      || patch.textColor.has_value()
+      || patch.glyphColor.has_value();
+  if (m_tree.has_value() && imperativeContent && !m_warnedImperativeWhileDeclarative) {
+    m_warnedImperativeWhileDeclarative = true;
+    kLog.warn(
+        "plugin widget '{}': setText/setGlyph/setImage/setFont/setColor have no visible effect while a render() tree "
+        "is active",
+        m_entryId
+    );
+  }
   if (patch.fontFamily.has_value()) {
-    luaSetFont(*patch.fontFamily);
+    luaSetFont(*patch.fontFamily, patch.fontBaseline.value_or(std::string{}));
   }
   if (patch.text.has_value()) {
     luaSetText(*patch.text);
@@ -666,6 +700,33 @@ void PluginWidget::applyScriptPatch(const scripting::ScriptPatch& patch) {
   if (patch.updateIntervalMs.has_value()) {
     luaSetUpdateInterval(static_cast<float>(*patch.updateIntervalMs));
   }
+}
+
+void PluginWidget::applyUiTreePatch(const ui::UiTreeNode& patchTree) {
+  if (m_uiHost == nullptr || m_flex == nullptr) {
+    return;
+  }
+  ui::UiTreeNode filtered = patchTree;
+  std::vector<std::string> dropped;
+  const bool rootAllowed = filterUnsupportedBarControls(filtered, dropped);
+  const bool changed = !m_tree.has_value() || filtered != *m_tree;
+  if (!dropped.empty() && changed) {
+    std::string typeList;
+    for (const auto& type : dropped) {
+      if (!typeList.empty()) {
+        typeList += ", ";
+      }
+      typeList += type;
+    }
+    kLog.warn("plugin widget '{}': ui control(s) not supported in bar widgets, skipped: {}", m_entryId, typeList);
+  }
+  if (!rootAllowed || !changed) {
+    return;
+  }
+  m_tree = std::move(filtered);
+  m_flex->setVisible(false);
+  m_uiHost->setVisible(true);
+  m_dirty = true;
 }
 
 scripting::ScriptSnapshot PluginWidget::makeScriptSnapshot() const {
@@ -814,6 +875,12 @@ void PluginWidget::reloadScript() {
     m_label->setText("");
     m_label->setVisible(false);
   }
+  m_tree.reset();
+  m_warnedImperativeWhileDeclarative = false;
+  if (m_uiHost)
+    m_uiHost->setVisible(false);
+  if (m_flex)
+    m_flex->setVisible(true);
 
   m_hasOnIpc = false;
   m_hasOnIpcKnown = false;

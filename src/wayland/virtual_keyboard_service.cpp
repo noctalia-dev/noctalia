@@ -23,7 +23,7 @@ namespace {
     if (index == XKB_MOD_INVALID || index >= 32) {
       return 0;
     }
-    return 1u << index;
+    return 1U << index;
   }
 
   std::uint32_t eventTimeMs() {

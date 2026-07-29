@@ -3,6 +3,7 @@
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "notification/notifications.h"
+#include "scripting/plugin_api.h"
 #include "scripting/plugin_ipc.h"
 #include "scripting/plugin_manifest.h"
 #include "scripting/plugin_registry.h"
@@ -109,7 +110,7 @@ namespace scripting {
     return service;
   }
 
-  void PluginServiceHost::stopService(Service& service) {
+  void PluginServiceHost::stopService(Service& service, ScriptExitReason exitReason) {
     PluginIpcRouter::instance().unregisterEndpoint(&service);
     teardownScriptWatch(service);
     service.updateTimer.stop();
@@ -121,7 +122,7 @@ namespace scripting {
         service.runtime->unsubscribe(service.subscription);
         service.subscription = 0;
       }
-      service.runtime->stop();
+      service.runtime->stop(exitReason);
     }
   }
 
@@ -179,6 +180,14 @@ namespace scripting {
       if (!sourceChanged && !settingsChanged) {
         continue;
       }
+      // A settings-only change reconfigures a service that opts in via onConfigChanged
+      // in place, no VM teardown, so its in-memory runtime state survives.
+      if (settingsChanged && !sourceChanged && service.runtime->hasOnConfigChanged()) {
+        service.lastSeededSettings = *seeded;
+        (void)service.runtime->enqueueSettingsChanged(service.lastSeededSettings);
+        kLog.info("reconfigured service '{}' in place after settings change", id);
+        continue;
+      }
       std::string code = readFile(entry.sourcePath);
       if (code.empty()) {
         kLog.warn("service '{}': empty or unreadable source on refresh {}", id, entry.sourcePath.string());
@@ -204,6 +213,23 @@ namespace scripting {
         setupScriptWatch(service);
       }
       kLog.info("restarted service '{}' after {} change", id, sourceChanged ? "source" : "settings");
+    }
+  }
+
+  void PluginServiceHost::enablePlugin(std::string_view pluginId) {
+    const std::string entryPrefix = std::string(pluginId) + ":";
+    for (const auto& service : m_services) {
+      if (!service->entryId.starts_with(entryPrefix) || service->runtime == nullptr) {
+        continue;
+      }
+      const auto entry = PluginRegistry::instance().resolve(service->entryId);
+      if (!entry.has_value()
+          || entry->manifest == nullptr
+          || entry->manifest->pluginApiVersion < kServiceLifecyclePluginApiVersion) {
+        continue;
+      }
+      kLog.info("enabling service '{}'", service->entryId);
+      (void)service->runtime->enqueueCall("onEnable", {});
     }
   }
 

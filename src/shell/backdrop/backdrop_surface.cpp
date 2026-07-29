@@ -47,12 +47,13 @@ void BackdropSurface::onScaleChanged() {
 }
 
 void BackdropSurface::render() {
-  if (m_surface == nullptr) {
+  auto* backend = m_wallpaperRenderer.backend();
+  if (m_surface == nullptr || backend == nullptr) {
     return;
   }
 
   m_wallpaperRenderer.makeCurrent();
-  m_layer.resize(*m_wallpaperRenderer.backend(), m_bufW, m_bufH);
+  m_layer.resize(*backend, m_bufW, m_bufH);
 
   if (!m_layer.valid()) {
     return;
@@ -120,3 +121,18 @@ void BackdropSurface::onGpuResourcesInvalidated() {
   m_layer.destroy();
   requestRedraw();
 }
+
+void BackdropSurface::prepareForGraphicsReset() noexcept {
+  m_layer.abandon();
+  m_wallpaperRenderer.prepareForGraphicsReset();
+}
+
+void BackdropSurface::restoreAfterGraphicsReset() {
+  if (m_shared == nullptr) {
+    throw std::runtime_error("BackdropSurface requires a GlSharedContext");
+  }
+  m_wallpaperRenderer.restoreAfterGraphicsReset(*m_shared);
+  m_layer.invalidate();
+}
+
+void BackdropSurface::finishGraphicsResetRecovery() noexcept { m_wallpaperRenderer.finishGraphicsResetRecovery(); }

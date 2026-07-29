@@ -685,18 +685,25 @@ namespace {
     return isProgramStreamClass(nd.mediaClass) && nd.name.starts_with("qemu-system-");
   }
 
+  [[nodiscard]] bool hasProgramStreamIdentity(const PipeWireService::NodeData& nd) {
+    if (isQemuStreamNode(nd)) {
+      return true;
+    }
+    return !nd.applicationName.empty() || !nd.applicationId.empty() || !nd.applicationBinary.empty();
+  }
+
   [[nodiscard]] bool isProgramOutputNode(const PipeWireService::NodeData& nd) {
-    // Match the "Streams" pavucontrol shows: Stream/Output/Audio without node.link-group. Loopback/
-    // filter endpoints also expose target.object or node.passive and must not appear as application
-    // volumes. QEMU streams are the exception: they set target.object to name the VM target but are
-    // still user-controllable application volumes.
+    // Match the "Streams" pavucontrol shows: Stream/Output/Audio without node.link-group /
+    // node.passive (loopback and filter endpoints). Streams that pin a sink via target.object
+    // (Telegram/OpenAL, etc.) stay visible when they have client/app identity; anonymous
+    // target.object nodes are still treated as filter plumbing.
     if (!isProgramStreamClass(nd.mediaClass) || !nd.streamClassificationReady) {
       return false;
     }
     if (!nd.linkGroup.empty() || nd.nodePassive) {
       return false;
     }
-    if (!nd.targetObject.empty() && !isQemuStreamNode(nd)) {
+    if (!nd.targetObject.empty() && !hasProgramStreamIdentity(nd)) {
       return false;
     }
     return true;
@@ -1322,17 +1329,7 @@ void PipeWireService::onNodeParam(
 
   float candidateVol = resolvedVolume(parsed);
   if (candidateVol >= 0.0f) {
-    if (!nd.applicationBinary.empty()) {
-      const auto prefIt = m_userAppVolumes.find(nd.applicationBinary);
-      if (prefIt != m_userAppVolumes.end() && std::abs(candidateVol - prefIt->second) > kVolumeWriteGuardEpsilon) {
-        nd.volume = prefIt->second;
-        setNodeVolume(nd.id, prefIt->second);
-      } else {
-        mergeIncomingVolumes(nd, parsed);
-      }
-    } else {
-      mergeIncomingVolumes(nd, parsed);
-    }
+    mergeIncomingVolumes(nd, parsed);
   }
 
   recomputeEffectiveMute(nd);
@@ -1604,12 +1601,15 @@ void PipeWireService::rebuildState() {
     // explicitly unavailable and no available alternative is hidden. Cards that report "unknown"
     // (many HDA/HiFi setups) stay visible.
     const std::uint32_t wantDir = routeDirectionForMediaClass(nd->mediaClass);
-    const DeviceRouteData* activeRoute = wantDir != 0 ? activeRouteForDirection(nd->routes, wantDir) : nullptr;
+    // SPA_DIRECTION_INPUT == 0, so `wantDir != 0` would wrongly exclude every Audio/Source; guard on the
+    // media class being a device node instead (matches the isDeviceNode check used during route parsing).
+    const bool isDeviceNode = nd->mediaClass == "Audio/Sink" || nd->mediaClass == "Audio/Source";
+    const DeviceRouteData* activeRoute = isDeviceNode ? activeRouteForDirection(nd->routes, wantDir) : nullptr;
     const DeviceData* device = nullptr;
     if (nd->deviceId != 0) {
       if (const auto devIt = m_devices.find(nd->deviceId); devIt != m_devices.end()) {
         device = &devIt->second;
-        if (activeRoute == nullptr && wantDir != 0) {
+        if (activeRoute == nullptr && isDeviceNode) {
           activeRoute = activeRouteForDirection(device->routes, wantDir);
         }
       }
@@ -1674,9 +1674,11 @@ void PipeWireService::rebuildState() {
 
 void PipeWireService::recomputeEffectiveMute(NodeData& nd) {
   const std::uint32_t wantDir = routeDirectionForMediaClass(nd.mediaClass);
-  const DeviceRouteData* nodeRoute = wantDir != 0 ? activeRouteForDirection(nd.routes, wantDir) : nullptr;
+  // SPA_DIRECTION_INPUT == 0, so guard on the media class rather than `wantDir != 0` (which would skip sources).
+  const bool isDeviceNode = nd.mediaClass == "Audio/Sink" || nd.mediaClass == "Audio/Source";
+  const DeviceRouteData* nodeRoute = isDeviceNode ? activeRouteForDirection(nd.routes, wantDir) : nullptr;
   const DeviceRouteData* deviceRoute = nullptr;
-  if (nd.deviceId != 0 && wantDir != 0) {
+  if (nd.deviceId != 0 && isDeviceNode) {
     const auto it = m_devices.find(nd.deviceId);
     if (it != m_devices.end()) {
       deviceRoute = activeRouteForDirection(it->second.routes, wantDir);
@@ -1714,16 +1716,6 @@ void PipeWireService::applyVolumePropsFromDict(NodeData& nd, const spa_dict* pro
       candidate = std::clamp(*maybeChannelmixVolume, 0.0f, 1.5f);
     } else if (const auto maybeVolume = parseFloat(dictGet(props, "volume")); maybeVolume.has_value()) {
       candidate = std::clamp(*maybeVolume, 0.0f, 1.5f);
-    }
-
-    if (!nd.applicationBinary.empty()) {
-      const auto prefIt = m_userAppVolumes.find(nd.applicationBinary);
-      if (prefIt != m_userAppVolumes.end()
-          && candidate >= 0.0f
-          && std::abs(candidate - prefIt->second) > kVolumeWriteGuardEpsilon) {
-        setNodeVolume(nd.id, prefIt->second);
-        candidate = prefIt->second;
-      }
     }
 
     if (candidate >= 0.0f && !shouldRejectVolumeWrite(nd, candidate)) {
@@ -2044,7 +2036,7 @@ void PipeWireService::emitChanged() {
 }
 
 void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) {
-  const auto maxVolume = [&config] { return config.config().audio.enableOverdrive ? 1.5f : 1.0f; };
+  const auto maxVolume = [&config] { return maxAudioVolume(config.config().audio); };
   const auto parseVolumeValueError =
       "error: invalid volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
   const auto parseVolumeStepError = "error: invalid volume step (use percent like 5 or 5%, or normalized like 0.05)\n";
@@ -2068,7 +2060,7 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setVolume(std::clamp(*amount, 0.0f, maxVolume()));
         return "ok\n";
       },
-      "volume-set <value>", "Set speaker volume"
+      "<value>", "Set speaker volume"
   );
 
   ipc.registerHandler(
@@ -2091,7 +2083,7 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setVolume(relativeAdjustTarget(1, *step, 1.0f, sink->volume, maxVolume()));
         return "ok\n";
       },
-      "volume-up [step]", "Increase speaker volume"
+      "[step]", "Increase speaker volume"
   );
 
   ipc.registerHandler(
@@ -2114,7 +2106,7 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setVolume(relativeAdjustTarget(2, *step, -1.0f, sink->volume, maxVolume()));
         return "ok\n";
       },
-      "volume-down [step]", "Decrease speaker volume"
+      "[step]", "Decrease speaker volume"
   );
 
   ipc.registerHandler(
@@ -2126,7 +2118,7 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setMuted(!sink->muted);
         return "ok\n";
       },
-      "volume-mute", "Toggle speaker mute"
+      "", "Toggle speaker mute"
   );
 
   ipc.registerHandler(
@@ -2148,7 +2140,7 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setMicVolume(std::clamp(*amount, 0.0f, maxVolume()));
         return "ok\n";
       },
-      "mic-volume-set <value>", "Set microphone volume"
+      "<value>", "Set microphone volume"
   );
 
   ipc.registerHandler(
@@ -2171,7 +2163,7 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setMicVolume(relativeAdjustTarget(3, *step, 1.0f, source->volume, maxVolume()));
         return "ok\n";
       },
-      "mic-volume-up [step]", "Increase microphone volume"
+      "[step]", "Increase microphone volume"
   );
 
   ipc.registerHandler(
@@ -2194,7 +2186,7 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setMicVolume(relativeAdjustTarget(4, *step, -1.0f, source->volume, maxVolume()));
         return "ok\n";
       },
-      "mic-volume-down [step]", "Decrease microphone volume"
+      "[step]", "Decrease microphone volume"
   );
 
   ipc.registerHandler(
@@ -2206,6 +2198,6 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setMicMuted(!source->muted);
         return "ok\n";
       },
-      "mic-mute", "Toggle microphone mute"
+      "", "Toggle microphone mute"
   );
 }

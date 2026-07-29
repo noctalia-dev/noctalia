@@ -86,7 +86,13 @@ private:
   // Async rebind pipeline. All proxy destruction happens in async reply
   // context, never inside a proxy's own signal handler.
   void requestRebind();
-  void resolvePhysicalPrimary(std::function<void(std::string connectionPath, std::string devicePath)> done);
+  // allowActivatedAsPrimary: when false (no NM PrimaryConnection yet), a fully
+  // activated physical device must not be reported as the connected primary — it
+  // may be a bridge/bond slave or a link that has not become the default route.
+  // Only mid-activation links are surfaced (resolving state).
+  void resolvePhysicalPrimary(
+      bool allowActivatedAsPrimary, std::function<void(std::string connectionPath, std::string devicePath)> done
+  );
   void adoptActiveConnection(const std::string& connectionPath, const std::string& devicePath);
   void rebindActiveDevice(const std::string& devicePath);
   void rebindActiveAccessPoint(const std::string& apPath);

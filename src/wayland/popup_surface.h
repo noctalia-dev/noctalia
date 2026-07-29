@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 
 struct wl_output;
 struct xdg_popup;
@@ -35,8 +36,12 @@ public:
   bool initialize() override { return false; }
   bool initialize(zwlr_layer_surface_v1* parentLayerSurface, wl_output* output, PopupSurfaceConfig config);
   bool initializeAsChild(xdg_surface* parentXdgSurface, wl_output* output, PopupSurfaceConfig config);
-  bool resize(std::uint32_t width, std::uint32_t height);
-  bool repositionAnchor(const PopupSurfaceConfig& anchorConfig);
+  // When commit is false, the geometry change (size, viewport destination, reposition) is left
+  // pending on the wl_surface so the caller can publish it atomically with the next rendered
+  // buffer. Committing here with the previous buffer still attached makes the compositor scale
+  // that stale buffer to the new geometry (visible as a stretched popup on NVIDIA).
+  bool resize(std::uint32_t width, std::uint32_t height, bool commit = true);
+  bool repositionAnchor(const PopupSurfaceConfig& anchorConfig, bool commit = true);
 
   void setDismissedCallback(std::function<void()> callback);
 
@@ -68,4 +73,8 @@ private:
   std::int32_t m_configuredX = 0;
   std::int32_t m_configuredY = 0;
   bool m_enrolledInGrabHost = false;
+  // Set false by the destructor. The init roundtrip re-enters event dispatch and can
+  // destroy this popup mid-init; a captured copy of this token lets init detect that
+  // and avoid touching freed `this`.
+  std::shared_ptr<bool> m_alive = std::make_shared<bool>(true);
 };

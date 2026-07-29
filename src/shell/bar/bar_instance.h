@@ -2,6 +2,7 @@
 
 #include "config/config_service.h"
 #include "render/animation/animation_manager.h"
+#include "render/scene/input_area.h"
 #include "render/scene/input_dispatcher.h"
 #include "render/scene/node.h"
 #include "shell/bar/widget.h"
@@ -45,11 +46,17 @@ struct BarInstance {
   float slideHiddenDx = 0.0f;
   float slideHiddenDy = 0.0f;
   InputDispatcher inputDispatcher;
+  // Gestures for the parts of the bar no widget covers. The sink is never mounted in the scene; it
+  // is used only for its scroll-detent accumulator, so dead-zone scrolling quantizes like a widget.
+  noctalia::bar::WidgetActionBindings deadZoneBindings;
+  InputArea deadZoneAxisSink;
   float hideOpacity = 1.0f;
   // bar-hide/toggle IPC on non-autohide bars: release compositor exclusive zone until bar-show (v4 isVisible=false).
   bool ipcLayoutReleased = false;
   // bar-auto-hide-set off keeps autoHide true until the reveal completes; block hover helpers from replacing it.
   bool autoHideDisablePending = false;
+  // smart_auto_hide: active workspace empty (or overview open) — keep the bar visible.
+  bool smartAutoHidePinnedVisible = false;
   bool pointerInside = false;
   float lastPointerSx = 0.0f;
   float lastPointerSy = 0.0f;

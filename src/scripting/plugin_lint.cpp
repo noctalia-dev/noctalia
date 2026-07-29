@@ -27,10 +27,20 @@ namespace scripting {
       int line = 0;
     };
 
+    struct ObsoleteConfigAccessor {
+      std::string name;
+      int line = 0;
+    };
+
     struct ScanResult {
       std::vector<GetConfigRead> reads;
+      std::vector<ObsoleteConfigAccessor> obsoleteAccessors;
       int dynamicCount = 0; // getConfig calls whose key is not a static string literal
     };
+
+    bool isObsoleteConfigReceiver(std::string_view receiver) noexcept {
+      return receiver == "barWidget" || receiver == "desktopWidget" || receiver == "panel" || receiver == "launcher";
+    }
 
     // Walk Luau source, skipping comments and string bodies, and collect every
     // `getConfig` call. A call with a string-literal argument yields its key; a call
@@ -122,6 +132,28 @@ namespace scripting {
           if (ident != "getConfig") {
             i = j;
             continue;
+          }
+
+          // getConfig is universal and lives only under noctalia.*. Record the old
+          // entry-specific aliases so the author gets a useful error instead of a
+          // nil-global runtime failure.
+          std::size_t receiverEnd = i;
+          while (receiverEnd > 0 && (src[receiverEnd - 1] == ' ' || src[receiverEnd - 1] == '\t')) {
+            --receiverEnd;
+          }
+          if (receiverEnd > 0 && src[receiverEnd - 1] == '.') {
+            std::size_t receiverStart = receiverEnd - 1;
+            while (receiverStart > 0 && (src[receiverStart - 1] == ' ' || src[receiverStart - 1] == '\t')) {
+              --receiverStart;
+            }
+            const std::size_t receiverNameEnd = receiverStart;
+            while (receiverStart > 0 && isIdentChar(src[receiverStart - 1])) {
+              --receiverStart;
+            }
+            const std::string_view receiver = src.substr(receiverStart, receiverNameEnd - receiverStart);
+            if (isObsoleteConfigReceiver(receiver)) {
+              out.obsoleteAccessors.push_back({.name = std::string(receiver) + ".getConfig", .line = line});
+            }
           }
 
           // Parse the argument: optional '(' then a string literal (or it's dynamic).
@@ -266,6 +298,16 @@ namespace scripting {
       const ScanResult scan = scanGetConfigCalls(source);
       anyDynamic = anyDynamic || scan.dynamicCount > 0;
 
+      for (const auto& obsolete : scan.obsoleteAccessors) {
+        report.findings.push_back(
+            {.kind = PluginLintFinding::Kind::ObsoleteConfigAccessor,
+             .scope = entry.id,
+             .file = entry.entry,
+             .key = obsolete.name,
+             .line = obsolete.line}
+        );
+      }
+
       std::unordered_set<std::string> readInEntry;
       for (const auto& read : scan.reads) {
         readInEntry.insert(read.key);
@@ -327,7 +369,8 @@ namespace noctalia::plugins {
         "  lint [path ...]\n"
         "      Cross-check each plugin's declared settings against its getConfig() calls.\n"
         "      Reports settings read but not declared in plugin.toml (a runtime loud miss),\n"
-        "      settings declared but never read, and entries pointing at a missing file.\n"
+        "      obsolete entry-specific getConfig aliases, settings declared but never read,\n"
+        "      and entries pointing at a missing file.\n"
         "      A path may be a plugin directory or a directory of plugins. Defaults to '.'.\n"
         "      Exits 1 if any error-level problem is found.\n";
 
@@ -393,6 +436,10 @@ namespace noctalia::plugins {
           ++errors;
           break;
         }
+        case Kind::ObsoleteConfigAccessor:
+          std::println("  error  {}  '{}' was removed; use noctalia.getConfig", where, f.key);
+          ++errors;
+          break;
         case Kind::MissingEntryFile:
           std::println("  error  {}  entry '{}' points at a missing file '{}'", report.pluginId, f.scope, f.key);
           ++errors;

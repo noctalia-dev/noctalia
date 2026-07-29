@@ -5,6 +5,8 @@
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/ui_phase.h"
+#include "ipc/ipc_arg_parse.h"
+#include "ipc/ipc_service.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
 #include "shell/surface/edge_inset.h"
@@ -37,9 +39,9 @@ namespace {
     if (config == nullptr) {
       return 1.0f;
     }
-    const auto& shell = config->config().shell;
+    const auto& accessibility = config->config().accessibility;
     const auto& osd = config->config().osd;
-    return std::max(0.1f, shell.uiScale * osd.scale);
+    return std::max(0.1f, accessibility.uiScale * osd.scale);
   }
 
   [[nodiscard]] bool isOsdKindEnabled(const OsdKindsConfig& kinds, OsdKind kind) {
@@ -70,6 +72,8 @@ namespace {
       return kinds.media;
     case OsdKind::Privacy:
       return kinds.privacy;
+    case OsdKind::KeyboardBacklight:
+      return kinds.keyboardBacklight;
     }
     return true;
   }
@@ -189,10 +193,63 @@ namespace {
 
 } // namespace
 
+OsdOverlay::OsdOverlay() = default;
+
+OsdOverlay::~OsdOverlay() = default;
+
 void OsdOverlay::initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext) {
   m_wayland = &wayland;
   m_config = config;
   m_renderContext = renderContext;
+  m_lastConfiguredEnabled = m_config == nullptr || m_config->config().osd.enabled;
+}
+
+void OsdOverlay::registerIpc(IpcService& ipc) {
+  ipc.registerHandler(
+      "osd-enable",
+      [this](const std::string& args) -> std::string {
+        if (!noctalia::ipc::splitWords(args).empty()) {
+          return "error: osd-enable takes no arguments\n";
+        }
+        setEnabledOverride(true);
+        return "ok\n";
+      },
+      "", "Enable OSD popups"
+  );
+  ipc.registerHandler(
+      "osd-disable",
+      [this](const std::string& args) -> std::string {
+        if (!noctalia::ipc::splitWords(args).empty()) {
+          return "error: osd-disable takes no arguments\n";
+        }
+        setEnabledOverride(false);
+        return "ok\n";
+      },
+      "", "Disable OSD popups"
+  );
+  ipc.registerHandler(
+      "osd-toggle",
+      [this](const std::string& args) -> std::string {
+        if (!noctalia::ipc::splitWords(args).empty()) {
+          return "error: osd-toggle takes no arguments\n";
+        }
+        setEnabledOverride(!isEnabled());
+        return isEnabled() ? "on\n" : "off\n";
+      },
+      "", "Toggle OSD popups"
+  );
+}
+
+bool OsdOverlay::isEnabled() const noexcept {
+  const bool configuredEnabled = m_config == nullptr || m_config->config().osd.enabled;
+  return m_runtimeEnabledOverride.value_or(configuredEnabled);
+}
+
+void OsdOverlay::setEnabledOverride(bool enabled) {
+  m_runtimeEnabledOverride = enabled;
+  if (!enabled) {
+    destroySurfaces();
+  }
 }
 
 void OsdOverlay::requestRedraw() {
@@ -215,6 +272,9 @@ void OsdOverlay::show(const OsdContent& content) {
   if (m_wayland == nullptr || m_renderContext == nullptr) {
     return;
   }
+  if (!isEnabled()) {
+    return;
+  }
   if (m_config != nullptr && !isOsdKindEnabled(m_config->config().osd.kinds, content.kind)) {
     return;
   }
@@ -228,6 +288,12 @@ void OsdOverlay::show(const OsdContent& content) {
     inst->showPending = true;
     inst->surface->requestUpdate();
   }
+}
+
+bool OsdOverlay::isVisible() const {
+  return std::ranges::any_of(m_instances, [](const auto& inst) {
+    return inst->visible || inst->showPending || inst->showAnimId != 0;
+  });
 }
 
 OsdOverlay::SurfaceMargins OsdOverlay::surfaceMarginsForPosition(const std::string& position) const {
@@ -297,7 +363,18 @@ void OsdOverlay::onOutputChange() {
   requestLayout();
 }
 
-void OsdOverlay::onConfigReload() { onOutputChange(); }
+void OsdOverlay::onConfigReload() {
+  const bool configuredEnabled = m_config == nullptr || m_config->config().osd.enabled;
+  if (configuredEnabled != m_lastConfiguredEnabled) {
+    m_runtimeEnabledOverride.reset();
+    m_lastConfiguredEnabled = configuredEnabled;
+  }
+  if (!isEnabled()) {
+    destroySurfaces();
+    return;
+  }
+  onOutputChange();
+}
 
 void OsdOverlay::ensureSurfaces() {
   if (m_wayland == nullptr || m_renderContext == nullptr) {
@@ -539,9 +616,8 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
   const float ch = cardHeight(s, m_lastOrientation, m_lastShowProgress);
   const float pad = cardPadding(s);
   const float gap = innerGap(s);
-  const float border = Style::borderWidth * s;
 
-  inst.sceneRoot = std::make_unique<Node>();
+  inst.sceneRoot = ui::node({});
   inst.sceneRoot->setSize(w, h);
   inst.sceneRoot->setOpacity(1.0f);
   inst.surface->setSceneRoot(inst.sceneRoot.get());
@@ -549,6 +625,8 @@ void OsdOverlay::buildScene(Instance& inst, std::uint32_t width, std::uint32_t h
   const float cardX = cardBaseX(w, cw);
   const float cardY = cardBaseYForPosition(m_lastPosition, h, ch);
   const float backgroundOpacity = osdBackgroundOpacity(m_config);
+  const bool drawBorder = m_config == nullptr || m_config->config().osd.border;
+  const float border = drawBorder ? Style::borderWidth * s : 0.0f;
 
   inst.sceneRoot->addChild(
       ui::box({
@@ -670,12 +748,14 @@ void OsdOverlay::updateInstanceContent(Instance& inst) {
                                                   : ColorRole::OnSurface;
   inst.value->setColor(colorSpecFromRole(valueRole));
   inst.value->setTextAlign((vertical || !m_content.showProgress) ? TextAlign::Center : TextAlign::End);
-  // Media titles are arbitrary length; cap them to the card so they ellipsize instead of overflowing.
+  // Text OSDs (media title, device name, ...) carry arbitrary-length values; cap them to the card
+  // interior so they ellipsize within the padding instead of overflowing. Progress OSDs keep the
+  // uncapped "100%" value so it can reserve minWidth beside the bar.
   const float horizontalValueMax = cw - cardPadding(s) * 2.0f - glyphSize(s) - innerGap(s);
   inst.value->setMaxWidth(
-      vertical                               ? cw - cardPadding(s) * 2.0f
-          : m_content.kind == OsdKind::Media ? std::max(0.0f, horizontalValueMax)
-                                             : 0.0f
+      vertical                      ? cw - cardPadding(s) * 2.0f
+          : !m_content.showProgress ? std::max(0.0f, horizontalValueMax)
+                                    : 0.0f
   );
   inst.value->setMinWidth((!vertical && m_content.showProgress) ? inst.progressValueMinWidth : 0.0f);
   inst.value->setText(m_content.value);

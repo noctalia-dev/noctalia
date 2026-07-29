@@ -11,6 +11,8 @@
 #include "cpp/scheme/scheme_rainbow.h"
 #include "cpp/scheme/scheme_tonal_spot.h"
 #include "theme/color.h"
+#include "theme/firefox_theme/firefox_theme.h"
+#include "theme/kde_color_scheme.h"
 #include "theme/palette.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
@@ -161,6 +163,7 @@ namespace noctalia::theme {
       std::vector<CompareColorEntry> colorsToCompare;
       std::string preHook;
       std::string postHook;
+      std::string postAction;
       // When set, skip outputs if this path does not exist (explicit install check).
       std::string requiresPath;
       // When true, skip each output whose inferred client config root is missing.
@@ -1308,6 +1311,8 @@ namespace noctalia::theme {
         entry.preHook = preHook->get();
       if (const auto postHook = tpl.get_as<std::string>("post_hook"))
         entry.postHook = postHook->get();
+      if (const auto postAction = tpl.get_as<std::string>("post_action"))
+        entry.postAction = postAction->get();
       if (const auto opd = tpl.get_as<std::string>("output_path_dynamic"))
         entry.outputPathDynamic = opd->get();
       if (const auto requiresPath = tpl.get_as<std::string>("requires_path"))
@@ -1350,11 +1355,15 @@ namespace noctalia::theme {
   }
 
   bool TemplateEngine::processConfigTable(const toml::table& root, const std::filesystem::path& configPath) {
-    auto cancelRequested = [this]() { return m_options.cancelRequested && m_options.cancelRequested(); };
-    if (cancelRequested()) {
+    if (m_options.cancelRequested && m_options.cancelRequested()) {
       return true;
     }
 
+    applyCustomColors(root);
+    return processConfigTemplates(root, configPath);
+  }
+
+  void TemplateEngine::applyCustomColors(const toml::table& root) {
     if (const toml::table* config = root["config"].as_table()) {
       if (const toml::table* customColors = (*config)["custom_colors"].as_table()) {
         std::string sourceHex;
@@ -1367,30 +1376,47 @@ namespace noctalia::theme {
 
         for (const auto& [nameNode, valueNode] : *customColors) {
           const std::string name = std::string(nameNode.str());
-          std::string colorHex;
+          std::string darkHex;
+          std::string lightHex;
           bool blend = true;
 
           if (const auto* str = valueNode.as_string()) {
-            colorHex = str->get();
+            darkHex = str->get();
+            lightHex = darkHex;
           } else if (const auto* tbl = valueNode.as_table()) {
-            if (auto color = tbl->get_as<std::string>("color"))
-              colorHex = color->get();
+            const auto* colorPtr = tbl->get_as<std::string>("color");
+            const auto* colorDarkPtr = tbl->get_as<std::string>("color_dark");
+            const auto* colorLightPtr = tbl->get_as<std::string>("color_light");
+            const std::string base = colorPtr ? colorPtr->get() : std::string{};
+            const std::string darkOverride = colorDarkPtr ? colorDarkPtr->get() : std::string{};
+            const std::string lightOverride = colorLightPtr ? colorLightPtr->get() : std::string{};
+            // Per mode: prefer its own override, then the shared color, then the other mode.
+            auto pick = [](std::initializer_list<const std::string*> candidates) {
+              for (const std::string* c : candidates)
+                if (!c->empty())
+                  return *c;
+              return std::string{};
+            };
+            darkHex = pick({&darkOverride, &base, &lightOverride});
+            lightHex = pick({&lightOverride, &base, &darkOverride});
             if (auto blendValue = tbl->get_as<bool>("blend"))
               blend = blendValue->get();
           } else {
             continue;
           }
 
-          if (colorHex.empty())
+          // pick() ties dark/light emptiness together, so this also guards lightHex.
+          if (darkHex.empty())
             continue;
 
-          const std::string paletteHex = (blend && !sourceHex.empty()) ? harmonizeHex(colorHex, sourceHex) : colorHex;
-          const auto scheme = makeCustomColorScheme(
-              m_options.schemeType, material_color_utilities::Hct(Color::fromHex(paletteHex).toArgb())
-          );
-          const auto& palette = scheme.primary_palette;
-
           for (std::string_view mode : kTemplateModes) {
+            const std::string& colorHex = (mode == "dark") ? darkHex : lightHex;
+            const std::string paletteHex = (blend && !sourceHex.empty()) ? harmonizeHex(colorHex, sourceHex) : colorHex;
+            const auto scheme = makeCustomColorScheme(
+                m_options.schemeType, material_color_utilities::Hct(Color::fromHex(paletteHex).toArgb())
+            );
+            const auto& palette = scheme.primary_palette;
+
             auto& modeData = m_themeData[std::string(mode)];
             modeData[name + "_source"] = colorHex;
             modeData[name + "_value"] = colorHex;
@@ -1408,6 +1434,13 @@ namespace noctalia::theme {
           }
         }
       }
+    }
+  }
+
+  bool TemplateEngine::processConfigTemplates(const toml::table& root, const std::filesystem::path& configPath) {
+    auto cancelRequested = [this]() { return m_options.cancelRequested && m_options.cancelRequested(); };
+    if (cancelRequested()) {
+      return true;
     }
 
     const toml::table* templates = root["templates"].as_table();
@@ -1486,6 +1519,45 @@ namespace noctalia::theme {
         }
       };
 
+      auto runPostAction = [&]() {
+        if (entry.postAction.empty()) {
+          return true;
+        }
+        if (entry.postAction != "kde-color-scheme" && entry.postAction != kFirefoxThemePostAction) {
+          kLog.warn("unknown post action '{}' for template {}", entry.postAction, entry.name);
+          return false;
+        }
+        if (effectiveOutputs.size() != 1) {
+          kLog.warn(
+              "post action '{}' for template {} requires exactly one output, got {}", entry.postAction, entry.name,
+              effectiveOutputs.size()
+          );
+          return false;
+        }
+
+        if (entry.postAction == "kde-color-scheme") {
+          const KdeColorSchemeApplyResult result = applyKdeColorScheme(effectiveOutputs.front());
+          if (!result.success) {
+            kLog.warn("post action '{}' for template {} failed: {}", entry.postAction, entry.name, result.error);
+            return false;
+          }
+          if (!result.notificationError.empty()) {
+            kLog.warn("applied KDE color scheme but failed to notify applications: {}", result.notificationError);
+          }
+          return true;
+        }
+
+        const FirefoxThemeApplyResult result = applyFirefoxTheme(effectiveOutputs.front(), m_options.defaultMode);
+        if (!result.success) {
+          kLog.warn("post action '{}' for template {} failed: {}", entry.postAction, entry.name, result.error);
+          return false;
+        }
+        if (!result.warning.empty()) {
+          kLog.warn("firefox-theme post action for template {}: {}", entry.name, result.warning);
+        }
+        return true;
+      };
+
       const bool hasOutputs = !effectiveOutputs.empty();
       if (hasOutputs)
         runHook(entry.preHook);
@@ -1521,8 +1593,12 @@ namespace noctalia::theme {
         return ok;
       }
 
-      if ((hasOutputs && outputsOk) || (!hasOutputs && !entry.postHook.empty()))
+      if ((hasOutputs && outputsOk) || (!hasOutputs && (!entry.postHook.empty() || !entry.postAction.empty()))) {
+        if (!runPostAction()) {
+          ok = false;
+        }
         runHook(entry.postHook);
+      }
     }
 
     return ok;

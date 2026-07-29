@@ -2,6 +2,7 @@
 
 #include "config/config_service.h"
 #include "core/deferred_call.h"
+#include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "core/process/process.h"
@@ -209,7 +210,8 @@ namespace {
 
   class ClipboardListRow final : public InputArea {
   public:
-    ClipboardListRow(float scale, ThumbnailService* thumbnails) : m_scale(scale), m_thumbnails(thumbnails) {
+    ClipboardListRow(float scale, AsyncTextureCache* asyncTextures, std::optional<ColorSpec> listItemBackground)
+        : m_scale(scale), m_asyncTextures(asyncTextures), m_listItemBackground(listItemBackground) {
       setVisible(false);
 
       addChild(
@@ -242,6 +244,9 @@ namespace {
               .fit = ImageFit::Cover,
               .radius = Style::scaledRadiusSm(scale),
               .visible = false,
+              .configure = [](Image& image) {
+                image.setAsyncReadyCallback([]() { PanelManager::instance().refresh(); });
+              },
           })
       );
 
@@ -274,14 +279,14 @@ namespace {
                   .fontSize = Style::fontSizeBody * scale,
                   .fontWeight = FontWeight::SemiBold,
                   .maxLines = 1,
-                  .baselineMode = LabelBaselineMode::StableFont,
+                  .baselineMode = LabelBaselineMode::TextFixedHeight,
                   .configure = [](Label& label) { label.setHitTestVisible(false); },
               }),
               ui::label({
                   .out = &m_meta,
                   .fontSize = Style::fontSizeCaption * scale,
                   .maxLines = 1,
-                  .baselineMode = LabelBaselineMode::StableFont,
+                  .baselineMode = LabelBaselineMode::TextFixedHeight,
                   .configure = [](Label& label) { label.setHitTestVisible(false); },
               })
           )
@@ -299,19 +304,9 @@ namespace {
       );
     }
 
-    ~ClipboardListRow() override { releaseThumbnail(); }
-
-    void setThumbnailService(ThumbnailService* thumbnails) {
-      if (m_thumbnails == thumbnails) {
-        return;
-      }
-      releaseThumbnail();
-      m_thumbnails = thumbnails;
-    }
-
     void bind(
-        Renderer& renderer, const ClipboardEntry& entry, std::size_t historyIndex, float width, bool selected,
-        bool hovered
+        Renderer& renderer, const ClipboardEntry& entry, std::size_t historyIndex, float width, float height,
+        bool selected, bool hovered, std::string imageSource
     ) {
       m_historyIndex = historyIndex;
       m_selected = selected;
@@ -320,19 +315,14 @@ namespace {
       m_pinned = entry.pinned;
       setVisible(true);
       setEnabled(true);
-      setSize(width, listRowHeight(renderer, m_scale));
+      setSize(width, height);
 
-      const std::string nextThumbPath = m_isImage ? entry.payloadPath : std::string();
-      if (m_thumbnailPath != nextThumbPath) {
+      if (m_imageSource != imageSource) {
         if (m_image != nullptr) {
           m_image->clear(renderer);
           m_image->setVisible(false);
         }
-        releaseThumbnail();
-        m_thumbnailPath = nextThumbPath;
-        if (!m_thumbnailPath.empty() && m_thumbnails != nullptr) {
-          (void)m_thumbnails->acquire(m_thumbnailPath);
-        }
+        m_imageSource = std::move(imageSource);
       }
 
       const std::string rawTitle = entryTitle(entry);
@@ -367,7 +357,7 @@ namespace {
       if (m_image == nullptr || m_glyph == nullptr || m_colorSwatch == nullptr) {
         return;
       }
-      if (!m_isImage || m_thumbnailPath.empty() || m_thumbnails == nullptr) {
+      if (!m_isImage || m_imageSource.empty() || m_asyncTextures == nullptr) {
         m_image->clear(renderer);
         m_image->setVisible(false);
         const bool showGlyph = !m_colorSwatch->visible();
@@ -376,19 +366,11 @@ namespace {
         return;
       }
 
-      const TextureHandle handle = m_thumbnails->peek(m_thumbnailPath);
-      if (handle.id == 0) {
-        m_image->clear(renderer);
-        m_image->setVisible(false);
-        m_glyph->setVisible(true);
-        m_glyph->setParticipatesInLayout(true);
-        return;
-      }
-
-      m_image->setExternalTexture(renderer, handle);
-      m_image->setVisible(true);
-      m_glyph->setVisible(false);
-      m_glyph->setParticipatesInLayout(false);
+      const int targetSize = static_cast<int>(std::ceil(kListThumbSize * m_scale));
+      const bool ready = m_image->setSourceFileAsync(renderer, *m_asyncTextures, m_imageSource, targetSize);
+      m_image->setVisible(ready);
+      m_glyph->setVisible(!ready);
+      m_glyph->setParticipatesInLayout(!ready);
     }
 
   private:
@@ -427,13 +409,6 @@ namespace {
       InputArea::doLayout(renderer);
     }
 
-    void releaseThumbnail() {
-      if (!m_thumbnailPath.empty() && m_thumbnails != nullptr) {
-        m_thumbnails->release(m_thumbnailPath);
-      }
-      m_thumbnailPath.clear();
-    }
-
     void applyVisualState() {
       if (m_background == nullptr || m_glyph == nullptr || m_title == nullptr || m_meta == nullptr) {
         return;
@@ -444,7 +419,7 @@ namespace {
       } else if (m_hovered) {
         m_background->setFill(colorSpecFromRole(ColorRole::Hover));
       } else {
-        m_background->setFill(clearColorSpec());
+        m_background->setFill(m_listItemBackground.value_or(clearColorSpec()));
       }
 
       const auto activeRole = m_selected ? ColorRole::OnPrimary : ColorRole::OnHover;
@@ -463,7 +438,8 @@ namespace {
     }
 
     float m_scale = 1.0f;
-    ThumbnailService* m_thumbnails = nullptr;
+    AsyncTextureCache* m_asyncTextures = nullptr;
+    std::optional<ColorSpec> m_listItemBackground;
     Box* m_background = nullptr;
     Flex* m_row = nullptr;
     Flex* m_lead = nullptr;
@@ -479,44 +455,30 @@ namespace {
     bool m_hovered = false;
     bool m_isImage = false;
     bool m_pinned = false;
-    std::string m_thumbnailPath;
+    std::string m_imageSource;
   };
 
 } // namespace
 
 class ClipboardListAdapter final : public VirtualGridAdapter {
 public:
-  ClipboardListAdapter(float scale, ClipboardService* clipboard, ThumbnailService* thumbnails)
-      : m_scale(scale), m_clipboard(clipboard), m_thumbnails(thumbnails) {}
+  ClipboardListAdapter(
+      float scale, ClipboardService* clipboard, AsyncTextureCache* asyncTextures,
+      std::optional<ColorSpec> listItemBackground
+  )
+      : m_scale(scale), m_clipboard(clipboard), m_asyncTextures(asyncTextures),
+        m_listItemBackground(listItemBackground) {}
 
   void setRenderer(Renderer* renderer) { m_renderer = renderer; }
   void setFilteredIndices(const std::vector<std::size_t>* indices) { m_filteredIndices = indices; }
-  void setThumbnailService(ThumbnailService* thumbnails) {
-    m_thumbnails = thumbnails;
-    for (ClipboardListRow* row : m_pool) {
-      if (row != nullptr) {
-        row->setThumbnailService(thumbnails);
-      }
-    }
-  }
   void setOnActivate(std::function<void(std::size_t)> callback) { m_onActivate = std::move(callback); }
-
-  void refreshVisibleThumbnails(Renderer& renderer) {
-    for (ClipboardListRow* row : m_pool) {
-      if (row != nullptr && row->visible()) {
-        row->refreshThumbnail(renderer);
-      }
-    }
-  }
 
   [[nodiscard]] std::size_t itemCount() const override {
     return m_filteredIndices == nullptr ? 0 : m_filteredIndices->size();
   }
 
   [[nodiscard]] std::unique_ptr<Node> createTile() override {
-    auto row = std::make_unique<ClipboardListRow>(m_scale, m_thumbnails);
-    m_pool.push_back(row.get());
-    return row;
+    return std::make_unique<ClipboardListRow>(m_scale, m_asyncTextures, m_listItemBackground);
   }
 
   void bindTile(Node& tile, std::size_t index, bool selected, bool hovered) override {
@@ -532,7 +494,14 @@ public:
       return;
     }
     auto* row = static_cast<ClipboardListRow*>(&tile);
-    row->bind(*m_renderer, history[historyIndex], historyIndex, row->width(), selected, hovered && !selected);
+    std::string imageSource;
+    if (history[historyIndex].isImage()) {
+      imageSource = m_clipboard->imageDataUri(historyIndex).value_or("");
+    }
+    row->bind(
+        *m_renderer, history[historyIndex], historyIndex, row->width(), row->height(), selected, hovered && !selected,
+        std::move(imageSource)
+    );
   }
 
   void onActivate(std::size_t index) override {
@@ -544,17 +513,15 @@ public:
 private:
   float m_scale = 1.0f;
   ClipboardService* m_clipboard = nullptr;
-  ThumbnailService* m_thumbnails = nullptr;
+  AsyncTextureCache* m_asyncTextures = nullptr;
+  std::optional<ColorSpec> m_listItemBackground;
   Renderer* m_renderer = nullptr;
   const std::vector<std::size_t>* m_filteredIndices = nullptr;
-  std::vector<ClipboardListRow*> m_pool;
   std::function<void(std::size_t)> m_onActivate;
 };
 
-ClipboardPanel::ClipboardPanel(
-    ClipboardService* clipboard, ConfigService* config, ThumbnailService* thumbnails, AsyncTextureCache* asyncTextures
-)
-    : m_clipboard(clipboard), m_config(config), m_thumbnails(thumbnails), m_asyncTextures(asyncTextures) {}
+ClipboardPanel::ClipboardPanel(ClipboardService* clipboard, ConfigService* config, AsyncTextureCache* asyncTextures)
+    : m_clipboard(clipboard), m_config(config), m_asyncTextures(asyncTextures) {}
 
 ClipboardPanel::~ClipboardPanel() = default;
 
@@ -579,7 +546,7 @@ void ClipboardPanel::create() {
       .flexGrow = 1.0f,
   });
 
-  auto focusArea = std::make_unique<InputArea>();
+  auto focusArea = ui::inputArea({});
   focusArea->setFocusable(true);
   focusArea->setTabStop(false);
   focusArea->setVisible(false);
@@ -674,7 +641,12 @@ void ClipboardPanel::create() {
       })
   );
 
-  m_listAdapter = std::make_unique<ClipboardListAdapter>(scale, m_clipboard, m_thumbnails);
+  const bool listItemBackground = m_config != nullptr && m_config->config().shell.panel.listItemBackground;
+  m_listAdapter = std::make_unique<ClipboardListAdapter>(
+      scale, m_clipboard, m_asyncTextures,
+      listItemBackground ? std::optional(colorSpecFromRole(ColorRole::SurfaceVariant, panelCardOpacity()))
+                         : std::nullopt
+  );
   m_listAdapter->setFilteredIndices(&m_filteredIndices);
   m_listAdapter->setOnActivate([this](std::size_t index) {
     if (m_selectedIndex == index) {
@@ -801,8 +773,8 @@ void ClipboardPanel::create() {
       .out = &m_previewScrollView,
       .scrollbarVisible = true,
       .flexGrow = 1.0f,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](ScrollView& scrollView) {
-        scrollView.setCardStyle(scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](ScrollView& scrollView) {
+        scrollView.setCardStyle(scale, opacity);
       },
   });
   m_previewContent = previewScroll->content();
@@ -817,13 +789,6 @@ void ClipboardPanel::create() {
   setRoot(std::move(rootLayout));
   if (m_animations != nullptr) {
     root()->setAnimationManager(m_animations);
-  }
-
-  if (m_thumbnails != nullptr) {
-    m_thumbnailPendingSub = m_thumbnails->subscribePendingUpload([this]() {
-      m_thumbnailRefreshPending = true;
-      PanelManager::instance().requestUpdateOnly();
-    });
   }
 
   schedulePreviewPayloadRefresh(false);
@@ -872,17 +837,6 @@ void ClipboardPanel::doLayout(Renderer& renderer, float width, float height) {
     m_rootLayout->layout(renderer);
   }
 
-  if (m_thumbnails != nullptr) {
-    const bool changed = m_thumbnails->uploadPending(renderer.textureManager());
-    if (changed) {
-      m_thumbnailRefreshPending = false;
-      if (m_listAdapter != nullptr) {
-        m_listAdapter->setRenderer(&renderer);
-        m_listAdapter->refreshVisibleThumbnails(renderer);
-      }
-    }
-  }
-
   if (m_pendingScrollToSelected) {
     scrollToSelected();
     m_pendingScrollToSelected = false;
@@ -890,15 +844,6 @@ void ClipboardPanel::doLayout(Renderer& renderer, float width, float height) {
 }
 
 void ClipboardPanel::doUpdate(Renderer& renderer) {
-  if (m_thumbnailRefreshPending && m_thumbnails != nullptr) {
-    const bool changed = m_thumbnails->uploadPending(renderer.textureManager());
-    m_thumbnailRefreshPending = false;
-    if (changed && m_listAdapter != nullptr) {
-      m_listAdapter->setRenderer(&renderer);
-      m_listAdapter->refreshVisibleThumbnails(renderer);
-    }
-  }
-
   updatePreviewActions();
 
   if (m_clipboard == nullptr || m_lastWidth <= 0.0f) {
@@ -960,7 +905,6 @@ void ClipboardPanel::onOpen(std::string_view /*context*/) {
 void ClipboardPanel::onClose() {
   resetDeleteConfirmation();
   resetClearConfirmation();
-  m_thumbnailPendingSub.disconnect();
   if (m_listGrid != nullptr) {
     m_listGrid->setAdapter(nullptr);
   }
@@ -999,7 +943,6 @@ void ClipboardPanel::onClose() {
   m_lastWidth = 0.0f;
   m_lastHeight = 0.0f;
   m_pendingScrollToSelected = false;
-  m_thumbnailRefreshPending = false;
 
   if (m_clipboard != nullptr) {
     m_clipboard->evictAllPayloads();
@@ -1029,7 +972,7 @@ bool ClipboardPanel::handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers,
 
 void ClipboardPanel::onPanelCardOpacityChanged(float opacity) {
   if (m_previewScrollView != nullptr) {
-    m_previewScrollView->setCardStyle(contentScale(), opacity, panelBordersEnabled());
+    m_previewScrollView->setCardStyle(contentScale(), opacity);
   }
   if (m_filterInput != nullptr) {
     m_filterInput->setSurfaceOpacity(opacity);
@@ -1238,8 +1181,11 @@ void ClipboardPanel::rebuildPreview(Renderer& renderer, float width, float heigh
     });
     const int previewTargetSize = static_cast<int>(std::ceil(std::max(width, imageHeight)));
     image->setAsyncReadyCallback([]() { PanelManager::instance().refresh(); });
-    if (m_asyncTextures != nullptr && !entry.payloadPath.empty()) {
-      (void)image->setSourceFileAsync(renderer, *m_asyncTextures, entry.payloadPath, previewTargetSize);
+    if (m_asyncTextures != nullptr && m_clipboard != nullptr) {
+      const auto imageSource = m_clipboard->imageDataUri(historyIndex);
+      if (imageSource.has_value()) {
+        (void)image->setSourceFileAsync(renderer, *m_asyncTextures, *imageSource, previewTargetSize);
+      }
     }
     m_previewImage = image.get();
     m_previewContent->addChild(std::move(image));
@@ -1733,17 +1679,31 @@ bool ClipboardPanel::handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers) 
     return false;
   }
 
+  const auto moveSelection = [this](int delta) {
+    const int last = static_cast<int>(m_filteredIndices.size() - 1);
+    const int next = std::clamp(static_cast<int>(m_selectedIndex) + delta, 0, last);
+    selectIndex(static_cast<std::size_t>(next));
+  };
+
+  if (KeySymbol::isPageUp(sym)) {
+    const int stride = m_listGrid != nullptr ? static_cast<int>(m_listGrid->pageItemStride()) : 1;
+    moveSelection(-stride);
+    return true;
+  }
+
+  if (KeySymbol::isPageDown(sym)) {
+    const int stride = m_listGrid != nullptr ? static_cast<int>(m_listGrid->pageItemStride()) : 1;
+    moveSelection(stride);
+    return true;
+  }
+
   if (KeybindMatcher::matches(KeybindAction::Up, sym, modifiers)) {
-    if (m_selectedIndex > 0) {
-      selectIndex(m_selectedIndex - 1);
-    }
+    moveSelection(-1);
     return true;
   }
 
   if (KeybindMatcher::matches(KeybindAction::Down, sym, modifiers)) {
-    if (m_selectedIndex + 1 < m_filteredIndices.size()) {
-      selectIndex(m_selectedIndex + 1);
-    }
+    moveSelection(1);
     return true;
   }
 

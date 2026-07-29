@@ -10,6 +10,7 @@
 #include "theme/image_loader.h"
 #include "theme/json_output.h"
 #include "theme/palette_generator.h"
+#include "theme/palette_transform.h"
 #include "theme/scheme.h"
 #include "theme/template_engine.h"
 #include "util/file_utils.h"
@@ -54,6 +55,7 @@ namespace noctalia::theme {
         "  --dark            Emit only the dark variant (default)\n"
         "  --light           Emit only the light variant\n"
         "  --both            Emit both variants under dark/light keys\n"
+        "  --pure-black      Re-anchor the dark surface ramp to true black (OLED)\n"
         "  --theme-json <f>  Load precomputed dark/light token maps from JSON\n"
         "  -o <file>         Write JSON to file instead of stdout\n"
         "  -r <in:out>       Render a template file to an output path\n"
@@ -419,6 +421,7 @@ namespace noctalia::theme {
     const char* themeJsonPath = nullptr;
     std::string schemeName = "m3-tonal-spot";
     Variant variant = Variant::Dark;
+    bool pureBlack = false;
     const char* outPath = nullptr;
     const char* configPath = nullptr;
     std::string builtinConfigPathStorage;
@@ -451,6 +454,10 @@ namespace noctalia::theme {
       }
       if (std::strcmp(a, "--both") == 0) {
         variant = Variant::Both;
+        continue;
+      }
+      if (std::strcmp(a, "--pure-black") == 0) {
+        pureBlack = true;
         continue;
       }
       if (std::strcmp(a, "-o") == 0 && i + 1 < argc) {
@@ -530,6 +537,10 @@ namespace noctalia::theme {
       palette = std::move(*generated);
     }
 
+    if (pureBlack) {
+      applyPureBlackDark(palette);
+    }
+
     const std::string json = toJson(palette, *schemeOpt, variant);
     const bool hasTemplateWork = !renderSpecs.empty() || configPath != nullptr;
     if (outPath) {
@@ -553,6 +564,22 @@ namespace noctalia::theme {
       options.verbose = true;
       TemplateEngine engine(TemplateEngine::makeThemeData(palette), std::move(options));
 
+      // Custom colors from -c must be in the theme data before -r templates render.
+      toml::table configRoot;
+      std::filesystem::path templateConfigPath;
+      if (configPath) {
+        templateConfigPath = FileUtils::expandUserPath(configPath);
+        try {
+          configRoot = toml::parse_file(templateConfigPath.string());
+        } catch (const toml::parse_error& e) {
+          std::println(
+              stderr, "error: failed to parse template config {}: {}", templateConfigPath.string(), e.description()
+          );
+          return 1;
+        }
+        engine.applyCustomColors(configRoot);
+      }
+
       for (const auto& spec : renderSpecs) {
         const size_t colon = spec.find(':');
         if (colon == std::string::npos) {
@@ -566,7 +593,7 @@ namespace noctalia::theme {
           return 1;
       }
 
-      if (configPath && !engine.processConfigFile(configPath))
+      if (configPath && !engine.processConfigTemplates(configRoot, templateConfigPath))
         return 1;
     }
 

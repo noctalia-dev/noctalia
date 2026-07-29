@@ -212,6 +212,69 @@ std::string formatLocalTime(const char* fmt) {
   }
 }
 
+bool isValidTimezone(std::string_view tzName) {
+  if (tzName.empty()) {
+    return true;
+  }
+  try {
+    return std::chrono::locate_zone(tzName) != nullptr;
+  } catch (...) {
+    return false;
+  }
+}
+
+std::string formatTimezoneTime(const char* fmt, std::string_view tzName) {
+  if (tzName.empty()) {
+    return formatLocalTime(fmt);
+  }
+
+  using namespace std::chrono;
+  const time_zone* tz = nullptr;
+  try {
+    tz = locate_zone(tzName);
+  } catch (...) {
+    return formatLocalTime(fmt);
+  }
+
+  if (tz == nullptr) {
+    return formatLocalTime(fmt);
+  }
+
+  const std::string normalizedFmt = normalizeFormatEscapes(fmt);
+  const auto now = floor<seconds>(system_clock::now());
+  const auto unixSeconds = duration_cast<seconds>(now.time_since_epoch()).count();
+  const auto local = tz->to_local(now);
+  const auto zoneInfo = tz->get_info(now);
+
+  std::tm tm{};
+  const auto localDays = floor<days>(local);
+  year_month_day ymd{localDays};
+  hh_mm_ss time{floor<seconds>(local - localDays)};
+  tm.tm_year = static_cast<int>(ymd.year()) - 1900;
+  tm.tm_mon = static_cast<unsigned>(ymd.month()) - 1;
+  tm.tm_mday = static_cast<unsigned>(ymd.day());
+  tm.tm_hour = static_cast<int>(time.hours().count());
+  tm.tm_min = static_cast<int>(time.minutes().count());
+  tm.tm_sec = static_cast<int>(time.seconds().count());
+  tm.tm_wday = weekday(localDays).c_encoding();
+  tm.tm_yday = static_cast<int>((localDays - local_days{ymd.year() / January / 1}).count());
+  tm.tm_isdst = zoneInfo.save != minutes::zero();
+#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+  tm.tm_gmtoff = static_cast<long>(zoneInfo.offset.count());
+  tm.tm_zone = zoneInfo.abbrev.c_str();
+#endif
+
+  if (auto compat = formatStrftimeCompat(normalizedFmt, tm, unixSeconds)) {
+    return *compat;
+  }
+
+  try {
+    return std::vformat(std::locale(""), normalizedFmt, std::make_format_args(local));
+  } catch (...) {
+    return normalizedFmt;
+  }
+}
+
 std::string formatLocalUnixTime(std::int64_t unixSeconds, std::string_view fmt) {
   using namespace std::chrono;
   const std::string normalizedFmt = normalizeFormatEscapes(fmt);

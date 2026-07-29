@@ -35,6 +35,8 @@ namespace shell::dock {
     float restMainPos = 0.0f;
     float restCrossPos = 0.0f;
     float hoverMainOffset = 0.0f;
+    float dragMainOffset = 0.0f; // additional offset applied while dragging this item
+    bool isDragGhost = false;    // drawn at reduced opacity as the placeholder slot
     float visualScale = -1.0f;
     float visualOpacity = -1.0f;
     AnimationManager::Id scaleAnimId = 0;
@@ -63,6 +65,10 @@ namespace shell::dock {
     std::function<void(DockInstance&, const DockItemAction&)> activateOrLaunch;
     std::function<void(DockInstance&)> toggleLauncher;
     std::function<void(DockInstance&, const DockItemAction&)> openItemMenu;
+    // Drag-to-reorder: only called when the source item is pinned.
+    std::function<void(DockInstance&, std::size_t itemIndex, float mainPos)> beginDrag;
+    std::function<void(DockInstance&, float mainPos)> updateDrag;
+    std::function<void(DockInstance&, bool commit)> endDrag;
   };
 
   [[nodiscard]] std::string_view dockLauncherIconGlyph(const DockConfig& cfg);
@@ -78,5 +84,9 @@ namespace shell::dock {
   syncHoverPointerFromScene(DockInstance& instance, const DockConfig& cfg, float sceneX, float sceneY);
   void clearHoverZoom(DockInstance& instance, DockItemSceneDependencies deps, const DockSnapshot& snapshot);
   void syncDockItemRestPositions(DockInstance& instance, const DockConfig& cfg);
+  void applyDragVisuals(DockInstance& instance, const DockConfig& cfg);
+  void clearDragVisuals(DockInstance& instance, const DockConfig& cfg);
+  void dismissDockTooltip();
+  [[nodiscard]] std::size_t computeDragTargetIndex(const DockInstance& instance, const DockConfig& cfg, float mainPos);
 
 } // namespace shell::dock

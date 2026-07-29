@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -33,16 +34,11 @@ using namespace control_center;
 namespace {
 
   constexpr auto kMprisRefreshMinInterval = std::chrono::milliseconds(750);
+  // Full-height cards need room for rounded-rect AA before the tab viewport clips them.
+  constexpr float kTabViewportClipInset = 1.0f;
 
-  [[nodiscard]] float normalizedScrollDelta(const InputArea::PointerData& data) {
-    float delta = data.scrollDelta(1.0f);
-    if (delta == 0.0f && data.axisValue120 != 0) {
-      delta = static_cast<float>(data.axisValue120) / 120.0f;
-    }
-    if (delta == 0.0f && data.axisDiscrete != 0) {
-      delta = static_cast<float>(data.axisDiscrete);
-    }
-    return delta;
+  float tabContentHeight(float viewportHeight) {
+    return std::max(1.0f, std::floor(viewportHeight - kTabViewportClipInset));
   }
 
 } // namespace
@@ -67,7 +63,7 @@ ControlCenterPanel::ControlCenterPanel(const ControlCenterServices& services) {
   m_tabs[tabIndex(TabId::Calendar)] = std::make_unique<CalendarTab>(services.config, services.calendar);
   m_tabs[tabIndex(TabId::Notifications)] = std::make_unique<NotificationsTab>(services.notifications);
   m_tabs[tabIndex(TabId::Network)] =
-      std::make_unique<NetworkTab>(services.network, services.networkSecrets, services.httpClient, services.config);
+      std::make_unique<NetworkTab>(services.network, services.networkSecrets, services.externalIp);
   m_tabs[tabIndex(TabId::Bluetooth)] = std::make_unique<BluetoothTab>(services.bluetooth, services.bluetoothAgent);
   m_tabs[tabIndex(TabId::Monitor)] = std::make_unique<MonitorTab>(services.brightness, services.config);
   m_tabs[tabIndex(TabId::System)] = std::make_unique<SystemTab>(services.sysmon);
@@ -110,7 +106,6 @@ void ControlCenterPanel::create() {
   for (auto& tab : m_tabs) {
     tab->setContentScale(scale);
     tab->setPanelCardOpacity(panelCardOpacity());
-    tab->setPanelBordersEnabled(panelBordersEnabled());
   }
 
   auto rootLayout = ui::row({
@@ -125,7 +120,7 @@ void ControlCenterPanel::create() {
         .out = &m_sidebar,
         .align = FlexAlign::Start,
         .gap = 0.0f,
-        .padding = Style::spaceSm * scale,
+        .padding = Style::spaceMd * scale,
         .fillWidth = false,
         .fillHeight = true,
         .configure = [this, scale](Flex& column) {
@@ -134,7 +129,7 @@ void ControlCenterPanel::create() {
         },
     });
 
-    auto sidebarScrollArea = std::make_unique<InputArea>();
+    auto sidebarScrollArea = ui::inputArea({});
     sidebarScrollArea->setParticipatesInLayout(false);
     sidebarScrollArea->setZIndex(-1);
     m_sidebarScrollArea = sidebarScrollArea.get();
@@ -228,7 +223,7 @@ void ControlCenterPanel::create() {
       .flexGrow = 4.0f,
   });
 
-  auto dismissArea = std::make_unique<InputArea>();
+  auto dismissArea = ui::inputArea({});
   dismissArea->setParticipatesInLayout(false);
   dismissArea->setZIndex(-1);
   dismissArea->setFocusable(false);
@@ -316,14 +311,6 @@ void ControlCenterPanel::create() {
   selectTab(m_activeTab);
 }
 
-void ControlCenterPanel::onPanelBordersChanged(bool enabled) {
-  for (auto& tab : m_tabs) {
-    if (tab != nullptr) {
-      tab->setPanelBordersEnabled(enabled);
-    }
-  }
-}
-
 void ControlCenterPanel::onPanelCardOpacityChanged(float opacity) {
   for (auto& tab : m_tabs) {
     if (tab != nullptr) {
@@ -351,6 +338,7 @@ void ControlCenterPanel::doLayout(Renderer& renderer, float width, float height)
       std::max(0.0f, m_content->width() - (m_content->paddingLeft() + m_content->paddingRight()));
   const float bodyWidth = m_tabBodies->width();
   const float bodyHeight = m_tabBodies->height();
+  const float bodyContentHeight = tabContentHeight(bodyHeight);
 
   if (m_sidebarScrollArea != nullptr && m_sidebar != nullptr) {
     m_sidebarScrollArea->setPosition(0.0f, 0.0f);
@@ -375,18 +363,18 @@ void ControlCenterPanel::doLayout(Renderer& renderer, float width, float height)
 
   for (auto* container : m_tabContainers) {
     if (container != nullptr && container->visible()) {
-      container->setSize(bodyWidth, bodyHeight);
+      container->setSize(bodyWidth, bodyContentHeight);
     }
   }
 
   layoutTabContainers(bodyWidth, bodyHeight);
 
-  const auto layoutTab = [this, bodyWidth, bodyHeight, &renderer](TabId tabId) {
+  const auto layoutTab = [this, bodyWidth, bodyContentHeight, &renderer](TabId tabId) {
     const std::size_t idx = tabIndex(tabId);
     if (m_tabs[idx] == nullptr || m_tabContainers[idx] == nullptr || !m_tabContainers[idx]->visible()) {
       return;
     }
-    m_tabs[idx]->layout(renderer, bodyWidth, bodyHeight);
+    m_tabs[idx]->layout(renderer, bodyWidth, bodyContentHeight);
   };
 
   if (m_tabTransitionActive) {
@@ -612,13 +600,14 @@ void ControlCenterPanel::applyTabContainerVisibility(TabId activeTab) {
 
 void ControlCenterPanel::layoutTabContainers(float bodyWidth, float bodyHeight) {
   const float travel = bodyHeight > 0.0f ? bodyHeight : 0.0f;
+  const float contentHeight = tabContentHeight(bodyHeight);
   for (std::size_t i = 0; i < kTabCount; ++i) {
     auto* container = m_tabContainers[i];
     if (container == nullptr || !container->visible()) {
       continue;
     }
 
-    container->setSize(bodyWidth, bodyHeight);
+    container->setSize(bodyWidth, contentHeight);
 
     float offsetY = 0.0f;
     float opacity = 1.0f;
@@ -736,11 +725,11 @@ void ControlCenterPanel::wireSidebarScroll(InputArea* area) {
     if (data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
       return;
     }
-    const float delta = normalizedScrollDelta(data);
-    if (delta == 0.0f) {
+    const float steps = data.scrollSteps();
+    if (steps == 0.0f) {
       return;
     }
-    selectAdjacentVisibleTab(delta > 0.0f ? 1 : -1);
+    selectAdjacentVisibleTab(steps > 0.0f ? 1 : -1);
   });
 }
 

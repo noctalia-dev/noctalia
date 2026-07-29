@@ -18,7 +18,6 @@ private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void syncState(Renderer& renderer);
-  void cycleProfile(int direction);
 
   PowerProfilesService* m_powerProfiles = nullptr;
   InputArea* m_area = nullptr;

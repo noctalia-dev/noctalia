@@ -64,6 +64,7 @@
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"
 #include "scripting/plugin_runtime_context.h"
+#include "scripting/script_runtime.h"
 #include "shell/clipboard/clipboard_panel.h"
 #include "shell/clipboard/clipboard_paste.h"
 #include "shell/control_center/control_center_panel.h"
@@ -83,6 +84,7 @@
 #include "system/brightness_service.h"
 #include "system/distro_info.h"
 #include "system/easyeffects_service.h"
+#include "system/keyboard_backlight_service.h"
 #include "system/system_monitor_service.h"
 #include "ui/app_icon_colorization.h"
 #include "ui/controls/input.h"
@@ -112,6 +114,7 @@ namespace {
 
   void signal_handler(int signum) {
     if (signum == SIGTERM || signum == SIGINT) {
+      scripting::ScriptRuntime::setShutdownSignal(signum);
       Application::s_shutdownRequested = true;
     }
   }
@@ -230,6 +233,7 @@ bool Application::likelySupportsInSessionPolkit() const noexcept {
 }
 
 void Application::syncPolkitAgent() {
+  m_polkitIdleCloseTimer.stop();
   if (m_systemBus == nullptr) {
     m_polkitPollSource.reset();
     m_polkitAgent.reset();
@@ -286,9 +290,22 @@ void Application::syncPolkitAgent() {
       return;
     }
     if (!m_polkitAgent->hasPendingRequest()) {
+      // Defer close so a follow-up BeginAuthentication in the same burst
+      // (pkexec → systemd-enable, etc.) can reuse the panel instead of racing
+      // teardown.
       if (m_panelManager.isOpenPanel("polkit")) {
-        m_panelManager.close();
+        m_polkitIdleCloseTimer.start(std::chrono::milliseconds(150), [this]() {
+          if (m_polkitAgent != nullptr && !m_polkitAgent->hasPendingRequest() && m_panelManager.isOpenPanel("polkit")) {
+            m_panelManager.close();
+          }
+        });
       }
+      return;
+    }
+    m_polkitIdleCloseTimer.stop();
+    // BeginAuthentication alone has no prompt yet; show-info and request both do.
+    const bool hasContent = m_polkitAgent->isResponseRequired() || !m_polkitAgent->supplementaryMessage().empty();
+    if (!hasContent && !m_panelManager.isOpenPanel("polkit")) {
       return;
     }
     if (!m_panelManager.isOpenPanel("polkit")) {
@@ -317,6 +334,9 @@ void Application::syncClipboardService() {
   m_wayland.setClipboardService(&m_clipboardService);
   Input::setTextClipboard(&m_clipboardService);
   m_clipboardService.setHistoryRetentionEnabled(enabled);
+  // Taking the selection over when its owner exits belongs to that same live
+  // transport, so it follows its own setting rather than history retention.
+  m_clipboardService.setKeepFromClosedApps(m_configService.config().shell.clipboardKeepFromClosedApps);
   m_clipboardService.setMaxHistoryEntries(
       static_cast<std::size_t>(m_configService.config().shell.clipboardHistoryMaxEntries)
   );
@@ -334,7 +354,31 @@ void Application::syncClipboardService() {
   }
 }
 
+void Application::syncStorageKeyProvider() {
+  const StorageConfig& storage = m_configService.config().storage;
+  const bool encryptedDataExists =
+      m_clipboardService.hasEncryptedPersistence() || m_calendarService.hasEncryptedCache();
+  m_storageKeyProvider.configure(storage.keySource, storage.keyFile, encryptedDataExists);
+}
+
 void Application::initServices() {
+  if (!security::initializeSecurityPrimitives()) {
+    kLog.error("libsodium initialization failed; encrypted persistence is unavailable");
+  }
+  m_storageKeyProvider.setChangeCallback([this]() {
+    m_clipboardService.syncPersistence();
+    m_calendarService.syncCachePersistence();
+  });
+  syncStorageKeyProvider();
+  m_configService.addReloadCallback(
+      [this]() {
+        if (m_configService.lastChange().storage) {
+          syncStorageKeyProvider();
+        }
+      },
+      "storage-key"
+  );
+  m_secretStore.retryAvailabilityCheck();
   initStyleThemeAndWayland();
   initWaylandCallbacks();
   initAuxServicesAndHooks();
@@ -357,6 +401,11 @@ void Application::initStyleThemeAndWayland() {
     const bool cornerChanged =
         std::isfinite(lastCornerRadiusScale) && std::abs(corner - lastCornerRadiusScale) > 1.0e-4f;
     Style::setCornerRadiusScale(corner);
+    Style::setButtonBordersEnabled(m_configService.config().shell.buttonBorders);
+    Style::setInputBordersEnabled(m_configService.config().shell.inputBorders);
+    Style::setPopupBordersEnabled(m_configService.config().shell.popupBorders);
+    Style::setPopupShadowsEnabled(m_configService.config().shell.popupShadows);
+    Style::setCardBordersEnabled(m_configService.config().shell.cardBorders);
     lastCornerRadiusScale = corner;
     if (cornerChanged) {
       m_notificationToast.requestLayout();
@@ -467,6 +516,12 @@ void Application::initStyleThemeAndWayland() {
   // Let a plugin toggle one of its own panels.
   m_scriptApi.setTogglePanelHook([this](const std::string& panelId) { m_panelManager.togglePanel(panelId); });
 
+  m_scriptApi.setOpenPluginSettingsHook([this](const std::string& pluginId) {
+    if (!m_panelManager.openPluginSettings(pluginId)) {
+      kLog.warn("plugin openSettings ignored: \"{}\" has no settings", pluginId);
+    }
+  });
+
   m_themeService.setResolvedCallback([this, lastResolvedThemeMode = std::optional<std::string>{},
                                       syncScriptApiWallpaperDirectory](
                                          const noctalia::theme::GeneratedPalette& generated, std::string_view mode
@@ -475,17 +530,18 @@ void Application::initStyleThemeAndWayland() {
     const std::string configuredMode(enumToKey(kThemeModes, m_themeService.configuredMode()));
     m_scriptApi.setDarkMode(resolvedMode != "light");
     syncScriptApiWallpaperDirectory();
+    const std::optional<std::string> previousMode = lastResolvedThemeMode;
+    lastResolvedThemeMode = resolvedMode;
+    m_templateApplyService.setAfterApplyCallback([this]() { m_hookManager.fire(HookKind::ColorsChanged); });
     m_templateApplyService.apply(generated, mode);
-    m_hookManager.fire(HookKind::ColorsChanged);
-    if (lastResolvedThemeMode.has_value() && *lastResolvedThemeMode != resolvedMode) {
+    if (previousMode.has_value() && *previousMode != resolvedMode) {
       m_hookManager.fire(
           HookKind::ThemeModeChanged,
           {{"NOCTALIA_THEME_MODE", resolvedMode},
-           {"NOCTALIA_THEME_MODE_PREVIOUS", *lastResolvedThemeMode},
+           {"NOCTALIA_THEME_MODE_PREVIOUS", *previousMode},
            {"NOCTALIA_THEME_MODE_CONFIGURED", configuredMode}}
       );
     }
-    lastResolvedThemeMode = resolvedMode;
   });
   m_themeService.apply();
   syncScriptApiWallpaperDirectory();
@@ -605,6 +661,7 @@ void Application::initWaylandCallbacks() {
       (void)m_compositorPlatform.clearActiveWorkspaceAlerts();
     }
     m_bar.onWorkspaceChanged();
+    m_dock.onWorkspaceChanged();
     m_bar.refresh();
     m_windowSwitcher.onToplevelChange();
   });
@@ -619,6 +676,8 @@ void Application::initWaylandCallbacks() {
   });
   m_compositorPlatform.setToplevelChangeCallback([this]() {
     m_screenTimeService.onFocusChange();
+    m_bar.scheduleSmartAutoHideReevaluation();
+    m_dock.scheduleSmartAutoHideReevaluation();
     m_bar.refresh();
     m_dock.refresh();
     m_windowSwitcher.onToplevelChange();
@@ -663,9 +722,9 @@ void Application::initWaylandCallbacks() {
 void Application::initAuxServicesAndHooks() {
   auto shouldRefreshControlCenter = [this]() { return m_panelManager.isOpenPanel("control-center"); };
 
-  m_hookManager.setCommandRunner([this](const std::string& command) { return runUserCommand(command); });
+  m_hookManager.setCommandRunner([this](const std::string& command) { return runShellCommand(command); });
   m_hookManager.setBlockingCommandRunner([this](const std::string& command) {
-    return runUserCommandBlocking(command);
+    return runShellCommandBlocking(command);
   });
   m_hookManager.reload(m_configService.config().hooks);
   m_configService.addReloadCallback(
@@ -757,6 +816,7 @@ void Application::initAuxServicesAndHooks() {
 
   try {
     m_systemMonitor = std::make_unique<SystemMonitorService>(m_configService.config().system.monitor);
+    m_scriptApi.setSystemMonitor(m_systemMonitor.get());
     if (m_systemMonitor->isRunning()) {
       kLog.info("system monitor service active");
     } else {
@@ -786,6 +846,7 @@ void Application::initAuxServicesAndHooks() {
     });
   } catch (const std::exception& e) {
     kLog.warn("system monitor service disabled: {}", e.what());
+    m_scriptApi.setSystemMonitor(nullptr);
     m_systemMonitor.reset();
   }
 }
@@ -806,6 +867,9 @@ void Application::initSystemBusServices() {
       try {
         m_logindService = std::make_unique<LogindService>(*m_systemBus);
         m_logindService->setPrepareForSleepCallback([this](bool sleeping) {
+          // Idle grace overlay must not survive suspend; hide on both edges as a fallback when
+          // fade-complete cleanup races with process freeze.
+          m_idleGraceOverlay.hide();
           if (sleeping) {
             return;
           }
@@ -822,6 +886,7 @@ void Application::initSystemBusServices() {
               }
             });
           }
+          requestAllSurfacesRedraw();
         });
         kLog.info("logind sleep monitor active");
         m_idleInhibitor.setLogindService(m_logindService.get());
@@ -904,10 +969,21 @@ void Application::initSystemBusServices() {
     }
 
     try {
+      m_keyboardBacklightService = std::make_unique<KeyboardBacklightService>(*m_systemBus);
+      m_keyboardBacklightService->setChangeCallback([this]() {
+        m_keyboardBacklightOsd.onBrightnessChanged(*m_keyboardBacklightService);
+      });
+    } catch (const std::exception& e) {
+      kLog.warn("keyboard backlight disabled: {}", e.what());
+      m_keyboardBacklightService.reset();
+    }
+
+    try {
       m_networkService = std::make_unique<NetworkManagerService>(*m_systemBus);
       m_networkService->setChangeCallback(
           [this, shouldRefreshControlCenter](const NetworkState& state, NetworkChangeOrigin origin) {
             onNetworkStateChangedForEvents(state, origin);
+            m_externalIpService.onNetworkChanged();
             m_bar.refresh();
             if (shouldRefreshControlCenter()) {
               m_panelManager.refresh();
@@ -925,6 +1001,7 @@ void Application::initSystemBusServices() {
         m_networkService->setChangeCallback(
             [this, shouldRefreshControlCenter](const NetworkState& state, NetworkChangeOrigin origin) {
               onNetworkStateChangedForEvents(state, origin);
+              m_externalIpService.onNetworkChanged();
               m_bar.refresh();
               if (shouldRefreshControlCenter()) {
                 m_panelManager.refresh();
@@ -942,6 +1019,7 @@ void Application::initSystemBusServices() {
           m_networkService->setChangeCallback(
               [this, shouldRefreshControlCenter](const NetworkState& state, NetworkChangeOrigin origin) {
                 onNetworkStateChangedForEvents(state, origin);
+                m_externalIpService.onNetworkChanged();
                 m_bar.refresh();
                 if (shouldRefreshControlCenter()) {
                   m_panelManager.refresh();
@@ -958,6 +1036,18 @@ void Application::initSystemBusServices() {
         }
       }
     }
+
+    if (m_networkService != nullptr) {
+      m_externalIpService.setNetworkService(m_networkService.get());
+      m_externalIpService.setChangeCallback([this, shouldRefreshControlCenter]() {
+        m_bar.refresh();
+        if (shouldRefreshControlCenter()) {
+          m_panelManager.refresh();
+        }
+      });
+      m_externalIpService.onNetworkChanged();
+    }
+    m_configService.addReloadCallback([this]() { m_externalIpService.onConfigReload(); });
 
     if (m_networkService != nullptr && m_networkService->supportsSecretAgent()) {
       try {
@@ -1163,14 +1253,19 @@ void Application::initSessionBusServices() {
         m_bar.refresh();
         m_desktopWidgetsController.requestUpdate();
         m_mediaOsd.onMprisChanged(*m_mprisService);
+        if (m_lockScreen.isActive()) {
+          m_lockScreen.requestUpdate();
+        }
         if (shouldRefreshControlCenter()) {
           m_panelManager.refresh();
         }
       });
+      m_lockScreen.setLoginBoxServices(&m_sessionActionRunner, m_mprisService.get(), &m_weatherService, &m_httpClient);
       kLog.info("mpris discovery active");
     } catch (const std::exception& e) {
       kLog.warn("mpris disabled: {}", e.what());
       m_mprisService.reset();
+      m_lockScreen.setLoginBoxServices(&m_sessionActionRunner, nullptr, &m_weatherService, &m_httpClient);
       m_notificationManager.addInternal(
           "Noctalia", i18n::tr("notifications.internal.mpris-disabled"), e.what(), Urgency::Low
       );
@@ -1227,6 +1322,9 @@ void Application::initSessionBusServices() {
   m_weatherService.addChangeCallback([this, shouldRefreshControlCenter]() {
     m_bar.refresh();
     m_desktopWidgetsController.requestLayout();
+    if (m_lockScreen.isActive()) {
+      m_lockScreen.requestUpdate();
+    }
     if (shouldRefreshControlCenter()) {
       m_panelManager.refresh();
     }
@@ -1257,8 +1355,8 @@ void Application::triggerShellAction(const std::string& action, wl_output* outpu
   } else if (action == "overview") {
     // There is no public toggle for overview in OverviewLauncherCapture.
     // Try to execute a generic compositor action, or use niri directly if using niri.
-    runUserCommand("niri msg action toggle-overview");
+    runShellCommand("niri msg action toggle-overview");
   } else if (action == "window_switcher") {
-    runUserCommand("noctalia:window-switcher");
+    m_windowSwitcher.show(output);
   }
 }

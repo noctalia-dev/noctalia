@@ -2,15 +2,19 @@
 
 #include "config/config_service.h"
 #include "config/config_types.h"
-#include "core/files/resource_paths.h"
+#include "core/files/directory_scanner.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/scene/node.h"
+#include "shell/bar/widget_gesture.h"
+#include "shell/bar/widget_gesture_defaults.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/font_weight_catalog.h"
+#include "shell/settings/path_browse.h"
 #include "shell/settings/settings_content.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "ui/builders.h"
+#include "ui/controls/collapsible.h"
 #include "ui/dialogs/file_dialog.h"
 #include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/palette.h"
@@ -28,7 +32,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <unordered_map>
 #include <utility>
 #include <variant>
@@ -41,8 +44,6 @@ namespace settings {
   [[nodiscard]] std::optional<double> parseDoubleInput(std::string_view text);
 
   namespace {
-
-    constexpr float kDragStartThresholdPx = 6.0f;
 
     struct LaneWidgetDragState {
       bool active = false;
@@ -107,54 +108,77 @@ namespace settings {
       return header;
     }
 
-    std::string_view widgetSettingGroupKey(const WidgetSettingSpec& spec) {
-      switch (spec.group) {
-      case WidgetSettingGroup::Runtime:
-        return "runtime";
-      case WidgetSettingGroup::Presentation:
-        return "presentation";
-      case WidgetSettingGroup::Grouping:
-        return "grouping";
-      case WidgetSettingGroup::Widget:
-        return "widget";
+    // One row per bindable gesture: a picker over Default / Disabled / every command / a free-form
+    // shell command, plus an argument field when the choice takes one.
+    // One row per bindable gesture, built by the shared factory so this matches every other
+    // gesture-binding surface.
+    void addGestureActionRows(
+        Flex& panel, const BarWidgetEditorContext& ctx, const SettingEntry& entry,
+        const WidgetSettingStringMap& defaults, const WidgetSettingStringMap& configured,
+        noctalia::bar::GestureMask reserved
+    ) {
+      for (const auto gesture : noctalia::bar::allGestures()) {
+        if (reserved.contains(gesture)) {
+          continue;
+        }
+        const std::string key(noctalia::bar::gestureConfigKey(gesture));
+        std::vector<std::string> path = entry.path;
+        path.push_back(key);
+
+        const auto configuredIt = configured.find(key);
+        const auto defaultIt = defaults.find(key);
+
+        SettingEntry rowEntry = entry;
+        rowEntry.path = path;
+        rowEntry.title = i18n::tr(std::string(noctalia::bar::gestureLabelKey(gesture)));
+        rowEntry.subtitle.clear();
+
+        GestureActionSetting setting{
+            .gestureKey = key,
+            .configured = configuredIt != configured.end() ? configuredIt->second : std::string{},
+            .defaultAction = defaultIt != defaults.end() ? defaultIt->second : std::string{},
+        };
+        ctx.makeRow(panel, rowEntry, ctx.makeGestureActionRow(setting, rowEntry.title, path));
       }
-      return "widget";
     }
 
     std::string widgetSettingGroupTitle(std::string_view groupKey) {
       return i18n::tr("settings.entities.widget.settings.groups." + std::string(groupKey));
     }
 
-    enum class PathBrowseKind : std::uint8_t {
-      File,
-      Folder,
-    };
+    constexpr std::string_view kGestureActionsGroup = "actions";
 
-    void applyPathDialogStartValue(FileDialogOptions& options, const std::string& currentValue, PathBrowseKind kind) {
-      if (currentValue.empty()) {
-        return;
+    // The actions group is long (one row per bindable gesture) and most widgets never need it, so it
+    // starts folded. The open state lives on the settings window keyed by widget name: editing a
+    // binding rebuilds the scene, and a local flag would fold the group back up on every edit.
+    std::unique_ptr<Node> makeGestureActionsSection(
+        const BarWidgetEditorContext& ctx, const std::string& widgetName, std::unique_ptr<Node> body, bool withSeparator
+    ) {
+      // Same padding and gap as makeMiniSectionHeader, so this section sits like every other one.
+      auto section = ui::column({
+          .align = FlexAlign::Stretch,
+          .gap = Style::spaceXs * ctx.scale,
+          .configure = [scale = ctx.scale](Flex& flex) { flex.setPadding(Style::spaceSm * scale, 0.0f, 0.0f, 0.0f); },
+      });
+      if (withSeparator) {
+        section->addChild(ui::separator());
       }
 
-      const std::filesystem::path current(currentValue);
-      std::error_code ec;
-      if (kind == PathBrowseKind::Folder
-          && std::filesystem::exists(current, ec)
-          && std::filesystem::is_directory(current, ec)) {
-        options.startDirectory = current;
-        return;
-      }
-      if (kind == PathBrowseKind::File
-          && std::filesystem::exists(current, ec)
-          && std::filesystem::is_regular_file(current, ec)) {
-        options.startDirectory = current.parent_path();
-        options.defaultFilename = current.filename().string();
-        return;
-      }
-      if (current.has_parent_path()
-          && std::filesystem::exists(current.parent_path(), ec)
-          && std::filesystem::is_directory(current.parent_path(), ec)) {
-        options.startDirectory = current.parent_path();
-      }
+      auto collapsible = std::make_unique<Collapsible>();
+      collapsible->setScale(ctx.scale);
+      // Flush left, matching the plain group headers above it.
+      collapsible->setHeaderPadding(0.0f, 0.0f);
+      collapsible->setHeader(makeLabel(
+          widgetSettingGroupTitle(kGestureActionsGroup), Style::fontSizeCaption * ctx.scale,
+          colorSpecFromRole(ColorRole::Secondary), FontWeight::Bold
+      ));
+      collapsible->setBody(std::move(body));
+      collapsible->setExpandedImmediate(ctx.actionsExpandedFor == widgetName);
+      collapsible->setOnToggle([expandedFor = &ctx.actionsExpandedFor, widgetName](bool value) {
+        *expandedFor = value ? widgetName : std::string{};
+      });
+      section->addChild(std::move(collapsible));
+      return section;
     }
 
     std::unique_ptr<Node> makePathBrowseControl(
@@ -175,7 +199,7 @@ namespace settings {
           ui::button({
               .glyph = std::move(glyph),
               .glyphSize = Style::fontSizeBody * ctx.scale,
-              .variant = ButtonVariant::Outline,
+              .variant = ButtonVariant::Default,
               .minWidth = Style::controlHeight * ctx.scale,
               .minHeight = Style::controlHeight * ctx.scale,
               .paddingV = Style::spaceXs * ctx.scale,
@@ -453,6 +477,63 @@ namespace settings {
       return isNamedWidgetInstance(ctx.config, widgetName)
           && ctx.configService != nullptr
           && ctx.configService->hasOverride({"widget", std::string(widgetName)});
+    }
+
+    bool widgetHasPlacementAfterLaneEdit(
+        const Config& cfg, const std::vector<std::string>& editedLanePath,
+        const std::vector<std::string>& editedLaneItems, std::string_view widgetName
+    ) {
+      const auto editedItems = [&](const std::vector<std::string>& path,
+                                   const std::vector<std::string>& items) -> const std::vector<std::string>& {
+        return path == editedLanePath ? editedLaneItems : items;
+      };
+      const auto scopeContains = [&](const std::vector<std::string>& start, const std::vector<std::string>& center,
+                                     const std::vector<std::string>& end,
+                                     const std::vector<BarCapsuleGroupStyle>& groups) {
+        if (std::ranges::contains(start, widgetName)
+            || std::ranges::contains(center, widgetName)
+            || std::ranges::contains(end, widgetName)) {
+          return true;
+        }
+        for (const auto& group : groups) {
+          if (!std::ranges::contains(group.members, widgetName)) {
+            continue;
+          }
+          const std::string token = makeCapsuleGroupToken(group.id);
+          if (std::ranges::contains(start, token)
+              || std::ranges::contains(center, token)
+              || std::ranges::contains(end, token)) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      for (const auto& bar : cfg.bars) {
+        const std::vector<std::string>& baseStart = editedItems({"bar", bar.name, "start"}, bar.startWidgets);
+        const std::vector<std::string>& baseCenter = editedItems({"bar", bar.name, "center"}, bar.centerWidgets);
+        const std::vector<std::string>& baseEnd = editedItems({"bar", bar.name, "end"}, bar.endWidgets);
+        if (scopeContains(baseStart, baseCenter, baseEnd, bar.widgetCapsuleGroups)) {
+          return true;
+        }
+
+        for (const auto& ovr : bar.monitorOverrides) {
+          const std::vector<std::string>& monitorStart = ovr.startWidgets.has_value()
+              ? editedItems({"bar", bar.name, "monitor", ovr.match, "start"}, *ovr.startWidgets)
+              : baseStart;
+          const std::vector<std::string>& monitorCenter = ovr.centerWidgets.has_value()
+              ? editedItems({"bar", bar.name, "monitor", ovr.match, "center"}, *ovr.centerWidgets)
+              : baseCenter;
+          const std::vector<std::string>& monitorEnd = ovr.endWidgets.has_value()
+              ? editedItems({"bar", bar.name, "monitor", ovr.match, "end"}, *ovr.endWidgets)
+              : baseEnd;
+          const auto& groups = ovr.widgetCapsuleGroups.has_value() ? *ovr.widgetCapsuleGroups : bar.widgetCapsuleGroups;
+          if (scopeContains(monitorStart, monitorCenter, monitorEnd, groups)) {
+            return true;
+          }
+        }
+      }
+      return false;
     }
 
     bool isValidWidgetInstanceId(std::string_view id) {
@@ -939,9 +1020,32 @@ namespace settings {
       if (!spec.visibleWhen.has_value()) {
         return true;
       }
-      auto matches = [&](const std::string& key, const std::vector<std::string>& values) {
-        const auto currentValue = settingCurrentString(cfg, widgetName, key, allSpecs);
-        for (const auto& v : values) {
+      auto settingValueForKey = [&](const std::string& key) -> WidgetSettingValue {
+        if (const auto it = cfg.widgets.find(std::string(widgetName)); it != cfg.widgets.end()) {
+          if (const auto settingIt = it->second.settings.find(key); settingIt != it->second.settings.end()) {
+            return settingIt->second;
+          }
+        }
+        for (const auto& s : allSpecs) {
+          if (s.schema.key == key) {
+            return s.schema.defaultValue;
+          }
+        }
+        return {};
+      };
+      auto matches = [&](const WidgetSettingVisibilityCondition& condition) {
+        const WidgetSettingValue value = settingValueForKey(condition.key);
+        if (condition.nonEmpty) {
+          if (const auto* list = std::get_if<std::vector<std::string>>(&value)) {
+            return !list->empty();
+          }
+          if (const auto* str = std::get_if<std::string>(&value)) {
+            return !str->empty();
+          }
+          return false;
+        }
+        const auto currentValue = settingCurrentString(cfg, widgetName, condition.key, allSpecs);
+        for (const auto& v : condition.values) {
           if (v == currentValue) {
             return true;
           }
@@ -949,7 +1053,7 @@ namespace settings {
         return false;
       };
       for (const auto& condition : spec.visibleWhen->all) {
-        if (!matches(condition.key, condition.values)) {
+        if (!matches(condition)) {
           return false;
         }
       }
@@ -957,7 +1061,7 @@ namespace settings {
         return true;
       }
       for (const auto& condition : spec.visibleWhen->any) {
-        if (matches(condition.key, condition.values)) {
+        if (matches(condition)) {
           return true;
         }
       }
@@ -1110,36 +1214,77 @@ namespace settings {
               }
               out += "]";
               return out;
+            } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
+              std::vector<std::string> keys;
+              keys.reserve(concrete.size());
+              for (const auto& [key, mapValue] : concrete) {
+                (void)mapValue;
+                keys.push_back(key);
+              }
+              std::ranges::sort(keys);
+              std::string out = "{";
+              for (std::size_t i = 0; i < keys.size(); ++i) {
+                if (i > 0) {
+                  out += ", ";
+                }
+                out += "\"" + keys[i] + "\" = \"" + concrete.at(keys[i]) + "\"";
+              }
+              out += "}";
+              return out;
             }
           },
           value
       );
     }
 
-    [[nodiscard]] bool workspacesMinimalEnabled(
+    [[nodiscard]] bool workspacesCompactStyleEnabled(
         const Config& cfg, std::string_view widgetName, const std::vector<WidgetSettingSpec>& allSpecs
     ) {
-      for (const auto& spec : allSpecs) {
-        if (spec.schema.key == "minimal") {
-          return settingValueAsBool(widgetSettingValue(cfg, widgetName, spec));
-        }
+      const std::string style = settingCurrentString(cfg, widgetName, "style", allSpecs);
+      return style == "minimal" || style == "focus_hint";
+    }
+
+    SelectSetting workspacesStyleSelectSetting(
+        const BarWidgetEditorContext& ctx, std::string_view widgetName, const WidgetSettingSpec& styleSpec,
+        const std::vector<WidgetSettingSpec>& allSpecs, std::string selectedValue
+    ) {
+      std::vector<SelectOption> options;
+      options.reserve(styleSpec.options.size());
+      for (const auto& option : styleSpec.options) {
+        options.push_back(
+            SelectOption{option.value, styleSpec.literalLabels ? option.labelKey : i18n::tr(option.labelKey)}
+        );
       }
-      return false;
+      SelectSetting selectSetting{std::move(options), std::move(selectedValue)};
+      selectSetting.segmented = styleSpec.segmented;
+      const ConfigService* configService = ctx.configService;
+      selectSetting.groupedCommit = [configService, widgetName = std::string(widgetName),
+                                     allSpecs](std::string_view value, const std::vector<std::string>& path) {
+        std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides;
+        overrides.emplace_back(path, ConfigOverrideValue{std::string(value)});
+        if ((value == "minimal" || value == "focus_hint")
+            && configService != nullptr
+            && settingCurrentString(configService->config(), widgetName, "display", allSpecs) == "none") {
+          overrides.emplace_back(widgetSettingPath(widgetName, "display"), ConfigOverrideValue{std::string("id")});
+        }
+        return overrides;
+      };
+      return selectSetting;
     }
 
     SelectSetting workspacesDisplaySelectSetting(
         const BarWidgetEditorContext& ctx, std::string_view widgetName, const WidgetSettingSpec& displaySpec,
         const std::vector<WidgetSettingSpec>& allSpecs, std::string selectedValue
     ) {
-      const bool minimal = workspacesMinimalEnabled(ctx.config, widgetName, allSpecs);
-      if (minimal && selectedValue == "none") {
+      const bool compactStyle = workspacesCompactStyleEnabled(ctx.config, widgetName, allSpecs);
+      if (compactStyle && selectedValue == "none") {
         selectedValue = "id";
       }
 
       std::vector<SelectOption> options;
       options.reserve(displaySpec.options.size());
       for (const auto& option : displaySpec.options) {
-        if (minimal && option.value == "none") {
+        if (compactStyle && option.value == "none") {
           continue;
         }
         options.push_back(
@@ -1168,18 +1313,44 @@ namespace settings {
       }
 
       SelectSetting selectSetting{std::move(options), std::move(selectedValue)};
-      selectSetting.integerValue = spec.integerValue;
+      selectSetting.valueType = spec.integerValue ? SelectValueType::Integer : SelectValueType::String;
       return selectSetting;
     }
 
-    SelectSetting batteryDeviceSelectSetting(const BarWidgetEditorContext& ctx, std::string selectedValue) {
-      if (selectedValue.empty()) {
-        selectedValue = "auto";
+    SelectSetting
+    sourcedSelectSetting(const BarWidgetEditorContext& ctx, const WidgetSettingSpec& spec, std::string selectedValue) {
+      std::vector<SelectOption> options;
+      const auto appendUnique = [&](SelectOption option) {
+        if (!std::ranges::contains(options, option.value, &SelectOption::value)) {
+          options.push_back(std::move(option));
+        }
+      };
+      options.reserve(spec.options.size());
+      for (const auto& option : spec.options) {
+        appendUnique(
+            SelectOption{
+                .value = option.value,
+                .label = spec.literalLabels ? option.labelKey : i18n::tr(option.labelKey),
+            }
+        );
       }
 
-      std::vector<SelectOption> options = ctx.batteryDeviceOptions;
-      if (options.empty()) {
-        options.push_back(SelectOption{.value = "auto", .label = i18n::tr("common.states.auto")});
+      std::vector<SelectOption> sourcedOptions;
+      switch (spec.optionSource) {
+      case WidgetSettingOptionSource::BatteryDevices:
+        sourcedOptions = ctx.batteryDeviceOptions;
+        break;
+      case WidgetSettingOptionSource::Static:
+        break;
+      }
+      options.reserve(options.size() + sourcedOptions.size());
+      for (auto& option : sourcedOptions) {
+        appendUnique(std::move(option));
+      }
+
+      const auto hasEmptyOption = std::ranges::contains(options, std::string_view{}, &SelectOption::value);
+      if (selectedValue.empty() && !hasEmptyOption) {
+        selectedValue = settingValueAsString(spec.schema.defaultValue);
       }
 
       const auto hasSelected = std::ranges::contains(options, selectedValue, &SelectOption::value);
@@ -1334,12 +1505,14 @@ namespace settings {
       std::size_t visibleSpecs = 0;
       std::string activeGroupKey;
       // Coalesce specs by group so each group header renders once regardless of spec declaration order.
-      const auto specOrder =
-          coalesceByGroupKey(specs.size(), [&](std::size_t i) { return std::string(widgetSettingGroupKey(specs[i])); });
+      const auto specOrder = coalesceByGroupKey(specs.size(), [&](std::size_t i) { return specs[i].group; });
       const bool barHorizontal =
           lanePath.size() >= 2 && lanePath[0] == "bar" ? isBarHorizontal(ctx.config, lanePath[1]) : true;
       for (const std::size_t specIndex : specOrder) {
         const auto& spec = specs[specIndex];
+        if (!spec.visibleInInspector) {
+          continue;
+        }
         if (spec.horizontalBarOnly && !barHorizontal) {
           continue;
         }
@@ -1355,10 +1528,12 @@ namespace settings {
           continue;
         }
 
-        const std::string_view groupKey = widgetSettingGroupKey(spec);
-        if (groupKey != activeGroupKey) {
-          panel->addChild(makeMiniSectionHeader(widgetSettingGroupTitle(groupKey), ctx.scale, visibleSpecs > 0));
-          activeGroupKey = groupKey;
+        if (spec.group != activeGroupKey) {
+          // The actions group folds, and carries its title in the collapsible's own header.
+          if (spec.group != kGestureActionsGroup) {
+            panel->addChild(makeMiniSectionHeader(widgetSettingGroupTitle(spec.group), ctx.scale, visibleSpecs > 0));
+          }
+          activeGroupKey = spec.group;
         }
 
         const auto value = widgetSettingValue(ctx.config, widgetName, spec);
@@ -1388,7 +1563,7 @@ namespace settings {
               ui::button({
                   .glyph = "apps",
                   .glyphSize = Style::fontSizeBody * ctx.scale,
-                  .variant = ButtonVariant::Outline,
+                  .variant = ButtonVariant::Default,
                   .minWidth = Style::controlHeight * ctx.scale,
                   .minHeight = Style::controlHeight * ctx.scale,
                   .paddingV = Style::spaceXs * ctx.scale,
@@ -1423,36 +1598,16 @@ namespace settings {
           if (const auto* defaultBool = std::get_if<bool>(&spec.schema.defaultValue)) {
             clearWhenValue = *defaultBool;
           }
-          if (widgetType == "workspaces" && spec.schema.key == "minimal") {
-            ctx.makeRow(
-                *panel, entry,
-                ui::toggle({
-                    .checked = settingValueAsBool(value),
-                    .scale = ctx.scale,
-                    .onChange = [configService = ctx.configService, setOverride = ctx.setOverride,
-                                 requestRebuild = ctx.requestRebuild, widgetName = std::string(widgetName), path,
-                                 displayPath = widgetSettingPath(std::string(widgetName), "display"),
-                                 specs](bool enabled) {
-                      setOverride(path, enabled);
-                      if (enabled
-                          && configService != nullptr
-                          && settingCurrentString(configService->config(), widgetName, "display", specs) == "none") {
-                        setOverride(displayPath, std::string("id"));
-                      }
-                      if (requestRebuild) {
-                        requestRebuild();
-                      }
-                    },
-                })
-            );
-          } else {
-            ctx.makeRow(*panel, entry, ctx.makeToggle(settingValueAsBool(value), path, clearWhenValue));
-          }
+          ctx.makeRow(*panel, entry, ctx.makeToggle(settingValueAsBool(value), path, clearWhenValue));
           break;
         }
         case WidgetControlKind::Int: {
-          const double minValue = spec.schema.minValue.value_or(0.0);
-          const double maxValue = spec.schema.maxValue.value_or(100.0);
+          // A plugin manifest may declare minValue > maxValue; order the range so
+          // the clamp, stepper, and slider below all get a valid [min, max].
+          const double rawMin = spec.schema.minValue.value_or(0.0);
+          const double rawMax = spec.schema.maxValue.value_or(100.0);
+          const double minValue = std::min(rawMin, rawMax);
+          const double maxValue = std::max(rawMin, rawMax);
           if (spec.stepper) {
             const int minStep = static_cast<int>(std::lround(minValue));
             const int maxStep = static_cast<int>(std::lround(maxValue));
@@ -1518,8 +1673,8 @@ namespace settings {
             options.mode = FileDialogMode::Open;
             options.defaultViewMode = FileDialogViewMode::Grid;
             options.title = i18n::tr("settings.widgets.settings.custom-image.dialog-title");
-            options.extensions = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".bmp", ".gif"};
-            options.startDirectory = paths::assetPath("images");
+            options.extensions = DirectoryScanner::imageExtensionFilter(true);
+            options.startDirectory = "/usr/share/icons";
             ctx.makeRow(
                 *panel, entry,
                 makePathBrowseControl(
@@ -1564,18 +1719,60 @@ namespace settings {
         case WidgetControlKind::StringList:
           ctx.makeListBlock(*panel, entry, ListSetting{.items = settingValueAsStringList(value)});
           break;
-        case WidgetControlKind::StringMap:
+        case WidgetControlKind::StringMap: {
+          // Gesture bindings have a closed key set, so they get one fixed row per gesture rather
+          // than the free-form key/value editor.
+          if (spec.schema.key == "actions") {
+            WidgetSettingStringMap defaults;
+            if (const auto* declared = std::get_if<WidgetSettingStringMap>(&spec.schema.defaultValue)) {
+              defaults = *declared;
+            }
+            WidgetSettingStringMap configured;
+            if (widgetConfig != nullptr) {
+              if (const auto tableIt = widgetConfig->tables.find(spec.schema.key);
+                  tableIt != widgetConfig->tables.end()) {
+                configured = tableIt->second;
+              }
+            }
+            auto body = ui::column({.align = FlexAlign::Stretch});
+            addGestureActionRows(
+                *body, ctx, entry, defaults, configured, noctalia::bar::reservedGesturesForType(widgetType)
+            );
+            panel->addChild(makeGestureActionsSection(ctx, widgetName, std::move(body), visibleSpecs > 0));
+            break;
+          }
+          const bool customLabels = spec.schema.key == "custom_labels";
+          const bool effectsProfileGlyphs = spec.schema.key == "effects_profile_glyphs";
+          WidgetSettingStringMap entries;
+          if (widgetConfig != nullptr) {
+            if (const auto tableIt = widgetConfig->tables.find(spec.schema.key);
+                tableIt != widgetConfig->tables.end()) {
+              entries = tableIt->second;
+            } else if (const auto* defaults = std::get_if<WidgetSettingStringMap>(&spec.schema.defaultValue)) {
+              entries = *defaults;
+            }
+          } else if (const auto* defaults = std::get_if<WidgetSettingStringMap>(&spec.schema.defaultValue)) {
+            entries = *defaults;
+          }
           ctx.makeStringMapBlock(
               *panel, entry,
               StringMapSetting{
-                  .entries = widgetConfig != nullptr ? widgetConfig->getStringMap(spec.schema.key)
-                                                     : std::unordered_map<std::string, std::string>{},
-                  .suggestedKeys = ctx.keyboardLayoutNames,
-                  .keyPlaceholder = "Layout name",
-                  .valuePlaceholder = "Label",
+                  .entries = std::move(entries),
+                  .suggestedKeys = customLabels ? ctx.keyboardLayoutNames : std::vector<std::string>{},
+                  .keyPlaceholder = i18n::tr(
+                      customLabels               ? "settings.widgets.map-placeholders.layout-name"
+                          : effectsProfileGlyphs ? "settings.widgets.map-placeholders.effects-profile-name"
+                                                 : "settings.widgets.map-placeholders.key"
+                  ),
+                  .valuePlaceholder = i18n::tr(
+                      customLabels               ? "settings.widgets.map-placeholders.label"
+                          : effectsProfileGlyphs ? "settings.widgets.map-placeholders.glyph-name"
+                                                 : "settings.widgets.map-placeholders.value"
+                  ),
               }
           );
           break;
+        }
         case WidgetControlKind::Select: {
           SelectSetting selectSetting;
           const std::string selectedValue = settingValueAsString(value);
@@ -1596,8 +1793,8 @@ namespace settings {
             ctx.makeRow(*panel, entry, ctx.makeSearchPicker(picker, entry.title, path));
             break;
           }
-          if (widgetType == "battery" && spec.schema.key == "device") {
-            selectSetting = batteryDeviceSelectSetting(ctx, selectedValue);
+          if (spec.optionSource != WidgetSettingOptionSource::Static) {
+            selectSetting = sourcedSelectSetting(ctx, spec, selectedValue);
           } else if (spec.schema.key == "font_weight") {
             selectSetting = labelFontWeightSelectSetting(
                 spec, widgetLabelFontWeightSelectedValue(ctx.config, widgetName),
@@ -1605,6 +1802,8 @@ namespace settings {
             );
           } else if (widgetType == "workspaces" && spec.schema.key == "display") {
             selectSetting = workspacesDisplaySelectSetting(ctx, widgetName, spec, specs, selectedValue);
+          } else if (widgetType == "workspaces" && spec.schema.key == "style") {
+            selectSetting = workspacesStyleSelectSetting(ctx, widgetName, spec, specs, selectedValue);
           } else {
             std::vector<SelectOption> options;
             options.reserve(spec.options.size());
@@ -1616,7 +1815,7 @@ namespace settings {
             selectSetting = SelectSetting{std::move(options), selectedValue};
           }
           selectSetting.segmented = spec.segmented;
-          selectSetting.integerValue = spec.integerValue;
+          selectSetting.valueType = spec.integerValue ? SelectValueType::Integer : SelectValueType::String;
           if (const auto* defaultString = std::get_if<std::string>(&spec.schema.defaultValue);
               defaultString != nullptr) {
             selectSetting.clearOnEmpty = defaultString->empty();
@@ -2180,7 +2379,7 @@ namespace settings {
               .glyph = "stack-pop",
               .fontSize = Style::fontSizeCaption * ctx.scale,
               .glyphSize = Style::fontSizeCaption * ctx.scale,
-              .variant = ButtonVariant::Outline,
+              .variant = ButtonVariant::Default,
               .minHeight = Style::controlHeightSm * ctx.scale,
               .paddingV = Style::spaceXs * ctx.scale,
               .paddingH = Style::spaceSm * ctx.scale,
@@ -2501,7 +2700,7 @@ namespace settings {
         dragState->lastLocalX = localX;
         dragState->lastLocalY = localY;
         if (std::hypot(localX - dragState->startLocalX, localY - dragState->startLocalY)
-            >= kDragStartThresholdPx * scale) {
+            >= Style::dragStartThreshold * scale) {
           dragState->moved = true;
         }
         if (!dragState->moved) {
@@ -3107,9 +3306,16 @@ namespace settings {
         const bool isSelected = std::ranges::contains(ctx.selectedLaneWidgets, selectionToken);
         std::function<void()> removeClose;
         if (!inherited) {
-          removeClose = [setOverride = ctx.setOverride, items = laneItems, lanePath, i]() mutable {
-            items.erase(items.begin() + static_cast<std::ptrdiff_t>(i));
+          auto items = laneItems;
+          items.erase(items.begin() + static_cast<std::ptrdiff_t>(i));
+          const bool removeInstance = isGuiManagedNamedWidgetInstance(ctx, entryName)
+              && !widgetHasPlacementAfterLaneEdit(ctx.config, lanePath, items, entryName);
+          removeClose = [setOverride = ctx.setOverride, clearOverride = ctx.clearOverride, items = std::move(items),
+                         lanePath, entryName, removeInstance]() {
             setOverride(lanePath, items);
+            if (removeInstance) {
+              clearOverride({"widget", entryName});
+            }
           };
         }
         std::function<void()> toggleSelect;

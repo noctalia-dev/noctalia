@@ -28,7 +28,7 @@ CountdownRing::CountdownRing() {
   secondsLabel->setFontWeight(FontWeight::Bold);
   secondsLabel->setFontSize(kDefaultRingSize * 0.34f);
   secondsLabel->setTextAlign(TextAlign::Center);
-  secondsLabel->setBaselineMode(LabelBaselineMode::StableLogical);
+  secondsLabel->setBaselineMode(LabelBaselineMode::Text);
   secondsLabel->setParticipatesInLayout(false);
   secondsLabel->setHitTestVisible(false);
   secondsLabel->setEnabled(false);

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,7 @@ struct DesktopEntry {
   bool noDisplay = false;
   bool hidden = false;
   bool terminal = false;
+  bool dbusActivatable = false;
 
   // Pre-lowercased for matching
   std::string nameLower;
@@ -42,6 +44,12 @@ struct DesktopEntry {
 std::vector<DesktopEntry> scanDesktopEntries();
 
 const std::vector<DesktopEntry>& desktopEntries();
+
+// Shared snapshot of the current entry list, safe to call from non-main
+// threads (e.g. plugin script workers). Does not trigger a refresh —
+// freshness is owned by the main thread's reload path.
+std::shared_ptr<const std::vector<DesktopEntry>> desktopEntriesSnapshot();
+
 std::uint64_t desktopEntriesVersion();
 int desktopEntryWatchFd() noexcept;
 void checkDesktopEntryReload();

@@ -4,24 +4,33 @@
 
 # ── Shell ─────────────────────────────────────────────────────────────────────
 
-[shell]
+[accessibility]
 ui_scale              = 1.0
+high_contrast         = false
+
+[shell]
 corner_radius_scale   = 1.0          # 0 = square, 1 = default, 2 = extra rounded
 font_family           = "sans-serif"
 time_format           = "{:%H:%M}"  # default shell UI time format
 date_format           = "%A, %x"    # default shell UI date format
 offline_mode          = false        # block all outgoing HTTP when true
+# panel_anchor_bar   = "main"        # bar panels attach to without a source bar; omit = first enabled bar
 telemetry_enabled     = false        # send an anonymous startup ping
 niri_overview_type_to_launch_enabled = false # opt in to type-to-launch from niri overview
 polkit_agent          = false
 password_style        = "default"    # default | random
-settings_show_advanced = false       # show advanced settings by default in Settings
-middle_click_opens_widget_settings = true # middle-click bar widgets to open their Settings entry
+settings_show_advanced = true        # show advanced settings by default in Settings
 show_location         = true         # hide weather location text in shell UI when false
 # app_icon_colorize   = false        # recolor application icons across the shell
 # app_icon_color      = "on_surface" # ColorSpec role or #hex when colorize is enabled
 clipboard_enabled     = true         # false disables clipboard panel, history, and compositor clipboard hooks
 clipboard_history_max_entries = 100 # unpinned history cap (10–10000); pinned entries are extra
+# A Wayland selection is served by the app that owns it, so it dies when that app exits.
+# With this on, the shell claims it back so the item stays pasteable. Caveat: a password
+# manager that clears the clipboard by exiting looks identical to any other app closing,
+# so its secret can be kept alive too. Apps advertising x-kde-passwordManagerHint are
+# already excluded; set this to false if you rely on one that does not.
+clipboard_keep_from_closed_apps = true # keep the last copied item pasteable after the app you copied it from closes
 clipboard_auto_paste  = "auto"       # off | auto | ctrl_v | ctrl_shift_v | shift_insert
 clipboard_image_action_command = ""  # image preview action: gimp {path}, or satty -f - via stdin
 # IPC example:
@@ -44,19 +53,50 @@ direction = "down"                  # center, up, down, left, right, up_left, up
 alpha     = 0.55                    # multiplied by each component's background opacity
 
 [shell.panel]
-transparency_mode     = "solid"     # solid | soft | glass; controls floating/centered opacity and card translucency
+transparency_mode     = "solid"     # solid | soft | glass; controls floating-panel opacity and card translucency
 borders               = true        # panel shell outline and in-panel section cards
 shadow                = true        # cast the global [shell.shadow] from panel surfaces
-launcher_placement       = "centered" # attached | floating | centered
-clipboard_placement      = "centered" # attached | floating | centered
-control_center_placement = "attached" # attached | floating | centered
-wallpaper_placement      = "attached" # attached | floating | centered
-session_placement        = "attached" # attached | floating | centered
+launcher_placement       = "floating" # attached | floating
+clipboard_placement      = "floating" # attached | floating
+control_center_placement = "attached" # attached | floating
+wallpaper_placement      = "attached" # attached | floating
+session_placement        = "attached" # attached | floating
+launcher_position        = "center"   # auto | center | top_left | … (floating only)
+clipboard_position       = "center"   # auto | center | top_left | … (floating only)
 open_near_click_control_center = false # for attached/floating placement, follow the bar click instead of bar-center
 open_near_click_launcher       = false # for attached/floating placement, follow the bar click instead of bar-center
 open_near_click_clipboard      = false # for attached/floating placement, follow the bar click instead of bar-center
 open_near_click_wallpaper      = false # for attached/floating placement, follow the bar click instead of bar-center
 open_near_click_session        = false # for attached/floating placement, follow the bar click instead of bar-center
+
+[shell.launcher]
+categories    = true                    # show category filters in the launcher
+show_icons    = true                    # show application icons in launcher results
+compact       = false                   # use smaller icons and tighter result rows
+app_grid      = false                   # show app icon grid view when results are apps only
+sort_by_usage = true                    # sort apps by usage frequency
+fetch_exchange_rates = true             # refresh currency rates from third-party sources
+provider_prefix = "/"                     # common prefix character for provider trigger words (e.g. "/" or ".")
+auto_paste = "auto"                       # off | auto | ctrl_v | ctrl_shift_v | shift_insert (copy activations)
+
+# For each provider: prefix = trigger word (empty falls back to its built-in default; triggers on
+# provider_prefix + trigger, e.g. "/emo"). global = true also surfaces it in unprefixed search.
+[shell.launcher.providers.calculator]
+prefix = "calc"
+global = true                           # also show calculator results in unprefixed search
+
+[shell.launcher.providers.emoji]
+prefix = "emo"
+
+[shell.launcher.providers.session]
+prefix = "session"
+global = false                          # set true to include session actions in unprefixed search
+
+[shell.launcher.providers.wallpaper]
+prefix = "wall"
+
+[shell.launcher.providers.windows]
+prefix = "win"
 
 [shell.mpris]
 blacklist = []                      # ignore MPRIS players by bus/identity/desktop entry token
@@ -80,7 +120,7 @@ path = ""                            # optional initial/default wallpaper path
 
 [wallpaper.automation]
 enabled                    = false
-interval_minutes           = 0       # 0 = disabled
+interval_seconds           = 1800    # seconds between changes
 order                      = "random" # random | alphabetical
 recursive                  = true    # include subdirectories when picking random wallpapers
 
@@ -95,6 +135,8 @@ builtin = "Noctalia"                # Ayu | Catppuccin | Dracula | Eldritch | Gr
 # wallpaper_scheme  = "m3-content"  # m3-tonal-spot | m3-content | m3-fruit-salad |
                                     # m3-rainbow | m3-monochrome | vibrant | faithful |
                                     # dysfunctional | muted
+pure_black_dark = false             # anchor dark surfaces to true black (OLED); applies to
+                                    # every palette source, not just wallpaper-generated ones
 
 [theme.templates]
 enable_builtin_templates            = true
@@ -122,7 +164,7 @@ enable_daemon      = true
 show_app_name      = true
 show_actions       = true           # show action buttons; when false, clicking a toast triggers its default action
 layer              = "top"          # top | overlay
-scale              = 1.0            # notification size multiplier applied on top of shell.ui_scale
+scale              = 1.0            # notification size multiplier applied on top of accessibility.ui_scale
 background_opacity = 0.97
 offset_x           = 20             # absolute horizontal margin from the screen edge
 offset_y           = 8              # absolute vertical margin from the screen edge
@@ -144,7 +186,7 @@ offset_y           = 8              # absolute vertical margin from the screen e
 position = "top_right"              # top_right | top_left | top_center | bottom_right | bottom_left | bottom_center | center_right | center_left
 position_vertical = "top_center"    # same options; used when orientation = "vertical"
 orientation = "horizontal"          # horizontal | vertical (volume/brightness sliders only; text popups stay horizontal)
-scale = 1.0                         # OSD size multiplier applied on top of shell.ui_scale
+scale = 1.0                         # OSD size multiplier applied on top of accessibility.ui_scale
 background_opacity = 0.97           # background opacity of OSD popups
 offset_x = 20                       # absolute horizontal margin from the screen edge
 offset_y = 8                        # absolute vertical margin from the screen edge
@@ -185,6 +227,20 @@ memory_poll_seconds = 2.0           # RAM usage
 network_poll_seconds = 3.0          # network throughput
 disk_poll_seconds = 10.0            # disk usage and swap usage; graph widgets use the fastest poll above
 
+# ── Calendar ──────────────────────────────────────────────────────────────────
+
+[calendar]
+enabled                     = false
+refresh_minutes             = 15
+
+# Calendar tab of the control center.
+
+[control_center.calendar]
+show_events_card            = true
+show_week_numbers           = false         # ISO 8601 week numbers in the month grid
+event_date_format           = "%A %e %B"    # date format used for events
+event_time_format           = "%H:%M"       # time format used for events
+
 # ── Weather ───────────────────────────────────────────────────────────────────
 
 [weather]
@@ -213,6 +269,7 @@ enable_ddcutil = false
 # Per-monitor backend override:
 # [brightness.monitor.eDP-1]
 # backend = "backlight"             # auto | none | backlight | ddcutil
+# backlight_device = "intel_backlight"  # explicit sysfs device name or path; run: noctalia msg brightness-list-backlight-devices
 # [brightness.monitor.DP-1]
 # backend = "ddcutil"
 
@@ -226,15 +283,15 @@ temperature_night    = 4000         # Kelvin
 
 # ── Location ──────────────────────────────────────────────────────────────────
 # Single source of "where am I"; feeds Weather, Night Light, and Theme auto mode.
-# Resolution priority: auto_locate (IP) → address → latitude/longitude → sunset/sunrise.
 
 [location]
-auto_locate = false                  # resolve coordinates from IP when true
-address     = ""                     # e.g. "Toronto, ON"; geocoded when auto_locate = false
-# sunset    = "20:30"                # HH:MM — fixed night start, used only when no coordinates resolve
-# sunrise   = "07:30"                # HH:MM — fixed day start, used only when no coordinates resolve
-# latitude  = 52.5200                # manual coordinates, used when auto_locate and address are off
-# longitude = 13.4050
+auto_locate      = false             # resolve coordinates from IP when true
+address          = ""                # e.g. "Toronto, ON"; geocoded when auto_locate = false
+# latitude       = 52.5200           # manual coordinates, used when auto_locate and address are off
+# longitude      = 13.4050
+# custom_schedule = true    # schedule day/night from the times below instead of coordinates
+# sunset         = "20:30"           # HH:MM — night start
+# sunrise        = "07:30"           # HH:MM — day start
 
 # ── Idle ──────────────────────────────────────────────────────────────────────
 
@@ -246,13 +303,12 @@ address     = ""                     # e.g. "Toronto, ON"; geocoded when auto_lo
 
 [idle.behavior.lock]
 timeout = 600
-command = "noctalia:session lock"
+action = "lock"
 enabled = false
 
 [idle.behavior.screen-off]
 timeout = 660
-command = "noctalia:dpms-off"
-resume_command = "noctalia:dpms-on"
+action = "screen_off"
 enabled = false
 
 # ── Keybinds ──────────────────────────────────────────────────────────────────
@@ -275,13 +331,14 @@ position           = "top"          # top | bottom | left | right
 thickness          = 34
 background_opacity = 1.0
 radius             = 12
-margin_h           = 180
-margin_v           = 10
+margin_ends        = 180
+margin_edge        = 10
 padding            = 14
 widget_spacing     = 6
 scale              = 1.0
 shadow             = true
 auto_hide          = false
+# smart_auto_hide    = false       # show when the active workspace is empty; hide when it has windows
 # show_on_workspace_switch = true   # with auto_hide: briefly reveal when the active workspace changes
 reserve_space      = true
 capsule            = false
@@ -295,19 +352,19 @@ center = ["clock"]
 end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth", "volume", "brightness", "battery", "control-center", "session"]
 
 # Commands for the bar margin outside widget sections (dead zone):
-# [bar.main.dead_zone]
-# command = "noctalia msg launcher toggle"
-# right_command = ""               # empty = open Control Center (default)
-# middle_command = ""
-# scroll_up_command = "..."
-# scroll_down_command = "..."
+# [bar.main.dead_zone.actions]
+# left = "panel-toggle launcher"
+# right = "panel-toggle control-center"
+# middle = "none"
+# scroll_up = "none"
+# scroll_down = "none"
 
 # Per-monitor override example — only the fields you list are overridden:
 # [bar.main.monitor.dp1]
 # match     = "DP-1"
 # thickness = 44
-# [bar.main.monitor.dp1.dead_zone]
-# command = "noctalia msg launcher toggle"
+# [bar.main.monitor.dp1.dead_zone.actions]
+# left = "panel-toggle launcher"
 
 # ── Dock ──────────────────────────────────────────────────────────────────────
 
@@ -324,12 +381,14 @@ radius_top_left     = 16
 radius_top_right    = 16
 radius_bottom_left  = 16
 radius_bottom_right = 16
-margin_h            = 0
-margin_v            = 8
+margin_ends         = 0
+margin_edge         = 8
 shadow              = true
 show_running        = true
 auto_hide           = false
+# smart_auto_hide   = false       # show when the active workspace is empty; hide when it has windows
 reserve_space       = true
+layer               = "top"         # top | overlay
 active_scale        = 1.0
 inactive_scale      = 0.85
 magnification       = true
@@ -406,7 +465,6 @@ enabled = false
 # ── Hooks ─────────────────────────────────────────────────────────────────────
 
 [hooks]
-battery_low_percent_threshold = 0   # set to e.g. 15 to enable battery_under_threshold hook
 
 # started           = "notify-send 'Noctalia' 'Shell started'"
 # wallpaper_changed = []
@@ -443,6 +501,14 @@ battery_low_percent_threshold = 0   # set to e.g. 15 to enable battery_under_thr
 # network_speed_unit = "mb"          # auto | kb | mb
 # network_speed_compact = true       # show "1.2M" instead of "1.2 MB/s"
 
+# [widget.network]
+# vpn_status     = "replace"         # replace | both | hidden
+# show_label     = true
+# show_vpn_label = false             # replace: replaces network label; both: adds VPN label
+
+# [widget.volume.effects_profile_glyphs]
+# eq_desktop = "device-speaker"
+
 # [widget.keyboard_layout]
 # display                 = "short"    # "short" (e.g. "DE") or "full" (full layout name)
 # show_icon               = true
@@ -457,7 +523,7 @@ battery_low_percent_threshold = 0   # set to e.g. 15 to enable battery_under_thr
 # type                = "custom_button"
 # glyph               = "lock"
 # tooltip             = "Lock screen"
-# command             = "noctalia:session lock"
+# command             = "noctalia msg session lock"
 # right_command       = ""
 # middle_command      = ""
 # scroll_up_command   = ""
@@ -469,3 +535,4 @@ battery_low_percent_threshold = 0   # set to e.g. 15 to enable battery_under_thr
 # tooltip_format = "{:%A, %B %d, %Y}"
 # scale = 1.0                         # multiplies the bar scale for this widget only
 # font_weight = 700
+# interactive = false                 # pass clicks/scrolls through to the bar and disable hover/tooltips

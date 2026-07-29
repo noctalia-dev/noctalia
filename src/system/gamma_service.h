@@ -82,7 +82,6 @@ private:
   void restoreAll();
 
   void applyTarget(int kelvin);
-  [[nodiscard]] bool slowGammaUploads() const;
   [[nodiscard]] std::chrono::milliseconds transitionTickInterval() const;
   void ensureTick();
   void tickGamma();
@@ -112,6 +111,7 @@ private:
 
   int m_currentKelvin = -1;
   int m_targetKelvin = -1;
+  int m_lastProfiledKelvin = -1; // probe only: previous upload's Kelvin, to report the step size
   Timer m_transitionTimer;
 
   Timer m_scheduleTimer;

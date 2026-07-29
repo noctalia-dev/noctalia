@@ -28,6 +28,7 @@ public:
   [[nodiscard]] TextureHandle acquire(const std::string& path);
   [[nodiscard]] TextureHandle peek(const std::string& path) const;
   void release(TextureHandle& handle, const std::string& path);
+  void abandonGpuResources() noexcept;
   void reloadResidentTextures();
 
 private:

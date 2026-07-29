@@ -26,18 +26,22 @@ namespace {
   }
 } // namespace
 
-ClockWidget::ClockWidget(
-    wl_output* /*output*/, std::string format, std::string verticalFormat, std::string tooltipFormat
-)
-    : m_format(std::move(format)), m_verticalFormat(std::move(verticalFormat)),
-      m_tooltipFormat(std::move(tooltipFormat)) {}
+ClockWidget::ClockWidget(wl_output* /*output*/, Options options)
+    : m_format(std::move(options.format)), m_verticalFormat(std::move(options.verticalFormat)),
+      m_tooltipFormat(std::move(options.tooltipFormat)), m_timezone(std::move(options.timezone)) {}
 
 std::string ClockWidget::formatTimeText() const {
   if (!m_isVertical) {
+    if (!m_timezone.empty()) {
+      return formatTimezoneTime(m_format.c_str(), m_timezone);
+    }
     return formatLocalTime(m_format.c_str());
   }
 
   if (!m_verticalFormat.empty()) {
+    if (!m_timezone.empty()) {
+      return formatTimezoneTime(m_verticalFormat.c_str(), m_timezone);
+    }
     return formatLocalTime(m_verticalFormat.c_str());
   }
 
@@ -45,7 +49,7 @@ std::string ClockWidget::formatTimeText() const {
   // stack each whitespace- or colon-separated token on its own line so "21:15"
   // splits into "21" / "15". Matches Pango's lineBudget (1 + '\n' count) so
   // nothing gets ellipsized unless a single token is wider than the bar.
-  auto text = formatLocalTime(m_format.c_str());
+  auto text = m_timezone.empty() ? formatLocalTime(m_format.c_str()) : formatTimezoneTime(m_format.c_str(), m_timezone);
   std::string out;
   out.reserve(text.size());
   bool lastWasBreak = true;
@@ -72,15 +76,14 @@ std::string ClockWidget::formatTooltipText() const {
     return {};
   }
 
+  if (!m_timezone.empty()) {
+    return formatTimezoneTime(m_tooltipFormat.c_str(), m_timezone);
+  }
   return formatLocalTime(m_tooltipFormat.c_str());
 }
 
 void ClockWidget::create() {
-  auto area = std::make_unique<InputArea>();
-  area->setOnClick([this](const InputArea::PointerData& /*data*/) {
-    requestPanelToggle("control-center", "calendar");
-  });
-
+  auto area = ui::inputArea({});
   area->addChild(
       ui::label({
           .out = &m_label,

@@ -19,6 +19,7 @@ struct HttpRequest {
   std::string body;                 // sent as the request body when non-empty
   bool followRedirects = false;
   bool allowRedirectAuth = false; // continue auth across redirect hosts; use only for trusted provider redirects
+  bool allowInsecureTls = false;  // disable origin certificate and hostname verification; use only for trusted hosts
   bool freshConnection = false;   // bypass curl's connection cache; needed when the route may have changed
                                   // (e.g. probing the external IP after a VPN toggle), otherwise a reused
                                   // keep-alive connection answers via the old path
@@ -33,10 +34,18 @@ struct HttpResponse {
   std::string body;
 };
 
+struct HttpStreamResult {
+  bool transportOk = false; // true when the stream ended without a transport error
+  long status = 0;          // HTTP status code (0 when transportOk is false)
+};
+
 class HttpClient {
 public:
   using CompletionCallback = std::function<void(bool success)>;
   using ResponseCallback = std::function<void(HttpResponse)>;
+  using StreamId = std::uint64_t;
+  using StreamDataCallback = std::function<void(std::string_view chunk)>;
+  using StreamCloseCallback = std::function<void(HttpStreamResult)>;
 
   HttpClient();
   ~HttpClient();
@@ -67,6 +76,19 @@ public:
   // and post(), non-2xx HTTP responses are reported as transportOk=true with their status/body, so
   // callers can read 401/3xx/4xx bodies.
   void request(HttpRequest req, ResponseCallback cb);
+
+  // Start a long-lived streaming request (no overall transfer timeout). onData is
+  // invoked on the main loop thread with each body chunk as it arrives; onClose
+  // fires exactly once when the transfer ends (server close, network error, or an
+  // HTTP error response fully read). Non-2xx responses are not special-cased:
+  // their body streams to onData and the status arrives in onClose. Returns 0
+  // when the stream could not be started (offline mode or a local error) — onClose
+  // is still delivered on a later main-loop iteration in that case.
+  StreamId startStream(HttpRequest req, StreamDataCallback onData, StreamCloseCallback onClose);
+
+  // Cancel an active stream: no further onData/onClose calls. Safe to call with
+  // an id that already finished.
+  void cancelStream(StreamId id);
 
   // PollSource integration — called by HttpClientPollSource.
   void addPollFds(std::vector<pollfd>& fds);
@@ -104,6 +126,18 @@ private:
     std::array<char, CURL_ERROR_SIZE> errorBuffer{};
   };
 
+  struct StreamTransfer {
+    StreamId id = 0;
+    curl_slist* headers = nullptr;
+    StreamDataCallback onData;
+    StreamCloseCallback onClose;
+    std::string url;
+    std::string body;
+    std::string basicUsername;
+    std::string basicPassword;
+    std::array<char, CURL_ERROR_SIZE> errorBuffer{};
+  };
+
   struct SequentialDownload {
     std::vector<std::string> urls;
     std::filesystem::path destPath;
@@ -115,6 +149,7 @@ private:
   void finishTransfer(CURL* easy, CURLcode result);
   void finishPostTransfer(CURL* easy, CURLcode result);
   void finishRequestTransfer(CURL* easy, CURLcode result);
+  void finishStreamTransfer(CURL* easy, CURLcode result);
   void performMulti(const char* reason);
   [[nodiscard]] bool hasActiveTransfers() const;
 
@@ -125,5 +160,8 @@ private:
   std::unordered_map<CURL*, Transfer> m_transfers;
   std::unordered_map<CURL*, PostTransfer> m_postTransfers;
   std::unordered_map<CURL*, RequestTransfer> m_requestTransfers;
+  std::unordered_map<CURL*, StreamTransfer> m_streamTransfers;
+  std::unordered_map<StreamId, CURL*> m_streamsById;
+  StreamId m_nextStreamId = 1;
   std::unordered_map<std::string, CURL*> m_activeByDest;
 };

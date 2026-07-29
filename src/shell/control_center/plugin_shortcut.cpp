@@ -68,11 +68,13 @@ void PluginShortcut::start() {
   });
 
   m_runtime->start(m_sourcePath.string(), std::move(code), makeScriptSnapshot());
+  recordLoadedSourceMtime();
   armTimer();
   setupScriptWatch();
 }
 
 void PluginShortcut::setupScriptWatch() {
+  teardownScriptWatch();
   if (m_sourcePath.empty() || m_fileWatcher == nullptr) {
     return;
   }
@@ -87,6 +89,43 @@ void PluginShortcut::teardownScriptWatch() {
   m_watchId = 0;
 }
 
+void PluginShortcut::onPanelClose() {
+  m_updateTimer.stop();
+  teardownScriptWatch();
+}
+
+void PluginShortcut::onPanelOpen() {
+  if (m_runtime == nullptr) {
+    return;
+  }
+  if (sourceChangedSinceLoad()) {
+    reloadScript(false);
+  } else {
+    armTimer();
+  }
+  setupScriptWatch();
+}
+
+void PluginShortcut::recordLoadedSourceMtime() {
+  std::error_code ec;
+  m_loadedSourceMtime = std::filesystem::last_write_time(m_sourcePath, ec);
+  if (ec) {
+    m_loadedSourceMtime = {};
+  }
+}
+
+bool PluginShortcut::sourceChangedSinceLoad() const {
+  if (m_sourcePath.empty() || m_loadedSourceMtime == std::filesystem::file_time_type{}) {
+    return false;
+  }
+  std::error_code ec;
+  const auto current = std::filesystem::last_write_time(m_sourcePath, ec);
+  if (ec) {
+    return false;
+  }
+  return current != m_loadedSourceMtime;
+}
+
 void PluginShortcut::resetPresentation() {
   m_label.clear();
   m_iconOn = "circle";
@@ -96,27 +135,34 @@ void PluginShortcut::resetPresentation() {
   m_updateIntervalMs = 1000;
 }
 
-void PluginShortcut::reloadScript() {
+void PluginShortcut::reloadScript(bool notifyUser) {
   std::string code = readFile(m_sourcePath);
   auto name = m_sourcePath.filename().string();
   if (code.empty()) {
     kLog.warn("shortcut '{}': failed to reload '{}'", m_entryId, m_sourcePath.string());
-    notify::error("Noctalia", i18n::tr("bar.widgets.scripted.reload-failed"), name);
+    if (notifyUser) {
+      notify::error("Noctalia", i18n::tr("bar.widgets.scripted.reload-failed"), name);
+    }
     return;
   }
   if (m_runtime == nullptr) {
     kLog.warn("shortcut '{}': runtime unavailable for reload", m_entryId);
-    notify::error("Noctalia", i18n::tr("bar.widgets.scripted.reload-failed"), name);
+    if (notifyUser) {
+      notify::error("Noctalia", i18n::tr("bar.widgets.scripted.reload-failed"), name);
+    }
     return;
   }
 
   m_updateTimer.stop();
   resetPresentation();
   m_runtime->reload(m_sourcePath.string(), std::move(code), makeScriptSnapshot());
+  recordLoadedSourceMtime();
   armTimer();
   PanelManager::instance().refresh();
   kLog.info("hot reload: reloaded shortcut '{}'", m_entryId);
-  notify::info("Noctalia", i18n::tr("bar.widgets.scripted.reloaded"), name);
+  if (notifyUser) {
+    notify::info("Noctalia", i18n::tr("bar.widgets.scripted.reloaded"), name);
+  }
 }
 
 void PluginShortcut::handleResult(const scripting::ScriptResult& result) {

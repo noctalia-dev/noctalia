@@ -84,6 +84,7 @@ private:
   std::vector<ColorSwatchPreview> m_optionSwatchPreviews;
   bool m_notifyOnReselect = false;
   Signal<>::ScopedConnection m_paletteConn;
+  Signal<>::ScopedConnection m_inputBordersConn;
 
   std::function<void(std::size_t, std::string_view)> m_onSelectionChanged;
 };

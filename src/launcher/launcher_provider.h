@@ -1,10 +1,18 @@
 #pragma once
 
+#include <array>
 #include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
+
+namespace launcher {
+  inline constexpr std::array kBuiltinProviders = {
+      std::string_view("calculator"), std::string_view("emoji"), std::string_view("session"),
+      std::string_view("wallpaper"), std::string_view("windows")
+  };
+} // namespace launcher
 
 struct LauncherCategory {
   std::string label;
@@ -35,7 +43,14 @@ class LauncherProvider {
 public:
   virtual ~LauncherProvider() = default;
 
-  [[nodiscard]] virtual std::string_view prefix() const = 0;
+  [[nodiscard]] virtual std::string_view prefix() const {
+    return m_customPrefix.has_value() ? *m_customPrefix : defaultPrefix();
+  }
+  [[nodiscard]] virtual std::string_view defaultPrefix() const = 0;
+
+  virtual void setCustomPrefix(std::optional<std::string> prefix) { m_customPrefix = std::move(prefix); }
+  [[nodiscard]] virtual bool allowCustomPrefix() const { return true; }
+
   // Stable opaque identity. Keys usage-tracking persistence and activation dispatch,
   // so it must never change or be translated.
   [[nodiscard]] virtual std::string_view id() const = 0;
@@ -48,9 +63,17 @@ public:
   // record each activation and surface frequently used entries higher.
   [[nodiscard]] virtual bool trackUsage() const { return false; }
 
+  // Return true when activate() copies text and should honor shell.launcher.auto_paste
+  // after the launcher closes (calculator, emoji, copy-mode dmenu, …).
+  [[nodiscard]] virtual bool supportsAutoPaste() const { return false; }
+
   // Prefixed providers (non-empty prefix()) normally only respond when their prefix is typed.
   // Return true to also contribute results to the general (non-prefixed) search.
-  [[nodiscard]] virtual bool includeInGlobalSearch() const { return false; }
+  [[nodiscard]] virtual bool includeInGlobalSearch() const {
+    return m_customGlobalSearch.has_value() ? *m_customGlobalSearch : defaultIncludeInGlobalSearch();
+  }
+  [[nodiscard]] virtual bool defaultIncludeInGlobalSearch() const { return false; }
+  virtual void setCustomIncludeInGlobalSearch(std::optional<bool> value) { m_customGlobalSearch = value; }
 
   [[nodiscard]] virtual std::vector<LauncherCategory> categories() const { return {}; }
 
@@ -69,9 +92,9 @@ public:
 
   // Async (plugin-backed) providers defer the launcher close until their activation
   // handler resolves: if it rewrote the query the panel stays open, otherwise the
-  // provider invokes this to close it (and record usage). The argument is the
-  // activated result id. Synchronous providers close directly via activate().
-  virtual void setActivationDoneCallback(std::function<void(std::string)> /*callback*/) {}
+  // provider invokes this to close it (and record usage). Arguments are the
+  // activated result id and whether onActivate copied to the clipboard.
+  virtual void setActivationDoneCallback(std::function<void(std::string, bool)> /*callback*/) {}
 
   virtual void initialize() {}
 
@@ -80,6 +103,12 @@ public:
   virtual void reset() {}
 
   [[nodiscard]] virtual std::vector<LauncherResult> query(std::string_view text) const = 0;
+  // Query after this provider's prefix was explicitly matched.
+  [[nodiscard]] virtual std::vector<LauncherResult> queryPrefixed(std::string_view text) const { return query(text); }
 
   virtual bool activate(const LauncherResult& result) = 0;
+
+private:
+  std::optional<std::string> m_customPrefix;
+  std::optional<bool> m_customGlobalSearch;
 };

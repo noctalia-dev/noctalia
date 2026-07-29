@@ -21,6 +21,8 @@ public:
   void setSquareGridShrinkWrap(bool shrinkWrap);
   void setMinCellWidth(float width);
   void setMinCellHeight(float height);
+  // When true, the last child in an incomplete row stretches across remaining columns.
+  void setSpanLastItem(bool span);
 
   [[nodiscard]] std::size_t columns() const noexcept { return m_columns; }
   [[nodiscard]] float columnGap() const noexcept { return m_columnGap; }
@@ -33,6 +35,7 @@ public:
   [[nodiscard]] bool uniformCellSize() const noexcept { return m_uniformCellSize; }
   [[nodiscard]] bool squareCells() const noexcept { return m_squareCells; }
   [[nodiscard]] bool squareGridShrinkWrap() const noexcept { return m_squareGridShrinkWrap; }
+  [[nodiscard]] bool spanLastItem() const noexcept { return m_spanLastItem; }
   [[nodiscard]] float minCellWidth() const noexcept { return m_minCellWidth; }
   [[nodiscard]] float minCellHeight() const noexcept { return m_minCellHeight; }
 
@@ -50,6 +53,7 @@ private:
   bool m_uniformCellSize = true;
   bool m_squareCells = false;
   bool m_squareGridShrinkWrap = true;
+  bool m_spanLastItem = false;
   float m_minCellWidth = 0.0f;
   float m_minCellHeight = 0.0f;
 };

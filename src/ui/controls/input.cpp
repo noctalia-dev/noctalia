@@ -5,6 +5,8 @@
 #include "core/input/key_symbols.h"
 #include "core/text_clipboard.h"
 #include "cursor-shape-v1-client-protocol.h"
+#include "render/animation/animation.h"
+#include "render/animation/animation_manager.h"
 #include "render/core/color.h"
 #include "render/core/render_styles.h"
 #include "render/core/renderer.h"
@@ -24,6 +26,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <numbers>
 #include <optional>
 #include <string>
 #include <wayland-client-protocol.h>
@@ -109,6 +112,8 @@ namespace {
     const float inkCenterY = (metrics.top + metrics.bottom) * 0.5f;
     const float rowCenterY = inputHeight * 0.5f;
     glyph.setPosition(cellCenterX - emCenterX, rowCenterY - inkCenterY);
+    // The node origin is the glyph baseline, so the ink center is the pivot animated scale/rotation must use.
+    glyph.setTransformOrigin((metrics.left + metrics.right) * 0.5f, inkCenterY);
   }
 
   Color resolved(ColorRole role, float alpha = 1.0f) { return colorForRole(role, alpha); }
@@ -227,24 +232,37 @@ Input::Input() {
           ? pointToByteOffset(data.localX - textStartX, data.localY - kMultilinePadV + m_scrollOffsetY)
           : xToByteOffset(data.localX - textStartX + m_scrollOffset - m_contentLeadSlack);
       const auto now = std::chrono::steady_clock::now();
-      const bool isDoubleClick = data.button == BTN_LEFT
+      const bool inMultiClickWindow = data.button == BTN_LEFT
           && m_hasLastPrimaryPress
           && now - m_lastPrimaryPressTime <= kDoubleClickThreshold
           && std::abs(data.localX - m_lastPrimaryPressX) <= kDoubleClickDistance
           && std::abs(data.localY - m_lastPrimaryPressY) <= kDoubleClickDistance;
 
       if (data.button == BTN_LEFT) {
+        m_primaryClickCount = inMultiClickWindow ? (m_primaryClickCount >= 3 ? 1 : m_primaryClickCount + 1) : 1;
         m_lastPrimaryPressTime = now;
         m_lastPrimaryPressX = data.localX;
         m_lastPrimaryPressY = data.localY;
         m_hasLastPrimaryPress = true;
       } else {
         m_hasLastPrimaryPress = false;
+        m_primaryClickCount = 0;
       }
 
-      if (isDoubleClick) {
+      if (data.button == BTN_LEFT && m_primaryClickCount == 2) {
+        m_pointerSelectGranularity = PointerSelectGranularity::Word;
         selectWordAtByteOffset(offset);
+        m_pointerSelectPivotStart = selectionStart();
+        m_pointerSelectPivotEnd = selectionEnd();
+      } else if (data.button == BTN_LEFT && m_primaryClickCount == 3) {
+        m_pointerSelectGranularity = PointerSelectGranularity::Line;
+        selectLineAtByteOffset(offset);
+        m_pointerSelectPivotStart = selectionStart();
+        m_pointerSelectPivotEnd = selectionEnd();
       } else {
+        m_pointerSelectGranularity = PointerSelectGranularity::Character;
+        m_pointerSelectPivotStart = offset;
+        m_pointerSelectPivotEnd = offset;
         m_cursorPos = offset;
         m_selectionAnchor = offset;
       }
@@ -268,7 +286,9 @@ Input::Input() {
           m_scrollOffsetY += currentLineHeight();
         }
         clampScrollOffsetY();
-        m_cursorPos = pointToByteOffset(data.localX - textStartX, data.localY - kMultilinePadV + m_scrollOffsetY);
+        const std::size_t offset =
+            pointToByteOffset(data.localX - textStartX, data.localY - kMultilinePadV + m_scrollOffsetY);
+        extendPointerSelectionToByteOffset(offset);
         updateInteractiveGeometry();
         updateCursorVisibility();
         markPaintDirty();
@@ -280,19 +300,21 @@ Input::Input() {
       const float edgePx = std::max(12.0f, m_horizontalPadding);
       const float scrollNudge = std::max(4.0f, textViewportWidth() * 0.02f);
       bool handledByEdgeScroll = false;
+      std::size_t offset = m_cursorPos;
       if (data.localX <= edgePx) {
         m_scrollOffset -= scrollNudge;
-        m_cursorPos = prevCharPos(m_value, m_cursorPos);
+        offset = prevCharPos(m_value, m_cursorPos);
         handledByEdgeScroll = true;
       } else if (data.localX >= widthPx - edgePx) {
         m_scrollOffset += scrollNudge;
-        m_cursorPos = nextCharPos(m_value, m_cursorPos);
+        offset = nextCharPos(m_value, m_cursorPos);
         handledByEdgeScroll = true;
       }
       clampScrollOffset();
       if (!handledByEdgeScroll) {
-        m_cursorPos = xToByteOffset(data.localX - textStartX + m_scrollOffset - m_contentLeadSlack);
+        offset = xToByteOffset(data.localX - textStartX + m_scrollOffset - m_contentLeadSlack);
       }
+      extendPointerSelectionToByteOffset(offset);
       requestCaretUpdate();
       revealCursor();
       notifyTextInputStateChanged(TextInputChangeCause::Other);
@@ -302,8 +324,8 @@ Input::Input() {
     if (data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL || m_inputArea == nullptr || !m_inputArea->focused()) {
       return false;
     }
-    const float delta = data.scrollDelta(1.0f);
-    if (std::abs(delta) < 0.001f) {
+    const float delta = data.scrollSteps();
+    if (delta == 0.0f) {
       return false;
     }
     if (m_multiline) {
@@ -362,6 +384,7 @@ Input::Input() {
     updateDisplayText();
     applyVisualState();
   });
+  m_inputBordersConn = Style::inputBordersChanged().connect([this] { applyVisualState(); });
 }
 
 Input::~Input() {
@@ -426,7 +449,9 @@ void Input::setPasswordMode(bool enabled) {
     return;
   }
   m_passwordMode = enabled;
-  if (!m_passwordMode) {
+  if (m_passwordMode) {
+    clearEditHistory();
+  } else {
     syncPasswordGlyphNodes(0);
   }
   updateDisplayText();
@@ -831,8 +856,7 @@ void Input::rebuildCursorStops(Renderer& renderer) {
 
 void Input::recomputeContentLeadSlack(Renderer& renderer, float width, bool showClearButton) {
   m_contentLeadSlack = 0.0f;
-  const bool showPasswordGlyphs = m_passwordMode && !m_value.empty();
-  if (m_multiline || showPasswordGlyphs || m_textAlign != TextAlign::Center) {
+  if (m_multiline || m_textAlign != TextAlign::Center) {
     return;
   }
 
@@ -840,7 +864,12 @@ void Input::recomputeContentLeadSlack(Renderer& renderer, float width, bool show
   const float rightInset = showClearButton ? clearButtonTextReserveWidth() : textInset;
   const float viewportWidth = std::max(0.0f, width - textInset - rightInset);
   float textExtent = 0.0f;
-  if (!m_value.empty() && m_stopX.size() > 1U) {
+  const bool showPasswordGlyphs = m_passwordMode && !m_value.empty();
+  if (showPasswordGlyphs) {
+    const std::size_t charCount = !m_stopByte.empty() ? m_stopByte.size() - 1 : 0;
+    const float passwordCellSize = std::round(m_fontSize * kPasswordGlyphScale);
+    textExtent = static_cast<float>(charCount) * passwordCellSize;
+  } else if (!m_value.empty() && m_stopX.size() > 1U) {
     textExtent = m_stopX.back();
   } else if (m_value.empty() && !m_placeholder.empty()) {
     textExtent = renderer.measureText(m_placeholder, m_fontSize, m_label->fontWeight()).width;
@@ -1061,8 +1090,8 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     m_goalCaretX = -1.0f;
   }
 
-  // Ignore keys that produce no text and aren't action keys we handle below
-  if (utf32 == 0 && !preedit) {
+  // Ignore non-text keys that aren't handled below. Ctrl chords may still have utf32 == 0.
+  if (utf32 == 0 && !preedit && !ctrl) {
     const bool navigationOrEdit = KeySymbol::isBackspace(sym)
         || KeySymbol::isDelete(sym)
         || KeySymbol::isLeft(sym)
@@ -1134,13 +1163,15 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
     m_selectionAnchor = 0;
     m_cursorPos = m_value.size();
   } else if (copyShortcut) {
-    if (g_clipboard != nullptr && hasSelection()) {
+    if (g_clipboard != nullptr && hasSelection() && !m_passwordMode) {
       g_clipboard->setClipboardText(m_value.substr(selectionStart(), selectionEnd() - selectionStart()));
     }
   } else if (cutShortcut) {
     if (g_clipboard != nullptr && hasSelection()) {
       pushUndoSnapshot(EditCoalesceKind::Discrete);
-      g_clipboard->setClipboardText(m_value.substr(selectionStart(), selectionEnd() - selectionStart()));
+      if (!m_passwordMode) {
+        g_clipboard->setClipboardText(m_value.substr(selectionStart(), selectionEnd() - selectionStart()));
+      }
       deleteSelection();
       changed = true;
     }
@@ -1380,6 +1411,13 @@ void Input::applyVisualState() {
         : (focused ? resolveColorSpec(focusRingColorSpec())
                    : (inputHovered ? resolved(ColorRole::Hover) : resolved(ColorRole::Outline)));
 
+    float resolvedBorderWidth = 0.0f;
+    if (focused) {
+      resolvedBorderWidth = Style::focusRingWidth;
+    } else if (Style::inputBordersEnabled()) {
+      resolvedBorderWidth = Style::borderWidth;
+    }
+
     m_background->setStyle(
         RoundedRectStyle{
             .fill = fill,
@@ -1387,7 +1425,7 @@ void Input::applyVisualState() {
             .fillMode = FillMode::Solid,
             .radius = Style::scaledRadius(m_frameRadius, chromeScale),
             .softness = 1.0f,
-            .borderWidth = focused ? Style::focusRingWidth : Style::borderWidth,
+            .borderWidth = resolvedBorderWidth,
         }
     );
   } else if (m_background != nullptr) {
@@ -1756,8 +1794,67 @@ void Input::selectWordAtByteOffset(std::size_t offset) {
   m_cursorPos = end;
 }
 
+void Input::selectLineAtByteOffset(std::size_t offset) {
+  if (m_passwordMode || !m_multiline) {
+    m_selectionAnchor = 0;
+    m_cursorPos = m_value.size();
+    return;
+  }
+
+  std::size_t start = 0;
+  std::size_t end = m_value.size();
+  if (multilineStopsValid()) {
+    start = lineStartForByte(offset);
+    end = lineEndForByte(offset);
+  } else {
+    // Layout stops not ready yet — fall back to hard newline bounds.
+    const std::size_t pos = std::min(offset, m_value.size());
+    const auto left = m_value.rfind('\n', pos == 0 ? 0 : pos - 1);
+    start = left == std::string::npos ? 0 : left + 1;
+    const auto right = m_value.find('\n', pos);
+    end = right == std::string::npos ? m_value.size() : right;
+  }
+  m_selectionAnchor = start;
+  m_cursorPos = end;
+}
+
+void Input::extendPointerSelectionToByteOffset(std::size_t offset) {
+  if (m_pointerSelectGranularity == PointerSelectGranularity::Character) {
+    m_cursorPos = offset;
+    return;
+  }
+
+  std::size_t unitStart = offset;
+  std::size_t unitEnd = offset;
+  if (m_pointerSelectGranularity == PointerSelectGranularity::Word) {
+    unitStart = wordStartForByteOffset(offset);
+    unitEnd = wordEndForByteOffset(offset);
+  } else {
+    if (m_passwordMode || !m_multiline) {
+      unitStart = 0;
+      unitEnd = m_value.size();
+    } else if (multilineStopsValid()) {
+      unitStart = lineStartForByte(offset);
+      unitEnd = lineEndForByte(offset);
+    } else {
+      const std::size_t pos = std::min(offset, m_value.size());
+      const auto left = m_value.rfind('\n', pos == 0 ? 0 : pos - 1);
+      unitStart = left == std::string::npos ? 0 : left + 1;
+      const auto right = m_value.find('\n', pos);
+      unitEnd = right == std::string::npos ? m_value.size() : right;
+    }
+  }
+
+  m_selectionAnchor = std::min(m_pointerSelectPivotStart, unitStart);
+  m_cursorPos = std::max(m_pointerSelectPivotEnd, unitEnd);
+}
+
 std::size_t Input::wordStartForByteOffset(std::size_t offset) const {
   if (m_value.empty()) {
+    return 0;
+  }
+
+  if (m_passwordMode) {
     return 0;
   }
 
@@ -1785,6 +1882,10 @@ std::size_t Input::wordEndForByteOffset(std::size_t offset) const {
     return 0;
   }
 
+  if (m_passwordMode) {
+    return m_value.size();
+  }
+
   std::size_t pos = std::min(offset, m_value.size());
   if (pos == m_value.size() && pos > 0) {
     pos = prevCharPos(m_value, pos);
@@ -1803,6 +1904,10 @@ std::size_t Input::wordEndForByteOffset(std::size_t offset) const {
 
 std::size_t Input::previousWordStartForByteOffset(std::size_t offset) const {
   if (m_value.empty()) {
+    return 0;
+  }
+
+  if (m_passwordMode) {
     return 0;
   }
 
@@ -1829,6 +1934,10 @@ std::size_t Input::nextWordStartForByteOffset(std::size_t offset) const {
     return 0;
   }
 
+  if (m_passwordMode) {
+    return m_value.size();
+  }
+
   std::size_t pos = std::min(offset, m_value.size());
   if (pos < m_value.size() && isWordCodepoint(m_value, pos)) {
     while (pos < m_value.size() && isWordCodepoint(m_value, pos)) {
@@ -1844,6 +1953,10 @@ std::size_t Input::nextWordStartForByteOffset(std::size_t offset) const {
 std::size_t Input::nextWordEndForByteOffset(std::size_t offset) const {
   if (m_value.empty()) {
     return 0;
+  }
+
+  if (m_passwordMode) {
+    return m_value.size();
   }
 
   std::size_t pos = std::min(offset, m_value.size());
@@ -1869,7 +1982,51 @@ void Input::syncPasswordGlyphNodes(std::size_t count) {
     auto glyph = std::make_unique<GlyphNode>();
     auto* glyphPtr = static_cast<GlyphNode*>(m_textViewport->insertChildAt(2, std::move(glyph)));
     m_passwordGlyphs.push_back(glyphPtr);
+    // Animate the glyph entrance
+    animatePasswordGlyphIn(*glyphPtr);
   }
+}
+
+void Input::animatePasswordGlyphIn(GlyphNode& glyph) {
+  auto* animations = animationManager();
+  if (animations == nullptr) {
+    return;
+  }
+
+  constexpr float kStartScale = 0.15f;
+  // Fraction of the animation over which the glyph fades in.
+  constexpr float kFadeInFraction = 0.35f;
+  // Three alternating swings (right, left, right), starting and ending at zero rotation.
+  constexpr float kWobbleSwings = 3.0f;
+  constexpr float kWobbleAmplitude = 0.45f; // radians, ~26 degrees
+
+  glyph.setOpacity(0.0f);
+  glyph.setScale(kStartScale);
+  glyph.setRotation(0.0f);
+
+  auto* glyphPtr = &glyph;
+  // Driven linearly so each animated property carries its own curve. The owner is the glyph node, so a
+  // backspace that destroys it cancels this animation.
+  animations->animate(
+      0.0f, 1.0f, static_cast<float>(Style::animNormal), Easing::Linear,
+      [glyphPtr](float t) {
+        const float scaleEase = applyEasing(Easing::EaseOutCubic, t);
+        glyphPtr->setScale(kStartScale + (1.0f - kStartScale) * scaleEase);
+        glyphPtr->setOpacity(applyEasing(Easing::EaseOutCubic, std::min(1.0f, t / kFadeInFraction)));
+
+        // Rotation stays on even for the rotationally symmetric circle mask: a non-zero rotation is what makes
+        // the glyph renderer skip pixel snapping, which would otherwise jump the glyph a whole pixel per frame.
+        const float wobbleDecay = applyEasing(Easing::EaseOutCubic, 1.0f - t);
+        const float wobble = kWobbleAmplitude * std::sin(t * kWobbleSwings * std::numbers::pi_v<float>) * wobbleDecay;
+        glyphPtr->setRotation(wobble);
+      },
+      [glyphPtr]() {
+        glyphPtr->setOpacity(1.0f);
+        glyphPtr->setScale(1.0f);
+        glyphPtr->setRotation(0.0f);
+      },
+      glyphPtr
+  );
 }
 
 float Input::textViewportWidth() const noexcept {
@@ -1938,6 +2095,12 @@ void Input::resetUndoCoalescing() {
 }
 
 void Input::pushUndoSnapshot(EditCoalesceKind kind) {
+  // Password mode keeps no edit history so the plaintext is never retained in a
+  // snapshot and can't be restored (e.g. Ctrl+Z after clearing the field).
+  if (m_passwordMode) {
+    resetUndoCoalescing();
+    return;
+  }
   if (kind == EditCoalesceKind::None) {
     resetUndoCoalescing();
     return;
@@ -1970,9 +2133,9 @@ void Input::pushUndoSnapshot(EditCoalesceKind kind) {
 
 void Input::noteTypingEditEnd() { m_typingCoalesceCursorPos = m_cursorPos; }
 
-bool Input::undoEdit() { return restoreFromHistory(m_undoStack, m_redoStack); }
+bool Input::undoEdit() { return !m_passwordMode && restoreFromHistory(m_undoStack, m_redoStack); }
 
-bool Input::redoEdit() { return restoreFromHistory(m_redoStack, m_undoStack); }
+bool Input::redoEdit() { return !m_passwordMode && restoreFromHistory(m_redoStack, m_undoStack); }
 
 bool Input::restoreFromHistory(std::vector<EditSnapshot>& source, std::vector<EditSnapshot>& target) {
   if (source.empty()) {

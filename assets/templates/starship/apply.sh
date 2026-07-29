@@ -73,30 +73,77 @@ fi
 
 mkdir -p "$(dirname "$config_file")"
 
+tmp_file="$(mktemp "${config_file}.tmp.XXXXXX")"
+cleanup() {
+    rm -f "$tmp_file"
+}
+trap cleanup EXIT
+
+# Build the desired starship.toml into a temp file (never sed -i the live path).
+# ! -f covers a missing path and a dangling symlink (write-through creates the target).
 if [ ! -f "$config_file" ]; then
-    echo 'palette = "noctalia"' >"$config_file"
+    {
+        echo 'palette = "noctalia"'
+        echo ""
+        echo "$marker_begin"
+        cat "$palette_file"
+        echo "$marker_end"
+    } >"$tmp_file"
 else
-    if grep -qE '^palette\s*=' "$config_file"; then
-        sed -i -E 's/^palette\s*=.*/palette = "noctalia"/' "$config_file"
-    elif grep -qE '^"\$schema"' "$config_file"; then
-        sed -i '/^"\$schema"/a palette = "noctalia"' "$config_file"
-    else
-        sed -i '1i palette = "noctalia"' "$config_file"
-    fi
+    # Strip the previous noctalia palette block and any palette= line, keep the rest.
+    body_file="$(mktemp "${config_file}.body.XXXXXX")"
+    cleanup_body() {
+        rm -f "$tmp_file" "$body_file"
+    }
+    trap cleanup_body EXIT
 
-    if grep -qF "$marker_begin" "$config_file"; then
-        begin_regex=$(printf '%s' "$marker_begin" | sed 's/[[\.*^$()+?{|]/\\&/g')
-        end_regex=$(printf '%s' "$marker_end" | sed 's/[[\.*^$()+?{|]/\\&/g')
-        sed -i "/$begin_regex/,/$end_regex/d" "$config_file"
-    fi
+    awk -v begin="$marker_begin" -v end="$marker_end" '
+        $0 == begin { in_block = 1; next }
+        in_block {
+            if ($0 == end) {
+                in_block = 0
+            }
+            next
+        }
+        /^palette[[:space:]]*=/ { next }
+        { print }
+    ' "$config_file" >"$body_file"
 
-    # Drop trailing blank lines so the leading newline below does not accumulate
-    sed -i -e :a -e '/^\n*$/{$d;N;ba}' "$config_file"
+    # Drop trailing blank lines so the leading newline below does not accumulate.
+    sed -i -e :a -e '/^\n*$/{$d;N;ba}' "$body_file"
+
+    {
+        if grep -qE '^"\$schema"' "$body_file"; then
+            awk '
+                /^"\$schema"/ {
+                    print
+                    if (!inserted) {
+                        print "palette = \"noctalia\""
+                        inserted = 1
+                    }
+                    next
+                }
+                { print }
+            ' "$body_file"
+        else
+            echo 'palette = "noctalia"'
+            cat "$body_file"
+        fi
+        echo ""
+        echo "$marker_begin"
+        cat "$palette_file"
+        echo "$marker_end"
+    } >"$tmp_file"
+
+    rm -f "$body_file"
+    trap cleanup EXIT
 fi
 
-{
-    echo ""
-    echo "$marker_begin"
-    cat "$palette_file"
-    echo "$marker_end"
-} >>"$config_file"
+# Only touch the live path when content actually changes. Write through a symlink
+# instead of replacing it with a regular file via mv/sed -i.
+if [ ! -e "$config_file" ] && [ ! -L "$config_file" ]; then
+    mv "$tmp_file" "$config_file"
+    trap - EXIT
+elif ! cmp -s "$config_file" "$tmp_file"; then
+    cat "$tmp_file" >"$config_file"
+fi

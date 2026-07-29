@@ -36,13 +36,11 @@ int main() {
       .kind = PluginSourceKind::Git,
       .name = "official",
       .location = "https://example.invalid/plugins.git",
-      .autoUpdate = false,
   };
   const PluginSourceConfig pathSource{
       .kind = PluginSourceKind::Path,
       .name = "dev",
       .location = "~/dev/noctalia-plugins",
-      .autoUpdate = false,
   };
 
   const std::filesystem::path stateRoot = "/tmp/noctalia-path-test-state/noctalia";

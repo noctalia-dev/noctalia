@@ -13,7 +13,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <linux/input-event-codes.h>
+#include <wayland-client-protocol.h>
 
 using namespace mpris;
 
@@ -23,17 +23,15 @@ namespace {
 
 } // namespace
 
-MediaWidget::MediaWidget(
-    MprisService* mpris, HttpClient* httpClient, wl_output* /*output*/, float maxWidth, float minWidth, float artSize,
-    MediaTitleScrollMode titleScrollMode, bool hideWhenNoMedia, bool albumArtOnly, bool hideAlbumArt
-)
-    : m_mpris(mpris), m_httpClient(httpClient), m_maxWidth(maxWidth), m_minWidth(minWidth), m_artSize(artSize),
-      m_titleScrollMode(titleScrollMode), m_hideWhenNoMedia(hideWhenNoMedia), m_albumArtOnly(albumArtOnly),
-      m_hideAlbumArt(hideAlbumArt) {}
+MediaWidget::MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output* /*output*/, Options options)
+    : m_mpris(mpris), m_httpClient(httpClient), m_maxWidth(static_cast<float>(options.maxWidth)),
+      m_minWidth(static_cast<float>(options.minWidth)), m_artSize(static_cast<float>(options.artSize)),
+      m_titleScrollMode(options.titleScrollMode), m_hideWhenNoMedia(options.hideWhenNoMedia),
+      m_albumArtOnly(options.albumArtOnly), m_hideAlbumArt(options.hideAlbumArt), m_hideArtist(options.hideArtist),
+      m_artistFirst(options.artistFirst) {}
 
 void MediaWidget::create() {
-  auto area = std::make_unique<InputArea>();
-  area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
+  auto area = ui::inputArea({});
   area->setOnEnter([this](const InputArea::PointerData&) {
     applyTitleScrollMode(m_label != nullptr && m_label->visible());
     this->requestUpdate();
@@ -41,15 +39,6 @@ void MediaWidget::create() {
   area->setOnLeave([this]() {
     applyTitleScrollMode(m_label != nullptr && m_label->visible());
     this->requestUpdate();
-  });
-  area->setOnClick([this](const InputArea::PointerData& data) {
-    if (data.button == BTN_LEFT) {
-      requestPanelToggle("control-center", "media");
-      return;
-    }
-    if (data.button == BTN_RIGHT && m_mpris != nullptr) {
-      m_mpris->playPauseActive();
-    }
   });
   m_area = area.get();
 
@@ -214,6 +203,7 @@ void MediaWidget::syncState(Renderer& renderer) {
   const auto active = m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
   syncWidgetVisibility(active.has_value());
   if (m_hideWhenNoMedia && !active.has_value()) {
+    applyTitleScrollMode(false);
     return;
   }
 
@@ -223,7 +213,7 @@ void MediaWidget::syncState(Renderer& renderer) {
 
   if (active.has_value()) {
     playbackStatus = active->playbackStatus;
-    displayText = buildDisplayText(*active);
+    displayText = buildDisplayText(*active, m_hideArtist, m_artistFirst);
     artUrl = effectiveArtUrl(*active);
   }
 
@@ -295,9 +285,12 @@ void MediaWidget::syncState(Renderer& renderer) {
   }
 }
 
-std::string MediaWidget::buildDisplayText(const MprisPlayerInfo& player) {
-  const std::string artists = joinArtists(player.artists);
+std::string MediaWidget::buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst) {
+  const std::string artists = hideArtist ? std::string() : joinArtists(player.artists);
   if (!player.title.empty() && !artists.empty()) {
+    if (artistFirst) {
+      return artists + " - " + player.title;
+    }
     return player.title + " - " + artists;
   }
   if (!player.title.empty()) {

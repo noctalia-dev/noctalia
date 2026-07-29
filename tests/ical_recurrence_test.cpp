@@ -115,6 +115,20 @@ int main() {
   // MONTHLY unbounded over one year: Jan..Dec 2024 = 12.
   ok = expectCount(wrap("RRULE:FREQ=MONTHLY\r\n"), start, utc(2025, 1, 1), 12, "monthly") && ok;
 
+  // Timed monthly recurrences with TZID must preserve the local wall time across DST. Kyiv is UTC+2
+  // in February and UTC+3 in July, so an 11:00 February event should recur at 08:00Z in July.
+  {
+    const std::string ics = "BEGIN:VEVENT\r\nUID:kyiv-monthly\r\nSUMMARY:s\r\n"
+                            "DTSTART;TZID=Europe/Kyiv:20240205T110000\r\n"
+                            "DTEND;TZID=Europe/Kyiv:20240205T120000\r\nRRULE:FREQ=MONTHLY;COUNT=6\r\n"
+                            "END:VEVENT\r\n";
+    ok = expectRanges(
+             ics, utc(2024, 7, 1), utc(2024, 8, 1), {{utc(2024, 7, 5, 8), utc(2024, 7, 5, 9)}},
+             "monthly timed recurrence preserves Kyiv wall time across dst"
+         )
+        && ok;
+  }
+
   // UNTIL clips: DAILY until Jan 3 -> Jan 1, 2, 3 = 3.
   ok = expectCount(wrap("RRULE:FREQ=DAILY;UNTIL=20240103T090000Z\r\n"), start, end, 3, "daily until") && ok;
 
@@ -181,6 +195,15 @@ int main() {
                             "DTEND;TZID=America/New_York:20240301T130000\r\nRRULE:FREQ=DAILY;COUNT=20\r\n"
                             "EXDATE;TZID=America/New_York:20240315T120000\r\nEND:VEVENT\r\n";
     ok = expectCount(ics, utc(2024, 3, 1), utc(2024, 4, 1), 19, "exdate excludes across dst") && ok;
+  }
+
+  // Daily timed recurrences must not crash when an occurrence lands in a spring-forward gap. New York
+  // jumps from 01:59 to 03:00 on Mar 10 2024, so 02:30 does not exist that day.
+  {
+    const std::string ics = "BEGIN:VEVENT\r\nUID:ny-gap\r\nDTSTART;TZID=America/New_York:20240308T023000\r\n"
+                            "DTEND;TZID=America/New_York:20240308T033000\r\nRRULE:FREQ=DAILY;COUNT=5\r\n"
+                            "END:VEVENT\r\n";
+    ok = expectCount(ics, utc(2024, 3, 8), utc(2024, 3, 14), 5, "daily recurrence survives dst gap") && ok;
   }
 
   // RECURRENCE-ID override: a modified instance replaces the master's occurrence at that instant,

@@ -10,6 +10,7 @@
 #include "render/render_context.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tray/tray_identifier.h"
+#include "ui/builders.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/popup_chrome.h"
@@ -322,7 +323,12 @@ void TrayMenu::close() {
     m_tray->notifyMenuClosed(m_activeItemId);
   }
   destroySurface();
+  if (m_closedCallback) {
+    m_closedCallback();
+  }
 }
+
+void TrayMenu::setClosedCallback(std::function<void()> callback) { m_closedCallback = std::move(callback); }
 
 void TrayMenu::onThemeChanged() {
   if (!m_visible) {
@@ -396,7 +402,7 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
       if (onSub || sub->pointerInside) {
         if (onSub)
           sub->pointerInside = true;
-        const bool pressed = (event.state == 1);
+        const bool pressed = event.pressed;
         sub->inputDispatcher.pointerButton(
             static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
         );
@@ -461,7 +467,7 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
       if (onThisSurface) {
         inst->pointerInside = true;
       }
-      const bool pressed = (event.state == 1);
+      const bool pressed = event.pressed;
       inst->inputDispatcher.pointerButton(
           static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
       );
@@ -494,7 +500,7 @@ bool TrayMenu::onPointerEvent(const PointerEvent& event) {
     }
   }
 
-  if (event.type == PointerEvent::Type::Button && event.state == 1 && !consumed) {
+  if (event.type == PointerEvent::Type::Button && event.pressed && !consumed) {
     close();
   }
   return consumed;
@@ -693,8 +699,9 @@ void TrayMenu::ensureSurface() {
   });
   inst->surface->setDismissedCallback([this]() { close(); });
 
-  const auto chrome =
-      popup_chrome::computeGeometry(menuWidth(), static_cast<float>(surfaceHeightPx()), popupShadowConfig(m_config));
+  const auto chrome = popup_chrome::computeGeometry(
+      menuWidth(), static_cast<float>(surfaceHeightPx()), popupShadowConfig(m_config), Style::popupShadowsEnabled()
+  );
   PopupPlacement placement{};
   if (const auto bar = resolveTrayBarConfig(m_config, m_wayland, output); bar.has_value()) {
     placement = popupPlacementForBar(*bar, anchorX, anchorY, contentScale());
@@ -795,8 +802,9 @@ void TrayMenu::resizeMainSurfaceToEntries() {
     return;
   }
 
-  const auto chrome =
-      popup_chrome::computeGeometry(menuWidth(), static_cast<float>(surfaceHeightPx()), popupShadowConfig(m_config));
+  const auto chrome = popup_chrome::computeGeometry(
+      menuWidth(), static_cast<float>(surfaceHeightPx()), popupShadowConfig(m_config), Style::popupShadowsEnabled()
+  );
   const auto desiredWidth = chrome.surfaceWidth;
   const auto desiredHeight = chrome.surfaceHeight;
   if (m_instance->surface->width() == desiredWidth && m_instance->surface->height() == desiredHeight) {
@@ -876,11 +884,14 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
   const auto w = static_cast<float>(width);
   const auto h = static_cast<float>(height);
 
-  inst.sceneRoot = std::make_unique<Node>();
+  inst.sceneRoot = ui::node({});
   inst.sceneRoot->setSize(w, h);
-  (void)popup_chrome::addShadow(
-      *inst.sceneRoot, inst.chrome, popupShadowConfig(m_config), Style::scaledRadiusLg(contentScale())
-  );
+  if (Style::popupShadowsEnabled()) {
+    (void)popup_chrome::addShadow(
+        *inst.sceneRoot, inst.chrome, popupShadowConfig(m_config), Style::scaledRadiusLg(contentScale())
+    );
+  }
+  (void)popup_chrome::addCardBackground(*inst.sceneRoot, inst.chrome, contentScale());
 
   std::vector<ContextMenuControlEntry> entries;
   entries.reserve(m_entries.size());
@@ -901,17 +912,21 @@ void TrayMenu::buildScene(MenuInstance& inst, uint32_t width, uint32_t height) {
 
   const float menuWidth = std::max(1.0f, inst.chrome.contentWidth);
 
-  auto scrollView = std::make_unique<ScrollView>();
-  scrollView->setPosition(inst.chrome.contentX(), inst.chrome.contentY());
-  scrollView->setSize(inst.chrome.contentWidth, inst.chrome.contentHeight);
-  scrollView->setViewportPaddingH(0.0f);
-  scrollView->setViewportPaddingV(0.0f);
-  scrollView->clearFill();
-  scrollView->clearBorder();
-  scrollView->setRadius(0.0f);
-  scrollView->bindState(&inst.scrollState);
-  scrollView->setScrollbarVisible(true);
-
+  auto scrollView = ui::scrollView({
+      .state = &inst.scrollState,
+      .scrollbarVisible = true,
+      .viewportPaddingH = 0.0f,
+      .viewportPaddingV = 0.0f,
+      .radius = 0.0f,
+      .width = inst.chrome.contentWidth,
+      .height = inst.chrome.contentHeight,
+      .configure = [this, &inst](ScrollView& view) {
+        view.setPosition(inst.chrome.contentX(), inst.chrome.contentY());
+        view.clearFill();
+        view.clearBorder();
+        view.setScrollbarInsetV(Style::scaledRadiusLg(contentScale()));
+      },
+  });
   auto menu = std::make_unique<ContextMenuControl>();
   menu->setContentScale(contentScale());
   menu->setMenuWidth(menuWidth);
@@ -1116,7 +1131,8 @@ void TrayMenu::openSubmenuAtLevel(std::size_t levelIndex, std::int32_t parentEnt
   const auto subGap = std::max(1, static_cast<std::int32_t>(std::lround(4.0f * scale)));
 
   const auto chrome = popup_chrome::computeGeometry(
-      menuWidth(), static_cast<float>(submenuHeightPx(level.entries)), popupShadowConfig(m_config)
+      menuWidth(), static_cast<float>(submenuHeightPx(level.entries)), popupShadowConfig(m_config),
+      Style::popupShadowsEnabled()
   );
 
   const auto* wlOutput = m_wayland->findOutputByWl(parentMenu->output);
@@ -1228,11 +1244,14 @@ void TrayMenu::buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uin
   const auto w = static_cast<float>(width);
   const auto h = static_cast<float>(height);
 
-  inst.sceneRoot = std::make_unique<Node>();
+  inst.sceneRoot = ui::node({});
   inst.sceneRoot->setSize(w, h);
-  (void)popup_chrome::addShadow(
-      *inst.sceneRoot, inst.chrome, popupShadowConfig(m_config), Style::scaledRadiusLg(contentScale())
-  );
+  if (Style::popupShadowsEnabled()) {
+    (void)popup_chrome::addShadow(
+        *inst.sceneRoot, inst.chrome, popupShadowConfig(m_config), Style::scaledRadiusLg(contentScale())
+    );
+  }
+  (void)popup_chrome::addCardBackground(*inst.sceneRoot, inst.chrome, contentScale());
 
   if (levelIndex >= m_submenuLevels.size()) {
     return;
@@ -1257,16 +1276,21 @@ void TrayMenu::buildSubmenuScene(std::size_t levelIndex, MenuInstance& inst, uin
 
   const float menuWidth = std::max(1.0f, inst.chrome.contentWidth);
 
-  auto scrollView = std::make_unique<ScrollView>();
-  scrollView->setPosition(inst.chrome.contentX(), inst.chrome.contentY());
-  scrollView->setSize(inst.chrome.contentWidth, inst.chrome.contentHeight);
-  scrollView->setViewportPaddingH(0.0f);
-  scrollView->setViewportPaddingV(0.0f);
-  scrollView->clearFill();
-  scrollView->clearBorder();
-  scrollView->setRadius(0.0f);
-  scrollView->bindState(&inst.scrollState);
-  scrollView->setScrollbarVisible(true);
+  auto scrollView = ui::scrollView({
+      .state = &inst.scrollState,
+      .scrollbarVisible = true,
+      .viewportPaddingH = 0.0f,
+      .viewportPaddingV = 0.0f,
+      .radius = 0.0f,
+      .width = inst.chrome.contentWidth,
+      .height = inst.chrome.contentHeight,
+      .configure = [this, &inst](ScrollView& view) {
+        view.setPosition(inst.chrome.contentX(), inst.chrome.contentY());
+        view.clearFill();
+        view.clearBorder();
+        view.setScrollbarInsetV(Style::scaledRadiusLg(contentScale()));
+      },
+  });
 
   auto menu = std::make_unique<ContextMenuControl>();
   menu->setContentScale(contentScale());

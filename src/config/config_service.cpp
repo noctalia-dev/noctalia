@@ -4,15 +4,21 @@
 #include "config/atomic_file.h"
 #include "config/config_export.h"
 #include "config/config_merge.h"
+#include "config/config_migrations.h"
+#include "config/config_validate.h"
 #include "config/schema/config_schema.h"
+#include "config/schema/config_sections.h"
 #include "config/schema/engine.h"
 #include "config/widget_config.h"
 #include "core/build_info.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/scoped_timer.h"
+#include "i18n/i18n.h"
 #include "ipc/ipc_service.h"
+#include "launcher/launcher_provider.h"
 #include "notification/notification_manager.h"
+#include "scripting/plugin_id.h"
 #include "shell/desktop/desktop_widget_settings_registry.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "system/distro_info.h"
@@ -22,6 +28,7 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
@@ -36,6 +43,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <sys/inotify.h>
+#include <tuple>
 #include <unistd.h>
 #include <unordered_map>
 #include <vector>
@@ -43,6 +51,54 @@
 namespace schema = noctalia::config::schema;
 
 namespace {
+
+  constexpr Logger kLog("config");
+
+  template <typename T>
+  void readConfigSection(
+      const toml::table& table, T& target, const noctalia::config::schema::Schema<T>& sectionSchema,
+      std::string_view path, noctalia::config::schema::Diagnostics& diagnostics
+  ) {
+    T candidate = target;
+    try {
+      noctalia::config::schema::readInto(table, candidate, sectionSchema, path, diagnostics);
+      target = std::move(candidate);
+    } catch (const std::exception& e) {
+      diagnostics.error(std::string(path), e.what());
+      kLog.warn("{}: {}", path, e.what());
+    }
+  }
+
+  constexpr std::string_view kMigrationReminderOwner = "config_migration_reminders";
+  constexpr std::string_view kMigrationReminderKey = "last_notification";
+  struct MigrationReminderState {
+    std::int64_t epochSeconds = 0;
+    std::string issueFingerprint;
+  };
+
+  std::optional<MigrationReminderState> parseMigrationReminderState(std::string_view value) {
+    const std::size_t separator = value.find('\n');
+    if (separator == std::string_view::npos) {
+      return std::nullopt;
+    }
+
+    std::int64_t epochSeconds = 0;
+    const std::string_view encodedEpoch = value.substr(0, separator);
+    const auto [end, error] =
+        std::from_chars(encodedEpoch.data(), encodedEpoch.data() + encodedEpoch.size(), epochSeconds);
+    if (error != std::errc{} || end != encodedEpoch.data() + encodedEpoch.size() || epochSeconds < 0) {
+      return std::nullopt;
+    }
+    return MigrationReminderState{
+        .epochSeconds = epochSeconds,
+        .issueFingerprint = std::string(value.substr(separator + 1)),
+    };
+  }
+
+  std::int64_t currentEpochSeconds() {
+    return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch())
+        .count();
+  }
 
   std::optional<double> finiteDouble(const toml::node_view<const toml::node>& node) {
     if (auto v = node.value<double>()) {
@@ -132,6 +188,50 @@ namespace {
     validateKeyboardLayoutWidgetSettings(widgetName, widget);
   }
 
+  std::optional<std::string> componentOwnerId(std::string_view ownerPath, std::string_view prefix) {
+    if (!ownerPath.starts_with(prefix) || ownerPath.size() <= prefix.size()) {
+      return std::nullopt;
+    }
+    return std::string(ownerPath.substr(prefix.size()));
+  }
+
+  void restoreInvalidComponents(
+      Config& candidate, const Config& active, const noctalia::config::schema::Diagnostics& diagnostics
+  ) {
+    const auto restorePlacementWidget = [](std::vector<DesktopWidgetState>& candidateWidgets,
+                                           const std::vector<DesktopWidgetState>& activeWidgets,
+                                           const std::string& id) {
+      const auto candidateWidget = std::ranges::find(candidateWidgets, id, &DesktopWidgetState::id);
+      const auto activeWidget = std::ranges::find(activeWidgets, id, &DesktopWidgetState::id);
+      if (activeWidget != activeWidgets.end()) {
+        if (candidateWidget != candidateWidgets.end()) {
+          *candidateWidget = *activeWidget;
+        } else {
+          candidateWidgets.push_back(*activeWidget);
+        }
+      } else if (candidateWidget != candidateWidgets.end()) {
+        candidateWidgets.erase(candidateWidget);
+      }
+    };
+
+    for (const auto& entry : diagnostics.entries) {
+      if (entry.severity != noctalia::config::schema::Diagnostics::Severity::Error
+          || entry.recoveryScope != noctalia::config::schema::Diagnostics::RecoveryScope::Component) {
+        continue;
+      }
+      if (const auto barId = componentOwnerId(entry.ownerPath, "widget.")) {
+        candidate.widgets.erase(*barId);
+        if (const auto activeWidget = active.widgets.find(*barId); activeWidget != active.widgets.end()) {
+          candidate.widgets.emplace(*barId, activeWidget->second);
+        }
+      } else if (const auto desktopId = componentOwnerId(entry.ownerPath, "desktop_widgets.widget.")) {
+        restorePlacementWidget(candidate.desktopWidgets.widgets, active.desktopWidgets.widgets, *desktopId);
+      } else if (const auto lockscreenId = componentOwnerId(entry.ownerPath, "lockscreen_widgets.widget.")) {
+        restorePlacementWidget(candidate.lockscreenWidgets.widgets, active.lockscreenWidgets.widgets, *lockscreenId);
+      }
+    }
+  }
+
   void validateDesktopWidgetColorSettings(const DesktopWidgetState& widget, std::string_view section) {
     const auto fields = desktop_settings::desktopWidgetSettingSchema(widget.type);
     for (const auto& [key, value] : widget.settings) {
@@ -213,7 +313,13 @@ namespace {
         if (widgetTable == nullptr) {
           continue;
         }
-        auto widget = readDesktopWidgetState(idNode.str(), *widgetTable, colorSection);
+        DesktopWidgetState widget;
+        try {
+          widget = readDesktopWidgetState(idNode.str(), *widgetTable, colorSection);
+        } catch (const std::exception& e) {
+          kLog.warn("{}.widget.{}: {}", colorSection, idNode.str(), e.what());
+          continue;
+        }
         if (!widget.id.empty() && !widget.type.empty()) {
           parsedWidgets.push_back(std::move(widget));
         }
@@ -270,8 +376,6 @@ namespace {
     }
     return keybinds.validate;
   }
-
-  constexpr Logger kLog("config");
 
   std::vector<std::filesystem::path> sortedConfigTomlFiles(std::string_view configDir) {
     std::vector<std::filesystem::path> files;
@@ -394,8 +498,22 @@ namespace {
 
     if (!settingsPath.empty() && std::filesystem::exists(std::filesystem::path(std::string(settingsPath)))) {
       try {
-        auto table = toml::parse_file(std::string(settingsPath));
-        ConfigService::deepMerge(merged, table);
+        toml::table sidecar = toml::parse_file(std::string(settingsPath));
+        schema::Diagnostics migrationDiag;
+        const auto storedVersion = noctalia::config::storedConfigVersion(sidecar, migrationDiag);
+        if (storedVersion.has_value()) {
+          (void)noctalia::config::applyPendingConfigMigrations(sidecar, *storedVersion, migrationDiag);
+        }
+        for (const auto& entry : migrationDiag.entries) {
+          if (entry.severity == schema::Diagnostics::Severity::Error) {
+            if (error != nullptr) {
+              *error = entry.path + ": " + entry.message;
+            }
+            return std::nullopt;
+          }
+          kLog.warn("{}: {}", entry.path, entry.message);
+        }
+        ConfigService::deepMerge(merged, sidecar);
       } catch (const toml::parse_error& e) {
         if (error != nullptr) {
           *error = parseErrorMessage(std::filesystem::path(std::string(settingsPath)), e);
@@ -488,8 +606,11 @@ void ConfigService::setNotificationManager(NotificationManager* manager) {
         m_notificationManager->close(m_configErrorNotificationId);
       }
       m_configErrorNotificationId =
-          m_notificationManager->addInternal("Noctalia", "Config parse error", pendingError, Urgency::Critical, 0);
+          m_notificationManager->addInternal("Noctalia", "Config error", pendingError, Urgency::Critical, 0);
     });
+  }
+  if (m_notificationManager != nullptr && m_legacyReminderPending) {
+    DeferredCall::callLater([this]() { notifyLegacyConfigIssues(); });
   }
 }
 
@@ -551,6 +672,7 @@ void ConfigService::fireReloadCallbacks() {
     add(m_lastChange.theme, "theme");
     add(m_lastChange.controlCenter, "controlCenter");
     add(m_lastChange.plugins, "plugins");
+    add(m_lastChange.accessibility, "accessibility");
     kLog.info("reload: changed sections = [{}]", changed.empty() ? "none" : changed);
   }
 
@@ -591,6 +713,8 @@ std::optional<std::string> ConfigService::stateString(std::string_view owner, st
 bool ConfigService::setStateString(std::string_view owner, std::string_view key, std::string_view value) {
   return m_stateStore.setString(owner, key, value);
 }
+
+bool ConfigService::clearStateOwner(std::string_view owner) { return m_stateStore.clearOwner(owner); }
 
 std::string ConfigService::buildSupportReport() const {
   toml::table root;
@@ -690,7 +814,11 @@ std::string ConfigService::buildMergedUserConfigFromSources(
   if (!merged.has_value()) {
     return {};
   }
-  return formatToml(*merged) + "\n";
+  toml::table normalized = *merged;
+  normalized.erase(noctalia::config::kConfigVersionKey);
+  noctalia::config::LegacyConfigIssues issues;
+  noctalia::config::normalizeLegacyConfig(normalized, issues);
+  return formatToml(normalized) + "\n";
 }
 
 std::string ConfigService::buildEffectiveConfigFromSources(
@@ -701,13 +829,18 @@ std::string ConfigService::buildEffectiveConfigFromSources(
     return {};
   }
 
+  toml::table normalized = *merged;
+  normalized.erase(noctalia::config::kConfigVersionKey);
+  noctalia::config::LegacyConfigIssues issues;
+  noctalia::config::normalizeLegacyConfig(normalized, issues);
+
   Config config;
   noctalia::config::seedBuiltinWidgets(config);
-  if (merged->empty()) {
+  if (normalized.empty()) {
     config = makeDefaultConfig();
   } else {
     try {
-      parseConfigTable(*merged, config, false, false);
+      parseConfigTable(normalized, config, false, false);
     } catch (const std::exception& e) {
       if (error != nullptr) {
         *error = e.what();
@@ -729,6 +862,7 @@ Config ConfigService::makeDefaultConfig() {
   config.bars.push_back(BarConfig{});
   config.controlCenter.shortcuts = defaultControlCenterShortcuts();
   config.shell.session.actions = defaultSessionPanelActions();
+  config.plugins.sources = defaultPluginSources();
   return config;
 }
 
@@ -838,6 +972,8 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
       resolved.enabled = *ovr.enabled;
     if (ovr.autoHide)
       resolved.autoHide = *ovr.autoHide;
+    if (ovr.smartAutoHide)
+      resolved.smartAutoHide = *ovr.smartAutoHide;
     if (ovr.showOnWorkspaceSwitch)
       resolved.showOnWorkspaceSwitch = *ovr.showOnWorkspaceSwitch;
     if (ovr.reserveSpace)
@@ -867,6 +1003,8 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
       resolved.radiusBottomLeft = *ovr.radiusBottomLeft;
     if (ovr.radiusBottomRight)
       resolved.radiusBottomRight = *ovr.radiusBottomRight;
+    if (ovr.concaveEdgeCorners)
+      resolved.concaveEdgeCorners = *ovr.concaveEdgeCorners;
     if (ovr.marginEnds)
       resolved.marginEnds = *ovr.marginEnds;
     if (ovr.marginEdge)
@@ -927,20 +1065,8 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
     if (ovr.hoverHighlight) {
       resolved.hoverHighlight = *ovr.hoverHighlight;
     }
-    if (ovr.deadZone.command) {
-      resolved.deadZone.command = *ovr.deadZone.command;
-    }
-    if (ovr.deadZone.rightCommand) {
-      resolved.deadZone.rightCommand = *ovr.deadZone.rightCommand;
-    }
-    if (ovr.deadZone.middleCommand) {
-      resolved.deadZone.middleCommand = *ovr.deadZone.middleCommand;
-    }
-    if (ovr.deadZone.scrollUpCommand) {
-      resolved.deadZone.scrollUpCommand = *ovr.deadZone.scrollUpCommand;
-    }
-    if (ovr.deadZone.scrollDownCommand) {
-      resolved.deadZone.scrollDownCommand = *ovr.deadZone.scrollDownCommand;
+    if (ovr.deadZone.actions) {
+      resolved.deadZone.actions = *ovr.deadZone.actions;
     }
     break; // first match wins
   }
@@ -1108,12 +1234,14 @@ void ConfigService::loadOverridesFromFile() {
   m_overridesParseError.clear();
 
   if (m_overridesPath.empty() || !std::filesystem::exists(m_overridesPath)) {
+    m_persistedOverridesTable = toml::table{};
     return;
   }
 
   kLog.info("loading {}", m_overridesPath);
   try {
     m_overridesTable = toml::parse_file(m_overridesPath);
+    m_persistedOverridesTable = m_overridesTable;
   } catch (const toml::parse_error& e) {
     const auto& src = e.source();
     kLog.warn(
@@ -1146,10 +1274,82 @@ void ConfigService::setConfigParseError(std::string parseError) {
       m_notificationManager->close(m_configErrorNotificationId);
     }
     m_configErrorNotificationId =
-        m_notificationManager->addInternal("Noctalia", "Config parse error", parseError, Urgency::Critical, 0);
+        m_notificationManager->addInternal("Noctalia", "Config error", parseError, Urgency::Critical, 0);
   } else {
     m_pendingError = std::move(parseError);
   }
+}
+
+void ConfigService::updateLegacyConfigIssues(noctalia::config::LegacyConfigIssues issues) {
+  std::ranges::sort(issues, [](const auto& lhs, const auto& rhs) {
+    return std::tie(lhs.migrationVersion, lhs.path) < std::tie(rhs.migrationVersion, rhs.path);
+  });
+  issues.erase(
+      std::ranges::unique(
+          issues, {}, [](const auto& issue) { return std::tie(issue.migrationVersion, issue.path); }
+      ).begin(),
+      issues.end()
+  );
+
+  const std::string fingerprint = noctalia::config::legacyConfigIssueFingerprint(issues);
+  if (fingerprint != m_loggedLegacyIssueFingerprint) {
+    for (const auto& issue : issues) {
+      kLog.warn("{}: {} (migrated in memory)", issue.path, issue.message);
+    }
+    m_loggedLegacyIssueFingerprint = fingerprint;
+  }
+  m_legacyConfigIssues = std::move(issues);
+
+  if (m_legacyConfigIssues.empty()) {
+    m_legacyReminderPending = false;
+    m_legacyReminderTimer.stop();
+    if (m_stateStore.stringValue(kMigrationReminderOwner, kMigrationReminderKey).has_value()) {
+      (void)m_stateStore.clearOwner(kMigrationReminderOwner);
+    }
+    return;
+  }
+
+  const std::int64_t now = currentEpochSeconds();
+  const auto encodedState = m_stateStore.stringValue(kMigrationReminderOwner, kMigrationReminderKey);
+  const auto reminderState = encodedState.has_value() ? parseMigrationReminderState(*encodedState) : std::nullopt;
+  const bool hasNewIssues = !reminderState.has_value()
+      || noctalia::config::legacyConfigFingerprintHasNewIssues(fingerprint, reminderState->issueFingerprint);
+  const bool intervalElapsed = !reminderState.has_value()
+      || noctalia::config::legacyConfigReminderIntervalElapsed(now, reminderState->epochSeconds);
+  m_legacyReminderPending = hasNewIssues || intervalElapsed;
+  if (m_legacyReminderPending) {
+    notifyLegacyConfigIssues();
+    return;
+  }
+
+  const auto elapsed = std::chrono::seconds(now - reminderState->epochSeconds);
+  const auto remaining = std::chrono::seconds(noctalia::config::kLegacyConfigReminderIntervalSeconds) - elapsed;
+  m_legacyReminderTimer.start(std::chrono::duration_cast<std::chrono::milliseconds>(remaining), [this]() {
+    m_legacyReminderPending = true;
+    notifyLegacyConfigIssues();
+  });
+}
+
+void ConfigService::notifyLegacyConfigIssues() {
+  if (!m_legacyReminderPending || m_notificationManager == nullptr || m_legacyConfigIssues.empty()) {
+    return;
+  }
+
+  const std::string fingerprint = noctalia::config::legacyConfigIssueFingerprint(m_legacyConfigIssues);
+  const std::int64_t now = currentEpochSeconds();
+  (void)m_notificationManager->addInternal(
+      "Noctalia", i18n::tr("notifications.internal.config-migration-title"),
+      i18n::tr("notifications.internal.config-migration-body", "path", m_legacyConfigIssues.front().path),
+      Urgency::Normal
+  );
+  (void)m_stateStore.setString(kMigrationReminderOwner, kMigrationReminderKey, std::format("{}\n{}", now, fingerprint));
+  m_legacyReminderPending = false;
+  m_legacyReminderTimer.start(
+      std::chrono::milliseconds(noctalia::config::kLegacyConfigReminderIntervalSeconds * 1000), [this]() {
+        m_legacyReminderPending = true;
+        notifyLegacyConfigIssues();
+      }
+  );
 }
 
 void ConfigService::deepMerge(toml::table& base, const toml::table& overlay) {
@@ -1217,8 +1417,39 @@ void ConfigService::loadAll() {
     }
   }
 
-  // Apply the app-writable overrides overlay last — sidecar wins.
-  deepMerge(merged, m_overridesTable);
+  toml::table effectiveOverrides = m_overridesTable;
+  schema::Diagnostics migrationDiag;
+  std::string migrationError;
+  int storedVersion = noctalia::config::currentConfigVersion();
+  int appliedVersion = storedVersion;
+  bool sidecarNeedsPersist = false;
+  if (!m_overridesTable.empty()) {
+    const auto parsedVersion = noctalia::config::storedConfigVersion(effectiveOverrides, migrationDiag);
+    if (parsedVersion.has_value()) {
+      storedVersion = *parsedVersion;
+      appliedVersion = noctalia::config::applyPendingConfigMigrations(effectiveOverrides, storedVersion, migrationDiag);
+      sidecarNeedsPersist = appliedVersion != storedVersion;
+      effectiveOverrides.insert_or_assign(
+          noctalia::config::kConfigVersionKey, static_cast<std::int64_t>(appliedVersion)
+      );
+    }
+  }
+  for (const auto& entry : migrationDiag.entries) {
+    if (entry.severity == schema::Diagnostics::Severity::Error) {
+      if (migrationError.empty()) {
+        migrationError = entry.path + ": " + entry.message;
+      }
+    } else {
+      kLog.warn("{}: {}", entry.path, entry.message);
+    }
+  }
+
+  // Apply the app-writable overrides overlay last; sidecar wins. Compatibility
+  // normalization must see the final effective values to preserve overlay intent.
+  deepMerge(merged, effectiveOverrides);
+  merged.erase(noctalia::config::kConfigVersionKey);
+  noctalia::config::LegacyConfigIssues legacyIssues;
+  noctalia::config::normalizeLegacyConfig(merged, legacyIssues);
 
   if (m_includeLoadedFiles.empty() && m_overridesTable.empty()) {
     kLog.info("no config files found, using defaults");
@@ -1230,17 +1461,53 @@ void ConfigService::loadAll() {
     m_defaultWallpaperPath.clear();
     m_lastWallpaperPath.clear();
     m_monitorWallpaperPaths.clear();
+    updateLegacyConfigIssues({});
     setConfigParseError(m_overridesParseError);
     refreshIncludeWatches();
     return;
   }
 
-  std::string semanticError;
-  try {
-    parseConfigTable(merged, nextConfig, true);
-  } catch (const std::exception& e) {
-    semanticError = e.what();
-    kLog.warn("config parse error: {}", semanticError);
+  std::string semanticError = !firstError.empty() ? firstError
+      : !m_overridesParseError.empty()            ? m_overridesParseError
+                                                  : migrationError;
+  std::string diagnosticError;
+  schema::Diagnostics diagnostics;
+  if (semanticError.empty()) {
+    try {
+      diagnostics = noctalia::config::validateMergedConfig(merged);
+      std::size_t errorCount = 0;
+      for (const auto& entry : diagnostics.entries) {
+        if (entry.severity == schema::Diagnostics::Severity::Error) {
+          if (entry.recoveryScope == schema::Diagnostics::RecoveryScope::Document) {
+            if (semanticError.empty()) {
+              semanticError = entry.path + ": " + entry.message;
+            }
+            kLog.warn("{}: {}", entry.path, entry.message);
+            continue;
+          }
+          ++errorCount;
+          if (diagnosticError.empty()) {
+            diagnosticError = entry.path + ": " + entry.message;
+          }
+        }
+        kLog.warn("{}: {}", entry.path, entry.message);
+      }
+      if (errorCount > 1) {
+        diagnosticError += std::format(" (and {} more config errors)", errorCount - 1);
+      }
+    } catch (const std::exception& e) {
+      semanticError = e.what();
+      kLog.warn("config validation error: {}", semanticError);
+    }
+  }
+  if (semanticError.empty()) {
+    try {
+      parseConfigTable(merged, nextConfig, true, false);
+      restoreInvalidComponents(nextConfig, m_config, diagnostics);
+    } catch (const std::exception& e) {
+      semanticError = e.what();
+      kLog.warn("config parse error: {}", semanticError);
+    }
   }
 
   if (semanticError.empty()) {
@@ -1250,6 +1517,19 @@ void ConfigService::loadAll() {
     m_configFileMonitorOverrideNames = std::move(configFileMonitorOverrideNames);
     m_configFileCalendarAccountNames = std::move(configFileCalendarAccountNames);
     extractWallpaperFromTable(merged);
+    updateLegacyConfigIssues(std::move(legacyIssues));
+
+    if (sidecarNeedsPersist) {
+      toml::table previousOverrides = m_overridesTable;
+      m_overridesTable = std::move(effectiveOverrides);
+      if (writeOverridesToFile()) {
+        m_ownOverridesWritePending = m_inotifyFd >= 0 && m_overridesWatchWd >= 0;
+        extractWallpaperFromOverrides();
+      } else {
+        kLog.warn("failed to persist migrated config overrides to {}", m_overridesPath);
+        m_overridesTable = std::move(previousOverrides);
+      }
+    }
   } else if (m_config.bars.empty()) {
     m_lastChange = ConfigChangeSet{};
     m_config = makeDefaultConfig();
@@ -1266,7 +1546,8 @@ void ConfigService::loadAll() {
 
   const std::string parseError = !firstError.empty() ? firstError
       : !m_overridesParseError.empty()               ? m_overridesParseError
-                                                     : semanticError;
+      : !semanticError.empty()                       ? semanticError
+                                                     : diagnosticError;
   setConfigParseError(parseError);
 
   // Included files may live in subdirectories or absolute paths outside the config
@@ -1297,7 +1578,7 @@ void ConfigService::parseConfigTable(
       if (auto v = (*barTbl)["position"].value<std::string>()) {
         bar.position = *v;
       }
-      schema::readInto(*barTbl, bar, schema::barFieldsSchema(), "bar." + bar.name, schemaDiag);
+      readConfigSection(*barTbl, bar, schema::barFieldsSchema(), "bar." + bar.name, schemaDiag);
 
       // Parse [bar.<name>.monitor.*] overrides — insertion order preserved by toml++.
       if (auto* monTblMap = (*barTbl)["monitor"].as_table()) {
@@ -1308,7 +1589,7 @@ void ConfigService::parseConfigTable(
           }
           BarMonitorOverride ovr;
           ovr.match = std::string(monName.str()); // key is the match unless an explicit `match` overrides it
-          schema::readInto(
+          readConfigSection(
               *monTbl, ovr, schema::barMonitorOverrideSchema(),
               "bar." + bar.name + ".monitor." + std::string(monName.str()), schemaDiag
           );
@@ -1353,63 +1634,109 @@ void ConfigService::parseConfigTable(
       const std::string widgetName(name.str());
       WidgetConfig wc = noctalia::config::readBarWidgetConfig(widgetName, *entryTbl, config);
 
-      validateWidgetSettings(widgetName, wc);
-      config.widgets[widgetName] = std::move(wc);
+      try {
+        validateWidgetSettings(widgetName, wc);
+        config.widgets[widgetName] = std::move(wc);
+      } catch (const std::exception& e) {
+        config.widgets.erase(widgetName);
+        kLog.warn("widget.{}: {}", widgetName, e.what());
+      }
     }
   }
 
-  // Parse [shell]
-  bool sessionActionsConfigured = false;
-  if (auto* shellTbl = tbl["shell"].as_table()) {
-    // Schema reads can't tell whether an empty actions list was explicit.
-    sessionActionsConfigured = [&] {
-      const auto* sessionTbl = (*shellTbl)["session"].as_table();
-      return sessionTbl != nullptr && (*sessionTbl)["actions"].as_array() != nullptr;
-    }();
-    schema::readInto(*shellTbl, config.shell, schema::shellSchema(), "shell", schemaDiag);
+  // Every schema-backed section is read through the section registry, so the loader
+  // cannot recognize a section that the validator and exporter do not.
+  for (const schema::SectionSpec& spec : schema::sections()) {
+    const auto* sectionTbl = tbl[spec.name].as_table();
+    if (sectionTbl == nullptr) {
+      continue;
+    }
+    try {
+      spec.read(*sectionTbl, config, schemaDiag);
+    } catch (const std::exception& e) {
+      schemaDiag.error(std::string(spec.name), e.what());
+      kLog.warn("{}: {}", spec.name, e.what());
+    }
   }
+
+  // Template config files (e.g. user-templates.toml) store palette extensions under
+  // [config.custom_colors]; lift them into the canonical theme.templates slot.
+  schema::liftTemplateConfigCustomColors(tbl, config);
+
+  // Default seeding must apply even when the section is absent, so it runs after the
+  // registry pass. A schema read can't tell an explicitly empty list from a missing
+  // one, so these probe the raw table for the list key.
+  const auto hasExplicitArray = [&tbl](std::string_view section, std::string_view key) {
+    const auto* sectionTbl = tbl[section].as_table();
+    return sectionTbl != nullptr && (*sectionTbl)[key].as_array() != nullptr;
+  };
+  const bool sessionActionsConfigured = [&tbl] {
+    const auto* shellTbl = tbl["shell"].as_table();
+    const auto* sessionTbl = shellTbl != nullptr ? (*shellTbl)["session"].as_table() : nullptr;
+    return sessionTbl != nullptr && (*sessionTbl)["actions"].as_array() != nullptr;
+  }();
   if (!sessionActionsConfigured && config.shell.session.actions.empty()) {
     config.shell.session.actions = defaultSessionPanelActions();
   }
-
-  // Parse [theme]
-  if (auto* themeTbl = tbl["theme"].as_table()) {
-    schema::readInto(*themeTbl, config.theme, schema::themeSchema(), "theme", schemaDiag);
+  if (!hasExplicitArray("control_center", "shortcuts") && config.controlCenter.shortcuts.empty()) {
+    config.controlCenter.shortcuts = defaultControlCenterShortcuts();
+  }
+  if (!hasExplicitArray("plugins", "source") && config.plugins.sources.empty()) {
+    config.plugins.sources = defaultPluginSources();
+  }
+  if (config.idle.behaviors.empty()) {
+    config.idle.behaviors = defaultIdleBehaviors();
   }
 
-  // Parse [wallpaper] (config keys only; app-managed state keys default/last/
-  // monitors/favorite are handled separately by extractWallpaperFromTable).
-  if (auto* wpTbl = tbl["wallpaper"].as_table()) {
-    schema::readInto(*wpTbl, config.wallpaper, schema::wallpaperSchema(), "wallpaper", schemaDiag);
+  // Launcher providers are resolved after the registry pass, once config.shell is
+  // populated. An empty common prefix falls back to '/', and providers that name
+  // nothing real (or a disabled plugin, or the fixed Applications provider) are
+  // dropped loudly rather than silently ignored.
+  if (config.shell.launcher.providerPrefix.empty()) {
+    schemaDiag.warn("shell.launcher.provider_prefix", "is empty, falling back to '/'");
+    config.shell.launcher.providerPrefix = "/";
   }
-
-  // Parse [backdrop]
-  if (auto* ovTbl = tbl["backdrop"].as_table()) {
-    schema::readInto(*ovTbl, config.backdrop, schema::backdropSchema(), "backdrop", schemaDiag);
+  std::unordered_set<std::string> enabledPlugins;
+  if (const auto* pluginsTbl = tbl["plugins"].as_table()) {
+    if (const auto* enabledArr = (*pluginsTbl)["enabled"].as_array()) {
+      for (const auto& node : *enabledArr) {
+        if (const auto* strVal = node.as_string()) {
+          enabledPlugins.insert(StringUtils::toLower(strVal->get()));
+        }
+      }
+    }
   }
-
-  // Parse [lockscreen]
-  if (auto* lockTbl = tbl["lockscreen"].as_table()) {
-    schema::readInto(*lockTbl, config.lockscreen, schema::lockscreenSchema(), "lockscreen", schemaDiag);
-  }
-
-  // Parse [osd]
-  if (auto* osdTbl = tbl["osd"].as_table()) {
-    schema::readInto(*osdTbl, config.osd, schema::osdSchema(), "osd", schemaDiag);
-  }
-
-  if (auto* notifTbl = tbl["notification"].as_table()) {
-    schema::readInto(*notifTbl, config.notification, schema::notificationSchema(), "notification", schemaDiag);
-  }
-  // Compatibility alias: accept [notifications] as well.
-  if (auto* notifTbl = tbl["notifications"].as_table()) {
-    schema::readInto(*notifTbl, config.notification, schema::notificationSchema(), "notifications", schemaDiag);
-  }
-
-  // Parse [dock]
-  if (auto* dockTbl = tbl["dock"].as_table()) {
-    schema::readInto(*dockTbl, config.dock, schema::dockSchema(), "dock", schemaDiag);
-  }
+  std::erase_if(config.shell.launcher.providers, [&](const LauncherProviderConfig& provider) {
+    if (provider.name == "applications") {
+      schemaDiag.warn(
+          "shell.launcher.providers.applications", "custom settings are not allowed (Applications is always global)"
+      );
+      return true;
+    }
+    const auto isBuiltin = std::ranges::contains(launcher::kBuiltinProviders, provider.name);
+    if (!isBuiltin) {
+      const std::size_t colon = provider.name.find(':');
+      bool isPlugin = false;
+      std::string pluginIdStr;
+      if (colon != std::string::npos) {
+        std::string_view pluginId = std::string_view(provider.name).substr(0, colon);
+        std::string_view entryName = std::string_view(provider.name).substr(colon + 1);
+        if (scripting::isValidPluginId(pluginId) && scripting::isValidPluginIdSegment(entryName)) {
+          isPlugin = true;
+          pluginIdStr = std::string(pluginId);
+        }
+      }
+      if (!isPlugin) {
+        schemaDiag.warn("shell.launcher.providers." + provider.name, "provider is nonexistent");
+        return true;
+      }
+      if (!enabledPlugins.contains(pluginIdStr)) {
+        schemaDiag.warn("shell.launcher.providers." + provider.name, "plugin '" + pluginIdStr + "' is not enabled");
+        return true;
+      }
+    }
+    return false;
+  });
 
   // Parse [desktop_widgets]
   if (auto* desktopWidgetsTbl = tbl["desktop_widgets"].as_table()) {
@@ -1437,83 +1764,6 @@ void ConfigService::parseConfigTable(
     );
   }
 
-  // Parse [hot_corners]
-  if (auto* hotCornersTbl = tbl["hot_corners"].as_table()) {
-    schema::readInto(*hotCornersTbl, config.hotCorners, schema::hotCornersSchema(), "hot_corners", schemaDiag);
-  }
-
-  // Parse [weather]
-  if (auto* weatherTbl = tbl["weather"].as_table()) {
-    schema::readInto(*weatherTbl, config.weather, schema::weatherSchema(), "weather", schemaDiag);
-  }
-
-  // Parse [calendar]
-  if (auto* calendarTbl = tbl["calendar"].as_table()) {
-    schema::readInto(*calendarTbl, config.calendar, schema::calendarSchema(), "calendar", schemaDiag);
-  }
-
-  // Parse [system]
-  if (auto* systemTbl = tbl["system"].as_table()) {
-    schema::readInto(*systemTbl, config.system, schema::systemSchema(), "system", schemaDiag);
-  }
-
-  // Parse [audio]
-  if (auto* audioTbl = tbl["audio"].as_table()) {
-    schema::readInto(*audioTbl, config.audio, schema::audioSchema(), "audio", schemaDiag);
-  }
-
-  // Parse [brightness]
-  if (auto* brightnessTbl = tbl["brightness"].as_table()) {
-    schema::readInto(*brightnessTbl, config.brightness, schema::brightnessSchema(), "brightness", schemaDiag);
-  }
-
-  // Parse [battery]
-  if (auto* batteryTbl = tbl["battery"].as_table()) {
-    schema::readInto(*batteryTbl, config.battery, schema::batterySchema(), "battery", schemaDiag);
-  }
-
-  // Parse [keybinds]
-  if (auto* keybindsTbl = tbl["keybinds"].as_table()) {
-    schema::readInto(*keybindsTbl, config.keybinds, schema::keybindsSchema(), "keybinds", schemaDiag);
-  }
-
-  // Parse [nightlight]
-  if (auto* nightlightTbl = tbl["nightlight"].as_table()) {
-    schema::readInto(*nightlightTbl, config.nightlight, schema::nightlightSchema(), "nightlight", schemaDiag);
-  }
-
-  // Parse [location]
-  if (auto* locationTbl = tbl["location"].as_table()) {
-    schema::readInto(*locationTbl, config.location, schema::locationSchema(), "location", schemaDiag);
-  }
-
-  // Parse [hooks]
-  if (auto* hooksTbl = tbl["hooks"].as_table()) {
-    schema::readInto(*hooksTbl, config.hooks, schema::hooksSchema(), "hooks", schemaDiag);
-  }
-
-  // Parse [control_center]. The default-shortcuts seeding stays here because it
-  // must apply even when [control_center] (or its shortcuts array) is absent.
-  bool controlCenterShortcutsConfigured = false;
-  if (auto* ccTbl = tbl["control_center"].as_table()) {
-    controlCenterShortcutsConfigured = (*ccTbl)["shortcuts"].as_array() != nullptr;
-    schema::readInto(*ccTbl, config.controlCenter, schema::controlCenterSchema(), "control_center", schemaDiag);
-  }
-  if (!controlCenterShortcutsConfigured && config.controlCenter.shortcuts.empty()) {
-    config.controlCenter.shortcuts = defaultControlCenterShortcuts();
-  }
-
-  // Parse [plugins]. Default-seeding stays here because it must apply even when
-  // [plugins] (or its source array) is absent.
-  bool pluginSourcesConfigured = false;
-  if (auto* pluginsTbl = tbl["plugins"].as_table()) {
-    pluginSourcesConfigured = (*pluginsTbl)["source"].as_array() != nullptr;
-    schema::readInto(*pluginsTbl, config.plugins, schema::pluginsSchema(), "plugins", schemaDiag);
-  }
-  if (!pluginSourcesConfigured && config.plugins.sources.empty()) {
-    config.plugins.sources = defaultPluginSources();
-  }
-
   // Parse [plugin_settings."author/plugin"] — open-ended per-plugin setting maps,
   // validated against the manifest schema (not the static pluginsSchema). Keys may
   // contain '/', so this is a top-level table rather than nested under [plugins].
@@ -1530,15 +1780,6 @@ void ConfigService::parseConfigTable(
         }
       }
     }
-  }
-
-  // Parse [idle] and [idle.behavior.*]. Default-seeding stays here because it
-  // must apply even when [idle] is absent.
-  if (auto* idleTbl = tbl["idle"].as_table()) {
-    schema::readInto(*idleTbl, config.idle, schema::idleSchema(), "idle", schemaDiag);
-  }
-  if (config.idle.behaviors.empty()) {
-    config.idle.behaviors = defaultIdleBehaviors();
   }
 
   if (config.bars.empty()) {
@@ -1590,6 +1831,6 @@ void ConfigService::registerIpc(IpcService& ipc) {
         forceReload();
         return "ok\n";
       },
-      "config-reload", "Reload the config file"
+      "", "Reload the config file"
   );
 }

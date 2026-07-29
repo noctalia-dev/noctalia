@@ -24,7 +24,7 @@ namespace noctalia::theme {
     std::string toHex() const;                        // "#rrggbb"
     std::tuple<double, double, double> toHsl() const; // (h°, s, l) — h in [0,360)
     uint32_t toArgb() const {
-      return 0xff000000u
+      return 0xff000000U
           | (static_cast<uint32_t>(r) << 16)
           | (static_cast<uint32_t>(g) << 8)
           | static_cast<uint32_t>(b);

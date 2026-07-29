@@ -298,7 +298,7 @@ namespace noctalia::theme {
 
       std::vector<mcu::Argb> out;
       if (chosen.empty())
-        out.push_back(0xff4285f4u);
+        out.push_back(0xff4285f4U);
       for (auto& h : chosen)
         out.push_back(h.ToInt());
       return out;
@@ -313,7 +313,7 @@ namespace noctalia::theme {
         const uint32_t r = rgb112[i + 0];
         const uint32_t g = rgb112[i + 1];
         const uint32_t b = rgb112[i + 2];
-        pixels.push_back(0xff000000u | (r << 16) | (g << 8) | b);
+        pixels.push_back(0xff000000U | (r << 16) | (g << 8) | b);
       }
 
       // Matches QuantizeCelebi: drop transparent, run wu for seeds, then
@@ -334,7 +334,7 @@ namespace noctalia::theme {
       std::erase_if(clusters, [](const ClusterEntry& c) { return mcu::CamFromInt(c.argb).chroma < 5.0; });
 
       auto ranked = scoreMatugen(clusters, 4, true);
-      return ranked.empty() ? 0xff4285f4u : ranked.front();
+      return ranked.empty() ? 0xff4285f4U : ranked.front();
     }
 
     std::unique_ptr<mcu::DynamicScheme> makeScheme(const mcu::Hct& source, Scheme scheme, bool isDark) {

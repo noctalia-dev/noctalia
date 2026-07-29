@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+#include <ranges>
 #include <string>
 #include <utility>
 #include <vector>
@@ -11,20 +13,41 @@ namespace noctalia::config::schema {
   // (errors). `path` is the dotted key path, e.g. "shell.animation.style".
   struct Diagnostics {
     enum class Severity { Warning, Error };
+    enum class RecoveryScope { Advisory, Value, Component, Document };
 
     struct Entry {
       Severity severity;
+      RecoveryScope recoveryScope;
+      std::string code;
       std::string path;
       std::string message;
+      std::string ownerPath;
     };
 
     std::vector<Entry> entries;
 
-    void warn(std::string path, std::string message) {
-      entries.push_back({Severity::Warning, std::move(path), std::move(message)});
+    void warn(std::string path, std::string message, std::string code = "config.warning") {
+      entries.push_back(
+          {Severity::Warning, RecoveryScope::Advisory, std::move(code), std::move(path), std::move(message), {}}
+      );
     }
-    void error(std::string path, std::string message) {
-      entries.push_back({Severity::Error, std::move(path), std::move(message)});
+    void error(std::string path, std::string message, std::string code = "config.invalid-value") {
+      entries.push_back(
+          {Severity::Error, RecoveryScope::Value, std::move(code), std::move(path), std::move(message), {}}
+      );
+    }
+    void componentError(
+        std::string path, std::string ownerPath, std::string message, std::string code = "config.invalid-component"
+    ) {
+      entries.push_back(
+          {Severity::Error, RecoveryScope::Component, std::move(code), std::move(path), std::move(message),
+           std::move(ownerPath)}
+      );
+    }
+    void fatal(std::string path, std::string message, std::string code = "config.invalid-document") {
+      entries.push_back(
+          {Severity::Error, RecoveryScope::Document, std::move(code), std::move(path), std::move(message), {}}
+      );
     }
 
     [[nodiscard]] bool hasErrors() const {
@@ -34,6 +57,36 @@ namespace noctalia::config::schema {
         }
       }
       return false;
+    }
+
+    [[nodiscard]] bool hasFatalErrors() const {
+      for (const auto& e : entries) {
+        if (e.severity == Severity::Error && e.recoveryScope == RecoveryScope::Document) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    [[nodiscard]] Diagnostics introducedErrorsComparedTo(const Diagnostics& baseline) const {
+      Diagnostics introduced;
+      for (const auto& candidate : entries) {
+        if (candidate.severity != Severity::Error) {
+          continue;
+        }
+        const bool existed = std::ranges::any_of(baseline.entries, [&](const Entry& previous) {
+          return candidate.severity == previous.severity
+              && candidate.recoveryScope == previous.recoveryScope
+              && candidate.code == previous.code
+              && candidate.path == previous.path
+              && candidate.message == previous.message
+              && candidate.ownerPath == previous.ownerPath;
+        });
+        if (!existed) {
+          introduced.entries.push_back(candidate);
+        }
+      }
+      return introduced;
     }
   };
 

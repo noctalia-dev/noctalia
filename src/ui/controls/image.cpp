@@ -122,6 +122,12 @@ void Image::setRadius(float radius) {
   markPaintDirty();
 }
 
+void Image::setScrim(const ImageScrim& scrim) {
+  if (m_image != nullptr) {
+    m_image->setScrim(scrim);
+  }
+}
+
 void Image::setBorder(const ColorSpec& color, float width) {
   m_border = color;
   m_borderWidth = width;

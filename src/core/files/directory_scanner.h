@@ -34,6 +34,11 @@ public:
 
   [[nodiscard]] static bool isImagePath(const std::filesystem::path& path);
 
+  // Extension filter for FileDialogOptions::extensions and
+  // TextSetting::browseFileExtensions. `includeSvg` adds ".svg" for pickers
+  // that also accept vector art.
+  [[nodiscard]] static std::vector<std::string> imageExtensionFilter(bool includeSvg);
+
 private:
   [[nodiscard]] static bool
   matchesExtension(const std::filesystem::path& path, const std::vector<std::string>& extensions);

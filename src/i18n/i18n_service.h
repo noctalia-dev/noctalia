@@ -30,7 +30,7 @@ namespace i18n {
     std::string_view displayName;
   };
 
-  inline constexpr std::array<LanguageOption, 20> kSupportedLanguages = {{
+  inline constexpr std::array<LanguageOption, 22> kSupportedLanguages = {{
       {"be", "Беларуская"}, {"be-Latn", "Biełaruskaja (Łacinka)"},
       {"ca", "Català"},     {"cs", "Čeština"},
       {"de", "Deutsch"},    {"en", "English"},
@@ -39,7 +39,8 @@ namespace i18n {
       {"it", "Italiano"},   {"ku", "Kurdî"},
       {"nl", "Nederlands"}, {"nn", "Norsk nynorsk"},
       {"pl", "Polski"},     {"pt-BR", "Português (Brasil)"},
-      {"ru", "Русский"},    {"uk-UA", "Українська"},
+      {"ru", "Русский"},    {"sv", "Svenska"},
+      {"tr", "Türkçe"},     {"uk-UA", "Українська"},
       {"vi", "Tiếng Việt"}, {"zh-Hans", "简体中文"},
   }};
 

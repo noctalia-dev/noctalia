@@ -24,6 +24,7 @@ public:
     bool shadow = true;
     bool showCircle = true;
     bool centerText = false;
+    std::string timezone;
   };
 
   explicit DesktopClockWidget(Options options);
@@ -58,6 +59,7 @@ private:
   ColorSpec m_color;
   bool m_shadow;
   bool m_showCircle;
+  std::string m_timezone;
   bool m_centerText = false;
   bool m_showsSeconds = false;
   Label* m_label = nullptr;

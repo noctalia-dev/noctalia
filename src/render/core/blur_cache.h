@@ -20,6 +20,7 @@ public:
 
   void invalidate() { m_layer.invalidate(); }
   void destroy();
+  void abandon() noexcept;
 
 private:
   CachedLayer m_layer;
