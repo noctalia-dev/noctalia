@@ -63,7 +63,6 @@ namespace {
   std::unique_ptr<Flex> makeWifiBucketHeaderRow(const std::string& title, float scale) {
     auto row = ui::row({
         .align = FlexAlign::Center,
-        .gap = Style::spaceSm * scale,
     });
 
     auto pill = ui::row({
@@ -82,15 +81,6 @@ namespace {
         })
     );
     row->addChild(std::move(pill));
-    row->addChild(
-        ui::separator({
-            .color = colorSpecFromRole(ColorRole::Outline, 0.55f),
-            .thickness = std::max(1.0f, scale),
-            .spacing = 0.0f,
-            .gradientEdges = false,
-            .flexGrow = 1.0f,
-        })
-    );
     return row;
   }
 
