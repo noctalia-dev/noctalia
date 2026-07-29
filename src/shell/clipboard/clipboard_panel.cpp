@@ -1753,7 +1753,13 @@ bool ClipboardPanel::handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers) 
   }
 
   if (KeybindMatcher::matches(KeybindAction::Delete, sym, modifiers)) {
-    requestDeleteSelectedEntry();
+    const std::size_t historyIndex = selectedHistoryIndex();
+    const auto& history = m_clipboard->history();
+    if (historyIndex < history.size() && m_deleteConfirmStorageId == history[historyIndex].storageId) {
+      deleteSelectedEntry();
+    } else {
+      requestDeleteSelectedEntry();
+    }
     return true;
   }
 
