@@ -18,7 +18,7 @@
 #include "core/toml.h"
 #include "scripting/plugin_id.h"
 
-#include <cstdio>
+#include <print>
 #include <sstream>
 #include <string>
 
@@ -29,7 +29,7 @@ namespace {
   int g_failures = 0;
 
   void fail(const std::string& message) {
-    std::fprintf(stderr, "config_schema_roundtrip: FAIL: %s\n", message.c_str());
+    std::println(stderr, "config_schema_roundtrip: FAIL: {}", message);
     ++g_failures;
   }
 
@@ -364,7 +364,6 @@ location = "https://example.invalid/bad"
     c.keybinds.tabNext = defaultKeybindSet(KeybindAction::TabNext);
     c.keybinds.tabPrevious = defaultKeybindSet(KeybindAction::TabPrevious);
     c.keybinds.deleteEntry = defaultKeybindSet(KeybindAction::Delete);
-    c.keybinds.deleteNoConfirm = defaultKeybindSet(KeybindAction::DeleteNoConfirm);
     c.hooks.commands[0] = {"notify-send hi"};
     c.hooks.commands[2] = {"cmd-a", "cmd-b"};
     c.idle.preActionFadeSeconds = 3.0f;
@@ -690,9 +689,9 @@ widget_spacing = 8
   checkClamps();
 
   if (g_failures == 0) {
-    std::puts("config_schema_roundtrip: all checks passed");
+    std::println("config_schema_roundtrip: all checks passed");
     return 0;
   }
-  std::fprintf(stderr, "config_schema_roundtrip: %d failure(s)\n", g_failures);
+  std::println(stderr, "config_schema_roundtrip: {} failure(s)", g_failures);
   return 1;
 }

@@ -267,8 +267,6 @@ namespace {
       return keybinds.tabPrevious;
     case KeybindAction::Delete:
       return keybinds.deleteEntry;
-    case KeybindAction::DeleteNoConfirm:
-      return keybinds.deleteNoConfirm;
     }
     return keybinds.validate;
   }

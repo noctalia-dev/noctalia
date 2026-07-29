@@ -267,7 +267,6 @@ down     = ["down"]
 tab_next = ["tab"]
 tab_previous = ["shift+iso_left_tab"]
 delete   = ["del"]
-delete_no_confirm = ["shift+del"]
 
 # ── Bar ───────────────────────────────────────────────────────────────────────
 

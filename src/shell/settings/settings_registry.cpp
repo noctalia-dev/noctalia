@@ -1873,14 +1873,6 @@ namespace settings {
         },
         "keybind shortcut hotkey delete remove clear"
     ));
-    entries.push_back(makeEntry(
-        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.delete-no-confirm.label"),
-        tr("settings.schema.keybinds.delete-no-confirm.description"), {"keybinds", "delete_no_confirm"},
-        KeybindListSetting{
-            .items = effectiveKeybindItems(cfg.keybinds.deleteNoConfirm, KeybindAction::DeleteNoConfirm), .maxItems = 4
-        },
-        "keybind shortcut hotkey delete remove clear no confirmation force shift"
-    ));
 
     // Niri-specific integrations
     if (env.niriOverviewTypeToLaunchSupported || env.niriBackdropSupported) {

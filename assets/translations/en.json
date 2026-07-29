@@ -1910,10 +1910,6 @@
           "description": "Delete the selected item",
           "label": "Delete"
         },
-        "delete-no-confirm": {
-          "description": "Delete the selected item without confirmation",
-          "label": "Delete (No Confirmation)"
-        },
         "down": {
           "description": "Move focus or selection down one row",
           "label": "Navigate Down"
