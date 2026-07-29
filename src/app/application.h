@@ -251,7 +251,9 @@ private:
   HookManager m_hookManager;
   DependencyService m_dependencyService;
   GammaService m_gammaService;
-  ScreenshotService m_screenshotService{m_wayland, m_compositorPlatform, m_notificationManager, &m_clipboardService};
+  ScreenshotService m_screenshotService{
+      m_wayland, m_compositorPlatform, m_configService, m_notificationManager, &m_clipboardService
+  };
   std::unique_ptr<MprisService> m_mprisService;
   std::unique_ptr<PowerProfilesService> m_powerProfilesService;
   std::unique_ptr<INetworkService> m_networkService;

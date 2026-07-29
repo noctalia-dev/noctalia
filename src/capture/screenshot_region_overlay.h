@@ -4,6 +4,7 @@
 
 #include <functional>
 #include <memory>
+#include <string>
 #include <vector>
 
 class RenderContext;
@@ -31,6 +32,7 @@ namespace capture {
     void initialize(WaylandConnection& wayland, RenderContext* renderContext);
     void setCompleteCallback(CompleteCallback callback);
     void setFailureCallback(FailureCallback callback);
+    void setConfirmKeybindLabels(std::string copyLabel, std::string saveLabel, std::string cancelLabel);
     void setFrozenScreenshots(std::vector<FrozenScreenshot> screenshots);
     [[nodiscard]] std::vector<FrozenScreenshot> takeFrozenScreenshots();
     void begin(bool freezeScreen, bool fullscreenPick = false, bool confirmRegion = false);
@@ -61,6 +63,9 @@ namespace capture {
     FailureCallback m_onFailure;
     std::vector<std::unique_ptr<Instance>> m_instances;
     std::vector<FrozenScreenshot> m_frozenScreenshots;
+    std::string m_copyKeybindLabel;
+    std::string m_saveKeybindLabel;
+    std::string m_cancelKeybindLabel;
     bool m_active = false;
     bool m_freezeScreen = false;
     bool m_fullscreenPick = false;

@@ -179,6 +179,14 @@ namespace capture {
 
   void ScreenshotRegionOverlay::setFailureCallback(FailureCallback callback) { m_onFailure = std::move(callback); }
 
+  void ScreenshotRegionOverlay::setConfirmKeybindLabels(
+      std::string copyLabel, std::string saveLabel, std::string cancelLabel
+  ) {
+    m_copyKeybindLabel = std::move(copyLabel);
+    m_saveKeybindLabel = std::move(saveLabel);
+    m_cancelKeybindLabel = std::move(cancelLabel);
+  }
+
   void ScreenshotRegionOverlay::setFrozenScreenshots(std::vector<FrozenScreenshot> screenshots) {
     m_frozenScreenshots = std::move(screenshots);
   }
@@ -840,7 +848,12 @@ namespace capture {
           continue;
         }
         if (inst->confirmHintLabel != nullptr) {
-          inst->confirmHintLabel->setText(i18n::tr("bar.screenshot.confirm-region"));
+          inst->confirmHintLabel->setText(
+              i18n::tr(
+                  "bar.screenshot.confirm-region", "copy", m_copyKeybindLabel, "save", m_saveKeybindLabel, "cancel",
+                  m_cancelKeybindLabel
+              )
+          );
         }
         const auto surfaceW = static_cast<float>(inst->surface->width());
         const auto surfaceH = static_cast<float>(inst->surface->height());
