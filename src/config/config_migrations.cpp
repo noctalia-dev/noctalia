@@ -465,22 +465,6 @@ namespace noctalia::config {
           changed = true;
         }
 
-        if (const auto showUnits = (*widget)["label_show_units"].value<bool>(); showUnits.has_value()) {
-          if (!widget->contains("show_units")) {
-            widget->insert_or_assign("show_units", *showUnits);
-          }
-          widget->erase("label_show_units");
-          changed = true;
-        }
-
-        if (const auto minWidth = (*widget)["label_min_width"].value<std::int64_t>(); minWidth.has_value()) {
-          if (!widget->contains("value_min_width")) {
-            widget->insert_or_assign("value_min_width", *minWidth);
-          }
-          widget->erase("label_min_width");
-          changed = true;
-        }
-
         if (changed) {
           onChanged("widget." + std::string(widgetName.str()));
         }

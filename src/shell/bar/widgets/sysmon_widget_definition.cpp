@@ -179,7 +179,7 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                   },
           }),
           field<&Options::showUnits>({
-              .key = "show_units",
+              .key = "label_show_units",
               .presentation =
                   settings::WidgetSettingPresentation{
                       .group = "presentation",
@@ -187,7 +187,7 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                   },
           }),
           field<&Options::labelMinWidth>({
-              .key = "value_min_width",
+              .key = "label_min_width",
               .minValue = 0.0,
               .maxValue = 200.0,
               .step = 1.0,

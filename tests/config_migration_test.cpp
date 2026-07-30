@@ -483,10 +483,6 @@ display = "text"
 visualization = "graph"
 show_label = true
 show_value = false
-label_show_units = false
-show_units = true
-label_min_width = 20
-value_min_width = 30
 show_icon = false
 show_glyph = true
 
@@ -510,9 +506,9 @@ show_label = false
         "show_icon was not migrated"
     );
     expect(
-        config["widget"]["gauge"]["show_units"].value<bool>() == std::optional<bool>{false}
-            && config["widget"]["gauge"]["value_min_width"].value<std::int64_t>() == std::optional<std::int64_t>{42},
-        "value detail settings were not migrated"
+        config["widget"]["gauge"]["label_show_units"].value<bool>() == std::optional<bool>{false}
+            && config["widget"]["gauge"]["label_min_width"].value<std::int64_t>() == std::optional<std::int64_t>{42},
+        "unchanged label detail settings were not preserved"
     );
     expect(
         config["widget"]["text"]["visualization"].value<std::string>() == std::optional<std::string>{"none"}
@@ -536,17 +532,9 @@ show_label = false
         "legacy sysmon settings overwrote canonical settings"
     );
     expect(
-        config["widget"]["canonical"]["show_units"].value<bool>() == std::optional<bool>{true}
-            && config["widget"]["canonical"]["value_min_width"].value<std::int64_t>()
-                == std::optional<std::int64_t>{30},
-        "legacy value details overwrote canonical settings"
-    );
-    expect(
         !config["widget"]["canonical"].as_table()->contains("display")
             && !config["widget"]["canonical"].as_table()->contains("show_label")
-            && !config["widget"]["canonical"].as_table()->contains("show_icon")
-            && !config["widget"]["canonical"].as_table()->contains("label_show_units")
-            && !config["widget"]["canonical"].as_table()->contains("label_min_width"),
+            && !config["widget"]["canonical"].as_table()->contains("show_icon"),
         "legacy sysmon keys were retained"
     );
     expect(
