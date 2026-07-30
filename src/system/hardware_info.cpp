@@ -78,28 +78,13 @@ namespace {
     return name;
   }
 
-  // libdrm's amdgpu.ids maps (deviceId, revisionId) -> marketing name, e.g.:
-  //   67DF, C7, Radeon RX 580 2048SP
-  //   67DF, CF, Radeon RX 570
-  // Unlike pci.ids' subsystem IDs (which board partners often reuse across
-  // different variants of the same card), the revision ID is baked into the
-  // silicon, so this can reliably tell apart SKUs like RX 570 vs RX 580.
+  // libdrm's amdgpu.ids maps device and revision IDs to a marketing name.
+  // This is generally more specific than pci.ids subsystem names.
   std::string lookupAmdGpuIds(const std::string& deviceId, const std::string& revisionId) {
     std::ifstream file{"/usr/share/libdrm/amdgpu.ids"};
     if (!file.is_open()) {
       return {};
     }
-
-    auto toUpper = [](std::string s) {
-      for (auto& c : s) {
-        if (c >= 'a' && c <= 'f') {
-          c = static_cast<char>(c - 32);
-        }
-      }
-      return s;
-    };
-    const auto wantDevice = toUpper(deviceId);
-    const auto wantRevision = toUpper(revisionId);
 
     std::string line;
     while (std::getline(file, line)) {
@@ -116,7 +101,8 @@ namespace {
       const auto fileDevice = StringUtils::trim(line.substr(0, firstComma));
       const auto fileRevision = StringUtils::trim(line.substr(firstComma + 1, secondComma - firstComma - 1));
 
-      if (fileDevice == wantDevice && fileRevision == wantRevision) {
+      if (StringUtils::equalsInsensitive(fileDevice, deviceId)
+          && StringUtils::equalsInsensitive(fileRevision, revisionId)) {
         return StringUtils::trim(line.substr(secondComma + 1));
       }
     }
