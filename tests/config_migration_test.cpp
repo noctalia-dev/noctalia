@@ -454,6 +454,112 @@ middle_command = ""
     expect(secondPassIssues.empty(), "dead zone normalization was not idempotent");
   }
 
+  void checkSysmonPresentationMigration() {
+    toml::table config = toml::parse(R"(
+[widget.gauge]
+type = "sysmon"
+display = "gauge"
+show_label = false
+show_icon = false
+label_show_units = false
+label_min_width = 42
+
+[widget.text]
+type = "sysmon"
+display = "text"
+show_label = false
+
+[widget.none]
+type = "sysmon"
+display = "none"
+show_label = true
+
+[widget.sysmon]
+display = "graph"
+
+[widget.canonical]
+type = "sysmon"
+display = "text"
+visualization = "graph"
+show_label = true
+show_value = false
+label_show_units = false
+show_units = true
+label_min_width = 20
+value_min_width = 30
+show_icon = false
+show_glyph = true
+
+[widget.clock]
+display = "text"
+show_label = false
+)");
+    noctalia::config::LegacyConfigIssues issues;
+    noctalia::config::normalizeLegacyConfig(config, issues);
+
+    expect(
+        config["widget"]["gauge"]["visualization"].value<std::string>() == std::optional<std::string>{"gauge"},
+        "gauge display was not migrated"
+    );
+    expect(
+        config["widget"]["gauge"]["show_value"].value<bool>() == std::optional<bool>{false},
+        "gauge show_label was not migrated"
+    );
+    expect(
+        config["widget"]["gauge"]["show_glyph"].value<bool>() == std::optional<bool>{false},
+        "show_icon was not migrated"
+    );
+    expect(
+        config["widget"]["gauge"]["show_units"].value<bool>() == std::optional<bool>{false}
+            && config["widget"]["gauge"]["value_min_width"].value<std::int64_t>() == std::optional<std::int64_t>{42},
+        "value detail settings were not migrated"
+    );
+    expect(
+        config["widget"]["text"]["visualization"].value<std::string>() == std::optional<std::string>{"none"}
+            && config["widget"]["text"]["show_value"].value<bool>() == std::optional<bool>{true},
+        "text display did not preserve its always-visible value"
+    );
+    expect(
+        config["widget"]["none"]["visualization"].value<std::string>() == std::optional<std::string>{"none"}
+            && config["widget"]["none"]["show_value"].value<bool>() == std::optional<bool>{false},
+        "none display did not preserve its hidden value"
+    );
+    expect(
+        config["widget"]["sysmon"]["visualization"].value<std::string>() == std::optional<std::string>{"graph"}
+            && config["widget"]["sysmon"]["show_value"].value<bool>() == std::optional<bool>{true},
+        "implicit sysmon defaults were not preserved"
+    );
+    expect(
+        config["widget"]["canonical"]["visualization"].value<std::string>() == std::optional<std::string>{"graph"}
+            && config["widget"]["canonical"]["show_value"].value<bool>() == std::optional<bool>{false}
+            && config["widget"]["canonical"]["show_glyph"].value<bool>() == std::optional<bool>{true},
+        "legacy sysmon settings overwrote canonical settings"
+    );
+    expect(
+        config["widget"]["canonical"]["show_units"].value<bool>() == std::optional<bool>{true}
+            && config["widget"]["canonical"]["value_min_width"].value<std::int64_t>()
+                == std::optional<std::int64_t>{30},
+        "legacy value details overwrote canonical settings"
+    );
+    expect(
+        !config["widget"]["canonical"].as_table()->contains("display")
+            && !config["widget"]["canonical"].as_table()->contains("show_label")
+            && !config["widget"]["canonical"].as_table()->contains("show_icon")
+            && !config["widget"]["canonical"].as_table()->contains("label_show_units")
+            && !config["widget"]["canonical"].as_table()->contains("label_min_width"),
+        "legacy sysmon keys were retained"
+    );
+    expect(
+        config["widget"]["clock"]["display"].value<std::string>() == std::optional<std::string>{"text"},
+        "another widget type was migrated as sysmon"
+    );
+    expect(issues.size() == 5, "expected one migration issue per sysmon widget");
+
+    noctalia::config::LegacyConfigIssues secondPassIssues;
+    noctalia::config::normalizeLegacyConfig(config, secondPassIssues);
+    expect(secondPassIssues.empty(), "sysmon presentation normalization was not idempotent");
+  }
+
   void checkVersionGating() {
     toml::table legacy = toml::parse(R"(
 [bar.main]
@@ -599,6 +705,7 @@ int main() {
   checkRemainingWidgetGesturesMigration();
   checkCustomButtonCommandsMigration();
   checkDeadZoneActionsMigration();
+  checkSysmonPresentationMigration();
   checkVersionGating();
   checkReminderFingerprint();
   checkRegistryOrdering();

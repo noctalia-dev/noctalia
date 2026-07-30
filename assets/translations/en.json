@@ -3596,6 +3596,10 @@
           "description": "Show placeholder text when no window is focused instead of hiding the widget",
           "label": "Show Empty Label"
         },
+        "show-glyph": {
+          "description": "Show the widget glyph or custom image",
+          "label": "Show Glyph"
+        },
         "show-icon": {
           "description": "Show this widget's icon",
           "label": "Show Icon"
@@ -3615,6 +3619,10 @@
         "show-temperature": {
           "description": "Show current temperature text",
           "label": "Show Temperature"
+        },
+        "show-value": {
+          "description": "Show the current value next to the visualization",
+          "label": "Show Value"
         },
         "show-vpn-label": {
           "description": "Replaces network label with VPN label in replace mode; adds VPN label next to VPN icon in both mode",
@@ -3672,6 +3680,14 @@
         "urgent-color": {
           "description": "Color role used for urgent workspaces; fixed hex colors are also supported",
           "label": "Urgent Color"
+        },
+        "value-min-width": {
+          "description": "Minimum value width in pixels to prevent resizing",
+          "label": "Value Min Width"
+        },
+        "visualization": {
+          "description": "Gauge, graph, or no data visualization",
+          "label": "Visualization"
         },
         "vertical-format": {
           "description": "Optional format used on vertical bars",

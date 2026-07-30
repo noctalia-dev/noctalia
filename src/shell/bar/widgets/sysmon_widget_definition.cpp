@@ -1,18 +1,5 @@
 #include "shell/bar/widgets/sysmon_widget_definition.h"
 
-namespace {
-
-  settings::WidgetSettingVisibility labelMinWidthVisibility() {
-    settings::WidgetSettingVisibility visibility;
-    visibility.all = {
-        {"display", {"gauge", "graph", "text"}},
-        {"show_label", {"true"}},
-    };
-    return visibility;
-  }
-
-} // namespace
-
 const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinitionContext>& sysmonWidgetDefinition() {
   using noctalia::bar::field;
   using Options = SysmonWidget::Options;
@@ -21,14 +8,16 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
       "stat", {"disk_used_pct", "disk_used", "disk_free_pct", "disk_free"}
   };
   static const settings::WidgetSettingVisibility networkStat{"stat", {"net_rx", "net_tx"}};
-  static const settings::WidgetSettingVisibility hasDisplay{"display", {"gauge", "graph", "text"}};
-  static const settings::WidgetSettingVisibility showLabel{"show_label", {"true"}};
-  static const settings::WidgetSettingVisibility showIcon{"show_icon", {"true"}};
+  static const settings::WidgetSettingVisibility hasVisualization{"visualization", {"gauge", "graph"}};
+  static const settings::WidgetSettingVisibility showValue{"show_value", {"true"}};
+  static const settings::WidgetSettingVisibility showGlyph{"show_glyph", {"true"}};
   settings::WidgetSettingVisibility glyphPosition;
+  glyphPosition.any = {
+      hasVisualization.any[0],
+      showValue.any[0],
+  };
   glyphPosition.all = {
-      hasDisplay.any[0],
-      showLabel.any[0],
-      showIcon.any[0],
+      showGlyph.any[0],
   };
 
   static const noctalia::bar::WidgetDefinition<Options, SysmonWidgetDefinitionContext> definition{
@@ -110,32 +99,6 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                       },
                   },
           }),
-          field<&Options::showIcon>({
-              .key = "show_icon",
-          }),
-          field<&Options::glyph>({
-              .key = "glyph",
-              .control = settings::WidgetControlKind::Glyph,
-              .presentation =
-                  settings::WidgetSettingPresentation{
-                      .descriptionKey = "settings.widgets.settings.glyph.sysmon-description",
-                      .visibleWhen = showIcon,
-                  },
-          }),
-          field<&Options::customImage>({
-              .key = "custom_image",
-              .presentation =
-                  settings::WidgetSettingPresentation{
-                      .visibleWhen = showIcon,
-                  },
-          }),
-          field<&Options::customImageColorize>({
-              .key = "custom_image_colorize",
-              .presentation =
-                  settings::WidgetSettingPresentation{
-                      .visibleWhen = showIcon,
-                  },
-          }),
           field<&Options::diskPath>({
               .key = "path",
               .presentation =
@@ -182,61 +145,89 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                       .visibleWhen = networkStat,
                   },
           }),
-          field<&Options::displayMode>({
-              .key = "display",
+          field<&Options::visualization>({
+              .key = "visualization",
               .choices =
                   {
                       {
-                          .value = SysmonDisplayMode::Gauge,
+                          .value = SysmonVisualization::Gauge,
                           .configValue = "gauge",
                           .labelKey = "settings.widgets.options.gauge",
                       },
                       {
-                          .value = SysmonDisplayMode::Graph,
+                          .value = SysmonVisualization::Graph,
                           .configValue = "graph",
                           .labelKey = "settings.widgets.options.graph",
                       },
                       {
-                          .value = SysmonDisplayMode::Text,
-                          .configValue = "text",
-                          .labelKey = "settings.widgets.options.text",
-                      },
-                      {
-                          .value = SysmonDisplayMode::None,
+                          .value = SysmonVisualization::None,
                           .configValue = "none",
                           .labelKey = "settings.widgets.options.none",
                       },
                   },
               .presentation =
                   settings::WidgetSettingPresentation{
+                      .group = "presentation",
                       .segmented = true,
                   },
           }),
-          field<&Options::highlightColor>({
-              .key = "highlight_color",
-          }),
-          field<&Options::showLabel>({
-              .key = "show_label",
+          field<&Options::showValue>({
+              .key = "show_value",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .visibleWhen = hasDisplay,
+                      .group = "presentation",
+                  },
+          }),
+          field<&Options::showUnits>({
+              .key = "show_units",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .group = "presentation",
+                      .visibleWhen = showValue,
                   },
           }),
           field<&Options::labelMinWidth>({
-              .key = "label_min_width",
+              .key = "value_min_width",
               .minValue = 0.0,
               .maxValue = 200.0,
               .step = 1.0,
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .visibleWhen = labelMinWidthVisibility(),
+                      .group = "presentation",
+                      .visibleWhen = showValue,
                   },
           }),
-          field<&Options::showUnits>({
-              .key = "label_show_units",
+          field<&Options::showGlyph>({
+              .key = "show_glyph",
               .presentation =
                   settings::WidgetSettingPresentation{
-                      .visibleWhen = showLabel,
+                      .group = "presentation",
+                  },
+          }),
+          field<&Options::glyph>({
+              .key = "glyph",
+              .control = settings::WidgetControlKind::Glyph,
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .descriptionKey = "settings.widgets.settings.glyph.sysmon-description",
+                      .group = "presentation",
+                      .visibleWhen = showGlyph,
+                  },
+          }),
+          field<&Options::customImage>({
+              .key = "custom_image",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .group = "presentation",
+                      .visibleWhen = showGlyph,
+                  },
+          }),
+          field<&Options::customImageColorize>({
+              .key = "custom_image_colorize",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .group = "presentation",
+                      .visibleWhen = showGlyph,
                   },
           }),
           field<&Options::glyphPosition>({
@@ -256,14 +247,23 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                   },
               .presentation =
                   settings::WidgetSettingPresentation{
+                      .group = "presentation",
                       .segmented = true,
                       .visibleWhen = glyphPosition,
                   },
           }),
+          field<&Options::highlightColor>({
+              .key = "highlight_color",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .group = "presentation",
+                      .visibleWhen = hasVisualization,
+                  },
+          }),
       },
       .finalize = [](Options& options, const SysmonWidgetDefinitionContext& context) {
-        if (context.verticalBar && options.displayMode == SysmonDisplayMode::Graph) {
-          options.displayMode = SysmonDisplayMode::Gauge;
+        if (context.verticalBar && options.visualization == SysmonVisualization::Graph) {
+          options.visualization = SysmonVisualization::Gauge;
         }
       },
   };
