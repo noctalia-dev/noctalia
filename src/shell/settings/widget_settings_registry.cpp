@@ -1014,6 +1014,7 @@ namespace settings {
           focusedOutputOnly.descriptionKey = "settings.widgets.settings.focused-output-only.workspaces-description";
           add(std::move(focusedOutputOnly));
         }
+        add(withGroup(boolSpec("change_color_on_hover", true), "workspaces.colors"));
         add(withGroup(colorSpec("focused_color", "primary"), "workspaces.colors"));
         add(withGroup(colorSpec("occupied_color", "secondary"), "workspaces.colors"));
         add(withGroup(colorSpec("empty_color", "secondary"), "workspaces.colors"));

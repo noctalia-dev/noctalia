@@ -34,6 +34,7 @@ public:
     ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
     ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
     ColorSpec urgentColor = colorSpecFromRole(ColorRole::Error);
+    bool changeColorOnHover = true;
     std::size_t maxLabelChars = 1;
     bool labelsOnlyWhenOccupied = false;
     bool hideWhenEmpty = false;
@@ -151,6 +152,7 @@ private:
   bool m_minimal = false;
   bool m_focusedPill = false;
   bool m_focusedOutputOnly = false;
+  bool m_changeColorOnHover = true;
   bool m_wasFocusedOutput = true;
   bool m_activeUsesFocusedColor = true;
   std::string m_cachedActiveWindowAppId;

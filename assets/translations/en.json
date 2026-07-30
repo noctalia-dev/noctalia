@@ -3299,6 +3299,10 @@
           "description": "Center visualizer bars instead of aligning them to the edge",
           "label": "Centered"
         },
+        "change-color-on-hover": {
+          "description": "Change a workspace's fill and label colors while the pointer hovers over it",
+          "label": "Change Color on Hover"
+        },
         "color": {
           "description": "Color role for this widget's icon and label; fixed hex colors are also supported",
           "label": "Color"

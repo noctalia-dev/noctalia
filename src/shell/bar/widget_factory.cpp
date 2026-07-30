@@ -489,6 +489,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .occupiedColor = occupiedColor,
         .emptyColor = emptyColor,
         .urgentColor = urgentColor,
+        .changeColorOnHover = wc != nullptr ? wc->getBool("change_color_on_hover", true) : true,
         .maxLabelChars = maxLabelChars,
         .labelsOnlyWhenOccupied = wc != nullptr ? wc->getBool("labels_only_when_occupied", false) : false,
         .hideWhenEmpty = wc != nullptr ? wc->getBool("hide_when_empty", false) : false,
