@@ -37,6 +37,14 @@ namespace calendar {
 
     using ICalRecurPtr = std::unique_ptr<icalrecur_iterator, ICalRecurDeleter>;
 
+    int durationSeconds(const icaldurationtype& duration) {
+#if ICAL_CHECK_VERSION(4, 0, 0)
+      return icaldurationtype_as_seconds(duration);
+#else
+      return icaldurationtype_as_int(duration);
+#endif
+    }
+
     std::chrono::system_clock::time_point toSystem(std::chrono::sys_time<std::chrono::seconds> t) {
       return std::chrono::time_point_cast<std::chrono::system_clock::duration>(t);
     }
@@ -297,12 +305,22 @@ namespace calendar {
       }
 
       for (; ruleProperty != nullptr; ruleProperty = icalcomponent_get_next_property(component, ICAL_RRULE_PROPERTY)) {
+#if ICAL_CHECK_VERSION(4, 0, 0)
+        icalrecurrencetype* rule = icalproperty_get_rrule(ruleProperty);
+        if (rule == nullptr) {
+          continue;
+        }
+        ICalRecurPtr iterator{icalrecur_iterator_new(rule, componentStart)};
+        const bool unbounded = rule->count == 0;
+#else
         const icalrecurrencetype rule = icalproperty_get_rrule(ruleProperty);
         ICalRecurPtr iterator{icalrecur_iterator_new(rule, componentStart)};
+        const bool unbounded = rule.count == 0;
+#endif
         if (!iterator) {
           continue;
         }
-        if (rule.count == 0) {
+        if (unbounded) {
           (void)icalrecur_iterator_set_start(iterator.get(), recurrenceBound(data.windowStart, componentStart));
         }
 
@@ -358,7 +376,7 @@ namespace calendar {
           if (!icaltime_is_null_time(rdate.period.end)) {
             occurrenceEnd = recurrenceUnixTime(rdate.period.end);
           } else {
-            occurrenceEnd = occurrenceStart + static_cast<time_t>(icaldurationtype_as_int(rdate.period.duration));
+            occurrenceEnd = occurrenceStart + static_cast<time_t>(durationSeconds(rdate.period.duration));
           }
         }
         addRecurrence(

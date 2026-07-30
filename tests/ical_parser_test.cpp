@@ -226,6 +226,14 @@ int main() {
        )
       && ok;
 
+  // An explicit RDATE period may express its end as a duration instead of an absolute timestamp.
+  ok = expectRanges(
+           wrap("RDATE;VALUE=PERIOD:20240102T090000Z/PT3H\r\n"), start, end,
+           {{utc(2024, 1, 1, 9), utc(2024, 1, 1, 10)}, {utc(2024, 1, 2, 9), utc(2024, 1, 2, 12)}},
+           "rdate period duration determines occurrence end"
+       )
+      && ok;
+
   // WEEKLY BYDAY=MO,WE, window 2024-01-01..2024-01-15 (excl): Mon 1, Wed 3, Mon 8, Wed 10 = 4.
   ok = expectCount(wrap("RRULE:FREQ=WEEKLY;BYDAY=MO,WE\r\n"), start, utc(2024, 1, 15), 4, "weekly byday") && ok;
 
