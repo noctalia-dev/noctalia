@@ -55,6 +55,7 @@ public:
   void setUseMarkup(bool markup);
   // Text uses the resolved font line box; InkCentered centers the current glyph ink.
   void setBaselineMode(LabelBaselineMode mode);
+  void setShadow(const ColorSpec& color, float offsetX, float offsetY);
   void setShadow(const Color& color, float offsetX, float offsetY);
   void clearShadow();
   // Single-line horizontal marquee when the line is wider than the laid-out width.
@@ -108,6 +109,9 @@ private:
   float m_baselineOffset = 0.0f;
   ColorSpec m_color = colorSpecFromRole(ColorRole::OnSurface);
   Signal<>::ScopedConnection m_paletteConn;
+  std::optional<ColorSpec> m_shadowColor;
+  float m_shadowOffsetX = 0.0f;
+  float m_shadowOffsetY = 0.0f;
 
   // User-visible text (wire text may duplicate for seamless marquee).
   std::string m_plainText;

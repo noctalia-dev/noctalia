@@ -25,6 +25,7 @@ namespace {
         || key == lockscreen_login_box::kShowWeatherKey
         || key == lockscreen_login_box::kShowLoginButtonKey
         || key == lockscreen_login_box::kShowCapsLockKey
+        || key == lockscreen_login_box::kShowUnlockHintKey
         || key == lockscreen_login_box::kInputOpacityKey
         || key == lockscreen_login_box::kInputRadiusKey;
   }
@@ -81,6 +82,14 @@ void DesktopLoginBoxWidget::create() {
   setRoot(std::move(rootNode));
 }
 
+void DesktopLoginBoxWidget::layout(Renderer& renderer) {
+  DesktopWidget::layout(renderer);
+  // Unlock-hint ghost sits above/below the panel (outside the box); don't clip it away.
+  if (Node* outer = presentationRoot()) {
+    outer->setClipChildren(false);
+  }
+}
+
 void DesktopLoginBoxWidget::setSettings(const std::unordered_map<std::string, WidgetSettingValue>& settings) {
   m_settings = settings;
   lockscreen_login_box::normalizeSettings(m_settings);
@@ -97,17 +106,19 @@ bool DesktopLoginBoxWidget::applySetting(
     return false;
   }
   doLayout(renderer);
+  if (Node* outer = presentationRoot()) {
+    outer->setClipChildren(false);
+  }
   return true;
 }
 
 void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
   const float screenWidth = m_screenWidth > 0.0f ? m_screenWidth : 1920.0f;
+  const float screenHeight = m_screenHeight > 0.0f ? m_screenHeight : 1080.0f;
   const lockscreen_login_box::LoginBoxStyle style = lockscreen_login_box::resolveStyle(m_settings);
   const float panelWidth = lockscreen_login_box::resolvePanelWidth(screenWidth, m_boxWidth, style.layout);
   const bool showInfo = lockscreen_login_box::styleShowsInfoExtras(style);
-  const bool reserveStatus = lockscreen_login_box::styleReservesStatus(style);
-  const float panelHeight =
-      lockscreen_login_box::defaultPanelHeight(style.layout, style.showSessionButtons, showInfo, reserveStatus);
+  const float panelHeight = lockscreen_login_box::defaultPanelHeight(style.layout, style.showSessionButtons, showInfo);
   const bool regular = style.layout == lockscreen_login_box::LayoutMode::Regular;
 
   if (m_panel != nullptr) {
@@ -132,7 +143,7 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
   const bool showWeather = style.showWeather;
   const bool showInfoExtras = showMedia || showWeather;
   const lockscreen_login_box::RegularRowHeights rows = regular
-      ? lockscreen_login_box::regularRowHeights(panelHeight, showSession, reserveStatus, showInfoExtras)
+      ? lockscreen_login_box::regularRowHeights(panelHeight, showSession, showInfoExtras)
       : lockscreen_login_box::RegularRowHeights{};
 
   float contentTop = padV;
@@ -197,24 +208,6 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
     if (showInfoExtras) {
       contentTop += rows.info + Style::spaceSm;
     }
-
-    if (m_statusGhost != nullptr) {
-      m_statusGhost->setVisible(reserveStatus);
-      if (reserveStatus) {
-        m_statusGhost->setPosition(padH, contentTop);
-        m_statusGhost->setSize(panelWidth - padH * 2.0f, rows.status);
-        m_statusGhost->setStyle(
-            RoundedRectStyle{
-                .fill = colorForRole(ColorRole::Surface, 0.55f),
-                .fillMode = FillMode::Solid,
-                .radius = Style::scaledRadius(style.inputRadius),
-            }
-        );
-      }
-    }
-    if (reserveStatus) {
-      contentTop += rows.status + Style::spaceSm;
-    }
   } else {
     if (m_infoGhost != nullptr) {
       m_infoGhost->setVisible(false);
@@ -225,19 +218,35 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
     if (m_weatherGhost != nullptr) {
       m_weatherGhost->setVisible(false);
     }
-    const float statusHeight = lockscreen_login_box::regularStatusContentHeight();
-    if (m_statusGhost != nullptr) {
-      m_statusGhost->setVisible(true);
-      m_statusGhost->setPosition(padH, contentTop);
-      m_statusGhost->setSize(panelWidth - padH * 2.0f, statusHeight);
+  }
+
+  if (m_statusGhost != nullptr) {
+    const bool showUnlockHint = style.showUnlockHint;
+    m_statusGhost->setVisible(showUnlockHint);
+    if (showUnlockHint) {
+      const float layoutScale = regular ? rows.scale : 1.0f;
+      const float authFontSize = Style::fontSizeCaption * layoutScale + layoutScale;
+      const float authPadV = Style::spaceMd * layoutScale;
+      const float authH = authPadV * 2.0f + authFontSize;
+      const float authGap = Style::spaceSm;
+      const float centerY = m_screenHeight > 0.0f ? m_panelCenterY : screenHeight * 0.5f;
+      const float panelTop = centerY - panelHeight * 0.5f;
+      const float authYAbove = panelTop - authGap - authH;
+      const bool placeAbove = authYAbove >= Style::spaceLg;
+      const float authY = placeAbove ? -(authGap + authH) : panelHeight + authGap;
+      m_statusGhost->setPosition(0.0f, authY);
+      m_statusGhost->setSize(panelWidth, authH);
+      m_statusGhost->setZIndex(2);
       m_statusGhost->setStyle(
           RoundedRectStyle{
-              .fill = colorForRole(ColorRole::Surface, 0.55f),
+              .fill = resolveColorSpec(style.panelFill),
+              .border = colorForRole(ColorRole::Outline, style.panelOpacity),
               .fillMode = FillMode::Solid,
-              .radius = Style::scaledRadius(style.inputRadius),
+              .radius = Style::scaledRadius(style.panelRadius),
+              .softness = 1.0f,
+              .borderWidth = Style::borderWidth,
           }
       );
-      contentTop += statusHeight + Style::spaceSm;
     }
   }
 
@@ -261,7 +270,6 @@ void DesktopLoginBoxWidget::doLayout(Renderer& renderer) {
     inputWidth =
         style.showLoginButton ? std::max(120.0f, contentWidth - buttonWidth - gap) : std::max(120.0f, contentWidth);
     buttonX = contentLeft + inputWidth + gap;
-    // Vertically center the password row in the remaining space under any status ghost.
     const float remaining = std::max(passwordHeight, panelHeight - contentTop - padV);
     passwordTop = contentTop + std::max(0.0f, (remaining - passwordHeight) * 0.5f);
   }

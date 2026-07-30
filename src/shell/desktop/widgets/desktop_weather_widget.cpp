@@ -320,13 +320,14 @@ void DesktopWeatherWidget::doUpdate(Renderer& renderer) {
 }
 
 void DesktopWeatherWidget::applyShadow() {
-  const auto applyToLabel = [this](Label* label) {
+  const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, kShadowAlpha);
+  const auto applyToLabel = [this, shadow](Label* label) {
     if (label == nullptr) {
       return;
     }
     if (m_shadow) {
       const float offset = kShadowOffset * contentScale();
-      label->setShadow(Color(0.0f, 0.0f, 0.0f, kShadowAlpha), offset, offset);
+      label->setShadow(shadow, offset, offset);
     } else {
       label->clearShadow();
     }
@@ -337,7 +338,6 @@ void DesktopWeatherWidget::applyShadow() {
   }
   if (m_shadow) {
     const float offset = kShadowOffset * contentScale();
-    const Color shadow(0.0f, 0.0f, 0.0f, kShadowAlpha);
     m_glyph->setShadow(shadow, offset, offset);
     m_temperature->setShadow(shadow, offset, offset);
     m_condition->setShadow(shadow, offset, offset);
@@ -353,7 +353,7 @@ void DesktopWeatherWidget::applyShadow() {
     if (row.glyph != nullptr) {
       if (m_shadow) {
         const float offset = kShadowOffset * contentScale();
-        row.glyph->setShadow(Color(0.0f, 0.0f, 0.0f, kShadowAlpha), offset, offset);
+        row.glyph->setShadow(shadow, offset, offset);
       } else {
         row.glyph->clearShadow();
       }

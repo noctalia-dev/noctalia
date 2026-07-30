@@ -425,7 +425,7 @@ void DesktopVolumeWidget::applyColors() {
 }
 
 void DesktopVolumeWidget::applyShadow() {
-  const Color shadowColor(0.0f, 0.0f, 0.0f, kShadowAlpha);
+  const ColorSpec shadowColor = colorSpecFromRole(ColorRole::Shadow, kShadowAlpha);
   const auto applyLabel = [&](Label* label) {
     if (label == nullptr) {
       return;

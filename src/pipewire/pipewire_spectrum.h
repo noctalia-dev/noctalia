@@ -110,6 +110,15 @@ private:
   int m_idleFrames = 0;
   bool m_samplesReceived = false;
 
+  // Env-gated diagnostics (NOCTALIA_SPECTRUM_DEBUG=1): ~1 line/s capture + analysis summaries.
+  void noteProcessDiag(int frameCount, int channelCount, float peak);
+  bool m_diagEnabled = false;
+  std::chrono::steady_clock::time_point m_diagLastProcessLog;
+  std::chrono::steady_clock::time_point m_diagLastFrameLog;
+  float m_diagPeak = 0.0f;
+  int m_diagBatches = 0;
+  int m_diagFrames = 0;
+
   std::vector<float> m_window;
   std::vector<float> m_analysisBandBins;
   float m_sensitivity = 1.0f;

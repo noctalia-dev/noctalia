@@ -444,6 +444,7 @@ namespace desktop_settings {
       showWeather.visibleWhen = regularOnly;
       add(std::move(showWeather));
       add(boolSpec("show_login_button", true));
+      add(boolSpec("show_unlock_hint", true));
       add(boolSpec("show_caps_lock", true));
       add(boolSpec("show_keyboard_layout", true));
       add(doubleSpec("input_opacity", 1.0, 0.0, 1.0, 0.01));

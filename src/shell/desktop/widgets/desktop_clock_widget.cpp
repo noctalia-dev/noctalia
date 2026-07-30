@@ -649,7 +649,7 @@ void DesktopClockWidget::applyShadow() {
   }
   if (m_shadow) {
     const float offset = kShadowOffset * contentScale();
-    m_label->setShadow(Color(0.0f, 0.0f, 0.0f, kShadowAlpha), offset, offset);
+    m_label->setShadow(colorSpecFromRole(ColorRole::Shadow, kShadowAlpha), offset, offset);
   } else {
     m_label->clearShadow();
   }

@@ -13,6 +13,7 @@
 #include "scripting/plugin_registry.h"
 #include "scripting/plugin_source_locks.h"
 #include "scripting/plugin_source_paths.h"
+#include "scripting/script_runtime.h"
 #include "util/file_utils.h"
 #include "util/string_utils.h"
 
@@ -542,7 +543,11 @@ namespace scripting {
         m_enabling.erase(id);
         if (ok) {
           kLog.info("enabling plugin '{}' (resolved + exported in {:.0f}ms)", id, elapsedMs);
+          const bool wasEnabled = std::ranges::contains(m_config.config().plugins.enabled, id);
           m_config.setPluginEnabled(id, true);
+          if (!wasEnabled && std::ranges::contains(m_config.config().plugins.enabled, id) && m_onEnabled) {
+            m_onEnabled(id);
+          }
           refresh();
         } else if (incompatible) {
           kLog.warn(
@@ -582,6 +587,12 @@ namespace scripting {
 
   void PluginManager::disable(std::string_view pluginId) {
     kLog.info("disabling plugin '{}'", pluginId);
+    const bool wasEnabled = std::ranges::contains(m_config.config().plugins.enabled, pluginId);
+    const auto* manifest = wasEnabled ? PluginRegistry::instance().findManifest(pluginId) : nullptr;
+    std::optional<PluginExitReasonScope> exitScope;
+    if (manifest != nullptr && manifest->pluginApiVersion >= kServiceLifecyclePluginApiVersion) {
+      exitScope.emplace(pluginId, ScriptExitReason::Disable);
+    }
     m_config.setPluginEnabled(pluginId, false);
     refresh();
   }
@@ -592,7 +603,15 @@ namespace scripting {
       return;
     }
     kLog.info("removing plugin '{}'", pluginId);
-    m_config.setPluginEnabled(pluginId, false);
+    const bool wasEnabled = std::ranges::contains(m_config.config().plugins.enabled, pluginId);
+    const auto* manifest = wasEnabled ? PluginRegistry::instance().findManifest(pluginId) : nullptr;
+    std::optional<PluginExitReasonScope> exitScope;
+    if (manifest != nullptr && manifest->pluginApiVersion >= kServiceLifecyclePluginApiVersion) {
+      exitScope.emplace(pluginId, ScriptExitReason::Uninstall);
+    }
+    if (wasEnabled) {
+      m_config.setPluginEnabled(pluginId, false);
+    }
 
     const auto& plugins = m_config.config().plugins;
     for (const auto& source : plugins.sources) {

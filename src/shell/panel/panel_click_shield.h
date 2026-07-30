@@ -58,6 +58,8 @@ public:
 
   // Map a fullscreen shield on each of the given outputs.
   void activate(const std::vector<wl_output*>& outputs, LayerShellLayer layer, ExcludeProvider excludeProvider);
+  // Change every mapped shield before changing the panel, preserving their stacking order.
+  void setLayer(LayerShellLayer layer);
 
   // Tear down all shields. Idempotent.
   void deactivate();

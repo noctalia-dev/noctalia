@@ -827,6 +827,9 @@ namespace noctalia::config::schema {
         keybindActionField(&KeybindsConfig::down, "down", KeybindAction::Down),
         keybindActionField(&KeybindsConfig::tabNext, "tab_next", KeybindAction::TabNext),
         keybindActionField(&KeybindsConfig::tabPrevious, "tab_previous", KeybindAction::TabPrevious),
+        keybindActionField(&KeybindsConfig::deleteEntry, "delete", KeybindAction::Delete),
+        keybindActionField(&KeybindsConfig::copy, "copy", KeybindAction::Copy),
+        keybindActionField(&KeybindsConfig::save, "save", KeybindAction::Save),
     };
     return s;
   }
@@ -1244,6 +1247,22 @@ namespace noctalia::config::schema {
           field(&ShellConfig::PanelConfig::borders, "borders"),
           field(&ShellConfig::PanelConfig::shadow, "shadow"),
           field(&ShellConfig::PanelConfig::listItemBackground, "list_item_background"),
+          custom<ShellConfig::PanelConfig>(
+              "floating_layer",
+              [](const toml::table& tbl, ShellConfig::PanelConfig& out, std::string_view parentPath,
+                 Diagnostics& diag) {
+                if (auto v = tbl["floating_layer"].value<std::string>()) {
+                  if (*v == "top" || *v == "overlay") {
+                    out.floatingLayer = *v;
+                  } else {
+                    diag.warn(joinPath(parentPath, "floating_layer"), "expected top or overlay, got \"" + *v + "\"");
+                  }
+                }
+              },
+              [](toml::table& tbl, const ShellConfig::PanelConfig& in) {
+                tbl.insert_or_assign("floating_layer", in.floatingLayer);
+              }
+          ),
           enumField(&ShellConfig::PanelConfig::launcherPlacement, "launcher_placement", kPanelPlacements),
           enumField(&ShellConfig::PanelConfig::clipboardPlacement, "clipboard_placement", kPanelPlacements),
           enumField(&ShellConfig::PanelConfig::controlCenterPlacement, "control_center_placement", kPanelPlacements),
@@ -1319,6 +1338,7 @@ namespace noctalia::config::schema {
           field(&ShellConfig::ScreenshotConfig::copyToClipboard, "copy_to_clipboard"),
           field(&ShellConfig::ScreenshotConfig::freezeScreen, "freeze_screen"),
           field(&ShellConfig::ScreenshotConfig::confirmRegion, "confirm_region"),
+          field(&ShellConfig::ScreenshotConfig::rememberLastRegion, "remember_last_region"),
           field(&ShellConfig::ScreenshotConfig::showCursor, "show_cursor"),
           field(&ShellConfig::ScreenshotConfig::pipeToCommand, "pipe_to_command"),
           field(&ShellConfig::ScreenshotConfig::pipeCommand, "pipe_command"),

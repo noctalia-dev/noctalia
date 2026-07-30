@@ -131,22 +131,26 @@ void NotificationManager::cleanupOldHistoryEntries() {
 
   const auto retention = std::chrono::hours(m_historyRetentionHours);
   const auto cutoff = WallClock::now() - retention;
-  const bool hadUnreadBefore = computeHasUnreadNotificationHistory();
 
-  std::deque<NotificationHistoryEntry> kept;
-  for (auto& entry : m_history) {
-    const bool eligible = !entry.active
+  const auto isExpired = [&](const NotificationHistoryEntry& entry) {
+    return !entry.active
         && entry.notification.receivedWallClock.has_value()
         && *entry.notification.receivedWallClock <= cutoff;
-    if (eligible) {
+  };
+
+  // Check first: moving into `kept` then bailing on same size leaves emptied husks in m_history.
+  if (std::ranges::none_of(m_history, isExpired)) {
+    return;
+  }
+
+  const bool hadUnreadBefore = computeHasUnreadNotificationHistory();
+  std::deque<NotificationHistoryEntry> kept;
+  for (auto& entry : m_history) {
+    if (isExpired(entry)) {
       emitPendingDBusClose(entry.notification.id, CloseReason::Expired);
     } else {
       kept.push_back(std::move(entry));
     }
-  }
-
-  if (kept.size() == m_history.size()) {
-    return;
   }
 
   m_history = std::move(kept);

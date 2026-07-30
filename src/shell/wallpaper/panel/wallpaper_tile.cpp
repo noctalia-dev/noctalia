@@ -51,7 +51,7 @@ namespace {
     }
     glyph->setColor(fill);
     const float offset = starShadowOffset(contentScale);
-    glyph->setShadow(Color{0.0f, 0.0f, 0.0f, 0.58f}, 0.0f, offset);
+    glyph->setShadow(colorSpecFromRole(ColorRole::Shadow, 0.58f), 0.0f, offset);
   }
 
   [[nodiscard]] bool

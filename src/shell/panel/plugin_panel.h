@@ -58,6 +58,7 @@ public:
   void create() override;
   void onOpen(std::string_view context) override;
   void onClose() override;
+  void onFrameTick(float deltaMs) override;
 
   [[nodiscard]] float preferredWidth() const override { return scaled(m_preferredWidth); }
   [[nodiscard]] float preferredHeight() const override { return scaled(m_preferredHeight); }
@@ -127,6 +128,7 @@ private:
   std::optional<ui::UiTreeNode> m_tree;
   bool m_treeDirty = false;
   bool m_wantsSecondTicks = false;
+  bool m_needsFrameTick = false;
   bool m_open = false;
   bool m_hasOnIpc = false;
   bool m_hasOnIpcKnown = false;

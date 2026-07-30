@@ -51,7 +51,7 @@ namespace {
   }
 
   desktop_entry_launch::LaunchOptions
-  dockLaunchOptions(const CompositorPlatform& platform, const ConfigService& config) {
+  dockLaunchOptions(const CompositorPlatform& platform, const ConfigService& config, const DesktopEntry& entry = {}) {
     std::string token;
     if (platform.hasXdgActivation()) {
       // No layer-shell surface — binding it can misplace first launches on Hyprland.
@@ -61,6 +61,8 @@ namespace {
         .activationToken = std::move(token),
         .runAsSystemdService = config.config().shell.launchAppsAsSystemdServices,
         .customCommand = config.config().shell.launchAppsCustomCommand,
+        .dbusActivatable = entry.dbusActivatable,
+        .dbusAppId = entry.id,
     };
   }
 
@@ -1136,7 +1138,7 @@ void Dock::activateOrLaunchItem(shell::dock::DockInstance& instance, const shell
         .deadline = std::chrono::steady_clock::now() + std::chrono::seconds(8),
     };
     m_platform->prepareAppLaunchOnOutput(instance.output);
-    (void)desktop_entry_launch::launchEntry(action.entry, dockLaunchOptions(*m_platform, *m_config));
+    (void)desktop_entry_launch::launchEntry(action.entry, dockLaunchOptions(*m_platform, *m_config, action.entry));
     return;
   }
 
@@ -1206,11 +1208,12 @@ void Dock::openItemMenu(shell::dock::DockInstance& instance, const shell::dock::
             }
           },
       .launchAction =
-          [this, entryId, entryWorkingDir, entryTerminal,
+          [this, entryId, entryWorkingDir, entryTerminal, entryForPin,
            output = instance.output](const DesktopAction& desktopAction) {
             m_platform->prepareAppLaunchOnOutput(output);
             (void)desktop_entry_launch::launchAction(
-                desktopAction, entryId, entryWorkingDir, entryTerminal, dockLaunchOptions(*m_platform, *m_config)
+                desktopAction, entryId, entryWorkingDir, entryTerminal,
+                dockLaunchOptions(*m_platform, *m_config, entryForPin)
             );
           },
       .setEntryPinned =

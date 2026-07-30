@@ -28,6 +28,7 @@
 #include <vector>
 
 class Box;
+class AsyncTextureCache;
 class Button;
 class AccountsService;
 class CalendarService;
@@ -102,6 +103,8 @@ public:
   // Source for the bar widget gesture action picker.
   void setIpcService(IpcService* service) { m_ipcService = service; }
   void setClipboardService(ClipboardService* service) { m_clipboardService = service; }
+  // Backs plugin-store thumbnails; trimmed when the window closes.
+  void setAsyncTextureCache(AsyncTextureCache* cache) { m_asyncTextures = cache; }
 
   void onSecondTick();
   void onIdleLiveStatusChanged();
@@ -219,6 +222,7 @@ private:
   CalendarService* m_calendarService = nullptr;
   ClipboardService* m_clipboardService = nullptr;
   IpcService* m_ipcService = nullptr;
+  AsyncTextureCache* m_asyncTextures = nullptr;
   Label* m_idleLiveStatusLabel = nullptr;
   std::vector<Label*> m_sessionActionSummaryLabels;
   std::shared_ptr<std::vector<SessionPanelActionConfig>> m_sessionActionsEditState;

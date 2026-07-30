@@ -172,7 +172,7 @@ void DesktopLabelWidget::applyLabelColors() {
 
 void DesktopLabelWidget::applyShadow() {
   const float offset = kShadowOffset * contentScale();
-  const Color shadowColor(0.0f, 0.0f, 0.0f, kShadowAlpha * m_opacity);
+  const ColorSpec shadowColor = colorSpecFromRole(ColorRole::Shadow, kShadowAlpha * m_opacity);
 
   auto applyTo = [this, offset, shadowColor](Label* label) {
     if (label == nullptr) {

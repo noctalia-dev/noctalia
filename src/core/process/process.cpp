@@ -509,49 +509,78 @@ namespace {
 
   // Double-fork + setsid so the exec'd process is not a direct child of the caller (matches
   // launcher app activation). Parent reaps the short-lived intermediate child.
+  // execStatusPipe reports execvp failure: CLOEXEC write-end closes on success (EOF), or the
+  // grandchild writes errno before exiting.
   bool doubleForkExecDetached(
       const std::vector<std::string>& args, pid_t* reportPid, const std::string& activationToken,
       const std::string& workingDir = {}
   ) {
     int reportPipe[2] = {-1, -1};
+    int execStatusPipe[2] = {-1, -1};
     const bool needPid = reportPid != nullptr;
+    if (::pipe(execStatusPipe) != 0) {
+      return false;
+    }
     if (needPid && ::pipe(reportPipe) != 0) {
+      closePipe(execStatusPipe);
       return false;
     }
 
     const pid_t intermediate = ::fork();
     if (intermediate < 0) {
+      closePipe(execStatusPipe);
       if (needPid) {
-        ::close(reportPipe[0]);
-        ::close(reportPipe[1]);
+        closePipe(reportPipe);
       }
       return false;
     }
 
     if (intermediate > 0) {
-      // Parent: read grandchild pid first (intermediate may exit before the grandchild writes).
+      closeFd(execStatusPipe[1]);
       if (needPid) {
         ::close(reportPipe[1]);
-        pid_t reported = -1;
+      }
+
+      pid_t reported = -1;
+      if (needPid) {
         const auto n = ::read(reportPipe[0], &reported, sizeof(reported));
         ::close(reportPipe[0]);
-        int status = 0;
-        while (::waitpid(intermediate, &status, 0) < 0 && errno == EINTR) {
+        if (n != sizeof(reported) || reported <= 0) {
+          closeFd(execStatusPipe[0]);
+          int status = 0;
+          while (::waitpid(intermediate, &status, 0) < 0 && errno == EINTR) {
+          }
+          return false;
         }
-        const bool ok = WIFEXITED(status) && WEXITSTATUS(status) == 0 && n == sizeof(reported) && reported > 0;
-        if (ok) {
-          *reportPid = reported;
-        }
-        return ok;
       }
 
       int status = 0;
       while (::waitpid(intermediate, &status, 0) < 0 && errno == EINTR) {
       }
-      return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+      if (!(WIFEXITED(status) && WEXITSTATUS(status) == 0)) {
+        closeFd(execStatusPipe[0]);
+        return false;
+      }
+
+      int execErrno = 0;
+      const auto n = ::read(execStatusPipe[0], &execErrno, sizeof(execErrno));
+      closeFd(execStatusPipe[0]);
+      if (n == 0) {
+        if (needPid) {
+          *reportPid = reported;
+        }
+        return true;
+      }
+      if (n == static_cast<ssize_t>(sizeof(execErrno))) {
+        kLog.warn("failed to execute '{}': {}", args.front(), std::strerror(execErrno));
+      } else {
+        kLog.warn("failed to execute '{}': exec status unavailable", args.front());
+      }
+      return false;
     }
 
     // Intermediate child: new session, then fork again so the grandchild reparents away.
+    closeFd(execStatusPipe[0]);
     if (needPid) {
       ::close(reportPipe[0]);
     }
@@ -562,6 +591,7 @@ namespace {
         writePipeOrIgnore(reportPipe[1], &err, sizeof(err));
         ::close(reportPipe[1]);
       }
+      closeFd(execStatusPipe[1]);
       ::_exit(1);
     }
 
@@ -572,12 +602,15 @@ namespace {
         writePipeOrIgnore(reportPipe[1], &err, sizeof(err));
         ::close(reportPipe[1]);
       }
+      closeFd(execStatusPipe[1]);
       ::_exit(1);
     }
     if (worker > 0) {
       if (needPid) {
         ::close(reportPipe[1]);
       }
+      // Drop our write end so only the worker holds it (parent sees EOF on successful exec).
+      closeFd(execStatusPipe[1]);
       ::_exit(0);
     }
 
@@ -588,7 +621,15 @@ namespace {
       ::close(reportPipe[1]);
     }
 
+    const int flags = ::fcntl(execStatusPipe[1], F_GETFD);
+    if (flags >= 0) {
+      ::fcntl(execStatusPipe[1], F_SETFD, flags | FD_CLOEXEC);
+    }
+
     if (!workingDir.empty() && ::chdir(workingDir.c_str()) != 0) {
+      const int err = errno;
+      writePipeOrIgnore(execStatusPipe[1], &err, sizeof(err));
+      closeFd(execStatusPipe[1]);
       ::_exit(126);
     }
 
@@ -602,6 +643,9 @@ namespace {
     std::vector<char*> argv = makeArgv(args);
 
     ::execvp(argv[0], argv.data());
+    const int err = errno;
+    writePipeOrIgnore(execStatusPipe[1], &err, sizeof(err));
+    closeFd(execStatusPipe[1]);
     ::_exit(127);
   }
 

@@ -45,6 +45,10 @@ namespace scripting {
     // whose effective settings changed. Called on config reload.
     void refresh(const PluginSettingsMap& pluginSettings);
 
+    // Invoke the optional onEnable() callback for every service belonging to
+    // a plugin after an explicit successful enable.
+    void enablePlugin(std::string_view pluginId);
+
     // Notify every service that the set/geometry of connected outputs changed, so a
     // service can reconcile (e.g. relaunch a per-output child). The current output
     // list is read via noctalia.outputs() inside the callback.
@@ -84,7 +88,7 @@ namespace scripting {
     makeService(const std::string& entryId, const std::filesystem::path& source, ScriptSettings seeded);
     // Full teardown for removal/shutdown: unregister IPC, stop timer + runtime, and
     // mark the alive token dead so any in-flight callback is a no-op.
-    void stopService(Service& service);
+    void stopService(Service& service, ScriptExitReason exitReason = ScriptExitReason::Reload);
     // Build the effective seeded settings for an entry (manifest defaults + plugin
     // overrides). Returns nullopt if the entry no longer resolves.
     [[nodiscard]] std::optional<ScriptSettings>

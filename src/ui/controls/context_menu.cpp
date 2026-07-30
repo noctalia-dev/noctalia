@@ -33,6 +33,9 @@ namespace {
   bool isInteractive(const ContextMenuControlEntry& entry) {
     return entry.enabled && !entry.separator && !entry.header;
   }
+  float entryIndent(const ContextMenuControlEntry& entry, float scale) {
+    return static_cast<float>(entry.indentLevel) * Style::spaceMd * scale;
+  }
 
   // Horizontal space the entry's leading indicator dot / swatch strip occupies, including its
   // trailing gap. The strip's metrics are font-derived, so this is layout-independent.
@@ -220,7 +223,9 @@ float ContextMenuControl::preferredWidth(
     const float textWidth = std::ceil(renderer.measureText(entry.label, kMenuFontSize * scale, weight).width);
     // Mirrors rebuildRows: 8px label inset each side, 30px right when a chevron is drawn.
     const float sidePadding = (entry.hasSubmenu ? 30.0f : 16.0f) * scale;
-    maxRowWidth = std::max(maxRowWidth, textWidth + toggleSlot + leadingVisualSlot(entry, scale) + sidePadding);
+    maxRowWidth = std::max(
+        maxRowWidth, textWidth + entryIndent(entry, scale) + toggleSlot + leadingVisualSlot(entry, scale) + sidePadding
+    );
   }
   return maxRowWidth + kMenuPadding * scale * 2.0f;
 }
@@ -323,6 +328,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
 
       const bool toggleVisible = hasToggle(entry);
       const float toggleSlot = toggleVisible ? kToggleSlot * scale : 0.0f;
+      const float indent = entryIndent(entry, scale);
       const std::string toggleGlyph = toggleGlyphName(entry);
       if (!toggleGlyph.empty()) {
         auto glyph = ui::glyph({
@@ -332,7 +338,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
             .color = entry.enabled ? enabledItemColor() : disabledItemColor(),
         });
         glyph->measure(renderer);
-        glyph->setPosition(8.0f * scale, (rowHeight - glyph->height()) * 0.5f);
+        glyph->setPosition(8.0f * scale + indent, (rowHeight - glyph->height()) * 0.5f);
         row->addChild(std::move(glyph));
       }
 
@@ -341,7 +347,9 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         auto strip = std::make_unique<ColorSwatchPreviewStrip>();
         strip->setMetricsFromFontSize(kMenuFontSize * scale);
         strip->setPreview(entry.swatchPreview);
-        strip->setPosition(8.0f * scale + toggleSlot, std::round((rowHeight - strip->preferredHeight()) * 0.5f));
+        strip->setPosition(
+            8.0f * scale + indent + toggleSlot, std::round((rowHeight - strip->preferredHeight()) * 0.5f)
+        );
         row->addChild(std::move(strip));
       } else if (entry.indicatorColor.has_value()) {
         const float dotSize = std::round(kMenuFontSize * scale);
@@ -350,7 +358,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         dot->setBorder(colorSpecFromRole(ColorRole::Outline), 1.5f);
         dot->setFrameSize(dotSize, dotSize);
         dot->setRadius(dotSize * 0.5f);
-        dot->setPosition(8.0f * scale + toggleSlot, std::round((rowHeight - dotSize) * 0.5f));
+        dot->setPosition(8.0f * scale + indent + toggleSlot, std::round((rowHeight - dotSize) * 0.5f));
         row->addChild(std::move(dot));
       }
 
@@ -362,13 +370,13 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
           .color = entry.header ? colorSpecFromRole(ColorRole::OnSurfaceVariant)
               : entry.enabled   ? enabledItemColor()
                                 : disabledItemColor(),
-          .maxWidth = entry.hasSubmenu ? (rowWidth - 30.0f * scale - toggleSlot - leadingSlot)
-                                       : (rowWidth - 16.0f * scale - toggleSlot - leadingSlot),
+          .maxWidth = entry.hasSubmenu ? (rowWidth - 30.0f * scale - indent - toggleSlot - leadingSlot)
+                                       : (rowWidth - 16.0f * scale - indent - toggleSlot - leadingSlot),
           .maxLines = 1,
           .ellipsize = entry.ellipsize,
       });
       label->measure(renderer);
-      label->setPosition(8.0f * scale + toggleSlot + leadingSlot, (rowHeight - label->height()) * 0.5f);
+      label->setPosition(8.0f * scale + indent + toggleSlot + leadingSlot, (rowHeight - label->height()) * 0.5f);
       row->addChild(std::move(label));
 
       if (entry.hasSubmenu) {

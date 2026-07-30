@@ -138,7 +138,7 @@ Notes packagers hit often:
 
 ### Vendored (no system package)
 
-Shipped under `third_party/`: Wuffs, Luau, dr_wav, fzy, Material Color Utilities.
+Shipped under `third_party/`: Wuffs, Luau, fzy, Material Color Utilities.
 Each carries its own license file beside the code.
 
 ### Runtime

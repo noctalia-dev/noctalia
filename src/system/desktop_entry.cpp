@@ -276,6 +276,8 @@ namespace {
         entry.workingDir = std::string(value);
       } else if (key == "Terminal") {
         entry.terminal = parseDesktopBool(value);
+      } else if (key == "DBusActivatable") {
+        entry.dbusActivatable = parseDesktopBool(value);
       } else if (key == "OnlyShowIn") {
         splitMultipleDesktopStrings(onlyShowIn, value);
       } else if (key == "NotShowIn") {

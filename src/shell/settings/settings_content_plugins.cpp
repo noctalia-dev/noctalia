@@ -8,6 +8,7 @@
 #include "scripting/plugin_id.h"
 #include "scripting/plugin_panel_shell.h"
 #include "scripting/plugin_registry.h"
+#include "shell/settings/settings_content_common.h"
 #include "shell/settings/settings_control_factory.h"
 #include "shell/settings/settings_registry.h"
 #include "shell/settings/widget_settings_registry.h"
@@ -672,6 +673,10 @@ namespace settings {
             )
         )
     );
+
+    if (ctx.config != nullptr && ctx.config->shell.offlineMode) {
+      section->addChild(makeOfflineModeNotice(scale, i18n::tr("settings.window.offline-mode-notice.plugins")));
+    }
 
     // ── Sources ──────────────────────────────────────────────────────────
     auto sourcesHeader = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true});

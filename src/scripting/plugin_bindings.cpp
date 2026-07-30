@@ -582,7 +582,9 @@ namespace {
     return 0;
   }
 
-  int luau_desktop_setWantsSecondTicks(lua_State* L) {
+  // setWantsSecondTicks(bool) / setNeedsFrameTick(bool) — shared by
+  // desktopWidget.* and panel.*.
+  int luau_ui_setWantsSecondTicks(lua_State* L) {
     const bool wants = lua_toboolean(L, 1) != 0;
     if (auto* context = getContext(L)) {
       context->patch.wantsSecondTicks = wants;
@@ -590,7 +592,7 @@ namespace {
     return 0;
   }
 
-  int luau_desktop_setNeedsFrameTick(lua_State* L) {
+  int luau_ui_setNeedsFrameTick(lua_State* L) {
     const bool needs = lua_toboolean(L, 1) != 0;
     if (auto* context = getContext(L)) {
       context->patch.needsFrameTick = needs;
@@ -600,8 +602,8 @@ namespace {
 
   const luaL_Reg kDesktopWidgetLib[] = {
       {"render", luau_ui_render},
-      {"setWantsSecondTicks", luau_desktop_setWantsSecondTicks},
-      {"setNeedsFrameTick", luau_desktop_setNeedsFrameTick},
+      {"setWantsSecondTicks", luau_ui_setWantsSecondTicks},
+      {"setNeedsFrameTick", luau_ui_setNeedsFrameTick},
       {nullptr, nullptr},
   };
 
@@ -615,18 +617,11 @@ namespace {
     return 0;
   }
 
-  int luau_panel_setWantsSecondTicks(lua_State* L) {
-    const bool wants = lua_toboolean(L, 1) != 0;
-    if (auto* context = getContext(L)) {
-      context->patch.wantsSecondTicks = wants;
-    }
-    return 0;
-  }
-
   const luaL_Reg kPanelLib[] = {
       {"render", luau_ui_render},
       {"close", luau_panel_close},
-      {"setWantsSecondTicks", luau_panel_setWantsSecondTicks},
+      {"setWantsSecondTicks", luau_ui_setWantsSecondTicks},
+      {"setNeedsFrameTick", luau_ui_setNeedsFrameTick},
       {nullptr, nullptr},
   };
 

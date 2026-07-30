@@ -142,6 +142,42 @@ namespace {
     return false;
   }
 
+  std::unordered_set<std::string> outputScopedWindowIds(const WaylandWorkspaces* workspaces, wl_output* output) {
+    std::unordered_set<std::string> ids;
+    if (output == nullptr || workspaces == nullptr) {
+      return ids;
+    }
+    for (const auto& row : workspaces->workspaceWindows(output)) {
+      const auto normalized = compositors::hyprland::normalizeWindowId(row.windowId);
+      if (!normalized.empty()) {
+        ids.insert(normalized);
+      }
+    }
+    return ids;
+  }
+
+  // Toplevels whose output the compositor never announced stay in every output-scoped wlr list, so
+  // the IPC window list is what actually places them: drop the ones owned by another output.
+  void dropWindowsOnOtherOutputs(
+      std::vector<ToplevelInfo>& windows, const compositors::hyprland::HyprlandToplevelMapping& mapping,
+      const std::unordered_set<std::string>& outputWindowIds
+  ) {
+    if (outputWindowIds.empty()) {
+      return;
+    }
+    std::erase_if(windows, [&](const ToplevelInfo& window) {
+      if (window.outputAnnounced || window.handle == nullptr) {
+        return false;
+      }
+      const auto windowId = mapping.windowIdForWlrHandle(window.handle);
+      if (!windowId.has_value()) {
+        return false;
+      }
+      const auto normalized = compositors::hyprland::normalizeWindowId(*windowId);
+      return !normalized.empty() && !outputWindowIds.contains(normalized);
+    });
+  }
+
   void appendHyprlandExtOnlyWindows(
       std::vector<ToplevelInfo>& windows, const std::vector<ToplevelInfo>& extWindows,
       const compositors::hyprland::HyprlandToplevelMapping& mapping,
@@ -170,8 +206,7 @@ namespace {
       const auto windowId = mapping.windowIdForExtHandle(extWindow.extHandle);
       if (windowId.has_value()) {
         const auto normalized = compositors::hyprland::normalizeWindowId(*windowId);
-        // Pre-shell windows are often ext-only: mapping may know a wlr handle Hyprland never
-        // exports via zwlr_foreign_toplevel_management, so dedupe only against live wlr results.
+        // The wlr results above already cover this output, so skip the ext copy of anything in them.
         if (!normalized.empty() && wlrRepresentedIds.contains(normalized)) {
           continue;
         }
@@ -812,23 +847,16 @@ std::vector<ToplevelInfo> CompositorPlatform::windowsForApp(
   }
 
   auto windows = m_wayland.windowsForApp(idLower, wmClassLower, outputFilter);
-  if (!compositors::isHyprland()
-      || m_hyprlandToplevelMapping == nullptr
-      || !m_hyprlandToplevelMapping->available()
-      || !m_wayland.hasExtForeignToplevelList()) {
+  if (!compositors::isHyprland() || m_hyprlandToplevelMapping == nullptr || !m_hyprlandToplevelMapping->available()) {
     return windows;
   }
 
-  std::unordered_set<std::string> outputWindowIds;
-  if (outputFilter != nullptr && m_workspaces != nullptr) {
-    for (const auto& row : m_workspaces->workspaceWindows(outputFilter)) {
-      const auto normalized = compositors::hyprland::normalizeWindowId(row.windowId);
-      if (!normalized.empty()) {
-        outputWindowIds.insert(normalized);
-      }
-    }
-  }
+  const auto outputWindowIds = outputScopedWindowIds(m_workspaces.get(), outputFilter);
+  dropWindowsOnOtherOutputs(windows, *m_hyprlandToplevelMapping, outputWindowIds);
 
+  if (!m_wayland.hasExtForeignToplevelList()) {
+    return windows;
+  }
   appendHyprlandExtOnlyWindows(
       windows, m_wayland.extWindowsForApp(idLower, wmClassLower), *m_hyprlandToplevelMapping,
       outputFilter != nullptr ? &outputWindowIds : nullptr
@@ -837,7 +865,14 @@ std::vector<ToplevelInfo> CompositorPlatform::windowsForApp(
 }
 
 std::vector<ToplevelInfo> CompositorPlatform::windowsWithoutAppId(wl_output* outputFilter) const {
-  return m_wayland.windowsWithoutAppId(outputFilter);
+  auto windows = m_wayland.windowsWithoutAppId(outputFilter);
+  if (!compositors::isHyprland() || m_hyprlandToplevelMapping == nullptr || !m_hyprlandToplevelMapping->available()) {
+    return windows;
+  }
+  dropWindowsOnOtherOutputs(
+      windows, *m_hyprlandToplevelMapping, outputScopedWindowIds(m_workspaces.get(), outputFilter)
+  );
+  return windows;
 }
 
 void CompositorPlatform::activateToplevel(zwlr_foreign_toplevel_handle_v1* handle) {

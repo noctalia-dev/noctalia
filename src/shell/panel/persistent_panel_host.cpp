@@ -565,6 +565,14 @@ void PersistentPanelHost::refreshPanel(std::string_view id) {
   instance->surface->requestUpdate();
 }
 
+void PersistentPanelHost::requestAnimationFrame(std::string_view id) {
+  Instance* instance = findInstance(id);
+  if (instance == nullptr || instance->surface == nullptr) {
+    return;
+  }
+  instance->surface->requestRedraw();
+}
+
 void PersistentPanelHost::onConfigReloaded() {
   for (auto& instance : m_instances) {
     if (instance->panel == nullptr) {

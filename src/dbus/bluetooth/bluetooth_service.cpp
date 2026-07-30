@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "dbus/system_bus.h"
+#include "dbus/upower/upower_service.h"
 #include "i18n/i18n.h"
 #include "ipc/ipc_service.h"
 #include "system/rfkill_helper.h"
@@ -10,6 +11,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <map>
 #include <optional>
 #include <sdbus-c++/IConnection.h>
@@ -210,6 +212,7 @@ namespace {
         } else {
           out.hasBattery = false;
           out.batteryPercent = 0;
+          out.batteryFromUPower = false;
         }
       }
     }
@@ -244,12 +247,15 @@ namespace {
     if (!out.connected) {
       out.hasBattery = false;
       out.batteryPercent = 0;
+      out.batteryFromUPower = false;
       return;
     }
     if (auto it = props.find("Percentage"); it != props.end()) {
       if (auto v = variantGet<std::uint8_t>(it->second)) {
         out.hasBattery = true;
+        // BlueZ's own reading wins over UPower.
         out.batteryPercent = *v;
+        out.batteryFromUPower = false;
       }
     }
   }
@@ -339,6 +345,7 @@ struct BluetoothService::Impl {
         if (auto* dev = self.findDevice(path)) {
           dev->hasBattery = false;
           dev->batteryPercent = 0;
+          dev->batteryFromUPower = false;
           devicesDirty = true;
         }
       }
@@ -451,7 +458,8 @@ struct BluetoothService::Impl {
   }
 };
 
-BluetoothService::BluetoothService(SystemBus& bus) : m_impl(std::make_unique<Impl>(*this, bus)) {
+BluetoothService::BluetoothService(SystemBus& bus, UPowerService* upowerService)
+    : m_impl(std::make_unique<Impl>(*this, bus)), m_upowerService(upowerService) {
   m_impl->root = sdbus::createProxy(bus.connection(), kBluezBusName, kRootPath);
 
   m_impl->root->uponSignal("InterfacesAdded")
@@ -868,7 +876,49 @@ void BluetoothService::emitState(BluetoothStateChangeOrigin origin) {
 }
 
 void BluetoothService::emitDevices() {
+  // Merged on emit so devices adopted between UPower ticks pick up their battery.
+  applyUPowerBattery();
   if (m_devicesCallback) {
     m_devicesCallback(m_devices);
   }
+}
+
+void BluetoothService::refreshBatteryFromUPower() {
+  if (applyUPowerBattery() && m_devicesCallback) {
+    m_devicesCallback(m_devices);
+  }
+}
+
+bool BluetoothService::applyUPowerBattery() {
+  if (m_upowerService == nullptr) {
+    return false;
+  }
+
+  bool hasChange = false;
+  for (auto& device : m_devices) {
+    const bool fromBluez = device.hasBattery && !device.batteryFromUPower;
+    if (!device.connected || fromBluez || device.address.empty()) {
+      continue;
+    }
+
+    const auto* info = m_upowerService->peripheralBatteryForSerial(device.address);
+    if (info != nullptr) {
+      const auto percent = static_cast<std::uint8_t>(std::clamp(std::lround(info->state.percentage), 0L, 100L));
+      if (!device.hasBattery || device.batteryPercent != percent) {
+        device.hasBattery = true;
+        device.batteryPercent = percent;
+        device.batteryFromUPower = true;
+        hasChange = true;
+        kLog.debug("upower battery {} -> {}%", device.address, percent);
+      }
+    } else if (device.batteryFromUPower) {
+      device.hasBattery = false;
+      device.batteryPercent = 0;
+      device.batteryFromUPower = false;
+      hasChange = true;
+      kLog.debug("upower battery {} gone", device.address);
+    }
+  }
+
+  return hasChange;
 }

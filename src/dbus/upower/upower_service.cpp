@@ -100,6 +100,15 @@ namespace {
     return type != UPowerDeviceType::Unknown && type != UPowerDeviceType::LinePower;
   }
 
+  // A battery belonging to a peripheral rather than to the system. UPower reports peripheral packs
+  // with PowerSupply=false, so only PowerSupply batteries and UPS units power the machine itself.
+  bool isPeripheralBattery(const UPowerDeviceInfo& info) {
+    return info.isPresent
+        && isBatteryCapableDeviceType(info.type)
+        && !info.isLaptopBattery()
+        && info.type != UPowerDeviceType::Ups;
+  }
+
   bool isAutoSelector(std::string_view selector) {
     const std::string normalized = StringUtils::toLower(StringUtils::trim(selector));
     return normalized.empty() || normalized == "auto";
@@ -392,6 +401,18 @@ const UPowerDeviceInfo* UPowerService::deviceForSelector(std::string_view select
       && isBatteryCapableDeviceType(m_dummyDevice->type)
       && upowerDeviceMatchesSelector(*m_dummyDevice, trimmed)) {
     return &*m_dummyDevice;
+  }
+  return nullptr;
+}
+
+const UPowerDeviceInfo* UPowerService::peripheralBatteryForSerial(std::string_view serial) const {
+  if (serial.empty()) {
+    return nullptr;
+  }
+  for (const auto& device : m_devices) {
+    if (isPeripheralBattery(device.info) && StringUtils::equalsInsensitive(device.info.serial, serial)) {
+      return &device.info;
+    }
   }
   return nullptr;
 }

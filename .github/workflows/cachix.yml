@@ -17,7 +17,6 @@ jobs:
     strategy:
       matrix:
         runner: [ubuntu-latest, ubuntu-24.04-arm]
-        target: [default, cuda]
     runs-on: ${{ matrix.runner }}
     if: ${{ github.repository == 'noctalia-dev/noctalia' }}
     steps:
@@ -27,7 +26,7 @@ jobs:
         with:
           name: "${{ secrets.CACHIX_CACHE_NAME }}"
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-      - run: nix build .#${{ matrix.target }} --fallback
+      - run: nix build .#default --fallback
 
   push:
     needs: cache

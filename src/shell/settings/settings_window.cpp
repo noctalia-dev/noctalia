@@ -11,6 +11,7 @@
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
 #include "idle/idle_manager.h"
+#include "render/core/async_texture_cache.h"
 #include "render/render_context.h"
 #include "render/text/font_weight_catalog.h"
 #include "scripting/plugin_registry.h"
@@ -585,6 +586,12 @@ void SettingsWindow::destroyWindow() {
   m_showOverriddenOnly = false;
   m_sidebarScrollState = {};
   m_contentScrollState = {};
+
+  // Plugin-store thumbnails are the only async textures this window holds; drop the
+  // zero-ref residents once the scene (and with it every Image) is gone.
+  if (m_asyncTextures != nullptr) {
+    DeferredCall::callLater([asyncTextures = m_asyncTextures]() { asyncTextures->trimUnused(0); });
+  }
 }
 
 void SettingsWindow::prepareFrame(bool /*needsUpdate*/, bool needsLayout) {

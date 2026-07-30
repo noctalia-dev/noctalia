@@ -80,6 +80,9 @@ public:
 
   // Persisted wallpaper paths (written to settings.toml, app-managed).
   [[nodiscard]] std::string getWallpaperPath(const std::string& connectorName) const;
+  [[nodiscard]] const std::unordered_map<std::string, std::string>& monitorWallpaperPaths() const {
+    return m_monitorWallpaperPaths;
+  }
   [[nodiscard]] std::string getDefaultWallpaperPath() const;
   // Last applied wallpaper, else default. Drives palette generation and template previews.
   [[nodiscard]] std::string getPaletteWallpaperPath() const;

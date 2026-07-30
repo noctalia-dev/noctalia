@@ -1,5 +1,6 @@
 #pragma once
 
+#include "calendar/caldav_client.h"
 #include "calendar/calendar_credential_store.h"
 #include "calendar/calendar_types.h"
 #include "calendar/google_client.h"
@@ -170,4 +171,5 @@ private:
   bool m_cacheMigrationPending = false;
   std::size_t m_pendingAccounts = 0;
   ConnectFlow m_connect;
+  calendar::CalDavClient m_caldav;
 };

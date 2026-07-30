@@ -183,6 +183,16 @@ PanelClickShield::createShield(wl_output* output, LayerShellLayer layer, std::ve
   return shield;
 }
 
+void PanelClickShield::setLayer(LayerShellLayer layer) {
+  for (auto& [output, shield] : m_shields) {
+    if (shield == nullptr || shield->layerSurface == nullptr || shield->surface == nullptr) {
+      continue;
+    }
+    zwlr_layer_surface_v1_set_layer(shield->layerSurface, static_cast<std::uint32_t>(layer));
+    wl_surface_commit(shield->surface);
+  }
+}
+
 void PanelClickShield::deactivate() {
   for (auto& [output, shield] : m_shields) {
     if (shield) {

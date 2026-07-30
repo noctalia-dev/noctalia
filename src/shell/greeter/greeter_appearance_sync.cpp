@@ -13,17 +13,19 @@
 #include "util/string_utils.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <memory>
-#include <nlohmann/json.hpp>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <system_error>
 #include <toml++/toml.hpp>
 #include <vector>
+#include <wayland-client-protocol.h>
 
 namespace {
 
@@ -35,6 +37,9 @@ namespace {
   constexpr std::string_view kDefaultGreeterStateDir = "/var/lib/noctalia-greeter";
   constexpr std::string_view kGreeterStateDirEnv = "NOCTALIA_GREETER_STATE_DIR";
   constexpr std::string_view kStagedOutputLayoutFileName = "output_layout";
+  constexpr std::string_view kStagedOutputTransformsFileName = "output_transforms";
+  // Staged sync.toml fragment (appearance + session); apply helper merges into live sync.toml.
+  constexpr std::string_view kStagedSyncTomlFileName = "sync.toml";
 
   [[nodiscard]] std::string
   resolveProgramPath(std::string_view name, std::initializer_list<const char*> fallbackPaths) {
@@ -61,8 +66,8 @@ namespace {
     return resolveColorSpec(*config.fillColor);
   }
 
-  void putPaletteColor(nlohmann::json& palette, std::string_view key, const Color& color) {
-    palette[std::string(key)] = formatRgbHex(color);
+  void putPaletteColor(toml::table& palette, std::string_view key, const Color& color) {
+    palette.insert_or_assign(std::string(key), formatRgbHex(color));
   }
 
   [[nodiscard]] std::filesystem::path greeterTomlPath() {
@@ -95,17 +100,78 @@ namespace {
     }
   }
 
-  [[nodiscard]] std::string resolveSyncWallpaperPath(const ConfigService& configService) {
-    const Config& config = configService.config();
-    if (config.theme.source != PaletteSource::Wallpaper) {
-      if (const auto output = readGreeterConfiguredOutput(); output.has_value() && !output->empty()) {
-        const std::string path = configService.getWallpaperPath(*output);
-        if (!path.empty()) {
-          return path;
-        }
+  [[nodiscard]] std::string sanitizeConnectorFileToken(std::string_view name) {
+    std::string out;
+    out.reserve(name.size());
+    for (const unsigned char c : name) {
+      if (std::isalnum(c) || c == '-' || c == '_' || c == '.') {
+        out.push_back(static_cast<char>(c));
+      } else {
+        out.push_back('_');
       }
     }
+    return out.empty() ? std::string("unknown") : out;
+  }
+
+  // Fallback single wallpaper when no per-output map is usable.
+  [[nodiscard]] std::string resolveSyncWallpaperPath(const ConfigService& configService) {
+    if (const auto output = readGreeterConfiguredOutput(); output.has_value() && !output->empty()) {
+      const std::string path = configService.getWallpaperPath(*output);
+      if (!path.empty()) {
+        return path;
+      }
+    }
+    const std::string defaultPath = configService.getDefaultWallpaperPath();
+    if (!defaultPath.empty()) {
+      return defaultPath;
+    }
     return configService.getGreeterSyncWallpaperPath();
+  }
+
+  struct StagedOutputWallpaper {
+    std::string connector;
+    std::string installedName;
+    std::string sourcePath;
+  };
+
+  // Stage every per-monitor wallpaper so the greeter can pick by connector name.
+  // File wallpapers are copied as wallpaper-<connector>.*; solid color: specs are
+  // kept as sourcePath only (no file) so the wallpapers map can still reference them.
+  [[nodiscard]] std::vector<StagedOutputWallpaper>
+  stageAllOutputWallpapers(const std::filesystem::path& staging, const ConfigService& configService) {
+    std::vector<StagedOutputWallpaper> staged;
+    for (const auto& [connector, sourcePath] : configService.monitorWallpaperPaths()) {
+      if (connector.empty() || sourcePath.empty()) {
+        continue;
+      }
+      if (sourcePath.starts_with("color:")) {
+        staged.push_back(StagedOutputWallpaper{connector, /*installedName=*/{}, sourcePath});
+        kLog.info("greeter sync: color wallpaper for '{}' -> {}", connector, sourcePath);
+        continue;
+      }
+      std::error_code ec;
+      const std::filesystem::path source(sourcePath);
+      if (!std::filesystem::is_regular_file(source, ec) || ec) {
+        kLog.warn("greeter sync: skip missing wallpaper for '{}': {}", connector, sourcePath);
+        continue;
+      }
+      const std::string extension = source.extension().string();
+      const std::string installedName =
+          "wallpaper-" + sanitizeConnectorFileToken(connector) + (extension.empty() ? "" : extension);
+      const auto destination = staging / installedName;
+      std::filesystem::copy_file(source, destination, std::filesystem::copy_options::overwrite_existing, ec);
+      if (ec) {
+        kLog.warn("greeter sync: failed to stage wallpaper for '{}': {}", connector, ec.message());
+        continue;
+      }
+      kLog.info("greeter sync: staged wallpaper for '{}' -> {}", connector, installedName);
+      staged.push_back(StagedOutputWallpaper{connector, installedName, sourcePath});
+    }
+    // unordered_map iteration order is unspecified; keep map/fallback deterministic.
+    std::ranges::sort(staged, [](const StagedOutputWallpaper& a, const StagedOutputWallpaper& b) {
+      return a.connector < b.connector;
+    });
+    return staged;
   }
 
   [[nodiscard]] std::string findApplyHelper() {
@@ -130,24 +196,24 @@ namespace {
     return staging;
   }
 
-  void putOptionalString(nlohmann::json& object, std::string_view key, const std::optional<std::string>& value) {
+  void putOptionalString(toml::table& table, std::string_view key, const std::optional<std::string>& value) {
     if (!value.has_value() || value->empty()) {
       return;
     }
-    object[std::string(key)] = *value;
+    table.insert_or_assign(std::string(key), *value);
   }
 
-  void appendSessionManifest(nlohmann::json& root, const ShellSessionConfig& session) {
-    nlohmann::json sessionJson;
-    nlohmann::json power;
+  void appendSessionToSyncToml(toml::table& root, const ShellSessionConfig& session) {
+    toml::table sessionTable;
+    toml::table power;
     putOptionalString(power, "suspend", session.power.suspend);
     putOptionalString(power, "reboot", session.power.reboot);
     putOptionalString(power, "shutdown", session.power.shutdown);
     if (!power.empty()) {
-      sessionJson["power"] = std::move(power);
+      sessionTable.insert("power", std::move(power));
     }
 
-    nlohmann::json actions = nlohmann::json::array();
+    toml::array actions;
     const auto& source = session.actions.empty() ? defaultSessionPanelActions() : session.actions;
     for (const SessionPanelActionConfig& row : source) {
       if (!row.enabled || !session_action::isKnown(row.action)) {
@@ -157,29 +223,48 @@ namespace {
         continue;
       }
 
-      nlohmann::json item;
-      item["action"] = row.action;
+      toml::table item;
+      item.insert_or_assign("action", row.action);
       putOptionalString(item, "command", row.command);
       putOptionalString(item, "label", row.label);
       putOptionalString(item, "glyph", row.glyph);
       if (row.variant != SessionActionButtonVariant::Default) {
-        item["variant"] = std::string(enumToKey(kSessionActionButtonVariants, row.variant));
+        item.insert_or_assign("variant", std::string(enumToKey(kSessionActionButtonVariants, row.variant)));
       }
       actions.push_back(std::move(item));
     }
-    sessionJson["actions"] = std::move(actions);
-    root["session"] = std::move(sessionJson);
+    if (!actions.empty()) {
+      sessionTable.insert("actions", std::move(actions));
+    }
+    if (!sessionTable.empty()) {
+      root.insert("session", std::move(sessionTable));
+    }
   }
 
-  [[nodiscard]] bool writeManifest(
-      const std::filesystem::path& staging, const Config& config, std::string_view resolvedMode,
-      const std::string& wallpaperPath, const std::string& installedWallpaperName
-  ) {
-    nlohmann::json root;
-    root["version"] = 1;
-    root["theme_mode"] = resolvedMode;
+  [[nodiscard]] std::string formatToml(const toml::table& table) {
+    std::ostringstream out;
+    out << toml::toml_formatter{
+        table, toml::toml_formatter::default_flags & ~toml::format_flags::allow_literal_strings
+    };
+    return out.str();
+  }
 
-    nlohmann::json palette;
+  // Stages a sync.toml fragment (appearance + session) for noctalia-greeter-apply-appearance.
+  [[nodiscard]] bool writeStagedSyncToml(
+      const std::filesystem::path& staging, const Config& config, std::string_view resolvedMode,
+      const std::string& wallpaperPath, const std::string& installedWallpaperName,
+      const std::vector<StagedOutputWallpaper>& outputWallpapers
+  ) {
+    toml::table root;
+    toml::table appearance;
+    appearance.insert_or_assign("scheme", "Synced");
+    appearance.insert_or_assign("theme_mode", std::string(resolvedMode));
+    appearance.insert_or_assign("corner_radius_scale", static_cast<double>(config.shell.cornerRadiusScale));
+    if (!config.shell.fontFamily.empty()) {
+      appearance.insert_or_assign("font_family", config.shell.fontFamily);
+    }
+
+    toml::table palette;
     putPaletteColor(palette, "primary", ::palette.primary);
     putPaletteColor(palette, "on_primary", ::palette.onPrimary);
     putPaletteColor(palette, "secondary", ::palette.secondary);
@@ -196,30 +281,65 @@ namespace {
     putPaletteColor(palette, "shadow", ::palette.shadow);
     putPaletteColor(palette, "hover", ::palette.hover);
     putPaletteColor(palette, "on_hover", ::palette.onHover);
-    root["palette"] = std::move(palette);
+    appearance.insert("palette", std::move(palette));
 
-    nlohmann::json wallpaper;
+    toml::table wallpaper;
     if (!installedWallpaperName.empty()) {
-      wallpaper["path"] = (std::filesystem::path("/var/lib/noctalia-greeter") / installedWallpaperName).string();
+      wallpaper.insert_or_assign(
+          "path", (std::filesystem::path(kDefaultGreeterStateDir) / installedWallpaperName).string()
+      );
     } else if (!wallpaperPath.empty()) {
-      wallpaper["path"] = wallpaperPath;
+      wallpaper.insert_or_assign("path", wallpaperPath);
     }
-    wallpaper["fill_mode"] = std::string(enumToKey(kWallpaperFillModes, config.wallpaper.fillMode));
+    const std::string fillMode = std::string(enumToKey(kWallpaperFillModes, config.wallpaper.fillMode));
+    wallpaper.insert_or_assign("fill_mode", fillMode);
     const Color fillColor = resolveWallpaperFillColor(config.wallpaper);
     if (fillColor.a > 0.0f) {
-      wallpaper["fill_color"] = formatRgbHex(fillColor);
+      wallpaper.insert_or_assign("fill_color", formatRgbHex(fillColor));
     }
-    root["wallpaper"] = std::move(wallpaper);
-    root["corner_radius_scale"] = config.shell.cornerRadiusScale;
-    appendSessionManifest(root, config.shell.session);
+    if (!wallpaper.empty()) {
+      appearance.insert("wallpaper", std::move(wallpaper));
+    }
 
-    const auto manifestPath = staging / "appearance.json";
-    std::ofstream out(manifestPath);
+    if (!outputWallpapers.empty()) {
+      toml::table byOutput;
+      for (const auto& entry : outputWallpapers) {
+        toml::table item;
+        if (!entry.installedName.empty()) {
+          item.insert_or_assign(
+              "path", (std::filesystem::path(kDefaultGreeterStateDir) / entry.installedName).string()
+          );
+        } else if (!entry.sourcePath.empty()) {
+          item.insert_or_assign("path", entry.sourcePath);
+        } else {
+          continue;
+        }
+        item.insert_or_assign("fill_mode", fillMode);
+        if (fillColor.a > 0.0f) {
+          item.insert_or_assign("fill_color", formatRgbHex(fillColor));
+        }
+        byOutput.insert(entry.connector, std::move(item));
+      }
+      if (!byOutput.empty()) {
+        appearance.insert("wallpapers", std::move(byOutput));
+      }
+    }
+
+    root.insert("appearance", std::move(appearance));
+    appendSessionToSyncToml(root, config.shell.session);
+
+    const auto syncPath = staging / kStagedSyncTomlFileName;
+    std::ofstream out(syncPath);
     if (!out.is_open()) {
-      kLog.warn("failed to open staging manifest '{}'", manifestPath.string());
+      kLog.warn("failed to open staged sync.toml '{}'", syncPath.string());
       return false;
     }
-    out << root.dump(2) << '\n';
+    out << "# noctalia-greeter staged sync.toml (merged into live sync.toml by apply-appearance)\n\n";
+    out << formatToml(root);
+    if (!out.good()) {
+      kLog.warn("failed to write staged sync.toml '{}'", syncPath.string());
+      return false;
+    }
     return true;
   }
 
@@ -278,6 +398,71 @@ namespace {
     return layout;
   }
 
+  [[nodiscard]] std::optional<std::string> greeterTransformToken(std::int32_t transform) {
+    switch (transform) {
+    case WL_OUTPUT_TRANSFORM_NORMAL:
+      return std::string("normal");
+    case WL_OUTPUT_TRANSFORM_90:
+      return std::string("90");
+    case WL_OUTPUT_TRANSFORM_180:
+      return std::string("180");
+    case WL_OUTPUT_TRANSFORM_270:
+      return std::string("270");
+    case WL_OUTPUT_TRANSFORM_FLIPPED:
+      return std::string("flipped");
+    case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+      return std::string("flipped-90");
+    case WL_OUTPUT_TRANSFORM_FLIPPED_180:
+      return std::string("flipped-180");
+    case WL_OUTPUT_TRANSFORM_FLIPPED_270:
+      return std::string("flipped-270");
+    default:
+      return std::nullopt;
+    }
+  }
+
+  [[nodiscard]] std::optional<std::string> buildGreeterOutputTransforms(const CompositorPlatform& platform) {
+    const auto& outputs = platform.outputs();
+    std::vector<const WaylandOutput*> ready;
+    ready.reserve(outputs.size());
+    for (const auto& output : outputs) {
+      if (!output.connectorName.empty() && !output.done) {
+        kLog.info("greeter sync: output '{}' not ready; skipping output transforms sync", output.connectorName);
+        return std::nullopt;
+      }
+      if (!output.done || output.connectorName.empty()) {
+        continue;
+      }
+      ready.push_back(&output);
+    }
+
+    if (ready.empty()) {
+      kLog.info("greeter sync: no ready outputs; skipping output transforms sync");
+      return std::nullopt;
+    }
+
+    std::ranges::sort(ready, [](const WaylandOutput* lhs, const WaylandOutput* rhs) {
+      return lhs->connectorName < rhs->connectorName;
+    });
+
+    std::string transforms;
+    for (const WaylandOutput* output : ready) {
+      const auto token = greeterTransformToken(output->transform);
+      if (!token.has_value()) {
+        kLog.warn(
+            "greeter sync: output '{}' has unknown transform {}; skipping output transforms sync",
+            output->connectorName, output->transform
+        );
+        return std::nullopt;
+      }
+      if (!transforms.empty()) {
+        transforms += "; ";
+      }
+      transforms += output->connectorName + ':' + *token;
+    }
+    return transforms;
+  }
+
   void logOutputLayoutForGreeter(const CompositorPlatform& platform) {
     const auto& outputs = platform.outputs();
     if (outputs.empty()) {
@@ -299,6 +484,9 @@ namespace {
     if (const auto layout = buildGreeterOutputLayout(platform)) {
       kLog.info("greeter sync: staging output_layout \"{}\"", *layout);
     }
+    if (const auto transforms = buildGreeterOutputTransforms(platform)) {
+      kLog.info("greeter sync: staging output_transforms \"{}\"", *transforms);
+    }
   }
 
   [[nodiscard]] bool stageOutputLayout(const std::filesystem::path& staging, std::string_view layout) {
@@ -309,6 +497,17 @@ namespace {
       return false;
     }
     out << layout << '\n';
+    return true;
+  }
+
+  [[nodiscard]] bool stageOutputTransforms(const std::filesystem::path& staging, std::string_view transforms) {
+    const auto transformsPath = staging / kStagedOutputTransformsFileName;
+    std::ofstream out(transformsPath);
+    if (!out.is_open()) {
+      kLog.warn("failed to open staged output transforms '{}'", transformsPath.string());
+      return false;
+    }
+    out << transforms << '\n';
     return true;
   }
 
@@ -424,13 +623,51 @@ namespace greeter {
           return GreeterSyncLaunch::Failed;
         }
       }
+      if (const auto transforms = buildGreeterOutputTransforms(*platform)) {
+        if (!stageOutputTransforms(staging, *transforms)) {
+          finish(false);
+          return GreeterSyncLaunch::Failed;
+        }
+      }
     } else {
-      kLog.info("greeter sync: no compositor platform provided; skipping output layout sync");
+      kLog.info("greeter sync: no compositor platform provided; skipping output layout/transforms sync");
     }
 
-    const std::string wallpaperPath = resolveSyncWallpaperPath(configService);
-    const std::string installedWallpaperName = stageWallpaper(staging, wallpaperPath);
-    if (!writeManifest(staging, config, resolvedThemeMode, wallpaperPath, installedWallpaperName)) {
+    const auto outputWallpapers = stageAllOutputWallpapers(staging, configService);
+    std::string wallpaperPath = resolveSyncWallpaperPath(configService);
+    std::string installedWallpaperName = stageWallpaper(staging, wallpaperPath);
+    // Prefer a staged per-output entry for the legacy single wallpaper when needed.
+    if (installedWallpaperName.empty() && !outputWallpapers.empty()) {
+      auto preferEntry = [&](const StagedOutputWallpaper& entry) {
+        wallpaperPath = entry.sourcePath;
+        installedWallpaperName = entry.installedName;
+      };
+      bool pinResolved = false;
+      if (const auto pin = readGreeterConfiguredOutput(); pin.has_value() && !pin->empty()) {
+        for (const auto& entry : outputWallpapers) {
+          if (entry.connector == *pin) {
+            preferEntry(entry);
+            pinResolved = true;
+            break;
+          }
+        }
+      }
+      // Pin hit (file or color:): keep it. Otherwise pick first staged file, else first entry.
+      if (!pinResolved) {
+        for (const auto& entry : outputWallpapers) {
+          if (!entry.installedName.empty()) {
+            preferEntry(entry);
+            break;
+          }
+        }
+        if (installedWallpaperName.empty() && wallpaperPath.empty()) {
+          preferEntry(outputWallpapers.front());
+        }
+      }
+    }
+    if (!writeStagedSyncToml(
+            staging, config, resolvedThemeMode, wallpaperPath, installedWallpaperName, outputWallpapers
+        )) {
       finish(false);
       return GreeterSyncLaunch::Failed;
     }

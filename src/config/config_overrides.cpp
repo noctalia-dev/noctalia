@@ -338,11 +338,42 @@ namespace {
     return path.size() == 3 && path[0] == "plugin_settings";
   }
 
+  bool keybindSetEqual(const std::vector<KeyChord>& a, const std::vector<KeyChord>& b, KeybindAction action) {
+    if (a == b) {
+      return true;
+    }
+    if (a.empty()) {
+      return b == defaultKeybindSet(action);
+    }
+    if (b.empty()) {
+      return a == defaultKeybindSet(action);
+    }
+    return false;
+  }
+
+  bool keybindsConfigEqual(const KeybindsConfig& a, const KeybindsConfig& b) {
+    if (a == b) {
+      return true;
+    }
+    return keybindSetEqual(a.validate, b.validate, KeybindAction::Validate)
+        && keybindSetEqual(a.cancel, b.cancel, KeybindAction::Cancel)
+        && keybindSetEqual(a.left, b.left, KeybindAction::Left)
+        && keybindSetEqual(a.right, b.right, KeybindAction::Right)
+        && keybindSetEqual(a.up, b.up, KeybindAction::Up)
+        && keybindSetEqual(a.down, b.down, KeybindAction::Down)
+        && keybindSetEqual(a.tabNext, b.tabNext, KeybindAction::TabNext)
+        && keybindSetEqual(a.tabPrevious, b.tabPrevious, KeybindAction::TabPrevious)
+        && keybindSetEqual(a.deleteEntry, b.deleteEntry, KeybindAction::Delete)
+        && keybindSetEqual(a.copy, b.copy, KeybindAction::Copy)
+        && keybindSetEqual(a.save, b.save, KeybindAction::Save);
+  }
+
   // Override-effectiveness equality. Every config section uses its compiler-generated operator== (exact
   // member-wise compare) so that adding a field cannot silently break override persistence — the only
   // exceptions are the sections whose comparison carries semantics operator== can't express:
   //   - bars: monitor overrides are resolved + clamped before comparing (barConfigEqual)
   //   - widgets / desktop widgets: settings compared with int/double coercion (widgetMapEqual / desktopWidgetEqual)
+  //   - keybinds: an empty configured set and its built-in default set have the same runtime behavior
   bool configEqual(const Config& a, const Config& b) {
     return vectorEqual(a.bars, b.bars, barConfigEqual)
         && widgetMapEqual(a.widgets, b.widgets)
@@ -362,7 +393,7 @@ namespace {
         && a.audio == b.audio
         && a.brightness == b.brightness
         && a.battery == b.battery
-        && a.keybinds == b.keybinds
+        && keybindsConfigEqual(a.keybinds, b.keybinds)
         && a.nightlight == b.nightlight
         && a.location == b.location
         && a.idle == b.idle
@@ -728,7 +759,7 @@ ConfigChangeSet computeConfigChangeSet(const Config& prev, const Config& next) {
       .audio = !(prev.audio == next.audio),
       .brightness = !(prev.brightness == next.brightness),
       .battery = !(prev.battery == next.battery),
-      .keybinds = !(prev.keybinds == next.keybinds),
+      .keybinds = !keybindsConfigEqual(prev.keybinds, next.keybinds),
       .nightlight = !(prev.nightlight == next.nightlight),
       .location = !(prev.location == next.location),
       .idle = !(prev.idle == next.idle),

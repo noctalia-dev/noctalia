@@ -82,8 +82,8 @@ WorkspacesWidget::WorkspacesWidget(
       m_activePillSize(std::clamp(options.activePillSize, 0.25f, 8.0f)),
       m_inactivePillSize(std::clamp(options.inactivePillSize, 0.25f, 8.0f)), m_minimal(options.minimal),
       m_focusedPill(options.focusedPill), m_focusedOutputOnly(options.focusedOutputOnly),
-      m_focusedColor(options.focusedColor), m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor),
-      m_urgentColor(options.urgentColor) {
+      m_changeColorOnHover(options.changeColorOnHover), m_focusedColor(options.focusedColor),
+      m_occupiedColor(options.occupiedColor), m_emptyColor(options.emptyColor), m_urgentColor(options.urgentColor) {
   buildDesktopIconIndex();
 }
 
@@ -583,6 +583,10 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
       setWorkspaceClickHandler(*area, ws);
 
       area->setOnEnter([this, areaPtr](const InputArea::PointerData&) {
+        if (!m_changeColorOnHover) {
+          return;
+        }
+
         const auto itemIt = std::ranges::find(m_items, areaPtr, &Item::area);
         if (itemIt == m_items.end() || itemIt->exiting) {
           return;
@@ -691,7 +695,7 @@ void WorkspacesWidget::rebuild(Renderer& renderer) {
   }
 
   // Only minimal style draws the translucent per-item hover overlay.
-  if (m_minimal && barCapsuleSpec().hoverHighlight) {
+  if (m_changeColorOnHover && m_minimal && barCapsuleSpec().hoverHighlight) {
     ColorSpec hoverFill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
     hoverFill.alpha = 0.0f;
     m_hoverOverlay = static_cast<Box*>(m_container->addChild(

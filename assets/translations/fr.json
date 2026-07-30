@@ -259,7 +259,7 @@
       "password": "Mot de passe",
       "password-prompt": "Saisir le mot de passe",
       "password-prompt-for": "Saisir le mot de passe pour {ssid}",
-      "unavailable-detail": "Installer et activer NetworkManager pour gérer les réseaux depuis cette interface.",
+      "unavailable-detail": "Installer et activer NetworkManager, wpa_supplicant ou iwd pour gérer les réseaux depuis cette interface.",
       "unavailable-title": "Service réseau indisponible",
       "vpns": "VPNs",
       "wi-fi": "Wi-Fi",
@@ -319,7 +319,7 @@
         "dark": "Mode sombre",
         "light": "Mode clair"
       },
-      "keyboard-layout": "Disposition",
+      "keyboard-layout": "Disposition du Clavier",
       "media": "Média",
       "mic-mute": "Microphone",
       "nightlight": "Lumière nocturne",
@@ -915,7 +915,7 @@
         "rename-save": "Sauvegarder"
       },
       "widget": {
-        "add": "Ajouter un widget",
+        "add": "Ajouter un Widget",
         "detail": {
           "custom": "widget personnalisé"
         },
@@ -955,7 +955,7 @@
         },
         "inspector": {
           "add-instance-title": "Ajouter un nouveau widget nommé {widget} dans {lane}",
-          "add-title": "Ajouter un widget dans {lane}",
+          "add-title": "Ajouter un Widget dans {lane}",
           "move-to-lane": "Déplacer vers {lane}"
         },
         "instance": {
@@ -1047,7 +1047,7 @@
     },
     "idle": {
       "behavior": {
-        "add": "Ajouter un comportement",
+        "add": "Ajouter un Comportement",
         "command-label": "Commande en inactivité",
         "command-placeholder": "notify-send \"Idle\"",
         "kind": {
@@ -1387,8 +1387,8 @@
         "empty": "Aucun paramètre disponible."
       },
       "sources": {
-        "add": "Ajouter une source",
-        "add-title": "Ajouter une source de plugins",
+        "add": "Ajouter une Source",
+        "add-title": "Ajouter une Source de Plugin",
         "auto-update": "Mise à jour automatique des plugins",
         "auto-update-desc": "Vérifier en arrière-plan les sources activées pour les nouvelles versions et maintenir à jour les plugins installés.",
         "edit": "Éditer la source",
@@ -1427,7 +1427,7 @@
         "open-source": "Ouvrir le dépôt source du plugin",
         "results-count": "{count} plugins",
         "search-placeholder": "Recherche plugins...",
-        "source-all": "Tout",
+        "source-all": "Toutes les sources",
         "title": "Plugin Store"
       }
     },
@@ -1837,7 +1837,7 @@
           "description": "Projette l’ombre globale des surfaces depuis le dock"
         },
         "show-dots": {
-          "description": "Affiche les indicateurs d’exécution à côté des icônes du dock",
+          "description": "Affiche les indicateurs d’exécution sous les icônes du dock",
           "label": "Afficher les indicateurs"
         },
         "show-instance-count": {
@@ -1913,7 +1913,7 @@
             "label": "Lors du changement de mode du thème"
           },
           "wallpaper-changed": {
-            "description": "Commande à exécuter lorsque le fond d’écran change",
+            "description": "Commande à exécuter lorsque le fond d’écran change;  fourni NOCTALIA_WALLPAPER_PATH et NOCTALIA_WALLPAPER_CONNECTOR",
             "label": "Lors du changement de fond d’écran"
           },
           "wifi-disabled": {
@@ -2160,15 +2160,15 @@
           "label": "Ouvrir proche de la barre"
         },
         "placement-clipboard": {
-          "description": "Définit si le presse-papiers s’attache à la barre, flotte à proximité ou s’ouvre centré",
+          "description": "Définit si le presse-papiers s’attache à la barre ou flotte à un position détérminée",
           "label": "Positionnement"
         },
         "placement-control-center": {
-          "description": "Définit si le centre de contrôle s’attache à la barre, flotte à proximité ou s’ouvre centré",
+          "description": "Définit si le centre de contrôle s’attache à la barre ou flotte à un position détérminée",
           "label": "Positionnement"
         },
         "placement-launcher": {
-          "description": "Définit si le lanceur s’attache à la barre, flotte à proximité ou s’ouvre centré",
+          "description": "Définit si le lanceur s’attache à la barre ou flotte à un position détérminée",
           "label": "Positionnement"
         },
         "placement-polkit": {
@@ -2180,7 +2180,7 @@
           "label": "Positionnement"
         },
         "placement-wallpaper": {
-          "description": "Définit si le sélecteur de fond d’écran s’attache à la barre, flotte à proximité ou s’ouvre centré",
+          "description": "Définit si le sélecteur de fond d’écran s’attache à la barre ou flotte à un position détérminée",
           "label": "Positionnement"
         },
         "position-clipboard": {
@@ -2787,7 +2787,7 @@
       }
     },
     "session-actions": {
-      "add": "Ajouter une action",
+      "add": "Ajouter une Action",
       "clear-glyph": "Effacer",
       "command-label": "Commande shell",
       "command-placeholder": "Commande bash optionnelle, laisser vide pour utiliser le comportement par défaut",

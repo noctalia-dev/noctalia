@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <format>
 #include <fstream>
 #include <limits>
 #include <sstream>
@@ -216,6 +217,9 @@ void PluginPanel::onOpen(std::string_view context) {
     (void)m_runtime->enqueueCallStrings("onOpen", std::string(context), {}, makeScriptSnapshot());
   }
   startTickTimer();
+  if (m_needsFrameTick) {
+    PanelManager::instance().requestAnimationFrameForPanel(m_entryId);
+  }
 }
 
 void PluginPanel::onClose() {
@@ -229,6 +233,18 @@ void PluginPanel::onClose() {
   if (m_runtime != nullptr) {
     (void)m_runtime->enqueueCall("onClose", makeScriptSnapshot());
   }
+}
+
+void PluginPanel::onFrameTick(float deltaMs) {
+  if (m_runtime == nullptr || !m_needsFrameTick || !m_open) {
+    return;
+  }
+  // Coalesced like the desktop-widget path: a slow script only ever sees the latest frame.
+  (void)m_runtime->enqueueCallStrings(
+      "onFrameTick", std::format("{:.3f}", deltaMs), {}, makeScriptSnapshot(), /*coalesce=*/true
+  );
+  // Keep the frame loop alive while animating.
+  PanelManager::instance().requestAnimationFrameForPanel(m_entryId);
 }
 
 void PluginPanel::doLayout(Renderer& renderer, float width, float height) {
@@ -285,6 +301,7 @@ void PluginPanel::handleScriptResult(scripting::ScriptResult result) {
 
   if (result.unhealthy) {
     m_tickTimer.stop();
+    m_needsFrameTick = false;
     kLog.warn("plugin panel '{}' disabled after repeated timeouts", m_entryId);
   }
 
@@ -292,6 +309,13 @@ void PluginPanel::handleScriptResult(scripting::ScriptResult result) {
   if (patch.wantsSecondTicks.has_value()) {
     m_wantsSecondTicks = *patch.wantsSecondTicks;
     startTickTimer();
+  }
+  if (patch.needsFrameTick.has_value()) {
+    const bool was = m_needsFrameTick;
+    m_needsFrameTick = *patch.needsFrameTick;
+    if (m_needsFrameTick && !was && m_open) {
+      PanelManager::instance().requestAnimationFrameForPanel(m_entryId);
+    }
   }
   if (patch.requestClose.value_or(false)) {
     PanelManager::instance().closePanelById(m_entryId);

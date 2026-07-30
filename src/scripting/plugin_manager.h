@@ -84,6 +84,9 @@ namespace scripting {
       m_onSourceUpdated = std::move(cb);
     }
 
+    // Called after a disabled plugin has been enabled successfully.
+    void setOnEnabled(std::function<void(std::string_view pluginId)> cb) { m_onEnabled = std::move(cb); }
+
     // Resolve source roots + enabled filter from config and (re)scan the registry.
     // No-op when the plugins config is unchanged since the last applied refresh.
     void refresh();
@@ -165,6 +168,7 @@ namespace scripting {
     std::function<void()> m_onChanged;
     std::function<void()> m_onEnablingChanged;
     std::function<void(const std::string& sourceName)> m_onSourceUpdated;
+    std::function<void(std::string_view pluginId)> m_onEnabled;
     // Git-source plugins whose runtime export is running on a worker thread. Touched
     // only on the main thread (enable() inserts, the DeferredCall completion erases).
     std::unordered_set<std::string> m_enabling;

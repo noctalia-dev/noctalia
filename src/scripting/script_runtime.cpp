@@ -17,6 +17,8 @@
 #include <condition_variable>
 #include <deque>
 #include <mutex>
+#include <optional>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -44,6 +46,18 @@ namespace scripting {
     constexpr std::size_t kMaxTimeoutsPerWindow = 5;
     constexpr auto kCrashWindow = std::chrono::seconds(60);
     constexpr std::size_t kMaxHardErrorsPerWindow = 5;
+    std::mutex g_pluginExitReasonsMutex;
+    std::unordered_map<std::string, ScriptExitReason> g_pluginExitReasons;
+
+    std::optional<ScriptExitReason> pluginExitReasonFor(std::string_view runtimeName) {
+      const auto separator = runtimeName.find(':');
+      if (separator == std::string_view::npos) {
+        return std::nullopt;
+      }
+      std::scoped_lock lock(g_pluginExitReasonsMutex);
+      const auto it = g_pluginExitReasons.find(std::string(runtimeName.substr(0, separator)));
+      return it != g_pluginExitReasons.end() ? std::optional(it->second) : std::nullopt;
+    }
 
     void mergePatch(ScriptPatch& dest, const ScriptPatch& src) {
       if (src.text.has_value()) {
@@ -120,9 +134,10 @@ namespace scripting {
       dest.unhealthy = dest.unhealthy || src.unhealthy;
     }
 
+    template <typename SoundLoadCompletion>
     void dispatchSideEffects(
         const std::vector<ScriptSideEffect>& effects, ClipboardService* clipboard, ScriptApiContext& api,
-        const ScriptRuntime::TogglePanelCallback& togglePanelCallback
+        const ScriptRuntime::TogglePanelCallback& togglePanelCallback, const SoundLoadCompletion& soundLoadCompletion
     ) {
       for (const auto& effect : effects) {
         switch (effect.kind) {
@@ -155,6 +170,18 @@ namespace scripting {
           break;
         case ScriptSideEffectKind::OpenPluginSettings:
           api.invokeOpenPluginSettings(effect.title);
+          break;
+        case ScriptSideEffectKind::LoadSound: {
+          auto error = api.invokeLoadSound(effect.hostId, effect.title, effect.body);
+          if (error.has_value()) {
+            soundLoadCompletion(effect.hostId, effect.callbackRef, false, std::move(*error));
+          } else {
+            soundLoadCompletion(effect.hostId, effect.callbackRef, true, {});
+          }
+          break;
+        }
+        case ScriptSideEffectKind::PlaySound:
+          api.invokePlaySound(effect.hostId, effect.title);
           break;
         }
       }
@@ -259,7 +286,7 @@ namespace scripting {
       subscribers.erase(id);
     }
 
-    void stop(int exitSignal) {
+    void stop(int exitSignal, ScriptExitReason exitReason) {
       bool shouldSchedule = false;
       {
         std::scoped_lock lock(mutex);
@@ -276,6 +303,7 @@ namespace scripting {
           event.kind = ScriptEventKind::Stop;
           event.generation = generation;
           event.exitSignal = exitSignal;
+          event.exitReason = exitReason;
           queue.push_back(std::move(event));
           if (!scheduled) {
             scheduled = true;
@@ -303,6 +331,7 @@ namespace scripting {
         if (unhealthy
             && event.kind != ScriptEventKind::Reload
             && event.kind != ScriptEventKind::Load
+            && event.kind != ScriptEventKind::SoundLoadResult
             && event.kind != ScriptEventKind::Stop) {
           return false;
         }
@@ -338,7 +367,7 @@ namespace scripting {
           lastUpdateAccepted = now;
         }
 
-        if (queue.size() >= kMaxQueuedEvents) {
+        if (queue.size() >= kMaxQueuedEvents && event.kind != ScriptEventKind::SoundLoadResult) {
           if (event.kind == ScriptEventKind::Update) {
             updateQueued = false;
             return false;
@@ -425,6 +454,17 @@ namespace scripting {
       (void)enqueue(std::move(event));
     }
 
+    void enqueueSoundLoadResult(std::uint64_t hostId, int callbackRef, bool ok, std::string error) {
+      ScriptEvent event;
+      event.kind = ScriptEventKind::SoundLoadResult;
+      event.hostId = hostId;
+      event.callbackRef = callbackRef;
+      event.soundLoadOk = ok;
+      event.soundLoadError = std::move(error);
+      event.budget = kCallbackBudget;
+      (void)enqueue(std::move(event));
+    }
+
     void enqueueColorPickerResult(std::uint64_t hostId, int callbackRef, std::optional<std::string> color) {
       ScriptEvent event;
       event.kind = ScriptEventKind::ColorPickerResult;
@@ -485,7 +525,7 @@ namespace scripting {
         }
 
         if (event.kind == ScriptEventKind::Stop) {
-          teardownHost(event.exitSignal, event.snapshot);
+          teardownHost(event.exitSignal, event.snapshot, event.exitReason);
           {
             std::scoped_lock lock(mutex);
             queue.clear();
@@ -553,6 +593,16 @@ namespace scripting {
                   event.callbackRef, event.httpOk, event.httpStatus, event.httpBody, event.budget
               );
         return collectResult(event, "http callback", ok);
+      }
+
+      if (event.kind == ScriptEventKind::SoundLoadResult) {
+        if (event.hostId != host->hostId() || !host->hasSoundLoadCallback(event.callbackRef)) {
+          return std::nullopt;
+        }
+        bindingContext.beginCall(event.snapshot);
+        const bool ok =
+            host->callSoundLoadCallback(event.callbackRef, event.soundLoadOk, event.soundLoadError, event.budget);
+        return collectResult(event, "sound load callback", ok);
       }
 
       if (event.kind == ScriptEventKind::ColorPickerResult) {
@@ -636,7 +686,7 @@ namespace scripting {
     }
 
     ScriptResult processLoad(const ScriptEvent& event) {
-      teardownHost(0, event.snapshot);
+      teardownHost(0, event.snapshot, ScriptExitReason::Reload);
 
       host = std::make_unique<LuauHost>(scriptApi);
       bindingContext.settings = &settings;
@@ -741,12 +791,27 @@ namespace scripting {
       return result;
     }
 
-    void teardownHost(int signal, const ScriptSnapshot& snapshot) {
+    void
+    teardownHost(int signal, const ScriptSnapshot& snapshot, ScriptExitReason exitReason = ScriptExitReason::Reload) {
       // Prevent old or newly registered watchers from outliving this VM.
       PluginStateStore::instance().removeWatchers(stateToken);
       if (host != nullptr && host->hasGlobal("onExit")) {
         bindingContext.beginCall(snapshot);
-        const ScriptArgs args{static_cast<double>(signal)};
+        const char* reason = "reload";
+        switch (exitReason) {
+        case ScriptExitReason::Reload:
+          break;
+        case ScriptExitReason::Disable:
+          reason = "disable";
+          break;
+        case ScriptExitReason::Uninstall:
+          reason = "uninstall";
+          break;
+        case ScriptExitReason::Shutdown:
+          reason = "shutdown";
+          break;
+        }
+        const ScriptArgs args{static_cast<double>(signal), std::string(reason)};
         (void)host->callGlobalWithArgsAndBudget("onExit", args, kCallbackBudget);
       }
       PluginStateStore::instance().removeWatchers(stateToken);
@@ -865,7 +930,15 @@ namespace scripting {
         }
       }
 
-      dispatchSideEffects(result.sideEffects, clipboard, scriptApi, togglePanelCallback);
+      std::weak_ptr<State> weak = weak_from_this();
+      dispatchSideEffects(
+          result.sideEffects, clipboard, scriptApi, togglePanelCallback,
+          [weak](std::uint64_t hostId, int callbackRef, bool ok, std::string error) {
+            if (auto state = weak.lock()) {
+              state->enqueueSoundLoadResult(hostId, callbackRef, ok, std::move(error));
+            }
+          }
+      );
       for (const auto& effect : result.sideEffects) {
         if (effect.kind == ScriptSideEffectKind::CopyToClipboard) {
           result.copiedToClipboard = true;
@@ -881,6 +954,24 @@ namespace scripting {
       }
     }
   };
+
+  PluginExitReasonScope::PluginExitReasonScope(std::string_view pluginId, ScriptExitReason reason)
+      : m_pluginId(pluginId) {
+    std::scoped_lock lock(g_pluginExitReasonsMutex);
+    if (const auto it = g_pluginExitReasons.find(m_pluginId); it != g_pluginExitReasons.end()) {
+      m_previous = it->second;
+    }
+    g_pluginExitReasons[m_pluginId] = reason;
+  }
+
+  PluginExitReasonScope::~PluginExitReasonScope() {
+    std::scoped_lock lock(g_pluginExitReasonsMutex);
+    if (m_previous.has_value()) {
+      g_pluginExitReasons[m_pluginId] = *m_previous;
+    } else {
+      g_pluginExitReasons.erase(m_pluginId);
+    }
+  }
 
   ScriptRuntime::ScriptRuntime(
       std::string runtimeName, ScriptSettings settings, ScriptApiContext& api, std::filesystem::path pluginDir,
@@ -905,9 +996,15 @@ namespace scripting {
     }
   }
 
-  void ScriptRuntime::stop() {
+  void ScriptRuntime::stop(ScriptExitReason exitReason) {
     if (m_state != nullptr) {
-      m_state->stop(g_shutdownSignal.load(std::memory_order_relaxed));
+      const int signal = g_shutdownSignal.load(std::memory_order_relaxed);
+      if (signal != 0) {
+        exitReason = ScriptExitReason::Shutdown;
+      } else if (exitReason == ScriptExitReason::Reload) {
+        exitReason = pluginExitReasonFor(m_state->runtimeName).value_or(ScriptExitReason::Reload);
+      }
+      m_state->stop(signal, exitReason);
     }
   }
 

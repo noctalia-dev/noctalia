@@ -386,7 +386,7 @@ void DesktopMediaPlayerWidget::applyShadow() {
   }
   if (m_shadow) {
     const float offset = kShadowOffset * contentScale();
-    const Color shadow(0.0f, 0.0f, 0.0f, kShadowAlpha);
+    const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, kShadowAlpha);
     m_title->setShadow(shadow, offset, offset);
     m_artist->setShadow(shadow, offset, offset);
   } else {

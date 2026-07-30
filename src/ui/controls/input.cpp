@@ -1,5 +1,6 @@
 #include "ui/controls/input.h"
 
+#include "core/deferred_call.h"
 #include "core/input/key_chord.h"
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
@@ -196,11 +197,19 @@ Input::Input() {
   area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyVisualState(); });
   area->setOnLeave([this]() { applyVisualState(); });
   area->setOnFocusGain([this]() {
-    updateInteractiveGeometry();
     revealCursor();
     startCursorBlink();
     applyVisualState();
-    markPaintDirty();
+    markLayoutDirty();
+    // Focus gain is delivered before pointer press in the same dispatch pass.
+    // Defer scroll-to-caret so click placement sees the blurred scroll offset (0).
+    const std::weak_ptr<int> alive = m_aliveToken;
+    DeferredCall::callLater([this, alive]() {
+      if (alive.expired() || m_inputArea == nullptr || !m_inputArea->focused()) {
+        return;
+      }
+      requestCaretUpdate();
+    });
     if (m_onFocusGain) {
       m_onFocusGain();
     }
@@ -209,12 +218,14 @@ Input::Input() {
     const bool removedPreedit = removePreeditText();
     stopCursorBlink();
     updateCursorVisibility();
+    if (!m_multiline) {
+      m_scrollOffset = 0.0f;
+    }
     applyVisualState();
-    markPaintDirty();
+    markLayoutDirty();
     if (removedPreedit) {
       updateDisplayText();
       markTextContentChanged();
-      markPaintDirty();
     }
     if (m_submitOnFocusLoss && m_onSubmit) {
       m_onSubmit(m_value);
@@ -972,6 +983,19 @@ void Input::doLayout(Renderer& renderer) {
     m_textMetricsDirty = true;
   }
   rebuildCursorStops(renderer);
+  recomputeContentLeadSlack(renderer, w, showClearButton);
+
+  if (m_inputArea != nullptr && m_inputArea->focused()) {
+    if (m_multiline) {
+      ensureCursorVisibleY();
+    } else {
+      ensureCursorVisible();
+    }
+  } else if (m_multiline) {
+    clampScrollOffsetY();
+  } else {
+    m_scrollOffset = 0.0f;
+  }
 
   if (m_multiline) {
     m_label->setMaxWidth(textViewportWidth());
@@ -984,20 +1008,6 @@ void Input::doLayout(Renderer& renderer) {
     } else if (!m_value.empty()) {
       updateLabelVisibleSlice(renderer);
     }
-  }
-  recomputeContentLeadSlack(renderer, w, showClearButton);
-
-  if (m_inputArea != nullptr && m_inputArea->focused()) {
-    if (m_multiline) {
-      ensureCursorVisibleY();
-    } else {
-      ensureCursorVisible();
-    }
-  } else if (m_multiline) {
-    clampScrollOffsetY();
-  } else {
-    // Keep unfocused inputs anchored to the beginning of the text.
-    m_scrollOffset = 0.0f;
   }
 
   std::size_t charCount = 0;

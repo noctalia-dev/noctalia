@@ -419,10 +419,33 @@ void Application::initIpc() {
   m_ipcService.registerHandler(
       "clipboard-clear",
       [this](const std::string&) -> std::string {
-        m_panelManager.clearClipboardHistory();
+        // Pinned entries survive; with nothing pinned this clears the whole history.
+        m_clipboardService.clearUnpinnedHistory();
         return "ok\n";
       },
       "", "Clear clipboard history"
+  );
+
+  m_ipcService.registerHandler(
+      "clipboard-copy",
+      [this](const std::string& args) -> std::string {
+        if (args.empty()) {
+          return "error: clipboard-copy requires <text>\n";
+        }
+        if (!m_clipboardService.copyText(args)) {
+          return "error: failed to set the clipboard selection\n";
+        }
+        return "ok\n";
+      },
+      "<text>", "Copy text to the clipboard"
+  );
+
+  m_ipcService.registerHandler(
+      "clipboard-text",
+      // The response is the clipboard payload itself, so it carries no trailing newline.
+      [this](const std::string&) -> std::string { return m_clipboardService.clipboardText().value_or(""); }, "",
+      "Print the most recent clipboard text (empty when the selection holds no text)",
+      IpcService::HandlerOptions{.actionEditorVisibility = IpcService::ActionEditorVisibility::Hidden}
   );
 
   m_ipcService.registerHandler(
@@ -606,6 +629,8 @@ void Application::initIpc() {
       m_osdOverlay.show(bluetoothOsdContent(enabled));
     });
   }
+
+  m_osdOverlay.registerIpc(m_ipcService);
 
   if (m_brightnessService != nullptr) {
     m_brightnessService->registerIpc(m_ipcService, [this]() {

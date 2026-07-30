@@ -52,7 +52,7 @@ namespace {
   constexpr float kToolbarY = 68.0f;
   constexpr float kSelectionStroke = 2.0f;
   constexpr float kShadowExpand = 1.0f;
-  const Color kShadowColor = rgba(0.0f, 0.0f, 0.0f, 0.45f);
+  const ColorSpec kShadowColor = colorSpecFromRole(ColorRole::Shadow, 0.45f);
   constexpr float kRotatePadding = 14.0f;
   constexpr float kHandleSize = 14.0f;
   constexpr float kDisabledWidgetOpacity = 0.25f;
@@ -788,7 +788,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
 
     if (lockscreen_login_box::isLoginBoxWidget(widgetState)) {
       if (auto* loginWidget = dynamic_cast<DesktopLoginBoxWidget*>(widget.get())) {
-        loginWidget->setScreenWidth(root->width());
+        loginWidget->setScreenMetrics(root->width(), root->height(), widgetState.cy);
       }
     }
 
@@ -1428,21 +1428,26 @@ void DesktopWidgetsEditor::applyViewState(
     return;
   }
 
-  if (refreshContent) {
-    if (lockscreen_login_box::isLoginBoxWidget(state)) {
-      if (auto* loginWidget = dynamic_cast<DesktopLoginBoxWidget*>(view.widget.get())) {
-        if (OverlaySurface* surface = findSurfaceForWidget(state.id);
-            surface != nullptr && surface->surface != nullptr) {
-          loginWidget->setScreenWidth(static_cast<float>(surface->surface->width()));
-        }
+  if (lockscreen_login_box::isLoginBoxWidget(state)) {
+    if (auto* loginWidget = dynamic_cast<DesktopLoginBoxWidget*>(view.widget.get())) {
+      if (OverlaySurface* surface = findSurfaceForWidget(state.id); surface != nullptr && surface->surface != nullptr) {
+        loginWidget->setScreenMetrics(
+            static_cast<float>(surface->surface->width()), static_cast<float>(surface->surface->height()), state.cy
+        );
       }
     }
+  }
+
+  if (refreshContent) {
     view.widget->setContentScale(widgetContentScale());
     view.widget->setBox(state.boxWidth, state.boxHeight);
     view.widget->update(*m_renderContext);
     view.widget->layout(*m_renderContext);
     view.intrinsicWidth = std::max(1.0f, view.widget->intrinsicWidth());
     view.intrinsicHeight = std::max(1.0f, view.widget->intrinsicHeight());
+  } else if (lockscreen_login_box::isLoginBoxWidget(state)) {
+    // Unlock-hint ghost flips above/below when the panel nears the top edge.
+    view.widget->layout(*m_renderContext);
   }
 
   view.transformNode->setFrameSize(view.intrinsicWidth, view.intrinsicHeight);
@@ -2276,12 +2281,11 @@ void DesktopWidgetsEditor::updateDrag() {
       const lockscreen_login_box::LoginBoxStyle style = lockscreen_login_box::resolveStyle(state->settings);
       lockscreen_login_box::clampPanelSize(
           screenWidth, boxW, boxH, style.layout, style.showSessionButtons,
-          lockscreen_login_box::styleShowsInfoExtras(style), lockscreen_login_box::styleReservesStatus(style)
+          lockscreen_login_box::styleShowsInfoExtras(style)
       );
       // Login box height follows chrome; scale is width-oriented.
       boxH = lockscreen_login_box::defaultPanelHeight(
-          style.layout, style.showSessionButtons, lockscreen_login_box::styleShowsInfoExtras(style),
-          lockscreen_login_box::styleReservesStatus(style)
+          style.layout, style.showSessionButtons, lockscreen_login_box::styleShowsInfoExtras(style)
       );
     }
 

@@ -29,6 +29,7 @@ public:
     bool pipeToCommand = false;
     bool freezeScreen = false;
     bool confirmRegion = false;
+    bool rememberLastRegion = false;
     bool showCursor = false;
     std::string pipeCommand;
     std::string directory;
@@ -36,8 +37,8 @@ public:
   };
 
   ScreenshotService(
-      WaylandConnection& wayland, CompositorPlatform& platform, NotificationManager& notifications,
-      ClipboardService* clipboard = nullptr
+      WaylandConnection& wayland, CompositorPlatform& platform, ConfigService& configService,
+      NotificationManager& notifications, ClipboardService* clipboard = nullptr
   );
   ~ScreenshotService();
 
@@ -138,10 +139,13 @@ private:
   makeScreenshotPath(const OutputOptions& options, const std::string& labelBase, int suffix = 0) const;
   void notifySaved(const std::filesystem::path& path);
   void notifyError(const std::string& message);
+  void rememberRegion(const LogicalRect& region);
+  [[nodiscard]] std::optional<LogicalRect> loadRememberedRegion() const;
 
   WaylandConnection& m_wayland;
   CompositorPlatform& m_platform;
   NotificationManager& m_notifications;
+  ConfigService& m_configService;
   ClipboardService* m_clipboard = nullptr;
   ScreencopyCapture m_capture;
   std::unique_ptr<capture::ScreenshotRegionOverlay> m_regionOverlay;

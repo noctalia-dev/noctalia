@@ -851,6 +851,10 @@ void ClipboardPanel::doUpdate(Renderer& renderer) {
   }
 
   if (m_lastChangeSerial != m_clipboard->changeSerial()) {
+    // The history moved underneath us — an IPC clear, another app's copy, a trim. A pending
+    // confirmation was armed against contents that are no longer on screen.
+    resetClearConfirmation();
+    resetDeleteConfirmation();
     applyFilter();
     if (m_filteredIndices.empty()) {
       m_selectedIndex = 0;
@@ -1433,6 +1437,31 @@ void ClipboardPanel::deleteSelectedEntry() {
   performDeleteSelectedEntry();
 }
 
+void ClipboardPanel::selectByStorageId(std::string storageId) {
+  applyFilter();
+
+  std::size_t newSelected = 0;
+  const auto& history = m_clipboard->history();
+  for (std::size_t pos = 0; pos < m_filteredIndices.size(); ++pos) {
+    const std::size_t idx = m_filteredIndices[pos];
+    if (idx < history.size() && history[idx].storageId == storageId) {
+      newSelected = pos;
+      break;
+    }
+  }
+  m_selectedIndex = m_filteredIndices.empty() ? 0 : newSelected;
+
+  updateListState();
+  if (m_listGrid != nullptr) {
+    m_listGrid->notifyDataChanged();
+    m_listGrid->setSelectedIndex(
+        m_filteredIndices.empty() ? std::nullopt : std::optional<std::size_t>(m_selectedIndex)
+    );
+  }
+
+  schedulePreviewPayloadRefresh(false);
+}
+
 void ClipboardPanel::togglePinSelected() {
   if (m_clipboard == nullptr) {
     return;
@@ -1452,51 +1481,12 @@ void ClipboardPanel::togglePinSelected() {
     return;
   }
 
-  applyFilter();
-
   // The toggled entry moved within the deque; keep it selected by locating it
   // again via its stable storage id.
-  std::size_t newSelected = 0;
-  const auto& updated = m_clipboard->history();
-  for (std::size_t pos = 0; pos < m_filteredIndices.size(); ++pos) {
-    const std::size_t idx = m_filteredIndices[pos];
-    if (idx < updated.size() && updated[idx].storageId == storageId) {
-      newSelected = pos;
-      break;
-    }
-  }
-  m_selectedIndex = m_filteredIndices.empty() ? 0 : newSelected;
+  selectByStorageId(storageId);
 
-  updateListState();
-  if (m_listGrid != nullptr) {
-    m_listGrid->notifyDataChanged();
-    m_listGrid->setSelectedIndex(
-        m_filteredIndices.empty() ? std::nullopt : std::optional<std::size_t>(m_selectedIndex)
-    );
-  }
-  schedulePreviewPayloadRefresh(false);
   m_pendingScrollToSelected = true;
   PanelManager::instance().refresh();
-}
-
-void ClipboardPanel::clearHistoryFromIpc() {
-  if (m_clipboard == nullptr) {
-    return;
-  }
-
-  const auto& history = m_clipboard->history();
-  if (history.empty()) {
-    return;
-  }
-
-  resetClearConfirmation();
-  resetDeleteConfirmation();
-  const bool hasPinned = std::ranges::any_of(history, [](const ClipboardEntry& entry) { return entry.pinned; });
-  if (hasPinned) {
-    performClearUnpinnedHistory();
-  } else {
-    performClearAllHistory();
-  }
 }
 
 void ClipboardPanel::requestClearUnpinnedHistory() {
@@ -1515,12 +1505,7 @@ void ClipboardPanel::requestClearUnpinnedHistory() {
   if (!confirmClear) {
     resetClearConfirmation();
     resetDeleteConfirmation();
-    const bool hasPinned = std::ranges::any_of(history, [](const ClipboardEntry& entry) { return entry.pinned; });
-    if (hasPinned) {
-      performClearUnpinnedHistory();
-    } else {
-      performClearAllHistory();
-    }
+    performClearUnpinnedHistory();
     return;
   }
 
@@ -1654,23 +1639,13 @@ void ClipboardPanel::activateSelected() {
   const bool promoted = wasPinned ? false : m_clipboard->promoteEntry(historyIndex);
   const bool copied = m_clipboard->copyEntry(entry);
   if (copied || promoted) {
-    if (m_activateCallback) {
-      m_activateCallback(entry);
-      return;
-    }
     if (!wasPinned) {
-      m_selectedIndex = 0;
-      applyFilter();
-      updateListState();
-      if (m_listGrid != nullptr) {
-        m_listGrid->notifyDataChanged();
-        m_listGrid->setSelectedIndex(
-            m_filteredIndices.empty() ? std::nullopt : std::optional<std::size_t>(m_selectedIndex)
-        );
-      }
-      schedulePreviewPayloadRefresh(false);
+      selectByStorageId(entry.storageId);
     }
     PanelManager::instance().refresh();
+    if (m_activateCallback) {
+      m_activateCallback(entry);
+    }
   }
 }
 
@@ -1709,6 +1684,17 @@ bool ClipboardPanel::handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers) 
 
   if (KeybindMatcher::matches(KeybindAction::Validate, sym, modifiers)) {
     activateSelected();
+    return true;
+  }
+
+  if (KeybindMatcher::matches(KeybindAction::Delete, sym, modifiers)) {
+    const std::size_t historyIndex = selectedHistoryIndex();
+    const auto& history = m_clipboard->history();
+    if (historyIndex < history.size() && m_deleteConfirmStorageId == history[historyIndex].storageId) {
+      deleteSelectedEntry();
+    } else {
+      requestDeleteSelectedEntry();
+    }
     return true;
   }
 

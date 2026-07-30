@@ -309,7 +309,7 @@ std::unique_ptr<Flex> HomeTab::create() {
   avatarArea->setOnFocusGain(syncAvatarChrome);
   avatarArea->setOnFocusLoss(syncAvatarChrome);
   const auto configureUserDetailLabel = [scale](Label& label) {
-    label.setShadow(Color{0.0f, 0.0f, 0.0f, 0.36f}, 0.0f, 1.0f * scale);
+    label.setShadow(colorSpecFromRole(ColorRole::Shadow, 0.36f), 0.0f, 1.0f * scale);
   };
   auto userRow = ui::row(
       {.align = FlexAlign::Center, .gap = Style::spaceMd * scale}, std::move(avatarArea),
@@ -327,8 +327,9 @@ std::unique_ptr<Flex> HomeTab::create() {
               .fontSize = Style::fontSizeTitle * 1.12f * scale,
               .fontWeight = FontWeight::Bold,
               .color = colorSpecFromRole(ColorRole::OnSurface),
-              .configure =
-                  [scale](Label& label) { label.setShadow(Color{0.0f, 0.0f, 0.0f, 0.42f}, 0.0f, 1.0f * scale); },
+              .configure = [scale](
+                               Label& label
+                           ) { label.setShadow(colorSpecFromRole(ColorRole::Shadow, 0.42f), 0.0f, 1.0f * scale); },
           }),
           ui::label({
               .out = &m_userHost,
@@ -663,7 +664,6 @@ std::unique_ptr<Flex> HomeTab::createHeaderActions() {
 }
 
 void HomeTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight) {
-  (void)bodyHeight;
   if (m_rootLayout == nullptr) {
     return;
   }

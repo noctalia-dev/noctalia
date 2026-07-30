@@ -382,6 +382,42 @@ int main() {
     expect(harness.clipboard.history().empty(), "text-only history ignored the byte budget");
   }
 
+  {
+    // clearUnpinnedHistory() is the whole of what a clear offers: pinned entries are
+    // the only thing it spares, so with nothing pinned it empties the history and
+    // callers need no "clear everything" special case.
+    Harness harness;
+
+    for (int i = 0; i < 3; ++i) {
+      simulateCopy(
+          harness.clipboard, &offerIds[i], "text/plain;charset=utf-8", bytesOf(std::string("entry ") + char('a' + i))
+      );
+    }
+    expect(harness.clipboard.history().size() == 3, "three distinct copies did not produce three entries");
+
+    harness.clipboard.clearUnpinnedHistory();
+    expect(harness.clipboard.history().empty(), "clearing an unpinned history left entries behind");
+
+    for (int i = 0; i < 3; ++i) {
+      simulateCopy(
+          harness.clipboard, &offerIds[3 + i], "text/plain;charset=utf-8",
+          bytesOf(std::string("entry ") + char('x' + i))
+      );
+    }
+    // Newest first, so "entry z" sits at the front.
+    expect(harness.clipboard.setEntryPinned(2, true), "pinning the oldest entry failed");
+
+    harness.clipboard.clearUnpinnedHistory();
+    const auto& survivors = harness.clipboard.history();
+    expect(survivors.size() == 1, "clearing dropped or kept the wrong number of entries");
+    expect(
+        !survivors.empty()
+            && survivors.front().pinned
+            && std::string(survivors.front().data.begin(), survivors.front().data.end()) == "entry x",
+        "clearing did not spare the pinned entry"
+    );
+  }
+
   gFake = nullptr;
   if (gFailures != 0) {
     std::println(stderr, "clipboard_service_test: {} failure(s)", gFailures);

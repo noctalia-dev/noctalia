@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -33,6 +34,12 @@ using namespace control_center;
 namespace {
 
   constexpr auto kMprisRefreshMinInterval = std::chrono::milliseconds(750);
+  // Full-height cards need room for rounded-rect AA before the tab viewport clips them.
+  constexpr float kTabViewportClipInset = 1.0f;
+
+  float tabContentHeight(float viewportHeight) {
+    return std::max(1.0f, std::floor(viewportHeight - kTabViewportClipInset));
+  }
 
 } // namespace
 
@@ -179,6 +186,7 @@ void ControlCenterPanel::create() {
               .glyphSize = 21.0f * scale,
               .contentAlign = m_compact ? ButtonContentAlign::Center : ButtonContentAlign::Start,
               .variant = ButtonVariant::Tab,
+              .tooltip = m_compact ? i18n::tr(tab.titleKey) : std::string{},
               .minWidth = m_compact ? std::optional<float>{Style::controlHeightSm * scale} : std::optional<float>{},
               .minHeight = Style::controlHeightSm * scale,
               .paddingV = Style::spaceXs * scale,
@@ -331,6 +339,7 @@ void ControlCenterPanel::doLayout(Renderer& renderer, float width, float height)
       std::max(0.0f, m_content->width() - (m_content->paddingLeft() + m_content->paddingRight()));
   const float bodyWidth = m_tabBodies->width();
   const float bodyHeight = m_tabBodies->height();
+  const float bodyContentHeight = tabContentHeight(bodyHeight);
 
   if (m_sidebarScrollArea != nullptr && m_sidebar != nullptr) {
     m_sidebarScrollArea->setPosition(0.0f, 0.0f);
@@ -355,18 +364,18 @@ void ControlCenterPanel::doLayout(Renderer& renderer, float width, float height)
 
   for (auto* container : m_tabContainers) {
     if (container != nullptr && container->visible()) {
-      container->setSize(bodyWidth, bodyHeight);
+      container->setSize(bodyWidth, bodyContentHeight);
     }
   }
 
   layoutTabContainers(bodyWidth, bodyHeight);
 
-  const auto layoutTab = [this, bodyWidth, bodyHeight, &renderer](TabId tabId) {
+  const auto layoutTab = [this, bodyWidth, bodyContentHeight, &renderer](TabId tabId) {
     const std::size_t idx = tabIndex(tabId);
     if (m_tabs[idx] == nullptr || m_tabContainers[idx] == nullptr || !m_tabContainers[idx]->visible()) {
       return;
     }
-    m_tabs[idx]->layout(renderer, bodyWidth, bodyHeight);
+    m_tabs[idx]->layout(renderer, bodyWidth, bodyContentHeight);
   };
 
   if (m_tabTransitionActive) {
@@ -592,13 +601,14 @@ void ControlCenterPanel::applyTabContainerVisibility(TabId activeTab) {
 
 void ControlCenterPanel::layoutTabContainers(float bodyWidth, float bodyHeight) {
   const float travel = bodyHeight > 0.0f ? bodyHeight : 0.0f;
+  const float contentHeight = tabContentHeight(bodyHeight);
   for (std::size_t i = 0; i < kTabCount; ++i) {
     auto* container = m_tabContainers[i];
     if (container == nullptr || !container->visible()) {
       continue;
     }
 
-    container->setSize(bodyWidth, bodyHeight);
+    container->setSize(bodyWidth, contentHeight);
 
     float offsetY = 0.0f;
     float opacity = 1.0f;

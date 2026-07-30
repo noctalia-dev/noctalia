@@ -32,6 +32,7 @@ namespace lockscreen_login_box {
   constexpr std::string_view kShowLoginButtonKey = "show_login_button";
   constexpr std::string_view kShowCapsLockKey = "show_caps_lock";
   constexpr std::string_view kShowKeyboardLayoutKey = "show_keyboard_layout";
+  constexpr std::string_view kShowUnlockHintKey = "show_unlock_hint";
 
   enum class LayoutMode : std::uint8_t {
     Compact,
@@ -52,6 +53,7 @@ namespace lockscreen_login_box {
     bool showSessionButtons = true;
     bool showMedia = true;
     bool showWeather = true;
+    bool showUnlockHint = true;
   };
 
   // Regular info row media/weather visibility (both may be off).
@@ -99,7 +101,7 @@ namespace lockscreen_login_box {
   };
 
   [[nodiscard]] RegularRowHeights
-  regularRowHeights(float panelHeight, bool showSessionButtons, bool showStatus = true, bool showInfoExtras = true);
+  regularRowHeights(float panelHeight, bool showSessionButtons, bool showInfoExtras = true);
 
   struct PanelContentLayout {
     float contentLeft = 0.0f;
@@ -110,40 +112,34 @@ namespace lockscreen_login_box {
   };
 
   [[nodiscard]] float defaultPanelWidth(float screenWidth, LayoutMode layout);
-  [[nodiscard]] float defaultPanelHeight(
-      LayoutMode layout, bool showSessionButtons = true, bool showInfoExtras = true, bool showStatus = true
-  );
+  [[nodiscard]] float defaultPanelHeight(LayoutMode layout, bool showSessionButtons = true, bool showInfoExtras = true);
   [[nodiscard]] float minPanelWidth(LayoutMode layout);
-  [[nodiscard]] float
-  minPanelHeight(LayoutMode layout, bool showSessionButtons = true, bool showInfoExtras = true, bool showStatus = true);
+  [[nodiscard]] float minPanelHeight(LayoutMode layout, bool showSessionButtons = true, bool showInfoExtras = true);
   [[nodiscard]] float maxPanelHeight(LayoutMode layout);
   [[nodiscard]] float resolvePanelWidth(float screenWidth, float boxWidth, LayoutMode layout);
-  [[nodiscard]] float resolvePanelHeight(
-      float boxHeight, LayoutMode layout, bool showSessionButtons = true, bool showInfoExtras = true,
-      bool showStatus = true
-  );
+  [[nodiscard]] float
+  resolvePanelHeight(float boxHeight, LayoutMode layout, bool showSessionButtons = true, bool showInfoExtras = true);
   void defaultPanelSize(
       float screenWidth, float& boxWidth, float& boxHeight, LayoutMode layout, bool showSessionButtons = true,
-      bool showInfoExtras = true, bool showStatus = true
+      bool showInfoExtras = true
   );
   void clampPanelSize(
       float screenWidth, float& boxWidth, float& boxHeight, LayoutMode layout, bool showSessionButtons = true,
-      bool showInfoExtras = true, bool showStatus = true
+      bool showInfoExtras = true
   );
   [[nodiscard]] PanelContentLayout panelContentLayout(float panelWidth, float panelHeight, bool showLoginButton);
   void defaultPanelCenter(
       float screenWidth, float screenHeight, float& cx, float& cy, LayoutMode layout, bool showSessionButtons = true,
-      bool showInfoExtras = true, bool showStatus = true
+      bool showInfoExtras = true
   );
   void panelOriginFromCenter(
       float cx, float cy, float screenWidth, float boxWidth, float boxHeight, LayoutMode layout, float& panelX,
       float& panelY, float& panelWidthOut, float& panelHeightOut, bool showSessionButtons = true,
-      bool showInfoExtras = true, bool showStatus = true
+      bool showInfoExtras = true
   );
 
-  // Height flags from settings. Status strip is always reserved (idle password hint).
+  // Height flags from settings.
   [[nodiscard]] bool styleShowsInfoExtras(const LoginBoxStyle& style) noexcept;
-  [[nodiscard]] bool styleReservesStatus(const LoginBoxStyle& style, bool liveStatusVisible = false) noexcept;
 
   [[nodiscard]] const DesktopWidgetState*
   findForOutput(const std::vector<DesktopWidgetState>& widgets, std::string_view outputKey);

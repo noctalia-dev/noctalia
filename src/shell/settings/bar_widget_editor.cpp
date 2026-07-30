@@ -2809,6 +2809,8 @@ namespace settings {
                 .glyph = isSelected ? "checkbox" : "square",
                 .glyphSize = Style::fontSizeCaption * ctx.scale,
                 .variant = isSelected ? ButtonVariant::Default : ButtonVariant::Ghost,
+                .tooltip = isSelected ? i18n::tr("settings.entities.widget.group.deselect")
+                                      : i18n::tr("settings.entities.widget.group.select"),
                 .minWidth = iconSize,
                 .minHeight = iconSize,
                 .padding = iconPad,
@@ -2824,6 +2826,7 @@ namespace settings {
             .glyph = "menu-2",
             .glyphSize = Style::fontSizeCaption * ctx.scale,
             .variant = ButtonVariant::Ghost,
+            .tooltip = i18n::tr("settings.entities.widget.group.drag"),
             .minWidth = iconSize,
             .minHeight = iconSize,
             .padding = iconPad,
@@ -2851,6 +2854,7 @@ namespace settings {
                 .glyph = "settings",
                 .glyphSize = Style::fontSizeCaption * ctx.scale,
                 .variant = ButtonVariant::Ghost,
+                .tooltip = i18n::tr("settings.entities.widget.group.settings-widget"),
                 .minWidth = iconSize,
                 .minHeight = iconSize,
                 .padding = iconPad,
@@ -2890,11 +2894,15 @@ namespace settings {
         );
       }
       if (!inherited && removeAction) {
+        const std::string removeTooltip = removeGlyph == "stack-pop"
+            ? i18n::tr("settings.entities.widget.group.remove-from-group")
+            : i18n::tr("settings.entities.widget.group.remove-widget");
         row->addChild(
             ui::button({
                 .glyph = std::string(removeGlyph),
                 .glyphSize = Style::fontSizeCaption * ctx.scale,
                 .variant = ButtonVariant::Ghost,
+                .tooltip = removeTooltip,
                 .minWidth = iconSize,
                 .minHeight = iconSize,
                 .padding = iconPad,
@@ -3047,6 +3055,7 @@ namespace settings {
                       .glyph = "close",
                       .glyphSize = Style::fontSizeCaption * ctx.scale,
                       .variant = ButtonVariant::Ghost,
+                      .tooltip = i18n::tr("settings.entities.widget.group.remove-orphan"),
                       .minHeight = Style::controlHeightSm * ctx.scale,
                       .padding = Style::spaceXs * ctx.scale,
                       .radius = Style::scaledRadiusSm(ctx.scale),
@@ -3158,6 +3167,7 @@ namespace settings {
                   .glyph = "settings",
                   .glyphSize = Style::fontSizeCaption * ctx.scale,
                   .variant = ButtonVariant::Ghost,
+                  .tooltip = i18n::tr("settings.entities.widget.group.edit"),
                   .minWidth = iconSize,
                   .minHeight = iconSize,
                   .padding = iconPad,
@@ -3176,6 +3186,7 @@ namespace settings {
                     .glyph = "stack-pop",
                     .glyphSize = Style::fontSizeCaption * ctx.scale,
                     .variant = ButtonVariant::Ghost,
+                    .tooltip = i18n::tr("settings.entities.widget.group.ungroup"),
                     .minWidth = iconSize,
                     .minHeight = iconSize,
                     .padding = iconPad,
@@ -3217,6 +3228,7 @@ namespace settings {
                 .glyph = "menu-2",
                 .glyphSize = Style::fontSizeCaption * ctx.scale,
                 .variant = ButtonVariant::Ghost,
+                .tooltip = i18n::tr("settings.entities.widget.group.drag"),
                 .minWidth = iconSize,
                 .minHeight = iconSize,
                 .padding = iconPad,

@@ -159,7 +159,7 @@ void DesktopSysmonWidget::create() {
   }
 
   if (m_showLabel) {
-    const Color shadow{0.0f, 0.0f, 0.0f, 0.5f};
+    const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, 0.5f);
     auto label = ui::label({
         .out = &m_label,
         .fontWeight = FontWeight::Medium,
@@ -313,7 +313,7 @@ bool DesktopSysmonWidget::applySetting(
   if (key == "shadow") {
     if (const auto* v = std::get_if<bool>(&value)) {
       m_shadow = *v;
-      const Color shadow{0.0f, 0.0f, 0.0f, 0.5f};
+      const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, 0.5f);
       for (Glyph* glyph : {m_glyph, m_glyph2}) {
         if (glyph != nullptr) {
           if (m_shadow)
@@ -360,7 +360,7 @@ void DesktopSysmonWidget::doLayout(Renderer& renderer) {
 void DesktopSysmonWidget::layoutGaugeMode(Renderer& renderer) {
   const float scale = m_contentScale;
   const float gap = Style::spaceXs * scale;
-  const Color shadow{0.0f, 0.0f, 0.0f, 0.5f};
+  const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, 0.5f);
   const bool stacked = m_gaugeLayout == DesktopSysmonGaugeLayout::Vertical;
 
   m_glyph->setGlyphSize(Style::baseGlyphSize * scale);
@@ -441,7 +441,7 @@ void DesktopSysmonWidget::layoutGraphMode(Renderer& renderer) {
   const float glyphSize = Style::baseGlyphSize * scale;
   const float groupGap = Style::spaceXs * scale;
   const float legendGap = Style::spaceMd * scale;
-  const Color shadow{0.0f, 0.0f, 0.0f, 0.5f};
+  const ColorSpec shadow = colorSpecFromRole(ColorRole::Shadow, 0.5f);
 
   m_graph->setColor(m_lineColor);
   if (m_stat2.has_value()) {

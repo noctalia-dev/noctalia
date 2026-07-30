@@ -42,6 +42,9 @@ namespace {
     xdg_positioner_set_gravity(positioner, config.gravity);
     xdg_positioner_set_constraint_adjustment(positioner, config.constraintAdjustment);
     xdg_positioner_set_offset(positioner, config.offsetX, config.offsetY);
+    if (config.reactive && xdg_positioner_get_version(positioner) >= XDG_POSITIONER_SET_REACTIVE_SINCE_VERSION) {
+      xdg_positioner_set_reactive(positioner);
+    }
     return positioner;
   }
 

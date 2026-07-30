@@ -323,7 +323,12 @@ void TrayMenu::close() {
     m_tray->notifyMenuClosed(m_activeItemId);
   }
   destroySurface();
+  if (m_closedCallback) {
+    m_closedCallback();
+  }
 }
+
+void TrayMenu::setClosedCallback(std::function<void()> callback) { m_closedCallback = std::move(callback); }
 
 void TrayMenu::onThemeChanged() {
   if (!m_visible) {

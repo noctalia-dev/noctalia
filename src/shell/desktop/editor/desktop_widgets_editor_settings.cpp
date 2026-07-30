@@ -912,16 +912,14 @@ void DesktopWidgetsEditor::applySettingChange(const std::string& key, WidgetSett
       }
       const lockscreen_login_box::LoginBoxStyle style = lockscreen_login_box::resolveStyle(state->settings);
       const bool showInfo = lockscreen_login_box::styleShowsInfoExtras(style);
-      const bool showStatus = lockscreen_login_box::styleReservesStatus(style);
       if (key == lockscreen_login_box::kLayoutKey) {
         lockscreen_login_box::defaultPanelSize(
-            screenWidth, state->boxWidth, state->boxHeight, style.layout, style.showSessionButtons, showInfo, showStatus
+            screenWidth, state->boxWidth, state->boxHeight, style.layout, style.showSessionButtons, showInfo
         );
       } else {
-        state->boxHeight =
-            lockscreen_login_box::defaultPanelHeight(style.layout, style.showSessionButtons, showInfo, showStatus);
+        state->boxHeight = lockscreen_login_box::defaultPanelHeight(style.layout, style.showSessionButtons, showInfo);
         lockscreen_login_box::clampPanelSize(
-            screenWidth, state->boxWidth, state->boxHeight, style.layout, style.showSessionButtons, showInfo, showStatus
+            screenWidth, state->boxWidth, state->boxHeight, style.layout, style.showSessionButtons, showInfo
         );
       }
     }
@@ -1031,7 +1029,7 @@ void DesktopWidgetsEditor::resetSelectedWidgetSettings() {
       const lockscreen_login_box::LoginBoxStyle style = lockscreen_login_box::resolveStyle(state->settings);
       lockscreen_login_box::defaultPanelSize(
           screenWidth, state->boxWidth, state->boxHeight, style.layout, style.showSessionButtons,
-          lockscreen_login_box::styleShowsInfoExtras(style), lockscreen_login_box::styleReservesStatus(style)
+          lockscreen_login_box::styleShowsInfoExtras(style)
       );
     }
     requestLayout();

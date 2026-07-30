@@ -1293,6 +1293,12 @@ namespace settings {
           displayTitle = sectionLabel(entry.section);
         }
         activeSection = makeSection(displayTitle, entry.section);
+        if (ctx.config.shell.offlineMode && settingsSectionNeedsOfflineModeNotice(entry.section)) {
+          const bool showDisableHint = entry.section != SettingsSection::Security;
+          activeSection->addChild(
+              makeOfflineModeNotice(scale, offlineModeNoticeMessage(entry.section), showDisableHint)
+          );
+        }
       }
       if (activeSection != nullptr) {
         if (entry.group != activeGroupKey) {

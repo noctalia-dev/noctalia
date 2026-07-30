@@ -29,7 +29,7 @@
   "bar": {
     "screenshot": {
       "choose-display": "Choose display",
-      "confirm-region": "Enter or Space to capture · Esc to cancel · Drag to reselect",
+      "confirm-region": "{copy} to copy · {save} to save · Enter or Space for defaults · {cancel} to cancel · Drag to reselect",
       "fullscreen": "Full screen",
       "overlay-alloc-failed": "Could not display the screenshot overlay (GPU out of video memory?)",
       "region": "Select region"
@@ -117,7 +117,18 @@
         "error": "Weather err",
         "loading": "Weather…",
         "no-location": "No location",
-        "off": "Weather off"
+        "off": "Weather off",
+        "tooltip": {
+          "condition": "Condition",
+          "high": "High",
+          "humidity": "Humidity",
+          "low": "Low",
+          "sunrise": "Sunrise",
+          "sunset": "Sunset",
+          "temperature": "Temperature",
+          "uv": "UV Index",
+          "wind": "Wind"
+        }
       }
     }
   },
@@ -255,6 +266,7 @@
       "start-playback": "Start playback in an MPRIS app"
     },
     "network": {
+      "available": "Available",
       "connect": "Connect",
       "current-connection": "Current Connection",
       "external-ip": "WAN {ip}",
@@ -263,6 +275,7 @@
       "password": "Password",
       "password-prompt": "Enter password",
       "password-prompt-for": "Enter password for {ssid}",
+      "saved": "Saved",
       "unavailable-detail": "Install and enable NetworkManager, wpa_supplicant, or iwd to manage networks from here.",
       "unavailable-title": "Network service unavailable",
       "vpns": "VPNs",
@@ -519,6 +532,7 @@
         "show-media": "Media",
         "show-password-hint": "Password Hint",
         "show-session-buttons": "Session Buttons",
+        "show-unlock-hint": "Unlock Hint",
         "show-vpn-label": "Show VPN Label",
         "show-weather": "Weather",
         "show-when-idle": "Show When Idle",
@@ -956,6 +970,8 @@
           "border": "Border",
           "border-description": "Capsule outline color role; leave on Default for no outline",
           "clear": "Clear",
+          "deselect": "Deselect",
+          "drag": "Reorder",
           "drawer-columns": "Drawer Columns",
           "drawer-columns-description": "Number of widgets per row in the drawer panel",
           "drawer-detached": "Detached Panel",
@@ -982,7 +998,12 @@
           "padding-description": "Inner padding between the capsule edge and its widgets, in pixels",
           "radius": "Radius",
           "radius-description": "Capsule corner radius in pixels; Auto inherits the bar's capsule radius",
+          "remove-from-group": "Remove from group",
+          "remove-orphan": "Remove unknown group",
+          "remove-widget": "Remove from bar",
+          "select": "Select for grouping",
           "selected": "{count} selected",
+          "settings-widget": "Widget settings",
           "show": "Show this group",
           "show-widget": "Show this widget",
           "style": "Style",
@@ -2046,6 +2067,14 @@
           "description": "Close popups, dismiss panels, or abort the current operation",
           "label": "Cancel"
         },
+        "copy": {
+          "description": "Copy the current selection or item",
+          "label": "Copy"
+        },
+        "delete": {
+          "description": "Delete the selected item",
+          "label": "Delete"
+        },
         "down": {
           "description": "Move focus or selection down one row",
           "label": "Navigate Down"
@@ -2057,6 +2086,10 @@
         "right": {
           "description": "Move focus or selection to the right",
           "label": "Navigate Right"
+        },
+        "save": {
+          "description": "Save the current selection or item",
+          "label": "Save"
         },
         "tab-next": {
           "description": "Move focus to the next control",
@@ -2208,6 +2241,10 @@
         "control-center-width": {
           "description": "Width of the control center panel in pixels (compact and no-sidebar modes scale down from this)",
           "label": "Control Center Width"
+        },
+        "floating-layer": {
+          "description": "Use Top if input method candidate windows are hidden behind floating panels; Overlay keeps panels above fullscreen content",
+          "label": "Floating Panel Layer"
         },
         "floating-offset": {
           "description": "Gap in pixels between a floating or detached panel and the bar edge",
@@ -2899,6 +2936,10 @@
           "description": "Send the captured PNG to a shell command on stdin",
           "label": "Pipe to Command"
         },
+        "screenshot-remember-last-region": {
+          "description": "Pre-select the last region (including after cancel) on the next region screenshot",
+          "label": "Remember Last Region"
+        },
         "screenshot-save-to-file": {
           "description": "Write screenshots as PNG files to the output directory",
           "label": "Save to File"
@@ -3257,6 +3298,10 @@
         "centered": {
           "description": "Center visualizer bars instead of aligning them to the edge",
           "label": "Centered"
+        },
+        "change-color-on-hover": {
+          "description": "Change a workspace's fill and label colors while the pointer hovers over it",
+          "label": "Change Color on Hover"
         },
         "color": {
           "description": "Color role for this widget's icon and label; fixed hex colors are also supported",
@@ -3620,6 +3665,10 @@
           "description": "Show current temperature text",
           "label": "Show Temperature"
         },
+        "show-unlock-hint": {
+          "description": "Show the status card above the login box for unlock hints and auth prompts. Errors and Caps Lock warnings still appear when this is off.",
+          "label": "Unlock Hint"
+        },
         "show-value": {
           "description": "Show the current value next to the visualization",
           "label": "Show Value"
@@ -3767,6 +3816,20 @@
       "native-title": "Noctalia Settings",
       "no-results": "No settings found",
       "no-results-hint": "Try a different setting name or config key.",
+      "offline-mode-notice": {
+        "appearance": "Community palette downloads will not work.",
+        "calendar-account": "Calendar discovery and sync will not work.",
+        "disable-hint": "Disable Offline Mode in the Security section.",
+        "launcher": "Currency exchange rate fetching will not work.",
+        "location": "Weather and location lookups will not work.",
+        "plugin-store": "Remote plugin catalog and download requests will not work.",
+        "plugins": "Plugin HTTP requests will not work. Git sources can still update.",
+        "security": "External IP lookup and telemetry will not work.",
+        "services": "Calendar account sync will not work.",
+        "template-store": "Community template downloads will not work.",
+        "templates": "Community template downloads and updates will not work.",
+        "title": "Offline Mode"
+      },
       "reset-page": "Reset Page",
       "reset-page-confirm": "Confirm Reset",
       "search-placeholder": "Search settings…",

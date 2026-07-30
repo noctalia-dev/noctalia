@@ -114,7 +114,17 @@
         "error": "Hava durumu hata",
         "loading": "Hava durumu...",
         "no-location": "Konum yok",
-        "off": "Hava durumu kapalı"
+        "off": "Hava durumu kapalı",
+        "tooltip": {
+          "high": "Yüksek",
+          "humidity": "Nem",
+          "low": "Düşük",
+          "sunrise": "Gün doğumu",
+          "sunset": "Gün batımı",
+          "temperature": "Sıcaklık",
+          "uv": "UV İndeksi",
+          "wind": "Rüzgar"
+        }
       }
     }
   },
@@ -134,13 +144,65 @@
     },
     "empty": {
       "history-message": "Pano geçmişinde öğe yok.",
-      "history-title": "Pano geçmişi boş"
+      "history-title": "Pano geçmişi boş",
+      "no-matches-message": "Geçerli filtreyle eşleşen sonuç bulunamadı.",
+      "no-matches-title": "Eşleşen sonuç yok"
     },
     "entry": {
-      "image": "Görüntü"
+      "image": "Görüntü",
+      "title": "Pano Öğesi"
     },
+    "filter-placeholder": "Panoyu filtrele…",
     "preview": {
-      "loading": "Önizleme yükleniyor..."
+      "empty-text-payload": "(boş yazı önizlemesi)",
+      "image-title": "Resim panosu öğesi",
+      "loading": "Önizleme yükleniyor...",
+      "text-title": "Yazı panosu öğesi",
+      "truncated": "…kısaltıldı"
+    },
+    "title": "Pano"
+  },
+  "common": {
+    "actions": {
+      "apply": "Uygula",
+      "cancel": "İptal"
+    },
+    "states": {
+      "auto": "Otomatik",
+      "custom": "Özel",
+      "inherit": "Devral",
+      "off": "Kapat"
+    }
+  },
+  "control-center": {
+    "audio": {
+      "application-volumes": "Uygulama Ses Düzeyleri",
+      "choose-effects-profile": "Bir profil seç",
+      "effects-profile": "Efektler",
+      "input-device-prefix": "Giriş Cihazı",
+      "no-application-audio": "Uygulama sesi yok",
+      "no-application-audio-body": "Şu anda hiçbir uygulama oynatma akışı mevcut değil.",
+      "no-input-devices": "Giriş cihazı yok",
+      "no-input-devices-body": "Şu anda erişilebilen bir kayıt cihazı yok.",
+      "no-input-selected": "Giriş cihazı seçilmedi",
+      "no-output-devices": "Çıkış cihazı yok",
+      "no-output-devices-body": "Şu anda kullanılabilir oynatma çıkışı mevcut değil.",
+      "no-output-selected": "Çıkış cihazı seçilmedi",
+      "output-device-prefix": "Çıkış Cihazı",
+      "unavailable-body": "PipeWire aktif değil.",
+      "unavailable-title": "Ses mecut değil"
+    },
+    "calendar": {
+      "all-day": "Tüm gün",
+      "events": "Etkinlikler",
+      "no-events": "Etkinlik yok.",
+      "today": "Bugün",
+      "toggle-events-card": "Etkinlik kartlarını aç/kapat"
+    },
+    "display": {
+      "disabled": "Devre dışı",
+      "no-displays": "Mevcut monitör yok",
+      "unknown-resolution": "Bilinmeyen çözünürlük"
     }
   },
   "settings": {

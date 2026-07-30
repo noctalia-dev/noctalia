@@ -3,15 +3,29 @@
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "shell/tooltip/tooltip_content.h"
 #include "system/weather_service.h"
+#include "time/time_format.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <format>
 #include <memory>
+
+namespace {
+
+  std::string windDirectionLabel(int degrees) {
+    static constexpr std::array<const char*, 8> kDirs = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
+    const int normalized = ((degrees % 360) + 360) % 360;
+    const int index = static_cast<int>(std::lround(normalized / 45.0)) % 8;
+    return kDirs[static_cast<std::size_t>(index)];
+  }
+
+} // namespace
 
 WeatherWidget::WeatherWidget(WeatherService* weather, wl_output* /*output*/, Options options)
     : m_weather(weather), m_maxWidth(static_cast<float>(options.maxWidth)), m_showCondition(options.showCondition),
@@ -139,4 +153,60 @@ void WeatherWidget::sync(Renderer& renderer) {
   if (changed) {
     requestRedraw();
   }
+
+  if (m_area == nullptr) {
+    return;
+  }
+
+  if (m_weather == nullptr || !m_weather->hasData()) {
+    m_area->clearTooltip();
+    return;
+  }
+
+  const auto& snapshot = m_weather->snapshot();
+  const bool imperial = m_weather->useImperial();
+  const char* tempUnit = m_weather->displayTemperatureUnit();
+  const std::string windUnit = imperial ? "mph" : "km/h";
+
+  const int currentTemp = static_cast<int>(std::lround(m_weather->displayTemperature(snapshot.current.temperatureC)));
+  const double displayWind = imperial ? snapshot.current.windSpeedKmh * 0.621371 : snapshot.current.windSpeedKmh;
+
+  std::vector<TooltipRow> rows;
+  rows.push_back(
+      {i18n::tr("bar.widgets.weather.tooltip.condition"),
+       WeatherService::shortDescriptionForCode(snapshot.current.weatherCode)}
+  );
+  rows.push_back({i18n::tr("bar.widgets.weather.tooltip.temperature"), std::format("{}{}", currentTemp, tempUnit)});
+
+  if (!snapshot.forecastDays.empty()) {
+    const auto& today = snapshot.forecastDays.front();
+    const int high = static_cast<int>(std::lround(m_weather->displayTemperature(today.temperatureMaxC)));
+    const int low = static_cast<int>(std::lround(m_weather->displayTemperature(today.temperatureMinC)));
+    rows.push_back({i18n::tr("bar.widgets.weather.tooltip.high"), std::format("{}{}", high, tempUnit)});
+    rows.push_back({i18n::tr("bar.widgets.weather.tooltip.low"), std::format("{}{}", low, tempUnit)});
+  }
+
+  rows.push_back(
+      {i18n::tr("bar.widgets.weather.tooltip.humidity"), std::format("{}%", snapshot.current.relativeHumidityPercent)}
+  );
+  rows.push_back(
+      {i18n::tr("bar.widgets.weather.tooltip.wind"),
+       std::format(
+           "{} {} {}", static_cast<int>(std::lround(displayWind)), windUnit,
+           windDirectionLabel(snapshot.current.windDirectionDeg)
+       )}
+  );
+  rows.push_back({i18n::tr("bar.widgets.weather.tooltip.uv"), std::format("{:.1f}", snapshot.current.uvIndex)});
+
+  if (!snapshot.forecastDays.empty()) {
+    const auto& today = snapshot.forecastDays.front();
+    if (!today.sunriseIso.empty()) {
+      rows.push_back({i18n::tr("bar.widgets.weather.tooltip.sunrise"), formatIsoTime(today.sunriseIso, "%H:%M")});
+    }
+    if (!today.sunsetIso.empty()) {
+      rows.push_back({i18n::tr("bar.widgets.weather.tooltip.sunset"), formatIsoTime(today.sunsetIso, "%H:%M")});
+    }
+  }
+
+  m_area->setTooltip(std::move(rows));
 }

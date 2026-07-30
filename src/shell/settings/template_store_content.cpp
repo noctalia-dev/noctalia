@@ -61,6 +61,13 @@ namespace settings {
         });
       }
 
+      [[nodiscard]] std::string itemTooltip(std::size_t index) const override {
+        if (m_indices == nullptr || m_catalog == nullptr || index >= m_indices->size()) {
+          return {};
+        }
+        return noctalia::theme::formatTemplateTooltip((*m_catalog)[(*m_indices)[index]]);
+      }
+
       void onActivate(std::size_t index) override {
         if (m_content != nullptr) {
           m_content->toggleAtFilteredIndex(index);
@@ -462,7 +469,7 @@ namespace settings {
     const float minCardHeight = (Style::controlHeightSm + Style::spaceSm * 2.0f) * scale;
     auto grid = ui::virtualGridView({
         .out = &m_grid,
-        .minCellWidth = 128.0f * scale,
+        .minCellWidth = 152.0f * scale,
         .cellHeight = std::max(cardHeight, minCardHeight),
         .squareCells = false,
         .columnGap = Style::spaceSm * scale,

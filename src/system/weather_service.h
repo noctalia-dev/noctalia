@@ -22,6 +22,7 @@ struct WeatherCurrentUnits {
   std::string isDay;
   std::string weatherCode;
   std::string uvIndex;
+  std::string relativeHumidity;
 };
 
 struct WeatherDailyUnits {
@@ -52,6 +53,7 @@ struct WeatherCurrentConditions {
   bool isDay = true;
   std::int32_t weatherCode = 0;
   double uvIndex = 0.0;
+  std::int32_t relativeHumidityPercent = 0;
 };
 
 struct WeatherForecastDay {

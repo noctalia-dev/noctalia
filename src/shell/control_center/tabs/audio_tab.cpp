@@ -802,12 +802,13 @@ namespace {
       tokens.push_back(deviceLabelTokens(item.label));
     }
 
-    auto deviceEntry = [](const DeviceMenuItem& item, std::string label) {
+    auto deviceEntry = [](const DeviceMenuItem& item, std::string label, std::uint8_t indentLevel = 0) {
       return ContextMenuControlEntry{
           .id = static_cast<std::int32_t>(item.id),
           .label = std::move(label),
           .checkmark = true,
           .toggleState = item.selected ? 1 : 0,
+          .indentLevel = indentLevel,
           .ellipsize = TextEllipsize::Middle,
       };
     };
@@ -840,7 +841,10 @@ namespace {
             .ellipsize = TextEllipsize::Middle,
         });
         for (std::size_t k = i; k < j; ++k) {
-          entries.push_back(deviceEntry(items[k], joinTokens(std::span(tokens[k]).subspan(shared))));
+          entries.push_back(deviceEntry(items[k], joinTokens(std::span(tokens[k]).subspan(shared)), 1));
+        }
+        if (j < items.size()) {
+          entries.push_back({.separator = true});
         }
         i = j;
       } else {

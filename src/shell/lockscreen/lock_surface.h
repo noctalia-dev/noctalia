@@ -145,8 +145,8 @@ private:
   Label* m_weatherMeta = nullptr;
   Flex* m_forecastRow = nullptr;
   std::array<ForecastColumn, 5> m_forecastColumns{};
-  Flex* m_statusPanel = nullptr;
-  Label* m_statusLabel = nullptr;
+  Flex* m_authPanel = nullptr;
+  Label* m_authLabel = nullptr;
   Flex* m_loginContentRow = nullptr;
   Input* m_passwordField = nullptr;
   Button* m_loginButton = nullptr;

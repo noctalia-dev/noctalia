@@ -5,6 +5,8 @@
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/ui_phase.h"
+#include "ipc/ipc_arg_parse.h"
+#include "ipc/ipc_service.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
 #include "shell/surface/edge_inset.h"
@@ -191,10 +193,63 @@ namespace {
 
 } // namespace
 
+OsdOverlay::OsdOverlay() = default;
+
+OsdOverlay::~OsdOverlay() = default;
+
 void OsdOverlay::initialize(WaylandConnection& wayland, ConfigService* config, RenderContext* renderContext) {
   m_wayland = &wayland;
   m_config = config;
   m_renderContext = renderContext;
+  m_lastConfiguredEnabled = m_config == nullptr || m_config->config().osd.enabled;
+}
+
+void OsdOverlay::registerIpc(IpcService& ipc) {
+  ipc.registerHandler(
+      "osd-enable",
+      [this](const std::string& args) -> std::string {
+        if (!noctalia::ipc::splitWords(args).empty()) {
+          return "error: osd-enable takes no arguments\n";
+        }
+        setEnabledOverride(true);
+        return "ok\n";
+      },
+      "", "Enable OSD popups"
+  );
+  ipc.registerHandler(
+      "osd-disable",
+      [this](const std::string& args) -> std::string {
+        if (!noctalia::ipc::splitWords(args).empty()) {
+          return "error: osd-disable takes no arguments\n";
+        }
+        setEnabledOverride(false);
+        return "ok\n";
+      },
+      "", "Disable OSD popups"
+  );
+  ipc.registerHandler(
+      "osd-toggle",
+      [this](const std::string& args) -> std::string {
+        if (!noctalia::ipc::splitWords(args).empty()) {
+          return "error: osd-toggle takes no arguments\n";
+        }
+        setEnabledOverride(!isEnabled());
+        return isEnabled() ? "on\n" : "off\n";
+      },
+      "", "Toggle OSD popups"
+  );
+}
+
+bool OsdOverlay::isEnabled() const noexcept {
+  const bool configuredEnabled = m_config == nullptr || m_config->config().osd.enabled;
+  return m_runtimeEnabledOverride.value_or(configuredEnabled);
+}
+
+void OsdOverlay::setEnabledOverride(bool enabled) {
+  m_runtimeEnabledOverride = enabled;
+  if (!enabled) {
+    destroySurfaces();
+  }
 }
 
 void OsdOverlay::requestRedraw() {
@@ -217,7 +272,7 @@ void OsdOverlay::show(const OsdContent& content) {
   if (m_wayland == nullptr || m_renderContext == nullptr) {
     return;
   }
-  if (m_config != nullptr && !m_config->config().osd.enabled) {
+  if (!isEnabled()) {
     return;
   }
   if (m_config != nullptr && !isOsdKindEnabled(m_config->config().osd.kinds, content.kind)) {
@@ -308,7 +363,18 @@ void OsdOverlay::onOutputChange() {
   requestLayout();
 }
 
-void OsdOverlay::onConfigReload() { onOutputChange(); }
+void OsdOverlay::onConfigReload() {
+  const bool configuredEnabled = m_config == nullptr || m_config->config().osd.enabled;
+  if (configuredEnabled != m_lastConfiguredEnabled) {
+    m_runtimeEnabledOverride.reset();
+    m_lastConfiguredEnabled = configuredEnabled;
+  }
+  if (!isEnabled()) {
+    destroySurfaces();
+    return;
+  }
+  onOutputChange();
+}
 
 void OsdOverlay::ensureSurfaces() {
   if (m_wayland == nullptr || m_renderContext == nullptr) {

@@ -29,7 +29,7 @@
   "bar": {
     "screenshot": {
       "choose-display": "Scegli monitor",
-      "confirm-region": "Invio o Spazio per catturare · Esc per annullare · Trascina per riselezionare",
+      "confirm-region": "{copy} per copiare · {save} per salvare · Invio o Spazio per le impostazioni predefinite · {cancel} per annullare · Trascina per riselezionare",
       "fullscreen": "Schermo intero",
       "overlay-alloc-failed": "Impossibile visualizzare l'overlay dello screenshot (memoria GPU esaurita?)",
       "region": "Seleziona area"
@@ -117,7 +117,18 @@
         "error": "Errore meteo",
         "loading": "Meteo...",
         "no-location": "Nessuna posizione",
-        "off": "Meteo disattivato"
+        "off": "Meteo disattivato",
+        "tooltip": {
+          "condition": "Condizione",
+          "high": "Massima",
+          "humidity": "Umidità",
+          "low": "Minima",
+          "sunrise": "Alba",
+          "sunset": "Tramonto",
+          "temperature": "Temperatura",
+          "uv": "Indice UV",
+          "wind": "Vento"
+        }
       }
     }
   },
@@ -255,6 +266,7 @@
       "start-playback": "Avvia la riproduzione in un'app MPRIS"
     },
     "network": {
+      "available": "Disponibili",
       "connect": "Connetti",
       "current-connection": "Connessione corrente",
       "external-ip": "WAN {ip}",
@@ -263,6 +275,7 @@
       "password": "Password",
       "password-prompt": "Inserisci password",
       "password-prompt-for": "Inserisci password per {ssid}",
+      "saved": "Salvate",
       "unavailable-detail": "Installa e abilita NetworkManager, wpa_supplicant o iwd per gestire le reti da qui.",
       "unavailable-title": "Servizio di rete non disponibile",
       "vpns": "VPN",
@@ -325,7 +338,7 @@
         "dark": "Modalità scura",
         "light": "Modalità chiara"
       },
-      "keyboard-layout": "Layout",
+      "keyboard-layout": "Layout tastiera",
       "media": "Media",
       "mic-mute": "Microfono",
       "nightlight": "Luce notturna",
@@ -519,6 +532,7 @@
         "show-media": "Media",
         "show-password-hint": "Suggerimento password",
         "show-session-buttons": "Pulsanti di sessione",
+        "show-unlock-hint": "Sblocca avvisi",
         "show-vpn-label": "Mostra etichetta VPN",
         "show-weather": "Meteo",
         "show-when-idle": "Mostra quando inattivo",
@@ -956,6 +970,8 @@
           "border": "Bordo",
           "border-description": "Ruolo colore del contorno capsula; lascia Predefinito per nessun contorno",
           "clear": "Cancella",
+          "deselect": "Deseleziona",
+          "drag": "Riordina",
           "drawer-columns": "Colonne cassetto",
           "drawer-columns-description": "Numero di widget per riga nel pannello del cassetto",
           "drawer-detached": "Pannello staccato",
@@ -982,7 +998,12 @@
           "padding-description": "Spaziatura interna tra il bordo della capsula e i suoi widget, in pixel",
           "radius": "Raggio",
           "radius-description": "Raggio degli angoli capsula in pixel; Auto eredita il raggio capsula della barra",
+          "remove-from-group": "Rimuovi dal gruppo",
+          "remove-orphan": "Rimuovi gruppo sconosciuto",
+          "remove-widget": "Rimuovi dalla barra",
+          "select": "Seleziona per raggruppare",
           "selected": "{count} selezionati",
+          "settings-widget": "Impostazioni widget",
           "show": "Mostra gruppo",
           "show-widget": "Mostra widget",
           "style": "Stile",
@@ -2046,6 +2067,14 @@
           "description": "Chiude popup, ignora pannelli o annulla l'operazione corrente",
           "label": "Annulla"
         },
+        "copy": {
+          "description": "Copia la selezione o l'elemento corrente",
+          "label": "Copia"
+        },
+        "delete": {
+          "description": "Elimina l'elemento selezionato",
+          "label": "Elimina"
+        },
         "down": {
           "description": "Sposta focus o selezione giù di una riga",
           "label": "Naviga giù"
@@ -2057,6 +2086,10 @@
         "right": {
           "description": "Sposta focus o selezione a destra",
           "label": "Naviga a destra"
+        },
+        "save": {
+          "description": "Salva la selezione o l'elemento corrente",
+          "label": "Salva"
         },
         "tab-next": {
           "description": "Sposta il focus sul controllo successivo",
@@ -2208,6 +2241,10 @@
         "control-center-width": {
           "description": "Larghezza del pannello del centro di controllo in pixel (le modalità compatta e senza barra laterale si riducono rispetto a questo valore)",
           "label": "Larghezza Control Center"
+        },
+        "floating-layer": {
+          "description": "Usa Top se le finestre coinvolte al metodo di input sono nascoste dietro pannelli flottanti; Overlay mantiene i pannelli sopra il contenuto a schermo intero",
+          "label": "Layer del pannello flottante"
         },
         "floating-offset": {
           "description": "Spazio in pixel tra un pannello mobile o staccato e il bordo della barra",
@@ -2430,7 +2467,9 @@
         },
         "calendar-edit": {
           "button": "Modifica",
-          "description": "Aggiorna questo account calendario"
+          "button-reconnect": "Riconnetti",
+          "description": "Aggiorna questo account calendario",
+          "description-reconnect": "Manca l'autorizzazione di Google. Riconnetti questo account."
         },
         "calendar-event-date-format": {
           "description": "Il formato della data mostrato nella scheda evento per la data selezionata",
@@ -2450,7 +2489,7 @@
           "description-error": "Impossibile aprire o salvare la cache degli eventi del calendario crittografata.",
           "description-locked": "L'archivio crittografato è bloccato o l'accesso è stato negato. Correggi l'accesso e riprova.",
           "description-migration": "La cache degli eventi del calendario in testo normale è in attesa di essere crittografata. Viene conservata finché la migrazione non ha esito positivo.",
-          "description-missing-key": "Manca la configurazione della chiave di archiviazione crittografata. I file della cache del calendario esistenti sono stati conservati.",
+          "description-missing-key": "Chiave della cache degli eventi del calendario mancante. Le credenziali dell'account utilizzano uno spazio di archiviazione separato; i file di cache esistenti sono stati preservati.",
           "description-opening": "È in corso l'apertura della cache degli eventi del calendario crittografati.",
           "description-recovery": "Non è stato possibile accedere alla cache eventi del calendario o la stessa è danneggiata. Riprovare dopo aver ripristinato la chiave corretta o reimpostato l'archivio privato.",
           "description-unavailable": "Nessun provider di Secret Service è disponibile. Gli eventi del calendario rimangono disponibili solo per questa sessione.",
@@ -2547,7 +2586,7 @@
             "label": "Intervallo disco"
           },
           "gpu-poll": {
-            "description": "Secondi tra valori campione di temperatura GPU, utilizzo e VRAM. La GPU viene campionata solo mentre qualcosa visualizza una statistica GPU, quindi a sistema inattivo non viene mai riattivata (0 la disabilita completamente)",
+            "description": "Secondi tra valori campione di temperatura GPU, utilizzo e VRAM; La GPU viene campionata solo mentre qualcosa visualizza una statistica GPU, quindi a sistema inattivo non viene mai riattivata (0 disabilita completamente)",
             "label": "Intervallo GPU"
           },
           "label": "Monitor di sistema",
@@ -2896,6 +2935,10 @@
         "screenshot-pipe-to-command": {
           "description": "Invia il PNG catturato a un comando shell su stdin",
           "label": "Invia a comando"
+        },
+        "screenshot-remember-last-region": {
+          "description": "Preseleziona l'ultima area (anche dopo l'annullamento) nella successiva azione di cattura schermo",
+          "label": "Ricorda l'ultima area"
         },
         "screenshot-save-to-file": {
           "description": "Salva le schermate come file PNG nella directory di output",
@@ -3295,7 +3338,7 @@
           "label": "Visualizzazione"
         },
         "display-mode": {
-          "description": "Visualizza la batteria solo in forma grafica, glifo tab o solo etichetta",
+          "description": "Visualizza la batteria solo come forma grafica, icona Tabler o etichetta",
           "label": "Modalità visualizzazione"
         },
         "drawer": {
@@ -3359,7 +3402,7 @@
           "label": "Raggruppa per workspace"
         },
         "group-single-icon-per-app": {
-          "description": "Quando si raggruppa per area di lavoro con icone, comprimi più finestre della stessa app in un'unica icona con un badge di conteggio.",
+          "description": "Quando raggruppi per area di lavoro con icone, comprimi più finestre della stessa app in un'unica icona con un badge di conteggio",
           "label": "Un'icona per app"
         },
         "height": {
@@ -3551,7 +3594,7 @@
         "pinned": {
           "description": "ID elementi vassoio che restano visibili nella barra quando la modalità cassetto è abilitata",
           "label": "Elementi fissati",
-          "taskbar-description": "App desktop che rimangono sulla barra delle applicazioni quando non sono in esecuzione. Ignorato mentre il raggruppamento per area di lavoro è attivo.",
+          "taskbar-description": "App desktop che rimangono sulla barra delle applicazioni quando non sono in esecuzione; ignorato mentre il raggruppamento per area di lavoro è attivo",
           "taskbar-label": "App fissate"
         },
         "pinned-opacity": {
@@ -3614,8 +3657,12 @@
           "description": "Mostra valore attuale della temperatura",
           "label": "Mostra temperatura"
         },
+        "show-unlock-hint": {
+          "description": "Mostra la scheda di stato sopra la casella di accesso per avvisi di sblocco e prompt di autenticazione. Errori e avviso di capslock attivo verranno comunque visualizzati quando questo è disattivato.",
+          "label": "Sblocca avvisi"
+        },
         "show-vpn-label": {
-          "description": "Mostra nome VPN: sostituisce l'etichetta di rete in modalità sostituzione, aggiunge l'etichetta accanto all'icona VPN in entrambe le modalità",
+          "description": "Sostituisce l'etichetta di rete con l'etichetta VPN in modalità di sostituzione; aggiunge l'etichetta VPN accanto all'icona VPN in entrambe le modalità",
           "label": "Mostra etichetta VPN"
         },
         "show-when-idle": {
@@ -3749,6 +3796,20 @@
       "native-title": "Impostazioni Noctalia",
       "no-results": "Nessuna impostazione trovata",
       "no-results-hint": "Prova un nome impostazione o una chiave configurazione diversa.",
+      "offline-mode-notice": {
+        "appearance": "I download delle palette della comunità non funzioneranno.",
+        "calendar-account": "Il rilevamento e la sincronizzazione del calendario non funzioneranno.",
+        "disable-hint": "Disattiva la modalità offline nella sezione Sicurezza.",
+        "launcher": "Il recupero del tasso di cambio valuta non funzionerà.",
+        "location": "Le ricerche su meteo e posizione non funzioneranno.",
+        "plugin-store": "Il catalogo dei plugin remoti e le richieste di download non funzioneranno.",
+        "plugins": "Le richieste HTTP dei plugin non funzioneranno. Le origini Git possono ancora essere aggiornate.",
+        "security": "La ricerca dell'IP esterno e la telemetria non funzioneranno.",
+        "services": "La sincronizzazione dell'account del calendario non funzionerà.",
+        "template-store": "I download dei template della community non funzioneranno.",
+        "templates": "I download e gli aggiornamenti dei template della community non funzioneranno.",
+        "title": "Modalità offline"
+      },
       "reset-page": "Ripristina pagina",
       "reset-page-confirm": "Conferma ripristino",
       "search-placeholder": "Cerca impostazioni...",
