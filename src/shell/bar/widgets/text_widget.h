@@ -10,8 +10,6 @@ class TextWidget : public Widget {
 public:
   struct Options {
     std::string text;
-
-    bool operator==(const Options&) const = default;
   };
 
   explicit TextWidget(Options options);

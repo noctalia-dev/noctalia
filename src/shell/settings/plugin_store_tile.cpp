@@ -96,6 +96,27 @@ namespace settings {
         )
     );
 
+    titleRow->addChild(
+        ui::row(
+            {.out = &m_statusBadge,
+             .align = FlexAlign::Center,
+             .paddingH = Style::spaceXs * scale,
+             .fill = colorSpecFromRole(ColorRole::Error, 0.15f),
+             .radius = Style::scaledRadiusSm(scale),
+             .maxWidth = kSourceBadgeMaxWidth * scale,
+             .visible = false},
+            ui::label({
+                .out = &m_statusLabel,
+                .fontSize = Style::fontSizeMini * scale,
+                .fontWeight = FontWeight::Bold,
+                .color = colorSpecFromRole(ColorRole::Error),
+                .maxWidth = (kSourceBadgeMaxWidth - (Style::spaceXs * 2.0f)) * scale,
+                .maxLines = 1,
+                .ellipsize = TextEllipsize::End,
+            })
+        )
+    );
+
     addChild(std::move(titleRow));
 
     addChild(
@@ -158,7 +179,7 @@ namespace settings {
     }
 
     m_nameLabel->setText(entry.name);
-    m_versionLabel->setText(entry.version.empty() ? std::string() : "v" + entry.version);
+    m_versionLabel->setText(entry.resolvedVersion.empty() ? std::string() : "v" + entry.resolvedVersion);
 
     if (source == "official") {
       m_badge->setVisible(true);
@@ -178,6 +199,20 @@ namespace settings {
       m_badge->setFill(colorSpecFromRole(ColorRole::Tertiary, 0.15f));
       m_badgeLabel->setText(source);
       m_badgeLabel->setColor(colorSpecFromRole(ColorRole::Tertiary));
+    }
+
+    // The grid is where a user first meets a plugin, so an unusable or older-than-latest
+    // entry has to say so here rather than only in the detail sheet.
+    const bool hasStatus = !entry.compatible || entry.heldBack;
+    m_statusBadge->setVisible(hasStatus);
+    m_statusBadge->setParticipatesInLayout(hasStatus);
+    if (hasStatus) {
+      const ColorRole role = entry.compatible ? ColorRole::Tertiary : ColorRole::Error;
+      m_statusBadge->setFill(colorSpecFromRole(role, 0.15f));
+      m_statusLabel->setColor(colorSpecFromRole(role));
+      m_statusLabel->setText(
+          i18n::tr(entry.compatible ? "settings.plugins.store.held-back" : "settings.plugins.store.incompatible")
+      );
     }
 
     m_descLabel->setText(entry.description);

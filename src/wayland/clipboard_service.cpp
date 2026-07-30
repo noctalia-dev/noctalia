@@ -29,8 +29,22 @@ namespace {
 
   constexpr std::size_t kMinHistoryMaxEntries = static_cast<std::size_t>(noctalia::config::kClipboardHistoryMinEntries);
   constexpr std::size_t kMaxHistoryMaxEntries = static_cast<std::size_t>(noctalia::config::kClipboardHistoryMaxEntries);
-  constexpr std::size_t kMaxHistoryBytes = 64U * 1024U * 1024U;
-  constexpr std::size_t kMaxEntryBytes = 10U * 1024U * 1024U;
+  // Sized against the per-entry image limit rather than against text: at 64 MiB,
+  // two full-screen screenshots filled the entire budget and evicted every text
+  // entry behind them.
+  constexpr std::size_t kDefaultMaxHistoryBytes = 256U * 1024U * 1024U;
+  // Per-entry limits are split by kind because the two have nothing in common:
+  // a 4 MiB text item is pathological, while a full-screen grab of photographic
+  // content on a 4K display lands around 20 MiB as ordinary PNG. mutter draws
+  // the same distinction (MAX_TEXT_SIZE 4 MiB, MAX_IMAGE_SIZE 200 MiB).
+  constexpr std::size_t kMaxTextEntryBytes = 4U * 1024U * 1024U;
+  constexpr std::size_t kMaxImageEntryBytes = 32U * 1024U * 1024U;
+  // Ceiling on the live selection kept for adoption. Deliberately far above the
+  // history limits, because an item too large to store is still one the user
+  // expects to paste; it only exists to keep a pathological copy out of a
+  // process that stays resident. Matches mutter's MAX_IMAGE_SIZE, which bounds
+  // the equivalent cache in GNOME.
+  constexpr std::size_t kMaxSelectionBackupBytes = 200U * 1024U * 1024U;
   constexpr std::size_t kMaxManifestBytes = 16U * 1024U * 1024U;
   constexpr std::size_t kPreviewBytes = 200;
   constexpr std::string_view kManifestPurpose = "clipboard-manifest-v1";
@@ -44,6 +58,7 @@ namespace {
   constexpr std::array kImageMimeTypes = {
       std::string_view{"image/png"},
       std::string_view{"image/jpeg"},
+      std::string_view{"image/jxl"},
   };
 
   constexpr std::array kPasswordHintMimeTypes = {
@@ -127,6 +142,8 @@ namespace {
       return ".jpg";
     if (mimeType == "image/webp")
       return ".webp";
+    if (mimeType == "image/jxl")
+      return ".jxl";
     if (mimeType == "image/gif")
       return ".gif";
     if (mimeType == "image/bmp")
@@ -433,7 +450,12 @@ namespace {
 } // namespace
 
 ClipboardService::ClipboardService(security::StorageKeyProvider& storageKeyProvider)
-    : m_storageKeyProvider(storageKeyProvider) {}
+    : m_maxHistoryBytes(kDefaultMaxHistoryBytes), m_storageKeyProvider(storageKeyProvider) {}
+
+void ClipboardService::setMaxHistoryBytesForTesting(std::size_t maxBytes) {
+  m_maxHistoryBytes = maxBytes;
+  trimHistoryToBudget();
+}
 
 void ClipboardService::setHistoryRetentionEnabled(bool enabled) {
   if (m_historyRetention == enabled) {
@@ -461,6 +483,17 @@ void ClipboardService::setHistoryRetentionEnabled(bool enabled) {
 
   ++m_changeSerial;
   notifyChanged();
+}
+
+void ClipboardService::setKeepFromClosedApps(bool enabled) {
+  if (m_keepFromClosedApps == enabled) {
+    return;
+  }
+  m_keepFromClosedApps = enabled;
+  if (!enabled) {
+    m_selectionBackup.reset();
+    m_pendingOrphanAdopt = false;
+  }
 }
 
 void ClipboardService::setMaxHistoryEntries(std::size_t maxEntries) {
@@ -519,6 +552,7 @@ bool ClipboardService::bind(void* manager, const DataControlOps* ops, wl_seat* s
 }
 
 void ClipboardService::cleanup() {
+  m_pendingOrphanAdopt = false;
   cancelActiveRead();
   cancelActiveWrites();
   clearOffers();
@@ -812,14 +846,17 @@ bool ClipboardService::copyImagePng(std::vector<std::uint8_t> png) {
   return copyData({"image/png"}, std::move(png));
 }
 
-bool ClipboardService::copyEntry(const ClipboardEntry& entry) {
-  if (entry.data.empty() || entry.dataMimeType.empty()) {
-    return false;
-  }
+std::size_t ClipboardService::maxEntryBytesFor(std::string_view mimeType) {
+  return isTextMimeType(mimeType) ? kMaxTextEntryBytes : kMaxImageEntryBytes;
+}
 
+// Only one flavour of the selection is ever read, and every advertised type is
+// served from that same buffer, so the offer must not claim types the payload
+// cannot actually satisfy — text aliases are the one safe widening.
+std::vector<std::string> ClipboardService::mimeTypesForPayload(const std::string& dataMimeType) {
   std::vector<std::string> mimeTypes;
-  mimeTypes.push_back(entry.dataMimeType);
-  if (isTextMimeType(entry.dataMimeType)) {
+  mimeTypes.push_back(dataMimeType);
+  if (isTextMimeType(dataMimeType)) {
     if (!std::ranges::contains(mimeTypes, "text/plain;charset=utf-8")) {
       mimeTypes.emplace_back("text/plain;charset=utf-8");
     }
@@ -827,7 +864,15 @@ bool ClipboardService::copyEntry(const ClipboardEntry& entry) {
       mimeTypes.emplace_back("text/plain");
     }
   }
-  return copyData(std::move(mimeTypes), entry.data);
+  return mimeTypes;
+}
+
+bool ClipboardService::copyEntry(const ClipboardEntry& entry) {
+  if (entry.data.empty() || entry.dataMimeType.empty()) {
+    return false;
+  }
+
+  return copyData(mimeTypesForPayload(entry.dataMimeType), entry.data);
 }
 
 std::size_t ClipboardService::pinnedCount() const noexcept {
@@ -944,10 +989,19 @@ void ClipboardService::clearHistory() {
 }
 
 bool ClipboardService::copyData(std::vector<std::string> mimeTypes, std::vector<std::uint8_t> data) {
+  if (data.empty()) {
+    return false;
+  }
+  return copyData(std::move(mimeTypes), std::make_shared<const std::vector<std::uint8_t>>(std::move(data)));
+}
+
+bool ClipboardService::copyData(
+    std::vector<std::string> mimeTypes, std::shared_ptr<const std::vector<std::uint8_t>> data
+) {
   if (m_device == nullptr || m_ops == nullptr) {
     return false;
   }
-  if (mimeTypes.empty() || data.empty()) {
+  if (mimeTypes.empty() || data == nullptr || data->empty()) {
     return false;
   }
 
@@ -964,12 +1018,11 @@ bool ClipboardService::copyData(std::vector<std::string> mimeTypes, std::vector<
   for (const auto& mimeType : mimeTypes) {
     m_ops->sourceOffer(source, mimeType.c_str());
   }
-  auto payload = std::make_shared<std::vector<std::uint8_t>>(std::move(data));
   m_outgoingSources.push_back(
       OutgoingSource{
           .source = source,
           .mimeTypes = std::move(mimeTypes),
-          .data = std::move(payload),
+          .data = std::move(data),
       }
   );
   m_ops->deviceSetSelection(m_device, source);
@@ -997,8 +1050,14 @@ void ClipboardService::dispatchReadEvents(short revents) {
     const ssize_t bytesRead = read(m_activeRead.fd, buffer.data(), buffer.size());
     if (bytesRead > 0) {
       const auto nextSize = m_activeRead.buffer.size() + static_cast<std::size_t>(bytesRead);
-      if (nextSize > kMaxEntryBytes) {
-        kLog.warn("discarding oversized clipboard entry");
+      // The read has to run to the ceiling of whatever might still want the
+      // bytes: an item too large for history can still be worth keeping alive
+      // for paste, so aborting at the history limit would silently cap
+      // adoption too.
+      const std::size_t readLimit =
+          m_keepFromClosedApps ? kMaxSelectionBackupBytes : maxEntryBytesFor(m_activeRead.mimeType);
+      if (nextSize > readLimit) {
+        kLog.warn("discarding oversized clipboard selection ({} bytes)", nextSize);
         finishRead(true);
         return;
       }
@@ -1044,6 +1103,8 @@ void ClipboardService::dispatchPollEvents(const std::vector<pollfd>& fds, std::s
     }
     dispatchWriteEvents(fds[i].fd, fds[i].revents);
   }
+
+  flushPendingOrphanAdopt();
 }
 
 void ClipboardService::handleDataOffer(void* offer) {
@@ -1076,11 +1137,76 @@ void ClipboardService::handleSelection(void* offer) {
   m_selectionOffer = offer;
 
   if (offer == nullptr) {
+    // A null selection is normal during handoff between clients. Defer adoption
+    // until the next poll tick so a replacement offer in the same dispatch batch
+    // can arrive first; only adopt if the selection is still empty then.
+    m_pendingOrphanAdopt = true;
     return;
   }
 
+  m_pendingOrphanAdopt = false;
+  m_selectionBackup.reset();
   if (!startReceive(offer)) {
     kLog.debug("selection offer has no supported MIME types");
+  }
+}
+
+// A short read is indistinguishable from a complete one at the protocol level:
+// there is no length, and a writer that dies mid-transfer just closes the pipe.
+// Re-offering truncated bytes would hand every paste target a corrupt file, so
+// formats that say where they end are checked before the shell adopts them.
+bool ClipboardService::payloadLooksComplete(std::string_view mimeType, std::span<const std::uint8_t> data) {
+  static constexpr std::array kPngTrailer =
+      std::to_array<std::uint8_t>({0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82});
+  static constexpr std::array kJpegTrailer = std::to_array<std::uint8_t>({0xFF, 0xD9});
+  static constexpr std::array kGifTrailer = std::to_array<std::uint8_t>({0x3B});
+
+  const auto endsWith = [&data](std::span<const std::uint8_t> trailer) {
+    return data.size() >= trailer.size() && std::ranges::equal(data.last(trailer.size()), trailer);
+  };
+
+  if (mimeType == "image/png") {
+    return endsWith(kPngTrailer);
+  }
+  if (mimeType == "image/jpeg" || mimeType == "image/jpg") {
+    return endsWith(kJpegTrailer);
+  }
+  if (mimeType == "image/gif") {
+    return endsWith(kGifTrailer);
+  }
+
+  // Everything else carries no end marker worth trusting; text in particular is
+  // still useful when partial.
+  return true;
+}
+
+void ClipboardService::flushPendingOrphanAdopt() {
+  if (!m_pendingOrphanAdopt || m_selectionOffer != nullptr) {
+    return;
+  }
+  m_pendingOrphanAdopt = false;
+  adoptOrphanedSelection();
+}
+
+void ClipboardService::adoptOrphanedSelection() {
+  if (!m_keepFromClosedApps || !m_selectionBackup.has_value()) {
+    return;
+  }
+
+  const SelectionBackup backup = std::move(*m_selectionBackup);
+  m_selectionBackup.reset();
+
+  if (backup.data == nullptr || backup.data->empty()) {
+    return;
+  }
+
+  if (!payloadLooksComplete(backup.dataMimeType, *backup.data)) {
+    kLog.warn("not adopting orphaned selection: {} payload is truncated", backup.dataMimeType);
+    return;
+  }
+
+  if (copyData(backup.mimeTypes, backup.data)) {
+    kLog.debug("adopted orphaned selection: {} ({} bytes)", backup.dataMimeType, backup.data->size());
   }
 }
 
@@ -1224,14 +1350,40 @@ void ClipboardService::finishRead(bool discard) {
     return;
   }
 
+  // A selection too large to hold is simply not backed up; the reset in
+  // handleSelection already dropped the previous one, so nothing stale can be
+  // adopted in its place.
+  if (m_keepFromClosedApps && data.size() > kMaxSelectionBackupBytes) {
+    kLog.debug("selection of {} bytes is too large to keep for adoption", data.size());
+  }
+
   ClipboardEntry entry;
+  if (m_keepFromClosedApps && data.size() <= kMaxSelectionBackupBytes) {
+    // Backed up before the history entry is built, and shared rather than
+    // copied: this is the buffer that can be large, while the history copy
+    // below is bounded by the per-kind entry limit.
+    const auto payload = std::make_shared<const std::vector<std::uint8_t>>(std::move(data));
+    m_selectionBackup = SelectionBackup{
+        .mimeTypes = mimeTypesForPayload(mimeType),
+        .dataMimeType = mimeType,
+        .data = payload,
+    };
+
+    if (payload->size() > maxEntryBytesFor(mimeType)) {
+      // History would drop it; do not copy bytes that are not going to be kept.
+      return;
+    }
+    entry.data = *payload;
+  } else {
+    entry.data = std::move(data);
+  }
+
   entry.storageId = generateStorageId();
   entry.mimeTypes = std::move(mimeTypes);
   if (!std::ranges::contains(entry.mimeTypes, mimeType)) {
     entry.mimeTypes.push_back(mimeType);
   }
   entry.dataMimeType = mimeType;
-  entry.data = std::move(data);
   entry.byteSize = entry.data.size();
   entry.payloadLoaded = true;
   entry.payloadPath = payloadPathForId(entry.storageId);
@@ -1322,7 +1474,7 @@ void ClipboardService::addToHistory(ClipboardEntry entry) {
   }
 
   const std::size_t entryBytes = entry.byteSize;
-  if (entryBytes > kMaxEntryBytes) {
+  if (entryBytes > maxEntryBytesFor(entry.dataMimeType)) {
     return;
   }
 
@@ -1331,10 +1483,16 @@ void ClipboardService::addToHistory(ClipboardEntry entry) {
   trimHistoryToBudget();
 
   ++m_changeSerial;
-  if (persistHistory()) {
+  // Trimming can take the entry that was just inserted straight back out, when
+  // that entry alone does not fit the budget, so the slot cannot be indexed
+  // unconditionally afterwards.
+  const bool entryKept = insertAt < m_history.size();
+  const bool persisted = persistHistory();
+  if (persisted && entryKept) {
     evictPayloadData(m_history[insertAt]);
   }
-  const std::string latestMime = m_history[insertAt].mimeTypes.empty() ? "" : m_history[insertAt].mimeTypes.front();
+  const std::string latestMime =
+      !entryKept || m_history[insertAt].mimeTypes.empty() ? "" : m_history[insertAt].mimeTypes.front();
   kLog.debug("clipboard history size={} entries={} latest_mime={}", m_historyBytes, m_history.size(), latestMime);
   notifyChanged();
 }
@@ -1436,16 +1594,17 @@ bool ClipboardService::migrateLegacyHistory() {
     }
   }
 
-  auto sessionEntries = std::move(m_history);
-  m_history.clear();
+  // Only the non-retention path replaces the live history, so only it needs the session entries kept
+  // aside for the restores below.
+  std::deque<ClipboardEntry> sessionEntries;
   m_historyBytes = 0;
   if (m_historyRetention) {
-    m_history = std::move(sessionEntries);
     for (const auto& entry : m_history) {
       m_historyBytes += entry.byteSize;
     }
     mergePersistedHistory(std::move(legacyEntries));
   } else {
+    sessionEntries = std::move(m_history);
     m_history = std::move(legacyEntries);
     for (const auto& entry : m_history) {
       m_historyBytes += entry.byteSize;
@@ -1521,7 +1680,7 @@ bool ClipboardService::parseManifest(
           || !ids.insert(entry.storageId).second
           || entry.dataMimeType.empty()
           || entry.byteSize == 0
-          || entry.byteSize > kMaxEntryBytes
+          || entry.byteSize > maxEntryBytesFor(entry.dataMimeType)
           || totalBytes > std::numeric_limits<std::size_t>::max() - entry.byteSize) {
         return false;
       }
@@ -1671,18 +1830,43 @@ void ClipboardService::trimHistoryToBudget() {
     }
   }
 
-  while ((unpinnedCount > m_maxHistoryEntries || unpinnedBytes > kMaxHistoryBytes)
-         && !m_history.empty()
-         && !m_history.back().pinned) {
-    const std::size_t removedBytes = m_history.back().byteSize;
+  const auto eraseAt = [this, &unpinnedCount, &unpinnedBytes](std::size_t index) {
+    const std::size_t removedBytes = m_history[index].byteSize;
     unpinnedBytes -= removedBytes;
     --unpinnedCount;
-    if (m_historyBytes >= removedBytes) {
-      m_historyBytes -= removedBytes;
-    } else {
-      m_historyBytes = 0;
+    m_historyBytes = m_historyBytes >= removedBytes ? m_historyBytes - removedBytes : 0;
+    m_history.erase(m_history.begin() + static_cast<std::ptrdiff_t>(index));
+  };
+
+  // Oldest first, since entries are inserted at the front of the unpinned run.
+  const auto oldestUnpinnedImage = [this]() -> std::optional<std::size_t> {
+    for (std::size_t i = m_history.size(); i-- > 0;) {
+      if (!m_history[i].pinned && m_history[i].isImage()) {
+        return i;
+      }
     }
-    m_history.pop_back();
+    return std::nullopt;
+  };
+
+  while (!m_history.empty() && !m_history.back().pinned) {
+    // Too many items is about how far back the history reaches, so it drops the
+    // oldest whatever it is.
+    if (unpinnedCount > m_maxHistoryEntries) {
+      eraseAt(m_history.size() - 1);
+      continue;
+    }
+
+    // Byte pressure is a different problem with a different cause: text entries
+    // are kilobytes, so the budget is only ever exhausted by images. Dropping
+    // the oldest image instead of the oldest entry keeps a screenshot from
+    // evicting a day of copied snippets. Falls back to the oldest entry when no
+    // unpinned image is left, so this always terminates.
+    if (unpinnedBytes > m_maxHistoryBytes) {
+      eraseAt(oldestUnpinnedImage().value_or(m_history.size() - 1));
+      continue;
+    }
+
+    break;
   }
 }
 
@@ -1701,7 +1885,7 @@ bool ClipboardService::loadEntryPayload(ClipboardEntry& entry) {
           .purpose = std::string(kPayloadPurpose),
           .objectId = entry.storageId,
       },
-      kMaxEntryBytes
+      maxEntryBytesFor(entry.dataMimeType)
   );
   if (!result.succeeded() || result.plaintext.empty() || result.plaintext.size() != entry.byteSize) {
     if (result.status != security::EncryptedReadStatus::NotFound) {
@@ -1720,7 +1904,9 @@ bool ClipboardService::loadEntryPayload(ClipboardEntry& entry) {
 }
 
 bool ClipboardService::loadLegacyEntryPayload(ClipboardEntry& entry) {
-  if (!isValidStorageId(entry.storageId) || entry.byteSize == 0 || entry.byteSize > kMaxEntryBytes) {
+  if (!isValidStorageId(entry.storageId)
+      || entry.byteSize == 0
+      || entry.byteSize > maxEntryBytesFor(entry.dataMimeType)) {
     return false;
   }
   entry.payloadPath = legacyPayloadPathForId(entry.storageId);
@@ -1731,7 +1917,7 @@ bool ClipboardService::loadLegacyEntryPayload(ClipboardEntry& entry) {
   }
   const auto size = file.tellg();
   if (size <= 0
-      || static_cast<std::uintmax_t>(size) > kMaxEntryBytes
+      || static_cast<std::uintmax_t>(size) > maxEntryBytesFor(entry.dataMimeType)
       || static_cast<std::size_t>(size) != entry.byteSize) {
     return false;
   }

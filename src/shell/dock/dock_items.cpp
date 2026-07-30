@@ -406,7 +406,7 @@ namespace shell::dock {
     const float cellCross = iSize + 2.0f * kCellPad;
     const int iconDecodeTarget = dockIconDecodeTargetSize(cfg);
 
-    auto areaNode = std::make_unique<InputArea>();
+    auto areaNode = ui::inputArea({});
     if (!vert) {
       areaNode->setSize(cellMain, cellCross);
     } else {
@@ -540,7 +540,7 @@ namespace shell::dock {
 
       const float cellMain = iSize + 2.0f * kCellPad;
       const float cellCross = iSize + 2.0f * kCellPad;
-      auto areaNode = std::make_unique<InputArea>();
+      auto areaNode = ui::inputArea({});
       if (!vert) {
         areaNode->setSize(cellMain, cellCross);
       } else {

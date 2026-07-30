@@ -24,27 +24,10 @@ namespace {
 } // namespace
 
 BrightnessWidget::BrightnessWidget(BrightnessService* brightness, wl_output* output, Options options)
-    : m_brightness(brightness), m_output(output), m_showLabel(options.showLabel), m_enableScroll(options.enableScroll),
-      m_scrollStep(static_cast<float>(options.scrollStepPercent) / 100.0f) {}
+    : m_brightness(brightness), m_output(output), m_showLabel(options.showLabel) {}
 
 void BrightnessWidget::create() {
-  auto area = std::make_unique<InputArea>();
-  area->setOnClick([this](const InputArea::PointerData& /*data*/) { requestPanelToggle("control-center", "monitor"); });
-  area->setOnAxis([this](const InputArea::PointerData& data) {
-    if (!m_enableScroll || m_brightness == nullptr) {
-      return;
-    }
-    const auto* display = m_brightness->findByOutput(m_output);
-    if (display == nullptr) {
-      return;
-    }
-    const float steps = data.scrollSteps();
-    if (steps == 0.0f) {
-      return;
-    }
-    const float newValue = std::clamp(display->brightness - steps * m_scrollStep, 0.0f, 1.0f);
-    m_brightness->setBrightness(display->id, newValue);
-  });
+  auto area = ui::inputArea({});
 
   area->addChild(
       ui::glyph({

@@ -1,6 +1,7 @@
 #include "scripting/plugin_api.h"
 #include "scripting/plugin_manifest.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -8,6 +9,7 @@
 #include <print>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -171,6 +173,55 @@ int main() {
       if (!settings.empty()) {
         ok = expectEq(settings.front().labelKey, "settings.label.label", "widget setting label_key should parse") && ok;
       }
+    }
+  }
+
+  const auto pathSettingsManifestPath = root / "path-settings/plugin.toml";
+  ok = writeText(
+           pathSettingsManifestPath,
+           "id = \"me/path-settings\"\n"
+           "name = \"Path Settings\"\n"
+           "plugin_api = 3\n"
+           "[[setting]]\n"
+           "key = \"config_file\"\n"
+           "type = \"file\"\n"
+           "label_key = \"settings.config_file.label\"\n"
+           "default = \"\"\n"
+           "extensions = [\".toml\", \".json\"]\n"
+           "[[desktop_widget]]\n"
+           "id = \"notes\"\n"
+           "entry = \"notes.luau\"\n"
+           "[[desktop_widget.setting]]\n"
+           "key = \"notes_dir\"\n"
+           "type = \"folder\"\n"
+           "label_key = \"settings.notes_dir.label\"\n"
+           "default = \"~/Documents/Notes\"\n"
+       )
+      && ok;
+  error.clear();
+  const auto pathSettingsManifest = scripting::parsePluginManifest(pathSettingsManifestPath, &error);
+  ok =
+      expect(pathSettingsManifest.has_value(), error.empty() ? "failed to parse path settings manifest" : error.c_str())
+      && ok;
+  if (pathSettingsManifest.has_value()) {
+    ok = expect(pathSettingsManifest->settings.size() == 1, "one plugin path setting expected") && ok;
+    if (!pathSettingsManifest->settings.empty()) {
+      const auto& fileSetting = pathSettingsManifest->settings.front();
+      ok = expect(fileSetting.type == scripting::ManifestFieldType::File, "file setting type should parse") && ok;
+      ok = expect(fileSetting.extensions.size() == 2, "file setting extensions should parse") && ok;
+    }
+    ok = expect(pathSettingsManifest->entries.size() == 1, "one desktop widget entry expected") && ok;
+    if (!pathSettingsManifest->entries.empty()) {
+      ok =
+          expect(pathSettingsManifest->entries.front().settings.size() == 1, "one desktop widget path setting expected")
+          && ok;
+    }
+    if (!pathSettingsManifest->entries.empty() && !pathSettingsManifest->entries.front().settings.empty()) {
+      ok = expect(
+               pathSettingsManifest->entries.front().settings.front().type == scripting::ManifestFieldType::Folder,
+               "desktop widget folder setting type should parse"
+           )
+          && ok;
     }
   }
 
@@ -448,6 +499,86 @@ int main() {
   ok = expect(!oldApiMapManifest.has_value(), "string-map setting should require plugin API 6") && ok;
   ok =
       expectEq(error, "setting 'output_glyphs' type 'string_map' requires plugin_api >= 6", "string-map API gate error")
+      && ok;
+
+  const auto doubleManifestPath = root / "double-setting/plugin.toml";
+  ok = writeText(
+           doubleManifestPath,
+           "id = \"me/double-setting\"\n"
+           "name = \"Double Setting\"\n"
+           "plugin_api = 6\n"
+           "[[desktop_widget]]\n"
+           "id = \"meter\"\n"
+           "entry = \"meter.luau\"\n"
+           "[[desktop_widget.setting]]\n"
+           "key = \"opacity\"\n"
+           "type = \"double\"\n"
+           "label_key = \"settings.opacity.label\"\n"
+           "default = 0.5\n"
+           "min = 0.0\n"
+           "max = 1.0\n"
+           "step = 0.05\n"
+       )
+      && ok;
+  error.clear();
+  const auto doubleManifest = scripting::parsePluginManifest(doubleManifestPath, &error);
+  ok = expect(doubleManifest.has_value(), error.empty() ? "failed to parse double manifest" : error.c_str()) && ok;
+  if (doubleManifest.has_value() && expect(doubleManifest->entries.size() == 1, "one double entry expected")) {
+    const auto& settings = doubleManifest->entries.front().settings;
+    ok = expect(settings.size() == 1, "one double setting expected") && ok;
+    if (!settings.empty()) {
+      const auto& setting = settings.front();
+      ok = expect(setting.type == scripting::ManifestFieldType::Double, "setting should be Double") && ok;
+      ok = expect(setting.numberDefault == 0.5, "double default should parse") && ok;
+      ok = expect(setting.minValue == 0.0, "double min should parse") && ok;
+      ok = expect(setting.maxValue == 1.0, "double max should parse") && ok;
+      ok = expect(setting.step == 0.05, "double step should parse") && ok;
+    }
+  }
+
+  const auto expectInvalidNumericSetting = [&](std::string_view fixtureName, std::string_view settingBody,
+                                               std::string_view expectedError) {
+    const auto manifestPath = root / std::filesystem::path(fixtureName) / "plugin.toml";
+    const std::string manifest = "id = \"me/"
+        + std::string(fixtureName)
+        + "\"\n"
+          "name = \"Invalid Numeric Setting\"\n"
+          "plugin_api = 6\n"
+          "[[setting]]\n"
+          "key = \"value\"\n"
+          "label_key = \"settings.value.label\"\n"
+        + std::string(settingBody);
+    bool result = writeText(manifestPath, manifest);
+    error.clear();
+    const auto parsed = scripting::parsePluginManifest(manifestPath, &error);
+    result = expect(!parsed.has_value(), "invalid numeric setting should fail") && result;
+    result = expectEq(error, expectedError, "invalid numeric setting error") && result;
+    return result;
+  };
+
+  ok = expectInvalidNumericSetting(
+           "double-string-default", "type = \"double\"\ndefault = \"fast\"\n",
+           "setting 'value' double default must be a finite number"
+       )
+      && ok;
+  ok = expectInvalidNumericSetting(
+           "double-zero-step", "type = \"double\"\ndefault = 0.5\nstep = 0.0\n",
+           "setting 'value' step must be greater than zero"
+       )
+      && ok;
+  ok = expectInvalidNumericSetting(
+           "double-inverted-range", "type = \"double\"\ndefault = 0.5\nmin = 1.0\nmax = 0.0\n",
+           "setting 'value' min must be less than or equal to max"
+       )
+      && ok;
+  ok = expectInvalidNumericSetting(
+           "int-float-min", "type = \"int\"\ndefault = 2\nmin = 0.5\n", "setting 'value' min must be an integer"
+       )
+      && ok;
+  ok = expectInvalidNumericSetting(
+           "string-numeric-bound", "type = \"string\"\ndefault = \"value\"\nmin = 0\n",
+           "setting 'value' min is only valid for int or double"
+       )
       && ok;
 
   // Panel width/height: number, "fill", or a loud error — never a silent default.
@@ -960,6 +1091,83 @@ int main() {
   if (noCapture.has_value() && !noCapture->entries.empty()) {
     ok = expect(noCapture->entries.front().panelCaptureKeys.empty(), "capture_keys should default to empty") && ok;
   }
+
+  // A [[widget]] entry can declare bar gesture defaults, kept as raw strings: the gesture
+  // vocabulary and the action grammar belong to the bar, not to the manifest parser.
+  const auto actionsPath = root / "actions" / "plugin.toml";
+  ok = expect(
+           writeText(
+               actionsPath,
+               "id = \"me/actions\"\n"
+               "name = \"Actions\"\n"
+               "plugin_api = 14\n"
+               "[[widget]]\n"
+               "id = \"bar\"\n"
+               "entry = \"bar.luau\"\n"
+               "[widget.actions]\n"
+               "middle = \"exec playerctl pause\"\n"
+               "scroll_up = \"volume-up\"\n"
+           ) && !actionsPath.empty(),
+           "failed to write the actions manifest"
+       )
+      && ok;
+  error.clear();
+  const auto actions = scripting::parsePluginManifest(actionsPath, &error);
+  ok = expect(actions.has_value(), error.empty() ? "a widget with actions should parse" : error.c_str()) && ok;
+  if (actions.has_value() && !actions->entries.empty()) {
+    const auto& declared = actions->entries.front().widgetActions;
+    ok = expect(declared.size() == 2, "both declared actions should survive") && ok;
+    const auto middle = std::ranges::find(declared, "middle", &std::pair<std::string, std::string>::first);
+    ok = expect(middle != declared.end(), "the middle action should be recorded") && ok;
+    if (middle != declared.end()) {
+      ok = expectEq(middle->second, "exec playerctl pause", "the middle action should keep its command verbatim") && ok;
+    }
+  }
+
+  // The capability is gated on its API level, like every other manifest addition.
+  const auto oldApiPath = root / "old-api" / "plugin.toml";
+  ok = expect(
+           writeText(
+               oldApiPath,
+               "id = \"me/old-api\"\n"
+               "name = \"Old Api\"\n"
+               "plugin_api = 13\n"
+               "[[widget]]\n"
+               "id = \"bar\"\n"
+               "entry = \"bar.luau\"\n"
+               "[widget.actions]\n"
+               "middle = \"volume-mute\"\n"
+           ),
+           "failed to write the old api manifest"
+       )
+      && ok;
+  error.clear();
+  ok = expect(
+           !scripting::parsePluginManifest(oldApiPath, &error).has_value(),
+           "actions below its plugin_api level should fail"
+       )
+      && ok;
+
+  // A non-string action is a manifest error rather than something to guess at.
+  const auto badActionPath = root / "bad-action" / "plugin.toml";
+  ok = expect(
+           writeText(
+               badActionPath,
+               "id = \"me/bad-action\"\n"
+               "name = \"Bad Action\"\n"
+               "plugin_api = 14\n"
+               "[[widget]]\n"
+               "id = \"bar\"\n"
+               "entry = \"bar.luau\"\n"
+               "[widget.actions]\n"
+               "middle = 42\n"
+           ),
+           "failed to write the bad action manifest"
+       )
+      && ok;
+  error.clear();
+  ok = expect(!scripting::parsePluginManifest(badActionPath, &error).has_value(), "a non-string action should fail")
+      && ok;
 
   std::error_code ec;
   std::filesystem::remove_all(root, ec);

@@ -80,6 +80,9 @@ public:
 
   // Persisted wallpaper paths (written to settings.toml, app-managed).
   [[nodiscard]] std::string getWallpaperPath(const std::string& connectorName) const;
+  [[nodiscard]] const std::unordered_map<std::string, std::string>& monitorWallpaperPaths() const {
+    return m_monitorWallpaperPaths;
+  }
   [[nodiscard]] std::string getDefaultWallpaperPath() const;
   // Last applied wallpaper, else default. Drives palette generation and template previews.
   [[nodiscard]] std::string getPaletteWallpaperPath() const;
@@ -176,6 +179,10 @@ private:
       const std::vector<std::string>& path, const toml::table& overrides, const Config* parsedWith = nullptr
   ) const;
   [[nodiscard]] std::size_t overridePreserveDepthForPath(const std::vector<std::string>& path) const;
+  // A capsule_group override replaces the whole array, so clearing a lane override can restore a
+  // config-file lane whose group token the override no longer defines. Rewrites the affected
+  // arrays in `candidate` so every referenced group resolves again.
+  void reconcileCapsuleGroupOverrides(toml::table& candidate) const;
   void setupWatch();
   // Reconciles inotify watches for [include]d files: watches the parent dir of
   // every loaded file plus every directory named in an [include].files list, and

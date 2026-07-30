@@ -57,6 +57,7 @@ public:
   bool onKeyboardEvent(const KeyboardEvent& event);
 
   void refreshPanel(std::string_view id);
+  void requestAnimationFrame(std::string_view id);
   void onConfigReloaded();
   void onIconThemeChanged();
   void refresh();

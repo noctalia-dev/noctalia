@@ -11,7 +11,7 @@
 TestWidget::TestWidget(wl_output* /*output*/) {}
 
 void TestWidget::create() {
-  auto area = std::make_unique<InputArea>();
+  auto area = ui::inputArea({});
   area->setOnClick([this](const InputArea::PointerData& /*data*/) { requestPanelToggle("test"); });
 
   area->addChild(

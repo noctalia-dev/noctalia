@@ -10,7 +10,7 @@ const noctalia::bar::WidgetDefinition<AudioVisualizerWidget::Options>& audioVisu
           field<&Options::width>({
               .key = "width",
               .minValue = 8.0,
-              .maxValue = 400.0,
+              .maxValue = 2048.0,
               .step = 1.0,
           }),
           field<&Options::bands>({

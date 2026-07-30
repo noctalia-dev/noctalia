@@ -18,8 +18,6 @@ public:
     bool showWhenIdle = false;
     ColorSpec color1 = colorSpecFromRole(ColorRole::Primary);
     ColorSpec color2 = colorSpecFromRole(ColorRole::Primary);
-
-    bool operator==(const Options&) const = default;
   };
 
   AudioVisualizerWidget(PipeWireSpectrum* spectrum, Options options);

@@ -28,6 +28,8 @@ struct ContextMenuControlEntry {
   bool checkmark = false;
   bool radio = false;
   std::int32_t toggleState = -1;
+  // Explicit hierarchy depth; each level adds one medium spacing step before row content.
+  std::uint8_t indentLevel = 0;
   // Optional leading visual (dropdown-style rows): a small color dot, or a palette swatch strip.
   std::optional<ColorSpec> indicatorColor;
   ColorSwatchPreview swatchPreview;

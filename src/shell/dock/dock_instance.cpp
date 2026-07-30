@@ -208,12 +208,12 @@ namespace shell::dock {
     const auto concave = shell::dock::dockConcaveShape(cfg);
 
     if (instance.sceneRoot == nullptr) {
-      instance.sceneRoot = std::make_unique<Node>();
+      instance.sceneRoot = ui::node({});
       instance.sceneRoot->setAnimationManager(&instance.animations);
       instance.sceneRoot->setSize(w, h);
       instance.sceneRoot->setOpacity(1.0f);
 
-      auto slide = std::make_unique<Node>();
+      auto slide = ui::node({});
       slide->setParticipatesInLayout(false);
       instance.slideRoot = instance.sceneRoot->addChild(std::move(slide));
 
@@ -410,7 +410,7 @@ namespace shell::dock {
     }
     const float current = inst.hideOpacity;
     inst.hideAnimId = inst.animations.animate(
-        current, 0.0f, Style::animSlow, Easing::EaseInQuad,
+        current, 0.0f, Style::animNormal, Easing::EaseInQuad,
         [&inst, &config](float v) {
           inst.hideOpacity = v;
           const auto& cfg = config.config().dock;

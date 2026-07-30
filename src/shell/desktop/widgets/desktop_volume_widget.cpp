@@ -42,7 +42,7 @@ DesktopVolumeWidget::DesktopVolumeWidget(PipeWireService* audio, Options options
       m_scrollStep(std::clamp(static_cast<float>(options.scrollStepPercent) / 100.0f, 0.01f, 0.25f)) {}
 
 void DesktopVolumeWidget::create() {
-  auto area = std::make_unique<InputArea>();
+  auto area = ui::inputArea({});
   // Whole card: scroll only. Mute is on the glyph hit target below.
   area->setAcceptedButtons(0);
   area->setOnAxis([this](const InputArea::PointerData& data) {
@@ -91,7 +91,7 @@ void DesktopVolumeWidget::create() {
       })
   );
 
-  auto glyphHit = std::make_unique<InputArea>();
+  auto glyphHit = ui::inputArea({});
   glyphHit->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT}));
   glyphHit->setOnClick([this](const InputArea::PointerData& data) {
     if (data.button != BTN_LEFT) {
@@ -114,7 +114,7 @@ void DesktopVolumeWidget::create() {
           .color = m_trackColor,
       })
   );
-  auto fillClip = std::make_unique<Node>();
+  auto fillClip = ui::node({});
   fillClip->setClipChildren(true);
   m_fillClip = glyphHit->addChild(std::move(fillClip));
   m_fillClip->addChild(
@@ -425,7 +425,7 @@ void DesktopVolumeWidget::applyColors() {
 }
 
 void DesktopVolumeWidget::applyShadow() {
-  const Color shadowColor(0.0f, 0.0f, 0.0f, kShadowAlpha);
+  const ColorSpec shadowColor = colorSpecFromRole(ColorRole::Shadow, kShadowAlpha);
   const auto applyLabel = [&](Label* label) {
     if (label == nullptr) {
       return;

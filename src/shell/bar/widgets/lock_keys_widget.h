@@ -19,8 +19,6 @@ public:
     bool showScrollLock = false;
     bool hideWhenOff = false;
     DisplayMode displayMode = DisplayMode::Short;
-
-    bool operator==(const Options&) const = default;
   };
 
   LockKeysWidget(LockKeysService* lockKeys, Options options);

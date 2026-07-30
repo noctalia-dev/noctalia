@@ -105,9 +105,9 @@ sudo pacman -S meson gcc just \
   libxkbcommon glib2 \
   libsecret libsodium \
   sdbus-cpp libpipewire wireplumber polkit \
-  pam curl libwebp librsvg \
+  pam curl libwebp libjxl libsndfile librsvg \
   libqalculate libxml2 \
-  md4c tomlplusplus \
+  md4c tomlplusplus libical \
   nlohmann-json stb \
   jemalloc
 ```
@@ -123,9 +123,9 @@ sudo dnf install meson gcc-c++ just \
   libxkbcommon-devel glib2-devel \
   libsecret-devel libsodium-devel \
   sdbus-cpp-devel pipewire-devel wireplumber-devel \
-  pam-devel polkit-devel libcurl-devel libwebp-devel librsvg2-devel \
+  pam-devel polkit-devel libcurl-devel libwebp-devel libjxl-devel libsndfile-devel librsvg2-devel \
   libqalculate-devel libxml2-devel \
-  md4c-devel tomlplusplus-devel \
+  md4c-devel tomlplusplus-devel libical-devel \
   json-devel stb_image_resize2-devel stb_image_write-devel \
   jemalloc-devel
 ```
@@ -141,9 +141,9 @@ sudo zypper install meson gcc-c++ just \
   libxkbcommon-devel glib2-devel \
   libsecret-devel libsodium-devel \
   sdbus-cpp-devel pipewire-devel wireplumber-devel \
-  pam-devel polkit-devel libcurl-devel libwebp-devel librsvg-devel \
+  pam-devel polkit-devel libcurl-devel libwebp-devel libjxl-devel libsndfile-devel librsvg-devel \
   libqalculate-devel libxml2-devel \
-  md4c-devel tomlplusplus-devel \
+  md4c-devel tomlplusplus-devel libical-devel \
   nlohmann_json-devel stb-devel \
   jemalloc-devel
 ```
@@ -160,9 +160,9 @@ sudo apt install meson g++ just \
   libsecret-1-dev libsodium-dev \
   libsdbus-c++-dev libpipewire-0.3-dev libwireplumber-0.5-dev \
   libpam0g-dev libpolkit-agent-1-dev libpolkit-gobject-1-dev \
-  libcurl4-openssl-dev libwebp-dev librsvg2-dev \
+  libcurl4-openssl-dev libwebp-dev libjxl-dev libsndfile1-dev librsvg2-dev \
   libqalculate-dev libxml2-dev \
-  libmd4c-dev libtomlplusplus-dev \
+  libmd4c-dev libtomlplusplus-dev libical-dev \
   nlohmann-json3-dev libstb-dev \
   libjemalloc-dev
 ```
@@ -176,19 +176,20 @@ sudo xbps-install meson ninja pkg-config git \
   pango-devel fontconfig-devel freetype-devel \
   harfbuzz-devel libxkbcommon-devel pipewire-devel wireplumber-devel \
   libsecret-devel libsodium-devel \
-  libcurl-devel pam-devel libwebp-devel \
+  libcurl-devel pam-devel libwebp-devel libjxl-devel libsndfile-devel \
   basu-devel sdbus-c++-devel \
-  libmd4c-devel tomlplusplus-devel \
+  libmd4c-devel tomlplusplus-devel libical-devel \
   json-c++ stb \
   polkit-devel librsvg-devel libqalculate-devel libxml2-devel jemalloc-devel
 ```
 
 Vendored dependencies, with no system package needed: `Wuffs`,
-`Luau`, `dr_wav`, `fzy`, and Material Color Utilities.
+`Luau`, `fzy`, and Material Color Utilities.
 
-System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and thumbnail encoding. Wuffs
-handles the other supported raster image formats. `libqalculate` powers the launcher calculator (arithmetic, unit and
-currency conversion).
+System packages required beyond the Wayland/GL stack: `libwebp` handles WebP decoding and thumbnail encoding,
+`libjxl` handles JPEG XL decoding, `libsndfile` decodes shell sound effects (WAV, FLAC, Ogg/Vorbis, Opus, MP3, and
+AIFF), and Wuffs handles the other supported raster image formats. `libqalculate` powers
+the launcher calculator (arithmetic, unit and currency conversion).
 
 Polkit agent support requires development files that provide the `polkit-agent-1` and `polkit-gobject-1` pkg-config
 modules. Some distros ship these in the runtime `polkit` package, while split-package distros use names such as
@@ -264,9 +265,10 @@ just build
 just run
 ```
 
-Unit tests are built automatically for debug builds and skipped for release builds. Build and run them with
-`just test` (use `just test release` to force them on for a release build). Override the default with the meson
-`-Dtests=enabled|disabled|auto` option.
+Unit tests are not compiled by `just build`, which targets only the Noctalia executable. Build and run them explicitly
+with `just test` (use `just test release` to force them on for a release build). Direct Meson users can control test
+target generation with the `-Dtests=enabled|disabled|auto` option.
+Production sources compile once into an internal static library shared by the shell and test executables.
 
 Meson installs the binary and shipped assets using the normal prefix layout:
 

@@ -11,6 +11,7 @@
 #include "ui/controls/graph.h"
 #include "ui/palette.h"
 #include "ui/style.h"
+#include "util/file_utils.h"
 
 #include <algorithm>
 #include <array>
@@ -174,15 +175,19 @@ namespace {
 
 } // namespace
 
-SysmonWidget::SysmonWidget(SystemMonitorService* monitor, ConfigService& configService, SysmonWidgetOptions options)
+SysmonWidget::SysmonWidget(SystemMonitorService* monitor, ConfigService& configService, Options options)
     : m_monitor(monitor), m_stat(options.stat), m_displayMode(options.displayMode),
       m_highlightColor(options.highlightColor), m_configService(configService),
       m_showLabel(options.showLabel && options.displayMode != SysmonDisplayMode::None),
-      m_labelMinWidth(options.labelMinWidth), m_diskPath(std::move(options.diskPath)),
+      m_labelMinWidth(static_cast<float>(options.labelMinWidth)),
+      m_diskPath(FileUtils::expandUserPath(options.diskPath).string()),
       m_networkInterface(std::move(options.networkInterface)), m_networkSpeedUnit(options.networkSpeedUnit),
-      m_networkSpeedLabelStyle(options.networkSpeedLabelStyle), m_glyphOverride(std::move(options.glyph)),
-      m_customImage(std::move(options.customImage)), m_showUnits(options.showUnits),
-      m_glyphPosition(options.glyphPosition) {
+      m_networkSpeedLabelStyle(
+          options.networkSpeedCompact ? FormatUnits::ByteRateLabelStyle::Compact : FormatUnits::ByteRateLabelStyle::Full
+      ),
+      m_glyphOverride(std::move(options.glyph)),
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
+      m_showUnits(options.showUnits), m_glyphPosition(options.glyphPosition) {
   if (m_monitor != nullptr) {
     if (needsCpuTemp(m_stat)) {
       m_monitor->retainCpuTemp();
@@ -223,11 +228,7 @@ SysmonWidget::~SysmonWidget() {
 }
 
 void SysmonWidget::create() {
-  auto container = std::make_unique<InputArea>();
-  container->setOnClick([this](const InputArea::PointerData& /*data*/) {
-    requestPanelToggle("control-center", "system");
-  });
-
+  auto container = ui::inputArea({});
   std::unique_ptr<Node> glyphNode;
   if (m_customImage.enabled()) {
     glyphNode = ui::image({.out = &m_image, .fit = ImageFit::Contain});
@@ -345,7 +346,7 @@ Color SysmonWidget::currentValueColor(ColorSpec baseColor) {
   const Color highlight = resolveColorSpec(m_highlightColor);
   const auto [activityThreshold, criticalThreshold] = currentThresholds();
   const auto factor = static_cast<float>(gradientFactor(currentGradientValue(), activityThreshold, criticalThreshold));
-  return lerpColor(base, highlight, factor);
+  return lerpHsv(base, highlight, factor);
 }
 
 void SysmonWidget::syncIcon(Renderer& renderer) {

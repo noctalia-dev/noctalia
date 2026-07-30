@@ -36,7 +36,7 @@ public:
   bool pointerButton(float x, float y, std::uint32_t button, bool pressed);
   bool pointerAxis(
       float x, float y, std::uint32_t axis, std::uint32_t axisSource, double value, std::int32_t discrete,
-      std::int32_t value120, float lines
+      std::int32_t value120, float lines, std::uint32_t axisGestureSerial = 0
   );
   void cancelPointerCapture();
 

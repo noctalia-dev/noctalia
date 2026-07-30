@@ -43,6 +43,12 @@ namespace settings {
     [[nodiscard]] std::unique_ptr<Node>
     makeSearchPicker(const SearchPickerSetting& setting, std::string title, std::vector<std::string> path);
 
+    // One gesture binding: a picker over Default / Disabled / every bindable command / a free-form
+    // shell command, plus an argument field when the choice takes one. Shared by every surface that
+    // binds gestures (bar widgets, the bar dead zone), so they all behave identically.
+    [[nodiscard]] std::unique_ptr<Node>
+    makeGestureActionRow(const GestureActionSetting& setting, const std::string& title, std::vector<std::string> path);
+
     [[nodiscard]] std::unique_ptr<Flex> makeSlider(
         double value, double minValue, double maxValue, double step, std::vector<std::string> path,
         bool integerValue = false,
@@ -57,6 +63,8 @@ namespace settings {
     [[nodiscard]] std::unique_ptr<Input> makeText(
         const std::string& value, const std::string& placeholder, std::vector<std::string> path, float width = 0.0f
     );
+
+    [[nodiscard]] std::unique_ptr<Node> makePathBrowse(const TextSetting& setting, std::vector<std::string> path);
 
     [[nodiscard]] std::unique_ptr<Input>
     makeOptionalNumber(const OptionalNumberSetting& setting, std::vector<std::string> path);

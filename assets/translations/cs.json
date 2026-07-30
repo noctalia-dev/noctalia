@@ -500,7 +500,6 @@
         "show-keyboard-layout": "Rozložení klávesnice",
         "show-label": "Zobrazit popisek",
         "show-login-button": "Tlačítko přihlášení",
-        "show-password-hint": "Nápověda hesla",
         "show-when-idle": "Zobrazit při nečinnosti",
         "stat": "Statistika",
         "stat-cpu-temp": "Teplota CPU",
@@ -1521,26 +1520,6 @@
         "corner-top-right": {
           "description": "Poloměr horního pravého rohu lišty; záporné hodnoty vytvoří konkávní roh, pokud tento roh nesměřuje k okraji obrazovky"
         },
-        "dead-zone-command": {
-          "description": "Příkaz shellu spuštěný při kliknutí levým tlačítkem do okraje lišty mimo sekce widgetů",
-          "label": "Levé kliknutí"
-        },
-        "dead-zone-middle-command": {
-          "description": "Příkaz shellu spuštěný při kliknutí prostředním tlačítkem do okraje lišty mimo sekce widgetů",
-          "label": "Prostřední kliknutí"
-        },
-        "dead-zone-right-command": {
-          "description": "Příkaz shellu spuštěný při kliknutí pravým tlačítkem; ponechte prázdné pro otevření Ovládacího centra",
-          "label": "Pravé kliknutí"
-        },
-        "dead-zone-scroll-down-command": {
-          "description": "Příkaz shellu spuštěný při rolování dolů",
-          "label": "Rolování dolů"
-        },
-        "dead-zone-scroll-up-command": {
-          "description": "Příkaz shellu spuštěný při rolování nahoru",
-          "label": "Rolování nahoru"
-        },
         "edge-margin": {
           "description": "Mezera mezi lištou a okrajem obrazovky, na kterém sedí. Nastavením na 0 px ji přisadíte přímo k okraji."
         },
@@ -2406,10 +2385,6 @@
           "label": "Vlastní příkaz spouštěče",
           "placeholder": "$CMD"
         },
-        "middle-click-opens-widget-settings": {
-          "description": "Otevřít nastavení widgetu lišty z lišty kliknutím prostředním tlačítkem",
-          "label": "Prostřední kliknutí otevírá nastavení widgetu"
-        },
         "niri-overview-type-to-launch": {
           "description": "Otevřít spouštěč při psaní v přehledu niri; používá malý povrch pro klávesové zaměření, dokud je přehled otevřený",
           "label": "Psaním spustit"
@@ -2756,8 +2731,6 @@
         "output": "Výstup",
         "ram-percent": "Procento RAM",
         "ram-used": "Využitá RAM",
-        "screenshot-primary-fullscreen": "Celá obrazovka",
-        "screenshot-primary-region": "Oblast",
         "shared": "Sdílené",
         "short": "Krátký",
         "swap-percent": "Procento odkládacího prostoru",
@@ -2847,10 +2820,6 @@
           "description": "Druhá barva přechodu ve vizualizéru",
           "label": "Barva dva"
         },
-        "command": {
-          "description": "Příkaz shellu spuštěný při kliknutí levým tlačítkem na toto tlačítko",
-          "label": "Příkaz levého kliknutí"
-        },
         "custom-image": {
           "description": "Cesta k vlastnímu obrázku. Ponechte prázdné pro použití ikony.",
           "dialog-title": "Vybrat vlastní obrázek",
@@ -2863,10 +2832,6 @@
         "custom-labels": {
           "description": "Namapovat názvy rozložení klávesnice na vlastní popisky",
           "label": "Vlastní popisky"
-        },
-        "cycle-command": {
-          "description": "Příkaz spuštěný při přepínání rozložení klávesnice",
-          "label": "Příkaz pro přepínání"
         },
         "detached-panel": {
           "description": "Otevřít zásuvku jako plovoucí panel s vlastním pozadím místo sloučení s lištou",
@@ -3057,10 +3022,6 @@
           "description": "Regulární výraz pro názvy aplikací mikrofonu, které se mají ignorovat",
           "label": "Regulární výraz filtru mikrofonu"
         },
-        "middle-command": {
-          "description": "Příkaz shellu spuštěný při kliknutí prostředním tlačítkem na toto tlačítko. Pokud je nastaven, prostřední kliknutí otevře tento příkaz místo nastavení widgetu.",
-          "label": "Příkaz prostředního kliknutí"
-        },
         "min-length": {
           "description": "Minimální délka widgetu v pixelech",
           "label": "Min. délka"
@@ -3110,14 +3071,6 @@
           "description": "ID položek systémové lišty, které zůstávají viditelné v liště, když je povolen režim zásuvky",
           "label": "Připnuté položky"
         },
-        "primary-click": {
-          "description": "Akce provedená při kliknutí levým tlačítkem na tlačítko lišty",
-          "label": "Primární kliknutí"
-        },
-        "right-command": {
-          "description": "Příkaz shellu spuštěný při kliknutí pravým tlačítkem na toto tlačítko",
-          "label": "Příkaz pravého kliknutí"
-        },
         "scale": {
           "description": "Zvětšit nebo zmenšit tento widget vzhledem k měřítku obsahu lišty",
           "label": "Měřítko"
@@ -3129,18 +3082,6 @@
         "script": {
           "description": "Cesta ke skriptu lua",
           "label": "Skript"
-        },
-        "scroll-down-command": {
-          "description": "Příkaz shellu spuštěný při rolování dolů nad tímto tlačítkem",
-          "label": "Příkaz rolování dolů"
-        },
-        "scroll-step": {
-          "description": "Procentuální změna aplikovaná při každém kroku kolečka myši",
-          "label": "Krok rolování"
-        },
-        "scroll-up-command": {
-          "description": "Příkaz shellu spuštěný při rolování nahoru nad tímto tlačítkem",
-          "label": "Příkaz rolování nahoru"
         },
         "show-active-indicator": {
           "description": "Zobrazit malou tečku pod ikonou aktivního okna v hlavním panelu.",

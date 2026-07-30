@@ -12,6 +12,7 @@
 
 #include <chrono>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -36,6 +37,7 @@ public:
   void onFontChanged();
   void onThemeChanged();
   void requestLayout();
+  void setClosedCallback(std::function<void()> callback);
   [[nodiscard]] bool isOpen() const noexcept { return m_visible; }
 
   [[nodiscard]] bool onPointerEvent(const PointerEvent& event);
@@ -113,4 +115,5 @@ private:
   std::unique_ptr<FocusGrab> m_focusGrab;
 
   Timer m_retryTimer;
+  std::function<void()> m_closedCallback;
 };

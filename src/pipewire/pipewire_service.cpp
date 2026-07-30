@@ -2060,7 +2060,7 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setVolume(std::clamp(*amount, 0.0f, maxVolume()));
         return "ok\n";
       },
-      "volume-set <value>", "Set speaker volume"
+      "<value>", "Set speaker volume"
   );
 
   ipc.registerHandler(
@@ -2083,7 +2083,7 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setVolume(relativeAdjustTarget(1, *step, 1.0f, sink->volume, maxVolume()));
         return "ok\n";
       },
-      "volume-up [step]", "Increase speaker volume"
+      "[step]", "Increase speaker volume"
   );
 
   ipc.registerHandler(
@@ -2106,7 +2106,7 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setVolume(relativeAdjustTarget(2, *step, -1.0f, sink->volume, maxVolume()));
         return "ok\n";
       },
-      "volume-down [step]", "Decrease speaker volume"
+      "[step]", "Decrease speaker volume"
   );
 
   ipc.registerHandler(
@@ -2118,7 +2118,7 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setMuted(!sink->muted);
         return "ok\n";
       },
-      "volume-mute", "Toggle speaker mute"
+      "", "Toggle speaker mute"
   );
 
   ipc.registerHandler(
@@ -2140,7 +2140,7 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setMicVolume(std::clamp(*amount, 0.0f, maxVolume()));
         return "ok\n";
       },
-      "mic-volume-set <value>", "Set microphone volume"
+      "<value>", "Set microphone volume"
   );
 
   ipc.registerHandler(
@@ -2163,7 +2163,7 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setMicVolume(relativeAdjustTarget(3, *step, 1.0f, source->volume, maxVolume()));
         return "ok\n";
       },
-      "mic-volume-up [step]", "Increase microphone volume"
+      "[step]", "Increase microphone volume"
   );
 
   ipc.registerHandler(
@@ -2186,7 +2186,7 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setMicVolume(relativeAdjustTarget(4, *step, -1.0f, source->volume, maxVolume()));
         return "ok\n";
       },
-      "mic-volume-down [step]", "Decrease microphone volume"
+      "[step]", "Decrease microphone volume"
   );
 
   ipc.registerHandler(
@@ -2198,6 +2198,6 @@ void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) 
         setMicMuted(!source->muted);
         return "ok\n";
       },
-      "mic-mute", "Toggle microphone mute"
+      "", "Toggle microphone mute"
   );
 }

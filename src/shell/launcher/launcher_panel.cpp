@@ -852,8 +852,8 @@ void LauncherPanel::create() {
       .flexGrow = 1.0f,
       .visible = false,
       .participatesInLayout = false,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](ScrollView& scrollView) {
-        scrollView.setCardStyle(scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](ScrollView& scrollView) {
+        scrollView.setCardStyle(scale, opacity);
       },
   });
   auto* detailContent = detailScroll->content();
@@ -1034,7 +1034,7 @@ void LauncherPanel::onPanelCardOpacityChanged(float opacity) {
     m_categoryFilter->setSurfaceOpacity(opacity);
   }
   if (m_detailScroll != nullptr) {
-    m_detailScroll->setCardStyle(contentScale(), opacity, panelBordersEnabled());
+    m_detailScroll->setCardStyle(contentScale(), opacity);
   }
 }
 

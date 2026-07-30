@@ -2,6 +2,7 @@
 
 #include "render/scene/node.h"
 #include "ui/palette.h"
+#include "ui/style.h"
 
 #include <optional>
 #include <unordered_set>
@@ -62,7 +63,9 @@ public:
   void setSoftness(float softness);
 
   // Default app card chrome: filled surface variant with a soft outline.
-  void setCardStyle(float scale = 1.0f, float fillOpacity = 1.0f, bool showBorder = true);
+  // Section card background. The outline follows the [shell].card_borders
+  // toggle unless a caller passes an explicit showBorder.
+  void setCardStyle(float scale = 1.0f, float fillOpacity = 1.0f, bool showBorder = Style::cardBordersEnabled());
 
   void setMinWidth(float minWidth);
   void setMinHeight(float minHeight);

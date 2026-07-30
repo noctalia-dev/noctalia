@@ -1,12 +1,13 @@
 #include "shell/bar/widgets/spacer_widget.h"
 
 #include "render/scene/node.h"
+#include "ui/builders.h"
 
 SpacerWidget::SpacerWidget(bool verticalBar, Options options)
     : m_fixedLength(static_cast<float>(options.length)), m_verticalBar(verticalBar) {}
 
 void SpacerWidget::create() {
-  auto spacer = std::make_unique<Node>();
+  auto spacer = ui::node({});
   spacer->setSize(0.0f, 0.0f);
   spacer->setHitTestVisible(false);
   setRoot(std::move(spacer));

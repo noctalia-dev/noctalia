@@ -11,8 +11,6 @@ class NotificationWidget : public Widget {
 public:
   struct Options {
     bool hideWhenNoUnread = false;
-
-    bool operator==(const Options&) const = default;
   };
 
   NotificationWidget(NotificationManager* manager, wl_output* output, Options options);
@@ -20,6 +18,7 @@ public:
   void create() override;
 
 private:
+  void onGestureDispatch(noctalia::bar::Gesture gesture, const noctalia::bar::WidgetAction& action) override;
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void refreshIndicatorState();

@@ -28,10 +28,12 @@
 #include <vector>
 
 class Box;
+class AsyncTextureCache;
 class Button;
 class AccountsService;
 class CalendarService;
 class ClipboardService;
+class IpcService;
 class ConfigService;
 class CompositorPlatform;
 class DependencyService;
@@ -63,6 +65,9 @@ public:
 
   void open(std::string context = "");
   void openToBarWidget(std::string barName, std::string widgetName);
+  // Opens the window on the plugins section with the plugin's settings editor.
+  // Returns false when the plugin is unknown, disabled, or exposes no settings.
+  [[nodiscard]] bool openToPlugin(std::string pluginId);
   void close();
   [[nodiscard]] bool isOpen() const noexcept { return m_surface != nullptr && m_surface->isRunning(); }
   [[nodiscard]] wl_surface* wlSurface() const noexcept {
@@ -95,7 +100,11 @@ public:
     m_saveWallpaperPaletteAsCustom = std::move(callback);
   }
   void setCalendarService(CalendarService* service) { m_calendarService = service; }
+  // Source for the bar widget gesture action picker.
+  void setIpcService(IpcService* service) { m_ipcService = service; }
   void setClipboardService(ClipboardService* service) { m_clipboardService = service; }
+  // Backs plugin-store thumbnails; trimmed when the window closes.
+  void setAsyncTextureCache(AsyncTextureCache* cache) { m_asyncTextures = cache; }
 
   void onSecondTick();
   void onIdleLiveStatusChanged();
@@ -121,6 +130,8 @@ private:
       const std::vector<std::string>& availableBars
   );
   [[nodiscard]] std::vector<settings::SelectOption> batteryDeviceOptions() const;
+  // Bindable IPC commands, for the bar widget gesture action picker.
+  [[nodiscard]] std::vector<settings::GestureActionOption> gestureActionCatalog() const;
   [[nodiscard]] settings::SettingsContentContext makeContentContext(
       const Config& cfg, const BarConfig* selectedBar, const BarMonitorOverride* selectedMonitorOverride
   );
@@ -137,7 +148,7 @@ private:
   requestContentRebuild(bool refreshRegistry = false, bool refreshFilterRow = false, bool rebuildEditorSheet = false);
   void markPluginListDirty();
   void refreshPluginListIfNeeded();
-  void maybeOpenPendingWidgetInspector();
+  void maybeOpenPendingEditor();
   void applyPendingContentScrollTarget(float margin);
   void scrollFocusedAreaIntoView(class InputArea* area);
   void scrollSidebarNodeIntoView(const Node* node);
@@ -164,6 +175,7 @@ private:
   void openPluginSourceCreateEditor(std::optional<PluginSourceConfig> existing = std::nullopt);
   void openPluginSettingsEditor(std::string pluginId);
   void openPluginStore();
+  void openCommunityTemplateStore();
   void openBarWidgetEditorSheet(
       std::string title, std::function<void(Flex&)> populate, std::function<void()> removeAction = nullptr
   );
@@ -209,6 +221,8 @@ private:
   AccountsService* m_accounts = nullptr;
   CalendarService* m_calendarService = nullptr;
   ClipboardService* m_clipboardService = nullptr;
+  IpcService* m_ipcService = nullptr;
+  AsyncTextureCache* m_asyncTextures = nullptr;
   Label* m_idleLiveStatusLabel = nullptr;
   std::vector<Label*> m_sessionActionSummaryLabels;
   std::shared_ptr<std::vector<SessionPanelActionConfig>> m_sessionActionsEditState;
@@ -256,10 +270,11 @@ private:
   Node* m_pendingContentScrollTarget = nullptr;
   std::string m_searchQuery;
   Timer m_searchDebounceTimer;
-  // Set by openToBarWidget (e.g. middle-click on a bar widget); consumed once the window holds
-  // keyboard focus so the sheet's grab popup gets a serial the compositor accepts.
+  // Set by openToBarWidget (e.g. middle-click on a bar widget) / openToPlugin; consumed once the
+  // window holds keyboard focus so the sheet's grab popup gets a serial the compositor accepts.
   std::string m_pendingOpenWidgetInspectorName;
-  int m_pendingOpenWidgetInspectorFrames = 0;
+  std::string m_pendingOpenPluginSettingsId;
+  int m_pendingEditorOpenFrames = 0;
   // When the editor sheet is opened programmatically (bar middle-click) there is no grab-valid serial,
   // so open it without an xdg_popup grab. Consumed by openBarWidgetEditorSheet.
   bool m_pendingEditorSheetNoGrab = false;
@@ -269,6 +284,13 @@ private:
   std::string m_pendingDeleteWidgetName;
   std::string m_pendingDeleteWidgetSettingPath;
   std::string m_renamingWidgetName;
+  // Gesture whose action row has a chosen command that still needs its argument typed.
+  std::string m_pendingGestureKey;
+  std::string m_pendingGestureVerb;
+  // The widget whose actions group is unfolded, empty when none. Keyed by widget rather than a
+  // plain flag so the group survives the rebuild an edit triggers, but starts folded on every
+  // other widget.
+  std::string m_actionsExpandedFor;
   std::string m_creatingBarName;
   std::string m_renamingBarName;
   std::string m_pendingDeleteBarName;

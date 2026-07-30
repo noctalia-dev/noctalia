@@ -8,27 +8,11 @@
 #include "ui/style.h"
 
 #include <memory>
-#include <wayland-client-protocol.h>
 
-PowerProfileWidget::PowerProfileWidget(PowerProfilesService* powerProfiles, Options options)
-    : m_powerProfiles(powerProfiles), m_enableScroll(options.enableScroll) {}
+PowerProfileWidget::PowerProfileWidget(PowerProfilesService* powerProfiles) : m_powerProfiles(powerProfiles) {}
 
 void PowerProfileWidget::create() {
-  auto area = std::make_unique<InputArea>();
-  area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
-  // Left moves forward (toward performance), right moves backward (toward power-saver).
-  area->setOnClick([this](const InputArea::PointerData& data) { cycleProfile(data.button == BTN_RIGHT ? -1 : 1); });
-  area->setOnAxis([this](const InputArea::PointerData& data) {
-    if (!m_enableScroll || data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
-      return;
-    }
-    const float steps = data.scrollSteps();
-    if (steps == 0.0f) {
-      return;
-    }
-    // Scroll up moves forward; Wayland reports up as a negative delta.
-    cycleProfile(steps > 0.0f ? -1 : 1);
-  });
+  auto area = ui::inputArea({});
   m_area = area.get();
 
   area->addChild(
@@ -88,11 +72,4 @@ void PowerProfileWidget::syncState(Renderer& renderer) {
     rootNode->setOpacity(m_available ? 1.0f : 0.55f);
   }
   requestRedraw();
-}
-
-void PowerProfileWidget::cycleProfile(int direction) {
-  if (m_powerProfiles == nullptr) {
-    return;
-  }
-  (void)m_powerProfiles->cycleActiveProfile(direction);
 }

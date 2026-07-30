@@ -12,7 +12,7 @@ class Renderer;
 
 namespace control_center {
 
-  void applySectionCardStyle(Flex& card, float scale = 1.0f, float fillOpacity = 1.0f, bool showBorder = true);
+  void applySectionCardStyle(Flex& card, float scale = 1.0f, float fillOpacity = 1.0f);
   Label* addTitle(Flex& parent, const std::string& text, float scale = 1.0f);
   void addBody(Flex& parent, const std::string& text, float scale = 1.0f);
 
@@ -62,13 +62,6 @@ public:
   virtual bool dismissTransientUi() { return false; }
 
   void setContentScale(float scale) noexcept { m_contentScale = scale; }
-  void setPanelBordersEnabled(bool enabled) noexcept {
-    if (m_panelBordersEnabled == enabled) {
-      return;
-    }
-    m_panelBordersEnabled = enabled;
-    onPanelBordersChanged(enabled);
-  }
   void setPanelCardOpacity(float opacity) noexcept {
     const float clamped = std::clamp(opacity, 0.0f, 1.0f);
     if (m_panelCardOpacity == clamped) {
@@ -81,10 +74,8 @@ public:
 protected:
   [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
   [[nodiscard]] float panelCardOpacity() const noexcept { return m_panelCardOpacity; }
-  [[nodiscard]] bool panelBordersEnabled() const noexcept { return m_panelBordersEnabled; }
   [[nodiscard]] float scaled(float value) const noexcept { return value * m_contentScale; }
   virtual void onPanelCardOpacityChanged(float opacity) { (void)opacity; }
-  virtual void onPanelBordersChanged(bool enabled) { (void)enabled; }
   virtual void doLayout(Renderer& renderer, float contentWidth, float bodyHeight) {
     (void)renderer;
     (void)contentWidth;
@@ -95,5 +86,4 @@ protected:
 private:
   float m_contentScale = 1.0f;
   float m_panelCardOpacity = 1.0f;
-  bool m_panelBordersEnabled = true;
 };

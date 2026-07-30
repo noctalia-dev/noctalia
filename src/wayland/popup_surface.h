@@ -25,6 +25,7 @@ struct PopupSurfaceConfig {
   std::int32_t offsetY = 0;
   std::uint32_t serial = 0;
   bool grab = true;
+  bool reactive = false;
 };
 
 class PopupSurface : public Surface {

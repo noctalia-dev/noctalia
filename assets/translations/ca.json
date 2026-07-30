@@ -2088,10 +2088,6 @@
           "description": "Llança aplicacions en serveis systemd separats perquè no comparteixin el cgroup del Noctalia",
           "label": "Llança aplicacions com a serveis systemd"
         },
-        "middle-click-opens-widget-settings": {
-          "description": "Obre la configuració d'un widget de la barra des de la barra amb clic del mig",
-          "label": "El clic del mig obre la configuració del widget"
-        },
         "niri-overview-type-to-launch": {
           "description": "Obre el launcher en escriure a la vista general de niri; utilitza una petita superfície d'enfocament del teclat mentre la vista general està oberta",
           "label": "Escriu per llançar"
@@ -2409,8 +2405,6 @@
         "output": "Sortida",
         "ram-percent": "Percentatge RAM",
         "ram-used": "RAM utilitzada",
-        "screenshot-primary-fullscreen": "Pantalla completa",
-        "screenshot-primary-region": "Regió",
         "shared": "Compartit",
         "short": "Curt",
         "swap-percent": "Percentatge Swap",
@@ -2495,10 +2489,6 @@
           "description": "Segon color del degradat al visualitzador",
           "label": "Color dos"
         },
-        "command": {
-          "description": "Ordre de shell executada en fer clic esquerre en aquest botó",
-          "label": "Ordre del clic esquerre"
-        },
         "custom-image": {
           "description": "Camí a una imatge personalitzada. Deixa buit per utilitzar el glif de la icona.",
           "dialog-title": "Selecciona una imatge personalitzada",
@@ -2511,10 +2501,6 @@
         "custom-labels": {
           "description": "Mapeja noms de disposició de teclat a etiquetes personalitzades",
           "label": "Etiquetes personalitzades"
-        },
-        "cycle-command": {
-          "description": "Ordre executada en alternar les disposicions de teclat",
-          "label": "Ordre d'alternança"
         },
         "detached-panel": {
           "description": "Obre el calaix com a panell flotant amb el seu propi fons en lloc de fusionar-se amb la barra",
@@ -2689,10 +2675,6 @@
           "description": "Expressió regular per als noms d'aplicació de micròfon a ignorar",
           "label": "Regex de filtre de micròfon"
         },
-        "middle-command": {
-          "description": "Ordre de shell executada en fer clic del mig en aquest botó. Quan està configurat, el clic del mig obre aquesta ordre en lloc de la configuració del widget.",
-          "label": "Ordre del clic del mig"
-        },
         "min-length": {
           "description": "Longitud mínima del widget en píxels",
           "label": "Longitud mínima"
@@ -2726,14 +2708,6 @@
           "description": "IDs d'elements de safata que romanen visibles a la barra quan el mode calaix està activat",
           "label": "Elements fixats"
         },
-        "primary-click": {
-          "description": "Acció realitzada en fer clic esquerre al botó de la barra",
-          "label": "Clic principal"
-        },
-        "right-command": {
-          "description": "Ordre de shell executada en fer clic dret en aquest botó",
-          "label": "Ordre del clic dret"
-        },
         "scale": {
           "description": "Escala aquest widget en relació amb l'escala del contingut de la barra",
           "label": "Escala"
@@ -2745,18 +2719,6 @@
         "script": {
           "description": "Camí a l'script lua",
           "label": "Script"
-        },
-        "scroll-down-command": {
-          "description": "Ordre de shell executada en desplaçar cap avall sobre aquest botó",
-          "label": "Ordre de desplaçament avall"
-        },
-        "scroll-step": {
-          "description": "Canvi percentual aplicat a cada pas de la roda del ratolí",
-          "label": "Pas de desplaçament"
-        },
-        "scroll-up-command": {
-          "description": "Ordre de shell executada en desplaçar cap amunt sobre aquest botó",
-          "label": "Ordre de desplaçament amunt"
         },
         "show-active-indicator": {
           "description": "Mostra un petit punt sota la icona de la finestra activa a la barra de tasques.",

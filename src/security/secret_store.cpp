@@ -110,6 +110,14 @@ namespace security {
     using ErrorPtr = std::unique_ptr<GError, decltype(&g_error_free)>;
     using CancellablePtr = std::shared_ptr<GCancellable>;
 
+    struct SecretItemListDeleter {
+      void operator()(GList* items) const {
+        g_list_free_full(items, [](gpointer item) { g_object_unref(item); });
+      }
+    };
+
+    using SecretItemListPtr = std::unique_ptr<GList, SecretItemListDeleter>;
+
     HashTablePtr makeAttributes(const SecretStoreAttributes& attributes) {
       HashTablePtr table(g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free), &g_hash_table_unref);
       const auto insert = [&table](const char* key, const std::string& value) {
@@ -215,33 +223,56 @@ namespace security {
         return withCancellable(cancellation, [&attributes](GCancellable* cancellable) {
           auto table = makeAttributes(attributes);
           GError* rawError = nullptr;
-          SecretValuePtr value(
-              secret_password_lookupv_binary_sync(&schema(), table.get(), cancellable, &rawError), &secret_value_unref
+          const auto flags =
+              static_cast<SecretSearchFlags>(SECRET_SEARCH_ALL | SECRET_SEARCH_UNLOCK | SECRET_SEARCH_LOAD_SECRETS);
+          SecretItemListPtr items(
+              secret_service_search_sync(nullptr, &schema(), table.get(), flags, cancellable, &rawError)
           );
           ErrorPtr error(rawError, &g_error_free);
-          if (value == nullptr) {
-            if (error != nullptr) {
-              return resultFromError(error.get());
+          if (error != nullptr) {
+            return resultFromError(error.get());
+          }
+
+          bool lockedItemFound = false;
+          for (GList* node = items.get(); node != nullptr; node = node->next) {
+            auto* item = SECRET_ITEM(node->data);
+            if (secret_item_get_locked(item) != 0) {
+              lockedItemFound = true;
+              continue;
             }
+
+            SecretValue* value = secret_item_get_secret(item);
+            if (value == nullptr) {
+              return SecretStoreBackendResult{
+                  .status = SecretStoreStatus::BackendError,
+                  .errorCategory = SecretStoreErrorCategory::Protocol,
+              };
+            }
+            gsize length = 0;
+            const gchar* secret = secret_value_get(value, &length);
+            if (secret == nullptr) {
+              return SecretStoreBackendResult{
+                  .status = SecretStoreStatus::BackendError,
+                  .errorCategory = SecretStoreErrorCategory::Protocol,
+              };
+            }
+            const auto bytes = std::span(reinterpret_cast<const std::uint8_t*>(secret), length);
             return SecretStoreBackendResult{
-                .status = SecretStoreStatus::NotFound,
+                .status = SecretStoreStatus::Success,
                 .errorCategory = SecretStoreErrorCategory::None,
+                .value = SecureBuffer(bytes),
             };
           }
 
-          gsize length = 0;
-          const gchar* secret = secret_value_get(value.get(), &length);
-          if (secret == nullptr) {
+          if (lockedItemFound) {
             return SecretStoreBackendResult{
-                .status = SecretStoreStatus::BackendError,
-                .errorCategory = SecretStoreErrorCategory::Protocol,
+                .status = SecretStoreStatus::DeniedOrLocked,
+                .errorCategory = SecretStoreErrorCategory::Locked,
             };
           }
-          const auto bytes = std::span(reinterpret_cast<const std::uint8_t*>(secret), length);
           return SecretStoreBackendResult{
-              .status = SecretStoreStatus::Success,
+              .status = SecretStoreStatus::NotFound,
               .errorCategory = SecretStoreErrorCategory::None,
-              .value = SecureBuffer(bytes),
           };
         });
       }

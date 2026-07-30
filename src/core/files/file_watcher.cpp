@@ -59,7 +59,7 @@ FileWatcher::watch(const std::filesystem::path& filePath, Callback callback, Wat
 
   auto id = m_nextId++;
   m_watches[id] = {std::move(filename), std::move(callback), wd, trigger};
-  kLog.info("watching '{}' (id {})", filePath.string(), id);
+  kLog.debug("watching '{}' (id {})", filePath.string(), id);
   return id;
 }
 
@@ -69,6 +69,7 @@ void FileWatcher::unwatch(WatchId id) {
     return;
 
   int wd = it->second.dirWd;
+  kLog.debug("unwatching id {}", id);
   m_watches.erase(it);
 
   auto refIt = m_dirWdRefCount.find(wd);

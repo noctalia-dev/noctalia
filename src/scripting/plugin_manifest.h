@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace scripting {
@@ -89,6 +90,12 @@ namespace scripting {
     std::string id;    // unique within the plugin
     std::string entry; // relative .luau filename
     std::vector<ManifestField> settings;
+
+    // Bar gesture defaults declared by a [[widget]] entry, as raw gesture-key/action pairs
+    // ("middle" -> "exec playerctl pause"). They feed the same defaults layer built-in widget
+    // types use, so `[widget.<name>.actions]` still overrides them. Kept as strings here: the
+    // gesture vocabulary and action grammar belong to the bar, not to the manifest parser.
+    std::vector<std::pair<std::string, std::string>> widgetActions;
 
     // Launcher-provider routing metadata (parsed only for LauncherProvider entries);
     // static so the launcher routes/filters without invoking the plugin.

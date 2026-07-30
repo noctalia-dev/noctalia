@@ -191,11 +191,16 @@ location = "https://example.invalid/bad"
     bar.marginEnds = 100;
     bar.marginEdge = 5;
     bar.marginOppositeEdge = 12;
-    bar.deadZone.command = "notify-send bar-left";
-    bar.deadZone.rightCommand = "notify-send bar-right";
-    bar.deadZone.middleCommand = "notify-send bar-middle";
-    bar.deadZone.scrollUpCommand = "notify-send bar-scroll-up";
-    bar.deadZone.scrollDownCommand = "notify-send bar-scroll-down";
+    bar.actions = {{"middle", "none"}, {"right", "media toggle"}};
+    bar.deadZone.actions = {
+        {"left", "exec notify-send bar-left"},
+        {"right", "exec notify-send bar-right"},
+        {"middle", "exec notify-send bar-middle"},
+        {"scroll_up", "exec notify-send bar-scroll-up"},
+        {"scroll_down", "exec notify-send bar-scroll-down"},
+        {"back", "media previous"},
+        {"forward", "media next"},
+    };
     bar.padding = 12;
     bar.widgetSpacing = 8;
     bar.shadow = false;
@@ -253,11 +258,10 @@ location = "https://example.invalid/bad"
     ovr.marginEnds = 70;
     ovr.marginEdge = 9;
     ovr.marginOppositeEdge = 4;
-    ovr.deadZone.command = "notify-send bar-left";
-    ovr.deadZone.rightCommand = "notify-send bar-right";
-    ovr.deadZone.middleCommand = "notify-send monitor-middle";
-    ovr.deadZone.scrollUpCommand = "notify-send monitor-scroll-up";
-    ovr.deadZone.scrollDownCommand = "notify-send bar-scroll-down";
+    ovr.deadZone.actions = std::unordered_map<std::string, std::string>{
+        {"left", "exec notify-send bar-left"},
+        {"right", "exec notify-send bar-right"},
+    };
     ovr.padding = 11;
     ovr.widgetSpacing = 7;
     ovr.shadow = true;
@@ -343,6 +347,7 @@ location = "https://example.invalid/bad"
         .offsetY = 6,
         .monitors = {"DP-2"},
         .collapseOnDismiss = false,
+        .historyRetentionHours = 48,
         .filters = {NotificationFilterConfig{
             .name = "discord",
             .enabled = true,
@@ -406,6 +411,9 @@ location = "https://example.invalid/bad"
     c.keybinds.down = {*parseKeyChordSpec("Down")};
     c.keybinds.tabNext = defaultKeybindSet(KeybindAction::TabNext);
     c.keybinds.tabPrevious = defaultKeybindSet(KeybindAction::TabPrevious);
+    c.keybinds.deleteEntry = defaultKeybindSet(KeybindAction::Delete);
+    c.keybinds.copy = defaultKeybindSet(KeybindAction::Copy);
+    c.keybinds.save = defaultKeybindSet(KeybindAction::Save);
     c.hooks.commands[0] = {"notify-send hi"};
     c.hooks.commands[2] = {"cmd-a", "cmd-b"};
     c.idle.preActionFadeSeconds = 3.0f;
@@ -440,6 +448,7 @@ location = "https://example.invalid/bad"
     c.shell.animation.speed = 1.5f;
     c.shell.shadow.direction = ShadowDirection::UpLeft;
     c.shell.panel.transparencyMode = PanelTransparencyMode::Glass;
+    c.shell.panel.floatingLayer = "top";
     c.shell.panel.launcherPlacement = PanelPlacement::Floating;
     c.shell.launcher.compact = true;
     c.shell.launcher.sortByUsage = false;
@@ -625,6 +634,36 @@ credential_source = "automatic"
     }
   }
 
+  void checkPanelFloatingLayerValidation() {
+    const auto parse = [](std::string_view panelConfig, ShellConfig& shell) {
+      const toml::table table = toml::parse(panelConfig);
+      Diagnostics diagnostics;
+      readInto(table, shell, shellSchema(), "shell", diagnostics);
+      return diagnostics;
+    };
+
+    ShellConfig validShell;
+    const Diagnostics valid = parse("[panel]\nfloating_layer = \"top\"", validShell);
+    if (valid.hasErrors() || validShell.panel.floatingLayer != "top") {
+      fail("shell.panel.floating_layer: valid top layer was rejected");
+    }
+
+    ShellConfig invalidShell;
+    const Diagnostics invalid = parse("[panel]\nfloating_layer = \"bottom\"", invalidShell);
+    if (invalidShell.panel.floatingLayer != "overlay") {
+      fail("shell.panel.floating_layer: invalid value replaced the overlay default");
+    }
+    bool sawWarning = false;
+    for (const auto& entry : invalid.entries) {
+      if (entry.severity == Diagnostics::Severity::Warning && entry.path == "shell.panel.floating_layer") {
+        sawWarning = true;
+      }
+    }
+    if (!sawWarning) {
+      fail("shell.panel.floating_layer: invalid value did not produce a warning");
+    }
+  }
+
   void checkStorageKeySourceValidation() {
     const auto parse = [](std::string_view storageConfig) {
       const toml::table table = toml::parse(storageConfig);
@@ -802,12 +841,18 @@ start = [ "launcher" ]
 thickness = 44
 widget_spacing = 8
 
-    [default.dead_zone]
-    command = "notify-send bar-left"
-    middle_command = "notify-send bar-middle"
-    right_command = "notify-send bar-right"
-    scroll_down_command = "notify-send bar-scroll-down"
-    scroll_up_command = "notify-send bar-scroll-up"
+    [default.actions]
+    middle = "none"
+    right = "media toggle"
+
+    [default.dead_zone.actions]
+    back = "media previous"
+    forward = "media next"
+    left = "exec notify-send bar-left"
+    middle = "exec notify-send bar-middle"
+    right = "exec notify-send bar-right"
+    scroll_down = "exec notify-send bar-scroll-down"
+    scroll_up = "exec notify-send bar-scroll-up"
 
     [default.monitor.DP-1]
     auto_hide = false
@@ -854,12 +899,13 @@ widget_spacing = 8
     thickness = 50
     widget_spacing = 7
 
-        [default.monitor.DP-1.dead_zone]
-        command = "notify-send bar-left"
-        middle_command = "notify-send monitor-middle"
-        right_command = "notify-send bar-right"
-        scroll_down_command = "notify-send bar-scroll-down"
-        scroll_up_command = "notify-send monitor-scroll-up"
+        [default.monitor.DP-1.actions]
+        middle = "none"
+        right = "media toggle"
+
+        [default.monitor.DP-1.dead_zone.actions]
+        left = "exec notify-send bar-left"
+        right = "exec notify-send bar-right"
 
         [[default.monitor.DP-1.capsule_group]]
         border = "#0F0E0D"
@@ -982,6 +1028,7 @@ widget_spacing = 8
   checkPluginSourceNameValidation();
   checkCalendarCredentialSourceValidation();
   checkStorageKeySourceValidation();
+  checkPanelFloatingLayerValidation();
   checkClamps();
   checkCustomColorFallback();
   checkTemplateConfigCustomColorsExport();

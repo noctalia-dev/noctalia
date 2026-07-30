@@ -27,7 +27,7 @@ ActiveWindowWidget::ActiveWindowWidget(ConfigService& config, CompositorPlatform
 }
 
 void ActiveWindowWidget::create() {
-  auto rootNode = std::make_unique<InputArea>();
+  auto rootNode = ui::inputArea({});
   rootNode->setOnEnter([this](const InputArea::PointerData&) {
     applyTitleScrollMode(m_title != nullptr && m_title->visible());
     requestUpdate();

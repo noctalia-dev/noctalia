@@ -16,8 +16,6 @@ public:
     std::string glyph = "shutdown";
     std::string customImage;
     bool customImageColorize = false;
-
-    bool operator==(const Options&) const = default;
   };
 
   SessionWidget(wl_output* output, Options options);

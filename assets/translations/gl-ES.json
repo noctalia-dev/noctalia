@@ -504,7 +504,6 @@
         "show-keyboard-layout": "Distribución do teclado",
         "show-label": "Mostrar etiqueta",
         "show-login-button": "Botón de inicio de sesión",
-        "show-password-hint": "Pista do contrasinal",
         "show-when-idle": "Mostrar cando estea inactivo",
         "stat": "Dato",
         "stat-cpu-temp": "Temperatura da CPU",
@@ -1602,26 +1601,6 @@
         "corner-top-right": {
           "description": "Radio do canto superior dereito da barra; os valores negativos tallan un canto cóncavo cando este canto mira cara fóra do bordo da pantalla"
         },
-        "dead-zone-command": {
-          "description": "Comando de shell para executar cun clic esquerdo na marxe da barra fóra das seccións de widgets",
-          "label": "Clic esquerdo"
-        },
-        "dead-zone-middle-command": {
-          "description": "Comando de shell para executar cun clic central na marxe da barra fóra das seccións de widgets",
-          "label": "Clic central"
-        },
-        "dead-zone-right-command": {
-          "description": "Comando de shell para executar cun clic dereito; déixao baleiro para abrir o Centro de control",
-          "label": "Clic dereito"
-        },
-        "dead-zone-scroll-down-command": {
-          "description": "Comando de shell para executar ao desprazar cara abaixo",
-          "label": "Desprazar abaixo"
-        },
-        "dead-zone-scroll-up-command": {
-          "description": "Comando de shell para executar ao desprazar cara arriba",
-          "label": "Desprazar arriba"
-        },
         "edge-margin": {
           "description": "Espazo entre a barra e o bordo da pantalla no que está colocada. Pon 0 px para pegala a ese bordo."
         },
@@ -2520,10 +2499,6 @@
           "label": "Comando personalizado do Launcher",
           "placeholder": "$CMD"
         },
-        "middle-click-opens-widget-settings": {
-          "description": "Abre os axustes dun widget da barra desde a barra cun clic central",
-          "label": "Clic central abre os axustes do widget"
-        },
         "niri-overview-type-to-launch": {
           "description": "Abre o Launcher ao escribir na vista xeral de Niri; usa unha pequena superficie con foco de teclado mentres a vista xeral está aberta",
           "label": "Escribir para lanzar"
@@ -2875,8 +2850,6 @@
         "output": "Saída",
         "ram-percent": "Porcentaxe de RAM",
         "ram-used": "RAM usada",
-        "screenshot-primary-fullscreen": "Pantalla completa",
-        "screenshot-primary-region": "Rexión",
         "shared": "Compartido",
         "short": "Curto",
         "swap-percent": "Porcentaxe de swap",
@@ -2966,10 +2939,6 @@
           "description": "Segunda cor do gradiente no visualizador",
           "label": "Cor dous"
         },
-        "command": {
-          "description": "Comando de shell executado ao facer clic esquerdo neste botón",
-          "label": "Comando de clic esquerdo"
-        },
         "custom-image": {
           "description": "Ruta a unha imaxe personalizada. Déixao baleiro para usar o glifo da icona.",
           "dialog-title": "Seleccionar imaxe personalizada",
@@ -2982,10 +2951,6 @@
         "custom-labels": {
           "description": "Asigna nomes de distribucións de teclado a etiquetas personalizadas",
           "label": "Etiquetas personalizadas"
-        },
-        "cycle-command": {
-          "description": "Comando executado ao percorrer distribucións de teclado",
-          "label": "Comando de cambio"
         },
         "detached-panel": {
           "description": "Abre o caixón como panel flotante co seu propio fondo en vez de fusionalo coa barra",
@@ -3188,10 +3153,6 @@
           "description": "Expresión regular para nomes de aplicacións de micrófono que se deben ignorar",
           "label": "Regex do filtro de micrófono"
         },
-        "middle-command": {
-          "description": "Comando de shell executado ao facer clic central neste botón. Cando está definido, o clic central abre este comando en vez dos axustes do widget.",
-          "label": "Comando de clic central"
-        },
         "min-length": {
           "description": "Lonxitude mínima do widget en píxeles",
           "label": "Lonxitude mínima"
@@ -3242,14 +3203,6 @@
           "description": "IDs dos elementos do Tray que permanecen visibles na barra cando o modo caixón está activado",
           "label": "Elementos fixados"
         },
-        "primary-click": {
-          "description": "Acción realizada ao facer clic esquerdo no botón da barra",
-          "label": "Clic principal"
-        },
-        "right-command": {
-          "description": "Comando de shell executado ao facer clic dereito neste botón",
-          "label": "Comando de clic dereito"
-        },
         "scale": {
           "description": "Escala este widget en relación coa escala do contido da barra",
           "label": "Escala"
@@ -3261,18 +3214,6 @@
         "script": {
           "description": "Ruta ao script lua",
           "label": "Script"
-        },
-        "scroll-down-command": {
-          "description": "Comando de shell executado ao desprazar cara abaixo sobre este botón",
-          "label": "Comando de desprazamento abaixo"
-        },
-        "scroll-step": {
-          "description": "Cambio porcentual aplicado en cada paso da roda do rato",
-          "label": "Paso de desprazamento"
-        },
-        "scroll-up-command": {
-          "description": "Comando de shell executado ao desprazar cara arriba sobre este botón",
-          "label": "Comando de desprazamento arriba"
         },
         "show-active-indicator": {
           "description": "Mostra un pequeno punto baixo a icona da xanela activa na barra de tarefas.",

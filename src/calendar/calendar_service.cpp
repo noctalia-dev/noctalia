@@ -92,7 +92,8 @@ CalendarService::CalendarService(
     security::StorageKeyProvider& storageKeyProvider, NotificationManager* notifications
 )
     : m_configService(configService), m_httpClient(httpClient), m_notifications(notifications), m_oauth(httpClient),
-      m_google(httpClient), m_credentials(secretStore), m_storageKeyProvider(storageKeyProvider) {}
+      m_google(httpClient), m_credentials(secretStore), m_storageKeyProvider(storageKeyProvider), m_caldav(httpClient) {
+}
 
 void CalendarService::initialize() {
   m_activeConfig = m_configService.config().calendar;
@@ -423,8 +424,8 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
 
         calendar::discoverCalDavCollections(
             m_httpClient, serverUrl, username, password, allowRedirectAuth,
-            [this, accountId, username, password = std::move(password), accountColor, selectedCalendars,
-             allowRedirectAuth, now](bool discovered, std::vector<calendar::CalDavCollection> collections) {
+            [this, accountId, username, password, accountColor, selectedCalendars, allowRedirectAuth,
+             now](bool discovered, std::vector<calendar::CalDavCollection> collections) {
               if (!discovered) {
                 accountDone(accountId, false, {});
                 return;
@@ -468,8 +469,8 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
                 caldav.calendarName = collection.name;
                 caldav.color = accountColor.empty() ? collection.color : accountColor;
 
-                calendar::fetchCalDavEvents(
-                    m_httpClient, caldav, now - kWindowBefore, now + kWindowAfter, allowRedirectAuth,
+                m_caldav.fetchEvents(
+                    caldav, now - kWindowBefore, now + kWindowAfter, allowRedirectAuth,
                     [ctx](bool ok, std::vector<CalendarEvent> events) {
                       if (ok) {
                         ctx->anyOk = true;
@@ -571,7 +572,34 @@ void CalendarService::refreshGoogleToken(const std::string& accountId, std::func
       [this, accountId, cb = std::move(cb)](
           security::SecretStoreStatus status, calendar::CalendarCredentialStore::Secret storedRefreshToken
       ) mutable {
-        if (status != security::SecretStoreStatus::Success || !storedRefreshToken || storedRefreshToken->empty()) {
+        if (status != security::SecretStoreStatus::Success) {
+          switch (status) {
+          case security::SecretStoreStatus::NotFound:
+            kLog.warn("google account {} has no stored refresh token; reconnect required", accountId);
+            break;
+          case security::SecretStoreStatus::Unavailable:
+            kLog.warn(
+                "google account {} refresh token is unavailable because Secret Service is unavailable", accountId
+            );
+            break;
+          case security::SecretStoreStatus::Cancelled:
+            kLog.debug("google account {} refresh token lookup was cancelled", accountId);
+            break;
+          case security::SecretStoreStatus::DeniedOrLocked:
+            kLog.warn("google account {} refresh token is locked or access was denied", accountId);
+            break;
+          case security::SecretStoreStatus::BackendError:
+            kLog.warn("google account {} refresh token lookup failed", accountId);
+            break;
+          case security::SecretStoreStatus::Success:
+            break;
+          }
+          cb(false, {});
+          return;
+        }
+        if (!storedRefreshToken || storedRefreshToken->empty()) {
+          kLog.warn("google account {} has an empty refresh token; reconnect required", accountId);
+          m_credentials.eraseRefreshToken(accountId, [](security::SecretStoreStatus) {});
           cb(false, {});
           return;
         }

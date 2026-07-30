@@ -20,8 +20,6 @@ public:
     int iconSpacing = 4;
     ColorSpec activeColor = colorSpecFromRole(ColorRole::Primary);
     ColorSpec inactiveColor = colorSpecFromRole(ColorRole::Outline);
-
-    bool operator==(const Options&) const = default;
   };
 
   PrivacyWidget(PipeWireService* pipewire, ConfigService* configService, Options options);

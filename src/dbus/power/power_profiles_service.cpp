@@ -339,16 +339,20 @@ void PowerProfilesService::registerIpc(IpcService& ipc, StateFeedbackCallback st
         }
         return "ok\n";
       },
-      "power-set <profile>", "Set the UPower power profile (e.g. performance, balanced, power-saver)"
+      "<profile>", "Set the UPower power profile (e.g. performance, balanced, power-saver)"
   );
-  ipc.registerHandler(
+  ipc.registerCycleHandler(
       "power-cycle",
       [this, stateFeedback](const std::string& args) -> std::string {
-        if (!StringUtils::trim(args).empty()) {
-          return "error: power-cycle takes no arguments\n";
+        const std::string direction = StringUtils::trim(args);
+        int step = 1;
+        if (direction == "prev") {
+          step = -1;
+        } else if (!direction.empty() && direction != "next") {
+          return "error: power-cycle takes next or prev\n";
         }
         const std::string previous = activeProfile();
-        if (!cycleActiveProfile()) {
+        if (!cycleActiveProfile(step)) {
           if (profiles().empty() && activeProfile().empty()) {
             return "error: could not cycle power profile (UPower profile list not loaded)\n";
           }
@@ -359,6 +363,6 @@ void PowerProfilesService::registerIpc(IpcService& ipc, StateFeedbackCallback st
         }
         return "ok\n";
       },
-      "power-cycle", "Switch to the next power profile in UPower's ordered list (wraps)"
+      "[next|prev]", "Step through UPower's ordered profile list, forward by default (wraps)"
   );
 }

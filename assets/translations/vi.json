@@ -503,7 +503,6 @@
         "show-keyboard-layout": "Bố cục bàn phím",
         "show-label": "Hiển thị nhãn",
         "show-login-button": "Nút đăng nhập",
-        "show-password-hint": "Gợi ý mật khẩu",
         "show-when-idle": "Hiển thị khi không hoạt động",
         "stat": "Trạng thái",
         "stat-cpu-temp": "Nhiệt độ CPU",
@@ -1592,26 +1591,6 @@
         "corner-top-right": {
           "description": "Bán kính góc trên bên phải cho Bar"
         },
-        "dead-zone-command": {
-          "description": "ệnh shell được thực thi khi nhấp chuột trái vào khoảng trống trên thanh bên ngoài các khu vực widget",
-          "label": "Lệnh nhấp chuột trái"
-        },
-        "dead-zone-middle-command": {
-          "description": "Lệnh shell được thực thi khi nhấp chuột giữa vào hoảng trống trên thanh bên ngoài các khu vực widget",
-          "label": "Lệnh nhấp chuột giữa"
-        },
-        "dead-zone-right-command": {
-          "description": "Lệnh shell được thực thi khi nhấp chuột phải; để trống để mở Trung tâm điều khiển.",
-          "label": "Lệnh nhấp chuột phải"
-        },
-        "dead-zone-scroll-down-command": {
-          "description": "Lệnh shell được thực thi khi lăn chuột xuống",
-          "label": "Kéo xuống"
-        },
-        "dead-zone-scroll-up-command": {
-          "description": "Lệnh shell được thực thi khi lăn chuột lên",
-          "label": "Kéo lên"
-        },
         "edge-margin": {
           "description": "Khoảng cách giữa thanh và mép màn hình mà nó nằm trên. Đặt 0 px để thanh nằm sát mép màn hình."
         },
@@ -2485,10 +2464,6 @@
           "description": "Lệnh tùy chỉnh được dùng bởi trình khởi chạy ứng dụng, biến $CMD sẽ được thay thế bằng lệnh gốc.",
           "label": "Lệnh trình khởi chạy tùy chỉnh"
         },
-        "middle-click-opens-widget-settings": {
-          "description": "Mở cài đặt của một Widget trên Thanh bằng cách nhấp chuột giữa",
-          "label": "Nhấp chuột giữa mở cài đặt tiện ích"
-        },
         "niri-overview-type-to-launch": {
           "description": "Mở trình khởi chạy khi gõ phím trong chế độ tổng quan của Niri; sử dụng một bề mặt lấy nét bàn phím nhỏ trong khi chế độ tổng quan đang mở",
           "label": "Gõ để khởi chạy"
@@ -2828,8 +2803,6 @@
         "output": "Đầu ra",
         "ram-percent": "Phần trăm RAM",
         "ram-used": "RAM đã dùng",
-        "screenshot-primary-fullscreen": "Toàn màn hình",
-        "screenshot-primary-region": "Khu vực",
         "shared": "Chung",
         "short": "Ngắn",
         "swap-percent": "Phần trăm Swap",
@@ -2917,10 +2890,6 @@
           "description": "Màu chuyển sắc thứ hai trong trình hiển thị",
           "label": "Màu thứ hai"
         },
-        "command": {
-          "description": "Lệnh shell chạy khi nhấp chuột trái vào nút này",
-          "label": "Lệnh nhấp chuột trái"
-        },
         "custom-image": {
           "description": "Đường dẫn đến một ảnh tùy chỉnh. Để trống để sử dụng biểu tượng glyph.",
           "dialog-title": "Chọn ảnh tùy chỉnh",
@@ -2933,10 +2902,6 @@
         "custom-labels": {
           "description": "Đặt tên tùy chỉnh cho các bố cục bàn phím",
           "label": "Nhãn Tùy Chỉnh"
-        },
-        "cycle-command": {
-          "description": "Lệnh chạy khi chuyển thi bố cục bàn phím",
-          "label": "Lệnh chuyển đổi"
         },
         "detached-panel": {
           "description": "Mở bảng điều khiển dưới dạng bảng nổi với nền riêng thay vì hòa vào thanh.",
@@ -3111,10 +3076,6 @@
           "description": "Biểu thức chính quy cho tên ứng dụng microphone cần bỏ qua",
           "label": "Bộ lọc micrô"
         },
-        "middle-command": {
-          "description": "Lệnh shell được chạy khi nhấp chuột giữa vào nút này. Khi được đặt, nhấp chuột giữa sẽ mở lệnh này thay vì cài đặt widget.",
-          "label": "Lệnh chuột giữa"
-        },
         "min-length": {
           "description": "Chiều dài tối thiểu của tiện ích (tính bằng pixel)",
           "label": "Độ dài tối thiểu"
@@ -3148,14 +3109,6 @@
           "description": "ID của các mục Tray sẽ luôn hiển thị trên Bar khi chế độ ngăn kéo được bật",
           "label": "Mục đã ghim"
         },
-        "primary-click": {
-          "description": "Thao tác thực hiện khi nhấp chuột trái vào nút trên Thanh",
-          "label": "Nhấp chuột chính"
-        },
-        "right-command": {
-          "description": "Lệnh shell chạy khi nhấp chuột phải vào nút này",
-          "label": "Lệnh nhấp chuột phải"
-        },
         "scale": {
           "description": "Tỉ lệ widget này theo tỉ lệ nội dung của Bar",
           "label": "Tỷ lệ"
@@ -3167,18 +3120,6 @@
         "script": {
           "description": "Đường dẫn đến tập lệnh lua",
           "label": "Script"
-        },
-        "scroll-down-command": {
-          "description": "Lệnh shell chạy khi cuộn xuống trên nút này",
-          "label": "Lệnh cuộn xuống"
-        },
-        "scroll-step": {
-          "description": "Thay đổi phần trăm áp dụng cho mỗi bước cuộn chuột.",
-          "label": "Bước cuộn"
-        },
-        "scroll-up-command": {
-          "description": "Lệnh shell chạy khi cuộn lên trên nút này",
-          "label": "Lệnh cuộn lên"
         },
         "show-active-indicator": {
           "description": "Hiển thị một chấm nhỏ bên dưới biểu tượng cửa sổ đang hoạt động trên thanh tác vụ.",

@@ -14,6 +14,7 @@
 #include <thread>
 #include <unistd.h>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -233,6 +234,13 @@ namespace {
     return ok;
   }
 
+  bool detachedMissingBinaryReturnsFalse() {
+    return expect(
+        !process::runAsync(std::vector<std::string>{"/nonexistent/noctalia-missing-binary-xyz"}),
+        "detached launch of a missing binary should return false"
+    );
+  }
+
 } // namespace
 
 int main() {
@@ -243,6 +251,7 @@ int main() {
   ok = syncAppliesEnvOverrides() && ok;
   ok = stringCommandsSupportShellComposition() && ok;
   ok = detachedAsyncInheritsLaunchEnvironment() && ok;
+  ok = detachedMissingBinaryReturnsFalse() && ok;
   ok = commandExistsRejectsDirectories() && ok;
   ok = cgroupDetectsSystemdUserManager() && ok;
   return ok ? 0 : 1;

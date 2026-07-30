@@ -78,6 +78,9 @@ namespace calendar {
     void setChangeCallback(ChangeCallback callback);
     [[nodiscard]] CredentialState state() const noexcept { return m_state; }
     [[nodiscard]] bool migrationPending() const noexcept { return m_migrationPending; }
+    [[nodiscard]] bool refreshTokenMissing(const std::string& accountId) const {
+      return m_missingRefreshTokens.contains(accountId);
+    }
 
   private:
     struct MigrationContext;
@@ -86,7 +89,7 @@ namespace calendar {
     static std::string label(CredentialKind kind);
     static CredentialState stateForStatus(security::SecretStoreStatus status);
 
-    void setState(CredentialState state, bool migrationPending);
+    void setState(CredentialState state, bool migrationPending, bool forceNotify = false);
     void runMigration(CredentialMigration migration, StatusCallback callback);
     void storeNextMigrationCredential(const std::shared_ptr<MigrationContext>& context);
     void lookup(CredentialKind kind, const std::string& accountId, LookupCallback callback);

@@ -58,10 +58,10 @@ awk -v include_line="$include_line" '
     }
 ' "$config_file" >"$tmp_file"
 
-# Replace kitty.conf only if its contents actually changed.
+# Replace kitty.conf only if its contents actually changed. Write through a symlink
+# instead of replacing it with a regular file via mv.
 if ! cmp -s "$config_file" "$tmp_file"; then
-    chmod --reference="$config_file" "$tmp_file"
-    mv "$tmp_file" "$config_file"
+    cat "$tmp_file" >"$config_file"
 fi
 
 if [[ ! -f "$theme_file" ]]; then

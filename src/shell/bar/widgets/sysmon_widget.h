@@ -46,25 +46,26 @@ enum class SysmonStat {
 enum class SysmonDisplayMode { Text, Graph, Gauge, None };
 enum class SysmonGlyphPosition { Before, After };
 
-struct SysmonWidgetOptions {
-  SysmonStat stat = SysmonStat::CpuUsage;
-  std::string diskPath = "/";
-  SysmonDisplayMode displayMode = SysmonDisplayMode::Gauge;
-  ColorSpec highlightColor = colorSpecFromRole(ColorRole::Error);
-  std::string networkInterface;
-  FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
-  FormatUnits::ByteRateLabelStyle networkSpeedLabelStyle = FormatUnits::ByteRateLabelStyle::Full;
-  bool showLabel = true;
-  float labelMinWidth = 0.0f;
-  std::string glyph;
-  WidgetCustomImage customImage;
-  bool showUnits = true;
-  SysmonGlyphPosition glyphPosition = SysmonGlyphPosition::After;
-};
-
 class SysmonWidget : public Widget {
 public:
-  SysmonWidget(SystemMonitorService* monitor, ConfigService& configService, SysmonWidgetOptions options);
+  struct Options {
+    SysmonStat stat = SysmonStat::CpuUsage;
+    std::string diskPath = "/";
+    std::string glyph;
+    std::string customImage;
+    bool customImageColorize = false;
+    std::string networkInterface;
+    FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
+    bool networkSpeedCompact = false;
+    SysmonDisplayMode displayMode = SysmonDisplayMode::Gauge;
+    ColorSpec highlightColor = colorSpecFromRole(ColorRole::Error);
+    bool showLabel = true;
+    int labelMinWidth = 0;
+    bool showUnits = true;
+    SysmonGlyphPosition glyphPosition = SysmonGlyphPosition::Before;
+  };
+
+  SysmonWidget(SystemMonitorService* monitor, ConfigService& configService, Options options);
   ~SysmonWidget() override;
 
   void create() override;

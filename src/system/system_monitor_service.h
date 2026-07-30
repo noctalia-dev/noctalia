@@ -23,6 +23,7 @@ struct SystemStats {
   };
 
   std::chrono::steady_clock::time_point sampledAt;
+  std::chrono::system_clock::time_point sampledAtWall;
   double cpuUsagePercent{0.0};
   // Per-core usage in /proc/stat order. Empty unless a consumer holds a retainCpuCores()
   // reference; sampled on its own fixed 1s cadence. Offline cores are absent from /proc/stat,
@@ -45,6 +46,13 @@ struct SystemStats {
   double loadAvg1{0.0};
   double loadAvg5{0.0};
   double loadAvg15{0.0};
+};
+
+struct DiskStats {
+  float usagePercent{0.0f};
+  std::uint64_t totalBytes{0};
+  std::uint64_t freeBytes{0};
+  std::uint64_t availableBytes{0};
 };
 
 class SystemMonitorService {
@@ -79,6 +87,7 @@ public:
   void retainDiskPath(const std::string& path);
   void releaseDiskPath(const std::string& path);
   [[nodiscard]] float diskUsagePercent(const std::string& path) const;
+  [[nodiscard]] std::optional<DiskStats> diskStats(const std::string& path) const;
   [[nodiscard]] std::vector<float> diskHistory(const std::string& path, int windowSize = kHistorySize) const;
   [[nodiscard]] std::uint64_t diskTotalBytes(const std::string& path) const;
   [[nodiscard]] std::uint64_t diskFreeBytes(const std::string& path) const;

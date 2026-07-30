@@ -163,7 +163,7 @@ std::unique_ptr<Flex> CalendarTab::create() {
       .gap = Style::spaceMd * scale,
   });
 
-  auto calendarArea = std::make_unique<InputArea>();
+  auto calendarArea = ui::inputArea({});
   calendarArea->setFlexGrow(3.0f);
   calendarArea->setOnAxis([this](const InputArea::PointerData& data) {
     if (data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
@@ -180,8 +180,8 @@ std::unique_ptr<Flex> CalendarTab::create() {
   auto calendarCard = ui::column({
       .out = &m_card,
       .gap = Style::spaceMd * scale,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
-        control_center::applySectionCardStyle(card, scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](Flex& card) {
+        control_center::applySectionCardStyle(card, scale, opacity);
       },
   });
 
@@ -282,9 +282,9 @@ std::unique_ptr<Flex> CalendarTab::create() {
       {.out = &m_eventsCard,
        .gap = Style::spaceSm * scale,
        .flexGrow = 2.0f,
-       .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](
+       .configure = [scale, opacity = panelCardOpacity()](
                         Flex& card
-                    ) { control_center::applySectionCardStyle(card, scale, opacity, borders); }},
+                    ) { control_center::applySectionCardStyle(card, scale, opacity); }},
       ui::label({
           .out = &m_eventsTitle,
           .text = i18n::tr("control-center.calendar.events"),
@@ -821,7 +821,7 @@ void CalendarTab::rebuild() {
     }
 
     // Make the dot strip below the number select the day too, so the whole cell is clickable.
-    auto dotArea = std::make_unique<InputArea>();
+    auto dotArea = ui::inputArea({});
     dotArea->setSize(dayButtonSize, dotStripHeight);
     dotArea->setOnClick([selectDay](const InputArea::PointerData&) { selectDay(); });
     dotArea->addChild(std::move(dotStrip));

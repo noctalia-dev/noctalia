@@ -686,7 +686,7 @@ void MprisService::refreshPlayers() {
 }
 
 void MprisService::registerIpc(IpcService& ipc) {
-  ipc.registerHandler(
+  ipc.registerCycleHandler(
       "media",
       [this](const std::string& args) -> std::string {
         const auto parts = noctalia::ipc::splitWords(args);
@@ -724,7 +724,7 @@ void MprisService::registerIpc(IpcService& ipc) {
         return "error: invalid media action (use next, previous, toggle, play, pause, stop, next-player, "
                "previous-player)\n";
       },
-      "media <next|previous|toggle|play|pause|stop|next-player|previous-player>", "Control active media playback"
+      "<next|previous|toggle|play|pause|stop|next-player|previous-player>", "Control active media playback"
   );
 }
 

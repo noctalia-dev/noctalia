@@ -506,7 +506,6 @@
         "show-keyboard-layout": "Tastaturlayout",
         "show-label": "Beschriftung anzeigen",
         "show-login-button": "Login-Button",
-        "show-password-hint": "Passworthinweis",
         "show-vpn-label": "VPN-Beschriftung anzeigen",
         "show-when-idle": "Bei Inaktivität anzeigen",
         "stat": "Statistik",
@@ -1364,7 +1363,7 @@
       "browse-store": "Plugins durchsuchen",
       "panels": {
         "open-near-click": {
-          "description": "Platziere das Panel in der Nähe des Leisten-Widgets, das es geöffnet hat; ohne Trigger wird es zentriert",
+          "description": "Platziere das Panel in der Nähe des Leisten-Widgets, das es geöffnet hat, wenn es angedockt ist oder als schwebendes Panel mit automatischer Position",
           "label": "An der Leiste"
         },
         "placement": {
@@ -1437,8 +1436,7 @@
         "open-source": "Quell-Repository des Plugins öffnen",
         "results-count": "{count} Plugins",
         "search-placeholder": "Suche Plugins…",
-        "source-all": "Alle",
-        "sources": "Quellen",
+        "source-all": "Alle Quellen",
         "title": "Plugin Store"
       }
     },
@@ -1629,26 +1627,6 @@
         },
         "corner-top-right": {
           "description": "Eckenradius oben rechts für die Leiste"
-        },
-        "dead-zone-command": {
-          "description": "Shell-Befehl, der bei Linksklick im leeren Bereich der Leiste außerhalb der Widget-Bereiche ausgeführt wird",
-          "label": "Linksklick"
-        },
-        "dead-zone-middle-command": {
-          "description": "Shell-Befehl, der bei Mittelklick im leeren Bereich der Leiste außerhalb der Widget-Bereiche ausgeführt wird",
-          "label": "Mittelklick"
-        },
-        "dead-zone-right-command": {
-          "description": "Shell-Befehl, der bei Rechtsklick ausgeführt wird; leer lassen, um das Kontrollzentrum zu öffnen",
-          "label": "Rechtsklick"
-        },
-        "dead-zone-scroll-down-command": {
-          "description": "Shell-Befehl, der beim Herunterscrollen ausgeführt wird",
-          "label": "Nach unten scrollen"
-        },
-        "dead-zone-scroll-up-command": {
-          "description": "Shell-Befehl, der beim Hochscrollen ausgeführt wird",
-          "label": "Nach oben scrollen"
         },
         "edge-margin": {
           "description": "Abstand zwischen der Leiste und dem Bildschirmrand, an dem sie liegt; auf 0 px setzen, um bündig am Rand anzuliegen"
@@ -2147,7 +2125,7 @@
       },
       "panels": {
         "borders": {
-          "description": "Zeichne ein Umriss um Panels und Abschnittskarten innerhalb von Panels",
+          "description": "Zeichne einen Umriss um schwebende Panels",
           "label": "Rahmen"
         },
         "control-center-sidebar": {
@@ -2256,23 +2234,23 @@
           "label": "Listeneintrag-Hintergrund"
         },
         "open-near-click-clipboard": {
-          "description": "Platziere das Zwischenablage-Panel in der Nähe des Leisten-Widgets, das es geöffnet hat; andernfalls wird es zentriert",
+          "description": "Platziere das Zwischenablage-Panel in der Nähe des Leisten-Widgets, das es geöffnet hat, wenn es angedockt ist oder als schwebendes Panel mit automatischer Position",
           "label": "An der Leiste"
         },
         "open-near-click-control-center": {
-          "description": "Platziere das Kontrollzentrum in der Nähe des Leisten-Widgets, das es geöffnet hat; ohne Trigger wird es zentriert",
+          "description": "Platziere das Kontrollzentrum in der Nähe des Leisten-Widgets, das es geöffnet hat, wenn es angedockt ist oder als schwebendes Panel mit automatischer Position",
           "label": "An der Leiste"
         },
         "open-near-click-launcher": {
-          "description": "Platziere den Launcher in der Nähe des Leisten-Widgets, das es geöffnet hat; ohne Trigger wird er zentriert",
+          "description": "Platziere den Launcher in der Nähe des Leisten-Widgets, das es geöffnet hat, wenn es angedockt ist oder als schwebendes Panel mit automatischer Position",
           "label": "An der Leiste"
         },
         "open-near-click-session": {
-          "description": "Platziere das Sitzungsmenü-Panel in der Nähe des Leisten-Widgets, das es geöffnet hat; ohne Trigger wird es zentriert",
+          "description": "Platziere das Sitzungsmenü-Panel in der Nähe des Leisten-Widgets, das es geöffnet hat, wenn es angedockt ist oder als schwebendes Panel mit automatischer Position",
           "label": "An der Leiste"
         },
         "open-near-click-wallpaper": {
-          "description": "Platziere die Hintergrundbild-Auswahl in der Nähe des Leisten-Widgets, das es geöffnet hat; ohne Trigger wird sie zentriert",
+          "description": "Platziere die Hintergrundbild-Auswahl in der Nähe des Leisten-Widgets, das es geöffnet hat, wenn es angedockt ist oder als schwebendes Panel mit automatischer Position",
           "label": "An der Leiste"
         },
         "placement-clipboard": {
@@ -2458,7 +2436,7 @@
             "label": "Festplatten-Abfrageintervall"
           },
           "gpu-poll": {
-            "description": "Sekunden zwischen den Stichproben von GPU-Temperatur und VRAM (0 deaktiviert, was das Aufwecken einer dedizierten GPU vermeidet; 5 ist ein gutes Intervall bei aktivierter Erfassung)",
+            "description": "Sekunden zwischen GPU-Temperatur-, Auslastungs- und VRAM-Messungen; die GPU wird nur abgefragt, wenn etwas eine GPU-Statistik anzeigt, sodass ein inaktiver Rechner nie aufgeweckt wird (0 deaktiviert vollständig)",
             "label": "GPU-Abfrageintervall"
           },
           "label": "Systemmonitor",
@@ -2620,10 +2598,6 @@
           "description": "Wird für Apps verwendet, die vom Launcher, Dock und der Taskleiste gestartet werden; ersetzt $CMD durch den ursprünglichen Befehl",
           "label": "Benutzerdefinierter App-Startbefehl",
           "placeholder": "$CMD"
-        },
-        "middle-click-opens-widget-settings": {
-          "description": "Öffne die Einstellungen eines Leisten-Widgets per Mittelklick direkt von der Leiste aus",
-          "label": "Mittelklick öffnet Widget-Einstellungen"
         },
         "niri-overview-type-to-launch": {
           "description": "Öffne den Launcher, wenn du in der niri-Übersicht tippst; nutzt eine kleine Tastaturfokus-Oberfläche, während die Übersicht geöffnet ist",
@@ -2835,7 +2809,7 @@
           "label": "Integrierte Templates"
         },
         "community-ids": {
-          "description": "Aktiviere oder deaktiviere zwischengespeicherte Community-Templates, die bei jedem Theme-Wechsel gerendert werden",
+          "description": "Durchsuche und aktiviere Community-Templates, die bei jedem Theme-Wechsel angewendet werden",
           "empty": "Noch keine Community-Templates verfügbar. Aktiviere zuerst Community-Templates und aktualisiere den Katalog.",
           "label": "Community-Templates"
         },
@@ -3005,8 +2979,6 @@
         "ram-used": "RAM verwendet",
         "rate": "Rate",
         "regular": "Regulär",
-        "screenshot-primary-fullscreen": "Vollbild",
-        "screenshot-primary-region": "Bereich",
         "shared": "Geteilt",
         "short": "Kurz",
         "swap-percent": "Swap in Prozent",
@@ -3101,10 +3073,6 @@
           "description": "Zweite Farbverlaufsfarbe im Visualizer",
           "label": "Farbe 2"
         },
-        "command": {
-          "description": "Shell-Befehl, der bei Linksklick auf diesen Button ausgeführt wird",
-          "label": "Linksklick-Befehl"
-        },
         "custom-image": {
           "description": "Pfad zu einem benutzerdefinierten Bild; leer lassen, um die Symbol-Glyphe zu verwenden",
           "dialog-title": "Benutzerdefiniertes Bild auswählen",
@@ -3118,12 +3086,8 @@
           "description": "Weise Tastaturlayout-Namen benutzerdefinierte Beschriftungen zu",
           "label": "Benutzerdefinierte Beschriftungen"
         },
-        "cycle-command": {
-          "description": "Befehl, der beim Wechseln von Tastaturlayouts ausgeführt wird",
-          "label": "Wechselbefehl"
-        },
         "detached-panel": {
-          "description": "Öffne den Drawer als schwebendes Panel mit eigenem Hintergrund, statt ihn mit der Leiste zu verbinden",
+          "description": "Öffne den Drawer als schwebendes Panel, statt ihn am Leistenrand zu verankern",
           "label": "Losgelöstes Panel"
         },
         "device": {
@@ -3196,7 +3160,7 @@
           "label": "Nach Arbeitsbereich gruppieren"
         },
         "group-single-icon-per-app": {
-          "description": "Fasse beim Gruppieren nach Arbeitsbereich mehrere Fenster derselben App zu einem Icon mit Zähler-Badge zusammen",
+          "description": "Fasse beim Gruppieren nach Arbeitsbereich mit Icons mehrere Fenster derselben App zu einem Icon mit Zähler-Badge zusammen",
           "label": "Ein Icon pro App"
         },
         "height": {
@@ -3335,10 +3299,6 @@
           "description": "Regulärer Ausdruck für Mikrofon-App-Namen, die ignoriert werden sollen",
           "label": "Mikrofon-Filter-Regex"
         },
-        "middle-command": {
-          "description": "Shell-Befehl, der bei Mittelklick auf diesen Button ausgeführt wird; wenn festgelegt, öffnet ein Mittelklick diesen Befehl statt der Widget-Einstellungen",
-          "label": "Mittelklick-Befehl"
-        },
         "min-length": {
           "description": "Minimale Widget-Länge in Pixeln",
           "label": "Minimale Länge"
@@ -3395,14 +3355,6 @@
           "description": "Deckkraft von angehefteten Apps, die derzeit nicht ausgeführt werden",
           "label": "Deckkraft angehefteter Apps"
         },
-        "primary-click": {
-          "description": "Aktion, die bei Linksklick auf den Leisten-Button ausgeführt wird",
-          "label": "Primärer Klick"
-        },
-        "right-command": {
-          "description": "Shell-Befehl, der bei Rechtsklick auf diesen Button ausgeführt wird",
-          "label": "Rechtsklick-Befehl"
-        },
         "scale": {
           "description": "Skaliere dieses Widget relativ zur Inhaltsskala der Leiste",
           "label": "Skalierung"
@@ -3414,18 +3366,6 @@
         "script": {
           "description": "Pfad zum Lua-Skript",
           "label": "Skript"
-        },
-        "scroll-down-command": {
-          "description": "Shell-Befehl, der beim Herunterscrollen über diesen Button ausgeführt wird",
-          "label": "Befehl beim Herunterscrollen"
-        },
-        "scroll-step": {
-          "description": "Prozentuale Änderung pro Mausradschritt",
-          "label": "Scroll-Schritt"
-        },
-        "scroll-up-command": {
-          "description": "Shell-Befehl, der beim Heraufscrollen über diesen Button ausgeführt wird",
-          "label": "Befehl beim Heraufscrollen"
         },
         "show-active-indicator": {
           "description": "Zeige einen kleinen Punkt unter dem Icon des aktiven Fensters in der Taskleiste",
@@ -3468,7 +3408,7 @@
           "label": "Temperatur anzeigen"
         },
         "show-vpn-label": {
-          "description": "Zeige VPN-Beschriftung statt Schnittstellen-Beschriftung neben dem Icon an",
+          "description": "Ersetzt die Netzwerkbeschriftung durch die VPN-Beschriftung im Ersetzungsmodus; fügt die VPN-Beschriftung neben dem VPN-Icon im Beide-Modus hinzu",
           "label": "VPN-Beschriftung anzeigen"
         },
         "show-when-idle": {

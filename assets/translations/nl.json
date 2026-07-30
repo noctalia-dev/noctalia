@@ -2116,10 +2116,6 @@
           "description": "Start applicaties in aparte systemd-diensten zodat ze Noctalia's cgroup niet delen",
           "label": "Apps starten als systemd-diensten"
         },
-        "middle-click-opens-widget-settings": {
-          "description": "Open de instellingen van een balkwidget vanaf de balk met een middelklik",
-          "label": "Middelklik opent widgetinstellingen"
-        },
         "niri-overview-type-to-launch": {
           "description": "Open Start wanneer je typt in het Niri-overzicht; gebruikt een klein toetsenbordfocusgebied terwijl het overzicht open is",
           "label": "Typen om te starten"
@@ -2435,8 +2431,6 @@
         "output": "Uitvoer",
         "ram-percent": "RAM-percentage",
         "ram-used": "RAM-gebruikt",
-        "screenshot-primary-fullscreen": "Volledig scherm",
-        "screenshot-primary-region": "Regio",
         "shared": "Gedeeld",
         "short": "Kort",
         "swap-percent": "Wisselgeheugenpercentage",
@@ -2516,10 +2510,6 @@
           "description": "Tweede kleurovergang in de visualizer",
           "label": "Kleur Twee"
         },
-        "command": {
-          "description": "Shell-commando uitgevoerd bij linksklikken op deze knop",
-          "label": "Linksklikcommando"
-        },
         "custom-image": {
           "description": "Pad naar een aangepaste afbeelding. Laat leeg om een icoon te gebruiken.",
           "dialog-title": "Selecteer aangepaste afbeelding",
@@ -2532,10 +2522,6 @@
         "custom-labels": {
           "description": "Koppel namen van toetsenbordindelingen aan aangepaste labels",
           "label": "Aangepaste labels"
-        },
-        "cycle-command": {
-          "description": "Commando uitgevoerd bij het doorlopen van toetsenbordindelingen",
-          "label": "Doorloopcommando"
         },
         "detached-panel": {
           "description": "Open de lade als een zwevend paneel met een eigen achtergrond in plaats van samen te voegen met de balk",
@@ -2688,10 +2674,6 @@
           "description": "Maximale widgetlengte in pixels",
           "label": "Maximale lengte"
         },
-        "middle-command": {
-          "description": "Shell-commando uitgevoerd bij middelklikken op deze knop. Indien ingesteld, opent een middelklik dit commando in plaats van de widgetinstellingen.",
-          "label": "Middelklikcommando"
-        },
         "min-length": {
           "description": "Minimale widgetlengte in pixels",
           "label": "Minimale lengte"
@@ -2725,14 +2707,6 @@
           "description": "ID’s van items in het systeemvak die zichtbaar blijven in de balk wanneer het ladevenster is geopend",
           "label": "Vastgemaakte items"
         },
-        "primary-click": {
-          "description": "Actie uitgevoerd bij linksklikken op de balkknop",
-          "label": "Primaire klik"
-        },
-        "right-command": {
-          "description": "Shell-commando uitgevoerd bij rechtsklikken op deze knop",
-          "label": "Rechtsklikcommando"
-        },
         "scale": {
           "description": "Schaal deze widget ten opzichte van de balkinhoudschaal",
           "label": "Schaal"
@@ -2744,18 +2718,6 @@
         "script": {
           "description": "Pad naar het lua-script",
           "label": "Script"
-        },
-        "scroll-down-command": {
-          "description": "Shell-commando uitgevoerd bij omlaag scrollen over deze knop",
-          "label": "Commando bij omlaag scrollen"
-        },
-        "scroll-step": {
-          "description": "Percentage verandering toegepast bij elke stap van het muiswiel",
-          "label": "Scroll-stap"
-        },
-        "scroll-up-command": {
-          "description": "Shell-commando uitgevoerd bij omhoog scrollen over deze knop",
-          "label": "Commando bij omhoog scrollen"
         },
         "show-active-indicator": {
           "description": "Toon een kleine stip onder het icoon van het actieve venster op de taakbalk.",

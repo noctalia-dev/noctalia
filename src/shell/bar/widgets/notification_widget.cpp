@@ -8,7 +8,6 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 
-#include <linux/input-event-codes.h>
 #include <memory>
 
 namespace {
@@ -19,24 +18,7 @@ NotificationWidget::NotificationWidget(NotificationManager* manager, wl_output* 
     : m_manager(manager), m_hideWhenNoUnread(options.hideWhenNoUnread) {}
 
 void NotificationWidget::create() {
-  auto area = std::make_unique<InputArea>();
-  area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
-  area->setOnClick([this](const InputArea::PointerData& data) {
-    if (data.button == BTN_RIGHT) {
-      if (m_manager != nullptr) {
-        const bool dndEnabled = m_manager->toggleDoNotDisturb();
-        (void)dndEnabled;
-      }
-      requestRedraw();
-      return;
-    }
-    if (data.button != BTN_LEFT) {
-      return;
-    }
-    // Latch so the widget stays clickable while the panel this click opened is up.
-    m_openedPanelByClick = true;
-    requestPanelToggle("control-center", "notifications");
-  });
+  auto area = ui::inputArea({});
 
   area->addChild(
       ui::glyph({
@@ -60,6 +42,14 @@ void NotificationWidget::create() {
 
   setRoot(std::move(area));
   refreshIndicatorState();
+}
+
+// hide_when_no_unread would pull the widget out from under the pointer the moment the panel it
+// just opened marks everything read. The latch clears itself once that panel closes.
+void NotificationWidget::onGestureDispatch(noctalia::bar::Gesture gesture, const noctalia::bar::WidgetAction& action) {
+  (void)gesture;
+  (void)action;
+  m_openedPanelByClick = true;
 }
 
 void NotificationWidget::doLayout(Renderer& renderer, float /*containerWidth*/, float /*containerHeight*/) {

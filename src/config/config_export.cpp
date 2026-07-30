@@ -225,16 +225,8 @@ namespace config_export {
         resolved.widgetCapsuleOpacity = static_cast<float>(*ovr.widgetCapsuleOpacity);
       if (ovr.hoverHighlight)
         resolved.hoverHighlight = *ovr.hoverHighlight;
-      if (ovr.deadZone.command)
-        resolved.deadZone.command = *ovr.deadZone.command;
-      if (ovr.deadZone.rightCommand)
-        resolved.deadZone.rightCommand = *ovr.deadZone.rightCommand;
-      if (ovr.deadZone.middleCommand)
-        resolved.deadZone.middleCommand = *ovr.deadZone.middleCommand;
-      if (ovr.deadZone.scrollUpCommand)
-        resolved.deadZone.scrollUpCommand = *ovr.deadZone.scrollUpCommand;
-      if (ovr.deadZone.scrollDownCommand)
-        resolved.deadZone.scrollDownCommand = *ovr.deadZone.scrollDownCommand;
+      if (ovr.deadZone.actions)
+        resolved.deadZone.actions = *ovr.deadZone.actions;
       return resolved;
     }
 

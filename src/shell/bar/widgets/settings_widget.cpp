@@ -2,7 +2,6 @@
 
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
-#include "shell/panel/panel_manager.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -14,8 +13,7 @@ SettingsWidget::SettingsWidget(wl_output* /*output*/, Options options)
       m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}
 
 void SettingsWidget::create() {
-  auto area = std::make_unique<InputArea>();
-  area->setOnClick([](const InputArea::PointerData& /*data*/) { PanelManager::instance().openSettingsWindow(); });
+  auto area = ui::inputArea({});
 
   if (m_customImage.enabled()) {
     area->addChild(ui::image({.out = &m_image, .fit = ImageFit::Contain}));

@@ -9,7 +9,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <linux/input-event-codes.h>
 #include <memory>
 
 namespace {
@@ -50,19 +49,7 @@ BluetoothWidget::BluetoothWidget(BluetoothService* bluetooth, wl_output* /*outpu
       m_hideWhenNoConnectedDevice(options.hideWhenNoConnectedDevice) {}
 
 void BluetoothWidget::create() {
-  auto area = std::make_unique<InputArea>();
-  area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
-  area->setOnClick([this](const InputArea::PointerData& data) {
-    if (data.button == BTN_RIGHT) {
-      if (m_bluetooth != nullptr && m_bluetooth->state().adapterPresent) {
-        m_bluetooth->setPowered(!m_bluetooth->state().powered);
-      }
-      return;
-    }
-    if (data.button == BTN_LEFT) {
-      requestPanelToggle("control-center", "bluetooth");
-    }
-  });
+  auto area = ui::inputArea({});
 
   area->addChild(
       ui::glyph({

@@ -425,7 +425,7 @@ void DialogPopupHost::prepareFrame(bool needsUpdate, bool needsLayout) {
 void DialogPopupHost::buildScene(std::uint32_t width, std::uint32_t height) {
   (void)width;
   (void)height;
-  m_sceneRoot = std::make_unique<Node>();
+  m_sceneRoot = ui::node({});
   m_sceneRoot->setAnimationManager(&m_animations);
   if (Style::popupShadowsEnabled()) {
     m_panelShadow =
@@ -437,7 +437,7 @@ void DialogPopupHost::buildScene(std::uint32_t width, std::uint32_t height) {
   });
   m_bgNode = static_cast<Box*>(m_sceneRoot->addChild(std::move(bg)));
 
-  auto content = std::make_unique<Node>();
+  auto content = ui::node({});
   m_contentNode = content.get();
   m_sceneRoot->addChild(std::move(content));
 

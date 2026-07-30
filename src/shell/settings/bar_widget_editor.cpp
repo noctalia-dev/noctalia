@@ -2,14 +2,19 @@
 
 #include "config/config_service.h"
 #include "config/config_types.h"
+#include "core/files/directory_scanner.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/scene/node.h"
+#include "shell/bar/widget_gesture.h"
+#include "shell/bar/widget_gesture_defaults.h"
 #include "shell/settings/color_spec_picker.h"
 #include "shell/settings/font_weight_catalog.h"
+#include "shell/settings/path_browse.h"
 #include "shell/settings/settings_content.h"
 #include "shell/settings/widget_settings_registry.h"
 #include "ui/builders.h"
+#include "ui/controls/collapsible.h"
 #include "ui/dialogs/file_dialog.h"
 #include "ui/dialogs/glyph_picker_dialog.h"
 #include "ui/palette.h"
@@ -27,7 +32,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <unordered_map>
 #include <utility>
 #include <variant>
@@ -104,40 +108,77 @@ namespace settings {
       return header;
     }
 
+    // One row per bindable gesture: a picker over Default / Disabled / every command / a free-form
+    // shell command, plus an argument field when the choice takes one.
+    // One row per bindable gesture, built by the shared factory so this matches every other
+    // gesture-binding surface.
+    void addGestureActionRows(
+        Flex& panel, const BarWidgetEditorContext& ctx, const SettingEntry& entry,
+        const WidgetSettingStringMap& defaults, const WidgetSettingStringMap& configured,
+        noctalia::bar::GestureMask reserved
+    ) {
+      for (const auto gesture : noctalia::bar::allGestures()) {
+        if (reserved.contains(gesture)) {
+          continue;
+        }
+        const std::string key(noctalia::bar::gestureConfigKey(gesture));
+        std::vector<std::string> path = entry.path;
+        path.push_back(key);
+
+        const auto configuredIt = configured.find(key);
+        const auto defaultIt = defaults.find(key);
+
+        SettingEntry rowEntry = entry;
+        rowEntry.path = path;
+        rowEntry.title = i18n::tr(std::string(noctalia::bar::gestureLabelKey(gesture)));
+        rowEntry.subtitle.clear();
+
+        GestureActionSetting setting{
+            .gestureKey = key,
+            .configured = configuredIt != configured.end() ? configuredIt->second : std::string{},
+            .defaultAction = defaultIt != defaults.end() ? defaultIt->second : std::string{},
+        };
+        ctx.makeRow(panel, rowEntry, ctx.makeGestureActionRow(setting, rowEntry.title, path));
+      }
+    }
+
     std::string widgetSettingGroupTitle(std::string_view groupKey) {
       return i18n::tr("settings.entities.widget.settings.groups." + std::string(groupKey));
     }
 
-    enum class PathBrowseKind : std::uint8_t {
-      File,
-      Folder,
-    };
+    constexpr std::string_view kGestureActionsGroup = "actions";
 
-    void applyPathDialogStartValue(FileDialogOptions& options, const std::string& currentValue, PathBrowseKind kind) {
-      if (currentValue.empty()) {
-        return;
+    // The actions group is long (one row per bindable gesture) and most widgets never need it, so it
+    // starts folded. The open state lives on the settings window keyed by widget name: editing a
+    // binding rebuilds the scene, and a local flag would fold the group back up on every edit.
+    std::unique_ptr<Node> makeGestureActionsSection(
+        const BarWidgetEditorContext& ctx, const std::string& widgetName, std::unique_ptr<Node> body, bool withSeparator
+    ) {
+      // Same padding and gap as makeMiniSectionHeader, so this section sits like every other one.
+      auto section = ui::column({
+          .align = FlexAlign::Stretch,
+          .gap = Style::spaceXs * ctx.scale,
+          .configure = [scale = ctx.scale](Flex& flex) { flex.setPadding(Style::spaceSm * scale, 0.0f, 0.0f, 0.0f); },
+      });
+      if (withSeparator) {
+        section->addChild(ui::separator());
       }
 
-      const std::filesystem::path current(currentValue);
-      std::error_code ec;
-      if (kind == PathBrowseKind::Folder
-          && std::filesystem::exists(current, ec)
-          && std::filesystem::is_directory(current, ec)) {
-        options.startDirectory = current;
-        return;
-      }
-      if (kind == PathBrowseKind::File
-          && std::filesystem::exists(current, ec)
-          && std::filesystem::is_regular_file(current, ec)) {
-        options.startDirectory = current.parent_path();
-        options.defaultFilename = current.filename().string();
-        return;
-      }
-      if (current.has_parent_path()
-          && std::filesystem::exists(current.parent_path(), ec)
-          && std::filesystem::is_directory(current.parent_path(), ec)) {
-        options.startDirectory = current.parent_path();
-      }
+      auto collapsible = std::make_unique<Collapsible>();
+      collapsible->setScale(ctx.scale);
+      // Flush left, matching the plain group headers above it.
+      collapsible->setHeaderPadding(0.0f, 0.0f);
+      collapsible->setHeader(makeLabel(
+          widgetSettingGroupTitle(kGestureActionsGroup), Style::fontSizeCaption * ctx.scale,
+          colorSpecFromRole(ColorRole::Secondary), FontWeight::Bold
+      ));
+      collapsible->setBody(std::move(body));
+      collapsible->setExpandedImmediate(ctx.actionsExpandedFor == widgetName);
+      collapsible->setOnToggle([expandedFor = &ctx.actionsExpandedFor, widgetName](bool value) {
+        *expandedFor = value ? widgetName : std::string{};
+      });
+      section->addChild(std::move(collapsible));
+      return section;
     }
 
     std::unique_ptr<Node> makePathBrowseControl(
@@ -1488,7 +1529,10 @@ namespace settings {
         }
 
         if (spec.group != activeGroupKey) {
-          panel->addChild(makeMiniSectionHeader(widgetSettingGroupTitle(spec.group), ctx.scale, visibleSpecs > 0));
+          // The actions group folds, and carries its title in the collapsible's own header.
+          if (spec.group != kGestureActionsGroup) {
+            panel->addChild(makeMiniSectionHeader(widgetSettingGroupTitle(spec.group), ctx.scale, visibleSpecs > 0));
+          }
           activeGroupKey = spec.group;
         }
 
@@ -1629,7 +1673,7 @@ namespace settings {
             options.mode = FileDialogMode::Open;
             options.defaultViewMode = FileDialogViewMode::Grid;
             options.title = i18n::tr("settings.widgets.settings.custom-image.dialog-title");
-            options.extensions = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".bmp", ".gif"};
+            options.extensions = DirectoryScanner::imageExtensionFilter(true);
             options.startDirectory = "/usr/share/icons";
             ctx.makeRow(
                 *panel, entry,
@@ -1676,6 +1720,27 @@ namespace settings {
           ctx.makeListBlock(*panel, entry, ListSetting{.items = settingValueAsStringList(value)});
           break;
         case WidgetControlKind::StringMap: {
+          // Gesture bindings have a closed key set, so they get one fixed row per gesture rather
+          // than the free-form key/value editor.
+          if (spec.schema.key == "actions") {
+            WidgetSettingStringMap defaults;
+            if (const auto* declared = std::get_if<WidgetSettingStringMap>(&spec.schema.defaultValue)) {
+              defaults = *declared;
+            }
+            WidgetSettingStringMap configured;
+            if (widgetConfig != nullptr) {
+              if (const auto tableIt = widgetConfig->tables.find(spec.schema.key);
+                  tableIt != widgetConfig->tables.end()) {
+                configured = tableIt->second;
+              }
+            }
+            auto body = ui::column({.align = FlexAlign::Stretch});
+            addGestureActionRows(
+                *body, ctx, entry, defaults, configured, noctalia::bar::reservedGesturesForType(widgetType)
+            );
+            panel->addChild(makeGestureActionsSection(ctx, widgetName, std::move(body), visibleSpecs > 0));
+            break;
+          }
           const bool customLabels = spec.schema.key == "custom_labels";
           const bool effectsProfileGlyphs = spec.schema.key == "effects_profile_glyphs";
           WidgetSettingStringMap entries;
@@ -2744,6 +2809,8 @@ namespace settings {
                 .glyph = isSelected ? "checkbox" : "square",
                 .glyphSize = Style::fontSizeCaption * ctx.scale,
                 .variant = isSelected ? ButtonVariant::Default : ButtonVariant::Ghost,
+                .tooltip = isSelected ? i18n::tr("settings.entities.widget.group.deselect")
+                                      : i18n::tr("settings.entities.widget.group.select"),
                 .minWidth = iconSize,
                 .minHeight = iconSize,
                 .padding = iconPad,
@@ -2759,6 +2826,7 @@ namespace settings {
             .glyph = "menu-2",
             .glyphSize = Style::fontSizeCaption * ctx.scale,
             .variant = ButtonVariant::Ghost,
+            .tooltip = i18n::tr("settings.entities.widget.group.drag"),
             .minWidth = iconSize,
             .minHeight = iconSize,
             .padding = iconPad,
@@ -2786,6 +2854,7 @@ namespace settings {
                 .glyph = "settings",
                 .glyphSize = Style::fontSizeCaption * ctx.scale,
                 .variant = ButtonVariant::Ghost,
+                .tooltip = i18n::tr("settings.entities.widget.group.settings-widget"),
                 .minWidth = iconSize,
                 .minHeight = iconSize,
                 .padding = iconPad,
@@ -2825,11 +2894,15 @@ namespace settings {
         );
       }
       if (!inherited && removeAction) {
+        const std::string removeTooltip = removeGlyph == "stack-pop"
+            ? i18n::tr("settings.entities.widget.group.remove-from-group")
+            : i18n::tr("settings.entities.widget.group.remove-widget");
         row->addChild(
             ui::button({
                 .glyph = std::string(removeGlyph),
                 .glyphSize = Style::fontSizeCaption * ctx.scale,
                 .variant = ButtonVariant::Ghost,
+                .tooltip = removeTooltip,
                 .minWidth = iconSize,
                 .minHeight = iconSize,
                 .padding = iconPad,
@@ -2982,6 +3055,7 @@ namespace settings {
                       .glyph = "close",
                       .glyphSize = Style::fontSizeCaption * ctx.scale,
                       .variant = ButtonVariant::Ghost,
+                      .tooltip = i18n::tr("settings.entities.widget.group.remove-orphan"),
                       .minHeight = Style::controlHeightSm * ctx.scale,
                       .padding = Style::spaceXs * ctx.scale,
                       .radius = Style::scaledRadiusSm(ctx.scale),
@@ -3093,6 +3167,7 @@ namespace settings {
                   .glyph = "settings",
                   .glyphSize = Style::fontSizeCaption * ctx.scale,
                   .variant = ButtonVariant::Ghost,
+                  .tooltip = i18n::tr("settings.entities.widget.group.edit"),
                   .minWidth = iconSize,
                   .minHeight = iconSize,
                   .padding = iconPad,
@@ -3111,6 +3186,7 @@ namespace settings {
                     .glyph = "stack-pop",
                     .glyphSize = Style::fontSizeCaption * ctx.scale,
                     .variant = ButtonVariant::Ghost,
+                    .tooltip = i18n::tr("settings.entities.widget.group.ungroup"),
                     .minWidth = iconSize,
                     .minHeight = iconSize,
                     .padding = iconPad,
@@ -3152,6 +3228,7 @@ namespace settings {
                 .glyph = "menu-2",
                 .glyphSize = Style::fontSizeCaption * ctx.scale,
                 .variant = ButtonVariant::Ghost,
+                .tooltip = i18n::tr("settings.entities.widget.group.drag"),
                 .minWidth = iconSize,
                 .minHeight = iconSize,
                 .padding = iconPad,

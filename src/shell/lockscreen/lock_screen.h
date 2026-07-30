@@ -24,11 +24,15 @@ class ConfigService;
 
 class CompositorPlatform;
 class FingerprintAuthenticator;
+class HttpClient;
 class LockSurface;
+class MprisService;
 class RenderContext;
+class SessionActionRunner;
 class SharedTextureCache;
 class SystemBus;
 class WaylandConnection;
+class WeatherService;
 
 class LockScreen {
 public:
@@ -41,6 +45,9 @@ public:
   );
   void setSessionHooks(std::function<void()> onLocked, std::function<void()> onUnlocked);
   void setLockEngagedCallback(std::function<void()> callback);
+  void setLoginBoxServices(
+      SessionActionRunner* sessionActions, MprisService* mpris, const WeatherService* weather, HttpClient* httpClient
+  );
   bool lock();
   void primeDesktopCaptures();
   void clearPrimedDesktopCaptures();
@@ -55,6 +62,7 @@ public:
   void onLockKeysChanged();
   void onKeyboardLayoutChanged();
   void requestLayout();
+  void requestUpdate();
   void onPointerEvent(const PointerEvent& event);
   void onKeyboardEvent(const KeyboardEvent& event);
   [[nodiscard]] bool isActive() const noexcept;
@@ -136,5 +144,9 @@ private:
   std::function<void()> m_onSessionLocked;
   std::function<void()> m_onSessionUnlocked;
   std::function<void()> m_onLockEngaged;
+  SessionActionRunner* m_sessionActions = nullptr;
+  MprisService* m_mpris = nullptr;
+  const WeatherService* m_weather = nullptr;
+  HttpClient* m_httpClient = nullptr;
   Timer m_suspendTimeoutTimer;
 };

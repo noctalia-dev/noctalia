@@ -14,8 +14,6 @@ public:
   struct Options {
     bool showLabel = false;
     bool hideWhenNoConnectedDevice = false;
-
-    bool operator==(const Options&) const = default;
   };
 
   BluetoothWidget(BluetoothService* bluetooth, wl_output* output, Options options);

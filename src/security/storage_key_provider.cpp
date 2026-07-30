@@ -223,7 +223,7 @@ namespace security {
       }
       if (status == SecretStoreStatus::NotFound) {
         if (m_encryptedDataExists) {
-          kLog.warn("encrypted state exists, but the storage master key is missing");
+          kLog.warn("encrypted cache/history exists, but its storage master key is missing");
           setState(StorageKeyState::MissingKey);
         } else {
           createKey();

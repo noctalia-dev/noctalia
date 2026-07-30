@@ -60,6 +60,30 @@ namespace {
 
   std::string percentText(std::uint8_t percent) { return std::to_string(static_cast<int>(percent)) + "%"; }
 
+  std::unique_ptr<Flex> makeWifiBucketHeaderRow(const std::string& title, float scale) {
+    auto row = ui::row({
+        .align = FlexAlign::Center,
+    });
+
+    auto pill = ui::row({
+        .align = FlexAlign::Center,
+        .paddingV = Style::spaceXs * 0.5f * scale,
+        .paddingH = Style::spaceSm * scale,
+        .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.8f),
+        .radius = Style::scaledRadiusSm(scale),
+    });
+    pill->addChild(
+        ui::label({
+            .text = title,
+            .fontSize = Style::fontSizeMini * scale,
+            .fontWeight = FontWeight::Bold,
+            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+        })
+    );
+    row->addChild(std::move(pill));
+    return row;
+  }
+
   // Active first, then by signal band, then by name. Ordering on the raw strength —
   // as the services do — reshuffles rows on every scan update, moving the row you are
   // aiming at out from under the pointer.
@@ -156,7 +180,7 @@ public:
     }
     addChild(std::move(action));
 
-    auto area = std::make_unique<InputArea>();
+    auto area = ui::inputArea({});
     area->setPropagateEvents(true);
     area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
     area->setOnLeave([this]() { applyState(); });
@@ -298,7 +322,7 @@ namespace {
           })
       );
 
-      auto area = std::make_unique<InputArea>();
+      auto area = ui::inputArea({});
       area->setPropagateEvents(true);
       area->setOnEnter([this](const InputArea::PointerData& /*data*/) { applyState(); });
       area->setOnLeave([this]() { applyState(); });
@@ -407,9 +431,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
 
   auto currentCard = ui::column({
       .out = &m_currentCard,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
-        applySectionCardStyle(card, scale, opacity, borders);
-      },
+      .configure = [scale, opacity = panelCardOpacity()](Flex& card) { applySectionCardStyle(card, scale, opacity); },
   });
   addTitle(*currentCard, i18n::tr("control-center.network.current-connection"), scale);
 
@@ -456,8 +478,9 @@ std::unique_ptr<Flex> NetworkTab::create() {
   auto passwordCard = ui::column({
       .out = &m_passwordCard,
       .visible = false,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
-        applySectionCardStyle(card, scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](Flex& card) {
+        applySectionCardStyle(card, scale, opacity);
+        card.setGap(Style::spaceMd * scale);
       },
   });
 
@@ -791,7 +814,7 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
   auto buildApRows = [&]() {
     auto container = ui::column({
         .align = FlexAlign::Stretch,
-        .gap = Style::spaceXs * scale,
+        .gap = Style::spaceSm * scale,
     });
     if (aps.empty()) {
       container->addChild(
@@ -802,32 +825,73 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
           })
       );
     } else {
+      std::vector<AccessPointInfo> activeAps;
+      std::vector<AccessPointInfo> savedAps;
+      std::vector<AccessPointInfo> availableAps;
+      activeAps.reserve(aps.size());
+      savedAps.reserve(aps.size());
+      availableAps.reserve(aps.size());
+
       for (const auto& ap : aps) {
         const bool saved = m_network != nullptr && m_network->hasSavedConnection(ap.ssid);
-        auto row = std::make_unique<AccessPointRow>(
-            scale, ap, saved,
-            [this](const AccessPointInfo& clicked) {
-              if (clicked.active || m_network == nullptr) {
-                return;
-              }
-              if (clicked.secured && !m_network->hasSavedConnection(clicked.ssid)) {
-                showPasswordPrompt(clicked);
-                PanelManager::instance().refresh();
-                return;
-              }
-              m_network->activateAccessPoint(clicked);
-            },
-            [this](const AccessPointInfo& clicked) {
-              if (m_network != nullptr) {
-                m_network->forgetSsid(clicked.ssid);
-              }
-              PanelManager::instance().refresh();
-            }
-        );
-        auto* rowPtr = row.get();
-        container->addChild(std::move(row));
-        m_apRows.emplace(rowPtr->ssid(), rowPtr);
+        if (ap.active) {
+          activeAps.push_back(ap);
+        } else if (saved) {
+          savedAps.push_back(ap);
+        } else {
+          availableAps.push_back(ap);
+        }
       }
+
+      auto addRows = [&](Flex& parent, const std::vector<AccessPointInfo>& bucket) {
+        if (bucket.empty()) {
+          return;
+        }
+        for (const auto& ap : bucket) {
+          const bool saved = m_network != nullptr && m_network->hasSavedConnection(ap.ssid);
+          auto row = std::make_unique<AccessPointRow>(
+              scale, ap, saved,
+              [this](const AccessPointInfo& clicked) {
+                if (clicked.active || m_network == nullptr) {
+                  return;
+                }
+                if (clicked.secured && !m_network->hasSavedConnection(clicked.ssid)) {
+                  showPasswordPrompt(clicked);
+                  PanelManager::instance().refresh();
+                  return;
+                }
+                m_network->activateAccessPoint(clicked);
+              },
+              [this](const AccessPointInfo& clicked) {
+                if (m_network != nullptr) {
+                  m_network->forgetSsid(clicked.ssid);
+                }
+                PanelManager::instance().refresh();
+              }
+          );
+          auto* rowPtr = row.get();
+          parent.addChild(std::move(row));
+          m_apRows.emplace(rowPtr->ssid(), rowPtr);
+        }
+      };
+
+      addRows(*container, activeAps);
+
+      auto addBucket = [&](const std::string& title, const std::vector<AccessPointInfo>& bucket) {
+        if (bucket.empty()) {
+          return;
+        }
+        auto group = ui::column({
+            .align = FlexAlign::Stretch,
+            .gap = Style::spaceXs * scale,
+        });
+        group->addChild(makeWifiBucketHeaderRow(title, scale));
+        addRows(*group, bucket);
+        container->addChild(std::move(group));
+      };
+
+      addBucket(i18n::tr("control-center.network.saved"), savedAps);
+      addBucket(i18n::tr("control-center.network.available"), availableAps);
     }
     return container;
   };
@@ -851,11 +915,10 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
     );
   } else {
     const float opacity = panelCardOpacity();
-    const bool borders = panelBordersEnabled();
 
     if (!vpns.empty()) {
       auto vpnCard = ui::column({
-          .configure = [scale, opacity, borders](Flex& card) { applySectionCardStyle(card, scale, opacity, borders); },
+          .configure = [scale, opacity](Flex& card) { applySectionCardStyle(card, scale, opacity); },
       });
 
       auto vpnHeader = makeCardHeaderRow(i18n::tr("control-center.network.vpns"), scale);
@@ -898,7 +961,7 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
 
     {
       auto wifiCard = ui::column({
-          .configure = [scale, opacity, borders](Flex& card) { applySectionCardStyle(card, scale, opacity, borders); },
+          .configure = [scale, opacity](Flex& card) { applySectionCardStyle(card, scale, opacity); },
       });
 
       auto wifiHeader = makeCardHeaderRow(i18n::tr("control-center.network.wifi"), scale);

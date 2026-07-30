@@ -1,8 +1,5 @@
 #include "shell/bar/widgets/custom_button_widget.h"
 
-#include "core/log.h"
-#include "core/process/process.h"
-#include "cursor-shape-v1-client-protocol.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
 #include "ui/builders.h"
@@ -13,79 +10,16 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
-#include <linux/input-event-codes.h>
 #include <memory>
 #include <utility>
-#include <wayland-client-protocol.h>
-
-namespace {
-  constexpr Logger kLog("custom-button");
-} // namespace
 
 CustomButtonWidget::CustomButtonWidget(Options options)
     : m_glyphName(StringUtils::trim(options.glyph)), m_labelText(StringUtils::trim(options.label)),
-      m_tooltip(StringUtils::trim(options.tooltip)), m_command(StringUtils::trim(options.command)),
-      m_rightCommand(StringUtils::trim(options.rightCommand)),
-      m_middleCommand(StringUtils::trim(options.middleCommand)),
-      m_scrollUpCommand(StringUtils::trim(options.scrollUpCommand)),
-      m_scrollDownCommand(StringUtils::trim(options.scrollDownCommand)), m_enableScroll(options.enableScroll),
+      m_tooltip(StringUtils::trim(options.tooltip)),
       m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}
 
 void CustomButtonWidget::create() {
-  auto area = std::make_unique<InputArea>();
-
-  std::uint32_t acceptedButtons = 0;
-  if (!m_command.empty()) {
-    acceptedButtons |= InputArea::buttonMask(BTN_LEFT);
-  }
-  if (!m_rightCommand.empty()) {
-    acceptedButtons |= InputArea::buttonMask(BTN_RIGHT);
-  }
-  if (!m_middleCommand.empty()) {
-    acceptedButtons |= InputArea::buttonMask(BTN_MIDDLE);
-  }
-  area->setAcceptedButtons(acceptedButtons);
-
-  const bool hasScrollCommand = m_enableScroll && (!m_scrollUpCommand.empty() || !m_scrollDownCommand.empty());
-  if (acceptedButtons != 0 || hasScrollCommand) {
-    area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
-  }
-  if (acceptedButtons != 0) {
-    area->setOnClick([this](const InputArea::PointerData& data) {
-      switch (data.button) {
-      case BTN_LEFT:
-        executeCommand(m_command);
-        break;
-      case BTN_RIGHT:
-        executeCommand(m_rightCommand);
-        break;
-      case BTN_MIDDLE:
-        executeCommand(m_middleCommand);
-        break;
-      default:
-        break;
-      }
-    });
-  }
-
-  area->setOnAxisHandler([this](const InputArea::PointerData& data) {
-    if (!m_enableScroll || data.axis != WL_POINTER_AXIS_VERTICAL_SCROLL) {
-      return false;
-    }
-
-    const float steps = data.scrollSteps();
-    if (steps == 0.0f) {
-      return false;
-    }
-
-    const std::string& command = steps < 0.0f ? m_scrollUpCommand : m_scrollDownCommand;
-    if (command.empty()) {
-      return false;
-    }
-
-    executeCommand(command);
-    return true;
-  });
+  auto area = ui::inputArea({});
 
   if (!m_tooltip.empty()) {
     area->setTooltip(m_tooltip);
@@ -120,10 +54,6 @@ void CustomButtonWidget::create() {
 
   m_area = area.get();
   setRoot(std::move(area));
-}
-
-bool CustomButtonWidget::reservesMiddleClick(float /*sceneX*/, float /*sceneY*/) const noexcept {
-  return !m_middleCommand.empty();
 }
 
 void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
@@ -224,13 +154,4 @@ void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, floa
     m_label->setPosition(x, std::round((height - m_label->height()) * 0.5f));
   }
   m_area->setSize(width, height);
-}
-
-void CustomButtonWidget::executeCommand(const std::string& command) const {
-  if (command.empty()) {
-    return;
-  }
-  if (!process::runAsync(command)) {
-    kLog.warn("failed to launch command for '{}'", configName());
-  }
 }

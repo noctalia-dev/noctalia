@@ -7,6 +7,7 @@
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/widget_transform.h"
 #include "time/time_format.h"
+#include "ui/builders.h"
 #include "wayland/layer_surface.h"
 #include "wayland/wayland_connection.h"
 #include "wayland/wayland_seat.h"
@@ -279,10 +280,10 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
 
 void DesktopWidgetsHost::buildScene(DesktopWidgetInstance& instance) {
   if (instance.sceneRoot == nullptr) {
-    instance.sceneRoot = std::make_unique<Node>();
+    instance.sceneRoot = ui::node({});
     instance.sceneRoot->setAnimationManager(&instance.animations);
 
-    auto transformNode = std::make_unique<Node>();
+    auto transformNode = ui::node({});
     instance.transformNode = instance.sceneRoot->addChild(std::move(transformNode));
     if (instance.widget != nullptr) {
       instance.transformNode->addChild(instance.widget->releaseRoot());

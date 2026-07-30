@@ -71,9 +71,8 @@ public:
   // each update/layout pass. Lets content that arrives or changes after the
   // scene build request keyboard focus (e.g. a plugin input with focus = true).
   [[nodiscard]] virtual InputArea* takePendingFocusArea() { return nullptr; }
-  // Panel placement policy. `Attached` merges with the bar when a suitable host
-  // exists, `Floating` opens detached near the bar, and `Centered` opens in the
-  // middle of the target output.
+  // Panel placement policy. `Attached` anchors the panel surface to a suitable
+  // bar edge; `Floating` opens detached and uses panelScreenPosition().
   [[nodiscard]] virtual PanelPlacement panelPlacement() const noexcept { return PanelPlacement::Floating; }
   // Floating screen position (one of kPanelPositions). Plugin panels override; built-in
   // panels resolve through shell.panel.*_position in PanelManager.
@@ -98,18 +97,10 @@ public:
   [[nodiscard]] Node* root() const noexcept { return m_root ? m_root.get() : m_rootPtr; }
   [[nodiscard]] float contentScale() const noexcept { return m_contentScale; }
   [[nodiscard]] float panelCardOpacity() const noexcept { return m_panelCardOpacity; }
-  [[nodiscard]] bool panelBordersEnabled() const noexcept { return m_panelBordersEnabled; }
 
   void setContentScale(float scale) noexcept { m_contentScale = scale; }
   void setPendingOpenContext(std::string_view context) { m_pendingOpenContext = std::string(context); }
   [[nodiscard]] std::string_view pendingOpenContext() const noexcept { return m_pendingOpenContext; }
-  void setPanelBordersEnabled(bool enabled) noexcept {
-    if (m_panelBordersEnabled == enabled) {
-      return;
-    }
-    m_panelBordersEnabled = enabled;
-    onPanelBordersChanged(enabled);
-  }
   void setPanelCardOpacity(float opacity) noexcept {
     const float clamped = std::clamp(opacity, 0.0f, 1.0f);
     if (m_panelCardOpacity == clamped) {
@@ -131,13 +122,11 @@ protected:
   void setRoot(std::unique_ptr<Node> root) { m_root = std::move(root); }
   void clearReleasedRoot() noexcept { m_rootPtr = nullptr; }
   virtual void onPanelCardOpacityChanged(float opacity) { (void)opacity; }
-  virtual void onPanelBordersChanged(bool enabled) { (void)enabled; }
   virtual void doLayout(Renderer& renderer, float width, float height) = 0;
   virtual void doUpdate(Renderer& renderer) { (void)renderer; }
 
   float m_contentScale = 1.0f;
   float m_panelCardOpacity = 1.0f;
-  bool m_panelBordersEnabled = true;
   std::string m_pendingOpenContext;
   AnimationManager* m_animations = nullptr;
 

@@ -514,7 +514,6 @@
         "show-keyboard-layout": "Billentyűzetkiosztás",
         "show-label": "Címke megjelenítése",
         "show-login-button": "Bejelentkezés gomb",
-        "show-password-hint": "Jelszótipp",
         "show-vpn-label": "VPN-címke megjelenítése",
         "show-when-idle": "Megjelenítés tétlenség esetén",
         "stat": "Statisztika",
@@ -1466,7 +1465,6 @@
         "results-count": "{count} bővítmény",
         "search-placeholder": "Bővítmények keresése…",
         "source-all": "Mind",
-        "sources": "Források",
         "title": "Bővítményáruház"
       }
     },
@@ -1657,26 +1655,6 @@
         },
         "corner-top-right": {
           "description": "A sáv jobb felső sarkának sugara"
-        },
-        "dead-zone-command": {
-          "description": "Shell-parancs, amelyet a widget-szakaszokon kívüli sáv szélén, bal egérgombbal történő kattintással lehet futtatni",
-          "label": "Bal kattintás"
-        },
-        "dead-zone-middle-command": {
-          "description": "Shell-parancs, amelyet a widget-szakaszokon kívüli sáv szélén, középső egérgombbal történő kattintással lehet futtatni",
-          "label": "Középső kattintás"
-        },
-        "dead-zone-right-command": {
-          "description": "A jobb egérgombbal elindítandó shell-parancs. Ha üresen hagyod, a Vezérlőközpontot nyitja meg",
-          "label": "Jobb kattintás"
-        },
-        "dead-zone-scroll-down-command": {
-          "description": "A lefelé görgetéskor futtatandó shell-parancs",
-          "label": "Lefelé görgetés"
-        },
-        "dead-zone-scroll-up-command": {
-          "description": "A felfelé görgetéskor futtatandó shell-parancs",
-          "label": "Felfelé görgetés"
         },
         "edge-margin": {
           "description": "Távolság a legközelebbi képernyőszéltől; a pozitív értékek lebegtetik tőle a sávot"
@@ -2700,10 +2678,6 @@
           "label": "Egyéni alkalmazásindító parancs",
           "placeholder": "$CMD"
         },
-        "middle-click-opens-widget-settings": {
-          "description": "Nyisd meg egy sáv widget beállításait a sávról középső kattintással",
-          "label": "Középső kattintás megnyitja a Widget beállításait"
-        },
         "niri-overview-type-to-launch": {
           "description": "Nyisd meg az Indítót, amikor gépelsz a niri áttekintésben; egy apró billentyűzet-fókusz felületet használ, amíg az áttekintés nyitva van",
           "label": "Gépelj az indításhoz"
@@ -3095,8 +3069,6 @@
         "ram-used": "RAM Használat",
         "regular": "Normál",
         "replace": "Cserél",
-        "screenshot-primary-fullscreen": "Teljes képernyő",
-        "screenshot-primary-region": "Terület",
         "shared": "Közös",
         "short": "Rövid",
         "swap-percent": "Cserehely-százalék",
@@ -3191,10 +3163,6 @@
           "description": "A vizualizáló második színátmenete",
           "label": "2. szín"
         },
-        "command": {
-          "description": "A gomb bal kattintásakor futó shell parancs",
-          "label": "Bal Kattintás Parancs"
-        },
         "custom-image": {
           "description": "Egyéni kép elérési útja. Hagyd üresen az ikon szimbólum használatához.",
           "dialog-title": "Egyéni kép kiválasztása",
@@ -3207,10 +3175,6 @@
         "custom-labels": {
           "description": "Billentyűzetkiosztás-nevek hozzárendelése egyéni címkékhez",
           "label": "Egyéni címkék"
-        },
-        "cycle-command": {
-          "description": "Billentyűzetkiosztások váltásakor futtatott parancs",
-          "label": "Ciklusparancs"
         },
         "detached-panel": {
           "description": "A fiókot lebegő panelként nyissa meg, saját háttérrel, a sávval való összevonás helyett",
@@ -3433,10 +3397,6 @@
           "description": "Szokványos kifejezés amit a mikrofon applikáció nevek ignorálnak",
           "label": "Regex mikrofon szűrő"
         },
-        "middle-command": {
-          "description": "Shell parancs, ami akkor fut le, ha középső gombbal kattintasz erre a gombra; ha be van állítva, a középső kattintás ezt a parancsot nyitja meg a vezérlőelem beállításai helyett",
-          "label": "Középső Kattintás Parancs"
-        },
         "min-length": {
           "description": "Minimális widget hossz pixelben",
           "label": "Minimális hossz"
@@ -3493,14 +3453,6 @@
           "description": "A jelenleg nem futó, rögzített alkalmazások átlátszósága",
           "label": "A rögzített alkalmazás átlátszósága"
         },
-        "primary-click": {
-          "description": "A sáv gombjára bal kattintáskor végrehajtott művelet",
-          "label": "Elsődleges kattintás"
-        },
-        "right-command": {
-          "description": "Shell parancs, ami a gomb jobb kattintására fut le",
-          "label": "Jobb Kattintás Parancs"
-        },
         "scale": {
           "description": "Skálázd ezt a widgetet a sáv tartalmi skálájához viszonyítva",
           "label": "Skálázás"
@@ -3512,18 +3464,6 @@
         "script": {
           "description": "A lua szkript elérési útja",
           "label": "Szkript"
-        },
-        "scroll-down-command": {
-          "description": "Shell parancs, ami lefelé görgetéskor fut le ezen a gombon",
-          "label": "Lefelé Görgetés Parancs"
-        },
-        "scroll-step": {
-          "description": "Százalékos változás minden egérgörgő lépésnél",
-          "label": "Görgetési lépés"
-        },
-        "scroll-up-command": {
-          "description": "Shell parancs, ami akkor fut le, ha felfelé görgetsz ezen a gombon",
-          "label": "Görgetés Fel Parancs"
         },
         "show-active-indicator": {
           "description": "Egy kis pont megjelenítése az aktív ablak ikonja alatt a tálcán",

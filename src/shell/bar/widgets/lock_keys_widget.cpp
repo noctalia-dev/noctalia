@@ -35,7 +35,7 @@ LockKeysWidget::LockKeysWidget(LockKeysService* lockKeys, Options options)
 }
 
 void LockKeysWidget::create() {
-  auto rootNode = std::make_unique<Node>();
+  auto rootNode = ui::node({});
 
   rootNode->addChild(
       ui::glyph({

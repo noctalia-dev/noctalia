@@ -29,9 +29,6 @@ public:
     std::string glyph = "screenshot";
     std::string customImage;
     bool customImageColorize = false;
-    PrimaryClick primaryClick = PrimaryClick::Region;
-
-    bool operator==(const Options&) const = default;
   };
 
   ScreenshotWidget(
@@ -46,9 +43,7 @@ public:
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void openCaptureMenu();
-  void runPrimaryClickAction();
   [[nodiscard]] ScreenshotService::OutputOptions outputOptions() const;
-  [[nodiscard]] bool primaryClickIsFullscreen() const;
 
   std::string m_barGlyphId;
   wl_output* m_output = nullptr;
@@ -59,7 +54,6 @@ private:
   ShellConfig::ShadowConfig m_shadowConfig;
   std::string m_barPosition;
   WidgetCustomImage m_customImage;
-  PrimaryClick m_primaryClick = PrimaryClick::Region;
   Glyph* m_glyph = nullptr;
   Image* m_image = nullptr;
   InputArea* m_hitArea = nullptr;

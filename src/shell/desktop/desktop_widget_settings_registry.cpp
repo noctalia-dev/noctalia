@@ -429,8 +429,22 @@ namespace desktop_settings {
       add(fontFamilySpec());
       add(boolSpec("shadow", true));
     } else if (type == "login_box") {
+      add(segmentedSpec(
+          "layout", "regular",
+          {{"compact", "settings.widgets.options.compact"}, {"regular", "settings.widgets.options.regular"}}
+      ));
+      const WidgetSettingVisibility regularOnly{"layout", {"regular"}};
+      auto showSessionButtons = boolSpec("show_session_buttons", true);
+      showSessionButtons.visibleWhen = regularOnly;
+      add(std::move(showSessionButtons));
+      auto showMedia = boolSpec("show_media", true);
+      showMedia.visibleWhen = regularOnly;
+      add(std::move(showMedia));
+      auto showWeather = boolSpec("show_weather", true);
+      showWeather.visibleWhen = regularOnly;
+      add(std::move(showWeather));
       add(boolSpec("show_login_button", true));
-      add(boolSpec("show_password_hint", true));
+      add(boolSpec("show_unlock_hint", true));
       add(boolSpec("show_caps_lock", true));
       add(boolSpec("show_keyboard_layout", true));
       add(doubleSpec("input_opacity", 1.0, 0.0, 1.0, 0.01));

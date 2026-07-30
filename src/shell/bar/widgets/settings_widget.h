@@ -16,8 +16,6 @@ public:
     std::string glyph = "settings";
     std::string customImage;
     bool customImageColorize = false;
-
-    bool operator==(const Options&) const = default;
   };
 
   SettingsWidget(wl_output* output, Options options);

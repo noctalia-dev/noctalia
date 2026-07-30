@@ -26,8 +26,6 @@ public:
     bool showLabel = true;
     bool hideWhenPlugged = false;
     bool hideWhenFull = false;
-
-    bool operator==(const Options&) const = default;
   };
 
   BatteryWidget(UPowerService* upower, Options options);

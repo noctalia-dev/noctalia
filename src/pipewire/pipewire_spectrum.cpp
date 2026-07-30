@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdlib>
 #include <numbers>
 #include <pipewire/core.h>
 #include <pipewire/keys.h>
@@ -220,11 +221,13 @@ void PipeWireSpectrum::Stream::onParamChanged(void* data, std::uint32_t id, cons
 }
 
 void PipeWireSpectrum::Stream::onStateChanged(
-    void* /*data*/, pw_stream_state /*oldState*/, pw_stream_state state, const char* error
+    void* /*data*/, pw_stream_state oldState, pw_stream_state state, const char* error
 ) {
   if (state == PW_STREAM_STATE_ERROR) {
     kLog.warn("spectrum stream error: {}", error != nullptr ? error : "unknown");
+    return;
   }
+  kLog.debug("spectrum stream state {} -> {}", pw_stream_state_as_string(oldState), pw_stream_state_as_string(state));
 }
 
 void PipeWireSpectrum::Stream::onDestroy(void* data) {
@@ -260,6 +263,7 @@ void PipeWireSpectrum::Stream::handleParamChanged(std::uint32_t id, const spa_po
   m_format = raw;
   m_formatReady = raw.channels > 0;
   if (m_formatReady) {
+    kLog.debug("spectrum stream format: rate={} channels={}", raw.rate, raw.channels);
     m_spectrum.m_sampleRate = static_cast<int>(raw.rate);
     m_spectrum.computeAnalysisBandBins();
   }
@@ -322,10 +326,19 @@ void PipeWireSpectrum::Stream::handleProcess() {
   // Skip flagging sample receipt for fully-silent batches so a paused/silent sink
   // lets processFrame() short-circuit at the m_idle gate instead of running scheduled FFT work.
   bool anyNonZero = false;
-  for (float sample : mono) {
-    if (sample != 0.0f) {
-      anyNonZero = true;
-      break;
+  if (m_spectrum.m_diagEnabled) {
+    float peak = 0.0f;
+    for (float sample : mono) {
+      peak = std::max(peak, std::abs(sample));
+    }
+    anyNonZero = peak > 0.0f;
+    m_spectrum.noteProcessDiag(frameCount, channelCount, peak);
+  } else {
+    for (float sample : mono) {
+      if (sample != 0.0f) {
+        anyNonZero = true;
+        break;
+      }
     }
   }
   if (anyNonZero) {
@@ -333,7 +346,10 @@ void PipeWireSpectrum::Stream::handleProcess() {
   }
 }
 
-PipeWireSpectrum::PipeWireSpectrum(PipeWireService& service) : m_service(service) { initProcessing(); }
+PipeWireSpectrum::PipeWireSpectrum(PipeWireService& service) : m_service(service) {
+  m_diagEnabled = std::getenv("NOCTALIA_SPECTRUM_DEBUG") != nullptr;
+  initProcessing();
+}
 
 PipeWireSpectrum::~PipeWireSpectrum() = default;
 
@@ -512,6 +528,9 @@ void PipeWireSpectrum::clearValues(bool notify) {
   }
   std::ranges::fill(m_analysisBands, 0.0f);
   m_idleFrames = 0;
+  if (!m_idle) {
+    kLog.debug("spectrum idle");
+  }
   m_idle = true;
   m_samplesReceived = false;
   m_ringFull = false;
@@ -700,6 +719,24 @@ void PipeWireSpectrum::feedSamples(const float* monoSamples, int count) {
   }
 }
 
+void PipeWireSpectrum::noteProcessDiag(int frameCount, int channelCount, float peak) {
+  m_diagPeak = std::max(m_diagPeak, peak);
+  ++m_diagBatches;
+  m_diagFrames += frameCount;
+  const auto now = std::chrono::steady_clock::now();
+  if (now - m_diagLastProcessLog < std::chrono::seconds(1)) {
+    return;
+  }
+  m_diagLastProcessLog = now;
+  kLog.debug(
+      "capture: batches={} frames={} channels={} peak={:.5f} rate={}", m_diagBatches, m_diagFrames, channelCount,
+      m_diagPeak, m_sampleRate
+  );
+  m_diagPeak = 0.0f;
+  m_diagBatches = 0;
+  m_diagFrames = 0;
+}
+
 void PipeWireSpectrum::processFrame() {
   if (!m_ringFull) {
     m_samplesReceived = false;
@@ -708,6 +745,7 @@ void PipeWireSpectrum::processFrame() {
   if (m_idle && !m_samplesReceived) {
     return;
   }
+  const bool hadSamples = m_samplesReceived;
 
   if (!m_samplesReceived) {
     for (auto& sample : m_ringBuffer) {
@@ -776,6 +814,21 @@ void PipeWireSpectrum::processFrame() {
     band = std::clamp(band, 0.0f, kMaxBandLevel);
   }
 
+  if (m_diagEnabled) {
+    const auto now = std::chrono::steady_clock::now();
+    if (now - m_diagLastFrameLog >= std::chrono::seconds(1)) {
+      m_diagLastFrameLog = now;
+      float maxBand = 0.0f;
+      for (float band : bands) {
+        maxBand = std::max(maxBand, band);
+      }
+      kLog.debug(
+          "frame: maxBand={:.4f} sensitivity={:.4f} silence={} idleFrames={} idle={} hadSamples={}", maxBand,
+          m_sensitivity, silence, m_idleFrames, m_idle, hadSamples
+      );
+    }
+  }
+
   if (silence) {
     ++m_idleFrames;
     if (m_idleFrames >= kFrameRateHz) {
@@ -787,6 +840,9 @@ void PipeWireSpectrum::processFrame() {
     }
   } else {
     m_idleFrames = 0;
+    if (m_idle) {
+      kLog.debug("spectrum active");
+    }
     m_idle = false;
   }
 

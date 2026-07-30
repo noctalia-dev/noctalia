@@ -4,6 +4,7 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
+#include "ui/builders.h"
 #include "ui/style.h"
 #include "ui/visuals/fancy_audio_visualizer.h"
 
@@ -45,7 +46,7 @@ DesktopFancyAudioVisualizerWidget::~DesktopFancyAudioVisualizerWidget() {
 }
 
 void DesktopFancyAudioVisualizerWidget::create() {
-  auto rootNode = std::make_unique<Node>();
+  auto rootNode = ui::node({});
   rootNode->setClipChildren(true);
 
   auto visualizer = std::make_unique<FancyAudioVisualizer>();

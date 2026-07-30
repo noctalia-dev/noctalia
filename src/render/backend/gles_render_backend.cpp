@@ -513,7 +513,7 @@ void GlesRenderBackend::drawImage(const RenderImageDraw& draw) {
   m_imageProgram.draw(
       draw.texture, draw.surfaceWidth, draw.surfaceHeight, draw.width, draw.height, draw.tint, draw.monochromeTint,
       draw.alphaMaskTint, draw.opacity, draw.radius, draw.borderColor, draw.borderWidth, static_cast<int>(draw.fitMode),
-      draw.textureWidth, draw.textureHeight, draw.transform
+      draw.textureWidth, draw.textureHeight, draw.transform, draw.scrim
   );
 }
 

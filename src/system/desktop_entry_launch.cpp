@@ -6,9 +6,13 @@
 #include "system/terminal_launch.h"
 #include "util/file_utils.h"
 
+#include <chrono>
+#include <map>
 #include <mutex>
+#include <sdbus-c++/sdbus-c++.h>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -183,6 +187,89 @@ namespace {
     return false;
   }
 
+  std::string dbusObjectPathForAppId(std::string_view appId) {
+    std::string path;
+    path.reserve(appId.size() + 1);
+    path.push_back('/');
+    for (const char c : appId) {
+      path.push_back(c == '.' ? '/' : c);
+    }
+    return path;
+  }
+
+  std::map<std::string, sdbus::Variant> dbusPlatformData(const std::string& activationToken) {
+    std::map<std::string, sdbus::Variant> platformData;
+    if (!activationToken.empty()) {
+      platformData.emplace("desktop-startup-id", sdbus::Variant{activationToken});
+      platformData.emplace("activation-token", sdbus::Variant{activationToken});
+    }
+    return platformData;
+  }
+
+  // Prefer D-Bus only when the app is already on the bus (focus / hand off).
+  bool tryDbusActivation(const desktop_entry_launch::LaunchOptions& options) {
+    if (!options.dbusActivatable || options.dbusAppId.empty() || !options.customCommand.empty()) {
+      return false;
+    }
+
+    try {
+      auto connection = sdbus::createSessionBusConnection();
+      constexpr auto kProbeTimeout = std::chrono::milliseconds(200);
+      constexpr auto kActivateTimeout = std::chrono::milliseconds(500);
+      constexpr auto kIface = "org.freedesktop.Application";
+
+      auto dbus = sdbus::createProxy(
+          *connection, sdbus::ServiceName{"org.freedesktop.DBus"}, sdbus::ObjectPath{"/org/freedesktop/DBus"}
+      );
+      bool hasOwner = false;
+      dbus->callMethod("NameHasOwner")
+          .onInterface("org.freedesktop.DBus")
+          .withTimeout(kProbeTimeout)
+          .withArguments(options.dbusAppId)
+          .storeResultsTo(hasOwner);
+      if (!hasOwner) {
+        return false;
+      }
+
+      auto proxy = sdbus::createProxy(
+          *connection, sdbus::ServiceName{options.dbusAppId},
+          sdbus::ObjectPath{dbusObjectPathForAppId(options.dbusAppId)}
+      );
+      auto platformData = dbusPlatformData(options.activationToken);
+
+      if (options.desktopActionId.empty()) {
+        proxy->callMethod("Activate").onInterface(kIface).withTimeout(kActivateTimeout).withArguments(platformData);
+      } else {
+        proxy->callMethod("ActivateAction")
+            .onInterface(kIface)
+            .withTimeout(kActivateTimeout)
+            .withArguments(options.desktopActionId, std::vector<sdbus::Variant>{}, platformData);
+      }
+      return true;
+    } catch (const sdbus::Error& error) {
+      kLog.debug(
+          "dbus activation failed for '{}' (action='{}'): {}; falling back to Exec", options.dbusAppId,
+          options.desktopActionId, error.what()
+      );
+      return false;
+    } catch (const std::exception& error) {
+      kLog.debug("dbus activation failed for '{}': {}; falling back to Exec", options.dbusAppId, error.what());
+      return false;
+    }
+  }
+
+  bool launchPrepared(
+      const std::vector<std::string>& args, std::string_view appName, std::string_view workingDir,
+      const desktop_entry_launch::LaunchOptions& options, bool runAsSystemdService
+  ) {
+    if (runAsSystemdService) {
+      return process::runAsyncAsSystemdService(
+          args, appNameOrDefault(appName), options.activationToken, std::string(workingDir)
+      );
+    }
+    return process::runAsync(args, options.activationToken, std::string(workingDir));
+  }
+
 } // namespace
 
 namespace desktop_entry_launch {
@@ -218,14 +305,27 @@ namespace desktop_entry_launch {
   }
 
   bool launchEntry(const DesktopEntry& entry, const LaunchOptions& options) {
-    const bool runAsSystemdService = effectiveRunAsSystemdService(options);
-    if (runAsSystemdService && !options.customCommand.empty()) {
+    LaunchOptions resolved = options;
+    if (resolved.dbusAppId.empty()) {
+      resolved.dbusAppId = entry.id;
+    }
+    if (!resolved.dbusActivatable) {
+      resolved.dbusActivatable = entry.dbusActivatable;
+    }
+    resolved.desktopActionId.clear();
+
+    if (tryDbusActivation(resolved)) {
+      return true;
+    }
+
+    const bool runAsSystemdService = effectiveRunAsSystemdService(resolved);
+    if (runAsSystemdService && !resolved.customCommand.empty()) {
       kLog.warn(
           "launch_apps_as_systemd_services and launch_apps_custom_command are mutually exclusive; ignoring custom "
           "command"
       );
     }
-    const std::string customCommand = runAsSystemdService ? "" : options.customCommand;
+    const std::string customCommand = runAsSystemdService ? "" : resolved.customCommand;
     const std::string command = parseCustomCommand(entry.exec, customCommand);
     auto prepared = prepareCommand(command, entry.terminal);
 
@@ -235,24 +335,31 @@ namespace desktop_entry_launch {
     }
 
     const std::string appName = !entry.id.empty() ? entry.id : appNameOrDefault(entry.name);
-    if (runAsSystemdService) {
-      return process::runAsyncAsSystemdService(prepared->args, appName, options.activationToken, entry.workingDir);
-    }
-    return process::runAsync(prepared->args, options.activationToken, entry.workingDir);
+    return launchPrepared(prepared->args, appName, entry.workingDir, resolved, runAsSystemdService);
   }
 
   bool launchAction(
       const DesktopAction& action, std::string_view appName, std::string_view workingDir, bool terminal,
       const LaunchOptions& options
   ) {
-    const bool runAsSystemdService = effectiveRunAsSystemdService(options);
-    if (runAsSystemdService && !options.customCommand.empty()) {
+    LaunchOptions resolved = options;
+    if (resolved.dbusAppId.empty()) {
+      resolved.dbusAppId = std::string(appName);
+    }
+    resolved.desktopActionId = action.id;
+
+    if (tryDbusActivation(resolved)) {
+      return true;
+    }
+
+    const bool runAsSystemdService = effectiveRunAsSystemdService(resolved);
+    if (runAsSystemdService && !resolved.customCommand.empty()) {
       kLog.warn(
           "launch_apps_as_systemd_services and launch_apps_custom_command are mutually exclusive; ignoring custom "
           "command"
       );
     }
-    const std::string customCommand = runAsSystemdService ? "" : options.customCommand;
+    const std::string customCommand = runAsSystemdService ? "" : resolved.customCommand;
     const std::string command = parseCustomCommand(action.exec, customCommand);
     auto prepared = prepareCommand(command, terminal);
     if (!prepared.has_value()) {
@@ -262,12 +369,7 @@ namespace desktop_entry_launch {
       return false;
     }
 
-    if (runAsSystemdService) {
-      return process::runAsyncAsSystemdService(
-          prepared->args, appNameOrDefault(appName), options.activationToken, std::string(workingDir)
-      );
-    }
-    return process::runAsync(prepared->args, options.activationToken, std::string(workingDir));
+    return launchPrepared(prepared->args, appName, workingDir, resolved, runAsSystemdService);
   }
 
 } // namespace desktop_entry_launch

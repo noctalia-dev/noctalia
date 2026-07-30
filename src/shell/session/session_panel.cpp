@@ -4,10 +4,10 @@
 #include "core/input/keybind_matcher.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
-#include "render/scene/input_area.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/session/session_action_meta.h"
 #include "shell/session/session_action_runner.h"
+#include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/controls/button.h"
 #include "ui/controls/countdown_ring.h"
@@ -83,18 +83,16 @@ PanelPlacement SessionPanel::panelPlacement() const noexcept {
 
 float SessionPanel::preferredWidth() const {
   const std::size_t n = visibleColumnCount();
-  const float gap = Style::spaceSm;
+  const float gap = Style::spaceMd;
   const float w = kButtonMinWidth * static_cast<float>(n)
       + gap * static_cast<float>(n > 1 ? n - 1 : 0)
       + Style::panelPadding * 2.0f;
-  // The min-width floor keeps the default single-row panel comfortably wide; an explicit
-  // grid sizes to its own columns instead of being stretched back out to it.
-  return scaled(gridEnabled() ? w : std::max(kPanelMinWidth, w));
+  return scaled(w);
 }
 
 float SessionPanel::preferredHeight() const {
   const std::size_t rows = visibleRowCount();
-  const float gap = Style::spaceSm;
+  const float gap = Style::spaceMd;
   const float h = kActionButtonMinHeight * static_cast<float>(rows)
       + gap * static_cast<float>(rows > 1 ? rows - 1 : 0)
       + Style::panelPadding * 2.0f;
@@ -135,8 +133,8 @@ void SessionPanel::create() {
 
   auto rootLayout = std::make_unique<GridView>();
   rootLayout->setColumns(columns);
-  rootLayout->setColumnGap(Style::spaceSm * scale);
-  rootLayout->setRowGap(Style::spaceSm * scale);
+  rootLayout->setColumnGap(Style::spaceMd * scale);
+  rootLayout->setRowGap(Style::spaceMd * scale);
   rootLayout->setStretchItems(true);
   rootLayout->setUniformCellSize(true);
   rootLayout->setMinCellWidth(kButtonMinWidth * scale);
@@ -175,66 +173,75 @@ void SessionPanel::create() {
 }
 
 Button* SessionPanel::createActionButton(const SessionPanelActionConfig& cfg, std::size_t index, float scale) {
-  auto button = std::make_unique<Button>();
   const std::string labelText =
       cfg.label.has_value() && !cfg.label->empty() ? *cfg.label : i18n::tr(session_action::labelKey(cfg.action));
-  button->setText(labelText);
-  if (index < m_entryShortcutBadges.size()
-      && m_entryShortcutBadges[index].has_value()
-      && m_config->config().shell.session.showShortcuts) {
-    button->setBadge(*m_entryShortcutBadges[index]);
-  }
-  button->setGlyph(
-      cfg.glyph.has_value() && !cfg.glyph->empty() ? *cfg.glyph : session_action::defaultGlyph(cfg.action)
-  );
-  button->setVariant(buttonVariantFor(cfg.variant));
-  button->setSurfaceOpacity(panelCardOpacity());
-  button->setDirection(FlexDirection::Vertical);
-  button->setAlign(FlexAlign::Center);
-  button->setJustify(FlexJustify::Center);
-  button->setGap(Style::spaceSm * scale);
-  button->setContentAlign(ButtonContentAlign::Center);
-  button->setFontSize((Style::fontSizeBody + 1.0f) * scale);
-  button->setGlyphSize(28.0f * scale);
-  button->setPadding(Style::spaceMd * scale, Style::spaceLg * scale);
-  button->setRadius(Style::scaledRadiusLg(scale));
-  button->setMinWidth(kButtonMinWidth * scale);
-  button->setMinHeight(kActionButtonMinHeight * scale);
-  button->setFlexGrow(1.0f);
-  button->setTabStop(false);
+  const std::string glyph =
+      cfg.glyph.has_value() && !cfg.glyph->empty() ? *cfg.glyph : session_action::defaultGlyph(cfg.action);
+  const std::optional<std::string> badge = index < m_entryShortcutBadges.size()
+          && m_entryShortcutBadges[index].has_value()
+          && m_config->config().shell.session.showShortcuts
+      ? m_entryShortcutBadges[index]
+      : std::nullopt;
 
-  button->setOnClick([this, index]() { armEntry(index); });
-  button->setOnEnter([this, index]() {
-    if (m_pendingCountdown.has_value() && m_pendingCountdown->index != index) {
-      cancelCountdown();
-    }
+  auto button = ui::button({
+      .text = labelText,
+      .glyph = glyph,
+      .fontSize = (Style::fontSizeBody + 1.0f) * scale,
+      .glyphSize = 28.0f * scale,
+      .contentAlign = ButtonContentAlign::Center,
+      .variant = buttonVariantFor(cfg.variant),
+      .surfaceOpacity = panelCardOpacity(),
+      .badge = badge,
+      .minWidth = kButtonMinWidth * scale,
+      .minHeight = kActionButtonMinHeight * scale,
+      .paddingV = Style::spaceMd * scale,
+      .paddingH = Style::spaceMd * scale,
+      .gap = Style::spaceSm * scale,
+      .radius = Style::scaledRadiusLg(scale),
+      .flexGrow = 1.0f,
+      .onClick = [this, index]() { armEntry(index); },
+      .onMotion =
+          [this, index]() {
+            if (m_pendingCountdown.has_value() && m_pendingCountdown->index != index) {
+              cancelCountdown();
+            }
+          },
+      .onEnter =
+          [this, index]() {
+            if (m_pendingCountdown.has_value() && m_pendingCountdown->index != index) {
+              cancelCountdown();
+            }
+          },
+      .configure =
+          [](Button& control) {
+            control.setDirection(FlexDirection::Vertical);
+            control.setAlign(FlexAlign::Center);
+            control.setJustify(FlexJustify::Center);
+            control.setFillHeight(true);
+            control.setTabStop(false);
+          },
   });
-  button->setOnMotion([this, index]() {
-    if (m_pendingCountdown.has_value() && m_pendingCountdown->index != index) {
-      cancelCountdown();
-    }
-  });
-
   return button.release();
 }
 
 void SessionPanel::attachCountdownOverlay(Button& button, ActionCountdownOverlay& overlay, float scale) {
   const float ringSize = 64.0f * scale;
 
-  auto overlayRoot = std::make_unique<Flex>();
-  overlayRoot->setDirection(FlexDirection::Vertical);
-  overlayRoot->setAlign(FlexAlign::Center);
-  overlayRoot->setJustify(FlexJustify::Center);
-  overlayRoot->setParticipatesInLayout(false);
-  overlayRoot->setZIndex(0);
-  overlayRoot->setVisible(false);
-  overlay.root = overlayRoot.get();
+  auto overlayRoot = ui::column({
+      .out = &overlay.root,
+      .align = FlexAlign::Center,
+      .justify = FlexJustify::Center,
+      .visible = false,
+      .participatesInLayout = false,
+      .configure = [](Flex& root) { root.setZIndex(0); },
+  });
 
-  auto scrim = std::make_unique<Box>();
-  scrim->setRadius(Style::scaledRadiusLg(scale));
-  scrim->setParticipatesInLayout(false);
-  scrim->setZIndex(0);
-  overlay.scrim = scrim.get();
+  auto scrim = ui::box({
+      .out = &overlay.scrim,
+      .radius = Style::scaledRadiusLg(scale),
+      .participatesInLayout = false,
+      .configure = [](Box& box) { box.setZIndex(0); },
+  });
   overlayRoot->addChild(std::move(scrim));
 
   auto ring = std::make_unique<CountdownRing>();

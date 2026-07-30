@@ -665,10 +665,10 @@ namespace noctalia::theme {
       const Color outline_variant = ensureContrast(adjustSurface(palette[0], 0.10, 0.40), surface, 3.0);
 
       const Color dark_fg = fromHsl(std::get<0>(palette[0].toHsl()), 0.20, 0.12);
-      const Color on_primary = ensureContrast(dark_fg, primary_adjusted, 7.0);
-      const Color on_secondary = ensureContrast(dark_fg, secondary_adjusted, 7.0);
-      const Color on_tertiary = ensureContrast(dark_fg, tertiary_adjusted, 7.0);
-      const Color on_error = ensureContrast(dark_fg, error, 7.0);
+      const Color on_primary = ensureContrast(dark_fg, primary_adjusted, 4.5);
+      const Color on_secondary = ensureContrast(dark_fg, secondary_adjusted, 4.5);
+      const Color on_tertiary = ensureContrast(dark_fg, tertiary_adjusted, 4.5);
+      const Color on_error = ensureContrast(dark_fg, error, 4.5);
 
       const Color on_primary_container = ensureContrast(fromHsl(primary_h, primary_s, 0.90), primary_container, 4.5, 1);
       auto [sec_h, sec_s, _sl] = secondary.toHsl();
@@ -827,10 +827,10 @@ namespace noctalia::theme {
       const Color on_surface_variant = ensureContrast(base_on_surface_variant, surface_variant, 4.5);
 
       const Color light_fg = fromHsl(text_h, 0.1, 0.98);
-      const Color on_primary = ensureContrast(light_fg, primary_adjusted, 7.0);
-      const Color on_secondary = ensureContrast(light_fg, secondary_adjusted, 7.0);
-      const Color on_tertiary = ensureContrast(light_fg, tertiary_adjusted, 7.0);
-      const Color on_error = ensureContrast(light_fg, error, 7.0);
+      const Color on_primary = ensureContrast(light_fg, primary_adjusted, 4.5);
+      const Color on_secondary = ensureContrast(light_fg, secondary_adjusted, 4.5);
+      const Color on_tertiary = ensureContrast(light_fg, tertiary_adjusted, 4.5);
+      const Color on_error = ensureContrast(light_fg, error, 4.5);
 
       const Color on_primary_container =
           ensureContrast(fromHsl(primary_h, primary_s, 0.15), primary_container, 4.5, -1);
@@ -993,10 +993,10 @@ namespace noctalia::theme {
       const Color outline_variant = ensureContrast(fromHsl(primary_h, 0.12, 0.40), surface, 3.0);
 
       const Color dark_fg = fromHsl(primary_h, 0.12, 0.12);
-      const Color on_primary = ensureContrast(dark_fg, primary_adjusted, 7.0);
-      const Color on_secondary = ensureContrast(dark_fg, secondary_adjusted, 7.0);
-      const Color on_tertiary = ensureContrast(dark_fg, tertiary_adjusted, 7.0);
-      const Color on_error = ensureContrast(dark_fg, error, 7.0);
+      const Color on_primary = ensureContrast(dark_fg, primary_adjusted, 4.5);
+      const Color on_secondary = ensureContrast(dark_fg, secondary_adjusted, 4.5);
+      const Color on_tertiary = ensureContrast(dark_fg, tertiary_adjusted, 4.5);
+      const Color on_error = ensureContrast(dark_fg, error, 4.5);
 
       const Color on_primary_container = ensureContrast(fromHsl(primary_h, 0.20, 0.90), primary_container, 4.5, 1);
       auto [sec_h, sec_s, _sl] = secondary.toHsl();
@@ -1155,10 +1155,10 @@ namespace noctalia::theme {
       const Color on_surface_variant = ensureContrast(base_on_surface_variant, surface_variant, 4.5);
 
       const Color light_fg = fromHsl(primary_h, 0.08, 0.98);
-      const Color on_primary = ensureContrast(light_fg, primary_adjusted, 7.0);
-      const Color on_secondary = ensureContrast(light_fg, secondary_adjusted, 7.0);
-      const Color on_tertiary = ensureContrast(light_fg, tertiary_adjusted, 7.0);
-      const Color on_error = ensureContrast(light_fg, error, 7.0);
+      const Color on_primary = ensureContrast(light_fg, primary_adjusted, 4.5);
+      const Color on_secondary = ensureContrast(light_fg, secondary_adjusted, 4.5);
+      const Color on_tertiary = ensureContrast(light_fg, tertiary_adjusted, 4.5);
+      const Color on_error = ensureContrast(light_fg, error, 4.5);
 
       const Color on_primary_container = ensureContrast(fromHsl(primary_h, 0.20, 0.15), primary_container, 4.5, -1);
       auto [sec_h, sec_s, _sl] = secondary.toHsl();
@@ -1306,10 +1306,10 @@ namespace noctalia::theme {
       const Color outline_variant = ensureContrast(fromHsl(primary_h, 0.05, 0.40), surface, 3.0);
 
       const Color dark_fg = fromHsl(primary_h, 0.10, 0.12);
-      const Color on_primary = ensureContrast(dark_fg, primary_adjusted, 7.0);
-      const Color on_secondary = ensureContrast(dark_fg, secondary_adjusted, 7.0);
-      const Color on_tertiary = ensureContrast(dark_fg, tertiary_adjusted, 7.0);
-      const Color on_error = ensureContrast(dark_fg, error, 7.0);
+      const Color on_primary = ensureContrast(dark_fg, primary_adjusted, 4.5);
+      const Color on_secondary = ensureContrast(dark_fg, secondary_adjusted, 4.5);
+      const Color on_tertiary = ensureContrast(dark_fg, tertiary_adjusted, 4.5);
+      const Color on_error = ensureContrast(dark_fg, error, 4.5);
 
       const Color on_primary_container = ensureContrast(fromHsl(primary_h, 0.05, 0.90), primary_container, 4.5, 1);
       auto [sec_h, _ss, _sl] = secondary.toHsl();
@@ -1453,10 +1453,10 @@ namespace noctalia::theme {
       const Color on_surface_variant = ensureContrast(base_on_surface_variant, surface_variant, 4.5);
 
       const Color light_fg = fromHsl(primary_h, 0.05, 0.98);
-      const Color on_primary = ensureContrast(light_fg, primary_adjusted, 7.0);
-      const Color on_secondary = ensureContrast(light_fg, secondary_adjusted, 7.0);
-      const Color on_tertiary = ensureContrast(light_fg, tertiary_adjusted, 7.0);
-      const Color on_error = ensureContrast(light_fg, error, 7.0);
+      const Color on_primary = ensureContrast(light_fg, primary_adjusted, 4.5);
+      const Color on_secondary = ensureContrast(light_fg, secondary_adjusted, 4.5);
+      const Color on_tertiary = ensureContrast(light_fg, tertiary_adjusted, 4.5);
+      const Color on_error = ensureContrast(light_fg, error, 4.5);
 
       const Color on_primary_container = ensureContrast(fromHsl(primary_h, 0.05, 0.15), primary_container, 4.5, -1);
       auto [sec_h, _ss, _sl] = secondary.toHsl();

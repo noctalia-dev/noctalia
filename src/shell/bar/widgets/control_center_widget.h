@@ -16,8 +16,6 @@ public:
     std::string glyph = "noctalia";
     std::string customImage;
     bool customImageColorize = false;
-
-    bool operator==(const Options&) const = default;
   };
 
   ControlCenterWidget(wl_output* output, Options options);

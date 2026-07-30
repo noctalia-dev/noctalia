@@ -236,7 +236,7 @@ void InputDispatcher::syncPointerHover() {
 
 bool InputDispatcher::pointerAxis(
     float x, float y, std::uint32_t axis, std::uint32_t axisSource, double value, std::int32_t discrete,
-    std::int32_t value120, float lines
+    std::int32_t value120, float lines, std::uint32_t axisGestureSerial
 ) {
   pruneDetachedAreas();
   InputArea* target = m_capturedArea != nullptr ? m_capturedArea : findInputAreaAt(x, y);
@@ -254,7 +254,8 @@ bool InputDispatcher::pointerAxis(
     float localX = 0.0f;
     float localY = 0.0f;
     (void)Node::mapFromScene(area, x, y, localX, localY);
-    const bool consumed = area->dispatchAxis(localX, localY, axis, axisSource, value, discrete, value120, lines);
+    const bool consumed =
+        area->dispatchAxis(localX, localY, axis, axisSource, value, discrete, value120, lines, axisGestureSerial);
 
     if (!consumed) {
       continue;

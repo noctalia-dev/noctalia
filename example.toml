@@ -19,13 +19,18 @@ telemetry_enabled     = false        # send an anonymous startup ping
 niri_overview_type_to_launch_enabled = false # opt in to type-to-launch from niri overview
 polkit_agent          = false
 password_style        = "default"    # default | random
-settings_show_advanced = false       # show advanced settings by default in Settings
-middle_click_opens_widget_settings = true # middle-click bar widgets to open their Settings entry
+settings_show_advanced = true        # show advanced settings by default in Settings
 show_location         = true         # hide weather location text in shell UI when false
 # app_icon_colorize   = false        # recolor application icons across the shell
 # app_icon_color      = "on_surface" # ColorSpec role or #hex when colorize is enabled
 clipboard_enabled     = true         # false disables clipboard panel, history, and compositor clipboard hooks
 clipboard_history_max_entries = 100 # unpinned history cap (10–10000); pinned entries are extra
+# A Wayland selection is served by the app that owns it, so it dies when that app exits.
+# With this on, the shell claims it back so the item stays pasteable. Caveat: a password
+# manager that clears the clipboard by exiting looks identical to any other app closing,
+# so its secret can be kept alive too. Apps advertising x-kde-passwordManagerHint are
+# already excluded; set this to false if you rely on one that does not.
+clipboard_keep_from_closed_apps = true # keep the last copied item pasteable after the app you copied it from closes
 clipboard_auto_paste  = "auto"       # off | auto | ctrl_v | ctrl_shift_v | shift_insert
 clipboard_image_action_command = ""  # image preview action: gimp {path}, or satty -f - via stdin
 # IPC example:
@@ -48,14 +53,16 @@ direction = "down"                  # center, up, down, left, right, up_left, up
 alpha     = 0.55                    # multiplied by each component's background opacity
 
 [shell.panel]
-transparency_mode     = "solid"     # solid | soft | glass; controls floating/centered opacity and card translucency
+transparency_mode     = "solid"     # solid | soft | glass; controls floating-panel opacity and card translucency
 borders               = true        # panel shell outline and in-panel section cards
 shadow                = true        # cast the global [shell.shadow] from panel surfaces
-launcher_placement       = "centered" # attached | floating | centered
-clipboard_placement      = "centered" # attached | floating | centered
-control_center_placement = "attached" # attached | floating | centered
-wallpaper_placement      = "attached" # attached | floating | centered
-session_placement        = "attached" # attached | floating | centered
+launcher_placement       = "floating" # attached | floating
+clipboard_placement      = "floating" # attached | floating
+control_center_placement = "attached" # attached | floating
+wallpaper_placement      = "attached" # attached | floating
+session_placement        = "attached" # attached | floating
+launcher_position        = "center"   # auto | center | top_left | … (floating only)
+clipboard_position       = "center"   # auto | center | top_left | … (floating only)
 open_near_click_control_center = false # for attached/floating placement, follow the bar click instead of bar-center
 open_near_click_launcher       = false # for attached/floating placement, follow the bar click instead of bar-center
 open_near_click_clipboard      = false # for attached/floating placement, follow the bar click instead of bar-center
@@ -113,7 +120,7 @@ path = ""                            # optional initial/default wallpaper path
 
 [wallpaper.automation]
 enabled                    = false
-interval_minutes           = 0       # 0 = disabled
+interval_seconds           = 1800    # seconds between changes
 order                      = "random" # random | alphabetical
 recursive                  = true    # include subdirectories when picking random wallpapers
 
@@ -315,6 +322,7 @@ up       = ["up"]
 down     = ["down"]
 tab_next = ["tab"]
 tab_previous = ["shift+iso_left_tab"]
+delete   = ["del"]
 
 # ── Bar ───────────────────────────────────────────────────────────────────────
 
@@ -323,8 +331,8 @@ position           = "top"          # top | bottom | left | right
 thickness          = 34
 background_opacity = 1.0
 radius             = 12
-margin_h           = 180
-margin_v           = 10
+margin_ends        = 180
+margin_edge        = 10
 padding            = 14
 widget_spacing     = 6
 scale              = 1.0
@@ -344,19 +352,19 @@ center = ["clock"]
 end    = ["media", "tray", "notifications", "clipboard", "network", "bluetooth", "volume", "brightness", "battery", "control-center", "session"]
 
 # Commands for the bar margin outside widget sections (dead zone):
-# [bar.main.dead_zone]
-# command = "noctalia msg launcher toggle"
-# right_command = ""               # empty = open Control Center (default)
-# middle_command = ""
-# scroll_up_command = "..."
-# scroll_down_command = "..."
+# [bar.main.dead_zone.actions]
+# left = "panel-toggle launcher"
+# right = "panel-toggle control-center"
+# middle = "none"
+# scroll_up = "none"
+# scroll_down = "none"
 
 # Per-monitor override example — only the fields you list are overridden:
 # [bar.main.monitor.dp1]
 # match     = "DP-1"
 # thickness = 44
-# [bar.main.monitor.dp1.dead_zone]
-# command = "noctalia msg launcher toggle"
+# [bar.main.monitor.dp1.dead_zone.actions]
+# left = "panel-toggle launcher"
 
 # ── Dock ──────────────────────────────────────────────────────────────────────
 
@@ -373,8 +381,8 @@ radius_top_left     = 16
 radius_top_right    = 16
 radius_bottom_left  = 16
 radius_bottom_right = 16
-margin_h            = 0
-margin_v            = 8
+margin_ends         = 0
+margin_edge         = 8
 shadow              = true
 show_running        = true
 auto_hide           = false
@@ -457,7 +465,6 @@ enabled = false
 # ── Hooks ─────────────────────────────────────────────────────────────────────
 
 [hooks]
-battery_low_percent_threshold = 0   # set to e.g. 15 to enable battery_under_threshold hook
 
 # started           = "notify-send 'Noctalia' 'Shell started'"
 # wallpaper_changed = []

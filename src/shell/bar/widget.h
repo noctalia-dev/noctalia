@@ -2,29 +2,41 @@
 
 #include "config/config_types.h"
 #include "core/ui_phase.h"
+#include "ipc/ipc_invocation_context.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
+#include "shell/bar/widget_action.h"
+#include "shell/bar/widget_gesture.h"
 #include "ui/palette.h"
 
 #include <functional>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
 
 class AnimationManager;
 class Box;
+class InputArea;
 struct PointerEvent;
+
+namespace noctalia::bar {
+  class WidgetActionDispatcher;
+}
 
 class Widget {
 public:
+  // Whether a panel action opens the panel or toggles it.
+  enum class PanelActivation : std::uint8_t { Toggle, Open };
+
   using UpdateCallback = std::function<void()>;
   using RedrawCallback = std::function<void()>;
   using FrameTickRequestCallback = std::function<void()>;
   using PanelToggleCallback = std::function<void(
       std::string_view panelId, std::string_view context, std::optional<float> anchorSurfaceX,
-      std::optional<float> anchorSurfaceY
+      std::optional<float> anchorSurfaceY, PanelActivation activation
   )>;
 
   virtual ~Widget();
@@ -33,22 +45,17 @@ public:
   void layout(Renderer& renderer, float containerWidth, float containerHeight) {
     UiPhaseScope layoutPhase(UiPhase::Layout);
     doLayout(renderer, containerWidth, containerHeight);
+    syncOuterFromRoot();
   }
   void update(Renderer& renderer) {
     UiPhaseScope updatePhase(UiPhase::Update);
     doUpdate(renderer);
+    syncOuterFromRoot();
   }
   virtual void onFrameTick(float deltaMs) { (void)deltaMs; }
   [[nodiscard]] virtual bool needsFrameTick() const { return false; }
   [[nodiscard]] virtual bool onPointerEvent(const PointerEvent& event) {
     (void)event;
-    return false;
-  }
-  // When true, bar middle-click-to-settings is skipped so the widget can handle MMB.
-  // Coordinates are surface/scene space (same as PointerEvent sx/sy).
-  [[nodiscard]] virtual bool reservesMiddleClick(float sceneX, float sceneY) const noexcept {
-    (void)sceneX;
-    (void)sceneY;
     return false;
   }
 
@@ -59,11 +66,25 @@ public:
   // opt out of the bar's generic whole-widget hover highlight.
   [[nodiscard]] virtual bool wantsBarHoverHighlight() const noexcept { return !m_nonInteractive; }
 
-  [[nodiscard]] Node* root() const noexcept { return m_root ? m_root.get() : m_rootPtr; }
+  // The node this widget built. Widgets size and position it in doLayout().
+  [[nodiscard]] Node* root() const noexcept { return m_innerRoot; }
+  // The node the bar mounts: a transparent InputArea wrapping root(), carrying gesture actions.
+  [[nodiscard]] Node* outerNode() const noexcept { return m_outer ? m_outer.get() : m_outerPtr; }
   [[nodiscard]] float width() const noexcept;
   [[nodiscard]] float height() const noexcept;
 
   std::unique_ptr<Node> releaseRoot();
+
+  // Merges the four binding layers and installs handlers on the gesture area. Re-runs on reload.
+  void resolveGestureBindings(
+      std::string_view widgetType, const WidgetConfig* widgetConfig,
+      const noctalia::bar::WidgetActionBindings::ActionTable* barActions, std::string_view barContext,
+      const noctalia::bar::WidgetActionDispatcher* dispatcher
+  );
+  void setActionContext(IpcInvocationContext context) { m_actionContext = std::move(context); }
+  [[nodiscard]] const noctalia::bar::WidgetActionBindings& gestureBindings() const noexcept {
+    return m_gestureBindings;
+  }
 
   void setAnimationManager(AnimationManager* mgr) noexcept;
   void setUpdateCallback(UpdateCallback callback);
@@ -95,7 +116,9 @@ public:
   void setBarHoverProgress(float progress) noexcept { m_hoverProgress = progress; }
   [[nodiscard]] float barHoverProgress() const noexcept { return m_hoverProgress; }
   // Outermost node for flex layout / anchor alignment (capsule shell when enabled).
-  [[nodiscard]] Node* layoutBoundsNode() const noexcept { return m_capsuleShell != nullptr ? m_capsuleShell : root(); }
+  [[nodiscard]] Node* layoutBoundsNode() const noexcept {
+    return m_capsuleShell != nullptr ? m_capsuleShell : outerNode();
+  }
   [[nodiscard]] float resolvedBarCapsuleRadius(float width, float height) const noexcept;
 
   // Whether the bar should paint the decorative capsule for this frame (spec enabled + visible ink).
@@ -114,10 +137,22 @@ protected:
   void requestFrameTick();
   void requestPanelToggle(
       std::string_view panelId, std::string_view context = {}, std::optional<float> anchorSurfaceX = std::nullopt,
-      std::optional<float> anchorSurfaceY = std::nullopt
+      std::optional<float> anchorSurfaceY = std::nullopt, PanelActivation activation = PanelActivation::Toggle
   );
   void setRoot(std::unique_ptr<Node> root);
-  void clearReleasedRoot() noexcept { m_rootPtr = nullptr; }
+  void clearReleasedRoot() noexcept {
+    m_outerPtr = nullptr;
+    m_innerRoot = nullptr;
+    m_gestureArea = nullptr;
+  }
+  // Runs the action bound to `gesture`, if any. Returns whether it was handled.
+  bool dispatchGesture(noctalia::bar::Gesture gesture);
+  // Called just before a bound action runs, so a widget can snapshot state for an optimistic
+  // update. Match on `action` when the update only makes sense for one verb.
+  virtual void onGestureDispatch(noctalia::bar::Gesture gesture, const noctalia::bar::WidgetAction& action) {
+    (void)gesture;
+    (void)action;
+  }
   virtual void doLayout(Renderer& renderer, float containerWidth, float containerHeight) = 0;
   virtual void doUpdate(Renderer& renderer) { (void)renderer; }
 
@@ -141,6 +176,26 @@ protected:
   float m_hoverProgress = 0.0f;
 
 private:
-  std::unique_ptr<Node> m_root;
-  Node* m_rootPtr = nullptr;
+  void installGestureHandlers();
+  [[nodiscard]] bool bindingRepeatsEveryScrollStep(noctalia::bar::Gesture gesture) const;
+  // An enabled InputArea captures hover (and the highlight) even with no accepted buttons, so the
+  // wrapper stays inert until something is actually bound to it.
+  void updateGestureAreaEnabled() noexcept;
+  // The wrapper carries no geometry or visibility of its own; it mirrors root(), which widgets
+  // size in doLayout() and hide in doUpdate() (hide_when_no_media, hide_when_off, ...).
+  void syncOuterFromRoot() noexcept;
+
+  // m_outer owns m_innerRoot as its only child until releaseRoot() hands it to the bar.
+  std::unique_ptr<Node> m_outer;
+  Node* m_outerPtr = nullptr;
+  Node* m_innerRoot = nullptr;
+  InputArea* m_gestureArea = nullptr;
+  // The widget's own root area and what it claimed before any binding was applied.
+  InputArea* m_innerArea = nullptr;
+  std::uint32_t m_innerBaseButtons = 0;
+  std::uint32_t m_innerBaseScrollDirections = 0;
+  noctalia::bar::WidgetActionBindings m_gestureBindings;
+  noctalia::bar::ScrollRepeatMode m_scrollRepeatMode = noctalia::bar::ScrollRepeatMode::Auto;
+  const noctalia::bar::WidgetActionDispatcher* m_actionDispatcher = nullptr;
+  IpcInvocationContext m_actionContext;
 };

@@ -17,6 +17,9 @@ namespace {
     if (lower == "esc") {
       return "Escape";
     }
+    if (lower == "del") {
+      return "Delete";
+    }
     if (lower == "enter") {
       return "Return";
     }

@@ -179,12 +179,7 @@ NotificationService::~NotificationService() {
   }
 }
 
-void NotificationService::processExpired() {
-  const std::vector<uint32_t> ids = m_manager.expiredIds();
-  for (const uint32_t id : ids) {
-    (void)m_manager.close(id, CloseReason::Expired);
-  }
-}
+void NotificationService::processExpired() { m_manager.processExpired(); }
 
 bool NotificationService::isHealthy() const {
   if (!m_nameAcquired) {

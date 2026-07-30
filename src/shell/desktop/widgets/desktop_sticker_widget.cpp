@@ -44,7 +44,7 @@ DesktopStickerWidget::DesktopStickerWidget(std::string imagePath, float opacity)
 DesktopStickerWidget::~DesktopStickerWidget() { unloadFrames(); }
 
 void DesktopStickerWidget::create() {
-  auto rootNode = std::make_unique<Node>();
+  auto rootNode = ui::node({});
   rootNode->setOpacity(m_opacity);
 
   auto image = ui::image({

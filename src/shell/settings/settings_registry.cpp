@@ -3,9 +3,12 @@
 #include "config/config_types.h"
 #include "config/schema/config_schema.h"
 #include "config/schema/ranges.h"
+#include "core/files/directory_scanner.h"
 #include "core/log.h"
 #include "core/process/process.h"
 #include "i18n/i18n.h"
+#include "shell/bar/widget_gesture.h"
+#include "shell/bar/widget_gesture_defaults.h"
 #include "shell/control_center/control_center_panel.h"
 #include "shell/control_center/shortcut_registry.h"
 #include "shell/settings/color_spec_picker.h"
@@ -36,6 +39,17 @@ namespace settings {
     [[nodiscard]] SliderSetting barCornerSlider(std::int32_t value) {
       SliderSetting s{value, 0.0f, kBarCornerRadiusMax, 1.0f, true};
       return s;
+    }
+
+    // What the dead zone does for a gesture nobody has bound, shown as the row's placeholder so an
+    // empty field never reads as "does nothing".
+    [[nodiscard]] std::string deadZoneDefault(noctalia::bar::Gesture gesture) {
+      for (const auto& binding : noctalia::bar::deadZoneGestureDefaults()) {
+        if (binding.gesture == gesture) {
+          return std::string(binding.action);
+        }
+      }
+      return {};
     }
 
     [[nodiscard]] SliderSetting barReservedSlider(double value, double maxValue, double step, bool integer) {
@@ -574,6 +588,11 @@ namespace settings {
         ToggleSetting{cfg.shell.popupBorders}, "popup menu dropdown outline border flat minimal"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Appearance, "borders", tr("settings.schema.appearance.card-borders.label"),
+        tr("settings.schema.appearance.card-borders.description"), {"shell", "card_borders"},
+        ToggleSetting{cfg.shell.cardBorders}, "card section outline border flat minimal"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Appearance, "effects", tr("settings.schema.shared.shadow-direction.label"),
         tr("settings.schema.appearance.global-shadow-direction.description"), {"shell", "shadow", "direction"},
         enumSelect(kShadowDirections, cfg.shell.shadow.direction), "shadow direction"
@@ -827,15 +846,17 @@ namespace settings {
         ToggleSetting{cfg.theme.templates.enableCommunityTemplates}, "theme templates community"
     ));
     {
+      const std::size_t enabledCount = cfg.theme.templates.communityIds.size();
       auto e = makeEntry(
           SettingsSection::Templates, "community", tr("settings.schema.templates.community-ids.label"),
-          tr("settings.schema.templates.community-ids.description"), {"theme", "templates", "community_ids"},
-          TemplateGridSetting{
-              .options = env.communityTemplates,
-              .selectedValues = cfg.theme.templates.communityIds,
-              .emptyText = tr("settings.schema.templates.community-ids.empty"),
+          enabledCount == 0 ? tr("settings.schema.templates.community-ids.description")
+                            : tr("settings.templates.store.enabled-count", "count", std::to_string(enabledCount)),
+          {},
+          ButtonSetting{
+              .label = tr("settings.templates.store.browse"),
+              .glyph = "apps",
           },
-          "theme templates community apps discord fuzzel vscode walker"
+          "theme templates community apps discord fuzzel vscode walker store browse"
       );
       e.visibleWhen = communityTemplatesOn;
       entries.push_back(std::move(e));
@@ -922,7 +943,7 @@ namespace settings {
               .value = cfg.dock.launcherCustomImage,
               .placeholder = tr("settings.schema.dock.launcher-custom-image.placeholder"),
               .browseMode = TextSettingBrowseMode::OpenFile,
-              .browseFileExtensions = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".bmp", ".gif"},
+              .browseFileExtensions = DirectoryScanner::imageExtensionFilter(true),
               .browseFallbackDirectory = "/usr/share/icons",
           },
           "launcher apps image picture logo"
@@ -1080,6 +1101,15 @@ namespace settings {
       ));
     }
     entries.push_back(makeEntry(
+        SettingsSection::Panels, "general", tr("settings.schema.panels.floating-layer.label"),
+        tr("settings.schema.panels.floating-layer.description"), {"shell", "panel", "floating_layer"},
+        asSegmented(plainSelect(
+            {{"top", "settings.options.layer.top"}, {"overlay", "settings.options.layer.overlay"}},
+            cfg.shell.panel.floatingLayer
+        )),
+        "floating detached panel layer shell z-order input method popup fullscreen"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Panels, "effects", tr("settings.schema.panels.transparency-mode.label"),
         tr("settings.schema.panels.transparency-mode.description"), {"shell", "panel", "transparency_mode"},
         asSegmented(enumSelect(kPanelTransparencyModes, cfg.shell.panel.transparencyMode)),
@@ -1088,7 +1118,7 @@ namespace settings {
     entries.push_back(makeEntry(
         SettingsSection::Panels, "effects", tr("settings.schema.panels.borders.label"),
         tr("settings.schema.panels.borders.description"), {"shell", "panel", "borders"},
-        ToggleSetting{cfg.shell.panel.borders}, "outline border card"
+        ToggleSetting{cfg.shell.panel.borders}, "outline border shell edge"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Panels, "effects", tr("settings.schema.shared.shadow.label"),
@@ -1383,6 +1413,11 @@ namespace settings {
         },
         "quick settings shortcuts toggles wifi bluetooth caffeine night light dnd power media weather clipboard"
     ));
+    entries.push_back(makeEntry(
+        SettingsSection::ControlCenter, "general", tr("settings.schema.panels.home-shortcuts-show-labels.label"),
+        tr("settings.schema.panels.home-shortcuts-show-labels.description"), {"control_center", "show_shortcut_labels"},
+        ToggleSetting{cfg.controlCenter.showShortcutLabels}, "shortcuts labels text hide show titles"
+    ));
     {
       MultiSelectSetting tabs;
       const auto catalog = ControlCenterPanel::hideableTabCatalog();
@@ -1573,7 +1608,7 @@ namespace settings {
               .value = cfg.lockscreen.wallpaper,
               .placeholder = tr("settings.schema.lockscreen.wallpaper.placeholder"),
               .browseMode = TextSettingBrowseMode::OpenFile,
-              .browseFileExtensions = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".bmp", ".gif"},
+              .browseFileExtensions = DirectoryScanner::imageExtensionFilter(true),
               .browseFallbackDirectory = wallpaper::resolveGlobalWallpaperDirectory(
                   cfg.wallpaper, wallpaper::effectiveThemeMode(cfg.theme.mode, cfg.theme.mode == ThemeMode::Light)
               ),
@@ -1660,7 +1695,7 @@ namespace settings {
             .value = env.shellAvatarPath,
             .placeholder = tr("settings.schema.shell.avatar-path.placeholder"),
             .browseMode = TextSettingBrowseMode::OpenFile,
-            .browseFileExtensions = {".png", ".jpg", ".jpeg", ".webp", ".svg", ".bmp", ".gif"}
+            .browseFileExtensions = DirectoryScanner::imageExtensionFilter(true)
         },
         "image picture"
     ));
@@ -1675,12 +1710,6 @@ namespace settings {
         tr("settings.schema.shell.date-format.description"), {"shell", "date_format"},
         TextSetting{.value = cfg.shell.dateFormat, .placeholder = "%A, %x", .browseFileExtensions = {}},
         "calendar date format strftime chrono"
-    ));
-    entries.push_back(makeEntry(
-        SettingsSection::Shell, "general", tr("settings.schema.shell.middle-click-opens-widget-settings.label"),
-        tr("settings.schema.shell.middle-click-opens-widget-settings.description"),
-        {"shell", "middle_click_opens_widget_settings"}, ToggleSetting{cfg.shell.middleClickOpensWidgetSettings},
-        "bar widget settings middle click configure"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Shell, "general", tr("settings.schema.shell.launch-apps-as-systemd-services.label"),
@@ -1715,6 +1744,15 @@ namespace settings {
         SettingsSection::Shell, "clipboard", tr("settings.schema.shell.clipboard-enabled.label"),
         tr("settings.schema.shell.clipboard-enabled.description"), {"shell", "clipboard_enabled"},
         ToggleSetting{cfg.shell.clipboardEnabled}, "clipboard history paste copy"
+    ));
+    // Deliberately not gated on clipboardOn: this keeps the live selection
+    // alive, which is part of the transport that stays active when history
+    // retention is turned off.
+    entries.push_back(makeEntry(
+        SettingsSection::Shell, "clipboard", tr("settings.schema.shell.clipboard-keep-from-closed-apps.label"),
+        tr("settings.schema.shell.clipboard-keep-from-closed-apps.description"),
+        {"shell", "clipboard_keep_from_closed_apps"}, ToggleSetting{cfg.shell.clipboardKeepFromClosedApps},
+        "clipboard paste close quit exit persist"
     ));
     {
       auto e = makeEntry(
@@ -1783,7 +1821,6 @@ namespace settings {
           },
           "screenshot capture directory folder save location"
       );
-      e.visibleWhen = [](const Config& c) { return c.shell.screenshot.saveToFile; };
       entries.push_back(std::move(e));
     }
     {
@@ -1798,7 +1835,6 @@ namespace settings {
           },
           "screenshot capture filename pattern strftime"
       );
-      e.visibleWhen = [](const Config& c) { return c.shell.screenshot.saveToFile; };
       entries.push_back(std::move(e));
     }
     entries.push_back(makeEntry(
@@ -1816,6 +1852,12 @@ namespace settings {
         SettingsSection::Shell, "screenshot", tr("settings.schema.shell.screenshot-confirm-region.label"),
         tr("settings.schema.shell.screenshot-confirm-region.description"), {"shell", "screenshot", "confirm_region"},
         ToggleSetting{cfg.shell.screenshot.confirmRegion}, "screenshot capture confirm region selection"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Shell, "screenshot", tr("settings.schema.shell.screenshot-remember-last-region.label"),
+        tr("settings.schema.shell.screenshot-remember-last-region.description"),
+        {"shell", "screenshot", "remember_last_region"}, ToggleSetting{cfg.shell.screenshot.rememberLastRegion},
+        "screenshot capture remember last region selection"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Shell, "screenshot", tr("settings.schema.shell.screenshot-show-cursor.label"),
@@ -2068,6 +2110,26 @@ namespace settings {
         tr("settings.schema.keybinds.tab-next.description"), {"keybinds", "tab_next"},
         KeybindListSetting{.items = effectiveKeybindItems(cfg.keybinds.tabNext, KeybindAction::TabNext), .maxItems = 4},
         "keybind shortcut hotkey tab focus pane"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.copy.label"),
+        tr("settings.schema.keybinds.copy.description"), {"keybinds", "copy"},
+        KeybindListSetting{.items = effectiveKeybindItems(cfg.keybinds.copy, KeybindAction::Copy), .maxItems = 4},
+        "keybind shortcut hotkey copy clipboard"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.save.label"),
+        tr("settings.schema.keybinds.save.description"), {"keybinds", "save"},
+        KeybindListSetting{.items = effectiveKeybindItems(cfg.keybinds.save, KeybindAction::Save), .maxItems = 4},
+        "keybind shortcut hotkey save file"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Keybinds, "keybinds", tr("settings.schema.keybinds.delete.label"),
+        tr("settings.schema.keybinds.delete.description"), {"keybinds", "delete"},
+        KeybindListSetting{
+            .items = effectiveKeybindItems(cfg.keybinds.deleteEntry, KeybindAction::Delete), .maxItems = 4
+        },
+        "keybind shortcut hotkey delete remove clear"
     ));
 
     // Niri-specific integrations
@@ -2564,7 +2626,7 @@ namespace settings {
             .value = cfg.audio.volumeChangeSound,
             .placeholder = tr("settings.schema.services.volume-change-sound.placeholder"),
             .browseMode = TextSettingBrowseMode::OpenFile,
-            .browseFileExtensions = {".wav"}
+            .browseFileExtensions = {".wav", ".flac", ".ogg", ".oga", ".opus", ".mp3", ".aiff", ".aif"}
         },
         "sound path file", true
     ));
@@ -2575,7 +2637,7 @@ namespace settings {
             .value = cfg.audio.notificationSound,
             .placeholder = tr("settings.schema.services.notification-sound.placeholder"),
             .browseMode = TextSettingBrowseMode::OpenFile,
-            .browseFileExtensions = {".wav"}
+            .browseFileExtensions = {".wav", ".flac", ".ogg", ".oga", ".opus", ".mp3", ".aiff", ".aif"}
         },
         "sound path file", true
     ));
@@ -2831,6 +2893,19 @@ namespace settings {
         tr("settings.schema.notifications.monitors.description"), {"notification", "monitors"},
         ListSetting{.items = cfg.notification.monitors, .suggestedOptions = env.availableOutputs},
         "monitor output display screen"
+    ));
+    entries.push_back(makeEntry(
+        SettingsSection::Notifications, "history", tr("settings.schema.notifications.history-retention-hours.label"),
+        tr("settings.schema.notifications.history-retention-hours.description"),
+        {"notification", "history_retention_hours"},
+        StepperSetting{
+            .value = cfg.notification.historyRetentionHours,
+            .minValue = 0,
+            .maxValue = 8760,
+            .step = 1,
+            .valueSuffix = "h",
+        },
+        "history retention hours clear"
     ));
     entries.push_back(makeEntry(
         SettingsSection::Notifications, "filtering", tr("settings.schema.notifications.filters.label"),
@@ -3126,47 +3201,23 @@ namespace settings {
           section, "widget-list", tr("settings.schema.bar.end-widgets.label"),
           tr("settings.schema.bar.end-widgets.description"), path("end"), ListSetting{.items = bar.endWidgets}, "right"
       ));
-      const auto deadZonePath = [&](std::string_view key) {
-        return std::vector<std::string>{"bar", bar.name, "dead_zone", std::string(key)};
-      };
-      entries.push_back(makeEntry(
-          section, "dead-zone", tr("settings.schema.bar.dead-zone-command.label"),
-          tr("settings.schema.bar.dead-zone-command.description"), deadZonePath("command"),
-          TextSetting{.value = bar.deadZone.command, .placeholder = "", .width = 320.0f, .browseFileExtensions = {}},
-          "bar empty margin click left command shell"
-      ));
-      entries.push_back(makeEntry(
-          section, "dead-zone", tr("settings.schema.bar.dead-zone-right-command.label"),
-          tr("settings.schema.bar.dead-zone-right-command.description"), deadZonePath("right_command"),
-          TextSetting{
-              .value = bar.deadZone.rightCommand, .placeholder = "", .width = 320.0f, .browseFileExtensions = {}
-          },
-          "bar empty margin click right command control center override shell"
-      ));
-      entries.push_back(makeEntry(
-          section, "dead-zone", tr("settings.schema.bar.dead-zone-middle-command.label"),
-          tr("settings.schema.bar.dead-zone-middle-command.description"), deadZonePath("middle_command"),
-          TextSetting{
-              .value = bar.deadZone.middleCommand, .placeholder = "", .width = 320.0f, .browseFileExtensions = {}
-          },
-          "bar empty margin click middle command shell"
-      ));
-      entries.push_back(makeEntry(
-          section, "dead-zone", tr("settings.schema.bar.dead-zone-scroll-up-command.label"),
-          tr("settings.schema.bar.dead-zone-scroll-up-command.description"), deadZonePath("scroll_up_command"),
-          TextSetting{
-              .value = bar.deadZone.scrollUpCommand, .placeholder = "", .width = 320.0f, .browseFileExtensions = {}
-          },
-          "bar empty margin scroll wheel up command shell"
-      ));
-      entries.push_back(makeEntry(
-          section, "dead-zone", tr("settings.schema.bar.dead-zone-scroll-down-command.label"),
-          tr("settings.schema.bar.dead-zone-scroll-down-command.description"), deadZonePath("scroll_down_command"),
-          TextSetting{
-              .value = bar.deadZone.scrollDownCommand, .placeholder = "", .width = 320.0f, .browseFileExtensions = {}
-          },
-          "bar empty margin scroll wheel down command shell"
-      ));
+      // One row per gesture, from the same closed set widget actions use. An unset row shows the
+      // built-in default as its placeholder, so "empty" never reads as "does nothing".
+      for (const auto gesture : noctalia::bar::allGestures()) {
+        const std::string key(noctalia::bar::gestureConfigKey(gesture));
+        const auto configured = bar.deadZone.actions.find(key);
+        entries.push_back(makeEntry(
+            section, "dead-zone", tr(std::string(noctalia::bar::gestureLabelKey(gesture))),
+            tr("settings.schema.bar.dead-zone-action.description"),
+            std::vector<std::string>{"bar", bar.name, "dead_zone", "actions", key},
+            GestureActionSetting{
+                .gestureKey = key,
+                .configured = configured != bar.deadZone.actions.end() ? configured->second : std::string{},
+                .defaultAction = deadZoneDefault(gesture),
+            },
+            "bar empty margin dead zone action command gesture " + key
+        ));
+      }
     }
 
     // Bar monitor overrides (all bars).
@@ -3466,68 +3517,34 @@ namespace settings {
             tr("settings.schema.bar.end-widgets.description"), monitorPath("end"),
             ListSetting{.items = ovr.endWidgets.value_or(bar.endWidgets)}, "right"
         ));
-        const auto monitorDeadZonePath = [&](std::string_view key) {
-          std::vector<std::string> p = root;
-          p.emplace_back("dead_zone");
-          p.emplace_back(key);
-          return p;
-        };
-        entries.push_back(makeEntry(
-            section, "dead-zone", tr("settings.schema.bar.dead-zone-command.label"),
-            tr("settings.schema.bar.dead-zone-command.description"), monitorDeadZonePath("command"),
-            TextSetting{
-                .value = ovr.deadZone.command.value_or(""),
-                .placeholder = bar.deadZone.command,
-                .width = 320.0f,
-                .browseFileExtensions = {},
-            },
-            "bar empty margin click left command shell"
-        ));
-        entries.push_back(makeEntry(
-            section, "dead-zone", tr("settings.schema.bar.dead-zone-right-command.label"),
-            tr("settings.schema.bar.dead-zone-right-command.description"), monitorDeadZonePath("right_command"),
-            TextSetting{
-                .value = ovr.deadZone.rightCommand.value_or(""),
-                .placeholder = bar.deadZone.rightCommand,
-                .width = 320.0f,
-                .browseFileExtensions = {},
-            },
-            "bar empty margin click right command control center override shell"
-        ));
-        entries.push_back(makeEntry(
-            section, "dead-zone", tr("settings.schema.bar.dead-zone-middle-command.label"),
-            tr("settings.schema.bar.dead-zone-middle-command.description"), monitorDeadZonePath("middle_command"),
-            TextSetting{
-                .value = ovr.deadZone.middleCommand.value_or(""),
-                .placeholder = bar.deadZone.middleCommand,
-                .width = 320.0f,
-                .browseFileExtensions = {},
-            },
-            "bar empty margin click middle command shell"
-        ));
-        entries.push_back(makeEntry(
-            section, "dead-zone", tr("settings.schema.bar.dead-zone-scroll-up-command.label"),
-            tr("settings.schema.bar.dead-zone-scroll-up-command.description"), monitorDeadZonePath("scroll_up_command"),
-            TextSetting{
-                .value = ovr.deadZone.scrollUpCommand.value_or(""),
-                .placeholder = bar.deadZone.scrollUpCommand,
-                .width = 320.0f,
-                .browseFileExtensions = {},
-            },
-            "bar empty margin scroll wheel up command shell"
-        ));
-        entries.push_back(makeEntry(
-            section, "dead-zone", tr("settings.schema.bar.dead-zone-scroll-down-command.label"),
-            tr("settings.schema.bar.dead-zone-scroll-down-command.description"),
-            monitorDeadZonePath("scroll_down_command"),
-            TextSetting{
-                .value = ovr.deadZone.scrollDownCommand.value_or(""),
-                .placeholder = bar.deadZone.scrollDownCommand,
-                .width = 320.0f,
-                .browseFileExtensions = {},
-            },
-            "bar empty margin scroll wheel down command shell"
-        ));
+        for (const auto gesture : noctalia::bar::allGestures()) {
+          const std::string key(noctalia::bar::gestureConfigKey(gesture));
+          std::vector<std::string> gesturePath = root;
+          gesturePath.emplace_back("dead_zone");
+          gesturePath.emplace_back("actions");
+          gesturePath.emplace_back(key);
+
+          const auto& overrideActions = ovr.deadZone.actions;
+          std::string configured;
+          if (overrideActions.has_value()) {
+            const auto overridden = overrideActions->find(key);
+            if (overridden != overrideActions->end()) {
+              configured = overridden->second;
+            }
+          }
+          const auto inherited = bar.deadZone.actions.find(key);
+          entries.push_back(makeEntry(
+              section, "dead-zone", tr(std::string(noctalia::bar::gestureLabelKey(gesture))),
+              tr("settings.schema.bar.dead-zone-action.description"), std::move(gesturePath),
+              GestureActionSetting{
+                  .gestureKey = key,
+                  .configured = std::move(configured),
+                  .defaultAction =
+                      inherited != bar.deadZone.actions.end() ? inherited->second : deadZoneDefault(gesture),
+              },
+              "bar empty margin dead zone action command gesture " + key
+          ));
+        }
       }
     }
 

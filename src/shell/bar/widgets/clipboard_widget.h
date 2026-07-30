@@ -15,8 +15,6 @@ public:
     std::string glyph = "clipboard";
     std::string customImage;
     bool customImageColorize = false;
-
-    bool operator==(const Options&) const = default;
   };
 
   ClipboardWidget(wl_output* output, Options options);

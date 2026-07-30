@@ -99,6 +99,8 @@ namespace {
     security::SecureBuffer moved(std::move(original));
 
     bool ok = true;
+    // Asserting the moved-from buffer is wiped is the point of this check.
+    // NOLINTNEXTLINE(bugprone-use-after-move)
     ok = expect(original.empty(), "moved-from secure buffer was not empty") && ok;
     ok = expect(std::ranges::equal(moved.bytes(), source), "secure buffer move changed bytes") && ok;
     moved.clear();

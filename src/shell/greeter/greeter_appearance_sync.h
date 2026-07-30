@@ -21,7 +21,7 @@ namespace greeter {
   // True when noctalia-greeter and the privileged apply helper are installed.
   [[nodiscard]] bool appearanceSyncAvailable(const ShellGreeterSyncConfig& greeterSync) noexcept;
 
-  // Writes the current shell appearance to a staging directory, then runs the
+  // Stages sync.toml + wallpapers (+ optional layout/transforms), then runs the
   // configured privilege prefix (or pkexec|run0) plus noctalia-greeter-apply-appearance
   // and the staging path. When session polkit is unavailable and no privilege_command
   // override is set, returns StagedOnly after writing the staging directory.

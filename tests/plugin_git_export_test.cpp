@@ -1,11 +1,14 @@
 #include "core/process/process.h"
+#include "scripting/plugin_api.h"
 #include "scripting/plugin_catalog.h"
 #include "scripting/plugin_git.h"
 
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
+#include <format>
 #include <fstream>
+#include <iterator>
 #include <print>
 #include <string>
 #include <string_view>
@@ -36,6 +39,11 @@ namespace {
     }
     out << text;
     return out.good();
+  }
+
+  std::string readText(const std::filesystem::path& path) {
+    std::ifstream in(path, std::ios::binary);
+    return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
   }
 
   bool runGit(const std::vector<std::string>& args) {
@@ -123,6 +131,40 @@ int main() {
            "new plugin manifest was not exported from the fetched revision"
        )
       && ok;
+
+  // A plugin whose tip moves past the supported API range must still be exportable at the
+  // older revision a catalog release row names, straight out of the blobless clone.
+  ok = writeText(
+           source / "clock/plugin.toml",
+           std::format(
+               "id = \"noctalia/clock\"\nversion = \"2\"\nplugin_api = {}\n", scripting::kCurrentPluginApiVersion + 1
+           )
+       )
+      && ok;
+  ok = runGit({"git", "-C", source.string(), "add", "clock/plugin.toml"}) && ok;
+  ok = runGit(
+           {"git", "-C", source.string(), "-c", "user.name=test", "-c", "user.email=test@example.invalid", "commit",
+            "-q", "-m", "clock requires a newer api"}
+       )
+      && ok;
+  ok = expect(static_cast<bool>(scripting::plugin_git::fetch(repo)), "fetch after the api bump failed") && ok;
+  const auto bumpedHead = scripting::plugin_git::remoteHead(repo);
+  ok = expect(static_cast<bool>(bumpedHead), "failed to resolve the bumped revision") && ok;
+
+  const auto tipExport = scripting::plugin_git::exportSubdir(repo, bumpedHead.out, "clock", root / "tip-export");
+  ok = expect(static_cast<bool>(tipExport), "exporting the bumped tip failed") && ok;
+  ok = expect(
+           readText(root / "tip-export/clock/plugin.toml")
+               .contains(std::format("plugin_api = {}", scripting::kCurrentPluginApiVersion + 1)),
+           "the tip export did not carry the bumped api level"
+       )
+      && ok;
+
+  const auto olderExport = scripting::plugin_git::exportSubdir(repo, initialHead.out, "clock", root / "older-export");
+  ok = expect(static_cast<bool>(olderExport), "exporting an older revision failed") && ok;
+  const auto olderManifest = readText(root / "older-export/clock/plugin.toml");
+  ok = expect(olderManifest.contains("plugin_api = 3"), "the older export did not carry its own api level") && ok;
+  ok = expect(olderManifest.contains("version = \"1\""), "the older export did not carry its own version") && ok;
 
   std::error_code ec;
   std::filesystem::remove_all(root, ec);

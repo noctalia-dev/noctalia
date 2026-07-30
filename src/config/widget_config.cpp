@@ -114,7 +114,6 @@ namespace noctalia::config {
 
     WidgetConfig keyboardLayout;
     keyboardLayout.type = "keyboard_layout";
-    keyboardLayout.settings["cycle_command"] = std::string("");
     keyboardLayout.settings["hide_when_single_layout"] = false;
     seed("keyboard_layout", std::move(keyboardLayout));
 
@@ -129,6 +128,7 @@ namespace noctalia::config {
 
     WidgetConfig spacer;
     spacer.type = "spacer";
+    spacer.settings["interactive"] = false;
     seed("spacer", std::move(spacer));
   }
 

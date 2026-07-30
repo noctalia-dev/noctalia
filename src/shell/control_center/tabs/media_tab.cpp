@@ -174,7 +174,7 @@ std::unique_ptr<Flex> MediaTab::create() {
   auto tab = ui::row({
       .out = &m_rootLayout,
       .align = FlexAlign::Stretch,
-      .gap = Style::spaceSm * scale,
+      .gap = Style::spaceMd * scale,
   });
 
   auto mediaColumn = ui::column({
@@ -189,9 +189,7 @@ std::unique_ptr<Flex> MediaTab::create() {
       .gap = Style::spaceMd * scale,
       .minHeight = kMediaNowCardMinHeight * scale,
       .flexGrow = 1.0f,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& card) {
-        applySectionCardStyle(card, scale, opacity, borders);
-      },
+      .configure = [scale, opacity = panelCardOpacity()](Flex& card) { applySectionCardStyle(card, scale, opacity); },
   });
 
   auto nowHeader = ui::row(
@@ -444,11 +442,11 @@ std::unique_ptr<Flex> MediaTab::create() {
   auto visualizerColumn = ui::column({
       .out = &m_visualizerColumn,
       .align = FlexAlign::Stretch,
-      .gap = Style::spaceSm * scale,
+      .gap = Style::spaceMd * scale,
       .clipChildren = true,
       .flexGrow = 2.0f,
-      .configure = [scale, opacity = panelCardOpacity(), borders = panelBordersEnabled()](Flex& column) {
-        applySectionCardStyle(column, scale, opacity, borders);
+      .configure = [scale, opacity = panelCardOpacity()](Flex& column) {
+        applySectionCardStyle(column, scale, opacity);
       },
   });
 

@@ -272,6 +272,37 @@ namespace {
     return ok;
   }
 
+  bool missingRefreshTokenSignalsReconnectState() {
+    auto backend = std::make_unique<FakeBackend>();
+    security::SecretStore secretStore(std::move(backend));
+    calendar::CalendarCredentialStore credentials(secretStore);
+    calendar::CredentialMigration complete;
+    complete.complete = true;
+    credentials.initialize(std::move(complete));
+
+    std::size_t changes = 0;
+    credentials.setChangeCallback([&changes]() { ++changes; });
+    std::optional<SecretStoreStatus> status;
+    credentials.lookupRefreshToken(
+        "personal", [&status](SecretStoreStatus value, calendar::CalendarCredentialStore::Secret) { status = value; }
+    );
+
+    bool ok = dispatchOne(secretStore);
+    ok = expect(status == SecretStoreStatus::NotFound, "missing refresh token status was lost") && ok;
+    ok = expect(credentials.refreshTokenMissing("personal"), "missing refresh token was not exposed") && ok;
+    ok = expect(changes == 1, "missing refresh token did not notify consumers") && ok;
+
+    status.reset();
+    credentials.storeRefreshToken("personal", secret("replacement-token"), [&status](SecretStoreStatus value) {
+      status = value;
+    });
+    ok = dispatchOne(secretStore) && ok;
+    ok = expect(status == SecretStoreStatus::Success, "replacement refresh token was not stored") && ok;
+    ok = expect(!credentials.refreshTokenMissing("personal"), "stored refresh token still requires reconnect") && ok;
+    ok = expect(changes == 2, "stored refresh token did not clear reconnect state") && ok;
+    return ok;
+  }
+
   bool completedMigrationDoesNotReadLegacyInput() {
     auto backend = std::make_unique<FakeBackend>();
     auto* fake = backend.get();
@@ -347,6 +378,7 @@ int main() {
   ok = migrationSuccessAndCache() && ok;
   ok = interruptedMigrationRetriesIdempotently() && ok;
   ok = accountEraseTreatsMissingAsSuccess() && ok;
+  ok = missingRefreshTokenSignalsReconnectState() && ok;
   ok = completedMigrationDoesNotReadLegacyInput() && ok;
   ok = credentialFileReadIsStrict() && ok;
   return ok ? 0 : 1;

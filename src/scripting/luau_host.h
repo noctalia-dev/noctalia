@@ -122,10 +122,11 @@ public:
   bool callHttpStreamCloseCallback(int streamKey, bool ok, int status, std::chrono::milliseconds budget);
   [[nodiscard]] bool hasHttpStream(int streamKey) const;
 
-  // noctalia.cpuCores - opt this host into per-core CPU sampling on first use. Sampling is
-  // refcounted in SystemMonitorService and released in ~LuauHost, so a plugin that never asks for
-  // per-core data costs nothing and a reloaded one does not leak a reference.
+  // System-monitor probes requested by this host are refcounted and released in ~LuauHost.
+  // Per-core and disk sampling remain opt-in through their dedicated calls.
+  void ensureSystemStatsRetained();
   void ensureCpuCoresRetained();
+  [[nodiscard]] bool ensureDiskPathRetained(const std::string& path);
 
   // Load the plugin's own translations/<lang>.json (over en.json) into a flat dotted-key
   // catalog. Call after setPluginDir().
@@ -163,11 +164,15 @@ public:
   [[nodiscard]] bool hasAsyncProcessMatchCallback(int callbackRef) const;
   [[nodiscard]] bool hasAsyncHttpCallback(int callbackRef) const;
   [[nodiscard]] bool hasColorPickerCallback(int callbackRef) const;
+  [[nodiscard]] bool hasSoundLoadCallback(int callbackRef) const;
+  bool callSoundLoadCallback(int callbackRef, bool ok, const std::string& error, std::chrono::milliseconds budget);
   void interruptIfBudgetExceeded(lua_State* L);
   void scriptLog(std::string message);
   // Request the runtime tick rate (how often update() fires). A runtime concern, so
   // it lives on noctalia.* and works for every entry type, including headless services.
   void scriptSetUpdateInterval(int ms);
+  [[nodiscard]] bool scriptLoadSound(std::string name, std::string path, int callbackRef);
+  void scriptPlaySound(std::string name);
   void scriptNotifyInfo(std::string title, std::string body);
   void scriptNotifyError(std::string title, std::string body);
   // Toggle the host wallpaper surface on an output. Queued as a side effect and
@@ -178,6 +183,8 @@ public:
   void scriptSetWallpaper(std::string connector, std::string path);
   // Toggle a host panel by id ("author/plugin:panel"). Queued, applied on the main thread.
   void scriptTogglePanel(std::string panelId);
+  // Open the settings window at this plugin's own settings. Queued, applied on the main thread.
+  void scriptOpenSettings();
   [[nodiscard]] bool scriptCopyToClipboard(std::string text, std::string mimeType);
   [[nodiscard]] std::optional<std::string> scriptFocusedOutputName() const;
 
@@ -239,6 +246,7 @@ private:
   std::unordered_set<int> m_asyncProcessMatchCallbackRefs;
   std::unordered_set<int> m_asyncHttpCallbackRefs;
   std::unordered_set<int> m_colorPickerCallbackRefs;
+  std::unordered_map<int, std::string> m_soundLoadCallbacks;
   HttpClient* m_httpClient = nullptr;
   AsyncCommandResultHandler m_asyncCommandResultHandler;
   AsyncProcessMatchResultHandler m_asyncProcessMatchResultHandler;
@@ -248,6 +256,8 @@ private:
   std::chrono::nanoseconds m_callCpuDeadline{};
   std::string m_currentCallName;
   bool m_cpuCoresRetained = false; // this host holds a SystemMonitorService per-core reference
+  bool m_systemStatsRetained = false;
+  std::unordered_set<std::string> m_diskPathsRetained;
   bool m_budgetActive = false;
   bool m_lastCallTimedOut = false;
   bool m_muteErrors = false;

@@ -39,6 +39,24 @@ int main() {
   assert(windows[0].appId == "Sample.ChatDesktop");
   assert(toplevels.containsWlrHandle(handle));
   assert(!toplevels.containsWlrHandle(reinterpret_cast<zwlr_foreign_toplevel_handle_v1*>(0x2)));
+  // Never announced an output (compositor omitted output_enter): matches any filter, and reports the
+  // output as unannounced so the platform layer can scope it.
+  auto* someOutput = reinterpret_cast<wl_output*>(0x10);
+  auto* otherOutput = reinterpret_cast<wl_output*>(0x20);
+  const auto unscoped = toplevels.windowsForApp("sample-chat-desktop", "samplechat", someOutput);
+  assert(unscoped.size() == 1);
+  assert(!unscoped[0].outputAnnounced);
 
+  // Announced a different output: excluded there, present on its own output.
+  toplevels.onHandleOutputEnter(handle, otherOutput);
+  assert(toplevels.windowsForApp("sample-chat-desktop", "samplechat", someOutput).empty());
+  const auto scoped = toplevels.windowsForApp("sample-chat-desktop", "samplechat", otherOutput);
+  assert(scoped.size() == 1);
+  assert(scoped[0].outputAnnounced);
+
+  // Announced an output, then left all of them: still excluded.
+  toplevels.onHandleOutputLeave(handle, otherOutput);
+  assert(it->second.output == nullptr);
+  assert(toplevels.windowsForApp("sample-chat-desktop", "samplechat", someOutput).empty());
   return 0;
 }

@@ -18,8 +18,6 @@ public:
     int maxWidth = 160;
     bool showCondition = true;
     bool showTemperature = true;
-
-    bool operator==(const Options&) const = default;
   };
 
   WeatherWidget(WeatherService* weather, wl_output* output, Options options);

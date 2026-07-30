@@ -103,9 +103,11 @@ float PolkitPanel::preferredHeight() const {
   int messageLines = 1;
   int promptLines = 1;
   int supplementaryLines = 0;
+  bool needsInput = false;
 
   if (PolkitAgent* agent = m_agentProvider != nullptr ? m_agentProvider() : nullptr;
       agent != nullptr && agent->hasPendingRequest()) {
+    needsInput = agent->isResponseRequired();
     const PolkitRequest request = agent->pendingRequest();
     const std::string message = wrapLongRuns(request.message.empty() ? request.actionId : request.message);
     messageLines = std::max(1, wrappedLineCount(message, messageChars, 6));
@@ -114,7 +116,7 @@ float PolkitPanel::preferredHeight() const {
     const bool supplementaryError = agent->supplementaryIsError();
     std::string promptText = wrapLongRuns(agent->inputPrompt());
     std::string supplementaryText = wrapLongRuns(supplementaryRaw);
-    if (!agent->isResponseRequired() && !supplementaryText.empty() && !supplementaryError) {
+    if (!needsInput && !supplementaryText.empty() && !supplementaryError) {
       promptText = supplementaryText;
       supplementaryText.clear();
     } else if (
@@ -124,16 +126,15 @@ float PolkitPanel::preferredHeight() const {
       promptText = supplementaryText;
       supplementaryText.clear();
     }
-    // Preferred height is applied once at open. The password request arrives right after
-    // BeginAuthentication, so always reserve prompt+input chrome even if responseRequired
-    // is still false when the panel is first opened.
     promptLines = std::max(1, wrappedLineCount(promptText, promptChars, 3));
     supplementaryLines = wrappedLineCount(supplementaryText, promptChars, 4);
   }
 
   const float top = std::max(iconSize, titleLine + static_cast<float>(messageLines) * bodyLine);
   float bottom = static_cast<float>(promptLines) * bodyLine + gapSm;
-  bottom += Style::controlHeight * scale + gapSm;
+  if (needsInput) {
+    bottom += Style::controlHeight * scale + gapSm;
+  }
   if (supplementaryLines > 0) {
     bottom += static_cast<float>(supplementaryLines) * captionLine + gapSm;
   }
@@ -152,7 +153,7 @@ void PolkitPanel::create() {
       .padding = Style::spaceLg * scale,
   });
 
-  auto focusArea = std::make_unique<InputArea>();
+  auto focusArea = ui::inputArea({});
   focusArea->setFocusable(true);
   focusArea->setVisible(false);
   m_focusArea = static_cast<InputArea*>(root->addChild(std::move(focusArea)));
@@ -368,10 +369,14 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
   m_supplementaryLabel->setVisible(!supplementaryText.empty());
   m_supplementaryLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
   m_input->setVisible(needsInput);
+  m_submitButton->setVisible(needsInput);
   m_submitButton->setEnabled(needsInput && !m_input->value().empty());
-  if (needsInput && !m_lastResponseRequired) {
+  if (needsInput != m_lastResponseRequired) {
     if (auto* manager = PanelManager::current(); manager != nullptr && manager->isOpenPanel("polkit")) {
-      manager->focusArea(m_input->inputArea());
+      manager->relayoutActivePanelPreferredSize();
+      if (needsInput) {
+        manager->focusArea(m_input->inputArea());
+      }
     }
   }
   m_lastResponseRequired = needsInput;

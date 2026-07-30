@@ -83,11 +83,7 @@ std::string ClockWidget::formatTooltipText() const {
 }
 
 void ClockWidget::create() {
-  auto area = std::make_unique<InputArea>();
-  area->setOnClick([this](const InputArea::PointerData& /*data*/) {
-    requestPanelToggle("control-center", "calendar");
-  });
-
+  auto area = ui::inputArea({});
   area->addChild(
       ui::label({
           .out = &m_label,

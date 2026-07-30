@@ -535,6 +535,6 @@ void EasyEffectsService::registerIpc(
         }
         return "ok\n";
       },
-      "effects-profile-set <output|input> <profile>", "Set the EasyEffects output or input profile"
+      "<output|input> <profile>", "Set the EasyEffects output or input profile"
   );
 }

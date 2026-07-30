@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -16,6 +17,23 @@ class HttpClient;
 namespace scripting {
 
   class ScriptApiContext;
+
+  // While a plugin-manager disable/uninstall mutation synchronously rebuilds entry hosts,
+  // make their ordinary stop() calls report the explicit plugin lifecycle reason. Scopes
+  // are nest-safe per plugin and affect only runtimes whose name starts with
+  // "<plugin-id>:".
+  class PluginExitReasonScope {
+  public:
+    PluginExitReasonScope(std::string_view pluginId, ScriptExitReason reason);
+    ~PluginExitReasonScope();
+
+    PluginExitReasonScope(const PluginExitReasonScope&) = delete;
+    PluginExitReasonScope& operator=(const PluginExitReasonScope&) = delete;
+
+  private:
+    std::string m_pluginId;
+    std::optional<ScriptExitReason> m_previous;
+  };
 
   class ScriptRuntime {
   public:
@@ -34,7 +52,8 @@ namespace scripting {
 
     [[nodiscard]] SubscriberId subscribe(ScriptResultCallback callback);
     void unsubscribe(SubscriberId id);
-    void stop();
+    // Stop the runtime and pass its reason to onExit(signal, reason).
+    void stop(ScriptExitReason exitReason = ScriptExitReason::Reload);
 
     // Records the process signal delivered during graceful shell shutdown so
     // entry onExit callbacks can distinguish SIGINT/SIGTERM from ordinary teardown.

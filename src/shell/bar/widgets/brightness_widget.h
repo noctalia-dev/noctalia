@@ -10,11 +10,7 @@ struct wl_output;
 class BrightnessWidget : public Widget {
 public:
   struct Options {
-    bool enableScroll = true;
-    int scrollStepPercent = 5;
     bool showLabel = true;
-
-    bool operator==(const Options&) const = default;
   };
 
   BrightnessWidget(BrightnessService* brightness, wl_output* output, Options options);
@@ -29,8 +25,6 @@ private:
   BrightnessService* m_brightness = nullptr;
   wl_output* m_output = nullptr;
   bool m_showLabel = true;
-  bool m_enableScroll = true;
-  float m_scrollStep = 0.05f;
   Glyph* m_glyph = nullptr;
   Label* m_label = nullptr;
   bool m_lastAvailable = false;

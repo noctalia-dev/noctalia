@@ -110,6 +110,17 @@ public:
   void setHistoryRetentionEnabled(bool enabled);
   void setMaxHistoryEntries(std::size_t maxEntries);
 
+  // A Wayland selection is served by the client that owns it, so it disappears
+  // when that client exits. When enabled, the shell claims the selection back
+  // with the payload it already read, keeping the last copied item pasteable.
+  // This is about the live selection, not the stored history, so it applies
+  // regardless of history retention.
+  void setKeepFromClosedApps(bool enabled);
+
+  // Test seam: the byte budget is a constant in production, and reaching it for
+  // real would mean pushing hundreds of megabytes through the transport.
+  void setMaxHistoryBytesForTesting(std::size_t maxBytes);
+
   bool copyText(std::string text);
   bool copyText(std::string text, std::string mimeType);
   bool copyImagePng(std::vector<std::uint8_t> png);
@@ -153,6 +164,15 @@ private:
     std::shared_ptr<const std::vector<std::uint8_t>> data;
   };
 
+  // The payload of the current selection, kept so it can be re-offered when its
+  // owner exits. Deliberately not subject to the history entry cap: an item too
+  // large to store is still one the user expects to be able to paste.
+  struct SelectionBackup {
+    std::vector<std::string> mimeTypes;
+    std::string dataMimeType;
+    std::shared_ptr<const std::vector<std::uint8_t>> data;
+  };
+
   struct ActiveWrite {
     int fd = -1;
     void* source = nullptr;
@@ -168,6 +188,9 @@ private:
   void cancelActiveWrites();
   bool startReceive(void* offer);
   void finishRead(bool discard);
+  void adoptOrphanedSelection();
+  void flushPendingOrphanAdopt();
+  [[nodiscard]] static bool payloadLooksComplete(std::string_view mimeType, std::span<const std::uint8_t> data);
   void addToHistory(ClipboardEntry entry);
   [[nodiscard]] std::size_t pinnedCount() const noexcept;
   void activatePersistenceKey(security::SecureKey key);
@@ -194,9 +217,12 @@ private:
   [[nodiscard]] static std::string generateStorageId();
   [[nodiscard]] std::string chooseMimeType(const OfferState& offer) const;
   [[nodiscard]] static bool isTextMimeType(std::string_view mimeType);
+  [[nodiscard]] static std::vector<std::string> mimeTypesForPayload(const std::string& dataMimeType);
+  [[nodiscard]] static std::size_t maxEntryBytesFor(std::string_view mimeType);
   [[nodiscard]] static bool isEmptyTextPayload(const std::vector<std::uint8_t>& data);
   [[nodiscard]] static std::string buildTextPreview(const std::vector<std::uint8_t>& data);
   bool copyData(std::vector<std::string> mimeTypes, std::vector<std::uint8_t> data);
+  bool copyData(std::vector<std::string> mimeTypes, std::shared_ptr<const std::vector<std::uint8_t>> data);
   bool queueOutgoingWrite(void* source, int fd, std::shared_ptr<const std::vector<std::uint8_t>> data);
   void dispatchWriteEvents(int fd, short revents);
   void drainOutgoingWrite(std::size_t index);
@@ -218,6 +244,10 @@ private:
   std::size_t m_historyBytes = 0;
   std::uint64_t m_changeSerial = 0;
   bool m_historyRetention = true;
+  bool m_keepFromClosedApps = true;
+  bool m_pendingOrphanAdopt = false;
+  std::size_t m_maxHistoryBytes;
+  std::optional<SelectionBackup> m_selectionBackup;
   std::size_t m_maxHistoryEntries = static_cast<std::size_t>(noctalia::config::kClipboardHistoryDefaultEntries);
   security::StorageKeyProvider& m_storageKeyProvider;
   std::optional<security::SecureKey> m_dataKey;

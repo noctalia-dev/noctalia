@@ -25,6 +25,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <wayland-client-protocol.h>
 
 // Satisfies the AsyncTextureCache link dependency pulled in by the Image
 // control; never invoked — this test exercises no GPU path.
@@ -121,6 +122,18 @@ namespace {
 
   void sourceLocalPointFor(const DragSource& source, const Node& target, float& localX, float& localY) {
     sourceLocalPointAt(source, target, target.width() * 0.5f, target.height() * 0.5f, localX, localY);
+  }
+
+  template <typename T> T* findFirst(Node& node) {
+    if (auto* match = dynamic_cast<T*>(&node); match != nullptr) {
+      return match;
+    }
+    for (const auto& child : node.children()) {
+      if (auto* match = findFirst<T>(*child); match != nullptr) {
+        return match;
+      }
+    }
+    return nullptr;
   }
 
 } // namespace
@@ -2139,6 +2152,52 @@ int main() {
       source->inputArea()->dispatchPress(targetX, targetY, BTN_LEFT, false);
       ok = expect(callbackCount == 0, "release after reset cannot drop") && ok;
     }
+  }
+
+  {
+    ScrollView scrollView;
+    scrollView.setOrientation(ScrollOrientation::Horizontal);
+    scrollView.setViewportPaddingH(0.0f);
+    scrollView.setViewportPaddingV(0.0f);
+    scrollView.setSize(200.0f, 60.0f);
+    scrollView.content()->setMinWidth(420.0f);
+    scrollView.layout(renderer);
+
+    ok = expect(scrollView.maxScrollOffset() == 220.0f, "horizontal scroll range follows content width") && ok;
+    ok = expect(
+             scrollView.contentViewportHeight() < scrollView.height(),
+             "horizontal scrollbar reserves vertical viewport space"
+         )
+        && ok;
+
+    auto* viewport = findFirst<InputArea>(scrollView);
+    const bool verticalAxisConsumed = viewport != nullptr
+        && viewport->dispatchAxis(
+            20.0f, 20.0f, WL_POINTER_AXIS_VERTICAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, 15.0, 1, 120, 3.0f
+        );
+    ok = expect(!verticalAxisConsumed, "horizontal scroll passes vertical wheel input to its parent") && ok;
+
+    scrollView.scrollBy(45.0f);
+    ok = expect(scrollView.scrollOffset() == 45.0f, "horizontal scroll updates its offset") && ok;
+    ok = expect(scrollView.content()->x() == -45.0f, "horizontal scroll translates content on the x axis") && ok;
+    ok = expect(scrollView.content()->y() == 0.0f, "horizontal scroll leaves the y axis unchanged") && ok;
+  }
+
+  {
+    ScrollView scrollView;
+    scrollView.setOrientation(ScrollOrientation::Horizontal);
+    scrollView.setViewportPaddingH(0.0f);
+    scrollView.setViewportPaddingV(0.0f);
+    scrollView.setSize(200.0f, 60.0f);
+    scrollView.content()->setMinWidth(100.0f);
+    scrollView.layout(renderer);
+
+    auto* viewport = findFirst<InputArea>(scrollView);
+    const bool horizontalAxisConsumed = viewport != nullptr
+        && viewport->dispatchAxis(
+            20.0f, 20.0f, WL_POINTER_AXIS_HORIZONTAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, 15.0, 1, 120, 3.0f
+        );
+    ok = expect(!horizontalAxisConsumed, "non-scrollable horizontal view does not consume wheel input") && ok;
   }
 
   return ok ? 0 : 1;

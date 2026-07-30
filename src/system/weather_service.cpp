@@ -186,6 +186,7 @@ namespace {
         {"is_day", units.isDay},
         {"weather_code", units.weatherCode},
         {"uv_index", units.uvIndex},
+        {"relative_humidity", units.relativeHumidity},
     };
   }
 
@@ -222,6 +223,7 @@ namespace {
     units.isDay = readString(json, "is_day");
     units.weatherCode = readString(json, "weather_code");
     units.uvIndex = readString(json, "uv_index");
+    units.relativeHumidity = readString(json, "relative_humidity");
     return units;
   }
 
@@ -496,7 +498,7 @@ void WeatherService::startWeatherFetch() {
   const auto path = transportCacheDir() / "forecast.json";
   const std::string url = std::format(
       "https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}"
-      "&current=temperature_2m,wind_speed_10m,wind_direction_10m,weather_code,is_day,uv_index"
+      "&current=temperature_2m,wind_speed_10m,wind_direction_10m,weather_code,is_day,uv_index,relative_humidity_2m"
       "&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,weather_code,is_day,wind_speed_10m"
       "&daily=temperature_2m_max,temperature_2m_min,weather_code,sunrise,sunset"
       "&forecast_days={}&forecast_hours={}&timezone=auto",
@@ -567,6 +569,7 @@ void WeatherService::handleWeatherResponse(const std::filesystem::path& path, bo
       next.currentUnits.isDay = readString(*it, "is_day");
       next.currentUnits.weatherCode = readString(*it, "weather_code");
       next.currentUnits.uvIndex = readString(*it, "uv_index");
+      next.currentUnits.relativeHumidity = readString(*it, "relative_humidity_2m");
     }
     if (const auto it = json.find("daily_units"); it != json.end() && it->is_object()) {
       next.dailyUnits.time = readString(*it, "time");
@@ -593,6 +596,7 @@ void WeatherService::handleWeatherResponse(const std::filesystem::path& path, bo
     next.current.isDay = readBool(current, "is_day", true);
     next.current.weatherCode = readInt(current, "weather_code");
     next.current.uvIndex = readOptionalNumber(current, "uv_index");
+    next.current.relativeHumidityPercent = readOptionalInt(current, "relative_humidity_2m");
     next.fetchedAt = Clock::now();
 
     const std::size_t hourCount = std::min(
@@ -731,6 +735,7 @@ void WeatherService::loadCache() {
       m_snapshot.current.isDay = readBool(*it, "is_day", true);
       m_snapshot.current.weatherCode = readOptionalInt(*it, "weather_code");
       m_snapshot.current.uvIndex = readOptionalNumber(*it, "uv_index");
+      m_snapshot.current.relativeHumidityPercent = readOptionalInt(*it, "relative_humidity_percent");
     }
     if (const auto it = snapshot.find("forecast_hours"); it != snapshot.end() && it->is_array()) {
       m_snapshot.forecastHours.clear();
@@ -821,6 +826,7 @@ void WeatherService::saveCache() const {
                 {"is_day", m_snapshot.current.isDay},
                 {"weather_code", m_snapshot.current.weatherCode},
                 {"uv_index", m_snapshot.current.uvIndex},
+                {"relative_humidity_percent", m_snapshot.current.relativeHumidityPercent},
             }},
            {"forecast_hours", nlohmann::json::array()},
            {"forecast_days", nlohmann::json::array()},

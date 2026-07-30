@@ -138,14 +138,27 @@ namespace scripting {
       case ManifestFieldType::Bool:
         out.boolDefault = node.value<bool>().value_or(false);
         break;
-      case ManifestFieldType::Int:
-      case ManifestFieldType::Double:
-        if (auto i = node.value<std::int64_t>()) {
-          out.numberDefault = static_cast<double>(*i);
-        } else {
-          out.numberDefault = node.value<double>().value_or(0.0);
+      case ManifestFieldType::Int: {
+        const auto value = node.value<std::int64_t>();
+        if (!value.has_value()) {
+          error = "setting '" + out.key + "' int default must be an integer";
+          return false;
         }
+        out.numberDefault = static_cast<double>(*value);
         break;
+      }
+      case ManifestFieldType::Double: {
+        const auto value =
+            node.value<std::int64_t>().transform(
+                                          [](std::int64_t integer) { return static_cast<double>(integer); }
+            ).or_else([&node]() { return node.value<double>(); });
+        if (!value.has_value() || !std::isfinite(*value)) {
+          error = "setting '" + out.key + "' double default must be a finite number";
+          return false;
+        }
+        out.numberDefault = *value;
+        break;
+      }
       case ManifestFieldType::StringList:
         if (const auto* values = node.as_array()) {
           for (const auto& valueNode : *values) {
@@ -173,6 +186,73 @@ namespace scripting {
       default:
         out.stringDefault = node.value<std::string>().value_or(std::string{});
         break;
+      }
+      return true;
+    }
+
+    bool parseFieldNumberOptions(const toml::table& field, ManifestField& out, std::string& error) {
+      const bool isInteger = out.type == ManifestFieldType::Int;
+      const bool isDouble = out.type == ManifestFieldType::Double;
+      const bool isNumeric = isInteger || isDouble;
+
+      const auto parseOption = [&](std::string_view key, std::optional<double>& destination) {
+        if (!field.contains(key)) {
+          return true;
+        }
+        if (!isNumeric) {
+          error = "setting '" + out.key + "' " + std::string(key) + " is only valid for int or double";
+          return false;
+        }
+
+        const auto node = field[key];
+        std::optional<double> value;
+        if (const auto integer = node.value<std::int64_t>()) {
+          value = static_cast<double>(*integer);
+        } else if (isDouble) {
+          value = node.value<double>();
+        }
+        if (!value.has_value() || !std::isfinite(*value)) {
+          error = "setting '"
+              + out.key
+              + "' "
+              + std::string(key)
+              + (isInteger ? " must be an integer" : " must be a finite number");
+          return false;
+        }
+        destination = value;
+        return true;
+      };
+
+      if (!parseOption("min", out.minValue) || !parseOption("max", out.maxValue)) {
+        return false;
+      }
+
+      std::optional<double> step;
+      if (!parseOption("step", step)) {
+        return false;
+      }
+      if (step.has_value()) {
+        if (*step <= 0.0) {
+          error = "setting '" + out.key + "' step must be greater than zero";
+          return false;
+        }
+        out.step = *step;
+      }
+
+      if (!isNumeric) {
+        return true;
+      }
+      if (out.minValue.has_value() && out.maxValue.has_value() && *out.minValue > *out.maxValue) {
+        error = "setting '" + out.key + "' min must be less than or equal to max";
+        return false;
+      }
+      if (out.minValue.has_value() && out.numberDefault < *out.minValue) {
+        error = "setting '" + out.key + "' default must be greater than or equal to min";
+        return false;
+      }
+      if (out.maxValue.has_value() && out.numberDefault > *out.maxValue) {
+        error = "setting '" + out.key + "' default must be less than or equal to max";
+        return false;
       }
       return true;
     }
@@ -277,12 +357,10 @@ namespace scripting {
       }
       out.descriptionKey = tableString(field, "description_key");
       out.advanced = tableBool(field, "advanced", false);
-      out.minValue = tableNumber(field, "min");
-      out.maxValue = tableNumber(field, "max");
-      if (auto step = tableNumber(field, "step")) {
-        out.step = *step;
-      }
       if (!parseFieldDefault(field, out, error)) {
+        return std::nullopt;
+      }
+      if (!parseFieldNumberOptions(field, out, error)) {
         return std::nullopt;
       }
       if (!parseFieldOptions(field, out, error)) {
@@ -505,6 +583,32 @@ namespace scripting {
             }
           }
           injectStandardPanelShellSettings(entry);
+        }
+        if (kind == PluginEntryKind::Widget) {
+          if ((*entryTable)["actions"]) {
+            if (manifest.pluginApiVersion < kWidgetGestureActionsPluginApiVersion) {
+              error = "widget entry '"
+                  + entry.id
+                  + "': actions requires plugin_api >= "
+                  + std::to_string(kWidgetGestureActionsPluginApiVersion);
+              return false;
+            }
+            if ((*entryTable)["actions"].as_table() == nullptr) {
+              error = "widget entry '" + entry.id + "': actions must be a table of gesture bindings";
+              return false;
+            }
+          }
+          if (const auto* actionsTable = (*entryTable)["actions"].as_table()) {
+            for (const auto& [gestureKey, actionNode] : *actionsTable) {
+              const auto action = actionNode.value<std::string>();
+              if (!action.has_value()) {
+                error =
+                    "widget entry '" + entry.id + "': actions." + std::string(gestureKey.str()) + " must be a string";
+                return false;
+              }
+              entry.widgetActions.emplace_back(std::string(gestureKey.str()), *action);
+            }
+          }
         }
         if (kind == PluginEntryKind::LauncherProvider) {
           entry.launcherPrefix = tableString(*entryTable, "prefix");

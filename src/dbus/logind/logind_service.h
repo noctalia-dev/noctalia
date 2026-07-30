@@ -30,6 +30,12 @@ public:
   bool acquireIdleInhibit();
   void releaseIdleInhibit();
 
+  // Delay-type sleep inhibit: holds off suspend/hibernate until released so the
+  // session can lock first (same pattern as swayidle/hypridle).
+  [[nodiscard]] bool hasSleepDelayInhibit() const noexcept;
+  bool acquireSleepDelayInhibit();
+  void releaseSleepDelayInhibit();
+
 private:
   void ensureSessionLockMonitor();
 
@@ -41,4 +47,5 @@ private:
   SessionLockCallback m_lockCallback;
   SessionLockCallback m_unlockCallback;
   int m_idleInhibitFd = -1;
+  int m_sleepDelayInhibitFd = -1;
 };

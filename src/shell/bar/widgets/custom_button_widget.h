@@ -18,34 +18,18 @@ public:
     bool customImageColorize = false;
     std::string label;
     std::string tooltip;
-    std::string command;
-    std::string rightCommand;
-    std::string middleCommand;
-    std::string scrollUpCommand;
-    std::string scrollDownCommand;
-    bool enableScroll = true;
-
-    bool operator==(const Options&) const = default;
   };
 
   explicit CustomButtonWidget(Options options);
 
   void create() override;
-  [[nodiscard]] bool reservesMiddleClick(float sceneX, float sceneY) const noexcept override;
 
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
-  void executeCommand(const std::string& command) const;
 
   std::string m_glyphName;
   std::string m_labelText;
   std::string m_tooltip;
-  std::string m_command;
-  std::string m_rightCommand;
-  std::string m_middleCommand;
-  std::string m_scrollUpCommand;
-  std::string m_scrollDownCommand;
-  bool m_enableScroll = true;
   WidgetCustomImage m_customImage;
   InputArea* m_area = nullptr;
   Glyph* m_glyph = nullptr;

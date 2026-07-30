@@ -11,6 +11,7 @@
 #include "shell/screen_position.h"
 #include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
+#include "ui/builders.h"
 #include "ui/controls/box.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -291,13 +292,13 @@ void PersistentPanelHost::buildScene(Instance& instance, std::uint32_t width, st
   }
 
   const bool hasDecoration = instance.panel->hasDecoration();
-  instance.sceneRoot = std::make_unique<Node>();
+  instance.sceneRoot = ui::node({});
   instance.sceneRoot->setAnimationManager(&instance.animations);
   instance.sceneRoot->setSize(static_cast<float>(width), static_cast<float>(height));
 
   const auto& shadowConfig = m_config->config().shell.shadow;
   if (hasDecoration && shell::surface_shadow::enabled(true, shadowConfig)) {
-    auto shadow = std::make_unique<Box>();
+    auto shadow = ui::box({});
     instance.shadowNode = static_cast<Box*>(instance.sceneRoot->addChild(std::move(shadow)));
     instance.shadowNode->setZIndex(-1);
     instance.shadowNode->setVisible(m_config->config().shell.panel.shadow);
@@ -305,17 +306,16 @@ void PersistentPanelHost::buildScene(Instance& instance, std::uint32_t width, st
 
   const float backgroundOpacity = shell::panel_surface::backgroundOpacity(m_config);
   if (hasDecoration) {
-    auto bg = std::make_unique<Box>();
+    auto bg = ui::box({});
     bg->setPanelStyle(m_config->config().shell.panel.borders);
     bg->setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
     instance.bgNode = static_cast<Box*>(instance.sceneRoot->addChild(std::move(bg)));
   }
 
-  auto contentWrapper = std::make_unique<Node>();
+  auto contentWrapper = ui::node({});
   instance.contentNode = contentWrapper.get();
   instance.panel->setAnimationManager(&instance.animations);
   instance.panel->setPanelCardOpacity(shell::panel_surface::cardOpacity(m_config, backgroundOpacity));
-  instance.panel->setPanelBordersEnabled(m_config->config().shell.panel.borders);
   instance.panel->create();
   instance.panel->onOpen(instance.panel->pendingOpenContext());
   instance.panel->setPendingOpenContext({});
@@ -565,6 +565,14 @@ void PersistentPanelHost::refreshPanel(std::string_view id) {
   instance->surface->requestUpdate();
 }
 
+void PersistentPanelHost::requestAnimationFrame(std::string_view id) {
+  Instance* instance = findInstance(id);
+  if (instance == nullptr || instance->surface == nullptr) {
+    return;
+  }
+  instance->surface->requestRedraw();
+}
+
 void PersistentPanelHost::onConfigReloaded() {
   for (auto& instance : m_instances) {
     if (instance->panel == nullptr) {
@@ -573,7 +581,6 @@ void PersistentPanelHost::onConfigReloaded() {
     const float backgroundOpacity = shell::panel_surface::backgroundOpacity(m_config);
     instance->panel->setContentScale(shell::panel_surface::contentScale(m_config));
     instance->panel->setPanelCardOpacity(shell::panel_surface::cardOpacity(m_config, backgroundOpacity));
-    instance->panel->setPanelBordersEnabled(m_config->config().shell.panel.borders);
     if (instance->bgNode != nullptr) {
       instance->bgNode->setPanelStyle(m_config->config().shell.panel.borders);
       instance->bgNode->setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render/core/color.h"
+#include "render/core/render_styles.h"
 #include "render/core/texture_handle.h"
 #include "render/scene/node.h"
 
@@ -22,6 +23,7 @@ public:
   [[nodiscard]] const Color& borderColor() const noexcept { return m_borderColor; }
   [[nodiscard]] float borderWidth() const noexcept { return m_borderWidth; }
   [[nodiscard]] ImageFitMode fitMode() const noexcept { return m_fitMode; }
+  [[nodiscard]] const ImageScrim& scrim() const noexcept { return m_scrim; }
   [[nodiscard]] bool monochromeTint() const noexcept { return m_monochromeTint; }
   [[nodiscard]] bool alphaMaskTint() const noexcept { return m_alphaMaskTint; }
   [[nodiscard]] int textureWidth() const noexcept { return m_textureWidth; }
@@ -67,6 +69,14 @@ public:
     markPaintDirty();
   }
 
+  void setScrim(const ImageScrim& scrim) {
+    if (m_scrim == scrim) {
+      return;
+    }
+    m_scrim = scrim;
+    markPaintDirty();
+  }
+
   void setBorder(const Color& color, float width) {
     if (m_borderColor == color && m_borderWidth == width) {
       return;
@@ -102,6 +112,7 @@ private:
   Color m_borderColor = {0.0f, 0.0f, 0.0f, 0.0f};
   float m_borderWidth = 0.0f;
   ImageFitMode m_fitMode = ImageFitMode::Stretch;
+  ImageScrim m_scrim{};
   int m_textureWidth = 0;
   int m_textureHeight = 0;
 };

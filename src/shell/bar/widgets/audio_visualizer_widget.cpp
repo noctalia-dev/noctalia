@@ -4,6 +4,7 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "ui/builders.h"
 #include "ui/style.h"
 #include "ui/visuals/audio_visualizer.h"
 
@@ -23,7 +24,7 @@ AudioVisualizerWidget::~AudioVisualizerWidget() {
 }
 
 void AudioVisualizerWidget::create() {
-  auto root = std::make_unique<InputArea>();
+  auto root = ui::inputArea({});
   root->setEnabled(false);
   root->setClipChildren(true);
 

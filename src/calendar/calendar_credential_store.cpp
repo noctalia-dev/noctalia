@@ -132,8 +132,8 @@ namespace calendar {
     return CredentialState::BackendError;
   }
 
-  void CalendarCredentialStore::setState(CredentialState state, bool migrationPending) {
-    if (m_state == state && m_migrationPending == migrationPending) {
+  void CalendarCredentialStore::setState(CredentialState state, bool migrationPending, bool forceNotify) {
+    if (!forceNotify && m_state == state && m_migrationPending == migrationPending) {
       return;
     }
     m_state = state;
@@ -254,7 +254,8 @@ namespace calendar {
           }
           if (status == security::SecretStoreStatus::NotFound) {
             auto& target = kind == CredentialKind::Password ? m_missingPasswords : m_missingRefreshTokens;
-            target.insert(accountId);
+            const bool missingChanged = target.insert(accountId).second;
+            setState(CredentialState::Ready, m_migrationPending, missingChanged);
           } else {
             setState(stateForStatus(status), m_migrationPending);
           }
@@ -287,8 +288,8 @@ namespace calendar {
             auto& cache = kind == CredentialKind::Password ? m_passwords : m_refreshTokens;
             auto& missing = kind == CredentialKind::Password ? m_missingPasswords : m_missingRefreshTokens;
             cache.insert_or_assign(accountId, std::move(cachedValue));
-            missing.erase(accountId);
-            setState(CredentialState::Ready, m_migrationPending);
+            const bool missingChanged = missing.erase(accountId) > 0;
+            setState(CredentialState::Ready, m_migrationPending, missingChanged);
           } else {
             setState(stateForStatus(status), m_migrationPending);
           }
@@ -301,7 +302,8 @@ namespace calendar {
 
   void CalendarCredentialStore::eraseRefreshToken(const std::string& accountId, StatusCallback callback) {
     m_refreshTokens.erase(accountId);
-    m_missingRefreshTokens.insert(accountId);
+    const bool missingChanged = m_missingRefreshTokens.insert(accountId).second;
+    setState(CredentialState::Ready, m_migrationPending, missingChanged);
     erase(CredentialKind::RefreshToken, accountId, std::move(callback));
   }
 
@@ -317,8 +319,8 @@ namespace calendar {
             auto& cache = kind == CredentialKind::Password ? m_passwords : m_refreshTokens;
             auto& missing = kind == CredentialKind::Password ? m_missingPasswords : m_missingRefreshTokens;
             cache.erase(accountId);
-            missing.insert(accountId);
-            setState(CredentialState::Ready, m_migrationPending);
+            const bool missingChanged = missing.insert(accountId).second;
+            setState(CredentialState::Ready, m_migrationPending, missingChanged);
           } else {
             setState(stateForStatus(status), m_migrationPending);
           }

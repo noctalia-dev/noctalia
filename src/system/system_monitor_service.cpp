@@ -1142,6 +1142,20 @@ void SystemMonitorService::releaseDiskPath(const std::string& path) {
   }
 }
 
+std::optional<DiskStats> SystemMonitorService::diskStats(const std::string& path) const {
+  std::scoped_lock lock{m_statsMutex};
+  const auto it = m_diskHistories.find(path);
+  if (it == m_diskHistories.end() || it->second.latestTotalBytes == 0) {
+    return std::nullopt;
+  }
+  return DiskStats{
+      .usagePercent = it->second.latestPercent,
+      .totalBytes = it->second.latestTotalBytes,
+      .freeBytes = it->second.latestFreeBytes,
+      .availableBytes = it->second.latestAvailBytes,
+  };
+}
+
 float SystemMonitorService::diskUsagePercent(const std::string& path) const {
   std::scoped_lock lock{m_statsMutex};
   const auto it = m_diskHistories.find(path);
@@ -1508,6 +1522,7 @@ void SystemMonitorService::samplingLoop() {
     if (statsTouched) {
       std::scoped_lock lock{m_statsMutex};
       m_latest.sampledAt = now;
+      m_latest.sampledAtWall = std::chrono::system_clock::now();
     }
 
     if (historyEnabled && now >= nextHistory) {

@@ -2,6 +2,7 @@
 
 #include "compositors/compositor_platform.h"
 #include "config/config_types.h"
+#include "dbus/tray/tray_service.h"
 #include "shell/bar/widgets/keyboard_layout_widget.h"
 #include "shell/osd/osd_overlay.h"
 
@@ -24,6 +25,14 @@ namespace {
         ),
         .showProgress = false,
     };
+  }
+
+  OsdContent makeInputMethodContent(const FcitxInputMethodState& state, const Config& config) {
+    auto content = makeKeyboardLayoutContent(state.label, config);
+    if (content.value == "--") {
+      content.value = state.label;
+    }
+    return content;
   }
 
 } // namespace
@@ -52,9 +61,25 @@ void KeyboardLayoutOsd::onLayoutChanged(const CompositorPlatform& platform, cons
   }
 
   m_lastLayoutName = layoutName;
+  if (m_inputMethodTracker.available()) {
+    return;
+  }
   if (m_overlay == nullptr) {
     return;
   }
 
   m_overlay->show(makeKeyboardLayoutContent(layoutName, config));
+}
+
+void KeyboardLayoutOsd::onTrayChanged(const TrayService& tray, const Config& config, bool enabled) {
+  const auto changed = m_inputMethodTracker.update(tray.items());
+  if (!changed.has_value()) {
+    return;
+  }
+
+  if (!enabled || m_overlay == nullptr) {
+    return;
+  }
+
+  m_overlay->show(makeInputMethodContent(*changed, config));
 }

@@ -11,8 +11,12 @@
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
 #include "idle/idle_manager.h"
+#include "render/core/async_texture_cache.h"
 #include "render/render_context.h"
 #include "render/text/font_weight_catalog.h"
+#include "scripting/plugin_registry.h"
+#include "shell/settings/settings_content_plugins.h"
+#include "shell/tooltip/tooltip_manager.h"
 #include "system/dependency_service.h"
 #include "ui/controls/box.h"
 #include "ui/controls/flex.h"
@@ -53,8 +57,8 @@ namespace {
   constexpr float kWindowMinHeight = 500.0f;
 
   // How many frames to wait for the settings window to gain keyboard focus before opening a pending
-  // widget-inspector sheet anyway (bounded so a never-focused window can't spin redraws forever).
-  constexpr int kPendingWidgetInspectorFrameBudget = 240;
+  // editor sheet anyway (bounded so a never-focused window can't spin redraws forever).
+  constexpr int kPendingEditorOpenFrameBudget = 240;
 
   // Build the {"bar", name, <lane>} path the widget inspector expects, resolving which lane the widget
   // currently lives in (the inspector keys off the bar name at index 1 and the lane at the tail).
@@ -351,6 +355,8 @@ std::optional<LayerPopupParentContext> SettingsWindow::popupParentContextForSurf
 }
 
 void SettingsWindow::open(std::string context) {
+  TooltipManager::instance().forceDestroy();
+
   if (!context.empty()) {
     m_selectedSection = std::move(context);
   }
@@ -451,7 +457,7 @@ void SettingsWindow::openToBarWidget(std::string barName, std::string widgetName
   m_selectedBarName = std::move(barName);
   m_selectedMonitorOverride.clear();
   m_pendingOpenWidgetInspectorName = std::move(widgetName);
-  m_pendingOpenWidgetInspectorFrames = kPendingWidgetInspectorFrameBudget;
+  m_pendingEditorOpenFrames = kPendingEditorOpenFrameBudget;
   m_contentScrollState.offset = 0.0f;
   m_sidebarScrollState.offset = 0.0f;
 
@@ -460,6 +466,29 @@ void SettingsWindow::openToBarWidget(std::string barName, std::string widgetName
   if (wasOpen && isOpen()) {
     requestSceneRebuild();
   }
+}
+
+bool SettingsWindow::openToPlugin(std::string pluginId) {
+  const auto* manifest = scripting::PluginRegistry::instance().findManifest(pluginId);
+  if (manifest == nullptr || !settings::pluginHasSettings(*manifest)) {
+    return false;
+  }
+
+  clearTransientSettingsState();
+  clearStatusMessage();
+  m_searchQuery.clear();
+  m_selectedSection = "plugins";
+  m_pendingOpenPluginSettingsId = std::move(pluginId);
+  m_pendingEditorOpenFrames = kPendingEditorOpenFrameBudget;
+  m_contentScrollState.offset = 0.0f;
+  m_sidebarScrollState.offset = 0.0f;
+
+  const bool wasOpen = isOpen();
+  open();
+  if (wasOpen && isOpen()) {
+    requestSceneRebuild();
+  }
+  return true;
 }
 
 void SettingsWindow::close() {
@@ -547,6 +576,7 @@ void SettingsWindow::destroyWindow() {
   m_selectedBarName.clear();
   m_selectedMonitorOverride.clear();
   m_pendingOpenWidgetInspectorName.clear();
+  m_pendingOpenPluginSettingsId.clear();
   m_editingWidgetName.clear();
   m_editingCapsuleGroupId.clear();
   m_selectedLaneWidgets.clear();
@@ -556,6 +586,12 @@ void SettingsWindow::destroyWindow() {
   m_showOverriddenOnly = false;
   m_sidebarScrollState = {};
   m_contentScrollState = {};
+
+  // Plugin-store thumbnails are the only async textures this window holds; drop the
+  // zero-ref residents once the scene (and with it every Image) is gone.
+  if (m_asyncTextures != nullptr) {
+    DeferredCall::callLater([asyncTextures = m_asyncTextures]() { asyncTextures->trimUnused(0); });
+  }
 }
 
 void SettingsWindow::prepareFrame(bool /*needsUpdate*/, bool needsLayout) {
@@ -651,34 +687,43 @@ void SettingsWindow::prepareFrame(bool /*needsUpdate*/, bool needsLayout) {
     m_lastSceneHeight = height;
   }
 
-  maybeOpenPendingWidgetInspector();
+  maybeOpenPendingEditor();
   logSettingsProfile("prepareFrame total", totalProfileWatch);
 }
 
-void SettingsWindow::maybeOpenPendingWidgetInspector() {
-  if (m_pendingOpenWidgetInspectorName.empty() || m_surface == nullptr || m_wayland == nullptr || m_config == nullptr) {
+void SettingsWindow::maybeOpenPendingEditor() {
+  const bool pending = !m_pendingOpenWidgetInspectorName.empty() || !m_pendingOpenPluginSettingsId.empty();
+  if (!pending || m_surface == nullptr || m_wayland == nullptr || m_config == nullptr) {
     return;
   }
-  // A grab popup needs an input serial this window owns. Right after a bar middle-click the latest
-  // serial still belongs to the bar surface; wait until this window holds keyboard focus (whose enter
-  // refreshes the serial) so the compositor accepts the sheet's grab instead of dismissing it.
+  // A grab popup needs an input serial this window owns. Right after a bar middle-click (or an IPC
+  // call) the latest serial still belongs to another surface; wait until this window holds keyboard
+  // focus (whose enter refreshes the serial) so the compositor accepts the sheet's grab instead of
+  // dismissing it.
   const bool focused = m_wayland->lastKeyboardSurface() == m_surface->wlSurface();
-  if (!focused && m_pendingOpenWidgetInspectorFrames > 0) {
-    --m_pendingOpenWidgetInspectorFrames;
+  if (!focused && m_pendingEditorOpenFrames > 0) {
+    --m_pendingEditorOpenFrames;
     m_surface->requestRedraw();
     return;
   }
+  // A bar middle-click or IPC call gives us no press serial the settings surface owns, so the
+  // compositor rejects an xdg_popup grab. Open the sheet without a grab — the window holds keyboard
+  // focus and routes input to it. Dialog sheets dismiss via Escape / close only (not outside click).
+  m_pendingEditorSheetNoGrab = true;
+
+  if (!m_pendingOpenPluginSettingsId.empty()) {
+    std::string pluginId = std::move(m_pendingOpenPluginSettingsId);
+    m_pendingOpenPluginSettingsId.clear();
+    openPluginSettingsEditor(std::move(pluginId));
+    return;
+  }
+
   std::string widgetName = std::move(m_pendingOpenWidgetInspectorName);
   m_pendingOpenWidgetInspectorName.clear();
-  // A bar middle-click gives us no press serial the settings surface owns, so the compositor rejects
-  // an xdg_popup grab. Open the sheet without a grab — the window holds keyboard focus and routes
-  // input to it. Dialog sheets dismiss via Escape / close only (not outside click).
-  m_pendingEditorSheetNoGrab = true;
   // The inspector takes a per-lane path {"bar", name, <lane>} (same shape the lane-card gear passes);
   // resolve which lane this widget lives in so it isn't a 2-element path that mislocates the bar name.
-  openWidgetInspectorEditor(
-      barWidgetLanePath(m_config->config(), m_selectedBarName, widgetName), std::move(widgetName)
-  );
+  std::vector<std::string> lanePath = barWidgetLanePath(m_config->config(), m_selectedBarName, widgetName);
+  openWidgetInspectorEditor(std::move(lanePath), std::move(widgetName));
 }
 
 void SettingsWindow::requestSceneRebuild() {
@@ -765,6 +810,7 @@ void SettingsWindow::clearStatusMessage() {
 
 void SettingsWindow::clearTransientSettingsState() {
   m_pendingOpenWidgetInspectorName.clear();
+  m_pendingOpenPluginSettingsId.clear();
   m_editingWidgetName.clear();
   m_editingCapsuleGroupId.clear();
   m_selectedLaneWidgets.clear();
@@ -812,10 +858,20 @@ bool SettingsWindow::onPointerEvent(const PointerEvent& event) {
   if (m_configExportDialogPopup != nullptr && m_configExportDialogPopup->onPointerEvent(event)) {
     return true;
   }
-  // Dialog: block parent input while open; dismiss only via Escape / close.
+  // Dialog: block settings-parent input while open; dismiss only via Escape / close.
+  // Events for other shell surfaces must not be swallowed here — Application still
+  // needs to forward them to the bar, dock, notifications, etc.
   if (m_configExportDialogPopup != nullptr
       && m_configExportDialogPopup->isOpen()
       && !m_configExportDialogPopup->isInitializing()) {
+    if (!ownsKeyboardSurface(event.surface)) {
+      return false;
+    }
+    // Keep m_pointerInside honest while the parent is inert behind the dialog.
+    if (event.type == PointerEvent::Type::Leave && event.surface == m_surface->wlSurface()) {
+      m_pointerInside = false;
+      m_inputDispatcher.pointerLeave();
+    }
     return true;
   }
   if (m_searchPickerPopup != nullptr && m_searchPickerPopup->onPointerEvent(event)) {
@@ -832,8 +888,17 @@ bool SettingsWindow::onPointerEvent(const PointerEvent& event) {
   if (m_editorSheetPopup != nullptr && m_editorSheetPopup->onPointerEvent(event)) {
     return true;
   }
-  // Dialog sheet: block parent input while open; dismiss only via Escape / close.
+  // Dialog sheet: block settings-parent input while open; dismiss only via Escape / close.
+  // Events for other shell surfaces must not be swallowed here — Application still
+  // needs to forward them to the bar, dock, notifications, etc.
   if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen() && !m_editorSheetPopup->isInitializing()) {
+    if (!ownsKeyboardSurface(event.surface)) {
+      return false;
+    }
+    if (event.type == PointerEvent::Type::Leave && event.surface == m_surface->wlSurface()) {
+      m_pointerInside = false;
+      m_inputDispatcher.pointerLeave();
+    }
     return true;
   }
 

@@ -371,6 +371,12 @@ namespace {
       return keybinds.tabNext;
     case KeybindAction::TabPrevious:
       return keybinds.tabPrevious;
+    case KeybindAction::Delete:
+      return keybinds.deleteEntry;
+    case KeybindAction::Copy:
+      return keybinds.copy;
+    case KeybindAction::Save:
+      return keybinds.save;
     }
     return keybinds.validate;
   }
@@ -1063,20 +1069,8 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
     if (ovr.hoverHighlight) {
       resolved.hoverHighlight = *ovr.hoverHighlight;
     }
-    if (ovr.deadZone.command) {
-      resolved.deadZone.command = *ovr.deadZone.command;
-    }
-    if (ovr.deadZone.rightCommand) {
-      resolved.deadZone.rightCommand = *ovr.deadZone.rightCommand;
-    }
-    if (ovr.deadZone.middleCommand) {
-      resolved.deadZone.middleCommand = *ovr.deadZone.middleCommand;
-    }
-    if (ovr.deadZone.scrollUpCommand) {
-      resolved.deadZone.scrollUpCommand = *ovr.deadZone.scrollUpCommand;
-    }
-    if (ovr.deadZone.scrollDownCommand) {
-      resolved.deadZone.scrollDownCommand = *ovr.deadZone.scrollDownCommand;
+    if (ovr.deadZone.actions) {
+      resolved.deadZone.actions = *ovr.deadZone.actions;
     }
     break; // first match wins
   }
@@ -1841,6 +1835,6 @@ void ConfigService::registerIpc(IpcService& ipc) {
         forceReload();
         return "ok\n";
       },
-      "config-reload", "Reload the config file"
+      "", "Reload the config file"
   );
 }
