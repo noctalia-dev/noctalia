@@ -78,6 +78,52 @@ namespace {
     return name;
   }
 
+  // libdrm's amdgpu.ids maps (deviceId, revisionId) -> marketing name, e.g.:
+  //   67DF, C7, Radeon RX 580 2048SP
+  //   67DF, CF, Radeon RX 570
+  // Unlike pci.ids' subsystem IDs (which board partners often reuse across
+  // different variants of the same card), the revision ID is baked into the
+  // silicon, so this can reliably tell apart SKUs like RX 570 vs RX 580.
+  std::string lookupAmdGpuIds(const std::string& deviceId, const std::string& revisionId) {
+    std::ifstream file{"/usr/share/libdrm/amdgpu.ids"};
+    if (!file.is_open()) {
+      return {};
+    }
+
+    auto toUpper = [](std::string s) {
+      for (auto& c : s) {
+        if (c >= 'a' && c <= 'f') {
+          c = static_cast<char>(c - 32);
+        }
+      }
+      return s;
+    };
+    const auto wantDevice = toUpper(deviceId);
+    const auto wantRevision = toUpper(revisionId);
+
+    std::string line;
+    while (std::getline(file, line)) {
+      if (line.empty() || line[0] == '#') {
+        continue;
+      }
+
+      const auto firstComma = line.find(',');
+      const auto secondComma = firstComma == std::string::npos ? std::string::npos : line.find(',', firstComma + 1);
+      if (firstComma == std::string::npos || secondComma == std::string::npos) {
+        continue;
+      }
+
+      const auto fileDevice = StringUtils::trim(line.substr(0, firstComma));
+      const auto fileRevision = StringUtils::trim(line.substr(firstComma + 1, secondComma - firstComma - 1));
+
+      if (fileDevice == wantDevice && fileRevision == wantRevision) {
+        return StringUtils::trim(line.substr(secondComma + 1));
+      }
+    }
+
+    return {};
+  }
+
   std::string lookupPciIds(
       const std::string& vendorId, const std::string& deviceId, const std::string& subVendorId = {},
       const std::string& subDeviceId = {}
@@ -228,6 +274,21 @@ namespace {
       stripHexPrefix(subDeviceHex);
 
       if (!vendorHex.empty() && !deviceHex.empty()) {
+        if (vendorHex == "1002") {
+          auto revisionHex = readSysfsLine(deviceDir / "revision");
+          stripHexPrefix(revisionHex);
+          auto amdName = lookupAmdGpuIds(deviceHex, revisionHex);
+          if (!amdName.empty()) {
+            if (!amdName.contains("AMD")) {
+              amdName = "AMD " + amdName;
+            }
+            if (!std::ranges::contains(gpus, amdName)) {
+              gpus.push_back(std::move(amdName));
+            }
+            continue;
+          }
+        }
+
         auto pciName = lookupPciIds(vendorHex, deviceHex, subVendorHex, subDeviceHex);
         if (!pciName.empty()) {
           if (!std::ranges::contains(gpus, pciName)) {
