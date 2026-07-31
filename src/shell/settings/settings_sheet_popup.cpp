@@ -44,6 +44,7 @@ namespace settings {
           .serial = serial,
           // Sheet dialogs stay open on outside click / focus loss; Escape and close dismiss.
           .grab = false,
+          .reactive = true,
       };
     }
 

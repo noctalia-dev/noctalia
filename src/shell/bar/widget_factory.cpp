@@ -194,7 +194,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
 
   if (type == "keyboard_layout") {
     const std::string display = wc != nullptr ? wc->getString("display", "short") : std::string("short");
-    const bool showIcon = wc != nullptr ? wc->getBool("show_icon", true) : true;
+    const bool showGlyph = wc != nullptr ? wc->getBool("show_glyph", true) : true;
     const bool showLabel = wc != nullptr ? wc->getBool("show_label", true) : true;
     const bool hideWhenSingleLayout = wc != nullptr ? wc->getBool("hide_when_single_layout", false) : false;
     auto customLabels =
@@ -204,7 +204,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
       glyph = "keyboard";
     }
     auto widget = std::make_unique<KeyboardLayoutWidget>(
-        m_platform, KeyboardLayoutWidget::parseDisplayMode(display), showIcon, showLabel, hideWhenSingleLayout,
+        m_platform, KeyboardLayoutWidget::parseDisplayMode(display), showGlyph, showLabel, hideWhenSingleLayout,
         std::move(customLabels), std::move(glyph), customImageFor(wc)
     );
     widget->setContentScale(contentScale);
@@ -489,6 +489,7 @@ std::unique_ptr<Widget> WidgetFactory::create(
         .occupiedColor = occupiedColor,
         .emptyColor = emptyColor,
         .urgentColor = urgentColor,
+        .changeColorOnHover = wc != nullptr ? wc->getBool("change_color_on_hover", true) : true,
         .maxLabelChars = maxLabelChars,
         .labelsOnlyWhenOccupied = wc != nullptr ? wc->getBool("labels_only_when_occupied", false) : false,
         .hideWhenEmpty = wc != nullptr ? wc->getBool("hide_when_empty", false) : false,

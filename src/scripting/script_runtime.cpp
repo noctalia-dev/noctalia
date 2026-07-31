@@ -134,9 +134,10 @@ namespace scripting {
       dest.unhealthy = dest.unhealthy || src.unhealthy;
     }
 
+    template <typename SoundLoadCompletion>
     void dispatchSideEffects(
         const std::vector<ScriptSideEffect>& effects, ClipboardService* clipboard, ScriptApiContext& api,
-        const ScriptRuntime::TogglePanelCallback& togglePanelCallback
+        const ScriptRuntime::TogglePanelCallback& togglePanelCallback, const SoundLoadCompletion& soundLoadCompletion
     ) {
       for (const auto& effect : effects) {
         switch (effect.kind) {
@@ -169,6 +170,18 @@ namespace scripting {
           break;
         case ScriptSideEffectKind::OpenPluginSettings:
           api.invokeOpenPluginSettings(effect.title);
+          break;
+        case ScriptSideEffectKind::LoadSound: {
+          auto error = api.invokeLoadSound(effect.hostId, effect.title, effect.body);
+          if (error.has_value()) {
+            soundLoadCompletion(effect.hostId, effect.callbackRef, false, std::move(*error));
+          } else {
+            soundLoadCompletion(effect.hostId, effect.callbackRef, true, {});
+          }
+          break;
+        }
+        case ScriptSideEffectKind::PlaySound:
+          api.invokePlaySound(effect.hostId, effect.title);
           break;
         }
       }
@@ -318,6 +331,7 @@ namespace scripting {
         if (unhealthy
             && event.kind != ScriptEventKind::Reload
             && event.kind != ScriptEventKind::Load
+            && event.kind != ScriptEventKind::SoundLoadResult
             && event.kind != ScriptEventKind::Stop) {
           return false;
         }
@@ -353,7 +367,7 @@ namespace scripting {
           lastUpdateAccepted = now;
         }
 
-        if (queue.size() >= kMaxQueuedEvents) {
+        if (queue.size() >= kMaxQueuedEvents && event.kind != ScriptEventKind::SoundLoadResult) {
           if (event.kind == ScriptEventKind::Update) {
             updateQueued = false;
             return false;
@@ -436,6 +450,17 @@ namespace scripting {
       event.httpStatus = status;
       event.httpBody = std::move(body);
       event.httpIsDownload = isDownload;
+      event.budget = kCallbackBudget;
+      (void)enqueue(std::move(event));
+    }
+
+    void enqueueSoundLoadResult(std::uint64_t hostId, int callbackRef, bool ok, std::string error) {
+      ScriptEvent event;
+      event.kind = ScriptEventKind::SoundLoadResult;
+      event.hostId = hostId;
+      event.callbackRef = callbackRef;
+      event.soundLoadOk = ok;
+      event.soundLoadError = std::move(error);
       event.budget = kCallbackBudget;
       (void)enqueue(std::move(event));
     }
@@ -568,6 +593,16 @@ namespace scripting {
                   event.callbackRef, event.httpOk, event.httpStatus, event.httpBody, event.budget
               );
         return collectResult(event, "http callback", ok);
+      }
+
+      if (event.kind == ScriptEventKind::SoundLoadResult) {
+        if (event.hostId != host->hostId() || !host->hasSoundLoadCallback(event.callbackRef)) {
+          return std::nullopt;
+        }
+        bindingContext.beginCall(event.snapshot);
+        const bool ok =
+            host->callSoundLoadCallback(event.callbackRef, event.soundLoadOk, event.soundLoadError, event.budget);
+        return collectResult(event, "sound load callback", ok);
       }
 
       if (event.kind == ScriptEventKind::ColorPickerResult) {
@@ -895,7 +930,15 @@ namespace scripting {
         }
       }
 
-      dispatchSideEffects(result.sideEffects, clipboard, scriptApi, togglePanelCallback);
+      std::weak_ptr<State> weak = weak_from_this();
+      dispatchSideEffects(
+          result.sideEffects, clipboard, scriptApi, togglePanelCallback,
+          [weak](std::uint64_t hostId, int callbackRef, bool ok, std::string error) {
+            if (auto state = weak.lock()) {
+              state->enqueueSoundLoadResult(hostId, callbackRef, ok, std::move(error));
+            }
+          }
+      );
       for (const auto& effect : result.sideEffects) {
         if (effect.kind == ScriptSideEffectKind::CopyToClipboard) {
           result.copiedToClipboard = true;

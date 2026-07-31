@@ -11,12 +11,11 @@ Noctalia is made possible by the incredible work of many open-source projects an
 
 ## Audio Assets
 
-- **[Universfield on Pixabay](https://pixabay.com/users/universfield-28281460/)** — Notification sound effect
-- **[Lucas McCallister on Freesound](http://www.freesound.org/samplesViewSingle.php?id=67091)** — Volume change feedback sound effect
+- **[Universfield on Pixabay](https://pixabay.com/users/universfield-28281460/)** — Notification & Volume change sound effects
 
 ## System Libraries
 
-Linked dynamically at runtime when required or enabled:
+Provided by system packages at build time and linked dynamically where applicable:
 
 - **[Wayland](https://wayland.freedesktop.org/)** (`wayland-client`, `wayland-protocols`, `wayland-egl`) — Display protocol
 - **[Mesa / EGL / GLES2](https://www.mesa3d.org/)** (or **[libepoxy](https://github.com/anholt/libepoxy)** as fallback) — OpenGL ES context and dispatch
@@ -29,12 +28,21 @@ Linked dynamically at runtime when required or enabled:
 - **[GLib / GObject / GIO](https://gitlab.gnome.org/GNOME/glib)** — Core utilities used by Pango/Cairo/librsvg
 - **[libxkbcommon](https://xkbcommon.org/)** — Keyboard handling
 - **[sdbus-c++](https://github.com/Kistler-Group/sdbus-cpp)** — D-Bus client bindings
+- **[libsecret](https://gnome.pages.gitlab.gnome.org/libsecret/)** — Secret Service client for credential and encrypted-state persistence
+- **[libsodium](https://doc.libsodium.org/)** — Cryptography for credential and encrypted-state persistence
 - **[PipeWire](https://pipewire.org/)** — Audio capture and playback
+- **[WirePlumber](https://pipewire.pages.freedesktop.org/wireplumber/)** — PipeWire mixer and default-node integration
+- **[libsndfile](https://libsndfile.github.io/libsndfile/)** — UI sound effect decoding
 - **[libcurl](https://curl.se/libcurl/)** — HTTP client
 - **[libwebp](https://developers.google.com/speed/webp)** — WebP decoding and thumbnail/notification image encoding
 - **[libjxl](https://github.com/libjxl/libjxl)** — JPEG XL decoding
 - **[libqalculate](https://qalculate.github.io/)** — Calculator engine for the launcher (arithmetic, unit and currency conversion) (GPL-2.0-or-later)
 - **[libxml2](https://gitlab.gnome.org/GNOME/libxml2)** — XML parser used to read CalDAV responses (MIT)
+- **[libical](https://libical.github.io/libical/)** — iCalendar parsing for calendar events (MPL-2.0)
+- **[md4c](https://github.com/mity/md4c)** — CommonMark parser used to render plugin README files (MIT)
+- **[nlohmann/json](https://github.com/nlohmann/json)** — JSON for Modern C++ (MIT)
+- **[stb](https://github.com/nothings/stb)** — Header-only image resizing and writing utilities (MIT / public domain)
+- **[toml++](https://github.com/marzer/tomlplusplus)** — TOML parser (MIT)
 - **[polkit](https://gitlab.freedesktop.org/polkit/polkit)** (`polkit-agent`, `polkit-gobject`) — Authentication agent
 - **[Linux-PAM](https://github.com/linux-pam/linux-pam)** — Lockscreen authentication
 - **[jemalloc](https://jemalloc.net/)** — Optional memory allocator used on glibc builds when detected
@@ -43,14 +51,9 @@ Linked dynamically at runtime when required or enabled:
 
 Bundled in `third_party/` and built from source:
 
-- **[dr_wav](https://github.com/mackron/dr_libs)** — Single-file WAV decoder (MIT-0 / public domain)
 - **[fzy](https://github.com/jhawthorn/fzy)** — Fuzzy matching algorithm used by the launcher, search pickers, and other shell ranking (MIT)
-- **[md4c](https://github.com/mity/md4c)** — CommonMark parser used to render plugin README files (MIT)
 - **[Luau](https://luau.org/)** — Lua dialect used for scripting (MIT)
 - **[Material Color Utilities](https://github.com/material-foundation/material-color-utilities)** — Material 3 palette generation (Apache-2.0)
-- **[nlohmann/json](https://github.com/nlohmann/json)** — JSON for Modern C++ (MIT)
-- **[stb](https://github.com/nothings/stb)** — Single-file utilities, primarily image I/O (MIT / public domain)
-- **[toml++](https://github.com/marzer/tomlplusplus)** — TOML parser (MIT)
 - **[Wuffs](https://github.com/google/wuffs)** — Memory-safe image decoders (Apache-2.0)
 
 ## System Integration

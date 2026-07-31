@@ -410,7 +410,7 @@ namespace shell::dock {
     }
     const float current = inst.hideOpacity;
     inst.hideAnimId = inst.animations.animate(
-        current, 0.0f, Style::animSlow, Easing::EaseInQuad,
+        current, 0.0f, Style::animNormal, Easing::EaseInQuad,
         [&inst, &config](float v) {
           inst.hideOpacity = v;
           const auto& cfg = config.config().dock;

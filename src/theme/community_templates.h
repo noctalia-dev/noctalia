@@ -30,6 +30,7 @@ namespace noctalia::theme {
         const std::vector<std::string>& selectedIds, std::uint64_t generation, bool notifyWhenReady
     );
 
+    void syncCatalogManifests(const std::vector<std::string>& selectedIds, std::uint64_t generation);
     HttpClient& m_httpClient;
     ReadyCallback m_readyCallback;
     std::uint64_t m_generation = 0;

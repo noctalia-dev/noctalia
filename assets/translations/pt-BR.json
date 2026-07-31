@@ -266,6 +266,7 @@
       "start-playback": "Iniciar reprodução em um aplicativo MPRIS"
     },
     "network": {
+      "available": "Disponível",
       "connect": "Conectar",
       "current-connection": "Conexão atual",
       "external-ip": "WAN {ip}",
@@ -274,6 +275,7 @@
       "password": "Senha",
       "password-prompt": "Digitar a senha",
       "password-prompt-for": "Digite a senha para {ssid}",
+      "saved": "Salvo",
       "unavailable-detail": "Instale e ative o NetworkManager, wpa_supplicant ou iwd para gerenciar redes a partir daqui.",
       "unavailable-title": "Serviço de rede indisponível",
       "vpns": "VPNs",
@@ -2241,6 +2243,7 @@
           "label": "Largura da Central de Controle"
         },
         "floating-layer": {
+          "description": "Use \"Topo\" se houver janelas atrás de painéis flutuantes; \"Overlay\" mantém painéis sobre conteúdo de tela cheia",
           "label": "Camada do Painel Flutuante"
         },
         "floating-offset": {
@@ -2486,7 +2489,7 @@
           "description-error": "Não foi possível abrir ou salvar o cache criptografado de eventos do calendário.",
           "description-locked": "O armazenamento criptografado está bloqueado ou o acesso foi negado. Corrija o acesso e tente novamente.",
           "description-migration": "O cache de eventos do calendário em texto simples está aguardando criptografia. Ele será preservado até que a migração seja concluída com sucesso.",
-          "description-missing-key": "A chave de armazenamento criptografado configurada está ausente. Os arquivos de cache do calendário existentes foram preservados.",
+          "description-missing-key": "Faltando chave do cache de evento do calendário. As credenciais da conta utilizam um armazenamento separado; os arquivos de cache existentes foram preservados.",
           "description-opening": "O cache criptografado de eventos do calendário está sendo aberto.",
           "description-recovery": "O evento de calendário não pôde ser autenticado ou está danificado. Tente novamente depois de restaurar a chave correta, ou redefina o armazenamento privado.",
           "description-unavailable": "Nenhum provedor do Secret Service está disponível. Os eventos do calendário permanecerão disponíveis apenas nesta sessão.",
@@ -2933,6 +2936,10 @@
           "description": "Envia o PNG capturado para um comando do shell em stdin",
           "label": "Pipe para Comando"
         },
+        "screenshot-remember-last-region": {
+          "description": "Pré-selecionar a última região(incluindo depois de cancelar) na próxima captura de tela por região",
+          "label": "Lembrar Última Região"
+        },
         "screenshot-save-to-file": {
           "description": "Salva as capturas de tela como arquivos PNG no diretório de saída",
           "label": "Salvar para Arquivo"
@@ -3291,6 +3298,10 @@
         "centered": {
           "description": "Centraliza as barras do visualizador em vez de alinhá-las à borda",
           "label": "Centralizado"
+        },
+        "change-color-on-hover": {
+          "description": "Mude o preenchimento de espaço de trabalho e cores de rótulos quando o ponteiro pairar sobre",
+          "label": "Mudar Cor ao Passar o Mouse"
         },
         "color": {
           "description": "Cor do ícone e rótulo deste widget; cores hexadecimais fixas também são suportadas",

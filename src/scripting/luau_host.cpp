@@ -60,6 +60,7 @@ namespace {
   constexpr int kMaxGlobalAsyncProcessMatches = 64;
   constexpr int kMaxGlobalDetachedCommands = 32;
   constexpr std::size_t kMaxAsyncHttpPerHost = 8;
+  constexpr std::size_t kMaxPendingSoundLoadsPerHost = 8;
   constexpr std::size_t kMaxStreamsPerHost = 4;
   constexpr std::size_t kMaxHttpStreamsPerHost = 4;
   // A single stream line can't exceed this; protects against a process spewing one
@@ -69,8 +70,8 @@ namespace {
   // it only ever trips on a runaway allocation (an unbounded table/string loop).
   constexpr std::size_t kMemoryCeilingBytes = 128 * 1024 * 1024;
 
-  std::uint64_t& nextHostId() {
-    static std::uint64_t id = 1;
+  std::atomic<std::uint64_t>& nextHostId() {
+    static std::atomic<std::uint64_t> id{1};
     return id;
   }
 
@@ -830,6 +831,51 @@ namespace {
     return host->pluginDir() / path;
   }
 
+  int luau_sound_load(lua_State* L) {
+    size_t nameLen = 0;
+    const char* name = luaL_checklstring(L, 1, &nameLen);
+    if (nameLen == 0) {
+      luaL_argerror(L, 1, "expected a non-empty sound name");
+      return 0;
+    }
+
+    size_t pathLen = 0;
+    const char* path = luaL_checklstring(L, 2, &pathLen);
+    if (pathLen == 0) {
+      luaL_argerror(L, 2, "expected a non-empty path");
+      return 0;
+    }
+    luaL_checktype(L, 3, LUA_TFUNCTION);
+
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      lua_pushboolean(L, 0);
+      return 1;
+    }
+
+    const std::string resolvedPath = resolveHostPath(host, std::string_view(path, pathLen)).string();
+    const int callbackRef = lua_ref(L, 3);
+    const bool accepted = host->scriptLoadSound(std::string(name, nameLen), resolvedPath, callbackRef);
+    if (!accepted) {
+      lua_unref(L, callbackRef);
+    }
+    lua_pushboolean(L, accepted ? 1 : 0);
+    return 1;
+  }
+
+  int luau_sound_play(lua_State* L) {
+    size_t nameLen = 0;
+    const char* name = luaL_checklstring(L, 1, &nameLen);
+    if (nameLen == 0) {
+      luaL_argerror(L, 1, "expected a non-empty sound name");
+      return 0;
+    }
+    if (auto* host = hostForState(L)) {
+      host->scriptPlaySound(std::string(name, nameLen));
+    }
+    return 0;
+  }
+
   int luau_readFile(lua_State* L) {
     size_t len = 0;
     const char* path = luaL_checklstring(L, 1, &len);
@@ -1478,6 +1524,12 @@ namespace {
     }
   }
 
+  const luaL_Reg kNoctaliaSoundLib[] = {
+      {"load", luau_sound_load},
+      {"play", luau_sound_play},
+      {nullptr, nullptr},
+  };
+
   const luaL_Reg kNoctaliaJsonLib[] = {
       {"decode", luau_json_decode},
       {"encode", luau_json_encode},
@@ -1596,6 +1648,10 @@ namespace {
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaJsonLib);
     lua_setfield(L, -2, "json");
+    // noctalia.sound = { load, play }
+    lua_createtable(L, 0, 0);
+    luaL_register(L, nullptr, kNoctaliaSoundLib);
+    lua_setfield(L, -2, "sound");
     // noctalia.string = { trim, urlEncode, urlDecode }
     lua_createtable(L, 0, 0);
     luaL_register(L, nullptr, kNoctaliaStringLib);
@@ -1628,7 +1684,7 @@ void* LuauHost::allocate(void* ud, void* ptr, std::size_t osize, std::size_t nsi
 }
 
 LuauHost::LuauHost(scripting::ScriptApiContext& api, CompositorPlatform* platform) : m_api(api), m_platform(platform) {
-  m_hostId = nextHostId()++;
+  m_hostId = nextHostId().fetch_add(1, std::memory_order_relaxed);
 
   m_L = lua_newstate(&LuauHost::allocate, this);
   lua_callbacks(m_L)->userdata = this;
@@ -1695,6 +1751,7 @@ bool LuauHost::ensureDiskPathRetained(const std::string& path) {
 }
 
 LuauHost::~LuauHost() {
+  auto unloadPluginSounds = m_api.unloadPluginSoundsHook();
   // Terminate any long-lived stream subprocesses and HTTP streams before tearing
   // down the state.
   stopAllStreams();
@@ -1742,10 +1799,20 @@ LuauHost::~LuauHost() {
         lua_unref(m_T, callbackRef);
       }
       m_colorPickerCallbackRefs.clear();
+      for (const auto& [callbackRef, soundName] : m_soundLoadCallbacks) {
+        (void)soundName;
+        lua_unref(m_T, callbackRef);
+      }
+      m_soundLoadCallbacks.clear();
     }
     if (m_threadRef != -1)
       lua_unref(m_L, m_threadRef);
     lua_close(m_L);
+  }
+  if (unloadPluginSounds) {
+    DeferredCall::callLater([unloadPluginSounds = std::move(unloadPluginSounds), hostId = m_hostId]() mutable {
+      unloadPluginSounds(hostId);
+    });
   }
 }
 
@@ -1849,6 +1916,36 @@ bool LuauHost::hasAsyncProcessMatchCallback(int callbackRef) const {
 bool LuauHost::hasAsyncHttpCallback(int callbackRef) const { return m_asyncHttpCallbackRefs.contains(callbackRef); }
 
 bool LuauHost::hasColorPickerCallback(int callbackRef) const { return m_colorPickerCallbackRefs.contains(callbackRef); }
+
+bool LuauHost::hasSoundLoadCallback(int callbackRef) const { return m_soundLoadCallbacks.contains(callbackRef); }
+
+bool LuauHost::callSoundLoadCallback(
+    int callbackRef, bool ok, const std::string& error, std::chrono::milliseconds budget
+) {
+  if (m_T == nullptr) {
+    return false;
+  }
+  const auto it = m_soundLoadCallbacks.find(callbackRef);
+  if (it == m_soundLoadCallbacks.end()) {
+    return false;
+  }
+  m_soundLoadCallbacks.erase(it);
+
+  lua_getref(m_T, callbackRef);
+  lua_unref(m_T, callbackRef);
+  if (!lua_isfunction(m_T, -1)) {
+    lua_pop(m_T, 1);
+    return false;
+  }
+
+  lua_pushboolean(m_T, ok ? 1 : 0);
+  if (ok) {
+    lua_pushnil(m_T);
+  } else {
+    lua_pushlstring(m_T, error.data(), error.size());
+  }
+  return callWithBudget("sound load callback", 2, 0, budget);
+}
 
 bool LuauHost::startColorPicker(const Color& initialColor, int callbackRef) {
   if (callbackRef <= LUA_REFNIL || !m_colorPickerCallbackRefs.empty()) {
@@ -2363,6 +2460,38 @@ void LuauHost::scriptNotifyError(std::string title, std::string body) {
     return;
   }
   notify::error("Noctalia", title, body);
+}
+
+bool LuauHost::scriptLoadSound(std::string name, std::string path, int callbackRef) {
+  if (m_scriptContext == nullptr
+      || callbackRef <= LUA_REFNIL
+      || m_soundLoadCallbacks.size() >= kMaxPendingSoundLoadsPerHost) {
+    return false;
+  }
+  for (const auto& [pendingRef, pendingName] : m_soundLoadCallbacks) {
+    (void)pendingRef;
+    if (pendingName == name) {
+      return false;
+    }
+  }
+
+  m_soundLoadCallbacks.emplace(callbackRef, name);
+  m_scriptContext->sideEffects.push_back(
+      {.kind = scripting::ScriptSideEffectKind::LoadSound,
+       .title = std::move(name),
+       .body = std::move(path),
+       .hostId = m_hostId,
+       .callbackRef = callbackRef}
+  );
+  return true;
+}
+
+void LuauHost::scriptPlaySound(std::string name) {
+  if (m_scriptContext != nullptr) {
+    m_scriptContext->sideEffects.push_back(
+        {.kind = scripting::ScriptSideEffectKind::PlaySound, .title = std::move(name), .hostId = m_hostId}
+    );
+  }
 }
 
 void LuauHost::scriptSetWallpaperEnabled(std::string connector, bool enabled) {

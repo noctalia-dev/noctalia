@@ -29,7 +29,7 @@
   "bar": {
     "screenshot": {
       "choose-display": "选择屏幕",
-      "confirm-region": "Enter 或 Space 键截图 · Esc 取消 · 拖动重选",
+      "confirm-region": "{copy} 复制 · {save} 保存 · Enter 或 Space 默认操作 · {cancel} 取消 · 拖动重选",
       "fullscreen": "全屏",
       "overlay-alloc-failed": "无法显示截图覆盖层（GPU 显存不足？）",
       "region": "选择区域"
@@ -117,7 +117,18 @@
         "error": "天气错误",
         "loading": "天气…",
         "no-location": "无位置信息",
-        "off": "天气已关闭"
+        "off": "天气已关闭",
+        "tooltip": {
+          "condition": "天气",
+          "high": "最高",
+          "humidity": "湿度",
+          "low": "最低",
+          "sunrise": "日出",
+          "sunset": "日落",
+          "temperature": "气温",
+          "uv": "紫外线",
+          "wind": "风速"
+        }
       }
     }
   },
@@ -131,9 +142,9 @@
       "clear-desc": "选择是否保留已固定的条目。",
       "clear-desc-all-pinned": "所有条目均已固定。可使用“全部清除”以移除它们。",
       "clear-desc-no-pinned": "从剪贴板历史记录中移除所有条目。",
-      "clear-title": "清除剪贴板历史记录？",
+      "clear-title": "确认清除剪贴板历史记录？",
       "delete-desc": "从剪贴板历史记录中移除所选条目。",
-      "delete-title": "删除剪贴板条目？"
+      "delete-title": "确认删除剪贴板条目？"
     },
     "empty": {
       "history-message": "剪贴板历史记录中没有条目。",
@@ -255,6 +266,7 @@
       "start-playback": "在 MPRIS 应用中开始播放"
     },
     "network": {
+      "available": "可用",
       "connect": "连接",
       "current-connection": "当前连接",
       "external-ip": "WAN {ip}",
@@ -263,6 +275,7 @@
       "password": "密码",
       "password-prompt": "输入密码",
       "password-prompt-for": "输入 {ssid} 的密码",
+      "saved": "已保存",
       "unavailable-detail": "请安装并启用 NetworkManager、wpa_supplicant 或 iwd 以在此管理网络。",
       "unavailable-title": "网络服务不可用",
       "vpns": "VPN",
@@ -519,6 +532,7 @@
         "show-media": "媒体",
         "show-password-hint": "密码提示",
         "show-session-buttons": "会话按钮",
+        "show-unlock-hint": "解锁提示",
         "show-vpn-label": "显示 VPN 标签",
         "show-weather": "天气",
         "show-when-idle": "空闲时显示",
@@ -724,7 +738,7 @@
       "greeter-sync-timeout": "Greeter 同步仍在等待管理员授权。请检查 TTY 或控制台中的 Polkit 提示，在“安全”设置中启用 Polkit 代理，或手动执行 pkexec。",
       "greeter-sync-timeout-manual": "Greeter 同步仍需要管理员授权。请在终端执行：pkexec noctalia-greeter-apply-appearance \"$XDG_RUNTIME_DIR/noctalia-greeter-sync\"",
       "keybind-app": "Noctalia",
-      "keybind-invalid-modifier": "此快捷键仅接受不带修饰键的单键。",
+      "keybind-invalid-modifier": "该快捷键仅接受不带修饰键的单键。",
       "keybind-invalid-printable": "字母、数字和符号键需要配合 Ctrl 或 Alt 等修饰键使用。",
       "keybind-invalid-super": "Super/Windows 键无法用于 Shell 快捷键。",
       "keybind-invalid-title": "不允许的快捷键",
@@ -920,7 +934,7 @@
         "create": "创建",
         "delete": "删除",
         "delete-confirm-desc": "该状态栏由 GUI 创建，将从 settings.toml 中移除。",
-        "delete-confirm-title": "删除“{name}”？",
+        "delete-confirm-title": "确认删除“{name}”？",
         "id-placeholder": "状态栏 ID",
         "label": "状态栏：{name}",
         "management": "状态栏",
@@ -934,7 +948,7 @@
         "create": "创建",
         "delete": "删除",
         "delete-confirm-desc": "该屏幕设置由 GUI 创建，将从 settings.toml 中移除。",
-        "delete-confirm-title": "删除“{name}”？",
+        "delete-confirm-title": "确认删除“{name}”？",
         "label": "屏幕：{name}",
         "management": "屏幕设置",
         "match-placeholder": "屏幕标识（如 \"DP-1\"）",
@@ -956,6 +970,8 @@
           "border": "边框",
           "border-description": "将颜色应用于胶囊轮廓；保持“默认”时不显示轮廓",
           "clear": "清除",
+          "deselect": "取消选择",
+          "drag": "重新排序",
           "drawer-columns": "抽屉列数",
           "drawer-columns-description": "抽屉面板中每行显示的小组件数量",
           "drawer-detached": "独立面板",
@@ -971,8 +987,8 @@
           "fill-description": "胶囊背景的颜色；支持固定的十六进制颜色值",
           "foreground": "前景",
           "foreground-description": "将颜色应用于组内小组件图标和标签",
-          "hide": "隐藏此组合",
-          "hide-widget": "隐藏此小组件",
+          "hide": "隐藏组合",
+          "hide-widget": "隐藏小组件",
           "hint": "属于胶囊组",
           "members": "{count} 个小组件",
           "opacity": "不透明度",
@@ -982,9 +998,14 @@
           "padding-description": "胶囊边缘与其内部小组件之间的内边距（像素）",
           "radius": "半径",
           "radius-description": "胶囊的圆角半径（像素）；“自动”将继承状态栏的胶囊圆角设置",
+          "remove-from-group": "从组合中移除",
+          "remove-orphan": "移除未知组合",
+          "remove-widget": "从状态栏移除",
+          "select": "选择进行组合",
           "selected": "已选择 {count} 项",
-          "show": "显示此组合",
-          "show-widget": "显示此小组件",
+          "settings-widget": "小组件设置",
+          "show": "显示组合",
+          "show-widget": "显示小组件",
           "style": "样式",
           "title": "胶囊组",
           "ungroup": "取消组合"
@@ -998,7 +1019,7 @@
           "create-save": "创建",
           "delete": "删除",
           "delete-confirm-desc": "该具名小组件将从所有状态栏中移除，且不再保留其配置项。",
-          "delete-confirm-title": "删除“{name}”？",
+          "delete-confirm-title": "确认删除“{name}”？",
           "id-description": "仅限字母、数字、下划线或连字符；不能包含空格；必须唯一",
           "id-placeholder": "小组件 ID",
           "rename": "重命名",
@@ -1311,7 +1332,7 @@
       },
       "panel-bar-alignment": {
         "centered": "居中",
-        "near-trigger": "靠近触发位置"
+        "near-trigger": "触发位置附近"
       },
       "panel-position": {
         "auto": "跟随状态栏"
@@ -1418,7 +1439,7 @@
         "configure": "配置",
         "delete": "删除",
         "delete-confirm-desc": "该插件将被卸载，并从磁盘中删除。",
-        "delete-confirm-title": "删除“{name}”？",
+        "delete-confirm-title": "确认删除“{name}”？",
         "deprecated": "已弃用",
         "empty": "未启用任何插件。",
         "held-back": "较旧版本",
@@ -1463,7 +1484,7 @@
         "remove": "移除源",
         "save": "保存",
         "title": "源",
-        "update": "更新该源"
+        "update": "更新源"
       },
       "store": {
         "add": "添加到 Noctalia",
@@ -1556,7 +1577,7 @@
           "description": "表面投射阴影的方向"
         },
         "input-borders": {
-          "description": "为 Shell 的文本输入框及其他输入控件绘制轮廓",
+          "description": "为 Shell 的文本框和其他输入控件绘制轮廓",
           "label": "输入框边框"
         },
         "language": {
@@ -1645,7 +1666,7 @@
           "label": "胶囊圆角半径"
         },
         "capsule-thickness": {
-          "description": "胶囊厚度占状态栏高度的比例（1.0 填满状态栏）",
+          "description": "胶囊厚度占状态栏高度的比例（设为 1.0 时填满状态栏）",
           "label": "胶囊厚度"
         },
         "center-widgets": {
@@ -1689,7 +1710,7 @@
           "description": "状态栏与其所在屏幕边缘的间距；设为 0 时紧贴屏幕边缘"
         },
         "enabled": {
-          "description": "显示或隐藏此状态栏"
+          "description": "显示或隐藏状态栏"
         },
         "end-widgets": {
           "description": "状态栏末端（右侧/底部）的小组件",
@@ -1918,7 +1939,7 @@
           "label": "放大效果"
         },
         "magnification-scale": {
-          "description": "指针中心处的最大图标缩放比例（1.0 禁用放大效果）",
+          "description": "指针中心处的最大图标缩放比例（设为 1.0 时禁用放大）",
           "label": "放大倍率"
         },
         "main-axis-padding": {
@@ -2046,6 +2067,10 @@
           "description": "关闭弹窗、收起面板或取消当前操作",
           "label": "取消"
         },
+        "copy": {
+          "description": "复制当前选区或选中项",
+          "label": "复制"
+        },
         "delete": {
           "description": "删除选中项",
           "label": "删除"
@@ -2061,6 +2086,10 @@
         "right": {
           "description": "向右移动焦点或选中项",
           "label": "向右导航"
+        },
+        "save": {
+          "description": "保存当前选区或选中项",
+          "label": "保存"
         },
         "tab-next": {
           "description": "将焦点移动到下一个控件",
@@ -2214,7 +2243,7 @@
           "label": "控制中心宽度"
         },
         "floating-layer": {
-          "description": "如果输入法候选窗口被悬浮面板遮挡，请使用 Top；Overlay 可使面板保持在全屏内容之上",
+          "description": "如果输入法候选窗口被悬浮面板遮挡，请使用 Top；Overlay 可使面板保持在全屏内容上方",
           "label": "悬浮面板层级"
         },
         "floating-offset": {
@@ -2226,7 +2255,7 @@
           "label": "主页快捷项"
         },
         "home-shortcuts-show-labels": {
-          "description": "在主页选项卡的快捷方式图标下方显示文本标签",
+          "description": "在主页选项卡的快捷项图标下方显示文本标签",
           "label": "显示快捷项标签"
         },
         "launcher-app-grid": {
@@ -2315,24 +2344,24 @@
           "label": "列表项背景"
         },
         "open-near-click-clipboard": {
-          "description": "在吸附或悬浮位置设为“跟随状态栏”时，将剪贴板面板显示在打开它的状态栏小组件附近",
-          "label": "沿状态栏打开"
+          "description": "选择剪贴板面板是相对于状态栏居中显示，还是显示在触发位置附近",
+          "label": "相对状态栏"
         },
         "open-near-click-control-center": {
-          "description": "在吸附或悬浮位置设为“跟随状态栏”时，将控制中心显示在打开它的状态栏小组件附近",
-          "label": "沿状态栏打开"
+          "description": "选择控制中心是相对于状态栏居中显示，还是显示在触发位置附近",
+          "label": "相对状态栏"
         },
         "open-near-click-launcher": {
-          "description": "在吸附或悬浮位置设为“跟随状态栏”时，将启动器显示在打开它的状态栏小组件附近",
-          "label": "沿状态栏打开"
+          "description": "选择启动器是相对于状态栏居中显示，还是显示在触发位置附近",
+          "label": "相对状态栏"
         },
         "open-near-click-session": {
-          "description": "在吸附或悬浮位置设为“跟随状态栏”时，将会话面板显示在打开它的状态栏小组件附近",
-          "label": "沿状态栏打开"
+          "description": "选择会话面板是相对于状态栏居中显示，还是显示在触发位置附近",
+          "label": "相对状态栏"
         },
         "open-near-click-wallpaper": {
-          "description": "在吸附或悬浮位置设为“跟随状态栏”时，将壁纸选择器显示在打开它的状态栏小组件附近",
-          "label": "沿状态栏打开"
+          "description": "选择壁纸选择器是相对于状态栏居中显示，还是显示在触发位置附近",
+          "label": "相对状态栏"
         },
         "panel-anchor-bar": {
           "description": "面板打开时依附的状态栏；留空时跟随打开面板的小组件、快捷键或 Dock",
@@ -2440,7 +2469,7 @@
           "button": "编辑",
           "button-reconnect": "重新连接",
           "description": "更新日历账户",
-          "description-reconnect": "缺少 Google 账户授权。请重新连接此账户。"
+          "description-reconnect": "未找到 Google 授权信息。请重新连接此账户。"
         },
         "calendar-event-date-format": {
           "description": "事件卡片中所选日期的显示格式",
@@ -2460,7 +2489,7 @@
           "description-error": "无法打开或保存加密的日历事件缓存。",
           "description-locked": "加密存储已锁定或访问被拒绝。请恢复访问后重试。",
           "description-migration": "明文日历事件缓存正等待加密。迁移成功前，现有缓存将继续保留。",
-          "description-missing-key": "日历事件缓存密钥缺失。账户凭据使用单独的存储；现有缓存文件已保留。",
+          "description-missing-key": "未找到日历事件缓存密钥。账户凭据使用独立存储；现有缓存文件已保留。",
           "description-opening": "正在打开加密的日历事件缓存。",
           "description-recovery": "日历事件缓存验证失败或已损坏。请恢复正确的密钥后重试，或重置私密存储。",
           "description-unavailable": "没有可用的 Secret Service 提供程序。日历事件仅在本次会话中可用。",
@@ -2708,7 +2737,7 @@
           "description-error": "无法打开或保存加密的剪贴板历史记录。",
           "description-locked": "剪贴板密钥存储已锁定或访问被拒绝。请恢复访问后重试。",
           "description-migration": "明文剪贴板历史记录正等待加密。迁移成功前，现有文件将继续保留。",
-          "description-missing-key": "已配置的加密存储密钥缺失。现有剪贴板历史记录文件已保留。",
+          "description-missing-key": "未找到已配置的加密存储密钥。现有剪贴板历史记录文件已保留。",
           "description-opening": "正在打开加密的剪贴板历史记录。",
           "description-recovery": "剪贴板历史记录验证失败或已损坏。请恢复正确的密钥后重试，或重置私密存储。",
           "description-unavailable": "没有可用的 Secret Service 提供程序。剪贴板历史记录仅在本次会话中可用。",
@@ -2845,7 +2874,7 @@
           "label": "垂直位置"
         },
         "osd-scale": {
-          "description": "按 Shell UI 缩放比例调整 OSD 弹窗大小（1.0 保持默认）",
+          "description": "按 Shell UI 缩放比例调整 OSD 弹窗大小",
           "label": "缩放"
         },
         "password-style": {
@@ -2906,6 +2935,10 @@
         "screenshot-pipe-to-command": {
           "description": "将截取的 PNG 图片通过 stdin 传递给 Shell 命令",
           "label": "通过管道传递给命令"
+        },
+        "screenshot-remember-last-region": {
+          "description": "下次区域截图时，自动选中上次划定的区域（取消截图后仍会保留）",
+          "label": "记住上次选区"
         },
         "screenshot-save-to-file": {
           "description": "将截图以 PNG 文件保存到输出目录",
@@ -3178,8 +3211,8 @@
         "rate": "功耗",
         "regular": "常规",
         "replace": "替换",
-        "scroll-gesture": "每滚动操作",
-        "scroll-steps": "每滚动步长",
+        "scroll-gesture": "每轮滚动",
+        "scroll-steps": "每步滚动",
         "shared": "共享运行",
         "short": "简短",
         "swap-percent": "Swap 百分比",
@@ -3581,8 +3614,8 @@
           "label": "脚本"
         },
         "scroll-repeat": {
-          "description": "选择滚动重复模式：“自动”保持命令默认的滚动表现；“每滚动操作”忽略每次滚动的步长，仅每滚动时运行一次；“每滚动步长”根据每个滚动步长重复运行命令",
-          "label": "滚动重复模式"
+          "description": "选择滚动触发是自动遵循命令的默认行为，每轮连续滚动仅触发一次，还是每个滚动步长均触发一次",
+          "label": "滚动触发模式"
         },
         "show-active-indicator": {
           "description": "在任务栏中活动窗口图标下方显示小圆点",
@@ -3601,7 +3634,7 @@
           "label": "显示天气状况"
         },
         "show-empty-label": {
-          "description": "无焦点窗口时显示占位文本，而非隐藏小组件",
+          "description": "无焦点窗口时显示占位文本，而不是隐藏小组件",
           "label": "显示空标签"
         },
         "show-icon": {
@@ -3621,8 +3654,12 @@
           "label": "显示滚动锁定"
         },
         "show-temperature": {
-          "description": "显示当前气温文本",
+          "description": "显示当前气温文字",
           "label": "显示气温"
+        },
+        "show-unlock-hint": {
+          "description": "在登录框上方显示状态卡片，用于解锁提示和身份验证提示。关闭后仍会显示错误信息和大写锁定提示。",
+          "label": "解锁提示"
         },
         "show-vpn-label": {
           "description": "“替换”模式下会替换网络标签；“同时显示”模式下会显示在 VPN 图标旁",
@@ -3760,17 +3797,17 @@
       "no-results": "未找到相关设置",
       "no-results-hint": "请尝试使用其他设置名称或配置键。",
       "offline-mode-notice": {
-        "appearance": "社区配色方案下载将无法工作。",
-        "calendar-account": "日历发现与同步将无法工作。",
-        "disable-hint": "请在安全设置部分禁用离线模式。",
-        "launcher": "货币汇率获取将无法工作。",
-        "location": "天气与位置查询将无法工作。",
-        "plugin-store": "远程插件目录与下载请求将无法工作。",
-        "plugins": "插件 HTTP 请求将无法工作。Git 源仍可更新。",
-        "security": "外部 IP 查询与遥测将无法工作。",
-        "services": "日历账号同步将无法工作。",
-        "template-store": "社区模板下载将无法工作。",
-        "templates": "社区模板下载与更新将无法工作。",
+        "appearance": "无法下载社区配色方案。",
+        "calendar-account": "无法自动发现或同步日历。",
+        "disable-hint": "可以在“安全”设置中禁用“离线模式”。",
+        "launcher": "无法获取货币汇率。",
+        "location": "无法查询天气和位置。",
+        "plugin-store": "无法访问远程插件目录和下载插件。",
+        "plugins": "无法发起插件 HTTP 请求。Git 源仍可更新。",
+        "security": "无法查询外部 IP 或发送遥测数据。",
+        "services": "无法同步日历账户。",
+        "template-store": "无法下载社区模板。",
+        "templates": "无法下载和更新社区模板。",
         "title": "离线模式"
       },
       "reset-page": "重置页面",

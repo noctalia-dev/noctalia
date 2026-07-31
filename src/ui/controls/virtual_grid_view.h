@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 class InputArea;
@@ -39,6 +40,9 @@ public:
   // Optional: respond to an activation gesture (click). The grid still
   // updates its own selection state and fires onSelectionChanged.
   virtual void onActivate(std::size_t /*index*/) {}
+
+  // Optional tooltip for the item under the pointer.
+  [[nodiscard]] virtual std::string itemTooltip(std::size_t /*index*/) const { return {}; }
 
   // Return true when an overlay consumed the press.
   virtual bool onPointerPress(
@@ -107,6 +111,8 @@ private:
   void onPointerMotion(float localX, float localY);
   void onPointerLeave();
   void onPointerPress(float localX, float localY);
+  void onPoolTooltipMotion(std::size_t slot, float localX, float localY);
+  void onPoolTooltipLeave(std::size_t slot);
   void onSecondaryPointerPress(float localX, float localY);
   [[nodiscard]] std::optional<std::size_t> indexAt(float localX, float localY) const noexcept;
   void cellLocalAt(float localX, float localY, std::size_t index, float& cellLocalX, float& cellLocalY) const noexcept;
@@ -118,6 +124,7 @@ private:
 
   VirtualGridAdapter* m_adapter = nullptr;
   std::vector<Node*> m_pool;
+  std::vector<InputArea*> m_poolTooltipAreas;
   std::vector<std::optional<std::size_t>> m_slotBoundIndex;
   std::vector<bool> m_slotBoundSelected;
   std::vector<bool> m_slotBoundHovered;

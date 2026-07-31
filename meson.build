@@ -95,6 +95,7 @@ libxml2_dep         = dependency('libxml-2.0')
 md4c_dep            = dependency('md4c')
 nlohmann_dep        = dependency('nlohmann_json')
 tomlplusplus_dep    = dependency('tomlplusplus')
+libical_dep         = dependency('libical')
 pam_dep             = cc.find_library('pam')
 dl_dep              = cpp.find_library('dl', required: false)
 
@@ -131,16 +132,6 @@ if not gles2_dep.found()
   gles2_dep = dependency('epoxy')
 endif
 
-# ── Vendored: dr_wav (single-file WAV decoder) ───────────────────────────────
-_drwav_lib = static_library('dr_wav',
-  'third_party/dr_wav/dr_wav.c',
-  override_options: ['warning_level=0'],
-)
-# Vendored static libs use link_whole so release LTO can see all archive members.
-drwav_dep = declare_dependency(
-  link_whole: _drwav_lib,
-  include_directories: include_directories('third_party/dr_wav', is_system: true),
-)
 
 # ── Vendored: fzy matcher (C fuzzy scoring) ──────────────────────────────────
 _fzy_lib = static_library('fzy',
@@ -210,6 +201,9 @@ libwebp_dep = dependency('libwebp', required: true)
 # ── System: libjxl (JPEG XL decode) ───────────────────────────────────────────
 libjxl_dep          = dependency('libjxl', required: true)
 libjxl_threads_dep  = dependency('libjxl_threads', required: true)
+
+# ── System: libsndfile (sound effect decoding) ───────────────────────────────
+sndfile_dep = dependency('sndfile', required: true)
 
 # ── Vendored: Luau (Roblox's Lua fork) ────────────────────────────────────────
 # Built as a quiet static library; only VM + Compiler + Bytecode + Ast + Common are vendored.
@@ -296,10 +290,6 @@ luau_dep = declare_dependency(
 # Tests link vendored archives selectively. The application keeps link_whole so
 # release LTO sees every member, but propagating that policy to every small test
 # would embed all vendored code in every test executable.
-_drwav_selective_dep = declare_dependency(
-  link_with: _drwav_lib,
-  include_directories: include_directories('third_party/dr_wav', is_system: true),
-)
 _fzy_selective_dep = declare_dependency(
   link_with: _fzy_lib,
   include_directories: include_directories('third_party/fzy/src', is_system: true),
@@ -488,6 +478,7 @@ _noctalia_sources = files(
   'src/dbus/power/power_profiles_service.cpp',
   'src/dbus/session_bus.cpp',
   'src/dbus/system_bus.cpp',
+  'src/dbus/tray/fcitx_status.cpp',
   'src/dbus/tray/tray_service.cpp',
   'src/dbus/upower/upower_service.cpp',
   'src/debug/debug_service.cpp',
@@ -1018,22 +1009,22 @@ _noctalia_system_dependencies = [
   pam_dep,
   nlohmann_dep,
   libxml2_dep,
+  libical_dep,
   tomlplusplus_dep,
   md4c_dep,
   libwebp_dep,
   libjxl_dep,
   libjxl_threads_dep,
+  sndfile_dep,
 ] + jemalloc_deps + (dl_dep.found() ? [dl_dep] : [])
 
 _noctalia_dependencies = _noctalia_system_dependencies + [
-  drwav_dep,
   fzy_dep,
   mcu_dep,
   luau_dep,
 ]
 
 _noctalia_test_dependencies = _noctalia_system_dependencies + [
-  _drwav_selective_dep,
   _fzy_selective_dep,
   _mcu_selective_dep,
   _luau_selective_dep,
@@ -1099,6 +1090,7 @@ if build_tests
     'audio_glyphs',
     'battery_hook_state',
     'calendar_cache_permissions',
+    'caldav_client',
     'calendar_credential_store',
     'calendar_discovery_state',
     'capsule_group_reconcile',
@@ -1113,11 +1105,12 @@ if build_tests
     'desktop_entry_launch',
     'disk_mounts',
     'dock_pinned_apps',
+    'fcitx_status',
     'google_client_calendar_list',
     'hook_manager',
     'i18n_language_tag',
     'i18n_supported_languages',
-    'ical_recurrence',
+    'ical_parser',
     'ico_decoder',
     'icon_resolver',
     'image_file_loader_data_uri',

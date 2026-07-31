@@ -1,13 +1,18 @@
 #include "calendar/caldav_client.h"
 
 #include "calendar/ical_parser.h"
+#include "core/deferred_call.h"
 #include "core/log.h"
-#include "net/http_client.h"
 #include "time/time_format.h"
 
+#include <condition_variable>
 #include <cstring>
+#include <deque>
 #include <libxml/parser.h>
 #include <libxml/tree.h>
+#include <mutex>
+#include <thread>
+#include <utility>
 
 namespace calendar {
 
@@ -61,10 +66,141 @@ namespace calendar {
     }
   } // namespace
 
-  void fetchCalDavEvents(
-      HttpClient& http, const CalDavAccount& account, std::chrono::system_clock::time_point start,
-      std::chrono::system_clock::time_point end, bool allowRedirectAuth,
-      std::function<void(bool, std::vector<CalendarEvent>)> cb
+  struct CalDavClient::State : std::enable_shared_from_this<CalDavClient::State> {
+    struct ParseRequest {
+      std::string body;
+      std::string calendarName;
+      std::string color;
+      std::chrono::system_clock::time_point start;
+      std::chrono::system_clock::time_point end;
+      EventCallback callback;
+    };
+
+    State() : worker([this](std::stop_token stopToken) { workerLoop(stopToken); }) {}
+
+    ~State() { stop(); }
+
+    bool enqueue(ParseRequest request) {
+      {
+        std::scoped_lock lock(mutex);
+        if (stopping) {
+          return false;
+        }
+        requests.push_back(std::move(request));
+      }
+      cv.notify_one();
+      return true;
+    }
+
+    void deliver(EventCallback callback, bool ok, std::vector<CalendarEvent> events) {
+      const std::weak_ptr<State> weak = weak_from_this();
+      DeferredCall::callLater([weak, callback = std::move(callback), ok, events = std::move(events)]() mutable {
+        const auto state = weak.lock();
+        if (!state || !state->accepting()) {
+          return;
+        }
+        callback(ok, std::move(events));
+      });
+    }
+
+    void stop() {
+      worker.request_stop();
+      {
+        std::scoped_lock lock(mutex);
+        stopping = true;
+        requests.clear();
+      }
+      cv.notify_one();
+      if (worker.joinable()) {
+        worker.join();
+      }
+    }
+
+  private:
+    bool accepting() const {
+      std::scoped_lock lock(mutex);
+      return !stopping;
+    }
+
+    static std::pair<bool, std::vector<CalendarEvent>> parse(const ParseRequest& request, std::stop_token stopToken) {
+      xmlDocPtr doc = xmlReadMemory(
+          request.body.data(), static_cast<int>(request.body.size()), "caldav.xml", nullptr,
+          XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING | XML_PARSE_RECOVER
+      );
+      if (doc == nullptr) {
+        kLog.warn("caldav response XML parse error");
+        return {false, {}};
+      }
+
+      std::vector<std::string> calendarDataBlocks;
+      if (xmlNode* root = xmlDocGetRootElement(doc); root != nullptr) {
+        collectCalendarData(root, calendarDataBlocks);
+      }
+      xmlFreeDoc(doc);
+
+      ICalParseControl control{.stopToken = stopToken};
+
+      std::vector<CalendarEvent> events;
+      for (const std::string& ics : calendarDataBlocks) {
+        ICalParseResult result = parseICalEvents(ics, request.start, request.end, control);
+        if (result.status != ICalParseStatus::Complete) {
+          return {false, {}};
+        }
+        for (CalendarEvent& event : result.events) {
+          event.calendarName = request.calendarName;
+          event.colorHex = request.color;
+          events.push_back(std::move(event));
+        }
+      }
+      return {true, std::move(events)};
+    }
+
+    void workerLoop(std::stop_token stopToken) {
+      while (true) {
+        ParseRequest request;
+        {
+          std::unique_lock lock(mutex);
+          cv.wait(lock, [this]() { return stopping || !requests.empty(); });
+          if (stopping) {
+            return;
+          }
+          request = std::move(requests.front());
+          requests.pop_front();
+        }
+
+        auto [ok, events] = parse(request, stopToken);
+        if (stopToken.stop_requested()) {
+          return;
+        }
+        deliver(std::move(request.callback), ok, std::move(events));
+      }
+    }
+
+    mutable std::mutex mutex;
+    std::condition_variable cv;
+    std::deque<ParseRequest> requests;
+    bool stopping = false;
+    std::jthread worker;
+  };
+
+  CalDavClient::CalDavClient(HttpClient& http)
+      : CalDavClient([&http](HttpRequest request, ResponseCallback callback) {
+          http.request(std::move(request), std::move(callback));
+        }) {}
+
+  CalDavClient::CalDavClient(RequestFunction request)
+      : m_request(std::move(request)), m_state(std::make_shared<State>()) {}
+
+  CalDavClient::~CalDavClient() {
+    if (m_state) {
+      m_state->stop();
+      m_state.reset();
+    }
+  }
+
+  void CalDavClient::fetchEvents(
+      const CalDavAccount& account, std::chrono::system_clock::time_point start,
+      std::chrono::system_clock::time_point end, bool allowRedirectAuth, EventCallback cb
   ) {
     HttpRequest req;
     req.method = "REPORT";
@@ -81,38 +217,25 @@ namespace calendar {
 
     const std::string calendarName = account.calendarName;
     const std::string color = account.color;
-    http.request(std::move(req), [cb = std::move(cb), calendarName, color, start, end](HttpResponse resp) {
+    const std::weak_ptr<State> weak = m_state;
+    m_request(std::move(req), [weak, cb = std::move(cb), calendarName, color, start, end](HttpResponse resp) mutable {
+      const auto state = weak.lock();
+      if (!state) {
+        return;
+      }
       if (!resp.transportOk || (resp.status != 207 && resp.status != 200)) {
         kLog.warn("caldav REPORT failed http={}", resp.status);
-        cb(false, {});
+        state->deliver(std::move(cb), false, {});
         return;
       }
-
-      xmlDocPtr doc = xmlReadMemory(
-          resp.body.data(), static_cast<int>(resp.body.size()), "caldav.xml", nullptr,
-          XML_PARSE_NONET | XML_PARSE_NOERROR | XML_PARSE_NOWARNING | XML_PARSE_RECOVER
-      );
-      if (doc == nullptr) {
-        kLog.warn("caldav response XML parse error");
-        cb(false, {});
-        return;
-      }
-
-      std::vector<std::string> calendarDataBlocks;
-      if (xmlNode* root = xmlDocGetRootElement(doc); root != nullptr) {
-        collectCalendarData(root, calendarDataBlocks);
-      }
-      xmlFreeDoc(doc);
-
-      std::vector<CalendarEvent> events;
-      for (const std::string& ics : calendarDataBlocks) {
-        for (CalendarEvent& event : parseICalEvents(ics, start, end)) {
-          event.calendarName = calendarName;
-          event.colorHex = color;
-          events.push_back(std::move(event));
-        }
-      }
-      cb(true, std::move(events));
+      state->enqueue({
+          .body = std::move(resp.body),
+          .calendarName = calendarName,
+          .color = color,
+          .start = start,
+          .end = end,
+          .callback = std::move(cb),
+      });
     });
   }
 

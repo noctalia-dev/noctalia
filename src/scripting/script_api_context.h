@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <cstdint>
 #include <functional>
 #include <mutex>
 #include <optional>
@@ -26,6 +27,11 @@ namespace scripting {
 
   class ScriptApiContext {
   public:
+    using LoadSoundHook =
+        std::function<std::optional<std::string>(std::uint64_t, const std::string&, const std::string&)>;
+    using PlaySoundHook = std::function<void(std::uint64_t, const std::string&)>;
+    using UnloadPluginSoundsHook = std::function<void(std::uint64_t)>;
+
     [[nodiscard]] bool isDarkMode() const noexcept { return m_darkMode.load(std::memory_order_relaxed); }
     void setDarkMode(bool dark) noexcept { m_darkMode.store(dark, std::memory_order_relaxed); }
 
@@ -141,6 +147,28 @@ namespace scripting {
       }
     }
 
+    void setLoadSoundHook(LoadSoundHook hook) { m_loadSoundHook = std::move(hook); }
+
+    [[nodiscard]] std::optional<std::string>
+    invokeLoadSound(std::uint64_t ownerId, const std::string& name, const std::string& path) const {
+      if (!m_loadSoundHook) {
+        return "sound playback is unavailable";
+      }
+      return m_loadSoundHook(ownerId, name, path);
+    }
+
+    void setPlaySoundHook(PlaySoundHook hook) { m_playSoundHook = std::move(hook); }
+
+    void invokePlaySound(std::uint64_t ownerId, const std::string& name) const {
+      if (m_playSoundHook) {
+        m_playSoundHook(ownerId, name);
+      }
+    }
+
+    void setUnloadPluginSoundsHook(UnloadPluginSoundsHook hook) { m_unloadPluginSoundsHook = std::move(hook); }
+
+    [[nodiscard]] UnloadPluginSoundsHook unloadPluginSoundsHook() const { return m_unloadPluginSoundsHook; }
+
   private:
     std::atomic<SystemMonitorService*> m_systemMonitor{nullptr};
     std::atomic<bool> m_darkMode{true};
@@ -154,6 +182,9 @@ namespace scripting {
     std::function<void(const std::string&, const std::string&)> m_wallpaperHook;
     std::function<void(const std::string&)> m_togglePanelHook;
     std::function<void(const std::string&)> m_openPluginSettingsHook;
+    LoadSoundHook m_loadSoundHook;
+    PlaySoundHook m_playSoundHook;
+    UnloadPluginSoundsHook m_unloadPluginSoundsHook;
   };
 
 } // namespace scripting

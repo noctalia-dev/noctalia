@@ -164,11 +164,15 @@ public:
   [[nodiscard]] bool hasAsyncProcessMatchCallback(int callbackRef) const;
   [[nodiscard]] bool hasAsyncHttpCallback(int callbackRef) const;
   [[nodiscard]] bool hasColorPickerCallback(int callbackRef) const;
+  [[nodiscard]] bool hasSoundLoadCallback(int callbackRef) const;
+  bool callSoundLoadCallback(int callbackRef, bool ok, const std::string& error, std::chrono::milliseconds budget);
   void interruptIfBudgetExceeded(lua_State* L);
   void scriptLog(std::string message);
   // Request the runtime tick rate (how often update() fires). A runtime concern, so
   // it lives on noctalia.* and works for every entry type, including headless services.
   void scriptSetUpdateInterval(int ms);
+  [[nodiscard]] bool scriptLoadSound(std::string name, std::string path, int callbackRef);
+  void scriptPlaySound(std::string name);
   void scriptNotifyInfo(std::string title, std::string body);
   void scriptNotifyError(std::string title, std::string body);
   // Toggle the host wallpaper surface on an output. Queued as a side effect and
@@ -242,6 +246,7 @@ private:
   std::unordered_set<int> m_asyncProcessMatchCallbackRefs;
   std::unordered_set<int> m_asyncHttpCallbackRefs;
   std::unordered_set<int> m_colorPickerCallbackRefs;
+  std::unordered_map<int, std::string> m_soundLoadCallbacks;
   HttpClient* m_httpClient = nullptr;
   AsyncCommandResultHandler m_asyncCommandResultHandler;
   AsyncProcessMatchResultHandler m_asyncProcessMatchResultHandler;

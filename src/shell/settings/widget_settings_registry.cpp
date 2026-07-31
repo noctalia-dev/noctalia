@@ -765,20 +765,20 @@ namespace settings {
         specs = projection->presentedSettingSpecs();
       } else if (type == "keyboard_layout") {
         add(boolSpec("hide_when_single_layout", false));
-        add(boolSpec("show_icon", true));
+        add(boolSpec("show_glyph", true));
         {
           auto glyph = glyphSpec("glyph", "keyboard");
-          glyph.visibleWhen = WidgetSettingVisibility{"show_icon", {"true"}};
+          glyph.visibleWhen = WidgetSettingVisibility{"show_glyph", {"true"}};
           add(std::move(glyph));
         }
         {
           auto image = stringSpec("custom_image", "");
-          image.visibleWhen = WidgetSettingVisibility{"show_icon", {"true"}};
+          image.visibleWhen = WidgetSettingVisibility{"show_glyph", {"true"}};
           add(std::move(image));
         }
         {
           auto colorize = boolSpec("custom_image_colorize", false);
-          colorize.visibleWhen = WidgetSettingVisibility{"show_icon", {"true"}};
+          colorize.visibleWhen = WidgetSettingVisibility{"show_glyph", {"true"}};
           add(std::move(colorize));
         }
         add(boolSpec("show_label", true));
@@ -1014,6 +1014,7 @@ namespace settings {
           focusedOutputOnly.descriptionKey = "settings.widgets.settings.focused-output-only.workspaces-description";
           add(std::move(focusedOutputOnly));
         }
+        add(withGroup(boolSpec("change_color_on_hover", true), "workspaces.colors"));
         add(withGroup(colorSpec("focused_color", "primary"), "workspaces.colors"));
         add(withGroup(colorSpec("occupied_color", "secondary"), "workspaces.colors"));
         add(withGroup(colorSpec("empty_color", "secondary"), "workspaces.colors"));

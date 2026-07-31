@@ -141,12 +141,19 @@ namespace scripting {
     SetWallpaper,
     TogglePanel,
     OpenPluginSettings,
+    LoadSound,
+    PlaySound,
   };
 
   struct ScriptSideEffect {
     ScriptSideEffectKind kind = ScriptSideEffectKind::Log;
     std::string title;
     std::string body;
+    // LoadSound: hostId identifies the sound bank, title the logical name, body the resolved path,
+    // and callbackRef the accepted completion callback.
+    // PlaySound: hostId identifies the sound bank and title the logical name.
+    std::uint64_t hostId = 0;
+    int callbackRef = 0;
     // SetWallpaperEnabled: title holds the output connector, flag the enabled state.
     // SetWallpaper: title holds the output connector (empty = all outputs), body the image path.
     // TogglePanel: title holds the panel id ("author/plugin:panel").
@@ -170,6 +177,7 @@ namespace scripting {
     AsyncCommandResult,
     AsyncProcessMatchResult,
     AsyncHttpResult,
+    SoundLoadResult,
     ColorPickerResult,
     StateWatchResult,
     StreamLine,
@@ -221,6 +229,9 @@ namespace scripting {
     bool httpIsDownload = false;
     int httpStatus = 0;
     std::string httpBody;
+    // SoundLoadResult payload.
+    bool soundLoadOk = false;
+    std::string soundLoadError;
     // ColorPickerResult payload (nil on cancellation).
     std::optional<std::string> colorPickerResult;
     // StateWatchResult payload (the changed value as JSON).

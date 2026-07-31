@@ -1,12 +1,12 @@
 #include "pipewire/sound_player.h"
 
 #include "core/log.h"
-#include "dr_wav.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <pipewire/pipewire.h>
+#include <sndfile.h>
 #include <spa/param/audio/raw-utils.h>
 #include <spa/param/param.h>
 #include <spa/pod/builder.h>
@@ -47,57 +47,95 @@ SoundPlayer::~SoundPlayer() {
   m_active.clear();
 }
 
+std::optional<std::string> SoundPlayer::decode(const std::filesystem::path& path, SoundBuffer& out) {
+  SF_INFO info{};
+  SNDFILE* file = sf_open(path.string().c_str(), SFM_READ, &info);
+  if (file == nullptr) {
+    return "failed to open audio file: " + std::string(sf_strerror(nullptr));
+  }
+
+  if (info.frames <= 0 || info.channels <= 0 || info.samplerate <= 0) {
+    sf_close(file);
+    return "audio file has no samples";
+  }
+
+  out.sampleRate = static_cast<std::uint32_t>(info.samplerate);
+  out.channels = static_cast<std::uint32_t>(info.channels);
+  out.samples.resize(static_cast<std::size_t>(info.frames) * out.channels);
+
+  const sf_count_t readFrames = sf_readf_float(file, out.samples.data(), info.frames);
+  sf_close(file);
+  if (readFrames <= 0) {
+    return "audio file has no samples";
+  }
+
+  out.samples.resize(static_cast<std::size_t>(readFrames) * out.channels);
+  return std::nullopt;
+}
+
 bool SoundPlayer::load(const std::string& name, const std::filesystem::path& path) {
   if (name.empty() || path.empty()) {
     return false;
   }
 
-  drwav wav{};
-  if (drwav_init_file(&wav, path.string().c_str(), nullptr) == DRWAV_FALSE) {
-    kLog.warn("failed to load sound \"{}\" from {}", name, path.string());
-    return false;
-  }
-
   SoundBuffer buffer;
-  buffer.sampleRate = wav.sampleRate;
-  buffer.channels = std::max<std::uint32_t>(1, wav.channels);
-  const std::uint64_t totalFrames = wav.totalPCMFrameCount;
-  const std::size_t totalSamples = static_cast<std::size_t>(totalFrames) * static_cast<std::size_t>(buffer.channels);
-  buffer.samples.resize(totalSamples);
-
-  const std::uint64_t readFrames = drwav_read_pcm_frames_f32(&wav, totalFrames, buffer.samples.data());
-  drwav_uninit(&wav);
-
-  const std::size_t readSamples = static_cast<std::size_t>(readFrames) * static_cast<std::size_t>(buffer.channels);
-  if (readSamples == 0) {
-    kLog.warn("sound \"{}\" from {} has no samples", name, path.string());
+  if (const auto error = decode(path, buffer)) {
+    kLog.warn("failed to load sound \"{}\" from {}: {}", name, path.string(), *error);
     return false;
   }
-  buffer.samples.resize(readSamples);
 
-  m_buffers[name] = std::move(buffer);
+  m_buffers[name] = std::make_shared<const SoundBuffer>(std::move(buffer));
   kLog.info("loaded sound \"{}\" from {}", name, path.string());
   return true;
 }
 
-void SoundPlayer::play(const std::string& name) {
-  if (m_loop == nullptr || m_volume <= 0.0f) {
-    return;
+std::optional<std::string>
+SoundPlayer::loadPluginSound(std::uint64_t ownerId, const std::string& name, const std::filesystem::path& path) {
+  SoundBuffer buffer;
+  if (const auto error = decode(path, buffer)) {
+    kLog.warn("failed to load plugin sound \"{}\" from {}: {}", name, path.string(), *error);
+    return error;
   }
 
+  m_pluginBuffers[ownerId][name] = std::make_shared<const SoundBuffer>(std::move(buffer));
+  kLog.info("loaded plugin sound \"{}\" from {}", name, path.string());
+  return std::nullopt;
+}
+
+void SoundPlayer::unloadPluginSounds(std::uint64_t ownerId) { m_pluginBuffers.erase(ownerId); }
+
+void SoundPlayer::play(const std::string& name) {
   const auto it = m_buffers.find(name);
   if (it == m_buffers.end()) {
     return;
   }
-  const SoundBuffer* buffer = &it->second;
-  if (buffer->samples.empty()) {
+  playBuffer(name, it->second);
+}
+
+void SoundPlayer::playPluginSound(std::uint64_t ownerId, const std::string& name) {
+  const auto ownerIt = m_pluginBuffers.find(ownerId);
+  if (ownerIt == m_pluginBuffers.end()) {
+    kLog.warn("plugin sound \"{}\" is not loaded", name);
+    return;
+  }
+
+  const auto soundIt = ownerIt->second.find(name);
+  if (soundIt == ownerIt->second.end()) {
+    kLog.warn("plugin sound \"{}\" is not loaded", name);
+    return;
+  }
+  playBuffer(name, soundIt->second);
+}
+
+void SoundPlayer::playBuffer(const std::string& name, const std::shared_ptr<const SoundBuffer>& buffer) {
+  if (m_loop == nullptr || m_volume <= 0.0f || buffer->samples.empty()) {
     return;
   }
 
   removeFinished();
 
   for (const auto& active : m_active) {
-    if (!active->finished && active->buffer == buffer) {
+    if (!active->finished && active->buffer.get() == buffer.get()) {
       return;
     }
   }

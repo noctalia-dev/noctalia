@@ -3299,6 +3299,10 @@
           "description": "Center visualizer bars instead of aligning them to the edge",
           "label": "Centered"
         },
+        "change-color-on-hover": {
+          "description": "Change a workspace's fill and label colors while the pointer hovers over it",
+          "label": "Change Color on Hover"
+        },
         "color": {
           "description": "Color role for this widget's icon and label; fixed hex colors are also supported",
           "label": "Color"
@@ -3637,12 +3641,12 @@
           "description": "Show placeholder text when no window is focused instead of hiding the widget",
           "label": "Show Empty Label"
         },
-        "show-icon": {
-          "description": "Show this widget's icon",
-          "label": "Show Icon"
+        "show-glyph": {
+          "description": "Show the widget glyph or custom image",
+          "label": "Show Glyph"
         },
         "show-label": {
-          "description": "Show text next to the icon",
+          "description": "Show the widget's text label",
           "label": "Show Label"
         },
         "show-num-lock": {
@@ -3660,6 +3664,10 @@
         "show-unlock-hint": {
           "description": "Show the status card above the login box for unlock hints and auth prompts. Errors and Caps Lock warnings still appear when this is off.",
           "label": "Unlock Hint"
+        },
+        "show-value": {
+          "description": "Show the current value next to the visualization",
+          "label": "Show Value"
         },
         "show-vpn-label": {
           "description": "Replaces network label with VPN label in replace mode; adds VPN label next to VPN icon in both mode",
@@ -3721,6 +3729,10 @@
         "vertical-format": {
           "description": "Optional format used on vertical bars",
           "label": "Vertical Format"
+        },
+        "visualization": {
+          "description": "Gauge, graph, or no data visualization",
+          "label": "Visualization"
         },
         "vpn-status": {
           "description": "How to display VPN status: replace swaps the network icon for a VPN shield, both shows them side by side, hidden disables the VPN indicator",

@@ -584,7 +584,7 @@ namespace noctalia::theme {
       recordCachedFile(metadata, kTemplateToml, path);
     }
 
-    void appendTemplateOutputPaths(std::vector<std::string>& outputPaths, const toml::table& root) {
+    void appendTemplateOutputMetadata(AvailableTemplate& output, const toml::table& root) {
       const toml::table* templates = root["templates"].as_table();
       if (templates == nullptr)
         return;
@@ -592,15 +592,18 @@ namespace noctalia::theme {
         const toml::table* tpl = node.as_table();
         if (tpl == nullptr)
           continue;
+        if (tpl->get_as<std::string>("output_path_dynamic") != nullptr) {
+          output.outputDynamic = true;
+        }
         const toml::node* op = tpl->get("output_path");
         if (op == nullptr)
           continue;
         if (const auto str = op->as_string()) {
-          outputPaths.push_back(str->get());
+          output.outputPaths.push_back(str->get());
         } else if (const auto arr = op->as_array()) {
           for (const auto& item : *arr) {
             if (const auto itemStr = item.as_string())
-              outputPaths.push_back(itemStr->get());
+              output.outputPaths.push_back(itemStr->get());
           }
         }
       }
@@ -626,7 +629,7 @@ namespace noctalia::theme {
               "cached community template metadata {} does not contain catalog entry '{}'; using cache directory name",
               path.string(), cacheId
           );
-          appendTemplateOutputPaths(out.outputPaths, root);
+          appendTemplateOutputMetadata(out, root);
           return out;
         }
 
@@ -636,7 +639,7 @@ namespace noctalia::theme {
           if (const auto category = info->get_as<std::string>("category"))
             out.category = category->get();
         }
-        appendTemplateOutputPaths(out.outputPaths, root);
+        appendTemplateOutputMetadata(out, root);
         return out;
       } catch (const toml::parse_error&) {
         return std::nullopt;
@@ -649,7 +652,7 @@ namespace noctalia::theme {
         return;
       try {
         const toml::table root = toml::parse_file(tomlPath.string());
-        appendTemplateOutputPaths(t.outputPaths, root);
+        appendTemplateOutputMetadata(t, root);
       } catch (const toml::parse_error&) {
       }
     }
@@ -679,16 +682,86 @@ namespace noctalia::theme {
             return;
           if (!success) {
             kLog.warn("failed to refresh community template catalog; using cached metadata when available");
-          }
-          if (ids.empty()) {
             if (m_readyCallback) {
               DeferredCall::callLater([callback = m_readyCallback]() { callback(); });
             }
             return;
           }
-          syncSelectedFromCatalog(ids, generation, success);
+          if (!ids.empty()) {
+            syncSelectedFromCatalog(ids, generation, true);
+          }
+          syncCatalogManifests(ids, generation);
         }
     );
+  }
+
+  void CommunityTemplateService::syncCatalogManifests(
+      const std::vector<std::string>& selectedIds, std::uint64_t generation
+  ) {
+    const auto catalog = parseCatalogFile(catalogCachePath());
+    auto pending = std::make_shared<std::size_t>(0);
+    auto completed = std::make_shared<std::size_t>(0);
+    auto notifyIfReady = [this, generation, pending, completed]() {
+      if (generation != m_generation || *completed < *pending) {
+        return;
+      }
+      if (m_readyCallback) {
+        DeferredCall::callLater([callback = m_readyCallback]() { callback(); });
+      }
+    };
+
+    const std::unordered_set<std::string> selected(selectedIds.begin(), selectedIds.end());
+    for (const auto& info : catalog) {
+      if (selected.contains(info.id)) {
+        continue;
+      }
+      const auto manifest = std::ranges::find(info.files, "template.toml", &CommunityTemplateFile::name);
+      if (manifest == info.files.end()) {
+        continue;
+      }
+
+      const std::filesystem::path dir = communityTemplateDir(info.id);
+      std::error_code ec;
+      std::filesystem::create_directories(dir, ec);
+      const std::filesystem::path dest = dir / manifest->name;
+      auto metadata = std::make_shared<CacheMetadata>(readCacheMetadata(dir));
+      if (!cacheFileNeedsDownload(info.id, *manifest, dest, *metadata)) {
+        writeCacheMetadata(dir, *metadata);
+        continue;
+      }
+
+      ++(*pending);
+      const std::string url =
+          std::string(kCatalogUrl) + "/" + StringUtils::urlEncode(info.id) + "/" + urlEncodePath(manifest->name);
+      m_httpClient.download(
+          url, dest,
+          [this, file = *manifest, dest, dir, metadata, generation, pending, completed, notifyIfReady,
+           templateId = info.id](bool success) {
+            ++(*completed);
+            if (generation != m_generation) {
+              return;
+            }
+            if (success) {
+              removeLegacyMd5Sidecar(dest);
+              const std::string actualMd5 = util::fileMd5Hex(dest);
+              if (!file.md5.empty() && actualMd5 != StringUtils::toLower(file.md5)) {
+                std::error_code removeEc;
+                std::filesystem::remove(dest, removeEc);
+                metadata->fileMd5s.erase(file.name);
+                kLog.warn("downloaded community template manifest {} failed md5 validation", dest.string());
+              } else if (!actualMd5.empty()) {
+                metadata->fileMd5s[file.name] = actualMd5;
+              }
+              writeCacheMetadata(dir, *metadata);
+            } else {
+              kLog.warn("failed to download community template manifest {}", dest.string());
+            }
+            notifyIfReady();
+          }
+      );
+    }
+
+    notifyIfReady();
   }
 
   void CommunityTemplateService::syncSelectedFromCatalog(

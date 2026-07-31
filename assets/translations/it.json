@@ -266,6 +266,7 @@
       "start-playback": "Avvia la riproduzione in un'app MPRIS"
     },
     "network": {
+      "available": "Disponibili",
       "connect": "Connetti",
       "current-connection": "Connessione corrente",
       "external-ip": "WAN {ip}",
@@ -274,6 +275,7 @@
       "password": "Password",
       "password-prompt": "Inserisci password",
       "password-prompt-for": "Inserisci password per {ssid}",
+      "saved": "Salvate",
       "unavailable-detail": "Installa e abilita NetworkManager, wpa_supplicant o iwd per gestire le reti da qui.",
       "unavailable-title": "Servizio di rete non disponibile",
       "vpns": "VPN",
@@ -2933,6 +2935,10 @@
         "screenshot-pipe-to-command": {
           "description": "Invia il PNG catturato a un comando shell su stdin",
           "label": "Invia a comando"
+        },
+        "screenshot-remember-last-region": {
+          "description": "Preseleziona l'ultima area (anche dopo l'annullamento) nella successiva azione di cattura schermo",
+          "label": "Ricorda l'ultima area"
         },
         "screenshot-save-to-file": {
           "description": "Salva le schermate come file PNG nella directory di output",

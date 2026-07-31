@@ -23,6 +23,7 @@
   curl,
   libwebp,
   libjxl,
+  libsndfile,
   glib,
   polkit,
   librsvg,
@@ -35,6 +36,7 @@
   fetchFromGitHub,
   nlohmann_json,
   tomlplusplus,
+  libical,
   wireplumber,
   jemalloc,
   makeWrapper,
@@ -98,6 +100,7 @@ lib.warnIf cudaSupport
     curl
     libwebp
     libjxl
+    libsndfile
     glib
     polkit
     librsvg
@@ -109,6 +112,7 @@ lib.warnIf cudaSupport
     stb'
     nlohmann_json
     tomlplusplus
+    libical
   ];
 
   mesonBuildType = "release";

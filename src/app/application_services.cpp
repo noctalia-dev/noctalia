@@ -1276,7 +1276,7 @@ void Application::initBrightnessAndPipewire() {
     m_easyEffectsService->refreshProfiles();
     m_easyEffectsService->refreshActiveEffectsProfiles();
     m_pipewireSpectrum = std::make_unique<PipeWireSpectrum>(*m_pipewireService);
-    m_soundPlayer = std::make_unique<SoundPlayer>(m_pipewireService->loop());
+    m_soundPlayer = std::make_shared<SoundPlayer>(m_pipewireService->loop());
 
     struct LoadedSoundPaths {
       std::filesystem::path volumeChange;
@@ -1334,6 +1334,29 @@ void Application::initBrightnessAndPipewire() {
     m_pipewireService.reset();
     m_wirePlumberMixer.reset();
   }
+
+  const std::weak_ptr<SoundPlayer> soundPlayer = m_soundPlayer;
+  m_scriptApi.setLoadSoundHook(
+      [soundPlayer](
+          std::uint64_t ownerId, const std::string& name, const std::string& path
+      ) -> std::optional<std::string> {
+        const auto player = soundPlayer.lock();
+        if (player == nullptr) {
+          return "sound playback is unavailable";
+        }
+        return player->loadPluginSound(ownerId, name, std::filesystem::path(path));
+      }
+  );
+  m_scriptApi.setPlaySoundHook([soundPlayer](std::uint64_t ownerId, const std::string& name) {
+    if (const auto player = soundPlayer.lock()) {
+      player->playPluginSound(ownerId, name);
+    }
+  });
+  m_scriptApi.setUnloadPluginSoundsHook([soundPlayer](std::uint64_t ownerId) {
+    if (const auto player = soundPlayer.lock()) {
+      player->unloadPluginSounds(ownerId);
+    }
+  });
 }
 
 void Application::initSessionBusServices() {
@@ -1401,6 +1424,9 @@ void Application::initSessionBusServices() {
     m_trayService->setChangeCallback([this]() {
       m_bar.refresh();
       m_trayMenu.onTrayChanged();
+      m_keyboardLayoutOsd.onTrayChanged(
+          *m_trayService, m_configService.config(), m_configService.config().osd.kinds.keyboardLayout
+      );
     });
     m_trayService->setMenuToggleCallback([this](const std::string& itemId, float contentScale) {
       m_trayMenu.toggleForItem(itemId, contentScale);

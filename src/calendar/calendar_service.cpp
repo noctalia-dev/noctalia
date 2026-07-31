@@ -90,7 +90,8 @@ CalendarService::CalendarService(
     security::StorageKeyProvider& storageKeyProvider, NotificationManager* notifications
 )
     : m_configService(configService), m_httpClient(httpClient), m_notifications(notifications), m_oauth(httpClient),
-      m_google(httpClient), m_credentials(secretStore), m_storageKeyProvider(storageKeyProvider) {}
+      m_google(httpClient), m_credentials(secretStore), m_storageKeyProvider(storageKeyProvider), m_caldav(httpClient) {
+}
 
 void CalendarService::initialize() {
   m_activeConfig = m_configService.config().calendar;
@@ -464,8 +465,8 @@ void CalendarService::fetchCalDav(const CalendarConfig::Account& account) {
                 caldav.calendarName = collection.name;
                 caldav.color = accountColor.empty() ? collection.color : accountColor;
 
-                calendar::fetchCalDavEvents(
-                    m_httpClient, caldav, now - kWindowBefore, now + kWindowAfter, allowRedirectAuth,
+                m_caldav.fetchEvents(
+                    caldav, now - kWindowBefore, now + kWindowAfter, allowRedirectAuth,
                     [ctx](bool ok, std::vector<CalendarEvent> events) {
                       if (ok) {
                         ctx->anyOk = true;

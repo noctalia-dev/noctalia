@@ -457,7 +457,7 @@ namespace {
   // only the hovered member lights up.
   void placeCapsuleHoverBoxes(
       BarCapsuleRun& run, bool isVertical, float shellW, float shellH, float contentX, float contentY,
-      float capsuleRadius
+      float capsuleRadius, float widgetHoverPadding
   ) {
     if (run.hoverBoxes.empty()) {
       return;
@@ -474,9 +474,9 @@ namespace {
     }
     const float scale = run.contentScale;
     const float crossInset = kGroupHoverCrossInset * scale;
-    // Same breathing room a single capsule would give the member; pills may reach into the
-    // gap toward a neighbor, which is fine — only the hovered member's pill is visible.
-    const float mainPad = run.spec.padding * scale;
+    // Use the normal per-widget inset, independent of the shared capsule's configurable
+    // padding, so grouped and standalone widgets receive the same hover treatment.
+    const float mainInset = widgetHoverPadding * scale;
     const float shellMain = isVertical ? shellH : shellW;
     const float shellCross = isVertical ? shellW : shellH;
     const float contentMain = isVertical ? contentY : contentX;
@@ -496,8 +496,8 @@ namespace {
       }
       const float rootStart = contentMain + (isVertical ? member->y() : member->x());
       const float rootExtent = isVertical ? member->height() : member->width();
-      const float mainStart = std::max(0.0f, rootStart - mainPad);
-      const float mainExtent = std::max(0.0f, std::min(shellMain, rootStart + rootExtent + mainPad) - mainStart);
+      const float mainStart = std::max(0.0f, rootStart - mainInset);
+      const float mainExtent = std::max(0.0f, std::min(shellMain, rootStart + rootExtent + mainInset) - mainStart);
       if (isVertical) {
         box->setPosition(crossInset, mainStart);
         box->setSize(crossExtent, mainExtent);
@@ -927,7 +927,8 @@ namespace {
     // Capsule cross-size is a fraction of the bar thickness (capsule_thickness), the same for every capsule
     // regardless of per-widget content scale. The max() guard keeps a thin bar from yielding a 0px capsule.
     const float capsuleCross = std::max(1.0f, std::round(slotCross * instance.barConfig.capsuleThickness));
-    auto finalizeCapsules = [isVertical, capsuleCross, &renderer](std::vector<BarCapsuleRun>& runs) {
+    auto finalizeCapsules = [isVertical, capsuleCross, widgetHoverPadding = instance.barConfig.widgetCapsulePadding,
+                             &renderer](std::vector<BarCapsuleRun>& runs) {
       for (auto& run : runs) {
         Node* shell = run.shell;
         Box* bg = run.bg;
@@ -959,7 +960,7 @@ namespace {
           bg->setVisible(false);
           bg->setPosition(0.0f, 0.0f);
           bg->setSize(iw, ih);
-          placeCapsuleHoverBoxes(run, isVertical, iw, ih, 0.0f, 0.0f, std::min(iw, ih) * 0.5f);
+          placeCapsuleHoverBoxes(run, isVertical, iw, ih, 0.0f, 0.0f, std::min(iw, ih) * 0.5f, widgetHoverPadding);
           continue;
         }
         const float pad = run.spec.padding * scale;
@@ -984,7 +985,7 @@ namespace {
         const float capsuleRadius = radiusSource != nullptr ? radiusSource->resolvedBarCapsuleRadius(shellW, shellH)
                                                             : std::max(0.0f, std::min(shellW, shellH) * 0.5f);
         bg->setRadius(capsuleRadius);
-        placeCapsuleHoverBoxes(run, isVertical, shellW, shellH, contentX, contentY, capsuleRadius);
+        placeCapsuleHoverBoxes(run, isVertical, shellW, shellH, contentX, contentY, capsuleRadius, widgetHoverPadding);
       }
     };
     finalizeCapsules(instance.startCapsuleRuns);

@@ -2626,7 +2626,7 @@ namespace settings {
             .value = cfg.audio.volumeChangeSound,
             .placeholder = tr("settings.schema.services.volume-change-sound.placeholder"),
             .browseMode = TextSettingBrowseMode::OpenFile,
-            .browseFileExtensions = {".wav"}
+            .browseFileExtensions = {".wav", ".flac", ".ogg", ".oga", ".opus", ".mp3", ".aiff", ".aif"}
         },
         "sound path file", true
     ));
@@ -2637,7 +2637,7 @@ namespace settings {
             .value = cfg.audio.notificationSound,
             .placeholder = tr("settings.schema.services.notification-sound.placeholder"),
             .browseMode = TextSettingBrowseMode::OpenFile,
-            .browseFileExtensions = {".wav"}
+            .browseFileExtensions = {".wav", ".flac", ".ogg", ".oga", ".opus", ".mp3", ".aiff", ".aif"}
         },
         "sound path file", true
     ));

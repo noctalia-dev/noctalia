@@ -17,6 +17,8 @@ project.
 
 ## Stack
 
+Direct project dependencies are listed below; transitive dependencies are owned by their providing system packages.
+
 | Layer | Library |
 |-------|---------|
 | Wayland core | `libwayland-client`, `wayland-scanner`, `wayland-protocols` |
@@ -30,18 +32,25 @@ project.
 | Idle | `ext-idle-notify-v1`, `idle-inhibit-unstable-v1` |
 | Cursor | `wp-cursor-shape-v1` |
 | Keyboard | `xkbcommon` |
-| Rendering | `EGL`, `OpenGL ES 2.0+`, `wayland-egl` |
-| Text | `cairo`, `pango`, `pangocairo`, `freetype`, `fontconfig` |
-| Images | `Wuffs` (vendored), `stb_image_resize2`, `libwebp`, `libjxl`, `librsvg` |
-| IPC | `sdbus-c++` |
-| Audio | `libpipewire`, `dr_wav` (vendored) |
-| Authentication | `PAM`, `polkit-agent-1`, `polkit-gobject-1`, `glib-2.0`, `gobject-2.0` |
+| Rendering | `EGL`, `OpenGL ES 2.0+`, `wayland-egl` (`libepoxy` fallback) |
+| Dynamic loading | `libdl` when provided separately by the platform |
+| Text | `cairo`, `cairo-ft`, `pango`, `pangocairo`, `pangoft2`, `harfbuzz`, `freetype2`, `fontconfig` |
+| Images | `Wuffs` (vendored), `stb_image_resize2`, `stb_image_write`, `libwebp`, `libjxl`, `libjxl_threads`, `librsvg` |
+| IPC and service runtime | `sdbus-c++`, `glib-2.0`, `gobject-2.0`, `gio-2.0` |
+| Audio | `libpipewire-0.3`, `wireplumber-0.5`, `libsndfile` |
+| Authentication | `PAM`, `polkit-agent-1`, `polkit-gobject-1` |
+| Credentials and encryption | `libsecret-1`, `libsodium` |
 | HTTP | `libcurl` |
+| XML | `libxml2` |
+| Calendar data | `libical` |
 | Config | `tomlplusplus` |
 | JSON | `nlohmann/json` |
+| Markdown | `md4c` |
+| Fuzzy matching | `fzy` (vendored) |
 | Math expressions | `libqalculate` |
 | Scripting | `Luau` (vendored) |
 | Theme generation | Material Color Utilities (vendored) |
+| Memory allocation | `jemalloc` (optional) |
 
 ## Runtime Assets
 
@@ -219,7 +228,6 @@ tools/              Developer and translation helper scripts
 nix/                Nix package, module, and dev shell definitions
 third_party/
   wuffs/          Raster image decoding (vendored)
-  dr_wav/         WAV decoder (vendored)
   fzy/            Fuzzy matching (vendored)
   luau/           Plugin scripting runtime (vendored)
   material_color_utilities/ Material Design color generation (vendored)
