@@ -449,7 +449,7 @@ double SysmonWidget::currentGradientValue() {
   case SysmonStat::CpuTemp:
     return stats.cpuTempAvailable ? stats.cpuTempC.value_or(0.0) : 0.0;
   case SysmonStat::CpuFreq:
-    return stats.cpuFreqAvailable ? stats.cpuFreqMhz : 0.0;
+    return stats.cpuFreqAvailable ? stats.cpuFreqMhz / 1000.0 : 0.0;
   case SysmonStat::GpuTemp:
     return stats.gpuTempC.value_or(0.0);
   case SysmonStat::GpuUsage:
