@@ -410,6 +410,10 @@ namespace {
     if (stats.cpuTempAvailable) {
       setTableOptionalNumber(L, "tempC", stats.cpuTempC);
     }
+    if (stats.cpuFreqAvailable) {
+      setTableNumber(L, "freqMhz", stats.cpuFreqMhz);
+      setTableOptionalNumber(L, "maxFreqMhz", stats.cpuMaxFreqMhz);
+    }
     lua_setfield(L, -2, "cpu");
 
     lua_createtable(L, 0, 3);

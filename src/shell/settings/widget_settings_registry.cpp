@@ -226,6 +226,9 @@ namespace settings {
         if (stat == "cpu_temp") {
           return "cpu-temperature";
         }
+        if (stat == "cpu_freq") {
+          return "performance";
+        }
         if (stat == "gpu_temp") {
           return "temperature";
         }

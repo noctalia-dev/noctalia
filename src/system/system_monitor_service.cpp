@@ -1,6 +1,7 @@
 #include "system/system_monitor_service.h"
 
 #include "core/log.h"
+#include "system/cpu_freq.h"
 #include "system/cpu_stat.h"
 #include "system/cpu_temp_sensor.h"
 #include "system/format_units.h"
@@ -1343,6 +1344,14 @@ void SystemMonitorService::samplingLoop() {
       }
 
       nextCpu = now + cpuInterval;
+      const auto freq = noctalia::system::cpu_freq::readCurFreqMhz();
+      const auto maxFreq = noctalia::system::cpu_freq::readMaxFreqMhz();
+      if (freq.has_value()) {
+        std::scoped_lock lock{m_statsMutex};
+        m_latest.cpuFreqMhz = *freq;
+        m_latest.cpuMaxFreqMhz = maxFreq;
+        m_latest.cpuFreqAvailable = true;
+      }
       statsTouched = true;
     }
 

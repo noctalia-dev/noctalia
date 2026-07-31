@@ -116,6 +116,8 @@ namespace noctalia::config::schema {
           field(&SystemConfig::MonitorConfig::cpuUsageCriticalThreshold, "cpu_usage_critical_threshold"),
           field(&SystemConfig::MonitorConfig::cpuTempActivityThreshold, "cpu_temp_activity_threshold"),
           field(&SystemConfig::MonitorConfig::cpuTempCriticalThreshold, "cpu_temp_critical_threshold"),
+          field(&SystemConfig::MonitorConfig::cpuFreqActivityThreshold, "cpu_freq_activity_threshold"),
+          field(&SystemConfig::MonitorConfig::cpuFreqCriticalThreshold, "cpu_freq_critical_threshold"),
           field(&SystemConfig::MonitorConfig::gpuTempActivityThreshold, "gpu_temp_activity_threshold"),
           field(&SystemConfig::MonitorConfig::gpuTempCriticalThreshold, "gpu_temp_critical_threshold"),
           field(&SystemConfig::MonitorConfig::gpuUsageActivityThreshold, "gpu_usage_activity_threshold"),

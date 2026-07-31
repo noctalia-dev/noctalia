@@ -38,6 +38,11 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
                           .labelKey = "settings.widgets.options.cpu-temp",
                       },
                       {
+                          .value = SysmonStat::CpuFreq,
+                          .configValue = "cpu_freq",
+                          .labelKey = "settings.widgets.options.cpu-freq",
+                      },
+                      {
                           .value = SysmonStat::GpuTemp,
                           .configValue = "gpu_temp",
                           .labelKey = "settings.widgets.options.gpu-temp",
