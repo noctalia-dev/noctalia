@@ -377,7 +377,7 @@ namespace {
 
   // systemStats() -> a snapshot of the host's system monitor, or nil when it is unavailable.
   //
-  //   { sampledAtMs?, cpu = { usagePercent = 23.4, tempC = 47.0? },
+  //   { sampledAtMs?, cpu = { usagePercent = 23.4, tempC = 47.0?, freqMhz = 2400.0?, maxFreqMhz = 4800.0? },
   //     ram = { usagePercent, usedMb, totalMb }, swap = { usedMb, totalMb },
   //     gpu = { tempC?, usagePercent?, vramUsedBytes?, vramTotalBytes? },
   //     net = { rxBytesPerSec, txBytesPerSec,
@@ -404,7 +404,7 @@ namespace {
       setTableNumber(L, "sampledAtMs", sampledAtMs);
     }
 
-    lua_createtable(L, 0, 2);
+    lua_createtable(L, 0, 4);
     setTableNumber(L, "usagePercent", stats.cpuUsagePercent);
     // cpuTempAvailable false means the service is serving its 40C placeholder, not a reading.
     if (stats.cpuTempAvailable) {
