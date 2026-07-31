@@ -532,7 +532,7 @@ void CalendarService::lookupCalDavPassword(
 }
 
 void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
-  const std::string url = account.serverUrl;
+  std::string url = account.serverUrl;
   if (url.empty()) {
     kLog.warn("ics account {} is missing server_url", account.id);
     accountDone(account.id, false, {});
@@ -544,6 +544,8 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
   const std::string colorHex = account.color;
 
   HttpRequest req;
+  if (url.starts_with("webcal://"))
+    url.replace(0, 6, "https");
   req.url = url;
   req.followRedirects = true;
 
