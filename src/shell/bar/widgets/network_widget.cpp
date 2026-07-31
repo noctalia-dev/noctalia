@@ -20,9 +20,14 @@ namespace {
 
   constexpr auto kTooltipRefreshInterval = std::chrono::seconds(1);
 
-  std::string labelForState(const NetworkState& s) {
-    if (s.kind == NetworkConnectivity::Wireless && s.connected && !s.ssid.empty()) {
-      return s.ssid;
+  std::string labelForState(const NetworkState& s, bool showSignalStrength) {
+    if (s.kind == NetworkConnectivity::Wireless && s.connected) {
+      if (showSignalStrength) {
+        return std::to_string(s.signalStrength) + "%";
+      }
+      if (!s.ssid.empty()) {
+        return s.ssid;
+      }
     }
     if (s.kind == NetworkConnectivity::Wired && s.connected) {
       return s.interfaceName.empty() ? i18n::tr("bar.widgets.network.wired") : s.interfaceName;
@@ -62,7 +67,8 @@ NetworkWidget::NetworkWidget(
     Options options
 )
     : m_network(network), m_externalIp(externalIp), m_monitor(monitor), m_showLabel(options.showLabel),
-      m_showVpnLabel(options.showVpnLabel), m_vpnStatusMode(options.vpnStatusMode) {}
+      m_showVpnLabel(options.showVpnLabel), m_showSignalStrength(options.showSignalStrength),
+      m_vpnStatusMode(options.vpnStatusMode) {}
 
 void NetworkWidget::create() {
   auto area = ui::inputArea({});
@@ -291,7 +297,7 @@ void NetworkWidget::syncState(Renderer& renderer) {
     const bool showLabel = m_showLabel;
     m_label->setVisible(showLabel);
     if (showLabel) {
-      std::string text = labelForState(s);
+      std::string text = labelForState(s, m_showSignalStrength);
       // In replace mode, vpn_label overrides the network label.
       if (m_vpnStatusMode == VpnStatusMode::Replace && m_showVpnLabel && s.vpnActive) {
         if (std::string vpnName = firstActiveVpnName(m_network->vpnConnections()); !vpnName.empty()) {

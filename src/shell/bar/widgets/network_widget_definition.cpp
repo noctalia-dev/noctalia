@@ -2,6 +2,14 @@
 
 namespace {
 
+  settings::WidgetSettingVisibility labelVisibility() {
+    settings::WidgetSettingVisibility visibility;
+    visibility.all = {
+        {"show_label", {"true"}},
+    };
+    return visibility;
+  }
+
   settings::WidgetSettingVisibility vpnLabelVisibility() {
     settings::WidgetSettingVisibility visibility;
     visibility.all = {
@@ -46,8 +54,15 @@ const noctalia::bar::WidgetDefinition<NetworkWidget::Options>& networkWidgetDefi
           }),
           field<&Options::showVpnLabel>({
               .key = "show_vpn_label",
+              .presentation =
+                  settings::WidgetSettingPresentation{
+                      .visibleWhen = vpnLabelVisibility(),
+                  },
+          }),
+          field<&Options::showSignalStrength>({
+              .key = "show_signal_strength",
               .presentation = settings::WidgetSettingPresentation{
-                  .visibleWhen = vpnLabelVisibility(),
+                  .visibleWhen = labelVisibility(),
               },
           }),
       },

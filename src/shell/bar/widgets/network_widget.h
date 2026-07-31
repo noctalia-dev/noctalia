@@ -26,6 +26,7 @@ public:
     VpnStatusMode vpnStatusMode = VpnStatusMode::Replace;
     bool showLabel = true;
     bool showVpnLabel = false;
+    bool showSignalStrength = false;
   };
 
   NetworkWidget(
@@ -46,6 +47,7 @@ private:
   SystemMonitorService* m_monitor = nullptr;
   bool m_showLabel = true;
   bool m_showVpnLabel = false;
+  bool m_showSignalStrength = false;
   VpnStatusMode m_vpnStatusMode = VpnStatusMode::Replace;
   Glyph* m_glyph = nullptr;
   Glyph* m_vpnGlyph = nullptr;

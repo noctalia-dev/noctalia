@@ -3669,6 +3669,10 @@
           "description": "Show the current value next to the visualization",
           "label": "Show Value"
         },
+        "show-signal-strength": {
+          "description": "Show Wi-Fi signal strength percentage in the network label when connected",
+          "label": "Show Signal Strength"
+        },
         "show-vpn-label": {
           "description": "Replaces network label with VPN label in replace mode; adds VPN label next to VPN icon in both mode",
           "label": "Show VPN Label"
