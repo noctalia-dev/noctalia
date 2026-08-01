@@ -1,10 +1,10 @@
 #pragma once
 
 #include "config/config_types.h"
-#include "core/files/file_watcher.h"
 #include "core/timer_manager.h"
 #include "scripting/plugin_ipc.h"
 #include "scripting/plugin_runtime_context.h"
+#include "scripting/plugin_script_watcher.h"
 #include "scripting/script_runtime.h"
 #include "shell/bar/widget.h"
 #include "ui/palette.h"
@@ -133,7 +133,7 @@ private:
   std::uint64_t m_audioSpectrumListenerId = 0;
   int m_audioSpectrumBands = 16;
   bool m_audioSpectrumEnabled = false;
-  FileWatcher::WatchId m_watchId = 0;
+  scripting::PluginScriptWatcher m_scriptWatcher;
   Timer m_updateTimer;
   Timer m_deferredUpdateTimer;
   Timer m_imageReloadRetryTimer;

@@ -2740,10 +2740,6 @@
           "description": "Mostra text de marcador de posició quan no hi ha cap finestra enfocada en lloc d'amagar el widget",
           "label": "Mostra l'etiqueta buida"
         },
-        "show-icon": {
-          "description": "Mostra la icona d'aquest widget",
-          "label": "Mostra la icona"
-        },
         "show-label": {
           "description": "Mostra text al costat de la icona",
           "label": "Mostra l'etiqueta"

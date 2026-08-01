@@ -20,16 +20,23 @@ class Image;
 class InputArea;
 class Label;
 
+enum class WorkspacesStyle : std::uint8_t {
+  Regular,
+  Minimal,
+  FocusHint,
+};
+
+enum class WorkspacesLabelSource : std::uint8_t {
+  Id,
+  Name,
+};
+
 class WorkspacesWidget : public Widget {
 public:
-  enum class DisplayMode : std::uint8_t {
-    None,
-    Id,
-    Name,
-  };
-
   struct Options {
-    DisplayMode displayMode = DisplayMode::Id;
+    WorkspacesStyle style = WorkspacesStyle::Regular;
+    WorkspacesLabelSource labelSource = WorkspacesLabelSource::Id;
+    bool showLabels = true;
     ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
     ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
     ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
@@ -41,8 +48,6 @@ public:
     float pillScale = 1.0f;
     float activePillSize = 2.2f;
     float inactivePillSize = 1.0f;
-    bool minimal = false;
-    bool focusedPill = false;
     bool focusedOutputOnly = false;
   };
 
@@ -84,7 +89,8 @@ private:
   void buildDesktopIconIndex();
   void syncActiveWindowIcon(Renderer& renderer, Item& item);
   [[nodiscard]] bool shouldShowWorkspaceLabel(const Workspace& workspace, std::string_view label) const noexcept;
-  [[nodiscard]] DisplayMode effectiveDisplayMode() const noexcept;
+  [[nodiscard]] bool isMinimal() const noexcept { return m_style == WorkspacesStyle::Minimal; }
+  [[nodiscard]] bool isFocusHint() const noexcept { return m_style == WorkspacesStyle::FocusHint; }
   [[nodiscard]] bool isWorkspaceHidden(const Workspace& workspace) const noexcept;
   void syncWidgetVisibility(bool showWidget);
   void recalculateItemMetrics(Renderer& renderer, Item& item, const Workspace& workspace, std::size_t displayIndex);
@@ -142,15 +148,15 @@ private:
   CompositorPlatform& m_platform;
   ConfigService& m_configService;
   wl_output* m_output = nullptr;
-  DisplayMode m_displayMode = DisplayMode::None;
+  WorkspacesLabelSource m_labelSource = WorkspacesLabelSource::Id;
+  bool m_showLabels = true;
   std::size_t m_maxLabelChars = 1;
   bool m_labelsOnlyWhenOccupied = false;
   bool m_hideWhenEmpty = false;
   float m_pillScale = 1.0f;
   float m_activePillSize = 2.2f;
   float m_inactivePillSize = 1.0f;
-  bool m_minimal = false;
-  bool m_focusedPill = false;
+  WorkspacesStyle m_style = WorkspacesStyle::Regular;
   bool m_focusedOutputOnly = false;
   bool m_changeColorOnHover = true;
   bool m_wasFocusedOutput = true;

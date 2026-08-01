@@ -39,9 +39,30 @@ std::optional<float> TrayDrawerPanel::currentDrawerItemSize() const {
   return std::nullopt;
 }
 
+float TrayDrawerPanel::resolvedItemGap() const {
+  float gap = Style::spaceXs;
+  bool matchAdjacent = false;
+  const WidgetConfig* trayConf = nullptr;
+  if (m_config != nullptr) {
+    if (const auto it = m_config->config().widgets.find("tray"); it != m_config->config().widgets.end()) {
+      trayConf = &it->second;
+      matchAdjacent = trayConf->getBool("match_adjacent_spacing", TrayWidget::Options{}.matchAdjacentSpacing);
+    }
+    if (!m_config->config().bars.empty()) {
+      gap = static_cast<float>(m_config->config().bars.front().widgetSpacing);
+    }
+  }
+  if (!matchAdjacent || m_config == nullptr || m_config->config().bars.empty()) {
+    return gap;
+  }
+  const auto cap = resolveWidgetBarCapsuleSpec(m_config->config().bars.front(), trayConf);
+  const float pad = cap.enabled ? cap.padding * contentScale() : 0.0f;
+  return gap + 2.0f * pad;
+}
+
 float TrayDrawerPanel::preferredWidth() const {
   const float itemSize = scaled(currentDrawerItemSize().value_or(Style::baseGlyphSize));
-  const float gap = scaled(Style::spaceXs);
+  const float gap = resolvedItemGap();
   const std::size_t drawerColumns = currentDrawerColumns();
   const std::size_t cols = std::min<std::size_t>(drawerColumns, std::max<std::size_t>(1, visibleItemCount()));
   const float contentWidth = static_cast<float>(cols) * itemSize + static_cast<float>(cols > 1 ? cols - 1 : 0) * gap;
@@ -51,7 +72,7 @@ float TrayDrawerPanel::preferredWidth() const {
 
 float TrayDrawerPanel::preferredHeight() const {
   const float itemSize = scaled(currentDrawerItemSize().value_or(Style::baseGlyphSize));
-  const float gap = scaled(Style::spaceXs);
+  const float gap = resolvedItemGap();
   const std::size_t count = std::max<std::size_t>(1, visibleItemCount());
   const std::size_t drawerColumns = currentDrawerColumns();
   const std::size_t rows = (count + drawerColumns - 1U) / drawerColumns;
@@ -61,35 +82,41 @@ float TrayDrawerPanel::preferredHeight() const {
 }
 
 void TrayDrawerPanel::create() {
-  const auto hiddenItems = currentHiddenItems();
-  const auto pinnedItems = currentPinnedItems();
-  const std::size_t drawerColumns = currentDrawerColumns();
-  const std::optional<float> itemSize = currentDrawerItemSize();
   if (m_config == nullptr) {
     return;
   }
-  m_drawerWidget = std::make_unique<TrayWidget>(
-      *m_config, m_tray,
-      TrayWidget::Options{
-          .hiddenItems = hiddenItems,
-          .pinnedItems = pinnedItems,
-          .drawerMode = false,
-          .itemActivated = []() { PanelManager::instance().close(); },
-          .barPosition = "top",
-          .panelGridMode = true,
-          .panelGridColumns = drawerColumns,
-          .inlineEntryGap = Style::spaceXs,
-          .matchAdjacentSpacing = false,
-          .customItemSize = itemSize,
+  const WidgetConfig* trayConf = nullptr;
+  if (const auto it = m_config->config().widgets.find("tray"); it != m_config->config().widgets.end()) {
+    trayConf = &it->second;
+  }
+
+  float widgetSpacing = Style::spaceXs;
+  std::string barPosition = "top";
+  if (!m_config->config().bars.empty()) {
+    const auto& barConfig = m_config->config().bars.front();
+    widgetSpacing = static_cast<float>(barConfig.widgetSpacing);
+    barPosition = barConfig.position;
+  }
+
+  auto options = trayWidgetDefinition().resolve(
+      trayConf, "tray",
+      TrayWidgetDefinitionContext{
+          .barPosition = barPosition,
+          .inlineEntryGap = widgetSpacing,
       }
   );
+  options.hiddenItems = currentHiddenItems();
+  options.pinnedItems = currentPinnedItems();
+  options.drawerMode = false;
+  options.itemActivated = []() { PanelManager::instance().close(); };
+  options.panelGridMode = true;
+  options.panelGridColumns = currentDrawerColumns();
+  options.customItemSize = currentDrawerItemSize();
+
+  m_drawerWidget = std::make_unique<TrayWidget>(*m_config, m_tray, std::move(options));
   m_drawerWidget->setContentScale(contentScale());
-  if (m_config != nullptr && !m_config->config().bars.empty()) {
+  if (!m_config->config().bars.empty()) {
     const auto& barConfig = m_config->config().bars.front();
-    const WidgetConfig* trayConf = nullptr;
-    if (const auto it = m_config->config().widgets.find("tray"); it != m_config->config().widgets.end()) {
-      trayConf = &it->second;
-    }
     m_drawerWidget->setBarCapsuleSpec(resolveWidgetBarCapsuleSpec(barConfig, trayConf));
   }
   m_drawerWidget->setAnimationManager(m_animations);

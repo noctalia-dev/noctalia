@@ -81,10 +81,22 @@ void Widget::setBarCapsuleScene(Node* shell, Box* box) noexcept {
 
 void Widget::setNonInteractive(bool nonInteractive) noexcept {
   m_nonInteractive = nonInteractive;
-  if (Node* outer = outerNode(); outer != nullptr) {
-    outer->setHitTestVisible(!m_nonInteractive);
-  }
+  syncOuterHitTestVisible();
   updateGestureAreaEnabled();
+}
+
+void Widget::setBarPointerSuppressed(bool suppressed) noexcept {
+  if (m_barPointerSuppressed == suppressed) {
+    return;
+  }
+  m_barPointerSuppressed = suppressed;
+  syncOuterHitTestVisible();
+}
+
+void Widget::syncOuterHitTestVisible() noexcept {
+  if (Node* outer = outerNode(); outer != nullptr) {
+    outer->setHitTestVisible(!m_nonInteractive && !m_barPointerSuppressed);
+  }
 }
 
 void Widget::updateGestureAreaEnabled() noexcept {
@@ -118,7 +130,7 @@ void Widget::setRoot(std::unique_ptr<Node> root) {
   }
 
   m_outer = std::move(gestureArea);
-  m_outer->setHitTestVisible(!m_nonInteractive);
+  m_outer->setHitTestVisible(!m_nonInteractive && !m_barPointerSuppressed);
   // Bindings are resolved before create() runs, so install them here too: whichever of the two
   // happens last is the one that wires the area up.
   installGestureHandlers();

@@ -54,7 +54,11 @@ namespace {
     std::tm tm{};
     tm.tm_mon = month;
     tm.tm_mday = 1;
+#ifdef __GLIBC__
+    return formatStrftime("%OB", tm);
+#else
     return formatStrftime("%B", tm);
+#endif
   }
 
   int daysInMonth(int yearValue, int monthValue) {

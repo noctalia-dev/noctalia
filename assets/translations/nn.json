@@ -3246,10 +3246,6 @@
           "description": "Vis vikartekst når ingen ruter har åtgaum, heller enn å gøyma nøytelen",
           "label": "Vis tom merkelapp"
         },
-        "show-icon": {
-          "description": "Vis merket til denne nøytelen",
-          "label": "Vis merke"
-        },
         "show-label": {
           "description": "Vis tekst attmed merket",
           "label": "Vis merkelapp"

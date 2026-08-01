@@ -77,6 +77,9 @@ namespace scripting {
       if (token == nullptr || !*token) {
         return;
       }
+      if (result.modulePathsKnown) {
+        svc->scriptWatcher.setModulePaths(result.modulePaths);
+      }
       if (result.patch.updateIntervalMs.has_value()) {
         const int next = std::max(16, *result.patch.updateIntervalMs);
         if (next != svc->updateIntervalMs) {
@@ -242,22 +245,11 @@ namespace scripting {
   }
 
   void PluginServiceHost::setupScriptWatch(Service& service) {
-    if (service.watchId != 0 || service.sourcePath.empty() || m_fileWatcher == nullptr) {
-      return;
-    }
     Service* svc = &service;
-    service.watchId = m_fileWatcher->watch(
-        service.sourcePath, [this, svc] { reloadService(*svc); }, FileWatcher::WatchTrigger::WriteCompleted
-    );
+    service.scriptWatcher.start(m_fileWatcher, service.sourcePath, [this, svc] { reloadService(*svc); });
   }
 
-  void PluginServiceHost::teardownScriptWatch(Service& service) {
-    if (service.watchId == 0 || m_fileWatcher == nullptr) {
-      return;
-    }
-    m_fileWatcher->unwatch(service.watchId);
-    service.watchId = 0;
-  }
+  void PluginServiceHost::teardownScriptWatch(Service& service) { service.scriptWatcher.stop(); }
 
   void PluginServiceHost::reloadService(Service& service) {
     std::string code = readFile(service.sourcePath);

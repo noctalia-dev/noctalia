@@ -13,6 +13,7 @@
 #include <cmath>
 #include <linux/input-event-codes.h>
 #include <memory>
+#include <utility>
 #include <wayland-client-protocol.h>
 
 namespace {
@@ -111,6 +112,7 @@ ScrollView::ScrollView() {
   content->setDirection(FlexDirection::Vertical);
   content->setAlign(FlexAlign::Start);
   m_content = static_cast<Flex*>(m_viewportArea->addChild(std::move(content)));
+  m_content->setPaintContained(true);
 
   auto scrollbar = std::make_unique<Scrollbar>();
   scrollbar->setOnScrollChanged([this](float offset) { setScrollOffset(offset); });
@@ -293,6 +295,14 @@ void ScrollView::bindState(ScrollViewState* state) {
 
 void ScrollView::setOnScrollChanged(std::function<void(float)> callback) { m_onScrollChanged = std::move(callback); }
 
+void ScrollView::setStickToBottom(bool enabled) { m_stickToBottom = enabled; }
+
+void ScrollView::requestScrollToBottom() {
+  stopScrollAnimation();
+  m_pendingScrollToBottom = true;
+  markLayoutDirty();
+}
+
 void ScrollView::setViewportPaddingH(float padding) {
   m_viewportPaddingH = padding;
   markLayoutDirty();
@@ -341,6 +351,10 @@ void ScrollView::doLayout(Renderer& renderer) {
   const float viewportX = m_viewportPaddingH;
   const float viewportY = m_viewportPaddingV;
   const float availableW = std::max(0.0f, w - m_viewportPaddingH * 2.0f);
+
+  // Capture before the orientation branches recompute m_maxScrollOffset:
+  // stick-to-bottom must compare against the extents of the previous pass.
+  const bool wasAtBottom = m_scrollOffset >= m_maxScrollOffset - 1.0f;
 
   m_content->setPosition(0.0f, 0.0f);
 
@@ -419,6 +433,20 @@ void ScrollView::doLayout(Renderer& renderer) {
     m_targetScrollOffset = clampOffset(m_targetScrollOffset);
   } else {
     m_targetScrollOffset = m_scrollOffset;
+  }
+  // A pending jump consumes its flag even when the assignment below is
+  // skipped, so a request issued while already at the bottom cannot fire
+  // again on a later, unrelated pass.
+  const bool jumpToBottom = std::exchange(m_pendingScrollToBottom, false);
+  if ((jumpToBottom || (m_stickToBottom && wasAtBottom)) && m_scrollOffset < m_maxScrollOffset) {
+    m_scrollOffset = m_maxScrollOffset;
+    m_targetScrollOffset = m_maxScrollOffset;
+    if (m_boundState != nullptr) {
+      m_boundState->offset = m_maxScrollOffset;
+    }
+    if (m_onScrollChanged) {
+      m_onScrollChanged(m_scrollOffset);
+    }
   }
 
   applyScrollOffset();

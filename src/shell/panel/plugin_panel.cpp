@@ -205,6 +205,9 @@ void PluginPanel::startScript() {
     if (token == nullptr || !*token) {
       return;
     }
+    if (result.modulePathsKnown) {
+      m_scriptWatcher.setModulePaths(result.modulePaths);
+    }
     handleScriptResult(std::move(result));
   });
 
@@ -355,19 +358,10 @@ std::string PluginPanel::resolvePluginPath(const std::string& path) const {
 }
 
 void PluginPanel::setupScriptWatch() {
-  if (m_sourcePath.empty() || m_fileWatcher == nullptr) {
-    return;
-  }
-  m_watchId = m_fileWatcher->watch(m_sourcePath, [this] { reloadScript(); }, FileWatcher::WatchTrigger::WriteCompleted);
+  m_scriptWatcher.start(m_fileWatcher, m_sourcePath, [this] { reloadScript(); });
 }
 
-void PluginPanel::teardownScriptWatch() {
-  if (m_watchId == 0 || m_fileWatcher == nullptr) {
-    return;
-  }
-  m_fileWatcher->unwatch(m_watchId);
-  m_watchId = 0;
-}
+void PluginPanel::teardownScriptWatch() { m_scriptWatcher.stop(); }
 
 void PluginPanel::reloadScript() {
   std::string source = readFile(m_sourcePath);

@@ -15,6 +15,7 @@
 #include "ui/controls/image.h"
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
+#include "ui/controls/markdown_view.h"
 #include "ui/controls/progress_bar.h"
 #include "ui/controls/scroll_view.h"
 #include "ui/controls/select.h"
@@ -478,7 +479,9 @@ namespace ui {
       static const std::unordered_set<std::string> kInput = {"width",    "height",   "flexGrow",    "opacity",
                                                              "visible",  "value",    "placeholder", "fontSize",
                                                              "enabled",  "password", "multiline",   "focus",
-                                                             "onChange", "onSubmit", "controlSize"};
+                                                             "onChange", "onSubmit", "controlSize", "submitOnEnter"};
+      static const std::unordered_set<std::string> kMarkdown = {"width",   "height",  "flexGrow",
+                                                                "opacity", "visible", "text"};
       static const std::unordered_set<std::string> kSelect = {"width",       "height",   "flexGrow",      "opacity",
                                                               "visible",     "options",  "selectedIndex", "enabled",
                                                               "placeholder", "onChange", "controlSize"};
@@ -488,10 +491,11 @@ namespace ui {
                                                               "controlSize"};
       static const std::unordered_set<std::string> kToggle = {"width",   "height",  "flexGrow", "opacity",
                                                               "visible", "checked", "enabled",  "onChange"};
-      static const std::unordered_set<std::string> kScroll = {"width",       "height", "flexGrow", "opacity",
-                                                              "visible",     "fill",   "radius",   "border",
-                                                              "borderWidth", "gap",    "padding",  "paddingH",
-                                                              "paddingV",    "align",  "justify"};
+      static const std::unordered_set<std::string> kScroll = {
+          "width",    "height", "flexGrow",    "opacity",       "visible",  "fill",
+          "radius",   "border", "borderWidth", "gap",           "padding",  "paddingH",
+          "paddingV", "align",  "justify",     "stickToBottom", "onScroll", "scrollToBottomRev"
+      };
       static const std::unordered_set<std::string> kDragSource = {
           "width",   "height",   "flexGrow",    "opacity",         "visible",       "gap",
           "padding", "paddingH", "paddingV",    "align",           "justify",       "fill",
@@ -534,6 +538,9 @@ namespace ui {
       if (type == "input") {
         return kInput;
       }
+      if (type == "markdown") {
+        return kMarkdown;
+      }
       if (type == "select") {
         return kSelect;
       }
@@ -567,6 +574,8 @@ namespace ui {
     std::string submitCallbackName;  // last-wired input onSubmit target
     std::string dragEndCallbackName; // last-wired slider onDragEnd target
     std::string imagePath;           // last-applied resolved image source
+    std::string lastText;            // markdown source cache - setMarkdown re-parses, only call on change
+    float lastMarkdownScale = 0.0f;  // scale baked into the parsed markdown; a rescale must re-call setMarkdown
     float imageTargetSize = 0.0f;
     // Controlled-with-change-detection: a value-driven control (toggle/slider/
     // select) only re-applies its declared value when it differs from the last
@@ -692,6 +701,9 @@ namespace ui {
     }
     if (desired.type == "input") {
       return std::make_unique<Input>();
+    }
+    if (desired.type == "markdown") {
+      return std::make_unique<MarkdownView>();
     }
     if (desired.type == "select") {
       return std::make_unique<Select>();
@@ -1553,6 +1565,9 @@ namespace ui {
       if (const bool* multiline = boolProp(desired, "multiline")) {
         input->setMultiline(*multiline);
       }
+      if (const bool* submitOnEnter = boolProp(desired, "submitOnEnter")) {
+        input->setSubmitOnEnter(*submitOnEnter);
+      }
       if (const bool* password = boolProp(desired, "password")) {
         input->setPasswordMode(*password);
       }
@@ -1589,6 +1604,29 @@ namespace ui {
       return;
     }
 
+    if (desired.type == "markdown") {
+      auto* md = static_cast<MarkdownView*>(node);
+      // The scale check sits outside the text-presence gate: a render that
+      // omits text (retained-prop convention) must still pick up a rescale.
+      const std::string* text = strProp(desired, "text");
+      if ((text != nullptr && *text != slot.lastText) || m_scale != slot.lastMarkdownScale) {
+        if (text != nullptr) {
+          slot.lastText = *text;
+        }
+        slot.lastMarkdownScale = m_scale;
+        md->setMarkdown(slot.lastText, m_scale);
+      }
+      if (width != nullptr) {
+        md->setMinWidth(scaled(*width));
+        md->setMaxWidth(scaled(*width));
+      }
+      if (height != nullptr) {
+        md->setMinHeight(scaled(*height));
+        md->setMaxHeight(scaled(*height));
+      }
+      return;
+    }
+
     if (desired.type == "scroll") {
       auto* scroll = static_cast<ScrollView*>(node);
       if (auto fill = parseColor(desired, "fill")) {
@@ -1600,6 +1638,26 @@ namespace ui {
       if (auto border = parseColor(desired, "border")) {
         const double* borderWidth = numProp(desired, "borderWidth");
         scroll->setBorder(*border, borderWidth != nullptr ? scaled(*borderWidth) : 1.0f);
+      }
+      if (const bool* stickToBottom = boolProp(desired, "stickToBottom")) {
+        scroll->setStickToBottom(*stickToBottom);
+      }
+      if (const std::string* onScroll = strProp(desired, "onScroll");
+          onScroll != nullptr && *onScroll != slot.callbackName) {
+        slot.callbackName = *onScroll;
+        scroll->setOnScrollChanged([this, name = slot.callbackName, scroll](float offset) {
+          if (m_sink) {
+            m_sink(ControlCallback{name, std::format("{}", offset), std::format("{}", scroll->maxScrollOffset())});
+          }
+        });
+      }
+      if (const double* scrollToBottomRev = numProp(desired, "scrollToBottomRev")) {
+        if (!slot.lastScalar.has_value() || *slot.lastScalar != *scrollToBottomRev) {
+          slot.lastScalar = *scrollToBottomRev;
+          // Deferred: children reconcile after applyProps, so an immediate
+          // setScrollOffset would clamp against the previous scroll extent.
+          scroll->requestScrollToBottom();
+        }
       }
       // gap / padding / align / justify configure the inner content Flex that
       // hosts the children.

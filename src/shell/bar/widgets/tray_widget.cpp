@@ -271,7 +271,7 @@ void TrayWidget::create() {
           .out = &m_container,
           .align = m_panelGridMode ? FlexAlign::Start : FlexAlign::Center,
           .justify = m_panelGridMode ? std::optional<FlexJustify>{} : std::optional<FlexJustify>{FlexJustify::Start},
-          .gap = m_panelGridMode ? Style::spaceXs * m_contentScale : resolvedInlineEntryGap(),
+          .gap = resolvedInlineEntryGap(),
       }
   );
 
@@ -303,6 +303,7 @@ void TrayWidget::doLayout(Renderer& renderer, float containerWidth, float contai
       rebuild(renderer);
       m_rebuildPending = false;
     }
+    m_container->setGap(resolvedInlineEntryGap());
     m_container->layout(renderer);
     return;
   }
@@ -325,9 +326,7 @@ void TrayWidget::doLayout(Renderer& renderer, float containerWidth, float contai
     m_appIconColorizeDirty = false;
   }
 
-  if (!m_panelGridMode) {
-    m_container->setGap(resolvedInlineEntryGap());
-  }
+  m_container->setGap(resolvedInlineEntryGap());
   m_container->layout(renderer);
 }
 
@@ -796,7 +795,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
         gridRow = static_cast<Flex*>(m_container->addChild(
             ui::row({
                 .align = FlexAlign::Center,
-                .gap = Style::spaceXs * m_contentScale,
+                .gap = resolvedInlineEntryGap(),
             })
         ));
         gridCol = 0;

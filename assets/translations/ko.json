@@ -117,7 +117,18 @@
         "error": "날씨 오류",
         "loading": "날씨 불러오는 중...",
         "no-location": "위치 없음",
-        "off": "날씨 꺼짐"
+        "off": "날씨 꺼짐",
+        "tooltip": {
+          "condition": "상태",
+          "high": "최고",
+          "humidity": "습도",
+          "low": "최저",
+          "sunrise": "일출",
+          "sunset": "일몰",
+          "temperature": "온도",
+          "uv": "자외선 지수",
+          "wind": "바람"
+        }
       }
     }
   },
@@ -255,6 +266,7 @@
       "start-playback": "MRPIS 앱에서 재생 시작"
     },
     "network": {
+      "available": "사용 가능",
       "connect": "연결",
       "current-connection": "현재 연결",
       "external-ip": "WAN {ip}",
@@ -263,6 +275,7 @@
       "password": "비밀번호",
       "password-prompt": "비밀번호 입력",
       "password-prompt-for": "{ssid}의 비밀번호 입력",
+      "saved": "저장됨",
       "unavailable-detail": "여기에서 네트워크를 관리하려면 NetworkManager나 wpa_supplicant 또는 iwd를 설치하고 활성화하세요.",
       "unavailable-title": "네트워크를 사용할 수 없음",
       "vpns": "VPN",
@@ -500,6 +513,7 @@
         "network-speed-unit": "네트워크 속도 단위",
         "network-speed-unit-auto": "자동",
         "network-speed-unit-kilobytes": "KB/s",
+        "network-speed-unit-megabytes": "MB/s",
         "opacity": "불투명도",
         "primary-color": "기본 색상",
         "reset-defaults": "기본값으로 초기화",
@@ -518,6 +532,7 @@
         "show-media": "미디어",
         "show-password-hint": "비밀번호 힌트",
         "show-session-buttons": "세션 버튼",
+        "show-unlock-hint": "잠금 해제 힌트",
         "show-vpn-label": "VPN 레이블 표시",
         "show-weather": "날씨",
         "show-when-idle": "유휴 시 표시",
@@ -697,6 +712,7 @@
       "battery-critical-body": "{device}: {percent}% – 컴퓨터가 곧 종료됩니다",
       "battery-critical-title": "배터리 매우 부족",
       "battery-device": "배터리 장치",
+      "battery-low-body": "{device}: {percent}% 남음",
       "battery-low-title": "배터리 부족",
       "calendar": "캘린더",
       "calendar-google-connect-browser-failed": "Google 인증을 위한 브라우저를 실행할 수 없습니다. 기본 브라우저 또는 xdg-open 설정을 확인하세요.",
@@ -1914,6 +1930,10 @@
           "description": "독의 시작 또는 끝에 런처 버튼 표시",
           "label": "런처 버튼"
         },
+        "layer": {
+          "description": "전체 화면 앱 위에 Dock을 표시하려면 오버레이 사용",
+          "label": "Wayland 레이어"
+        },
         "magnification": {
           "description": "macOS 스타일로 포인터 근처의 독 아이콘 확대",
           "label": "확대"
@@ -2019,10 +2039,1974 @@
             "label": "테마 모드 변경 시"
           },
           "wallpaper-changed": {
-            "description": "배경 화면이 변경될 때 실행할 명령어. NOCTALIA_WALLPAPER_PATH 및 NOCTALIA_WALLPAPER_CONNECTOR를 제공합니다"
+            "description": "배경 화면이 변경될 때 실행할 명령어. NOCTALIA_WALLPAPER_PATH 및 NOCTALIA_WALLPAPER_CONNECTOR를 제공합니다",
+            "label": "배경 화면 변경 시"
+          },
+          "wifi-disabled": {
+            "description": "Wi-Fi가 비활성화될 때 실행할 명령어",
+            "label": "Wi-Fi 비활성화 시"
+          },
+          "wifi-enabled": {
+            "description": "Wi-Fi가 활성화될 때 실행할 명령어",
+            "label": "Wi-Fi 활성화 시"
           }
         }
+      },
+      "idle": {
+        "behaviors": {
+          "description": "사전 설정 (잠금, 화면 끄기, 절전) 또는 사용자 명령어, 타임아웃, 재개 연결 및 순서를 포함한 이름 있는 유휴 작업",
+          "label": "동작"
+        },
+        "pre-action-fade": {
+          "description": "유휴 명령 실행 전 전체 화면 페이드 시간 (초) (0이면 비활성화)",
+          "label": "유휴 화면 페이드"
+        }
+      },
+      "keybinds": {
+        "cancel": {
+          "description": "팝업 닫기, 패널 닫기 또는 현재 작업 취소",
+          "label": "취소"
+        },
+        "copy": {
+          "description": "현재 선택 항목 또는 아이템 복사",
+          "label": "복사"
+        },
+        "delete": {
+          "description": "선택된 항목 삭제",
+          "label": "삭제"
+        },
+        "down": {
+          "description": "포커스 또는 선택을 한 행 아래로 이동",
+          "label": "아래로 이동"
+        },
+        "left": {
+          "description": "포커스 또는 선택을 왼쪽으로 이동",
+          "label": "왼쪽으로 이동"
+        },
+        "right": {
+          "description": "포커스 또는 선택을 오른쪽으로 이동",
+          "label": "오른쪽으로 이동"
+        },
+        "save": {
+          "description": "현재 선택 항목 또는 아이템 저장",
+          "label": "저장"
+        },
+        "tab-next": {
+          "description": "다음 컨트롤로 포커스 이동",
+          "label": "다음 포커스"
+        },
+        "tab-previous": {
+          "description": "이전 컨트롤로 포커스 이동",
+          "label": "이전 포커스"
+        },
+        "up": {
+          "description": "포커스 또는 선택을 한 행 위로 이동",
+          "label": "위로 이동"
+        },
+        "validate": {
+          "description": "선택 확인, 입력 제출 또는 포커스된 항목 활성화",
+          "label": "확인"
+        }
+      },
+      "lockscreen": {
+        "allow-empty-password": {
+          "description": "Enter로 빈 비밀번호를 제출할 수 있게 합니다 (보안 키 또는 비밀번호 없는 PAM 스택에서 활성화. 실수로 인한 깨우기 키 잠금을 방지하려면 비활성화 상태로 두세요)",
+          "label": "빈 비밀번호 제출"
+        },
+        "blur-intensity": {
+          "description": "잠금 화면 배경의 블러 강도",
+          "label": "블러 강도"
+        },
+        "blurred-desktop": {
+          "description": "잠금 화면 배경으로 데스크톱 스냅샷 사용",
+          "label": "데스크톱 캡처"
+        },
+        "enabled": {
+          "description": "세션 잠금, logind 통합 및 잠금 작업 활성화",
+          "label": "잠금 화면"
+        },
+        "fingerprint": {
+          "description": "fprintd를 통한 지문 인식기로 잠금 해제, 비밀번호 입력과 함께 사용",
+          "label": "지문 잠금 해제"
+        },
+        "monitors": {
+          "description": "잠금 화면을 표시할 모니터 선택. 비워 두면 모든 모니터에 표시",
+          "label": "모니터"
+        },
+        "tint-intensity": {
+          "description": "잠금 화면 배경 위의 표면 색상 틴트",
+          "label": "틴트 강도"
+        },
+        "wallpaper": {
+          "description": "잠금 화면 배경에 사용할 사용자 이미지. 비워 두면 데스크톱 배경 화면을 사용합니다",
+          "label": "배경 화면",
+          "placeholder": "데스크톱 배경 화면 사용"
+        },
+        "widgets": {
+          "description": "잠금 화면에 설정 가능한 위젯 표시",
+          "label": "잠금 화면 위젯"
+        },
+        "widgets-editor": {
+          "button": "편집기 전환",
+          "description": "잠금 화면의 위젯 추가, 이동 및 크기 조정",
+          "label": "잠금 화면 위젯 편집기"
+        }
+      },
+      "notifications": {
+        "allowed-urgencies": {
+          "description": "선택된 긴급도 수준의 외부 알림만 표시",
+          "label": "허용된 긴급도"
+        },
+        "blacklist": {
+          "description": "일치하는 발신자 숨기기 (앱 이름, 데스크톱 항목 또는 카테고리)",
+          "label": "알림 블랙리스트"
+        },
+        "blacklist-allow-critical": {
+          "description": "블랙리스트에 있는 발신자의 긴급 알림은 계속 표시"
+        },
+        "border": {
+          "description": "알림 토스트 주위에 외곽선 그리기",
+          "label": "테두리"
+        },
+        "collapse-on-dismiss": {
+          "description": "토스트가 닫힐 때 남은 토스트를 슬라이드하여 간격 채우기",
+          "label": "닫을 때 접기"
+        },
+        "daemon": {
+          "description": "내장 알림 데몬 활성화",
+          "label": "알림 데몬"
+        },
+        "filters": {
+          "description": "토스트, 기록 및 소리에 대한 발신자별 규칙. 첫 번째로 일치하는 활성화된 필터가 적용됩니다",
+          "label": "알림 필터"
+        },
+        "history-retention-hours": {
+          "description": "이 시간보다 오래된 알림 기록 항목을 자동으로 삭제 (0은 영구 보관)",
+          "label": "기록 보관 기간"
+        },
+        "layer": {
+          "description": "오버레이를 사용하면 전체 화면 앱 위에 알림 토스트를 표시합니다",
+          "label": "Wayland 레이어"
+        },
+        "monitors": {
+          "description": "알림 토스트를 표시할 모니터 선택. 비워 두면 모든 모니터에 표시",
+          "label": "모니터"
+        },
+        "offset-x": {
+          "description": "화면 또는 바 가장자리에서 절대 가로 여백",
+          "label": "가로 여백"
+        },
+        "offset-y": {
+          "description": "화면 또는 바 가장자리에서 절대 세로 여백",
+          "label": "세로 여백"
+        },
+        "position": {
+          "description": "알림 토스트의 화면 위치",
+          "label": "화면 위치"
+        },
+        "scale": {
+          "description": "쉘 UI 배율 대비 알림 토스트 배율",
+          "label": "크기"
+        },
+        "show-actions": {
+          "description": "알림 토스트에 작업 버튼 표시. 비활성화하면 토스트 클릭 시 기본 작업이 실행됩니다",
+          "label": "작업 버튼 표시"
+        },
+        "show-app-name": {
+          "description": "알림 토스트에 발신 앱 이름 표시",
+          "label": "앱 이름 표시"
+        },
+        "toast-opacity": {
+          "description": "알림 토스트 배경 불투명도",
+          "label": "배경 불투명도"
+        }
+      },
+      "panels": {
+        "borders": {
+          "description": "패널 및 패널 내부 섹션 카드에 외곽선 그리기",
+          "label": "테두리"
+        },
+        "control-center-sidebar": {
+          "description": "사이드바 표시 방법 선택",
+          "label": "사이드바"
+        },
+        "control-center-sidebar-section": {
+          "description": "특정 탭 (볼륨, 미디어 등)을 열 때",
+          "label": "탭 열 때 사이드바"
+        },
+        "control-center-tabs": {
+          "description": "제어 센터에 표시할 탭 선택. 체크 해제된 탭은 숨겨집니다",
+          "label": "제어 센터 탭"
+        },
+        "control-center-width": {
+          "description": "제어 센터 패널의 너비 (픽셀) (컴팩트 및 사이드바 없음 모드는 이보다 작게 조정됩니다)",
+          "label": "제어 센터 너비"
+        },
+        "floating-layer": {
+          "description": "입력기 후보 창이 플로팅 패널 뒤에 숨는 경우 '상단'을 사용하세요. '오버레이'는 전체 화면 콘텐츠 위로 패널을 유지합니다.",
+          "label": "플로팅 패널 레이어"
+        },
+        "floating-offset": {
+          "description": "플로팅 또는 분리된 패널과 바 가장자리 사이의 픽셀 간격",
+          "label": "플로팅 오프셋"
+        },
+        "home-shortcuts": {
+          "description": "홈 탭의 단축키 버튼 최대 6개 선택",
+          "label": "홈 단축키"
+        },
+        "home-shortcuts-show-labels": {
+          "description": "홈 탭의 바로가기 아이콘 아래에 텍스트 레이블 표시",
+          "label": "바로가기 레이블 보이기"
+        },
+        "launcher-app-grid": {
+          "description": "결과가 앱만 있을 때 레이블이 있는 앱 아이콘 그리드 표시",
+          "label": "앱 그리드 보기"
+        },
+        "launcher-auto-paste": {
+          "description": "계산기, 이모지 등 복사 활성화 후 포커스된 창에 자동 붙여넣기 (클립보드 자동 붙여넣기와 동일한 단축키)",
+          "label": "자동 붙여넣기"
+        },
+        "launcher-categories": {
+          "description": "런처에 카테고리 필터 표시. F6으로 표시하고, F6 및 Shift+F6으로 순환",
+          "label": "카테고리 표시"
+        },
+        "launcher-compact": {
+          "description": "더 작은 아이콘과 좁은 결과 행 사용",
+          "label": "컴팩트 행"
+        },
+        "launcher-currency-exchange": {
+          "description": "서드파티 온라인 소스에서 환율 가져오기",
+          "label": "통화 환율 변환"
+        },
+        "launcher-global-calculator": {
+          "description": "접두사 없는 검색에서도 계산기 결과 표시",
+          "label": "전체 검색에서 계산기"
+        },
+        "launcher-global-emoji": {
+          "description": "접두사 없는 검색에서도 이모지 결과 표시",
+          "label": "전체 검색에서 이모지"
+        },
+        "launcher-global-session": {
+          "description": "접두사 없는 검색에서도 세션 작업 표시",
+          "label": "전체 검색에서 세션"
+        },
+        "launcher-global-wallpaper": {
+          "description": "접두사 없는 검색에서도 배경 화면 표시",
+          "label": "전체 검색에서 배경 화면"
+        },
+        "launcher-global-windows": {
+          "description": "접두사 없는 검색에서도 열린 창 표시",
+          "label": "전체 검색에서 창"
+        },
+        "launcher-prefix-calculator": {
+          "description": "계산기 계산을 위한 트리거 접두사",
+          "label": "계산기 접두사"
+        },
+        "launcher-prefix-character": {
+          "description": "모든 제공업체 접두사를 트리거하는 공통 접두사 문자 (예: /)",
+          "label": "공통 접두사 문자"
+        },
+        "launcher-prefix-emoji": {
+          "description": "이모지 검색을 위한 트리거 접두사",
+          "label": "이모지 접두사"
+        },
+        "launcher-prefix-session": {
+          "description": "세션 전원 작업을 위한 트리거 접두사",
+          "label": "세션 접두사"
+        },
+        "launcher-prefix-wallpaper": {
+          "description": "배경 화면 선택기를 위한 트리거 접두사",
+          "label": "배경 화면 접두사"
+        },
+        "launcher-prefix-windows": {
+          "description": "창 검색을 위한 트리거 접두사",
+          "label": "창 접두사"
+        },
+        "launcher-reset-usage": {
+          "button": "초기화",
+          "description": "런처 정렬에 사용되는 실행 횟수 및 최근 사용 기록 지우기",
+          "label": "사용 데이터 초기화"
+        },
+        "launcher-session-search": {
+          "description": "/session 접두사 뒤에서만이 아니라 일반 런처 검색에서도 세션 작업 (잠금, 절전, 재부팅, 종료, 로그아웃) 포함",
+          "label": "세션 검색 활성화"
+        },
+        "launcher-show-icons": {
+          "description": "런처 결과에 앱 아이콘 표시",
+          "label": "앱 아이콘 표시"
+        },
+        "launcher-sort-by-usage": {
+          "description": "자주 사용하는 앱을 상단으로 올리고 최근 사용 카테고리 필터 표시",
+          "label": "사용 빈도 순 정렬"
+        },
+        "list-item-background": {
+          "description": "각 런처 및 클립보드 목록 항목 뒤에 둥근 배경 그리기",
+          "label": "목록 항목 배경"
+        },
+        "open-near-click-clipboard": {
+          "description": "클립보드 패널을 연 바 위젯 근처에 클립보드 패널을 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
+          "label": "바를 따라"
+        },
+        "open-near-click-control-center": {
+          "description": "제어 센터를 연 바 위젯 근처에 제어 센터를 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
+          "label": "바를 따라"
+        },
+        "open-near-click-launcher": {
+          "description": "런처를 연 바 위젯 근처에 런처를 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
+          "label": "바를 따라"
+        },
+        "open-near-click-session": {
+          "description": "세션 패널을 연 바 위젯 근처에 세션 패널을 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
+          "label": "바를 따라"
+        },
+        "open-near-click-wallpaper": {
+          "description": "배경 화면 선택기를 연 바 위젯 근처에 배경 화면 선택기를 위치시킵니다. 바 트리거 없이 열리는 경우에는 가운데에 위치합니다",
+          "label": "바를 따라"
+        },
+        "panel-anchor-bar": {
+          "description": "단축키 또는 독에서 열릴 때 패널이 연결될 바. 비워 두면 패널을 연 위젯을 따릅니다",
+          "label": "앵커 바"
+        },
+        "placement-clipboard": {
+          "description": "클립보드를 바에 연결하거나 선택한 화면 위치에 플로팅할지 선택",
+          "label": "배치"
+        },
+        "placement-control-center": {
+          "description": "제어 센터를 바에 연결하거나 선택한 화면 위치에 플로팅할지 선택",
+          "label": "배치"
+        },
+        "placement-launcher": {
+          "description": "런처를 바에 연결하거나 선택한 화면 위치에 플로팅할지 선택",
+          "label": "배치"
+        },
+        "placement-polkit": {
+          "description": "polkit 프롬프트를 바에 연결하거나 선택한 화면 위치에 플로팅할지 선택",
+          "label": "배치"
+        },
+        "placement-session": {
+          "description": "세션 패널을 바에 연결하거나 선택한 화면 위치에 플로팅할지 선택",
+          "label": "배치"
+        },
+        "placement-wallpaper": {
+          "description": "배경 화면 선택기를 바에 연결하거나 선택한 화면 위치에 플로팅할지 선택",
+          "label": "배치"
+        },
+        "position-clipboard": {
+          "description": "클립보드가 화면에서 플로팅될 위치. 바 따르기는 바 근처에 유지합니다",
+          "label": "위치"
+        },
+        "position-control-center": {
+          "description": "제어 센터가 화면에서 플로팅될 위치. 바 따르기는 바 근처에 유지합니다",
+          "label": "위치"
+        },
+        "position-launcher": {
+          "description": "런처가 화면에서 플로팅될 위치. 바 따르기는 바 근처에 유지합니다",
+          "label": "위치"
+        },
+        "position-polkit": {
+          "description": "polkit 프롬프트가 화면에서 플로팅될 위치. 바 따르기는 바 근처에 유지합니다",
+          "label": "위치"
+        },
+        "position-session": {
+          "description": "세션 패널이 화면에서 플로팅될 위치. 바 따르기는 바 근처에 유지합니다",
+          "label": "위치"
+        },
+        "position-wallpaper": {
+          "description": "배경 화면 선택기가 화면에서 플로팅될 위치. 바 따르기는 바 근처에 유지합니다",
+          "label": "위치"
+        },
+        "shadow": {
+          "description": "패널 표면에서 전역 표면 그림자를 드리웁니다"
+        },
+        "transparency-mode": {
+          "description": "플로팅 패널 불투명도 및 카드 반투명도를 포함한 패널 유리 스타일",
+          "label": "투명도"
+        }
+      },
+      "power": {
+        "session-actions": {
+          "description": "세션 패널 항목, 순서, 사용자 명령어 및 아이콘",
+          "label": "항목"
+        },
+        "session-grid": {
+          "description": "세션 패널 작업을 그리드 레이아웃으로 표시",
+          "label": "그리드 레이아웃"
+        },
+        "session-grid-columns": {
+          "description": "그리드 레이아웃의 열 수",
+          "label": "열"
+        },
+        "session-show-shortcuts": {
+          "description": "단축키 힌트 표시 또는 숨기기",
+          "label": "단축키 표시"
+        }
+      },
+      "services": {
+        "audio-overdrive": {
+          "description": "볼륨을 100% 이상으로 허용",
+          "label": "오디오 과부하"
+        },
+        "calendar": {
+          "description": "온라인 캘린더 계정의 일정 표시",
+          "label": "캘린더"
+        },
+        "calendar-add": {
+          "button": "계정 추가",
+          "description": "iCloud, CalDAV 또는 Google 계정 추가",
+          "label": "캘린더 계정"
+        },
+        "calendar-credentials": {
+          "button": "다시 시도",
+          "description-cancelled": "Secret Service 프롬프트가 취소되었습니다. 준비가 되면 다시 시도하세요.",
+          "description-error": "Secret Service를 통해 캘린더 자격 증명에 접근할 수 없습니다.",
+          "description-locked": "캘린더 자격 증명이 잠겨 있거나 접근이 거부되었습니다. Secret Service를 잠금 해제하고 다시 시도하세요.",
+          "description-migration": "평문 캘린더 자격 증명이 Secret Service로 이동 대기 중입니다. 캘린더 동기화에는 사용되지 않습니다.",
+          "description-opening": "Secret Service를 통해 캘린더 자격 증명을 여는 중입니다.",
+          "description-unavailable": "이 세션에서 사용 가능한 Secret Service 제공자가 없습니다.",
+          "label": "캘린더 자격 증명 저장소"
+        },
+        "calendar-edit": {
+          "button": "편집",
+          "button-reconnect": "재연결",
+          "description": "이 캘린더 계정 업데이트",
+          "description-reconnect": "Google 인증 정보가 누락되었습니다. 계정을 다시 연결해 주세요."
+        },
+        "calendar-event-date-format": {
+          "description": "선택된 날짜의 이벤트 카드에 표시되는 날짜 형식",
+          "label": "이벤트 날짜 형식"
+        },
+        "calendar-event-time-format": {
+          "description": "캘린더 이벤트에 표시되는 시간 형식",
+          "label": "이벤트 시간 형식"
+        },
+        "calendar-refresh-interval": {
+          "description": "캘린더 이벤트를 동기화하는 빈도 (분)",
+          "label": "새로 고침 간격"
+        },
+        "calendar-storage": {
+          "button": "다시 시도",
+          "description-cancelled": "암호화된 저장소 프롬프트가 취소되었습니다. 캘린더 이벤트는 이 세션에서만 사용 가능합니다.",
+          "description-error": "암호화된 캘린더 이벤트 캐시를 열거나 저장할 수 없습니다.",
+          "description-locked": "암호화된 저장소가 잠겨 있거나 접근이 거부되었습니다. 접근을 수정하고 다시 시도하세요.",
+          "description-migration": "평문 캘린더 이벤트 캐시가 암호화 대기 중입니다. 마이그레이션이 성공할 때까지 보존됩니다.",
+          "description-missing-key": "설정된 암호화 저장소 키가 없습니다. 기존 캘린더 캐시 파일은 보존되었습니다.",
+          "description-opening": "암호화된 캘린더 이벤트 캐시를 여는 중입니다.",
+          "description-recovery": "캘린더 이벤트 캐시를 인증할 수 없거나 손상되었습니다. 올바른 키를 복원한 후 다시 시도하거나 개인 저장소를 초기화하세요.",
+          "description-unavailable": "사용 가능한 Secret Service 제공자가 없습니다. 캘린더 이벤트는 이 세션에서만 사용 가능합니다.",
+          "label": "캘린더 이벤트 저장소"
+        },
+        "calendar-week-numbers": {
+          "description": "달력 그리드 옆에 ISO 8601 주 번호 표시",
+          "label": "주 번호"
+        },
+        "custom-schedule": {
+          "description": "좌표에서 계산하는 대신 수동 일출/일몰 시간 사용",
+          "label": "사용자 정의 일정"
+        },
+        "day-temperature": {
+          "description": "낮 동안의 색온도 (켈빈)",
+          "label": "낮 색온도"
+        },
+        "ddcutil": {
+          "description": "DDC/CI를 통해 외부 모니터 밝기 제어",
+          "label": "DDC/CI (ddcutil)",
+          "requires-ddcutil": "DDC/CI 밝기 제어를 활성화하려면 ddcutil을 설치하세요"
+        },
+        "force-night-light": {
+          "description": "시간에 관계없이 항상 야간 조명 적용",
+          "label": "야간 조명 강제 적용"
+        },
+        "latitude": {
+          "description": "일출/일몰 일정의 수동 위도. 자동 위치 감지 및 주소가 꺼져 있을 때 사용됩니다",
+          "label": "위도"
+        },
+        "location-address": {
+          "description": "위치를 찾을 도시 또는 주소. 자동 위치 감지가 꺼져 있을 때 사용됩니다",
+          "label": "주소",
+          "placeholder": "도시, 국가"
+        },
+        "location-auto-locate": {
+          "description": "noctalia.dev를 통해 IP 주소에서 자동으로 위치 감지",
+          "label": "자동 위치 감지 (IP)"
+        },
+        "longitude": {
+          "description": "일출/일몰 일정의 수동 경도. 자동 위치 감지 및 주소가 꺼져 있을 때 사용됩니다",
+          "label": "경도"
+        },
+        "minimum-brightness": {
+          "description": "화면이 완전히 어두워지는 것을 방지",
+          "label": "최소 밝기"
+        },
+        "mpris-blacklist": {
+          "description": "미디어 컨트롤 및 지금 재생 중에서 무시할 플레이어",
+          "label": "MPRIS 플레이어 블랙리스트"
+        },
+        "night-light": {
+          "description": "밤에 화면 색상을 따뜻하게 전환",
+          "label": "야간 조명",
+          "requires-gamma-control": "컴포지터가 감마 제어를 지원하지 않음"
+        },
+        "night-temperature": {
+          "description": "밤 동안의 색온도 (켈빈)",
+          "label": "밤 색온도"
+        },
+        "notification-sound": {
+          "description": "알림 피드백에 사용되는 사운드 파일",
+          "label": "알림 소리",
+          "placeholder": "/path/to/sound.wav"
+        },
+        "shell-sounds": {
+          "description": "쉘 이벤트에 효과음 재생",
+          "label": "쉘 소리"
+        },
+        "sound-volume": {
+          "description": "쉘 효과음 볼륨",
+          "label": "소리 볼륨"
+        },
+        "sunrise": {
+          "description": "HH:MM 형식의 수동 일출 시간. 위치가 설정되지 않은 경우 사용됩니다",
+          "label": "일출"
+        },
+        "sunset": {
+          "description": "HH:MM 형식의 수동 일몰 시간. 위치가 설정되지 않은 경우 사용됩니다",
+          "label": "일몰"
+        },
+        "sync-monitor-brightness": {
+          "description": "모든 모니터의 밝기 동기화",
+          "label": "모니터 밝기 동기화"
+        },
+        "system-monitor": {
+          "cpu-poll": {
+            "description": "CPU 사용률, CPU 온도, 평균 부하 샘플 사이의 초 간격 (0이면 비활성화)",
+            "label": "CPU 폴링 간격"
+          },
+          "description": "CPU, 메모리, 네트워크, 부하, 온도, 디스크 통계 샘플링",
+          "disk-poll": {
+            "description": "디스크 사용량 및 스왑 사용량 샘플 사이의 초 간격 (0이면 비활성화)",
+            "label": "디스크 폴링 간격"
+          },
+          "gpu-poll": {
+            "description": "GPU 온도, 사용률, VRAM 샘플 사이의 초 간격. GPU 통계를 표시하는 항목이 있을 때만 GPU가 샘플링되므로 유휴 상태의 컴퓨터는 깨어나지 않습니다 (0이면 완전히 비활성화)",
+            "label": "GPU 폴링 간격"
+          },
+          "label": "시스템 모니터",
+          "memory-poll": {
+            "description": "RAM 사용량 샘플 사이의 초 간격 (0이면 비활성화)",
+            "label": "메모리 폴링 간격"
+          },
+          "network-poll": {
+            "description": "네트워크 처리량 샘플 사이의 초 간격 (0이면 비활성화)",
+            "label": "네트워크 폴링 간격"
+          },
+          "stats": {
+            "cpu-temp": "CPU 온도",
+            "cpu-usage": "CPU 사용률",
+            "disk-free": "디스크 여유 공간",
+            "disk-free-pct": "디스크 여유 %",
+            "disk-usage": "디스크 사용량",
+            "disk-used": "디스크 사용됨",
+            "disk-used-pct": "디스크 사용 %",
+            "gpu-temp": "GPU 온도",
+            "gpu-usage": "GPU 사용률",
+            "gpu-vram": "GPU VRAM",
+            "network-rx": "다운로드",
+            "network-tx": "업로드",
+            "ram-usage": "메모리 사용량",
+            "swap-usage": "스왑 사용량"
+          },
+          "threshold": {
+            "description": "활동 임계값 (왼쪽) 및 위험 임계값 (오른쪽)",
+            "label": "{stat}"
+          }
+        },
+        "volume-change-sound": {
+          "description": "볼륨 피드백에 사용되는 사운드 파일",
+          "label": "볼륨 변경 소리",
+          "placeholder": "/path/to/sound.wav"
+        },
+        "weather": {
+          "description": "open-meteo.com을 통해 날씨 서비스 활성화",
+          "label": "날씨"
+        },
+        "weather-effects": {
+          "description": "시각적 날씨 효과 표시",
+          "label": "날씨 효과"
+        },
+        "weather-refresh-interval": {
+          "description": "날씨 데이터를 새로 고치는 빈도 (분)",
+          "label": "새로 고침 간격"
+        },
+        "weather-unit": {
+          "description": "날씨 표시 단위 체계",
+          "label": "단위"
+        }
+      },
+      "shared": {
+        "auto-hide": {
+          "label": "자동 숨기기"
+        },
+        "background-opacity": {
+          "label": "배경 불투명도"
+        },
+        "contact-shadow": {
+          "label": "접촉 그림자"
+        },
+        "corner-bottom-left": {
+          "label": "왼쪽 하단 반지름"
+        },
+        "corner-bottom-right": {
+          "label": "오른쪽 하단 반지름"
+        },
+        "corner-radius": {
+          "label": "모서리 반지름"
+        },
+        "corner-top-left": {
+          "label": "왼쪽 상단 반지름"
+        },
+        "corner-top-right": {
+          "label": "오른쪽 상단 반지름"
+        },
+        "cross-axis-padding": {
+          "label": "교차 축 여백"
+        },
+        "edge-margin": {
+          "label": "가장자리 여백"
+        },
+        "enabled": {
+          "label": "활성화됨"
+        },
+        "ends-margin": {
+          "label": "끝 여백"
+        },
+        "main-axis-padding": {
+          "label": "주 축 여백"
+        },
+        "opposite-edge-margin": {
+          "label": "반대 가장자리 여백"
+        },
+        "position": {
+          "label": "위치"
+        },
+        "reserve-space": {
+          "label": "공간 예약"
+        },
+        "shadow": {
+          "label": "그림자"
+        },
+        "shadow-alpha": {
+          "label": "그림자 불투명도"
+        },
+        "shadow-direction": {
+          "label": "그림자 방향"
+        }
+      },
+      "shell": {
+        "avatar-path": {
+          "description": "사용자 정의 아바타 이미지 경로. 큰 이미지는 자동으로 잘리고 크기가 조정됩니다",
+          "label": "아바타 경로",
+          "placeholder": "/path/to/avatar.png"
+        },
+        "clipboard-auto-paste": {
+          "description": "클립보드 선택 항목을 자동으로 붙여넣기",
+          "label": "클립보드 자동 붙여넣기"
+        },
+        "clipboard-confirm-clear-history": {
+          "description": "클립보드 기록을 지우거나 패널에서 고정되지 않은 항목을 삭제하기 전에 확인. 꺼져 있으면 즉시 적용됩니다 (고정된 항목은 삭제 전에 여전히 확인합니다)",
+          "label": "기록 지우기 확인"
+        },
+        "clipboard-enabled": {
+          "description": "클립보드 기록, 클립보드 패널 및 복사/붙여넣기 통합 활성화",
+          "label": "클립보드"
+        },
+        "clipboard-history-max-entries": {
+          "description": "클립보드 기록에 유지할 최대 고정되지 않은 항목 수",
+          "label": "기록 크기"
+        },
+        "clipboard-image-action": {
+          "description": "이미지 클립보드 항목에서 실행할 명령어. 파일 경로에는 {path}를, stdin 위치 표시에는 {stdin}을 사용하거나, 자동 파이프를 위해 {path}를 생략하세요",
+          "label": "이미지 작업 명령어",
+          "placeholder": "gimp {path} 또는 satty -f -"
+        },
+        "clipboard-keep-from-closed-apps": {
+          "description": "복사한 애플리케이션을 종료한 후에도 마지막으로 복사한 항목을 붙여넣을 수 있도록 유지",
+          "label": "종료된 앱의 클립보드 유지"
+        },
+        "clipboard-storage": {
+          "button": "다시 시도",
+          "description-cancelled": "Secret Service 프롬프트가 취소되었습니다. 클립보드 기록은 이 세션에서만 사용 가능합니다.",
+          "description-error": "암호화된 클립보드 기록을 열거나 저장할 수 없습니다.",
+          "description-locked": "클립보드 키 저장소가 잠겨 있거나 접근이 거부되었습니다. 접근을 수정하고 다시 시도하세요.",
+          "description-migration": "평문 클립보드 기록이 암호화 대기 중입니다. 마이그레이션이 성공할 때까지 기존 파일이 보존됩니다.",
+          "description-missing-key": "설정된 암호화 저장소 키가 없습니다. 기존 클립보드 기록 파일은 보존되었습니다.",
+          "description-opening": "암호화된 클립보드 기록을 여는 중입니다.",
+          "description-recovery": "클립보드 기록을 인증할 수 없거나 손상되었습니다. 올바른 키를 복원한 후 다시 시도하거나 개인 저장소를 초기화하세요.",
+          "description-unavailable": "사용 가능한 Secret Service 제공자가 없습니다. 클립보드 기록은 이 세션에서만 사용 가능합니다.",
+          "label": "클립보드 기록 저장소"
+        },
+        "date-format": {
+          "description": "자체 설정이 없는 쉘 UI의 기본 날짜 형식",
+          "label": "날짜 형식"
+        },
+        "external-ip": {
+          "description": "연결의 공개 WAN IP를 확인하고 (api.noctalia.dev를 통해) 제어 센터 네트워크 탭에 표시",
+          "label": "WAN IP 표시"
+        },
+        "greeter-sync-auto": {
+          "description": "배경 화면, 색상 또는 테마 모드가 변경될 때마다 Greeter 자동 동기화",
+          "label": "Greeter 자동 동기화"
+        },
+        "greeter-sync-privilege-command": {
+          "description": "Greeter 지금 동기화에서 pkexec/run0을 교체합니다. apply 도우미 경로 및 스테이징 디렉토리는 자동으로 추가됩니다 (예: ghostty -e pkexec)",
+          "label": "Greeter 동기화 권한 명령어"
+        },
+        "launch-apps-as-systemd-services": {
+          "description": "앱을 별도의 systemd 서비스에서 실행하여 Noctalia의 cgroup을 공유하지 않도록 합니다",
+          "label": "앱을 systemd 서비스로 실행",
+          "requires-systemd-session": "Noctalia가 systemd 사용자 서비스 (uwsm 또는 systemd 사용자 유닛)로 실행되어야 합니다"
+        },
+        "launch-apps-custom-command": {
+          "description": "런처, 독 및 태스크바에서 실행되는 앱을 감쌉니다. $CMD를 원래 명령어로 대체합니다",
+          "label": "사용자 정의 앱 실행 명령어",
+          "placeholder": "$CMD"
+        },
+        "niri-overview-type-to-launch": {
+          "description": "niri 개요에서 입력 시 런처 열기. 개요가 열려 있는 동안 작은 키보드 포커스 표면을 사용합니다",
+          "label": "입력하여 실행"
+        },
+        "offline-mode": {
+          "description": "모든 발신 네트워크 요청 차단",
+          "label": "오프라인 모드"
+        },
+        "osd-background-opacity": {
+          "description": "OSD 팝업의 배경 불투명도",
+          "label": "배경 불투명도"
+        },
+        "osd-border": {
+          "description": "OSD 팝업 주위에 외곽선 그리기",
+          "label": "테두리"
+        },
+        "osd-enabled": {
+          "description": "모든 OSD 팝업의 마스터 스위치. 꺼져 있으면 OSD가 표시되지 않습니다",
+          "label": "OSD 활성화"
+        },
+        "osd-kinds-bluetooth": {
+          "description": "Bluetooth가 전환될 때 OSD 팝업 표시",
+          "label": "Bluetooth"
+        },
+        "osd-kinds-brightness": {
+          "description": "디스플레이 밝기가 변경될 때 OSD 팝업 표시",
+          "label": "밝기"
+        },
+        "osd-kinds-caffeine": {
+          "description": "카페인 (유휴 억제기) 상태가 변경될 때 OSD 팝업 표시",
+          "label": "카페인"
+        },
+        "osd-kinds-dnd": {
+          "description": "방해 금지가 전환될 때 OSD 팝업 표시",
+          "label": "방해 금지"
+        },
+        "osd-kinds-keyboard-backlight": {
+          "description": "키보드 백라이트 수준이 변경될 때 OSD 팝업 표시",
+          "label": "키보드 백라이트"
+        },
+        "osd-kinds-keyboard-layout": {
+          "description": "입력 키보드 레이아웃이 변경될 때 OSD 팝업 표시",
+          "label": "키보드 레이아웃"
+        },
+        "osd-kinds-lock-keys": {
+          "description": "Caps Lock, Num Lock, Scroll Lock 변경 시 OSD 팝업 표시",
+          "label": "잠금 키"
+        },
+        "osd-kinds-media": {
+          "description": "새 트랙 재생 시작 시 OSD 팝업 표시",
+          "label": "지금 재생 중"
+        },
+        "osd-kinds-nightlight": {
+          "description": "야간 조명이 전환될 때 OSD 팝업 표시",
+          "label": "야간 조명"
+        },
+        "osd-kinds-power-profile": {
+          "description": "전원 프로필이 변경될 때 OSD 팝업 표시",
+          "label": "전원 프로필"
+        },
+        "osd-kinds-privacy": {
+          "description": "마이크, 카메라 또는 화면 공유 캡처가 시작되거나 중지될 때 OSD 팝업 표시",
+          "label": "개인 정보"
+        },
+        "osd-kinds-volume": {
+          "description": "볼륨이 변경될 때 OSD 팝업 표시. 고급 설정을 사용하여 출력과 입력을 별도로 제어하세요",
+          "label": "볼륨"
+        },
+        "osd-kinds-volume-input": {
+          "description": "입력 (마이크) 볼륨이 변경될 때 OSD 팝업 표시",
+          "label": "입력 볼륨"
+        },
+        "osd-kinds-volume-output": {
+          "description": "출력 (스피커) 볼륨이 변경될 때 OSD 팝업 표시",
+          "label": "출력 볼륨"
+        },
+        "osd-kinds-wifi": {
+          "description": "Wi-Fi가 전환될 때 OSD 팝업 표시",
+          "label": "Wi-Fi"
+        },
+        "osd-monitors": {
+          "description": "OSD 팝업을 표시할 모니터 선택. 비워 두면 모든 모니터에 표시",
+          "label": "모니터"
+        },
+        "osd-offset-x": {
+          "description": "화면 가장자리에서 절대 가로 여백",
+          "label": "가로 여백"
+        },
+        "osd-offset-y": {
+          "description": "화면 가장자리에서 절대 세로 여백",
+          "label": "세로 여백"
+        },
+        "osd-orientation": {
+          "description": "OSD 팝업의 레이아웃 방향",
+          "label": "방향"
+        },
+        "osd-position": {
+          "description": "OSD 팝업의 화면 위치",
+          "label": "화면 위치"
+        },
+        "osd-position-vertical": {
+          "description": "슬라이더 방향이 세로일 때의 화면 위치",
+          "label": "세로 위치"
+        },
+        "osd-scale": {
+          "description": "쉘 UI 배율 대비 OSD 팝업 배율 (1.0이면 기본 크기유지합니다)",
+          "label": "배율"
+        },
+        "password-style": {
+          "description": "비밀번호 입력 마스킹의 시각적 스타일",
+          "label": "비밀번호 스타일"
+        },
+        "polkit-agent": {
+          "description": "내장 인증 에이전트 활성화",
+          "label": "Polkit 에이전트"
+        },
+        "privacy-cam-filter-regex": {
+          "description": "개인 정보 표시기 및 OSD에서 무시할 카메라 앱의 정규식",
+          "label": "카메라 필터 정규식"
+        },
+        "privacy-mic-filter-regex": {
+          "description": "개인 정보 표시기 및 OSD에서 무시할 마이크 앱의 정규식",
+          "label": "마이크 필터 정규식"
+        },
+        "privacy-screen-filter-regex": {
+          "description": "개인 정보 표시기 및 OSD에서 무시할 화면 공유 앱의 정규식",
+          "label": "화면 공유 필터 정규식"
+        },
+        "screen-time-enabled": {
+          "description": "앱별 사용량 추적 및 제어 센터에 표시",
+          "label": "화면 사용 시간"
+        },
+        "screen-time-reset": {
+          "button": "초기화",
+          "description": "저장된 앱별 전경 사용 기록 지우기",
+          "label": "화면 사용 시간 데이터 초기화"
+        },
+        "screenshot-confirm-region": {
+          "description": "영역을 그린 후 Enter 또는 Space로 확인할 때까지 오버레이를 열어 둡니다",
+          "label": "영역 확인"
+        },
+        "screenshot-copy-to-clipboard": {
+          "description": "캡처된 PNG를 클립보드 선택 항목에 넣기",
+          "label": "클립보드에 복사"
+        },
+        "screenshot-directory": {
+          "description": "저장된 PNG 파일의 폴더. 비워 두면 ~/Pictures를 사용합니다",
+          "label": "출력 디렉토리",
+          "placeholder": "~/Pictures"
+        },
+        "screenshot-filename-pattern": {
+          "description": "확장자 없는 strftime 패턴 (.png가 추가됨). Unix epoch에는 %s를 사용하세요",
+          "label": "파일명 패턴"
+        },
+        "screenshot-freeze-screen": {
+          "description": "영역 선택 전에 데스크톱을 캡처하여 움직이는 콘텐츠가 정지하도록 합니다",
+          "label": "화면 고정"
+        },
+        "screenshot-pipe-command": {
+          "description": "PNG를 stdin으로 /bin/sh -lc로 실행되는 명령어. 주석 달기 또는 업로더용 (예: swappy -f - 또는 satty -f -)",
+          "label": "파이프 명령어",
+          "placeholder": "swappy -f -"
+        },
+        "screenshot-pipe-to-command": {
+          "description": "캡처된 PNG를 stdin의 쉘 명령어로 전송",
+          "label": "명령어로 파이프"
+        },
+        "screenshot-remember-last-region": {
+          "description": "다음 영역 스크린샷 시 마지막으로 선택한 영역을 미리 선택 (취소 후 포함)",
+          "label": "마지막 영역 기억"
+        },
+        "screenshot-save-to-file": {
+          "description": "스크린샷을 출력 디렉토리에 PNG 파일로 저장",
+          "label": "파일로 저장"
+        },
+        "screenshot-show-cursor": {
+          "description": "스크린샷에 마우스 포인터 포함",
+          "label": "커서 표시"
+        },
+        "show-location": {
+          "description": "날씨 위젯에 위치 이름 표시",
+          "label": "위치 표시"
+        },
+        "sync-greeter": {
+          "button": "지금 동기화",
+          "description": "현재 배경 화면과 색상을 Noctalia Greeter에 복사 (관리자 승인 필요)",
+          "label": "Noctalia Greeter"
+        },
+        "telemetry": {
+          "description": "버전, OS, 컴포지터, 모니터 해상도, RAM, UI 배율이 포함된 소규모 익명 시작 핑을 전송합니다",
+          "label": "익명 시작 핑"
+        },
+        "time-format": {
+          "description": "자체 설정이 없는 쉘 UI의 기본 시간 형식",
+          "label": "시간 형식"
+        }
+      },
+      "system": {
+        "battery-device-warning-threshold": {
+          "description": "이 장치의 배터리 경고 임계값 재정의 (0이면 이 장치의 경고 비활성화)",
+          "label": "{device} 경고 임계값"
+        },
+        "battery-warning-threshold": {
+          "description": "쉘이 배터리 부족 알림을 전송하고 배터리 위젯이 경고 색상을 사용하는 시스템 배터리 잔량 (0이면 비활성화)",
+          "label": "배터리 경고 임계값"
+        }
+      },
+      "templates": {
+        "builtin-ids": {
+          "description": "각 테마 변경 시 렌더링할 번들 앱 템플릿 전환",
+          "empty": "사용 가능한 기본 제공 템플릿이 없습니다.",
+          "label": "기본 제공 템플릿"
+        },
+        "community-ids": {
+          "description": "각 테마 변경 시 렌더링할 캐시된 커뮤니티 템플릿 전환",
+          "empty": "아직 사용 가능한 커뮤니티 템플릿이 없습니다. 커뮤니티 템플릿을 활성화하고 카탈로그를 먼저 새로 고침하세요.",
+          "label": "커뮤니티 템플릿"
+        },
+        "dynamic-output": "출력 경로는 템플릿이 적용될 때 확인됩니다",
+        "enable-builtins": {
+          "description": "앱용 번들 테마 템플릿 카탈로그 사용",
+          "label": "기본 제공 템플릿 활성화"
+        },
+        "enable-community-templates": {
+          "description": "커뮤니티 카탈로그에서 템플릿 다운로드 및 적용",
+          "label": "커뮤니티 템플릿 활성화"
+        }
+      },
+      "wallpaper": {
+        "automation": {
+          "description": "타이머로 배경 화면 자동 순환",
+          "label": "자동 회전"
+        },
+        "automation-interval": {
+          "description": "배경 화면 변경 사이의 초 간격",
+          "label": "회전 간격"
+        },
+        "automation-order": {
+          "description": "무작위 또는 알파벳 순으로 배경 화면 선택",
+          "label": "순서"
+        },
+        "automation-recursive": {
+          "description": "배경 화면을 위한 중첩 폴더 검색",
+          "label": "하위 폴더 포함"
+        },
+        "directory": {
+          "description": "배경 화면이 들어 있는 폴더",
+          "label": "배경 화면 디렉토리"
+        },
+        "directory-dark": {
+          "description": "다크 테마 모드에서 사용할 배경 화면 폴더",
+          "label": "다크 모드 디렉토리",
+          "placeholder": "~/Pictures/Wallpapers"
+        },
+        "directory-light": {
+          "description": "라이트 테마 모드에서 사용할 배경 화면 폴더",
+          "label": "라이트 모드 디렉토리",
+          "placeholder": "~/Pictures/Wallpapers"
+        },
+        "edge-smoothness": {
+          "description": "배경 화면 사이의 전환 가장자리 페더링",
+          "label": "가장자리 부드러움"
+        },
+        "enabled": {
+          "description": "배경 화면 서비스 활성화"
+        },
+        "fill-color": {
+          "description": "덮이지 않은 영역에서 이미지 뒤에 표시되는 단색",
+          "label": "채우기 색상"
+        },
+        "fill-mode": {
+          "description": "배경 화면이 화면에 맞는 방법",
+          "label": "채우기 모드"
+        },
+        "monitor-directory": {
+          "label": "배경 화면 디렉토리"
+        },
+        "monitor-directory-dark": {
+          "label": "다크 모드 디렉토리",
+          "placeholder": "~/Pictures/Wallpapers"
+        },
+        "monitor-directory-light": {
+          "label": "라이트 모드 디렉토리",
+          "placeholder": "~/Pictures/Wallpapers"
+        },
+        "panel": {
+          "button": "패널 열기",
+          "description": "배경 화면 선택기 패널 열기",
+          "label": "배경 화면 패널"
+        },
+        "per-monitor-directories": {
+          "description": "각 모니터에 별도의 배경 화면 폴더 사용",
+          "label": "모니터별 디렉토리"
+        },
+        "transition-duration": {
+          "description": "배경 화면 변경 애니메이션 길이 (밀리초)",
+          "label": "전환 지속 시간"
+        },
+        "transition-on-startup": {
+          "description": "쉘이 배경 화면을 처음 표시할 때 전환 재생",
+          "label": "시작 시 애니메이션"
+        },
+        "transitions": {
+          "description": "배경 화면 변경 시 사용 가능한 효과 (변경마다 무작위로 선택됨)",
+          "label": "전환 효과"
+        }
+      }
+    },
+    "session-actions": {
+      "add": "작업 추가",
+      "clear-glyph": "지우기",
+      "command-label": "쉘 명령어",
+      "command-placeholder": "선택적 bash 명령어. 기본 제공 동작을 사용하려면 비워 두세요",
+      "command-required-placeholder": "실행할 쉘 명령어",
+      "countdown-seconds-description": "실행 전 대기할 초 수. 다시 활성화하면 즉시 확인합니다. 0이면 즉시 실행됩니다.",
+      "countdown-seconds-label": "카운트다운 (초)",
+      "glyph-label": "글리프",
+      "glyph-picker-title": "작업 글리프",
+      "kind-section-label": "동작",
+      "label-field": "레이블",
+      "label-placeholder": "선택적 버튼 텍스트",
+      "shortcut-label": "단축키",
+      "variant": {
+        "default": "기본값",
+        "destructive": "위험",
+        "ghost": "고스트",
+        "outline": "외곽선",
+        "primary": "기본",
+        "secondary": "보조"
+      },
+      "variant-label": "버튼 스타일"
+    },
+    "storage-recovery": {
+      "button": "개인 저장소 초기화",
+      "button-confirm": "저장소 초기화 확인",
+      "description": "저장된 클립보드 기록과 캘린더 이벤트 캐시를 영구적으로 삭제한 후 개인 저장소를 다시 엽니다. 설정된 키 파일은 수정되지 않습니다.",
+      "error-delete": "일부 개인 저장소 파일을 삭제할 수 없습니다. 저장소 키는 보존되었습니다.",
+      "error-key": "개인 저장소 파일은 삭제되었지만 보안 저장소를 다시 열 수 없습니다. 접근을 수정하고 다시 시도하세요.",
+      "label": "개인 저장소 복구",
+      "success": "개인 저장소가 성공적으로 초기화되었습니다."
+    },
+    "templates": {
+      "store": {
+        "browse": "템플릿 탐색",
+        "categories": "카테고리",
+        "category-all": "모두",
+        "empty": "필터와 일치하는 템플릿이 없습니다",
+        "enabled-count": "{count}개 활성화됨",
+        "filter-all": "모두",
+        "filter-enabled": "활성화됨",
+        "results-count": "{count}개 템플릿",
+        "search-placeholder": "템플릿 검색...",
+        "sort-category-asc": "카테고리순 정렬 (A-Z)",
+        "sort-category-desc": "카테고리순 정렬 (Z-A)",
+        "sort-name-asc": "이름순 정렬 (A-Z)",
+        "sort-name-desc": "이름순 정렬 (Z-A)",
+        "title": "커뮤니티 템플릿"
+      }
+    },
+    "widgets": {
+      "actions": {
+        "command-placeholder": "쉘 명령어",
+        "default": "기본값",
+        "disabled": "비활성화됨",
+        "run-command": "명령어 실행...",
+        "unset": "설정되지 않음"
+      },
+      "gestures": {
+        "back": "뒤로 가기 버튼",
+        "forward": "앞으로 가기 버튼",
+        "left": "좌클릭",
+        "middle": "중간 클릭",
+        "right": "우클릭",
+        "scroll-down": "아래 스크롤",
+        "scroll-left": "왼쪽 스크롤",
+        "scroll-right": "오른쪽 스크롤",
+        "scroll-up": "위 스크롤"
+      },
+      "instances": {
+        "cpu": "CPU",
+        "date": "날짜",
+        "input-volume": "입력 볼륨",
+        "network-rx": "네트워크 수신",
+        "network-tx": "네트워크 송신",
+        "output-volume": "출력 볼륨",
+        "ram": "메모리",
+        "temp": "온도"
+      },
+      "map-placeholders": {
+        "effects-profile-name": "프로필 이름",
+        "glyph-name": "글리프 이름",
+        "key": "키",
+        "label": "레이블",
+        "layout-name": "레이아웃 이름",
+        "value": "값"
+      },
+      "options": {
+        "after": "이후",
+        "always": "항상",
+        "auto": "자동",
+        "before": "이전",
+        "both": "둘 다",
+        "compact": "간결",
+        "count": "개수",
+        "cpu-temp": "CPU 온도",
+        "cpu-usage": "CPU 사용률",
+        "disk-free": "디스크 여유 공간",
+        "disk-free-percent": "디스크 여유 퍼센트",
+        "disk-used": "디스크 사용됨",
+        "disk-used-percent": "디스크 사용 퍼센트",
+        "dots": "점",
+        "focus-hint": "포커스 힌트",
+        "full": "전체",
+        "gauge": "게이지",
+        "glyph": "글리프",
+        "gpu-temp": "GPU 온도",
+        "gpu-usage": "GPU 사용률",
+        "gpu-vram": "GPU VRAM",
+        "graph": "그래프",
+        "graphic": "그래픽",
+        "hidden": "숨겨짐",
+        "icon-and-text": "아이콘 및 텍스트",
+        "icon-only": "아이콘만",
+        "icons": "아이콘",
+        "id": "ID",
+        "input": "입력",
+        "instance": "배치별",
+        "kilobytes": "kB/s",
+        "megabytes": "MB/s",
+        "minimal": "최소",
+        "name": "이름",
+        "net-rx": "네트워크 수신",
+        "net-tx": "네트워크 송신",
+        "none": "없음",
+        "on-hover": "마우스 오버 시",
+        "output": "출력",
+        "percent": "퍼센트",
+        "ram-percent": "메모리 퍼센트",
+        "ram-used": "메모리 사용됨",
+        "rate": "속도",
+        "regular": "기본",
+        "replace": "교체",
+        "scroll-gesture": "제스처당 한 번",
+        "scroll-steps": "움직임마다",
+        "shared": "공유",
+        "short": "짧게",
+        "swap-percent": "스왑 퍼센트",
+        "text": "텍스트",
+        "text-only": "텍스트만",
+        "time": "시간",
+        "workspace-label-centered": "가운데",
+        "workspace-label-corner": "모서리",
+        "workspace-label-inside": "필 안쪽"
+      },
+      "settings": {
+        "actions": {
+          "description": "이 위젯에서 각 마우스 제스처가 수행할 동작을 설정합니다. 명령어를 선택하거나, 셸 명령어를 실행하거나, 기능을 비활성화할 수 있습니다.",
+          "label": "제스처 동작"
+        },
+        "active-color": {
+          "description": "활성 개인 정보 표시기에 사용되는 색상. 고정 hex 색상도 지원됩니다",
+          "label": "활성 색상"
+        },
+        "active-opacity": {
+          "description": "활성 (포커스된) 창 아이콘의 불투명도",
+          "label": "활성 아이콘 불투명도"
+        },
+        "active-pill-size": {
+          "description": "바를 따른 최소 활성 작업 공간 필 길이. 필 두께의 배수",
+          "label": "활성 필 크기",
+          "workspaces-description": "바를 따른 최소 활성 작업 공간 필 길이. 필 두께의 배수. 레이블이 이를 초과하여 확장될 수 있습니다"
+        },
+        "album-art-only": {
+          "description": "트랙 제목 없이 원형 앨범 아트워크만 표시",
+          "label": "앨범 아트만"
+        },
+        "anchor": {
+          "description": "이 위젯을 가운데 정렬 앵커로 고정",
+          "label": "앵커"
+        },
+        "art-size": {
+          "description": "미디어 아트워크 크기 (픽셀)",
+          "label": "아트 크기"
+        },
+        "artist-first": {
+          "description": "트랙 제목 앞에 아티스트 표시 (아티스트 - 제목)",
+          "label": "아티스트 먼저"
+        },
+        "bands": {
+          "description": "시각화 밴드 수",
+          "label": "밴드"
+        },
+        "cam-filter-regex": {
+          "description": "무시할 카메라 프로세스 이름의 정규식",
+          "label": "카메라 필터 정규식"
+        },
+        "capsule": {
+          "description": "이 위젯 뒤에 캡슐 그리기",
+          "label": "캡슐"
+        },
+        "capsule-border": {
+          "description": "캡슐 외곽선의 색상 역할. 고정 hex 색상도 지원됩니다",
+          "label": "캡슐 테두리"
+        },
+        "capsule-fill": {
+          "description": "캡슐 배경의 색상 역할. 고정 hex 색상도 지원됩니다",
+          "label": "캡슐 채우기"
+        },
+        "capsule-foreground": {
+          "description": "캡슐 내부 콘텐츠의 색상 역할. 고정 hex 색상도 지원됩니다",
+          "label": "캡슐 전경"
+        },
+        "capsule-opacity": {
+          "description": "캡슐 배경의 불투명도",
+          "label": "캡슐 불투명도"
+        },
+        "capsule-padding": {
+          "description": "캡슐 내부 여백",
+          "label": "캡슐 여백"
+        },
+        "capsule-radius": {
+          "description": "이 위젯 캡슐의 모서리 반지름. 자동 필 형태는 비워 두고, 정사각형 모서리는 0으로 설정",
+          "label": "캡슐 반지름",
+          "taskbar-description": "위젯 캡슐, 작업 공간 디스크 표시기, 작업 공간 그룹 캡슐의 모서리 반지름. 자동 필 형태는 비워 두고, 정사각형 모서리는 0으로 설정",
+          "workspaces-description": "이 위젯 캡슐 및 작업 공간 필의 모서리 반지름. 자동 필 형태는 비워 두고, 정사각형 모서리는 0으로 설정"
+        },
+        "centered": {
+          "description": "시각화 바를 가장자리에 정렬하는 대신 가운데에 배치",
+          "label": "가운데 정렬"
+        },
+        "change-color-on-hover": {
+          "description": "포인터가 워크스페이스 위에 있을 때 채우기 색상과 레이블 색상을 변경합니다",
+          "label": "마우스 오버 시 색상 변경"
+        },
+        "color": {
+          "description": "이 위젯의 아이콘 및 레이블 색상 역할. 고정 hex 색상도 지원됩니다",
+          "label": "색상"
+        },
+        "color-1": {
+          "description": "시각화의 첫 번째 그라데이션 색상",
+          "label": "색상 1"
+        },
+        "color-2": {
+          "description": "시각화의 두 번째 그라데이션 색상",
+          "label": "색상 2"
+        },
+        "custom-image": {
+          "description": "사용자 정의 이미지 경로. 아이콘 글리프를 사용하려면 비워 두세요",
+          "dialog-title": "사용자 정의 이미지 선택",
+          "label": "사용자 정의 이미지"
+        },
+        "custom-image-colorize": {
+          "description": "위젯 아이콘 색상 설정으로 사용자 정의 이미지를 틴팅",
+          "label": "사용자 정의 이미지 채색"
+        },
+        "custom-labels": {
+          "description": "키보드 레이아웃 이름을 사용자 정의 레이블에 매핑",
+          "label": "사용자 정의 레이블"
+        },
+        "detached-panel": {
+          "description": "서랍을 바에 합치는 대신 자체 배경을 가진 플로팅 패널로 열기",
+          "label": "분리된 패널"
+        },
+        "device": {
+          "description": "모니터링 또는 제어할 장치",
+          "label": "장치"
+        },
+        "display": {
+          "active-window-description": "가로 바에서는 아이콘, 제목 또는 둘 다. 세로 바는 아이콘만",
+          "description": "이 위젯의 표시 모드",
+          "label": "표시"
+        },
+        "display-mode": {
+          "description": "배터리를 그래픽 형태, Tabler 글리프 또는 레이블만으로 렌더링",
+          "label": "표시 모드"
+        },
+        "drawer": {
+          "description": "바에 트레이 버튼을 표시하고 항목을 패널에서 열기",
+          "label": "서랍 패널 사용"
+        },
+        "drawer-columns": {
+          "description": "서랍 패널의 행당 트레이 아이콘 수",
+          "label": "서랍 열"
+        },
+        "drawer-item-size": {
+          "description": "서랍 패널 내부 트레이 아이콘 크기 (픽셀)",
+          "label": "서랍 아이콘 크기"
+        },
+        "effects-profile-glyphs": {
+          "description": "EasyEffects 프로필 이름을 아이콘 글리프에 매핑",
+          "label": "효과 프로필 글리프"
+        },
+        "empty-color": {
+          "description": "빈 작업 공간에 사용되는 색상 역할. 고정 hex 색상도 지원됩니다",
+          "label": "빈 색상"
+        },
+        "enable-scroll": {
+          "description": "이 위젯에서 마우스 휠 및 트랙패드 스크롤 작업 허용",
+          "label": "스크롤 활성화"
+        },
+        "focused-color": {
+          "description": "포커스된 작업 공간에 사용되는 색상 역할. 고정 hex 색상도 지원됩니다",
+          "label": "포커스 색상"
+        },
+        "focused-output-only": {
+          "description": "포커스된 모니터의 활성 작업 공간만 강조 표시",
+          "label": "포커스된 모니터만 강조",
+          "taskbar-description": "키보드 또는 포인터 포커스가 있는 모니터의 활성 작업 공간에만 포커스 색상 사용. 다른 모니터는 점유 색상 사용",
+          "workspaces-description": "키보드 또는 포인터 포커스가 있는 모니터의 활성 작업 공간만 강조 표시. 다른 모니터는 활성 작업 공간을 점유된 것으로 표시"
+        },
+        "font-family": {
+          "description": "이 위젯의 글꼴. 비워 두면 바 글꼴을 상속합니다",
+          "label": "글꼴 패밀리"
+        },
+        "font-weight": {
+          "description": "기본값은 바 글꼴 두께를 상속합니다",
+          "label": "글꼴 두께"
+        },
+        "format": {
+          "description": "시간 형식 문자열",
+          "label": "형식"
+        },
+        "glyph": {
+          "description": "아이콘 글리프 이름",
+          "label": "글리프",
+          "sysmon-description": "사용자 정의 아이콘 글리프. 선택된 통계의 아이콘을 사용하려면 비워 두세요",
+          "volume-description": "사용자 정의 아이콘 글리프. 내장 동적 아이콘을 사용하려면 비워 두세요"
+        },
+        "glyph-position": {
+          "description": "텍스트/그래프/게이지와의 관계에서 글리프를 표시할 순서",
+          "label": "글리프 위치"
+        },
+        "group-by-workspace": {
+          "description": "컴포지터 데이터를 사용할 수 있을 때 태스크바 아이콘을 작업 공간 캡슐로 그룹화",
+          "label": "작업 공간별 그룹화"
+        },
+        "group-single-icon-per-app": {
+          "description": "아이콘으로 작업 공간별 그룹화 시, 같은 앱의 여러 창을 개수 뱃지가 있는 하나의 아이콘으로 축소.",
+          "label": "앱당 단일 아이콘"
+        },
+        "height": {
+          "description": "위젯 높이 (픽셀)",
+          "label": "높이"
+        },
+        "hidden": {
+          "description": "숨길 트레이 항목 ID",
+          "label": "숨겨진 항목"
+        },
+        "hide-album-art": {
+          "description": "앨범 아트워크 숨기기",
+          "label": "앨범 아트 숨기기"
+        },
+        "hide-artist": {
+          "description": "아티스트 이름을 숨기고 트랙 제목만 표시",
+          "label": "아티스트 숨기기"
+        },
+        "hide-empty-workspaces": {
+          "description": "작업 공간별 그룹화 시, 태스크바 목록에 실행 중인 창이 없는 캡슐 생략.",
+          "label": "빈 작업 공간 숨기기"
+        },
+        "hide-inactive": {
+          "description": "비활성 개인 정보 아이콘 숨기기 및 아무것도 활성화되지 않았을 때 위젯 숨기기",
+          "label": "비활성 숨기기"
+        },
+        "hide-when-empty": {
+          "description": "열린 창이 없을 때 작업 공간 필 숨기기",
+          "label": "비어 있을 때 숨기기",
+          "workspaces-description": "열린 창이 없는 작업 공간 필 숨기기"
+        },
+        "hide-when-full": {
+          "description": "완전히 충전되었을 때 배터리 위젯 숨기기",
+          "label": "가득 찼을 때 숨기기"
+        },
+        "hide-when-no-connected-device": {
+          "description": "연결된 장치가 없을 때 Bluetooth 위젯 숨기기",
+          "label": "연결된 장치 없을 때 숨기기"
+        },
+        "hide-when-no-media": {
+          "description": "활성 MPRIS 플레이어가 없을 때 미디어 위젯 숨기기",
+          "label": "미디어 없을 때 숨기기"
+        },
+        "hide-when-no-unread": {
+          "description": "읽지 않은 알림이 없을 때 알림 위젯 숨기기",
+          "label": "새 알림 없을 때 숨기기"
+        },
+        "hide-when-off": {
+          "description": "비활성 상태일 때 잠금 키 표시기 숨기기",
+          "label": "꺼져 있을 때 숨기기"
+        },
+        "hide-when-plugged": {
+          "description": "AC 전원에 연결되어 있을 때 배터리 위젯 숨기기",
+          "label": "플러그 연결 시 숨기기"
+        },
+        "hide-when-single-layout": {
+          "description": "레이아웃이 하나만 설정된 경우 키보드 레이아웃 위젯 숨기기",
+          "label": "단일 레이아웃 시 숨기기"
+        },
+        "highlight-color": {
+          "description": "위험 임계값 이상일 때 도달하는 색상",
+          "label": "하이라이트 색상"
+        },
+        "hot-reload": {
+          "description": "소스가 변경될 때 스크립트된 위젯 다시 로드",
+          "label": "핫 리로드"
+        },
+        "icon-color": {
+          "description": "아이콘에만 위젯 색상을 재정의합니다. 고정 hex 색상도 지원됩니다",
+          "label": "아이콘 색상"
+        },
+        "icon-size": {
+          "description": "아이콘 크기 (픽셀)",
+          "label": "아이콘 크기"
+        },
+        "icon-spacing": {
+          "description": "개인 정보 표시기 아이콘 사이의 간격 (픽셀)",
+          "label": "아이콘 간격"
+        },
+        "inactive-color": {
+          "description": "비활성 개인 정보 표시기에 사용되는 색상. 고정 hex 색상도 지원됩니다",
+          "label": "비활성 색상"
+        },
+        "inactive-opacity": {
+          "description": "비활성 (포커스되지 않은) 창 아이콘의 불투명도",
+          "label": "비활성 아이콘 불투명도"
+        },
+        "inactive-pill-size": {
+          "description": "바를 따른 최소 비활성 작업 공간 필 길이. 필 두께의 배수",
+          "label": "비활성 필 크기",
+          "workspaces-description": "바를 따른 최소 비활성 작업 공간 필 길이. 필 두께의 배수. 레이블이 이를 초과하여 확장될 수 있습니다"
+        },
+        "interactive": {
+          "description": "이 위젯의 포인터 마우스 오버, 클릭, 스크롤, 툴팁 허용",
+          "label": "인터랙티브"
+        },
+        "interface": {
+          "description": "모니터링할 네트워크 인터페이스. 비워 두면 모든 인터페이스의 합계를 사용합니다",
+          "label": "인터페이스"
+        },
+        "label": {
+          "description": "이 버튼에 표시되는 선택적 정적 텍스트",
+          "label": "레이블"
+        },
+        "label-content": {
+          "description": "배터리 레이블 표시 내용: 충전 퍼센트, 남은 시간 또는 전력 소비",
+          "label": "레이블 내용"
+        },
+        "label-min-width": {
+          "description": "크기 조정을 방지하기 위한 최소 레이블 너비 (픽셀)",
+          "label": "레이블 최소 너비"
+        },
+        "label-show-units": {
+          "description": "퍼센트 / GiB / °C와 같은 단위 표시",
+          "label": "단위 표시"
+        },
+        "labels-only-when-occupied": {
+          "description": "비어 있고 비활성인 작업 공간의 레이블 숨기기",
+          "label": "점유 시에만 레이블",
+          "workspaces-description": "열린 창이 있는 작업 공간과 비어 있어도 활성인 작업 공간에 작업 공간 ID 또는 이름 레이블 표시. 다른 빈 태그는 레이블 없음"
+        },
+        "length": {
+          "description": "스페이서 길이 (픽셀)",
+          "label": "길이"
+        },
+        "match-adjacent-spacing": {
+          "description": "인접한 바 위젯의 시각적 간격 (캡슐 여백 포함)에 맞게 인라인 트레이 아이콘 사이의 간격 넓히기",
+          "label": "인접 위젯 간격 맞추기"
+        },
+        "max-label-chars": {
+          "description": "작업 공간 이름에 표시할 최대 문자 수",
+          "label": "최대 레이블 문자 수",
+          "workspaces-description": "작업 공간 이름 레이블의 최대 문자 수"
+        },
+        "max-length": {
+          "description": "최대 위젯 길이 (픽셀)",
+          "label": "최대 길이"
+        },
+        "mic-filter-regex": {
+          "description": "무시할 마이크 앱 이름의 정규식",
+          "label": "마이크 필터 정규식"
+        },
+        "min-length": {
+          "description": "최소 위젯 길이 (픽셀)",
+          "label": "최소 길이"
+        },
+        "minimal": {
+          "description": "애니메이션 필 없이 작업 공간 ID 또는 이름 레이블만 표시",
+          "label": "최소 스타일",
+          "taskbar-description": "색상 디스크 배경 없이 텍스트 전용 작업 공간 레이블"
+        },
+        "mirrored": {
+          "description": "시각화를 중심으로 미러링",
+          "label": "미러링"
+        },
+        "mute-color": {
+          "description": "음소거 시 아이콘 및 레이블에 사용되는 색상 역할. 고정 hex 색상도 지원됩니다",
+          "label": "음소거 색상"
+        },
+        "mute-glyph": {
+          "description": "음소거 또는 볼륨 0%일 때 사용되는 아이콘 글리프. 내장 음소거 아이콘을 사용하려면 비워 두세요",
+          "label": "음소거 글리프"
+        },
+        "network-speed-compact": {
+          "description": "1.2 MB/s 대신 1.2M과 같은 짧은 단위 접미사 사용",
+          "label": "간략한 네트워크 속도"
+        },
+        "network-speed-unit": {
+          "description": "네트워크 수신 및 전송 속도에 사용되는 단위. 자동은 B/s, kB/s, MB/s, GB/s 사이에서 전환",
+          "label": "네트워크 속도 단위"
+        },
+        "occupied-color": {
+          "description": "점유된 작업 공간에 사용되는 색상 역할. 고정 hex 색상도 지원됩니다",
+          "label": "점유 색상"
+        },
+        "only-active-workspace": {
+          "description": "비활성 작업 공간의 창 숨기기",
+          "label": "활성 작업 공간만"
+        },
+        "path": {
+          "description": "디스크 통계에 사용되는 경로",
+          "label": "경로"
+        },
+        "pill-scale": {
+          "description": "작업 공간 필의 배율 조정",
+          "label": "필 배율",
+          "workspaces-description": "작업 공간 필의 배율 조정"
+        },
+        "pinned": {
+          "description": "서랍 모드가 활성화된 경우 바에서 계속 표시되는 트레이 항목 ID",
+          "label": "고정된 항목",
+          "taskbar-description": "실행 중이지 않을 때도 태스크바에 유지되는 데스크톱 앱. 작업 공간별 그룹화가 켜져 있으면 무시됩니다.",
+          "taskbar-label": "고정된 앱"
+        },
+        "pinned-opacity": {
+          "description": "현재 실행 중이지 않은 고정된 앱의 불투명도",
+          "label": "고정 앱 불투명도"
+        },
+        "scale": {
+          "description": "바 콘텐츠 배율 대비 이 위젯의 배율",
+          "label": "배율"
+        },
+        "scope": {
+          "description": "라이브 위젯 배치마다 하나의 스크립트 런타임을 실행하거나, 동일한 위젯 ID를 가진 바들 사이에서 하나의 런타임을 공유",
+          "label": "런타임 범위"
+        },
+        "script": {
+          "description": "lua 스크립트 경로",
+          "label": "스크립트"
+        },
+        "scroll-repeat": {
+          "description": "스크롤 동작이 명령어 의미론을 따를지, 제스처당 한 번만 실행될지, 아니면 각 스크롤 단계마다 반복될지 선택합니다",
+          "label": "스크롤 반복"
+        },
+        "show-active-indicator": {
+          "description": "태스크바의 활성 창 아이콘 아래에 작은 점 표시",
+          "label": "활성 창 표시기"
+        },
+        "show-all-outputs": {
+          "description": "이 위젯에 모든 디스플레이의 창 포함",
+          "label": "모든 모니터 표시"
+        },
+        "show-caps-lock": {
+          "description": "Caps Lock 상태 표시",
+          "label": "Caps Lock 표시"
+        },
+        "show-condition": {
+          "description": "날씨 상태 텍스트 표시",
+          "label": "상태 표시"
+        },
+        "show-empty-label": {
+          "description": "포커스된 창이 없을 때 위젯을 숨기는 대신 자리 표시자 텍스트 표시",
+          "label": "빈 레이블 표시"
+        },
+        "show-glyph": {
+          "description": "위젯 글리프 또는 사용자 지정 이미지 표시",
+          "label": "글리프 표시"
+        },
+        "show-label": {
+          "description": "위젯의 텍스트 레이블 표시",
+          "label": "레이블 표시"
+        },
+        "show-num-lock": {
+          "description": "Num Lock 상태 표시",
+          "label": "Num Lock 표시"
+        },
+        "show-scroll-lock": {
+          "description": "Scroll Lock 상태 표시",
+          "label": "Scroll Lock 표시"
+        },
+        "show-temperature": {
+          "description": "현재 온도 텍스트 표시",
+          "label": "온도 표시"
+        },
+        "show-unlock-hint": {
+          "description": "잠금 해제 힌트 및 인증 프롬프트용 상태 카드를 로그인 창 위에 표시합니다. 이 옵션을 꺼도 오류 및 Caps Lock 경고는 계속 표시됩니다.",
+          "label": "잠금 해제 힌트"
+        },
+        "show-value": {
+          "description": "시각화 옆에 현재 값 표시",
+          "label": "값 표시"
+        },
+        "show-vpn-label": {
+          "description": "VPN 이름 표시: 교체 모드에서는 네트워크 레이블을 대체하고, 둘 다 모드에서는 VPN 아이콘 옆에 레이블 추가",
+          "label": "VPN 레이블 표시"
+        },
+        "show-when-idle": {
+          "description": "미디어가 재생되지 않을 때도 시각화 표시 유지",
+          "label": "유휴 시 표시"
+        },
+        "show-window-title": {
+          "description": "아이콘 옆에 창 제목 표시 (가로 바에서만)",
+          "label": "창 제목 표시"
+        },
+        "show-workspace-label": {
+          "description": "그룹화된 태스크바 캡슐에 작은 작업 공간 태그 표시. 아이콘만 있는 그룹에는 끄세요",
+          "label": "작업 공간 캡슐 레이블"
+        },
+        "stat": {
+          "description": "표시할 시스템 통계",
+          "label": "통계"
+        },
+        "style": {
+          "description": "작업 공간 전환기 외관",
+          "label": "스타일",
+          "workspaces-description": "기본은 애니메이션 필 표시, 최소는 텍스트 전용 레이블, 포커스 힌트는 비활성 작업 공간에 점을 사용하고 포커스된 앱 아이콘과 함께 확장된 활성 필 사용"
+        },
+        "taskbar-max-width": {
+          "description": "픽셀 단위의 총 너비 예산. 창 제목이 맞게 줄어들고 너무 좁으면 숨겨집니다",
+          "label": "태스크바 최대 너비"
+        },
+        "text": {
+          "description": "바에 표시되는 텍스트",
+          "label": "텍스트"
+        },
+        "timezone": {
+          "description": "이 시계에 사용할 시간대 식별자 (예: Asia/Seoul). 비워 두면 시스템 현지 시간을 사용합니다",
+          "label": "시간대"
+        },
+        "title-scroll": {
+          "description": "위젯 제목을 스크롤할 시점",
+          "label": "제목 스크롤"
+        },
+        "tooltip": {
+          "description": "이 버튼에 마우스를 올렸을 때 표시되는 툴팁",
+          "label": "툴팁"
+        },
+        "tooltip-format": {
+          "description": "툴팁의 선택적 형식",
+          "label": "툴팁 형식"
+        },
+        "type": {
+          "description": "이 이름 있는 위젯의 내장 위젯 유형",
+          "label": "유형"
+        },
+        "urgent-color": {
+          "description": "긴급 작업 공간에 사용되는 색상 역할. 고정 hex 색상도 지원됩니다",
+          "label": "긴급 색상"
+        },
+        "vertical-format": {
+          "description": "세로 바에서 사용되는 선택적 형식",
+          "label": "세로 형식"
+        },
+        "visualization": {
+          "description": "게이지, 그래프 또는 데이터 시각화 없음",
+          "label": "시각화"
+        },
+        "vpn-status": {
+          "description": "VPN 상태 표시 방법: 교체는 네트워크 아이콘을 VPN 방패로 바꾸고, 둘 다는 나란히 표시하고, 숨김은 VPN 표시기를 비활성화합니다",
+          "label": "VPN 상태"
+        },
+        "warning-color": {
+          "description": "충전량이 시스템 배터리 경고 임계값 이하일 때 적용되는 색상",
+          "label": "경고 색상"
+        },
+        "width": {
+          "description": "위젯 너비 (픽셀)",
+          "label": "너비"
+        },
+        "window-title-max-width": {
+          "description": "창 제목의 최대 너비 (픽셀)",
+          "label": "창 제목 최대 너비"
+        },
+        "workspace-group-capsule": {
+          "description": "그룹화된 각 작업 공간 주위에 배경과 테두리 그리기. 끄면 아이콘 그룹화와 작업 공간 디스크 레이블만 유지됩니다.",
+          "label": "작업 공간 그룹 캡슐"
+        },
+        "workspace-group-content": {
+          "description": "각 작업 공간 그룹에 표시할 내용: 앱 아이콘, 창 개수 또는 점 (최대 5개, 나머지는 +N)",
+          "label": "그룹 내용"
+        },
+        "workspace-label-placement": {
+          "description": "모서리, 가장자리 가운데 또는 필 안쪽",
+          "label": "작업 공간 레이블 위치"
+        }
+      },
+      "types": {
+        "active-window": "활성 창",
+        "audio-visualizer": "오디오 시각화",
+        "battery": "배터리",
+        "bluetooth": "Bluetooth",
+        "brightness": "밝기",
+        "caffeine": "카페인",
+        "clipboard": "클립보드",
+        "clock": "시계",
+        "control-center": "제어 센터",
+        "custom-button": "사용자 정의 버튼",
+        "keyboard-layout": "키보드 레이아웃",
+        "launcher": "런처",
+        "lock-keys": "잠금 키",
+        "media": "미디어",
+        "network": "네트워크",
+        "nightlight": "야간 조명",
+        "notifications": "알림",
+        "power-profile": "전원 프로필",
+        "privacy": "개인 정보 표시기",
+        "screenshot": "스크린샷",
+        "scripted": "스크립트",
+        "session": "세션",
+        "settings": "설정",
+        "spacer": "스페이서",
+        "sysmon": "시스템 모니터",
+        "taskbar": "태스크바",
+        "test": "테스트",
+        "text": "텍스트",
+        "theme-mode": "테마 모드",
+        "tray": "트레이",
+        "volume": "볼륨",
+        "wallpaper": "배경 화면",
+        "weather": "날씨",
+        "workspaces": "작업 공간"
+      }
+    },
+    "window": {
+      "export-config": "설정 내보내기…",
+      "export-config-saved": "설정 내보내기가 저장되었습니다.",
+      "filter-overridden": "재정의됨",
+      "legacy-config-warning": "레거시 설정이 메모리에서 마이그레이션 중입니다: {issue}. 필요한 모든 변경 사항은 noctalia config validate를 실행하세요.",
+      "native-title": "Noctalia 설정",
+      "no-results": "설정을 찾을 수 없음",
+      "no-results-hint": "다른 설정 이름이나 설정 키를 시도해 보세요.",
+      "offline-mode-notice": {
+        "appearance": "커뮤니티 팔레트 다운로드가 작동하지 않습니다.",
+        "calendar-account": "캘린더 검색 및 동기화가 작동하지 않습니다.",
+        "disable-hint": "보안 섹션에서 오프라인 모드를 비활성화하세요.",
+        "launcher": "환율 가져오기가 작동하지 않습니다.",
+        "location": "날씨 및 위치 조회가 작동하지 않습니다.",
+        "plugin-store": "원격 플러그인 카탈로그 및 다운로드 요청이 작동하지 않습니다.",
+        "plugins": "플러그인 HTTP 요청이 작동하지 않습니다. Git 소스는 계속 업데이트할 수 있습니다.",
+        "security": "외부 IP 조회 및 텔레메트리 전송이 작동하지 않습니다.",
+        "services": "캘린더 계정 동기화가 작동하지 않습니다.",
+        "template-store": "커뮤니티 템플릿 다운로드가 작동하지 않습니다.",
+        "templates": "커뮤니티 템플릿 다운로드 및 업데이트가 작동하지 않습니다.",
+        "title": "오프라인 모드"
+      },
+      "reset-page": "페이지 초기화",
+      "reset-page-confirm": "초기화 확인",
+      "search-placeholder": "설정 검색…",
+      "search-truncated": "처음 {count}개의 결과를 표시 중입니다. 검색을 구체화하여 결과를 좁히세요.",
+      "support-report": "지원 보고서",
+      "support-report-saved": "지원 보고서가 저장되었습니다.",
+      "support-report-title": "지원 보고서 저장",
+      "title": "설정"
+    }
+  },
+  "setup-wizard": {
+    "browse": "찾아보기",
+    "builtin-palette": "기본 제공 팔레트",
+    "footer-note": "나중에 설정에서 변경할 수 있습니다.",
+    "get-started": "시작하기",
+    "mode": "모드",
+    "no-wallpaper-selected": "배경 화면이 선택되지 않음",
+    "select-wallpaper": "배경 화면 선택",
+    "subtitle": "시작을 위한 몇 가지 빠른 선택.",
+    "title": "Noctalia에 오신 것을 환영합니다",
+    "wallpaper": "배경 화면",
+    "wallpaper-scheme": "배경 화면 방식"
+  },
+  "system": {
+    "hardware": {
+      "unknown": "알 수 없음",
+      "unknown-cpu": "알 수 없는 CPU",
+      "unknown-distro": "알 수 없는 배포판",
+      "unknown-gpu": "알 수 없는 GPU"
+    }
+  },
+  "theme": {
+    "scheme": {
+      "dysfunctional": "비기능적",
+      "faithful": "충실한",
+      "m3-content": "M3 콘텐츠",
+      "m3-fruit-salad": "M3 과일 샐러드",
+      "m3-monochrome": "M3 단색",
+      "m3-rainbow": "M3 무지개",
+      "m3-tonal-spot": "M3 톤 스팟",
+      "muted": "뮤트",
+      "soft": "소프트",
+      "vibrant": "선명한"
+    }
+  },
+  "time": {
+    "duration": {
+      "less-than-day": "1일 미만",
+      "less-than-minute": "1분 미만",
+      "three-parts": "{first} {second} {third}",
+      "two-parts": "{first} {second}"
+    },
+    "file": {
+      "unknown": "알 수 없음"
+    },
+    "relative": {
+      "days-ago": "{count}일 전",
+      "days-ago-plural": "{count}일 전",
+      "hours-ago": "{count}시간 전",
+      "hours-ago-plural": "{count}시간 전",
+      "just-now": "방금",
+      "minutes-ago": "{count}분 전",
+      "minutes-ago-plural": "{count}분 전"
+    },
+    "units": {
+      "day": "{count}일",
+      "day-plural": "{count}일",
+      "hour": "{count}시간",
+      "hour-compact": "{count}시",
+      "hour-plural": "{count}시간",
+      "minute": "{count}분",
+      "minute-compact": "{count}분",
+      "minute-plural": "{count}분",
+      "month": "{count}개월",
+      "month-plural": "{count}개월",
+      "year": "{count}년",
+      "year-plural": "{count}년"
+    }
+  },
+  "tray": {
+    "menu": {
+      "empty": "메뉴 항목 없음…",
+      "pin": "고정",
+      "unpin": "고정 해제"
+    }
+  },
+  "ui": {
+    "controls": {
+      "search-picker": {
+        "empty": "결과 없음",
+        "placeholder": "검색…"
+      },
+      "select": {
+        "placeholder": "옵션 선택"
+      }
+    },
+    "dialogs": {
+      "color-picker": {
+        "title": "색상"
+      },
+      "file": {
+        "actions": {
+          "open": "열기",
+          "save": "저장",
+          "select-folder": "폴더 선택"
+        },
+        "empty-filtered": "현재 필터와 일치하는 파일 없음",
+        "entry": {
+          "folder": "폴더"
+        },
+        "filename-placeholder": "파일명",
+        "filter-placeholder": "필터…",
+        "sort": {
+          "ascending": "↑",
+          "date": "날짜",
+          "descending": "↓",
+          "name": "이름",
+          "size": "크기"
+        },
+        "title": {
+          "default": "파일 대화상자",
+          "open": "파일 열기",
+          "save": "파일 저장",
+          "select-folder": "폴더 선택"
+        }
+      },
+      "glyph-picker": {
+        "all-categories": "모두",
+        "search-placeholder": "글리프 검색…",
+        "title": "글리프 선택"
       }
     }
+  },
+  "wallpaper": {
+    "panel": {
+      "all-monitors": "전체",
+      "color-title": "배경 화면 색상",
+      "filter-placeholder": "필터…",
+      "flatten": "단순화",
+      "loading": "배경 화면 불러오는 중…",
+      "sort-date-asc": "날짜 순 정렬 (오래된 순)",
+      "sort-date-desc": "날짜 순 정렬 (최신순)",
+      "sort-name-asc": "이름 순 정렬 (A-Z)",
+      "sort-name-desc": "이름 순 정렬 (Z-A)",
+      "sort-random": "랜덤 정렬 (셔플)",
+      "title": "배경 화면"
+    }
+  },
+  "weather": {
+    "conditions": {
+      "full": {
+        "clear-sky": "맑은 하늘",
+        "drizzle": "이슬비",
+        "fog": "안개",
+        "mainly-clear": "대체로 맑음",
+        "overcast": "흐림",
+        "partly-cloudy": "구름 조금",
+        "rain-showers": "소나기",
+        "snow": "눈",
+        "snow-showers": "눈 소나기",
+        "thunderstorm": "뇌우",
+        "unknown": "알 수 없음"
+      },
+      "short": {
+        "clear": "맑음",
+        "cloudy": "흐림",
+        "drizzle": "이슬비",
+        "fog": "안개",
+        "mostly-clear": "대체로 맑음",
+        "overcast": "완전히 흐림",
+        "showers": "소나기",
+        "snow": "눈",
+        "snow-showers": "눈 소나기",
+        "storm": "폭풍",
+        "weather": "날씨"
+      }
+    },
+    "errors": {
+      "fetch-failed": "날씨 가져오기 실패",
+      "parse-weather": "날씨 응답을 파싱할 수 없음"
+    }
+  },
+  "window-switcher": {
+    "empty": "열린 창 없음",
+    "hint": "Tab · Shift+Tab · 방향키 · Alt 놓기로 전환 · Esc로 취소",
+    "title": "창"
   }
 }

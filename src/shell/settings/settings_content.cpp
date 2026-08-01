@@ -89,11 +89,15 @@ namespace settings {
         .setOverride = ctx.setOverride,
         .setOverrides = ctx.setOverrides,
         .clearOverride = ctx.clearOverride,
+        .resetBarLane = ctx.resetBarLane,
         .renameWidgetInstance = ctx.renameWidgetInstance,
         .closeHostedEditor = ctx.closeHostedEditor,
         .openWidgetInspector = ctx.openWidgetInspectorEditor,
         .openCapsuleGroupInspector = ctx.openCapsuleGroupEditor,
         .makeResetButton = [&factory](const std::vector<std::string>& path) { return factory.makeResetButton(path); },
+        .makeResetActionButton = [&factory](
+                                     const std::vector<std::string>& path, std::function<void()> action
+                                 ) { return factory.makeResetButton(path, std::move(action)); },
         .makeRow = [&factory](
                        Flex& section, const SettingEntry& entry, std::unique_ptr<Node> control
                    ) { factory.makeRow(section, entry, std::move(control)); },

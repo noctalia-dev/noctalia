@@ -131,6 +131,10 @@ namespace scripting {
         dest.hasOnIpc = src.hasOnIpc;
         dest.hasOnIpcKnown = true;
       }
+      if (src.modulePathsKnown) {
+        dest.modulePathsKnown = true;
+        dest.modulePaths = src.modulePaths;
+      }
       dest.unhealthy = dest.unhealthy || src.unhealthy;
     }
 
@@ -217,6 +221,8 @@ namespace scripting {
     std::chrono::steady_clock::time_point lastUpdateAccepted;
     std::vector<std::chrono::steady_clock::time_point> timeoutHistory;
     std::vector<std::chrono::steady_clock::time_point> errorHistory;
+    // Modules already published to subscribers; a fresh host resets it to 0.
+    std::size_t reportedModuleCount = 0;
     ScriptResult replayState;
     bool replayStateReady = false;
     bool scheduled = false;
@@ -689,6 +695,7 @@ namespace scripting {
       teardownHost(0, event.snapshot, ScriptExitReason::Reload);
 
       host = std::make_unique<LuauHost>(scriptApi);
+      reportedModuleCount = 0;
       bindingContext.settings = &settings;
       bindingContext.host = host.get();
       bindingContext.ownerId = runtimeName;
@@ -756,6 +763,9 @@ namespace scripting {
       }
       bool ok = host->loadString(event.chunkName, event.source) && host->run();
       mergeResult(result, collectResult(event, "load", ok));
+      // A load with no modules must still publish an empty set, so a watcher drops
+      // the dependencies of the previous revision.
+      result.modulePathsKnown = true;
 
       if (ok) {
         ScriptEvent updateEvent = event;
@@ -828,7 +838,22 @@ namespace scripting {
       result.sideEffects = bindingContext.sideEffects;
       result.hasOnIpcKnown = false;
       if (!ok) {
-        result.error = result.timedOut ? "script callback exceeded its CPU budget" : "script callback failed";
+        // The VM's own message names the failing chunk and line, which for a bad
+        // require() is the whole diagnosis.
+        result.error = "script callback failed";
+        if (result.timedOut) {
+          result.error = "script callback exceeded its CPU budget";
+        } else if (host != nullptr && !host->lastError().empty()) {
+          result.error = host->lastError();
+        }
+      }
+
+      // require() can pull in a module from any callback, not just the load chunk,
+      // so the dependency set is republished whenever it grows.
+      if (host != nullptr && host->loadedModuleCount() != reportedModuleCount) {
+        reportedModuleCount = host->loadedModuleCount();
+        result.modulePathsKnown = true;
+        result.modulePaths = host->loadedModulePaths();
       }
 
       if (result.patch.updateIntervalMs.has_value()) {
@@ -915,13 +940,17 @@ namespace scripting {
         if (result.hasOnIpcKnown) {
           replayState.hasOnIpc = result.hasOnIpc;
         }
+        if (result.modulePathsKnown) {
+          replayState.modulePathsKnown = true;
+          replayState.modulePaths = result.modulePaths;
+        }
         replayState.unhealthy = result.unhealthy;
         replayState.ok = replayState.ok && result.ok;
         replayState.timedOut = replayState.timedOut || result.timedOut;
         replayState.error = result.error;
         replayState.callbackName = result.callbackName;
         replayState.sideEffects.clear();
-        replayStateReady = !replayState.patch.empty() || replayState.hasOnIpcKnown;
+        replayStateReady = !replayState.patch.empty() || replayState.hasOnIpcKnown || replayState.modulePathsKnown;
 
         callbacks.reserve(subscribers.size());
         for (const auto& [id, callback] : subscribers) {

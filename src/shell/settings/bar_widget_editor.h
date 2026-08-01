@@ -47,12 +47,17 @@ namespace settings {
     std::function<void(std::vector<std::string>, ConfigOverrideValue)> setOverride;
     std::function<void(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>)> setOverrides;
     std::function<void(std::vector<std::string>)> clearOverride;
+    // Reverts a lane and the capsule groups it holds to the config file.
+    std::function<void(std::vector<std::string>)> resetBarLane;
     std::function<void(std::string, std::string, std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>)>
         renameWidgetInstance;
     std::function<void()> closeHostedEditor;
     std::function<void(std::vector<std::string> laneListPath, std::string widgetName)> openWidgetInspector;
     std::function<void(std::vector<std::string> laneListPath, std::string groupId)> openCapsuleGroupInspector;
     std::function<std::unique_ptr<Button>(const std::vector<std::string>&)> makeResetButton;
+    // Reset-styled button (with the usual confirm step) that runs `action` instead of a plain clear.
+    std::function<std::unique_ptr<Button>(const std::vector<std::string>&, std::function<void()>)>
+        makeResetActionButton;
     std::function<void(Flex&, const SettingEntry&, std::unique_ptr<Node>)> makeRow;
     std::function<std::unique_ptr<Node>(bool, std::vector<std::string>, std::optional<bool> clearWhenValue)> makeToggle;
     std::function<std::unique_ptr<Node>(const SelectSetting&, std::vector<std::string>)> makeSelect;

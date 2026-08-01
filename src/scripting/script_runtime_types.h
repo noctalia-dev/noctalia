@@ -7,6 +7,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <optional>
 #include <string>
@@ -254,6 +255,8 @@ namespace scripting {
     bool timedOut = false;
     bool hasOnIpc = false;
     bool hasOnIpcKnown = false;
+    bool modulePathsKnown = false;
+    std::vector<std::filesystem::path> modulePaths;
     bool unhealthy = false;
     // True when this result included a CopyToClipboard side effect (before dispatch).
     bool copiedToClipboard = false;

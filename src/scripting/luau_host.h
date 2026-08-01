@@ -60,6 +60,13 @@ public:
 
   // Convenience: loadString + run.
   bool exec(std::string_view chunkName, std::string_view source) { return loadString(chunkName, source) && run(); }
+  // Absolute canonical paths of the modules require() has successfully loaded in
+  // this VM, in sorted order. Grows as callbacks require lazily, so consumers that
+  // watch these files must re-read after every call, not only after load.
+  [[nodiscard]] std::vector<std::filesystem::path> loadedModulePaths() const;
+  [[nodiscard]] std::size_t loadedModuleCount() const noexcept { return m_modulePaths.size(); }
+  // Message of the most recent failed call/compile, cleared when a call succeeds.
+  [[nodiscard]] const std::string& lastError() const noexcept { return m_lastError; }
 
   // Callback lookup by name, shared by the call helpers below: a name generated
   // by a ui-tree render (see ui_handler_table.h) resolves in that render's
@@ -210,6 +217,12 @@ private:
     std::shared_ptr<HttpStreamControl> control;
   };
 
+  static int luauRequire(lua_State* L);
+  // Directory the calling chunk's require() paths resolve against: the module dir
+  // recorded on the caller's environment metatable, or the plugin dir for the entry
+  // chunk. Lexical, so a deferred call from a module keeps that module's directory.
+  [[nodiscard]] std::filesystem::path requireBaseDir(lua_State* L) const;
+  bool pushRequiredModule(lua_State* L, std::string_view request, std::string& error);
   void stopAllStreams() noexcept;
   void stopAllHttpStreams() noexcept;
   // Pushes the callback `name` resolves to and reports whether it is callable.
@@ -242,6 +255,12 @@ private:
   lua_State* m_L = nullptr; // main state, frozen by luaL_sandbox
   lua_State* m_T = nullptr; // sandboxed thread; user code runs here
   int m_threadRef = -1;     // registry ref pinning m_T against the GC
+  // ref into the registry, keyed by canonical module path
+  std::unordered_map<std::string, int> m_moduleCache;
+  // canonical paths currently executing, for cycle detection, innermost last
+  std::vector<std::string> m_moduleStack;
+  // canonical paths of successfully loaded modules
+  std::unordered_set<std::string> m_modulePaths;
   std::unordered_set<int> m_asyncCommandCallbackRefs;
   std::unordered_set<int> m_asyncProcessMatchCallbackRefs;
   std::unordered_set<int> m_asyncHttpCallbackRefs;
@@ -255,6 +274,7 @@ private:
   std::size_t m_memUsed = 0; // bytes tracked by allocate(); guarded by the worker-thread serialization
   std::chrono::nanoseconds m_callCpuDeadline{};
   std::string m_currentCallName;
+  std::string m_lastError;
   bool m_cpuCoresRetained = false; // this host holds a SystemMonitorService per-core reference
   bool m_systemStatsRetained = false;
   std::unordered_set<std::string> m_diskPathsRetained;

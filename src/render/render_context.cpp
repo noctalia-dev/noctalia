@@ -2,6 +2,7 @@
 
 #include "core/files/resource_paths.h"
 #include "core/log.h"
+#include "core/scoped_timer.h"
 #include "core/ui_phase.h"
 #include "render/backend/render_backend.h"
 #include "render/core/texture_handle.h"
@@ -35,6 +36,7 @@ namespace {
   constexpr Logger kLog("render");
   constexpr float kSlowRenderOperationDebugMs = 50.0f;
   constexpr float kSlowRenderOperationWarnMs = 1000.0f;
+  constexpr float kPaintCullSlack = 16.0f;
 
 } // namespace
 
@@ -223,7 +225,7 @@ void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot) {
       const auto sh = static_cast<float>(target.logicalHeight());
       const auto bw = static_cast<float>(target.bufferWidth());
       const auto bh = static_cast<float>(target.bufferHeight());
-      renderNode(sceneRoot, Mat3::identity(), 1.0f, sw, sh, bw, bh, 0.0f, 0.0f, sw, sh, false);
+      renderNode(sceneRoot, Mat3::identity(), 1.0f, sw, sh, bw, bh, 0.0f, 0.0f, sw, sh, false, false, false);
     }
   }
   float ms = elapsedSince(drawStart);
@@ -329,7 +331,8 @@ void RenderContext::handleGraphicsReset(RenderGraphicsResetStatus status) {
 
 void RenderContext::renderNode(
     const Node* node, const Mat3& parentTransform, float parentOpacity, float sw, float sh, float bw, float bh,
-    float clipLeft, float clipTop, float clipRight, float clipBottom, bool hasClip, bool ignoreNodeOpacity
+    float clipLeft, float clipTop, float clipRight, float clipBottom, bool hasClip, bool ignoreNodeOpacity,
+    bool parentPaintContained
 ) {
   if (!node->visible()) {
     return;
@@ -342,6 +345,19 @@ void RenderContext::renderNode(
   float boundsRight = 0.0f;
   float boundsBottom = 0.0f;
   Node::transformedBounds(node, worldTransform, boundsLeft, boundsTop, boundsRight, boundsBottom);
+
+  const bool paintContained = parentPaintContained || node->paintContained();
+  if (paintContained
+      && hasClip
+      && node->type() != NodeType::RenderProxy
+      && node->width() > 0.0f
+      && node->height() > 0.0f
+      && (boundsRight + kPaintCullSlack <= clipLeft
+          || boundsLeft - kPaintCullSlack >= clipRight
+          || boundsBottom + kPaintCullSlack <= clipTop
+          || boundsTop - kPaintCullSlack >= clipBottom)) {
+    return;
+  }
 
   if (hasClip) {
     m_backend->setScissor(scissorForClip(sw, sh, bw, bh, clipLeft, clipTop, clipRight, clipBottom));
@@ -553,7 +569,7 @@ void RenderContext::renderNode(
       const Mat3 sourceParent = worldTransform * Mat3::translation(-source->x(), -source->y());
       renderNode(
           source, sourceParent, effectiveOpacity, sw, sh, bw, bh, clipLeft, clipTop, clipRight, clipBottom, hasClip,
-          true
+          true, false
       );
     }
     return;
@@ -607,14 +623,14 @@ void RenderContext::renderNode(
     for (const auto& child : children) {
       renderNode(
           child.get(), worldTransform, effectiveOpacity, sw, sh, bw, bh, childClipLeft, childClipTop, childClipRight,
-          childClipBottom, childHasClip
+          childClipBottom, childHasClip, false, paintContained
       );
     }
   } else {
     for (const auto* child : orderedChildren) {
       renderNode(
           child, worldTransform, effectiveOpacity, sw, sh, bw, bh, childClipLeft, childClipTop, childClipRight,
-          childClipBottom, childHasClip
+          childClipBottom, childHasClip, false, paintContained
       );
     }
   }

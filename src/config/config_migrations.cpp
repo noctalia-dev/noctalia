@@ -21,6 +21,9 @@ namespace noctalia::config {
     constexpr int kCustomButtonCommandsMigrationVersion = 6;
     constexpr int kDeadZoneActionsMigrationVersion = 7;
     constexpr int kLockscreenLoginBoxDeprecatedSettingsMigrationVersion = 8;
+    constexpr int kSysmonPresentationMigrationVersion = 9;
+    constexpr int kKeyboardLayoutShowGlyphMigrationVersion = 10;
+    constexpr int kWorkspacesDisplayMigrationVersion = 11;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
@@ -416,6 +419,136 @@ namespace noctalia::config {
       });
     }
 
+    template <typename OnChanged> void migrateSysmonPresentationSettings(toml::table& root, OnChanged&& onChanged) {
+      auto* widgets = root["widget"].as_table();
+      if (widgets == nullptr) {
+        return;
+      }
+
+      for (auto& [widgetName, widgetNode] : *widgets) {
+        auto* widget = widgetNode.as_table();
+        if (widget == nullptr || (*widget)["type"].value_or(std::string(widgetName.str())) != "sysmon") {
+          continue;
+        }
+
+        bool changed = false;
+        if (const auto showIcon = (*widget)["show_icon"].value<bool>(); showIcon.has_value()) {
+          if (!widget->contains("show_glyph")) {
+            widget->insert_or_assign("show_glyph", *showIcon);
+          }
+          widget->erase("show_icon");
+          changed = true;
+        }
+
+        const auto display = (*widget)["display"].value<std::string>();
+        if (display.has_value()) {
+          if (!widget->contains("visualization")) {
+            const std::string visualization = *display == "text" ? "none" : *display;
+            widget->insert_or_assign("visualization", visualization);
+          }
+          widget->erase("display");
+          changed = true;
+        }
+
+        if (const auto showLabel = (*widget)["show_label"].value<bool>(); showLabel.has_value()) {
+          if (!widget->contains("show_value")) {
+            bool showValue = *showLabel;
+            if (display == "text") {
+              showValue = true;
+            } else if (display == "none") {
+              showValue = false;
+            }
+            widget->insert_or_assign("show_value", showValue);
+          }
+          widget->erase("show_label");
+          changed = true;
+        } else if (display.has_value() && !widget->contains("show_value")) {
+          widget->insert_or_assign("show_value", *display != "none");
+          changed = true;
+        }
+
+        if (changed) {
+          onChanged("widget." + std::string(widgetName.str()));
+        }
+      }
+    }
+
+    void migrateSysmonPresentationSettingsSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateSysmonPresentationSettings(root, [&diag](const std::string& path) {
+        diag.warn(path, "migrated sysmon presentation settings to their canonical names");
+      });
+    }
+
+    template <typename OnChanged> void migrateWorkspacesDisplaySettings(toml::table& root, OnChanged&& onChanged) {
+      auto* widgets = root["widget"].as_table();
+      if (widgets == nullptr) {
+        return;
+      }
+
+      for (auto& [widgetName, widgetNode] : *widgets) {
+        auto* widget = widgetNode.as_table();
+        if (widget == nullptr || (*widget)["type"].value_or(std::string(widgetName.str())) != "workspaces") {
+          continue;
+        }
+
+        const auto display = (*widget)["display"].value<std::string>();
+        if (!display.has_value()) {
+          continue;
+        }
+
+        if (*display == "none") {
+          if (!widget->contains("show_labels")) {
+            widget->insert_or_assign("show_labels", false);
+          }
+        } else if (*display == "id" || *display == "name") {
+          if (!widget->contains("label_source")) {
+            widget->insert_or_assign("label_source", *display);
+          }
+        } else {
+          continue;
+        }
+
+        widget->erase("display");
+        onChanged("widget." + std::string(widgetName.str()));
+      }
+    }
+
+    void migrateWorkspacesDisplaySettingsSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateWorkspacesDisplaySettings(root, [&diag](const std::string& path) {
+        diag.warn(path, "migrated workspaces display to label_source/show_labels");
+      });
+    }
+
+    template <typename OnChanged> void migrateKeyboardLayoutShowGlyph(toml::table& root, OnChanged&& onChanged) {
+      auto* widgets = root["widget"].as_table();
+      if (widgets == nullptr) {
+        return;
+      }
+
+      for (auto& [widgetName, widgetNode] : *widgets) {
+        auto* widget = widgetNode.as_table();
+        if (widget == nullptr || (*widget)["type"].value_or(std::string(widgetName.str())) != "keyboard_layout") {
+          continue;
+        }
+
+        const auto showIcon = (*widget)["show_icon"].value<bool>();
+        if (!showIcon.has_value()) {
+          continue;
+        }
+        if (!widget->contains("show_glyph")) {
+          widget->insert_or_assign("show_glyph", *showIcon);
+        }
+        widget->erase("show_icon");
+        onChanged("widget." + std::string(widgetName.str()));
+      }
+    }
+
+    void migrateKeyboardLayoutShowGlyphSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateKeyboardLayoutShowGlyph(root, [&diag](const std::string& path) {
+        diag.warn(path, "migrated keyboard layout show_icon to show_glyph");
+      });
+    }
+
     void migrateCustomButtonCommandsSidecar(toml::table& root, schema::Diagnostics& diag) {
       migrateCustomButtonCommands(root, [&diag](const std::string& path, std::string_view message) {
         diag.warn(path, std::string(message));
@@ -516,6 +649,21 @@ namespace noctalia::config {
             .toVersion = kLockscreenLoginBoxDeprecatedSettingsMigrationVersion,
             .summary = "lockscreen: drop removed login box show_password_hint setting",
             .apply = migrateLockscreenLoginBoxDeprecatedSettingsSidecar,
+        },
+        {
+            .toVersion = kSysmonPresentationMigrationVersion,
+            .summary = "widget: migrate sysmon presentation settings",
+            .apply = migrateSysmonPresentationSettingsSidecar,
+        },
+        {
+            .toVersion = kKeyboardLayoutShowGlyphMigrationVersion,
+            .summary = "widget: rename keyboard layout show_icon to show_glyph",
+            .apply = migrateKeyboardLayoutShowGlyphSidecar,
+        },
+        {
+            .toVersion = kWorkspacesDisplayMigrationVersion,
+            .summary = "widget: split workspaces display into label_source and show_labels",
+            .apply = migrateWorkspacesDisplaySettingsSidecar,
         },
     };
     return migrations;
@@ -623,6 +771,27 @@ namespace noctalia::config {
           .migrationVersion = kLockscreenLoginBoxDeprecatedSettingsMigrationVersion,
           .path = path,
           .message = "removed deprecated show_password_hint",
+      });
+    });
+    migrateSysmonPresentationSettings(root, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kSysmonPresentationMigrationVersion,
+          .path = path,
+          .message = "sysmon display settings are now visualization, show_value, and show_glyph",
+      });
+    });
+    migrateKeyboardLayoutShowGlyph(root, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kKeyboardLayoutShowGlyphMigrationVersion,
+          .path = path,
+          .message = "keyboard layout show_icon is now show_glyph",
+      });
+    });
+    migrateWorkspacesDisplaySettings(root, [&issues](const std::string& path) {
+      issues.push_back({
+          .migrationVersion = kWorkspacesDisplayMigrationVersion,
+          .path = path,
+          .message = "workspaces display is now label_source and show_labels",
       });
     });
   }

@@ -6,16 +6,16 @@
 #include "ui/palette.h"
 #include "ui/style.h"
 
+#include <algorithm>
 #include <utility>
 
 DebugIndicatorWidget::DebugIndicatorWidget() = default;
 
 void DebugIndicatorWidget::create() {
-  auto row = ui::row(
+  auto container = ui::inputArea(
       {
           .out = &m_container,
-          .align = FlexAlign::Center,
-          .gap = Style::spaceXs * m_contentScale,
+          .acceptedButtons = 0,
       },
       ui::glyph({
           .out = &m_glyph,
@@ -26,14 +26,14 @@ void DebugIndicatorWidget::create() {
       ui::label({
           .out = &m_label,
           .text = "DEBUG",
-          .fontSize = Style::fontSizeCaption * m_contentScale,
+          .fontSize = Style::fontSizeBody * m_contentScale,
           .fontWeight = labelFontWeight(),
           .fontFamily = labelFontFamily(),
           .color = colorSpecFromRole(ColorRole::Error),
           .maxLines = 1,
       })
   );
-  setRoot(std::move(row));
+  setRoot(std::move(container));
 }
 
 void DebugIndicatorWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
@@ -42,14 +42,26 @@ void DebugIndicatorWidget::doLayout(Renderer& renderer, float containerWidth, fl
   }
 
   const bool isVertical = containerHeight > containerWidth;
-  m_container->setGap(Style::spaceXs * m_contentScale);
+  const float gap = Style::spaceXs * m_contentScale;
   m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
   m_glyph->setColor(colorSpecFromRole(ColorRole::Error));
+  m_glyph->measure(renderer);
   m_label->setVisible(!isVertical);
-  m_label->setFontSize(Style::fontSizeCaption * m_contentScale);
+  m_label->setFontSize(Style::fontSizeBody * m_contentScale);
   m_label->setColor(colorSpecFromRole(ColorRole::Error));
   m_label->setFontWeight(labelFontWeight());
-  m_container->layout(renderer);
+
+  if (isVertical) {
+    m_glyph->setPosition(0.0f, 0.0f);
+    m_container->setSize(m_glyph->width(), m_glyph->height());
+    return;
+  }
+
+  m_label->measure(renderer);
+  const float rowHeight = std::max(m_glyph->height(), m_label->height());
+  m_glyph->setPosition(0.0f, (rowHeight - m_glyph->height()) * 0.5f);
+  m_label->setPosition(m_glyph->width() + gap, (rowHeight - m_label->height()) * 0.5f);
+  m_container->setSize(m_glyph->width() + gap + m_label->width(), rowHeight);
 }
 
 #endif

@@ -134,6 +134,12 @@ public:
   bool markSetupWizardCompleted();
   [[nodiscard]] bool hasOverride(const std::vector<std::string>& path) const;
   [[nodiscard]] bool hasEffectiveOverride(const std::vector<std::string>& path) const;
+  // Lane content as the settings GUI presents it: the widget list plus the capsule groups it
+  // references, so moving a widget into a lane's group still reports the lane as overridden.
+  [[nodiscard]] bool hasEffectiveBarLaneOverride(const std::vector<std::string>& lanePath) const;
+  // Reverts a lane to the config file: drops the lane-list override and restores the capsule groups
+  // that lane references, leaving groups owned by other lanes alone.
+  bool resetBarLaneOverride(const std::vector<std::string>& lanePath, bool* changed = nullptr);
   [[nodiscard]] bool isOverrideOnlyBar(std::string_view name) const;
   [[nodiscard]] bool isOverrideOnlyCalendarAccount(std::string_view id) const;
   [[nodiscard]] bool canMoveBarOverride(std::string_view name, int direction) const;
@@ -183,6 +189,8 @@ private:
   // config-file lane whose group token the override no longer defines. Rewrites the affected
   // arrays in `candidate` so every referenced group resolves again.
   void reconcileCapsuleGroupOverrides(toml::table& candidate) const;
+  // Validates `next`, persists it, and reloads. `changed` reports whether anything moved.
+  bool commitOverrideTable(toml::table next, bool* changed);
   void setupWatch();
   // Reconciles inotify watches for [include]d files: watches the parent dir of
   // every loaded file plus every directory named in an [include].files list, and

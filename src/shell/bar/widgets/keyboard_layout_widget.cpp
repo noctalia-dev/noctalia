@@ -291,10 +291,10 @@ namespace {
 } // namespace
 
 KeyboardLayoutWidget::KeyboardLayoutWidget(
-    CompositorPlatform& platform, DisplayMode displayMode, bool showIcon, bool showLabel, bool hideWhenSingleLayout,
+    CompositorPlatform& platform, DisplayMode displayMode, bool showGlyph, bool showLabel, bool hideWhenSingleLayout,
     std::unordered_map<std::string, std::string> customLabels, std::string glyph, WidgetCustomImage customImage
 )
-    : m_platform(platform), m_displayMode(displayMode), m_showIcon(showIcon), m_showLabel(showLabel),
+    : m_platform(platform), m_displayMode(displayMode), m_showGlyph(showGlyph), m_showLabel(showLabel),
       m_hideWhenSingleLayout(hideWhenSingleLayout), m_customLabels(std::move(customLabels)),
       m_glyphName(std::move(glyph)), m_customImage(std::move(customImage)) {}
 
@@ -342,14 +342,14 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
     return;
   }
 
-  const bool showIcon = m_showIcon && (m_image != nullptr || m_glyph != nullptr);
+  const bool showGlyph = m_showGlyph && (m_image != nullptr || m_glyph != nullptr);
   if (m_image != nullptr) {
-    m_image->setVisible(m_showIcon);
+    m_image->setVisible(m_showGlyph);
   }
   if (m_glyph != nullptr) {
-    m_glyph->setVisible(m_showIcon);
+    m_glyph->setVisible(m_showGlyph);
   }
-  if (showIcon) {
+  if (showGlyph) {
     if (m_image != nullptr) {
       widget_custom_image::sync(
           *m_image, renderer, m_customImage, m_contentScale, widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface))
@@ -360,7 +360,7 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
       m_glyph->measure(renderer);
     }
     if (m_glyph != nullptr && m_glyph->width() <= 0.0f && m_glyphName == "keyboard") {
-      // Some icon fonts may miss the keyboard glyph; use a guaranteed fallback.
+      // Some fonts may miss the keyboard glyph; use a guaranteed fallback.
       m_glyph->setGlyph("world");
       m_glyph->measure(renderer);
     }
@@ -381,19 +381,19 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
   }
 
   if (m_isVertical) {
-    const float iconW = showIcon ? (m_image != nullptr ? m_image->width() : m_glyph->width()) : 0.0f;
-    const float iconH = showIcon ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0f;
+    const float glyphW = showGlyph ? (m_image != nullptr ? m_image->width() : m_glyph->width()) : 0.0f;
+    const float glyphH = showGlyph ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0f;
     const float labelW = m_showLabel ? m_label->width() : 0.0f;
     const float labelH = m_showLabel ? m_label->height() : 0.0f;
-    const float w = std::max(iconW, labelW);
+    const float w = std::max(glyphW, labelW);
     float y = 0.0f;
-    if (showIcon) {
+    if (showGlyph) {
       if (m_image != nullptr) {
-        m_image->setPosition(std::round((w - iconW) * 0.5f), y);
+        m_image->setPosition(std::round((w - glyphW) * 0.5f), y);
       } else {
-        m_glyph->setPosition(std::round((w - iconW) * 0.5f), y);
+        m_glyph->setPosition(std::round((w - glyphW) * 0.5f), y);
       }
-      y += iconH;
+      y += glyphH;
     }
     if (m_showLabel) {
       m_label->setPosition(std::round((w - labelW) * 0.5f), y);
@@ -403,10 +403,10 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
   } else {
     const float spacing = Style::spaceXs;
     float x = 0.0f;
-    const float iconH = showIcon ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0f;
+    const float glyphH = showGlyph ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0f;
     const float labelH = m_showLabel ? m_label->height() : 0.0f;
-    const float h = std::max(iconH, labelH);
-    if (showIcon) {
+    const float h = std::max(glyphH, labelH);
+    if (showGlyph) {
       if (m_image != nullptr) {
         const float imageY = std::round((h - m_image->height()) * 0.5f);
         m_image->setPosition(0.0f, imageY);
@@ -489,9 +489,9 @@ void KeyboardLayoutWidget::sync(Renderer& renderer) {
   m_lastVertical = m_isVertical;
 
   if (m_image != nullptr) {
-    m_image->setVisible(m_showIcon);
+    m_image->setVisible(m_showGlyph);
   } else if (m_glyph != nullptr) {
-    m_glyph->setVisible(m_showIcon);
+    m_glyph->setVisible(m_showGlyph);
   }
   m_label->setVisible(m_showLabel);
   if (m_showLabel) {

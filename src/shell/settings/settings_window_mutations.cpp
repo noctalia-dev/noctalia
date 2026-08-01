@@ -204,6 +204,27 @@ void SettingsWindow::clearSettingOverrides(std::vector<std::vector<std::string>>
   });
 }
 
+void SettingsWindow::resetBarLane(std::vector<std::string> lanePath) {
+  DeferredCall::callLater([this, lanePath = std::move(lanePath)]() mutable {
+    if (m_config == nullptr) {
+      return;
+    }
+    bool changed = false;
+    const bool needsSceneRebuild = settingPathNeedsSceneRebuild(lanePath);
+    const auto previousResetPaths = currentPageResetPaths();
+    if (!m_config->resetBarLaneOverride(lanePath, &changed)) {
+      markSettingsWriteError(i18n::tr("settings.errors.write"));
+      return;
+    }
+
+    const std::vector<std::vector<std::string>> paths{lanePath};
+    const bool registryPatched = changed && !needsSceneRebuild && tryPatchSettingsRegistryResetValues(paths);
+    finishSettingsWrite(
+        changed, needsSceneRebuild, previousResetPaths != currentPageResetPaths(), registryPatched, true
+    );
+  });
+}
+
 void SettingsWindow::renameWidgetInstance(
     std::string oldName, std::string newName,
     std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> referenceOverrides

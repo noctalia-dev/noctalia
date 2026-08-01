@@ -2559,10 +2559,6 @@
           "description": "Pokaż tekst warunku pogody",
           "label": "Pokaż warunek"
         },
-        "show-icon": {
-          "description": "Pokaż ikonę tego widżetu",
-          "label": "Pokaż ikonę"
-        },
         "show-label": {
           "description": "Pokaż tekst obok ikony",
           "label": "Pokaż etykietę"

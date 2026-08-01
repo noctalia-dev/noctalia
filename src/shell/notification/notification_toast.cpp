@@ -2554,11 +2554,13 @@ InputArea* NotificationToast::buildCard(
       ui::box({
           .width = cardW,
           .height = cardHeight,
-          .configure = [scale, bgAlpha, borderWidth](Box& box) {
+          .configure = [scale, bgAlpha, borderWidth, urgency = entry.urgency](Box& box) {
             box.setCardStyle();
             box.setRadius(Style::scaledRadiusXl(scale));
             box.setFill(colorSpecFromRole(ColorRole::Surface, bgAlpha));
-            box.setBorder(colorSpecFromRole(ColorRole::Outline), borderWidth);
+            box.setBorder(
+                colorSpecFromRole(urgency == Urgency::Critical ? ColorRole::Error : ColorRole::Outline), borderWidth
+            );
           },
       })
   );

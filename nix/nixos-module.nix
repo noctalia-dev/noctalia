@@ -7,6 +7,10 @@ let
   cfg = config.programs.noctalia;
 in
 {
+  # The module from this flake predates the module in nixpkgs.
+  # To avoid conflicts, we disable the nixpkgs module.
+  disabledModules = [ "programs/wayland/noctalia.nix" ];
+
   options.programs.noctalia = {
     enable = lib.mkEnableOption "Whether to enable noctalia, a lightweight Wayland shell and bar.";
 

@@ -100,6 +100,7 @@ public:
   [[nodiscard]] bool paintDirty() const noexcept { return m_paintDirty; }
   [[nodiscard]] bool layoutDirty() const noexcept { return m_layoutDirty; }
   [[nodiscard]] bool clipChildren() const noexcept { return m_clipChildren; }
+  [[nodiscard]] bool paintContained() const noexcept { return m_paintContained; }
   [[nodiscard]] bool hitTestVisible() const noexcept { return m_hitTestVisible; }
   [[nodiscard]] HitTestOutset hitTestOutset() const noexcept { return m_hitTestOutset; }
   [[nodiscard]] bool sizeAssignedByLayout() const noexcept { return m_sizeAssignedByLayout; }
@@ -126,6 +127,9 @@ public:
   void setVisible(bool visible);
   void setParticipatesInLayout(bool participatesInLayout);
   void setClipChildren(bool clipChildren);
+  // Promises that every node in this subtree paints within its own bounds (plus a small slack).
+  // Lets the renderer skip subtrees entirely outside the active clip.
+  void setPaintContained(bool paintContained);
   void setHitTestVisible(bool hitTestVisible);
   void setHitTestOutset(const HitTestOutset& outset);
   void setZIndex(std::int32_t zIndex);
@@ -179,7 +183,7 @@ protected:
 private:
   static bool
   pointInsideNode(const Node* node, float sceneX, float sceneY, float& localX, float& localY, bool includeHitOutset);
-  static Node* hitTestImpl(Node* node, float px, float py, bool allowOverflow);
+  static Node* hitTestImpl(Node* node, float px, float py, bool allowOverflow, const Mat3& parentTransform);
   NodeType m_type;
   float m_x = 0.0f;
   float m_y = 0.0f;
@@ -198,6 +202,7 @@ private:
   bool m_paintDirty = true;
   bool m_layoutDirty = true;
   bool m_clipChildren = false;
+  bool m_paintContained = false;
   bool m_excludeSubtreeFromTabOrder = false;
   bool m_hitTestVisible = true;
   HitTestOutset m_hitTestOutset{};

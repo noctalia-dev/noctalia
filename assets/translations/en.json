@@ -968,6 +968,10 @@
           "title": "Bar Widgets"
         },
         "group": {
+          "accordion": "Accordion",
+          "accordion-description": "Show only the first widget; hovering the capsule reveals the rest",
+          "accordion-direction": "Reveal direction",
+          "accordion-direction-description": "Side of the first widget where the hidden widgets unfold",
           "action": "Group",
           "border": "Border",
           "border-description": "Capsule outline color role; leave on Default for no outline",
@@ -1010,7 +1014,9 @@
           "show-widget": "Show this widget",
           "style": "Style",
           "title": "Capsule group",
-          "ungroup": "Ungroup"
+          "ungroup": "Ungroup",
+          "widget-spacing": "Spacing",
+          "widget-spacing-description": "Gap between widgets in this group, in pixels; Auto inherits the bar's widget spacing"
         },
         "inspector": {
           "add-instance-title": "Add new named {widget} widget to {lane}",
@@ -1265,6 +1271,10 @@
       }
     },
     "options": {
+      "accordion-direction": {
+        "end": "After first widget",
+        "start": "Before first widget"
+      },
       "bar": {
         "auto-hide": {
           "off": "Off",
@@ -3234,6 +3244,10 @@
           "description": "Color used for active privacy indicators; fixed hex colors are also supported",
           "label": "Active Color"
         },
+        "active-indicator-color": {
+          "description": "Color used for the active window indicator; fixed hex colors are also supported",
+          "label": "Active Indicator Color"
+        },
         "active-opacity": {
           "description": "Opacity of the icon for the active (focused) window",
           "label": "Active Icon Opacity"
@@ -3525,6 +3539,10 @@
           "description": "Show units like percent / GiB / °C",
           "label": "Show Units"
         },
+        "label-source": {
+          "description": "What workspace labels show",
+          "label": "Label Source"
+        },
         "labels-only-when-occupied": {
           "description": "Hide workspace labels on empty, inactive workspaces",
           "label": "Labels Only When Occupied",
@@ -3643,13 +3661,17 @@
           "description": "Show placeholder text when no window is focused instead of hiding the widget",
           "label": "Show Empty Label"
         },
-        "show-icon": {
-          "description": "Show this widget's icon",
-          "label": "Show Icon"
+        "show-glyph": {
+          "description": "Show the widget glyph or custom image",
+          "label": "Show Glyph"
         },
         "show-label": {
-          "description": "Show text next to the icon",
+          "description": "Show the widget's text label",
           "label": "Show Label"
+        },
+        "show-labels": {
+          "description": "Show text labels on workspaces",
+          "label": "Show Labels"
         },
         "show-num-lock": {
           "description": "Show Num Lock state",
@@ -3666,6 +3688,10 @@
         "show-unlock-hint": {
           "description": "Show the status card above the login box for unlock hints and auth prompts. Errors and Caps Lock warnings still appear when this is off.",
           "label": "Unlock Hint"
+        },
+        "show-value": {
+          "description": "Show the current value next to the visualization",
+          "label": "Show Value"
         },
         "show-vpn-label": {
           "description": "Replaces network label with VPN label in replace mode; adds VPN label next to VPN icon in both mode",
@@ -3727,6 +3753,10 @@
         "vertical-format": {
           "description": "Optional format used on vertical bars",
           "label": "Vertical Format"
+        },
+        "visualization": {
+          "description": "Gauge, graph, or no data visualization",
+          "label": "Visualization"
         },
         "vpn-status": {
           "description": "How to display VPN status: replace swaps the network icon for a VPN shield, both shows them side by side, hidden disables the VPN indicator",

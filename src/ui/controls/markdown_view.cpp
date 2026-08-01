@@ -534,6 +534,22 @@ void MarkdownView::clear() {
   }
 }
 
+LayoutSize MarkdownView::doMeasure(Renderer& renderer, const LayoutConstraints& constraints) {
+  // Apply the wrap width before measuring: labels otherwise report single-line
+  // sizes, the parent allocates too little height for the view, and sibling
+  // rows overlap it. doLayout re-applies the final arranged width.
+  float w = width();
+  if (constraints.hasMaxWidth && constraints.maxWidth > 0.0f) {
+    w = constraints.maxWidth;
+  }
+  if (w > 0.0f) {
+    for (Label* label : m_wrappableLabels) {
+      label->setMaxWidth(w);
+    }
+  }
+  return Flex::doMeasure(renderer, constraints);
+}
+
 void MarkdownView::doLayout(Renderer& renderer) {
   const float w = width();
   if (w > 0.0f) {

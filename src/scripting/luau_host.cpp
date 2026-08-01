@@ -50,6 +50,9 @@
 namespace {
   Logger kLog{"luau"};
   constexpr const char* kHostKey = "__noctalia_host";
+  // Field on a module environment's metatable holding the module's own directory.
+  // Not reachable through the environment table itself, and the metatable is frozen.
+  constexpr const char* kModuleDirKey = "__noctalia_moduledir";
   constexpr auto kDefaultCommandTimeout = std::chrono::milliseconds(5000);
   constexpr auto kMinCommandTimeout = std::chrono::milliseconds(50);
   constexpr auto kMaxCommandTimeout = std::chrono::milliseconds(60000);
@@ -69,6 +72,21 @@ namespace {
   // Per-plugin VM heap ceiling. Far above any legitimate plugin's working set, so
   // it only ever trips on a runaway allocation (an unbounded table/string loop).
   constexpr std::size_t kMemoryCeilingBytes = 128 * 1024 * 1024;
+
+  // Luau builds with LUA_USE_LONGJMP=0, so a script error unwinds as a C++ exception
+  // and destructors run — a guard is enough to keep host bookkeeping consistent when
+  // a Lua C API call throws (the per-VM memory ceiling is the realistic trigger).
+  template <typename Fn> class ScopeExit {
+  public:
+    explicit ScopeExit(Fn fn) : m_fn(std::move(fn)) {}
+    ~ScopeExit() { m_fn(); }
+
+    ScopeExit(const ScopeExit&) = delete;
+    ScopeExit& operator=(const ScopeExit&) = delete;
+
+  private:
+    Fn m_fn;
+  };
 
   std::atomic<std::uint64_t>& nextHostId() {
     static std::atomic<std::uint64_t> id{1};
@@ -1691,6 +1709,8 @@ LuauHost::LuauHost(scripting::ScriptApiContext& api, CompositorPlatform* platfor
   lua_callbacks(m_L)->interrupt = budgetInterrupt;
   luaL_openlibs(m_L);
   registerNoctaliaLib(m_L);
+  lua_pushcfunction(m_L, &LuauHost::luauRequire, "require");
+  lua_setglobal(m_L, "require");
   // Freeze main state's stdlib + globals. The thread we create next inherits
   // reads from this frozen table but gets its own writable globals, so the
   // user script can define `function update()` without touching the parent.
@@ -2561,12 +2581,14 @@ bool LuauHost::callWithBudget(const char* name, int args, int results, std::chro
   endBudget();
   if (rc != 0) {
     const char* err = lua_tostring(m_T, -1);
+    m_lastError = err != nullptr ? err : "";
     if (!m_muteErrors) {
       kLog.error("call to '{}' failed: {}", name ? name : "(unknown)", err ? err : "(no error)");
     }
     lua_pop(m_T, 1);
     return false;
   }
+  m_lastError.clear();
   return true;
 }
 
@@ -2574,18 +2596,184 @@ bool LuauHost::callGlobalInternal(const char* name, int args, std::chrono::milli
   return callWithBudget(name, args, 0, budget);
 }
 
+std::vector<std::filesystem::path> LuauHost::loadedModulePaths() const {
+  std::vector<std::filesystem::path> paths;
+  paths.reserve(m_modulePaths.size());
+  for (const auto& path : m_modulePaths) {
+    paths.emplace_back(path);
+  }
+  std::ranges::sort(paths);
+  return paths;
+}
+
+std::filesystem::path LuauHost::requireBaseDir(lua_State* L) const {
+  // Level 1 is the caller of this C function. Its environment is the module env we
+  // installed in pushRequiredModule() (or the thread globals, for the entry chunk).
+  lua_Debug ar;
+  if (lua_getinfo(L, 1, "f", &ar) == 0) {
+    return m_pluginDir;
+  }
+  std::filesystem::path base = m_pluginDir;
+  lua_getfenv(L, -1);
+  if (lua_getmetatable(L, -1) != 0) {
+    // The metatable is a plain table we own, so this raw-equivalent read cannot
+    // re-enter __index.
+    lua_getfield(L, -1, kModuleDirKey);
+    if (const char* dir = lua_tostring(L, -1); dir != nullptr) {
+      base = dir;
+    }
+    lua_pop(L, 2);
+  }
+  lua_pop(L, 2);
+  return base;
+}
+
+int LuauHost::luauRequire(lua_State* L) {
+  size_t requestLen = 0;
+  const char* request = luaL_checklstring(L, 1, &requestLen);
+  auto* host = hostForState(L);
+  if (host == nullptr) {
+    lua_pushliteral(L, "require: no plugin host");
+    lua_error(L);
+    return 0;
+  }
+
+  // Scoped so no non-trivial local is alive across the lua_error() longjmp below.
+  bool loaded = false;
+  {
+    std::string error;
+    loaded = host->pushRequiredModule(L, std::string_view(request, requestLen), error);
+    if (!loaded) {
+      lua_pushlstring(L, error.data(), error.size());
+    }
+  }
+  if (!loaded) {
+    lua_error(L);
+    return 0;
+  }
+  return 1;
+}
+
+bool LuauHost::pushRequiredModule(lua_State* L, std::string_view request, std::string& error) {
+  if ((!request.starts_with("./") && !request.starts_with("../"))
+      || std::filesystem::path(request).extension() != ".luau") {
+    error = "require path must be relative and end in .luau";
+    return false;
+  }
+
+  std::error_code pathError;
+  const std::filesystem::path resolved =
+      std::filesystem::absolute(requireBaseDir(L) / request, pathError).lexically_normal();
+  if (pathError) {
+    error = "require: cannot resolve '" + std::string(request) + "': " + pathError.message();
+    return false;
+  }
+  // Canonical so two spellings of one file — or a symlink and its target — share a
+  // cache slot and a single file watch. A path that does not exist has no canonical
+  // form, which is the missing-module error below.
+  const std::filesystem::path modulePath = std::filesystem::canonical(resolved, pathError);
+  if (pathError) {
+    error = "require: cannot open '" + resolved.string() + "'";
+    return false;
+  }
+  const std::string moduleKey = modulePath.string();
+
+  if (const auto cached = m_moduleCache.find(moduleKey); cached != m_moduleCache.end()) {
+    lua_getref(L, cached->second);
+    return true;
+  }
+  if (const auto cycle = std::ranges::find(m_moduleStack, moduleKey); cycle != m_moduleStack.end()) {
+    std::ostringstream chain;
+    chain << "circular require: ";
+    for (auto it = cycle; it != m_moduleStack.end(); ++it) {
+      chain << *it << " -> ";
+    }
+    chain << moduleKey;
+    error = std::move(chain).str();
+    return false;
+  }
+
+  std::ifstream file(modulePath, std::ios::binary);
+  if (!file) {
+    error = "require: cannot open '" + moduleKey + "'";
+    return false;
+  }
+  std::ostringstream sourceStream;
+  sourceStream << file.rdbuf();
+  const std::string source = std::move(sourceStream).str();
+
+  const int initialTop = lua_gettop(L);
+  m_moduleStack.emplace_back(moduleKey);
+  // Unwinds the cycle-detection stack on every exit path, including the C++ exception
+  // a memory-ceiling failure throws out of the Lua C API calls below.
+  const ScopeExit popModule([this] { m_moduleStack.pop_back(); });
+
+  size_t bytecodeSize = 0;
+  char* bytecode = luau_compile(source.data(), source.size(), nullptr, &bytecodeSize);
+  if (bytecode == nullptr) {
+    error = "require: failed to compile '" + moduleKey + "'";
+    return false;
+  }
+  const int loadResult = luau_load(L, moduleKey.c_str(), bytecode, bytecodeSize, 0);
+  std::free(bytecode);
+  if (loadResult != 0) {
+    const char* message = lua_tostring(L, -1);
+    error = message != nullptr ? message : "module compilation failed";
+    lua_settop(L, initialTop);
+    return false;
+  }
+
+  // Private globals for the module: writes land here, reads fall through to the
+  // shared sandboxed globals. The directory rides on the metatable so require() in
+  // any function closed over this env resolves lexically, whenever it runs.
+  const std::string moduleDir = modulePath.parent_path().string();
+  lua_newtable(L);
+  lua_pushvalue(L, -1);
+  lua_setfield(L, -2, "_G");
+  lua_newtable(L);
+  lua_pushvalue(L, LUA_GLOBALSINDEX);
+  lua_setfield(L, -2, "__index");
+  lua_pushlstring(L, moduleDir.data(), moduleDir.size());
+  lua_setfield(L, -2, kModuleDirKey);
+  lua_setreadonly(L, -1, true);
+  lua_setmetatable(L, -2);
+  lua_setfenv(L, -2);
+
+  if (lua_pcall(L, 0, LUA_MULTRET, 0) != 0) {
+    const char* message = lua_tostring(L, -1);
+    error = message != nullptr ? message : "module execution failed";
+    lua_settop(L, initialTop);
+    return false;
+  }
+
+  const int resultCount = lua_gettop(L) - initialTop;
+  if (resultCount != 1 || lua_isnil(L, -1)) {
+    lua_settop(L, initialTop);
+    error = "require: module '" + moduleKey + "' must return exactly one non-nil value";
+    return false;
+  }
+
+  // Recorded only once the module is fully loaded, so a failed require never enters
+  // the cache or the watch set.
+  m_moduleCache.emplace(moduleKey, lua_ref(L, -1));
+  m_modulePaths.insert(moduleKey);
+  return true;
+}
+
 bool LuauHost::loadString(std::string_view chunkName, std::string_view source) {
   size_t bytecodeSize = 0;
   char* bytecode = luau_compile(source.data(), source.size(), nullptr, &bytecodeSize);
+  std::string name(chunkName);
   if (!bytecode) {
-    kLog.error("luau_compile returned null for chunk '{}'", std::string(chunkName));
+    m_lastError = "failed to compile chunk '" + name + "'";
+    kLog.error("luau_compile returned null for chunk '{}'", name);
     return false;
   }
-  std::string name(chunkName);
   int loadResult = luau_load(m_T, name.c_str(), bytecode, bytecodeSize, 0);
   std::free(bytecode);
   if (loadResult != 0) {
     const char* err = lua_tostring(m_T, -1);
+    m_lastError = err != nullptr ? err : "";
     kLog.error("luau_load failed for '{}': {}", name, err ? err : "(no error)");
     lua_pop(m_T, 1);
     return false;

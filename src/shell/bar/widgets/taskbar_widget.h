@@ -47,6 +47,7 @@ struct TaskbarWidgetOptions {
   bool minimal = false;
   bool groupSingleIconPerApp = false;
   bool showActiveIndicator = true;
+  ColorSpec activeIndicatorColor = colorSpecFromRole(ColorRole::Primary);
   float activeOpacity = 1.0f;
   float inactiveOpacity = 1.0f;
   float pinnedOpacity = 0.5f;
@@ -185,6 +186,7 @@ private:
   bool m_minimal = false;
   bool m_groupSingleIconPerApp = false;
   bool m_showActiveIndicator = true;
+  ColorSpec m_activeIndicatorColor = colorSpecFromRole(ColorRole::Primary);
   float m_activeOpacity = 1.0f;
   float m_inactiveOpacity = 1.0f;
   float m_pinnedOpacity = 0.5f;

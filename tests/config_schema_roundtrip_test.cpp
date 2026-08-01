@@ -234,6 +234,9 @@ location = "https://example.invalid/bad"
     group.padding = 20.0f;
     group.radius = 14.0f;
     group.opacity = 0.8f;
+    group.accordion = true;
+    group.accordionDirection = BarAccordionDirection::Start;
+    group.widgetSpacing = 10;
     bar.widgetCapsuleGroups = {group};
 
     BarMonitorOverride ovr;
@@ -908,6 +911,8 @@ widget_spacing = 8
         right = "exec notify-send bar-right"
 
         [[default.monitor.DP-1.capsule_group]]
+        accordion = false
+        accordion_direction = "end"
         border = "#0F0E0D"
         enabled = true
         fill = "#F1F2F3"
@@ -919,6 +924,8 @@ widget_spacing = 8
         radius = 9.0
 
     [[default.capsule_group]]
+    accordion = true
+    accordion_direction = "start"
     border = "#333435"
     enabled = true
     fill = "#222324"
@@ -927,7 +934,8 @@ widget_spacing = 8
     members = [ "clock", "weather" ]
     opacity = 0.80000001192092896
     padding = 20.0
-    radius = 14.0)";
+    radius = 14.0
+    widget_spacing = 10)";
 
   const Config probe = makeProbe();
   const toml::table serialized = config_export::serialize(probe);

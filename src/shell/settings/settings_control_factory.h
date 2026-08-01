@@ -30,6 +30,9 @@ namespace settings {
     [[nodiscard]] float scale() const noexcept { return m_scale; }
 
     [[nodiscard]] std::unique_ptr<Button> makeResetButton(const std::vector<std::string>& path);
+    // Same button, but the confirmed click runs `onConfirmed` instead of clearing `path`.
+    [[nodiscard]] std::unique_ptr<Button>
+    makeResetButton(const std::vector<std::string>& path, std::function<void()> onConfirmed);
 
     void makeRow(Flex& section, const SettingEntry& entry, std::unique_ptr<Node> control);
 
@@ -93,7 +96,8 @@ namespace settings {
     [[nodiscard]] std::unique_ptr<Flex> makeOverrideBadge();
     [[nodiscard]] std::unique_ptr<Flex> makeAdvancedBadge();
     // Resets several config paths as one setting (e.g. a range slider's low + high paths).
-    [[nodiscard]] std::unique_ptr<Button> makeGroupedResetButton(std::vector<std::vector<std::string>> paths);
+    [[nodiscard]] std::unique_ptr<Button>
+    makeGroupedResetButton(std::vector<std::vector<std::string>> paths, std::function<void()> onConfirmed = nullptr);
     [[nodiscard]] static bool isTemplateEnableTogglePath(const std::vector<std::string>& path);
 
     SettingsContentContext m_ctx;

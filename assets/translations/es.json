@@ -3352,10 +3352,6 @@
           "description": "Mostrar texto de marcador de posición cuando no haya ninguna ventana enfocada en lugar de ocultar el widget",
           "label": "Mostrar etiqueta vacía"
         },
-        "show-icon": {
-          "description": "Mostrar el icono de este widget",
-          "label": "Mostrar icono"
-        },
         "show-label": {
           "description": "Mostrar texto junto al icono",
           "label": "Mostrar etiqueta"

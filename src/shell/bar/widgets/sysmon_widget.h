@@ -43,7 +43,7 @@ enum class SysmonStat {
   NetRx,
   NetTx
 };
-enum class SysmonDisplayMode { Text, Graph, Gauge, None };
+enum class SysmonVisualization { Graph, Gauge, None };
 enum class SysmonGlyphPosition { Before, After };
 
 class SysmonWidget : public Widget {
@@ -57,9 +57,10 @@ public:
     std::string networkInterface;
     FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
     bool networkSpeedCompact = false;
-    SysmonDisplayMode displayMode = SysmonDisplayMode::Gauge;
+    SysmonVisualization visualization = SysmonVisualization::Gauge;
     ColorSpec highlightColor = colorSpecFromRole(ColorRole::Error);
-    bool showLabel = true;
+    bool showGlyph = true;
+    bool showValue = true;
     int labelMinWidth = 0;
     bool showUnits = true;
     SysmonGlyphPosition glyphPosition = SysmonGlyphPosition::Before;
@@ -102,10 +103,11 @@ private:
 
   SystemMonitorService* m_monitor;
   SysmonStat m_stat;
-  SysmonDisplayMode m_displayMode;
+  SysmonVisualization m_visualization;
   ColorSpec m_highlightColor = colorSpecFromRole(ColorRole::Error);
   ConfigService& m_configService;
-  bool m_showLabel;
+  bool m_showGlyph;
+  bool m_showValue;
   float m_labelMinWidth = 0.0f;
   std::string m_diskPath;
   std::string m_networkInterface;

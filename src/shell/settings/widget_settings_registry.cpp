@@ -29,6 +29,7 @@
 #include "shell/bar/widgets/tray_widget_definition.h"
 #include "shell/bar/widgets/wallpaper_widget_definition.h"
 #include "shell/bar/widgets/weather_widget_definition.h"
+#include "shell/bar/widgets/workspaces_widget_definition.h"
 #include "shell/settings/font_family_catalog.h"
 #include "shell/settings/font_weight_catalog.h"
 #include "shell/settings/font_weight_i18n.h"
@@ -38,7 +39,9 @@
 #include <array>
 #include <cctype>
 #include <cmath>
+#include <format>
 #include <iterator>
+#include <stdexcept>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -85,6 +88,7 @@ namespace settings {
       std::string_view (*type)();
       schema::WidgetSettingSchema (*schemaFields)();
       std::vector<WidgetSettingSpec> (*presentedSettingSpecs)();
+      const std::vector<noctalia::bar::WidgetCommonSettingOverride>& (*commonOverrides)();
     };
 
     template <auto DefinitionAccessor> constexpr TypedWidgetDefinitionProjection projectWidgetDefinition() {
@@ -92,6 +96,9 @@ namespace settings {
           .type = [] { return DefinitionAccessor().type; },
           .schemaFields = [] { return DefinitionAccessor().schemaFields(); },
           .presentedSettingSpecs = [] { return DefinitionAccessor().presentedSettingSpecs(); },
+          .commonOverrides = []() -> const std::vector<noctalia::bar::WidgetCommonSettingOverride>& {
+            return DefinitionAccessor().commonOverrides;
+          },
       };
     }
 
@@ -120,6 +127,7 @@ namespace settings {
         projectWidgetDefinition<trayWidgetDefinition>(),
         projectWidgetDefinition<wallpaperWidgetDefinition>(),
         projectWidgetDefinition<weatherWidgetDefinition>(),
+        projectWidgetDefinition<workspacesWidgetDefinition>(),
     };
 
     const TypedWidgetDefinitionProjection* findTypedWidgetDefinitionProjection(std::string_view type) {
@@ -128,6 +136,44 @@ namespace settings {
             return candidate.type() == type;
           });
       return projection != kTypedWidgetDefinitions.end() ? &*projection : nullptr;
+    }
+
+    // Applies a definition's common-setting overrides. A key that names no common
+    // setting is a definition bug, not a silent no-op. `visibleWhen` refines: its
+    // conditions are appended to the ones the common setting already carries.
+    void applyCommonOverrides(
+        std::vector<WidgetSettingSpec>& commonSpecs,
+        const std::vector<noctalia::bar::WidgetCommonSettingOverride>& overrides, std::string_view type
+    ) {
+      for (const auto& entry : overrides) {
+        const auto spec = std::ranges::find_if(commonSpecs, [&entry](const WidgetSettingSpec& candidate) {
+          return candidate.schema.key == entry.key;
+        });
+        if (spec == commonSpecs.end()) {
+          throw std::logic_error(
+              std::format("widget definition '{}' overrides unknown common setting '{}'", type, entry.key)
+          );
+        }
+        if (entry.defaultValue.has_value()) {
+          spec->schema.defaultValue = *entry.defaultValue;
+        }
+        if (!entry.descriptionKey.empty()) {
+          spec->descriptionKey = std::string(entry.descriptionKey);
+        }
+        if (entry.visibleWhen.has_value()) {
+          if (!entry.visibleWhen->any.empty()) {
+            throw std::logic_error(
+                std::format(
+                    "widget definition '{}' common override '{}' declares alternatives; refinements are 'all' only",
+                    type, entry.key
+                )
+            );
+          }
+          auto refined = spec->visibleWhen.value_or(WidgetSettingVisibility{});
+          refined.all.insert(refined.all.end(), entry.visibleWhen->all.begin(), entry.visibleWhen->all.end());
+          spec->visibleWhen = std::move(refined);
+        }
+      }
     }
 
     const std::vector<WidgetTypeSpec> kWidgetTypeSpecs = {
@@ -722,30 +768,16 @@ namespace settings {
         bool supportsTaskbarWorkspaceGrouping, bool populateFontCatalogs
     ) {
       std::vector<WidgetSettingSpec> specs;
+      const auto* projection = findTypedWidgetDefinitionProjection(type);
       auto commonSpecs = commonWidgetSettingSpecs(shellFontFamily, populateFontCatalogs);
-      if (type == "spacer") {
-        for (WidgetSettingSpec& spec : commonSpecs) {
-          if (spec.schema.key == "interactive") {
-            spec.schema.defaultValue = false;
-            break;
-          }
-        }
+      if (projection != nullptr) {
+        applyCommonOverrides(commonSpecs, projection->commonOverrides(), type);
       }
 
       auto add = [&](WidgetSettingSpec spec) { specs.push_back(std::move(spec)); };
       const std::vector<WidgetSettingSelectOption> shortFull = {
           {"short", "settings.widgets.options.short"},
           {"full", "settings.widgets.options.full"},
-      };
-      const std::vector<WidgetSettingSelectOption> workspaceDisplay = {
-          {"id", "settings.widgets.options.id"},
-          {"name", "settings.widgets.options.name"},
-          {"none", "settings.widgets.options.none"},
-      };
-      const std::vector<WidgetSettingSelectOption> workspaceStyle = {
-          {"regular", "settings.widgets.options.regular"},
-          {"minimal", "settings.widgets.options.minimal"},
-          {"focus_hint", "settings.widgets.options.focus-hint"},
       };
       const std::vector<WidgetSettingSelectOption> workspaceLabelPlacement = {
           {"corner", "settings.widgets.options.workspace-label-corner"},
@@ -761,24 +793,24 @@ namespace settings {
           {"output", "settings.widgets.options.output"},
           {"input", "settings.widgets.options.input"},
       };
-      if (const auto* projection = findTypedWidgetDefinitionProjection(type)) {
+      if (projection != nullptr) {
         specs = projection->presentedSettingSpecs();
       } else if (type == "keyboard_layout") {
         add(boolSpec("hide_when_single_layout", false));
-        add(boolSpec("show_icon", true));
+        add(boolSpec("show_glyph", true));
         {
           auto glyph = glyphSpec("glyph", "keyboard");
-          glyph.visibleWhen = WidgetSettingVisibility{"show_icon", {"true"}};
+          glyph.visibleWhen = WidgetSettingVisibility{"show_glyph", {"true"}};
           add(std::move(glyph));
         }
         {
           auto image = stringSpec("custom_image", "");
-          image.visibleWhen = WidgetSettingVisibility{"show_icon", {"true"}};
+          image.visibleWhen = WidgetSettingVisibility{"show_glyph", {"true"}};
           add(std::move(image));
         }
         {
           auto colorize = boolSpec("custom_image_colorize", false);
-          colorize.visibleWhen = WidgetSettingVisibility{"show_icon", {"true"}};
+          colorize.visibleWhen = WidgetSettingVisibility{"show_glyph", {"true"}};
           add(std::move(colorize));
         }
         add(boolSpec("show_label", true));
@@ -796,6 +828,11 @@ namespace settings {
         // Windows: what the taskbar lists and how each window tile looks.
         add(withGroup(boolSpec("show_all_outputs", false), "taskbar.windows"));
         add(withGroup(boolSpec("show_active_indicator", true), "taskbar.windows"));
+        {
+          auto activeIndicatorColor = withGroup(colorSpec("active_indicator_color", "primary"), "taskbar.windows");
+          activeIndicatorColor.visibleWhen = WidgetSettingVisibility{"show_active_indicator", {"true"}};
+          add(std::move(activeIndicatorColor));
+        }
         add(withGroup(doubleSpec("active_opacity", 1.0, 0.1, 1.0, 0.01), "taskbar.windows"));
         add(withGroup(doubleSpec("inactive_opacity", 1.0, 0.1, 1.0, 0.01), "taskbar.windows"));
         {
@@ -953,72 +990,6 @@ namespace settings {
         add(boolSpec("custom_image_colorize", false));
         add(boolSpec("show_label", true));
         add(colorSpec("mute_color", "error"));
-      } else if (type == "workspaces") {
-        WidgetSettingVisibility pillStyleOnly;
-        pillStyleOnly.all = {WidgetSettingVisibilityCondition{"style", {"regular"}}};
-        for (auto& spec : commonSpecs) {
-          if (spec.schema.key == "capsule_radius") {
-            spec.descriptionKey = "settings.widgets.settings.capsule-radius.workspaces-description";
-            spec.visibleWhen = pillStyleOnly;
-            break;
-          }
-        }
-
-        // Workspaces: which workspaces appear, and what each one's label shows.
-        {
-          auto hideWhenEmpty = withGroup(boolSpec("hide_when_empty", false), "workspaces.list");
-          hideWhenEmpty.descriptionKey = "settings.widgets.settings.hide-when-empty.workspaces-description";
-          add(std::move(hideWhenEmpty));
-        }
-        add(withGroup(segmentedSpec("display", "id", workspaceDisplay), "workspaces.list"));
-        {
-          auto labelsOnlyWhenOccupied = withGroup(boolSpec("labels_only_when_occupied", false), "workspaces.list");
-          labelsOnlyWhenOccupied.descriptionKey =
-              "settings.widgets.settings.labels-only-when-occupied.workspaces-description";
-          add(std::move(labelsOnlyWhenOccupied));
-        }
-        {
-          auto maxLabelChars = withGroup(intSpec("max_label_chars", 1, 1.0, 20.0, 1.0), "workspaces.list");
-          maxLabelChars.descriptionKey = "settings.widgets.settings.max-label-chars.workspaces-description";
-          add(std::move(maxLabelChars));
-        }
-
-        // Pill style: minimal and focus_hint drop regular pill sizing options.
-        {
-          auto style = withGroup(segmentedSpec("style", "regular", workspaceStyle), "workspaces.pills");
-          style.descriptionKey = "settings.widgets.settings.style.workspaces-description";
-          add(std::move(style));
-        }
-        {
-          auto pillScale = withGroup(doubleSpec("pill_scale", 1.0, 0.1, 1.0, 0.05), "workspaces.pills");
-          pillScale.descriptionKey = "settings.widgets.settings.pill-scale.workspaces-description";
-          pillScale.visibleWhen = pillStyleOnly;
-          add(std::move(pillScale));
-        }
-        {
-          auto activePillSize = withGroup(doubleSpec("active_pill_size", 2.2, 0.25, 8.0, 0.05), "workspaces.pills");
-          activePillSize.descriptionKey = "settings.widgets.settings.active-pill-size.workspaces-description";
-          activePillSize.visibleWhen = pillStyleOnly;
-          add(std::move(activePillSize));
-        }
-        {
-          auto inactivePillSize = withGroup(doubleSpec("inactive_pill_size", 1.0, 0.25, 8.0, 0.05), "workspaces.pills");
-          inactivePillSize.descriptionKey = "settings.widgets.settings.inactive-pill-size.workspaces-description";
-          inactivePillSize.visibleWhen = pillStyleOnly;
-          add(std::move(inactivePillSize));
-        }
-
-        // Colors: the focused/occupied/empty palette and which monitor gets the focused treatment.
-        {
-          auto focusedOutputOnly = withGroup(boolSpec("focused_output_only", false), "workspaces.colors");
-          focusedOutputOnly.descriptionKey = "settings.widgets.settings.focused-output-only.workspaces-description";
-          add(std::move(focusedOutputOnly));
-        }
-        add(withGroup(boolSpec("change_color_on_hover", true), "workspaces.colors"));
-        add(withGroup(colorSpec("focused_color", "primary"), "workspaces.colors"));
-        add(withGroup(colorSpec("occupied_color", "secondary"), "workspaces.colors"));
-        add(withGroup(colorSpec("empty_color", "secondary"), "workspaces.colors"));
-        add(withGroup(colorSpec("urgent_color", "error"), "workspaces.colors"));
       }
 
       specs.insert(
@@ -1300,15 +1271,10 @@ namespace settings {
       }
 
       auto fields = projection->schemaFields();
-      const auto common = commonWidgetSettingSpecs("sans-serif", false);
-      std::ranges::transform(common, std::back_inserter(fields), [type](const WidgetSettingSpec& spec) {
-        auto field = spec.schema;
-        // Spacers are click-through by default; keep the schema default aligned so
-        // interactive = true is treated as an effective override (not stripped as default).
-        if (type == "spacer" && field.key == "interactive") {
-          field.defaultValue = false;
-        }
-        return field;
+      auto common = commonWidgetSettingSpecs("sans-serif", false);
+      applyCommonOverrides(common, projection->commonOverrides(), type);
+      std::ranges::transform(common, std::back_inserter(fields), [](const WidgetSettingSpec& spec) {
+        return spec.schema;
       });
       return fields;
     }

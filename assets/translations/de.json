@@ -3387,10 +3387,6 @@
           "description": "Zeige einen Platzhaltertext, wenn kein Fenster aktiv ist, statt das Widget auszublenden",
           "label": "Leeres Label anzeigen"
         },
-        "show-icon": {
-          "description": "Zeige das Icon dieses Widgets an",
-          "label": "Icon anzeigen"
-        },
         "show-label": {
           "description": "Zeige Text neben dem Icon an",
           "label": "Beschriftung anzeigen"

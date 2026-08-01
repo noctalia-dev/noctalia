@@ -72,6 +72,7 @@ namespace settings {
     std::function<void(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>)> setOverrides;
     std::function<void(std::vector<std::string>)> clearOverride;
     std::function<void(std::vector<std::vector<std::string>>)> clearOverrides;
+    std::function<void(std::vector<std::string>)> resetBarLane;
     std::function<bool(const std::vector<std::vector<std::string>>&)> isResetConfirmationPending;
     std::function<void(std::vector<std::vector<std::string>>)> requestResetConfirmation;
     std::function<void(std::string, std::string, std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>)>

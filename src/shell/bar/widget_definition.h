@@ -474,10 +474,24 @@ namespace noctalia::bar {
     return definitionField;
   }
 
+  // Retunes one of the registry-owned common widget settings for a single widget
+  // type. A definition may adjust a common setting's default and presentation; it
+  // can neither add nor remove common settings. The registry rejects a key that
+  // does not name exactly one common setting. `defaultValue` and `descriptionKey`
+  // replace; `visibleWhen` refines and must declare `all` conditions only, which
+  // are appended to the common setting's own conditions.
+  struct WidgetCommonSettingOverride {
+    std::string_view key;
+    std::optional<WidgetSettingValue> defaultValue;
+    std::string_view descriptionKey;
+    std::optional<settings::WidgetSettingVisibility> visibleWhen;
+  };
+
   template <typename Options, typename Context = std::monostate> struct WidgetDefinition {
     std::string_view type;
     std::vector<WidgetDefinitionField<Options>> fields;
     std::function<void(Options&, const Context&)> finalize;
+    std::vector<WidgetCommonSettingOverride> commonOverrides;
 
     [[nodiscard]] Options resolve(const WidgetConfig* config, std::string_view settingContext) const
       requires std::is_same_v<Context, std::monostate>
@@ -549,6 +563,18 @@ namespace noctalia::bar {
           if (fields[i].schema.key == fields[j].schema.key) {
             throw std::logic_error(
                 std::format("widget definition '{}' has duplicate field '{}'", type, fields[i].schema.key)
+            );
+          }
+        }
+      }
+      for (std::size_t i = 0; i < commonOverrides.size(); ++i) {
+        if (commonOverrides[i].key.empty()) {
+          throw std::logic_error(std::format("widget definition '{}' has a common override without a key", type));
+        }
+        for (std::size_t j = i + 1; j < commonOverrides.size(); ++j) {
+          if (commonOverrides[i].key == commonOverrides[j].key) {
+            throw std::logic_error(
+                std::format("widget definition '{}' has duplicate common override '{}'", type, commonOverrides[i].key)
             );
           }
         }

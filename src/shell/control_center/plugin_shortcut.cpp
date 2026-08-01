@@ -64,6 +64,10 @@ void PluginShortcut::start() {
     if (token == nullptr || !*token) {
       return;
     }
+    if (result.modulePathsKnown) {
+      m_scriptWatcher.setModulePaths(result.modulePaths);
+      recordLoadedModuleMtimes(result.modulePaths);
+    }
     handleResult(result);
   });
 
@@ -74,20 +78,10 @@ void PluginShortcut::start() {
 }
 
 void PluginShortcut::setupScriptWatch() {
-  teardownScriptWatch();
-  if (m_sourcePath.empty() || m_fileWatcher == nullptr) {
-    return;
-  }
-  m_watchId = m_fileWatcher->watch(m_sourcePath, [this] { reloadScript(); }, FileWatcher::WatchTrigger::WriteCompleted);
+  m_scriptWatcher.start(m_fileWatcher, m_sourcePath, [this] { reloadScript(); });
 }
 
-void PluginShortcut::teardownScriptWatch() {
-  if (m_watchId == 0 || m_fileWatcher == nullptr) {
-    return;
-  }
-  m_fileWatcher->unwatch(m_watchId);
-  m_watchId = 0;
-}
+void PluginShortcut::teardownScriptWatch() { m_scriptWatcher.stop(); }
 
 void PluginShortcut::onPanelClose() {
   m_updateTimer.stop();
@@ -114,6 +108,17 @@ void PluginShortcut::recordLoadedSourceMtime() {
   }
 }
 
+void PluginShortcut::recordLoadedModuleMtimes(std::span<const std::filesystem::path> paths) {
+  m_loadedModuleMtimes.clear();
+  for (const auto& path : paths) {
+    std::error_code ec;
+    const auto mtime = std::filesystem::last_write_time(path, ec);
+    // Only a module the VM actually loaded gets here, so a stat failure means it
+    // was removed while the panel was closed — reload to surface that.
+    m_loadedModuleMtimes.insert_or_assign(path, ec ? std::filesystem::file_time_type{} : mtime);
+  }
+}
+
 bool PluginShortcut::sourceChangedSinceLoad() const {
   if (m_sourcePath.empty() || m_loadedSourceMtime == std::filesystem::file_time_type{}) {
     return false;
@@ -123,7 +128,25 @@ bool PluginShortcut::sourceChangedSinceLoad() const {
   if (ec) {
     return false;
   }
-  return current != m_loadedSourceMtime;
+  if (current != m_loadedSourceMtime) {
+    return true;
+  }
+  for (const auto& [path, loadedMtime] : m_loadedModuleMtimes) {
+    std::error_code moduleEc;
+    const auto moduleMtime = std::filesystem::last_write_time(path, moduleEc);
+    if (moduleEc) {
+      // Unreadable now but readable at load: a real change. Unreadable at load too:
+      // nothing new to react to, so don't reload on every panel open.
+      if (loadedMtime != std::filesystem::file_time_type{}) {
+        return true;
+      }
+      continue;
+    }
+    if (moduleMtime != loadedMtime) {
+      return true;
+    }
+  }
+  return false;
 }
 
 void PluginShortcut::resetPresentation() {

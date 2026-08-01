@@ -3485,10 +3485,6 @@
           "description": "Ha nincs fókuszban lévő ablak, a widget elrejtése helyett a helyettesítő szöveget jelenítse meg",
           "label": "Üres címke mutatása"
         },
-        "show-icon": {
-          "description": "Mutasd a widget ikonját",
-          "label": "Ikon megjelenítése"
-        },
         "show-label": {
           "description": "Szöveg megjelenítése az ikon mellett",
           "label": "Címke mutatása"

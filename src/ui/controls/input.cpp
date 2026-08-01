@@ -565,6 +565,8 @@ void Input::setOnFocusGain(std::function<void()> callback) { m_onFocusGain = std
 
 void Input::setSubmitOnFocusLoss(bool enabled) { m_submitOnFocusLoss = enabled; }
 
+void Input::setSubmitOnEnter(bool enabled) { m_submitOnEnter = enabled; }
+
 void Input::setSurfaceOpacity(float opacity) {
   const float clamped = std::clamp(opacity, 0.0f, 1.0f);
   if (m_surfaceOpacity == clamped) {
@@ -1265,7 +1267,7 @@ void Input::handleKey(std::uint32_t sym, std::uint32_t utf32, std::uint32_t modi
       }
     }
   } else if (m_multiline && KeySymbol::isEnter(sym) && !preedit) {
-    if (ctrl) {
+    if (ctrl || (m_submitOnEnter && !shift)) {
       if (m_onSubmit) {
         m_onSubmit(m_value);
         if (alive.expired()) {
