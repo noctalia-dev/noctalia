@@ -1,0 +1,462 @@
+#compdef noctalia
+
+typeset -ga _NOCTALIA_TOP_COMMANDS=(
+    'completions:Generate shell completions'
+    'msg:Send a command to the running instance'
+    'theme:Generate a color palette from an image'
+    'config:Validate config and support/replay helpers'
+    'plugins:Offline plugin author tools (lint)'
+)
+
+typeset -ga _NOCTALIA_CONFIG_COMMANDS=(
+    'validate:Check config validity'
+    'export:Print the active config as TOML'
+    'settings-count:Count Settings UI controls'
+    'replay-report:Reconstruct config from a support report'
+)
+
+typeset -ga _NOCTALIA_MSG_COMMANDS=(
+    '--help:Show help message'
+    'bar-auto-hide-set:Set auto-hide state for a bar'
+    'bar-hide:Hide one or all bars and release their layout gaps'
+    'bar-layer-set:Set one or all bar layers'
+    'bar-reserve-toggle:Toggle reserve space for one or all bars'
+    'bar-show:Show one or all bars'
+    'bar-toggle:Toggle visibility for one or all bars'
+    'bluetooth-disable:Disable Bluetooth'
+    'bluetooth-enable:Enable Bluetooth'
+    'bluetooth-status:Print Bluetooth state'
+    'bluetooth-toggle:Toggle Bluetooth'
+    'brightness-down:Decrease brightness'
+    'brightness-list-backlight-devices:List available sysfs backlight device names'
+    'brightness-osd:Show brightness OSD'
+    'brightness-set:Set brightness'
+    'brightness-up:Increase brightness'
+    'caffeine-disable:Disable caffeine (idle inhibitor)'
+    'caffeine-enable:Enable caffeine'
+    'caffeine-toggle:Toggle caffeine'
+    'clipboard-clear:Clear clipboard history'
+    'color-scheme-get:Print active color scheme'
+    'color-scheme-set:Set palette source and selection'
+    'config-reload:Reload the config file'
+    'desktop-widgets-edit:Open the desktop widgets editor'
+    'desktop-widgets-exit:Close the desktop widgets editor'
+    'desktop-widgets-hide:Hide desktop widgets now'
+    'desktop-widgets-show:Show desktop widgets now'
+    'desktop-widgets-toggle:Toggle desktop widgets visibility'
+    'desktop-widgets-toggle-edit:Toggle desktop widgets edit mode'
+    'dock-hide:Hide the dock'
+    'dock-reload:Reload dock configuration'
+    'dock-show:Show the dock'
+    'dock-toggle:Toggle dock visibility'
+    'dpms-off:Turn monitors off'
+    'dpms-on:Turn monitors on'
+    'effects-profile-set:Set the EasyEffects output or input profile'
+    'greeter-sync:Sync wallpaper, colors, and monitor layout to Noctalia Greeter'
+    'keyboard-backlight-down:Decrease all keyboard backlights'
+    'keyboard-backlight-osd:Show keyboard backlight OSD'
+    'keyboard-backlight-set:Set all keyboard backlights'
+    'keyboard-backlight-toggle:Toggle all keyboard backlights on/off'
+    'keyboard-backlight-up:Increase all keyboard backlights'
+    'keyboard-layout-cycle:Switch to the next keyboard layout'
+    'lockscreen-widgets-edit:Open the lockscreen widgets editor'
+    'lockscreen-widgets-exit:Close the lockscreen widgets editor'
+    'lockscreen-widgets-toggle-edit:Toggle lockscreen widgets edit mode'
+    'log-level-set:Set the console log level'
+    'log-level-status:Print the current console log level'
+    'media:Control active media playback'
+    'mic-mute:Toggle microphone mute'
+    'mic-volume-down:Decrease microphone volume'
+    'mic-volume-osd:Show the microphone volume OSD'
+    'mic-volume-set:Set microphone volume'
+    'mic-volume-up:Increase microphone volume'
+    'network-toggle:Disconnect or reconnect network'
+    'nightlight-disable:Disable night light schedule'
+    'nightlight-enable:Enable night light schedule'
+    'nightlight-force-toggle:Toggle forced night light mode'
+    'nightlight-toggle:Toggle night light schedule'
+    'notification-clear-active:Dismiss all currently active notifications'
+    'notification-clear-history:Clear notification history'
+    'notification-dnd-set:Set notification Do Not Disturb state'
+    'notification-dnd-status:Print notification Do Not Disturb state'
+    'notification-dnd-toggle:Toggle notification Do Not Disturb state'
+    'notification-invoke-latest:Invoke default action of most recent notification'
+    'notification-show:Show an internal Noctalia notification'
+    'panel-close:Close the active panel, or close the named panel'
+    'panel-open:Open a panel by id'
+    'panel-toggle:Toggle a panel by id'
+    'plugin:Dispatch an event to a plugin entry'
+    'plugins:Manage plugins and sources'
+    'power-cycle:Step through UPower ordered profile list'
+    'power-set:Set the UPower power profile'
+    'screenshot-fullscreen:Capture monitor or all outputs'
+    'screenshot-region:Start an interactive region screenshot'
+    'session:Run a built-in session action'
+    'settings-close:Close the settings window'
+    'settings-open:Open the settings window'
+    'settings-open-plugin:Open the settings window at a plugin'
+    'settings-open-widget:Open the settings window at a bar widget'
+    'settings-toggle:Toggle the settings window'
+    'status:Print current state as JSON'
+    'taskbar-cycle:Step to the adjacent task or workspace group'
+    'templates-apply:Apply configured theme templates'
+    'theme-mode-get:Print current resolved theme mode'
+    'theme-mode-set:Set theme mode'
+    'theme-mode-toggle:Toggle theme mode between dark and light'
+    'volume-down:Decrease speaker volume'
+    'volume-mute:Toggle speaker mute'
+    'volume-osd:Show the volume OSD'
+    'volume-set:Set speaker volume'
+    'volume-up:Increase speaker volume'
+    'wallpaper-get:Print default wallpaper path'
+    'wallpaper-next:Switch to the next wallpaper'
+    'wallpaper-previous:Switch to the previous wallpaper'
+    'wallpaper-random:Switch to a random wallpaper'
+    'wallpaper-set:Set wallpaper'
+    'wifi-disable:Disable Wi-Fi'
+    'wifi-enable:Enable Wi-Fi'
+    'wifi-status:Print Wi-Fi state'
+    'wifi-toggle:Toggle Wi-Fi'
+    'window-switcher:Open or close the window switcher overlay'
+    'workspace-alert-add:Add a workspace alert'
+    'workspace-alert-add-window:Add a workspace alert for a window'
+    'workspace-alert-clear:Clear a workspace alert'
+    'workspace-alert-clear-all:Clear all workspace alerts'
+    'workspace-alert-status:Print workspace alerts'
+    'workspace-switch:Switch to the adjacent workspace'
+)
+
+typeset -ga _NOCTALIA_BOOL_STATES=(on off true false 1 0)
+
+typeset -ga _NOCTALIA_BUILTIN_PALETTES=(
+    Ayu
+    Catppuccin
+    Dracula
+    Eldritch
+    Gruvbox
+    Kanagawa
+    Noctalia
+    'Rosé Pine'
+    Tokyo-Night
+)
+
+typeset -ga _NOCTALIA_WALLPAPER_GENERATORS=(
+    m3-tonal-spot
+    m3-content
+    m3-fruit-salad
+    m3-rainbow
+    m3-monochrome
+    vibrant
+    faithful
+    soft
+    dysfunctional
+    muted
+)
+
+typeset -ga _NOCTALIA_THEME_OPTS=(
+    '--help[Show help message]'
+    "--scheme[Color scheme]:scheme:(${_NOCTALIA_WALLPAPER_GENERATORS[*]})"
+    '--dark[Emit only the dark variant]'
+    '--light[Emit only the light variant]'
+    '--both[Emit both variants under dark/light keys]'
+    '--pure-black[Re-anchor the dark surface ramp to true black (OLED)]'
+    '--theme-json[Load precomputed dark/light token maps]:file:_files'
+    '-o[Write JSON to file instead of stdout]:file:_files'
+    '-r[Render a template file to an output path]:template path'
+    '-c[Process a TOML template config file]:file:_files'
+    '--builtin-config[Process the shipped built-in template catalog]'
+    '--list-templates[List built-in, cached community, and configured user templates]'
+    '--default-mode[Template default mode]:mode:(dark light)'
+    '1:image file:_files'
+)
+
+# set NOCTALIA_COMP_DEBUG_FILE to debug
+__noctalia_debug() {
+    local file="$NOCTALIA_COMP_DEBUG_FILE"
+    if [[ -n ${file} ]]; then
+        echo "$*" >> "${file}"
+    fi
+}
+
+_noctalia_get_panels() {
+    local output available
+    local -a panels
+
+    # run `msg panel-toggle` with dummy panel option
+    output=$(noctalia msg panel-toggle '[' 2>&1)
+    available=${${output#*available: }%)}
+
+    if [[ "$available" == "$output" ]]; then
+        _message 'no panels found'
+        return
+    fi
+
+    panels=(${(s:, :)available})
+
+    if (( $#panels )); then
+        _values 'panel' "${panels[@]}"
+    else
+        _message 'no panels found'
+    fi
+}
+
+_noctalia_get_plugin_sources() {
+    local -a sources
+
+    plugin_list=$(noctalia msg plugins source list 2>/dev/null)
+    # grab everything up to the first whitespace
+    sources=(${${(f)plugin_list}%% *})
+
+    if [[ ${#sources[@]} -gt 0 ]]; then
+        _values 'plugin source' $sources
+    else
+        _message 'no plugin sources found'
+    fi
+}
+
+_noctalia_get_enabled_plugins() {
+    local -a plugins
+
+    plugin_list=$(noctalia msg plugins list 2>/dev/null | grep 'enabled$')
+    # grab everything up to the first whitespace
+    plugins=(${${(f)plugin_list}%% *})
+
+    if [[ ${#plugins[@]} -gt 0 ]]; then
+        _values 'enabled plugin' $plugins
+    else
+        _message 'no enabled plugins found'
+    fi
+}
+
+_noctalia_get_disabled_plugins() {
+    local -a plugins
+
+    plugin_list=$(noctalia msg plugins list 2>/dev/null | grep 'disabled$')
+    # grab everything up to the first whitespace
+    plugins=(${${(f)plugin_list}%% *})
+
+    if [[ ${#plugins[@]} -gt 0 ]]; then
+        _values 'disabled plugin' $plugins
+    else
+        _message 'no disabled plugins found'
+    fi
+}
+
+# `noctalia <TAB>` completions
+_noctalia() {
+    local context state state_descr line
+    typeset -A opt_args
+
+    __noctalia_debug "\n===== _noctalia: CURRENT=${CURRENT} words=(${words[*]})"
+
+    _arguments -C \
+        '(-h --help)'{-h,--help}'[Show help message]' \
+        '(-v --version)'{-v,--version}'[Show version information]' \
+        '(-d --daemon)'{-d,--daemon}'[Run in background]' \
+        '1: :->cmds' \
+        '*:: :->args'
+
+    __noctalia_debug "_noctalia: state=${state} line=(${line[*]})"
+
+    case "$state" in
+        cmds)
+            __noctalia_debug "_noctalia: dispatching top-level command list"
+            _describe -t commands 'noctalia command' _NOCTALIA_TOP_COMMANDS
+            ;;
+        args)
+            __noctalia_debug "_noctalia: dispatching to subcommand '${line[1]}'"
+            case $line[1] in
+                completions)
+                    _values 'shell' bash fish zsh
+                    ;;
+                config)
+                    _noctalia_config
+                    ;;
+                msg)
+                    _noctalia_msg
+                    ;;
+                plugins)
+                    _noctalia_plugins
+                    ;;
+                theme)
+                    _noctalia_theme
+                    ;;
+                *)
+                    __noctalia_debug "_noctalia: no handler for '${line[1]}'"
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+# `noctalia config <TAB>` completions
+_noctalia_config() {
+    local context state state_descr subline
+    typeset -A opt_args
+
+    _arguments -C \
+        '--help[Show help message]' \
+        '1: :->subcmds' \
+        '*:: :->subargs'
+
+    case "$state" in
+        subcmds)
+            __noctalia_debug "  _noctalia_config: completing subcommand name"
+            _describe -t commands 'config command' _NOCTALIA_CONFIG_COMMANDS
+            ;;
+        subargs)
+            __noctalia_debug "  _noctalia_config: completing args for '${line[1]}'"
+            case ${line[1]} in
+                export)
+                    _values 'export type' merged full
+                    ;;
+                replay-report)
+                    _arguments \
+                        '--help[Show help message]' \
+                        '--target[Target directory to reconstruct to]:dir:_files -/' \
+                        '--flattened[Reconstruct a single config.toml]' \
+                        '--force[Force reconstruction]' \
+                        '1:report file:_files'
+                    ;;
+                validate)
+                    _arguments \
+                        '--help[Show help message]' \
+                        '1:config path:_files -g "*.toml"'
+                    ;;
+            esac
+            ;;
+    esac
+}
+
+# `noctalia msg <TAB>` completions
+_noctalia_msg() {
+    __noctalia_debug "  _noctalia_msg: before shift CURRENT=${CURRENT} words=(${words[*]})"
+    (( CURRENT -= 1 ))
+    shift words
+    __noctalia_debug "  _noctalia_msg: after shift  CURRENT=${CURRENT} words=(${words[*]})"
+
+    if (( CURRENT == 1 )); then
+        __noctalia_debug "  _noctalia_msg: completing msg subcommand name"
+        _describe -t commands 'msg command' _NOCTALIA_MSG_COMMANDS
+    else
+        __noctalia_debug "  _noctalia_msg: completing args for '${words[1]}' (CURRENT=${CURRENT}, words=(${words[*]}))"
+
+        case ${words[1]} in
+            bar-auto-hide-set)
+                _values 'state' "${_NOCTALIA_BOOL_STATES[@]}" smart
+                ;;
+            bar-layer-set)
+                _values 'layer' top overlay
+                ;;
+            color-scheme-set)
+                if (( CURRENT == 2 )); then
+                    _values 'source' builtin wallpaper community custom
+                elif (( CURRENT == 3 )) && [[ "${words[2]}" == "builtin" ]]; then
+                    _values 'generator scheme' "${_NOCTALIA_BUILTIN_PALETTES[@]}"
+                elif (( CURRENT == 3 )) && [[ "${words[2]}" == "wallpaper" ]]; then
+                    _values 'generator scheme' "${_NOCTALIA_WALLPAPER_GENERATORS[@]}"
+                elif (( CURRENT == 3 )); then
+                    _message 'scheme name'
+                fi
+                ;;
+            log-level-set)
+                _values 'log level' debug info warn error
+                ;;
+            media)
+                _values 'media action' next previous toggle play pause stop next-player previous-player
+                ;;
+            notification-dnd-set)
+                _values 'state' "${_NOCTALIA_BOOL_STATES[@]}"
+                ;;
+            panel-open|panel-toggle|panel-close)
+                _noctalia_get_panels
+                ;;
+            plugin)
+                if (( CURRENT == 2 )); then
+                    _noctalia_get_enabled_plugins
+                elif (( CURRENT == 3 )); then
+                    _values 'target' focused all
+                else
+                    _message 'event [payload]'
+                fi
+                ;;
+            plugins)
+                if (( CURRENT == 2 )); then
+                    _values 'plugins command' list enable disable update source
+                else
+                    case ${words[2]} in
+                        disable)
+                            _noctalia_get_enabled_plugins
+                            ;;
+                        enable)
+                            _noctalia_get_disabled_plugins
+                            ;;
+                        source)
+                            if (( CURRENT == 3 )); then
+                                _values 'source command' list add remove
+                            elif (( CURRENT == 4 )) && [[ "${words[3]}" == "remove" ]]; then
+                                _noctalia_get_plugin_sources
+                            elif (( CURRENT == 5 )) && [[ "${words[3]}" == "add" ]]; then
+                                _values 'source type' git path
+                            fi
+                            ;;
+                        update)
+                            _noctalia_get_plugin_sources
+                            ;;
+                    esac
+                fi
+                ;;
+            power-cycle|taskbar-cycle|workspace-switch)
+                _values 'direction' next prev
+                ;;
+            power-set)
+                _values 'power profile' performance balanced power-saver
+                ;;
+            screenshot-fullscreen)
+                _values 'target' pick monitor all
+                ;;
+            session)
+                _values 'session action' lock suspend lock-and-suspend logout reboot shutdown
+                ;;
+            theme-mode-set)
+                _values 'theme mode' dark light auto
+                ;;
+            wallpaper-set)
+                _files
+                ;;
+        esac
+    fi
+}
+
+# `noctalia plugins <TAB>` completions
+_noctalia_plugins() {
+    __noctalia_debug "  _noctalia_plugins: before shift CURRENT=${CURRENT} words=(${words[*]})"
+    (( CURRENT -= 1 ))
+    shift words
+    __noctalia_debug "  _noctalia_plugins: after shift  CURRENT=${CURRENT} words=(${words[*]})"
+
+    local -a commands
+    commands=(
+        'lint:Cross-check each plugin declared settings against its getConfig calls'
+    )
+
+    if (( CURRENT == 1 )); then
+        __noctalia_debug "  _noctalia_plugins: completing subcommand name"
+        _describe -t commands 'plugins command' commands
+    else
+        __noctalia_debug "  _noctalia_plugins: completing args for '${words[1]}'"
+        case ${words[1]} in
+            lint)
+                _files -/
+                ;;
+        esac
+    fi
+}
+
+# `noctalia themes <TAB>` completions
+_noctalia_theme() {
+    __noctalia_debug "  _noctalia_theme: CURRENT=${CURRENT} words=(${words[*]})"
+    _arguments -C "${_NOCTALIA_THEME_OPTS[@]}"
+}
+
+_noctalia "$@"

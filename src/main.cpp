@@ -1,5 +1,6 @@
 #include "app/application.h"
 #include "app/single_instance_lock.h"
+#include "completions/cli.h"
 #include "config/cli.h"
 #include "core/build_info.h"
 #include "core/log.h"
@@ -149,6 +150,8 @@ namespace {
           "                   Run 'noctalia config --help' for options\n"
           "  plugins <cmd>    Offline plugin author tools (lint)\n"
           "                   Run 'noctalia plugins --help' for options\n"
+          "  completions <sh> Generate the autocompletion script for the specified shell\n"
+          "                   Run 'noctalia completions --help' for options\n"
           "\n"
           "For more information and documentation, visit:\n"
           "  https://noctalia.dev"
@@ -303,6 +306,8 @@ int main(int argc, char* argv[]) {
       return noctalia::launcher::runDmenuCli(argc, argv);
     if (std::strcmp(argv[1], "plugins") == 0)
       return noctalia::plugins::runCli(argc, argv);
+    if (std::strcmp(argv[1], "completions") == 0)
+      return noctalia::completions::runCli(argc, argv);
   }
 
   for (int i = 1; i < argc; ++i) {
