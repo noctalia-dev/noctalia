@@ -396,7 +396,10 @@ namespace calendar {
     std::string text{ics};
     ICalComponentPtr root{icalcomponent_new_from_string(text.c_str())};
     if (root == nullptr) {
-      return {};
+      // Not iCalendar text at all: HTML sign-in pages, proxy errors, and truncated feeds all land
+      // here. Reported as invalid so callers keep their last known events instead of persisting an
+      // empty calendar. A well-formed VCALENDAR with no VEVENTs still parses and reports Complete.
+      return {.status = ICalParseStatus::InvalidCalendar};
     }
 
     std::vector<icalcomponent*> components;
