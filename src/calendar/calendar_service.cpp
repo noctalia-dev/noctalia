@@ -14,6 +14,7 @@
 #include "security/secret_store.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <iterator>
 #include <memory>
@@ -544,7 +545,8 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
   const std::string colorHex = account.color;
 
   HttpRequest req;
-  std::transform(url.begin(), std::next(url.begin(), 6), url.begin(), [](unsigned char c) { return std::tolower(c); });
+  if (url.size() >= 7)
+    std::transform(url.begin(), std::next(url.begin(), 6), url.begin(), [](unsigned char c) { return std::tolower(c); });
   if (url.starts_with("webcal://"))
     url.replace(0, 6, "https");
   req.url = url;
