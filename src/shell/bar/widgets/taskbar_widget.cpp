@@ -1107,10 +1107,12 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
               .height = m_vertical ? mainExtent : tileSize,
           }
       );
+      ColorSpec activeDotFill = m_activeIndicatorColor;
+      activeDotFill.alpha = 0.95f;
       for (const TaskModel* task : visibleDots) {
         const bool highlight = task != nullptr && task->active && m_showActiveIndicator;
-        const ColorSpec fill = highlight ? colorSpecFromRole(ColorRole::Primary, 0.95f)
-                                         : colorSpecFromRole(ColorRole::OnSurface, anyActive ? 0.55f : 0.35f);
+        const ColorSpec fill =
+            highlight ? activeDotFill : colorSpecFromRole(ColorRole::OnSurface, anyActive ? 0.55f : 0.35f);
         content->addChild(
             ui::box({
                 .fill = fill,
