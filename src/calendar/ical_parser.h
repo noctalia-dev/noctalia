@@ -14,6 +14,7 @@ namespace calendar {
     Complete,
     Cancelled,
     WorkBudgetExceeded,
+    InvalidCalendar
   };
 
   struct ICalParseControl {
