@@ -447,9 +447,6 @@ namespace calendar {
       };
       const ICalParseStatus status = expandRecurrences(component, componentStart, control, data);
       if (status != ICalParseStatus::Complete) {
-        if (status == ICalParseStatus::WorkBudgetExceeded) {
-          kLog.warn("iCalendar recurrence expansion exceeded the work limit");
-        }
         return {.events = std::move(events), .status = status};
       }
     }

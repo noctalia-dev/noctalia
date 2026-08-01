@@ -570,12 +570,17 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
     switch (result.status) {
     case calendar::ICalParseStatus::Complete:
       accountDone(accountId, true, std::move(result.events));
-      break;
+      return;
     case calendar::ICalParseStatus::Cancelled:
+      kLog.warn("iCalendar parsing was cancelled for id {}", accountId);
+      break;
     case calendar::ICalParseStatus::InvalidCalendar:
+      kLog.warn("The URL for {} returned an invalid ICS calendar", accountId);
+      break;
     case calendar::ICalParseStatus::WorkBudgetExceeded:
-      accountDone(accountId, false, {});
+      kLog.warn("iCalendar recurrence expansion exceeded the work limit for id {}", accountId);
     }
+    accountDone(accountId, false, {});
   });
 }
 
