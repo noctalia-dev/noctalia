@@ -557,7 +557,7 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
       return;
     }
 
-    calendar::ICalParseControl control {};
+    calendar::ICalParseControl control{};
     const auto now = std::chrono::system_clock::now();
     auto result = calendar::parseICalEvents(resp.body, now - kWindowBefore, now + kWindowAfter, control);
     for (auto& event : result.events) {

@@ -10,12 +10,7 @@
 
 namespace calendar {
 
-  enum class ICalParseStatus {
-    Complete,
-    Cancelled,
-    WorkBudgetExceeded,
-    InvalidCalendar
-  };
+  enum class ICalParseStatus { Complete, Cancelled, WorkBudgetExceeded, InvalidCalendar };
 
   struct ICalParseControl {
     std::stop_token stopToken;
