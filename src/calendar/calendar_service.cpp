@@ -544,7 +544,8 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
   const std::string colorHex = account.color;
 
   HttpRequest req;
-  if (url.starts_with("webcal://") || url.starts_with("WEBCAL://"))
+  std::transform(url.begin(), std::next(url.begin(), 6), url.begin(), [](unsigned char c) { return std::tolower(c); });
+  if (url.starts_with("webcal://"))
     url.replace(0, 6, "https");
   req.url = url;
   req.followRedirects = true;
