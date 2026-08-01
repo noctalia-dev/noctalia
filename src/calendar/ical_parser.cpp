@@ -402,6 +402,14 @@ namespace calendar {
       return {.status = ICalParseStatus::InvalidCalendar};
     }
 
+    // libical recovers from content lines it cannot parse by replacing each one with an X-LIC-ERROR
+    // property instead of failing the whole document. That keeps one quirky line in an otherwise
+    // good feed from hiding every event in it, so a non-zero count alone is not a rejection.
+    const int unparseableLines = icalcomponent_count_errors(root.get());
+    if (unparseableLines > 0) {
+      kLog.debug("iCalendar input has {} unparseable line(s); skipping them", unparseableLines);
+    }
+
     std::vector<icalcomponent*> components;
     collectVEvents(root.get(), components);
 
@@ -451,6 +459,12 @@ namespace calendar {
       }
     }
 
+    if (events.empty() && unparseableLines > 0) {
+      // Damaged input that yielded nothing usable, as opposed to a calendar whose owner really has
+      // no events. Reported as invalid so callers keep their cached events rather than persisting
+      // an empty result.
+      return {.status = ICalParseStatus::InvalidCalendar};
+    }
     return {.events = std::move(events)};
   }
 
