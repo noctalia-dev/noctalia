@@ -57,4 +57,17 @@ namespace network_glyphs {
     }
   }
 
+  const char* wifiBandLabel(std::uint32_t frequencyMhz) noexcept {
+    if (frequencyMhz >= 5925 && frequencyMhz <= 7125) {
+      return "6 GHz";
+    }
+    if (frequencyMhz >= 5150 && frequencyMhz <= 5895) {
+      return "5 GHz";
+    }
+    if (frequencyMhz >= 2400 && frequencyMhz <= 2500) {
+      return "2.4 GHz";
+    }
+    return nullptr;
+  }
+
 } // namespace network_glyphs

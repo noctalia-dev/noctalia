@@ -10,6 +10,7 @@ struct AccessPointInfo {
   std::uint8_t strength = 0; // 0..100
   bool secured = false;
   bool active = false;
+  std::uint32_t frequencyMhz = 0; // 0 if unknown (e.g. iwd, which doesn't expose it here)
 
   bool operator==(const AccessPointInfo&) const = default;
 };
@@ -41,6 +42,7 @@ struct NetworkState {
   std::string ipv4;                // dotted-quad of first address; empty if none
   std::string interfaceName;       // e.g. "wlan0", "eth0"
   std::uint8_t signalStrength = 0; // 0..100, Wi-Fi only
+  std::uint32_t frequencyMhz = 0;  // Wi-Fi only, 0 if unknown (e.g. iwd)
 
   bool operator==(const NetworkState&) const = default;
 };

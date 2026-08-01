@@ -1638,6 +1638,12 @@ void NetworkManagerService::refreshAccessPoints(std::function<void()> onComplete
                                             } catch (const sdbus::Error&) {
                                             }
                                           }
+                                          if (auto freqIt = properties.find("Frequency"); freqIt != properties.end()) {
+                                            try {
+                                              info.frequencyMhz = freqIt->second.get<std::uint32_t>();
+                                            } catch (const sdbus::Error&) {
+                                            }
+                                          }
                                           const auto wpaFlags = [&properties]() {
                                             if (auto wpaFlagsIt = properties.find("WpaFlags");
                                                 wpaFlagsIt != properties.end()) {
@@ -2152,6 +2158,12 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
               if (auto strengthIt = apProperties.find("Strength"); strengthIt != apProperties.end()) {
                 try {
                   next->signalStrength = strengthIt->second.get<std::uint8_t>();
+                } catch (const sdbus::Error&) {
+                }
+              }
+              if (auto freqIt = apProperties.find("Frequency"); freqIt != apProperties.end()) {
+                try {
+                  next->frequencyMhz = freqIt->second.get<std::uint32_t>();
                 } catch (const sdbus::Error&) {
                 }
               }

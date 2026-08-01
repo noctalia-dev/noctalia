@@ -15,4 +15,7 @@ namespace network_glyphs {
   // on every scan update.
   [[nodiscard]] int wifiSignalBand(std::uint8_t signal) noexcept;
 
+  // "2.4 GHz" / "5 GHz" / "6 GHz", or nullptr if frequencyMhz is 0 (unknown).
+  [[nodiscard]] const char* wifiBandLabel(std::uint32_t frequencyMhz) noexcept;
+
 } // namespace network_glyphs

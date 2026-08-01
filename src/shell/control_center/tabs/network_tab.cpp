@@ -49,6 +49,14 @@ namespace {
       }
       out += std::to_string(static_cast<int>(s.signalStrength)) + "%";
     }
+    if (s.kind == NetworkConnectivity::Wireless) {
+      if (const char* band = network_glyphs::wifiBandLabel(s.frequencyMhz); band != nullptr) {
+        if (!out.empty()) {
+          out += "  •  ";
+        }
+        out += band;
+      }
+    }
     if (!externalIp.empty()) {
       if (!out.empty()) {
         out += "  •  ";

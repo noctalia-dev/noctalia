@@ -51,6 +51,7 @@ namespace {
     std::string ssid;
     std::int16_t signal = -100;
     bool secured = false;
+    std::uint32_t frequencyMhz = 0;
   };
 
   std::optional<BssInfo> readBssInfo(sdbus::IProxy& proxy) {
@@ -74,6 +75,13 @@ namespace {
 
       if (const auto it = all.find("Signal"); it != all.end()) {
         info.signal = it->second.get<std::int16_t>();
+      }
+
+      if (const auto it = all.find("Frequency"); it != all.end()) {
+        try {
+          info.frequencyMhz = it->second.get<std::uint16_t>();
+        } catch (const sdbus::Error&) {
+        }
       }
 
       // Secured if RSN or WPA map is non-empty.
@@ -448,8 +456,11 @@ void WpaSupplicantService::rebuildState() {
         auto existing = std::ranges::find(aps, info->ssid, &AccessPointInfo::ssid);
         if (existing != aps.end()) {
           existing->strength = std::max(pct, existing->strength);
-          if (active)
+          if (active) {
             existing->active = true;
+            // Multiple BSSes can share an SSID; report the band of the one we're actually on.
+            existing->frequencyMhz = info->frequencyMhz;
+          }
         } else {
           AccessPointInfo ap;
           ap.path = key;
@@ -458,6 +469,7 @@ void WpaSupplicantService::rebuildState() {
           ap.strength = pct;
           ap.secured = info->secured;
           ap.active = active;
+          ap.frequencyMhz = info->frequencyMhz;
           aps.push_back(std::move(ap));
         }
       }
@@ -468,6 +480,7 @@ void WpaSupplicantService::rebuildState() {
       if (const auto it = m_bssProxies.find(activeBssPath); it != m_bssProxies.end()) {
         const auto signal = getPropertyOr<std::int16_t>(*it->second, kWpaBssInterface, "Signal", std::int16_t{-100});
         next.signalStrength = signalToPercent(signal);
+        next.frequencyMhz = getPropertyOr<std::uint16_t>(*it->second, kWpaBssInterface, "Frequency", std::uint16_t{0});
       }
     }
   }

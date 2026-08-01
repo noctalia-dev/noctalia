@@ -343,6 +343,9 @@ std::vector<TooltipRow> NetworkWidget::buildTooltipRows() const {
     if (s.kind == NetworkConnectivity::Wireless && !s.ssid.empty()) {
       rows.push_back({i18n::tr("bar.widgets.network.network"), s.ssid});
       rows.push_back({i18n::tr("bar.widgets.network.signal"), std::to_string(s.signalStrength) + "%"});
+      if (const char* band = network_glyphs::wifiBandLabel(s.frequencyMhz); band != nullptr) {
+        rows.push_back({i18n::tr("bar.widgets.network.band"), band});
+      }
       if (!s.interfaceName.empty()) {
         rows.push_back({i18n::tr("bar.widgets.network.interface"), s.interfaceName});
       }
