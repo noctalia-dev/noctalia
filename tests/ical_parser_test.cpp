@@ -604,6 +604,29 @@ int main() {
         && ok;
   }
 
+  // Responses that are not iCalendar at all must be distinguishable from an empty calendar, so a
+  // captive portal or expired share link cannot overwrite cached events with nothing.
+  {
+    const std::vector<std::string> invalid = {
+        "<!DOCTYPE html>\r\n<html><body><h1>Sign in</h1></body></html>\r\n",
+        R"({"error":"expired share"})",
+        "not a calendar at all\r\n",
+        "",
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:a\r\n",
+    };
+    for (const std::string& ics : invalid) {
+      ok = expect(
+               parseEvents(ics, start, end).status == ICalParseStatus::InvalidCalendar,
+               "non-calendar response was not reported as invalid"
+           )
+          && ok;
+    }
+
+    const ICalParseResult empty = parseEvents("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n", start, end);
+    ok = expect(empty.status == ICalParseStatus::Complete, "empty calendar was not reported as complete") && ok;
+    ok = expect(empty.events.empty(), "empty calendar produced events") && ok;
+  }
+
   {
     ICalParseControl control{.remainingRecurrenceWork = 1};
     const ICalParseResult result = calendar::parseICalEvents(wrap("RRULE:FREQ=DAILY;COUNT=3\r\n"), start, end, control);
