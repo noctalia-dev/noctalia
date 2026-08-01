@@ -685,7 +685,8 @@
     },
     "source": {
       "address": "Address",
-      "auto": "Auto"
+      "auto": "Auto",
+      "manual": "Manual"
     }
   },
   "lockscreen": {

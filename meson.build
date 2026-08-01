@@ -1122,6 +1122,7 @@ if build_tests
     'jxl_decoder',
     'kde_color_scheme',
     'log',
+    'location_service',
     'math_provider',
     'notification_filter',
     'notification_history_utf8',
