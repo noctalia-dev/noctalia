@@ -613,6 +613,10 @@ int main() {
         "not a calendar at all\r\n",
         "",
         "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:a\r\n",
+        // The envelope survived but every content line inside the event was mangled, so nothing
+        // usable came out. Distinct from a calendar that is legitimately empty.
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\n"
+        "DTSTART 20240115T100000Z\r\nSUMMARY Team Meeting\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
     };
     for (const std::string& ics : invalid) {
       ok = expect(
@@ -625,6 +629,20 @@ int main() {
     const ICalParseResult empty = parseEvents("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n", start, end);
     ok = expect(empty.status == ICalParseStatus::Complete, "empty calendar was not reported as complete") && ok;
     ok = expect(empty.events.empty(), "empty calendar produced events") && ok;
+  }
+
+  // Libical replaces unparseable content lines with X-LIC-ERROR properties instead of rejecting the
+  // document, so a partially damaged feed still yields its readable events. Rejecting the whole
+  // calendar here would let one quirky line hide every event in a large feed.
+  {
+    const std::string ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Broken Corp//Bad Calendar//EN\r\n"
+                            "BEGIN:VEVENT\r\nUID:recovered\r\nDTSTART:20240115T100000Z\r\n"
+                            "DTEND 20240115T110000Z\r\n"
+                            "SUMMARY:Team Meeting\r\n"
+                            "Description This line has no colon separator\r\n"
+                            "END:VEVENT\r\nEND:VCALENDAR\r\n";
+    ok = expectOneEventText(ics, start, end, "Team Meeting", "", "damaged lines are skipped and the event survives")
+        && ok;
   }
 
   {
