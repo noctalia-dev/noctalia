@@ -410,24 +410,6 @@ _wlr_ls_c = custom_target('wlr-layer-shell-unstable-v1-client-source',
 _protocol_sources += _wlr_ls_c
 _protocol_headers += _wlr_ls_h
 
-completions_header_gen = find_program('tools/generate_completions_header.py')
-
-_completions_assets = files(
-  'assets/completions/noctalia.bash',
-  'assets/completions/_noctalia',
-  'assets/completions/noctalia.fish',
-)
-
-_completions_header = custom_target('completions_generated_header',
-  input: _completions_assets,
-  output: 'generated_scripts.h',
-  command: [
-    completions_header_gen,
-    '@OUTPUT@',
-    '@INPUT0@', '@INPUT1@', '@INPUT2@',
-  ],
-)
-
 # ── Main sources ──────────────────────────────────────────────────────────────
 _noctalia_sources = files(
   'src/app/application.cpp',
@@ -1066,7 +1048,7 @@ _noctalia_cpp_args = [
 # archive whole; tests link it normally so only the objects they exercise enter
 # each test executable.
 noctalia_core_lib = static_library('noctalia_core',
-  sources: _noctalia_sources + _protocol_sources + _protocol_headers + [_git_revision_h, _completions_header],
+  sources: _noctalia_sources + _protocol_sources + _protocol_headers + [_git_revision_h],
   dependencies: _noctalia_dependencies,
   include_directories: _noctalia_inc,
   cpp_args: _noctalia_cpp_args,
