@@ -557,15 +557,25 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
       return;
     }
 
+    calendar::ICalParseControl control {};
     const auto now = std::chrono::system_clock::now();
-    auto events = calendar::parseICalEvents(resp.body, now - kWindowBefore, now + kWindowAfter);
-    for (auto& event : events) {
+    auto result = calendar::parseICalEvents(resp.body, now - kWindowBefore, now + kWindowAfter, control);
+    for (auto& event : result.events) {
       event.calendarName = displayName;
       if (!colorHex.empty()) {
         event.colorHex = colorHex;
       }
     }
-    accountDone(accountId, true, std::move(events));
+
+    switch (result.status) {
+    case calendar::ICalParseStatus::Complete:
+      accountDone(accountId, true, std::move(result.events));
+      break;
+    case calendar::ICalParseStatus::Cancelled:
+    case calendar::ICalParseStatus::InvalidCalendar:
+    case calendar::ICalParseStatus::WorkBudgetExceeded:
+      accountDone(accountId, false, {});
+    }
   });
 }
 
