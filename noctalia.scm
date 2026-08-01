@@ -79,9 +79,6 @@
            #~(modify-phases %standard-phases
                (add-after 'unpack 'prepare-for-build
                  (lambda _
-                   ;; For reproducibility.
-                   (substitute* "meson.build"
-                     (("'-march=native', '-mtune=native',") ""))
                    ;; /bin/sh doesn't exist in the build environment.
                    (substitute* "tests/process_test.cpp"
                      (("/bin/(sh)" _ cmd)
