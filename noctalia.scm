@@ -25,6 +25,7 @@
   ;; Guix packages
   #:use-module (gnu packages calendar)
   #:use-module (gnu packages cpp)
+  #:use-module (gnu packages crypto)
   #:use-module (gnu packages curl)
   #:use-module (gnu packages fontutils)
   #:use-module (gnu packages freedesktop)
@@ -102,7 +103,9 @@
            libjxl
            libical
            libqalculate
+           libsecret
            libsndfile
+           libsodium
            libwebp
            libxkbcommon
            libxml2
