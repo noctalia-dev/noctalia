@@ -546,7 +546,9 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
 
   HttpRequest req;
   if (url.size() >= 7)
-    std::transform(url.begin(), std::next(url.begin(), 6), url.begin(), [](unsigned char c) { return std::tolower(c); });
+    std::transform(url.begin(), std::next(url.begin(), 6), url.begin(), [](unsigned char c) {
+      return std::tolower(c);
+    });
   if (url.starts_with("webcal://"))
     url.replace(0, 6, "https");
   req.url = url;
