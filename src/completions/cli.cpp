@@ -1,6 +1,8 @@
 #include "completions/cli.h"
 #include "completions_generated.h"
 
+#include "completions_generated.h"
+
 #include <cstdio>
 #include <cstring>
 #include <print>
