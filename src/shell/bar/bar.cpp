@@ -2225,6 +2225,7 @@ void Bar::createInstance(const WaylandOutput& output, std::size_t barIndex, cons
       .marginRight = surfaceSpec.marginRight,
       .marginBottom = surfaceSpec.marginBottom,
       .marginLeft = surfaceSpec.marginLeft,
+      .keyboard = LayerShellKeyboard::OnDemand,
       .defaultHeight = surfaceSpec.surfaceHeight,
   };
 

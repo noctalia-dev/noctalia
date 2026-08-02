@@ -2450,6 +2450,9 @@ void TaskbarWidget::updateModels() {
     }
     return;
   }
+  if (std::ranges::any_of(m_taskTileAreas, [](const InputArea* area) { return area != nullptr && area->pressed(); })) {
+    return;
+  }
   ++m_taskGeneration;
   m_tasks = std::move(nextTasks);
   m_workspaces = std::move(nextWorkspaces);
