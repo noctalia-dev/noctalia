@@ -3,6 +3,7 @@
 #include "launcher/launcher_provider.h"
 #include "launcher/usage_tracker.h"
 #include "shell/panel/panel.h"
+#include "system/desktop_entry_override.h"
 #include "system/icon_resolver.h"
 #include "ui/signal.h"
 
@@ -90,8 +91,9 @@ private:
   void finishActivation(LauncherProvider& provider, const std::string& resultId, bool copied);
   [[nodiscard]] std::vector<LauncherResult> providerOverviewResults(std::string_view text) const;
   void openAppActionsMenu(std::size_t index, float anchorX, float anchorY);
-  void openUninstallConfirmMenu(const DesktopEntry& entry, std::string package, float anchorX, float anchorY);
-  void runUninstall(const DesktopEntry& entry, std::string package);
+  void openUninstallConfirmMenu(const DesktopEntry& entry, AppSource source, float anchorX, float anchorY);
+  void runUninstall(const DesktopEntry& entry, const AppSource& source);
+  void runRemoveLauncherFile(const DesktopEntry& entry);
   void rebuildCategoryFilter(const std::vector<LauncherCategory>& categories);
   void setCategoryFilterVisible(bool visible);
   void setActiveCategorySlot(std::size_t slotIndex);

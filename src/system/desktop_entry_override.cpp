@@ -3,9 +3,13 @@
 #include "core/log.h"
 #include "core/process/process.h"
 
+#include <nlohmann/json.hpp>
+
+#include <cctype>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <string_view>
 #include <system_error>
 
 namespace fs = std::filesystem;
@@ -108,6 +112,58 @@ namespace {
   return true;
 }
 
+// Scan `path` for a top-level "key=value" line (no section awareness needed —
+// these are freedesktop custom keys, unlikely to collide across sections).
+[[nodiscard]] std::optional<std::string> readDesktopKey(std::string_view path, std::string_view key) {
+  std::ifstream in(std::string(path), std::ios::binary);
+  if (!in) {
+    return std::nullopt;
+  }
+  const std::string prefix = std::string(key) + "=";
+  std::string line;
+  while (std::getline(in, line)) {
+    if (line.rfind(prefix, 0) == 0) {
+      return line.substr(prefix.size());
+    }
+  }
+  return std::nullopt;
+}
+
+[[nodiscard]] bool containsAppImagePath(std::string_view exec) {
+  const std::string lower = [&] {
+    std::string s(exec);
+    for (char& c : s) {
+      c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return s;
+  }();
+  return lower.find(".appimage") != std::string::npos;
+}
+
+// Pull the whitespace-delimited Exec/TryExec token that ends in .AppImage,
+// stripping surrounding quotes.
+[[nodiscard]] std::string extractAppImagePath(std::string_view exec) {
+  std::size_t pos = 0;
+  while (pos < exec.size()) {
+    std::size_t end = exec.find(' ', pos);
+    if (end == std::string_view::npos) {
+      end = exec.size();
+    }
+    std::string_view token = exec.substr(pos, end - pos);
+    if (!token.empty() && (token.front() == '"' || token.front() == '\'')) {
+      token.remove_prefix(1);
+    }
+    if (!token.empty() && (token.back() == '"' || token.back() == '\'')) {
+      token.remove_suffix(1);
+    }
+    if (containsAppImagePath(token)) {
+      return std::string(token);
+    }
+    pos = end + 1;
+  }
+  return {};
+}
+
 }  // namespace
 
 bool setDesktopEntryHidden(const DesktopEntry& entry, bool hidden, std::string* err) {
@@ -184,4 +240,52 @@ std::optional<std::string> resolveOwningPackage(std::string_view desktopFilePath
     return std::nullopt;
   }
   return out.substr(nameStart, nameEnd - nameStart);
+}
+
+bool shellyListsAppImage(const std::string& appImagePath) {
+  if (appImagePath.empty()) {
+    return false;
+  }
+  const process::RunResult result = process::runSync({"shelly", "list", "appimage", "-j"});
+  if (result.exitCode != 0 || result.out.empty()) {
+    return false;
+  }
+  std::error_code ec;
+  const std::string resolved = fs::weakly_canonical(appImagePath, ec).string();
+  const std::string& target = ec ? appImagePath : resolved;
+  try {
+    const auto entries = nlohmann::json::parse(result.out);
+    if (!entries.is_array()) {
+      return false;
+    }
+    for (const auto& item : entries) {
+      const auto path = item.find("Path");
+      if (path != item.end() && path->is_string() && path->get<std::string>() == target) {
+        return true;
+      }
+    }
+  } catch (const nlohmann::json::exception&) {
+    return false;
+  }
+  return false;
+}
+
+AppSource resolveAppSource(const DesktopEntry& entry) {
+  if (auto appid = readDesktopKey(entry.path, "X-Flatpak")) {
+    return {AppSourceBackend::Flatpak, *appid, false};
+  }
+
+  if (readDesktopKey(entry.path, "X-AppImage-Name") || readDesktopKey(entry.path, "X-AppImage-Version")
+      || containsAppImagePath(entry.exec)) {
+    std::string appImagePath = extractAppImagePath(entry.exec);
+    const bool managed = shellyListsAppImage(appImagePath);
+    return {AppSourceBackend::AppImage, std::move(appImagePath), managed};
+  }
+
+  if (auto pkg = resolveOwningPackage(entry.path)) {
+    const bool foreign = process::runSync({"pacman", "-Qm", *pkg}).exitCode == 0;
+    return {foreign ? AppSourceBackend::Aur : AppSourceBackend::Standard, *pkg, false};
+  }
+
+  return {AppSourceBackend::Custom, {}, false};
 }

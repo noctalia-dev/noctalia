@@ -652,6 +652,14 @@
       "uninstall-confirm": "Uninstall",
       "uninstall-done": "Package uninstalled:",
       "uninstall-failed": "Uninstall failed",
+      "uninstall-aur-suffix": " (AUR)",
+      "uninstall-flatpak-suffix": " (Flatpak)",
+      "uninstall-appimage-suffix": " (AppImage)",
+      "remove-launcher": "Remove launcher",
+      "remove-launcher-confirm": "Remove launcher for",
+      "remove-launcher-done": "Launcher removed",
+      "remove-launcher-failed": "Failed to remove launcher",
+      "appimage-not-shelly-managed": "This AppImage is not managed by Shelly; only the launcher entry will be removed automatically.",
       "hide-failed": "Could not hide this app"
     },
     "empty": {

@@ -30,9 +30,11 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <string_view>
+#include <system_error>
 #include <tuple>
 
 namespace {
@@ -1623,6 +1625,29 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
   constexpr std::int32_t kActionUnhide = -5;
   constexpr std::int32_t kActionUninstall = -6;
 
+  const AppSource source = resolveAppSource(*match);
+  std::string uninstallLabel;
+  switch (source.backend) {
+  case AppSourceBackend::Standard:
+    uninstallLabel = i18n::tr("launcher.context-menu.uninstall");
+    break;
+  case AppSourceBackend::Aur:
+    uninstallLabel = i18n::tr("launcher.context-menu.uninstall") + i18n::tr("launcher.context-menu.uninstall-aur-suffix");
+    break;
+  case AppSourceBackend::Flatpak:
+    uninstallLabel =
+        i18n::tr("launcher.context-menu.uninstall") + i18n::tr("launcher.context-menu.uninstall-flatpak-suffix");
+    break;
+  case AppSourceBackend::AppImage:
+    uninstallLabel = source.shellyManaged
+        ? i18n::tr("launcher.context-menu.uninstall") + i18n::tr("launcher.context-menu.uninstall-appimage-suffix")
+        : i18n::tr("launcher.context-menu.remove-launcher");
+    break;
+  case AppSourceBackend::Custom:
+    uninstallLabel = i18n::tr("launcher.context-menu.remove-launcher");
+    break;
+  }
+
   std::vector<ContextMenuControlEntry> entries;
   entries.reserve(actionsCopy.size() + 4);
   entries.push_back(
@@ -1664,17 +1689,15 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
           .hasSubmenu = false,
       }
   );
-  if (const auto package = resolveOwningPackage(match->path)) {
-    entries.push_back(
-        ContextMenuControlEntry{
-            .id = kActionUninstall,
-            .label = i18n::tr("launcher.context-menu.uninstall"),
-            .enabled = true,
-            .separator = false,
-            .hasSubmenu = false,
-        }
-    );
-  }
+  entries.push_back(
+      ContextMenuControlEntry{
+          .id = kActionUninstall,
+          .label = uninstallLabel,
+          .enabled = true,
+          .separator = false,
+          .hasSubmenu = false,
+      }
+  );
   for (std::int32_t i = 0; i < static_cast<std::int32_t>(actionsCopy.size()); ++i) {
     entries.push_back(
         ContextMenuControlEntry{
@@ -1703,7 +1726,7 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
   });
 
   m_actionsMenu->setOnActivate([this, base, actionsCopy = std::move(actionsCopy),
-                                entryForPin = *match, anchorX, anchorY](const ContextMenuControlEntry& entry) {
+                                entryForPin = *match, source, anchorX, anchorY](const ContextMenuControlEntry& entry) {
     LauncherResult result = base;
     result.desktopActionId.clear();
     if (entry.id == kActionPinToDock) {
@@ -1738,12 +1761,10 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
       return;
     }
     if (entry.id == kActionUninstall) {
-      if (const auto package = resolveOwningPackage(entryForPin.path)) {
-        // Close this menu, then open the confirmation menu at the same spot.
-        m_actionsMenu->close();
-        PanelManager::instance().clearActivePopup();
-        openUninstallConfirmMenu(entryForPin, *package, anchorX, anchorY);
-      }
+      // Close this menu, then open the confirmation menu at the same spot.
+      m_actionsMenu->close();
+      PanelManager::instance().clearActivePopup();
+      openUninstallConfirmMenu(entryForPin, source, anchorX, anchorY);
       return;
     }
     if (entry.id >= 0 && entry.id < static_cast<std::int32_t>(actionsCopy.size())) {
@@ -1793,7 +1814,7 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
 }
 
 void LauncherPanel::openUninstallConfirmMenu(
-    const DesktopEntry& entry, std::string package, float anchorX, float anchorY
+    const DesktopEntry& entry, AppSource source, float anchorX, float anchorY
 ) {
   WaylandConnection* wl = PanelManager::instance().wayland();
   RenderContext* rc = PanelManager::instance().renderContext();
@@ -1815,6 +1836,19 @@ void LauncherPanel::openUninstallConfirmMenu(
   constexpr std::int32_t kConfirmCancel = 1;
   constexpr std::int32_t kConfirmUninstall = 2;
 
+  // Custom entries (no backend owns them) and unmanaged AppImages get "Remove
+  // launcher" copy instead of "Uninstall" — see resolveAppSource.
+  const bool isRemoveLauncher =
+      source.backend == AppSourceBackend::Custom
+      || (source.backend == AppSourceBackend::AppImage && !source.shellyManaged);
+
+  std::string confirmLabel;
+  if (isRemoveLauncher) {
+    confirmLabel = i18n::tr("launcher.context-menu.remove-launcher-confirm") + " " + entry.name;
+  } else {
+    confirmLabel = i18n::tr("launcher.context-menu.uninstall-confirm") + " " + source.identifier;
+  }
+
   std::vector<ContextMenuControlEntry> entries;
   entries.push_back(
       ContextMenuControlEntry{
@@ -1828,7 +1862,7 @@ void LauncherPanel::openUninstallConfirmMenu(
   entries.push_back(
       ContextMenuControlEntry{
           .id = kConfirmUninstall,
-          .label = i18n::tr("launcher.context-menu.uninstall-confirm") + " " + package,
+          .label = confirmLabel,
           .enabled = true,
           .separator = false,
           .hasSubmenu = false,
@@ -1843,11 +1877,16 @@ void LauncherPanel::openUninstallConfirmMenu(
     PanelManager::instance().endAttachedPopup(parentSurface);
   });
 
-  m_confirmMenu->setOnActivate([this, entry, package = std::move(package)](const ContextMenuControlEntry& item) {
+  m_confirmMenu->setOnActivate([this, entry, source = std::move(source)](const ContextMenuControlEntry& item) {
     m_confirmMenu->close();
     PanelManager::instance().clearActivePopup();
-    if (item.id == kConfirmUninstall) {
-      runUninstall(entry, package);
+    if (item.id != kConfirmUninstall) {
+      return;
+    }
+    if (source.backend == AppSourceBackend::Custom) {
+      runRemoveLauncherFile(entry);
+    } else {
+      runUninstall(entry, source);
     }
   });
 
@@ -1879,21 +1918,78 @@ void LauncherPanel::openUninstallConfirmMenu(
   );
 }
 
-void LauncherPanel::runUninstall(const DesktopEntry& entry, std::string package) {
-  (void)entry;  // Package identity is resolved by the caller; entry kept for future use.
-  // pacman needs a real TTY for "these packages will also be removed" cascades and
-  // "breaks dependency X, N packages depend on it" warnings (avahi, ABDownloadManager
-  // repros). Running it interactively in a terminal lets the user see and answer those
-  // directly — a breaking removal must be the user's decision, never --noconfirm.
+namespace {
+
+// Backend-specific shell command to run inside the interactive terminal.
+// `||` fallbacks let the shell handle "shelly missing/backend missing"
+// without a separate C++ branch — see PLAN-SHELLY.md §2.
+[[nodiscard]] std::string
+buildUninstallCommand(const DesktopEntry& entry, const AppSource& source, const std::string& escalator) {
+  switch (source.backend) {
+  case AppSourceBackend::Standard:
+    return escalator + " shelly remove standard " + StringUtils::shellQuote(source.identifier) + " || " + escalator +
+        " pacman -Rns " + StringUtils::shellQuote(source.identifier);
+
+  case AppSourceBackend::Aur:
+    return escalator + " shelly remove aur " + StringUtils::shellQuote(source.identifier) +
+        " || echo 'shelly is required to remove AUR packages; install it or run: pacman -Rns " +
+        StringUtils::shellQuote(source.identifier) + " (may leave AUR bookkeeping stale)'";
+
+  case AppSourceBackend::Flatpak:
+    return escalator + " shelly remove flatpak " + StringUtils::shellQuote(source.identifier) +
+        " || flatpak uninstall -y --app " + StringUtils::shellQuote(source.identifier);
+
+  case AppSourceBackend::AppImage:
+    if (source.shellyManaged) {
+      return escalator + " shelly remove appimage " + StringUtils::shellQuote(source.identifier);
+    }
+    return "printf 'This AppImage is not managed by Shelly.\\n'; "
+           "rm -f " +
+        StringUtils::shellQuote(entry.path) +
+        "; "
+        "printf 'Removed launcher entry.\\n'; "
+        "read -n 1 -s -r -p 'Also delete the AppImage file itself? [y/N] ' ans; echo; "
+        "if [ \"$ans\" = 'y' ] || [ \"$ans\" = 'Y' ]; then rm -f " +
+        StringUtils::shellQuote(source.identifier) + "; printf 'Deleted AppImage.\\n'; fi";
+
+  case AppSourceBackend::Custom:
+    return {};
+  }
+  return {};
+}
+
+// Cheap backend-specific check for whether the uninstall actually took.
+[[nodiscard]] bool verifyRemoved(const DesktopEntry& entry, const AppSource& source) {
+  switch (source.backend) {
+  case AppSourceBackend::Standard:
+  case AppSourceBackend::Aur:
+    return process::runSync({"pacman", "-Q", source.identifier}).exitCode != 0;
+  case AppSourceBackend::Flatpak:
+    return process::runSync({"flatpak", "info", source.identifier}).exitCode != 0;
+  case AppSourceBackend::AppImage:
+    return !std::filesystem::exists(entry.path);
+  case AppSourceBackend::Custom:
+    return !std::filesystem::exists(entry.path);
+  }
+  return false;
+}
+
+}  // namespace
+
+void LauncherPanel::runUninstall(const DesktopEntry& entry, const AppSource& source) {
+  // pacman/shelly need a real TTY for "these packages will also be removed" cascades and
+  // "breaks dependency X, N packages depend on it" warnings. Running interactively in a
+  // terminal lets the user see and answer those directly — a breaking removal must be the
+  // user's decision, never --noconfirm.
   const auto escalator = process::resolvePrivilegeEscalator();
   if (!escalator) {
     notify::error("Noctalia", i18n::tr("launcher.context-menu.uninstall-failed"), "no privilege escalator found");
     return;
   }
 
-  // Keep the window open after pacman exits so the user can read the output.
-  const std::string shellCmd = *escalator + " pacman -Rns " + StringUtils::shellQuote(package) +
-      "; echo; read -n 1 -s -r -p 'Press any key to close...'";
+  const std::string uninstallCmd = buildUninstallCommand(entry, source, *escalator);
+  // Keep the window open after the command exits so the user can read the output.
+  const std::string shellCmd = uninstallCmd + "; echo; read -n 1 -s -r -p 'Press any key to close...'";
 
   const auto termArgs = terminal_launch::prepareCommand(shellCmd);
   if (!termArgs) {
@@ -1904,19 +2000,16 @@ void LauncherPanel::runUninstall(const DesktopEntry& entry, std::string package)
   const bool spawned = process::runAsync(
       *termArgs,
       process::RunCallbacks{
-          .onExit = [this, package](process::RunResult /*result*/) {
-            DeferredCall::callLater([this, package]() {
-              // The terminal's own exit code, not pacman's — most emulators don't
-              // reliably forward the child's status. Re-check ownership instead of
-              // trusting exitCode; this also correctly no-ops on polkit cancel or a
-              // declined pacman prompt, since the package is still present either way.
-              const bool stillInstalled = process::runSync({"pacman", "-Q", package}).exitCode == 0;
-              if (!stillInstalled) {
-                notify::info("Noctalia", i18n::tr("launcher.context-menu.uninstall-done"), package);
+          .onExit = [this, entry, source](process::RunResult /*result*/) {
+            DeferredCall::callLater([this, entry, source]() {
+              // The terminal's own exit code, not the child's — most emulators don't
+              // reliably forward it. Re-check instead of trusting exitCode; this also
+              // correctly no-ops on polkit cancel or a declined prompt.
+              if (verifyRemoved(entry, source)) {
+                notify::info("Noctalia", i18n::tr("launcher.context-menu.uninstall-done"), source.identifier);
               }
               // Refresh regardless: a cascaded removal may drop other .desktop-owning
-              // packages even when `package` itself is still installed (user picked a
-              // different item from pacman's dependency list).
+              // packages even when the target itself is still present.
               reapplyCurrentQuery();
             });
           },
@@ -1925,6 +2018,20 @@ void LauncherPanel::runUninstall(const DesktopEntry& entry, std::string package)
   if (!spawned) {
     notify::error("Noctalia", i18n::tr("launcher.context-menu.uninstall-failed"), "terminal spawn failed");
   }
+}
+
+void LauncherPanel::runRemoveLauncherFile(const DesktopEntry& entry) {
+  // Custom backend only ever matches entries outside pacman/flatpak/appimage
+  // tracking, which in practice means a user-owned .desktop file. No
+  // escalation, no terminal, no subprocess needed.
+  std::error_code ec;
+  std::filesystem::remove(entry.path, ec);
+  if (ec) {
+    notify::error("Noctalia", i18n::tr("launcher.context-menu.remove-launcher-failed"), ec.message());
+    return;
+  }
+  notify::info("Noctalia", i18n::tr("launcher.context-menu.remove-launcher-done"), entry.name);
+  reapplyCurrentQuery();
 }
 
 void LauncherPanel::activateAt(std::size_t index) {
