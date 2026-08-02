@@ -773,7 +773,11 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
             return;
           }
           if (data.button == BTN_LEFT) {
-            activateOrLaunchPinned(*current);
+            if ((data.modifiers & KeyMod::Super) != 0) {
+              launchDesktopEntry(*current);
+            } else {
+              activateOrLaunchPinned(*current);
+            }
             return;
           }
           if (data.button == BTN_RIGHT && areaPtr != nullptr) {

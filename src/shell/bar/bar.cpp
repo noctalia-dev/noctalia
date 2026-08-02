@@ -3444,7 +3444,7 @@ bool Bar::onPointerEvent(const PointerEvent& event) {
     const auto sx = static_cast<float>(event.sx);
     const auto sy = static_cast<float>(event.sy);
     bool pressed = event.pressed;
-    consumed = m_hoveredInstance->inputDispatcher.pointerButton(sx, sy, event.button, pressed);
+    consumed = m_hoveredInstance->inputDispatcher.pointerButton(sx, sy, event.button, pressed, event.modifiers);
     if (pressed && !consumed) {
       if (handleBarDeadZoneButton(*m_hoveredInstance, sx, sy, event.button, m_platform, m_actionDispatcher)) {
         consumed = true;

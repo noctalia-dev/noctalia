@@ -314,6 +314,7 @@ void WaylandSeat::handlePointerButton(
           .time = time,
           .button = button,
           .pressed = (state == WL_POINTER_BUTTON_STATE_PRESSED),
+          .modifiers = self->activeModifiers(),
       }
   );
 }
@@ -874,4 +875,19 @@ WaylandSeat::LockKeysState WaylandSeat::lockKeysState() const {
   state.numLock = xkb_state_led_name_is_active(m_xkbState, XKB_LED_NAME_NUM) != 0;
   state.scrollLock = xkb_state_led_name_is_active(m_xkbState, XKB_LED_NAME_SCROLL) != 0;
   return state;
+}
+
+std::uint32_t WaylandSeat::activeModifiers() const {
+  std::uint32_t mods = 0;
+  if (m_xkbState != nullptr) {
+    if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_SHIFT, XKB_STATE_MODS_EFFECTIVE) > 0)
+      mods |= KeyMod::Shift;
+    if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_CTRL, XKB_STATE_MODS_EFFECTIVE) > 0)
+      mods |= KeyMod::Ctrl;
+    if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_ALT, XKB_STATE_MODS_EFFECTIVE) > 0)
+      mods |= KeyMod::Alt;
+    if (xkb_state_mod_name_is_active(m_xkbState, XKB_MOD_NAME_LOGO, XKB_STATE_MODS_EFFECTIVE) > 0)
+      mods |= KeyMod::Super;
+  }
+  return mods;
 }

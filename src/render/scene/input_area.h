@@ -34,6 +34,7 @@ public:
     float axisLines = 0.0f;
     float axisSteps = 0.0f;
     bool axisStepStartsGesture = false;
+    std::uint32_t modifiers = 0;
 
     [[nodiscard]] float scrollDelta(float wheelStep) const noexcept {
       if (axisLines != 0.0f) {
@@ -174,7 +175,7 @@ public:
   void dispatchEnter(float localX, float localY);
   void dispatchLeave();
   void dispatchMotion(float localX, float localY);
-  void dispatchPress(float localX, float localY, std::uint32_t button, bool isPressed);
+  void dispatchPress(float localX, float localY, std::uint32_t button, bool isPressed, std::uint32_t modifiers = 0);
   void dispatchCancel();
   [[nodiscard]] bool dispatchAxis(
       float localX, float localY, std::uint32_t axis, std::uint32_t axisSource, double axisValue,

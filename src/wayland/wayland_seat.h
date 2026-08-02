@@ -41,6 +41,7 @@ struct PointerEvent {
   std::int32_t axisValue120 = 0;
   float axisLines = 0.0f;
   std::uint32_t axisGestureSerial = 0;
+  std::uint32_t modifiers = 0;
 };
 
 struct KeyboardEvent {
@@ -147,6 +148,7 @@ public:
   [[nodiscard]] std::string currentLayoutName() const;
   [[nodiscard]] std::vector<std::string> layoutNames() const;
   [[nodiscard]] LockKeysState lockKeysState() const;
+  [[nodiscard]] std::uint32_t activeModifiers() const;
   [[nodiscard]] InputSource lastInputSource() const noexcept { return m_lastInputSource; }
 
   [[nodiscard]] double userIdleSeconds() const noexcept;

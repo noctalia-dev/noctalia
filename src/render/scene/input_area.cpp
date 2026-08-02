@@ -200,12 +200,12 @@ void InputArea::dispatchMotion(float localX, float localY) {
   }
 }
 
-void InputArea::dispatchPress(float localX, float localY, std::uint32_t button, bool isPressed) {
+void InputArea::dispatchPress(float localX, float localY, std::uint32_t button, bool isPressed, std::uint32_t modifiers) {
   if (isPressed) {
     m_pressed = true;
     m_pressedButton = button;
     if (m_onPress) {
-      m_onPress({.localX = localX, .localY = localY, .button = button, .pressed = true});
+      m_onPress({.localX = localX, .localY = localY, .button = button, .pressed = true, .modifiers = modifiers});
     }
   } else {
     const bool releasedInside = containsLocalPoint(localX, localY, true);
@@ -214,12 +214,12 @@ void InputArea::dispatchPress(float localX, float localY, std::uint32_t button, 
     m_pressedButton = 0;
 
     if (m_onPress) {
-      m_onPress({.localX = localX, .localY = localY, .button = button, .pressed = false});
+      m_onPress({.localX = localX, .localY = localY, .button = button, .pressed = false, .modifiers = modifiers});
     }
 
     // Click: release inside the same InputArea that received the press.
     if (shouldClick) {
-      m_onClick({.localX = localX, .localY = localY, .button = button, .pressed = false});
+      m_onClick({.localX = localX, .localY = localY, .button = button, .pressed = false, .modifiers = modifiers});
     }
   }
 }
