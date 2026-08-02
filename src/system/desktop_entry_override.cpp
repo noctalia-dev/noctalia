@@ -48,7 +48,7 @@ namespace {
       const std::size_t lineLen = (lineEnd == std::string::npos) ? text.size() - pos : lineEnd - pos;
       const std::string line = text.substr(lineStart, lineLen);
 
-      if (line.rfind("NoDisplay=", 0) == 0) {
+      if (line.starts_with("NoDisplay=")) {
         // Flip the existing key, preserving the line terminator.
         text.replace(lineStart, lineLen, target);
         return text;
@@ -121,7 +121,7 @@ namespace {
     const std::string prefix = std::string(key) + "=";
     std::string line;
     while (std::getline(in, line)) {
-      if (line.rfind(prefix, 0) == 0) {
+      if (line.starts_with(prefix)) {
         return line.substr(prefix.size());
       }
     }
@@ -136,7 +136,7 @@ namespace {
       }
       return s;
     }();
-    return lower.find(".appimage") != std::string::npos;
+    return lower.contains(".appimage");
   }
 
   // Pull the whitespace-delimited Exec/TryExec token that ends in .AppImage,
@@ -191,7 +191,7 @@ bool setDesktopEntryHidden(const DesktopEntry& entry, bool hidden, std::string* 
         return false;
       }
       content.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
-      if (content.empty() || content.rfind("[Desktop Entry]", 0) != 0) {
+      if (content.empty() || !content.starts_with("[Desktop Entry]")) {
         // Override file exists but isn't a plain desktop file (or is a stub
         // that inherits via merge). Replace it with a full copy of the system
         // file so the override is complete, then flip NoDisplay below.
