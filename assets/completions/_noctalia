@@ -36,6 +36,8 @@ typeset -ga _NOCTALIA_MSG_COMMANDS=(
     'caffeine-enable:Enable caffeine'
     'caffeine-toggle:Toggle caffeine'
     'clipboard-clear:Clear clipboard history'
+    'clipboard-copy:Copy text to clipboard'
+    'clipboard-text:Print clipboard text'
     'color-scheme-get:Print active color scheme'
     'color-scheme-set:Set palette source and selection'
     'config-reload:Reload the config file'
@@ -82,6 +84,9 @@ typeset -ga _NOCTALIA_MSG_COMMANDS=(
     'notification-dnd-toggle:Toggle notification Do Not Disturb state'
     'notification-invoke-latest:Invoke default action of most recent notification'
     'notification-show:Show an internal Noctalia notification'
+    'osd-disable:Disable all OSD popups'
+    'osd-enable:Enable all OSD popups'
+    'osd-toggle:Toggle all OSD popups'
     'panel-close:Close the active panel, or close the named panel'
     'panel-open:Open a panel by id'
     'panel-toggle:Toggle a panel by id'
@@ -136,6 +141,7 @@ typeset -ga _NOCTALIA_BUILTIN_PALETTES=(
     Gruvbox
     Kanagawa
     Noctalia
+    Nord
     'Rosé Pine'
     Tokyo-Night
 )
@@ -201,6 +207,7 @@ _noctalia_get_panels() {
 }
 
 _noctalia_get_plugin_sources() {
+    local plugin_list
     local -a sources
 
     plugin_list=$(noctalia msg plugins source list 2>/dev/null)
@@ -215,6 +222,7 @@ _noctalia_get_plugin_sources() {
 }
 
 _noctalia_get_enabled_plugins() {
+    local plugin_list
     local -a plugins
 
     plugin_list=$(noctalia msg plugins list 2>/dev/null | grep 'enabled$')
@@ -229,6 +237,7 @@ _noctalia_get_enabled_plugins() {
 }
 
 _noctalia_get_disabled_plugins() {
+    local plugin_list
     local -a plugins
 
     plugin_list=$(noctalia msg plugins list 2>/dev/null | grep 'disabled$')
@@ -347,6 +356,9 @@ _noctalia_msg() {
                 ;;
             bar-layer-set)
                 _values 'layer' top overlay
+                ;;
+            clipboard-copy)
+                _message 'text to copy'
                 ;;
             color-scheme-set)
                 if (( CURRENT == 2 )); then

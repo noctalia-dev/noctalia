@@ -1,4 +1,4 @@
-readonly _NOCTALIA_TOP_COMMANDS="\
+_NOCTALIA_TOP_COMMANDS="\
     --help \
     -h \
     --version \
@@ -11,7 +11,7 @@ readonly _NOCTALIA_TOP_COMMANDS="\
     plugins \
     theme"
 
-readonly _NOCTALIA_MSG_COMMANDS="\
+_NOCTALIA_MSG_COMMANDS="\
     --help \
     bar-auto-hide-set \
     bar-hide \
@@ -32,6 +32,8 @@ readonly _NOCTALIA_MSG_COMMANDS="\
     caffeine-enable \
     caffeine-toggle \
     clipboard-clear \
+    clipboard-copy \
+    clipboard-text \
     color-scheme-get \
     color-scheme-set \
     config-reload \
@@ -78,6 +80,9 @@ readonly _NOCTALIA_MSG_COMMANDS="\
     notification-dnd-toggle \
     notification-invoke-latest \
     notification-show \
+    osd-disable \
+    osd-enable \
+    osd-toggle \
     panel-close \
     panel-open \
     panel-toggle \
@@ -121,9 +126,9 @@ readonly _NOCTALIA_MSG_COMMANDS="\
     workspace-alert-status \
     workspace-switch"
 
-readonly _NOCTALIA_BOOL_STATES="0 1 false off on true"
+_NOCTALIA_BOOL_STATES="0 1 false off on true"
 
-readonly _NOCTALIA_WALLPAPER_SCHEMES="\
+_NOCTALIA_WALLPAPER_SCHEMES="\
     dysfunctional \
     faithful \
     m3-content \
@@ -135,7 +140,7 @@ readonly _NOCTALIA_WALLPAPER_SCHEMES="\
     soft \
     vibrant"
 
-readonly _NOCTALIA_THEME_OPTS="\
+_NOCTALIA_THEME_OPTS="\
     --both \
     --builtin-config \
     --dark \
@@ -150,7 +155,7 @@ readonly _NOCTALIA_THEME_OPTS="\
     -o \
     -r"
 
-readonly -a _NOCTALIA_BUILTIN_PALETTES=(
+declare -a _NOCTALIA_BUILTIN_PALETTES=(
     Ayu
     Catppuccin
     Dracula
@@ -158,7 +163,8 @@ readonly -a _NOCTALIA_BUILTIN_PALETTES=(
     Gruvbox
     Kanagawa
     Noctalia
-    "Rosé Pine"
+    Nord
+    "Rosé\ Pine"
     Tokyo-Night
 )
 
@@ -290,8 +296,12 @@ _noctalia_msg() {
                 _complete_words "builtin community custom wallpaper"
             elif [[ ${COMP_CWORD} -eq 4 ]]; then
                 if [[ "${prev}" == "builtin" ]]; then
-                    IFS=$'\n'
-                    _complete_words "${_NOCTALIA_BUILTIN_PALETTES[*]}"
+                    COMPREPLY=()
+                    for palette in "${_NOCTALIA_BUILTIN_PALETTES[@]}"; do
+                        if [[ "$palette" == "$cur"* ]]; then
+                            COMPREPLY+=("$palette")
+                        fi
+                    done
                 elif [[ "${prev}" == "wallpaper" ]]; then
                     _complete_words "$_NOCTALIA_WALLPAPER_SCHEMES"
                 fi

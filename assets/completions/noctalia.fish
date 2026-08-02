@@ -25,6 +25,8 @@ set -l MSG_CMDS \
     caffeine-enable \
     caffeine-toggle \
     clipboard-clear \
+    clipboard-copy \
+    clipboard-text \
     color-scheme-get \
     color-scheme-set \
     config-reload \
@@ -71,6 +73,9 @@ set -l MSG_CMDS \
     notification-dnd-toggle \
     notification-invoke-latest \
     notification-show \
+    osd-disable \
+    osd-enable \
+    osd-toggle \
     panel-close \
     panel-open \
     panel-toggle \
@@ -124,7 +129,8 @@ set -l BUILTIN_PALETTES \
     Gruvbox \
     Kanagawa \
     Noctalia \
-    "'Rosé Pine'" \
+    Nord \
+    "Rosé\ Pine" \
     Tokyo-Night
 
 set -l WALLPAPER_SCHEMES \
