@@ -1638,12 +1638,6 @@ void NetworkManagerService::refreshAccessPoints(std::function<void()> onComplete
                                             } catch (const sdbus::Error&) {
                                             }
                                           }
-                                          if (auto freqIt = properties.find("Frequency"); freqIt != properties.end()) {
-                                            try {
-                                              info.frequencyMhz = freqIt->second.get<std::uint32_t>();
-                                            } catch (const sdbus::Error&) {
-                                            }
-                                          }
                                           const auto wpaFlags = [&properties]() {
                                             if (auto wpaFlagsIt = properties.find("WpaFlags");
                                                 wpaFlagsIt != properties.end()) {

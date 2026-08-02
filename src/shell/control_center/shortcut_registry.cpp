@@ -5,7 +5,7 @@
 #include "dbus/bluetooth/bluetooth_service.h"
 #include "dbus/mpris/mpris_service.h"
 #include "dbus/network/inetwork_service.h"
-#include "dbus/network/network_glyphs.h"
+#include "dbus/network/network_display.h"
 #include "dbus/power/power_profiles_service.h"
 #include "i18n/i18n.h"
 #include "idle/idle_inhibitor.h"
@@ -77,7 +77,7 @@ namespace {
       if (m_svc == nullptr) {
         return "wifi-question";
       }
-      return network_glyphs::wifiGlyphForState(m_svc->state());
+      return network_display::wifiGlyphForState(m_svc->state());
     }
     bool isToggle() const override { return true; }
     bool active() const override { return m_svc != nullptr && m_svc->state().wirelessEnabled; }
