@@ -107,6 +107,9 @@ Prefix/datadir are baked into the binary via `NOCTALIA_INSTALL_PREFIX` /
 <prefix>/share/noctalia/assets/...
 <prefix>/share/applications/dev.noctalia.Noctalia.desktop
 <prefix>/share/icons/hicolor/scalable/apps/noctalia.svg
+<prefix>/share/bash-completion/completions/noctalia
+<prefix>/share/fish/vendor_completions.d/noctalia.fish
+<prefix>/share/zsh/site-functions/_noctalia
 ```
 
 The shipped `assets/` tree is **required at runtime**. Shipping only the binary
