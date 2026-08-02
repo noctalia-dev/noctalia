@@ -1344,12 +1344,11 @@ void SystemMonitorService::samplingLoop() {
       }
 
       nextCpu = now + cpuInterval;
-      const auto freq = noctalia::system::cpu_freq::readCurFreqMhz();
-      const auto maxFreq = noctalia::system::cpu_freq::readMaxFreqMhz();
-      if (freq.has_value()) {
+      const auto freq = noctalia::system::cpu_freq::readFreqs();
+      if (freq.curMhz.has_value()) {
         std::scoped_lock lock{m_statsMutex};
-        m_latest.cpuFreqMhz = *freq;
-        m_latest.cpuMaxFreqMhz = maxFreq;
+        m_latest.cpuFreqMhz = *freq.curMhz;
+        m_latest.cpuMaxFreqMhz = freq.maxMhz;
         m_latest.cpuFreqAvailable = true;
       }
       statsTouched = true;
