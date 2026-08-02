@@ -16,6 +16,7 @@
 #include "shell/panel/panel_manager.h"
 #include "system/desktop_entry.h"
 #include "system/desktop_entry_override.h"
+#include "system/terminal_launch.h"
 #include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
 #include "ui/controls/context_menu_popup.h"
@@ -1879,31 +1880,50 @@ void LauncherPanel::openUninstallConfirmMenu(
 }
 
 void LauncherPanel::runUninstall(const DesktopEntry& entry, std::string package) {
-  // Arch-only, asynchronous, with the user already confirmed.
+  (void)entry;  // Package identity is resolved by the caller; entry kept for future use.
+  // pacman needs a real TTY for "these packages will also be removed" cascades and
+  // "breaks dependency X, N packages depend on it" warnings (avahi, ABDownloadManager
+  // repros). Running it interactively in a terminal lets the user see and answer those
+  // directly — a breaking removal must be the user's decision, never --noconfirm.
+  const auto escalator = process::resolvePrivilegeEscalator();
+  if (!escalator) {
+    notify::error("Noctalia", i18n::tr("launcher.context-menu.uninstall-failed"), "no privilege escalator found");
+    return;
+  }
+
+  // Keep the window open after pacman exits so the user can read the output.
+  const std::string shellCmd = *escalator + " pacman -Rns " + StringUtils::shellQuote(package) +
+      "; echo; read -n 1 -s -r -p 'Press any key to close...'";
+
+  const auto termArgs = terminal_launch::prepareCommand(shellCmd);
+  if (!termArgs) {
+    notify::error("Noctalia", i18n::tr("launcher.context-menu.uninstall-failed"), "no terminal emulator found");
+    return;
+  }
+
   const bool spawned = process::runAsync(
-      {"pkexec", "pacman", "-Rns", package},
+      *termArgs,
       process::RunCallbacks{
-          .stdOut = nullptr,
-          .stdErr = nullptr,
-          .onExit = [this, package](process::RunResult result) {
-            DeferredCall::callLater([this, package, exitCode = result.exitCode, err = result.err]() {
-              // 126/127 = polkit prompt dismissed/cancelled — silent no-op.
-              if (exitCode == 126 || exitCode == 127) {
-                return;
-              }
-              if (exitCode == 0) {
+          .onExit = [this, package](process::RunResult /*result*/) {
+            DeferredCall::callLater([this, package]() {
+              // The terminal's own exit code, not pacman's — most emulators don't
+              // reliably forward the child's status. Re-check ownership instead of
+              // trusting exitCode; this also correctly no-ops on polkit cancel or a
+              // declined pacman prompt, since the package is still present either way.
+              const bool stillInstalled = process::runSync({"pacman", "-Q", package}).exitCode == 0;
+              if (!stillInstalled) {
                 notify::info("Noctalia", i18n::tr("launcher.context-menu.uninstall-done"), package);
-              } else {
-                notify::error("Noctalia", i18n::tr("launcher.context-menu.uninstall-failed"), err);
               }
-              // Whatever happened, re-scan: files may have changed either way.
+              // Refresh regardless: a cascaded removal may drop other .desktop-owning
+              // packages even when `package` itself is still installed (user picked a
+              // different item from pacman's dependency list).
               reapplyCurrentQuery();
             });
           },
       }
   );
   if (!spawned) {
-    notify::error("Noctalia", i18n::tr("launcher.context-menu.uninstall-failed"), "pkexec spawn failed");
+    notify::error("Noctalia", i18n::tr("launcher.context-menu.uninstall-failed"), "terminal spawn failed");
   }
 }
 
