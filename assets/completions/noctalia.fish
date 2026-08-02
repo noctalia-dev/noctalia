@@ -189,7 +189,7 @@ complete -c noctalia -n "not __fish_seen_subcommand_from $TOP_CMDS" -s h -l help
 complete -c noctalia -n "not __fish_seen_subcommand_from $TOP_CMDS" -s v -l version
 
 # `noctalia completions <TAB>` completions
-complete -c noctalia -n "__fish_seen_subcommand_from completions" -a "bash fish zsh"
+complete -c noctalia -n "__fish_seen_subcommand_from completions; and not __fish_seen_subcommand_from bash fish zsh" -a "bash fish zsh"
 
 # `noctalia config <TAB>` completions
 complete -c noctalia -F -n "__fish_seen_subcommand_from config; and __fish_prev_arg_in replay-report validate"
