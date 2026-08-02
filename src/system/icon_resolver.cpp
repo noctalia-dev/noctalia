@@ -455,6 +455,13 @@ std::uint64_t IconResolver::themeGeneration() {
   return state.generation;
 }
 
+std::string IconResolver::activeThemeName() {
+  auto& state = iconThemeState();
+  std::scoped_lock lock(state.mutex);
+  ensureThemeStateLocked(state);
+  return state.plan.activeTheme;
+}
+
 void IconResolver::rebuild() {
   auto& state = iconThemeState();
   std::scoped_lock lock(state.mutex);

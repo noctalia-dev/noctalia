@@ -1,6 +1,7 @@
 #include "theme/template_apply_service.h"
 
 #include "config/config_service.h"
+#include "config/config_export.h"
 #include "core/deferred_call.h"
 #include "core/files/resource_paths.h"
 #include "core/log.h"
@@ -244,6 +245,7 @@ namespace noctalia::theme {
     options.schemeType = request.schemeType;
     options.verbose = true;
     options.cancelRequested = [this, generation = request.generation]() { return requestSuperseded(generation); };
+    options.configTable = std::make_shared<toml::table>(config_export::serialize(m_config.config()));
 
     TemplateEngine engine(TemplateEngine::makeThemeData(request.palette), options);
 
