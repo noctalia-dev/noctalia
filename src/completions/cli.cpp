@@ -1,5 +1,4 @@
 #include "completions/cli.h"
-#include "completions_generated.h"
 
 #include "completions_generated.h"
 
