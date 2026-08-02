@@ -100,8 +100,8 @@ namespace noctalia::theme {
         m_scopes.back()[std::move(name)] = std::move(value);
       }
       const ScopeValue* get(const std::string& name) const {
-        for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); ++it) {
-          if (auto found = it->find(name); found != it->end())
+        for (const auto& scope : std::views::reverse(m_scopes)) {
+          if (auto found = scope.find(name); found != scope.end())
             return &found->second;
         }
         return nullptr;
@@ -895,7 +895,8 @@ namespace noctalia::theme {
           } else if (auto* arr = std::get_if<ScopeArray>(&value.value)) {
             try {
               size_t idx = std::stoul(parts[i]);
-              if (idx >= arr->size()) return {};
+              if (idx >= arr->size())
+                return {};
               value = ScopeValue((*arr)[idx]);
             } catch (...) {
               return {};

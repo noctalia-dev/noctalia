@@ -1,11 +1,13 @@
 #pragma once
 
 #include "config/config_types.h"
+#include "core/toml.h" // IWYU pragma: keep
 #include "theme/palette.h"
 
 #include <condition_variable>
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -33,6 +35,7 @@ namespace noctalia::theme {
     struct ApplyRequest {
       GeneratedPalette palette;
       ThemeConfig::TemplatesConfig templates;
+      std::shared_ptr<const toml::table> configTable;
       std::string defaultMode;
       std::string imagePath;
       std::string schemeType;
