@@ -1632,7 +1632,8 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
     uninstallLabel = i18n::tr("launcher.context-menu.uninstall");
     break;
   case AppSourceBackend::Aur:
-    uninstallLabel = i18n::tr("launcher.context-menu.uninstall") + i18n::tr("launcher.context-menu.uninstall-aur-suffix");
+    uninstallLabel =
+        i18n::tr("launcher.context-menu.uninstall") + i18n::tr("launcher.context-menu.uninstall-aur-suffix");
     break;
   case AppSourceBackend::Flatpak:
     uninstallLabel =
@@ -1725,8 +1726,8 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
     PanelManager::instance().endAttachedPopup(parentSurface);
   });
 
-  m_actionsMenu->setOnActivate([this, base, actionsCopy = std::move(actionsCopy),
-                                entryForPin = *match, source, anchorX, anchorY](const ContextMenuControlEntry& entry) {
+  m_actionsMenu->setOnActivate([this, base, actionsCopy = std::move(actionsCopy), entryForPin = *match, source, anchorX,
+                                anchorY](const ContextMenuControlEntry& entry) {
     LauncherResult result = base;
     result.desktopActionId.clear();
     if (entry.id == kActionPinToDock) {
@@ -1838,8 +1839,7 @@ void LauncherPanel::openUninstallConfirmMenu(
 
   // Custom entries (no backend owns them) and unmanaged AppImages get "Remove
   // launcher" copy instead of "Uninstall" — see resolveAppSource.
-  const bool isRemoveLauncher =
-      source.backend == AppSourceBackend::Custom
+  const bool isRemoveLauncher = source.backend == AppSourceBackend::Custom
       || (source.backend == AppSourceBackend::AppImage && !source.shellyManaged);
 
   std::string confirmLabel;
@@ -1920,61 +1920,73 @@ void LauncherPanel::openUninstallConfirmMenu(
 
 namespace {
 
-// Backend-specific shell command to run inside the interactive terminal.
-// `||` fallbacks let the shell handle "shelly missing/backend missing"
-// without a separate C++ branch — see PLAN-SHELLY.md §2.
-[[nodiscard]] std::string
-buildUninstallCommand(const DesktopEntry& entry, const AppSource& source, const std::string& escalator) {
-  switch (source.backend) {
-  case AppSourceBackend::Standard:
-    return escalator + " shelly remove standard " + StringUtils::shellQuote(source.identifier) + " || " + escalator +
-        " pacman -Rns " + StringUtils::shellQuote(source.identifier);
+  // Backend-specific shell command to run inside the interactive terminal.
+  // `||` fallbacks let the shell handle "shelly missing/backend missing"
+  // without a separate C++ branch — see PLAN-SHELLY.md §2.
+  [[nodiscard]] std::string
+  buildUninstallCommand(const DesktopEntry& entry, const AppSource& source, const std::string& escalator) {
+    switch (source.backend) {
+    case AppSourceBackend::Standard:
+      return escalator
+          + " shelly remove standard "
+          + StringUtils::shellQuote(source.identifier)
+          + " || "
+          + escalator
+          + " pacman -Rns "
+          + StringUtils::shellQuote(source.identifier);
 
-  case AppSourceBackend::Aur:
-    return escalator + " shelly remove aur " + StringUtils::shellQuote(source.identifier) +
-        " || echo 'shelly is required to remove AUR packages; install it or run: pacman -Rns " +
-        StringUtils::shellQuote(source.identifier) + " (may leave AUR bookkeeping stale)'";
+    case AppSourceBackend::Aur:
+      return escalator
+          + " shelly remove aur "
+          + StringUtils::shellQuote(source.identifier)
+          + " || echo 'shelly is required to remove AUR packages; install it or run: pacman -Rns "
+          + StringUtils::shellQuote(source.identifier)
+          + " (may leave AUR bookkeeping stale)'";
 
-  case AppSourceBackend::Flatpak:
-    return escalator + " shelly remove flatpak " + StringUtils::shellQuote(source.identifier) +
-        " || flatpak uninstall -y --app " + StringUtils::shellQuote(source.identifier);
+    case AppSourceBackend::Flatpak:
+      return escalator
+          + " shelly remove flatpak "
+          + StringUtils::shellQuote(source.identifier)
+          + " || flatpak uninstall -y --app "
+          + StringUtils::shellQuote(source.identifier);
 
-  case AppSourceBackend::AppImage:
-    if (source.shellyManaged) {
-      return escalator + " shelly remove appimage " + StringUtils::shellQuote(source.identifier);
+    case AppSourceBackend::AppImage:
+      if (source.shellyManaged) {
+        return escalator + " shelly remove appimage " + StringUtils::shellQuote(source.identifier);
+      }
+      return "printf 'This AppImage is not managed by Shelly.\\n'; "
+             "rm -f "
+          + StringUtils::shellQuote(entry.path)
+          + "; "
+            "printf 'Removed launcher entry.\\n'; "
+            "read -n 1 -s -r -p 'Also delete the AppImage file itself? [y/N] ' ans; echo; "
+            "if [ \"$ans\" = 'y' ] || [ \"$ans\" = 'Y' ]; then rm -f "
+          + StringUtils::shellQuote(source.identifier)
+          + "; printf 'Deleted AppImage.\\n'; fi";
+
+    case AppSourceBackend::Custom:
+      return {};
     }
-    return "printf 'This AppImage is not managed by Shelly.\\n'; "
-           "rm -f " +
-        StringUtils::shellQuote(entry.path) +
-        "; "
-        "printf 'Removed launcher entry.\\n'; "
-        "read -n 1 -s -r -p 'Also delete the AppImage file itself? [y/N] ' ans; echo; "
-        "if [ \"$ans\" = 'y' ] || [ \"$ans\" = 'Y' ]; then rm -f " +
-        StringUtils::shellQuote(source.identifier) + "; printf 'Deleted AppImage.\\n'; fi";
-
-  case AppSourceBackend::Custom:
     return {};
   }
-  return {};
-}
 
-// Cheap backend-specific check for whether the uninstall actually took.
-[[nodiscard]] bool verifyRemoved(const DesktopEntry& entry, const AppSource& source) {
-  switch (source.backend) {
-  case AppSourceBackend::Standard:
-  case AppSourceBackend::Aur:
-    return process::runSync({"pacman", "-Q", source.identifier}).exitCode != 0;
-  case AppSourceBackend::Flatpak:
-    return process::runSync({"flatpak", "info", source.identifier}).exitCode != 0;
-  case AppSourceBackend::AppImage:
-    return !std::filesystem::exists(entry.path);
-  case AppSourceBackend::Custom:
-    return !std::filesystem::exists(entry.path);
+  // Cheap backend-specific check for whether the uninstall actually took.
+  [[nodiscard]] bool verifyRemoved(const DesktopEntry& entry, const AppSource& source) {
+    switch (source.backend) {
+    case AppSourceBackend::Standard:
+    case AppSourceBackend::Aur:
+      return process::runSync({"pacman", "-Q", source.identifier}).exitCode != 0;
+    case AppSourceBackend::Flatpak:
+      return process::runSync({"flatpak", "info", source.identifier}).exitCode != 0;
+    case AppSourceBackend::AppImage:
+      return !std::filesystem::exists(entry.path);
+    case AppSourceBackend::Custom:
+      return !std::filesystem::exists(entry.path);
+    }
+    return false;
   }
-  return false;
-}
 
-}  // namespace
+} // namespace
 
 void LauncherPanel::runUninstall(const DesktopEntry& entry, const AppSource& source) {
   // pacman/shelly need a real TTY for "these packages will also be removed" cascades and

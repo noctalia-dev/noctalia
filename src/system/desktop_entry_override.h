@@ -27,16 +27,16 @@ std::optional<std::string> resolveOwningPackage(std::string_view desktopFilePath
 
 // Which mechanism, if any, owns/installed an app behind a .desktop entry.
 enum class AppSourceBackend {
-  Standard,  // official-repo ALPM package
-  Aur,       // foreign (AUR/manually-built) ALPM package
-  Flatpak,   // X-Flatpak= key present
-  AppImage,  // X-AppImage-* key present, or Exec/TryExec targets a *.AppImage file
-  Custom,    // none of the above: hand-made .desktop, Steam shortcut, PWA shortcut, etc.
+  Standard, // official-repo ALPM package
+  Aur,      // foreign (AUR/manually-built) ALPM package
+  Flatpak,  // X-Flatpak= key present
+  AppImage, // X-AppImage-* key present, or Exec/TryExec targets a *.AppImage file
+  Custom,   // none of the above: hand-made .desktop, Steam shortcut, PWA shortcut, etc.
 };
 
 struct AppSource {
   AppSourceBackend backend = AppSourceBackend::Custom;
-  std::string identifier;    // pkg name / flatpak appid / appimage path — backend-dependent
+  std::string identifier;     // pkg name / flatpak appid / appimage path — backend-dependent
   bool shellyManaged = false; // AppImage only: true iff `shelly list appimage` tracks this path
 };
 
