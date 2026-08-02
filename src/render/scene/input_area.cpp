@@ -200,7 +200,9 @@ void InputArea::dispatchMotion(float localX, float localY) {
   }
 }
 
-void InputArea::dispatchPress(float localX, float localY, std::uint32_t button, bool isPressed, std::uint32_t modifiers) {
+void InputArea::dispatchPress(
+    float localX, float localY, std::uint32_t button, bool isPressed, std::uint32_t modifiers
+) {
   if (isPressed) {
     m_pressed = true;
     m_pressedButton = button;
