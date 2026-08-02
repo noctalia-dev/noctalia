@@ -5,14 +5,17 @@
 #include "core/input/key_modifiers.h"
 #include "core/input/key_symbols.h"
 #include "core/input/keybind_matcher.h"
+#include "core/process/process.h"
 #include "core/ui_phase.h"
 #include "i18n/i18n.h"
+#include "notification/notifications.h"
 #include "render/core/async_texture_cache.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
 #include "shell/dock/pinned_apps.h"
 #include "shell/panel/panel_manager.h"
 #include "system/desktop_entry.h"
+#include "system/desktop_entry_override.h"
 #include "ui/app_icon_colorization.h"
 #include "ui/builders.h"
 #include "ui/controls/context_menu_popup.h"
@@ -1615,9 +1618,12 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
   constexpr std::int32_t kActionOpen = -1;
   constexpr std::int32_t kActionPinToDock = -2;
   constexpr std::int32_t kActionUnpinFromDock = -3;
+  constexpr std::int32_t kActionHide = -4;
+  constexpr std::int32_t kActionUnhide = -5;
+  constexpr std::int32_t kActionUninstall = -6;
 
   std::vector<ContextMenuControlEntry> entries;
-  entries.reserve(actionsCopy.size() + 2);
+  entries.reserve(actionsCopy.size() + 4);
   entries.push_back(
       ContextMenuControlEntry{
           .id = kActionOpen,
@@ -1642,6 +1648,26 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
         ContextMenuControlEntry{
             .id = kActionUnpinFromDock,
             .label = i18n::tr("launcher.context-menu.unpin-from-dock"),
+            .enabled = true,
+            .separator = false,
+            .hasSubmenu = false,
+        }
+    );
+  }
+  entries.push_back(
+      ContextMenuControlEntry{
+          .id = match->noDisplay ? kActionUnhide : kActionHide,
+          .label = i18n::tr(match->noDisplay ? "launcher.context-menu.unhide" : "launcher.context-menu.hide"),
+          .enabled = true,
+          .separator = false,
+          .hasSubmenu = false,
+      }
+  );
+  if (const auto package = resolveOwningPackage(match->path)) {
+    entries.push_back(
+        ContextMenuControlEntry{
+            .id = kActionUninstall,
+            .label = i18n::tr("launcher.context-menu.uninstall"),
             .enabled = true,
             .separator = false,
             .hasSubmenu = false,
@@ -1676,7 +1702,7 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
   });
 
   m_actionsMenu->setOnActivate([this, base, actionsCopy = std::move(actionsCopy),
-                                entryForPin = *match](const ContextMenuControlEntry& entry) {
+                                entryForPin = *match, anchorX, anchorY](const ContextMenuControlEntry& entry) {
     LauncherResult result = base;
     result.desktopActionId.clear();
     if (entry.id == kActionPinToDock) {
@@ -1697,6 +1723,26 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
       std::vector<std::string> pinned = m_config->config().dock.pinned;
       shell::dock::pinned_apps::removeEntry(pinned, entryForPin);
       (void)m_config->setOverride({"dock", "pinned"}, std::move(pinned));
+      return;
+    }
+    if (entry.id == kActionHide || entry.id == kActionUnhide) {
+      const bool hide = (entry.id == kActionHide);
+      std::string err;
+      if (!setDesktopEntryHidden(entryForPin, hide, &err)) {
+        notify::error("Noctalia", i18n::tr("launcher.context-menu.hide-failed"), err);
+        return;
+      }
+      // Re-gather so the app disappears (or reappears) without relaunching.
+      DeferredCall::callLater([this]() { reapplyCurrentQuery(); });
+      return;
+    }
+    if (entry.id == kActionUninstall) {
+      if (const auto package = resolveOwningPackage(entryForPin.path)) {
+        // Close this menu, then open the confirmation menu at the same spot.
+        m_actionsMenu->close();
+        PanelManager::instance().clearActivePopup();
+        openUninstallConfirmMenu(entryForPin, *package, anchorX, anchorY);
+      }
       return;
     }
     if (entry.id >= 0 && entry.id < static_cast<std::int32_t>(actionsCopy.size())) {
@@ -1743,6 +1789,122 @@ void LauncherPanel::openAppActionsMenu(std::size_t index, float anchorX, float a
           },
       }
   );
+}
+
+void LauncherPanel::openUninstallConfirmMenu(
+    const DesktopEntry& entry, std::string package, float anchorX, float anchorY
+) {
+  WaylandConnection* wl = PanelManager::instance().wayland();
+  RenderContext* rc = PanelManager::instance().renderContext();
+  if (wl == nullptr || rc == nullptr) {
+    return;
+  }
+  const auto parentCtx = PanelManager::instance().fallbackPopupParentContext();
+  if (!parentCtx.has_value()) {
+    return;
+  }
+
+  if (m_confirmMenu == nullptr) {
+    m_confirmMenu = std::make_unique<ContextMenuPopup>(*wl, *rc);
+  }
+  if (m_config != nullptr) {
+    m_confirmMenu->setShadowConfig(m_config->config().shell.shadow);
+  }
+
+  constexpr std::int32_t kConfirmCancel = 1;
+  constexpr std::int32_t kConfirmUninstall = 2;
+
+  std::vector<ContextMenuControlEntry> entries;
+  entries.push_back(
+      ContextMenuControlEntry{
+          .id = kConfirmCancel,
+          .label = i18n::tr("launcher.context-menu.uninstall-cancel"),
+          .enabled = true,
+          .separator = false,
+          .hasSubmenu = false,
+      }
+  );
+  entries.push_back(
+      ContextMenuControlEntry{
+          .id = kConfirmUninstall,
+          .label = i18n::tr("launcher.context-menu.uninstall-confirm") + " " + package,
+          .enabled = true,
+          .separator = false,
+          .hasSubmenu = false,
+      }
+  );
+
+  PanelManager::instance().beginAttachedPopup(parentCtx->surface);
+  PanelManager::instance().setActivePopup(m_confirmMenu.get());
+
+  m_confirmMenu->setOnDismissed([parentSurface = parentCtx->surface]() {
+    PanelManager::instance().clearActivePopup();
+    PanelManager::instance().endAttachedPopup(parentSurface);
+  });
+
+  m_confirmMenu->setOnActivate([this, entry, package = std::move(package)](const ContextMenuControlEntry& item) {
+    m_confirmMenu->close();
+    PanelManager::instance().clearActivePopup();
+    if (item.id == kConfirmUninstall) {
+      runUninstall(entry, package);
+    }
+  });
+
+  const float scale = contentScale();
+  const float inset = std::round(std::max(4.0f, Style::spaceXs * scale));
+  const auto ax = static_cast<std::int32_t>(std::round(anchorX - inset));
+  const auto ay = static_cast<std::int32_t>(std::round(anchorY - inset));
+  const auto aw = static_cast<std::int32_t>(std::round(inset * 2.0f));
+  const auto ah = static_cast<std::int32_t>(std::round(inset * 2.0f));
+
+  m_confirmMenu->open(
+      ContextMenuPopupRequest{
+          .entries = std::move(entries),
+          .minMenuWidth = 260.0f * scale,
+          .maxMenuWidth = Style::menuAutoMaxWidth * scale,
+          .maxVisible = 12,
+          .anchor =
+              PopupAnchorRect{
+                  .x = ax,
+                  .y = ay,
+                  .width = std::max(1, aw),
+                  .height = std::max(1, ah),
+              },
+          .parent = PopupSurfaceParent{
+              .layerSurface = parentCtx->layerSurface,
+              .output = parentCtx->output,
+          },
+      }
+  );
+}
+
+void LauncherPanel::runUninstall(const DesktopEntry& entry, std::string package) {
+  // Arch-only, asynchronous, with the user already confirmed.
+  const bool spawned = process::runAsync(
+      {"pkexec", "pacman", "-Rns", package},
+      process::RunCallbacks{
+          .stdOut = nullptr,
+          .stdErr = nullptr,
+          .onExit = [this, package](process::RunResult result) {
+            DeferredCall::callLater([this, package, exitCode = result.exitCode, err = result.err]() {
+              // 126/127 = polkit prompt dismissed/cancelled — silent no-op.
+              if (exitCode == 126 || exitCode == 127) {
+                return;
+              }
+              if (exitCode == 0) {
+                notify::info("Noctalia", i18n::tr("launcher.context-menu.uninstall-done"), package);
+              } else {
+                notify::error("Noctalia", i18n::tr("launcher.context-menu.uninstall-failed"), err);
+              }
+              // Whatever happened, re-scan: files may have changed either way.
+              reapplyCurrentQuery();
+            });
+          },
+      }
+  );
+  if (!spawned) {
+    notify::error("Noctalia", i18n::tr("launcher.context-menu.uninstall-failed"), "pkexec spawn failed");
+  }
 }
 
 void LauncherPanel::activateAt(std::size_t index) {

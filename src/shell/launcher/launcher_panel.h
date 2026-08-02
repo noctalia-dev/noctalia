@@ -24,6 +24,7 @@ class ScrollView;
 class VirtualGridView;
 class ConfigService;
 class AsyncTextureCache;
+struct DesktopEntry;
 
 class LauncherPanel : public Panel {
 public:
@@ -89,6 +90,8 @@ private:
   void finishActivation(LauncherProvider& provider, const std::string& resultId, bool copied);
   [[nodiscard]] std::vector<LauncherResult> providerOverviewResults(std::string_view text) const;
   void openAppActionsMenu(std::size_t index, float anchorX, float anchorY);
+  void openUninstallConfirmMenu(const DesktopEntry& entry, std::string package, float anchorX, float anchorY);
+  void runUninstall(const DesktopEntry& entry, std::string package);
   void rebuildCategoryFilter(const std::vector<LauncherCategory>& categories);
   void setCategoryFilterVisible(bool visible);
   void setActiveCategorySlot(std::size_t slotIndex);
@@ -137,6 +140,7 @@ private:
   ConfigService* m_config = nullptr;
   AsyncTextureCache* m_asyncTextures = nullptr;
   std::unique_ptr<ContextMenuPopup> m_actionsMenu;
+  std::unique_ptr<ContextMenuPopup> m_confirmMenu;
   Signal<>::ScopedConnection m_appIconColorizeConn;
   std::function<void()> m_onCopiedActivation;
 };

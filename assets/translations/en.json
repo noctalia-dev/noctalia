@@ -644,7 +644,15 @@
     "context-menu": {
       "open": "Open",
       "pin-to-dock": "Pin to dock",
-      "unpin-from-dock": "Unpin from dock"
+      "unpin-from-dock": "Unpin from dock",
+      "hide": "Hide",
+      "unhide": "Unhide",
+      "uninstall": "Uninstall",
+      "uninstall-cancel": "Cancel",
+      "uninstall-confirm": "Uninstall",
+      "uninstall-done": "Package uninstalled:",
+      "uninstall-failed": "Uninstall failed",
+      "hide-failed": "Could not hide this app"
     },
     "empty": {
       "no-results": "No results found",
