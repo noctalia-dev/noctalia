@@ -1,33 +1,66 @@
 #include "ipc/cli.h"
 
+#include "cli/parse.h"
+#include "cli/schema_ipc.h"
 #include "ipc/ipc_client.h"
 
 #include <cstdio>
 #include <nlohmann/json.hpp>
+#include <print>
 #include <string>
+#include <string_view>
 
 namespace noctalia::ipc {
 
   int runCli(int argc, char* argv[]) {
     if (argc < 3) {
-      std::fputs("error: msg requires a command (try: noctalia msg --help)\n", stderr);
+      std::println(stderr, "error: msg requires a command (try: noctalia msg --help)");
       return 1;
     }
 
-    if (std::string_view(argv[2]) == "notification-show" && argc >= 5) {
+    const std::string_view subcmd = argv[2];
+
+    if (subcmd == "--help") {
+      if (IpcClient::send("--help") == 0) {
+        return 0;
+      }
+
+      // Fallback
+      std::println("Usage: noctalia msg <command> [args...]\n");
+      std::println("Commands:");
+      for (const auto& cmd : getIpcSubcommands()) {
+        std::println("  {:<24} {}", cmd.name, cmd.summary);
+      }
+      return 0;
+    }
+
+    if (subcmd == "notification-show") {
+      const auto parsed = cli_schema::parseArgs(argc, argv, 3, kNotificationCmd);
+      if (!parsed) {
+        std::println(stderr, "error: {}", parsed.error());
+        std::println(stderr, "Run 'noctalia msg notification-show --help' for usage.");
+        return 1;
+      }
+
+      if (parsed->helpRequested) {
+        return 0;
+      }
+
       nlohmann::json payload = {
-          {"summary", std::string(argv[3])},
-          {"body", std::string(argv[4])},
+          {"summary", parsed->positionals[0]},
+          {"body", parsed->positionals[1]},
       };
-      if (argc > 5) {
-        std::string body(argv[4]);
-        for (int i = 5; i < argc; ++i) {
+
+      if (parsed->positionals.size() > 2) {
+        std::string body = parsed->positionals[1];
+        for (std::size_t i = 2; i < parsed->positionals.size(); ++i) {
           body += ' ';
-          body += argv[i];
+          body += parsed->positionals[i];
         }
         payload["body"] = std::move(body);
       }
-      return IpcClient::send(std::string(argv[2]) + " " + payload.dump());
+
+      return IpcClient::send(std::string(subcmd) + " " + payload.dump());
     }
 
     std::string cmd = argv[2];

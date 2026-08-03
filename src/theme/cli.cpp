@@ -1,5 +1,7 @@
 #include "theme/cli.h"
 
+#include "cli/parse.h"
+#include "cli/schema_theme.h"
 #include "config/config_export.h"
 #include "config/config_service.h"
 #include "core/files/resource_paths.h"
@@ -32,40 +34,6 @@
 namespace noctalia::theme {
 
   namespace {
-
-    constexpr const char* kHelpText =
-        "Usage: noctalia theme <image> [options]\n"
-        "       noctalia theme --list-templates [-c <file>]\n"
-        "\n"
-        "Generate a color palette from an image. Material You and custom\n"
-        "schemes produce very different results.\n"
-        "\n"
-        "Options:\n"
-        "  --scheme <name>   Material You (Material Design 3):\n"
-        "                      m3-tonal-spot  (default)\n"
-        "                      m3-content\n"
-        "                      m3-fruit-salad\n"
-        "                      m3-rainbow\n"
-        "                      m3-monochrome\n"
-        "                    Custom (HSL-space, non-M3):\n"
-        "                      vibrant\n"
-        "                      faithful\n"
-        "                      soft\n"
-        "                      dysfunctional\n"
-        "                      muted\n"
-        "  --dark            Emit only the dark variant (default)\n"
-        "  --light           Emit only the light variant\n"
-        "  --both            Emit both variants under dark/light keys\n"
-        "  --pure-black      Re-anchor the dark surface ramp to true black (OLED)\n"
-        "  --theme-json <f>  Load precomputed dark/light token maps from JSON\n"
-        "  -o <file>         Write JSON to file instead of stdout\n"
-        "  -r <in:out>       Render a template file to an output path\n"
-        "  -c <file>         Process a TOML template config file\n"
-        "  --builtin-config  Process the shipped built-in template catalog\n"
-        "  --list-templates  List built-in, cached community, and configured user templates\n"
-        "                    Use -c <file> to include a specific template config\n"
-        "  --default-mode    Template default mode: dark or light";
-
     std::filesystem::path builtinTemplateConfigPath() { return paths::assetPath("templates/builtin.toml"); }
 
     using TokenMap = std::unordered_map<std::string, uint32_t>;
@@ -418,81 +386,47 @@ namespace noctalia::theme {
   } // namespace
 
   int runCli(int argc, char* argv[]) {
-    const char* imagePath = nullptr;
-    const char* themeJsonPath = nullptr;
-    std::string schemeName = "m3-tonal-spot";
-    Variant variant = Variant::Dark;
-    bool pureBlack = false;
-    const char* outPath = nullptr;
-    const char* configPath = nullptr;
-    std::string builtinConfigPathStorage;
-    bool builtinConfig = false;
-    bool listTemplatesRequested = false;
-    std::string defaultMode = "dark";
-    std::vector<std::string> renderSpecs;
-
-    for (int i = 2; i < argc; ++i) {
-      const char* a = argv[i];
-      if (std::strcmp(a, "--help") == 0) {
-        std::println("{}", kHelpText);
-        return 0;
-      }
-      if (std::strcmp(a, "--scheme") == 0 && i + 1 < argc) {
-        schemeName = argv[++i];
-        continue;
-      }
-      if (std::strcmp(a, "--theme-json") == 0 && i + 1 < argc) {
-        themeJsonPath = argv[++i];
-        continue;
-      }
-      if (std::strcmp(a, "--dark") == 0) {
-        variant = Variant::Dark;
-        continue;
-      }
-      if (std::strcmp(a, "--light") == 0) {
-        variant = Variant::Light;
-        continue;
-      }
-      if (std::strcmp(a, "--both") == 0) {
-        variant = Variant::Both;
-        continue;
-      }
-      if (std::strcmp(a, "--pure-black") == 0) {
-        pureBlack = true;
-        continue;
-      }
-      if (std::strcmp(a, "-o") == 0 && i + 1 < argc) {
-        outPath = argv[++i];
-        continue;
-      }
-      if ((std::strcmp(a, "--render") == 0 || std::strcmp(a, "-r") == 0) && i + 1 < argc) {
-        renderSpecs.emplace_back(argv[++i]);
-        continue;
-      }
-      if ((std::strcmp(a, "--config") == 0 || std::strcmp(a, "-c") == 0) && i + 1 < argc) {
-        configPath = argv[++i];
-        continue;
-      }
-      if (std::strcmp(a, "--builtin-config") == 0) {
-        builtinConfig = true;
-        continue;
-      }
-      if (std::strcmp(a, "--list-templates") == 0) {
-        listTemplatesRequested = true;
-        continue;
-      }
-      if (std::strcmp(a, "--default-mode") == 0 && i + 1 < argc) {
-        defaultMode = argv[++i];
-        continue;
-      }
-      if (!imagePath && a[0] != '-') {
-        imagePath = a;
-        continue;
-      }
-      std::println(stderr, "error: unknown theme argument: {}", a);
+    const auto parsed = cli_schema::parseArgs(argc, argv, 2, kThemeCmd);
+    if (!parsed) {
+      std::println(stderr, "error: {}", parsed.error());
+      std::println(stderr, "Run 'noctalia theme --help' for usage.");
       return 1;
     }
+    if (parsed->helpRequested) {
+      return 0;
+    }
 
+    const char* imagePath = parsed->positionals.empty() ? nullptr : parsed->positionals[0].c_str();
+    std::string schemeName = parsed->hasFlag("--scheme") ? std::string(parsed->flagValue("--scheme")) : "m3-tonal-spot";
+
+    Variant variant = Variant::Dark;
+    if (parsed->hasFlag("--light"))
+      variant = Variant::Light;
+    if (parsed->hasFlag("--both"))
+      variant = Variant::Both;
+
+    bool pureBlack = parsed->hasFlag("--pure-black");
+    const char* themeJsonPath = parsed->hasFlag("--theme-json") ? parsed->flagValue("--theme-json").data() : nullptr;
+    const char* outPath = parsed->hasFlag("-o") ? parsed->flagValue("-o").data() : nullptr;
+
+    std::vector<std::string> renderSpecs;
+
+    const char* configPath = parsed->hasFlag("-c")
+        ? parsed->flagValue("-c").data()
+        : (parsed->hasFlag("--config") ? parsed->flagValue("--config").data() : nullptr);
+    bool builtinConfig = parsed->hasFlag("--builtin-config");
+    bool listTemplatesRequested = parsed->hasFlag("--list-templates");
+    std::string defaultMode =
+        parsed->hasFlag("--default-mode") ? std::string(parsed->flagValue("--default-mode")) : "dark";
+
+    for (int i = 2; i < argc; ++i) {
+      std::string_view a = argv[i];
+      if ((a == "--render" || a == "-r") && i + 1 < argc) {
+        renderSpecs.emplace_back(argv[++i]);
+      }
+    }
+
+    std::string builtinConfigPathStorage;
     if (listTemplatesRequested)
       return listTemplates(configPath);
 

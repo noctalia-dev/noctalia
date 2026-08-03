@@ -1,5 +1,7 @@
 #include "scripting/plugin_lint.h"
 
+#include "cli/parse.h"
+#include "cli/schema_plugins.h"
 #include "scripting/plugin_manifest.h"
 #include "scripting/plugin_panel_shell.h"
 #include "util/file_utils.h"
@@ -635,20 +637,32 @@ namespace noctalia::plugins {
   } // namespace
 
   int runCli(int argc, char* argv[]) {
-    // argv[0] = "noctalia", argv[1] = "plugins"; commands start at argv[2].
     if (argc < 3) {
       std::println(stderr, "{}", kHelpText);
       return 1;
     }
-    const char* command = argv[2];
-    if (std::strcmp(command, "--help") == 0 || std::strcmp(command, "-h") == 0) {
+
+    const std::string_view subcmd = argv[2];
+    if (subcmd == "--help" || subcmd == "-h") {
       std::println("{}", kHelpText);
       return 0;
     }
-    if (std::strcmp(command, "lint") == 0) {
+
+    if (subcmd == "lint") {
+      const auto parsed = cli_schema::parseArgs(argc, argv, 3, kLintCmd);
+      if (!parsed) {
+        std::println(stderr, "error: {}", parsed.error());
+        std::println(stderr, "Run 'noctalia plugins lint --help' for usage.");
+        return 1;
+      }
+      if (parsed->helpRequested) {
+        std::println("{}", kHelpText);
+        return 0;
+      }
       return runLint(argc - 3, argv + 3);
     }
-    std::println(stderr, "error: unknown plugins command '{}'\n", command);
+
+    std::println(stderr, "error: unknown plugins command '{}'\n", subcmd);
     std::println(stderr, "{}", kHelpText);
     return 1;
   }
