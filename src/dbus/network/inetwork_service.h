@@ -33,6 +33,13 @@ public:
   virtual bool deactivateVpnConnection(const VpnConnectionInfo& vpn) = 0;
   [[nodiscard]] virtual bool canActivateWiredConnection() const noexcept { return false; }
   virtual bool activateWiredConnection() { return false; }
+  // GNOME-style mobile-data control over a saved cellular (gsm) connection.
+  // Activation brings up the modem and the data connection; deactivation drops
+  // the data connection but leaves the modem registered. Only backends that own
+  // cellular profiles (NetworkManager) implement this.
+  [[nodiscard]] virtual bool canActivateCellularConnection() const noexcept { return false; }
+  virtual bool activateCellularConnection() { return false; }
+  virtual bool deactivateCellularConnection() { return false; }
   virtual void setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete = {}) = 0;
   virtual void disconnect() = 0;
   virtual void forgetSsid(const std::string& ssid) = 0;

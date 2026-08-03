@@ -15,10 +15,12 @@
 
 class AccessPointRow;
 class Button;
+class CellularRow;
 class ExternalIpService;
 class Flex;
 class Input;
 class Label;
+class ModemManagerService;
 class ScrollView;
 class Spinner;
 class Toggle;
@@ -26,7 +28,9 @@ class INetworkService;
 
 class NetworkTab : public Tab {
 public:
-  NetworkTab(INetworkService* network, NetworkSecretAgent* secrets, ExternalIpService* externalIp);
+  NetworkTab(
+      INetworkService* network, NetworkSecretAgent* secrets, ExternalIpService* externalIp, ModemManagerService* modem
+  );
   ~NetworkTab() override;
 
   std::unique_ptr<Flex> create() override;
@@ -46,6 +50,11 @@ private:
   void rebuildApList(Renderer& renderer);
   // Pushes live signal values into the existing rows. Returns true if any changed.
   bool syncApRows();
+  // Same for the cellular rows and the cellular toggle. Returns true if any changed.
+  bool syncCellularCard();
+  // GNOME-style mobile-data semantics when the network backend owns a saved gsm
+  // connection (toggle reflects cellularActive); otherwise raw modem power.
+  [[nodiscard]] bool cellularToggleChecked() const;
   void syncPasswordCard();
   void showPasswordPrompt(const NetworkSecretAgent::SecretRequest& request);
   void showPasswordPrompt(const AccessPointInfo& ap);
@@ -58,6 +67,7 @@ private:
   INetworkService* m_network = nullptr;
   NetworkSecretAgent* m_secrets = nullptr;
   ExternalIpService* m_externalIpService = nullptr;
+  ModemManagerService* m_modem = nullptr;
 
   Flex* m_rootLayout = nullptr;
   Flex* m_currentCard = nullptr;
@@ -79,6 +89,9 @@ private:
   bool m_vpnVisible = true;
 
   std::unordered_map<std::string, AccessPointRow*> m_apRows;
+
+  Toggle* m_cellularToggle = nullptr;
+  std::vector<CellularRow*> m_cellularRows;
 
   std::string m_lastStructureKey;
   float m_lastListWidth = -1.0F;

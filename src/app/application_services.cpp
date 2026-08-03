@@ -16,6 +16,7 @@
 #include "dbus/idle/screensaver_poll_source.h"
 #include "dbus/idle/screensaver_service.h"
 #include "dbus/logind/logind_service.h"
+#include "dbus/modem/modem_manager_service.h"
 #include "dbus/mpris/mpris_service.h"
 #include "dbus/network/inetwork_service.h"
 #include "dbus/network/iwd_secret_agent.h"
@@ -1299,6 +1300,20 @@ void Application::initSystemBusServices() {
         kLog.warn("bluetooth agent disabled: {}", e.what());
         m_bluetoothAgent.reset();
       }
+    }
+
+    try {
+      m_modemManagerService = std::make_unique<ModemManagerService>(*m_systemBus);
+      m_modemManagerService->setChangeCallback([this, shouldRefreshControlCenter]() {
+        m_bar.refresh();
+        if (shouldRefreshControlCenter()) {
+          m_panelManager.refresh();
+        }
+      });
+      kLog.info("modem manager service active");
+    } catch (const std::exception& e) {
+      kLog.warn("modem manager service disabled: {}", e.what());
+      m_modemManagerService.reset();
     }
 
     m_configService.addReloadCallback([this]() { syncPolkitAgent(); });

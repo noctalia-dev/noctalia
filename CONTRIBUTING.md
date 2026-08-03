@@ -156,6 +156,7 @@ src/
     bluetooth/      BlueZ service and pairing agent
     idle/           Screensaver D-Bus service
     logind/         logind integration
+    modem/          ModemManager cellular integration
     mpris/          Media player integration and artwork cache
     network/        NetworkManager, wpa_supplicant, and secret agent integration
     notification/   Desktop notification D-Bus service
