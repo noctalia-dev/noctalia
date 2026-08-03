@@ -3,7 +3,9 @@
 #include "calendar/calendar_service.h"
 #include "config/config_service.h"
 #include "core/ui_phase.h"
+#include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
+#include "net/url_open.h"
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
 #include "render/core/color.h"
@@ -361,6 +363,7 @@ void CalendarTab::doLayout(Renderer& renderer, float contentWidth, float bodyHei
 
   if (m_monthSlideAnimId != 0 && !m_startMonthSlideIn) {
     m_rootLayout->layout(renderer);
+    layoutEventLinkOverlays();
     return;
   }
 
@@ -390,6 +393,7 @@ void CalendarTab::doLayout(Renderer& renderer, float contentWidth, float bodyHei
     beginSlideIn();
   }
   m_rootLayout->layout(renderer);
+  layoutEventLinkOverlays();
 }
 
 void CalendarTab::doUpdate(Renderer& renderer) {
@@ -437,6 +441,7 @@ void CalendarTab::onClose() {
   m_eventsCard = nullptr;
   m_eventsTitle = nullptr;
   m_eventsScroll = nullptr;
+  m_eventLinkOverlays.clear();
   m_selectedYear = std::numeric_limits<int>::min();
   m_selectedMonth = -1;
   m_selectedDay = -1;
@@ -922,6 +927,7 @@ void CalendarTab::rebuildEventList(float scale) {
   // Start-aligned rows lay out at their rounded natural width, which can re-wrap a short title
   // during arrange while the row reserved only a single line of height — overflowing the next event.
   content->setAlign(FlexAlign::Stretch);
+  m_eventLinkOverlays.clear();
   while (!content->children().empty()) {
     content->removeChild(content->children().front().get());
   }
@@ -969,7 +975,13 @@ void CalendarTab::rebuildEventList(float scale) {
     return;
   }
 
+  const float linkGlyphSize = Style::fontSizeCaption * scale;
+  const float linkGlyphGap = Style::spaceXs * scale;
+
   for (const CalendarEvent* event : dayEvents) {
+    const bool hasLink = !event->url.empty();
+    const float timeMaxWidth =
+        hasLink ? std::max(40.0F, textMaxWidth - linkGlyphSize - linkGlyphGap - dotWidth - rowGap) : textMaxWidth;
     std::string timeText;
     if (event->allDay) {
       timeText = i18n::tr("control-center.calendar.all-day");
@@ -989,6 +1001,32 @@ void CalendarTab::rebuildEventList(float scale) {
 
     Label* titleLabel = nullptr;
     Label* timeLabel = nullptr;
+    auto time = ui::label({
+        .out = &timeLabel,
+        .text = timeText,
+        .fontSize = Style::fontSizeCaption * scale,
+        .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+        .maxLines = 1,
+    });
+    // The link marker trails the time line, pushed to the row's right edge.
+    std::unique_ptr<Node> timeLine = std::move(time);
+    if (hasLink) {
+      timeLine = ui::row(
+          {.align = FlexAlign::Center,
+           .justify = FlexJustify::SpaceBetween,
+           .gap = linkGlyphGap,
+           .fillWidth = true,
+           // Inset the marker by the same distance the text sits from the row's left edge.
+           .configure = [inset = dotWidth + rowGap](Flex& line) { line.setPadding(0.0F, inset, 0.0F, 0.0F); }},
+          std::move(timeLine),
+          ui::glyph({
+              .glyph = "external-link",
+              .glyphSize = linkGlyphSize,
+              .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
+              .flexGrow = 0.0F,
+          })
+      );
+    }
     auto details = ui::column(
         {.align = FlexAlign::Start, .gap = Style::spaceXs * 0.5f * scale, .flexGrow = 1.0f},
         ui::label({
@@ -998,23 +1036,60 @@ void CalendarTab::rebuildEventList(float scale) {
             .color = colorSpecFromRole(ColorRole::OnSurface),
             .maxLines = 3,
         }),
-        ui::label({
-            .out = &timeLabel,
-            .text = timeText,
-            .fontSize = Style::fontSizeCaption * scale,
-            .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-            .maxLines = 1,
-        })
+        std::move(timeLine)
     );
     if (titleLabel != nullptr) {
       titleLabel->setMaxWidth(textMaxWidth);
     }
     if (timeLabel != nullptr) {
-      timeLabel->setMaxWidth(textMaxWidth);
+      timeLabel->setMaxWidth(timeMaxWidth);
     }
 
-    auto eventRow = ui::row({.align = FlexAlign::Stretch, .gap = rowGap}, std::move(dot), std::move(details));
-    content->addChild(std::move(eventRow));
+    Flex* eventRow = nullptr;
+    auto eventRowNode =
+        ui::row({.out = &eventRow, .align = FlexAlign::Stretch, .gap = rowGap}, std::move(dot), std::move(details));
+    if (hasLink && eventRow != nullptr) {
+      addEventLinkOverlay(*eventRow, event->url, scale);
+    }
+    content->addChild(std::move(eventRowNode));
+  }
+}
+
+// InputArea does not lay out children, so the clickable region is an overlay sized to the row in
+// layoutEventLinkOverlays() once the row itself has been arranged.
+void CalendarTab::addEventLinkOverlay(Flex& row, const std::string& url, float scale) {
+  auto area = ui::inputArea({});
+  area->setParticipatesInLayout(false);
+  area->setZIndex(1);
+  area->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
+  area->setTooltip(url);
+
+  Flex* rowPtr = &row;
+  const float radius = Style::radiusSm * scale;
+  const auto setHovered = [rowPtr, radius](bool hovered) {
+    if (hovered) {
+      rowPtr->setRadius(radius);
+      rowPtr->setFill(colorSpecFromRole(ColorRole::Hover));
+    } else {
+      rowPtr->clearFill();
+    }
+    PanelManager::instance().requestRedraw();
+  };
+  area->setOnEnter([setHovered](const InputArea::PointerData&) { setHovered(true); });
+  area->setOnLeave([setHovered]() { setHovered(false); });
+  area->setOnClick([url](const InputArea::PointerData&) { (void)net::openInBrowser(url); });
+
+  m_eventLinkOverlays.push_back({.row = rowPtr, .area = area.get()});
+  row.addChild(std::move(area));
+}
+
+void CalendarTab::layoutEventLinkOverlays() {
+  for (const auto& [row, area] : m_eventLinkOverlays) {
+    if (row == nullptr || area == nullptr) {
+      continue;
+    }
+    area->setPosition(0.0F, 0.0F);
+    area->setSize(row->width(), row->height());
   }
 }
 
