@@ -22,6 +22,9 @@ const noctalia::bar::WidgetDefinition<AudioVisualizerWidget::Options>& audioVisu
           field<&Options::mirrored>({
               .key = "mirrored",
           }),
+          field<&Options::reversed>({
+              .key = "reversed",
+          }),
           field<&Options::centered>({
               .key = "centered",
           }),

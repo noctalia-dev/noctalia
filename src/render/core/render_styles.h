@@ -177,6 +177,7 @@ struct AudioSpectrumStyle {
   Color color2{};
   AudioSpectrumOrientation orientation = AudioSpectrumOrientation::Horizontal;
   bool mirrored = false;
+  bool reversed = false;
   bool centered = false;
 };
 
@@ -185,6 +186,7 @@ constexpr bool operator==(const AudioSpectrumStyle& lhs, const AudioSpectrumStyl
       && lhs.color2 == rhs.color2
       && lhs.orientation == rhs.orientation
       && lhs.mirrored == rhs.mirrored
+      && lhs.reversed == rhs.reversed
       && lhs.centered == rhs.centered;
 }
 

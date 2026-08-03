@@ -518,6 +518,7 @@
         "opacity": "Opacity",
         "primary-color": "Primary Color",
         "reset-defaults": "Reset to Defaults",
+        "reversed": "Reversed",
         "ring-opacity": "Ring Opacity",
         "rotation-speed": "Rotation Speed",
         "scroll-step": "Scroll Step",
@@ -3619,6 +3620,10 @@
         "pinned-opacity": {
           "description": "Opacity of pinned apps that are not currently running",
           "label": "Pinned App Opacity"
+        },
+        "reversed": {
+          "description": "Reverse the low-to-high frequency order of the bars",
+          "label": "Reversed"
         },
         "scale": {
           "description": "Scale this widget relative to the bar content scale",

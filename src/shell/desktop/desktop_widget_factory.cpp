@@ -217,6 +217,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
         DesktopAudioVisualizerWidget::Options{
             .bands = getIntSetting(settings, "bands", 32),
             .mirrored = getBoolSetting(settings, "mirrored", true),
+            .reversed = getBoolSetting(settings, "reversed", false),
             .centered = getBoolSetting(settings, "centered", true),
             .showWhenIdle = getBoolSetting(settings, "show_when_idle", true),
             .color1 = getColorSpecSetting(settings, "color_1", colorSpecFromRole(ColorRole::Primary)),

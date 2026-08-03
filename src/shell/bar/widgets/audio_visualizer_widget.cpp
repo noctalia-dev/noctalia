@@ -13,8 +13,8 @@
 
 AudioVisualizerWidget::AudioVisualizerWidget(PipeWireSpectrum* spectrum, Options options)
     : m_spectrum(spectrum), m_width(static_cast<float>(options.width)), m_bands(options.bands),
-      m_mirrored(options.mirrored), m_centered(options.centered), m_showWhenIdle(options.showWhenIdle),
-      m_color1(options.color1), m_color2(options.color2) {}
+      m_mirrored(options.mirrored), m_reversed(options.reversed), m_centered(options.centered),
+      m_showWhenIdle(options.showWhenIdle), m_color1(options.color1), m_color2(options.color2) {}
 
 AudioVisualizerWidget::~AudioVisualizerWidget() {
   cancelVisibilityAnimation();
@@ -32,6 +32,7 @@ void AudioVisualizerWidget::create() {
   visualizer->setOrientation(AudioSpectrumOrientation::Horizontal);
   visualizer->setCentered(m_centered);
   visualizer->setMirrored(m_mirrored);
+  visualizer->setReversed(m_reversed);
   visualizer->setGradient(m_color1, m_color2);
   m_visualizer = visualizer.get();
   root->addChild(std::move(visualizer));

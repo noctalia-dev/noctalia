@@ -14,6 +14,7 @@ public:
   struct Options {
     int bands = 32;
     bool mirrored = true;
+    bool reversed = false;
     bool centered = true;
     bool showWhenIdle = true;
     ColorSpec color1 = colorSpecFromRole(ColorRole::Primary);
@@ -48,6 +49,7 @@ private:
   PipeWireSpectrum* m_spectrum = nullptr;
   int m_bands = 32;
   bool m_mirrored = true;
+  bool m_reversed = false;
   bool m_centered = true;
   bool m_showWhenIdle = false;
   bool m_editorPreview = false;
