@@ -3,7 +3,7 @@
 #include "core/ui_phase.h"
 #include "dbus/network/external_ip_service.h"
 #include "dbus/network/inetwork_service.h"
-#include "dbus/network/network_glyphs.h"
+#include "dbus/network/network_display.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
@@ -16,6 +16,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 using namespace control_center;
@@ -40,20 +41,25 @@ namespace {
                                : i18n::tr("control-center.network.wifi-off");
     }
     std::string out;
-    if (!s.ipv4.empty()) {
-      out = s.ipv4;
-    }
-    if (s.kind == NetworkConnectivity::Wireless && s.signalStrength > 0) {
+    const auto append = [&out](std::string_view part) {
       if (!out.empty()) {
         out += "  •  ";
       }
-      out += std::to_string(static_cast<int>(s.signalStrength)) + "%";
+      out += part;
+    };
+    if (!s.ipv4.empty()) {
+      append(s.ipv4);
+    }
+    if (s.kind == NetworkConnectivity::Wireless) {
+      if (s.signalStrength > 0) {
+        append(std::to_string(static_cast<int>(s.signalStrength)) + "%");
+      }
+      if (const char* band = network_display::wifiFrequencyBandLabel(s.frequencyMhz); band != nullptr) {
+        append(band);
+      }
     }
     if (!externalIp.empty()) {
-      if (!out.empty()) {
-        out += "  •  ";
-      }
-      out += i18n::tr("control-center.network.external-ip", "ip", externalIp);
+      append(i18n::tr("control-center.network.external-ip", "ip", externalIp));
     }
     return out;
   }
@@ -92,8 +98,8 @@ namespace {
       if (a.active != b.active) {
         return a.active;
       }
-      const int bandA = network_glyphs::wifiSignalBand(a.strength);
-      const int bandB = network_glyphs::wifiSignalBand(b.strength);
+      const int bandA = network_display::wifiSignalBand(a.strength);
+      const int bandB = network_display::wifiSignalBand(b.strength);
       if (bandA != bandB) {
         return bandA > bandB;
       }
@@ -123,7 +129,7 @@ public:
     addChild(
         ui::glyph({
             .out = &m_signalGlyph,
-            .glyph = network_glyphs::wifiGlyphForSignal(m_ap.strength),
+            .glyph = network_display::wifiGlyphForSignal(m_ap.strength),
             .glyphSize = Style::baseGlyphSize * scale,
             .color = colorSpecFromRole(ColorRole::OnSurface),
         })
@@ -225,7 +231,7 @@ public:
   // Returns true when a value actually changed, i.e. the row needs relayout.
   bool syncLiveMetrics(const AccessPointInfo& ap) {
     bool changed = false;
-    if (m_signalGlyph != nullptr && m_signalGlyph->setGlyph(network_glyphs::wifiGlyphForSignal(ap.strength))) {
+    if (m_signalGlyph != nullptr && m_signalGlyph->setGlyph(network_display::wifiGlyphForSignal(ap.strength))) {
       changed = true;
     }
     if (m_signalValue != nullptr && m_signalValue->setText(percentText(ap.strength))) {

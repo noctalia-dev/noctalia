@@ -112,6 +112,7 @@ ScrollView::ScrollView() {
   content->setDirection(FlexDirection::Vertical);
   content->setAlign(FlexAlign::Start);
   m_content = static_cast<Flex*>(m_viewportArea->addChild(std::move(content)));
+  m_content->setPaintContained(true);
 
   auto scrollbar = std::make_unique<Scrollbar>();
   scrollbar->setOnScrollChanged([this](float offset) { setScrollOffset(offset); });

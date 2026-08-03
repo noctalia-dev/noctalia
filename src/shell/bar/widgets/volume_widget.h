@@ -21,11 +21,18 @@ enum class VolumeWidgetTarget {
 
 class VolumeWidget : public Widget {
 public:
-  VolumeWidget(
-      PipeWireService* audio, EasyEffectsService* easyEffects, wl_output* output, bool showLabel,
-      VolumeWidgetTarget target, ColorSpec muteColor, std::string glyphOverride, std::string muteGlyphOverride,
-      std::unordered_map<std::string, std::string> effectsProfileGlyphs, WidgetCustomImage customImage = {}
-  );
+  struct Options {
+    VolumeWidgetTarget device = VolumeWidgetTarget::Output;
+    std::string glyph;
+    std::string muteGlyph;
+    std::unordered_map<std::string, std::string> effectsProfileGlyphs;
+    std::string customImage;
+    bool customImageColorize = false;
+    bool showLabel = true;
+    ColorSpec muteColor = colorSpecFromRole(ColorRole::Error);
+  };
+
+  VolumeWidget(PipeWireService* audio, EasyEffectsService* easyEffects, Options options);
 
   void create() override;
 

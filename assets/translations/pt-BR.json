@@ -868,7 +868,7 @@
       "inherited": "Herdado",
       "monitor": "Monitor",
       "official": "Oficial",
-      "override": "Sobrescrever"
+      "override": "Sobrescrito"
     },
     "calendar-accounts": {
       "add-title": "Adicionar Conta de Calendário",
@@ -966,6 +966,10 @@
           "title": "Widgets da Barra"
         },
         "group": {
+          "accordion": "Acordeão",
+          "accordion-description": "Mostra somente o primeiro widget; pairando sobre a capsula revela o resto",
+          "accordion-direction": "Direção de revelação",
+          "accordion-direction-description": "Lado do ",
           "action": "Grupo",
           "border": "Borda",
           "border-description": "Cor do contorno da cápsula; deixe em Padrão para nenhum contorno.",
@@ -1008,7 +1012,9 @@
           "show-widget": "Exibir este widget",
           "style": "Estilo",
           "title": "Grupo de cápsula",
-          "ungroup": "Desagrupar"
+          "ungroup": "Desagrupar",
+          "widget-spacing": "Espaçamento",
+          "widget-spacing-description": "Espaço entre widgets neste grupo em pixels; Herda automaticamente o espaçamento de widget da barra"
         },
         "inspector": {
           "add-instance-title": "Adicionar novo widget nomeado {widget} a {lane}",
@@ -1263,6 +1269,10 @@
       }
     },
     "options": {
+      "accordion-direction": {
+        "end": "Depois do primeiro widget",
+        "start": "Antes do primeiro widget"
+      },
       "bar": {
         "auto-hide": {
           "off": "Desligado",
@@ -3641,12 +3651,12 @@
           "description": "Exibe o placeholder quando nenhuma janela estiver em foco, em vez de ocultar o widget",
           "label": "Mostrar Rótulo Vazio"
         },
-        "show-icon": {
-          "description": "Exibe o ícone deste widget",
-          "label": "Exibir Ícone"
+        "show-glyph": {
+          "description": "Mostrar o símbolo do widget ou imagem personalizada",
+          "label": "Mostrar Símbolo"
         },
         "show-label": {
-          "description": "Exibe texto ao lado do ícone",
+          "description": "Exibe texto do rótulo do widget",
           "label": "Exibir Rótulo"
         },
         "show-num-lock": {
@@ -3664,6 +3674,10 @@
         "show-unlock-hint": {
           "description": "Exibir o card de status acima da caixa de login para dicas de desbloqueio e prompts de autenticação. Erros e avisos de Caps Lock ainda aparecem quando isso está desligado.",
           "label": "Dica de Desbloqueio"
+        },
+        "show-value": {
+          "description": "Mostrar o valor atual próximo à visualização",
+          "label": "Mostrar Valor"
         },
         "show-vpn-label": {
           "description": "Substitui rótulo de rede com rótulo da VPN em modo de substituição; adiciona rótulo próximo ao ícone de VPN em ambos modos",
@@ -3725,6 +3739,10 @@
         "vertical-format": {
           "description": "Formato opcional usado em barras verticais",
           "label": "Formato vertical"
+        },
+        "visualization": {
+          "description": "Mostrar",
+          "label": "Visualização"
         },
         "vpn-status": {
           "description": "Como mostrar o status da VPN: troca o ícone de rede para um escudo VPN, ambos mostrar lado a lado, oculto desativa o indicador da VPN",

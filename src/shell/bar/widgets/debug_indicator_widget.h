@@ -4,7 +4,7 @@
 
 #include "shell/bar/widget.h"
 
-class Flex;
+class InputArea;
 class Glyph;
 class Label;
 
@@ -17,7 +17,7 @@ public:
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
 
-  Flex* m_container = nullptr;
+  InputArea* m_container = nullptr;
   Glyph* m_glyph = nullptr;
   Label* m_label = nullptr;
 };

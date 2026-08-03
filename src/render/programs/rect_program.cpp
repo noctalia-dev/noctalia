@@ -275,13 +275,14 @@ float shadow_shape_distance(vec2 point, vec2 size, vec4 radii, vec4 corner_shape
 // Pixel-grid-snap window for axis-aligned edges: half-coverage falls exactly on
 // the boundary so an integer-aligned edge produces 100% on the inside pixel and
 // 0% on the outside pixel, with no semi-transparent leakage.
-float coverage_for(vec2 distance_with_corner, float aa_curve) {
+// Curved corners share the same sub-pixel window so they stay as crisp as the
+// straight edges; using the shadow softness here would double the corner AA
+// width and render rounded corners visibly blurry.
+float coverage_for(float distance) {
     if (u_no_aa == 1) {
-        return 1.0 - step(0.0, distance_with_corner.x);
+        return 1.0 - step(0.0, distance);
     }
-    float lo = mix(-0.5, -aa_curve, distance_with_corner.y);
-    float hi = mix( 0.5,  aa_curve, distance_with_corner.y);
-    return 1.0 - smoothstep(lo, hi, distance_with_corner.x);
+    return 1.0 - smoothstep(-0.5, 0.5, distance);
 }
 
 float gradient_segment_t(float position, float start, float end) {
@@ -315,7 +316,7 @@ void main() {
 
     vec2 outer = shape_distance_with_corner(local_point, u_rect_size, u_radii, u_corner_shapes, u_logical_inset);
     float outer_distance = outer.x;
-    float outer_coverage = coverage_for(outer, aa);
+    float outer_coverage = coverage_for(outer_distance);
     if (u_invert_fill == 1) outer_coverage = 1.0 - outer_coverage;
 
     if (u_outer_shadow == 1) {
@@ -368,7 +369,7 @@ void main() {
         vec4 inner_inset = max(u_logical_inset - vec4(u_border_width), vec4(0.0));
         inner = shape_distance_with_corner(inner_point, inner_size, inner_radii, u_corner_shapes, inner_inset);
     }
-    float inner_coverage = coverage_for(inner, aa);
+    float inner_coverage = coverage_for(inner.x);
 
     if (fill_base.a <= 0.0) {
         float ring_coverage = outer_coverage * (1.0 - inner_coverage);

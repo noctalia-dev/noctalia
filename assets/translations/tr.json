@@ -29,7 +29,7 @@
   "bar": {
     "screenshot": {
       "choose-display": "Ekran seçin",
-      "confirm-region": "Yakalamak için Enter veya Boşluk · İptal etmek için Esc · Seçmek için sürükle",
+      "confirm-region": "Kopyalamak için {copy} · Kaydetmek için {save} · Varsayılanlar için Enter veya Space · İptal etmek için {cancel} · Tekrar seçmek için sürükle",
       "fullscreen": "Tam ekran",
       "overlay-alloc-failed": "Ekran görüntüsü menüsü gösterilemedi (Ekran kartınızın belleği dolmuş olabilir)",
       "region": "Bölge seç"
@@ -94,7 +94,8 @@
         "cpu": "CPU",
         "cpu-temp": "CPU Isısı",
         "disk": "Disk",
-        "disk-free": "",
+        "disk-free": "Kullanılabilir Disk",
+        "disk-free-pct": "% Kullanılabilir Disk",
         "download": "İndirme",
         "gpu-temp": "GPU Sıcaklığı",
         "gpu-usage": "GPU Kullanımı",
@@ -116,6 +117,7 @@
         "no-location": "Konum yok",
         "off": "Hava durumu kapalı",
         "tooltip": {
+          "condition": "Durum",
           "high": "Yüksek",
           "humidity": "Nem",
           "low": "Düşük",
@@ -192,6 +194,35 @@
       "unavailable-body": "PipeWire aktif değil.",
       "unavailable-title": "Ses mecut değil"
     },
+    "bluetooth": {
+      "accept": "Kabul et",
+      "address": "Adres",
+      "auto-reconnect": "Otomatik tekrar bağlan",
+      "bluetooth": "Bluetooth",
+      "enter-code": "Kodu girin",
+      "no-devices": "Cihaz bulunamadı. Yakındaki Bluetooth cihazları bulmak için taramayı başlatın.",
+      "off": "Bluetooth kapalı",
+      "pair-title": "{device} eşleştir",
+      "pairing-detail": {
+        "authorize": "Gelen eşleşme isteği kabul edilsin mi?",
+        "authorize-service": "{uuid} servisine erişim versilsin mi?",
+        "confirm": "Bu kodun cihazda gözüken kod ile uyuştuğunu onaylayın:",
+        "display-passkey": "Cihazda bu kodu girin:",
+        "display-pin": "Cihazda bu PİN'i girin:",
+        "passkey": "Cihazda gösterilen ana anahtarı girin:",
+        "pin-code": "Cihazda gösterilen PİN kodunu girin:"
+      },
+      "reject": "Reddet",
+      "rfkill-blocked": "Bluetooth sistem tarafından engellendi. Engeli kaldırmak için etkinleştirin.",
+      "sections": {
+        "available": "Kullanılabilir",
+        "connected": "Bağlı",
+        "paired": "Eşleşmiş"
+      },
+      "unavailable": "Bluetooth servisi kullanılamıyor",
+      "unknown-device": "Bilinmeyen cihaz",
+      "visible": "Yakındaki cihazlar tarafından keşfedilebilir"
+    },
     "calendar": {
       "all-day": "Tüm gün",
       "events": "Etkinlikler",
@@ -203,9 +234,290 @@
       "disabled": "Devre dışı",
       "no-displays": "Mevcut monitör yok",
       "unknown-resolution": "Bilinmeyen çözünürlük"
+    },
+    "home": {
+      "avatar-error-title": "Avatar güncellenemedi",
+      "media": {
+        "idle": "Boşta",
+        "no-active-player": "Aktif oynatıcı yok",
+        "nothing-playing": "Hiçbir şey çalmıyor",
+        "paused": "Durdu",
+        "playing": "Çalıyor",
+        "unknown-artist": "Bilinmeyen sanatçı",
+        "unknown-track": "Bilinmeyen parça"
+      },
+      "select-avatar": "Avatar Seç",
+      "unknown": "bilinmiyor",
+      "weather": {
+        "data-unavailable": "Hava durumu verisi alınamadı.",
+        "disabled": "Hava durumu konfigde devre dışı bırakıldı.",
+        "fetching": "Tahminler alınıyor..."
+      }
+    },
+    "media": {
+      "active-player": "Aktif oynatıcı",
+      "nothing-playing": "Hiçbir şey çalmıyor",
+      "now-playing": "Şimdi çalıyor"
+    },
+    "network": {
+      "available": "Kullanılabilir",
+      "connect": "Bağlan",
+      "current-connection": "Mevcut Bağlantı",
+      "external-ip": "WAN {ip}",
+      "no-networks": "Yakında ağ yok",
+      "not-connected": "Bağlı değil",
+      "password": "Şifre",
+      "password-prompt": "Şifre girin",
+      "password-prompt-for": "{ssid} için şifreyi girin",
+      "saved": "Kaydedildi",
+      "unavailable-detail": "Ağları buradan yönetmek için NetworkManager, wpa_supplicant veya iwd yükleyip etkinleştirin",
+      "unavailable-title": "İnternet servisi kullanılamıyor",
+      "vpns": "VPNler",
+      "wi-fi": "Wi-Fi",
+      "wifi": "Wi-Fi",
+      "wifi-off": "Wi-Fi kapalı",
+      "wifi-on": "Wi-Fi açık",
+      "wired-connection": "Kablolu bağlantı"
+    },
+    "notifications": {
+      "clear-all": "Tüm bildirimleri temizle"
+    }
+  },
+  "desktop-widgets": {
+    "editor": {
+      "actions": {
+        "trash": "Sil"
+      }
+    }
+  },
+  "dock": {
+    "actions": {
+      "close": "Kapat",
+      "close-all": "Tümünü Kapat"
+    }
+  },
+  "lockscreen": {
+    "authenticating": "Kimlik doğrulanıyor…",
+    "authentication-failed": "Kimlik doğrulama başarısız",
+    "caps-lock-on": "Caps Lock açık",
+    "password-cleared": "Şifre temizlendi",
+    "password-placeholder": "Şifre",
+    "ready": "Şifrenizi girip Enter'a basın",
+    "unlocked": "Kilit Açıldı",
+    "waiting": "Kilitleme onayı bekleniyor…"
+  },
+  "notifications": {
+    "internal": {
+      "lockscreen-widgets-editor": "Kilit ekranı bileşen düzenleyicisi",
+      "lockscreen-widgets-editor-blocked-locked": "Kilit ekranı bileşenlerini düzenlemeden önce oturumu açın.",
+      "lockscreen-widgets-editor-enabled": "Kilit ekranı bileşen düzenleyicisi açık. Önizleme kaplamasında bileşenleri düzenleyin, sonrasında oturumu kitleyerek düzeni onaylayın."
+    }
+  },
+  "osd": {
+    "bluetooth": {
+      "off": "Bluetooth Kapalı",
+      "on": "Bluetooth Açık"
+    },
+    "caffeine": {
+      "off": "Kafein Kapalı",
+      "on": "Kafein Açık"
+    },
+    "dnd": {
+      "off": "Rahatsız Etmeyin Kapalı",
+      "on": "Rahatsız Etmeyin Açık"
+    },
+    "effects": {
+      "input": "Giriş Efektleri",
+      "output": "Çıkış Efektleri"
+    },
+    "lock-keys": {
+      "caps-off": "Caps Lock Kapalı",
+      "caps-on": "Caps Lock Açık",
+      "num-off": "Num Lock Kapalı",
+      "num-on": "Num Lock Açık",
+      "scroll-off": "Scroll Lock Kapalı",
+      "scroll-on": "Scroll Lock Açık"
+    },
+    "nightlight": {
+      "forced": "Her Zaman Açık",
+      "off": "Gece Modu Kapalı",
+      "running": "Devrede",
+      "scheduled": "Planlandı"
+    },
+    "privacy": {
+      "camera-off": "Kamera Durdu",
+      "camera-on": "Kamera Aktif",
+      "mic-off": "Mikrofon Durdu",
+      "mic-on": "Mikrofon Aktif",
+      "screen-off": "Ekran Paylaşımı Durdu",
+      "screen-on": "Ekran Paylaşımı Aktif"
+    },
+    "wifi": {
+      "off": "Wi-Fi Kapalı",
+      "on": "Wi-Fi Açık"
+    }
+  },
+  "plugins": {
+    "auto-disabled": {
+      "body-errors": "{plugin} çok fazla hatayla karşılaştı ve devre dışı bırakıldı. Problemi çözdükten sonra yenileyin.",
+      "body-timeouts": "{plugin} yanıt vermeyi sonlandırdı ve devre dışı bırakıldı. Problemi çözdükten sonra yenileyin.",
+      "title": "Eklenti devre dışı bırakıldı"
+    },
+    "enable-failed": {
+      "body-error": "{plugin}: {error}",
+      "body-incompatible": "{plugin}, {version} eklenti API'yını hedefliyor; bu Noctalia {oldest}–{current} API'larını destekliyor.",
+      "body-timeout": "{plugin} yüklemesi zaman aşımına uğradı.",
+      "title": "Eklenti devre dışı"
     }
   },
   "settings": {
+    "navigation": {
+      "groups": {
+        "osd": "OSD"
+      },
+      "sections": {
+        "osd": "OSD",
+        "plugins": "Eklentiler"
+      }
+    },
+    "plugins": {
+      "browse-store": "Eklentileri Keşfet"
+    },
+    "schema": {
+      "lockscreen": {
+        "allow-empty-password": {
+          "description": "Enter tuşuyla boş şifre girmeye izin ver (güvenlik anahtarı veya diğer şifresiz PAM yığınları için etkinleştirin; yanlışlıkla uyandırma tuşuyla kilitlenmeyi önlemek için kapalı tutun)",
+          "label": "Boş Şifre Girişi"
+        },
+        "blur-intensity": {
+          "description": "Kilit ekranının arka plan bulanıklık miktarı",
+          "label": "Bulanıklık Yoğunluğu"
+        },
+        "blurred-desktop": {
+          "description": "Masaüstünün anlık bir görüntüsünü kilit ekranı arka planı olarak kullan",
+          "label": "Masaüstü Yakalama"
+        },
+        "enabled": {
+          "description": "Oturum kitleme, logind entegrasyonu, ve oturum kilitleme aksiyonlarını aç",
+          "label": "Kilit Ekranı"
+        },
+        "fingerprint": {
+          "description": "Şifreyle birlikte parmak izini kullanarak fprintd aracılığıyla kilidi aç",
+          "label": "Parmak İziyle Aç"
+        },
+        "monitors": {
+          "description": "Kilit ekranının hangi monitörlerde görüneceğini seçin; tüm monitörlerde görünmesi için boş bırakın",
+          "label": "Monitörler"
+        },
+        "tint-intensity": {
+          "description": "Kilit ekranı arka planı üzerindeki yüzey renk tonu",
+          "label": "Renk Tonu Yoğunluğu"
+        },
+        "wallpaper": {
+          "description": "Kilit ekranı özel arka planı; masaüstü duvar kağıdını kullanmak için boş bırakın",
+          "label": "Duvar kağıdı",
+          "placeholder": "Masaütü duvar kağıdını kullan"
+        },
+        "widgets": {
+          "description": "Kilit ekranında ayarlanabilir bileşenler göster",
+          "label": "Kilit Ekranı Bileşenleri"
+        },
+        "widgets-editor": {
+          "button": "Editörü aç",
+          "description": "Kilit ekranına bileşenler ekleyin, taşıyın, ve yeniden boyutlandırın",
+          "label": "Kilit Ekranı Bileşeni Editörü"
+        }
+      },
+      "shell": {
+        "osd-background-opacity": {
+          "description": "OSD bildirimlerinin arka plan opaklığı",
+          "label": "Arka Plan Opaklığı"
+        },
+        "osd-border": {
+          "description": "OSD bildirimlerinin etrafında dış çizgi çiz",
+          "label": "Kenar"
+        },
+        "osd-enabled": {
+          "description": "OSD bildirim şalteri; kapalıyken hiçbir OSD bildirimi gösterilmez",
+          "label": "OSD'yi Aç"
+        },
+        "osd-kinds-bluetooth": {
+          "description": "Bluetooth açılıp kapandığında OSD bildirimi göster",
+          "label": "Bluetooth"
+        },
+        "osd-kinds-brightness": {
+          "description": "Parlaklık değiştiğinde OSD bildirimi göster",
+          "label": "Parlaklık"
+        },
+        "osd-kinds-caffeine": {
+          "description": "Kafein (boşta kalma engelleyici) durumu değiştiğinde OSD bildirimi göster",
+          "label": "Kafein"
+        },
+        "osd-kinds-dnd": {
+          "description": "Rahatsız Etmeyin modu açılıp kapandığında OSD bildirimi göster",
+          "label": "Rahatsız Etmeyin"
+        },
+        "osd-kinds-keyboard-backlight": {
+          "description": "Klaveyenin ışık miktarı değiştiğinde OSD bildirimi göster",
+          "label": "Klaveye Işığı"
+        },
+        "osd-kinds-keyboard-layout": {
+          "description": "Klaveye düzeni değiştiğinde OSD bildirimi göster",
+          "label": "Klavye Düzeni"
+        },
+        "osd-kinds-lock-keys": {
+          "description": "Caps Lock, Num Lock, ve Scroll Lock değişimlerinde OSD bildirimi göster",
+          "label": "Kilit Tuşları"
+        },
+        "osd-kinds-media": {
+          "description": "Yeni bir parça çalmaya başladığında OSD bildirimi göster",
+          "label": "Şu Anda Çalıyor"
+        },
+        "osd-kinds-nightlight": {
+          "description": "Gece modu açılıp kapandığında OSD bildirimi göster",
+          "label": "Gece Modu"
+        },
+        "osd-kinds-power-profile": {
+          "description": "Güç profili değiştiğinde OSD bildirimi göster",
+          "label": "Güç Profili"
+        },
+        "osd-kinds-privacy": {
+          "description": "Mikrofon veya kamera kullanımı, veya ekran paylaşımı başladığında OSD bildirimi göster",
+          "label": "Gizlilik"
+        },
+        "osd-kinds-volume": {
+          "description": "Ses düzeyi değiştiğinde OSD bildirimi göster; giriş ve çıkışı ayrı ayrı yönetmek için gelişmiş ayarları kullanın",
+          "label": "Ses Düzeyi"
+        },
+        "osd-kinds-volume-input": {
+          "description": "Giriş (mikrofon) cihazı ses düzeyi değiştiğinde OSD bildirimi göster",
+          "label": "Giriş Ses Düzeyi"
+        },
+        "osd-kinds-volume-output": {
+          "description": "Çıkış (hoparlör) cihazı ses düzeyi değiştiğinde OSD bildirimi göster",
+          "label": "Çıkış Ses Düzeyi"
+        },
+        "osd-kinds-wifi": {
+          "description": "Wi-Fi açılıp kapandığında OSD bildirimi göster"
+        },
+        "osd-monitors": {
+          "description": "OSD bildirimlerinin gösterileceği monitörü seçin; tüm monitörlerde gösterilmesi için boş bırakın",
+          "label": "Monitörler"
+        },
+        "osd-offset-x": {
+          "description": "Ekran kenarlarına olan mutlak yatay mesafe",
+          "label": "Yatay Pay"
+        },
+        "osd-offset-y": {
+          "description": "Ekran kenarlarına olan mutlak dikey mesafe",
+          "label": "Dikey Pay"
+        },
+        "osd-orientation": {
+          "description": "OSD bildirimlerinin yerleşim yönü",
+          "label": "Yönelim"
+        }
+      }
+    },
     "widgets": {
       "settings": {
         "vpn-status": {
@@ -448,7 +760,7 @@
   },
   "window-switcher": {
     "empty": "Açık pencere yok",
-    "hint": "Tab · Shift+Tab · Yön tuşlar · Değiştirmek için Alt'ı bırak · İptel etmek için Esc",
+    "hint": "Tab · Shift+Tab · Yön tuşları · Değiştirmek için Alt'ı bırak · İptel etmek için Esc",
     "title": "Penceler"
   }
 }

@@ -1712,6 +1712,18 @@ namespace settings {
         "calendar date format strftime chrono"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Shell, "keyboard-layout", tr("settings.schema.shell.keyboard-layout-custom-labels.label"),
+        tr("settings.schema.shell.keyboard-layout-custom-labels.description"),
+        {"shell", "keyboard_layout", "custom_labels"},
+        StringMapSetting{
+            .entries = cfg.shell.keyboardLayout.customLabels,
+            .suggestedKeys = env.keyboardLayoutNames,
+            .keyPlaceholder = tr("settings.widgets.map-placeholders.layout-name"),
+            .valuePlaceholder = tr("settings.widgets.map-placeholders.value"),
+        },
+        "keyboard layout nickname alias label"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Shell, "general", tr("settings.schema.shell.launch-apps-as-systemd-services.label"),
         env.systemdUserManaged ? tr("settings.schema.shell.launch-apps-as-systemd-services.description")
                                : tr("settings.schema.shell.launch-apps-as-systemd-services.requires-systemd-session"),

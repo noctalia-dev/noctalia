@@ -7,6 +7,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <optional>
 #include <string>
@@ -175,6 +176,7 @@ namespace scripting {
     Call,
     CallArgs,
     AsyncCommandResult,
+    AsyncFileResult,
     AsyncProcessMatchResult,
     AsyncHttpResult,
     SoundLoadResult,
@@ -224,6 +226,10 @@ namespace scripting {
     bool droppable = false;
     int callbackRef = 0;
     process::RunResult commandResult;
+    // AsyncFileResult payload.
+    bool fileOk = false;
+    std::string fileData;
+    std::string fileError;
     // AsyncHttpResult / HttpStreamClosed payload.
     bool httpOk = false;
     bool httpIsDownload = false;
@@ -254,6 +260,8 @@ namespace scripting {
     bool timedOut = false;
     bool hasOnIpc = false;
     bool hasOnIpcKnown = false;
+    bool modulePathsKnown = false;
+    std::vector<std::filesystem::path> modulePaths;
     bool unhealthy = false;
     // True when this result included a CopyToClipboard side effect (before dispatch).
     bool copiedToClipboard = false;

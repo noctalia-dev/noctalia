@@ -482,6 +482,10 @@ WidgetBarCapsuleSpec capsuleSpecFromGroup(const BarConfig& bar, const BarCapsule
     spec.radius = std::nullopt;
   }
   spec.opacity = group.opacity;
+  spec.accordion = group.accordion;
+  spec.accordionDirection = group.accordionDirection;
+  spec.widgetSpacing =
+      group.widgetSpacing.has_value() ? std::optional<float>{static_cast<float>(*group.widgetSpacing)} : std::nullopt;
   spec.hoverHighlight = bar.hoverHighlight;
   return spec;
 }
@@ -522,6 +526,32 @@ float resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std:
   }
 
   return barScale * std::clamp(static_cast<float>(widgetScale), 0.2f, 2.5f);
+}
+
+CommonWidgetOptions resolveCommonWidgetOptions(
+    const BarConfig& bar, const WidgetConfig* widget, std::string_view widgetType, float barScale
+) {
+  CommonWidgetOptions options;
+  options.interactive = widgetType != "spacer";
+  options.contentScale = resolveWidgetContentScale(barScale, widget);
+  options.capsule = resolveWidgetBarCapsuleSpec(bar, widget);
+  if (widget == nullptr) {
+    return options;
+  }
+
+  options.enabled = widget->getBool("enabled", true);
+  options.anchor = widget->getBool("anchor", false);
+  options.interactive = widget->getBool("interactive", options.interactive);
+  options.color = widget->getOptionalColorSpec("color", "widget.color");
+  options.iconColor = widget->getOptionalColorSpec("icon_color", "widget.icon_color");
+  if (const auto* fontWeight = widget->findSetting("font_weight");
+      fontWeight != nullptr && std::holds_alternative<std::int64_t>(*fontWeight)) {
+    options.labelFontWeight = std::get<std::int64_t>(*fontWeight);
+  }
+  options.labelFontFamily = widget->getString("font_family");
+  options.scrollRepeat = widget->getString("scroll_repeat", "auto");
+  options.enableScroll = widget->getBool("enable_scroll", true);
+  return options;
 }
 
 ColorSpec colorSpecFromConfigString(const std::string& raw, std::string_view context) {

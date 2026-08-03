@@ -966,6 +966,10 @@
           "title": "状态栏小组件"
         },
         "group": {
+          "accordion": "折叠",
+          "accordion-description": "仅显示首个小组件；悬停胶囊时展开其余小组件",
+          "accordion-direction": "展开方向",
+          "accordion-direction-description": "隐藏小组件从首个小组件展开的方向",
           "action": "组合",
           "border": "边框",
           "border-description": "将颜色应用于胶囊轮廓；保持“默认”时不显示轮廓",
@@ -1008,7 +1012,9 @@
           "show-widget": "显示小组件",
           "style": "样式",
           "title": "胶囊组",
-          "ungroup": "取消组合"
+          "ungroup": "取消组合",
+          "widget-spacing": "间距",
+          "widget-spacing-description": "组内小组件之间的间距（像素）；“自动”将继承状态栏的小组件间距设置"
         },
         "inspector": {
           "add-instance-title": "将新的{widget}具名小组件添加到{lane}",
@@ -1041,7 +1047,7 @@
         },
         "raw": {
           "delete": "删除",
-          "description": "从小组件配置中保留的不再支持的键。",
+          "description": "从小组件配置文件中保留的不再受支持的键",
           "title": "旧版配置项"
         },
         "settings": {
@@ -1263,6 +1269,10 @@
       }
     },
     "options": {
+      "accordion-direction": {
+        "end": "首个小组件后",
+        "start": "首个小组件前"
+      },
       "bar": {
         "auto-hide": {
           "off": "关闭",
@@ -3299,6 +3309,10 @@
           "description": "居中显示可视化条，而非边缘对齐",
           "label": "居中"
         },
+        "change-color-on-hover": {
+          "description": "指针悬停在工作区上时改变其填充颜色和标签颜色",
+          "label": "悬停着色"
+        },
         "color": {
           "description": "小组件图标和标签的颜色；支持固定的十六进制颜色值",
           "label": "颜色"
@@ -3622,7 +3636,7 @@
           "label": "活动窗口指示器"
         },
         "show-all-outputs": {
-          "description": "包含所有屏幕上的窗口",
+          "description": "显示所有屏幕上的窗口",
           "label": "包含所有屏幕"
         },
         "show-caps-lock": {
@@ -3637,12 +3651,12 @@
           "description": "无焦点窗口时显示占位文本，而不是隐藏小组件",
           "label": "显示空标签"
         },
-        "show-icon": {
-          "description": "显示小组件的图标",
+        "show-glyph": {
+          "description": "显示小组件图标或自定义图片",
           "label": "显示图标"
         },
         "show-label": {
-          "description": "在图标旁显示文字",
+          "description": "显示小组件的文本标签",
           "label": "显示标签"
         },
         "show-num-lock": {
@@ -3660,6 +3674,10 @@
         "show-unlock-hint": {
           "description": "在登录框上方显示状态卡片，用于解锁提示和身份验证提示。关闭后仍会显示错误信息和大写锁定提示。",
           "label": "解锁提示"
+        },
+        "show-value": {
+          "description": "在可视化旁显示当前数值",
+          "label": "显示数值"
         },
         "show-vpn-label": {
           "description": "“替换”模式下会替换网络标签；“同时显示”模式下会显示在 VPN 图标旁",
@@ -3721,6 +3739,10 @@
         "vertical-format": {
           "description": "可选的垂直状态栏格式",
           "label": "垂直格式"
+        },
+        "visualization": {
+          "description": "仪表、图表或无数据可视化",
+          "label": "可视化"
         },
         "vpn-status": {
           "description": "VPN 状态的显示方式：“替换”会将网络图标替换为 VPN 盾牌图标，“同时显示”会并排显示两者，“隐藏”会禁用 VPN 指示器",

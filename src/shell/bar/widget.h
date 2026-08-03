@@ -81,6 +81,10 @@ public:
       const noctalia::bar::WidgetActionBindings::ActionTable* barActions, std::string_view barContext,
       const noctalia::bar::WidgetActionDispatcher* dispatcher
   );
+  void applyCommonOptions(
+      const CommonWidgetOptions& options, FontWeight barFontWeight, const std::string& barFontFamily,
+      std::string_view logContext
+  );
   void setActionContext(IpcInvocationContext context) { m_actionContext = std::move(context); }
   [[nodiscard]] const noctalia::bar::WidgetActionBindings& gestureBindings() const noexcept {
     return m_gestureBindings;
@@ -107,6 +111,9 @@ public:
   void setWidgetIconColor(std::optional<ColorSpec> color) noexcept { m_widgetIconColor = color; }
   void setNonInteractive(bool nonInteractive) noexcept;
   [[nodiscard]] bool nonInteractive() const noexcept { return m_nonInteractive; }
+  // Bar-owned: blocks all pointer input while the member is clipped out of a collapsed accordion.
+  void setBarPointerSuppressed(bool suppressed) noexcept;
+  [[nodiscard]] bool barPointerSuppressed() const noexcept { return m_barPointerSuppressed; }
   [[nodiscard]] const WidgetBarCapsuleSpec& barCapsuleSpec() const noexcept { return m_barCapsuleSpec; }
   void setBarCapsuleScene(Node* shell, Box* box) noexcept;
   [[nodiscard]] Node* barCapsuleShell() const noexcept { return m_capsuleShell; }
@@ -170,6 +177,7 @@ protected:
   std::optional<ColorSpec> m_widgetForeground;
   std::optional<ColorSpec> m_widgetIconColor;
   bool m_nonInteractive = false;
+  bool m_barPointerSuppressed = false;
   Node* m_capsuleShell = nullptr;
   Box* m_capsuleBox = nullptr;
   Box* m_hoverBox = nullptr;
@@ -181,6 +189,7 @@ private:
   // An enabled InputArea captures hover (and the highlight) even with no accepted buttons, so the
   // wrapper stays inert until something is actually bound to it.
   void updateGestureAreaEnabled() noexcept;
+  void syncOuterHitTestVisible() noexcept;
   // The wrapper carries no geometry or visibility of its own; it mirrors root(), which widgets
   // size in doLayout() and hide in doUpdate() (hide_when_no_media, hide_when_off, ...).
   void syncOuterFromRoot() noexcept;

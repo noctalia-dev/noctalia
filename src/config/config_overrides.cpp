@@ -546,6 +546,13 @@ namespace {
                 row.insert_or_assign("radius", static_cast<double>(*item.radius));
               }
               row.insert_or_assign("opacity", static_cast<double>(item.opacity));
+              row.insert_or_assign("accordion", item.accordion);
+              row.insert_or_assign(
+                  "accordion_direction", std::string(enumToKey(kBarAccordionDirections, item.accordionDirection))
+              );
+              if (item.widgetSpacing.has_value()) {
+                row.insert_or_assign("widget_spacing", static_cast<std::int64_t>(*item.widgetSpacing));
+              }
               array.push_back(std::move(row));
             }
             table.insert_or_assign(key, std::move(array));
@@ -725,6 +732,106 @@ namespace {
   const BarMonitorOverride* findBarMonitorOverride(const BarConfig& bar, std::string_view match) {
     const auto it = std::ranges::find(bar.monitorOverrides, match, &BarMonitorOverride::match);
     return it != bar.monitorOverrides.end() ? &*it : nullptr;
+  }
+
+  // {"bar", name, lane} or {"bar", name, "monitor", match, lane}, lane being a widget list.
+  bool isBarLanePath(const std::vector<std::string>& path) {
+    const bool barScope = path.size() == 3 && path[0] == "bar";
+    const bool monitorScope = path.size() == 5 && path[0] == "bar" && path[2] == "monitor";
+    if (!barScope && !monitorScope) {
+      return false;
+    }
+    const std::string& lane = path.back();
+    return lane == "start" || lane == "center" || lane == "end";
+  }
+
+  std::vector<std::string> capsuleGroupPathForBarLanePath(const std::vector<std::string>& lanePath) {
+    std::vector<std::string> path(lanePath.begin(), lanePath.end() - 1);
+    path.emplace_back("capsule_group");
+    return path;
+  }
+
+  const std::vector<std::string>* barLaneWidgets(const Config& cfg, const std::vector<std::string>& lanePath) {
+    const BarConfig* bar = findBarConfig(cfg, lanePath[1]);
+    if (bar == nullptr) {
+      return nullptr;
+    }
+    const std::string& lane = lanePath.back();
+    if (lanePath.size() == 5) {
+      const BarMonitorOverride* ovr = findBarMonitorOverride(*bar, lanePath[3]);
+      if (ovr == nullptr) {
+        return nullptr;
+      }
+      const std::optional<std::vector<std::string>>& laneOverride =
+          lane == "start" ? ovr->startWidgets : (lane == "center" ? ovr->centerWidgets : ovr->endWidgets);
+      if (laneOverride.has_value()) {
+        return &*laneOverride;
+      }
+    }
+    return lane == "start" ? &bar->startWidgets : (lane == "center" ? &bar->centerWidgets : &bar->endWidgets);
+  }
+
+  const std::vector<BarCapsuleGroupStyle>*
+  barLaneCapsuleGroups(const Config& cfg, const std::vector<std::string>& lanePath) {
+    const BarConfig* bar = findBarConfig(cfg, lanePath[1]);
+    if (bar == nullptr) {
+      return nullptr;
+    }
+    if (lanePath.size() == 5) {
+      const BarMonitorOverride* ovr = findBarMonitorOverride(*bar, lanePath[3]);
+      if (ovr != nullptr && ovr->widgetCapsuleGroups.has_value()) {
+        return &*ovr->widgetCapsuleGroups;
+      }
+    }
+    return &bar->widgetCapsuleGroups;
+  }
+
+  void collectLaneGroupIds(const std::vector<std::string>& lane, std::set<std::string>& out) {
+    for (const std::string& entry : lane) {
+      if (isCapsuleGroupToken(entry)) {
+        out.insert(capsuleGroupTokenId(entry));
+      }
+    }
+  }
+
+  // Lane equality as the settings GUI presents it: the widget list plus the styles of the capsule
+  // groups that list references. Groups the lane does not reference belong to another lane.
+  bool barLaneContentEqual(const Config& a, const Config& b, const std::vector<std::string>& lanePath) {
+    const std::vector<std::string>* laneA = barLaneWidgets(a, lanePath);
+    const std::vector<std::string>* laneB = barLaneWidgets(b, lanePath);
+    if (laneA == nullptr || laneB == nullptr) {
+      return laneA == laneB;
+    }
+    if (*laneA != *laneB) {
+      return false;
+    }
+    const std::vector<BarCapsuleGroupStyle>* groupsA = barLaneCapsuleGroups(a, lanePath);
+    const std::vector<BarCapsuleGroupStyle>* groupsB = barLaneCapsuleGroups(b, lanePath);
+    for (const std::string& entry : *laneA) {
+      if (!isCapsuleGroupToken(entry)) {
+        continue;
+      }
+      const std::string id = capsuleGroupTokenId(entry);
+      const auto findGroup = [&id](const std::vector<BarCapsuleGroupStyle>* groups) -> const BarCapsuleGroupStyle* {
+        if (groups == nullptr) {
+          return nullptr;
+        }
+        const auto it = std::ranges::find(*groups, id, &BarCapsuleGroupStyle::id);
+        return it != groups->end() ? &*it : nullptr;
+      };
+      const BarCapsuleGroupStyle* groupA = findGroup(groupsA);
+      const BarCapsuleGroupStyle* groupB = findGroup(groupsB);
+      if (groupA == nullptr || groupB == nullptr) {
+        if (groupA != groupB) {
+          return false;
+        }
+        continue;
+      }
+      if (*groupA != *groupB) {
+        return false;
+      }
+    }
+    return true;
   }
 
   bool overridePresenceIsSemantic(const std::vector<std::string>& path) {
@@ -1173,6 +1280,35 @@ bool ConfigService::hasEffectiveOverride(const std::vector<std::string>& path) c
   }
 
   const bool effective = overridePathEffectiveInTable(path, m_overridesTable, &m_config);
+  m_effectiveOverrideCache[key] = effective;
+  return effective;
+}
+
+bool ConfigService::hasEffectiveBarLaneOverride(const std::vector<std::string>& lanePath) const {
+  if (!isBarLanePath(lanePath)) {
+    return false;
+  }
+  if (hasEffectiveOverride(lanePath)) {
+    return true;
+  }
+
+  // The lane list itself matches the config file, but a group token in it can still carry the
+  // change: moving a widget into a lane's capsule group only edits the scope's capsule_group array.
+  const std::vector<std::string> groupPath = capsuleGroupPathForBarLanePath(lanePath);
+  if (findOverrideNode(m_overridesTable, groupPath) == nullptr) {
+    return false;
+  }
+
+  const std::string key = "lane:" + overrideCacheKey(lanePath);
+  if (const auto it = m_effectiveOverrideCache.find(key); it != m_effectiveOverrideCache.end()) {
+    return it->second;
+  }
+
+  toml::table without = m_overridesTable;
+  eraseOverridePath(without, lanePath, overridePreserveDepthForPath(lanePath));
+  eraseOverridePath(without, groupPath, overridePreserveDepthForPath(groupPath));
+  const auto baseline = configForOverrides(without);
+  const bool effective = !baseline.has_value() || !barLaneContentEqual(m_config, *baseline, lanePath);
   m_effectiveOverrideCache[key] = effective;
   return effective;
 }
@@ -1761,6 +1897,10 @@ bool ConfigService::setOverrides(
     }
   }
 
+  return commitOverrideTable(std::move(next), changed);
+}
+
+bool ConfigService::commitOverrideTable(toml::table next, bool* changed) {
   if (next == m_overridesTable) {
     m_lastMutationError.clear();
     return true;
@@ -1825,26 +1965,80 @@ bool ConfigService::clearOverrides(const std::vector<std::vector<std::string>>& 
 
   reconcileCapsuleGroupOverrides(next);
 
-  if (!validateOverrideMutation(next)) {
-    return false;
-  }
+  return commitOverrideTable(std::move(next), changed);
+}
 
-  toml::table previous = std::move(m_overridesTable);
-  m_overridesTable = std::move(next);
-  if (!writeOverridesToFile()) {
-    m_overridesTable = std::move(previous);
-    kLog.warn("failed to write {}", m_overridesPath);
-    return false;
-  }
-
-  m_ownOverridesWritePending = true;
+bool ConfigService::resetBarLaneOverride(const std::vector<std::string>& lanePath, bool* changed) {
   if (changed != nullptr) {
-    *changed = true;
+    *changed = false;
   }
-  extractWallpaperFromOverrides();
-  loadAll();
-  fireReloadCallbacks();
-  return true;
+  if (m_overridesPath.empty() || !isBarLanePath(lanePath)) {
+    return false;
+  }
+
+  toml::table next = m_overridesTable;
+  bool anyChanged = eraseOverridePath(next, lanePath, overridePreserveDepthForPath(lanePath));
+
+  // Restore the groups this lane holds. The scope's capsule_group array is shared with the other
+  // lanes, so it is rewritten rather than cleared: only ids this lane references go back to their
+  // config-file style, and GUI-created ones disappear with it.
+  const std::vector<std::string> groupPath = capsuleGroupPathForBarLanePath(lanePath);
+  if (findOverrideNode(next, groupPath) != nullptr) {
+    toml::table baselineTable = next;
+    eraseOverridePath(baselineTable, groupPath, overridePreserveDepthForPath(groupPath));
+    const auto baseline = configForOverrides(baselineTable);
+    if (!baseline.has_value()) {
+      return false;
+    }
+    const std::vector<BarCapsuleGroupStyle>* baseGroups = barLaneCapsuleGroups(*baseline, lanePath);
+    // Current state comes from the live config: `next` already dropped the lane override, so its
+    // lane no longer names the groups that exist only because of it.
+    const std::vector<BarCapsuleGroupStyle>* currentGroups = barLaneCapsuleGroups(m_config, lanePath);
+    const std::vector<std::string>* baseLane = barLaneWidgets(*baseline, lanePath);
+    const std::vector<std::string>* currentLane = barLaneWidgets(m_config, lanePath);
+    if (baseGroups != nullptr && currentGroups != nullptr && baseLane != nullptr && currentLane != nullptr) {
+      std::set<std::string> owned;
+      collectLaneGroupIds(*baseLane, owned);
+      collectLaneGroupIds(*currentLane, owned);
+
+      std::vector<BarCapsuleGroupStyle> restored;
+      restored.reserve(currentGroups->size());
+      for (const auto& group : *currentGroups) {
+        if (!owned.contains(group.id)) {
+          restored.push_back(group);
+          continue;
+        }
+        const auto it = std::ranges::find(*baseGroups, group.id, &BarCapsuleGroupStyle::id);
+        if (it != baseGroups->end()) {
+          restored.push_back(*it);
+        }
+      }
+      for (const auto& group : *baseGroups) {
+        if (owned.contains(group.id) && !std::ranges::contains(restored, group.id, &BarCapsuleGroupStyle::id)) {
+          restored.push_back(group);
+        }
+      }
+
+      if (restored != *currentGroups) {
+        toml::table* scope = &next;
+        for (std::size_t i = 0; i + 1 < groupPath.size() && scope != nullptr; ++i) {
+          scope = scope->get_as<toml::table>(groupPath[i]);
+        }
+        if (scope != nullptr) {
+          insertOverrideValue(*scope, groupPath.back(), restored);
+          anyChanged = true;
+        }
+      }
+    }
+  }
+
+  if (!anyChanged) {
+    m_lastMutationError.clear();
+    return true;
+  }
+
+  reconcileCapsuleGroupOverrides(next);
+  return commitOverrideTable(std::move(next), changed);
 }
 
 bool ConfigService::renameOverrideTable(

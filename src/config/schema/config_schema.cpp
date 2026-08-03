@@ -1317,6 +1317,13 @@ namespace noctalia::config::schema {
       return s;
     }
 
+    const Schema<ShellConfig::KeyboardLayoutConfig>& shellKeyboardLayoutSchema() {
+      static const Schema<ShellConfig::KeyboardLayoutConfig> s = {
+          field(&ShellConfig::KeyboardLayoutConfig::customLabels, "custom_labels"),
+      };
+      return s;
+    }
+
     const Schema<ShellConfig::ScreenCornersConfig>& shellScreenCornersSchema() {
       static const Schema<ShellConfig::ScreenCornersConfig> s = {
           field(&ShellConfig::ScreenCornersConfig::enabled, "enabled"),
@@ -1504,6 +1511,7 @@ namespace noctalia::config::schema {
         subTable(&ShellConfig::shadow, "shadow", shellShadowSchema()),
         subTable(&ShellConfig::panel, "panel", shellPanelSchema()),
         subTable(&ShellConfig::launcher, "launcher", shellLauncherSchema()),
+        subTable(&ShellConfig::keyboardLayout, "keyboard_layout", shellKeyboardLayoutSchema()),
         subTable(&ShellConfig::screenCorners, "screen_corners", shellScreenCornersSchema()),
         subTable(&ShellConfig::mpris, "mpris", shellMprisSchema()),
         subTable(&ShellConfig::screenshot, "screenshot", shellScreenshotSchema()),
@@ -2073,6 +2081,9 @@ namespace noctalia::config::schema {
           field(&BarCapsuleGroupStyle::padding, "padding", kBarCapsulePaddingRange),
           optionalFloatField(&BarCapsuleGroupStyle::radius, "radius", kBarCapsuleRadiusRangeF),
           field(&BarCapsuleGroupStyle::opacity, "opacity", kBarOpacityRange),
+          field(&BarCapsuleGroupStyle::accordion, "accordion"),
+          enumField(&BarCapsuleGroupStyle::accordionDirection, "accordion_direction", kBarAccordionDirections),
+          optionalIntField(&BarCapsuleGroupStyle::widgetSpacing, "widget_spacing"),
       };
       return s;
     }

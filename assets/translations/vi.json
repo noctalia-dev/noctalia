@@ -29,7 +29,7 @@
   "bar": {
     "screenshot": {
       "choose-display": "Chọn màn hình",
-      "confirm-region": "Kéo, thả để chọn · Nhấn Esc để hủy · Nhấn Enter hoặc Space để chụp phần đã chọn",
+      "confirm-region": "{copy} để sao chép · {save} để lưu · Enter hoặc Space để dùng mặc định · {cancel} để hủy · Kéo để chọn lại",
       "fullscreen": "Toàn màn hình",
       "overlay-alloc-failed": "Không thể hiển thị lớp phủ chụp màn hình (GPU có thể đã hết bộ nhớ video?)",
       "region": "Chọn khu vực"
@@ -76,6 +76,7 @@
         "signal": "Tín hiệu",
         "upload": "Tải lên",
         "vpn": "VPN",
+        "wan-ip": "Địa chỉ IP WAN",
         "wifi": "Wi-Fi",
         "wired": "Mạng có dây",
         "yes": "Có"
@@ -93,6 +94,10 @@
         "cpu": "CPU",
         "cpu-temp": "Nhiệt độ CPU",
         "disk": "Ổ đĩa",
+        "disk-free": "Dung lượng ổ đĩa trống",
+        "disk-free-pct": "% dung lượng ổ đĩa trống",
+        "disk-used": "Dung lượng ổ đĩa đã sử dụng",
+        "disk-used-pct": "% dung lượng ổ đĩa đã sử dụng",
         "download": "Tải xuống",
         "gpu-temp": "Nhiệt độ GPU",
         "gpu-usage": "Mức sử dụng GPU",
@@ -112,7 +117,18 @@
         "error": "Không thể tải thời tiết",
         "loading": "Đang cập nhật thời tiết...",
         "no-location": "Không xác định vị trí",
-        "off": "Thời tiết không được bật"
+        "off": "Thời tiết không được bật",
+        "tooltip": {
+          "condition": "Điều kiện",
+          "high": "Cao",
+          "humidity": "Độ ẩm",
+          "low": "Thấp",
+          "sunrise": "Bình minh",
+          "sunset": "Hoàng hôn",
+          "temperature": "Nhiệt độ",
+          "uv": "Chỉ số UV",
+          "wind": "Sức gió"
+        }
       }
     }
   },
@@ -182,6 +198,7 @@
     },
     "bluetooth": {
       "accept": "Chấp nhận",
+      "address": "Địa chỉ",
       "auto-reconnect": "Tự kết nối lại",
       "bluetooth": "Bluetooth",
       "enter-code": "Nhập mã xác thực",
@@ -249,6 +266,7 @@
       "start-playback": "Bắt đầu phát nội dung trong ứng dụng MPRIS"
     },
     "network": {
+      "available": "Khả dụng",
       "connect": "Kết nối",
       "current-connection": "Kết nối hiện tại",
       "external-ip": "WAN {ip}",
@@ -317,7 +335,7 @@
         "dark": "Tối",
         "light": "Sáng"
       },
-      "keyboard-layout": "Bố cục",
+      "keyboard-layout": "Bố cục bàn phím",
       "media": "Trình phát",
       "mic-mute": "Micrô",
       "nightlight": "Ánh sáng đêm",
@@ -902,7 +920,7 @@
         "rename-save": "Lưu"
       },
       "widget": {
-        "add": "Thêm Widget",
+        "add": "Thêm widget",
         "detail": {
           "custom": "widget tùy chỉnh"
         },
@@ -950,7 +968,7 @@
         },
         "inspector": {
           "add-instance-title": "Thêm mới tiện ích có tên {widget} vào khu vực {lane}",
-          "add-title": "Thêm Widget vào {lane}",
+          "add-title": "Thêm widget vào {lane}",
           "move-to-lane": "Di chuyển đến {lane}"
         },
         "instance": {
@@ -2121,19 +2139,19 @@
           "label": "Sắp xếp theo mức độ sử dụng"
         },
         "open-near-click-clipboard": {
-          "description": "Định vị bảng điều khiển khay nhớ tạm gần vị trí nhấp chuột trên Bar thay vì căn giữa nó dọc theo Bar",
+          "description": "Đặt bảng nhớ tạm gần widget trên thanh đã mở nó khi được gắn vào thanh hoặc ở chế độ nổi với vị trí tự động",
           "label": "Mở gần điểm nhấp"
         },
         "open-near-click-control-center": {
-          "description": "Đặt bảng điều khiển Control Center gần vị trí nhấp chuột trên thanh thay vì căn giữa nó dọc theo thanh.",
+          "description": "Khi được gắn vào thanh hoặc hiển thị nổi với vị trí tự động, Trung tâm điều khiển sẽ được đặt gần widget trên thanh đã mở nó",
           "label": "Mở gần điểm nhấp"
         },
         "open-near-click-launcher": {
-          "description": "Đặt Panel Launcher gần vị trí nhấp trên Bar thay vì căn giữa Bar",
+          "description": "Khi được gắn vào thanh hoặc hiển thị nổi với vị trí tự động, trình khởi chạy sẽ được đặt gần widget trên thanh đã mở nó.",
           "label": "Mở gần vị trí nhấp"
         },
         "open-near-click-session": {
-          "description": "Đặt bảng điều khiển menu phiên gần vị trí nhấp chuột trên thanh thay vì căn giữa nó dọc theo thanh",
+          "description": "Khi được gắn vào thanh hoặc hiển thị nổi với vị trí tự động, session menu sẽ được đặt gần widget trên thanh đã mở nó.",
           "label": "Mở gần vị trí nhấp chuột"
         },
         "open-near-click-wallpaper": {
@@ -2307,7 +2325,7 @@
             "label": "Khoảng thời gian kiểm tra ổ đĩa"
           },
           "gpu-poll": {
-            "description": "Số giây giữa các lần lấy mẫu nhiệt độ GPU và VRAM. 0 sẽ tắt tính năng này (mặc định), giúp tránh đánh thức GPU rời; 5 là một khoảng thời gian tốt nếu bạn bật nó",
+            "description": "Khoảng thời gian (giây) giữa các lần lấy mẫu nhiệt độ, mức sử dụng và VRAM của GPU; GPU chỉ được lấy mẫu khi có thành phần đang hiển thị thông tin GPU, nên máy đang ở trạng thái idle sẽ không bị đánh thức (đặt thành 0 để tắt hoàn toàn)",
             "label": "Khoảng thời gian thăm dò GPU"
           },
           "label": "Giám sát hệ thống",
@@ -2917,7 +2935,7 @@
           "label": "Màn hình"
         },
         "display-mode": {
-          "description": "Hiển thị pin dưới dạng hình ảnh đồ họa hoặc một Tabler glyph",
+          "description": "Hiển thị pin dưới dạng biểu đồ, biểu tượng Tabler hoặc chỉ nhãn",
           "label": "Chế độ hiển thị"
         },
         "drawer": {
@@ -2958,7 +2976,7 @@
           "label": "Nhóm theo Không gian làm việc"
         },
         "group-single-icon-per-app": {
-          "description": "Khi nhóm theo không gian làm việc, gộp nhiều cửa sổ từ cùng một ứng dụng thành một biểu tượng với huy hiệu đếm số lượng.",
+          "description": "Khi group theo workspace bằng biểu tượng, gộp nhiều cửa sổ của cùng một ứng dụng thành một biểu tượng kèm huy hiệu số lượng",
           "label": "Một biểu tượng cho mỗi ứng dụng"
         },
         "height": {
@@ -3141,12 +3159,8 @@
           "description": "Hiển thị nội dung thay thế khi không có cửa sổ đang hoạt động thay vì ẩn widget",
           "label": "Hiển thị chữ thay thế khi trống"
         },
-        "show-icon": {
-          "description": "Hiển thị biểu tượng của tiện ích này",
-          "label": "Hiện biểu tượng"
-        },
         "show-label": {
-          "description": "Hiển thị văn bản bên cạnh biểu tượng",
+          "description": "Hiển thị văn bản của widget",
           "label": "Hiện nhãn"
         },
         "show-num-lock": {

@@ -3299,6 +3299,10 @@
           "description": "Centra le barre del visualizzatore invece di allinearle al bordo",
           "label": "Centrato"
         },
+        "change-color-on-hover": {
+          "description": "Modifica i colori di riempimento ed etichetta di un'area di lavoro mentre il puntatore passa sopra",
+          "label": "Cambia colore al passaggio del mouse"
+        },
         "color": {
           "description": "Ruolo colore per il primo piano del widget; sono supportati anche codici colore in formato esadecimale",
           "label": "Colore"
@@ -3637,12 +3641,12 @@
           "description": "Mostra un testo segnaposto quando nessuna finestra è selezionata invece di nascondere il widget",
           "label": "Mostra testo quando vuota"
         },
-        "show-icon": {
-          "description": "Mostra l'icona di questo widget",
-          "label": "Mostra icona"
+        "show-glyph": {
+          "description": "Mostra il glifo del widget o l'immagine personalizzata",
+          "label": "Mostra glifo"
         },
         "show-label": {
-          "description": "Mostra testo accanto all'icona",
+          "description": "Mostra l'etichetta di testo del widget",
           "label": "Mostra etichette"
         },
         "show-num-lock": {
@@ -3660,6 +3664,10 @@
         "show-unlock-hint": {
           "description": "Mostra la scheda di stato sopra la casella di accesso per avvisi di sblocco e prompt di autenticazione. Errori e avviso di capslock attivo verranno comunque visualizzati quando questo è disattivato.",
           "label": "Sblocca avvisi"
+        },
+        "show-value": {
+          "description": "Mostra il valore corrente accanto alla visualizzazione",
+          "label": "Mostra valore"
         },
         "show-vpn-label": {
           "description": "Sostituisce l'etichetta di rete con l'etichetta VPN in modalità di sostituzione; aggiunge l'etichetta VPN accanto all'icona VPN in entrambe le modalità",
@@ -3721,6 +3729,10 @@
         "vertical-format": {
           "description": "Formato opzionale usato sulle barre verticali",
           "label": "Formato verticale"
+        },
+        "visualization": {
+          "description": "Gauge, grafico o nessuna visualizzazione dei dati",
+          "label": "Visualizzazione"
         },
         "vpn-status": {
           "description": "Come visualizzare lo stato della VPN: sostituisci scambia l'icona della rete con uno scudo VPN, entrambi vengono mostrati fianco a fianco, nascosto disabilita l'indicatore VPN",

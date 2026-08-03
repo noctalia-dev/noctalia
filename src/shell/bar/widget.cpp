@@ -9,6 +9,7 @@
 #include "shell/bar/widget_gesture_defaults.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
+#include "util/string_utils.h"
 
 #include <algorithm>
 #include <format>
@@ -81,10 +82,22 @@ void Widget::setBarCapsuleScene(Node* shell, Box* box) noexcept {
 
 void Widget::setNonInteractive(bool nonInteractive) noexcept {
   m_nonInteractive = nonInteractive;
-  if (Node* outer = outerNode(); outer != nullptr) {
-    outer->setHitTestVisible(!m_nonInteractive);
-  }
+  syncOuterHitTestVisible();
   updateGestureAreaEnabled();
+}
+
+void Widget::setBarPointerSuppressed(bool suppressed) noexcept {
+  if (m_barPointerSuppressed == suppressed) {
+    return;
+  }
+  m_barPointerSuppressed = suppressed;
+  syncOuterHitTestVisible();
+}
+
+void Widget::syncOuterHitTestVisible() noexcept {
+  if (Node* outer = outerNode(); outer != nullptr) {
+    outer->setHitTestVisible(!m_nonInteractive && !m_barPointerSuppressed);
+  }
 }
 
 void Widget::updateGestureAreaEnabled() noexcept {
@@ -118,7 +131,7 @@ void Widget::setRoot(std::unique_ptr<Node> root) {
   }
 
   m_outer = std::move(gestureArea);
-  m_outer->setHitTestVisible(!m_nonInteractive);
+  m_outer->setHitTestVisible(!m_nonInteractive && !m_barPointerSuppressed);
   // Bindings are resolved before create() runs, so install them here too: whichever of the two
   // happens last is the one that wires the area up.
   installGestureHandlers();
@@ -174,21 +187,35 @@ void Widget::requestPanelToggle(
   }
 }
 
+void Widget::applyCommonOptions(
+    const CommonWidgetOptions& options, FontWeight barFontWeight, const std::string& barFontFamily,
+    std::string_view logContext
+) {
+  setAnchor(options.anchor);
+  setNonInteractive(!options.interactive);
+  m_labelFontWeight =
+      options.labelFontWeight.has_value() ? static_cast<FontWeight>(*options.labelFontWeight) : barFontWeight;
+  std::string labelFontFamily = StringUtils::trim(options.labelFontFamily);
+  if (labelFontFamily.empty()) {
+    m_labelFontFamily = barFontFamily;
+  } else {
+    m_labelFontFamily = std::move(labelFontFamily);
+  }
+
+  m_scrollRepeatMode = noctalia::bar::ScrollRepeatMode::Auto;
+  if (const auto mode = noctalia::bar::parseScrollRepeatMode(options.scrollRepeat); mode.has_value()) {
+    m_scrollRepeatMode = *mode;
+  } else {
+    kLog.error("{}.scroll_repeat: unknown mode \"{}\"", logContext, options.scrollRepeat);
+  }
+}
+
 void Widget::resolveGestureBindings(
     std::string_view widgetType, const WidgetConfig* widgetConfig,
     const noctalia::bar::WidgetActionBindings::ActionTable* barActions, std::string_view barContext,
     const noctalia::bar::WidgetActionDispatcher* dispatcher
 ) {
   m_actionDispatcher = dispatcher;
-  m_scrollRepeatMode = noctalia::bar::ScrollRepeatMode::Auto;
-  if (widgetConfig != nullptr) {
-    const std::string configuredMode = widgetConfig->getString("scroll_repeat", "auto");
-    if (const auto mode = noctalia::bar::parseScrollRepeatMode(configuredMode); mode.has_value()) {
-      m_scrollRepeatMode = *mode;
-    } else {
-      kLog.error("widget.{}.scroll_repeat: unknown mode \"{}\"", m_configName, configuredMode);
-    }
-  }
 
   const std::string widgetContext = std::format("widget.{}", m_configName);
   // Named, not inlined: the span in Inputs borrows from it.

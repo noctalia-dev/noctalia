@@ -16,14 +16,12 @@
 #include <string_view>
 #include <utility>
 
-VolumeWidget::VolumeWidget(
-    PipeWireService* audio, EasyEffectsService* easyEffects, wl_output* /*output*/, bool showLabel,
-    VolumeWidgetTarget target, ColorSpec muteColor, std::string glyphOverride, std::string muteGlyphOverride,
-    std::unordered_map<std::string, std::string> effectsProfileGlyphs, WidgetCustomImage customImage
-)
-    : m_audio(audio), m_easyEffects(easyEffects), m_showLabel(showLabel), m_target(target), m_muteColor(muteColor),
-      m_glyphOverride(std::move(glyphOverride)), m_muteGlyphOverride(std::move(muteGlyphOverride)),
-      m_effectsProfileGlyphs(std::move(effectsProfileGlyphs)), m_customImage(std::move(customImage)) {}
+VolumeWidget::VolumeWidget(PipeWireService* audio, EasyEffectsService* easyEffects, Options options)
+    : m_audio(audio), m_easyEffects(easyEffects), m_showLabel(options.showLabel), m_target(options.device),
+      m_muteColor(options.muteColor), m_glyphOverride(std::move(options.glyph)),
+      m_muteGlyphOverride(std::move(options.muteGlyph)),
+      m_effectsProfileGlyphs(std::move(options.effectsProfileGlyphs)),
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}
 
 void VolumeWidget::create() {
   auto area = ui::inputArea({});

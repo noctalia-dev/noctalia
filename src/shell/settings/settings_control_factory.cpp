@@ -173,7 +173,14 @@ namespace settings {
     return makeGroupedResetButton(std::vector<std::vector<std::string>>{path});
   }
 
-  std::unique_ptr<Button> SettingsControlFactory::makeGroupedResetButton(std::vector<std::vector<std::string>> paths) {
+  std::unique_ptr<Button>
+  SettingsControlFactory::makeResetButton(const std::vector<std::string>& path, std::function<void()> onConfirmed) {
+    return makeGroupedResetButton(std::vector<std::vector<std::string>>{path}, std::move(onConfirmed));
+  }
+
+  std::unique_ptr<Button> SettingsControlFactory::makeGroupedResetButton(
+      std::vector<std::vector<std::string>> paths, std::function<void()> onConfirmed
+  ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
     const bool pendingConfirmation = ctx.isResetConfirmationPending && ctx.isResetConfirmationPending(paths);
@@ -186,10 +193,15 @@ namespace settings {
         .paddingH = Style::spaceSm * scale,
         .radius = Style::scaledRadiusMd(scale),
         .onClick = [clearOverrides = ctx.clearOverrides, requestConfirmation = ctx.requestResetConfirmation,
-                    requestRebuild = ctx.requestRebuild, paths = std::move(paths), pendingConfirmation]() mutable {
+                    requestRebuild = ctx.requestRebuild, paths = std::move(paths), onConfirmed = std::move(onConfirmed),
+                    pendingConfirmation]() mutable {
           if (!pendingConfirmation) {
             requestConfirmation(paths);
             requestRebuild();
+            return;
+          }
+          if (onConfirmed) {
+            onConfirmed();
             return;
           }
           clearOverrides(std::move(paths));

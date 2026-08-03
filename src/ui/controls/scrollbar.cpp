@@ -65,6 +65,7 @@ Scrollbar::Scrollbar() {
       const float localPosition = primaryPosition(data, m_orientation);
       const float thumbPosition = m_orientation == ScrollOrientation::Horizontal ? m_thumbArea->x() : m_thumbArea->y();
       m_dragStartPosition = localPosition + thumbPosition;
+      m_dragStartOffset = currentOffset();
     }
   });
   thumbArea->setOnMotion([this](const InputArea::PointerData& data) {

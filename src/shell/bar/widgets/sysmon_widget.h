@@ -71,6 +71,7 @@ public:
   ~SysmonWidget() override;
 
   void create() override;
+  [[nodiscard]] static const char* glyphName(SysmonStat stat);
 
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
@@ -81,7 +82,6 @@ private:
   void syncGaugeProgress(double normalized);
   [[nodiscard]] std::string formatValue() const;
   [[nodiscard]] double currentNormalized();
-  [[nodiscard]] static const char* glyphName(SysmonStat stat);
   void scheduleNextUpdate(std::chrono::steady_clock::time_point latestSampleAt);
   void clearGraph();
   void syncVisualPalette();

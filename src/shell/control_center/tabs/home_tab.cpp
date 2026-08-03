@@ -15,6 +15,7 @@
 #include "render/animation/animation_manager.h"
 #include "render/core/async_texture_cache.h"
 #include "render/scene/input_area.h"
+#include "scripting/plugin_registry.h"
 #include "shell/control_center/shortcut_registry.h"
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
@@ -544,9 +545,22 @@ std::unique_ptr<Flex> HomeTab::create() {
     return nullptr;
   };
 
+  // A plugin shortcut seeds its Luau runtime once, at construction. Plugin settings changed
+  // since the last build means every reusable plugin instance is stale, so drop it and let
+  // ShortcutRegistry::create() re-seed from the current config.
+  const bool pluginsChanged = m_config != nullptr && !(m_config->config().plugins == m_lastPlugins);
+  if (m_config != nullptr) {
+    m_lastPlugins = m_config->config().plugins;
+  }
+
   for (std::size_t i = 0; i < count; ++i) {
     const auto& sc = shortcuts[i];
     auto shortcut = takeReusable(sc.type);
+    if (shortcut != nullptr
+        && pluginsChanged
+        && scripting::isPluginEntryOfKind(sc.type, scripting::PluginEntryKind::Shortcut)) {
+      shortcut.reset();
+    }
     const bool reused = shortcut != nullptr;
     if (!reused) {
       shortcut = ShortcutRegistry::create(sc.type, m_services);

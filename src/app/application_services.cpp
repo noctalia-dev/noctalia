@@ -951,6 +951,15 @@ void Application::initSystemBusServices() {
           if (sleeping) {
             // Delay inhibit (acquired while lockscreen is enabled) holds sleep until we lock.
             // Do not use runAfterSessionLocked here — that slot belongs to lock-and-suspend.
+            if (m_skipLockOnNextSleep) {
+              // Noctalia-initiated suspend: skip lock-before-sleep (plain Suspend or already locked).
+              m_skipLockOnNextSleep = false;
+              m_releaseSleepDelayWhenLocked = false;
+              if (m_logindService != nullptr) {
+                m_logindService->releaseSleepDelayInhibit();
+              }
+              return;
+            }
             if (!m_configService.isLockScreenEnabled()) {
               m_releaseSleepDelayWhenLocked = false;
               if (m_logindService != nullptr) {
@@ -985,12 +994,16 @@ void Application::initSystemBusServices() {
             }
             return;
           }
+          m_skipLockOnNextSleep = false;
           m_releaseSleepDelayWhenLocked = false;
           if (m_configService.isLockScreenEnabled() && m_logindService != nullptr) {
             (void)m_logindService->acquireSleepDelayInhibit();
           }
-          kLog.info("system resumed; rechecking night light schedule");
+          kLog.info("system resumed; rechecking night light and auto theme schedules");
           m_gammaService.reevaluateSchedule();
+          // Auto theme mode schedules with steady_clock timers, which do not advance while
+          // suspended. Re-resolve so a day/night boundary crossed during sleep is applied.
+          m_themeService.onAutoSchemeChanged();
           // BlueZ property-change signals can be missed across the suspend window, leaving our
           // cached adapter state stale. Re-sync now and again shortly after, since BlueZ may take a
           // moment to restore the adapter on resume.

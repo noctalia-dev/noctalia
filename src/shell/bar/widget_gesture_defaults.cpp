@@ -2,6 +2,7 @@
 
 #include "core/log.h"
 #include "scripting/plugin_registry.h"
+#include "shell/bar/widgets/volume_widget_definition.h"
 
 #include <array>
 #include <vector>
@@ -174,10 +175,10 @@ namespace noctalia::bar {
     };
 
     if (type == "volume") {
-      const std::string device = config != nullptr ? config->getString("device", "output") : std::string("output");
+      const auto device = volumeWidgetDefinition().resolve(config, type).device;
       return collect(
-          device == "input" ? std::span<const GestureBinding>(kVolumeInput)
-                            : std::span<const GestureBinding>(kVolumeOutput)
+          device == VolumeWidgetTarget::Input ? std::span<const GestureBinding>(kVolumeInput)
+                                              : std::span<const GestureBinding>(kVolumeOutput)
       );
     }
     for (const auto& entry : kTypeDefaults) {

@@ -285,6 +285,8 @@ void Node::setClipChildren(bool clipChildren) {
   markPaintDirty();
 }
 
+void Node::setPaintContained(bool paintContained) { m_paintContained = paintContained; }
+
 void Node::setHitTestVisible(bool hitTestVisible) { m_hitTestVisible = hitTestVisible; }
 
 void Node::setHitTestOutset(const HitTestOutset& outset) {
@@ -427,18 +429,18 @@ void Node::clearDirty() {
   }
 }
 
-Node* Node::hitTest(Node* root, float x, float y) { return hitTestImpl(root, x, y, true); }
+Node* Node::hitTest(Node* root, float x, float y) { return hitTestImpl(root, x, y, true, Mat3::identity()); }
 
-Node* Node::hitTestStrict(Node* root, float x, float y) { return hitTestImpl(root, x, y, false); }
+Node* Node::hitTestStrict(Node* root, float x, float y) { return hitTestImpl(root, x, y, false, Mat3::identity()); }
 
-Node* Node::hitTestImpl(Node* node, float px, float py, bool allowOverflow) {
+Node* Node::hitTestImpl(Node* node, float px, float py, bool allowOverflow, const Mat3& parentTransform) {
   if (node == nullptr || !node->m_visible || !node->m_hitTestVisible) {
     return nullptr;
   }
 
-  float localX = 0.0f;
-  float localY = 0.0f;
-  const bool inside = pointInsideNode(node, px, py, localX, localY, true);
+  const Mat3 worldTransform = parentTransform * localTransform(node);
+  const Vec2 local = worldTransform.inverse().transformPoint(px, py);
+  const bool inside = node->containsLocalPoint(local.x, local.y, true);
 
   if ((!allowOverflow || node->m_clipChildren) && !inside) {
     return nullptr;
@@ -461,7 +463,7 @@ Node* Node::hitTestImpl(Node* node, float px, float py, bool allowOverflow) {
   // Children are allowed to overflow parent bounds (needed for menus/popovers).
   if (childrenSorted) {
     for (const auto& child : std::views::reverse(children)) {
-      auto* hit = hitTestImpl(child.get(), px, py, allowOverflow);
+      auto* hit = hitTestImpl(child.get(), px, py, allowOverflow, worldTransform);
       if (hit != nullptr) {
         return hit;
       }
@@ -474,7 +476,7 @@ Node* Node::hitTestImpl(Node* node, float px, float py, bool allowOverflow) {
     }
     std::ranges::stable_sort(orderedChildren, [](const Node* a, const Node* b) { return a->zIndex() < b->zIndex(); });
     for (Node* child : std::views::reverse(orderedChildren)) {
-      auto* hit = hitTestImpl(child, px, py, allowOverflow);
+      auto* hit = hitTestImpl(child, px, py, allowOverflow, worldTransform);
       if (hit != nullptr) {
         return hit;
       }

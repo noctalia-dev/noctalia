@@ -264,6 +264,20 @@ namespace {
     throw std::runtime_error(std::format("{}: {}", operation, wayland.describeDisplayError(operationErrno)));
   }
 
+  // EPIPE/ECONNRESET: compositor closed the display (logout). Exit cleanly.
+  bool isWaylandDisconnectErrno(int operationErrno) { return operationErrno == EPIPE || operationErrno == ECONNRESET; }
+
+  bool handleWaylandDisconnect(const WaylandConnection& wayland, std::string_view operation, int operationErrno) {
+    if (!isWaylandDisconnectErrno(operationErrno)) {
+      return false;
+    }
+    kLog.info(
+        "Wayland display closed during {}; shutting down ({})", operation, wayland.describeDisplayError(operationErrno)
+    );
+    Application::s_shutdownRequested = true;
+    return true;
+  }
+
   // libwayland-client dispatches every event listener through libffi (wl_closure_invoke). A C++
   // exception escaping a listener would unwind across that C ABI boundary and call std::terminate.
   // Contain it here so one misbehaving handler can't abort the shell; remaining queued events are
@@ -334,6 +348,11 @@ void MainLoop::run() {
       opStart = std::chrono::steady_clock::now();
       if (dispatchPendingGuarded(m_wayland.display()) < 0) {
         const int dispatchErrno = errno;
+        if (handleWaylandDisconnect(
+                m_wayland, "failed to dispatch pending Wayland events before poll", dispatchErrno
+            )) {
+          return;
+        }
         throwWaylandFailure(m_wayland, "failed to dispatch pending Wayland events before poll", dispatchErrno);
       }
       const float ms = elapsedSince(opStart);
@@ -364,6 +383,9 @@ void MainLoop::run() {
       const int flushErrno = errno;
       if (flushErrno != EAGAIN) {
         wl_display_cancel_read(m_wayland.display());
+        if (handleWaylandDisconnect(m_wayland, "failed to flush Wayland display before poll", flushErrno)) {
+          return;
+        }
         throwWaylandFailure(m_wayland, "failed to flush Wayland display before poll", flushErrno);
       }
       waylandPollEvents |= POLLOUT;
@@ -533,6 +555,9 @@ void MainLoop::run() {
       const int flushErrno = errno;
       if (flushRet < 0 && flushErrno != EAGAIN) {
         wl_display_cancel_read(m_wayland.display());
+        if (handleWaylandDisconnect(m_wayland, "failed to flush Wayland display after POLLOUT", flushErrno)) {
+          return;
+        }
         throwWaylandFailure(m_wayland, "failed to flush Wayland display after POLLOUT", flushErrno);
       }
     }
@@ -544,6 +569,9 @@ void MainLoop::run() {
       opStart = std::chrono::steady_clock::now();
       if (wl_display_read_events(m_wayland.display()) < 0) {
         const int readErrno = errno;
+        if (handleWaylandDisconnect(m_wayland, "failed to read Wayland events", readErrno)) {
+          return;
+        }
         throwWaylandFailure(m_wayland, "failed to read Wayland events", readErrno);
       }
       ms = elapsedSince(opStart);
@@ -560,6 +588,9 @@ void MainLoop::run() {
     opStart = std::chrono::steady_clock::now();
     if (dispatchPendingGuarded(m_wayland.display()) < 0) {
       const int dispatchErrno = errno;
+      if (handleWaylandDisconnect(m_wayland, "failed to dispatch pending Wayland events after poll", dispatchErrno)) {
+        return;
+      }
       throwWaylandFailure(m_wayland, "failed to dispatch pending Wayland events after poll", dispatchErrno);
     }
     ms = elapsedSince(opStart);

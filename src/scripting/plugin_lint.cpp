@@ -6,12 +6,14 @@
 
 #include <algorithm>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <optional>
 #include <print>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <unordered_set>
 #include <vector>
 
@@ -35,6 +37,7 @@ namespace scripting {
     struct ScanResult {
       std::vector<GetConfigRead> reads;
       std::vector<ObsoleteConfigAccessor> obsoleteAccessors;
+      std::vector<std::string> requirePaths;
       int dynamicCount = 0; // getConfig calls whose key is not a static string literal
     };
 
@@ -42,34 +45,97 @@ namespace scripting {
       return receiver == "barWidget" || receiver == "desktopWidget" || receiver == "panel" || receiver == "launcher";
     }
 
-    // Walk Luau source, skipping comments and string bodies, and collect every
-    // `getConfig` call. A call with a string-literal argument yields its key; a call
-    // with a computed argument bumps dynamicCount (so we can't claim a key unread).
-    ScanResult scanGetConfigCalls(std::string_view src) {
+    // Walk Luau source, skipping comments and string bodies, and collect static
+    // `getConfig` reads, obsolete entry-specific accessors, and static `require`
+    // imports. A getConfig call with a computed argument bumps dynamicCount.
+    ScanResult scanLuauSource(std::string_view src) {
       ScanResult out;
       int line = 1;
       const std::size_t n = src.size();
       std::size_t i = 0;
 
-      auto readQuoted = [&](char quote, std::size_t pos, std::string& key) -> std::optional<std::size_t> {
-        std::string value;
+      auto readQuoted = [&](char quote, std::size_t pos, std::string& value) -> std::optional<std::size_t> {
+        std::string parsed;
         for (std::size_t j = pos + 1; j < n; ++j) {
           const char c = src[j];
           if (c == '\\' && j + 1 < n) {
-            value.push_back(src[j + 1]);
+            parsed.push_back(src[j + 1]);
             ++j;
             continue;
           }
           if (c == quote) {
-            key = std::move(value);
+            value = std::move(parsed);
             return j + 1;
           }
           if (c == '\n') {
             break; // unterminated on this line; treat as not-a-literal
           }
-          value.push_back(c);
+          parsed.push_back(c);
         }
         return std::nullopt;
+      };
+
+      auto readBlockString = [&](std::size_t pos, std::string& value, int& newlineCount) -> std::optional<std::size_t> {
+        std::string parsed;
+        newlineCount = 0;
+        std::size_t j = pos + 2;
+        while (j + 1 < n && !(src[j] == ']' && src[j + 1] == ']')) {
+          if (src[j] == '\n') {
+            ++newlineCount;
+          }
+          parsed.push_back(src[j]);
+          ++j;
+        }
+        if (j + 1 >= n) {
+          return std::nullopt;
+        }
+        value = std::move(parsed);
+        return j + 2;
+      };
+
+      auto parseStaticStringArgument = [&](std::size_t pos, std::string& value,
+                                           int& parsedLine) -> std::optional<std::size_t> {
+        auto skipWsAt = [&](std::size_t& k, int& lineAtK) {
+          while (k < n && (src[k] == ' ' || src[k] == '\t' || src[k] == '\r' || src[k] == '\n')) {
+            if (src[k] == '\n') {
+              ++lineAtK;
+            }
+            ++k;
+          }
+        };
+
+        std::size_t k = pos;
+        skipWsAt(k, parsedLine);
+        const bool parenthesized = k < n && src[k] == '(';
+        if (parenthesized) {
+          ++k;
+          skipWsAt(k, parsedLine);
+        }
+
+        std::optional<std::size_t> literalEnd;
+        int literalNewlines = 0;
+        if (k < n && (src[k] == '"' || src[k] == '\'')) {
+          literalEnd = readQuoted(src[k], k, value);
+        } else if (k + 1 < n && src[k] == '[' && src[k + 1] == '[') {
+          literalEnd = readBlockString(k, value, literalNewlines);
+        }
+        if (!literalEnd.has_value()) {
+          return std::nullopt;
+        }
+
+        int endLine = parsedLine + literalNewlines;
+        std::size_t end = *literalEnd;
+        if (!parenthesized) {
+          parsedLine = endLine;
+          return end;
+        }
+
+        skipWsAt(end, endLine);
+        if (end >= n || src[end] != ')') {
+          return std::nullopt;
+        }
+        parsedLine = endLine;
+        return end + 1;
       };
 
       while (i < n) {
@@ -91,7 +157,7 @@ namespace scripting {
               }
               ++i;
             }
-            i += 2;
+            i = (i + 1 < n) ? i + 2 : n;
           } else {
             while (i < n && src[i] != '\n') {
               ++i;
@@ -100,7 +166,7 @@ namespace scripting {
           continue;
         }
 
-        // String literals: skip their bodies so a `getConfig` inside text never matches.
+        // String literals: skip their bodies so source-looking text never matches.
         if (c == '"' || c == '\'') {
           std::string discard;
           if (auto end = readQuoted(c, i, discard); end.has_value()) {
@@ -111,86 +177,77 @@ namespace scripting {
           continue;
         }
         if (c == '[' && i + 1 < n && src[i + 1] == '[') {
-          i += 2;
-          while (i + 1 < n && !(src[i] == ']' && src[i + 1] == ']')) {
-            if (src[i] == '\n') {
-              ++line;
-            }
-            ++i;
+          int blockNewlines = 0;
+          std::string discard;
+          if (auto end = readBlockString(i, discard, blockNewlines); end.has_value()) {
+            line += blockNewlines;
+            i = *end;
+          } else {
+            i = n;
           }
-          i += 2;
           continue;
         }
 
-        // Identifier — the only place a getConfig call can begin.
+        // Identifier — the only place a call name can begin.
         if (isIdentChar(c) && (i == 0 || !isIdentChar(src[i - 1]))) {
           std::size_t j = i;
           while (j < n && isIdentChar(src[j])) {
             ++j;
           }
           const std::string_view ident = src.substr(i, j - i);
-          if (ident != "getConfig") {
+          if (ident != "getConfig" && ident != "require") {
             i = j;
             continue;
           }
 
-          // getConfig is universal and lives only under noctalia.*. Record the old
-          // entry-specific aliases so the author gets a useful error instead of a
-          // nil-global runtime failure.
-          std::size_t receiverEnd = i;
-          while (receiverEnd > 0 && (src[receiverEnd - 1] == ' ' || src[receiverEnd - 1] == '\t')) {
-            --receiverEnd;
-          }
-          if (receiverEnd > 0 && src[receiverEnd - 1] == '.') {
-            std::size_t receiverStart = receiverEnd - 1;
-            while (receiverStart > 0 && (src[receiverStart - 1] == ' ' || src[receiverStart - 1] == '\t')) {
-              --receiverStart;
+          if (ident == "getConfig") {
+            // getConfig is universal and lives only under noctalia.*. Record the old
+            // entry-specific aliases so the author gets a useful error instead of a
+            // nil-global runtime failure.
+            std::size_t receiverEnd = i;
+            while (receiverEnd > 0 && (src[receiverEnd - 1] == ' ' || src[receiverEnd - 1] == '\t')) {
+              --receiverEnd;
             }
-            const std::size_t receiverNameEnd = receiverStart;
-            while (receiverStart > 0 && isIdentChar(src[receiverStart - 1])) {
-              --receiverStart;
+            if (receiverEnd > 0 && src[receiverEnd - 1] == '.') {
+              std::size_t receiverStart = receiverEnd - 1;
+              while (receiverStart > 0 && (src[receiverStart - 1] == ' ' || src[receiverStart - 1] == '\t')) {
+                --receiverStart;
+              }
+              const std::size_t receiverNameEnd = receiverStart;
+              while (receiverStart > 0 && isIdentChar(src[receiverStart - 1])) {
+                --receiverStart;
+              }
+              const std::string_view receiver = src.substr(receiverStart, receiverNameEnd - receiverStart);
+              if (isObsoleteConfigReceiver(receiver)) {
+                out.obsoleteAccessors.push_back({.name = std::string(receiver) + ".getConfig", .line = line});
+              }
             }
-            const std::string_view receiver = src.substr(receiverStart, receiverNameEnd - receiverStart);
-            if (isObsoleteConfigReceiver(receiver)) {
-              out.obsoleteAccessors.push_back({.name = std::string(receiver) + ".getConfig", .line = line});
+          } else {
+            std::size_t receiverEnd = i;
+            while (receiverEnd > 0 && (src[receiverEnd - 1] == ' ' || src[receiverEnd - 1] == '\t')) {
+              --receiverEnd;
+            }
+            if (receiverEnd > 0 && (src[receiverEnd - 1] == '.' || src[receiverEnd - 1] == ':')) {
+              i = j;
+              continue;
             }
           }
 
-          // Parse the argument: optional '(' then a string literal (or it's dynamic).
           const int callLine = line;
-          std::size_t k = j;
-          auto skipWs = [&]() {
-            while (k < n && (src[k] == ' ' || src[k] == '\t' || src[k] == '\r' || src[k] == '\n')) {
-              if (src[k] == '\n') {
-                ++line;
-              }
-              ++k;
+          int parsedLine = line;
+          std::string value;
+          if (auto end = parseStaticStringArgument(j, value, parsedLine); end.has_value()) {
+            if (ident == "getConfig") {
+              out.reads.push_back({.key = std::move(value), .line = callLine});
+            } else {
+              out.requirePaths.push_back(std::move(value));
             }
-          };
-          skipWs();
-          if (k < n && src[k] == '(') {
-            ++k;
-            skipWs();
-          }
-          if (k < n && (src[k] == '"' || src[k] == '\'')) {
-            std::string key;
-            if (auto end = readQuoted(src[k], k, key); end.has_value()) {
-              out.reads.push_back({.key = std::move(key), .line = callLine});
-              i = *end;
-              continue;
-            }
-            ++out.dynamicCount;
-          } else if (k + 1 < n && src[k] == '[' && src[k + 1] == '[') {
-            std::string value;
-            std::size_t m = k + 2;
-            while (m + 1 < n && !(src[m] == ']' && src[m + 1] == ']')) {
-              value.push_back(src[m]);
-              ++m;
-            }
-            out.reads.push_back({.key = std::move(value), .line = callLine});
-            i = m + 2;
+            line = parsedLine;
+            i = *end;
             continue;
-          } else {
+          }
+
+          if (ident == "getConfig") {
             ++out.dynamicCount; // computed key — can't resolve statically
           }
           i = j;
@@ -237,6 +294,44 @@ namespace scripting {
       return (!best.empty() && bestDist <= threshold) ? best : std::string{};
     }
 
+    bool isFollowableRequirePath(std::string_view path) noexcept {
+      return (path.starts_with("./") || path.starts_with("../")) && path.ends_with(".luau");
+    }
+
+    std::optional<std::filesystem::path> canonicalRegularFile(const std::filesystem::path& path) {
+      std::error_code ec;
+      std::filesystem::path canonical = std::filesystem::canonical(path, ec);
+      if (ec) {
+        return std::nullopt;
+      }
+      const bool regular = std::filesystem::is_regular_file(canonical, ec);
+      if (ec || !regular) {
+        return std::nullopt;
+      }
+      return canonical;
+    }
+
+    std::filesystem::path normalizedPluginRoot(const std::filesystem::path& dir) {
+      std::error_code ec;
+      std::filesystem::path root = std::filesystem::weakly_canonical(dir, ec);
+      if (!ec) {
+        return root;
+      }
+      root = std::filesystem::absolute(dir, ec);
+      return ec ? dir.lexically_normal() : root.lexically_normal();
+    }
+
+    std::string sourceFileForFinding(
+        const std::filesystem::path& pluginRoot, const std::filesystem::path& sourcePath, std::string_view fallback
+    ) {
+      std::error_code ec;
+      const std::filesystem::path relative = std::filesystem::relative(sourcePath, pluginRoot, ec);
+      if (!ec && !relative.empty()) {
+        return relative.generic_string();
+      }
+      return fallback.empty() ? sourcePath.lexically_normal().generic_string() : std::string(fallback);
+    }
+
   } // namespace
 
   bool PluginLintReport::ok() const noexcept {
@@ -260,8 +355,14 @@ namespace scripting {
       pluginKeys.insert(field.key);
     }
 
+    const std::filesystem::path pluginRoot = normalizedPluginRoot(dir);
     std::unordered_set<std::string> pluginKeysRead;
     bool anyDynamic = false;
+
+    struct SourceToScan {
+      std::filesystem::path path;
+      std::string file;
+    };
 
     for (const auto& entry : manifest->entries) {
       // Keys valid to read from this entry: its own + plugin-level. Host-injected
@@ -281,8 +382,8 @@ namespace scripting {
       std::unordered_set<std::string> declaredSet(declaredForRead.begin(), declaredForRead.end());
 
       const std::filesystem::path entryPath = dir / entry.entry;
-      std::ifstream file(entryPath, std::ios::binary);
-      if (!file) {
+      std::optional<std::filesystem::path> entryCanonical = canonicalRegularFile(entryPath);
+      if (!entryCanonical.has_value()) {
         report.findings.push_back(
             {.kind = PluginLintFinding::Kind::MissingEntryFile,
              .scope = entry.id,
@@ -291,44 +392,80 @@ namespace scripting {
         );
         continue;
       }
-      std::ostringstream ss;
-      ss << file.rdbuf();
-      const std::string source = ss.str();
 
-      const ScanResult scan = scanGetConfigCalls(source);
-      anyDynamic = anyDynamic || scan.dynamicCount > 0;
-
-      for (const auto& obsolete : scan.obsoleteAccessors) {
-        report.findings.push_back(
-            {.kind = PluginLintFinding::Kind::ObsoleteConfigAccessor,
-             .scope = entry.id,
-             .file = entry.entry,
-             .key = obsolete.name,
-             .line = obsolete.line}
-        );
-      }
-
+      std::vector<SourceToScan> pending;
+      pending.push_back({.path = *entryCanonical, .file = entry.entry});
+      std::unordered_set<std::string> visited;
+      visited.insert(entryCanonical->generic_string());
       std::unordered_set<std::string> readInEntry;
-      for (const auto& read : scan.reads) {
-        readInEntry.insert(read.key);
-        if (pluginKeys.contains(read.key)) {
-          pluginKeysRead.insert(read.key);
+      int entryDynamicCount = 0;
+
+      while (!pending.empty()) {
+        SourceToScan sourceToScan = std::move(pending.back());
+        pending.pop_back();
+
+        std::ifstream file(sourceToScan.path, std::ios::binary);
+        if (!file) {
+          continue;
         }
-        if (!declaredSet.contains(read.key)) {
+        std::ostringstream ss;
+        ss << file.rdbuf();
+        const std::string source = ss.str();
+
+        const ScanResult scan = scanLuauSource(source);
+        entryDynamicCount += scan.dynamicCount;
+
+        for (const auto& obsolete : scan.obsoleteAccessors) {
           report.findings.push_back(
-              {.kind = PluginLintFinding::Kind::ReadUndeclared,
+              {.kind = PluginLintFinding::Kind::ObsoleteConfigAccessor,
                .scope = entry.id,
-               .file = entry.entry,
-               .key = read.key,
-               .line = read.line,
-               .suggestion = suggestKey(read.key, declaredForRead)}
+               .file = sourceToScan.file,
+               .key = obsolete.name,
+               .line = obsolete.line}
+          );
+        }
+
+        for (const auto& read : scan.reads) {
+          readInEntry.insert(read.key);
+          if (pluginKeys.contains(read.key)) {
+            pluginKeysRead.insert(read.key);
+          }
+          if (!declaredSet.contains(read.key)) {
+            report.findings.push_back(
+                {.kind = PluginLintFinding::Kind::ReadUndeclared,
+                 .scope = entry.id,
+                 .file = sourceToScan.file,
+                 .key = read.key,
+                 .line = read.line,
+                 .suggestion = suggestKey(read.key, declaredForRead)}
+            );
+          }
+        }
+
+        for (const auto& requirePath : scan.requirePaths) {
+          if (!isFollowableRequirePath(requirePath)) {
+            continue;
+          }
+          std::optional<std::filesystem::path> moduleCanonical =
+              canonicalRegularFile(sourceToScan.path.parent_path() / requirePath);
+          if (!moduleCanonical.has_value()) {
+            continue;
+          }
+          const std::string moduleKey = moduleCanonical->generic_string();
+          if (!visited.insert(moduleKey).second) {
+            continue;
+          }
+          pending.push_back(
+              {.path = *moduleCanonical, .file = sourceFileForFinding(pluginRoot, *moduleCanonical, requirePath)}
           );
         }
       }
 
+      anyDynamic = anyDynamic || entryDynamicCount > 0;
+
       // Entry-level declared-but-unread. Skip if this entry has a dynamic getConfig
       // (the key could be read through a computed key we can't see).
-      if (scan.dynamicCount == 0) {
+      if (entryDynamicCount == 0) {
         for (const auto& key : ownReadable) {
           if (!readInEntry.contains(key)) {
             report.findings.push_back(
@@ -367,7 +504,7 @@ namespace noctalia::plugins {
         "\n"
         "Commands:\n"
         "  lint [path ...]\n"
-        "      Cross-check each plugin's declared settings against its getConfig() calls.\n"
+        "      Cross-check each plugin's declared settings against getConfig() calls in entries and static modules.\n"
         "      Reports settings read but not declared in plugin.toml (a runtime loud miss),\n"
         "      obsolete entry-specific getConfig aliases, settings declared but never read,\n"
         "      and entries pointing at a missing file.\n"

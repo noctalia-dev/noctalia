@@ -89,6 +89,15 @@ namespace {
   }
 } // namespace
 
+void HttpClient::applyCommonOptions(CURL* easy) {
+  curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L);
+  // With the threaded resolver, curl reports a DNS timeout while its getaddrinfo() thread is
+  // still blocked. Without this, curl_easy_cleanup() joins that thread and stalls the main loop
+  // for as long as the resolver takes. CURLOPT_QUICK_EXIT detaches it instead: the abandoned
+  // thread frees itself once the lookup returns.
+  curl_easy_setopt(easy, CURLOPT_QUICK_EXIT, 1L);
+}
+
 HttpClient::HttpClient() {
   curl_global_init(CURL_GLOBAL_DEFAULT);
   m_multi = curl_multi_init();
@@ -124,6 +133,9 @@ HttpClient::~HttpClient() {
       curl_slist_free_all(stream.headers);
     }
   }
+  // In-flight handles are closed without waiting for their resolver threads (CURLOPT_QUICK_EXIT).
+  // curl_global_cleanup() does not wait for them either; an abandoned thread only frees its own
+  // resolver state, so it has nothing left to race here.
   curl_multi_cleanup(m_multi);
   curl_global_cleanup();
 }
@@ -167,13 +179,13 @@ void HttpClient::download(std::string_view url, const std::filesystem::path& des
   }
 
   const std::string urlStr(url);
+  applyCommonOptions(easy);
   curl_easy_setopt(easy, CURLOPT_URL, urlStr.c_str());
   curl_easy_setopt(easy, CURLOPT_WRITEDATA, f);
   curl_easy_setopt(easy, CURLOPT_FOLLOWLOCATION, 1L);
   curl_easy_setopt(easy, CURLOPT_FAILONERROR, 1L);
   curl_easy_setopt(easy, CURLOPT_TIMEOUT, 30L);
   curl_easy_setopt(easy, CURLOPT_CONNECTTIMEOUT, 10L);
-  curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L);
 
   Transfer transfer{};
   transfer.destPath = destPath;
@@ -250,6 +262,7 @@ void HttpClient::post(std::string_view url, std::string body, std::string_view c
 
   const std::string urlStr(url);
   post.url = urlStr;
+  applyCommonOptions(easy);
   curl_easy_setopt(easy, CURLOPT_URL, urlStr.c_str());
   curl_easy_setopt(easy, CURLOPT_POST, 1L);
   curl_easy_setopt(easy, CURLOPT_POSTFIELDSIZE, static_cast<long>(post.body.size()));
@@ -257,7 +270,6 @@ void HttpClient::post(std::string_view url, std::string body, std::string_view c
   curl_easy_setopt(easy, CURLOPT_HTTPHEADER, post.headers);
   curl_easy_setopt(easy, CURLOPT_TIMEOUT, 10L);
   curl_easy_setopt(easy, CURLOPT_CONNECTTIMEOUT, 5L);
-  curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L);
   curl_easy_setopt(easy, CURLOPT_FAILONERROR, 1L);
 
   m_postTransfers[easy] = std::move(post);
@@ -306,8 +318,8 @@ void HttpClient::request(HttpRequest req, ResponseCallback cb) {
   m_requestTransfers[easy] = std::move(transfer);
   RequestTransfer& stored = m_requestTransfers[easy];
 
+  applyCommonOptions(easy);
   curl_easy_setopt(easy, CURLOPT_URL, stored.url.c_str());
-  curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L);
   curl_easy_setopt(easy, CURLOPT_TIMEOUT, 30L);
   curl_easy_setopt(easy, CURLOPT_CONNECTTIMEOUT, 10L);
   if (req.allowInsecureTls) {
@@ -393,8 +405,8 @@ HttpClient::StreamId HttpClient::startStream(HttpRequest req, StreamDataCallback
   StreamTransfer& stored = m_streamTransfers[easy];
   m_streamsById[stored.id] = easy;
 
+  applyCommonOptions(easy);
   curl_easy_setopt(easy, CURLOPT_URL, stored.url.c_str());
-  curl_easy_setopt(easy, CURLOPT_NOSIGNAL, 1L);
   // No CURLOPT_TIMEOUT: the transfer is expected to stay open indefinitely.
   curl_easy_setopt(easy, CURLOPT_CONNECTTIMEOUT, 10L);
   if (req.allowInsecureTls) {
@@ -573,15 +585,16 @@ void HttpClient::finishTransfer(CURL* easy, CURLcode result) {
     return;
   }
 
-  Transfer transfer = std::move(it->second);
-  m_transfers.erase(it);
-  m_activeByDest.erase(transfer.destKey);
-
   long responseCode = 0;
   curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &responseCode);
 
+  // Destroy the handle before the state it still points at (error buffer, write target).
   curl_multi_remove_handle(m_multi, easy);
   curl_easy_cleanup(easy);
+
+  Transfer transfer = std::move(it->second);
+  m_transfers.erase(it);
+  m_activeByDest.erase(transfer.destKey);
 
   if (transfer.file != nullptr) {
     std::fclose(transfer.file);
@@ -626,14 +639,14 @@ void HttpClient::finishPostTransfer(CURL* easy, CURLcode result) {
     return;
   }
 
-  PostTransfer post = std::move(it->second);
-  m_postTransfers.erase(it);
-
   long responseCode = 0;
   curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &responseCode);
 
   curl_multi_remove_handle(m_multi, easy);
   curl_easy_cleanup(easy);
+
+  PostTransfer post = std::move(it->second);
+  m_postTransfers.erase(it);
 
   if (post.headers != nullptr) {
     curl_slist_free_all(post.headers);
@@ -661,14 +674,19 @@ void HttpClient::finishRequestTransfer(CURL* easy, CURLcode result) {
     return;
   }
 
-  RequestTransfer transfer = std::move(it->second);
-  m_requestTransfers.erase(it);
-
   long responseCode = 0;
   curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &responseCode);
+  std::string effectiveUrl;
+  if (char* value = nullptr;
+      curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &value) == CURLE_OK && value != nullptr && value[0] != '\0') {
+    effectiveUrl = value;
+  }
 
   curl_multi_remove_handle(m_multi, easy);
   curl_easy_cleanup(easy);
+
+  RequestTransfer transfer = std::move(it->second);
+  m_requestTransfers.erase(it);
 
   if (transfer.headers != nullptr) {
     curl_slist_free_all(transfer.headers);
@@ -678,11 +696,7 @@ void HttpClient::finishRequestTransfer(CURL* easy, CURLcode result) {
   response.transportOk = result == CURLE_OK;
   response.status = responseCode;
   response.body = std::move(transfer.response);
-  if (char* effectiveUrl = nullptr; curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &effectiveUrl) == CURLE_OK
-      && effectiveUrl != nullptr
-      && effectiveUrl[0] != '\0') {
-    response.effectiveUrl = effectiveUrl;
-  }
+  response.effectiveUrl = std::move(effectiveUrl);
   if (!response.transportOk) {
     const char* detail = transfer.errorBuffer[0] != '\0' ? transfer.errorBuffer.data() : curl_easy_strerror(result);
     kLog.warn(
@@ -704,15 +718,15 @@ void HttpClient::finishStreamTransfer(CURL* easy, CURLcode result) {
     return;
   }
 
-  StreamTransfer transfer = std::move(it->second);
-  m_streamTransfers.erase(it);
-  m_streamsById.erase(transfer.id);
-
   long responseCode = 0;
   curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &responseCode);
 
   curl_multi_remove_handle(m_multi, easy);
   curl_easy_cleanup(easy);
+
+  StreamTransfer transfer = std::move(it->second);
+  m_streamTransfers.erase(it);
+  m_streamsById.erase(transfer.id);
 
   if (transfer.headers != nullptr) {
     curl_slist_free_all(transfer.headers);

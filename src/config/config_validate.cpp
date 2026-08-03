@@ -497,6 +497,9 @@ namespace noctalia::config {
         // Plugin widgets resolve their settings from a static plugin.toml manifest, so
         // unknown keys are flagged like any other widget.
         validateSettingsMap(*tbl, fields, base, /*flagUnknown=*/true, diag, /*ignoreKeys=*/{"type"}, base);
+        if (auto error = settings::validateWidgetSemantics(type, &wc); error.has_value()) {
+          diag.componentError(base, base, *error);
+        }
         if (type == "clock") {
           if (const auto timezone = (*tbl)["timezone"].value<std::string>();
               timezone.has_value() && !isValidTimezone(*timezone)) {

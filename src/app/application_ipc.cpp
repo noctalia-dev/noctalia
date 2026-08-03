@@ -756,8 +756,8 @@ void Application::initIpc() {
                 ? std::format(" held-back (v{} needs plugin API {})", s.latestVersion, s.latestPluginApiVersion)
                 : std::string{};
             out += std::format(
-                "{} [{}] {}{}{}{}{}{}\n", s.id, s.source, s.version.empty() ? "-" : s.version,
-                s.enabled ? " enabled" : "", s.compatible ? "" : " incompatible", heldBack,
+                "{} [{}] {} {}{}{}{}{}\n", s.id, s.source, s.version.empty() ? "-" : s.version,
+                s.enabled ? "enabled" : "disabled", s.compatible ? "" : " incompatible", heldBack,
                 s.deprecated ? " deprecated" : "", dependencies
             );
           }

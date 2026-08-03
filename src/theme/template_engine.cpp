@@ -10,6 +10,7 @@
 #include "cpp/scheme/scheme_monochrome.h"
 #include "cpp/scheme/scheme_rainbow.h"
 #include "cpp/scheme/scheme_tonal_spot.h"
+#include "system/icon_resolver.h"
 #include "theme/color.h"
 #include "theme/firefox_theme/firefox_theme.h"
 #include "theme/kde_color_scheme.h"
@@ -98,10 +99,9 @@ namespace noctalia::theme {
           m_scopes.emplace_back();
         m_scopes.back()[std::move(name)] = std::move(value);
       }
-      const ScopeValue* get(std::string_view name) const {
+      const ScopeValue* get(const std::string& name) const {
         for (const auto& scope : std::views::reverse(m_scopes)) {
-          auto found = scope.find(std::string(name));
-          if (found != scope.end())
+          if (auto found = scope.find(name); found != scope.end())
             return &found->second;
         }
         return nullptr;
@@ -111,6 +111,36 @@ namespace noctalia::theme {
     private:
       std::vector<ScopeMap> m_scopes;
     };
+
+    ScopeValue tomlToScopeValue(const toml::node& node) {
+      if (const auto* tbl = node.as_table()) {
+        ScopeMap map;
+        for (const auto& [k, v] : *tbl) {
+          map[std::string(k.str())] = tomlToScopeValue(v);
+        }
+        return ScopeValue(std::move(map));
+      }
+      if (const auto* arr = node.as_array()) {
+        ScopeArray out;
+        for (const auto& v : *arr) {
+          out.push_back(tomlToScopeValue(v));
+        }
+        return ScopeValue(std::move(out));
+      }
+      if (const auto* str = node.as_string()) {
+        return ScopeValue(str->get());
+      }
+      if (const auto* i = node.as_integer()) {
+        return ScopeValue(static_cast<double>(i->get()));
+      }
+      if (const auto* f = node.as_floating_point()) {
+        return ScopeValue(f->get());
+      }
+      if (const auto* b = node.as_boolean()) {
+        return ScopeValue(b->get());
+      }
+      return ScopeValue();
+    }
 
     constexpr std::string_view kUnknownPrefix = "{{";
 
@@ -608,6 +638,13 @@ namespace noctalia::theme {
         size_t pos = 0;
         const auto nodes = parseNodes(tokens, pos, {});
         VariableScope scope;
+        if (m_options.configTable) {
+          ScopeMap rootVars;
+          rootVars["config"] = tomlToScopeValue(*m_options.configTable);
+          rootVars["icon_theme"] = ScopeValue(IconResolver::activeThemeName());
+          scope.push(std::move(rootVars));
+        }
+
         return {evaluateNodes(nodes, scope), m_errorCount};
       }
 
@@ -854,7 +891,16 @@ namespace noctalia::theme {
             auto it = map->find(parts[i]);
             if (it == map->end())
               return {};
-            value = it->second;
+            value = ScopeValue(it->second);
+          } else if (auto* arr = std::get_if<ScopeArray>(&value.value)) {
+            try {
+              size_t idx = std::stoul(parts[i]);
+              if (idx >= arr->size())
+                return {};
+              value = ScopeValue((*arr)[idx]);
+            } catch (...) {
+              return {};
+            }
           } else if (auto* str = std::get_if<std::string>(&value.value)) {
             if (str->size() >= 7 && (*str)[0] == '#' && kKnownFormats.contains(parts[i]))
               return ScopeValue(formatColor({Color::fromHex(*str), 1.0}, parts[i]));

@@ -3641,12 +3641,12 @@
           "description": "포커스된 창이 없을 때 위젯을 숨기는 대신 자리 표시자 텍스트 표시",
           "label": "빈 레이블 표시"
         },
-        "show-icon": {
-          "description": "이 위젯의 아이콘 표시",
-          "label": "아이콘 표시"
+        "show-glyph": {
+          "description": "위젯 글리프 또는 사용자 지정 이미지 표시",
+          "label": "글리프 표시"
         },
         "show-label": {
-          "description": "아이콘 옆에 텍스트 표시",
+          "description": "위젯의 텍스트 레이블 표시",
           "label": "레이블 표시"
         },
         "show-num-lock": {
@@ -3664,6 +3664,10 @@
         "show-unlock-hint": {
           "description": "잠금 해제 힌트 및 인증 프롬프트용 상태 카드를 로그인 창 위에 표시합니다. 이 옵션을 꺼도 오류 및 Caps Lock 경고는 계속 표시됩니다.",
           "label": "잠금 해제 힌트"
+        },
+        "show-value": {
+          "description": "시각화 옆에 현재 값 표시",
+          "label": "값 표시"
         },
         "show-vpn-label": {
           "description": "VPN 이름 표시: 교체 모드에서는 네트워크 레이블을 대체하고, 둘 다 모드에서는 VPN 아이콘 옆에 레이블 추가",
@@ -3725,6 +3729,10 @@
         "vertical-format": {
           "description": "세로 바에서 사용되는 선택적 형식",
           "label": "세로 형식"
+        },
+        "visualization": {
+          "description": "게이지, 그래프 또는 데이터 시각화 없음",
+          "label": "시각화"
         },
         "vpn-status": {
           "description": "VPN 상태 표시 방법: 교체는 네트워크 아이콘을 VPN 방패로 바꾸고, 둘 다는 나란히 표시하고, 숨김은 VPN 표시기를 비활성화합니다",

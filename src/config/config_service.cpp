@@ -170,40 +170,12 @@ namespace {
     (void)resolveWidgetContentScale(1.0f, &widget, "widget." + std::string(widgetName) + ".scale");
   }
 
-  void validateKeyboardLayoutWidgetSettings(std::string_view widgetName, const WidgetConfig& widget) {
-    if (widget.type != "keyboard_layout") {
-      return;
-    }
-
-    const bool showGlyph = widget.getBool("show_glyph", true);
-    const bool showLabel = widget.getBool("show_label", true);
-    if (!showGlyph && !showLabel) {
-      throw std::runtime_error(
-          "widget." + std::string(widgetName) + ": show_glyph and show_label cannot both be false"
-      );
-    }
-  }
-
-  void validateSysmonWidgetSettings(std::string_view widgetName, const WidgetConfig& widget) {
-    if (widget.type != "sysmon") {
-      return;
-    }
-
-    const bool showGlyph = widget.getBool("show_glyph", true);
-    const bool showValue = widget.getBool("show_value", true);
-    const std::string visualization = widget.getString("visualization", "gauge");
-    if (!showGlyph && !showValue && visualization == "none") {
-      throw std::runtime_error(
-          "widget." + std::string(widgetName) + ": show_glyph, show_value, and visualization cannot all be disabled"
-      );
-    }
-  }
-
   void validateWidgetSettings(std::string_view widgetName, const WidgetConfig& widget) {
     validateWidgetColorSettings(widgetName, widget);
     validateWidgetScaleSetting(widgetName, widget);
-    validateKeyboardLayoutWidgetSettings(widgetName, widget);
-    validateSysmonWidgetSettings(widgetName, widget);
+    if (auto error = settings::validateWidgetSemantics(widget.type, &widget); error.has_value()) {
+      throw std::runtime_error("widget." + std::string(widgetName) + ": " + *error);
+    }
   }
 
   std::optional<std::string> componentOwnerId(std::string_view ownerPath, std::string_view prefix) {

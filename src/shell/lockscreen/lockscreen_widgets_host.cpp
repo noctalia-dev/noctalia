@@ -4,6 +4,7 @@
 #include "core/log.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
+#include "scripting/plugin_registry.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/lockscreen/lock_screen.h"
 #include "shell/lockscreen/lock_surface.h"
@@ -61,6 +62,24 @@ void LockscreenWidgetsHost::hide() {
 void LockscreenWidgetsHost::rebuild(const LockscreenWidgetsSnapshot& snapshot, LockScreen& lockScreen) {
   m_snapshot = snapshot;
   if (!m_visible) {
+    return;
+  }
+  syncSurfaces(lockScreen);
+}
+
+void LockscreenWidgetsHost::reloadPluginWidgets(LockScreen& lockScreen) {
+  if (!m_visible) {
+    return;
+  }
+  const auto before = m_instances.size();
+  std::erase_if(m_instances, [this](std::unique_ptr<WidgetInstance>& instance) {
+    if (!scripting::isPluginEntryOfKind(instance->state.type, scripting::PluginEntryKind::DesktopWidget)) {
+      return false;
+    }
+    detachFromSurface(*instance);
+    return true;
+  });
+  if (m_instances.size() == before) {
     return;
   }
   syncSurfaces(lockScreen);

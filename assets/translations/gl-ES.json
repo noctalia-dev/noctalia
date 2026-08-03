@@ -3235,10 +3235,6 @@
           "description": "Mostra texto de marcador cando non hai ningunha xanela con foco en vez de ocultar o widget",
           "label": "Mostrar etiqueta baleira"
         },
-        "show-icon": {
-          "description": "Mostra a icona deste widget",
-          "label": "Mostrar icona"
-        },
         "show-label": {
           "description": "Mostra texto xunto á icona",
           "label": "Mostrar etiqueta"

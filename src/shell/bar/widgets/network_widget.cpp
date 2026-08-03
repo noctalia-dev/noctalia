@@ -1,7 +1,7 @@
 #include "shell/bar/widgets/network_widget.h"
 
 #include "dbus/network/external_ip_service.h"
-#include "dbus/network/network_glyphs.h"
+#include "dbus/network/network_display.h"
 #include "i18n/i18n.h"
 #include "render/scene/input_area.h"
 #include "render/scene/node.h"
@@ -259,7 +259,7 @@ void NetworkWidget::syncState(Renderer& renderer) {
     const bool showVpn = m_vpnStatusMode == VpnStatusMode::Both && s.vpnActive;
     m_vpnGlyph->setVisible(showVpn);
     if (showVpn) {
-      m_vpnGlyph->setGlyph(network_glyphs::vpnGlyph());
+      m_vpnGlyph->setGlyph(network_display::vpnGlyph());
       m_vpnGlyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
       m_vpnGlyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
       m_vpnGlyph->measure(renderer);
@@ -269,9 +269,9 @@ void NetworkWidget::syncState(Renderer& renderer) {
   // Main network glyph: replace mode uses the VPN icon when active.
   m_glyph->setVisible(!showSpinner);
   if (m_vpnStatusMode == VpnStatusMode::Replace && s.vpnActive) {
-    m_glyph->setGlyph(network_glyphs::vpnGlyph());
+    m_glyph->setGlyph(network_display::vpnGlyph());
   } else {
-    m_glyph->setGlyph(network_glyphs::glyphForState(s));
+    m_glyph->setGlyph(network_display::glyphForState(s));
   }
   m_glyph->setGlyphSize(Style::baseGlyphSize * m_contentScale);
   m_glyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
@@ -343,6 +343,9 @@ std::vector<TooltipRow> NetworkWidget::buildTooltipRows() const {
     if (s.kind == NetworkConnectivity::Wireless && !s.ssid.empty()) {
       rows.push_back({i18n::tr("bar.widgets.network.network"), s.ssid});
       rows.push_back({i18n::tr("bar.widgets.network.signal"), std::to_string(s.signalStrength) + "%"});
+      if (const char* band = network_display::wifiFrequencyBandLabel(s.frequencyMhz); band != nullptr) {
+        rows.push_back({i18n::tr("bar.widgets.network.band"), band});
+      }
       if (!s.interfaceName.empty()) {
         rows.push_back({i18n::tr("bar.widgets.network.interface"), s.interfaceName});
       }

@@ -4,6 +4,7 @@
 #include "core/log.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
+#include "scripting/plugin_registry.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/widget_transform.h"
 #include "time/time_format.h"
@@ -63,6 +64,20 @@ void DesktopWidgetsHost::hide() {
 void DesktopWidgetsHost::rebuild(const DesktopWidgetsSnapshot& snapshot) {
   m_snapshot = snapshot;
   if (!m_visible) {
+    return;
+  }
+  syncInstances();
+}
+
+void DesktopWidgetsHost::reloadPluginWidgets() {
+  if (!m_visible) {
+    return;
+  }
+  const auto before = m_instances.size();
+  std::erase_if(m_instances, [](const auto& instance) {
+    return scripting::isPluginEntryOfKind(instance->state.type, scripting::PluginEntryKind::DesktopWidget);
+  });
+  if (m_instances.size() == before) {
     return;
   }
   syncInstances();

@@ -5,6 +5,7 @@
 #include "render/core/renderer.h"
 #include "system/brightness_service.h"
 #include "ui/builders.h"
+#include "ui/controls/scroll_view.h"
 #include "ui/palette.h"
 
 #include <algorithm>
@@ -76,9 +77,30 @@ std::unique_ptr<Flex> MonitorTab::create() {
       .gap = Style::spaceMd * scale,
   });
 
+  auto cardsScroll = ui::scrollView({
+      .out = &m_cardsScroll,
+      .scrollbarVisible = true,
+      .viewportPaddingH = 0.0f,
+      .viewportPaddingV = 0.0f,
+      .flexGrow = 1.0f,
+      .configure = [](ScrollView& scrollView) {
+        scrollView.clearFill();
+        scrollView.clearBorder();
+      },
+  });
+  m_cardsLayout = cardsScroll->content();
+  m_cardsLayout->setDirection(FlexDirection::Vertical);
+  m_cardsLayout->setAlign(FlexAlign::Stretch);
+  m_cardsLayout->setGap(Style::spaceMd * scale);
+  tab->addChild(std::move(cardsScroll));
+
   // Empty state (shown when no displays are known)
   auto emptyState = ui::column(
-      {.out = &m_emptyState, .align = FlexAlign::Center, .justify = FlexJustify::Center, .flexGrow = 1.0f},
+      {.out = &m_emptyState,
+       .align = FlexAlign::Center,
+       .justify = FlexJustify::Center,
+       .flexGrow = 1.0f,
+       .visible = false},
       ui::label({
           .text = i18n::tr("control-center.display.no-displays"),
           .fontSize = Style::fontSizeBody * scale,
@@ -103,6 +125,8 @@ void MonitorTab::onClose() {
   m_debounceTimer.stop();
   m_rootLayout = nullptr;
   m_emptyState = nullptr;
+  m_cardsScroll = nullptr;
+  m_cardsLayout = nullptr;
   m_cards.clear();
   m_lastDisplayListKey.clear();
 }
@@ -123,8 +147,12 @@ void MonitorTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
 
   rebuildCards(renderer);
 
+  m_rootLayout->setSize(contentWidth, bodyHeight);
+  m_rootLayout->layout(renderer);
+
   const float scale = contentScale();
-  const float cardWidth = std::max(1.0f, contentWidth);
+  const float cardWidth =
+      std::max(1.0f, m_cardsScroll != nullptr ? m_cardsScroll->contentViewportWidth() : contentWidth);
   const float cardInnerWidth = std::max(1.0f, cardWidth - Style::spaceMd * scale * 2.0f);
   const float headerTextMaxWidth =
       std::max(1.0f, cardInnerWidth - Style::fontSizeTitle * scale - Style::spaceSm * scale);
@@ -142,7 +170,6 @@ void MonitorTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeig
     }
   }
 
-  m_rootLayout->setSize(contentWidth, bodyHeight);
   m_rootLayout->layout(renderer);
 }
 
@@ -210,7 +237,7 @@ void MonitorTab::doUpdate(Renderer& renderer) {
 }
 
 void MonitorTab::rebuildCards(Renderer& /*renderer*/) {
-  if (m_brightness == nullptr || m_rootLayout == nullptr) {
+  if (m_brightness == nullptr || m_cardsLayout == nullptr) {
     return;
   }
 
@@ -224,7 +251,7 @@ void MonitorTab::rebuildCards(Renderer& /*renderer*/) {
   // Remove old cards
   for (auto& card : m_cards) {
     if (card.card != nullptr) {
-      m_rootLayout->removeChild(card.card);
+      m_cardsLayout->removeChild(card.card);
     }
   }
   m_cards.clear();
@@ -233,6 +260,9 @@ void MonitorTab::rebuildCards(Renderer& /*renderer*/) {
   const bool empty = displays.empty();
   if (m_emptyState != nullptr) {
     m_emptyState->setVisible(empty);
+  }
+  if (m_cardsScroll != nullptr) {
+    m_cardsScroll->setVisible(!empty);
   }
 
   if (empty) {
@@ -351,7 +381,7 @@ void MonitorTab::rebuildCards(Renderer& /*renderer*/) {
     card->addChild(std::move(sliderRow));
 
     auto* cardPtr = card.get();
-    m_rootLayout->addChild(std::move(card));
+    m_cardsLayout->addChild(std::move(card));
 
     m_cards.push_back(
         DisplayCard{

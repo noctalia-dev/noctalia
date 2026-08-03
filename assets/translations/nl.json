@@ -2739,10 +2739,6 @@
           "description": "Toon tijdelijke tekst wanneer er geen venster is geselecteerd, in plaats van de widget te verbergen",
           "label": "Lege label weergeven"
         },
-        "show-icon": {
-          "description": "Toon het icoon van deze widget",
-          "label": "Toon icoon"
-        },
         "show-label": {
           "description": "Toon tekst naast het icoon",
           "label": "Toon label"

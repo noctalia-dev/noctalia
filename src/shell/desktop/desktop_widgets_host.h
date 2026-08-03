@@ -26,6 +26,10 @@ public:
   void show(const DesktopWidgetsSnapshot& snapshot);
   void hide();
   void rebuild(const DesktopWidgetsSnapshot& snapshot);
+  // Destroy and recreate every plugin-backed instance so its Luau runtime is re-seeded.
+  // Needed because plugin-level settings live outside the widget snapshot, so syncInstances()
+  // cannot see them change.
+  void reloadPluginWidgets();
   void onOutputChange();
   void onSecondTick();
   void requestUpdate();

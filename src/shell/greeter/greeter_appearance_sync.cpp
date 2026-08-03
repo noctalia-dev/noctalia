@@ -14,8 +14,10 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <memory>
 #include <optional>
@@ -24,6 +26,7 @@
 #include <string_view>
 #include <system_error>
 #include <toml++/toml.hpp>
+#include <utility>
 #include <vector>
 #include <wayland-client-protocol.h>
 
@@ -38,6 +41,7 @@ namespace {
   constexpr std::string_view kGreeterStateDirEnv = "NOCTALIA_GREETER_STATE_DIR";
   constexpr std::string_view kStagedOutputLayoutFileName = "output_layout";
   constexpr std::string_view kStagedOutputTransformsFileName = "output_transforms";
+  constexpr std::string_view kStagedOutputScalesFileName = "output_scales";
   // Staged sync.toml fragment (appearance + session); apply helper merges into live sync.toml.
   constexpr std::string_view kStagedSyncTomlFileName = "sync.toml";
 
@@ -463,6 +467,75 @@ namespace {
     return transforms;
   }
 
+  [[nodiscard]] std::optional<float> detectedLayoutScale(const WaylandOutput& output) {
+    if (output.width <= 0 || output.height <= 0 || output.logicalWidth <= 0 || output.logicalHeight <= 0) {
+      return std::nullopt;
+    }
+
+    const auto physicalW = static_cast<double>(output.width);
+    const auto physicalH = static_cast<double>(output.height);
+    const auto logicalW = static_cast<double>(output.logicalWidth);
+    const auto logicalH = static_cast<double>(output.logicalHeight);
+
+    const auto candidate = [](double xScale, double yScale) {
+      return std::pair{(xScale + yScale) * 0.5, std::abs(xScale - yScale)};
+    };
+    const auto normal = candidate(physicalW / logicalW, physicalH / logicalH);
+    const auto rotated = candidate(physicalW / logicalH, physicalH / logicalW);
+    const double scale = rotated.second < normal.second ? rotated.first : normal.first;
+    if (scale < 1.0) {
+      return std::nullopt;
+    }
+    return static_cast<float>(scale);
+  }
+
+  [[nodiscard]] std::optional<std::string> buildGreeterOutputScales(const CompositorPlatform& platform) {
+    if (!platform.wayland().hasXdgOutputManager()) {
+      kLog.info("greeter sync: xdg-output unavailable; skipping output scales sync");
+      return std::nullopt;
+    }
+
+    const auto& outputs = platform.outputs();
+    std::vector<const WaylandOutput*> ready;
+    ready.reserve(outputs.size());
+    for (const auto& output : outputs) {
+      if (!output.connectorName.empty() && !output.done) {
+        kLog.info("greeter sync: output '{}' not ready; skipping output scales sync", output.connectorName);
+        return std::nullopt;
+      }
+      if (!output.done || output.connectorName.empty()) {
+        continue;
+      }
+      ready.push_back(&output);
+    }
+
+    if (ready.empty()) {
+      kLog.info("greeter sync: no ready outputs; skipping output scales sync");
+      return std::nullopt;
+    }
+
+    std::ranges::sort(ready, [](const WaylandOutput* lhs, const WaylandOutput* rhs) {
+      return lhs->connectorName < rhs->connectorName;
+    });
+
+    std::string scales;
+    for (const WaylandOutput* output : ready) {
+      const auto scale = detectedLayoutScale(*output);
+      if (!scale.has_value()) {
+        kLog.warn(
+            "greeter sync: output '{}' has unknown scale (logical={}x{} mode={}x{}); skipping output scales sync",
+            output->connectorName, output->logicalWidth, output->logicalHeight, output->width, output->height
+        );
+        return std::nullopt;
+      }
+      if (!scales.empty()) {
+        scales += "; ";
+      }
+      scales += output->connectorName + ':' + std::format("{:.3f}", *scale);
+    }
+    return scales;
+  }
+
   void logOutputLayoutForGreeter(const CompositorPlatform& platform) {
     const auto& outputs = platform.outputs();
     if (outputs.empty()) {
@@ -487,6 +560,9 @@ namespace {
     if (const auto transforms = buildGreeterOutputTransforms(platform)) {
       kLog.info("greeter sync: staging output_transforms \"{}\"", *transforms);
     }
+    if (const auto scales = buildGreeterOutputScales(platform)) {
+      kLog.info("greeter sync: staging output_scales \"{}\"", *scales);
+    }
   }
 
   [[nodiscard]] bool stageOutputLayout(const std::filesystem::path& staging, std::string_view layout) {
@@ -508,6 +584,17 @@ namespace {
       return false;
     }
     out << transforms << '\n';
+    return true;
+  }
+
+  [[nodiscard]] bool stageOutputScales(const std::filesystem::path& staging, std::string_view scales) {
+    const auto scalesPath = staging / kStagedOutputScalesFileName;
+    std::ofstream out(scalesPath);
+    if (!out.is_open()) {
+      kLog.warn("failed to open staged output scales '{}'", scalesPath.string());
+      return false;
+    }
+    out << scales << '\n';
     return true;
   }
 
@@ -629,8 +716,14 @@ namespace greeter {
           return GreeterSyncLaunch::Failed;
         }
       }
+      if (const auto scales = buildGreeterOutputScales(*platform)) {
+        if (!stageOutputScales(staging, *scales)) {
+          finish(false);
+          return GreeterSyncLaunch::Failed;
+        }
+      }
     } else {
-      kLog.info("greeter sync: no compositor platform provided; skipping output layout/transforms sync");
+      kLog.info("greeter sync: no compositor platform provided; skipping output layout/transforms/scales sync");
     }
 
     const auto outputWallpapers = stageAllOutputWallpapers(staging, configService);

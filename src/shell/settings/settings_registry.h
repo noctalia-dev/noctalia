@@ -272,7 +272,7 @@ namespace settings {
 
   using SettingControl = std::variant<
       ToggleSetting, SelectSetting, SliderSetting, RangeSliderSetting, TextSetting, OptionalNumberSetting,
-      OptionalStepperSetting, StepperSetting, ListSetting, ShortcutListSetting, KeybindListSetting,
+      OptionalStepperSetting, StepperSetting, ListSetting, StringMapSetting, ShortcutListSetting, KeybindListSetting,
       SessionPanelActionsSetting, IdleBehaviorsSetting, NotificationFiltersSetting, MultiSelectSetting,
       TemplateGridSetting, ButtonSetting, ColorSpecPickerSetting, SearchPickerSetting, GestureActionSetting>;
 
@@ -312,6 +312,7 @@ namespace settings {
     std::vector<SelectOption> communityTemplates;
     std::vector<SelectOption> fontFamilies;
     std::string shellAvatarPath;
+    std::vector<std::string> keyboardLayoutNames;
   };
 
   [[nodiscard]] const BarConfig* findBar(const Config& cfg, std::string_view name);

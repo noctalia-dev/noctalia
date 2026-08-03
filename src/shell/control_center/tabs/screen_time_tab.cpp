@@ -688,6 +688,9 @@ void ScreenTimeTab::bindAppNameMaxWidths(Renderer& renderer, float gridWidth) {
     if (widgets.duration == nullptr || widgets.row == nullptr || !widgets.row->visible()) {
       continue;
     }
+    // Drop the previous column lock so measure reflects the current duration text.
+    // Otherwise a long 14-day string keeps min-width after switching back to Today.
+    widgets.duration->setMinWidth(0.0f);
     widgets.duration->measure(renderer);
     maxDurationWidth = std::max(maxDurationWidth, widgets.duration->width());
   }

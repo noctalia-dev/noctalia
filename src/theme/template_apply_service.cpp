@@ -1,5 +1,6 @@
 #include "theme/template_apply_service.h"
 
+#include "config/config_export.h"
 #include "config/config_service.h"
 #include "core/deferred_call.h"
 #include "core/files/resource_paths.h"
@@ -160,10 +161,9 @@ namespace noctalia::theme {
     std::function<void()> afterApplyCallback;
     {
       std::scoped_lock lock(m_mutex);
-      // Config reloads fire on every settings change, not just theme changes.
-      // Skip redundant reprocessing (and its synchronous template hooks) when
-      // nothing the templates depend on has changed. Explicit re-application
-      // (startup, IPC, template activation) passes force or carries new inputs.
+      // Skip rendering and hooks when palette and template inputs are unchanged. Config values
+      // are captured only when an application is queued; forced IPC re-application bypasses
+      // this deduplication.
       if (!force && m_lastAppliedRequest.has_value() && sameInputs(request, *m_lastAppliedRequest)) {
         if (m_afterApplyCallback && !m_inFlight) {
           afterApplyCallback = m_afterApplyCallback;
@@ -227,10 +227,12 @@ namespace noctalia::theme {
 
   TemplateApplyService::ApplyRequest
   TemplateApplyService::makeRequest(const GeneratedPalette& palette, std::string_view defaultMode) const {
-    const ThemeConfig& theme = m_config.config().theme;
+    const Config& config = m_config.config();
+    const ThemeConfig& theme = config.theme;
     return ApplyRequest{
         .palette = palette,
         .templates = theme.templates,
+        .configTable = std::make_shared<const toml::table>(config_export::serialize(config)),
         .defaultMode = std::string(defaultMode),
         .imagePath = m_config.getPaletteWallpaperPath(),
         .schemeType = schemeTypeFromConfig(theme),
@@ -244,6 +246,7 @@ namespace noctalia::theme {
     options.schemeType = request.schemeType;
     options.verbose = true;
     options.cancelRequested = [this, generation = request.generation]() { return requestSuperseded(generation); };
+    options.configTable = request.configTable;
 
     TemplateEngine engine(TemplateEngine::makeThemeData(request.palette), options);
 

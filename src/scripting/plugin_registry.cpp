@@ -163,4 +163,9 @@ namespace scripting {
     return plugin->dir;
   }
 
+  bool isPluginEntryOfKind(std::string_view fullEntryId, PluginEntryKind kind) {
+    const auto resolved = PluginRegistry::instance().resolve(fullEntryId);
+    return resolved.has_value() && resolved->entry->kind == kind;
+  }
+
 } // namespace scripting

@@ -10,6 +10,7 @@
 #include "render/render_context.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/tray/tray_identifier.h"
+#include "shell/tray/tray_settings.h"
 #include "ui/builders.h"
 #include "ui/controls/context_menu.h"
 #include "ui/controls/scroll_view.h"
@@ -39,7 +40,9 @@ namespace {
       | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_X
       | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y;
 
-  bool containsTrayWidget(const std::vector<std::string>& widgets) { return std::ranges::contains(widgets, "tray"); }
+  bool containsTrayWidget(const std::vector<std::string>& widgets) {
+    return std::ranges::contains(widgets, tray::kCanonicalTrayWidgetName);
+  }
 
   void closeTrayDrawerPanelIfOpen() {
     auto& panelManager = PanelManager::instance();
@@ -49,14 +52,7 @@ namespace {
   }
 
   bool trayDrawerEnabled(ConfigService* config) {
-    if (config == nullptr) {
-      return false;
-    }
-    const auto it = config->config().widgets.find("tray");
-    if (it == config->config().widgets.end()) {
-      return false;
-    }
-    return it->second.getBool("drawer", false);
+    return config != nullptr && tray::resolvedTrayOptions(*config).options.drawerMode;
   }
 
   std::size_t visibleEntryLimit(std::size_t entryCount) {
@@ -992,10 +988,8 @@ bool TrayMenu::activeItemPinned() const {
   if (!item.has_value()) {
     return false;
   }
-  const auto cfgIt = m_config->config().widgets.find("tray");
-  const auto pinned =
-      cfgIt != m_config->config().widgets.end() ? cfgIt->second.getStringList("pinned") : std::vector<std::string>{};
-  for (const auto& token : pinned) {
+  const auto resolved = tray::resolvedTrayOptions(*m_config);
+  for (const auto& token : resolved.options.pinnedItems) {
     if (tray::tokenMatchesItem(token, *item)) {
       return true;
     }
@@ -1012,9 +1006,7 @@ bool TrayMenu::toggleActiveItemPinned() {
     return false;
   }
 
-  auto cfgIt = m_config->config().widgets.find("tray");
-  std::vector<std::string> pinned =
-      cfgIt != m_config->config().widgets.end() ? cfgIt->second.getStringList("pinned") : std::vector<std::string>{};
+  std::vector<std::string> pinned = tray::resolvedTrayOptions(*m_config).options.pinnedItems;
   std::erase_if(pinned, [](const std::string& token) {
     return tray::looksGenericStatusItemName(token) || tray::isTransientUniqueIdentifier(token);
   });
@@ -1049,7 +1041,7 @@ bool TrayMenu::toggleActiveItemPinned() {
     pinned.push_back(token);
   }
 
-  return m_config->setOverride({"widget", "tray", "pinned"}, pinned);
+  return m_config->setOverride({"widget", std::string(tray::kCanonicalTrayWidgetName), "pinned"}, pinned);
 }
 
 void TrayMenu::closeSubmenu() { closeSubmenusFrom(0); }

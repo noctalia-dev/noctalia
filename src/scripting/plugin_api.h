@@ -21,7 +21,9 @@ namespace scripting {
   inline constexpr std::uint32_t kFormatTimeTimezonePluginApiVersion = 19;
   inline constexpr std::uint32_t kSoundPluginApiVersion = 20;
   inline constexpr std::uint32_t kPluginUiPropsPluginApiVersion = 21;
-  inline constexpr std::uint32_t kCurrentPluginApiVersion = kPluginUiPropsPluginApiVersion;
+  inline constexpr std::uint32_t kModuleRequirePluginApiVersion = 22;
+  inline constexpr std::uint32_t kAsyncFileReadPluginApiVersion = 23;
+  inline constexpr std::uint32_t kCurrentPluginApiVersion = kAsyncFileReadPluginApiVersion;
 
   static_assert(kOldestSupportedPluginApiVersion <= kCurrentPluginApiVersion);
 

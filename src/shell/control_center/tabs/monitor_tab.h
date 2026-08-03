@@ -13,6 +13,7 @@ class Flex;
 class Glyph;
 class Label;
 class Renderer;
+class ScrollView;
 class Slider;
 
 class MonitorTab : public Tab {
@@ -49,6 +50,8 @@ private:
 
   Flex* m_rootLayout = nullptr;
   Flex* m_emptyState = nullptr;
+  ScrollView* m_cardsScroll = nullptr;
+  Flex* m_cardsLayout = nullptr;
   std::vector<DisplayCard> m_cards;
   std::string m_lastDisplayListKey;
 

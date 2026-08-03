@@ -1,8 +1,8 @@
 #pragma once
 
-#include "core/files/file_watcher.h"
 #include "core/timer_manager.h"
 #include "scripting/plugin_ipc.h"
+#include "scripting/plugin_script_watcher.h"
 #include "scripting/script_runtime.h"
 
 #include <filesystem>
@@ -62,7 +62,7 @@ namespace scripting {
       std::filesystem::path sourcePath;
       std::shared_ptr<ScriptRuntime> runtime;
       ScriptRuntime::SubscriberId subscription = 0;
-      FileWatcher::WatchId watchId = 0;
+      PluginScriptWatcher scriptWatcher;
       Timer updateTimer;
       int updateIntervalMs = 1000;
       ScriptSettings lastSeededSettings;

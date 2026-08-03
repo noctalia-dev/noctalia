@@ -66,7 +66,6 @@ namespace settings {
         .showAdvanced = ctx.showAdvanced,
         .showOverriddenOnly = ctx.showOverriddenOnly,
         .batteryDeviceOptions = ctx.batteryDeviceOptions,
-        .keyboardLayoutNames = ctx.keyboardLayoutNames,
         .editingWidgetName = ctx.editingWidgetName,
         .editingCapsuleGroupId = ctx.editingCapsuleGroupId,
         .selectedLaneWidgets = ctx.selectedLaneWidgets,
@@ -89,11 +88,15 @@ namespace settings {
         .setOverride = ctx.setOverride,
         .setOverrides = ctx.setOverrides,
         .clearOverride = ctx.clearOverride,
+        .resetBarLane = ctx.resetBarLane,
         .renameWidgetInstance = ctx.renameWidgetInstance,
         .closeHostedEditor = ctx.closeHostedEditor,
         .openWidgetInspector = ctx.openWidgetInspectorEditor,
         .openCapsuleGroupInspector = ctx.openCapsuleGroupEditor,
         .makeResetButton = [&factory](const std::vector<std::string>& path) { return factory.makeResetButton(path); },
+        .makeResetActionButton = [&factory](
+                                     const std::vector<std::string>& path, std::function<void()> action
+                                 ) { return factory.makeResetButton(path, std::move(action)); },
         .makeRow = [&factory](
                        Flex& section, const SettingEntry& entry, std::unique_ptr<Node> control
                    ) { factory.makeRow(section, entry, std::move(control)); },
@@ -1167,6 +1170,8 @@ namespace settings {
               return nullptr;
             } else if constexpr (std::is_same_v<T, ListSetting>) {
               return nullptr;
+            } else if constexpr (std::is_same_v<T, StringMapSetting>) {
+              return nullptr;
             } else if constexpr (std::is_same_v<T, ShortcutListSetting>) {
               return nullptr;
             } else if constexpr (std::is_same_v<T, KeybindListSetting>) {
@@ -1321,6 +1326,8 @@ namespace settings {
           } else if (!isBarWidgetListPath(entry.path)) {
             makeListBlock(*activeSection, entry, *list);
           }
+        } else if (const auto* map = std::get_if<StringMapSetting>(&entry.control)) {
+          factory.makeStringMapBlock(*activeSection, entry, *map);
         } else if (const auto* shortcuts = std::get_if<ShortcutListSetting>(&entry.control)) {
           makeShortcutListBlock(*activeSection, entry, *shortcuts);
         } else if (const auto* keybindList = std::get_if<KeybindListSetting>(&entry.control)) {

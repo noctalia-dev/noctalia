@@ -188,6 +188,8 @@ private:
   void setSettingOverrides(std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> overrides);
   void clearSettingOverride(std::vector<std::string> path);
   void clearSettingOverrides(std::vector<std::vector<std::string>> paths);
+  // Reverts a bar lane to the config file, including the capsule groups that lane holds.
+  void resetBarLane(std::vector<std::string> lanePath);
   void renameWidgetInstance(
       std::string oldName, std::string newName,
       std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>> referenceOverrides

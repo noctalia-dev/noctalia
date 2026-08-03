@@ -30,6 +30,14 @@ struct BarCapsuleRun {
   std::vector<Widget*> widgets;
   // Hover highlight overlays, parallel to `widgets` for group runs; one shared box for single runs.
   std::vector<Box*> hoverBoxes;
+  bool accordion = false;
+  // Clips accordion members to the reveal window (inside the capsule padding).
+  Node* accordionClip = nullptr;
+  BarAccordionDirection accordionDirection = BarAccordionDirection::End;
+  // Index into `widgets` (visual order) of the always-visible member (config members[0]).
+  std::size_t accordionVisibleIndex = 0;
+  bool accordionExpanded = false;
+  float accordionProgress = 0.0f; // 0 = collapsed, 1 = fully expanded
 };
 
 struct BarInstance {

@@ -59,6 +59,7 @@
       },
       "network": {
         "active": "Active",
+        "band": "Band",
         "connected": "Connected",
         "connecting": "Connecting",
         "download": "Download",
@@ -730,7 +731,7 @@
       "config-migration-title": "Configuration update needed",
       "dbus-disabled": "DBus notifications disabled",
       "desktop-widgets-editor": "Widget editor",
-      "desktop-widgets-editor-enabled": "Desktop widget editor is on. Switch to an empty workspace to see the editor overlay.",
+      "desktop-widgets-editor-enabled": "Desktop widget editor is on. Switch to an empty workspace so open windows do not cover the editor.",
       "greeter-sync": "Noctalia Greeter",
       "greeter-sync-pending": "Waiting for administrator approval to write to the greeter.",
       "greeter-sync-pending-console": "Waiting for administrator approval. Approve the polkit prompt in Noctalia, on a TTY or console, or run pkexec manually.",
@@ -747,7 +748,7 @@
       "launcher-usage-reset-success": "Usage data cleared.",
       "lockscreen-widgets-editor": "Lockscreen widget editor",
       "lockscreen-widgets-editor-blocked-locked": "Unlock the session before editing lockscreen widgets.",
-      "lockscreen-widgets-editor-enabled": "Lockscreen widget editor is on. Arrange widgets on the preview overlay, then lock the session to verify the layout.",
+      "lockscreen-widgets-editor-enabled": "Lockscreen widget editor is on. Switch to an empty workspace so open windows do not cover the editor.",
       "mpris-disabled": "MPRIS disabled",
       "polkit-agent": "Polkit Agent",
       "polkit-no-session": "Polkit agent needs logind, elogind, or XDG_SESSION_ID. On seatd-only setups it cannot register for graphical prompts. Use terminal pkexec for greeter sync, or install elogind for in-session authentication.",
@@ -967,6 +968,10 @@
           "title": "Bar Widgets"
         },
         "group": {
+          "accordion": "Accordion",
+          "accordion-description": "Show only the first widget; hovering the capsule reveals the rest",
+          "accordion-direction": "Reveal direction",
+          "accordion-direction-description": "Side of the first widget where the hidden widgets unfold",
           "action": "Group",
           "border": "Border",
           "border-description": "Capsule outline color role; leave on Default for no outline",
@@ -1009,7 +1014,9 @@
           "show-widget": "Show this widget",
           "style": "Style",
           "title": "Capsule group",
-          "ungroup": "Ungroup"
+          "ungroup": "Ungroup",
+          "widget-spacing": "Spacing",
+          "widget-spacing-description": "Gap between widgets in this group, in pixels; Auto inherits the bar's widget spacing"
         },
         "inspector": {
           "add-instance-title": "Add new named {widget} widget to {lane}",
@@ -1170,6 +1177,7 @@
         "idle": "Idle",
         "interface": "Interface",
         "keybinds": "Keybinds",
+        "keyboard-layout": "Keyboard Layout",
         "kinds": "Kinds",
         "launcher": "Launcher",
         "layout": "Layout",
@@ -1264,6 +1272,10 @@
       }
     },
     "options": {
+      "accordion-direction": {
+        "end": "After first widget",
+        "start": "Before first widget"
+      },
       "bar": {
         "auto-hide": {
           "off": "Off",
@@ -2761,6 +2773,10 @@
           "description": "Replace pkexec/run0 for greeter Sync Now; the apply helper path and staging directory are appended automatically (example: ghostty -e pkexec)",
           "label": "Greeter Sync Privilege Command"
         },
+        "keyboard-layout-custom-labels": {
+          "description": "Map keyboard layout names to labels used throughout the shell",
+          "label": "Keyboard Layout Labels"
+        },
         "launch-apps-as-systemd-services": {
           "description": "Launches applications in separate systemd services so they don't share Noctalia's cgroup",
           "label": "Launch Apps as systemd Services",
@@ -3163,7 +3179,6 @@
         "effects-profile-name": "Profile name",
         "glyph-name": "Glyph name",
         "key": "Key",
-        "label": "Label",
         "layout-name": "Layout name",
         "value": "Value"
       },
@@ -3234,6 +3249,10 @@
         "active-color": {
           "description": "Color used for active privacy indicators; fixed hex colors are also supported",
           "label": "Active Color"
+        },
+        "active-indicator-color": {
+          "description": "Color of the indicator below the active window icon",
+          "label": "Active Indicator Color"
         },
         "active-opacity": {
           "description": "Opacity of the icon for the active (focused) window",
@@ -3326,10 +3345,6 @@
         "custom-image-colorize": {
           "description": "Tint the custom image with the widget Icon Color setting",
           "label": "Colorize custom image"
-        },
-        "custom-labels": {
-          "description": "Map keyboard layout names to custom labels",
-          "label": "Custom Labels"
         },
         "detached-panel": {
           "description": "Open the drawer as a floating panel instead of anchoring it to the bar edge",

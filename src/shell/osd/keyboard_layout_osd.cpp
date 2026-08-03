@@ -3,25 +3,17 @@
 #include "compositors/compositor_platform.h"
 #include "config/config_types.h"
 #include "dbus/tray/tray_service.h"
-#include "shell/bar/widgets/keyboard_layout_widget.h"
+#include "shell/keyboard_layout_label.h"
 #include "shell/osd/osd_overlay.h"
-
-#include <unordered_map>
 
 namespace {
 
   OsdContent makeKeyboardLayoutContent(const std::string& layoutName, const Config& config) {
-    std::string display = "short";
-    std::unordered_map<std::string, std::string> customLabels;
-    if (const auto widgetIt = config.widgets.find("keyboard_layout"); widgetIt != config.widgets.end()) {
-      display = widgetIt->second.getString("display", display);
-      customLabels = widgetIt->second.getStringMap("custom_labels");
-    }
     return OsdContent{
         .kind = OsdKind::KeyboardLayout,
         .icon = "keyboard",
-        .value = KeyboardLayoutWidget::resolveLayoutLabel(
-            layoutName, KeyboardLayoutWidget::parseDisplayMode(display), customLabels
+        .value = resolveKeyboardLayoutLabel(
+            layoutName, KeyboardLayoutDisplayMode::Short, config.shell.keyboardLayout.customLabels
         ),
         .showProgress = false,
     };
