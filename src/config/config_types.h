@@ -987,6 +987,7 @@ struct ShellConfig {
     bool showIcons = true;
     bool compact = false;
     bool appGrid = false;
+    bool showAppActions = false;
     bool sortByUsage = true;
     // Desktop entry IDs shown first in the launcher when it opens without a query.
     std::vector<std::string> pinned;
