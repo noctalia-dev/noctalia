@@ -164,7 +164,9 @@ namespace settings {
         .scrollbarVisible = true,
         .viewportPaddingH = 0.0f,
         .viewportPaddingV = 0.0f,
-        .fill = colorSpecFromRole(ColorRole::Surface),
+        .fill = ctx.config.shell.settingsWindowBackground == SettingsWindowBackground::Translucent
+            ? clearColorSpec()
+            : colorSpecFromRole(ColorRole::Surface),
         .radius = Style::scaledRadiusXl(scale),
         .minWidth = kSidebarWidth * scale,
         .fillHeight = true,

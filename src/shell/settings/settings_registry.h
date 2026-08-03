@@ -58,6 +58,7 @@ namespace settings {
   struct ToggleSetting {
     bool checked = false;
     bool enabled = true; // false renders the toggle in a disabled/non-interactive state
+    std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(bool checked)> customCommit;
   };
 
   struct SelectOption {

@@ -656,6 +656,31 @@ void Surface::setBlurRegion(const std::vector<InputRect>& rects) {
   }
 }
 
+void Surface::setOpaqueRegion(const std::vector<InputRect>& rects) {
+  if (m_surface == nullptr) {
+    return;
+  }
+
+  wl_region* region = wl_compositor_create_region(m_connection.compositor());
+  if (region == nullptr) {
+    traceSurfaceEvent(*this, "opaque-set-skip-region-failed");
+    return;
+  }
+
+  for (const auto& r : rects) {
+    wl_region_add(region, r.x, r.y, r.width, r.height);
+  }
+  wl_surface_set_opaque_region(m_surface, region);
+  wl_region_destroy(region);
+}
+
+void Surface::clearOpaqueRegion() {
+  if (m_surface == nullptr) {
+    return;
+  }
+  wl_surface_set_opaque_region(m_surface, nullptr);
+}
+
 std::vector<InputRect> Surface::tessellateRoundedRect(
     int x, int y, int w, int h, float tlRadius, float trRadius, float brRadius, float blRadius, int stripPx
 ) {

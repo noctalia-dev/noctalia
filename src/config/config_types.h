@@ -850,6 +850,17 @@ constexpr EnumOption<PanelTransparencyMode> kPanelTransparencyModes[] = {
 panelCardOpacityForTransparencyMode(PanelTransparencyMode mode, float panelBackgroundOpacity) noexcept;
 [[nodiscard]] float detachedPanelBackgroundOpacityForTransparencyMode(PanelTransparencyMode mode) noexcept;
 
+enum class SettingsWindowBackground : std::uint8_t {
+  Opaque = 0,
+  Translucent = 1,
+};
+
+constexpr EnumOption<SettingsWindowBackground> kSettingsWindowBackgrounds[] = {
+    {SettingsWindowBackground::Opaque, "opaque", "settings.options.shell.settings-window-background.opaque"},
+    {SettingsWindowBackground::Translucent, "translucent",
+     "settings.options.shell.settings-window-background.translucent"},
+};
+
 enum class PanelPlacement : std::uint8_t {
   Attached = 0,
   Floating = 1,
@@ -1061,6 +1072,8 @@ struct ShellConfig {
   AnimationConfig animation;
   std::string avatarPath;
   bool settingsShowAdvanced = true;
+  SettingsWindowBackground settingsWindowBackground = SettingsWindowBackground::Translucent;
+
   bool showLocation = true;
   bool appIconColorize = false;
   std::optional<ColorSpec> appIconColor;

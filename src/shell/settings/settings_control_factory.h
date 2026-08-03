@@ -37,7 +37,8 @@ namespace settings {
     void makeRow(Flex& section, const SettingEntry& entry, std::unique_ptr<Node> control);
 
     [[nodiscard]] std::unique_ptr<Toggle> makeToggle(
-        bool checked, bool enabled, std::vector<std::string> path, std::optional<bool> clearWhenValue = std::nullopt
+        bool checked, bool enabled, std::vector<std::string> path, std::optional<bool> clearWhenValue = std::nullopt,
+        std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(bool)> customCommit = {}
     );
 
     [[nodiscard]] std::unique_ptr<Node> makeSelect(const SelectSetting& setting, std::vector<std::string> path);

@@ -326,7 +326,8 @@ namespace settings {
   }
 
   std::unique_ptr<Toggle> SettingsControlFactory::makeToggle(
-      bool checked, bool enabled, std::vector<std::string> path, std::optional<bool> clearWhenValue
+      bool checked, bool enabled, std::vector<std::string> path, std::optional<bool> clearWhenValue,
+      std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(bool)> customCommit
   ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
@@ -336,12 +337,17 @@ namespace settings {
           .enabled = enabled,
           .scale = scale,
           .onChange = [configService = ctx.configService, setOverride = ctx.setOverride,
-                       clearOverride = ctx.clearOverride, requestRebuild = ctx.requestRebuild, path,
-                       clearWhenValue](bool value) {
-            if (clearWhenValue.has_value()
+                       setOverrides = ctx.setOverrides, clearOverride = ctx.clearOverride,
+                       requestRebuild = ctx.requestRebuild, path, clearWhenValue,
+                       customCommit = std::move(customCommit)](bool value) {
+            if (customCommit) {
+              setOverrides(customCommit(value));
+            } else if (
+                clearWhenValue.has_value()
                 && value == *clearWhenValue
                 && configService != nullptr
-                && configService->hasOverride(path)) {
+                && configService->hasOverride(path)
+            ) {
               clearOverride(path);
             } else {
               setOverride(path, value);

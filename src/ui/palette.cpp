@@ -93,7 +93,7 @@ ColorSpec fixedColorSpec(const Color& color) noexcept {
 
 Color resolveColorSpec(const ColorSpec& color) noexcept {
   Color resolved = color.role.has_value() ? colorForRole(*color.role) : color.fixed;
-  resolved.a *= color.alpha;
+  resolved.a = color.role.has_value() ? color.alpha : resolved.a * color.alpha;
   return resolved;
 }
 

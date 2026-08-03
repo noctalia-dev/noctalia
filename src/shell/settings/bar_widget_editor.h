@@ -58,7 +58,11 @@ namespace settings {
     std::function<std::unique_ptr<Button>(const std::vector<std::string>&, std::function<void()>)>
         makeResetActionButton;
     std::function<void(Flex&, const SettingEntry&, std::unique_ptr<Node>)> makeRow;
-    std::function<std::unique_ptr<Node>(bool, std::vector<std::string>, std::optional<bool> clearWhenValue)> makeToggle;
+    std::function<std::unique_ptr<Node>(
+        bool, bool, std::vector<std::string>, std::optional<bool> clearWhenValue,
+        std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(bool)>
+    )>
+        makeToggle;
     std::function<std::unique_ptr<Node>(const SelectSetting&, std::vector<std::string>)> makeSelect;
     std::function<std::unique_ptr<Node>(const SearchPickerSetting&, std::string, std::vector<std::string>)>
         makeSearchPicker;

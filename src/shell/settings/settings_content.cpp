@@ -100,8 +100,13 @@ namespace settings {
         .makeRow = [&factory](
                        Flex& section, const SettingEntry& entry, std::unique_ptr<Node> control
                    ) { factory.makeRow(section, entry, std::move(control)); },
-        .makeToggle = [&factory](bool checked, std::vector<std::string> path, std::optional<bool> clearWhenValue)
-            -> std::unique_ptr<Node> { return factory.makeToggle(checked, true, std::move(path), clearWhenValue); },
+        .makeToggle =
+            [&factory](
+                bool checked, bool enabled, std::vector<std::string> path, std::optional<bool> clearWhenValue,
+                std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(bool)> customCommit
+            ) -> std::unique_ptr<Node> {
+          return factory.makeToggle(checked, enabled, std::move(path), clearWhenValue, std::move(customCommit));
+        },
         .makeSelect = [&factory](const SelectSetting& setting, std::vector<std::string> path) -> std::unique_ptr<Node> {
           return factory.makeSelect(setting, std::move(path));
         },
@@ -196,10 +201,12 @@ namespace settings {
       factory.makeRow(section, entry, std::move(control));
     };
 
-    const auto makeToggle = [&](bool checked, bool enabled, std::vector<std::string> path,
-                                std::optional<bool> clearWhenValue = std::nullopt) {
-      return factory.makeToggle(checked, enabled, std::move(path), clearWhenValue);
-    };
+    const auto makeToggle =
+        [&](
+            bool checked, bool enabled, std::vector<std::string> path,
+            std::optional<bool> clearWhenValue = std::nullopt,
+            std::function<std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>(bool)> customCommit = {}
+        ) { return factory.makeToggle(checked, enabled, std::move(path), clearWhenValue, std::move(customCommit)); };
 
     const auto makeSelect = [&](const SelectSetting& setting, std::vector<std::string> path) -> std::unique_ptr<Node> {
       return factory.makeSelect(setting, std::move(path));
@@ -1138,7 +1145,7 @@ namespace settings {
           [&](const auto& control) -> std::unique_ptr<Node> {
             using T = std::decay_t<decltype(control)>;
             if constexpr (std::is_same_v<T, ToggleSetting>) {
-              return makeToggle(control.checked, control.enabled, entry.path);
+              return makeToggle(control.checked, control.enabled, entry.path, std::nullopt, control.customCommit);
             } else if constexpr (std::is_same_v<T, SelectSetting>) {
               return makeSelect(control, entry.path);
             } else if constexpr (std::is_same_v<T, SliderSetting>) {

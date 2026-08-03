@@ -1453,7 +1453,7 @@ namespace settings {
           if (const auto* defaultBool = std::get_if<bool>(&spec.schema.defaultValue)) {
             clearWhenValue = *defaultBool;
           }
-          ctx.makeRow(*panel, entry, ctx.makeToggle(settingValueAsBool(value), path, clearWhenValue));
+          ctx.makeRow(*panel, entry, ctx.makeToggle(settingValueAsBool(value), true, path, clearWhenValue, {}));
           break;
         }
         case WidgetControlKind::Int: {

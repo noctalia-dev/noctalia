@@ -80,6 +80,8 @@ public:
   void setFrameTickCallback(FrameTickCallback callback);
   void setInputRegion(const std::vector<InputRect>& rects);
   void setBlurRegion(const std::vector<InputRect>& rects);
+  void setOpaqueRegion(const std::vector<InputRect>& rects);
+  void clearOpaqueRegion();
   void clearBlurRegion();
   void setDebugName(std::string name);
 

@@ -1370,6 +1370,10 @@
           "soft": "Soft",
           "solid": "Solid"
         },
+        "settings-window-background": {
+          "opaque": "Opaque",
+          "translucent": "Translucent"
+        },
         "password-style": {
           "filled-circles": "Filled Circles",
           "random-icons": "Random Icons"
@@ -2963,6 +2967,10 @@
         "screenshot-show-cursor": {
           "description": "Include the mouse pointer in screenshots",
           "label": "Show Cursor"
+        },
+        "settings-window-background": {
+          "description": "Enable translucent background with blur effect",
+          "label": "Settings Window Background"
         },
         "show-location": {
           "description": "Show location name in weather widgets",

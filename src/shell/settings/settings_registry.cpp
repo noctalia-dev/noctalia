@@ -1700,6 +1700,23 @@ namespace settings {
         "image picture"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Shell, "general", tr("settings.schema.shell.settings-window-background.label"),
+        tr("settings.schema.shell.settings-window-background.description"), {"shell", "settings_window_background"},
+        ToggleSetting{
+            .checked = cfg.shell.settingsWindowBackground == SettingsWindowBackground::Translucent,
+            .enabled = true,
+            .customCommit =
+                [](bool checked) {
+                  return std::vector<std::pair<std::vector<std::string>, ConfigOverrideValue>>{
+                      {{"shell", "settings_window_background"},
+                       checked ? ConfigOverrideValue{std::string("translucent")}
+                               : ConfigOverrideValue{std::string("opaque")}}
+                  };
+                }
+        },
+        "settings window background transparency translucent opaque blur"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Shell, "general", tr("settings.schema.shell.time-format.label"),
         tr("settings.schema.shell.time-format.description"), {"shell", "time_format"},
         TextSetting{.value = cfg.shell.timeFormat, .placeholder = "{:%H:%M}", .browseFileExtensions = {}},

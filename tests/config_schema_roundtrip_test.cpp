@@ -470,6 +470,7 @@ location = "https://example.invalid/bad"
     c.storage.keySource = StorageKeySource::File;
     c.storage.keyFile = "/run/agenix/noctalia-storage-key";
     c.shell.avatarPath = "/home/u/face.png";
+    c.shell.settingsWindowBackground = SettingsWindowBackground::Opaque;
     c.shell.animation.speed = 1.5f;
     c.shell.shadow.direction = ShadowDirection::UpLeft;
     c.shell.panel.transparencyMode = PanelTransparencyMode::Glass;

@@ -149,6 +149,9 @@ namespace {
     if (path.size() >= 2 && path[0] == "shell" && path[1] == "greeter_sync") {
       return true;
     }
+    if (path.size() >= 2 && path[0] == "shell" && path[1] == "settings_window_background") {
+      return true;
+    }
     return false;
   }
 
@@ -2060,17 +2063,40 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
     m_sceneRoot->setPopupContext(m_selectPopup.get());
   }
 
+  const float bgOpacity = cfg.shell.settingsWindowBackground == SettingsWindowBackground::Translucent
+      ? (cfg.shell.panel.transparencyMode == PanelTransparencyMode::Soft ? 0.75f : 0.55f)
+      : 1.0f;
+
   auto bg = ui::box({
       .width = w,
       .height = h,
-      .configure = [](Box& box) {
+      .configure = [bgOpacity](Box& box) {
         box.setPanelStyle();
         box.setRadius(0.0f);
         box.setBorder(clearColor(), 0);
         box.setPosition(0.0f, 0.0f);
+        box.setFill(colorSpecFromRole(ColorRole::Surface, bgOpacity));
       },
   });
   m_panelBackground = static_cast<Box*>(m_sceneRoot->addChild(std::move(bg)));
+
+  if (m_surface != nullptr) {
+    if (cfg.shell.settingsWindowBackground == SettingsWindowBackground::Translucent) {
+      m_surface->setBlurRegion(
+          Surface::tessellateShape(
+              0, 0, static_cast<int>(std::lround(w)), static_cast<int>(std::lround(h)), {}, {}, Radii{0, 0, 0, 0}
+          )
+      );
+      m_surface->clearOpaqueRegion();
+    } else {
+      m_surface->clearBlurRegion();
+      m_surface->setOpaqueRegion(
+          Surface::tessellateRoundedRect(
+              0, 0, static_cast<int>(std::lround(w)), static_cast<int>(std::lround(h)), Style::scaledRadiusXl()
+          )
+      );
+    }
+  }
   logSettingsProfile("buildScene sceneRoot", phaseProfileWatch);
   phaseProfileWatch.reset();
 

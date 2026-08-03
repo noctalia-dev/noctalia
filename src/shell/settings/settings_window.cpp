@@ -658,6 +658,36 @@ void SettingsWindow::prepareFrame(bool /*needsUpdate*/, bool needsLayout) {
     if (m_mainContainer != nullptr) {
       m_mainContainer->setSize(w, h);
     }
+    if ((sizeChanged || m_contentRebuildRequested) && m_surface != nullptr) {
+      const Config fallbackCfg{};
+      const Config& cfg = m_config != nullptr ? m_config->config() : fallbackCfg;
+      if (cfg.shell.settingsWindowBackground == SettingsWindowBackground::Translucent) {
+        m_surface->setBlurRegion(
+            Surface::tessellateShape(0, 0, static_cast<int>(width), static_cast<int>(height), {}, {}, Radii{0, 0, 0, 0})
+        );
+        m_surface->clearOpaqueRegion();
+        if (m_panelBackground != nullptr) {
+          const float bgOpacity = cfg.shell.panel.transparencyMode == PanelTransparencyMode::Soft ? 0.75f : 0.55f;
+          m_panelBackground->setFill(colorSpecFromRole(ColorRole::Surface, bgOpacity));
+        }
+        if (m_sidebarScrollView != nullptr) {
+          m_sidebarScrollView->setFill(clearColorSpec());
+        }
+      } else {
+        m_surface->clearBlurRegion();
+        m_surface->setOpaqueRegion(
+            Surface::tessellateRoundedRect(
+                0, 0, static_cast<int>(std::lround(w)), static_cast<int>(std::lround(h)), Style::scaledRadiusXl()
+            )
+        );
+        if (m_panelBackground != nullptr) {
+          m_panelBackground->setFill(colorSpecFromRole(ColorRole::Surface, 1.0f));
+        }
+        if (m_sidebarScrollView != nullptr) {
+          m_sidebarScrollView->setFill(colorSpecFromRole(ColorRole::Surface));
+        }
+      }
+    }
     if (m_contentRebuildRequested) {
       m_inputDispatcher.stashTabFocus();
       if (m_settingsRegistryRefreshRequested) {

@@ -16,7 +16,10 @@ namespace {
 
   bool settingPathNeedsSceneRebuild(const std::vector<std::string>& path) {
     if (path.size() == 2 && path[0] == "shell") {
-      return path[1] == "corner_radius_scale" || path[1] == "font_family" || path[1] == "lang";
+      return path[1] == "corner_radius_scale"
+          || path[1] == "font_family"
+          || path[1] == "lang"
+          || path[1] == "settings_window_background";
     }
     if (path.size() == 2 && path[0] == "accessibility") {
       return path[1] == "ui_scale";
