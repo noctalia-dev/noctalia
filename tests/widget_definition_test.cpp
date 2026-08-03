@@ -1,6 +1,7 @@
 // Every typed widget definition validates itself lazily: `field()` and `WidgetDefinition::validate()`
 // throw std::logic_error on the first resolve()/schemaFields() call, and WidgetFactory::create() does
 // not catch. Without this test a malformed definition ships as an uncaught exception at bar build.
+#include "fontconfig/fontconfig.h"
 #include "shell/bar/widget_gesture_defaults.h"
 #include "shell/bar/widgets/active_window_widget_definition.h"
 #include "shell/bar/widgets/audio_visualizer_widget_definition.h"
@@ -261,6 +262,7 @@ int main() {
   }
   checkDefinition("wallpaper", wallpaperWidgetDefinition);
   checkDefinition("weather", weatherWidgetDefinition);
+  FcFini();
 
   return g_ok ? 0 : 1;
 }
