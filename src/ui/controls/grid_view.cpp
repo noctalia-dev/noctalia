@@ -72,7 +72,7 @@ void GridView::setSquareGridShrinkWrap(bool shrinkWrap) {
 }
 
 void GridView::setMinCellWidth(float width) {
-  const float normalized = std::max(0.0f, width);
+  const float normalized = std::max(0.0F, width);
   if (m_minCellWidth == normalized) {
     return;
   }
@@ -81,7 +81,7 @@ void GridView::setMinCellWidth(float width) {
 }
 
 void GridView::setMinCellHeight(float height) {
-  const float normalized = std::max(0.0f, height);
+  const float normalized = std::max(0.0F, height);
   if (m_minCellHeight == normalized) {
     return;
   }
@@ -103,7 +103,7 @@ LayoutSize GridView::doMeasure(Renderer& renderer, const LayoutConstraints& cons
     useW = constraints.maxWidth;
   } else if (m_squareCells && m_stretchItems && m_squareGridShrinkWrap && constraints.hasExactHeight()) {
     // Intrinsic width from square row height (shrink-wrapped square grid only).
-    useW = 0.0f;
+    useW = 0.0F;
   }
   float useH = height();
   if (constraints.hasExactHeight()) {
@@ -139,25 +139,25 @@ void GridView::doLayout(Renderer& renderer) {
   const std::size_t columns = std::min(m_columns, std::max<std::size_t>(1, visibleChildren.size()));
   const std::size_t rows = (visibleChildren.size() + columns - 1) / columns;
 
-  const bool hasFixedWidth = width() > 0.0f;
-  const bool hasFixedHeight = height() > 0.0f;
+  const bool hasFixedWidth = width() > 0.0F;
+  const bool hasFixedHeight = height() > 0.0F;
   const float fixedWidth = width();
   const float fixedHeight = height();
 
-  std::vector<float> columnWidths(columns, 0.0f);
-  std::vector<float> rowHeights(rows, 0.0f);
+  std::vector<float> columnWidths(columns, 0.0F);
+  std::vector<float> rowHeights(rows, 0.0F);
 
-  float stretchedWidth = 0.0f;
+  float stretchedWidth = 0.0F;
   if (hasFixedWidth && m_stretchItems && columns > 0) {
     const float innerWidth =
-        std::max(0.0f, fixedWidth - m_paddingLeft - m_paddingRight - m_columnGap * static_cast<float>(columns - 1));
+        std::max(0.0F, fixedWidth - m_paddingLeft - m_paddingRight - m_columnGap * static_cast<float>(columns - 1));
     stretchedWidth = innerWidth / static_cast<float>(columns);
   }
 
   if (m_uniformCellSize) {
     // Pass 1: measure natural child sizes without imposed cell width.
-    float maxMeasuredWidth = 0.0f;
-    float maxMeasuredHeight = 0.0f;
+    float maxMeasuredWidth = 0.0F;
+    float maxMeasuredHeight = 0.0F;
     for (Node* child : visibleChildren) {
       child->layout(renderer);
       maxMeasuredWidth = std::max(maxMeasuredWidth, child->width());
@@ -170,12 +170,12 @@ void GridView::doLayout(Renderer& renderer) {
     const bool squarePack = m_squareCells && m_stretchItems && columns > 0 && rows > 0 && hasFixedHeight;
     if (squarePack) {
       const float innerHeight = std::max(
-          0.0f, fixedHeight - m_paddingTop - m_paddingBottom - m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0)
+          0.0F, fixedHeight - m_paddingTop - m_paddingBottom - m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0)
       );
       const float slotH = innerHeight / static_cast<float>(rows);
       if (hasFixedWidth) {
         const float innerWidth =
-            std::max(0.0f, fixedWidth - m_paddingLeft - m_paddingRight - m_columnGap * static_cast<float>(columns - 1));
+            std::max(0.0F, fixedWidth - m_paddingLeft - m_paddingRight - m_columnGap * static_cast<float>(columns - 1));
         const float slotW = innerWidth / static_cast<float>(columns);
         uniformWidth = uniformHeight = std::min(slotW, slotH);
       } else {
@@ -185,14 +185,14 @@ void GridView::doLayout(Renderer& renderer) {
     } else {
       if (hasFixedWidth && columns > 0) {
         const float innerWidth =
-            std::max(0.0f, fixedWidth - m_paddingLeft - m_paddingRight - m_columnGap * static_cast<float>(columns - 1));
+            std::max(0.0F, fixedWidth - m_paddingLeft - m_paddingRight - m_columnGap * static_cast<float>(columns - 1));
         const float slotW = innerWidth / static_cast<float>(columns);
         if (m_stretchItems) {
           uniformWidth = slotW;
         } else {
           uniformWidth = std::max({uniformWidth, m_minCellWidth, slotW});
         }
-      } else if (hasFixedWidth && m_stretchItems && stretchedWidth > 0.0f) {
+      } else if (hasFixedWidth && m_stretchItems && stretchedWidth > 0.0F) {
         uniformWidth = std::max(uniformWidth, stretchedWidth);
       } else {
         uniformWidth = std::max(uniformWidth, m_minCellWidth);
@@ -200,7 +200,7 @@ void GridView::doLayout(Renderer& renderer) {
 
       if (hasFixedHeight && rows > 0) {
         const float innerHeight = std::max(
-            0.0f, fixedHeight - m_paddingTop - m_paddingBottom - m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0)
+            0.0F, fixedHeight - m_paddingTop - m_paddingBottom - m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0)
         );
         const float slotH = innerHeight / static_cast<float>(rows);
         if (m_stretchItems) {
@@ -232,7 +232,7 @@ void GridView::doLayout(Renderer& renderer) {
     const bool lastItemSpans = m_spanLastItem && lastCol + 1 < columns;
     const std::size_t lastColSpan = lastItemSpans ? columns - lastCol : 1;
     const bool stretchToFixedWidth = hasFixedWidth && m_stretchItems;
-    float lastItemNaturalWidth = 0.0f;
+    float lastItemNaturalWidth = 0.0F;
 
     // Measure first so every column width is final before a spanning child is arranged.
     for (std::size_t index = 0; index < visibleChildren.size(); ++index) {
@@ -261,7 +261,7 @@ void GridView::doLayout(Renderer& renderer) {
       if (lastItemSpans) {
         const auto spanBegin = columnWidths.begin() + static_cast<std::ptrdiff_t>(lastCol);
         const float currentSpanWidth =
-            std::accumulate(spanBegin, columnWidths.end(), 0.0f) + static_cast<float>(lastColSpan - 1) * m_columnGap;
+            std::accumulate(spanBegin, columnWidths.end(), 0.0F) + static_cast<float>(lastColSpan - 1) * m_columnGap;
         if (lastItemNaturalWidth > currentSpanWidth) {
           const float extraPerColumn = (lastItemNaturalWidth - currentSpanWidth) / static_cast<float>(lastColSpan);
           for (std::size_t col = lastCol; col < columns; ++col) {
@@ -286,19 +286,19 @@ void GridView::doLayout(Renderer& renderer) {
       const std::size_t colSpan = spans ? lastColSpan : 1;
       const auto spanBegin = columnWidths.begin() + static_cast<std::ptrdiff_t>(col);
       const auto spanEnd = spanBegin + static_cast<std::ptrdiff_t>(colSpan);
-      const float itemWidth = std::accumulate(spanBegin, spanEnd, 0.0f) + static_cast<float>(colSpan - 1) * m_columnGap;
+      const float itemWidth = std::accumulate(spanBegin, spanEnd, 0.0F) + static_cast<float>(colSpan - 1) * m_columnGap;
       layoutWithAssignedSize(child, itemWidth, child->height());
     }
   }
 
   const float contentWidth = std::max(
-      0.0f,
-      std::accumulate(columnWidths.begin(), columnWidths.end(), 0.0f)
+      0.0F,
+      std::accumulate(columnWidths.begin(), columnWidths.end(), 0.0F)
           + m_columnGap * static_cast<float>(columns > 0 ? columns - 1 : 0)
   );
   const float contentHeight = std::max(
-      0.0f,
-      std::accumulate(rowHeights.begin(), rowHeights.end(), 0.0f)
+      0.0F,
+      std::accumulate(rowHeights.begin(), rowHeights.end(), 0.0F)
           + m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0)
   );
 
@@ -313,10 +313,10 @@ void GridView::doLayout(Renderer& renderer) {
   float originX = m_paddingLeft;
   float originY = m_paddingTop;
   if (tightSquare && hasFixedHeight && rows > 0) {
-    const float usedH = std::accumulate(rowHeights.begin(), rowHeights.end(), 0.0f)
+    const float usedH = std::accumulate(rowHeights.begin(), rowHeights.end(), 0.0F)
         + m_rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0);
-    const float availH = std::max(0.0f, fixedHeight - m_paddingTop - m_paddingBottom);
-    originY = m_paddingTop + std::max(0.0f, (availH - usedH) * 0.5f);
+    const float availH = std::max(0.0F, fixedHeight - m_paddingTop - m_paddingBottom);
+    originY = m_paddingTop + std::max(0.0F, (availH - usedH) * 0.5F);
   }
 
   std::vector<float> columnOffsets(columns, originX);

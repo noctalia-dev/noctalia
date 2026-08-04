@@ -10,8 +10,8 @@
 
 namespace {
 
-  constexpr float kDefaultRingSize = 64.0f;
-  constexpr float kDefaultThickness = 6.0f;
+  constexpr float kDefaultRingSize = 64.0F;
+  constexpr float kDefaultThickness = 6.0F;
 
 } // namespace
 
@@ -26,7 +26,7 @@ CountdownRing::CountdownRing() {
 
   auto secondsLabel = std::make_unique<Label>();
   secondsLabel->setFontWeight(FontWeight::Bold);
-  secondsLabel->setFontSize(kDefaultRingSize * 0.34f);
+  secondsLabel->setFontSize(kDefaultRingSize * 0.34F);
   secondsLabel->setTextAlign(TextAlign::Center);
   secondsLabel->setBaselineMode(LabelBaselineMode::Text);
   secondsLabel->setParticipatesInLayout(false);
@@ -43,12 +43,12 @@ CountdownRing::CountdownRing() {
 }
 
 void CountdownRing::setRingSize(float size) {
-  m_ringSize = std::max(16.0f, size);
+  m_ringSize = std::max(16.0F, size);
   markLayoutDirty();
 }
 
 void CountdownRing::setThickness(float thickness) {
-  m_thickness = std::max(2.0f, thickness);
+  m_thickness = std::max(2.0F, thickness);
   if (m_ringNode != nullptr) {
     m_ringNode->setThickness(m_thickness);
   }
@@ -56,7 +56,7 @@ void CountdownRing::setThickness(float thickness) {
 }
 
 void CountdownRing::setFontSize(float size) {
-  m_fontSize = std::max(8.0f, size);
+  m_fontSize = std::max(8.0F, size);
   if (m_secondsLabel != nullptr) {
     m_secondsLabel->setFontSize(m_fontSize);
   }
@@ -108,8 +108,8 @@ void CountdownRing::doLayout(Renderer& renderer) {
   m_secondsLabel->measure(renderer);
   const float labelW = m_secondsLabel->width();
   const float labelH = m_secondsLabel->height();
-  const float labelX = (m_ringSize - labelW) * 0.5f;
-  const float labelY = (m_ringSize - labelH) * 0.5f;
+  const float labelX = (m_ringSize - labelW) * 0.5F;
+  const float labelY = (m_ringSize - labelH) * 0.5F;
   m_secondsLabel->setPosition(labelX, labelY);
   m_secondsLabel->setFrameSize(labelW, labelH);
 }
@@ -118,6 +118,6 @@ void CountdownRing::syncGeometry() {
   setSize(m_ringSize, m_ringSize);
   if (m_ringNode != nullptr) {
     m_ringNode->setFrameSize(m_ringSize, m_ringSize);
-    m_ringNode->setPosition(0.0f, 0.0f);
+    m_ringNode->setPosition(0.0F, 0.0F);
   }
 }

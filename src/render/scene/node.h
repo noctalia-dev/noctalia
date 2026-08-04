@@ -33,29 +33,29 @@ enum class NodeInvalidation : std::uint8_t {
 };
 
 struct LayoutSize {
-  float width = 0.0f;
-  float height = 0.0f;
+  float width = 0.0F;
+  float height = 0.0F;
 };
 
 struct LayoutRect {
-  float x = 0.0f;
-  float y = 0.0f;
-  float width = 0.0f;
-  float height = 0.0f;
+  float x = 0.0F;
+  float y = 0.0F;
+  float width = 0.0F;
+  float height = 0.0F;
 };
 
 struct HitTestOutset {
-  float left = 0.0f;
-  float top = 0.0f;
-  float right = 0.0f;
-  float bottom = 0.0f;
+  float left = 0.0F;
+  float top = 0.0F;
+  float right = 0.0F;
+  float bottom = 0.0F;
 };
 
 struct LayoutConstraints {
-  float minWidth = 0.0f;
-  float minHeight = 0.0f;
-  float maxWidth = 0.0f;
-  float maxHeight = 0.0f;
+  float minWidth = 0.0F;
+  float minHeight = 0.0F;
+  float maxWidth = 0.0F;
+  float maxHeight = 0.0F;
   bool hasMaxWidth = false;
   bool hasMaxHeight = false;
 
@@ -106,10 +106,10 @@ public:
   [[nodiscard]] bool sizeAssignedByLayout() const noexcept { return m_sizeAssignedByLayout; }
   [[nodiscard]] bool arrangingByLayout() const noexcept { return m_arranging; }
   [[nodiscard]] float transformOriginX() const noexcept {
-    return m_hasTransformOrigin ? m_transformOriginX : m_width * 0.5f;
+    return m_hasTransformOrigin ? m_transformOriginX : m_width * 0.5F;
   }
   [[nodiscard]] float transformOriginY() const noexcept {
-    return m_hasTransformOrigin ? m_transformOriginY : m_height * 0.5f;
+    return m_hasTransformOrigin ? m_transformOriginY : m_height * 0.5F;
   }
   [[nodiscard]] std::int32_t zIndex() const noexcept { return m_zIndex; }
   [[nodiscard]] Node* parent() const noexcept { return m_parent; }
@@ -185,18 +185,18 @@ private:
   pointInsideNode(const Node* node, float sceneX, float sceneY, float& localX, float& localY, bool includeHitOutset);
   static Node* hitTestImpl(Node* node, float px, float py, bool allowOverflow, const Mat3& parentTransform);
   NodeType m_type;
-  float m_x = 0.0f;
-  float m_y = 0.0f;
-  float m_width = 0.0f;
-  float m_height = 0.0f;
-  float m_rotation = 0.0f;
-  float m_scaleX = 1.0f;
-  float m_scaleY = 1.0f;
-  float m_transformOriginX = 0.0f;
-  float m_transformOriginY = 0.0f;
+  float m_x = 0.0F;
+  float m_y = 0.0F;
+  float m_width = 0.0F;
+  float m_height = 0.0F;
+  float m_rotation = 0.0F;
+  float m_scaleX = 1.0F;
+  float m_scaleY = 1.0F;
+  float m_transformOriginX = 0.0F;
+  float m_transformOriginY = 0.0F;
   bool m_hasTransformOrigin = false;
-  float m_opacity = 1.0f;
-  float m_flexGrow = 0.0f;
+  float m_opacity = 1.0F;
+  float m_flexGrow = 0.0F;
   bool m_visible = true;
   bool m_participatesInLayout = true;
   bool m_paintDirty = true;

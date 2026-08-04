@@ -69,8 +69,8 @@ namespace settings {
           .padding = Style::spaceSm * scale,
           .configure = [scale](Flex& p) {
             p.setRadius(Style::scaledRadiusSm(scale));
-            p.setFill(colorSpecFromRole(ColorRole::Error, 0.10f));
-            p.setBorder(colorSpecFromRole(ColorRole::Error, 0.5f), Style::borderWidth);
+            p.setFill(colorSpecFromRole(ColorRole::Error, 0.10F));
+            p.setBorder(colorSpecFromRole(ColorRole::Error, 0.5F), Style::borderWidth);
           },
       });
       panel->addChild(makeLabel(
@@ -148,7 +148,7 @@ namespace settings {
       auto row = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true});
       Flex* r = row.get();
 
-      auto info = ui::column({.align = FlexAlign::Start, .gap = 2.0f * scale, .flexGrow = 1.0f});
+      auto info = ui::column({.align = FlexAlign::Start, .gap = 2.0F * scale, .flexGrow = 1.0F});
       info->addChild(makeLabel(
           pluginSourceDisplayName(source.name), Style::fontSizeBody * scale,
           source.enabled ? ColorRole::OnSurface : ColorRole::OnSurfaceVariant, FontWeight::Medium
@@ -202,7 +202,7 @@ namespace settings {
       return row;
     }
 
-    std::unique_ptr<Flex> makeRoleBadge(std::string_view label, ColorRole role, float scale, float fillAlpha = 0.15f) {
+    std::unique_ptr<Flex> makeRoleBadge(std::string_view label, ColorRole role, float scale, float fillAlpha = 0.15F) {
       return ui::row(
           {.align = FlexAlign::Center,
            .paddingH = Style::spaceXs * scale,
@@ -233,7 +233,7 @@ namespace settings {
           })
       );
 
-      auto info = ui::column({.align = FlexAlign::Start, .gap = 2.0f * scale, .flexGrow = 1.0f});
+      auto info = ui::column({.align = FlexAlign::Start, .gap = 2.0F * scale, .flexGrow = 1.0F});
       auto title = ui::row({.align = FlexAlign::Center, .gap = Style::spaceXs * scale});
       const std::string version = plugin.version.empty() ? std::string("?") : plugin.version;
       title->addChild(
@@ -343,7 +343,7 @@ namespace settings {
       if (busy) {
         r->addChild(
             ui::spinner({
-                .spinnerSize = Style::controlHeightSm * scale * 0.7f,
+                .spinnerSize = Style::controlHeightSm * scale * 0.7F,
                 .spinning = true,
             })
         );
@@ -541,7 +541,7 @@ namespace settings {
             TextSetting{
                 .value = valueAsString(value),
                 .placeholder = {},
-                .width = 190.0f,
+                .width = 190.0F,
                 .browseMode = spec.control == WidgetControlKind::Folder ? TextSettingBrowseMode::SelectFolder
                                                                         : TextSettingBrowseMode::OpenFile,
                 .browseFileExtensions = spec.extensions,
@@ -723,7 +723,7 @@ namespace settings {
       // Separate from the source list so the toggle doesn't read as another source.
       section->addChild(ui::separator({.spacing = Style::spaceSm * scale}));
       auto autoRow = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * scale, .fillWidth = true});
-      auto autoInfo = ui::column({.align = FlexAlign::Start, .gap = 2.0f * scale, .flexGrow = 1.0f});
+      auto autoInfo = ui::column({.align = FlexAlign::Start, .gap = 2.0F * scale, .flexGrow = 1.0F});
       autoInfo->addChild(makeLabel(
           i18n::tr("settings.plugins.sources.auto-update"), Style::fontSizeBody * scale, ColorRole::OnSurface,
           FontWeight::Medium

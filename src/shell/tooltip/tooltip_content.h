@@ -37,10 +37,10 @@ enum class TooltipPlacement : std::uint8_t {
 }
 
 struct TooltipAnchorInsets {
-  float top = 0.0f;
-  float right = 0.0f;
-  float bottom = 0.0f;
-  float left = 0.0f;
+  float top = 0.0F;
+  float right = 0.0F;
+  float bottom = 0.0F;
+  float left = 0.0F;
 };
 
 using TooltipContent = std::variant<std::monostate, std::string, std::vector<TooltipRow>>;

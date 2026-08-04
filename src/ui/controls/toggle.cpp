@@ -60,8 +60,8 @@ void Toggle::setChecked(bool checked) {
     if (m_animId != 0) {
       animationManager()->cancel(m_animId);
     }
-    float from = m_checked ? 0.0f : 1.0f;
-    float to = m_checked ? 1.0f : 0.0f;
+    float from = m_checked ? 0.0F : 1.0F;
+    float to = m_checked ? 1.0F : 0.0F;
     m_animId = animationManager()->animate(
         from, to, Style::animFast, Easing::EaseOutCubic, [this](float t) { applyAnimatedState(t); },
         [this]() { m_animId = 0; }, this
@@ -106,7 +106,7 @@ void Toggle::setToggleSize(ToggleSize size) {
 }
 
 void Toggle::setScale(float scale) {
-  m_scale = std::max(0.1f, scale);
+  m_scale = std::max(0.1F, scale);
   applySize();
   applyState();
   markLayoutDirty();
@@ -136,7 +136,7 @@ void Toggle::doLayout(Renderer& renderer) {
   Flex::doLayout(renderer);
 
   if (m_inputArea != nullptr) {
-    m_inputArea->setPosition(0.0f, 0.0f);
+    m_inputArea->setPosition(0.0F, 0.0F);
     m_inputArea->setFrameSize(width(), height());
   }
 }
@@ -167,10 +167,10 @@ void Toggle::applySize() {
   }
 
   m_thumb->setFrameSize(m_thumbSize, m_thumbSize);
-  setRadius((m_thumbSize + (m_inset * 2.0f)) * 0.5f);
+  setRadius((m_thumbSize + (m_inset * 2.0F)) * 0.5F);
 }
 
-void Toggle::applyState() { applyAnimatedState(m_checked ? 1.0f : 0.0f); }
+void Toggle::applyState() { applyAnimatedState(m_checked ? 1.0F : 0.0F); }
 
 void Toggle::applyAnimatedState(float t) {
   m_animationProgress = t;
@@ -195,9 +195,9 @@ void Toggle::applyAnimatedState(float t) {
 
   auto thumbStyle = m_thumb->style();
   thumbStyle.fillMode = FillMode::Solid;
-  thumbStyle.radius = m_thumbSize * 0.5f;
-  thumbStyle.softness = 1.0f;
-  thumbStyle.borderWidth = 0.0f;
+  thumbStyle.radius = m_thumbSize * 0.5F;
+  thumbStyle.softness = 1.0F;
+  thumbStyle.borderWidth = 0.0F;
   thumbStyle.fill = thumbColor;
   m_thumb->setStyle(thumbStyle);
 
@@ -206,8 +206,8 @@ void Toggle::applyAnimatedState(float t) {
   setPadding(m_inset, rightPad, m_inset, thumbX);
 
   if (m_enabled) {
-    setOpacity(1.0f);
+    setOpacity(1.0F);
   } else {
-    setOpacity(0.55f);
+    setOpacity(0.55F);
   }
 }

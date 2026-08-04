@@ -200,14 +200,14 @@ UPowerService::UPowerService(SystemBus& bus) : m_bus(bus) {
 
   if (SysUtils::isEnvFlagOn("NOCTALIA_DUMMY_BATTERY")) {
     m_dummyDevice = makeDummyBatteryDevice();
-    kLog.info("dummy battery enabled ({:.0f}% discharging)", m_dummyDevice->state.percentage);
+    kLog.info("dummy battery enabled ({:.0F}% discharging)", m_dummyDevice->state.percentage);
   }
 
   rescanDevices();
 
   if (m_state.isPresent) {
     kLog.info(
-        "battery {:.0f}% state={} ({})", m_state.percentage, static_cast<int>(m_state.state),
+        "battery {:.0F}% state={} ({})", m_state.percentage, static_cast<int>(m_state.state),
         m_state.onBattery ? "on battery" : "on AC"
     );
   } else {

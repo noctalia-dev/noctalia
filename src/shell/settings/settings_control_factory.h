@@ -64,7 +64,7 @@ namespace settings {
     makeRangeSlider(const RangeSliderSetting& setting, const std::vector<std::string>& lowPath);
 
     [[nodiscard]] std::unique_ptr<Input> makeText(
-        const std::string& value, const std::string& placeholder, std::vector<std::string> path, float width = 0.0f
+        const std::string& value, const std::string& placeholder, std::vector<std::string> path, float width = 0.0F
     );
 
     [[nodiscard]] std::unique_ptr<Node> makePathBrowse(const TextSetting& setting, std::vector<std::string> path);

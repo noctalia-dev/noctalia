@@ -18,7 +18,7 @@ namespace settings {
   struct SettingsStatusBannerProps {
     std::string message;
     bool error = false;
-    float scale = 1.0f;
+    float scale = 1.0F;
     std::function<void()> onDismiss;
     Flex** out = nullptr;
     Label** messageOut = nullptr;

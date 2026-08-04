@@ -97,7 +97,7 @@ private:
   ForecastView m_pendingForecastView = ForecastView::Daily;
   bool m_startForecastSlideIn = false;
   AnimationManager::Id m_forecastSlideAnimId = 0;
-  float m_forecastRowsBaseX = 0.0f;
-  float m_forecastRowsBaseY = 0.0f;
-  float m_shaderTime = 0.0f;
+  float m_forecastRowsBaseX = 0.0F;
+  float m_forecastRowsBaseY = 0.0F;
+  float m_shaderTime = 0.0F;
 };

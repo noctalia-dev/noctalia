@@ -50,7 +50,7 @@ private:
   std::string m_dragType;
   std::string m_payload;
   std::string m_tooltip;
-  float m_sourceOpacity = 1.0f;
+  float m_sourceOpacity = 1.0F;
   std::size_t m_previewAncestor = 0;
   bool m_enabled = true;
   bool m_dragging = false;

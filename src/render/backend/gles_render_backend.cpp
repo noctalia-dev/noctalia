@@ -30,8 +30,8 @@
 namespace {
 
   constexpr Logger kLog("render");
-  constexpr float kSlowRenderOperationDebugMs = 50.0f;
-  constexpr float kSlowRenderOperationWarnMs = 1000.0f;
+  constexpr float kSlowRenderOperationDebugMs = 50.0F;
+  constexpr float kSlowRenderOperationWarnMs = 1000.0F;
   bool g_backendInfoLogged = false;
 
   constexpr char kFullscreenVertexShader[] = R"(
@@ -292,7 +292,7 @@ bool GlesRenderBackend::makeCurrent(RenderTarget& target) {
     return false;
   }
   float ms = elapsedSince(start);
-  logSlowRenderOperation(ms, "eglMakeCurrent took {:.1f}ms", ms);
+  logSlowRenderOperation(ms, "eglMakeCurrent took {:.1F}ms", ms);
 
   // Non-blocking swap: pacing is driven by wl_surface.frame callbacks, not by
   // eglSwapBuffers. Default interval=1 can block indefinitely when the
@@ -300,7 +300,7 @@ bool GlesRenderBackend::makeCurrent(RenderTarget& target) {
   const auto intervalStart = std::chrono::steady_clock::now();
   eglSwapInterval(m_display, 0);
   ms = elapsedSince(intervalStart);
-  logSlowRenderOperation(ms, "eglSwapInterval(0) took {:.1f}ms", ms);
+  logSlowRenderOperation(ms, "eglSwapInterval(0) took {:.1F}ms", ms);
   return true;
 }
 
@@ -312,7 +312,7 @@ bool GlesRenderBackend::beginFrame(RenderTarget& target) {
   setViewport(target.bufferWidth(), target.bufferHeight());
   setBlendMode(RenderBlendMode::PremultipliedAlpha);
   disableScissor();
-  clear(rgba(0.0f, 0.0f, 0.0f, 0.0f));
+  clear(rgba(0.0F, 0.0F, 0.0F, 0.0F));
   return true;
 }
 
@@ -330,7 +330,7 @@ void GlesRenderBackend::endFrame(RenderTarget& target) {
   }
   const float ms = elapsedSince(swapStart);
   logSlowRenderOperation(
-      ms, "eglSwapBuffers took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms, target.logicalWidth(),
+      ms, "eglSwapBuffers took {:.1F}ms ({}x{} logical, {}x{} buffer)", ms, target.logicalWidth(),
       target.logicalHeight(), target.bufferWidth(), target.bufferHeight()
   );
 }
@@ -465,7 +465,7 @@ void GlesRenderBackend::drawFullscreenQuad(const ShaderProgram& program) {
   }
 
   static constexpr float kQuad[] = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
   glVertexAttribPointer(static_cast<GLuint>(posAttr), 2, GL_FLOAT, GL_FALSE, 0, kQuad);
   glEnableVertexAttribArray(static_cast<GLuint>(posAttr));
@@ -612,7 +612,7 @@ void GlesRenderBackend::drawFullscreenTexture(TextureId texture, bool flipY) {
   const GLint textureLoc = glGetUniformLocation(m_fullscreenTextureProgram.id(), "u_texture");
   const GLint flipLoc = glGetUniformLocation(m_fullscreenTextureProgram.id(), "u_flipY");
   glUniform1i(textureLoc, 0);
-  glUniform1f(flipLoc, flipY ? 1.0f : 0.0f);
+  glUniform1f(flipLoc, flipY ? 1.0F : 0.0F);
   drawFullscreenQuad(m_fullscreenTextureProgram);
 }
 

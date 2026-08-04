@@ -38,5 +38,5 @@ private:
   Signal<>::ScopedConnection m_paletteConn;
   std::uint32_t m_animId = 0;
   bool m_spinning = false;
-  float m_spinnerSize = 0.0f;
+  float m_spinnerSize = 0.0F;
 };

@@ -61,9 +61,9 @@ void BackdropSurface::render() {
 
   static constexpr int kBlurRounds = 3;
   const auto options = BackdropPostProcessOptions{
-      .blurRadius = m_blurIntensity * 40.0f,
+      .blurRadius = m_blurIntensity * 40.0F,
       .blurRounds = kBlurRounds,
-      .tintColor = rgba(m_tintR, m_tintG, m_tintB, 1.0f),
+      .tintColor = rgba(m_tintR, m_tintG, m_tintB, 1.0F),
       .tintIntensity = m_tintIntensity,
   };
 
@@ -111,7 +111,7 @@ void BackdropSurface::setTintColor(float r, float g, float b) noexcept {
 
 void BackdropSurface::setWallpaperState(TextureId tex, float imgW, float imgH, WallpaperFillMode fillMode) {
   m_wallpaperRenderer.setTransitionState(
-      tex, {}, imgW, imgH, 0.0f, 0.0f, 0.0f, WallpaperTransition::Fade, fillMode, TransitionParams{}
+      tex, {}, imgW, imgH, 0.0F, 0.0F, 0.0F, WallpaperTransition::Fade, fillMode, TransitionParams{}
   );
   m_layer.invalidate();
 }

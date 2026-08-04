@@ -17,7 +17,7 @@
 namespace {
 
   constexpr Logger kLog("desktop");
-  constexpr float kDefaultStickerSize = 200.0f;
+  constexpr float kDefaultStickerSize = 200.0F;
   constexpr int kMaxStickerGifFrames = 512;
   constexpr std::size_t kMaxStickerGifBytes = 96ULL * 1024 * 1024;
 
@@ -39,7 +39,7 @@ namespace {
 } // namespace
 
 DesktopStickerWidget::DesktopStickerWidget(std::string imagePath, float opacity)
-    : m_imagePath(std::move(imagePath)), m_opacity(std::clamp(opacity, 0.0f, 1.0f)) {}
+    : m_imagePath(std::move(imagePath)), m_opacity(std::clamp(opacity, 0.0F, 1.0F)) {}
 
 DesktopStickerWidget::~DesktopStickerWidget() { unloadFrames(); }
 
@@ -61,7 +61,7 @@ bool DesktopStickerWidget::applySetting(
 ) {
   if (key == "opacity") {
     if (const auto* v = std::get_if<double>(&value)) {
-      m_opacity = std::clamp(static_cast<float>(*v), 0.0f, 1.0f);
+      m_opacity = std::clamp(static_cast<float>(*v), 0.0F, 1.0F);
       if (root() != nullptr) {
         root()->setOpacity(m_opacity);
       }
@@ -98,7 +98,7 @@ void DesktopStickerWidget::doLayout(Renderer& renderer) {
 
   if (m_image->hasImage()) {
     const float ar = m_image->aspectRatio();
-    if (ar >= 1.0f) {
+    if (ar >= 1.0F) {
       height = baseSize / ar;
     } else {
       width = baseSize * ar;

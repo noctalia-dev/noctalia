@@ -67,9 +67,9 @@ private:
   int m_max = 100;
   int m_step = 1;
   int m_value = 0;
-  float m_surfaceOpacity = 1.0f;
+  float m_surfaceOpacity = 1.0F;
   bool m_enabled = true;
-  float m_scale = 1.0f;
+  float m_scale = 1.0F;
   int m_repeatDirection = 0;
   int m_repeatStartValue = 0;
   Timer m_repeatDelayTimer;

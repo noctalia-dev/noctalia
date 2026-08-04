@@ -105,12 +105,12 @@ public:
 
 private:
   TextureId m_textureId;
-  Color m_tint = {1.0f, 1.0f, 1.0f, 1.0f};
+  Color m_tint = {1.0F, 1.0F, 1.0F, 1.0F};
   bool m_monochromeTint = false;
   bool m_alphaMaskTint = false;
-  float m_radius = 0.0f;
-  Color m_borderColor = {0.0f, 0.0f, 0.0f, 0.0f};
-  float m_borderWidth = 0.0f;
+  float m_radius = 0.0F;
+  Color m_borderColor = {0.0F, 0.0F, 0.0F, 0.0F};
+  float m_borderWidth = 0.0F;
   ImageFitMode m_fitMode = ImageFitMode::Stretch;
   ImageScrim m_scrim{};
   int m_textureWidth = 0;

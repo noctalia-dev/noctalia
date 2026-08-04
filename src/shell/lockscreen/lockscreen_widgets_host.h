@@ -39,8 +39,8 @@ private:
     AnimationManager animations;
     Node* transformNode = nullptr;
     std::unique_ptr<DesktopWidget> widget;
-    float intrinsicWidth = 0.0f;
-    float intrinsicHeight = 0.0f;
+    float intrinsicWidth = 0.0F;
+    float intrinsicHeight = 0.0F;
   };
 
   void syncSurfaces(LockScreen& lockScreen);

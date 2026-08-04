@@ -31,11 +31,11 @@ private:
   OsdOverlay* m_overlay = nullptr;
   OsdKind m_currentKind = OsdKind::Volume; // what the visible OSD is showing, for live mute correction
   std::uint32_t m_lastSinkId = 0;
-  float m_lastSinkVolume = -1.0f;
+  float m_lastSinkVolume = -1.0F;
   int m_lastSinkPercent = -1;
   bool m_lastSinkMuted = false;
   std::uint32_t m_lastSourceId = 0;
-  float m_lastSourceVolume = -1.0f;
+  float m_lastSourceVolume = -1.0F;
   int m_lastSourcePercent = -1;
   bool m_lastSourceMuted = false;
   std::chrono::steady_clock::time_point m_suppressUntil;

@@ -49,12 +49,12 @@ namespace {
 
   // Golden rectangle oriented like the output: the constrained dimension takes the fraction,
   // the other follows phi. The fixed size is only used when output geometry is unknown.
-  constexpr float kWindowOutputFraction = 0.66f;
+  constexpr float kWindowOutputFraction = 0.66F;
   constexpr float kGoldenRatio = std::numbers::phi_v<float>;
-  constexpr float kWindowWidth = 1280.0f;
-  constexpr float kWindowHeight = 600.0f;
-  constexpr float kWindowMinWidth = 1020.0f;
-  constexpr float kWindowMinHeight = 500.0f;
+  constexpr float kWindowWidth = 1280.0F;
+  constexpr float kWindowHeight = 600.0F;
+  constexpr float kWindowMinWidth = 1020.0F;
+  constexpr float kWindowMinHeight = 500.0F;
 
   // How many frames to wait for the settings window to gain keyboard focus before opening a pending
   // editor sheet anyway (bounded so a never-focused window can't spin redraws forever).
@@ -145,7 +145,7 @@ namespace {
 
   void logSettingsProfile(std::string_view label, const SettingsProfileWatch& watch) {
     if (watch.active()) {
-      kLog.info("profile {}: {:.1f}ms", label, watch.elapsedMs());
+      kLog.info("profile {}: {:.1F}ms", label, watch.elapsedMs());
     }
   }
 
@@ -170,9 +170,9 @@ void SettingsWindow::initialize(
 
 float SettingsWindow::uiScale() const {
   if (m_config == nullptr) {
-    return 1.0f;
+    return 1.0F;
   }
-  return std::max(0.1f, m_config->config().accessibility.uiScale);
+  return std::max(0.1F, m_config->config().accessibility.uiScale);
 }
 
 bool SettingsWindow::headerDragRegionContains(float sceneX, float sceneY) const {
@@ -180,18 +180,18 @@ bool SettingsWindow::headerDragRegionContains(float sceneX, float sceneY) const 
     return false;
   }
 
-  float left = 0.0f;
-  float top = 0.0f;
-  float right = 0.0f;
-  float bottom = 0.0f;
+  float left = 0.0F;
+  float top = 0.0F;
+  float right = 0.0F;
+  float bottom = 0.0F;
   Node::transformedBounds(m_headerRow, left, top, right, bottom);
 
   const float sceneWidth = m_sceneRoot->width();
   const float sceneHeight = m_sceneRoot->height();
-  const float dragLeft = std::min(0.0f, left);
-  const float dragTop = std::min(0.0f, top);
+  const float dragLeft = std::min(0.0F, left);
+  const float dragTop = std::min(0.0F, top);
   const float dragRight = std::max(sceneWidth, right);
-  const float dragBottom = std::clamp(bottom, 0.0f, sceneHeight);
+  const float dragBottom = std::clamp(bottom, 0.0F, sceneHeight);
   return sceneX >= dragLeft && sceneX < dragRight && sceneY >= dragTop && sceneY < dragBottom;
 }
 
@@ -458,8 +458,8 @@ void SettingsWindow::openToBarWidget(std::string barName, std::string widgetName
   m_selectedMonitorOverride.clear();
   m_pendingOpenWidgetInspectorName = std::move(widgetName);
   m_pendingEditorOpenFrames = kPendingEditorOpenFrameBudget;
-  m_contentScrollState.offset = 0.0f;
-  m_sidebarScrollState.offset = 0.0f;
+  m_contentScrollState.offset = 0.0F;
+  m_sidebarScrollState.offset = 0.0F;
 
   const bool wasOpen = isOpen();
   open();
@@ -480,8 +480,8 @@ bool SettingsWindow::openToPlugin(std::string pluginId) {
   m_selectedSection = "plugins";
   m_pendingOpenPluginSettingsId = std::move(pluginId);
   m_pendingEditorOpenFrames = kPendingEditorOpenFrameBudget;
-  m_contentScrollState.offset = 0.0f;
-  m_sidebarScrollState.offset = 0.0f;
+  m_contentScrollState.offset = 0.0F;
+  m_sidebarScrollState.offset = 0.0F;
 
   const bool wasOpen = isOpen();
   open();

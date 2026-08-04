@@ -26,13 +26,13 @@ void GraphNode::setData(
 
   std::vector<std::uint8_t> pixels(static_cast<std::size_t>(newWidth) * 4, 0);
   for (int i = 0; i < newWidth; ++i) {
-    float r = (i < primaryCount) ? primary[i] : (primaryCount > 0 ? primary[primaryCount - 1] : 0.0f);
-    float g = (i < secondaryCount) ? secondary[i] : (secondaryCount > 0 ? secondary[secondaryCount - 1] : 0.0f);
-    float b = (i < tertiaryCount) ? tertiary[i] : (tertiaryCount > 0 ? tertiary[tertiaryCount - 1] : 0.0f);
+    float r = (i < primaryCount) ? primary[i] : (primaryCount > 0 ? primary[primaryCount - 1] : 0.0F);
+    float g = (i < secondaryCount) ? secondary[i] : (secondaryCount > 0 ? secondary[secondaryCount - 1] : 0.0F);
+    float b = (i < tertiaryCount) ? tertiary[i] : (tertiaryCount > 0 ? tertiary[tertiaryCount - 1] : 0.0F);
     const auto base = static_cast<std::size_t>(i) * 4;
-    pixels[base] = static_cast<std::uint8_t>(std::clamp(r, 0.0f, 1.0f) * 255.0f);
-    pixels[base + 1] = static_cast<std::uint8_t>(std::clamp(g, 0.0f, 1.0f) * 255.0f);
-    pixels[base + 2] = static_cast<std::uint8_t>(std::clamp(b, 0.0f, 1.0f) * 255.0f);
+    pixels[base] = static_cast<std::uint8_t>(std::clamp(r, 0.0F, 1.0F) * 255.0F);
+    pixels[base + 1] = static_cast<std::uint8_t>(std::clamp(g, 0.0F, 1.0F) * 255.0F);
+    pixels[base + 2] = static_cast<std::uint8_t>(std::clamp(b, 0.0F, 1.0F) * 255.0F);
     pixels[base + 3] = 255;
   }
   m_pixels = pixels;

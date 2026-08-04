@@ -218,7 +218,7 @@ void LockscreenWidgetsHost::createInstance(
     return;
   }
 
-  const float baseUiScale = m_config != nullptr ? m_config->config().accessibility.uiScale : 1.0f;
+  const float baseUiScale = m_config != nullptr ? m_config->config().accessibility.uiScale : 1.0F;
   auto widget = m_factory->create(state.type, state.settings, desktop_widgets::widgetContentScale(baseUiScale));
   if (widget == nullptr) {
     return;
@@ -233,8 +233,8 @@ void LockscreenWidgetsHost::createInstance(
     widget->layout(*m_renderContext);
   }
 
-  const float intrinsicWidth = std::max(1.0f, widget->intrinsicWidth());
-  const float intrinsicHeight = std::max(1.0f, widget->intrinsicHeight());
+  const float intrinsicWidth = std::max(1.0F, widget->intrinsicWidth());
+  const float intrinsicHeight = std::max(1.0F, widget->intrinsicHeight());
 
   DesktopWidgetState clampedState = state;
   desktop_widgets::clampStateToOutput(*m_wayland, clampedState, intrinsicWidth, intrinsicHeight);
@@ -361,13 +361,13 @@ void LockscreenWidgetsHost::prepareFrame(LockSurface& surface, bool needsUpdate,
 
   m_renderContext->makeCurrent(surface.renderTarget());
 
-  const float baseUiScale = m_config != nullptr ? m_config->config().accessibility.uiScale : 1.0f;
+  const float baseUiScale = m_config != nullptr ? m_config->config().accessibility.uiScale : 1.0F;
   const auto surfaceW = static_cast<float>(surface.width());
   const auto surfaceH = static_cast<float>(surface.height());
 
   Node* layer = surface.widgetLayer();
   if (layer != nullptr) {
-    layer->setPosition(0.0f, 0.0f);
+    layer->setPosition(0.0F, 0.0F);
     layer->setSize(surfaceW, surfaceH);
   }
 
@@ -384,8 +384,8 @@ void LockscreenWidgetsHost::prepareFrame(LockSurface& surface, bool needsUpdate,
     }
     if (needsLayout) {
       instance->widget->layout(*m_renderContext);
-      instance->intrinsicWidth = std::max(1.0f, instance->widget->intrinsicWidth());
-      instance->intrinsicHeight = std::max(1.0f, instance->widget->intrinsicHeight());
+      instance->intrinsicWidth = std::max(1.0F, instance->widget->intrinsicWidth());
+      instance->intrinsicHeight = std::max(1.0F, instance->widget->intrinsicHeight());
     }
 
     if (m_wayland != nullptr) {
@@ -405,11 +405,11 @@ void LockscreenWidgetsHost::prepareFrame(LockSurface& surface, bool needsUpdate,
 
     instance->transformNode->setFrameSize(instance->intrinsicWidth, instance->intrinsicHeight);
     instance->transformNode->setPosition(
-        instance->state.cx - instance->intrinsicWidth * 0.5f, instance->state.cy - instance->intrinsicHeight * 0.5f
+        instance->state.cx - instance->intrinsicWidth * 0.5F, instance->state.cy - instance->intrinsicHeight * 0.5F
     );
     instance->transformNode->setRotation(instance->state.rotationRad);
-    float flipScaleX = 1.0f;
-    float flipScaleY = 1.0f;
+    float flipScaleX = 1.0F;
+    float flipScaleY = 1.0F;
     desktop_widgets::widgetNodeScale(instance->state, flipScaleX, flipScaleY);
     instance->transformNode->setScale(flipScaleX, flipScaleY);
   }

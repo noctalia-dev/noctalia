@@ -43,7 +43,7 @@ void Box::setBorder(const Color& color, float width) { setBorder(fixedColorSpec(
 
 void Box::clearBorder() {
   m_border = clearColorSpec();
-  m_borderWidth = 0.0f;
+  m_borderWidth = 0.0F;
   m_resolveBorder = true;
   applyPalette();
 }
@@ -103,7 +103,7 @@ void Box::applyPalette() {
 void Box::setFlatStyle() {
   m_fill = colorSpecFromRole(ColorRole::Surface);
   m_border = colorSpecFromRole(ColorRole::Outline);
-  m_borderWidth = 0.0f;
+  m_borderWidth = 0.0F;
   m_resolveFill = true;
   m_resolveBorder = true;
   m_style.fill = resolveColorSpec(m_fill);
@@ -124,7 +124,7 @@ void Box::setPanelStyle(bool showBorder) {
     m_borderWidth = Style::borderWidth;
   } else {
     m_border = clearColorSpec();
-    m_borderWidth = 0.0f;
+    m_borderWidth = 0.0F;
   }
   m_resolveFill = true;
   m_resolveBorder = true;
@@ -135,7 +135,7 @@ void Box::setPanelStyle(bool showBorder) {
   m_style.corners = {};
   m_style.logicalInset = {};
   m_style.radius = Style::scaledRadiusXl();
-  m_style.softness = 1.0f;
+  m_style.softness = 1.0F;
   syncStyle();
 }
 

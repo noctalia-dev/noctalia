@@ -39,7 +39,7 @@ namespace settings {
   namespace {
     // Fixed-width slot so unit suffixes (%, °C, MB/s, s) left-align into one column across rows,
     // keeping every slider's value box at the same right edge.
-    constexpr float kSuffixSlotWidth = 36.0f;
+    constexpr float kSuffixSlotWidth = 36.0F;
 
     std::unique_ptr<Node> makeSuffixSlot(std::string suffix, float scale) {
       if (suffix.empty()) {
@@ -61,7 +61,7 @@ namespace settings {
     constexpr float kInvertSlotContentWidth = Style::fontSizeBody
         + Style::spaceXs
         + Style::toggleThumbSizeSm
-        + (2.0f * Style::toggleInsetSm)
+        + (2.0F * Style::toggleInsetSm)
         + Style::toggleTravelSm;
 
     // Leading slot carrying the concave-corner invert toggle: a corner glyph (labelling the toggle
@@ -215,7 +215,7 @@ namespace settings {
     const float scale = m_scale;
     return ui::row(
         {.align = FlexAlign::Center,
-         .paddingV = matchResetHeight ? Style::spaceXs * scale : 0.0f,
+         .paddingV = matchResetHeight ? Style::spaceXs * scale : 0.0F,
          .paddingH = matchResetHeight ? Style::spaceSm * scale : Style::spaceXs * scale,
          .fill = fill,
          .radius = Style::scaledRadiusSm(scale),
@@ -226,14 +226,14 @@ namespace settings {
 
   std::unique_ptr<Flex> SettingsControlFactory::makeOverrideBadge() {
     return makeStatusBadge(
-        i18n::tr("settings.badges.override"), colorSpecFromRole(ColorRole::Primary, 0.15f),
+        i18n::tr("settings.badges.override"), colorSpecFromRole(ColorRole::Primary, 0.15F),
         colorSpecFromRole(ColorRole::Primary), false
     );
   }
 
   std::unique_ptr<Flex> SettingsControlFactory::makeAdvancedBadge() {
     return makeStatusBadge(
-        i18n::tr("settings.badges.advanced"), colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.12f),
+        i18n::tr("settings.badges.advanced"), colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.12F),
         colorSpecFromRole(ColorRole::OnSurfaceVariant), false
     );
   }
@@ -272,18 +272,18 @@ namespace settings {
     }
     if (monitorExplicit) {
       titleRow->addChild(makeStatusBadge(
-          i18n::tr("settings.badges.monitor"), colorSpecFromRole(ColorRole::Secondary, 0.15f),
+          i18n::tr("settings.badges.monitor"), colorSpecFromRole(ColorRole::Secondary, 0.15F),
           colorSpecFromRole(ColorRole::Secondary), false
       ));
     } else if (monitorInherited) {
       titleRow->addChild(makeStatusBadge(
-          i18n::tr("settings.badges.inherited"), colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.12f),
+          i18n::tr("settings.badges.inherited"), colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.12F),
           colorSpecFromRole(ColorRole::OnSurfaceVariant), false
       ));
     }
     titleRow->addChild(ui::spacer());
 
-    ui::FlexProps copyProps{.align = FlexAlign::Start, .flexGrow = 1.0f};
+    ui::FlexProps copyProps{.align = FlexAlign::Start, .flexGrow = 1.0F};
     if (!isTemplateEnableTogglePath(entry.path)) {
       copyProps.gap = Style::spaceXs * scale;
     }
@@ -316,8 +316,8 @@ namespace settings {
         {.align = FlexAlign::Center,
          .justify = FlexJustify::SpaceBetween,
          .gap = Style::spaceXs * scale,
-         .paddingV = 2.0f * scale,
-         .paddingH = 0.0f,
+         .paddingV = 2.0F * scale,
+         .paddingH = 0.0F,
          .minHeight = Style::controlHeight * scale},
         std::move(copy), std::move(actions)
     );
@@ -403,7 +403,7 @@ namespace settings {
     const bool missingSelection = !selectedIndex.has_value();
     const bool unknownValue = missingSelection && !setting.selectedValue.empty();
     const bool clearSelection = unknownValue || (missingSelection && setting.allowEmptySelection);
-    const float selectWidth = setting.preferredWidth > 0.0f ? setting.preferredWidth : 190.0f;
+    const float selectWidth = setting.preferredWidth > 0.0F ? setting.preferredWidth : 190.0F;
     auto options = setting.options;
     const bool clearOnEmpty = setting.clearOnEmpty;
     const SelectValueType valueType = setting.valueType;
@@ -456,7 +456,7 @@ namespace settings {
         .fontSize = Style::fontSizeBody * scale,
         .contentAlign = ButtonContentAlign::Start,
         .variant = ButtonVariant::Default,
-        .minWidth = 190.0f * scale,
+        .minWidth = 190.0F * scale,
         .minHeight = Style::controlHeight * scale,
         .paddingV = Style::spaceSm * scale,
         .paddingH = Style::spaceMd * scale,
@@ -509,7 +509,7 @@ namespace settings {
         .fontSize = Style::fontSizeCaption * scale,
         .controlHeight = Style::controlHeightSm * scale,
         .horizontalPadding = Style::spaceXs * scale,
-        .width = 50.0f * scale,
+        .width = 50.0F * scale,
         .height = Style::controlHeightSm * scale,
     });
 
@@ -610,7 +610,7 @@ namespace settings {
           .fontSize = Style::fontSizeCaption * scale,
           .controlHeight = Style::controlHeightSm * scale,
           .horizontalPadding = Style::spaceXs * scale,
-          .width = 50.0f * scale,
+          .width = 50.0F * scale,
           .height = Style::controlHeightSm * scale,
       });
     };
@@ -823,7 +823,7 @@ namespace settings {
               .fontSize = Style::fontSizeBody * scale,
               .controlHeight = Style::controlHeight * scale,
               .horizontalPadding = Style::spaceSm * scale,
-              .width = 220.0f * scale,
+              .width = 220.0F * scale,
               .height = Style::controlHeight * scale,
               .onSubmit =
                   [setOverride = ctx.setOverride, clearOverride = ctx.clearOverride,
@@ -868,7 +868,7 @@ namespace settings {
   ) {
     auto& ctx = m_ctx;
     const float scale = m_scale;
-    const float inputWidth = (width > 0.0f ? width : 190.0f) * scale;
+    const float inputWidth = (width > 0.0F ? width : 190.0F) * scale;
     Input* inputPtr = nullptr;
     auto input = ui::input({
         .out = &inputPtr,
@@ -899,7 +899,7 @@ namespace settings {
 
   std::unique_ptr<Node>
   SettingsControlFactory::makePathBrowse(const TextSetting& setting, std::vector<std::string> path) {
-    auto input = makeText(setting.value, setting.placeholder, path, setting.width > 0.0f ? setting.width : 280.0f);
+    auto input = makeText(setting.value, setting.placeholder, path, setting.width > 0.0F ? setting.width : 280.0F);
     Input* inputPtr = input.get();
     const bool selectFolder = setting.browseMode == TextSettingBrowseMode::SelectFolder;
     const float scale = m_scale;
@@ -965,7 +965,7 @@ namespace settings {
         .fontSize = Style::fontSizeBody * scale,
         .controlHeight = Style::controlHeight * scale,
         .horizontalPadding = Style::spaceSm * scale,
-        .width = 190.0f * scale,
+        .width = 190.0F * scale,
         .height = Style::controlHeight * scale,
     });
     input->setOnChange([inputPtr](const std::string& /*text*/) { inputPtr->setInvalid(false); });
@@ -1070,7 +1070,7 @@ namespace settings {
         .fontSize = Style::fontSizeBody * scale,
         .controlHeight = Style::controlHeight * scale,
         .glyphSize = Style::fontSizeBody * scale,
-        .width = 190.0f * scale,
+        .width = 190.0F * scale,
     };
     return makeColorSpecSelect(
         std::move(options), [setOverride = ctx.setOverride, path](std::string value) { setOverride(path, value); },
@@ -1093,9 +1093,9 @@ namespace settings {
     ui::FlexProps blockProps{
         .align = FlexAlign::Stretch,
         .paddingV = Style::spaceXs * scale,
-        .paddingH = 0.0f,
+        .paddingH = 0.0F,
         .fillWidth = fillWidth ? std::optional<bool>{true} : std::nullopt,
-        .flexGrow = flexGrow ? std::optional<float>{1.0f} : std::nullopt,
+        .flexGrow = flexGrow ? std::optional<float>{1.0F} : std::nullopt,
     };
     if (!compactTitleDescription) {
       blockProps.gap = Style::spaceXs * scale;
@@ -1126,14 +1126,14 @@ namespace settings {
     ui::FlexProps copyProps{.align = FlexAlign::Start, .fillWidth = true};
     if (!compactTitleDescription) {
       copyProps.gap = Style::spaceXs * scale;
-      copyProps.flexGrow = 1.0f;
+      copyProps.flexGrow = 1.0F;
     }
     auto copy = ui::column(std::move(copyProps));
     copy->addChild(std::move(titleRow));
     if (!entry.subtitle.empty()) {
       auto subtitle = makeSettingSubtitleLabel(entry.subtitle, scale);
       if (compactTitleDescription) {
-        subtitle->setFlexGrow(1.0f);
+        subtitle->setFlexGrow(1.0F);
       }
       copy->addChild(std::move(subtitle));
     }
@@ -1250,7 +1250,7 @@ namespace settings {
               .text = key,
               .fontSize = Style::fontSizeBody * scale,
               .color = colorSpecFromRole(ColorRole::OnSurface),
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
           })
       );
       row->addChild(
@@ -1268,7 +1268,7 @@ namespace settings {
               .controlHeight = Style::controlHeight * scale,
               .horizontalPadding = Style::spaceSm * scale,
               .height = Style::controlHeight * scale,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
               .onSubmit = [setAndCommit, key](const std::string& newValue) { setAndCommit(key, newValue); },
               .submitOnFocusLoss = true,
           })
@@ -1303,7 +1303,7 @@ namespace settings {
               .controlHeight = Style::controlHeight * scale,
               .horizontalPadding = Style::spaceSm * scale,
               .height = Style::controlHeight * scale,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
               .onSubmit =
                   [removeAndCommit, setAndCommit, value, oldKey = key](const std::string& newKey) {
                     if (newKey.empty() || newKey == oldKey) {
@@ -1330,7 +1330,7 @@ namespace settings {
               .controlHeight = Style::controlHeight * scale,
               .horizontalPadding = Style::spaceSm * scale,
               .height = Style::controlHeight * scale,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
               .onSubmit = [setAndCommit, key](const std::string& newValue) { setAndCommit(key, newValue); },
               .submitOnFocusLoss = true,
           })
@@ -1367,7 +1367,7 @@ namespace settings {
             .controlHeight = Style::controlHeight * scale,
             .horizontalPadding = Style::spaceSm * scale,
             .height = Style::controlHeight * scale,
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         })
     );
     addRow->addChild(
@@ -1385,7 +1385,7 @@ namespace settings {
             .controlHeight = Style::controlHeight * scale,
             .horizontalPadding = Style::spaceSm * scale,
             .height = Style::controlHeight * scale,
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         })
     );
     addRow->addChild(

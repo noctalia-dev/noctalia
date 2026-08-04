@@ -52,15 +52,15 @@ void DebugIndicatorWidget::doLayout(Renderer& renderer, float containerWidth, fl
   m_label->setFontWeight(labelFontWeight());
 
   if (isVertical) {
-    m_glyph->setPosition(0.0f, 0.0f);
+    m_glyph->setPosition(0.0F, 0.0F);
     m_container->setSize(m_glyph->width(), m_glyph->height());
     return;
   }
 
   m_label->measure(renderer);
   const float rowHeight = std::max(m_glyph->height(), m_label->height());
-  m_glyph->setPosition(0.0f, (rowHeight - m_glyph->height()) * 0.5f);
-  m_label->setPosition(m_glyph->width() + gap, (rowHeight - m_label->height()) * 0.5f);
+  m_glyph->setPosition(0.0F, (rowHeight - m_glyph->height()) * 0.5F);
+  m_label->setPosition(m_glyph->width() + gap, (rowHeight - m_label->height()) * 0.5F);
   m_container->setSize(m_glyph->width() + gap + m_label->width(), rowHeight);
 }
 

@@ -26,12 +26,12 @@ namespace {
         .border = fill,
         .fillMode = FillMode::Solid,
         .radius = radius,
-        .softness = 1.0f,
-        .borderWidth = 0.0f,
+        .softness = 1.0F,
+        .borderWidth = 0.0F,
     };
   }
 
-  Color resolved(ColorRole role, float alpha = 1.0f) { return colorForRole(role, alpha); }
+  Color resolved(ColorRole role, float alpha = 1.0F) { return colorForRole(role, alpha); }
 
 } // namespace
 
@@ -233,19 +233,19 @@ void RangeSlider::setEnabled(bool enabled) {
 }
 
 void RangeSlider::setTrackHeight(float height) {
-  m_trackHeight = std::max(1.0f, height);
+  m_trackHeight = std::max(1.0F, height);
   updateGeometry();
   markLayoutDirty();
 }
 
 void RangeSlider::setThumbSize(float size) {
-  m_thumbSizePx = std::max(1.0f, size);
+  m_thumbSizePx = std::max(1.0F, size);
   updateGeometry();
   markLayoutDirty();
 }
 
 void RangeSlider::setControlHeight(float height) {
-  m_controlHeightPx = std::max(1.0f, height);
+  m_controlHeightPx = std::max(1.0F, height);
   updateGeometry();
   markLayoutDirty();
 }
@@ -270,41 +270,41 @@ LayoutSize RangeSlider::doMeasure(Renderer& renderer, const LayoutConstraints& c
 void RangeSlider::doArrange(Renderer& renderer, const LayoutRect& rect) { arrangeByLayout(renderer, rect); }
 
 void RangeSlider::updateGeometry() {
-  const float widthPx = width() > 0.0f ? width() : Style::sliderDefaultWidth;
+  const float widthPx = width() > 0.0F ? width() : Style::sliderDefaultWidth;
   const float heightPx = std::max({m_thumbSizePx, m_trackHeight, m_controlHeightPx});
   setSize(widthPx, heightPx);
 
-  const float trackY = (heightPx - m_trackHeight) * 0.5f;
+  const float trackY = (heightPx - m_trackHeight) * 0.5F;
   const float trackX = Style::sliderHorizontalPadding;
-  const float trackW = std::max(0.0f, widthPx - Style::sliderHorizontalPadding * 2.0f);
+  const float trackW = std::max(0.0F, widthPx - Style::sliderHorizontalPadding * 2.0F);
   const float lowX = trackX + normalized(m_low) * trackW;
   const float highX = trackX + normalized(m_high) * trackW;
-  const float thumbY = (heightPx - m_thumbSizePx) * 0.5f;
+  const float thumbY = (heightPx - m_thumbSizePx) * 0.5F;
 
   m_track->setPosition(trackX, trackY);
   m_track->setFrameSize(trackW, m_trackHeight);
 
   m_fill->setPosition(lowX, trackY);
-  m_fill->setFrameSize(std::max(0.0f, highX - lowX), m_trackHeight);
+  m_fill->setFrameSize(std::max(0.0F, highX - lowX), m_trackHeight);
 
   const float maxThumbX = trackX + trackW - m_thumbSizePx;
-  m_lowThumb->setPosition(util::clampOrdered(lowX - m_thumbSizePx * 0.5f, trackX, maxThumbX), thumbY);
+  m_lowThumb->setPosition(util::clampOrdered(lowX - m_thumbSizePx * 0.5F, trackX, maxThumbX), thumbY);
   m_lowThumb->setFrameSize(m_thumbSizePx, m_thumbSizePx);
-  m_highThumb->setPosition(util::clampOrdered(highX - m_thumbSizePx * 0.5f, trackX, maxThumbX), thumbY);
+  m_highThumb->setPosition(util::clampOrdered(highX - m_thumbSizePx * 0.5F, trackX, maxThumbX), thumbY);
   m_highThumb->setFrameSize(m_thumbSizePx, m_thumbSizePx);
 
-  m_inputArea->setPosition(0.0f, 0.0f);
+  m_inputArea->setPosition(0.0F, 0.0F);
   m_inputArea->setFrameSize(widthPx, heightPx);
 }
 
 void RangeSlider::updateFromLocalX(float x) {
-  const float widthPx = width() > 0.0f ? width() : Style::sliderDefaultWidth;
+  const float widthPx = width() > 0.0F ? width() : Style::sliderDefaultWidth;
   const float trackX = Style::sliderHorizontalPadding;
-  const float trackW = std::max(0.0f, widthPx - Style::sliderHorizontalPadding * 2.0f);
-  if (trackW <= 0.0f || m_activeThumb == ActiveThumb::None) {
+  const float trackW = std::max(0.0F, widthPx - Style::sliderHorizontalPadding * 2.0F);
+  if (trackW <= 0.0F || m_activeThumb == ActiveThumb::None) {
     return;
   }
-  const double t = static_cast<double>(std::clamp((x - trackX) / trackW, 0.0f, 1.0f));
+  const double t = static_cast<double>(std::clamp((x - trackX) / trackW, 0.0F, 1.0F));
   const double value = m_min + t * (m_max - m_min);
   if (m_activeThumb == ActiveThumb::Low) {
     setLowValue(value);
@@ -327,17 +327,17 @@ void RangeSlider::applyVisualState() {
 
   if (!m_enabled) {
     trackColor = resolved(ColorRole::Outline, Style::disabledOutlineAlpha);
-    fillColor = resolved(ColorRole::Primary, 0.5f);
+    fillColor = resolved(ColorRole::Primary, 0.5F);
   } else if (focused) {
     thumbBorder = resolveColorSpec(focusRingColorSpec());
   } else if (hovering) {
     thumbBorder = resolved(ColorRole::Hover);
   }
 
-  m_track->setStyle(solidStyle(trackColor, m_trackHeight * 0.5f));
-  m_fill->setStyle(solidStyle(fillColor, m_trackHeight * 0.5f));
+  m_track->setStyle(solidStyle(trackColor, m_trackHeight * 0.5F));
+  m_fill->setStyle(solidStyle(fillColor, m_trackHeight * 0.5F));
 
-  auto thumbStyle = solidStyle(thumbColor, m_thumbSizePx * 0.5f);
+  auto thumbStyle = solidStyle(thumbColor, m_thumbSizePx * 0.5F);
   thumbStyle.border = thumbBorder;
   thumbStyle.borderWidth = focused ? Style::focusRingWidth : Style::borderWidth;
   m_lowThumb->setStyle(thumbStyle);
@@ -357,15 +357,15 @@ void RangeSlider::applyVisualState() {
 
 float RangeSlider::normalized(double value) const noexcept {
   if (m_max <= m_min) {
-    return 0.0f;
+    return 0.0F;
   }
   return static_cast<float>(std::clamp((value - m_min) / (m_max - m_min), 0.0, 1.0));
 }
 
 float RangeSlider::thumbCenterX(double value) const noexcept {
-  const float widthPx = width() > 0.0f ? width() : Style::sliderDefaultWidth;
+  const float widthPx = width() > 0.0F ? width() : Style::sliderDefaultWidth;
   const float trackX = Style::sliderHorizontalPadding;
-  const float trackW = std::max(0.0f, widthPx - Style::sliderHorizontalPadding * 2.0f);
+  const float trackW = std::max(0.0F, widthPx - Style::sliderHorizontalPadding * 2.0F);
   return trackX + normalized(value) * trackW;
 }
 

@@ -167,7 +167,7 @@ namespace {
     if (!widget.hasSetting("scale")) {
       return;
     }
-    (void)resolveWidgetContentScale(1.0f, &widget, "widget." + std::string(widgetName) + ".scale");
+    (void)resolveWidgetContentScale(1.0F, &widget, "widget." + std::string(widgetName) + ".scale");
   }
 
   void validateWidgetSettings(std::string_view widgetName, const WidgetConfig& widget) {
@@ -252,10 +252,10 @@ namespace {
       widget.cy = static_cast<float>(*cy);
     }
     if (auto boxWidth = finiteDouble(widgetTable["box_width"])) {
-      widget.boxWidth = std::max(0.0f, static_cast<float>(*boxWidth));
+      widget.boxWidth = std::max(0.0F, static_cast<float>(*boxWidth));
     }
     if (auto boxHeight = finiteDouble(widgetTable["box_height"])) {
-      widget.boxHeight = std::max(0.0f, static_cast<float>(*boxHeight));
+      widget.boxHeight = std::max(0.0F, static_cast<float>(*boxHeight));
     }
     if (auto rotation = finiteDouble(widgetTable["rotation"])) {
       widget.rotationRad = static_cast<float>(*rotation);
@@ -677,10 +677,10 @@ void ConfigService::fireReloadCallbacks() {
     sub.callback();
     const double ms = one.elapsedMs();
     if (ms >= 0.5) {
-      kLog.info("reload[{}]: {:.1f} ms", sub.label.empty() ? std::format("#{}", i) : sub.label, ms);
+      kLog.info("reload[{}]: {:.1F} ms", sub.label.empty() ? std::format("#{}", i) : sub.label, ms);
     }
   }
-  kLog.info("reload: all subscribers {:.1f} ms", total.elapsedMs());
+  kLog.info("reload: all subscribers {:.1F} ms", total.elapsedMs());
 }
 
 bool ConfigService::shouldRunSetupWizard() const {
@@ -1048,13 +1048,13 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
       resolved.widgetCapsuleGroups = *ovr.widgetCapsuleGroups;
     }
     if (ovr.widgetCapsulePadding) {
-      resolved.widgetCapsulePadding = std::clamp(static_cast<float>(*ovr.widgetCapsulePadding), 0.0f, 48.0f);
+      resolved.widgetCapsulePadding = std::clamp(static_cast<float>(*ovr.widgetCapsulePadding), 0.0F, 48.0F);
     }
     if (ovr.widgetCapsuleRadius.has_value()) {
       resolved.widgetCapsuleRadius = std::clamp(*ovr.widgetCapsuleRadius, 0.0, 80.0);
     }
     if (ovr.widgetCapsuleOpacity) {
-      resolved.widgetCapsuleOpacity = std::clamp(static_cast<float>(*ovr.widgetCapsuleOpacity), 0.0f, 1.0f);
+      resolved.widgetCapsuleOpacity = std::clamp(static_cast<float>(*ovr.widgetCapsuleOpacity), 0.0F, 1.0F);
     }
     if (ovr.hoverHighlight) {
       resolved.hoverHighlight = *ovr.hoverHighlight;

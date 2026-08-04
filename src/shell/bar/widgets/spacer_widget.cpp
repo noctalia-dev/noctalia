@@ -8,7 +8,7 @@ SpacerWidget::SpacerWidget(bool verticalBar, Options options)
 
 void SpacerWidget::create() {
   auto spacer = ui::node({});
-  spacer->setSize(0.0f, 0.0f);
+  spacer->setSize(0.0F, 0.0F);
   spacer->setHitTestVisible(false);
   setRoot(std::move(spacer));
 }
@@ -16,6 +16,6 @@ void SpacerWidget::create() {
 void SpacerWidget::doLayout(Renderer& /*renderer*/, float /*containerWidth*/, float /*containerHeight*/) {
   if (root() != nullptr) {
     const float length = m_fixedLength * m_contentScale;
-    root()->setSize(m_verticalBar ? 0.0f : length, m_verticalBar ? length : 0.0f);
+    root()->setSize(m_verticalBar ? 0.0F : length, m_verticalBar ? length : 0.0F);
   }
 }

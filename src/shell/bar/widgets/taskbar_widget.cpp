@@ -41,8 +41,8 @@
 namespace {
 
   // Integer centering; optional odd spare pixel on the end side (right/bottom).
-  [[nodiscard]] float centeredOffset(float extent, float content, float inset = 0.0f, bool oddSpareOnEnd = true) {
-    const float inner = std::max(0.0f, extent - inset * 2.0f);
+  [[nodiscard]] float centeredOffset(float extent, float content, float inset = 0.0F, bool oddSpareOnEnd = true) {
+    const float inner = std::max(0.0F, extent - inset * 2.0F);
     const int innerPx = static_cast<int>(std::lround(inner));
     const int contentPx = static_cast<int>(std::lround(content));
     const int spare = std::max(0, innerPx - contentPx);
@@ -51,18 +51,18 @@ namespace {
   }
 
   struct ExternalBadgePosition {
-    float left = 0.0f;
-    float top = 0.0f;
+    float left = 0.0F;
+    float top = 0.0F;
   };
 
   [[nodiscard]] float externalBadgeMainStartInset(WorkspaceLabelPlacement placement, float badgeMain) {
     if (placement == WorkspaceLabelPlacement::Corner) {
-      return badgeMain * 0.2f;
+      return badgeMain * 0.2F;
     }
     if (placement == WorkspaceLabelPlacement::Centered) {
-      return badgeMain * 0.4f;
+      return badgeMain * 0.4F;
     }
-    return 0.0f;
+    return 0.0F;
   }
 
   [[nodiscard]] ExternalBadgePosition externalBadgePosition(
@@ -73,52 +73,52 @@ namespace {
       if (vertical) {
         return {centeredOffset(groupWidth, badgeWidth, outlineInset, false), std::round(outlineInset)};
       }
-      return {std::round(badgeWidth * -0.2f), 0.0f};
+      return {std::round(badgeWidth * -0.2F), 0.0F};
     }
     if (vertical) {
       return {centeredOffset(groupWidth, badgeWidth, outlineInset, false), std::round(outlineInset)};
     }
-    return {std::round(-badgeWidth * 0.4f), centeredOffset(groupHeight, badgeHeight, outlineInset, false)};
+    return {std::round(-badgeWidth * 0.4F), centeredOffset(groupHeight, badgeHeight, outlineInset, false)};
   }
 
   [[nodiscard]] float fitBadgeFontSize(
       Renderer& renderer, std::string_view label, float maxWidth, float maxHeight, float scale, FontWeight fontWeight
   ) {
     float fontSize = std::round(Style::fontSizeMini * scale);
-    const float minFontSize = std::round(8.0f * scale);
-    const float maxTextWidth = maxWidth * 0.82f;
-    const float maxTextHeight = maxHeight * 0.82f;
+    const float minFontSize = std::round(8.0F * scale);
+    const float maxTextWidth = maxWidth * 0.82F;
+    const float maxTextHeight = maxHeight * 0.82F;
     while (fontSize >= minFontSize) {
       const auto metrics = renderer.measureText(label, fontSize, fontWeight);
-      const float textWidth = std::max(0.0f, metrics.right - metrics.left);
-      const float textHeight = std::max(0.0f, metrics.bottom - metrics.top);
+      const float textWidth = std::max(0.0F, metrics.right - metrics.left);
+      const float textHeight = std::max(0.0F, metrics.bottom - metrics.top);
       if (textWidth <= maxTextWidth && textHeight <= maxTextHeight) {
         return fontSize;
       }
-      fontSize -= 1.0f;
+      fontSize -= 1.0F;
     }
     return minFontSize;
   }
 
   struct WorkspaceDiscSize {
-    float width = 0.0f;
-    float height = 0.0f;
+    float width = 0.0F;
+    float height = 0.0F;
   };
 
   [[nodiscard]] WorkspaceDiscSize measureWorkspaceDiscSize(
       Renderer& renderer, std::string_view label, float fontSize, float minHeight, float scale, FontWeight fontWeight
   ) {
     const auto metrics = renderer.measureText(label, fontSize, fontWeight);
-    const float textW = std::max(0.0f, metrics.right - metrics.left);
+    const float textW = std::max(0.0F, metrics.right - metrics.left);
     const float pad = Style::spaceXs * scale;
     WorkspaceDiscSize size{};
     size.height = minHeight;
-    size.width = std::round(std::max(minHeight, textW + pad * 2.0f));
+    size.width = std::round(std::max(minHeight, textW + pad * 2.0F));
     return size;
   }
 
   [[nodiscard]] WorkspaceDiscSize clampWorkspaceDiscToCrossLimit(WorkspaceDiscSize disc, float maxCross) {
-    if (maxCross <= 0.0f) {
+    if (maxCross <= 0.0F) {
       return disc;
     }
     const float limit = std::floor(maxCross);
@@ -171,27 +171,27 @@ namespace {
         return bar.capsuleThickness;
       }
     }
-    return 0.76f;
+    return 0.76F;
   }
 
   [[nodiscard]] float taskbarShellCross(float barCross, bool barCapsuleEnabled, float capsuleThickness) {
-    if (!barCapsuleEnabled || barCross <= 0.0f) {
+    if (!barCapsuleEnabled || barCross <= 0.0F) {
       return barCross;
     }
-    return std::max(1.0f, std::round(barCross * capsuleThickness));
+    return std::max(1.0F, std::round(barCross * capsuleThickness));
   }
 
   // Inner cross budget for workspace group capsules nested inside a bar widget capsule.
   [[nodiscard]] float taskbarGroupedCrossBudget(
       float shellCross, bool barCapsuleEnabled, bool workspaceGroupCapsule, bool barCapsuleBorder, float scale
   ) {
-    if (!barCapsuleEnabled || !workspaceGroupCapsule || shellCross <= 0.0f) {
+    if (!barCapsuleEnabled || !workspaceGroupCapsule || shellCross <= 0.0F) {
       return shellCross;
     }
-    const float outerBorder = barCapsuleBorder ? Style::borderWidth * scale : 0.0f;
+    const float outerBorder = barCapsuleBorder ? Style::borderWidth * scale : 0.0F;
     const float innerBorder = Style::borderWidth * scale;
-    const float nestGap = std::round(std::max(1.0f, Style::spaceXs * 0.25f * scale));
-    return std::max(0.0f, shellCross - 2.0f * (outerBorder + innerBorder + nestGap));
+    const float nestGap = std::round(std::max(1.0F, Style::spaceXs * 0.25F * scale));
+    return std::max(0.0F, shellCross - 2.0F * (outerBorder + innerBorder + nestGap));
   }
 
 } // namespace
@@ -611,8 +611,8 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     return;
   }
   float iconSize = std::round(Style::baseGlyphSize * m_contentScale);
-  float tilePadding = Style::spaceXs * 0.35f * m_contentScale;
-  float tileSize = std::round(iconSize + tilePadding * 2.0f);
+  float tilePadding = Style::spaceXs * 0.35F * m_contentScale;
+  float tileSize = std::round(iconSize + tilePadding * 2.0F);
   const float barCross = m_vertical ? m_containerWidth : m_containerHeight;
   const float capsuleThickness = barCapsuleThicknessFor(m_configService, m_barName);
   const bool barCapsule = barCapsuleSpec().enabled;
@@ -622,22 +622,22 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       m_contentScale
   );
   const float groupBorderInset = Style::borderWidth * m_contentScale;
-  const float groupOutlineInset = m_workspaceGroupCapsule ? groupBorderInset : 0.0f;
-  const float groupedCrossInner = crossExtent > 0.0f && m_groupByWorkspace && m_workspaceGroupCapsule
-      ? std::max(0.0f, crossExtent - groupBorderInset * 2.0f)
+  const float groupOutlineInset = m_workspaceGroupCapsule ? groupBorderInset : 0.0F;
+  const float groupedCrossInner = crossExtent > 0.0F && m_groupByWorkspace && m_workspaceGroupCapsule
+      ? std::max(0.0F, crossExtent - groupBorderInset * 2.0F)
       : crossExtent;
-  const float groupedMinPad = std::round(std::max(1.0f, Style::spaceXs * 0.35f * m_contentScale));
+  const float groupedMinPad = std::round(std::max(1.0F, Style::spaceXs * 0.35F * m_contentScale));
   const float tileCrossLimit = m_groupByWorkspace && m_workspaceGroupCapsule
-      ? std::max(0.0f, groupedCrossInner - groupedMinPad * 2.0f)
+      ? std::max(0.0F, groupedCrossInner - groupedMinPad * 2.0F)
       : crossExtent;
-  if (crossExtent > 0.0f && tileSize > tileCrossLimit + 0.5f) {
-    const float maxTile = std::max(0.0f, tileCrossLimit);
-    const float padCap = std::floor(std::max(0.0f, (maxTile - iconSize) * 0.5f));
+  if (crossExtent > 0.0F && tileSize > tileCrossLimit + 0.5F) {
+    const float maxTile = std::max(0.0F, tileCrossLimit);
+    const float padCap = std::floor(std::max(0.0F, (maxTile - iconSize) * 0.5F));
     tilePadding = std::min(tilePadding, padCap);
-    tileSize = std::round(iconSize + tilePadding * 2.0f);
-    if (tileSize > maxTile + 0.5f) {
-      iconSize = std::floor(std::max(0.0f, maxTile - tilePadding * 2.0f));
-      tileSize = std::round(iconSize + tilePadding * 2.0f);
+    tileSize = std::round(iconSize + tilePadding * 2.0F);
+    if (tileSize > maxTile + 0.5F) {
+      iconSize = std::floor(std::max(0.0F, maxTile - tilePadding * 2.0F));
+      tileSize = std::round(iconSize + tilePadding * 2.0F);
     }
   }
   const float tileGap = Style::spaceSm * m_contentScale;
@@ -656,9 +656,9 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
   const float minWindowTitleWidth = (metric.right - metric.left) * 2;
   const float windowTitleGap = Style::spaceXs * m_contentScale;
   const float windowTitleWidth =
-      std::min(m_windowTitleMaxWidth * m_contentScale, std::max(0.0f, maxTileWidth - tileSize - windowTitleGap));
+      std::min(m_windowTitleMaxWidth * m_contentScale, std::max(0.0F, maxTileWidth - tileSize - windowTitleGap));
   const bool showWindowTitle = m_showWindowTitle && windowTitleWidth > minWindowTitleWidth;
-  const float tileWidthWithTitle = tileSize + (showWindowTitle ? windowTitleWidth + windowTitleGap : 0.0f);
+  const float tileWidthWithTitle = tileSize + (showWindowTitle ? windowTitleWidth + windowTitleGap : 0.0F);
 
   auto attachHover = [this](InputArea& area, float width, float height) {
     auto hoverBox = ui::box({
@@ -671,19 +671,19 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     hoverBox->setVisible(false);
     auto* hoverBoxPtr = static_cast<Box*>(area.addChild(std::move(hoverBox)));
 
-    auto progress = std::make_shared<float>(0.0f);
+    auto progress = std::make_shared<float>(0.0F);
     area.setOnEnter([this, hoverBoxPtr, progress](const InputArea::PointerData&) {
       if (m_animations == nullptr)
         return;
       m_animations->cancelForOwner(hoverBoxPtr);
       const ColorSpec fill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
       m_animations->animate(
-          *progress, 1.0f, Style::animFast, Easing::EaseOutCubic,
+          *progress, 1.0F, Style::animFast, Easing::EaseOutCubic,
           [this, hoverBoxPtr, fill, progress](float p) {
             *progress = p;
-            hoverBoxPtr->setVisible(p > 0.001f);
+            hoverBoxPtr->setVisible(p > 0.001F);
             ColorSpec c = fill;
-            c.alpha = 0.1f * p;
+            c.alpha = 0.1F * p;
             hoverBoxPtr->setFill(c);
             requestRedraw();
           },
@@ -697,12 +697,12 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       m_animations->cancelForOwner(hoverBoxPtr);
       const ColorSpec fill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
       m_animations->animate(
-          *progress, 0.0f, Style::animFast, Easing::EaseOutCubic,
+          *progress, 0.0F, Style::animFast, Easing::EaseOutCubic,
           [this, hoverBoxPtr, fill, progress](float p) {
             *progress = p;
-            hoverBoxPtr->setVisible(p > 0.001f);
+            hoverBoxPtr->setVisible(p > 0.001F);
             ColorSpec c = fill;
-            c.alpha = 0.1f * p;
+            c.alpha = 0.1F * p;
             hoverBoxPtr->setFill(c);
             requestRedraw();
           },
@@ -875,14 +875,14 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
 
     if (badgeCount > 1) {
       const std::size_t dotCount = badgeCount >= 4 ? 3U : (badgeCount == 3 ? 2U : 1U);
-      const float dotSize = std::round(std::max(2.0f, Style::baseGlyphSize * 0.16f * m_contentScale));
-      const float dotGap = std::round(std::max(1.0f, dotSize * 0.55f));
+      const float dotSize = std::round(std::max(2.0F, Style::baseGlyphSize * 0.16F * m_contentScale));
+      const float dotGap = std::round(std::max(1.0F, dotSize * 0.55F));
       const float runHeight =
           dotSize * static_cast<float>(dotCount) + dotGap * static_cast<float>(dotCount > 0 ? dotCount - 1 : 0);
-      const float iconRightInset = std::round(std::max(1.0f, iconSize * 0.08f));
+      const float iconRightInset = std::round(std::max(1.0F, iconSize * 0.08F));
       const float dotX = std::round(centeredOffset(tileSize, iconSize) + iconSize - dotSize - iconRightInset);
-      const float startY = std::round(centeredOffset(tileSize, iconSize) + (iconSize - runHeight) * 0.5f);
-      const ColorSpec dotColor = colorSpecFromRole(ColorRole::Primary, 0.9f);
+      const float startY = std::round(centeredOffset(tileSize, iconSize) + (iconSize - runHeight) * 0.5F);
+      const ColorSpec dotColor = colorSpecFromRole(ColorRole::Primary, 0.9F);
 
       for (std::size_t i = 0; i < dotCount; ++i) {
         auto dot = ui::box({
@@ -897,15 +897,15 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     }
 
     if (task.active && m_showActiveIndicator) {
-      const float d = std::max(4.0f, std::round(Style::baseGlyphSize * 0.32f * m_contentScale));
+      const float d = std::max(4.0F, std::round(Style::baseGlyphSize * 0.32F * m_contentScale));
       const float groupedCapsuleInset =
-          (m_groupByWorkspace && m_workspaceGroupCapsule ? Style::borderWidth : 0.0f) * m_contentScale;
-      const float bottomInset = 0.25f * m_contentScale + groupedCapsuleInset;
+          (m_groupByWorkspace && m_workspaceGroupCapsule ? Style::borderWidth : 0.0F) * m_contentScale;
+      const float bottomInset = 0.25F * m_contentScale + groupedCapsuleInset;
       if (showWindowTitle) {
-        const float lineThickness = d * 0.5f;
+        const float lineThickness = d * 0.5F;
         auto indicator = ui::box({
             .fill = m_activeIndicatorColor,
-            .radius = lineThickness * 0.5f,
+            .radius = lineThickness * 0.5F,
             .width = tileWidthWithTitle - tilePadding * 2,
             .height = lineThickness,
         });
@@ -918,7 +918,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
             .width = d,
             .height = d,
         });
-        indicator->setPosition(std::round((tileSize - d) * 0.5f), std::round(tileSize - d - bottomInset));
+        indicator->setPosition(std::round((tileSize - d) * 0.5F), std::round(tileSize - d - bottomInset));
         area->addChild(std::move(indicator));
       }
     }
@@ -940,19 +940,19 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
 
     const bool inlineBadge = m_showWorkspaceLabel && m_workspaceLabelPlacement == WorkspaceLabelPlacement::Inside;
     const bool externalBadge = m_showWorkspaceLabel && !inlineBadge;
-    const float badgeBase = std::round(std::max(11.0f, Style::baseGlyphSize * 0.72f) * m_contentScale);
-    const float externalBadgeFontSize = std::round(Style::fontSizeCaption * 0.72f * m_contentScale);
+    const float badgeBase = std::round(std::max(11.0F, Style::baseGlyphSize * 0.72F) * m_contentScale);
+    const float externalBadgeFontSize = std::round(Style::fontSizeCaption * 0.72F * m_contentScale);
 
-    const float externalBadgeCrossLimit = m_vertical && crossExtent > 0.0f
-        ? std::max(0.0f, (m_workspaceGroupCapsule ? groupedCrossInner : crossExtent) - 2.0f * groupOutlineInset)
-        : 0.0f;
+    const float externalBadgeCrossLimit = m_vertical && crossExtent > 0.0F
+        ? std::max(0.0F, (m_workspaceGroupCapsule ? groupedCrossInner : crossExtent) - 2.0F * groupOutlineInset)
+        : 0.0F;
 
     float stripGap = groupGap;
-    float stripPaddingMainStart = 0.0f;
-    float stripPaddingCrossStart = 0.0f;
+    float stripPaddingMainStart = 0.0F;
+    float stripPaddingCrossStart = 0.0F;
     if (externalBadge) {
-      const float badgeGap = std::round(std::max(1.0f, Style::spaceXs * 0.5f * m_contentScale));
-      float maxMainStart = 0.0f;
+      const float badgeGap = std::round(std::max(1.0F, Style::spaceXs * 0.5F * m_contentScale));
+      float maxMainStart = 0.0F;
       for (const auto& wsm : m_workspaces) {
         auto measuredDisc =
             measureWorkspaceDiscSize(renderer, wsm.label, externalBadgeFontSize, badgeBase, m_contentScale, fontWeight);
@@ -964,8 +964,8 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       }
       stripPaddingMainStart = std::round(maxMainStart);
       if (m_vertical) {
-        stripPaddingMainStart = 0.0f;
-        stripPaddingCrossStart = 0.0f;
+        stripPaddingMainStart = 0.0F;
+        stripPaddingCrossStart = 0.0F;
         stripGap = groupGap;
       } else {
         stripGap = std::max(stripGap, stripPaddingMainStart + badgeGap);
@@ -973,9 +973,9 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     }
     m_taskStrip->setGap(stripGap);
     if (m_vertical) {
-      m_taskStrip->setPadding(stripPaddingMainStart, 0.0f, 0.0f, stripPaddingCrossStart);
+      m_taskStrip->setPadding(stripPaddingMainStart, 0.0F, 0.0F, stripPaddingCrossStart);
     } else {
-      m_taskStrip->setPadding(stripPaddingCrossStart, 0.0f, 0.0f, stripPaddingMainStart);
+      m_taskStrip->setPadding(stripPaddingCrossStart, 0.0F, 0.0F, stripPaddingMainStart);
     }
 
     auto createWorkspaceBadge = [&](const WorkspaceModel& ws, const WorkspaceDiscSize& disc, bool hover) {
@@ -986,7 +986,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       badgePalette.hover = badgePalette.normal;
       badgePalette.pressed = badgePalette.normal;
       badgePalette.disabled = badgePalette.normal;
-      badgePalette.borderWidth = 0.0f;
+      badgePalette.borderWidth = 0.0F;
 
       const float badgeFontSize =
           fitBadgeFontSize(renderer, ws.label, disc.width, disc.height, m_contentScale, fontWeight);
@@ -999,7 +999,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
           .minHeight = disc.height,
           .maxWidth = disc.width,
           .maxHeight = disc.height,
-          .padding = 0.0f,
+          .padding = 0.0F,
           .radius = resolvedBarCapsuleRadius(disc.width, disc.height),
           .width = disc.width,
           .height = disc.height,
@@ -1094,11 +1094,11 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
         }
       }
 
-      const float dotSize = std::round(std::max(4.0f, Style::baseGlyphSize * 0.28f * m_contentScale));
-      const float dotGap = std::round(std::max(2.0f, Style::spaceXs * 0.5f * m_contentScale));
-      const float overflowFontSize = std::round(Style::fontSizeCaption * 0.85f * m_contentScale);
-      float overflowLabelWidth = 0.0f;
-      float overflowLabelHeight = 0.0f;
+      const float dotSize = std::round(std::max(4.0F, Style::baseGlyphSize * 0.28F * m_contentScale));
+      const float dotGap = std::round(std::max(2.0F, Style::spaceXs * 0.5F * m_contentScale));
+      const float overflowFontSize = std::round(Style::fontSizeCaption * 0.85F * m_contentScale);
+      float overflowLabelWidth = 0.0F;
+      float overflowLabelHeight = 0.0F;
       std::string overflowText;
       if (overflow > 0) {
         overflowText = "+" + std::to_string(overflow);
@@ -1109,10 +1109,10 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
 
       const std::size_t visibleCount = visibleDots.size();
       const float dotsRun = visibleCount == 0
-          ? 0.0f
+          ? 0.0F
           : (dotSize * static_cast<float>(visibleCount)
              + dotGap * static_cast<float>(visibleCount > 1 ? visibleCount - 1 : 0));
-      const float overflowRun = overflow > 0 ? (dotGap + overflowLabelWidth) : 0.0f;
+      const float overflowRun = overflow > 0 ? (dotGap + overflowLabelWidth) : 0.0F;
       const float run = dotsRun + overflowRun;
       const float mainExtent = std::max(tileSize, run + Style::spaceXs * m_contentScale);
       area->setFrameSize(m_vertical ? tileSize : mainExtent, m_vertical ? mainExtent : tileSize);
@@ -1128,11 +1128,11 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
           }
       );
       ColorSpec activeDotFill = m_activeIndicatorColor;
-      activeDotFill.alpha = 0.95f;
+      activeDotFill.alpha = 0.95F;
       for (const TaskModel* task : visibleDots) {
         const bool highlight = task != nullptr && task->active && m_showActiveIndicator;
         const ColorSpec fill =
-            highlight ? activeDotFill : colorSpecFromRole(ColorRole::OnSurface, anyActive ? 0.55f : 0.35f);
+            highlight ? activeDotFill : colorSpecFromRole(ColorRole::OnSurface, anyActive ? 0.55F : 0.35F);
         content->addChild(
             ui::box({
                 .fill = fill,
@@ -1148,7 +1148,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
             .fontSize = overflowFontSize,
             .fontWeight = fontWeight,
             .fontFamily = fontFamily,
-            .color = colorSpecFromRole(ColorRole::OnSurface, anyActive ? 0.7f : 0.5f),
+            .color = colorSpecFromRole(ColorRole::OnSurface, anyActive ? 0.7F : 0.5F),
             .width = overflowLabelWidth,
             .height = std::max(dotSize, overflowLabelHeight),
         });
@@ -1236,10 +1236,10 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
       }
 
       const bool emptyWorkspace = tasks.empty();
-      const auto surfaceFill = colorSpecFromRole(ColorRole::SurfaceVariant, ws.workspace.active ? 0.52f : 0.18f);
-      const auto borderColor = colorSpecFromRole(ColorRole::Primary, ws.workspace.active ? 0.65f : 0.16f);
+      const auto surfaceFill = colorSpecFromRole(ColorRole::SurfaceVariant, ws.workspace.active ? 0.52F : 0.18F);
+      const auto borderColor = colorSpecFromRole(ColorRole::Primary, ws.workspace.active ? 0.65F : 0.16F);
 
-      const float crossSize = std::round(tileSize + groupPad * 2.0f);
+      const float crossSize = std::round(tileSize + groupPad * 2.0F);
 
       float groupPadTop = groupPad;
       float groupPadRight = groupPad;
@@ -1254,7 +1254,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
         }
         if (!tasks.empty() || m_vertical) {
           const float half =
-              std::round(m_vertical ? externalBadgeDisc->height * 0.6f : externalBadgeDisc->width * 0.6f);
+              std::round(m_vertical ? externalBadgeDisc->height * 0.6F : externalBadgeDisc->width * 0.6F);
           if (m_vertical) {
             groupPadTop += half;
           } else {
@@ -1262,13 +1262,13 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
           }
         }
       }
-      if (groupedCrossInner > 0.0f) {
+      if (groupedCrossInner > 0.0F) {
         if (m_vertical) {
-          const float maxCrossPad = std::max(0.0f, (groupedCrossInner - tileWidthWithTitle) * 0.5f);
+          const float maxCrossPad = std::max(0.0F, (groupedCrossInner - tileWidthWithTitle) * 0.5F);
           groupPadLeft = std::min(groupPadLeft, maxCrossPad);
           groupPadRight = std::min(groupPadRight, maxCrossPad);
         } else {
-          const float maxCrossPad = std::max(0.0f, (groupedCrossInner - tileSize) * 0.5f);
+          const float maxCrossPad = std::max(0.0F, (groupedCrossInner - tileSize) * 0.5F);
           groupPadTop = std::min(groupPadTop, maxCrossPad);
           groupPadBottom = std::min(groupPadBottom, maxCrossPad);
         }
@@ -1281,16 +1281,16 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
               .justify = FlexJustify::Center,
               .gap = groupGap,
               .fill = m_workspaceGroupCapsule ? surfaceFill : clearColorSpec(),
-              .radius = m_workspaceGroupCapsule ? resolvedBarCapsuleRadius(crossSize, crossSize) : 0.0f,
+              .radius = m_workspaceGroupCapsule ? resolvedBarCapsuleRadius(crossSize, crossSize) : 0.0F,
               .border = m_workspaceGroupCapsule ? borderColor : clearColorSpec(),
-              .borderWidth = m_workspaceGroupCapsule ? Style::borderWidth * m_contentScale : 0.0f,
+              .borderWidth = m_workspaceGroupCapsule ? Style::borderWidth * m_contentScale : 0.0F,
           }
       );
       group->setPadding(groupPadTop, groupPadRight, groupPadBottom, groupPadLeft);
 
       if (inlineBadge && m_showWorkspaceLabel) {
-        const float inlineBadgeFontSize = std::round(Style::fontSizeCaption * 0.85f * m_contentScale);
-        const float inlineBadgeHeight = std::round(std::max(10.0f, iconSize - (Style::spaceXs * m_contentScale)));
+        const float inlineBadgeFontSize = std::round(Style::fontSizeCaption * 0.85F * m_contentScale);
+        const float inlineBadgeHeight = std::round(std::max(10.0F, iconSize - (Style::spaceXs * m_contentScale)));
         WorkspaceDiscSize disc = measureWorkspaceDiscSize(
             renderer, ws.label, inlineBadgeFontSize, inlineBadgeHeight, m_contentScale, fontWeight
         );
@@ -1360,7 +1360,7 @@ void TaskbarWidget::buildTaskButtons(Renderer& renderer) {
     std::erase_if(m_groupedAppCycleCursor, [&](const auto& item) { return !cycleKeysThisFrame.contains(item.first); });
     return;
   }
-  m_taskStrip->setPadding(0.0f, 0.0f, 0.0f, 0.0f);
+  m_taskStrip->setPadding(0.0F, 0.0F, 0.0F, 0.0F);
   m_taskStrip->setGap(tileGap);
   std::unordered_set<std::string> pinnedCycleKeysThisFrame;
   for (std::size_t i = 0; i < m_tasks.size(); ++i) {
@@ -2678,28 +2678,28 @@ void TaskbarWidget::openTaskContextMenu(const TaskModel& task, InputArea& area) 
     }
   });
 
-  float absX = 0.0f;
-  float absY = 0.0f;
+  float absX = 0.0F;
+  float absY = 0.0F;
   Node::absolutePosition(&area, absX, absY);
-  const float anchorInset = std::round(std::max(6.0f, Style::spaceSm * m_contentScale));
+  const float anchorInset = std::round(std::max(6.0F, Style::spaceSm * m_contentScale));
   float anchorX = absX + anchorInset;
   float anchorY = absY + anchorInset;
-  float anchorW = std::max(1.0f, area.width() - (anchorInset * 2.0f));
-  float anchorH = std::max(1.0f, area.height() - (anchorInset * 2.0f));
+  float anchorW = std::max(1.0F, area.width() - (anchorInset * 2.0F));
+  float anchorH = std::max(1.0F, area.height() - (anchorInset * 2.0F));
 
-  constexpr float kTaskMenuWidth = 240.0f;
+  constexpr float kTaskMenuWidth = 240.0F;
   const std::int32_t gap = std::max(2, static_cast<std::int32_t>(std::lround(Style::spaceMd * m_contentScale)));
 
   std::optional<ContextMenuPopupPlacement> placement;
   if (m_barPosition == "top") {
     anchorY = absY + area.height() + static_cast<float>(gap);
-    anchorH = 1.0f;
+    anchorH = 1.0F;
   } else if (m_barPosition == "bottom") {
     // Mirror top: gap from the task tile edge, not the pointer (tray still uses pointer-centered icons).
     anchorX = absX;
     anchorY = absY;
     anchorW = area.width();
-    anchorH = 1.0f;
+    anchorH = 1.0F;
     placement = ContextMenuPopupPlacement{
         .anchor = XDG_POSITIONER_ANCHOR_TOP,
         .gravity = XDG_POSITIONER_GRAVITY_TOP,
@@ -3061,7 +3061,7 @@ ColorSpec TaskbarWidget::workspaceFillColor(const Workspace& workspace) const {
     return m_occupiedColor;
   }
   ColorSpec color = m_emptyColor;
-  color.alpha *= 0.55f;
+  color.alpha *= 0.55F;
   return color;
 }
 
@@ -3084,7 +3084,7 @@ ColorSpec TaskbarWidget::workspaceTextColor(const Workspace& workspace) const {
     return m_occupiedColor;
   }
   ColorSpec color = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurfaceVariant));
-  color.alpha *= 0.55f;
+  color.alpha *= 0.55F;
   return color;
 }
 

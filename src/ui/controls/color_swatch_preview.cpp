@@ -10,8 +10,8 @@
 ColorSwatchPreviewStrip::ColorSwatchPreviewStrip() {
   setDirection(FlexDirection::Horizontal);
   setAlign(FlexAlign::Stretch);
-  setGap(0.0f);
-  setPadding(0.0f);
+  setGap(0.0F);
+  setPadding(0.0F);
   setClipChildren(true);
   setHitTestVisible(false);
   setFill(colorSpecFromRole(ColorRole::Surface));
@@ -29,7 +29,7 @@ ColorSwatchPreviewStrip::ColorSwatchPreviewStrip() {
 }
 
 void ColorSwatchPreviewStrip::doLayout(Renderer& /*renderer*/) {
-  positionSwatches(height() > 0.0f ? height() : m_height);
+  positionSwatches(height() > 0.0F ? height() : m_height);
 }
 
 LayoutSize ColorSwatchPreviewStrip::doMeasure(Renderer& /*renderer*/, const LayoutConstraints& constraints) {
@@ -63,20 +63,20 @@ void ColorSwatchPreviewStrip::setPreview(const ColorSwatchPreview& preview) {
 }
 
 void ColorSwatchPreviewStrip::setMetricsFromFontSize(float fontSize) {
-  const float size = std::max(1.0f, fontSize);
-  m_discSize = std::max(9.0f, std::round(size * 0.86f));
-  m_gap = std::max(4.0f, std::round(size * 0.28f));
-  m_paddingX = std::max(4.0f, std::round(size * 0.28f));
-  m_paddingY = std::max(2.0f, std::round(size * 0.14f)) + 2.0f;
-  m_height = m_discSize + m_paddingY * 2.0f;
+  const float size = std::max(1.0F, fontSize);
+  m_discSize = std::max(9.0F, std::round(size * 0.86F));
+  m_gap = std::max(4.0F, std::round(size * 0.28F));
+  m_paddingX = std::max(4.0F, std::round(size * 0.28F));
+  m_paddingY = std::max(2.0F, std::round(size * 0.14F)) + 2.0F;
+  m_height = m_discSize + m_paddingY * 2.0F;
   syncGeometry();
 }
 
 float ColorSwatchPreviewStrip::preferredWidth() const noexcept {
   if (m_visibleSwatches == 0) {
-    return 0.0f;
+    return 0.0F;
   }
-  return m_paddingX * 2.0f
+  return m_paddingX * 2.0F
       + m_discSize * static_cast<float>(m_visibleSwatches)
       + m_gap * static_cast<float>(m_visibleSwatches - 1);
 }
@@ -89,7 +89,7 @@ void ColorSwatchPreviewStrip::syncGeometry() {
   }
 
   const float width = preferredWidth();
-  const float capsuleRadius = m_height * 0.5f;
+  const float capsuleRadius = m_height * 0.5F;
   setRadius(capsuleRadius);
   setMinWidth(width);
   setMinHeight(m_height);
@@ -99,14 +99,14 @@ void ColorSwatchPreviewStrip::syncGeometry() {
 }
 
 void ColorSwatchPreviewStrip::positionSwatches(float height) {
-  const float discRadius = m_discSize * 0.5f;
+  const float discRadius = m_discSize * 0.5F;
   for (std::size_t i = 0; i < m_swatches.size(); ++i) {
     auto* swatch = m_swatches[i];
     if (swatch == nullptr) {
       continue;
     }
     swatch->setPosition(
-        m_paddingX + static_cast<float>(i) * (m_discSize + m_gap), std::round((height - m_discSize) * 0.5f)
+        m_paddingX + static_cast<float>(i) * (m_discSize + m_gap), std::round((height - m_discSize) * 0.5F)
     );
     swatch->setRadii(Radii{discRadius});
   }

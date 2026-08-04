@@ -85,18 +85,18 @@ PanelPlacement PolkitPanel::panelPlacement() const noexcept {
 
 float PolkitPanel::preferredHeight() const {
   const float scale = contentScale();
-  const float bodyLine = Style::fontSizeBody * scale * 1.35f;
-  const float titleLine = Style::fontSizeTitle * scale * 1.35f;
-  const float captionLine = Style::fontSizeCaption * scale * 1.35f;
-  const float iconSize = scaled(48.0f);
+  const float bodyLine = Style::fontSizeBody * scale * 1.35F;
+  const float titleLine = Style::fontSizeTitle * scale * 1.35F;
+  const float captionLine = Style::fontSizeCaption * scale * 1.35F;
+  const float iconSize = scaled(48.0F);
   const float pad = Style::spaceLg * scale;
   const float gapMd = Style::spaceMd * scale;
   const float gapSm = Style::spaceSm * scale;
 
-  const float contentW = preferredWidth() - scaled(Style::panelPadding) * 2.0f;
-  const float innerW = std::max(1.0f, contentW - pad * 2.0f);
-  const float messageW = std::max(1.0f, innerW - iconSize - gapMd);
-  const float avgChar = Style::fontSizeBody * scale * 0.55f;
+  const float contentW = preferredWidth() - scaled(Style::panelPadding) * 2.0F;
+  const float innerW = std::max(1.0F, contentW - pad * 2.0F);
+  const float messageW = std::max(1.0F, innerW - iconSize - gapMd);
+  const float avgChar = Style::fontSizeBody * scale * 0.55F;
   const int messageChars = std::max(1, static_cast<int>(messageW / avgChar));
   const int promptChars = std::max(1, static_cast<int>(innerW / avgChar));
 
@@ -140,12 +140,12 @@ float PolkitPanel::preferredHeight() const {
   }
   bottom += Style::controlHeight * scale;
 
-  return std::ceil(pad * 2.0f + top + gapMd + bottom + scaled(Style::panelPadding) * 2.0f + gapSm);
+  return std::ceil(pad * 2.0F + top + gapMd + bottom + scaled(Style::panelPadding) * 2.0F + gapSm);
 }
 
 void PolkitPanel::create() {
   const float scale = contentScale();
-  const float iconSize = scaled(48.0f);
+  const float iconSize = scaled(48.0F);
   auto root = ui::column({
       .out = &m_rootLayout,
       .align = FlexAlign::Stretch,
@@ -166,7 +166,7 @@ void PolkitPanel::create() {
   auto iconFallback = ui::glyph({
       .out = &m_fallbackIcon,
       .glyph = "shield-lock",
-      .glyphSize = iconSize * 0.65f,
+      .glyphSize = iconSize * 0.65F,
       .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
   });
   iconContainer->addChild(std::move(iconFallback));
@@ -180,7 +180,7 @@ void PolkitPanel::create() {
   auto topContent = ui::row(
       {.align = FlexAlign::Center, .gap = Style::spaceMd * scale}, std::move(iconContainer),
       ui::column(
-          {.align = FlexAlign::Stretch, .flexGrow = 1.0f},
+          {.align = FlexAlign::Stretch, .flexGrow = 1.0F},
           ui::label({
               .out = &m_titleLabel,
               .text = i18n::tr("auth.polkit.title"),
@@ -321,11 +321,11 @@ void PolkitPanel::doLayout(Renderer& renderer, float width, float height) {
   if (m_iconContainer != nullptr) {
     if (m_icon != nullptr && m_icon->visible()) {
       m_icon->setSize(m_iconContainer->width(), m_iconContainer->height());
-      m_icon->setPosition(0.0f, 0.0f);
+      m_icon->setPosition(0.0F, 0.0F);
     }
     if (m_fallbackIcon != nullptr && m_fallbackIcon->visible()) {
-      const float ox = std::round((m_iconContainer->width() - m_fallbackIcon->width()) * 0.5f);
-      const float oy = std::round((m_iconContainer->height() - m_fallbackIcon->height()) * 0.5f);
+      const float ox = std::round((m_iconContainer->width() - m_fallbackIcon->width()) * 0.5F);
+      const float oy = std::round((m_iconContainer->height() - m_fallbackIcon->height()) * 0.5F);
       m_fallbackIcon->setPosition(ox, oy);
     }
   }
@@ -389,7 +389,7 @@ void PolkitPanel::doUpdate(Renderer& renderer) {
 }
 
 void PolkitPanel::resolveIcon(Renderer& renderer, const PolkitRequest& request) {
-  const float iconSize = scaled(48.0f);
+  const float iconSize = scaled(48.0F);
   if (m_iconContainer != nullptr) {
     m_iconContainer->setSize(iconSize, iconSize);
   }

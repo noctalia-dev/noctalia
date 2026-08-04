@@ -39,13 +39,13 @@ namespace capture {
   namespace {
 
     constexpr Logger kLog("screenshot-region");
-    constexpr float kDimensionFontSize = 14.0f;
-    constexpr float kDimensionCursorOffsetX = 12.0f;
-    constexpr float kDimensionCursorOffsetY = 14.0f;
-    constexpr float kDimensionPaddingX = 6.0f;
-    constexpr float kDimensionPaddingY = 4.0f;
-    constexpr float kSelectionBorderWidth = 2.0f;
-    constexpr float kDimOpacity = 0.65f;
+    constexpr float kDimensionFontSize = 14.0F;
+    constexpr float kDimensionCursorOffsetX = 12.0F;
+    constexpr float kDimensionCursorOffsetY = 14.0F;
+    constexpr float kDimensionPaddingX = 6.0F;
+    constexpr float kDimensionPaddingY = 4.0F;
+    constexpr float kSelectionBorderWidth = 2.0F;
+    constexpr float kDimOpacity = 0.65F;
 
     [[nodiscard]] const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
       for (const auto& entry : wayland.outputs()) {
@@ -102,7 +102,7 @@ namespace capture {
               .gap = Style::spaceSm,
               .paddingV = Style::spaceSm,
               .paddingH = Style::spaceMd,
-              .configure = [](Flex& control) { control.setCardStyle(1.0f, 0.94f, true); },
+              .configure = [](Flex& control) { control.setCardStyle(1.0F, 0.94F, true); },
           },
           ui::label({
               .text = i18n::tr("bar.screenshot.choose-display"),
@@ -135,7 +135,7 @@ namespace capture {
               .paddingV = Style::spaceSm,
               .paddingH = Style::spaceMd,
               .visible = false,
-              .configure = [](Flex& control) { control.setCardStyle(1.0f, 0.94f, true); },
+              .configure = [](Flex& control) { control.setCardStyle(1.0F, 0.94F, true); },
           },
           ui::label({
               .out = &hintOut,
@@ -509,7 +509,7 @@ namespace capture {
           .fit = ImageFit::Stretch,
           .width = w,
           .height = h,
-          .configure = [](Image& image) { image.setPosition(0.0f, 0.0f); },
+          .configure = [](Image& image) { image.setPosition(0.0F, 0.0F); },
       });
       if (!backdrop->setSourceRaw(
               *m_renderContext, frozen->rgba.data(), frozen->rgba.size(), frozen->width, frozen->height,
@@ -526,11 +526,11 @@ namespace capture {
     auto makeDimStrip = [&]() {
       auto strip = ui::box({
           // Fixed black scrim so it darkens under every theme.
-          .fill = fixedColorSpec(rgba(0.0f, 0.0f, 0.0f, 1.0f)),
-          .width = 0.0f,
-          .height = 0.0f,
+          .fill = fixedColorSpec(rgba(0.0F, 0.0F, 0.0F, 1.0F)),
+          .width = 0.0F,
+          .height = 0.0F,
           .opacity = kDimOpacity,
-          .configure = [](Box& box) { box.setPosition(0.0f, 0.0f); },
+          .configure = [](Box& box) { box.setPosition(0.0F, 0.0F); },
       });
       return static_cast<Box*>(input->addChild(std::move(strip)));
     };
@@ -540,7 +540,7 @@ namespace capture {
     inst.dimRight = makeDimStrip();
 
     Color border = colorForRole(ColorRole::Primary);
-    border.a = 1.0f;
+    border.a = 1.0F;
 
     auto selection = ui::box({
         .visible = false,
@@ -548,12 +548,12 @@ namespace capture {
     });
 
     Color badgeFill = colorForRole(ColorRole::Surface);
-    badgeFill.a = 0.94f;
+    badgeFill.a = 0.94F;
     auto dimensionsBadge = ui::box({
         .fill = fixedColorSpec(badgeFill),
         .radius = Style::radiusSm,
         .visible = false,
-        .configure = [border](Box& box) { box.setBorder(fixedColorSpec(border), 1.0f); },
+        .configure = [border](Box& box) { box.setBorder(fixedColorSpec(border), 1.0F); },
     });
 
     auto dimensionsLabel = ui::label({
@@ -577,7 +577,7 @@ namespace capture {
       Flex* pickerBarPtr = pickerBar.get();
       inst.sceneRoot->addChild(std::move(pickerBar));
       pickerBarPtr->layout(*m_renderContext);
-      pickerBarPtr->setPosition((w - pickerBarPtr->width()) * 0.5f, Style::spaceMd);
+      pickerBarPtr->setPosition((w - pickerBarPtr->width()) * 0.5F, Style::spaceMd);
     } else if (m_confirmRegion) {
       auto hintBar = buildConfirmHintBar(inst.confirmHintLabel);
       inst.confirmHint = hintBar.get();
@@ -736,23 +736,23 @@ namespace capture {
     // rect (surface-local). An empty hole dims the whole surface.
     const auto layoutDimFrame = [](Instance& inst, float surfaceW, float surfaceH, float hx0, float hy0, float hx1,
                                    float hy1) {
-      hx0 = std::clamp(hx0, 0.0f, surfaceW);
-      hx1 = std::clamp(hx1, 0.0f, surfaceW);
-      hy0 = std::clamp(hy0, 0.0f, surfaceH);
-      hy1 = std::clamp(hy1, 0.0f, surfaceH);
+      hx0 = std::clamp(hx0, 0.0F, surfaceW);
+      hx1 = std::clamp(hx1, 0.0F, surfaceW);
+      hy0 = std::clamp(hy0, 0.0F, surfaceH);
+      hy1 = std::clamp(hy1, 0.0F, surfaceH);
       if (hx1 < hx0 || hy1 < hy0) {
-        hx0 = hy0 = hx1 = hy1 = 0.0f;
+        hx0 = hy0 = hx1 = hy1 = 0.0F;
       }
       if (inst.dimTop != nullptr) {
-        inst.dimTop->setPosition(0.0f, 0.0f);
+        inst.dimTop->setPosition(0.0F, 0.0F);
         inst.dimTop->setSize(surfaceW, hy0);
       }
       if (inst.dimBottom != nullptr) {
-        inst.dimBottom->setPosition(0.0f, hy1);
+        inst.dimBottom->setPosition(0.0F, hy1);
         inst.dimBottom->setSize(surfaceW, surfaceH - hy1);
       }
       if (inst.dimLeft != nullptr) {
-        inst.dimLeft->setPosition(0.0f, hy0);
+        inst.dimLeft->setPosition(0.0F, hy0);
         inst.dimLeft->setSize(hx0, hy1 - hy0);
       }
       if (inst.dimRight != nullptr) {
@@ -765,8 +765,8 @@ namespace capture {
       for (auto& inst : m_instances) {
         if (inst->surface != nullptr) {
           layoutDimFrame(
-              *inst, static_cast<float>(inst->surface->width()), static_cast<float>(inst->surface->height()), 0.0f,
-              0.0f, 0.0f, 0.0f
+              *inst, static_cast<float>(inst->surface->width()), static_cast<float>(inst->surface->height()), 0.0F,
+              0.0F, 0.0F, 0.0F
           );
         }
         if (inst->selection != nullptr) {
@@ -802,7 +802,7 @@ namespace capture {
       const auto surfaceH = static_cast<float>(inst->surface->height());
       const auto* out = findOutput(*m_wayland, inst->output);
       if (out == nullptr) {
-        layoutDimFrame(*inst, surfaceW, surfaceH, 0.0f, 0.0f, 0.0f, 0.0f);
+        layoutDimFrame(*inst, surfaceW, surfaceH, 0.0F, 0.0F, 0.0F, 0.0F);
         inst->selection->setVisible(false);
         if (inst->dimensionsBadge != nullptr) {
           inst->dimensionsBadge->setVisible(false);
@@ -820,7 +820,7 @@ namespace capture {
       const int ix1 = std::min(globalX1, outRight);
       const int iy1 = std::min(globalY1, outBottom);
       if (ix1 <= ix0 || iy1 <= iy0) {
-        layoutDimFrame(*inst, surfaceW, surfaceH, 0.0f, 0.0f, 0.0f, 0.0f);
+        layoutDimFrame(*inst, surfaceW, surfaceH, 0.0F, 0.0F, 0.0F, 0.0F);
         inst->selection->setVisible(false);
         if (inst->dimensionsBadge != nullptr) {
           inst->dimensionsBadge->setVisible(false);
@@ -839,7 +839,7 @@ namespace capture {
       inst->selection->setVisible(true);
       inst->selection->setPosition(holeX0 - kSelectionBorderWidth, holeY0 - kSelectionBorderWidth);
       inst->selection->setSize(
-          (holeX1 - holeX0) + (kSelectionBorderWidth * 2.0f), (holeY1 - holeY0) + (kSelectionBorderWidth * 2.0f)
+          (holeX1 - holeX0) + (kSelectionBorderWidth * 2.0F), (holeY1 - holeY0) + (kSelectionBorderWidth * 2.0F)
       );
 
       if (inst->dimensionsBadge != nullptr
@@ -853,16 +853,16 @@ namespace capture {
         if (cursorOnOutput) {
           inst->dimensionsLabel->setText(dimensionText);
           inst->dimensionsLabel->measure(*m_renderContext);
-          const float badgeWidth = inst->dimensionsLabel->width() + (kDimensionPaddingX * 2.0f);
-          const float badgeHeight = inst->dimensionsLabel->height() + (kDimensionPaddingY * 2.0f);
+          const float badgeWidth = inst->dimensionsLabel->width() + (kDimensionPaddingX * 2.0F);
+          const float badgeHeight = inst->dimensionsLabel->height() + (kDimensionPaddingY * 2.0F);
           inst->dimensionsBadge->setSize(badgeWidth, badgeHeight);
 
           float badgeX = static_cast<float>(cursorGlobalX - outLeft) + kDimensionCursorOffsetX;
           float badgeY = static_cast<float>(cursorGlobalY - outTop) + kDimensionCursorOffsetY;
-          const float maxX = std::max(0.0f, surfaceW - badgeWidth);
-          const float maxY = std::max(0.0f, surfaceH - badgeHeight);
-          badgeX = std::clamp(badgeX, 0.0f, maxX);
-          badgeY = std::clamp(badgeY, 0.0f, maxY);
+          const float maxX = std::max(0.0F, surfaceW - badgeWidth);
+          const float maxY = std::max(0.0F, surfaceH - badgeHeight);
+          badgeX = std::clamp(badgeX, 0.0F, maxX);
+          badgeY = std::clamp(badgeY, 0.0F, maxY);
 
           inst->dimensionsBadge->setPosition(badgeX, badgeY);
           inst->dimensionsLabel->setPosition(kDimensionPaddingX, kDimensionPaddingY);
@@ -894,7 +894,7 @@ namespace capture {
         const auto surfaceH = static_cast<float>(inst->surface->height());
         inst->confirmHint->layout(*m_renderContext);
         const float y = std::max(Style::spaceMd, surfaceH - inst->confirmHint->height() - Style::spaceMd);
-        inst->confirmHint->setPosition((surfaceW - inst->confirmHint->width()) * 0.5f, y);
+        inst->confirmHint->setPosition((surfaceW - inst->confirmHint->width()) * 0.5F, y);
       }
     }
   }

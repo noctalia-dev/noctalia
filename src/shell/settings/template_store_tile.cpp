@@ -14,7 +14,7 @@ namespace settings {
     setAlign(FlexAlign::Center);
     setGap(Style::spaceXs * scale);
     setPadding(Style::spaceXs * scale, Style::spaceSm * scale);
-    setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.45f));
+    setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.45F));
     setBorder(colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha), Style::borderWidth * scale);
     setRadius(Style::scaledRadiusMd(scale));
 
@@ -28,7 +28,7 @@ namespace settings {
         })
     );
 
-    auto text = ui::column({.align = FlexAlign::Start, .flexGrow = 1.0f});
+    auto text = ui::column({.align = FlexAlign::Start, .flexGrow = 1.0F});
     text->addChild(
         ui::label({
             .out = &m_nameLabel,
@@ -81,16 +81,16 @@ namespace settings {
     const float borderWidth = Style::borderWidth * m_scale;
     if (enabled) {
       setFill(colorSpecFromRole(ColorRole::Primary));
-      setBorder(colorSpecFromRole(ColorRole::Primary, 0.9f), borderWidth);
+      setBorder(colorSpecFromRole(ColorRole::Primary, 0.9F), borderWidth);
       m_nameLabel->setColor(colorSpecFromRole(ColorRole::OnPrimary));
-      m_categoryLabel->setColor(colorSpecFromRole(ColorRole::OnPrimary, 0.75f));
+      m_categoryLabel->setColor(colorSpecFromRole(ColorRole::OnPrimary, 0.75F));
     } else if (hovered || selected) {
       setFill(colorSpecFromRole(ColorRole::Hover));
       setBorder(colorSpecFromRole(ColorRole::Hover), borderWidth);
       m_nameLabel->setColor(colorSpecFromRole(ColorRole::OnHover));
-      m_categoryLabel->setColor(colorSpecFromRole(ColorRole::OnHover, 0.75f));
+      m_categoryLabel->setColor(colorSpecFromRole(ColorRole::OnHover, 0.75F));
     } else {
-      setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.45f));
+      setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.45F));
       setBorder(colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha), borderWidth);
       m_nameLabel->setColor(colorSpecFromRole(ColorRole::OnSurface));
       m_categoryLabel->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));

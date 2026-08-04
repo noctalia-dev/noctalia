@@ -76,7 +76,7 @@ private:
   std::vector<Image*> m_colorizedAppIcons;
   std::unordered_map<std::string, std::size_t> m_initialPixmaps;
   std::unordered_map<std::string, bool> m_preferPixmap;
-  float m_contentHeight = 0.0f;
+  float m_contentHeight = 0.0F;
   bool m_isVertical = false;
   bool m_rebuildPending = true;
   bool m_drawerMode = false;

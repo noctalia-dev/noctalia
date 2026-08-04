@@ -16,7 +16,7 @@ namespace {
     if (values.size() >= 2) {
       const float last = values[values.size() - 1];
       const float prev = values[values.size() - 2];
-      out.push_back(std::clamp(last + (last - prev) * 0.5f, 0.0f, 1.0f));
+      out.push_back(std::clamp(last + (last - prev) * 0.5F, 0.0F, 1.0F));
     } else if (!values.empty()) {
       out.push_back(values.back());
     }
@@ -69,7 +69,7 @@ void Graph::setScroll(float progress) {
   if (m_node == nullptr) {
     return;
   }
-  const float clamped = std::clamp(progress, 0.0f, 1.0f);
+  const float clamped = std::clamp(progress, 0.0F, 1.0F);
   m_node->setScroll1(clamped);
   m_node->setScroll2(clamped);
   m_node->setScroll3(clamped);
@@ -78,7 +78,7 @@ void Graph::setScroll(float progress) {
 void Graph::setSize(float width, float height) {
   Node::setSize(width, height);
   if (m_node != nullptr) {
-    m_node->setPosition(0.0f, 0.0f);
+    m_node->setPosition(0.0F, 0.0F);
     m_node->setSize(width, height);
   }
 }
@@ -96,7 +96,7 @@ void Graph::doLayout(Renderer& renderer) {
   if (m_node == nullptr) {
     return;
   }
-  m_node->setPosition(0.0f, 0.0f);
+  m_node->setPosition(0.0F, 0.0F);
   m_node->setSize(width(), height());
   sync(renderer);
 }
@@ -108,9 +108,9 @@ void Graph::sync(Renderer& renderer) {
   m_dataDirty = false;
 
   if (m_series[0].empty() && m_series[1].empty() && m_series[2].empty()) {
-    m_node->setCount1(0.0f);
-    m_node->setCount2(0.0f);
-    m_node->setCount3(0.0f);
+    m_node->setCount1(0.0F);
+    m_node->setCount2(0.0F);
+    m_node->setCount3(0.0F);
     return;
   }
 

@@ -78,7 +78,7 @@ void Checkbox::setEnabled(bool enabled) {
 void Checkbox::setOnChange(std::function<void(bool)> callback) { m_onChange = std::move(callback); }
 
 void Checkbox::setScale(float scale) {
-  m_scale = std::max(0.1f, scale);
+  m_scale = std::max(0.1F, scale);
   applyState();
   markLayoutDirty();
 }
@@ -99,7 +99,7 @@ bool Checkbox::pressed() const noexcept { return m_inputArea != nullptr && m_inp
 void Checkbox::doLayout(Renderer& renderer) {
   const float touchSize = Style::controlHeightSm * m_scale;
   const float boxSize = (Style::fontSizeTitle + Style::spaceXs) * m_scale;
-  const float boxInset = (touchSize - boxSize) * 0.5f;
+  const float boxInset = (touchSize - boxSize) * 0.5F;
 
   setSize(touchSize, touchSize);
 
@@ -110,16 +110,16 @@ void Checkbox::doLayout(Renderer& renderer) {
   }
 
   if (m_checkGlyph != nullptr) {
-    m_checkGlyph->setGlyphSize((Style::fontSizeBody + Style::spaceXs * 0.5f) * m_scale);
+    m_checkGlyph->setGlyphSize((Style::fontSizeBody + Style::spaceXs * 0.5F) * m_scale);
     m_checkGlyph->measure(renderer);
     m_checkGlyph->setPosition(
-        std::round(boxInset + (boxSize - m_checkGlyph->width()) * 0.5f),
-        std::round(boxInset + (boxSize - m_checkGlyph->height()) * 0.5f)
+        std::round(boxInset + (boxSize - m_checkGlyph->width()) * 0.5F),
+        std::round(boxInset + (boxSize - m_checkGlyph->height()) * 0.5F)
     );
   }
 
   if (m_inputArea != nullptr) {
-    m_inputArea->setPosition(0.0f, 0.0f);
+    m_inputArea->setPosition(0.0F, 0.0F);
     m_inputArea->setFrameSize(width(), height());
   }
 }
@@ -143,7 +143,7 @@ void Checkbox::applyState() {
       borderWidth = Style::emphasizedBorderWidth * m_scale;
     }
   } else if (focused) {
-    fill = colorSpecFromRole(ColorRole::Secondary, 0.18f);
+    fill = colorSpecFromRole(ColorRole::Secondary, 0.18F);
     border = colorSpecFromRole(ColorRole::Secondary);
     borderWidth = Style::emphasizedBorderWidth * m_scale;
   } else if (hovered()) {
@@ -156,5 +156,5 @@ void Checkbox::applyState() {
   m_checkGlyph->setColor(glyph);
   m_checkGlyph->setVisible(m_checked);
 
-  setOpacity(m_enabled ? 1.0f : 0.55f);
+  setOpacity(m_enabled ? 1.0F : 0.55F);
 }

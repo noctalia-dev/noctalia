@@ -14,7 +14,7 @@ namespace {
   // Continuous-source axis units that trigger one wheel-detent step. libinput's
   // detent convention is 15 units; we require a bit more so touchpad swipes
   // step deliberately rather than racing the finger.
-  constexpr float kScrollUnitsPerStep = 20.0f;
+  constexpr float kScrollUnitsPerStep = 20.0F;
   // A pause longer than this ends a scroll gesture: the next axis event starts
   // fresh so a partial detent left over from a free-spin flick can't bank into
   // the following one and tip it into an extra step.
@@ -93,9 +93,9 @@ bool InputArea::containsLocalPoint(float localX, float localY, bool includeHitOu
   }
 
   const HitTestOutset outset = includeHitOutset ? hitTestOutset() : HitTestOutset{};
-  const float centerX = width() * 0.5f;
-  const float centerY = height() * 0.5f;
-  const float baseRadius = std::min(width(), height()) * 0.5f;
+  const float centerX = width() * 0.5F;
+  const float centerY = height() * 0.5F;
+  const float baseRadius = std::min(width(), height()) * 0.5F;
   const float radius = baseRadius + std::max({outset.left, outset.top, outset.right, outset.bottom});
   const float dx = localX - centerX;
   const float dy = localY - centerY;
@@ -179,8 +179,8 @@ void InputArea::dispatchEnter(float localX, float localY) {
 }
 
 void InputArea::resetScrollAccumulators() noexcept {
-  m_scrollStepAccum.fill(0.0f);
-  m_lastScrollStepSign.fill(0.0f);
+  m_scrollStepAccum.fill(0.0F);
+  m_lastScrollStepSign.fill(0.0F);
   m_lastScrollStepTime.fill({});
 }
 
@@ -243,14 +243,14 @@ bool InputArea::dispatchAxis(
   // Reject unaccepted directions before they reach the accumulator, so a direction this area has
   // given up cannot bank fractional detents here on its way to an ancestor.
   if (m_acceptedScrollDirections != allScrollDirections()) {
-    const float delta = axisLines != 0.0f ? axisLines : static_cast<float>(axisValue);
-    if (delta != 0.0f) {
+    const float delta = axisLines != 0.0F ? axisLines : static_cast<float>(axisValue);
+    if (delta != 0.0F) {
       // Wayland reports up/left as a negative delta.
       std::optional<ScrollDirection> direction;
       if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) {
-        direction = delta < 0.0f ? ScrollDirection::Up : ScrollDirection::Down;
+        direction = delta < 0.0F ? ScrollDirection::Up : ScrollDirection::Down;
       } else if (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
-        direction = delta < 0.0f ? ScrollDirection::Left : ScrollDirection::Right;
+        direction = delta < 0.0F ? ScrollDirection::Left : ScrollDirection::Right;
       }
       if (direction.has_value() && (m_acceptedScrollDirections & scrollDirectionMask(*direction)) == 0) {
         return false;
@@ -270,28 +270,28 @@ bool InputArea::dispatchAxis(
   }
   m_lastAxisTime = now;
 
-  float axisSteps = 0.0f;
+  float axisSteps = 0.0F;
   bool startsGesture = false;
   if (axis < m_scrollStepAccum.size()) {
     if (m_axisGestureSerial[axis] != axisGestureSerial) {
-      m_scrollStepAccum[axis] = 0.0f;
-      m_lastScrollStepSign[axis] = 0.0f;
+      m_scrollStepAccum[axis] = 0.0F;
+      m_lastScrollStepSign[axis] = 0.0F;
       m_lastScrollStepTime[axis] = {};
       m_axisGestureSerial[axis] = axisGestureSerial;
     }
     float& accum = m_scrollStepAccum[axis];
-    const float detentDelta = axisLines != 0.0f ? axisLines : static_cast<float>(axisValue) / kScrollUnitsPerStep;
-    if ((detentDelta > 0.0f && accum < 0.0f) || (detentDelta < 0.0f && accum > 0.0f)) {
-      accum = 0.0f;
+    const float detentDelta = axisLines != 0.0F ? axisLines : static_cast<float>(axisValue) / kScrollUnitsPerStep;
+    if ((detentDelta > 0.0F && accum < 0.0F) || (detentDelta < 0.0F && accum > 0.0F)) {
+      accum = 0.0F;
     }
     accum += detentDelta;
     axisSteps = std::trunc(accum);
     accum -= axisSteps;
 
-    if (axisSteps != 0.0f) {
-      const float sign = std::copysign(1.0f, axisSteps);
+    if (axisSteps != 0.0F) {
+      const float sign = std::copysign(1.0F, axisSteps);
       const float previousSign = m_lastScrollStepSign[axis];
-      startsGesture = previousSign == 0.0f || previousSign != sign;
+      startsGesture = previousSign == 0.0F || previousSign != sign;
       // value120/axis_discrete means the compositor counted the notches for us, so every notch
       // steps: spinning faster stays proportional. Without them the stream is continuous
       // (touchpads, and wheels on compositors that send neither) and crosses the threshold as
@@ -299,8 +299,8 @@ bool InputArea::dispatchAxis(
       const bool detentCounted = isWheelSource(axisSource) && (axisValue120 != 0 || axisDiscrete != 0);
       if (!detentCounted && !startsGesture && now - m_lastScrollStepTime[axis] < kContinuousStepInterval) {
         // Drop the surplus rather than banking it, so a capped step cannot fire late.
-        axisSteps = 0.0f;
-        accum = 0.0f;
+        axisSteps = 0.0F;
+        accum = 0.0F;
       } else {
         axisSteps = sign;
         m_lastScrollStepSign[axis] = sign;

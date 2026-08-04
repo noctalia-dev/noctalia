@@ -31,28 +31,28 @@
 namespace {
 
   // Instance-count badge geometry — scales with icon size.
-  constexpr float kBadgeSizeRatio = 0.30f; // fraction of icon size
-  constexpr float kBadgeMinSize = 16.0f;   // minimum diameter in px
-  constexpr float kBadgeFontRatio = 0.72f; // font size relative to badge diameter
-  constexpr float kBadgeCornerInsetX = 0.55f;
-  constexpr float kBadgeCornerInsetY = 0.45f;
-  constexpr float kDotSizeRatio = 0.09f;
-  constexpr float kDotMinSize = 4.0f;
-  constexpr float kDotGap = 3.0f;
-  constexpr float kCellPad = 6.0f;
-  constexpr float kLauncherGlyphSizeRatio = 0.8f;
-  constexpr float kHoverZoomLerp = 0.28f;
-  constexpr float kHoverZoomReferenceFrameMs = 1000.0f / 60.0f;
+  constexpr float kBadgeSizeRatio = 0.30F; // fraction of icon size
+  constexpr float kBadgeMinSize = 16.0F;   // minimum diameter in px
+  constexpr float kBadgeFontRatio = 0.72F; // font size relative to badge diameter
+  constexpr float kBadgeCornerInsetX = 0.55F;
+  constexpr float kBadgeCornerInsetY = 0.45F;
+  constexpr float kDotSizeRatio = 0.09F;
+  constexpr float kDotMinSize = 4.0F;
+  constexpr float kDotGap = 3.0F;
+  constexpr float kCellPad = 6.0F;
+  constexpr float kLauncherGlyphSizeRatio = 0.8F;
+  constexpr float kHoverZoomLerp = 0.28F;
+  constexpr float kHoverZoomReferenceFrameMs = 1000.0F / 60.0F;
   // Pointer hit padding (in item pitches) — keep generous so edge icons still magnify.
-  constexpr float kHoverZoomInfluence = 2.25f;
+  constexpr float kHoverZoomInfluence = 2.25F;
   // Scale falloff radius — tighter than hit padding so neighbors stay closer to rest size.
-  constexpr float kHoverZoomFalloffInfluence = 1.5f;
+  constexpr float kHoverZoomFalloffInfluence = 1.5F;
   constexpr std::int32_t kHoverZoomZScale = 100;
   constexpr auto kDragHoldDelay = std::chrono::milliseconds(300);
 
   [[nodiscard]] float pointerMainOnRow(const DockConfig& cfg, const InputArea* area, float localX, float localY) {
     if (area == nullptr) {
-      return 0.0f;
+      return 0.0F;
     }
     const bool vertical = shell::dock::isVerticalEdge(cfg.position);
     const float areaMain = vertical ? area->y() : area->x();
@@ -70,13 +70,13 @@ namespace {
 
   [[nodiscard]] int dockIconDecodeTargetSize(const DockConfig& cfg) {
     const float baseScale = std::max(cfg.activeScale, cfg.inactiveScale);
-    const float hoverScale = cfg.magnification ? std::max(1.0f, cfg.magnificationScale) : 1.0f;
-    const float peakScale = std::max(1.0f, baseScale * hoverScale);
+    const float hoverScale = cfg.magnification ? std::max(1.0F, cfg.magnificationScale) : 1.0F;
+    const float peakScale = std::max(1.0F, baseScale * hoverScale);
     return std::max(1, static_cast<int>(std::round(static_cast<float>(cfg.iconSize) * peakScale)));
   }
 
   [[nodiscard]] float launcherIconBaseY(const DockConfig& cfg, float iconSize) {
-    return cfg.launcherCustomImage.empty() ? kCellPad + (iconSize - iconSize * kLauncherGlyphSizeRatio) * 0.5f
+    return cfg.launcherCustomImage.empty() ? kCellPad + (iconSize - iconSize * kLauncherGlyphSizeRatio) * 0.5F
                                            : kCellPad;
   }
 
@@ -85,7 +85,7 @@ namespace {
       return;
     }
     iconNode->setScale(scale);
-    const float shift = scale > 1.0f ? iconSize * (1.0f - scale) * 0.5f : 0.0f;
+    const float shift = scale > 1.0F ? iconSize * (1.0F - scale) * 0.5F : 0.0F;
     float x = baseX;
     float y = baseY;
     shell::dock::shiftAlongEdge(edge, x, y, shift);
@@ -99,13 +99,13 @@ namespace {
       return;
     }
     badge->setScale(iconScale);
-    const float shift = iconScale > 1.0f ? iconSize * (1.0f - iconScale) * 0.5f : 0.0f;
+    const float shift = iconScale > 1.0F ? iconSize * (1.0F - iconScale) * 0.5F : 0.0F;
     float iconX = iconBaseX;
     float iconY = iconBaseY;
     shell::dock::shiftAlongEdge(edge, iconX, iconY, shift);
-    const float iconRight = iconX + iconSize * (1.0f + iconScale) * 0.5f;
-    const float iconTop = iconY + iconSize * (1.0f - iconScale) * 0.5f;
-    const float badgeCenterAdjust = badgeSize * (1.0f - iconScale) * 0.5f;
+    const float iconRight = iconX + iconSize * (1.0F + iconScale) * 0.5F;
+    const float iconTop = iconY + iconSize * (1.0F - iconScale) * 0.5F;
+    const float badgeCenterAdjust = badgeSize * (1.0F - iconScale) * 0.5F;
     badge->setPosition(
         iconRight - badgeSize * kBadgeCornerInsetX * iconScale - badgeCenterAdjust,
         iconTop - badgeSize * kBadgeCornerInsetY * iconScale - badgeCenterAdjust
@@ -127,7 +127,7 @@ namespace {
     image->setAppIconColorization(effectiveShellAppIconColorizationTint(shell));
   }
 
-  [[nodiscard]] float itemRestCenterMain(float restMainPos, float cellMain) { return restMainPos + cellMain * 0.5f; }
+  [[nodiscard]] float itemRestCenterMain(float restMainPos, float cellMain) { return restMainPos + cellMain * 0.5F; }
 
   void applyItemMainOffset(InputArea* area, bool vertical, float restMain, float restCross, float offset) {
     if (area == nullptr) {
@@ -141,12 +141,12 @@ namespace {
   }
 
   [[nodiscard]] float hoverZoomFrameLerp(float deltaMs) {
-    const float clampedMs = std::clamp(deltaMs, 1.0f, 50.0f);
-    return 1.0f - std::pow(1.0f - kHoverZoomLerp, clampedMs / kHoverZoomReferenceFrameMs);
+    const float clampedMs = std::clamp(deltaMs, 1.0F, 50.0F);
+    return 1.0F - std::pow(1.0F - kHoverZoomLerp, clampedMs / kHoverZoomReferenceFrameMs);
   }
 
   [[nodiscard]] bool lerpHoverMainOffset(float& current, float target, float lerpFactor) {
-    if (std::abs(current - target) <= 0.25f) {
+    if (std::abs(current - target) <= 0.25F) {
       if (current != target) {
         current = target;
         return true;
@@ -159,16 +159,16 @@ namespace {
 
   void computeSymmetricSpreadOffsets(const std::vector<float>& scales, float iconSize, std::vector<float>& outOffsets) {
     const std::size_t count = scales.size();
-    outOffsets.assign(count, 0.0f);
+    outOffsets.assign(count, 0.0F);
     if (count <= 1U) {
       return;
     }
     for (std::size_t index = 1; index < count; ++index) {
-      const float pairExtra = iconSize * (scales[index - 1U] + scales[index] - 2.0f) * 0.5f;
-      if (pairExtra <= 0.0f) {
+      const float pairExtra = iconSize * (scales[index - 1U] + scales[index] - 2.0F) * 0.5F;
+      if (pairExtra <= 0.0F) {
         continue;
       }
-      const float halfExtra = pairExtra * 0.5f;
+      const float halfExtra = pairExtra * 0.5F;
       outOffsets[index - 1U] -= halfExtra;
       outOffsets[index] += halfExtra;
     }
@@ -183,37 +183,37 @@ namespace {
     }
 
     const auto restVisualMainMax = [&](std::size_t index) {
-      return restMainPos[index] + cellMain * 0.5f + iconSize * scales[index] * 0.5f;
+      return restMainPos[index] + cellMain * 0.5F + iconSize * scales[index] * 0.5F;
     };
     const auto restVisualMainMin = [&](std::size_t index) {
-      return restMainPos[index] + cellMain * 0.5f - iconSize * scales[index] * 0.5f;
+      return restMainPos[index] + cellMain * 0.5F - iconSize * scales[index] * 0.5F;
     };
 
-    float spreadFactor = 1.0f;
+    float spreadFactor = 1.0F;
     for (std::size_t index = 0; index < offsets.size(); ++index) {
       const float offset = offsets[index];
-      if (std::abs(offset) <= 0.001f) {
+      if (std::abs(offset) <= 0.001F) {
         continue;
       }
-      if (offset > 0.0f) {
+      if (offset > 0.0F) {
         const float maxRightOffset = boundsMax - restVisualMainMax(index);
-        if (maxRightOffset <= 0.0f) {
-          spreadFactor = 0.0f;
+        if (maxRightOffset <= 0.0F) {
+          spreadFactor = 0.0F;
         } else {
           spreadFactor = std::min(spreadFactor, maxRightOffset / offset);
         }
       } else {
         const float maxLeftOffset = boundsMin - restVisualMainMin(index);
-        if (maxLeftOffset >= 0.0f) {
-          spreadFactor = 0.0f;
+        if (maxLeftOffset >= 0.0F) {
+          spreadFactor = 0.0F;
         } else {
           spreadFactor = std::min(spreadFactor, maxLeftOffset / offset);
         }
       }
     }
 
-    spreadFactor = std::clamp(spreadFactor, 0.0f, 1.0f);
-    if (spreadFactor >= 1.0f) {
+    spreadFactor = std::clamp(spreadFactor, 0.0F, 1.0F);
+    if (spreadFactor >= 1.0F) {
       return;
     }
     for (float& offset : offsets) {
@@ -230,18 +230,18 @@ namespace {
 
   [[nodiscard]] TooltipAnchorInsets
   scaledIconTooltipAnchor(const InputArea* area, DockEdge edge, float iconBase, float iconSize, float scale) {
-    const float centerAdjust = iconSize * (1.0f - scale) * 0.5f;
+    const float centerAdjust = iconSize * (1.0F - scale) * 0.5F;
     float iconX = iconBase;
     float iconY = iconBase;
-    const float shift = iconSize * (1.0f - scale) * 0.5f;
+    const float shift = iconSize * (1.0F - scale) * 0.5F;
     shell::dock::shiftAlongEdge(edge, iconX, iconY, shift);
     const float left = iconX + centerAdjust;
     const float top = iconY + centerAdjust;
     const float visualSize = iconSize * scale;
     return TooltipAnchorInsets{
         .top = top,
-        .right = std::max(0.0f, area->width() - left - visualSize),
-        .bottom = std::max(0.0f, area->height() - top - visualSize),
+        .right = std::max(0.0F, area->width() - left - visualSize),
+        .bottom = std::max(0.0F, area->height() - top - visualSize),
         .left = left,
     };
   }
@@ -257,19 +257,19 @@ namespace {
   [[nodiscard]] float computeHoverMultiplier(
       float pointerMain, float itemCenterMain, float itemPitch, float maxMultiplier, float falloffInfluence
   ) {
-    if (maxMultiplier <= 1.0f) {
-      return 1.0f;
+    if (maxMultiplier <= 1.0F) {
+      return 1.0F;
     }
     const float distance = std::abs(pointerMain - itemCenterMain);
     const float influence = itemPitch * falloffInfluence;
     if (distance >= influence) {
-      return 1.0f;
+      return 1.0F;
     }
     const float t = distance / influence;
-    const float cosine = std::cos(t * std::numbers::pi_v<float> * 0.5f);
+    const float cosine = std::cos(t * std::numbers::pi_v<float> * 0.5F);
     // Squared cosine keeps the center pop but drops neighbors toward rest scale faster.
     const float falloff = cosine * cosine;
-    return 1.0f + (maxMultiplier - 1.0f) * falloff;
+    return 1.0F + (maxMultiplier - 1.0F) * falloff;
   }
 
   [[nodiscard]] std::string_view dockEdgeKey(DockEdge edge) {
@@ -316,12 +316,12 @@ namespace {
     if (iconNode == nullptr) {
       return;
     }
-    if (visualScale < 0.0f) {
+    if (visualScale < 0.0F) {
       visualScale = targetScale;
       iconNode->setScale(targetScale);
       return;
     }
-    if (std::abs(visualScale - targetScale) <= 0.001f) {
+    if (std::abs(visualScale - targetScale) <= 0.001F) {
       return;
     }
     if (animId != 0) {
@@ -349,12 +349,12 @@ namespace {
       instance.animations.cancel(animId);
       animId = 0;
     }
-    if (visualScale < 0.0f) {
+    if (visualScale < 0.0F) {
       visualScale = restScale;
       applyHoverItemVisual(iconNode, badge, edge, baseX, baseY, iconSize, badgeSize, restScale);
     }
-    if (std::abs(visualScale - targetScale) <= 0.002f) {
-      if (std::abs(visualScale - targetScale) > 0.0f) {
+    if (std::abs(visualScale - targetScale) <= 0.002F) {
+      if (std::abs(visualScale - targetScale) > 0.0F) {
         visualScale = targetScale;
         applyHoverItemVisual(iconNode, badge, edge, baseX, baseY, iconSize, badgeSize, targetScale);
       }
@@ -402,8 +402,8 @@ namespace shell::dock {
     const DockEdge edge = cfg.position;
     const bool vert = shell::dock::isVerticalEdge(edge);
     const auto iSize = static_cast<float>(cfg.iconSize);
-    const float cellMain = iSize + 2.0f * kCellPad;
-    const float cellCross = iSize + 2.0f * kCellPad;
+    const float cellMain = iSize + 2.0F * kCellPad;
+    const float cellCross = iSize + 2.0F * kCellPad;
     const int iconDecodeTarget = dockIconDecodeTargetSize(cfg);
 
     auto areaNode = ui::inputArea({});
@@ -507,7 +507,7 @@ namespace shell::dock {
     instance.items.clear();
     instance.launcherArea = nullptr;
     instance.launcherIconNode = nullptr;
-    instance.launcherVisualScale = -1.0f;
+    instance.launcherVisualScale = -1.0F;
     if (instance.launcherScaleAnimId != 0) {
       instance.animations.cancel(instance.launcherScaleAnimId);
       instance.launcherScaleAnimId = 0;
@@ -538,8 +538,8 @@ namespace shell::dock {
           .windowLookupWmClassLower = model.windowLookupWmClassLower,
       };
 
-      const float cellMain = iSize + 2.0f * kCellPad;
-      const float cellCross = iSize + 2.0f * kCellPad;
+      const float cellMain = iSize + 2.0F * kCellPad;
+      const float cellCross = iSize + 2.0F * kCellPad;
       auto areaNode = ui::inputArea({});
       if (!vert) {
         areaNode->setSize(cellMain, cellCross);
@@ -596,17 +596,17 @@ namespace shell::dock {
           dotIndicator = static_cast<Box*>(areaNode->addChild(
               ui::box({
                   .fill = colorSpecFromRole(ColorRole::Secondary),
-                  .radius = dot * 0.5f,
+                  .radius = dot * 0.5F,
                   .width = dot,
                   .height = dot,
                   .visible = false,
                   .configure = [verticalDots, edge, cellMain, dot](Box& box) {
                     if (verticalDots) {
-                      const float x = edge == DockEdge::Left ? 1.0f : std::round(cellMain - dot - 1.0f);
-                      box.setPosition(x, std::round((cellMain - dot) * 0.5f));
+                      const float x = edge == DockEdge::Left ? 1.0F : std::round(cellMain - dot - 1.0F);
+                      box.setPosition(x, std::round((cellMain - dot) * 0.5F));
                     } else {
-                      const float y = edge == DockEdge::Bottom ? std::round(cellMain - dot - 1.0f) : 1.0f;
-                      box.setPosition(std::round((cellMain - dot) * 0.5f), y);
+                      const float y = edge == DockEdge::Bottom ? std::round(cellMain - dot - 1.0F) : 1.0F;
+                      box.setPosition(std::round((cellMain - dot) * 0.5F), y);
                     }
                   },
               })
@@ -622,7 +622,7 @@ namespace shell::dock {
         areaNode->addChild(
             ui::box({
                 .out = &item.badge,
-                .radius = bd * 0.5f,
+                .radius = bd * 0.5F,
                 .width = bd,
                 .height = bd,
                 .visible = false,
@@ -737,7 +737,7 @@ namespace shell::dock {
             item.iconImage != nullptr ? static_cast<Node*>(item.iconImage) : static_cast<Node*>(item.iconGlyph);
         if (iconNode != nullptr) {
           item.visualScale = iconScale;
-          item.hoverMainOffset = 0.0f;
+          item.hoverMainOffset = 0.0F;
           const float badgeSize = std::max(kBadgeMinSize, iSize * kBadgeSizeRatio);
           applyHoverItemVisual(iconNode, item.badge, edge, kCellPad, kCellPad, iSize, badgeSize, iconScale);
         }
@@ -752,7 +752,7 @@ namespace shell::dock {
       const float launcherScale = cfg.inactiveScale;
       instance.launcherVisualScale = launcherScale;
       applyHoverItemVisual(
-          instance.launcherIconNode, nullptr, edge, kCellPad, launcherIconBaseY(cfg, iSize), iSize, 0.0f, launcherScale
+          instance.launcherIconNode, nullptr, edge, kCellPad, launcherIconBaseY(cfg, iSize), iSize, 0.0F, launcherScale
       );
     }
 
@@ -786,35 +786,35 @@ namespace shell::dock {
           if (!isDraggedItem) {
             iconNode->setPosition(kCellPad, kCellPad);
           }
-          if (item.visualScale < 0.0f) {
+          if (item.visualScale < 0.0F) {
             item.visualScale = iconScale;
             iconNode->setScale(iconScale);
-          } else if (!isDraggedItem && std::abs(item.visualScale - iconScale) > 0.001f) {
+          } else if (!isDraggedItem && std::abs(item.visualScale - iconScale) > 0.001F) {
             applyAnimatedIconScale(instance, iconNode, item.visualScale, item.scaleAnimId, iconScale);
           }
         }
 
         if (item.badge != nullptr && !cfg.magnification) {
           const float bd = std::max(kBadgeMinSize, static_cast<float>(cfg.iconSize) * kBadgeSizeRatio);
-          item.badge->setScale(1.0f);
+          item.badge->setScale(1.0F);
           item.badge->setPosition(
               kCellPad + static_cast<float>(cfg.iconSize) - bd * kBadgeCornerInsetX, kCellPad - bd * kBadgeCornerInsetY
           );
         }
 
         if (!cfg.magnification && !dragActive) {
-          item.hoverMainOffset = 0.0f;
-          applyItemMainOffset(item.area, shell::dock::isVerticalEdge(edge), item.restMainPos, item.restCrossPos, 0.0f);
+          item.hoverMainOffset = 0.0F;
+          applyItemMainOffset(item.area, shell::dock::isVerticalEdge(edge), item.restMainPos, item.restCrossPos, 0.0F);
           if (item.area != nullptr) {
             item.area->setZIndex(0);
           }
         }
 
         if (!isDraggedItem) {
-          if (item.visualOpacity < 0.0f) {
+          if (item.visualOpacity < 0.0F) {
             item.visualOpacity = iconOpacity;
             iconNode->setOpacity(iconOpacity);
-          } else if (std::abs(item.visualOpacity - iconOpacity) > 0.001f) {
+          } else if (std::abs(item.visualOpacity - iconOpacity) > 0.001F) {
             if (item.opacityAnimId != 0) {
               instance.animations.cancel(item.opacityAnimId);
             }
@@ -835,11 +835,11 @@ namespace shell::dock {
       if (cfg.showDots) {
         const std::size_t dotCount = std::min<std::size_t>(count, 3);
         const auto iSize = static_cast<float>(cfg.iconSize);
-        const float cellMain = iSize + 2.0f * kCellPad;
+        const float cellMain = iSize + 2.0F * kCellPad;
         const float dot = std::max(kDotMinSize, std::round(iSize * kDotSizeRatio));
         const float groupLength =
             dotCount == 0 ? dot : dot * static_cast<float>(dotCount) + kDotGap * static_cast<float>(dotCount - 1);
-        const float groupStart = std::round((cellMain - groupLength) * 0.5f);
+        const float groupStart = std::round((cellMain - groupLength) * 0.5F);
         const bool verticalDots = shell::dock::isVerticalEdge(edge);
 
         for (std::size_t dotIndex = 0; dotIndex < item.dotIndicators.size(); ++dotIndex) {
@@ -853,10 +853,10 @@ namespace shell::dock {
           if (visible) {
             const float main = groupStart + static_cast<float>(dotIndex) * (dot + kDotGap);
             if (verticalDots) {
-              const float x = edge == DockEdge::Left ? 1.0f : std::round(cellMain - dot - 1.0f);
+              const float x = edge == DockEdge::Left ? 1.0F : std::round(cellMain - dot - 1.0F);
               dotNode->setPosition(x, main);
             } else {
-              const float y = edge == DockEdge::Bottom ? std::round(cellMain - dot - 1.0f) : 1.0f;
+              const float y = edge == DockEdge::Bottom ? std::round(cellMain - dot - 1.0F) : 1.0F;
               dotNode->setPosition(main, y);
             }
           }
@@ -875,7 +875,7 @@ namespace shell::dock {
           const float bd = std::max(kBadgeMinSize, static_cast<float>(cfg.iconSize) * kBadgeSizeRatio);
           item.badgeLabel->measure(deps.renderContext);
           item.badgeLabel->setPosition(
-              std::round((bd - item.badgeLabel->width()) * 0.5f), std::round((bd - item.badgeLabel->height()) * 0.5f)
+              std::round((bd - item.badgeLabel->width()) * 0.5F), std::round((bd - item.badgeLabel->height()) * 0.5F)
           );
         }
       }
@@ -889,18 +889,18 @@ namespace shell::dock {
       const float iconScale = cfg.inactiveScale;
       const auto iSize = static_cast<float>(cfg.iconSize);
       instance.launcherIconNode->setPosition(kCellPad, launcherIconBaseY(cfg, iSize));
-      if (instance.launcherVisualScale < 0.0f) {
+      if (instance.launcherVisualScale < 0.0F) {
         instance.launcherVisualScale = iconScale;
         instance.launcherIconNode->setScale(iconScale);
-      } else if (std::abs(instance.launcherVisualScale - iconScale) > 0.001f) {
+      } else if (std::abs(instance.launcherVisualScale - iconScale) > 0.001F) {
         applyAnimatedIconScale(
             instance, instance.launcherIconNode, instance.launcherVisualScale, instance.launcherScaleAnimId, iconScale
         );
       }
-      instance.launcherHoverMainOffset = 0.0f;
+      instance.launcherHoverMainOffset = 0.0F;
       applyItemMainOffset(
           instance.launcherArea, shell::dock::isVerticalEdge(edge), instance.launcherRestMainPos,
-          instance.launcherRestCrossPos, 0.0f
+          instance.launcherRestCrossPos, 0.0F
       );
       if (instance.launcherArea != nullptr) {
         instance.launcherArea->setZIndex(0);
@@ -932,15 +932,15 @@ namespace shell::dock {
       return false;
     }
 
-    float localX = 0.0f;
-    float localY = 0.0f;
+    float localX = 0.0F;
+    float localY = 0.0F;
     if (!Node::mapFromScene(instance.row, sceneX, sceneY, localX, localY)) {
       instance.hoverPointerValid = false;
       return false;
     }
 
     const bool vertical = shell::dock::isVerticalEdge(cfg.position);
-    const float cellMain = static_cast<float>(cfg.iconSize) + 2.0f * kCellPad;
+    const float cellMain = static_cast<float>(cfg.iconSize) + 2.0F * kCellPad;
     const float itemPitch = cellMain + static_cast<float>(cfg.itemSpacing);
     const float mainPad = itemPitch * kHoverZoomInfluence;
     const float crossPad = static_cast<float>(shell::dock::dockHoverZoomCrossPad(cfg)) + kCellPad;
@@ -973,7 +973,7 @@ namespace shell::dock {
     const DockEdge edge = cfg.position;
     const bool vertical = shell::dock::isVerticalEdge(edge);
     const auto iSize = static_cast<float>(cfg.iconSize);
-    const float cellMain = iSize + 2.0f * kCellPad;
+    const float cellMain = iSize + 2.0F * kCellPad;
     const float itemPitch = cellMain + static_cast<float>(cfg.itemSpacing);
     const float badgeSize = std::max(kBadgeMinSize, iSize * kBadgeSizeRatio);
     const float baseLauncherScale = cfg.inactiveScale;
@@ -988,12 +988,12 @@ namespace shell::dock {
       float* visualScale = nullptr;
       float* hoverMainOffset = nullptr;
       AnimationManager::Id* scaleAnimId = nullptr;
-      float restMainPos = 0.0f;
-      float restCrossPos = 0.0f;
-      float baseScale = 1.0f;
-      float targetScale = 1.0f;
-      float targetMainOffset = 0.0f;
-      float restCenterMain = 0.0f;
+      float restMainPos = 0.0F;
+      float restCrossPos = 0.0F;
+      float baseScale = 1.0F;
+      float targetScale = 1.0F;
+      float targetMainOffset = 0.0F;
+      float restCenterMain = 0.0F;
       float iconBaseX = kCellPad;
       float iconBaseY = kCellPad;
     };
@@ -1062,7 +1062,7 @@ namespace shell::dock {
                                                         instance.hoverPointerMain, slot.restCenterMain, itemPitch,
                                                         cfg.magnificationScale, kHoverZoomFalloffInfluence
                                                     )
-                                                  : 1.0f;
+                                                  : 1.0F;
       slot.targetScale = slot.baseScale * hoverMultiplier;
       slotScales.push_back(slot.targetScale);
     }
@@ -1081,7 +1081,7 @@ namespace shell::dock {
           restMainPos, slotScales, cellMain, iSize, mainPad, rowMainSize - mainPad, targetOffsets
       );
     } else {
-      targetOffsets.assign(slots.size(), 0.0f);
+      targetOffsets.assign(slots.size(), 0.0F);
     }
 
     for (std::size_t index = 0; index < slots.size(); ++index) {
@@ -1089,7 +1089,7 @@ namespace shell::dock {
     }
 
     for (HoverSlot& slot : slots) {
-      if (lerpHoverMainOffset(*slot.hoverMainOffset, pointerActive ? slot.targetMainOffset : 0.0f, lerpFactor)) {
+      if (lerpHoverMainOffset(*slot.hoverMainOffset, pointerActive ? slot.targetMainOffset : 0.0F, lerpFactor)) {
         needsMoreFrames = true;
       }
       applyItemMainOffset(slot.area, vertical, slot.restMainPos, slot.restCrossPos, *slot.hoverMainOffset);
@@ -1101,7 +1101,7 @@ namespace shell::dock {
         needsMoreFrames = true;
       }
 
-      const float paintScale = *slot.visualScale > 0.0f ? *slot.visualScale : slot.targetScale;
+      const float paintScale = *slot.visualScale > 0.0F ? *slot.visualScale : slot.targetScale;
       applyHoverZoomZIndex(slot.area, paintScale);
       if (!instance.drag.active) {
         syncHoveredTooltipAnchor(slot.area, cfg, iSize, paintScale);
@@ -1122,7 +1122,7 @@ namespace shell::dock {
     if (cfg.launcherPosition == DockLauncherPosition::Start && instance.launcherArea != nullptr) {
       instance.launcherRestMainPos = vertical ? instance.launcherArea->y() : instance.launcherArea->x();
       instance.launcherRestCrossPos = vertical ? instance.launcherArea->x() : instance.launcherArea->y();
-      instance.launcherHoverMainOffset = 0.0f;
+      instance.launcherHoverMainOffset = 0.0F;
     }
     for (auto& item : instance.items) {
       if (item.area == nullptr) {
@@ -1130,12 +1130,12 @@ namespace shell::dock {
       }
       item.restMainPos = vertical ? item.area->y() : item.area->x();
       item.restCrossPos = vertical ? item.area->x() : item.area->y();
-      item.hoverMainOffset = 0.0f;
+      item.hoverMainOffset = 0.0F;
     }
     if (cfg.launcherPosition == DockLauncherPosition::End && instance.launcherArea != nullptr) {
       instance.launcherRestMainPos = vertical ? instance.launcherArea->y() : instance.launcherArea->x();
       instance.launcherRestCrossPos = vertical ? instance.launcherArea->x() : instance.launcherArea->y();
-      instance.launcherHoverMainOffset = 0.0f;
+      instance.launcherHoverMainOffset = 0.0F;
     }
   }
 
@@ -1152,7 +1152,7 @@ namespace shell::dock {
     if (pinnedCount == 0 || instance.items.empty()) {
       return 0;
     }
-    const float cellMain = static_cast<float>(cfg.iconSize) + 2.0f * kCellPad;
+    const float cellMain = static_cast<float>(cfg.iconSize) + 2.0F * kCellPad;
     const float pitch = cellMain + static_cast<float>(cfg.itemSpacing);
 
     std::size_t target = 0;
@@ -1162,8 +1162,8 @@ namespace shell::dock {
       if (item.area == nullptr) {
         continue;
       }
-      const float restCenter = item.restMainPos + cellMain * 0.5f;
-      if (mainPos > restCenter + pitch * 0.05f) {
+      const float restCenter = item.restMainPos + cellMain * 0.5F;
+      if (mainPos > restCenter + pitch * 0.05F) {
         target = i + 1;
       }
     }
@@ -1175,7 +1175,7 @@ namespace shell::dock {
       return;
     }
     const bool vertical = shell::dock::isVerticalEdge(cfg.position);
-    const float cellMain = static_cast<float>(cfg.iconSize) + 2.0f * kCellPad;
+    const float cellMain = static_cast<float>(cfg.iconSize) + 2.0F * kCellPad;
     const float pitch = cellMain + static_cast<float>(cfg.itemSpacing);
     const std::size_t pinnedCount = cfg.pinned.size();
     const std::size_t source = instance.drag.sourceIndex;
@@ -1187,14 +1187,14 @@ namespace shell::dock {
         continue;
       }
 
-      float extraOffset = 0.0f;
+      float extraOffset = 0.0F;
       if (i == source) {
         extraOffset = instance.drag.currentMain - instance.drag.startMain;
         item.area->setZIndex(200);
         Node* iconNode =
             item.iconImage != nullptr ? static_cast<Node*>(item.iconImage) : static_cast<Node*>(item.iconGlyph);
         if (iconNode != nullptr) {
-          iconNode->setOpacity(0.85f);
+          iconNode->setOpacity(0.85F);
         }
       } else if (i < pinnedCount) {
         item.area->setZIndex(0);
@@ -1208,14 +1208,14 @@ namespace shell::dock {
         Node* iconNode =
             item.iconImage != nullptr ? static_cast<Node*>(item.iconImage) : static_cast<Node*>(item.iconGlyph);
         if (iconNode != nullptr) {
-          iconNode->setOpacity(item.visualOpacity >= 0.0f ? item.visualOpacity : 1.0f);
+          iconNode->setOpacity(item.visualOpacity >= 0.0F ? item.visualOpacity : 1.0F);
         }
       } else {
         item.area->setZIndex(0);
         Node* iconNode =
             item.iconImage != nullptr ? static_cast<Node*>(item.iconImage) : static_cast<Node*>(item.iconGlyph);
         if (iconNode != nullptr) {
-          iconNode->setOpacity(item.visualOpacity >= 0.0f ? item.visualOpacity : 1.0f);
+          iconNode->setOpacity(item.visualOpacity >= 0.0F ? item.visualOpacity : 1.0F);
         }
       }
 
@@ -1235,7 +1235,7 @@ namespace shell::dock {
       if (item.area == nullptr) {
         continue;
       }
-      item.dragMainOffset = 0.0f;
+      item.dragMainOffset = 0.0F;
       item.isDragGhost = false;
       item.area->setZIndex(0);
       const float totalMain = item.restMainPos + item.hoverMainOffset;
@@ -1247,7 +1247,7 @@ namespace shell::dock {
       Node* iconNode =
           item.iconImage != nullptr ? static_cast<Node*>(item.iconImage) : static_cast<Node*>(item.iconGlyph);
       if (iconNode != nullptr) {
-        const float opacity = item.visualOpacity >= 0.0f ? item.visualOpacity : 1.0f;
+        const float opacity = item.visualOpacity >= 0.0F ? item.visualOpacity : 1.0F;
         iconNode->setOpacity(opacity);
       }
     }

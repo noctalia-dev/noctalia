@@ -16,8 +16,8 @@ namespace {
 
   // Footprint used only when the widget has no box yet (freshly dropped). Once boxed, the
   // visualizer fills the box inner rect on both axes.
-  constexpr float kDefaultVisualizerWidth = 240.0f;
-  constexpr float kDefaultVisualizerHeight = 96.0f;
+  constexpr float kDefaultVisualizerWidth = 240.0F;
+  constexpr float kDefaultVisualizerHeight = 96.0F;
 
 } // namespace
 
@@ -154,7 +154,7 @@ void DesktopAudioVisualizerWidget::layout(Renderer& renderer) {
 void DesktopAudioVisualizerWidget::layoutContentSize(Renderer& renderer) {
   float width = boxInnerWidth();
   float height = boxInnerHeight();
-  if (width <= 0.0f || height <= 0.0f) {
+  if (width <= 0.0F || height <= 0.0F) {
     width = kDefaultVisualizerWidth * m_contentScale;
     height = kDefaultVisualizerHeight * m_contentScale;
   }
@@ -162,7 +162,7 @@ void DesktopAudioVisualizerWidget::layoutContentSize(Renderer& renderer) {
     if (m_visible) {
       syncSpectrum(&renderer);
     }
-    m_visualizer->setPosition(0.0f, 0.0f);
+    m_visualizer->setPosition(0.0F, 0.0F);
     m_visualizer->setSize(width, height);
   }
   if (root() != nullptr) {
@@ -229,7 +229,7 @@ bool DesktopAudioVisualizerWidget::applyVisibility() {
     m_fadingOut = false;
     m_visible = nextVisible;
     setVisibilityCollapsed(!m_visible);
-    root()->setOpacity(m_visible ? 1.0f : 0.0f);
+    root()->setOpacity(m_visible ? 1.0F : 0.0F);
     return !m_visible;
   }
 
@@ -238,7 +238,7 @@ bool DesktopAudioVisualizerWidget::applyVisibility() {
       return false;
     }
     m_fadingOut = true;
-    startOpacityAnimation(0.0f, true);
+    startOpacityAnimation(0.0F, true);
     return false;
   }
 
@@ -251,7 +251,7 @@ bool DesktopAudioVisualizerWidget::applyVisibility() {
   m_fadingOut = false;
   m_visible = true;
   setVisibilityCollapsed(false);
-  startOpacityAnimation(1.0f, false);
+  startOpacityAnimation(1.0F, false);
   return wasCollapsed;
 }
 

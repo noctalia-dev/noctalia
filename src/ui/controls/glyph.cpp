@@ -84,7 +84,7 @@ void Glyph::doArrange(Renderer& renderer, const LayoutRect& rect) {
   setPosition(rect.x, rect.y);
   LayoutConstraints constraints;
   constraints.setExactWidth(rect.width);
-  if (rect.height > 0.0f) {
+  if (rect.height > 0.0F) {
     constraints.setExactHeight(rect.height);
   }
   measureWithConstraints(renderer, constraints);
@@ -92,7 +92,7 @@ void Glyph::doArrange(Renderer& renderer, const LayoutRect& rect) {
 
 void Glyph::measure(Renderer& renderer) {
   LayoutConstraints constraints;
-  if (width() > 0.0f && !sizeAssignedByLayout()) {
+  if (width() > 0.0F && !sizeAssignedByLayout()) {
     constraints.setExactWidth(width());
   }
   measureWithConstraints(renderer, constraints);
@@ -121,10 +121,10 @@ LayoutSize Glyph::measureWithConstraints(Renderer& renderer, const LayoutConstra
   const float finalHeight = constraints.hasExactHeight() ? constraints.maxHeight : boxSize;
   Node::setSize(std::round(finalWidth), std::round(finalHeight));
 
-  const float glyphCenterX = (metrics.left + metrics.right) * 0.5f;
-  const float glyphInkCenter = (metrics.top + metrics.bottom) * 0.5f; // relative to baseline
-  m_baselineOffset = height() * 0.5f - glyphInkCenter;
-  m_glyphNode->setPosition(width() * 0.5f - glyphCenterX, m_baselineOffset);
+  const float glyphCenterX = (metrics.left + metrics.right) * 0.5F;
+  const float glyphInkCenter = (metrics.top + metrics.bottom) * 0.5F; // relative to baseline
+  m_baselineOffset = height() * 0.5F - glyphInkCenter;
+  m_glyphNode->setPosition(width() * 0.5F - glyphCenterX, m_baselineOffset);
 
   m_cachedCodepoint = m_glyphNode->codepoint();
   m_cachedFontSize = m_glyphNode->fontSize();

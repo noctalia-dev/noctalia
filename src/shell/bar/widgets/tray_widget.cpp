@@ -86,8 +86,8 @@ namespace {
   bool isSvgPath(std::string_view path) { return path.ends_with(".svg") || path.ends_with(".SVG"); }
 
   std::pair<std::int32_t, std::int32_t> trayPointerCoords(const InputArea& area, const InputArea::PointerData& data) {
-    float absX = 0.0f;
-    float absY = 0.0f;
+    float absX = 0.0F;
+    float absY = 0.0F;
     Node::absolutePosition(&area, absX, absY);
     return {
         static_cast<std::int32_t>(std::lround(absX + data.localX)),
@@ -106,8 +106,8 @@ namespace {
     }
 
     auto toByte = [](float channel) -> std::uint8_t {
-      const float clamped = std::clamp(channel, 0.0f, 1.0f);
-      return static_cast<std::uint8_t>(std::lround(clamped * 255.0f));
+      const float clamped = std::clamp(channel, 0.0F, 1.0F);
+      return static_cast<std::uint8_t>(std::lround(clamped * 255.0F));
     };
     const std::uint8_t rr = toByte(symbolicColor.r);
     const std::uint8_t gg = toByte(symbolicColor.g);
@@ -119,8 +119,8 @@ namespace {
     // 2) Opaque monochrome bitmaps/SVG rasterizations, where luminance polarity
     //    (light-on-dark vs dark-on-light) must be converted into alpha.
     std::size_t transparentPixels = 0;
-    float lumSum = 0.0f;
-    float alphaWeight = 0.0f;
+    float lumSum = 0.0F;
+    float alphaWeight = 0.0F;
     const std::size_t pixelCount = loaded->rgba.size() / 4U;
     for (std::size_t i = 0; i + 3 < loaded->rgba.size(); i += 4) {
       const std::uint8_t a = loaded->rgba[i + 3];
@@ -128,20 +128,20 @@ namespace {
         ++transparentPixels;
         continue;
       }
-      const float lum = (static_cast<float>(loaded->rgba[i]) * 0.299f
-                         + static_cast<float>(loaded->rgba[i + 1]) * 0.587f
-                         + static_cast<float>(loaded->rgba[i + 2]) * 0.114f)
-          / 255.0f;
-      const float w = static_cast<float>(a) / 255.0f;
+      const float lum = (static_cast<float>(loaded->rgba[i]) * 0.299F
+                         + static_cast<float>(loaded->rgba[i + 1]) * 0.587F
+                         + static_cast<float>(loaded->rgba[i + 2]) * 0.114F)
+          / 255.0F;
+      const float w = static_cast<float>(a) / 255.0F;
       lumSum += lum * w;
       alphaWeight += w;
     }
 
     const float transparentRatio =
-        pixelCount == 0 ? 0.0f : static_cast<float>(transparentPixels) / static_cast<float>(pixelCount);
-    const bool useSourceAlphaMask = transparentRatio > 0.10f;
-    const float avgLum = alphaWeight > 0.0f ? lumSum / alphaWeight : 0.0f;
-    const bool invertLumaMask = avgLum > 0.5f;
+        pixelCount == 0 ? 0.0F : static_cast<float>(transparentPixels) / static_cast<float>(pixelCount);
+    const bool useSourceAlphaMask = transparentRatio > 0.10F;
+    const float avgLum = alphaWeight > 0.0F ? lumSum / alphaWeight : 0.0F;
+    const bool invertLumaMask = avgLum > 0.5F;
 
     for (std::size_t i = 0; i + 3 < loaded->rgba.size(); i += 4) {
       const std::uint8_t a = loaded->rgba[i + 3];
@@ -149,12 +149,12 @@ namespace {
         continue;
       }
       const float lum =
-          (loaded->rgba[i] * 0.299f + loaded->rgba[i + 1] * 0.587f + loaded->rgba[i + 2] * 0.114f) / 255.0f;
-      const float mask = useSourceAlphaMask ? 1.0f : (invertLumaMask ? (1.0f - lum) : lum);
+          (loaded->rgba[i] * 0.299F + loaded->rgba[i + 1] * 0.587F + loaded->rgba[i + 2] * 0.114F) / 255.0F;
+      const float mask = useSourceAlphaMask ? 1.0F : (invertLumaMask ? (1.0F - lum) : lum);
       loaded->rgba[i + 0] = rr;
       loaded->rgba[i + 1] = gg;
       loaded->rgba[i + 2] = bb;
-      loaded->rgba[i + 3] = static_cast<std::uint8_t>(std::lround(a * std::clamp(mask, 0.0f, 1.0f)));
+      loaded->rgba[i + 3] = static_cast<std::uint8_t>(std::lround(a * std::clamp(mask, 0.0F, 1.0F)));
     }
 
     return std::move(*loaded);
@@ -170,7 +170,7 @@ TrayWidget::TrayWidget(ConfigService& config, TrayService* tray, Options options
       m_itemActivated(std::move(options.itemActivated)), m_barPosition(std::move(options.barPosition)),
       m_panelGridMode(options.panelGridMode),
       m_panelGridColumns(std::clamp<std::size_t>(options.panelGridColumns, 1U, 5U)),
-      m_inlineEntryGap(std::max(0.0f, options.inlineEntryGap)), m_matchAdjacentSpacing(options.matchAdjacentSpacing),
+      m_inlineEntryGap(std::max(0.0F, options.inlineEntryGap)), m_matchAdjacentSpacing(options.matchAdjacentSpacing),
       m_customItemSize(options.customItemSize) {
   auto normalizeTokens = [](std::vector<std::string>& tokens) {
     std::vector<std::string> normalized;
@@ -237,8 +237,8 @@ float TrayWidget::resolvedInlineEntryGap() const {
     return m_inlineEntryGap;
   }
   const auto& cap = barCapsuleSpec();
-  const float pad = cap.enabled ? cap.padding * m_contentScale : 0.0f;
-  return m_inlineEntryGap + 2.0f * pad;
+  const float pad = cap.enabled ? cap.padding * m_contentScale : 0.0F;
+  return m_inlineEntryGap + 2.0F * pad;
 }
 
 std::optional<ColorSpec> TrayWidget::currentAppIconColorizeTint() const {
@@ -291,8 +291,8 @@ void TrayWidget::doLayout(Renderer& renderer, float containerWidth, float contai
       m_drawerChevron->setGlyphSize(m_drawerTrigger->width());
       m_drawerChevron->measure(renderer);
       m_drawerChevron->setPosition(
-          std::round((m_drawerTrigger->width() - m_drawerChevron->width()) * 0.5f),
-          std::round((m_drawerTrigger->height() - m_drawerChevron->height()) * 0.5f)
+          std::round((m_drawerTrigger->width() - m_drawerChevron->width()) * 0.5F),
+          std::round((m_drawerTrigger->height() - m_drawerChevron->height()) * 0.5F)
       );
       requestRedraw();
     }
@@ -313,7 +313,7 @@ void TrayWidget::doLayout(Renderer& renderer, float containerWidth, float contai
     m_container->setDirection(m_isVertical ? FlexDirection::Vertical : FlexDirection::Horizontal);
   }
   syncState(renderer);
-  if (containerHeight > 0.0f && std::abs(containerHeight - m_contentHeight) > 0.5f) {
+  if (containerHeight > 0.0F && std::abs(containerHeight - m_contentHeight) > 0.5F) {
     m_contentHeight = containerHeight;
     m_rebuildPending = true;
   }
@@ -461,15 +461,15 @@ void TrayWidget::rebuild(Renderer& renderer) {
     }
     Box* hoverBoxPtr = nullptr;
     ColorSpec hoverFill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
-    hoverFill.alpha = 0.0f;
+    hoverFill.alpha = 0.0F;
     const float padding = Style::spaceXs * m_contentScale;
     area.addChild(
         ui::box({
             .out = &hoverBoxPtr,
             .fill = hoverFill,
-            .radius = resolvedBarCapsuleRadius(size + padding * 2.0f, size + padding * 2.0f),
-            .width = size + padding * 2.0f,
-            .height = size + padding * 2.0f,
+            .radius = resolvedBarCapsuleRadius(size + padding * 2.0F, size + padding * 2.0F),
+            .width = size + padding * 2.0F,
+            .height = size + padding * 2.0F,
             .configure = [padding](Box& box) {
               box.setZIndex(-1);
               box.setHitTestVisible(false);
@@ -478,19 +478,19 @@ void TrayWidget::rebuild(Renderer& renderer) {
         })
     );
 
-    auto progress = std::make_shared<float>(0.0f);
+    auto progress = std::make_shared<float>(0.0F);
     area.setOnEnter([this, hoverBoxPtr, progress](const InputArea::PointerData&) {
       if (m_animations == nullptr)
         return;
       m_animations->cancelForOwner(hoverBoxPtr);
       const ColorSpec fill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
       m_animations->animate(
-          *progress, 1.0f, Style::animFast, Easing::EaseOutCubic,
+          *progress, 1.0F, Style::animFast, Easing::EaseOutCubic,
           [this, hoverBoxPtr, fill, progress](float p) {
             *progress = p;
-            hoverBoxPtr->setVisible(p > 0.001f);
+            hoverBoxPtr->setVisible(p > 0.001F);
             ColorSpec c = fill;
-            c.alpha = 0.1f * p;
+            c.alpha = 0.1F * p;
             hoverBoxPtr->setFill(c);
             requestRedraw();
           },
@@ -505,12 +505,12 @@ void TrayWidget::rebuild(Renderer& renderer) {
       m_animations->cancelForOwner(hoverBoxPtr);
       const ColorSpec fill = widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface));
       m_animations->animate(
-          *progress, 0.0f, Style::animFast, Easing::EaseOutCubic,
+          *progress, 0.0F, Style::animFast, Easing::EaseOutCubic,
           [this, hoverBoxPtr, fill, progress](float p) {
             *progress = p;
-            hoverBoxPtr->setVisible(p > 0.001f);
+            hoverBoxPtr->setVisible(p > 0.001F);
             ColorSpec c = fill;
-            c.alpha = 0.1f * p;
+            c.alpha = 0.1F * p;
             hoverBoxPtr->setFill(c);
             requestRedraw();
           },
@@ -540,22 +540,22 @@ void TrayWidget::rebuild(Renderer& renderer) {
       triggerArea->setSize(itemSize, itemSize);
       triggerArea->setOnClick([this, triggerPtr](const InputArea::PointerData& data) {
         if (data.button == BTN_LEFT) {
-          float ax = 0.0f;
-          float ay = 0.0f;
+          float ax = 0.0F;
+          float ay = 0.0F;
           Node::absolutePosition(triggerPtr, ax, ay);
           // Open below / away from the bar edge relative to the tray button center.
-          const float centerX = ax + triggerPtr->width() * 0.5f;
-          const float centerY = ay + triggerPtr->height() * 0.5f;
+          const float centerX = ax + triggerPtr->width() * 0.5F;
+          const float centerY = ay + triggerPtr->height() * 0.5F;
           float anchorX = centerX;
           float anchorY = centerY;
           if (m_barPosition == "top") {
-            anchorY += triggerPtr->height() * 0.5f + Style::spaceXs * m_contentScale;
+            anchorY += triggerPtr->height() * 0.5F + Style::spaceXs * m_contentScale;
           } else if (m_barPosition == "bottom") {
-            anchorY -= triggerPtr->height() * 0.5f + Style::spaceXs * m_contentScale;
+            anchorY -= triggerPtr->height() * 0.5F + Style::spaceXs * m_contentScale;
           } else if (m_barPosition == "left") {
-            anchorX += triggerPtr->width() * 0.5f + Style::spaceXs * m_contentScale;
+            anchorX += triggerPtr->width() * 0.5F + Style::spaceXs * m_contentScale;
           } else if (m_barPosition == "right") {
-            anchorX -= triggerPtr->width() * 0.5f + Style::spaceXs * m_contentScale;
+            anchorX -= triggerPtr->width() * 0.5F + Style::spaceXs * m_contentScale;
           }
           requestPanelToggle("tray-drawer", {}, anchorX, anchorY);
         }
@@ -569,7 +569,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
       });
       glyph->measure(renderer);
       glyph->setPosition(
-          std::round((itemSize - glyph->width()) * 0.5f), std::round((itemSize - glyph->height()) * 0.5f)
+          std::round((itemSize - glyph->width()) * 0.5F), std::round((itemSize - glyph->height()) * 0.5F)
       );
       m_drawerChevron = glyph.get();
       triggerArea->addChild(std::move(glyph));
@@ -593,7 +593,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
     const std::string iconPath = resolveIconPath(item);
     const float itemSize = m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale;
     const float iconSize = itemSize;
-    const int iconRequestSize = std::max(32, static_cast<int>(std::round(iconSize * 2.0f)));
+    const int iconRequestSize = std::max(32, static_cast<int>(std::round(iconSize * 2.0F)));
 
     std::unique_ptr<Node> iconNode;
     float iconW = iconSize;
@@ -748,8 +748,8 @@ void TrayWidget::rebuild(Renderer& renderer) {
     if (overlayNode != nullptr && iconNode != nullptr) {
       auto stack = ui::node({});
       stack->setSize(itemSize, itemSize);
-      iconNode->setPosition(std::round((itemSize - iconW) * 0.5f), std::round((itemSize - iconH) * 0.5f));
-      overlayNode->setPosition(std::round((itemSize - overlayW) * 0.5f), std::round((itemSize - overlayH) * 0.5f));
+      iconNode->setPosition(std::round((itemSize - iconW) * 0.5F), std::round((itemSize - iconH) * 0.5F));
+      overlayNode->setPosition(std::round((itemSize - overlayW) * 0.5F), std::round((itemSize - overlayH) * 0.5F));
       stack->addChild(std::move(iconNode));
       stack->addChild(std::move(overlayNode));
       iconNode = std::move(stack);
@@ -760,7 +760,7 @@ void TrayWidget::rebuild(Renderer& renderer) {
     // Wrap icon in InputArea for click handling
     auto area = ui::inputArea({});
     area->setSize(itemSize, itemSize);
-    iconNode->setPosition(std::round((itemSize - iconW) * 0.5f), std::round((itemSize - iconH) * 0.5f));
+    iconNode->setPosition(std::round((itemSize - iconW) * 0.5F), std::round((itemSize - iconH) * 0.5F));
     auto itemId = item.id;
     area->setAcceptedButtons(InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}));
     InputArea* areaPtr = area.get();
@@ -922,7 +922,7 @@ std::string TrayWidget::resolveIconPath(const TrayItemInfo& item) {
 
   // Match the on-screen request size used when the icon is loaded (see rebuild).
   const int iconTargetSize = std::max(
-      32, static_cast<int>(std::round(m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale * 2.0f))
+      32, static_cast<int>(std::round(m_customItemSize.value_or(Style::baseGlyphSize) * m_contentScale * 2.0F))
   );
 
   auto resolveMapped = [this, iconTargetSize](const std::string& name) -> std::string {

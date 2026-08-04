@@ -186,7 +186,7 @@ void PluginWidget::create() {
     // Whole detent steps, so a wheel notch and a touchpad flick mean the same
     // thing to the script. Continuous sources report 0 until a detent accrues.
     const float steps = data.scrollSteps();
-    if (steps == 0.0f)
+    if (steps == 0.0F)
       return false;
     const char* axis = data.axis == WL_POINTER_AXIS_VERTICAL_SCROLL ? "vertical" : "horizontal";
     // The third argument is true only on the first step of a flick in that direction. A script
@@ -384,8 +384,8 @@ void PluginWidget::luaSetGlyph(std::string_view name) {
   if (!m_imagePath.empty()) {
     m_imagePath.clear();
     m_resolvedImagePath.clear();
-    m_imageWidth = 0.0f;
-    m_imageHeight = 0.0f;
+    m_imageWidth = 0.0F;
+    m_imageHeight = 0.0F;
     m_imageWatch = false;
     m_imageForceReload = false;
     m_imageDirty = true;
@@ -412,8 +412,8 @@ void PluginWidget::luaSetImage(std::string_view path, bool watch, float width, f
 
   std::string nextPath(path);
   const bool nextWatch = watch && !nextPath.empty();
-  const float nextWidth = std::max(0.0f, width);
-  const float nextHeight = std::max(0.0f, height);
+  const float nextWidth = std::max(0.0F, width);
+  const float nextHeight = std::max(0.0F, height);
   const bool pathChanged = nextPath != m_imagePath;
   const bool watchChanged = nextWatch != m_imageWatch;
   const bool sizeChanged = nextWidth != m_imageWidth || nextHeight != m_imageHeight;
@@ -765,13 +765,13 @@ void PluginWidget::syncImage(Renderer& renderer) {
     return;
   }
 
-  const float logicalWidth = m_imageWidth > 0.0f ? m_imageWidth : Style::baseGlyphSize;
-  const float logicalHeight = m_imageHeight > 0.0f ? m_imageHeight : logicalWidth;
+  const float logicalWidth = m_imageWidth > 0.0F ? m_imageWidth : Style::baseGlyphSize;
+  const float logicalHeight = m_imageHeight > 0.0F ? m_imageHeight : logicalWidth;
   const float imageWidth = logicalWidth * m_contentScale;
   const float imageHeight = logicalHeight * m_contentScale;
   m_image->setSize(imageWidth, imageHeight);
 
-  const int imageTargetSize = std::max(1, static_cast<int>(std::round(std::max(imageWidth, imageHeight) * 3.0f)));
+  const int imageTargetSize = std::max(1, static_cast<int>(std::round(std::max(imageWidth, imageHeight) * 3.0F)));
   if (m_imageDirty) {
     const bool loaded = m_imageForceReload
         ? m_image->reloadSourceFile(renderer, m_resolvedImagePath.string(), imageTargetSize, true)
@@ -854,8 +854,8 @@ void PluginWidget::reloadScript() {
   m_glyphVisible = false;
   m_imagePath.clear();
   m_resolvedImagePath.clear();
-  m_imageWidth = 0.0f;
-  m_imageHeight = 0.0f;
+  m_imageWidth = 0.0F;
+  m_imageHeight = 0.0F;
   m_textColor = {};
   m_glyphColor = {};
   m_updateIntervalMs = 250;

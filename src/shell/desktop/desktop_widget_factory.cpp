@@ -113,8 +113,8 @@ namespace {
     return colorSpecFromConfigString(*value, key);
   }
 
-  constexpr float kDefaultBgRadius = 12.0f;
-  constexpr float kDefaultBgPadding = 10.0f;
+  constexpr float kDefaultBgRadius = 12.0F;
+  constexpr float kDefaultBgPadding = 10.0F;
 
   std::optional<FancyAudioVisualizerMode>
   getFancyAudioVisualizerMode(const std::unordered_map<std::string, WidgetSettingValue>& settings) {
@@ -169,7 +169,7 @@ namespace {
   ) {
     if (getBoolSetting(settings, "background", defaultBackground)) {
       ColorSpec bgColor = getColorSpecSetting(settings, "background_color", colorSpecFromRole(ColorRole::Surface));
-      bgColor.alpha *= std::clamp(getFloatSetting(settings, "background_opacity", 0.8f), 0.0f, 1.0f);
+      bgColor.alpha *= std::clamp(getFloatSetting(settings, "background_opacity", 0.8F), 0.0F, 1.0F);
       const float radius = getFloatSetting(settings, "background_radius", kDefaultBgRadius);
       const float padding = getFloatSetting(settings, "background_padding", kDefaultBgPadding);
       widget.setBackgroundStyle(bgColor, radius, padding);
@@ -241,13 +241,13 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
         m_pipewireSpectrum,
         DesktopFancyAudioVisualizerWidget::Options{
             .mode = *mode,
-            .sensitivity = getFloatSetting(settings, "sensitivity", 1.5f),
-            .rotationSpeed = getFloatSetting(settings, "rotation_speed", 0.5f),
-            .barWidth = getFloatSetting(settings, "bar_width", 0.6f),
-            .ringOpacity = getFloatSetting(settings, "ring_opacity", 0.8f),
-            .bloomIntensity = getFloatSetting(settings, "bloom_intensity", 0.5f),
-            .waveThickness = getFloatSetting(settings, "wave_thickness", 1.0f),
-            .innerDiameter = getFloatSetting(settings, "inner_diameter", 0.7f),
+            .sensitivity = getFloatSetting(settings, "sensitivity", 1.5F),
+            .rotationSpeed = getFloatSetting(settings, "rotation_speed", 0.5F),
+            .barWidth = getFloatSetting(settings, "bar_width", 0.6F),
+            .ringOpacity = getFloatSetting(settings, "ring_opacity", 0.8F),
+            .bloomIntensity = getFloatSetting(settings, "bloom_intensity", 0.5F),
+            .waveThickness = getFloatSetting(settings, "wave_thickness", 1.0F),
+            .innerDiameter = getFloatSetting(settings, "inner_diameter", 0.7F),
             .fadeWhenIdle = getBoolSetting(settings, "fade_when_idle", true),
             .primaryColor = getColorSpecSetting(settings, "primary_color", colorSpecFromRole(ColorRole::Primary)),
             .secondaryColor = getColorSpecSetting(settings, "secondary_color", colorSpecFromRole(ColorRole::Secondary)),
@@ -260,7 +260,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
 
   if (type == "sticker") {
     auto widget = std::make_unique<DesktopStickerWidget>(
-        getStringSetting(settings, "image_path"), std::clamp(getFloatSetting(settings, "opacity", 1.0f), 0.0f, 1.0f)
+        getStringSetting(settings, "image_path"), std::clamp(getFloatSetting(settings, "opacity", 1.0F), 0.0F, 1.0F)
     );
     applyCommonSettings(*widget, settings);
     widget->setContentScale(contentScale);
@@ -310,7 +310,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
         .title = getStringSetting(settings, "title", "Title"),
         .description = getStringSetting(settings, "description"),
         .color = getColorSpecSetting(settings, "color", colorSpecFromRole(ColorRole::OnSurface)),
-        .opacity = std::clamp(getFloatSetting(settings, "opacity", 1.0f), 0.0f, 1.0f),
+        .opacity = std::clamp(getFloatSetting(settings, "opacity", 1.0F), 0.0F, 1.0F),
         .shadow = getBoolSetting(settings, "shadow", true),
     });
     applyCommonSettings(*widget, settings);
@@ -388,7 +388,7 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
                 ? FormatUnits::ByteRateLabelStyle::Compact
                 : FormatUnits::ByteRateLabelStyle::Full,
             .showLabel = getBoolSetting(settings, "show_label", true),
-            .labelMinWidth = getFloatSetting(settings, "label_min_width", 0.0f),
+            .labelMinWidth = getFloatSetting(settings, "label_min_width", 0.0F),
             .shadow = getBoolSetting(settings, "shadow", true),
             .config = m_scriptDeps.configService,
         }

@@ -72,7 +72,7 @@ public:
   [[nodiscard]] float aspectRatio() const noexcept {
     return m_texture.width > 0 && m_texture.height > 0
         ? static_cast<float>(m_texture.width) / static_cast<float>(m_texture.height)
-        : 1.0f;
+        : 1.0F;
   }
 
   void setSize(float width, float height) override;
@@ -108,11 +108,11 @@ private:
   std::vector<std::uint8_t> m_ownedSourceRgba;
   int m_ownedSourceRgbaWidth = 0;
   int m_ownedSourceRgbaHeight = 0;
-  float m_radius = 0.0f;
-  float m_padding = 0.0f;
+  float m_radius = 0.0F;
+  float m_padding = 0.0F;
   ImageFit m_fit = ImageFit::Contain;
   ColorSpec m_border = clearColorSpec();
-  float m_borderWidth = 0.0f;
+  float m_borderWidth = 0.0F;
   std::optional<ColorSpec> m_appIconColorizeTint;
   std::optional<ColorSpec> m_foregroundTint;
   std::vector<std::uint8_t> m_colorizationSource;

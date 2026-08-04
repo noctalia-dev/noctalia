@@ -11,8 +11,8 @@
 namespace {
 
   Mat3 localTransform(const Node* node) {
-    const float cx = node->width() * 0.5f;
-    const float cy = node->height() * 0.5f;
+    const float cx = node->width() * 0.5F;
+    const float cy = node->height() * 0.5F;
     return Mat3::translation(node->x(), node->y())
         * Mat3::translation(cx, cy)
         * Mat3::rotation(node->rotation())
@@ -47,22 +47,22 @@ LayoutConstraints LayoutConstraints::exact(float width, float height) noexcept {
 }
 
 void LayoutConstraints::setMaxWidth(float width) noexcept {
-  maxWidth = std::max(0.0f, width);
+  maxWidth = std::max(0.0F, width);
   hasMaxWidth = true;
 }
 
 void LayoutConstraints::setMaxHeight(float height) noexcept {
-  maxHeight = std::max(0.0f, height);
+  maxHeight = std::max(0.0F, height);
   hasMaxHeight = true;
 }
 
 void LayoutConstraints::setExactWidth(float width) noexcept {
-  minWidth = std::max(0.0f, width);
+  minWidth = std::max(0.0F, width);
   setMaxWidth(minWidth);
 }
 
 void LayoutConstraints::setExactHeight(float height) noexcept {
-  minHeight = std::max(0.0f, height);
+  minHeight = std::max(0.0F, height);
   setMaxHeight(minHeight);
 }
 
@@ -131,8 +131,8 @@ void Node::invalidateGpuResources(Renderer& renderer, std::uint64_t generation) 
 }
 
 bool Node::containsScenePoint(float sceneX, float sceneY) const {
-  float localX = 0.0f;
-  float localY = 0.0f;
+  float localX = 0.0F;
+  float localY = 0.0F;
   return pointInsideNode(this, sceneX, sceneY, localX, localY, false);
 }
 
@@ -159,7 +159,7 @@ void Node::doInvalidateGpuResources(Renderer& renderer) { (void)renderer; }
 
 bool Node::containsLocalPoint(float localX, float localY, bool includeHitOutset) const {
   if (!includeHitOutset) {
-    return localX >= 0.0f && localX < width() && localY >= 0.0f && localY < height();
+    return localX >= 0.0F && localX < width() && localY >= 0.0F && localY < height();
   }
   const HitTestOutset outset = hitTestOutset();
   return localX >= -outset.left
@@ -291,10 +291,10 @@ void Node::setHitTestVisible(bool hitTestVisible) { m_hitTestVisible = hitTestVi
 
 void Node::setHitTestOutset(const HitTestOutset& outset) {
   const HitTestOutset clamped{
-      .left = std::max(0.0f, outset.left),
-      .top = std::max(0.0f, outset.top),
-      .right = std::max(0.0f, outset.right),
-      .bottom = std::max(0.0f, outset.bottom),
+      .left = std::max(0.0F, outset.left),
+      .top = std::max(0.0F, outset.top),
+      .right = std::max(0.0F, outset.right),
+      .bottom = std::max(0.0F, outset.bottom),
   };
   if (m_hitTestOutset.left == clamped.left
       && m_hitTestOutset.top == clamped.top
@@ -487,7 +487,7 @@ Node* Node::hitTestImpl(Node* node, float px, float py, bool allowOverflow, cons
 }
 
 void Node::absolutePosition(const Node* node, float& outX, float& outY) {
-  const Vec2 topLeft = computeWorldTransform(node).transformPoint(0.0f, 0.0f);
+  const Vec2 topLeft = computeWorldTransform(node).transformPoint(0.0F, 0.0F);
   outX = topLeft.x;
   outY = topLeft.y;
 }
@@ -500,8 +500,8 @@ void Node::mapToScene(const Node* node, float localX, float localY, float& outSc
 
 bool Node::mapFromScene(const Node* node, float sceneX, float sceneY, float& outLocalX, float& outLocalY) {
   if (node == nullptr) {
-    outLocalX = 0.0f;
-    outLocalY = 0.0f;
+    outLocalX = 0.0F;
+    outLocalY = 0.0F;
     return false;
   }
 
@@ -512,10 +512,10 @@ void Node::transformedBounds(
     const Node* node, const Mat3& world, float& outLeft, float& outTop, float& outRight, float& outBottom
 ) {
   const Vec2 corners[] = {
-      world.transformPoint(0.0f, 0.0f),
-      world.transformPoint(node->width(), 0.0f),
+      world.transformPoint(0.0F, 0.0F),
+      world.transformPoint(node->width(), 0.0F),
       world.transformPoint(node->width(), node->height()),
-      world.transformPoint(0.0f, node->height()),
+      world.transformPoint(0.0F, node->height()),
   };
 
   outLeft = corners[0].x;

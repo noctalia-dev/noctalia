@@ -12,13 +12,13 @@ class Renderer;
 
 namespace control_center {
 
-  void applySectionCardStyle(Flex& card, float scale = 1.0f, float fillOpacity = 1.0f);
-  Label* addTitle(Flex& parent, const std::string& text, float scale = 1.0f);
-  void addBody(Flex& parent, const std::string& text, float scale = 1.0f);
+  void applySectionCardStyle(Flex& card, float scale = 1.0F, float fillOpacity = 1.0F);
+  Label* addTitle(Flex& parent, const std::string& text, float scale = 1.0F);
+  void addBody(Flex& parent, const std::string& text, float scale = 1.0F);
 
   // Card header row: a card-title-styled label (flexGrow) ready for trailing
   // controls appended by the caller. Used for titled group cards.
-  std::unique_ptr<Flex> makeCardHeaderRow(const std::string& title, float scale = 1.0f);
+  std::unique_ptr<Flex> makeCardHeaderRow(const std::string& title, float scale = 1.0F);
 
 } // namespace control_center
 
@@ -63,7 +63,7 @@ public:
 
   void setContentScale(float scale) noexcept { m_contentScale = scale; }
   void setPanelCardOpacity(float opacity) noexcept {
-    const float clamped = std::clamp(opacity, 0.0f, 1.0f);
+    const float clamped = std::clamp(opacity, 0.0F, 1.0F);
     if (m_panelCardOpacity == clamped) {
       return;
     }
@@ -84,6 +84,6 @@ protected:
   virtual void doUpdate(Renderer& renderer) { (void)renderer; }
 
 private:
-  float m_contentScale = 1.0f;
-  float m_panelCardOpacity = 1.0f;
+  float m_contentScale = 1.0F;
+  float m_panelCardOpacity = 1.0F;
 };

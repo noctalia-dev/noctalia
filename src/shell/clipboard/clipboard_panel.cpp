@@ -33,11 +33,11 @@
 
 namespace {
 
-  constexpr float kRowHeightEstimate = 46.0f;
-  constexpr float kPreviewImageHeight = 280.0f;
-  constexpr float kListGlyphSize = 24.0f;
-  constexpr float kListThumbSize = 40.0f;
-  constexpr float kListPinGlyphSize = 16.0f;
+  constexpr float kRowHeightEstimate = 46.0F;
+  constexpr float kPreviewImageHeight = 280.0F;
+  constexpr float kListGlyphSize = 24.0F;
+  constexpr float kListThumbSize = 40.0F;
+  constexpr float kListPinGlyphSize = 16.0F;
   constexpr std::size_t kListOverscanRows = 3;
   constexpr auto kPreviewPayloadDebounceInterval = std::chrono::milliseconds(75);
   constexpr auto kFilterDebounceInterval = std::chrono::milliseconds(120);
@@ -49,7 +49,7 @@ namespace {
     const TextMetrics title = renderer.measureFont(Style::fontSizeBody * scale, FontWeight::SemiBold);
     const TextMetrics meta = renderer.measureFont(Style::fontSizeCaption * scale, FontWeight::Normal);
     const float textHeight = std::round(title.bottom - title.top) + std::round(meta.bottom - meta.top);
-    return std::ceil(std::max(kListThumbSize * scale, textHeight) + Style::spaceXs * scale * 2.0f);
+    return std::ceil(std::max(kListThumbSize * scale, textHeight) + Style::spaceXs * scale * 2.0F);
   }
 
   [[nodiscard]] bool isDescendantOf(const Node* node, const Node* ancestor) {
@@ -131,7 +131,7 @@ namespace {
     if (unitIndex == 0) {
       std::snprintf(buffer, sizeof(buffer), "%zu %s", bytes, units[unitIndex]);
     } else {
-      std::snprintf(buffer, sizeof(buffer), "%.1f %s", value, units[unitIndex]);
+      std::snprintf(buffer, sizeof(buffer), "%.1F %s", value, units[unitIndex]);
     }
     return buffer;
   }
@@ -178,9 +178,9 @@ namespace {
         .align = FlexAlign::Stretch,
         .gap = Style::spaceXs * scale,
         .padding = Style::spaceSm * scale,
-        .fill = colorSpecFromRole(ColorRole::Error, 0.10f),
+        .fill = colorSpecFromRole(ColorRole::Error, 0.10F),
         .radius = Style::scaledRadiusSm(scale),
-        .border = colorSpecFromRole(ColorRole::Error, 0.5f),
+        .border = colorSpecFromRole(ColorRole::Error, 0.5F),
         .fillWidth = true,
         .visible = false,
         .participatesInLayout = false,
@@ -271,8 +271,8 @@ namespace {
               {
                   .out = &m_textColumn,
                   .align = FlexAlign::Start,
-                  .gap = 0.0f,
-                  .flexGrow = 1.0f,
+                  .gap = 0.0F,
+                  .flexGrow = 1.0F,
               },
               ui::label({
                   .out = &m_title,
@@ -379,11 +379,11 @@ namespace {
       const float rowW = width();
       const float rowH = height();
       if (m_background != nullptr) {
-        m_background->setPosition(0.0f, 0.0f);
+        m_background->setPosition(0.0F, 0.0F);
         m_background->setSize(rowW, rowH);
       }
       if (m_row != nullptr) {
-        m_row->setPosition(0.0f, 0.0f);
+        m_row->setPosition(0.0F, 0.0F);
         m_row->setSize(rowW, rowH);
       }
       if (m_lead != nullptr) {
@@ -395,13 +395,13 @@ namespace {
         m_image->setSize(thumbPx, thumbPx);
       }
       if (m_colorSwatch != nullptr && m_colorSwatch->visible()) {
-        const float swatchPx = std::round(thumbPx * 0.82f);
+        const float swatchPx = std::round(thumbPx * 0.82F);
         m_colorSwatch->setSize(swatchPx, swatchPx);
       }
       if (m_title != nullptr && m_meta != nullptr) {
-        const float pinW = m_pinned ? kListPinGlyphSize * m_scale + Style::spaceMd * m_scale : 0.0f;
+        const float pinW = m_pinned ? kListPinGlyphSize * m_scale + Style::spaceMd * m_scale : 0.0F;
         const float textWidth =
-            std::max(0.0f, rowW - thumbPx - pinW - Style::spaceMd * m_scale - Style::spaceSm * m_scale * 2.0f);
+            std::max(0.0F, rowW - thumbPx - pinW - Style::spaceMd * m_scale - Style::spaceSm * m_scale * 2.0F);
         m_title->setMaxWidth(textWidth);
         m_meta->setMaxWidth(textWidth);
       }
@@ -429,7 +429,7 @@ namespace {
                  : colorSpecFromRole(m_isImage ? ColorRole::Secondary : ColorRole::Primary)
       );
       m_title->setColor(colorSpecFromRole(active ? activeRole : ColorRole::OnSurface));
-      m_meta->setColor(active ? colorSpecFromRole(activeRole, 0.7f) : colorSpecFromRole(ColorRole::OnSurfaceVariant));
+      m_meta->setColor(active ? colorSpecFromRole(activeRole, 0.7F) : colorSpecFromRole(ColorRole::OnSurfaceVariant));
       if (m_pinGlyph != nullptr) {
         m_pinGlyph->setVisible(m_pinned);
         m_pinGlyph->setParticipatesInLayout(m_pinned);
@@ -437,7 +437,7 @@ namespace {
       }
     }
 
-    float m_scale = 1.0f;
+    float m_scale = 1.0F;
     AsyncTextureCache* m_asyncTextures = nullptr;
     std::optional<ColorSpec> m_listItemBackground;
     Box* m_background = nullptr;
@@ -511,7 +511,7 @@ public:
   }
 
 private:
-  float m_scale = 1.0f;
+  float m_scale = 1.0F;
   ClipboardService* m_clipboard = nullptr;
   AsyncTextureCache* m_asyncTextures = nullptr;
   std::optional<ColorSpec> m_listItemBackground;
@@ -543,7 +543,7 @@ void ClipboardPanel::create() {
   auto contentRow = ui::row({
       .align = FlexAlign::Stretch,
       .gap = Style::spaceSm * scale,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
   });
 
   auto focusArea = ui::inputArea({});
@@ -562,7 +562,7 @@ void ClipboardPanel::create() {
       .align = FlexAlign::Stretch,
       .gap = Style::spaceSm * scale,
       .padding = Style::spaceSm * scale,
-      .flexGrow = 2.0f,
+      .flexGrow = 2.0F,
   });
 
   auto sidebarHeader = ui::row(
@@ -662,12 +662,12 @@ void ClipboardPanel::create() {
           .columns = 1,
           .cellHeight = kRowHeightEstimate * scale,
           .squareCells = false,
-          .columnGap = 0.0f,
+          .columnGap = 0.0F,
           .rowGap = Style::spaceXs * scale,
           .overscanRows = kListOverscanRows,
           .scrollbarVisible = true,
           .adapter = m_listAdapter.get(),
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
       })
   );
 
@@ -688,7 +688,7 @@ void ClipboardPanel::create() {
       .align = FlexAlign::Stretch,
       .gap = Style::spaceSm * scale,
       .padding = Style::spaceSm * scale,
-      .flexGrow = 3.0f,
+      .flexGrow = 3.0F,
   });
 
   auto previewActions = ui::row(
@@ -720,7 +720,7 @@ void ClipboardPanel::create() {
           .fontSize = Style::fontSizeTitle * scale,
           .fontWeight = FontWeight::Bold,
           .color = colorSpecFromRole(ColorRole::Primary),
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
       }),
       std::move(previewActions)
   );
@@ -772,7 +772,7 @@ void ClipboardPanel::create() {
   auto previewScroll = ui::scrollView({
       .out = &m_previewScrollView,
       .scrollbarVisible = true,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
       .configure = [scale, opacity = panelCardOpacity()](ScrollView& scrollView) {
         scrollView.setCardStyle(scale, opacity);
       },
@@ -806,15 +806,15 @@ void ClipboardPanel::doLayout(Renderer& renderer, float width, float height) {
   m_lastWidth = width;
   m_lastHeight = height;
 
-  m_focusArea->setPosition(0.0f, 0.0f);
-  m_focusArea->setSize(1.0f, 1.0f);
+  m_focusArea->setPosition(0.0F, 0.0F);
+  m_focusArea->setSize(1.0F, 1.0F);
 
   if (m_listAdapter != nullptr) {
     m_listAdapter->setRenderer(&renderer);
   }
 
   const float rowHeight = listRowHeight(renderer, contentScale());
-  if (std::abs(rowHeight - m_listRowHeight) >= 0.5f) {
+  if (std::abs(rowHeight - m_listRowHeight) >= 0.5F) {
     m_listRowHeight = rowHeight;
     m_listGrid->setCellHeight(rowHeight);
   }
@@ -846,7 +846,7 @@ void ClipboardPanel::doLayout(Renderer& renderer, float width, float height) {
 void ClipboardPanel::doUpdate(Renderer& renderer) {
   updatePreviewActions();
 
-  if (m_clipboard == nullptr || m_lastWidth <= 0.0f) {
+  if (m_clipboard == nullptr || m_lastWidth <= 0.0F) {
     return;
   }
 
@@ -884,8 +884,8 @@ void ClipboardPanel::onOpen(std::string_view /*context*/) {
   m_previewPayloadIndex = static_cast<std::size_t>(-1);
   m_pendingPreviewPayloadIndex = static_cast<std::size_t>(-1);
   m_previewPayloadDebounceTimer.stop();
-  m_lastPreviewWidth = -1.0f;
-  m_lastPreviewHeight = -1.0f;
+  m_lastPreviewWidth = -1.0F;
+  m_lastPreviewHeight = -1.0F;
   m_pendingScrollToSelected = false;
   m_filterQuery.clear();
   m_pendingFilterQuery.clear();
@@ -900,7 +900,7 @@ void ClipboardPanel::onOpen(std::string_view /*context*/) {
     m_listGrid->setSelectedIndex(
         m_filteredIndices.empty() ? std::nullopt : std::optional<std::size_t>(m_selectedIndex)
     );
-    m_listGrid->scrollView().setScrollOffset(0.0f);
+    m_listGrid->scrollView().setScrollOffset(0.0F);
   }
   m_lastChangeSerial = m_clipboard != nullptr ? m_clipboard->changeSerial() : 0;
   schedulePreviewPayloadRefresh(false);
@@ -944,8 +944,8 @@ void ClipboardPanel::onClose() {
   m_pendingFilterQuery.clear();
   m_filterQuery.clear();
   clearReleasedRoot();
-  m_lastWidth = 0.0f;
-  m_lastHeight = 0.0f;
+  m_lastWidth = 0.0F;
+  m_lastHeight = 0.0F;
   m_pendingScrollToSelected = false;
 
   if (m_clipboard != nullptr) {
@@ -989,8 +989,8 @@ void ClipboardPanel::schedulePreviewPayloadRefresh(bool debounced) {
     m_previewPayloadDebounceTimer.stop();
     m_previewPayloadIndex = static_cast<std::size_t>(-1);
     m_pendingPreviewPayloadIndex = static_cast<std::size_t>(-1);
-    m_lastPreviewWidth = -1.0f;
-    m_lastPreviewHeight = -1.0f;
+    m_lastPreviewWidth = -1.0F;
+    m_lastPreviewHeight = -1.0F;
     return;
   }
 
@@ -998,22 +998,22 @@ void ClipboardPanel::schedulePreviewPayloadRefresh(bool debounced) {
     m_previewPayloadDebounceTimer.stop();
     m_previewPayloadIndex = historyIndex;
     m_pendingPreviewPayloadIndex = static_cast<std::size_t>(-1);
-    m_lastPreviewWidth = -1.0f;
-    m_lastPreviewHeight = -1.0f;
+    m_lastPreviewWidth = -1.0F;
+    m_lastPreviewHeight = -1.0F;
     return;
   }
 
   m_pendingPreviewPayloadIndex = historyIndex;
-  m_lastPreviewWidth = -1.0f;
-  m_lastPreviewHeight = -1.0f;
+  m_lastPreviewWidth = -1.0F;
+  m_lastPreviewHeight = -1.0F;
   m_previewPayloadDebounceTimer.start(kPreviewPayloadDebounceInterval, [this]() {
     if (m_pendingPreviewPayloadIndex == static_cast<std::size_t>(-1)) {
       return;
     }
     m_previewPayloadIndex = m_pendingPreviewPayloadIndex;
     m_pendingPreviewPayloadIndex = static_cast<std::size_t>(-1);
-    m_lastPreviewWidth = -1.0f;
-    m_lastPreviewHeight = -1.0f;
+    m_lastPreviewWidth = -1.0F;
+    m_lastPreviewHeight = -1.0F;
     PanelManager::instance().refresh();
   });
 }
@@ -1177,7 +1177,7 @@ void ClipboardPanel::rebuildPreview(Renderer& renderer, float width, float heigh
   if (entry.isImage()) {
     const float scale = contentScale();
     const float imageHeight =
-        std::min(kPreviewImageHeight * scale, std::max(180.0f * scale, height - Style::spaceMd * scale));
+        std::min(kPreviewImageHeight * scale, std::max(180.0F * scale, height - Style::spaceMd * scale));
     auto image = ui::image({
         .fit = ImageFit::Contain,
         .width = width,
@@ -1197,7 +1197,7 @@ void ClipboardPanel::rebuildPreview(Renderer& renderer, float width, float heigh
     Color previewColor;
     if (tryParseCssColor(entry.textPreview, previewColor)) {
       const float scale = contentScale();
-      const float swatchH = std::round(80.0f * scale);
+      const float swatchH = std::round(80.0F * scale);
       m_previewContent->addChild(
           ui::box({
               .fill = fixedColorSpec(previewColor),

@@ -79,8 +79,8 @@ private:
   float m_cellWidth;
   float m_cellHeight;
   float m_contentScale;
-  float m_thumbFrameWidth = 0.0f;
-  float m_thumbFrameHeight = 0.0f;
+  float m_thumbFrameWidth = 0.0F;
+  float m_thumbFrameHeight = 0.0F;
 
   Flex* m_layout = nullptr;
   Box* m_thumbHost = nullptr;
@@ -103,8 +103,8 @@ private:
   bool m_loadingThumbnail = false;
   std::string m_thumbPath;
   int m_thumbTargetPx = 0;
-  float m_thumbScale = 1.0f;
-  float m_thumbScaleTarget = 1.0f;
+  float m_thumbScale = 1.0F;
+  float m_thumbScaleTarget = 1.0F;
   std::uint32_t m_thumbScaleAnimId = 0;
   ClickCallback m_onClick;
   std::function<void(const WallpaperEntry&)> m_onStarClick;

@@ -33,7 +33,7 @@ namespace settings {
   struct TemplateStoreCallbacks {
     // Called with catalog-ordered enabled ids whenever the selection changes.
     std::function<void(std::vector<std::string> ids)> setSelected;
-    float scale = 1.0f;
+    float scale = 1.0F;
   };
 
   class TemplateStoreContent {

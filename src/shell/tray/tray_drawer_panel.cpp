@@ -41,8 +41,8 @@ float TrayDrawerPanel::resolvedItemGap() const {
     return gap;
   }
   const auto capsule = tray::resolvedTrayCapsuleSpec(*m_config, m_config->config().bars.front());
-  const float padding = capsule.enabled ? capsule.padding * contentScale() : 0.0f;
-  return gap + 2.0f * padding;
+  const float padding = capsule.enabled ? capsule.padding * contentScale() : 0.0F;
+  return gap + 2.0F * padding;
 }
 
 float TrayDrawerPanel::preferredWidth() const {
@@ -51,7 +51,7 @@ float TrayDrawerPanel::preferredWidth() const {
   const std::size_t drawerColumns = currentDrawerColumns();
   const std::size_t cols = std::min<std::size_t>(drawerColumns, std::max<std::size_t>(1, visibleItemCount()));
   const float contentWidth = static_cast<float>(cols) * itemSize + static_cast<float>(cols > 1 ? cols - 1 : 0) * gap;
-  const float panelPadding = scaled(Style::panelPadding) * 2.0f;
+  const float panelPadding = scaled(Style::panelPadding) * 2.0F;
   return contentWidth + panelPadding;
 }
 
@@ -62,7 +62,7 @@ float TrayDrawerPanel::preferredHeight() const {
   const std::size_t drawerColumns = currentDrawerColumns();
   const std::size_t rows = (count + drawerColumns - 1U) / drawerColumns;
   const float contentHeight = static_cast<float>(rows) * itemSize + static_cast<float>(rows > 1 ? rows - 1 : 0) * gap;
-  const float panelPadding = scaled(Style::panelPadding) * 2.0f;
+  const float panelPadding = scaled(Style::panelPadding) * 2.0F;
   return contentHeight + panelPadding;
 }
 
@@ -104,8 +104,8 @@ void TrayDrawerPanel::create() {
   m_drawerWidget->setPanelToggleCallback([](std::string_view id, std::string_view context, std::optional<float> ax,
                                             std::optional<float> ay, Widget::PanelActivation activation) {
     PanelOpenRequest request{
-        .anchorX = ax.has_value() ? std::round(*ax) : 0.0f,
-        .anchorY = ay.has_value() ? std::round(*ay) : 0.0f,
+        .anchorX = ax.has_value() ? std::round(*ax) : 0.0F,
+        .anchorY = ay.has_value() ? std::round(*ay) : 0.0F,
         .hasAnchorPosition = ax.has_value() && ay.has_value(),
         .context = std::string(context),
     };

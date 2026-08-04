@@ -16,17 +16,17 @@ using namespace mpris;
 
 namespace {
 
-  constexpr float kArtSize = 120.0f;
-  constexpr float kControlSize = 32.0f;
-  constexpr float kPlayPauseSize = 40.0f;
-  constexpr float kSpacing = 6.0f;
+  constexpr float kArtSize = 120.0F;
+  constexpr float kControlSize = 32.0F;
+  constexpr float kPlayPauseSize = 40.0F;
+  constexpr float kSpacing = 6.0F;
 
 } // namespace
 
 namespace {
 
-  constexpr float kShadowAlpha = 0.6f;
-  constexpr float kShadowOffset = 1.5f;
+  constexpr float kShadowAlpha = 0.6F;
+  constexpr float kShadowOffset = 1.5F;
 
 } // namespace
 
@@ -192,24 +192,24 @@ void DesktopMediaPlayerWidget::layoutVertical(Renderer& renderer, float scale) {
 
   m_artwork->setSize(artW, artW);
   m_artwork->setRadius(Style::scaledRadiusMd(scale));
-  m_artwork->setPosition(0.0f, 0.0f);
+  m_artwork->setPosition(0.0F, 0.0F);
 
   m_title->setFontSize(fontSize);
   m_title->setMaxWidth(artW);
   m_title->measure(renderer);
-  m_title->setPosition(0.0f, artW + spacing);
+  m_title->setPosition(0.0F, artW + spacing);
 
-  m_artist->setFontSize(fontSize * 0.9f);
+  m_artist->setFontSize(fontSize * 0.9F);
   m_artist->setMaxWidth(artW);
   m_artist->measure(renderer);
-  const float artistY = m_title->y() + m_title->height() + spacing * 0.5f;
-  m_artist->setPosition(0.0f, artistY);
+  const float artistY = m_title->y() + m_title->height() + spacing * 0.5F;
+  m_artist->setPosition(0.0F, artistY);
 
   layoutButtons(renderer, scale);
 
   const float controlsY =
       (m_artist->visible() ? m_artist->y() + m_artist->height() : m_title->y() + m_title->height()) + spacing;
-  const float controlsX = std::round((artW - m_controls->width()) * 0.5f);
+  const float controlsX = std::round((artW - m_controls->width()) * 0.5F);
   m_controls->setPosition(controlsX, controlsY);
 
   root()->setSize(artW, controlsY + m_controls->height());
@@ -219,11 +219,11 @@ void DesktopMediaPlayerWidget::layoutHorizontal(Renderer& renderer, float scale)
   const float artH = kArtSize * scale;
   const float spacing = kSpacing * scale;
   const float fontSize = Style::fontSizeBody * scale;
-  const float textWidth = artH * 1.5f;
+  const float textWidth = artH * 1.5F;
 
   m_artwork->setSize(artH, artH);
   m_artwork->setRadius(Style::scaledRadiusMd(scale));
-  m_artwork->setPosition(0.0f, 0.0f);
+  m_artwork->setPosition(0.0F, 0.0F);
 
   const float textX = artH + spacing;
   const float totalWidth = textX + textWidth;
@@ -232,19 +232,19 @@ void DesktopMediaPlayerWidget::layoutHorizontal(Renderer& renderer, float scale)
   m_title->setMaxWidth(textWidth);
   m_title->measure(renderer);
 
-  m_artist->setFontSize(fontSize * 0.9f);
+  m_artist->setFontSize(fontSize * 0.9F);
   m_artist->setMaxWidth(textWidth);
   m_artist->measure(renderer);
 
   layoutButtons(renderer, scale);
 
   const float titleH = m_title->height();
-  const float artistGap = m_artist->visible() ? spacing * 0.5f : 0.0f;
-  const float artistH = m_artist->visible() ? m_artist->height() : 0.0f;
+  const float artistGap = m_artist->visible() ? spacing * 0.5F : 0.0F;
+  const float artistH = m_artist->visible() ? m_artist->height() : 0.0F;
   const float controlsH = m_controls->height();
-  const float textAreaH = std::max(0.0f, artH - controlsH - spacing);
+  const float textAreaH = std::max(0.0F, artH - controlsH - spacing);
   const float textBlockH = titleH + artistGap + artistH;
-  const float textY = std::round(std::max(0.0f, (textAreaH - textBlockH) * 0.5f));
+  const float textY = std::round(std::max(0.0F, (textAreaH - textBlockH) * 0.5F));
 
   m_title->setPosition(textX, textY);
   m_artist->setPosition(textX, textY + titleH + artistGap);
@@ -260,7 +260,7 @@ void DesktopMediaPlayerWidget::layoutButtons(Renderer& renderer, float scale) {
   const float controlBtnSize = kControlSize * scale;
   const float playPauseBtnSize = kPlayPauseSize * scale;
   const float glyphSize = Style::fontSizeBody * scale;
-  const float playPauseGlyphSize = Style::fontSizeBody * 1.2f * scale;
+  const float playPauseGlyphSize = Style::fontSizeBody * 1.2F * scale;
 
   m_controls->setGap(Style::spaceXs * scale);
   m_controls->setJustify(m_vertical ? FlexJustify::Center : FlexJustify::End);
@@ -411,7 +411,7 @@ bool DesktopMediaPlayerWidget::applyVisibility() {
   if (!m_visibilityInitialized) {
     m_visibilityInitialized = true;
     m_visible = nextVisible;
-    presentationRoot()->setOpacity(m_visible ? 1.0f : 0.0f);
+    presentationRoot()->setOpacity(m_visible ? 1.0F : 0.0F);
     setVisibilityCollapsed(!m_visible);
     return !m_visible;
   }
@@ -421,7 +421,7 @@ bool DesktopMediaPlayerWidget::applyVisibility() {
   }
 
   m_visible = nextVisible;
-  presentationRoot()->setOpacity(m_visible ? 1.0f : 0.0f);
+  presentationRoot()->setOpacity(m_visible ? 1.0F : 0.0F);
   setVisibilityCollapsed(!m_visible);
   return true;
 }

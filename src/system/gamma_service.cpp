@@ -374,8 +374,8 @@ void GammaService::applyGammaToAll(int kelvin) {
   const double baselineMs = ms(baselineStart, baselineEnd);
   const double gammaMs = ms(submitEnd, done);
   kLog.info(
-      "profile: {}K (step {:+}K) outputs={} submit={:.2f}ms baseline-roundtrip={:.2f}ms gamma-roundtrip={:.2f}ms "
-      "marginal={:+.2f}ms",
+      "profile: {}K (step {:+}K) outputs={} submit={:.2F}ms baseline-roundtrip={:.2F}ms gamma-roundtrip={:.2F}ms "
+      "marginal={:+.2F}ms",
       kelvin, deltaKelvin, m_outputs.size(), ms(baselineEnd, submitEnd), baselineMs, gammaMs, gammaMs - baselineMs
   );
 }
@@ -496,25 +496,25 @@ GammaService::GammaTarget GammaService::computeTarget() const {
   const int currentPhaseTemp = eval.night ? nightTemp : dayTemp;
   const int otherPhaseTemp = eval.night ? dayTemp : nightTemp;
   const float fade = kRampDurationMs;
-  const float half = fade / 2.0f;
+  const float half = fade / 2.0F;
   const auto since = static_cast<float>(eval.sinceBoundary.count());
   const auto until = static_cast<float>(eval.untilBoundary.count());
 
   int from = currentPhaseTemp;
   int to = currentPhaseTemp;
-  float progress = 0.0f;
+  float progress = 0.0F;
   bool transitioning = false;
   if (since < half) {
     // Second half of the transition into the current phase: previous phase -> current, progress 0.5->1.
     from = otherPhaseTemp;
     to = currentPhaseTemp;
-    progress = 0.5f + since / fade;
+    progress = 0.5F + since / fade;
     transitioning = true;
   } else if (until < half) {
     // First half of the transition out of the current phase: current -> next phase, progress 0->0.5.
     from = currentPhaseTemp;
     to = otherPhaseTemp;
-    progress = 0.5f - until / fade;
+    progress = 0.5F - until / fade;
     transitioning = true;
   }
 

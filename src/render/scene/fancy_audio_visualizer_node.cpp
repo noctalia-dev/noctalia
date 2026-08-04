@@ -20,8 +20,8 @@ bool FancyAudioVisualizerNode::setSpectrumValues(TextureManager& textures, std::
 
   std::vector<std::uint8_t> pixels(static_cast<std::size_t>(kBandCount) * 4U, 0);
   for (int i = 0; i < kBandCount; ++i) {
-    const float value = i < static_cast<int>(values.size()) ? values[static_cast<std::size_t>(i)] : 0.0f;
-    const auto amplitude = static_cast<std::uint8_t>(std::clamp(value, 0.0f, 1.0f) * 255.0f);
+    const float value = i < static_cast<int>(values.size()) ? values[static_cast<std::size_t>(i)] : 0.0F;
+    const auto amplitude = static_cast<std::uint8_t>(std::clamp(value, 0.0F, 1.0F) * 255.0F);
     const auto base = static_cast<std::size_t>(i) * 4U;
     pixels[base] = amplitude;
     pixels[base + 1] = amplitude;

@@ -30,8 +30,8 @@
 
 namespace {
   constexpr Logger kLog("main");
-  constexpr float kSlowMainLoopOperationDebugMs = 50.0f;
-  constexpr float kSlowMainLoopOperationWarnMs = 1000.0f;
+  constexpr float kSlowMainLoopOperationDebugMs = 50.0F;
+  constexpr float kSlowMainLoopOperationWarnMs = 1000.0F;
   constexpr auto kIdleProfileReportInterval = std::chrono::seconds(10);
 
   struct SourceIdleProfile {
@@ -155,11 +155,11 @@ namespace {
     const double pctDenom = std::max(0.001, seconds * 10.0);
     const auto surfaceSnapshot = Surface::takeIdleProfileSnapshot(true);
     kLog.info(
-        "idle profile {:.1f}s: loops={} cpu(process/thread/bg)={:.1f}/{:.1f}/{:.1f}ms "
-        "{:.2f}/{:.2f}/{:.2f}% poll(fd/timeout/immediate)={}/{}/{} wlFd(total/in/out/err)={}/{}/{}/{} "
-        "prep={:.2f}ms "
-        "wait={:.1f}ms deferred={} callbacks {:.2f}ms wl(flush/read/dispatch)={}/{}/{} "
-        "{:.2f}/{:.2f}/{:.2f}ms sourceDispatch={:.2f}ms surfaceDrains(frame/render)={}/{} {:.2f}/{:.2f}ms",
+        "idle profile {:.1F}s: loops={} cpu(process/thread/bg)={:.1F}/{:.1F}/{:.1F}ms "
+        "{:.2F}/{:.2F}/{:.2F}% poll(fd/timeout/immediate)={}/{}/{} wlFd(total/in/out/err)={}/{}/{}/{} "
+        "prep={:.2F}ms "
+        "wait={:.1F}ms deferred={} callbacks {:.2F}ms wl(flush/read/dispatch)={}/{}/{} "
+        "{:.2F}/{:.2F}/{:.2F}ms sourceDispatch={:.2F}ms surfaceDrains(frame/render)={}/{} {:.2F}/{:.2F}ms",
         seconds, profile.iterations, processCpuMs, mainThreadCpuMs, backgroundCpuMs, processCpuMs / pctDenom,
         mainThreadCpuMs / pctDenom, backgroundCpuMs / pctDenom, profile.pollFdWakeups, profile.pollTimeoutWakeups,
         profile.pollImmediateWakeups, profile.waylandFdWakeups, profile.waylandReadableWakeups,
@@ -196,7 +196,7 @@ namespace {
       }
       ++printed;
       kLog.info(
-          "idle profile source {}: wake={} fd={} timeout={} dispatch={} time={:.3f}ms max={:.3f}ms "
+          "idle profile source {}: wake={} fd={} timeout={} dispatch={} time={:.3F}ms max={:.3F}ms "
           "timeoutVotes={} zeroVotes={}",
           source.name, source.wakeDispatches, source.fdWakeups, source.timeoutWakeups, source.dispatchCalls,
           source.dispatchMs, source.maxDispatchMs, source.timeoutVotes, source.zeroTimeoutVotes
@@ -206,8 +206,8 @@ namespace {
     const auto& total = surfaceSnapshot.total;
     kLog.info(
         "idle profile surfaces: requests(update/updateOnly/layout/redraw)={}/{}/{}/{} queued(frame/render)={}/{} "
-        "processed(frame/render)={}/{} prepare={} {:.3f}ms frameTick={} {:.3f}ms animation={} {:.3f}ms "
-        "updateCb={} {:.3f}ms renders={} {:.3f}ms",
+        "processed(frame/render)={}/{} prepare={} {:.3F}ms frameTick={} {:.3F}ms animation={} {:.3F}ms "
+        "updateCb={} {:.3F}ms renders={} {:.3F}ms",
         total.requestUpdate, total.requestUpdateOnly, total.requestLayout, total.requestRedraw, total.queuedFrameWork,
         total.queuedRenders, total.processedFrameWork, total.processedQueuedRenders, total.prepareCallbacks,
         total.prepareMs, total.frameTicks, total.frameTickMs, total.animationTicks, total.animationMs,
@@ -239,8 +239,8 @@ namespace {
       }
       ++printed;
       kLog.info(
-          "idle profile surface {}: requests={}/{}/{}/{} frame/render={}/{} prepare={} {:.3f}ms "
-          "frameTick={} {:.3f}ms updateCb={} {:.3f}ms renders={} {:.3f}ms",
+          "idle profile surface {}: requests={}/{}/{}/{} frame/render={}/{} prepare={} {:.3F}ms "
+          "frameTick={} {:.3F}ms updateCb={} {:.3F}ms renders={} {:.3F}ms",
           surface.label, surface.requestUpdate, surface.requestUpdateOnly, surface.requestLayout, surface.requestRedraw,
           surface.processedFrameWork, surface.processedQueuedRenders, surface.prepareCallbacks, surface.prepareMs,
           surface.frameTicks, surface.frameTickMs, surface.updateCallbacks, surface.updateMs, surface.renders,
@@ -340,7 +340,7 @@ void MainLoop::run() {
         profile.deferredCallbacks += count;
         profile.deferredMs += ms;
       }
-      logSlowMainLoopOperation(ms, "deferred callbacks took {:.1f}ms (count={})", ms, count);
+      logSlowMainLoopOperation(ms, "deferred callbacks took {:.1F}ms (count={})", ms, count);
     }
 
     opStart = std::chrono::steady_clock::now();
@@ -356,7 +356,7 @@ void MainLoop::run() {
         throwWaylandFailure(m_wayland, "failed to dispatch pending Wayland events before poll", dispatchErrno);
       }
       const float ms = elapsedSince(opStart);
-      logSlowMainLoopOperation(ms, "wl_display_dispatch_pending took {:.1f}ms before poll", ms);
+      logSlowMainLoopOperation(ms, "wl_display_dispatch_pending took {:.1F}ms before poll", ms);
     }
     // Try to flush queued requests. If the kernel send buffer is full we get
     // EAGAIN; that is the standard Wayland backpressure signal, not a fatal
@@ -374,7 +374,7 @@ void MainLoop::run() {
       ++profile.waylandFlushCalls;
       profile.waylandFlushMs += ms;
     }
-    logSlowMainLoopOperation(ms, "wl_display_flush took {:.1f}ms before poll", ms);
+    logSlowMainLoopOperation(ms, "wl_display_flush took {:.1F}ms before poll", ms);
     const bool flushBlocked = flushRet < 0;
     if (flushBlocked) {
       if (idleProfileEnabled()) {
@@ -468,7 +468,7 @@ void MainLoop::run() {
       idleProfile().pollPrepMs += ms;
     }
     logSlowMainLoopOperation(
-        ms, "poll source preparation took {:.1f}ms (sources={} fds={} timeout={}ms)", ms, sources.size(),
+        ms, "poll source preparation took {:.1F}ms (sources={} fds={} timeout={}ms)", ms, sources.size(),
         pollFds.size(), pollTimeout
     );
 
@@ -551,7 +551,7 @@ void MainLoop::run() {
         ++profile.waylandFlushCalls;
         profile.waylandFlushMs += ms;
       }
-      logSlowMainLoopOperation(ms, "wl_display_flush took {:.1f}ms after POLLOUT", ms);
+      logSlowMainLoopOperation(ms, "wl_display_flush took {:.1F}ms after POLLOUT", ms);
       const int flushErrno = errno;
       if (flushRet < 0 && flushErrno != EAGAIN) {
         wl_display_cancel_read(m_wayland.display());
@@ -580,7 +580,7 @@ void MainLoop::run() {
         ++profile.waylandReadCalls;
         profile.waylandReadMs += ms;
       }
-      logSlowMainLoopOperation(ms, "wl_display_read_events took {:.1f}ms", ms);
+      logSlowMainLoopOperation(ms, "wl_display_read_events took {:.1F}ms", ms);
     } else {
       wl_display_cancel_read(m_wayland.display());
     }
@@ -600,9 +600,9 @@ void MainLoop::run() {
       profile.waylandDispatchMs += ms;
     }
     if (waylandReadable) {
-      logSlowMainLoopOperation(ms, "wl_display_dispatch_pending took {:.1f}ms after read", ms);
+      logSlowMainLoopOperation(ms, "wl_display_dispatch_pending took {:.1F}ms after read", ms);
     } else {
-      logSlowMainLoopOperation(ms, "wl_display_dispatch_pending took {:.1f}ms after poll", ms);
+      logSlowMainLoopOperation(ms, "wl_display_dispatch_pending took {:.1F}ms after poll", ms);
     }
 
     // Dispatch only sources that actually woke: an fd reported revents, or the
@@ -647,7 +647,7 @@ void MainLoop::run() {
         }
         idleProfile().sourceDispatchMs += ms;
       }
-      logSlowMainLoopOperation(ms, "poll source {} dispatch took {:.1f}ms", typeid(*source).name(), ms);
+      logSlowMainLoopOperation(ms, "poll source {} dispatch took {:.1F}ms", typeid(*source).name(), ms);
     }
 
     const bool hadFrameWork = Surface::hasPendingFrameWork();
@@ -659,7 +659,7 @@ void MainLoop::run() {
       ++profile.surfaceFrameWorkDrains;
       profile.surfaceFrameWorkMs += ms;
     }
-    logSlowMainLoopOperation(ms, "queued surface frame work took {:.1f}ms", ms);
+    logSlowMainLoopOperation(ms, "queued surface frame work took {:.1F}ms", ms);
 
     const bool hadRenders = Surface::hasPendingRenders();
     opStart = std::chrono::steady_clock::now();
@@ -670,7 +670,7 @@ void MainLoop::run() {
       ++profile.surfaceRenderDrains;
       profile.surfaceRenderMs += ms;
     }
-    logSlowMainLoopOperation(ms, "queued surface rendering took {:.1f}ms", ms);
+    logSlowMainLoopOperation(ms, "queued surface rendering took {:.1F}ms", ms);
 
     maybeReportIdleProfile();
   }

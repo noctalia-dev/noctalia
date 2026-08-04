@@ -34,9 +34,9 @@
 namespace {
 
   constexpr Logger kLog("render");
-  constexpr float kSlowRenderOperationDebugMs = 50.0f;
-  constexpr float kSlowRenderOperationWarnMs = 1000.0f;
-  constexpr float kPaintCullSlack = 16.0f;
+  constexpr float kSlowRenderOperationDebugMs = 50.0F;
+  constexpr float kSlowRenderOperationWarnMs = 1000.0F;
+  constexpr float kPaintCullSlack = 16.0F;
 
 } // namespace
 
@@ -74,8 +74,8 @@ namespace {
 
   RenderScissor
   scissorForClip(float sw, float sh, float bw, float bh, float left, float top, float right, float bottom) {
-    const float scaleX = sw > 0.0f ? bw / sw : 1.0f;
-    const float scaleY = sh > 0.0f ? bh / sh : 1.0f;
+    const float scaleX = sw > 0.0F ? bw / sw : 1.0F;
+    const float scaleY = sh > 0.0F ? bh / sh : 1.0F;
     const auto clampX = [bw](std::int32_t value) {
       return std::clamp(value, std::int32_t{0}, static_cast<std::int32_t>(std::ceil(bw)));
     };
@@ -172,7 +172,7 @@ bool RenderContext::makeCurrent(RenderTarget& target) {
 void RenderContext::syncContentScale(RenderTarget& target) {
   const auto sw = static_cast<float>(target.logicalWidth());
   const auto bw = static_cast<float>(target.bufferWidth());
-  m_renderScale = sw > 0.0f ? std::max(1.0f, bw / sw) : 1.0f;
+  m_renderScale = sw > 0.0F ? std::max(1.0F, bw / sw) : 1.0F;
   m_textRenderer.setContentScale(m_renderScale);
   m_glyphRenderer.setContentScale(m_renderScale);
 }
@@ -225,19 +225,19 @@ void RenderContext::renderScene(RenderTarget& target, Node* sceneRoot) {
       const auto sh = static_cast<float>(target.logicalHeight());
       const auto bw = static_cast<float>(target.bufferWidth());
       const auto bh = static_cast<float>(target.bufferHeight());
-      renderNode(sceneRoot, Mat3::identity(), 1.0f, sw, sh, bw, bh, 0.0f, 0.0f, sw, sh, false, false, false);
+      renderNode(sceneRoot, Mat3::identity(), 1.0F, sw, sh, bw, bh, 0.0F, 0.0F, sw, sh, false, false, false);
     }
   }
   float ms = elapsedSince(drawStart);
   logSlowRenderOperation(
-      ms, "scene draw took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms, target.logicalWidth(), target.logicalHeight(),
+      ms, "scene draw took {:.1F}ms ({}x{} logical, {}x{} buffer)", ms, target.logicalWidth(), target.logicalHeight(),
       target.bufferWidth(), target.bufferHeight()
   );
 
   m_backend->endFrame(target);
   const RenderGraphicsResetStatus resetStatus = m_backend->graphicsResetStatus();
   ms = elapsedSince(totalStart);
-  logSlowRenderOperation(ms, "renderScene took {:.1f}ms total", ms);
+  logSlowRenderOperation(ms, "renderScene took {:.1F}ms total", ms);
   if (resetStatus != RenderGraphicsResetStatus::NoError) {
     handleGraphicsReset(resetStatus);
   }
@@ -340,18 +340,18 @@ void RenderContext::renderNode(
 
   const Mat3 worldTransform = parentTransform * nodeLocalTransform(node);
   const float effectiveOpacity = ignoreNodeOpacity ? parentOpacity : parentOpacity * node->opacity();
-  float boundsLeft = 0.0f;
-  float boundsTop = 0.0f;
-  float boundsRight = 0.0f;
-  float boundsBottom = 0.0f;
+  float boundsLeft = 0.0F;
+  float boundsTop = 0.0F;
+  float boundsRight = 0.0F;
+  float boundsBottom = 0.0F;
   Node::transformedBounds(node, worldTransform, boundsLeft, boundsTop, boundsRight, boundsBottom);
 
   const bool paintContained = parentPaintContained || node->paintContained();
   if (paintContained
       && hasClip
       && node->type() != NodeType::RenderProxy
-      && node->width() > 0.0f
-      && node->height() > 0.0f
+      && node->width() > 0.0F
+      && node->height() > 0.0F
       && (boundsRight + kPaintCullSlack <= clipLeft
           || boundsLeft - kPaintCullSlack >= clipRight
           || boundsBottom + kPaintCullSlack <= clipTop
@@ -386,14 +386,14 @@ void RenderContext::renderNode(
         shadowColor.a *= effectiveOpacity;
         const Mat3 shadowTransform = worldTransform * Mat3::translation(text->shadowOffsetX(), text->shadowOffsetY());
         m_textRenderer.draw(
-            sw, sh, 0.0f, 0.0f, text->text(), text->fontSize(), shadowColor, shadowTransform, text->fontWeight(),
+            sw, sh, 0.0F, 0.0F, text->text(), text->fontSize(), shadowColor, shadowTransform, text->fontWeight(),
             text->maxWidth(), text->maxLines(), text->textAlign(), font, text->ellipsize(), text->useMarkup()
         );
       }
       auto color = text->color();
       color.a *= effectiveOpacity;
       m_textRenderer.draw(
-          sw, sh, 0.0f, 0.0f, text->text(), text->fontSize(), color, worldTransform, text->fontWeight(),
+          sw, sh, 0.0F, 0.0F, text->text(), text->fontSize(), color, worldTransform, text->fontWeight(),
           text->maxWidth(), text->maxLines(), text->textAlign(), font, text->ellipsize(), text->useMarkup()
       );
     }
@@ -436,12 +436,12 @@ void RenderContext::renderNode(
         shadowColor.a *= effectiveOpacity;
         const Mat3 shadowTransform = worldTransform * Mat3::translation(icon->shadowOffsetX(), icon->shadowOffsetY());
         m_glyphRenderer.drawGlyph(
-            sw, sh, 0.0f, 0.0f, icon->codepoint(), icon->fontSize(), shadowColor, shadowTransform
+            sw, sh, 0.0F, 0.0F, icon->codepoint(), icon->fontSize(), shadowColor, shadowTransform
         );
       }
       auto color = icon->color();
       color.a *= effectiveOpacity;
-      m_glyphRenderer.drawGlyph(sw, sh, 0.0f, 0.0f, icon->codepoint(), icon->fontSize(), color, worldTransform);
+      m_glyphRenderer.drawGlyph(sw, sh, 0.0F, 0.0F, icon->codepoint(), icon->fontSize(), color, worldTransform);
     }
     break;
   }
@@ -463,8 +463,8 @@ void RenderContext::renderNode(
     const auto* corner = static_cast<const ScreenCornerNode*>(node);
     auto style = corner->style();
     style.color.a *= effectiveOpacity;
-    const float pixelScaleX = sw > 0.0f ? bw / sw : 1.0f;
-    const float pixelScaleY = sh > 0.0f ? bh / sh : 1.0f;
+    const float pixelScaleX = sw > 0.0F ? bw / sw : 1.0F;
+    const float pixelScaleY = sh > 0.0F ? bh / sh : 1.0F;
     m_backend->drawScreenCorner(sw, sh, pixelScaleX, pixelScaleY, node->width(), node->height(), style, worldTransform);
     break;
   }
@@ -473,8 +473,8 @@ void RenderContext::renderNode(
     auto style = spectrum->style();
     style.color1.a *= effectiveOpacity;
     style.color2.a *= effectiveOpacity;
-    const float pixelScaleX = sw > 0.0f ? bw / sw : 1.0f;
-    const float pixelScaleY = sh > 0.0f ? bh / sh : 1.0f;
+    const float pixelScaleX = sw > 0.0F ? bw / sw : 1.0F;
+    const float pixelScaleY = sh > 0.0F ? bh / sh : 1.0F;
     m_backend->drawAudioSpectrum(
         sw, sh, pixelScaleX, pixelScaleY, node->width(), node->height(), style, spectrum->values(), worldTransform
     );
@@ -524,7 +524,7 @@ void RenderContext::renderNode(
       const Color& sourceColor2 = hasSource2 ? wallpaper->sourceColor2() : wallpaper->sourceColor1();
       const float imageWidth2 = hasSource2 ? wallpaper->imageWidth2() : wallpaper->imageWidth1();
       const float imageHeight2 = hasSource2 ? wallpaper->imageHeight2() : wallpaper->imageHeight1();
-      const float progress = hasSource2 ? wallpaper->progress() : 0.0f;
+      const float progress = hasSource2 ? wallpaper->progress() : 0.0F;
       m_backend->drawWallpaper(
           WallpaperDrawParams{
               .transition = wallpaper->transition(),

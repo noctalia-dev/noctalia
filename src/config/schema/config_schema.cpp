@@ -877,7 +877,7 @@ namespace noctalia::config::schema {
 
   const Schema<IdleConfig>& idleSchema() {
     static const Schema<IdleConfig> s = {
-        field(&IdleConfig::preActionFadeSeconds, "pre_action_fade_seconds", Range<float>{0.0f, 120.0f}),
+        field(&IdleConfig::preActionFadeSeconds, "pre_action_fade_seconds", Range<float>{0.0F, 120.0F}),
         // behavior_order is emitted here (vector order); the actual reorder runs
         // last, after the behavior map has been read.
         custom<IdleConfig>(
@@ -1756,12 +1756,12 @@ namespace noctalia::config::schema {
     constexpr Range<std::int64_t> kBarThicknessRange{10, 300};
     constexpr Range<std::int64_t> kBarRadiusRange{0, 500};
     constexpr Range<std::int64_t> kBarPanelOverlapRange{-2, 3};
-    constexpr Range<float> kBarCapsuleThicknessRange{0.1f, 1.0f};
-    constexpr Range<float> kBarOpacityRange{0.0f, 1.0f};
-    constexpr Range<float> kBarBorderWidthRange{0.0f, 20.0f};
-    constexpr Range<float> kBarScaleRange{0.5f, 4.0f};
-    constexpr Range<float> kBarCapsulePaddingRange{0.0f, 48.0f};
-    constexpr Range<float> kBarCapsuleRadiusRangeF{0.0f, 80.0f};
+    constexpr Range<float> kBarCapsuleThicknessRange{0.1F, 1.0F};
+    constexpr Range<float> kBarOpacityRange{0.0F, 1.0F};
+    constexpr Range<float> kBarBorderWidthRange{0.0F, 20.0F};
+    constexpr Range<float> kBarScaleRange{0.5F, 4.0F};
+    constexpr Range<float> kBarCapsulePaddingRange{0.0F, 48.0F};
+    constexpr Range<float> kBarCapsuleRadiusRangeF{0.0F, 80.0F};
     constexpr Range<double> kBarCapsulePaddingRangeD{0.0, 48.0};
     constexpr Range<double> kBarCapsuleRadiusRangeD{0.0, 80.0};
     constexpr Range<double> kBarCapsuleOpacityRangeD{0.0, 1.0};

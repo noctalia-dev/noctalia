@@ -32,16 +32,16 @@ struct Mat3;
 class CairoTextRenderer {
 public:
   struct TextMetrics {
-    float width = 0.0f;
-    float left = 0.0f;
-    float right = 0.0f;
-    float top = 0.0f;       // negative — above baseline
-    float bottom = 0.0f;    // positive — below baseline
-    float inkTop = 0.0f;    // negative — visible ink above baseline
-    float inkBottom = 0.0f; // positive — visible ink below baseline
-    float inkLeft = 0.0f;   // visible ink left edge relative to layout origin
-    float inkRight = 0.0f;  // visible ink right edge relative to layout origin
-    float capHeight = 0.0f; // measured baseline-to-cap-top of 'H' (0 if unavailable)
+    float width = 0.0F;
+    float left = 0.0F;
+    float right = 0.0F;
+    float top = 0.0F;       // negative — above baseline
+    float bottom = 0.0F;    // positive — below baseline
+    float inkTop = 0.0F;    // negative — visible ink above baseline
+    float inkBottom = 0.0F; // positive — visible ink below baseline
+    float inkLeft = 0.0F;   // visible ink left edge relative to layout origin
+    float inkRight = 0.0F;  // visible ink right edge relative to layout origin
+    float capHeight = 0.0F; // measured baseline-to-cap-top of 'H' (0 if unavailable)
     int lineCount = 0;      // laid-out line count (0 for empty text)
   };
 
@@ -67,7 +67,7 @@ public:
   void abandonGlyphTextures() noexcept;
 
   [[nodiscard]] TextMetrics measure(
-      std::string_view text, float fontSize, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0f,
+      std::string_view text, float fontSize, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0F,
       int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {},
       TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   );
@@ -83,7 +83,7 @@ public:
 
   void draw(
       float surfaceWidth, float surfaceHeight, float x, float baselineY, std::string_view text, float fontSize,
-      const Color& color, const Mat3& transform, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0f,
+      const Color& color, const Mat3& transform, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0F,
       int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {},
       TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   );
@@ -206,7 +206,7 @@ private:
   // last measure/draw, so newly loaded plugin fonts become resolvable here.
   void maybeSyncFontConfig();
 
-  float m_contentScale = 1.0f;
+  float m_contentScale = 1.0F;
   bool m_fontConfigInitialized = false;
   std::uint64_t m_syncedFontGeneration = 0;
   std::string m_fontFamily = "sans-serif";

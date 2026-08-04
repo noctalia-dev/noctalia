@@ -15,7 +15,7 @@
 namespace {
 
   const char* brightnessGlyphName(float brightness) {
-    if (brightness < 0.4f) {
+    if (brightness < 0.4F) {
       return "brightness-low";
     }
     return "brightness-high";
@@ -71,15 +71,15 @@ void BrightnessWidget::doLayout(Renderer& renderer, float containerWidth, float 
   const bool labelVisible = m_label->visible();
   if (m_isVertical && labelVisible) {
     const float w = std::max(m_glyph->width(), m_label->width());
-    m_glyph->setPosition(std::round((w - m_glyph->width()) * 0.5f), 0.0f);
-    m_label->setPosition(std::round((w - m_label->width()) * 0.5f), m_glyph->height());
+    m_glyph->setPosition(std::round((w - m_glyph->width()) * 0.5F), 0.0F);
+    m_label->setPosition(std::round((w - m_label->width()) * 0.5F), m_glyph->height());
     rootNode->setSize(w, m_glyph->height() + m_label->height());
   } else {
     const float h = labelVisible ? std::max(m_glyph->height(), m_label->height()) : m_glyph->height();
-    m_glyph->setPosition(0.0f, std::round((h - m_glyph->height()) * 0.5f));
+    m_glyph->setPosition(0.0F, std::round((h - m_glyph->height()) * 0.5F));
     float totalWidth = m_glyph->width();
     if (labelVisible) {
-      m_label->setPosition(m_glyph->width() + Style::spaceXs, std::round((h - m_label->height()) * 0.5f));
+      m_label->setPosition(m_glyph->width() + Style::spaceXs, std::round((h - m_label->height()) * 0.5F));
       totalWidth = m_label->x() + m_label->width();
     }
     rootNode->setSize(totalWidth, h);
@@ -97,7 +97,7 @@ void BrightnessWidget::syncState(Renderer& renderer) {
   const auto* display = m_brightness->findByOutput(m_output);
   if (display == nullptr) {
     m_lastAvailable = false;
-    m_lastBrightness = -1.0f;
+    m_lastBrightness = -1.0F;
     if (rootNode != nullptr) {
       rootNode->setVisible(false);
       rootNode->setParticipatesInLayout(false);
@@ -112,7 +112,7 @@ void BrightnessWidget::syncState(Renderer& renderer) {
 
   const float brightness = display->brightness;
   const bool becameAvailable = !m_lastAvailable;
-  if (!becameAvailable && std::abs(brightness - m_lastBrightness) < 0.001f && m_isVertical == m_lastVertical) {
+  if (!becameAvailable && std::abs(brightness - m_lastBrightness) < 0.001F && m_isVertical == m_lastVertical) {
     return;
   }
 
@@ -127,7 +127,7 @@ void BrightnessWidget::syncState(Renderer& renderer) {
 
   m_label->setVisible(m_showLabel);
   if (m_showLabel) {
-    int pct = static_cast<int>(std::round(brightness * 100.0f));
+    int pct = static_cast<int>(std::round(brightness * 100.0F));
     m_label->setFontSize((m_isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
     m_label->setText(m_isVertical ? std::to_string(pct) : std::to_string(pct) + "%");
     m_label->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
@@ -135,7 +135,7 @@ void BrightnessWidget::syncState(Renderer& renderer) {
   }
 
   if (rootNode != nullptr) {
-    int pct = static_cast<int>(std::round(brightness * 100.0f));
+    int pct = static_cast<int>(std::round(brightness * 100.0F));
     std::vector<TooltipRow> rows;
     rows.push_back({i18n::tr("bar.widgets.brightness.brightness"), std::to_string(pct) + "%"});
     if (!display->label.empty()) {

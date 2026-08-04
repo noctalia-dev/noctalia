@@ -59,16 +59,16 @@ public:
 
   [[nodiscard]] float preferredHeight() const;
   [[nodiscard]] static float
-  preferredHeight(const std::vector<ContextMenuControlEntry>& entries, std::size_t maxVisible, float scale = 1.0f);
+  preferredHeight(const std::vector<ContextMenuControlEntry>& entries, std::size_t maxVisible, float scale = 1.0F);
   // Width that fits the widest entry without elision (label + toggle/submenu slots + padding).
   [[nodiscard]] static float
-  preferredWidth(Renderer& renderer, const std::vector<ContextMenuControlEntry>& entries, float scale = 1.0f);
+  preferredWidth(Renderer& renderer, const std::vector<ContextMenuControlEntry>& entries, float scale = 1.0F);
 
 private:
   struct RowVisual {
     std::function<void(bool)> apply;
-    float y = 0.0f;
-    float height = 0.0f;
+    float y = 0.0F;
+    float height = 0.0F;
     bool interactive = false;
   };
 
@@ -82,8 +82,8 @@ private:
   std::vector<RowVisual> m_rows;
   std::size_t m_maxVisible = 14;
   std::size_t m_highlightedIndex = 0;
-  float m_menuWidth = 246.0f;
-  float m_contentScale = 1.0f;
+  float m_menuWidth = 246.0F;
+  float m_contentScale = 1.0F;
   ContextSubmenuDirection m_submenuDirection = ContextSubmenuDirection::Right;
   bool m_needsRebuild = true;
   std::function<void(const ContextMenuControlEntry&)> m_onActivate;

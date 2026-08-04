@@ -13,20 +13,20 @@
 
 namespace {
 
-  constexpr float kMenuPadding = 6.0f;
+  constexpr float kMenuPadding = 6.0F;
   constexpr float kItemHeight = Style::controlHeightSm;
-  constexpr float kSeparatorHeight = 10.0f;
-  constexpr float kItemGap = 0.0f;
+  constexpr float kSeparatorHeight = 10.0F;
+  constexpr float kItemGap = 0.0F;
   constexpr float kMenuFontSize = Style::fontSizeCaption;
-  constexpr float kMenuGlyphSize = Style::fontSizeCaption - 1.0f;
+  constexpr float kMenuGlyphSize = Style::fontSizeCaption - 1.0F;
   // Leading check/radio column: the glyph plus a small gap before the label (or leading visual).
   constexpr float kToggleSlot = kMenuGlyphSize + Style::spaceXs;
 
-  float safeScale(float scale) noexcept { return std::max(0.1f, scale); }
+  float safeScale(float scale) noexcept { return std::max(0.1F, scale); }
 
   ColorSpec enabledItemColor() { return colorSpecFromRole(ColorRole::OnSurface); }
 
-  ColorSpec disabledItemColor() { return colorSpecFromRole(ColorRole::OnSurface, 0.55f); }
+  ColorSpec disabledItemColor() { return colorSpecFromRole(ColorRole::OnSurface, 0.55F); }
 
   bool hasToggle(const ContextMenuControlEntry& entry) { return entry.checkmark || entry.radio; }
 
@@ -49,7 +49,7 @@ namespace {
     if (entry.indicatorColor.has_value()) {
       return std::round(kMenuFontSize * scale) + Style::spaceSm * scale;
     }
-    return 0.0f;
+    return 0.0F;
   }
 
   std::string toggleGlyphName(const ContextMenuControlEntry& entry) {
@@ -80,7 +80,7 @@ void ContextMenuControl::setMaxVisible(std::size_t maxVisible) {
 }
 
 void ContextMenuControl::setMenuWidth(float width) {
-  m_menuWidth = std::max(1.0f, width);
+  m_menuWidth = std::max(1.0F, width);
   m_needsRebuild = true;
   markLayoutDirty();
 }
@@ -185,7 +185,7 @@ bool ContextMenuControl::activateHighlighted() {
   }
   if (entry.hasSubmenu) {
     if (m_onSubmenuOpen) {
-      const float centerY = m_rows[m_highlightedIndex].y + m_rows[m_highlightedIndex].height * 0.5f;
+      const float centerY = m_rows[m_highlightedIndex].y + m_rows[m_highlightedIndex].height * 0.5F;
       m_onSubmenuOpen(entry, centerY);
     }
     return true;
@@ -197,12 +197,12 @@ bool ContextMenuControl::activateHighlighted() {
 }
 
 float ContextMenuControl::rowTop(std::size_t index) const noexcept {
-  return index < m_rows.size() ? m_rows[index].y : 0.0f;
+  return index < m_rows.size() ? m_rows[index].y : 0.0F;
 }
 
 float ContextMenuControl::rowBottom(std::size_t index) const noexcept {
   if (index >= m_rows.size()) {
-    return 0.0f;
+    return 0.0F;
   }
   return m_rows[index].y + m_rows[index].height;
 }
@@ -213,21 +213,21 @@ float ContextMenuControl::preferredWidth(
     Renderer& renderer, const std::vector<ContextMenuControlEntry>& entries, float scale
 ) {
   scale = safeScale(scale);
-  float maxRowWidth = 0.0f;
+  float maxRowWidth = 0.0F;
   for (const ContextMenuControlEntry& entry : entries) {
     if (entry.separator || entry.label.empty()) {
       continue;
     }
-    const float toggleSlot = hasToggle(entry) ? kToggleSlot * scale : 0.0f;
+    const float toggleSlot = hasToggle(entry) ? kToggleSlot * scale : 0.0F;
     const FontWeight weight = entry.header ? FontWeight::Bold : FontWeight::Normal;
     const float textWidth = std::ceil(renderer.measureText(entry.label, kMenuFontSize * scale, weight).width);
     // Mirrors rebuildRows: 8px label inset each side, 30px right when a chevron is drawn.
-    const float sidePadding = (entry.hasSubmenu ? 30.0f : 16.0f) * scale;
+    const float sidePadding = (entry.hasSubmenu ? 30.0F : 16.0F) * scale;
     maxRowWidth = std::max(
         maxRowWidth, textWidth + entryIndent(entry, scale) + toggleSlot + leadingVisualSlot(entry, scale) + sidePadding
     );
   }
-  return maxRowWidth + kMenuPadding * scale * 2.0f;
+  return maxRowWidth + kMenuPadding * scale * 2.0F;
 }
 
 float ContextMenuControl::preferredHeight(
@@ -236,14 +236,14 @@ float ContextMenuControl::preferredHeight(
   scale = safeScale(scale);
   const std::size_t visibleEntries = std::min(entries.size(), std::max<std::size_t>(1, maxVisible));
   if (visibleEntries == 0) {
-    return kMenuPadding * scale * 2.0f;
+    return kMenuPadding * scale * 2.0F;
   }
 
-  float contentHeight = 0.0f;
+  float contentHeight = 0.0F;
   for (std::size_t i = 0; i < visibleEntries; ++i) {
     contentHeight += (entries[i].separator ? kSeparatorHeight : kItemHeight) * scale;
   }
-  return kMenuPadding * scale * 2.0f + contentHeight + kItemGap * scale * static_cast<float>(visibleEntries - 1);
+  return kMenuPadding * scale * 2.0F + contentHeight + kItemGap * scale * static_cast<float>(visibleEntries - 1);
 }
 
 void ContextMenuControl::doLayout(Renderer& renderer) {
@@ -275,10 +275,10 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
   const float separatorHeight = kSeparatorHeight * scale;
   const float itemGap = kItemGap * scale;
   const std::size_t visibleItems = std::min(m_entries.size(), m_maxVisible);
-  const float rowWidth = width() - menuPadding * 2.0f;
+  const float rowWidth = width() - menuPadding * 2.0F;
   // Concentric with the container: the highlight is inset by menuPadding, so its
   // radius tracks the container radius minus that inset at any corner roundness.
-  const float highlightRadius = std::max(0.0f, Style::scaledRadiusLg(scale) - menuPadding);
+  const float highlightRadius = std::max(0.0F, Style::scaledRadiusLg(scale) - menuPadding);
   float currentY = menuPadding;
   m_rows.clear();
   m_rows.reserve(visibleItems);
@@ -299,7 +299,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
     Glyph* togglePtr = nullptr;
     Glyph* chevronPtr = nullptr;
 
-    const float rowCenterY = currentY + rowHeight * 0.5f;
+    const float rowCenterY = currentY + rowHeight * 0.5F;
     row->setOnClick([this, entry, rowCenterY](const InputArea::PointerData& data) {
       if (!isInteractive(entry) || data.button != BTN_LEFT) {
         return;
@@ -327,7 +327,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
       );
 
       const bool toggleVisible = hasToggle(entry);
-      const float toggleSlot = toggleVisible ? kToggleSlot * scale : 0.0f;
+      const float toggleSlot = toggleVisible ? kToggleSlot * scale : 0.0F;
       const float indent = entryIndent(entry, scale);
       const std::string toggleGlyph = toggleGlyphName(entry);
       if (!toggleGlyph.empty()) {
@@ -338,7 +338,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
             .color = entry.enabled ? enabledItemColor() : disabledItemColor(),
         });
         glyph->measure(renderer);
-        glyph->setPosition(8.0f * scale + indent, (rowHeight - glyph->height()) * 0.5f);
+        glyph->setPosition(8.0F * scale + indent, (rowHeight - glyph->height()) * 0.5F);
         row->addChild(std::move(glyph));
       }
 
@@ -348,17 +348,17 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
         strip->setMetricsFromFontSize(kMenuFontSize * scale);
         strip->setPreview(entry.swatchPreview);
         strip->setPosition(
-            8.0f * scale + indent + toggleSlot, std::round((rowHeight - strip->preferredHeight()) * 0.5f)
+            8.0F * scale + indent + toggleSlot, std::round((rowHeight - strip->preferredHeight()) * 0.5F)
         );
         row->addChild(std::move(strip));
       } else if (entry.indicatorColor.has_value()) {
         const float dotSize = std::round(kMenuFontSize * scale);
         auto dot = std::make_unique<Box>();
         dot->setFill(*entry.indicatorColor);
-        dot->setBorder(colorSpecFromRole(ColorRole::Outline), 1.5f);
+        dot->setBorder(colorSpecFromRole(ColorRole::Outline), 1.5F);
         dot->setFrameSize(dotSize, dotSize);
-        dot->setRadius(dotSize * 0.5f);
-        dot->setPosition(8.0f * scale + indent + toggleSlot, std::round((rowHeight - dotSize) * 0.5f));
+        dot->setRadius(dotSize * 0.5F);
+        dot->setPosition(8.0F * scale + indent + toggleSlot, std::round((rowHeight - dotSize) * 0.5F));
         row->addChild(std::move(dot));
       }
 
@@ -370,13 +370,13 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
           .color = entry.header ? colorSpecFromRole(ColorRole::OnSurfaceVariant)
               : entry.enabled   ? enabledItemColor()
                                 : disabledItemColor(),
-          .maxWidth = entry.hasSubmenu ? (rowWidth - 30.0f * scale - indent - toggleSlot - leadingSlot)
-                                       : (rowWidth - 16.0f * scale - indent - toggleSlot - leadingSlot),
+          .maxWidth = entry.hasSubmenu ? (rowWidth - 30.0F * scale - indent - toggleSlot - leadingSlot)
+                                       : (rowWidth - 16.0F * scale - indent - toggleSlot - leadingSlot),
           .maxLines = 1,
           .ellipsize = entry.ellipsize,
       });
       label->measure(renderer);
-      label->setPosition(8.0f * scale + indent + toggleSlot + leadingSlot, (rowHeight - label->height()) * 0.5f);
+      label->setPosition(8.0F * scale + indent + toggleSlot + leadingSlot, (rowHeight - label->height()) * 0.5F);
       row->addChild(std::move(label));
 
       if (entry.hasSubmenu) {
@@ -387,7 +387,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
             .color = entry.enabled ? enabledItemColor() : disabledItemColor(),
         });
         chevron->measure(renderer);
-        chevron->setPosition(rowWidth - 8.0f * scale - chevron->width(), (rowHeight - chevron->height()) * 0.5f);
+        chevron->setPosition(rowWidth - 8.0F * scale - chevron->width(), (rowHeight - chevron->height()) * 0.5F);
         row->addChild(std::move(chevron));
       }
     } else {
@@ -410,7 +410,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
           })
       );
 
-      const float separatorThickness = std::max(1.0f, scale);
+      const float separatorThickness = std::max(1.0F, scale);
 
       row->addChild(
           ui::separator({
@@ -419,7 +419,7 @@ void ContextMenuControl::rebuildRows(Renderer& renderer) {
               .height = separatorThickness,
               .configure = [rowHeight, separatorThickness](Separator& sep) {
                 sep.setThickness(separatorThickness);
-                sep.setPosition(0.0f, (rowHeight - separatorThickness) * 0.5f);
+                sep.setPosition(0.0F, (rowHeight - separatorThickness) * 0.5F);
               },
           })
       );

@@ -14,8 +14,8 @@
 
 namespace {
 
-  constexpr float kPreviewInset = 12.0f;
-  constexpr float kPreviewHeightRatio = 0.68f;
+  constexpr float kPreviewInset = 12.0F;
+  constexpr float kPreviewHeightRatio = 0.68F;
 
 } // namespace
 
@@ -60,7 +60,7 @@ FileEntryTile::FileEntryTile(float scale, ThumbnailService* thumbnails) : m_scal
   m_image = static_cast<Image*>(addChild(std::move(image)));
 
   auto glyph = ui::glyph({
-      .glyphSize = 36.0f * scale,
+      .glyphSize = 36.0F * scale,
   });
   m_glyph = static_cast<Glyph*>(addChild(std::move(glyph)));
 
@@ -110,7 +110,7 @@ void FileEntryTile::bind(
 
   m_glyph->setGlyph(entry.isDir ? "folder" : (m_thumbnailEligible ? "image" : "file"));
   m_label->setText(entry.name);
-  m_label->setMaxWidth(std::max(0.0f, width - Style::spaceSm * m_scale * 2.0f));
+  m_label->setMaxWidth(std::max(0.0F, width - Style::spaceSm * m_scale * 2.0F));
 
   refreshThumbnail(renderer);
   applyVisualState();
@@ -160,31 +160,31 @@ void FileEntryTile::doLayout(Renderer& renderer) {
   const float width = this->width();
   const float height = this->height();
   const float previewInset = kPreviewInset * m_scale;
-  const float previewWidth = std::max(0.0f, width - previewInset * 2.0f);
-  const float previewHeight = std::max(0.0f, height * kPreviewHeightRatio - previewInset);
+  const float previewWidth = std::max(0.0F, width - previewInset * 2.0F);
+  const float previewHeight = std::max(0.0F, height * kPreviewHeightRatio - previewInset);
   const float previewX = previewInset;
   const float previewY = previewInset;
   const float imageInset = Style::spaceSm * m_scale;
 
-  m_background->setPosition(0.0f, 0.0f);
+  m_background->setPosition(0.0F, 0.0F);
   m_background->setSize(width, height);
   m_preview->setPosition(previewX, previewY);
   m_preview->setSize(previewWidth, previewHeight);
 
   m_image->setPosition(previewX + imageInset, previewY + imageInset);
-  m_image->setSize(std::max(0.0f, previewWidth - imageInset * 2.0f), std::max(0.0f, previewHeight - imageInset * 2.0f));
+  m_image->setSize(std::max(0.0F, previewWidth - imageInset * 2.0F), std::max(0.0F, previewHeight - imageInset * 2.0F));
 
   if (m_glyph->visible()) {
     m_glyph->measure(renderer);
     m_glyph->setPosition(
-        std::round(previewX + (previewWidth - m_glyph->width()) * 0.5f),
-        std::round(previewY + (previewHeight - m_glyph->height()) * 0.5f)
+        std::round(previewX + (previewWidth - m_glyph->width()) * 0.5F),
+        std::round(previewY + (previewHeight - m_glyph->height()) * 0.5F)
     );
   }
 
   m_label->measure(renderer);
   const float labelY = previewY + previewHeight + Style::spaceSm * m_scale;
-  m_label->setPosition(std::round((width - m_label->width()) * 0.5f), labelY);
+  m_label->setPosition(std::round((width - m_label->width()) * 0.5F), labelY);
 
   InputArea::doLayout(renderer);
 }
@@ -197,7 +197,7 @@ void FileEntryTile::applyVisualState() {
   const Color labelFg = m_selected ? colorForRole(ColorRole::OnPrimary)
       : m_hovered                  ? colorForRole(ColorRole::OnHover)
                                    : colorForRole(ColorRole::OnSurface);
-  const float alpha = m_disabled ? 0.55f : 1.0f;
+  const float alpha = m_disabled ? 0.55F : 1.0F;
 
   m_background->setFill(bg);
   m_glyph->setColor(withAlpha(glyphFg, alpha));

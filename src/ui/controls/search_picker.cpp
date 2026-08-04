@@ -16,8 +16,8 @@
 
 namespace {
 
-  constexpr float kDefaultWidth = 320.0f;
-  constexpr float kDefaultHeight = 360.0f;
+  constexpr float kDefaultWidth = 320.0F;
+  constexpr float kDefaultHeight = 360.0F;
   constexpr auto kFilterDebounceInterval = std::chrono::milliseconds(120);
 
   class SearchPickerRow : public Flex {
@@ -48,7 +48,7 @@ namespace {
           .out = &m_text,
           .align = FlexAlign::Stretch,
           .justify = FlexJustify::Center,
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
       });
       text->addChild(
           ui::label({
@@ -77,14 +77,14 @@ namespace {
       } else if (hovered) {
         setFill(colorSpecFromRole(ColorRole::Hover));
       } else if (selected) {
-        setFill(colorSpecFromRole(ColorRole::Primary, 0.16f));
+        setFill(colorSpecFromRole(ColorRole::Primary, 0.16F));
       } else {
         setFill(clearColorSpec());
       }
 
       ColorSpec foreground =
-          option.enabled ? colorSpecFromRole(ColorRole::OnSurface) : colorSpecFromRole(ColorRole::OnSurface, 0.55f);
-      ColorSpec detailForeground = colorSpecFromRole(ColorRole::OnSurfaceVariant, option.enabled ? 1.0f : 0.55f);
+          option.enabled ? colorSpecFromRole(ColorRole::OnSurface) : colorSpecFromRole(ColorRole::OnSurface, 0.55F);
+      ColorSpec detailForeground = colorSpecFromRole(ColorRole::OnSurfaceVariant, option.enabled ? 1.0F : 0.55F);
       if (highlighted) {
         foreground = colorSpecFromRole(ColorRole::OnPrimary);
         detailForeground = colorSpecFromRole(ColorRole::OnPrimary);
@@ -196,7 +196,7 @@ SearchPicker::SearchPicker() {
           .itemGap = Style::spaceXs,
           .overscanItems = 4,
           .adapter = this,
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
       })
   );
 }
@@ -250,7 +250,7 @@ void SearchPicker::setEnabled(bool enabled) {
   if (m_list != nullptr) {
     m_list->notifyDataChanged();
   }
-  setOpacity(enabled ? 1.0f : 0.55f);
+  setOpacity(enabled ? 1.0F : 0.55F);
 }
 
 void SearchPicker::doLayout(Renderer& renderer) { Flex::doLayout(renderer); }
@@ -376,7 +376,7 @@ void SearchPicker::applyFilter() {
   }
   if (m_list != nullptr) {
     m_list->setVisible(!m_visible.empty());
-    m_list->scrollView().setScrollOffset(0.0f);
+    m_list->scrollView().setScrollOffset(0.0F);
     m_list->notifyDataChanged();
     if (!m_visible.empty() && m_highlightedVisibleIndex > 0) {
       m_list->scrollToIndex(m_highlightedVisibleIndex);

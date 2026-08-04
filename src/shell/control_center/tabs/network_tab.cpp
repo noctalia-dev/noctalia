@@ -73,9 +73,9 @@ namespace {
 
     auto pill = ui::row({
         .align = FlexAlign::Center,
-        .paddingV = Style::spaceXs * 0.5f * scale,
+        .paddingV = Style::spaceXs * 0.5F * scale,
         .paddingH = Style::spaceSm * scale,
-        .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.8f),
+        .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.8F),
         .radius = Style::scaledRadiusSm(scale),
     });
     pill->addChild(
@@ -142,7 +142,7 @@ public:
             .fontSize = Style::fontSizeBody * scale,
             .fontWeight = m_ap.active ? FontWeight::Bold : FontWeight::Normal,
             .color = colorSpecFromRole(ColorRole::OnSurface),
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         })
     );
 
@@ -165,7 +165,7 @@ public:
         })
     );
 
-    const float actionOpacity = (m_ap.active || saved) ? 1.0f : 0.0f;
+    const float actionOpacity = (m_ap.active || saved) ? 1.0F : 0.0F;
     auto action = ui::button({
         .out = &m_actionButton,
         .glyphSize = Style::baseGlyphSize * scale,
@@ -209,10 +209,10 @@ public:
     m_inputArea->setVisible(false);
     Flex::doLayout(renderer);
     m_inputArea->setVisible(true);
-    m_inputArea->setPosition(0.0f, 0.0f);
+    m_inputArea->setPosition(0.0F, 0.0F);
     m_inputArea->setSize(width(), height());
     if (m_actionButton != nullptr) {
-      const float areaWidth = std::max(0.0f, m_actionButton->x() - gap());
+      const float areaWidth = std::max(0.0F, m_actionButton->x() - gap());
       m_inputArea->setSize(areaWidth, height());
     }
     applyState();
@@ -300,7 +300,7 @@ namespace {
               .fontSize = Style::fontSizeBody * scale,
               .fontWeight = m_vpn.active ? FontWeight::Bold : FontWeight::Normal,
               .color = colorSpecFromRole(ColorRole::OnSurface),
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
           })
       );
 
@@ -312,7 +312,7 @@ namespace {
               .variant = ButtonVariant::Ghost,
               .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusSm(scale),
-              .opacity = m_vpn.active ? 1.0f : 0.0f,
+              .opacity = m_vpn.active ? 1.0F : 0.0F,
           })
       );
 
@@ -347,10 +347,10 @@ namespace {
       m_inputArea->setVisible(false);
       Flex::doLayout(renderer);
       m_inputArea->setVisible(true);
-      m_inputArea->setPosition(0.0f, 0.0f);
+      m_inputArea->setPosition(0.0F, 0.0F);
       m_inputArea->setSize(width(), height());
       if (m_actionButton != nullptr) {
-        const float areaWidth = std::max(0.0f, m_actionButton->x() - gap());
+        const float areaWidth = std::max(0.0F, m_actionButton->x() - gap());
         m_inputArea->setSize(areaWidth, height());
       }
       applyState();
@@ -453,7 +453,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .out = &m_currentDetail,
           .fontSize = Style::fontSizeCaption * scale,
           .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
       }),
       ui::button({
           .out = &m_disconnectButton,
@@ -506,7 +506,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .placeholder = i18n::tr("control-center.network.password"),
           .passwordMode = true,
           .surfaceOpacity = panelCardOpacity(),
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
           .onSubmit = [this](const std::string& value) { submitPasswordPrompt(value); },
       }),
       ui::button({
@@ -549,9 +549,9 @@ std::unique_ptr<Flex> NetworkTab::create() {
   auto listScroll = ui::scrollView({
       .out = &m_listScroll,
       .scrollbarVisible = true,
-      .viewportPaddingH = 0.0f,
-      .viewportPaddingV = 0.0f,
-      .flexGrow = 1.0f,
+      .viewportPaddingH = 0.0F,
+      .viewportPaddingV = 0.0F,
+      .flexGrow = 1.0F,
       .configure = [](ScrollView& scrollView) {
         scrollView.clearFill();
         scrollView.clearBorder();
@@ -620,7 +620,7 @@ void NetworkTab::onClose() {
   m_disconnectButton = nullptr;
   m_apRows.clear();
   m_lastStructureKey.clear();
-  m_lastListWidth = -1.0f;
+  m_lastListWidth = -1.0F;
   m_pendingAccessPoint.reset();
   m_active = false;
   m_actionPending = false;
@@ -800,7 +800,7 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
     return;
   }
   const float listWidth = m_listScroll->contentViewportWidth();
-  if (listWidth <= 0.0f) {
+  if (listWidth <= 0.0F) {
     return;
   }
 

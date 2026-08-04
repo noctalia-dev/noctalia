@@ -22,31 +22,31 @@ namespace {
     return format.contains("%S") || format.contains("%T") || format.contains("%X");
   }
 
-  float clockFontSize(float contentScale) { return Style::fontSizeBody * 4.0f * contentScale; }
+  float clockFontSize(float contentScale) { return Style::fontSizeBody * 4.0F * contentScale; }
 
-  float analogClockSize(float contentScale) { return Style::fontSizeBody * 5.25f * contentScale; }
+  float analogClockSize(float contentScale) { return Style::fontSizeBody * 5.25F * contentScale; }
 
   struct AnalogDialMetrics {
-    float center = 0.0f;
-    float scale = 1.0f;
-    float dialRadius = 0.0f;
-    float borderWidth = 0.0f;
-    float faceSize = 0.0f;
-    float faceOffset = 0.0f;
-    float minuteLength = 0.0f;
-    float minuteWidth = 0.0f;
-    float hourLength = 0.0f;
-    float hourWidth = 0.0f;
+    float center = 0.0F;
+    float scale = 1.0F;
+    float dialRadius = 0.0F;
+    float borderWidth = 0.0F;
+    float faceSize = 0.0F;
+    float faceOffset = 0.0F;
+    float minuteLength = 0.0F;
+    float minuteWidth = 0.0F;
+    float hourLength = 0.0F;
+    float hourWidth = 0.0F;
   };
 
   [[nodiscard]] AnalogDialMetrics analogDialMetrics(float size, float scale) {
-    const float center = size * 0.5f;
-    const float borderWidth = std::max(1.5f, 2.0f * scale);
-    const float hourLength = std::max(4.0f, 5.5f * scale);
-    const float hourWidth = std::max(1.75f, 2.25f * scale);
-    const float edgePadding = std::max(3.0f, 3.5f * scale) + hourWidth * 0.5f;
-    const float dialRadius = std::max(1.0f, center - edgePadding - borderWidth * 0.5f);
-    const float faceSize = dialRadius * 2.0f;
+    const float center = size * 0.5F;
+    const float borderWidth = std::max(1.5F, 2.0F * scale);
+    const float hourLength = std::max(4.0F, 5.5F * scale);
+    const float hourWidth = std::max(1.75F, 2.25F * scale);
+    const float edgePadding = std::max(3.0F, 3.5F * scale) + hourWidth * 0.5F;
+    const float dialRadius = std::max(1.0F, center - edgePadding - borderWidth * 0.5F);
+    const float faceSize = dialRadius * 2.0F;
     return {
         .center = center,
         .scale = scale,
@@ -54,20 +54,20 @@ namespace {
         .borderWidth = borderWidth,
         .faceSize = faceSize,
         .faceOffset = center - dialRadius,
-        .minuteLength = std::max(2.5f, 3.0f * scale),
-        .minuteWidth = std::max(1.0f, 1.25f * scale),
+        .minuteLength = std::max(2.5F, 3.0F * scale),
+        .minuteWidth = std::max(1.0F, 1.25F * scale),
         .hourLength = hourLength,
         .hourWidth = hourWidth,
     };
   }
 
-  constexpr float kShadowAlpha = 0.6f;
-  constexpr float kShadowOffset = 1.5f;
-  constexpr float kHourHandReach = 0.54f;
-  constexpr float kMinuteHandReach = 0.90f;
-  constexpr float kSecondHandReach = 0.84f;
+  constexpr float kShadowAlpha = 0.6F;
+  constexpr float kShadowOffset = 1.5F;
+  constexpr float kHourHandReach = 0.54F;
+  constexpr float kMinuteHandReach = 0.90F;
+  constexpr float kSecondHandReach = 0.84F;
 
-  [[nodiscard]] float degreesToRadians(float degrees) { return degrees * (std::numbers::pi_v<float> / 180.0f); }
+  [[nodiscard]] float degreesToRadians(float degrees) { return degrees * (std::numbers::pi_v<float> / 180.0F); }
 
   struct LocalTimeParts {
     int hour = 0;
@@ -118,10 +118,10 @@ namespace {
   RectNode* addHand(Node& pivot, float width, float length, const Color& color) {
     auto hand = std::make_unique<RectNode>();
     hand->setSize(width, length);
-    hand->setPosition(-width * 0.5f, -length);
+    hand->setPosition(-width * 0.5F, -length);
     RoundedRectStyle style;
     style.fill = color;
-    style.radius = width * 0.5f;
+    style.radius = width * 0.5F;
     hand->setStyle(style);
     return static_cast<RectNode*>(pivot.addChild(std::move(hand)));
   }
@@ -129,7 +129,7 @@ namespace {
   Node* addHandPivot(Node& parent, float center, float width, float length, const Color& color) {
     auto pivot = ui::node({});
     pivot->setPosition(center, center);
-    pivot->setSize(0.0f, 0.0f);
+    pivot->setSize(0.0F, 0.0F);
     pivot->setParticipatesInLayout(false);
     auto* pivotPtr = static_cast<Node*>(parent.addChild(std::move(pivot)));
     (void)addHand(*pivotPtr, width, length, color);
@@ -147,10 +147,10 @@ namespace {
 
     auto mark = std::make_unique<RectNode>();
     mark->setSize(width, length);
-    mark->setPosition(-width * 0.5f, -dialRadius);
+    mark->setPosition(-width * 0.5F, -dialRadius);
     RoundedRectStyle style;
     style.fill = color;
-    style.radius = width * 0.5f;
+    style.radius = width * 0.5F;
     mark->setStyle(style);
     pivotPtr->addChild(std::move(mark));
   }
@@ -158,7 +158,7 @@ namespace {
   void buildAnalogTicks(Node& ticksRoot, const AnalogDialMetrics& metrics, const Color& color) {
     for (int minute = 0; minute < 60; ++minute) {
       const bool hourMark = (minute % 5) == 0;
-      const float angle = degreesToRadians(static_cast<float>(minute) * 6.0f);
+      const float angle = degreesToRadians(static_cast<float>(minute) * 6.0F);
       addTickMark(
           ticksRoot, metrics.center, angle, hourMark ? metrics.hourWidth : metrics.minuteWidth,
           hourMark ? metrics.hourLength : metrics.minuteLength, metrics.dialRadius, color
@@ -171,7 +171,7 @@ namespace {
       const bool hourMark = (minute % 5) == 0;
       const float width = hourMark ? metrics.hourWidth : metrics.minuteWidth;
       const float length = hourMark ? metrics.hourLength : metrics.minuteLength;
-      const float angle = degreesToRadians(static_cast<float>(minute) * 6.0f);
+      const float angle = degreesToRadians(static_cast<float>(minute) * 6.0F);
 
       auto* pivot = ticksRoot.children()[minute].get();
       pivot->setPosition(metrics.center, metrics.center);
@@ -179,10 +179,10 @@ namespace {
 
       auto* mark = static_cast<RectNode*>(pivot->children().front().get());
       mark->setSize(width, length);
-      mark->setPosition(-width * 0.5f, -metrics.dialRadius);
+      mark->setPosition(-width * 0.5F, -metrics.dialRadius);
       RoundedRectStyle style = mark->style();
       style.fill = color;
-      style.radius = width * 0.5f;
+      style.radius = width * 0.5F;
       mark->setStyle(style);
     }
   }
@@ -234,13 +234,13 @@ void DesktopClockWidget::create() {
   m_analogRoot->setSize(size, size);
 
   const Color handColor = resolvedColor(m_color);
-  const Color secondColor = Color(handColor.r, handColor.g, handColor.b, handColor.a * 0.72f);
+  const Color secondColor = Color(handColor.r, handColor.g, handColor.b, handColor.a * 0.72F);
   const AnalogDialMetrics metrics = analogDialMetrics(size, scale);
 
   auto face = std::make_unique<RectNode>();
   m_face = face.get();
   RoundedRectStyle faceStyle;
-  faceStyle.fill = Color(0.0f, 0.0f, 0.0f, 0.0f);
+  faceStyle.fill = Color(0.0F, 0.0F, 0.0F, 0.0F);
   faceStyle.border = handColor;
   m_face->setStyle(faceStyle);
   m_analogRoot->addChild(std::move(face));
@@ -251,9 +251,9 @@ void DesktopClockWidget::create() {
   buildAnalogTicks(*m_ticksRoot, metrics, handColor);
   m_analogRoot->addChild(std::move(ticksRoot));
 
-  const float hourWidth = std::max(2.2f, 2.65f * scale);
-  const float minuteWidth = std::max(1.75f, 2.0f * scale);
-  const float secondWidth = std::max(1.0f, 1.25f * scale);
+  const float hourWidth = std::max(2.2F, 2.65F * scale);
+  const float minuteWidth = std::max(1.75F, 2.0F * scale);
+  const float secondWidth = std::max(1.0F, 1.25F * scale);
   m_hourPivot = addHandPivot(*m_analogRoot, metrics.center, hourWidth, metrics.dialRadius * kHourHandReach, handColor);
   m_minutePivot =
       addHandPivot(*m_analogRoot, metrics.center, minuteWidth, metrics.dialRadius * kMinuteHandReach, handColor);
@@ -262,12 +262,12 @@ void DesktopClockWidget::create() {
 
   auto hub = std::make_unique<RectNode>();
   m_hub = hub.get();
-  const float hubSize = std::max(4.0f, 5.0f * scale);
+  const float hubSize = std::max(4.0F, 5.0F * scale);
   hub->setSize(hubSize, hubSize);
-  hub->setPosition(metrics.center - hubSize * 0.5f, metrics.center - hubSize * 0.5f);
+  hub->setPosition(metrics.center - hubSize * 0.5F, metrics.center - hubSize * 0.5F);
   RoundedRectStyle hubStyle;
   hubStyle.fill = handColor;
-  hubStyle.radius = hubSize * 0.5f;
+  hubStyle.radius = hubSize * 0.5F;
   hub->setStyle(hubStyle);
   m_analogRoot->addChild(std::move(hub));
 
@@ -321,7 +321,7 @@ void DesktopClockWidget::syncAnalogColors() {
   }
 
   const Color handColor = resolvedColor(m_color);
-  const Color secondColor = Color(handColor.r, handColor.g, handColor.b, handColor.a * 0.72f);
+  const Color secondColor = Color(handColor.r, handColor.g, handColor.b, handColor.a * 0.72F);
   const float scale = contentScale();
   const AnalogDialMetrics metrics = analogDialMetrics(m_analogRoot->width(), scale);
 
@@ -371,18 +371,18 @@ void DesktopClockWidget::layoutAnalog(Renderer& /*renderer*/, float size) {
     m_secondPivot->setPosition(metrics.center, metrics.center);
   }
 
-  const float hourWidth = std::max(2.2f, 2.65f * scale);
-  const float minuteWidth = std::max(1.75f, 2.0f * scale);
-  const float secondWidth = std::max(1.0f, 1.25f * scale);
+  const float hourWidth = std::max(2.2F, 2.65F * scale);
+  const float minuteWidth = std::max(1.75F, 2.0F * scale);
+  const float secondWidth = std::max(1.0F, 1.25F * scale);
   const auto resizeHand = [](Node* pivot, float width, float length) {
     if (pivot == nullptr || pivot->children().empty()) {
       return;
     }
     auto* hand = static_cast<RectNode*>(pivot->children().front().get());
     hand->setSize(width, length);
-    hand->setPosition(-width * 0.5f, -length);
+    hand->setPosition(-width * 0.5F, -length);
     RoundedRectStyle style = hand->style();
-    style.radius = width * 0.5f;
+    style.radius = width * 0.5F;
     hand->setStyle(style);
   };
   resizeHand(m_hourPivot, hourWidth, metrics.dialRadius * kHourHandReach);
@@ -390,12 +390,12 @@ void DesktopClockWidget::layoutAnalog(Renderer& /*renderer*/, float size) {
   resizeHand(m_secondPivot, secondWidth, metrics.dialRadius * kSecondHandReach);
 
   if (m_hub != nullptr) {
-    const float hubSize = std::max(4.0f, 5.0f * scale);
+    const float hubSize = std::max(4.0F, 5.0F * scale);
     m_hub->setSize(hubSize, hubSize);
-    m_hub->setPosition(metrics.center - hubSize * 0.5f, metrics.center - hubSize * 0.5f);
+    m_hub->setPosition(metrics.center - hubSize * 0.5F, metrics.center - hubSize * 0.5F);
     RoundedRectStyle hubStyle = m_hub->style();
     hubStyle.fill = handColor;
-    hubStyle.radius = hubSize * 0.5f;
+    hubStyle.radius = hubSize * 0.5F;
     m_hub->setStyle(hubStyle);
   }
 
@@ -415,7 +415,7 @@ void DesktopClockWidget::layoutDigital(Renderer& renderer) {
   m_label->measure(renderer);
   // Start-aligned mode shifts the label right so proportional digits stay visually stable; centered
   // mode relies on TextAlign::Center inside the reserved widest-digit width.
-  m_label->setPosition(m_centerText ? 0.0f : m_digitOffsetX, 0.0f);
+  m_label->setPosition(m_centerText ? 0.0F : m_digitOffsetX, 0.0F);
   if (m_digitalRoot != nullptr) {
     m_digitalRoot->setSize(m_label->width() + m_digitOffsetX, m_label->height());
   }
@@ -436,13 +436,13 @@ void DesktopClockWidget::updateAnalogHands() {
 
   const float hourAngle = degreesToRadians(
       (static_cast<float>(time.hour % 12)
-       + static_cast<float>(time.minute) / 60.0f
-       + static_cast<float>(time.second) / 3600.0f)
-      * 30.0f
+       + static_cast<float>(time.minute) / 60.0F
+       + static_cast<float>(time.second) / 3600.0F)
+      * 30.0F
   );
   const float minuteAngle =
-      degreesToRadians((static_cast<float>(time.minute) + static_cast<float>(time.second) / 60.0f) * 6.0f);
-  const float secondAngle = degreesToRadians(static_cast<float>(time.second) * 6.0f);
+      degreesToRadians((static_cast<float>(time.minute) + static_cast<float>(time.second) / 60.0F) * 6.0F);
+  const float secondAngle = degreesToRadians(static_cast<float>(time.second) * 6.0F);
 
   if (m_hourPivot != nullptr) {
     m_hourPivot->setRotation(hourAngle);
@@ -570,12 +570,12 @@ void DesktopClockWidget::updateStableDigitalWidth(Renderer& renderer, const std:
   if (fontSize != m_metricsFontSize || m_fontFamily != m_metricsFontFamily) {
     m_metricsFontSize = fontSize;
     m_metricsFontFamily = m_fontFamily;
-    float widest = -1.0f;
-    float advanceSum = 0.0f;
+    float widest = -1.0F;
+    float advanceSum = 0.0F;
     for (char digit = '0'; digit <= '9'; ++digit) {
       const std::string glyph(1, digit);
       const float advance =
-          renderer.measureText(glyph, fontSize, FontWeight::Bold, 0.0f, 0, TextAlign::Start, m_fontFamily).width;
+          renderer.measureText(glyph, fontSize, FontWeight::Bold, 0.0F, 0, TextAlign::Start, m_fontFamily).width;
       advanceSum += advance;
       if (advance > widest) {
         widest = advance;
@@ -583,7 +583,7 @@ void DesktopClockWidget::updateStableDigitalWidth(Renderer& renderer, const std:
       }
     }
     m_maxDigitAdvance = widest;
-    m_meanDigitAdvance = advanceSum / 10.0f;
+    m_meanDigitAdvance = advanceSum / 10.0F;
     m_stableSample.clear(); // force a width recompute below
   }
 
@@ -603,9 +603,9 @@ void DesktopClockWidget::updateStableDigitalWidth(Renderer& renderer, const std:
   m_stableSample = sample;
 
   const float width =
-      renderer.measureText(sample, fontSize, FontWeight::Bold, 0.0f, 0, TextAlign::Start, m_fontFamily).width;
-  const float offset = m_centerText ? 0.0f : static_cast<float>(digitCount) * (m_maxDigitAdvance - m_meanDigitAdvance);
-  if (std::abs(width - m_stableWidth) > 0.5f || std::abs(offset - m_digitOffsetX) > 0.5f) {
+      renderer.measureText(sample, fontSize, FontWeight::Bold, 0.0F, 0, TextAlign::Start, m_fontFamily).width;
+  const float offset = m_centerText ? 0.0F : static_cast<float>(digitCount) * (m_maxDigitAdvance - m_meanDigitAdvance);
+  if (std::abs(width - m_stableWidth) > 0.5F || std::abs(offset - m_digitOffsetX) > 0.5F) {
     m_stableWidth = width;
     m_digitOffsetX = offset;
     m_label->setMinWidth(m_stableWidth);
