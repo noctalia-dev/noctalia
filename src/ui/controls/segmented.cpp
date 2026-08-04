@@ -16,7 +16,7 @@
 Segmented::Segmented() {
   setDirection(FlexDirection::Horizontal);
   setAlign(FlexAlign::Stretch);
-  setGap(0.0f);
+  setGap(0.0F);
   applyOuterStyle();
 
   auto area = std::make_unique<InputArea>();
@@ -79,7 +79,7 @@ void Segmented::setFontSize(float size) {
 }
 
 void Segmented::setScale(float scale) {
-  m_scale = std::max(0.1f, scale);
+  m_scale = std::max(0.1F, scale);
   applyOuterStyle();
   const float fs = effectiveFontSize();
   for (Button* btn : m_buttons) {
@@ -89,7 +89,7 @@ void Segmented::setScale(float scale) {
       btn->setGlyphSize(fs);
     }
   }
-  const float ruleW = std::max(1.0f, Style::borderWidth * m_scale);
+  const float ruleW = std::max(1.0F, Style::borderWidth * m_scale);
   for (Separator* sep : m_separators) {
     if (sep != nullptr) {
       sep->setThickness(ruleW);
@@ -154,7 +154,7 @@ void Segmented::clearOptions() {
 void Segmented::setOnChange(std::function<void(std::size_t)> callback) { m_onChange = std::move(callback); }
 
 void Segmented::setSurfaceOpacity(float opacity) {
-  const float clamped = std::clamp(opacity, 0.0f, 1.0f);
+  const float clamped = std::clamp(opacity, 0.0F, 1.0F);
   if (m_surfaceOpacity == clamped) {
     return;
   }
@@ -180,15 +180,15 @@ void Segmented::setEnabled(bool enabled) {
       btn->setEnabled(enabled);
     }
   }
-  setOpacity(enabled ? 1.0f : 0.55f);
+  setOpacity(enabled ? 1.0F : 0.55F);
 }
 
 std::unique_ptr<Separator> Segmented::makeSegmentSeparator() {
   auto sep = std::make_unique<Separator>();
   sep->setOrientation(SeparatorOrientation::VerticalRule);
-  sep->setThickness(std::max(1.0f, Style::borderWidth * m_scale));
+  sep->setThickness(std::max(1.0F, Style::borderWidth * m_scale));
   sep->setColor(colorSpecFromRole(ColorRole::Outline));
-  sep->setFlexGrow(0.0f);
+  sep->setFlexGrow(0.0F);
   return sep;
 }
 
@@ -206,7 +206,7 @@ Segmented::makeSegmentButton(std::string_view label, std::string_view glyph, std
   applyButtonMetrics(*btn);
   btn->setOnClick([this, index]() { setSelectedIndex(index); });
   btn->setTabStop(false);
-  btn->setFlexGrow(m_equalSegmentWidths ? 1.0f : 0.0f);
+  btn->setFlexGrow(m_equalSegmentWidths ? 1.0F : 0.0F);
   btn->setContentAlign(ButtonContentAlign::Center);
   btn->setEnabled(m_enabled);
   return btn;
@@ -230,7 +230,7 @@ void Segmented::setEqualSegmentWidths(bool equalWidths) {
   m_equalSegmentWidths = equalWidths;
   for (Button* b : m_buttons) {
     if (b != nullptr) {
-      b->setFlexGrow(m_equalSegmentWidths ? 1.0f : 0.0f);
+      b->setFlexGrow(m_equalSegmentWidths ? 1.0F : 0.0F);
     }
   }
   markLayoutDirty();
@@ -248,11 +248,11 @@ void Segmented::refreshVariants() {
     if (n == 1) {
       radii = Radii{r, r, r, r};
     } else if (i == 0) {
-      radii = Radii{r, 0.0f, 0.0f, r};
+      radii = Radii{r, 0.0F, 0.0F, r};
     } else if (i == n - 1) {
-      radii = Radii{0.0f, r, r, 0.0f};
+      radii = Radii{0.0F, r, r, 0.0F};
     } else {
-      radii = Radii{0.0f};
+      radii = Radii{0.0F};
     }
     m_buttons[i]->setRadii(radii);
   }
@@ -271,5 +271,5 @@ void Segmented::doLayout(Renderer& renderer) {
 }
 
 float Segmented::effectiveFontSize() const noexcept {
-  return (m_fontSize > 0.0f ? m_fontSize : Style::fontSizeBody) * m_scale;
+  return (m_fontSize > 0.0F ? m_fontSize : Style::fontSizeBody) * m_scale;
 }

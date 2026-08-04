@@ -28,7 +28,7 @@ namespace shell::dock {
 
     constexpr Logger kLog("dock");
 
-    constexpr float kMenuWidth = 240.0f;
+    constexpr float kMenuWidth = 240.0F;
     constexpr std::int32_t kMenuCloseId = -1;
     constexpr std::int32_t kMenuCloseAllId = -2;
     constexpr std::int32_t kMenuSeparatorId = -3;
@@ -367,7 +367,7 @@ namespace shell::dock {
             *menuPtr->sceneRoot, menuPtr->chrome, config.config().shell.shadow, Style::scaledRadiusLg()
         );
       }
-      (void)popup_chrome::addCardBackground(*menuPtr->sceneRoot, menuPtr->chrome, 1.0f);
+      (void)popup_chrome::addCardBackground(*menuPtr->sceneRoot, menuPtr->chrome, 1.0F);
 
       auto ctrl = std::make_unique<ContextMenuControl>();
       ctrl->setMenuWidth(menuPtr->chrome.contentWidth);

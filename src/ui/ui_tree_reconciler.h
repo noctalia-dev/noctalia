@@ -108,7 +108,7 @@ namespace ui {
     CallbackSink m_sink;
     PathResolver m_resolver;
     FocusRequestSink m_focusSink;
-    float m_scale = 1.0f;
+    float m_scale = 1.0F;
     std::string m_defaultFontFamily;
     FontWeight m_defaultFontWeight; // initialized in the ctor (opaque enum here)
     bool m_compactControls = false;

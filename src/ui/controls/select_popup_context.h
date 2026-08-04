@@ -18,11 +18,11 @@ public:
     std::int32_t anchorY = 0;
     std::int32_t anchorWidth = 1;
     std::int32_t anchorHeight = 1;
-    float menuWidth = 0.0f;
+    float menuWidth = 0.0F;
     // When > menuWidth, the dropdown grows past menuWidth to fit its widest option, up to this cap.
-    float maxMenuWidth = 0.0f;
+    float maxMenuWidth = 0.0F;
     // Drives the dropdown's row metrics (font, height, insets); pre-scaled by the caller.
-    float fontSize = 0.0f;
+    float fontSize = 0.0F;
     std::vector<std::string> options;
     std::vector<ColorSpec> indicatorColors;
     std::vector<ColorSwatchPreview> optionSwatchPreviews;

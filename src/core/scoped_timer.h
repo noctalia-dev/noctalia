@@ -42,7 +42,7 @@ namespace noctalia::profiling {
     ScopedTimer(Logger log, std::string label) : m_log(log), m_label(std::move(label)), m_active(enabled()) {}
     ~ScopedTimer() {
       if (m_active) {
-        m_log.info("{}: {:.1f} ms", m_label, m_watch.elapsedMs());
+        m_log.info("{}: {:.1F} ms", m_label, m_watch.elapsedMs());
       }
     }
     ScopedTimer(const ScopedTimer&) = delete;

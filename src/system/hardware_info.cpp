@@ -420,7 +420,7 @@ std::string diskUsageLabel(const std::string& mountPoint) {
   const double avail = static_cast<double>(sv.f_bavail) * static_cast<double>(sv.f_frsize);
   const double used = std::max(0.0, total - avail);
   const double percent = total > 0.0 ? (used / total) * 100.0 : 0.0;
-  return std::format("{} ({:.0f}%)", FormatUnits::formatDecimalBytesUsage(used, total), percent);
+  return std::format("{} ({:.0F}%)", FormatUnits::formatDecimalBytesUsage(used, total), percent);
 }
 
 std::string compositorLabel() { return detectCompositor(); }

@@ -21,7 +21,7 @@ namespace {
       return 0;
     }
 
-    const float scale = std::max(1.0f, renderer.renderScale());
+    const float scale = std::max(1.0F, renderer.renderScale());
     return std::max(1, static_cast<int>(std::round(static_cast<float>(targetSize) * scale)));
   }
 
@@ -314,7 +314,7 @@ bool Image::setSourceFileAsync(
     m_sourcePath = path;
     if (m_image != nullptr) {
       m_image->setTextureId({});
-      m_image->setFrameSize(0.0f, 0.0f);
+      m_image->setFrameSize(0.0F, 0.0F);
     }
     return false;
   }
@@ -435,7 +435,7 @@ void Image::clear(Renderer& renderer) {
   clearColorizationSource();
   if (m_image != nullptr) {
     m_image->setTextureId({});
-    m_image->setFrameSize(0.0f, 0.0f);
+    m_image->setFrameSize(0.0F, 0.0F);
   }
 }
 
@@ -502,7 +502,7 @@ void Image::doLayout(Renderer& renderer) {
       m_asyncTargetSize = textureTargetSize;
       if (m_image != nullptr) {
         m_image->setTextureId({});
-        m_image->setFrameSize(0.0f, 0.0f);
+        m_image->setFrameSize(0.0F, 0.0F);
       }
       m_texture = m_asyncTextureCache->acquire(m_asyncSourcePath, m_asyncTargetSize, m_asyncMipmap);
       if (m_texture.id != 0) {
@@ -799,7 +799,7 @@ void Image::applyPalette() {
     reloadUncolorizedSource();
   }
   if (m_appIconColorizeTint.has_value()) {
-    m_image->setTint(rgba(1.0f, 1.0f, 1.0f, 1.0f));
+    m_image->setTint(rgba(1.0F, 1.0F, 1.0F, 1.0F));
     m_image->setMonochromeTint(false);
     m_image->setAlphaMaskTint(false);
     reloadColorizedSource();
@@ -813,7 +813,7 @@ void Image::applyPalette() {
     return;
   }
 
-  m_image->setTint(rgba(1.0f, 1.0f, 1.0f, 1.0f));
+  m_image->setTint(rgba(1.0F, 1.0F, 1.0F, 1.0F));
   m_image->setMonochromeTint(false);
   m_image->setAlphaMaskTint(false);
 }
@@ -823,8 +823,8 @@ void Image::updateLayout() {
     return;
   }
 
-  const float paddedWidth = std::max(0.0f, width() - m_padding * 2.0f);
-  const float paddedHeight = std::max(0.0f, height() - m_padding * 2.0f);
+  const float paddedWidth = std::max(0.0F, width() - m_padding * 2.0F);
+  const float paddedHeight = std::max(0.0F, height() - m_padding * 2.0F);
   m_image->setPosition(m_padding, m_padding);
   m_image->setFrameSize(paddedWidth, paddedHeight);
   m_image->setTextureSize(m_texture.width, m_texture.height);

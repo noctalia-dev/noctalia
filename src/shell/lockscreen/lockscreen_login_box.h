@@ -41,11 +41,11 @@ namespace lockscreen_login_box {
 
   struct LoginBoxStyle {
     LayoutMode layout = LayoutMode::Regular;
-    ColorSpec panelFill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.88f);
-    float panelOpacity = 0.88f;
-    float panelRadius = 12.0f;
-    float inputOpacity = 1.0f;
-    float inputRadius = 6.0f;
+    ColorSpec panelFill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.88F);
+    float panelOpacity = 0.88F;
+    float panelRadius = 12.0F;
+    float inputOpacity = 1.0F;
+    float inputRadius = 6.0F;
     bool centerPasswordText = false;
     bool showLoginButton = true;
     bool showCapsLock = true;
@@ -74,17 +74,17 @@ namespace lockscreen_login_box {
   [[nodiscard]] LayoutMode resolveLayout(const std::unordered_map<std::string, WidgetSettingValue>& settings);
   [[nodiscard]] LayoutMode resolveLayout(std::string_view layout);
 
-  constexpr float kCompactDefaultWidthCap = 400.0f;
-  constexpr float kRegularDefaultWidthCap = 810.0f;
-  constexpr float kCompactMinPanelWidth = 240.0f;
+  constexpr float kCompactDefaultWidthCap = 400.0F;
+  constexpr float kRegularDefaultWidthCap = 810.0F;
+  constexpr float kCompactMinPanelWidth = 240.0F;
   // Min width for media + weather; forecast needs more.
-  constexpr float kRegularMinPanelWidth = 720.0f;
-  constexpr float kCompactMaxPanelHeight = 140.0f;
-  constexpr float kRegularMaxPanelHeight = 320.0f;
+  constexpr float kRegularMinPanelWidth = 720.0F;
+  constexpr float kCompactMaxPanelHeight = 140.0F;
+  constexpr float kRegularMaxPanelHeight = 320.0F;
 
   // Matches lock-surface media art / forecast glyph sizes used in Regular layout.
-  constexpr float kRegularMediaArtSize = 40.0f;
-  constexpr float kRegularForecastGlyphSize = 18.0f;
+  constexpr float kRegularMediaArtSize = 40.0F;
+  constexpr float kRegularForecastGlyphSize = 18.0F;
 
   // Content floors shared by min-size clamping and the editor ghost.
   [[nodiscard]] float regularInfoContentHeight();
@@ -93,22 +93,22 @@ namespace lockscreen_login_box {
 
   // Proportional row heights for Regular: each floor scales by the same factor.
   struct RegularRowHeights {
-    float info = 0.0f;
-    float status = 0.0f;
-    float password = 0.0f;
-    float session = 0.0f;
-    float scale = 1.0f;
+    float info = 0.0F;
+    float status = 0.0F;
+    float password = 0.0F;
+    float session = 0.0F;
+    float scale = 1.0F;
   };
 
   [[nodiscard]] RegularRowHeights
   regularRowHeights(float panelHeight, bool showSessionButtons, bool showInfoExtras = true);
 
   struct PanelContentLayout {
-    float contentLeft = 0.0f;
-    float contentTop = 0.0f;
-    float inputWidth = 0.0f;
-    float buttonX = 0.0f;
-    float controlHeight = 0.0f;
+    float contentLeft = 0.0F;
+    float contentTop = 0.0F;
+    float inputWidth = 0.0F;
+    float buttonX = 0.0F;
+    float controlHeight = 0.0F;
   };
 
   [[nodiscard]] float defaultPanelWidth(float screenWidth, LayoutMode layout);

@@ -88,7 +88,7 @@ ColorSpec colorSpecFromRole(ColorRole role, float alpha) noexcept {
 }
 
 ColorSpec fixedColorSpec(const Color& color) noexcept {
-  return ColorSpec{.role = std::nullopt, .fixed = color, .alpha = 1.0f};
+  return ColorSpec{.role = std::nullopt, .fixed = color, .alpha = 1.0F};
 }
 
 Color resolveColorSpec(const ColorSpec& color) noexcept {
@@ -97,7 +97,7 @@ Color resolveColorSpec(const ColorSpec& color) noexcept {
   return resolved;
 }
 
-bool isLightPalette() noexcept { return relativeLuminance(palette.surface) > 0.179f; }
+bool isLightPalette() noexcept { return relativeLuminance(palette.surface) > 0.179F; }
 
 bool isResolvedLightTheme() noexcept { return g_resolvedThemeLight; }
 

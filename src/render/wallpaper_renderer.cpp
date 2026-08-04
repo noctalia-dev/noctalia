@@ -13,9 +13,9 @@
 namespace {
 
   constexpr Logger kLog("wallpaper-render");
-  constexpr float kSlowWallpaperRenderOperationDebugMs = 50.0f;
-  constexpr float kSlowWallpaperRenderOperationWarnMs = 1000.0f;
-  constexpr float kMinimumPostProcessAlpha = 0.001f;
+  constexpr float kSlowWallpaperRenderOperationDebugMs = 50.0F;
+  constexpr float kSlowWallpaperRenderOperationWarnMs = 1000.0F;
+  constexpr float kMinimumPostProcessAlpha = 0.001F;
 
   float elapsedSince(std::chrono::steady_clock::time_point start) {
     return std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start).count();
@@ -92,7 +92,7 @@ void WallpaperRenderer::render() {
   makeCurrent();
   const auto drawStart = std::chrono::steady_clock::now();
   m_backend->setViewport(m_bufferWidth, m_bufferHeight);
-  m_backend->clear(rgba(0.0f, 0.0f, 0.0f, 1.0f));
+  m_backend->clear(rgba(0.0F, 0.0F, 0.0F, 1.0F));
   m_backend->setBlendMode(RenderBlendMode::StraightAlpha);
 
   auto sw = static_cast<float>(m_logicalWidth);
@@ -100,7 +100,7 @@ void WallpaperRenderer::render() {
 
   // If no second texture, just draw the first using fade at progress 0
   TextureId tex2 = (m_tex2 != 0) ? m_tex2 : m_tex1;
-  float progress = (m_tex2 != 0) ? m_progress : 0.0f;
+  float progress = (m_tex2 != 0) ? m_progress : 0.0F;
 
   m_backend->drawWallpaper(
       WallpaperDrawParams{
@@ -121,7 +121,7 @@ void WallpaperRenderer::render() {
 
   float ms = elapsedSince(drawStart);
   logSlowWallpaperRenderOperation(
-      ms, "wallpaper draw took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth, m_logicalHeight,
+      ms, "wallpaper draw took {:.1F}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth, m_logicalHeight,
       m_bufferWidth, m_bufferHeight
   );
 
@@ -130,12 +130,12 @@ void WallpaperRenderer::render() {
     m_backend->endFrame(*m_target);
     ms = elapsedSince(swapStart);
     logSlowWallpaperRenderOperation(
-        ms, "wallpaper swap took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth, m_logicalHeight,
+        ms, "wallpaper swap took {:.1F}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth, m_logicalHeight,
         m_bufferWidth, m_bufferHeight
     );
   }
   ms = elapsedSince(totalStart);
-  logSlowWallpaperRenderOperation(ms, "wallpaper render took {:.1f}ms total", ms);
+  logSlowWallpaperRenderOperation(ms, "wallpaper render took {:.1F}ms total", ms);
 }
 
 void WallpaperRenderer::renderToFramebuffer(const RenderFramebuffer& target) {
@@ -153,14 +153,14 @@ void WallpaperRenderer::renderToFramebuffer(const RenderFramebuffer& target) {
   const auto drawStart = std::chrono::steady_clock::now();
   m_backend->bindFramebuffer(target);
   m_backend->setViewport(m_bufferWidth, m_bufferHeight);
-  m_backend->clear(rgba(0.0f, 0.0f, 0.0f, 1.0f));
+  m_backend->clear(rgba(0.0F, 0.0F, 0.0F, 1.0F));
   m_backend->setBlendMode(RenderBlendMode::StraightAlpha);
 
   auto sw = static_cast<float>(m_logicalWidth);
   auto sh = static_cast<float>(m_logicalHeight);
 
   TextureId tex2 = (m_tex2 != 0) ? m_tex2 : m_tex1;
-  float progress = (m_tex2 != 0) ? m_progress : 0.0f;
+  float progress = (m_tex2 != 0) ? m_progress : 0.0F;
 
   m_backend->drawWallpaper(
       WallpaperDrawParams{
@@ -180,11 +180,11 @@ void WallpaperRenderer::renderToFramebuffer(const RenderFramebuffer& target) {
   );
   float ms = elapsedSince(drawStart);
   logSlowWallpaperRenderOperation(
-      ms, "wallpaper framebuffer draw took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth, m_logicalHeight,
+      ms, "wallpaper framebuffer draw took {:.1F}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth, m_logicalHeight,
       m_bufferWidth, m_bufferHeight
   );
   ms = elapsedSince(totalStart);
-  logSlowWallpaperRenderOperation(ms, "wallpaper framebuffer render took {:.1f}ms total", ms);
+  logSlowWallpaperRenderOperation(ms, "wallpaper framebuffer render took {:.1F}ms total", ms);
   // No eglSwapBuffers — caller is responsible for presentation
 }
 
@@ -208,7 +208,7 @@ void WallpaperRenderer::renderBackdropContent(
 
   renderToFramebuffer(target);
 
-  if (options.blurRadius >= 0.5f && options.blurRounds > 0) {
+  if (options.blurRadius >= 0.5F && options.blurRounds > 0) {
     if (!scratch.valid()) {
       return;
     }
@@ -261,7 +261,7 @@ void WallpaperRenderer::restoreAfterGraphicsReset(GlSharedContext& shared) {
 }
 
 void WallpaperRenderer::blur(RenderFramebuffer& target, RenderFramebuffer& scratch, float radius, int rounds) {
-  if (m_backend == nullptr || !target.valid() || !scratch.valid() || radius < 0.5f || rounds <= 0) {
+  if (m_backend == nullptr || !target.valid() || !scratch.valid() || radius < 0.5F || rounds <= 0) {
     return;
   }
 
@@ -271,10 +271,10 @@ void WallpaperRenderer::blur(RenderFramebuffer& target, RenderFramebuffer& scrat
 
   for (int round = 0; round < rounds; ++round) {
     m_backend->bindFramebuffer(scratch);
-    m_backend->drawFramebufferBlur(target.colorTexture(), target.width(), target.height(), 1.0f, 0.0f, radius);
+    m_backend->drawFramebufferBlur(target.colorTexture(), target.width(), target.height(), 1.0F, 0.0F, radius);
 
     m_backend->bindFramebuffer(target);
-    m_backend->drawFramebufferBlur(scratch.colorTexture(), scratch.width(), scratch.height(), 0.0f, 1.0f, radius);
+    m_backend->drawFramebufferBlur(scratch.colorTexture(), scratch.width(), scratch.height(), 0.0F, 1.0F, radius);
   }
 }
 
@@ -299,7 +299,7 @@ void WallpaperRenderer::blitToSurface(TextureId texture) {
   m_backend->bindDefaultFramebuffer();
   m_backend->setViewport(m_bufferWidth, m_bufferHeight);
   m_backend->setBlendMode(RenderBlendMode::Disabled);
-  m_backend->clear(rgba(0.0f, 0.0f, 0.0f, 0.0f));
+  m_backend->clear(rgba(0.0F, 0.0F, 0.0F, 0.0F));
   // Offscreen framebuffers use GL convention (Y=0 at bottom), while the
   // window surface uses top-left logical coordinates.
   m_backend->drawFullscreenTexture(texture, true);
@@ -314,7 +314,7 @@ void WallpaperRenderer::swapBuffers() {
   m_backend->endFrame(*m_target);
   const float ms = elapsedSince(start);
   logSlowWallpaperRenderOperation(
-      ms, "wallpaper swap took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth, m_logicalHeight,
+      ms, "wallpaper swap took {:.1F}ms ({}x{} logical, {}x{} buffer)", ms, m_logicalWidth, m_logicalHeight,
       m_bufferWidth, m_bufferHeight
   );
 }

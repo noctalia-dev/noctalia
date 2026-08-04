@@ -100,7 +100,7 @@ namespace {
   }
 
   std::unique_ptr<Flex> centeredRow(std::unique_ptr<Flex> child) {
-    child->setFlexGrow(1.0f);
+    child->setFlexGrow(1.0F);
     return ui::row(
         {
             .align = FlexAlign::Stretch,
@@ -580,7 +580,7 @@ namespace {
 
   void logSettingsProfile(std::string_view label, const SettingsProfileWatch& watch) {
     if (watch.active()) {
-      kLog.info("profile {}: {:.1f}ms", label, watch.elapsedMs());
+      kLog.info("profile {}: {:.1F}ms", label, watch.elapsedMs());
     }
   }
 
@@ -907,7 +907,7 @@ settings::SettingsContentContext SettingsWindow::makeContentContext(
       .actionCatalog = gestureActionCatalog(),
       .requestRebuild = requestRebuild,
       .requestContentRebuild = requestContent,
-      .resetContentScroll = [this]() { m_contentScrollState.offset = 0.0f; },
+      .resetContentScroll = [this]() { m_contentScrollState.offset = 0.0F; },
       .setScrollTarget = [this](Node* target) { m_pendingContentScrollTarget = target; },
       .focusArea = [this](InputArea* area) { m_inputDispatcher.setFocus(area); },
       .openBarWidgetAddPopup = [this](const std::vector<std::string>& lanePath) { openBarWidgetAddPopup(lanePath); },
@@ -1136,7 +1136,7 @@ std::unique_ptr<Flex> SettingsWindow::buildHeaderRow(float scale) {
           .fontSize = Style::fontSizeTitle * scale,
           .fontWeight = FontWeight::Bold,
           .color = colorSpecFromRole(ColorRole::OnSurface),
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
       }),
       ui::button({
           .out = &m_actionsMenuButton,
@@ -1188,7 +1188,7 @@ std::unique_ptr<Flex> SettingsWindow::buildFilterRow(
           .controlHeight = Style::controlHeight * scale,
           .horizontalPadding = Style::spaceSm * scale,
           .clearButtonEnabled = true,
-          .width = 320.0f * scale,
+          .width = 320.0F * scale,
           .height = Style::controlHeight * scale,
           .onChange = [this](const std::string& value) {
             const bool wasSearchActive = !m_searchQuery.empty();
@@ -1397,9 +1397,9 @@ std::unique_ptr<Flex> SettingsWindow::buildBody(
       .out = &m_contentScrollView,
       .state = &m_contentScrollState,
       .scrollbarVisible = true,
-      .viewportPaddingH = 0.0f,
+      .viewportPaddingH = 0.0F,
       .viewportPaddingV = Style::spaceSm * scale,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
       .onScrollChanged = [this](float /*offset*/) { dismissOpenSelectDropdown(); },
       .configure =
           [](ScrollView& scrollView) {
@@ -2064,17 +2064,17 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   }
 
   const float bgOpacity = cfg.shell.settingsWindowBackground == SettingsWindowBackground::Translucent
-      ? (cfg.shell.panel.transparencyMode == PanelTransparencyMode::Soft ? 0.75f : 0.55f)
-      : 1.0f;
+      ? (cfg.shell.panel.transparencyMode == PanelTransparencyMode::Soft ? 0.75F : 0.55F)
+      : 1.0F;
 
   auto bg = ui::box({
       .width = w,
       .height = h,
       .configure = [bgOpacity](Box& box) {
         box.setPanelStyle();
-        box.setRadius(0.0f);
+        box.setRadius(0.0F);
         box.setBorder(clearColor(), 0);
-        box.setPosition(0.0f, 0.0f);
+        box.setPosition(0.0F, 0.0F);
         box.setFill(colorSpecFromRole(ColorRole::Surface, bgOpacity));
       },
   });
@@ -2118,7 +2118,7 @@ void SettingsWindow::buildScene(std::uint32_t width, std::uint32_t height) {
   phaseProfileWatch.reset();
 
   auto bodyRow = centeredRow(buildBody(scale, cfg, sections, availableBars));
-  bodyRow->setFlexGrow(1.0f);
+  bodyRow->setFlexGrow(1.0F);
   main->addChild(std::move(bodyRow));
   logSettingsProfile("buildScene body", phaseProfileWatch);
   phaseProfileWatch.reset();

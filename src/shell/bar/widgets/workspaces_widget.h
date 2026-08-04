@@ -45,9 +45,9 @@ public:
     std::size_t maxLabelChars = 1;
     bool labelsOnlyWhenOccupied = false;
     bool hideWhenEmpty = false;
-    float pillScale = 1.0f;
-    float activePillSize = 2.2f;
-    float inactivePillSize = 1.0f;
+    float pillScale = 1.0F;
+    float activePillSize = 2.2F;
+    float inactivePillSize = 1.0F;
     bool focusedOutputOnly = false;
   };
 
@@ -118,16 +118,16 @@ private:
     bool active = false;
     bool exiting = false;
     bool releaseVisualAfterAnimation = false;
-    float inactiveWidth = 0.0f;
-    float activeWidth = 0.0f;
-    float fromWidth = 0.0f;
-    float targetX = 0.0f;
-    float targetWidth = 0.0f;
-    float currentX = 0.0f;
-    float currentWidth = 0.0f;
-    float fromOpacity = 1.0f;
-    float targetOpacity = 1.0f;
-    float currentOpacity = 1.0f;
+    float inactiveWidth = 0.0F;
+    float activeWidth = 0.0F;
+    float fromWidth = 0.0F;
+    float targetX = 0.0F;
+    float targetWidth = 0.0F;
+    float currentX = 0.0F;
+    float currentWidth = 0.0F;
+    float fromOpacity = 1.0F;
+    float targetOpacity = 1.0F;
+    float currentOpacity = 1.0F;
   };
 
   struct ItemSnapshot {
@@ -135,8 +135,8 @@ private:
     Workspace workspace;
     std::string label;
     bool showLabel = false;
-    float width = 0.0f;
-    float opacity = 1.0f;
+    float width = 0.0F;
+    float opacity = 1.0F;
   };
 
   [[nodiscard]] ColorSpec workspaceFillColor(const Workspace& workspace) const;
@@ -153,9 +153,9 @@ private:
   std::size_t m_maxLabelChars = 1;
   bool m_labelsOnlyWhenOccupied = false;
   bool m_hideWhenEmpty = false;
-  float m_pillScale = 1.0f;
-  float m_activePillSize = 2.2f;
-  float m_inactivePillSize = 1.0f;
+  float m_pillScale = 1.0F;
+  float m_activePillSize = 2.2F;
+  float m_inactivePillSize = 1.0F;
   WorkspacesStyle m_style = WorkspacesStyle::Regular;
   bool m_focusedOutputOnly = false;
   bool m_changeColorOnHover = true;
@@ -174,10 +174,10 @@ private:
   std::uint64_t m_textMetricsGeneration = 0;
   Signal<>::ScopedConnection m_appIconColorizeConn;
 
-  float m_gap = 0.0f;
-  float m_indicatorHeight = 0.0f;
+  float m_gap = 0.0F;
+  float m_indicatorHeight = 0.0F;
   Box* m_hoverOverlay = nullptr;
-  float m_hoverProgress = 0.0f;
+  float m_hoverProgress = 0.0F;
   InputArea* m_hoveredArea = nullptr;
   bool m_isVertical = false;
 

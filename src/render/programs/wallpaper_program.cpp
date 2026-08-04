@@ -423,7 +423,7 @@ void WallpaperProgram::initProgram(std::size_t index, const char* fragSource) {
 
 void WallpaperProgram::draw(const WallpaperDrawParams& p) const {
   auto idx = static_cast<std::size_t>(p.transition);
-  if (idx >= kTransitionCount || !m_programs[idx].program.isValid() || p.quadWidth <= 0.0f || p.quadHeight <= 0.0f) {
+  if (idx >= kTransitionCount || !m_programs[idx].program.isValid() || p.quadWidth <= 0.0F || p.quadHeight <= 0.0F) {
     return;
   }
   if (p.from.kind == WallpaperSourceKind::Image && p.from.texture == 0) {
@@ -434,7 +434,7 @@ void WallpaperProgram::draw(const WallpaperDrawParams& p) const {
   const TransitionParams& tp = p.params;
 
   static constexpr float kQuad[] = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
 
   glUseProgram(pd.program.id());
@@ -455,9 +455,9 @@ void WallpaperProgram::draw(const WallpaperDrawParams& p) const {
 
   // Common uniforms
   if (pd.sourceKind1Loc >= 0)
-    glUniform1f(pd.sourceKind1Loc, p.from.kind == WallpaperSourceKind::Color ? 1.0f : 0.0f);
+    glUniform1f(pd.sourceKind1Loc, p.from.kind == WallpaperSourceKind::Color ? 1.0F : 0.0F);
   if (pd.sourceKind2Loc >= 0)
-    glUniform1f(pd.sourceKind2Loc, p.to.kind == WallpaperSourceKind::Color ? 1.0f : 0.0f);
+    glUniform1f(pd.sourceKind2Loc, p.to.kind == WallpaperSourceKind::Color ? 1.0F : 0.0F);
   if (pd.sourceColor1Loc >= 0)
     glUniform4f(pd.sourceColor1Loc, p.from.color.r, p.from.color.g, p.from.color.b, p.from.color.a);
   if (pd.sourceColor2Loc >= 0)

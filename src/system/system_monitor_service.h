@@ -49,7 +49,7 @@ struct SystemStats {
 };
 
 struct DiskStats {
-  float usagePercent{0.0f};
+  float usagePercent{0.0F};
   std::uint64_t totalBytes{0};
   std::uint64_t freeBytes{0};
   std::uint64_t availableBytes{0};
@@ -100,7 +100,7 @@ private:
 
   struct DiskHistory {
     int refs = 0;
-    float latestPercent = 0.0f;
+    float latestPercent = 0.0F;
     std::uint64_t latestTotalBytes = 0;
     std::uint64_t latestFreeBytes = 0;
     std::uint64_t latestAvailBytes = 0;

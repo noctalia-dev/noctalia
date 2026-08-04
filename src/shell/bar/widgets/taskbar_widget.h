@@ -48,10 +48,10 @@ struct TaskbarWidgetOptions {
   bool groupSingleIconPerApp = false;
   bool showActiveIndicator = true;
   ColorSpec activeIndicatorColor = colorSpecFromRole(ColorRole::Primary);
-  float activeOpacity = 1.0f;
-  float inactiveOpacity = 1.0f;
+  float activeOpacity = 1.0F;
+  float inactiveOpacity = 1.0F;
   std::vector<std::string> pinned;
-  float pinnedOpacity = 0.5f;
+  float pinnedOpacity = 0.5F;
   ColorSpec focusedColor = colorSpecFromRole(ColorRole::Primary);
   ColorSpec occupiedColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec emptyColor = colorSpecFromRole(ColorRole::Secondary);
@@ -194,9 +194,9 @@ private:
   bool m_groupSingleIconPerApp = false;
   bool m_showActiveIndicator = true;
   ColorSpec m_activeIndicatorColor = colorSpecFromRole(ColorRole::Primary);
-  float m_activeOpacity = 1.0f;
-  float m_inactiveOpacity = 1.0f;
-  float m_pinnedOpacity = 0.5f;
+  float m_activeOpacity = 1.0F;
+  float m_inactiveOpacity = 1.0F;
+  float m_pinnedOpacity = 0.5F;
   ColorSpec m_focusedColor = colorSpecFromRole(ColorRole::Primary);
   ColorSpec m_occupiedColor = colorSpecFromRole(ColorRole::Secondary);
   ColorSpec m_emptyColor = colorSpecFromRole(ColorRole::Secondary);
@@ -209,8 +209,8 @@ private:
   std::string m_widgetName;
   bool m_rebuildPending = true;
   bool m_vertical = false;
-  float m_containerWidth = 0.0f;
-  float m_containerHeight = 0.0f;
+  float m_containerWidth = 0.0F;
+  float m_containerHeight = 0.0F;
   std::uint64_t m_textMetricsGeneration = 0;
 
   Flex* m_root = nullptr;

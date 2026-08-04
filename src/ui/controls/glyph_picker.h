@@ -54,7 +54,7 @@ private:
   void applyFilter(const std::string& filter);
   void applySelectionToButton();
 
-  float m_chromeScale = 1.0f;
+  float m_chromeScale = 1.0F;
   Label* m_title = nullptr;
   Input* m_searchInput = nullptr;
   Select* m_categorySelect = nullptr;

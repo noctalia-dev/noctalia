@@ -17,10 +17,10 @@ enum class Easing : std::uint8_t {
 float applyEasing(Easing easing, float t);
 
 struct Animation {
-  float startValue = 0.0f;
-  float endValue = 0.0f;
-  float durationMs = 0.0f;
-  float elapsedMs = 0.0f;
+  float startValue = 0.0F;
+  float endValue = 0.0F;
+  float durationMs = 0.0F;
+  float elapsedMs = 0.0F;
   std::chrono::steady_clock::time_point startedAt;
   Easing easing = Easing::EaseOutQuad;
   std::function<void(float)> setter;

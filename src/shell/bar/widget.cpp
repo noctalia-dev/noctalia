@@ -16,7 +16,7 @@
 
 namespace {
 
-  constexpr float kCapsuleInkEpsilon = 0.5f;
+  constexpr float kCapsuleInkEpsilon = 0.5F;
   constexpr Logger kLog("bar.actions");
 
 } // namespace
@@ -68,11 +68,11 @@ bool Widget::shouldShowBarCapsule() const {
 }
 
 float Widget::resolvedBarCapsuleRadius(float width, float height) const noexcept {
-  const float maxRadius = std::max(0.0f, std::min(width, height) * 0.5f);
+  const float maxRadius = std::max(0.0F, std::min(width, height) * 0.5F);
   if (!m_barCapsuleSpec.radius.has_value()) {
     return maxRadius;
   }
-  return std::clamp(*m_barCapsuleSpec.radius * m_contentScale, 0.0f, maxRadius);
+  return std::clamp(*m_barCapsuleSpec.radius * m_contentScale, 0.0F, maxRadius);
 }
 
 void Widget::setBarCapsuleScene(Node* shell, Box* box) noexcept {
@@ -106,9 +106,9 @@ void Widget::updateGestureAreaEnabled() noexcept {
   }
 }
 
-float Widget::width() const noexcept { return outerNode() != nullptr ? outerNode()->width() : 0.0f; }
+float Widget::width() const noexcept { return outerNode() != nullptr ? outerNode()->width() : 0.0F; }
 
-float Widget::height() const noexcept { return outerNode() != nullptr ? outerNode()->height() : 0.0f; }
+float Widget::height() const noexcept { return outerNode() != nullptr ? outerNode()->height() : 0.0F; }
 
 std::unique_ptr<Node> Widget::releaseRoot() {
   m_outerPtr = m_outer.get();

@@ -64,9 +64,9 @@ private:
     Urgency urgency = Urgency::Normal;
     int displayDurationMs = 0; // -1 = persistent (no auto-dismiss)
     int32_t rawTimeoutMs = 0;  // raw DBus timeout; >0 means manager has an auto-expire timer we must coordinate with
-    float remainingProgress = 1.0f;
-    float y = -1.0f; // stable top position while visible; negative = queued/off-screen
-    float height = 0.0f;
+    float remainingProgress = 1.0F;
+    float y = -1.0F; // stable top position while visible; negative = queued/off-screen
+    float height = 0.0F;
     // Planned toast chrome (refreshEntryGeometry); buildCard must match these for placement vs paint.
     int toastBodyLines = 0;
     bool exiting = false;
@@ -103,7 +103,7 @@ private:
       // Real laid-out card height for this instance, measured at this surface's render
       // scale in buildCard(). The reveal clip uses this, not the shared entry.height,
       // which is measured once at whatever scale was current on arrival.
-      float clipHeight = 0.0f;
+      float clipHeight = 0.0F;
       AnimationManager::Id countdownAnimId = 0;
       AnimationManager::Id entryAnimId = 0;
       AnimationManager::Id slideAnimId = 0;
@@ -111,8 +111,8 @@ private:
       bool replyMode = false;
     };
     std::vector<CardState> cards;
-    float lastPointerX = 0.0f;
-    float lastPointerY = 0.0f;
+    float lastPointerX = 0.0F;
+    float lastPointerY = 0.0F;
   };
 
   void onNotificationEvent(const Notification& n, NotificationEvent event);

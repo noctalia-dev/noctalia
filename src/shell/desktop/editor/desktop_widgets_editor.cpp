@@ -49,23 +49,23 @@
 
 namespace {
 
-  constexpr float kToolbarY = 68.0f;
-  constexpr float kSelectionStroke = 2.0f;
-  constexpr float kShadowExpand = 1.0f;
-  const ColorSpec kShadowColor = colorSpecFromRole(ColorRole::Shadow, 0.45f);
-  constexpr float kRotatePadding = 14.0f;
-  constexpr float kHandleSize = 14.0f;
-  constexpr float kDisabledWidgetOpacity = 0.25f;
-  constexpr float kRotationSnap = std::numbers::pi_v<float> / 12.0f;
-  constexpr float kSnapGuideThresholdMin = 6.0f;
-  constexpr float kSnapGuideThresholdMax = 18.0f;
-  constexpr float kCenterGuideThickness = 3.0f;
-  constexpr float kLassoClickSlop = 4.0f;
+  constexpr float kToolbarY = 68.0F;
+  constexpr float kSelectionStroke = 2.0F;
+  constexpr float kShadowExpand = 1.0F;
+  const ColorSpec kShadowColor = colorSpecFromRole(ColorRole::Shadow, 0.45F);
+  constexpr float kRotatePadding = 14.0F;
+  constexpr float kHandleSize = 14.0F;
+  constexpr float kDisabledWidgetOpacity = 0.25F;
+  constexpr float kRotationSnap = std::numbers::pi_v<float> / 12.0F;
+  constexpr float kSnapGuideThresholdMin = 6.0F;
+  constexpr float kSnapGuideThresholdMax = 18.0F;
+  constexpr float kCenterGuideThickness = 3.0F;
+  constexpr float kLassoClickSlop = 4.0F;
   constexpr std::size_t kScaleCornerCount = 4;
 
   struct CornerSigns {
-    float x = 1.0f;
-    float y = 1.0f;
+    float x = 1.0F;
+    float y = 1.0F;
   };
 
   float snapToGrid(float value, std::int32_t cellSize, float origin) {
@@ -77,7 +77,7 @@ namespace {
   }
 
   float snapGuideThreshold(std::int32_t cellSize) {
-    return std::clamp(static_cast<float>(cellSize) * 0.75f, kSnapGuideThresholdMin, kSnapGuideThresholdMax);
+    return std::clamp(static_cast<float>(cellSize) * 0.75F, kSnapGuideThresholdMin, kSnapGuideThresholdMax);
   }
 
   float snapLineToTargets(
@@ -106,7 +106,7 @@ namespace {
       return center;
     }
 
-    const float halfExtent = extent * 0.5f;
+    const float halfExtent = extent * 0.5F;
     const float left = center - halfExtent;
     const float right = center + halfExtent;
     const float leftOffset = snapLineToTargets(left, cellSize, origin, guideLines, guideThreshold) - left;
@@ -125,10 +125,10 @@ namespace {
 
   float normalizeAngle(float radians) {
     while (radians > std::numbers::pi_v<float>) {
-      radians -= 2.0f * std::numbers::pi_v<float>;
+      radians -= 2.0F * std::numbers::pi_v<float>;
     }
     while (radians < -std::numbers::pi_v<float>) {
-      radians += 2.0f * std::numbers::pi_v<float>;
+      radians += 2.0F * std::numbers::pi_v<float>;
     }
     return radians;
   }
@@ -153,14 +153,14 @@ namespace {
   CornerSigns cornerSigns(std::size_t cornerIndex) {
     switch (cornerIndex) {
     case 0:
-      return {-1.0f, -1.0f};
+      return {-1.0F, -1.0F};
     case 1:
-      return {1.0f, -1.0f};
+      return {1.0F, -1.0F};
     case 2:
-      return {-1.0f, 1.0f};
+      return {-1.0F, 1.0F};
     case 3:
     default:
-      return {1.0f, 1.0f};
+      return {1.0F, 1.0F};
     }
   }
 
@@ -172,7 +172,7 @@ namespace {
 
   Color lockscreenWallpaperFillColor(const WallpaperConfig& config) {
     if (!config.fillColor) {
-      return rgba(0.0f, 0.0f, 0.0f, 1.0f);
+      return rgba(0.0F, 0.0F, 0.0F, 1.0F);
     }
     return resolveColorSpec(*config.fillColor);
   }
@@ -349,7 +349,7 @@ void DesktopWidgetsEditor::handleWidgetPress(const std::string& id) {
 bool DesktopWidgetsEditor::isOpen() const noexcept { return m_open; }
 
 float DesktopWidgetsEditor::widgetContentScale() const {
-  const float baseUiScale = m_config != nullptr ? m_config->config().accessibility.uiScale : 1.0f;
+  const float baseUiScale = m_config != nullptr ? m_config->config().accessibility.uiScale : 1.0F;
   return desktop_widgets::widgetContentScale(baseUiScale);
 }
 
@@ -602,8 +602,8 @@ void DesktopWidgetsEditor::prepareFrame(OverlaySurface& surface, bool needsUpdat
         continue;
       }
       view.widget->layout(*m_renderContext);
-      const float w = std::max(1.0f, view.widget->intrinsicWidth());
-      const float h = std::max(1.0f, view.widget->intrinsicHeight());
+      const float w = std::max(1.0F, view.widget->intrinsicWidth());
+      const float h = std::max(1.0F, view.widget->intrinsicHeight());
       if (w == view.intrinsicWidth && h == view.intrinsicHeight) {
         continue;
       }
@@ -611,7 +611,7 @@ void DesktopWidgetsEditor::prepareFrame(OverlaySurface& surface, bool needsUpdat
       view.intrinsicHeight = h;
       view.transformNode->setFrameSize(w, h);
       if (const DesktopWidgetState* state = findWidgetState(id); state != nullptr) {
-        view.transformNode->setPosition(state->cx - w * 0.5f, state->cy - h * 0.5f);
+        view.transformNode->setPosition(state->cx - w * 0.5F, state->cy - h * 0.5F);
       }
       intrinsicsChanged = true;
     }
@@ -673,21 +673,21 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     const auto& wpConfig = m_config->config().wallpaper;
     wallpaper->setFillMode(wpConfig.fillMode);
     wallpaper->setFillColor(lockscreenWallpaperFillColor(wpConfig));
-    wallpaper->setPosition(0.0f, 0.0f);
+    wallpaper->setPosition(0.0F, 0.0F);
     wallpaper->setFrameSize(root->width(), root->height());
     root->addChild(std::move(wallpaper));
   }
 
   auto dim = ui::box({
-      .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.14f),
+      .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.14F),
   });
-  dim->setPosition(0.0f, 0.0f);
+  dim->setPosition(0.0F, 0.0F);
   dim->setFrameSize(root->width(), root->height());
   dim->setZIndex(0);
   root->addChild(std::move(dim));
 
   auto backgroundArea = ui::inputArea({});
-  backgroundArea->setPosition(0.0f, 0.0f);
+  backgroundArea->setPosition(0.0F, 0.0F);
   backgroundArea->setFrameSize(root->width(), root->height());
   backgroundArea->setZIndex(1);
   backgroundArea->setOnPress([this, outputName = surface.outputName](const InputArea::PointerData& data) {
@@ -710,8 +710,8 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   root->addChild(std::move(backgroundArea));
 
   auto lassoBox = ui::box({
-      .fill = colorSpecFromRole(ColorRole::Primary, 0.12f),
-      .configure = [](Box& box) { box.setBorder(colorSpecFromRole(ColorRole::Primary), 1.0f); },
+      .fill = colorSpecFromRole(ColorRole::Primary, 0.12F),
+      .configure = [](Box& box) { box.setBorder(colorSpecFromRole(ColorRole::Primary), 1.0F); },
   });
   lassoBox->setHitTestVisible(false);
   lassoBox->setVisible(false);
@@ -724,8 +724,8 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     const float height = root->height();
     const auto cell = static_cast<float>(m_snapshot.grid.cellSize);
     const std::int32_t majorInterval = std::max(1, m_snapshot.grid.majorInterval);
-    const float centerX = width * 0.5f;
-    const float centerY = height * 0.5f;
+    const float centerX = width * 0.5F;
+    const float centerY = height * 0.5F;
     const float firstX = centerX - std::floor(centerX / cell) * cell;
     const float firstY = centerY - std::floor(centerY / cell) * cell;
 
@@ -733,10 +733,10 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
       const int idx = std::abs(static_cast<int>(std::lround((x - centerX) / cell)));
       const bool major = (idx % majorInterval) == 0;
       auto line = ui::box({
-          .fill = colorSpecFromRole(major ? ColorRole::Primary : ColorRole::Outline, major ? 0.18f : 0.08f),
+          .fill = colorSpecFromRole(major ? ColorRole::Primary : ColorRole::Outline, major ? 0.18F : 0.08F),
       });
-      line->setPosition(x, 0.0f);
-      line->setFrameSize(1.0f, height);
+      line->setPosition(x, 0.0F);
+      line->setFrameSize(1.0F, height);
       line->setZIndex(2);
       root->addChild(std::move(line));
     }
@@ -745,10 +745,10 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
       const int idx = std::abs(static_cast<int>(std::lround((y - centerY) / cell)));
       const bool major = (idx % majorInterval) == 0;
       auto line = ui::box({
-          .fill = colorSpecFromRole(major ? ColorRole::Primary : ColorRole::Outline, major ? 0.18f : 0.08f),
+          .fill = colorSpecFromRole(major ? ColorRole::Primary : ColorRole::Outline, major ? 0.18F : 0.08F),
       });
-      line->setPosition(0.0f, y);
-      line->setFrameSize(width, 1.0f);
+      line->setPosition(0.0F, y);
+      line->setFrameSize(width, 1.0F);
       line->setZIndex(2);
       root->addChild(std::move(line));
     }
@@ -756,22 +756,22 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
 
   const float width = root->width();
   const float height = root->height();
-  const float centerX = width * 0.5f;
-  const float centerY = height * 0.5f;
-  const float centerGuideOffset = kCenterGuideThickness * 0.5f;
+  const float centerX = width * 0.5F;
+  const float centerY = height * 0.5F;
+  const float centerGuideOffset = kCenterGuideThickness * 0.5F;
 
   auto verticalGuide = ui::box({
-      .fill = colorSpecFromRole(ColorRole::Primary, 0.35f),
+      .fill = colorSpecFromRole(ColorRole::Primary, 0.35F),
   });
-  verticalGuide->setPosition(centerX - centerGuideOffset, 0.0f);
+  verticalGuide->setPosition(centerX - centerGuideOffset, 0.0F);
   verticalGuide->setFrameSize(kCenterGuideThickness, height);
   verticalGuide->setZIndex(3);
   root->addChild(std::move(verticalGuide));
 
   auto horizontalGuide = ui::box({
-      .fill = colorSpecFromRole(ColorRole::Primary, 0.35f),
+      .fill = colorSpecFromRole(ColorRole::Primary, 0.35F),
   });
-  horizontalGuide->setPosition(0.0f, centerY - centerGuideOffset);
+  horizontalGuide->setPosition(0.0F, centerY - centerGuideOffset);
   horizontalGuide->setFrameSize(width, kCenterGuideThickness);
   horizontalGuide->setZIndex(3);
   root->addChild(std::move(horizontalGuide));
@@ -829,24 +829,24 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     }
 
     EditorWidgetView view;
-    view.intrinsicWidth = std::max(1.0f, widget->intrinsicWidth());
-    view.intrinsicHeight = std::max(1.0f, widget->intrinsicHeight());
+    view.intrinsicWidth = std::max(1.0F, widget->intrinsicWidth());
+    view.intrinsicHeight = std::max(1.0F, widget->intrinsicHeight());
 
     auto bodyArea = ui::inputArea({});
     view.bodyArea = bodyArea.get();
     view.transformNode = view.bodyArea;
     view.transformNode->setFrameSize(view.intrinsicWidth, view.intrinsicHeight);
     view.transformNode->setPosition(
-        widgetState.cx - view.intrinsicWidth * 0.5f, widgetState.cy - view.intrinsicHeight * 0.5f
+        widgetState.cx - view.intrinsicWidth * 0.5F, widgetState.cy - view.intrinsicHeight * 0.5F
     );
     view.transformNode->setRotation(widgetState.rotationRad);
     {
-      float flipScaleX = 1.0f;
-      float flipScaleY = 1.0f;
+      float flipScaleX = 1.0F;
+      float flipScaleY = 1.0F;
       desktop_widgets::widgetNodeScale(widgetState, flipScaleX, flipScaleY);
       view.transformNode->setScale(flipScaleX, flipScaleY);
     }
-    view.transformNode->setOpacity(widgetState.enabled ? 1.0f : kDisabledWidgetOpacity);
+    view.transformNode->setOpacity(widgetState.enabled ? 1.0F : kDisabledWidgetOpacity);
     view.transformNode->setZIndex(lockscreen_login_box::isLoginBoxWidget(widgetState) ? 3 : 4);
     if (isWidgetSelected(widgetState.id) && widgetState.id != m_selectedWidgetId) {
       view.transformNode->setZIndex(100);
@@ -896,7 +896,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     auto borderShadow = ui::box({
         .fill = clearColorSpec(),
         .radius = Style::scaledRadiusMd() + kShadowExpand,
-        .configure = [](Box& box) { box.setBorder(kShadowColor, kSelectionStroke + kShadowExpand * 2.0f); },
+        .configure = [](Box& box) { box.setBorder(kShadowColor, kSelectionStroke + kShadowExpand * 2.0F); },
     });
     borderShadow->setZIndex(0);
     visual.borderShadow = borderShadow.get();
@@ -928,7 +928,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
       auto ringShadow = ui::box({
           .fill = clearColorSpec(),
           .radius = Style::scaledRadiusMd() + kRotatePadding + kShadowExpand,
-          .configure = [](Box& box) { box.setBorder(kShadowColor, 1.0f + kShadowExpand * 2.0f); },
+          .configure = [](Box& box) { box.setBorder(kShadowColor, 1.0F + kShadowExpand * 2.0F); },
       });
       surface.rotationRingShadow = ringShadow.get();
       surface.selectionFrameTransform->addChild(std::move(ringShadow));
@@ -936,7 +936,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
       auto ring = ui::box({
           .fill = clearColorSpec(),
           .radius = Style::scaledRadiusMd() + kRotatePadding,
-          .configure = [](Box& box) { box.setBorder(colorSpecFromRole(ColorRole::Primary), 1.0f); },
+          .configure = [](Box& box) { box.setBorder(colorSpecFromRole(ColorRole::Primary), 1.0F); },
       });
       ring->setZIndex(1);
       surface.rotationRing = ring.get();
@@ -973,7 +973,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
     auto selectionBorderShadow = ui::box({
         .fill = clearColorSpec(),
         .radius = Style::scaledRadiusMd() + kShadowExpand,
-        .configure = [](Box& box) { box.setBorder(kShadowColor, kSelectionStroke + kShadowExpand * 2.0f); },
+        .configure = [](Box& box) { box.setBorder(kShadowColor, kSelectionStroke + kShadowExpand * 2.0F); },
     });
     surface.selectionBorderShadow = selectionBorderShadow.get();
     selectionBorderTransform->addChild(std::move(selectionBorderShadow));
@@ -1106,7 +1106,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                       .configure =
                           [](Flex& flex) {
                             flex.setPadding(Style::spaceSm, Style::spaceMd);
-                            flex.setFill(colorSpecFromRole(ColorRole::Surface, 0.94f));
+                            flex.setFill(colorSpecFromRole(ColorRole::Surface, 0.94F));
                             flex.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
                             flex.setRadius(Style::scaledRadiusXl());
                             flex.setZIndex(200);
@@ -1119,13 +1119,13 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                           .gap = Style::spaceXs,
                           .paddingV = Style::spaceXs,
                           .paddingH = Style::spaceSm,
-                          .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.85f),
+                          .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.85F),
                           .radius = Style::scaledRadiusLg(),
                           .minHeight = Style::controlHeightSm,
                       },
                       ui::glyph({
                           .glyph = "menu-2",
-                          .glyphSize = 14.0f,
+                          .glyphSize = 14.0F,
                       }),
                       ui::label({
                           .text = i18n::tr("desktop-widgets.editor.title"),
@@ -1145,7 +1145,7 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
                               m_addWidgetType = options[index].value;
                             }
                           },
-                      .configure = [](Select& select) { select.setMinWidth(200.0f); },
+                      .configure = [](Select& select) { select.setMinWidth(200.0F); },
                   }),
                   ui::button({
                       .glyph = "plus",
@@ -1291,11 +1291,11 @@ void DesktopWidgetsEditor::rebuildScene(OverlaySurface& surface) {
   surface.toolbar = toolbarPtr;
   root->addChild(std::move(toolbar));
   toolbarPtr->layout(*m_renderContext);
-  toolbarHandleAreaPtr->setPosition(0.0f, 0.0f);
+  toolbarHandleAreaPtr->setPosition(0.0F, 0.0F);
   toolbarHandleAreaPtr->setFrameSize(toolbarHandlePtr->width(), toolbarHandlePtr->height());
 
   if (!surface.toolbarPositionInitialized) {
-    surface.toolbarX = std::round((root->width() - toolbarPtr->width()) * 0.5f);
+    surface.toolbarX = std::round((root->width() - toolbarPtr->width()) * 0.5F);
     surface.toolbarY = kToolbarY;
     surface.toolbarPositionInitialized = true;
   }
@@ -1331,8 +1331,8 @@ void DesktopWidgetsEditor::updateSelectionVisuals(OverlaySurface& surface) {
 
     const float width = viewIt->second.intrinsicWidth;
     const float height = viewIt->second.intrinsicHeight;
-    const float left = state->cx - width * 0.5f;
-    const float top = state->cy - height * 0.5f;
+    const float left = state->cx - width * 0.5F;
+    const float top = state->cy - height * 0.5F;
 
     secondary.transform->setFrameSize(width, height);
     secondary.transform->setPosition(left, top);
@@ -1340,9 +1340,9 @@ void DesktopWidgetsEditor::updateSelectionVisuals(OverlaySurface& surface) {
 
     if (secondary.borderShadow != nullptr) {
       secondary.borderShadow->setPosition(-kShadowExpand, -kShadowExpand);
-      secondary.borderShadow->setFrameSize(width + kShadowExpand * 2.0f, height + kShadowExpand * 2.0f);
+      secondary.borderShadow->setFrameSize(width + kShadowExpand * 2.0F, height + kShadowExpand * 2.0F);
     }
-    secondary.border->setPosition(0.0f, 0.0f);
+    secondary.border->setPosition(0.0F, 0.0F);
     secondary.border->setFrameSize(width, height);
   }
 
@@ -1369,8 +1369,8 @@ void DesktopWidgetsEditor::updateSelectionVisuals(OverlaySurface& surface) {
 
   const float width = selectedIt->second.intrinsicWidth;
   const float height = selectedIt->second.intrinsicHeight;
-  const float left = state->cx - width * 0.5f;
-  const float top = state->cy - height * 0.5f;
+  const float left = state->cx - width * 0.5F;
+  const float top = state->cy - height * 0.5F;
 
   surface.selectionFrameTransform->setFrameSize(width, height);
   surface.selectionFrameTransform->setPosition(left, top);
@@ -1384,40 +1384,40 @@ void DesktopWidgetsEditor::updateSelectionVisuals(OverlaySurface& surface) {
     const float ringPadExp = kRotatePadding + kShadowExpand;
     if (surface.rotationRingShadow != nullptr) {
       surface.rotationRingShadow->setPosition(-ringPadExp, -ringPadExp);
-      surface.rotationRingShadow->setFrameSize(width + ringPadExp * 2.0f, height + ringPadExp * 2.0f);
+      surface.rotationRingShadow->setFrameSize(width + ringPadExp * 2.0F, height + ringPadExp * 2.0F);
     }
 
     surface.rotationRing->setPosition(-kRotatePadding, -kRotatePadding);
-    surface.rotationRing->setFrameSize(width + kRotatePadding * 2.0f, height + kRotatePadding * 2.0f);
+    surface.rotationRing->setFrameSize(width + kRotatePadding * 2.0F, height + kRotatePadding * 2.0F);
 
     surface.rotateArea->setPosition(-kRotatePadding, -kRotatePadding);
-    surface.rotateArea->setFrameSize(width + kRotatePadding * 2.0f, height + kRotatePadding * 2.0f);
+    surface.rotateArea->setFrameSize(width + kRotatePadding * 2.0F, height + kRotatePadding * 2.0F);
   }
 
   if (surface.selectionBorderShadow != nullptr) {
     surface.selectionBorderShadow->setPosition(-kShadowExpand, -kShadowExpand);
-    surface.selectionBorderShadow->setFrameSize(width + kShadowExpand * 2.0f, height + kShadowExpand * 2.0f);
+    surface.selectionBorderShadow->setFrameSize(width + kShadowExpand * 2.0F, height + kShadowExpand * 2.0F);
   }
 
-  surface.selectionBorder->setPosition(0.0f, 0.0f);
+  surface.selectionBorder->setPosition(0.0F, 0.0F);
   surface.selectionBorder->setFrameSize(width, height);
 
   for (std::size_t i = 0; i < kScaleCornerCount; ++i) {
     const CornerSigns signs = cornerSigns(i);
     const auto [cornerX, cornerY] =
-        rotatedCorner(state->cx, state->cy, width * 0.5f * signs.x, height * 0.5f * signs.y, state->rotationRad);
+        rotatedCorner(state->cx, state->cy, width * 0.5F * signs.x, height * 0.5F * signs.y, state->rotationRad);
 
-    const float shadowSize = kHandleSize + kShadowExpand * 2.0f;
+    const float shadowSize = kHandleSize + kShadowExpand * 2.0F;
     if (surface.scaleHandleShadows[i] != nullptr) {
-      surface.scaleHandleShadows[i]->setPosition(cornerX - shadowSize * 0.5f, cornerY - shadowSize * 0.5f);
+      surface.scaleHandleShadows[i]->setPosition(cornerX - shadowSize * 0.5F, cornerY - shadowSize * 0.5F);
       surface.scaleHandleShadows[i]->setFrameSize(shadowSize, shadowSize);
     }
 
-    surface.scaleHandles[i]->setPosition(cornerX - kHandleSize * 0.5f, cornerY - kHandleSize * 0.5f);
+    surface.scaleHandles[i]->setPosition(cornerX - kHandleSize * 0.5F, cornerY - kHandleSize * 0.5F);
     surface.scaleHandles[i]->setFrameSize(kHandleSize, kHandleSize);
 
     surface.scaleAreas[i]->setPosition(cornerX - kHandleSize, cornerY - kHandleSize);
-    surface.scaleAreas[i]->setFrameSize(kHandleSize * 1.5f, kHandleSize * 1.5f);
+    surface.scaleAreas[i]->setFrameSize(kHandleSize * 1.5F, kHandleSize * 1.5F);
   }
 }
 
@@ -1443,23 +1443,23 @@ void DesktopWidgetsEditor::applyViewState(
     view.widget->setBox(state.boxWidth, state.boxHeight);
     view.widget->update(*m_renderContext);
     view.widget->layout(*m_renderContext);
-    view.intrinsicWidth = std::max(1.0f, view.widget->intrinsicWidth());
-    view.intrinsicHeight = std::max(1.0f, view.widget->intrinsicHeight());
+    view.intrinsicWidth = std::max(1.0F, view.widget->intrinsicWidth());
+    view.intrinsicHeight = std::max(1.0F, view.widget->intrinsicHeight());
   } else if (lockscreen_login_box::isLoginBoxWidget(state)) {
     // Unlock-hint ghost flips above/below when the panel nears the top edge.
     view.widget->layout(*m_renderContext);
   }
 
   view.transformNode->setFrameSize(view.intrinsicWidth, view.intrinsicHeight);
-  view.transformNode->setPosition(state.cx - view.intrinsicWidth * 0.5f, state.cy - view.intrinsicHeight * 0.5f);
+  view.transformNode->setPosition(state.cx - view.intrinsicWidth * 0.5F, state.cy - view.intrinsicHeight * 0.5F);
   view.transformNode->setRotation(state.rotationRad);
   {
-    float flipScaleX = 1.0f;
-    float flipScaleY = 1.0f;
+    float flipScaleX = 1.0F;
+    float flipScaleY = 1.0F;
     desktop_widgets::widgetNodeScale(state, flipScaleX, flipScaleY);
     view.transformNode->setScale(flipScaleX, flipScaleY);
   }
-  view.transformNode->setOpacity(state.enabled ? 1.0f : kDisabledWidgetOpacity);
+  view.transformNode->setOpacity(state.enabled ? 1.0F : kDisabledWidgetOpacity);
 }
 
 void DesktopWidgetsEditor::updateViewTransforms(const std::string* relayoutWidgetId) {
@@ -1481,22 +1481,22 @@ void DesktopWidgetsEditor::applyScaleDragPreview(const DesktopWidgetState& state
     return;
   }
 
-  view->intrinsicWidth = std::max(1.0f, state.boxWidth);
-  view->intrinsicHeight = std::max(1.0f, state.boxHeight);
+  view->intrinsicWidth = std::max(1.0F, state.boxWidth);
+  view->intrinsicHeight = std::max(1.0F, state.boxHeight);
 
   // Handles and the tile follow the cursor immediately; the content re-fits via a real layout in
   // prepareFrame, coalesced to one per frame from the pointer-move stream.
   view->widget->setBox(state.boxWidth, state.boxHeight);
 
-  float flipScaleX = 1.0f;
-  float flipScaleY = 1.0f;
+  float flipScaleX = 1.0F;
+  float flipScaleY = 1.0F;
   desktop_widgets::widgetNodeScale(state, flipScaleX, flipScaleY);
 
   view->transformNode->setFrameSize(view->intrinsicWidth, view->intrinsicHeight);
-  view->transformNode->setPosition(state.cx - view->intrinsicWidth * 0.5f, state.cy - view->intrinsicHeight * 0.5f);
+  view->transformNode->setPosition(state.cx - view->intrinsicWidth * 0.5F, state.cy - view->intrinsicHeight * 0.5F);
   view->transformNode->setRotation(state.rotationRad);
   view->transformNode->setScale(flipScaleX, flipScaleY);
-  view->transformNode->setOpacity(state.enabled ? 1.0f : kDisabledWidgetOpacity);
+  view->transformNode->setOpacity(state.enabled ? 1.0F : kDisabledWidgetOpacity);
 
   OverlaySurface* previewSurface = findSurfaceForWidget(state.id);
   for (auto& surface : m_surfaces) {
@@ -1516,14 +1516,14 @@ void DesktopWidgetsEditor::addWidget(const std::string& outputName, const std::s
     return;
   }
 
-  float centerX = 320.0f;
-  float centerY = 240.0f;
+  float centerX = 320.0F;
+  float centerY = 240.0F;
   if (const WaylandOutput* output = desktop_widgets::resolveEffectiveOutput(*m_wayland, outputName);
       output != nullptr) {
     const int logicalWidth = output->effectiveLogicalWidth();
     const int logicalHeight = output->effectiveLogicalHeight();
-    centerX = static_cast<float>(std::max(1, logicalWidth)) * 0.5f;
-    centerY = static_cast<float>(std::max(1, logicalHeight)) * 0.5f;
+    centerX = static_cast<float>(std::max(1, logicalWidth)) * 0.5F;
+    centerY = static_cast<float>(std::max(1, logicalHeight)) * 0.5F;
   }
 
   DesktopWidgetState widget;
@@ -1533,9 +1533,9 @@ void DesktopWidgetsEditor::addWidget(const std::string& outputName, const std::s
   widget.cx = centerX;
   widget.cy = centerY;
   // box 0 = auto-fit content's natural size; the user resizes from there.
-  widget.boxWidth = 0.0f;
-  widget.boxHeight = 0.0f;
-  widget.rotationRad = 0.0f;
+  widget.boxWidth = 0.0F;
+  widget.boxHeight = 0.0F;
+  widget.rotationRad = 0.0F;
   if (widget.type == "audio_visualizer") {
     widget.settings.emplace("bands", static_cast<std::int64_t>(32));
     widget.settings.emplace("show_when_idle", true);
@@ -1704,7 +1704,7 @@ float DesktopWidgetsEditor::duplicateOffset() const {
   if (shouldSnap() && m_snapshot.grid.cellSize > 0) {
     return static_cast<float>(m_snapshot.grid.cellSize);
   }
-  return 24.0f;
+  return 24.0F;
 }
 
 std::vector<DesktopWidgetState> DesktopWidgetsEditor::selectedWidgetTemplates() const {
@@ -1741,8 +1741,8 @@ std::vector<std::string> DesktopWidgetsEditor::insertWidgetCopies(
     copy.cx += offsetX;
     copy.cy += offsetY;
 
-    const float intrinsicWidth = copy.boxWidth > 0.0f ? copy.boxWidth : 96.0f;
-    const float intrinsicHeight = copy.boxHeight > 0.0f ? copy.boxHeight : 96.0f;
+    const float intrinsicWidth = copy.boxWidth > 0.0F ? copy.boxWidth : 96.0F;
+    const float intrinsicHeight = copy.boxHeight > 0.0F ? copy.boxHeight : 96.0F;
     desktop_widgets::clampStateToOutput(*m_wayland, copy, intrinsicWidth, intrinsicHeight);
 
     insertedIds.push_back(copy.id);
@@ -1824,10 +1824,10 @@ void DesktopWidgetsEditor::clampToolbarPosition(OverlaySurface& surface, float t
     return;
   }
 
-  const float maxX = std::max(0.0f, static_cast<float>(surface.surface->width()) - toolbarWidth);
-  const float maxY = std::max(0.0f, static_cast<float>(surface.surface->height()) - toolbarHeight);
-  surface.toolbarX = std::clamp(surface.toolbarX, 0.0f, maxX);
-  surface.toolbarY = std::clamp(surface.toolbarY, 0.0f, maxY);
+  const float maxX = std::max(0.0F, static_cast<float>(surface.surface->width()) - toolbarWidth);
+  const float maxY = std::max(0.0F, static_cast<float>(surface.surface->height()) - toolbarHeight);
+  surface.toolbarX = std::clamp(surface.toolbarX, 0.0F, maxX);
+  surface.toolbarY = std::clamp(surface.toolbarY, 0.0F, maxY);
 }
 
 void DesktopWidgetsEditor::startInspectorDrag(const std::string& outputName) {
@@ -1852,10 +1852,10 @@ void DesktopWidgetsEditor::clampInspectorPosition(
     return;
   }
 
-  const float maxX = std::max(0.0f, static_cast<float>(surface.surface->width()) - inspectorWidth);
-  const float maxY = std::max(0.0f, static_cast<float>(surface.surface->height()) - inspectorHeight);
-  surface.inspectorX = std::clamp(surface.inspectorX, 0.0f, maxX);
-  surface.inspectorY = std::clamp(surface.inspectorY, 0.0f, maxY);
+  const float maxX = std::max(0.0F, static_cast<float>(surface.surface->width()) - inspectorWidth);
+  const float maxY = std::max(0.0F, static_cast<float>(surface.surface->height()) - inspectorHeight);
+  surface.inspectorX = std::clamp(surface.inspectorX, 0.0F, maxX);
+  surface.inspectorY = std::clamp(surface.inspectorY, 0.0F, maxY);
 }
 
 // buildInspector and applySettingChange are in desktop_widgets_editor_settings.cpp
@@ -1905,9 +1905,9 @@ void DesktopWidgetsEditor::populateGroupInitialStates(const std::string& anchorW
         selectedId,
         GroupMemberInitial{
             .state = *otherState,
-            .intrinsicWidth = otherView != nullptr ? otherView->intrinsicWidth : std::max(1.0f, otherState->boxWidth),
+            .intrinsicWidth = otherView != nullptr ? otherView->intrinsicWidth : std::max(1.0F, otherState->boxWidth),
             .intrinsicHeight =
-                otherView != nullptr ? otherView->intrinsicHeight : std::max(1.0f, otherState->boxHeight),
+                otherView != nullptr ? otherView->intrinsicHeight : std::max(1.0F, otherState->boxHeight),
         }
     );
   }
@@ -1936,9 +1936,9 @@ void DesktopWidgetsEditor::updateLassoVisual(OverlaySurface& surface) {
   const float top = std::min(m_drag.startSceneY, m_currentEventSceneY);
   const float width = std::abs(m_currentEventSceneX - m_drag.startSceneX);
   const float height = std::abs(m_currentEventSceneY - m_drag.startSceneY);
-  surface.lassoBox->setVisible(width >= 1.0f || height >= 1.0f);
+  surface.lassoBox->setVisible(width >= 1.0F || height >= 1.0F);
   surface.lassoBox->setPosition(left, top);
-  surface.lassoBox->setFrameSize(std::max(1.0f, width), std::max(1.0f, height));
+  surface.lassoBox->setFrameSize(std::max(1.0F, width), std::max(1.0F, height));
 }
 
 void DesktopWidgetsEditor::finishLassoSelection() {
@@ -1981,7 +1981,7 @@ void DesktopWidgetsEditor::finishLassoSelection() {
       continue;
     }
     const WidgetTransformBounds bounds = computeWidgetTransformBounds(
-        state->cx, state->cy, view.intrinsicWidth, view.intrinsicHeight, 1.0f, state->rotationRad
+        state->cx, state->cy, view.intrinsicWidth, view.intrinsicHeight, 1.0F, state->rotationRad
     );
     const float widgetRight = bounds.left + bounds.aabbWidth;
     const float widgetBottom = bounds.top + bounds.aabbHeight;
@@ -2096,10 +2096,10 @@ void DesktopWidgetsEditor::updateDrag() {
     return;
   }
 
-  float gridOriginX = 0.0f;
-  float gridOriginY = 0.0f;
-  float outputWidth = 0.0f;
-  float outputHeight = 0.0f;
+  float gridOriginX = 0.0F;
+  float gridOriginY = 0.0F;
+  float outputWidth = 0.0F;
+  float outputHeight = 0.0F;
   std::vector<float> snapLinesX;
   std::vector<float> snapLinesY;
 
@@ -2129,10 +2129,10 @@ void DesktopWidgetsEditor::updateDrag() {
   if (dragSurface != nullptr && dragSurface->surface != nullptr) {
     outputWidth = static_cast<float>(dragSurface->surface->width());
     outputHeight = static_cast<float>(dragSurface->surface->height());
-    gridOriginX = outputWidth * 0.5f;
-    gridOriginY = outputHeight * 0.5f;
-    snapLinesX = {0.0f, gridOriginX, outputWidth};
-    snapLinesY = {0.0f, gridOriginY, outputHeight};
+    gridOriginX = outputWidth * 0.5F;
+    gridOriginY = outputHeight * 0.5F;
+    snapLinesX = {0.0F, gridOriginX, outputWidth};
+    snapLinesY = {0.0F, gridOriginY, outputHeight};
 
     for (const auto& [id, view] : dragSurface->views) {
       if (id == m_drag.widgetId || m_drag.groupInitialStates.contains(id) || m_selectedWidgetIds.contains(id)) {
@@ -2143,7 +2143,7 @@ void DesktopWidgetsEditor::updateDrag() {
         continue;
       }
       const WidgetTransformBounds bounds = computeWidgetTransformBounds(
-          otherState->cx, otherState->cy, view.intrinsicWidth, view.intrinsicHeight, 1.0f, otherState->rotationRad
+          otherState->cx, otherState->cy, view.intrinsicWidth, view.intrinsicHeight, 1.0F, otherState->rotationRad
       );
       snapLinesX.push_back(bounds.left);
       snapLinesX.push_back(otherState->cx);
@@ -2165,7 +2165,7 @@ void DesktopWidgetsEditor::updateDrag() {
     }
     if (shouldSnap()) {
       const WidgetTransformBounds bounds = computeWidgetTransformBounds(
-          state->cx, state->cy, m_drag.intrinsicWidth, m_drag.intrinsicHeight, 1.0f, state->rotationRad
+          state->cx, state->cy, m_drag.intrinsicWidth, m_drag.intrinsicHeight, 1.0F, state->rotationRad
       );
       state->cx = snapBoundsAxisToTargets(
           state->cx, bounds.aabbWidth, m_snapshot.grid.cellSize, gridOriginX, snapLinesX, guideThreshold
@@ -2240,8 +2240,8 @@ void DesktopWidgetsEditor::updateDrag() {
     const float rot = m_drag.initialState.rotationRad;
     const float cosR = std::cos(rot);
     const float sinR = std::sin(rot);
-    const float halfW0 = std::max(0.5f, m_drag.intrinsicWidth * 0.5f);
-    const float halfH0 = std::max(0.5f, m_drag.intrinsicHeight * 0.5f);
+    const float halfW0 = std::max(0.5F, m_drag.intrinsicWidth * 0.5F);
+    const float halfH0 = std::max(0.5F, m_drag.intrinsicHeight * 0.5F);
 
     float anchorX = m_drag.initialState.cx;
     float anchorY = m_drag.initialState.cy;
@@ -2261,8 +2261,8 @@ void DesktopWidgetsEditor::updateDrag() {
     // Corner-anchored resize uses the signed projection along the corner's direction so dragging
     // past the fixed anchor clamps to the minimum size instead of flipping sign and growing again.
     // Center-anchored (Alt) resize grows symmetrically in either direction, so it uses the magnitude.
-    float boxW = m_altHeld ? std::abs(localX) * 2.0f : signs.x * localX;
-    float boxH = m_altHeld ? std::abs(localY) * 2.0f : signs.y * localY;
+    float boxW = m_altHeld ? std::abs(localX) * 2.0F : signs.x * localX;
+    float boxH = m_altHeld ? std::abs(localY) * 2.0F : signs.y * localY;
 
     const float cell = static_cast<float>(std::max(1, m_snapshot.grid.cellSize));
     boxW = std::max(cell, boxW);
@@ -2273,7 +2273,7 @@ void DesktopWidgetsEditor::updateDrag() {
     }
 
     if (lockscreen_login_box::isLoginBoxWidget(*state)) {
-      float screenWidth = 1920.0f;
+      float screenWidth = 1920.0F;
       if (OverlaySurface* surface = findSurfaceForWidget(m_drag.widgetId);
           surface != nullptr && surface->surface != nullptr) {
         screenWidth = static_cast<float>(surface->surface->width());
@@ -2290,16 +2290,16 @@ void DesktopWidgetsEditor::updateDrag() {
     }
 
     if (!m_altHeld) {
-      const float centerLocalX = signs.x * boxW * 0.5f;
-      const float centerLocalY = signs.y * boxH * 0.5f;
+      const float centerLocalX = signs.x * boxW * 0.5F;
+      const float centerLocalY = signs.y * boxH * 0.5F;
       state->cx = anchorX + cosR * centerLocalX - sinR * centerLocalY;
       state->cy = anchorY + sinR * centerLocalX + cosR * centerLocalY;
     }
     state->boxWidth = boxW;
     state->boxHeight = boxH;
 
-    const float primaryW0 = std::max(1.0f, m_drag.intrinsicWidth);
-    const float primaryH0 = std::max(1.0f, m_drag.intrinsicHeight);
+    const float primaryW0 = std::max(1.0F, m_drag.intrinsicWidth);
+    const float primaryH0 = std::max(1.0F, m_drag.intrinsicHeight);
     const float scaleX = boxW / primaryW0;
     const float scaleY = boxH / primaryH0;
     for (const auto& [groupId, initial] : m_drag.groupInitialStates) {
@@ -2307,15 +2307,15 @@ void DesktopWidgetsEditor::updateDrag() {
       if (groupState == nullptr) {
         continue;
       }
-      const float memberW0 = std::max(1.0f, initial.intrinsicWidth);
-      const float memberH0 = std::max(1.0f, initial.intrinsicHeight);
+      const float memberW0 = std::max(1.0F, initial.intrinsicWidth);
+      const float memberH0 = std::max(1.0F, initial.intrinsicHeight);
       groupState->boxWidth = std::max(cell, memberW0 * scaleX);
       groupState->boxHeight = std::max(cell, memberH0 * scaleY);
       groupState->cx = anchorX + (initial.state.cx - anchorX) * scaleX;
       groupState->cy = anchorY + (initial.state.cy - anchorY) * scaleY;
       if (m_wayland != nullptr) {
         desktop_widgets::clampStateToOutput(
-            *m_wayland, *groupState, std::max(1.0f, groupState->boxWidth), std::max(1.0f, groupState->boxHeight)
+            *m_wayland, *groupState, std::max(1.0F, groupState->boxWidth), std::max(1.0F, groupState->boxHeight)
         );
       }
     }
@@ -2324,8 +2324,8 @@ void DesktopWidgetsEditor::updateDrag() {
   float clampWidth = m_drag.intrinsicWidth;
   float clampHeight = m_drag.intrinsicHeight;
   if (m_drag.mode == DragMode::Scale) {
-    clampWidth = std::max(1.0f, state->boxWidth);
-    clampHeight = std::max(1.0f, state->boxHeight);
+    clampWidth = std::max(1.0F, state->boxWidth);
+    clampHeight = std::max(1.0F, state->boxHeight);
   }
 
   if (m_wayland != nullptr) {
@@ -2664,7 +2664,7 @@ void DesktopWidgetsEditor::updateWallpaperPreview(OverlaySurface& surface) {
 
   const auto width = static_cast<float>(surface.surface->width());
   const auto height = static_cast<float>(surface.surface->height());
-  surface.wallpaperPreview->setPosition(0.0f, 0.0f);
+  surface.wallpaperPreview->setPosition(0.0F, 0.0F);
   surface.wallpaperPreview->setSize(width, height);
 
   const std::string& path = surface.wallpaperPreviewPath;
@@ -2672,16 +2672,16 @@ void DesktopWidgetsEditor::updateWallpaperPreview(OverlaySurface& surface) {
     return;
   }
 
-  Color color = rgba(0.0f, 0.0f, 0.0f, 1.0f);
+  Color color = rgba(0.0F, 0.0F, 0.0F, 1.0F);
   if (parseColorWallpaperPath(path, color)) {
     if (surface.wallpaperPreviewTexture.id != 0) {
       releaseWallpaperPreview(surface);
     }
     surface.wallpaperPreview->setSources(
-        WallpaperSourceKind::Color, {}, color, WallpaperSourceKind::Image, {}, rgba(0.0f, 0.0f, 0.0f, 1.0f), 0.0f, 0.0f,
-        0.0f, 0.0f
+        WallpaperSourceKind::Color, {}, color, WallpaperSourceKind::Image, {}, rgba(0.0F, 0.0F, 0.0F, 1.0F), 0.0F, 0.0F,
+        0.0F, 0.0F
     );
-    surface.wallpaperPreview->setTransition(WallpaperTransition::Fade, 0.0f, TransitionParams{});
+    surface.wallpaperPreview->setTransition(WallpaperTransition::Fade, 0.0F, TransitionParams{});
     return;
   }
 
@@ -2710,9 +2710,9 @@ void DesktopWidgetsEditor::updateWallpaperPreview(OverlaySurface& surface) {
   surface.wallpaperPreviewTexture = texture;
   surface.wallpaperPreviewLoadedPath = path;
   surface.wallpaperPreview->setTextures(
-      texture.id, {}, static_cast<float>(texture.width), static_cast<float>(texture.height), 0.0f, 0.0f
+      texture.id, {}, static_cast<float>(texture.width), static_cast<float>(texture.height), 0.0F, 0.0F
   );
-  surface.wallpaperPreview->setTransition(WallpaperTransition::Fade, 0.0f, TransitionParams{});
+  surface.wallpaperPreview->setTransition(WallpaperTransition::Fade, 0.0F, TransitionParams{});
 }
 
 void DesktopWidgetsEditor::requestLayout() {

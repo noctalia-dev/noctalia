@@ -458,7 +458,7 @@ void Application::initStyleThemeAndWayland() {
   auto applyStyleConfig = [this, lastCornerRadiusScale = std::numeric_limits<float>::quiet_NaN()]() mutable {
     const float corner = m_configService.config().shell.cornerRadiusScale;
     const bool cornerChanged =
-        std::isfinite(lastCornerRadiusScale) && std::abs(corner - lastCornerRadiusScale) > 1.0e-4f;
+        std::isfinite(lastCornerRadiusScale) && std::abs(corner - lastCornerRadiusScale) > 1.0e-4F;
     Style::setCornerRadiusScale(corner);
     Style::setButtonBordersEnabled(m_configService.config().shell.buttonBorders);
     Style::setInputBordersEnabled(m_configService.config().shell.inputBorders);
@@ -1303,7 +1303,7 @@ void Application::initBrightnessAndPipewire() {
       }
 
       const auto& audio = m_configService.config().audio;
-      m_soundPlayer->setVolume(audio.enableSounds ? audio.soundVolume : 0.0f);
+      m_soundPlayer->setVolume(audio.enableSounds ? audio.soundVolume : 0.0F);
 
       auto resolveSoundPath = [](const std::string& configured, std::string_view bundledRelative) {
         if (configured.empty()) {

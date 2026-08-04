@@ -35,7 +35,7 @@ private:
   void unloadFrames();
 
   std::string m_imagePath;
-  float m_opacity = 1.0f;
+  float m_opacity = 1.0F;
   Image* m_image = nullptr;
   bool m_loaded = false;
 

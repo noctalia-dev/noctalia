@@ -10,11 +10,11 @@
 
 namespace {
 
-  constexpr float kLabelCellWidth = 200.0f;
-  constexpr float kFreeformInputWidth = 190.0f;
-  constexpr float kItemRowHeight = 26.0f;
-  constexpr float kSuggestedAddHeight = 30.0f;
-  constexpr float kVerticalGap = 2.0f;
+  constexpr float kLabelCellWidth = 200.0F;
+  constexpr float kFreeformInputWidth = 190.0F;
+  constexpr float kItemRowHeight = 26.0F;
+  constexpr float kSuggestedAddHeight = 30.0F;
+  constexpr float kVerticalGap = 2.0F;
 
   std::unique_ptr<Label> makeListLabel(std::string_view text, float scale) {
     return ui::label({
@@ -48,7 +48,7 @@ void ListEditor::setAddPlaceholder(std::string_view placeholder) {
 }
 
 void ListEditor::setScale(float scale) {
-  m_scale = std::max(0.1f, scale);
+  m_scale = std::max(0.1F, scale);
   setGap(kVerticalGap * m_scale);
   rebuildRows();
 }

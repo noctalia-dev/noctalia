@@ -27,10 +27,10 @@ namespace settings {
     std::function<void()> removeAction;
     std::function<std::unique_ptr<Node>()> createHeaderAction;
     std::function<void(Flex& sheetBody)> populateSheetBody;
-    float scale = 1.0f;
-    float minWidth = 640.0f;
-    float maxWidth = 820.0f;
-    float parentFraction = 0.75f;
+    float scale = 1.0F;
+    float minWidth = 640.0F;
+    float maxWidth = 820.0F;
+    float parentFraction = 0.75F;
     bool fillParentHeight = false;
     // When false, the body is placed directly in the sheet without the outer ScrollView. Use this
     // when the body provides its own scrolling (e.g. a VirtualGridView) — nesting it in the sheet
@@ -84,10 +84,10 @@ namespace settings {
     // relying on a raw this pointer staying valid.
     std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
 
-    float m_scale = 1.0f;
-    float m_minWidth = 640.0f;
-    float m_maxWidth = 820.0f;
-    float m_parentFraction = 0.75f;
+    float m_scale = 1.0F;
+    float m_minWidth = 640.0F;
+    float m_maxWidth = 820.0F;
+    float m_parentFraction = 0.75F;
     bool m_fillParentHeight = false;
     bool m_scrollableBody = true;
     std::function<bool()> m_onCloseRequested;

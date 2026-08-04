@@ -28,14 +28,14 @@ namespace {
   constexpr auto kKwinInterface = "org.kde.KWin";
   constexpr auto kKwinScriptingInterface = "org.kde.kwin.Scripting";
 
-  constexpr char kRecordSeparator = '\x1f';
+  constexpr char kRecordSeparator = '\x1F';
   constexpr char kFieldSeparator = '\x1e';
 
   constexpr std::string_view kScriptSource = R"js(
 const BUS = "dev.noctalia.KWinActiveWindow";
 const PATH = "/dev/noctalia/KWinActiveWindow";
 const IFACE = "dev.noctalia.KWinActiveWindow";
-const RECORD_SEP = "\x1f";
+const RECORD_SEP = "\x1F";
 const FIELD_SEP = "\x1e";
 
 function windowUuid(window) {

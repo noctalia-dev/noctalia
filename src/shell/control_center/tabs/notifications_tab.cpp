@@ -38,13 +38,13 @@ namespace {
 
   constexpr Logger kLog("control-center-notifications");
 
-  constexpr float kHistoryIconSize = 36.0f;
-  constexpr float kHistoryIconGlyphSize = 22.0f;
-  constexpr float kHistoryIconReferenceSize = 36.0f;
+  constexpr float kHistoryIconSize = 36.0F;
+  constexpr float kHistoryIconGlyphSize = 22.0F;
+  constexpr float kHistoryIconReferenceSize = 36.0F;
 
   float notificationIconRadius(float iconSize, float localScale) {
     const float baseRadius = Style::radiusMd * (iconSize / kHistoryIconReferenceSize);
-    return std::min(iconSize * 0.5f, Style::scaledRadius(baseRadius, localScale));
+    return std::min(iconSize * 0.5F, Style::scaledRadius(baseRadius, localScale));
   }
   constexpr float kNotificationActionButtonSize = Style::controlHeightSm;
 
@@ -65,7 +65,7 @@ namespace {
       Renderer& renderer, const std::vector<std::string>& actions, float cardTextWidth, float scale
   ) {
     if (actions.empty()) {
-      return 0.0f;
+      return 0.0F;
     }
     auto container = ui::column({
         .align = FlexAlign::Stretch,
@@ -92,10 +92,10 @@ namespace {
     populateRowContainer(*container, std::move(rows), cardTextWidth, Style::spaceXs * scale);
 
     if (container->children().empty()) {
-      return 0.0f;
+      return 0.0F;
     }
 
-    container->setSize(cardTextWidth, 0.0f);
+    container->setSize(cardTextWidth, 0.0F);
     container->layout(renderer);
     return container->height();
   }
@@ -191,10 +191,10 @@ namespace {
       Renderer& renderer, std::string_view text, float fontSize, FontWeight fontWeight, float maxWidth, int maxLines
   ) {
     if (text.empty()) {
-      return 0.0f;
+      return 0.0F;
     }
     const auto bounds = renderer.measureText(text, fontSize, fontWeight, maxWidth, maxLines);
-    return std::max(0.0f, bounds.bottom - bounds.top);
+    return std::max(0.0F, bounds.bottom - bounds.top);
   }
 
   bool canExpandText(
@@ -207,7 +207,7 @@ namespace {
 
     const float collapsedHeight = measuredTextHeight(renderer, text, fontSize, fontWeight, maxWidth, collapsedMaxLines);
     const float expandedHeight = measuredTextHeight(renderer, text, fontSize, fontWeight, maxWidth, kExpandedMaxLines);
-    return expandedHeight > collapsedHeight + 0.5f;
+    return expandedHeight > collapsedHeight + 0.5F;
   }
 
   struct NotificationCardMetrics {
@@ -216,9 +216,9 @@ namespace {
     std::string metaLine;
     bool canExpand = false;
     bool expanded = false;
-    float height = 0.0f;
-    float cardTextWidth = 0.0f;
-    float metaTextWidth = 0.0f;
+    float height = 0.0F;
+    float cardTextWidth = 0.0F;
+    float metaTextWidth = 0.0F;
   };
 
   NotificationCardMetrics measureNotificationCard(
@@ -226,9 +226,9 @@ namespace {
       bool showHistoryActions
   ) {
     NotificationCardMetrics metrics;
-    const float cardWidth = std::max(0.0f, width);
-    const float cardHorizontalPadding = Style::spaceMd * scale * 2.0f;
-    metrics.cardTextWidth = std::max(0.0f, cardWidth - cardHorizontalPadding);
+    const float cardWidth = std::max(0.0F, width);
+    const float cardHorizontalPadding = Style::spaceMd * scale * 2.0F;
+    metrics.cardTextWidth = std::max(0.0F, cardWidth - cardHorizontalPadding);
     const std::string summaryText = StringUtils::trimLeadingBlankLines(
         entry.notification.summary.empty() ? i18n::tr("control-center.notifications.untitled")
                                            : entry.notification.summary
@@ -253,9 +253,9 @@ namespace {
     const float actionButtonSize = kNotificationActionButtonSize * scale;
     const float actionButtonsGap = Style::spaceXs * scale;
     const float headerActionsWidth =
-        actionButtonSize + (metrics.canExpand ? (actionButtonsGap + actionButtonSize) : 0.0f);
+        actionButtonSize + (metrics.canExpand ? (actionButtonsGap + actionButtonSize) : 0.0F);
     const float leftClusterWidth = metrics.cardTextWidth - headerActionsWidth;
-    metrics.metaTextWidth = std::max(0.0f, leftClusterWidth - iconColumn);
+    metrics.metaTextWidth = std::max(0.0F, leftClusterWidth - iconColumn);
 
     metrics.metaLine = notificationDisplayAppName(entry.notification) + " • " + relativeMetaLine(entry.notification);
 
@@ -268,7 +268,7 @@ namespace {
         metrics.expanded ? kExpandedMaxLines : kSummaryMaxLines
     );
     const float bodyHeight = metrics.bodyText.empty()
-        ? 0.0f
+        ? 0.0F
         : measuredTextHeight(
               renderer, metrics.bodyText, Style::fontSizeBody * scale, FontWeight::Normal, metrics.cardTextWidth,
               metrics.expanded ? kExpandedMaxLines : kBodyMaxLines
@@ -276,14 +276,14 @@ namespace {
 
     const float actionsRowHeight = showHistoryActions
         ? measureHistoryActionsRowHeight(renderer, entry.notification.actions, metrics.cardTextWidth, scale)
-        : 0.0f;
+        : 0.0F;
 
-    const float paddingY = (Style::spaceSm + Style::spaceXs) * scale * 2.0f;
+    const float paddingY = (Style::spaceSm + Style::spaceXs) * scale * 2.0F;
     int visibleSegments = 2;
     if (!metrics.bodyText.empty()) {
       ++visibleSegments;
     }
-    if (actionsRowHeight > 0.5f) {
+    if (actionsRowHeight > 0.5F) {
       ++visibleSegments;
     }
     const float gaps = Style::spaceSm * scale * static_cast<float>(std::max(0, visibleSegments - 1));
@@ -322,7 +322,7 @@ namespace {
           ui::row({
               .align = FlexAlign::Center,
               .gap = Style::spaceSm * scale,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
           })
       ));
 
@@ -351,7 +351,7 @@ namespace {
       m_meta = static_cast<Label*>(m_leftCluster->addChild(
           ui::label({
               .fontSize = Style::fontSizeMini * scale,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
           })
       ));
 
@@ -500,7 +500,7 @@ namespace {
       m_fallback->setColor(colorSpecFromRole(ColorRole::OnSurfaceVariant));
       m_fallback->measure(renderer);
       m_fallback->setPosition(
-          std::round((iconPx - m_fallback->width()) * 0.5f), std::round((iconPx - m_fallback->height()) * 0.5f)
+          std::round((iconPx - m_fallback->width()) * 0.5F), std::round((iconPx - m_fallback->height()) * 0.5F)
       );
       m_fallback->setVisible(true);
     }
@@ -510,7 +510,7 @@ namespace {
       const float iconRadius = notificationIconRadius(iconPx, m_scale);
       m_iconSlot->setRadius(iconRadius);
       m_image->setSize(iconPx, iconPx);
-      m_image->setPosition(0.0f, 0.0f);
+      m_image->setPosition(0.0F, 0.0F);
       m_image->setRadius(iconRadius);
       m_image->setFit(ImageFit::Cover);
 
@@ -555,7 +555,7 @@ namespace {
       showFallbackIcon(renderer);
     }
 
-    float m_scale = 1.0f;
+    float m_scale = 1.0F;
     Flex* m_header = nullptr;
     Flex* m_leftCluster = nullptr;
     Box* m_iconSlot = nullptr;
@@ -595,13 +595,13 @@ public:
     const auto& entry = *m_owner.m_filtered[index];
     const bool expanded = m_owner.m_expandedIds.contains(entry.notification.id);
     std::uint64_t revision = revisionForEntry(entry, expanded, m_owner.m_lastRelativeTimeSlot);
-    revision ^= static_cast<std::uint64_t>(Style::cornerRadiusScale() * 10000.0f) * 0xC2B2AE3D27D4EB4FULL;
+    revision ^= static_cast<std::uint64_t>(Style::cornerRadiusScale() * 10000.0F) * 0xC2B2AE3D27D4EB4FULL;
     return revision;
   }
 
   [[nodiscard]] float measureItem(Renderer& renderer, std::size_t index, float width) override {
     if (index >= m_owner.m_filtered.size() || m_owner.m_filtered[index] == nullptr) {
-      return 1.0f;
+      return 1.0F;
     }
     const auto& entry = *m_owner.m_filtered[index];
     const bool expanded = m_owner.m_expandedIds.contains(entry.notification.id);
@@ -635,8 +635,8 @@ public:
 
 private:
   NotificationsTab& m_owner;
-  float m_scale = 1.0f;
-  float m_fillOpacity = 1.0f;
+  float m_scale = 1.0F;
+  float m_fillOpacity = 1.0F;
 };
 
 NotificationsTab::NotificationsTab(NotificationManager* notifications) : m_notifications(notifications) {}
@@ -677,7 +677,7 @@ std::unique_ptr<Flex> NotificationsTab::create() {
               m_filterIndex = idx;
               m_lastRebuildFilterIndex = static_cast<std::size_t>(-1);
               if (m_list != nullptr) {
-                m_list->scrollView().setScrollOffset(0.0f);
+                m_list->scrollView().setScrollOffset(0.0F);
               }
               PanelManager::instance().requestLayout();
               return;
@@ -696,7 +696,7 @@ std::unique_ptr<Flex> NotificationsTab::create() {
           .itemGap = Style::spaceMd * scale,
           .overscanItems = 3,
           .adapter = m_adapter.get(),
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
           .configure = [](VirtualListView& list) {
             list.setFillWidth(true);
             list.setFillHeight(true);
@@ -818,8 +818,8 @@ void NotificationsTab::onClose() {
   m_pendingFilterIndex = std::numeric_limits<std::size_t>::max();
   m_startFilterSlideIn = false;
   m_filterSlideDirection = 0;
-  m_filterSlideBaseX = 0.0f;
-  m_filterSlideBaseY = 0.0f;
+  m_filterSlideBaseX = 0.0F;
+  m_filterSlideBaseY = 0.0F;
 }
 
 void NotificationsTab::cancelFilterSlide() {
@@ -834,7 +834,7 @@ void NotificationsTab::cancelFilterSlide() {
   m_filterSlideDirection = 0;
   if (m_list != nullptr) {
     m_list->setPosition(m_filterSlideBaseX, m_filterSlideBaseY);
-    m_list->setOpacity(1.0f);
+    m_list->setOpacity(1.0F);
   }
 }
 
@@ -846,17 +846,17 @@ void NotificationsTab::applyFilterSlide(float progress, bool slidingIn) {
   }
 
   const float travel = m_root->width();
-  if (travel <= 0.0f) {
+  if (travel <= 0.0F) {
     return;
   }
 
   const auto direction = static_cast<float>(m_filterSlideDirection);
   if (slidingIn) {
-    m_list->setPosition(m_filterSlideBaseX + direction * travel * (1.0f - progress), m_filterSlideBaseY);
-    m_list->setOpacity(0.7f + 0.3f * progress);
+    m_list->setPosition(m_filterSlideBaseX + direction * travel * (1.0F - progress), m_filterSlideBaseY);
+    m_list->setOpacity(0.7F + 0.3F * progress);
   } else {
     m_list->setPosition(m_filterSlideBaseX - direction * travel * progress, m_filterSlideBaseY);
-    m_list->setOpacity(1.0f - 0.3f * progress);
+    m_list->setOpacity(1.0F - 0.3F * progress);
   }
 }
 
@@ -866,7 +866,7 @@ void NotificationsTab::beginFilterSlideOut(std::size_t nextIndex) {
     m_filterIndex = nextIndex;
     m_lastRebuildFilterIndex = static_cast<std::size_t>(-1);
     if (m_list != nullptr) {
-      m_list->scrollView().setScrollOffset(0.0f);
+      m_list->scrollView().setScrollOffset(0.0F);
     }
     PanelManager::instance().requestLayout();
     return;
@@ -879,7 +879,7 @@ void NotificationsTab::beginFilterSlideOut(std::size_t nextIndex) {
 
   PanelManager::instance().requestFrameTick();
   m_filterSlideAnimId = animations->animate(
-      0.0f, 1.0f, static_cast<float>(Style::animFast), Easing::EaseOutCubic,
+      0.0F, 1.0F, static_cast<float>(Style::animFast), Easing::EaseOutCubic,
       [this](float progress) {
         applyFilterSlide(progress, false);
         PanelManager::instance().requestRedraw();
@@ -892,7 +892,7 @@ void NotificationsTab::beginFilterSlideOut(std::size_t nextIndex) {
         m_pendingFilterIndex = std::numeric_limits<std::size_t>::max();
         m_lastRebuildFilterIndex = static_cast<std::size_t>(-1);
         if (m_list != nullptr) {
-          m_list->scrollView().setScrollOffset(0.0f);
+          m_list->scrollView().setScrollOffset(0.0F);
         }
         m_startFilterSlideIn = true;
         PanelManager::instance().requestLayout();
@@ -910,10 +910,10 @@ void NotificationsTab::beginFilterSlideIn() {
   m_filterSlideBaseX = m_list->x();
   m_filterSlideBaseY = m_list->y();
 
-  applyFilterSlide(0.0f, true);
+  applyFilterSlide(0.0F, true);
   PanelManager::instance().requestFrameTick();
   m_filterSlideAnimId = animations->animate(
-      0.0f, 1.0f, static_cast<float>(Style::animFast), Easing::EaseOutCubic,
+      0.0F, 1.0F, static_cast<float>(Style::animFast), Easing::EaseOutCubic,
       [this](float progress) {
         applyFilterSlide(progress, true);
         PanelManager::instance().requestRedraw();
@@ -922,7 +922,7 @@ void NotificationsTab::beginFilterSlideIn() {
         m_filterSlideAnimId = 0;
         if (m_list != nullptr) {
           m_list->setPosition(m_filterSlideBaseX, m_filterSlideBaseY);
-          m_list->setOpacity(1.0f);
+          m_list->setOpacity(1.0F);
         }
       },
       m_list

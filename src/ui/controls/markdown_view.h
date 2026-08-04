@@ -18,6 +18,6 @@ protected:
   void doLayout(Renderer& renderer) override;
 
 private:
-  float m_scale = 1.0f;
+  float m_scale = 1.0F;
   std::vector<Label*> m_wrappableLabels;
 };

@@ -25,7 +25,7 @@ public:
     markPaintDirty();
   }
   void setProgress(float progress) {
-    const float clamped = std::clamp(progress, 0.0f, 1.0f);
+    const float clamped = std::clamp(progress, 0.0F, 1.0F);
     if (m_style.progress == clamped) {
       return;
     }

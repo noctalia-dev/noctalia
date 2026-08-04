@@ -21,15 +21,15 @@
 
 namespace {
 
-  constexpr float kBaseWidth = 220.0f;
-  constexpr float kBaseHeight = 120.0f;
-  constexpr float kTextGap = 12.0f;
-  constexpr float kShadowAlpha = 0.55f;
-  constexpr float kShadowOffset = 1.5f;
-  constexpr float kTrackAlphaScale = 0.45f;
-  constexpr float kMinTextWidth = 72.0f;
+  constexpr float kBaseWidth = 220.0F;
+  constexpr float kBaseHeight = 120.0F;
+  constexpr float kTextGap = 12.0F;
+  constexpr float kShadowAlpha = 0.55F;
+  constexpr float kShadowOffset = 1.5F;
+  constexpr float kTrackAlphaScale = 0.45F;
+  constexpr float kMinTextWidth = 72.0F;
 
-  float percentFontSize(float layoutScale) { return Style::fontSizeTitle * 1.35f * layoutScale; }
+  float percentFontSize(float layoutScale) { return Style::fontSizeTitle * 1.35F * layoutScale; }
   float statusFontSize(float layoutScale) { return Style::fontSizeBody * layoutScale; }
   float deviceFontSize(float layoutScale) { return Style::fontSizeCaption * layoutScale; }
 
@@ -39,7 +39,7 @@ DesktopVolumeWidget::DesktopVolumeWidget(PipeWireService* audio, Options options
     : m_audio(audio), m_config(options.config), m_glyphOverride(std::move(options.glyph)),
       m_fillColor(options.fillColor), m_trackColor(options.trackColor), m_input(options.input),
       m_showDevice(options.showDevice), m_shadow(options.shadow),
-      m_scrollStep(std::clamp(static_cast<float>(options.scrollStepPercent) / 100.0f, 0.01f, 0.25f)) {}
+      m_scrollStep(std::clamp(static_cast<float>(options.scrollStepPercent) / 100.0F, 0.01F, 0.25F)) {}
 
 void DesktopVolumeWidget::create() {
   auto area = ui::inputArea({});
@@ -51,10 +51,10 @@ void DesktopVolumeWidget::create() {
       return;
     }
     const float steps = data.scrollSteps();
-    if (steps == 0.0f) {
+    if (steps == 0.0F) {
       return;
     }
-    const float newValue = std::clamp(node->volume - steps * m_scrollStep, 0.0f, maxVolume());
+    const float newValue = std::clamp(node->volume - steps * m_scrollStep, 0.0F, maxVolume());
     if (m_input) {
       m_audio->setSourceVolume(node->id, newValue);
     } else {
@@ -135,7 +135,7 @@ void DesktopVolumeWidget::create() {
 void DesktopVolumeWidget::layout(Renderer& renderer) {
   // Boxed tiles fill the box directly. Aspect-fit letterboxing leaves a sharp inner content
   // rect inside the rounded background and looks broken when the user resizes freely.
-  if (boxInnerWidth() <= 0.0f || boxInnerHeight() <= 0.0f) {
+  if (boxInnerWidth() <= 0.0F || boxInnerHeight() <= 0.0F) {
     DesktopWidget::layout(renderer);
     return;
   }
@@ -248,22 +248,22 @@ void DesktopVolumeWidget::doLayout(Renderer& renderer) {
 
   const float innerW = boxInnerWidth();
   const float innerH = boxInnerHeight();
-  const bool boxed = innerW > 0.0f && innerH > 0.0f;
+  const bool boxed = innerW > 0.0F && innerH > 0.0F;
   const float width = boxed ? innerW : kBaseWidth * contentScale();
   const float height = boxed ? innerH : kBaseHeight * contentScale();
   // Keep content clear of the outer rounded clip (padding alone is not enough near corners).
-  const float edgeInset = boxed ? std::round(std::max({4.0f, height * 0.06f, backgroundRadius() * 0.35f})) : 0.0f;
-  const float layoutW = std::max(1.0f, width - 2.0f * edgeInset);
-  const float layoutH = std::max(1.0f, height - 2.0f * edgeInset);
-  const float layoutScale = std::max(0.05f, layoutH / kBaseHeight);
+  const float edgeInset = boxed ? std::round(std::max({4.0F, height * 0.06F, backgroundRadius() * 0.35F})) : 0.0F;
+  const float layoutW = std::max(1.0F, width - 2.0F * edgeInset);
+  const float layoutH = std::max(1.0F, height - 2.0F * edgeInset);
+  const float layoutScale = std::max(0.05F, layoutH / kBaseHeight);
   const float gap = kTextGap * layoutScale;
 
-  float glyphBox = layoutH * 0.85f;
+  float glyphBox = layoutH * 0.85F;
   const float minTextW = kMinTextWidth * layoutScale;
-  glyphBox = std::min(glyphBox, std::max(layoutH * 0.35f, layoutW - minTextW - gap));
+  glyphBox = std::min(glyphBox, std::max(layoutH * 0.35F, layoutW - minTextW - gap));
   glyphBox = std::round(glyphBox);
   m_glyphBox = glyphBox;
-  const float textMaxW = std::max(1.0f, layoutW - glyphBox - gap);
+  const float textMaxW = std::max(1.0F, layoutW - glyphBox - gap);
 
   m_percentLabel->setFontSize(percentFontSize(layoutScale));
   m_percentLabel->setMaxWidth(textMaxW);
@@ -275,7 +275,7 @@ void DesktopVolumeWidget::doLayout(Renderer& renderer) {
 
   const bool showDevice = m_showDevice && !m_lastDeviceText.empty();
   m_deviceLabel->setVisible(showDevice);
-  float deviceH = 0.0f;
+  float deviceH = 0.0F;
   if (showDevice) {
     m_deviceLabel->setFontSize(deviceFontSize(layoutScale));
     m_deviceLabel->setMaxWidth(textMaxW);
@@ -285,8 +285,8 @@ void DesktopVolumeWidget::doLayout(Renderer& renderer) {
   }
 
   const float textBlockH =
-      m_percentLabel->height() + m_statusLabel->height() + (showDevice ? Style::spaceXs * layoutScale + deviceH : 0.0f);
-  const float textY = edgeInset + std::max(0.0f, (layoutH - textBlockH) * 0.5f);
+      m_percentLabel->height() + m_statusLabel->height() + (showDevice ? Style::spaceXs * layoutScale + deviceH : 0.0F);
+  const float textY = edgeInset + std::max(0.0F, (layoutH - textBlockH) * 0.5F);
 
   m_percentLabel->setPosition(edgeInset, textY);
   m_statusLabel->setPosition(edgeInset, textY + m_percentLabel->height());
@@ -307,11 +307,11 @@ void DesktopVolumeWidget::doLayout(Renderer& renderer) {
   const float glyphW = glyphBox;
   const float glyphH = glyphBox;
   const float glyphX = edgeInset + layoutW - glyphW;
-  const float glyphY = edgeInset + (layoutH - glyphH) * 0.5f;
+  const float glyphY = edgeInset + (layoutH - glyphH) * 0.5F;
 
   m_glyphHit->setPosition(glyphX, glyphY);
   m_glyphHit->setFrameSize(glyphW, glyphH);
-  m_trackGlyph->setPosition(0.0f, 0.0f);
+  m_trackGlyph->setPosition(0.0F, 0.0F);
   updateFillClip();
 
   root()->setSize(width, height);
@@ -324,7 +324,7 @@ void DesktopVolumeWidget::doLayout(Renderer& renderer) {
 }
 
 void DesktopVolumeWidget::syncState(Renderer& renderer, bool forceLayout) {
-  float volume = 0.0f;
+  float volume = 0.0F;
   bool muted = false;
   std::string deviceName;
 
@@ -334,8 +334,8 @@ void DesktopVolumeWidget::syncState(Renderer& renderer, bool forceLayout) {
     deviceName = audioDeviceLabel(*node);
   }
 
-  const float displayVolume = muted ? 0.0f : std::clamp(volume, 0.0f, 1.0f);
-  const int percent = static_cast<int>(std::round(std::max(0.0f, volume) * 100.0f));
+  const float displayVolume = muted ? 0.0F : std::clamp(volume, 0.0F, 1.0F);
+  const int percent = static_cast<int>(std::round(std::max(0.0F, volume) * 100.0F));
   const std::string percentText = std::format("{}%", percent);
   const std::string statusText = muted
       ? i18n::tr("desktop-widgets.volume.muted")
@@ -377,7 +377,7 @@ void DesktopVolumeWidget::syncState(Renderer& renderer, bool forceLayout) {
 
   const bool mutedChanged = muted != m_lastMuted;
   m_lastMuted = muted;
-  if (std::abs(displayVolume - m_fillProgress) > 0.0005f || mutedChanged) {
+  if (std::abs(displayVolume - m_fillProgress) > 0.0005F || mutedChanged) {
     m_fillProgress = displayVolume;
     updateFillClip();
     requestRedraw();
@@ -392,16 +392,16 @@ void DesktopVolumeWidget::syncState(Renderer& renderer, bool forceLayout) {
 }
 
 void DesktopVolumeWidget::updateFillClip() {
-  if (m_fillClip == nullptr || m_fillGlyph == nullptr || m_glyphBox <= 0.0f) {
+  if (m_fillClip == nullptr || m_fillGlyph == nullptr || m_glyphBox <= 0.0F) {
     return;
   }
   // Full-size fill glyph, revealed through a bottom-anchored clip (same as ProgressBar).
-  const float progress = std::clamp(m_fillProgress, 0.0f, 1.0f);
+  const float progress = std::clamp(m_fillProgress, 0.0F, 1.0F);
   const float clipH = m_glyphBox * progress;
   const float clipY = m_glyphBox - clipH;
-  m_fillClip->setPosition(0.0f, clipY);
+  m_fillClip->setPosition(0.0F, clipY);
   m_fillClip->setFrameSize(m_glyphBox, clipH);
-  m_fillGlyph->setPosition(0.0f, -clipY);
+  m_fillGlyph->setPosition(0.0F, -clipY);
 }
 
 void DesktopVolumeWidget::applyColors() {
@@ -470,5 +470,5 @@ float DesktopVolumeWidget::maxVolume() const {
   if (m_config != nullptr) {
     return maxAudioVolume(m_config->config().audio);
   }
-  return 1.0f;
+  return 1.0F;
 }

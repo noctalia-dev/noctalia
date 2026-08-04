@@ -277,7 +277,7 @@ void SettingsWindow::createBar(std::string name) {
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
       m_pendingDeleteMonitorOverrideMatch.clear();
-      m_contentScrollState.offset = 0.0f;
+      m_contentScrollState.offset = 0.0F;
       markSettingsWriteSuccess();
       return;
     }
@@ -303,7 +303,7 @@ void SettingsWindow::renameBar(std::string oldName, std::string newName) {
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
       m_pendingDeleteMonitorOverrideMatch.clear();
-      m_contentScrollState.offset = 0.0f;
+      m_contentScrollState.offset = 0.0F;
       markSettingsWriteSuccess();
       return;
     }
@@ -320,7 +320,7 @@ void SettingsWindow::deleteBar(std::string name) {
       if (m_selectedBarName == name) {
         m_selectedBarName.clear();
         m_selectedMonitorOverride.clear();
-        m_contentScrollState.offset = 0.0f;
+        m_contentScrollState.offset = 0.0F;
       }
       m_renamingBarName.clear();
       m_pendingDeleteBarName.clear();
@@ -365,7 +365,7 @@ void SettingsWindow::createMonitorOverride(std::string barName, std::string matc
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
       m_pendingDeleteMonitorOverrideMatch.clear();
-      m_contentScrollState.offset = 0.0f;
+      m_contentScrollState.offset = 0.0F;
       markSettingsWriteSuccess();
       return;
     }
@@ -387,7 +387,7 @@ void SettingsWindow::renameMonitorOverride(std::string barName, std::string oldM
       m_renamingMonitorOverrideMatch.clear();
       m_pendingDeleteMonitorOverrideBarName.clear();
       m_pendingDeleteMonitorOverrideMatch.clear();
-      m_contentScrollState.offset = 0.0f;
+      m_contentScrollState.offset = 0.0F;
       markSettingsWriteSuccess();
       return;
     }
@@ -403,7 +403,7 @@ void SettingsWindow::deleteMonitorOverride(std::string barName, std::string matc
     if (m_config->deleteMonitorOverride(barName, match)) {
       if (m_selectedBarName == barName && m_selectedMonitorOverride == match) {
         m_selectedMonitorOverride.clear();
-        m_contentScrollState.offset = 0.0f;
+        m_contentScrollState.offset = 0.0F;
       }
       m_renamingMonitorOverrideBarName.clear();
       m_renamingMonitorOverrideMatch.clear();

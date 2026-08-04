@@ -48,10 +48,10 @@ namespace settings {
     struct LaneWidgetDragState {
       bool active = false;
       bool moved = false;
-      float startLocalX = 0.0f;
-      float startLocalY = 0.0f;
-      float lastLocalX = 0.0f;
-      float lastLocalY = 0.0f;
+      float startLocalX = 0.0F;
+      float startLocalY = 0.0F;
+      float lastLocalX = 0.0F;
+      float lastLocalY = 0.0F;
       std::optional<std::size_t> targetZoneIndex;
       std::optional<std::size_t> targetInsertionIndex;
       // Set when hovering over the middle of another loose widget: dropping forms a new group with it.
@@ -97,7 +97,7 @@ namespace settings {
       auto header = ui::column({
           .align = FlexAlign::Stretch,
           .gap = Style::spaceXs * scale,
-          .configure = [scale](Flex& flex) { flex.setPadding(Style::spaceSm * scale, 0.0f, 0.0f, 0.0f); },
+          .configure = [scale](Flex& flex) { flex.setPadding(Style::spaceSm * scale, 0.0F, 0.0F, 0.0F); },
       });
       if (withSeparator) {
         header->addChild(ui::separator());
@@ -158,7 +158,7 @@ namespace settings {
       auto section = ui::column({
           .align = FlexAlign::Stretch,
           .gap = Style::spaceXs * ctx.scale,
-          .configure = [scale = ctx.scale](Flex& flex) { flex.setPadding(Style::spaceSm * scale, 0.0f, 0.0f, 0.0f); },
+          .configure = [scale = ctx.scale](Flex& flex) { flex.setPadding(Style::spaceSm * scale, 0.0F, 0.0F, 0.0F); },
       });
       if (withSeparator) {
         section->addChild(ui::separator());
@@ -167,7 +167,7 @@ namespace settings {
       auto collapsible = std::make_unique<Collapsible>();
       collapsible->setScale(ctx.scale);
       // Flush left, matching the plain group headers above it.
-      collapsible->setHeaderPadding(0.0f, 0.0f);
+      collapsible->setHeaderPadding(0.0F, 0.0F);
       collapsible->setHeader(makeLabel(
           widgetSettingGroupTitle(kGestureActionsGroup), Style::fontSizeCaption * ctx.scale,
           colorSpecFromRole(ColorRole::Secondary), FontWeight::Bold
@@ -641,13 +641,13 @@ namespace settings {
         group.foreground = *ovr->widgetCapsuleForeground;
       }
       if (ovr->widgetCapsulePadding.has_value()) {
-        group.padding = std::clamp(static_cast<float>(*ovr->widgetCapsulePadding), 0.0f, 48.0f);
+        group.padding = std::clamp(static_cast<float>(*ovr->widgetCapsulePadding), 0.0F, 48.0F);
       }
       if (ovr->widgetCapsuleRadius.has_value()) {
         group.radius = static_cast<float>(std::clamp(*ovr->widgetCapsuleRadius, 0.0, 80.0));
       }
       if (ovr->widgetCapsuleOpacity.has_value()) {
-        group.opacity = std::clamp(static_cast<float>(*ovr->widgetCapsuleOpacity), 0.0f, 1.0f);
+        group.opacity = std::clamp(static_cast<float>(*ovr->widgetCapsuleOpacity), 0.0F, 1.0F);
       }
       return group;
     }
@@ -658,10 +658,10 @@ namespace settings {
         if (item == nullptr) {
           continue;
         }
-        float ignoredX = 0.0f;
-        float itemY = 0.0f;
+        float ignoredX = 0.0F;
+        float itemY = 0.0F;
         Node::absolutePosition(item, ignoredX, itemY);
-        if (sceneY < itemY + item->height() * 0.5f) {
+        if (sceneY < itemY + item->height() * 0.5F) {
           return i;
         }
       }
@@ -682,8 +682,8 @@ namespace settings {
         if (container == nullptr) {
           continue;
         }
-        float zoneX = 0.0f;
-        float zoneY = 0.0f;
+        float zoneX = 0.0F;
+        float zoneY = 0.0F;
         Node::absolutePosition(container, zoneX, zoneY);
         const bool inside = sceneX >= zoneX
             && sceneX < zoneX + container->width()
@@ -838,13 +838,13 @@ namespace settings {
         if (node == nullptr) {
           continue;
         }
-        float nodeX = 0.0f;
-        float nodeY = 0.0f;
+        float nodeX = 0.0F;
+        float nodeY = 0.0F;
         Node::absolutePosition(node, nodeX, nodeY);
         const float h = node->height();
-        if (h > 0.0f && sceneY >= nodeY && sceneY < nodeY + h) {
+        if (h > 0.0F && sceneY >= nodeY && sceneY < nodeY + h) {
           const float rel = (sceneY - nodeY) / h;
-          return std::make_pair(i, rel > 0.3f && rel < 0.7f);
+          return std::make_pair(i, rel > 0.3F && rel < 0.7F);
         }
       }
       return std::nullopt;
@@ -863,7 +863,7 @@ namespace settings {
         return;
       }
       if (on) {
-        card->setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth * 2.0f);
+        card->setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth * 2.0F);
       } else {
         card->setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
       }
@@ -939,8 +939,8 @@ namespace settings {
       }
 
       const float x = Style::spaceSm * scale;
-      const float width = std::max(1.0f, lane.width() - Style::spaceSm * scale * 2.0f);
-      const float gapHalf = Style::spaceXs * scale * 0.5f;
+      const float width = std::max(1.0F, lane.width() - Style::spaceSm * scale * 2.0F);
+      const float gapHalf = Style::spaceXs * scale * 0.5F;
       float y = Style::controlHeightSm * scale + Style::spaceSm * scale;
       if (!itemNodes.empty()) {
         if (insertionIndex == itemNodes.size()) {
@@ -953,7 +953,7 @@ namespace settings {
       }
 
       indicator.setPosition(x, y);
-      indicator.setFrameSize(width, std::max(2.0f, 3.0f * scale));
+      indicator.setFrameSize(width, std::max(2.0F, 3.0F * scale));
       indicator.setVisible(true);
     }
 
@@ -1259,7 +1259,7 @@ namespace settings {
           ui::column(
               {
                   .align = FlexAlign::Stretch,
-                  .gap = 1.0f * ctx.scale,
+                  .gap = 1.0F * ctx.scale,
                   .paddingV = Style::spaceXs * ctx.scale,
                   .paddingH = 0,
               },
@@ -1740,7 +1740,7 @@ namespace settings {
               i18n::tr("settings.entities.widget.group.hint"), Style::fontSizeCaption * ctx.scale,
               colorSpecFromRole(ColorRole::OnSurfaceVariant), FontWeight::Normal
           );
-          hint->setFlexGrow(1.0f);
+          hint->setFlexGrow(1.0F);
           groupRow->addChild(std::move(hint));
           const std::string& editGroupId = capsuleGroup;
           groupRow->addChild(
@@ -1863,9 +1863,9 @@ namespace settings {
               .fontSize = Style::fontSizeCaption * ctx.scale,
               .controlHeight = Style::controlHeightSm * ctx.scale,
               .horizontalPadding = Style::spaceXs * ctx.scale,
-              .width = 140.0f * ctx.scale,
+              .width = 140.0F * ctx.scale,
               .height = Style::controlHeightSm * ctx.scale,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
           });
 
           auto doRename = [&editingWidgetName = ctx.editingWidgetName, &renamingWidgetName = ctx.renamingWidgetName,
@@ -1924,9 +1924,9 @@ namespace settings {
                   .align = FlexAlign::Stretch,
                   .gap = Style::spaceXs * ctx.scale,
                   .padding = Style::spaceSm * ctx.scale,
-                  .fill = colorSpecFromRole(ColorRole::Error, 0.10f),
+                  .fill = colorSpecFromRole(ColorRole::Error, 0.10F),
                   .radius = Style::scaledRadiusSm(ctx.scale),
-                  .border = colorSpecFromRole(ColorRole::Error, 0.5f),
+                  .border = colorSpecFromRole(ColorRole::Error, 0.5F),
               },
               makeLabel(
                   i18n::tr("settings.entities.widget.instance.delete-confirm-title", "name", widgetName),
@@ -2002,7 +2002,7 @@ namespace settings {
       opts.fontSize = Style::fontSizeBody * ctx.scale;
       opts.controlHeight = Style::controlHeight * ctx.scale;
       opts.glyphSize = Style::fontSizeBody * ctx.scale;
-      opts.width = 190.0f * ctx.scale;
+      opts.width = 190.0F * ctx.scale;
       return makeColorSpecSelect(
           std::move(opts),
           [onChange](std::string value) { onChange(colorSpecFromConfigString(value, "bar.capsule_group.color")); },
@@ -2022,7 +2022,7 @@ namespace settings {
           .fontSize = Style::fontSizeCaption * ctx.scale,
           .controlHeight = Style::controlHeightSm * ctx.scale,
           .horizontalPadding = Style::spaceXs * ctx.scale,
-          .width = 50.0f * ctx.scale,
+          .width = 50.0F * ctx.scale,
           .height = Style::controlHeightSm * ctx.scale,
       });
 
@@ -2074,7 +2074,7 @@ namespace settings {
         const BarWidgetEditorContext& ctx, std::optional<float> radius,
         std::function<void(std::optional<float>)> onChange
     ) {
-      const int radiusValue = static_cast<int>(std::lround(std::clamp(radius.value_or(12.0f), 0.0f, 80.0f)));
+      const int radiusValue = static_cast<int>(std::lround(std::clamp(radius.value_or(12.0F), 0.0F, 80.0F)));
       auto wrap = ui::row({.align = FlexAlign::Center, .gap = Style::spaceSm * ctx.scale});
       wrap->addChild(
           ui::segmented({
@@ -2416,7 +2416,7 @@ namespace settings {
           .gap = Style::spaceSm * ctx.scale,
           .paddingV = Style::spaceXs * ctx.scale,
           .paddingH = Style::spaceSm * ctx.scale,
-          .fill = colorSpecFromRole(ColorRole::Primary, 0.12f),
+          .fill = colorSpecFromRole(ColorRole::Primary, 0.12F),
           .radius = Style::scaledRadiusSm(ctx.scale),
           .fillWidth = true,
       });
@@ -2424,7 +2424,7 @@ namespace settings {
           i18n::tr("settings.entities.widget.group.selected", "count", std::to_string(ctx.selectedLaneWidgets.size())),
           Style::fontSizeCaption * ctx.scale, colorSpecFromRole(ColorRole::OnSurface), FontWeight::Bold
       );
-      label->setFlexGrow(1.0f);
+      label->setFlexGrow(1.0F);
       toolbar->addChild(std::move(label));
 
       if (plan.groupable) {
@@ -2532,7 +2532,7 @@ namespace settings {
         {
             .align = FlexAlign::Stretch,
             .gap = Style::spaceSm * ctx.scale,
-            .paddingV = 2.0f * ctx.scale,
+            .paddingV = 2.0F * ctx.scale,
             .paddingH = 0,
         },
         ui::row(
@@ -2565,9 +2565,9 @@ namespace settings {
     auto zones = std::make_shared<std::vector<DropZone>>();
 
     // Shared compact icon-button footprint for lane cards and group headers.
-    const float iconSize = Style::controlHeightSm * 0.84f * ctx.scale;
-    const float iconPad = 2.0f * ctx.scale;
-    const float rowGap = 2.0f * ctx.scale;
+    const float iconSize = Style::controlHeightSm * 0.84F * ctx.scale;
+    const float iconPad = 2.0F * ctx.scale;
+    const float rowGap = 2.0F * ctx.scale;
 
     // Wires a drag handle so its card can be dragged between any registered zone (lane or group).
     auto wireDrag = [&ctx, zones, laneListPath = entry.path](
@@ -2597,7 +2597,7 @@ namespace settings {
           dragState->combineZoneIndex = std::nullopt;
           dragState->combineItemIndex = std::nullopt;
           clearHighlight();
-          cardPtr->setOpacity(0.72f);
+          cardPtr->setOpacity(0.72F);
           hideDropIndicators(*zones);
           return;
         }
@@ -2605,7 +2605,7 @@ namespace settings {
           return;
         }
         dragState->active = false;
-        cardPtr->setOpacity(1.0f);
+        cardPtr->setOpacity(1.0F);
         clearHighlight();
         hideDropIndicators(*zones);
         if (!dragState->moved) {
@@ -2655,8 +2655,8 @@ namespace settings {
           clearHighlight();
           hideDropIndicators(*zones);
         };
-        float absX = 0.0f;
-        float absY = 0.0f;
+        float absX = 0.0F;
+        float absY = 0.0F;
         Node::absolutePosition(handlePtr, absX, absY);
         const float sceneX = absX + localX;
         const float sceneY = absY + localY;
@@ -2726,9 +2726,9 @@ namespace settings {
       const auto info = widgetReferenceInfo(ctx.config, name, false);
       auto card = ui::column({
           .align = FlexAlign::Stretch,
-          .paddingV = 3.0f * ctx.scale,
+          .paddingV = 3.0F * ctx.scale,
           .paddingH = Style::spaceXs * ctx.scale,
-          .fill = colorSpecFromRole(ColorRole::Surface, 0.72f),
+          .fill = colorSpecFromRole(ColorRole::Surface, 0.72F),
           .radius = Style::scaledRadiusSm(ctx.scale),
           .border = isSelected ? colorSpecFromRole(ColorRole::Primary) : clearColorSpec(),
           .borderWidth = Style::borderWidth,
@@ -2779,7 +2779,7 @@ namespace settings {
             FontWeight::SemiBold
         );
         titleLabel->setMaxLines(1);
-        titleLabel->setFlexGrow(1.0f);
+        titleLabel->setFlexGrow(1.0F);
         row->addChild(std::move(titleLabel));
       }
       if (!widgetTypeForReference(ctx.config, name).empty()) {
@@ -2817,7 +2817,7 @@ namespace settings {
                 .minHeight = iconSize,
                 .padding = iconPad,
                 .radius = Style::scaledRadiusSm(ctx.scale),
-                .opacity = widgetEnabled ? 1.0f : 0.38f,
+                .opacity = widgetEnabled ? 1.0F : 0.38F,
                 .onClick = [setOverride = ctx.setOverride, requestRebuild = ctx.requestRebuild, name, widgetEnabled]() {
                   setOverride({"widget", name, "enabled"}, !widgetEnabled);
                   if (requestRebuild) {
@@ -2863,17 +2863,17 @@ namespace settings {
           .align = FlexAlign::Stretch,
           .gap = Style::spaceXs * ctx.scale,
           .padding = Style::spaceSm * ctx.scale,
-          .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.45f),
+          .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.45F),
           .radius = Style::scaledRadiusMd(ctx.scale),
           .border = colorSpecFromRole(ColorRole::Outline),
-          .minWidth = 160.0f * ctx.scale,
-          .flexGrow = 1.0f,
+          .minWidth = 160.0F * ctx.scale,
+          .flexGrow = 1.0F,
       });
       auto* lanePtr = lane.get();
 
       auto dropIndicator = ui::box({
           .fill = colorSpecFromRole(ColorRole::Primary),
-          .radius = std::max(1.0f, 1.5f * ctx.scale),
+          .radius = std::max(1.0F, 1.5F * ctx.scale),
           .visible = false,
           .participatesInLayout = false,
           .configure = [](Box& box) { box.setZIndex(10); },
@@ -2915,7 +2915,7 @@ namespace settings {
                     .align = FlexAlign::Center,
                     .paddingV = 0,
                     .paddingH = Style::spaceXs * ctx.scale,
-                    .fill = colorSpecFromRole(ColorRole::Primary, 0.15f),
+                    .fill = colorSpecFromRole(ColorRole::Primary, 0.15F),
                     .radius = Style::scaledRadiusSm(ctx.scale),
                 },
                 makeLabel(
@@ -2932,7 +2932,7 @@ namespace settings {
                     .align = FlexAlign::Center,
                     .paddingV = 0,
                     .paddingH = Style::spaceXs * ctx.scale,
-                    .fill = colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.14f),
+                    .fill = colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.14F),
                     .radius = Style::scaledRadiusSm(ctx.scale),
                 },
                 makeLabel(
@@ -2982,7 +2982,7 @@ namespace settings {
                 .paddingV = Style::spaceXs * ctx.scale,
                 .paddingH = Style::spaceSm * ctx.scale,
                 .radius = Style::scaledRadiusSm(ctx.scale),
-                .border = colorSpecFromRole(ColorRole::Error, 0.5f),
+                .border = colorSpecFromRole(ColorRole::Error, 0.5F),
             });
             orphan->addChild(makeLabel(
                 i18n::tr("settings.entities.widget.group.orphan"), Style::fontSizeCaption * ctx.scale,
@@ -3018,15 +3018,15 @@ namespace settings {
           const float dr = groupFillColor.r - laneBgColor.r;
           const float dg = groupFillColor.g - laneBgColor.g;
           const float db = groupFillColor.b - laneBgColor.b;
-          const bool fillDistinct = std::sqrt(dr * dr + dg * dg + db * db) >= 0.15f;
+          const bool fillDistinct = std::sqrt(dr * dr + dg * dg + db * db) >= 0.15F;
           ColorSpec groupFillTint;
           ColorSpec groupBorder;
           if (fillDistinct) {
             groupFillTint = group->fill;
-            groupFillTint.alpha *= 0.15f;
+            groupFillTint.alpha *= 0.15F;
             groupBorder = group->fill; // full opacity
           } else {
-            groupFillTint = colorSpecFromRole(ColorRole::OnSurface, 0.06f); // slight neutral lift
+            groupFillTint = colorSpecFromRole(ColorRole::OnSurface, 0.06F); // slight neutral lift
             groupBorder = colorSpecFromRole(ColorRole::Outline);            // full opacity
           }
           auto container = ui::column({
@@ -3036,13 +3036,13 @@ namespace settings {
               .fill = groupFillTint,
               .radius = Style::scaledRadiusSm(ctx.scale),
               .border = groupBorder,
-              .opacity = group->enabled ? 1.0f : 0.45f,
+              .opacity = group->enabled ? 1.0F : 0.45F,
           });
           auto* containerPtr = container.get();
 
           auto groupIndicator = ui::box({
               .fill = colorSpecFromRole(ColorRole::Primary),
-              .radius = std::max(1.0f, 1.5f * ctx.scale),
+              .radius = std::max(1.0F, 1.5F * ctx.scale),
               .visible = false,
               .participatesInLayout = false,
               .configure = [](Box& box) { box.setZIndex(10); },
@@ -3054,7 +3054,7 @@ namespace settings {
           groupHeader->addChild(
               ui::box({
                   .fill = group->fill,
-                  .radius = std::max(1.0f, 2.0f * ctx.scale),
+                  .radius = std::max(1.0F, 2.0F * ctx.scale),
                   .width = Style::fontSizeCaption * ctx.scale,
                   .height = Style::fontSizeCaption * ctx.scale,
                   .configure = [](Box& box) {
@@ -3067,7 +3067,7 @@ namespace settings {
                 i18n::tr("settings.entities.widget.group.title"), Style::fontSizeCaption * ctx.scale,
                 colorSpecFromRole(ColorRole::OnSurface), FontWeight::SemiBold
             );
-            groupLabel->setFlexGrow(1.0f);
+            groupLabel->setFlexGrow(1.0F);
             groupHeader->addChild(std::move(groupLabel));
           }
           groupHeader->addChild(
@@ -3081,7 +3081,7 @@ namespace settings {
                   .minHeight = iconSize,
                   .padding = iconPad,
                   .radius = Style::scaledRadiusSm(ctx.scale),
-                  .opacity = group->enabled ? 1.0f : 0.38f,
+                  .opacity = group->enabled ? 1.0F : 0.38F,
                   .onClick = [setOverrides = ctx.setOverrides, groups = laneGroups, lanePathCopy = lanePath, gid,
                               requestRebuild = ctx.requestRebuild]() {
                     std::vector<BarCapsuleGroupStyle> updated = groups;
@@ -3295,10 +3295,10 @@ namespace settings {
             ui::column(
                 {
                     .align = FlexAlign::Center,
-                    .gap = 2.0f * ctx.scale,
+                    .gap = 2.0F * ctx.scale,
                     .paddingV = Style::spaceMd * ctx.scale,
                     .paddingH = Style::spaceSm * ctx.scale,
-                    .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.25f),
+                    .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.25F),
                     .radius = Style::scaledRadiusSm(ctx.scale),
                     .border = colorSpecFromRole(ColorRole::Outline),
                 },

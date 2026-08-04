@@ -56,7 +56,7 @@ namespace {
   constexpr std::size_t kMaxChartSeries = 5;
 
   [[nodiscard]] std::string canonicalAppKey(std::string_view appKey) {
-    if (const auto sep = appKey.find('\x1f'); sep != std::string::npos) {
+    if (const auto sep = appKey.find('\x1F'); sep != std::string::npos) {
       return std::string(appKey.substr(0, sep));
     }
     return std::string(appKey);
@@ -169,7 +169,7 @@ namespace {
     if (appKey.starts_with("title:")) {
       return appKey.substr(6);
     }
-    if (const auto sep = appKey.find('\x1f'); sep != std::string::npos) {
+    if (const auto sep = appKey.find('\x1F'); sep != std::string::npos) {
       const std::string embeddedTitle = appKey.substr(sep + 1);
       if (!embeddedTitle.empty()) {
         return embeddedTitle;

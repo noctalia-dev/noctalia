@@ -115,7 +115,7 @@ namespace {
 
   std::unique_ptr<Flex> makeMetricPill(const char* glyphName, std::string text, float scale, Label** valueOut) {
     return ui::row(
-        {.align = FlexAlign::Center, .gap = Style::spaceXs * 0.5f * scale},
+        {.align = FlexAlign::Center, .gap = Style::spaceXs * 0.5F * scale},
         ui::glyph({
             .glyph = glyphName,
             .glyphSize = Style::fontSizeCaption * scale,
@@ -156,7 +156,7 @@ public:
             .fontSize = Style::fontSizeBody * scale,
             .fontWeight = m_device.connected ? FontWeight::Bold : FontWeight::Normal,
             .color = colorSpecFromRole(ColorRole::OnSurface),
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         })
     );
     header->setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
@@ -270,7 +270,7 @@ public:
                   .text = i18n::tr("control-center.bluetooth.auto-reconnect"),
                   .fontSize = Style::fontSizeCaption * scale,
                   .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                  .flexGrow = 1.0f,
+                  .flexGrow = 1.0F,
               }),
               ui::toggle({
                   .checkedImmediate = m_device.trusted,
@@ -293,7 +293,7 @@ public:
                 .text = i18n::tr("control-center.bluetooth.address"),
                 .fontSize = Style::fontSizeCaption * scale,
                 .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                .flexGrow = 1.0f,
+                .flexGrow = 1.0F,
             }),
             ui::label(
                 {.text = m_device.address,
@@ -389,7 +389,7 @@ std::unique_ptr<Flex> BluetoothTab::create() {
           .out = &m_pairingInput,
           .placeholder = i18n::tr("control-center.bluetooth.enter-code"),
           .surfaceOpacity = panelCardOpacity(),
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
           .onSubmit = [this](const std::string& value) {
             if (m_agent == nullptr) {
               return;
@@ -469,9 +469,9 @@ std::unique_ptr<Flex> BluetoothTab::create() {
   auto listScroll = ui::scrollView({
       .out = &m_listScroll,
       .scrollbarVisible = true,
-      .viewportPaddingH = 0.0f,
-      .viewportPaddingV = 0.0f,
-      .flexGrow = 1.0f,
+      .viewportPaddingH = 0.0F,
+      .viewportPaddingV = 0.0F,
+      .flexGrow = 1.0F,
       .configure = [](ScrollView& scrollView) {
         scrollView.clearFill();
         scrollView.clearBorder();
@@ -536,7 +536,7 @@ void BluetoothTab::onClose() {
   m_scanSpinner = nullptr;
   m_deviceRows.clear();
   m_lastStructureKey.clear();
-  m_lastListWidth = -1.0f;
+  m_lastListWidth = -1.0F;
 }
 
 void BluetoothTab::syncHeader() {
@@ -691,7 +691,7 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
     return;
   }
   const float listWidth = m_listScroll->contentViewportWidth();
-  if (listWidth <= 0.0f) {
+  if (listWidth <= 0.0F) {
     return;
   }
   std::vector<BluetoothDeviceInfo> devices;
@@ -745,7 +745,7 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
             .text = i18n::tr("control-center.bluetooth.bluetooth"),
             .fontSize = Style::fontSizeBody * scale,
             .color = colorSpecFromRole(ColorRole::OnSurface),
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         })
     );
 
@@ -804,7 +804,7 @@ void BluetoothTab::rebuildDeviceList(Renderer& renderer) {
             .text = i18n::tr("control-center.bluetooth.visible"),
             .fontSize = Style::fontSizeBody * scale,
             .color = colorSpecFromRole(ColorRole::OnSurface),
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         }),
         ui::toggle({
             .out = &m_discoverableToggle,

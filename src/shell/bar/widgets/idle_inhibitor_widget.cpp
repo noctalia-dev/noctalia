@@ -75,7 +75,7 @@ void IdleInhibitorWidget::syncState(Renderer& renderer) {
   m_glyph->measure(renderer);
   m_area->setEnabled(available);
   if (auto* node = root(); node != nullptr) {
-    node->setOpacity(available ? 1.0f : 0.55f);
+    node->setOpacity(available ? 1.0F : 0.55F);
   }
   requestRedraw();
 }

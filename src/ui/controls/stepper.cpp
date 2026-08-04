@@ -22,10 +22,10 @@
 
 namespace {
 
-  constexpr float kDefaultMinWidth = 100.0f;
+  constexpr float kDefaultMinWidth = 100.0F;
   // Matches Input's internal text viewport inset so the layout minimum reserves
   // the visible text box, not just ink.
-  constexpr float kInputTextInnerInset = 3.0f;
+  constexpr float kInputTextInnerInset = 3.0F;
   constexpr std::chrono::milliseconds kStepRepeatDelay{350};
   constexpr std::chrono::milliseconds kStepRepeatInterval{70};
 
@@ -34,9 +34,9 @@ namespace {
   std::unique_ptr<Separator> makeStepperSeparator(float scale) {
     auto sep = std::make_unique<Separator>();
     sep->setOrientation(SeparatorOrientation::VerticalRule);
-    sep->setThickness(std::max(1.0f, Style::borderWidth * scale));
+    sep->setThickness(std::max(1.0F, Style::borderWidth * scale));
     sep->setColor(colorSpecFromRole(ColorRole::Outline));
-    sep->setFlexGrow(0.0f);
+    sep->setFlexGrow(0.0F);
     return sep;
   }
 
@@ -58,8 +58,8 @@ Stepper::Stepper() {
   setDirection(FlexDirection::Horizontal);
   setAlign(FlexAlign::Stretch);
   setJustify(FlexJustify::Start);
-  setGap(0.0f);
-  setPadding(0.0f);
+  setGap(0.0F);
+  setPadding(0.0F);
   setMinWidth(kDefaultMinWidth);
   setFill(colorSpecFromRole(ColorRole::SurfaceVariant, m_surfaceOpacity));
   clearBorder();
@@ -73,7 +73,7 @@ Stepper::Stepper() {
     btn->setMinHeight(Style::controlHeight);
     btn->setPadding(Style::spaceXs, Style::spaceMd);
     btn->setContentAlign(ButtonContentAlign::Center);
-    btn->setFlexGrow(0.0f);
+    btn->setFlexGrow(0.0F);
     btn->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_POINTER);
     btn->setOnPress([this, directionSign = increment ? 1 : -1](float /*localX*/, float /*localY*/, bool pressed) {
       if (pressed) {
@@ -104,9 +104,9 @@ Stepper::Stepper() {
     track->setDirection(FlexDirection::Horizontal);
     track->setAlign(FlexAlign::Stretch);
     track->setJustify(FlexJustify::Center);
-    track->setGap(0.0f);
-    track->setPadding(0.0f);
-    track->setFlexGrow(1.0f);
+    track->setGap(0.0F);
+    track->setPadding(0.0F);
+    track->setFlexGrow(1.0F);
     track->setMinHeight(Style::controlHeight);
     track->clearFill();
     track->clearBorder();
@@ -119,7 +119,7 @@ Stepper::Stepper() {
     field->setFontSize(Style::fontSizeBody);
     field->setControlHeight(Style::controlHeight);
     field->setHorizontalPadding(valueInputHorizontalPadding(m_scale));
-    field->setFlexGrow(1.0f);
+    field->setFlexGrow(1.0F);
     field->setOnSubmit([this](const std::string& /*text*/) { commitValueField(); });
     field->setOnFocusLoss([this]() { commitValueField(); });
     field->setOnKeyEvent([this](std::uint32_t sym, std::uint32_t mod) { return swallowNonNumericKey(sym, mod); });
@@ -184,7 +184,7 @@ void Stepper::setValue(int value) {
 }
 
 void Stepper::setSurfaceOpacity(float opacity) {
-  const float clamped = std::clamp(opacity, 0.0f, 1.0f);
+  const float clamped = std::clamp(opacity, 0.0F, 1.0F);
   if (m_surfaceOpacity == clamped) {
     return;
   }
@@ -222,9 +222,9 @@ void Stepper::setValueSuffix(std::string suffix) {
 }
 
 void Stepper::setScale(float scale) {
-  m_scale = std::max(0.1f, scale);
-  setGap(0.0f);
-  setPadding(0.0f);
+  m_scale = std::max(0.1F, scale);
+  setGap(0.0F);
+  setPadding(0.0F);
   setMinWidth(kDefaultMinWidth * m_scale);
   clearBorder();
   if (m_valueTrack != nullptr) {
@@ -259,7 +259,7 @@ void Stepper::syncValueFieldMinWidth(Renderer& renderer) {
   const float wMin = renderer.measureText(minText, fs, FontWeight::Normal).width;
   const float wMax = renderer.measureText(maxText, fs, FontWeight::Normal).width;
   const float textInset = valueInputHorizontalPadding(m_scale) + kInputTextInnerInset;
-  m_valueInput->setMinLayoutWidth(std::max(wMin, wMax) + textInset * 2.0f);
+  m_valueInput->setMinLayoutWidth(std::max(wMin, wMax) + textInset * 2.0F);
 }
 
 LayoutSize Stepper::doMeasure(Renderer& renderer, const LayoutConstraints& constraints) {
@@ -425,17 +425,17 @@ void Stepper::refreshSegmentStyle() {
   setRadius(r);
   if (m_decrement != nullptr) {
     m_decrement->setVariant(ButtonVariant::Tab);
-    m_decrement->setRadii({r, 0.0f, 0.0f, r});
+    m_decrement->setRadii({r, 0.0F, 0.0F, r});
   }
   if (m_increment != nullptr) {
     m_increment->setVariant(ButtonVariant::Tab);
-    m_increment->setRadii({0.0f, r, r, 0.0f});
+    m_increment->setRadii({0.0F, r, r, 0.0F});
   }
   if (m_valueTrack != nullptr) {
     m_valueTrack->setRadii(Radii{});
     m_valueTrack->clearFill();
   }
-  const float ruleW = std::max(1.0f, Style::borderWidth * m_scale);
+  const float ruleW = std::max(1.0F, Style::borderWidth * m_scale);
   if (m_separatorBeforeValue != nullptr) {
     m_separatorBeforeValue->setThickness(ruleW);
   }

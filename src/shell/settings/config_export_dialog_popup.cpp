@@ -19,9 +19,9 @@
 namespace settings {
   namespace {
 
-    constexpr float kPopupWidth = 560.0f;
-    constexpr float kInitialPopupHeight = 320.0f;
-    constexpr float kParentMargin = 48.0f;
+    constexpr float kPopupWidth = 560.0F;
+    constexpr float kInitialPopupHeight = 320.0F;
+    constexpr float kParentMargin = 48.0F;
 
     PopupSurfaceConfig centeredPopupConfig(
         std::uint32_t parentWidth, std::uint32_t parentHeight, std::uint32_t width, std::uint32_t height,
@@ -64,7 +64,7 @@ namespace settings {
       close();
     }
 
-    m_scale = std::max(0.1f, request.scale);
+    m_scale = std::max(0.1F, request.scale);
     m_mode = ConfigExportMode::MergedUser;
     m_callback = std::move(request.callback);
     m_root = nullptr;
@@ -75,8 +75,8 @@ namespace settings {
     const float popupWidth = kPopupWidth * m_scale;
     const float popupHeight = kInitialPopupHeight * m_scale;
     const auto cfg = centeredPopupConfig(
-        request.parent.width, request.parent.height, static_cast<std::uint32_t>(std::max(1.0f, popupWidth)),
-        static_cast<std::uint32_t>(std::max(1.0f, popupHeight)), request.parent.serial
+        request.parent.width, request.parent.height, static_cast<std::uint32_t>(std::max(1.0F, popupWidth)),
+        static_cast<std::uint32_t>(std::max(1.0F, popupHeight)), request.parent.serial
     );
 
     if (!openPopupAsChild(cfg, request.parent)) {
@@ -122,7 +122,7 @@ namespace settings {
             .configure =
                 [this](Flex& row) {
                   row.setRadius(Style::scaledRadiusMd(m_scale));
-                  row.setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.45f));
+                  row.setFill(colorSpecFromRole(ColorRole::SurfaceVariant, 0.45F));
                   row.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
                 },
         },
@@ -141,7 +141,7 @@ namespace settings {
             {
                 .align = FlexAlign::Stretch,
                 .gap = Style::spaceXs * m_scale,
-                .flexGrow = 1.0f,
+                .flexGrow = 1.0F,
             },
             ui::label({
                 .text = title,
@@ -154,7 +154,7 @@ namespace settings {
                 .text = description,
                 .fontSize = Style::fontSizeCaption * m_scale,
                 .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-                .maxWidth = (kPopupWidth - 92.0f) * m_scale,
+                .maxWidth = (kPopupWidth - 92.0F) * m_scale,
                 .maxLines = 3,
             })
         )
@@ -190,7 +190,7 @@ namespace settings {
                 .fontSize = Style::fontSizeTitle * m_scale,
                 .fontWeight = FontWeight::Bold,
                 .color = colorSpecFromRole(ColorRole::OnSurface),
-                .flexGrow = 1.0f,
+                .flexGrow = 1.0F,
             }),
             ui::button({
                 .glyph = "close",
@@ -292,30 +292,30 @@ namespace settings {
     const float pad = computePadding(uiScale());
     const float panelW = kPopupWidth * m_scale;
 
-    float cw = std::max(1.0f, contentWidth);
-    float ch = std::max(1.0f, contentHeight);
+    float cw = std::max(1.0F, contentWidth);
+    float ch = std::max(1.0F, contentHeight);
 
-    LayoutSize pref = m_root->measure(renderer, LayoutConstraints::available(cw, 1.0e6f));
-    const float panelH = std::ceil(pref.height + pad * 2.0f);
+    LayoutSize pref = m_root->measure(renderer, LayoutConstraints::available(cw, 1.0e6F));
+    const float panelH = std::ceil(pref.height + pad * 2.0F);
     const ShellConfig::ShadowConfig shadow =
         config() != nullptr ? config()->config().shell.shadow : ShellConfig::ShadowConfig{};
     const auto geo = popup_chrome::computeGeometry(panelW, panelH, shadow, Style::popupShadowsEnabled());
     const float maxOuterHeight =
-        m_parentHeight > 0 ? std::max(1.0f, static_cast<float>(m_parentHeight) - (kParentMargin * m_scale)) : 1.0e6f;
+        m_parentHeight > 0 ? std::max(1.0F, static_cast<float>(m_parentHeight) - (kParentMargin * m_scale)) : 1.0e6F;
     const std::uint32_t nextHeight =
-        static_cast<std::uint32_t>(std::max(1.0f, std::min(static_cast<float>(geo.surfaceHeight), maxOuterHeight)));
+        static_cast<std::uint32_t>(std::max(1.0F, std::min(static_cast<float>(geo.surfaceHeight), maxOuterHeight)));
     const std::uint32_t nextWidth = geo.surfaceWidth;
 
     if (m_surface->height() != nextHeight || m_surface->width() != nextWidth) {
       m_surface->resize(nextWidth, nextHeight);
       syncSceneGeometryFromSurface();
-      cw = std::max(1.0f, m_chrome.contentWidth - pad * 2.0f);
-      ch = std::max(1.0f, m_chrome.contentHeight - pad * 2.0f);
-      pref = m_root->measure(renderer, LayoutConstraints::available(cw, 1.0e6f));
+      cw = std::max(1.0F, m_chrome.contentWidth - pad * 2.0F);
+      ch = std::max(1.0F, m_chrome.contentHeight - pad * 2.0F);
+      pref = m_root->measure(renderer, LayoutConstraints::available(cw, 1.0e6F));
     }
 
-    const float sheetH = std::max(1.0f, std::min(pref.height, ch));
-    m_root->arrange(renderer, LayoutRect{.x = 0.0f, .y = 0.0f, .width = cw, .height = sheetH});
+    const float sheetH = std::max(1.0F, std::min(pref.height, ch));
+    m_root->arrange(renderer, LayoutRect{.x = 0.0F, .y = 0.0F, .width = cw, .height = sheetH});
   }
 
   void ConfigExportDialogPopup::cancelToFacade() {}

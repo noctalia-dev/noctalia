@@ -50,7 +50,7 @@ public:
     FormatUnits::DecimalByteRateUnit networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
     FormatUnits::ByteRateLabelStyle networkSpeedLabelStyle = FormatUnits::ByteRateLabelStyle::Full;
     bool showLabel = true;
-    float labelMinWidth = 0.0f;
+    float labelMinWidth = 0.0F;
     bool shadow = true;
     ConfigService* config = nullptr;
   };
@@ -114,7 +114,7 @@ private:
   ProgressBar* m_gauge = nullptr;
 
   bool m_graphInitialized = false;
-  float m_scrollProgress = 1.0f;
+  float m_scrollProgress = 1.0F;
   FrameRateLimiter m_redrawLimiter{std::chrono::milliseconds{200}};
   std::chrono::steady_clock::time_point m_lastSampleAt;
   std::string m_lastRawValue;

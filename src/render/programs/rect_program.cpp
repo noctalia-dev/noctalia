@@ -515,17 +515,17 @@ void RectProgram::draw(
     float surfaceWidth, float surfaceHeight, float width, float height, const RoundedRectStyle& style,
     const Mat3& transform
 ) const {
-  if (!m_program.isValid() || width <= 0.0f || height <= 0.0f) {
+  if (!m_program.isValid() || width <= 0.0F || height <= 0.0F) {
     return;
   }
 
   const std::array<GLfloat, 12> vertices = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
 
-  const float padding = std::max(style.borderWidth + style.softness + 2.0f, 2.0f);
-  const float quadWidth = width + padding * 2.0f;
-  const float quadHeight = height + padding * 2.0f;
+  const float padding = std::max(style.borderWidth + style.softness + 2.0F, 2.0F);
+  const float quadWidth = width + padding * 2.0F;
+  const float quadHeight = height + padding * 2.0F;
   const float rectOrigin = padding;
   const Mat3 quadTransform = transform * Mat3::translation(-padding, -padding);
 
@@ -544,8 +544,8 @@ void RectProgram::draw(
   }
   glUniform1i(m_fillModeLocation, fillMode);
   glUniform2f(
-      m_gradientDirectionLocation, style.gradientDirection == GradientDirection::Horizontal ? 1.0f : 0.0f,
-      style.gradientDirection == GradientDirection::Vertical ? 1.0f : 0.0f
+      m_gradientDirectionLocation, style.gradientDirection == GradientDirection::Horizontal ? 1.0F : 0.0F,
+      style.gradientDirection == GradientDirection::Vertical ? 1.0F : 0.0F
   );
   const auto& stop0 = style.gradientStops[0];
   const auto& stop1 = style.gradientStops[1];
@@ -556,7 +556,7 @@ void RectProgram::draw(
   glUniform4f(m_gradientColor1Location, stop1.color.r, stop1.color.g, stop1.color.b, stop1.color.a);
   glUniform4f(m_gradientColor2Location, stop2.color.r, stop2.color.g, stop2.color.b, stop2.color.a);
   glUniform4f(m_gradientColor3Location, stop3.color.r, stop3.color.g, stop3.color.b, stop3.color.a);
-  const auto cornerShapeValue = [](CornerShape shape) { return shape == CornerShape::Concave ? 1.0f : 0.0f; };
+  const auto cornerShapeValue = [](CornerShape shape) { return shape == CornerShape::Concave ? 1.0F : 0.0F; };
   glUniform4f(
       m_cornerShapesLocation, cornerShapeValue(style.corners.tl), cornerShapeValue(style.corners.tr),
       cornerShapeValue(style.corners.br), cornerShapeValue(style.corners.bl)

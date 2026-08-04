@@ -370,6 +370,8 @@ foreach _p : [
     'protocols/wlr-gamma-control-unstable-v1.xml'],
   ['wlr-screencopy-unstable-v1',
     'protocols/wlr-screencopy-unstable-v1.xml'],
+  ['wlr-output-management-unstable-v1',
+    'protocols/wlr-output-management-unstable-v1.xml'],
 ]
   _name = _p[0]
   _xml  = _p[1]
@@ -1138,6 +1140,7 @@ if build_tests
     'kde_color_scheme',
     'log',
     'math_provider',
+    'monitor_selector',
     'notification_filter',
     'notification_history_utf8',
     'path_browse',

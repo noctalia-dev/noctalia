@@ -144,7 +144,7 @@ protected:
   //
   // Optional (defaulted):
   //   computePadding   : padding around the content node, in logical px.
-  //                      Default is `uiScale * 12.0f`. FileDialog overrides
+  //                      Default is `uiScale * 12.0F`. FileDialog overrides
   //                      to derive from `m_dialog->hasDecoration()` and
   //                      `m_dialog->contentScale()`.
   //   runUpdatePhase   : hook for the prepareFrame Update phase. Default
@@ -164,7 +164,7 @@ protected:
   virtual void cancelToFacade() = 0;
   [[nodiscard]] virtual InputArea* initialFocusArea() = 0;
 
-  [[nodiscard]] virtual float computePadding(float scale) const { return scale * 12.0f; }
+  [[nodiscard]] virtual float computePadding(float scale) const { return scale * 12.0F; }
   virtual void runUpdatePhase() {}
   [[nodiscard]] virtual bool preDispatchKeyboard(const KeyboardEvent& /*event*/) { return false; }
   virtual void onSheetClose() {}

@@ -65,12 +65,12 @@ private:
   InputArea* m_focusArea = nullptr;
   std::size_t m_selected = 0;
   std::function<void(std::size_t)> m_onChange;
-  float m_fontSize = 0.0f;
-  float m_scale = 1.0f;
+  float m_fontSize = 0.0F;
+  float m_scale = 1.0F;
   bool m_equalSegmentWidths = false;
   bool m_compact = false;
-  float m_outerPadding = 0.0f;
-  float m_surfaceOpacity = 1.0f;
+  float m_outerPadding = 0.0F;
+  float m_surfaceOpacity = 1.0F;
   ColorRole m_surfaceRole = ColorRole::SurfaceVariant;
   bool m_enabled = true;
 };

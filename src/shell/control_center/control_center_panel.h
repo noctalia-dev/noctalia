@@ -88,7 +88,7 @@ public:
   [[nodiscard]] bool deferExternalRefresh() const override;
   [[nodiscard]] bool deferPointerRelayout() const override;
   [[nodiscard]] float preferredWidth() const override;
-  [[nodiscard]] float preferredHeight() const override { return scaled(520.0f); }
+  [[nodiscard]] float preferredHeight() const override { return scaled(520.0F); }
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
 
 private:
@@ -153,6 +153,7 @@ private:
   void syncTabVisibility();
   [[nodiscard]] bool isTabFeatureAvailable(TabId tab) const;
   [[nodiscard]] bool isTabVisible(TabId tab) const;
+  [[nodiscard]] bool isTabShown(TabId tab) const;
   [[nodiscard]] static std::string_view tabKey(TabId tab);
   [[nodiscard]] TabId firstVisibleTab() const;
   [[nodiscard]] TabId tabFromContext(std::string_view context) const;
@@ -181,6 +182,7 @@ private:
   std::array<Flex*, kTabCount> m_tabContainers{};
   std::array<Flex*, kTabCount> m_tabHeaderActions{};
   TabId m_activeTab = TabId::Home;
+  bool m_activeTabForced = false;
   ConfigService* m_config = nullptr;
   MprisService* m_mpris = nullptr;
   NotificationManager* m_notificationManager = nullptr;
@@ -192,7 +194,7 @@ private:
   std::chrono::steady_clock::time_point m_lastMprisRefreshAt;
   AnimationManager::Id m_tabTransitionAnimId = 0;
   TabId m_tabTransitionOutgoing = TabId::Home;
-  float m_tabTransitionProgress = 1.0f;
+  float m_tabTransitionProgress = 1.0F;
   int m_tabTransitionDirection = 1;
   bool m_tabTransitionActive = false;
   bool m_firstOpenAfterCreate = false;

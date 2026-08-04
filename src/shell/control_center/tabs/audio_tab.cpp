@@ -40,7 +40,7 @@ namespace {
 
   constexpr float kValueLabelWidth = Style::controlHeightLg + Style::spaceLg;
   constexpr Logger kLogProgramUi{"audio_tab"};
-  constexpr float kVolumeSyncEpsilon = 0.005f; // 0.5%
+  constexpr float kVolumeSyncEpsilon = 0.005F; // 0.5%
   constexpr auto kVolumeCommitInterval = std::chrono::milliseconds(16);
 
   // Used to resolve application icons in AudioTab.
@@ -886,7 +886,7 @@ namespace {
               .color = colorSpecFromRole(ColorRole::OnSurface),
               .maxLines = 1,
               .ellipsize = TextEllipsize::Middle,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
           })
       );
 
@@ -922,13 +922,13 @@ namespace {
 
       m_radio->layout(renderer);
 
-      const float textMaxWidth = std::max(0.0f, width() - paddingLeft() - paddingRight() - gap() - m_radio->width());
+      const float textMaxWidth = std::max(0.0F, width() - paddingLeft() - paddingRight() - gap() - m_radio->width());
       m_title->setMaxWidth(textMaxWidth);
 
       m_inputArea->setVisible(false);
       Flex::doLayout(renderer);
       m_inputArea->setVisible(true);
-      m_inputArea->setPosition(0.0f, 0.0f);
+      m_inputArea->setPosition(0.0F, 0.0F);
       m_inputArea->setSize(width(), height());
 
       applyState();
@@ -991,8 +991,8 @@ namespace {
       setFill(colorSpecFromRole(ColorRole::Surface));
       clearBorder();
 
-      constexpr float kIconSizeSm = 28.0f;
-      constexpr float kCompactSliderControlHeight = 20.0f;
+      constexpr float kIconSizeSm = 28.0F;
+      constexpr float kCompactSliderControlHeight = 20.0F;
       m_iconSize = kIconSizeSm * scale;
       m_iconContentGap = Style::spaceSm * scale;
       m_valueLabelMinWidth = kValueLabelWidth * scale;
@@ -1002,7 +1002,7 @@ namespace {
               {
                   .align = FlexAlign::Center,
                   .gap = m_iconContentGap,
-                  .flexGrow = 1.0f,
+                  .flexGrow = 1.0F,
               },
               ui::image({
                   .out = &m_icon,
@@ -1016,20 +1016,20 @@ namespace {
                   {
                       .align = FlexAlign::Stretch,
                       .justify = FlexJustify::Center,
-                      .gap = 0.0f,
-                      .flexGrow = 1.0f,
+                      .gap = 0.0F,
+                      .flexGrow = 1.0F,
                   },
                   ui::row(
                       {
                           .align = FlexAlign::Center,
                           .gap = Style::spaceSm * scale,
-                          .flexGrow = 0.0f,
+                          .flexGrow = 0.0F,
                       },
                       ui::row(
                           {
                               .align = FlexAlign::Center,
                               .gap = Style::spaceXs * scale,
-                              .flexGrow = 1.0f,
+                              .flexGrow = 1.0F,
                           },
                           ui::label({
                               .out = &m_appNameLabel,
@@ -1057,14 +1057,14 @@ namespace {
                   ),
                   ui::slider({
                       .out = &m_slider,
-                      .minValue = 0.0f,
+                      .minValue = 0.0F,
                       .maxValue = sliderMax,
-                      .step = 0.01f,
+                      .step = 0.01F,
                       .trackHeight = Style::sliderTrackHeight * scale,
                       .thumbSize = Style::sliderThumbSize * scale,
                       .controlHeight = kCompactSliderControlHeight * scale,
                       .wheelAdjustEnabled = true,
-                      .flexGrow = 1.0f,
+                      .flexGrow = 1.0F,
                       .onValueChanged =
                           [this](double value) {
                             if (m_syncing || m_audio == nullptr) {
@@ -1147,7 +1147,7 @@ namespace {
       if (m_appNameLabel != nullptr) {
         const float rowWidth = width();
         const float textMax = std::max(
-            80.0f * m_scale,
+            80.0F * m_scale,
             rowWidth
                 - paddingLeft()
                 - paddingRight()
@@ -1159,14 +1159,14 @@ namespace {
                 - gap()
         );
         const bool showSubtitle = m_subtitleLabel != nullptr && m_subtitleLabel->visible();
-        const float titleGap = showSubtitle ? Style::spaceXs * m_scale : 0.0f;
-        const float titleBudget = std::max(0.0f, textMax - titleGap);
-        float appMax = showSubtitle ? std::max(44.0f * m_scale, titleBudget * 0.68f) : textMax;
-        float subtitleMax = showSubtitle ? std::max(0.0f, titleBudget - appMax) : textMax;
-        const float subtitleMin = 36.0f * m_scale;
+        const float titleGap = showSubtitle ? Style::spaceXs * m_scale : 0.0F;
+        const float titleBudget = std::max(0.0F, textMax - titleGap);
+        float appMax = showSubtitle ? std::max(44.0F * m_scale, titleBudget * 0.68F) : textMax;
+        float subtitleMax = showSubtitle ? std::max(0.0F, titleBudget - appMax) : textMax;
+        const float subtitleMin = 36.0F * m_scale;
         if (showSubtitle && subtitleMax < subtitleMin) {
-          subtitleMax = std::min(subtitleMin, titleBudget * 0.45f);
-          appMax = std::max(0.0f, titleBudget - subtitleMax);
+          subtitleMax = std::min(subtitleMin, titleBudget * 0.45F);
+          appMax = std::max(0.0F, titleBudget - subtitleMax);
         }
         m_appNameLabel->setMaxWidth(appMax);
         if (m_subtitleLabel != nullptr) {
@@ -1219,12 +1219,12 @@ namespace {
         m_subtitleLabel->setText("");
       }
 
-      const float clampedVolume = std::clamp(node.volume, 0.0f, sliderMax);
+      const float clampedVolume = std::clamp(node.volume, 0.0F, sliderMax);
       const bool shouldSetSlider = nodeEnabled && m_slider != nullptr && !m_slider->dragging() && !m_syncing;
       if (m_slider != nullptr) {
-        if (std::abs(m_sliderMax - sliderMax) >= 0.0001f) {
+        if (std::abs(m_sliderMax - sliderMax) >= 0.0001F) {
           m_sliderMax = sliderMax;
-          m_slider->setRange(0.0f, sliderMax);
+          m_slider->setRange(0.0F, sliderMax);
         }
         m_slider->setEnabled(nodeEnabled);
       }
@@ -1243,7 +1243,7 @@ namespace {
         }
         m_syncing = false;
         if (m_valueLabel != nullptr) {
-          const std::string nextValue = std::to_string(static_cast<int>(std::round(clampedVolume * 100.0f))) + "%";
+          const std::string nextValue = std::to_string(static_cast<int>(std::round(clampedVolume * 100.0F))) + "%";
           if (m_valueLabel->text() != nextValue) {
             m_valueLabel->setText(nextValue);
           }
@@ -1330,10 +1330,10 @@ namespace {
     std::uint32_t m_id = 0;
 
     Image* m_icon = nullptr;
-    float m_iconSize = 0.0f;
-    float m_scale = 1.0f;
-    float m_iconContentGap = 0.0f;
-    float m_valueLabelMinWidth = 0.0f;
+    float m_iconSize = 0.0F;
+    float m_scale = 1.0F;
+    float m_iconContentGap = 0.0F;
+    float m_valueLabelMinWidth = 0.0F;
     Label* m_appNameLabel = nullptr;
     Label* m_subtitleLabel = nullptr;
 
@@ -1350,7 +1350,7 @@ namespace {
 
     bool m_syncing = false;
     bool m_muted = false;
-    float m_sliderMax = 1.0f;
+    float m_sliderMax = 1.0F;
 
     std::function<void(float)> m_onQueueVolume;
     std::function<void()> m_onCommitVolume;
@@ -1416,7 +1416,7 @@ namespace {
   }
 
   std::string widestPercentLabel(float sliderMaxValue) {
-    const std::size_t digits = std::to_string(static_cast<int>(std::round(std::max(0.0f, sliderMaxValue)))).size();
+    const std::size_t digits = std::to_string(static_cast<int>(std::round(std::max(0.0F, sliderMaxValue)))).size();
     return std::string(std::max<std::size_t>(1, digits), '8') + "%";
   }
 
@@ -1459,15 +1459,15 @@ void AudioTab::openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel
     return;
   }
 
-  float anchorAbsX = 0.0f;
-  float anchorAbsY = 0.0f;
+  float anchorAbsX = 0.0F;
+  float anchorAbsY = 0.0F;
   Node::absolutePosition(card.menuAnchor, anchorAbsX, anchorAbsY);
 
   // Size the popup to its entries: at least the old card-bound width, but free to grow past the
   // half-width card so long device names stay readable.
   const float scale = contentScale();
-  const float minMenuWidth = std::min(280.0f * scale, card.menuAnchor->width());
-  const float maxMenuWidth = 420.0f * scale;
+  const float minMenuWidth = std::min(280.0F * scale, card.menuAnchor->width());
+  const float maxMenuWidth = 420.0F * scale;
 
   if (m_config != nullptr) {
     m_deviceMenuPopup->setShadowConfig(m_config->config().shell.shadow);
@@ -1541,11 +1541,11 @@ bool AudioTab::dismissTransientUi() {
 
 std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card) {
   const float scale = contentScale();
-  const float sliderMax = sliderMaxPercent() / 100.0f;
+  const float sliderMax = sliderMaxPercent() / 100.0F;
 
   return ui::column(
       {
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
           .configure =
               [scale, opacity = panelCardOpacity()](Flex& column) {
                 applySectionCardStyle(column, scale, opacity);
@@ -1563,8 +1563,8 @@ std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card
               {
                   .align = FlexAlign::Stretch,
                   .justify = FlexJustify::Center,
-                  .gap = 0.0f,
-                  .flexGrow = 1.0f,
+                  .gap = 0.0F,
+                  .flexGrow = 1.0F,
               },
               ui::label({
                   .text = i18n::tr(card.devicePrefixKey),
@@ -1580,7 +1580,7 @@ std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card
                   .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
                   .maxLines = 1,
                   .ellipsize = TextEllipsize::Middle,
-                  .flexGrow = 1.0f,
+                  .flexGrow = 1.0F,
               })
           ),
           ui::button({
@@ -1615,14 +1615,14 @@ std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card
           },
           ui::slider({
               .out = &card.state.slider,
-              .minValue = 0.0f,
+              .minValue = 0.0F,
               .maxValue = sliderMax,
-              .step = 0.01f,
+              .step = 0.01F,
               .trackHeight = Style::sliderTrackHeight * scale,
               .thumbSize = Style::sliderThumbSize * scale,
               .controlHeight = Style::controlHeight * scale,
               .wheelAdjustEnabled = true,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
               .onValueChanged =
                   [this, state = &card.state, queueVolume = card.queueVolume](double value) {
                     if (state->syncing || m_audio == nullptr) {
@@ -1632,7 +1632,7 @@ std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card
                     queueVolume(static_cast<float>(value));
                     flushPendingVolumes();
                     if (state->valueLabel != nullptr) {
-                      state->valueLabel->setText(std::format("{:.0f}%", value * 100.0f));
+                      state->valueLabel->setText(std::format("{:.0F}%", value * 100.0F));
                     }
                   },
               .onDragEnd =
@@ -1698,7 +1698,7 @@ std::unique_ptr<Flex> AudioTab::createDeviceVolumeCard(DeviceVolumeCardSpec card
               .enabled = false,
               .surfaceOpacity = panelCardOpacity(),
               .height = Style::controlHeightSm * scale,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
           })
       )
   );
@@ -1718,7 +1718,7 @@ std::unique_ptr<Flex> AudioTab::create() {
               .align = FlexAlign::Stretch,
               .gap = Style::spaceMd * scale,
               // Keep volume cards at natural content height.
-              .flexGrow = 0.0f,
+              .flexGrow = 0.0F,
           },
           createDeviceVolumeCard({
               .state = m_outputDeviceVolume,
@@ -1735,7 +1735,7 @@ std::unique_ptr<Flex> AudioTab::create() {
                   [this](float value) {
                     const AudioNode* sink = m_audio != nullptr ? m_audio->defaultSink() : nullptr;
                     m_pendingSinkId = sink != nullptr ? sink->id : 0;
-                    m_pendingSinkVolume = std::clamp(value, 0.0f, sliderMaxPercent() / 100.0f);
+                    m_pendingSinkVolume = std::clamp(value, 0.0F, sliderMaxPercent() / 100.0F);
                   },
               .toggleMute =
                   [this]() {
@@ -1763,7 +1763,7 @@ std::unique_ptr<Flex> AudioTab::create() {
                   [this](float value) {
                     const AudioNode* source = m_audio != nullptr ? m_audio->defaultSource() : nullptr;
                     m_pendingSourceId = source != nullptr ? source->id : 0;
-                    m_pendingSourceVolume = std::clamp(value, 0.0f, sliderMaxPercent() / 100.0f);
+                    m_pendingSourceVolume = std::clamp(value, 0.0F, sliderMaxPercent() / 100.0F);
                   },
               .toggleMute =
                   [this]() {
@@ -1781,7 +1781,7 @@ std::unique_ptr<Flex> AudioTab::create() {
 
   auto programCard = ui::column({
       .out = &m_programCard,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
       .configure = [scale, opacity = panelCardOpacity()](Flex& card) { applySectionCardStyle(card, scale, opacity); },
   });
   addTitle(*programCard, i18n::tr("control-center.audio.application-volumes"), scale);
@@ -1789,9 +1789,9 @@ std::unique_ptr<Flex> AudioTab::create() {
   auto programScroll = ui::scrollView({
       .out = &m_programScroll,
       .scrollbarVisible = true,
-      .viewportPaddingH = 0.0f,
-      .viewportPaddingV = 0.0f,
-      .flexGrow = 1.0f,
+      .viewportPaddingH = 0.0F,
+      .viewportPaddingV = 0.0F,
+      .flexGrow = 1.0F,
       .configure = [](ScrollView& scroll) {
         scroll.clearFill();
         scroll.clearBorder();
@@ -1851,15 +1851,15 @@ void AudioTab::doUpdate(Renderer& renderer) {
 
   syncProgramVolumeRows();
 
-  const float sliderMax = sliderMaxPercent() / 100.0f;
+  const float sliderMax = sliderMaxPercent() / 100.0F;
   if (m_outputDeviceVolume.slider != nullptr) {
     m_outputDeviceVolume.syncing = true;
-    m_outputDeviceVolume.slider->setRange(0.0f, sliderMax);
+    m_outputDeviceVolume.slider->setRange(0.0F, sliderMax);
     m_outputDeviceVolume.syncing = false;
   }
   if (m_inputDeviceVolume.slider != nullptr) {
     m_inputDeviceVolume.syncing = true;
-    m_inputDeviceVolume.slider->setRange(0.0f, sliderMax);
+    m_inputDeviceVolume.slider->setRange(0.0F, sliderMax);
     m_inputDeviceVolume.syncing = false;
   }
 
@@ -1888,13 +1888,13 @@ void AudioTab::doUpdate(Renderer& renderer) {
     }
   }
 
-  const float sinkVolume = sink != nullptr ? sink->volume : 0.0f;
-  const float sourceVolume = source != nullptr ? source->volume : 0.0f;
-  const bool showPendingSink = sink != nullptr && m_pendingSinkVolume >= 0.0f && m_pendingSinkId == sink->id;
-  const bool showPendingSource = source != nullptr && m_pendingSourceVolume >= 0.0f && m_pendingSourceId == source->id;
-  const float displayedSinkVolume = std::clamp(showPendingSink ? m_pendingSinkVolume : sinkVolume, 0.0f, sliderMax);
+  const float sinkVolume = sink != nullptr ? sink->volume : 0.0F;
+  const float sourceVolume = source != nullptr ? source->volume : 0.0F;
+  const bool showPendingSink = sink != nullptr && m_pendingSinkVolume >= 0.0F && m_pendingSinkId == sink->id;
+  const bool showPendingSource = source != nullptr && m_pendingSourceVolume >= 0.0F && m_pendingSourceId == source->id;
+  const float displayedSinkVolume = std::clamp(showPendingSink ? m_pendingSinkVolume : sinkVolume, 0.0F, sliderMax);
   const float displayedSourceVolume =
-      std::clamp(showPendingSource ? m_pendingSourceVolume : sourceVolume, 0.0f, sliderMax);
+      std::clamp(showPendingSource ? m_pendingSourceVolume : sourceVolume, 0.0F, sliderMax);
 
   if (m_outputDeviceVolume.slider != nullptr) {
     m_outputDeviceVolume.slider->setEnabled(sink != nullptr);
@@ -1904,7 +1904,7 @@ void AudioTab::doUpdate(Renderer& renderer) {
       m_outputDeviceVolume.slider->setValue(displayedSinkVolume);
       m_outputDeviceVolume.syncing = false;
       if (m_outputDeviceVolume.valueLabel != nullptr) {
-        m_outputDeviceVolume.valueLabel->setText(std::format("{:.0f}%", displayedSinkVolume * 100.0f));
+        m_outputDeviceVolume.valueLabel->setText(std::format("{:.0F}%", displayedSinkVolume * 100.0F));
       }
       m_lastSinkVolume = displayedSinkVolume;
     }
@@ -1924,7 +1924,7 @@ void AudioTab::doUpdate(Renderer& renderer) {
       m_inputDeviceVolume.slider->setValue(displayedSourceVolume);
       m_inputDeviceVolume.syncing = false;
       if (m_inputDeviceVolume.valueLabel != nullptr) {
-        m_inputDeviceVolume.valueLabel->setText(std::format("{:.0f}%", displayedSourceVolume * 100.0f));
+        m_inputDeviceVolume.valueLabel->setText(std::format("{:.0F}%", displayedSourceVolume * 100.0F));
       }
       m_lastSourceVolume = displayedSourceVolume;
     }
@@ -1954,8 +1954,8 @@ void AudioTab::onClose() {
   m_outputDeviceVolume = {};
   m_inputDeviceVolume = {};
   m_lastEffectsProfileListKey.clear();
-  m_lastOutputWidth = -1.0f;
-  m_lastInputWidth = -1.0f;
+  m_lastOutputWidth = -1.0F;
+  m_lastInputWidth = -1.0F;
   m_lastOutputListKey.clear();
   m_lastInputListKey.clear();
   m_programCard = nullptr;
@@ -1963,9 +1963,9 @@ void AudioTab::onClose() {
   m_programList = nullptr;
   m_programRows.clear();
   m_lastProgramListKey.clear();
-  m_lastProgramSliderMax = -1.0f;
-  m_syncedPercentLabelMinWidth = -1.0f;
-  m_lastSyncedPercentLabelSliderMax = -1.0f;
+  m_lastProgramSliderMax = -1.0F;
+  m_syncedPercentLabelMinWidth = -1.0F;
+  m_lastSyncedPercentLabelSliderMax = -1.0F;
   if (m_deviceMenuPopup != nullptr) {
     PanelManager::instance().clearActivePopup();
     m_deviceMenuPopup->close();
@@ -1973,14 +1973,14 @@ void AudioTab::onClose() {
   m_openDeviceMenuCard = nullptr;
   m_pendingSinkId = 0;
   m_pendingSourceId = 0;
-  m_lastSinkVolume = -1.0f;
-  m_lastSourceVolume = -1.0f;
-  m_pendingSinkVolume = -1.0f;
-  m_pendingSourceVolume = -1.0f;
+  m_lastSinkVolume = -1.0F;
+  m_lastSourceVolume = -1.0F;
+  m_pendingSinkVolume = -1.0F;
+  m_pendingSourceVolume = -1.0F;
   m_pendingProgramSinkId = 0;
-  m_pendingProgramSinkVolume = -1.0f;
-  m_lastSentSinkVolume = -1.0f;
-  m_lastSentSourceVolume = -1.0f;
+  m_pendingProgramSinkVolume = -1.0F;
+  m_lastSentSinkVolume = -1.0F;
+  m_lastSentSourceVolume = -1.0F;
   m_lastSinkCommitAt = {};
   m_lastSourceCommitAt = {};
 }
@@ -2069,7 +2069,7 @@ void AudioTab::rebuildProgramVolumes(Renderer& renderer) {
   }
 
   const float scale = contentScale();
-  const float sliderMax = sliderMaxPercent() / 100.0f;
+  const float sliderMax = sliderMaxPercent() / 100.0F;
   const float sliderMaxAbs = std::abs(sliderMax - m_lastProgramSliderMax);
   const std::vector<MprisPlayerInfo> players = allMprisPlayers(m_mpris);
 
@@ -2093,7 +2093,7 @@ void AudioTab::rebuildProgramVolumes(Renderer& renderer) {
   const std::string nextKey =
       (m_audio != nullptr ? identityKey(m_audio->state().programOutputs) : std::string{"unavailable_program_outputs"});
 
-  if (m_audio != nullptr && nextKey == m_lastProgramListKey && sliderMaxAbs < 0.0001f) {
+  if (m_audio != nullptr && nextKey == m_lastProgramListKey && sliderMaxAbs < 0.0001F) {
     return;
   }
 
@@ -2145,7 +2145,7 @@ void AudioTab::syncProgramVolumeRows() {
   }
 
   const AudioState& state = m_audio->state();
-  const float sliderMax = sliderMaxPercent() / 100.0f;
+  const float sliderMax = sliderMaxPercent() / 100.0F;
   const std::vector<MprisPlayerInfo> players = allMprisPlayers(m_mpris);
 
   std::unordered_map<std::uint32_t, const AudioNode*> outputsById;
@@ -2173,9 +2173,9 @@ void AudioTab::queueProgramSinkVolume(std::uint32_t id, float value) {
     return;
   }
 
-  const float sliderMax = sliderMaxPercent() / 100.0f;
+  const float sliderMax = sliderMaxPercent() / 100.0F;
   m_pendingProgramSinkId = id;
-  m_pendingProgramSinkVolume = std::clamp(value, 0.0f, sliderMax);
+  m_pendingProgramSinkVolume = std::clamp(value, 0.0F, sliderMax);
 
   m_programSinkDebounceTimer.stop();
   m_programSinkDebounceTimer.start(kVolumeCommitInterval, [this]() { flushPendingProgramVolumes(false); });
@@ -2185,20 +2185,20 @@ void AudioTab::flushPendingProgramVolumes(bool) {
   if (m_audio == nullptr) {
     m_programSinkDebounceTimer.stop();
     m_pendingProgramSinkId = 0;
-    m_pendingProgramSinkVolume = -1.0f;
+    m_pendingProgramSinkVolume = -1.0F;
     return;
   }
 
-  const float sliderMax = sliderMaxPercent() / 100.0f;
+  const float sliderMax = sliderMaxPercent() / 100.0F;
 
-  if (m_pendingProgramSinkVolume >= 0.0f && m_pendingProgramSinkId != 0) {
+  if (m_pendingProgramSinkVolume >= 0.0F && m_pendingProgramSinkId != 0) {
     const auto sinkId = m_pendingProgramSinkId;
-    const float volume = std::clamp(m_pendingProgramSinkVolume, 0.0f, sliderMax);
+    const float volume = std::clamp(m_pendingProgramSinkVolume, 0.0F, sliderMax);
     m_audio->setProgramOutputVolume(sinkId, volume);
   }
   m_programSinkDebounceTimer.stop();
   m_pendingProgramSinkId = 0;
-  m_pendingProgramSinkVolume = -1.0f;
+  m_pendingProgramSinkVolume = -1.0F;
 }
 
 void AudioTab::rebuildLists(Renderer& renderer) {
@@ -2210,7 +2210,7 @@ void AudioTab::rebuildLists(Renderer& renderer) {
   const float outputWidth = m_outputScroll->contentViewportWidth();
   const float inputWidth = m_inputScroll->contentViewportWidth();
 
-  if (outputWidth <= 0.0f || inputWidth <= 0.0f) {
+  if (outputWidth <= 0.0F || inputWidth <= 0.0F) {
     return;
   }
 
@@ -2308,7 +2308,7 @@ void AudioTab::rebuildLists(Renderer& renderer) {
 
 void AudioTab::syncValueLabelWidths(Renderer& renderer) {
   const float sliderMax = sliderMaxPercent();
-  if (m_syncedPercentLabelMinWidth < 0.0f || std::abs(sliderMax - m_lastSyncedPercentLabelSliderMax) >= 0.0001f) {
+  if (m_syncedPercentLabelMinWidth < 0.0F || std::abs(sliderMax - m_lastSyncedPercentLabelSliderMax) >= 0.0001F) {
     const std::string sampleLabel = widestPercentLabel(sliderMax);
     const TextMetrics metrics =
         renderer.measureText(sampleLabel, Style::fontSizeBody * contentScale(), FontWeight::Bold);
@@ -2331,7 +2331,7 @@ void AudioTab::syncValueLabelWidths(Renderer& renderer) {
 }
 
 float AudioTab::sliderMaxPercent() const {
-  return (m_config != nullptr && m_config->config().audio.enableOverdrive) ? 150.0f : 100.0f;
+  return (m_config != nullptr && m_config->config().audio.enableOverdrive) ? 150.0F : 100.0F;
 }
 
 void AudioTab::flushPendingVolumes(bool force) {
@@ -2340,29 +2340,29 @@ void AudioTab::flushPendingVolumes(bool force) {
     m_inputDeviceVolume.volumeDebounceTimer.stop();
     m_pendingSinkId = 0;
     m_pendingSourceId = 0;
-    m_pendingSinkVolume = -1.0f;
-    m_pendingSourceVolume = -1.0f;
+    m_pendingSinkVolume = -1.0F;
+    m_pendingSourceVolume = -1.0F;
     return;
   }
 
-  const float sliderMax = sliderMaxPercent() / 100.0f;
+  const float sliderMax = sliderMaxPercent() / 100.0F;
   const bool outputDragging = m_outputDeviceVolume.slider != nullptr && m_outputDeviceVolume.slider->dragging();
   const bool inputDragging = m_inputDeviceVolume.slider != nullptr && m_inputDeviceVolume.slider->dragging();
   const auto now = std::chrono::steady_clock::now();
 
-  if (m_pendingSinkVolume >= 0.0f) {
-    m_pendingSinkVolume = std::clamp(m_pendingSinkVolume, 0.0f, sliderMax);
+  if (m_pendingSinkVolume >= 0.0F) {
+    m_pendingSinkVolume = std::clamp(m_pendingSinkVolume, 0.0F, sliderMax);
   }
-  if (m_pendingSourceVolume >= 0.0f) {
-    m_pendingSourceVolume = std::clamp(m_pendingSourceVolume, 0.0f, sliderMax);
+  if (m_pendingSourceVolume >= 0.0F) {
+    m_pendingSourceVolume = std::clamp(m_pendingSourceVolume, 0.0F, sliderMax);
   }
 
-  if (m_pendingSinkVolume >= 0.0f) {
+  if (m_pendingSinkVolume >= 0.0F) {
     const std::uint32_t sinkId = m_pendingSinkId;
     bool shouldSendSink = force;
     if (!shouldSendSink && sinkId != 0) {
       const float delta = std::abs(m_pendingSinkVolume - m_lastSentSinkVolume);
-      shouldSendSink = delta >= 0.0001f;
+      shouldSendSink = delta >= 0.0001F;
     }
     if (shouldSendSink && !force && outputDragging) {
       const auto nextSendAt = m_lastSinkCommitAt + kVolumeCommitInterval;
@@ -2381,17 +2381,17 @@ void AudioTab::flushPendingVolumes(bool force) {
     }
     if (force || !outputDragging) {
       m_pendingSinkId = 0;
-      m_pendingSinkVolume = -1.0f;
+      m_pendingSinkVolume = -1.0F;
       m_outputDeviceVolume.volumeDebounceTimer.stop();
     }
   }
 
-  if (m_pendingSourceVolume >= 0.0f) {
+  if (m_pendingSourceVolume >= 0.0F) {
     const std::uint32_t sourceId = m_pendingSourceId;
     bool shouldSendSource = force;
     if (!shouldSendSource && sourceId != 0) {
       const float delta = std::abs(m_pendingSourceVolume - m_lastSentSourceVolume);
-      shouldSendSource = delta >= 0.0001f;
+      shouldSendSource = delta >= 0.0001F;
     }
     if (shouldSendSource && !force && inputDragging) {
       const auto nextSendAt = m_lastSourceCommitAt + kVolumeCommitInterval;
@@ -2410,7 +2410,7 @@ void AudioTab::flushPendingVolumes(bool force) {
     }
     if (force || !inputDragging) {
       m_pendingSourceId = 0;
-      m_pendingSourceVolume = -1.0f;
+      m_pendingSourceVolume = -1.0F;
       m_inputDeviceVolume.volumeDebounceTimer.stop();
     }
   }

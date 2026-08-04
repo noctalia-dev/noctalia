@@ -15,15 +15,15 @@ enum class WallpaperSourceKind : std::uint8_t {
 };
 
 struct TransitionParams {
-  float direction = 0.0f;     // wipe: 0=left, 1=right, 2=up, 3=down
-  float centerX = 0.5f;       // disc, honeycomb
-  float centerY = 0.5f;       // disc, honeycomb
-  float stripeCount = 12.0f;  // stripes
-  float angle = 30.0f;        // stripes (degrees)
-  float maxBlockSize = 64.0f; // pixelate
-  float cellSize = 0.04f;     // honeycomb
-  float smoothness = 0.5f;    // wipe, disc, stripes
-  float aspectRatio = 1.777f; // disc, stripes, honeycomb (computed at render time)
+  float direction = 0.0F;     // wipe: 0=left, 1=right, 2=up, 3=down
+  float centerX = 0.5F;       // disc, honeycomb
+  float centerY = 0.5F;       // disc, honeycomb
+  float stripeCount = 12.0F;  // stripes
+  float angle = 30.0F;        // stripes (degrees)
+  float maxBlockSize = 64.0F; // pixelate
+  float cellSize = 0.04F;     // honeycomb
+  float smoothness = 0.5F;    // wipe, disc, stripes
+  float aspectRatio = 1.777F; // disc, stripes, honeycomb (computed at render time)
 };
 
 // Geometry for the Span fill mode: a single wallpaper stretched across the whole
@@ -32,12 +32,12 @@ struct TransitionParams {
 // this output's top-left relative to the desktop bounding-box origin. A zero total
 // size means span geometry is unavailable and the shader falls back to Crop.
 struct WallpaperSpanParams {
-  float offsetX = 0.0f;
-  float offsetY = 0.0f;
-  float monitorWidth = 0.0f;
-  float monitorHeight = 0.0f;
-  float totalWidth = 0.0f;
-  float totalHeight = 0.0f;
+  float offsetX = 0.0F;
+  float offsetY = 0.0F;
+  float monitorWidth = 0.0F;
+  float monitorHeight = 0.0F;
+  float totalWidth = 0.0F;
+  float totalHeight = 0.0F;
 
   bool operator==(const WallpaperSpanParams&) const = default;
 };
@@ -47,9 +47,9 @@ struct WallpaperSpanParams {
 struct WallpaperLayer {
   WallpaperSourceKind kind = WallpaperSourceKind::Image;
   TextureId texture;
-  Color color = rgba(0.0f, 0.0f, 0.0f, 1.0f);
-  float imageWidth = 0.0f;
-  float imageHeight = 0.0f;
+  Color color = rgba(0.0F, 0.0F, 0.0F, 1.0F);
+  float imageWidth = 0.0F;
+  float imageHeight = 0.0F;
 };
 
 // All inputs for a single wallpaper draw: the two cross-faded layers plus
@@ -59,14 +59,14 @@ struct WallpaperDrawParams {
   WallpaperTransition transition{};
   WallpaperLayer from;
   WallpaperLayer to;
-  float surfaceWidth = 0.0f;
-  float surfaceHeight = 0.0f;
-  float quadWidth = 0.0f;
-  float quadHeight = 0.0f;
-  float progress = 0.0f;
-  float fillMode = 0.0f;
+  float surfaceWidth = 0.0F;
+  float surfaceHeight = 0.0F;
+  float quadWidth = 0.0F;
+  float quadHeight = 0.0F;
+  float progress = 0.0F;
+  float fillMode = 0.0F;
   TransitionParams params{};
-  Color fillColor = rgba(0.0f, 0.0f, 0.0f, 1.0f);
+  Color fillColor = rgba(0.0F, 0.0F, 0.0F, 1.0F);
   Mat3 transform = Mat3::identity();
   WallpaperSpanParams span{};
 };

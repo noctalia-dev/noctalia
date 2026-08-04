@@ -52,12 +52,12 @@ inline constexpr std::array<ColorRoleToken, 16> kColorRoleTokens = {{
     {ColorRole::OnHover, "on_hover"},
 }};
 
-[[nodiscard]] constexpr Color clearColor() noexcept { return rgba(0.0f, 0.0f, 0.0f, 0.0f); }
+[[nodiscard]] constexpr Color clearColor() noexcept { return rgba(0.0F, 0.0F, 0.0F, 0.0F); }
 
 struct ColorSpec {
   std::optional<ColorRole> role;
   Color fixed = clearColor();
-  float alpha = 1.0f;
+  float alpha = 1.0F;
 };
 
 constexpr bool operator==(const ColorSpec& a, const ColorSpec& b) noexcept {
@@ -65,7 +65,7 @@ constexpr bool operator==(const ColorSpec& a, const ColorSpec& b) noexcept {
 }
 
 [[nodiscard]] constexpr ColorSpec clearColorSpec() noexcept {
-  return ColorSpec{.role = std::nullopt, .fixed = clearColor(), .alpha = 1.0f};
+  return ColorSpec{.role = std::nullopt, .fixed = clearColor(), .alpha = 1.0F};
 }
 
 struct Palette {
@@ -112,7 +112,7 @@ extern Palette palette;
 [[nodiscard]] Color colorForRole(ColorRole role, float alpha) noexcept;
 [[nodiscard]] std::optional<ColorRole> colorRoleFromToken(std::string_view token);
 [[nodiscard]] std::string_view colorRoleToken(ColorRole role) noexcept;
-[[nodiscard]] ColorSpec colorSpecFromRole(ColorRole role, float alpha = 1.0f) noexcept;
+[[nodiscard]] ColorSpec colorSpecFromRole(ColorRole role, float alpha = 1.0F) noexcept;
 [[nodiscard]] ColorSpec fixedColorSpec(const Color& color) noexcept;
 [[nodiscard]] Color resolveColorSpec(const ColorSpec& color) noexcept;
 [[nodiscard]] bool isLightPalette() noexcept;
@@ -126,7 +126,7 @@ void setPalette(const Palette& p);
   return colorSpecFromRole(ColorRole::Outline, Style::disabledOutlineAlpha);
 }
 [[nodiscard]] inline ColorSpec scrollbarThumbColor() noexcept {
-  return colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.5f);
+  return colorSpecFromRole(ColorRole::OnSurfaceVariant, 0.5F);
 }
 [[nodiscard]] inline ColorSpec focusRingColorSpec() noexcept { return colorSpecFromRole(ColorRole::Secondary); }
 

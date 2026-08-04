@@ -688,7 +688,7 @@ std::filesystem::path WeatherService::stateCacheFilePath() {
   return std::filesystem::path("/tmp") / "noctalia-weather-cache.json";
 }
 
-std::string WeatherService::formatCoordinate(double value) { return std::format("{:.4f}", value); }
+std::string WeatherService::formatCoordinate(double value) { return std::format("{:.4F}", value); }
 
 void WeatherService::loadCache() {
   clearState();

@@ -10,7 +10,7 @@
 struct ShellConfig;
 
 struct AppIconColorizationStyle {
-  Color tint = rgba(1.0f, 1.0f, 1.0f, 1.0f);
+  Color tint = rgba(1.0F, 1.0F, 1.0F, 1.0F);
   bool monochrome = false;
 };
 

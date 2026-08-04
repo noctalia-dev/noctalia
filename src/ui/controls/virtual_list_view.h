@@ -62,7 +62,7 @@ private:
     std::uint64_t key = 0;
     std::uint64_t revision = 0;
     int widthKey = 0;
-    float height = 0.0f;
+    float height = 0.0F;
     bool valid = false;
   };
 
@@ -90,9 +90,9 @@ private:
   std::vector<float> m_itemHeights;
   std::vector<float> m_itemOffsets;
 
-  float m_itemGap = 0.0f;
-  float m_virtualWidth = 0.0f;
-  float m_virtualHeight = 0.0f;
+  float m_itemGap = 0.0F;
+  float m_virtualWidth = 0.0F;
+  float m_virtualHeight = 0.0F;
   std::size_t m_overscanItems = 3;
   std::size_t m_itemCount = 0;
   std::optional<std::size_t> m_hoveredIndex;

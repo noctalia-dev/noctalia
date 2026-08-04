@@ -35,11 +35,11 @@ struct ContextMenuPopupPlacement {
 struct ContextMenuPopupRequest {
   std::vector<ContextMenuControlEntry> entries;
   // <= 0 sizes the menu to its widest entry, clamped to [minMenuWidth, maxMenuWidth] (0 = unbounded).
-  float menuWidth = 0.0f;
-  float minMenuWidth = 0.0f;
-  float maxMenuWidth = 0.0f;
+  float menuWidth = 0.0F;
+  float minMenuWidth = 0.0F;
+  float maxMenuWidth = 0.0F;
   // Scales row heights, fonts, and insets (select-style dropdowns derive this from their font size).
-  float contentScale = 1.0f;
+  float contentScale = 1.0F;
   std::size_t maxVisible = 0;
   // Entry highlighted (and scrolled into view) when the menu opens; out-of-range falls back to the
   // first interactive entry.

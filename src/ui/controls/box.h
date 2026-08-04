@@ -36,7 +36,7 @@ public:
   void setFlatStyle();
   // Section card background. The outline follows the [shell].card_borders
   // toggle unless a caller passes an explicit showBorder.
-  void setCardStyle(float scale = 1.0f, float fillOpacity = 1.0f, bool showBorder = Style::cardBordersEnabled());
+  void setCardStyle(float scale = 1.0F, float fillOpacity = 1.0F, bool showBorder = Style::cardBordersEnabled());
   void setPanelStyle(bool showBorder = true);
   // Dialog background. Dialogs always use an outline to separate them from
   // the same-colored parent surface beneath them.
@@ -53,7 +53,7 @@ private:
   RoundedRectStyle m_style;
   ColorSpec m_fill = clearColorSpec();
   ColorSpec m_border = clearColorSpec();
-  float m_borderWidth = 0.0f;
+  float m_borderWidth = 0.0F;
   bool m_resolveFill = true;
   bool m_resolveBorder = true;
   Signal<>::ScopedConnection m_paletteConn;

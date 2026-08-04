@@ -9,7 +9,7 @@
 
 namespace {
 
-  constexpr float kGapToBarRatio = 0.5f;
+  constexpr float kGapToBarRatio = 0.5F;
 
   constexpr char kVertexShaderSource[] = R"(
 precision highp float;
@@ -48,7 +48,7 @@ void main() {
 )";
 
   Color colorAt(const Color& low, const Color& high, float t) noexcept {
-    t = std::clamp(t, 0.0f, 1.0f);
+    t = std::clamp(t, 0.0F, 1.0F);
     return Color{
         .r = low.r + (high.r - low.r) * t,
         .g = low.g + (high.g - low.g) * t,
@@ -58,7 +58,7 @@ void main() {
   }
 
   void pushVertex(std::vector<GLfloat>& out, float x, float y, const Color& color) {
-    const float alpha = std::clamp(color.a, 0.0f, 1.0f);
+    const float alpha = std::clamp(color.a, 0.0F, 1.0F);
     out.push_back(x);
     out.push_back(y);
     out.push_back(color.r * alpha);
@@ -68,7 +68,7 @@ void main() {
   }
 
   void pushQuad(std::vector<GLfloat>& out, float x0, float y0, float x1, float y1, const Color& color) {
-    if (x1 <= x0 || y1 <= y0 || color.a <= 0.0f) {
+    if (x1 <= x0 || y1 <= y0 || color.a <= 0.0F) {
       return;
     }
     pushVertex(out, x0, y0, color);
@@ -79,7 +79,7 @@ void main() {
     pushVertex(out, x1, y1, color);
   }
 
-  float snapToPixel(float value, float pixelScale) { return std::floor(value * pixelScale + 0.5f) / pixelScale; }
+  float snapToPixel(float value, float pixelScale) { return std::floor(value * pixelScale + 0.5F) / pixelScale; }
 
 } // namespace
 
@@ -124,7 +124,7 @@ void AudioSpectrumProgram::draw(
     float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
     const AudioSpectrumStyle& style, std::span<const float> values, const Mat3& transform
 ) const {
-  if (!m_program.isValid() || width <= 0.0f || height <= 0.0f || values.empty()) {
+  if (!m_program.isValid() || width <= 0.0F || height <= 0.0F || values.empty()) {
     return;
   }
 
@@ -135,27 +135,27 @@ void AudioSpectrumProgram::draw(
   }
 
   const bool horizontal = style.orientation == AudioSpectrumOrientation::Horizontal;
-  const float safePixelScaleX = std::max(0.001f, pixelScaleX);
-  const float safePixelScaleY = std::max(0.001f, pixelScaleY);
+  const float safePixelScaleX = std::max(0.001F, pixelScaleX);
+  const float safePixelScaleY = std::max(0.001F, pixelScaleY);
   const float mainPixelScale = horizontal ? safePixelScaleX : safePixelScaleY;
   const float crossPixelScale = horizontal ? safePixelScaleY : safePixelScaleX;
   const float mainAxisLen = horizontal ? width : height;
   const float crossAxisLen = horizontal ? height : width;
   const int gapCount = std::max(0, barCount - 1);
   const float weightedSlots = static_cast<float>(barCount) + static_cast<float>(gapCount) * kGapToBarRatio;
-  const float devicePixel = 1.0f / mainPixelScale;
+  const float devicePixel = 1.0F / mainPixelScale;
   const bool compactBars = mainAxisLen * mainPixelScale < static_cast<float>(barCount + gapCount);
   const float barThickness = compactBars
       ? mainAxisLen / static_cast<float>(barCount)
       : std::max(
-            devicePixel, std::floor(mainAxisLen / std::max(1.0f, weightedSlots) * mainPixelScale) / mainPixelScale
+            devicePixel, std::floor(mainAxisLen / std::max(1.0F, weightedSlots) * mainPixelScale) / mainPixelScale
         );
   const float gapThickness = compactBars || gapCount == 0
-      ? 0.0f
+      ? 0.0F
       : std::max(devicePixel, std::floor(barThickness * kGapToBarRatio * mainPixelScale) / mainPixelScale);
   const float stride = barThickness + gapThickness;
   const float used = barThickness * static_cast<float>(barCount) + gapThickness * static_cast<float>(gapCount);
-  const float startOffset = std::floor(std::max(0.0f, (mainAxisLen - used) * 0.5f) * mainPixelScale) / mainPixelScale;
+  const float startOffset = std::floor(std::max(0.0F, (mainAxisLen - used) * 0.5F) * mainPixelScale) / mainPixelScale;
 
   m_vertices.clear();
   m_vertices.reserve(static_cast<std::size_t>(barCount) * 6U * 6U);
@@ -163,37 +163,37 @@ void AudioSpectrumProgram::draw(
   for (int i = 0; i < barCount; ++i) {
     const int valueIndex = style.mirrored ? (i < valueCount ? valueCount - 1 - i : i - valueCount) : i;
     const float rawValue = valueIndex >= 0 && valueIndex < valueCount
-        ? std::clamp(values[static_cast<std::size_t>(valueIndex)], 0.0f, 1.0f)
-        : 0.0f;
-    float crossPixels = std::max(1.0f, std::floor(rawValue * crossAxisLen * crossPixelScale + 0.5f));
-    if (style.centered && crossPixels > 1.0f) {
-      crossPixels = std::max(2.0f, std::round(crossPixels * 0.5f) * 2.0f);
+        ? std::clamp(values[static_cast<std::size_t>(valueIndex)], 0.0F, 1.0F)
+        : 0.0F;
+    float crossPixels = std::max(1.0F, std::floor(rawValue * crossAxisLen * crossPixelScale + 0.5F));
+    if (style.centered && crossPixels > 1.0F) {
+      crossPixels = std::max(2.0F, std::round(crossPixels * 0.5F) * 2.0F);
     }
     const float crossSize = crossPixels / crossPixelScale;
 
     float mainStart = compactBars ? startOffset + static_cast<float>(i) * stride
                                   : snapToPixel(startOffset + static_cast<float>(i) * stride, mainPixelScale);
     float mainEnd = mainStart + barThickness;
-    if (mainStart < 0.0f) {
+    if (mainStart < 0.0F) {
       mainEnd -= mainStart;
-      mainStart = 0.0f;
+      mainStart = 0.0F;
     }
     if (mainEnd > mainAxisLen) {
-      mainStart = std::max(0.0f, mainStart - (mainEnd - mainAxisLen));
+      mainStart = std::max(0.0F, mainStart - (mainEnd - mainAxisLen));
       mainEnd = mainAxisLen;
     }
     float crossStart =
-        snapToPixel(style.centered ? (crossAxisLen - crossSize) * 0.5f : crossAxisLen - crossSize, crossPixelScale);
+        snapToPixel(style.centered ? (crossAxisLen - crossSize) * 0.5F : crossAxisLen - crossSize, crossPixelScale);
     float crossEnd = crossStart + crossSize;
-    if (crossStart < 0.0f) {
+    if (crossStart < 0.0F) {
       crossEnd -= crossStart;
-      crossStart = 0.0f;
+      crossStart = 0.0F;
     }
     if (crossEnd > crossAxisLen) {
-      crossStart = std::max(0.0f, crossStart - (crossEnd - crossAxisLen));
+      crossStart = std::max(0.0F, crossStart - (crossEnd - crossAxisLen));
       crossEnd = crossAxisLen;
     }
-    const float t = barCount <= 1 ? 0.0f : static_cast<float>(i) / static_cast<float>(barCount - 1);
+    const float t = barCount <= 1 ? 0.0F : static_cast<float>(i) / static_cast<float>(barCount - 1);
     const Color color = colorAt(style.color1, style.color2, t);
 
     if (horizontal) {
@@ -210,8 +210,8 @@ void AudioSpectrumProgram::draw(
   glUseProgram(m_program.id());
   glUniform2f(m_surfaceSizeLocation, surfaceWidth, surfaceHeight);
   glUniform2f(m_pixelScaleLocation, safePixelScaleX, safePixelScaleY);
-  const bool canSnapToDevice = !compactBars && std::abs(transform.m[1]) < 0.0001f && std::abs(transform.m[3]) < 0.0001f;
-  glUniform1f(m_snapToDeviceLocation, canSnapToDevice ? 1.0f : 0.0f);
+  const bool canSnapToDevice = !compactBars && std::abs(transform.m[1]) < 0.0001F && std::abs(transform.m[3]) < 0.0001F;
+  glUniform1f(m_snapToDeviceLocation, canSnapToDevice ? 1.0F : 0.0F);
   glUniformMatrix3fv(m_transformLocation, 1, GL_FALSE, transform.m.data());
 
   constexpr auto kStride = static_cast<GLsizei>(sizeof(GLfloat) * 6U);

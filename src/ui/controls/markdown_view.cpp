@@ -19,7 +19,7 @@ namespace {
 
   struct MdContext {
     MarkdownView* view = nullptr;
-    float scale = 1.0f;
+    float scale = 1.0F;
     std::string textBuf;
     int headingLevel = 0;
     bool inCodeBlock = false;
@@ -85,7 +85,7 @@ namespace {
       fontSize = Style::fontSizeTitle;
       break;
     case 3:
-      fontSize = Style::fontSizeBody * 1.1f;
+      fontSize = Style::fontSizeBody * 1.1F;
       break;
     default:
       break;
@@ -94,7 +94,7 @@ namespace {
     ctx.view->addChild(
         makeMarkdownLabel(ctx.textBuf, fontSize, ctx.scale, ColorRole::Primary, FontWeight::Bold, true, 1)
     );
-    ctx.view->addChild(ui::separator({.spacing = Style::spaceXs * ctx.scale * 0.5f}));
+    ctx.view->addChild(ui::separator({.spacing = Style::spaceXs * ctx.scale * 0.5F}));
   }
 
   void emitParagraph(MdContext& ctx) {
@@ -118,7 +118,7 @@ namespace {
     auto block = ui::column({
         .align = FlexAlign::Start,
         .padding = pad,
-        .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.5f),
+        .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.5F),
         .radius = Style::scaledRadiusSm(ctx.scale),
         .fillWidth = true,
     });
@@ -161,23 +161,23 @@ namespace {
     if (ctx.tableRows.empty()) {
       return;
     }
-    const float borderWidth = std::max(1.0f, Style::borderWidth * ctx.scale);
+    const float borderWidth = std::max(1.0F, Style::borderWidth * ctx.scale);
     const float paddingH = Style::spaceSm * ctx.scale;
     const float paddingV = Style::spaceXs * ctx.scale;
-    const float characterWidth = Style::fontSizeCaption * ctx.scale * 0.62f;
+    const float characterWidth = Style::fontSizeCaption * ctx.scale * 0.62F;
     std::vector<float> columnWidths;
     columnWidths.reserve(ctx.tableColumnWidths.size());
     for (const std::size_t characters : ctx.tableColumnWidths) {
       columnWidths.push_back(
           std::clamp(
-              static_cast<float>(characters) * characterWidth + paddingH * 2.0f, 88.0f * ctx.scale, 360.0f * ctx.scale
+              static_cast<float>(characters) * characterWidth + paddingH * 2.0F, 88.0F * ctx.scale, 360.0F * ctx.scale
           )
       );
     }
 
     auto scroll = ui::scrollView({
-        .viewportPaddingH = 0.0f,
-        .viewportPaddingV = 0.0f,
+        .viewportPaddingH = 0.0F,
+        .viewportPaddingV = 0.0F,
         .fillWidth = true,
         .configure = [](ScrollView& view) {
           view.setOrientation(ScrollOrientation::Horizontal);
@@ -186,8 +186,8 @@ namespace {
     });
 
     const float totalWidth = std::max(
-        0.0f,
-        std::accumulate(columnWidths.begin(), columnWidths.end(), 0.0f)
+        0.0F,
+        std::accumulate(columnWidths.begin(), columnWidths.end(), 0.0F)
             + borderWidth * static_cast<float>(columnWidths.size() + 1)
     );
     auto table = ui::column({
@@ -206,10 +206,10 @@ namespace {
       const ColorSpec background = isHeader
           ? colorSpecFromRole(ColorRole::SurfaceVariant)
           : (bodyRowIndex % 2 == 0 ? colorSpecFromRole(ColorRole::Surface)
-                                   : colorSpecFromRole(ColorRole::SurfaceVariant, 0.5f));
+                                   : colorSpecFromRole(ColorRole::SurfaceVariant, 0.5F));
       auto row = ui::row({
           .align = FlexAlign::Stretch,
-          .gap = 0.0f,
+          .gap = 0.0F,
           .fill = colorSpecFromRole(ColorRole::Surface),
           .fillWidth = true,
       });
@@ -237,7 +237,7 @@ namespace {
             i < cells.size() ? cells[i] : std::string{}, Style::fontSizeCaption, ctx.scale,
             isHeader ? ColorRole::OnSurfaceVariant : ColorRole::OnSurface,
             isHeader ? FontWeight::Bold : FontWeight::Normal, true, kWrapUnlimited,
-            std::max(0.0f, columnWidths[i] - paddingH * 2.0f)
+            std::max(0.0F, columnWidths[i] - paddingH * 2.0F)
         );
         cell->addChild(std::move(label));
         row->addChild(std::move(cell));
@@ -274,13 +274,13 @@ namespace {
     );
     auto textLabel = makeMarkdownLabel(
         ctx.textBuf, Style::fontSizeBody, ctx.scale, ColorRole::OnSurface, FontWeight::Normal, true, kWrapUnlimited,
-        std::nullopt, 1.0f
+        std::nullopt, 1.0F
     );
     ctx.view->trackWrappableLabel(textLabel.get());
     row->addChild(std::move(textLabel));
     const float indent = Style::spaceMd * ctx.scale * static_cast<float>(ctx.listOrderedStack.size() - 1);
-    if (indent > 0.0f) {
-      row->setPadding(0.0f, 0.0f, 0.0f, indent);
+    if (indent > 0.0F) {
+      row->setPadding(0.0F, 0.0F, 0.0F, indent);
     }
     ctx.view->addChild(std::move(row));
   }
@@ -539,10 +539,10 @@ LayoutSize MarkdownView::doMeasure(Renderer& renderer, const LayoutConstraints& 
   // sizes, the parent allocates too little height for the view, and sibling
   // rows overlap it. doLayout re-applies the final arranged width.
   float w = width();
-  if (constraints.hasMaxWidth && constraints.maxWidth > 0.0f) {
+  if (constraints.hasMaxWidth && constraints.maxWidth > 0.0F) {
     w = constraints.maxWidth;
   }
-  if (w > 0.0f) {
+  if (w > 0.0F) {
     for (Label* label : m_wrappableLabels) {
       label->setMaxWidth(w);
     }
@@ -552,7 +552,7 @@ LayoutSize MarkdownView::doMeasure(Renderer& renderer, const LayoutConstraints& 
 
 void MarkdownView::doLayout(Renderer& renderer) {
   const float w = width();
-  if (w > 0.0f) {
+  if (w > 0.0F) {
     for (Label* label : m_wrappableLabels) {
       label->setMaxWidth(w);
     }

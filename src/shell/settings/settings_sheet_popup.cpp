@@ -50,8 +50,8 @@ namespace settings {
 
   } // namespace
 
-  constexpr float kInitialPopupHeight = 480.0f;
-  constexpr float kParentMargin = 48.0f;
+  constexpr float kInitialPopupHeight = 480.0F;
+  constexpr float kParentMargin = 48.0F;
 
   SettingsSheetPopup::~SettingsSheetPopup() { destroyPopup(); }
 
@@ -78,7 +78,7 @@ namespace settings {
       close();
     }
 
-    m_scale = std::max(0.1f, request.scale);
+    m_scale = std::max(0.1F, request.scale);
     m_minWidth = request.minWidth;
     m_maxWidth = request.maxWidth;
     m_parentFraction = request.parentFraction;
@@ -97,8 +97,8 @@ namespace settings {
     const float popupWidth = m_minWidth * m_scale;
     const float popupHeight = kInitialPopupHeight * m_scale;
     const auto cfg = centeredPopupConfig(
-        request.parent.width, request.parent.height, static_cast<std::uint32_t>(std::max(1.0f, popupWidth)),
-        static_cast<std::uint32_t>(std::max(1.0f, popupHeight)), request.parent.serial
+        request.parent.width, request.parent.height, static_cast<std::uint32_t>(std::max(1.0F, popupWidth)),
+        static_cast<std::uint32_t>(std::max(1.0F, popupHeight)), request.parent.serial
     );
 
     if (!openPopupAsChild(cfg, request.parent)) {
@@ -305,9 +305,9 @@ namespace settings {
           .out = &scrollPtr,
           .state = &m_scrollState,
           .scrollbarVisible = true,
-          .viewportPaddingH = 0.0f,
-          .viewportPaddingV = 0.0f,
-          .flexGrow = 1.0f,
+          .viewportPaddingH = 0.0F,
+          .viewportPaddingV = 0.0F,
+          .flexGrow = 1.0F,
           .onScrollChanged = [this](float /*offset*/) { dismissOpenSelectDropdown(); },
           .configure =
               [](ScrollView& sv) {
@@ -335,7 +335,7 @@ namespace settings {
           .out = &bodyPtr,
           .align = FlexAlign::Stretch,
           .gap = Style::spaceMd * m_scale,
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
       });
       m_body = bodyPtr;
       if (m_populateSheetBody) {
@@ -377,58 +377,58 @@ namespace settings {
     if (m_parentWidth > 0) {
       const auto probe = popup_chrome::computeGeometry(panelW, panelW, shadow, Style::popupShadowsEnabled());
       const float chromeW = static_cast<float>(probe.surfaceWidth) - panelW;
-      const float fitPanelW = std::max(1.0f, static_cast<float>(m_parentWidth) - (kParentMargin * m_scale) - chromeW);
+      const float fitPanelW = std::max(1.0F, static_cast<float>(m_parentWidth) - (kParentMargin * m_scale) - chromeW);
       const float maxPanelW = std::min(fitPanelW, m_maxWidth * m_scale);
       const float minPanelW = m_minWidth * m_scale;
       const float preferredW = m_parentFraction * static_cast<float>(m_parentWidth);
       panelW = std::min(std::max(preferredW, minPanelW), maxPanelW);
     }
 
-    float cw = std::max(1.0f, contentWidth);
-    float ch = std::max(1.0f, contentHeight);
+    float cw = std::max(1.0F, contentWidth);
+    float ch = std::max(1.0F, contentHeight);
 
     // Measure header + scroll content directly with width bounded, height unbounded. Measuring the
     // root would let its flexGrow scroll view inflate to fill the constraint, so the sheet would
     // never shrink to fit a short body.
     const auto naturalHeight = [&](float widthBudget) {
-      const float innerCw = std::max(1.0f, widthBudget - 2.0f * popupPadding);
+      const float innerCw = std::max(1.0F, widthBudget - 2.0F * popupPadding);
       LayoutConstraints c;
       // Exact width so wrapped setting labels measure their full line count. Max width
       // alone leaves cross-axis unconstrained during measure, which under-counts height
       // for short bodies (e.g. a two-setting plugin sheet) and clips the last row.
       c.setExactWidth(innerCw);
       const float headerH = m_header->measure(renderer, c).height;
-      float statusH = 0.0f;
+      float statusH = 0.0F;
       if (m_statusBanner != nullptr && m_statusBanner->visible()) {
         statusH = m_statusBanner->measure(renderer, c).height + popupGap;
       }
       const float contentH = m_body->measure(renderer, c).height;
-      return 2.0f * popupPadding + headerH + popupGap + statusH + contentH;
+      return 2.0F * popupPadding + headerH + popupGap + statusH + contentH;
     };
 
     float rootH = naturalHeight(cw);
     if (m_fillParentHeight && m_parentHeight > 0) {
-      const float fillH = static_cast<float>(m_parentHeight) - (kParentMargin * m_scale) - pad * 2.0f;
+      const float fillH = static_cast<float>(m_parentHeight) - (kParentMargin * m_scale) - pad * 2.0F;
       rootH = std::max(rootH, fillH);
     }
-    const float panelH = std::ceil(rootH + pad * 2.0f);
+    const float panelH = std::ceil(rootH + pad * 2.0F);
     const auto geo = popup_chrome::computeGeometry(panelW, panelH, shadow, Style::popupShadowsEnabled());
     const float maxOuterHeight =
-        m_parentHeight > 0 ? std::max(1.0f, static_cast<float>(m_parentHeight) - (kParentMargin * m_scale)) : 1.0e6f;
+        m_parentHeight > 0 ? std::max(1.0F, static_cast<float>(m_parentHeight) - (kParentMargin * m_scale)) : 1.0e6F;
     const std::uint32_t nextHeight =
-        static_cast<std::uint32_t>(std::max(1.0f, std::min(static_cast<float>(geo.surfaceHeight), maxOuterHeight)));
+        static_cast<std::uint32_t>(std::max(1.0F, std::min(static_cast<float>(geo.surfaceHeight), maxOuterHeight)));
     const std::uint32_t nextWidth = geo.surfaceWidth;
 
     if (m_surface->height() != nextHeight || m_surface->width() != nextWidth) {
       m_surface->resize(nextWidth, nextHeight);
       syncSceneGeometryFromSurface();
-      cw = std::max(1.0f, m_chrome.contentWidth - pad * 2.0f);
-      ch = std::max(1.0f, m_chrome.contentHeight - pad * 2.0f);
+      cw = std::max(1.0F, m_chrome.contentWidth - pad * 2.0F);
+      ch = std::max(1.0F, m_chrome.contentHeight - pad * 2.0F);
       rootH = naturalHeight(cw);
     }
 
-    const float sheetH = std::max(1.0f, std::min(rootH, ch));
-    m_root->arrange(renderer, LayoutRect{.x = 0.0f, .y = 0.0f, .width = cw, .height = sheetH});
+    const float sheetH = std::max(1.0F, std::min(rootH, ch));
+    m_root->arrange(renderer, LayoutRect{.x = 0.0F, .y = 0.0F, .width = cw, .height = sheetH});
   }
 
   void SettingsSheetPopup::cancelToFacade() {}

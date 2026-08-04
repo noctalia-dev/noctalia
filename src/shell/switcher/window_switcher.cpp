@@ -44,23 +44,23 @@ namespace {
 
   constexpr Logger kLog("window-switcher");
   constexpr std::size_t kGridColumns = 5;
-  constexpr float kDimOpacity = 0.62f;
-  constexpr float kMinCellWidth = 164.0f;
-  constexpr float kMaxCellWidth = 224.0f;
-  constexpr float kWindowPreviewAspect = 16.0f / 10.0f;
-  constexpr float kCaptionBlock = 48.0f;
+  constexpr float kDimOpacity = 0.62F;
+  constexpr float kMinCellWidth = 164.0F;
+  constexpr float kMaxCellWidth = 224.0F;
+  constexpr float kWindowPreviewAspect = 16.0F / 10.0F;
+  constexpr float kCaptionBlock = 48.0F;
 
   struct SwitcherGridMetrics {
     std::size_t columns = 1;
-    float cellW = 0.0f;
-    float cellH = 0.0f;
-    float gridW = 0.0f;
-    float gridH = 0.0f;
-    float colGap = 0.0f;
-    float rowGap = 0.0f;
+    float cellW = 0.0F;
+    float cellH = 0.0F;
+    float gridW = 0.0F;
+    float gridH = 0.0F;
+    float colGap = 0.0F;
+    float rowGap = 0.0F;
 
     [[nodiscard]] bool sameLayoutAs(const SwitcherGridMetrics& other) const noexcept {
-      return columns == other.columns && std::abs(cellW - other.cellW) < 0.5f && std::abs(cellH - other.cellH) < 0.5f;
+      return columns == other.columns && std::abs(cellW - other.cellW) < 0.5F && std::abs(cellH - other.cellH) < 0.5F;
     }
   };
 
@@ -73,12 +73,12 @@ namespace {
     metrics.columns = itemCount == 0 ? 1 : std::min(kGridColumns, itemCount);
     const std::size_t rows = itemCount == 0 ? 1 : (itemCount + metrics.columns - 1) / metrics.columns;
 
-    const float sidePad = Style::spaceLg * scale * 2.0f;
+    const float sidePad = Style::spaceLg * scale * 2.0F;
     const float minCellW = kMinCellWidth * scale;
     const float maxCellW = kMaxCellWidth * scale;
-    const float captionBlock = kCaptionBlock * scale + Style::spaceSm * scale * 2.0f;
+    const float captionBlock = kCaptionBlock * scale + Style::spaceSm * scale * 2.0F;
 
-    const float availableW = std::max(0.0f, screenW - sidePad);
+    const float availableW = std::max(0.0F, screenW - sidePad);
     float cellW = metrics.columns == 0
         ? minCellW
         : (availableW - metrics.colGap * static_cast<float>(metrics.columns - 1)) / static_cast<float>(metrics.columns);
@@ -88,11 +88,11 @@ namespace {
 
     float cellH = cellHeightForWidth(cellW);
     float gridH = cellH * static_cast<float>(rows) + metrics.rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0);
-    const float maxGridH = std::max(0.0f, screenH - sidePad);
+    const float maxGridH = std::max(0.0F, screenH - sidePad);
     if (gridH > maxGridH && rows > 0) {
       cellH = (maxGridH - metrics.rowGap * static_cast<float>(rows - 1)) / static_cast<float>(rows);
       cellW = std::min(cellW, (cellH - captionBlock) * kWindowPreviewAspect);
-      cellW = std::max(minCellW * 0.88f, cellW);
+      cellW = std::max(minCellW * 0.88F, cellW);
       cellH = cellHeightForWidth(cellW);
       gridH = cellH * static_cast<float>(rows) + metrics.rowGap * static_cast<float>(rows > 0 ? rows - 1 : 0);
     }
@@ -141,7 +141,7 @@ namespace {
   }
 
   [[nodiscard]] float shellUiScale(const ConfigService* config) noexcept {
-    return config != nullptr ? config->config().accessibility.uiScale : 1.0f;
+    return config != nullptr ? config->config().accessibility.uiScale : 1.0F;
   }
 
   [[nodiscard]] bool isAltModifier(std::uint32_t sym) noexcept { return sym == XKB_KEY_Alt_L || sym == XKB_KEY_Alt_R; }
@@ -493,7 +493,7 @@ namespace {
     }
 
   private:
-    float m_scale = 1.0f;
+    float m_scale = 1.0F;
     AsyncTextureCache* m_cache = nullptr;
     std::optional<ColorSpec> m_iconTint;
     Renderer* m_renderer = nullptr;
@@ -509,7 +509,7 @@ WindowSwitcher::~WindowSwitcher() { destroySurface(); }
 
 struct WindowSwitcher::Instance {
   wl_output* output = nullptr;
-  float uiLayoutScale = 1.0f;
+  float uiLayoutScale = 1.0F;
   std::unique_ptr<LayerSurface> surface;
   AnimationManager animations;
   std::unique_ptr<Node> sceneRoot;
@@ -1054,7 +1054,7 @@ void WindowSwitcher::positionGrid(Instance& instance, float screenW, float scree
     return;
   }
   instance.grid->setPosition(
-      std::round((screenW - instance.grid->width()) * 0.5f), std::round((screenH - instance.grid->height()) * 0.5f)
+      std::round((screenW - instance.grid->width()) * 0.5F), std::round((screenH - instance.grid->height()) * 0.5F)
   );
 }
 
@@ -1085,7 +1085,7 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
 
   input->addChild(
       ui::box({
-          .fill = fixedColorSpec(rgba(0.0f, 0.0f, 0.0f, 1.0f)),
+          .fill = fixedColorSpec(rgba(0.0F, 0.0F, 0.0F, 1.0F)),
           .width = w,
           .height = h,
           .opacity = kDimOpacity,
@@ -1148,12 +1148,12 @@ void WindowSwitcher::buildScene(Instance& instance, std::uint32_t width, std::ui
           .out = &instance.emptyLabel,
           .text = i18n::tr("window-switcher.empty"),
           .fontSize = Style::fontSizeBody * scale,
-          .color = colorSpecFromRole(ColorRole::OnSurface, 0.88f),
+          .color = colorSpecFromRole(ColorRole::OnSurface, 0.88F),
           .visible = m_windows.empty(),
           .participatesInLayout = false,
           .configure = [screenW = w, screenH = h](Label& label) {
             label.setTextAlign(TextAlign::Center);
-            label.setPosition(std::round(screenW * 0.5f - 80.0f), std::round(screenH * 0.5f - 10.0f));
+            label.setPosition(std::round(screenW * 0.5F - 80.0F), std::round(screenH * 0.5F - 10.0F));
           },
       })
   );

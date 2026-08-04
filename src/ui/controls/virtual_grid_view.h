@@ -131,11 +131,11 @@ private:
   std::vector<bool> m_slotBoundOverlayHovered;
 
   std::size_t m_columns = 0;
-  float m_minCellWidth = 96.0f;
-  float m_cellHeight = 96.0f;
+  float m_minCellWidth = 96.0F;
+  float m_cellHeight = 96.0F;
   bool m_squareCells = true;
-  float m_columnGap = 4.0f;
-  float m_rowGap = 4.0f;
+  float m_columnGap = 4.0F;
+  float m_rowGap = 4.0F;
   std::size_t m_overscanRows = 2;
 
   std::optional<std::size_t> m_selectedIndex;
@@ -146,10 +146,10 @@ private:
   // Most recent layout snapshot — used by hit-testing and scrollToIndex
   // without rerunning measurement.
   std::size_t m_layoutColumns = 1;
-  float m_cellWidth = 0.0f;
-  float m_cellHeightResolved = 0.0f;
-  float m_virtualWidth = 0.0f;
-  float m_virtualHeight = 0.0f;
+  float m_cellWidth = 0.0F;
+  float m_cellHeightResolved = 0.0F;
+  float m_virtualWidth = 0.0F;
+  float m_virtualHeight = 0.0F;
   std::size_t m_visibleStartIndex = 0;
   std::size_t m_itemCount = 0;
   bool m_pendingScrollToIndex = false;

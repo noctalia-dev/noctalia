@@ -60,7 +60,7 @@ DragDropController::~DragDropController() {
   }
 }
 
-void DragDropController::setScale(float scale) noexcept { m_scale = std::max(scale, 0.01f); }
+void DragDropController::setScale(float scale) noexcept { m_scale = std::max(scale, 0.01F); }
 
 void DragDropController::setOverlayRoot(Node* root) {
   if (m_overlayRoot == root) {
@@ -80,12 +80,12 @@ void DragDropController::arm(DragSource& source, float localX, float localY) {
   m_dragType = source.dragType();
   m_payload = source.payload();
   m_previewTarget = safePreviewTarget(source, source.previewTarget(), m_overlayRoot);
-  m_previewTargetOpacity = m_previewTarget != nullptr ? m_previewTarget->opacity() : 1.0f;
+  m_previewTargetOpacity = m_previewTarget != nullptr ? m_previewTarget->opacity() : 1.0F;
   m_previewTargetParticipatesInLayout = m_previewTarget == nullptr || m_previewTarget->participatesInLayout();
   scenePosition(source, localX, localY, m_startSceneX, m_startSceneY);
-  float sourceSceneX = 0.0f;
-  float sourceSceneY = 0.0f;
-  Node::mapToScene(m_previewTarget != nullptr ? m_previewTarget : &source, 0.0f, 0.0f, sourceSceneX, sourceSceneY);
+  float sourceSceneX = 0.0F;
+  float sourceSceneY = 0.0F;
+  Node::mapToScene(m_previewTarget != nullptr ? m_previewTarget : &source, 0.0F, 0.0F, sourceSceneX, sourceSceneY);
   m_pointerOffsetX = m_startSceneX - sourceSceneX;
   m_pointerOffsetY = m_startSceneY - sourceSceneY;
 }
@@ -94,8 +94,8 @@ void DragDropController::motion(DragSource& source, float localX, float localY) 
   if (m_source != &source || m_state == State::Idle) {
     return;
   }
-  float sceneX = 0.0f;
-  float sceneY = 0.0f;
+  float sceneX = 0.0F;
+  float sceneY = 0.0F;
   scenePosition(source, localX, localY, sceneX, sceneY);
   if (m_state == State::Armed) {
     const float dx = sceneX - m_startSceneX;
@@ -120,8 +120,8 @@ void DragDropController::release(DragSource& source, float localX, float localY)
     return;
   }
 
-  float sceneX = 0.0f;
-  float sceneY = 0.0f;
+  float sceneX = 0.0F;
+  float sceneY = 0.0F;
   scenePosition(source, localX, localY, sceneX, sceneY);
   updateTarget(sceneX, sceneY);
 
@@ -241,7 +241,7 @@ DropZone* DragDropController::targetAt(float sceneX, float sceneY) const {
         || !zone->hitTestVisible()
         || !zone->enabled()
         || !zone->accepts(m_dragType)
-        || zone->hitSlop() <= 0.0f) {
+        || zone->hitSlop() <= 0.0F) {
       continue;
     }
 
@@ -258,16 +258,16 @@ DropZone* DragDropController::targetAt(float sceneX, float sceneY) const {
       continue;
     }
 
-    float localX = 0.0f;
-    float localY = 0.0f;
+    float localX = 0.0F;
+    float localY = 0.0F;
     (void)Node::mapFromScene(zone, sceneX, sceneY, localX, localY);
     const float slop = zone->hitSlop();
     if (localX < -slop || localX >= zone->width() + slop || localY < -slop || localY >= zone->height() + slop) {
       continue;
     }
 
-    const float dx = localX < 0.0f ? -localX : std::max(0.0f, localX - zone->width());
-    const float dy = localY < 0.0f ? -localY : std::max(0.0f, localY - zone->height());
+    const float dx = localX < 0.0F ? -localX : std::max(0.0F, localX - zone->width());
+    const float dy = localY < 0.0F ? -localY : std::max(0.0F, localY - zone->height());
     const float distance = dx * dx + dy * dy;
     if (distance < closestDistance || (distance == closestDistance && depth > closestDepth)) {
       closest = zone;
@@ -298,7 +298,7 @@ void DragDropController::updateTarget(float sceneX, float sceneY) {
   if (m_target != nullptr) {
     m_targetValue = m_target->value();
     const float draggedHeight =
-        m_previewTarget != nullptr ? m_previewTarget->height() : (m_source != nullptr ? m_source->height() : 0.0f);
+        m_previewTarget != nullptr ? m_previewTarget->height() : (m_source != nullptr ? m_source->height() : 0.0F);
     m_target->setDragOver(true, draggedHeight);
   }
 }
@@ -317,15 +317,15 @@ void DragDropController::createPreview(float sceneX, float sceneY) {
   }
   auto preview = std::make_unique<RenderProxyNode>(m_previewTarget);
   preview->setFrameSize(m_previewTarget->width(), m_previewTarget->height());
-  preview->setOpacity(0.96f);
-  preview->setScale(1.01f);
+  preview->setOpacity(0.96F);
+  preview->setScale(1.01F);
   preview->setZIndex(std::numeric_limits<std::int32_t>::max());
   m_preview = static_cast<RenderProxyNode*>(m_overlayRoot->addChild(std::move(preview)));
   if (m_source->liftFromLayout()) {
-    m_previewTarget->setOpacity(0.0f);
+    m_previewTarget->setOpacity(0.0F);
     m_previewTarget->setParticipatesInLayout(false);
   } else {
-    m_previewTarget->setOpacity(m_previewTargetOpacity * 0.28f);
+    m_previewTarget->setOpacity(m_previewTargetOpacity * 0.28F);
   }
   updatePreview(sceneX, sceneY);
 }
@@ -334,8 +334,8 @@ void DragDropController::updatePreview(float sceneX, float sceneY) {
   if (m_preview == nullptr || m_overlayRoot == nullptr) {
     return;
   }
-  float localX = 0.0f;
-  float localY = 0.0f;
+  float localX = 0.0F;
+  float localY = 0.0F;
   if (Node::mapFromScene(m_overlayRoot, sceneX - m_pointerOffsetX, sceneY - m_pointerOffsetY, localX, localY)) {
     m_preview->setPosition(localX, localY);
   }

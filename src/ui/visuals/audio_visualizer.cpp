@@ -17,7 +17,7 @@ bool AudioVisualizer::setValues(const std::vector<float>& values) {
 
   m_targetValues = values;
   if (m_displayValues.size() != m_targetValues.size()) {
-    m_displayValues.resize(m_targetValues.size(), 0.0f);
+    m_displayValues.resize(m_targetValues.size(), 0.0F);
   }
   m_converged = false;
   setSpectrumValues(m_displayValues);
@@ -30,12 +30,12 @@ void AudioVisualizer::tick(float deltaMs) {
     return;
   }
   if (m_displayValues.size() != m_targetValues.size()) {
-    m_displayValues.resize(m_targetValues.size(), 0.0f);
+    m_displayValues.resize(m_targetValues.size(), 0.0F);
   }
 
-  const float alpha = m_smoothingTauMs > 0.0f ? 1.0f - std::exp(-std::max(0.0f, deltaMs) / m_smoothingTauMs) : 1.0f;
+  const float alpha = m_smoothingTauMs > 0.0F ? 1.0F - std::exp(-std::max(0.0F, deltaMs) / m_smoothingTauMs) : 1.0F;
 
-  constexpr float kEpsilon = 1.0f / 512.0f;
+  constexpr float kEpsilon = 1.0F / 512.0F;
   bool changed = false;
   bool converged = true;
   for (std::size_t i = 0; i < m_targetValues.size(); ++i) {

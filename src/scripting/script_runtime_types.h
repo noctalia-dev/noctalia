@@ -28,8 +28,8 @@ namespace scripting {
   struct ScriptImagePatch {
     std::string path;
     bool watch = false;
-    float width = 0.0f;
-    float height = 0.0f;
+    float width = 0.0F;
+    float height = 0.0F;
 
     bool operator==(const ScriptImagePatch&) const = default;
   };

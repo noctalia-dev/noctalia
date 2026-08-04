@@ -17,14 +17,14 @@ namespace {
 
   constexpr std::uint32_t kSizeQuant = 64;
   constexpr std::uint32_t kScaleQuant = 64;
-  constexpr float kAxisAlignedEpsilon = 0.0001f;
+  constexpr float kAxisAlignedEpsilon = 0.0001F;
 
   inline std::uint32_t quantizeSize(float v) {
-    return static_cast<std::uint32_t>(std::max(0.0f, v) * static_cast<float>(kSizeQuant) + 0.5f);
+    return static_cast<std::uint32_t>(std::max(0.0F, v) * static_cast<float>(kSizeQuant) + 0.5F);
   }
 
   inline std::uint16_t quantizeScale(float v) {
-    return static_cast<std::uint16_t>(std::max(0.0f, v) * static_cast<float>(kScaleQuant) + 0.5f);
+    return static_cast<std::uint16_t>(std::max(0.0F, v) * static_cast<float>(kScaleQuant) + 0.5F);
   }
 
   bool isAxisAligned(const Mat3& transform) {
@@ -32,7 +32,7 @@ namespace {
   }
 
   float snapToBufferPixel(float value, float scale) {
-    const float safeScale = std::max(1.0f, scale);
+    const float safeScale = std::max(1.0F, scale);
     return std::round(value * safeScale) / safeScale;
   }
 
@@ -107,7 +107,7 @@ void CairoGlyphRenderer::initialize(const std::string& fontPath, RenderBackend* 
   cairo_font_options_set_hint_style(m_fontOptions, CAIRO_HINT_STYLE_NONE);
   cairo_font_options_set_hint_metrics(m_fontOptions, CAIRO_HINT_METRICS_OFF);
 
-  m_cache.max_load_factor(1.0f);
+  m_cache.max_load_factor(1.0F);
   m_cache.reserve(kMaxCacheEntries + 16);
 }
 
@@ -159,7 +159,7 @@ void CairoGlyphRenderer::cleanup() {
 }
 
 void CairoGlyphRenderer::setContentScale(float scale) {
-  if (scale > 0.0f) {
+  if (scale > 0.0F) {
     m_contentScale = scale;
   }
 }
@@ -188,12 +188,12 @@ void CairoGlyphRenderer::evictIfNeeded() {
 }
 
 CairoGlyphRenderer::TextMetrics CairoGlyphRenderer::measureGlyph(char32_t codepoint, float fontSize) {
-  if (m_face == nullptr || codepoint == 0 || fontSize <= 0.0f) {
+  if (m_face == nullptr || codepoint == 0 || fontSize <= 0.0F) {
     return {};
   }
 
-  const float rasterSize = std::max(1.0f, fontSize * m_contentScale);
-  const float invScale = 1.0f / m_contentScale;
+  const float rasterSize = std::max(1.0F, fontSize * m_contentScale);
+  const float invScale = 1.0F / m_contentScale;
 
   const FT_UInt glyphIndex = FT_Get_Char_Index(m_face, codepoint);
   if (glyphIndex == 0) {
@@ -232,7 +232,7 @@ CairoGlyphRenderer::CacheEntry* CairoGlyphRenderer::lookupOrRasterize(char32_t c
     return &it->second;
   }
 
-  const float rasterSize = std::max(1.0f, fontSize * m_contentScale);
+  const float rasterSize = std::max(1.0F, fontSize * m_contentScale);
   FT_Set_Pixel_Sizes(m_face, 0, static_cast<FT_UInt>(std::round(rasterSize)));
 
   const FT_UInt glyphIndex = FT_Get_Char_Index(m_face, codepoint);
@@ -317,7 +317,7 @@ CairoGlyphRenderer::CacheEntry* CairoGlyphRenderer::lookupOrRasterize(char32_t c
   }
   entry.bytes = static_cast<std::size_t>(pxWidth) * static_cast<std::size_t>(pxHeight);
 
-  const float invScale = 1.0f / m_contentScale;
+  const float invScale = 1.0F / m_contentScale;
   entry.metrics = metrics_from_extents(extents, invScale);
 
   auto [ins, inserted] = m_cache.emplace(key, entry);
@@ -342,7 +342,7 @@ void CairoGlyphRenderer::drawGlyph(
     return;
   }
 
-  const float invScale = 1.0f / m_contentScale;
+  const float invScale = 1.0F / m_contentScale;
   const float quadW = static_cast<float>(entry->pixelWidth) * invScale;
   const float quadH = static_cast<float>(entry->pixelHeight) * invScale;
   const float baselineXLocal = entry->baselineXPx * invScale;
@@ -367,7 +367,7 @@ void CairoGlyphRenderer::drawGlyph(
           .surfaceHeight = surfaceHeight,
           .width = quadW,
           .height = quadH,
-          .opacity = 1.0f,
+          .opacity = 1.0F,
           .tint = color,
           .tinted = true,
           .transform = world,

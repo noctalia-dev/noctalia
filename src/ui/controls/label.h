@@ -105,13 +105,13 @@ private:
   std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
 
   TextNode* m_textNode = nullptr;
-  float m_minWidth = 0.0f;
-  float m_baselineOffset = 0.0f;
+  float m_minWidth = 0.0F;
+  float m_baselineOffset = 0.0F;
   ColorSpec m_color = colorSpecFromRole(ColorRole::OnSurface);
   Signal<>::ScopedConnection m_paletteConn;
   std::optional<ColorSpec> m_shadowColor;
-  float m_shadowOffsetX = 0.0f;
-  float m_shadowOffsetY = 0.0f;
+  float m_shadowOffsetX = 0.0F;
+  float m_shadowOffsetY = 0.0F;
 
   // User-visible text (wire text may duplicate for seamless marquee).
   std::string m_plainText;
@@ -119,12 +119,12 @@ private:
   // Memoized measure() inputs — lets repeated layout passes with identical
   // text skip the Pango/fontconfig path entirely.
   std::string m_cachedText;
-  float m_cachedFontSize = 0.0f;
-  float m_cachedMaxWidth = 0.0f;
-  float m_cachedMinWidth = 0.0f;
-  float m_cachedConstraintMinWidth = 0.0f;
-  float m_cachedConstraintMaxWidth = 0.0f;
-  float m_cachedRenderScale = 0.0f;
+  float m_cachedFontSize = 0.0F;
+  float m_cachedMaxWidth = 0.0F;
+  float m_cachedMinWidth = 0.0F;
+  float m_cachedConstraintMinWidth = 0.0F;
+  float m_cachedConstraintMaxWidth = 0.0F;
+  float m_cachedRenderScale = 0.0F;
   std::uint64_t m_cachedTextMetricsGeneration = 0;
   int m_cachedMaxLines = 0;
   TextAlign m_cachedTextAlign = TextAlign::Start;
@@ -139,16 +139,16 @@ private:
   // (line breaking is decided once, on measure). -1 until first measure.
   int m_measuredLineCount = -1;
 
-  float m_userMaxWidth = 0.0f;
+  float m_userMaxWidth = 0.0F;
   int m_userMaxLines = 0;
   bool m_autoScroll = false;
   bool m_autoScrollHoverOnly = false;
-  float m_scrollSpeedPxPerSec = 48.0f;
-  float m_scrollOffset = 0.0f;
-  float m_fullTextWidth = 0.0f;
-  float m_marqueeLoopPeriod = 0.0f;
-  float m_marqueeRenderScale = 1.0f;
-  float m_textBaseX = 0.0f;
+  float m_scrollSpeedPxPerSec = 48.0F;
+  float m_scrollOffset = 0.0F;
+  float m_fullTextWidth = 0.0F;
+  float m_marqueeLoopPeriod = 0.0F;
+  float m_marqueeRenderScale = 1.0F;
+  float m_textBaseX = 0.0F;
   std::uint32_t m_marqueeAnimId = 0;
   std::uint32_t m_snapAnimId = 0;
 
@@ -161,8 +161,8 @@ private:
   bool m_marqueeStateAutoScroll = false;
   bool m_marqueeStateHoverOnly = false;
   bool m_marqueeStateHovered = false;
-  float m_marqueeStateWidth = 0.0f;
-  float m_marqueeStateFullTextWidth = 0.0f;
-  float m_marqueeStateLoopPeriod = 0.0f;
-  float m_marqueeStateSpeed = 0.0f;
+  float m_marqueeStateWidth = 0.0F;
+  float m_marqueeStateFullTextWidth = 0.0F;
+  float m_marqueeStateLoopPeriod = 0.0F;
+  float m_marqueeStateSpeed = 0.0F;
 };

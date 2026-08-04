@@ -11,21 +11,21 @@ void scrollNodeIntoScrollView(ScrollView& scrollView, ScrollViewState* state, co
     return;
   }
 
-  const float viewportHeight = std::max(0.0f, scrollView.height() - scrollView.viewportPaddingV() * 2.0f);
-  if (viewportHeight <= 0.0f) {
+  const float viewportHeight = std::max(0.0F, scrollView.height() - scrollView.viewportPaddingV() * 2.0F);
+  if (viewportHeight <= 0.0F) {
     return;
   }
 
-  float targetX = 0.0f;
-  float targetY = 0.0f;
-  float contentX = 0.0f;
-  float contentY = 0.0f;
+  float targetX = 0.0F;
+  float targetY = 0.0F;
+  float contentX = 0.0F;
+  float contentY = 0.0F;
   Node::absolutePosition(&target, targetX, targetY);
   Node::absolutePosition(content, contentX, contentY);
   (void)targetX;
   (void)contentX;
 
-  const float targetTop = std::max(0.0f, targetY - contentY - margin);
+  const float targetTop = std::max(0.0F, targetY - contentY - margin);
   const float targetBottom = targetY - contentY + target.height() + margin;
   const float currentTop = scrollView.scrollOffset();
   const float currentBottom = currentTop + viewportHeight;

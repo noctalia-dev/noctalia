@@ -24,16 +24,16 @@ namespace shell::surface_shadow {
   RoundedRectStyle
   style(const ShellConfig::ShadowConfig& shadow, float backgroundOpacity, const Shape& shape) noexcept {
     const auto offset = shadowDirectionOffset(shadow.direction);
-    const float shadowAlpha = std::clamp(shadow.alpha, 0.0f, 1.0f) * std::clamp(backgroundOpacity, 0.0f, 1.0f);
+    const float shadowAlpha = std::clamp(shadow.alpha, 0.0F, 1.0F) * std::clamp(backgroundOpacity, 0.0F, 1.0F);
     return RoundedRectStyle{
-        .fill = rgba(0.0f, 0.0f, 0.0f, shadowAlpha),
+        .fill = rgba(0.0F, 0.0F, 0.0F, shadowAlpha),
         .border = Color{},
         .fillMode = FillMode::Solid,
         .corners = shape.corners,
         .logicalInset = shape.logicalInset,
         .radius = shape.radius,
         .softness = static_cast<float>(kBlurRadius),
-        .borderWidth = 0.0f,
+        .borderWidth = 0.0F,
         .outerShadow = true,
         .shadowCutoutOffsetX = static_cast<float>(offset.x),
         .shadowCutoutOffsetY = static_cast<float>(offset.y),

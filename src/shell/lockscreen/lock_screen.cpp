@@ -33,7 +33,7 @@ namespace {
     // through. With no wallpaper image and no configured fill color, paint an
     // opaque black background so the lock surface is always fully opaque.
     if (!config.fillColor) {
-      return rgba(0.0f, 0.0f, 0.0f, 1.0f);
+      return rgba(0.0F, 0.0F, 0.0F, 1.0F);
     }
     return resolveColorSpec(*config.fillColor);
   }
