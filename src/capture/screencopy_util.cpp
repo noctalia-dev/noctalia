@@ -4,7 +4,9 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
+#include <thread>
 #include <wayland-client-core.h>
 #include <wayland-client-protocol.h>
 
@@ -219,10 +221,26 @@ namespace screencopy {
       return false;
     }
 
+    // Bound the wait: a compositor that never delivers ready/failed for this
+    // capture (seen 2026-08-04 with a lock-screen snapshot on Hyprland) would
+    // otherwise spin this loop forever — inside the main loop, freezing the
+    // whole shell. Time out and let the caller fall back to the wallpaper.
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
     while (!finished && capture.busy()) {
       if (wl_display_roundtrip(wayland.display()) < 0) {
+        capture.cancelInFlight();
         error = "Wayland roundtrip failed";
         return false;
+      }
+      if (!finished && capture.busy()) {
+        if (std::chrono::steady_clock::now() >= deadline) {
+          // Drops the pending frame without firing the completion callback,
+          // which captures stack references that die when we return.
+          capture.cancelInFlight();
+          error = "screencopy capture timed out";
+          return false;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
       }
     }
 
