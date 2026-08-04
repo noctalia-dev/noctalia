@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <pwd.h>
 #include <security/pam_appl.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -21,6 +22,8 @@ namespace {
   constexpr Logger kLog("pam");
 
   constexpr std::size_t kMaxPamMessageBytes = 4096;
+
+  constexpr std::size_t kMaxPasswordBytes = 64 * 1024;
 
   void secureClear(std::string& value) {
     volatile char* ptr = value.empty() ? nullptr : value.data();
@@ -233,50 +236,106 @@ namespace {
 
 PamAuthenticator::Result
 PamAuthenticator::authenticateCurrentUser(std::string_view password, std::string_view service) const {
-  int pipeFds[2] = {-1, -1};
-  if (::pipe2(pipeFds, O_CLOEXEC) != 0) {
-    return Result{.success = false, .message = i18n::tr("auth.pam.start-failed")};
+  // PAM must not run in a raw fork child of this heavily threaded process: any
+  // library mutex (malloc arena, logging, locale) held by another thread at
+  // fork time stays locked forever in the child, which then hangs before ever
+  // reaching PAM and the lock screen shows "authenticating" indefinitely.
+  // Fork and immediately re-exec into the hidden `pam-helper` mode instead so
+  // the PAM conversation runs in a clean single-threaded process image, like
+  // daemonize() in main.cpp. Password goes in over stdin, Result comes back
+  // over stdout.
+  const auto fail = []() { return Result{.success = false, .message = i18n::tr("auth.pam.start-failed")}; };
+
+  if (password.size() > kMaxPasswordBytes) {
+    return fail();
   }
 
-  std::string passwordCopy(password);
+  // Block SIGPIPE on this (dedicated auth) thread so a helper that dies before
+  // reading the password turns into EPIPE on write, not process death.
+  sigset_t pipeMask;
+  sigemptyset(&pipeMask);
+  sigaddset(&pipeMask, SIGPIPE);
+  pthread_sigmask(SIG_BLOCK, &pipeMask, nullptr);
+
+  int inPipe[2] = {-1, -1};
+  int outPipe[2] = {-1, -1};
+  if (::pipe2(inPipe, O_CLOEXEC) != 0) {
+    return fail();
+  }
+  if (::pipe2(outPipe, O_CLOEXEC) != 0) {
+    ::close(inPipe[0]);
+    ::close(inPipe[1]);
+    return fail();
+  }
+
   std::string serviceCopy(service.empty() ? "login" : std::string(service));
+  const char* helperArgv[] = {"noctalia", "pam-helper", serviceCopy.c_str(), nullptr};
 
   const pid_t pid = ::fork();
   if (pid < 0) {
-    secureClear(passwordCopy);
-    ::close(pipeFds[0]);
-    ::close(pipeFds[1]);
-    return Result{.success = false, .message = i18n::tr("auth.pam.start-failed")};
+    ::close(inPipe[0]);
+    ::close(inPipe[1]);
+    ::close(outPipe[0]);
+    ::close(outPipe[1]);
+    return fail();
   }
 
   if (pid == 0) {
-    ::close(pipeFds[0]);
-    const Result result = authenticateDirect(passwordCopy, serviceCopy);
-    secureClear(passwordCopy);
-    if (!writeResult(pipeFds[1], result)) {
-      ::close(pipeFds[1]);
-      ::_exit(128);
+    // Async-signal-safe calls only until execv. dup2() clears O_CLOEXEC on the
+    // copies; every original pipe fd closes itself at exec.
+    if (::dup2(inPipe[0], STDIN_FILENO) < 0 || ::dup2(outPipe[1], STDOUT_FILENO) < 0) {
+      ::_exit(127);
     }
-    ::close(pipeFds[1]);
-    ::_exit(result.success ? 0 : 1);
+    ::execv("/proc/self/exe", const_cast<char* const*>(helperArgv));
+    ::_exit(127);
   }
 
-  secureClear(passwordCopy);
-  ::close(pipeFds[1]);
+  ::close(inPipe[0]);
+  ::close(outPipe[1]);
+
+  const auto len = static_cast<std::uint32_t>(password.size());
+  const bool sentOk = writeAll(inPipe[1], &len, sizeof(len)) && (len == 0 || writeAll(inPipe[1], password.data(), len));
+  ::close(inPipe[1]);
 
   Result result;
-  const bool readOk = readResult(pipeFds[0], result);
-  ::close(pipeFds[0]);
+  const bool readOk = sentOk && readResult(outPipe[0], result);
+  ::close(outPipe[0]);
 
   int status = 0;
   while (::waitpid(pid, &status, 0) < 0 && errno == EINTR) {
   }
 
-  if (!readOk || !WIFEXITED(status) || WEXITSTATUS(status) >= 128) {
-    return Result{.success = false, .message = i18n::tr("auth.pam.start-failed")};
+  if (!readOk || !WIFEXITED(status) || WEXITSTATUS(status) > 1) {
+    kLog.warn(
+        "pam helper failed (sent={} read={} exited={} status={})", sentOk, readOk, WIFEXITED(status),
+        WIFEXITED(status) ? WEXITSTATUS(status) : -1
+    );
+    return fail();
   }
 
   return result;
+}
+
+int PamAuthenticator::runHelperMode(int argc, char* argv[]) {
+  const std::string_view service = (argc > 2 && argv[2][0] != '\0') ? argv[2] : "login";
+
+  std::uint32_t len = 0;
+  if (!readAll(STDIN_FILENO, &len, sizeof(len)) || len > kMaxPasswordBytes) {
+    return 2;
+  }
+  std::string password(len, '\0');
+  if (len > 0 && !readAll(STDIN_FILENO, password.data(), len)) {
+    secureClear(password);
+    return 2;
+  }
+
+  Result result = authenticateDirect(password, service);
+  secureClear(password);
+
+  if (!writeResult(STDOUT_FILENO, result)) {
+    return 2;
+  }
+  return result.success ? 0 : 1;
 }
 
 std::string PamAuthenticator::currentUsername() {

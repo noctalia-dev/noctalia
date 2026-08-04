@@ -1,5 +1,6 @@
 #include "app/application.h"
 #include "app/single_instance_lock.h"
+#include "auth/pam_authenticator.h"
 #include "config/cli.h"
 #include "core/build_info.h"
 #include "core/log.h"
@@ -297,6 +298,10 @@ int main(int argc, char* argv[]) {
       return noctalia::theme::runCli(argc, argv);
     if (std::strcmp(argv[1], "msg") == 0)
       return noctalia::ipc::runCli(argc, argv);
+    // Hidden: PamAuthenticator::authenticateCurrentUser() re-execs into this
+    // so the PAM conversation runs in a clean single-threaded process.
+    if (std::strcmp(argv[1], "pam-helper") == 0)
+      return PamAuthenticator::runHelperMode(argc, argv);
     if (std::strcmp(argv[1], "config") == 0)
       return noctalia::config::runCli(argc, argv);
     if (std::strcmp(argv[1], "dmenu") == 0)
