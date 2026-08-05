@@ -263,6 +263,7 @@ private:
   bool m_contentRebuildRequested = false;
   bool m_settingsRegistryRefreshRequested = false;
   bool m_filterRowRefreshRequested = false;
+  bool m_deferredRebuildQueued = false;
   bool m_focusSearchOnRebuild = false;
   Input* m_settingsSearchInput = nullptr;
   bool m_scrollToPendingContentTarget = false;

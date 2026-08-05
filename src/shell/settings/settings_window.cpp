@@ -727,7 +727,12 @@ void SettingsWindow::maybeOpenPendingEditor() {
 }
 
 void SettingsWindow::requestSceneRebuild() {
+  if (m_deferredRebuildQueued) {
+    return;
+  }
+  m_deferredRebuildQueued = true;
   DeferredCall::callLater([this]() {
+    m_deferredRebuildQueued = false;
     if (m_surface == nullptr) {
       return;
     }
@@ -745,7 +750,12 @@ void SettingsWindow::requestSceneRebuild() {
 }
 
 void SettingsWindow::requestContentRebuild(bool refreshRegistry, bool refreshFilterRow, bool rebuildEditorSheet) {
+  if (m_deferredRebuildQueued) {
+    return;
+  }
+  m_deferredRebuildQueued = true;
   DeferredCall::callLater([this, refreshRegistry, refreshFilterRow, rebuildEditorSheet]() {
+    m_deferredRebuildQueued = false;
     if (m_surface == nullptr) {
       return;
     }
