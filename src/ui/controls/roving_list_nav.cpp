@@ -115,7 +115,7 @@ void RovingListNavController::handleKey(std::uint32_t sym, std::uint32_t modifie
 
 void RovingListNavController::layoutOverlay(float width, float height) {
   if (m_focusArea != nullptr) {
-    m_focusArea->setPosition(0.0f, 0.0f);
+    m_focusArea->setPosition(0.0F, 0.0F);
     m_focusArea->setFrameSize(width, height);
   }
 }

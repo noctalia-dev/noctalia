@@ -22,7 +22,7 @@ namespace noctalia::theme {
     }
 
     Color toUiColor(const ::Color& color) {
-      auto toByte = [](float value) { return static_cast<int>(std::clamp(value, 0.0f, 1.0f) * 255.0f + 0.5f); };
+      auto toByte = [](float value) { return static_cast<int>(std::clamp(value, 0.0F, 1.0F) * 255.0F + 0.5F); };
       return Color(toByte(color.r), toByte(color.g), toByte(color.b));
     }
 
@@ -30,7 +30,7 @@ namespace noctalia::theme {
 
     std::uint32_t colorToArgb(const ::Color& color) {
       auto toByte = [](float value) {
-        return static_cast<std::uint32_t>(value <= 0.0f ? 0.0f : (value >= 1.0f ? 255.0f : value * 255.0f + 0.5f));
+        return static_cast<std::uint32_t>(value <= 0.0F ? 0.0F : (value >= 1.0F ? 255.0F : value * 255.0F + 0.5F));
       };
       return kOpaqueBlack | (toByte(color.r) << 16U) | (toByte(color.g) << 8U) | toByte(color.b);
     }

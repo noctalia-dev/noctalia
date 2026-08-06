@@ -33,7 +33,7 @@ private:
   Label* m_secondsLabel = nullptr;
   ColorSpec m_color = colorSpecFromRole(ColorRole::Primary);
   Signal<>::ScopedConnection m_paletteConn;
-  float m_ringSize = 64.0f;
-  float m_thickness = 6.0f;
-  float m_fontSize = 22.0f;
+  float m_ringSize = 64.0F;
+  float m_thickness = 6.0F;
+  float m_fontSize = 22.0F;
 };

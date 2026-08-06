@@ -160,7 +160,7 @@ private:
 
   void preparePendingFrame();
   void kickFrameLoop();
-  void queueFrameWork(bool runFrameTick = false, float deltaMs = 0.0f);
+  void queueFrameWork(bool runFrameTick = false, float deltaMs = 0.0F);
   void cancelQueuedFrameWork();
   void processQueuedFrameWork();
   void queueRenderIfNeeded();
@@ -198,7 +198,7 @@ private:
   bool m_frameCallbackShouldTick = false;
   bool m_nextFrameCallbackShouldTick = false;
   bool m_renderQueued = false;
-  float m_pendingFrameDeltaMs = 0.0f;
+  float m_pendingFrameDeltaMs = 0.0F;
   std::uint32_t m_width = 0;
   std::uint32_t m_height = 0;
   std::int32_t m_bufferScale = 1;

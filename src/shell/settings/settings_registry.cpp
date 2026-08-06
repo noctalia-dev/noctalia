@@ -34,10 +34,10 @@ namespace settings {
   namespace {
 
     constexpr int kBarMarginMax = 4096;
-    constexpr float kBarCornerRadiusMax = 80.0f;
+    constexpr float kBarCornerRadiusMax = 80.0F;
 
     [[nodiscard]] SliderSetting barCornerSlider(std::int32_t value) {
-      SliderSetting s{value, 0.0f, kBarCornerRadiusMax, 1.0f, true};
+      SliderSetting s{value, 0.0F, kBarCornerRadiusMax, 1.0F, true};
       return s;
     }
 
@@ -53,7 +53,7 @@ namespace settings {
     }
 
     [[nodiscard]] SliderSetting barReservedSlider(double value, double maxValue, double step, bool integer) {
-      return SliderSetting{value, 0.0f, maxValue, step, integer};
+      return SliderSetting{value, 0.0F, maxValue, step, integer};
     }
 
     [[nodiscard]] std::vector<KeyChord>
@@ -228,7 +228,7 @@ namespace settings {
         );
       }
       return SelectSetting{
-          .options = std::move(opts), .selectedValue = std::string(selected), .preferredWidth = 240.0f
+          .options = std::move(opts), .selectedValue = std::string(selected), .preferredWidth = 240.0F
       };
     }
 
@@ -473,7 +473,7 @@ namespace settings {
             .selectedValue = cfg.theme.communityPalette,
             .placeholder = tr("settings.schema.appearance.community-palette.search-placeholder"),
             .emptyText = tr("ui.controls.search-picker.empty"),
-            .preferredHeight = 240.0f,
+            .preferredHeight = 240.0F,
         };
       }
       entries.push_back(makeEntry(
@@ -490,7 +490,7 @@ namespace settings {
             .selectedValue = cfg.theme.customPalette,
             .placeholder = tr("settings.schema.appearance.custom-palette.search-placeholder"),
             .emptyText = tr("ui.controls.search-picker.empty"),
-            .preferredHeight = 240.0f,
+            .preferredHeight = 240.0F,
         };
       }
       entries.push_back(makeEntry(
@@ -513,7 +513,7 @@ namespace settings {
             .selectedValue = cfg.shell.fontFamily,
             .placeholder = "sans-serif",
             .emptyText = tr("ui.controls.search-picker.empty"),
-            .preferredHeight = 280.0f,
+            .preferredHeight = 280.0F,
         };
       }
       entries.push_back(makeEntry(
@@ -1572,6 +1572,15 @@ namespace settings {
     }
     {
       auto e = makeEntry(
+          SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.lock-before-suspend.label"),
+          tr("settings.schema.lockscreen.lock-before-suspend.description"), {"lockscreen", "lock_before_suspend"},
+          ToggleSetting{cfg.lockscreen.lockBeforeSuspend}, "lock screen before suspend sleep lid close prepareforsleep"
+      );
+      e.visibleWhen = lockscreenOn;
+      entries.push_back(std::move(e));
+    }
+    {
+      auto e = makeEntry(
           SettingsSection::Security, "lock-screen", tr("settings.schema.lockscreen.fingerprint.label"),
           tr("settings.schema.lockscreen.fingerprint.description"), {"lockscreen", "fingerprint"},
           ToggleSetting{cfg.lockscreen.fingerprint}, "lock screen fingerprint fprintd biometric"
@@ -1741,7 +1750,7 @@ namespace settings {
           TextSetting{
               .value = cfg.shell.launchAppsCustomCommand,
               .placeholder = tr("settings.schema.shell.launch-apps-custom-command.placeholder"),
-              .width = 320.0f,
+              .width = 320.0F,
               .browseFileExtensions = {},
           },
           "app command custom launcher dock taskbar"
@@ -1808,7 +1817,7 @@ namespace settings {
           TextSetting{
               .value = cfg.shell.clipboardImageActionCommand,
               .placeholder = tr("settings.schema.shell.clipboard-image-action.placeholder"),
-              .width = 320.0f,
+              .width = 320.0F,
               .browseFileExtensions = {}
           },
           "clipboard image action annotation editor external gimp satty gradia"
@@ -1888,7 +1897,7 @@ namespace settings {
           TextSetting{
               .value = cfg.shell.screenshot.pipeCommand,
               .placeholder = tr("settings.schema.shell.screenshot-pipe-command.placeholder"),
-              .width = 320.0f,
+              .width = 320.0F,
               .browseFileExtensions = {}
           },
           "screenshot capture pipe command stdin png"
@@ -2193,7 +2202,7 @@ namespace settings {
             tr("settings.schema.system.battery-device-warning-threshold.label", "device", device.label),
             tr("settings.schema.system.battery-device-warning-threshold.description"),
             {"battery", "device", device.value, "warning_threshold"},
-            SliderSetting{std::clamp(value, 0, 100), 0.0f, 100.0f, 1.0f, true},
+            SliderSetting{std::clamp(value, 0, 100), 0.0F, 100.0F, 1.0F, true},
             std::string("battery device low warning threshold notification ") + device.label + " " + device.value
         ));
       }
@@ -2213,7 +2222,7 @@ namespace settings {
       // The slider goes down to 0, which disables the metric (no polling, no dGPU wakeups).
       constexpr float kPollMin = SystemConfig::MonitorConfig::kDisabledPollSeconds;
       constexpr float kPollMax = SystemConfig::MonitorConfig::kMaxPollSeconds;
-      constexpr float kPollStep = 1.0f;
+      constexpr float kPollStep = 1.0F;
       const auto& mon = cfg.system.monitor;
       auto addPoll = [&](std::string_view labelKey, std::string_view descKey, std::vector<std::string> path,
                          float value) {
@@ -2730,7 +2739,7 @@ namespace settings {
         SettingsSection::Power, "idle", tr("settings.schema.idle.pre-action-fade.label"),
         tr("settings.schema.idle.pre-action-fade.description"), {"idle", "pre_action_fade_seconds"},
         StepperSetting{
-            .value = static_cast<int>(std::lround(std::clamp(cfg.idle.preActionFadeSeconds, 0.0f, 30.0f))),
+            .value = static_cast<int>(std::lround(std::clamp(cfg.idle.preActionFadeSeconds, 0.0F, 30.0F))),
             .minValue = 0,
             .maxValue = 30,
             .step = 1,
@@ -2818,7 +2827,7 @@ namespace settings {
           TextSetting{
               .value = hookCmd,
               .placeholder = tr("settings.schema.hooks.command-placeholder"),
-              .width = 320.0f,
+              .width = 320.0F,
               .browseFileExtensions = {}
           },
           hookTags(kind.value)
@@ -2977,12 +2986,12 @@ namespace settings {
       ));
       entries.push_back(makeEntry(
           section, "layout", tr("settings.schema.bar.thickness.label"), tr("settings.schema.bar.thickness.description"),
-          path("thickness"), SliderSetting{bar.thickness, 10.0f, 120.0f, 1.0f, true}, "height width"
+          path("thickness"), SliderSetting{bar.thickness, 10.0F, 120.0F, 1.0F, true}, "height width"
       ));
       entries.push_back(makeEntry(
           section, "layout", tr("settings.schema.bar.content-scale.label"),
           tr("settings.schema.bar.content-scale.description"), path("scale"),
-          SliderSetting{bar.scale, 0.5f, 4.0f, 0.05f, false}, "zoom size"
+          SliderSetting{bar.scale, 0.5F, 4.0F, 0.05F, false}, "zoom size"
       ));
       entries.push_back(makeEntry(
           section, "layout", tr("settings.schema.shared.ends-margin.label"),
@@ -3002,12 +3011,12 @@ namespace settings {
       entries.push_back(makeEntry(
           section, "layout", tr("settings.schema.bar.content-padding.label"),
           tr("settings.schema.bar.content-padding.description"), path("padding"),
-          SliderSetting{bar.padding, 0.0f, 80.0f, 1.0f, true}, "inset"
+          SliderSetting{bar.padding, 0.0F, 80.0F, 1.0F, true}, "inset"
       ));
       entries.push_back(makeEntry(
           section, "shape", tr("settings.schema.shared.corner-radius.label"),
           tr("settings.schema.bar.corner-radius.description"), path("radius"),
-          barReservedSlider(bar.radius, 80.0f, 1.0f, true), "rounded"
+          barReservedSlider(bar.radius, 80.0F, 1.0F, true), "rounded"
       ));
       entries.push_back(makeEntry(
           section, "shape", tr("settings.schema.shared.corner-top-left.label"),
@@ -3048,12 +3057,12 @@ namespace settings {
       entries.push_back(makeEntry(
           section, "shape", tr("settings.schema.bar.border-width.label"),
           tr("settings.schema.bar.border-width.description"), path("border_width"),
-          barReservedSlider(bar.borderWidth, 20.0f, 0.5f, false), "outline stroke", true
+          barReservedSlider(bar.borderWidth, 20.0F, 0.5F, false), "outline stroke", true
       ));
       entries.push_back(makeEntry(
           section, "effects", tr("settings.schema.shared.background-opacity.label"),
           tr("settings.schema.bar.background-opacity.description"), path("background_opacity"),
-          SliderSetting{bar.backgroundOpacity, 0.0f, 1.0f, 0.01f, false}, "alpha"
+          SliderSetting{bar.backgroundOpacity, 0.0F, 1.0F, 0.01F, false}, "alpha"
       ));
       entries.push_back(makeEntry(
           section, "effects", tr("settings.schema.shared.shadow.label"), tr("settings.schema.bar.shadow.description"),
@@ -3081,7 +3090,7 @@ namespace settings {
               .selectedValue = bar.fontFamily.value_or(""),
               .placeholder = cfg.shell.fontFamily,
               .emptyText = tr("ui.controls.search-picker.empty"),
-              .preferredHeight = 280.0f,
+              .preferredHeight = 280.0F,
           };
         }
         entries.push_back(makeEntry(
@@ -3109,7 +3118,7 @@ namespace settings {
       entries.push_back(makeEntry(
           section, "widgets", tr("settings.schema.bar.widget-spacing.label"),
           tr("settings.schema.bar.widget-spacing.description"), path("widget_spacing"),
-          SliderSetting{bar.widgetSpacing, 0.0f, 32.0f, 1.0f, true}, "gap"
+          SliderSetting{bar.widgetSpacing, 0.0F, 32.0F, 1.0F, true}, "gap"
       ));
       entries.push_back(makeEntry(
           section, "widgets", tr("settings.schema.bar.widget-color.label"),
@@ -3134,7 +3143,7 @@ namespace settings {
       entries.push_back(makeEntry(
           section, "capsules", tr("settings.schema.bar.capsule-thickness.label"),
           tr("settings.schema.bar.capsule-thickness.description"), path("capsule_thickness"),
-          SliderSetting{bar.capsuleThickness, 0.1f, 1.0f, 0.01f, false}, "pill thickness size", true
+          SliderSetting{bar.capsuleThickness, 0.1F, 1.0F, 0.01F, false}, "pill thickness size", true
       ));
       const SettingVisibility capsuleOn = [on = bar.widgetCapsuleDefault](const Config&) { return on; };
       {
@@ -3185,7 +3194,7 @@ namespace settings {
         auto e = makeEntry(
             section, "capsules", tr("settings.schema.bar.capsule-padding.label"),
             tr("settings.schema.bar.capsule-padding.description"), path("capsule_padding"),
-            SliderSetting{bar.widgetCapsulePadding, 0.0f, 48.0f, 1.0f, false}, "pill inset", true
+            SliderSetting{bar.widgetCapsulePadding, 0.0F, 48.0F, 1.0F, false}, "pill inset", true
         );
         e.visibleWhen = capsuleOn;
         entries.push_back(std::move(e));
@@ -3194,7 +3203,7 @@ namespace settings {
         auto e = makeEntry(
             section, "capsules", tr("settings.schema.bar.capsule-opacity.label"),
             tr("settings.schema.bar.capsule-opacity.description"), path("capsule_opacity"),
-            SliderSetting{bar.widgetCapsuleOpacity, 0.0f, 1.0f, 0.01f, false}, "pill alpha", true
+            SliderSetting{bar.widgetCapsuleOpacity, 0.0F, 1.0F, 0.01F, false}, "pill alpha", true
         );
         e.visibleWhen = capsuleOn;
         entries.push_back(std::move(e));
@@ -3297,12 +3306,12 @@ namespace settings {
         entries.push_back(makeEntry(
             section, "layout", tr("settings.schema.bar.thickness.label"),
             tr("settings.schema.bar.thickness.description"), monitorPath("thickness"),
-            SliderSetting{ovr.thickness.value_or(bar.thickness), 10.0f, 120.0f, 1.0f, true}, "height width"
+            SliderSetting{ovr.thickness.value_or(bar.thickness), 10.0F, 120.0F, 1.0F, true}, "height width"
         ));
         entries.push_back(makeEntry(
             section, "layout", tr("settings.schema.bar.content-scale.label"),
             tr("settings.schema.bar.content-scale.description"), monitorPath("scale"),
-            SliderSetting{ovr.scale.value_or(bar.scale), 0.5f, 4.0f, 0.05f, false}, "zoom size"
+            SliderSetting{ovr.scale.value_or(bar.scale), 0.5F, 4.0F, 0.05F, false}, "zoom size"
         ));
         entries.push_back(makeEntry(
             section, "layout", tr("settings.schema.shared.ends-margin.label"),
@@ -3322,12 +3331,12 @@ namespace settings {
         entries.push_back(makeEntry(
             section, "layout", tr("settings.schema.bar.content-padding.label"),
             tr("settings.schema.bar.content-padding.description"), monitorPath("padding"),
-            SliderSetting{ovr.padding.value_or(bar.padding), 0.0f, 80.0f, 1.0f, true}, "inset"
+            SliderSetting{ovr.padding.value_or(bar.padding), 0.0F, 80.0F, 1.0F, true}, "inset"
         ));
         entries.push_back(makeEntry(
             section, "shape", tr("settings.schema.shared.corner-radius.label"),
             tr("settings.schema.bar.corner-radius.description"), monitorPath("radius"),
-            barReservedSlider(ovr.radius.value_or(bar.radius), 80.0f, 1.0f, true), "rounded"
+            barReservedSlider(ovr.radius.value_or(bar.radius), 80.0F, 1.0F, true), "rounded"
         ));
         entries.push_back(makeEntry(
             section, "shape", tr("settings.schema.shared.corner-top-left.label"),
@@ -3373,12 +3382,12 @@ namespace settings {
         entries.push_back(makeEntry(
             section, "shape", tr("settings.schema.bar.border-width.label"),
             tr("settings.schema.bar.border-width.description"), monitorPath("border_width"),
-            barReservedSlider(ovr.borderWidth.value_or(bar.borderWidth), 20.0f, 0.5f, false), "outline stroke", true
+            barReservedSlider(ovr.borderWidth.value_or(bar.borderWidth), 20.0F, 0.5F, false), "outline stroke", true
         ));
         entries.push_back(makeEntry(
             section, "effects", tr("settings.schema.shared.background-opacity.label"),
             tr("settings.schema.bar.background-opacity.description"), monitorPath("background_opacity"),
-            SliderSetting{ovr.backgroundOpacity.value_or(bar.backgroundOpacity), 0.0f, 1.0f, 0.01f, false}, "alpha"
+            SliderSetting{ovr.backgroundOpacity.value_or(bar.backgroundOpacity), 0.0F, 1.0F, 0.01F, false}, "alpha"
         ));
         entries.push_back(makeEntry(
             section, "effects", tr("settings.schema.shared.shadow.label"), tr("settings.schema.bar.shadow.description"),
@@ -3408,7 +3417,7 @@ namespace settings {
                 .selectedValue = ovr.fontFamily.value_or(""),
                 .placeholder = monitorInheritedFontFamily,
                 .emptyText = tr("ui.controls.search-picker.empty"),
-                .preferredHeight = 280.0f,
+                .preferredHeight = 280.0F,
             };
           }
           entries.push_back(makeEntry(
@@ -3420,7 +3429,7 @@ namespace settings {
         entries.push_back(makeEntry(
             section, "widgets", tr("settings.schema.bar.widget-spacing.label"),
             tr("settings.schema.bar.widget-spacing.description"), monitorPath("widget_spacing"),
-            SliderSetting{ovr.widgetSpacing.value_or(bar.widgetSpacing), 0.0f, 32.0f, 1.0f, true}, "gap"
+            SliderSetting{ovr.widgetSpacing.value_or(bar.widgetSpacing), 0.0F, 32.0F, 1.0F, true}, "gap"
         ));
         entries.push_back(makeEntry(
             section, "widgets", tr("settings.schema.bar.widget-color.label"),
@@ -3440,7 +3449,7 @@ namespace settings {
         entries.push_back(makeEntry(
             section, "capsules", tr("settings.schema.bar.capsule-thickness.label"),
             tr("settings.schema.bar.capsule-thickness.description"), monitorPath("capsule_thickness"),
-            SliderSetting{ovr.capsuleThickness.value_or(bar.capsuleThickness), 0.1f, 1.0f, 0.01f, false},
+            SliderSetting{ovr.capsuleThickness.value_or(bar.capsuleThickness), 0.1F, 1.0F, 0.01F, false},
             "pill thickness size", true
         ));
         const SettingVisibility monitorCapsuleOn =
@@ -3498,7 +3507,7 @@ namespace settings {
           auto e = makeEntry(
               section, "capsules", tr("settings.schema.bar.capsule-padding.label"),
               tr("settings.schema.bar.capsule-padding.description"), monitorPath("capsule_padding"),
-              SliderSetting{ovr.widgetCapsulePadding.value_or(bar.widgetCapsulePadding), 0.0f, 48.0f, 1.0f, false},
+              SliderSetting{ovr.widgetCapsulePadding.value_or(bar.widgetCapsulePadding), 0.0F, 48.0F, 1.0F, false},
               "pill inset", true
           );
           e.visibleWhen = monitorCapsuleOn;
@@ -3508,7 +3517,7 @@ namespace settings {
           auto e = makeEntry(
               section, "capsules", tr("settings.schema.bar.capsule-opacity.label"),
               tr("settings.schema.bar.capsule-opacity.description"), monitorPath("capsule_opacity"),
-              SliderSetting{ovr.widgetCapsuleOpacity.value_or(bar.widgetCapsuleOpacity), 0.0f, 1.0f, 0.01f, false},
+              SliderSetting{ovr.widgetCapsuleOpacity.value_or(bar.widgetCapsuleOpacity), 0.0F, 1.0F, 0.01F, false},
               "pill alpha", true
           );
           e.visibleWhen = monitorCapsuleOn;

@@ -38,7 +38,7 @@ namespace settings {
   struct SettingsContentContext {
     const Config& config;
     ConfigService* configService = nullptr;
-    float scale = 1.0f;
+    float scale = 1.0F;
     std::string_view searchQuery;
     std::string_view selectedSection;
     const BarConfig* selectedBar = nullptr;

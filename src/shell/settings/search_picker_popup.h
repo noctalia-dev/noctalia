@@ -26,7 +26,7 @@ namespace settings {
     std::string selectedValue;
     std::string placeholder;
     std::string emptyText;
-    float scale = 1.0f;
+    float scale = 1.0F;
   };
 
   class SearchPickerPopup final : public DialogPopupHost {
@@ -62,7 +62,7 @@ namespace settings {
     // relying on a raw this pointer staying valid.
     std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
 
-    float m_scale = 1.0f;
+    float m_scale = 1.0F;
     std::string m_title;
     std::vector<SearchPickerOption> m_options;
     std::string m_selectedValue;

@@ -65,7 +65,7 @@ public:
   // Default app card chrome: filled surface variant with a soft outline.
   // Section card background. The outline follows the [shell].card_borders
   // toggle unless a caller passes an explicit showBorder.
-  void setCardStyle(float scale = 1.0f, float fillOpacity = 1.0f, bool showBorder = Style::cardBordersEnabled());
+  void setCardStyle(float scale = 1.0F, float fillOpacity = 1.0F, bool showBorder = Style::cardBordersEnabled());
 
   void setMinWidth(float minWidth);
   void setMinHeight(float minHeight);
@@ -134,15 +134,15 @@ private:
   FlexJustify m_justify = FlexJustify::Start;
   FlexSizePolicy m_widthPolicy = FlexSizePolicy::Content;
   FlexSizePolicy m_heightPolicy = FlexSizePolicy::Content;
-  float m_gap = 0.0f;
-  float m_paddingTop = 0.0f;
-  float m_paddingRight = 0.0f;
-  float m_paddingBottom = 0.0f;
-  float m_paddingLeft = 0.0f;
-  float m_minWidth = 0.0f;
-  float m_minHeight = 0.0f;
-  float m_maxWidth = 0.0f;
-  float m_maxHeight = 0.0f;
+  float m_gap = 0.0F;
+  float m_paddingTop = 0.0F;
+  float m_paddingRight = 0.0F;
+  float m_paddingBottom = 0.0F;
+  float m_paddingLeft = 0.0F;
+  float m_minWidth = 0.0F;
+  float m_minHeight = 0.0F;
+  float m_maxWidth = 0.0F;
+  float m_maxHeight = 0.0F;
   bool m_sizingFromLayout = false;
   bool m_explicitWidth = false;
   bool m_explicitHeight = false;

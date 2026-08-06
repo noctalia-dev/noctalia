@@ -119,22 +119,22 @@ void ScreenCornerProgram::draw(
     float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
     const ScreenCornerStyle& style, const Mat3& transform
 ) const {
-  if (!m_program.isValid() || width <= 0.0f || height <= 0.0f || style.color.a <= 0.0f) {
+  if (!m_program.isValid() || width <= 0.0F || height <= 0.0F || style.color.a <= 0.0F) {
     return;
   }
 
   const std::array<GLfloat, 12> vertices = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
 
   glUseProgram(m_program.id());
   glUniform2f(m_surfaceSizeLocation, surfaceWidth, surfaceHeight);
   glUniform2f(m_sizeLocation, width, height);
-  glUniform2f(m_pixelScaleLocation, std::max(1.0f, pixelScaleX), std::max(1.0f, pixelScaleY));
+  glUniform2f(m_pixelScaleLocation, std::max(1.0F, pixelScaleX), std::max(1.0F, pixelScaleY));
   glUniform4f(m_colorLocation, style.color.r, style.color.g, style.color.b, style.color.a);
   glUniform1i(m_cornerLocation, static_cast<GLint>(style.position));
-  glUniform1f(m_exponentLocation, std::max(1.0f, style.exponent));
-  glUniform1f(m_softnessLocation, std::max(0.0f, style.softness));
+  glUniform1f(m_exponentLocation, std::max(1.0F, style.exponent));
+  glUniform1f(m_softnessLocation, std::max(0.0F, style.softness));
   glUniformMatrix3fv(m_transformLocation, 1, GL_FALSE, transform.m.data());
   const auto posAttr = static_cast<GLuint>(m_positionLocation);
   glVertexAttribPointer(posAttr, 2, GL_FLOAT, GL_FALSE, 0, vertices.data());

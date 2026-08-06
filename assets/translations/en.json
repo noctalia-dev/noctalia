@@ -686,7 +686,8 @@
     },
     "source": {
       "address": "Address",
-      "auto": "Auto"
+      "auto": "Auto",
+      "manual": "Manual"
     }
   },
   "lockscreen": {
@@ -2136,6 +2137,10 @@
         "enabled": {
           "description": "Enable session lock, logind integration, and lock actions",
           "label": "Lock Screen"
+        },
+        "lock-before-suspend": {
+          "description": "Lock the session before sleep (lid close, systemctl suspend, hibernate). Turn off to suspend without locking; Lock and Suspend actions still lock first.",
+          "label": "Lock Before Suspend"
         },
         "fingerprint": {
           "description": "Unlock with a fingerprint reader via fprintd, alongside password entry",

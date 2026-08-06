@@ -542,7 +542,7 @@ namespace scripting {
                                error = std::move(error)]() mutable {
         m_enabling.erase(id);
         if (ok) {
-          kLog.info("enabling plugin '{}' (resolved + exported in {:.0f}ms)", id, elapsedMs);
+          kLog.info("enabling plugin '{}' (resolved + exported in {:.0F}ms)", id, elapsedMs);
           const bool wasEnabled = std::ranges::contains(m_config.config().plugins.enabled, id);
           m_config.setPluginEnabled(id, true);
           if (!wasEnabled && std::ranges::contains(m_config.config().plugins.enabled, id) && m_onEnabled) {

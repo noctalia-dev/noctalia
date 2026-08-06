@@ -79,12 +79,12 @@ void LinearGradientProgram::draw(
     float surfaceWidth, float surfaceHeight, float x, float y, float width, float height,
     const LinearGradientStyle& style
 ) const {
-  if (!m_program.isValid() || width <= 0.0f || height <= 0.0f) {
+  if (!m_program.isValid() || width <= 0.0F || height <= 0.0F) {
     return;
   }
 
   const std::array<GLfloat, 12> vertices = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
 
   glUseProgram(m_program.id());
@@ -92,7 +92,7 @@ void LinearGradientProgram::draw(
   glUniform4f(m_rectLocation, x, y, width, height);
   glUniform4f(m_startColorLocation, style.start.r, style.start.g, style.start.b, style.start.a);
   glUniform4f(m_endColorLocation, style.end.r, style.end.g, style.end.b, style.end.a);
-  glUniform2f(m_directionLocation, style.horizontal ? 1.0f : 0.0f, style.horizontal ? 0.0f : 1.0f);
+  glUniform2f(m_directionLocation, style.horizontal ? 1.0F : 0.0F, style.horizontal ? 0.0F : 1.0F);
   const auto posAttr = static_cast<GLuint>(m_positionLocation);
   glVertexAttribPointer(posAttr, 2, GL_FLOAT, GL_FALSE, 0, vertices.data());
   glEnableVertexAttribArray(posAttr);

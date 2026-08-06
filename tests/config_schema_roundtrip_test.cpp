@@ -342,8 +342,13 @@ location = "https://example.invalid/bad"
     c.osd.kinds.lockKeys = false;
     c.osd.kinds.keyboardLayout = false;
     c.backdrop = BackdropConfig{true, 0.8f, 0.2f};
-    c.lockscreen =
-        LockscreenConfig{.blurredDesktop = true, .blurIntensity = 0.6f, .tintIntensity = 0.25f, .monitors = {"DP-1"}};
+    c.lockscreen = LockscreenConfig{
+        .lockBeforeSuspend = false,
+        .blurredDesktop = true,
+        .blurIntensity = 0.6f,
+        .tintIntensity = 0.25f,
+        .monitors = {"DP-1"}
+    };
     c.system.monitor.enabled = false;
     c.system.monitor.cpuTempSensorPath = "/sys/class/hwmon/hwmon3/temp1_input";
     c.system.monitor.cpuPollSeconds = 5.0f;

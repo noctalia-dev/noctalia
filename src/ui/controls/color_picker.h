@@ -49,12 +49,12 @@ private:
   void applyHexInput(const std::string& value);
   void onRgbInputChange();
 
-  float m_scale = 1.0f;
-  float m_pickerWidth = 240.0f;
-  float m_h = 0.0f;
-  float m_s = 1.0f;
-  float m_v = 1.0f;
-  float m_alpha = 1.0f;
+  float m_scale = 1.0F;
+  float m_pickerWidth = 240.0F;
+  float m_h = 0.0F;
+  float m_s = 1.0F;
+  float m_v = 1.0F;
+  float m_alpha = 1.0F;
   Color m_color = rgba(1, 1, 1, 1);
   bool m_suppressFieldCallbacks = false;
 
@@ -97,7 +97,7 @@ public:
   [[nodiscard]] static float preferredDialogHeight(float dialogWidth, float scale);
 
 private:
-  float m_chromeScale = 1.0f;
+  float m_chromeScale = 1.0F;
   Label* m_title = nullptr;
   ColorPicker* m_picker = nullptr;
   std::function<void()> m_onCancel;

@@ -10,9 +10,9 @@
 
 namespace {
   constexpr Logger kLog("http");
-  constexpr float kSlowCurlOperationDebugMs = 50.0f;
-  constexpr float kSlowCurlOperationWarnMs = 1000.0f;
-  constexpr float kCurlServiceGapWarnMs = 5000.0f;
+  constexpr float kSlowCurlOperationDebugMs = 50.0F;
+  constexpr float kSlowCurlOperationWarnMs = 1000.0F;
+  constexpr float kCurlServiceGapWarnMs = 5000.0F;
 
   float elapsedSince(std::chrono::steady_clock::time_point start) {
     return std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - start).count();
@@ -560,7 +560,7 @@ void HttpClient::performMulti(const char* reason) {
     const float serviceGapMs = std::chrono::duration<float, std::milli>(now - m_lastServiceAt).count();
     if (serviceGapMs >= kCurlServiceGapWarnMs) {
       kLog.warn(
-          "http client was not serviced for {:.1f}ms before {} (downloads={} posts={} running={})", serviceGapMs,
+          "http client was not serviced for {:.1F}ms before {} (downloads={} posts={} running={})", serviceGapMs,
           reason, m_transfers.size(), m_postTransfers.size(), m_running
       );
     }
@@ -570,9 +570,9 @@ void HttpClient::performMulti(const char* reason) {
   curl_multi_perform(m_multi, &m_running);
   const float ms = elapsedSince(opStart);
   if (ms >= kSlowCurlOperationWarnMs) {
-    kLog.warn("curl_multi_perform took {:.1f}ms during {}", ms, reason);
+    kLog.warn("curl_multi_perform took {:.1F}ms during {}", ms, reason);
   } else if (ms >= kSlowCurlOperationDebugMs) {
-    kLog.debug("curl_multi_perform took {:.1f}ms during {}", ms, reason);
+    kLog.debug("curl_multi_perform took {:.1F}ms during {}", ms, reason);
   }
   m_lastServiceAt = std::chrono::steady_clock::now();
 }

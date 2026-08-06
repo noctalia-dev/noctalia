@@ -69,7 +69,7 @@ void ProgressBar::setSoftness(float softness) {
 }
 
 void ProgressBar::setProgress(float progress) {
-  m_progress = std::clamp(progress, 0.0f, 1.0f);
+  m_progress = std::clamp(progress, 0.0F, 1.0F);
   updateGeometry();
 }
 
@@ -104,18 +104,18 @@ void ProgressBar::updateGeometry() {
     // Both ends are leading edges, so keep the fill's own rounded shape (a
     // shrinking pill) rather than clipping it to flat slice edges.
     const float fillW = w * m_progress;
-    m_fillClip->setPosition(0.0f, 0.0f);
+    m_fillClip->setPosition(0.0F, 0.0F);
     m_fillClip->setFrameSize(w, h);
     m_fill->setFrameSize(fillW, h);
-    m_fill->setPosition((w - fillW) * 0.5f, 0.0f);
+    m_fill->setPosition((w - fillW) * 0.5F, 0.0F);
     return;
   }
 
   // Anchored fill: reveal a full-size copy of the track through the clip so the
   // rounded closed end always matches the track instead of squaring off.
   m_fill->setFrameSize(w, h);
-  float clipX = 0.0f;
-  float clipY = 0.0f;
+  float clipX = 0.0F;
+  float clipY = 0.0F;
   float clipW = w;
   float clipH = h;
   if (m_orientation == ProgressBarOrientation::Vertical) {

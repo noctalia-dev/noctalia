@@ -317,6 +317,7 @@ void Application::initLockScreenAndSession() {
   m_configService.addReloadCallback([this]() {
     if (m_logindService != nullptr) {
       m_logindService->setSessionLockIntegrationEnabled(m_configService.isLockScreenEnabled());
+      m_logindService->setLockBeforeSuspendEnabled(m_configService.shouldLockBeforeSuspend());
     }
     m_lockScreen.onConfigChanged();
     m_lockscreenWidgetsController.onLockStateChanged();
@@ -343,6 +344,7 @@ void Application::initLockScreenAndSession() {
   );
   if (m_logindService != nullptr) {
     m_logindService->setSessionLockIntegrationEnabled(m_configService.isLockScreenEnabled());
+    m_logindService->setLockBeforeSuspendEnabled(m_configService.shouldLockBeforeSuspend());
     m_logindService->setLockCallback([this]() {
       if (!m_configService.isLockScreenEnabled()) {
         return;

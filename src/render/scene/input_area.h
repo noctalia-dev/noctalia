@@ -22,8 +22,8 @@ public:
   };
 
   struct PointerData {
-    float localX = 0.0f;
-    float localY = 0.0f;
+    float localX = 0.0F;
+    float localY = 0.0F;
     std::uint32_t button = 0;
     std::uint32_t axis = 0;
     std::uint32_t axisSource = 0;
@@ -31,12 +31,12 @@ public:
     double axisValue = 0.0;
     std::int32_t axisDiscrete = 0;
     std::int32_t axisValue120 = 0;
-    float axisLines = 0.0f;
-    float axisSteps = 0.0f;
+    float axisLines = 0.0F;
+    float axisSteps = 0.0F;
     bool axisStepStartsGesture = false;
 
     [[nodiscard]] float scrollDelta(float wheelStep) const noexcept {
-      if (axisLines != 0.0f) {
+      if (axisLines != 0.0F) {
         return axisLines * wheelStep;
       }
       return static_cast<float>(axisValue);

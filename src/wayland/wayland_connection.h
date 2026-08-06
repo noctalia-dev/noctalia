@@ -13,6 +13,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 struct wl_compositor;
@@ -49,6 +50,7 @@ struct wp_fractional_scale_manager_v1;
 struct wp_viewporter;
 struct zwlr_output_manager_v1;
 struct zwlr_output_head_v1;
+struct zwlr_output_mode_v1;
 class ClipboardService;
 class FocusGrabService;
 struct DataControlOps;
@@ -210,6 +212,7 @@ public:
   [[nodiscard]] std::vector<ToplevelInfo> windowsWithoutAppId(wl_output* outputFilter = nullptr) const;
   [[nodiscard]] std::vector<ToplevelInfo>
   extWindowsForApp(const std::string& idLower, const std::string& wmClassLower) const;
+  [[nodiscard]] std::vector<ToplevelInfo> extWindowsWithoutAppId() const;
   [[nodiscard]] bool containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
   template <typename Fn> void visitExtToplevelHandles(Fn&& fn) const {
     m_extForeignToplevels.visitExtHandles(std::forward<Fn>(fn));
@@ -261,6 +264,8 @@ public:
   void onOutputHeadMake(zwlr_output_head_v1* head, const char* make);
   void onOutputHeadModel(zwlr_output_head_v1* head, const char* model);
   void onOutputHeadSerialNumber(zwlr_output_head_v1* head, const char* serialNumber);
+  void onOutputHeadMode(zwlr_output_head_v1* head, zwlr_output_mode_v1* mode);
+  void onOutputModeFinished(zwlr_output_mode_v1* mode);
   void onOutputHeadFinished(zwlr_output_head_v1* head);
   // wl_output.name and the done event race; call from both sides to match either order.
   void matchPendingOutputHeads();
@@ -294,6 +299,7 @@ private:
   zwlr_screencopy_manager_v1* m_screencopyManager = nullptr;
   zwlr_output_manager_v1* m_outputManager = nullptr;
   std::unordered_map<zwlr_output_head_v1*, WaylandOutputHeadInfo> m_outputHeads;
+  std::unordered_set<zwlr_output_mode_v1*> m_outputModes;
   std::unique_ptr<FocusGrabService> m_focusGrabService;
   wp_viewporter* m_viewporter = nullptr;
   bool m_backgroundEffectBlurSupported = false;

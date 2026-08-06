@@ -37,7 +37,7 @@ namespace {
   // Style::controlHeightLg which is a control-row height — bumping that token to
   // a roomier value would otherwise inflate the artwork, card, and menu widths
   // and overflow the panel content area.
-  constexpr float kMediaUnit = 36.0f;
+  constexpr float kMediaUnit = 36.0F;
 
   constexpr float kArtworkSize = kMediaUnit * 6;
   constexpr float kMediaNowCardMinHeight = kMediaUnit * 11 + Style::spaceSm * 2;
@@ -60,7 +60,7 @@ namespace {
 
   [[nodiscard]] int mediaTabArtDecodeSize(float scale) {
     // Match the widest artwork layout bound (see mediaWidth in doLayout).
-    return static_cast<int>(std::round(kMediaUnit * 11.0f * scale));
+    return static_cast<int>(std::round(kMediaUnit * 11.0F * scale));
   }
 
   std::string repeatGlyph(const std::string& loopStatus) { return loopStatus == "Track" ? "repeat-once" : "repeat"; }
@@ -122,15 +122,15 @@ void MediaTab::openPlayerMenu() {
     return;
   }
 
-  float anchorAbsX = 0.0f;
-  float anchorAbsY = 0.0f;
+  float anchorAbsX = 0.0F;
+  float anchorAbsY = 0.0F;
   Node::absolutePosition(anchor, anchorAbsX, anchorAbsY);
 
   const float scale = contentScale();
   // Floor at the card width so a pre-layout card (width ~0) yields a card-fitting
   // menu instead of an inverted std::clamp range (hi < lo).
-  const float cardWidth = m_nowCard != nullptr ? std::max(1.0f, m_nowCard->width()) : 240.0f * scale;
-  const float minMenuWidth = std::min(cardWidth, std::max(kMediaUnit * 4.2f * scale, kMediaUnit * 6.0f * scale));
+  const float cardWidth = m_nowCard != nullptr ? std::max(1.0F, m_nowCard->width()) : 240.0F * scale;
+  const float minMenuWidth = std::min(cardWidth, std::max(kMediaUnit * 4.2F * scale, kMediaUnit * 6.0F * scale));
 
   if (m_config != nullptr) {
     m_playerMenuPopup->setShadowConfig(m_config->config().shell.shadow);
@@ -181,14 +181,14 @@ std::unique_ptr<Flex> MediaTab::create() {
       .out = &m_mediaColumn,
       .align = FlexAlign::Stretch,
       .gap = Style::spaceMd * scale,
-      .flexGrow = 4.0f,
+      .flexGrow = 4.0F,
   });
 
   auto nowCard = ui::column({
       .out = &m_nowCard,
       .gap = Style::spaceMd * scale,
       .minHeight = kMediaNowCardMinHeight * scale,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
       .configure = [scale, opacity = panelCardOpacity()](Flex& card) { applySectionCardStyle(card, scale, opacity); },
   });
 
@@ -202,7 +202,7 @@ std::unique_ptr<Flex> MediaTab::create() {
           .fontSize = Style::fontSizeTitle * scale,
           .fontWeight = FontWeight::Bold,
           .color = colorSpecFromRole(ColorRole::OnSurface),
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
       }),
       ui::button({
           .out = &m_playerMenuButton,
@@ -232,11 +232,11 @@ std::unique_ptr<Flex> MediaTab::create() {
       .out = &m_mediaStack,
       .align = FlexAlign::Stretch,
       .gap = Style::spaceMd * scale,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
   });
 
   auto artworkRow = ui::row(
-      {.out = &m_artworkRow, .align = FlexAlign::Center, .justify = FlexJustify::Center, .gap = 0.0f, .flexGrow = 1.0f},
+      {.out = &m_artworkRow, .align = FlexAlign::Center, .justify = FlexJustify::Center, .gap = 0.0F, .flexGrow = 1.0F},
       ui::image({
           .out = &m_artwork,
           .fit = ImageFit::Cover,
@@ -276,11 +276,11 @@ std::unique_ptr<Flex> MediaTab::create() {
   mediaStack->addChild(
       ui::slider({
           .out = &m_progressSlider,
-          .minValue = 0.0f,
-          .maxValue = 100.0f,
-          .step = 1.0f,
-          .trackHeight = 7.0f * scale,
-          .thumbSize = 16.0f * scale,
+          .minValue = 0.0F,
+          .maxValue = 100.0F,
+          .step = 1.0F,
+          .trackHeight = 7.0F * scale,
+          .thumbSize = 16.0F * scale,
           .controlHeight = (Style::controlHeight + Style::spaceXs) * scale,
           .onValueChanged =
               [this](double value) {
@@ -430,7 +430,7 @@ std::unique_ptr<Flex> MediaTab::create() {
   auto controlsRow = ui::row({
       .align = FlexAlign::Center,
       .justify = FlexJustify::Center,
-      .gap = 0.0f,
+      .gap = 0.0F,
       .fillWidth = true,
   });
   controlsRow->addChild(std::move(controls));
@@ -444,7 +444,7 @@ std::unique_ptr<Flex> MediaTab::create() {
       .align = FlexAlign::Stretch,
       .gap = Style::spaceMd * scale,
       .clipChildren = true,
-      .flexGrow = 2.0f,
+      .flexGrow = 2.0F,
       .configure = [scale, opacity = panelCardOpacity()](Flex& column) {
         applySectionCardStyle(column, scale, opacity);
       },
@@ -455,7 +455,7 @@ std::unique_ptr<Flex> MediaTab::create() {
       .align = FlexAlign::Stretch,
       .justify = FlexJustify::Start,
       .fillWidth = true,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
   });
 
   auto visualizerSpectrum = std::make_unique<AudioVisualizer>();
@@ -463,9 +463,9 @@ std::unique_ptr<Flex> MediaTab::create() {
   visualizerSpectrum->setOrientation(AudioSpectrumOrientation::Vertical);
   visualizerSpectrum->setMirrored(true);
   visualizerSpectrum->setCentered(true);
-  visualizerSpectrum->setValues(std::vector<float>(kVisualizerBandCount, 0.0f));
-  visualizerSpectrum->tick(0.0f);
-  visualizerSpectrum->setFlexGrow(1.0f);
+  visualizerSpectrum->setValues(std::vector<float>(kVisualizerBandCount, 0.0F));
+  visualizerSpectrum->tick(0.0F);
+  visualizerSpectrum->setFlexGrow(1.0F);
   m_visualizerSpectrum = visualizerSpectrum.get();
   visualizerBody->addChild(std::move(visualizerSpectrum));
   visualizerColumn->addChild(std::move(visualizerBody));
@@ -506,8 +506,8 @@ void MediaTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight
   m_rootLayout->layout(renderer);
 
   const float cardInnerWidth =
-      std::max(0.0f, m_nowCard->width() - (m_nowCard->paddingLeft() + m_nowCard->paddingRight()));
-  const float mediaWidth = std::clamp(cardInnerWidth, 1.0f, kMediaUnit * 11.0f * scale);
+      std::max(0.0F, m_nowCard->width() - (m_nowCard->paddingLeft() + m_nowCard->paddingRight()));
+  const float mediaWidth = std::clamp(cardInnerWidth, 1.0F, kMediaUnit * 11.0F * scale);
   const float mediaStackHeight = m_mediaStack->height();
   m_mediaStack->setSize(mediaWidth, mediaStackHeight);
 
@@ -551,14 +551,14 @@ void MediaTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight
     m_trackAlbum->setMaxWidth(mediaWidth);
   }
   if (m_progressSlider != nullptr) {
-    m_progressSlider->setSize(mediaWidth, 0.0f);
+    m_progressSlider->setSize(mediaWidth, 0.0F);
   }
 
   m_mediaStack->layout(renderer);
 
   if (m_artwork != nullptr && m_artworkRow != nullptr) {
     const float artWidth =
-        std::max(1.0f, m_artworkRow->width() - (m_artworkRow->paddingLeft() + m_artworkRow->paddingRight()));
+        std::max(1.0F, m_artworkRow->width() - (m_artworkRow->paddingLeft() + m_artworkRow->paddingRight()));
     const float artHeight = std::max(
         kMediaArtworkMinHeight * scale,
         m_artworkRow->height() - (m_artworkRow->paddingTop() + m_artworkRow->paddingBottom())
@@ -572,13 +572,13 @@ void MediaTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeight
 
   if (m_visualizerBody != nullptr && m_visualizerSpectrum != nullptr) {
     const float bodyWidth = std::max(
-        0.0f, m_visualizerBody->width() - (m_visualizerBody->paddingLeft() + m_visualizerBody->paddingRight())
+        0.0F, m_visualizerBody->width() - (m_visualizerBody->paddingLeft() + m_visualizerBody->paddingRight())
     );
     const float bodyHeightAvail = std::max(
-        0.0f, m_visualizerBody->height() - (m_visualizerBody->paddingTop() + m_visualizerBody->paddingBottom())
+        0.0F, m_visualizerBody->height() - (m_visualizerBody->paddingTop() + m_visualizerBody->paddingBottom())
     );
-    const float spectrumWidth = std::max(1.0f, bodyWidth);
-    const float spectrumHeight = std::max(1.0f, bodyHeightAvail);
+    const float spectrumWidth = std::max(1.0F, bodyWidth);
+    const float spectrumHeight = std::max(1.0F, bodyHeightAvail);
     m_visualizerSpectrum->setSize(spectrumWidth, spectrumHeight);
     m_visualizerBody->layout(renderer);
   }
@@ -983,8 +983,8 @@ void MediaTab::refresh(Renderer& renderer) {
   m_lastArtPath.clear();
   m_syncingProgress = true;
   m_progressSlider->setEnabled(false);
-  m_progressSlider->setRange(0.0f, 100.0f);
-  m_progressSlider->setValue(0.0f);
+  m_progressSlider->setRange(0.0F, 100.0F);
+  m_progressSlider->setValue(0.0F);
   m_syncingProgress = false;
   m_playPauseButton->setGlyph("media-play");
   if (m_prevButton != nullptr) {

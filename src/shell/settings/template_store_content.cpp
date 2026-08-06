@@ -466,16 +466,16 @@ namespace settings {
     probe->bind("Mg", "category", false, false, false, {});
     const float cardHeight = std::ceil(probe->measure(renderer, LayoutConstraints{}).height);
     // Floor above checkbox+tight padding — two caption lines need more than controlHeightSm alone.
-    const float minCardHeight = (Style::controlHeightSm + Style::spaceSm * 2.0f) * scale;
+    const float minCardHeight = (Style::controlHeightSm + Style::spaceSm * 2.0F) * scale;
     auto grid = ui::virtualGridView({
         .out = &m_grid,
-        .minCellWidth = 152.0f * scale,
+        .minCellWidth = 152.0F * scale,
         .cellHeight = std::max(cardHeight, minCardHeight),
         .squareCells = false,
         .columnGap = Style::spaceSm * scale,
         .rowGap = Style::spaceSm * scale,
         .adapter = adapterPtr,
-        .flexGrow = 1.0f,
+        .flexGrow = 1.0F,
         .onSelectionChanged =
             [this](std::optional<std::size_t> index) {
               m_selectedTemplateId = index.has_value() && *index < m_filteredIndices.size()

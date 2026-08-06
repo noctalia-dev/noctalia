@@ -65,7 +65,7 @@ namespace {
 
   Color resolveWallpaperFillColor(const WallpaperConfig& config) {
     if (!config.fillColor) {
-      return rgba(0.0f, 0.0f, 0.0f, 0.0f);
+      return rgba(0.0F, 0.0F, 0.0F, 0.0F);
     }
     return resolveColorSpec(*config.fillColor);
   }
@@ -298,7 +298,7 @@ namespace {
     const std::string fillMode = std::string(enumToKey(kWallpaperFillModes, config.wallpaper.fillMode));
     wallpaper.insert_or_assign("fill_mode", fillMode);
     const Color fillColor = resolveWallpaperFillColor(config.wallpaper);
-    if (fillColor.a > 0.0f) {
+    if (fillColor.a > 0.0F) {
       wallpaper.insert_or_assign("fill_color", formatRgbHex(fillColor));
     }
     if (!wallpaper.empty()) {
@@ -319,7 +319,7 @@ namespace {
           continue;
         }
         item.insert_or_assign("fill_mode", fillMode);
-        if (fillColor.a > 0.0f) {
+        if (fillColor.a > 0.0F) {
           item.insert_or_assign("fill_color", formatRgbHex(fillColor));
         }
         byOutput.insert(entry.connector, std::move(item));
@@ -531,7 +531,7 @@ namespace {
       if (!scales.empty()) {
         scales += "; ";
       }
-      scales += output->connectorName + ':' + std::format("{:.3f}", *scale);
+      scales += output->connectorName + ':' + std::format("{:.3F}", *scale);
     }
     return scales;
   }

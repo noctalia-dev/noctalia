@@ -373,19 +373,19 @@ void main() {
   float modeValue(FancyAudioVisualizerMode mode) noexcept {
     switch (mode) {
     case FancyAudioVisualizerMode::Bars:
-      return 0.0f;
+      return 0.0F;
     case FancyAudioVisualizerMode::Wave:
-      return 1.0f;
+      return 1.0F;
     case FancyAudioVisualizerMode::Rings:
-      return 2.0f;
+      return 2.0F;
     case FancyAudioVisualizerMode::BarsRings:
-      return 3.0f;
+      return 3.0F;
     case FancyAudioVisualizerMode::WaveRings:
-      return 4.0f;
+      return 4.0F;
     case FancyAudioVisualizerMode::All:
-      return 5.0f;
+      return 5.0F;
     }
-    return 3.0f;
+    return 3.0F;
   }
 
 } // namespace
@@ -452,12 +452,12 @@ void FancyAudioVisualizerProgram::draw(
     TextureId audioTexture, float surfaceWidth, float surfaceHeight, float width, float height,
     const FancyAudioVisualizerStyle& style, const Mat3& transform
 ) const {
-  if (!m_program.isValid() || width <= 0.0f || height <= 0.0f || audioTexture == 0) {
+  if (!m_program.isValid() || width <= 0.0F || height <= 0.0F || audioTexture == 0) {
     return;
   }
 
   static constexpr std::array<GLfloat, 12> kQuad = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
 
   glUseProgram(m_program.id());

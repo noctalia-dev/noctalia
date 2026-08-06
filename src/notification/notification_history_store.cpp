@@ -110,7 +110,7 @@ namespace {
 
   /// History list only needs small previews; keeps WebP sidecars tiny.
   constexpr int kMaxPersistImageSide = 96;
-  constexpr float kPersistWebPQuality = 65.0f;
+  constexpr float kPersistWebPQuality = 65.0F;
 
   std::filesystem::path assetsDirectoryForJson(const std::filesystem::path& jsonFilePath) {
     return jsonFilePath.parent_path() / kAssetsDirName;

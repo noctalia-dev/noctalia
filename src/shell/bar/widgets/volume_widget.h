@@ -54,7 +54,7 @@ private:
   Glyph* m_glyph = nullptr;
   Image* m_image = nullptr;
   Label* m_label = nullptr;
-  float m_lastVolume = -1.0f;
+  float m_lastVolume = -1.0F;
   std::string m_lastEffectsProfile;
   bool m_lastMuted = false;
   bool m_isVertical = false;

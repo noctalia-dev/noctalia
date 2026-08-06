@@ -55,9 +55,9 @@ namespace {
   };
 
   constexpr Logger kLog("seat");
-  constexpr float kAxisValue120PerStep = 120.0f;
+  constexpr float kAxisValue120PerStep = 120.0F;
   // libinput reports one wheel detent as 15 degrees of rotation.
-  constexpr float kLegacyWheelAxisUnitsPerStep = 15.0f;
+  constexpr float kLegacyWheelAxisUnitsPerStep = 15.0F;
 
 } // namespace
 
@@ -374,7 +374,7 @@ void WaylandSeat::handlePointerAxisDiscrete(
   AxisDetent& detent = self->m_pendingAxisDetents[axis];
   detent.valid = true;
   detent.discrete = discrete;
-  if (detent.lines == 0.0f) {
+  if (detent.lines == 0.0F) {
     detent.lines = static_cast<float>(discrete);
   }
 }
@@ -406,7 +406,7 @@ void WaylandSeat::handlePointerFrame(void* data, wl_pointer* /*pointer*/) {
 
   for (auto& event : events) {
     if (event.type == PointerEvent::Type::Axis
-        && event.axisLines == 0.0f
+        && event.axisLines == 0.0F
         && (event.axisSource == WL_POINTER_AXIS_SOURCE_WHEEL || event.axisSource == WL_POINTER_AXIS_SOURCE_WHEEL_TILT)
         && event.axisValue != 0.0) {
       // Some compositors send wheel-source axis events without discrete/value120.

@@ -20,7 +20,7 @@ public:
 
   [[nodiscard]] std::unique_ptr<DesktopWidget> create(
       const std::string& type, const std::unordered_map<std::string, WidgetSettingValue>& settings,
-      float contentScale = 1.0f
+      float contentScale = 1.0F
   ) const;
 
 private:

@@ -336,8 +336,8 @@ void SettingsWindow::openActionsMenu() {
        .hasSubmenu = false}
   );
 
-  float anchorAbsX = 0.0f;
-  float anchorAbsY = 0.0f;
+  float anchorAbsX = 0.0F;
+  float anchorAbsY = 0.0F;
   Node::absolutePosition(m_actionsMenuButton, anchorAbsX, anchorAbsY);
 
   const float scale = uiScale();
@@ -352,7 +352,7 @@ void SettingsWindow::openActionsMenu() {
   m_actionsMenuPopup->open(
       ContextMenuPopupRequest{
           .entries = std::move(entries),
-          .minMenuWidth = 220.0f * scale,
+          .minMenuWidth = 220.0F * scale,
           .maxMenuWidth = Style::menuAutoMaxWidth * scale,
           .maxVisible = 8,
           .anchor =
@@ -1358,7 +1358,7 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
           .align = FlexAlign::Stretch,
           .gap = Style::spaceXs * scale,
           .padding = Style::spaceSm * scale,
-          .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.35f),
+          .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.35F),
           .radius = Style::scaledRadiusMd(scale),
       });
       for (const CalendarSource& source : draft->discoveredCalendars) {
@@ -1370,8 +1370,8 @@ void SettingsWindow::openCalendarAccountEditor(std::optional<std::string> accoun
         });
         auto info = ui::column({
             .align = FlexAlign::Start,
-            .gap = 2.0f * scale,
-            .flexGrow = 1.0f,
+            .gap = 2.0F * scale,
+            .flexGrow = 1.0F,
         });
         info->addChild(
             ui::label({
@@ -2169,9 +2169,9 @@ void SettingsWindow::openPluginStore() {
                     storeContent->populateBody(body, *m_renderContext, m_asyncTextures);
                   },
               .scale = scale,
-              .minWidth = 800.0f,
-              .maxWidth = 1100.0f,
-              .parentFraction = 0.85f,
+              .minWidth = 800.0F,
+              .maxWidth = 1100.0F,
+              .parentFraction = 0.85F,
               .fillParentHeight = true,
               .scrollableBody = false,
               .onCloseRequested = [storeContent]() -> bool {
@@ -2260,9 +2260,9 @@ void SettingsWindow::openCommunityTemplateStore() {
                 storeContent->populateBody(body, *m_renderContext);
               },
           .scale = scale,
-          .minWidth = 720.0f,
-          .maxWidth = 1000.0f,
-          .parentFraction = 0.85f,
+          .minWidth = 720.0F,
+          .maxWidth = 1000.0F,
+          .parentFraction = 0.85F,
           .fillParentHeight = true,
           .scrollableBody = false,
           .preDispatchKeyboard =

@@ -34,8 +34,8 @@ namespace settings {
 
   namespace {
 
-    constexpr float kSourceBadgeMaxWidth = 120.0f;
-    constexpr float kTagBadgeMaxWidth = 120.0f;
+    constexpr float kSourceBadgeMaxWidth = 120.0F;
+    constexpr float kTagBadgeMaxWidth = 120.0F;
 
     // Display label for a source filter value: official/community are localized badge names,
     // custom source names show verbatim.
@@ -566,13 +566,13 @@ namespace settings {
 
     auto grid = ui::virtualGridView({
         .out = &m_grid,
-        .minCellWidth = 200.0f * scale,
-        .cellHeight = 215.0f * scale,
+        .minCellWidth = 200.0F * scale,
+        .cellHeight = 215.0F * scale,
         .squareCells = false,
         .columnGap = Style::spaceSm * scale,
         .rowGap = Style::spaceSm * scale,
         .adapter = adapterPtr,
-        .flexGrow = 1.0f,
+        .flexGrow = 1.0F,
         .onSelectionChanged =
             [this](std::optional<std::size_t> index) {
               m_selectedPluginId = index.has_value() && *index < m_filteredIndices.size()
@@ -614,9 +614,9 @@ namespace settings {
     // content (header + README can exceed the sheet height).
     auto scroll = ui::scrollView({
         .scrollbarVisible = true,
-        .viewportPaddingH = 0.0f,
-        .viewportPaddingV = 0.0f,
-        .flexGrow = 1.0f,
+        .viewportPaddingH = 0.0F,
+        .viewportPaddingV = 0.0F,
+        .flexGrow = 1.0F,
         .configure = [](ScrollView& sv) {
           sv.clearFill();
           sv.clearBorder();
@@ -629,7 +629,7 @@ namespace settings {
 
     auto header = ui::row({.align = FlexAlign::Stretch, .gap = Style::spaceMd * scale, .fillWidth = true});
 
-    auto pill = [&](const std::string& text, ColorRole fg, ColorRole bg, float bgAlpha, float maxWidth = 0.0f) {
+    auto pill = [&](const std::string& text, ColorRole fg, ColorRole bg, float bgAlpha, float maxWidth = 0.0F) {
       Label* label = nullptr;
       auto badge = ui::row(
           {.align = FlexAlign::Center,
@@ -644,9 +644,9 @@ namespace settings {
               .color = colorSpecFromRole(fg),
           })
       );
-      if (maxWidth > 0.0f) {
+      if (maxWidth > 0.0F) {
         badge->setMaxWidth(maxWidth * scale);
-        label->setMaxWidth((maxWidth - (Style::spaceXs * 2.0f)) * scale);
+        label->setMaxWidth((maxWidth - (Style::spaceXs * 2.0F)) * scale);
         label->setMaxLines(1);
         label->setEllipsize(TextEllipsize::End);
       }
@@ -659,10 +659,10 @@ namespace settings {
       auto img = ui::image({
           .fit = ImageFit::Contain,
           .radius = Style::scaledRadiusMd(scale),
-          .width = 320.0f * scale,
-          .height = 200.0f * scale,
+          .width = 320.0F * scale,
+          .height = 200.0F * scale,
       });
-      const int thumbTargetSize = static_cast<int>(std::ceil(320.0f * scale));
+      const int thumbTargetSize = static_cast<int>(std::ceil(320.0F * scale));
       if (textureCache != nullptr) {
         img->setSourceFileAsync(renderer, *textureCache, thumbIt->second, thumbTargetSize, true);
       } else {
@@ -673,10 +673,10 @@ namespace settings {
       header->addChild(
           ui::glyph({
               .glyph = entry.icon.empty() ? std::string("apps") : entry.icon,
-              .glyphSize = Style::fontSizeHeader * 2.0f * scale,
+              .glyphSize = Style::fontSizeHeader * 2.0F * scale,
               .color = colorSpecFromRole(ColorRole::Primary),
-              .width = 80.0f * scale,
-              .height = 80.0f * scale,
+              .width = 80.0F * scale,
+              .height = 80.0F * scale,
           })
       );
     }
@@ -684,7 +684,7 @@ namespace settings {
     // Right side: plugin info (name, author, tags, version/license/badges, description, action),
     // left-aligned and filling the space next to the thumbnail.
     auto info = ui::column(
-        {.align = FlexAlign::Start, .gap = Style::spaceXs * scale, .paddingV = Style::spaceSm * scale, .flexGrow = 1.0f}
+        {.align = FlexAlign::Start, .gap = Style::spaceXs * scale, .paddingV = Style::spaceSm * scale, .flexGrow = 1.0F}
     );
     auto title = ui::row({.align = FlexAlign::Center, .wrap = true, .gap = Style::spaceXs * scale, .fillWidth = true});
     title->addChild(
@@ -698,7 +698,7 @@ namespace settings {
         })
     );
     for (const auto& tag : entry.tags) {
-      title->addChild(pill(tag, ColorRole::OnSurfaceVariant, ColorRole::SurfaceVariant, 1.0f, kTagBadgeMaxWidth));
+      title->addChild(pill(tag, ColorRole::OnSurfaceVariant, ColorRole::SurfaceVariant, 1.0F, kTagBadgeMaxWidth));
     }
     info->addChild(std::move(title));
     auto meta = ui::row({.align = FlexAlign::Center, .wrap = true, .gap = Style::spaceXs * scale, .fillWidth = true});
@@ -738,20 +738,20 @@ namespace settings {
     }
     if (storeEntry.source == "official") {
       addMetaItem(pill(
-          i18n::tr("settings.badges.official"), ColorRole::Primary, ColorRole::Primary, 0.15f, kSourceBadgeMaxWidth
+          i18n::tr("settings.badges.official"), ColorRole::Primary, ColorRole::Primary, 0.15F, kSourceBadgeMaxWidth
       ));
     } else if (storeEntry.source == "community") {
       addMetaItem(pill(
-          i18n::tr("settings.badges.community"), ColorRole::Secondary, ColorRole::Secondary, 0.15f, kSourceBadgeMaxWidth
+          i18n::tr("settings.badges.community"), ColorRole::Secondary, ColorRole::Secondary, 0.15F, kSourceBadgeMaxWidth
       ));
     } else {
-      addMetaItem(pill(storeEntry.source, ColorRole::Tertiary, ColorRole::Tertiary, 0.15f, kSourceBadgeMaxWidth));
+      addMetaItem(pill(storeEntry.source, ColorRole::Tertiary, ColorRole::Tertiary, 0.15F, kSourceBadgeMaxWidth));
     }
     if (entry.deprecated) {
-      addMetaItem(pill(i18n::tr("settings.badges.deprecated"), ColorRole::Error, ColorRole::Error, 0.15f));
+      addMetaItem(pill(i18n::tr("settings.badges.deprecated"), ColorRole::Error, ColorRole::Error, 0.15F));
     }
     if (entry.heldBack) {
-      addMetaItem(pill(i18n::tr("settings.plugins.store.held-back"), ColorRole::Tertiary, ColorRole::Tertiary, 0.15f));
+      addMetaItem(pill(i18n::tr("settings.plugins.store.held-back"), ColorRole::Tertiary, ColorRole::Tertiary, 0.15F));
     }
     info->addChild(std::move(meta));
 
@@ -801,7 +801,7 @@ namespace settings {
     if (enabling) {
       info->addChild(
           ui::spinner({
-              .spinnerSize = Style::controlHeightSm * scale * 0.7f,
+              .spinnerSize = Style::controlHeightSm * scale * 0.7F,
               .spinning = true,
           })
       );

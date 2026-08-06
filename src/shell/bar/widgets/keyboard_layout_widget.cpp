@@ -78,7 +78,7 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
   m_isVertical = containerHeight > containerWidth;
   sync(renderer);
   if (!root()->visible()) {
-    root()->setSize(0.0f, 0.0f);
+    root()->setSize(0.0F, 0.0F);
     return;
   }
 
@@ -99,7 +99,7 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
       m_glyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
       m_glyph->measure(renderer);
     }
-    if (m_glyph != nullptr && m_glyph->width() <= 0.0f && m_glyphName == "keyboard") {
+    if (m_glyph != nullptr && m_glyph->width() <= 0.0F && m_glyphName == "keyboard") {
       // Some fonts may miss the keyboard glyph; use a guaranteed fallback.
       m_glyph->setGlyph("world");
       m_glyph->measure(renderer);
@@ -113,47 +113,47 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
     const float stableLabelWidth = std::round(renderer
                                                   .measureText(
                                                       kVerticalStableLabel, m_label->fontSize(), labelFontWeight(),
-                                                      0.0f, 0, TextAlign::Start, labelFontFamily()
+                                                      0.0F, 0, TextAlign::Start, labelFontFamily()
                                                   )
                                                   .width);
-    m_label->setMinWidth(m_isVertical ? std::min(containerWidth, stableLabelWidth) : 0.0f);
+    m_label->setMinWidth(m_isVertical ? std::min(containerWidth, stableLabelWidth) : 0.0F);
     m_label->measure(renderer);
   }
 
   if (m_isVertical) {
-    const float glyphW = showGlyph ? (m_image != nullptr ? m_image->width() : m_glyph->width()) : 0.0f;
-    const float glyphH = showGlyph ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0f;
-    const float labelW = m_showLabel ? m_label->width() : 0.0f;
-    const float labelH = m_showLabel ? m_label->height() : 0.0f;
+    const float glyphW = showGlyph ? (m_image != nullptr ? m_image->width() : m_glyph->width()) : 0.0F;
+    const float glyphH = showGlyph ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0F;
+    const float labelW = m_showLabel ? m_label->width() : 0.0F;
+    const float labelH = m_showLabel ? m_label->height() : 0.0F;
     const float w = std::max(glyphW, labelW);
-    float y = 0.0f;
+    float y = 0.0F;
     if (showGlyph) {
       if (m_image != nullptr) {
-        m_image->setPosition(std::round((w - glyphW) * 0.5f), y);
+        m_image->setPosition(std::round((w - glyphW) * 0.5F), y);
       } else {
-        m_glyph->setPosition(std::round((w - glyphW) * 0.5f), y);
+        m_glyph->setPosition(std::round((w - glyphW) * 0.5F), y);
       }
       y += glyphH;
     }
     if (m_showLabel) {
-      m_label->setPosition(std::round((w - labelW) * 0.5f), y);
+      m_label->setPosition(std::round((w - labelW) * 0.5F), y);
       y += labelH;
     }
     root()->setSize(w, y);
   } else {
     const float spacing = Style::spaceXs;
-    float x = 0.0f;
-    const float glyphH = showGlyph ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0f;
-    const float labelH = m_showLabel ? m_label->height() : 0.0f;
+    float x = 0.0F;
+    const float glyphH = showGlyph ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0F;
+    const float labelH = m_showLabel ? m_label->height() : 0.0F;
     const float h = std::max(glyphH, labelH);
     if (showGlyph) {
       if (m_image != nullptr) {
-        const float imageY = std::round((h - m_image->height()) * 0.5f);
-        m_image->setPosition(0.0f, imageY);
+        const float imageY = std::round((h - m_image->height()) * 0.5F);
+        m_image->setPosition(0.0F, imageY);
         x += m_image->width();
       } else {
-        const float glyphY = std::round((h - m_glyph->height()) * 0.5f);
-        m_glyph->setPosition(0.0f, glyphY);
+        const float glyphY = std::round((h - m_glyph->height()) * 0.5F);
+        m_glyph->setPosition(0.0F, glyphY);
         x += m_glyph->width();
       }
       if (m_showLabel) {
@@ -161,7 +161,7 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
       }
     }
     if (m_showLabel) {
-      const float labelY = std::round((h - m_label->height()) * 0.5f);
+      const float labelY = std::round((h - m_label->height()) * 0.5F);
       m_label->setPosition(x, labelY);
       root()->setSize(m_label->x() + m_label->width(), h);
     } else {
@@ -203,7 +203,7 @@ void KeyboardLayoutWidget::sync(Renderer& renderer) {
     const bool shouldHide = m_hideWhenSingleLayout && !layoutNames.empty() && layoutNames.size() <= 1;
     node->setVisible(!shouldHide);
     if (shouldHide) {
-      node->setSize(0.0f, 0.0f);
+      node->setSize(0.0F, 0.0F);
       requestRedraw();
       return;
     }
@@ -257,7 +257,7 @@ void KeyboardLayoutWidget::sync(Renderer& renderer) {
     const bool needsBackend = left != nullptr
         && left->kind == noctalia::bar::WidgetAction::Kind::Ipc
         && left->verb == "keyboard-layout-cycle";
-    node->setOpacity(needsBackend && !m_platform.hasKeyboardLayoutBackend() ? 0.85f : 1.0f);
+    node->setOpacity(needsBackend && !m_platform.hasKeyboardLayoutBackend() ? 0.85F : 1.0F);
   }
 
   requestRedraw();

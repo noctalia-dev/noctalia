@@ -49,36 +49,36 @@ enum class RenderImageFitMode : std::uint8_t {
 
 struct RenderImageDraw {
   TextureId texture;
-  float surfaceWidth = 0.0f;
-  float surfaceHeight = 0.0f;
-  float width = 0.0f;
-  float height = 0.0f;
-  Color tint = rgba(1.0f, 1.0f, 1.0f, 1.0f);
+  float surfaceWidth = 0.0F;
+  float surfaceHeight = 0.0F;
+  float width = 0.0F;
+  float height = 0.0F;
+  Color tint = rgba(1.0F, 1.0F, 1.0F, 1.0F);
   bool monochromeTint = false;
   bool alphaMaskTint = false;
-  float opacity = 1.0f;
-  float radius = 0.0f;
-  Color borderColor = rgba(0.0f, 0.0f, 0.0f, 0.0f);
-  float borderWidth = 0.0f;
+  float opacity = 1.0F;
+  float radius = 0.0F;
+  Color borderColor = rgba(0.0F, 0.0F, 0.0F, 0.0F);
+  float borderWidth = 0.0F;
   RenderImageFitMode fitMode = RenderImageFitMode::Stretch;
-  float textureWidth = 0.0f;
-  float textureHeight = 0.0f;
+  float textureWidth = 0.0F;
+  float textureHeight = 0.0F;
   Mat3 transform = Mat3::identity();
   ImageScrim scrim{};
 };
 
 struct RenderGlyphDraw {
   TextureId texture;
-  float surfaceWidth = 0.0f;
-  float surfaceHeight = 0.0f;
-  float width = 0.0f;
-  float height = 0.0f;
-  float u0 = 0.0f;
-  float v0 = 0.0f;
-  float u1 = 1.0f;
-  float v1 = 1.0f;
-  float opacity = 1.0f;
-  Color tint = rgba(1.0f, 1.0f, 1.0f, 1.0f);
+  float surfaceWidth = 0.0F;
+  float surfaceHeight = 0.0F;
+  float width = 0.0F;
+  float height = 0.0F;
+  float u0 = 0.0F;
+  float v0 = 0.0F;
+  float u1 = 1.0F;
+  float v1 = 1.0F;
+  float opacity = 1.0F;
+  Color tint = rgba(1.0F, 1.0F, 1.0F, 1.0F);
   bool tinted = false;
   Mat3 transform = Mat3::identity();
 };

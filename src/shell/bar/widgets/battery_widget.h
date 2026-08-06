@@ -70,7 +70,7 @@ private:
   Glyph* m_overlayGlyph = nullptr;
 
   // Animated fill
-  float m_animatedPct = 0.0f;
+  float m_animatedPct = 0.0F;
   AnimationManager::Id m_fillAnim = 0;
 
   double m_lastPct = -1.0;

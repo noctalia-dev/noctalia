@@ -16,10 +16,10 @@ class RenderFramebuffer;
 class RenderTarget;
 
 struct BackdropPostProcessOptions {
-  float blurRadius = 0.0f;
+  float blurRadius = 0.0F;
   int blurRounds = 0;
-  Color tintColor = rgba(0.0f, 0.0f, 0.0f, 1.0f);
-  float tintIntensity = 0.0f;
+  Color tintColor = rgba(0.0F, 0.0F, 0.0F, 1.0F);
+  float tintIntensity = 0.0F;
 };
 
 class WallpaperRenderer {
@@ -74,14 +74,14 @@ private:
 
   TextureId m_tex1;
   TextureId m_tex2;
-  float m_imgW1 = 0.0f;
-  float m_imgH1 = 0.0f;
-  float m_imgW2 = 0.0f;
-  float m_imgH2 = 0.0f;
-  float m_progress = 0.0f;
+  float m_imgW1 = 0.0F;
+  float m_imgH1 = 0.0F;
+  float m_imgW2 = 0.0F;
+  float m_imgH2 = 0.0F;
+  float m_progress = 0.0F;
   WallpaperTransition m_transition = WallpaperTransition::Fade;
   WallpaperFillMode m_fillMode = WallpaperFillMode::Crop;
-  Color m_fillColor = rgba(0.0f, 0.0f, 0.0f, 1.0f);
+  Color m_fillColor = rgba(0.0F, 0.0F, 0.0F, 1.0F);
   TransitionParams m_params;
   bool m_graphicsResetPending = false;
 };

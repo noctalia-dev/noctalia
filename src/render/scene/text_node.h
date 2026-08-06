@@ -129,8 +129,8 @@ public:
 private:
   std::string m_text;
   std::string m_fontFamily;
-  float m_fontSize = 14.0f;
-  float m_maxWidth = 0.0f;
+  float m_fontSize = 14.0F;
+  float m_maxWidth = 0.0F;
   int m_maxLines = 0;
   Color m_color;
   TextAlign m_textAlign = TextAlign::Start;
@@ -139,6 +139,6 @@ private:
   bool m_useMarkup = false;
   bool m_hasShadow = false;
   Color m_shadowColor;
-  float m_shadowOffsetX = 0.0f;
-  float m_shadowOffsetY = 0.0f;
+  float m_shadowOffsetX = 0.0F;
+  float m_shadowOffsetY = 0.0F;
 };

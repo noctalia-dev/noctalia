@@ -50,9 +50,9 @@ void TestPanel::create() {
       .onChange = [this](std::size_t index) { selectTab(index); },
   });
 
-  headerRow->addChild(ui::row({.flexGrow = 1.0f}));
+  headerRow->addChild(ui::row({.flexGrow = 1.0F}));
   headerRow->addChild(std::move(tabSwitch));
-  headerRow->addChild(ui::row({.flexGrow = 1.0f}));
+  headerRow->addChild(ui::row({.flexGrow = 1.0F}));
 
   auto closeButton = ui::button({
       .out = &m_closeButton,
@@ -78,19 +78,19 @@ void TestPanel::create() {
   auto colA = ui::column({
       .align = FlexAlign::Start,
       .gap = Style::spaceMd * scale,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
   });
 
   auto colB = ui::column({
       .align = FlexAlign::Start,
       .gap = Style::spaceMd * scale,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
   });
 
   auto colC = ui::column({
       .align = FlexAlign::Start,
       .gap = Style::spaceMd * scale,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
   });
 
   auto makeRow = [scale]() {
@@ -214,10 +214,10 @@ void TestPanel::create() {
         .fontSize = Style::fontSizeBody * scale,
         .controlHeight = Style::controlHeight * scale,
         .horizontalPadding = Style::spaceMd * scale,
-        .glyphSize = 14.0f * scale,
+        .glyphSize = 14.0F * scale,
         .surfaceOpacity = panelCardOpacity(),
-        .width = 220.0f * scale,
-        .height = 0.0f,
+        .width = 220.0F * scale,
+        .height = 0.0F,
     });
 
     auto section = makeSection("Select");
@@ -235,8 +235,8 @@ void TestPanel::create() {
         .controlHeight = Style::controlHeight * scale,
         .horizontalPadding = Style::spaceMd * scale,
         .surfaceOpacity = panelCardOpacity(),
-        .width = 220.0f * scale,
-        .height = 0.0f,
+        .width = 220.0F * scale,
+        .height = 0.0F,
         .onChange = [this](const std::string& val) {
           if (m_inputValueLabel != nullptr) {
             m_inputValueLabel->setText(val.empty() ? "..." : val.substr(0, 16));
@@ -261,15 +261,15 @@ void TestPanel::create() {
   {
     auto slider = ui::slider({
         .out = &m_slider,
-        .minValue = 0.0f,
-        .maxValue = 100.0f,
-        .step = 1.0f,
-        .value = 50.0f,
+        .minValue = 0.0F,
+        .maxValue = 100.0F,
+        .step = 1.0F,
+        .value = 50.0F,
         .trackHeight = Style::sliderTrackHeight * scale,
         .thumbSize = Style::sliderThumbSize * scale,
         .controlHeight = Style::controlHeight * scale,
         .width = Style::sliderDefaultWidth * scale,
-        .height = 0.0f,
+        .height = 0.0F,
         .onValueChanged = [this](double value) {
           if (m_sliderValueLabel != nullptr) {
             const int percent = static_cast<int>(std::round(value));
@@ -436,8 +436,8 @@ void TestPanel::create() {
   {
     auto spinner = ui::spinner({
         .out = &m_spinner,
-        .spinnerSize = 20.0f * scale,
-        .thickness = 2.0f * scale,
+        .spinnerSize = 20.0F * scale,
+        .thickness = 2.0F * scale,
     });
 
     auto section = makeSection("Spinner");
@@ -480,7 +480,7 @@ void TestPanel::create() {
         .text = "No image selected",
         .fontSize = Style::fontSizeCaption * scale,
         .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-        .maxWidth = 280.0f * scale,
+        .maxWidth = 280.0F * scale,
     });
 
     auto openFileDialog = ui::button({
@@ -528,8 +528,8 @@ void TestPanel::create() {
         .out = &m_colorPickerResultSwatch,
         .fill = fixedColorSpec(ColorPickerDialog::lastResult().value_or(colorForRole(ColorRole::Primary))),
         .radius = Style::scaledRadiusMd(scale),
-        .width = 28.0f * scale,
-        .height = 28.0f * scale,
+        .width = 28.0F * scale,
+        .height = 28.0F * scale,
         .configure = [scale](Box& box) {
           box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * scale);
         },
@@ -580,7 +580,7 @@ void TestPanel::create() {
         .text = std::move(resultText),
         .fontSize = Style::fontSizeCaption * scale,
         .color = resultColor,
-        .maxWidth = 280.0f * scale,
+        .maxWidth = 280.0F * scale,
     });
 
     auto openPicker = ui::button({
@@ -629,10 +629,10 @@ void TestPanel::create() {
     grid->setColumnGap(Style::spaceSm * scale);
     grid->setRowGap(Style::spaceSm * scale);
     grid->setPadding(Style::spaceXs * scale);
-    grid->setSize(300.0f * scale, 0.0f);
+    grid->setSize(300.0F * scale, 0.0F);
     grid->setUniformCellSize(true);
     grid->setStretchItems(true);
-    grid->setMinCellHeight(64.0f * scale);
+    grid->setMinCellHeight(64.0F * scale);
 
     struct TileSpec {
       const char* glyph;
@@ -649,11 +649,11 @@ void TestPanel::create() {
           .text = tileData.label,
           .glyph = tileData.glyph,
           .fontSize = Style::fontSizeCaption * scale,
-          .glyphSize = 16.0f * scale,
+          .glyphSize = 16.0F * scale,
           .contentAlign = ButtonContentAlign::Center,
           .variant = ButtonVariant::Default,
           .surfaceOpacity = panelCardOpacity(),
-          .minHeight = 64.0f * scale,
+          .minHeight = 64.0F * scale,
           .padding = Style::spaceSm * scale,
           .gap = Style::spaceXs * scale,
           .radius = Style::scaledRadiusMd(scale),
@@ -704,8 +704,8 @@ void TestPanel::create() {
         .out = &m_transformStage,
         .fill = colorSpecFromRole(ColorRole::Surface),
         .radius = Style::scaledRadiusLg(scale),
-        .width = 280.0f * scale,
-        .height = 220.0f * scale,
+        .width = 280.0F * scale,
+        .height = 220.0F * scale,
         .configure = [scale](Box& box) {
           box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * scale);
         },
@@ -715,11 +715,11 @@ void TestPanel::create() {
         .out = &m_transformDemoBox,
         .fill = colorSpecFromRole(ColorRole::SurfaceVariant),
         .radius = Style::scaledRadiusLg(scale),
-        .width = 180.0f * scale,
-        .height = 100.0f * scale,
+        .width = 180.0F * scale,
+        .height = 100.0F * scale,
         .configure = [scale](Box& box) {
           box.setBorder(colorSpecFromRole(ColorRole::Primary), Style::borderWidth * scale);
-          box.setRotation(0.0f);
+          box.setRotation(0.0F);
         },
     });
 
@@ -746,11 +746,11 @@ void TestPanel::create() {
     auto demoGlyph = ui::glyph({
         .out = &m_transformDemoGlyph,
         .glyph = "noctalia",
-        .glyphSize = 24.0f * scale,
+        .glyphSize = 24.0F * scale,
         .color = colorSpecFromRole(ColorRole::Primary),
         .configure = [scale](Glyph& glyph) {
-          glyph.setPosition(150.0f * scale, 60.0f * scale);
-          glyph.setRotation(std::numbers::pi_v<float> * 0.5f);
+          glyph.setPosition(150.0F * scale, 60.0F * scale);
+          glyph.setRotation(std::numbers::pi_v<float> * 0.5F);
         },
     });
     m_transformDemoBox->addChild(std::move(demoGlyph));
@@ -758,9 +758,9 @@ void TestPanel::create() {
     auto badgeBox = ui::box({
         .out = &m_transformBadgeBox,
         .fill = colorSpecFromRole(ColorRole::Primary),
-        .radius = 14.0f * scale,
-        .width = 28.0f * scale,
-        .height = 28.0f * scale,
+        .radius = 14.0F * scale,
+        .width = 28.0F * scale,
+        .height = 28.0F * scale,
         .configure = [scale](Box& box) {
           box.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth * scale);
         },
@@ -808,9 +808,9 @@ void TestPanel::create() {
   auto scroll = ui::scrollView({
       .out = &m_scrollView,
       .scrollbarVisible = true,
-      .viewportPaddingH = 0.0f,
-      .viewportPaddingV = 0.0f,
-      .flexGrow = 1.0f,
+      .viewportPaddingH = 0.0F,
+      .viewportPaddingV = 0.0F,
+      .flexGrow = 1.0F,
       .configure = [](ScrollView& scrollView) {
         scrollView.clearFill();
         scrollView.clearBorder();
@@ -837,10 +837,10 @@ void TestPanel::create() {
   }
 
   if (m_animations != nullptr && m_transformDemoBox != nullptr) {
-    m_animations->animate(0.0f, 2.0f * std::numbers::pi_v<float>, 8000.0f, Easing::Linear, [this](float phase) {
+    m_animations->animate(0.0F, 2.0F * std::numbers::pi_v<float>, 8000.0F, Easing::Linear, [this](float phase) {
       if (m_transformDemoBox != nullptr) {
         m_transformDemoBox->setRotation(phase);
-        m_transformDemoBox->setScale(1.0f + 0.16f * std::sin(phase));
+        m_transformDemoBox->setScale(1.0F + 0.16F * std::sin(phase));
       }
     });
   }
@@ -919,8 +919,8 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
             .controlHeight = Style::controlHeight * scale,
             .horizontalPadding = Style::spaceMd * scale,
             .surfaceOpacity = panelCardOpacity(),
-            .width = 360.0f * scale,
-            .height = 0.0f,
+            .width = 360.0F * scale,
+            .height = 0.0F,
             .onSubmit = [this](const std::string& value) { applyTestFontFamily(value); },
         })
     );
@@ -997,7 +997,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
           .gap = Style::spaceMd * scale,
       });
 
-      row->addChild(makeTagLabel(std::string(s.name) + " (" + std::to_string(static_cast<int>(s.size)) + ")", 110.0f));
+      row->addChild(makeTagLabel(std::string(s.name) + " (" + std::to_string(static_cast<int>(s.size)) + ")", 110.0F));
       row->addChild(
           ui::glyph({
               .glyph = "home",
@@ -1038,10 +1038,10 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
     auto col = makeLabCard();
     col->addChild(makeLabTitle("Glyph + body text alignment (varying glyph size)"));
 
-    const float glyphSizes[] = {10.0f, 12.0f, 14.0f, 16.0f, 18.0f, 20.0f, 24.0f, 28.0f, 32.0f};
+    const float glyphSizes[] = {10.0F, 12.0F, 14.0F, 16.0F, 18.0F, 20.0F, 24.0F, 28.0F, 32.0F};
     for (float gs : glyphSizes) {
       auto row = makeLabRow();
-      row->addChild(makeTagLabel("g" + std::to_string(static_cast<int>(gs)), 36.0f));
+      row->addChild(makeTagLabel("g" + std::to_string(static_cast<int>(gs)), 36.0F));
       row->addChild(
           ui::glyph({
               .glyph = "settings",
@@ -1072,7 +1072,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
     for (float fs : sizes) {
       auto row = makeLabRow();
 
-      row->addChild(makeTagLabel("fs" + std::to_string(static_cast<int>(fs)), 40.0f));
+      row->addChild(makeTagLabel("fs" + std::to_string(static_cast<int>(fs)), 40.0F));
 
       for (int i = 0; i < 8; ++i) {
         row->addChild(
@@ -1183,7 +1183,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
           .gap = Style::spaceMd * scale,
       });
 
-      row->addChild(makeTagLabel(s.codepoint, 200.0f));
+      row->addChild(makeTagLabel(s.codepoint, 200.0F));
 
       const float sizes[] = {Style::fontSizeMini, Style::fontSizeBody, Style::fontSizeTitle, Style::fontSizeHeader};
       for (float fs : sizes) {
@@ -1216,11 +1216,11 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
     col->addChild(makeLabTitle("Elision (single line, decreasing maxWidth)"));
 
     const std::string longText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.";
-    const float widths[] = {640.0f, 480.0f, 360.0f, 240.0f, 160.0f, 120.0f, 80.0f, 56.0f, 32.0f};
+    const float widths[] = {640.0F, 480.0F, 360.0F, 240.0F, 160.0F, 120.0F, 80.0F, 56.0F, 32.0F};
     for (float w : widths) {
       auto row = makeLabRow();
 
-      row->addChild(makeTagLabel("w=" + std::to_string(static_cast<int>(w)), 56.0f));
+      row->addChild(makeTagLabel("w=" + std::to_string(static_cast<int>(w)), 56.0F));
 
       auto frame = ui::row(
           {
@@ -1230,12 +1230,12 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
               .radius = Style::scaledRadiusSm(scale),
               .border = colorSpecFromRole(ColorRole::Outline),
               .width = w * scale,
-              .height = 0.0f,
+              .height = 0.0F,
           },
           ui::label({
               .text = longText,
               .fontSize = Style::fontSizeBody * scale,
-              .maxWidth = w * scale - Style::spaceSm * 2.0f * scale,
+              .maxWidth = w * scale - Style::spaceSm * 2.0F * scale,
               .maxLines = 1,
           })
       );
@@ -1256,7 +1256,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
     auto col = makeLabCard();
     col->addChild(makeLabTitle("Text alignment (Start / Center / End × short / medium / long)"));
 
-    constexpr float kBoxW = 200.0f;
+    constexpr float kBoxW = 200.0F;
     const std::string kShort = "Hi";
     const std::string kMedium = "The quick brown fox";
     const std::string kLong = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod.";
@@ -1280,14 +1280,14 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
               .radius = Style::scaledRadiusSm(scale),
               .border = colorSpecFromRole(ColorRole::Outline),
               .width = kBoxW * scale,
-              .height = 0.0f,
+              .height = 0.0F,
           },
           ui::label({
               .text = text,
               .fontSize = Style::fontSizeBody * scale,
               .maxLines = 1,
               .textAlign = align,
-              .flexGrow = 1.0f, // fill the frame so alignment has space to act
+              .flexGrow = 1.0F, // fill the frame so alignment has space to act
           })
       );
     };
@@ -1295,7 +1295,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
     for (const auto& r : rows) {
       auto row = makeLabRow();
 
-      row->addChild(makeTagLabel(r.name, 48.0f));
+      row->addChild(makeTagLabel(r.name, 48.0F));
 
       row->addChild(makeAlignFrame(kShort, r.align));
       row->addChild(makeAlignFrame(kMedium, r.align));
@@ -1317,12 +1317,12 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
     for (int lines : {1, 2, 3, 4}) {
       auto row = makeLabRow(FlexAlign::Start);
 
-      row->addChild(makeTagLabel("L=" + std::to_string(lines), 40.0f));
+      row->addChild(makeTagLabel("L=" + std::to_string(lines), 40.0F));
       row->addChild(
           ui::label({
               .text = para,
               .fontSize = Style::fontSizeBody * scale,
-              .maxWidth = 320.0f * scale,
+              .maxWidth = 320.0F * scale,
               .maxLines = lines,
           })
       );
@@ -1356,7 +1356,7 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
           {
               .align = FlexAlign::Center,
               .gap = Style::spaceXs * scale,
-              .paddingV = 0.0f,
+              .paddingV = 0.0F,
               .paddingH = Style::spaceSm * scale,
               .radius = Style::scaledRadiusMd(scale),
               .border = colorSpecFromRole(ColorRole::Outline),
@@ -1414,9 +1414,9 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
         ui::label({
             .text = "This label scrolls automatically when the line is longer than its layout width :p",
             .fontSize = Style::fontSizeBody * scale,
-            .maxWidth = 240.0f * scale,
+            .maxWidth = 240.0F * scale,
             .autoScroll = true,
-            .autoScrollSpeed = 42.0f * scale,
+            .autoScrollSpeed = 42.0F * scale,
         })
     );
 
@@ -1424,9 +1424,9 @@ std::unique_ptr<Flex> TestPanel::buildTextLabSection(float scale) {
         ui::label({
             .text = "Hover this row to scroll - the marquee pauses when the pointer leaves the label.",
             .fontSize = Style::fontSizeBody * scale,
-            .maxWidth = 240.0f * scale,
+            .maxWidth = 240.0F * scale,
             .autoScroll = true,
-            .autoScrollSpeed = 42.0f * scale,
+            .autoScrollSpeed = 42.0F * scale,
             .autoScrollOnlyWhenHovered = true,
         })
     );
@@ -1529,39 +1529,39 @@ void TestPanel::doLayout(Renderer& renderer, float width, float height) {
   if (m_glyph != nullptr && m_glyphBox != nullptr) {
     m_glyph->measure(renderer);
     m_glyph->setPosition(
-        std::round((m_glyphBox->width() - m_glyph->width()) * 0.5f),
-        std::round((m_glyphBox->height() - m_glyph->height()) * 0.5f)
+        std::round((m_glyphBox->width() - m_glyph->width()) * 0.5F),
+        std::round((m_glyphBox->height() - m_glyph->height()) * 0.5F)
     );
   }
   if (m_transformStage != nullptr && m_transformDemoBox != nullptr) {
     m_transformDemoBox->setPosition(
-        std::round((m_transformStage->width() - m_transformDemoBox->width()) * 0.5f),
-        std::round((m_transformStage->height() - m_transformDemoBox->height()) * 0.5f)
+        std::round((m_transformStage->width() - m_transformDemoBox->width()) * 0.5F),
+        std::round((m_transformStage->height() - m_transformDemoBox->height()) * 0.5F)
     );
   }
   if (m_transformDemoBox != nullptr && m_transformDemoButton != nullptr) {
     m_transformDemoButton->layout(renderer);
     m_transformDemoButton->setPosition(
-        std::round((m_transformDemoBox->width() - m_transformDemoButton->width()) * 0.5f),
-        std::round((m_transformDemoBox->height() - m_transformDemoButton->height()) * 0.5f)
+        std::round((m_transformDemoBox->width() - m_transformDemoButton->width()) * 0.5F),
+        std::round((m_transformDemoBox->height() - m_transformDemoButton->height()) * 0.5F)
     );
   }
   if (m_transformDemoBox != nullptr && m_transformDemoGlyph != nullptr) {
     m_transformDemoGlyph->measure(renderer);
     m_transformDemoGlyph->setPosition(
-        18.0f * contentScale(), std::round((m_transformDemoBox->height() - m_transformDemoGlyph->height()) * 0.85f)
+        18.0F * contentScale(), std::round((m_transformDemoBox->height() - m_transformDemoGlyph->height()) * 0.85F)
     );
   }
   if (m_transformDemoBox != nullptr && m_transformBadgeBox != nullptr) {
     m_transformBadgeBox->setPosition(
-        m_transformDemoBox->width() - m_transformBadgeBox->width() - 12.0f * contentScale(), 12.0f * contentScale()
+        m_transformDemoBox->width() - m_transformBadgeBox->width() - 12.0F * contentScale(), 12.0F * contentScale()
     );
   }
   if (m_transformBadgeBox != nullptr && m_transformBadgeLabel != nullptr) {
     m_transformBadgeLabel->measure(renderer);
     m_transformBadgeLabel->setPosition(
-        std::round((m_transformBadgeBox->width() - m_transformBadgeLabel->width()) * 0.5f),
-        std::round((m_transformBadgeBox->height() - m_transformBadgeLabel->height()) * 0.5f) - 1.0f * contentScale()
+        std::round((m_transformBadgeBox->width() - m_transformBadgeLabel->width()) * 0.5F),
+        std::round((m_transformBadgeBox->height() - m_transformBadgeLabel->height()) * 0.5F) - 1.0F * contentScale()
     );
   }
 }

@@ -27,7 +27,7 @@
 namespace {
 
   constexpr Logger kLog("session");
-  constexpr float kCountdownScrimAlpha = 0.58f;
+  constexpr float kCountdownScrimAlpha = 0.58F;
 
   [[nodiscard]] ButtonVariant buttonVariantFor(SessionActionButtonVariant variant) {
     switch (variant) {
@@ -86,7 +86,7 @@ float SessionPanel::preferredWidth() const {
   const float gap = Style::spaceMd;
   const float w = kButtonMinWidth * static_cast<float>(n)
       + gap * static_cast<float>(n > 1 ? n - 1 : 0)
-      + Style::panelPadding * 2.0f;
+      + Style::panelPadding * 2.0F;
   return scaled(w);
 }
 
@@ -95,7 +95,7 @@ float SessionPanel::preferredHeight() const {
   const float gap = Style::spaceMd;
   const float h = kActionButtonMinHeight * static_cast<float>(rows)
       + gap * static_cast<float>(rows > 1 ? rows - 1 : 0)
-      + Style::panelPadding * 2.0f;
+      + Style::panelPadding * 2.0F;
   return std::ceil(scaled(h));
 }
 
@@ -186,8 +186,8 @@ Button* SessionPanel::createActionButton(const SessionPanelActionConfig& cfg, st
   auto button = ui::button({
       .text = labelText,
       .glyph = glyph,
-      .fontSize = (Style::fontSizeBody + 1.0f) * scale,
-      .glyphSize = 28.0f * scale,
+      .fontSize = (Style::fontSizeBody + 1.0F) * scale,
+      .glyphSize = 28.0F * scale,
       .contentAlign = ButtonContentAlign::Center,
       .variant = buttonVariantFor(cfg.variant),
       .surfaceOpacity = panelCardOpacity(),
@@ -198,7 +198,7 @@ Button* SessionPanel::createActionButton(const SessionPanelActionConfig& cfg, st
       .paddingH = Style::spaceMd * scale,
       .gap = Style::spaceSm * scale,
       .radius = Style::scaledRadiusLg(scale),
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
       .onClick = [this, index]() { armEntry(index); },
       .onMotion =
           [this, index]() {
@@ -225,7 +225,7 @@ Button* SessionPanel::createActionButton(const SessionPanelActionConfig& cfg, st
 }
 
 void SessionPanel::attachCountdownOverlay(Button& button, ActionCountdownOverlay& overlay, float scale) {
-  const float ringSize = 64.0f * scale;
+  const float ringSize = 64.0F * scale;
 
   auto overlayRoot = ui::column({
       .out = &overlay.root,
@@ -246,8 +246,8 @@ void SessionPanel::attachCountdownOverlay(Button& button, ActionCountdownOverlay
 
   auto ring = std::make_unique<CountdownRing>();
   ring->setRingSize(ringSize);
-  ring->setThickness(std::max(5.0f, 5.5f * scale));
-  ring->setFontSize(22.0f * scale);
+  ring->setThickness(std::max(5.0F, 5.5F * scale));
+  ring->setFontSize(22.0F * scale);
   ring->setParticipatesInLayout(false);
   ring->setZIndex(1);
   overlay.ring = ring.get();
@@ -386,7 +386,7 @@ void SessionPanel::updateCountdownVisuals() {
   const int seconds = std::max(1, static_cast<int>(std::ceil(m_pendingCountdown->remainingMs / 1000.0)));
   const float progress = m_pendingCountdown->totalMs > 0.0
       ? static_cast<float>(std::clamp(m_pendingCountdown->remainingMs / m_pendingCountdown->totalMs, 0.0, 1.0))
-      : 0.0f;
+      : 0.0F;
 
   ActionCountdownOverlay& overlay = m_countdownOverlays[pendingIndex];
   if (overlay.root != nullptr) {
@@ -414,19 +414,19 @@ void SessionPanel::layoutCountdownOverlays(Renderer& renderer) {
 
     const float width = button->width();
     const float height = button->height();
-    overlay.root->setPosition(0.0f, 0.0f);
+    overlay.root->setPosition(0.0F, 0.0F);
     overlay.root->setFrameSize(width, height);
 
     if (overlay.scrim != nullptr) {
-      overlay.scrim->setPosition(0.0f, 0.0f);
+      overlay.scrim->setPosition(0.0F, 0.0F);
       overlay.scrim->setFrameSize(width, height);
       overlay.scrim->setSize(width, height);
     }
 
     if (overlay.ring != nullptr) {
       const float ringSize = overlay.ring->ringSize();
-      const float ringX = (width - ringSize) * 0.5f;
-      const float ringY = (height - ringSize) * 0.5f;
+      const float ringX = (width - ringSize) * 0.5F;
+      const float ringY = (height - ringSize) * 0.5F;
       overlay.ring->setPosition(ringX, ringY);
       overlay.ring->layout(renderer);
     }

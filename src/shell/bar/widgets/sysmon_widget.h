@@ -108,7 +108,7 @@ private:
   ConfigService& m_configService;
   bool m_showGlyph;
   bool m_showValue;
-  float m_labelMinWidth = 0.0f;
+  float m_labelMinWidth = 0.0F;
   std::string m_diskPath;
   std::string m_networkInterface;
   FormatUnits::DecimalByteRateUnit m_networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
@@ -133,7 +133,7 @@ private:
   double m_tempMax = 80.0;
   Box* m_chartBg = nullptr;
   Graph* m_graph = nullptr;
-  float m_scrollProgress = 1.0f;
+  float m_scrollProgress = 1.0F;
   Timer m_updateTimer;
   FrameRateLimiter m_redrawLimiter{std::chrono::milliseconds{200}};
 

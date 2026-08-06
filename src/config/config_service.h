@@ -47,6 +47,7 @@ public:
 
   [[nodiscard]] const Config& config() const noexcept { return m_config; }
   [[nodiscard]] bool isLockScreenEnabled() const noexcept { return ::isLockScreenEnabled(m_config.lockscreen); }
+  [[nodiscard]] bool shouldLockBeforeSuspend() const noexcept { return ::shouldLockBeforeSuspend(m_config.lockscreen); }
   // Which sections changed in the reload currently being dispatched. Valid while
   // reload callbacks run; subscribers consult it to skip unaffected work.
   [[nodiscard]] const ConfigChangeSet& lastChange() const noexcept { return m_lastChange; }

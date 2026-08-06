@@ -23,9 +23,9 @@ public:
 
   void draw(
       TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, const Color& tint,
-      bool monochromeTint, bool alphaMaskTint, float opacity, float radius = 0.0f,
-      const Color& borderColor = {0.0f, 0.0f, 0.0f, 0.0f}, float borderWidth = 0.0f, int fitMode = 0,
-      float textureWidth = 0.0f, float textureHeight = 0.0f, const Mat3& transform = Mat3::identity(),
+      bool monochromeTint, bool alphaMaskTint, float opacity, float radius = 0.0F,
+      const Color& borderColor = {0.0F, 0.0F, 0.0F, 0.0F}, float borderWidth = 0.0F, int fitMode = 0,
+      float textureWidth = 0.0F, float textureHeight = 0.0F, const Mat3& transform = Mat3::identity(),
       const ImageScrim& scrim = {}
   ) const;
 

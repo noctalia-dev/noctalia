@@ -222,7 +222,7 @@ namespace settings {
             .paddingV = Style::spaceSm * scale,
             .paddingH = Style::spaceMd * scale,
             .radius = Style::scaledRadiusMd(scale),
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
             .onClick = [commitName, commitTimeout, applyHostedEditor = ctx.afterIdleBehaviorApply,
                         closeHostedEditor = ctx.closeHostedEditor]() {
               commitName();

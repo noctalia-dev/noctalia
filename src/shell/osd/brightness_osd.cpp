@@ -10,19 +10,19 @@
 namespace {
 
   const char* brightnessIconName(float brightness) {
-    if (brightness < 0.4f) {
+    if (brightness < 0.4F) {
       return "brightness-low";
     }
     return "brightness-high";
   }
 
   OsdContent makeBrightnessContent(float brightness) {
-    const int percent = static_cast<int>(std::round(std::max(0.0f, brightness) * 100.0f));
+    const int percent = static_cast<int>(std::round(std::max(0.0F, brightness) * 100.0F));
     return OsdContent{
         .kind = OsdKind::Brightness,
         .icon = brightnessIconName(brightness),
         .value = std::to_string(percent) + "%",
-        .progress = std::clamp(brightness, 0.0f, 1.0f),
+        .progress = std::clamp(brightness, 0.0F, 1.0F),
     };
   }
 
@@ -38,7 +38,7 @@ void BrightnessOsd::primeFromService(const BrightnessService& service) {
     }
     m_snapshots.push_back({
         .id = display.id,
-        .percent = static_cast<int>(std::round(std::max(0.0f, display.brightness) * 100.0f)),
+        .percent = static_cast<int>(std::round(std::max(0.0F, display.brightness) * 100.0F)),
     });
   }
 }
@@ -57,7 +57,7 @@ void BrightnessOsd::onBrightnessChanged(const BrightnessService& service) {
     if (!display.controllable) {
       continue;
     }
-    const int percent = static_cast<int>(std::round(std::max(0.0f, display.brightness) * 100.0f));
+    const int percent = static_cast<int>(std::round(std::max(0.0F, display.brightness) * 100.0F));
 
     // Find previous snapshot
     bool found = false;

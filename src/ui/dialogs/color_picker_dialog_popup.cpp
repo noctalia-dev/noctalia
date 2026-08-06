@@ -47,7 +47,7 @@ void ColorPickerDialogPopup::layoutSheet(float contentWidth, float contentHeight
     return;
   }
   const float sheetPadding = Style::spaceSm * uiScale();
-  m_sheet->setPickerColumnWidth(std::max(160.0f, contentWidth - sheetPadding * 2.0f));
+  m_sheet->setPickerColumnWidth(std::max(160.0F, contentWidth - sheetPadding * 2.0F));
   m_sheet->setSize(contentWidth, contentHeight);
   m_sheet->layout(*renderContext());
 }

@@ -82,7 +82,7 @@ void SelectDropdownPopup::openSelectDropdown(const DropdownRequest& request, Dro
 
   // The menu row font is kMenuFontSize == fontSizeCaption, so scaling by fontSize/fontSizeCaption
   // renders options at exactly the requested (pre-scaled) font size, with row metrics to match.
-  const float contentScale = request.fontSize > 0.0f ? request.fontSize / Style::fontSizeCaption : 1.0f;
+  const float contentScale = request.fontSize > 0.0F ? request.fontSize / Style::fontSizeCaption : 1.0F;
 
   m_popup.open(
       ContextMenuPopupRequest{

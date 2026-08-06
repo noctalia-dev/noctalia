@@ -30,7 +30,7 @@ namespace {
   }
 
   Button::ButtonPalette paletteForVariant(ButtonVariant variant) {
-    constexpr float kDisabledAlpha = 0.55f;
+    constexpr float kDisabledAlpha = 0.55F;
     switch (variant) {
     case ButtonVariant::Default:
       return Button::ButtonPalette{
@@ -54,7 +54,7 @@ namespace {
       };
     case ButtonVariant::Primary:
       return Button::ButtonPalette{
-          .borderWidth = 0.0f,
+          .borderWidth = 0.0F,
           .normal = makeState(
               colorSpecFromRole(ColorRole::Primary), clearColorSpec(), colorSpecFromRole(ColorRole::OnPrimary)
           ),
@@ -130,7 +130,7 @@ namespace {
       };
     case ButtonVariant::Ghost:
       return Button::ButtonPalette{
-          .borderWidth = 0.0f,
+          .borderWidth = 0.0F,
           .normal = makeState(clearColorSpec(), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)),
           .hover =
               makeState(colorSpecFromRole(ColorRole::Hover), clearColorSpec(), colorSpecFromRole(ColorRole::OnHover)),
@@ -143,7 +143,7 @@ namespace {
       };
     case ButtonVariant::Tab:
       return Button::ButtonPalette{
-          .borderWidth = 0.0f,
+          .borderWidth = 0.0F,
           .normal = makeState(clearColorSpec(), clearColorSpec(), colorSpecFromRole(ColorRole::OnSurface)),
           .hover =
               makeState(colorSpecFromRole(ColorRole::Hover), clearColorSpec(), colorSpecFromRole(ColorRole::OnHover)),
@@ -155,7 +155,7 @@ namespace {
       };
     case ButtonVariant::TabActive:
       return Button::ButtonPalette{
-          .borderWidth = 0.0f,
+          .borderWidth = 0.0F,
           .normal = makeState(
               colorSpecFromRole(ColorRole::Primary), clearColorSpec(), colorSpecFromRole(ColorRole::OnPrimary)
           ),
@@ -238,7 +238,7 @@ Button::Button() {
   m_inputArea = static_cast<InputArea*>(addChild(std::move(area)));
   m_inputArea->setParticipatesInLayout(false);
   m_inputArea->setZIndex(1);
-  m_inputArea->setPosition(0.0f, 0.0f);
+  m_inputArea->setPosition(0.0F, 0.0F);
   m_inputArea->setFrameSize(width(), height());
 
   applyVariant();
@@ -291,7 +291,7 @@ void Button::setGlyphSize(float size) {
 }
 
 void Button::setControlHeight(float height) {
-  const float pinned = std::max(1.0f, height);
+  const float pinned = std::max(1.0F, height);
   setMinHeight(pinned);
   setMaxHeight(pinned);
 }
@@ -410,13 +410,13 @@ void Button::ensureBadge() {
   badge->setDirection(FlexDirection::Horizontal);
   badge->setAlign(FlexAlign::Center);
   badge->setJustify(FlexJustify::Center);
-  badge->setPadding(2.0f, Style::spaceXs);
+  badge->setPadding(2.0F, Style::spaceXs);
   badge->setRadius(Style::scaledRadiusSm());
   badge->setParticipatesInLayout(false);
   badge->setVisible(false);
 
   auto label = std::make_unique<Label>();
-  label->setFontSize(Style::fontSizeCaption * 0.85f);
+  label->setFontSize(Style::fontSizeCaption * 0.85F);
   m_badgeLabel = static_cast<Label*>(badge->addChild(std::move(label)));
 
   m_badge = static_cast<Flex*>(addChild(std::move(badge)));
@@ -424,7 +424,7 @@ void Button::ensureBadge() {
 
 void Button::updateInputArea() {
   if (m_inputArea != nullptr) {
-    m_inputArea->setPosition(0.0f, 0.0f);
+    m_inputArea->setPosition(0.0F, 0.0F);
     m_inputArea->setFrameSize(width(), height());
   }
 }
@@ -468,7 +468,7 @@ void Button::setCustomPalette(ButtonPalette customPalette) {
 }
 
 void Button::setSurfaceOpacity(float opacity) {
-  const float clamped = std::clamp(opacity, 0.0f, 1.0f);
+  const float clamped = std::clamp(opacity, 0.0F, 1.0F);
   if (m_surfaceOpacity == clamped) {
     return;
   }
@@ -478,7 +478,7 @@ void Button::setSurfaceOpacity(float opacity) {
 
 void Button::applyVariant() {
   m_palette = m_customPalette.value_or(paletteForVariant(m_variant));
-  if (m_surfaceOpacity < 1.0f) {
+  if (m_surfaceOpacity < 1.0F) {
     m_palette.normal.bg.alpha *= m_surfaceOpacity;
     m_palette.disabled.bg.alpha *= m_surfaceOpacity;
   }
@@ -573,7 +573,7 @@ void Button::applyColors(const Color& bg, const Color& border, const Color& labe
     }
   }
   if (m_badge != nullptr) {
-    m_badge->setFill(Color{label.r, label.g, label.b, label.a * 0.85f});
+    m_badge->setFill(Color{label.r, label.g, label.b, label.a * 0.85F});
     if (m_badgeLabel != nullptr) {
       m_badgeLabel->setColor(bg);
     }
@@ -582,7 +582,7 @@ void Button::applyColors(const Color& bg, const Color& border, const Color& labe
 }
 
 float Button::effectiveBorderWidth() const noexcept {
-  return Style::buttonBordersEnabled() ? m_palette.borderWidth : 0.0f;
+  return Style::buttonBordersEnabled() ? m_palette.borderWidth : 0.0F;
 }
 
 void Button::resolveVisualStateColors(Color& targetBg, Color& targetBorder, Color& targetLabel) const {
@@ -665,7 +665,7 @@ void Button::applyVisualState() {
   }
 
   m_animId = animationManager()->animate(
-      0.0f, 1.0f, Style::animFast, Easing::EaseOutCubic,
+      0.0F, 1.0F, Style::animFast, Easing::EaseOutCubic,
       [this](float t) {
         applyColors(
             lerpColor(m_fromBg, m_targetBg, t), lerpColor(m_fromBorder, m_targetBorder, t),
@@ -682,20 +682,20 @@ void Button::applyLabelMaxWidth() {
     return;
   }
   const float maxBtnWidth = maxWidth();
-  if (maxBtnWidth > 0.0f) {
+  if (maxBtnWidth > 0.0F) {
     const float padding = paddingLeft() + paddingRight();
-    const float glyphW = (m_glyph != nullptr && m_glyph->visible()) ? m_glyph->width() + gap() : 0.0f;
-    m_label->setMaxWidth(std::max(0.0f, maxBtnWidth - padding - glyphW));
+    const float glyphW = (m_glyph != nullptr && m_glyph->visible()) ? m_glyph->width() + gap() : 0.0F;
+    m_label->setMaxWidth(std::max(0.0F, maxBtnWidth - padding - glyphW));
     m_label->setEllipsize(TextEllipsize::End);
   } else {
-    m_label->setMaxWidth(0.0f);
+    m_label->setMaxWidth(0.0F);
   }
 }
 
 void Button::doLayout(Renderer& renderer) {
   const bool useCurrentSize = arrangingByLayout() || !sizeAssignedByLayout();
-  const float assignedWidth = useCurrentSize ? width() : 0.0f;
-  const float assignedHeight = useCurrentSize ? height() : 0.0f;
+  const float assignedWidth = useCurrentSize ? width() : 0.0F;
+  const float assignedHeight = useCurrentSize ? height() : 0.0F;
   const bool hasVisibleLabel = m_label != nullptr && m_label->visible();
   const bool glyphOnly = m_glyph != nullptr && !hasVisibleLabel;
 
@@ -711,12 +711,12 @@ void Button::doLayout(Renderer& renderer) {
 
   // Buttons are often sized by a parent stretch pass. Preserve that assigned
   // box instead of collapsing back to intrinsic content width.
-  if (assignedWidth > 0.0f || assignedHeight > 0.0f) {
+  if (assignedWidth > 0.0F || assignedHeight > 0.0F) {
     setSizeFromLayout(std::max(width(), assignedWidth), std::max(height(), assignedHeight));
   }
 
   if (glyphOnly && m_contentAlign == ButtonContentAlign::Center) {
-    const bool hasAssignedWidth = assignedWidth > 0.0f;
+    const bool hasAssignedWidth = assignedWidth > 0.0F;
     if (!hasAssignedWidth) {
       const float squareSize = std::max(width(), height());
       setSizeFromLayout(squareSize, squareSize);
@@ -726,10 +726,10 @@ void Button::doLayout(Renderer& renderer) {
   // After Flex layout the content row is left-anchored inside the padding.
   // Shift the whole group to honour m_contentAlign (Start leaves it as-is).
   if (m_contentAlign != ButtonContentAlign::Start) {
-    float contentLeft = 0.0f;
-    float contentRight = 0.0f;
-    float contentTop = 0.0f;
-    float contentBottom = 0.0f;
+    float contentLeft = 0.0F;
+    float contentRight = 0.0F;
+    float contentTop = 0.0F;
+    float contentBottom = 0.0F;
     bool haveContent = false;
 
     for (auto& child : children()) {
@@ -758,16 +758,16 @@ void Button::doLayout(Renderer& renderer) {
     if (haveContent) {
       const float contentWidth = contentRight - contentLeft;
       const float contentHeight = contentBottom - contentTop;
-      float targetLeft = 0.0f;
+      float targetLeft = 0.0F;
       if (m_contentAlign == ButtonContentAlign::Center) {
-        targetLeft = std::round((width() - contentWidth) * 0.5f);
+        targetLeft = std::round((width() - contentWidth) * 0.5F);
       } else { // End
         targetLeft = std::round(width() - contentWidth - paddingRight());
       }
       const float shiftX = targetLeft - contentLeft;
-      const float targetTop = std::round((height() - contentHeight) * 0.5f);
+      const float targetTop = std::round((height() - contentHeight) * 0.5F);
       const float shiftY = targetTop - contentTop;
-      if (std::abs(shiftX) > 0.01f || std::abs(shiftY) > 0.01f) {
+      if (std::abs(shiftX) > 0.01F || std::abs(shiftY) > 0.01F) {
         for (auto& child : children()) {
           Node* node = child.get();
           if (node == nullptr || !node->visible() || !node->participatesInLayout() || node->zIndex() < 0) {
@@ -780,13 +780,13 @@ void Button::doLayout(Renderer& renderer) {
   }
 
   if (m_inputArea != nullptr) {
-    m_inputArea->setPosition(0.0f, 0.0f);
+    m_inputArea->setPosition(0.0F, 0.0F);
     m_inputArea->setSize(width(), height());
   }
 
   if (m_badge != nullptr && m_badge->visible()) {
     m_badgeLabel->measure(renderer);
-    m_badge->setMinWidth(0.0f);
+    m_badge->setMinWidth(0.0F);
     m_badge->layout(renderer);
     m_badge->setMinWidth(m_badge->height());
     m_badge->layout(renderer);
@@ -817,7 +817,7 @@ wrapButtonsIntoRows(Renderer& renderer, std::vector<std::unique_ptr<Button>>& bu
   }
 
   std::vector<std::unique_ptr<Button>> currentRow;
-  float currentRowWidth = 0.0f;
+  float currentRowWidth = 0.0F;
 
   for (auto& button : buttons) {
     if (!button) {
@@ -829,7 +829,7 @@ wrapButtonsIntoRows(Renderer& renderer, std::vector<std::unique_ptr<Button>>& bu
     if (!currentRow.empty() && currentRowWidth + gap + btnWidth > maxWidth) {
       rows.push_back(std::move(currentRow));
       currentRow.clear();
-      currentRowWidth = 0.0f;
+      currentRowWidth = 0.0F;
     }
 
     if (currentRow.empty()) {
@@ -861,9 +861,9 @@ void populateRowContainer(
       if (rowButtons.size() == 1) {
         btn->setMaxWidth(maxWidth);
       } else {
-        btn->setMaxWidth(0.0f);
+        btn->setMaxWidth(0.0F);
       }
-      btn->setFlexGrow(1.0f);
+      btn->setFlexGrow(1.0F);
       row->addChild(std::move(btn));
     }
     container.addChild(std::move(row));

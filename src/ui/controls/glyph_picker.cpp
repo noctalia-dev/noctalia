@@ -57,7 +57,7 @@ public:
     auto tile = ui::column({
         .align = FlexAlign::Center,
         .justify = FlexJustify::Center,
-        .padding = 0.0f,
+        .padding = 0.0F,
         .configure = [this](Flex& flex) {
           flex.setRadius(Style::scaledRadiusMd(m_chromeScale));
           flex.clearBorder();
@@ -66,7 +66,7 @@ public:
     tile->addChild(
         ui::glyph({
             .out = &glyphRaw,
-            .glyphSize = 28.0f * m_chromeScale,
+            .glyphSize = 28.0F * m_chromeScale,
         })
     );
     tile->setUserData(glyphRaw);
@@ -133,13 +133,13 @@ public:
   [[nodiscard]] const Entry& entryAt(std::size_t visibleIndex) const { return m_master[m_visible[visibleIndex]]; }
 
 private:
-  float m_chromeScale = 1.0f;
+  float m_chromeScale = 1.0F;
   std::vector<Entry> m_master;
   std::vector<std::size_t> m_visible;
   std::vector<std::string> m_categories;
 };
 
-GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1f, chromeScale)) {
+GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1F, chromeScale)) {
   setDirection(FlexDirection::Vertical);
   setAlign(FlexAlign::Stretch);
   setGap(Style::spaceMd * m_chromeScale);
@@ -196,7 +196,7 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1f, chrom
               .controlHeight = Style::controlHeight * m_chromeScale,
               .horizontalPadding = Style::spaceMd * m_chromeScale,
               .clearButtonEnabled = true,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
               .onChange = [this](const std::string& value) { applyFilter(value); },
           }),
           ui::select({
@@ -207,7 +207,7 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1f, chrom
               .controlHeight = Style::controlHeight * m_chromeScale,
               .horizontalPadding = Style::spaceMd * m_chromeScale,
               .glyphSize = Style::fontSizeBody * m_chromeScale,
-              .width = 180.0f * m_chromeScale,
+              .width = 180.0F * m_chromeScale,
               .onSelectionChanged = [this](std::size_t, std::string_view) {
                 const std::string filter = m_searchInput != nullptr ? m_searchInput->value() : std::string{};
                 applyFilter(filter);
@@ -219,13 +219,13 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1f, chrom
   addChild(
       ui::virtualGridView({
           .out = &m_grid,
-          .minCellWidth = 56.0f * m_chromeScale,
+          .minCellWidth = 56.0F * m_chromeScale,
           .squareCells = true,
           .columnGap = Style::spaceXs * m_chromeScale,
           .rowGap = Style::spaceXs * m_chromeScale,
           .overscanRows = 2,
           .adapter = m_adapter.get(),
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
           .onSelectionChanged = [this](std::optional<std::size_t>) { applySelectionToButton(); },
       })
   );
@@ -240,7 +240,7 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1f, chrom
           ui::button({
               .text = i18n::tr("common.actions.cancel"),
               .variant = ButtonVariant::Secondary,
-              .minWidth = 92.0f * m_chromeScale,
+              .minWidth = 92.0F * m_chromeScale,
               .minHeight = Style::controlHeight * m_chromeScale,
               .paddingV = Style::spaceSm * m_chromeScale,
               .paddingH = Style::spaceMd * m_chromeScale,
@@ -256,7 +256,7 @@ GlyphPicker::GlyphPicker(float chromeScale) : m_chromeScale(std::max(0.1f, chrom
               .out = &m_applyButton,
               .text = i18n::tr("common.actions.apply"),
               .variant = ButtonVariant::Primary,
-              .minWidth = 92.0f * m_chromeScale,
+              .minWidth = 92.0F * m_chromeScale,
               .minHeight = Style::controlHeight * m_chromeScale,
               .paddingV = Style::spaceSm * m_chromeScale,
               .paddingH = Style::spaceMd * m_chromeScale,
@@ -315,7 +315,7 @@ void GlyphPicker::setEnabled(bool enabled) {
   if (m_applyButton != nullptr) {
     m_applyButton->setEnabled(enabled);
   }
-  setOpacity(enabled ? 1.0f : 0.55f);
+  setOpacity(enabled ? 1.0F : 0.55F);
 }
 
 std::optional<GlyphPickerResult> GlyphPicker::currentResult() const {
@@ -366,7 +366,7 @@ void GlyphPicker::applyFilter(const std::string& filter) {
     }
   }
   m_grid->notifyDataChanged();
-  m_grid->scrollView().setScrollOffset(0.0f);
+  m_grid->scrollView().setScrollOffset(0.0F);
 }
 
 void GlyphPicker::applySelectionToButton() {
@@ -377,6 +377,6 @@ void GlyphPicker::applySelectionToButton() {
   m_applyButton->setEnabled(hasSelection);
 }
 
-float GlyphPicker::preferredDialogWidth(float scale) { return 540.0f * std::max(0.1f, scale); }
+float GlyphPicker::preferredDialogWidth(float scale) { return 540.0F * std::max(0.1F, scale); }
 
-float GlyphPicker::preferredDialogHeight(float scale) { return 540.0f * std::max(0.1f, scale); }
+float GlyphPicker::preferredDialogHeight(float scale) { return 540.0F * std::max(0.1F, scale); }

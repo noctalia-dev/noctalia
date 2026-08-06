@@ -31,7 +31,7 @@ namespace {
 
   constexpr std::size_t kListRowOverscan = 3;
   constexpr std::size_t kGridRowOverscan = 1;
-  constexpr float kGridMinCellWidth = 140.0f;
+  constexpr float kGridMinCellWidth = 140.0F;
 
 } // namespace
 
@@ -64,7 +64,7 @@ public:
   }
 
 private:
-  float m_scale = 1.0f;
+  float m_scale = 1.0F;
   Renderer* m_renderer = nullptr;
   const std::vector<FileEntry>* m_entries = nullptr;
   std::function<bool(std::size_t)> m_isSelectable;
@@ -107,7 +107,7 @@ public:
   }
 
 private:
-  float m_scale = 1.0f;
+  float m_scale = 1.0F;
   ThumbnailService* m_thumbnails = nullptr;
   Renderer* m_renderer = nullptr;
   const std::vector<FileEntry>* m_entries = nullptr;
@@ -123,7 +123,7 @@ void FileDialogView::setRoot(std::unique_ptr<Node> root) { m_root = std::move(ro
 
 void FileDialogView::create() {
   const float scale = contentScale();
-  m_listRowHeight = std::ceil(32.0f * scale);
+  m_listRowHeight = std::ceil(32.0F * scale);
   m_gridCellSize = kGridMinCellWidth * scale;
 
   auto root = ui::column({
@@ -196,8 +196,8 @@ void FileDialogView::create() {
               .fontSize = Style::fontSizeBody * scale,
               .controlHeight = Style::controlHeight * scale,
               .horizontalPadding = Style::spaceMd * scale,
-              .width = 320.0f * scale,
-              .flexGrow = 1.0f,
+              .width = 320.0F * scale,
+              .flexGrow = 1.0F,
               .onChange =
                   [this](const std::string& text) {
                     m_filterQuery = text;
@@ -251,13 +251,13 @@ void FileDialogView::create() {
       .out = &m_listContainer,
       .align = FlexAlign::Stretch,
       .gap = Style::spaceSm * scale,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
   });
 
   auto listCard = ui::column({
       .align = FlexAlign::Stretch,
       .gap = Style::spaceXs * scale,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
       .configure = [scale](Flex& card) {
         card.setFill(colorSpecFromRole(ColorRole::SurfaceVariant));
         card.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
@@ -281,7 +281,7 @@ void FileDialogView::create() {
               .minHeight = Style::controlHeightSm * scale,
               .paddingV = Style::spaceXs * scale,
               .paddingH = Style::spaceSm * scale,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
               .onClick =
                   [this]() {
                     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
@@ -298,7 +298,7 @@ void FileDialogView::create() {
               .text = i18n::tr("ui.dialogs.file.sort.size"),
               .contentAlign = ButtonContentAlign::End,
               .variant = ButtonVariant::Ghost,
-              .minWidth = 96.0f * scale,
+              .minWidth = 96.0F * scale,
               .minHeight = Style::controlHeightSm * scale,
               .paddingV = Style::spaceXs * scale,
               .paddingH = Style::spaceSm * scale,
@@ -318,7 +318,7 @@ void FileDialogView::create() {
               .text = i18n::tr("ui.dialogs.file.sort.date"),
               .contentAlign = ButtonContentAlign::End,
               .variant = ButtonVariant::Ghost,
-              .minWidth = 152.0f * scale,
+              .minWidth = 152.0F * scale,
               .minHeight = Style::controlHeightSm * scale,
               .paddingV = Style::spaceXs * scale,
               .paddingH = Style::spaceSm * scale,
@@ -356,12 +356,12 @@ void FileDialogView::create() {
           .columns = 1,
           .cellHeight = m_listRowHeight,
           .squareCells = false,
-          .columnGap = 0.0f,
-          .rowGap = 0.0f,
+          .columnGap = 0.0F,
+          .rowGap = 0.0F,
           .overscanRows = kListRowOverscan,
           .scrollbarVisible = true,
           .adapter = m_listAdapter.get(),
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
           .onSelectionChanged = [this](std::optional<std::size_t>) { syncGridSelection(); },
       })
   );
@@ -382,7 +382,7 @@ void FileDialogView::create() {
   auto gridContainer = ui::column({
       .out = &m_gridContainer,
       .align = FlexAlign::Stretch,
-      .flexGrow = 1.0f,
+      .flexGrow = 1.0F,
       .visible = false,
   });
 
@@ -411,7 +411,7 @@ void FileDialogView::create() {
           .scrollbarVisible = true,
           .scrollCardStyleScale = scale,
           .adapter = m_gridAdapter.get(),
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
           .onSelectionChanged = [this](std::optional<std::size_t>) { syncGridSelection(); },
       })
   );
@@ -439,7 +439,7 @@ void FileDialogView::create() {
               .fontSize = Style::fontSizeBody * scale,
               .controlHeight = Style::controlHeight * scale,
               .horizontalPadding = Style::spaceMd * scale,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
               .onChange = [this](const std::string&) { updateControls(); },
               .onSubmit = [this](const std::string&) { submitDialog(); },
           }),
@@ -449,7 +449,7 @@ void FileDialogView::create() {
               .text = i18n::tr("common.actions.cancel"),
               .variant = ButtonVariant::Secondary,
               // Dialog footer action style.
-              .minWidth = 92.0f * scale,
+              .minWidth = 92.0F * scale,
               .minHeight = Style::controlHeight * scale,
               .paddingV = Style::spaceSm * scale,
               .paddingH = Style::spaceMd * scale,
@@ -469,7 +469,7 @@ void FileDialogView::create() {
               .out = &m_okButton,
               .variant = ButtonVariant::Primary,
               // Dialog footer action style.
-              .minWidth = 92.0f * scale,
+              .minWidth = 92.0F * scale,
               .minHeight = Style::controlHeight * scale,
               .paddingV = Style::spaceSm * scale,
               .paddingH = Style::spaceMd * scale,
@@ -598,7 +598,7 @@ void FileDialogView::doLayout(Renderer& renderer, float width, float height) {
 
   if (m_gridGrid != nullptr) {
     const float viewportW = m_gridGrid->scrollView().contentViewportWidth();
-    if (viewportW > 0.0f) {
+    if (viewportW > 0.0F) {
       const float gap = Style::spaceSm * contentScale();
       const std::size_t columns =
           std::max<std::size_t>(1, static_cast<std::size_t>(std::floor((viewportW + gap) / (m_gridCellSize + gap))));
@@ -749,10 +749,10 @@ void FileDialogView::applyFilter(bool resetScroll) {
 
   if (resetScroll) {
     if (m_listGrid != nullptr) {
-      m_listGrid->scrollView().setScrollOffset(0.0f);
+      m_listGrid->scrollView().setScrollOffset(0.0F);
     }
     if (m_gridGrid != nullptr) {
-      m_gridGrid->scrollView().setScrollOffset(0.0f);
+      m_gridGrid->scrollView().setScrollOffset(0.0F);
     }
   }
   if (m_listGrid != nullptr) {
@@ -1166,7 +1166,7 @@ void FileDialogView::ensureSelectionVisible() {
     return;
   }
 
-  if (m_viewMode == ViewMode::List && m_listGrid != nullptr && m_listRowHeight > 0.0f) {
+  if (m_viewMode == ViewMode::List && m_listGrid != nullptr && m_listRowHeight > 0.0F) {
     ScrollView& scroll = m_listGrid->scrollView();
     const float top = static_cast<float>(m_selectedIndex) * m_listRowHeight;
     const float bottom = top + m_listRowHeight;
@@ -1186,7 +1186,7 @@ void FileDialogView::ensureSelectionVisible() {
     const float gap = Style::spaceSm * contentScale();
     const float viewportW = m_gridGrid->scrollView().contentViewportWidth();
     const auto columnsF = static_cast<float>(m_gridColumns);
-    const float cellW = std::max(0.0f, (viewportW - (columnsF - 1.0f) * gap) / std::max(columnsF, 1.0f));
+    const float cellW = std::max(0.0F, (viewportW - (columnsF - 1.0F) * gap) / std::max(columnsF, 1.0F));
     const float cellH = cellW; // squareCells
     const float pitch = cellH + gap;
     const std::size_t row = m_selectedIndex / m_gridColumns;

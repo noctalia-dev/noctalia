@@ -178,28 +178,28 @@ std::vector<KeyChord> defaultKeybindSet(KeybindAction action) {
 }
 
 float panelCardOpacityForTransparencyMode(PanelTransparencyMode mode, float panelBackgroundOpacity) noexcept {
-  const float backgroundOpacity = std::clamp(panelBackgroundOpacity, 0.0f, 1.0f);
+  const float backgroundOpacity = std::clamp(panelBackgroundOpacity, 0.0F, 1.0F);
   switch (mode) {
   case PanelTransparencyMode::Solid:
-    return 1.0f;
+    return 1.0F;
   case PanelTransparencyMode::Soft:
-    return std::clamp(backgroundOpacity + 0.08f, 0.82f, 0.92f);
+    return std::clamp(backgroundOpacity + 0.08F, 0.82F, 0.92F);
   case PanelTransparencyMode::Glass:
-    return std::clamp(backgroundOpacity + 0.10f, 0.62f, 0.75f);
+    return std::clamp(backgroundOpacity + 0.10F, 0.62F, 0.75F);
   }
-  return 1.0f;
+  return 1.0F;
 }
 
 float detachedPanelBackgroundOpacityForTransparencyMode(PanelTransparencyMode mode) noexcept {
   switch (mode) {
   case PanelTransparencyMode::Solid:
-    return 1.0f;
+    return 1.0F;
   case PanelTransparencyMode::Soft:
-    return 0.80f;
+    return 0.80F;
   case PanelTransparencyMode::Glass:
-    return 0.55f;
+    return 0.55F;
   }
-  return 1.0f;
+  return 1.0F;
 }
 
 void normalizeIdleBehaviorAction(IdleBehaviorConfig& behavior) {
@@ -333,26 +333,26 @@ WidgetBarCapsuleSpec resolveWidgetBarCapsuleSpec(const BarConfig& bar, const Wid
   spec.padding = bar.widgetCapsulePadding;
   if (widget != nullptr && widget->hasSetting("capsule_padding")) {
     spec.padding = std::clamp(
-        static_cast<float>(widget->getDouble("capsule_padding", static_cast<double>(spec.padding))), 0.0f, 48.0f
+        static_cast<float>(widget->getDouble("capsule_padding", static_cast<double>(spec.padding))), 0.0F, 48.0F
     );
   }
   if (bar.widgetCapsuleRadius.has_value()) {
-    spec.radius = std::clamp(static_cast<float>(*bar.widgetCapsuleRadius), 0.0f, 80.0f);
+    spec.radius = std::clamp(static_cast<float>(*bar.widgetCapsuleRadius), 0.0F, 80.0F);
   }
   if (widget != nullptr) {
     const auto radius = widget->settings.find("capsule_radius");
     if (radius != widget->settings.end()
         && (std::holds_alternative<double>(radius->second) || std::holds_alternative<std::int64_t>(radius->second))) {
       spec.radius = std::clamp(
-          static_cast<float>(widget->getDouble("capsule_radius", static_cast<double>(spec.radius.value_or(0.0f)))),
-          0.0f, 80.0f
+          static_cast<float>(widget->getDouble("capsule_radius", static_cast<double>(spec.radius.value_or(0.0F)))),
+          0.0F, 80.0F
       );
     }
   }
   spec.opacity = bar.widgetCapsuleOpacity;
   if (widget != nullptr && widget->hasSetting("capsule_opacity")) {
     spec.opacity = std::clamp(
-        static_cast<float>(widget->getDouble("capsule_opacity", static_cast<double>(spec.opacity))), 0.0f, 1.0f
+        static_cast<float>(widget->getDouble("capsule_opacity", static_cast<double>(spec.opacity))), 0.0F, 1.0F
     );
   }
   spec.hoverHighlight = bar.hoverHighlight;
@@ -477,7 +477,7 @@ WidgetBarCapsuleSpec capsuleSpecFromGroup(const BarConfig& bar, const BarCapsule
   if (group.radius.has_value()) {
     spec.radius = group.radius;
   } else if (bar.widgetCapsuleRadius.has_value()) {
-    spec.radius = std::clamp(static_cast<float>(*bar.widgetCapsuleRadius), 0.0f, 80.0f);
+    spec.radius = std::clamp(static_cast<float>(*bar.widgetCapsuleRadius), 0.0F, 80.0F);
   } else {
     spec.radius = std::nullopt;
   }
@@ -525,7 +525,7 @@ float resolveWidgetContentScale(float barScale, const WidgetConfig* widget, std:
     throw std::runtime_error(std::string(context) + ": expected finite number");
   }
 
-  return barScale * std::clamp(static_cast<float>(widgetScale), 0.2f, 2.5f);
+  return barScale * std::clamp(static_cast<float>(widgetScale), 0.2F, 2.5F);
 }
 
 CommonWidgetOptions resolveCommonWidgetOptions(
@@ -559,10 +559,10 @@ ColorSpec colorSpecFromConfigString(const std::string& raw, std::string_view con
 }
 
 namespace {
-  int colorByteForExport(float value) { return static_cast<int>(std::lround(std::clamp(value, 0.0f, 1.0f) * 255.0f)); }
+  int colorByteForExport(float value) { return static_cast<int>(std::lround(std::clamp(value, 0.0F, 1.0F) * 255.0F)); }
 
   std::string colorToConfigString(const Color& color) {
-    if (color.a >= 0.999f) {
+    if (color.a >= 0.999F) {
       return formatRgbHex(color);
     }
     char buffer[16];

@@ -458,7 +458,7 @@ void Application::initStyleThemeAndWayland() {
   auto applyStyleConfig = [this, lastCornerRadiusScale = std::numeric_limits<float>::quiet_NaN()]() mutable {
     const float corner = m_configService.config().shell.cornerRadiusScale;
     const bool cornerChanged =
-        std::isfinite(lastCornerRadiusScale) && std::abs(corner - lastCornerRadiusScale) > 1.0e-4f;
+        std::isfinite(lastCornerRadiusScale) && std::abs(corner - lastCornerRadiusScale) > 1.0e-4F;
     Style::setCornerRadiusScale(corner);
     Style::setButtonBordersEnabled(m_configService.config().shell.buttonBorders);
     Style::setInputBordersEnabled(m_configService.config().shell.inputBorders);
@@ -949,7 +949,7 @@ void Application::initSystemBusServices() {
           // fade-complete cleanup races with process freeze.
           m_idleGraceOverlay.hide();
           if (sleeping) {
-            // Delay inhibit (acquired while lockscreen is enabled) holds sleep until we lock.
+            // Delay inhibit (when lock_before_suspend is on) holds sleep until we lock.
             // Do not use runAfterSessionLocked here — that slot belongs to lock-and-suspend.
             if (m_skipLockOnNextSleep) {
               // Noctalia-initiated suspend: skip lock-before-sleep (plain Suspend or already locked).
@@ -960,7 +960,7 @@ void Application::initSystemBusServices() {
               }
               return;
             }
-            if (!m_configService.isLockScreenEnabled()) {
+            if (!m_configService.shouldLockBeforeSuspend()) {
               m_releaseSleepDelayWhenLocked = false;
               if (m_logindService != nullptr) {
                 m_logindService->releaseSleepDelayInhibit();
@@ -996,7 +996,7 @@ void Application::initSystemBusServices() {
           }
           m_skipLockOnNextSleep = false;
           m_releaseSleepDelayWhenLocked = false;
-          if (m_configService.isLockScreenEnabled() && m_logindService != nullptr) {
+          if (m_configService.shouldLockBeforeSuspend() && m_logindService != nullptr) {
             (void)m_logindService->acquireSleepDelayInhibit();
           }
           kLog.info("system resumed; rechecking night light and auto theme schedules");
@@ -1303,7 +1303,7 @@ void Application::initBrightnessAndPipewire() {
       }
 
       const auto& audio = m_configService.config().audio;
-      m_soundPlayer->setVolume(audio.enableSounds ? audio.soundVolume : 0.0f);
+      m_soundPlayer->setVolume(audio.enableSounds ? audio.soundVolume : 0.0F);
 
       auto resolveSoundPath = [](const std::string& configured, std::string_view bundledRelative) {
         if (configured.empty()) {

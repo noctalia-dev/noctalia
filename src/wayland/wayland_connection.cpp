@@ -24,6 +24,7 @@
 #include "wayland/hyprland/focus_grab_service.h"
 #include "wayland/text_input_service.h"
 #include "wayland/virtual_keyboard_service.h"
+#include "wayland/wayland_protocol_policy.h"
 #include "wlr-data-control-unstable-v1-client-protocol.h"
 #include "wlr-foreign-toplevel-management-unstable-v1-client-protocol.h"
 #include "wlr-gamma-control-unstable-v1-client-protocol.h"
@@ -268,9 +269,19 @@ namespace {
     static_cast<WaylandConnection*>(data)->onOutputHeadSerialNumber(head, serialNumber);
   }
 
-  // Modes aren't needed here; release each one immediately instead of tracking it.
-  void outputHeadMode(void* /*data*/, zwlr_output_head_v1* /*head*/, zwlr_output_mode_v1* mode) {
-    zwlr_output_mode_v1_release(mode);
+  void outputModeFinished(void* data, zwlr_output_mode_v1* mode) {
+    static_cast<WaylandConnection*>(data)->onOutputModeFinished(mode);
+  }
+
+  const zwlr_output_mode_v1_listener kOutputModeListener = {
+      .size = [](void*, zwlr_output_mode_v1*, int32_t, int32_t) {},
+      .refresh = [](void*, zwlr_output_mode_v1*, int32_t) {},
+      .preferred = [](void*, zwlr_output_mode_v1*) {},
+      .finished = outputModeFinished,
+  };
+
+  void outputHeadMode(void* data, zwlr_output_head_v1* head, zwlr_output_mode_v1* mode) {
+    static_cast<WaylandConnection*>(data)->onOutputHeadMode(head, mode);
   }
 
   void outputHeadFinished(void* data, zwlr_output_head_v1* head) {
@@ -616,10 +627,14 @@ std::vector<ToplevelInfo> WaylandConnection::windowsWithoutAppId(wl_output* outp
 
 std::vector<ToplevelInfo>
 WaylandConnection::extWindowsForApp(const std::string& idLower, const std::string& wmClassLower) const {
-  if ((!compositors::isHyprland() && !compositors::isKde()) || !m_extForeignToplevels.isBound()) {
+  if (!m_extForeignToplevels.isBound()) {
     return {};
   }
   return m_extForeignToplevels.windowsForApp(idLower, wmClassLower);
+}
+
+std::vector<ToplevelInfo> WaylandConnection::extWindowsWithoutAppId() const {
+  return m_extForeignToplevels.isBound() ? m_extForeignToplevels.windowsWithoutAppId() : std::vector<ToplevelInfo>{};
 }
 
 bool WaylandConnection::containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const {
@@ -823,6 +838,20 @@ void WaylandConnection::onOutputHeadSerialNumber(zwlr_output_head_v1* head, cons
   }
 }
 
+void WaylandConnection::onOutputHeadMode(zwlr_output_head_v1* /*head*/, zwlr_output_mode_v1* mode) {
+  if (mode == nullptr) {
+    return;
+  }
+  m_outputModes.insert(mode);
+  zwlr_output_mode_v1_add_listener(mode, &kOutputModeListener, this);
+}
+
+void WaylandConnection::onOutputModeFinished(zwlr_output_mode_v1* mode) {
+  if (m_outputModes.erase(mode) > 0) {
+    zwlr_output_mode_v1_release(mode);
+  }
+}
+
 void WaylandConnection::onOutputHeadFinished(zwlr_output_head_v1* head) {
   m_outputHeads.erase(head);
   zwlr_output_head_v1_release(head);
@@ -856,6 +885,10 @@ void WaylandConnection::matchPendingOutputHeads() {
 }
 
 void WaylandConnection::onOutputManagerFinished(zwlr_output_manager_v1* manager) {
+  for (auto* mode : m_outputModes) {
+    zwlr_output_mode_v1_release(mode);
+  }
+  m_outputModes.clear();
   for (const auto& entry : m_outputHeads) {
     zwlr_output_head_v1_release(entry.first);
   }
@@ -1041,8 +1074,9 @@ void WaylandConnection::bindGlobal(
 
   if (interfaceName == ext_foreign_toplevel_list_v1_interface.name) {
     const auto compositor = compositors::detect();
-    // Niri/Sway also expose this global; binding it duplicates every window on top of wlr foreign-toplevel.
-    if (compositor != compositors::CompositorKind::Hyprland && compositor != compositors::CompositorKind::Kde) {
+    // Niri needs the ext identifier for an exact join with its numeric IPC window id. Keep the
+    // wlr manager bound as well because other shell features still consume its richer state.
+    if (!wayland_protocol_policy::shouldBindExtForeignToplevelList(compositor)) {
       return;
     }
     m_hasExtForeignToplevelListGlobal = true;
@@ -1344,6 +1378,10 @@ void WaylandConnection::cleanup() {
     m_screencopyManager = nullptr;
   }
 
+  for (auto* mode : m_outputModes) {
+    zwlr_output_mode_v1_release(mode);
+  }
+  m_outputModes.clear();
   for (const auto& entry : m_outputHeads) {
     zwlr_output_head_v1_release(entry.first);
   }
@@ -1449,7 +1487,7 @@ void WaylandConnection::logStartupSummary() const {
     const DetectedOutputScale detectedScale = detectOutputScale(output);
     if (detectedScale.available) {
       kLog.info(
-          "output {} global={} wl_scale={} detected_fractional_scale={:.3f} logical={}x{} mode={}x{} orientation={} "
+          "output {} global={} wl_scale={} detected_fractional_scale={:.3F} logical={}x{} mode={}x{} orientation={} "
           "desc=\"{}\"",
           outputLabel(output), output.name, output.scale, detectedScale.scale, output.logicalWidth,
           output.logicalHeight, output.width, output.height, detectedScale.rotated ? "rotated" : "normal",

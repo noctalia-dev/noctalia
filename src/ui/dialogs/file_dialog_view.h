@@ -58,8 +58,8 @@ public:
   }
   [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit);
 
-  [[nodiscard]] float preferredWidth() const { return scaled(800.0f); }
-  [[nodiscard]] float preferredHeight() const { return scaled(560.0f); }
+  [[nodiscard]] float preferredWidth() const { return scaled(800.0F); }
+  [[nodiscard]] float preferredHeight() const { return scaled(560.0F); }
   [[nodiscard]] InputArea* initialFocusArea() const;
 
 private:
@@ -157,12 +157,12 @@ private:
   FileDialogSortOrder m_sortOrder = FileDialogSortOrder::Ascending;
   std::size_t m_selectedIndex = static_cast<std::size_t>(-1);
   std::size_t m_gridColumns = 1;
-  float m_listRowHeight = 0.0f;
-  float m_gridCellSize = 0.0f;
+  float m_listRowHeight = 0.0F;
+  float m_gridCellSize = 0.0F;
   bool m_thumbnailRefreshPending = false;
   ThumbnailService::Subscription m_thumbnailPendingSub;
   bool m_showHiddenFiles = false;
-  float m_contentScale = 1.0f;
+  float m_contentScale = 1.0F;
   AnimationManager* m_animations = nullptr;
   std::unique_ptr<Node> m_root;
   Node* m_rootPtr = nullptr;

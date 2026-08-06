@@ -59,8 +59,8 @@ namespace settings {
           .padding = Style::spaceSm * scale,
           .configure = [scale](Flex& panel) {
             panel.setRadius(Style::scaledRadiusSm(scale));
-            panel.setFill(colorSpecFromRole(ColorRole::Error, 0.10f));
-            panel.setBorder(colorSpecFromRole(ColorRole::Error, 0.5f), Style::borderWidth);
+            panel.setFill(colorSpecFromRole(ColorRole::Error, 0.10F));
+            panel.setBorder(colorSpecFromRole(ColorRole::Error, 0.5F), Style::borderWidth);
           },
       });
     }
@@ -87,7 +87,7 @@ namespace settings {
               .configure =
                   [scale](Flex& container) {
                     container.setPadding(Style::spaceSm * scale, Style::spaceMd * scale);
-                    container.setCardStyle(scale, 1.0f);
+                    container.setCardStyle(scale, 1.0F);
                     container.setFill(colorSpecFromRole(ColorRole::Surface));
                   },
           },
@@ -125,9 +125,9 @@ namespace settings {
               .fontSize = Style::fontSizeBody * ctx.scale,
               .controlHeight = Style::controlHeight * ctx.scale,
               .horizontalPadding = Style::spaceSm * ctx.scale,
-              .width = 190.0f * ctx.scale,
+              .width = 190.0F * ctx.scale,
               .height = Style::controlHeight * ctx.scale,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
           });
 
           std::vector<std::string> existingMatches;
@@ -294,9 +294,9 @@ namespace settings {
               .fontSize = Style::fontSizeBody * ctx.scale,
               .controlHeight = Style::controlHeight * ctx.scale,
               .horizontalPadding = Style::spaceSm * ctx.scale,
-              .width = 190.0f * ctx.scale,
+              .width = 190.0F * ctx.scale,
               .height = Style::controlHeight * ctx.scale,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
           });
 
           auto doRename = [&renamingBarName = ctx.renamingBarName, config = ctx.config, barName,

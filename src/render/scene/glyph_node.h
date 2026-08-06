@@ -58,10 +58,10 @@ public:
 
 private:
   char32_t m_codepoint = 0;
-  float m_fontSize = 16.0f;
+  float m_fontSize = 16.0F;
   Color m_color;
   bool m_hasShadow = false;
   Color m_shadowColor;
-  float m_shadowOffsetX = 0.0f;
-  float m_shadowOffsetY = 0.0f;
+  float m_shadowOffsetX = 0.0F;
+  float m_shadowOffsetY = 0.0F;
 };

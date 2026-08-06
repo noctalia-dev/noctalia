@@ -53,7 +53,7 @@ private:
   void refreshPopupContent();
   void scheduleProviderRefresh();
   Size measureContent(const TooltipContent& content);
-  void buildScene(const TooltipContent& content, float w, float h, float opacity = 0.0f);
+  void buildScene(const TooltipContent& content, float w, float h, float opacity = 0.0F);
   void prepareFrame(bool needsUpdate, bool needsLayout);
 
   WaylandConnection* m_wayland = nullptr;

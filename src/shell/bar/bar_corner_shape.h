@@ -43,13 +43,13 @@ struct BarConcaveShape {
   CornerShapes corners{};
   Radii radii;
   RectInsets logicalInset{};
-  float innerBulge = 0.0f; // px the surface/box grow on the inner edge
+  float innerBulge = 0.0F; // px the surface/box grow on the inner edge
 };
 
 [[nodiscard]] inline BarConcaveShape barConcaveShape(const BarConfig& cfg) {
   const auto radius = [](std::int32_t v) { return static_cast<float>(std::max<std::int32_t>(0, v)); };
   const auto cappedRadius = [&](std::int32_t v) {
-    return std::min(static_cast<float>(cfg.thickness) * 0.5f, radius(v));
+    return std::min(static_cast<float>(cfg.thickness) * 0.5F, radius(v));
   };
 
   BarConcaveShape g;
@@ -75,7 +75,7 @@ struct BarConcaveShape {
         .bl = inner.bottomLeft ? CornerShape::Concave : CornerShape::Convex,
     };
 
-    float bulge = 0.0f;
+    float bulge = 0.0F;
     if (inner.topLeft) {
       bulge = std::max(bulge, cappedRadius(cfg.radiusTopLeft));
     }

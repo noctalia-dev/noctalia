@@ -16,8 +16,8 @@
 namespace {
 
   constexpr Logger kLog("timer");
-  constexpr float kSlowTimerCallbackDebugMs = 16.0f;
-  constexpr float kSlowTimerCallbackWarnMs = 1000.0f;
+  constexpr float kSlowTimerCallbackDebugMs = 16.0F;
+  constexpr float kSlowTimerCallbackWarnMs = 1000.0F;
 
   struct TimerEntry {
     TimerManager::TimerId id = 0;
@@ -165,10 +165,10 @@ void TimerManager::tick() {
           std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - callbackStart).count();
       if (callbackMs >= kSlowTimerCallbackWarnMs) {
         const auto callbackType = demangleTypeName(entry.callback.target_type().name());
-        kLog.warn("timer callback {} id={} took {:.1f}ms", callbackType, entry.id, callbackMs);
+        kLog.warn("timer callback {} id={} took {:.1F}ms", callbackType, entry.id, callbackMs);
       } else if (callbackMs >= kSlowTimerCallbackDebugMs) {
         const auto callbackType = demangleTypeName(entry.callback.target_type().name());
-        kLog.debug("timer callback {} id={} took {:.1f}ms", callbackType, entry.id, callbackMs);
+        kLog.debug("timer callback {} id={} took {:.1F}ms", callbackType, entry.id, callbackMs);
       }
     }
 

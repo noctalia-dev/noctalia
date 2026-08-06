@@ -47,10 +47,10 @@ private:
   ToggleSize m_size = ToggleSize::Medium;
   bool m_checked = false;
   bool m_enabled = true;
-  float m_inset = 0.0f;
-  float m_travel = 0.0f;
-  float m_thumbSize = 0.0f;
-  float m_scale = 1.0f;
-  float m_animationProgress = 0.0f;
+  float m_inset = 0.0F;
+  float m_travel = 0.0F;
+  float m_thumbSize = 0.0F;
+  float m_scale = 1.0F;
+  float m_animationProgress = 0.0F;
   Signal<>::ScopedConnection m_paletteConn;
 };

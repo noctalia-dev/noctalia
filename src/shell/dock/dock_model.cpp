@@ -80,7 +80,7 @@ namespace shell::dock {
   std::vector<ToplevelInfo> windowsForDockItem(
       CompositorPlatform& platform, std::string_view idLower, std::string_view wmClassLower, wl_output* outputFilter
   ) {
-    return platform.windowsForApp(std::string(idLower), std::string(wmClassLower), outputFilter);
+    return platform.enrichedWindowsForApp(std::string(idLower), std::string(wmClassLower), outputFilter);
   }
 
   DockSnapshot buildDockSnapshot(DockModelDependencies deps) {

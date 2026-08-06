@@ -5,19 +5,19 @@
 #include <cstddef>
 
 struct Vec2 {
-  float x = 0.0f;
-  float y = 0.0f;
+  float x = 0.0F;
+  float y = 0.0F;
 };
 
 struct Mat3 {
   // Column-major for direct upload to GLSL mat3.
-  std::array<float, 9> m = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+  std::array<float, 9> m = {1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 1.0F};
 
   [[nodiscard]] static Mat3 identity() { return {}; }
 
   [[nodiscard]] static Mat3 translation(float tx, float ty) {
     Mat3 out;
-    out.m = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, tx, ty, 1.0f};
+    out.m = {1.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, tx, ty, 1.0F};
     return out;
   }
 
@@ -25,13 +25,13 @@ struct Mat3 {
     const float cs = std::cos(radians);
     const float sn = std::sin(radians);
     Mat3 out;
-    out.m = {cs, sn, 0.0f, -sn, cs, 0.0f, 0.0f, 0.0f, 1.0f};
+    out.m = {cs, sn, 0.0F, -sn, cs, 0.0F, 0.0F, 0.0F, 1.0F};
     return out;
   }
 
   [[nodiscard]] static Mat3 scale(float sx, float sy) {
     Mat3 out;
-    out.m = {sx, 0.0f, 0.0f, 0.0f, sy, 0.0f, 0.0f, 0.0f, 1.0f};
+    out.m = {sx, 0.0F, 0.0F, 0.0F, sy, 0.0F, 0.0F, 0.0F, 1.0F};
     return out;
   }
 
@@ -60,11 +60,11 @@ struct Mat3 {
 
   [[nodiscard]] Mat3 inverse() const {
     const float det = determinant();
-    if (std::abs(det) <= 0.000001f) {
+    if (std::abs(det) <= 0.000001F) {
       return identity();
     }
 
-    const float invDet = 1.0f / det;
+    const float invDet = 1.0F / det;
     Mat3 out;
     out.m = {
         (m[4] * m[8] - m[7] * m[5]) * invDet, (m[7] * m[2] - m[1] * m[8]) * invDet,

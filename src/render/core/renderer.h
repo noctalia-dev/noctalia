@@ -34,25 +34,25 @@ enum class FontWeight : int {
 // cursor-stops query fills these so editors can place carets and selections
 // in multi-line text.
 struct TextCursorStop {
-  float x = 0.0f;
-  float y = 0.0f;
-  float height = 0.0f;
+  float x = 0.0F;
+  float y = 0.0F;
+  float height = 0.0F;
 };
 
 struct TextMetrics {
-  float width = 0.0f;
-  float left = 0.0f;
-  float right = 0.0f;
-  float top = 0.0f;
-  float bottom = 0.0f;
-  float inkTop = 0.0f;
-  float inkBottom = 0.0f;
-  float inkLeft = 0.0f;
-  float inkRight = 0.0f;
+  float width = 0.0F;
+  float left = 0.0F;
+  float right = 0.0F;
+  float top = 0.0F;
+  float bottom = 0.0F;
+  float inkTop = 0.0F;
+  float inkBottom = 0.0F;
+  float inkLeft = 0.0F;
+  float inkRight = 0.0F;
   // Measured baseline-to-cap-top of 'H' for this font/size (0 if unavailable).
   // A stable font property (not per-string ink), used to optically center text
   // by its cap band so caps/digits sit dead-centre. measureFont() populates it.
-  float capHeight = 0.0f;
+  float capHeight = 0.0F;
   // Number of laid-out lines for the measured text (0 for empty text). Lets a
   // consumer tell single-line from wrapped text from the measured result rather
   // than re-deriving it from the requested width/line budget.
@@ -64,7 +64,7 @@ public:
   virtual ~Renderer() = default;
 
   [[nodiscard]] virtual TextMetrics measureText(
-      std::string_view text, float fontSize, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0f,
+      std::string_view text, float fontSize, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0F,
       int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {},
       TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   ) = 0;

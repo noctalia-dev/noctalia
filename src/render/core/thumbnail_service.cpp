@@ -24,7 +24,7 @@
 namespace {
 
   constexpr Logger kLog("thumbnail");
-  constexpr float kThumbnailWebPQuality = 82.0f;
+  constexpr float kThumbnailWebPQuality = 82.0F;
   constexpr std::size_t kMinWorkers = 2;
   constexpr std::size_t kMaxWorkers = 4;
   constexpr std::string_view kThumbnailCacheVersion = "thumbnail-service-v2";

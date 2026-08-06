@@ -42,7 +42,7 @@
 namespace {
 
   constexpr Logger kLog("brightness");
-  constexpr float kDefaultBrightnessStep = 0.05f;
+  constexpr float kDefaultBrightnessStep = 0.05F;
 
   namespace fs = std::filesystem;
 
@@ -146,9 +146,9 @@ namespace {
 
   float normalizedBrightness(int currentRaw, int maxRaw) {
     if (currentRaw < 0 || maxRaw <= 0) {
-      return 0.0f;
+      return 0.0F;
     }
-    return std::clamp(static_cast<float>(currentRaw) / static_cast<float>(maxRaw), 0.0f, 1.0f);
+    return std::clamp(static_cast<float>(currentRaw) / static_cast<float>(maxRaw), 0.0F, 1.0F);
   }
 
   float readBacklightBrightness(const std::string& sysfsPath, int maxRaw) {
@@ -850,8 +850,8 @@ struct BrightnessService::Impl {
       const std::string backlightType = readBacklightType(path);
 
       kLog.info(
-          "found backlight candidate '{}' type='{}' current={:.0f}% connector={} match={}", name, backlightType,
-          display.pub.brightness * 100.0f, display.connectorName.empty() ? "(none)" : display.connectorName,
+          "found backlight candidate '{}' type='{}' current={:.0F}% connector={} match={}", name, backlightType,
+          display.pub.brightness * 100.0F, display.connectorName.empty() ? "(none)" : display.connectorName,
           resolution.exactDrmMatch ? "exact" : "fallback"
       );
       BacklightCandidate candidate{
@@ -964,7 +964,7 @@ struct BrightnessService::Impl {
   }
 
   void setBrightness(DisplayInternal* display, float value) {
-    value = std::clamp(value, activeConfig.minimumBrightness, 1.0f);
+    value = std::clamp(value, activeConfig.minimumBrightness, 1.0F);
     switch (display->backend) {
     case RuntimeBackend::Backlight:
       setBacklightBrightness(*display, value);
@@ -1302,8 +1302,8 @@ struct BrightnessService::Impl {
       internals.push_back(std::move(display));
 
       kLog.info(
-          "found ddcutil display connector={} bus={} current={:.0f}%", candidate.connectorName, candidate.bus,
-          normalizedBrightness(candidate.currentRaw, candidate.maxRaw) * 100.0f
+          "found ddcutil display connector={} bus={} current={:.0F}%", candidate.connectorName, candidate.bus,
+          normalizedBrightness(candidate.currentRaw, candidate.maxRaw) * 100.0F
       );
     }
 
@@ -1334,7 +1334,7 @@ struct BrightnessService::Impl {
       display->maxRaw = completion.maxRaw;
       display->pub.brightness = normalizedBrightness(completion.currentRaw, completion.maxRaw);
       syncPublicDisplay(*display);
-      return std::abs(display->pub.brightness - oldBrightness) > 0.001f;
+      return std::abs(display->pub.brightness - oldBrightness) > 0.001F;
     }
 
     ++display->failureCount;
@@ -1381,7 +1381,7 @@ struct BrightnessService::Impl {
           }
 
           const float newBrightness = readBacklightBrightness(display.sysfsPath, display.maxRaw);
-          if (std::abs(newBrightness - display.pub.brightness) > 0.001f) {
+          if (std::abs(newBrightness - display.pub.brightness) > 0.001F) {
             display.pub.brightness = newBrightness;
             syncPublicDisplay(display);
             changed = true;
@@ -1634,11 +1634,11 @@ void BrightnessService::registerIpc(IpcService& ipc, std::function<void()> onBat
       };
 
   registerDeltaHandler(
-      "brightness-up", 1.0f, "[current|*|all|monitor-selector] [step]",
+      "brightness-up", 1.0F, "[current|*|all|monitor-selector] [step]",
       "Increase brightness (defaults to current monitor)"
   );
   registerDeltaHandler(
-      "brightness-down", -1.0f, "[current|*|all|monitor-selector] [step]",
+      "brightness-down", -1.0F, "[current|*|all|monitor-selector] [step]",
       "Decrease brightness (defaults to current monitor)"
   );
 

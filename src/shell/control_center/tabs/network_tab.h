@@ -77,7 +77,7 @@ private:
   std::unordered_map<std::string, AccessPointRow*> m_apRows;
 
   std::string m_lastStructureKey;
-  float m_lastListWidth = -1.0f;
+  float m_lastListWidth = -1.0F;
 
   bool m_hasPendingSecret = false;
   std::string m_pendingSsid;

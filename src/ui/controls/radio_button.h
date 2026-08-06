@@ -31,5 +31,5 @@ private:
   std::function<void(bool)> m_onChange;
   bool m_checked = false;
   bool m_enabled = true;
-  float m_scale = 1.0f;
+  float m_scale = 1.0F;
 };

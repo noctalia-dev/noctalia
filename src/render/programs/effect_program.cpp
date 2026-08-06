@@ -535,7 +535,7 @@ void EffectProgram::initProgram(std::size_t index, const char* fragSource) {
 void EffectProgram::draw(
     float surfaceWidth, float surfaceHeight, float width, float height, const EffectStyle& style, const Mat3& transform
 ) const {
-  if (style.type == EffectType::None || width <= 0.0f || height <= 0.0f) {
+  if (style.type == EffectType::None || width <= 0.0F || height <= 0.0F) {
     return;
   }
 
@@ -550,14 +550,14 @@ void EffectProgram::draw(
   const auto& pd = m_programs[idx];
 
   static constexpr float kQuad[] = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
 
   glUseProgram(pd.program.id());
 
   glUniform2f(pd.surfaceSizeLoc, surfaceWidth, surfaceHeight);
   glUniform2f(pd.quadSizeLoc, width, height);
-  glUniform2f(pd.rectOriginLoc, 0.0f, 0.0f);
+  glUniform2f(pd.rectOriginLoc, 0.0F, 0.0F);
   if (pd.rectSizeLoc >= 0) {
     glUniform2f(pd.rectSizeLoc, width, height);
   }
@@ -579,7 +579,7 @@ void EffectProgram::draw(
     glUniform1f(pd.radiusLoc, style.radius);
   }
   if (pd.alternativeLoc >= 0) {
-    glUniform1f(pd.alternativeLoc, isFog ? 1.0f : 0.0f);
+    glUniform1f(pd.alternativeLoc, isFog ? 1.0F : 0.0F);
   }
 
   auto posAttr = static_cast<GLuint>(pd.positionLoc);

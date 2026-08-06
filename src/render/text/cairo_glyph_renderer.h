@@ -26,11 +26,11 @@ struct Mat3;
 class CairoGlyphRenderer {
 public:
   struct TextMetrics {
-    float width = 0.0f;
-    float left = 0.0f;
-    float right = 0.0f;
-    float top = 0.0f;    // negative — above baseline
-    float bottom = 0.0f; // positive — below baseline
+    float width = 0.0F;
+    float left = 0.0F;
+    float right = 0.0F;
+    float top = 0.0F;    // negative — above baseline
+    float bottom = 0.0F; // positive — below baseline
   };
 
   CairoGlyphRenderer();
@@ -75,10 +75,10 @@ private:
     TextureHandle texture;
     int pixelWidth = 0;
     int pixelHeight = 0;
-    float baselineXPx = 0.0f; // baseline from left of surface, raster pixels
-    float baselinePx = 0.0f;  // baseline from top of surface, raster pixels
-    float inkOffsetXPx = 0.0f;
-    float inkOffsetYPx = 0.0f;
+    float baselineXPx = 0.0F; // baseline from left of surface, raster pixels
+    float baselinePx = 0.0F;  // baseline from top of surface, raster pixels
+    float inkOffsetXPx = 0.0F;
+    float inkOffsetYPx = 0.0F;
     TextMetrics metrics;
     std::size_t bytes = 0;
     LruList::iterator lruIt;
@@ -91,7 +91,7 @@ private:
   void evict(CacheMap::iterator it);
   void evictIfNeeded();
 
-  float m_contentScale = 1.0f;
+  float m_contentScale = 1.0F;
 
   FT_Library m_ftLibrary = nullptr;
   FT_Face m_face = nullptr;

@@ -163,7 +163,7 @@ protected:
   virtual void doLayout(Renderer& renderer, float containerWidth, float containerHeight) = 0;
   virtual void doUpdate(Renderer& renderer) { (void)renderer; }
 
-  float m_contentScale = 1.0f;
+  float m_contentScale = 1.0F;
   FontWeight m_labelFontWeight = FontWeight::Medium;
   std::string m_labelFontFamily; // empty = inherit renderer-global family
   std::string m_configName;
@@ -181,7 +181,7 @@ protected:
   Node* m_capsuleShell = nullptr;
   Box* m_capsuleBox = nullptr;
   Box* m_hoverBox = nullptr;
-  float m_hoverProgress = 0.0f;
+  float m_hoverProgress = 0.0F;
 
 private:
   void installGestureHandlers();

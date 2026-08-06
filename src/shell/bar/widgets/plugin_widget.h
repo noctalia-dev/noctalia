@@ -152,8 +152,8 @@ private:
   ScriptColorState m_textColor;
   ScriptColorState m_glyphColor;
   std::string m_imagePath;
-  float m_imageWidth = 0.0f;
-  float m_imageHeight = 0.0f;
+  float m_imageWidth = 0.0F;
+  float m_imageHeight = 0.0F;
   int m_updateIntervalMs = 250;
   std::uint32_t m_timerPhase = 0;
   std::uint64_t m_updateTimerGeneration = 0;

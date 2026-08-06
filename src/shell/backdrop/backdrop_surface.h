@@ -39,9 +39,9 @@ private:
   std::uint32_t m_bufH = 0;
 
   GlSharedContext* m_shared = nullptr;
-  float m_blurIntensity = 0.5f;
-  float m_tintIntensity = 0.3f;
-  float m_tintR = 0.0f;
-  float m_tintG = 0.0f;
-  float m_tintB = 0.0f;
+  float m_blurIntensity = 0.5F;
+  float m_tintIntensity = 0.3F;
+  float m_tintR = 0.0F;
+  float m_tintG = 0.0F;
+  float m_tintB = 0.0F;
 };

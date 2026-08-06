@@ -59,8 +59,8 @@ private:
       colorSpecFromRole(ColorRole::Secondary),
       colorSpecFromRole(ColorRole::Tertiary),
   };
-  float m_lineWidth = 1.5f;
-  float m_fillOpacity = 0.2f;
+  float m_lineWidth = 1.5F;
+  float m_fillOpacity = 0.2F;
   bool m_dataDirty = false;
   Signal<>::ScopedConnection m_paletteConn;
 };

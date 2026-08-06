@@ -30,7 +30,7 @@ private:
   void sync(Renderer& renderer);
 
   WeatherService* m_weather = nullptr;
-  float m_maxWidth = 160.0f;
+  float m_maxWidth = 160.0F;
   bool m_showCondition = true;
   bool m_showTemperature = true;
   InputArea* m_area = nullptr;

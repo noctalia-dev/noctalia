@@ -116,6 +116,13 @@ void LogindService::setSessionLockIntegrationEnabled(bool enabled) {
     return;
   }
   ensureSessionLockMonitor();
+}
+
+void LogindService::setLockBeforeSuspendEnabled(bool enabled) {
+  if (!m_sessionLockIntegrationEnabled || !enabled) {
+    releaseSleepDelayInhibit();
+    return;
+  }
   (void)acquireSleepDelayInhibit();
 }
 

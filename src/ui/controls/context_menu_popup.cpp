@@ -41,15 +41,15 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
   // maxVisible caps the popup viewport; all entries remain reachable via scroll.
   const std::size_t maxVisible =
       request.maxVisible > 0 ? request.maxVisible : std::max<std::size_t>(1, request.entries.size());
-  const float contentScale = std::max(0.1f, request.contentScale);
+  const float contentScale = std::max(0.1F, request.contentScale);
   const float menuHeight = ContextMenuControl::preferredHeight(request.entries, maxVisible, contentScale);
   float menuWidth = request.menuWidth;
-  if (menuWidth <= 0.0f) {
+  if (menuWidth <= 0.0F) {
     menuWidth = ContextMenuControl::preferredWidth(m_renderContext, request.entries, contentScale);
-    if (request.maxMenuWidth > 0.0f) {
+    if (request.maxMenuWidth > 0.0F) {
       menuWidth = std::min(menuWidth, request.maxMenuWidth);
     }
-    if (request.minMenuWidth > 0.0f) {
+    if (request.minMenuWidth > 0.0F) {
       menuWidth = std::max(menuWidth, request.minMenuWidth);
     }
   }
@@ -142,11 +142,11 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
     auto scrollView = std::make_unique<ScrollView>();
     scrollView->setPosition(chrome.contentX(), chrome.contentY());
     scrollView->setSize(chrome.contentWidth, chrome.contentHeight);
-    scrollView->setViewportPaddingH(0.0f);
-    scrollView->setViewportPaddingV(0.0f);
+    scrollView->setViewportPaddingH(0.0F);
+    scrollView->setViewportPaddingV(0.0F);
     scrollView->clearFill();
     scrollView->clearBorder();
-    scrollView->setRadius(0.0f);
+    scrollView->setRadius(0.0F);
     scrollView->bindState(&self->m_scrollState);
     scrollView->setScrollbarVisible(true);
     scrollView->setScrollbarInsetV(Style::scaledRadiusLg(contentScale));

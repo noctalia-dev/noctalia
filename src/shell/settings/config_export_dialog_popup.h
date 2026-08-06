@@ -23,7 +23,7 @@ namespace settings {
 
   struct ConfigExportDialogPopupRequest {
     XdgPopupParent parent;
-    float scale = 1.0f;
+    float scale = 1.0F;
     std::function<void(ConfigExportMode mode)> callback;
   };
 
@@ -59,7 +59,7 @@ namespace settings {
     // relying on a raw this pointer staying valid.
     std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
 
-    float m_scale = 1.0f;
+    float m_scale = 1.0F;
     ConfigExportMode m_mode = ConfigExportMode::MergedUser;
     ExportCallback m_callback;
     Flex* m_root = nullptr;

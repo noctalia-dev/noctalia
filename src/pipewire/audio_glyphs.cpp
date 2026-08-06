@@ -6,7 +6,7 @@
 namespace {
 
   [[nodiscard]] int displayedVolumePercent(float volume) {
-    return static_cast<int>(std::round(std::max(0.0f, volume) * 100.0f));
+    return static_cast<int>(std::round(std::max(0.0F, volume) * 100.0F));
   }
 
 } // namespace
@@ -18,7 +18,7 @@ const char* audioVolumeGlyph(float volume, bool muted, bool isInput) {
   if (muted || displayedVolumePercent(volume) == 0) {
     return "volume-mute";
   }
-  if (volume < 0.4f) {
+  if (volume < 0.4F) {
     return "volume-low";
   }
   return "volume-high";

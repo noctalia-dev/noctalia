@@ -66,7 +66,7 @@ void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, floa
   const bool showGlyph = !showImage && m_glyph != nullptr && !m_glyphName.empty();
   const bool showIcon = showImage || showGlyph;
   const bool showLabel = !m_labelText.empty();
-  const float spacing = (showIcon && showLabel) ? Style::spaceXs * m_contentScale : 0.0f;
+  const float spacing = (showIcon && showLabel) ? Style::spaceXs * m_contentScale : 0.0F;
 
   if (m_glyph != nullptr) {
     m_glyph->setVisible(showGlyph);
@@ -87,14 +87,14 @@ void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, floa
     m_label->setFontSize((isVertical ? Style::fontSizeCaption : Style::fontSizeBody) * m_contentScale);
     m_label->setFontWeight(labelFontWeight());
     m_label->setTextAlign(isVertical ? TextAlign::Center : TextAlign::Start);
-    m_label->setMaxWidth(isVertical ? containerWidth : 0.0f);
+    m_label->setMaxWidth(isVertical ? containerWidth : 0.0F);
     m_label->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
     m_label->measure(renderer);
   }
 
   if (isVertical) {
-    float width = 0.0f;
-    float height = 0.0f;
+    float width = 0.0F;
+    float height = 0.0F;
     if (showImage) {
       width = std::max(width, m_image->width());
       height += m_image->height();
@@ -103,30 +103,30 @@ void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, floa
       height += m_glyph->height();
     }
     if (showLabel) {
-      if (height > 0.0f) {
+      if (height > 0.0F) {
         height += spacing;
       }
       width = std::max(width, m_label->width());
       height += m_label->height();
     }
 
-    float y = 0.0f;
+    float y = 0.0F;
     if (showImage) {
-      m_image->setPosition(std::round((width - m_image->width()) * 0.5f), y);
+      m_image->setPosition(std::round((width - m_image->width()) * 0.5F), y);
       y += m_image->height() + spacing;
     } else if (showGlyph) {
-      m_glyph->setPosition(std::round((width - m_glyph->width()) * 0.5f), y);
+      m_glyph->setPosition(std::round((width - m_glyph->width()) * 0.5F), y);
       y += m_glyph->height() + spacing;
     }
     if (showLabel) {
-      m_label->setPosition(std::round((width - m_label->width()) * 0.5f), y);
+      m_label->setPosition(std::round((width - m_label->width()) * 0.5F), y);
     }
     m_area->setSize(width, height);
     return;
   }
 
-  float width = 0.0f;
-  float height = 0.0f;
+  float width = 0.0F;
+  float height = 0.0F;
   if (showImage) {
     width += m_image->width();
     height = std::max(height, m_image->height());
@@ -135,23 +135,23 @@ void CustomButtonWidget::doLayout(Renderer& renderer, float containerWidth, floa
     height = std::max(height, m_glyph->height());
   }
   if (showLabel) {
-    if (width > 0.0f) {
+    if (width > 0.0F) {
       width += spacing;
     }
     width += m_label->width();
     height = std::max(height, m_label->height());
   }
 
-  float x = 0.0f;
+  float x = 0.0F;
   if (showImage) {
-    m_image->setPosition(x, std::round((height - m_image->height()) * 0.5f));
+    m_image->setPosition(x, std::round((height - m_image->height()) * 0.5F));
     x += m_image->width() + spacing;
   } else if (showGlyph) {
-    m_glyph->setPosition(x, std::round((height - m_glyph->height()) * 0.5f));
+    m_glyph->setPosition(x, std::round((height - m_glyph->height()) * 0.5F));
     x += m_glyph->width() + spacing;
   }
   if (showLabel) {
-    m_label->setPosition(x, std::round((height - m_label->height()) * 0.5f));
+    m_label->setPosition(x, std::round((height - m_label->height()) * 0.5F));
   }
   m_area->setSize(width, height);
 }

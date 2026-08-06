@@ -55,9 +55,9 @@ private:
 
   ConfigService& m_config;
   CompositorPlatform& m_platform;
-  float m_maxWidth = 260.0f;
-  float m_minWidth = 80.0f;
-  float m_iconSize = 16.0f;
+  float m_maxWidth = 260.0F;
+  float m_minWidth = 80.0F;
+  float m_iconSize = 16.0F;
   ActiveWindowTitleScrollMode m_titleScrollMode = ActiveWindowTitleScrollMode::None;
   ActiveWindowDisplayMode m_displayMode = ActiveWindowDisplayMode::IconAndText;
   bool m_showEmptyLabel = false;
