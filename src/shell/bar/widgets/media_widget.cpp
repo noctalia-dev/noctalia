@@ -94,7 +94,7 @@ void MediaWidget::create() {
 
 void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   auto* rootNode = root();
-  if (rootNode == nullptr || m_art == nullptr || m_label == nullptr || m_emptyGlyph == nullptr) {
+  if (rootNode == nullptr || m_art == nullptr || m_label == nullptr || m_emptyGlyph == nullptr || m_progressBar == nullptr) {
     return;
   }
   syncState(renderer);
@@ -103,6 +103,9 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
   const bool artOnly = isVertical || m_albumArtOnly;
   const float maxLength = std::max(0.0F, m_maxWidth * m_contentScale);
   const float minLength = std::clamp(m_minWidth * m_contentScale, 0.0F, maxLength);
+  const auto progressPlayer = m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
+  const bool showProgressFill =
+      m_showProgress && !artOnly && progressPlayer.has_value() && progressPlayer->lengthUs > 0;
 
   m_label->setColor(
       m_lastPlaybackStatus == "Playing" ? widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface))
@@ -181,6 +184,14 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
     const float contentWidth = showLabel ? m_label->x() + m_label->width()
                                          : (showArtSlot ? artSize : (showEmptyGlyph ? m_emptyGlyph->width() : 0.0F));
     rootNode->setSize(std::clamp(contentWidth, minLength, maxLength), contentHeight);
+  }
+  m_progressBar->setVisible(showProgressFill);
+  if (showProgressFill) {
+    const float fillWidth = rootNode->width();
+    const float fillHeight = rootNode->height();
+    m_progressBar->setPosition(0.0F, 0.0F);
+    m_progressBar->setSize(fillWidth, fillHeight);
+    m_progressBar->setRadius(std::min(fillWidth, fillHeight) * 0.5F);
   }
 }
 
