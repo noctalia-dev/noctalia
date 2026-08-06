@@ -98,7 +98,11 @@ void MediaWidget::create() {
 
 void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   auto* rootNode = root();
-  if (rootNode == nullptr || m_art == nullptr || m_label == nullptr || m_emptyGlyph == nullptr || m_progressBar == nullptr) {
+  if (rootNode == nullptr
+      || m_art == nullptr
+      || m_label == nullptr
+      || m_emptyGlyph == nullptr
+      || m_progressBar == nullptr) {
     return;
   }
   syncState(renderer);
