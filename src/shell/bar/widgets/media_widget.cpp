@@ -195,9 +195,12 @@ void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float conta
   }
   m_progressBar->setVisible(showProgressFill);
   if (showProgressFill) {
-    const float fillWidth = rootNode->width();
+    // The bar sizes an enabled capsule as content + 2 * padding on the main axis, so widen the fill
+    // by the same padding to span the pill instead of sitting inset within it.
+    const float capsulePad = shouldShowBarCapsule() ? barCapsuleSpec().padding * m_contentScale : 0.0F;
+    const float fillWidth = rootNode->width() + 2.0F * capsulePad;
     const float fillHeight = rootNode->height();
-    m_progressBar->setPosition(0.0F, 0.0F);
+    m_progressBar->setPosition(-capsulePad, 0.0F);
     m_progressBar->setSize(fillWidth, fillHeight);
     m_progressBar->setRadius(std::min(fillWidth, fillHeight) * 0.5F);
   }
