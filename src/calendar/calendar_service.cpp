@@ -1029,11 +1029,7 @@ bool CalendarService::parseCache(std::span<const std::uint8_t> contents) {
       event.calendarName = item.value("calendar", std::string{});
       event.colorHex = item.value("color", std::string{});
       event.location = item.value("location", std::string{});
-      event.url = item.value("url", std::string{});
-      if (event.url.empty()) {
-        // Caches written before events carried a link still hold the LOCATION they were derived from.
-        event.url = calendar::resolveEventLink(event.location, {});
-      }
+      event.url = calendar::resolveEventLink(event.location, item.value("url", std::string{}));
       event.start = fromUnix(item.value("start", std::int64_t{0}));
       event.end = fromUnix(item.value("end", std::int64_t{0}));
       event.allDay = item.value("all_day", false);
