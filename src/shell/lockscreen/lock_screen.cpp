@@ -549,14 +549,14 @@ bool LockScreen::shouldUseBlurredDesktop() const {
 }
 
 bool LockScreen::allSurfacesReady() const {
-  if (m_instances.empty()) {
-    return false;
-  }
   for (const auto& instance : m_instances) {
     if (instance.surface != nullptr && !instance.surface->firstFrameRendered()) {
       return false;
     }
   }
+
+  // With all outputs disconnected, no surface can ever render, so allow pending
+  // actions to run instead of waiting for the fallback timeout.
   return true;
 }
 

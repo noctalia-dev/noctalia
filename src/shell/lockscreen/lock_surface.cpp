@@ -36,6 +36,7 @@
 #include <memory>
 #include <string_view>
 #include <tuple>
+#include <wayland-client-core.h>
 
 namespace {
 
@@ -552,7 +553,18 @@ LockSurface::~LockSurface() {
   }
   m_connection.unregisterSurface(m_surface);
   if (m_lockSurface != nullptr) {
-    ext_session_lock_surface_v1_destroy(m_lockSurface);
+    // If get_lock_surface raced with the output disappearing server-side, some
+    // compositors (e.g. Hyprland) silently drop the request without binding the
+    // new object id. The compositor otherwise sends the first configure event
+    // immediately, so "output gone and no configure ever received" identifies
+    // such a zombie proxy: sending its destructor request would be answered
+    // with a fatal invalid-object protocol error. Destroy it client-side only.
+    const bool outputGone = m_connection.findOutputByWl(m_output) == nullptr;
+    if (!m_receivedConfigure && outputGone) {
+      wl_proxy_destroy(reinterpret_cast<wl_proxy*>(m_lockSurface));
+    } else {
+      ext_session_lock_surface_v1_destroy(m_lockSurface);
+    }
     m_lockSurface = nullptr;
   }
 }
@@ -852,6 +864,7 @@ void LockSurface::handleConfigure(
     std::uint32_t height
 ) {
   auto* self = static_cast<LockSurface*>(data);
+  self->m_receivedConfigure = true;
   if (self->width() != width || self->height() != height) {
     self->m_firstFrameRendered = false;
   }
