@@ -980,8 +980,7 @@ void CalendarTab::rebuildEventList(float scale) {
 
   for (const CalendarEvent* event : dayEvents) {
     const bool hasLink = !event->url.empty();
-    const float timeMaxWidth =
-        hasLink ? std::max(40.0F, textMaxWidth - linkGlyphSize - linkGlyphGap - dotWidth - rowGap) : textMaxWidth;
+    const float timeMaxWidth = hasLink ? std::max(40.0F, textMaxWidth - linkGlyphSize - linkGlyphGap) : textMaxWidth;
     std::string timeText;
     if (event->allDay) {
       timeText = i18n::tr("control-center.calendar.all-day");
@@ -1012,13 +1011,7 @@ void CalendarTab::rebuildEventList(float scale) {
     std::unique_ptr<Node> timeLine = std::move(time);
     if (hasLink) {
       timeLine = ui::row(
-          {.align = FlexAlign::Center,
-           .justify = FlexJustify::SpaceBetween,
-           .gap = linkGlyphGap,
-           .fillWidth = true,
-           // Inset the marker by the same distance the text sits from the row's left edge.
-           .configure = [inset = dotWidth + rowGap](Flex& line) { line.setPadding(0.0F, inset, 0.0F, 0.0F); }},
-          std::move(timeLine),
+          {.align = FlexAlign::Center, .gap = linkGlyphGap}, std::move(timeLine),
           ui::glyph({
               .glyph = "external-link",
               .glyphSize = linkGlyphSize,
