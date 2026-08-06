@@ -21,6 +21,10 @@ using namespace mpris;
 namespace {
 
   const Logger kLog{"media"};
+  ColorSpec withOpacity(ColorSpec color, float opacity) {
+    color.alpha *= opacity;
+    return color;
+  }
 
 } // namespace
 
@@ -46,7 +50,7 @@ void MediaWidget::create() {
   area->addChild(
       ui::progressBar(
           {.out = &m_progressBar,
-           .fill = colorSpecFromRole(ColorRole::Primary, 0.25F),
+           .fill = withOpacity(widgetForegroundOr(colorSpecFromRole(ColorRole::Primary)), 0.25F),
            .track = clearColorSpec(),
            .visible = false,
            .participatesInLayout = false,
@@ -247,7 +251,7 @@ void MediaWidget::syncProgress() {
   }
   const float fillWidth = std::max(1.0F, m_progressBar->width());
   const auto intervalMs =
-      static_cast<std::int64_t>(std::clamp(static_cast<float>(active->lengthUs / 1000) / fillWidth, 250.F, 1000.0F));
+      static_cast<std::int64_t>(std::clamp(static_cast<float>(active->lengthUs / 1000) / fillWidth, 250.0F, 1000.0F));
   m_progressTimer.start(std::chrono::milliseconds(intervalMs), [this]() { syncProgress(); });
 }
 
