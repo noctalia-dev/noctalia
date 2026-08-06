@@ -1,6 +1,7 @@
 #pragma once
 
 #include "shell/bar/widget.h"
+#include "core/timer_manager.h"
 
 #include <cstdint>
 #include <memory>
@@ -14,6 +15,7 @@ class Glyph;
 class Label;
 class MprisService;
 class Renderer;
+class ProgressBar;
 struct MprisPlayerInfo;
 struct wl_output;
 
@@ -35,6 +37,7 @@ public:
     bool hideAlbumArt = false;
     bool hideArtist = false;
     bool artistFirst = false;
+    bool showProgress = false;
   };
 
   MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output* output, Options options);
@@ -47,6 +50,7 @@ private:
   void applyTitleScrollMode(bool titleVisible);
   void syncState(Renderer& renderer);
   void syncWidgetVisibility(bool hasMedia);
+  void syncProgress();
   [[nodiscard]] static std::string buildDisplayText(const MprisPlayerInfo& player, bool hideArtist, bool artistFirst);
 
   MprisService* m_mpris = nullptr;
@@ -60,14 +64,17 @@ private:
   bool m_hideAlbumArt = false;
   bool m_hideArtist = false;
   bool m_artistFirst = false;
+  bool m_showProgress = false;
   InputArea* m_area = nullptr;
   Image* m_art = nullptr;
   Glyph* m_emptyGlyph = nullptr;
   Label* m_label = nullptr;
+  ProgressBar* m_progressBar = nullptr;
 
   std::string m_lastText;
   std::string m_lastArtUrl;
   std::string m_lastPlaybackStatus;
   std::unordered_set<std::string> m_pendingArtDownloads;
   std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
+  Timer m_progressTimer;
 };
