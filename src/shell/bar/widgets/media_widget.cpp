@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 #include <wayland-client-protocol.h>
 
 using namespace mpris;
@@ -220,6 +221,33 @@ void MediaWidget::syncWidgetVisibility(bool hasMedia) {
   }
 }
 
+void MediaWidget::syncProgress() {
+  if (m_progressBar == nullptr) {
+    return;
+  }
+  const auto active = m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
+  const bool playing = active.has_value() && active->playbackStatus == "Playing";
+  const bool hasLength = active.has_value() && active->lengthUs > 0;
+
+  if (!m_showProgress || !hasLength) {
+    m_progressTimer.stop();
+    return;
+  }
+  const float progress = static_cast<float>(active->positionUs) / static_cast<float>(active->lengthUs);
+  if (std::abs(progress - m_progressBar->progress()) > 0.0005F) {
+    m_progressBar->setProgress(progress);
+    requestRedraw();
+  }
+  if (!playing) {
+    m_progressTimer.stop();
+    return;
+  }
+  const float fillWidth = std::max(1.0F, m_progressBar->width());
+  const auto intervalMs = static_cast<std::int64_t>(
+    std::clamp(static_cast<float>(active->lengthUs / 1000) / fillWidth, 250.F, 1000.0F));
+  m_progressTimer.start(std::chrono::milliseconds(intervalMs), [this]() { syncProgress();});
+}
+
 void MediaWidget::syncState(Renderer& renderer) {
   if (m_art == nullptr || m_label == nullptr) {
     return;
@@ -242,6 +270,7 @@ void MediaWidget::syncState(Renderer& renderer) {
     artUrl = effectiveArtUrl(*active);
   }
 
+  syncProgress();
   const bool textChanged = displayText != m_lastText;
   const bool artChanged = artUrl != m_lastArtUrl;
   const bool playbackChanged = playbackStatus != m_lastPlaybackStatus;
