@@ -948,7 +948,7 @@ void NotificationsTab::clearAllNotifications() {
   if (m_list != nullptr) {
     m_list->notifyDataChanged();
   }
-  PanelManager::instance().refresh();
+  PanelManager::instance().close();
 }
 
 void NotificationsTab::toggleDoNotDisturb() {
