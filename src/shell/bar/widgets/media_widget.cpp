@@ -235,6 +235,10 @@ void MediaWidget::syncProgress() {
   if (m_progressBar == nullptr) {
     return;
   }
+  if (!m_progressBar->visible()) {
+    m_progressTimer.stop();
+    return;
+  }
   const auto active = m_mpris != nullptr ? m_mpris->activePlayer() : std::nullopt;
   const bool playing = active.has_value() && active->playbackStatus == "Playing";
   const bool hasLength = active.has_value() && active->lengthUs > 0;
