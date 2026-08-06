@@ -3784,6 +3784,10 @@
           "description": "Show Num Lock state",
           "label": "Show Num Lock"
         },
+        "show-progress": {
+          "description": "Fill the widget background to show playback progress",
+          "label": "Show Playback Progress"
+        },
         "show-scroll-lock": {
           "description": "Show Scroll Lock state",
           "label": "Show Scroll Lock"

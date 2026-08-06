@@ -12,8 +12,8 @@
 #include "ui/style.h"
 
 #include <algorithm>
-#include <cmath>
 #include <chrono>
+#include <cmath>
 #include <wayland-client-protocol.h>
 
 using namespace mpris;
@@ -44,19 +44,18 @@ void MediaWidget::create() {
   m_area = area.get();
 
   area->addChild(
-    ui::progressBar({
-      .out = &m_progressBar,
-      .fill = colorSpecFromRole(ColorRole::Primary, 0.25F),
-      .track = clearColorSpec(),
-      .visible = false,
-      .participatesInLayout = false,
-      .configure =
-        [](ProgressBar& bar) {
-          bar.setZIndex(-1);
-          bar.setHitTestVisible(false);
-        }
-    })
-);
+      ui::progressBar(
+          {.out = &m_progressBar,
+           .fill = colorSpecFromRole(ColorRole::Primary, 0.25F),
+           .track = clearColorSpec(),
+           .visible = false,
+           .participatesInLayout = false,
+           .configure = [](ProgressBar& bar) {
+             bar.setZIndex(-1);
+             bar.setHitTestVisible(false);
+           }}
+      )
+  );
   area->addChild(
       ui::image({
           .out = &m_art,
@@ -95,7 +94,11 @@ void MediaWidget::create() {
 
 void MediaWidget::doLayout(Renderer& renderer, float containerWidth, float containerHeight) {
   auto* rootNode = root();
-  if (rootNode == nullptr || m_art == nullptr || m_label == nullptr || m_emptyGlyph == nullptr || m_progressBar == nullptr) {
+  if (rootNode == nullptr
+      || m_art == nullptr
+      || m_label == nullptr
+      || m_emptyGlyph == nullptr
+      || m_progressBar == nullptr) {
     return;
   }
   syncState(renderer);
@@ -243,9 +246,9 @@ void MediaWidget::syncProgress() {
     return;
   }
   const float fillWidth = std::max(1.0F, m_progressBar->width());
-  const auto intervalMs = static_cast<std::int64_t>(
-    std::clamp(static_cast<float>(active->lengthUs / 1000) / fillWidth, 250.F, 1000.0F));
-  m_progressTimer.start(std::chrono::milliseconds(intervalMs), [this]() { syncProgress();});
+  const auto intervalMs =
+      static_cast<std::int64_t>(std::clamp(static_cast<float>(active->lengthUs / 1000) / fillWidth, 250.F, 1000.0F));
+  m_progressTimer.start(std::chrono::milliseconds(intervalMs), [this]() { syncProgress(); });
 }
 
 void MediaWidget::syncState(Renderer& renderer) {

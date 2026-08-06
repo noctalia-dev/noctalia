@@ -1,7 +1,7 @@
 #pragma once
 
-#include "shell/bar/widget.h"
 #include "core/timer_manager.h"
+#include "shell/bar/widget.h"
 
 #include <cstdint>
 #include <memory>
