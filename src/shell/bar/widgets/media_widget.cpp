@@ -28,7 +28,7 @@ MediaWidget::MediaWidget(MprisService* mpris, HttpClient* httpClient, wl_output*
       m_minWidth(static_cast<float>(options.minWidth)), m_artSize(static_cast<float>(options.artSize)),
       m_titleScrollMode(options.titleScrollMode), m_hideWhenNoMedia(options.hideWhenNoMedia),
       m_albumArtOnly(options.albumArtOnly), m_hideAlbumArt(options.hideAlbumArt), m_hideArtist(options.hideArtist),
-      m_artistFirst(options.artistFirst) {}
+      m_artistFirst(options.artistFirst), m_showProgress(options.showProgress) {}
 
 void MediaWidget::create() {
   auto area = ui::inputArea({});
@@ -42,6 +42,20 @@ void MediaWidget::create() {
   });
   m_area = area.get();
 
+  area->addChild(
+    ui::progressBar({
+      .out = &m_progressBar,
+      .fill = colorSpecFromRole(ColorRole::Primary, 0.25F),
+      .track = clearColorSpec(),
+      .visible = false,
+      .participatesInLayout = false,
+      .configure =
+        [](ProgressBar& bar) {
+          bar.setZIndex(-1);
+          bar.setHitTestVisible(false);
+        }
+    })
+);
   area->addChild(
       ui::image({
           .out = &m_art,
