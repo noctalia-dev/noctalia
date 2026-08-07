@@ -1310,6 +1310,11 @@ struct KeybindsConfig {
 };
 
 struct NightLightConfig {
+  enum class Mode : std::uint8_t {
+    Sunset = 0,
+    SolarElevation = 1,
+  };
+
   // Day temperature must be higher than night temperature by at least this much.
   static constexpr std::int32_t kTemperatureMin = 1000;
   static constexpr std::int32_t kTemperatureMax = 10000;
@@ -1317,10 +1322,16 @@ struct NightLightConfig {
 
   bool enabled = false;
   bool force = false;
+  Mode mode = Mode::Sunset;
   std::int32_t dayTemperature = 6500;
   std::int32_t nightTemperature = 4000;
 
   bool operator==(const NightLightConfig&) const = default;
+};
+
+constexpr EnumOption<NightLightConfig::Mode> kNightLightModes[] = {
+    {NightLightConfig::Mode::Sunset, "sunset", "settings.options.nightlight.mode.sunset"},
+    {NightLightConfig::Mode::SolarElevation, "solar_elevation", "settings.options.nightlight.mode.solar-elevation"},
 };
 
 struct LocationConfig {

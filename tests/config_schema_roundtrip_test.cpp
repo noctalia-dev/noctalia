@@ -356,7 +356,13 @@ location = "https://example.invalid/bad"
     c.system.monitor.memoryPollSeconds = 6.0f;
     c.system.monitor.networkPollSeconds = 7.0f;
     c.system.monitor.diskPollSeconds = 12.0f;
-    c.nightlight = NightLightConfig{true, true, 6000, 3500}; // gap satisfied
+    c.nightlight = {
+        .enabled = true,
+        .force = true,
+        .mode = NightLightConfig::Mode::SolarElevation,
+        .dayTemperature = 6000,
+        .nightTemperature = 3500,
+    }; // gap satisfied
     c.location.autoLocate = true;
     c.location.address = "Berlin";
     c.location.customSchedule = true;

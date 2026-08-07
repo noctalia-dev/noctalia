@@ -3,6 +3,7 @@
 #include "core/log.h"
 #include "ipc/ipc_service.h"
 #include "system/day_night_schedule.h"
+#include "system/night_light_profile.h"
 #include "wayland/wayland_connection.h"
 #include "wlr-gamma-control-unstable-v1-client-protocol.h"
 
@@ -31,6 +32,7 @@ namespace {
   // uploads to keep every step at or under it and no more.
   constexpr int kTargetStepKelvin = 50;
   constexpr auto kMinTickInterval = std::chrono::seconds(2);
+  constexpr auto kSolarTickInterval = std::chrono::seconds(30);
 
   // NOCTALIA_GAMMA_PROFILE=1 times each upload against an empty roundtrip, isolating what set_gamma
   // costs the compositor. It adds two blocking roundtrips per upload, so it is diagnostics only.
@@ -200,6 +202,12 @@ void GammaService::scheduleGeoTimer() {
 }
 
 bool GammaService::isNightPhase() const {
+  if (m_config.mode == NightLightConfig::Mode::SolarElevation) {
+    const GammaTarget target = computeTarget();
+    const int dayTemp =
+        std::clamp(m_config.dayTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
+    return target.kelvin >= 0 && target.kelvin < dayTemp;
+  }
   return day_night_schedule::evaluate(m_location, m_resolvedLatitude, m_resolvedLongitude).night;
 }
 
@@ -402,11 +410,14 @@ void GammaService::applyTarget(int kelvin) {
   applyGammaToAll(m_currentKelvin);
 }
 
-// Spread the ramp over one upload per kTargetStepKelvin of swing. The upload count follows the
-// configured temperature range rather than the clock, so a small swing does not pay for uploads it
-// cannot see, and a large one does not step visibly. The floor bounds the rate on huge swings; the
-// ceiling keeps a tiny swing from crossing its whole range in one jump.
+// The solar profile follows the clock every 30 seconds. The sunset mode instead spreads the fixed
+// ramp over one upload per kTargetStepKelvin of swing: small swings avoid needless uploads, while
+// large swings remain visually smooth.
 std::chrono::milliseconds GammaService::transitionTickInterval() const {
+  if (m_config.mode == NightLightConfig::Mode::SolarElevation) {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(kSolarTickInterval);
+  }
+
   const int dayTemp =
       std::clamp(m_config.dayTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
   const int nightTemp =
@@ -423,11 +434,15 @@ void GammaService::ensureTick() {
   if (!m_transitionTimer.active()) {
     const auto interval = transitionTickInterval();
     if (gammaProfiling()) {
-      const float ramp = kRampDurationMs;
-      kLog.info(
-          "profile: ramp timer armed, ramp={}ms tick={}ms => {} uploads across the window", static_cast<long>(ramp),
-          interval.count(), static_cast<long>(ramp) / std::max<long>(1, interval.count())
-      );
+      if (m_config.mode == NightLightConfig::Mode::SolarElevation) {
+        kLog.info("profile: solar-elevation timer armed, tick={}ms", interval.count());
+      } else {
+        const float ramp = kRampDurationMs;
+        kLog.info(
+            "profile: ramp timer armed, ramp={}ms tick={}ms => {} uploads across the window", static_cast<long>(ramp),
+            interval.count(), static_cast<long>(ramp) / std::max<long>(1, interval.count())
+        );
+      }
     }
     m_transitionTimer.startRepeating(interval, [this]() { tickGamma(); });
   }
@@ -448,10 +463,9 @@ void GammaService::tickGamma() {
 
 // --- Core state machine ---
 
-// Instantaneous, clock-anchored target. The schedule fades day<->night across a fixed ramp window
-// centered on the boundary (half before, half after), so the named time is the midpoint of the
-// transition. The position is derived from wall-clock time, so the result is identical whether the
-// app started before or after the boundary.
+// Instantaneous, clock-anchored target. Solar mode maps the current elevation through a five-phase
+// twilight profile. Sunset mode fades day<->night across a fixed window centered on each boundary.
+// Both derive their position from wall-clock time, independent of when the app started.
 GammaService::GammaTarget GammaService::computeTarget() const {
   const int dayTemp =
       std::clamp(m_config.dayTemperature, NightLightConfig::kTemperatureMin, NightLightConfig::kTemperatureMax);
@@ -466,7 +480,28 @@ GammaService::GammaTarget GammaService::computeTarget() const {
     return {.kelvin = nightTemp, .transitioning = false};
   }
 
+  const bool solarMode = m_config.mode == NightLightConfig::Mode::SolarElevation;
   const bool manualMode = day_night_schedule::isManualMode(m_location);
+  const auto coords = day_night_schedule::resolveCoordinates(m_location, m_resolvedLatitude, m_resolvedLongitude);
+
+  if (solarMode) {
+    if (!coords.latitude.has_value() || !coords.longitude.has_value()) {
+      if (m_locationResolving || networkLocationConfigured()) {
+        kLog.debug("solar-elevation night light waiting for location resolution");
+      } else {
+        kLog.warn("solar-elevation night light requires latitude and longitude");
+      }
+      return {};
+    }
+
+    const double elevation =
+        night_light_profile::solarElevation(std::chrono::system_clock::now(), *coords.latitude, *coords.longitude);
+    return {
+        .kelvin = night_light_profile::temperatureForElevation(elevation, dayTemp, nightTemp),
+        .transitioning = night_light_profile::isTransitionElevation(elevation),
+    };
+  }
+
   if (!manualMode) {
     const bool customTimesUsable = day_night_schedule::hasUsableCustomTimes(m_location);
     if (m_location.customSchedule && !customTimesUsable) {
@@ -474,7 +509,6 @@ GammaService::GammaTarget GammaService::computeTarget() const {
       kLog.warn("custom schedule is on but sunset/sunrise are not both set to an HH:MM time");
     }
 
-    const auto coords = day_night_schedule::resolveCoordinates(m_location, m_resolvedLatitude, m_resolvedLongitude);
     if (!coords.latitude.has_value() || !coords.longitude.has_value()) {
       if (m_locationResolving || networkLocationConfigured()) {
         kLog.debug("night light schedule waiting for location resolution");
@@ -535,8 +569,16 @@ void GammaService::apply() {
     return;
   }
 
+  const bool solarMode = m_config.mode == NightLightConfig::Mode::SolarElevation;
   const bool manualMode = day_night_schedule::isManualMode(m_location);
-  if (effectiveEnabled() && manualMode) {
+  if (effectiveEnabled() && solarMode && !effectiveForce()) {
+    const auto coords = day_night_schedule::resolveCoordinates(m_location, m_resolvedLatitude, m_resolvedLongitude);
+    if (coords.latitude.has_value() && coords.longitude.has_value()) {
+      m_scheduleTimer.start(kScheduleRecheckInterval, [this]() { apply(); });
+    } else {
+      m_scheduleTimer.stop();
+    }
+  } else if (effectiveEnabled() && manualMode) {
     scheduleManualTimer();
   } else if (effectiveEnabled() && !effectiveForce()) {
     const auto coords = day_night_schedule::resolveCoordinates(m_location, m_resolvedLatitude, m_resolvedLongitude);

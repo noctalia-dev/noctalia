@@ -158,6 +158,7 @@ namespace noctalia::config::schema {
     static const Schema<NightLightConfig> s = {
         field(&NightLightConfig::enabled, "enabled"),
         field(&NightLightConfig::force, "force"),
+        enumField(&NightLightConfig::mode, "mode", kNightLightModes),
         field(&NightLightConfig::dayTemperature, "temperature_day", Range<std::int64_t>{1000, 25000}),
         field(&NightLightConfig::nightTemperature, "temperature_night", Range<std::int64_t>{1000, 25000}),
         // Day must lead night by at least the gap; pull night down, bumping day up

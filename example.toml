@@ -282,6 +282,7 @@ enable_ddcutil = false
 [nightlight]
 enabled              = false
 force                = false
+mode                 = "sunset"     # sunset | solar_elevation; solar mode continuously follows twilight
 temperature_day      = 6500         # Kelvin
 temperature_night    = 4000         # Kelvin
 
@@ -293,7 +294,7 @@ auto_locate      = false             # resolve coordinates from IP when true
 address          = ""                # e.g. "Toronto, ON"; geocoded when auto_locate = false
 # latitude       = 52.5200           # manual coordinates, used when auto_locate and address are off
 # longitude      = 13.4050
-# custom_schedule = true    # schedule day/night from the times below instead of coordinates
+# custom_schedule = true    # fixed times for sunset mode; solar_elevation always uses coordinates
 # sunset         = "20:30"           # HH:MM — night start
 # sunrise        = "07:30"           # HH:MM — day start
 

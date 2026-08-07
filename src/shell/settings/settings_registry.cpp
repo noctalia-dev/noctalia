@@ -2517,6 +2517,15 @@ namespace settings {
         e.visibleWhen = nightLightOn;
         entries.push_back(std::move(e));
       }
+      {
+        auto e = makeEntry(
+            SettingsSection::Location, "night-light", tr("settings.schema.services.night-light-mode.label"),
+            tr("settings.schema.services.night-light-mode.description"), {"nightlight", "mode"},
+            asSegmented(enumSelect(kNightLightModes, cfg.nightlight.mode)), "nightlight solar gradual twilight"
+        );
+        e.visibleWhen = nightLightOn;
+        entries.push_back(std::move(e));
+      }
       // Both sliders span the same range; the day > night invariant is enforced at commit time
       // via SliderSetting::linkedCommit, which pushes the other temperature when needed.
       const auto tempMin = static_cast<double>(NightLightConfig::kTemperatureMin);

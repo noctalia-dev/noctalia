@@ -66,6 +66,7 @@ int main() {
   expectKnown({"calendar", "account", "icloud", "provider"});
   expectKnown({"control_center", "calendar", "show_events_card"});
   expectKnown({"nightlight", "temperature_day"});
+  expectKnown({"nightlight", "mode"});
   expectKnown({"location", "auto_locate"});
   expectKnown({"keybinds", "validate"});
   expectKnown({"control_center", "sidebar"});

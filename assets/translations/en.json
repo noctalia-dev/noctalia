@@ -1344,6 +1344,12 @@
         "overlay": "Overlay",
         "top": "Top"
       },
+      "nightlight": {
+        "mode": {
+          "solar-elevation": "Solar Elevation",
+          "sunset": "Sunrise & Sunset"
+        }
+      },
       "notification-urgency": {
         "critical": "Critical",
         "low": "Low",
@@ -2556,7 +2562,7 @@
           "label": "Force Night Light"
         },
         "latitude": {
-          "description": "Manual latitude for the sunrise/sunset schedule, used when auto-locate and address are off",
+          "description": "Manual latitude for solar schedules, used when auto-locate and address are off",
           "label": "Latitude"
         },
         "location-address": {
@@ -2569,7 +2575,7 @@
           "label": "Auto-Locate (IP)"
         },
         "longitude": {
-          "description": "Manual longitude for the sunrise/sunset schedule, used when auto-locate and address are off",
+          "description": "Manual longitude for solar schedules, used when auto-locate and address are off",
           "label": "Longitude"
         },
         "minimum-brightness": {
@@ -2584,6 +2590,10 @@
           "description": "Shift screen colors warmer at night",
           "label": "Night Light",
           "requires-gamma-control": "Compositor does not support gamma control"
+        },
+        "night-light-mode": {
+          "description": "Use a one-hour sunrise/sunset transition or follow solar elevation through twilight; solar mode requires coordinates and ignores custom times",
+          "label": "Schedule Mode"
         },
         "night-temperature": {
           "description": "Color temperature at night (Kelvin)",
