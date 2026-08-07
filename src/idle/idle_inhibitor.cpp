@@ -7,16 +7,24 @@
 #include "wayland/wayland_connection.h"
 
 #include <algorithm>
+#include <string_view>
 
 namespace {
 
   constexpr Logger kLog("idle");
+
+  [[nodiscard]] bool isInternalDisplayConnector(std::string_view name) {
+    return name.starts_with("eDP") || name.starts_with("LVDS") || name.starts_with("DSI");
+  }
 
 } // namespace
 
 IdleInhibitor::IdleInhibitor() = default;
 
 IdleInhibitor::~IdleInhibitor() {
+  if (m_logind != nullptr) {
+    m_logind->setLidStateCallback({});
+  }
   destroyWaylandInhibitors(false);
   releaseLogindInhibit();
 }
@@ -32,7 +40,38 @@ bool IdleInhibitor::initialize(WaylandConnection& wayland) {
   return true;
 }
 
-void IdleInhibitor::setLogindService(LogindService* logind) { m_logind = logind; }
+void IdleInhibitor::setLogindService(LogindService* logind) {
+  if (m_logind != nullptr) {
+    m_logind->setLidStateCallback({});
+  }
+  m_logind = logind;
+  if (m_logind != nullptr) {
+    m_logind->setLidStateCallback([this](bool closed) { handleLidState(closed); });
+  }
+}
+
+void IdleInhibitor::setLidHandlingEnabled(bool enabled) {
+  if (m_lidHandlingEnabled == enabled) {
+    return;
+  }
+  m_lidHandlingEnabled = enabled;
+  if (m_outputPowerCallback) {
+    if (!enabled && m_screenOffForLid) {
+      m_screenOffForLid = false;
+      (void)m_outputPowerCallback(true);
+    } else if (enabled && m_enabled && m_lidClosed && !m_screenOffForLid && hasSingleInternalOutput()) {
+      m_screenOffForLid = m_outputPowerCallback(false);
+    }
+  }
+  if (m_enabled) {
+    releaseLogindInhibit();
+    syncInhibitor(false);
+  }
+}
+
+void IdleInhibitor::setOutputPowerCallback(OutputPowerCallback callback) {
+  m_outputPowerCallback = std::move(callback);
+}
 
 void IdleInhibitor::setAnchorSurfacesProvider(AnchorSurfacesProvider provider) {
   m_anchorSurfacesProvider = std::move(provider);
@@ -57,6 +96,14 @@ void IdleInhibitor::setEnabled(bool enabled) {
   }
 
   syncInhibitor(m_enabled);
+  if (m_enabled
+      && m_lidHandlingEnabled
+      && m_lidClosed
+      && !m_screenOffForLid
+      && m_outputPowerCallback
+      && hasSingleInternalOutput()) {
+    m_screenOffForLid = m_outputPowerCallback(false);
+  }
   if (wasEnabled && !m_enabled) {
     kLog.info("idle inhibitor disabled");
   }
@@ -124,7 +171,7 @@ void IdleInhibitor::syncLogindInhibit(bool logTransitions) {
     return;
   }
 
-  if (m_logind->acquireIdleInhibit() && logTransitions && !m_loggedLogindEnable) {
+  if (m_logind->acquireIdleInhibit(m_lidHandlingEnabled) && logTransitions && !m_loggedLogindEnable) {
     kLog.info("idle inhibitor enabled via logind");
     m_loggedLogindEnable = true;
   }
@@ -149,6 +196,49 @@ void IdleInhibitor::releaseLogindInhibit() {
   }
   m_logind->releaseIdleInhibit();
   m_loggedLogindEnable = false;
+}
+
+void IdleInhibitor::handleLidState(bool closed) {
+  if (m_lidStateKnown && m_lidClosed == closed) {
+    return;
+  }
+  m_lidStateKnown = true;
+  m_lidClosed = closed;
+  if (!m_lidHandlingEnabled) {
+    return;
+  }
+  if (!m_outputPowerCallback) {
+    return;
+  }
+  if (closed) {
+    if (!m_enabled) {
+      return;
+    }
+    // Global DPMS commands would blank external displays. In a docked setup the compositor owns
+    // lid-driven output topology, including any user-defined switch bindings.
+    if (!hasSingleInternalOutput()) {
+      return;
+    }
+    m_screenOffForLid = m_outputPowerCallback(false);
+    if (!m_screenOffForLid) {
+      kLog.warn("failed to turn screen off after laptop lid closed");
+    }
+    return;
+  }
+  if (m_screenOffForLid) {
+    m_screenOffForLid = false;
+    if (!m_outputPowerCallback(true)) {
+      kLog.warn("failed to turn screen on after laptop lid opened");
+    }
+  }
+}
+
+bool IdleInhibitor::hasSingleInternalOutput() const {
+  if (m_wayland == nullptr || m_wayland->outputs().size() != 1) {
+    return false;
+  }
+  const WaylandOutput& output = m_wayland->outputs().front();
+  return isInternalDisplayConnector(output.connectorName) || isInternalDisplayConnector(output.interfaceName);
 }
 
 void IdleInhibitor::notifyChanged() {

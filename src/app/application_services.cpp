@@ -776,6 +776,8 @@ void Application::initWaylandCallbacks() {
     );
   }
   m_idleInhibitor.initialize(m_wayland);
+  m_idleInhibitor.setLidHandlingEnabled(m_configService.config().idle.caffeineLidHandling);
+  m_idleInhibitor.setOutputPowerCallback([this](bool on) { return m_compositorPlatform.setOutputPower(on); });
   m_idleInhibitor.setChangeCallback([this, shouldRefreshControlCenter]() {
     if (m_configService.config().osd.kinds.caffeine) {
       m_osdOverlay.show(caffeineOsdContent(m_idleInhibitor.enabled()));
@@ -785,6 +787,14 @@ void Application::initWaylandCallbacks() {
       m_panelManager.refresh();
     }
   });
+  m_configService.addReloadCallback(
+      [this]() {
+        if (m_configService.lastChange().idle) {
+          m_idleInhibitor.setLidHandlingEnabled(m_configService.config().idle.caffeineLidHandling);
+        }
+      },
+      "caffeine-lid-handling"
+  );
 }
 
 void Application::initAuxServicesAndHooks() {
