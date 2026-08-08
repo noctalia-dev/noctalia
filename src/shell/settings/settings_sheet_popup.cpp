@@ -109,6 +109,12 @@ namespace settings {
   }
 
   void SettingsSheetPopup::close() { destroyPopup(); }
+  void SettingsSheetPopup::requestClose() {
+    if (m_onCloseRequested && m_onCloseRequested()) {
+      return;
+    }
+    close();
+  }
 
   void SettingsSheetPopup::setSheetTitle(std::string title) {
     m_sheetTitle = std::move(title);
@@ -280,10 +286,7 @@ namespace settings {
                 if (aliveGuard.expired()) {
                   return;
                 }
-                if (m_onCloseRequested && m_onCloseRequested()) {
-                  return;
-                }
-                close();
+                requestClose();
               });
             },
         })

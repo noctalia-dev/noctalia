@@ -51,6 +51,7 @@ namespace settings {
 
     void open(SettingsSheetPopupRequest request);
     void close();
+    void requestClose();
 
     [[nodiscard]] bool isOpen() const noexcept;
     [[nodiscard]] bool onPointerEvent(const PointerEvent& event);

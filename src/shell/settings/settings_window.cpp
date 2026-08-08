@@ -1049,7 +1049,7 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
       return;
     }
     if (event.pressed && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
-      m_editorSheetPopup->close();
+      m_editorSheetPopup->requestClose();
       return;
     }
     m_editorSheetPopup->onKeyboardEvent(event);
