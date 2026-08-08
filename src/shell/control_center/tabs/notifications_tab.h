@@ -13,6 +13,7 @@
 #include <vector>
 
 class NotificationManager;
+class ConfigService;
 struct NotificationHistoryEntry;
 class Button;
 class Segmented;
@@ -22,7 +23,7 @@ class NotificationHistoryAdapter;
 
 class NotificationsTab : public Tab {
 public:
-  explicit NotificationsTab(NotificationManager* notifications);
+  explicit NotificationsTab(NotificationManager* notifications, ConfigService* config);
   ~NotificationsTab() override;
 
   std::unique_ptr<Flex> create() override;
@@ -51,6 +52,7 @@ private:
   [[nodiscard]] bool filterSlideOutActive() const;
 
   NotificationManager* m_notifications = nullptr;
+  ConfigService* m_config = nullptr;
   IconResolver m_iconResolver;
   std::unique_ptr<NotificationHistoryAdapter> m_adapter;
   std::vector<const NotificationHistoryEntry*> m_filtered;

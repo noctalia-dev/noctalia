@@ -253,6 +253,7 @@ namespace noctalia::config::schema {
         field(&NotificationConfig::offsetY, "offset_y"),
         field(&NotificationConfig::monitors, "monitors"),
         field(&NotificationConfig::collapseOnDismiss, "collapse_on_dismiss"),
+        field(&NotificationConfig::autoClosePanelOnClearAll, "auto_close_panel_on_clear_all"),
         field(&NotificationConfig::historyRetentionHours, "history_retention_hours", Range<std::int64_t>{0, 8760}),
         custom<NotificationConfig>(
             "blacklist",

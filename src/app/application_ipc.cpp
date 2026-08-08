@@ -271,7 +271,11 @@ void Application::initIpc() {
       [this](const std::string&) -> std::string {
         m_notificationManager.clearHistory();
         if (m_panelManager.isOpenPanel("control-center")) {
-          m_panelManager.refresh();
+          if (m_configService.config().notification.autoClosePanelOnClearAll && m_notificationManager.all().empty()) {
+            m_panelManager.close();
+          } else {
+            m_panelManager.refresh();
+          }
         }
         return "ok\n";
       },

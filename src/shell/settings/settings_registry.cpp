@@ -2861,6 +2861,13 @@ namespace settings {
         ToggleSetting{cfg.notification.collapseOnDismiss}, "reorder stack slide"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Notifications, "general",
+        tr("settings.schema.notifications.auto-close-panel-on-clear-all.label"),
+        tr("settings.schema.notifications.auto-close-panel-on-clear-all.description"),
+        {"notification", "auto_close_panel_on_clear_all"}, ToggleSetting{cfg.notification.autoClosePanelOnClearAll},
+        "clear all auto-close panel"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Notifications, "toasts", tr("settings.schema.notifications.layer.label"),
         tr("settings.schema.notifications.layer.description"), {"notification", "layer"},
         asSegmented(plainSelect(

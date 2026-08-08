@@ -1,5 +1,6 @@
 #include "shell/control_center/tabs/notifications_tab.h"
 
+#include "config/config_service.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
 #include "net/uri.h"
@@ -639,7 +640,8 @@ private:
   float m_fillOpacity = 1.0F;
 };
 
-NotificationsTab::NotificationsTab(NotificationManager* notifications) : m_notifications(notifications) {}
+NotificationsTab::NotificationsTab(NotificationManager* notifications, ConfigService* config)
+    : m_notifications(notifications), m_config(config) {}
 
 NotificationsTab::~NotificationsTab() = default;
 
@@ -948,7 +950,11 @@ void NotificationsTab::clearAllNotifications() {
   if (m_list != nullptr) {
     m_list->notifyDataChanged();
   }
-  PanelManager::instance().close();
+  if (m_config != nullptr && m_config->config().notification.autoClosePanelOnClearAll) {
+    PanelManager::instance().close();
+  } else {
+    PanelManager::instance().refresh();
+  }
 }
 
 void NotificationsTab::toggleDoNotDisturb() {

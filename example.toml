@@ -164,6 +164,7 @@ tint_intensity         = 0.3        # 0.0 = no tint, 1.0 = opaque
 enable_daemon      = true
 show_app_name      = true
 show_actions       = true           # show action buttons; when false, clicking a toast triggers its default action
+auto_close_panel_on_clear_all = true     # close the panel after clearing all notifications
 layer              = "top"          # top | overlay
 scale              = 1.0            # notification size multiplier applied on top of accessibility.ui_scale
 background_opacity = 0.97

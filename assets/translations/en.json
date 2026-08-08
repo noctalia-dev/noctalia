@@ -2189,6 +2189,10 @@
           "description": "Slide remaining toasts to close gaps when one is dismissed",
           "label": "Collapse on Dismiss"
         },
+        "auto-close-panel-on-clear-all": {
+          "description": "Automatically close the notification history panel when all notifications are cleared",
+          "label": "Auto-close Panel on Clear All"
+        },
         "daemon": {
           "description": "Enable the built-in notification daemon",
           "label": "Notification Daemon"
