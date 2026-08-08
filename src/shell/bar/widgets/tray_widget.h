@@ -19,6 +19,7 @@ class Flex;
 class Image;
 class InputArea;
 class Glyph;
+class Box;
 
 class TrayWidget : public Widget {
 public:
@@ -39,11 +40,17 @@ public:
   };
 
   TrayWidget(ConfigService& config, TrayService* tray, Options options);
-
+  void setHoverOverlayParent(Node* node) noexcept { m_hoverOverlayParent = node; }
   void create() override;
   [[nodiscard]] bool wantsBarHoverHighlight() const noexcept override { return false; }
 
 private:
+  struct HoverOverlayEntry {
+    InputArea* area = nullptr;
+    Box* box = nullptr;
+    float padding = 0.0F;
+  };
+
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
   void doUpdate(Renderer& renderer) override;
   void buildDesktopIconIndex();
@@ -88,10 +95,12 @@ private:
   bool m_matchAdjacentSpacing = false;
   std::optional<float> m_customItemSize;
   bool m_appIconColorizeDirty = false;
-
+  void layoutHoverOverlays();
   InputArea* m_drawerTrigger = nullptr;
   Glyph* m_drawerChevron = nullptr;
   std::string m_drawerChevronGlyph;
   Signal<>::ScopedConnection m_paletteConn;
   Signal<>::ScopedConnection m_appIconColorizeConn;
+  Node* m_hoverOverlayParent = nullptr;
+  std::vector<HoverOverlayEntry> m_hoverOverlays;
 };

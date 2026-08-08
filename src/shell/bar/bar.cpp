@@ -19,6 +19,7 @@
 #include "shell/bar/widget_gesture_defaults.h"
 #include "shell/bar/widgets/plugin_widget.h"
 #include "shell/bar/widgets/taskbar_widget.h"
+#include "shell/bar/widgets/tray_widget.h"
 #include "shell/panel/panel_manager.h"
 #include "shell/surface/shadow.h"
 #include "shell/tooltip/tooltip_manager.h"
@@ -2472,6 +2473,10 @@ void Bar::attachWidgetsToSections(BarInstance& instance) {
           PanelManager::instance().togglePanel(std::string(panelId), request);
         }
       });
+      if (auto* tray = dynamic_cast<TrayWidget*>(widget.get())) {
+        tray->setHoverOverlayParent(instance.hoverUnderlay);
+      }
+
       widget->create();
       if (widget->outerNode() != nullptr) {
         instance.widgetByRoot[widget->outerNode()] = widget.get();
