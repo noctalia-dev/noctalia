@@ -48,6 +48,64 @@ namespace capture {
     constexpr float kSelectionBorderWidth = 2.0F;
     constexpr float kDimOpacity = 0.65F;
 
+    [[nodiscard]] capture::DragMode hitTestSelection(double x, double y, double x0, double y0, double x1, double y1) {
+      constexpr double kHandleMargin = 15.0; // Hitbox size in pixels
+      const bool nearLeft = std::abs(x - x0) <= kHandleMargin;
+      const bool nearRight = std::abs(x - x1) <= kHandleMargin;
+      const bool nearTop = std::abs(y - y0) <= kHandleMargin;
+      const bool nearBottom = std::abs(y - y1) <= kHandleMargin;
+
+      const bool withinX = x >= x0 - kHandleMargin && x <= x1 + kHandleMargin;
+      const bool withinY = y >= y0 - kHandleMargin && y <= y1 + kHandleMargin;
+
+      if (!withinX || !withinY)
+        return capture::DragMode::None;
+
+      if (nearTop && nearLeft)
+        return capture::DragMode::TopLeftCorner;
+      if (nearTop && nearRight)
+        return capture::DragMode::TopRightCorner;
+      if (nearBottom && nearLeft)
+        return capture::DragMode::BottomLeftCorner;
+      if (nearBottom && nearRight)
+        return capture::DragMode::BottomRightCorner;
+
+      if (nearTop && x >= x0 && x <= x1)
+        return capture::DragMode::TopEdge;
+      if (nearBottom && x >= x0 && x <= x1)
+        return capture::DragMode::BottomEdge;
+      if (nearLeft && y >= y0 && y <= y1)
+        return capture::DragMode::LeftEdge;
+      if (nearRight && y >= y0 && y <= y1)
+        return capture::DragMode::RightEdge;
+
+      if (x > x0 && x < x1 && y > y0 && y < y1)
+        return capture::DragMode::Move;
+
+      return capture::DragMode::None;
+    }
+
+    [[nodiscard]] std::uint32_t cursorShapeForDragMode(capture::DragMode mode) {
+      switch (mode) {
+      case capture::DragMode::TopEdge:
+      case capture::DragMode::BottomEdge:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NS_RESIZE;
+      case capture::DragMode::LeftEdge:
+      case capture::DragMode::RightEdge:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_EW_RESIZE;
+      case capture::DragMode::TopLeftCorner:
+      case capture::DragMode::BottomRightCorner:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NWSE_RESIZE;
+      case capture::DragMode::TopRightCorner:
+      case capture::DragMode::BottomLeftCorner:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NESW_RESIZE;
+      case capture::DragMode::Move:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_ALL_SCROLL;
+      default:
+        return WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_CROSSHAIR;
+      }
+    }
+
     [[nodiscard]] const WaylandOutput* findOutput(const WaylandConnection& wayland, wl_output* output) {
       for (const auto& entry : wayland.outputs()) {
         if (entry.output == output) {
@@ -432,53 +490,144 @@ namespace capture {
       });
     } else {
       input->setOnPress([this, output = inst.output](const InputArea::PointerData& data) {
-        if (data.button != BTN_LEFT) {
+        if (data.button != BTN_LEFT)
           return;
-        }
+
         if (!data.pressed) {
-          if (!m_dragging) {
+          if (!m_dragging)
             return;
-          }
           m_dragging = false;
-          // completeSelection() tears down surfaces; defer past InputDispatcher::pointerButton.
+          // Re-evaluate mouse position for cursor change
           DeferredCall::callLater([this]() { completeSelection(); });
           return;
         }
-        if (m_confirming) {
-          m_confirming = false;
-        }
+
         const auto* out = findOutput(*m_wayland, output);
-        if (out == nullptr) {
+        if (out == nullptr)
           return;
-        }
+
+        const double globalX = static_cast<double>(out->logicalX) + static_cast<double>(data.localX);
+        const double globalY = static_cast<double>(out->logicalY) + static_cast<double>(data.localY);
+
         m_dragging = true;
-        m_startGlobalX = static_cast<double>(out->logicalX) + static_cast<double>(data.localX);
-        m_startGlobalY = static_cast<double>(out->logicalY) + static_cast<double>(data.localY);
-        m_currentGlobalX = m_startGlobalX;
-        m_currentGlobalY = m_startGlobalY;
+
+        if (m_confirming) {
+          const double x0 = std::min(m_startGlobalX, m_currentGlobalX);
+          const double y0 = std::min(m_startGlobalY, m_currentGlobalY);
+          const double x1 = std::max(m_startGlobalX, m_currentGlobalX);
+          const double y1 = std::max(m_startGlobalY, m_currentGlobalY);
+
+          m_dragMode = hitTestSelection(globalX, globalY, x0, y0, x1, y1);
+
+          if (m_dragMode == DragMode::None) {
+            // Clicked outside the selection, start a new one
+            m_confirming = false;
+            m_dragMode = DragMode::NewSelection;
+          }
+        } else {
+          m_dragMode = DragMode::NewSelection;
+        }
+
+        if (m_dragMode == DragMode::NewSelection) {
+          m_startGlobalX = globalX;
+          m_startGlobalY = globalY;
+          m_currentGlobalX = globalX;
+          m_currentGlobalY = globalY;
+        } else if (m_dragMode == DragMode::Move) {
+          m_moveOffsetX = globalX;
+          m_moveOffsetY = globalY;
+          m_dragAnchorX = m_startGlobalX;
+          m_dragAnchorY = m_currentGlobalX; // Using as temp storage for width mapping
+        } else {
+          // Calculate anchors (the opposite side of what we are dragging)
+          const double x0 = std::min(m_startGlobalX, m_currentGlobalX);
+          const double y0 = std::min(m_startGlobalY, m_currentGlobalY);
+          const double x1 = std::max(m_startGlobalX, m_currentGlobalX);
+          const double y1 = std::max(m_startGlobalY, m_currentGlobalY);
+
+          if (m_dragMode == DragMode::LeftEdge
+              || m_dragMode == DragMode::TopLeftCorner
+              || m_dragMode == DragMode::BottomLeftCorner) {
+            m_startGlobalX = x1;
+            m_currentGlobalX = globalX;
+          } else if (
+              m_dragMode == DragMode::RightEdge
+              || m_dragMode == DragMode::TopRightCorner
+              || m_dragMode == DragMode::BottomRightCorner
+          ) {
+            m_startGlobalX = x0;
+            m_currentGlobalX = globalX;
+          }
+
+          if (m_dragMode == DragMode::TopEdge
+              || m_dragMode == DragMode::TopLeftCorner
+              || m_dragMode == DragMode::TopRightCorner) {
+            m_startGlobalY = y1;
+            m_currentGlobalY = globalY;
+          } else if (
+              m_dragMode == DragMode::BottomEdge
+              || m_dragMode == DragMode::BottomLeftCorner
+              || m_dragMode == DragMode::BottomRightCorner
+          ) {
+            m_startGlobalY = y0;
+            m_currentGlobalY = globalY;
+          }
+        }
+
         updateSelectionVisuals();
         for (auto& instance : m_instances) {
-          if (instance->surface != nullptr) {
+          if (instance->surface != nullptr)
             instance->surface->requestRedraw();
-          }
         }
       });
 
-      input->setOnMotion([this, output = inst.output](const InputArea::PointerData& data) {
-        if (!m_dragging) {
-          return;
-        }
+      input->setOnMotion([this, output = inst.output, inputPtr = input.get()](const InputArea::PointerData& data) {
         const auto* out = findOutput(*m_wayland, output);
-        if (out == nullptr) {
+        if (out == nullptr)
+          return;
+
+        const double globalX = static_cast<double>(out->logicalX) + static_cast<double>(data.localX);
+        const double globalY = static_cast<double>(out->logicalY) + static_cast<double>(data.localY);
+
+        if (!m_dragging) {
+          if (m_confirming) {
+            const double x0 = std::min(m_startGlobalX, m_currentGlobalX);
+            const double y0 = std::min(m_startGlobalY, m_currentGlobalY);
+            const double x1 = std::max(m_startGlobalX, m_currentGlobalX);
+            const double y1 = std::max(m_startGlobalY, m_currentGlobalY);
+
+            DragMode hoverMode = hitTestSelection(globalX, globalY, x0, y0, x1, y1);
+            inputPtr->setCursorShape(cursorShapeForDragMode(hoverMode));
+          } else {
+            inputPtr->setCursorShape(WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_CROSSHAIR);
+          }
           return;
         }
-        m_currentGlobalX = static_cast<double>(out->logicalX) + static_cast<double>(data.localX);
-        m_currentGlobalY = static_cast<double>(out->logicalY) + static_cast<double>(data.localY);
+
+        if (m_dragMode == DragMode::Move) {
+          const double deltaX = globalX - m_moveOffsetX;
+          const double deltaY = globalY - m_moveOffsetY;
+
+          m_startGlobalX += deltaX;
+          m_currentGlobalX += deltaX;
+          m_startGlobalY += deltaY;
+          m_currentGlobalY += deltaY;
+
+          m_moveOffsetX = globalX;
+          m_moveOffsetY = globalY;
+        } else {
+          if (m_dragMode != DragMode::TopEdge && m_dragMode != DragMode::BottomEdge) {
+            m_currentGlobalX = globalX;
+          }
+          if (m_dragMode != DragMode::LeftEdge && m_dragMode != DragMode::RightEdge) {
+            m_currentGlobalY = globalY;
+          }
+        }
+
         updateSelectionVisuals();
         for (auto& instance : m_instances) {
-          if (instance->surface != nullptr) {
+          if (instance->surface != nullptr)
             instance->surface->requestRedraw();
-          }
         }
       });
     }
