@@ -200,18 +200,6 @@ Button* SessionPanel::createActionButton(const SessionPanelActionConfig& cfg, st
       .radius = Style::scaledRadiusLg(scale),
       .flexGrow = 1.0F,
       .onClick = [this, index]() { armEntry(index); },
-      .onMotion =
-          [this, index]() {
-            if (m_pendingCountdown.has_value() && m_pendingCountdown->index != index) {
-              cancelCountdown();
-            }
-          },
-      .onEnter =
-          [this, index]() {
-            if (m_pendingCountdown.has_value() && m_pendingCountdown->index != index) {
-              cancelCountdown();
-            }
-          },
       .configure =
           [](Button& control) {
             control.setDirection(FlexDirection::Vertical);
