@@ -947,6 +947,12 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
   // Track audio nodes and privacy-relevant stream nodes.
   if (std::strcmp(type, PW_TYPE_INTERFACE_Node) == 0) {
     std::string mediaClass = dictGet(props, PW_KEY_MEDIA_CLASS);
+    if (mediaClass.starts_with("Audio/Sink")) {
+      mediaClass = "Audio/Sink";
+    } else if (mediaClass.starts_with("Audio/Source")) {
+      mediaClass = "Audio/Source";
+    }
+
     if (!isTrackedNodeClass(mediaClass)) {
       return;
     }
@@ -1141,6 +1147,11 @@ void PipeWireService::onNodeInfo(std::uint32_t id, const pw_node_info* info) {
   if (info->props != nullptr) {
     std::string mediaClass = dictGet(info->props, PW_KEY_MEDIA_CLASS);
     if (!mediaClass.empty()) {
+      if (mediaClass.starts_with("Audio/Sink")) {
+        mediaClass = "Audio/Sink";
+      } else if (mediaClass.starts_with("Audio/Source")) {
+        mediaClass = "Audio/Source";
+      }
       nd.mediaClass = std::move(mediaClass);
     }
     std::string desc = dictGet(info->props, PW_KEY_NODE_DESCRIPTION);
