@@ -1,9 +1,13 @@
 
 #include "cli/parse.h"
+<<<<<<< HEAD
+=======
+#include "cli/schema_root.h"
+#include "completions/generator.h"
+>>>>>>> f9622623c (refactor: header-only cli schema)
 
-#include <cstdio>
-#include <cstring>
 #include <print>
+#include <string_view>
 
 namespace noctalia::completions {
   namespace {
@@ -47,6 +51,7 @@ namespace noctalia::completions {
   } // namespace
 
   int runCli(int argc, char* argv[]) {
+<<<<<<< HEAD
     if (argc >= 3 && std::strcmp(argv[2], "--help") == 0) {
       std::println("{}", kHelpText);
       return argc < 3 ? 1 : 0;
@@ -60,24 +65,44 @@ namespace noctalia::completions {
     }
 
     if (parsed->helpRequested) {
+=======
+
+  int runCli(int argc, char* argv[]) {
+    if (argc >= 3 && (std::string_view(argv[2]) == "--help" || std::string_view(argv[2]) == "-h")) {
+      std::println("Usage: noctalia completions [bash|fish|zsh]\n");
+      std::println("Print shell completion script dynamically generated from CLI schema.");
+>>>>>>> f9622623c (refactor: header-only cli schema)
       return 0;
     }
 
-    const std::string_view shell = parsed->positionals[0];
-
-    const char* script = nullptr;
-    if (shell == "bash") {
-      script = NOCTALIA_BASH_SCRIPT;
-    } else if (shell == "zsh") {
-      script = NOCTALIA_ZSH_SCRIPT;
-    } else if (shell == "fish") {
-      script = NOCTALIA_FISH_SCRIPT;
+    if (argc < 3) {
+      std::println(stderr, "error: missing shell argument (expected bash, fish, or zsh)");
+      std::println(stderr, "Run 'noctalia completions --help' for usage.");
+      return 1;
     }
 
+    const std::string_view shell = argv[2];
+    std::string script;
+
+    if (shell == "fish") {
+      script = generateFish(cli::kRootCmd);
+    } else if (shell == "zsh") {
+      script = generateZsh(cli::kRootCmd);
+    } else if (shell == "bash") {
+      script = generateBash(cli::kRootCmd);
+    } else {
+      std::println(stderr, "error: unknown shell '{}' (expected bash, fish, or zsh)", shell);
+      return 1;
+    }
+
+<<<<<<< HEAD
     if (script != nullptr) {
       std::fwrite(script, 1, std::strlen(script), stdout);
     }
 
+=======
+    std::print("{}", script);
+>>>>>>> f9622623c (refactor: header-only cli schema)
     return 0;
   }
 

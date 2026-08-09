@@ -418,52 +418,59 @@ namespace noctalia::config {
   } // namespace
 
   int runCli(int argc, char* argv[]) {
-      if (argc >= 3 && std::strcmp(argv[2], "--help") == 0) {
-        std::println("{}", kConfigCmd.helpText);
-        return argc < 3 ? 1 : 0;
-      }
-
-      const cli_schema::CliCommand* cmd = nullptr;
-      if (std::strcmp(argv[2], "validate") == 0) {
-        cmd = &kValidateCmd;
-      } else if (std::strcmp(argv[2], "export") == 0) {
-        cmd = &kExportCmd;
-      } else if (std::strcmp(argv[2], "settings-count") == 0) {
-        cmd = &kSettingsCountCmd;
-      } else if (std::strcmp(argv[2], "replay-report") == 0) {
-        cmd = &kReplayReportCmd;
-      } else {
-        std::println(stderr, "error: unknown config command: {}", argv[2]);
-        std::println(stderr, "Run 'noctalia config --help' for usage.");
-        return 1;
-      }
-
-      const auto parsed = cli_schema::parseArgs(argc, argv, 3, *cmd);
-      if (!parsed) {
-        std::println(stderr, "error: {}", parsed.error());
-        std::println(stderr, "Run 'noctalia config {} --help' for usage.", cmd->name);
-        return 1;
-      }
-      if (parsed->helpRequested) {
-        return 0;
-      }
-
-      if (cmd == &kValidateCmd) {
-        return runValidate(*parsed);
-      }
-      if (cmd == &kExportCmd) {
-        return runExport(*parsed);
-      }
-      if (cmd == &kSettingsCountCmd) {
-        return runSettingsCount(*parsed);
-      }
-
-      ReplayOptions options;
-      options.reportPath = parsed->positionals[0];
-      options.targetDir = parsed->flagValue("--target");
-      options.flattened = parsed->hasFlag("--flattened");
-      options.force = parsed->hasFlag("--force");
-      return replayReport(options, argv[0]);
+    if (argc < 3) {
+      std::println(stderr, "error: config requires a command (try: noctalia config --help)");
+      return 1;
     }
+
+    const std::string_view subcmd = argv[2];
+
+    if (subcmd == "--help" || subcmd == "-h") {
+      std::println("{}", kConfigCmd.helpText);
+      return 0;
+    }
+
+    const cli_schema::CliCommand* cmd = nullptr;
+    if (subcmd == "validate") {
+      cmd = &kValidateCmd;
+    } else if (subcmd == "export") {
+      cmd = &kExportCmd;
+    } else if (subcmd == "settings-count") {
+      cmd = &kSettingsCountCmd;
+    } else if (subcmd == "replay-report") {
+      cmd = &kReplayReportCmd;
+    } else {
+      std::println(stderr, "error: unknown config command: {}", subcmd);
+      std::println(stderr, "Run 'noctalia config --help' for usage.");
+      return 1;
+    }
+
+    const auto parsed = cli_schema::parseArgs(argc, argv, 3, *cmd);
+    if (!parsed) {
+      std::println(stderr, "error: {}", parsed.error());
+      std::println(stderr, "Run 'noctalia config {} --help' for usage.", cmd->name);
+      return 1;
+    }
+    if (parsed->helpRequested) {
+      return 0;
+    }
+
+    if (cmd == &kValidateCmd) {
+      return runValidate(*parsed);
+    }
+    if (cmd == &kExportCmd) {
+      return runExport(*parsed);
+    }
+    if (cmd == &kSettingsCountCmd) {
+      return runSettingsCount(*parsed);
+    }
+
+    ReplayOptions options;
+    options.reportPath = parsed->positionals[0];
+    options.targetDir = parsed->flagValue("--target");
+    options.flattened = parsed->hasFlag("--flattened");
+    options.force = parsed->hasFlag("--force");
+    return replayReport(options, argv[0]);
+  }
 
 } // namespace noctalia::config
