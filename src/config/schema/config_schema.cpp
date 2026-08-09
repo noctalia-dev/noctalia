@@ -590,6 +590,18 @@ namespace noctalia::config::schema {
               if (out.serverUrl.empty()) {
                 diag.error(joinPath(parentPath, "server_url"), "ics accounts require server_url (.ics file URL)");
               }
+              if (out.credentialSource != CalendarCredentialSource::SecretService) {
+                diag.error(joinPath(parentPath, "credential_source"), "credential_source is only valid for caldav");
+              }
+              if (!out.passwordFile.empty()) {
+                diag.error(joinPath(parentPath, "password_file"), "password_file is only valid for caldav");
+              }
+              if (!out.username.empty()) {
+                diag.error(joinPath(parentPath, "username"), "username is only valid for caldav");
+              }
+              if (!out.provider.empty()) {
+                diag.error(joinPath(parentPath, "provider"), "provider is only valid for caldav");
+              }
               return;
             }
             if (out.type != "caldav") {

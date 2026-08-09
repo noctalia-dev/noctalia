@@ -544,15 +544,28 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
   const std::string displayName = account.displayName;
   const std::string colorHex = account.color;
 
+  // Normalize webcal:// (and webcals://) so libcurl accepts it; scheme match is case-insensitive.
+  auto iEqualsPrefix = [](std::string_view s, std::string_view prefix) {
+    if (s.size() < prefix.size()) {
+      return false;
+    }
+    for (std::size_t i = 0; i < prefix.size(); ++i) {
+      if (std::tolower(static_cast<unsigned char>(s[i])) != prefix[i]) {
+        return false;
+      }
+    }
+    return true;
+  };
+  if (iEqualsPrefix(url, "webcal://")) {
+    url.replace(0, std::string_view("webcal").size(), "https");
+  } else if (iEqualsPrefix(url, "webcals://")) {
+    url.replace(0, std::string_view("webcals").size(), "https");
+  }
+
   HttpRequest req;
-  if (url.size() >= 7)
-    std::transform(url.begin(), std::next(url.begin(), 6), url.begin(), [](unsigned char c) {
-      return std::tolower(c);
-    });
-  if (url.starts_with("webcal://"))
-    url.replace(0, 6, "https");
   req.url = url;
   req.followRedirects = true;
+  req.headers.emplace_back("Accept: text/calendar, */*;q=0.5");
 
   m_httpClient.request(req, [this, accountId, displayName, colorHex](HttpResponse resp) {
     if (!resp.transportOk || resp.status != 200) {
@@ -583,6 +596,7 @@ void CalendarService::fetchIcs(const CalendarConfig::Account& account) {
       break;
     case calendar::ICalParseStatus::WorkBudgetExceeded:
       kLog.warn("iCalendar recurrence expansion exceeded the work limit for id {}", accountId);
+      break;
     }
     accountDone(accountId, false, {});
   });

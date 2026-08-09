@@ -1895,7 +1895,7 @@ void SettingsWindow::refreshSettingsRegistry(const Config& cfg) {
                   .action = [this, id = account.id]() { openCalendarAccountEditor(id); },
                   .glyph = reconnectRequired ? "brand-google" : "edit",
               },
-          .searchText = "calendar account edit connect authorize caldav icloud google password ics ical subscription"
+          .searchText = "calendar account edit connect authorize caldav icloud google password ics ical subscription "
               + account.id,
           .visibleWhen = calendarOn,
       };
