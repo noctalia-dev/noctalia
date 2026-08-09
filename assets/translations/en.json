@@ -539,6 +539,7 @@
         "show-weather": "Weather",
         "show-when-idle": "Show When Idle",
         "stat": "Stat",
+        "stat-cpu-freq": "CPU Freq",
         "stat-cpu-temp": "CPU Temp",
         "stat-cpu-usage": "CPU Usage",
         "stat-gpu-temp": "GPU Temp",

@@ -341,6 +341,8 @@ std::unique_ptr<DesktopWidget> DesktopWidgetFactory::create(
     auto parseStat = [](const std::string& s) -> DesktopSysmonStat {
       if (s == "cpu_temp")
         return DesktopSysmonStat::CpuTemp;
+      if (s == "cpu_freq")
+        return DesktopSysmonStat::CpuFreq;
       if (s == "gpu_temp")
         return DesktopSysmonStat::GpuTemp;
       if (s == "gpu_usage")

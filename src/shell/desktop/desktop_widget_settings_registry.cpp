@@ -217,6 +217,7 @@ namespace desktop_settings {
     const std::vector<WidgetSettingSelectOption> sysmonStats = {
         {"cpu_usage", "desktop-widgets.editor.settings.stat-cpu-usage"},
         {"cpu_temp", "desktop-widgets.editor.settings.stat-cpu-temp"},
+        {"cpu_freq", "desktop-widgets.editor.settings.stat-cpu-freq"},
         {"gpu_temp", "desktop-widgets.editor.settings.stat-gpu-temp"},
         {"gpu_usage", "desktop-widgets.editor.settings.stat-gpu-usage"},
         {"gpu_vram", "desktop-widgets.editor.settings.stat-gpu-vram"},
