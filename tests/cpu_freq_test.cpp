@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <print>
 #include <string>
 #include <system_error>
 
@@ -11,17 +12,17 @@ namespace {
 
   bool expect(bool condition, const char* message) {
     if (!condition)
-      std::fprintf(stderr, "FAIL: %s\n", message);
+      std::println(stderr, "FAIL: {}", message);
     return condition;
   }
 
   bool expectNear(const std::optional<double>& value, double expected, const char* message) {
     if (!value.has_value()) {
-      std::fprintf(stderr, "FAIL: %s (no value)\n", message);
+      std::println(stderr, "FAIL: {} (no value)", message);
       return false;
     }
     if (std::abs(*value - expected) > 0.5) {
-      std::fprintf(stderr, "FAIL: %s (got %f, want %f)\n", message, *value, expected);
+      std::println(stderr, "FAIL: {} (got {}, want {})", message, *value, expected);
       return false;
     }
     return true;
@@ -64,6 +65,12 @@ int main() {
   ok = expectNear(noctalia::system::cpu_freq::readFreqs(root).maxMhz, 4800.0, "max freq from scaling_max_freq") && ok;
 
   ok = expect(!noctalia::system::cpu_freq::readFreqs(emptyRoot).maxMhz.has_value(), "no max freq yields nullopt") && ok;
+
+  std::filesystem::remove_all(root / "cpu0/cpufreq");
+  std::filesystem::remove_all(root / "cpu1/cpufreq");
+  const auto unavailable = noctalia::system::cpu_freq::readFreqs(root);
+  ok = expect(!unavailable.curMhz.has_value(), "removed cpufreq data clears current frequency") && ok;
+  ok = expect(!unavailable.maxMhz.has_value(), "removed cpufreq data clears maximum frequency") && ok;
 
   std::filesystem::remove_all(root);
   return ok ? EXIT_SUCCESS : EXIT_FAILURE;
