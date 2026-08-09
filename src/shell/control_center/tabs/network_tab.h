@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/timer_manager.h"
 #include "dbus/network/network_secret_agent.h"
 #include "dbus/network/network_types.h"
 #include "shell/control_center/tab.h"
@@ -39,6 +40,8 @@ private:
 
   void syncCurrentCard();
   void beginPendingAction(bool wasConnected);
+  void beginWifiTogglePending(bool target);
+  void armPendingTimeout(Timer& timer);
   void rebuildApList(Renderer& renderer);
   // Pushes live signal values into the existing rows. Returns true if any changed.
   bool syncApRows();
@@ -92,7 +95,11 @@ private:
 
   bool m_wifiTogglePending = false;
   bool m_wifiToggleTarget = false;
+  bool m_wifiToggleLastSeen = false;
   std::chrono::steady_clock::time_point m_wifiTogglePendingSince;
+
+  Timer m_actionPendingTimer;
+  Timer m_wifiTogglePendingTimer;
 
   static constexpr std::chrono::seconds kActionPendingTimeout = std::chrono::seconds(6);
 };

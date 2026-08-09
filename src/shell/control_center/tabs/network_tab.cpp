@@ -624,6 +624,9 @@ void NetworkTab::onClose() {
   m_pendingAccessPoint.reset();
   m_active = false;
   m_actionPending = false;
+  m_actionPendingTimer.stop();
+  m_wifiTogglePending = false;
+  m_wifiTogglePendingTimer.stop();
 }
 
 void NetworkTab::syncPasswordCard() {
@@ -722,8 +725,18 @@ void NetworkTab::syncCurrentCard() {
     const bool timedOut = std::chrono::steady_clock::now() - m_actionPendingSince > kActionPendingTimeout;
     if (flipped || timedOut) {
       m_actionPending = false;
+      m_actionPendingTimer.stop();
     }
   }
+  if (m_wifiTogglePending) {
+    const bool confirmed = s.wirelessEnabled == m_wifiToggleTarget && m_wifiToggleLastSeen != m_wifiToggleTarget;
+    const bool timedOut = std::chrono::steady_clock::now() - m_wifiTogglePendingSince > kActionPendingTimeout;
+    if (confirmed || timedOut) {
+      m_wifiTogglePending = false;
+      m_wifiTogglePendingTimer.stop();
+    }
+  }
+  m_wifiToggleLastSeen = s.wirelessEnabled;
   static const std::string kNoExternalIp;
   const std::string& externalIp = m_externalIpService != nullptr ? m_externalIpService->externalIp() : kNoExternalIp;
   m_currentTitle->setText(currentTitle(s));
@@ -736,16 +749,8 @@ void NetworkTab::syncCurrentCard() {
     m_disconnectButton->setEnabled(!m_actionPending);
   }
   if (m_wifiToggle != nullptr) {
-    if (m_wifiTogglePending) {
-      const bool flipped = s.wirelessEnabled == m_wifiToggleTarget;
-      const bool timedOut = std::chrono::steady_clock::now() - m_wifiTogglePendingSince > kActionPendingTimeout;
-      if (flipped || timedOut) {
-        m_wifiTogglePending = false;
-      }
-    }
     m_wifiToggle->setChecked(m_wifiTogglePending ? m_wifiToggleTarget : s.wirelessEnabled);
   }
-
   if (m_scanSpinner != nullptr) {
     m_scanSpinner->setVisible(s.scanning);
     if (s.scanning && !m_scanSpinner->spinning()) {
@@ -760,9 +765,25 @@ void NetworkTab::beginPendingAction(bool wasConnected) {
   m_actionPending = true;
   m_actionPendingConnected = wasConnected;
   m_actionPendingSince = std::chrono::steady_clock::now();
+  armPendingTimeout(m_actionPendingTimer);
   if (m_disconnectButton != nullptr) {
     m_disconnectButton->setEnabled(false);
   }
+}
+
+void NetworkTab::beginWifiTogglePending(bool target) {
+  m_wifiTogglePending = true;
+  m_wifiToggleTarget = target;
+  m_wifiToggleLastSeen = m_network != nullptr && m_network->state().wirelessEnabled;
+  m_wifiTogglePendingSince = std::chrono::steady_clock::now();
+  armPendingTimeout(m_wifiTogglePendingTimer);
+}
+
+void NetworkTab::armPendingTimeout(Timer& timer) {
+  timer.start(kActionPendingTimeout + std::chrono::milliseconds(50), []() {
+    PanelManager::instance().requestUpdateOnly();
+    PanelManager::instance().requestRedraw();
+  });
 }
 
 // Identity of the built list: which rows exist, in which order, and which controls
@@ -1018,12 +1039,10 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
               .toggleSize = ToggleSize::Medium,
               .scale = scale,
               .onChange = [this](bool checked) {
+                beginWifiTogglePending(checked);
                 if (m_network != nullptr) {
                   m_network->setWirelessEnabled(checked);
                 }
-                m_wifiToggleTarget = checked;
-                m_wifiTogglePending = true;
-                m_wifiTogglePendingSince = std::chrono::steady_clock::now();
               },
           })
       );
