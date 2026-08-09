@@ -16,8 +16,8 @@
 namespace {
 
   constexpr Logger kLog("desktop-button");
-  constexpr float kMinContentFit = 0.05f;
-  constexpr float kMaxContentFit = 20.0f;
+  constexpr float kMinContentFit = 0.05F;
+  constexpr float kMaxContentFit = 20.0F;
 
 } // namespace
 
@@ -64,7 +64,7 @@ void DesktopButtonWidget::setEditorPreview(bool enabled) noexcept {
 }
 
 void DesktopButtonWidget::layout(Renderer& renderer) {
-  if (m_boxWidth <= 0.0f || m_boxHeight <= 0.0f) {
+  if (m_boxWidth <= 0.0F || m_boxHeight <= 0.0F) {
     m_fillToBox = false;
     DesktopWidget::layout(renderer);
     return;
@@ -83,12 +83,12 @@ void DesktopButtonWidget::layout(Renderer& renderer) {
     m_fillToBox = false;
     m_contentScale = m_baseScale * fit;
     doLayout(renderer);
-    const float contentWidth = std::max(1.0f, root()->width());
-    if (contentWidth <= innerWidth + 0.5f) {
+    const float contentWidth = std::max(1.0F, root()->width());
+    if (contentWidth <= innerWidth + 0.5F) {
       break;
     }
     const float adjusted = fit * (innerWidth / contentWidth);
-    if (std::abs(adjusted - fit) < 0.001f) {
+    if (std::abs(adjusted - fit) < 0.001F) {
       break;
     }
     fit = std::clamp(adjusted, kMinContentFit, kMaxContentFit);
@@ -202,10 +202,10 @@ void DesktopButtonWidget::doLayout(Renderer& renderer) {
     return;
   }
 
-  const bool boxed = m_boxWidth > 0.0f && m_boxHeight > 0.0f;
+  const bool boxed = m_boxWidth > 0.0F && m_boxHeight > 0.0F;
   const bool fillBox = boxed && m_fillToBox;
-  const float innerW = boxed ? boxInnerWidth() : 0.0f;
-  const float innerH = boxed ? boxInnerHeight() : 0.0f;
+  const float innerW = boxed ? boxInnerWidth() : 0.0F;
+  const float innerH = boxed ? boxInnerHeight() : 0.0F;
 
   const float scale = contentScale();
   m_button->setFontSize(Style::fontSizeBody * scale);
@@ -218,8 +218,8 @@ void DesktopButtonWidget::doLayout(Renderer& renderer) {
     m_button->setMinHeight(innerH);
   } else {
     // Glyph-only buttons pin a square explicit size; clear it so label changes can grow width.
-    m_button->setSize(0.0f, 0.0f);
-    m_button->setMinWidth(0.0f);
+    m_button->setSize(0.0F, 0.0F);
+    m_button->setMinWidth(0.0F);
     m_button->setMinHeight(Style::controlHeight * scale);
   }
 
@@ -290,7 +290,7 @@ void DesktopButtonWidget::syncButtonStyle() {
           .label = state.label,
       };
     };
-    buttonPalette.borderWidth = 0.0f;
+    buttonPalette.borderWidth = 0.0F;
     buttonPalette.normal = stripChrome(buttonPalette.normal);
     buttonPalette.pressed = stripChrome(buttonPalette.pressed);
     buttonPalette.disabled = stripChrome(buttonPalette.disabled);

@@ -13,6 +13,9 @@ struct SessionActionHooks {
   std::function<bool()> onLogout;
   std::function<bool()> onReboot;
   std::function<bool()> onShutdown;
+  // Armed before Noctalia-initiated suspend so PrepareForSleep can skip lock-before-sleep.
+  std::function<void()> onBeforePlainSuspend;
+  std::function<void()> onPlainSuspendAborted;
 };
 
 class SessionActionRunner {

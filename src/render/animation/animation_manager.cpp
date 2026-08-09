@@ -5,7 +5,7 @@
 #include <chrono>
 
 namespace {
-  constexpr float kReducedMotionDurationMs = 1.0f;
+  constexpr float kReducedMotionDurationMs = 1.0F;
 }
 
 AnimationManager::AnimationManager() { MotionService::instance().registerManager(this); }
@@ -46,7 +46,7 @@ AnimationManager::Id AnimationManager::animateInternal(
     effectiveDurationMs = kReducedMotionDurationMs;
   }
 
-  if (effectiveDurationMs <= 0.0f) {
+  if (effectiveDurationMs <= 0.0F) {
     if (setter) {
       setter(to);
     }
@@ -100,7 +100,7 @@ void AnimationManager::reduceMotion() {
     }
     anim.startValue = anim.endValue;
     anim.durationMs = kReducedMotionDurationMs;
-    anim.elapsedMs = 0.0f;
+    anim.elapsedMs = 0.0F;
     anim.startedAt = now
         - std::chrono::duration_cast<std::chrono::steady_clock::duration>(
                          std::chrono::duration<float, std::milli>(kReducedMotionDurationMs)
@@ -132,10 +132,10 @@ void AnimationManager::tick(float /*deltaMs*/) {
     // delivers sparse `wl_surface.frame` callbacks (common right after cold boot).
     const float wallElapsedMs = std::chrono::duration<float, std::milli>(now - anim.startedAt).count();
     anim.elapsedMs = wallElapsedMs;
-    float t = anim.durationMs > 0.0f ? wallElapsedMs / anim.durationMs : 1.0f;
+    float t = anim.durationMs > 0.0F ? wallElapsedMs / anim.durationMs : 1.0F;
 
-    if (t >= 1.0f) {
-      t = 1.0f;
+    if (t >= 1.0F) {
+      t = 1.0F;
       anim.finished = true;
     }
 

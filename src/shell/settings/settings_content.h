@@ -38,7 +38,7 @@ namespace settings {
   struct SettingsContentContext {
     const Config& config;
     ConfigService* configService = nullptr;
-    float scale = 1.0f;
+    float scale = 1.0F;
     std::string_view searchQuery;
     std::string_view selectedSection;
     const BarConfig* selectedBar = nullptr;
@@ -46,7 +46,6 @@ namespace settings {
     bool showAdvanced = false;
     bool showOverriddenOnly = false;
     std::vector<SelectOption> batteryDeviceOptions;
-    std::vector<std::string> keyboardLayoutNames;
 
     std::string& editingWidgetName;
     std::string& editingCapsuleGroupId;

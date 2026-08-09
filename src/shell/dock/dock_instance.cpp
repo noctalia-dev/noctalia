@@ -123,11 +123,11 @@ namespace shell::dock {
     if (instance.slideRoot == nullptr) {
       return;
     }
-    if (dockUsesSlideAutoHide(cfg, instance) || instance.hideOpacity < 0.999f) {
-      const float t = 1.0f - instance.hideOpacity;
+    if (dockUsesSlideAutoHide(cfg, instance) || instance.hideOpacity < 0.999F) {
+      const float t = 1.0F - instance.hideOpacity;
       instance.slideRoot->setPosition(instance.slideHiddenDx * t, instance.slideHiddenDy * t);
     } else {
-      instance.slideRoot->setPosition(0.0f, 0.0f);
+      instance.slideRoot->setPosition(0.0F, 0.0F);
     }
   }
 
@@ -151,7 +151,7 @@ namespace shell::dock {
     }
 
     const bool fullSurface = instance.pointerInside
-        || instance.hideOpacity > 0.5f
+        || instance.hideOpacity > 0.5F
         || (cfg.smartAutoHide && instance.smartAutoHidePinnedVisible);
     if (fullSurface) {
       instance.surface->setInputRegion({InputRect{0, 0, surfW, surfH}});
@@ -166,7 +166,7 @@ namespace shell::dock {
     }
     // Compositor blur is independent of scene opacity — clear it while auto-hide
     // has faded the dock out so a transparent buffer does not leave a blur halo.
-    constexpr float kBlurVisibleOpacity = 0.02f;
+    constexpr float kBlurVisibleOpacity = 0.02F;
     if (dockUsesAnyAutoHide(cfg) && instance.hideOpacity < kBlurVisibleOpacity) {
       instance.surface->clearBlurRegion();
       return;
@@ -175,8 +175,8 @@ namespace shell::dock {
       return;
     }
     const auto concave = dockConcaveShape(cfg);
-    float absX = 0.0f;
-    float absY = 0.0f;
+    float absX = 0.0F;
+    float absY = 0.0F;
     Node::absolutePosition(instance.panel, absX, absY);
 
     const float insetL = concave.logicalInset.left;
@@ -211,7 +211,7 @@ namespace shell::dock {
       instance.sceneRoot = ui::node({});
       instance.sceneRoot->setAnimationManager(&instance.animations);
       instance.sceneRoot->setSize(w, h);
-      instance.sceneRoot->setOpacity(1.0f);
+      instance.sceneRoot->setOpacity(1.0F);
 
       auto slide = ui::node({});
       slide->setParticipatesInLayout(false);
@@ -257,14 +257,14 @@ namespace shell::dock {
       if (dockUsesAnyAutoHide(cfg)) {
         instance.smartAutoHidePinnedVisible =
             cfg.smartAutoHide && smartAutoHideWantsPinnedVisible(deps.platform, instance.output);
-        instance.slideRoot->setOpacity(1.0f);
+        instance.slideRoot->setOpacity(1.0F);
         const bool startHidden = cfg.smartAutoHide ? !instance.smartAutoHidePinnedVisible : cfg.autoHide;
-        instance.hideOpacity = startHidden ? 0.0f : 1.0f;
+        instance.hideOpacity = startHidden ? 0.0F : 1.0F;
       } else {
-        instance.slideRoot->setOpacity(0.0f);
-        instance.hideOpacity = 1.0f;
+        instance.slideRoot->setOpacity(0.0F);
+        instance.hideOpacity = 1.0F;
         instance.animations.animate(
-            0.0f, 1.0f, Style::animSlow, Easing::EaseOutCubic,
+            0.0F, 1.0F, Style::animSlow, Easing::EaseOutCubic,
             [slide = instance.slideRoot](float v) { slide->setOpacity(v); }, {}, instance.slideRoot
         );
       }
@@ -327,8 +327,8 @@ namespace shell::dock {
       instance.slideHiddenDx = hiddenDelta.first;
       instance.slideHiddenDy = hiddenDelta.second;
     } else {
-      instance.slideHiddenDx = 0.0f;
-      instance.slideHiddenDy = 0.0f;
+      instance.slideHiddenDx = 0.0F;
+      instance.slideHiddenDy = 0.0F;
     }
     syncDockSlideLayerTransform(instance, cfg);
     syncDockAutoHideInputRegion(instance, cfg, panelGeometry);
@@ -381,7 +381,7 @@ namespace shell::dock {
       inst.hideAnimId = 0;
     }
 
-    constexpr float kSettledThreshold = 0.999f;
+    constexpr float kSettledThreshold = 0.999F;
     const float current = inst.hideOpacity;
     if (current >= kSettledThreshold) {
       syncDockAutoHideInputRegion(inst, cfg, DockPanelGeometry{});
@@ -390,7 +390,7 @@ namespace shell::dock {
     }
 
     inst.hideAnimId = inst.animations.animate(
-        current, 1.0f, Style::animNormal, Easing::EaseOutCubic,
+        current, 1.0F, Style::animNormal, Easing::EaseOutCubic,
         [&inst, &config](float v) {
           inst.hideOpacity = v;
           const auto& dockCfg = config.config().dock;
@@ -410,7 +410,7 @@ namespace shell::dock {
     }
     const float current = inst.hideOpacity;
     inst.hideAnimId = inst.animations.animate(
-        current, 0.0f, Style::animNormal, Easing::EaseInQuad,
+        current, 0.0F, Style::animNormal, Easing::EaseInQuad,
         [&inst, &config](float v) {
           inst.hideOpacity = v;
           const auto& cfg = config.config().dock;

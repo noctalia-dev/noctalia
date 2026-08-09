@@ -59,6 +59,7 @@
       },
       "network": {
         "active": "Attiva",
+        "band": "Banda",
         "connected": "Connesso",
         "connecting": "Connessione in corso",
         "download": "Download",
@@ -685,7 +686,8 @@
     },
     "source": {
       "address": "Indirizzo",
-      "auto": "Automatico"
+      "auto": "Automatico",
+      "manual": "Manuale"
     }
   },
   "lockscreen": {
@@ -729,7 +731,7 @@
       "config-migration-title": "È necessario l'aggiornamento della configurazione",
       "dbus-disabled": "Notifiche DBus disabilitate",
       "desktop-widgets-editor": "Editor widget",
-      "desktop-widgets-editor-enabled": "L'editor dei widget desktop è attivo. Passa a uno spazio di lavoro vuoto per visualizzarlo.",
+      "desktop-widgets-editor-enabled": "L'editor dei widget desktop è attivo. Passa a un'area di lavoro vuota in modo che le finestre aperte non coprano l'editor.",
       "greeter-sync": "Noctalia Greeter",
       "greeter-sync-pending": "Attesa dell'approvazione dell'amministratore per salvare sul greeter.",
       "greeter-sync-pending-console": "Attesa dell'approvazione dell'amministratore. Approva il prompt polkit in Noctalia, su un TTY o una console, oppure esegui pkexec manualmente.",
@@ -746,7 +748,7 @@
       "launcher-usage-reset-success": "Dati di utilizzo cancellati.",
       "lockscreen-widgets-editor": "Editor widget blocco schermo",
       "lockscreen-widgets-editor-blocked-locked": "Sblocca la sessione prima di modificare i widget del blocco schermo.",
-      "lockscreen-widgets-editor-enabled": "L'editor dei widget del blocco schermo è attivo. Disponi i widget nell'anteprima, poi blocca la sessione per verificare il layout.",
+      "lockscreen-widgets-editor-enabled": "L'editor dei widget della schermata di blocco è attivo. Passa a un'area di lavoro vuota in modo che le finestre aperte non coprano l'editor.",
       "mpris-disabled": "MPRIS disabilitato",
       "polkit-agent": "Polkit Agent",
       "polkit-no-session": "L'agente Polkit necessita di logind, elogind o XDG_SESSION_ID. Nelle configurazioni seatd-only non è possibile registrarsi per i prompt grafici. Utilizza il terminale pkexec per la sincronizzazione del greeter o installa elogind per l'autenticazione in sessione.",
@@ -966,6 +968,10 @@
           "title": "Widget barra"
         },
         "group": {
+          "accordion": "Modalità fisarmonica",
+          "accordion-description": "Mostra solo il primo widget; passando sopra la capsula si scopre il resto",
+          "accordion-direction": "Direzione apertura",
+          "accordion-direction-description": "Lato del primo widget in cui si aprono i widget nascosti",
           "action": "Raggruppa",
           "border": "Bordo",
           "border-description": "Ruolo colore del contorno capsula; lascia Predefinito per nessun contorno",
@@ -1008,12 +1014,15 @@
           "show-widget": "Mostra widget",
           "style": "Stile",
           "title": "Gruppo capsula",
-          "ungroup": "Separa gruppo"
+          "ungroup": "Separa gruppo",
+          "widget-spacing": "Spaziatura",
+          "widget-spacing-description": "Spazio tra i widget di questo gruppo, in pixel; Auto eredita la spaziatura dei widget della barra"
         },
         "inspector": {
           "add-instance-title": "Aggiungi nuovo widget {widget} con nome a {lane}",
           "add-title": "Aggiungi widget a {lane}",
-          "move-to-lane": "Sposta in {lane}"
+          "move-to-lane": "Sposta in {lane}",
+          "reset-defaults": "Ripristina le impostazioni predefinite"
         },
         "instance": {
           "create-save": "Crea",
@@ -1169,6 +1178,7 @@
         "idle": "Inattività",
         "interface": "Interfaccia",
         "keybinds": "Scorciatoie",
+        "keyboard-layout": "Layout tastiera",
         "kinds": "Tipi",
         "launcher": "Launcher",
         "layout": "Layout",
@@ -1263,6 +1273,10 @@
       }
     },
     "options": {
+      "accordion-direction": {
+        "end": "Dopo il primo widget",
+        "start": "Prima del primo widget"
+      },
       "bar": {
         "auto-hide": {
           "off": "Off",
@@ -1423,7 +1437,7 @@
       "browse-store": "Sfoglia plugin",
       "panels": {
         "open-near-click": {
-          "description": "Posiziona il pannello vicino al widget della barra che lo ha aperto quando è collegato o mobile con posizione automatica",
+          "description": "Dove si posiziona il pannello quando viene aperto cliccando sul widget della barra",
           "label": "Lungo la barra"
         },
         "placement": {
@@ -1704,7 +1718,7 @@
           "description": "Raggio angolo in alto a destra della barra"
         },
         "dead-zone-action": {
-          "description": "L'azione viene eseguita sulle parti della barra che nessun widget copre; lasciare vuoto per impostazione predefinita"
+          "description": "L'azione viene eseguita sulle parti della barra che nessun widget copre"
         },
         "edge-margin": {
           "description": "Spazio tra la barra e il bordo dello schermo su cui si trova; imposta a 0 px per posizinarlo a filo con quel bordo"
@@ -2129,6 +2143,10 @@
           "description": "Sblocco con un lettore di impronte digitali tramite fprintd, insieme alla password",
           "label": "Sblocco con impronta"
         },
+        "lock-before-suspend": {
+          "description": "Blocca la sessione prima della sospensione (chiudi il coperchio, sospendi systemctl, iberna); Le azioni Blocca e Sospendi si bloccano comunque per prime",
+          "label": "Blocca prima della sospensione"
+        },
         "monitors": {
           "description": "Scegli quali monitor mostrano il blocco schermo; lascia vuoto per mostrare su tutti i monitor",
           "label": "Monitor"
@@ -2181,12 +2199,16 @@
           "label": "Filtri notifiche"
         },
         "history-retention-hours": {
-          "description": "Rimuovi automaticamente le voci della cronologia delle notifiche più vecchie di queste ore (0 per conservarle per sempre)",
-          "label": "Conserva la cronologia per"
+          "description": "Rimuovi automaticamente le voci della cronologia delle notifiche più vecchie del numero di ore specificato (0 per conservarle per sempre)",
+          "label": "Periodo di conservazione"
         },
         "layer": {
           "description": "Usa Overlay per mostrare le notifiche toast sopra le app a schermo intero",
           "label": "Layer Wayland"
+        },
+        "max-visible": {
+          "description": "Numero massimo di avvisi di notifica visibili sullo schermo contemporaneamente (0 per riempire tutto lo spazio disponibile)",
+          "label": "Massimo toast visibili"
         },
         "monitors": {
           "description": "Scegli quali monitor mostrano le notifiche toast; lascia vuoto per mostrare su tutti i monitor",
@@ -2235,11 +2257,11 @@
           "label": "Barra laterale aprendo una scheda"
         },
         "control-center-tabs": {
-          "description": "Scegli quali schede visualizzare nel centro di controllo; le schede non selezionate vengono nascoste",
+          "description": "Scegli quali schede visualizzare nel Centro di controllo; le schede non selezionate vengono nascoste",
           "label": "Schede del Centro di controllo"
         },
         "control-center-width": {
-          "description": "Larghezza del pannello del centro di controllo in pixel (le modalità compatta e senza barra laterale si riducono rispetto a questo valore)",
+          "description": "Larghezza del pannello del Centro di controllo in pixel (le modalità compatta e senza barra laterale si riducono rispetto a questo valore)",
           "label": "Larghezza Control Center"
         },
         "floating-layer": {
@@ -2344,27 +2366,27 @@
           "label": "Sfondo elenco item"
         },
         "open-near-click-clipboard": {
-          "description": "Posiziona il pannello degli appunti vicino al widget della barra che lo ha aperto quando è collegato o mobile con la posizione automatica",
+          "description": "Dove vengono posizionati gli appunti quando vengono aperti facendo clic sul widget della barra",
           "label": "Lungo la barra"
         },
         "open-near-click-control-center": {
-          "description": "Posiziona il Centro di controllo vicino al widget della barra che lo ha aperto quando è collegato o mobile con posizione automatica",
+          "description": "Dove si posiziona il Centro di Controllo quando viene aperto facendo clic sul widget della barra",
           "label": "Lungo la barra"
         },
         "open-near-click-launcher": {
-          "description": "Posiziona il launcher vicino al widget della barra che lo ha aperto quando è collegato o mobile con la posizione automatica",
+          "description": "Dove viene posizionato il launcher quando viene aperto facendo clic sul widget della barra",
           "label": "Lungo la barra"
         },
         "open-near-click-session": {
-          "description": "Posiziona il pannello della sessione vicino al widget della barra che lo ha aperto quando è collegato o mobile con la posizione automatica",
+          "description": "Dove si posiziona il pannello della sessione quando viene aperto cliccando sul widget della barra",
           "label": "Lungo la barra"
         },
         "open-near-click-wallpaper": {
-          "description": "Posiziona il selettore di sfondi vicino al widget della barra che lo ha aperto quando è collegato o mobile con la posizione automatica",
+          "description": "Dove viene posizionato il selettore dello sfondo quando viene aperto facendo clic sul widget della barra",
           "label": "Lungo la barra"
         },
         "panel-anchor-bar": {
-          "description": "I pannelli della barra si attaccano quando vengono aperti. Lascia vuoto per seguire il widget, il collegamento o il dock che li ha aperti",
+          "description": "I pannelli della barra si attaccano quando vengono aperti; lascia vuoto per seguire il widget, il collegamento o il dock che li ha aperti",
           "label": "Barra di ancoraggio"
         },
         "placement-clipboard": {
@@ -2457,19 +2479,19 @@
         },
         "calendar-credentials": {
           "button": "Riprova",
-          "description-cancelled": "Il prompt del Secret Service è stato annullato. Riprova quando sei pronto.",
-          "description-error": "Non è stato possibile accedere alle credenziali del calendario tramite Secret Service.",
-          "description-locked": "Le credenziali del calendario sono bloccate o l'accesso è stato negato. Sblocca il Secret Service e riprova.",
-          "description-migration": "Le credenziali del calendario in testo normale sono in attesa di essere trasferite al  Secret Service. Non vengono utilizzati per la sincronizzazione del calendario.",
-          "description-opening": "Le credenziali del calendario vengono aperte tramite Secret Service.",
-          "description-unavailable": "Nessun provider di Secret Service è disponibile in questa sessione.",
+          "description-cancelled": "Il prompt del Secret Service è stato annullato; riprova quando sei pronto",
+          "description-error": "Non è stato possibile accedere alle credenziali del calendario tramite Secret Service",
+          "description-locked": "Le credenziali del calendario sono bloccate o l'accesso è stato negato; sblocca il Secret Service e riprova",
+          "description-migration": "Le credenziali del calendario in testo normale sono in attesa di essere trasferite al  Secret Service; non vengono utilizzati per la sincronizzazione del calendario",
+          "description-opening": "Le credenziali del calendario vengono aperte tramite Secret Service",
+          "description-unavailable": "Nessun provider di Secret Service è disponibile in questa sessione",
           "label": "Archiviazione delle credenziali del calendario"
         },
         "calendar-edit": {
           "button": "Modifica",
           "button-reconnect": "Riconnetti",
           "description": "Aggiorna questo account calendario",
-          "description-reconnect": "Manca l'autorizzazione di Google. Riconnetti questo account."
+          "description-reconnect": "Manca l'autorizzazione di Google; riconnetti questo account"
         },
         "calendar-event-date-format": {
           "description": "Il formato della data mostrato nella scheda evento per la data selezionata",
@@ -2485,14 +2507,14 @@
         },
         "calendar-storage": {
           "button": "Riprova",
-          "description-cancelled": "La richiesta di archiviazione crittografata è stata annullata. Gli eventi del calendario rimangono disponibili solo per questa sessione.",
-          "description-error": "Impossibile aprire o salvare la cache degli eventi del calendario crittografata.",
-          "description-locked": "L'archivio crittografato è bloccato o l'accesso è stato negato. Correggi l'accesso e riprova.",
-          "description-migration": "La cache degli eventi del calendario in testo normale è in attesa di essere crittografata. Viene conservata finché la migrazione non ha esito positivo.",
-          "description-missing-key": "Chiave della cache degli eventi del calendario mancante. Le credenziali dell'account utilizzano uno spazio di archiviazione separato; i file di cache esistenti sono stati preservati.",
-          "description-opening": "È in corso l'apertura della cache degli eventi del calendario crittografati.",
-          "description-recovery": "Non è stato possibile accedere alla cache eventi del calendario o la stessa è danneggiata. Riprovare dopo aver ripristinato la chiave corretta o reimpostato l'archivio privato.",
-          "description-unavailable": "Nessun provider di Secret Service è disponibile. Gli eventi del calendario rimangono disponibili solo per questa sessione.",
+          "description-cancelled": "La richiesta di archiviazione crittografata è stata annullata; gli eventi del calendario rimangono disponibili solo per questa sessione",
+          "description-error": "Impossibile aprire o salvare la cache degli eventi del calendario crittografata",
+          "description-locked": "L'archivio crittografato è bloccato o l'accesso è stato negato; correggi l'accesso e riprova",
+          "description-migration": "La cache degli eventi del calendario in testo normale è in attesa di essere crittografata; viene conservata finché la migrazione non ha esito positivo",
+          "description-missing-key": "Chiave della cache degli eventi del calendario mancante; le credenziali dell'account utilizzano uno spazio di archiviazione separato (i file di cache esistenti sono stati conservati)",
+          "description-opening": "È in corso l'apertura della cache degli eventi del calendario crittografati",
+          "description-recovery": "Non è stato possibile accedere alla cache eventi del calendario o la stessa è danneggiata; riprovare dopo aver ripristinato la chiave corretta o reimpostato l'archivio privato",
+          "description-unavailable": "Nessun provider di Secret Service è disponibile; gli eventi del calendario rimangono disponibili solo per questa sessione",
           "label": "Storage degli eventi del calendario"
         },
         "calendar-week-numbers": {
@@ -2733,14 +2755,14 @@
         },
         "clipboard-storage": {
           "button": "Riprova",
-          "description-cancelled": "Il prompt del Secret Service è stata annullato. La cronologia degli appunti rimane disponibile solo per questa sessione.",
-          "description-error": "Impossibile aprire o salvare la cronologia degli appunti crittografata.",
-          "description-locked": "La memorizzazione della chiave degli Appunti è bloccata o l'accesso è stato negato. Correggi l'accesso e riprova.",
-          "description-migration": "La cronologia degli appunti in testo normale è in attesa di essere crittografata. I file esistenti vengono conservati fino al completamento della migrazione.",
-          "description-missing-key": "Manca la chiave di archiviazione crittografata configurata. I file di cronologia degli appunti esistenti sono stati conservati.",
-          "description-opening": "È in corso l'apertura della cronologia degli appunti crittografata.",
-          "description-recovery": "Non è stato possibile autenticare la cronologia degli appunti o è danneggiata. Riprovare dopo aver ripristinato la chiave corretta o reimpostato l'archivio privato.",
-          "description-unavailable": "Nessun provider di Secret Service è disponibile. La cronologia degli appunti rimane disponibile solo per questa sessione.",
+          "description-cancelled": "Il prompt del Secret Service è stata annullato; la cronologia degli appunti rimane disponibile solo per questa sessione",
+          "description-error": "Impossibile aprire o salvare la cronologia degli appunti crittografata",
+          "description-locked": "La memorizzazione della chiave degli Appunti è bloccata o l'accesso è stato negato; correggi l'accesso e riprova",
+          "description-migration": "La cronologia degli appunti in testo normale è in attesa di essere crittografata; i file esistenti vengono conservati fino al completamento della migrazione",
+          "description-missing-key": "Manca la chiave di archiviazione crittografata configurata. I file di cronologia degli appunti esistenti sono stati conservati",
+          "description-opening": "È in corso l'apertura della cronologia degli appunti crittografata",
+          "description-recovery": "Non è stato possibile autenticare la cronologia degli appunti o è danneggiata; riprovare dopo aver ripristinato la chiave corretta o reimpostato l'archivio privato",
+          "description-unavailable": "Nessun provider di Secret Service è disponibile; la cronologia degli appunti rimane disponibile solo per questa sessione.",
           "label": "Archiviazione della cronologia degli appunti"
         },
         "date-format": {
@@ -2758,6 +2780,10 @@
         "greeter-sync-privilege-command": {
           "description": "Sostituisci pkexec/run0 per la sincronizzazione del greeter; il percorso dell'helper e la directory di staging vengono aggiunti automaticamente (esempio: ghostty -e pkexec)",
           "label": "Comando privilegiato per il sync del greeter"
+        },
+        "keyboard-layout-custom-labels": {
+          "description": "Mappa i nomi dei layout di tastiera sulle etichette utilizzate in tutta la shell",
+          "label": "Etichette del layout della tastiera"
         },
         "launch-apps-as-systemd-services": {
           "description": "Avvia le applicazioni in servizi systemd separati così non condividono il cgroup di Noctalia",
@@ -2948,6 +2974,10 @@
           "description": "Includi il puntatore del mouse negli screenshot",
           "label": "Mostra cursore"
         },
+        "settings-window-translucent": {
+          "description": "Rendi traslucido lo sfondo delle Impostazioni per gli effetti del compositor",
+          "label": "Impostazioni Sfondo traslucido"
+        },
         "show-location": {
           "description": "Mostra il nome della posizione nei widget meteo",
           "label": "Mostra posizione"
@@ -3104,7 +3134,7 @@
     "storage-recovery": {
       "button": "Reimposta storage privato",
       "button-confirm": "Conferma il ripristino dello storage",
-      "description": "Elimina definitivamente la cronologia degli appunti salvata e la cache degli eventi del calendario, quindi riapri l'archivio privato. Un file di chiave configurato non viene mai modificato.",
+      "description": "Elimina definitivamente la cronologia degli appunti salvata e la cache degli eventi del calendario, quindi riapri l'archivio privato (un file di chiave configurato non viene mai modificato)",
       "error-delete": "Non è stato possibile eliminare alcuni file di archiviazione privata. La chiave di archiviazione è stata conservata.",
       "error-key": "I file dell'archivio privato sono stati eliminati, ma non è stato possibile riaprire l'archivio protetto. Correggi l'accesso e riprova.",
       "label": "Recupera l'archiviazione privata",
@@ -3176,9 +3206,9 @@
         "cpu-temp": "Temperatura CPU",
         "cpu-usage": "Uso CPU",
         "disk-free": "Spazio disco libero",
-        "disk-free-percent": "Percentuale di disco libero",
+        "disk-free-percent": "Disco libero %",
         "disk-used": "Disco utilizzato",
-        "disk-used-percent": "Percentuale disco utilizzato",
+        "disk-used-percent": "Disco utilizzato %",
         "dots": "Punti",
         "focus-hint": "Focalizzato",
         "full": "Completo",
@@ -3206,7 +3236,7 @@
         "on-hover": "Al passaggio",
         "output": "Uscita",
         "percent": "Percentuale",
-        "ram-percent": "Percentuale RAM",
+        "ram-percent": "RAM %",
         "ram-used": "RAM usata",
         "rate": "Livello",
         "regular": "Normale",
@@ -3215,7 +3245,7 @@
         "scroll-steps": "Ogni passo",
         "shared": "Condiviso",
         "short": "Breve",
-        "swap-percent": "Percentuale swap",
+        "swap-percent": "Swap %",
         "text": "Testo",
         "text-only": "Solo testo",
         "time": "Tempo",
@@ -3225,12 +3255,16 @@
       },
       "settings": {
         "actions": {
-          "description": "Cosa fa ogni gesto del mouse su questo widget. Scegli un comando, esegui un comando di shell o disabilitalo.",
+          "description": "Cosa fa ogni gesto del mouse su questo widget; acegli un comando, esegui un comando di shell o disabilitalo",
           "label": "Azioni gestuali"
         },
         "active-color": {
           "description": "Colore utilizzato per gli indicatori di privacy attiva; sono supportati anche codici colore in formato esadecimale",
           "label": "Colore attivo"
+        },
+        "active-indicator-color": {
+          "description": "Colore dell'indicatore sotto l'icona della finestra attiva",
+          "label": "Colore indicatore attivo"
         },
         "active-opacity": {
           "description": "Opacità dell'icona per la finestra attiva (con focus)",
@@ -3323,10 +3357,6 @@
         "custom-image-colorize": {
           "description": "Tinge l'immagine personalizzata con l'impostazione Colore del widget",
           "label": "Colora immagine personalizzata"
-        },
-        "custom-labels": {
-          "description": "Mappa i nomi dei layout tastiera a etichette personalizzate",
-          "label": "Etichette personalizzate"
         },
         "detached-panel": {
           "description": "Apri il cassetto come un pannello mobile invece di ancorarlo al bordo della barra",
@@ -3523,6 +3553,10 @@
           "description": "Mostra unità come percentuale / GiB / ° C",
           "label": "Mostra unità"
         },
+        "label-source": {
+          "description": "Cosa mostrano le etichette dell'area di lavoro",
+          "label": "Origine etichette"
+        },
         "labels-only-when-occupied": {
           "description": "Nasconde le etichette workspace su workspace vuoti e inattivi",
           "label": "Etichette solo se occupati",
@@ -3647,6 +3681,10 @@
         },
         "show-label": {
           "description": "Mostra l'etichetta di testo del widget",
+          "label": "Mostra etichette"
+        },
+        "show-labels": {
+          "description": "Mostra etichette di testo nelle aree di lavoro",
           "label": "Mostra etichette"
         },
         "show-num-lock": {

@@ -94,6 +94,10 @@
         "cpu": "CPU",
         "cpu-temp": "Temp CPU",
         "disk": "Disque",
+        "disk-free": "Espace disque libre",
+        "disk-free-pct": "Espace disque libre %",
+        "disk-used": "Espace disque utilisé",
+        "disk-used-pct": "Espace disque utilisé %",
         "download": "Téléchargement",
         "gpu-temp": "Temp GPU",
         "gpu-usage": "Util GPU",
@@ -113,7 +117,18 @@
         "error": "Err météo",
         "loading": "Météo...",
         "no-location": "Pas de localisation",
-        "off": "Météo désactivée"
+        "off": "Météo désactivée",
+        "tooltip": {
+          "condition": "Condition",
+          "high": "Élevé",
+          "humidity": "Humidité",
+          "low": "Faible",
+          "sunrise": "Lever du soleil",
+          "sunset": "Coucher du soleil",
+          "temperature": "Température",
+          "uv": "Indice UV",
+          "wind": "Vent"
+        }
       }
     }
   },
@@ -251,6 +266,7 @@
       "start-playback": "Démarrer la lecture dans une application MPRIS"
     },
     "network": {
+      "available": "Disponible",
       "connect": "Se connecter",
       "current-connection": "Connexion actuelle",
       "external-ip": "WAN {ip}",
@@ -259,6 +275,7 @@
       "password": "Mot de passe",
       "password-prompt": "Saisir le mot de passe",
       "password-prompt-for": "Saisir le mot de passe pour {ssid}",
+      "saved": "Sauvegardé",
       "unavailable-detail": "Installer et activer NetworkManager, wpa_supplicant ou iwd pour gérer les réseaux depuis cette interface.",
       "unavailable-title": "Service réseau indisponible",
       "vpns": "VPNs",
@@ -510,7 +527,11 @@
         "show-keyboard-layout": "Disposition du clavier",
         "show-label": "Afficher l’étiquette",
         "show-login-button": "Bouton de connexion",
+        "show-password-hint": "Indice de mot de passe",
+        "show-session-buttons": "Boutons de session",
+        "show-unlock-hint": "Indice de déverrouillage",
         "show-vpn-label": "Afficher le libellé VPN",
+        "show-weather": "Météo",
         "show-when-idle": "Afficher si inactif",
         "stat": "Stat",
         "stat-cpu-temp": "Temp CPU",
@@ -658,7 +679,8 @@
     },
     "source": {
       "address": "Adresse",
-      "auto": "Auto"
+      "auto": "Auto",
+      "manual": "Manuel"
     }
   },
   "lockscreen": {
@@ -699,7 +721,7 @@
       "calendar-google-connect-timeout": "Délai d’attente de l’autorisation Google dépassé. Relancez la connexion lorsque vous êtes prêt à vous connecter.",
       "dbus-disabled": "Notifications DBus désactivées",
       "desktop-widgets-editor": "Éditeur de widgets",
-      "desktop-widgets-editor-enabled": "L’éditeur de widgets de bureau est activé. Passez à un espace de travail vide pour afficher la superposition de l’éditeur.",
+      "desktop-widgets-editor-enabled": "L’éditeur de widgets de bureau est activé. Basculez sur un espace de travail vide pour ne pas superposer des fenêtres sur l'éditeur.",
       "greeter-sync": "Noctalia Greeter",
       "greeter-sync-pending": "En attente de l'approbation de l'administrateur pour écrire dans le greeter.",
       "greeter-sync-pending-console": "En attente de l'autorisation de l'administrateur. Accepte la demande polkit dans Noctalia, sur un TTY ou une console, ou exécute pkexec manuellement.",
@@ -716,7 +738,7 @@
       "launcher-usage-reset-success": "Données d’utilisation effacées.",
       "lockscreen-widgets-editor": "Éditeur de widgets de l’écran de verrouillage",
       "lockscreen-widgets-editor-blocked-locked": "Déverrouillez la session avant de modifier les widgets de l’écran de verrouillage.",
-      "lockscreen-widgets-editor-enabled": "L’éditeur de widgets de l’écran de verrouillage est activé. Disposez les widgets sur l'écran d'aperçu, puis verrouillez la session pour vérifier la disposition.",
+      "lockscreen-widgets-editor-enabled": "L’éditeur de widgets de l’écran de verrouillage est activé. Basculez sur un espace de travail vide pour ne pas superposer des fenêtres sur l'éditeur.",
       "mpris-disabled": "MPRIS désactivé",
       "polkit-agent": "Polkit Agent",
       "polkit-no-session": "Le polkit agent nécessite logind, elogind ou XDG_SESSION_ID. Sur les configurations utilisant uniquement seatd, il ne peut pas s'enregistrer pour les demandes d'authentification graphiques. Utilise pkexec depuis un terminal pour synchroniser le greeter, ou installe elogind pour l'authentification dans la session.",
@@ -828,6 +850,7 @@
   },
   "settings": {
     "actions": {
+      "confirm-reset": "Confirmer la réinitialisation",
       "reset": "Réinitialiser"
     },
     "badges": {
@@ -841,7 +864,9 @@
     },
     "calendar-accounts": {
       "add-title": "Ajouter un compte au calendrier",
+      "calendars-label": "Calendriers",
       "color-label": "Couleur",
+      "credential-source-file": "Fichier de mots de passe",
       "delete-error": "Impossible de supprimer le compte de calendrier.",
       "edit-title": "Modifier le compte de calendrier",
       "id-label": "iD du compte",
@@ -928,6 +953,9 @@
           "border": "Contour",
           "border-description": "Rôle de couleur du contour de capsule ; laissez sur Défaut pour aucun contour",
           "clear": "Effacer",
+          "deselect": "Désélectionner",
+          "drag": "Réorganiser",
+          "drawer-detached": "Panel détaché",
           "drawer-glyph-closed": "Icon fermé",
           "drawer-glyph-opened": "Icon ouvert",
           "edit": "Modifier le style",
@@ -951,7 +979,8 @@
           "show-widget": "Montrer ce widget",
           "style": "Style",
           "title": "Groupe de capsules",
-          "ungroup": "Dégrouper"
+          "ungroup": "Dégrouper",
+          "widget-spacing": "Espacement"
         },
         "inspector": {
           "add-instance-title": "Ajouter un nouveau widget nommé {widget} dans {lane}",
@@ -990,6 +1019,8 @@
         "settings": {
           "empty": "Aucun paramètre ne correspond aux filtres actuels.",
           "groups": {
+            "actions": "Actions",
+            "behavior": "Comportement",
             "grouping": "Regrouper",
             "presentation": "Présentation",
             "runtime": "Exécution",
@@ -1100,6 +1131,7 @@
         "general": "Général",
         "greeter": "Greeter",
         "grouping": "Regroupement",
+        "history": "Historique",
         "home": "Accueil",
         "hot-corners": "Hot Corners",
         "idle": "Inactivité",
@@ -1243,7 +1275,7 @@
         "ultra-light": "Ultra-léger"
       },
       "hot-corners": {
-        "command": "Executer la commande",
+        "command": "Exécuter la commande",
         "control-center": "Centre de contrôle ",
         "launcher": "Lanceur",
         "none": "Aucune",
@@ -1354,7 +1386,7 @@
       "browse-store": "Parcourir les plugins",
       "panels": {
         "open-near-click": {
-          "description": "Ouvrir le panel près du widget de la Bar qui l'a ouvert",
+          "description": "Où le panel sera situé après avoir cliqué sur le widget de la barre",
           "label": "Ouverture près du clic"
         },
         "placement": {
@@ -1688,6 +1720,9 @@
           "description": "Commande Shell à exécuter en appuyant sur le coin inférieur droit",
           "label": "Commande"
         },
+        "hot-corners-delay-ms": {
+          "label": "Délai d'activation"
+        },
         "hot-corners-enabled": {
           "description": "Déclenche une action en placent le pointeur de la sourie dans les coins de l'écran ",
           "label": "Hot Corners"
@@ -1941,6 +1976,13 @@
           "description": "Ferme les fenêtres contextuelles, masque les panneaux ou annule l’opération en cours.",
           "label": "Annuler"
         },
+        "copy": {
+          "label": "Copier"
+        },
+        "delete": {
+          "description": "Supprimer l'élément sélectionné",
+          "label": "Supprimer"
+        },
         "down": {
           "description": "Déplace le focus ou la sélection d’une ligne vers le bas",
           "label": "Naviguer vers le bas"
@@ -1952,6 +1994,9 @@
         "right": {
           "description": "Déplace le focus ou la sélection vers la droite",
           "label": "Naviguer vers la droite"
+        },
+        "save": {
+          "label": "Sauvegarder"
         },
         "tab-next": {
           "description": "Déplace le focus sur le contrôle suivant",
@@ -2038,6 +2083,9 @@
           "description": "Règles par expéditeur pour les notifications éphémères, l’historique et les sons ; le premier filtre activé correspondant est prioritaire",
           "label": "Filtres de notifications"
         },
+        "history-retention-hours": {
+          "label": "Garder l'historique pendant"
+        },
         "layer": {
           "description": "Utilise Overlay pour afficher les toasts de notification au-dessus des applications en plein écran",
           "label": "Couche Wayland"
@@ -2116,8 +2164,15 @@
           "description": "Utilise des icônes plus petites et des lignes de résultats plus compactes",
           "label": "Lignes compactes"
         },
+        "launcher-prefix-calculator": {
+          "label": "Préfixe de la calculatrice"
+        },
+        "launcher-prefix-emoji": {
+          "label": "Préfixe des émojis"
+        },
         "launcher-prefix-session": {
-          "description": "Préfixe déclencheur pour les actions du menu d'alimentation"
+          "description": "Préfixe déclencheur pour les actions du menu d'alimentation",
+          "label": "Préfixe de session"
         },
         "launcher-reset-usage": {
           "button": "Réinitialiser",
@@ -2140,23 +2195,23 @@
           "description": "Dessiner un fond arrondi derrière chaque élément du lanceur et du presse-papiers"
         },
         "open-near-click-clipboard": {
-          "description": "Positionne le panneau du presse-papiers près du point de clic sur la barre au lieu de le centrer sur celle-ci",
+          "description": "Où le panneau du presse-papiers sera situé après avoir cliqué sur le widget de la barre",
           "label": "Le long de la barre"
         },
         "open-near-click-control-center": {
-          "description": "Positionne le centre de contrôle près du point de clic sur la barre au lieu de le centrer sur celle-ci",
+          "description": "Où le centre de contrôle sera situé après avoir cliqué sur le widget de la barre",
           "label": "Le long de la barre"
         },
         "open-near-click-launcher": {
-          "description": "Positionne le lanceur près du point de clic sur la barre au lieu de le centrer sur celle-ci",
+          "description": "Où le lanceur sera situé après avoir cliqué sur le widget de la barre",
           "label": "Ouvrir proche de la barre"
         },
         "open-near-click-session": {
-          "description": "Positionne le menu de session près du point de clic sur la barre au lieu de le centrer sur celle-ci",
+          "description": "Où le menu de session sera situé après avoir cliqué sur le widget de la barre",
           "label": "Ouvrir proche de la barre"
         },
         "open-near-click-wallpaper": {
-          "description": "Positionne le sélecteur de fond d’écran près du point de clic sur la barre au lieu de le centrer sur celle-ci",
+          "description": "Où le sélecteur de fond d’écran sera situé après avoir cliqué sur le widget de la barre",
           "label": "Ouvrir proche de la barre"
         },
         "placement-clipboard": {
@@ -2227,6 +2282,9 @@
         "session-grid-columns": {
           "description": "Nombre de colonnes de la disposition en grille",
           "label": "Colonnes"
+        },
+        "session-show-shortcuts": {
+          "label": "Afficher les raccourcis"
         }
       },
       "services": {
@@ -2243,13 +2301,26 @@
           "description": "Ajoute des comptes iCloud, CalDAV ou Google",
           "label": "Comptes de calendrier"
         },
+        "calendar-credentials": {
+          "button": "Réessayer"
+        },
         "calendar-edit": {
           "button": "Modifier",
           "description": "Met à jour ce compte de calendrier"
         },
+        "calendar-event-date-format": {
+          "label": "Format de date d'événement"
+        },
         "calendar-refresh-interval": {
           "description": "Fréquence de synchronisation des événements du calendrier (en minutes)",
           "label": "Intervalle de synchronisation"
+        },
+        "calendar-storage": {
+          "button": "Réessayer",
+          "description-opening": "Le cache d'événement du calendrier chiffré est en cours d'ouverture"
+        },
+        "calendar-week-numbers": {
+          "label": "Numéros de semaine"
         },
         "day-temperature": {
           "description": "Température de couleur pendant la journée (en kelvins)",
@@ -2349,7 +2420,11 @@
           "stats": {
             "cpu-temp": "Température CPU",
             "cpu-usage": "Utilisation CPU",
+            "disk-free": "Espace disque libre",
+            "disk-free-pct": "Espace disque libre %",
             "disk-usage": "Utilisation disque",
+            "disk-used": "Espace disque utilisé",
+            "disk-used-pct": "Espace disque utilisé %",
             "gpu-temp": "Température GPU",
             "gpu-usage": "Utilisation GPU",
             "gpu-vram": "VRAM GPU",
@@ -2658,6 +2733,9 @@
           "description": "Enregistre les captures d’écran au format PNG dans le dossier de destination",
           "label": "Enregistrer en tant que fichier"
         },
+        "screenshot-show-cursor": {
+          "label": "Afficher le curseur"
+        },
         "show-location": {
           "description": "Affiche le nom de la localisation dans les widgets météo",
           "label": "Afficher la localisation"
@@ -2811,6 +2889,15 @@
       "variant-label": "Style du bouton"
     },
     "widgets": {
+      "actions": {
+        "run-command": "Exécuter une commande..."
+      },
+      "gestures": {
+        "back": "Bouton de retour",
+        "left": "Clic gauche",
+        "middle": "Clic du milieu",
+        "right": "Clic droit"
+      },
       "instances": {
         "cpu": "CPU",
         "date": "Date",
@@ -2826,6 +2913,10 @@
         "auto": "Auto",
         "cpu-temp": "Température CPU",
         "cpu-usage": "Utilisation CPU",
+        "disk-free": "Espace disque libre",
+        "disk-free-percent": "Espace disque libre %",
+        "disk-used": "Espace disque utilisé",
+        "disk-used-percent": "Espace disque utilisé %",
         "full": "Complet",
         "gauge": "Jauge",
         "glyph": "Glyphe",
@@ -2847,11 +2938,11 @@
         "none": "Aucun",
         "on-hover": "Au survol",
         "output": "Sortie",
-        "ram-percent": "RAM (%)",
+        "ram-percent": "RAM %",
         "ram-used": "RAM utilisée",
         "shared": "Partagé",
         "short": "Partagé",
-        "swap-percent": "Swap (%)",
+        "swap-percent": "Swap %",
         "text": "Texte",
         "text-only": "Texte seul",
         "workspace-label-centered": "Centré",
@@ -2965,6 +3056,10 @@
         "hide-when-empty": {
           "label": "Masquer lorsque vide"
         },
+        "hide-when-full": {
+          "description": "Masquer le widget de batterie lorsque la batterie est pleine",
+          "label": "Cacher quand plein"
+        },
         "hide-when-no-unread": {
           "description": "Masquer le widget de notifications lorsqu'il n'y a pas de notifications non lues"
         },
@@ -2973,7 +3068,7 @@
         },
         "hide-when-plugged": {
           "description": "Masquer le widget de batterie lorsqu'il est branché au secteur",
-          "label": "Cacher quand débranché"
+          "label": "Cacher quand branché"
         },
         "highlight-color": {
           "label": "Couleur d'accentuation"
@@ -3000,6 +3095,10 @@
         "network-speed-compact": {
           "description": "Utiliser le suffixe de l’unité, soit 1.2M au lieu de 1.2 MB/s "
         },
+        "pinned": {
+          "label": "Items épinglés",
+          "taskbar-label": "Applications épinglées"
+        },
         "scale": {
           "description": "Met ce widget à l'échelle par rapport à l'échelle du contenu de la barre",
           "label": "Échelle"
@@ -3007,14 +3106,27 @@
         "scope": {
           "description": "Exécutez un script d'exécution par emplacement de widget actif, ou partagez un même script d'exécution entre les barres ayant le même identifiant de widget"
         },
+        "show-all-outputs": {
+          "label": "Afficher tous les écrans"
+        },
+        "show-caps-lock": {
+          "description": "Afficher l'état du Verr. Maj",
+          "label": "Afficher Verr. Maj"
+        },
         "show-condition": {
           "description": "Montrer le texte de la condition météo"
         },
         "stat": {
           "label": "Stats"
         },
+        "text": {
+          "label": "Texte"
+        },
         "type": {
           "label": "Type"
+        },
+        "vertical-format": {
+          "label": "Format vertical"
         },
         "width": {
           "label": "Largeur"
@@ -3062,6 +3174,11 @@
       "export-config": "Exporter la configuration...",
       "native-title": "Paramètres Noctalia",
       "no-results": "Pas de paramètre trouvé",
+      "offline-mode-notice": {
+        "template-store": "Les téléchargements des modèles de la communauté ne vont pas fonctionner. ",
+        "templates": "Les téléchargements des modèles de la communauté et des mises à jour ne vont pas fonctionner. ",
+        "title": "Mode hors connexion"
+      },
       "reset-page": "Réinitialiser la page",
       "reset-page-confirm": "Confirmer la réinitialisation",
       "search-placeholder": "Rechercher un paramètre",

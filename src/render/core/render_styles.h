@@ -33,10 +33,10 @@ constexpr bool operator==(const CornerShapes& lhs, const CornerShapes& rhs) noex
 }
 
 struct RectInsets {
-  float left = 0.0f;
-  float top = 0.0f;
-  float right = 0.0f;
-  float bottom = 0.0f;
+  float left = 0.0F;
+  float top = 0.0F;
+  float right = 0.0F;
+  float bottom = 0.0F;
 };
 
 constexpr bool operator==(const RectInsets& lhs, const RectInsets& rhs) noexcept {
@@ -47,10 +47,10 @@ constexpr bool operator==(const RectInsets& lhs, const RectInsets& rhs) noexcept
 // Implicit construction from a single float sets all four corners uniformly,
 // so existing `.radius = value` assignments continue to compile unchanged.
 struct Radii {
-  float tl = 0.0f;
-  float tr = 0.0f;
-  float br = 0.0f;
-  float bl = 0.0f;
+  float tl = 0.0F;
+  float tr = 0.0F;
+  float br = 0.0F;
+  float bl = 0.0F;
 
   Radii() = default;
   /* implicit */ Radii(float r) : tl(r), tr(r), br(r), bl(r) {} // NOLINT(google-explicit-constructor)
@@ -62,7 +62,7 @@ constexpr bool operator==(const Radii& lhs, const Radii& rhs) noexcept {
 }
 
 struct GradientStop {
-  float position = 0.0f;
+  float position = 0.0F;
   Color color{};
 };
 
@@ -92,18 +92,18 @@ struct RoundedRectStyle {
   CornerShapes corners{};
   RectInsets logicalInset{};
   Radii radius;
-  float softness = 1.0f;
+  float softness = 1.0F;
   bool noAa = false;
   bool invertFill = false;
-  float borderWidth = 0.0f;
+  float borderWidth = 0.0F;
   bool outerShadow = false;
-  float shadowCutoutOffsetX = 0.0f;
-  float shadowCutoutOffsetY = 0.0f;
+  float shadowCutoutOffsetX = 0.0F;
+  float shadowCutoutOffsetY = 0.0F;
   bool shadowExclusion = false;
-  float shadowExclusionOffsetX = 0.0f;
-  float shadowExclusionOffsetY = 0.0f;
-  float shadowExclusionWidth = 0.0f;
-  float shadowExclusionHeight = 0.0f;
+  float shadowExclusionOffsetX = 0.0F;
+  float shadowExclusionOffsetY = 0.0F;
+  float shadowExclusionWidth = 0.0F;
+  float shadowExclusionHeight = 0.0F;
   CornerShapes shadowExclusionCorners{};
   RectInsets shadowExclusionLogicalInset{};
   Radii shadowExclusionRadius;
@@ -137,13 +137,13 @@ constexpr bool operator==(const RoundedRectStyle& lhs, const RoundedRectStyle& r
 
 struct SpinnerStyle {
   Color color{};
-  float thickness = 2.0f;
+  float thickness = 2.0F;
 };
 
 struct CountdownRingStyle {
   Color color{};
-  float thickness = 6.0f;
-  float progress = 1.0f;
+  float thickness = 6.0F;
+  float progress = 1.0F;
 };
 
 enum class ScreenCornerPosition : std::uint8_t {
@@ -154,17 +154,13 @@ enum class ScreenCornerPosition : std::uint8_t {
 };
 
 struct ScreenCornerStyle {
-  Color color = rgba(0.0f, 0.0f, 0.0f, 1.0f);
+  Color color = rgba(0.0F, 0.0F, 0.0F, 1.0F);
   ScreenCornerPosition position = ScreenCornerPosition::TopLeft;
-  float exponent = 4.0f;
-  float softness = 1.0f;
+  float exponent = 4.0F;
 };
 
 constexpr bool operator==(const ScreenCornerStyle& lhs, const ScreenCornerStyle& rhs) noexcept {
-  return lhs.color == rhs.color
-      && lhs.position == rhs.position
-      && lhs.exponent == rhs.exponent
-      && lhs.softness == rhs.softness;
+  return lhs.color == rhs.color && lhs.position == rhs.position && lhs.exponent == rhs.exponent;
 }
 
 enum class AudioSpectrumOrientation : std::uint8_t {
@@ -198,18 +194,18 @@ enum class FancyAudioVisualizerMode : std::uint8_t {
 };
 
 struct FancyAudioVisualizerStyle {
-  Color primaryColor = rgba(0.0f, 0.0f, 0.0f, 1.0f);
-  Color secondaryColor = rgba(0.0f, 0.0f, 0.0f, 1.0f);
+  Color primaryColor = rgba(0.0F, 0.0F, 0.0F, 1.0F);
+  Color secondaryColor = rgba(0.0F, 0.0F, 0.0F, 1.0F);
   FancyAudioVisualizerMode mode = FancyAudioVisualizerMode::BarsRings;
-  float time = 0.0f;
-  float sensitivity = 1.5f;
-  float rotationSpeed = 0.5f;
-  float barWidth = 0.6f;
-  float ringOpacity = 0.8f;
-  float bloomIntensity = 0.5f;
-  float waveThickness = 1.0f;
-  float innerDiameter = 0.7f;
-  float cornerRadius = 12.0f;
+  float time = 0.0F;
+  float sensitivity = 1.5F;
+  float rotationSpeed = 0.5F;
+  float barWidth = 0.6F;
+  float ringOpacity = 0.8F;
+  float bloomIntensity = 0.5F;
+  float waveThickness = 1.0F;
+  float innerDiameter = 0.7F;
+  float cornerRadius = 12.0F;
 };
 
 constexpr bool operator==(const FancyAudioVisualizerStyle& lhs, const FancyAudioVisualizerStyle& rhs) noexcept {
@@ -231,25 +227,25 @@ enum class EffectType : std::uint8_t { None, Sun, Snow, Rain, Cloud, Fog, Stars 
 
 struct EffectStyle {
   EffectType type = EffectType::None;
-  float time = 0.0f;
-  float radius = 0.0f;
+  float time = 0.0F;
+  float radius = 0.0F;
   Color bgColor{};
 };
 
 struct GraphStyle {
   Color lineColor1{};
-  float count1 = 0.0f;
-  float scroll1 = 1.0f;
+  float count1 = 0.0F;
+  float scroll1 = 1.0F;
 
   Color lineColor2{};
-  float count2 = 0.0f;
-  float scroll2 = 1.0f;
+  float count2 = 0.0F;
+  float scroll2 = 1.0F;
 
   Color lineColor3{};
-  float count3 = 0.0f;
-  float scroll3 = 1.0f;
+  float count3 = 0.0F;
+  float scroll3 = 1.0F;
 
-  float lineWidth = 1.5f;
-  float graphFillOpacity = 0.15f;
-  float aaSize = 0.5f;
+  float lineWidth = 1.5F;
+  float graphFillOpacity = 0.15F;
+  float aaSize = 0.5F;
 };

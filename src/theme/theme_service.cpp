@@ -37,7 +37,7 @@ namespace noctalia::theme {
 
     constexpr auto kLog = Logger("theme");
 
-    constexpr float kTransitionDurationMs = 400.0f;
+    constexpr float kTransitionDurationMs = 400.0F;
     constexpr std::chrono::milliseconds kTransitionTick{8};
 
     struct ResolvedTheme {
@@ -429,7 +429,7 @@ namespace noctalia::theme {
     profiling::StopWatch loadWatch;
     auto image = loadAndResize(wallpaperPath, *scheme);
     if (profiling::enabled()) {
-      kLog.info("theme: wallpaper load+resize: {:.1f} ms", loadWatch.elapsedMs());
+      kLog.info("theme: wallpaper load+resize: {:.1F} ms", loadWatch.elapsedMs());
     }
     if (!image) {
       kLog.warn("failed to load wallpaper '{}': {}", wallpaperPath, image.error());
@@ -438,7 +438,7 @@ namespace noctalia::theme {
     profiling::StopWatch genWatch;
     auto generated = generate(image->rgb, *scheme);
     if (profiling::enabled()) {
-      kLog.info("theme: wallpaper palette generate: {:.1f} ms", genWatch.elapsedMs());
+      kLog.info("theme: wallpaper palette generate: {:.1F} ms", genWatch.elapsedMs());
     }
     if (!generated) {
       kLog.warn("failed to generate palette from wallpaper: {}", generated.error());
@@ -581,7 +581,7 @@ namespace noctalia::theme {
     m_targetPalette = target;
     m_transitionResolvedCallbackFlushed = false;
     m_transitionAnimId = m_animations.animate(
-        0.0f, 1.0f, kTransitionDurationMs, Easing::EaseOutCubic,
+        0.0F, 1.0F, kTransitionDurationMs, Easing::EaseOutCubic,
         [this](float t) {
           setPalette(lerpPalette(m_fromPalette, m_targetPalette, t));
           if (m_changeCallback) {

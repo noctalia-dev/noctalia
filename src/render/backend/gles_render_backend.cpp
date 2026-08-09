@@ -3,13 +3,17 @@
 #include "core/log.h"
 #include "render/backend/gles_framebuffer.h"
 #include "render/core/shader_program.h"
+#include "render/core/texture_manager.h"
 #include "render/gl_shared_context.h"
 #include "render/render_target.h"
 
 #include <GLES2/gl2.h>
+#include <array>
+#include <charconv>
 #include <chrono>
 #include <format>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <wayland-egl.h>
@@ -30,9 +34,10 @@
 namespace {
 
   constexpr Logger kLog("render");
-  constexpr float kSlowRenderOperationDebugMs = 50.0f;
-  constexpr float kSlowRenderOperationWarnMs = 1000.0f;
+  constexpr float kSlowRenderOperationDebugMs = 50.0F;
+  constexpr float kSlowRenderOperationWarnMs = 1000.0F;
   bool g_backendInfoLogged = false;
+  bool g_capabilitiesVerified = false;
 
   constexpr char kFullscreenVertexShader[] = R"(
 precision highp float;
@@ -103,6 +108,74 @@ void main() {
       pos = end + 1;
     }
     return false;
+  }
+
+  // Major version from a GLES GL_VERSION string ("OpenGL ES 3.2 Mesa 26.1.6"); 0 when unparseable.
+  int glesMajorVersion() {
+    const char* version = reinterpret_cast<const char*>(glGetString(GL_VERSION));
+    if (version == nullptr) {
+      return 0;
+    }
+    constexpr std::string_view kPrefix = "OpenGL ES ";
+    const std::string_view text(version);
+    const std::size_t start = text.find(kPrefix);
+    if (start == std::string_view::npos) {
+      return 0;
+    }
+    int major = 0;
+    const auto parsed = std::from_chars(text.data() + start + kPrefix.size(), text.data() + text.size(), major);
+    return parsed.ec == std::errc{} ? major : 0;
+  }
+
+  bool hasFragmentHighPrecision() {
+    std::array<GLint, 2> range{};
+    GLint precision = 0;
+    glGetShaderPrecisionFormat(GL_FRAGMENT_SHADER, GL_HIGH_FLOAT, range.data(), &precision);
+    return precision != 0;
+  }
+
+  // The shaders are GLSL ES 1.00 but lean on features ES 2.0 leaves optional. Probe them up front
+  // so an unsupported driver names the missing capability, instead of surfacing a raw compile log
+  // from whichever program happens to draw first.
+  void verifyRequiredGlCapabilities() {
+    if (g_capabilitiesVerified) {
+      return;
+    }
+    g_capabilitiesVerified = true;
+    if (glesMajorVersion() >= 3) {
+      return; // ES 3.0 makes all of the below core.
+    }
+
+    std::string missing;
+    const auto require = [&missing](bool supported, std::string_view feature) {
+      if (supported) {
+        return;
+      }
+      if (!missing.empty()) {
+        missing += "; ";
+      }
+      missing += feature;
+    };
+    require(hasGlExtension("GL_OES_standard_derivatives"), "GL_OES_standard_derivatives (rounded-rect antialiasing)");
+    require(hasFragmentHighPrecision(), "highp float in fragment shaders (declared by every shader)");
+    if (!missing.empty()) {
+      throw std::runtime_error(
+          std::format(
+              R"(GPU driver is missing OpenGL ES features Noctalia requires: {} [renderer="{}" version="{}"])", missing,
+              safeCString(reinterpret_cast<const char*>(glGetString(GL_RENDERER))),
+              safeCString(reinterpret_cast<const char*>(glGetString(GL_VERSION)))
+          )
+      );
+    }
+
+    // Wallpapers upload with mipmaps, which ES 2.0 rejects on non-power-of-two textures without
+    // this extension: the texture is incomplete and renders black.
+    if (TextureManager::globalMipmapsEnabled() && !hasGlExtension("GL_OES_texture_npot")) {
+      kLog.warn(
+          "GPU driver lacks GL_OES_texture_npot; mipmapped non-power-of-two textures will not render. "
+          "Set disable_mipmaps = true under [shell]"
+      );
+    }
   }
 
   bool isCurrentEglSurface(EGLDisplay display, EGLSurface surface) {
@@ -246,6 +319,8 @@ void GlesRenderBackend::initialize(GlSharedContext& shared) {
     g_backendInfoLogged = true;
   }
 
+  verifyRequiredGlCapabilities();
+
   resolveGraphicsResetStatusProc();
   m_viewportValid = false;
   m_blendMode.reset();
@@ -292,7 +367,7 @@ bool GlesRenderBackend::makeCurrent(RenderTarget& target) {
     return false;
   }
   float ms = elapsedSince(start);
-  logSlowRenderOperation(ms, "eglMakeCurrent took {:.1f}ms", ms);
+  logSlowRenderOperation(ms, "eglMakeCurrent took {:.1F}ms", ms);
 
   // Non-blocking swap: pacing is driven by wl_surface.frame callbacks, not by
   // eglSwapBuffers. Default interval=1 can block indefinitely when the
@@ -300,7 +375,7 @@ bool GlesRenderBackend::makeCurrent(RenderTarget& target) {
   const auto intervalStart = std::chrono::steady_clock::now();
   eglSwapInterval(m_display, 0);
   ms = elapsedSince(intervalStart);
-  logSlowRenderOperation(ms, "eglSwapInterval(0) took {:.1f}ms", ms);
+  logSlowRenderOperation(ms, "eglSwapInterval(0) took {:.1F}ms", ms);
   return true;
 }
 
@@ -312,7 +387,7 @@ bool GlesRenderBackend::beginFrame(RenderTarget& target) {
   setViewport(target.bufferWidth(), target.bufferHeight());
   setBlendMode(RenderBlendMode::PremultipliedAlpha);
   disableScissor();
-  clear(rgba(0.0f, 0.0f, 0.0f, 0.0f));
+  clear(rgba(0.0F, 0.0F, 0.0F, 0.0F));
   return true;
 }
 
@@ -330,7 +405,7 @@ void GlesRenderBackend::endFrame(RenderTarget& target) {
   }
   const float ms = elapsedSince(swapStart);
   logSlowRenderOperation(
-      ms, "eglSwapBuffers took {:.1f}ms ({}x{} logical, {}x{} buffer)", ms, target.logicalWidth(),
+      ms, "eglSwapBuffers took {:.1F}ms ({}x{} logical, {}x{} buffer)", ms, target.logicalWidth(),
       target.logicalHeight(), target.bufferWidth(), target.bufferHeight()
   );
 }
@@ -465,7 +540,7 @@ void GlesRenderBackend::drawFullscreenQuad(const ShaderProgram& program) {
   }
 
   static constexpr float kQuad[] = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
   glVertexAttribPointer(static_cast<GLuint>(posAttr), 2, GL_FLOAT, GL_FALSE, 0, kQuad);
   glEnableVertexAttribArray(static_cast<GLuint>(posAttr));
@@ -553,11 +628,11 @@ void GlesRenderBackend::drawCountdownRing(
 }
 
 void GlesRenderBackend::drawScreenCorner(
-    float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
-    const ScreenCornerStyle& style, const Mat3& transform
+    float surfaceWidth, float surfaceHeight, float width, float height, const ScreenCornerStyle& style,
+    const Mat3& transform
 ) {
   m_screenCornerProgram.ensureInitialized();
-  m_screenCornerProgram.draw(surfaceWidth, surfaceHeight, pixelScaleX, pixelScaleY, width, height, style, transform);
+  m_screenCornerProgram.draw(surfaceWidth, surfaceHeight, width, height, style, transform);
 }
 
 void GlesRenderBackend::drawAudioSpectrum(
@@ -612,7 +687,7 @@ void GlesRenderBackend::drawFullscreenTexture(TextureId texture, bool flipY) {
   const GLint textureLoc = glGetUniformLocation(m_fullscreenTextureProgram.id(), "u_texture");
   const GLint flipLoc = glGetUniformLocation(m_fullscreenTextureProgram.id(), "u_flipY");
   glUniform1i(textureLoc, 0);
-  glUniform1f(flipLoc, flipY ? 1.0f : 0.0f);
+  glUniform1f(flipLoc, flipY ? 1.0F : 0.0F);
   drawFullscreenQuad(m_fullscreenTextureProgram);
 }
 

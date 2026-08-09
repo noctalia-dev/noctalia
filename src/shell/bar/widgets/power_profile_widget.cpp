@@ -40,7 +40,7 @@ void PowerProfileWidget::doLayout(Renderer& renderer, float /*containerWidth*/, 
                   : colorSpecFromRole(ColorRole::OnSurfaceVariant)
   );
   m_glyph->measure(renderer);
-  m_glyph->setPosition(0.0f, 0.0f);
+  m_glyph->setPosition(0.0F, 0.0F);
   rootNode->setSize(m_glyph->width(), m_glyph->height());
 }
 
@@ -69,7 +69,7 @@ void PowerProfileWidget::syncState(Renderer& renderer) {
   m_glyph->measure(renderer);
   m_area->setEnabled(m_available);
   if (auto* rootNode = root(); rootNode != nullptr) {
-    rootNode->setOpacity(m_available ? 1.0f : 0.55f);
+    rootNode->setOpacity(m_available ? 1.0F : 0.55F);
   }
   requestRedraw();
 }

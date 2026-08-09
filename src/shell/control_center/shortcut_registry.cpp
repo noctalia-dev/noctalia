@@ -5,7 +5,7 @@
 #include "dbus/bluetooth/bluetooth_service.h"
 #include "dbus/mpris/mpris_service.h"
 #include "dbus/network/inetwork_service.h"
-#include "dbus/network/network_glyphs.h"
+#include "dbus/network/network_display.h"
 #include "dbus/power/power_profiles_service.h"
 #include "i18n/i18n.h"
 #include "idle/idle_inhibitor.h"
@@ -14,9 +14,9 @@
 #include "scripting/plugin_manifest.h"
 #include "scripting/plugin_registry.h"
 #include "scripting/plugin_runtime_context.h"
-#include "shell/bar/widgets/keyboard_layout_widget.h"
 #include "shell/control_center/plugin_shortcut.h"
 #include "shell/control_center/shortcut_services.h"
+#include "shell/keyboard_layout_label.h"
 #include "shell/panel/panel_manager.h"
 #include "system/gamma_service.h"
 #include "system/weather_service.h"
@@ -77,7 +77,7 @@ namespace {
       if (m_svc == nullptr) {
         return "wifi-question";
       }
-      return network_glyphs::wifiGlyphForState(m_svc->state());
+      return network_display::wifiGlyphForState(m_svc->state());
     }
     bool isToggle() const override { return true; }
     bool active() const override { return m_svc != nullptr && m_svc->state().wirelessEnabled; }
@@ -198,10 +198,8 @@ namespace {
       }
       return defaultLabel();
     }
-    std::string_view iconOn() const override {
-      return m_svc != nullptr && m_svc->configuredMode() == ThemeMode::Auto ? "theme-mode" : "weather-moon-stars";
-    }
-    std::string_view iconOff() const override { return "weather-sun"; }
+    std::string_view iconOn() const override { return "theme-mode"; }
+    std::string_view iconOff() const override { return "theme-mode"; }
     bool isToggle() const override { return true; }
     bool active() const override { return m_svc != nullptr && m_svc->configuredMode() != ThemeMode::Light; }
     void onClick() override {
@@ -289,48 +287,6 @@ namespace {
     PipeWireService* m_svc;
   };
 
-  const WidgetConfig* findKeyboardLayoutWidgetConfig(const Config& config) {
-    auto resolve = [&config](const std::string& name) -> const WidgetConfig* {
-      const auto it = config.widgets.find(name);
-      if (it == config.widgets.end() || it->second.type != "keyboard_layout") {
-        return nullptr;
-      }
-      return &it->second;
-    };
-
-    auto search = [&resolve](const std::vector<std::string>& widgets) -> const WidgetConfig* {
-      for (const std::string& name : widgets) {
-        if (const WidgetConfig* wc = resolve(name); wc != nullptr) {
-          return wc;
-        }
-      }
-      return nullptr;
-    };
-
-    for (const BarConfig& bar : config.bars) {
-      if (const WidgetConfig* wc = search(bar.startWidgets); wc != nullptr) {
-        return wc;
-      }
-      if (const WidgetConfig* wc = search(bar.centerWidgets); wc != nullptr) {
-        return wc;
-      }
-      if (const WidgetConfig* wc = search(bar.endWidgets); wc != nullptr) {
-        return wc;
-      }
-    }
-
-    return resolve("keyboard_layout");
-  }
-
-  KeyboardLayoutWidget::DisplayMode keyboardLayoutDisplayMode(const ConfigService* config) {
-    if (config == nullptr) {
-      return KeyboardLayoutWidget::DisplayMode::Short;
-    }
-    const WidgetConfig* wc = findKeyboardLayoutWidgetConfig(config->config());
-    const std::string display = wc != nullptr ? wc->getString("display", "short") : std::string("short");
-    return KeyboardLayoutWidget::parseDisplayMode(display);
-  }
-
   class PowerProfileShortcut final : public Shortcut {
   public:
     explicit PowerProfileShortcut(PowerProfilesService* svc) : m_svc(svc) {}
@@ -403,7 +359,13 @@ namespace {
     std::string_view id() const override { return "keyboard_layout"; }
     std::string defaultLabel() const override { return i18n::tr("control-center.shortcuts.keyboard-layout"); }
     std::string displayLabel() const override {
-      return KeyboardLayoutWidget::formatLayoutLabel(resolvedLayoutName(), keyboardLayoutDisplayMode(m_config));
+      const std::string layoutName = resolvedLayoutName();
+      if (m_config == nullptr) {
+        return formatKeyboardLayoutLabel(layoutName, KeyboardLayoutDisplayMode::Short);
+      }
+      return resolveKeyboardLayoutLabel(
+          layoutName, KeyboardLayoutDisplayMode::Short, m_config->config().shell.keyboardLayout.customLabels
+      );
     }
     std::string_view iconOn() const override { return "keyboard"; }
     std::string_view iconOff() const override { return "keyboard"; }

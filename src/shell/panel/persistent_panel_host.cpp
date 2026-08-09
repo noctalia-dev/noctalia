@@ -116,8 +116,8 @@ void PersistentPanelHost::open(const std::string& id, wl_output* output, std::st
 
   const bool fillWidth = panel->fillsWidth();
   const bool fillHeight = panel->fillsHeight();
-  auto panelWidth = static_cast<std::uint32_t>(std::max(1.0f, std::round(panel->preferredWidth())));
-  auto panelHeight = static_cast<std::uint32_t>(std::max(1.0f, std::round(panel->preferredHeight())));
+  auto panelWidth = static_cast<std::uint32_t>(std::max(1.0F, std::round(panel->preferredWidth())));
+  auto panelHeight = static_cast<std::uint32_t>(std::max(1.0F, std::round(panel->preferredHeight())));
   const auto padding = screenPadding();
   if (outputWidth > 0) {
     panelWidth = std::min(panelWidth, static_cast<std::uint32_t>(std::max(1, outputWidth - padding * 2)));
@@ -309,6 +309,9 @@ void PersistentPanelHost::buildScene(Instance& instance, std::uint32_t width, st
     auto bg = ui::box({});
     bg->setPanelStyle(m_config->config().shell.panel.borders);
     bg->setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
+    if (m_config->config().shell.panel.borders) {
+      bg->setBorder(colorSpecFromRole(ColorRole::Outline, backgroundOpacity), Style::borderWidth);
+    }
     instance.bgNode = static_cast<Box*>(instance.sceneRoot->addChild(std::move(bg)));
   }
 
@@ -402,9 +405,9 @@ void PersistentPanelHost::layoutScene(Instance& instance, std::uint32_t width, s
     instance.bgNode->setSize(panelW, panelH);
   }
 
-  const float padding = instance.panel->hasDecoration() ? instance.panel->contentScale() * Style::panelPadding : 0.0f;
-  const float contentWidth = panelW - padding * 2.0f;
-  const float contentHeight = panelH - padding * 2.0f;
+  const float padding = instance.panel->hasDecoration() ? instance.panel->contentScale() * Style::panelPadding : 0.0F;
+  const float contentWidth = panelW - padding * 2.0F;
+  const float contentHeight = panelH - padding * 2.0F;
   {
     UiPhaseScope updatePhase(UiPhase::Update);
     instance.panel->update(*m_renderContext);
@@ -584,6 +587,9 @@ void PersistentPanelHost::onConfigReloaded() {
     if (instance->bgNode != nullptr) {
       instance->bgNode->setPanelStyle(m_config->config().shell.panel.borders);
       instance->bgNode->setFill(colorSpecFromRole(ColorRole::Surface, backgroundOpacity));
+      if (m_config->config().shell.panel.borders) {
+        instance->bgNode->setBorder(colorSpecFromRole(ColorRole::Outline, backgroundOpacity), Style::borderWidth);
+      }
     }
     if (instance->surface != nullptr) {
       instance->surface->requestLayout();

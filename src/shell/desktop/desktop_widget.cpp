@@ -10,24 +10,24 @@
 #include <string>
 
 namespace {
-  constexpr float kMinContentFit = 0.05f;
-  constexpr float kMaxContentFit = 20.0f;
+  constexpr float kMinContentFit = 0.05F;
+  constexpr float kMaxContentFit = 20.0F;
 } // namespace
 
 float DesktopWidget::boxInnerWidth() const noexcept {
-  if (m_boxWidth <= 0.0f) {
-    return 0.0f;
+  if (m_boxWidth <= 0.0F) {
+    return 0.0F;
   }
-  const float pad = m_bgEnabled ? std::round(m_bgPadding * m_baseScale) : 0.0f;
-  return std::max(1.0f, m_boxWidth - 2.0f * pad);
+  const float pad = m_bgEnabled ? std::round(m_bgPadding * m_baseScale) : 0.0F;
+  return std::max(1.0F, m_boxWidth - 2.0F * pad);
 }
 
 float DesktopWidget::boxInnerHeight() const noexcept {
-  if (m_boxHeight <= 0.0f) {
-    return 0.0f;
+  if (m_boxHeight <= 0.0F) {
+    return 0.0F;
   }
-  const float pad = m_bgEnabled ? std::round(m_bgPadding * m_baseScale) : 0.0f;
-  return std::max(1.0f, m_boxHeight - 2.0f * pad);
+  const float pad = m_bgEnabled ? std::round(m_bgPadding * m_baseScale) : 0.0F;
+  return std::max(1.0F, m_boxHeight - 2.0F * pad);
 }
 
 void DesktopWidget::layout(Renderer& renderer) {
@@ -49,17 +49,17 @@ void DesktopWidget::layout(Renderer& renderer) {
   // When the tile has an explicit box, scale the content to fill it (aspect-preserved) and
   // re-lay out so text/glyphs are rasterized crisp at the fitted scale. The fit tracks the widest
   // content seen (high-water mark) so dynamic text keeps a stable font instead of breathing.
-  if (m_boxWidth > 0.0f && m_boxHeight > 0.0f && m_contentRoot != nullptr) {
+  if (m_boxWidth > 0.0F && m_boxHeight > 0.0F && m_contentRoot != nullptr) {
     if (m_fitRefScale != m_baseScale) {
-      m_maxNaturalWidth = 0.0f;
-      m_maxNaturalHeight = 0.0f;
+      m_maxNaturalWidth = 0.0F;
+      m_maxNaturalHeight = 0.0F;
       m_fitRefScale = m_baseScale;
     }
-    m_maxNaturalWidth = std::max({m_maxNaturalWidth, 1.0f, m_contentRoot->width()});
-    m_maxNaturalHeight = std::max({m_maxNaturalHeight, 1.0f, m_contentRoot->height()});
+    m_maxNaturalWidth = std::max({m_maxNaturalWidth, 1.0F, m_contentRoot->width()});
+    m_maxNaturalHeight = std::max({m_maxNaturalHeight, 1.0F, m_contentRoot->height()});
 
     const float fitted = contentScaleForBox(m_boxWidth, m_boxHeight);
-    if (std::abs(fitted - m_baseScale) > 0.001f * m_baseScale) {
+    if (std::abs(fitted - m_baseScale) > 0.001F * m_baseScale) {
       m_contentScale = fitted;
       doLayout(renderer);
     }
@@ -69,12 +69,12 @@ void DesktopWidget::layout(Renderer& renderer) {
 }
 
 float DesktopWidget::contentScaleForBox(float boxWidth, float boxHeight) const noexcept {
-  if (boxWidth <= 0.0f || boxHeight <= 0.0f || m_maxNaturalWidth <= 0.0f || m_maxNaturalHeight <= 0.0f) {
+  if (boxWidth <= 0.0F || boxHeight <= 0.0F || m_maxNaturalWidth <= 0.0F || m_maxNaturalHeight <= 0.0F) {
     return m_contentScale;
   }
-  const float pad = m_bgEnabled ? std::round(m_bgPadding * m_baseScale) : 0.0f;
-  const float innerW = std::max(1.0f, boxWidth - 2.0f * pad);
-  const float innerH = std::max(1.0f, boxHeight - 2.0f * pad);
+  const float pad = m_bgEnabled ? std::round(m_bgPadding * m_baseScale) : 0.0F;
+  const float innerW = std::max(1.0F, boxWidth - 2.0F * pad);
+  const float innerH = std::max(1.0F, boxHeight - 2.0F * pad);
   const float fit =
       std::clamp(std::min(innerW / m_maxNaturalWidth, innerH / m_maxNaturalHeight), kMinContentFit, kMaxContentFit);
   return m_baseScale * fit;
@@ -100,33 +100,33 @@ bool DesktopWidget::hasVisibleBackground() const noexcept {
     return false;
   }
   const Node* node = presentationRoot();
-  return node != nullptr && node->visible() && node->opacity() > 0.001f;
+  return node != nullptr && node->visible() && node->opacity() > 0.001F;
 }
 
 float DesktopWidget::intrinsicWidth() const noexcept {
-  if (m_boxWidth > 0.0f) {
+  if (m_boxWidth > 0.0F) {
     return m_boxWidth;
   }
   if (m_contentRoot == nullptr) {
-    return 0.0f;
+    return 0.0F;
   }
   float w = m_contentRoot->width();
   if (m_bgEnabled) {
-    w += 2.0f * std::round(m_bgPadding * m_baseScale);
+    w += 2.0F * std::round(m_bgPadding * m_baseScale);
   }
   return w;
 }
 
 float DesktopWidget::intrinsicHeight() const noexcept {
-  if (m_boxHeight > 0.0f) {
+  if (m_boxHeight > 0.0F) {
     return m_boxHeight;
   }
   if (m_contentRoot == nullptr) {
-    return 0.0f;
+    return 0.0F;
   }
   float h = m_contentRoot->height();
   if (m_bgEnabled) {
-    h += 2.0f * std::round(m_bgPadding * m_baseScale);
+    h += 2.0F * std::round(m_bgPadding * m_baseScale);
   }
   return h;
 }
@@ -202,10 +202,10 @@ bool DesktopWidget::applySetting(
   };
 
   ColorSpec bgColor = getColorSpec("background_color", colorSpecFromRole(ColorRole::Surface));
-  bgColor.alpha *= std::clamp(getFloat("background_opacity", 0.8f), 0.0f, 1.0f);
+  bgColor.alpha *= std::clamp(getFloat("background_opacity", 0.8F), 0.0F, 1.0F);
   m_bgColor = bgColor;
-  m_bgRadius = getFloat("background_radius", 12.0f);
-  m_bgPadding = getFloat("background_padding", 10.0f);
+  m_bgRadius = getFloat("background_radius", 12.0F);
+  m_bgPadding = getFloat("background_padding", 10.0F);
 
   layout(renderer);
   return true;
@@ -216,18 +216,18 @@ void DesktopWidget::applyBackground() {
     return;
   }
 
-  const bool boxed = m_boxWidth > 0.0f && m_boxHeight > 0.0f;
-  const float pad = m_bgEnabled ? std::round(m_bgPadding * m_baseScale) : 0.0f;
+  const bool boxed = m_boxWidth > 0.0F && m_boxHeight > 0.0F;
+  const float pad = m_bgEnabled ? std::round(m_bgPadding * m_baseScale) : 0.0F;
   const float contentW = m_contentRoot->width();
   const float contentH = m_contentRoot->height();
-  const float boxW = boxed ? m_boxWidth : contentW + 2.0f * pad;
-  const float boxH = boxed ? m_boxHeight : contentH + 2.0f * pad;
+  const float boxW = boxed ? m_boxWidth : contentW + 2.0F * pad;
+  const float boxH = boxed ? m_boxHeight : contentH + 2.0F * pad;
 
   // Center the content inside the tile.
-  m_contentRoot->setPosition(std::round((boxW - contentW) * 0.5f), std::round((boxH - contentH) * 0.5f));
+  m_contentRoot->setPosition(std::round((boxW - contentW) * 0.5F), std::round((boxH - contentH) * 0.5F));
 
   if (m_bgEnabled && m_bgBox != nullptr) {
-    m_bgBox->setPosition(0.0f, 0.0f);
+    m_bgBox->setPosition(0.0F, 0.0F);
     m_bgBox->setSize(boxW, boxH);
     m_bgBox->setFill(m_bgColor);
     m_bgBox->setRadius(std::round(m_bgRadius * m_baseScale));

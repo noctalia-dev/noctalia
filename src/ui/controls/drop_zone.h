@@ -21,7 +21,7 @@ public:
   void setValue(std::string value);
   void setOnDrop(std::string value);
   void setEnabled(bool enabled);
-  void setDragOver(bool dragOver, float draggedHeight = 0.0f);
+  void setDragOver(bool dragOver, float draggedHeight = 0.0F);
   void setExpandOnDrag(bool enabled);
   void setCollapsedHeight(float height);
   void setHitSlop(float hitSlop);
@@ -53,12 +53,12 @@ private:
   std::string m_onDrop;
   ColorSpec m_zoneFill = clearColorSpec();
   ColorSpec m_zoneBorder = clearColorSpec();
-  float m_zoneBorderWidth = 0.0f;
-  float m_collapsedHeight = 0.0f;
-  float m_animatedHeight = 0.0f;
-  float m_hitSlop = 0.0f;
-  float m_zoneRadius = 0.0f;
-  float m_idleRadius = 0.0f;
+  float m_zoneBorderWidth = 0.0F;
+  float m_collapsedHeight = 0.0F;
+  float m_animatedHeight = 0.0F;
+  float m_hitSlop = 0.0F;
+  float m_zoneRadius = 0.0F;
+  float m_idleRadius = 0.0F;
   std::uint32_t m_heightAnimation = 0;
   bool m_hasZoneFill = false;
   bool m_hasZoneBorder = false;

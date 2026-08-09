@@ -80,8 +80,8 @@ private:
   std::optional<std::size_t> m_stashedTabFocusIndex;
   std::optional<std::string> m_stashedTabFocusKey;
   std::uint32_t m_lastSerial = 0;
-  float m_lastPointerX = 0.0f;
-  float m_lastPointerY = 0.0f;
+  float m_lastPointerX = 0.0F;
+  float m_lastPointerY = 0.0F;
   bool m_hasPointerPosition = false;
   bool m_cancelingPointerCapture = false;
 };

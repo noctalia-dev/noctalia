@@ -24,6 +24,7 @@ namespace noctalia::config {
     constexpr int kSysmonPresentationMigrationVersion = 9;
     constexpr int kKeyboardLayoutShowGlyphMigrationVersion = 10;
     constexpr int kWorkspacesDisplayMigrationVersion = 11;
+    constexpr int kKeyboardLayoutCustomLabelsMigrationVersion = 12;
     constexpr std::int64_t kMaxBarRadius = 500;
     constexpr std::array<std::string_view, 5> kBarRadiusKeys = {
         "radius", "radius_top_left", "radius_top_right", "radius_bottom_left", "radius_bottom_right",
@@ -549,6 +550,72 @@ namespace noctalia::config {
       });
     }
 
+    template <typename OnChanged> void migrateKeyboardLayoutCustomLabels(toml::table& root, OnChanged&& onChanged) {
+      auto* widgets = root["widget"].as_table();
+      if (widgets == nullptr) {
+        return;
+      }
+
+      const auto ensureTable = [](toml::table& parent, std::string_view key) -> toml::table* {
+        if (auto* existing = parent[key].as_table()) {
+          return existing;
+        }
+        if (parent.contains(key)) {
+          return nullptr;
+        }
+        parent.insert(key, toml::table{});
+        return parent[key].as_table();
+      };
+
+      toml::table* targetLabels = nullptr;
+      for (auto& [widgetName, widgetNode] : *widgets) {
+        auto* widget = widgetNode.as_table();
+        if (widget == nullptr || (*widget)["type"].value_or(std::string(widgetName.str())) != "keyboard_layout") {
+          continue;
+        }
+        auto* customLabels = (*widget)["custom_labels"].as_table();
+        if (customLabels == nullptr) {
+          continue;
+        }
+
+        if (targetLabels == nullptr) {
+          auto* shell = ensureTable(root, "shell");
+          auto* keyboardLayout = shell != nullptr ? ensureTable(*shell, "keyboard_layout") : nullptr;
+          targetLabels = keyboardLayout != nullptr ? ensureTable(*keyboardLayout, "custom_labels") : nullptr;
+        }
+        if (targetLabels == nullptr) {
+          continue;
+        }
+
+        bool keptCanonicalConflict = false;
+        for (const auto& [layoutName, labelNode] : *customLabels) {
+          const auto label = labelNode.value<std::string>();
+          if (!label.has_value()) {
+            continue;
+          }
+          if (targetLabels->contains(layoutName)) {
+            const auto existing = (*targetLabels)[layoutName].value<std::string>();
+            keptCanonicalConflict = keptCanonicalConflict || !existing.has_value() || *existing != *label;
+            continue;
+          }
+          targetLabels->insert(layoutName, *label);
+        }
+        widget->erase("custom_labels");
+        onChanged("widget." + std::string(widgetName.str()), keptCanonicalConflict);
+      }
+    }
+
+    void migrateKeyboardLayoutCustomLabelsSidecar(toml::table& root, schema::Diagnostics& diag) {
+      migrateKeyboardLayoutCustomLabels(root, [&diag](const std::string& path, bool keptCanonicalConflict) {
+        diag.warn(
+            path,
+            keptCanonicalConflict
+                ? "moved custom_labels to shell.keyboard_layout.custom_labels; kept conflicting canonical labels"
+                : "moved custom_labels to shell.keyboard_layout.custom_labels"
+        );
+      });
+    }
+
     void migrateCustomButtonCommandsSidecar(toml::table& root, schema::Diagnostics& diag) {
       migrateCustomButtonCommands(root, [&diag](const std::string& path, std::string_view message) {
         diag.warn(path, std::string(message));
@@ -664,6 +731,11 @@ namespace noctalia::config {
             .toVersion = kWorkspacesDisplayMigrationVersion,
             .summary = "widget: split workspaces display into label_source and show_labels",
             .apply = migrateWorkspacesDisplaySettingsSidecar,
+        },
+        {
+            .toVersion = kKeyboardLayoutCustomLabelsMigrationVersion,
+            .summary = "keyboard layout: move custom labels to shell configuration",
+            .apply = migrateKeyboardLayoutCustomLabelsSidecar,
         },
     };
     return migrations;
@@ -792,6 +864,16 @@ namespace noctalia::config {
           .migrationVersion = kWorkspacesDisplayMigrationVersion,
           .path = path,
           .message = "workspaces display is now label_source and show_labels",
+      });
+    });
+    migrateKeyboardLayoutCustomLabels(root, [&issues](const std::string& path, bool keptCanonicalConflict) {
+      issues.push_back({
+          .migrationVersion = kKeyboardLayoutCustomLabelsMigrationVersion,
+          .path = path,
+          .message = keptCanonicalConflict
+              ? "keyboard layout custom_labels moved to shell.keyboard_layout.custom_labels; conflicting canonical "
+                "labels were kept"
+              : "keyboard layout custom_labels moved to shell.keyboard_layout.custom_labels",
       });
     });
   }

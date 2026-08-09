@@ -32,8 +32,8 @@ namespace shell::dock {
     AnimationManager animations;
     std::unique_ptr<Node> sceneRoot;
     Node* slideRoot = nullptr;
-    float slideHiddenDx = 0.0f;
-    float slideHiddenDy = 0.0f;
+    float slideHiddenDx = 0.0F;
+    float slideHiddenDy = 0.0F;
     Box* shadow = nullptr;
     Box* panel = nullptr;
     Flex* row = nullptr;
@@ -41,17 +41,17 @@ namespace shell::dock {
     std::vector<shell::dock::DockItemView> items;
     DockSnapshot snapshot;
     bool pointerInside = false;
-    float hoverPointerMain = 0.0f;
+    float hoverPointerMain = 0.0F;
     bool hoverPointerValid = false;
     InputArea* launcherArea = nullptr;
     Node* launcherIconNode = nullptr;
-    float launcherRestMainPos = 0.0f;
-    float launcherRestCrossPos = 0.0f;
-    float launcherHoverMainOffset = 0.0f;
-    float launcherVisualScale = -1.0f;
+    float launcherRestMainPos = 0.0F;
+    float launcherRestCrossPos = 0.0F;
+    float launcherHoverMainOffset = 0.0F;
+    float launcherVisualScale = -1.0F;
     AnimationManager::Id launcherScaleAnimId = 0;
     // Auto-hide: tracks visibility [0,1] driven by hover.
-    float hideOpacity = 1.0f;
+    float hideOpacity = 1.0F;
     AnimationManager::Id hideAnimId = 0;
     // smart_auto_hide: active workspace empty (or overview open) — keep the dock visible.
     bool smartAutoHidePinnedVisible = false;
@@ -65,8 +65,8 @@ namespace shell::dock {
       bool pinned = false;         // source item is pinned (only pinned items may be reordered)
       std::size_t sourceIndex = 0; // index into snapshot.items being dragged
       std::size_t targetIndex = 0; // current intended insert position (among pinned items)
-      float startMain = 0.0f;      // pointer main-axis position when press was received
-      float currentMain = 0.0f;    // current pointer main-axis position
+      float startMain = 0.0F;      // pointer main-axis position when press was received
+      float currentMain = 0.0F;    // current pointer main-axis position
       Timer holdTimer;             // fires after hold delay to arm the drag
     } drag;
   };

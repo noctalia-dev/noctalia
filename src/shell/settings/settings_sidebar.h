@@ -19,7 +19,7 @@ namespace settings {
     const Config& config;
     const std::vector<SettingsSection>& sections;
     const std::vector<std::string>& availableBars;
-    float scale = 1.0f;
+    float scale = 1.0F;
     bool globalSearchActive = false;
 
     ScrollViewState& sidebarScrollState;

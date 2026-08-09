@@ -5,6 +5,7 @@ namespace noctalia::sysmon {
   enum class Stat {
     CpuUsage,
     CpuTemp,
+    CpuFreq,
     GpuTemp,
     GpuUsage,
     GpuVram,
@@ -32,6 +33,9 @@ namespace noctalia::sysmon {
     case Stat::CpuUsage:
       return ThresholdProfile{.activityDefault = 50.0, .criticalDefault = 90.0};
     case Stat::CpuTemp:
+      return ThresholdProfile{.activityDefault = 60.0, .criticalDefault = 85.0};
+    case Stat::CpuFreq:
+      return ThresholdProfile{.activityDefault = 2.5, .criticalDefault = 4.5, .maxValue = 8.0, .step = 0.1};
     case Stat::GpuTemp:
       return ThresholdProfile{.activityDefault = 60.0, .criticalDefault = 85.0};
     case Stat::GpuUsage:

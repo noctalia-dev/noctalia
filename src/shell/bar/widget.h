@@ -81,6 +81,10 @@ public:
       const noctalia::bar::WidgetActionBindings::ActionTable* barActions, std::string_view barContext,
       const noctalia::bar::WidgetActionDispatcher* dispatcher
   );
+  void applyCommonOptions(
+      const CommonWidgetOptions& options, FontWeight barFontWeight, const std::string& barFontFamily,
+      std::string_view logContext
+  );
   void setActionContext(IpcInvocationContext context) { m_actionContext = std::move(context); }
   [[nodiscard]] const noctalia::bar::WidgetActionBindings& gestureBindings() const noexcept {
     return m_gestureBindings;
@@ -159,7 +163,7 @@ protected:
   virtual void doLayout(Renderer& renderer, float containerWidth, float containerHeight) = 0;
   virtual void doUpdate(Renderer& renderer) { (void)renderer; }
 
-  float m_contentScale = 1.0f;
+  float m_contentScale = 1.0F;
   FontWeight m_labelFontWeight = FontWeight::Medium;
   std::string m_labelFontFamily; // empty = inherit renderer-global family
   std::string m_configName;
@@ -177,7 +181,7 @@ protected:
   Node* m_capsuleShell = nullptr;
   Box* m_capsuleBox = nullptr;
   Box* m_hoverBox = nullptr;
-  float m_hoverProgress = 0.0f;
+  float m_hoverProgress = 0.0F;
 
 private:
   void installGestureHandlers();

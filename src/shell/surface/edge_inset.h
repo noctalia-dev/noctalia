@@ -9,7 +9,7 @@ namespace shell::surface_edge_inset {
   // Horizontal offset -> layer margin + reveal inner padding; small offsets shrink inner pad only.
   struct Horizontal {
     std::int32_t layerMargin = 0;
-    float innerPadding = 0.0f;
+    float innerPadding = 0.0F;
   };
 
   [[nodiscard]] inline Horizontal resolve(int offsetX, float maxInnerPaddingLogical) {

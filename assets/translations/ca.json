@@ -2498,10 +2498,6 @@
           "description": "Tinta la imatge personalitzada amb el color d'icona del widget",
           "label": "Acoloreix la imatge personalitzada"
         },
-        "custom-labels": {
-          "description": "Mapeja noms de disposició de teclat a etiquetes personalitzades",
-          "label": "Etiquetes personalitzades"
-        },
         "detached-panel": {
           "description": "Obre el calaix com a panell flotant amb el seu propi fons en lloc de fusionar-se amb la barra",
           "label": "Panell desacoblat"

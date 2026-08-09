@@ -20,6 +20,7 @@ niri_overview_type_to_launch_enabled = false # opt in to type-to-launch from nir
 polkit_agent          = false
 password_style        = "default"    # default | random
 settings_show_advanced = true        # show advanced settings by default in Settings
+# settings_window_translucent = false  # translucent settings window background
 show_location         = true         # hide weather location text in shell UI when false
 # app_icon_colorize   = false        # recolor application icons across the shell
 # app_icon_color      = "on_surface" # ColorSpec role or #hex when colorize is enabled
@@ -222,6 +223,8 @@ tint_intensity          = 0.3         # surface-color tint over the lock screen 
 [system.monitor]
 enabled = true                      # sample CPU, memory, network, load, temperature, GPU VRAM, and disk statistics
 cpu_poll_seconds = 2.0              # CPU usage, CPU temperature, and load average
+cpu_freq_activity_threshold = 2.5   # GHz; value tint starts when CPU clock crosses this
+cpu_freq_critical_threshold = 4.5   # GHz; full highlight at/above this
 gpu_poll_seconds = 5.0              # GPU temperature and VRAM usage
 memory_poll_seconds = 2.0           # RAM usage
 network_poll_seconds = 3.0          # network throughput

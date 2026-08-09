@@ -50,11 +50,11 @@ namespace {
 
   constexpr Logger kLog("wp-panel");
   constexpr auto kFilterDebounceInterval = std::chrono::milliseconds(120);
-  constexpr float kMinTileWidth = 180.0f;
-  constexpr float kMonitorSelectMinWidth = 136.0f;
-  constexpr float kFavoriteSelectMinWidth = 168.0f;
+  constexpr float kMinTileWidth = 180.0F;
+  constexpr float kMonitorSelectMinWidth = 136.0F;
+  constexpr float kFavoriteSelectMinWidth = 168.0F;
   constexpr float kFavoritesMetaRowGap = Style::spaceSm;
-  constexpr float kTileAspect = 0.78f; // height / width — leaves room for label under widescreen thumb
+  constexpr float kTileAspect = 0.78F; // height / width — leaves room for label under widescreen thumb
 
   [[nodiscard]] std::size_t themeModeSegmentIndex(ThemeMode mode) {
     switch (mode) {
@@ -274,7 +274,7 @@ public:
   [[nodiscard]] std::size_t itemCount() const override { return m_entries == nullptr ? 0U : m_entries->size(); }
 
   [[nodiscard]] std::unique_ptr<Node> createTile() override {
-    auto tile = std::make_unique<WallpaperTile>(0.0f, 0.0f, m_scale);
+    auto tile = std::make_unique<WallpaperTile>(0.0F, 0.0F, m_scale);
     tile->setThumbnailService(m_thumbnails);
     tile->setOnStarClick([this](const WallpaperEntry& entry) {
       if (m_onStarToggle) {
@@ -424,8 +424,8 @@ void WallpaperPanel::create() {
           .controlHeight = Style::controlHeightSm * scale,
           .horizontalPadding = Style::spaceMd * scale,
           .surfaceOpacity = panelCardOpacity(),
-          .width = 210.0f * scale,
-          .height = 0.0f,
+          .width = 210.0F * scale,
+          .height = 0.0F,
           .onChange =
               [this](const std::string& text) {
                 if (text == m_pendingFilterQuery) {
@@ -720,7 +720,7 @@ void WallpaperPanel::create() {
           .rowGap = Style::spaceMd * scale,
           .overscanRows = 2,
           .adapter = m_adapter.get(),
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
           .onSelectionChanged =
               [this](std::optional<std::size_t> idx) {
                 if (m_syncingGridSelectionVisual) {
@@ -766,12 +766,12 @@ void WallpaperPanel::create() {
               .justify = FlexJustify::Center,
               .gap = Style::spaceMd * scale,
               .fillWidth = true,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
               .visible = false,
           },
           ui::spinner({
               .out = &m_spinner,
-              .spinnerSize = Style::fontSizeTitle * scale * 1.6f,
+              .spinnerSize = Style::fontSizeTitle * scale * 1.6F,
               .spinning = false,
           }),
           ui::label({
@@ -917,8 +917,8 @@ void WallpaperPanel::onClose() {
   m_scanPending = false;
 
   clearReleasedRoot();
-  m_lastWidth = 0.0f;
-  m_lastHeight = 0.0f;
+  m_lastWidth = 0.0F;
+  m_lastHeight = 0.0F;
   m_thumbnailRefreshPending = false;
 }
 
@@ -1362,7 +1362,7 @@ void WallpaperPanel::rebindGrid(bool resetScroll) {
   }
   m_grid->notifyDataChanged();
   if (resetScroll || m_visibleEntries.empty()) {
-    m_grid->scrollView().setScrollOffset(0.0f);
+    m_grid->scrollView().setScrollOffset(0.0F);
   }
   if (m_visibleEntries.empty() || !hasVisibleSelection() || !m_gridKeyboardActive) {
     m_grid->setSelectedIndex(std::nullopt);
@@ -1490,7 +1490,7 @@ bool WallpaperPanel::handleKeyEvent(std::uint32_t sym, std::uint32_t modifiers) 
     const float viewportW = m_grid->scrollView().contentViewportWidth();
     const float cellW = kMinTileWidth * contentScale();
     const float gap = Style::spaceMd * contentScale();
-    if (cellW > 0.0f) {
+    if (cellW > 0.0F) {
       columns = std::max<std::size_t>(1, static_cast<std::size_t>((viewportW + gap) / (cellW + gap)));
     }
   }
@@ -1810,7 +1810,7 @@ void WallpaperPanel::applyColorWallpaper() {
     }
 
     Color rgb = *result;
-    rgb.a = 1.0f;
+    rgb.a = 1.0F;
     applyWallpaperPath(colorWallpaperPath(rgb), nullptr);
     syncBrowseChrome();
     kLog.info("applied color wallpaper {}", colorWallpaperPath(rgb));

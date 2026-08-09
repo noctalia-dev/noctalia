@@ -30,6 +30,7 @@ struct SystemStats;
 enum class SysmonStat {
   CpuUsage,
   CpuTemp,
+  CpuFreq,
   GpuTemp,
   GpuUsage,
   GpuVram,
@@ -70,6 +71,7 @@ public:
   ~SysmonWidget() override;
 
   void create() override;
+  [[nodiscard]] static const char* glyphName(SysmonStat stat);
 
 private:
   void doLayout(Renderer& renderer, float containerWidth, float containerHeight) override;
@@ -80,7 +82,6 @@ private:
   void syncGaugeProgress(double normalized);
   [[nodiscard]] std::string formatValue() const;
   [[nodiscard]] double currentNormalized();
-  [[nodiscard]] static const char* glyphName(SysmonStat stat);
   void scheduleNextUpdate(std::chrono::steady_clock::time_point latestSampleAt);
   void clearGraph();
   void syncVisualPalette();
@@ -108,7 +109,7 @@ private:
   ConfigService& m_configService;
   bool m_showGlyph;
   bool m_showValue;
-  float m_labelMinWidth = 0.0f;
+  float m_labelMinWidth = 0.0F;
   std::string m_diskPath;
   std::string m_networkInterface;
   FormatUnits::DecimalByteRateUnit m_networkSpeedUnit = FormatUnits::DecimalByteRateUnit::Auto;
@@ -133,7 +134,7 @@ private:
   double m_tempMax = 80.0;
   Box* m_chartBg = nullptr;
   Graph* m_graph = nullptr;
-  float m_scrollProgress = 1.0f;
+  float m_scrollProgress = 1.0F;
   Timer m_updateTimer;
   FrameRateLimiter m_redrawLimiter{std::chrono::milliseconds{200}};
 

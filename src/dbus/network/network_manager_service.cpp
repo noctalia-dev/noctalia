@@ -2155,6 +2155,12 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
                 } catch (const sdbus::Error&) {
                 }
               }
+              if (auto freqIt = apProperties.find("Frequency"); freqIt != apProperties.end()) {
+                try {
+                  next->frequencyMhz = freqIt->second.get<std::uint32_t>();
+                } catch (const sdbus::Error&) {
+                }
+              }
             }
             finish();
           });

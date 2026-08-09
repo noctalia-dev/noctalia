@@ -11,6 +11,16 @@ enabled = false
 capsule = true
 capsule_radius = "auto"
 
+[desktop_widgets]
+enabled = false
+
+[desktop_widgets.widget.calendar_main]
+type = "calendar"
+
+[desktop_widgets.widget.calendar_main.settings]
+show_events = true
+show_week_numbers = true
+
 [plugins]
 enabled = ["noctalia/wallhaven"]
 

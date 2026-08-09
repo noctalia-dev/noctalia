@@ -6,6 +6,7 @@
 #include "notification/notifications.h"
 #include "scripting/luau_host.h"
 #include "scripting/plugin_bindings.h"
+#include "scripting/plugin_id.h"
 #include "scripting/plugin_state_store.h"
 #include "scripting/script_api_context.h"
 #include "scripting/script_worker_pool.h"
@@ -37,8 +38,8 @@ namespace scripting {
     // Per-call budgets, spent in worker-thread CPU time (see threadCpuTime() in
     // luau_host.cpp).
     constexpr auto kLoadBudget = std::chrono::milliseconds(100);
-    constexpr auto kUpdateBudget = std::chrono::milliseconds(12);
-    constexpr auto kCallbackBudget = std::chrono::milliseconds(25);
+    // Regular plugin calls share one CPU ceiling regardless of their event source.
+    constexpr auto kCallBudget = std::chrono::milliseconds(25);
     // Error/crash budget: too many timeouts or hard errors in a window marks the
     // runtime unhealthy, which stops feeding it events until the next reload.
     constexpr auto kTimeoutWindow = std::chrono::seconds(60);
@@ -431,7 +432,19 @@ namespace scripting {
       event.hostId = hostId;
       event.callbackRef = callbackRef;
       event.commandResult = std::move(result);
-      event.budget = kCallbackBudget;
+      event.budget = kCallBudget;
+      (void)enqueue(std::move(event));
+    }
+
+    void enqueueAsyncFileResult(std::uint64_t hostId, int callbackRef, bool ok, std::string data, std::string error) {
+      ScriptEvent event;
+      event.kind = ScriptEventKind::AsyncFileResult;
+      event.hostId = hostId;
+      event.callbackRef = callbackRef;
+      event.fileOk = ok;
+      event.fileData = std::move(data);
+      event.fileError = std::move(error);
+      event.budget = kCallBudget;
       (void)enqueue(std::move(event));
     }
 
@@ -441,7 +454,7 @@ namespace scripting {
       event.hostId = hostId;
       event.callbackRef = callbackRef;
       event.processMatchResult = matched;
-      event.budget = kCallbackBudget;
+      event.budget = kCallBudget;
       (void)enqueue(std::move(event));
     }
 
@@ -456,7 +469,7 @@ namespace scripting {
       event.httpStatus = status;
       event.httpBody = std::move(body);
       event.httpIsDownload = isDownload;
-      event.budget = kCallbackBudget;
+      event.budget = kCallBudget;
       (void)enqueue(std::move(event));
     }
 
@@ -467,7 +480,7 @@ namespace scripting {
       event.callbackRef = callbackRef;
       event.soundLoadOk = ok;
       event.soundLoadError = std::move(error);
-      event.budget = kCallbackBudget;
+      event.budget = kCallBudget;
       (void)enqueue(std::move(event));
     }
 
@@ -477,7 +490,7 @@ namespace scripting {
       event.hostId = hostId;
       event.callbackRef = callbackRef;
       event.colorPickerResult = std::move(color);
-      event.budget = kCallbackBudget;
+      event.budget = kCallBudget;
       (void)enqueue(std::move(event));
     }
 
@@ -486,7 +499,7 @@ namespace scripting {
       event.kind = ScriptEventKind::StateWatchResult;
       event.callbackRef = callbackRef;
       event.stateJson = std::move(json);
-      event.budget = kCallbackBudget;
+      event.budget = kCallBudget;
       (void)enqueue(std::move(event));
     }
 
@@ -496,7 +509,7 @@ namespace scripting {
       event.hostId = hostId;
       event.callbackRef = callbackRef;
       event.first = std::move(line);
-      event.budget = kCallbackBudget;
+      event.budget = kCallBudget;
       (void)enqueue(std::move(event));
     }
 
@@ -509,7 +522,7 @@ namespace scripting {
       event.first = std::move(line);
       event.httpOk = ok;
       event.httpStatus = status;
-      event.budget = kCallbackBudget;
+      event.budget = kCallBudget;
       (void)enqueue(std::move(event));
     }
 
@@ -577,6 +590,16 @@ namespace scripting {
         bindingContext.beginCall(event.snapshot);
         const bool ok = host->callAsyncCommandCallback(event.callbackRef, event.commandResult, event.budget);
         return collectResult(event, "async command callback", ok);
+      }
+
+      if (event.kind == ScriptEventKind::AsyncFileResult) {
+        if (event.hostId != host->hostId() || !host->hasAsyncFileCallback(event.callbackRef)) {
+          return std::nullopt;
+        }
+        bindingContext.beginCall(event.snapshot);
+        const bool ok =
+            host->callAsyncFileCallback(event.callbackRef, event.fileOk, event.fileData, event.fileError, event.budget);
+        return collectResult(event, "async file callback", ok);
       }
 
       if (event.kind == ScriptEventKind::AsyncProcessMatchResult) {
@@ -693,14 +716,24 @@ namespace scripting {
 
     ScriptResult processLoad(const ScriptEvent& event) {
       teardownHost(0, event.snapshot, ScriptExitReason::Reload);
+      // The host requires a canonical entry id. Refuse the load loudly here rather than
+      // letting the constructor throw on a worker thread.
+      if (!isValidPluginEntryId(runtimeName)) {
+        kLog.error("refusing to load '{}': not a canonical author/plugin:entry id", runtimeName);
+        ScriptResult failed;
+        failed.generation = generation;
+        failed.ok = false;
+        failed.error = "invalid entry id";
+        failed.unhealthy = true;
+        return failed;
+      }
 
-      host = std::make_unique<LuauHost>(scriptApi);
+      host = std::make_unique<LuauHost>(scriptApi, runtimeName);
       reportedModuleCount = 0;
       bindingContext.settings = &settings;
       bindingContext.host = host.get();
       bindingContext.ownerId = runtimeName;
       host->setPluginDir(pluginDir);
-      host->setPluginId(runtimeName.substr(0, runtimeName.find(':')));
       host->loadTranslations();
       host->setHttpClient(httpClient);
       host->setScriptContext(&bindingContext);
@@ -721,6 +754,13 @@ namespace scripting {
           state->enqueueAsyncResult(hostId, callbackRef, std::move(result));
         }
       });
+      host->setAsyncFileResultHandler(
+          [weak](std::uint64_t hostId, int callbackRef, bool ok, std::string data, std::string error) {
+            if (auto state = weak.lock()) {
+              state->enqueueAsyncFileResult(hostId, callbackRef, ok, std::move(data), std::move(error));
+            }
+          }
+      );
       host->setAsyncProcessMatchResultHandler([weak](std::uint64_t hostId, int callbackRef, bool matched) {
         if (auto state = weak.lock()) {
           state->enqueueAsyncProcessMatchResult(hostId, callbackRef, matched);
@@ -771,10 +811,10 @@ namespace scripting {
         ScriptEvent updateEvent = event;
         updateEvent.kind = ScriptEventKind::Update;
         updateEvent.functionName = "update";
-        updateEvent.budget = kUpdateBudget;
+        updateEvent.budget = kCallBudget;
         if (host->hasGlobal("update")) {
           bindingContext.beginCall(event.snapshot);
-          ok = host->callGlobalWithBudget("update", kUpdateBudget);
+          ok = host->callGlobalWithBudget("update", kCallBudget);
           mergeResult(result, collectResult(updateEvent, "update", ok));
         }
       }
@@ -822,7 +862,7 @@ namespace scripting {
           break;
         }
         const ScriptArgs args{static_cast<double>(signal), std::string(reason)};
-        (void)host->callGlobalWithArgsAndBudget("onExit", args, kCallbackBudget);
+        (void)host->callGlobalWithArgsAndBudget("onExit", args, kCallBudget);
       }
       PluginStateStore::instance().removeWatchers(stateToken);
       host.reset();
@@ -1063,7 +1103,7 @@ namespace scripting {
     event.kind = ScriptEventKind::Update;
     event.functionName = "update";
     event.snapshot = std::move(snapshot);
-    event.budget = kUpdateBudget;
+    event.budget = kCallBudget;
     return m_state != nullptr && m_state->enqueue(std::move(event));
   }
 
@@ -1072,7 +1112,7 @@ namespace scripting {
     event.kind = ScriptEventKind::Call;
     event.functionName = std::move(functionName);
     event.snapshot = std::move(snapshot);
-    event.budget = kCallbackBudget;
+    event.budget = kCallBudget;
     return m_state != nullptr && m_state->enqueue(std::move(event));
   }
 
@@ -1084,7 +1124,7 @@ namespace scripting {
     event.functionName = std::move(functionName);
     event.args = std::move(args);
     event.snapshot = std::move(snapshot);
-    event.budget = kCallbackBudget;
+    event.budget = kCallBudget;
     event.coalesce = options.coalesce;
     event.droppable = options.droppable;
     return m_state != nullptr && m_state->enqueue(std::move(event));
@@ -1117,7 +1157,7 @@ namespace scripting {
     event.kind = ScriptEventKind::SettingsChanged;
     event.newSettings = std::move(newSettings);
     event.snapshot = std::move(snapshot);
-    event.budget = kCallbackBudget;
+    event.budget = kCallBudget;
     return m_state != nullptr && m_state->enqueue(std::move(event));
   }
 

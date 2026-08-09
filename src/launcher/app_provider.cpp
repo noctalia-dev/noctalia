@@ -4,6 +4,7 @@
 #include "config/config_service.h"
 #include "core/log.h"
 #include "i18n/i18n.h"
+#include "shell/panel/panel_manager.h"
 #include "system/desktop_entry_launch.h"
 #include "util/fuzzy_match.h"
 #include "util/string_utils.h"
@@ -249,8 +250,15 @@ bool AppProvider::activate(const LauncherResult& result) {
 
     if (m_platform != nullptr) {
       wl_output* launchOutput = nullptr;
-      if (wl_surface* pointerSurface = m_platform->lastPointerSurface(); pointerSurface != nullptr) {
-        launchOutput = m_platform->outputForSurface(pointerSurface);
+
+      if (PanelManager& panelManager = PanelManager::instance(); panelManager.isOpenPanel("launcher")) {
+        launchOutput = panelManager.attachedPanelOutput();
+      }
+
+      if (launchOutput == nullptr) {
+        if (wl_surface* pointerSurface = m_platform->lastPointerSurface(); pointerSurface != nullptr) {
+          launchOutput = m_platform->outputForSurface(pointerSurface);
+        }
       }
       if (launchOutput == nullptr) {
         launchOutput = m_platform->preferredInteractiveOutput();

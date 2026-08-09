@@ -4,6 +4,7 @@
 #include "calendar/caldav_discovery.h"
 #include "calendar/calendar_cache.h"
 #include "calendar/calendar_discovery_state.h"
+#include "calendar/event_link.h"
 #include "calendar/ical_parser.h"
 #include "config/config_service.h"
 #include "core/log.h"
@@ -234,14 +235,25 @@ void CalendarService::retryCredentialMigration() {
   });
 }
 
-void CalendarService::addChangeCallback(ChangeCallback callback) {
-  if (callback) {
-    m_callbacks.push_back(std::move(callback));
+CalendarService::ChangeCallbackId CalendarService::addChangeCallback(ChangeCallback callback) {
+  if (!callback) {
+    return 0;
   }
+  const ChangeCallbackId id = m_nextCallbackId++;
+  m_callbacks.emplace_back(id, std::move(callback));
+  return id;
+}
+
+void CalendarService::removeChangeCallback(ChangeCallbackId callbackId) {
+  if (callbackId == 0) {
+    return;
+  }
+  std::erase_if(m_callbacks, [callbackId](const auto& entry) { return entry.first == callbackId; });
 }
 
 void CalendarService::notifyChanged() {
-  for (auto& callback : m_callbacks) {
+  for (auto& [id, callback] : m_callbacks) {
+    (void)id;
     if (callback) {
       callback();
     }
@@ -1103,6 +1115,7 @@ bool CalendarService::parseCache(std::span<const std::uint8_t> contents) {
       event.calendarName = item.value("calendar", std::string{});
       event.colorHex = item.value("color", std::string{});
       event.location = item.value("location", std::string{});
+      event.url = calendar::resolveEventLink(event.location, item.value("url", std::string{}));
       event.start = fromUnix(item.value("start", std::int64_t{0}));
       event.end = fromUnix(item.value("end", std::int64_t{0}));
       event.allDay = item.value("all_day", false);
@@ -1135,6 +1148,7 @@ void CalendarService::saveCache() {
           {"calendar", event.calendarName},
           {"color", event.colorHex},
           {"location", event.location},
+          {"url", event.url},
           {"start", toUnix(event.start)},
           {"end", toUnix(event.end)},
           {"all_day", event.allDay},

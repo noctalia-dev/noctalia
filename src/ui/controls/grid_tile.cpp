@@ -5,16 +5,16 @@
 void GridTile::doLayout(Renderer& renderer) {
   const float aw = width();
   const float ah = height();
-  if (aw > 0.0f) {
+  if (aw > 0.0F) {
     Flex::setMinWidth(aw);
   }
-  if (ah > 0.0f) {
+  if (ah > 0.0F) {
     Flex::setMinHeight(ah);
   }
   Flex::doLayout(renderer);
-  Flex::setMinWidth(0.0f);
-  Flex::setMinHeight(0.0f);
-  if (aw > 0.0f || ah > 0.0f) {
+  Flex::setMinWidth(0.0F);
+  Flex::setMinHeight(0.0F);
+  if (aw > 0.0F || ah > 0.0F) {
     Flex::setSize(std::max(width(), aw), std::max(height(), ah));
   }
 }

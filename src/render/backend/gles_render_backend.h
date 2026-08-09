@@ -65,8 +65,8 @@ public:
       const Mat3& transform
   ) override;
   void drawScreenCorner(
-      float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,
-      const ScreenCornerStyle& style, const Mat3& transform
+      float surfaceWidth, float surfaceHeight, float width, float height, const ScreenCornerStyle& style,
+      const Mat3& transform
   ) override;
   void drawAudioSpectrum(
       float surfaceWidth, float surfaceHeight, float pixelScaleX, float pixelScaleY, float width, float height,

@@ -42,5 +42,5 @@ private:
   std::function<void(std::string)> m_onAddRequested;
   std::function<void(std::size_t)> m_onRemoveRequested;
   std::function<void(std::size_t, std::size_t)> m_onMoveRequested;
-  float m_scale = 1.0f;
+  float m_scale = 1.0F;
 };

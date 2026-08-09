@@ -38,7 +38,7 @@ struct BarCapsuleGroupStyle {
   std::optional<ColorSpec> foreground;
   float padding = Style::barCapsulePadding;
   std::optional<float> radius;
-  float opacity = 1.0f;
+  float opacity = 1.0F;
   // Collapse the group to its first member; hovering the capsule reveals the rest inline.
   bool accordion = false;
   BarAccordionDirection accordionDirection = BarAccordionDirection::End;
@@ -138,10 +138,10 @@ struct BarConfig {
   bool reserveSpace = true;  // reserve compositor exclusive zone; applies with or without auto_hide
   std::string layer = "top"; // top | overlay — attached panels use the same layer
   std::int32_t thickness = Style::barThicknessDefault;
-  float backgroundOpacity = 1.0f;
+  float backgroundOpacity = 1.0F;
   // Inside outline for the bar background; attached panels inherit the resolved values.
   ColorSpec border = colorSpecFromRole(ColorRole::Outline);
-  float borderWidth = 0.0f;
+  float borderWidth = 0.0F;
   std::int32_t radius = static_cast<std::int32_t>(Style::radiusXl);
   std::int32_t radiusTopLeft = static_cast<std::int32_t>(Style::radiusXl);
   std::int32_t radiusTopRight = static_cast<std::int32_t>(Style::radiusXl);
@@ -159,8 +159,8 @@ struct BarConfig {
   // compositor and the output's fractional scale (physical-pixel rounding), so it is exposed for per-bar/per-monitor
   // tuning. Negative values pull the panel away from the bar.
   std::int32_t panelOverlap = 1;
-  float capsuleThickness = 0.76f; // capsule cross-size as a fraction of bar thickness
-  float scale = 1.0f;             // content scale multiplier for glyphs and text
+  float capsuleThickness = 0.76F; // capsule cross-size as a fraction of bar thickness
+  float scale = 1.0F;             // content scale multiplier for glyphs and text
   int fontWeight = 500;           // primary label weight for bar widgets
   // Typeface for this bar's widgets; unset inherits shell.font_family. Per-widget `font_family` overrides.
   std::optional<std::string> fontFamily;
@@ -186,7 +186,7 @@ struct BarConfig {
   // Capsule corner radius in logical pixels before content-scale; unset means automatic pill radius.
   std::optional<double> widgetCapsuleRadius;
   // Capsule background opacity multiplier (0.0–1.0).
-  float widgetCapsuleOpacity = 1.0f;
+  float widgetCapsuleOpacity = 1.0F;
   // True when `capsule_border` appears under `[bar.*]` (empty value = no outline for widgets that inherit border).
   bool widgetCapsuleBorderSpecified = false;
   std::optional<ColorSpec> widgetCapsuleBorder;
@@ -295,7 +295,7 @@ struct IdleConfig {
   /// When > 0, after the compositor reports idle the shell fades a fullscreen overlay (surface color)
   /// from transparent to opaque over this many seconds, then runs `command`. Compositor activity during
   /// the fade cancels. When 0, the idle command runs immediately with no overlay.
-  float preActionFadeSeconds = 2.0f;
+  float preActionFadeSeconds = 2.0F;
 
   bool operator==(const IdleConfig&) const = default;
 };
@@ -371,7 +371,7 @@ struct WidgetBarCapsuleSpec {
   // Corner radius in logical pixels before content-scale; unset means automatic pill radius.
   std::optional<float> radius;
   // Capsule background opacity multiplier (0.0–1.0).
-  float opacity = 1.0f;
+  float opacity = 1.0F;
   bool hoverHighlight = true;
   // Accordion mode (capsule groups only): collapse to the first member; hover expands.
   bool accordion = false;
@@ -380,6 +380,20 @@ struct WidgetBarCapsuleSpec {
   std::optional<float> widgetSpacing;
 
   bool operator==(const WidgetBarCapsuleSpec&) const = default;
+};
+
+struct CommonWidgetOptions {
+  bool enabled = true;
+  bool anchor = false;
+  bool interactive = true;
+  float contentScale = 1.0F;
+  std::optional<ColorSpec> color;
+  std::optional<ColorSpec> iconColor;
+  std::optional<std::int64_t> labelFontWeight;
+  std::string labelFontFamily;
+  WidgetBarCapsuleSpec capsule;
+  std::string scrollRepeat = "auto";
+  bool enableScroll = true;
 };
 
 struct WidgetConfig {
@@ -408,6 +422,9 @@ struct WidgetConfig {
 // Merges `[bar.*]` capsule defaults with `[widget.*]` overrides (see CONFIG.md). Size/style fields such as
 // `radius` are populated even when `enabled` is false so widgets can reuse capsule styling internally.
 [[nodiscard]] WidgetBarCapsuleSpec resolveWidgetBarCapsuleSpec(const BarConfig& bar, const WidgetConfig* widget);
+[[nodiscard]] CommonWidgetOptions resolveCommonWidgetOptions(
+    const BarConfig& bar, const WidgetConfig* widget, std::string_view widgetType, float barScale
+);
 
 // Returns the group for `id` on this bar, or nullptr if `id` is empty or unregistered.
 [[nodiscard]] const BarCapsuleGroupStyle* findBarCapsuleGroupStyle(const BarConfig& bar, const std::string& id);
@@ -485,8 +502,8 @@ struct WallpaperConfig {
   std::vector<WallpaperTransition> transitions = {WallpaperTransition::Fade, WallpaperTransition::Wipe,
                                                   WallpaperTransition::Disc, WallpaperTransition::Stripes,
                                                   WallpaperTransition::Zoom, WallpaperTransition::Honeycomb};
-  float transitionDurationMs = 1500.0f;
-  float edgeSmoothness = 0.3f;
+  float transitionDurationMs = 1500.0F;
+  float edgeSmoothness = 0.3F;
   bool transitionOnStartup = false;
   std::string directory;      // empty = ~/Pictures/Wallpapers
   std::string directoryLight; // empty = directory
@@ -500,19 +517,22 @@ struct WallpaperConfig {
 
 struct BackdropConfig {
   bool enabled = false;
-  float blurIntensity = 0.5f;
-  float tintIntensity = 0.3f;
+  float blurIntensity = 0.5F;
+  float tintIntensity = 0.3F;
 
   bool operator==(const BackdropConfig&) const = default;
 };
 
 struct LockscreenConfig {
   bool enabled = true;
+  // Lock on PrepareForSleep (lid close / systemctl suspend) via logind sleep-delay inhibit.
+  // Distinct from idle/session lock_and_suspend actions.
+  bool lockBeforeSuspend = true;
   bool fingerprint = true;
   bool allowEmptyPassword = false;
   bool blurredDesktop = false;
-  float blurIntensity = 0.5f;
-  float tintIntensity = 0.3f;
+  float blurIntensity = 0.5F;
+  float tintIntensity = 0.3F;
   std::string wallpaper;
   std::vector<std::string> monitors;
 
@@ -521,6 +541,10 @@ struct LockscreenConfig {
 
 [[nodiscard]] inline bool isLockScreenEnabled(const LockscreenConfig& lockscreen) noexcept {
   return lockscreen.enabled;
+}
+
+[[nodiscard]] inline bool shouldLockBeforeSuspend(const LockscreenConfig& lockscreen) noexcept {
+  return lockscreen.enabled && lockscreen.lockBeforeSuspend;
 }
 
 template <typename T> struct EnumOption {
@@ -587,10 +611,10 @@ struct DockConfig {
   std::int32_t mainAxisPadding = 16; // inner padding along the icon row (main axis)
   std::int32_t crossAxisPadding = 8; // inner padding perpendicular to the icon row
   std::int32_t itemSpacing = 6;      // gap between items
-  float backgroundOpacity = 0.88f;
+  float backgroundOpacity = 0.88F;
   // Inside outline for the dock background.
   ColorSpec border = colorSpecFromRole(ColorRole::Outline);
-  float borderWidth = 0.0f;
+  float borderWidth = 0.0F;
   std::int32_t radius = 16;            // dock background corner radius
   std::int32_t radiusTopLeft = 16;     // dock background top-left corner radius
   std::int32_t radiusTopRight = 16;    // dock background top-right corner radius
@@ -607,12 +631,12 @@ struct DockConfig {
 
   [[nodiscard]] constexpr bool isAutoHideEnabled() const noexcept { return autoHide || smartAutoHide; }
   bool reserveSpace = true;         // reserve compositor exclusive zone; applies with or without auto_hide
-  float activeScale = 1.0f;         // focused app icon scale
-  float inactiveScale = 0.85f;      // non-focused app icon scale
+  float activeScale = 1.0F;         // focused app icon scale
+  float inactiveScale = 0.85F;      // non-focused app icon scale
   bool magnification = true;        // magnify icons near the pointer (macOS-style)
-  float magnificationScale = 1.45f; // max icon scale multiplier at the pointer center
-  float activeOpacity = 1.0f;       // focused app icon opacity
-  float inactiveOpacity = 0.85f;    // non-focused app icon opacity
+  float magnificationScale = 1.45F; // max icon scale multiplier at the pointer center
+  float activeOpacity = 1.0F;       // focused app icon opacity
+  float inactiveOpacity = 0.85F;    // non-focused app icon opacity
   bool showDots = false;            // show optional running window dots below app icons
   bool showInstanceCount = true;    // show a badge with count when app has >1 window
   DockLauncherPosition launcherPosition = DockLauncherPosition::None;
@@ -636,13 +660,13 @@ struct DesktopWidgetState {
   std::string id;
   std::string type = "clock";
   std::string outputName;
-  float cx = 0.0f;
-  float cy = 0.0f;
+  float cx = 0.0F;
+  float cy = 0.0F;
   // Box size of the widget's grid tile, in logical px. 0 means "unsized": the tile
   // auto-fits the content's natural size. Resizing in the editor sets explicit values.
-  float boxWidth = 0.0f;
-  float boxHeight = 0.0f;
-  float rotationRad = 0.0f;
+  float boxWidth = 0.0F;
+  float boxHeight = 0.0F;
+  float rotationRad = 0.0F;
   bool flipX = false;
   bool flipY = false;
   bool enabled = true;
@@ -693,8 +717,8 @@ struct OsdConfig {
   std::string position = "top_center";
   std::string positionVertical = "top_center";
   std::string orientation = "horizontal";
-  float scale = 1.0f;
-  float backgroundOpacity = 0.97f;
+  float scale = 1.0F;
+  float backgroundOpacity = 0.97F;
   bool border = true; // outline around OSD popup cards
   int offsetX = 20;
   int offsetY = 8;
@@ -710,14 +734,15 @@ struct NotificationConfig {
   bool showActions = true;
   std::string position = "top_right";
   std::string layer = "top"; // top | overlay
-  float scale = 1.0f;
-  float backgroundOpacity = 0.97f; // toast card background alpha (0.0–1.0)
+  float scale = 1.0F;
+  float backgroundOpacity = 0.97F; // toast card background alpha (0.0–1.0)
   bool border = true;              // outline around toast cards
   int offsetX = 20;                // absolute horizontal margin from the screen edge
   int offsetY = 8;                 // absolute vertical margin from the screen edge
   std::vector<std::string> monitors;
   bool collapseOnDismiss = true;
   int historyRetentionHours = 0;
+  int maxVisible = 0; // 0 = unlimited (space-based only)
 
   std::vector<NotificationFilterConfig> filters;
 
@@ -910,14 +935,14 @@ struct LauncherProviderConfig {
 struct ShellConfig {
   struct AnimationConfig {
     bool enabled = true;
-    float speed = 1.0f;
+    float speed = 1.0F;
 
     bool operator==(const AnimationConfig&) const = default;
   };
 
   struct ShadowConfig {
     ShadowDirection direction = ShadowDirection::Down;
-    float alpha = 0.55f;
+    float alpha = 0.55F;
 
     bool operator==(const ShadowConfig&) const = default;
   };
@@ -978,6 +1003,12 @@ struct ShellConfig {
     bool operator==(const LauncherConfig&) const = default;
   };
 
+  struct KeyboardLayoutConfig {
+    std::unordered_map<std::string, std::string> customLabels;
+
+    bool operator==(const KeyboardLayoutConfig&) const = default;
+  };
+
   struct ScreenCornersConfig {
     bool enabled = false;
     std::int32_t size = 32;
@@ -1014,7 +1045,7 @@ struct ShellConfig {
     bool operator==(const PrivacyConfig&) const = default;
   };
 
-  float cornerRadiusScale = 1.0f;
+  float cornerRadiusScale = 1.0F;
   bool buttonBorders = true;
   bool inputBorders = true;
   bool popupBorders = true;
@@ -1038,6 +1069,7 @@ struct ShellConfig {
   AnimationConfig animation;
   std::string avatarPath;
   bool settingsShowAdvanced = true;
+  bool settingsWindowTranslucent = false;
   bool showLocation = true;
   bool appIconColorize = false;
   std::optional<ColorSpec> appIconColor;
@@ -1061,6 +1093,7 @@ struct ShellConfig {
   ShadowConfig shadow;
   PanelConfig panel;
   LauncherConfig launcher;
+  KeyboardLayoutConfig keyboardLayout;
   ScreenCornersConfig screenCorners;
   MprisConfig mpris;
   ScreenshotConfig screenshot;
@@ -1121,19 +1154,19 @@ struct SystemConfig {
   struct MonitorConfig {
     // A poll value of 0 disables that metric entirely (no sampling, no wakeups);
     // any non-zero value is clamped to [kMinPollSeconds, kMaxPollSeconds].
-    static constexpr float kDisabledPollSeconds = 0.0f;
-    static constexpr float kMinPollSeconds = 1.0f;
-    static constexpr float kMaxPollSeconds = 120.0f;
+    static constexpr float kDisabledPollSeconds = 0.0F;
+    static constexpr float kMinPollSeconds = 1.0F;
+    static constexpr float kMaxPollSeconds = 120.0F;
 
     bool enabled = true;
     std::string cpuTempSensorPath;
-    float cpuPollSeconds = 2.0f;
+    float cpuPollSeconds = 2.0F;
     // GPU probes only run while something displays a GPU stat (SystemMonitorService retain counts),
     // so an idle machine never wakes a discrete GPU. Set to 0 to stop probing it entirely.
-    float gpuPollSeconds = 5.0f;
-    float memoryPollSeconds = 2.0f;
-    float networkPollSeconds = 3.0f;
-    float diskPollSeconds = 10.0f;
+    float gpuPollSeconds = 5.0F;
+    float memoryPollSeconds = 2.0F;
+    float networkPollSeconds = 3.0F;
+    float diskPollSeconds = 10.0F;
     double cpuUsageActivityThreshold =
         noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::CpuUsage).activityDefault;
     double cpuUsageCriticalThreshold =
@@ -1142,6 +1175,10 @@ struct SystemConfig {
         noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::CpuTemp).activityDefault;
     double cpuTempCriticalThreshold =
         noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::CpuTemp).criticalDefault;
+    double cpuFreqActivityThreshold =
+        noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::CpuFreq).activityDefault;
+    double cpuFreqCriticalThreshold =
+        noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::CpuFreq).criticalDefault;
     double gpuTempActivityThreshold =
         noctalia::sysmon::thresholdProfile(noctalia::sysmon::Stat::GpuTemp).activityDefault;
     double gpuTempCriticalThreshold =
@@ -1192,7 +1229,7 @@ struct SystemConfig {
 struct AudioConfig {
   bool enableOverdrive = false;
   bool enableSounds = false;
-  float soundVolume = 0.5f;
+  float soundVolume = 0.5F;
   std::string volumeChangeSound;
   std::string notificationSound;
 
@@ -1201,7 +1238,7 @@ struct AudioConfig {
 
 // Normalized volume ceiling: overdrive raises it to 150%.
 [[nodiscard]] inline float maxAudioVolume(const AudioConfig& audio) noexcept {
-  return audio.enableOverdrive ? 1.5f : 1.0f;
+  return audio.enableOverdrive ? 1.5F : 1.0F;
 }
 
 enum class BrightnessBackendPreference : std::uint8_t {
@@ -1231,7 +1268,7 @@ struct BrightnessConfig {
   bool syncBrightnessOfAllMonitors = false;
   std::vector<std::string> ddcutilIgnoreMmids;
   std::vector<BrightnessMonitorOverride> monitorOverrides;
-  float minimumBrightness = 0.0f;
+  float minimumBrightness = 0.0F;
 
   bool operator==(const BrightnessConfig&) const = default;
 };
@@ -1484,6 +1521,7 @@ struct ControlCenterConfig {
   ControlCenterSidebarMode sidebarSectionMode = ControlCenterSidebarMode::Compact;
   std::int32_t width = kDefaultWidth; // full-sidebar logical width; compact/none modes scale down from this
   bool showShortcutLabels = true;
+  bool showSessionButton = true;
   CalendarTabConfig calendarTab;
   bool operator==(const ControlCenterConfig&) const = default;
 };
@@ -1533,7 +1571,7 @@ struct PluginsConfig {
 [[nodiscard]] bool isValidPluginSourceName(std::string_view name);
 
 struct AccessibilityConfig {
-  float uiScale = 1.0f;
+  float uiScale = 1.0F;
   bool highContrast = false;
   bool operator==(const AccessibilityConfig&) const = default;
 };

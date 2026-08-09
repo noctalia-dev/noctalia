@@ -49,8 +49,8 @@ private:
     double totalMs = 0.0;
   };
 
-  static constexpr float kActionButtonMinHeight = 112.0f;
-  static constexpr float kButtonMinWidth = 152.0f;
+  static constexpr float kActionButtonMinHeight = 112.0F;
+  static constexpr float kButtonMinWidth = 152.0F;
   static constexpr std::size_t kMaxColumns = 5;
 
   void doLayout(Renderer& renderer, float width, float height) override;

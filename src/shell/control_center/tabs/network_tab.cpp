@@ -3,7 +3,7 @@
 #include "core/ui_phase.h"
 #include "dbus/network/external_ip_service.h"
 #include "dbus/network/inetwork_service.h"
-#include "dbus/network/network_glyphs.h"
+#include "dbus/network/network_display.h"
 #include "i18n/i18n.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
@@ -16,6 +16,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 using namespace control_center;
@@ -40,20 +41,25 @@ namespace {
                                : i18n::tr("control-center.network.wifi-off");
     }
     std::string out;
-    if (!s.ipv4.empty()) {
-      out = s.ipv4;
-    }
-    if (s.kind == NetworkConnectivity::Wireless && s.signalStrength > 0) {
+    const auto append = [&out](std::string_view part) {
       if (!out.empty()) {
         out += "  •  ";
       }
-      out += std::to_string(static_cast<int>(s.signalStrength)) + "%";
+      out += part;
+    };
+    if (!s.ipv4.empty()) {
+      append(s.ipv4);
+    }
+    if (s.kind == NetworkConnectivity::Wireless) {
+      if (s.signalStrength > 0) {
+        append(std::to_string(static_cast<int>(s.signalStrength)) + "%");
+      }
+      if (const char* band = network_display::wifiFrequencyBandLabel(s.frequencyMhz); band != nullptr) {
+        append(band);
+      }
     }
     if (!externalIp.empty()) {
-      if (!out.empty()) {
-        out += "  •  ";
-      }
-      out += i18n::tr("control-center.network.external-ip", "ip", externalIp);
+      append(i18n::tr("control-center.network.external-ip", "ip", externalIp));
     }
     return out;
   }
@@ -67,9 +73,9 @@ namespace {
 
     auto pill = ui::row({
         .align = FlexAlign::Center,
-        .paddingV = Style::spaceXs * 0.5f * scale,
+        .paddingV = Style::spaceXs * 0.5F * scale,
         .paddingH = Style::spaceSm * scale,
-        .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.8f),
+        .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.8F),
         .radius = Style::scaledRadiusSm(scale),
     });
     pill->addChild(
@@ -92,8 +98,8 @@ namespace {
       if (a.active != b.active) {
         return a.active;
       }
-      const int bandA = network_glyphs::wifiSignalBand(a.strength);
-      const int bandB = network_glyphs::wifiSignalBand(b.strength);
+      const int bandA = network_display::wifiSignalBand(a.strength);
+      const int bandB = network_display::wifiSignalBand(b.strength);
       if (bandA != bandB) {
         return bandA > bandB;
       }
@@ -123,7 +129,7 @@ public:
     addChild(
         ui::glyph({
             .out = &m_signalGlyph,
-            .glyph = network_glyphs::wifiGlyphForSignal(m_ap.strength),
+            .glyph = network_display::wifiGlyphForSignal(m_ap.strength),
             .glyphSize = Style::baseGlyphSize * scale,
             .color = colorSpecFromRole(ColorRole::OnSurface),
         })
@@ -136,7 +142,7 @@ public:
             .fontSize = Style::fontSizeBody * scale,
             .fontWeight = m_ap.active ? FontWeight::Bold : FontWeight::Normal,
             .color = colorSpecFromRole(ColorRole::OnSurface),
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         })
     );
 
@@ -159,7 +165,7 @@ public:
         })
     );
 
-    const float actionOpacity = (m_ap.active || saved) ? 1.0f : 0.0f;
+    const float actionOpacity = (m_ap.active || saved) ? 1.0F : 0.0F;
     auto action = ui::button({
         .out = &m_actionButton,
         .glyphSize = Style::baseGlyphSize * scale,
@@ -203,10 +209,10 @@ public:
     m_inputArea->setVisible(false);
     Flex::doLayout(renderer);
     m_inputArea->setVisible(true);
-    m_inputArea->setPosition(0.0f, 0.0f);
+    m_inputArea->setPosition(0.0F, 0.0F);
     m_inputArea->setSize(width(), height());
     if (m_actionButton != nullptr) {
-      const float areaWidth = std::max(0.0f, m_actionButton->x() - gap());
+      const float areaWidth = std::max(0.0F, m_actionButton->x() - gap());
       m_inputArea->setSize(areaWidth, height());
     }
     applyState();
@@ -225,7 +231,7 @@ public:
   // Returns true when a value actually changed, i.e. the row needs relayout.
   bool syncLiveMetrics(const AccessPointInfo& ap) {
     bool changed = false;
-    if (m_signalGlyph != nullptr && m_signalGlyph->setGlyph(network_glyphs::wifiGlyphForSignal(ap.strength))) {
+    if (m_signalGlyph != nullptr && m_signalGlyph->setGlyph(network_display::wifiGlyphForSignal(ap.strength))) {
       changed = true;
     }
     if (m_signalValue != nullptr && m_signalValue->setText(percentText(ap.strength))) {
@@ -294,7 +300,7 @@ namespace {
               .fontSize = Style::fontSizeBody * scale,
               .fontWeight = m_vpn.active ? FontWeight::Bold : FontWeight::Normal,
               .color = colorSpecFromRole(ColorRole::OnSurface),
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
           })
       );
 
@@ -306,7 +312,7 @@ namespace {
               .variant = ButtonVariant::Ghost,
               .padding = Style::spaceXs * scale,
               .radius = Style::scaledRadiusSm(scale),
-              .opacity = m_vpn.active ? 1.0f : 0.0f,
+              .opacity = m_vpn.active ? 1.0F : 0.0F,
           })
       );
 
@@ -341,10 +347,10 @@ namespace {
       m_inputArea->setVisible(false);
       Flex::doLayout(renderer);
       m_inputArea->setVisible(true);
-      m_inputArea->setPosition(0.0f, 0.0f);
+      m_inputArea->setPosition(0.0F, 0.0F);
       m_inputArea->setSize(width(), height());
       if (m_actionButton != nullptr) {
-        const float areaWidth = std::max(0.0f, m_actionButton->x() - gap());
+        const float areaWidth = std::max(0.0F, m_actionButton->x() - gap());
         m_inputArea->setSize(areaWidth, height());
       }
       applyState();
@@ -447,7 +453,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .out = &m_currentDetail,
           .fontSize = Style::fontSizeCaption * scale,
           .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
       }),
       ui::button({
           .out = &m_disconnectButton,
@@ -500,7 +506,7 @@ std::unique_ptr<Flex> NetworkTab::create() {
           .placeholder = i18n::tr("control-center.network.password"),
           .passwordMode = true,
           .surfaceOpacity = panelCardOpacity(),
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
           .onSubmit = [this](const std::string& value) { submitPasswordPrompt(value); },
       }),
       ui::button({
@@ -543,9 +549,9 @@ std::unique_ptr<Flex> NetworkTab::create() {
   auto listScroll = ui::scrollView({
       .out = &m_listScroll,
       .scrollbarVisible = true,
-      .viewportPaddingH = 0.0f,
-      .viewportPaddingV = 0.0f,
-      .flexGrow = 1.0f,
+      .viewportPaddingH = 0.0F,
+      .viewportPaddingV = 0.0F,
+      .flexGrow = 1.0F,
       .configure = [](ScrollView& scrollView) {
         scrollView.clearFill();
         scrollView.clearBorder();
@@ -614,7 +620,7 @@ void NetworkTab::onClose() {
   m_disconnectButton = nullptr;
   m_apRows.clear();
   m_lastStructureKey.clear();
-  m_lastListWidth = -1.0f;
+  m_lastListWidth = -1.0F;
   m_pendingAccessPoint.reset();
   m_active = false;
   m_actionPending = false;
@@ -794,7 +800,7 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
     return;
   }
   const float listWidth = m_listScroll->contentViewportWidth();
-  if (listWidth <= 0.0f) {
+  if (listWidth <= 0.0F) {
     return;
   }
 
@@ -927,7 +933,14 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
               .checkedImmediate = m_vpnVisible,
               .toggleSize = ToggleSize::Medium,
               .scale = scale,
-              .onChange = [this](bool checked) {
+              .onChange = [this, vpns](bool checked) {
+                if (!checked && m_network != nullptr) {
+                  for (const auto& vpn : vpns) {
+                    if (vpn.active) {
+                      m_network->deactivateVpnConnection(vpn);
+                    }
+                  }
+                }
                 m_vpnVisible = checked;
                 PanelManager::instance().refresh();
               },

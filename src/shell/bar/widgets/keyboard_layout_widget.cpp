@@ -3,6 +3,7 @@
 #include "compositors/compositor_platform.h"
 #include "render/core/renderer.h"
 #include "render/scene/input_area.h"
+#include "shell/keyboard_layout_label.h"
 #include "ui/builders.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -21,282 +22,21 @@ namespace {
 
   constexpr auto kRefreshTickInterval = std::chrono::milliseconds(40);
   constexpr int kRefreshBurstAttempts = 8;
-  constexpr std::string_view kUnknownLabel = "--";
   constexpr std::string_view kVerticalStableLabel = "WWW";
-
-  bool isAsciiAlpha(char ch) { return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z'); }
-
-  bool isWordBoundary(std::string_view text, std::size_t pos) {
-    if (pos >= text.size()) {
-      return true;
-    }
-    return !std::isalnum(static_cast<unsigned char>(text[pos])) && text[pos] != '_';
-  }
-
-  bool containsWord(std::string_view haystack, std::string_view needle) {
-    if (haystack.empty() || needle.empty()) {
-      return false;
-    }
-
-    std::size_t pos = haystack.find(needle);
-    while (pos != std::string_view::npos) {
-      if (isWordBoundary(haystack, pos == 0 ? haystack.size() : pos - 1)
-          && isWordBoundary(haystack, pos + needle.size())) {
-        return true;
-      }
-      pos = haystack.find(needle, pos + 1);
-    }
-    return false;
-  }
-
-  bool extractLeadingCode(std::string_view text, std::string& out) {
-    std::size_t count = 0;
-    while (count < text.size() && count < 3 && isAsciiAlpha(text[count])) {
-      ++count;
-    }
-    if (count < 2 || count > 3) {
-      return false;
-    }
-    if (count < text.size()
-        && text[count] != '+'
-        && !std::isspace(static_cast<unsigned char>(text[count]))
-        && text[count] != '_'
-        && text[count] != '-') {
-      return false;
-    }
-    out.assign(text.substr(0, count));
-    return true;
-  }
-
-  bool extractParenthesizedCode(std::string_view text, std::string& out) {
-    const std::size_t open = text.find('(');
-    const std::size_t close = text.find(')', open == std::string_view::npos ? 0 : open + 1);
-    if (open == std::string_view::npos || close == std::string_view::npos || close <= open + 2) {
-      return false;
-    }
-    std::string_view inner = text.substr(open + 1, close - open - 1);
-    if (inner.size() < 2 || inner.size() > 3) {
-      return false;
-    }
-    if (!std::ranges::all_of(inner, [](char ch) { return isAsciiAlpha(ch); })) {
-      return false;
-    }
-    out.assign(inner);
-    return true;
-  }
-
-  void uppercaseAscii(std::string& text) {
-    for (char& ch : text) {
-      ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-    }
-  }
-
-  const std::vector<std::pair<std::string_view, std::string_view>>& variantMap() {
-    static const std::vector<std::pair<std::string_view, std::string_view>> kMap = {
-        {"programmer dvorak", "Dvk-P"}, {"colemak", "Colemak"}, {"dvorak", "Dvorak"},
-        {"workman", "Workman"},         {"norman", "Norman"},   {"altgr-intl", "Intl"},
-        {"international", "Intl"},      {"intl", "Intl"},       {"with dead keys", "Dead"},
-        {"phonetic", "Phon"},           {"extended", "Ext"},    {"ergonomic", "Ergo"},
-        {"legacy", "Legacy"},           {"pinyin", "Pinyin"},   {"cangjie", "Cangjie"},
-        {"romaji", "Romaji"},           {"kana", "Kana"},
-    };
-    return kMap;
-  }
-
-  const std::vector<std::pair<std::string_view, std::string_view>>& languageMap() {
-    static const std::vector<std::pair<std::string_view, std::string_view>> kMap = {
-        {"english", "us"},
-        {"american", "us"},
-        {"united states", "us"},
-        {"us english", "us"},
-        {"british", "gb"},
-        {"united kingdom", "gb"},
-        {"english (uk)", "gb"},
-        {"canadian", "ca"},
-        {"canada", "ca"},
-        {"canadian english", "ca"},
-        {"australian", "au"},
-        {"australia", "au"},
-        {"swedish", "se"},
-        {"svenska", "se"},
-        {"sweden", "se"},
-        {"norwegian", "no"},
-        {"norsk", "no"},
-        {"norway", "no"},
-        {"danish", "dk"},
-        {"dansk", "dk"},
-        {"denmark", "dk"},
-        {"finnish", "fi"},
-        {"suomi", "fi"},
-        {"finland", "fi"},
-        {"icelandic", "is"},
-        {"iceland", "is"},
-        {"german", "de"},
-        {"deutsch", "de"},
-        {"germany", "de"},
-        {"austrian", "at"},
-        {"austria", "at"},
-        {"swiss", "ch"},
-        {"switzerland", "ch"},
-        {"schweiz", "ch"},
-        {"suisse", "ch"},
-        {"dutch", "nl"},
-        {"nederlands", "nl"},
-        {"netherlands", "nl"},
-        {"holland", "nl"},
-        {"belgian", "be"},
-        {"belgium", "be"},
-        {"french", "fr"},
-        {"francais", "fr"},
-        {"france", "fr"},
-        {"canadian french", "ca"},
-        {"spanish", "es"},
-        {"espanol", "es"},
-        {"spain", "es"},
-        {"castilian", "es"},
-        {"italian", "it"},
-        {"italiano", "it"},
-        {"italy", "it"},
-        {"portuguese", "pt"},
-        {"portugues", "pt"},
-        {"portugal", "pt"},
-        {"catalan", "ad"},
-        {"andorra", "ad"},
-        {"romanian", "ro"},
-        {"romania", "ro"},
-        {"russian", "ru"},
-        {"russia", "ru"},
-        {"polish", "pl"},
-        {"polski", "pl"},
-        {"poland", "pl"},
-        {"czech", "cz"},
-        {"czech republic", "cz"},
-        {"slovak", "sk"},
-        {"slovakia", "sk"},
-        {"ukraine", "ua"},
-        {"ukrainian", "ua"},
-        {"bulgarian", "bg"},
-        {"bulgaria", "bg"},
-        {"serbian", "rs"},
-        {"serbia", "rs"},
-        {"croatian", "hr"},
-        {"croatia", "hr"},
-        {"slovenian", "si"},
-        {"slovenia", "si"},
-        {"bosnian", "ba"},
-        {"bosnia", "ba"},
-        {"macedonian", "mk"},
-        {"macedonia", "mk"},
-        {"irish", "ie"},
-        {"ireland", "ie"},
-        {"welsh", "gb"},
-        {"wales", "gb"},
-        {"scottish", "gb"},
-        {"scotland", "gb"},
-        {"estonian", "ee"},
-        {"estonia", "ee"},
-        {"latvian", "lv"},
-        {"latvia", "lv"},
-        {"lithuanian", "lt"},
-        {"lithuania", "lt"},
-        {"hungarian", "hu"},
-        {"hungary", "hu"},
-        {"greek", "gr"},
-        {"greece", "gr"},
-        {"albanian", "al"},
-        {"albania", "al"},
-        {"maltese", "mt"},
-        {"malta", "mt"},
-        {"turkish", "tr"},
-        {"turkey", "tr"},
-        {"arabic", "ar"},
-        {"arab", "ar"},
-        {"hebrew", "il"},
-        {"israel", "il"},
-        {"brazilian", "br"},
-        {"brazilian portuguese", "br"},
-        {"brasil", "br"},
-        {"brazil", "br"},
-        {"japanese", "jp"},
-        {"japan", "jp"},
-        {"korean", "kr"},
-        {"korea", "kr"},
-        {"south korea", "kr"},
-        {"chinese", "cn"},
-        {"china", "cn"},
-        {"simplified chinese", "cn"},
-        {"traditional chinese", "tw"},
-        {"taiwan", "tw"},
-        {"thai", "th"},
-        {"thailand", "th"},
-        {"vietnamese", "vn"},
-        {"vietnam", "vn"},
-        {"hindi", "in"},
-        {"india", "in"},
-        {"afrikaans", "za"},
-        {"south africa", "za"},
-        {"south african", "za"},
-    };
-    return kMap;
-  }
-
-  std::string shortLayoutLabel(const std::string& layoutName) {
-    if (layoutName.empty()) {
-      return std::string(kUnknownLabel);
-    }
-
-    const std::string lower = StringUtils::toLower(layoutName);
-
-    std::string code;
-    if (extractLeadingCode(lower, code)) {
-      uppercaseAscii(code);
-      return code;
-    }
-
-    for (const auto& [pattern, display] : variantMap()) {
-      if (lower.contains(pattern)) {
-        return std::string(display);
-      }
-    }
-
-    if (extractParenthesizedCode(lower, code)) {
-      uppercaseAscii(code);
-      return code;
-    }
-
-    for (const auto& [lang, mapped] : languageMap()) {
-      if (lower.starts_with(lang)) {
-        code = std::string(mapped);
-        uppercaseAscii(code);
-        return code;
-      }
-    }
-
-    for (const auto& [lang, mapped] : languageMap()) {
-      if (containsWord(lower, lang)) {
-        code = std::string(mapped);
-        uppercaseAscii(code);
-        return code;
-      }
-    }
-
-    if (extractLeadingCode(lower, code)) {
-      uppercaseAscii(code);
-      return code;
-    }
-
-    return std::string(kUnknownLabel);
-  }
 
 } // namespace
 
 KeyboardLayoutWidget::KeyboardLayoutWidget(
-    CompositorPlatform& platform, DisplayMode displayMode, bool showGlyph, bool showLabel, bool hideWhenSingleLayout,
-    std::unordered_map<std::string, std::string> customLabels, std::string glyph, WidgetCustomImage customImage
+    CompositorPlatform& platform, Options options, std::unordered_map<std::string, std::string> customLabels
 )
-    : m_platform(platform), m_displayMode(displayMode), m_showGlyph(showGlyph), m_showLabel(showLabel),
-      m_hideWhenSingleLayout(hideWhenSingleLayout), m_customLabels(std::move(customLabels)),
-      m_glyphName(std::move(glyph)), m_customImage(std::move(customImage)) {}
+    : m_platform(platform), m_displayMode(options.display), m_showGlyph(options.showGlyph),
+      m_showLabel(options.showLabel), m_hideWhenSingleLayout(options.hideWhenSingleLayout),
+      m_customLabels(std::move(customLabels)), m_glyphName(std::move(options.glyph)),
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {
+  if (m_glyphName.empty()) {
+    m_glyphName = "keyboard";
+  }
+}
 
 void KeyboardLayoutWidget::create() {
   auto area = ui::inputArea({});
@@ -338,7 +78,7 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
   m_isVertical = containerHeight > containerWidth;
   sync(renderer);
   if (!root()->visible()) {
-    root()->setSize(0.0f, 0.0f);
+    root()->setSize(0.0F, 0.0F);
     return;
   }
 
@@ -359,7 +99,7 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
       m_glyph->setColor(widgetIconColorOr(colorSpecFromRole(ColorRole::OnSurface)));
       m_glyph->measure(renderer);
     }
-    if (m_glyph != nullptr && m_glyph->width() <= 0.0f && m_glyphName == "keyboard") {
+    if (m_glyph != nullptr && m_glyph->width() <= 0.0F && m_glyphName == "keyboard") {
       // Some fonts may miss the keyboard glyph; use a guaranteed fallback.
       m_glyph->setGlyph("world");
       m_glyph->measure(renderer);
@@ -373,47 +113,47 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
     const float stableLabelWidth = std::round(renderer
                                                   .measureText(
                                                       kVerticalStableLabel, m_label->fontSize(), labelFontWeight(),
-                                                      0.0f, 0, TextAlign::Start, labelFontFamily()
+                                                      0.0F, 0, TextAlign::Start, labelFontFamily()
                                                   )
                                                   .width);
-    m_label->setMinWidth(m_isVertical ? std::min(containerWidth, stableLabelWidth) : 0.0f);
+    m_label->setMinWidth(m_isVertical ? std::min(containerWidth, stableLabelWidth) : 0.0F);
     m_label->measure(renderer);
   }
 
   if (m_isVertical) {
-    const float glyphW = showGlyph ? (m_image != nullptr ? m_image->width() : m_glyph->width()) : 0.0f;
-    const float glyphH = showGlyph ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0f;
-    const float labelW = m_showLabel ? m_label->width() : 0.0f;
-    const float labelH = m_showLabel ? m_label->height() : 0.0f;
+    const float glyphW = showGlyph ? (m_image != nullptr ? m_image->width() : m_glyph->width()) : 0.0F;
+    const float glyphH = showGlyph ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0F;
+    const float labelW = m_showLabel ? m_label->width() : 0.0F;
+    const float labelH = m_showLabel ? m_label->height() : 0.0F;
     const float w = std::max(glyphW, labelW);
-    float y = 0.0f;
+    float y = 0.0F;
     if (showGlyph) {
       if (m_image != nullptr) {
-        m_image->setPosition(std::round((w - glyphW) * 0.5f), y);
+        m_image->setPosition(std::round((w - glyphW) * 0.5F), y);
       } else {
-        m_glyph->setPosition(std::round((w - glyphW) * 0.5f), y);
+        m_glyph->setPosition(std::round((w - glyphW) * 0.5F), y);
       }
       y += glyphH;
     }
     if (m_showLabel) {
-      m_label->setPosition(std::round((w - labelW) * 0.5f), y);
+      m_label->setPosition(std::round((w - labelW) * 0.5F), y);
       y += labelH;
     }
     root()->setSize(w, y);
   } else {
     const float spacing = Style::spaceXs;
-    float x = 0.0f;
-    const float glyphH = showGlyph ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0f;
-    const float labelH = m_showLabel ? m_label->height() : 0.0f;
+    float x = 0.0F;
+    const float glyphH = showGlyph ? (m_image != nullptr ? m_image->height() : m_glyph->height()) : 0.0F;
+    const float labelH = m_showLabel ? m_label->height() : 0.0F;
     const float h = std::max(glyphH, labelH);
     if (showGlyph) {
       if (m_image != nullptr) {
-        const float imageY = std::round((h - m_image->height()) * 0.5f);
-        m_image->setPosition(0.0f, imageY);
+        const float imageY = std::round((h - m_image->height()) * 0.5F);
+        m_image->setPosition(0.0F, imageY);
         x += m_image->width();
       } else {
-        const float glyphY = std::round((h - m_glyph->height()) * 0.5f);
-        m_glyph->setPosition(0.0f, glyphY);
+        const float glyphY = std::round((h - m_glyph->height()) * 0.5F);
+        m_glyph->setPosition(0.0F, glyphY);
         x += m_glyph->width();
       }
       if (m_showLabel) {
@@ -421,7 +161,7 @@ void KeyboardLayoutWidget::doLayout(Renderer& renderer, float containerWidth, fl
       }
     }
     if (m_showLabel) {
-      const float labelY = std::round((h - m_label->height()) * 0.5f);
+      const float labelY = std::round((h - m_label->height()) * 0.5F);
       m_label->setPosition(x, labelY);
       root()->setSize(m_label->x() + m_label->width(), h);
     } else {
@@ -463,7 +203,7 @@ void KeyboardLayoutWidget::sync(Renderer& renderer) {
     const bool shouldHide = m_hideWhenSingleLayout && !layoutNames.empty() && layoutNames.size() <= 1;
     node->setVisible(!shouldHide);
     if (shouldHide) {
-      node->setSize(0.0f, 0.0f);
+      node->setSize(0.0F, 0.0F);
       requestRedraw();
       return;
     }
@@ -475,7 +215,7 @@ void KeyboardLayoutWidget::sync(Renderer& renderer) {
     m_refreshAttemptsRemaining = 0;
     m_refreshTimer.stop();
   }
-  std::string layoutLabel = resolveLayoutLabel(layoutName, m_displayMode, m_customLabels);
+  std::string layoutLabel = resolveKeyboardLayoutLabel(layoutName, m_displayMode, m_customLabels);
   if (m_isVertical) {
     layoutLabel = StringUtils::truncateUtf8CodePoints(layoutLabel, 3);
   }
@@ -517,7 +257,7 @@ void KeyboardLayoutWidget::sync(Renderer& renderer) {
     const bool needsBackend = left != nullptr
         && left->kind == noctalia::bar::WidgetAction::Kind::Ipc
         && left->verb == "keyboard-layout-cycle";
-    node->setOpacity(needsBackend && !m_platform.hasKeyboardLayoutBackend() ? 0.85f : 1.0f);
+    node->setOpacity(needsBackend && !m_platform.hasKeyboardLayoutBackend() ? 0.85F : 1.0F);
   }
 
   requestRedraw();
@@ -573,29 +313,4 @@ void KeyboardLayoutWidget::armRefreshTick() {
 
     requestUpdate();
   });
-}
-
-KeyboardLayoutWidget::DisplayMode KeyboardLayoutWidget::parseDisplayMode(const std::string& value) {
-  return value == "full" ? DisplayMode::Full : DisplayMode::Short;
-}
-
-std::string KeyboardLayoutWidget::formatLayoutLabel(const std::string& layoutName, DisplayMode displayMode) {
-  if (layoutName.empty()) {
-    return std::string(kUnknownLabel);
-  }
-
-  if (displayMode == DisplayMode::Full) {
-    return layoutName;
-  }
-  return shortLayoutLabel(layoutName);
-}
-
-std::string KeyboardLayoutWidget::resolveLayoutLabel(
-    const std::string& layoutName, DisplayMode displayMode,
-    const std::unordered_map<std::string, std::string>& customLabels
-) {
-  if (const auto it = customLabels.find(layoutName); it != customLabels.end() && !it->second.empty()) {
-    return it->second;
-  }
-  return formatLayoutLabel(layoutName, displayMode);
 }

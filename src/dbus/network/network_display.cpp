@@ -1,8 +1,8 @@
-#include "dbus/network/network_glyphs.h"
+#include "dbus/network/network_display.h"
 
 #include "dbus/network/network_types.h"
 
-namespace network_glyphs {
+namespace network_display {
 
   const char* glyphForState(const NetworkState& state) noexcept {
     if (state.kind == NetworkConnectivity::Wired) {
@@ -57,4 +57,24 @@ namespace network_glyphs {
     }
   }
 
-} // namespace network_glyphs
+  const char* wifiFrequencyBandLabel(std::uint32_t frequencyMhz) noexcept {
+    // Broad envelopes around each band rather than exact channel centers — the input
+    // is whatever operating frequency the backend reports. Band membership follows
+    // cfg80211: 802.11j 4.9 GHz channels and the U-NII-4/ITS block are 5 GHz, and
+    // 5925 MHz is the 5/6 GHz boundary.
+    if (frequencyMhz >= 2400 && frequencyMhz <= 2500) {
+      return "2.4 GHz";
+    }
+    if (frequencyMhz >= 4900 && frequencyMhz <= 5924) {
+      return "5 GHz";
+    }
+    if (frequencyMhz >= 5925 && frequencyMhz <= 7125) {
+      return "6 GHz";
+    }
+    if (frequencyMhz >= 57000 && frequencyMhz <= 71000) {
+      return "60 GHz";
+    }
+    return nullptr;
+  }
+
+} // namespace network_display

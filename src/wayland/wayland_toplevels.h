@@ -31,6 +31,9 @@ struct ToplevelInfo {
   ext_foreign_toplevel_handle_v1* extHandle = nullptr;
   // True when the compositor announced the output(s) this toplevel sits on.
   bool outputAnnounced = false;
+  // True when `identifier` is an exact compositor-assigned window ID suitable
+  // for direct focus/close actions and stable taskbar identity.
+  bool exactIdentity = false;
 };
 
 struct WlrToplevelSnapshot {

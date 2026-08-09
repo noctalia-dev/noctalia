@@ -689,7 +689,7 @@ void Application::initIpc() {
         float volume = sink->volume;
         if (parts.size() == 1) {
           const auto value = noctalia::ipc::parseNormalizedOrPercent(
-              parts[0], maxAudioVolume(m_configService.config().audio) * 100.0f
+              parts[0], maxAudioVolume(m_configService.config().audio) * 100.0F
           );
           if (!value.has_value()) {
             return "error: invalid volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
@@ -718,7 +718,7 @@ void Application::initIpc() {
         float volume = source->volume;
         if (parts.size() == 1) {
           const auto value = noctalia::ipc::parseNormalizedOrPercent(
-              parts[0], maxAudioVolume(m_configService.config().audio) * 100.0f
+              parts[0], maxAudioVolume(m_configService.config().audio) * 100.0F
           );
           if (!value.has_value()) {
             return "error: invalid mic volume value (use percent like 65 or 65%, or normalized like 0.65)\n";
@@ -756,8 +756,8 @@ void Application::initIpc() {
                 ? std::format(" held-back (v{} needs plugin API {})", s.latestVersion, s.latestPluginApiVersion)
                 : std::string{};
             out += std::format(
-                "{} [{}] {}{}{}{}{}{}\n", s.id, s.source, s.version.empty() ? "-" : s.version,
-                s.enabled ? " enabled" : "", s.compatible ? "" : " incompatible", heldBack,
+                "{} [{}] {} {}{}{}{}{}\n", s.id, s.source, s.version.empty() ? "-" : s.version,
+                s.enabled ? "enabled" : "disabled", s.compatible ? "" : " incompatible", heldBack,
                 s.deprecated ? " deprecated" : "", dependencies
             );
           }

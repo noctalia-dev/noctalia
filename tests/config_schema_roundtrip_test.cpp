@@ -163,6 +163,28 @@ location = "https://example.invalid/bad"
         fail("plugins: derived subdir for invalid plugin id " + id);
       }
     }
+
+    // Canonical entry ids gate host construction and state-store scoping, so the
+    // shapes that must not slip through are the near-misses: no colon, extra colons,
+    // and an empty or malformed entry segment.
+    const std::string validEntries[] = {
+        "noctalia/screen_recorder:widget", "me/hello:a", "Team/repo_2:entry-1", "a/b.c-d:e.f"
+    };
+    for (const auto& id : validEntries) {
+      if (!scripting::isValidPluginEntryId(id)) {
+        fail("plugins: rejected valid entry id " + id);
+      }
+    }
+
+    const std::string invalidEntries[] = {
+        "",          "me/hello",   "me/hello:",   ":widget",          "me/hello:a:b",
+        "mehello:a", "me/hello:.", "me/hello:..", "me/hello:wid get", "me/foo/bar:a",
+    };
+    for (const auto& id : invalidEntries) {
+      if (scripting::isValidPluginEntryId(id)) {
+        fail("plugins: accepted invalid entry id " + id);
+      }
+    }
   }
 
   // A fully-specified bar with a fully-specified monitor override. Every override
@@ -320,8 +342,13 @@ location = "https://example.invalid/bad"
     c.osd.kinds.lockKeys = false;
     c.osd.kinds.keyboardLayout = false;
     c.backdrop = BackdropConfig{true, 0.8f, 0.2f};
-    c.lockscreen =
-        LockscreenConfig{.blurredDesktop = true, .blurIntensity = 0.6f, .tintIntensity = 0.25f, .monitors = {"DP-1"}};
+    c.lockscreen = LockscreenConfig{
+        .lockBeforeSuspend = false,
+        .blurredDesktop = true,
+        .blurIntensity = 0.6f,
+        .tintIntensity = 0.25f,
+        .monitors = {"DP-1"}
+    };
     c.system.monitor.enabled = false;
     c.system.monitor.cpuTempSensorPath = "/sys/class/hwmon/hwmon3/temp1_input";
     c.system.monitor.cpuPollSeconds = 5.0f;
@@ -448,6 +475,7 @@ location = "https://example.invalid/bad"
     c.storage.keySource = StorageKeySource::File;
     c.storage.keyFile = "/run/agenix/noctalia-storage-key";
     c.shell.avatarPath = "/home/u/face.png";
+    c.shell.settingsWindowTranslucent = true;
     c.shell.animation.speed = 1.5f;
     c.shell.shadow.direction = ShadowDirection::UpLeft;
     c.shell.panel.transparencyMode = PanelTransparencyMode::Glass;
@@ -467,6 +495,7 @@ location = "https://example.invalid/bad"
     c.shell.launcher.providers = {
         LauncherProviderConfig{"session", "s", true}, LauncherProviderConfig{"wallpaper", "w"}
     };
+    c.shell.keyboardLayout.customLabels = {{"English (US)", "US"}, {"German", "DE"}};
     c.shell.screenCorners.enabled = true;
     c.shell.screenCorners.size = 24;
     c.shell.mpris.blacklist = {"firefox"};

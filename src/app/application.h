@@ -243,11 +243,14 @@ private:
   TimeService m_timeService;
   LockKeysService m_lockKeysService;
   NotificationManager m_notificationManager;
+  CalendarService m_calendarService;
   std::unique_ptr<SessionBus> m_bus;
   std::unique_ptr<SystemBus> m_systemBus;
   std::unique_ptr<LogindService> m_logindService;
   // Set on PrepareForSleep(true); cleared when the session lock engages (or the lock aborts).
   bool m_releaseSleepDelayWhenLocked = false;
+  // Set before Noctalia-initiated suspend so PrepareForSleep skips lock-before-sleep.
+  bool m_skipLockOnNextSleep = false;
   std::unique_ptr<AccountsService> m_accountsService;
   std::unique_ptr<ScreenSaverService> m_screenSaverService;
   std::unique_ptr<ScreenSaverPollSource> m_screenSaverPollSource;
@@ -366,7 +369,6 @@ private:
   DmenuIpcService m_dmenuIpc;
   LocationService m_locationService;
   WeatherService m_weatherService;
-  CalendarService m_calendarService;
   HttpClientPollSource m_httpClientPollSource{m_httpClient};
   FileWatchPollSource m_fileWatchPollSource{m_fileWatcher};
   LocationPollSource m_locationPollSource{m_locationService};

@@ -10,23 +10,31 @@
 #include "shell/bar/widgets/battery_widget_definition.h"
 #include "shell/bar/widgets/bluetooth_widget_definition.h"
 #include "shell/bar/widgets/brightness_widget_definition.h"
+#include "shell/bar/widgets/caffeine_widget_definition.h"
 #include "shell/bar/widgets/clipboard_widget_definition.h"
 #include "shell/bar/widgets/clock_widget_definition.h"
 #include "shell/bar/widgets/control_center_widget_definition.h"
 #include "shell/bar/widgets/custom_button_widget_definition.h"
+#include "shell/bar/widgets/keyboard_layout_widget_definition.h"
 #include "shell/bar/widgets/launcher_widget_definition.h"
 #include "shell/bar/widgets/lock_keys_widget_definition.h"
 #include "shell/bar/widgets/media_widget_definition.h"
 #include "shell/bar/widgets/network_widget_definition.h"
+#include "shell/bar/widgets/nightlight_widget_definition.h"
 #include "shell/bar/widgets/notification_widget_definition.h"
+#include "shell/bar/widgets/power_profile_widget_definition.h"
 #include "shell/bar/widgets/privacy_widget_definition.h"
 #include "shell/bar/widgets/screenshot_widget_definition.h"
 #include "shell/bar/widgets/session_widget_definition.h"
 #include "shell/bar/widgets/settings_widget_definition.h"
 #include "shell/bar/widgets/spacer_widget_definition.h"
 #include "shell/bar/widgets/sysmon_widget_definition.h"
+#include "shell/bar/widgets/taskbar_widget_definition.h"
+#include "shell/bar/widgets/test_widget_definition.h"
 #include "shell/bar/widgets/text_widget_definition.h"
+#include "shell/bar/widgets/theme_mode_widget_definition.h"
 #include "shell/bar/widgets/tray_widget_definition.h"
+#include "shell/bar/widgets/volume_widget_definition.h"
 #include "shell/bar/widgets/wallpaper_widget_definition.h"
 #include "shell/bar/widgets/weather_widget_definition.h"
 #include "shell/bar/widgets/workspaces_widget_definition.h"
@@ -43,6 +51,7 @@
 #include <iterator>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <unordered_set>
 #include <utility>
 
@@ -89,7 +98,19 @@ namespace settings {
       schema::WidgetSettingSchema (*schemaFields)();
       std::vector<WidgetSettingSpec> (*presentedSettingSpecs)();
       const std::vector<noctalia::bar::WidgetCommonSettingOverride>& (*commonOverrides)();
+      std::string (*glyph)(const WidgetConfig* config);
+      std::optional<std::string> (*validateConfig)(const WidgetConfig* config);
     };
+
+    template <auto DefinitionAccessor> auto resolveProjectedOptions(const WidgetConfig* config) {
+      const auto& definition = DefinitionAccessor();
+      if constexpr (requires { definition.resolve(config, definition.type); }) {
+        return definition.resolve(config, definition.type);
+      } else {
+        using Definition = std::remove_cvref_t<decltype(definition)>;
+        return definition.resolve(config, definition.type, typename Definition::ContextType{});
+      }
+    }
 
     template <auto DefinitionAccessor> constexpr TypedWidgetDefinitionProjection projectWidgetDefinition() {
       return TypedWidgetDefinitionProjection{
@@ -98,6 +119,17 @@ namespace settings {
           .presentedSettingSpecs = [] { return DefinitionAccessor().presentedSettingSpecs(); },
           .commonOverrides = []() -> const std::vector<noctalia::bar::WidgetCommonSettingOverride>& {
             return DefinitionAccessor().commonOverrides;
+          },
+          .glyph = [](const WidgetConfig* config) -> std::string {
+            const auto& definition = DefinitionAccessor();
+            return definition.glyph ? definition.glyph(resolveProjectedOptions<DefinitionAccessor>(config))
+                                    : std::string{};
+          },
+          .validateConfig = [](const WidgetConfig* config) -> std::optional<std::string> {
+            const auto& definition = DefinitionAccessor();
+            return definition.validateOptions
+                ? definition.validateOptions(resolveProjectedOptions<DefinitionAccessor>(config))
+                : std::nullopt;
           },
       };
     }
@@ -108,23 +140,31 @@ namespace settings {
         projectWidgetDefinition<batteryWidgetDefinition>(),
         projectWidgetDefinition<bluetoothWidgetDefinition>(),
         projectWidgetDefinition<brightnessWidgetDefinition>(),
+        projectWidgetDefinition<caffeineWidgetDefinition>(),
         projectWidgetDefinition<clipboardWidgetDefinition>(),
         projectWidgetDefinition<clockWidgetDefinition>(),
         projectWidgetDefinition<controlCenterWidgetDefinition>(),
         projectWidgetDefinition<customButtonWidgetDefinition>(),
+        projectWidgetDefinition<keyboardLayoutWidgetDefinition>(),
         projectWidgetDefinition<launcherWidgetDefinition>(),
         projectWidgetDefinition<lockKeysWidgetDefinition>(),
         projectWidgetDefinition<mediaWidgetDefinition>(),
         projectWidgetDefinition<networkWidgetDefinition>(),
+        projectWidgetDefinition<nightlightWidgetDefinition>(),
         projectWidgetDefinition<notificationWidgetDefinition>(),
+        projectWidgetDefinition<powerProfileWidgetDefinition>(),
         projectWidgetDefinition<privacyWidgetDefinition>(),
         projectWidgetDefinition<screenshotWidgetDefinition>(),
         projectWidgetDefinition<sessionWidgetDefinition>(),
         projectWidgetDefinition<settingsWidgetDefinition>(),
         projectWidgetDefinition<spacerWidgetDefinition>(),
         projectWidgetDefinition<sysmonWidgetDefinition>(),
+        projectWidgetDefinition<taskbarWidgetDefinition>(),
+        projectWidgetDefinition<testWidgetDefinition>(),
         projectWidgetDefinition<textWidgetDefinition>(),
+        projectWidgetDefinition<themeModeWidgetDefinition>(),
         projectWidgetDefinition<trayWidgetDefinition>(),
+        projectWidgetDefinition<volumeWidgetDefinition>(),
         projectWidgetDefinition<wallpaperWidgetDefinition>(),
         projectWidgetDefinition<weatherWidgetDefinition>(),
         projectWidgetDefinition<workspacesWidgetDefinition>(),
@@ -139,8 +179,7 @@ namespace settings {
     }
 
     // Applies a definition's common-setting overrides. A key that names no common
-    // setting is a definition bug, not a silent no-op. `visibleWhen` refines: its
-    // conditions are appended to the ones the common setting already carries.
+    // setting is a definition bug, not a silent no-op.
     void applyCommonOverrides(
         std::vector<WidgetSettingSpec>& commonSpecs,
         const std::vector<noctalia::bar::WidgetCommonSettingOverride>& overrides, std::string_view type
@@ -160,7 +199,16 @@ namespace settings {
         if (!entry.descriptionKey.empty()) {
           spec->descriptionKey = std::string(entry.descriptionKey);
         }
-        if (entry.visibleWhen.has_value()) {
+        if (entry.visibleWhen.has_value() && entry.replaceVisibleWhen.has_value()) {
+          throw std::logic_error(
+              std::format(
+                  "widget definition '{}' common override '{}' both refines and replaces visibility", type, entry.key
+              )
+          );
+        }
+        if (entry.replaceVisibleWhen.has_value()) {
+          spec->visibleWhen = entry.replaceVisibleWhen;
+        } else if (entry.visibleWhen.has_value()) {
           if (!entry.visibleWhen->any.empty()) {
             throw std::logic_error(
                 std::format(
@@ -229,78 +277,13 @@ namespace settings {
       return "apps";
     }
 
-    std::string nonEmptyGlyph(std::string value, std::string_view fallback) {
-      return value.empty() ? std::string(fallback) : std::move(value);
-    }
-
     std::string widgetGlyph(std::string_view type, const WidgetConfig* config = nullptr) {
       if (auto pw = resolvePluginWidget(type)) {
         return pw->manifest->icon.empty() ? std::string("apps") : pw->manifest->icon;
       }
-      if (config == nullptr) {
-        return defaultWidgetGlyph(type);
-      }
-      if (type == "clipboard") {
-        return nonEmptyGlyph(config->getString("glyph", "clipboard"), "clipboard");
-      }
-      if (type == "control-center") {
-        return nonEmptyGlyph(config->getString("glyph", "noctalia"), "search");
-      }
-      if (type == "custom_button") {
-        return nonEmptyGlyph(config->getString("glyph", "heart"), "heart");
-      }
-      if (type == "launcher") {
-        return nonEmptyGlyph(config->getString("glyph", "search"), "search");
-      }
-      if (type == "session") {
-        return nonEmptyGlyph(config->getString("glyph", "shutdown"), "shutdown");
-      }
-      if (type == "settings") {
-        return nonEmptyGlyph(config->getString("glyph", "settings"), "search");
-      }
-      if (type == "wallpaper") {
-        return nonEmptyGlyph(config->getString("glyph", "wallpaper-selector"), "wallpaper-selector");
-      }
-      if (type == "keyboard_layout") {
-        return nonEmptyGlyph(config->getString("glyph", "keyboard"), "keyboard");
-      }
-      if (type == "sysmon") {
-        if (const std::string custom = config->getString("glyph", ""); !custom.empty()) {
-          return custom;
-        }
-        const std::string stat = config->getString("stat", "cpu_usage");
-        if (stat == "cpu_temp") {
-          return "cpu-temperature";
-        }
-        if (stat == "gpu_temp") {
-          return "temperature";
-        }
-        if (stat == "gpu_usage") {
-          return "gpu-usage";
-        }
-        if (stat == "gpu_vram" || stat == "ram_used" || stat == "ram_pct") {
-          return "memory";
-        }
-        if (stat == "swap_pct"
-            || stat == "disk_used_pct"
-            || stat == "disk_used"
-            || stat == "disk_free_pct"
-            || stat == "disk_free") {
-          return "storage";
-        }
-        if (stat == "net_rx") {
-          return "download";
-        }
-        if (stat == "net_tx") {
-          return "upload";
-        }
-      }
-      if (type == "volume") {
-        if (const std::string custom = config->getString("glyph", ""); !custom.empty()) {
-          return custom;
-        }
-        if (config->getString("device", "output") == "input") {
-          return "microphone";
+      if (const auto* projection = findTypedWidgetDefinitionProjection(type); projection != nullptr) {
+        if (auto glyph = projection->glyph(config); !glyph.empty()) {
+          return glyph;
         }
       }
       return defaultWidgetGlyph(type);
@@ -400,21 +383,8 @@ namespace settings {
       return spec;
     }
 
-    WidgetSettingSpec stringSpec(std::string_view key, std::string defaultValue = {}, bool advanced = false) {
-      return baseSpec(key, WidgetControlKind::String, std::move(defaultValue), advanced);
-    }
-
-    WidgetSettingSpec glyphSpec(std::string_view key, std::string defaultValue = {}, bool advanced = false) {
-      return baseSpec(key, WidgetControlKind::Glyph, std::move(defaultValue), advanced);
-    }
-
     WidgetSettingSpec colorSpec(std::string_view key, std::string defaultValue = {}, bool advanced = false) {
       return baseSpec(key, WidgetControlKind::ColorSpec, std::move(defaultValue), advanced);
-    }
-
-    WidgetSettingSpec
-    stringListSpec(std::string_view key, std::vector<std::string> defaultValue = {}, bool advanced = false) {
-      return baseSpec(key, WidgetControlKind::StringList, std::move(defaultValue), advanced);
     }
 
     WidgetSettingSpec stringMapSpec(std::string_view key, bool advanced = false) {
@@ -430,15 +400,6 @@ namespace settings {
         spec.schema.enumValues.push_back(option.value);
       }
       spec.options = std::move(options);
-      return spec;
-    }
-
-    WidgetSettingSpec segmentedSpec(
-        std::string_view key, std::string defaultValue, std::vector<WidgetSettingSelectOption> options,
-        bool advanced = false
-    ) {
-      auto spec = selectSpec(key, std::move(defaultValue), std::move(options), advanced);
-      spec.segmented = true;
       return spec;
     }
 
@@ -505,6 +466,11 @@ namespace settings {
   const std::vector<WidgetTypeSpec>& widgetTypeSpecs() { return kWidgetTypeSpecs; }
 
   bool isBuiltInWidgetType(std::string_view type) { return findWidgetTypeSpec(type) != nullptr; }
+
+  std::optional<std::string> validateWidgetSemantics(std::string_view type, const WidgetConfig* config) {
+    const auto* projection = findTypedWidgetDefinitionProjection(type);
+    return projection != nullptr ? projection->validateConfig(config) : std::nullopt;
+  }
 
   bool isPluginWidgetType(std::string_view type) { return resolvePluginWidget(type).has_value(); }
 
@@ -764,8 +730,7 @@ namespace settings {
   namespace {
 
     std::vector<WidgetSettingSpec> typeWidgetSettingSpecs(
-        std::string_view type, const WidgetConfig* config, std::string_view shellFontFamily,
-        bool supportsTaskbarWorkspaceGrouping, bool populateFontCatalogs
+        std::string_view type, const WidgetConfig* config, std::string_view shellFontFamily, bool populateFontCatalogs
     ) {
       std::vector<WidgetSettingSpec> specs;
       const auto* projection = findTypedWidgetDefinitionProjection(type);
@@ -774,222 +739,8 @@ namespace settings {
         applyCommonOverrides(commonSpecs, projection->commonOverrides(), type);
       }
 
-      auto add = [&](WidgetSettingSpec spec) { specs.push_back(std::move(spec)); };
-      const std::vector<WidgetSettingSelectOption> shortFull = {
-          {"short", "settings.widgets.options.short"},
-          {"full", "settings.widgets.options.full"},
-      };
-      const std::vector<WidgetSettingSelectOption> workspaceLabelPlacement = {
-          {"corner", "settings.widgets.options.workspace-label-corner"},
-          {"centered", "settings.widgets.options.workspace-label-centered"},
-          {"inside", "settings.widgets.options.workspace-label-inside"},
-      };
-      const std::vector<WidgetSettingSelectOption> workspaceGroupContent = {
-          {"icons", "settings.widgets.options.icons"},
-          {"count", "settings.widgets.options.count"},
-          {"dots", "settings.widgets.options.dots"},
-      };
-      const std::vector<WidgetSettingSelectOption> volumeDeviceOptions = {
-          {"output", "settings.widgets.options.output"},
-          {"input", "settings.widgets.options.input"},
-      };
       if (projection != nullptr) {
         specs = projection->presentedSettingSpecs();
-      } else if (type == "keyboard_layout") {
-        add(boolSpec("hide_when_single_layout", false));
-        add(boolSpec("show_glyph", true));
-        {
-          auto glyph = glyphSpec("glyph", "keyboard");
-          glyph.visibleWhen = WidgetSettingVisibility{"show_glyph", {"true"}};
-          add(std::move(glyph));
-        }
-        {
-          auto image = stringSpec("custom_image", "");
-          image.visibleWhen = WidgetSettingVisibility{"show_glyph", {"true"}};
-          add(std::move(image));
-        }
-        {
-          auto colorize = boolSpec("custom_image_colorize", false);
-          colorize.visibleWhen = WidgetSettingVisibility{"show_glyph", {"true"}};
-          add(std::move(colorize));
-        }
-        add(boolSpec("show_label", true));
-        {
-          auto display = segmentedSpec("display", "short", shortFull);
-          display.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
-          add(std::move(display));
-        }
-        {
-          auto labels = stringMapSpec("custom_labels");
-          labels.visibleWhen = WidgetSettingVisibility{"show_label", {"true"}};
-          add(std::move(labels));
-        }
-      } else if (type == "taskbar") {
-        // Windows: what the taskbar lists and how each window tile looks.
-        add(withGroup(boolSpec("show_all_outputs", false), "taskbar.windows"));
-        add(withGroup(boolSpec("show_active_indicator", true), "taskbar.windows"));
-        {
-          auto activeIndicatorColor = withGroup(colorSpec("active_indicator_color", "primary"), "taskbar.windows");
-          activeIndicatorColor.visibleWhen = WidgetSettingVisibility{"show_active_indicator", {"true"}};
-          add(std::move(activeIndicatorColor));
-        }
-        add(withGroup(doubleSpec("active_opacity", 1.0, 0.1, 1.0, 0.01), "taskbar.windows"));
-        add(withGroup(doubleSpec("inactive_opacity", 1.0, 0.1, 1.0, 0.01), "taskbar.windows"));
-        {
-          auto pinned = withGroup(stringListSpec("pinned"), "taskbar.windows");
-          pinned.labelKey = "settings.widgets.settings.pinned.taskbar-label";
-          pinned.descriptionKey = "settings.widgets.settings.pinned.taskbar-description";
-          if (supportsTaskbarWorkspaceGrouping) {
-            pinned.visibleWhen =
-                WidgetSettingVisibility{WidgetSettingVisibilityCondition{"group_by_workspace", {"false"}}};
-          }
-          add(std::move(pinned));
-        }
-        {
-          auto pinnedOpacity = withGroup(doubleSpec("pinned_opacity", 0.5, 0.0, 1.0, 0.01), "taskbar.windows");
-          WidgetSettingVisibility pinnedOpacitySettings;
-          pinnedOpacitySettings.all = {WidgetSettingVisibilityCondition{"pinned", {}, true}};
-          if (supportsTaskbarWorkspaceGrouping) {
-            pinnedOpacitySettings.all.push_back(WidgetSettingVisibilityCondition{"group_by_workspace", {"false"}});
-          }
-          pinnedOpacity.visibleWhen = std::move(pinnedOpacitySettings);
-          add(std::move(pinnedOpacity));
-        }
-        {
-          // Window titles are only laid out when the taskbar is not grouping by workspace.
-          auto showWindowTitle = withGroup(boolSpec("show_window_title", false), "taskbar.windows");
-          WidgetSettingVisibility windowTitleSettings;
-          windowTitleSettings.all = {WidgetSettingVisibilityCondition{"show_window_title", {"true"}}};
-          if (supportsTaskbarWorkspaceGrouping) {
-            showWindowTitle.visibleWhen =
-                WidgetSettingVisibility{WidgetSettingVisibilityCondition{"group_by_workspace", {"false"}}};
-            windowTitleSettings.all.push_back(WidgetSettingVisibilityCondition{"group_by_workspace", {"false"}});
-          }
-          add(std::move(showWindowTitle));
-
-          auto windowTitleMaxWidth =
-              withGroup(intSpec("window_title_max_width", 100.0, 10.0, 200.0, 1.0), "taskbar.windows");
-          windowTitleMaxWidth.visibleWhen = windowTitleSettings;
-          add(std::move(windowTitleMaxWidth));
-
-          auto taskbarMaxWidth = withGroup(intSpec("taskbar_max_width", 8192.0, 10.0, 8192.0, 1.0), "taskbar.windows");
-          taskbarMaxWidth.visibleWhen = windowTitleSettings;
-          add(std::move(taskbarMaxWidth));
-        }
-
-        if (supportsTaskbarWorkspaceGrouping) {
-          const WidgetSettingVisibility groupedWorkspaceSettings{
-              WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}}
-          };
-
-          // Grouping: how windows are bundled into workspace capsules. only_active_workspace filters the
-          // window list on its own, so it precedes the master toggle the rest of the section hangs off.
-          add(withGroup(boolSpec("only_active_workspace", false), "taskbar.grouping"));
-          add(withGroup(boolSpec("group_by_workspace", false), "taskbar.grouping"));
-          {
-            auto hideEmpty = withGroup(boolSpec("hide_empty_workspaces", false), "taskbar.grouping");
-            hideEmpty.visibleWhen = groupedWorkspaceSettings;
-            add(std::move(hideEmpty));
-          }
-          {
-            auto groupContent =
-                withGroup(segmentedSpec("workspace_group_content", "icons", workspaceGroupContent), "taskbar.grouping");
-            groupContent.visibleWhen = groupedWorkspaceSettings;
-            add(std::move(groupContent));
-          }
-          {
-            auto singleIconPerApp = withGroup(boolSpec("group_single_icon_per_app", false), "taskbar.grouping");
-            WidgetSettingVisibility singleIconSettings;
-            singleIconSettings.all = {
-                WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}},
-                WidgetSettingVisibilityCondition{"workspace_group_content", {"icons"}},
-            };
-            singleIconPerApp.visibleWhen = std::move(singleIconSettings);
-            add(std::move(singleIconPerApp));
-          }
-          {
-            auto groupCapsule = withGroup(boolSpec("workspace_group_capsule", true), "taskbar.grouping");
-            groupCapsule.descriptionKey = "settings.widgets.settings.workspace-group-capsule.description";
-            groupCapsule.visibleWhen = groupedWorkspaceSettings;
-            add(std::move(groupCapsule));
-          }
-
-          // Workspace labels: the disc tag on each grouped capsule, and the colors it uses.
-          {
-            auto showWsLabel = withGroup(boolSpec("show_workspace_label", true), "taskbar.workspace-labels");
-            showWsLabel.visibleWhen = groupedWorkspaceSettings;
-            add(std::move(showWsLabel));
-          }
-          {
-            auto labelPlacement = withGroup(
-                selectSpec("workspace_label_placement", "corner", workspaceLabelPlacement), "taskbar.workspace-labels"
-            );
-            labelPlacement.visibleWhen = groupedWorkspaceSettings;
-            add(std::move(labelPlacement));
-          }
-          // The label styling options only bite on workspace discs, which exist solely when grouping is on.
-          WidgetSettingVisibility labelStyleSettings;
-          labelStyleSettings.all = {
-              WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}},
-              WidgetSettingVisibilityCondition{"show_workspace_label", {"true"}},
-          };
-          {
-            auto minimal = withGroup(boolSpec("minimal", false), "taskbar.workspace-labels");
-            minimal.descriptionKey = "settings.widgets.settings.minimal.taskbar-description";
-            minimal.visibleWhen = labelStyleSettings;
-            add(std::move(minimal));
-          }
-          {
-            auto focusedOutputOnly = withGroup(boolSpec("focused_output_only", false), "taskbar.workspace-labels");
-            focusedOutputOnly.descriptionKey = "settings.widgets.settings.focused-output-only.taskbar-description";
-            focusedOutputOnly.visibleWhen = labelStyleSettings;
-            add(std::move(focusedOutputOnly));
-          }
-          {
-            auto focusedColor = withGroup(colorSpec("focused_color", "primary"), "taskbar.workspace-labels");
-            focusedColor.visibleWhen = groupedWorkspaceSettings;
-            add(std::move(focusedColor));
-          }
-          {
-            auto occupiedColor = withGroup(colorSpec("occupied_color", "secondary"), "taskbar.workspace-labels");
-            occupiedColor.visibleWhen = groupedWorkspaceSettings;
-            add(std::move(occupiedColor));
-          }
-          {
-            auto emptyColor = withGroup(colorSpec("empty_color", "secondary"), "taskbar.workspace-labels");
-            emptyColor.visibleWhen = groupedWorkspaceSettings;
-            add(std::move(emptyColor));
-          }
-          {
-            auto urgentColor = withGroup(colorSpec("urgent_color", "error"), "taskbar.workspace-labels");
-            urgentColor.visibleWhen = groupedWorkspaceSettings;
-            add(std::move(urgentColor));
-          }
-
-          for (auto& spec : commonSpecs) {
-            if (spec.schema.key == "capsule_radius") {
-              spec.descriptionKey = "settings.widgets.settings.capsule-radius.taskbar-description";
-              spec.visibleWhen = WidgetSettingVisibility{
-                  WidgetSettingVisibilityCondition{"capsule", {"true"}},
-                  WidgetSettingVisibilityCondition{"group_by_workspace", {"true"}},
-              };
-              break;
-            }
-          }
-        }
-      } else if (type == "volume") {
-        add(segmentedSpec("device", "output", volumeDeviceOptions));
-        {
-          auto glyph = glyphSpec("glyph", "");
-          glyph.descriptionKey = "settings.widgets.settings.glyph.volume-description";
-          add(std::move(glyph));
-        }
-        add(glyphSpec("mute_glyph", ""));
-        add(stringMapSpec("effects_profile_glyphs"));
-        add(stringSpec("custom_image", ""));
-        add(boolSpec("custom_image_colorize", false));
-        add(boolSpec("show_label", true));
-        add(colorSpec("mute_color", "error"));
       }
 
       specs.insert(
@@ -1192,9 +943,88 @@ namespace settings {
     };
   }
 
+  bool widgetSettingIsVisible(
+      const Config& config, std::string_view widgetName, const WidgetSettingSpec& spec,
+      const std::vector<WidgetSettingSpec>& allSpecs, const WidgetSettingCapabilities& capabilities
+  ) {
+    const auto capabilityAvailable = [&](WidgetSettingCapability capability) {
+      switch (capability) {
+      case WidgetSettingCapability::TaskbarWorkspaceGrouping:
+        return capabilities.taskbarWorkspaceGrouping;
+      }
+      return false;
+    };
+    const auto* widget = [&]() -> const WidgetConfig* {
+      const auto it = config.widgets.find(std::string(widgetName));
+      return it != config.widgets.end() ? &it->second : nullptr;
+    }();
+    const auto findSpec = [&](std::string_view key) -> const WidgetSettingSpec* {
+      const auto it = std::ranges::find(allSpecs, key, [](const WidgetSettingSpec& candidate) {
+        return std::string_view(candidate.schema.key);
+      });
+      return it != allSpecs.end() ? &*it : nullptr;
+    };
+    const auto effectiveValue = [&](std::string_view key) -> std::optional<WidgetSettingValue> {
+      const auto* dependency = findSpec(key);
+      if (dependency != nullptr
+          && dependency->requiresCapability.has_value()
+          && !capabilityAvailable(*dependency->requiresCapability)) {
+        return dependency->schema.defaultValue;
+      }
+      if (widget != nullptr) {
+        if (const auto setting = widget->settings.find(std::string(key)); setting != widget->settings.end()) {
+          return setting->second;
+        }
+      }
+      if (dependency != nullptr) {
+        return dependency->schema.defaultValue;
+      }
+      return std::nullopt;
+    };
+    const auto valueText = [](const WidgetSettingValue& value) {
+      if (const auto* textValue = std::get_if<std::string>(&value)) {
+        return *textValue;
+      }
+      if (const auto* integer = std::get_if<std::int64_t>(&value)) {
+        return std::to_string(*integer);
+      }
+      if (const auto* boolean = std::get_if<bool>(&value)) {
+        return std::string(*boolean ? "true" : "false");
+      }
+      return std::string{};
+    };
+
+    if (spec.requiresCapability.has_value() && !capabilityAvailable(*spec.requiresCapability)) {
+      return false;
+    }
+    if (!spec.visibleWhen.has_value()) {
+      return true;
+    }
+    const auto matches = [&](const WidgetSettingVisibilityCondition& condition) {
+      const auto value = effectiveValue(condition.key);
+      if (!value.has_value()) {
+        return false;
+      }
+      if (condition.nonEmpty) {
+        if (const auto* list = std::get_if<std::vector<std::string>>(&*value)) {
+          return !list->empty();
+        }
+        if (const auto* textValue = std::get_if<std::string>(&*value)) {
+          return !textValue->empty();
+        }
+        return false;
+      }
+      const std::string current = valueText(*value);
+      return std::ranges::contains(condition.values, current);
+    };
+    if (!std::ranges::all_of(spec.visibleWhen->all, matches)) {
+      return false;
+    }
+    return spec.visibleWhen->any.empty() || std::ranges::any_of(spec.visibleWhen->any, matches);
+  }
+
   std::vector<WidgetSettingSpec> widgetSettingSpecs(
-      std::string_view type, const WidgetConfig* config, std::string_view shellFontFamily,
-      bool supportsTaskbarWorkspaceGrouping, bool populateFontCatalogs
+      std::string_view type, const WidgetConfig* config, std::string_view shellFontFamily, bool populateFontCatalogs
   ) {
     if (auto pw = resolvePluginWidget(type)) {
       scripting::PluginTranslationCatalog translations;
@@ -1209,9 +1039,7 @@ namespace settings {
       applyGestureActionDefaults(specs, type, config);
       return specs;
     }
-    return typeWidgetSettingSpecs(
-        type, config, shellFontFamily, supportsTaskbarWorkspaceGrouping, populateFontCatalogs
-    );
+    return typeWidgetSettingSpecs(type, config, shellFontFamily, populateFontCatalogs);
   }
 
   namespace {
@@ -1286,7 +1114,7 @@ namespace settings {
       return std::move(*fields);
     }
     noctalia::config::schema::WidgetSettingSchema out;
-    for (const auto& spec : widgetSettingSpecs(type, nullptr, "sans-serif", true, false)) {
+    for (const auto& spec : widgetSettingSpecs(type, nullptr, "sans-serif", false)) {
       out.push_back(spec.schema);
     }
     return out;
@@ -1312,7 +1140,7 @@ namespace settings {
     if (auto fields = typedWidgetSettingSchema(type)) {
       return std::move(*fields);
     }
-    for (const auto& spec : widgetSettingSpecs(type, config, "sans-serif", true, false)) {
+    for (const auto& spec : widgetSettingSpecs(type, config, "sans-serif", false)) {
       out.push_back(spec.schema);
     }
     return out;

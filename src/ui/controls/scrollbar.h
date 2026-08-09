@@ -45,13 +45,13 @@ private:
   Signal<>::ScopedConnection m_paletteConn;
   std::function<void(float)> m_onScrollChanged;
 
-  float m_viewportExtent = 0.0f;
-  float m_contentExtent = 0.0f;
-  float m_trackInset = 0.0f;
-  float m_maxScroll = 0.0f;
-  float m_thumbTravel = 0.0f;
-  float m_dragStartPosition = 0.0f;
-  float m_dragStartOffset = 0.0f;
+  float m_viewportExtent = 0.0F;
+  float m_contentExtent = 0.0F;
+  float m_trackInset = 0.0F;
+  float m_maxScroll = 0.0F;
+  float m_thumbTravel = 0.0F;
+  float m_dragStartPosition = 0.0F;
+  float m_dragStartOffset = 0.0F;
   bool m_shown = false;
   ScrollOrientation m_orientation = ScrollOrientation::Vertical;
 };

@@ -55,8 +55,8 @@ namespace {
     size_t len = 0;
     const char* path = luaL_checklstring(L, 1, &len);
     const bool watch = lua_gettop(L) >= 2 && !lua_isnil(L, 2) && lua_toboolean(L, 2) != 0;
-    float width = 0.0f;
-    float height = 0.0f;
+    float width = 0.0F;
+    float height = 0.0F;
     if (lua_gettop(L) >= 3 && !lua_isnil(L, 3)) {
       width = static_cast<float>(luaL_checknumber(L, 3));
       height = width;

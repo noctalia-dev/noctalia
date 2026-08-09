@@ -14,10 +14,10 @@ struct LayerSurfaceConfig;
 namespace shell::dock {
 
   struct DockPanelGeometry {
-    float panelX = 0.0f;
-    float panelY = 0.0f;
-    float panelW = 0.0f;
-    float panelH = 0.0f;
+    float panelX = 0.0F;
+    float panelY = 0.0F;
+    float panelW = 0.0F;
+    float panelH = 0.0F;
   };
 
   struct DockSurfaceGeometry {

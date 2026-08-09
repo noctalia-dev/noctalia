@@ -42,7 +42,7 @@ struct OsdContent {
   OsdKind kind = OsdKind::Volume;
   std::string icon;
   std::string value;
-  float progress = 0.0f;
+  float progress = 0.0F;
   bool showProgress = true;
   bool overLimit = false;
   bool inactive = false;
@@ -81,7 +81,7 @@ private:
   struct Instance {
     wl_output* output = nullptr;
     std::int32_t scale = 1;
-    float uiLayoutScale = 1.0f;
+    float uiLayoutScale = 1.0F;
     std::unique_ptr<LayerSurface> surface;
     // sceneRoot must be destroyed before `animations` — ~Node() calls cancelForOwner().
     AnimationManager animations;
@@ -94,14 +94,14 @@ private:
     Glyph* glyph = nullptr;
     Label* value = nullptr;
     ProgressBar* progress = nullptr;
-    float progressValueMinWidth = 0.0f;
-    float rowBaseX = 0.0f;
-    float rowBaseY = 0.0f;
+    float progressValueMinWidth = 0.0F;
+    float rowBaseX = 0.0F;
+    float rowBaseY = 0.0F;
     AnimationManager::Id showAnimId = 0;
     AnimationManager::Id hideAnimId = 0;
     bool showPending = false;
     bool visible = false;
-    float appliedCornerRadiusScale = -1.0f;
+    float appliedCornerRadiusScale = -1.0F;
   };
 
   [[nodiscard]] SurfaceMargins surfaceMarginsForPosition(const std::string& position) const;
@@ -124,8 +124,8 @@ private:
   std::string m_lastPosition;
   std::string m_lastOrientation;
   bool m_lastShowProgress = true;
-  float m_lastLayoutScale = 1.0f;
-  float m_lastCornerRadiusScale = 1.0f;
+  float m_lastLayoutScale = 1.0F;
+  float m_lastCornerRadiusScale = 1.0F;
   std::vector<std::string> m_lastMonitorSelectors;
   std::optional<bool> m_runtimeEnabledOverride;
   bool m_lastConfiguredEnabled = true;

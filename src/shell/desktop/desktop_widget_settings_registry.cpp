@@ -22,6 +22,7 @@ namespace desktop_settings {
     const std::vector<DesktopWidgetTypeSpec> kDesktopWidgetTypeSpecs = {
         {.type = "audio_visualizer", .labelKey = "desktop-widgets.editor.types.audio-visualizer"},
         {.type = "button", .labelKey = "desktop-widgets.editor.types.button"},
+        {.type = "calendar", .labelKey = "desktop-widgets.editor.types.calendar"},
         {.type = "clock", .labelKey = "desktop-widgets.editor.types.clock"},
         {.type = "fancy_audio_visualizer", .labelKey = "desktop-widgets.editor.types.fancy-audio-visualizer"},
         {.type = "label", .labelKey = "desktop-widgets.editor.types.label"},
@@ -217,6 +218,7 @@ namespace desktop_settings {
     const std::vector<WidgetSettingSelectOption> sysmonStats = {
         {"cpu_usage", "desktop-widgets.editor.settings.stat-cpu-usage"},
         {"cpu_temp", "desktop-widgets.editor.settings.stat-cpu-temp"},
+        {"cpu_freq", "desktop-widgets.editor.settings.stat-cpu-freq"},
         {"gpu_temp", "desktop-widgets.editor.settings.stat-gpu-temp"},
         {"gpu_usage", "desktop-widgets.editor.settings.stat-gpu-usage"},
         {"gpu_vram", "desktop-widgets.editor.settings.stat-gpu-vram"},
@@ -240,7 +242,11 @@ namespace desktop_settings {
     std::vector<WidgetSettingSpec> specs;
     auto add = [&](WidgetSettingSpec spec) { specs.push_back(std::move(spec)); };
 
-    if (type == "clock") {
+    if (type == "calendar") {
+      add(boolSpec("show_events", true));
+      add(boolSpec("show_week_numbers", false));
+      add(fontFamilySpec());
+    } else if (type == "clock") {
       const WidgetSettingVisibility digitalOnly{{"clock_style", {"digital"}}};
       const WidgetSettingVisibility analogOnly{{"clock_style", {"analog"}}};
       add(segmentedSpec(

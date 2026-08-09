@@ -77,7 +77,7 @@ void BlurProgram::draw(
   }
 
   static constexpr float kQuad[] = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
 
   glUseProgram(m_program.id());
@@ -86,7 +86,7 @@ void BlurProgram::draw(
   glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(srcTex.value()));
   glUniform1i(m_texLoc, 0);
 
-  glUniform2f(m_texelSzLoc, 1.0f / static_cast<float>(width), 1.0f / static_cast<float>(height));
+  glUniform2f(m_texelSzLoc, 1.0F / static_cast<float>(width), 1.0F / static_cast<float>(height));
   glUniform2f(m_directionLoc, dirX, dirY);
   glUniform1f(m_radiusLoc, radius);
 

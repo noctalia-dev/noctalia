@@ -41,6 +41,41 @@ public:
         .title = std::move(title),
     };
   }
+
+  static std::string bindingWindowId(std::string workspaceWindowId, std::string exactId) {
+    return std::string(
+        TaskbarWidget::workspaceBindingWindowId(
+            TaskbarWidget::TaskModel{
+                .workspaceWindowId = std::move(workspaceWindowId),
+                .exactWindowId = std::move(exactId),
+            }
+        )
+    );
+  }
+
+  static std::pair<std::string, std::string> rebindWorkspaceWindow(std::string exactId, std::string assignedWindowId) {
+    TaskbarWidget::TaskModel task{
+        .workspaceWindowId = exactId,
+        .exactWindowId = std::move(exactId),
+    };
+    // Simulate reconciliation overwriting workspaceWindowId.
+    task.workspaceWindowId = std::move(assignedWindowId);
+    return {task.workspaceWindowId, task.exactWindowId};
+  }
+
+  static bool exactWindowIdChangeKeepsLayout(std::string previousExact, std::string nextExact) {
+    const TaskbarWidget::TaskModel previous{
+        .handleKey = 11,
+        .workspaceWindowId = "41",
+        .exactWindowId = std::move(previousExact),
+    };
+    const TaskbarWidget::TaskModel next{
+        .handleKey = 11,
+        .workspaceWindowId = "41",
+        .exactWindowId = std::move(nextExact),
+    };
+    return TaskbarWidget::compareModels(false, {previous}, {}, {next}, {}).layoutEqual;
+  }
 };
 
 int main() {
@@ -62,6 +97,16 @@ int main() {
   assert(TaskbarWidgetTestAccess::resolvedTitle(tasks, 0, 7, 7) == std::optional<std::string>("retitled"));
   assert(!TaskbarWidgetTestAccess::resolvedTitle(tasks, 2, 7, 7).has_value());
   assert(!TaskbarWidgetTestAccess::resolvedTitle(tasks, 0, 7, 8).has_value());
+
+  // Workspace placement can be rebound while the authoritative exact identity
+  // remains intact for focus/close actions.
+  assert(TaskbarWidgetTestAccess::rebindWorkspaceWindow("41", "42") == std::pair(std::string("42"), std::string("41")));
+  // workspaceBindingWindowId prefers the authoritative exact identity when set.
+  assert(TaskbarWidgetTestAccess::bindingWindowId("42", "41") == "41");
+  assert(TaskbarWidgetTestAccess::bindingWindowId("42", "") == "42");
+  // Changing exactWindowId triggers a layout rebuild.
+  assert(!TaskbarWidgetTestAccess::exactWindowIdChangeKeepsLayout("", "41"));
+  assert(TaskbarWidgetTestAccess::exactWindowIdChangeKeepsLayout("41", "41"));
 
   return 0;
 }

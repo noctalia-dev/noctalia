@@ -62,7 +62,7 @@ namespace settings {
       close();
     }
 
-    m_scale = std::max(0.1f, request.scale);
+    m_scale = std::max(0.1F, request.scale);
     m_title = std::move(request.title);
     m_options = std::move(request.options);
     m_selectedValue = std::move(request.selectedValue);
@@ -71,11 +71,11 @@ namespace settings {
     m_root = nullptr;
     m_searchPicker = nullptr;
 
-    const float panelWidth = 420.0f * m_scale;
-    const float panelHeight = 380.0f * m_scale;
+    const float panelWidth = 420.0F * m_scale;
+    const float panelHeight = 380.0F * m_scale;
     const auto cfg = centeredPopupConfig(
-        request.parent.width, request.parent.height, static_cast<std::uint32_t>(std::max(1.0f, panelWidth)),
-        static_cast<std::uint32_t>(std::max(1.0f, panelHeight)), request.parent.serial
+        request.parent.width, request.parent.height, static_cast<std::uint32_t>(std::max(1.0F, panelWidth)),
+        static_cast<std::uint32_t>(std::max(1.0F, panelHeight)), request.parent.serial
     );
 
     if (!openPopupAsChild(cfg, request.parent)) {
@@ -147,7 +147,7 @@ namespace settings {
                 .emptyText = emptyText,
                 .selectedValue = m_selectedValue,
                 .options = m_options,
-                .flexGrow = 1.0f,
+                .flexGrow = 1.0F,
                 .onActivated =
                     [this](const SearchPickerOption& option) {
                       if (m_onSelect) {
@@ -175,8 +175,8 @@ namespace settings {
                     [](SearchPicker& picker) {
                       picker.clearFill();
                       picker.clearBorder();
-                      picker.setRadius(0.0f);
-                      picker.setPadding(0.0f);
+                      picker.setRadius(0.0F);
+                      picker.setPadding(0.0F);
                     },
             })
         )

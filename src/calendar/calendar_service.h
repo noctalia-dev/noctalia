@@ -33,6 +33,7 @@ namespace security {
 class CalendarService {
 public:
   using ChangeCallback = std::function<void()>;
+  using ChangeCallbackId = std::uint64_t;
   enum class ConnectState : std::uint8_t { Idle, Pending, Success, Failed };
   enum class CachePersistenceState : std::uint8_t {
     Opening,
@@ -64,7 +65,8 @@ public:
   );
 
   void initialize();
-  void addChangeCallback(ChangeCallback callback);
+  [[nodiscard]] ChangeCallbackId addChangeCallback(ChangeCallback callback);
+  void removeChangeCallback(ChangeCallbackId callbackId);
   void setCredentialChangeCallback(ChangeCallback callback) { m_credentialChangeCallback = std::move(callback); }
 
   [[nodiscard]] int pollTimeoutMs() const;
@@ -146,7 +148,8 @@ private:
   HttpClient& m_httpClient;
   NotificationManager* m_notifications = nullptr;
   CalendarConfig m_activeConfig;
-  std::vector<ChangeCallback> m_callbacks;
+  std::vector<std::pair<ChangeCallbackId, ChangeCallback>> m_callbacks;
+  ChangeCallbackId m_nextCallbackId = 1;
   ChangeCallback m_credentialChangeCallback;
 
   calendar::GoogleOAuthBroker m_oauth;

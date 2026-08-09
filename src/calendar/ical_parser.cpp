@@ -1,5 +1,6 @@
 #include "calendar/ical_parser.h"
 
+#include "calendar/event_link.h"
 #include "core/log.h"
 
 #include <algorithm>
@@ -201,6 +202,13 @@ namespace calendar {
       if (const char* location = icalcomponent_get_location(component); location != nullptr) {
         event.location = location;
       }
+      std::string urlProperty;
+      if (icalproperty* url = icalcomponent_get_first_property(component, ICAL_URL_PROPERTY); url != nullptr) {
+        if (const char* value = icalproperty_get_url(url); value != nullptr) {
+          urlProperty = value;
+        }
+      }
+      event.url = resolveEventLink(event.location, urlProperty);
 
       const icaltimetype start = icalcomponent_get_dtstart(component);
       const icaltimetype end = icalcomponent_get_dtend(component);

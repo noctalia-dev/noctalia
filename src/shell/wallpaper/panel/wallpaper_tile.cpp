@@ -30,19 +30,19 @@ namespace {
 
   [[nodiscard]] float starButtonSize(float contentScale) {
     const float starPadding = Style::spaceXs * contentScale;
-    return overlayControlSize(contentScale) + starPadding * 2.0f;
+    return overlayControlSize(contentScale) + starPadding * 2.0F;
   }
 
-  [[nodiscard]] float starShadowOffset(float contentScale) { return std::max(0.5f, 1.0f * contentScale); }
+  [[nodiscard]] float starShadowOffset(float contentScale) { return std::max(0.5F, 1.0F * contentScale); }
 
   [[nodiscard]] float activeThumbScale(bool selected, bool current, bool hovered) {
     if (selected || current) {
-      return 1.04f;
+      return 1.04F;
     }
     if (hovered) {
-      return 1.025f;
+      return 1.025F;
     }
-    return 1.0f;
+    return 1.0F;
   }
 
   void applyStarGlyphStyle(Glyph* glyph, const ColorSpec& fill, float contentScale) {
@@ -51,13 +51,13 @@ namespace {
     }
     glyph->setColor(fill);
     const float offset = starShadowOffset(contentScale);
-    glyph->setShadow(colorSpecFromRole(ColorRole::Shadow, 0.58f), 0.0f, offset);
+    glyph->setShadow(colorSpecFromRole(ColorRole::Shadow, 0.58F), 0.0F, offset);
   }
 
   [[nodiscard]] bool
   starRegionContains(float cellWidth, float /*cellHeight*/, float contentScale, float localX, float localY) {
     const float padding = Style::spaceXs * contentScale;
-    const float frameWidth = std::max(0.0f, cellWidth - padding * 2.0f);
+    const float frameWidth = std::max(0.0F, cellWidth - padding * 2.0F);
     const float inset = Style::spaceXs * contentScale;
     const float btnSize = starButtonSize(contentScale);
     const float starX = padding + frameWidth - btnSize - inset;
@@ -141,7 +141,7 @@ WallpaperTile::WallpaperTile(float cellWidth, float cellHeight, float contentSca
       ui::glyph({
           .out = &m_loadingGlyph,
           .glyph = "hourglass-empty",
-          .color = colorSpecFromRole(ColorRole::OnSurface, 0.5f),
+          .color = colorSpecFromRole(ColorRole::OnSurface, 0.5F),
           .visible = false,
           .participatesInLayout = false,
       })
@@ -167,7 +167,7 @@ WallpaperTile::WallpaperTile(float cellWidth, float cellHeight, float contentSca
           .variant = ButtonVariant::Primary,
           .minWidth = overlaySize,
           .minHeight = overlaySize,
-          .padding = Style::spaceXs * m_contentScale * 0.5f,
+          .padding = Style::spaceXs * m_contentScale * 0.5F,
           .radius = Style::scaledRadiusMd(m_contentScale),
           .visible = false,
           .participatesInLayout = false,
@@ -204,7 +204,7 @@ void WallpaperTile::setThumbnailService(ThumbnailService* service) {
 }
 
 void WallpaperTile::layoutThumbOverlays() {
-  if (m_thumbHost == nullptr || m_thumbFrameWidth <= 0.0f || m_thumbFrameHeight <= 0.0f) {
+  if (m_thumbHost == nullptr || m_thumbFrameWidth <= 0.0F || m_thumbFrameHeight <= 0.0F) {
     return;
   }
 
@@ -213,34 +213,34 @@ void WallpaperTile::layoutThumbOverlays() {
   const float h = m_thumbFrameHeight;
 
   if (m_thumb != nullptr) {
-    m_thumb->setPosition(0.0f, 0.0f);
+    m_thumb->setPosition(0.0F, 0.0F);
     m_thumb->setFrameSize(w, h);
   }
 
   if (m_starGlyph != nullptr) {
     const float hitSize = starButtonSize(m_contentScale);
-    const float glyphW = m_starGlyph->width() > 0.0f ? m_starGlyph->width() : hitSize;
-    const float glyphH = m_starGlyph->height() > 0.0f ? m_starGlyph->height() : hitSize;
+    const float glyphW = m_starGlyph->width() > 0.0F ? m_starGlyph->width() : hitSize;
+    const float glyphH = m_starGlyph->height() > 0.0F ? m_starGlyph->height() : hitSize;
     m_starGlyph->setPosition(
-        std::round(w - hitSize - inset + (hitSize - glyphW) * 0.5f), std::round(inset + (hitSize - glyphH) * 0.5f)
+        std::round(w - hitSize - inset + (hitSize - glyphW) * 0.5F), std::round(inset + (hitSize - glyphH) * 0.5F)
     );
   }
 
   if (m_modeBadge != nullptr) {
-    const float btnW = m_modeBadge->width() > 0.0f ? m_modeBadge->width() : overlayControlSize(m_contentScale);
-    const float btnH = m_modeBadge->height() > 0.0f ? m_modeBadge->height() : btnW;
+    const float btnW = m_modeBadge->width() > 0.0F ? m_modeBadge->width() : overlayControlSize(m_contentScale);
+    const float btnH = m_modeBadge->height() > 0.0F ? m_modeBadge->height() : btnW;
     m_modeBadge->setPosition(std::round(inset), std::round(h - btnH - inset));
     m_modeBadge->setSize(btnW, btnH);
   }
 
   if (m_folderGlyph != nullptr) {
-    const float folderSize = m_folderGlyph->width() > 0.0f ? m_folderGlyph->width() : std::min(w, h) * 0.45f;
-    m_folderGlyph->setPosition(std::round((w - folderSize) * 0.5f), std::round((h - folderSize) * 0.5f));
+    const float folderSize = m_folderGlyph->width() > 0.0F ? m_folderGlyph->width() : std::min(w, h) * 0.45F;
+    m_folderGlyph->setPosition(std::round((w - folderSize) * 0.5F), std::round((h - folderSize) * 0.5F));
   }
 
   if (m_loadingGlyph != nullptr) {
-    const float loadingSize = m_loadingGlyph->width() > 0.0f ? m_loadingGlyph->width() : std::min(w, h) * 0.32f;
-    m_loadingGlyph->setPosition(std::round((w - loadingSize) * 0.5f), std::round((h - loadingSize) * 0.5f));
+    const float loadingSize = m_loadingGlyph->width() > 0.0F ? m_loadingGlyph->width() : std::min(w, h) * 0.32F;
+    m_loadingGlyph->setPosition(std::round((w - loadingSize) * 0.5F), std::round((h - loadingSize) * 0.5F));
   }
 }
 
@@ -251,9 +251,9 @@ void WallpaperTile::setCellSize(float cellWidth, float cellHeight) {
 
   const float padding = Style::spaceXs * m_contentScale;
   const float innerGap = Style::spaceXs * m_contentScale;
-  const float labelH = Style::fontSizeCaption * m_contentScale * 1.4f;
-  m_thumbFrameWidth = std::max(0.0f, cellWidth - padding * 2.0f);
-  m_thumbFrameHeight = std::max(0.0f, cellHeight - padding * 2.0f - innerGap - labelH);
+  const float labelH = Style::fontSizeCaption * m_contentScale * 1.4F;
+  m_thumbFrameWidth = std::max(0.0F, cellWidth - padding * 2.0F);
+  m_thumbFrameHeight = std::max(0.0F, cellHeight - padding * 2.0F - innerGap - labelH);
 
   if (m_layout != nullptr) {
     m_layout->setGap(innerGap);
@@ -264,10 +264,10 @@ void WallpaperTile::setCellSize(float cellWidth, float cellHeight) {
     m_thumbHost->setFrameSize(m_thumbFrameWidth, m_thumbFrameHeight);
   }
   if (m_folderGlyph != nullptr) {
-    m_folderGlyph->setGlyphSize(std::min(m_thumbFrameWidth, m_thumbFrameHeight) * 0.45f);
+    m_folderGlyph->setGlyphSize(std::min(m_thumbFrameWidth, m_thumbFrameHeight) * 0.45F);
   }
   if (m_loadingGlyph != nullptr) {
-    m_loadingGlyph->setGlyphSize(std::min(m_thumbFrameWidth, m_thumbFrameHeight) * 0.32f);
+    m_loadingGlyph->setGlyphSize(std::min(m_thumbFrameWidth, m_thumbFrameHeight) * 0.32F);
   }
   if (m_label != nullptr) {
     m_label->setMaxWidth(m_thumbFrameWidth);
@@ -460,9 +460,9 @@ void WallpaperTile::releaseThumbnail() {
 }
 
 int WallpaperTile::thumbnailTargetPx(const Renderer& renderer) const {
-  const float scale = std::max(1.0f, renderer.renderScale());
+  const float scale = std::max(1.0F, renderer.renderScale());
   const float basis = std::max(m_cellWidth, m_cellHeight);
-  if (basis <= 0.0f) {
+  if (basis <= 0.0F) {
     return 0;
   }
   return static_cast<int>(std::lround(basis * scale));
@@ -538,7 +538,7 @@ void WallpaperTile::applyThumbScale(float scale) {
 }
 
 void WallpaperTile::animateThumbScale(float targetScale) {
-  if (std::abs(m_thumbScaleTarget - targetScale) <= 0.001f) {
+  if (std::abs(m_thumbScaleTarget - targetScale) <= 0.001F) {
     return;
   }
 
@@ -553,7 +553,7 @@ void WallpaperTile::animateThumbScale(float targetScale) {
     m_thumbScaleAnimId = 0;
   }
 
-  if (std::abs(m_thumbScale - targetScale) <= 0.001f || animationManager() == nullptr) {
+  if (std::abs(m_thumbScale - targetScale) <= 0.001F || animationManager() == nullptr) {
     applyThumbScale(targetScale);
     return;
   }
@@ -586,7 +586,7 @@ void WallpaperTile::applyStarVisualState() {
   } else {
     m_starGlyph->setGlyph("star");
     // High-contrast overlay on arbitrary thumbnails: no pill/background, just fill + shadow.
-    applyStarGlyphStyle(m_starGlyph, fixedColorSpec(rgba(1.0f, 1.0f, 1.0f, 0.94f)), m_contentScale);
+    applyStarGlyphStyle(m_starGlyph, fixedColorSpec(rgba(1.0F, 1.0F, 1.0F, 0.94F)), m_contentScale);
   }
 }
 
@@ -595,10 +595,10 @@ void WallpaperTile::applyVisualState() {
     return;
   }
   const bool active = m_selected || m_hoveredVisual || m_current;
-  setOpacity(m_missingFile ? 0.45f : 1.0f);
+  setOpacity(m_missingFile ? 0.45F : 1.0F);
   setZIndex((m_selected || m_current) ? 2 : (m_hoveredVisual ? 1 : 0));
   animateThumbScale(activeThumbScale(m_selected, m_current, m_hoveredVisual));
-  m_thumb->setTint(active ? rgba(1.0f, 1.0f, 1.0f, 1.0f) : rgba(0.5f, 0.5f, 0.5f, 1.0f));
+  m_thumb->setTint(active ? rgba(1.0F, 1.0F, 1.0F, 1.0F) : rgba(0.5F, 0.5F, 0.5F, 1.0F));
 
   auto outlineWidth = Style::borderWidth;
   if (m_selected || m_current || m_hoveredVisual) {

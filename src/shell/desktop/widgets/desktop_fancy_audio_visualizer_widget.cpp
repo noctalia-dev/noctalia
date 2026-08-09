@@ -16,7 +16,7 @@
 
 namespace {
 
-  constexpr float kBaseSize = 300.0f;
+  constexpr float kBaseSize = 300.0F;
   constexpr int kBandCount = FancyAudioVisualizerNode::kBandCount;
 
   [[nodiscard]] float valueAsFloat(const WidgetSettingValue& value, float fallback) {
@@ -136,7 +136,7 @@ bool DesktopFancyAudioVisualizerWidget::applySetting(
       || key == "bloom_intensity"
       || key == "wave_thickness"
       || key == "inner_diameter") {
-    const float next = valueAsFloat(value, 0.0f);
+    const float next = valueAsFloat(value, 0.0F);
     if (key == "sensitivity") {
       m_sensitivity = next;
     } else if (key == "rotation_speed") {
@@ -197,7 +197,7 @@ void DesktopFancyAudioVisualizerWidget::onFrameTick(float deltaMs, Renderer& ren
   if (m_visible) {
     syncSpectrum(renderer);
     if (shouldAnimateTime()) {
-      m_shaderTime = std::fmod(m_shaderTime + std::max(0.0f, deltaMs) * 0.001f, 3600.0f);
+      m_shaderTime = std::fmod(m_shaderTime + std::max(0.0F, deltaMs) * 0.001F, 3600.0F);
       m_visualizer->setTime(m_shaderTime);
     }
   }
@@ -223,7 +223,7 @@ void DesktopFancyAudioVisualizerWidget::layoutContentSize(Renderer& renderer) {
   (void)renderer;
   const float size = std::round(kBaseSize * m_contentScale);
   if (m_visualizer != nullptr) {
-    m_visualizer->setPosition(0.0f, 0.0f);
+    m_visualizer->setPosition(0.0F, 0.0F);
     m_visualizer->setSize(size, size);
     m_visualizer->setCornerRadius(Style::scaledRadiusLg(m_contentScale));
   }
@@ -311,7 +311,7 @@ bool DesktopFancyAudioVisualizerWidget::applyVisibility() {
     m_fadingOut = false;
     m_visible = nextVisible;
     setVisibilityCollapsed(!m_visible);
-    root()->setOpacity(m_visible ? 1.0f : 0.0f);
+    root()->setOpacity(m_visible ? 1.0F : 0.0F);
     return false;
   }
 
@@ -320,7 +320,7 @@ bool DesktopFancyAudioVisualizerWidget::applyVisibility() {
       return false;
     }
     m_fadingOut = true;
-    startOpacityAnimation(0.0f, true);
+    startOpacityAnimation(0.0F, true);
     return false;
   }
 
@@ -333,7 +333,7 @@ bool DesktopFancyAudioVisualizerWidget::applyVisibility() {
   m_fadingOut = false;
   m_visible = true;
   setVisibilityCollapsed(false);
-  startOpacityAnimation(1.0f, false);
+  startOpacityAnimation(1.0F, false);
   return wasCollapsed;
 }
 

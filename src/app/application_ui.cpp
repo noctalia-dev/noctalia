@@ -317,6 +317,7 @@ void Application::initLockScreenAndSession() {
   m_configService.addReloadCallback([this]() {
     if (m_logindService != nullptr) {
       m_logindService->setSessionLockIntegrationEnabled(m_configService.isLockScreenEnabled());
+      m_logindService->setLockBeforeSuspendEnabled(m_configService.shouldLockBeforeSuspend());
     }
     m_lockScreen.onConfigChanged();
     m_lockscreenWidgetsController.onLockStateChanged();
@@ -343,6 +344,7 @@ void Application::initLockScreenAndSession() {
   );
   if (m_logindService != nullptr) {
     m_logindService->setSessionLockIntegrationEnabled(m_configService.isLockScreenEnabled());
+    m_logindService->setLockBeforeSuspendEnabled(m_configService.shouldLockBeforeSuspend());
     m_logindService->setLockCallback([this]() {
       if (!m_configService.isLockScreenEnabled()) {
         return;
@@ -368,6 +370,8 @@ void Application::initLockScreenAndSession() {
   sessionActionHooks.onLogout = [this]() { return m_hookManager.fireBlocking(HookKind::LoggingOut); };
   sessionActionHooks.onReboot = [this]() { return m_hookManager.fireBlocking(HookKind::Rebooting); };
   sessionActionHooks.onShutdown = [this]() { return m_hookManager.fireBlocking(HookKind::ShuttingDown); };
+  sessionActionHooks.onBeforePlainSuspend = [this]() { m_skipLockOnNextSleep = true; };
+  sessionActionHooks.onPlainSuspendAborted = [this]() { m_skipLockOnNextSleep = false; };
   m_sessionActionRunner.setHooks(std::move(sessionActionHooks));
   m_sessionActionRunner.setPowerConfig(m_configService.config().shell.session.power);
   m_configService.addReloadCallback(
@@ -940,6 +944,7 @@ void Application::initWidgetControllersAndCallbacks() {
       .configService = &m_configService,
   };
   const DesktopWidgetRuntimeServices desktopWidgetRuntime{
+      .calendar = &m_calendarService,
       .pipewire = m_pipewireService.get(),
       .pipewireSpectrum = m_pipewireSpectrum.get(),
       .weather = &m_weatherService,

@@ -63,6 +63,7 @@ namespace noctalia::bar {
         || std::is_floating_point_v<T>
         || std::is_same_v<T, std::string>
         || std::is_same_v<T, std::vector<std::string>>
+        || std::is_same_v<T, WidgetSettingStringMap>
         || std::is_same_v<T, ColorSpec>;
 
     template <typename T>
@@ -78,6 +79,8 @@ namespace noctalia::bar {
         return config::schema::WidgetSettingType::Double;
       } else if constexpr (std::is_same_v<T, std::vector<std::string>>) {
         return config::schema::WidgetSettingType::StringList;
+      } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
+        return config::schema::WidgetSettingType::StringMap;
       } else if constexpr (std::is_same_v<T, ColorSpec>) {
         return config::schema::WidgetSettingType::Color;
       } else {
@@ -105,6 +108,8 @@ namespace noctalia::bar {
         return settings::WidgetControlKind::Double;
       } else if constexpr (std::is_same_v<T, std::vector<std::string>>) {
         return settings::WidgetControlKind::StringList;
+      } else if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
+        return settings::WidgetControlKind::StringMap;
       } else if constexpr (std::is_same_v<T, ColorSpec>) {
         return settings::WidgetControlKind::ColorSpec;
       } else {
@@ -477,20 +482,29 @@ namespace noctalia::bar {
   // Retunes one of the registry-owned common widget settings for a single widget
   // type. A definition may adjust a common setting's default and presentation; it
   // can neither add nor remove common settings. The registry rejects a key that
-  // does not name exactly one common setting. `defaultValue` and `descriptionKey`
-  // replace; `visibleWhen` refines and must declare `all` conditions only, which
-  // are appended to the common setting's own conditions.
+  // does not name exactly one common setting. `defaultValue`, `descriptionKey`,
+  // and `replaceVisibleWhen` replace; `visibleWhen` refines and must declare `all`
+  // conditions only, which are appended to the common setting's own conditions.
   struct WidgetCommonSettingOverride {
     std::string_view key;
     std::optional<WidgetSettingValue> defaultValue;
     std::string_view descriptionKey;
     std::optional<settings::WidgetSettingVisibility> visibleWhen;
+    std::optional<settings::WidgetSettingVisibility> replaceVisibleWhen;
   };
 
   template <typename Options, typename Context = std::monostate> struct WidgetDefinition {
+    using ContextType = Context;
+
     std::string_view type;
     std::vector<WidgetDefinitionField<Options>> fields;
     std::function<void(Options&, const Context&)> finalize;
+    // Optional picker-glyph hook. It receives options resolved with a default context;
+    // an empty result uses the widget type's static glyph.
+    std::function<std::string(const Options&)> glyph;
+    // Optional cross-field semantic check on resolved options. A returned string
+    // describes the invalid combination; nullopt means the options are valid.
+    std::function<std::optional<std::string>(const Options&)> validateOptions;
     std::vector<WidgetCommonSettingOverride> commonOverrides;
 
     [[nodiscard]] Options resolve(const WidgetConfig* config, std::string_view settingContext) const

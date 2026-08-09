@@ -12,26 +12,26 @@
 namespace {
 
   float linearizedColorChannel(float channel) {
-    channel = std::clamp(channel, 0.0f, 1.0f);
-    if (channel <= 0.03928f) {
-      return channel / 12.92f;
+    channel = std::clamp(channel, 0.0F, 1.0F);
+    if (channel <= 0.03928F) {
+      return channel / 12.92F;
     }
-    return std::pow((channel + 0.055f) / 1.055f, 2.4f);
+    return std::pow((channel + 0.055F) / 1.055F, 2.4F);
   }
 
 } // namespace
 
 Color hsv(float h, float s, float v, float a) {
   h = h - std::floor(h);
-  const float saturation = std::clamp(s, 0.0f, 1.0f);
-  const float value = std::clamp(v, 0.0f, 1.0f);
+  const float saturation = std::clamp(s, 0.0F, 1.0F);
+  const float value = std::clamp(v, 0.0F, 1.0F);
   const float chroma = value * saturation;
-  const float hh = h * 6.0f;
-  const float x = chroma * (1.0f - std::fabs(std::fmod(hh, 2.0f) - 1.0f));
+  const float hh = h * 6.0F;
+  const float x = chroma * (1.0F - std::fabs(std::fmod(hh, 2.0F) - 1.0F));
 
-  float rp = 0.0f;
-  float gp = 0.0f;
-  float bp = 0.0f;
+  float rp = 0.0F;
+  float gp = 0.0F;
+  float bp = 0.0F;
   switch (static_cast<int>(hh) % 6) {
   case 0:
     rp = chroma;
@@ -60,37 +60,37 @@ Color hsv(float h, float s, float v, float a) {
   }
 
   const float m = value - chroma;
-  return rgba(rp + m, gp + m, bp + m, std::clamp(a, 0.0f, 1.0f));
+  return rgba(rp + m, gp + m, bp + m, std::clamp(a, 0.0F, 1.0F));
 }
 
 Color hsl(float h, float s, float l, float a) {
-  h = std::fmod(h, 360.0f);
-  if (h < 0.0f) {
-    h += 360.0f;
+  h = std::fmod(h, 360.0F);
+  if (h < 0.0F) {
+    h += 360.0F;
   }
-  s = std::clamp(s, 0.0f, 1.0f);
-  l = std::clamp(l, 0.0f, 1.0f);
+  s = std::clamp(s, 0.0F, 1.0F);
+  l = std::clamp(l, 0.0F, 1.0F);
 
-  const float chroma = (1.0f - std::fabs(2.0f * l - 1.0f)) * s;
-  const float x = chroma * (1.0f - std::fabs(std::fmod(h / 60.0f, 2.0f) - 1.0f));
-  const float m = l - chroma / 2.0f;
+  const float chroma = (1.0F - std::fabs(2.0F * l - 1.0F)) * s;
+  const float x = chroma * (1.0F - std::fabs(std::fmod(h / 60.0F, 2.0F) - 1.0F));
+  const float m = l - chroma / 2.0F;
 
-  float rp = 0.0f;
-  float gp = 0.0f;
-  float bp = 0.0f;
-  if (h < 60.0f) {
+  float rp = 0.0F;
+  float gp = 0.0F;
+  float bp = 0.0F;
+  if (h < 60.0F) {
     rp = chroma;
     gp = x;
-  } else if (h < 120.0f) {
+  } else if (h < 120.0F) {
     rp = x;
     gp = chroma;
-  } else if (h < 180.0f) {
+  } else if (h < 180.0F) {
     gp = chroma;
     bp = x;
-  } else if (h < 240.0f) {
+  } else if (h < 240.0F) {
     gp = x;
     bp = chroma;
-  } else if (h < 300.0f) {
+  } else if (h < 300.0F) {
     rp = x;
     bp = chroma;
   } else {
@@ -98,7 +98,7 @@ Color hsl(float h, float s, float l, float a) {
     bp = x;
   }
 
-  return rgba(rp + m, gp + m, bp + m, std::clamp(a, 0.0f, 1.0f));
+  return rgba(rp + m, gp + m, bp + m, std::clamp(a, 0.0F, 1.0F));
 }
 
 void rgbToHsv(const Color& rgb, float& h, float& s, float& v) {
@@ -107,27 +107,27 @@ void rgbToHsv(const Color& rgb, float& h, float& s, float& v) {
   const float delta = maxChannel - minChannel;
 
   v = maxChannel;
-  if (maxChannel <= 1e-6f) {
-    h = 0.0f;
-    s = 0.0f;
+  if (maxChannel <= 1e-6F) {
+    h = 0.0F;
+    s = 0.0F;
     return;
   }
 
   s = delta / maxChannel;
-  if (delta <= 1e-6f) {
-    h = 0.0f;
+  if (delta <= 1e-6F) {
+    h = 0.0F;
     return;
   }
 
   if (maxChannel == rgb.r) {
-    h = (rgb.g - rgb.b) / delta + (rgb.g < rgb.b ? 6.0f : 0.0f);
+    h = (rgb.g - rgb.b) / delta + (rgb.g < rgb.b ? 6.0F : 0.0F);
   } else if (maxChannel == rgb.g) {
-    h = (rgb.b - rgb.r) / delta + 2.0f;
+    h = (rgb.b - rgb.r) / delta + 2.0F;
   } else {
-    h = (rgb.r - rgb.g) / delta + 4.0f;
+    h = (rgb.r - rgb.g) / delta + 4.0F;
   }
 
-  h /= 6.0f;
+  h /= 6.0F;
   h = h - std::floor(h);
 }
 
@@ -138,7 +138,7 @@ Color lerpHsv(const Color& a, const Color& b, float t) {
   rgbToHsv(b, h1, s1, v1);
 
   // Hue is undefined at negligible chroma; borrow the other endpoint's hue to avoid spurious tints.
-  constexpr float kChromaEpsilon = 1e-6f;
+  constexpr float kChromaEpsilon = 1e-6F;
   if (s0 * v0 <= kChromaEpsilon) {
     h0 = h1;
   }
@@ -147,26 +147,26 @@ Color lerpHsv(const Color& a, const Color& b, float t) {
   }
 
   float hDelta = h1 - h0;
-  if (hDelta > 0.5f) {
-    hDelta -= 1.0f;
-  } else if (hDelta < -0.5f) {
-    hDelta += 1.0f;
+  if (hDelta > 0.5F) {
+    hDelta -= 1.0F;
+  } else if (hDelta < -0.5F) {
+    hDelta += 1.0F;
   }
   return hsv(h0 + hDelta * t, s0 + (s1 - s0) * t, v0 + (v1 - v0) * t, a.a + (b.a - a.a) * t);
 }
 
 float relativeLuminance(const Color& color) {
-  return 0.2126f * linearizedColorChannel(color.r)
-      + 0.7152f * linearizedColorChannel(color.g)
-      + 0.0722f * linearizedColorChannel(color.b);
+  return 0.2126F * linearizedColorChannel(color.r)
+      + 0.7152F * linearizedColorChannel(color.g)
+      + 0.0722F * linearizedColorChannel(color.b);
 }
 
 Color readableTextColorForBackground(const Color& background) {
-  return relativeLuminance(background) > 0.179f ? rgba(0.0f, 0.0f, 0.0f) : rgba(1.0f, 1.0f, 1.0f);
+  return relativeLuminance(background) > 0.179F ? rgba(0.0F, 0.0F, 0.0F) : rgba(1.0F, 1.0F, 1.0F);
 }
 
 std::string formatRgbHex(const Color& color) {
-  auto toByte = [](float channel) { return static_cast<int>(std::lround(std::clamp(channel, 0.0f, 1.0f) * 255.0f)); };
+  auto toByte = [](float channel) { return static_cast<int>(std::lround(std::clamp(channel, 0.0F, 1.0F) * 255.0F)); };
 
   char buffer[16];
   std::snprintf(buffer, sizeof(buffer), "#%02X%02X%02X", toByte(color.r), toByte(color.g), toByte(color.b));
@@ -257,7 +257,7 @@ bool tryParseCssColor(std::string_view text, Color& out) {
   // Alpha: number in [0,1] or percentage in [0,100]%.
   auto parseAlpha = [&](std::string_view& sv, float& result) -> bool {
     skipSpaces(sv);
-    float v = 0.0f;
+    float v = 0.0F;
     const auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), v);
     if (ec != std::errc{}) {
       return false;
@@ -265,9 +265,9 @@ bool tryParseCssColor(std::string_view text, Color& out) {
     sv.remove_prefix(static_cast<std::size_t>(ptr - sv.data()));
     if (!sv.empty() && sv.front() == '%') {
       sv.remove_prefix(1);
-      v /= 100.0f;
+      v /= 100.0F;
     }
-    if (v < 0.0f || v > 1.0f) {
+    if (v < 0.0F || v > 1.0F) {
       return false;
     }
     result = v;
@@ -281,7 +281,7 @@ bool tryParseCssColor(std::string_view text, Color& out) {
     // Channel: number in [0,255] or percentage in [0,100]%, normalized to [0,1].
     auto parseChannel = [&](std::string_view& sv, float& result) -> bool {
       skipSpaces(sv);
-      float v = 0.0f;
+      float v = 0.0F;
       const auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), v);
       if (ec != std::errc{}) {
         return false;
@@ -289,15 +289,15 @@ bool tryParseCssColor(std::string_view text, Color& out) {
       sv.remove_prefix(static_cast<std::size_t>(ptr - sv.data()));
       if (!sv.empty() && sv.front() == '%') {
         sv.remove_prefix(1);
-        if (v < 0.0f || v > 100.0f) {
+        if (v < 0.0F || v > 100.0F) {
           return false;
         }
-        result = v / 100.0f;
+        result = v / 100.0F;
       } else {
-        if (v < 0.0f || v > 255.0f) {
+        if (v < 0.0F || v > 255.0F) {
           return false;
         }
-        result = v / 255.0f;
+        result = v / 255.0F;
       }
       skipSpaces(sv);
       return true;
@@ -334,7 +334,7 @@ bool tryParseCssColor(std::string_view text, Color& out) {
     // Hue: number with an optional angle unit; result in degrees (hsl() wraps the range).
     auto parseHue = [&](std::string_view& sv, float& result) -> bool {
       skipSpaces(sv);
-      float v = 0.0f;
+      float v = 0.0F;
       const auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), v);
       if (ec != std::errc{}) {
         return false;
@@ -343,13 +343,13 @@ bool tryParseCssColor(std::string_view text, Color& out) {
       if (sv.starts_with("deg")) {
         sv.remove_prefix(3);
       } else if (sv.starts_with("grad")) {
-        v *= 360.0f / 400.0f;
+        v *= 360.0F / 400.0F;
         sv.remove_prefix(4);
       } else if (sv.starts_with("rad")) {
-        v *= 180.0f / std::numbers::pi_v<float>;
+        v *= 180.0F / std::numbers::pi_v<float>;
         sv.remove_prefix(3);
       } else if (sv.starts_with("turn")) {
-        v *= 360.0f;
+        v *= 360.0F;
         sv.remove_prefix(4);
       }
       result = v;
@@ -359,25 +359,25 @@ bool tryParseCssColor(std::string_view text, Color& out) {
     // Saturation/lightness: percentage in [0,100]%, normalized to [0,1].
     auto parsePercent = [&](std::string_view& sv, float& result) -> bool {
       skipSpaces(sv);
-      float v = 0.0f;
+      float v = 0.0F;
       const auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), v);
       if (ec != std::errc{}) {
         return false;
       }
       sv.remove_prefix(static_cast<std::size_t>(ptr - sv.data()));
-      if (sv.empty() || sv.front() != '%' || v < 0.0f || v > 100.0f) {
+      if (sv.empty() || sv.front() != '%' || v < 0.0F || v > 100.0F) {
         return false;
       }
       sv.remove_prefix(1);
-      result = v / 100.0f;
+      result = v / 100.0F;
       skipSpaces(sv);
       return true;
     };
 
-    float h = 0.0f;
-    float s = 0.0f;
-    float l = 0.0f;
-    float a = 1.0f;
+    float h = 0.0F;
+    float s = 0.0F;
+    float l = 0.0F;
+    float a = 1.0F;
     if (!parseHue(inner, h)) {
       return false;
     }

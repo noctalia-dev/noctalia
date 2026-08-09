@@ -485,7 +485,8 @@ namespace noctalia::config {
         const char* tag = isError ? "ERROR" : "WARN "; // padded to align the path column
         const char* color = (isError ? colorErr : colorOut) ? (isError ? "\033[31m" : "\033[33m") : "";
         const char* reset = *color != '\0' ? "\033[0m" : "";
-        std::println(out, "{}{}{} {}: {}", color, tag, reset, entry.path, entry.message);
+        const std::string location = entry.origin.valid() ? entry.origin.format() + ": " : std::string{};
+        std::println(out, "{}{}{} {}{}: {}", color, tag, reset, location, entry.path, entry.message);
       }
 
       if (errors > 0) {

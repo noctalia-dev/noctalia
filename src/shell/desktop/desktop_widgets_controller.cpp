@@ -411,6 +411,11 @@ void DesktopWidgetsController::handleConfigReload() {
     loadSnapshotFromConfig();
     if (m_host != nullptr) {
       m_host->rebuild(m_snapshot);
+      // Plugin-level settings live in [plugin_settings], outside the widget snapshot, so
+      // the host's instance diff cannot see them change.
+      if (m_config != nullptr && m_config->lastChange().plugins) {
+        m_host->reloadPluginWidgets();
+      }
     }
   }
   applyVisibility();

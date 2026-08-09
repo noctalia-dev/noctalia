@@ -34,8 +34,8 @@ public:
       float imageHeight2
   ) {
     setSources(
-        WallpaperSourceKind::Image, texture1, rgba(0.0f, 0.0f, 0.0f, 1.0f), WallpaperSourceKind::Image, texture2,
-        rgba(0.0f, 0.0f, 0.0f, 1.0f), imageWidth1, imageHeight1, imageWidth2, imageHeight2
+        WallpaperSourceKind::Image, texture1, rgba(0.0F, 0.0F, 0.0F, 1.0F), WallpaperSourceKind::Image, texture2,
+        rgba(0.0F, 0.0F, 0.0F, 1.0F), imageWidth1, imageHeight1, imageWidth2, imageHeight2
     );
   }
 
@@ -118,16 +118,16 @@ private:
   WallpaperSourceKind m_sourceKind2 = WallpaperSourceKind::Image;
   TextureId m_texture1;
   TextureId m_texture2;
-  Color m_sourceColor1 = rgba(0.0f, 0.0f, 0.0f, 1.0f);
-  Color m_sourceColor2 = rgba(0.0f, 0.0f, 0.0f, 1.0f);
-  float m_imageWidth1 = 0.0f;
-  float m_imageHeight1 = 0.0f;
-  float m_imageWidth2 = 0.0f;
-  float m_imageHeight2 = 0.0f;
-  float m_progress = 0.0f;
+  Color m_sourceColor1 = rgba(0.0F, 0.0F, 0.0F, 1.0F);
+  Color m_sourceColor2 = rgba(0.0F, 0.0F, 0.0F, 1.0F);
+  float m_imageWidth1 = 0.0F;
+  float m_imageHeight1 = 0.0F;
+  float m_imageWidth2 = 0.0F;
+  float m_imageHeight2 = 0.0F;
+  float m_progress = 0.0F;
   WallpaperTransition m_transition = WallpaperTransition::Fade;
   WallpaperFillMode m_fillMode = WallpaperFillMode::Crop;
-  Color m_fillColor = rgba(0.0f, 0.0f, 0.0f, 1.0f);
+  Color m_fillColor = rgba(0.0F, 0.0F, 0.0F, 1.0F);
   TransitionParams m_params;
   WallpaperSpanParams m_span;
 };

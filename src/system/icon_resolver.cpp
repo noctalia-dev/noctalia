@@ -455,6 +455,13 @@ std::uint64_t IconResolver::themeGeneration() {
   return state.generation;
 }
 
+std::string IconResolver::activeThemeName() {
+  auto& state = iconThemeState();
+  std::scoped_lock lock(state.mutex);
+  ensureThemeStateLocked(state);
+  return state.plan.activeTheme;
+}
+
 void IconResolver::rebuild() {
   auto& state = iconThemeState();
   std::scoped_lock lock(state.mutex);
@@ -478,7 +485,7 @@ const std::string& IconResolver::resolve(const std::string& iconName, int target
     return m_empty;
   }
   ensureFresh();
-  const std::string key = iconName + '\x1f' + std::to_string(std::max(0, targetSize));
+  const std::string key = iconName + '\x1F' + std::to_string(std::max(0, targetSize));
   auto it = m_cache.find(key);
   if (it != m_cache.end()) {
     return it->second;

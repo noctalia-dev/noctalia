@@ -12,8 +12,10 @@
 #include "render/core/color.h"
 #include "render/text/font_registry.h"
 #include "scripting/plugin_bindings.h"
+#include "scripting/plugin_id.h"
 #include "scripting/plugin_state_store.h"
 #include "scripting/script_api_context.h"
+#include "scripting/script_io_pool.h"
 #include "scripting/ui_handler_table.h"
 #include "system/app_identity.h"
 #include "system/desktop_entry.h"
@@ -38,6 +40,7 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -59,8 +62,12 @@ namespace {
   constexpr std::size_t kMaxAsyncCommandOutputBytes = 1024 * 1024;
   constexpr std::size_t kMaxAsyncCommandsPerHost = 8;
   constexpr int kMaxGlobalAsyncCommands = 32;
+  constexpr std::size_t kMaxAsyncFileReadsPerHost = 4;
+  constexpr std::size_t kMaxAsyncFileBytes = 4 * 1024 * 1024;
   constexpr std::size_t kMaxAsyncProcessMatchesPerHost = 16;
   constexpr int kMaxGlobalAsyncProcessMatches = 64;
+  // Identical call failures inside this window collapse into one logged line.
+  constexpr auto kCallFailureLogWindow = std::chrono::seconds(60);
   constexpr int kMaxGlobalDetachedCommands = 32;
   constexpr std::size_t kMaxAsyncHttpPerHost = 8;
   constexpr std::size_t kMaxPendingSoundLoadsPerHost = 8;
@@ -395,7 +402,7 @@ namespace {
 
   // systemStats() -> a snapshot of the host's system monitor, or nil when it is unavailable.
   //
-  //   { sampledAtMs?, cpu = { usagePercent = 23.4, tempC = 47.0? },
+  //   { sampledAtMs?, cpu = { usagePercent = 23.4, tempC = 47.0?, freqMhz = 2400.0?, maxFreqMhz = 4800.0? },
   //     ram = { usagePercent, usedMb, totalMb }, swap = { usedMb, totalMb },
   //     gpu = { tempC?, usagePercent?, vramUsedBytes?, vramTotalBytes? },
   //     net = { rxBytesPerSec, txBytesPerSec,
@@ -422,11 +429,15 @@ namespace {
       setTableNumber(L, "sampledAtMs", sampledAtMs);
     }
 
-    lua_createtable(L, 0, 2);
+    lua_createtable(L, 0, 4);
     setTableNumber(L, "usagePercent", stats.cpuUsagePercent);
     // cpuTempAvailable false means the service is serving its 40C placeholder, not a reading.
     if (stats.cpuTempAvailable) {
       setTableOptionalNumber(L, "tempC", stats.cpuTempC);
+    }
+    if (stats.cpuFreqAvailable) {
+      setTableNumber(L, "freqMhz", stats.cpuFreqMhz);
+      setTableOptionalNumber(L, "maxFreqMhz", stats.cpuMaxFreqMhz);
     }
     lua_setfield(L, -2, "cpu");
 
@@ -849,6 +860,33 @@ namespace {
     return host->pluginDir() / path;
   }
 
+  // Names the binding the CPU deadline was crossed inside, for the overrun message only.
+  // Arms only when the deadline is still ahead on entry, so a binding that merely runs
+  // after an already-blown budget is not blamed. Wrap bindings that can block.
+  class BudgetCrossingScope {
+  public:
+    BudgetCrossingScope(LuauHost* host, std::string_view binding, std::string_view detail)
+        : m_host(host), m_binding(binding), m_detail(detail),
+          m_armed(host != nullptr && !host->budgetDeadlineCrossed()) {}
+
+    ~BudgetCrossingScope() {
+      if (m_armed && m_host->budgetDeadlineCrossed()) {
+        m_host->recordBudgetCrossing(m_binding, m_detail);
+      }
+    }
+
+    BudgetCrossingScope(const BudgetCrossingScope&) = delete;
+    BudgetCrossingScope& operator=(const BudgetCrossingScope&) = delete;
+    BudgetCrossingScope(BudgetCrossingScope&&) = delete;
+    BudgetCrossingScope& operator=(BudgetCrossingScope&&) = delete;
+
+  private:
+    LuauHost* m_host;
+    std::string_view m_binding;
+    std::string_view m_detail;
+    bool m_armed;
+  };
+
   int luau_sound_load(lua_State* L) {
     size_t nameLen = 0;
     const char* name = luaL_checklstring(L, 1, &nameLen);
@@ -903,6 +941,7 @@ namespace {
       lua_pushstring(L, "no host");
       return 2;
     }
+    const BudgetCrossingScope budgetScope(host, "readFile", std::string_view(path, len));
     std::ifstream file(resolveHostPath(host, std::string_view(path, len)), std::ios::binary);
     if (!file) {
       lua_pushnil(L);
@@ -916,6 +955,25 @@ namespace {
     return 1;
   }
 
+  int luau_readFileAsync(lua_State* L) {
+    size_t len = 0;
+    const char* path = luaL_checklstring(L, 1, &len);
+    luaL_checktype(L, 2, LUA_TFUNCTION);
+    auto* host = hostForState(L);
+    if (host == nullptr) {
+      lua_pushboolean(L, 0);
+      return 1;
+    }
+
+    const int callbackRef = lua_ref(L, 2);
+    const bool accepted = host->startAsyncFileRead(resolveHostPath(host, std::string_view(path, len)), callbackRef);
+    if (!accepted) {
+      lua_unref(L, callbackRef);
+    }
+    lua_pushboolean(L, accepted ? 1 : 0);
+    return 1;
+  }
+
   int luau_loadFont(lua_State* L) {
     size_t len = 0;
     const char* path = luaL_checklstring(L, 1, &len);
@@ -925,6 +983,7 @@ namespace {
       lua_pushstring(L, "no host");
       return 2;
     }
+    const BudgetCrossingScope budgetScope(host, "loadFont", std::string_view(path, len));
     const std::string family = text::registerFontFile(resolveHostPath(host, std::string_view(path, len)));
     if (family.empty()) {
       lua_pushnil(L);
@@ -946,6 +1005,7 @@ namespace {
       lua_pushstring(L, "no host");
       return 2;
     }
+    const BudgetCrossingScope budgetScope(host, "writeFile", std::string_view(path, pathLen));
     std::ofstream file(resolveHostPath(host, std::string_view(path, pathLen)), std::ios::binary | std::ios::trunc);
     if (!file) {
       lua_pushboolean(L, 0);
@@ -966,6 +1026,7 @@ namespace {
       lua_pushstring(L, "no host");
       return 2;
     }
+    const BudgetCrossingScope budgetScope(host, "mkdirAll", std::string_view(path, len));
     const std::filesystem::path dir = resolveHostPath(host, std::string_view(path, len));
     std::error_code ec;
     std::filesystem::create_directories(dir, ec);
@@ -992,6 +1053,7 @@ namespace {
       lua_pushstring(L, "no host");
       return 2;
     }
+    const BudgetCrossingScope budgetScope(host, "removeFile", std::string_view(path, len));
     const std::filesystem::path file = resolveHostPath(host, std::string_view(path, len));
     std::error_code ec;
     if (std::filesystem::is_directory(file, ec)) {
@@ -1019,6 +1081,7 @@ namespace {
       lua_pushstring(L, "no host");
       return 2;
     }
+    const BudgetCrossingScope budgetScope(host, "renameFile", std::string_view(from, fromLen));
     std::error_code ec;
     std::filesystem::rename(
         resolveHostPath(host, std::string_view(from, fromLen)), resolveHostPath(host, std::string_view(to, toLen)), ec
@@ -1041,6 +1104,7 @@ namespace {
       lua_pushstring(L, "no host");
       return 2;
     }
+    const BudgetCrossingScope budgetScope(host, "fileInfo", std::string_view(path, len));
     const std::filesystem::path target = resolveHostPath(host, std::string_view(path, len));
     std::error_code ec;
     const auto status = std::filesystem::status(target, ec);
@@ -1081,6 +1145,7 @@ namespace {
       lua_pushboolean(L, 0);
       return 1;
     }
+    const BudgetCrossingScope budgetScope(host, "fileExists", std::string_view(path, len));
     std::error_code ec;
     lua_pushboolean(L, std::filesystem::exists(resolveHostPath(host, std::string_view(path, len)), ec) ? 1 : 0);
     return 1;
@@ -1095,6 +1160,7 @@ namespace {
       lua_pushstring(L, "no host");
       return 2;
     }
+    const BudgetCrossingScope budgetScope(host, "listDir", std::string_view(path, len));
     const std::filesystem::path dir = resolveHostPath(host, std::string_view(path, len));
     std::error_code ec;
     if (!std::filesystem::is_directory(dir, ec)) {
@@ -1518,6 +1584,7 @@ namespace {
   int luau_json_decode(lua_State* L) {
     size_t len = 0;
     const char* str = luaL_checklstring(L, 1, &len);
+    const BudgetCrossingScope budgetScope(hostForState(L), "json.decode", {});
     try {
       jsonToLua(L, nlohmann::json::parse(str, str + len));
       return 1;
@@ -1531,6 +1598,7 @@ namespace {
   int luau_json_encode(lua_State* L) {
     const nlohmann::json value = lua_gettop(L) >= 1 ? luaToJson(L, 1) : nlohmann::json(nullptr);
     const bool pretty = lua_toboolean(L, 2) != 0;
+    const BudgetCrossingScope budgetScope(hostForState(L), "json.encode", {});
     try {
       const std::string out = value.dump(pretty ? 2 : -1);
       lua_pushlstring(L, out.data(), out.size());
@@ -1635,6 +1703,7 @@ namespace {
       {"isValidTimezone", luau_isValidTimezone},
       {"setUpdateInterval", luau_setUpdateInterval},
       {"readFile", luau_readFile},
+      {"readFileAsync", luau_readFileAsync},
       {"loadFont", luau_loadFont},
       {"writeFile", luau_writeFile},
       {"mkdirAll", luau_mkdirAll},
@@ -1701,7 +1770,15 @@ void* LuauHost::allocate(void* ud, void* ptr, std::size_t osize, std::size_t nsi
   return result;
 }
 
-LuauHost::LuauHost(scripting::ScriptApiContext& api, CompositorPlatform* platform) : m_api(api), m_platform(platform) {
+LuauHost::LuauHost(scripting::ScriptApiContext& api, std::string runtimeName, CompositorPlatform* platform)
+    : m_api(api), m_platform(platform), m_runtimeName(std::move(runtimeName)) {
+  // Enforced in every build: a host with a non-canonical id would log anonymously and
+  // scope its state store to a bogus plugin. Callers resolve ids from the registry, so
+  // this only fires on an internal bug.
+  if (!scripting::isValidPluginEntryId(m_runtimeName)) {
+    throw std::invalid_argument("LuauHost: invalid entry id '" + m_runtimeName + "' (expected author/plugin:entry)");
+  }
+  m_pluginId = m_runtimeName.substr(0, m_runtimeName.find(':'));
   m_hostId = nextHostId().fetch_add(1, std::memory_order_relaxed);
 
   m_L = lua_newstate(&LuauHost::allocate, this);
@@ -1876,6 +1953,45 @@ bool LuauHost::startAsyncCommand(std::string command, int callbackRef, std::chro
   return true;
 }
 
+bool LuauHost::startAsyncFileRead(std::filesystem::path path, int callbackRef) {
+  if (callbackRef <= LUA_REFNIL || m_asyncFileCallbackRefs.size() >= kMaxAsyncFileReadsPerHost) {
+    return false;
+  }
+  auto handler = m_asyncFileResultHandler;
+  if (!handler) {
+    return false;
+  }
+
+  m_asyncFileCallbackRefs.insert(callbackRef);
+  const bool queued = scripting::ScriptIoPool::instance().post([hostId = m_hostId, callbackRef, path = std::move(path),
+                                                                handler = std::move(handler)]() mutable {
+    std::ifstream file(path, std::ios::binary);
+    if (!file) {
+      handler(hostId, callbackRef, false, {}, "cannot open file");
+      return;
+    }
+
+    std::string contents(kMaxAsyncFileBytes + 1, '\0');
+    file.read(contents.data(), static_cast<std::streamsize>(contents.size()));
+    const auto read = file.gcount();
+    if (file.bad()) {
+      handler(hostId, callbackRef, false, {}, "cannot read file");
+      return;
+    }
+    if (read > static_cast<std::streamsize>(kMaxAsyncFileBytes)) {
+      handler(hostId, callbackRef, false, {}, "file too large");
+      return;
+    }
+    contents.resize(static_cast<std::size_t>(read));
+    handler(hostId, callbackRef, true, std::move(contents), {});
+  });
+  if (!queued) {
+    m_asyncFileCallbackRefs.erase(callbackRef);
+    return false;
+  }
+  return true;
+}
+
 bool LuauHost::startAsyncProcessMatch(std::vector<std::string> needles, int callbackRef) {
   if (needles.empty()
       || callbackRef <= LUA_REFNIL
@@ -1928,6 +2044,8 @@ bool LuauHost::startAsyncProcessMatch(std::vector<std::string> needles, int call
 bool LuauHost::hasAsyncCommandCallback(int callbackRef) const {
   return m_asyncCommandCallbackRefs.contains(callbackRef);
 }
+
+bool LuauHost::hasAsyncFileCallback(int callbackRef) const { return m_asyncFileCallbackRefs.contains(callbackRef); }
 
 bool LuauHost::hasAsyncProcessMatchCallback(int callbackRef) const {
   return m_asyncProcessMatchCallbackRefs.contains(callbackRef);
@@ -2404,6 +2522,35 @@ bool LuauHost::callAsyncCommandCallback(
   return callWithBudget("async command callback", 1, 0, budget);
 }
 
+bool LuauHost::callAsyncFileCallback(
+    int callbackRef, bool ok, const std::string& data, const std::string& error, std::chrono::milliseconds budget
+) {
+  if (m_T == nullptr) {
+    return false;
+  }
+  const auto it = m_asyncFileCallbackRefs.find(callbackRef);
+  if (it == m_asyncFileCallbackRefs.end()) {
+    return false;
+  }
+  m_asyncFileCallbackRefs.erase(it);
+
+  lua_getref(m_T, callbackRef);
+  lua_unref(m_T, callbackRef);
+  if (!lua_isfunction(m_T, -1)) {
+    lua_pop(m_T, 1);
+    return false;
+  }
+
+  if (ok) {
+    lua_pushlstring(m_T, data.data(), data.size());
+    lua_pushnil(m_T);
+  } else {
+    lua_pushnil(m_T);
+    lua_pushlstring(m_T, error.data(), error.size());
+  }
+  return callWithBudget("async file callback", 2, 0, budget);
+}
+
 bool LuauHost::callAsyncProcessMatchCallback(int callbackRef, bool matched, std::chrono::milliseconds budget) {
   if (m_T == nullptr) {
     return false;
@@ -2425,6 +2572,22 @@ bool LuauHost::callAsyncProcessMatchCallback(int callbackRef, bool matched, std:
   return callWithBudget("process match callback", 1, 0, budget);
 }
 
+bool LuauHost::budgetDeadlineCrossed() const noexcept { return m_budgetActive && threadCpuTime() > m_callCpuDeadline; }
+
+void LuauHost::recordBudgetCrossing(std::string_view binding, std::string_view detail) {
+  if (!m_budgetCrossedIn.empty()) {
+    return; // first crossing wins; later bindings ran with the budget already blown
+  }
+  m_budgetCrossedIn = " (crossed during ";
+  m_budgetCrossedIn += binding;
+  if (!detail.empty()) {
+    m_budgetCrossedIn += " \"";
+    m_budgetCrossedIn += detail;
+    m_budgetCrossedIn += '"';
+  }
+  m_budgetCrossedIn += ')';
+}
+
 void LuauHost::interruptIfBudgetExceeded(lua_State* L) {
   if (!m_budgetActive) {
     return;
@@ -2434,9 +2597,13 @@ void LuauHost::interruptIfBudgetExceeded(lua_State* L) {
   }
   m_lastCallTimedOut = true;
   m_budgetActive = false;
+  // No recorded crossing means no instrumented binding was running when the deadline
+  // passed, i.e. the Luau code itself ran long. Say nothing rather than guess.
+  // m_budgetCrossedIn already carries its own formatting: luaL_error unwinds this frame,
+  // so nothing local may own memory here.
   luaL_error(
-      L, "script callback '%s' exceeded its CPU budget",
-      m_currentCallName.empty() ? "(unknown)" : m_currentCallName.c_str()
+      L, "script callback '%s' exceeded its CPU budget%s",
+      m_currentCallName.empty() ? "(unknown)" : m_currentCallName.c_str(), m_budgetCrossedIn.c_str()
   );
 }
 
@@ -2570,10 +2737,39 @@ void LuauHost::beginBudget(std::string_view name, std::chrono::milliseconds budg
   m_currentCallName = std::string(name);
   m_callCpuDeadline = threadCpuTime() + std::max(budget, std::chrono::milliseconds(1));
   m_lastCallTimedOut = false;
+  m_budgetCrossedIn.clear();
   m_budgetActive = true;
 }
 
 void LuauHost::endBudget() { m_budgetActive = false; }
+
+void LuauHost::logCallFailure(std::string_view name, std::string_view error) {
+  if (m_muteErrors) {
+    return;
+  }
+  // A misbehaving script fails on every tick. Log the first occurrence of a failure,
+  // then collapse repeats into a count. The key is (callback, message): the same text
+  // raised from update() and from onClick() are different facts and both get logged.
+  const auto now = std::chrono::steady_clock::now();
+  if (name == m_lastLoggedCall && error == m_lastLoggedError && now - m_lastLoggedErrorAt < kCallFailureLogWindow) {
+    ++m_suppressedCallFailures;
+    return;
+  }
+  if (m_suppressedCallFailures > 0) {
+    kLog.error(
+        "plugin {}: {} more identical failures from '{}' suppressed", m_runtimeName, m_suppressedCallFailures,
+        m_lastLoggedCall.empty() ? "(unknown)" : m_lastLoggedCall
+    );
+    m_suppressedCallFailures = 0;
+  }
+  m_lastLoggedCall = name;
+  m_lastLoggedError = error;
+  m_lastLoggedErrorAt = now;
+  kLog.error(
+      "plugin {}: call to '{}' failed: {}", m_runtimeName, name.empty() ? "(unknown)" : name,
+      error.empty() ? "(no error)" : error
+  );
+}
 
 bool LuauHost::callWithBudget(const char* name, int args, int results, std::chrono::milliseconds budget) {
   beginBudget(name != nullptr ? name : "(unknown)", budget);
@@ -2582,9 +2778,7 @@ bool LuauHost::callWithBudget(const char* name, int args, int results, std::chro
   if (rc != 0) {
     const char* err = lua_tostring(m_T, -1);
     m_lastError = err != nullptr ? err : "";
-    if (!m_muteErrors) {
-      kLog.error("call to '{}' failed: {}", name ? name : "(unknown)", err ? err : "(no error)");
-    }
+    logCallFailure(name != nullptr ? name : "", m_lastError);
     lua_pop(m_T, 1);
     return false;
   }
@@ -2766,7 +2960,7 @@ bool LuauHost::loadString(std::string_view chunkName, std::string_view source) {
   std::string name(chunkName);
   if (!bytecode) {
     m_lastError = "failed to compile chunk '" + name + "'";
-    kLog.error("luau_compile returned null for chunk '{}'", name);
+    kLog.error("plugin {}: luau_compile returned null for chunk '{}'", m_runtimeName, name);
     return false;
   }
   int loadResult = luau_load(m_T, name.c_str(), bytecode, bytecodeSize, 0);
@@ -2774,7 +2968,7 @@ bool LuauHost::loadString(std::string_view chunkName, std::string_view source) {
   if (loadResult != 0) {
     const char* err = lua_tostring(m_T, -1);
     m_lastError = err != nullptr ? err : "";
-    kLog.error("luau_load failed for '{}': {}", name, err ? err : "(no error)");
+    kLog.error("plugin {}: luau_load failed for '{}': {}", m_runtimeName, name, err ? err : "(no error)");
     lua_pop(m_T, 1);
     return false;
   }
@@ -2849,7 +3043,7 @@ std::optional<std::string> LuauHost::callGlobalReturningString(const char* name)
   int rc = lua_pcall(m_T, 0, 1, 0);
   if (rc != 0) {
     const char* err = lua_tostring(m_T, -1);
-    kLog.error("call to '{}' failed: {}", name, err ? err : "(no error)");
+    logCallFailure(name != nullptr ? name : "", err != nullptr ? err : "");
     lua_pop(m_T, 1);
     return std::nullopt;
   }

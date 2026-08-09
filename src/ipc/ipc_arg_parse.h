@@ -11,7 +11,7 @@ namespace noctalia::ipc {
 
   inline std::vector<std::string> splitWords(std::string_view text) { return StringUtils::splitWhitespace(text); }
 
-  inline std::optional<float> parseNormalizedOrPercent(std::string_view token, float maxPercent = 100.0f) {
+  inline std::optional<float> parseNormalizedOrPercent(std::string_view token, float maxPercent = 100.0F) {
     std::string value(token);
     bool isPercent = false;
     if (!value.empty() && value.back() == '%') {
@@ -29,17 +29,17 @@ namespace noctalia::ipc {
     const float amount = *parsed;
 
     if (isPercent || !value.contains('.')) {
-      if (amount < 0.0f || amount > maxPercent) {
+      if (amount < 0.0F || amount > maxPercent) {
         return std::nullopt;
       }
-      return amount / 100.0f;
+      return amount / 100.0F;
     }
 
-    if (amount >= 0.0f && amount <= 1.0f) {
+    if (amount >= 0.0F && amount <= 1.0F) {
       return amount;
     }
-    if (amount > 1.0f && amount <= maxPercent) {
-      return amount / 100.0f;
+    if (amount > 1.0F && amount <= maxPercent) {
+      return amount / 100.0F;
     }
 
     return std::nullopt;

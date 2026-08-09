@@ -38,6 +38,7 @@ namespace noctalia::theme {
       std::function<bool()> cancelRequested;
       std::string schemeType = "content";
       bool verbose = true;
+      std::shared_ptr<const toml::table> configTable;
     };
 
     explicit TemplateEngine(ThemeData themeData);

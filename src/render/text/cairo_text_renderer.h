@@ -32,16 +32,16 @@ struct Mat3;
 class CairoTextRenderer {
 public:
   struct TextMetrics {
-    float width = 0.0f;
-    float left = 0.0f;
-    float right = 0.0f;
-    float top = 0.0f;       // negative — above baseline
-    float bottom = 0.0f;    // positive — below baseline
-    float inkTop = 0.0f;    // negative — visible ink above baseline
-    float inkBottom = 0.0f; // positive — visible ink below baseline
-    float inkLeft = 0.0f;   // visible ink left edge relative to layout origin
-    float inkRight = 0.0f;  // visible ink right edge relative to layout origin
-    float capHeight = 0.0f; // measured baseline-to-cap-top of 'H' (0 if unavailable)
+    float width = 0.0F;
+    float left = 0.0F;
+    float right = 0.0F;
+    float top = 0.0F;       // negative — above baseline
+    float bottom = 0.0F;    // positive — below baseline
+    float inkTop = 0.0F;    // negative — visible ink above baseline
+    float inkBottom = 0.0F; // positive — visible ink below baseline
+    float inkLeft = 0.0F;   // visible ink left edge relative to layout origin
+    float inkRight = 0.0F;  // visible ink right edge relative to layout origin
+    float capHeight = 0.0F; // measured baseline-to-cap-top of 'H' (0 if unavailable)
     int lineCount = 0;      // laid-out line count (0 for empty text)
   };
 
@@ -67,7 +67,7 @@ public:
   void abandonGlyphTextures() noexcept;
 
   [[nodiscard]] TextMetrics measure(
-      std::string_view text, float fontSize, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0f,
+      std::string_view text, float fontSize, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0F,
       int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {},
       TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   );
@@ -83,7 +83,7 @@ public:
 
   void draw(
       float surfaceWidth, float surfaceHeight, float x, float baselineY, std::string_view text, float fontSize,
-      const Color& color, const Mat3& transform, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0f,
+      const Color& color, const Mat3& transform, FontWeight fontWeight = FontWeight::Normal, float maxWidth = 0.0F,
       int maxLines = 0, TextAlign align = TextAlign::Start, std::string_view fontFamily = {},
       TextEllipsize ellipsize = TextEllipsize::End, bool useMarkup = false
   );
@@ -92,11 +92,11 @@ private:
   struct CacheKey {
     std::string text;
     std::string fontFamily;
-    std::uint32_t sizeQ = 0;     // fontSize * 64 + 0.5
-    std::uint32_t colorRgba = 0; // packed r<<24|g<<16|b<<8|a
-    std::uint32_t maxWidthQ = 0; // maxWidth * 64 + 0.5, 0 = no limit
-    std::uint16_t scaleQ = 0;    // contentScale * 64 + 0.5
-    std::uint16_t maxLines = 0;  // 0 = no explicit limit (use '\n'-count fallback)
+    std::uint32_t sizeBits = 0;     // exact normalized fontSize bits
+    std::uint32_t colorRgba = 0;    // packed r<<24|g<<16|b<<8|a
+    std::uint32_t maxWidthBits = 0; // exact normalized maxWidth bits; 0 = no limit
+    std::uint32_t scaleBits = 0;    // exact normalized contentScale bits
+    std::uint16_t maxLines = 0;     // 0 = no explicit limit (use '\n'-count fallback)
     TextAlign align = TextAlign::Start;
     TextEllipsize ellipsize = TextEllipsize::End;
     FontWeight fontWeight = FontWeight::Normal;
@@ -114,9 +114,9 @@ private:
   struct MetricsKey {
     std::string text;
     std::string fontFamily;
-    std::uint32_t sizeQ = 0;
-    std::uint32_t maxWidthQ = 0;
-    std::uint16_t scaleQ = 0;
+    std::uint32_t sizeBits = 0;
+    std::uint32_t maxWidthBits = 0;
+    std::uint32_t scaleBits = 0;
     std::uint16_t maxLines = 0;
     TextAlign align = TextAlign::Start;
     TextEllipsize ellipsize = TextEllipsize::End;
@@ -136,8 +136,8 @@ private:
   // reclaimed during the run (heaptrack: top leak, ~24MB over a 30m session).
   // Memoizing collapses ~15k calls/run down to the handful of distinct fonts.
   struct FontMetricsKey {
-    std::uint32_t sizeQ = 0;
-    std::uint16_t scaleQ = 0;
+    std::uint32_t sizeBits = 0;
+    std::uint32_t scaleBits = 0;
     FontWeight fontWeight = FontWeight::Normal;
 
     bool operator==(const FontMetricsKey& other) const noexcept;
@@ -206,7 +206,7 @@ private:
   // last measure/draw, so newly loaded plugin fonts become resolvable here.
   void maybeSyncFontConfig();
 
-  float m_contentScale = 1.0f;
+  float m_contentScale = 1.0F;
   bool m_fontConfigInitialized = false;
   std::uint64_t m_syncedFontGeneration = 0;
   std::string m_fontFamily = "sans-serif";

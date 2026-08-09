@@ -35,8 +35,8 @@ public:
   void onOpen(std::string_view context) override;
   void onClose() override;
 
-  [[nodiscard]] float preferredWidth() const override { return scaled(720.0f); }
-  [[nodiscard]] float preferredHeight() const override { return scaled(560.0f); }
+  [[nodiscard]] float preferredWidth() const override { return scaled(720.0F); }
+  [[nodiscard]] float preferredHeight() const override { return scaled(560.0F); }
   [[nodiscard]] LayerShellKeyboard keyboardMode() const override { return LayerShellKeyboard::Exclusive; }
   [[nodiscard]] bool handleGlobalKey(std::uint32_t sym, std::uint32_t modifiers, bool pressed, bool preedit) override;
   [[nodiscard]] InputArea* initialFocusArea() const override;
@@ -115,10 +115,10 @@ private:
   std::string m_deleteConfirmStorageId;
   std::uint64_t m_lastChangeSerial = 0;
   bool m_clearConfirm = false;
-  float m_lastWidth = 0.0f;
-  float m_lastHeight = 0.0f;
-  float m_lastPreviewWidth = -1.0f;
-  float m_lastPreviewHeight = -1.0f;
-  float m_listRowHeight = 0.0f;
+  float m_lastWidth = 0.0F;
+  float m_lastHeight = 0.0F;
+  float m_lastPreviewWidth = -1.0F;
+  float m_lastPreviewHeight = -1.0F;
+  float m_listRowHeight = 0.0F;
   bool m_pendingScrollToSelected = false;
 };

@@ -209,7 +209,7 @@ struct WirePlumberMixer::Impl {
     if (!changeCb) {
       return;
     }
-    float volume = 0.0f;
+    float volume = 0.0F;
     bool muted = false;
     if (readVolume(id, volume, muted)) {
       changeCb(id, volume, muted);

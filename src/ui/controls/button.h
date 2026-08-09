@@ -40,7 +40,7 @@ public:
   };
 
   struct ButtonPalette {
-    float borderWidth = 0.0f;
+    float borderWidth = 0.0F;
     ButtonStateColors normal;
     ButtonStateColors hover;
     ButtonStateColors pressed;
@@ -138,7 +138,7 @@ private:
   Color m_targetBorder{};
   Color m_targetLabel{};
   ButtonContentAlign m_contentAlign = ButtonContentAlign::Center;
-  float m_surfaceOpacity = 1.0f;
+  float m_surfaceOpacity = 1.0F;
   bool m_enabled = true;
   bool m_selected = false;
   bool m_keyboardFocusHint = false;
@@ -157,7 +157,7 @@ std::vector<std::vector<std::unique_ptr<Button>>>
 wrapButtonsIntoRows(Renderer& renderer, std::vector<std::unique_ptr<Button>>& buttons, float maxWidth, float gap);
 
 // Populates a container column with row sub-containers, applying layout alignment,
-// gaps, setFlexGrow(1.0f), and setMaxWidth for single-button rows.
+// gaps, setFlexGrow(1.0F), and setMaxWidth for single-button rows.
 void populateRowContainer(
     Flex& container, std::vector<std::vector<std::unique_ptr<Button>>> rows, float maxWidth, float gap
 );

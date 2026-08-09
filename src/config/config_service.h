@@ -2,6 +2,7 @@
 
 #include "config/config_migrations.h"
 #include "config/config_types.h"
+#include "config/schema/diagnostics.h"
 #include "config/state_store.h"
 #include "core/timer_manager.h"
 #include "core/toml.h"
@@ -47,6 +48,7 @@ public:
 
   [[nodiscard]] const Config& config() const noexcept { return m_config; }
   [[nodiscard]] bool isLockScreenEnabled() const noexcept { return ::isLockScreenEnabled(m_config.lockscreen); }
+  [[nodiscard]] bool shouldLockBeforeSuspend() const noexcept { return ::shouldLockBeforeSuspend(m_config.lockscreen); }
   // Which sections changed in the reload currently being dispatched. Valid while
   // reload callbacks run; subscribers consult it to skip unaffected work.
   [[nodiscard]] const ConfigChangeSet& lastChange() const noexcept { return m_lastChange; }
@@ -198,7 +200,22 @@ private:
   void refreshIncludeWatches();
   void fireReloadCallbacks();
   void loadOverridesFromFile();
-  void setConfigParseError(std::string parseError);
+  // A config problem kept as location + text rather than one pre-joined string:
+  // the on-screen notification puts the location in its title and the text in
+  // its body. `message` is "<dotted.path>: <problem>" and never carries a location.
+  struct ConfigProblem {
+    noctalia::config::schema::SourceOrigin origin;
+    std::string message;
+
+    [[nodiscard]] bool empty() const { return message.empty(); }
+    // Single-line form for logs and the settings status banner.
+    [[nodiscard]] std::string flatten(std::string_view baseDir) const { return origin.prefixedShort(baseDir, message); }
+    [[nodiscard]] static ConfigProblem from(const noctalia::config::schema::Diagnostics::Entry& entry) {
+      return ConfigProblem{entry.origin, entry.path + ": " + entry.message};
+    }
+  };
+
+  void setConfigParseError(ConfigProblem problem);
   void updateLegacyConfigIssues(noctalia::config::LegacyConfigIssues issues);
   void notifyLegacyConfigIssues();
   bool writeOverridesToFile();
@@ -234,8 +251,8 @@ private:
   std::vector<WallpaperFavorite> m_wallpaperFavorites;
   mutable std::unordered_map<std::string, bool> m_effectiveOverrideCache;
 
-  std::string m_overridesParseError;
-  std::string m_pendingError; // parse error from initial load, sent as notification once manager is wired up
+  ConfigProblem m_overridesParseError;
+  ConfigProblem m_pendingError;             // parse error from initial load, notified once the manager is wired up
   uint32_t m_configErrorNotificationId = 0; // ID of the active config-error notification, 0 if none
   noctalia::config::LegacyConfigIssues m_legacyConfigIssues;
   std::string m_loggedLegacyIssueFingerprint;

@@ -5,12 +5,12 @@
 #include <cstdint>
 
 struct WidgetTransformBounds {
-  float scaledWidth = 0.0f;
-  float scaledHeight = 0.0f;
-  float aabbWidth = 0.0f;
-  float aabbHeight = 0.0f;
-  float left = 0.0f;
-  float top = 0.0f;
+  float scaledWidth = 0.0F;
+  float scaledHeight = 0.0F;
+  float aabbWidth = 0.0F;
+  float aabbHeight = 0.0F;
+  float left = 0.0F;
+  float top = 0.0F;
 };
 
 struct WidgetTransformSurfaceGeometry {
@@ -21,18 +21,18 @@ struct WidgetTransformSurfaceGeometry {
 };
 
 struct WidgetTransformClampResult {
-  float cx = 0.0f;
-  float cy = 0.0f;
+  float cx = 0.0F;
+  float cy = 0.0F;
 };
 
-inline constexpr float kDesktopWidgetMinVisibleFraction = 0.5f;
+inline constexpr float kDesktopWidgetMinVisibleFraction = 0.5F;
 
 inline WidgetTransformBounds
 computeWidgetTransformBounds(float cx, float cy, float width, float height, float scale, float rotationRad) {
   WidgetTransformBounds bounds;
-  const float clampedScale = std::max(0.01f, scale);
-  const float scaledWidth = std::max(1.0f, width * clampedScale);
-  const float scaledHeight = std::max(1.0f, height * clampedScale);
+  const float clampedScale = std::max(0.01F, scale);
+  const float scaledWidth = std::max(1.0F, width * clampedScale);
+  const float scaledHeight = std::max(1.0F, height * clampedScale);
   const float cosTheta = std::cos(rotationRad);
   const float sinTheta = std::sin(rotationRad);
 
@@ -40,8 +40,8 @@ computeWidgetTransformBounds(float cx, float cy, float width, float height, floa
   bounds.scaledHeight = scaledHeight;
   bounds.aabbWidth = std::abs(scaledWidth * cosTheta) + std::abs(scaledHeight * sinTheta);
   bounds.aabbHeight = std::abs(scaledWidth * sinTheta) + std::abs(scaledHeight * cosTheta);
-  bounds.left = cx - bounds.aabbWidth * 0.5f;
-  bounds.top = cy - bounds.aabbHeight * 0.5f;
+  bounds.left = cx - bounds.aabbWidth * 0.5F;
+  bounds.top = cy - bounds.aabbHeight * 0.5F;
   return bounds;
 }
 
@@ -51,8 +51,8 @@ computeWidgetSurfaceGeometry(float cx, float cy, float width, float height, floa
   WidgetTransformSurfaceGeometry geometry;
   geometry.surfaceWidth = std::max<std::uint32_t>(1, static_cast<std::uint32_t>(std::ceil(bounds.aabbWidth)));
   geometry.surfaceHeight = std::max<std::uint32_t>(1, static_cast<std::uint32_t>(std::ceil(bounds.aabbHeight)));
-  geometry.marginLeft = static_cast<std::int32_t>(std::lround(cx - static_cast<float>(geometry.surfaceWidth) * 0.5f));
-  geometry.marginTop = static_cast<std::int32_t>(std::lround(cy - static_cast<float>(geometry.surfaceHeight) * 0.5f));
+  geometry.marginLeft = static_cast<std::int32_t>(std::lround(cx - static_cast<float>(geometry.surfaceWidth) * 0.5F));
+  geometry.marginTop = static_cast<std::int32_t>(std::lround(cy - static_cast<float>(geometry.surfaceHeight) * 0.5F));
   return geometry;
 }
 
@@ -61,29 +61,29 @@ struct WidgetTransformClippedGeometry {
   std::uint32_t surfaceHeight = 1;
   std::int32_t marginLeft = 0;
   std::int32_t marginTop = 0;
-  float contentOffsetX = 0.0f;
-  float contentOffsetY = 0.0f;
+  float contentOffsetX = 0.0F;
+  float contentOffsetY = 0.0F;
 };
 
 inline WidgetTransformClippedGeometry computeClippedWidgetSurfaceGeometry(
     float cx, float cy, float width, float height, float scale, float rotationRad, float outputWidth, float outputHeight
 ) {
   const WidgetTransformBounds bounds = computeWidgetTransformBounds(cx, cy, width, height, scale, rotationRad);
-  const float halfW = bounds.aabbWidth * 0.5f;
-  const float halfH = bounds.aabbHeight * 0.5f;
+  const float halfW = bounds.aabbWidth * 0.5F;
+  const float halfH = bounds.aabbHeight * 0.5F;
 
   const float desiredLeft = cx - halfW;
   const float desiredTop = cy - halfH;
   const float desiredRight = cx + halfW;
   const float desiredBottom = cy + halfH;
 
-  const float clippedLeft = std::max(0.0f, desiredLeft);
-  const float clippedTop = std::max(0.0f, desiredTop);
+  const float clippedLeft = std::max(0.0F, desiredLeft);
+  const float clippedTop = std::max(0.0F, desiredTop);
   const float clippedRight = std::min(outputWidth, desiredRight);
   const float clippedBottom = std::min(outputHeight, desiredBottom);
 
-  const float visibleWidth = std::max(1.0f, clippedRight - clippedLeft);
-  const float visibleHeight = std::max(1.0f, clippedBottom - clippedTop);
+  const float visibleWidth = std::max(1.0F, clippedRight - clippedLeft);
+  const float visibleHeight = std::max(1.0F, clippedBottom - clippedTop);
 
   WidgetTransformClippedGeometry geometry;
   geometry.surfaceWidth = std::max<std::uint32_t>(1, static_cast<std::uint32_t>(std::ceil(visibleWidth)));
@@ -97,12 +97,12 @@ inline WidgetTransformClippedGeometry computeClippedWidgetSurfaceGeometry(
 
 inline WidgetTransformClampResult clampWidgetCenterToOutput(
     float cx, float cy, float width, float height, float scale, float rotationRad, float outputWidth,
-    float outputHeight, float minVisibleFraction = 1.0f
+    float outputHeight, float minVisibleFraction = 1.0F
 ) {
-  const WidgetTransformBounds bounds = computeWidgetTransformBounds(0.0f, 0.0f, width, height, scale, rotationRad);
-  const float halfWidth = bounds.aabbWidth * 0.5f;
-  const float halfHeight = bounds.aabbHeight * 0.5f;
-  const float visibleFraction = std::clamp(minVisibleFraction, 0.0f, 1.0f);
+  const WidgetTransformBounds bounds = computeWidgetTransformBounds(0.0F, 0.0F, width, height, scale, rotationRad);
+  const float halfWidth = bounds.aabbWidth * 0.5F;
+  const float halfHeight = bounds.aabbHeight * 0.5F;
+  const float visibleFraction = std::clamp(minVisibleFraction, 0.0F, 1.0F);
   const float minVisibleWidth = std::min(outputWidth, bounds.aabbWidth * visibleFraction);
   const float minVisibleHeight = std::min(outputHeight, bounds.aabbHeight * visibleFraction);
 

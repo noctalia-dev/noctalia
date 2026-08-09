@@ -59,6 +59,7 @@
       },
       "network": {
         "active": "Hoạt động",
+        "band": "Dải tần",
         "connected": "Đã kết nối",
         "connecting": "Đang kết nối",
         "download": "Tải xuống",
@@ -275,6 +276,7 @@
       "password": "Mật khẩu",
       "password-prompt": "Nhập mật khẩu",
       "password-prompt-for": "Nhập mật khẩu cho {ssid}",
+      "saved": "Đã lưu",
       "unavailable-detail": "Hãy cài đặt và kích hoạt NetworkManager để quản lý mạng tại đây.",
       "unavailable-title": "NetworkManager không khả dụng",
       "vpns": "VPNs",
@@ -312,6 +314,7 @@
       "unknown-device": "Thiết bị không xác định"
     },
     "screen-time": {
+      "back": "Quay lại",
       "disabled": "Tính năng theo dõi thời gian sử dụng màn hình đang tắt. Bật trong Cài đặt để ghi lại dữ liệu theo từng ứng dụng.",
       "empty": "Chưa có dữ liệu sử dụng ứng dụng. Hãy chuyển sang một cửa sổ để bắt đầu theo dõi.",
       "hour-0": "0 giờ",
@@ -323,7 +326,8 @@
         "14-days": "14 ngày",
         "3-days": "3 ngày",
         "today": "Hôm nay"
-      }
+      },
+      "view-day": "Xem chi tiết ngày"
     },
     "shortcuts": {
       "audio": "Âm thanh",
@@ -465,6 +469,7 @@
         "bands": "Dải tần",
         "bar-width": "Chiều rộng thanh",
         "bloom-intensity": "Bloom",
+        "center-password-text": "Căn giữa kí tự mật khẩu",
         "center-text": "Canh giữa chữ",
         "centered": "Canh giữa",
         "change-image": "Thay đổi…",
@@ -479,10 +484,12 @@
         "command": "Lệnh",
         "custom-color": "Tùy chỉnh…",
         "description": "Mô tả",
+        "device": "Thiết bị",
         "display": "Hiển thị",
         "display-gauge": "Đồng hồ đo",
         "display-graph": "Biểu đồ",
         "fade-when-idle": "Làm mờ khi không hoạt động",
+        "fill-color": "Màu tô",
         "font-family": "Phông chữ",
         "font-family-default": "Mặc định hệ thống",
         "forecast-days": "Số ngày dự báo",
@@ -513,14 +520,22 @@
         "reset-defaults": "Khôi phục về mặc định",
         "ring-opacity": "Độ mờ vòng",
         "rotation-speed": "Tốc độ quay",
+        "scroll-step": "Bước cuộn",
         "secondary-color": "Màu phụ",
         "sensitivity": "Độ nhạy",
         "shadow": "Bóng",
         "show-caps-lock": "Cảnh báo phím Caps Lock",
+        "show-device": "Hiển thị thiết bị",
         "show-forecast": "Hiển thị dự báo",
         "show-keyboard-layout": "Bố cục bàn phím",
         "show-label": "Hiển thị nhãn",
         "show-login-button": "Nút đăng nhập",
+        "show-media": "Trình phát",
+        "show-password-hint": "Gợi ý mật khẩu",
+        "show-session-buttons": "Những nút phiên",
+        "show-unlock-hint": "Gợi ý mở khóa",
+        "show-vpn-label": "Hiển thị nhãn VPN",
+        "show-weather": "Thời tiết",
         "show-when-idle": "Hiển thị khi không hoạt động",
         "stat": "Trạng thái",
         "stat-cpu-temp": "Nhiệt độ CPU",
@@ -535,6 +550,7 @@
         "stat-swap-pct": "Swap %",
         "stat2": "Chỉ số 2",
         "title": "Tiêu đề",
+        "track-color": "Màu track",
         "variant": "Phong cách",
         "variant-default": "Mặc định",
         "variant-destructive": "Nguy hiểm",
@@ -553,6 +569,9 @@
         "wave-thickness": "Độ dày sóng",
         "widget-section": "Tiện ích"
       },
+      "state": {
+        "grid": "Lưới"
+      },
       "title": "Tiện ích màn hình nền",
       "types": {
         "audio-visualizer": "Trực quan hóa âm thanh",
@@ -564,11 +583,17 @@
         "media-player": "Trình phát đa phương tiện",
         "sticker": "Hình dán",
         "system-monitor": "Theo dõi hệ thống",
+        "volume": "Âm lượng",
         "weather": "Thời tiết"
       }
     },
     "media": {
       "nothing-playing": "Không có gì đang phát"
+    },
+    "volume": {
+      "mic": "Mic",
+      "muted": "Đã tắt tiếng",
+      "volume": "Âm lượng"
     },
     "weather": {
       "error": "Lỗi",
@@ -833,6 +858,7 @@
   },
   "settings": {
     "actions": {
+      "confirm-reset": "Xác nhận đặt lại",
       "reset": "Đặt lại"
     },
     "badges": {
@@ -846,13 +872,17 @@
     },
     "calendar-accounts": {
       "add-title": "Thêm tài khoản Lịch",
+      "calendars-label": "Những lịch",
       "color-label": "Màu sắc",
+      "credential-source-file": "Tệp mật khẩu",
+      "credential-source-keyring": "Keyring",
       "delete-error": "Không thể xóa tài khoản lịch.",
       "edit-title": "Chỉnh sửa tài khoản lịch",
       "id-label": "ID tài khoản",
       "invalid": "Kiểm tra các trường tài khoản lịch được tô sáng.",
       "name-label": "Tên hiển thị",
       "name-placeholder": "Lịch cá nhân",
+      "password-file-label": "Tệp mật khẩu",
       "password-keep-placeholder": "Để trống nếu muốn giữ mật khẩu hiện tại",
       "password-label": "Mật khẩu ứng dụng",
       "password-placeholder": "Mật khẩu ứng dụng",
@@ -929,10 +959,14 @@
           "title": "Tiện ích thanh"
         },
         "group": {
+          "accordion": "Phong cầm",
+          "accordion-direction": "Hiển thị hướng",
           "action": "Nhóm",
           "border": "Viền",
           "border-description": "Vai trò màu sắc đường viền của Vùng chứa; để Mặc định nếu không muốn có đường viền",
           "clear": "Xóa",
+          "deselect": "Bỏ chọn",
+          "drag": "Sắp xếp lại",
           "drawer-columns": "Cột của ngăn ứng dụng",
           "drawer-columns-description": "Số lượng widget trên mỗi hàng trong ngăn ứng dụng",
           "drawer-detached": "Bảng điều khiển tách rời",
@@ -959,12 +993,17 @@
           "padding-description": "Khoảng đệm bên trong giữa cạnh của Capsule và các Widget của nó, tính bằng pixel",
           "radius": "Bán kính",
           "radius-description": "Bán kính góc của Capsule theo pixel; Tự động kế thừa bán kính capsule của Bar",
+          "remove-from-group": "Bỏ khỏi group",
+          "remove-orphan": "Bỏ group vô danh",
+          "remove-widget": "Bỏ khỏi thanh",
+          "select": "Chọn để gộp lại",
           "selected": "{count} đã chọn",
           "show": "Hiện nhóm này",
           "show-widget": "Hiện widget này",
           "style": "Phong cách",
           "title": "Nhóm khung",
-          "ungroup": "Tách nhóm"
+          "ungroup": "Tách nhóm",
+          "widget-spacing": "Ngăn cách"
         },
         "inspector": {
           "add-instance-title": "Thêm mới tiện ích có tên {widget} vào khu vực {lane}",
@@ -1003,6 +1042,8 @@
         "settings": {
           "empty": "Không có cài đặt nào khớp với bộ lọc hiện tại.",
           "groups": {
+            "actions": "Hành động",
+            "behavior": "Biểu hiện",
             "grouping": "Nhóm",
             "presentation": "Trình bày",
             "runtime": "Thời gian chạy",
@@ -1098,6 +1139,7 @@
         "background": "Nền",
         "battery": "Pin",
         "behavior": "Hành vi",
+        "borders": "Viền",
         "brightness": "Độ sáng",
         "built-in": "Tích hợp sẵn",
         "calendar": "Lịch",
@@ -1115,11 +1157,13 @@
         "general": "Chung",
         "greeter": "Màn hình chào",
         "grouping": "Nhóm",
+        "history": "Lịch sử",
         "home": "Trang chủ",
         "hot-corners": "Hot corners",
         "idle": "Không hoạt động",
         "interface": "Giao diện",
         "keybinds": "Phím tắt",
+        "keyboard-layout": "Bố cục bàn phím",
         "kinds": "Loại",
         "launcher": "Trình khởi chạy",
         "layout": "Bố cục",
@@ -1142,6 +1186,7 @@
         "power": "Nguồn",
         "privacy": "Quyền riêng tư",
         "profile": "Hồ sơ",
+        "providers": "Những nguồn cấp",
         "screen-corners": "Các góc màn hình",
         "screen-time": "Thời gian sử dụng màn hình",
         "screenshot": "Chụp màn hình",
@@ -1213,6 +1258,17 @@
       }
     },
     "options": {
+      "accordion-direction": {
+        "end": "Trước widget đầu tiên",
+        "start": "Sau widget đầu tiên"
+      },
+      "bar": {
+        "auto-hide": {
+          "off": "Tắt",
+          "on": "Bật",
+          "smart": "Thông minh"
+        }
+      },
       "clipboard": {
         "auto-paste": {
           "ctrl-shift-v": "Ctrl+Shift+V",
@@ -1385,11 +1441,16 @@
         "delete-confirm-title": "Xóa \"{name}\"?",
         "deprecated": "đã lỗi thời",
         "empty": "Không tìm thấy plugin nào. Hãy thêm nguồn hoặc kiểm tra mạng của bạn.",
+        "held-back": "phiên bản cũ",
+        "incompatible-plugin-api": "API plugin không tương thích",
         "loading": "Đang tải các plugin...",
         "refreshing": "Đang làm mới các plugin...",
         "remove": "Loại bỏ plugin",
         "requires": "Cần: {dependencies}",
-        "title": "Plugins"
+        "title": "Plugins",
+        "update-all": "Cập nhật tất cả ({count})",
+        "update-available": "có thể cập nhật",
+        "update-to": "cập nhật lên {version}"
       },
       "settings": {
         "empty": "Không có cài đặt nào khả dụng."
@@ -1397,6 +1458,7 @@
       "sources": {
         "add": "Thêm nguồn",
         "add-title": "Thêm nguồn của plugin",
+        "auto-update": "Tự động cập nhật plugin",
         "edit": "Chỉnh sửa nguồn",
         "edit-title": "Chỉnh sửa nguồn plugin",
         "empty": "Chưa có nguồn nào được cấu hình.",
@@ -1426,11 +1488,21 @@
         "categories": "Danh mục",
         "category-all": "Tất cả",
         "empty": "Không tìm thấy plugin",
+        "held-back": "Phiên bản cũ",
         "incompatible": "Không phù hợp",
         "loading": "Đang tải danh mục...",
         "no-readme": "Không có mô tả",
+        "open-page": "Mở trang plugin tại noctalia.dev",
+        "open-source": "Mở repo nguồn plugin",
         "results-count": "{count} plugins",
         "search-placeholder": "Tìm plugins...",
+        "sort-added-at-asc": "Sắp xếp theo ngày được thêm (cũ nhất trước)",
+        "sort-added-at-desc": "Sắp xếp theo ngày được thêm (mới nhất trước)",
+        "sort-name-asc": "Sắp xếp theo tên (A-Z)",
+        "sort-name-desc": "Sắp xếp theo tên (Z-A)",
+        "sort-updated-at-asc": "Sắp xếp theo ngày (cũ nhất trước)",
+        "sort-updated-at-desc": "Sắp xếp theo ngày (mới nhất trước)",
+        "source-all": "Tất cả các nguồn",
         "title": "Cửa hàng plugin"
       }
     },
@@ -1466,6 +1538,9 @@
           "description": "Hiển thị đường viền quanh các nút trong toàn bộ giao diện",
           "label": "Đường viền nút"
         },
+        "card-borders": {
+          "label": "Viền thẻ"
+        },
         "community-palette": {
           "description": "Chọn một bảng màu từ danh mục cộng đồng",
           "label": "Bảng màu cộng đồng",
@@ -1495,6 +1570,9 @@
         "global-shadow-direction": {
           "description": "Hướng bóng đổ từ các bề mặt"
         },
+        "input-borders": {
+          "label": "Viền nhập"
+        },
         "language": {
           "description": "Ghi đè phát hiện ngôn ngữ tự động",
           "label": "Ngôn ngữ"
@@ -1502,6 +1580,12 @@
         "palette-source": {
           "description": "Lấy bảng màu từ đâu",
           "label": "Nguồn bảng màu"
+        },
+        "popup-borders": {
+          "label": "Viền cửa sổ popup"
+        },
+        "popup-shadows": {
+          "label": "Bóng cửa sổ popup"
         },
         "pure-black-dark": {
           "description": "Đặt các bề mặt tối thành màu đen thuần để giảm hiện tượng dải màu trên màn hình OLED (chỉ áp dụng ở chế độ tối)",
@@ -1581,7 +1665,8 @@
           "label": "Căn giữa các tiện ích"
         },
         "concave-edge-corners": {
-          "description": "Tạo các góc lõm ở hai góc của thanh (yêu cầu Lề cạnh bằng 0); nếu Lề hai đầu bằng 0, các góc ở mép trong của thanh sẽ được tạo lõm, ngược lại các góc tiếp giáp với mép màn hình sẽ được tạo lõm"
+          "description": "Tạo các góc lõm ở hai góc của thanh (yêu cầu Lề cạnh bằng 0); nếu Lề hai đầu bằng 0, các góc ở mép trong của thanh sẽ được tạo lõm, ngược lại các góc tiếp giáp với mép màn hình sẽ được tạo lõm",
+          "label": "Góc lõm"
         },
         "contact-shadow": {
           "description": "Chuyển màu tối giữa một bảng điều khiển gắn liền và thanh để gợi ý chiều sâu tại đường nối"
@@ -1629,6 +1714,9 @@
         "font-weight": {
           "description": "Độ đậm mặc định cho nhãn tiện ích trên thanh này.",
           "label": "Độ đậm phông chữ"
+        },
+        "hover-highlight": {
+          "label": "Làm nổi bật khi di chuột lên"
         },
         "layer": {
           "description": "Sử dụng Overlay để hiển thị thanh trên các ứng dụng toàn màn hình. Các bảng điều khiển gắn liền di chuyển theo thanh.",
@@ -1696,6 +1784,9 @@
           "description": "Lệnh shell được thực thi khi chạm vào góc dưới bên phải",
           "label": "Lệnh"
         },
+        "hot-corners-delay-ms": {
+          "label": "Độ trễ kích hoạt"
+        },
         "hot-corners-enabled": {
           "description": "Kích hoạt hành động bằng cách đưa con trỏ chuột vào các góc màn hình",
           "label": "Hot corners"
@@ -1752,6 +1843,16 @@
         },
         "background-opacity": {
           "description": "Độ mờ nền của Dock"
+        },
+        "border": {
+          "label": "Viền"
+        },
+        "border-width": {
+          "description": "Độ dày viền bên trong dock",
+          "label": "Độ dày viền"
+        },
+        "concave-edge-corners": {
+          "label": "Cạnh lõm"
         },
         "corner-bottom-left": {
           "description": "Bán kính góc dưới bên trái cho Dock"
@@ -1812,6 +1913,10 @@
         "launcher-position": {
           "description": "Hiển thị nút trình khởi chạy ở đầu hoặc cuối Dock",
           "label": "Nút Trình khởi chạy"
+        },
+        "layer": {
+          "description": "Dùng Overlay để hiển thị dock bên trên ứng dụng toàn màn hình",
+          "label": "Lớp Wayland"
         },
         "magnification": {
           "description": "Phóng to các biểu tượng Dock gần con trỏ, theo kiểu macOS",
@@ -1946,6 +2051,14 @@
           "description": "Đóng các cửa sổ bật lên, đóng các bảng điều khiển hoặc hủy bỏ thao tác hiện tại",
           "label": "Hủy"
         },
+        "copy": {
+          "description": "Sao chép những mục đang chọn",
+          "label": "Sao chép"
+        },
+        "delete": {
+          "description": "Xóa mục đang chọn",
+          "label": "Xóa"
+        },
         "down": {
           "description": "Di chuyển tiêu điểm hoặc vùng chọn xuống một hàng",
           "label": "Di chuyển xuống"
@@ -1957,6 +2070,10 @@
         "right": {
           "description": "Di chuyển tiêu điểm hoặc vùng chọn sang phải",
           "label": "Sang phải"
+        },
+        "save": {
+          "description": "Lưu những mục đang chọn",
+          "label": "Lưu"
         },
         "tab-next": {
           "description": "Chuyển tiêu diểm sang tiêu diểm sau",
@@ -2031,6 +2148,9 @@
         "blacklist-allow-critical": {
           "description": "Vẫn hiển thị thông báo khẩn cấp từ người gửi bị chặn"
         },
+        "border": {
+          "label": "Viền"
+        },
         "collapse-on-dismiss": {
           "description": "Trượt các Toast còn lại để lấp đầy khoảng trống khi một cái bị đóng",
           "label": "Thu gọn khi đóng"
@@ -2042,6 +2162,9 @@
         "filters": {
           "description": "Thiết lập quy tắc riêng cho từng nguồn gửi đối với thông báo nổi, lịch sử thông báo và âm thanh. Bộ lọc đang bật đầu tiên khớp với điều kiện sẽ được áp dụng",
           "label": "Bộ lọc thông báo"
+        },
+        "history-retention-hours": {
+          "label": "Lưu lịch sử trong"
         },
         "layer": {
           "description": "Dùng Overlay để hiển thị các Toast thông báo trên các ứng dụng toàn màn hình.",
@@ -2112,6 +2235,9 @@
         "launcher-app-grid": {
           "description": "Hiển thị lưới biểu tượng ứng dụng với nhãn bên dưới khi kết quả chỉ bao gồm ứng dụng",
           "label": "Hiển thị ứng dụng dạng lưới"
+        },
+        "launcher-auto-paste": {
+          "label": "Tự động dán"
         },
         "launcher-categories": {
           "description": "Hiển thị bộ lọc danh mục trong Trình khởi chạy; hiện bằng F6, sau đó chuyển bằng F6 và Shift+F6",
@@ -2854,6 +2980,9 @@
           "description": "Kích thước ảnh bìa phương tiện (pixel)",
           "label": "Kích thước ảnh"
         },
+        "artist-first": {
+          "label": "Họa sĩ trước"
+        },
         "bands": {
           "description": "Số lượng dải tần trực quan hóa",
           "label": "Băng"
@@ -2896,6 +3025,9 @@
           "description": "Căn giữa các thanh trực quan hóa thay vì căn chỉnh chúng vào cạnh",
           "label": "Căn giữa"
         },
+        "change-color-on-hover": {
+          "label": "Đổi màu khi di chuột lên"
+        },
         "color": {
           "description": "Vai trò màu sắc cho nền trước của widget; cũng hỗ trợ các màu hex cố định",
           "label": "Màu sắc"
@@ -2916,10 +3048,6 @@
         "custom-image-colorize": {
           "description": "Tô màu hình ảnh tùy chỉnh bằng cài đặt Màu của widget",
           "label": "Tô màu ảnh tùy chỉnh"
-        },
-        "custom-labels": {
-          "description": "Đặt tên tùy chỉnh cho các bố cục bàn phím",
-          "label": "Nhãn Tùy Chỉnh"
         },
         "detached-panel": {
           "description": "Mở bảng điều khiển dưới dạng bảng nổi với nền riêng thay vì hòa vào thanh.",
@@ -2945,6 +3073,10 @@
         "drawer-columns": {
           "description": "Số lượng biểu tượng Tray mỗi hàng trong bảng điều khiển ngăn kéo",
           "label": "Cột ngăn kéo"
+        },
+        "drawer-item-size": {
+          "description": "Kích cỡ của biểu tượng trong ngăn kéo với đơn vị pixel",
+          "label": "Biểu tượng ngăn kéo"
         },
         "empty-color": {
           "description": "Vai trò màu được sử dụng cho các màn hình nền ảo trống; màu hex cố định cũng được hỗ trợ",

@@ -30,7 +30,7 @@ TextureHandle BlurCache::get(
     backend.bindFramebuffer(target);
     backend.setViewport(width, height);
     backend.setBlendMode(RenderBlendMode::Disabled);
-    backend.clear(rgba(0.0f, 0.0f, 0.0f, 1.0f));
+    backend.clear(rgba(0.0F, 0.0F, 0.0F, 1.0F));
     backend.drawImage(
         RenderImageDraw{
             .texture = source.id,
@@ -41,17 +41,17 @@ TextureHandle BlurCache::get(
             .fitMode = RenderImageFitMode::Cover,
             .textureWidth = static_cast<float>(source.width),
             .textureHeight = static_cast<float>(source.height),
-            .transform = Mat3::translation(0.0f, static_cast<float>(height)) * Mat3::scale(1.0f, -1.0f),
+            .transform = Mat3::translation(0.0F, static_cast<float>(height)) * Mat3::scale(1.0F, -1.0F),
         }
     );
 
     auto* scratch = m_layer.scratch();
-    if (scratch != nullptr && radius >= 0.5f && rounds > 0) {
+    if (scratch != nullptr && radius >= 0.5F && rounds > 0) {
       for (int round = 0; round < rounds; ++round) {
         backend.bindFramebuffer(*scratch);
-        backend.drawFramebufferBlur(target.colorTexture(), width, height, 1.0f, 0.0f, radius);
+        backend.drawFramebufferBlur(target.colorTexture(), width, height, 1.0F, 0.0F, radius);
         backend.bindFramebuffer(target);
-        backend.drawFramebufferBlur(scratch->colorTexture(), width, height, 0.0f, 1.0f, radius);
+        backend.drawFramebufferBlur(scratch->colorTexture(), width, height, 0.0F, 1.0F, radius);
       }
     }
   });
@@ -72,7 +72,7 @@ void BlurCache::destroy() {
   m_layer.destroy();
   m_backend = nullptr;
   m_lastSourceTex = {};
-  m_lastRadius = 0.0f;
+  m_lastRadius = 0.0F;
   m_lastRounds = 0;
 }
 
@@ -80,6 +80,6 @@ void BlurCache::abandon() noexcept {
   m_layer.abandon();
   m_backend = nullptr;
   m_lastSourceTex = {};
-  m_lastRadius = 0.0f;
+  m_lastRadius = 0.0F;
   m_lastRounds = 0;
 }

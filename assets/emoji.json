@@ -374,7 +374,7 @@
   {
     "emoji": "🤮",
     "name": "face vomiting",
-    "keywords": ["barf", "sick"],
+    "keywords": ["barf", "sick", "puke"],
     "category": "people"
   },
   {
@@ -656,13 +656,13 @@
   {
     "emoji": "💀",
     "name": "skull",
-    "keywords": ["dead", "danger", "poison"],
+    "keywords": ["dead", "danger", "poison", "rip"],
     "category": "people"
   },
   {
     "emoji": "☠️",
     "name": "skull and crossbones",
-    "keywords": ["danger", "pirate"],
+    "keywords": ["danger", "pirate", "rip"],
     "category": "people"
   },
   {
@@ -1190,13 +1190,13 @@
   {
     "emoji": "👍",
     "name": "thumbs up",
-    "keywords": ["approve", "ok"],
+    "keywords": ["approve", "ok", "like"],
     "category": "people"
   },
   {
     "emoji": "👎",
     "name": "thumbs down",
-    "keywords": ["disapprove", "bury"],
+    "keywords": ["disapprove", "bury", "dislike"],
     "category": "people"
   },
   {
@@ -1262,7 +1262,7 @@
   {
     "emoji": "🙏",
     "name": "folded hands",
-    "keywords": ["please", "hope", "wish"],
+    "keywords": ["please", "hope", "wish", "pray"],
     "category": "people"
   },
   {
@@ -2048,19 +2048,19 @@
   {
     "emoji": "🕵️",
     "name": "detective",
-    "keywords": ["sleuth"],
+    "keywords": ["sleuth", "investigate"],
     "category": "people"
   },
   {
     "emoji": "🕵️‍♂️",
     "name": "man detective",
-    "keywords": ["sleuth"],
+    "keywords": ["sleuth", "investigate"],
     "category": "people"
   },
   {
     "emoji": "🕵️‍♀️",
     "name": "woman detective",
-    "keywords": ["sleuth"],
+    "keywords": ["sleuth", "investigate"],
     "category": "people"
   },
   {
@@ -3321,7 +3321,7 @@
   {
     "emoji": "🗣️",
     "name": "speaking head",
-    "keywords": [],
+    "keywords": ["talk"],
     "category": "people"
   },
   {
@@ -3567,13 +3567,13 @@
   {
     "emoji": "🐏",
     "name": "ram",
-    "keywords": [],
+    "keywords": ["sheep"],
     "category": "animals"
   },
   {
     "emoji": "🐑",
     "name": "ewe",
-    "keywords": [],
+    "keywords": ["sheep"],
     "category": "animals"
   },
   {
@@ -5055,7 +5055,7 @@
   {
     "emoji": "🧊",
     "name": "ice",
-    "keywords": [],
+    "keywords": ["cube"],
     "category": "food"
   },
   {
@@ -5769,7 +5769,7 @@
   {
     "emoji": "🚨",
     "name": "police car light",
-    "keywords": ["911", "emergency"],
+    "keywords": ["911", "emergency", "siren", "alarm"],
     "category": "travel"
   },
   {
@@ -6453,7 +6453,7 @@
   {
     "emoji": "🎉",
     "name": "party popper",
-    "keywords": ["hooray", "party"],
+    "keywords": ["hooray", "party", "tada"],
     "category": "activity"
   },
   {
@@ -7563,7 +7563,7 @@
   {
     "emoji": "🔍",
     "name": "magnifying glass tilted left",
-    "keywords": ["search", "zoom"],
+    "keywords": ["search", "zoom", "investigate"],
     "category": "objects"
   },
   {
@@ -8169,7 +8169,7 @@
   {
     "emoji": "⚖️",
     "name": "balance scale",
-    "keywords": [],
+    "keywords": ["law"],
     "category": "objects"
   },
   {
@@ -8475,7 +8475,7 @@
   {
     "emoji": "🪦",
     "name": "headstone",
-    "keywords": [],
+    "keywords": ["tombstone", "grave", "rip"],
     "category": "objects"
   },
   {
@@ -8595,7 +8595,7 @@
   {
     "emoji": "⚠️",
     "name": "warning",
-    "keywords": ["wip"],
+    "keywords": ["wip", "danger"],
     "category": "symbols"
   },
   {
@@ -9255,19 +9255,19 @@
   {
     "emoji": "✅",
     "name": "check mark button",
-    "keywords": [],
+    "keywords": ["task", "todo"],
     "category": "symbols"
   },
   {
     "emoji": "☑️",
     "name": "check box with check",
-    "keywords": [],
+    "keywords": ["task", "todo"],
     "category": "symbols"
   },
   {
     "emoji": "✔️",
     "name": "check mark",
-    "keywords": [],
+    "keywords": ["task", "todo"],
     "category": "symbols"
   },
   {

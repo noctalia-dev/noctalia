@@ -109,7 +109,7 @@ void GlyphProgram::bindCommon(
     float v1, float opacity, const Mat3& transform
 ) const {
   const std::array<GLfloat, 12> positions = {
-      0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 1.0F,
   };
 
   const std::array<GLfloat, 12> texcoords = {
@@ -138,12 +138,12 @@ void GlyphProgram::draw(
     TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, float u0, float v0, float u1,
     float v1, float opacity, const Mat3& transform
 ) const {
-  if (!m_program.isValid() || texture == 0 || width <= 0.0f || height <= 0.0f) {
+  if (!m_program.isValid() || texture == 0 || width <= 0.0F || height <= 0.0F) {
     return;
   }
   glUseProgram(m_program.id());
-  glUniform1f(m_tintModeLocation, 0.0f);
-  glUniform4f(m_tintLocation, 1.0f, 1.0f, 1.0f, 1.0f);
+  glUniform1f(m_tintModeLocation, 0.0F);
+  glUniform4f(m_tintLocation, 1.0F, 1.0F, 1.0F, 1.0F);
   bindCommon(texture, surfaceWidth, surfaceHeight, width, height, u0, v0, u1, v1, opacity, transform);
 }
 
@@ -151,11 +151,11 @@ void GlyphProgram::drawTinted(
     TextureId texture, float surfaceWidth, float surfaceHeight, float width, float height, float u0, float v0, float u1,
     float v1, float opacity, const Color& tint, const Mat3& transform
 ) const {
-  if (!m_program.isValid() || texture == 0 || width <= 0.0f || height <= 0.0f) {
+  if (!m_program.isValid() || texture == 0 || width <= 0.0F || height <= 0.0F) {
     return;
   }
   glUseProgram(m_program.id());
-  glUniform1f(m_tintModeLocation, 1.0f);
+  glUniform1f(m_tintModeLocation, 1.0F);
   glUniform4f(m_tintLocation, tint.r, tint.g, tint.b, tint.a);
   bindCommon(texture, surfaceWidth, surfaceHeight, width, height, u0, v0, u1, v1, opacity, transform);
 }

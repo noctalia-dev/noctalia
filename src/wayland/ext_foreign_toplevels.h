@@ -28,8 +28,8 @@ public:
   [[nodiscard]] std::vector<ToplevelInfo> windowsWithoutAppId() const;
 
   template <typename Fn> void visitExtHandles(Fn&& fn) const {
-    for (const auto& [handle, _] : m_handles) {
-      if (handle != nullptr) {
+    for (const auto& [handle, state] : m_handles) {
+      if (handle != nullptr && state.ready) {
         fn(handle);
       }
     }
@@ -44,14 +44,21 @@ public:
   void onHandleIdentifier(ext_foreign_toplevel_handle_v1* handle, const char* identifier);
 
 private:
-  struct ToplevelState {
+  struct ToplevelProperties {
     std::string title;
     std::string appId;
     std::string identifier;
+  };
+
+  struct ToplevelState {
+    ToplevelProperties pending;
+    ToplevelProperties committed;
     std::uint64_t order = 0;
+    bool ready = false;
   };
 
   void requestInitialSync();
+  void removeHandle(ext_foreign_toplevel_handle_v1* handle);
   void notifyChanged();
 
   ext_foreign_toplevel_list_v1* m_list = nullptr;

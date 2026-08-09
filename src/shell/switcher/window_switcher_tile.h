@@ -48,11 +48,11 @@ private:
 protected:
   void doLayout(Renderer& renderer) override;
 
-  float m_contentScale = 1.0f;
-  float m_cellWidth = 0.0f;
-  float m_cellHeight = 0.0f;
-  float m_iconHostWidth = 0.0f;
-  float m_iconHostHeight = 0.0f;
+  float m_contentScale = 1.0F;
+  float m_cellWidth = 0.0F;
+  float m_cellHeight = 0.0F;
+  float m_iconHostWidth = 0.0F;
+  float m_iconHostHeight = 0.0F;
 
   Flex* m_layout = nullptr;
   Box* m_frame = nullptr;

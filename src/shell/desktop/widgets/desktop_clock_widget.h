@@ -79,16 +79,16 @@ private:
   // Stable-width state for the digital label. m_stableSample is the current text
   // with every digit replaced by the widest digit glyph; its measured width is
   // constant across seconds, so we only re-measure when it actually changes.
-  float m_stableWidth = 0.0f;
+  float m_stableWidth = 0.0F;
   std::string m_stableSample;
   char m_widestDigit = '0';
-  float m_metricsFontSize = -1.0f;
+  float m_metricsFontSize = -1.0F;
   std::string m_metricsFontFamily;
   // Horizontal centering for proportional digits: the label is start-aligned (leading glyph
   // anchored) but shifted right by m_digitOffsetX so the *mean*-width rendering sits centered in
   // the reserved box, instead of all the widest-digit slack piling up on the trailing side.
   // m_digitOffsetX = digitCount * (widestAdvance - meanDigitAdvance); 0 for equal-width digits.
-  float m_maxDigitAdvance = 0.0f;
-  float m_meanDigitAdvance = 0.0f;
-  float m_digitOffsetX = 0.0f;
+  float m_maxDigitAdvance = 0.0F;
+  float m_meanDigitAdvance = 0.0F;
+  float m_digitOffsetX = 0.0F;
 };

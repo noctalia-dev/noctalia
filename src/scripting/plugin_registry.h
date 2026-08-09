@@ -76,4 +76,9 @@ namespace scripting {
     bool m_scanned = false;
   };
 
+  // True when `fullEntryId` ("author/plugin:entry") resolves to a registered entry of
+  // `kind`. Surfaces that host plugin runtimes use this to decide which instances must
+  // be recreated when plugin settings change.
+  [[nodiscard]] bool isPluginEntryOfKind(std::string_view fullEntryId, PluginEntryKind kind);
+
 } // namespace scripting

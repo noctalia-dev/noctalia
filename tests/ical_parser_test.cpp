@@ -150,6 +150,24 @@ namespace {
     return true;
   }
 
+  bool expectOneEventUrl(
+      const std::string& ics, system_clock::time_point start, system_clock::time_point end, const std::string& url,
+      const char* message
+  ) {
+    ICalParseResult result = parseEvents(ics, start, end);
+    if (result.status != ICalParseStatus::Complete || result.events.size() != 1) {
+      std::println(stderr, "ical_parser_test: {}: expected exactly one parsed event", message);
+      return false;
+    }
+    if (result.events.front().url != url) {
+      std::println(
+          stderr, R"(ical_parser_test: {}: url was "{}", expected "{}")", message, result.events.front().url, url
+      );
+      return false;
+    }
+    return true;
+  }
+
 } // namespace
 
 int main() {
@@ -177,6 +195,33 @@ int main() {
                             "LOCATION:Main\\, Room\r\n"
                             "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
     ok = expectOneEventText(ics, start, end, "Planning\nSession", "Main, Room", "escaped text values") && ok;
+  }
+
+  // A meeting link in LOCATION becomes the event's clickable url, and wins over the URL property.
+  {
+    const std::string ics = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:meet\r\nSUMMARY:Daily Sync\r\n"
+                            "LOCATION:https://meet.google.com/abc-defg-hij\r\n"
+                            "URL:https://calendar.example/event/1\r\n"
+                            "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    ok =
+        expectOneEventUrl(ics, start, end, "https://meet.google.com/abc-defg-hij", "location link wins over url") && ok;
+  }
+
+  // With no link in LOCATION the URL property is used.
+  {
+    const std::string ics = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:url\r\nSUMMARY:Review\r\n"
+                            "LOCATION:Meeting Room 3\r\n"
+                            "URL:https://calendar.example/event/2\r\n"
+                            "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    ok = expectOneEventUrl(ics, start, end, "https://calendar.example/event/2", "url property fallback") && ok;
+  }
+
+  // An event with neither carries no link.
+  {
+    const std::string ics = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:plain\r\nSUMMARY:Dentist\r\n"
+                            "LOCATION:Kyiv\r\n"
+                            "DTSTART:20240101T090000Z\r\nDTEND:20240101T100000Z\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    ok = expectOneEventUrl(ics, start, end, "", "no link") && ok;
   }
 
   // Malformed/incomplete VEVENTs are skipped instead of producing epoch-placeholder events.

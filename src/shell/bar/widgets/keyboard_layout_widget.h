@@ -3,6 +3,7 @@
 #include "core/timer_manager.h"
 #include "shell/bar/widget.h"
 #include "shell/bar/widget_custom_image.h"
+#include "shell/keyboard_layout_label.h"
 
 #include <string>
 #include <unordered_map>
@@ -15,18 +16,18 @@ class CompositorPlatform;
 
 class KeyboardLayoutWidget : public Widget {
 public:
-  enum class DisplayMode : std::uint8_t { Short = 0, Full = 1 };
+  struct Options {
+    bool hideWhenSingleLayout = false;
+    bool showGlyph = true;
+    std::string glyph = "keyboard";
+    std::string customImage;
+    bool customImageColorize = false;
+    bool showLabel = true;
+    KeyboardLayoutDisplayMode display = KeyboardLayoutDisplayMode::Short;
+  };
 
   KeyboardLayoutWidget(
-      CompositorPlatform& platform, DisplayMode displayMode, bool showGlyph, bool showLabel, bool hideWhenSingleLayout,
-      std::unordered_map<std::string, std::string> customLabels = {}, std::string glyph = "keyboard",
-      WidgetCustomImage customImage = {}
-  );
-  static DisplayMode parseDisplayMode(const std::string& value);
-  static std::string formatLayoutLabel(const std::string& layoutName, DisplayMode displayMode);
-  static std::string resolveLayoutLabel(
-      const std::string& layoutName, DisplayMode displayMode,
-      const std::unordered_map<std::string, std::string>& customLabels
+      CompositorPlatform& platform, Options options, std::unordered_map<std::string, std::string> customLabels
   );
 
   void create() override;
@@ -41,7 +42,7 @@ private:
   void scheduleRefreshBurst();
 
   CompositorPlatform& m_platform;
-  DisplayMode m_displayMode = DisplayMode::Short;
+  KeyboardLayoutDisplayMode m_displayMode = KeyboardLayoutDisplayMode::Short;
   bool m_showGlyph = true;
   bool m_showLabel = true;
   bool m_hideWhenSingleLayout = false;

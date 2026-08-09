@@ -22,8 +22,8 @@ namespace {
 
   constexpr Logger kLog("plugin-panel");
   constexpr int kTickIntervalMs = 1000;
-  constexpr float kDefaultPanelWidth = 480.0f;
-  constexpr float kDefaultPanelHeight = 400.0f;
+  constexpr float kDefaultPanelWidth = 480.0F;
+  constexpr float kDefaultPanelHeight = 400.0F;
 
   // Manifest vocabulary (scripting::kPanelKeyboardFocusModes) to layer-shell mode.
   // The manifest parser rejects anything else, so an unknown token here means the
@@ -148,7 +148,7 @@ void PluginPanel::create() {
       ui::column({
           .out = &m_contentFlex,
           .align = FlexAlign::Stretch,
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
       }),
       ui::node({
           .out = &m_dragOverlay,
@@ -244,7 +244,7 @@ void PluginPanel::onFrameTick(float deltaMs) {
   }
   // Coalesced like the desktop-widget path: a slow script only ever sees the latest frame.
   (void)m_runtime->enqueueCallStrings(
-      "onFrameTick", std::format("{:.3f}", deltaMs), {}, makeScriptSnapshot(), /*coalesce=*/true
+      "onFrameTick", std::format("{:.3F}", deltaMs), {}, makeScriptSnapshot(), /*coalesce=*/true
   );
   // Keep the frame loop alive while animating.
   PanelManager::instance().requestAnimationFrameForPanel(m_entryId);
@@ -262,7 +262,7 @@ void PluginPanel::doLayout(Renderer& renderer, float width, float height) {
   m_flex->setSize(width, height);
   m_flex->layout(renderer);
   if (m_dragOverlay != nullptr) {
-    m_dragOverlay->setPosition(0.0f, 0.0f);
+    m_dragOverlay->setPosition(0.0F, 0.0F);
     m_dragOverlay->setFrameSize(width, height);
   }
 }

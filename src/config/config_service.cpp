@@ -167,43 +167,15 @@ namespace {
     if (!widget.hasSetting("scale")) {
       return;
     }
-    (void)resolveWidgetContentScale(1.0f, &widget, "widget." + std::string(widgetName) + ".scale");
-  }
-
-  void validateKeyboardLayoutWidgetSettings(std::string_view widgetName, const WidgetConfig& widget) {
-    if (widget.type != "keyboard_layout") {
-      return;
-    }
-
-    const bool showGlyph = widget.getBool("show_glyph", true);
-    const bool showLabel = widget.getBool("show_label", true);
-    if (!showGlyph && !showLabel) {
-      throw std::runtime_error(
-          "widget." + std::string(widgetName) + ": show_glyph and show_label cannot both be false"
-      );
-    }
-  }
-
-  void validateSysmonWidgetSettings(std::string_view widgetName, const WidgetConfig& widget) {
-    if (widget.type != "sysmon") {
-      return;
-    }
-
-    const bool showGlyph = widget.getBool("show_glyph", true);
-    const bool showValue = widget.getBool("show_value", true);
-    const std::string visualization = widget.getString("visualization", "gauge");
-    if (!showGlyph && !showValue && visualization == "none") {
-      throw std::runtime_error(
-          "widget." + std::string(widgetName) + ": show_glyph, show_value, and visualization cannot all be disabled"
-      );
-    }
+    (void)resolveWidgetContentScale(1.0F, &widget, "widget." + std::string(widgetName) + ".scale");
   }
 
   void validateWidgetSettings(std::string_view widgetName, const WidgetConfig& widget) {
     validateWidgetColorSettings(widgetName, widget);
     validateWidgetScaleSetting(widgetName, widget);
-    validateKeyboardLayoutWidgetSettings(widgetName, widget);
-    validateSysmonWidgetSettings(widgetName, widget);
+    if (auto error = settings::validateWidgetSemantics(widget.type, &widget); error.has_value()) {
+      throw std::runtime_error("widget." + std::string(widgetName) + ": " + *error);
+    }
   }
 
   std::optional<std::string> componentOwnerId(std::string_view ownerPath, std::string_view prefix) {
@@ -280,10 +252,10 @@ namespace {
       widget.cy = static_cast<float>(*cy);
     }
     if (auto boxWidth = finiteDouble(widgetTable["box_width"])) {
-      widget.boxWidth = std::max(0.0f, static_cast<float>(*boxWidth));
+      widget.boxWidth = std::max(0.0F, static_cast<float>(*boxWidth));
     }
     if (auto boxHeight = finiteDouble(widgetTable["box_height"])) {
-      widget.boxHeight = std::max(0.0f, static_cast<float>(*boxHeight));
+      widget.boxHeight = std::max(0.0F, static_cast<float>(*boxHeight));
     }
     if (auto rotation = finiteDouble(widgetTable["rotation"])) {
       widget.rotationRad = static_cast<float>(*rotation);
@@ -499,46 +471,44 @@ namespace {
     return compositor;
   }
 
-  std::string parseErrorMessage(const std::filesystem::path& path, const toml::parse_error& e) {
-    const auto& src = e.source();
-    return std::format(
-        "{} line {}, column {}: {}", path.filename().string(), src.begin.line, src.begin.column, e.description()
-    );
-  }
-
   std::optional<toml::table>
   mergeUserConfigSources(std::string_view configDir, std::string_view settingsPath, std::string* error) {
     auto mergeResult = noctalia::config::mergeConfigWithIncludes(configDir);
     toml::table merged = std::move(mergeResult.merged);
     if (!mergeResult.firstError.empty()) {
+      const std::string located = mergeResult.firstErrorOrigin.prefixed(mergeResult.firstError);
       if (error != nullptr) {
-        *error = mergeResult.firstError;
+        *error = located;
         return std::nullopt;
       }
-      kLog.warn("skipping config error in merged user config export: {}", mergeResult.firstError);
+      kLog.warn("skipping config error in merged user config export: {}", located);
     }
 
     if (!settingsPath.empty() && std::filesystem::exists(std::filesystem::path(std::string(settingsPath)))) {
+      const std::filesystem::path settingsFile{std::string(settingsPath)};
       try {
         toml::table sidecar = toml::parse_file(std::string(settingsPath));
+        noctalia::config::ConfigOriginIndex origins;
+        origins.record(settingsFile, sidecar);
         schema::Diagnostics migrationDiag;
         const auto storedVersion = noctalia::config::storedConfigVersion(sidecar, migrationDiag);
         if (storedVersion.has_value()) {
           (void)noctalia::config::applyPendingConfigMigrations(sidecar, *storedVersion, migrationDiag);
         }
+        origins.annotate(migrationDiag);
         for (const auto& entry : migrationDiag.entries) {
           if (entry.severity == schema::Diagnostics::Severity::Error) {
             if (error != nullptr) {
-              *error = entry.path + ": " + entry.message;
+              *error = entry.describe();
             }
             return std::nullopt;
           }
-          kLog.warn("{}: {}", entry.path, entry.message);
+          kLog.warn("{}", entry.describe());
         }
         ConfigService::deepMerge(merged, sidecar);
       } catch (const toml::parse_error& e) {
         if (error != nullptr) {
-          *error = parseErrorMessage(std::filesystem::path(std::string(settingsPath)), e);
+          *error = noctalia::config::parseErrorOrigin(e, settingsFile).prefixed(e.description());
           return std::nullopt;
         }
         kLog.warn("skipping parse error in merged user config export {}: {}", settingsPath, e.description());
@@ -617,18 +587,14 @@ void ConfigService::addReloadCallback(ReloadCallback callback, std::string_view 
 void ConfigService::setNotificationManager(NotificationManager* manager) {
   m_notificationManager = manager;
   if (m_notificationManager != nullptr && !m_pendingError.empty()) {
-    const std::string pendingError = std::move(m_pendingError);
-    m_pendingError.clear();
-    DeferredCall::callLater([this, pendingError]() {
+    ConfigProblem pendingError = std::move(m_pendingError);
+    m_pendingError = {};
+    DeferredCall::callLater([this, pendingError = std::move(pendingError)]() mutable {
       if (m_notificationManager == nullptr) {
-        m_pendingError = pendingError;
+        m_pendingError = std::move(pendingError);
         return;
       }
-      if (m_configErrorNotificationId != 0) {
-        m_notificationManager->close(m_configErrorNotificationId);
-      }
-      m_configErrorNotificationId =
-          m_notificationManager->addInternal("Noctalia", "Config error", pendingError, Urgency::Critical, 0);
+      setConfigParseError(std::move(pendingError));
     });
   }
   if (m_notificationManager != nullptr && m_legacyReminderPending) {
@@ -705,10 +671,10 @@ void ConfigService::fireReloadCallbacks() {
     sub.callback();
     const double ms = one.elapsedMs();
     if (ms >= 0.5) {
-      kLog.info("reload[{}]: {:.1f} ms", sub.label.empty() ? std::format("#{}", i) : sub.label, ms);
+      kLog.info("reload[{}]: {:.1F} ms", sub.label.empty() ? std::format("#{}", i) : sub.label, ms);
     }
   }
-  kLog.info("reload: all subscribers {:.1f} ms", total.elapsedMs());
+  kLog.info("reload: all subscribers {:.1F} ms", total.elapsedMs());
 }
 
 bool ConfigService::shouldRunSetupWizard() const {
@@ -1076,13 +1042,13 @@ BarConfig ConfigService::resolveForOutput(const BarConfig& base, const WaylandOu
       resolved.widgetCapsuleGroups = *ovr.widgetCapsuleGroups;
     }
     if (ovr.widgetCapsulePadding) {
-      resolved.widgetCapsulePadding = std::clamp(static_cast<float>(*ovr.widgetCapsulePadding), 0.0f, 48.0f);
+      resolved.widgetCapsulePadding = std::clamp(static_cast<float>(*ovr.widgetCapsulePadding), 0.0F, 48.0F);
     }
     if (ovr.widgetCapsuleRadius.has_value()) {
       resolved.widgetCapsuleRadius = std::clamp(*ovr.widgetCapsuleRadius, 0.0, 80.0);
     }
     if (ovr.widgetCapsuleOpacity) {
-      resolved.widgetCapsuleOpacity = std::clamp(static_cast<float>(*ovr.widgetCapsuleOpacity), 0.0f, 1.0f);
+      resolved.widgetCapsuleOpacity = std::clamp(static_cast<float>(*ovr.widgetCapsuleOpacity), 0.0F, 1.0F);
     }
     if (ovr.hoverHighlight) {
       resolved.hoverHighlight = *ovr.hoverHighlight;
@@ -1253,7 +1219,7 @@ void ConfigService::loadOverridesFromFile() {
   m_defaultWallpaperPath.clear();
   m_lastWallpaperPath.clear();
   m_monitorWallpaperPaths.clear();
-  m_overridesParseError.clear();
+  m_overridesParseError = {};
 
   if (m_overridesPath.empty() || !std::filesystem::exists(m_overridesPath)) {
     m_persistedOverridesTable = toml::table{};
@@ -1265,41 +1231,41 @@ void ConfigService::loadOverridesFromFile() {
     m_overridesTable = toml::parse_file(m_overridesPath);
     m_persistedOverridesTable = m_overridesTable;
   } catch (const toml::parse_error& e) {
-    const auto& src = e.source();
-    kLog.warn(
-        "parse error in {} at line {}, column {}: {}", m_overridesPath, src.begin.line, src.begin.column,
-        e.description()
-    );
-    m_overridesParseError = std::format(
-        "{} line {}, column {}: {}", std::filesystem::path(m_overridesPath).filename().string(), src.begin.line,
-        src.begin.column, e.description()
-    );
+    auto origin = noctalia::config::parseErrorOrigin(e, std::filesystem::path(m_overridesPath));
+    kLog.warn("{}", origin.prefixed(e.description()));
+    m_overridesParseError = ConfigProblem{std::move(origin), std::string(e.description())};
     m_overridesTable = toml::table{};
     return;
   }
   extractWallpaperFromOverrides();
 }
 
-void ConfigService::setConfigParseError(std::string parseError) {
-  if (parseError.empty()) {
+void ConfigService::setConfigParseError(ConfigProblem problem) {
+  if (problem.empty()) {
     // Dismiss any previous config-error notification.
     if (m_notificationManager != nullptr && m_configErrorNotificationId != 0) {
       m_notificationManager->close(m_configErrorNotificationId);
       m_configErrorNotificationId = 0;
     }
-    m_pendingError.clear();
+    m_pendingError = {};
     return;
   }
 
-  if (m_notificationManager != nullptr) {
-    if (m_configErrorNotificationId != 0) {
-      m_notificationManager->close(m_configErrorNotificationId);
-    }
-    m_configErrorNotificationId =
-        m_notificationManager->addInternal("Noctalia", "Config error", parseError, Urgency::Critical, 0);
-  } else {
-    m_pendingError = std::move(parseError);
+  if (m_notificationManager == nullptr) {
+    m_pendingError = std::move(problem);
+    return;
   }
+
+  if (m_configErrorNotificationId != 0) {
+    m_notificationManager->close(m_configErrorNotificationId);
+  }
+  // Title carries the location so the body has room for the whole message; with
+  // no location to show, the title says what kind of problem this is instead.
+  const bool located = problem.origin.valid();
+  std::string title = located ? problem.origin.shortFormat(m_configDir) : std::string("Config error");
+  std::string body = located ? "Error: " + problem.message : std::move(problem.message);
+  m_configErrorNotificationId =
+      m_notificationManager->addInternal("Noctalia", std::move(title), std::move(body), Urgency::Critical, 0);
 }
 
 void ConfigService::updateLegacyConfigIssues(noctalia::config::LegacyConfigIssues issues) {
@@ -1399,8 +1365,15 @@ void ConfigService::loadAll() {
   auto mergeResult = noctalia::config::mergeConfigWithIncludes(m_configDir);
   toml::table merged = std::move(mergeResult.merged);
   std::string firstError = std::move(mergeResult.firstError);
+  const noctalia::config::schema::SourceOrigin firstErrorOrigin = std::move(mergeResult.firstErrorOrigin);
   m_includeLoadedFiles = std::move(mergeResult.loadedFiles);
   m_includeDirs = std::move(mergeResult.includeDirs);
+
+  // Recorded after the config dir so the sidecar wins, matching the deepMerge below.
+  noctalia::config::ConfigOriginIndex origins = std::move(mergeResult.origins);
+  if (!m_overridesPath.empty()) {
+    origins.record(std::filesystem::path(m_overridesPath), m_overridesTable);
+  }
 
   decltype(m_configFileBarNames) configFileBarNames;
   decltype(m_configFileMonitorOverrideNames) configFileMonitorOverrideNames;
@@ -1441,7 +1414,7 @@ void ConfigService::loadAll() {
 
   toml::table effectiveOverrides = m_overridesTable;
   schema::Diagnostics migrationDiag;
-  std::string migrationError;
+  ConfigProblem migrationError;
   int storedVersion = noctalia::config::currentConfigVersion();
   int appliedVersion = storedVersion;
   bool sidecarNeedsPersist = false;
@@ -1456,13 +1429,14 @@ void ConfigService::loadAll() {
       );
     }
   }
+  origins.annotate(migrationDiag);
   for (const auto& entry : migrationDiag.entries) {
     if (entry.severity == schema::Diagnostics::Severity::Error) {
       if (migrationError.empty()) {
-        migrationError = entry.path + ": " + entry.message;
+        migrationError = ConfigProblem::from(entry);
       }
     } else {
-      kLog.warn("{}: {}", entry.path, entry.message);
+      kLog.warn("{}", entry.describe());
     }
   }
 
@@ -1489,37 +1463,37 @@ void ConfigService::loadAll() {
     return;
   }
 
-  std::string semanticError = !firstError.empty() ? firstError
-      : !m_overridesParseError.empty()            ? m_overridesParseError
-                                                  : migrationError;
-  std::string diagnosticError;
+  ConfigProblem semanticError = !firstError.empty() ? ConfigProblem{firstErrorOrigin, std::move(firstError)}
+      : !m_overridesParseError.empty()              ? m_overridesParseError
+                                                    : migrationError;
+  ConfigProblem diagnosticError;
   schema::Diagnostics diagnostics;
   if (semanticError.empty()) {
     try {
-      diagnostics = noctalia::config::validateMergedConfig(merged);
+      diagnostics = noctalia::config::validateMergedConfig(merged, origins);
       std::size_t errorCount = 0;
       for (const auto& entry : diagnostics.entries) {
         if (entry.severity == schema::Diagnostics::Severity::Error) {
           if (entry.recoveryScope == schema::Diagnostics::RecoveryScope::Document) {
             if (semanticError.empty()) {
-              semanticError = entry.path + ": " + entry.message;
+              semanticError = ConfigProblem::from(entry);
             }
-            kLog.warn("{}: {}", entry.path, entry.message);
+            kLog.warn("{}", entry.describe());
             continue;
           }
           ++errorCount;
           if (diagnosticError.empty()) {
-            diagnosticError = entry.path + ": " + entry.message;
+            diagnosticError = ConfigProblem::from(entry);
           }
         }
-        kLog.warn("{}: {}", entry.path, entry.message);
+        kLog.warn("{}", entry.describe());
       }
       if (errorCount > 1) {
-        diagnosticError += std::format(" (and {} more config errors)", errorCount - 1);
+        diagnosticError.message += std::format(" (and {} more config errors)", errorCount - 1);
       }
     } catch (const std::exception& e) {
-      semanticError = e.what();
-      kLog.warn("config validation error: {}", semanticError);
+      semanticError = ConfigProblem{{}, e.what()};
+      kLog.warn("config validation error: {}", e.what());
     }
   }
   if (semanticError.empty()) {
@@ -1527,8 +1501,8 @@ void ConfigService::loadAll() {
       parseConfigTable(merged, nextConfig, true, false);
       restoreInvalidComponents(nextConfig, m_config, diagnostics);
     } catch (const std::exception& e) {
-      semanticError = e.what();
-      kLog.warn("config parse error: {}", semanticError);
+      semanticError = ConfigProblem{{}, e.what()};
+      kLog.warn("config parse error: {}", e.what());
     }
   }
 
@@ -1566,11 +1540,8 @@ void ConfigService::loadAll() {
     m_lastChange = ConfigChangeSet{};
   }
 
-  const std::string parseError = !firstError.empty() ? firstError
-      : !m_overridesParseError.empty()               ? m_overridesParseError
-      : !semanticError.empty()                       ? semanticError
-                                                     : diagnosticError;
-  setConfigParseError(parseError);
+  // semanticError already absorbed the merge / overrides / migration errors above.
+  setConfigParseError(!semanticError.empty() ? std::move(semanticError) : std::move(diagnosticError));
 
   // Included files may live in subdirectories or absolute paths outside the config
   // dir, and the include set can change on every reload — reconcile their watches.

@@ -468,6 +468,7 @@ void WpaSupplicantService::rebuildState() {
       if (const auto it = m_bssProxies.find(activeBssPath); it != m_bssProxies.end()) {
         const auto signal = getPropertyOr<std::int16_t>(*it->second, kWpaBssInterface, "Signal", std::int16_t{-100});
         next.signalStrength = signalToPercent(signal);
+        next.frequencyMhz = getPropertyOr<std::uint16_t>(*it->second, kWpaBssInterface, "Frequency", std::uint16_t{0});
       }
     }
   }

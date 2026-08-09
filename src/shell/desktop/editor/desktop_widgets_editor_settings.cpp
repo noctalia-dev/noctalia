@@ -29,11 +29,11 @@
 
 namespace {
 
-  constexpr float kInspectorWidth = 520.0f;
-  constexpr float kInspectorCloseSize = 22.0f;
-  constexpr float kSettingRowHeight = 34.0f;
-  constexpr float kSettingLabelFlexGrow = 3.0f;
-  constexpr float kSettingControlFlexGrow = 2.0f;
+  constexpr float kInspectorWidth = 520.0F;
+  constexpr float kInspectorCloseSize = 22.0F;
+  constexpr float kSettingRowHeight = 34.0F;
+  constexpr float kSettingLabelFlexGrow = 3.0F;
+  constexpr float kSettingControlFlexGrow = 2.0F;
 
   using Settings = std::unordered_map<std::string, WidgetSettingValue>;
 
@@ -169,7 +169,7 @@ namespace {
         .align = FlexAlign::Center,
         .justify = FlexJustify::End,
         .gap = Style::spaceSm,
-        .minWidth = 0.0f,
+        .minWidth = 0.0F,
         .fillWidth = true,
         .flexGrow = kSettingControlFlexGrow,
     });
@@ -186,7 +186,7 @@ namespace {
             .text = std::string(labelText),
             .fontSize = Style::fontSizeCaption,
             .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
-            .minWidth = 0.0f,
+            .minWidth = 0.0F,
             .textAlign = TextAlign::Start,
             .ellipsize = TextEllipsize::End,
             .flexGrow = kSettingLabelFlexGrow,
@@ -207,7 +207,7 @@ namespace {
         .controlHeight = Style::controlHeightSm,
         .horizontalPadding = Style::spaceXs,
         .textAlign = TextAlign::End,
-        .width = 52.0f,
+        .width = 52.0F,
         .height = Style::controlHeightSm,
     });
 
@@ -221,7 +221,7 @@ namespace {
         .trackHeight = Style::sliderTrackHeight,
         .thumbSize = Style::sliderThumbSize,
         .controlHeight = Style::controlHeightSm,
-        .flexGrow = 1.0f,
+        .flexGrow = 1.0F,
         .onValueChanged = [valueInputPtr, integerValue, editor, key](double val) {
           valueInputPtr->setInvalid(false);
           valueInputPtr->setValue(settings::formatSliderValue(val, integerValue));
@@ -260,7 +260,7 @@ namespace {
             .align = FlexAlign::Center,
             .gap = Style::spaceSm,
             .fillWidth = true,
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         },
         std::move(slider), std::move(valueInput)
     );
@@ -316,7 +316,7 @@ namespace {
             .step = std::max(1, step),
             .value = currentValue,
             .valueSuffix = valueSuffix,
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
             .onValueCommitted = [editor, key](int value) {
               editor->applySettingChange(key, static_cast<std::int64_t>(value));
             },
@@ -351,7 +351,7 @@ namespace {
     auto input = ui::input({
         .value = value,
         .controlHeight = Style::controlHeightSm,
-        .flexGrow = 1.0f,
+        .flexGrow = 1.0F,
         .onChange = [editor, key](const std::string& val) { editor->applySettingChange(key, val); },
     });
     auto picker = ui::button({
@@ -379,7 +379,7 @@ namespace {
         .align = FlexAlign::Center,
         .gap = Style::spaceSm,
         .fillWidth = true,
-        .flexGrow = 1.0f,
+        .flexGrow = 1.0F,
     });
     row->addChild(std::move(input));
     row->addChild(std::move(picker));
@@ -396,7 +396,7 @@ namespace {
             .value = value,
             .placeholder = placeholder,
             .controlHeight = Style::controlHeightSm,
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
             .onChange = [editor, key](const std::string& val) { editor->applySettingChange(key, val); },
         })
     );
@@ -435,7 +435,7 @@ namespace {
   std::unique_ptr<Flex> makeStringMapRow(
       std::string_view labelText, const std::string& key, WidgetSettingStringMap entries, DesktopWidgetsEditor* editor
   ) {
-    auto rows = ui::column({.gap = Style::spaceSm, .fillWidth = true, .flexGrow = 1.0f});
+    auto rows = ui::column({.gap = Style::spaceSm, .fillWidth = true, .flexGrow = 1.0F});
     std::vector<std::string> keys;
     keys.reserve(entries.size());
     for (const auto& entry : entries) {
@@ -451,7 +451,7 @@ namespace {
               .value = entryKey,
               .placeholder = i18n::tr("settings.widgets.map-placeholders.key"),
               .controlHeight = Style::controlHeightSm,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
               .onSubmit =
                   [editor, key, entries, oldKey = entryKey, entryValue](const std::string& newKey) mutable {
                     if (newKey.empty() || newKey == oldKey) {
@@ -476,7 +476,7 @@ namespace {
               .value = entryValue,
               .placeholder = i18n::tr("settings.widgets.map-placeholders.value"),
               .controlHeight = Style::controlHeightSm,
-              .flexGrow = 1.0f,
+              .flexGrow = 1.0F,
               .onSubmit =
                   [editor, key, entries, entryKey](const std::string& newValue) mutable {
                     if (newValue.empty()) {
@@ -513,7 +513,7 @@ namespace {
             .out = &keyInput,
             .placeholder = i18n::tr("settings.widgets.map-placeholders.key"),
             .controlHeight = Style::controlHeightSm,
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         })
     );
     addRow->addChild(
@@ -528,7 +528,7 @@ namespace {
             .out = &valueInput,
             .placeholder = i18n::tr("settings.widgets.map-placeholders.value"),
             .controlHeight = Style::controlHeightSm,
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         })
     );
     addRow->addChild(
@@ -563,7 +563,7 @@ namespace {
         .out = &inputPtr,
         .value = value,
         .controlHeight = Style::controlHeightSm,
-        .flexGrow = 1.0f,
+        .flexGrow = 1.0F,
         .onChange = [editor, key](const std::string& path) { editor->applySettingChange(key, path); },
     });
     const bool selectFolder = kind == PathBrowseKind::Folder;
@@ -600,7 +600,7 @@ namespace {
         .align = FlexAlign::Center,
         .gap = Style::spaceSm,
         .fillWidth = true,
-        .flexGrow = 1.0f,
+        .flexGrow = 1.0F,
     });
     control->addChild(std::move(input));
     control->addChild(std::move(browse));
@@ -614,7 +614,7 @@ namespace {
         ui::button({
             .text = i18n::tr("desktop-widgets.editor.settings.change-image"),
             .variant = ButtonVariant::Default,
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
             .onClick = [editor, key]() {
               FileDialogOptions options;
               options.mode = FileDialogMode::Open;
@@ -655,7 +655,7 @@ namespace {
             .options = std::move(labels),
             .selectedIndex = selectedIndex,
             .controlHeight = Style::controlHeightSm,
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
             .onSelectionChanged = [editor, key, values = std::move(values)](std::size_t index, std::string_view) {
               if (index < values.size()) {
                 editor->applySettingChange(key, values[index]);
@@ -905,7 +905,7 @@ void DesktopWidgetsEditor::applySettingChange(const std::string& key, WidgetSett
             || key == lockscreen_login_box::kShowSessionButtonsKey
             || key == lockscreen_login_box::kShowMediaKey
             || key == lockscreen_login_box::kShowWeatherKey)) {
-      float screenWidth = 1920.0f;
+      float screenWidth = 1920.0F;
       if (OverlaySurface* layoutSurface = findSurfaceForWidget(m_selectedWidgetId);
           layoutSurface != nullptr && layoutSurface->surface != nullptr) {
         screenWidth = static_cast<float>(layoutSurface->surface->width());
@@ -993,9 +993,12 @@ void DesktopWidgetsEditor::applySettingChange(const std::string& key, WidgetSett
     newWidget->update(*m_renderContext);
     newWidget->layout(*m_renderContext);
 
-    view.intrinsicWidth = std::max(1.0f, newWidget->intrinsicWidth());
-    view.intrinsicHeight = std::max(1.0f, newWidget->intrinsicHeight());
-    view.transformNode->addChild(newWidget->releaseRoot());
+    view.intrinsicWidth = std::max(1.0F, newWidget->intrinsicWidth());
+    view.intrinsicHeight = std::max(1.0F, newWidget->intrinsicHeight());
+    auto widgetRoot = newWidget->releaseRoot();
+    widgetRoot->setHitTestVisible(false);
+    widgetRoot->setExcludeSubtreeFromTabOrder(true);
+    view.transformNode->addChild(std::move(widgetRoot));
     view.widget = std::move(newWidget);
 
     applyViewState(view, *state, false);
@@ -1021,7 +1024,7 @@ void DesktopWidgetsEditor::resetSelectedWidgetSettings() {
     desktop_settings::applyAllDesktopWidgetDefaultSettings(state->settings, state->type);
     if (lockscreen_login_box::isLoginBoxWidget(*state)) {
       lockscreen_login_box::normalizeSettings(state->settings);
-      float screenWidth = 1920.0f;
+      float screenWidth = 1920.0F;
       if (OverlaySurface* surface = findSurfaceForWidget(m_selectedWidgetId);
           surface != nullptr && surface->surface != nullptr) {
         screenWidth = static_cast<float>(surface->surface->width());
@@ -1062,7 +1065,7 @@ void DesktopWidgetsEditor::buildInspector(
 
   auto scrollView = ui::scrollView({
       .width = kInspectorWidth,
-      .height = 0.0f,
+      .height = 0.0F,
   });
 
   auto* content = scrollView->content();
@@ -1088,13 +1091,13 @@ void DesktopWidgetsEditor::buildInspector(
       {
           .out = &panelPtr,
           .align = FlexAlign::Stretch,
-          .gap = 0.0f,
+          .gap = 0.0F,
           .minWidth = kInspectorWidth,
           .maxWidth = kInspectorWidth,
           .clipChildren = true,
           .configure =
               [panelRadius](Flex& flex) {
-                flex.setFill(colorSpecFromRole(ColorRole::Surface, 0.94f));
+                flex.setFill(colorSpecFromRole(ColorRole::Surface, 0.94F));
                 flex.setBorder(colorSpecFromRole(ColorRole::Outline), Style::borderWidth);
                 flex.setRadius(panelRadius);
                 flex.setZIndex(201);
@@ -1107,11 +1110,11 @@ void DesktopWidgetsEditor::buildInspector(
               .gap = Style::spaceSm,
               .paddingV = Style::spaceXs,
               .paddingH = Style::spaceMd,
-              .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.85f),
+              .fill = colorSpecFromRole(ColorRole::SurfaceVariant, 0.85F),
               .minHeight = Style::controlHeightSm,
               .fillWidth = true,
               .width = kInspectorWidth,
-              .configure = [panelRadius](Flex& flex) { flex.setRadii(Radii(panelRadius, panelRadius, 0.0f, 0.0f)); },
+              .configure = [panelRadius](Flex& flex) { flex.setRadii(Radii(panelRadius, panelRadius, 0.0F, 0.0F)); },
           },
           ui::row(
               {
@@ -1124,7 +1127,7 @@ void DesktopWidgetsEditor::buildInspector(
               },
               ui::glyph({
                   .glyph = "menu-2",
-                  .glyphSize = 14.0f,
+                  .glyphSize = 14.0F,
               }),
               ui::label({
                   .text = desktop_settings::desktopWidgetTypeLabel(selectedState.type),
@@ -1136,12 +1139,12 @@ void DesktopWidgetsEditor::buildInspector(
           ui::spacer(),
           ui::button({
               .glyph = "close",
-              .glyphSize = 12.0f,
+              .glyphSize = 12.0F,
               .controlHeight = kInspectorCloseSize,
               .variant = ButtonVariant::Ghost,
               .minWidth = kInspectorCloseSize,
               .maxWidth = kInspectorCloseSize,
-              .padding = 2.0f,
+              .padding = 2.0F,
               .radius = Style::scaledRadiusSm(),
               .width = kInspectorCloseSize,
               .height = kInspectorCloseSize,
@@ -1160,7 +1163,7 @@ void DesktopWidgetsEditor::buildInspector(
   surface.inspector = panelPtr;
   root.addChild(std::move(panel));
   panelPtr->layout(*m_renderContext);
-  handleAreaPtr->setPosition(0.0f, 0.0f);
+  handleAreaPtr->setPosition(0.0F, 0.0F);
   handleAreaPtr->setFrameSize(dragHandlePtr->width(), dragHandlePtr->height());
 
   if (!surface.inspectorPositionInitialized && surface.toolbar != nullptr) {

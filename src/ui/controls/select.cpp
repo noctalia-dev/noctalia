@@ -25,14 +25,14 @@
 namespace {
 
   constexpr float kMaxVisibleOptions = 6;
-  constexpr float kPlaceholderAlpha = 0.68f;
+  constexpr float kPlaceholderAlpha = 0.68F;
 
-  Color resolved(ColorRole role, float alpha = 1.0f) { return colorForRole(role, alpha); }
+  Color resolved(ColorRole role, float alpha = 1.0F) { return colorForRole(role, alpha); }
 
 } // namespace
 
 Select::Select() {
-  setMinWidth(80.0f);
+  setMinWidth(80.0F);
   m_placeholder = i18n::tr("ui.controls.select.placeholder");
 
   auto triggerBackground = std::make_unique<RectNode>();
@@ -153,7 +153,7 @@ void Select::clearSelection() {
 }
 
 void Select::setSurfaceOpacity(float opacity) {
-  const float clamped = std::clamp(opacity, 0.0f, 1.0f);
+  const float clamped = std::clamp(opacity, 0.0F, 1.0F);
   if (m_surfaceOpacity == clamped) {
     return;
   }
@@ -181,23 +181,23 @@ void Select::setPlaceholder(std::string_view placeholder) {
 }
 
 void Select::setFontSize(float size) {
-  m_fontSize = std::max(1.0f, size);
+  m_fontSize = std::max(1.0F, size);
   syncTriggerText();
   markLayoutDirty();
 }
 
 void Select::setControlHeight(float height) {
-  m_controlHeight = std::max(1.0f, height);
+  m_controlHeight = std::max(1.0F, height);
   markLayoutDirty();
 }
 
 void Select::setHorizontalPadding(float padding) {
-  m_horizontalPadding = std::max(0.0f, padding);
+  m_horizontalPadding = std::max(0.0F, padding);
   markLayoutDirty();
 }
 
 void Select::setGlyphSize(float size) {
-  m_glyphSize = std::max(1.0f, size);
+  m_glyphSize = std::max(1.0F, size);
   if (m_triggerGlyph != nullptr) {
     m_triggerGlyph->setGlyphSize(m_glyphSize);
   }
@@ -240,7 +240,7 @@ void Select::doLayout(Renderer& renderer) {
     return;
   }
 
-  m_fixedWidth = width() > 0.0f ? width() : 0.0f;
+  m_fixedWidth = width() > 0.0F ? width() : 0.0F;
 
   syncTriggerText();
   m_triggerLabel->measure(renderer);
@@ -258,22 +258,22 @@ void Select::doLayout(Renderer& renderer) {
   }
 
   const float previewWidth =
-      hasSelectedPreview && m_triggerPreview != nullptr ? m_triggerPreview->preferredWidth() : 0.0f;
+      hasSelectedPreview && m_triggerPreview != nullptr ? m_triggerPreview->preferredWidth() : 0.0F;
   const float previewHeight =
-      hasSelectedPreview && m_triggerPreview != nullptr ? m_triggerPreview->preferredHeight() : 0.0f;
+      hasSelectedPreview && m_triggerPreview != nullptr ? m_triggerPreview->preferredHeight() : 0.0F;
   const bool hasIndicators = !hasSelectedPreview && !m_indicatorColors.empty();
-  const float indicatorSize = hasIndicators ? std::round(m_fontSize) : 0.0f;
-  const float indicatorBorder = hasIndicators ? 1.5f : 0.0f;
+  const float indicatorSize = hasIndicators ? std::round(m_fontSize) : 0.0F;
+  const float indicatorBorder = hasIndicators ? 1.5F : 0.0F;
   const float leadingInset =
-      hasSelectedPreview ? (previewWidth + Style::spaceSm) : (hasIndicators ? indicatorSize + Style::spaceSm : 0.0f);
+      hasSelectedPreview ? (previewWidth + Style::spaceSm) : (hasIndicators ? indicatorSize + Style::spaceSm : 0.0F);
 
   float contentWidth =
-      m_triggerLabel->width() + m_horizontalPadding * 2.0f + m_glyphSize + Style::spaceXs + leadingInset;
-  float dropdownWidth = m_fixedWidth > 0.0f ? m_fixedWidth : std::max(minWidth(), contentWidth);
+      m_triggerLabel->width() + m_horizontalPadding * 2.0F + m_glyphSize + Style::spaceXs + leadingInset;
+  float dropdownWidth = m_fixedWidth > 0.0F ? m_fixedWidth : std::max(minWidth(), contentWidth);
 
   setSize(dropdownWidth, m_controlHeight);
 
-  m_triggerBackground->setPosition(0.0f, 0.0f);
+  m_triggerBackground->setPosition(0.0F, 0.0F);
   m_triggerBackground->setFrameSize(dropdownWidth, m_controlHeight);
 
   if (m_triggerIndicator != nullptr) {
@@ -283,25 +283,25 @@ void Select::doLayout(Renderer& renderer) {
       m_triggerIndicator->setFill(m_indicatorColors[m_selectedIndex]);
       m_triggerIndicator->setBorder(colorSpecFromRole(ColorRole::Outline), indicatorBorder);
       m_triggerIndicator->setFrameSize(indicatorSize, indicatorSize);
-      m_triggerIndicator->setRadius(indicatorSize * 0.5f);
-      m_triggerIndicator->setPosition(m_horizontalPadding, std::round((m_controlHeight - indicatorSize) * 0.5f));
+      m_triggerIndicator->setRadius(indicatorSize * 0.5F);
+      m_triggerIndicator->setPosition(m_horizontalPadding, std::round((m_controlHeight - indicatorSize) * 0.5F));
     }
   }
 
   if (m_triggerPreview != nullptr && hasSelectedPreview) {
-    m_triggerPreview->setPosition(m_horizontalPadding, std::round((m_controlHeight - previewHeight) * 0.5f));
+    m_triggerPreview->setPosition(m_horizontalPadding, std::round((m_controlHeight - previewHeight) * 0.5F));
   }
 
   const float triggerLabelLeft = m_horizontalPadding + leadingInset;
   const float triggerLabelMax =
-      std::max(0.0f, dropdownWidth - (triggerLabelLeft + m_horizontalPadding + m_glyphSize + Style::spaceXs));
+      std::max(0.0F, dropdownWidth - (triggerLabelLeft + m_horizontalPadding + m_glyphSize + Style::spaceXs));
   m_triggerLabel->setMaxWidth(triggerLabelMax);
   m_triggerLabel->measure(renderer);
-  float triggerLabelY = std::round((m_controlHeight - m_triggerLabel->height()) * 0.5f);
-  float triggerGlyphY = std::round((m_controlHeight - m_triggerGlyph->height()) * 0.5f);
+  float triggerLabelY = std::round((m_controlHeight - m_triggerLabel->height()) * 0.5F);
+  float triggerGlyphY = std::round((m_controlHeight - m_triggerGlyph->height()) * 0.5F);
   m_triggerLabel->setPosition(triggerLabelLeft, triggerLabelY);
   m_triggerGlyph->setPosition(dropdownWidth - m_horizontalPadding - m_triggerGlyph->width(), triggerGlyphY);
-  m_triggerArea->setPosition(0.0f, 0.0f);
+  m_triggerArea->setPosition(0.0F, 0.0F);
   m_triggerArea->setFrameSize(dropdownWidth, m_controlHeight);
 
   applyVisualState();
@@ -340,9 +340,9 @@ void Select::applyVisualState() {
                                                  : colorSpecFromRole(ColorRole::OnSurface);
 
   if (!m_enabled) {
-    triggerBg = resolved(ColorRole::SurfaceVariant, m_surfaceOpacity * 0.75f);
+    triggerBg = resolved(ColorRole::SurfaceVariant, m_surfaceOpacity * 0.75F);
     triggerBorder = resolved(ColorRole::Outline, Style::disabledOutlineAlpha);
-    triggerText = colorSpecFromRole(ColorRole::OnSurface, 0.55f);
+    triggerText = colorSpecFromRole(ColorRole::OnSurface, 0.55F);
   } else if (triggerHovered || triggerPressed) {
     triggerBg = resolved(ColorRole::SurfaceVariant, m_surfaceOpacity);
     triggerBorder = resolved(ColorRole::Hover);
@@ -354,7 +354,7 @@ void Select::applyVisualState() {
   m_triggerGlyph->setColor(triggerText);
   m_triggerGlyph->setRotation(m_caretProgress * std::numbers::pi_v<float>);
 
-  float resolvedBorderWidth = 0.0f;
+  float resolvedBorderWidth = 0.0F;
   if (triggerFocused) {
     resolvedBorderWidth = Style::focusRingWidth;
   } else if (Style::inputBordersEnabled()) {
@@ -367,14 +367,14 @@ void Select::applyVisualState() {
           .border = triggerBorder,
           .fillMode = FillMode::Solid,
           .radius = Style::scaledRadiusMd(),
-          .softness = 1.0f,
+          .softness = 1.0F,
           .borderWidth = resolvedBorderWidth,
       }
   );
 }
 
 void Select::animateCaret(bool open) {
-  const float to = open ? 1.0f : 0.0f;
+  const float to = open ? 1.0F : 0.0F;
   if (animationManager() != nullptr) {
     if (m_caretAnimId != 0) {
       animationManager()->cancel(m_caretAnimId);
@@ -431,10 +431,10 @@ void Select::openPopupDropdown() {
     return;
   }
 
-  float absLeft = 0.0f;
-  float absTop = 0.0f;
-  float absRight = 0.0f;
-  float absBottom = 0.0f;
+  float absLeft = 0.0F;
+  float absTop = 0.0F;
+  float absRight = 0.0F;
+  float absBottom = 0.0F;
   Node::transformedBounds(this, absLeft, absTop, absRight, absBottom);
 
   const float triggerWidth = absRight - absLeft;

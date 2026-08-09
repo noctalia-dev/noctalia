@@ -26,8 +26,8 @@
 namespace {
 
   constexpr Logger kLog("surface");
-  constexpr float kSlowSurfaceOperationDebugMs = 50.0f;
-  constexpr float kSlowSurfaceOperationWarnMs = 1000.0f;
+  constexpr float kSlowSurfaceOperationDebugMs = 50.0F;
+  constexpr float kSlowSurfaceOperationWarnMs = 1000.0F;
 
   const wl_callback_listener kFrameListener = {
       .done = &Surface::handleFrameDone,
@@ -141,7 +141,7 @@ namespace {
     }
 
     kLog.debug(
-        "blur-trace {} name={} self={} wl={} phase={} running={} logical={}x{} buffer={}x{} scale={:.3f}", event,
+        "blur-trace {} name={} self={} wl={} phase={} running={} logical={}x{} buffer={}x{} scale={:.3F}", event,
         surfaceTraceName(surface), static_cast<const void*>(&surface), static_cast<const void*>(surface.wlSurface()),
         uiPhaseName(currentUiPhase()), surface.isRunning(), surface.width(), surface.height(),
         surface.bufferWidthFor(surface.width()), surface.bufferHeightFor(surface.height()),
@@ -165,7 +165,7 @@ namespace {
         && right >= static_cast<int>(surface.width())
         && bottom >= static_cast<int>(surface.height());
     kLog.debug(
-        "blur-trace {} name={} self={} wl={} phase={} logical={}x{} scale={:.3f} rects={} bounds={}:{}+{}x{} "
+        "blur-trace {} name={} self={} wl={} phase={} logical={}x{} scale={:.3F} rects={} bounds={}:{}+{}x{} "
         "full_surface={} sample={}",
         event, surfaceTraceName(surface), static_cast<const void*>(&surface),
         static_cast<const void*>(surface.wlSurface()), uiPhaseName(currentUiPhase()), surface.width(), surface.height(),
@@ -324,7 +324,7 @@ void Surface::setDebugName(std::string name) { m_debugName = std::move(name); }
 float Surface::effectiveBufferScale() const noexcept {
   if (m_fractionalScale != nullptr && m_viewport != nullptr) {
     if (m_fractionalScaleNumerator > 0) {
-      return std::max(1.0f, static_cast<float>(m_fractionalScaleNumerator) / 120.0f);
+      return std::max(1.0F, static_cast<float>(m_fractionalScaleNumerator) / 120.0F);
     }
     return static_cast<float>(std::max(1, m_bufferScale));
   }
@@ -349,7 +349,7 @@ void Surface::handleFrameDone(void* data, wl_callback* callback, std::uint32_t c
 
   self->m_frameCallback = nullptr;
 
-  float deltaMs = 0.0f;
+  float deltaMs = 0.0F;
   const auto now = std::chrono::steady_clock::now();
   if (self->m_lastFrameAt.has_value()) {
     deltaMs = std::chrono::duration<float, std::milli>(now - *self->m_lastFrameAt).count();
@@ -429,14 +429,14 @@ void Surface::onConfigure(std::uint32_t width, std::uint32_t height) {
     }
   });
   logSlowSurfaceOperation(
-      resizeMs, "surface configure resize took {:.1f}ms ({}, {}x{} logical)", resizeMs, static_cast<const void*>(this),
+      resizeMs, "surface configure resize took {:.1F}ms ({}, {}x{} logical)", resizeMs, static_cast<const void*>(this),
       m_width, m_height
   );
 
   if (m_configureCallback) {
     const float callbackMs = elapsedMs([this] { m_configureCallback(m_width, m_height); });
     logSlowSurfaceOperation(
-        callbackMs, "surface configure callback took {:.1f}ms ({}, {}x{} logical)", callbackMs,
+        callbackMs, "surface configure callback took {:.1F}ms ({}, {}x{} logical)", callbackMs,
         static_cast<const void*>(this), m_width, m_height
     );
   }
@@ -565,9 +565,9 @@ void Surface::onPreferredFractionalScale(std::uint32_t numerator) {
   }
 
   m_fractionalScaleNumerator = numerator;
-  const float preferredScale = std::max(1.0f, static_cast<float>(numerator) / 120.0f);
+  const float preferredScale = std::max(1.0F, static_cast<float>(numerator) / 120.0F);
   kLog.debug(
-      "fractional scale preferred output={} surface={} scale={:.3f} raw={}/120 logical={}x{} buffer={}x{}",
+      "fractional scale preferred output={} surface={} scale={:.3F} raw={}/120 logical={}x{} buffer={}x{}",
       outputLabelForSurface(m_connection, m_surface), static_cast<const void*>(m_surface), preferredScale, numerator,
       m_width, m_height, bufferWidthFor(m_width), bufferHeightFor(m_height)
   );
@@ -666,12 +666,12 @@ std::vector<InputRect> Surface::tessellateRoundedRect(
 
   stripPx = std::max(stripPx, 1);
 
-  const float halfW = static_cast<float>(w) * 0.5f;
-  const float halfH = static_cast<float>(h) * 0.5f;
+  const float halfW = static_cast<float>(w) * 0.5F;
+  const float halfH = static_cast<float>(h) * 0.5F;
   const float maxRadius = std::min(halfW, halfH);
   const auto clampR = [maxRadius](float r) {
-    if (r < 0.0f)
-      return 0.0f;
+    if (r < 0.0F)
+      return 0.0F;
     return std::min(r, maxRadius);
   };
   const float tl = clampR(tlRadius);
@@ -685,12 +685,12 @@ std::vector<InputRect> Surface::tessellateRoundedRect(
   const int middleH = h - topBand - bottomBand;
 
   const auto inset = [](float r, float distFromCornerEdge) -> float {
-    if (r <= 0.0f)
-      return 0.0f;
+    if (r <= 0.0F)
+      return 0.0F;
     const float dy = r - distFromCornerEdge;
-    if (dy <= 0.0f)
-      return 0.0f;
-    const float ry = std::sqrt(std::max(0.0f, r * r - dy * dy));
+    if (dy <= 0.0F)
+      return 0.0F;
+    const float ry = std::sqrt(std::max(0.0F, r * r - dy * dy));
     return r - ry;
   };
 
@@ -751,20 +751,20 @@ std::vector<InputRect> Surface::tessellateShape(
       || corners.br == CornerShape::Concave
       || corners.bl == CornerShape::Concave;
   if (!anyConcave
-      && logicalInset.left <= 0.0f
-      && logicalInset.top <= 0.0f
-      && logicalInset.right <= 0.0f
-      && logicalInset.bottom <= 0.0f) {
+      && logicalInset.left <= 0.0F
+      && logicalInset.top <= 0.0F
+      && logicalInset.right <= 0.0F
+      && logicalInset.bottom <= 0.0F) {
     return tessellateRoundedRect(x, y, w, h, radii.tl, radii.tr, radii.br, radii.bl, stripPx);
   }
 
   // (x, y, w, h) is the body rect. Expand outward by logicalInset to obtain the
   // visual rect that hosts concave-corner bulges; the body sits inside it offset
   // by logicalInset.left / .top.
-  const float insetL = std::max(0.0f, logicalInset.left);
-  const float insetT = std::max(0.0f, logicalInset.top);
-  const float insetR = std::max(0.0f, logicalInset.right);
-  const float insetB = std::max(0.0f, logicalInset.bottom);
+  const float insetL = std::max(0.0F, logicalInset.left);
+  const float insetT = std::max(0.0F, logicalInset.top);
+  const float insetR = std::max(0.0F, logicalInset.right);
+  const float insetB = std::max(0.0F, logicalInset.bottom);
   const int visualX = x - static_cast<int>(std::lround(insetL));
   const int visualY = y - static_cast<int>(std::lround(insetT));
   const int visualW = w + static_cast<int>(std::lround(insetL)) + static_cast<int>(std::lround(insetR));
@@ -772,25 +772,25 @@ std::vector<InputRect> Surface::tessellateShape(
 
   const auto W = static_cast<float>(visualW);
   const auto H = static_cast<float>(visualH);
-  const float bodyMinX = std::clamp(insetL, 0.0f, W);
+  const float bodyMinX = std::clamp(insetL, 0.0F, W);
   const float bodyMaxX = std::clamp(W - insetR, bodyMinX, W);
-  const float bodyMinY = std::clamp(insetT, 0.0f, H);
+  const float bodyMinY = std::clamp(insetT, 0.0F, H);
   const float bodyMaxY = std::clamp(H - insetB, bodyMinY, H);
   const float bodyW = bodyMaxX - bodyMinX;
   const float bodyH = bodyMaxY - bodyMinY;
-  const float maxR = std::max(0.0f, std::min(bodyW, bodyH) * 0.5f);
-  const auto clampR = [maxR](float r) { return std::clamp(r, 0.0f, maxR); };
+  const float maxR = std::max(0.0F, std::min(bodyW, bodyH) * 0.5F);
+  const auto clampR = [maxR](float r) { return std::clamp(r, 0.0F, maxR); };
   const float rTl = clampR(radii.tl);
   const float rTr = clampR(radii.tr);
   const float rBr = clampR(radii.br);
   const float rBl = clampR(radii.bl);
 
   const auto extent = [](float r, float dy) -> float {
-    if (r <= 0.0f) {
-      return 0.0f;
+    if (r <= 0.0F) {
+      return 0.0F;
     }
     const float d2 = r * r - dy * dy;
-    return d2 > 0.0f ? std::sqrt(d2) : 0.0f;
+    return d2 > 0.0F ? std::sqrt(d2) : 0.0F;
   };
 
   // Per-row coverage of the shape as a set of [left, right] segments (clipped to
@@ -802,7 +802,7 @@ std::vector<InputRect> Surface::tessellateShape(
   const auto rowSegments = [&](float yf) -> std::vector<std::pair<float, float>> {
     std::vector<std::pair<float, float>> segs;
     const auto pushSeg = [&](float l, float r) {
-      l = std::clamp(l, 0.0f, W);
+      l = std::clamp(l, 0.0F, W);
       r = std::clamp(r, l, W);
       if (r > l) {
         segs.emplace_back(l, r);
@@ -811,24 +811,24 @@ std::vector<InputRect> Surface::tessellateShape(
 
     if (yf < bodyMinY) {
       const float dy = bodyMinY - yf;
-      if (corners.tl == CornerShape::Concave && rTl > 0.0f && dy <= rTl) {
-        const float chord = std::sqrt(std::max(0.0f, dy * (2.0f * rTl - dy)));
+      if (corners.tl == CornerShape::Concave && rTl > 0.0F && dy <= rTl) {
+        const float chord = std::sqrt(std::max(0.0F, dy * (2.0F * rTl - dy)));
         pushSeg(bodyMinX, bodyMinX + rTl - chord);
       }
-      if (corners.tr == CornerShape::Concave && rTr > 0.0f && dy <= rTr) {
-        const float chord = std::sqrt(std::max(0.0f, dy * (2.0f * rTr - dy)));
+      if (corners.tr == CornerShape::Concave && rTr > 0.0F && dy <= rTr) {
+        const float chord = std::sqrt(std::max(0.0F, dy * (2.0F * rTr - dy)));
         pushSeg(bodyMaxX - rTr + chord, bodyMaxX);
       }
       return segs;
     }
     if (yf > bodyMaxY) {
       const float dy = yf - bodyMaxY;
-      if (corners.bl == CornerShape::Concave && rBl > 0.0f && dy <= rBl) {
-        const float chord = std::sqrt(std::max(0.0f, dy * (2.0f * rBl - dy)));
+      if (corners.bl == CornerShape::Concave && rBl > 0.0F && dy <= rBl) {
+        const float chord = std::sqrt(std::max(0.0F, dy * (2.0F * rBl - dy)));
         pushSeg(bodyMinX, bodyMinX + rBl - chord);
       }
-      if (corners.br == CornerShape::Concave && rBr > 0.0f && dy <= rBr) {
-        const float chord = std::sqrt(std::max(0.0f, dy * (2.0f * rBr - dy)));
+      if (corners.br == CornerShape::Concave && rBr > 0.0F && dy <= rBr) {
+        const float chord = std::sqrt(std::max(0.0F, dy * (2.0F * rBr - dy)));
         pushSeg(bodyMaxX - rBr + chord, bodyMaxX);
       }
       return segs;
@@ -838,7 +838,7 @@ std::vector<InputRect> Surface::tessellateShape(
     // concave corners reaching outward, or narrowed by convex rounding) is correct.
     float left = bodyMinX;
     float right = bodyMaxX;
-    if (rTl > 0.0f && yf < bodyMinY + rTl) {
+    if (rTl > 0.0F && yf < bodyMinY + rTl) {
       const float sy = std::clamp(yf, bodyMinY, bodyMinY + rTl);
       const float e = extent(rTl, sy - (bodyMinY + rTl));
       if (corners.tl == CornerShape::Concave) {
@@ -847,7 +847,7 @@ std::vector<InputRect> Surface::tessellateShape(
         left = std::max(left, bodyMinX + rTl - e);
       }
     }
-    if (rBl > 0.0f && yf > bodyMaxY - rBl) {
+    if (rBl > 0.0F && yf > bodyMaxY - rBl) {
       const float sy = std::clamp(yf, bodyMaxY - rBl, bodyMaxY);
       const float e = extent(rBl, sy - (bodyMaxY - rBl));
       if (corners.bl == CornerShape::Concave) {
@@ -856,7 +856,7 @@ std::vector<InputRect> Surface::tessellateShape(
         left = std::max(left, bodyMinX + rBl - e);
       }
     }
-    if (rTr > 0.0f && yf < bodyMinY + rTr) {
+    if (rTr > 0.0F && yf < bodyMinY + rTr) {
       const float sy = std::clamp(yf, bodyMinY, bodyMinY + rTr);
       const float e = extent(rTr, sy - (bodyMinY + rTr));
       if (corners.tr == CornerShape::Concave) {
@@ -865,7 +865,7 @@ std::vector<InputRect> Surface::tessellateShape(
         right = std::min(right, bodyMaxX - rTr + e);
       }
     }
-    if (rBr > 0.0f && yf > bodyMaxY - rBr) {
+    if (rBr > 0.0F && yf > bodyMaxY - rBr) {
       const float sy = std::clamp(yf, bodyMaxY - rBr, bodyMaxY);
       const float e = extent(rBr, sy - (bodyMaxY - rBr));
       if (corners.br == CornerShape::Concave) {
@@ -925,10 +925,10 @@ std::vector<InputRect> Surface::tessellateShape(
 std::vector<InputRect> Surface::tessellateRotatedRoundedRect(
     float centerX, float centerY, float width, float height, float radius, float rotationRad, int stripPx
 ) {
-  constexpr float kRotationEpsilon = 0.001f;
+  constexpr float kRotationEpsilon = 0.001F;
   if (std::abs(rotationRad) < kRotationEpsilon) {
-    const int ix = static_cast<int>(std::lround(centerX - width * 0.5f));
-    const int iy = static_cast<int>(std::lround(centerY - height * 0.5f));
+    const int ix = static_cast<int>(std::lround(centerX - width * 0.5F));
+    const int iy = static_cast<int>(std::lround(centerY - height * 0.5F));
     const int iw = static_cast<int>(std::lround(width));
     const int ih = static_cast<int>(std::lround(height));
     return tessellateRoundedRect(ix, iy, iw, ih, radius, stripPx);
@@ -936,31 +936,31 @@ std::vector<InputRect> Surface::tessellateRotatedRoundedRect(
 
   const float cosA = std::cos(rotationRad);
   const float sinA = std::sin(rotationRad);
-  const float halfW = width * 0.5f;
-  const float halfH = height * 0.5f;
-  const float r = std::clamp(radius, 0.0f, std::min(halfW, halfH));
+  const float halfW = width * 0.5F;
+  const float halfH = height * 0.5F;
+  const float r = std::clamp(radius, 0.0F, std::min(halfW, halfH));
 
   const float aabbH = std::abs(width * sinA) + std::abs(height * cosA);
   const int aabbIH = static_cast<int>(std::ceil(aabbH));
-  const float aabbTop = centerY - aabbH * 0.5f;
+  const float aabbTop = centerY - aabbH * 0.5F;
 
   stripPx = std::max(stripPx, 1);
 
   // Corner inset in local space: how far the rounded corner narrows the rect
   // at a given distance from the edge.
   const auto cornerInset = [](float cr, float distFromEdge) -> float {
-    if (cr <= 0.0f || distFromEdge >= cr) {
-      return 0.0f;
+    if (cr <= 0.0F || distFromEdge >= cr) {
+      return 0.0F;
     }
     const float dy = cr - distFromEdge;
-    return cr - std::sqrt(std::max(0.0f, cr * cr - dy * dy));
+    return cr - std::sqrt(std::max(0.0F, cr * cr - dy * dy));
   };
 
   // For a given local-space Y (origin at rect center), compute the left and
   // right X extents of the rounded rect.
   const auto localExtents = [&](float ly) -> std::pair<float, float> {
     if (ly < -halfH || ly > halfH) {
-      return {0.0f, 0.0f};
+      return {0.0F, 0.0F};
     }
     float left = -halfW;
     float right = halfW;
@@ -977,7 +977,7 @@ std::vector<InputRect> Surface::tessellateRotatedRoundedRect(
       right -= inset;
     }
     if (left >= right) {
-      return {0.0f, 0.0f};
+      return {0.0F, 0.0F};
     }
     return {left, right};
   };
@@ -1013,7 +1013,7 @@ std::vector<InputRect> Surface::tessellateRotatedRoundedRect(
       constexpr int kSamples = 32;
       for (int s = 0; s <= kSamples; ++s) {
         const float t = static_cast<float>(s) / static_cast<float>(kSamples);
-        const float ly = -halfH + (2.0f * halfH) * t;
+        const float ly = -halfH + (2.0F * halfH) * t;
         const auto [localLeft, localRight] = localExtents(ly);
         if (localLeft >= localRight) {
           continue;
@@ -1025,9 +1025,9 @@ std::vector<InputRect> Surface::tessellateRotatedRoundedRect(
         // But when sin ≈ 0, surface-Y ≈ cy + ly*cos, so only ly ≈ dy/cos is
         // valid, and surface-X = cx + lx*cos for any lx in the local extent.
         float sxLeft, sxRight;
-        if (std::abs(sinA) > 1e-6f) {
+        if (std::abs(sinA) > 1e-6F) {
           const float lxOnLine = (dy - ly * cosA) / sinA;
-          if (lxOnLine < localLeft - 0.5f || lxOnLine > localRight + 0.5f) {
+          if (lxOnLine < localLeft - 0.5F || lxOnLine > localRight + 0.5F) {
             continue;
           }
           const float clampedLx = std::clamp(lxOnLine, localLeft, localRight);
@@ -1035,7 +1035,7 @@ std::vector<InputRect> Surface::tessellateRotatedRoundedRect(
           sxLeft = sx;
           sxRight = sx;
         } else {
-          if (std::abs(ly * cosA - dy) > 1.0f) {
+          if (std::abs(ly * cosA - dy) > 1.0F) {
             continue;
           }
           sxLeft = centerX + localLeft * cosA - ly * sinA;
@@ -1118,7 +1118,7 @@ void Surface::requestFrameTick() {
     return;
   }
 
-  float deltaMs = 0.0f;
+  float deltaMs = 0.0F;
   const auto now = std::chrono::steady_clock::now();
   if (m_lastFrameAt.has_value()) {
     deltaMs = std::chrono::duration<float, std::milli>(now - *m_lastFrameAt).count();
@@ -1156,7 +1156,7 @@ void Surface::render() {
   traceSurfaceEvent(*this, "render-end");
   recordSurfaceProfileEvent(*this, SurfaceProfileEvent::Render, renderMs);
   logSlowSurfaceOperation(
-      renderMs, "surface render took {:.1f}ms ({}x{} logical, {}x{} buffer)", renderMs, m_width, m_height,
+      renderMs, "surface render took {:.1F}ms ({}x{} logical, {}x{} buffer)", renderMs, m_width, m_height,
       m_renderTarget.bufferWidth(), m_renderTarget.bufferHeight()
   );
 
@@ -1236,7 +1236,7 @@ void Surface::preparePendingFrame() {
       elapsedMs([this, needsUpdate, needsLayout] { m_prepareFrameCallback(needsUpdate, needsLayout); });
   recordSurfaceProfileEvent(*this, SurfaceProfileEvent::PrepareCallback, callbackMs);
   logSlowSurfaceOperation(
-      callbackMs, "surface prepareFrame callback took {:.1f}ms ({}, {}x{} logical)", callbackMs,
+      callbackMs, "surface prepareFrame callback took {:.1F}ms ({}, {}x{} logical)", callbackMs,
       static_cast<const void*>(this), m_width, m_height
   );
 }
@@ -1286,7 +1286,7 @@ void Surface::cancelQueuedFrameWork() {
   std::erase(queue, this);
   m_frameWorkQueued = false;
   m_frameTickPending = false;
-  m_pendingFrameDeltaMs = 0.0f;
+  m_pendingFrameDeltaMs = 0.0F;
 }
 
 void Surface::processQueuedFrameWork() {
@@ -1294,14 +1294,14 @@ void Surface::processQueuedFrameWork() {
   recordSurfaceProfileEvent(*this, SurfaceProfileEvent::ProcessFrameWork);
   if (m_surface == nullptr || !m_configured) {
     m_frameTickPending = false;
-    m_pendingFrameDeltaMs = 0.0f;
+    m_pendingFrameDeltaMs = 0.0F;
     return;
   }
 
   const bool runFrameTick = m_frameTickPending;
   const float deltaMs = m_pendingFrameDeltaMs;
   m_frameTickPending = false;
-  m_pendingFrameDeltaMs = 0.0f;
+  m_pendingFrameDeltaMs = 0.0F;
 
   if (runFrameTick) {
     ScopedBoolFlag frameHandler{m_inFrameHandler};
@@ -1310,7 +1310,7 @@ void Surface::processQueuedFrameWork() {
       const float tickMs = elapsedMs([this, deltaMs] { m_animationManager->tick(deltaMs); });
       recordSurfaceProfileEvent(*this, SurfaceProfileEvent::AnimationTick, tickMs);
       logSlowSurfaceOperation(
-          tickMs, "surface animation tick took {:.1f}ms ({}, {}x{} logical)", tickMs, static_cast<const void*>(this),
+          tickMs, "surface animation tick took {:.1F}ms ({}, {}x{} logical)", tickMs, static_cast<const void*>(this),
           m_width, m_height
       );
     }
@@ -1322,7 +1322,7 @@ void Surface::processQueuedFrameWork() {
       const float callbackMs = elapsedMs([this, deltaMs] { m_frameTickCallback(deltaMs); });
       recordSurfaceProfileEvent(*this, SurfaceProfileEvent::FrameTick, callbackMs);
       logSlowSurfaceOperation(
-          callbackMs, "surface frame tick callback took {:.1f}ms ({}, {}x{} logical)", callbackMs,
+          callbackMs, "surface frame tick callback took {:.1F}ms ({}, {}x{} logical)", callbackMs,
           static_cast<const void*>(this), m_width, m_height
       );
     }
@@ -1331,7 +1331,7 @@ void Surface::processQueuedFrameWork() {
       const float updateMs = elapsedMs([this] { m_updateCallback(); });
       recordSurfaceProfileEvent(*this, SurfaceProfileEvent::UpdateCallback, updateMs);
       logSlowSurfaceOperation(
-          updateMs, "surface update callback took {:.1f}ms ({}, {}x{} logical)", updateMs,
+          updateMs, "surface update callback took {:.1F}ms ({}, {}x{} logical)", updateMs,
           static_cast<const void*>(this), m_width, m_height
       );
     }

@@ -18,8 +18,8 @@ using namespace control_center;
 
 namespace {
 
-  constexpr float kGraphLineWidth = 0.75f;
-  constexpr float kGraphFillOpacity = 0.15f;
+  constexpr float kGraphLineWidth = 0.75F;
+  constexpr float kGraphFillOpacity = 0.15F;
   constexpr double kNetMinScaleBps = 10000.0;
   constexpr std::size_t kMaxDiskRows = 4;
 
@@ -47,7 +47,7 @@ namespace {
             .fontSize = Style::fontSizeTitle * scale,
             .fontWeight = FontWeight::Bold,
             .color = colorSpecFromRole(ColorRole::OnSurface),
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         })
     );
     parent.addChild(std::move(row));
@@ -140,7 +140,7 @@ namespace {
                 .fontSize = Style::fontSizeMini * scale,
                 .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
                 .maxLines = 1,
-                .flexGrow = 1.0f,
+                .flexGrow = 1.0F,
             }),
             ui::label({
                 .out = &value,
@@ -191,7 +191,7 @@ namespace {
                   .fontSize = Style::fontSizeMini * scale,
                   .color = colorSpecFromRole(ColorRole::OnSurfaceVariant),
                   .maxLines = 1,
-                  .flexGrow = 1.0f,
+                  .flexGrow = 1.0F,
               })
           )
       );
@@ -223,14 +223,14 @@ std::unique_ptr<Flex> SystemTab::create() {
     auto row = ui::row({
         .align = FlexAlign::Stretch,
         .gap = Style::spaceMd * sc,
-        .flexGrow = 1.0f,
+        .flexGrow = 1.0F,
     });
 
     // CPU card
     {
       auto card = ui::column({
           .out = &m_cpuCard,
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
           .configure = [sc, opacity = panelCardOpacity()](Flex& section) { applyGraphCardStyle(section, sc, opacity); },
       });
 
@@ -250,7 +250,7 @@ std::unique_ptr<Flex> SystemTab::create() {
     {
       auto card = ui::column({
           .out = &m_ramCard,
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
           .configure = [sc, opacity = panelCardOpacity()](Flex& section) { applyGraphCardStyle(section, sc, opacity); },
       });
 
@@ -272,14 +272,14 @@ std::unique_ptr<Flex> SystemTab::create() {
     auto row = ui::row({
         .align = FlexAlign::Stretch,
         .gap = Style::spaceMd * sc,
-        .flexGrow = 1.0f,
+        .flexGrow = 1.0F,
     });
 
     // GPU card
     {
       auto card = ui::column({
           .out = &m_gpuCard,
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
           .visible = false,
           .configure = [sc, opacity = panelCardOpacity()](Flex& section) { applyGraphCardStyle(section, sc, opacity); },
       });
@@ -305,7 +305,7 @@ std::unique_ptr<Flex> SystemTab::create() {
     {
       auto card = ui::column({
           .out = &m_netCard,
-          .flexGrow = 1.0f,
+          .flexGrow = 1.0F,
           .configure = [sc, opacity = panelCardOpacity()](Flex& section) { applyGraphCardStyle(section, sc, opacity); },
       });
 
@@ -333,12 +333,12 @@ std::unique_ptr<Flex> SystemTab::create() {
     static constexpr const char* kSystemGlyphs[] = {"cpu-usage",        "video",      "device-desktop",
                                                     "layers-intersect", "app-window", "clock"};
     makeInfoCard(
-        *row, i18n::tr("control-center.system.titles.system"), sc, 1.0f, panelCardOpacity(), m_systemLines,
+        *row, i18n::tr("control-center.system.titles.system"), sc, 1.0F, panelCardOpacity(), m_systemLines,
         kSystemLines, kSystemGlyphs
     );
 
     auto* resourcesCard = makeInfoCard(
-        *row, i18n::tr("control-center.system.titles.resources"), sc, 1.0f, panelCardOpacity(), nullptr, 0, nullptr
+        *row, i18n::tr("control-center.system.titles.resources"), sc, 1.0F, panelCardOpacity(), nullptr, 0, nullptr
     );
 
     // Named rows with right-aligned values: load, RAM, then swap (hidden in doUpdate when absent).
@@ -378,7 +378,7 @@ std::unique_ptr<Flex> SystemTab::create() {
                   .maxLines = 1,
                   // Ellipsize from the start so the identifying tail stays visible ("…/long/mount/point").
                   .ellipsize = TextEllipsize::Start,
-                  .flexGrow = 1.0f,
+                  .flexGrow = 1.0F,
                   .configure = [mountPoint](Label& label) { label.setTooltip(mountPoint); },
               }),
               ui::label({
@@ -472,7 +472,7 @@ void SystemTab::onClose() {
   m_graphInitialized = false;
   m_gpuVisible = false;
   m_lastSampleAt = {};
-  m_scrollProgress = 1.0f;
+  m_scrollProgress = 1.0F;
   m_cpuTempMin = 30.0;
   m_cpuTempMax = 80.0;
   m_gpuTempMin = 30.0;
@@ -525,21 +525,21 @@ void SystemTab::doLayout(Renderer& renderer, float contentWidth, float bodyHeigh
   m_root->setSize(contentWidth, bodyHeight);
   m_root->layout(renderer);
 
-  const float cardPadH = kGraphCardPadH * sc * 2.0f;
+  const float cardPadH = kGraphCardPadH * sc * 2.0F;
 
   auto sizeGraph = [&](Graph* g, Flex* card, Flex* legend) {
     if (g == nullptr || card == nullptr || !card->visible()) {
       return;
     }
-    const float graphW = std::max(0.0f, card->width() - cardPadH);
+    const float graphW = std::max(0.0F, card->width() - cardPadH);
     const float usedAbove = g->y() - card->y();
     const float bottomPad = kGraphCardPadV * sc;
     // Reserve room for the legend that now sits below the graph (plus the card gap above it).
     float usedBelow = bottomPad;
-    if (legend != nullptr && legend->visible() && legend->height() > 0.0f) {
+    if (legend != nullptr && legend->visible() && legend->height() > 0.0F) {
       usedBelow += legend->height() + Style::spaceXs * sc;
     }
-    const float graphH = std::max(0.0f, card->height() - usedAbove - usedBelow);
+    const float graphH = std::max(0.0F, card->height() - usedAbove - usedBelow);
     g->setSize(graphW, graphH);
     g->setLineWidth(kGraphLineWidth * sc);
   };
@@ -646,7 +646,7 @@ void SystemTab::doUpdate(Renderer& renderer) {
     clearGraph(m_netGraph);
     m_graphInitialized = false;
     m_lastSampleAt = {};
-    m_scrollProgress = 1.0f;
+    m_scrollProgress = 1.0F;
   }
   syncLabels();
 }
@@ -682,7 +682,7 @@ void SystemTab::updateGraphs(Renderer& renderer) {
         m_cpuTempMin = std::min(m_cpuTempMin, t);
         m_cpuTempMax = std::max(m_cpuTempMax, t);
         const double range = m_cpuTempMax - m_cpuTempMin;
-        cpuTemp[i] = range > 0.0 ? static_cast<float>(std::clamp((t - m_cpuTempMin) / range, 0.0, 1.0)) : 0.5f;
+        cpuTemp[i] = range > 0.0 ? static_cast<float>(std::clamp((t - m_cpuTempMin) / range, 0.0, 1.0)) : 0.5F;
       }
     }
     m_cpuGraph->setValues(std::move(usage));
@@ -726,7 +726,7 @@ void SystemTab::updateGraphs(Renderer& renderer) {
         m_gpuTempMin = std::min(m_gpuTempMin, t);
         m_gpuTempMax = std::max(m_gpuTempMax, t);
         const double range = m_gpuTempMax - m_gpuTempMin;
-        gpuTemp[i] = range > 0.0 ? static_cast<float>(std::clamp((t - m_gpuTempMin) / range, 0.0, 1.0)) : 0.5f;
+        gpuTemp[i] = range > 0.0 ? static_cast<float>(std::clamp((t - m_gpuTempMin) / range, 0.0, 1.0)) : 0.5F;
       }
     }
     m_gpuGraph->setValues(hasGpuUsage ? std::move(gpuUsage) : std::vector<float>{});
@@ -779,7 +779,7 @@ void SystemTab::updateGraphs(Renderer& renderer) {
   }
 
   PanelManager::instance().requestLayout();
-  if (m_scrollProgress < 1.0f) {
+  if (m_scrollProgress < 1.0F) {
     PanelManager::instance().requestRedraw();
   }
 }
@@ -823,11 +823,11 @@ void SystemTab::syncLabels() {
   const auto stats = m_monitor->latest();
 
   if (m_cpuPctLabel != nullptr) {
-    m_cpuPctLabel->setText(std::format("{:.0f}%", stats.cpuUsagePercent));
+    m_cpuPctLabel->setText(std::format("{:.0F}%", stats.cpuUsagePercent));
   }
   if (m_cpuTempLabel != nullptr) {
     if (stats.cpuTempC.has_value()) {
-      m_cpuTempLabel->setText(std::format("{:.0f}°C", *stats.cpuTempC));
+      m_cpuTempLabel->setText(std::format("{:.0F}°C", *stats.cpuTempC));
     } else {
       m_cpuTempLabel->setText("--");
     }
@@ -836,14 +836,14 @@ void SystemTab::syncLabels() {
     const bool hasTempData = stats.gpuTempC.has_value();
     m_gpuTempGroup->setVisible(hasTempData);
     if (hasTempData && m_gpuTempLabel != nullptr) {
-      m_gpuTempLabel->setText(std::format("{:.0f}°C", *stats.gpuTempC));
+      m_gpuTempLabel->setText(std::format("{:.0F}°C", *stats.gpuTempC));
     }
   }
   if (m_gpuUsageGroup != nullptr) {
     const bool hasUsageData = stats.gpuUsagePercent.has_value();
     m_gpuUsageGroup->setVisible(hasUsageData);
     if (hasUsageData && m_gpuUsageLabel != nullptr) {
-      m_gpuUsageLabel->setText(std::format("{:.0f}%", *stats.gpuUsagePercent));
+      m_gpuUsageLabel->setText(std::format("{:.0F}%", *stats.gpuUsagePercent));
     }
   }
   if (m_gpuVramGroup != nullptr) {
@@ -855,7 +855,7 @@ void SystemTab::syncLabels() {
   }
   if (m_ramLabel != nullptr) {
     m_ramLabel->setText(
-        FormatUnits::formatBinaryMibAsGib(stats.ramUsedMb) + std::format(" · {:.0f}%", stats.ramUsagePercent)
+        FormatUnits::formatBinaryMibAsGib(stats.ramUsedMb) + std::format(" · {:.0F}%", stats.ramUsagePercent)
     );
   }
   if (m_rxLabel != nullptr) {
@@ -894,7 +894,7 @@ void SystemTab::syncLabels() {
   // Resources info
   if (m_resourcesLines[0] != nullptr) {
     m_resourcesLines[0]->setText(
-        std::format("{:.2f} / {:.2f} / {:.2f}", stats.loadAvg1, stats.loadAvg5, stats.loadAvg15)
+        std::format("{:.2F} / {:.2F} / {:.2F}", stats.loadAvg1, stats.loadAvg5, stats.loadAvg15)
     );
   }
   if (m_resourcesLines[1] != nullptr) {
@@ -916,13 +916,13 @@ void SystemTab::syncLabels() {
 
 float SystemTab::scrollProgressForSample(std::chrono::steady_clock::time_point sampledAt) const {
   if (sampledAt == std::chrono::steady_clock::time_point{}) {
-    return 1.0f;
+    return 1.0F;
   }
 
   const auto sampleInterval = m_monitor != nullptr ? m_monitor->historySampleInterval()
                                                    : std::chrono::steady_clock::duration{std::chrono::seconds(1)};
   if (sampleInterval.count() <= 0) {
-    return 1.0f;
+    return 1.0F;
   }
 
   const auto elapsed = std::chrono::steady_clock::now() - sampledAt;

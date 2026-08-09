@@ -39,7 +39,7 @@ struct PointerEvent {
   double axisValue = 0.0;
   std::int32_t axisDiscrete = 0;
   std::int32_t axisValue120 = 0;
-  float axisLines = 0.0f;
+  float axisLines = 0.0F;
   std::uint32_t axisGestureSerial = 0;
 };
 
@@ -168,7 +168,7 @@ private:
     bool valid = false;
     std::int32_t discrete = 0;
     std::int32_t value120 = 0;
-    float lines = 0.0f;
+    float lines = 0.0F;
   };
   // Indexed by wl_pointer axis (vertical, horizontal).
   std::array<AxisDetent, 2> m_pendingAxisDetents{};

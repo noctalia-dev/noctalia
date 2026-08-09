@@ -62,6 +62,23 @@ namespace {
 
   constexpr Logger kLog("compositor_platform");
 
+  [[nodiscard]] std::unordered_set<std::string>
+  windowIdsFromAssignments(const std::vector<WorkspaceWindowAssignment>& assignments) {
+    std::unordered_set<std::string> windowIds;
+    windowIds.reserve(assignments.size());
+    for (const auto& assignment : assignments) {
+      if (!assignment.windowId.empty()) {
+        windowIds.insert(assignment.windowId);
+      }
+    }
+    return windowIds;
+  }
+
+  void
+  retainToplevelsWithWindowIds(std::vector<ToplevelInfo>& windows, const std::unordered_set<std::string>& windowIds) {
+    std::erase_if(windows, [&](const ToplevelInfo& window) { return !windowIds.contains(window.identifier); });
+  }
+
   [[nodiscard]] const char* valueOrUnset(const char* value) {
     return value != nullptr && value[0] != '\0' ? value : "<unset>";
   }
@@ -875,11 +892,59 @@ std::vector<ToplevelInfo> CompositorPlatform::windowsWithoutAppId(wl_output* out
   return windows;
 }
 
+std::vector<ToplevelInfo> CompositorPlatform::enrichedWindowsForApp(
+    const std::string& idLower, const std::string& wmClassLower, wl_output* outputFilter
+) const {
+  if (m_workspaceMetadataBackend != nullptr
+      && m_workspaceMetadataBackend->hasExactWindowIdentity()
+      && m_wayland.hasExtForeignToplevelList()) {
+    auto windows = m_wayland.extWindowsForApp(idLower, wmClassLower);
+    for (auto& w : windows) {
+      w.exactIdentity = true;
+    }
+    if (!windows.empty()) {
+      retainToplevelsWithWindowIds(windows, windowIdsFromAssignments(workspaceWindowAssignments(outputFilter)));
+    }
+    // Do not fall back to title/app-id matching while one side of the exact
+    // identity join is still pending. The ext `done` or IPC update will retry.
+    return windows;
+  }
+  return windowsForApp(idLower, wmClassLower, outputFilter);
+}
+
+std::vector<ToplevelInfo> CompositorPlatform::enrichedWindowsWithoutAppId(wl_output* outputFilter) const {
+  if (m_workspaceMetadataBackend != nullptr
+      && m_workspaceMetadataBackend->hasExactWindowIdentity()
+      && m_wayland.hasExtForeignToplevelList()) {
+    auto windows = m_wayland.extWindowsWithoutAppId();
+    for (auto& w : windows) {
+      w.exactIdentity = true;
+    }
+    if (!windows.empty()) {
+      retainToplevelsWithWindowIds(windows, windowIdsFromAssignments(workspaceWindowAssignments(outputFilter)));
+    }
+    return windows;
+  }
+  return windowsWithoutAppId(outputFilter);
+}
+
+bool CompositorPlatform::hasExactWindowIdentity() const noexcept {
+  return m_workspaceMetadataBackend != nullptr
+      && m_workspaceMetadataBackend->hasExactWindowIdentity()
+      && m_wayland.hasExtForeignToplevelList();
+}
+
 void CompositorPlatform::activateToplevel(zwlr_foreign_toplevel_handle_v1* handle) {
   m_wayland.activateToplevel(handle);
 }
 
 void CompositorPlatform::activateToplevelInfo(const ToplevelInfo& window) {
+  if (window.exactIdentity
+      && !window.identifier.empty()
+      && m_workspaceMetadataBackend != nullptr
+      && m_workspaceMetadataBackend->focusWindowById(window.identifier)) {
+    return;
+  }
   if (window.handle != nullptr) {
     activateToplevel(window.handle);
     return;
@@ -898,6 +963,10 @@ void CompositorPlatform::closeToplevel(zwlr_foreign_toplevel_handle_v1* handle) 
 void CompositorPlatform::closeToplevelInfo(const ToplevelInfo& window) {
   if (window.handle != nullptr) {
     closeToplevel(window.handle);
+    return;
+  }
+  if (window.exactIdentity && !window.identifier.empty() && m_workspaceMetadataBackend != nullptr) {
+    (void)m_workspaceMetadataBackend->closeWindowById(window.identifier);
     return;
   }
   if (compositors::isKde() && m_kwinActiveWindow != nullptr && m_kwinActiveWindow->isAvailable()) {

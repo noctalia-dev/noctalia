@@ -1,5 +1,6 @@
 #include "calendar/google_client.h"
 
+#include "calendar/event_link.h"
 #include "calendar/google_calendar_list.h"
 #include "core/log.h"
 #include "net/http_client.h"
@@ -107,6 +108,7 @@ namespace calendar {
         event.id = item.value("id", std::string{});
         event.title = item.value("summary", std::string{});
         event.location = item.value("location", std::string{});
+        event.url = resolveEventLink(event.location, item.value("hangoutLink", std::string{}));
         event.calendarName = meta.name;
         event.colorHex = meta.color;
 

@@ -13,6 +13,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 struct wl_compositor;
@@ -47,6 +48,9 @@ struct zwlr_gamma_control_manager_v1;
 struct zwlr_screencopy_manager_v1;
 struct wp_fractional_scale_manager_v1;
 struct wp_viewporter;
+struct zwlr_output_manager_v1;
+struct zwlr_output_head_v1;
+struct zwlr_output_mode_v1;
 class ClipboardService;
 class FocusGrabService;
 struct DataControlOps;
@@ -58,6 +62,10 @@ struct WaylandOutput {
   std::string interfaceName;
   std::string connectorName;
   std::string description;
+  // From wlr-output-management-unstable-v1; wl_output has no serial. May stay empty.
+  std::string make;
+  std::string model;
+  std::string serialNumber;
   std::uint32_t version = 0;
   wl_output* output = nullptr;
   std::int32_t scale = 1;
@@ -96,6 +104,14 @@ struct WaylandOutput {
   [[nodiscard]] bool hasUsableGeometry() const noexcept {
     return effectiveLogicalWidth() > 0 && effectiveLogicalHeight() > 0;
   }
+};
+
+// Accumulates head fields until matched to a WaylandOutput, keyed by head proxy.
+struct WaylandOutputHeadInfo {
+  std::string name;
+  std::string make;
+  std::string model;
+  std::string serialNumber;
 };
 
 class WaylandConnection {
@@ -152,6 +168,7 @@ public:
   [[nodiscard]] bool hasIdleInhibitManager() const noexcept;
   [[nodiscard]] bool hasFractionalScale() const noexcept;
   [[nodiscard]] bool hasGammaControl() const noexcept;
+  [[nodiscard]] bool hasOutputManagement() const noexcept;
   [[nodiscard]] bool hasScreencopy() const noexcept;
   [[nodiscard]] zwlr_screencopy_manager_v1* screencopyManager() const noexcept;
   [[nodiscard]] bool hasBackgroundEffectBlur() const noexcept;
@@ -195,6 +212,7 @@ public:
   [[nodiscard]] std::vector<ToplevelInfo> windowsWithoutAppId(wl_output* outputFilter = nullptr) const;
   [[nodiscard]] std::vector<ToplevelInfo>
   extWindowsForApp(const std::string& idLower, const std::string& wmClassLower) const;
+  [[nodiscard]] std::vector<ToplevelInfo> extWindowsWithoutAppId() const;
   [[nodiscard]] bool containsWlrToplevelHandle(zwlr_foreign_toplevel_handle_v1* handle) const;
   template <typename Fn> void visitExtToplevelHandles(Fn&& fn) const {
     m_extForeignToplevels.visitExtHandles(std::forward<Fn>(fn));
@@ -238,6 +256,20 @@ public:
   void onBackgroundEffectCapabilities(std::uint32_t capabilities) noexcept;
   void notifyIdleCapabilitiesReady();
 
+  // wlr-output-management-unstable-v1 entrypoints
+  void onOutputManagerHead(zwlr_output_head_v1* head);
+  void onOutputManagerDone();
+  void onOutputManagerFinished(zwlr_output_manager_v1* manager);
+  void onOutputHeadName(zwlr_output_head_v1* head, const char* name);
+  void onOutputHeadMake(zwlr_output_head_v1* head, const char* make);
+  void onOutputHeadModel(zwlr_output_head_v1* head, const char* model);
+  void onOutputHeadSerialNumber(zwlr_output_head_v1* head, const char* serialNumber);
+  void onOutputHeadMode(zwlr_output_head_v1* head, zwlr_output_mode_v1* mode);
+  void onOutputModeFinished(zwlr_output_mode_v1* mode);
+  void onOutputHeadFinished(zwlr_output_head_v1* head);
+  // wl_output.name and the done event race; call from both sides to match either order.
+  void matchPendingOutputHeads();
+
 private:
   void bindGlobal(wl_registry* registry, std::uint32_t name, const char* interface, std::uint32_t version);
   void bindClipboardService();
@@ -265,6 +297,9 @@ private:
   hyprland_focus_grab_manager_v1* m_hyprlandFocusGrabManager = nullptr;
   zwlr_gamma_control_manager_v1* m_gammaControlManager = nullptr;
   zwlr_screencopy_manager_v1* m_screencopyManager = nullptr;
+  zwlr_output_manager_v1* m_outputManager = nullptr;
+  std::unordered_map<zwlr_output_head_v1*, WaylandOutputHeadInfo> m_outputHeads;
+  std::unordered_set<zwlr_output_mode_v1*> m_outputModes;
   std::unique_ptr<FocusGrabService> m_focusGrabService;
   wp_viewporter* m_viewporter = nullptr;
   bool m_backgroundEffectBlurSupported = false;

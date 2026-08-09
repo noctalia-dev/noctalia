@@ -12,8 +12,8 @@
 #include "ext-session-lock-v1-client-protocol.h"
 #include "i18n/i18n.h"
 #include "render/render_context.h"
-#include "shell/bar/widgets/keyboard_layout_widget.h"
 #include "shell/desktop/desktop_widget_layout.h"
+#include "shell/keyboard_layout_label.h"
 #include "shell/lockscreen/lock_surface.h"
 #include "ui/palette.h"
 #include "wayland/wayland_connection.h"
@@ -22,7 +22,6 @@
 #include <algorithm>
 #include <string>
 #include <thread>
-#include <unordered_map>
 
 namespace {
 
@@ -34,7 +33,7 @@ namespace {
     // through. With no wallpaper image and no configured fill color, paint an
     // opaque black background so the lock surface is always fully opaque.
     if (!config.fillColor) {
-      return rgba(0.0f, 0.0f, 0.0f, 1.0f);
+      return rgba(0.0F, 0.0F, 0.0F, 1.0F);
     }
     return resolveColorSpec(*config.fillColor);
   }
@@ -754,18 +753,12 @@ void LockScreen::applyIndicatorsToSurface(LockSurface& surface) const {
   if (m_compositorPlatform != nullptr) {
     hasMultipleLayouts = m_compositorPlatform->keyboardLayoutNames().size() > 1;
     switchable = m_compositorPlatform->hasKeyboardLayoutBackend();
-    std::string display = "short";
-    std::unordered_map<std::string, std::string> customLabels;
-    if (m_configService != nullptr) {
-      if (const auto widgetIt = m_configService->config().widgets.find("keyboard_layout");
-          widgetIt != m_configService->config().widgets.end()) {
-        display = widgetIt->second.getString("display", display);
-        customLabels = widgetIt->second.getStringMap("custom_labels");
-      }
-    }
-    layoutLabel = KeyboardLayoutWidget::resolveLayoutLabel(
-        m_compositorPlatform->currentKeyboardLayoutName(), KeyboardLayoutWidget::parseDisplayMode(display), customLabels
-    );
+    const std::string layoutName = m_compositorPlatform->currentKeyboardLayoutName();
+    layoutLabel = m_configService != nullptr
+        ? resolveKeyboardLayoutLabel(
+              layoutName, KeyboardLayoutDisplayMode::Short, m_configService->config().shell.keyboardLayout.customLabels
+          )
+        : formatKeyboardLayoutLabel(layoutName, KeyboardLayoutDisplayMode::Short);
   }
   surface.setKeyboardIndicators(capsLock, hasMultipleLayouts, switchable, std::move(layoutLabel));
 }

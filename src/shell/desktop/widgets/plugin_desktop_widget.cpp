@@ -126,7 +126,7 @@ void PluginDesktopWidget::onFrameTick(float deltaMs, Renderer& renderer) {
   }
   // Coalesced like onAudioSpectrum: a slow script only ever sees the latest frame.
   (void)m_runtime->enqueueCallStrings(
-      "onFrameTick", std::format("{:.3f}", deltaMs), {}, makeScriptSnapshot(), /*coalesce=*/true
+      "onFrameTick", std::format("{:.3F}", deltaMs), {}, makeScriptSnapshot(), /*coalesce=*/true
   );
   requestRedraw(); // keep the frame loop alive while animating
 }

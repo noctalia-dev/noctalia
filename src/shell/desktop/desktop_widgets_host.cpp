@@ -4,6 +4,7 @@
 #include "core/log.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
+#include "scripting/plugin_registry.h"
 #include "shell/desktop/desktop_widget_layout.h"
 #include "shell/desktop/widget_transform.h"
 #include "time/time_format.h"
@@ -63,6 +64,20 @@ void DesktopWidgetsHost::hide() {
 void DesktopWidgetsHost::rebuild(const DesktopWidgetsSnapshot& snapshot) {
   m_snapshot = snapshot;
   if (!m_visible) {
+    return;
+  }
+  syncInstances();
+}
+
+void DesktopWidgetsHost::reloadPluginWidgets() {
+  if (!m_visible) {
+    return;
+  }
+  const auto before = m_instances.size();
+  std::erase_if(m_instances, [](const auto& instance) {
+    return scripting::isPluginEntryOfKind(instance->state.type, scripting::PluginEntryKind::DesktopWidget);
+  });
+  if (m_instances.size() == before) {
     return;
   }
   syncInstances();
@@ -179,7 +194,7 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
     return;
   }
 
-  const float baseUiScale = m_config != nullptr ? m_config->config().accessibility.uiScale : 1.0f;
+  const float baseUiScale = m_config != nullptr ? m_config->config().accessibility.uiScale : 1.0F;
   auto widget = m_factory->create(state.type, state.settings, desktop_widgets::widgetContentScale(baseUiScale));
   if (widget == nullptr) {
     return;
@@ -190,8 +205,8 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
   widget->update(*m_renderContext);
   widget->layout(*m_renderContext);
 
-  const float intrinsicWidth = std::max(1.0f, widget->intrinsicWidth());
-  const float intrinsicHeight = std::max(1.0f, widget->intrinsicHeight());
+  const float intrinsicWidth = std::max(1.0F, widget->intrinsicWidth());
+  const float intrinsicHeight = std::max(1.0F, widget->intrinsicHeight());
 
   DesktopWidgetState clampedState = state;
   if (m_wayland != nullptr) {
@@ -201,7 +216,7 @@ void DesktopWidgetsHost::createInstance(const DesktopWidgetState& state, const W
   const float outW = desktop_widgets::outputLogicalWidth(output);
   const float outH = desktop_widgets::outputLogicalHeight(output);
   const WidgetTransformClippedGeometry geometry = computeClippedWidgetSurfaceGeometry(
-      clampedState.cx, clampedState.cy, intrinsicWidth, intrinsicHeight, 1.0f, clampedState.rotationRad, outW, outH
+      clampedState.cx, clampedState.cy, intrinsicWidth, intrinsicHeight, 1.0F, clampedState.rotationRad, outW, outH
   );
 
   auto surfaceConfig = LayerSurfaceConfig{
@@ -311,7 +326,7 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
 
   buildScene(instance);
 
-  const float baseUiScale = m_config != nullptr ? m_config->config().accessibility.uiScale : 1.0f;
+  const float baseUiScale = m_config != nullptr ? m_config->config().accessibility.uiScale : 1.0F;
   instance.widget->setContentScale(desktop_widgets::widgetContentScale(baseUiScale));
   instance.widget->setBox(instance.state.boxWidth, instance.state.boxHeight);
 
@@ -320,16 +335,16 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
   }
   if (needsLayout) {
     instance.widget->layout(*m_renderContext);
-    instance.intrinsicWidth = std::max(1.0f, instance.widget->intrinsicWidth());
-    instance.intrinsicHeight = std::max(1.0f, instance.widget->intrinsicHeight());
+    instance.intrinsicWidth = std::max(1.0F, instance.widget->intrinsicWidth());
+    instance.intrinsicHeight = std::max(1.0F, instance.widget->intrinsicHeight());
   }
 
   if (m_wayland != nullptr) {
     desktop_widgets::clampStateToOutput(*m_wayland, instance.state, instance.intrinsicWidth, instance.intrinsicHeight);
   }
 
-  float outputW = 1920.0f;
-  float outputH = 1080.0f;
+  float outputW = 1920.0F;
+  float outputH = 1080.0F;
   if (m_wayland != nullptr) {
     if (const WaylandOutput* output = desktop_widgets::resolveStateOutput(*m_wayland, instance.state);
         output != nullptr) {
@@ -339,7 +354,7 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
   }
 
   const WidgetTransformClippedGeometry geometry = computeClippedWidgetSurfaceGeometry(
-      instance.state.cx, instance.state.cy, instance.intrinsicWidth, instance.intrinsicHeight, 1.0f,
+      instance.state.cx, instance.state.cy, instance.intrinsicWidth, instance.intrinsicHeight, 1.0F,
       instance.state.rotationRad, outputW, outputH
   );
 
@@ -356,12 +371,12 @@ void DesktopWidgetsHost::prepareFrame(DesktopWidgetInstance& instance, bool need
   if (instance.transformNode != nullptr) {
     instance.transformNode->setFrameSize(instance.intrinsicWidth, instance.intrinsicHeight);
     instance.transformNode->setPosition(
-        geometry.contentOffsetX - instance.intrinsicWidth * 0.5f,
-        geometry.contentOffsetY - instance.intrinsicHeight * 0.5f
+        geometry.contentOffsetX - instance.intrinsicWidth * 0.5F,
+        geometry.contentOffsetY - instance.intrinsicHeight * 0.5F
     );
     instance.transformNode->setRotation(instance.state.rotationRad);
-    float flipScaleX = 1.0f;
-    float flipScaleY = 1.0f;
+    float flipScaleX = 1.0F;
+    float flipScaleY = 1.0F;
     desktop_widgets::widgetNodeScale(instance.state, flipScaleX, flipScaleY);
     instance.transformNode->setScale(flipScaleX, flipScaleY);
   }

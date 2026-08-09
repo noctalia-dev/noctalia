@@ -1,5 +1,6 @@
 #pragma once
 
+#include "config/config_origins.h"
 #include "config/schema/diagnostics.h"
 #include "core/toml.h"
 
@@ -9,7 +10,7 @@ namespace noctalia::config {
 
   // Validates an already merged and normalized effective config table. This is the
   // shared, side-effect-free semantic validation pass used by live reload and the CLI.
-  [[nodiscard]] schema::Diagnostics validateMergedConfig(const toml::table& merged);
+  [[nodiscard]] schema::Diagnostics validateMergedConfig(const toml::table& merged, const ConfigOriginIndex& origins);
 
   // Loads and merges the config sources the same way ConfigService::loadAll does
   // (sorted *.toml in configDir, then the optional settings.toml overrides) and

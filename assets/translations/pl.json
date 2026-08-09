@@ -2350,10 +2350,6 @@
           "description": "Zabarw obraz niestandardowy za pomocą ustawienia Kolor widżetu",
           "label": "Zabarw obraz niestandardowy"
         },
-        "custom-labels": {
-          "description": "Mapuj nazwy układu klawiatury na etykiety niestandardowe",
-          "label": "Etykiety niestandardowe"
-        },
         "detached-panel": {
           "description": "Otwórz szufladę jako pływający panel z własnym tłem zamiast łączenia się z paskiem",
           "label": "Odłączony panel"

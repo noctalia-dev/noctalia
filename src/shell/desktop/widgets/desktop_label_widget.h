@@ -13,7 +13,7 @@ public:
     std::string title = "Title";
     std::string description;
     ColorSpec color = colorSpecFromRole(ColorRole::OnSurface);
-    float opacity = 1.0f;
+    float opacity = 1.0F;
     bool shadow = true;
   };
 
@@ -34,7 +34,7 @@ private:
   std::string m_title;
   std::string m_description;
   ColorSpec m_color;
-  float m_opacity = 1.0f;
+  float m_opacity = 1.0F;
   bool m_shadow;
   Label* m_titleLabel = nullptr;
   Label* m_descriptionLabel = nullptr;

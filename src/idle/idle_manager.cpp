@@ -342,7 +342,7 @@ void IdleManager::handleIdled(void* data, ext_idle_notification_v1* /*notificati
   }
 
   const float fadeSec = self.m_idleConfig.preActionFadeSeconds;
-  if (fadeSec > 0.0005f) {
+  if (fadeSec > 0.0005F) {
     assert(self.m_onGraceBegin);
     if (self.hasActiveGrace()) {
       self.joinActiveGrace(*behavior);

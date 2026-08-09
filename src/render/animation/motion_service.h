@@ -25,6 +25,6 @@ private:
   MotionService() = default;
 
   bool m_enabled = true;
-  float m_speed = 1.0f;
+  float m_speed = 1.0F;
   std::unordered_set<AnimationManager*> m_managers;
 };

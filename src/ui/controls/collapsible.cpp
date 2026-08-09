@@ -51,7 +51,7 @@ void Collapsible::setHeader(std::unique_ptr<Node> header) {
     m_userHeader = nullptr;
   }
   if (header != nullptr) {
-    header->setFlexGrow(1.0f);
+    header->setFlexGrow(1.0F);
     m_userHeader = m_headerRow->insertChildAt(0, std::move(header));
   }
   markLayoutDirty();
@@ -64,7 +64,7 @@ void Collapsible::setBody(std::unique_ptr<Node> body) {
   }
   if (body != nullptr) {
     m_bodyNode = m_clipContainer->addChild(std::move(body));
-    m_bodyNode->setPosition(0.0f, 0.0f);
+    m_bodyNode->setPosition(0.0F, 0.0F);
   }
   const bool hasBody = m_bodyNode != nullptr;
   if (m_chevron != nullptr) {
@@ -73,7 +73,7 @@ void Collapsible::setBody(std::unique_ptr<Node> body) {
   if (m_headerInput != nullptr) {
     m_headerInput->setEnabled(hasBody);
   }
-  m_bodyNaturalHeight = 0.0f;
+  m_bodyNaturalHeight = 0.0F;
   markLayoutDirty();
 }
 
@@ -90,14 +90,14 @@ void Collapsible::setExpanded(bool expanded) {
       animationManager()->cancel(m_animId);
     }
     float from = m_expandProgress;
-    float to = m_expanded ? 1.0f : 0.0f;
+    float to = m_expanded ? 1.0F : 0.0F;
     m_animId = animationManager()->animate(
         from, to, Style::animNormal, Easing::EaseOutCubic, [this](float t) { applyExpandedProgress(t); },
         [this]() { m_animId = 0; }, this
     );
     markPaintDirty();
   } else {
-    applyExpandedProgress(m_expanded ? 1.0f : 0.0f);
+    applyExpandedProgress(m_expanded ? 1.0F : 0.0F);
   }
 }
 
@@ -110,11 +110,11 @@ void Collapsible::setExpandedImmediate(bool expanded) {
     animationManager()->cancel(m_animId);
     m_animId = 0;
   }
-  applyExpandedProgress(m_expanded ? 1.0f : 0.0f);
+  applyExpandedProgress(m_expanded ? 1.0F : 0.0F);
 }
 
 void Collapsible::setScale(float scale) {
-  m_scale = std::max(0.1f, scale);
+  m_scale = std::max(0.1F, scale);
   if (m_chevron != nullptr) {
     m_chevron->setGlyphSize(Style::fontSizeBody * m_scale);
   }
@@ -154,30 +154,30 @@ void Collapsible::doLayout(Renderer& renderer) {
 
   if (m_bodyNode != nullptr) {
     LayoutConstraints bodyConstraints;
-    if (width() > 0.0f) {
+    if (width() > 0.0F) {
       bodyConstraints.setExactWidth(width());
     }
     LayoutSize bodySz = m_bodyNode->measure(renderer, bodyConstraints);
-    if (std::abs(bodySz.height - m_bodyNaturalHeight) > 0.5f) {
+    if (std::abs(bodySz.height - m_bodyNaturalHeight) > 0.5F) {
       m_bodyNaturalHeight = bodySz.height;
       if (m_animId == 0) {
-        m_clipHeight = m_expanded ? m_bodyNaturalHeight : 0.0f;
+        m_clipHeight = m_expanded ? m_bodyNaturalHeight : 0.0F;
       }
     }
   }
 
   if (m_headerInput != nullptr && m_headerRow != nullptr) {
     m_headerInput->setFrameSize(width(), m_headerRow->height());
-    m_headerRow->arrange(renderer, LayoutRect{0.0f, 0.0f, width(), m_headerRow->height()});
+    m_headerRow->arrange(renderer, LayoutRect{0.0F, 0.0F, width(), m_headerRow->height()});
   }
 
-  const float headerH = (m_headerInput != nullptr) ? m_headerInput->height() : 0.0f;
+  const float headerH = (m_headerInput != nullptr) ? m_headerInput->height() : 0.0F;
 
   if (m_clipContainer != nullptr) {
     m_clipContainer->setFrameSize(width(), m_clipHeight);
-    m_clipContainer->setPosition(0.0f, headerH);
-    if (m_bodyNode != nullptr && m_bodyNaturalHeight > 0.0f) {
-      m_bodyNode->arrange(renderer, LayoutRect{0.0f, 0.0f, width(), m_bodyNaturalHeight});
+    m_clipContainer->setPosition(0.0F, headerH);
+    if (m_bodyNode != nullptr && m_bodyNaturalHeight > 0.0F) {
+      m_bodyNode->arrange(renderer, LayoutRect{0.0F, 0.0F, width(), m_bodyNaturalHeight});
     }
   }
 

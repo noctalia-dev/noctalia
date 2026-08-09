@@ -173,8 +173,8 @@ namespace settings {
   void updateSettingsStatusBanner(Flex& banner, Label& message, std::string_view text, bool error) {
     message.setText(std::string(text));
     message.setColor(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary));
-    banner.setFill(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.14f));
-    banner.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45f), Style::borderWidth);
+    banner.setFill(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.14F));
+    banner.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45F), Style::borderWidth);
     banner.setVisible(!text.empty());
   }
 
@@ -189,8 +189,8 @@ namespace settings {
         .configure = [scale, error](Flex& row) {
           row.setPadding(Style::spaceXs * scale, Style::spaceSm * scale);
           row.setRadius(Style::scaledRadiusMd(scale));
-          row.setFill(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.14f));
-          row.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45f), Style::borderWidth);
+          row.setFill(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.14F));
+          row.setBorder(colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary, 0.45F), Style::borderWidth);
         },
     });
     banner->addChild(
@@ -201,7 +201,7 @@ namespace settings {
             .fontWeight = FontWeight::Bold,
             .color = colorSpecFromRole(error ? ColorRole::Error : ColorRole::Secondary),
             .maxLines = 3,
-            .flexGrow = 1.0f,
+            .flexGrow = 1.0F,
         })
     );
     if (props.onDismiss) {
@@ -295,8 +295,8 @@ namespace settings {
         .padding = Style::spaceSm * scale,
         .configure = [scale](Flex& column) {
           column.setRadius(Style::scaledRadiusMd(scale));
-          column.setFill(colorSpecFromRole(ColorRole::Error, 0.10f));
-          column.setBorder(colorSpecFromRole(ColorRole::Error, 0.5f), Style::borderWidth);
+          column.setFill(colorSpecFromRole(ColorRole::Error, 0.10F));
+          column.setBorder(colorSpecFromRole(ColorRole::Error, 0.5F), Style::borderWidth);
         },
     });
     panel->addChild(

@@ -83,8 +83,8 @@ void ActiveWindowWidget::doLayout(Renderer& renderer, float containerWidth, floa
   const bool showingEmptyPlaceholder = m_lastEmptyState && m_showEmptyLabel;
   const bool isVertical = containerHeight > containerWidth;
   const float iconSize = m_iconSize * m_contentScale;
-  const float maxLength = std::max(0.0f, m_maxWidth * m_contentScale);
-  const float minLength = std::clamp(m_minWidth * m_contentScale, 0.0f, maxLength);
+  const float maxLength = std::max(0.0F, m_maxWidth * m_contentScale);
+  const float minLength = std::clamp(m_minWidth * m_contentScale, 0.0F, maxLength);
   m_icon->setSize(iconSize, iconSize);
 
   m_title->setColor(widgetForegroundOr(colorSpecFromRole(ColorRole::OnSurface)));
@@ -93,7 +93,7 @@ void ActiveWindowWidget::doLayout(Renderer& renderer, float containerWidth, floa
     m_title->setVisible(false);
     applyTitleScrollMode(false);
     m_icon->setVisible(true);
-    m_icon->setPosition(0.0f, 0.0f);
+    m_icon->setPosition(0.0F, 0.0F);
     rootNode->setSize(m_icon->width(), m_icon->height());
   } else {
     const bool showIcon = !showingEmptyPlaceholder && m_displayMode != ActiveWindowDisplayMode::TextOnly;
@@ -102,20 +102,20 @@ void ActiveWindowWidget::doLayout(Renderer& renderer, float containerWidth, floa
     m_icon->setVisible(showIcon);
     m_title->setVisible(showTitle);
     applyTitleScrollMode(showTitle);
-    const float spacing = showIcon && showTitle ? Style::spaceXs : 0.0f;
-    const float iconWidth = showIcon ? m_icon->width() : 0.0f;
-    const float labelMaxWidth = showTitle ? std::max(0.0f, maxLength - iconWidth - spacing) : 0.0f;
+    const float spacing = showIcon && showTitle ? Style::spaceXs : 0.0F;
+    const float iconWidth = showIcon ? m_icon->width() : 0.0F;
+    const float labelMaxWidth = showTitle ? std::max(0.0F, maxLength - iconWidth - spacing) : 0.0F;
     m_title->setMaxWidth(labelMaxWidth);
     m_title->measure(renderer);
 
-    const float iconHeight = showIcon ? m_icon->height() : 0.0f;
-    const float titleHeight = showTitle ? m_title->height() : 0.0f;
+    const float iconHeight = showIcon ? m_icon->height() : 0.0F;
+    const float titleHeight = showTitle ? m_title->height() : 0.0F;
     const float contentHeight = std::max(iconHeight, titleHeight);
-    const float iconY = showIcon ? std::round((contentHeight - m_icon->height()) * 0.5f) : 0.0f;
-    const float labelY = std::round((contentHeight - m_title->height()) * 0.5f);
+    const float iconY = showIcon ? std::round((contentHeight - m_icon->height()) * 0.5F) : 0.0F;
+    const float labelY = std::round((contentHeight - m_title->height()) * 0.5F);
 
-    m_icon->setPosition(0.0f, iconY);
-    m_title->setPosition(showIcon ? m_icon->width() + spacing : 0.0f, labelY);
+    m_icon->setPosition(0.0F, iconY);
+    m_title->setPosition(showIcon ? m_icon->width() + spacing : 0.0F, labelY);
 
     const float contentWidth = showTitle ? m_title->x() + m_title->width() : iconWidth;
     rootNode->setSize(std::clamp(contentWidth, minLength, maxLength), contentHeight);
@@ -130,11 +130,11 @@ void ActiveWindowWidget::syncWidgetVisibility(bool showWidget) {
       rootNode->setVisible(showWidget);
       rootNode->setParticipatesInLayout(showWidget);
       if (!showWidget) {
-        rootNode->setSize(0.0f, 0.0f);
+        rootNode->setSize(0.0F, 0.0F);
       }
       requestUpdate();
-    } else if (!showWidget && (rootNode->width() > 0.0f || rootNode->height() > 0.0f)) {
-      rootNode->setSize(0.0f, 0.0f);
+    } else if (!showWidget && (rootNode->width() > 0.0F || rootNode->height() > 0.0F)) {
+      rootNode->setSize(0.0F, 0.0F);
     }
   }
 }
@@ -244,7 +244,7 @@ void ActiveWindowWidget::syncState(Renderer& renderer) {
   if (iconPath != m_lastIconPath) {
     m_lastIconPath = iconPath;
     if (!m_lastIconPath.empty()) {
-      m_icon->setSourceFile(renderer, m_lastIconPath, static_cast<int>(std::round(48.0f * m_contentScale)), true);
+      m_icon->setSourceFile(renderer, m_lastIconPath, static_cast<int>(std::round(48.0F * m_contentScale)), true);
     } else {
       m_icon->clear(renderer);
     }
@@ -264,14 +264,14 @@ std::string ActiveWindowWidget::resolveIconPath(const std::string& appId) {
 
   if (const auto entry = app_identity::findDesktopEntry(appId, desktopEntries());
       entry.has_value() && !entry->icon.empty()) {
-    const int iconTargetSize = static_cast<int>(std::round(48.0f * m_contentScale));
+    const int iconTargetSize = static_cast<int>(std::round(48.0F * m_contentScale));
     const std::string& resolved = m_iconResolver.resolve(entry->icon, iconTargetSize);
     if (!resolved.empty()) {
       return resolved;
     }
   }
 
-  const int iconTargetSize = static_cast<int>(std::round(48.0f * m_contentScale));
+  const int iconTargetSize = static_cast<int>(std::round(48.0F * m_contentScale));
   auto resolveByName = [this, iconTargetSize](const std::string& name) -> std::string {
     if (name.empty()) {
       return {};

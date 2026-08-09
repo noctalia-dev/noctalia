@@ -7,20 +7,20 @@
 
 // RGBA color; every channel is a float in [0,1].
 struct Color {
-  float r = 0.0f;
-  float g = 0.0f;
-  float b = 0.0f;
-  float a = 1.0f;
+  float r = 0.0F;
+  float g = 0.0F;
+  float b = 0.0F;
+  float a = 1.0F;
 };
 
 constexpr bool operator==(const Color& lhs, const Color& rhs) noexcept {
   return lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b && lhs.a == rhs.a;
 }
 
-constexpr Color rgba(float r, float g, float b, float a = 1.0f) { return Color{r, g, b, a}; }
+constexpr Color rgba(float r, float g, float b, float a = 1.0F) { return Color{r, g, b, a}; }
 
 // Maps a 0-255 channel byte to a [0,1] float.
-constexpr float colorByte(std::uint32_t value) { return static_cast<float>(value) / 255.0f; }
+constexpr float colorByte(std::uint32_t value) { return static_cast<float>(value) / 255.0F; }
 
 // Builds a Color from a packed 0xRRGGBB integer (alpha = 1).
 constexpr Color rgbHex(std::uint32_t value) {
@@ -28,7 +28,7 @@ constexpr Color rgbHex(std::uint32_t value) {
       .r = colorByte((value >> 16U) & 0xFFU),
       .g = colorByte((value >> 8U) & 0xFFU),
       .b = colorByte(value & 0xFFU),
-      .a = 1.0f,
+      .a = 1.0F,
   };
 }
 
@@ -69,7 +69,7 @@ constexpr Color hex(std::string_view value) {
         .r = colorByte(hexDigit(value[1]) * 17U),
         .g = colorByte(hexDigit(value[2]) * 17U),
         .b = colorByte(hexDigit(value[3]) * 17U),
-        .a = 1.0f,
+        .a = 1.0F,
     };
   }
 
@@ -87,7 +87,7 @@ constexpr Color hex(std::string_view value) {
         .r = colorByte(hexByte(value[1], value[2])),
         .g = colorByte(hexByte(value[3], value[4])),
         .b = colorByte(hexByte(value[5], value[6])),
-        .a = 1.0f,
+        .a = 1.0F,
     };
   }
 
@@ -104,13 +104,13 @@ constexpr Color hex(std::string_view value) {
 }
 
 constexpr Color withAlpha(const Color& color, float alpha) {
-  auto clamp = [](float v) constexpr { return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v); };
+  auto clamp = [](float v) constexpr { return v < 0.0F ? 0.0F : (v > 1.0F ? 1.0F : v); };
   return rgba(color.r, color.g, color.b, clamp(alpha));
 }
 
 // Scales rgb by amount (1 = unchanged, >1 brighter), clamped to [0,1]; alpha unchanged.
 constexpr Color brighten(const Color& color, float amount) {
-  auto clamp = [](float v) constexpr { return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v); };
+  auto clamp = [](float v) constexpr { return v < 0.0F ? 0.0F : (v > 1.0F ? 1.0F : v); };
   return Color{
       .r = clamp(color.r * amount),
       .g = clamp(color.g * amount),
@@ -130,9 +130,9 @@ constexpr Color lerpColor(const Color& a, const Color& b, float t) {
 }
 
 // Hue in turns ([0,1), wrapped); saturation/value/alpha in [0,1].
-[[nodiscard]] Color hsv(float h, float s, float v, float a = 1.0f);
+[[nodiscard]] Color hsv(float h, float s, float v, float a = 1.0F);
 // Hue in degrees (wrapped to [0,360)); saturation/lightness/alpha in [0,1].
-[[nodiscard]] Color hsl(float h, float s, float l, float a = 1.0f);
+[[nodiscard]] Color hsl(float h, float s, float l, float a = 1.0F);
 // Decomposes rgb into hue (turns, [0,1)), saturation, and value (each [0,1]).
 void rgbToHsv(const Color& rgb, float& h, float& s, float& v);
 // Blends from a to b through HSV space on the shortest hue path; t in [0,1].

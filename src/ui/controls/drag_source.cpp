@@ -110,7 +110,7 @@ void DragSource::applyTooltip() {
 }
 
 void DragSource::setSourceOpacity(float opacity) {
-  m_sourceOpacity = std::clamp(opacity, 0.0f, 1.0f);
+  m_sourceOpacity = std::clamp(opacity, 0.0F, 1.0F);
   applyVisualState();
 }
 
@@ -163,12 +163,12 @@ void DragSource::setSize(float width, float height) {
 }
 
 void DragSource::applyVisualState() {
-  setOpacity(m_dragging && m_previewAncestor == 0 ? m_sourceOpacity * 0.55f : m_sourceOpacity);
+  setOpacity(m_dragging && m_previewAncestor == 0 ? m_sourceOpacity * 0.55F : m_sourceOpacity);
 }
 
 void DragSource::updateInputArea() {
   if (m_inputArea != nullptr) {
-    m_inputArea->setPosition(0.0f, 0.0f);
+    m_inputArea->setPosition(0.0F, 0.0F);
     m_inputArea->setFrameSize(width(), height());
   }
 }

@@ -4,7 +4,7 @@
 
 namespace {
 
-  float g_cornerRadiusScale = 1.0f;
+  float g_cornerRadiusScale = 1.0F;
   bool g_buttonBordersEnabled = true;
   bool g_inputBordersEnabled = true;
   bool g_popupBordersEnabled = true;
@@ -17,7 +17,7 @@ namespace Style {
 
   float cornerRadiusScale() noexcept { return g_cornerRadiusScale; }
 
-  void setCornerRadiusScale(float scale) noexcept { g_cornerRadiusScale = std::clamp(scale, 0.0f, 2.0f); }
+  void setCornerRadiusScale(float scale) noexcept { g_cornerRadiusScale = std::clamp(scale, 0.0F, 2.0F); }
 
   bool buttonBordersEnabled() noexcept { return g_buttonBordersEnabled; }
 

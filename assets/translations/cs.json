@@ -2829,10 +2829,6 @@
           "description": "Obarvit vlastní obrázek podle nastavení barvy ikony widgetu",
           "label": "Obarvit vlastní obrázek"
         },
-        "custom-labels": {
-          "description": "Namapovat názvy rozložení klávesnice na vlastní popisky",
-          "label": "Vlastní popisky"
-        },
         "detached-panel": {
           "description": "Otevřít zásuvku jako plovoucí panel s vlastním pozadím místo sloučení s lištou",
           "label": "Oddělený panel"

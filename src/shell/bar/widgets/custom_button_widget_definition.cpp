@@ -16,6 +16,7 @@ const noctalia::bar::WidgetDefinition<CustomButtonWidget::Options>& customButton
               .key = "tooltip",
           })
       ),
+      .glyph = [](const Options& options) { return options.glyph; },
   };
   return definition;
 }

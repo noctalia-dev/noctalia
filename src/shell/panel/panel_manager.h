@@ -38,8 +38,8 @@ struct wl_surface;
 
 struct PanelOpenRequest {
   wl_output* output = nullptr;
-  float anchorX = 0.0f;
-  float anchorY = 0.0f;
+  float anchorX = 0.0F;
+  float anchorY = 0.0F;
   bool hasExplicitAnchor = false;
   bool hasAnchorPosition = false;
   std::string_view context;
@@ -238,8 +238,8 @@ private:
 
   wl_output* m_output = nullptr;
   wl_surface* m_wlSurface = nullptr;
-  float m_contentWidth = 0.0f;
-  float m_contentHeight = 0.0f;
+  float m_contentWidth = 0.0F;
+  float m_contentHeight = 0.0F;
   std::int32_t m_panelInsetX = 0;
   std::int32_t m_panelInsetY = 0;
   std::uint32_t m_panelVisualWidth = 0;
@@ -250,10 +250,10 @@ private:
   bool m_panelFillHeight = false;
   std::int32_t m_detachedBleedRight = 0;
   std::int32_t m_detachedBleedBottom = 0;
-  float m_attachedBackgroundOpacity = 1.0f;
+  float m_attachedBackgroundOpacity = 1.0F;
   bool m_attachedContactShadow = false;
-  float m_attachedRevealProgress = 1.0f;
-  float m_detachedRevealProgress = 1.0f;
+  float m_attachedRevealProgress = 1.0F;
+  float m_detachedRevealProgress = 1.0F;
   AttachedRevealDirection m_attachedRevealDirection = AttachedRevealDirection::Down;
   AttachedRevealDirection m_detachedRevealDirection = AttachedRevealDirection::Down;
   Timer m_keyboardRelaxTimer;
