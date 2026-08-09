@@ -164,11 +164,18 @@ NetworkManagerService::NetworkManagerService(SystemBus& bus) : m_bus(bus) {
           return;
         }
         bool wirelessNowOn = false;
+        bool wirelessNowOff = false;
         if (auto it = changedProperties.find("WirelessEnabled"); it != changedProperties.end()) {
           try {
-            wirelessNowOn = it->second.get<bool>();
+            const bool enabled = it->second.get<bool>();
+            wirelessNowOn = enabled;
+            wirelessNowOff = !enabled;
+            ++m_wirelessGeneration;
           } catch (const sdbus::Error&) {
           }
+        }
+        if (wirelessNowOff) {
+          endScan();
         }
         if (changedProperties.contains("PrimaryConnection")
             || changedProperties.contains("ActiveConnections")
@@ -183,12 +190,12 @@ NetworkManagerService::NetworkManagerService(SystemBus& bus) : m_bus(bus) {
           // NM starts its own scan as soon as the device reaches Disconnected;
           // just mark ourselves scanning and snapshot LastScan so the device
           // PropertiesChanged watcher clears the flag when the scan finishes.
-          collectWifiDevices([this](std::vector<std::string> devicePaths, std::int64_t lastScanBaseline) {
-            if (devicePaths.empty()) {
+          const std::uint64_t generation = m_wirelessGeneration;
+          collectWifiDevices([this, generation](std::vector<std::string> devicePaths, std::int64_t lastScanBaseline) {
+            if (devicePaths.empty() || generation != m_wirelessGeneration) {
               return;
             }
-            m_scanning = true;
-            m_scanBaselineLastScan = lastScanBaseline;
+            beginScan(lastScanBaseline);
             refresh();
           });
         }
@@ -274,7 +281,12 @@ void NetworkManagerService::refresh() {
 
 void NetworkManagerService::requestScan() {
   const std::weak_ptr<int> lifetimeToken = m_lifetimeToken;
-  collectWifiDevices([this, lifetimeToken](std::vector<std::string> devicePaths, std::int64_t lastScanBaseline) {
+  const std::uint64_t generation = m_wirelessGeneration;
+  collectWifiDevices([this, lifetimeToken,
+                      generation](std::vector<std::string> devicePaths, std::int64_t lastScanBaseline) {
+    if (generation != m_wirelessGeneration) {
+      return;
+    }
     for (const auto& devicePath : devicePaths) {
       try {
         auto device = std::shared_ptr<sdbus::IProxy>(
@@ -284,9 +296,9 @@ void NetworkManagerService::requestScan() {
         device->callMethodAsync("RequestScan")
             .onInterface(kNmDeviceWirelessInterface)
             .withArguments(options)
-            .uponReplyInvoke([this, lifetimeToken, device, devicePath,
-                              lastScanBaseline](std::optional<sdbus::Error> err) {
-              if (lifetimeToken.expired()) {
+            .uponReplyInvoke([this, lifetimeToken, device, devicePath, lastScanBaseline,
+                              generation](std::optional<sdbus::Error> err) {
+              if (lifetimeToken.expired() || generation != m_wirelessGeneration) {
                 return;
               }
               if (err.has_value()) {
@@ -294,8 +306,7 @@ void NetworkManagerService::requestScan() {
                 return;
               }
               if (!m_scanning) {
-                m_scanning = true;
-                m_scanBaselineLastScan = lastScanBaseline;
+                beginScan(lastScanBaseline);
                 refresh();
               }
             });
@@ -1438,8 +1449,9 @@ void NetworkManagerService::ensureWifiDeviceSubscribed(const std::string& device
             if (auto it = changedProperties.find("LastScan"); it != changedProperties.end()) {
               try {
                 const auto lastScan = it->second.get<std::int64_t>();
-                if (m_scanning && lastScan > m_scanBaselineLastScan) {
-                  m_scanning = false;
+                // NM resets LastScan to -1 when the device goes unavailable.
+                if (m_scanning && (lastScan < 0 || lastScan > m_scanBaselineLastScan)) {
+                  endScan();
                 }
               } catch (const sdbus::Error&) {
               }
@@ -2382,6 +2394,28 @@ void NetworkManagerService::readStateAsync(std::function<void(NetworkState)> onC
   } catch (const sdbus::Error&) {
     readActiveConnectionState();
   }
+}
+
+void NetworkManagerService::beginScan(std::int64_t lastScanBaseline) {
+  m_scanning = true;
+  m_scanBaselineLastScan = lastScanBaseline;
+  m_scanTimeoutTimer.start(kScanTimeout, [this]() {
+    if (!m_scanning) {
+      return;
+    }
+    kLog.debug("scan timed out after {}s without a LastScan update", kScanTimeout.count());
+    endScan();
+    m_emitOnNextRefresh = true;
+    refresh();
+  });
+}
+
+void NetworkManagerService::endScan() {
+  if (!m_scanning) {
+    return;
+  }
+  m_scanning = false;
+  m_scanTimeoutTimer.stop();
 }
 
 NetworkChangeOrigin NetworkManagerService::consumeWirelessEnabledChangeOrigin(bool enabled) {
