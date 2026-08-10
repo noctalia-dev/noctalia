@@ -52,12 +52,40 @@ namespace {
         }
       }
 
-      sdbus::ObjectPath sessionPath;
-      managerProxy->callMethod("GetSessionByPID")
+      try {
+        sdbus::ObjectPath sessionPath;
+        managerProxy->callMethod("GetSessionByPID")
+            .onInterface(kLogindManagerInterface)
+            .withArguments(static_cast<std::uint32_t>(::getpid()))
+            .storeResultsTo(sessionPath);
+        return sessionPath;
+      } catch (const sdbus::Error& e) {
+        kLog.debug("failed to resolve logind session by pid: {}", e.what());
+      }
+
+      // Last resort: this user's DISPLAY session. Neither lookup above works
+      // when the shell is started by the systemd user manager — user@.service
+      // lives outside the login session's cgroup, so GetSessionByPID answers
+      // NoSessionForPID, and XDG_SESSION_ID is not in that manager's
+      // environment either. Without this the whole logind integration stayed
+      // dark: `loginctl lock-session` never reached the lock screen, and the
+      // brightness path lost its session too.
+      sdbus::ObjectPath userPath;
+      managerProxy->callMethod("GetUser")
           .onInterface(kLogindManagerInterface)
-          .withArguments(static_cast<std::uint32_t>(::getpid()))
-          .storeResultsTo(sessionPath);
-      return sessionPath;
+          .withArguments(static_cast<std::uint32_t>(::getuid()))
+          .storeResultsTo(userPath);
+      auto userProxy = sdbus::createProxy(connection, kLogindBusName, userPath);
+      const sdbus::Variant display = userProxy->getProperty("Display").onInterface("org.freedesktop.login1.User");
+      // Display is (so): the session id plus its object path.
+      const auto displaySession = display.get<sdbus::Struct<std::string, sdbus::ObjectPath>>();
+      const sdbus::ObjectPath& displayPath = std::get<1>(displaySession);
+      if (displayPath.empty()) {
+        kLog.warn("logind reports no display session for this user");
+        return std::nullopt;
+      }
+      kLog.debug("resolved logind session via user Display: {}", displayPath);
+      return displayPath;
     } catch (const sdbus::Error& e) {
       kLog.warn("failed to resolve logind session: {}", e.what());
       return std::nullopt;

@@ -381,12 +381,35 @@ namespace {
         }
       }
 
-      sdbus::ObjectPath sessionPath;
-      managerProxy->callMethod("GetSessionByPID")
+      try {
+        sdbus::ObjectPath sessionPath;
+        managerProxy->callMethod("GetSessionByPID")
+            .onInterface(kLogindManagerInterface)
+            .withArguments(static_cast<std::uint32_t>(::getpid()))
+            .storeResultsTo(sessionPath);
+        return sessionPath;
+      } catch (const sdbus::Error& e) {
+        kLog.debug("failed to resolve logind session by pid: {}", e.what());
+      }
+
+      // Same fallback as logind_service.cpp: under the systemd user manager
+      // this process is outside the login session's cgroup, so the PID lookup
+      // answers NoSessionForPID and XDG_SESSION_ID is absent. Ask logind for
+      // this user's display session instead of falling through to the "auto"
+      // path, which resolves against the CALLER and so is the same dead end.
+      sdbus::ObjectPath userPath;
+      managerProxy->callMethod("GetUser")
           .onInterface(kLogindManagerInterface)
-          .withArguments(static_cast<std::uint32_t>(::getpid()))
-          .storeResultsTo(sessionPath);
-      return sessionPath;
+          .withArguments(static_cast<std::uint32_t>(::getuid()))
+          .storeResultsTo(userPath);
+      auto userProxy = sdbus::createProxy(connection, kLogindBusName, userPath);
+      const sdbus::Variant display = userProxy->getProperty("Display").onInterface("org.freedesktop.login1.User");
+      const auto displaySession = display.get<sdbus::Struct<std::string, sdbus::ObjectPath>>();
+      if (const sdbus::ObjectPath& displayPath = std::get<1>(displaySession); !displayPath.empty()) {
+        return displayPath;
+      }
+      kLog.warn("logind reports no display session for this user");
+      return sdbus::ObjectPath{"/org/freedesktop/login1/session/auto"};
     } catch (const sdbus::Error& e) {
       kLog.warn("failed to resolve logind session: {}", e.what());
       return sdbus::ObjectPath{"/org/freedesktop/login1/session/auto"};
