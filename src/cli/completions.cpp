@@ -366,7 +366,7 @@ namespace noctalia::cli {
           childPath.push_back(child.name);
           output.append("        ");
           output.append(child.name);
-          output.append(") shift words; (( CURRENT-- )); _noctalia_");
+          output.append(") _noctalia_");
           output.append(stateId(childPath));
           output.append(" ;;\n");
         }

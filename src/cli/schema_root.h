@@ -19,9 +19,9 @@ namespace noctalia::cli {
   inline constexpr Command kCompletionsCmd{
       "completions",
       "Generate shell completion scripts",
-      "Generate a completion script from the live CLI schema.\\n\\n"
-      "Examples:\\n"
-      "  source <(noctalia completions bash)\\n"
+      "Generate a completion script from the live CLI schema.\n\n"
+      "Examples:\n"
+      "  source <(noctalia completions bash)\n"
       "  noctalia completions fish > ~/.config/fish/completions/noctalia.fish",
       {},
       {},
