@@ -2,6 +2,7 @@
 
 #include "config/config_types.h"
 #include "scripting/plugin_catalog.h"
+#include "ui/controls/scroll_view.h"
 
 #include <cstddef>
 #include <functional>
@@ -79,8 +80,6 @@ namespace settings {
   private:
     void buildGridView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
     void buildDetailView(Flex& body, Renderer& renderer, AsyncTextureCache* textureCache);
-    void stashScrollOffset();
-    void restoreScrollOffset();
     void syncSortButtonGlyph();
     void cycleSortMode();
     void setSortMode(SortMode mode);
@@ -131,7 +130,11 @@ namespace settings {
     std::function<void()> m_onRebuildNeeded;
 
     std::unordered_map<std::string, std::string> m_thumbnailPaths;
-    std::optional<float> m_pendingRestoreScrollOffset;
+    // The sheet destroys and repopulates its whole body on every rebuild, including ones the store
+    // never asked for (any external option change reaches the open sheet). Both views bind their
+    // offset to state that outlives those nodes, so scroll position survives a rebuild.
+    ScrollViewState m_gridScrollState;
+    ScrollViewState m_detailScrollState;
 
     Renderer* m_renderer = nullptr;
     AsyncTextureCache* m_textureCache = nullptr;

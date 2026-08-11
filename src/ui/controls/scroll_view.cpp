@@ -425,7 +425,12 @@ void ScrollView::doLayout(Renderer& renderer) {
 
   if (m_boundState != nullptr) {
     m_scrollOffset = clampOffset(m_boundState->offset);
-    m_boundState->offset = m_scrollOffset;
+    // A pass that measures the content unconstrained reports no scrollable extent. Writing the
+    // clamped zero back would drop the remembered offset before the real viewport height lands,
+    // so the state only follows the view once there is something to scroll.
+    if (m_maxScrollOffset > 0.0F) {
+      m_boundState->offset = m_scrollOffset;
+    }
   } else {
     m_scrollOffset = clampOffset(m_scrollOffset);
   }
