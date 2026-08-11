@@ -831,6 +831,10 @@ void NotificationToast::flushPendingAdds() {
   if (m_pendingAdds.empty()) {
     return;
   }
+  if (m_notifications->doNotDisturb()) {
+    m_pendingAdds.clear();
+    return;
+  }
   auto pending = std::move(m_pendingAdds);
   m_pendingAdds.clear();
   for (const auto& n : pending) {
