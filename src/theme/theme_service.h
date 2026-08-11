@@ -21,7 +21,7 @@ namespace noctalia::theme {
   class ThemeService {
   public:
     using ChangeCallback = std::function<void()>;
-    using ResolvedCallback = std::function<void(const GeneratedPalette&, std::string_view)>;
+    using ResolvedCallback = std::function<void(const GeneratedPalette&, std::string_view, std::string_view)>;
 
     ThemeService(ConfigService& config, HttpClient& httpClient);
 
@@ -38,6 +38,7 @@ namespace noctalia::theme {
     [[nodiscard]] ThemeMode configuredMode() const noexcept;
     [[nodiscard]] bool isLightMode() const noexcept;
     [[nodiscard]] std::string_view resolvedMode() const noexcept;
+    [[nodiscard]] std::string_view resolvedAppMode() const noexcept;
 
     void setChangeCallback(ChangeCallback callback);
     void setResolvedCallback(ResolvedCallback callback);
@@ -53,13 +54,14 @@ namespace noctalia::theme {
     // Decodes + generates the wallpaper palette, memoized on (path, mtime, scheme)
     // so repeated resolves for an unchanged wallpaper skip the ~100ms image decode.
     std::optional<GeneratedPalette> resolveWallpaperGenerated(const ThemeConfig& cfg, const std::string& wallpaperPath);
-    void queueResolvedCallback(const GeneratedPalette& generated, std::string_view mode);
+    void queueResolvedCallback(const GeneratedPalette& generated, std::string_view mode, std::string_view appMode);
     void flushResolvedCallback(bool defer);
     void startTransition(const Palette& target);
     void finishTransition(bool deferResolvedCallback);
     void tickTransition();
     void startCommunityDownload(const std::string& name);
     void rescheduleAutoTimer();
+    [[nodiscard]] bool hasAutoMode() const noexcept;
 
     ConfigService& m_config;
     HttpClient& m_httpClient;
@@ -78,6 +80,7 @@ namespace noctalia::theme {
     // applied, and deferred callbacks must be able to drop stale resolves.
     std::optional<GeneratedPalette> m_pendingResolvedPalette;
     std::string m_pendingResolvedMode;
+    std::string m_pendingResolvedAppMode;
     std::uint64_t m_resolvedCallbackGeneration = 0;
 
     AnimationManager m_animations;
@@ -87,6 +90,7 @@ namespace noctalia::theme {
     AnimationManager::Id m_transitionAnimId = 0;
     bool m_transitionResolvedCallbackFlushed = false;
     bool m_isLightMode = false;
+    bool m_isAppLightMode = false;
     std::optional<double> m_autoLatitude;
     std::optional<double> m_autoLongitude;
     Timer m_autoTimer;

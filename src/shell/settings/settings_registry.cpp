@@ -467,6 +467,19 @@ namespace settings {
         asSegmented(enumSelect(kThemeModes, cfg.theme.mode)), "dark light auto colors"
     ));
     entries.push_back(makeEntry(
+        SettingsSection::Appearance, "theme", tr("settings.schema.appearance.separate-theme-mode-for-apps.label"),
+        tr("settings.schema.appearance.separate-theme-mode-for-apps.description"),
+        {"theme", "separate_theme_mode_for_apps"}, ToggleSetting{cfg.theme.separateThemeModeForApps},
+        "dark light auto colors"
+    ));
+    if (cfg.theme.separateThemeModeForApps) {
+      entries.push_back(makeEntry(
+          SettingsSection::Appearance, "theme", tr("settings.schema.appearance.app-theme-mode.label"),
+          tr("settings.schema.appearance.theme-mode.description"), {"theme", "app_mode"},
+          asSegmented(enumSelect(kThemeModes, cfg.theme.appMode)), "dark light auto colors"
+      ));
+    }
+    entries.push_back(makeEntry(
         SettingsSection::Appearance, "theme", tr("settings.schema.appearance.palette-source.label"),
         tr("settings.schema.appearance.palette-source.description"), {"theme", "source"},
         asSegmented(enumSelect(kPaletteSources, cfg.theme.source)), "palette colors"

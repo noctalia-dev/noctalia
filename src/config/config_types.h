@@ -1526,6 +1526,8 @@ struct ThemeConfig {
   std::string customPalette;
   std::string wallpaperScheme = "m3-content";
   ThemeMode mode = ThemeMode::Dark;
+  bool separateThemeModeForApps = false;
+  ThemeMode appMode = ThemeMode::Dark;
   bool pureBlackDark = false;
   TemplatesConfig templates;
 
