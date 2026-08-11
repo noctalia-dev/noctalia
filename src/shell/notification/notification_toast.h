@@ -45,7 +45,6 @@ public:
   void onOutputChange();
   void requestLayout();
   void requestRedraw();
-  void dndToggled(bool enabled);
 
   bool onPointerEvent(const PointerEvent& event);
   bool onKeyboardEvent(const KeyboardEvent& event);
@@ -194,7 +193,6 @@ private:
   HttpClient* m_httpClient = nullptr;
 
   std::vector<PopupEntry> m_entries;
-  std::vector<Notification> m_preDndNotifications;
   std::vector<Notification> m_pendingAdds;
   bool m_pendingAddsScheduled = false;
   std::vector<std::unique_ptr<Instance>> m_instances;

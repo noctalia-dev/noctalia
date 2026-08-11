@@ -722,6 +722,11 @@ void NotificationManager::setDoNotDisturb(bool enabled) {
     return;
   }
   m_doNotDisturb = enabled;
+  if (enabled) {
+    for (const auto& n : m_notifications) {
+      close(n.id);
+    }
+  }
   if (m_stateCallback) {
     m_stateCallback();
   }

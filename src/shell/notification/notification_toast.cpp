@@ -584,28 +584,6 @@ void NotificationToast::requestRedraw() {
   }
 }
 
-void NotificationToast::dndToggled(bool enabled) {
-  if (enabled) {
-    m_preDndNotifications.clear();
-    for (auto& n : m_notifications->all()) {
-      for (auto& entry : m_entries) {
-        if (entry.notificationId == n.id) {
-          m_preDndNotifications.push_back(n);
-          m_notifications->pauseExpiry(n.id);
-          removePopup(n.id);
-        }
-      }
-    }
-  } else {
-    for (auto& n : m_preDndNotifications) {
-      // Make sure popup for this notification is closed before adding it again
-      finishRemoval(n.id);
-      addPopup(n);
-      m_notifications->resumeExpiry(n.id, resolveDisplayDuration(n.timeout));
-    }
-  }
-}
-
 // --- Notification events ---
 
 void NotificationToast::onNotificationEvent(const Notification& n, NotificationEvent event) {
