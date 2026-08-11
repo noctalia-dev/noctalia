@@ -31,6 +31,7 @@ struct AudioNode {
   std::string streamTitle;
   std::string iconName;
   std::string mediaClass; // "Audio/Sink", "Audio/Source"
+  std::string targetObject;
   float volume = 1.0F;
   bool muted = false;
   std::uint32_t channelCount = 0;
@@ -122,6 +123,7 @@ public:
   // Program/application streams (PipeWire "Stream/*/Audio")
   void setProgramOutputVolume(std::uint32_t id, float volume);
   void setProgramOutputMuted(std::uint32_t id, bool muted);
+  void moveProgramOutput(std::uint32_t programStreamId, std::uint32_t targetSinkId);
 
   // Registers audio-related IPC commands (set/raise/lower-volume, mute, set/raise/lower-mic-volume, mute-mic).
   void registerIpc(IpcService& ipc, const ConfigService& config);

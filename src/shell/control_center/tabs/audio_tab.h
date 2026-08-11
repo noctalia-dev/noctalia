@@ -85,6 +85,7 @@ private:
   void flushPendingVolumes(bool force = false);
 
   void openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel& menu);
+  void openProgramRoutingMenu(Flex* anchor, std::uint32_t programStreamId);
   void syncEffectsProfileControls(Renderer& renderer);
 
   PipeWireService* m_audio = nullptr;
@@ -115,6 +116,7 @@ private:
   DeviceVolumeCardState m_inputDeviceVolume;
   std::unique_ptr<ContextMenuPopup> m_deviceMenuPopup;
   DeviceVolumeCardState* m_openDeviceMenuCard = nullptr;
+  std::uint32_t m_openProgramRoutingMenuStreamId = 0;
 
   float m_lastOutputWidth = -1.0F;
   float m_lastInputWidth = -1.0F;

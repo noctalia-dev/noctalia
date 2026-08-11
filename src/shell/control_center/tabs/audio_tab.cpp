@@ -992,6 +992,7 @@ namespace {
       clearBorder();
 
       constexpr float kIconSizeSm = 28.0F;
+      constexpr float kRoutingButtonSize = 28.0F;
       constexpr float kCompactSliderControlHeight = 20.0F;
       m_iconSize = kIconSizeSm * scale;
       m_iconContentGap = Style::spaceSm * scale;
@@ -1091,15 +1092,41 @@ namespace {
           )
       );
 
-      addChild(
+      auto actionsRow = ui::row({
+          .align = FlexAlign::Center,
+          .gap = Style::spaceXs * scale,
+      });
+
+      m_routingAnchor = actionsRow.get();
+
+      actionsRow->addChild(
+          ui::button({
+              .out = &m_routingButton,
+              .glyph = "headphones",
+              .glyphSize = Style::fontSizeBody * scale,
+              .variant = ButtonVariant::Ghost,
+              .minWidth = kRoutingButtonSize * scale,
+              .minHeight = kRoutingButtonSize * scale,
+              .padding = 0.0F,
+              .radius = Style::scaledRadiusMd(scale),
+              .onClick = [this]() {
+                if (m_audio == nullptr)
+                  return;
+                if (m_onRoutingMenuRequested)
+                  m_onRoutingMenuRequested(m_routingAnchor);
+              },
+          })
+      );
+
+      actionsRow->addChild(
           ui::button({
               .out = &m_muteButton,
               .glyph = "volume-high",
               .glyphSize = Style::fontSizeBody * scale,
               .variant = ButtonVariant::Default,
-              .minWidth = Style::controlHeightSm * scale,
-              .minHeight = Style::controlHeightSm * scale,
-              .padding = Style::spaceXs * scale,
+              .minWidth = kRoutingButtonSize * scale,
+              .minHeight = kRoutingButtonSize * scale,
+              .padding = 0.0F,
               .radius = Style::scaledRadiusMd(scale),
               .onClick = [this]() {
                 if (m_audio == nullptr) {
@@ -1111,6 +1138,8 @@ namespace {
               },
           })
       );
+
+      addChild(std::move(actionsRow));
     }
 
     void doLayout(Renderer& renderer) override {
@@ -1183,6 +1212,10 @@ namespace {
 
     void doArrange(Renderer& renderer, const LayoutRect& rect) override { arrangeByLayout(renderer, rect); }
 
+    void setRoutingMenuRequestedCallback(std::function<void(Flex*)> callback) {
+      m_onRoutingMenuRequested = std::move(callback);
+    }
+
     void syncFromNode(
         const AudioNode& node, const MprisPlayerInfo* player, bool isDefault, float sliderMax, bool nodeEnabled,
         std::size_t mprisPlayerCount
@@ -1234,6 +1267,12 @@ namespace {
         m_muteButton->setEnabled(nodeEnabled);
         m_muteButton->setGlyph(m_muted ? "volume-mute" : "volume-high");
         m_muteButton->setVariant(m_muted ? ButtonVariant::Destructive : ButtonVariant::Default);
+      }
+
+      if (m_routingButton != nullptr) {
+        m_routingButton->setEnabled(nodeEnabled);
+        const bool isCustomRouted = !node.targetObject.empty();
+        m_routingButton->setVariant(isCustomRouted ? ButtonVariant::Outline : ButtonVariant::Ghost);
       }
 
       if (shouldSetSlider) {
@@ -1347,6 +1386,8 @@ namespace {
     Slider* m_slider = nullptr;
     Label* m_valueLabel = nullptr;
     Button* m_muteButton = nullptr;
+    Button* m_routingButton = nullptr;
+    Flex* m_routingAnchor = nullptr;
 
     bool m_syncing = false;
     bool m_muted = false;
@@ -1354,6 +1395,7 @@ namespace {
 
     std::function<void(float)> m_onQueueVolume;
     std::function<void()> m_onCommitVolume;
+    std::function<void(Flex*)> m_onRoutingMenuRequested;
   };
 
   std::vector<AudioNode> sortedDevices(const std::vector<AudioNode>& devices) {
@@ -1515,6 +1557,91 @@ void AudioTab::openDeviceMenu(DeviceVolumeCardState& card, const DeviceMenuModel
   }
 }
 
+void AudioTab::openProgramRoutingMenu(Flex* anchor, std::uint32_t programStreamId) {
+  if (m_deviceMenuPopup == nullptr || m_audio == nullptr || anchor == nullptr) {
+    return;
+  }
+
+  const AudioState& state = m_audio->state();
+  std::string currentTarget;
+  for (const auto& node : state.programOutputs) {
+    if (node.id == programStreamId) {
+      currentTarget = node.targetObject;
+      break;
+    }
+  }
+
+  std::vector<ContextMenuControlEntry> entries;
+  entries.push_back(
+      ContextMenuControlEntry{
+          .id = 0,
+          .label = i18n::tr("control-center.audio.default-device"),
+          .checkmark = true,
+          .toggleState = currentTarget.empty() ? 1 : 0,
+      }
+  );
+  entries.push_back({.separator = true});
+
+  for (const auto& sink : sortedDevices(availableDevices(state.sinks, state.defaultSinkId))) {
+    const bool matchesTarget =
+        !currentTarget.empty() && (currentTarget == sink.name || currentTarget == std::to_string(sink.id));
+    entries.push_back(
+        ContextMenuControlEntry{
+            .id = static_cast<std::int32_t>(sink.id),
+            .label = audioDeviceLabel(sink),
+            .checkmark = true,
+            .toggleState = matchesTarget ? 1 : 0,
+            .ellipsize = TextEllipsize::Middle,
+        }
+    );
+  }
+
+  const auto parentCtx = PanelManager::instance().fallbackPopupParentContext();
+  if (!parentCtx.has_value())
+    return;
+
+  float anchorAbsX = 0.0F;
+  float anchorAbsY = 0.0F;
+  Node::absolutePosition(anchor, anchorAbsX, anchorAbsY);
+
+  const float scale = contentScale();
+  PanelManager::instance().beginAttachedPopup(parentCtx->surface);
+  PanelManager::instance().setActivePopup(m_deviceMenuPopup.get());
+
+  m_deviceMenuPopup->setOnActivate([this, programStreamId](const ContextMenuControlEntry& entry) {
+    if (m_audio != nullptr)
+      m_audio->moveProgramOutput(programStreamId, static_cast<std::uint32_t>(std::max<std::int32_t>(0, entry.id)));
+  });
+
+  m_deviceMenuPopup->setOnDismissed([this, parentSurface = parentCtx->surface]() {
+    m_openProgramRoutingMenuStreamId = 0;
+    PanelManager::instance().clearActivePopup();
+    PanelManager::instance().endAttachedPopup(parentSurface);
+  });
+
+  m_deviceMenuPopup->open(
+      ContextMenuPopupRequest{
+          .entries = std::move(entries),
+          .minMenuWidth = 240.0F * scale,
+          .maxMenuWidth = 420.0F * scale,
+          .maxVisible = 10,
+          .anchor =
+              PopupAnchorRect{
+                  .x = static_cast<std::int32_t>(anchorAbsX),
+                  .y = static_cast<std::int32_t>(anchorAbsY),
+                  .width = static_cast<std::int32_t>(anchor->width()),
+                  .height = static_cast<std::int32_t>(anchor->height())
+              },
+          .parent = PopupSurfaceParent{.layerSurface = parentCtx->layerSurface, .output = parentCtx->output},
+          .pointerParentSurface = parentCtx->surface
+      }
+  );
+
+  if (m_deviceMenuPopup->isOpen()) {
+    m_openProgramRoutingMenuStreamId = programStreamId;
+  }
+}
+
 bool AudioTab::dragging() const noexcept {
   if ((m_outputDeviceVolume.slider != nullptr && m_outputDeviceVolume.slider->dragging())
       || (m_inputDeviceVolume.slider != nullptr && m_inputDeviceVolume.slider->dragging())) {
@@ -1536,6 +1663,7 @@ bool AudioTab::dismissTransientUi() {
   m_deviceMenuPopup->close();
   PanelManager::instance().clearActivePopup();
   m_openDeviceMenuCard = nullptr;
+  m_openProgramRoutingMenuStreamId = 0;
   return true;
 }
 
@@ -1971,6 +2099,7 @@ void AudioTab::onClose() {
     m_deviceMenuPopup->close();
   }
   m_openDeviceMenuCard = nullptr;
+  m_openProgramRoutingMenuStreamId = 0;
   m_pendingSinkId = 0;
   m_pendingSourceId = 0;
   m_lastSinkVolume = -1.0F;
@@ -2128,6 +2257,14 @@ void AudioTab::rebuildProgramVolumes(Renderer& renderer) {
           [this]() { flushPendingProgramVolumes(true); }
       );
       row->syncFromNode(sink, player, false, sliderMax, true, players.size());
+      row->setRoutingMenuRequestedCallback([this, sinkId = sink.id](Flex* anchor) {
+        const bool wasOpen = m_deviceMenuPopup != nullptr && m_deviceMenuPopup->isOpen();
+        const bool wasOpenForThis = wasOpen && m_openProgramRoutingMenuStreamId == sinkId;
+        if (wasOpen)
+          dismissTransientUi();
+        if (!wasOpenForThis)
+          openProgramRoutingMenu(anchor, sinkId);
+      });
       m_programRows.push_back(row.get());
       m_programList->addChild(std::move(row));
     }

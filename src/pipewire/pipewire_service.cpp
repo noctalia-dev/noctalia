@@ -1613,6 +1613,7 @@ void PipeWireService::rebuildState() {
     node.volume = nd->volume;
     node.muted = nd->muted;
     node.channelCount = nd->channelCount;
+    node.targetObject = nd->targetObject;
 
     // Availability from the active output/input route: a device with a matching route that is
     // explicitly unavailable and no available alternative is hidden. Cards that report "unknown"
@@ -2050,6 +2051,44 @@ void PipeWireService::emitChanged() {
   if (m_changeCallback) {
     m_changeCallback();
   }
+}
+
+void PipeWireService::moveProgramOutput(std::uint32_t programStreamId, std::uint32_t targetSinkId) {
+  if (m_defaultMetadata == nullptr) {
+    kLog.warn("moveProgramOutput: default metadata not available");
+    return;
+  }
+
+  auto programIt = m_nodes.find(programStreamId);
+  if (programIt == m_nodes.end()) {
+    kLog.warn("moveProgramOutput: unknown program stream id {}", programStreamId);
+    return;
+  }
+
+  if (targetSinkId == 0) {
+    const int ret =
+        pw_metadata_set_property(m_defaultMetadata, programStreamId, PW_KEY_TARGET_OBJECT, nullptr, nullptr);
+    kLog.info("moveProgramOutput: clear target for stream {} -> ret={}", programStreamId, ret);
+    programIt->second->targetObject.clear();
+  } else {
+    auto sinkIt = m_nodes.find(targetSinkId);
+    if (sinkIt == m_nodes.end()) {
+      kLog.warn("moveProgramOutput: unknown target sink id {}", targetSinkId);
+      return;
+    }
+
+    const std::string targetIdStr = std::to_string(targetSinkId);
+    const int ret = pw_metadata_set_property(
+        m_defaultMetadata, programStreamId, PW_KEY_TARGET_OBJECT, "Spa:Id", targetIdStr.c_str()
+    );
+    kLog.info(
+        "moveProgramOutput: stream {} -> sink {} ({}) ret={}", programStreamId, targetSinkId, sinkIt->second->name, ret
+    );
+
+    programIt->second->targetObject = sinkIt->second->name;
+  }
+
+  rebuildState();
 }
 
 void PipeWireService::registerIpc(IpcService& ipc, const ConfigService& config) {

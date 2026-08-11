@@ -184,6 +184,7 @@
     "audio": {
       "application-volumes": "Application Volumes",
       "choose-effects-profile": "Choose a profile",
+      "default-device": "Default device",
       "effects-profile": "Effects",
       "input-device-prefix": "Input",
       "no-application-audio": "No Application Audio",
