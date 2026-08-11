@@ -626,7 +626,9 @@ void NetworkTab::onClose() {
   m_actionPending = false;
   m_actionPendingTimer.stop();
   m_wifiTogglePending = false;
-  m_wifiTogglePendingTimer.stop();
+  m_wifiToggleWriteComplete = false;
+  m_wifiToggleTargetObserved = false;
+  ++m_wifiToggleRequestGeneration;
 }
 
 void NetworkTab::syncPasswordCard() {
@@ -729,14 +731,15 @@ void NetworkTab::syncCurrentCard() {
     }
   }
   if (m_wifiTogglePending) {
-    const bool confirmed = s.wirelessEnabled == m_wifiToggleTarget && m_wifiToggleLastSeen != m_wifiToggleTarget;
-    const bool timedOut = std::chrono::steady_clock::now() - m_wifiTogglePendingSince > kActionPendingTimeout;
-    if (confirmed || timedOut) {
+    if (s.wirelessEnabled == m_wifiToggleTarget) {
+      m_wifiToggleTargetObserved = true;
+    }
+    if (m_wifiToggleWriteComplete && m_wifiToggleTargetObserved) {
       m_wifiTogglePending = false;
-      m_wifiTogglePendingTimer.stop();
+      m_wifiToggleWriteComplete = false;
+      m_wifiToggleTargetObserved = false;
     }
   }
-  m_wifiToggleLastSeen = s.wirelessEnabled;
   static const std::string kNoExternalIp;
   const std::string& externalIp = m_externalIpService != nullptr ? m_externalIpService->externalIp() : kNoExternalIp;
   m_currentTitle->setText(currentTitle(s));
@@ -750,6 +753,7 @@ void NetworkTab::syncCurrentCard() {
   }
   if (m_wifiToggle != nullptr) {
     m_wifiToggle->setChecked(m_wifiTogglePending ? m_wifiToggleTarget : s.wirelessEnabled);
+    m_wifiToggle->setEnabled(!m_wifiTogglePending);
   }
   if (m_scanSpinner != nullptr) {
     m_scanSpinner->setVisible(s.scanning);
@@ -765,25 +769,44 @@ void NetworkTab::beginPendingAction(bool wasConnected) {
   m_actionPending = true;
   m_actionPendingConnected = wasConnected;
   m_actionPendingSince = std::chrono::steady_clock::now();
-  armPendingTimeout(m_actionPendingTimer);
+  m_actionPendingTimer.start(kActionPendingTimeout + std::chrono::milliseconds(50), []() {
+    PanelManager::instance().requestUpdateOnly();
+    PanelManager::instance().requestRedraw();
+  });
   if (m_disconnectButton != nullptr) {
     m_disconnectButton->setEnabled(false);
   }
 }
 
-void NetworkTab::beginWifiTogglePending(bool target) {
+void NetworkTab::requestWirelessEnabled(bool enabled) {
   m_wifiTogglePending = true;
-  m_wifiToggleTarget = target;
-  m_wifiToggleLastSeen = m_network != nullptr && m_network->state().wirelessEnabled;
-  m_wifiTogglePendingSince = std::chrono::steady_clock::now();
-  armPendingTimeout(m_wifiTogglePendingTimer);
+  m_wifiToggleTarget = enabled;
+  m_wifiToggleWriteComplete = false;
+  m_wifiToggleTargetObserved = false;
+  const std::uint64_t generation = ++m_wifiToggleRequestGeneration;
+  if (m_wifiToggle != nullptr) {
+    m_wifiToggle->setEnabled(false);
+  }
+  if (m_network == nullptr) {
+    handleWirelessEnabledCompletion(generation, false);
+    return;
+  }
+  m_network->setWirelessEnabled(enabled, [this, generation](bool success) {
+    handleWirelessEnabledCompletion(generation, success);
+  });
 }
 
-void NetworkTab::armPendingTimeout(Timer& timer) {
-  timer.start(kActionPendingTimeout + std::chrono::milliseconds(50), []() {
-    PanelManager::instance().requestUpdateOnly();
-    PanelManager::instance().requestRedraw();
-  });
+void NetworkTab::handleWirelessEnabledCompletion(std::uint64_t generation, bool success) {
+  if (!m_wifiTogglePending || generation != m_wifiToggleRequestGeneration) {
+    return;
+  }
+  m_wifiToggleWriteComplete = success;
+  if (!success) {
+    m_wifiTogglePending = false;
+    m_wifiToggleTargetObserved = false;
+  }
+  PanelManager::instance().requestUpdateOnly();
+  PanelManager::instance().requestRedraw();
 }
 
 // Identity of the built list: which rows exist, in which order, and which controls
@@ -1038,12 +1061,7 @@ void NetworkTab::rebuildApList(Renderer& renderer) {
               .checkedImmediate = m_network->state().wirelessEnabled,
               .toggleSize = ToggleSize::Medium,
               .scale = scale,
-              .onChange = [this](bool checked) {
-                beginWifiTogglePending(checked);
-                if (m_network != nullptr) {
-                  m_network->setWirelessEnabled(checked);
-                }
-              },
+              .onChange = [this](bool checked) { requestWirelessEnabled(checked); },
           })
       );
       wifiCard->addChild(std::move(wifiHeader));

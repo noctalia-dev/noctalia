@@ -302,11 +302,10 @@ void WpaSupplicantService::disconnect() {
   }
 }
 
-void WpaSupplicantService::setWirelessEnabled(bool enabled) {
-  m_wirelessEnabledOverride = enabled;
-
+void WpaSupplicantService::setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete) {
   const bool softBlocked = !enabled;
   bool rfkillDone = false;
+  bool hardBlocked = false;
   for (const auto& [ifacePath, proxy] : m_interfaces) {
     (void)ifacePath;
     const auto ifname = getPropertyOr<std::string>(*proxy, kWpaIfaceInterface, "Ifname", "");
@@ -316,6 +315,8 @@ void WpaSupplicantService::setWirelessEnabled(bool enabled) {
     const RfkillSwitchResult result = setRfkillSoftBlockedForNetInterface(ifname, softBlocked);
     if (result.hardBlocked) {
       kLog.warn("setWirelessEnabled: rfkill hard block on {}", ifname);
+      hardBlocked = enabled;
+      rfkillDone = !enabled;
       break;
     }
     if (result.success) {
@@ -328,6 +329,8 @@ void WpaSupplicantService::setWirelessEnabled(bool enabled) {
     const RfkillSwitchResult fallback = setRfkillSoftBlocked(RfkillDeviceType::Wlan, softBlocked);
     if (fallback.hardBlocked) {
       kLog.warn("setWirelessEnabled: wlan rfkill hard block is active");
+      hardBlocked = enabled;
+      rfkillDone = !enabled;
     } else if (fallback.success) {
       rfkillDone = true;
     } else if (!fallback.detail.empty()) {
@@ -335,21 +338,31 @@ void WpaSupplicantService::setWirelessEnabled(bool enabled) {
     }
   }
 
+  bool fallbackCommandSucceeded = false;
   if (!rfkillDone) {
     auto* iface = firstInterface();
     if (iface != nullptr) {
       try {
-        if (enabled)
+        if (enabled) {
           iface->callMethod("Reconnect").onInterface(kWpaIfaceInterface);
-        else
+        } else {
           iface->callMethod("Disconnect").onInterface(kWpaIfaceInterface);
+        }
+        fallbackCommandSucceeded = true;
       } catch (const sdbus::Error& e) {
         kLog.warn("setWirelessEnabled({}) fallback failed: {}", enabled, e.what());
       }
     }
   }
 
+  const bool success = !hardBlocked && (rfkillDone || fallbackCommandSucceeded);
+  if (success) {
+    m_wirelessEnabledOverride = enabled;
+  }
   rebuildState();
+  if (onComplete) {
+    onComplete(success);
+  }
 }
 
 void WpaSupplicantService::forgetSsid(const std::string& ssid) {

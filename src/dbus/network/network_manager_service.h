@@ -57,7 +57,7 @@ public:
   bool activateWiredConnection() override;
 
   // Enable / disable the Wi-Fi radio.
-  void setWirelessEnabled(bool enabled) override;
+  void setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete = {}) override;
 
   // Disconnect the active physical connection.
   void disconnect() override;
@@ -138,7 +138,7 @@ private:
   bool m_anyVpnConnected = false;
   std::int64_t m_scanBaselineLastScan = 0;
   Timer m_scanTimeoutTimer;
-  std::uint64_t m_wirelessGeneration = 0;
+  std::uint64_t m_scanGeneration = 0;
   std::optional<bool> m_pendingLocalWirelessEnabled;
   bool m_hasStateSnapshot = false;
   ChangeCallback m_changeCallback;

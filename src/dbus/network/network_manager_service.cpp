@@ -170,7 +170,7 @@ NetworkManagerService::NetworkManagerService(SystemBus& bus) : m_bus(bus) {
             const bool enabled = it->second.get<bool>();
             wirelessNowOn = enabled;
             wirelessNowOff = !enabled;
-            ++m_wirelessGeneration;
+            ++m_scanGeneration;
           } catch (const sdbus::Error&) {
           }
         }
@@ -190,9 +190,9 @@ NetworkManagerService::NetworkManagerService(SystemBus& bus) : m_bus(bus) {
           // NM starts its own scan as soon as the device reaches Disconnected;
           // just mark ourselves scanning and snapshot LastScan so the device
           // PropertiesChanged watcher clears the flag when the scan finishes.
-          const std::uint64_t generation = m_wirelessGeneration;
+          const std::uint64_t generation = m_scanGeneration;
           collectWifiDevices([this, generation](std::vector<std::string> devicePaths, std::int64_t lastScanBaseline) {
-            if (devicePaths.empty() || generation != m_wirelessGeneration) {
+            if (devicePaths.empty() || generation != m_scanGeneration) {
               return;
             }
             beginScan(lastScanBaseline);
@@ -281,12 +281,13 @@ void NetworkManagerService::refresh() {
 
 void NetworkManagerService::requestScan() {
   const std::weak_ptr<int> lifetimeToken = m_lifetimeToken;
-  const std::uint64_t generation = m_wirelessGeneration;
+  const std::uint64_t generation = ++m_scanGeneration;
   collectWifiDevices([this, lifetimeToken,
                       generation](std::vector<std::string> devicePaths, std::int64_t lastScanBaseline) {
-    if (generation != m_wirelessGeneration) {
+    if (generation != m_scanGeneration) {
       return;
     }
+    auto scanStarted = std::make_shared<bool>(false);
     for (const auto& devicePath : devicePaths) {
       try {
         auto device = std::shared_ptr<sdbus::IProxy>(
@@ -296,16 +297,17 @@ void NetworkManagerService::requestScan() {
         device->callMethodAsync("RequestScan")
             .onInterface(kNmDeviceWirelessInterface)
             .withArguments(options)
-            .uponReplyInvoke([this, lifetimeToken, device, devicePath, lastScanBaseline,
-                              generation](std::optional<sdbus::Error> err) {
-              if (lifetimeToken.expired() || generation != m_wirelessGeneration) {
+            .uponReplyInvoke([this, lifetimeToken, device, devicePath, lastScanBaseline, generation,
+                              scanStarted](std::optional<sdbus::Error> err) {
+              if (lifetimeToken.expired() || generation != m_scanGeneration) {
                 return;
               }
               if (err.has_value()) {
                 kLog.debug("RequestScan failed on {}: {}", devicePath, err->what());
                 return;
               }
-              if (!m_scanning) {
+              if (!*scanStarted) {
+                *scanStarted = true;
                 beginScan(lastScanBaseline);
                 refresh();
               }
@@ -802,11 +804,14 @@ void NetworkManagerService::tryActivateWiredConnection(
   }
 }
 
-void NetworkManagerService::setWirelessEnabled(bool enabled) {
+void NetworkManagerService::setWirelessEnabled(bool enabled, WirelessEnabledCompletion onComplete) {
   if (enabled) {
     const RfkillSwitchResult rfkillResult = setRfkillSoftBlocked(RfkillDeviceType::Wlan, false);
     if (rfkillResult.hardBlocked) {
       kLog.warn("setWirelessEnabled: wlan rfkill hard block is active");
+      if (onComplete) {
+        onComplete(false);
+      }
       return;
     }
     if (!rfkillResult.success) {
@@ -823,20 +828,34 @@ void NetworkManagerService::setWirelessEnabled(bool enabled) {
     m_nm->setPropertyAsync("WirelessEnabled")
         .onInterface(kNmInterface)
         .toValue(enabled)
-        .uponReplyInvoke([this, lifetimeToken, enabled](std::optional<sdbus::Error> err) {
-          if (lifetimeToken.expired() || !err.has_value()) {
+        .uponReplyInvoke([this, lifetimeToken, enabled, onComplete](std::optional<sdbus::Error> err) {
+          if (lifetimeToken.expired()) {
             return;
           }
-          if (m_pendingLocalWirelessEnabled == enabled) {
-            m_pendingLocalWirelessEnabled.reset();
+          if (err.has_value()) {
+            if (m_pendingLocalWirelessEnabled == enabled) {
+              m_pendingLocalWirelessEnabled.reset();
+            }
+            kLog.warn("WirelessEnabled write failed: {}", err->what());
+            if (onComplete) {
+              onComplete(false);
+            }
+            return;
           }
-          kLog.warn("WirelessEnabled write failed: {}", err->what());
+          m_emitOnNextRefresh = true;
+          refresh();
+          if (onComplete) {
+            onComplete(true);
+          }
         });
   } catch (const sdbus::Error& e) {
     if (m_pendingLocalWirelessEnabled == enabled) {
       m_pendingLocalWirelessEnabled.reset();
     }
     kLog.warn("WirelessEnabled write dispatch failed: {}", e.what());
+    if (onComplete) {
+      onComplete(false);
+    }
   }
 }
 
