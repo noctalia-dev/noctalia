@@ -34,6 +34,7 @@ enum class SysmonStat {
   GpuTemp,
   GpuUsage,
   GpuVram,
+  GpuVramUsed,
   RamUsed,
   RamPct,
   SwapPct,

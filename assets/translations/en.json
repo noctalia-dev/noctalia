@@ -3236,6 +3236,7 @@
         "gpu-temp": "GPU Temperature",
         "gpu-usage": "GPU Usage",
         "gpu-vram": "GPU VRAM",
+        "gpu-vram-used": "GPU VRAM Used",
         "graph": "Graph",
         "graphic": "Graphic",
         "hidden": "Hidden",
