@@ -164,6 +164,8 @@ public:
     bool muted = false;
     std::uint32_t channelCount = 0;
     std::uint32_t deviceId = 0;
+    // Binds this node to the matching route.device from its card's ParamRoute table.
+    std::int32_t profileDevice = -1;
     bool hasRoute = false;
     std::int32_t routeIndex = -1;
     std::int32_t routeDevice = -1;

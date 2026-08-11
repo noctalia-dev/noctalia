@@ -4,6 +4,7 @@
 #include "core/log.h"
 #include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
+#include "pipewire/audio_route_selection.h"
 #include "pipewire/wireplumber_mixer.h"
 #include "util/string_utils.h"
 
@@ -266,6 +267,20 @@ namespace {
     return out;
   }
 
+  std::int32_t parseInt32Or(const std::string& value, std::int32_t fallback = -1) {
+    if (value.empty()) {
+      return fallback;
+    }
+    std::int32_t out = fallback;
+    const auto* begin = value.data();
+    const auto* end = value.data() + value.size();
+    const auto [ptr, ec] = std::from_chars(begin, end, out);
+    if (ec != std::errc{} || ptr != end) {
+      return fallback;
+    }
+    return out;
+  }
+
   std::optional<float> parseFloat(const std::string& value) {
     if (value.empty()) {
       return std::nullopt;
@@ -471,35 +486,6 @@ namespace {
       return routeDirection == SPA_DIRECTION_INPUT;
     }
     return true;
-  }
-
-  [[nodiscard]] bool routeIsSelectable(const PipeWireService::DeviceRouteData& route, std::uint32_t wantDir) {
-    return route.index >= 0 && route.direction == wantDir && route.available != SPA_PARAM_AVAILABILITY_no;
-  }
-
-  [[nodiscard]] bool routeIsBetterCandidate(
-      const PipeWireService::DeviceRouteData& candidate, const PipeWireService::DeviceRouteData& current
-  ) {
-    const bool candidateAvailable = candidate.available == SPA_PARAM_AVAILABILITY_yes;
-    const bool currentAvailable = current.available == SPA_PARAM_AVAILABILITY_yes;
-    if (candidateAvailable != currentAvailable) {
-      return candidateAvailable;
-    }
-    return candidate.priority > current.priority;
-  }
-
-  [[nodiscard]] const PipeWireService::DeviceRouteData*
-  activeRouteForDirection(const std::vector<PipeWireService::DeviceRouteData>& routes, std::uint32_t wantDir) {
-    const PipeWireService::DeviceRouteData* best = nullptr;
-    for (const auto& route : routes) {
-      if (!routeIsSelectable(route, wantDir)) {
-        continue;
-      }
-      if (best == nullptr || routeIsBetterCandidate(route, *best)) {
-        best = &route;
-      }
-    }
-    return best;
   }
 
   void upsertRoute(std::vector<PipeWireService::DeviceRouteData>& routes, PipeWireService::DeviceRouteData route) {
@@ -977,6 +963,7 @@ void PipeWireService::onRegistryGlobal(std::uint32_t id, const char* type, std::
     }
     nd->clientId = parseUint32Or(dictGet(props, "client.id"));
     nd->deviceId = parseUint32Or(dictGet(props, "device.id"));
+    nd->profileDevice = parseInt32Or(dictGet(props, "card.profile.device"));
     nd->applicationName = dictGet(props, "application.name");
     if (nd->applicationName.empty()) {
       nd->applicationName = dictGet(props, "client.name");
@@ -1187,6 +1174,7 @@ void PipeWireService::onNodeInfo(std::uint32_t id, const pw_node_info* info) {
     if (deviceId != 0) {
       nd.deviceId = deviceId;
     }
+    nd.profileDevice = parseInt32Or(dictGet(info->props, "card.profile.device"), nd.profileDevice);
     std::string appBinary = dictGet(info->props, "application.process.binary");
     if (!appBinary.empty()) {
       nd.applicationBinary = appBinary;
@@ -1618,13 +1606,13 @@ void PipeWireService::rebuildState() {
     // SPA_DIRECTION_INPUT == 0, so `wantDir != 0` would wrongly exclude every Audio/Source; guard on the
     // media class being a device node instead (matches the isDeviceNode check used during route parsing).
     const bool isDeviceNode = nd->mediaClass == "Audio/Sink" || nd->mediaClass == "Audio/Source";
-    const DeviceRouteData* activeRoute = isDeviceNode ? activeRouteForDirection(nd->routes, wantDir) : nullptr;
+    const DeviceRouteData* activeRoute = isDeviceNode ? activeAudioDeviceRoute(nd->routes, wantDir, -1) : nullptr;
     const DeviceData* device = nullptr;
     if (nd->deviceId != 0) {
       if (const auto devIt = m_devices.find(nd->deviceId); devIt != m_devices.end()) {
         device = &devIt->second;
         if (activeRoute == nullptr && isDeviceNode) {
-          activeRoute = activeRouteForDirection(device->routes, wantDir);
+          activeRoute = activeAudioDeviceRoute(device->routes, wantDir, nd->profileDevice);
         }
       }
     }
@@ -1690,12 +1678,12 @@ void PipeWireService::recomputeEffectiveMute(NodeData& nd) {
   const std::uint32_t wantDir = routeDirectionForMediaClass(nd.mediaClass);
   // SPA_DIRECTION_INPUT == 0, so guard on the media class rather than `wantDir != 0` (which would skip sources).
   const bool isDeviceNode = nd.mediaClass == "Audio/Sink" || nd.mediaClass == "Audio/Source";
-  const DeviceRouteData* nodeRoute = isDeviceNode ? activeRouteForDirection(nd.routes, wantDir) : nullptr;
+  const DeviceRouteData* nodeRoute = isDeviceNode ? activeAudioDeviceRoute(nd.routes, wantDir, -1) : nullptr;
   const DeviceRouteData* deviceRoute = nullptr;
   if (nd.deviceId != 0 && isDeviceNode) {
     const auto it = m_devices.find(nd.deviceId);
     if (it != m_devices.end()) {
-      deviceRoute = activeRouteForDirection(it->second.routes, wantDir);
+      deviceRoute = activeAudioDeviceRoute(it->second.routes, wantDir, nd.profileDevice);
     }
   }
 
