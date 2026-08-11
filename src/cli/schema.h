@@ -23,6 +23,7 @@ namespace noctalia::cli {
     bool required = false;
     bool variadic = false;
     bool joinRemaining = false;
+    std::string_view runtimeProvider;
   };
 
   struct Command {
