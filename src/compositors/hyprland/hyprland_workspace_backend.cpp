@@ -892,16 +892,10 @@ bool HyprlandWorkspaceBackend::isSpecial(const WorkspaceState& state) {
   return state.id < 0 && (state.name == "special" || state.name.starts_with("special:"));
 }
 
+// Hyprland traverses workspaces by ascending id (`workspace m+1`, `workspace m~1`), and named
+// workspaces get negative ids, so they belong before the numbered ones.
 bool HyprlandWorkspaceBackend::workspaceOrderLess(const WorkspaceState* a, const WorkspaceState* b) {
-  const bool aNamed = a->id < 0;
-  const bool bNamed = b->id < 0;
-  if (aNamed != bNamed) {
-    return !aNamed; // numbered workspaces before named ones
-  }
-  if (!aNamed) {
-    return a->id < b->id; // numbered: ascending id
-  }
-  return a->name < b->name; // named: alphabetical
+  return a->id < b->id;
 }
 
 Workspace HyprlandWorkspaceBackend::toWorkspace(const WorkspaceState& state) {
