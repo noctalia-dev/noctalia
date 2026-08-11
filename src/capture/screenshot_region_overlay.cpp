@@ -50,16 +50,36 @@ namespace capture {
 
     [[nodiscard]] capture::DragMode hitTestSelection(double x, double y, double x0, double y0, double x1, double y1) {
       constexpr double kHandleMargin = 15.0; // Hitbox size in pixels
-      const bool nearLeft = std::abs(x - x0) <= kHandleMargin;
-      const bool nearRight = std::abs(x - x1) <= kHandleMargin;
-      const bool nearTop = std::abs(y - y0) <= kHandleMargin;
-      const bool nearBottom = std::abs(y - y1) <= kHandleMargin;
 
       const bool withinX = x >= x0 - kHandleMargin && x <= x1 + kHandleMargin;
       const bool withinY = y >= y0 - kHandleMargin && y <= y1 + kHandleMargin;
 
       if (!withinX || !withinY)
         return capture::DragMode::None;
+
+      const double distLeft = std::abs(x - x0);
+      const double distRight = std::abs(x - x1);
+      const double distTop = std::abs(y - y0);
+      const double distBottom = std::abs(y - y1);
+
+      bool nearLeft = distLeft <= kHandleMargin;
+      bool nearRight = distRight <= kHandleMargin;
+      bool nearTop = distTop <= kHandleMargin;
+      bool nearBottom = distBottom <= kHandleMargin;
+
+      // Resolve overlaps by picking the closest edge mathematically
+      if (nearLeft && nearRight) {
+        if (distLeft < distRight)
+          nearRight = false;
+        else
+          nearLeft = false;
+      }
+      if (nearTop && nearBottom) {
+        if (distTop < distBottom)
+          nearBottom = false;
+        else
+          nearTop = false;
+      }
 
       if (nearTop && nearLeft)
         return capture::DragMode::TopLeftCorner;
@@ -276,6 +296,11 @@ namespace capture {
       m_startGlobalY = static_cast<double>(initialRegion->y);
       m_currentGlobalX = static_cast<double>(initialRegion->x + initialRegion->width);
       m_currentGlobalY = static_cast<double>(initialRegion->y + initialRegion->height);
+
+      // Initialize badge anchor safely on region restoration
+      m_cursorGlobalX = m_currentGlobalX;
+      m_cursorGlobalY = m_currentGlobalY;
+
       m_confirming = true;
     }
     ensureSurfaces();
@@ -439,9 +464,6 @@ namespace capture {
     }
 
     if (!m_renderContext->makeCurrent(inst.surface->renderTarget())) {
-      // The overlay's EGL surface could not be made current (e.g. EGL_BAD_ALLOC when the
-      // driver is out of video memory). Painting would be a no-op, leaving an invisible
-      // fullscreen surface that eats input, so tear down and report instead of spinning.
       abortWithError(i18n::tr("bar.screenshot.overlay-alloc-failed"));
       return;
     }
@@ -533,11 +555,14 @@ namespace capture {
           m_startGlobalY = globalY;
           m_currentGlobalX = globalX;
           m_currentGlobalY = globalY;
+
+          m_cursorGlobalX = globalX;
+          m_cursorGlobalY = globalY;
         } else if (m_dragMode == DragMode::Move) {
           m_moveOffsetX = globalX;
           m_moveOffsetY = globalY;
           m_dragAnchorX = m_startGlobalX;
-          m_dragAnchorY = m_currentGlobalX; // Using as temp storage for width mapping
+          m_dragAnchorY = m_currentGlobalX;
         } else {
           // Calculate anchors (the opposite side of what we are dragging)
           const double x0 = std::min(m_startGlobalX, m_currentGlobalX);
@@ -572,6 +597,9 @@ namespace capture {
             m_startGlobalY = y0;
             m_currentGlobalY = globalY;
           }
+
+          m_cursorGlobalX = globalX;
+          m_cursorGlobalY = globalY;
         }
 
         updateSelectionVisuals();
@@ -613,6 +641,10 @@ namespace capture {
           m_startGlobalY += deltaY;
           m_currentGlobalY += deltaY;
 
+          // Translate badge anchor along with the selection
+          m_cursorGlobalX += deltaX;
+          m_cursorGlobalY += deltaY;
+
           m_moveOffsetX = globalX;
           m_moveOffsetY = globalY;
         } else {
@@ -622,6 +654,9 @@ namespace capture {
           if (m_dragMode != DragMode::LeftEdge && m_dragMode != DragMode::RightEdge) {
             m_currentGlobalY = globalY;
           }
+
+          m_cursorGlobalX = globalX;
+          m_cursorGlobalY = globalY;
         }
 
         updateSelectionVisuals();
@@ -672,12 +707,8 @@ namespace capture {
       inst.backdrop = static_cast<Image*>(input->addChild(std::move(backdrop)));
     }
 
-    // Dim the screen with four strips that frame the selected region. The
-    // region itself stays fully transparent so it shows real colors and never
-    // tints the captured pixels.
     auto makeDimStrip = [&]() {
       auto strip = ui::box({
-          // Fixed black scrim so it darkens under every theme.
           .fill = fixedColorSpec(rgba(0.0F, 0.0F, 0.0F, 1.0F)),
           .width = 0.0F,
           .height = 0.0F,
@@ -870,10 +901,8 @@ namespace capture {
     if (!m_active) {
       return;
     }
-    // Stop further frames from re-triggering the abort while teardown is pending.
     m_active = false;
     kLog.warn("aborting screenshot region overlay: {}", message);
-    // Defer past the surface's prepareFrame callback before destroying its surfaces.
     FailureCallback onFailure = m_onFailure;
     DeferredCall::callLater([this, onFailure, message]() {
       cancel();
@@ -884,8 +913,6 @@ namespace capture {
   }
 
   void ScreenshotRegionOverlay::updateSelectionVisuals() {
-    // Lay out the four dim strips so they cover the surface except for the hole
-    // rect (surface-local). An empty hole dims the whole surface.
     const auto layoutDimFrame = [](Instance& inst, float surfaceW, float surfaceH, float hx0, float hy0, float hx1,
                                    float hy1) {
       hx0 = std::clamp(hx0, 0.0F, surfaceW);
@@ -940,8 +967,6 @@ namespace capture {
     const int globalY1 = static_cast<int>(std::ceil(std::max(m_startGlobalY, m_currentGlobalY)));
     const int selectionWidth = globalX1 - globalX0;
     const int selectionHeight = globalY1 - globalY0;
-    const int cursorGlobalX = static_cast<int>(std::lround(m_currentGlobalX));
-    const int cursorGlobalY = static_cast<int>(std::lround(m_currentGlobalY));
 
     char dimensionText[32];
     std::snprintf(dimensionText, sizeof(dimensionText), "%dx%d", selectionWidth, selectionHeight);
@@ -986,34 +1011,46 @@ namespace capture {
       const auto holeY1 = static_cast<float>(iy1 - outTop);
       layoutDimFrame(*inst, surfaceW, surfaceH, holeX0, holeY0, holeX1, holeY1);
 
-      // The outline is inset, so expand it outward to keep the border out of the
-      // captured (undimmed) region.
       inst->selection->setVisible(true);
       inst->selection->setPosition(holeX0 - kSelectionBorderWidth, holeY0 - kSelectionBorderWidth);
       inst->selection->setSize(
           (holeX1 - holeX0) + (kSelectionBorderWidth * 2.0F), (holeY1 - holeY0) + (kSelectionBorderWidth * 2.0F)
       );
 
-      if (inst->dimensionsBadge != nullptr
-          && inst->dimensionsLabel != nullptr
-          && m_renderContext != nullptr
-          && m_dragging) {
-        const bool cursorOnOutput = cursorGlobalX >= outLeft
-            && cursorGlobalX < outRight
-            && cursorGlobalY >= outTop
-            && cursorGlobalY < outBottom;
-        if (cursorOnOutput) {
+      if (inst->dimensionsBadge != nullptr && inst->dimensionsLabel != nullptr && m_renderContext != nullptr) {
+
+        // Show the badge during resize or confirmation. Hide it during move operations.
+        const bool showBadge = (m_dragging && m_dragMode != DragMode::Move) || (!m_dragging && m_confirming);
+
+        // The badge always stays near the last known cursor position (even after releasing the mouse).
+        const double targetX = m_cursorGlobalX;
+        const double targetY = m_cursorGlobalY;
+
+        const bool badgeOnOutput =
+            targetX >= outLeft && targetX <= outRight && targetY >= outTop && targetY <= outBottom;
+
+        if (showBadge && badgeOnOutput) {
           inst->dimensionsLabel->setText(dimensionText);
-          Renderer& renderer = inst->surface->renderTarget().renderer();
-          inst->dimensionsLabel->measure(renderer);
+          inst->dimensionsLabel->measure(inst->surface->renderTarget().renderer());
+
           const float badgeWidth = inst->dimensionsLabel->width() + (kDimensionPaddingX * 2.0F);
           const float badgeHeight = inst->dimensionsLabel->height() + (kDimensionPaddingY * 2.0F);
           inst->dimensionsBadge->setSize(badgeWidth, badgeHeight);
 
-          float badgeX = static_cast<float>(cursorGlobalX - outLeft) + kDimensionCursorOffsetX;
-          float badgeY = static_cast<float>(cursorGlobalY - outTop) + kDimensionCursorOffsetY;
+          const double selX0 = std::min(m_startGlobalX, m_currentGlobalX);
+          const double selX1 = std::max(m_startGlobalX, m_currentGlobalX);
+          const double selY0 = std::min(m_startGlobalY, m_currentGlobalY);
+          const double selY1 = std::max(m_startGlobalY, m_currentGlobalY);
+
+          const double badgeCursorX = std::clamp(targetX, selX0, selX1);
+          const double badgeCursorY = std::clamp(targetY, selY0, selY1);
+
+          float badgeX = static_cast<float>(badgeCursorX - outLeft) + kDimensionCursorOffsetX;
+          float badgeY = static_cast<float>(badgeCursorY - outTop) + kDimensionCursorOffsetY;
+
           const float maxX = std::max(0.0F, surfaceW - badgeWidth);
           const float maxY = std::max(0.0F, surfaceH - badgeHeight);
+
           badgeX = std::clamp(badgeX, 0.0F, maxX);
           badgeY = std::clamp(badgeY, 0.0F, maxY);
 

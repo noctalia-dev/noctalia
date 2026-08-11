@@ -71,6 +71,8 @@ namespace capture {
     double m_dragAnchorY = 0.0;
     double m_moveOffsetX = 0.0;
     double m_moveOffsetY = 0.0;
+    double m_cursorGlobalX = 0.0;
+    double m_cursorGlobalY = 0.0;
 
     void ensureSurfaces();
     void destroySurfaces();
