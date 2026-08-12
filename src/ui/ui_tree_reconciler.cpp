@@ -11,6 +11,7 @@
 #include "ui/controls/drop_zone.h"
 #include "ui/controls/flex.h"
 #include "ui/controls/glyph.h"
+#include "ui/controls/gradient.h"
 #include "ui/controls/graph.h"
 #include "ui/controls/image.h"
 #include "ui/controls/input.h"
@@ -28,6 +29,7 @@
 #include "ui/style.h"
 #include "ui/ui_tree.h"
 
+#include <algorithm>
 #include <charconv>
 #include <cmath>
 #include <format>
@@ -152,12 +154,10 @@ namespace ui {
     // Role token ("primary", "on_surface", …) with an optional alpha suffix
     // ("primary/0.6" → the role at 60% alpha, resolved live against the palette),
     // or hex ("#rrggbb[aa]"). Alpha is 0.0–1.0; hex carries its own alpha byte.
-    std::optional<ColorSpec> parseColor(const UiTreeNode& node, const char* key) {
-      const std::string* token = strProp(node, key);
-      if (token == nullptr) {
-        return std::nullopt;
-      }
-      std::string_view base = *token;
+    // Per-token so scalar "color" props and the gradient "colors" array share
+    // one grammar.
+    std::optional<ColorSpec> parseColorToken(std::string_view token) {
+      std::string_view base = token;
       float alpha = 1.0F;
       if (const auto slash = base.find('/'); slash != std::string_view::npos) {
         const std::string_view alphaText = base.substr(slash + 1);
@@ -165,26 +165,112 @@ namespace ui {
         const auto* end = alphaText.data() + alphaText.size();
         if (const auto res = std::from_chars(alphaText.data(), end, alpha);
             res.ec != std::errc{} || res.ptr != end || alpha < 0.0F || alpha > 1.0F) {
-          kLog.warn(
-              "ui node '{}': invalid alpha '{}' in color '{}' for prop '{}' (expected 0.0-1.0)", node.type, alphaText,
-              *token, key
-          );
           return std::nullopt;
         }
       }
       if (auto role = colorRoleFromToken(base); role.has_value()) {
         return colorSpecFromRole(*role, alpha);
       }
-      if (base.size() != token->size()) {
-        kLog.warn("ui node '{}': alpha suffix requires a color role, got '{}' for prop '{}'", node.type, base, key);
+      if (base.size() != token.size()) {
         return std::nullopt;
       }
       Color fixed;
-      if (tryParseHexColor(*token, fixed)) {
+      if (tryParseHexColor(token, fixed)) {
         return fixedColorSpec(fixed);
       }
-      kLog.warn("ui node '{}': unknown color '{}' for prop '{}'", node.type, *token, key);
       return std::nullopt;
+    }
+
+    std::optional<ColorSpec> parseColor(const UiTreeNode& node, const char* key) {
+      const std::string* token = strProp(node, key);
+      if (token == nullptr) {
+        return std::nullopt;
+      }
+      if (auto spec = parseColorToken(*token)) {
+        return spec;
+      }
+      kLog.warn("ui node '{}': invalid color '{}' for prop '{}'", node.type, *token, key);
+      return std::nullopt;
+    }
+
+    struct ParsedGradient {
+      float angleDeg = 0.0F;
+      std::array<GradientColorStop, 4> stops{};
+    };
+
+    // Validates and normalizes a ui.gradient node's paint props. Two to four
+    // logical stops pad into four physical stops by repeating the endpoints
+    // (spreading the padding from the back when odd); a missing "stops" prop
+    // spaces the colours evenly. Any invalid piece rejects the whole parse —
+    // a half-parsed gradient reads as a bug, not a fallback.
+    std::optional<ParsedGradient> parseGradientPaint(const UiTreeNode& node) {
+      const auto* colors = strArrayProp(node, "colors");
+      if (colors == nullptr) {
+        kLog.warn("ui node 'gradient': missing 'colors' array");
+        return std::nullopt;
+      }
+      if (colors->size() < 2 || colors->size() > 4) {
+        kLog.warn("ui node 'gradient': 'colors' needs 2 to 4 entries, got {}", colors->size());
+        return std::nullopt;
+      }
+
+      std::array<float, 4> logicalStops{};
+      const auto* stops = arrayProp(node, "stops");
+      if (stops != nullptr) {
+        if (stops->size() != colors->size()) {
+          kLog.warn("ui node 'gradient': 'stops' has {} entries for {} colors", stops->size(), colors->size());
+          return std::nullopt;
+        }
+        for (std::size_t i = 0; i < stops->size(); ++i) {
+          const double stop = (*stops)[i];
+          if (!std::isfinite(stop) || stop < 0.0 || stop > 1.0) {
+            kLog.warn("ui node 'gradient': stop {} out of range [0, 1] ({})", i, stop);
+            return std::nullopt;
+          }
+          if (i > 0 && stop < (*stops)[i - 1]) {
+            kLog.warn("ui node 'gradient': 'stops' must be non-decreasing");
+            return std::nullopt;
+          }
+          logicalStops[i] = static_cast<float>(stop);
+        }
+      } else {
+        const auto divisor = static_cast<float>(colors->size() - 1);
+        for (std::size_t i = 0; i < colors->size(); ++i) {
+          logicalStops[i] = static_cast<float>(i) / divisor;
+        }
+      }
+
+      float angleDeg = 0.0F;
+      if (const std::string* direction = strProp(node, "direction")) {
+        if (*direction == "vertical") {
+          angleDeg = 90.0F;
+        } else if (*direction != "horizontal") {
+          kLog.warn("ui node 'gradient': unknown direction '{}'", *direction);
+          return std::nullopt;
+        }
+      }
+      if (const double* angle = numProp(node, "angleDeg")) {
+        if (!std::isfinite(*angle)) {
+          kLog.warn("ui node 'gradient': angleDeg must be finite");
+          return std::nullopt;
+        }
+        angleDeg = static_cast<float>(*angle);
+      }
+
+      ParsedGradient parsed;
+      parsed.angleDeg = angleDeg;
+      const std::size_t beginPad = (4 - colors->size()) / 2;
+      for (std::size_t i = 0; i < parsed.stops.size(); ++i) {
+        const std::size_t logical =
+            std::clamp<std::ptrdiff_t>(static_cast<std::ptrdiff_t>(i) - beginPad, 0, colors->size() - 1);
+        auto spec = parseColorToken((*colors)[logical]);
+        if (!spec) {
+          kLog.warn("ui node 'gradient': unknown color '{}'", (*colors)[logical]);
+          return std::nullopt;
+        }
+        parsed.stops[i] = GradientColorStop{.position = logicalStops[logical], .color = *spec};
+      }
+      return parsed;
     }
 
     std::optional<FontWeight> parseFontWeight(const UiTreeNode& node) {
@@ -468,6 +554,10 @@ namespace ui {
                                                                  "color",   "spacing", "orientation"};
       static const std::unordered_set<std::string> kProgress = {"width",    "height", "flexGrow", "opacity", "visible",
                                                                 "progress", "fill",   "track",    "radius"};
+      static const std::unordered_set<std::string> kGradient = {"width",      "height",   "flexGrow", "opacity",
+                                                                "visible",    "colors",   "stops",    "direction",
+                                                                "angleDeg",   "motion",   "duration", "offset",
+                                                                "offsetFrom", "offsetTo", "radius",   "softness"};
       static const std::unordered_set<std::string> kButton = {"width",       "height",  "flexGrow",     "opacity",
                                                               "visible",     "text",    "glyph",        "fontSize",
                                                               "glyphSize",   "variant", "contentAlign", "enabled",
@@ -529,6 +619,9 @@ namespace ui {
       }
       if (type == "progress") {
         return kProgress;
+      }
+      if (type == "gradient") {
+        return kGradient;
       }
       if (type == "button") {
         return kButton;
@@ -696,6 +789,9 @@ namespace ui {
     }
     if (desired.type == "progress") {
       return std::make_unique<ProgressBar>();
+    }
+    if (desired.type == "gradient") {
+      return std::make_unique<Gradient>();
     }
     if (desired.type == "button") {
       return std::make_unique<Button>();
@@ -1295,6 +1391,40 @@ namespace ui {
         progress->setRadius(scaled(*radius));
       }
       progress->setSize(
+          width != nullptr ? scaled(*width) : node->width(), height != nullptr ? scaled(*height) : node->height()
+      );
+      return;
+    }
+
+    if (desired.type == "gradient") {
+      auto* gradient = static_cast<Gradient*>(node);
+      auto paint = parseGradientPaint(desired);
+      // Radius, softness and the static offset follow the same clear-on-invalid
+      // rule as the paint props: a non-finite number kills the whole gradient.
+      const double* radius = numProp(desired, "radius");
+      const double* softness = numProp(desired, "softness");
+      const double* offset = numProp(desired, "offset");
+      const bool numbersValid = (radius == nullptr || std::isfinite(*radius))
+          && (softness == nullptr || std::isfinite(*softness))
+          && (offset == nullptr || std::isfinite(*offset));
+      if (!numbersValid) {
+        kLog.warn("ui node 'gradient': radius, softness and offset must be finite");
+      }
+      if (!paint || !numbersValid) {
+        gradient->clearGradient();
+        return;
+      }
+      gradient->setGradient(paint->angleDeg, paint->stops);
+      if (radius != nullptr) {
+        gradient->setRadius(scaled(*radius));
+      }
+      if (softness != nullptr) {
+        gradient->setSoftness(static_cast<float>(*softness));
+      }
+      if (offset != nullptr) {
+        gradient->setOffset(static_cast<float>(*offset));
+      }
+      gradient->setSize(
           width != nullptr ? scaled(*width) : node->width(), height != nullptr ? scaled(*height) : node->height()
       );
       return;

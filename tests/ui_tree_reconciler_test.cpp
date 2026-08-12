@@ -8,6 +8,7 @@
 #include "ui/controls/drag_source.h"
 #include "ui/controls/drop_zone.h"
 #include "ui/controls/flex.h"
+#include "ui/controls/gradient.h"
 #include "ui/controls/input.h"
 #include "ui/controls/label.h"
 #include "ui/controls/scroll_view.h"
@@ -20,7 +21,10 @@
 #include "ui/ui_tree.h"
 #include "ui/ui_tree_reconciler.h"
 
+#include <array>
 #include <cstdlib>
+#include <functional>
+#include <limits>
 #include <optional>
 #include <print>
 #include <string>
@@ -90,6 +94,47 @@ namespace {
     node.props.emplace("width", 30.0);
     node.props.emplace("height", 30.0);
     return node;
+  }
+
+  ui::UiTreeNode
+  makeGradient(std::vector<std::string> colors = {"#ff0000", "#0000ff"}, std::vector<double> stops = {0.0, 1.0}) {
+    ui::UiTreeNode node = makeNode("gradient");
+    node.key = "band";
+    node.props.emplace("colors", std::move(colors));
+    node.props.emplace("stops", std::move(stops));
+    node.props.emplace("width", 180.0);
+    node.props.emplace("height", 2.0);
+    return node;
+  }
+
+  Gradient*
+  reconcileSingleGradient(ui::UiTreeReconciler& reconciler, Flex& host, ui::UiTreeNode node, StubRenderer& renderer) {
+    ui::UiTreeNode tree = makeNode("column");
+    tree.children.push_back(std::move(node));
+    (void)reconciler.reconcile(host, tree, renderer);
+    auto* column = host.children().empty() ? nullptr : dynamic_cast<Flex*>(host.children().front().get());
+    if (column == nullptr || column->children().empty()) {
+      return nullptr;
+    }
+    return dynamic_cast<Gradient*>(column->children().front().get());
+  }
+
+  bool stopsAre(const RoundedRectStyle& style, std::array<float, 4> positions, std::array<Color, 4> colors) {
+    for (std::size_t i = 0; i < 4; ++i) {
+      if (style.gradientStops[i].position != positions[i] || !(style.gradientStops[i].color == colors[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool gradientCleared(const RoundedRectStyle& style) {
+    for (const auto& stop : style.gradientStops) {
+      if (stop.position != 0.0F || stop.color.a != 0.0F) {
+        return false;
+      }
+    }
+    return style.gradientOffset == 0.0F;
   }
 
   ui::UiTreeNode makeDropZone(
@@ -2246,6 +2291,209 @@ int main() {
             20.0f, 20.0f, WL_POINTER_AXIS_HORIZONTAL_SCROLL, WL_POINTER_AXIS_SOURCE_WHEEL, 15.0, 1, 120, 3.0f
         );
     ok = expect(!horizontalAxisConsumed, "non-scrollable horizontal view does not consume wheel input") && ok;
+  }
+
+  // ui.gradient: two colours pad their stops onto both endpoints.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    Gradient* gradient = reconcileSingleGradient(reconciler, host, makeGradient(), renderer);
+    ok = expect(gradient != nullptr, "gradient control created") && ok;
+    if (gradient != nullptr) {
+      const auto& style = gradient->style();
+      ok = expect(style.fillMode == FillMode::LinearGradient, "gradient fills linearly") && ok;
+      ok = expect(
+               stopsAre(
+                   style, {0.0F, 0.0F, 1.0F, 1.0F},
+                   {Color{1, 0, 0, 1}, Color{1, 0, 0, 1}, Color{0, 0, 1, 1}, Color{0, 0, 1, 1}}
+               ),
+               "two colours normalize to duplicated endpoint stops"
+           )
+          && ok;
+      ok = expect(gradient->children().size() == 1, "gradient owns exactly its rect") && ok;
+    }
+  }
+
+  // ui.gradient: three colours get even spacing, the last stop duplicated.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    ui::UiTreeNode node = makeGradient({"#ff0000", "#00ff00", "#0000ff"}, {});
+    node.props.erase("stops");
+    Gradient* gradient = reconcileSingleGradient(reconciler, host, std::move(node), renderer);
+    ok = expect(gradient != nullptr, "three-colour gradient created") && ok;
+    if (gradient != nullptr) {
+      ok = expect(
+               stopsAre(
+                   gradient->style(), {0.0F, 0.5F, 1.0F, 1.0F},
+                   {Color{1, 0, 0, 1}, Color{0, 1, 0, 1}, Color{0, 0, 1, 1}, Color{0, 0, 1, 1}}
+               ),
+               "three colours space evenly and pad the final stop"
+           )
+          && ok;
+    }
+  }
+
+  // ui.gradient: four colours with explicit stops pass through unchanged.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    Gradient* gradient = reconcileSingleGradient(
+        reconciler, host, makeGradient({"#ff0000", "#00ff00", "#0000ff", "#ffffff"}, {0.0, 0.25, 0.75, 1.0}), renderer
+    );
+    ok = expect(gradient != nullptr, "four-colour gradient created") && ok;
+    if (gradient != nullptr) {
+      ok = expect(
+               stopsAre(
+                   gradient->style(), {0.0F, 0.25F, 0.75F, 1.0F},
+                   {Color{1, 0, 0, 1}, Color{0, 1, 0, 1}, Color{0, 0, 1, 1}, Color{1, 1, 1, 1}}
+               ),
+               "four colours and explicit stops pass through"
+           )
+          && ok;
+    }
+  }
+
+  // ui.gradient: direction presets, angleDeg override, radius/softness/offset.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+
+    ui::UiTreeNode horizontal = makeGradient();
+    horizontal.props.emplace("direction", std::string("horizontal"));
+    Gradient* gradient = reconcileSingleGradient(reconciler, host, std::move(horizontal), renderer);
+    ok =
+        expect(gradient != nullptr && gradient->style().gradientAngleDeg == 0.0F, "horizontal maps to 0 degrees") && ok;
+
+    ui::UiTreeReconciler reconciler2;
+    Flex host2;
+    ui::UiTreeNode vertical = makeGradient();
+    vertical.props.emplace("direction", std::string("vertical"));
+    gradient = reconcileSingleGradient(reconciler2, host2, std::move(vertical), renderer);
+    ok =
+        expect(gradient != nullptr && gradient->style().gradientAngleDeg == 90.0F, "vertical maps to 90 degrees") && ok;
+
+    ui::UiTreeReconciler reconciler3;
+    Flex host3;
+    ui::UiTreeNode angled = makeGradient();
+    angled.props.emplace("direction", std::string("vertical"));
+    angled.props.emplace("angleDeg", 45.0);
+    angled.props.emplace("radius", 4.0);
+    angled.props.emplace("softness", 2.0);
+    angled.props.emplace("offset", 0.25);
+    gradient = reconcileSingleGradient(reconciler3, host3, std::move(angled), renderer);
+    ok = expect(gradient != nullptr, "angled gradient created") && ok;
+    if (gradient != nullptr) {
+      const auto& style = gradient->style();
+      ok = expect(style.gradientAngleDeg == 45.0F, "angleDeg overrides the direction preset") && ok;
+      ok = expect(style.radius == 4.0F, "radius reaches the control") && ok;
+      ok = expect(style.softness == 2.0F, "softness reaches the control") && ok;
+      ok = expect(style.gradientOffset == 0.25F, "static offset reaches the control") && ok;
+    }
+
+    ui::UiTreeReconciler reconciler4;
+    Flex host4;
+    ui::UiTreeNode obtuse = makeGradient();
+    obtuse.props.emplace("angleDeg", 135.0);
+    gradient = reconcileSingleGradient(reconciler4, host4, std::move(obtuse), renderer);
+    ok =
+        expect(gradient != nullptr && gradient->style().gradientAngleDeg == 135.0F, "135 degrees passes through") && ok;
+  }
+
+  // ui.gradient: a keyed node survives a prop-only reconcile.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    ui::UiTreeNode tree = makeNode("column");
+    tree.children.push_back(makeGradient());
+    ok = expect(reconciler.reconcile(host, tree, renderer), "initial gradient reconcile builds") && ok;
+    auto* column = dynamic_cast<Flex*>(host.children().front().get());
+    auto* gradient = column != nullptr ? dynamic_cast<Gradient*>(column->children().front().get()) : nullptr;
+    ok = expect(gradient != nullptr, "gradient built under column") && ok;
+
+    tree.children[0].props["colors"] = std::vector<std::string>{"#00ff00", "#0000ff"};
+    ok = expect(!reconciler.reconcile(host, tree, renderer), "gradient prop-only reconcile stays in place") && ok;
+    if (column != nullptr) {
+      ok = expect(column->children().front().get() == gradient, "gradient instance reused on prop change") && ok;
+      if (gradient != nullptr) {
+        ok = expect(gradient->style().gradientStops[0].color == Color{0, 1, 0, 1}, "gradient colors updated in place")
+            && ok;
+      }
+    }
+  }
+
+  // ui.gradient is a leaf: children are dropped.
+  {
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    ui::UiTreeNode node = makeGradient();
+    node.children.push_back(makeLabel("orphan"));
+    Gradient* gradient = reconcileSingleGradient(reconciler, host, std::move(node), renderer);
+    ok = expect(gradient != nullptr, "gradient with children still builds") && ok;
+    if (gradient != nullptr) {
+      ok = expect(gradient->children().size() == 1, "gradient children dropped, only its rect remains") && ok;
+    }
+  }
+
+  // ui.gradient: invalid props clear the control, never retain stale style.
+  {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double inf = std::numeric_limits<double>::infinity();
+
+    struct InvalidCase {
+      const char* name;
+      std::function<void(ui::UiTreeNode&)> mutate;
+    };
+    const std::vector<InvalidCase> cases = {
+        {.name = "missing colors", .mutate = [](ui::UiTreeNode& n) { n.props.erase("colors"); }},
+        {.name = "one colour",
+         .mutate = [](ui::UiTreeNode& n) { n.props["colors"] = std::vector<std::string>{"#ff0000"}; }},
+        {.name = "five colours",
+         .mutate =
+             [](ui::UiTreeNode& n) {
+               n.props["colors"] = std::vector<std::string>{"#ff0000", "#00ff00", "#0000ff", "#ffffff", "#000000"};
+             }},
+        {.name = "mismatched stop count",
+         .mutate =
+             [](ui::UiTreeNode& n) {
+               n.props["colors"] = std::vector<std::string>{"#ff0000", "#00ff00", "#0000ff"};
+               n.props["stops"] = std::vector<double>{0.0, 1.0};
+             }},
+        {.name = "unordered stops",
+         .mutate = [](ui::UiTreeNode& n) { n.props["stops"] = std::vector<double>{1.0, 0.0}; }},
+        {.name = "out-of-range stop",
+         .mutate = [](ui::UiTreeNode& n) { n.props["stops"] = std::vector<double>{0.0, 1.5}; }},
+        {.name = "NaN stop", .mutate = [nan](ui::UiTreeNode& n) { n.props["stops"] = std::vector<double>{0.0, nan}; }},
+        {.name = "infinite angleDeg", .mutate = [inf](ui::UiTreeNode& n) { n.props["angleDeg"] = inf; }},
+        {.name = "NaN offset", .mutate = [nan](ui::UiTreeNode& n) { n.props["offset"] = nan; }},
+        {.name = "infinite radius", .mutate = [inf](ui::UiTreeNode& n) { n.props["radius"] = inf; }},
+        {.name = "NaN softness", .mutate = [nan](ui::UiTreeNode& n) { n.props["softness"] = nan; }},
+        {.name = "unknown colour token",
+         .mutate = [](ui::UiTreeNode& n) { n.props["colors"] = std::vector<std::string>{"not-a-color", "#0000ff"}; }},
+        {.name = "unknown direction",
+         .mutate = [](ui::UiTreeNode& n) { n.props["direction"] = std::string("diagonal"); }},
+    };
+    for (const auto& invalid : cases) {
+      ui::UiTreeReconciler reconciler;
+      Flex host;
+      ui::UiTreeNode tree = makeNode("column");
+      tree.children.push_back(makeGradient());
+      (void)reconciler.reconcile(host, tree, renderer);
+      auto* column = dynamic_cast<Flex*>(host.children().front().get());
+      auto* gradient = column != nullptr ? dynamic_cast<Gradient*>(column->children().front().get()) : nullptr;
+      ok = expect(gradient != nullptr, invalid.name) && ok;
+      if (gradient == nullptr) {
+        continue;
+      }
+      const RoundedRectStyle validStyle = gradient->style();
+
+      invalid.mutate(tree.children[0]);
+      (void)reconciler.reconcile(host, tree, renderer);
+      std::string clearedMsg = std::string(invalid.name) + " clears prior valid style";
+      ok = expect(gradientCleared(gradient->style()), clearedMsg.c_str()) && ok;
+      std::string changedMsg = std::string(invalid.name) + " does not retain prior stops";
+      ok = expect(!(gradient->style() == validStyle), changedMsg.c_str()) && ok;
+    }
   }
 
   return ok ? 0 : 1;
