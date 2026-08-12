@@ -67,8 +67,6 @@ namespace capture {
     struct Instance;
 
     DragMode m_dragMode = DragMode::None;
-    double m_dragAnchorX = 0.0;
-    double m_dragAnchorY = 0.0;
     double m_moveOffsetX = 0.0;
     double m_moveOffsetY = 0.0;
     double m_cursorGlobalX = 0.0;

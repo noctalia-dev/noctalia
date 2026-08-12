@@ -67,7 +67,7 @@ namespace capture {
       bool nearTop = distTop <= kHandleMargin;
       bool nearBottom = distBottom <= kHandleMargin;
 
-      // Resolve overlaps by picking the closest edge mathematically
+      // Narrow selections can overlap opposing hit zones; bind the pointer to the nearer edge.
       if (nearLeft && nearRight) {
         if (distLeft < distRight)
           nearRight = false;
@@ -296,11 +296,6 @@ namespace capture {
       m_startGlobalY = static_cast<double>(initialRegion->y);
       m_currentGlobalX = static_cast<double>(initialRegion->x + initialRegion->width);
       m_currentGlobalY = static_cast<double>(initialRegion->y + initialRegion->height);
-
-      // Initialize badge anchor safely on region restoration
-      m_cursorGlobalX = m_currentGlobalX;
-      m_cursorGlobalY = m_currentGlobalY;
-
       m_confirming = true;
     }
     ensureSurfaces();
@@ -463,6 +458,9 @@ namespace capture {
       return;
     }
 
+    // The overlay's EGL surface could not be made current (e.g. EGL_BAD_ALLOC when the
+    // driver is out of video memory). Painting would be a no-op, leaving an invisible
+    // fullscreen surface that eats input, so tear down and report instead of spinning.
     if (!m_renderContext->makeCurrent(inst.surface->renderTarget())) {
       abortWithError(i18n::tr("bar.screenshot.overlay-alloc-failed"));
       return;
@@ -519,7 +517,7 @@ namespace capture {
           if (!m_dragging)
             return;
           m_dragging = false;
-          // Re-evaluate mouse position for cursor change
+          // completeSelection() tears down surfaces; defer past InputDispatcher::pointerButton.
           DeferredCall::callLater([this]() { completeSelection(); });
           return;
         }
@@ -561,8 +559,6 @@ namespace capture {
         } else if (m_dragMode == DragMode::Move) {
           m_moveOffsetX = globalX;
           m_moveOffsetY = globalY;
-          m_dragAnchorX = m_startGlobalX;
-          m_dragAnchorY = m_currentGlobalX;
         } else {
           // Calculate anchors (the opposite side of what we are dragging)
           const double x0 = std::min(m_startGlobalX, m_currentGlobalX);
@@ -641,10 +637,6 @@ namespace capture {
           m_startGlobalY += deltaY;
           m_currentGlobalY += deltaY;
 
-          // Translate badge anchor along with the selection
-          m_cursorGlobalX += deltaX;
-          m_cursorGlobalY += deltaY;
-
           m_moveOffsetX = globalX;
           m_moveOffsetY = globalY;
         } else {
@@ -707,8 +699,12 @@ namespace capture {
       inst.backdrop = static_cast<Image*>(input->addChild(std::move(backdrop)));
     }
 
+    // Dim the screen with four strips that frame the selected region. The
+    // region itself stays fully transparent so it shows real colors and never
+    // tints the captured pixels.
     auto makeDimStrip = [&]() {
       auto strip = ui::box({
+          // Fixed black scrim so it darkens under every theme.
           .fill = fixedColorSpec(rgba(0.0F, 0.0F, 0.0F, 1.0F)),
           .width = 0.0F,
           .height = 0.0F,
@@ -901,9 +897,11 @@ namespace capture {
     if (!m_active) {
       return;
     }
+    // Stop further frames from re-triggering the abort while teardown is pending.
     m_active = false;
     kLog.warn("aborting screenshot region overlay: {}", message);
     FailureCallback onFailure = m_onFailure;
+    // Defer past the surface's prepareFrame callback before destroying its surfaces.
     DeferredCall::callLater([this, onFailure, message]() {
       cancel();
       if (onFailure) {
@@ -913,6 +911,8 @@ namespace capture {
   }
 
   void ScreenshotRegionOverlay::updateSelectionVisuals() {
+    // Lay out the four dim strips so they cover the surface except for the hole
+    // rect (surface-local). An empty hole dims the whole surface.
     const auto layoutDimFrame = [](Instance& inst, float surfaceW, float surfaceH, float hx0, float hy0, float hx1,
                                    float hy1) {
       hx0 = std::clamp(hx0, 0.0F, surfaceW);
@@ -1011,6 +1011,8 @@ namespace capture {
       const auto holeY1 = static_cast<float>(iy1 - outTop);
       layoutDimFrame(*inst, surfaceW, surfaceH, holeX0, holeY0, holeX1, holeY1);
 
+      // The outline is inset, so expand it outward to keep the border out of the
+      // captured (undimmed) region.
       inst->selection->setVisible(true);
       inst->selection->setPosition(holeX0 - kSelectionBorderWidth, holeY0 - kSelectionBorderWidth);
       inst->selection->setSize(
@@ -1018,16 +1020,10 @@ namespace capture {
       );
 
       if (inst->dimensionsBadge != nullptr && inst->dimensionsLabel != nullptr && m_renderContext != nullptr) {
-
-        // Show the badge during resize or confirmation. Hide it during move operations.
-        const bool showBadge = (m_dragging && m_dragMode != DragMode::Move) || (!m_dragging && m_confirming);
-
-        // The badge always stays near the last known cursor position (even after releasing the mouse).
+        const bool showBadge = m_dragging && m_dragMode != DragMode::Move;
         const double targetX = m_cursorGlobalX;
         const double targetY = m_cursorGlobalY;
-
-        const bool badgeOnOutput =
-            targetX >= outLeft && targetX <= outRight && targetY >= outTop && targetY <= outBottom;
+        const bool badgeOnOutput = targetX >= outLeft && targetX < outRight && targetY >= outTop && targetY < outBottom;
 
         if (showBadge && badgeOnOutput) {
           inst->dimensionsLabel->setText(dimensionText);
