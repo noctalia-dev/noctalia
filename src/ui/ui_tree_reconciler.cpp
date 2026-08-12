@@ -206,11 +206,11 @@ namespace ui {
     std::optional<ParsedGradient> parseGradientPaint(const UiTreeNode& node) {
       const auto* colors = strArrayProp(node, "colors");
       if (colors == nullptr) {
-        kLog.warn("ui node 'gradient': missing 'colors' array");
+        kLog.warn("ui node '{}': missing 'colors' array", node.type);
         return std::nullopt;
       }
       if (colors->size() < 2 || colors->size() > 4) {
-        kLog.warn("ui node 'gradient': 'colors' needs 2 to 4 entries, got {}", colors->size());
+        kLog.warn("ui node '{}': 'colors' needs 2 to 4 entries, got {}", node.type, colors->size());
         return std::nullopt;
       }
 
@@ -218,17 +218,17 @@ namespace ui {
       const auto* stops = arrayProp(node, "stops");
       if (stops != nullptr) {
         if (stops->size() != colors->size()) {
-          kLog.warn("ui node 'gradient': 'stops' has {} entries for {} colors", stops->size(), colors->size());
+          kLog.warn("ui node '{}': 'stops' has {} entries for {} colors", node.type, stops->size(), colors->size());
           return std::nullopt;
         }
         for (std::size_t i = 0; i < stops->size(); ++i) {
           const double stop = (*stops)[i];
           if (!std::isfinite(stop) || stop < 0.0 || stop > 1.0) {
-            kLog.warn("ui node 'gradient': stop {} out of range [0, 1] ({})", i, stop);
+            kLog.warn("ui node '{}': stop {} out of range [0, 1] ({})", node.type, i, stop);
             return std::nullopt;
           }
           if (i > 0 && stop < (*stops)[i - 1]) {
-            kLog.warn("ui node 'gradient': 'stops' must be non-decreasing");
+            kLog.warn("ui node '{}': 'stops' must be non-decreasing", node.type);
             return std::nullopt;
           }
           logicalStops[i] = static_cast<float>(stop);
@@ -245,13 +245,13 @@ namespace ui {
         if (*direction == "vertical") {
           angleDeg = 90.0F;
         } else if (*direction != "horizontal") {
-          kLog.warn("ui node 'gradient': unknown direction '{}'", *direction);
+          kLog.warn("ui node '{}': unknown direction '{}'", node.type, *direction);
           return std::nullopt;
         }
       }
       if (const double* angle = numProp(node, "angleDeg")) {
         if (!std::isfinite(*angle)) {
-          kLog.warn("ui node 'gradient': angleDeg must be finite");
+          kLog.warn("ui node '{}': angleDeg must be finite", node.type);
           return std::nullopt;
         }
         angleDeg = static_cast<float>(*angle);
@@ -265,11 +265,60 @@ namespace ui {
             std::clamp<std::ptrdiff_t>(static_cast<std::ptrdiff_t>(i) - beginPad, 0, colors->size() - 1);
         auto spec = parseColorToken((*colors)[logical]);
         if (!spec) {
-          kLog.warn("ui node 'gradient': unknown color '{}'", (*colors)[logical]);
+          kLog.warn("ui node '{}': unknown color '{}'", node.type, (*colors)[logical]);
           return std::nullopt;
         }
         parsed.stops[i] = GradientColorStop{.position = logicalStops[logical], .color = *spec};
       }
+      return parsed;
+    }
+
+    struct ParsedMotion {
+      GradientMotion motion = GradientMotion::None;
+      float durationMs = 0.0F;
+      float from = 0.0F;
+      float to = 0.0F;
+    };
+
+    // Motion is separable from paint: a bad token or number falls back to a
+    // static gradient rather than a half-configured animation. Shared by
+    // ui.gradient and ui.label so the two cannot drift apart.
+    ParsedMotion parseGradientMotion(const UiTreeNode& node) {
+      ParsedMotion parsed;
+      const std::string* token = strProp(node, "motion");
+      if (token == nullptr || *token == "none") {
+        return parsed;
+      }
+      GradientMotion motion = GradientMotion::None;
+      bool valid = true;
+      if (*token == "loop") {
+        motion = GradientMotion::Loop;
+      } else if (*token == "ping-pong") {
+        motion = GradientMotion::PingPong;
+      } else {
+        kLog.warn("ui node '{}': unknown motion '{}'", node.type, *token);
+        valid = false;
+      }
+      const double* duration = numProp(node, "duration");
+      const double* offsetFrom = numProp(node, "offsetFrom");
+      const double* offsetTo = numProp(node, "offsetTo");
+      if (valid && (duration == nullptr || !std::isfinite(*duration) || *duration <= 0.0)) {
+        kLog.warn("ui node '{}': motion needs a finite positive 'duration'", node.type);
+        valid = false;
+      }
+      if (valid
+          && ((offsetFrom != nullptr && !std::isfinite(*offsetFrom))
+              || (offsetTo != nullptr && !std::isfinite(*offsetTo)))) {
+        kLog.warn("ui node '{}': motion offsets must be finite", node.type);
+        valid = false;
+      }
+      if (!valid) {
+        return parsed;
+      }
+      parsed.motion = motion;
+      parsed.durationMs = static_cast<float>(*duration);
+      parsed.from = offsetFrom != nullptr ? static_cast<float>(*offsetFrom) : 0.0F;
+      parsed.to = offsetTo != nullptr ? static_cast<float>(*offsetTo) : 1.0F;
       return parsed;
     }
 
@@ -540,10 +589,11 @@ namespace ui {
       static const std::unordered_set<std::string> kBox = {"width",       "height",   "flexGrow", "opacity",
                                                            "visible",     "fill",     "radius",   "border",
                                                            "borderWidth", "softness", "onClick",  "onHover"};
-      static const std::unordered_set<std::string> kLabel = {"width",      "height",   "flexGrow", "opacity",
-                                                             "visible",    "text",     "fontSize", "color",
-                                                             "fontWeight", "maxWidth", "maxLines", "textAlign",
-                                                             "fontFamily", "baseline"};
+      static const std::unordered_set<std::string> kLabel = {
+          "width",      "height",   "flexGrow", "opacity",   "visible",    "text",       "fontSize", "color",
+          "fontWeight", "maxWidth", "maxLines", "textAlign", "fontFamily", "baseline",   "colors",   "stops",
+          "direction",  "angleDeg", "motion",   "duration",  "offset",     "offsetFrom", "offsetTo", "glowRadius"
+      };
       static const std::unordered_set<std::string> kGlyph = {"width",   "height", "flexGrow", "opacity",
                                                              "visible", "name",   "size",     "color"};
       static const std::unordered_set<std::string> kImage = {"width",   "height",      "flexGrow", "opacity",
@@ -1286,6 +1336,48 @@ namespace ui {
       if (auto align = parseTextAlign(desired)) {
         label->setTextAlign(*align);
       }
+
+      // Gradient text. A label with no "colors" is the ordinary solid path and
+      // must stay silent — parseGradientPaint warns on a missing array, so the
+      // presence check happens here rather than inside it.
+      if (strArrayProp(desired, "colors") == nullptr) {
+        label->clearGradient();
+        label->setGradientMotion(GradientMotion::None, 0.0F, 0.0F, 0.0F);
+        label->setGradientMotionVisible(node->visible());
+        return;
+      }
+
+      auto paint = parseGradientPaint(desired);
+      const double* offset = numProp(desired, "offset");
+      const double* glowRadius = numProp(desired, "glowRadius");
+      const bool offsetValid = offset == nullptr || std::isfinite(*offset);
+      const bool glowValid = glowRadius == nullptr
+          || (std::isfinite(*glowRadius) && *glowRadius >= 0.0 && *glowRadius <= kMaxTextGlowRadius);
+      if (!offsetValid) {
+        kLog.warn("ui node '{}': offset must be finite", desired.type);
+      }
+      if (!glowValid) {
+        kLog.warn("ui node '{}': glowRadius must be finite and within 0..{}", desired.type, kMaxTextGlowRadius);
+      }
+      if (!paint || !offsetValid || !glowValid) {
+        // Falling back to the solid `color` keeps the text readable. Making it
+        // vanish would be the one failure mode a plugin author cannot debug.
+        label->clearGradient();
+        label->setGradientMotion(GradientMotion::None, 0.0F, 0.0F, 0.0F);
+        label->setGradientMotionVisible(node->visible());
+        return;
+      }
+
+      label->setGradient(paint->angleDeg, paint->stops);
+      label->setGradientGlowRadius(glowRadius != nullptr ? scaled(*glowRadius) : 0.0F);
+      if (offset != nullptr) {
+        label->setGradientOffset(static_cast<float>(*offset));
+      }
+      const ParsedMotion motion = parseGradientMotion(desired);
+      label->setGradientMotion(motion.motion, motion.durationMs, motion.from, motion.to);
+      // Node::setVisible is non-virtual, so hand the current visibility over
+      // explicitly, the same way ui.gradient does.
+      label->setGradientMotionVisible(node->visible());
       return;
     }
 
@@ -1429,46 +1521,9 @@ namespace ui {
           width != nullptr ? scaled(*width) : node->width(), height != nullptr ? scaled(*height) : node->height()
       );
 
-      // Motion: bad tokens or numbers fall back to a static gradient — never a
-      // half-configured animation. Equal endpoints need no trip either.
-      GradientMotion motion = GradientMotion::None;
-      float motionDurationMs = 0.0F;
-      float motionFrom = 0.0F;
-      float motionTo = 0.0F;
-      if (const std::string* token = strProp(desired, "motion")) {
-        if (*token != "none") {
-          bool valid = true;
-          if (*token == "loop") {
-            motion = GradientMotion::Loop;
-          } else if (*token == "ping-pong") {
-            motion = GradientMotion::PingPong;
-          } else {
-            kLog.warn("ui node 'gradient': unknown motion '{}'", *token);
-            valid = false;
-          }
-          const double* duration = numProp(desired, "duration");
-          const double* offsetFrom = numProp(desired, "offsetFrom");
-          const double* offsetTo = numProp(desired, "offsetTo");
-          if (valid && (duration == nullptr || !std::isfinite(*duration) || *duration <= 0.0)) {
-            kLog.warn("ui node 'gradient': motion needs a finite positive 'duration'");
-            valid = false;
-          }
-          if (valid
-              && ((offsetFrom != nullptr && !std::isfinite(*offsetFrom))
-                  || (offsetTo != nullptr && !std::isfinite(*offsetTo)))) {
-            kLog.warn("ui node 'gradient': motion offsets must be finite");
-            valid = false;
-          }
-          if (valid) {
-            motionDurationMs = static_cast<float>(*duration);
-            motionFrom = offsetFrom != nullptr ? static_cast<float>(*offsetFrom) : 0.0F;
-            motionTo = offsetTo != nullptr ? static_cast<float>(*offsetTo) : 1.0F;
-          } else {
-            motion = GradientMotion::None;
-          }
-        }
-      }
-      gradient->setMotion(motion, motionDurationMs, motionFrom, motionTo);
+      // Equal endpoints need no trip; the control itself enforces that.
+      const ParsedMotion motion = parseGradientMotion(desired);
+      gradient->setMotion(motion.motion, motion.durationMs, motion.from, motion.to);
       // Node::setVisible is non-virtual, so the common-props path above cannot
       // reach Gradient; hand the current visibility over explicitly.
       gradient->setMotionVisible(node->visible());
