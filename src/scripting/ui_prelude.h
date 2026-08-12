@@ -34,6 +34,7 @@ ui.toggle = ctor("toggle")
 ui.scroll = ctor("scroll")
 ui.dragSource = ctor("drag_source")
 ui.dropZone = ctor("drop_zone")
+ui.gradient = ctor("gradient")
 )luau";
 
 } // namespace scripting

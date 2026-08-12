@@ -28,7 +28,8 @@ namespace scripting {
   inline constexpr std::uint32_t kGetSettingPluginApiVersion = 26;
   inline constexpr std::uint32_t kInputFrameVisibilityPluginApiVersion = 27;
   inline constexpr std::uint32_t kPanelContextMenuPluginApiVersion = 28;
-  inline constexpr std::uint32_t kCurrentPluginApiVersion = kPanelContextMenuPluginApiVersion;
+  inline constexpr std::uint32_t kNativeGradientUiPluginApiVersion = 29;
+  inline constexpr std::uint32_t kCurrentPluginApiVersion = kNativeGradientUiPluginApiVersion;
 
   static_assert(kOldestSupportedPluginApiVersion <= kCurrentPluginApiVersion);
 

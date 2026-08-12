@@ -156,6 +156,38 @@ order = ["a", "b"]
     }
   }
 
+  context.patch = {};
+  ok = expect(
+           runLuau(
+               state, "=gradient-constructor",
+               "panel.render(ui.gradient({\n"
+               "  key = 'band',\n"
+               "  colors = {'surface', 'primary'},\n"
+               "  stops = {0, 1},\n"
+               "}))"
+           ),
+           "ui.gradient should exist in the production prelude"
+       )
+      && ok;
+  ok = expect(context.patch.uiTree.has_value(), "gradient render should produce a UI tree") && ok;
+  if (context.patch.uiTree.has_value()) {
+    ok = expect(context.patch.uiTree->type == "gradient", "gradient constructor should preserve its type") && ok;
+    ok = expect(context.patch.uiTree->key == "band", "gradient constructor should preserve its key") && ok;
+    const auto colors = context.patch.uiTree->props.find("colors");
+    const auto stops = context.patch.uiTree->props.find("stops");
+    ok = expect(
+             colors != context.patch.uiTree->props.end()
+                 && std::get_if<std::vector<std::string>>(&colors->second) != nullptr,
+             "gradient colors should deserialize as strings"
+         )
+        && ok;
+    ok = expect(
+             stops != context.patch.uiTree->props.end() && std::get_if<std::vector<double>>(&stops->second) != nullptr,
+             "gradient stops should deserialize as numbers"
+         )
+        && ok;
+  }
+
   // `key` is lifted out of the props into the node's identity, and only a string
   // counts as one. It is read ahead of the other props now that it names the
   // node's handlers, so the outcome is pinned here.
