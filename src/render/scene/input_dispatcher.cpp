@@ -146,7 +146,12 @@ void InputDispatcher::pointerMotion(float x, float y, std::uint32_t serial) {
   updateHover(x, y, m_lastSerial);
 }
 
-bool InputDispatcher::pointerButton(float x, float y, std::uint32_t button, bool pressed) {
+bool InputDispatcher::pointerButton(
+    float x, float y, std::uint32_t button, bool pressed, std::uint32_t serial, std::uint32_t time
+) {
+  if (serial != 0) {
+    m_lastSerial = serial;
+  }
   m_lastPointerX = x;
   m_lastPointerY = y;
   m_hasPointerPosition = true;
@@ -199,7 +204,7 @@ bool InputDispatcher::pointerButton(float x, float y, std::uint32_t button, bool
       m_capturedArea = target;
       trackArea(target);
     }
-    target->dispatchPress(localX, localY, button, pressed);
+    target->dispatchPress(localX, localY, button, pressed, x, y, serial, time);
     if (pressed) {
       if (m_capturedArea == nullptr) {
         updateHover(x, y, m_lastSerial);

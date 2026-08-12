@@ -38,7 +38,8 @@ public:
   void pointerMotion(float x, float y, std::uint32_t serial);
   void syncPointerHover();
   // Returns true if the event was consumed by a scene widget
-  bool pointerButton(float x, float y, std::uint32_t button, bool pressed);
+  bool
+  pointerButton(float x, float y, std::uint32_t button, bool pressed, std::uint32_t serial = 0, std::uint32_t time = 0);
   bool pointerAxis(
       float x, float y, std::uint32_t axis, std::uint32_t axisSource, double value, std::int32_t discrete,
       std::int32_t value120, float lines, std::uint32_t axisGestureSerial = 0

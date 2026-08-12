@@ -1486,6 +1486,18 @@ void PanelManager::togglePanel(const std::string& panelId) {
 }
 
 bool PanelManager::onPointerEvent(const PointerEvent& event) {
+  // A context menu may belong to a persistent plugin panel, for which the
+  // ordinary single-panel host is closed. Route the grabbing popup first.
+  if (m_activePopup != nullptr) {
+    if (m_activePopup->onPointerEvent(event)) {
+      return true;
+    }
+    if (event.type == PointerEvent::Type::Button && event.pressed) {
+      m_activePopup->close();
+      return true;
+    }
+  }
+
   // Persistent panels own separate surfaces; the host claims only its own.
   if (m_persistentHost.onPointerEvent(event)) {
     return true;
@@ -1500,16 +1512,6 @@ bool PanelManager::onPointerEvent(const PointerEvent& event) {
     }
     if (event.type == PointerEvent::Type::Button && event.pressed) {
       m_selectPopup->closeSelectDropdown();
-      return true;
-    }
-  }
-
-  if (m_activePopup != nullptr) {
-    if (m_activePopup->onPointerEvent(event)) {
-      return true;
-    }
-    if (event.type == PointerEvent::Type::Button && event.pressed) {
-      m_activePopup->close();
       return true;
     }
   }
@@ -1564,7 +1566,7 @@ bool PanelManager::onPointerEvent(const PointerEvent& event) {
         }
       }
       m_inputDispatcher.pointerButton(
-          static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed
+          static_cast<float>(event.sx), static_cast<float>(event.sy), event.button, pressed, event.serial, event.time
       );
     }
     break;
@@ -1805,7 +1807,15 @@ void PanelManager::requestFrameTick() {
 
 void PanelManager::close() { closePanel(); }
 
-void PanelManager::setActivePopup(ContextMenuPopup* popup) { m_activePopup = popup; }
+void PanelManager::setActivePopup(ContextMenuPopup* popup) {
+  if (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen()) {
+    m_selectPopup->closeSelectDropdown();
+  }
+  if (m_activePopup != nullptr && m_activePopup != popup) {
+    m_activePopup->close();
+  }
+  m_activePopup = popup;
+}
 
 void PanelManager::clearActivePopup() { m_activePopup = nullptr; }
 
@@ -1877,6 +1887,17 @@ std::optional<LayerPopupParentContext> PanelManager::fallbackPopupParentContext(
     return std::nullopt;
   }
   return context;
+}
+
+std::optional<LayerPopupParentContext>
+PanelManager::popupParentContextForPanel(std::string_view panelId) const noexcept {
+  if (m_persistentHost.hasPanel(panelId)) {
+    return m_persistentHost.popupParentContext(panelId);
+  }
+  if (panelId != m_activePanelId) {
+    return std::nullopt;
+  }
+  return fallbackPopupParentContext();
 }
 
 void PanelManager::onKeyboardEvent(const KeyboardEvent& event) {

@@ -1374,11 +1374,16 @@ namespace ui {
       if (const std::string* onRightClick = strProp(desired, "onRightClick");
           onRightClick != nullptr && *onRightClick != slot.rightCallbackName) {
         slot.rightCallbackName = *onRightClick;
-        button->setOnRightClick([this, name = slot.rightCallbackName]() {
-          if (m_sink) {
-            m_sink(ControlCallback{name});
-          }
-        });
+        button->setOnRightClickWithPointer(
+            [this, name = slot.rightCallbackName](float x, float y, std::uint32_t serial, std::uint32_t time) {
+              if (m_sink) {
+                ControlCallback callback{name};
+                callback.pointerContext =
+                    ControlCallback::PointerContext{.x = x, .y = y, .serial = serial, .time = time};
+                m_sink(callback);
+              }
+            }
+        );
       }
       // Compact hosts (bar widgets): drop the settings-tier control chrome
       // (min-height, wide padding) and hug the content — a bar capsule is

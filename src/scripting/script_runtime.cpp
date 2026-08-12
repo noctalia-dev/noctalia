@@ -879,6 +879,7 @@ namespace scripting {
       result.timedOut = host != nullptr && host->lastCallTimedOut();
       result.patch = bindingContext.patch;
       result.sideEffects = bindingContext.sideEffects;
+      result.contextMenuRequest = bindingContext.contextMenuRequest;
       result.hasOnIpcKnown = false;
       if (!ok) {
         // The VM's own message names the failing chunk and line, which for a bad

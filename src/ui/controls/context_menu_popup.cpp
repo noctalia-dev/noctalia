@@ -94,7 +94,7 @@ void ContextMenuPopup::open(ContextMenuPopupRequest request) {
           | XDG_POSITIONER_CONSTRAINT_ADJUSTMENT_FLIP_Y,
       .offsetX = resolvedPlacement.offsetX,
       .offsetY = resolvedPlacement.offsetY,
-      .serial = m_wayland.lastInputSerial(),
+      .serial = request.inputSerial.value_or(m_wayland.lastInputSerial()),
       .grab = true,
   };
   popup_chrome::applyToConfig(popupCfg, chrome, resolvedPlacement.chromeAttachment);
@@ -327,7 +327,7 @@ bool ContextMenuPopup::onPointerEvent(const PointerEvent& event) {
         m_pointerInside = true;
       }
       const bool pressed = event.pressed;
-      m_inputDispatcher.pointerButton(localX, localY, event.button, pressed);
+      m_inputDispatcher.pointerButton(localX, localY, event.button, pressed, event.serial, event.time);
       if (!pressed && captured && !onPopup) {
         m_pointerInside = false;
         m_inputDispatcher.pointerLeave();

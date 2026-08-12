@@ -217,8 +217,12 @@ Button::Button() {
     if (!m_enabled) {
       return;
     }
-    if (data.button == BTN_RIGHT && m_onRightClick) {
-      m_onRightClick();
+    if (data.button == BTN_RIGHT && (m_onRightClick || m_onRightClickWithPointer)) {
+      if (m_onRightClickWithPointer) {
+        m_onRightClickWithPointer(data.sceneX, data.sceneY, data.serial, data.time);
+      } else {
+        m_onRightClick();
+      }
     } else if (data.button == BTN_LEFT && m_onClick) {
       m_onClick();
     }
@@ -306,6 +310,19 @@ void Button::setOnRightClick(std::function<void()> callback) {
   if (m_inputArea != nullptr) {
     m_inputArea->setAcceptedButtons(
         m_onRightClick ? InputArea::buttonMask({BTN_LEFT, BTN_RIGHT}) : InputArea::buttonMask(BTN_LEFT)
+    );
+  }
+  refreshInputAreaEnabled();
+}
+
+void Button::setOnRightClickWithPointer(
+    std::function<void(float sceneX, float sceneY, std::uint32_t serial, std::uint32_t time)> callback
+) {
+  m_onRightClickWithPointer = std::move(callback);
+  if (m_inputArea != nullptr) {
+    m_inputArea->setAcceptedButtons(
+        (m_onRightClick || m_onRightClickWithPointer) ? InputArea::buttonMask({BTN_LEFT, BTN_RIGHT})
+                                                      : InputArea::buttonMask(BTN_LEFT)
     );
   }
   refreshInputAreaEnabled();
@@ -505,7 +522,8 @@ void Button::refreshInputAreaEnabled() {
             || static_cast<bool>(m_onPress)
             || static_cast<bool>(m_onEnter)
             || static_cast<bool>(m_onLeave)
-            || static_cast<bool>(m_onRightClick))
+            || static_cast<bool>(m_onRightClick)
+            || static_cast<bool>(m_onRightClickWithPointer))
     );
   }
 }

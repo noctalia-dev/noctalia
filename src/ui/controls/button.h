@@ -66,6 +66,9 @@ public:
   void setSurfaceOpacity(float opacity);
   void setOnClick(std::function<void()> callback);
   void setOnRightClick(std::function<void()> callback);
+  void setOnRightClickWithPointer(
+      std::function<void(float sceneX, float sceneY, std::uint32_t serial, std::uint32_t time)> callback
+  );
   void setOnPress(std::function<void(float localX, float localY, bool pressed)> callback);
   void setOnMotion(std::function<void()> callback);
   void setOnPointerMotion(std::function<void(float localX, float localY)> callback);
@@ -122,6 +125,7 @@ private:
   std::uint32_t m_animId = 0;
   std::function<void()> m_onClick;
   std::function<void()> m_onRightClick;
+  std::function<void(float, float, std::uint32_t, std::uint32_t)> m_onRightClickWithPointer;
   std::function<void(float, float, bool)> m_onPress;
   std::function<void()> m_onMotion;
   std::function<void(float, float)> m_onPointerMotion;

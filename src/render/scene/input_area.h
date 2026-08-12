@@ -24,6 +24,11 @@ public:
   struct PointerData {
     float localX = 0.0F;
     float localY = 0.0F;
+    // Coordinates in the dispatcher's scene (the parent wl_surface).
+    float sceneX = 0.0F;
+    float sceneY = 0.0F;
+    std::uint32_t serial = 0;
+    std::uint32_t time = 0;
     std::uint32_t button = 0;
     std::uint32_t axis = 0;
     std::uint32_t axisSource = 0;
@@ -174,7 +179,10 @@ public:
   void dispatchEnter(float localX, float localY);
   void dispatchLeave();
   void dispatchMotion(float localX, float localY);
-  void dispatchPress(float localX, float localY, std::uint32_t button, bool isPressed);
+  void dispatchPress(
+      float localX, float localY, std::uint32_t button, bool isPressed, float sceneX = 0.0F, float sceneY = 0.0F,
+      std::uint32_t serial = 0, std::uint32_t time = 0
+  );
   void dispatchCancel();
   [[nodiscard]] bool dispatchAxis(
       float localX, float localY, std::uint32_t axis, std::uint32_t axisSource, double axisValue,
@@ -215,6 +223,10 @@ private:
   bool m_hovered = false;
   bool m_pressed = false;
   std::uint32_t m_pressedButton = 0;
+  float m_pressedSceneX = 0.0F;
+  float m_pressedSceneY = 0.0F;
+  std::uint32_t m_pressedSerial = 0;
+  std::uint32_t m_pressedTime = 0;
   // Detent-unit scroll accumulators, indexed by wl_pointer axis (vertical, horizontal).
   std::array<float, 2> m_scrollStepAccum{};
   // When the last step was delivered on each axis, and in which direction (0 = none this

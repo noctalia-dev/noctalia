@@ -35,6 +35,24 @@ int main() {
   {
     InputDispatcher dispatcher;
     auto root = std::make_unique<Node>();
+    root->setSize(100.0F, 100.0F);
+    auto* area = addArea(*root);
+    InputArea::PointerData clicked;
+    area->setOnClick([&clicked](const InputArea::PointerData& data) { clicked = data; });
+    dispatcher.setSceneRoot(root.get());
+    dispatcher.pointerEnter(10.0F, 12.0F, 40);
+    (void)dispatcher.pointerButton(10.0F, 12.0F, BTN_LEFT, true, 41, 100);
+    (void)dispatcher.pointerButton(11.0F, 13.0F, BTN_LEFT, false, 42, 101);
+    ok = expect(
+             clicked.sceneX == 10.0F && clicked.sceneY == 12.0F && clicked.serial == 41 && clicked.time == 100,
+             "click callbacks preserve the initiating press coordinates, serial, and time"
+         )
+        && ok;
+  }
+
+  {
+    InputDispatcher dispatcher;
+    auto root = std::make_unique<Node>();
     root->setSize(100.0f, 100.0f);
     auto* area = addArea(*root);
     int cancellations = 0;
