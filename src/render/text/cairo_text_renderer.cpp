@@ -1014,7 +1014,8 @@ CairoTextRenderer::CacheEntry* CairoTextRenderer::lookupOrRasterize(
 void CairoTextRenderer::draw(
     float contentScale, float surfaceWidth, float surfaceHeight, float x, float baselineY, std::string_view text,
     float fontSize, const Color& color, const Mat3& transform, FontWeight fontWeight, float maxWidth, int maxLines,
-    TextAlign align, std::string_view fontFamily, TextEllipsize ellipsize, bool useMarkup
+    TextAlign align, std::string_view fontFamily, TextEllipsize ellipsize, bool useMarkup,
+    const TextGradientStyle* gradient
 ) {
   maybeSyncFontConfig();
   if (m_pangoContext == nullptr || m_backend == nullptr || text.empty()) {
@@ -1063,11 +1064,34 @@ void CairoTextRenderer::draw(
   // buffer-pixel boundaries (pixelYOffset is an integer number of raster
   // pixels), so there is no seam between adjacent tiles even at fractional
   // content scales.
+  // The gradient spans the full laid-out block so tiles continue one ramp.
+  const TextGradientStyle gradientStyle = gradient != nullptr ? *gradient : TextGradientStyle{};
+  const float fullTextHeight = static_cast<float>(entry->pixelHeight) * invScale;
+
   for (const auto& tile : entry->tiles) {
     const float tileYLocal = static_cast<float>(tile.pixelYOffset) * invScale;
     const float tileH = static_cast<float>(tile.pixelHeight) * invScale;
     const Mat3 tileWorld = baseWorld * Mat3::translation(0.0F, tileYLocal);
-    if (entry->tinted) {
+    if (gradientStyle.enabled) {
+      m_backend->drawGlyph(
+          RenderGlyphDraw{
+              .texture = tile.texture.id,
+              .surfaceWidth = surfaceWidth,
+              .surfaceHeight = surfaceHeight,
+              .width = quadW,
+              .height = tileH,
+              // An RGBA entry (colour emoji, markup) still exposes usable
+              // coverage in its alpha, so the gradient masks through it too.
+              .opacity = entry->tinted ? 1.0F : color.a,
+              .transform = tileWorld,
+              .gradient = gradientStyle,
+              .fullTextWidth = quadW,
+              .fullTextHeight = fullTextHeight,
+              .tileOffsetY = tileYLocal,
+              .contentScale = contentScale,
+          }
+      );
+    } else if (entry->tinted) {
       m_backend->drawGlyph(
           RenderGlyphDraw{
               .texture = tile.texture.id,

@@ -398,9 +398,19 @@ void RenderContext::renderNode(
       }
       auto color = text->color();
       color.a *= effectiveOpacity;
+      // A gradient overrides the solid fill, so opacity has to be folded into
+      // the stops the way the rect path does it — the `color.a` above no longer
+      // reaches the pixels, and a gradient label must still fade with its parent.
+      TextGradientStyle gradient = text->gradientStyle();
+      if (gradient.enabled) {
+        for (auto& stop : gradient.stops) {
+          stop.color.a *= effectiveOpacity;
+        }
+      }
       m_textRenderer.draw(
           renderScale, sw, sh, 0.0F, 0.0F, text->text(), text->fontSize(), color, worldTransform, text->fontWeight(),
-          text->maxWidth(), text->maxLines(), text->textAlign(), font, text->ellipsize(), text->useMarkup()
+          text->maxWidth(), text->maxLines(), text->textAlign(), font, text->ellipsize(), text->useMarkup(),
+          gradient.enabled ? &gradient : nullptr
       );
     }
     break;

@@ -602,6 +602,14 @@ void GlesRenderBackend::drawGlyph(const RenderGlyphDraw& draw) {
   }
 
   m_glyphProgram.ensureInitialized();
+  if (draw.gradient.enabled) {
+    m_glyphProgram.drawGradient(
+        draw.texture, draw.surfaceWidth, draw.surfaceHeight, draw.width, draw.height, draw.u0, draw.v0, draw.u1,
+        draw.v1, draw.opacity, draw.gradient, draw.fullTextWidth, draw.fullTextHeight, draw.tileOffsetY,
+        draw.contentScale, draw.transform
+    );
+    return;
+  }
   if (draw.tinted) {
     m_glyphProgram.drawTinted(
         draw.texture, draw.surfaceWidth, draw.surfaceHeight, draw.width, draw.height, draw.u0, draw.v0, draw.u1,

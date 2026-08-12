@@ -83,6 +83,19 @@ struct RenderGlyphDraw {
   Color tint = rgba(1.0F, 1.0F, 1.0F, 1.0F);
   bool tinted = false;
   Mat3 transform = Mat3::identity();
+
+  // Gradient text. The gradient is evaluated across the *whole* laid-out block,
+  // not this quad, so a multi-line or tiled label keeps one continuous ramp:
+  // fullTextWidth/Height describe that block and tileOffsetY says where this
+  // quad sits inside it. Left disabled, these are inert and the two paths above
+  // behave exactly as before.
+  TextGradientStyle gradient{};
+  float fullTextWidth = 0.0F;
+  float fullTextHeight = 0.0F;
+  float tileOffsetY = 0.0F;
+  // Buffer pixels per logical pixel. The glow kernel taps in texels, so it needs
+  // this to turn a logical radius into a texel radius.
+  float contentScale = 1.0F;
 };
 
 struct RenderScissor {
