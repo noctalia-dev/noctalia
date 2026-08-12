@@ -4,7 +4,7 @@
 #include "render/core/render_styles.h"
 #include "render/scene/node.h"
 #include "ui/palette.h"
-#include "ui/signal.h"
+#include "util/signal.h"
 
 #include <cstdint>
 #include <functional>

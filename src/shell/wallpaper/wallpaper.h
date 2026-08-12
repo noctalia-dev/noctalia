@@ -3,6 +3,7 @@
 #include "config/config_types.h"
 #include "shell/wallpaper/wallpaper_shuffle_state.h"
 #include "ui/signal.h"
+#include "util/signal.h"
 
 #include <cstdint>
 #include <functional>

@@ -260,6 +260,44 @@ int main() {
     motion.setSpeed(1.0F);
   }
 
+  // Reduced motion: a retained gradient parks at the midpoint with no active
+  // trip, ticks must not chain 1 ms completions into a busy loop, and
+  // re-enabling motion resumes the animation. Disabling mid-trip cancels the
+  // running trip immediately rather than letting it finish in fast-forward.
+  {
+    AnimationManager manager;
+    MotionService& motion = MotionService::instance();
+
+    motion.setEnabled(false);
+    Gradient gradient;
+    gradient.setMotion(GradientMotion::PingPong, 40.0F, -0.4F, 0.4F);
+    gradient.setAnimationManager(&manager);
+
+    ok = expect(!manager.hasActive(), "reduced motion should not retain a repeating trip") && ok;
+    ok = expect(nearlyEqual(gradient.offset(), 0.0F), "reduced motion should use the midpoint") && ok;
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(45));
+    for (int i = 0; i < 3; ++i) {
+      manager.tick(0.0F);
+    }
+    ok = expect(!manager.hasActive(), "reduced motion ticks must not chain completions") && ok;
+    ok = expect(nearlyEqual(gradient.offset(), 0.0F), "reduced motion stays parked at the midpoint") && ok;
+
+    motion.setEnabled(true);
+    ok = expect(manager.hasActive(), "restoring motion should resume a retained gradient") && ok;
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    manager.tick(0.0F);
+    ok = expect(manager.hasActive(), "the resumed trip should still be running") && ok;
+    ok = expect(gradient.offset() > -0.4F && gradient.offset() < 0.4F, "the resumed trip should be mid-flight") && ok;
+
+    motion.setEnabled(false);
+    ok = expect(!manager.hasActive(), "disabling mid-trip cancels the running trip") && ok;
+    ok = expect(nearlyEqual(gradient.offset(), 0.0F), "disabling mid-trip parks at the midpoint") && ok;
+
+    motion.setEnabled(true);
+  }
+
   if (!ok) {
     return 1;
   }

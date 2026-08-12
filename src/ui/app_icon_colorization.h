@@ -2,7 +2,7 @@
 
 #include "render/core/color.h"
 #include "ui/palette.h"
-#include "ui/signal.h"
+#include "util/signal.h"
 
 #include <cstdint>
 #include <optional>

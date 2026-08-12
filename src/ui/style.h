@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ui/signal.h"
+#include "util/signal.h"
 
 namespace Style {
 

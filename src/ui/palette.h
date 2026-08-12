@@ -1,8 +1,8 @@
 #pragma once
 
 #include "render/core/color.h"
-#include "ui/signal.h"
 #include "ui/style.h"
+#include "util/signal.h"
 
 #include <array>
 #include <cstdint>

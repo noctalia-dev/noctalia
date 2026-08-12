@@ -11,6 +11,20 @@
 Gradient::Gradient() {
   m_rect = static_cast<RectNode*>(addChild(std::make_unique<RectNode>()));
   m_paletteConn = paletteChanged().connect([this] { applyPalette(); });
+  m_motionEnabledConn = MotionService::instance().enabledChanged().connect([this](bool enabled) {
+    if (m_motion == GradientMotion::None) {
+      return;
+    }
+    if (enabled) {
+      m_outbound = true;
+      startTrip();
+    } else {
+      // Cancel instead of letting reduceMotion finish the trip in 1 ms, whose
+      // completion would chain a replacement forever.
+      stopTrip();
+      setOffset((m_motionFrom + m_motionTo) * 0.5F);
+    }
+  });
   applyPalette();
 }
 

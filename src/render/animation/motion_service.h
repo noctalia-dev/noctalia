@@ -1,5 +1,7 @@
 #pragma once
 
+#include "util/signal.h"
+
 #include <cstdint>
 #include <unordered_set>
 
@@ -21,10 +23,15 @@ public:
   [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
   [[nodiscard]] float speed() const noexcept { return m_speed; }
 
+  // Emitted after setEnabled changes the global motion state; lets chained
+  // animations pause/resume instead of racing 1 ms reduced-motion completions.
+  Signal<bool>& enabledChanged() noexcept { return m_enabledChanged; }
+
 private:
   MotionService() = default;
 
   bool m_enabled = true;
   float m_speed = 1.0F;
   std::unordered_set<AnimationManager*> m_managers;
+  Signal<bool> m_enabledChanged;
 };

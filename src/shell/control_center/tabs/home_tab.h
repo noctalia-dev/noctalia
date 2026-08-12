@@ -6,7 +6,7 @@
 #include "shell/control_center/control_center_services.h"
 #include "shell/control_center/shortcut_services.h"
 #include "shell/control_center/tab.h"
-#include "ui/signal.h"
+#include "util/signal.h"
 
 #include <chrono>
 #include <cstdint>

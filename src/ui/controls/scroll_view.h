@@ -3,8 +3,8 @@
 #include "ui/controls/flex.h"
 #include "ui/controls/scrollbar.h"
 #include "ui/palette.h"
-#include "ui/signal.h"
 #include "ui/style.h"
+#include "util/signal.h"
 
 #include <chrono>
 #include <cstdint>

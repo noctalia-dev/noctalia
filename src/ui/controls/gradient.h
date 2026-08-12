@@ -3,7 +3,7 @@
 #include "render/animation/animation_manager.h"
 #include "render/scene/node.h"
 #include "ui/palette.h"
-#include "ui/signal.h"
+#include "util/signal.h"
 
 #include <array>
 #include <cstdint>
@@ -66,6 +66,7 @@ private:
   float m_radius = 0.0F;
   float m_softness = 1.0F;
   Signal<>::ScopedConnection m_paletteConn;
+  Signal<bool>::ScopedConnection m_motionEnabledConn;
 
   GradientMotion m_motion = GradientMotion::None;
   float m_motionDurationMs = 0.0F;

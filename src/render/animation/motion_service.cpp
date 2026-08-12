@@ -37,6 +37,7 @@ void MotionService::setEnabled(bool enabled) {
       }
     }
   }
+  m_enabledChanged.emit(m_enabled);
 }
 
 void MotionService::setSpeed(float speed) { m_speed = std::clamp(speed, 0.05F, 4.0F); }

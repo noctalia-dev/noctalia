@@ -3,9 +3,9 @@
 #include "core/timer_manager.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
-#include "ui/signal.h"
 #include "ui/style.h"
 #include "ui/text_input_client.h"
+#include "util/signal.h"
 
 #include <chrono>
 #include <cstddef>

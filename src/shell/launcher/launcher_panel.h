@@ -4,7 +4,7 @@
 #include "launcher/usage_tracker.h"
 #include "shell/panel/panel.h"
 #include "system/icon_resolver.h"
-#include "ui/signal.h"
+#include "util/signal.h"
 
 #include <cstddef>
 #include <functional>

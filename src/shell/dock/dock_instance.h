@@ -5,7 +5,7 @@
 #include "render/scene/input_dispatcher.h"
 #include "shell/dock/dock_items.h"
 #include "shell/dock/dock_model.h"
-#include "ui/signal.h"
+#include "util/signal.h"
 
 #include <cstdint>
 #include <functional>
