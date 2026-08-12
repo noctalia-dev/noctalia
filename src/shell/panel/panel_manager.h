@@ -115,6 +115,7 @@ public:
   // Bar that opened the active panel; empty when none was recorded.
   [[nodiscard]] std::string_view attachedSourceBarName() const noexcept;
   [[nodiscard]] const std::string& activePanelId() const noexcept;
+  [[nodiscard]] Panel* activePanel() const noexcept { return m_activePanel; }
   // True when a panel is open and it reports the given context as active (e.g. control-center tab).
   [[nodiscard]] bool isActivePanelContext(std::string_view context) const noexcept;
   [[nodiscard]] std::optional<LayerPopupParentContext> popupParentContextForSurface(wl_surface* surface) const noexcept;

@@ -90,6 +90,7 @@ public:
   [[nodiscard]] float preferredWidth() const override;
   [[nodiscard]] float preferredHeight() const override { return scaled(520.0F); }
   [[nodiscard]] PanelPlacement panelPlacement() const noexcept override;
+  [[nodiscard]] bool showsSidebar() const noexcept { return m_showSidebar; }
 
 private:
   void onPanelCardOpacityChanged(float opacity) override;

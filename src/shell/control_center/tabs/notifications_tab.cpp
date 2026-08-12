@@ -9,6 +9,7 @@
 #include "render/animation/animation.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
+#include "shell/control_center/control_center_panel.h"
 #include "shell/panel/panel_button_style.h"
 #include "shell/panel/panel_manager.h"
 #include "time/time_format.h"
@@ -948,7 +949,12 @@ void NotificationsTab::clearAllNotifications() {
   if (m_list != nullptr) {
     m_list->notifyDataChanged();
   }
-  PanelManager::instance().refresh();
+  auto* panel = dynamic_cast<ControlCenterPanel*>(PanelManager::instance().activePanel());
+  if (panel != nullptr && !panel->showsSidebar()) {
+    PanelManager::instance().close();
+  } else {
+    PanelManager::instance().refresh();
+  }
 }
 
 void NotificationsTab::toggleDoNotDisturb() {
