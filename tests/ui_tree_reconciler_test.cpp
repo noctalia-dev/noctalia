@@ -109,6 +109,35 @@ namespace {
     return node;
   }
 
+  // The design's Animoo wordmark, minus the parts the reconciler does not read.
+  ui::UiTreeNode makeGradientLabel() {
+    ui::UiTreeNode node = makeNode("label");
+    node.key = "animoo-wordmark";
+    node.props.emplace("text", std::string("\u30a2\u30cb\u30e0\u30fc"));
+    node.props.emplace("color", std::string("on_surface"));
+    node.props.emplace("colors", std::vector<std::string>{"primary/0.08", "#f4ffff", "primary/0.08"});
+    node.props.emplace("stops", std::vector<double>{0.40, 0.50, 0.60});
+    node.props.emplace("direction", std::string("horizontal"));
+    node.props.emplace("motion", std::string("loop"));
+    node.props.emplace("duration", 1800.0);
+    node.props.emplace("offsetFrom", -0.60);
+    node.props.emplace("offsetTo", 0.60);
+    node.props.emplace("glowRadius", 3.0);
+    return node;
+  }
+
+  Label*
+  reconcileSingleLabel(ui::UiTreeReconciler& reconciler, Flex& host, ui::UiTreeNode node, StubRenderer& renderer) {
+    ui::UiTreeNode tree = makeNode("column");
+    tree.children.push_back(std::move(node));
+    (void)reconciler.reconcile(host, tree, renderer);
+    auto* column = host.children().empty() ? nullptr : dynamic_cast<Flex*>(host.children().front().get());
+    if (column == nullptr || column->children().empty()) {
+      return nullptr;
+    }
+    return dynamic_cast<Label*>(column->children().front().get());
+  }
+
   Gradient*
   reconcileSingleGradient(ui::UiTreeReconciler& reconciler, Flex& host, ui::UiTreeNode node, StubRenderer& renderer) {
     ui::UiTreeNode tree = makeNode("column");
@@ -2595,6 +2624,151 @@ int main() {
       ok = expect(std::fabs(gradient->style().gradientOffset - 0.2F) <= 1e-4F, "equal endpoints pin the static offset")
           && ok;
     }
+  }
+
+  // ui.label gradient: the paint props ui.gradient already understands reach the
+  // label, resolve against the palette, and register one native trip. The label
+  // keeps its solid color as the fallback the whole time.
+  {
+    AnimationManager manager;
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    host.setAnimationManager(&manager);
+
+    Label* label = reconcileSingleLabel(reconciler, host, makeGradientLabel(), renderer);
+    ok = expect(label != nullptr, "gradient label control created") && ok;
+    if (label != nullptr) {
+      const auto& style = label->gradientStyle();
+      ok = expect(style.enabled, "colors enable the label gradient") && ok;
+      ok = expect(style.angleDeg == 0.0F, "horizontal maps to 0 degrees on a label") && ok;
+
+      // Three logical colours pad to four physical stops by repeating the last.
+      ok = expect(
+               style.stops[0].position == 0.40F
+                   && style.stops[1].position == 0.50F
+                   && style.stops[2].position == 0.60F
+                   && style.stops[3].position == 0.60F,
+               "three label stops pad onto four physical stops"
+           )
+          && ok;
+      ok = expect(
+               style.stops[2].color == style.stops[3].color && style.stops[0].color == style.stops[2].color,
+               "the third logical colour is the one duplicated"
+           )
+          && ok;
+      ok = expect(
+               style.stops[1].color == Color{1.0F, 1.0F, 1.0F, 1.0F} || style.stops[1].color.a == 1.0F,
+               "the crest colour resolves opaque"
+           )
+          && ok;
+
+      // glowRadius is logical pixels; the reconciler scales it like every other length.
+      ok = expect(style.glowRadius == 3.0F, "glow radius reaches the label scaled") && ok;
+      ok = expect(manager.hasActive(), "a visible animated gradient label registers a trip") && ok;
+      ok = expect(label->color().a > 0.0F, "the solid fallback colour survives alongside the gradient") && ok;
+    }
+  }
+
+  // ui.label gradient: a label with no colors is byte-for-byte the old solid path.
+  {
+    AnimationManager manager;
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    host.setAnimationManager(&manager);
+    Label* label = reconcileSingleLabel(reconciler, host, makeLabel("plain", "plain"), renderer);
+    ok = expect(label != nullptr, "plain label still builds") && ok;
+    ok = expect(label != nullptr && !label->gradientStyle().enabled, "a label without colors has no gradient") && ok;
+    ok = expect(!manager.hasActive(), "a plain label registers no trip") && ok;
+  }
+
+  // ui.label gradient: every invalid shape falls back to the solid color and
+  // leaves no animation running. Invisible text is the one outcome not allowed.
+  {
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double inf = std::numeric_limits<double>::infinity();
+    struct InvalidCase {
+      const char* name;
+      std::function<void(ui::UiTreeNode&)> mutate;
+    };
+    const std::vector<InvalidCase> cases = {
+        {.name = "label one colour",
+         .mutate = [](ui::UiTreeNode& n) { n.props["colors"] = std::vector<std::string>{"#ff0000"}; }},
+        {.name = "label mismatched stops",
+         .mutate = [](ui::UiTreeNode& n) { n.props["stops"] = std::vector<double>{0.0, 1.0}; }},
+        {.name = "label NaN stop",
+         .mutate = [nan](ui::UiTreeNode& n) { n.props["stops"] = std::vector<double>{0.0, nan, 1.0}; }},
+        {.name = "label infinite angleDeg", .mutate = [inf](ui::UiTreeNode& n) { n.props["angleDeg"] = inf; }},
+        {.name = "label unknown colour",
+         .mutate = [](ui::UiTreeNode& n) { n.props["colors"] = std::vector<std::string>{"nope", "#f4ffff", "nope"}; }},
+        {.name = "label negative glow", .mutate = [](ui::UiTreeNode& n) { n.props["glowRadius"] = -1.0; }},
+        {.name = "label oversized glow", .mutate = [](ui::UiTreeNode& n) { n.props["glowRadius"] = 9.0; }},
+        {.name = "label NaN glow", .mutate = [nan](ui::UiTreeNode& n) { n.props["glowRadius"] = nan; }},
+    };
+    for (const auto& invalid : cases) {
+      AnimationManager manager;
+      ui::UiTreeReconciler reconciler;
+      Flex host;
+      host.setAnimationManager(&manager);
+      ui::UiTreeNode node = makeGradientLabel();
+      invalid.mutate(node);
+      Label* label = reconcileSingleLabel(reconciler, host, std::move(node), renderer);
+
+      std::string createdMsg = std::string(invalid.name) + " still creates the label";
+      ok = expect(label != nullptr, createdMsg.c_str()) && ok;
+      if (label == nullptr) {
+        continue;
+      }
+      std::string clearedMsg = std::string(invalid.name) + " clears the gradient";
+      ok = expect(!label->gradientStyle().enabled, clearedMsg.c_str()) && ok;
+      std::string readableMsg = std::string(invalid.name) + " leaves the text readable";
+      ok = expect(label->color().a > 0.0F, readableMsg.c_str()) && ok;
+      std::string stoppedMsg = std::string(invalid.name) + " leaves no animation running";
+      ok = expect(!manager.hasActive(), stoppedMsg.c_str()) && ok;
+    }
+  }
+
+  // ui.label gradient: an unknown motion token keeps the paint and drops only
+  // the trip, matching ui.gradient's rule.
+  {
+    AnimationManager manager;
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    host.setAnimationManager(&manager);
+    ui::UiTreeNode node = makeGradientLabel();
+    node.props["motion"] = std::string("wobble");
+    node.props["offset"] = 0.25;
+    Label* label = reconcileSingleLabel(reconciler, host, std::move(node), renderer);
+    ok = expect(label != nullptr, "unknown label motion still creates the label") && ok;
+    if (label != nullptr) {
+      ok = expect(label->gradientStyle().enabled, "unknown motion keeps the static gradient") && ok;
+      ok = expect(label->gradientStyle().offset == 0.25F, "unknown motion parks at the static offset") && ok;
+    }
+    ok = expect(!manager.hasActive(), "unknown label motion registers no trip") && ok;
+  }
+
+  // ui.label gradient: hiding a label stops its trip, showing restarts it.
+  {
+    AnimationManager manager;
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    host.setAnimationManager(&manager);
+
+    Label* label = reconcileSingleLabel(reconciler, host, makeGradientLabel(), renderer);
+    ok = expect(label != nullptr && manager.hasActive(), "visible gradient label animates") && ok;
+
+    ui::UiTreeNode hidden = makeGradientLabel();
+    hidden.props.emplace("visible", false);
+    label = reconcileSingleLabel(reconciler, host, std::move(hidden), renderer);
+    ok = expect(label != nullptr && !label->visible(), "the gradient label is hidden") && ok;
+    ok = expect(!manager.hasActive(), "hiding a gradient label stops its motion") && ok;
+    manager.tick(0.0F);
+    ok = expect(!manager.hasActive(), "a hidden gradient label stays stopped after a tick") && ok;
+
+    ui::UiTreeNode shown = makeGradientLabel();
+    shown.props.emplace("visible", true);
+    label = reconcileSingleLabel(reconciler, host, std::move(shown), renderer);
+    ok = expect(label != nullptr && label->visible(), "the gradient label is visible again") && ok;
+    ok = expect(manager.hasActive(), "restoring visibility restarts label motion") && ok;
   }
 
   return ok ? 0 : 1;
