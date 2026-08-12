@@ -1,10 +1,14 @@
+#include "render/animation/animation_manager.h"
+#include "render/animation/motion_service.h"
 #include "render/core/render_styles.h"
 #include "ui/controls/gradient.h"
 #include "ui/palette.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <print>
+#include <thread>
 
 namespace {
 
@@ -142,6 +146,118 @@ int main() {
              "360 degrees should reduce to 0"
          )
         && ok;
+  }
+
+  // Native motion: ping-pong runs an outward trip, then chains a return trip.
+  // Trips are >= 30 ms with >= 30 ms of slack because AnimationManager measures
+  // wall time; assertions stay in broad ranges for the same reason.
+  {
+    AnimationManager manager;
+    Gradient gradient;
+    gradient.setMotion(GradientMotion::PingPong, 30.0F, -0.45F, 0.45F);
+    gradient.setAnimationManager(&manager);
+    ok = expect(manager.hasActive(), "ping-pong should register native motion") && ok;
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(60));
+    manager.tick(0.0F);
+    ok = expect(manager.hasActive(), "ping-pong should start its return trip") && ok;
+    ok = expect(gradient.offset() > 0.40F, "ping-pong should reach the far endpoint") && ok;
+  }
+
+  // Loop runs the same trip over and over, wrapping back to the start point.
+  {
+    AnimationManager manager;
+    Gradient gradient;
+    gradient.setMotion(GradientMotion::Loop, 30.0F, -0.45F, 0.45F);
+    gradient.setAnimationManager(&manager);
+    ok = expect(manager.hasActive(), "loop should register native motion") && ok;
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(60));
+    manager.tick(0.0F);
+    ok = expect(manager.hasActive(), "loop should restart after a completed trip") && ok;
+    ok = expect(gradient.offset() > 0.40F, "loop should reach the endpoint before wrapping") && ok;
+    manager.tick(0.0F);
+    ok = expect(gradient.offset() < -0.30F, "loop should wrap back to its start point") && ok;
+  }
+
+  // Static configurations never register an animation.
+  {
+    AnimationManager manager;
+    Gradient gradient;
+    gradient.setAnimationManager(&manager);
+    ok = expect(!manager.hasActive(), "no motion means no animation") && ok;
+
+    gradient.setMotion(GradientMotion::None, 30.0F, -0.45F, 0.45F);
+    ok = expect(!manager.hasActive(), "explicit none motion stays static") && ok;
+
+    gradient.setMotion(GradientMotion::PingPong, 30.0F, 0.2F, 0.2F);
+    ok = expect(!manager.hasActive(), "equal endpoints are static") && ok;
+    ok = expect(nearlyEqual(gradient.offset(), 0.2F), "static endpoints pin the offset") && ok;
+  }
+
+  // An unchanged motion configuration keeps the running trip and its phase.
+  {
+    AnimationManager manager;
+    Gradient gradient;
+    gradient.setMotion(GradientMotion::Loop, 90.0F, -0.45F, 0.45F);
+    gradient.setAnimationManager(&manager);
+    std::this_thread::sleep_for(std::chrono::milliseconds(45));     // mid-trip: offset ≈ 0
+    gradient.setMotion(GradientMotion::Loop, 90.0F, -0.45F, 0.45F); // unchanged
+    manager.tick(0.0F);
+    ok = expect(gradient.offset() > -0.20F, "an unchanged motion config keeps the current phase") && ok;
+  }
+
+  // A changed configuration cancels the old trip and starts one replacement.
+  {
+    AnimationManager manager;
+    Gradient gradient;
+    gradient.setMotion(GradientMotion::PingPong, 90.0F, -0.45F, 0.45F);
+    gradient.setAnimationManager(&manager);
+    std::this_thread::sleep_for(std::chrono::milliseconds(40)); // mid-trip: offset ≈ 0
+    gradient.setMotion(GradientMotion::PingPong, 90.0F, 0.3F, 0.45F);
+    manager.tick(0.0F);
+    ok = expect(manager.hasActive(), "a changed motion config starts a replacement trip") && ok;
+    ok = expect(gradient.offset() > 0.20F, "a changed motion config restarts from the new start point") && ok;
+  }
+
+  // Destroying the control leaves no owner-bound animation behind.
+  {
+    AnimationManager manager;
+    {
+      Gradient gradient;
+      gradient.setMotion(GradientMotion::PingPong, 30.0F, -0.45F, 0.45F);
+      gradient.setAnimationManager(&manager);
+      ok = expect(manager.hasActive(), "bound gradient registers a trip") && ok;
+    }
+    ok = expect(!manager.hasActive(), "destroying the control cancels its owner-bound animation") && ok;
+  }
+
+  // The global speed setting scales a trip when it starts: a trip begun at
+  // speed 4 finishes four times faster than one begun at speed 1. This pins
+  // the use of animate() rather than animateTimer().
+  {
+    AnimationManager manager;
+    Gradient fast;
+    Gradient slow;
+    MotionService& motion = MotionService::instance();
+
+    motion.setSpeed(4.0F);
+    fast.setMotion(GradientMotion::PingPong, 120.0F, -0.45F, 0.45F);
+    fast.setAnimationManager(&manager);
+
+    motion.setSpeed(1.0F);
+    slow.setMotion(GradientMotion::PingPong, 120.0F, -0.45F, 0.45F);
+    slow.setAnimationManager(&manager);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(60));
+    manager.tick(0.0F);
+    ok = expect(fast.offset() > 0.40F, "a speed-4 trip completes in a quarter of the time") && ok;
+    ok = expect(
+             slow.offset() > -0.44F && slow.offset() < 0.44F,
+             "a speed-1 trip is still mid-flight when the speed-4 trip is done"
+         )
+        && ok;
+    motion.setSpeed(1.0F);
   }
 
   if (!ok) {

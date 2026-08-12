@@ -1411,6 +1411,7 @@ namespace ui {
         kLog.warn("ui node 'gradient': radius, softness and offset must be finite");
       }
       if (!paint || !numbersValid) {
+        gradient->setMotion(GradientMotion::None, 0.0F, 0.0F, 0.0F);
         gradient->clearGradient();
         return;
       }
@@ -1427,6 +1428,50 @@ namespace ui {
       gradient->setSize(
           width != nullptr ? scaled(*width) : node->width(), height != nullptr ? scaled(*height) : node->height()
       );
+
+      // Motion: bad tokens or numbers fall back to a static gradient — never a
+      // half-configured animation. Equal endpoints need no trip either.
+      GradientMotion motion = GradientMotion::None;
+      float motionDurationMs = 0.0F;
+      float motionFrom = 0.0F;
+      float motionTo = 0.0F;
+      if (const std::string* token = strProp(desired, "motion")) {
+        if (*token != "none") {
+          bool valid = true;
+          if (*token == "loop") {
+            motion = GradientMotion::Loop;
+          } else if (*token == "ping-pong") {
+            motion = GradientMotion::PingPong;
+          } else {
+            kLog.warn("ui node 'gradient': unknown motion '{}'", *token);
+            valid = false;
+          }
+          const double* duration = numProp(desired, "duration");
+          const double* offsetFrom = numProp(desired, "offsetFrom");
+          const double* offsetTo = numProp(desired, "offsetTo");
+          if (valid && (duration == nullptr || !std::isfinite(*duration) || *duration <= 0.0)) {
+            kLog.warn("ui node 'gradient': motion needs a finite positive 'duration'");
+            valid = false;
+          }
+          if (valid
+              && ((offsetFrom != nullptr && !std::isfinite(*offsetFrom))
+                  || (offsetTo != nullptr && !std::isfinite(*offsetTo)))) {
+            kLog.warn("ui node 'gradient': motion offsets must be finite");
+            valid = false;
+          }
+          if (valid) {
+            motionDurationMs = static_cast<float>(*duration);
+            motionFrom = offsetFrom != nullptr ? static_cast<float>(*offsetFrom) : 0.0F;
+            motionTo = offsetTo != nullptr ? static_cast<float>(*offsetTo) : 1.0F;
+          } else {
+            motion = GradientMotion::None;
+          }
+        }
+      }
+      gradient->setMotion(motion, motionDurationMs, motionFrom, motionTo);
+      // Node::setVisible is non-virtual, so the common-props path above cannot
+      // reach Gradient; hand the current visibility over explicitly.
+      gradient->setMotionVisible(node->visible());
       return;
     }
 

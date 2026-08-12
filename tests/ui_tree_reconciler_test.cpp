@@ -1,3 +1,4 @@
+#include "render/animation/animation_manager.h"
 #include "render/backend/render_backend.h"
 #include "render/core/renderer.h"
 #include "render/core/texture_manager.h"
@@ -22,6 +23,7 @@
 #include "ui/ui_tree_reconciler.h"
 
 #include <array>
+#include <cmath>
 #include <cstdlib>
 #include <functional>
 #include <limits>
@@ -2493,6 +2495,105 @@ int main() {
       ok = expect(gradientCleared(gradient->style()), clearedMsg.c_str()) && ok;
       std::string changedMsg = std::string(invalid.name) + " does not retain prior stops";
       ok = expect(!(gradient->style() == validStyle), changedMsg.c_str()) && ok;
+    }
+  }
+
+  // ui.gradient motion: a visible animated gradient registers a trip with the
+  // host's animation manager; hiding stops it and showing restarts it. The
+  // visible handoff goes through setMotionVisible because Node::setVisible is
+  // non-virtual.
+  {
+    AnimationManager manager;
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    host.setAnimationManager(&manager);
+
+    const auto animatedBand = [] {
+      ui::UiTreeNode node = makeGradient();
+      node.props.emplace("motion", std::string("ping-pong"));
+      node.props.emplace("duration", 30.0);
+      node.props.emplace("offsetFrom", -0.45);
+      node.props.emplace("offsetTo", 0.45);
+      return node;
+    };
+
+    Gradient* gradient = reconcileSingleGradient(reconciler, host, animatedBand(), renderer);
+    ok = expect(gradient != nullptr, "animated gradient control created") && ok;
+    ok = expect(manager.hasActive(), "visible animated gradient registers a trip") && ok;
+
+    ui::UiTreeNode hiddenBand = animatedBand();
+    hiddenBand.props.emplace("visible", false);
+    gradient = reconcileSingleGradient(reconciler, host, std::move(hiddenBand), renderer);
+    ok = expect(gradient != nullptr, "hidden gradient node reused") && ok;
+    ok = expect(!manager.hasActive(), "hiding a gradient stops its motion") && ok;
+    manager.tick(0.0F);
+    ok = expect(!manager.hasActive(), "a hidden gradient stays stopped after a tick") && ok;
+    ok = expect(gradient != nullptr && !gradient->visible(), "the gradient itself is hidden") && ok;
+
+    // Omitted props keep their values, so visibility comes back explicitly.
+    ui::UiTreeNode shownBand = animatedBand();
+    shownBand.props.emplace("visible", true);
+    gradient = reconcileSingleGradient(reconciler, host, std::move(shownBand), renderer);
+    ok = expect(gradient != nullptr, "re-shown gradient node reused") && ok;
+    ok = expect(gradient != nullptr && gradient->visible(), "the gradient is visible again") && ok;
+    ok = expect(manager.hasActive(), "restoring visibility restarts motion") && ok;
+  }
+
+  // ui.gradient motion validation: unknown motion tokens and bad numbers fall
+  // back to a static gradient instead of a runaway animation.
+  {
+    AnimationManager manager;
+    const auto staticBand = [](std::function<void(ui::UiTreeNode&)> mutate) {
+      ui::UiTreeNode node = makeGradient();
+      node.props.emplace("motion", std::string("ping-pong"));
+      node.props.emplace("duration", 30.0);
+      node.props.emplace("offsetFrom", -0.45);
+      node.props.emplace("offsetTo", 0.45);
+      mutate(node);
+      return node;
+    };
+    struct MotionCase {
+      const char* name;
+      std::function<void(ui::UiTreeNode&)> mutate;
+    };
+    const MotionCase cases[] = {
+        {.name = "unknown motion token",
+         .mutate = [](ui::UiTreeNode& n) { n.props["motion"] = std::string("wobble"); }},
+        {.name = "missing duration", .mutate = [](ui::UiTreeNode& n) { n.props.erase("duration"); }},
+        {.name = "zero duration", .mutate = [](ui::UiTreeNode& n) { n.props["duration"] = 0.0; }},
+        {.name = "negative duration", .mutate = [](ui::UiTreeNode& n) { n.props["duration"] = -30.0; }},
+        {.name = "NaN duration",
+         .mutate = [](ui::UiTreeNode& n) { n.props["duration"] = std::numeric_limits<double>::quiet_NaN(); }},
+        {.name = "infinite offsetFrom",
+         .mutate = [](ui::UiTreeNode& n) { n.props["offsetFrom"] = std::numeric_limits<double>::infinity(); }},
+    };
+    for (const auto& bad : cases) {
+      ui::UiTreeReconciler reconciler;
+      Flex host;
+      host.setAnimationManager(&manager);
+      Gradient* gradient = reconcileSingleGradient(reconciler, host, staticBand(bad.mutate), renderer);
+      std::string createdMsg = std::string(bad.name) + " still creates the gradient";
+      ok = expect(gradient != nullptr, createdMsg.c_str()) && ok;
+      std::string staticMsg = std::string(bad.name) + " falls back to a static gradient";
+      ok = expect(!manager.hasActive(), staticMsg.c_str()) && ok;
+    }
+
+    // Equal endpoints are treated as no motion.
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    host.setAnimationManager(&manager);
+    Gradient* gradient = reconcileSingleGradient(
+        reconciler, host, staticBand([](ui::UiTreeNode& n) {
+          n.props["offsetFrom"] = 0.2;
+          n.props["offsetTo"] = 0.2;
+        }),
+        renderer
+    );
+    ok = expect(gradient != nullptr, "equal endpoint gradient created") && ok;
+    ok = expect(!manager.hasActive(), "equal endpoints need no trip") && ok;
+    if (gradient != nullptr) {
+      ok = expect(std::fabs(gradient->style().gradientOffset - 0.2F) <= 1e-4F, "equal endpoints pin the static offset")
+          && ok;
     }
   }
 
