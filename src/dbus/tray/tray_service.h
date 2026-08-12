@@ -108,8 +108,7 @@ private:
 
   void onRegisterStatusNotifierItem(const std::string& serviceOrPath, const std::string& senderBusName);
   void onRegisterStatusNotifierHost(const std::string& host);
-  void startLegacyOwner();
-  void startKde();
+  void startWithWatcherDetection();
   void startAsWatcherOwner();
   void startAsWatcherClient();
   void connectToExternalWatcher();

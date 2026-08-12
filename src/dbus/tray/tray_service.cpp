@@ -1,6 +1,5 @@
 #include "dbus/tray/tray_service.h"
 
-#include "compositors/compositor_detect.h"
 #include "core/deferred_call.h"
 #include "core/log.h"
 #include "core/timer_manager.h"
@@ -563,82 +562,14 @@ void TrayService::start() {
     return;
   }
 
-  if (compositors::isKde()) {
-    startKde();
-  } else {
-    startLegacyOwner();
-  }
+  // Another watcher may already own the name on any desktop, not just KDE: kded6 is
+  // commonly run outside a Plasma session. Become its client if so, own it otherwise.
+  startWithWatcherDetection();
 
   m_started = true;
 }
 
-void TrayService::startLegacyOwner() {
-  m_watcherRole = WatcherRole::Owner;
-
-  m_watcherObject = sdbus::createObject(m_bus.connection(), kWatcherObjectPath);
-
-  auto regItem = sdbus::registerMethod("RegisterStatusNotifierItem").withInputParamNames("service");
-  regItem.inputSignature = "s";
-  regItem.callbackHandler = [this](sdbus::MethodCall msg) {
-    std::string serviceOrPath;
-    msg >> serviceOrPath;
-    const char* sender = msg.getSender();
-    msg.createReply().send();
-    DeferredCall::callLater([this, serviceOrPath = std::move(serviceOrPath),
-                             senderBusName = std::string(sender != nullptr ? sender : "")]() {
-      onRegisterStatusNotifierItem(serviceOrPath, senderBusName);
-    });
-  };
-
-  m_watcherObject
-      ->addVTable(
-          std::move(regItem),
-
-          sdbus::registerMethod("RegisterStatusNotifierHost")
-              .withInputParamNames("service")
-              .implementedAs([this](const std::string& host) { onRegisterStatusNotifierHost(host); }),
-
-          sdbus::registerMethod("GetRegisteredItems").withOutputParamNames("items").implementedAs([this]() {
-            return registeredItems();
-          }),
-
-          sdbus::registerProperty("RegisteredStatusNotifierItems").withGetter([this]() { return registeredItems(); }),
-          sdbus::registerProperty("IsStatusNotifierHostRegistered").withGetter([this]() { return m_hostRegistered; }),
-          sdbus::registerProperty("ProtocolVersion").withGetter([]() { return static_cast<std::int32_t>(0); }),
-
-          sdbus::registerSignal("StatusNotifierItemRegistered").withParameters<std::string>("service"),
-          sdbus::registerSignal("StatusNotifierItemUnregistered").withParameters<std::string>("service"),
-          sdbus::registerSignal("StatusNotifierHostRegistered").withParameters<>()
-      )
-      .forInterface(kWatcherInterface);
-
-  try {
-    m_bus.connection().requestName(kWatcherBusName);
-  } catch (const sdbus::Error& e) {
-    kLog.warn("tray failed to claim {}: {}", std::string{kWatcherBusName}, e.what());
-    throw;
-  }
-
-  m_dbusProxy = sdbus::createProxy(m_bus.connection(), kDbusName, kDbusPath);
-  m_dbusProxy->uponSignal("NameOwnerChanged")
-      .onInterface(kDbusInterface)
-      .call([this](const std::string& name, const std::string& old_owner, const std::string& new_owner) {
-        if (old_owner.empty() && !new_owner.empty() && isStatusNotifierItemBusName(name)) {
-          DeferredCall::callLater([this, name]() { tryRegisterItemForBusName(name); });
-        }
-        if (!old_owner.empty() && new_owner.empty()) {
-          removeItemsForBusName(name);
-        }
-      });
-
-  kLog.debug("tray watcher active on {}", std::string{kWatcherBusName});
-
-  m_watcherObject->emitSignal("StatusNotifierHostRegistered").onInterface(kWatcherInterface);
-  DeferredCall::callLater([this]() { discoverExistingItems(); });
-  DeferredCall::callLater([this]() { discoverExistingItems(); });
-}
-
-void TrayService::startKde() {
+void TrayService::startWithWatcherDetection() {
   m_dbusProxy = sdbus::createProxy(m_bus.connection(), kDbusName, kDbusPath);
   m_dbusProxy->uponSignal("NameOwnerChanged")
       .onInterface(kDbusInterface)
