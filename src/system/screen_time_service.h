@@ -48,6 +48,7 @@ public:
   void onFocusChange();
   void setChangeCallback(std::function<void()> callback);
   void setEnabled(bool enabled);
+  void setSessionLocked(bool locked);
   [[nodiscard]] bool enabled() const noexcept { return m_enabled; }
 
   [[nodiscard]] ScreenTimeSnapshot snapshot(int rangeDays = 1);
@@ -65,6 +66,7 @@ private:
   };
 
   void tick();
+  void restartTicking();
   void flushActiveSession(std::chrono::steady_clock::time_point now);
   void ensureCurrentDayLocked(std::chrono::system_clock::time_point now);
   void load();
@@ -96,4 +98,5 @@ private:
   std::chrono::steady_clock::time_point m_activeSince;
   bool m_dirty = false;
   bool m_enabled = false;
+  bool m_sessionLocked = false;
 };
