@@ -113,14 +113,15 @@ void Separator::applyPalette() {
   const Color opaque = resolveColorSpec(m_color);
   const Color startEdge = m_gradientEdges ? Color{opaque.r, opaque.g, opaque.b, 0.0F} : opaque;
   const Color endEdge = startEdge;
-  const GradientDirection dir = horiz ? GradientDirection::Horizontal : GradientDirection::Vertical;
+  // The rule axis: horizontal rules fade along x (0°), vertical along y (90°).
+  const float angleDeg = horiz ? 0.0F : 90.0F;
 
   m_rectStart->setStyle(
       RoundedRectStyle{
           .fill = startEdge,
           .border = clearColor(),
           .fillMode = FillMode::LinearGradient,
-          .gradientDirection = dir,
+          .gradientAngleDeg = angleDeg,
           .gradientStops =
               {GradientStop{0.0F, startEdge}, GradientStop{0.0F, startEdge}, GradientStop{1.0F, opaque},
                GradientStop{1.0F, opaque}},
@@ -135,7 +136,7 @@ void Separator::applyPalette() {
           .fill = opaque,
           .border = clearColor(),
           .fillMode = FillMode::LinearGradient,
-          .gradientDirection = dir,
+          .gradientAngleDeg = angleDeg,
           .gradientStops =
               {GradientStop{0.0F, opaque}, GradientStop{0.0F, opaque}, GradientStop{1.0F, endEdge},
                GradientStop{1.0F, endEdge}},

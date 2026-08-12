@@ -2,8 +2,12 @@
 
 #include "render/core/color.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
+
+inline constexpr float kDegToRad = 0.017453292519943295F;
 
 enum class FillMode {
   None,
@@ -83,11 +87,38 @@ constexpr bool operator==(const ImageScrim& lhs, const ImageScrim& rhs) noexcept
   return lhs.enabled == rhs.enabled && lhs.direction == rhs.direction && lhs.stops == rhs.stops;
 }
 
+// Normalized gradient axis for an angle in degrees plus the corner bias that
+// keeps the rectangle's projected corners spanning exactly 0..1 along it.
+struct GradientAxis {
+  float x = 1.0F;
+  float y = 0.0F;
+  float bias = 0.0F;
+};
+
+[[nodiscard]] inline GradientAxis gradientAxisForDegrees(float angleDeg) noexcept {
+  const float reduced = std::remainder(angleDeg, 360.0F);
+  float x = std::cos(reduced * kDegToRad);
+  float y = std::sin(reduced * kDegToRad);
+  // Snap the trig near-zeros so 90° is a pure vertical axis, not 6e-17 off.
+  if (std::fabs(x) < 1e-6F) {
+    x = 0.0F;
+  }
+  if (std::fabs(y) < 1e-6F) {
+    y = 0.0F;
+  }
+  const float inv = 1.0F / (std::fabs(x) + std::fabs(y));
+  x *= inv;
+  y *= inv;
+  const float bias = std::min(0.0F, x) + std::min(0.0F, y);
+  return GradientAxis{.x = x, .y = y, .bias = bias};
+}
+
 struct RoundedRectStyle {
   Color fill{};
   Color border{};
   FillMode fillMode = FillMode::Solid;
-  GradientDirection gradientDirection = GradientDirection::Horizontal;
+  float gradientAngleDeg = 0.0F;
+  float gradientOffset = 0.0F;
   std::array<GradientStop, 4> gradientStops{};
   CornerShapes corners{};
   RectInsets logicalInset{};
@@ -113,7 +144,8 @@ constexpr bool operator==(const RoundedRectStyle& lhs, const RoundedRectStyle& r
   return lhs.fill == rhs.fill
       && lhs.border == rhs.border
       && lhs.fillMode == rhs.fillMode
-      && lhs.gradientDirection == rhs.gradientDirection
+      && lhs.gradientAngleDeg == rhs.gradientAngleDeg
+      && lhs.gradientOffset == rhs.gradientOffset
       && lhs.corners == rhs.corners
       && lhs.gradientStops == rhs.gradientStops
       && lhs.logicalInset == rhs.logicalInset

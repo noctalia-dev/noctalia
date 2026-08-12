@@ -2315,7 +2315,7 @@ void PanelManager::applyAttachedDecorationStyle() {
         .fill = startColor,
         .border = clearColor(),
         .fillMode = FillMode::LinearGradient,
-        .gradientDirection = barIsVertical ? GradientDirection::Horizontal : GradientDirection::Vertical,
+        .gradientAngleDeg = barIsVertical ? 0.0F : 90.0F,
         .gradientStops =
             {GradientStop{0.0F, startColor}, GradientStop{0.0F, startColor}, GradientStop{1.0F, endColor},
              GradientStop{1.0F, endColor}},

@@ -35,6 +35,7 @@ private:
   GLint m_borderColorLocation = -1;
   GLint m_fillModeLocation = -1;
   GLint m_gradientDirectionLocation = -1;
+  GLint m_gradientOffsetLocation = -1;
   GLint m_gradientStopsLocation = -1;
   GLint m_gradientColor0Location = -1;
   GLint m_gradientColor1Location = -1;

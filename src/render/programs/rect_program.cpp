@@ -40,6 +40,7 @@ uniform vec4 u_color;
 uniform vec4 u_border_color;
 uniform int u_fill_mode;
 uniform vec2 u_gradient_direction;
+uniform float u_gradient_offset;
 uniform vec4 u_gradient_stops;
 uniform vec4 u_gradient_color0;
 uniform vec4 u_gradient_color1;
@@ -299,7 +300,10 @@ void main() {
         return;
     }
 
-    float gradient_pos = clamp(dot(uv, u_gradient_direction), 0.0, 1.0);
+    // No clamp: samples outside the stop range resolve to the endpoint
+    // colours via the per-segment interpolation, and the offset is what
+    // moves the whole stop range along the axis.
+    float gradient_pos = dot(uv, u_gradient_direction) - u_gradient_offset;
     vec4 fill_base;
     if (u_fill_mode == 0) {
         fill_base = vec4(0.0);
@@ -379,6 +383,7 @@ void RectProgram::ensureInitialized() {
   m_borderColorLocation = glGetUniformLocation(m_program.id(), "u_border_color");
   m_fillModeLocation = glGetUniformLocation(m_program.id(), "u_fill_mode");
   m_gradientDirectionLocation = glGetUniformLocation(m_program.id(), "u_gradient_direction");
+  m_gradientOffsetLocation = glGetUniformLocation(m_program.id(), "u_gradient_offset");
   m_gradientStopsLocation = glGetUniformLocation(m_program.id(), "u_gradient_stops");
   m_gradientColor0Location = glGetUniformLocation(m_program.id(), "u_gradient_color0");
   m_gradientColor1Location = glGetUniformLocation(m_program.id(), "u_gradient_color1");
@@ -410,6 +415,7 @@ void RectProgram::ensureInitialized() {
       || m_borderColorLocation < 0
       || m_fillModeLocation < 0
       || m_gradientDirectionLocation < 0
+      || m_gradientOffsetLocation < 0
       || m_radiiLocation < 0
       || m_softnessLocation < 0
       || m_gradientStopsLocation < 0
@@ -446,6 +452,7 @@ void RectProgram::destroy() {
   m_borderColorLocation = -1;
   m_fillModeLocation = -1;
   m_gradientDirectionLocation = -1;
+  m_gradientOffsetLocation = -1;
   m_gradientStopsLocation = -1;
   m_gradientColor0Location = -1;
   m_gradientColor1Location = -1;
@@ -503,10 +510,9 @@ void RectProgram::draw(
     fillMode = 2;
   }
   glUniform1i(m_fillModeLocation, fillMode);
-  glUniform2f(
-      m_gradientDirectionLocation, style.gradientDirection == GradientDirection::Horizontal ? 1.0F : 0.0F,
-      style.gradientDirection == GradientDirection::Vertical ? 1.0F : 0.0F
-  );
+  const GradientAxis gradientAxis = gradientAxisForDegrees(style.gradientAngleDeg);
+  glUniform2f(m_gradientDirectionLocation, gradientAxis.x, gradientAxis.y);
+  glUniform1f(m_gradientOffsetLocation, style.gradientOffset + gradientAxis.bias);
   const auto& stop0 = style.gradientStops[0];
   const auto& stop1 = style.gradientStops[1];
   const auto& stop2 = style.gradientStops[2];
