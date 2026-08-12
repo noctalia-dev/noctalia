@@ -476,10 +476,11 @@ namespace ui {
       static const std::unordered_set<std::string> kGraph = {"width",   "height",    "flexGrow",   "opacity",
                                                              "visible", "values",    "values2",    "color",
                                                              "color2",  "lineWidth", "fillOpacity"};
-      static const std::unordered_set<std::string> kInput = {"width",    "height",   "flexGrow",    "opacity",
-                                                             "visible",  "value",    "placeholder", "fontSize",
-                                                             "enabled",  "password", "multiline",   "focus",
-                                                             "onChange", "onSubmit", "controlSize", "submitOnEnter"};
+      static const std::unordered_set<std::string> kInput = {"width",       "height",   "flexGrow",    "opacity",
+                                                             "visible",     "value",    "placeholder", "fontSize",
+                                                             "enabled",     "password", "multiline",   "focus",
+                                                             "onChange",    "onSubmit", "controlSize", "submitOnEnter",
+                                                             "frameVisible"};
       static const std::unordered_set<std::string> kMarkdown = {"width",   "height",  "flexGrow",
                                                                 "opacity", "visible", "text"};
       static const std::unordered_set<std::string> kSelect = {"width",       "height",   "flexGrow",      "opacity",
@@ -1573,6 +1574,9 @@ namespace ui {
       }
       if (const bool* enabled = boolProp(desired, "enabled")) {
         input->setEnabled(*enabled);
+      }
+      if (const bool* frameVisible = boolProp(desired, "frameVisible")) {
+        input->setFrameVisible(*frameVisible);
       }
       if (const std::string* onChange = strProp(desired, "onChange");
           onChange != nullptr && *onChange != slot.callbackName) {
