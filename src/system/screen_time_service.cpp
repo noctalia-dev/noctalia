@@ -321,25 +321,31 @@ void ScreenTimeService::setEnabled(bool enabled) {
 }
 
 void ScreenTimeService::restartTicking() {
+  if (m_trackingPaused) {
+    return;
+  }
   onFocusChange();
   if (!m_tickTimer.active()) {
     m_tickTimer.startRepeating(kTickInterval, [this]() { tick(); });
   }
 }
 
-void ScreenTimeService::setSessionLocked(bool locked) {
-  if (m_sessionLocked == locked) {
+void ScreenTimeService::setTrackingPaused(bool paused) {
+  if (m_trackingPaused == paused) {
     return;
   }
-  m_sessionLocked = locked;
-  if (locked) {
-    // Locks session then stop counting.
+  m_trackingPaused = paused;
+  if (paused) {
+    // Pause counts (session lock or suspend) and stop counting.
     flushActiveSession(std::chrono::steady_clock::now());
     m_activeAppKey.clear();
     m_activeSince = {};
+    if (m_dirty) {
+      save();
+    }
     m_tickTimer.stop();
   } else {
-    // Resumes on login again, resume the tick timer and credit the current app.
+    // Resume on unlock/login, resume the tick timer and credit the current app.
     if (m_enabled) {
       restartTicking();
     }
@@ -347,7 +353,7 @@ void ScreenTimeService::setSessionLocked(bool locked) {
 }
 
 void ScreenTimeService::onFocusChange() {
-  if (!m_enabled || m_sessionLocked) {
+  if (!m_enabled || m_trackingPaused) {
     return;
   }
   const std::string candidate = appKeyForActive();

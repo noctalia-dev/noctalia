@@ -327,7 +327,7 @@ void Application::initLockScreenAndSession() {
         m_idleGraceOverlay.hide();
         m_lockscreenWidgetsController.onLockStateChanged();
         m_idleManager.setSessionLocked(true);
-        m_screenTimeService.setSessionLocked(true);
+        m_screenTimeService.setTrackingPaused(true);
         m_hookManager.fire(HookKind::SessionLocked);
         releaseSleepDelayInhibitIfPending();
       },
@@ -335,7 +335,7 @@ void Application::initLockScreenAndSession() {
         m_idleGraceOverlay.hide();
         m_lockscreenWidgetsController.onLockStateChanged();
         m_idleManager.setSessionLocked(false);
-        m_screenTimeService.setSessionLocked(false);
+        m_screenTimeService.setTrackingPaused(false);
         m_hookManager.fire(HookKind::SessionUnlocked);
         // Lock aborted before engage (e.g. compositor finished the lock object) — still release
         // so PrepareForSleep is not stuck on the delay inhibit.
