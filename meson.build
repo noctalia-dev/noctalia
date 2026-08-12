@@ -1154,6 +1154,7 @@ if build_tests
     'fcitx_status',
     'google_client_calendar_list',
     'gradient_control',
+    'label_gradient',
     'hook_manager',
     'hyprland_workspace_backend',
     'i18n_language_tag',

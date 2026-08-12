@@ -1,10 +1,13 @@
 #pragma once
 
+#include "render/animation/animation_manager.h"
 #include "render/core/color.h"
 #include "render/scene/input_area.h"
 #include "render/scene/text_node.h"
+#include "ui/controls/gradient.h"
 #include "ui/palette.h"
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -69,6 +72,26 @@ public:
   [[nodiscard]] float autoScrollSpeed() const noexcept { return m_scrollSpeedPxPerSec; }
   [[nodiscard]] bool autoScrollOnlyWhenHovered() const noexcept { return m_autoScrollHoverOnly; }
 
+  // Gradient text paint. Stops stay unresolved ColorSpecs so a palette swap
+  // re-resolves role stops in place, exactly like the Gradient control. None of
+  // these touch layout — a moving offset must not re-measure the text.
+  void setGradient(float angleDeg, const std::array<GradientColorStop, 4>& stops);
+  void clearGradient();
+  void setGradientOffset(float offset);
+  void setGradientGlowRadius(float radius);
+  // durationMs is one trip (half a ping-pong cycle). Equal endpoints, a
+  // non-positive or non-finite duration, or non-finite endpoints all mean a
+  // static gradient. Re-applying the identical configuration keeps the running
+  // trip and its phase.
+  void setGradientMotion(GradientMotion motion, float durationMs, float from, float to);
+  // Node::setVisible is non-virtual, so the reconciler hands visibility over
+  // explicitly after applying the common `visible` prop.
+  void setGradientMotionVisible(bool visible);
+  void setAnimationManager(AnimationManager* manager) override;
+
+  [[nodiscard]] const TextGradientStyle& gradientStyle() const noexcept;
+  [[nodiscard]] float gradientOffset() const noexcept { return m_gradientOffset; }
+
   [[nodiscard]] const std::string& text() const noexcept;
   [[nodiscard]] float fontSize() const noexcept;
   [[nodiscard]] const Color& color() const noexcept;
@@ -88,6 +111,9 @@ private:
   LayoutSize doMeasure(Renderer& renderer, const LayoutConstraints& constraints) override;
   void doArrange(Renderer& renderer, const LayoutRect& rect) override;
   void applyPalette();
+  void applyGradient();
+  void startGradientTrip();
+  void stopGradientTrip();
   LayoutSize measureWithConstraints(Renderer& renderer, const LayoutConstraints& constraints, bool fromArrange = false);
   void syncTextNodeConstraints();
   void restartScrollIfNeeded();
@@ -110,6 +136,23 @@ private:
   ColorSpec m_color = colorSpecFromRole(ColorRole::OnSurface);
   Signal<>::ScopedConnection m_paletteConn;
   std::optional<ColorSpec> m_shadowColor;
+
+  // Gradient paint + motion state. Mirrors Gradient's members one for one so the
+  // lifetime rules stay comparable at a glance.
+  std::array<GradientColorStop, 4> m_gradientStops{};
+  Signal<bool>::ScopedConnection m_gradientMotionConn;
+  float m_gradientAngleDeg = 0.0F;
+  float m_gradientOffset = 0.0F;
+  float m_gradientGlowRadius = 0.0F;
+  float m_gradientMotionDurationMs = 0.0F;
+  float m_gradientMotionFrom = 0.0F;
+  float m_gradientMotionTo = 0.0F;
+  GradientMotion m_gradientMotion = GradientMotion::None;
+  bool m_gradientEnabled = false;
+  bool m_gradientOutbound = true;
+  bool m_gradientMotionVisible = true;
+  AnimationManager::Id m_gradientMotionId = 0;
+
   float m_shadowOffsetX = 0.0F;
   float m_shadowOffsetY = 0.0F;
 

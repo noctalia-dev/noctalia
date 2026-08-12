@@ -65,8 +65,8 @@ int main() {
   bool ok = true;
   static_assert(scripting::kOldestSupportedPluginApiVersion > 0);
   static_assert(
-      scripting::kCurrentPluginApiVersion == scripting::kNativeGradientUiPluginApiVersion,
-      "gradient UI should be the current plugin API"
+      scripting::kCurrentPluginApiVersion == scripting::kGradientTextUiPluginApiVersion,
+      "gradient text should be the current plugin API"
   );
   ok = expect(
            !scripting::supportsPluginApiVersion(scripting::kOldestSupportedPluginApiVersion - 1),

@@ -4,6 +4,7 @@
 #include "core/log.h"
 #include "render/animation/animation.h"
 #include "render/animation/animation_manager.h"
+#include "render/animation/motion_service.h"
 #include "render/core/renderer.h"
 #include "ui/palette.h"
 #include "ui/style.h"
@@ -43,6 +44,20 @@ Label::Label() {
   m_textNode->setFontSize(Style::fontSizeBody);
   applyPalette();
   m_paletteConn = paletteChanged().connect([this] { applyPalette(); });
+  m_gradientMotionConn = MotionService::instance().enabledChanged().connect([this](bool enabled) {
+    if (m_gradientMotion == GradientMotion::None) {
+      return;
+    }
+    if (enabled) {
+      m_gradientOutbound = true;
+      startGradientTrip();
+    } else {
+      // Cancel rather than let reduceMotion finish the trip in 1 ms, whose
+      // completion would chain a replacement forever.
+      stopGradientTrip();
+      setGradientOffset((m_gradientMotionFrom + m_gradientMotionTo) * 0.5F);
+    }
+  });
   // Label is an InputArea; pointer hits on glyphs would otherwise stop here and
   // never reach a parent InputArea (e.g. bar clock/media). Hover-only marquee
   // opts back in via syncHoverInteraction().
@@ -87,6 +102,151 @@ void Label::applyPalette() {
   if (m_shadowColor.has_value()) {
     m_textNode->setShadow(resolveColorSpec(*m_shadowColor), m_shadowOffsetX, m_shadowOffsetY);
   }
+  applyGradient();
+}
+
+// ── Gradient text ───────────────────────────────────────────────────────────
+//
+// The lifetime rules here are Gradient's, deliberately duplicated rather than
+// factored out: the two controls own different scene nodes, and a shared base
+// would be a bigger diff than the ~90 lines it saves.
+
+void Label::applyGradient() {
+  if (!m_gradientEnabled) {
+    m_textNode->clearGradientStyle();
+    return;
+  }
+  TextGradientStyle style;
+  style.enabled = true;
+  style.angleDeg = m_gradientAngleDeg;
+  style.offset = m_gradientOffset;
+  style.glowRadius = m_gradientGlowRadius;
+  for (std::size_t i = 0; i < m_gradientStops.size(); ++i) {
+    style.stops[i] =
+        GradientStop{.position = m_gradientStops[i].position, .color = resolveColorSpec(m_gradientStops[i].color)};
+  }
+  m_textNode->setGradientStyle(style);
+}
+
+const TextGradientStyle& Label::gradientStyle() const noexcept { return m_textNode->gradientStyle(); }
+
+void Label::setGradient(float angleDeg, const std::array<GradientColorStop, 4>& stops) {
+  if (m_gradientEnabled && m_gradientAngleDeg == angleDeg && m_gradientStops == stops) {
+    return;
+  }
+  m_gradientEnabled = true;
+  m_gradientAngleDeg = angleDeg;
+  m_gradientStops = stops;
+  applyGradient();
+}
+
+void Label::clearGradient() {
+  if (!m_gradientEnabled) {
+    return;
+  }
+  m_gradientEnabled = false;
+  m_gradientStops = {};
+  m_gradientAngleDeg = 0.0F;
+  m_gradientOffset = 0.0F;
+  m_gradientGlowRadius = 0.0F;
+  applyGradient();
+}
+
+void Label::setGradientOffset(float offset) {
+  if (m_gradientOffset == offset) {
+    return;
+  }
+  m_gradientOffset = offset;
+  applyGradient();
+}
+
+void Label::setGradientGlowRadius(float radius) {
+  if (m_gradientGlowRadius == radius) {
+    return;
+  }
+  m_gradientGlowRadius = radius;
+  applyGradient();
+}
+
+void Label::setGradientMotion(GradientMotion motion, float durationMs, float from, float to) {
+  if (!std::isfinite(durationMs) || durationMs <= 0.0F || !std::isfinite(from) || !std::isfinite(to)) {
+    motion = GradientMotion::None;
+  }
+  if (motion != GradientMotion::None && from == to) {
+    motion = GradientMotion::None;
+    setGradientOffset(from); // a zero-width trip still pins the shared endpoint
+  }
+  if (m_gradientMotion == motion
+      && m_gradientMotionDurationMs == durationMs
+      && m_gradientMotionFrom == from
+      && m_gradientMotionTo == to) {
+    return; // unchanged configuration keeps the running trip and its phase
+  }
+  stopGradientTrip();
+  m_gradientMotion = motion;
+  m_gradientMotionDurationMs = durationMs;
+  m_gradientMotionFrom = from;
+  m_gradientMotionTo = to;
+  m_gradientOutbound = true;
+  startGradientTrip();
+}
+
+void Label::setGradientMotionVisible(bool visible) {
+  if (m_gradientMotionVisible == visible) {
+    return;
+  }
+  m_gradientMotionVisible = visible;
+  if (!m_gradientMotionVisible) {
+    stopGradientTrip();
+    m_gradientOutbound = true;
+  } else {
+    startGradientTrip();
+  }
+}
+
+void Label::setAnimationManager(AnimationManager* manager) {
+  stopGradientTrip();
+  Node::setAnimationManager(manager);
+  m_gradientOutbound = true;
+  startGradientTrip();
+}
+
+void Label::stopGradientTrip() {
+  if (m_gradientMotionId != 0) {
+    if (AnimationManager* manager = animationManager()) {
+      manager->cancel(m_gradientMotionId);
+    }
+    m_gradientMotionId = 0;
+  }
+}
+
+void Label::startGradientTrip() {
+  if (m_gradientMotion == GradientMotion::None || !m_gradientMotionVisible) {
+    return;
+  }
+  AnimationManager* manager = animationManager();
+  if (manager == nullptr) {
+    return;
+  }
+  if (!MotionService::instance().enabled()) {
+    // animate() would build a 1 ms completion whose onComplete re-enters this
+    // method and chains forever; park at the midpoint instead.
+    setGradientOffset((m_gradientMotionFrom + m_gradientMotionTo) * 0.5F);
+    return;
+  }
+  const float tripFrom = m_gradientOutbound ? m_gradientMotionFrom : m_gradientMotionTo;
+  const float tripTo = m_gradientOutbound ? m_gradientMotionTo : m_gradientMotionFrom;
+  m_gradientMotionId = manager->animate(
+      tripFrom, tripTo, m_gradientMotionDurationMs, Easing::Linear, [this](float value) { setGradientOffset(value); },
+      [this] {
+        m_gradientMotionId = 0;
+        if (m_gradientMotion == GradientMotion::PingPong) {
+          m_gradientOutbound = !m_gradientOutbound;
+        }
+        startGradientTrip();
+      },
+      this
+  );
 }
 
 void Label::setMinWidth(float minWidth) {

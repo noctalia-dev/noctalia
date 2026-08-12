@@ -74,6 +74,32 @@ constexpr bool operator==(const GradientStop& lhs, const GradientStop& rhs) noex
   return lhs.position == rhs.position && lhs.color == rhs.color;
 }
 
+// Resolved gradient paint for shaped text. The glyph raster is already an alpha
+// mask, so this rides along with the text draw instead of needing an off-screen
+// compositor: the shader evaluates the four stops across the full laid-out text
+// block and multiplies by glyph coverage. `glowRadius` is in logical pixels and
+// is capped at the plugin boundary; 0 skips the halo work entirely.
+struct TextGradientStyle {
+  std::array<GradientStop, 4> stops{};
+  float angleDeg = 0.0F;
+  float offset = 0.0F;
+  float glowRadius = 0.0F;
+  bool enabled = false;
+};
+
+constexpr bool operator==(const TextGradientStyle& lhs, const TextGradientStyle& rhs) noexcept {
+  return lhs.enabled == rhs.enabled
+      && lhs.angleDeg == rhs.angleDeg
+      && lhs.offset == rhs.offset
+      && lhs.glowRadius == rhs.glowRadius
+      && lhs.stops == rhs.stops;
+}
+
+// The inclusive ceiling on a text gradient's halo, in logical pixels. The glyph
+// shader uses a fixed sampling kernel rather than a separable blur, so the cap is
+// what keeps that kernel small enough to stay predictable on GLES2.
+inline constexpr float kMaxTextGlowRadius = 8.0F;
+
 // Linear-gradient darkening applied to an image's texels inside the image draw, so the image and
 // its scrim resolve to a single antialiased edge instead of two stacked rounded rects. Only the
 // color is affected; transparent texels stay transparent.

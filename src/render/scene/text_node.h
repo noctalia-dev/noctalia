@@ -1,6 +1,7 @@
 #pragma once
 
 #include "render/core/color.h"
+#include "render/core/render_styles.h"
 #include "render/core/renderer.h"
 #include "render/scene/node.h"
 
@@ -17,6 +18,26 @@ public:
   [[nodiscard]] int maxLines() const noexcept { return m_maxLines; }
   [[nodiscard]] FontWeight fontWeight() const noexcept { return static_cast<FontWeight>(m_fontWeight); }
   [[nodiscard]] const std::string& fontFamily() const noexcept { return m_fontFamily; }
+  [[nodiscard]] const TextGradientStyle& gradientStyle() const noexcept { return m_gradient; }
+
+  // Gradient paint never changes the shaped text, so none of these touch layout:
+  // the raster cache is keyed by text and solid colour, not by gradient, which is
+  // what lets an animated offset repaint without re-shaping a single glyph.
+  void setGradientStyle(const TextGradientStyle& gradient) {
+    if (m_gradient == gradient) {
+      return;
+    }
+    m_gradient = gradient;
+    markPaintDirty();
+  }
+
+  void clearGradientStyle() {
+    if (!m_gradient.enabled) {
+      return;
+    }
+    m_gradient = TextGradientStyle{};
+    markPaintDirty();
+  }
 
   void setText(std::string text) {
     if (m_text == text) {
@@ -127,6 +148,7 @@ public:
   }
 
 private:
+  TextGradientStyle m_gradient{};
   std::string m_text;
   std::string m_fontFamily;
   float m_fontSize = 14.0F;
