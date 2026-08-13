@@ -137,22 +137,21 @@ Color lerpHsv(const Color& a, const Color& b, float t) {
   float h1, s1, v1;
   rgbToHsv(b, h1, s1, v1);
 
-  // Hue is undefined at negligible chroma; borrow the other endpoint's hue to avoid spurious tints.
-  constexpr float kChromaEpsilon = 1e-6F;
-  if (s0 * v0 <= kChromaEpsilon) {
-    h0 = h1;
-  }
-  if (s1 * v1 <= kChromaEpsilon) {
-    h1 = h0;
-  }
-
   float hDelta = h1 - h0;
   if (hDelta > 0.5F) {
     hDelta -= 1.0F;
   } else if (hDelta < -0.5F) {
     hDelta += 1.0F;
   }
-  return hsv(h0 + hDelta * t, s0 + (s1 - s0) * t, v0 + (v1 - v0) * t, a.a + (b.a - a.a) * t);
+
+  // A low-chroma color's hue is weak or undefined, so give it proportionally less influence. When both endpoints
+  // have equal chroma this reduces to the usual linear hue interpolation.
+  const float fromHueWeight = (1.0F - t) * s0 * v0;
+  const float toHueWeight = t * s1 * v1;
+  const float hueWeightSum = fromHueWeight + toHueWeight;
+  const float hueT = hueWeightSum > 0.0F ? toHueWeight / hueWeightSum : t;
+
+  return hsv(h0 + hDelta * hueT, s0 + (s1 - s0) * t, v0 + (v1 - v0) * t, a.a + (b.a - a.a) * t);
 }
 
 float relativeLuminance(const Color& color) {
