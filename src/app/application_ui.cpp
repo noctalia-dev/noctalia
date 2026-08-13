@@ -926,13 +926,16 @@ void Application::initBarDockAndLayout() {
   );
 
   m_colorPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
-  ColorPickerDialog::setPresenter(&m_colorPickerDialogPopup);
 
   m_glyphPickerDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts);
-  GlyphPickerDialog::setPresenter(&m_glyphPickerDialogPopup);
 
   m_fileDialogPopup.initialize(m_wayland, m_configService, m_renderContext, m_layerPopupHosts, m_thumbnailService);
-  FileDialog::setPresenter(&m_fileDialogPopup);
+  m_settingsWindow.initializeDialogPresenter(
+      m_colorPickerDialogPopup, m_glyphPickerDialogPopup, m_fileDialogPopup, m_thumbnailService
+  );
+  ColorPickerDialog::setPresenter(m_settingsWindow.colorPickerDialogPresenter());
+  GlyphPickerDialog::setPresenter(m_settingsWindow.glyphPickerDialogPresenter());
+  FileDialog::setPresenter(m_settingsWindow.fileDialogPresenter());
 }
 
 void Application::initWidgetControllersAndCallbacks() {

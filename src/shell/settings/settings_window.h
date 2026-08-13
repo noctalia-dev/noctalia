@@ -37,12 +37,16 @@ class ClipboardService;
 class IpcService;
 class ConfigService;
 class CompositorPlatform;
+class ColorPickerDialogPresenter;
 class DependencyService;
+class FileDialogPresenter;
 class Flex;
+class GlyphPickerDialogPresenter;
 class IdleManager;
 class Input;
 class Label;
 class RenderContext;
+class ThumbnailService;
 class UPowerService;
 class WaylandConnection;
 struct KeyboardEvent;
@@ -51,12 +55,14 @@ struct wl_output;
 struct wl_surface;
 
 namespace settings {
+  class SettingsDialogPresenter;
   struct SettingsContentContext;
 } // namespace settings
 
 // Standalone xdg-toplevel settings UI (same binary as the shell; shares RenderContext).
 class SettingsWindow {
 public:
+  SettingsWindow();
   ~SettingsWindow();
 
   void initialize(
@@ -106,6 +112,14 @@ public:
   void setClipboardService(ClipboardService* service) { m_clipboardService = service; }
   // Backs plugin-store thumbnails; trimmed when the window closes.
   void setAsyncTextureCache(AsyncTextureCache* cache) { m_asyncTextures = cache; }
+  void initializeDialogPresenter(
+      ColorPickerDialogPresenter& colorFallback, GlyphPickerDialogPresenter& glyphFallback,
+      FileDialogPresenter& fileFallback, ThumbnailService& thumbnails
+  );
+  void shutdownDialogPresenter();
+  [[nodiscard]] ColorPickerDialogPresenter* colorPickerDialogPresenter() noexcept;
+  [[nodiscard]] GlyphPickerDialogPresenter* glyphPickerDialogPresenter() noexcept;
+  [[nodiscard]] FileDialogPresenter* fileDialogPresenter() noexcept;
 
   void onSecondTick();
   void onIdleLiveStatusChanged();
@@ -116,6 +130,7 @@ public:
 
 private:
   void destroyWindow();
+  [[nodiscard]] bool shouldUseModalDialogs() const noexcept;
   void prepareFrame(bool needsUpdate, bool needsLayout);
   void buildScene(std::uint32_t width, std::uint32_t height);
   void rebuildSettingsContent();
@@ -250,6 +265,7 @@ private:
   std::unique_ptr<settings::SearchPickerPopup> m_searchPickerPopup;
   InputDispatcher m_inputDispatcher;
   settings::SettingsModalHost m_modalHost;
+  std::unique_ptr<settings::SettingsDialogPresenter> m_dialogPresenter;
   std::unique_ptr<settings::SettingsSheetModal> m_editorSheetModal;
   std::unique_ptr<settings::SettingsControlFactory> m_editorSheetFactory;
   std::vector<std::string> m_editorSheetListPath;

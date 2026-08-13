@@ -16,6 +16,7 @@
 #include "render/text/font_weight_catalog.h"
 #include "scripting/plugin_registry.h"
 #include "shell/settings/settings_content_plugins.h"
+#include "shell/settings/settings_dialog_presenter.h"
 #include "shell/tooltip/tooltip_manager.h"
 #include "system/dependency_service.h"
 #include "ui/controls/box.h"
@@ -147,6 +148,8 @@ namespace {
 
 } // namespace
 
+SettingsWindow::SettingsWindow() = default;
+
 SettingsWindow::~SettingsWindow() { destroyWindow(); }
 
 void SettingsWindow::initialize(
@@ -175,6 +178,40 @@ void SettingsWindow::initialize(
         }
       }
   );
+}
+
+void SettingsWindow::initializeDialogPresenter(
+    ColorPickerDialogPresenter& colorFallback, GlyphPickerDialogPresenter& glyphFallback,
+    FileDialogPresenter& fileFallback, ThumbnailService& thumbnails
+) {
+  m_dialogPresenter = std::make_unique<settings::SettingsDialogPresenter>();
+  m_dialogPresenter->initialize(
+      m_modalHost, m_animations, thumbnails, colorFallback, glyphFallback, fileFallback,
+      [this]() { return shouldUseModalDialogs(); }, [this]() { return uiScale(); },
+      [this]() { dismissOpenSelectDropdown(); }
+  );
+}
+
+void SettingsWindow::shutdownDialogPresenter() {
+  if (m_dialogPresenter != nullptr) {
+    m_dialogPresenter->shutdown();
+  }
+}
+
+ColorPickerDialogPresenter* SettingsWindow::colorPickerDialogPresenter() noexcept { return m_dialogPresenter.get(); }
+
+GlyphPickerDialogPresenter* SettingsWindow::glyphPickerDialogPresenter() noexcept { return m_dialogPresenter.get(); }
+
+FileDialogPresenter* SettingsWindow::fileDialogPresenter() noexcept { return m_dialogPresenter.get(); }
+
+bool SettingsWindow::shouldUseModalDialogs() const noexcept {
+  if (!isOpen() || m_wayland == nullptr) {
+    return false;
+  }
+  wl_surface* source = m_wayland->lastInputSource() == WaylandSeat::InputSource::Keyboard
+      ? m_wayland->lastKeyboardSurface()
+      : m_wayland->lastPointerSurface();
+  return source != nullptr && ownsKeyboardSurface(source);
 }
 
 float SettingsWindow::uiScale() const {
@@ -494,11 +531,8 @@ void SettingsWindow::dismissOpenSelectDropdown() {
 }
 
 void SettingsWindow::destroyWindow() {
-  if (m_editorSheetModal != nullptr) {
-    m_editorSheetModal->close();
-    m_editorSheetModal.reset();
-  }
   m_modalHost.closeAll();
+  m_editorSheetModal.reset();
   m_modalHost.detach();
   if (m_surface != nullptr) {
     // Drop stale pointer coords before tearing down the scene. Otherwise the next open

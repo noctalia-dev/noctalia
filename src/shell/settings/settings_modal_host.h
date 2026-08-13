@@ -3,8 +3,10 @@
 #include "render/scene/node.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 
 class InputArea;
 class InputDispatcher;
@@ -37,6 +39,8 @@ namespace settings {
   // Settings window's InputDispatcher, so it remains part of the toplevel when focus changes.
   class SettingsModalHost {
   public:
+    using ModalId = std::uint64_t;
+
     SettingsModalHost();
     ~SettingsModalHost();
 
@@ -50,15 +54,18 @@ namespace settings {
     void detach();
     void resize(float width, float height);
 
-    [[nodiscard]] bool push(SettingsModalRequest request);
+    [[nodiscard]] std::optional<ModalId> push(SettingsModalRequest request);
     void rebuildTop();
     void pop();
+    [[nodiscard]] bool pop(ModalId id);
     void closeAll();
     void requestCloseTop();
 
     [[nodiscard]] bool isOpen() const noexcept;
+    [[nodiscard]] bool isTop(ModalId id) const noexcept;
     [[nodiscard]] Node* topRoot() const noexcept;
     [[nodiscard]] InputArea* focusedArea() const noexcept;
+    void focusArea(InputArea* area);
     void requestLayout();
     void requestUpdateOnly();
     [[nodiscard]] bool onKeyboardEvent(const KeyboardEvent& event);

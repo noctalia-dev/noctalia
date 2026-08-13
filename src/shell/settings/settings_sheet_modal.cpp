@@ -32,7 +32,7 @@ namespace settings {
     const float scale = m_sheet.scale();
     const float padding = 12.0F * scale;
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-    m_open = m_host->push(
+    m_modalId = m_host->push(
         SettingsModalRequest{
             .build =
                 [this, aliveGuard]() {
@@ -81,6 +81,7 @@ namespace settings {
                 [this, aliveGuard]() {
                   if (!aliveGuard.expired()) {
                     m_open = false;
+                    m_modalId.reset();
                     m_sheet.clear();
                   }
                 },
@@ -88,6 +89,7 @@ namespace settings {
             .windowMargin = 24.0F * scale,
         }
     );
+    m_open = m_modalId.has_value();
     if (!m_open) {
       m_sheet.clear();
     }
@@ -100,7 +102,9 @@ namespace settings {
     if (m_dismissSelectDropdown) {
       m_dismissSelectDropdown();
     }
-    m_host->pop();
+    if (!m_modalId.has_value() || !m_host->pop(*m_modalId)) {
+      return;
+    }
   }
 
   InputArea* SettingsSheetModal::focusedArea() const noexcept {
@@ -125,7 +129,7 @@ namespace settings {
     }
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
     DeferredCall::callLater([this, aliveGuard]() {
-      if (!aliveGuard.expired() && m_open && m_host != nullptr && m_host->depth() == 1) {
+      if (!aliveGuard.expired() && m_open && m_host != nullptr && m_modalId.has_value() && m_host->isTop(*m_modalId)) {
         m_host->rebuildTop();
       }
     });

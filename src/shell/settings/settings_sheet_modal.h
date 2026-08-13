@@ -1,14 +1,14 @@
 #pragma once
 
+#include "shell/settings/settings_modal_host.h"
 #include "shell/settings/settings_sheet.h"
 
 #include <memory>
+#include <optional>
 
 class InputArea;
 
 namespace settings {
-
-  class SettingsModalHost;
 
   class SettingsSheetModal {
   public:
@@ -32,6 +32,7 @@ namespace settings {
   private:
     std::shared_ptr<void> m_aliveGuard = std::make_shared<int>(0);
     SettingsModalHost* m_host = nullptr;
+    std::optional<SettingsModalHost::ModalId> m_modalId;
     std::function<void()> m_dismissSelectDropdown;
     SettingsSheet m_sheet;
     bool m_open = false;

@@ -168,6 +168,7 @@ namespace settings {
 
   struct SettingsModalHost::Impl {
     struct Entry {
+      ModalId id = 0;
       ModalEntryNode* node = nullptr;
       InputDispatcher::TabFocusSnapshot previousFocus;
     };
@@ -180,6 +181,7 @@ namespace settings {
     ModalStackNode* stackRoot = nullptr;
     std::unique_ptr<Node> detachedStack;
     std::vector<Entry> entries;
+    ModalId nextId = 1;
 
     void ensureStack() {
       if (stackRoot != nullptr) {
@@ -254,9 +256,9 @@ namespace settings {
     }
   }
 
-  bool SettingsModalHost::push(SettingsModalRequest request) {
+  std::optional<SettingsModalHost::ModalId> SettingsModalHost::push(SettingsModalRequest request) {
     if (m_impl->stackRoot == nullptr || m_impl->stackRoot->parent() == nullptr || !request.build) {
-      return false;
+      return std::nullopt;
     }
     if (m_impl->input != nullptr) {
       m_impl->input->cancelPointerCapture();
@@ -267,8 +269,9 @@ namespace settings {
     if (m_impl->input != nullptr) {
       previousFocus = m_impl->input->captureTabFocus();
     }
+    const ModalId id = m_impl->nextId++;
     m_impl->stackRoot->addChild(std::move(entry));
-    m_impl->entries.push_back(Impl::Entry{.node = raw, .previousFocus = std::move(previousFocus)});
+    m_impl->entries.push_back(Impl::Entry{.id = id, .node = raw, .previousFocus = std::move(previousFocus)});
     m_impl->refreshFocusExclusion();
     if (m_impl->input != nullptr) {
       auto initialFocus = raw->initialFocusCallback();
@@ -278,7 +281,7 @@ namespace settings {
     if (m_impl->requestLayout) {
       m_impl->requestLayout();
     }
-    return true;
+    return id;
   }
 
   void SettingsModalHost::rebuildTop() {
@@ -307,11 +310,12 @@ namespace settings {
     const Impl::Entry entry = m_impl->entries.back();
     const auto onClosed = entry.node->closedCallback();
     m_impl->entries.pop_back();
-    m_impl->stackRoot->removeChild(entry.node);
+    auto removed = m_impl->stackRoot->removeChild(entry.node);
     m_impl->refreshFocusExclusion();
     if (onClosed) {
       onClosed();
     }
+    removed.reset();
     if (m_impl->input != nullptr) {
       m_impl->input->restoreTabFocus(entry.previousFocus);
       m_impl->input->syncPointerHover();
@@ -319,6 +323,14 @@ namespace settings {
     if (m_impl->requestLayout) {
       m_impl->requestLayout();
     }
+  }
+
+  bool SettingsModalHost::pop(ModalId id) {
+    if (!isTop(id)) {
+      return false;
+    }
+    pop();
+    return true;
   }
 
   void SettingsModalHost::closeAll() {
@@ -345,12 +357,22 @@ namespace settings {
 
   bool SettingsModalHost::isOpen() const noexcept { return !m_impl->entries.empty(); }
 
+  bool SettingsModalHost::isTop(ModalId id) const noexcept {
+    return !m_impl->entries.empty() && m_impl->entries.back().id == id;
+  }
+
   Node* SettingsModalHost::topRoot() const noexcept {
     return m_impl->entries.empty() ? nullptr : m_impl->entries.back().node;
   }
 
   InputArea* SettingsModalHost::focusedArea() const noexcept {
     return m_impl->input != nullptr ? m_impl->input->focusedArea() : nullptr;
+  }
+
+  void SettingsModalHost::focusArea(InputArea* area) {
+    if (m_impl->input != nullptr) {
+      m_impl->input->setFocus(area);
+    }
   }
 
   void SettingsModalHost::requestLayout() {
