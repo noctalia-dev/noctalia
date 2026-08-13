@@ -262,7 +262,6 @@ const noctalia::bar::WidgetDefinition<SysmonWidget::Options, SysmonWidgetDefinit
               .presentation =
                   settings::WidgetSettingPresentation{
                       .group = "presentation",
-                      .visibleWhen = hasVisualization,
                   },
           }),
       },
