@@ -385,35 +385,49 @@ bool InputDispatcher::cycleTabFocus(bool reverse) {
 }
 
 void InputDispatcher::stashTabFocus() {
-  m_stashedTabFocusIndex.reset();
-  m_stashedTabFocusKey.reset();
+  TabFocusSnapshot snapshot = captureTabFocus();
+  m_stashedTabFocusIndex = snapshot.index;
+  m_stashedTabFocusKey = std::move(snapshot.key);
+}
+
+InputDispatcher::TabFocusSnapshot InputDispatcher::captureTabFocus() const {
+  TabFocusSnapshot snapshot;
   if (m_sceneRoot == nullptr || m_focusedArea == nullptr) {
-    return;
+    return snapshot;
   }
 
   if (!m_focusedArea->tabFocusKey().empty()) {
-    m_stashedTabFocusKey = std::string(m_focusedArea->tabFocusKey());
-    return;
+    snapshot.key = std::string(m_focusedArea->tabFocusKey());
+    return snapshot;
   }
 
   std::vector<InputArea*> order;
   order.reserve(32);
   collectTabFocusTargets(m_sceneRoot, order);
   if (order.empty()) {
-    return;
+    return snapshot;
   }
 
   const auto it = std::ranges::find(order, m_focusedArea);
   if (it == order.end()) {
-    return;
+    return snapshot;
   }
-  m_stashedTabFocusIndex = static_cast<std::size_t>(std::distance(order.begin(), it));
+  snapshot.index = static_cast<std::size_t>(std::distance(order.begin(), it));
+  return snapshot;
 }
 
 void InputDispatcher::restoreStashedTabFocus() {
+  TabFocusSnapshot snapshot{
+      .index = m_stashedTabFocusIndex,
+      .key = std::move(m_stashedTabFocusKey),
+  };
+  m_stashedTabFocusIndex.reset();
+  m_stashedTabFocusKey.reset();
+  restoreTabFocus(std::move(snapshot));
+}
+
+void InputDispatcher::restoreTabFocus(TabFocusSnapshot snapshot) {
   if (m_sceneRoot == nullptr) {
-    m_stashedTabFocusIndex.reset();
-    m_stashedTabFocusKey.reset();
     return;
   }
 
@@ -421,30 +435,25 @@ void InputDispatcher::restoreStashedTabFocus() {
   order.reserve(32);
   collectTabFocusTargets(m_sceneRoot, order);
   if (order.empty()) {
-    m_stashedTabFocusIndex.reset();
-    m_stashedTabFocusKey.reset();
     return;
   }
 
-  if (m_stashedTabFocusKey.has_value()) {
-    const auto it = std::ranges::find_if(order, [key = *m_stashedTabFocusKey](const InputArea* area) {
+  if (snapshot.key.has_value()) {
+    const auto it = std::ranges::find_if(order, [key = *snapshot.key](const InputArea* area) {
       return area != nullptr && area->tabFocusKey() == key;
     });
     if (it != order.end()) {
       setFocus(*it);
     }
-    m_stashedTabFocusKey.reset();
-    m_stashedTabFocusIndex.reset();
     return;
   }
 
-  if (!m_stashedTabFocusIndex.has_value()) {
+  if (!snapshot.index.has_value()) {
     return;
   }
 
-  const std::size_t index = std::min(*m_stashedTabFocusIndex, order.size() - 1);
+  const std::size_t index = std::min(*snapshot.index, order.size() - 1);
   setFocus(order[index]);
-  m_stashedTabFocusIndex.reset();
 }
 
 void InputDispatcher::setFocus(InputArea* area) {
