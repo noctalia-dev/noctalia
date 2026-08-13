@@ -5,10 +5,7 @@
 #include "core/input/key_symbols.h"
 #include "render/render_context.h"
 #include "render/scene/node.h"
-#include "shell/settings/settings_content_common.h"
 #include "shell/tooltip/tooltip_manager.h"
-#include "ui/builders.h"
-#include "ui/controls/label.h"
 #include "ui/controls/select_dropdown_popup.h"
 #include "ui/popup_chrome.h"
 #include "ui/style.h"
@@ -18,11 +15,15 @@
 #include "xdg-shell-client-protocol.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 namespace settings {
 
   namespace {
+
+    constexpr float kInitialPopupHeight = 480.0F;
+    constexpr float kParentMargin = 48.0F;
 
     PopupSurfaceConfig centeredPopupConfig(
         std::uint32_t parentWidth, std::uint32_t parentHeight, std::uint32_t width, std::uint32_t height,
@@ -42,16 +43,12 @@ namespace settings {
           .offsetX = 0,
           .offsetY = 0,
           .serial = serial,
-          // Sheet dialogs stay open on outside click / focus loss; Escape and close dismiss.
           .grab = false,
           .reactive = true,
       };
     }
 
   } // namespace
-
-  constexpr float kInitialPopupHeight = 480.0F;
-  constexpr float kParentMargin = 48.0F;
 
   SettingsSheetPopup::~SettingsSheetPopup() { destroyPopup(); }
 
@@ -69,67 +66,41 @@ namespace settings {
     });
   }
 
-  void SettingsSheetPopup::open(SettingsSheetPopupRequest request) {
+  void SettingsSheetPopup::open(SettingsSheetRequest request) {
     if (request.parent.xdgSurface == nullptr || request.parent.wlSurface == nullptr) {
       return;
     }
-
     if (isOpen()) {
       close();
     }
 
-    m_scale = std::max(0.1F, request.scale);
-    m_minWidth = request.minWidth;
-    m_maxWidth = request.maxWidth;
-    m_parentFraction = request.parentFraction;
-    m_fillParentHeight = request.fillParentHeight;
-    m_scrollableBody = request.scrollableBody;
-    m_onCloseRequested = std::move(request.onCloseRequested);
-    m_preDispatchKeyboard = std::move(request.preDispatchKeyboard);
-    m_sheetTitle = std::move(request.sheetTitle);
-    m_removeAction = std::move(request.removeAction);
-    m_createHeaderAction = std::move(request.createHeaderAction);
-    m_populateSheetBody = std::move(request.populateSheetBody);
-    m_root = nullptr;
     m_parentWidth = request.parent.width;
     m_parentHeight = request.parent.height;
+    const XdgPopupParent parent = request.parent;
+    m_sheet.configure(std::move(request));
 
-    const float popupWidth = m_minWidth * m_scale;
-    const float popupHeight = kInitialPopupHeight * m_scale;
+    const float popupWidth = m_sheet.minWidth() * m_sheet.scale();
+    const float popupHeight = kInitialPopupHeight * m_sheet.scale();
     const auto cfg = centeredPopupConfig(
-        request.parent.width, request.parent.height, static_cast<std::uint32_t>(std::max(1.0F, popupWidth)),
-        static_cast<std::uint32_t>(std::max(1.0F, popupHeight)), request.parent.serial
+        parent.width, parent.height, static_cast<std::uint32_t>(std::max(1.0F, popupWidth)),
+        static_cast<std::uint32_t>(std::max(1.0F, popupHeight)), parent.serial
     );
-
-    if (!openPopupAsChild(cfg, request.parent)) {
+    if (!openPopupAsChild(cfg, parent)) {
       close();
       return;
     }
-    m_parentOutput = request.parent.output;
+    m_parentOutput = parent.output;
   }
 
   void SettingsSheetPopup::close() { destroyPopup(); }
-  void SettingsSheetPopup::requestClose() {
-    if (m_onCloseRequested && m_onCloseRequested()) {
-      return;
-    }
-    close();
-  }
 
-  void SettingsSheetPopup::setSheetTitle(std::string title) {
-    m_sheetTitle = std::move(title);
-    if (m_sheetTitleLabel != nullptr) {
-      m_sheetTitleLabel->setText(m_sheetTitle);
-    }
-  }
+  void SettingsSheetPopup::requestClose() { m_sheet.requestClose(); }
+
+  void SettingsSheetPopup::setSheetTitle(std::string title) { m_sheet.setTitle(std::move(title)); }
 
   void SettingsSheetPopup::setStatusMessage(std::string message, bool error) {
-    m_statusMessage = std::move(message);
-    m_statusIsError = error;
-    if (m_statusBanner != nullptr && m_statusLabel != nullptr) {
-      updateSettingsStatusBanner(*m_statusBanner, *m_statusLabel, m_statusMessage, error);
-      requestLayout();
-    }
+    m_sheet.setStatusMessage(std::move(message), error);
+    requestLayout();
   }
 
   void SettingsSheetPopup::clearStatusMessage() { setStatusMessage({}, false); }
@@ -138,23 +109,16 @@ namespace settings {
     if (!isOpen()) {
       return;
     }
-    // Defer: control callbacks fire mid-dispatch; rebuilding the body destroys the nodes being
-    // dispatched. Re-run populate on the next loop tick, then re-measure/resize.
     const std::weak_ptr<void> aliveGuard = m_aliveGuard;
     DeferredCall::callLater([this, aliveGuard]() {
-      if (aliveGuard.expired()) {
+      if (aliveGuard.expired() || !isOpen() || m_contentNode == nullptr) {
         return;
       }
-      if (!isOpen() || m_contentNode == nullptr) {
-        return;
-      }
-      // Keep keyboard focus on the same control across rebuilds (e.g. Segmented Left/Right).
       inputDispatcher().stashTabFocus();
       inputDispatcher().setFocus(nullptr);
       while (!m_contentNode->children().empty()) {
         m_contentNode->removeChild(m_contentNode->children().front().get());
       }
-      m_root = nullptr;
       populateContent(m_contentNode, width(), height());
       requestLayout();
       inputDispatcher().restoreStashedTabFocus();
@@ -187,21 +151,15 @@ namespace settings {
       m_selectPopup->onKeyboardEvent(event);
       return;
     }
-    // Escape is handled in DialogPopupHost before preDispatch; mirror the close-button
-    // onCloseRequested hook so detail views can step back instead of dismissing the sheet.
     if (event.pressed && !event.preedit && KeySymbol::isEscape(event.sym)) {
-      if (m_onCloseRequested && m_onCloseRequested()) {
-        return;
-      }
+      m_sheet.requestClose();
+      return;
     }
     DialogPopupHost::onKeyboardEvent(event);
   }
 
   bool SettingsSheetPopup::preDispatchKeyboard(const KeyboardEvent& event) {
-    if (!m_preDispatchKeyboard) {
-      return false;
-    }
-    return m_preDispatchKeyboard(event);
+    return m_sheet.preDispatchKeyboard(event);
   }
 
   wl_surface* SettingsSheetPopup::wlSurface() const noexcept { return DialogPopupHost::wlSurface(); }
@@ -217,136 +175,19 @@ namespace settings {
   InputArea* SettingsSheetPopup::focusedArea() noexcept { return inputDispatcher().focusedArea(); }
 
   void SettingsSheetPopup::populateContent(Node* contentParent, std::uint32_t /*width*/, std::uint32_t /*height*/) {
-    const float popupPadding = Style::spaceSm * m_scale;
-    const float popupGap = Style::spaceSm * m_scale;
-
-    auto root = ui::column({
-        .out = &m_root,
-        .align = FlexAlign::Stretch,
-        .gap = popupGap,
-        .padding = popupPadding,
-    });
-
-    auto header = ui::row({
-        .out = &m_header,
-        .align = FlexAlign::Center,
-        .gap = Style::spaceSm * m_scale,
-    });
-
-    header->addChild(
-        ui::label({
-            .out = &m_sheetTitleLabel,
-            .text = m_sheetTitle,
-            .fontSize = Style::fontSizeBody * m_scale,
-            .fontWeight = FontWeight::Bold,
-            .color = colorSpecFromRole(ColorRole::OnSurface),
-        })
-    );
-    header->addChild(ui::spacer());
-
-    if (m_createHeaderAction) {
-      if (auto action = m_createHeaderAction()) {
-        header->addChild(std::move(action));
-      }
-    }
-
-    if (m_removeAction) {
-      header->addChild(
-          ui::button({
-              .glyph = "trash",
-              .glyphSize = Style::fontSizeBody * m_scale,
-              .variant = ButtonVariant::Destructive,
-              // Sheet header icon style.
-              .minWidth = Style::controlHeightSm * m_scale,
-              .minHeight = Style::controlHeightSm * m_scale,
-              .padding = Style::spaceXs * m_scale,
-              .radius = Style::scaledRadiusMd(m_scale),
-              .onClick = [removeAction = m_removeAction]() {
-                if (removeAction) {
-                  DeferredCall::callLater(removeAction);
-                }
-              },
-          })
-      );
-    }
-
-    header->addChild(
-        ui::button({
-            .glyph = "close",
-            .glyphSize = Style::fontSizeBody * m_scale,
-            .variant = ButtonVariant::Default,
-            // Sheet header icon style.
-            .minWidth = Style::controlHeightSm * m_scale,
-            .minHeight = Style::controlHeightSm * m_scale,
-            .padding = Style::spaceXs * m_scale,
-            .radius = Style::scaledRadiusMd(m_scale),
-            .onClick = [this]() {
-              const std::weak_ptr<void> aliveGuard = m_aliveGuard;
-              DeferredCall::callLater([this, aliveGuard]() {
-                if (aliveGuard.expired()) {
-                  return;
-                }
-                requestClose();
-              });
-            },
-        })
-    );
-    root->addChild(std::move(header));
-    root->addChild(makeSettingsStatusBanner({
-        .message = m_statusMessage,
-        .error = m_statusIsError,
-        .scale = m_scale,
-        .onDismiss = [this]() { clearStatusMessage(); },
-        .out = &m_statusBanner,
-        .messageOut = &m_statusLabel,
-    }));
-
-    if (m_scrollableBody) {
-      // Body scrolls when its content exceeds the sheet's clamped height.
-      ScrollView* scrollPtr = nullptr;
-      auto scroll = ui::scrollView({
-          .out = &scrollPtr,
-          .state = &m_scrollState,
-          .scrollbarVisible = true,
-          .viewportPaddingH = 0.0F,
-          .viewportPaddingV = 0.0F,
-          .flexGrow = 1.0F,
-          .onScrollChanged = [this](float /*offset*/) { dismissOpenSelectDropdown(); },
-          .configure =
-              [](ScrollView& sv) {
-                sv.clearFill();
-                sv.clearBorder();
-              },
-      });
-      m_scrollView = scrollPtr;
-
-      Flex* body = scrollPtr->content();
-      body->setDirection(FlexDirection::Vertical);
-      body->setAlign(FlexAlign::Stretch);
-      body->setGap(Style::spaceMd * m_scale);
-      m_body = body;
-      if (m_populateSheetBody) {
-        m_populateSheetBody(*body);
-      }
-      root->addChild(std::move(scroll));
-    } else {
-      // Body owns its own scrolling (e.g. a VirtualGridView). Place it directly so the inner
-      // scroller is not trapped inside a sheet-level ScrollView.
-      m_scrollView = nullptr;
-      Flex* bodyPtr = nullptr;
-      auto body = ui::column({
-          .out = &bodyPtr,
-          .align = FlexAlign::Stretch,
-          .gap = Style::spaceMd * m_scale,
-          .flexGrow = 1.0F,
-      });
-      m_body = bodyPtr;
-      if (m_populateSheetBody) {
-        m_populateSheetBody(*bodyPtr);
-      }
-      root->addChild(std::move(body));
-    }
-    contentParent->addChild(std::move(root));
+    const std::weak_ptr<void> aliveGuard = m_aliveGuard;
+    contentParent->addChild(m_sheet.build(
+        [this, aliveGuard]() {
+          if (!aliveGuard.expired()) {
+            close();
+          }
+        },
+        [this, aliveGuard]() {
+          if (!aliveGuard.expired()) {
+            dismissOpenSelectDropdown();
+          }
+        }
+    ));
 
     if (wayland() != nullptr && renderContext() != nullptr && xdgSurface() != nullptr) {
       if (m_selectPopup == nullptr) {
@@ -361,77 +202,53 @@ namespace settings {
   }
 
   void SettingsSheetPopup::layoutSheet(float contentWidth, float contentHeight) {
-    if (m_root == nullptr
-        || m_header == nullptr
-        || m_body == nullptr
-        || renderContext() == nullptr
-        || m_surface == nullptr) {
+    if (m_sheet.root() == nullptr || renderContext() == nullptr || m_surface == nullptr) {
       return;
     }
 
     Renderer& renderer = m_surface->renderTarget().renderer();
     const float pad = computePadding(uiScale());
-    const float popupPadding = Style::spaceSm * m_scale;
-    const float popupGap = Style::spaceSm * m_scale;
     const ShellConfig::ShadowConfig shadow =
         config() != nullptr ? config()->config().shell.shadow : ShellConfig::ShadowConfig{};
 
-    float panelW = m_minWidth * m_scale;
+    float panelWidth = m_sheet.minWidth() * m_sheet.scale();
     if (m_parentWidth > 0) {
-      const auto probe = popup_chrome::computeGeometry(panelW, panelW, shadow, Style::popupShadowsEnabled());
-      const float chromeW = static_cast<float>(probe.surfaceWidth) - panelW;
-      const float fitPanelW = std::max(1.0F, static_cast<float>(m_parentWidth) - (kParentMargin * m_scale) - chromeW);
-      const float maxPanelW = std::min(fitPanelW, m_maxWidth * m_scale);
-      const float minPanelW = m_minWidth * m_scale;
-      const float preferredW = m_parentFraction * static_cast<float>(m_parentWidth);
-      panelW = std::min(std::max(preferredW, minPanelW), maxPanelW);
+      const auto probe = popup_chrome::computeGeometry(panelWidth, panelWidth, shadow, Style::popupShadowsEnabled());
+      const float chromeWidth = static_cast<float>(probe.surfaceWidth) - panelWidth;
+      const float fitWidth =
+          std::max(1.0F, static_cast<float>(m_parentWidth) - (kParentMargin * m_sheet.scale()) - chromeWidth);
+      const float maxWidth = std::min(fitWidth, m_sheet.maxWidth() * m_sheet.scale());
+      const float preferredWidth = m_sheet.parentFraction() * static_cast<float>(m_parentWidth);
+      panelWidth = std::min(std::max(preferredWidth, m_sheet.minWidth() * m_sheet.scale()), maxWidth);
     }
 
-    float cw = std::max(1.0F, contentWidth);
-    float ch = std::max(1.0F, contentHeight);
-
-    // Measure header + scroll content directly with width bounded, height unbounded. Measuring the
-    // root would let its flexGrow scroll view inflate to fill the constraint, so the sheet would
-    // never shrink to fit a short body.
-    const auto naturalHeight = [&](float widthBudget) {
-      const float innerCw = std::max(1.0F, widthBudget - 2.0F * popupPadding);
-      LayoutConstraints c;
-      // Exact width so wrapped setting labels measure their full line count. Max width
-      // alone leaves cross-axis unconstrained during measure, which under-counts height
-      // for short bodies (e.g. a two-setting plugin sheet) and clips the last row.
-      c.setExactWidth(innerCw);
-      const float headerH = m_header->measure(renderer, c).height;
-      float statusH = 0.0F;
-      if (m_statusBanner != nullptr && m_statusBanner->visible()) {
-        statusH = m_statusBanner->measure(renderer, c).height + popupGap;
-      }
-      const float contentH = m_body->measure(renderer, c).height;
-      return 2.0F * popupPadding + headerH + popupGap + statusH + contentH;
-    };
-
-    float rootH = naturalHeight(cw);
-    if (m_fillParentHeight && m_parentHeight > 0) {
-      const float fillH = static_cast<float>(m_parentHeight) - (kParentMargin * m_scale) - pad * 2.0F;
-      rootH = std::max(rootH, fillH);
+    float contentW = std::max(1.0F, contentWidth);
+    float contentH = std::max(1.0F, contentHeight);
+    float rootHeight = m_sheet.naturalHeight(renderer, contentW);
+    if (m_sheet.fillParentHeight() && m_parentHeight > 0) {
+      const float fillHeight = static_cast<float>(m_parentHeight) - (kParentMargin * m_sheet.scale()) - pad * 2.0F;
+      rootHeight = std::max(rootHeight, fillHeight);
     }
-    const float panelH = std::ceil(rootH + pad * 2.0F);
-    const auto geo = popup_chrome::computeGeometry(panelW, panelH, shadow, Style::popupShadowsEnabled());
-    const float maxOuterHeight =
-        m_parentHeight > 0 ? std::max(1.0F, static_cast<float>(m_parentHeight) - (kParentMargin * m_scale)) : 1.0e6F;
-    const std::uint32_t nextHeight =
-        static_cast<std::uint32_t>(std::max(1.0F, std::min(static_cast<float>(geo.surfaceHeight), maxOuterHeight)));
-    const std::uint32_t nextWidth = geo.surfaceWidth;
+
+    const float panelHeight = std::ceil(rootHeight + pad * 2.0F);
+    const auto geometry = popup_chrome::computeGeometry(panelWidth, panelHeight, shadow, Style::popupShadowsEnabled());
+    const float maxOuterHeight = m_parentHeight > 0
+        ? std::max(1.0F, static_cast<float>(m_parentHeight) - (kParentMargin * m_sheet.scale()))
+        : 1.0e6F;
+    const auto nextHeight = static_cast<std::uint32_t>(
+        std::max(1.0F, std::min(static_cast<float>(geometry.surfaceHeight), maxOuterHeight))
+    );
+    const std::uint32_t nextWidth = geometry.surfaceWidth;
 
     if (m_surface->height() != nextHeight || m_surface->width() != nextWidth) {
       m_surface->resize(nextWidth, nextHeight);
       syncSceneGeometryFromSurface();
-      cw = std::max(1.0F, m_chrome.contentWidth - pad * 2.0F);
-      ch = std::max(1.0F, m_chrome.contentHeight - pad * 2.0F);
-      rootH = naturalHeight(cw);
+      contentW = std::max(1.0F, m_chrome.contentWidth - pad * 2.0F);
+      contentH = std::max(1.0F, m_chrome.contentHeight - pad * 2.0F);
+      rootHeight = m_sheet.naturalHeight(renderer, contentW);
     }
 
-    const float sheetH = std::max(1.0F, std::min(rootH, ch));
-    m_root->arrange(renderer, LayoutRect{.x = 0.0F, .y = 0.0F, .width = cw, .height = sheetH});
+    m_sheet.arrange(renderer, contentW, std::max(1.0F, std::min(rootHeight, contentH)));
   }
 
   void SettingsSheetPopup::cancelToFacade() {}
@@ -442,18 +259,8 @@ namespace settings {
     if (m_selectPopup != nullptr) {
       m_selectPopup->closeSelectDropdown();
     }
+    m_sheet.clear();
     m_parentOutput = nullptr;
-    m_sheetTitle.clear();
-    m_sheetTitleLabel = nullptr;
-    m_statusMessage.clear();
-    m_statusBanner = nullptr;
-    m_statusLabel = nullptr;
-    m_removeAction = nullptr;
-    m_populateSheetBody = nullptr;
-    m_root = nullptr;
-    m_header = nullptr;
-    m_body = nullptr;
-    m_scrollView = nullptr;
     m_parentWidth = 0;
     m_parentHeight = 0;
   }
