@@ -47,7 +47,7 @@ if grep -q '<theme>' "$rc_file"; then
     fi
 
     if sed -n '/<theme>/,/<\/theme>/p' "$rc_file" | grep -q '<name>.*</name>'; then
-        sed '/<theme>/,/<\/theme>/s|<name>.*</name>|<name>noctalia</name>|' "$rc_file" >"$tmp_file"
+        sed '/<theme>/,/<\/theme>/ { /<font/,/<\/font>/! s|<name>.*</name>|<name>noctalia</name>|; }' "$rc_file" >"$tmp_file"
     else
         sed '/<theme>/a\    <name>noctalia</name>' "$rc_file" >"$tmp_file"
     fi
