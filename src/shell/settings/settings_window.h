@@ -9,8 +9,9 @@
 #include "shell/settings/config_export_dialog_popup.h"
 #include "shell/settings/search_picker_popup.h"
 #include "shell/settings/settings_control_factory.h"
+#include "shell/settings/settings_modal_host.h"
 #include "shell/settings/settings_registry.h"
-#include "shell/settings/settings_sheet_popup.h"
+#include "shell/settings/settings_sheet_modal.h"
 #include "shell/settings/widget_add_popup.h"
 #include "ui/controls/context_menu_popup.h"
 #include "ui/controls/roving_list_nav.h"
@@ -247,10 +248,11 @@ private:
   std::unique_ptr<settings::WidgetAddPopup> m_widgetAddPopup;
   std::unique_ptr<settings::ConfigExportDialogPopup> m_configExportDialogPopup;
   std::unique_ptr<settings::SearchPickerPopup> m_searchPickerPopup;
-  std::unique_ptr<settings::SettingsSheetPopup> m_editorSheetPopup;
+  InputDispatcher m_inputDispatcher;
+  settings::SettingsModalHost m_modalHost;
+  std::unique_ptr<settings::SettingsSheetModal> m_editorSheetModal;
   std::unique_ptr<settings::SettingsControlFactory> m_editorSheetFactory;
   std::vector<std::string> m_editorSheetListPath;
-  InputDispatcher m_inputDispatcher;
   std::unique_ptr<SelectDropdownPopup> m_selectPopup;
   bool m_pointerInside = false;
   wl_output* m_output = nullptr;
@@ -278,14 +280,10 @@ private:
   Node* m_pendingContentScrollTarget = nullptr;
   std::string m_searchQuery;
   Timer m_searchDebounceTimer;
-  // Set by openToBarWidget (e.g. middle-click on a bar widget) / openToPlugin; consumed once the
-  // window holds keyboard focus so the sheet's grab popup gets a serial the compositor accepts.
+  // Set by openToBarWidget (e.g. middle-click on a bar widget) / openToPlugin and consumed after
+  // the Settings scene is available so the requested editor can be mounted into it.
   std::string m_pendingOpenWidgetInspectorName;
   std::string m_pendingOpenPluginSettingsId;
-  int m_pendingEditorOpenFrames = 0;
-  // When the editor sheet is opened programmatically (bar middle-click) there is no grab-valid serial,
-  // so open it without an xdg_popup grab. Consumed by openBarWidgetEditorSheet.
-  bool m_pendingEditorSheetNoGrab = false;
   std::string m_editingWidgetName;
   std::string m_editingCapsuleGroupId;
   std::vector<std::string> m_selectedLaneWidgets;

@@ -56,10 +56,6 @@ namespace {
   constexpr float kWindowMinWidth = 1020.0F;
   constexpr float kWindowMinHeight = 500.0F;
 
-  // How many frames to wait for the settings window to gain keyboard focus before opening a pending
-  // editor sheet anyway (bounded so a never-focused window can't spin redraws forever).
-  constexpr int kPendingEditorOpenFrameBudget = 240;
-
   // Build the {"bar", name, <lane>} path the widget inspector expects, resolving which lane the widget
   // currently lives in (the inspector keys off the bar name at index 1 and the lane at the tail).
   std::vector<std::string>
@@ -166,6 +162,19 @@ void SettingsWindow::initialize(
   m_upower = upower;
   m_accounts = accounts;
   m_showAdvanced = m_config != nullptr ? m_config->config().shell.settingsShowAdvanced : false;
+  m_modalHost.initialize(
+      m_inputDispatcher,
+      [this]() {
+        if (m_surface != nullptr) {
+          m_surface->requestLayout();
+        }
+      },
+      [this]() {
+        if (m_surface != nullptr) {
+          m_surface->requestUpdateOnly();
+        }
+      }
+  );
 }
 
 float SettingsWindow::uiScale() const {
@@ -209,12 +218,6 @@ bool SettingsWindow::ownsKeyboardSurface(wl_surface* surface) const noexcept {
     return true;
   }
   if (m_searchPickerPopup != nullptr && m_searchPickerPopup->wlSurface() == surface) {
-    return true;
-  }
-  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->wlSurface() == surface) {
-    return true;
-  }
-  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->ownsSelectDropdownSurface(surface)) {
     return true;
   }
   return m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen() && m_selectPopup->wlSurface() == surface;
@@ -276,12 +279,6 @@ std::optional<LayerPopupParentContext> SettingsWindow::topmostPopupParentContext
         m_widgetAddPopup->height()
     );
   }
-  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
-    return makeContext(
-        m_editorSheetPopup->wlSurface(), m_editorSheetPopup->xdgSurface(), m_editorSheetPopup->width(),
-        m_editorSheetPopup->height()
-    );
-  }
   return makeContext(m_surface->wlSurface(), m_surface->xdgSurface(), m_surface->width(), m_surface->height());
 }
 
@@ -337,12 +334,6 @@ std::optional<LayerPopupParentContext> SettingsWindow::popupParentContextForSurf
     return makeContext(
         m_searchPickerPopup->wlSurface(), m_searchPickerPopup->xdgSurface(), m_searchPickerPopup->width(),
         m_searchPickerPopup->height()
-    );
-  }
-  if (m_editorSheetPopup != nullptr && surface == m_editorSheetPopup->wlSurface()) {
-    return makeContext(
-        m_editorSheetPopup->wlSurface(), m_editorSheetPopup->xdgSurface(), m_editorSheetPopup->width(),
-        m_editorSheetPopup->height()
     );
   }
   if (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen() && surface == m_selectPopup->wlSurface()) {
@@ -457,7 +448,6 @@ void SettingsWindow::openToBarWidget(std::string barName, std::string widgetName
   m_selectedBarName = std::move(barName);
   m_selectedMonitorOverride.clear();
   m_pendingOpenWidgetInspectorName = std::move(widgetName);
-  m_pendingEditorOpenFrames = kPendingEditorOpenFrameBudget;
   m_contentScrollState.offset = 0.0F;
   m_sidebarScrollState.offset = 0.0F;
 
@@ -479,7 +469,6 @@ bool SettingsWindow::openToPlugin(std::string pluginId) {
   m_searchQuery.clear();
   m_selectedSection = "plugins";
   m_pendingOpenPluginSettingsId = std::move(pluginId);
-  m_pendingEditorOpenFrames = kPendingEditorOpenFrameBudget;
   m_contentScrollState.offset = 0.0F;
   m_sidebarScrollState.offset = 0.0F;
 
@@ -505,6 +494,12 @@ void SettingsWindow::dismissOpenSelectDropdown() {
 }
 
 void SettingsWindow::destroyWindow() {
+  if (m_editorSheetModal != nullptr) {
+    m_editorSheetModal->close();
+    m_editorSheetModal.reset();
+  }
+  m_modalHost.closeAll();
+  m_modalHost.detach();
   if (m_surface != nullptr) {
     // Drop stale pointer coords before tearing down the scene. Otherwise the next open
     // replays hover at the last click (often the close button) and paints it hovered.
@@ -536,10 +531,6 @@ void SettingsWindow::destroyWindow() {
   if (m_searchPickerPopup != nullptr) {
     m_searchPickerPopup->close();
     m_searchPickerPopup.reset();
-  }
-  if (m_editorSheetPopup != nullptr) {
-    m_editorSheetPopup->close();
-    m_editorSheetPopup.reset();
   }
   if (m_selectPopup != nullptr) {
     m_selectPopup->closeSelectDropdown();
@@ -594,7 +585,7 @@ void SettingsWindow::destroyWindow() {
   }
 }
 
-void SettingsWindow::prepareFrame(bool /*needsUpdate*/, bool needsLayout) {
+void SettingsWindow::prepareFrame(bool needsUpdate, bool needsLayout) {
   if (m_renderContext == nullptr || m_surface == nullptr) {
     return;
   }
@@ -610,6 +601,10 @@ void SettingsWindow::prepareFrame(bool /*needsUpdate*/, bool needsLayout) {
   m_renderContext->makeCurrent(m_surface->renderTarget());
   Renderer& renderer = m_surface->renderTarget().renderer();
   logSettingsProfile("prepareFrame makeCurrent", phaseProfileWatch);
+  if (needsUpdate && m_modalHost.isOpen()) {
+    UiPhaseScope updatePhase(UiPhase::Update);
+    m_modalHost.update(renderer);
+  }
 
   // Rebuild the entire scene only on first build or when something explicitly
   // requested it (config change, nav click, etc.). Pure size changes — which
@@ -659,6 +654,7 @@ void SettingsWindow::prepareFrame(bool /*needsUpdate*/, bool needsLayout) {
     if (m_mainContainer != nullptr) {
       m_mainContainer->setSize(w, h);
     }
+    m_modalHost.resize(w, h);
     if (m_contentRebuildRequested) {
       m_inputDispatcher.stashTabFocus();
       if (m_settingsRegistryRefreshRequested) {
@@ -697,21 +693,6 @@ void SettingsWindow::maybeOpenPendingEditor() {
   if (!pending || m_surface == nullptr || m_wayland == nullptr || m_config == nullptr) {
     return;
   }
-  // A grab popup needs an input serial this window owns. Right after a bar middle-click (or an IPC
-  // call) the latest serial still belongs to another surface; wait until this window holds keyboard
-  // focus (whose enter refreshes the serial) so the compositor accepts the sheet's grab instead of
-  // dismissing it.
-  const bool focused = m_wayland->lastKeyboardSurface() == m_surface->wlSurface();
-  if (!focused && m_pendingEditorOpenFrames > 0) {
-    --m_pendingEditorOpenFrames;
-    m_surface->requestRedraw();
-    return;
-  }
-  // A bar middle-click or IPC call gives us no press serial the settings surface owns, so the
-  // compositor rejects an xdg_popup grab. Open the sheet without a grab — the window holds keyboard
-  // focus and routes input to it. Dialog sheets dismiss via Escape / close only (not outside click).
-  m_pendingEditorSheetNoGrab = true;
-
   if (!m_pendingOpenPluginSettingsId.empty()) {
     std::string pluginId = std::move(m_pendingOpenPluginSettingsId);
     m_pendingOpenPluginSettingsId.clear();
@@ -779,8 +760,8 @@ void SettingsWindow::scheduleDeferredRebuild() {
       }
     }
     m_surface->requestLayout();
-    if ((sceneRebuild || rebuildEditorSheet) && m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
-      m_editorSheetPopup->rebuildBody();
+    if ((sceneRebuild || rebuildEditorSheet) && m_editorSheetModal != nullptr && m_editorSheetModal->isOpen()) {
+      m_editorSheetModal->rebuildBody();
     }
   });
 }
@@ -901,23 +882,6 @@ bool SettingsWindow::onPointerEvent(const PointerEvent& event) {
     m_searchPickerPopup->close();
     return true;
   }
-  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->onPointerEvent(event)) {
-    return true;
-  }
-  // Dialog sheet: block settings-parent input while open; dismiss only via Escape / close.
-  // Events for other shell surfaces must not be swallowed here — Application still
-  // needs to forward them to the bar, dock, notifications, etc.
-  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen() && !m_editorSheetPopup->isInitializing()) {
-    if (!ownsKeyboardSurface(event.surface)) {
-      return false;
-    }
-    if (event.type == PointerEvent::Type::Leave && event.surface == m_surface->wlSurface()) {
-      m_pointerInside = false;
-      m_inputDispatcher.pointerLeave();
-    }
-    return true;
-  }
-
   if (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen()) {
     if (m_selectPopup->onPointerEvent(event)) {
       return true;
@@ -1044,21 +1008,12 @@ void SettingsWindow::onKeyboardEvent(const KeyboardEvent& event) {
     return;
   }
 
-  if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen() && !m_editorSheetPopup->isInitializing()) {
-    if (m_editorSheetPopup->isSelectDropdownOpen()) {
-      m_editorSheetPopup->onKeyboardEvent(event);
-      return;
-    }
-    if (event.pressed && KeybindMatcher::matches(KeybindAction::Cancel, event.sym, event.modifiers)) {
-      m_editorSheetPopup->requestClose();
-      return;
-    }
-    m_editorSheetPopup->onKeyboardEvent(event);
+  if (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen()) {
+    m_selectPopup->onKeyboardEvent(event);
     return;
   }
 
-  if (m_selectPopup != nullptr && m_selectPopup->isSelectDropdownOpen()) {
-    m_selectPopup->onKeyboardEvent(event);
+  if (m_modalHost.onKeyboardEvent(event)) {
     return;
   }
 
@@ -1175,8 +1130,8 @@ void SettingsWindow::requestRedraw() {
     if (m_configExportDialogPopup != nullptr && m_configExportDialogPopup->isOpen()) {
       m_configExportDialogPopup->requestRedraw();
     }
-    if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
-      m_editorSheetPopup->requestRedraw();
+    if (m_editorSheetModal != nullptr && m_editorSheetModal->isOpen()) {
+      m_editorSheetModal->requestRedraw();
     }
     m_surface->requestRedraw();
   }
@@ -1191,8 +1146,8 @@ void SettingsWindow::onFontChanged() {
     if (m_configExportDialogPopup != nullptr && m_configExportDialogPopup->isOpen()) {
       m_configExportDialogPopup->requestLayout();
     }
-    if (m_editorSheetPopup != nullptr && m_editorSheetPopup->isOpen()) {
-      m_editorSheetPopup->requestLayout();
+    if (m_editorSheetModal != nullptr && m_editorSheetModal->isOpen()) {
+      m_editorSheetModal->requestLayout();
     }
     requestSceneRebuild();
   }

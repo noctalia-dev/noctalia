@@ -167,11 +167,13 @@ namespace settings {
   }
 
   void SettingsSheet::requestClose() {
-    if (m_onCloseRequested && m_onCloseRequested()) {
+    const auto onCloseRequested = m_onCloseRequested;
+    if (onCloseRequested && onCloseRequested()) {
       return;
     }
-    if (m_closeAction) {
-      m_closeAction();
+    const auto closeAction = m_closeAction;
+    if (closeAction) {
+      closeAction();
     }
   }
 

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "ui/controls/scroll_view.h"
-#include "ui/popup_parent.h"
 
 #include <functional>
 #include <memory>
@@ -17,7 +16,6 @@ struct KeyboardEvent;
 namespace settings {
 
   struct SettingsSheetRequest {
-    XdgPopupParent parent;
     std::string sheetTitle;
     std::function<void()> removeAction;
     std::function<std::unique_ptr<Node>()> createHeaderAction;
@@ -36,9 +34,6 @@ namespace settings {
     // Optional keyboard pre-dispatch (e.g. plugin-store grid navigation). Return true to consume.
     std::function<bool(const KeyboardEvent&)> preDispatchKeyboard;
   };
-
-  // Compatibility name while SettingsSheetPopup remains the surface host.
-  using SettingsSheetPopupRequest = SettingsSheetRequest;
 
   // Surface-independent retained content for a Settings editor sheet. Hosts own the surrounding
   // surface or scene layer and provide close/layout/dropdown callbacks.
