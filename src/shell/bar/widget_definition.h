@@ -387,6 +387,20 @@ namespace noctalia::bar {
       }
     }
 
+    template <typename T>
+    std::optional<T> configuredValueAs(
+        const WidgetConfig& config, const std::string& key, const std::vector<WidgetSettingChoice<T>>& choices,
+        const EffectiveNumericRange<T>& range, std::string_view context
+    ) {
+      if constexpr (std::is_same_v<T, WidgetSettingStringMap>) {
+        if (const auto configured = config.tables.find(key); configured != config.tables.end()) {
+          return configured->second;
+        }
+      }
+      const auto* configured = config.findSetting(key);
+      return configured != nullptr ? settingValueAs<T>(*configured, choices, range, context) : std::nullopt;
+    }
+
     inline std::string settingTranslationSegment(std::string_view key) {
       std::string segment(key);
       std::ranges::replace(segment, '_', '-');
@@ -463,11 +477,9 @@ namespace noctalia::bar {
                     effectiveRange](Options& options, const WidgetConfig* config, std::string_view context) {
           T value = defaultValue;
           if (config != nullptr) {
-            if (const auto* configured = config->findSetting(key)) {
-              const std::string fieldContext = context.empty() ? key : std::format("{}.{}", context, key);
-              if (auto decoded = detail::settingValueAs<T>(*configured, choices, effectiveRange, fieldContext)) {
-                value = std::move(*decoded);
-              }
+            const std::string fieldContext = context.empty() ? key : std::format("{}.{}", context, key);
+            if (auto configured = detail::configuredValueAs<T>(*config, key, choices, effectiveRange, fieldContext)) {
+              value = std::move(*configured);
             }
           }
           options.*Member = std::move(value);
