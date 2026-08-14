@@ -294,6 +294,9 @@ struct NotificationFilterConfig {
 
 struct IdleConfig {
   std::vector<IdleBehaviorConfig> behaviors;
+  /// When caffeine is active, also inhibit logind's lid-switch action. If the laptop display is the only active
+  /// output, power it off while the lid is closed; otherwise leave output handling to the compositor.
+  bool caffeineLidHandling = true;
   /// When > 0, after the compositor reports idle the shell fades a fullscreen overlay (surface color)
   /// from transparent to opaque over this many seconds, then runs `command`. Compositor activity during
   /// the fade cancels. When 0, the idle command runs immediately with no overlay.

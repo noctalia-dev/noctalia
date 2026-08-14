@@ -16,6 +16,7 @@ public:
   using ChangeCallback = std::function<void()>;
   using StateFeedbackCallback = std::function<void(bool enabled)>;
   using AnchorSurfacesProvider = std::function<std::vector<wl_surface*>()>;
+  using OutputPowerCallback = std::function<bool(bool on)>;
 
   IdleInhibitor();
   ~IdleInhibitor();
@@ -25,6 +26,8 @@ public:
 
   bool initialize(WaylandConnection& wayland);
   void setLogindService(LogindService* logind);
+  void setLidHandlingEnabled(bool enabled);
+  void setOutputPowerCallback(OutputPowerCallback callback);
   void setAnchorSurfacesProvider(AnchorSurfacesProvider provider);
   void toggle();
   void setEnabled(bool enabled);
@@ -44,6 +47,8 @@ private:
   void syncLogindInhibit(bool logTransitions);
   void destroyWaylandInhibitors(bool logDisable = false);
   void releaseLogindInhibit();
+  void handleLidState(bool closed);
+  [[nodiscard]] bool hasSingleInternalOutput() const;
   void notifyChanged();
 
   WaylandConnection* m_wayland = nullptr;
@@ -51,7 +56,12 @@ private:
   zwp_idle_inhibit_manager_v1* m_manager = nullptr;
   std::unordered_map<wl_surface*, zwp_idle_inhibitor_v1*> m_inhibitors;
   AnchorSurfacesProvider m_anchorSurfacesProvider;
+  OutputPowerCallback m_outputPowerCallback;
   ChangeCallback m_changeCallback;
+  bool m_lidStateKnown = false;
+  bool m_lidClosed = false;
+  bool m_screenOffForLid = false;
+  bool m_lidHandlingEnabled = true;
   bool m_enabled = false;
   bool m_loggedWaylandEnable = false;
   bool m_loggedLogindEnable = false;

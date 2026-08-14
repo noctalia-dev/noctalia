@@ -13,6 +13,7 @@ class LogindService {
 public:
   using PrepareForSleepCallback = std::function<void(bool sleeping)>;
   using SessionLockCallback = std::function<void()>;
+  using LidStateCallback = std::function<void(bool closed)>;
 
   explicit LogindService(SystemBus& bus);
   ~LogindService();
@@ -20,6 +21,7 @@ public:
   void setPrepareForSleepCallback(PrepareForSleepCallback callback);
   void setLockCallback(SessionLockCallback callback);
   void setUnlockCallback(SessionLockCallback callback);
+  void setLidStateCallback(LidStateCallback callback);
 
   void setSessionLockIntegrationEnabled(bool enabled);
   // Sleep-delay inhibit for lock-before-suspend. Released when session lock integration is off.
@@ -29,7 +31,7 @@ public:
 
   [[nodiscard]] bool supportsIdleInhibit() const noexcept;
   [[nodiscard]] bool hasIdleInhibit() const noexcept;
-  bool acquireIdleInhibit();
+  bool acquireIdleInhibit(bool handleLidSwitch);
   void releaseIdleInhibit();
 
   // Delay-type sleep inhibit: holds off suspend/hibernate until released so the
@@ -48,6 +50,8 @@ private:
   PrepareForSleepCallback m_prepareForSleepCallback;
   SessionLockCallback m_lockCallback;
   SessionLockCallback m_unlockCallback;
+  LidStateCallback m_lidStateCallback;
   int m_idleInhibitFd = -1;
+  bool m_idleInhibitHandlesLid = false;
   int m_sleepDelayInhibitFd = -1;
 };

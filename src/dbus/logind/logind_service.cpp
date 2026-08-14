@@ -5,6 +5,7 @@
 
 #include <cstdlib>
 #include <fcntl.h>
+#include <map>
 #include <optional>
 #include <sdbus-c++/Error.h>
 #include <sdbus-c++/IProxy.h>
@@ -12,6 +13,7 @@
 #include <string>
 #include <unistd.h>
 #include <utility>
+#include <vector>
 
 namespace {
   constexpr Logger kLog("logind");
@@ -20,6 +22,7 @@ namespace {
   const sdbus::ObjectPath kLogindObjectPath{"/org/freedesktop/login1"};
   constexpr auto kLogindManagerInterface = "org.freedesktop.login1.Manager";
   constexpr auto kLogindSessionInterface = "org.freedesktop.login1.Session";
+  constexpr auto kPropertiesInterface = "org.freedesktop.DBus.Properties";
 
   // Inhibit locks stay alive until every duplicate of the fd is closed. Our detached
   // process launcher double-forks without closing fds, so without CLOEXEC `systemctl
@@ -72,6 +75,20 @@ LogindService::LogindService(SystemBus& bus) : m_bus(bus) {
       m_prepareForSleepCallback(sleeping);
     }
   });
+  m_managerProxy->uponSignal("PropertiesChanged")
+      .onInterface(kPropertiesInterface)
+      .call([this](
+                const std::string& interfaceName, const std::map<std::string, sdbus::Variant>& changedProperties,
+                const std::vector<std::string>& /*invalidatedProperties*/
+            ) {
+        if (interfaceName != kLogindManagerInterface) {
+          return;
+        }
+        const auto it = changedProperties.find("LidClosed");
+        if (it != changedProperties.end() && m_lidStateCallback) {
+          m_lidStateCallback(it->second.get<bool>());
+        }
+      });
 }
 
 LogindService::~LogindService() {
@@ -134,6 +151,19 @@ void LogindService::setLockCallback(SessionLockCallback callback) { m_lockCallba
 
 void LogindService::setUnlockCallback(SessionLockCallback callback) { m_unlockCallback = std::move(callback); }
 
+void LogindService::setLidStateCallback(LidStateCallback callback) {
+  m_lidStateCallback = std::move(callback);
+  if (!m_lidStateCallback || m_managerProxy == nullptr) {
+    return;
+  }
+  try {
+    const bool closed = m_managerProxy->getProperty("LidClosed").onInterface(kLogindManagerInterface).get<bool>();
+    m_lidStateCallback(closed);
+  } catch (const sdbus::Error& e) {
+    kLog.debug("failed to read initial lid state: {}", e.what());
+  }
+}
+
 void LogindService::syncSessionLocked() {
   if (!m_sessionLockIntegrationEnabled || m_sessionProxy == nullptr) {
     return;
@@ -162,9 +192,12 @@ bool LogindService::supportsIdleInhibit() const noexcept { return m_managerProxy
 
 bool LogindService::hasIdleInhibit() const noexcept { return m_idleInhibitFd >= 0; }
 
-bool LogindService::acquireIdleInhibit() {
+bool LogindService::acquireIdleInhibit(bool handleLidSwitch) {
   if (m_idleInhibitFd >= 0) {
-    return true;
+    if (m_idleInhibitHandlesLid == handleLidSwitch) {
+      return true;
+    }
+    releaseIdleInhibit();
   }
   if (m_managerProxy == nullptr) {
     return false;
@@ -174,7 +207,10 @@ bool LogindService::acquireIdleInhibit() {
     sdbus::UnixFd fd;
     m_managerProxy->callMethod("Inhibit")
         .onInterface(kLogindManagerInterface)
-        .withArguments(std::string("idle"), std::string("noctalia"), std::string("Caffeine"), std::string("block"))
+        .withArguments(
+            std::string(handleLidSwitch ? "idle:handle-lid-switch" : "idle"), std::string("noctalia"),
+            std::string("Caffeine"), std::string("block")
+        )
         .storeResultsTo(fd);
     m_idleInhibitFd = fd.release();
     if (m_idleInhibitFd < 0) {
@@ -187,6 +223,7 @@ bool LogindService::acquireIdleInhibit() {
       m_idleInhibitFd = -1;
       return false;
     }
+    m_idleInhibitHandlesLid = handleLidSwitch;
     kLog.info("logind idle inhibit acquired");
     return true;
   } catch (const sdbus::Error& e) {
@@ -201,6 +238,7 @@ void LogindService::releaseIdleInhibit() {
   }
   ::close(m_idleInhibitFd);
   m_idleInhibitFd = -1;
+  m_idleInhibitHandlesLid = false;
   kLog.debug("logind idle inhibit released");
 }
 

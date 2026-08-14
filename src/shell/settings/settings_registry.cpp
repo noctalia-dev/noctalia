@@ -2755,6 +2755,12 @@ namespace settings {
 
     // Idle
     entries.push_back(makeEntry(
+        SettingsSection::Power, "idle", tr("settings.schema.idle.caffeine-lid-handling.label"),
+        tr("settings.schema.idle.caffeine-lid-handling.description"), {"idle", "caffeine_lid_handling"},
+        ToggleSetting{.checked = cfg.idle.caffeineLidHandling},
+        "caffeine laptop lid close sleep suspend screen external monitor"
+    ));
+    entries.push_back(makeEntry(
         SettingsSection::Power, "idle", tr("settings.schema.idle.pre-action-fade.label"),
         tr("settings.schema.idle.pre-action-fade.description"), {"idle", "pre_action_fade_seconds"},
         StepperSetting{
