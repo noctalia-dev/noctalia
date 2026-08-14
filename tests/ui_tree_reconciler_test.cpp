@@ -2626,6 +2626,31 @@ int main() {
     }
   }
 
+  // ui.gradient motion follows effective visibility, including hidden ancestors.
+  {
+    AnimationManager manager;
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    host.setAnimationManager(&manager);
+
+    ui::UiTreeNode band = makeGradient();
+    band.props.emplace("motion", std::string("ping-pong"));
+    band.props.emplace("duration", 30.0);
+    ui::UiTreeNode tree = makeNode("column");
+    tree.children.push_back(std::move(band));
+
+    (void)reconciler.reconcile(host, tree, renderer);
+    ok = expect(manager.hasActive(), "a gradient under a visible ancestor animates") && ok;
+
+    tree.props["visible"] = false;
+    (void)reconciler.reconcile(host, tree, renderer);
+    ok = expect(!manager.hasActive(), "a gradient under a hidden ancestor stops") && ok;
+
+    tree.props["visible"] = true;
+    (void)reconciler.reconcile(host, tree, renderer);
+    ok = expect(manager.hasActive(), "a gradient under a shown ancestor restarts") && ok;
+  }
+
   // ui.label gradient: the paint props ui.gradient already understands reach the
   // label, resolve against the palette, and register one native trip. The label
   // keeps its solid color as the fallback the whole time.
@@ -2769,6 +2794,27 @@ int main() {
     label = reconcileSingleLabel(reconciler, host, std::move(shown), renderer);
     ok = expect(label != nullptr && label->visible(), "the gradient label is visible again") && ok;
     ok = expect(manager.hasActive(), "restoring visibility restarts label motion") && ok;
+  }
+
+  // ui.label gradient motion follows effective visibility too.
+  {
+    AnimationManager manager;
+    ui::UiTreeReconciler reconciler;
+    Flex host;
+    host.setAnimationManager(&manager);
+
+    ui::UiTreeNode tree = makeNode("column");
+    tree.children.push_back(makeGradientLabel());
+    (void)reconciler.reconcile(host, tree, renderer);
+    ok = expect(manager.hasActive(), "a gradient label under a visible ancestor animates") && ok;
+
+    tree.props["visible"] = false;
+    (void)reconciler.reconcile(host, tree, renderer);
+    ok = expect(!manager.hasActive(), "a gradient label under a hidden ancestor stops") && ok;
+
+    tree.props["visible"] = true;
+    (void)reconciler.reconcile(host, tree, renderer);
+    ok = expect(manager.hasActive(), "a gradient label under a shown ancestor restarts") && ok;
   }
 
   return ok ? 0 : 1;

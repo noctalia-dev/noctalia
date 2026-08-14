@@ -75,6 +75,15 @@ namespace ui {
 
     bool isDragDropType(std::string_view type) { return type == "drag_source" || type == "drop_zone"; }
 
+    bool isEffectivelyVisible(const Node* node) {
+      for (const Node* current = node; current != nullptr; current = current->parent()) {
+        if (!current->visible()) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     struct DragDropPropError {
       std::string prop;
       std::string reason;
@@ -1343,7 +1352,7 @@ namespace ui {
       if (strArrayProp(desired, "colors") == nullptr) {
         label->clearGradient();
         label->setGradientMotion(GradientMotion::None, 0.0F, 0.0F, 0.0F);
-        label->setGradientMotionVisible(node->visible());
+        label->setGradientMotionVisible(isEffectivelyVisible(node));
         return;
       }
 
@@ -1364,7 +1373,7 @@ namespace ui {
         // vanish would be the one failure mode a plugin author cannot debug.
         label->clearGradient();
         label->setGradientMotion(GradientMotion::None, 0.0F, 0.0F, 0.0F);
-        label->setGradientMotionVisible(node->visible());
+        label->setGradientMotionVisible(isEffectivelyVisible(node));
         return;
       }
 
@@ -1375,9 +1384,9 @@ namespace ui {
       }
       const ParsedMotion motion = parseGradientMotion(desired);
       label->setGradientMotion(motion.motion, motion.durationMs, motion.from, motion.to);
-      // Node::setVisible is non-virtual, so hand the current visibility over
+      // Node::setVisible is non-virtual, so hand effective visibility over
       // explicitly, the same way ui.gradient does.
-      label->setGradientMotionVisible(node->visible());
+      label->setGradientMotionVisible(isEffectivelyVisible(node));
       return;
     }
 
@@ -1525,8 +1534,8 @@ namespace ui {
       const ParsedMotion motion = parseGradientMotion(desired);
       gradient->setMotion(motion.motion, motion.durationMs, motion.from, motion.to);
       // Node::setVisible is non-virtual, so the common-props path above cannot
-      // reach Gradient; hand the current visibility over explicitly.
-      gradient->setMotionVisible(node->visible());
+      // reach Gradient; hand effective visibility over explicitly.
+      gradient->setMotionVisible(isEffectivelyVisible(node));
       return;
     }
 

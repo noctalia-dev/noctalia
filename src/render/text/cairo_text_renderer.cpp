@@ -1081,8 +1081,10 @@ void CairoTextRenderer::draw(
               .width = quadW,
               .height = tileH,
               // An RGBA entry (colour emoji, markup) still exposes usable
-              // coverage in its alpha, so the gradient masks through it too.
-              .opacity = entry->tinted ? 1.0F : color.a,
+              // coverage in its alpha. Gradient stop alpha already carries the
+              // effective node opacity, so applying the solid fallback alpha
+              // here would fade RGBA glyphs twice.
+              .opacity = 1.0F,
               .transform = tileWorld,
               .gradient = gradientStyle,
               .fullTextWidth = quadW,
