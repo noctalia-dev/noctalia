@@ -21,7 +21,8 @@ VolumeWidget::VolumeWidget(PipeWireService* audio, EasyEffectsService* easyEffec
       m_muteColor(options.muteColor), m_glyphOverride(std::move(options.glyph)),
       m_muteGlyphOverride(std::move(options.muteGlyph)),
       m_effectsProfileGlyphs(std::move(options.effectsProfileGlyphs)),
-      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)) {}
+      m_customImage(widget_custom_image::fromConfig(options.customImage, options.customImageColorize)),
+      m_hideWhenInactive(options.hideWhenInactive) {}
 
 void VolumeWidget::create() {
   auto area = ui::inputArea({});
@@ -106,11 +107,21 @@ void VolumeWidget::syncState(Renderer& renderer) {
       m_target == VolumeWidgetTarget::Input ? AudioEffectsProfileKind::Input : AudioEffectsProfileKind::Output;
   const std::string effectsProfile =
       m_easyEffects != nullptr ? m_easyEffects->activeEffectsProfile(kind) : std::string{};
+  bool isActive = false;
+  if (m_target == VolumeWidgetTarget::Input) {
+    const auto& captures = m_audio->privacyState().captures;
+    isActive = std::any_of(captures.begin(), captures.end(), [](const auto& c) {
+      return c.kind == PrivacyCaptureKind::Microphone;
+    });
+  } else {
+    isActive = !m_audio->state().programOutputs.empty();
+  }
 
   if (volume == m_lastVolume
       && muted == m_lastMuted
       && m_isVertical == m_lastVertical
-      && effectsProfile == m_lastEffectsProfile) {
+      && effectsProfile == m_lastEffectsProfile
+      && isActive == m_lastActive) {
     return;
   }
 
@@ -118,6 +129,7 @@ void VolumeWidget::syncState(Renderer& renderer) {
   m_lastMuted = muted;
   m_lastVertical = m_isVertical;
   m_lastEffectsProfile = effectsProfile;
+  m_lastActive = isActive;
 
   if (m_image != nullptr) {
     widget_custom_image::sync(
@@ -142,6 +154,8 @@ void VolumeWidget::syncState(Renderer& renderer) {
 
   if (auto* rootNode = root(); rootNode != nullptr) {
     auto* area = static_cast<InputArea*>(rootNode);
+    bool showWidget = isActive || !m_hideWhenInactive;
+    rootNode->setVisible(showWidget);
     if (node != nullptr) {
       int pct = static_cast<int>(std::round(volume * 100.0F));
       std::vector<TooltipRow> rows;

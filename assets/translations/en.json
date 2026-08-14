@@ -3506,6 +3506,10 @@
           "description": "Hide the battery widget when fully charged",
           "label": "Hide When Full"
         },
+        "hide-when-inactive": {
+          "description": "Hide the volume widget when not in use",
+          "label": "Hide When Inactive"
+        },
         "hide-when-no-connected-device": {
           "description": "Hide the Bluetooth widget when no device is connected",
           "label": "Hide When No Connected Device"

@@ -29,6 +29,7 @@ public:
     std::string customImage;
     bool customImageColorize = false;
     bool showLabel = true;
+    bool hideWhenInactive = false;
     ColorSpec muteColor = colorSpecFromRole(ColorRole::Error);
   };
 
@@ -51,6 +52,7 @@ private:
   std::string m_muteGlyphOverride;
   std::unordered_map<std::string, std::string> m_effectsProfileGlyphs;
   WidgetCustomImage m_customImage;
+  bool m_hideWhenInactive = false;
   Glyph* m_glyph = nullptr;
   Image* m_image = nullptr;
   Label* m_label = nullptr;
@@ -59,4 +61,5 @@ private:
   bool m_lastMuted = false;
   bool m_isVertical = false;
   bool m_lastVertical = false;
+  bool m_lastActive = true;
 };
