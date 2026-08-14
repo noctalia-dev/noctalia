@@ -4,6 +4,7 @@
 #include "core/ui_phase.h"
 #include "cursor-shape-v1-client-protocol.h"
 #include "i18n/i18n.h"
+#include "net/default_app_open.h"
 #include "net/url_open.h"
 #include "render/core/color.h"
 #include "render/scene/input_area.h"
@@ -269,6 +270,13 @@ namespace calendar_view {
         }
       };
       button->setOnClick(selectDate);
+      // Noctalia v4 launched the user's calendar app (via a gnome-calendar-only check)
+      // on a date click; v5 dropped any external-app handoff entirely. This restores an
+      // equivalent, generalized to whatever the user has set as their default calendar
+      // app (Evolution, Thunderbird, GNOME Calendar, Morgen, ...) via the same
+      // text/calendar MIME association GNOME/KDE "Default Applications" settings and
+      // `xdg-mime` read/write -- on right-click so it doesn't collide with day selection.
+      button->setOnRightClick([]() { (void)net::openDefaultAppForMimeType("text/calendar"); });
       tile->addChild(std::move(button));
 
       auto dots = ui::row({
