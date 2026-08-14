@@ -1154,6 +1154,7 @@ if build_tests
     'image_source_log',
     'input_area',
     'input_dispatcher',
+    'input_readline_shortcuts',
     'input_password_mode',
     'inotify',
     'ipc_service',
