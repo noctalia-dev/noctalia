@@ -1,9 +1,9 @@
 #include "dbus/logind/logind_service.h"
 
 #include "core/log.h"
+#include "dbus/logind/logind_session.h"
 #include "dbus/system_bus.h"
 
-#include <cstdlib>
 #include <fcntl.h>
 #include <optional>
 #include <sdbus-c++/Error.h>
@@ -35,62 +35,6 @@ namespace {
     return ::fcntl(fd, F_SETFD, flags | FD_CLOEXEC) == 0;
   }
 
-  [[nodiscard]] std::optional<sdbus::ObjectPath> resolveSessionPath(sdbus::IConnection& connection) {
-    try {
-      auto managerProxy = sdbus::createProxy(connection, kLogindBusName, kLogindObjectPath);
-
-      if (const char* sessionId = std::getenv("XDG_SESSION_ID"); sessionId != nullptr && sessionId[0] != '\0') {
-        try {
-          sdbus::ObjectPath sessionPath;
-          managerProxy->callMethod("GetSession")
-              .onInterface(kLogindManagerInterface)
-              .withArguments(std::string(sessionId))
-              .storeResultsTo(sessionPath);
-          return sessionPath;
-        } catch (const sdbus::Error& e) {
-          kLog.debug("failed to resolve logind session via XDG_SESSION_ID={}: {}", sessionId, e.what());
-        }
-      }
-
-      try {
-        sdbus::ObjectPath sessionPath;
-        managerProxy->callMethod("GetSessionByPID")
-            .onInterface(kLogindManagerInterface)
-            .withArguments(static_cast<std::uint32_t>(::getpid()))
-            .storeResultsTo(sessionPath);
-        return sessionPath;
-      } catch (const sdbus::Error& e) {
-        kLog.debug("failed to resolve logind session by pid: {}", e.what());
-      }
-
-      // Last resort: this user's DISPLAY session. Neither lookup above works
-      // when the shell is started by the systemd user manager — user@.service
-      // lives outside the login session's cgroup, so GetSessionByPID answers
-      // NoSessionForPID, and XDG_SESSION_ID is not in that manager's
-      // environment either. Without this the whole logind integration stayed
-      // dark: `loginctl lock-session` never reached the lock screen, and the
-      // brightness path lost its session too.
-      sdbus::ObjectPath userPath;
-      managerProxy->callMethod("GetUser")
-          .onInterface(kLogindManagerInterface)
-          .withArguments(static_cast<std::uint32_t>(::getuid()))
-          .storeResultsTo(userPath);
-      auto userProxy = sdbus::createProxy(connection, kLogindBusName, userPath);
-      const sdbus::Variant display = userProxy->getProperty("Display").onInterface("org.freedesktop.login1.User");
-      // Display is (so): the session id plus its object path.
-      const auto displaySession = display.get<sdbus::Struct<std::string, sdbus::ObjectPath>>();
-      const sdbus::ObjectPath& displayPath = std::get<1>(displaySession);
-      if (displayPath.empty()) {
-        kLog.warn("logind reports no display session for this user");
-        return std::nullopt;
-      }
-      kLog.debug("resolved logind session via user Display: {}", displayPath);
-      return displayPath;
-    } catch (const sdbus::Error& e) {
-      kLog.warn("failed to resolve logind session: {}", e.what());
-      return std::nullopt;
-    }
-  }
 } // namespace
 
 LogindService::LogindService(SystemBus& bus) : m_bus(bus) {
@@ -112,13 +56,13 @@ void LogindService::ensureSessionLockMonitor() {
     return;
   }
 
-  const auto sessionPath = resolveSessionPath(m_bus.connection());
-  if (!sessionPath.has_value()) {
+  const auto session = logind::resolveSession(m_bus.connection());
+  if (!session.has_value()) {
     kLog.warn("logind session lock monitor disabled: session path unavailable");
     return;
   }
 
-  m_sessionProxy = sdbus::createProxy(m_bus.connection(), kLogindBusName, *sessionPath);
+  m_sessionProxy = sdbus::createProxy(m_bus.connection(), kLogindBusName, session->path);
   m_sessionProxy->uponSignal("Lock").onInterface(kLogindSessionInterface).call([this]() {
     if (m_lockCallback) {
       m_lockCallback();
@@ -129,7 +73,10 @@ void LogindService::ensureSessionLockMonitor() {
       m_unlockCallback();
     }
   });
-  kLog.info("logind session lock monitor active ({})", std::string(sessionPath->c_str()));
+  kLog.info(
+      "logind session lock monitor active ({}, resolved via {})", std::string(session->path.c_str()),
+      logind::describe(session->source)
+  );
 }
 
 void LogindService::setSessionLockIntegrationEnabled(bool enabled) {

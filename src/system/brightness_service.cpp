@@ -4,6 +4,7 @@
 #include "config/config_types.h"
 #include "core/log.h"
 #include "core/process/process.h"
+#include "dbus/logind/logind_session.h"
 #include "dbus/system_bus.h"
 #include "ipc/ipc_arg_parse.h"
 #include "ipc/ipc_service.h"
@@ -118,7 +119,6 @@ namespace {
   };
 
   const sdbus::ServiceName kLogindBusName{"org.freedesktop.login1"};
-  constexpr auto kLogindManagerInterface = "org.freedesktop.login1.Manager";
   constexpr auto kLogindSessionInterface = "org.freedesktop.login1.Session";
 
   std::string joinBrightnessDisplayIds(const BrightnessService& service) {
@@ -365,55 +365,18 @@ namespace {
   }
 
   sdbus::ObjectPath resolveSessionPath(sdbus::IConnection& connection) {
-    try {
-      auto managerProxy = sdbus::createProxy(connection, kLogindBusName, sdbus::ObjectPath{"/org/freedesktop/login1"});
-
-      if (const char* sessionId = std::getenv("XDG_SESSION_ID"); sessionId != nullptr && sessionId[0] != '\0') {
-        try {
-          sdbus::ObjectPath sessionPath;
-          managerProxy->callMethod("GetSession")
-              .onInterface(kLogindManagerInterface)
-              .withArguments(std::string(sessionId))
-              .storeResultsTo(sessionPath);
-          return sessionPath;
-        } catch (const sdbus::Error& e) {
-          kLog.debug("failed to resolve logind session via XDG_SESSION_ID={}: {}", sessionId, e.what());
-        }
-      }
-
-      try {
-        sdbus::ObjectPath sessionPath;
-        managerProxy->callMethod("GetSessionByPID")
-            .onInterface(kLogindManagerInterface)
-            .withArguments(static_cast<std::uint32_t>(::getpid()))
-            .storeResultsTo(sessionPath);
-        return sessionPath;
-      } catch (const sdbus::Error& e) {
-        kLog.debug("failed to resolve logind session by pid: {}", e.what());
-      }
-
-      // Same fallback as logind_service.cpp: under the systemd user manager
-      // this process is outside the login session's cgroup, so the PID lookup
-      // answers NoSessionForPID and XDG_SESSION_ID is absent. Ask logind for
-      // this user's display session instead of falling through to the "auto"
-      // path, which resolves against the CALLER and so is the same dead end.
-      sdbus::ObjectPath userPath;
-      managerProxy->callMethod("GetUser")
-          .onInterface(kLogindManagerInterface)
-          .withArguments(static_cast<std::uint32_t>(::getuid()))
-          .storeResultsTo(userPath);
-      auto userProxy = sdbus::createProxy(connection, kLogindBusName, userPath);
-      const sdbus::Variant display = userProxy->getProperty("Display").onInterface("org.freedesktop.login1.User");
-      const auto displaySession = display.get<sdbus::Struct<std::string, sdbus::ObjectPath>>();
-      if (const sdbus::ObjectPath& displayPath = std::get<1>(displaySession); !displayPath.empty()) {
-        return displayPath;
-      }
-      kLog.warn("logind reports no display session for this user");
-      return sdbus::ObjectPath{"/org/freedesktop/login1/session/auto"};
-    } catch (const sdbus::Error& e) {
-      kLog.warn("failed to resolve logind session: {}", e.what());
+    // Shared with the lock monitor (logind_session.h) — the fallbacks matter
+    // here too: "auto" resolves against the CALLER, so under the systemd user
+    // manager it is the same dead end as the PID lookup.
+    const auto session = logind::resolveSession(connection);
+    if (!session.has_value()) {
       return sdbus::ObjectPath{"/org/freedesktop/login1/session/auto"};
     }
+    kLog.debug(
+        "using logind session {} (resolved via {})", std::string(session->path.c_str()),
+        logind::describe(session->source)
+    );
+    return session->path;
   }
 
   std::optional<int> parseTrailingInteger(std::string_view input) {
