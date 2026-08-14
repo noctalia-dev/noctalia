@@ -19,7 +19,7 @@ if [ ! -f "$config_file" ]; then
     exit 0
 fi
 
-if ! grep -q 'source=.*noctalia\.conf' "$config_file"; then
+if ! grep -q '^\s*source *= *.*noctalia\.conf' "$config_file"; then
     printf '\n%s\n' "$include_line" >>"$config_file"
 fi
 
